@@ -128,7 +128,7 @@ CONTAINS
     ! Delta-scale input properties
     !   (Doing this in line instead of calling the function below saves copying input arrays)
     DO jk = 1, klev
-	  wf(1:kproma) = pomg(1:kproma,jk)*pasy(1:kproma,jk)*pasy(1:kproma,jk) ! w0*f with f = g**2
+      wf(1:kproma) = pomg(1:kproma,jk)*pasy(1:kproma,jk)*pasy(1:kproma,jk) ! w0*f with f = g**2
       tau(1:kproma,jk) = (1.0_wp - wf(1:kproma)) * ptau(1:kproma, jk)
       w0(1:kproma,jk) = (pomg(1:kproma,jk) - wf(1:kproma)) / (1.0_wp - wf(1:kproma))
       ! g = (g - f) / (1 - f) ; f = g**w
@@ -195,7 +195,7 @@ CONTAINS
     
     ! Direct beam transmission -- need to reverse vertical ordering of optical depth array
 !IBM* ASSERT(NODEPS)
-	DO jk = 1, klev
+    DO jk = 1, klev
       jkr = klev+1-jk                       
       zdbt(1:kproma,jk) = inv_expon(ptau(1:kproma,jkr)/prmu0(1:kproma), kproma)
     END DO 
@@ -476,17 +476,17 @@ CONTAINS
     
 !IBM* ASSERT(NODEPS)
     DO i = 1, kproma  ! Perhaps later we'll add the capability to loop over blocks of a set size
-	  ! Zdunkowski "PIFM"  (Zdunkowski et al., 1980;  Contributions to Atmospheric Physics 53, 147-66)
-	  gamma1(i)= (8._wp - w0(i) * (5._wp + 3._wp * g(i))) * .25_wp
-	  gamma2(i)=  3._wp *(w0(i) * (1._wp -         g(i))) * .25_wp
-	  gamma3(i)= (2._wp - 3._wp * mu0(i) *         g(i) ) * .25_wp
+       ! Zdunkowski "PIFM"  (Zdunkowski et al., 1980;  Contributions to Atmospheric Physics 53, 147-66)
+       gamma1(i)= (8._wp - w0(i) * (5._wp + 3._wp * g(i))) * .25_wp
+       gamma2(i)=  3._wp *(w0(i) * (1._wp -         g(i))) * .25_wp
+       gamma3(i)= (2._wp - 3._wp * mu0(i) *         g(i) ) * .25_wp
 
-	  tau_over_mu(i) = tau(i)/mu0(i)
+       tau_over_mu(i) = tau(i)/mu0(i)
 	  
-	  Rdir(i) =  w0(i)  * tau_over_mu(i) * gamma3(i)                 ! Eq. 19
-	  Tdir(i) = 1._wp - (1._wp - w0(i)) * tau_over_mu(i) - Rdir(i)   ! Eq. 20
-	  Rdif(i) = gamma2(i) * tau(i)                                   ! Eq. 27
-	  Tdif(i) = 1._wp - Rdif(i) - (gamma1(i) - gamma2(i)) * tau(i)
+       Rdir(i) =  w0(i)  * tau_over_mu(i) * gamma3(i)                 ! Eq. 19
+       Tdir(i) = 1._wp - (1._wp - w0(i)) * tau_over_mu(i) - Rdir(i)   ! Eq. 20
+       Rdif(i) = gamma2(i) * tau(i)                                   ! Eq. 27
+       Tdif(i) = 1._wp - Rdif(i) - (gamma1(i) - gamma2(i)) * tau(i)
 
     END DO 
   END SUBROUTINE two_stream_thin
@@ -520,10 +520,10 @@ CONTAINS
         Rdir(i) = w0(i)*(alpha2(i) + k(i)*gamma3(i)) * k_plus_gamma1_inv(i) / (1._wp - k(i)*mu0(i))
                                                    ! Eq. 22
         Rdif(i) = gamma2(i) * k_plus_gamma1_inv(i) ! Eq. 25, large tau
-	  ELSE
+      ELSE
         Rdir(i) = 0._wp
         Rdif(i) = 0._wp
-	  END IF 
+      END IF
     END DO 
     Tdir(:kproma) = 0._wp ! Eq. 15, limit of large tau
     Tdif(:kproma) = 0._wp ! Eq. 26, large tau
@@ -540,12 +540,12 @@ CONTAINS
     
 !IBM* ASSERT(NODEPS)
     DO i = 1, kproma  ! Perhaps later we'll add the capability to loop over blocks of a set size
-	  ! Zdunkowski "PIFM"  (Zdunkowski et al., 1980;  Contributions to Atmospheric Physics 53, 147-66)
-	  gamma1(i)= (8._wp - w0(i) * (5._wp + 3._wp * g(i))) * .25_wp
-	  gamma3(i)= (2._wp - 3._wp * mu0(i) *         g(i) ) * .25_wp
+       ! Zdunkowski "PIFM"  (Zdunkowski et al., 1980;  Contributions to Atmospheric Physics 53, 147-66)
+       gamma1(i)= (8._wp - w0(i) * (5._wp + 3._wp * g(i))) * .25_wp
+       gamma3(i)= (2._wp - 3._wp * mu0(i) *         g(i) ) * .25_wp
 
-	  tau_over_mu(i) = tau(i)/mu0(i)
-	  gamma1_tau(i) = gamma1(i) * tau(i)
+       tau_over_mu(i) = tau(i)/mu0(i)
+       gamma1_tau(i) = gamma1(i) * tau(i)
     END DO 
     
     transDir(:) = transmit(tau_over_mu, kproma) ! 1. - exp(-tau/mu) 

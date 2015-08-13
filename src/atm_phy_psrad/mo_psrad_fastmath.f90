@@ -47,34 +47,34 @@ CONTAINS
     REAL(WP) :: tfn
 
     IF(.not. initialized) THEN 
-	  ! Compute lookup tables for transmittance, tau transition function,
-	  ! and clear sky tau (for the cloudy sky radiative transfer).  Tau is 
-	  ! computed as a function of the tau transition function, transmittance 
-	  ! is calculated as a function of tau, and the tau transition function 
-	  ! is calculated using the linear in tau formulation at values of tau 
-	  ! above 0.01.  TF is approximated as tau/6 for tau < 0.01.  All tables 
-	  ! are computed at intervals of 0.001.  The inverse of the constant used
-	  ! in the Pade approximation to the tau transition function is set to b.
-  
-	  tau_tbl(0) = 0.0_wp
-	  exp_tbl(0) = 1.0_wp
-	  tfn_tbl(0) = 0.0_wp
+       ! Compute lookup tables for transmittance, tau transition function,
+       ! and clear sky tau (for the cloudy sky radiative transfer).  Tau is 
+       ! computed as a function of the tau transition function, transmittance 
+       ! is calculated as a function of tau, and the tau transition function 
+       ! is calculated using the linear in tau formulation at values of tau 
+       ! above 0.01.  TF is approximated as tau/6 for tau < 0.01.  All tables 
+       ! are computed at intervals of 0.001.  The inverse of the constant used
+       ! in the Pade approximation to the tau transition function is set to b.
+       
+       tau_tbl(0) = 0.0_wp
+       exp_tbl(0) = 1.0_wp
+       tfn_tbl(0) = 0.0_wp
 	  
-	  DO itr = 1, ntbl-1
-		tfn = float(itr) / float(ntbl)
-		tau_tbl(itr) = bpade * tfn / (1._wp - tfn)
-		exp_tbl(itr) = MAX(EXP(-tau_tbl(itr)), expeps)
-		IF (tau_tbl(itr) .LT. od_lo) THEN
-		  tfn_tbl(itr) = tau_tbl(itr) * rec_6
-		ELSE
-		  tfn_tbl(itr)=1._wp-2._wp*((1._wp/tau_tbl(itr))-(exp_tbl(itr)/(1.-exp_tbl(itr))))
-		ENDIF
-	  ENDDO
-	  tau_tbl(ntbl) = 1.e10_wp
-	  exp_tbl(ntbl) = expeps
-	  tfn_tbl(ntbl) = 1.0_wp
-      initialized = .true. 
-    END IF 
+       DO itr = 1, ntbl-1
+          tfn = float(itr) / float(ntbl)
+          tau_tbl(itr) = bpade * tfn / (1._wp - tfn)
+          exp_tbl(itr) = MAX(EXP(-tau_tbl(itr)), expeps)
+          IF (tau_tbl(itr) .LT. od_lo) THEN
+             tfn_tbl(itr) = tau_tbl(itr) * rec_6
+          ELSE
+             tfn_tbl(itr)=1._wp-2._wp*((1._wp/tau_tbl(itr))-(exp_tbl(itr)/(1.-exp_tbl(itr))))
+          ENDIF
+       ENDDO
+       tau_tbl(ntbl) = 1.e10_wp
+       exp_tbl(ntbl) = expeps
+       tfn_tbl(ntbl) = 1.0_wp
+       initialized = .true. 
+    END IF
 
   END SUBROUTINE setup_psrad_fastmath
   ! ------------------------------------------------------------
@@ -149,7 +149,6 @@ CONTAINS
     REAL(DP), INTENT(IN) :: x(n) 
     REAL(DP)             :: tautrans(n) 
     
-    LOGICAL :: thin(n)
     REAL(DP) :: y(n) 
     ! 
     ! Default calculation is unstable (NaN) for the very lowest value of tau (3.6e-4) 
