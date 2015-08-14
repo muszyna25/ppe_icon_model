@@ -147,7 +147,7 @@ cat > ${atmo_namelist} << EOF
  lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
  ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
  izenith          = 4           ! 4: seasonal and diurnal cycle
- isolrad          = 0           ! 1: transient solar irradiance (at 1 AE)
+ isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
 rad_perm          = 1           ! Integer for perturbing random number seeds
