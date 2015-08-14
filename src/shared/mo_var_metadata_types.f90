@@ -41,7 +41,7 @@ MODULE mo_var_metadata_types
   ! New groups can be added by extending the VAR_GROUPS list.
   !
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(47) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(48) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -65,6 +65,7 @@ MODULE mo_var_metadata_types
     &  "MODE_DWD_ANA_IN       ",  &  ! Input analysis fields for MODE_DWD
     &  "MODE_IAU_FG_IN        ",  &  ! First guess input for IAU
     &  "MODE_IAU_ANA_IN       ",  &  ! Analysis input for IAU
+    &  "MODE_IAU_ANAATM_IN    ",  &  ! Atmospheric analysis input for (old/new) IAU
     &  "MODE_IAU_OLD_FG_IN    ",  &  ! First guess input for old IAU mode
     &  "MODE_IAU_OLD_ANA_IN   ",  &  ! Analysis input for old IAU mode
     &  "MODE_COMBINED_IN      ",  &  ! Input fields for MODE_COMBINED

@@ -138,6 +138,7 @@ cat > ${atmo_namelist} << EOF
  iforcing                = ${iforcing}          !
  ntracer                 =  5                   ! number of tracers - default 0
  ltimer                  = .true.               ! 
+ ltestcase               = .false.              ! initialize with real data
  timers_level            = 0
  msg_level               = 12                   ! detailed report during integration
  output                  = 'nml'

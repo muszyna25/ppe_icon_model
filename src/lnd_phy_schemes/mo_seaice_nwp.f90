@@ -112,7 +112,7 @@ MODULE mo_seaice_nwp
 
 
   REAL (wp), PARAMETER ::                             &
-                       &  frsi_min     = 0.03_wp    , &  !< minimum sea-ice fraction [-]
+                       &  frsi_min     = 0.015_wp   , &  !< minimum sea-ice fraction [-]
                        &  hice_min     = 0.05_wp    , &  !< minimum sea-ice thickness [m]
                        &  hice_max     = 3.0_wp     , &  !< maximum sea-ice thickness [m]
                        &  hice_ini_min = 0.1_wp     , &  !< minimum thickness of the newly formed sea ice [m]

@@ -96,6 +96,10 @@ MODULE mo_turbdiff_config
       &  tkhmin    !
     REAL(wp):: &   ! minimal diffusion coefficient for momentum
       &  tkmmin    !
+    REAL(wp):: &   ! enhanced minimal diffusion coefficient for scalars (heat) in the stratosphere
+      &  tkhmin_strat    !
+    REAL(wp):: &   ! enhanced minimal diffusion coefficient for momentum in the stratosphere
+      &  tkmmin_strat    !
     REAL(wp):: &   ! constant diffusion coefficient for TKE
       &  c_diff    !
     REAL(wp):: &   ! scaling factor of laminar layer for scalars (heat)
