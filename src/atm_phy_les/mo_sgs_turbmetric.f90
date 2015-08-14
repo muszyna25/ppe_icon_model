@@ -2367,7 +2367,7 @@ MODULE mo_sgs_turbmetric
                          (var_iv(jvn,jk+1,jbn) - var_iv(ievidx(je,jb,1),jk+1,ievblk(je,jb,1))) * &
                          exner_ie(je,jk+1,jb) )
 
-             metric_tend_e(je,jk,jb) = (norm_metr*p_nh_metrics%ddxn_z_full(je,jk,jb) - &
+             metric_tend_e(je,jk,jb) = (norm_metr*p_nh_metrics%ddxn_z_full(je,jk,jb) + &
                          tang_metr*p_nh_metrics%ddxt_z_full(je,jk,jb)) * p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)
             ENDDO
           ENDDO
