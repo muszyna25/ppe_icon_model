@@ -96,8 +96,8 @@ CONTAINS
   SUBROUTINE read_echam_cloud_namelist( filename )
 
     CHARACTER(LEN=*),INTENT(IN) :: filename
-    CHARACTER(LEN=*),PARAMETER :: &
-    routine = 'mo_echam_cloud_nml:read_echam_cloud_namelist'
+!!$    CHARACTER(LEN=*),PARAMETER :: &
+!!$    routine = 'mo_echam_cloud_nml:read_echam_cloud_namelist'
 
     INTEGER  :: ist, funit, iunit
 
@@ -135,7 +135,7 @@ CONTAINS
 
     csecfrl = 1.0e-5_wp
     crs     = 0.999_wp   ! Critical relative humidity at surface
-    crt     = 0.85_wp    ! Critical relative humidity aloft
+    crt     = 0.90_wp    ! Critical relative humidity aloft
     cvtfall = 3.0_wp
     clwprat = 4.0_wp
     csatsc  = 0.7_wp
