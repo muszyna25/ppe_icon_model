@@ -653,7 +653,9 @@ cat > ${oce_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_essentials', 'group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
+! ml_varlist       =  'group:oce_essentials', 'group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
+  ml_varlist       =  'wet_c','wet_e','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
+                      'topBoundCond_windStress_u_acc','t_acc','s_acc','u_acc'
 /
 &output_nml
   output_start     = "${start_date}"                  ! start date in ISO-format
