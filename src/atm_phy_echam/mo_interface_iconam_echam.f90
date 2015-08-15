@@ -411,7 +411,9 @@ CONTAINS
     IF (ltimer) CALL timer_start(timer_echam_phy)
 
 #ifndef __NO_JSBACH__
-    CALL jsbach_start_timestep(jg)
+    IF (echam_phy_config%ljsbach) THEN
+      CALL jsbach_start_timestep(jg)
+    END IF
 #endif
 
 !$OMP PARALLEL
@@ -452,7 +454,9 @@ CONTAINS
     !=====================================================================================
 
 #ifndef __NO_JSBACH__
-    CALL jsbach_finish_timestep(jg)
+    IF (echam_phy_config%ljsbach) THEN
+      CALL jsbach_finish_timestep(jg)
+    END IF
 #endif
     !=====================================================================================
     !
