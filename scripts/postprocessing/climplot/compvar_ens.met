@@ -4,7 +4,8 @@
 # compared to a control for climate runs.
 # output:    3 panels - exp,ctrl,diff
 #
-# run as:    export PLOTDATA=/scratch/ms/de/deia/icon/dei2/118/seasonal
+# run as:    export MACRO_EXTRA_LIBS="-L/usr/local/apps/nag/22/LP64/lib -lnag"
+#            export PLOTDATA=/scratch/ms/de/deia/icon/dei2/118/seasonal
 #            metview4_new -b compvar_ens.met deia_004 fycq 20000801/20000802/20000803/20000804 200009 12 24 LSP 0 sfc ins avg 2.0 2 1 1 icon
 #
 # attention: requires global environment variable DATA (dir)
@@ -69,7 +70,7 @@ if (model = "icon") then
   case varid of
      "2T"  : varidm = 500011  ;   end
      "2D"  : varidm = 500017  ;   end
-     "SD"  : varidm = 502329  ;   end
+     "SD"  : varidm = 500045  ;   end # single layer: 500045,  multi layer: 502329
      "SST" : varidm = 500475  ;   end # ICON: T_SEA
      "SKT" : varidm = 500010  ;   end # ICON: T_G
      "10SI": varidm = 500025  ;   end
@@ -112,9 +113,9 @@ gl_area = [90,-180,-90,180]
 # --- special_sets of vars
 
 spec_par_tp      =["CP","LSP"]
-spec_par_tp_icon =[500041]          #["TOT_PREC"]
-spec_par_cp      =[500137,500052]   #["RAIN_CON","SNOW_CON"]   #ICON
-spec_par_lsp     =[500134,500053]   #["RAIN_GSP","SNOW_GSP"]   #ICON
+spec_par_tp_icon =[500137,500052,500134,500053] #[228228] [500041] ["TOT_PREC"]
+spec_par_cp      =[500137,500052]               #["RAIN_CON","SNOW_CON"]   #ICON
+spec_par_lsp     =[500134,500053]               #["RAIN_GSP","SNOW_GSP"]   #ICON
 spec_par_tcw_icon=[500038,500051,500040]
 spec_par_surfradn=["SSR","STR"]
 spec_par_topradn =["SSR","STR"]
@@ -277,12 +278,12 @@ end if
 if varid = "CP"  or varid = 143
 or varid = "LSP" or varid = 142 
 or varid = "TP"  or varid = 228 then
-         if (search(expv1,'_') < 0) then     # test for IFS run
-           var_mod_all = var_mod_all * 86400 * 1000
-         end if
-         if (search(expv2,'_') < 0) then     # test for IFS run
-           var_ctr_all = var_ctr_all * 86400 * 1000
-         end if
+        if (search(expv1,'_') < 0) then     # test for IFS run
+          var_mod_all = var_mod_all * 86400 * 1000
+        end if
+        if (search(expv2,'_') < 0) then     # test for IFS run
+          var_ctr_all = var_ctr_all * 86400 * 1000
+        end if
         unit = "[mm d<sup>-1</sup>]"
        #unit = "[mm/day]"
 end if
@@ -826,7 +827,7 @@ function multiget(list,expver,levtype,lev,dates,res,file)
         if i=1 then 
           fldset=fld
 	else
-	  fldset=fldset+fld	 
+	  fldset=fldset+fld
 	end if
   end for
 

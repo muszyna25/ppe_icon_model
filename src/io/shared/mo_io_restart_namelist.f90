@@ -18,7 +18,7 @@ MODULE mo_io_restart_namelist
   USE mo_io_units,    ONLY: find_next_free_unit, filename_max
   USE mo_exception,   ONLY: message, finish
   USE mo_mpi,         ONLY: p_bcast
-  USE mo_cdi_constants
+  USE mo_cdi,         ONLY: CDI_GLOBAL, vlistInqNatts, vlistInqAtt, vlistInqAttTxt
   !
   IMPLICIT NONE
   !
