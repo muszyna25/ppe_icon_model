@@ -51,7 +51,7 @@ PROGRAM icon
   USE mo_atmo_model,          ONLY: atmo_model
 #endif
 
-  USE mo_cdi_constants          ! We need all  
+  USE mo_cdi,                 ONLY: gribapiLibraryVersion
 
   IMPLICIT NONE
 

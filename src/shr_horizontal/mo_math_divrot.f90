@@ -751,7 +751,6 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
-  INTEGER :: js                   !< loop index for cells in stencil
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -805,7 +804,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -972,7 +971,6 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
-  INTEGER :: js                   !< loop index for cells in stencil
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -1020,7 +1018,7 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1182,7 +1180,6 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
-  INTEGER :: js                   !< loop index for cells in stencil
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -1236,7 +1233,7 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1424,7 +1421,6 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
-  INTEGER :: js                   !< loop index for cells in stencil
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -1471,7 +1467,7 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1636,7 +1632,6 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
-  INTEGER :: js                   !< loop index for cells in stencil
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -1690,7 +1685,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1902,7 +1897,6 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
-  INTEGER :: js                   !< loop index for cells in stencil
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -1950,7 +1944,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END WORKSHARE
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &

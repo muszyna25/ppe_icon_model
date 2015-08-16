@@ -118,6 +118,8 @@ USE data_turbulence, ONLY : rlam_mom, & ! scaling factor of the laminar boudary 
                                         ! sub grid scale clouds
      &                      tkhmin,   & ! minimal diffusion coefficients for heat
      &                      tkmmin,   & ! minimal diffusion coefficients for momentum
+     &                      tkhmin_strat, & ! enhanced minimal diffusion coefficients for heat in the stratosphere
+     &                      tkmmin_strat, & ! enhanced minimal diffusion coefficients for momentum in the stratosphere
      &                      epsi,     & ! relative limit of accuracy for 
                                         ! comparison of numbers
      &                      impl_s,   & ! implicit weight near the surface (maximal value)
@@ -253,6 +255,8 @@ LOGICAL :: &
      alpha0_max   = turbdiff_config(jg)%alpha0_max
      tkhmin       = turbdiff_config(jg)%tkhmin
      tkmmin       = turbdiff_config(jg)%tkmmin
+     tkhmin_strat = turbdiff_config(jg)%tkhmin_strat
+     tkmmin_strat = turbdiff_config(jg)%tkmmin_strat
      c_diff       = turbdiff_config(jg)%c_diff
      rlam_heat    = turbdiff_config(jg)%rlam_heat
      rlam_mom     = turbdiff_config(jg)%rlam_mom

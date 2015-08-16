@@ -1926,7 +1926,8 @@ CONTAINS
           zt3  = zrk2 * (zgamma4 + za1 * prmuz(ic) )
           ! zt4  = zr4
           ! zt5  = zr5
-          zbeta = - zr5 / zr4
+          ! GZ, 2015-06-08: another fix for potential division by zero
+          zbeta = - zr5 / SIGN(MAX(zeps,ABS(zr4)),zr4)
 
           ! collimated beam
 
@@ -1977,7 +1978,8 @@ CONTAINS
           zt3  = zrk2 * (zgamma4 + za1 * prmuz(ic) )
           ! zt4  = zr4
           ! zt5  = zr5
-          zbeta = - zr5 / zr4
+          ! GZ, 2015-06-08: another fix for potential division by zero
+          zbeta = - zr5 / SIGN(MAX(zeps,ABS(zr4)),zr4)
 
           ! collimated beam
 

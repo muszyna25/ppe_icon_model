@@ -27,7 +27,7 @@
 MODULE mo_io_util
 
   USE mo_exception,             ONLY: finish
-  USE mo_cdi_constants,         ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4,         &
+  USE mo_cdi,                   ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4,         &
     &                                 FILETYPE_GRB, FILETYPE_GRB2
   USE mo_util_string,           ONLY: tolower
 

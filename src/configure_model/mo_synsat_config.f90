@@ -22,10 +22,6 @@ MODULE mo_synsat_config
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_dom
   USE mo_exception,          ONLY: message_text, finish
-  USE mo_mpi,                ONLY: p_pe, p_comm_work, p_io, num_work_procs
-#ifdef __USE_RTTOV
-  USE mo_rttov_ifc,          ONLY: rttov_init, NO_ERROR, rttov_ifc_errMsg
-#endif
 
   IMPLICIT NONE
 
@@ -156,10 +152,10 @@ MODULE mo_synsat_config
   ! These variables are the same for all instruments, but are initialized
   ! by the call to RTTVI, which is done only once for the whole program
 
-  INTEGER  ::          &
-    maxknchpf,         & ! maximum number of output radiances
-    numchans(jpnsat),  & ! Number of valid channels
-    kiu1(jpnsat)         ! for input-file unit number
+  INTEGER  ::                &
+    maxknchpf,               & ! maximum number of output radiances
+    total_numchans(jpnsat),  & ! Number of valid channels (not all of them are necessarily computed in ICON)
+    kiu1(jpnsat)               ! for input-file unit number
 
   REAL(wp), ALLOCATABLE ::               &
     o3_ref     (:)          ! default ozone values on the prescribed levels
@@ -199,19 +195,19 @@ MODULE mo_synsat_config
     !    nsat_id
     !    nsensor_table_id
 
-  INTEGER, ALLOCATABLE   :: channels(:,:)
+  INTEGER, ALLOCATABLE   :: total_channels(:,:)
     ! for every sensor (2nd dimension):
     !    wmo_satid
     !    nsatell_table_id
 
-  INTEGER, ALLOCATABLE   :: n_chans(:)
+  INTEGER, ALLOCATABLE   :: total_n_chans(:)
     ! for every sensor the number of channels
 
   LOGICAL, ALLOCATABLE   :: addclouds(:)
     ! for every sensor if it shall use ir cloud scattering
 
   INTEGER                :: mchans
-    ! maximum number of channels for one sensor (MAX (numchans))
+    ! maximum number of channels for one sensor (MAX (total_numchans))
 
   ! maximum satellite zenith angles
   REAL(wp), PARAMETER :: zenmax9  = 86.5_wp        ! deg
@@ -261,14 +257,12 @@ MODULE mo_synsat_config
   !! Initial revision by Guenther Zaengl, DWD (2015-05-05)
   !!
   SUBROUTINE configure_synsat
+    CHARACTER(LEN=*), PARAMETER    :: routine = modname//"::configure_synsat"
 
     INTEGER :: i
-#ifdef __USE_RTTOV
-    INTEGER :: istatus
-#endif
 
-    numchans(1) = 8
-    numchans(2:) = 0
+    total_numchans(1) = 8
+    total_numchans(2:) = 0
 
     num_sensors = 1
 
@@ -278,8 +272,8 @@ MODULE mo_synsat_config
     sat_compute(1)%longitude          = 0.
     sat_compute(1)%sensor            = 'SEVIRI'
     sat_compute(1)%num_chan           = 8
-    sat_compute(1)%nchan_list(1:numchans(1)) = (/ (i, i=1,8) /)
-    sat_compute(1)%chan_name(1:numchans(1))  = &
+    sat_compute(1)%nchan_list(1:total_numchans(1)) = (/ (i, i=1,8) /)
+    sat_compute(1)%chan_name(1:total_numchans(1))  = &
                 (/ 'IR3.9 ', &
                    'WV6.2 ', &
                    'WV7.3 ', &
@@ -294,37 +288,26 @@ MODULE mo_synsat_config
     sat_compute(1)%lclear_tem         = .true.
     sat_compute(1)%lcloud_tem         = .true.
 
-    num_images = 4*SUM(numchans(:))
-    mchans = MAXVAL(numchans)
+    num_images = 4*SUM(total_numchans(:))
+    mchans = MAXVAL(total_numchans)
 
     ALLOCATE(instruments(3,num_sensors),addclouds(num_sensors))
-    ALLOCATE(channels(mchans, num_sensors))
-    ALLOCATE(n_chans(num_sensors))
+    ALLOCATE(total_channels(mchans, num_sensors))
+    ALLOCATE(total_n_chans(num_sensors))
 
     instruments(1:3,1) = (/ 12, 2,21/)
-    channels(1:8,1) = (/ (i, i=1,8) /)
-    n_chans = 8
+    total_channels(1:8,1) = (/ (i, i=1,8) /)
+    total_n_chans(:) = 8
     addclouds(:) = .TRUE.
 
-#ifdef __USE_RTTOV
-    IF (ANY(lsynsat(:))) THEN
-      istatus = rttov_init(  &
-        instruments     , &
-        channels        , &
-        n_chans         , &
-        p_pe            , &
-        num_work_procs  , &
-        p_io            , &
-        p_comm_work     , &
-        appRegLim=.TRUE., &
-        readCloud=addclouds)
-
-      IF (istatus /= NO_ERROR) THEN
-        WRITE(message_text,'(a)') TRIM(rttov_ifc_errMsg(istatus))
-        CALL finish('configure_synsat',message_text)
-      ENDIF
+    ! --- consistency check
+    
+    ! Since "n_chans", "numchans" are used interchangeably (more or
+    ! less) under the implicit assumption that we have only one
+    ! satellite, we make place an assertion here:
+    IF (ANY(total_numchans(2:) > 0) .OR. (num_sensors > 1)) THEN
+      CALL finish(routine, "RTTOV interface not implemented for more than one satellite!")
     END IF
-#endif
 
   END SUBROUTINE configure_synsat
 
@@ -372,12 +355,14 @@ MODULE mo_synsat_config
   !
   SUBROUTINE get_synsat_grib_triple(lradiance, lcloudy, ichan,       &
     &                               idiscipline, icategory, inumber, &
-    &                               scaledValueOfCentralWaveNumber)
+    &                               scaledValueOfCentralWaveNumber,  &
+    &                               scaleFactorOfCentralWaveNumber)
     LOGICAL, INTENT(IN)  :: lradiance        ! shortname for radiance or brightness temp
     LOGICAL, INTENT(IN)  :: lcloudy          ! shortname for cloudy or clear sky
     INTEGER, INTENT(IN)  :: ichan            ! channel index
     INTEGER, INTENT(OUT) :: idiscipline, icategory, inumber ! result: GRIB2 triple
     INTEGER, INTENT(OUT) :: scaledValueOfCentralWaveNumber  ! result: GRIB2 meta-data
+    INTEGER, INTENT(OUT) :: scaleFactorOfCentralWaveNumber  ! result: GRIB2 meta-data
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::get_synsat_grib_triple'
 
@@ -404,20 +389,28 @@ MODULE mo_synsat_config
         SELECT CASE(ichan)
         CASE (CHAN_IR3_9)
           scaledValueOfCentralWaveNumber = 256410
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV6_2)
           scaledValueOfCentralWaveNumber = 161290
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV7_3)
           scaledValueOfCentralWaveNumber = 136986
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR8_7)
           scaledValueOfCentralWaveNumber = 114942
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR9_7) 
           scaledValueOfCentralWaveNumber = 103092
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR10_8)
           scaledValueOfCentralWaveNumber =  92592
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR12_1)
           scaledValueOfCentralWaveNumber =  82644
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR13_4)
           scaledValueOfCentralWaveNumber =  74626
+          scaleFactorOfCentralWaveNumber = 0
         CASE DEFAULT
           CALL finish(routine, "Internal error!")
         END SELECT
@@ -425,20 +418,28 @@ MODULE mo_synsat_config
         SELECT CASE(ichan)
         CASE (CHAN_IR3_9)
           scaledValueOfCentralWaveNumber = 256410
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV6_2)
           scaledValueOfCentralWaveNumber = 161290
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV7_3)
           scaledValueOfCentralWaveNumber = 136986
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR8_7)
           scaledValueOfCentralWaveNumber = 114942
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR9_7) 
           scaledValueOfCentralWaveNumber = 103092
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR10_8)
           scaledValueOfCentralWaveNumber =  92592
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR12_1)
           scaledValueOfCentralWaveNumber =  82644
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR13_4)
           scaledValueOfCentralWaveNumber =  74626
+          scaleFactorOfCentralWaveNumber = 0
         CASE DEFAULT
           CALL finish(routine, "Internal error!")
         END SELECT
@@ -449,20 +450,28 @@ MODULE mo_synsat_config
         SELECT CASE(ichan)
         CASE (CHAN_IR3_9)
           scaledValueOfCentralWaveNumber = 256410
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV6_2)
           scaledValueOfCentralWaveNumber = 161290
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV7_3)
           scaledValueOfCentralWaveNumber = 136986
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR8_7)
           scaledValueOfCentralWaveNumber = 114942
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR9_7) 
           scaledValueOfCentralWaveNumber = 103092
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR10_8)
-          scaledValueOfCentralWaveNumber =  92592 
+          scaledValueOfCentralWaveNumber =  92592
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR12_1)
           scaledValueOfCentralWaveNumber =  82644
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR13_4)
           scaledValueOfCentralWaveNumber =  74626
+          scaleFactorOfCentralWaveNumber = 0
         CASE DEFAULT
           CALL finish(routine, "Internal error!")
         END SELECT
@@ -470,20 +479,28 @@ MODULE mo_synsat_config
         SELECT CASE(ichan)
         CASE (CHAN_IR3_9)
           scaledValueOfCentralWaveNumber = 256410
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV6_2)
           scaledValueOfCentralWaveNumber = 161290
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_WV7_3)
           scaledValueOfCentralWaveNumber = 136986
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR8_7)
           scaledValueOfCentralWaveNumber = 114942
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR9_7) 
           scaledValueOfCentralWaveNumber = 103092
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR10_8)
           scaledValueOfCentralWaveNumber =  92592
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR12_1)
           scaledValueOfCentralWaveNumber =  82644
+          scaleFactorOfCentralWaveNumber = 0
         CASE (CHAN_IR13_4)
           scaledValueOfCentralWaveNumber =  74626
+          scaleFactorOfCentralWaveNumber = 0
         CASE DEFAULT
           CALL finish(routine, "Internal error!")
         END SELECT
