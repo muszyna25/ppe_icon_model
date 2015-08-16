@@ -463,7 +463,7 @@ case "$ac_sitename" in
 			    /opt/mpi/bullxmpi_mlx/1.2.8.3)
 				load_modules = ${load_modules} fca mxm bullxmpi_mlx/bullxmpi_mlx-1.2.8.3
 				FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
-				MPIROOT      = $with-mpi
+				MPIROOT      = $with_mpi
 				SYS_LIBS     = -ldl -lm -lnuma -Wl,--export-dynamic -lrt -lnsl -lutil -lm -ldl
 				MPI_LIB      = $WLFLAG,-rpath,/opt/mpi/bullxmpi_mlx/1.2.8.3/lib -lmpi_f90 -lmpi_f77 $SYS_LIB
 				;;
