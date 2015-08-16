@@ -21,7 +21,7 @@ MODULE mo_ocean_coupling
   USE mo_parallel_config,     ONLY: nproma
   USE mo_exception,           ONLY: warning
   USE mo_impl_constants,      ONLY: max_char_length
-  USE mo_physical_constants,  ONLY: tmelt, rho_inv
+  USE mo_physical_constants,  ONLY: tmelt, rhoh2o
   USE mo_mpi,                 ONLY: p_pe_work
   USE mo_datetime,            ONLY: t_datetime
   USE mo_time_config,         ONLY: time_config
@@ -76,7 +76,7 @@ MODULE mo_ocean_coupling
 
 ! CHARACTER(LEN=12)     :: module_name    = 'ocean_coupli'
 
-  INTEGER, PARAMETER    :: no_of_fields = 9
+  INTEGER, PARAMETER    :: no_of_fields = 10
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
@@ -278,9 +278,8 @@ CONTAINS
 
     ALLOCATE(ibuffer(nproma*patch_horz%nblks_c))
 
-!ICON_OMP_PARALLEL
     nbr_inner_cells = 0
-!ICON_OMP_DO PRIVATE(idx) REDUCTION(+:nbr_inner_cells) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL DO PRIVATE(idx) REDUCTION(+:nbr_inner_cells) ICON_OMP_DEFAULT_SCHEDULE
     DO idx = 1, patch_horz%n_patch_cells
        IF ( p_pe_work == patch_horz%cells%decomp_info%owner_local(idx) ) THEN
          ibuffer(idx) = -1
@@ -289,8 +288,7 @@ CONTAINS
          ibuffer(idx) = patch_horz%cells%decomp_info%owner_local(idx)
        ENDIF
     ENDDO
-!ICON_OMP_END_DO
-!ICON_OMP_END_PARALLEL
+!ICON_OMP_END_PARALLEL_DO
 
     ! decomposition information
     CALL yac_fdef_index_location (              &
@@ -322,19 +320,18 @@ CONTAINS
     !           2: inner land
     !
 
-!ICON_OMP_PARALLEL
     mask_checksum = 0
-!ICON_OMP_DO PRIVATE(BLOCK,idx) REDUCTION(+:mask_checksum) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK,idx) REDUCTION(+:mask_checksum) ICON_OMP_DEFAULT_SCHEDULE
     DO BLOCK = 1, patch_horz%nblks_c
       DO idx = 1, nproma
         mask_checksum = mask_checksum + ABS(patch_3d%surface_cell_sea_land_mask(idx, BLOCK))
       ENDDO
     ENDDO
-!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL_DO
 
     IF ( mask_checksum > 0 ) THEN
 
-!ICON_OMP_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, idx, INDEX) ICON_OMP_DEFAULT_SCHEDULE
       DO BLOCK = 1, patch_horz%nblks_c
         DO idx = 1, nproma
           IF ( patch_3d%surface_cell_sea_land_mask(idx, BLOCK) < 0 ) THEN
@@ -346,22 +343,21 @@ CONTAINS
           ENDIF
         ENDDO
       ENDDO
-!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL_DO
 
     ELSE
 
-!ICON_OMP_DO PRIVATE(idx) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(idx) ICON_OMP_DEFAULT_SCHEDULE
       DO idx = 1, patch_horz%nblks_c * nproma
         ibuffer(idx) = 0
       ENDDO
-!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL_DO
 
     ENDIF
-!ICON_OMP_END_PARALLEL
 
     CALL yac_fdef_mask (          &
       & patch_horz%n_patch_cells, &
-      & ibuffer,                &
+      & ibuffer,                  &
       & cell_point_ids(1),        &
       & cell_mask_ids(1) )
 
@@ -376,6 +372,7 @@ CONTAINS
     field_name(7) = "eastward_sea_water_velocity"
     field_name(8) = "northward_sea_water_velocity"
     field_name(9) = "ocean_sea_ice_bundle"               ! bundled field containing five components
+    field_name(10) = "river_runoff"
 
     DO idx = 1, no_of_fields 
       CALL yac_fdef_field (      &
@@ -392,10 +389,10 @@ CONTAINS
 
 #else
 
-    INTEGER :: idx
     INTEGER :: grid_id
     INTEGER :: grid_shape(2)
     INTEGER :: field_shape(3)
+    INTEGER :: BLOCK, idx, INDEX
 
     IF (.NOT. is_coupled_run()) RETURN
 
@@ -437,15 +434,13 @@ CONTAINS
 
     field_shape(1:2) = grid_shape(1:2)
 
-!ICON_OMP_PARALLEL
     nbr_inner_cells = 0
-!ICON_OMP_DO PRIVATE(idx) REDUCTION(+:nbr_inner_cells) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(idx) REDUCTION(+:nbr_inner_cells) ICON_OMP_DEFAULT_SCHEDULE
     DO idx = 1, patch_horz%n_patch_cells
        IF ( p_pe_work == patch_horz%cells%decomp_info%owner_local(idx) ) &
     &    nbr_inner_cells = nbr_inner_cells + 1
     ENDDO
-!ICON_OMP_END_DO
-!ICON_OMP_END_PARALLEL
+!ICON_OMP_END_PARALLEL_DO
 
     ! see equivalent ocean counterpart in drivers/mo_atmo_model.f90
     ! routine construct_atmo_coupler 
@@ -474,6 +469,19 @@ CONTAINS
 #endif
 
     ALLOCATE(buffer(nproma * patch_horz%nblks_c,5))
+
+!ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, INDEX, idx) ICON_OMP_DEFAULT_SCHEDULE
+    DO BLOCK = 1, patch_horz%nblks_c
+      DO idx = 1, nproma
+        INDEX = (BLOCK-1)*nproma+idx
+        buffer(INDEX,1) = 0.0_wp
+        buffer(INDEX,2) = 0.0_wp
+        buffer(INDEX,3) = 0.0_wp
+        buffer(INDEX,4) = 0.0_wp
+        buffer(INDEX,5) = 0.0_wp
+      ENDDO
+    ENDDO
+!ICON_OMP_END_PARALLEL_DO
 
     IF (ltimer) CALL timer_stop(timer_coupling_init)
 
@@ -512,7 +520,6 @@ CONTAINS
     ! Local declarations for coupling:
     LOGICAL :: write_coupler_restart
     INTEGER :: nbr_hor_cells  ! = inner and halo points
-    INTEGER :: nbr_cells      ! = nproma * nblks
     INTEGER :: n              ! nproma loop count
     INTEGER :: nn             ! block offset
     INTEGER :: i_blk          ! block loop count
@@ -533,7 +540,7 @@ CONTAINS
     time_config%cur_datetime = datetime
 
     nbr_hor_cells = patch_horz%n_patch_cells
-    nbr_cells     = nproma * patch_horz%nblks_c
+
     !
     !  see drivers/mo_ocean_model.f90:
     !
@@ -743,6 +750,8 @@ CONTAINS
     !
     ! Apply freshwater flux - 2 parts, precipitation and evaporation - record 3
     !
+    ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
+    !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(3), nbr_hor_cells, 3, 1, 1, buffer(1:nbr_hor_cells,1:3), info, ierror )
@@ -766,9 +775,9 @@ CONTAINS
             atmos_fluxes%FrshFlux_SnowFall     (n,i_blk) = dummy
             atmos_fluxes%FrshFlux_Evaporation  (n,i_blk) = dummy
           ELSE
-            atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = buffer(nn+n,1)*rho_inv
-            atmos_fluxes%FrshFlux_SnowFall     (n,i_blk) = buffer(nn+n,2)*rho_inv
-            atmos_fluxes%FrshFlux_Evaporation  (n,i_blk) = buffer(nn+n,3)*rho_inv
+            atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = buffer(nn+n,1) / rhoh2o
+            atmos_fluxes%FrshFlux_SnowFall     (n,i_blk) = buffer(nn+n,2) / rhoh2o
+            atmos_fluxes%FrshFlux_Evaporation  (n,i_blk) = buffer(nn+n,3) / rhoh2o
           ENDIF
         ENDDO
       ENDDO
@@ -823,11 +832,18 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%HeatFlux_LongWave (:,:))
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%HeatFlux_Sensible (:,:))
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%HeatFlux_Latent   (:,:))
+
       ! sum of fluxes for ocean boundary condition
-      atmos_fluxes%HeatFlux_Total(:,:) = atmos_fluxes%HeatFlux_ShortWave(:,:) &
-        &                              + atmos_fluxes%HeatFlux_LongWave (:,:) &
-        &                              + atmos_fluxes%HeatFlux_Sensible (:,:) &
-        &                              + atmos_fluxes%HeatFlux_Latent   (:,:)
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n) ICON_OMP_DEFAULT_SCHEDULE
+      DO i_blk = 1, patch_horz%nblks_c
+        DO n = 1, nproma
+          atmos_fluxes%HeatFlux_Total(n,i_blk) = atmos_fluxes%HeatFlux_ShortWave(n,i_blk) &
+        &                                      + atmos_fluxes%HeatFlux_LongWave (n,i_blk) &
+        &                                      + atmos_fluxes%HeatFlux_Sensible (n,i_blk) &
+        &                                      + atmos_fluxes%HeatFlux_Latent   (n,i_blk)
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
     ENDIF
     !
     ! ice%Qtop(:,:)         Surface melt potential of ice                           [W/m2]
@@ -872,6 +888,42 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, ice%qbot(:,1,:))
       CALL sync_patch_array(sync_c, patch_horz, ice%t1  (:,1,:))
       CALL sync_patch_array(sync_c, patch_horz, ice%t2  (:,1,:))
+    END IF
+
+    !
+    !
+    ! Apply freshwater flux - river runoff
+    !
+    ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
+    !
+    IF (ltimer) CALL timer_start(timer_coupling_get)
+#ifdef YAC_coupling
+    CALL yac_fget ( field_id(10), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
+#else
+    field_shape(3) = 1
+    CALL icon_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
+#endif
+    IF (ltimer) CALL timer_stop(timer_coupling_get)
+    !
+    IF (info > 0 .AND. info < 7 ) THEN
+      !
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+      DO i_blk = 1, patch_horz%nblks_c
+        nn = (i_blk-1)*nproma
+        DO n = 1, nproma
+          IF ( nn+n > nbr_inner_cells ) THEN
+            atmos_fluxes%FrshFlux_Runoff(n,i_blk) = dummy
+          ELSE
+            atmos_fluxes%FrshFlux_Runoff(n,i_blk) = buffer(nn+n,1) / rhoh2o
+          ENDIF
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+      !
+      CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%FrshFlux_Runoff(:,:))
     END IF
 
     IF (ltimer) CALL timer_stop(timer_coupling)
