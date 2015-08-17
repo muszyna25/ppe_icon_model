@@ -86,7 +86,7 @@ MODULE mo_cumaster
     & rtwat                                                     ,&
     & lmfdd    ,lmfdudv                                         ,&
     & rdepths ,lmfscv  ,lmfpen   ,lmfit                         ,&
-    & rmflic  ,rmflia  ,rmfsoluv                                ,&
+    & rmflic  ,rmflia  ,rmflmax, rmfsoluv                       ,&
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&
     & lmftrac   ,   LMFUVDIS                                    ,&
     & rg       ,rd      ,rcpd  ,retv , rlvtt                    ,&
@@ -1040,7 +1040,7 @@ ELSE
           zdz=((paph(jl,klev+1)-paph(jl,jk))/(paph(jl,klev+1)-paph(jl,ikb)))
           pmfu(jl,jk)=pmfu(jl,ikb)*zdz
         ENDIF
-        zmfmax=(paph(jl,jk)-paph(jl,jk-1))*zcons2*rmflic+rmflia
+        zmfmax=MIN(rmflmax,(paph(jl,jk)-paph(jl,jk-1))*zcons2*rmflic+rmflia)
         IF(pmfu(jl,jk)*zmfs(jl)>zmfmax) &
           & zmfs(jl)=MIN(zmfs(jl),zmfmax/pmfu(jl,jk))
       ENDIF

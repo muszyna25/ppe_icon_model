@@ -334,6 +334,7 @@ MODULE mo_cuparameters
   ! REAL(KIND=jprb) :: rmfcfl -> moved into phy_params because it is resolution-dependent
   REAL(KIND=jprb) :: rmflic
   REAL(KIND=jprb) :: rmflia
+  REAL(KIND=jprb) :: rmflmax
   REAL(KIND=jprb) :: rmfsoluv
   REAL(KIND=jprb) :: rmfsoltq
   REAL(KIND=jprb) :: rmfsolct
@@ -431,7 +432,7 @@ MODULE mo_cuparameters
           & lmfdd    ,lmfdudv  ,&
           & rdepths  ,lmfscv   ,lmfpen             ,&
           & lmfit    ,rmflic                       ,&
-          & rmflia   ,rmfsoluv                     ,&
+          & rmflia   ,rmfsoluv ,rmflmax            ,&
           & ruvper   ,rmfsoltq ,rmfsolct ,&
           & lmfsmooth,lmfwstar ,LMFUVDIS ,lmftrac  ,&
           & entrdd   ,& ! njkt1                    ,&
@@ -1226,6 +1227,7 @@ ELSE
 ENDIF
 rmflic=1.0_JPRB   ! use CFL mass flux limit (1) or absolut limit (0)
 rmflia=0.0_JPRB   ! value of absolut mass flux limit
+rmflmax=1.75_jprb ! mass flux limit following a suggestion by P. Bechtold [kg/(m**2s)]
 
 
 !     MASSFLUX SOLVERs FOR MOMEMTUM AND TRACERS
