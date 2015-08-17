@@ -618,9 +618,9 @@ set_run_target_bullx()
   fi
 
   # ------------------------------------
-  s_cpu_time=""
+  s_cpu_time="00:30:00"
   if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time="SBATCH --time=$use_cpu_time"
+     s_cpu_time=$use_cpu_time
   fi
   # ------------------------------------
 
@@ -637,8 +637,7 @@ set_run_target_bullx()
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
 #SBATCH --exclusive
-# #$s_cpu_time
-#SBATCH --time=30
+#SBATCH --time=$s_cpu_time
 $(if [[ "$use_mpi_root" == *intel*mpi* ]]; then
   printf '#========================================
 # the following line is only needed for srun to work with Intel MPI
