@@ -26,7 +26,7 @@ MODULE mo_add_tracer_ref
     &                            t_tracer_meta,                     &
     &                            t_vert_interp_meta,                &
     &                            t_hor_interp_meta,                 &
-    &                            VAR_GROUPS,                        &
+    &                            MAX_GROUPS,                        &
     &                            t_post_op_meta
   USE mo_var_metadata,     ONLY: create_tracer_metadata
   
@@ -81,7 +81,7 @@ CONTAINS
     INTEGER             , INTENT(in), OPTIONAL :: tlev_source    ! actual TL for TL dependent vars
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp  ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))  ! groups to which a variable belongs
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(MAX_GROUPS)        ! groups to which a variable belongs
     LOGICAL             , INTENT(in), OPTIONAL :: lis_tracer     ! this is a tracer field (TRUE/FALSE)
     CHARACTER(len=*)    , INTENT(in), OPTIONAL :: tracer_class   ! type of tracer (cloud, volcash, radioact,...)
     INTEGER             , INTENT(in), OPTIONAL :: ihadv_tracer   ! method for hor. transport

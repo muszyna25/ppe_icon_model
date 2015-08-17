@@ -768,7 +768,11 @@ MODULE mo_nh_stepping
       !
       DO jg = 1, n_dom
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-        CALL art_tools_interface('unit_conversion',p_nh_state(jg),jg)
+        CALL art_tools_interface('unit_conversion',                            & !< in
+          &                      p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
+          &                      p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
+          &                      p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
+          &                      p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
       END DO
     ENDIF
 

@@ -100,8 +100,13 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
     
       CALL message('','ART: Definition of tracers for defcase: '//TRIM(defcase))
         
-      CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,phy_tend,p_prog,timelev,ldims,&
-        & tlev_source) 
+      IF (TRIM(defcase) .EQ. 'prog') THEN 
+        CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,p_prog=p_prog,timelev=timelev,  &
+          & ldims=ldims, tlev_source=tlev_source)
+      ELSE
+        CALL art_tracer(defcase,jg,nblks_c,this_list,vname_prefix,ptr_arr,advconf,phy_tend=phy_tend,              &
+          & ldims=ldims, tlev_source=tlev_source)
+      ENDIF
         
       IF (TRIM(defcase) .EQ. 'prog' .AND. timelev .EQ. 1) THEN 
         CALL art_init(jg,this_list,tracer=p_prog%tracer)
