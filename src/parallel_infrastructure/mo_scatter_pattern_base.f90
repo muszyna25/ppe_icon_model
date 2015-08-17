@@ -150,7 +150,7 @@ CONTAINS
 
         IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
         IF(me%distributedData > 0) THEN
-            IF(msg_level >= 5 .and. my_process_is_stdio()) THEN
+            IF(msg_level >= 10 .and. my_process_is_stdio()) THEN
                 WRITE(0,*) routine, ": data distribution totals:"
                 WRITE(0,'(8X,A,I19,A)')   "amount:    ", me%distributedData, " bytes"
                 WRITE(0,'(8X,A,F19.3,A)') "duration:  ", me%distributionTime, " seconds"

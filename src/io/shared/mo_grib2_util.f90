@@ -18,14 +18,13 @@ MODULE mo_grib2_util
 
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: finish
-  USE mo_cdi_constants,      ONLY: streamInqVlist,                           &
-    &                              vlistInqVarTypeOfGeneratingProcess,       &
-    &                              vlistInqVarTsteptype, TSTEP_CONSTANT,     &
-    &                              TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX,        &
-    &                              TSTEP_MIN, vlistInqTaxis, taxisInqTunit,  &
-    &                              TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR 
+  USE mo_cdi,                ONLY: streamInqVlist, vlistInqVarTypeOfGeneratingProcess, vlistInqVarTsteptype, vlistInqTaxis, &
+                                 & taxisInqTunit, TSTEP_CONSTANT, TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX, TSTEP_MIN, TUNIT_SECOND, &
+                                 & TUNIT_MINUTE, TUNIT_HOUR, vlistDefVarIntKey, vlistDefVarProductDefinitionTemplate, &
+                                 & vlistDefVarTypeOfGeneratingProcess
   USE mo_gribout_config,     ONLY: t_gribout_config
-  USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_TILE_LAND
+  USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_SYNSAT, &
+    &                              CLASS_TILE_LAND
   USE mo_action,             ONLY: ACTION_RESET, getActiveAction
   USE mo_util_string,        ONLY: one_of
 #ifndef __NO_ICON_ATMO__
@@ -47,6 +46,7 @@ MODULE mo_grib2_util
   ! Subroutines/Functions
   PUBLIC :: set_GRIB2_additional_keys
   PUBLIC :: set_GRIB2_ensemble_keys
+  PUBLIC :: set_GRIB2_synsat_keys
   PUBLIC :: set_GRIB2_local_keys
   PUBLIC :: set_GRIB2_tile_keys
   PUBLIC :: set_GRIB2_timedep_keys
@@ -145,10 +145,6 @@ CONTAINS
     INTEGER,                INTENT(IN) :: vlistID, varID
     TYPE(t_gribout_config), INTENT(IN) :: grib_conf
 
-    ! Local
-    CHARACTER(len=MAX_CHAR_LENGTH)     :: ydate, ytime
-    INTEGER :: cent, year, month, day    ! date
-    INTEGER :: hour, minute, second      ! time
   !----------------------------------------------------------------
 
     ! SECTION 2: Initialize local use section
@@ -239,6 +235,28 @@ CONTAINS
   END SUBROUTINE set_GRIB2_ensemble_keys
 
 
+  !>
+  !! Set synsat-specific keys
+  !!
+  !! Set GRIB2 keys which are specific to synthetic satellite products.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-06-10)
+  !!
+  SUBROUTINE set_GRIB2_synsat_keys (vlistID, varID, info)
+    
+    INTEGER,                INTENT(IN) :: vlistID, varID
+    TYPE (t_var_metadata),  INTENT(IN) :: info
+    
+    ! ----------------------------------------------------------------
+    
+    ! Skip inapplicable fields
+    IF ( info%var_class /= CLASS_SYNSAT ) RETURN
+    
+    ! change product definition template
+    CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, 32)
+    
+  END SUBROUTINE set_GRIB2_synsat_keys
 
 
   !>

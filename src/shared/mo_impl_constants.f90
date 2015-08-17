@@ -489,7 +489,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MODE_IAU         = 5
   INTEGER, PARAMETER :: MODE_IAU_OLD     = 6
   INTEGER, PARAMETER :: MODE_ICONVREMAP  = 7
-  INTEGER, PARAMETER :: MODE_DWDANA_INC  = 8
 
   !----- MPI parallelization -----
   INTEGER, PARAMETER :: MAX_NUM_IO_PROCS = 100      !< max. number of output ranks

@@ -384,10 +384,10 @@ CONTAINS
   !  LOGICAL(DIMENSION=MAX_GROUPS) according to the "group_id"
   !  function.
   !
-  FUNCTION groups(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10)
+  FUNCTION groups(g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11)
     LOGICAL :: groups(MAX_GROUPS)
     CHARACTER(LEN=*), INTENT(IN), OPTIONAL :: &
-      &   g01, g02, g03, g04, g05, g06, g07, g08, g09, g10
+      &   g01, g02, g03, g04, g05, g06, g07, g08, g09, g10, g11
 
     groups(:) = .FALSE.
     groups(group_id("ALL")) = .TRUE.
@@ -401,6 +401,7 @@ CONTAINS
     IF (PRESENT(g08)) groups(group_id(g08)) = .TRUE.
     IF (PRESENT(g09)) groups(group_id(g09)) = .TRUE.
     IF (PRESENT(g10)) groups(group_id(g10)) = .TRUE.
+    IF (PRESENT(g11)) groups(group_id(g11)) = .TRUE.
   END FUNCTION groups
 
   !>

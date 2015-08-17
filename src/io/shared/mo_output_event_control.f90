@@ -158,7 +158,7 @@ CONTAINS
     INTEGER,                             INTENT(OUT) :: step                !< result: corresponding simulations step
     CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(OUT) :: exact_date          !< result: corresponding simulation date
     ! local variables
-    REAL                                 :: intvlsec
+    REAL                                 :: intvlmillisec
     TYPE(datetime),  POINTER             :: mtime_step
     CHARACTER(len=max_timedelta_str_len) :: td_string
     TYPE(divisionquotienttimespan)       :: tq     
@@ -169,8 +169,9 @@ CONTAINS
     ! intvlsec    = REAL(dtime)
     ! step        = CEILING(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
 
-    intvlsec = INT(dtime)
-    CALL getptstringfromseconds(INT(intvlsec,i8), td_string)
+    intvlmillisec = NINT(dtime*1000._wp)
+    CALL getPTStringFromMS(INT(intvlmillisec,i8), td_string)
+    !CALL getptstringfromseconds(INT(intvlsec,i8), td_string)
     vlsec => newtimedelta(td_string)
     
     CALL divideDatetimeDifferenceInSeconds(mtime_current, mtime_begin, vlsec, tq)

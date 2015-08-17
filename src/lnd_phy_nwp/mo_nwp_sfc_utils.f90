@@ -24,11 +24,12 @@ MODULE mo_nwp_sfc_utils
   USE mo_model_domain,        ONLY: t_patch
   USE mo_physical_constants,  ONLY: tmelt, tf_salt
   USE mo_math_constants,      ONLY: dbl_eps
-  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, min_rlcell, dzsoil
+  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, min_rlcell, dzsoil, MODE_IAU
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_data_flake,          ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data_types,      ONLY: t_external_data
+  USE mo_ext_data_init,       ONLY: diagnose_ext_aggr
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag, t_lnd_state
   USE mo_parallel_config,     ONLY: nproma
   USe mo_extpar_config,       ONLY: itopo
@@ -36,7 +37,7 @@ MODULE mo_nwp_sfc_utils
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
     &                               itype_interception
-  USE mo_initicon_config,     ONLY: init_mode_soil
+  USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode
   USE mo_nwp_soil_init,       ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
   USE mo_seaice_nwp,          ONLY: seaice_init_nwp, hice_min, frsi_min, hice_ini_min, hice_ini_max
@@ -45,9 +46,8 @@ MODULE mo_nwp_sfc_utils
   USE mo_sync,                ONLY: global_sum_array
   USE mo_nonhydro_types,      ONLY: t_nh_diag, t_nh_state
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_dynamics_config,     ONLY: nnow
+  USE mo_dynamics_config,     ONLY: nnow_rcf, nnew_rcf
   USE mo_phyparam_soil,       ONLY: c_lnd, c_sea
-  USE mo_ext_data_state,      ONLY: diagnose_ext_aggr
 
   IMPLICIT NONE
 
@@ -112,6 +112,7 @@ CONTAINS
     ! Local scalars:
 
     INTEGER :: jc,jb,isubs,jk
+    LOGICAL :: lsnowtile_warmstart
 
 
     REAL(wp) :: t_snow_now_t(nproma, p_patch%nblks_c, ntiles_total)
@@ -202,6 +203,12 @@ CONTAINS
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+    IF (lsnowtile .AND. init_mode == MODE_IAU .AND. .NOT. ltile_coldstart) THEN
+      lsnowtile_warmstart = .TRUE.
+    ELSE
+      lsnowtile_warmstart = .FALSE.
+    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,i_count_snow,icount_ice, &
@@ -332,37 +339,35 @@ CONTAINS
 
         ! Preliminary diagnosis of snow-cover fraction for initialization of split tile index list
 
-! Note (GZ): when the first-guess input includes tile-based surface variables and snowtiles are used,
-! the snow cover fraction must be restored from the tile fractions instead of being diagnosed here!
+        IF (.NOT. lsnowtile_warmstart) THEN
 
-! Remark(GZ): this directive is needed because of a NEC compiler bug - OpenMP parallelization causes
-! a segmentation fault otherwise
-!CDIR NOIEXPAND
-        CALL diag_snowfrac_tg(                           &
-          &  istart = 1, iend = i_count                , & ! start/end indices
-          &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
-          &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
-          &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
-          &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
-          &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
-          &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
-          &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
-          &  sso_sigma = sso_sigma_t       (:,jb,isubs), & ! sso stdev
-          &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
-          &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
-          &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
+          CALL diag_snowfrac_tg(                           &
+            &  istart = 1, iend = i_count                , & ! start/end indices
+            &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
+            &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
+            &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
+            &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
+            &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
+            &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
+            &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
+            &  sso_sigma = sso_sigma_t       (:,jb,isubs), & ! sso stdev
+            &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
+            &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
+            &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
 
 !CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, i_count
-          jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
-          p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)  = snowfrac_t(ic,jb,isubs)
-          p_prog_lnd_now%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
-        ENDDO
+          DO ic = 1, i_count
+            jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
+            p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)  = snowfrac_t(ic,jb,isubs)
+            p_prog_lnd_now%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
+          ENDDO
+
+        ENDIF
 
       ENDDO
 
       ! create index lists for snow tiles (first call)
-      IF(lsnowtile) THEN      ! snow is considered as separate tiles
+      IF(lsnowtile .AND. .NOT. lsnowtile_warmstart) THEN ! snow is considered as separate tiles
         DO isubs = 1, ntiles_lnd
           isubs_snow = isubs + ntiles_lnd
 
@@ -412,27 +417,23 @@ CONTAINS
         &  wtot_snow_now     = wtot_snow_now_t(:,:,jb,isubs)    , & ! total (liquid + solid) water content of snow (m H2O)
         &  dzh_snow_now      = dzh_snow_now_t(:,:,jb,isubs)       ) ! layer thickness between half levels in snow  (  m  )
 
-! Note (GZ): when the first-guess input includes tile-based surface variables and snowtiles are used,
-! w_snow_now_t must be multiplied with the snow cover fraction before entering the following computation!
-! Alternatively, the diagnosis may be skipped in this case because the snow cover fraction has already
-! been restored from the tile fractions
+        IF (.NOT. lsnowtile_warmstart) THEN
 
-! Remark(GZ): this directive is needed because of a NEC compiler bug - OpenMP parallelization causes
-! a segmentation fault otherwise
-!CDIR NOIEXPAND
-        CALL diag_snowfrac_tg(                           &
-          &  istart = 1, iend = i_count                , & ! start/end indices
-          &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
-          &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
-          &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
-          &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
-          &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
-          &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
-          &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
-          &  sso_sigma = sso_sigma_t       (:,jb,isubs), & ! sso stdev
-          &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
-          &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
-          &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
+          CALL diag_snowfrac_tg(                           &
+            &  istart = 1, iend = i_count                , & ! start/end indices
+            &  lc_class  = lc_class_t        (:,jb,isubs), & ! land-cover class
+            &  i_lc_urban = ext_data%atm%i_lc_urban      , & ! land-cover class index for urban areas
+            &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
+            &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
+            &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
+            &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
+            &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
+            &  sso_sigma = sso_sigma_t       (:,jb,isubs), & ! sso stdev
+            &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
+            &  snowfrac  = snowfrac_t        (:,jb,isubs), & ! OUT: snow cover fraction
+            &  t_g       = t_g_t             (:,jb,isubs)  ) ! OUT: averaged ground temp
+
+        ENDIF
 
 !  Recover fields from index list
 !
@@ -445,22 +446,21 @@ CONTAINS
           p_prog_lnd_now%w_snow_t(jc,jb,isubs)   = w_snow_now_t(ic,jb,isubs)
           p_lnd_diag%h_snow_t(jc,jb,isubs)       = h_snow_t(ic,jb,isubs)
           p_prog_lnd_now%rho_snow_t(jc,jb,isubs) = rho_snow_now_t(ic,jb,isubs)
-          p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)  = snowfrac_t(ic,jb,isubs)
-          p_lnd_diag%snowfrac_t(jc,jb,isubs)     = snowfrac_t(ic,jb,isubs)
-          p_prog_lnd_now%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
-          p_prog_lnd_new%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
+          IF (.NOT. lsnowtile_warmstart) THEN
+            p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)  = snowfrac_t(ic,jb,isubs)
+            p_lnd_diag%snowfrac_t(jc,jb,isubs)     = snowfrac_t(ic,jb,isubs)
+            p_prog_lnd_now%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
+            p_prog_lnd_new%t_g_t(jc,jb,isubs)      = t_g_t(ic,jb,isubs)
+          ENDIF
         ENDDO
 
-        IF (lsnowtile .AND. isubs > ntiles_lnd) THEN ! copy snowfrac_t to snow-free tile
-!CDIR NODEP,VOVERTAKE,VOB                            ! (needed for index list computation)
+        IF (lsnowtile .AND. isubs > ntiles_lnd .AND. .NOT. lsnowtile_warmstart) THEN
+          ! copy snowfrac_t to snow-free tile (needed for index list computation)
+!CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
             p_lnd_diag%snowfrac_lc_t(jc,jb,isubs-ntiles_lnd) = p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)
           ENDDO
-
-! Note (GZ): when the first-guess input includes tile-based surface variables and snowtiles are used,
-! the following computatation must not be executed! In this case, w_snow and h_snow are already rescaled
-! to the partial tile fraction
 
           DO ic = 1, i_count
             jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
@@ -483,13 +483,9 @@ CONTAINS
             ENDDO
           ENDDO
 
-! Note (GZ): when the first-guess input includes tile-based surface variables and snowtiles are used,
-! the following computatation must not be executed! In this case, w_snow and h_snow are already rescaled
-! to the partial tile fraction
-
 !CDIR UNROLL=nlsnow
           DO jk=1,nlev_snow
-            IF (lsnowtile .AND. isubs > ntiles_lnd) THEN
+            IF (lsnowtile .AND. isubs > ntiles_lnd .AND. .NOT. lsnowtile_warmstart) THEN
               DO ic = 1, i_count
                 jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
                 p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs)
@@ -624,11 +620,11 @@ CONTAINS
 
           p_prog_lnd_now%t_g_t(jc,jb,isub_lake) = t_scf_lk_now(ic)
 
-          ! for consistency, set
-          ! t_so(0) = t_g            if the lake is frozen
-          ! t_so(0) = 273.15         if the lake is not frozen
-          p_prog_lnd_now%t_s_t(jc,jb,isub_lake) = MERGE(tmelt, t_scf_lk_now(ic), h_ice_now(ic)>0._wp)
+          ! for consistency, set 
+          ! t_so(0) = t_wml_lk       mixed-layer temperature (273.15K if the lake is frozen)
+          p_prog_lnd_now%t_s_t(jc,jb,isub_lake) = p_prog_wtr_now%t_wml_lk (jc,jb)
           p_prog_lnd_new%t_s_t(jc,jb,isub_lake) = p_prog_lnd_now%t_s_t(jc,jb,isub_lake)
+
 
           ! In addition, initialize prognostic Flake fields at time step 'new'
           p_prog_wtr_new%t_snow_lk(jc,jb) = t_snow_lk_now(ic)
@@ -871,7 +867,7 @@ CONTAINS
 
 
 
-      IF(lsnowtile) THEN      ! snow is considered as separate tiles
+      IF(lsnowtile .AND. .NOT. lsnowtile_warmstart) THEN ! snow is considered as separate tiles
         DO isubs = 1, ntiles_lnd
 
           isubs_snow = isubs + ntiles_lnd
@@ -910,7 +906,7 @@ CONTAINS
             ! have a snow-cover fraction of 1 on snow tiles (not critical for the single-layer
             ! snow scheme, but the multi-layer snow model becomes numerically unstable within a few
             ! time steps when associating traces of snow with a snow-cover fraction of 1)
-            p_lnd_diag%snowfrac_t(jc,jb,isubs_snow) = MIN(1._wp,p_lnd_diag%h_snow_t(jc,jb,isubs_snow)/0.01_wp)
+            p_lnd_diag%snowfrac_t(jc,jb,isubs_snow) = MIN(1._wp,p_lnd_diag%h_snow_t(jc,jb,isubs_snow)*100._wp)
 
             ! Rediagnose t_g according to the modified snow-cover fraction
             p_prog_lnd_now%t_g_t(jc,jb,isubs_snow) =  &
@@ -943,6 +939,17 @@ CONTAINS
         END DO
       END IF
 
+
+      ! Remove snow on non-existing grid points. This has no impact on the prognostic
+      ! results but is needed in order to have meaningful data on the tile-based fields 
+      DO isubs = 1, ntiles_total
+        DO jc = i_startidx, i_endidx
+          IF (ext_data%atm%frac_t(jc,jb,isubs) < 1.e-10_wp) THEN
+            p_lnd_diag%h_snow_t(jc,jb,isubs)     = 0._wp
+            p_prog_lnd_now%w_snow_t(jc,jb,isubs) = 0._wp
+          ENDIF
+        ENDDO
+      END DO
 
 
     ENDDO  ! jb loop
@@ -1404,6 +1411,10 @@ CONTAINS
   !! non-restart runs. Sea-ice and open water points are distinguished
   !! based on fr_seaice which is provided by analysis.
   !!
+  !! Note that fr_seaice is potentially modified.
+  !! For fr_seaice in ]0,frsi_min[, it is set to 0
+  !! For fr_seaice in ]1-frsi_min,1[, it is set to 1.  
+  !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD (2012-08-03)
   !!
@@ -1411,7 +1422,7 @@ CONTAINS
 
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch        !< grid/patch info.
     TYPE(t_external_data), INTENT(INOUT) :: ext_data
-    TYPE(t_lnd_diag)     , INTENT(IN)    :: p_lnd_diag     !< diag vars for sfc
+    TYPE(t_lnd_diag)     , INTENT(INOUT) :: p_lnd_diag     !< diag vars for sfc
     LOGICAL              , INTENT(IN)    :: lseaice        !< seaice model on/off
 
     ! Local array bounds:
@@ -1426,8 +1437,9 @@ CONTAINS
     INTEGER :: jg
     INTEGER :: i_count_sea, i_count_ice, i_count_water
     INTEGER :: npoints_ice, npoints_wtr
+    REAL(wp):: frac_sea                  ! for sanity check
 
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_interface:nwp_seaice'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_nwp_sfc_utils:init_sea_lists'
 !-------------------------------------------------------------------------
 
 
@@ -1449,7 +1461,7 @@ CONTAINS
     ! generate sea-ice and open-water index list
     !
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,ic,jc,i_count_sea,i_count_ice,i_count_water), SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,ic,jc,i_count_sea,i_count_ice,i_count_water,frac_sea), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
 
@@ -1464,6 +1476,20 @@ CONTAINS
       i_count_water = 0
 
       IF (i_count_sea == 0) CYCLE ! skip loop if the index list for the given block is empty
+
+      ! For fr_seaice in ]0,frsi_min[, set fr_seaice to 0
+      ! For fr_seaice in ]1-frsi_min,1[, set fr_seaice to 1. 
+      ! This will ensure that sea-ice and water fractions sum up exactly 
+      ! to the total sea fraction.
+      DO ic = 1, i_count_sea
+        jc = ext_data%atm%idx_lst_sp(ic,jb)
+        IF (p_lnd_diag%fr_seaice(jc,jb) < frsi_min ) THEN
+           p_lnd_diag%fr_seaice(jc,jb) = 0._wp
+        ENDIF
+        IF (p_lnd_diag%fr_seaice(jc,jb) > (1._wp-frsi_min) ) THEN
+           p_lnd_diag%fr_seaice(jc,jb) = 1._wp
+        ENDIF
+      ENDDO  ! ic
 
 
 
@@ -1521,13 +1547,6 @@ CONTAINS
           ! simply copy from water tile. time-dependent fraction will be set lateron
           ext_data%atm%lc_frac_t(jc,jb,isub_seaice)= ext_data%atm%lc_frac_t(jc,jb,isub_water)
 
-          ! NOTE:
-          ! Note that in copy_initicon2prog
-          ! - for fr_seaice in ]0,frsi_min[, we have set fr_seaice to 0
-          ! - for fr_seaice in ]1-frsi_min,1[, we have set fr_seaice to 1
-          ! This ensures that frac_t for sea-ice and open water at a given point
-          ! sums up to lc_frac_t(isub_water) exactly.
-
           !
           ! seaice point
           !
@@ -1565,16 +1584,22 @@ CONTAINS
             ext_data%atm%frac_t(jc,jb,isub_water)  = 0._wp
           ENDIF
 
-!DR DEBUG
-!!$         IF (ext_data%atm%frac_t(jc,jb,isub_water) &
-!!$           & + ext_data%atm%frac_t(jc,jb,isub_seaice) /= ext_data%atm%lc_frac_t(jc,jb,isub_water)) THEN
-!!$           write(0,*) "WARNING: fractions differ: frac_t_i+frac_t_w, lc_frac_t: ", &
-!!$             & ext_data%atm%frac_t(jc,jb,isub_water) + ext_data%atm%frac_t(jc,jb,isub_seaice), &
-!!$             & ext_data%atm%lc_frac_t(jc,jb,isub_water), jc, jb
-!!$         ENDIF
-!DR END DEBUG
-
         ENDDO  ! ic
+
+
+        ! Sanity check
+        ! Check whether fractions of seaice and non-seaice covered tiles sum up to total sea fraction. 
+        DO ic = 1, i_count_sea
+          jc = ext_data%atm%idx_lst_sp(ic,jb)
+          frac_sea = ext_data%atm%frac_t(jc,jb,isub_water) + ext_data%atm%frac_t(jc,jb,isub_seaice)
+          IF ( ABS(frac_sea - ext_data%atm%lc_frac_t(jc,jb,isub_water)) > dbl_eps ) THEN
+            WRITE(message_text,'(a,f12.9)') 'frac_seaice + frac_water: ', frac_sea
+            CALL message('', TRIM(message_text))
+            WRITE(message_text,'(a,f12.9)') 'tot frac_sea: ',  ext_data%atm%lc_frac_t(jc,jb,isub_water)
+            CALL message('', TRIM(message_text))
+            CALL finish(routine, 'sea-ice + water fractions do not sum up to total sea fraction')
+          END IF
+        ENDDO  ! jc
 
       ENDIF   ! IF (ntiles_total == 1)
 
@@ -1862,7 +1887,8 @@ CONTAINS
   SUBROUTINE update_idx_lists_sea (hice_n, pres_sfc, idx_lst_spw, spw_count,    &
     &                              idx_lst_spi, spi_count, frac_t_ice,          &
     &                              frac_t_water, fr_seaice, hice_old, tice_old, &
-    &                              t_g_t_new, t_s_t_now, t_s_t_new, qv_s_t )
+    &                              t_g_t_new, t_s_t_now, t_s_t_new, qv_s_t,     &
+    &                              t_seasfc )
 
 
     REAL(wp),    INTENT(IN)    ::  &   !< sea-ice depth at new time level  [m]
@@ -1901,6 +1927,9 @@ CONTAINS
 
     REAL(wp),    INTENT(INOUT) ::  &   !< surface specific humidity        [kg/kg]
       &  qv_s_t(:)
+
+    REAL(wp),    INTENT(INOUT) ::  &   !< sea surface temperature          [kg/kg]
+      &  t_seasfc(:)
 
     ! Local variables
     INTEGER, DIMENSION(SIZE(idx_lst_spi,1)) :: &
@@ -1949,7 +1978,8 @@ CONTAINS
           t_g_t_new(jc) = tf_salt ! if the SST analysis contains a meaningful water
                                   ! temperature for this point, one may also take
                                   ! the latter
- 
+          t_seasfc(jc)  = tf_salt
+
           ! Initialize surface saturation specific humidity for new water tile
           qv_s_t(jc) = spec_humi(sat_pres_water(t_g_t_new(jc)),pres_sfc(jc))
 
@@ -1996,6 +2026,9 @@ CONTAINS
             t_s_t_new(jc) = tf_salt ! otherwise aggregated t_so and t_s will be 
                                     ! 0 at these points
             t_s_t_now(jc) = tf_salt
+
+            t_seasfc(jc)  = tf_salt
+
             !
             ! Initialize surface saturation specific humidity
             qv_s_t(jc) = spec_humi(sat_pres_water(t_g_t_new(jc)),pres_sfc(jc))
@@ -2050,8 +2083,7 @@ CONTAINS
     INTEGER :: jg
     INTEGER :: count_sea, count_ice, count_water
     INTEGER :: npoints_ice, npoints_wtr, npoints_sea
-    INTEGER :: n_now
-    INTEGER :: lc_water, lc_snow_ice
+    INTEGER :: n_now, n_new
     REAL(wp):: t_water
     REAL(wp):: fracwater_old, fracice_old
 
@@ -2066,11 +2098,8 @@ CONTAINS
 
     DO jg = 1, n_dom
 
-
-
-    lc_snow_ice = ext_data(jg)%atm%i_lc_snow_ice
-    lc_water = ext_data(jg)%atm%i_lc_water
-    n_now = nnow(jg)
+    n_now = nnow_rcf(jg)
+    n_new = nnew_rcf(jg)
 
     i_nchdom = MAX(1,p_patch(jg)%n_childdom)
 
@@ -2152,8 +2181,7 @@ CONTAINS
 
              ! set sai_t
              ext_data(jg)%atm%sai_t    (jc,jb,isub_seaice)  = c_sea
-             ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) = 1._wp
-             ext_data(jg)%atm%frac_t(jc,jb,isub_water)  = 0._wp
+
           ELSE
             !
             ! water point: all sea points with fr_seaice < 0.5
@@ -2164,6 +2192,8 @@ CONTAINS
 
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%prog_lnd(n_new)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             t_water = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                &
              &                             spec_humi( sat_pres_water(t_water ),   &
@@ -2171,9 +2201,6 @@ CONTAINS
 
             ! set sai_t
             ext_data(jg)%atm%sai_t    (jc,jb,isub_water)  = c_sea
-            ext_data(jg)%atm%frac_t(jc,jb,isub_water) = 1._wp
-            ext_data(jg)%atm%frac_t(jc,jb,isub_seaice) = 0._wp
-
 
           ENDIF
 
@@ -2255,6 +2282,8 @@ CONTAINS
 
             p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%prog_lnd(n_new)%t_g_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+            p_lnd_state(jg)%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)= p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             t_water = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
             p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                 &
              &                             spec_humi( sat_pres_water(t_water ),    &
@@ -2360,6 +2389,10 @@ CONTAINS
            p_lnd_state(jg)%prog_lnd(n_now)%t_g_t(jc,jb,isub_water)=   &
                                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
            p_lnd_state(jg)%prog_lnd(n_now)%t_s_t(jc,jb,isub_water)=   &
+                                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+           p_lnd_state(jg)%prog_lnd(n_new)%t_g_t(jc,jb,isub_water)=   &
+                                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+           p_lnd_state(jg)%prog_lnd(n_new)%t_s_t(jc,jb,isub_water)=   &
                                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
 
            p_lnd_state(jg)%diag_lnd%qv_s_t(jc,jb,isub_water)    =                    &
