@@ -1844,7 +1844,7 @@ CONTAINS
       & za_depth_below_sea, &
       & t_cf_var('wet_e', '', '3d lsm on edges', DATATYPE_FLT32),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_geometry","oce_default","oce_essentials"), &
+      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_geometry","oce_default"), &
       & isteptype=tstep_constant)
     ! 3-dim real land-sea-mask with zero on halos
     ! cells
