@@ -997,7 +997,7 @@ SUBROUTINE graupel     (             &
 
       zpkr(iv)   = MIN( zpkr(iv) , zzar )
       zpks(iv)   = MIN( zpks(iv) , zzas )
-      zpkg(iv)   = MIN( zpkg(iv) , zzag )
+      zpkg(iv)   = MIN( zpkg(iv) , MAX(0._wp,zzag) )
       zpki(iv)   = MIN( zpki(iv) , zzai )
 
       zzar   = zdtdh * (zzar-zpkr(iv))
@@ -1524,7 +1524,6 @@ SUBROUTINE graupel     (             &
         END IF
         prg_gsp(iv) = 0.5_wp * (qgg*rhog*zvzg(iv) + zpkg(iv))
 
-          
 #ifdef NUDGING
         ! for the latent heat nudging
         IF ((llhn .OR. llhnverif) .AND. lhn_qrs) THEN
