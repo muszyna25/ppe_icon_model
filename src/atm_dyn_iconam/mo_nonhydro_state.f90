@@ -2451,7 +2451,7 @@ MODULE mo_nonhydro_state
 
     INTEGER :: nlev, nlevp1, jg
 
-    INTEGER :: shape2d_c(2), shape3d_c(3), shape3d_e(3),               &
+    INTEGER :: shape2d_c(2), shape2d_e(2), shape3d_c(3), shape3d_e(3), &
       &        shape3d_v(3), shape3d_chalf(3), shape3d_ehalf(3),       &
       &        shape2d_ccubed(3), shape2d_ecubed(3), shape3d_vhalf(3), & 
       &        shape2d_esquared(3), shape3d_esquared(4), shape3d_e8(4)
@@ -2481,7 +2481,8 @@ MODULE mo_nonhydro_state
     ENDIF
 
     ! predefined array shapes
-    shape2d_c        = (/nproma,          nblks_c    /) 
+    shape2d_c        = (/nproma,          nblks_c    /)
+    shape2d_e        = (/nproma,          nblks_e    /)
     shape2d_esquared = (/nproma, 2      , nblks_e    /)    
     shape2d_ccubed   = (/nproma, 3      , nblks_c    /)     
     shape2d_ecubed   = (/nproma, 3      , nblks_e    /)     
@@ -2819,6 +2820,17 @@ MODULE mo_nonhydro_state
         CALL finish('mo_nonhydro_state:construct_nh_metrics', &
                     'allocation for scalfac_dd3d failed')
       ENDIF
+
+    ! Horizontal mask field for 3D divergence damping terms
+    ! hmask_dd3d   p_metrics%hmask_dd3d(nproma,nblks_e)
+    !
+    cf_desc    = t_cf_var('Mask field for 3D divergence damping term', '-',       &
+      &                   'Mask field for 3D divergence damping term', DATATYPE_FLT32)
+    grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_EDGE)
+    CALL add_var( p_metrics_list, 'hmask_dd3d', p_metrics%hmask_dd3d,      &
+                & GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, &
+                & ldims=shape2d_e, loutput=.FALSE. )
+
     !----------------------------------------------------------------------------
 
     ! Explicit weight in vertical wind solver
