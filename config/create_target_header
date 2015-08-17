@@ -538,7 +538,7 @@ set_run_target_bullx()
   icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
 
   set_default use_nproma 8
-  set_default use_nodes '\${SLURM_JOB_NUM_NODES:-1}'
+  set_default use_nodes 1
   set_default use_account_no "$(id -gn)"
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,4"
