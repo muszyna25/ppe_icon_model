@@ -71,7 +71,9 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_essentials','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
+  ml_varlist       = 'group:oce_essentials', 'A_tracer_v_T_acc', 'group:ice_default'
+! ml_varlist       = 'group:oce_essentials', 'group:oce_diag', 'group:oce_physics', 'group:oce_prog',
+!                    'group:ice_default',    'group:ice_diag'
 /
 &output_nml
   output_start     = "${start_date}"

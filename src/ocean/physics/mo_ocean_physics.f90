@@ -549,7 +549,7 @@ CONTAINS
       & za_depth_below_sea_half, &
       & t_cf_var('A_veloc_v', 'kg/kg', 'vertical velocity diffusion', datatype_flt32),&
       & grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_edge),&
-      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_essentials","oce_default"))
+      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_default"))
 
 
     !! Tracers
