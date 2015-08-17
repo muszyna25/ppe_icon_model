@@ -128,7 +128,7 @@ MODULE mo_nh_stepping
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, &
     &                                    is_avgFG_time
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
-  USE mo_synsat_config,            ONLY: lsynsat, num_images
+  USE mo_synsat_config,            ONLY: lsynsat
   USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
