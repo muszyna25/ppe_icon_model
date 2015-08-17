@@ -79,7 +79,9 @@ MODULE mo_ocean_diagnostics
   USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-  USE mo_cdi_constants
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_PACK16
+  USE mo_cdi_constants,       ONLY: GRID_REFERENCE, GRID_EDGE, GRID_CELL, GRID_UNSTRUCTURED_EDGE, &
+    &                               GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA
   USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_sum
   
   IMPLICIT NONE

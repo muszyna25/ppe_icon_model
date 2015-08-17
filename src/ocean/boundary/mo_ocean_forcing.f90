@@ -65,7 +65,8 @@ MODULE mo_ocean_forcing
   USE mo_fortran_tools,       ONLY: assign_if_present
   USE mo_cf_convention
   USE mo_grib2
-  USE mo_cdi_constants
+  USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_PACK16
+  USE mo_cdi_constants,      ONLY: GRID_CELL, GRID_REFERENCE, GRID_UNSTRUCTURED_CELL, ZA_SURFACE
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_read_interface,     ONLY: openInputFile, closeFile, t_stream_id, &
     &                              onCells, read_2D_1lev_1time

@@ -40,6 +40,7 @@ MODULE mo_ocean_surface
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_PACK16
   USE mo_datetime,            ONLY: t_datetime
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ocean_ext_data,      ONLY: ext_data

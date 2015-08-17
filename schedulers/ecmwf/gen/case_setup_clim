@@ -129,8 +129,8 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl',
 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
 'u_10m','v_10m','sp_10m', 't_2m', 'td_2m',
 'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t',
-'t_g', 't_ice','h_ice', 't_so', 'w_so', 'fr_seaice', 't_seasfc', 'cape',
-'dzh_snow'"
+'t_g', 't_ice','h_ice', 't_so', 'w_so', 'fr_seaice', 't_seasfc', 'cape', 'h_snow'"
+#'dzh_snow'
 #'z_pbl'
 
 pl_varlist="'u','v','w','temp','geopot','clc','tot_qv_dia','tot_qc_dia','tot_qi_dia','rh'"      
@@ -170,11 +170,13 @@ cat > ${atmo_namelist} << EOF
  dtime                        = ${dtime}    ! timestep in seconds
  ldynamics                    = .TRUE.      ! dynamics
  ltransport                   = .TRUE.
+ ntracer                      = 5
  iforcing                     = 3           ! NWP forcing
  ltestcase                    = .FALSE.     ! false: run with real data
  msg_level                    = 5           ! default: 5, much more: 20
  ltimer                       = .FALSE.
- timers_level                 = 1
+ timers_level                 = 4
+ activate_sync_timers         = .FALSE.
  output                       = "nml"
 /
 &io_nml
@@ -244,52 +246,53 @@ cat > ${atmo_namelist} << EOF
  inwp_sso                     = 1
  inwp_gwd                     = 1
  inwp_surface                 = 1
- icapdcycl                    = 3
  itype_z0                     = 2   ! 1: default, 2: turn off SSO part of z0
  dt_conv                      = ${dtconv}
  dt_sso                       = ${dtconv}
  dt_gwd                       = ${dtconv}
  dt_rad                       = ${dtrad}
- latm_above_top               = .FALSE.
  efdt_min_raylfric            = 7200.
+ icapdcycl                    = 3
  icpl_aero_conv               = 1
  icpl_aero_gscp               = 1
+ icpl_o3_tp                   = 1
 /
 &nwp_tuning_nml
- tune_zceff_min = 0.05  ! ** default value to be used for R3B7; use 0.05 for R2B6 in order to get similar temperature biases in upper troposphere **
- itune_albedo   = 1     ! somewhat reduced albedo (w.r.t. MODIS data) over Sahara in order to reduce cold bias
+itune_albedo                  = 1       ! somewhat reduced albedo (w.r.t. MODIS data) over Sahara in order to reduce cold bias
+tune_zceff_min                = 0.025   ! ** default value to be used for R3B7; use 0.05 for R2B6 in order to get similar temperature biases in upper troposphere **
 /
 &turbdiff_nml
  tkhmin                       = 0.75
  tkmmin                       = 0.75
- pat_len                      = 100.
+ alpha0_max                   = 0.035
+ pat_len                      = 750.
  c_diff                       = 0.2
  rat_sea                      = 8.5
  ltkesso                      = .true.  ! SSO dissipation energy used in TKE equation
- frcsmot = 0.2      ! these 2 switches together apply vertical smoothing of the TKE source terms
- imode_frcsmot = 2  ! in the tropics (only), which reduces the moist bias in the tropical lower troposphere
- ! use horizontal shear production terms with 1/SQRT(Ri) scaling to prevent unwanted side effects:
- itype_sher = 3    
- ltkeshs    = .true.
- a_hshr     = 2.0
+ frcsmot                      = 0.2     ! these 2 switches together apply vertical smoothing of the TKE source terms
+ imode_frcsmot                = 2       ! in the tropics (only), which reduces the moist bias in the tropical lower troposphere
+ itype_sher                   = 3       ! use horizontal shear production terms with 1/SQRT(Ri) scaling to prevent unwanted side effects
+ ltkeshs                      = .true.
+ a_hshr                       = 2.0
+ icldm_tran                   = 2
 /
 &lnd_nml
  ntiles                       = 3
  nlev_snow                    = 3       ! 2 for multi-level snow
- lmulti_snow                  = .TRUE.  ! true: multi-level snow, false:single-level snow
- idiag_snowfrac               = 2
- lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
- lseaice                      = .true.
- llake                        = .false.
- itype_lndtbl                 = 2       ! 2: tuned stomata resistance rsmin
- itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
+ lmulti_snow                  = .false. ! true: multi-level snow, false:single-level snow
  itype_heatcond               = 2       ! 1: fixed heatcond, 2: moisture dependent heatcond
+ idiag_snowfrac               = 20
+ lsnowtile                    = .true. ! true: allow separate snow and snow-free tiles
+ lseaice                      = .true.
+ itype_lndtbl                 = 3       ! 2: tuned stomata resistance rsmin
+ itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
+ llake                        = .true.
  sstice_mode                  = 3
  sst_td_filename              = '${sst_td_filename}'
  ci_td_filename               = '${ci_td_filename}'
 /
 &radiation_nml
- irad_o3                      = 7           ! 6: GME, 7: GEMS
+ irad_o3                      = 7           ! 6: GME, 7: GEMS, 9: MACC
  irad_aero                    = 6
  izenith                      = 4           ! 4: NWP default, 3: no annual cycle
  albedo_type                  = 2           ! 2: Modis albedo
@@ -311,15 +314,15 @@ cat > ${atmo_namelist} << EOF
  ndyn_substeps                = ${ndyn_substeps}
  lhdiff_rcf                   = .true.
  divdamp_fac                  = 0.004
- divdamp_order                = 24
- divdamp_type                 = 32
+ divdamp_order                = 4
+ divdamp_type                 = 3
  l_open_ubc                   = .FALSE.
  igradp_method                = 3
  l_zdiffu_t                   = .TRUE.
  thslp_zdiffu                 = 0.02
  thhgtd_zdiffu                = 125.
  htop_moist_proc              = 22500.
- hbot_qvsubstep               = 19000.
+ hbot_qvsubstep               = 22500.
 /
 &sleve_nml
  min_lay_thckn                = 20.         ! lowest level thickness (between half-levels)
@@ -341,9 +344,8 @@ cat > ${atmo_namelist} << EOF
 &transport_nml
  ctracer_list                 = '12345'
  ivadv_tracer                 = 3,3,3,3,3
- itype_hlimit                 = 3,4,4,4,4
- ihadv_tracer                 = 52,2,2,2,2
- iadv_tke                     = 0
+ itype_hlimit                 = 3,4,4,4,4,0
+ ihadv_tracer                 = 52,2,2,2,2,0
 /
 &diffusion_nml
  hdiff_order                  = 5
