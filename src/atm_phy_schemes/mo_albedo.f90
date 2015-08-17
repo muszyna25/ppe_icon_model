@@ -34,8 +34,9 @@ MODULE mo_albedo
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_loopindices,          ONLY: get_indices_c
+  USE mo_parallel_config,      ONLY: nproma
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_radiation_config,     ONLY: rad_csalbw
+  USE mo_radiation_config,     ONLY: rad_csalbw, direct_albedo
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, ntiles_lnd,  &
     &                                lseaice, llake, isub_water, isub_lake,   &
     &                                isub_seaice
@@ -478,9 +479,8 @@ CONTAINS
       ! as in Ritter-Geleyn's fesft. So far we do not distinguish between  
       ! visible and NIR spectral bands.
       DO jc = i_startidx, i_endidx
-        prm_diag%albvisdir(jc,jb) = MIN(0.999_wp,( 1.0_wp                                         &
-          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))   &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2)
+
+        prm_diag%albvisdir(jc,jb) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),prm_diag%albvisdif(jc,jb))
 
         ! no need to do the computation twice, since albvisdif=albnirdif=albdif
         ! Thus: just copy
@@ -505,10 +505,14 @@ CONTAINS
   !! We distinguish between
   !! - shortwave broadband albedo  (diffuse, 0.3-5.0µm): albdif
   !! - UV visible broadband albedo (diffuse, 0.3-0.7µm): albvisdif
-  !! - near IR broadband albedo    (diffuse, 0.7-5.0µm): albnirdif 
+  !! - near IR broadband albedo    (diffuse, 0.7-5.0µm): albnirdif
+  !! - UV visible broadband albedo (direct , 0.3-0.7µm): albvisdir
+  !! - near IR broadband albedo    (direct , 0.7-5.0µm): albnirdir 
   !!
-  !! albvisdif and albnirdif are exclusively used by the RRTM scheme
+  !! albvisdif/albvisdir and albnirdif/albnirdir are exclusively used by the RRTM scheme
   !!
+  !! Diffuse albedo:
+  !!=================
   !! land points (snow-free): MODIS albedo is used with separate values for visible and 
   !!                          nera-IR spectral bands. No distinction for tiles
   !! land points (snow covered): based on land-class specific tabulated values with
@@ -522,6 +526,11 @@ CONTAINS
   !!                 between visible and near-IR spectral bands.
   !! lake-ice points: based on an empirical formula taken from GME. No distinction yet 
   !!                 between visible and near-IR spectral bands.
+  !!
+  !!
+  !! Direct albedo:
+  !!===============
+  !! missing documentation
   !!
   !! Possible improvements:
   !!=======================
@@ -565,8 +574,11 @@ CONTAINS
     REAL(wp):: zlimsnow_alb            !< upper limit snow albedo depending on snow depth and roughness length
     REAL(wp):: zsnowalb_lu             !< maximum snow albedo specified in landuse table
     REAL(wp):: t_fac                   !< factor for temperature dependency of zminsnow_alb over glaciers
-    REAL(wp):: zsalb_snow              !< snow albedo (predictor)
-    REAL(wp):: zsnow_alb               !< snow albedo (corrector)
+    REAL(wp):: zsnow_alb               !< snow albedo
+
+    ! Auxiliaries for tile-specific calculation of direct beam albedo
+    REAL(wp):: zalbvisdir_t(nproma,ntiles_total+ntiles_water)
+    REAL(wp):: zalbnirdir_t(nproma,ntiles_total+ntiles_water)
 
     INTEGER :: jg                      !< patch ID
     INTEGER :: jb, jc, ic, jt          !< loop indices
@@ -594,15 +606,19 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,snow_frac,t_fac,             &
-!$OMP            zsalb_snow,zsnow_alb,ilu,i_count_lnd,i_count_sea,i_count_flk,    &
-!$OMP            i_count_seaice,zminsnow_alb,zmaxsnow_alb,zlimsnow_alb,zsnowalb_lu) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jt,jc,ic,i_startidx,i_endidx,ist,snow_frac,t_fac,               &
+!$OMP            zsnow_alb,ilu,i_count_lnd,i_count_sea,i_count_flk,                 &
+!$OMP            i_count_seaice,zminsnow_alb,zmaxsnow_alb,zlimsnow_alb,zsnowalb_lu, &
+!$OMP            zalbvisdir_t,zalbnirdir_t) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                 i_startidx, i_endidx, rl_start, rl_end)
 
+
+      zalbvisdir_t(:,:) = 0._wp
+      zalbnirdir_t(:,:) = 0._wp
 
       !------------------------------------------------------------------------------
       ! Calculation of land surface albedo based on MODIS input data
@@ -636,38 +652,46 @@ CONTAINS
             ! maximum snow albedo specified in landuse table
             zsnowalb_lu = ABS(ext_data%atm%snowalb_lcc(ilu))
 
-            IF (ext_data%atm%alb_dif(jc,jb) > csalb_snow_min) THEN
+            IF (ext_data%atm%alb_dif(jc,jb) > csalb_snow_min .AND. ilu == ext_data%atm%i_lc_snow_ice) THEN
               ! temperature-dependent minimum snow albedo over glaciers (i.e. alb_dif = 0.7)
               ! this is needed to prevent unrealistically low albedos over Antarctica
               t_fac = MIN(1._wp,0.1_wp*(tmelt-lnd_prog%t_snow_t(jc,jb,jt)))
               zminsnow_alb = (1._wp-t_fac)*csalb_snow_min + t_fac*ext_data%atm%alb_dif(jc,jb)
             ELSE
               ! otherwise take minimum snow albedo as 60% of the landuse-class specific maximum snow albedo
-              zminsnow_alb = MAX(0.5_wp*csalb_snow_min,MIN(csalb_snow_min,0.6_wp*zsnowalb_lu))
+              zminsnow_alb = MAX(0.4_wp*csalb_snow_min,MIN(csalb_snow_min,0.6_wp*zsnowalb_lu))
             ENDIF
 
             ! maximum snow albedo depending on landuse class if tile approach is used
             ! (without tiles, this would conflict with the snow albedo limit depending on the forest fraction)
             IF (ntiles_lnd > 1) THEN
-              zmaxsnow_alb = MIN(csalb_snow_max,SQRT(zsnowalb_lu))
+              zmaxsnow_alb = MIN(csalb_snow_max,zsnowalb_lu)
+              zlimsnow_alb = MIN(csalb_snow_max,SQRT(zsnowalb_lu))
             ELSE
               zmaxsnow_alb = csalb_snow_max
+              zlimsnow_alb = csalb_snow_max
             ENDIF
+
+            ! Further limitation of maximum snow albedo in case of thin snow cover depending on landuse 
+            ! roughness length and SSO standard deviation; without tiles, it is assumed that non-forest
+            ! vegetation is fully covered by snow if the snow depth exceeds three times the roughness length.
+            ! The snow depth is taken to be at least 5 cm here because the effect of partial snow
+            ! cover is considered below.
             !
+            zmaxsnow_alb = MIN(zmaxsnow_alb, zlimsnow_alb *                                         &
+              MIN(1._wp,SQRT(0.25_wp+0.25_wp*MAX(0.05_wp,lnd_diag%h_snow_t(jc,jb,jt))/              &
+              MAX(MIN(0.5_wp,ext_data%atm%z0_lcc(ilu)),1.e-3_wp*ext_data%atm%sso_stdh_raw(jc,jb)) )))
+
             ! Consider effects of aging on solar snow albedo
             !
-            zsalb_snow = zminsnow_alb + lnd_diag%freshsnow_t(jc,jb,jt)*(zmaxsnow_alb-zminsnow_alb)
+            zsnow_alb = zminsnow_alb + lnd_diag%freshsnow_t(jc,jb,jt)*(zmaxsnow_alb-zminsnow_alb)
 
-            IF (ntiles_lnd > 1) THEN
-              ! Apply land-cover class specific snow albedo limits
-              zsnow_alb = MIN(zsalb_snow, zsnowalb_lu)
-            ELSE
+            IF (ntiles_lnd == 1) THEN
               ! special treatment for forests
-              ! - aging of snow not considered
+              ! - no landuse-class specific limitation of snow albedo
               ! - instead, snow albedo is limited as a function of the forest fraction
-              zsnow_alb = zsalb_snow*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb)) &
-                + csalb_snow_fe * ext_data%atm%for_e(jc,jb)                       &
-                + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
+              zsnow_alb = zsnow_alb*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb))       &
+                + csalb_snow_fe * ext_data%atm%for_e(jc,jb) + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
             ENDIF
 
             ! snow cover fraction
@@ -685,15 +709,67 @@ CONTAINS
             prm_diag%albnirdif_t(jc,jb,jt) = snow_frac * zsnow_alb  &
               &                  + (1._wp - snow_frac)* ext_data%atm%albni_dif(jc,jb)
 
-            ! Limit snow albedo in case of thin snow cover depending on landuse roughness length and
-            ! SSO standard deviation; it is assumed that vegetation is fully covered by snow if the snow depth
-            ! exceeds three times the roughness length
-            zlimsnow_alb = zmaxsnow_alb*MIN(1._wp,SQRT(0.25_wp+0.25_wp*lnd_diag%h_snow_t(jc,jb,jt)/&
-              MAX(ext_data%atm%z0_lcc(ilu),1.e-3_wp*ext_data%atm%sso_stdh_raw(jc,jb)) ))
 
-            prm_diag%albdif_t(jc,jb,jt)    = MIN(zlimsnow_alb,prm_diag%albdif_t(jc,jb,jt))
-            prm_diag%albvisdif_t(jc,jb,jt) = MIN(zlimsnow_alb,prm_diag%albvisdif_t(jc,jb,jt))
-            prm_diag%albnirdif_t(jc,jb,jt) = MIN(zlimsnow_alb,prm_diag%albnirdif_t(jc,jb,jt))
+            ! direct albedo (black sky) (vis and nir)
+            !
+            IF ( direct_albedo == 1 ) THEN ! Ritter-Geleyn
+              zalbvisdir_t(jc,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                &                                        prm_diag%albvisdif_t(jc,jb,jt))
+              zalbnirdir_t(jc,jt) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+                &                                        prm_diag%albnirdif_t(jc,jb,jt)) 
+
+            ELSE IF ( direct_albedo == 2 ) THEN  ! Zaengl
+              zalbvisdir_t(jc,jt) = sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),         &
+                &                                          prm_diag%albvisdif_t(jc,jb,jt), &
+                &                                          ext_data%atm%z0_lcc(ilu),       &
+                &                                          ext_data%atm%sso_stdh_raw(jc,jb))
+
+              zalbnirdir_t(jc,jt) = sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),         &
+                &                                          prm_diag%albnirdif_t(jc,jb,jt), &
+                &                                          ext_data%atm%z0_lcc(ilu),       &
+                &                                          ext_data%atm%sso_stdh_raw(jc,jb))
+
+            ELSE IF ( direct_albedo == 3 ) THEN  ! Yang (2008)
+              zalbvisdir_t(jc,jt) = snow_frac                                                  &
+                &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
+                &                                          zsnow_alb,                          &
+                &                                          ext_data%atm%z0_lcc(ilu),           &
+                &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
+                &                 + (1._wp-snow_frac)                                          &
+                &                 * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
+                &                                       ext_data%atm%albuv_dif(jc,jb))
+
+              zalbnirdir_t(jc,jt) = snow_frac                                                  &
+                &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
+                &                                          zsnow_alb,                          &
+                &                                          ext_data%atm%z0_lcc(ilu),           &
+                &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
+                &                 + (1._wp-snow_frac)                                          &
+                &                 * sfc_albedo_dir_yang(prm_diag%cosmu0(jc,jb),                &
+                &                                       ext_data%atm%albni_dif(jc,jb))
+
+            ELSE IF ( direct_albedo == 4 ) THEN  ! Briegleb (1992)
+              zalbvisdir_t(jc,jt) = snow_frac                                                  &
+                &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
+                &                                          zsnow_alb,                          &
+                &                                          ext_data%atm%z0_lcc(ilu),           &
+                &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
+                &                 + (1._wp-snow_frac)                                          &
+                &                 * sfc_albedo_dir_briegleb(prm_diag%cosmu0(jc,jb),            &
+                &                                       ext_data%atm%albuv_dif(jc,jb),         &
+                &                                       ext_data%atm%z0_lcc(ilu))
+
+              zalbnirdir_t(jc,jt) = snow_frac                                                  &
+                &                 * sfc_albedo_dir_zaengl (prm_diag%cosmu0(jc,jb),             &
+                &                                          zsnow_alb,                          &
+                &                                          ext_data%atm%z0_lcc(ilu),           &
+                &                                          ext_data%atm%sso_stdh_raw(jc,jb))   &
+                &                 + (1._wp-snow_frac)                                          &
+                &                 * sfc_albedo_dir_briegleb(prm_diag%cosmu0(jc,jb),            &
+                &                                       ext_data%atm%albni_dif(jc,jb),         &
+                &                                       ext_data%atm%z0_lcc(ilu))
+            ENDIF
+
 
           ENDDO  ! ic
 
@@ -719,9 +795,16 @@ CONTAINS
 
             ist = 9  ! sea water
 
+            ! diffuse albedo
             prm_diag%albdif_t   (jc,jb,isub_water) = csalb(ist)
             prm_diag%albvisdif_t(jc,jb,isub_water) = csalb(ist)
             prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist)
+
+            ! direct albedo
+            zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+              &                                             prm_diag%albvisdif_t(jc,jb,isub_water))
+            zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb), &
+              &                                             prm_diag%albnirdif_t(jc,jb,isub_water))
           ENDDO
 
 
@@ -743,6 +826,8 @@ CONTAINS
             ! The ice albedo is the lower the warmer, and therefore wetter 
             ! the ice is. Use ice temperature at time level nnew 
             ! (2-time level scheme in sea ice model).
+            !
+            ! diffuse albedo
             prm_diag%albdif_t(jc,jb,isub_seaice) = csalb(ist) * ( 1.0_wp - 0.3846_wp  &
               &                         * EXP(-0.35_wp*(tmelt-wtr_prog%t_ice(jc,jb))))
             ! gives alb_max = 0.70
@@ -753,6 +838,12 @@ CONTAINS
 
             prm_diag%albvisdif_t(jc,jb,isub_seaice) = prm_diag%albdif_t(jc,jb,isub_seaice)
             prm_diag%albnirdif_t(jc,jb,isub_seaice) = prm_diag%albdif_t(jc,jb,isub_seaice)
+
+            ! direct albedo
+            zalbvisdir_t(jc,isub_seaice) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
+              &                                              prm_diag%albvisdif_t(jc,jb,isub_seaice))
+            zalbnirdir_t(jc,isub_seaice) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
+              &                                              prm_diag%albnirdif_t(jc,jb,isub_seaice))
           ENDDO
 
 
@@ -775,9 +866,16 @@ CONTAINS
               ist = 9   ! sea water
             ENDIF
 
+            ! diffuse albedo
             prm_diag%albdif_t   (jc,jb,isub_water) = csalb(ist)
             prm_diag%albvisdif_t(jc,jb,isub_water) = csalb(ist)
             prm_diag%albnirdif_t(jc,jb,isub_water) = csalb(ist)
+
+            ! direct albedo
+            zalbvisdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
+              &                                             prm_diag%albvisdif_t(jc,jb,isub_water))
+            zalbnirdir_t(jc,isub_water) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),                &
+              &                                             prm_diag%albnirdif_t(jc,jb,isub_water))
           ENDDO
 
         ENDIF
@@ -807,6 +905,8 @@ CONTAINS
             !  Use surface temperature at time level "nnew".
 
             ! special handling for ice-covered lake points
+            !
+            ! diffuse albedo 
             IF (wtr_prog%h_ice(jc,jb) > h_Ice_min_flk) THEN 
 
               prm_diag%albdif_t(jc,jb,isub_lake) = albedo_whiteice_ref                      &
@@ -819,7 +919,13 @@ CONTAINS
             ENDIF
 
             prm_diag%albvisdif_t(jc,jb,isub_lake) = prm_diag%albdif_t(jc,jb,isub_lake)
-            prm_diag%albnirdif_t(jc,jb,isub_lake) = prm_diag%albdif_t(jc,jb,isub_lake) 
+            prm_diag%albnirdif_t(jc,jb,isub_lake) = prm_diag%albdif_t(jc,jb,isub_lake)
+
+            ! direct albedo
+            zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
+              &                                            prm_diag%albvisdif_t(jc,jb,isub_lake))
+            zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
+              &                                            prm_diag%albnirdif_t(jc,jb,isub_lake))
           ENDDO
 
 
@@ -842,9 +948,16 @@ CONTAINS
               ist = 9  ! water
             ENDIF
 
+            ! diffuse albedo 
             prm_diag%albdif_t   (jc,jb,isub_lake) = csalb(ist)
             prm_diag%albvisdif_t(jc,jb,isub_lake) = csalb(ist)
             prm_diag%albnirdif_t(jc,jb,isub_lake) = csalb(ist)
+
+            ! direct albedo
+            zalbvisdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
+              &                                            prm_diag%albvisdif_t(jc,jb,isub_lake))
+            zalbnirdir_t(jc,isub_lake) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),              &
+              &                                            prm_diag%albnirdif_t(jc,jb,isub_lake))
           ENDDO
 
 
@@ -873,6 +986,10 @@ CONTAINS
             ! albvisdif, albnirdif only needed for RRTM 
             prm_diag%albvisdif(jc,jb) = prm_diag%albvisdif_t(jc,jb,1)
             prm_diag%albnirdif(jc,jb) = prm_diag%albnirdif_t(jc,jb,1)
+
+            ! albvisdir, albnirdir only needed for RRTM
+            prm_diag%albvisdir(jc,jb) = zalbvisdir_t(jc,1)
+            prm_diag%albnirdir(jc,jb) = zalbnirdir_t(jc,1)
           ENDDO
 
         ELSE ! aggregate fields over tiles
@@ -880,9 +997,12 @@ CONTAINS
           prm_diag%albdif   (i_startidx:i_endidx,jb) = 0._wp
           prm_diag%albvisdif(i_startidx:i_endidx,jb) = 0._wp
           prm_diag%albnirdif(i_startidx:i_endidx,jb) = 0._wp
+          prm_diag%albvisdir(i_startidx:i_endidx,jb) = 0._wp
+          prm_diag%albnirdir(i_startidx:i_endidx,jb) = 0._wp
 
           DO jt = 1, ntiles_total+ntiles_water
             DO jc = i_startidx, i_endidx
+
               prm_diag%albdif(jc,jb) = prm_diag%albdif(jc,jb)         &
                 &                    + prm_diag%albdif_t(jc,jb,jt)    &
                 &                    * ext_data%atm%frac_t(jc,jb,jt)
@@ -895,6 +1015,14 @@ CONTAINS
               prm_diag%albnirdif(jc,jb) = prm_diag%albnirdif(jc,jb)   &
                 &                    + prm_diag%albnirdif_t(jc,jb,jt) &
                 &                    * ext_data%atm%frac_t(jc,jb,jt)
+
+              ! albvisdir, albnirdir only needed for RRTM 
+              prm_diag%albvisdir(jc,jb) = prm_diag%albvisdir(jc,jb)   &
+                &                       + zalbvisdir_t(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
+
+              prm_diag%albnirdir(jc,jb) = prm_diag%albnirdir(jc,jb)   &
+                &                       + zalbnirdir_t(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
+
             ENDDO
           ENDDO
 
@@ -916,67 +1044,167 @@ CONTAINS
           ! albvisdif, albnirdif only needed for RRTM 
           prm_diag%albvisdif(jc,jb) = csalb(ist)
           prm_diag%albnirdif(jc,jb) = csalb(ist)
-          
+
+          ! albvisdir, albnirdir only needed for RRTM 
+          prm_diag%albvisdir(jc,jb) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),  &
+              &                                         prm_diag%albvisdif(jc,jb))
+          prm_diag%albnirdir(jc,jb) = sfc_albedo_dir_rg(prm_diag%cosmu0(jc,jb),  &
+              &                                         prm_diag%albnirdif(jc,jb))
         ENDDO
 
       ENDIF ! inwp_surface=1
-
-
-      ! albvisdir, albnirdir only needed for RRTM 
-      !
-      ! compute black sky albedo from white sky albedo and solar zenith angle formula 
-      ! as in Ritter-Geleyn's fesft.
-      DO jc = i_startidx, i_endidx
-        prm_diag%albvisdir(jc,jb) = MIN(0.999_wp,( 1.0_wp                                         &
-          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))   &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albvisdif(jc,jb) - 1.0_wp)))**2)
-
-        prm_diag%albnirdir(jc,jb) = MIN(0.999_wp,( 1.0_wp                                         &
-          &  + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albnirdif(jc,jb) - 1.0_wp)))   &
-          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/prm_diag%albnirdif(jc,jb) - 1.0_wp)))**2)
-      ENDDO
-
 
     ENDDO  ! jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
 
-!      IF (atm_phy_nwp_config(jg)%lseaice) THEN
-!        DO jc = i_startidx,i_endidx
-!          ! In case the sea ice model is used AND water point AND ice is present,
-!          ! compute ice albedo for water points with an empirical formula taken from GME.
-!          ! The ice albedo is the lower the warmer, and therefore wetter, the ice is.
-!          ! Use ice temperature at time level nnow (2-time level scheme in sea ice model).
-!!          IF ((.NOT. llandmask(i,j)) .AND. (h_ice(i,j,nnow) > 0.0_ireals))               &
-!!            zalso(i,j) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
-!!            * csalb(10)
-!          IF (( .NOT. ext_data%atm%llsm_atm_c(jc,jb)) .AND. &
-!            & (prm_diag%h_ice(i,j,nnow) > 0.0_wp))          &
-!            prm_diag%albdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
-!            * csalb(10)
-!        ENDDO
-!      ENDIF
-
-      !lake model not yet implemented
-!      IF (atm_phy_nwp_config(jg)%llake) THEN
-!        DO jc = i_startidx,i_endidx
-!          IF((ext_data%atm%depth_lk(jc,jb)      >  0.0_wp) .AND.    &
-!            (prm_diag%h_ice(jc,jb) >= h_Ice_min_flk) ) THEN
-!            !  In case the lake model FLake is used AND lake point AND ice is present,
-!            !  compute ice albedo for lake points with an empirical formulation 
-!            !  proposed by Mironov and Ritter (2004) for use in GME 
-!            !  [ice_albedo=function(ice_surface_temperature)].
-!            !  Use surface temperature at time level "nnow".
-!
-!            prm_diag%albdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
-!            prm_diag%albdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
-!              albedo_blueice_ref  * prm_diag%albdif(jc,jb)
-!          ENDIF
-!        ENDDO
-!      ENDIF
-
   END SUBROUTINE sfc_albedo_modis
+
+
+
+
+  !>
+  !! Surface albedo for direct beam
+  !!
+  !! Surface albedo for direct beam, according to Ritter-Geleyn 
+  !! radiation scheme.
+  !!
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-06-22)
+  !!
+  FUNCTION sfc_albedo_dir_rg (cosmu0, alb_dif)  RESULT (alb_dir)
+    !
+    REAL(wp), INTENT(IN) :: cosmu0           !< cosine of solar zenith angle (SZA)
+
+    REAL(wp), INTENT(IN) :: alb_dif          !< diffuse albedo (NIR or VIS or broadband)
+
+    REAL(wp) :: alb_dir
+  !------------------------------------------------------------------------------
+
+     alb_dir = MIN(0.999_wp,( 1.0_wp                             &
+       &     +  0.5_wp * (cosmu0 * (1.0_wp/alb_dif - 1.0_wp)))   &
+       &     / (1.0_wp + (cosmu0 * (1.0_wp/alb_dif - 1.0_wp)))**2)
+
+  END FUNCTION sfc_albedo_dir_rg
+
+
+  !>
+  !! Surface albedo (SA) for direct beam over land after Zaengl
+  !!
+  !! Surface albedo (SA) for direct beam over land after Zaengl.
+  !! Builds upon the parameterization used in the 
+  !! Ritter-Geleyn radiation scheme. However, the direct beam albedo 
+  !! is limited to diffuse albedo for landuse classes with "rough" vegetation
+  !! and in mountainous regions. Surfaces are regarded as 'rough', 
+  !! if z0>= 15 cm or SSO standard deviation >= 150 m. 
+  !!
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-06-22)
+  !!
+  FUNCTION sfc_albedo_dir_zaengl (cosmu0, alb_dif, z0, sso_stdh)  RESULT (alb_dir)
+    !
+    REAL(wp), INTENT(IN) :: cosmu0           !< cosine of solar zenith angle (SZA)
+
+    REAL(wp), INTENT(IN) :: alb_dif          !< diffuse albedo (NIR or VIS or broadband)
+
+    REAL(wp), INTENT(IN) :: z0               !< surface roughness length
+
+    REAL(wp), INTENT(IN) :: sso_stdh         !< Standard deviation of sub-grid scale orography
+
+    REAL(wp) :: alb_dir
+
+    REAL(wp) :: zalb_dir                     !< unlimited direct albedo
+    REAL(wp) :: zalbdirlim                   !< limit, which the computed albedo must not exceed
+    REAL(wp) :: zalbdirfac                   !< factor for limit computation
+
+  !------------------------------------------------------------------------------
+
+    ! unlimited direct beam albedo according to Ritter-Geleyn's formulation
+    zalb_dir = sfc_albedo_dir_rg(cosmu0, alb_dif)
+
+
+    ! Full limitation is applied for a roughness length >= 15 cm or an SSO standard deviation >= 150 m
+    zalbdirfac = MAX(0.01_wp*(sso_stdh - 50._wp), 10._wp *(z0 - 0.05_wp) )
+    zalbdirfac = MIN(1._wp, MAX(0._wp, zalbdirfac))
+
+    zalbdirlim = zalbdirfac*alb_dif + (1._wp-zalbdirfac)*zalb_dir
+    alb_dir     = MIN(zalb_dir, zalbdirlim)
+
+  END FUNCTION sfc_albedo_dir_zaengl
+
+
+
+  !>
+  !! Surface albedo for direct beam
+  !!
+  !! Surface albedo for direct beam, according to Yang (2008).
+  !!
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-06-22)
+  !!
+  !! @par Literature
+  !! - Yang, F. et al. (2008), Dependence of Land Surface Albedo on Solar Zenith Angle:
+  !!   Observations and Model Parameterization. J. App. Meteorology and Climatology, 47, 
+  !!   2963-2982
+  !!
+  FUNCTION sfc_albedo_dir_yang (cosmu0, alb_dif)  RESULT (alb_dir)
+    !
+    REAL(wp), INTENT(IN) :: cosmu0           !< cosine of solar zenith angle (SZA)
+
+    REAL(wp), INTENT(IN) :: alb_dif          !< diffuse albedo (NIR or VIS or broadband)
+
+    REAL(wp) :: alb_dir
+  !------------------------------------------------------------------------------
+
+     alb_dir = MIN(0.999_wp, alb_dif*( 1.0_wp + 1.14_wp)/(1._wp + 1.48*cosmu0) )
+
+  END FUNCTION sfc_albedo_dir_yang
+
+
+  !>
+  !! Surface albedo for direct beam
+  !!
+  !! Surface albedo for direct beam, according to Briegleb (1992).
+  !!
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-06-22)
+  !!
+  !! @par Literature
+  !! - Yang, F. et al. (2008), Dependence of Land Surface Albedo on Solar Zenith Angle:
+  !!   Observations and Model Parameterization. J. App. Meteorology and Climatology, 47, 
+  !!   2963-2982
+  !! - Briegleb, B. and V. Ramanathan (1982), Spectral and Diurnal Variations in Clear Sky 
+  !!   Planetary Albedo, J. App. Met., 21, 1160-1171
+  !! - Briegleb, B. (1992), Delta-Eddington approximation for solar radiation 
+  !!   in the NCAR Community Climate Model. J. Geophys. Res., 97, 7603-7612
+  !!
+  FUNCTION sfc_albedo_dir_briegleb (cosmu0, alb_dif, z0)  RESULT (alb_dir)
+    !
+    REAL(wp), INTENT(IN) :: cosmu0           !< cosine of solar zenith angle (SZA)
+
+    REAL(wp), INTENT(IN) :: alb_dif          !< diffuse albedo (NIR or VIS or broadband)
+
+    REAL(wp), INTENT(IN) :: z0               !< roughness length
+
+    REAL(wp) :: d                !< tuning constant
+                                 ! 0.4 (0.1) for vegetation classes where the albedo 
+                                 ! has a strong (weak) dependence on solar zenith angle.
+                                 ! weak dependence is assumed for 'rough' surfaces
+                                 ! Therefore we use 0.4, if z0<=0.15 and 0.1 otherwise
+
+    REAL(wp) :: alb_dir
+  !------------------------------------------------------------------------------
+
+     d       = MERGE(0.4_wp,0.1_wp,z0<=0.15_wp)
+     alb_dir = MIN(0.999_wp, alb_dif*( 1.0_wp + d)/(1._wp + 2._wp*d*cosmu0) )
+
+  END FUNCTION sfc_albedo_dir_briegleb
+
 
 END MODULE mo_albedo
 

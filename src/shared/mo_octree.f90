@@ -36,24 +36,26 @@ MODULE mo_octree
   INTEGER, PARAMETER :: OCTREE_SIZE  = (8**OCTREE_DEPTH - 1)/7  !< no. of boxes in octree
 
   TYPE t_range_octree
-    INTEGER,  ALLOCATABLE :: object_idx(:)                              !< 1D list of objects inserted into the octree
-    REAL(wp), ALLOCATABLE :: obj_min(:,:), obj_max(:,:)                 !< bounding boxes for inserted objects
-    INTEGER,  ALLOCATABLE :: box(:,:)                                   !< pairs (box,startindex) for accessing object_idx
-    REAL(wp)              :: brange0(2,3)                               !< box range (min/max, dim=1,2,3)
-    REAL(wp)              :: delta                                      !< resolution of this octree (smallest box length)
+    INTEGER,  ALLOCATABLE :: object_idx(:)                      !< 1D list of objects inserted into the octree
+    INTEGER,  ALLOCATABLE :: object_data(:)                     !< 1D list of object data
+    REAL(wp), ALLOCATABLE :: obj_min(:,:), obj_max(:,:)         !< bounding boxes for inserted objects
+    INTEGER,  ALLOCATABLE :: box(:,:)                           !< pairs (box,startindex) for accessing object_idx
+    REAL(wp)              :: brange0(2,3)                       !< box range (min/max, dim=1,2,3)
+    REAL(wp)              :: delta                              !< resolution of this octree (smallest box length)
   END TYPE t_range_octree
 
 CONTAINS
 
   !> Initialize data structure.
   !
-  SUBROUTINE octree_init(octree, brange, pmin, pmax)
+  SUBROUTINE octree_init(octree, brange, pmin, pmax, opt_index)
     TYPE (t_range_octree),   INTENT(INOUT) :: octree               !< octree data structure
     REAL(wp),                INTENT(IN)    :: brange(2,3)          !< box range (min/max, dim=1,2,3)
     REAL(wp),                INTENT(IN)    :: pmin(:,:), pmax(:,:) !< dim=(1,...,nobjects, x/y/z)  : range (corners)
+    INTEGER, OPTIONAL,       INTENT(IN)    :: opt_index(:)         !< optional index array
     octree%brange0(:,:) = brange
     octree%delta        = MINVAL(brange(2,:) - brange(1,:))/(2._wp**(OCTREE_DEPTH-1))
-    CALL octree_insert(octree, pmin, pmax)
+    CALL octree_insert(octree, pmin, pmax, opt_index)
   END SUBROUTINE octree_init
 
 
@@ -65,16 +67,18 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::octree_finalize'
     INTEGER :: ierrstat
     
-    DEALLOCATE(octree%object_idx, octree%obj_min, octree%obj_max, octree%box, STAT=ierrstat)
+    DEALLOCATE(octree%object_idx, octree%object_data, octree%obj_min, &
+      &        octree%obj_max, octree%box, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed')
   END SUBROUTINE octree_finalize
     
 
   !> Insert a list of objects into the octree.
   !
-  SUBROUTINE octree_insert(octree, pmin, pmax)
+  SUBROUTINE octree_insert(octree, pmin, pmax, opt_index)
     TYPE (t_range_octree),   INTENT(INOUT) :: octree               !< octree data structure
     REAL(wp),                INTENT(IN)    :: pmin(:,:), pmax(:,:) !< dim=(1,...,nobjects, x/y/z)  : range (corners)
+    INTEGER, OPTIONAL,       INTENT(IN)    :: opt_index(:)         !< optional index array
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::octree_insert'
     INTEGER :: nobjects, nboxes, i, ierrstat
@@ -89,13 +93,22 @@ CONTAINS
       CALL finish(routine, "Internal error!")
     END IF
     ! allocate working arrays:    
-    ALLOCATE(box(nobjects), octree%object_idx(nobjects), &
+    ALLOCATE(box(nobjects), octree%object_idx(nobjects), octree%object_data(nobjects), &
       &      octree%obj_min(nobjects,3),octree%obj_max(nobjects,3),STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed')
     DO i=1,nobjects
       box(i)               = octree_query_range(octree, pmin(i,:), pmax(i,:))
       octree%object_idx(i) = i
     END DO
+    IF (PRESENT(opt_index)) THEN
+      DO i=1,nobjects
+        octree%object_data(i) = opt_index(i)
+      END DO
+    ELSE
+      DO i=1,nobjects
+        octree%object_data(i) = i
+      END DO
+    END IF
     octree%obj_min(1:nobjects,:) = pmin(1:nobjects,:)
     octree%obj_max(1:nobjects,:) = pmax(1:nobjects,:)
     CALL quicksort(box, permutation=octree%object_idx)
@@ -261,7 +274,7 @@ CONTAINS
             &  (p(2) >= pmin(2)) .AND. (p(2) <= pmax(2))  .AND. &
             &  (p(3) >= pmin(3)) .AND. (p(3) <= pmax(3)))) THEN
             nobjects = nobjects + 1 
-            obj_list(nobjects) = octree%object_idx(i)
+            obj_list(nobjects) = octree%object_data(octree%object_idx(i))
           END IF
         END DO
       END IF
