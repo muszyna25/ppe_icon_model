@@ -560,7 +560,7 @@ CONTAINS
     ENDIF
 
     IF (lart) THEN
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
 
       CALL art_reaction_interface(ext_data,                    & !> in
                 &          pt_patch,                           & !> in
