@@ -321,7 +321,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull'
+                    'zg','pfull','ps'
 /
 EOF
 fi
@@ -342,7 +342,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${output_interval_2d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'      , 'psl'     ,
+ ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
                     'cosmu0'  , 'daylght_frc', 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
@@ -399,7 +399,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va_cnv'  ,
                     'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
                     'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,
-                    'pfull'
+                    'pfull','ps'
 /
 EOF
 fi
@@ -423,7 +423,7 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  ml_varlist       = 'aer_aod_533',  'aer_ssa_533',  'aer_asy_533' , 
                     'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325', 
                     'aer_aod_9731',
-                    'pfull'
+                    'pfull','ps'
 /
 EOF
 fi
