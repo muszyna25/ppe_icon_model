@@ -72,7 +72,6 @@ MODULE mo_initicon
                                     read_dwdfg_atm_ii
   USE mo_util_string,         ONLY: one_of, int2string
   USE mo_checksum,            ONLY: printChecksum
-  USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_phyparam_soil,       ONLY: cporv, cadp
 
   IMPLICIT NONE
@@ -335,8 +334,13 @@ MODULE mo_initicon
 
   !> output checksums of all possible input fields
   !!
-  !! XXX: This FUNCTION should have been written using a few preprocessor macros taking little more than the NAME of the respective variable.
-  !!      Alas, such macros would have generated code violating the fortran line limit, so we are stuck with the expanded version.
+  !! XXX: This FUNCTION should have been written using a few
+  !! preprocessor macros taking little more than the NAME of the
+  !! respective variable.
+  !!
+  !!      Alas, such macros would have generated code violating the
+  !!      fortran line limit, so we are stuck with the expanded
+  !!      version.
   SUBROUTINE printChecksums(p_nh_state, p_lnd_state)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
@@ -858,7 +862,11 @@ MODULE mo_initicon
                     & CALL printChecksum(TRIM(prefix)//"rho_snow_mult_t: ", p_lnd_state(jg)%prog_lnd(i)%rho_snow_mult_t)
                     IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%dzh_snow_t)) CALL printChecksum(TRIM(prefix)//"dzh_snow_t: ", &
                     & p_lnd_state(jg)%prog_lnd(i)%dzh_snow_t)
-                    !Can't checksum the t_ptr_2d3d fields because they generally have ONLY one of the two pointers initialized. Thus, checking the association status of the pointers would RESULT IN undefined behavior.
+                    !Can't checksum the t_ptr_2d3d fields because they
+                    !generally have ONLY one of the two pointers
+                    !initialized. Thus, checking the association
+                    !status of the pointers would RESULT IN undefined
+                    !behavior.
                 END DO
             END IF
             IF(ALLOCATED(p_lnd_state(jg)%prog_wtr)) THEN
@@ -958,7 +966,10 @@ MODULE mo_initicon
             & p_lnd_state(jg)%diag_lnd%wtot_snow)
             IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%dzh_snow)) CALL printChecksum(TRIM(prefix)//"dzh_snow: ", &
             & p_lnd_state(jg)%diag_lnd%dzh_snow)
-            !Can't checksum the t_ptr_2d3d fields because they generally have ONLY one of the two pointers initialized. Thus, checking the association status of the pointers would RESULT IN undefined behavior.
+            !Can't checksum the t_ptr_2d3d fields because they
+            !generally have ONLY one of the two pointers
+            !initialized. Thus, checking the association status of the
+            !pointers would RESULT IN undefined behavior.
         END IF
     END DO
   END SUBROUTINE printChecksums

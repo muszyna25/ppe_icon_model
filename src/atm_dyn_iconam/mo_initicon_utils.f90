@@ -1942,7 +1942,9 @@ MODULE mo_initicon_utils
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !! Refactoring to make this work more like a REAL constructor by Nathanael Hübbe, DWD(2015-08-04)
   !!
-  !! This initalizes all ALLOCATED memory to avoid nondeterministic checksums when ONLY a part of a field IS READ from file due to nonfull blocks.
+  !! This initalizes all ALLOCATED memory to avoid nondeterministic
+  !! checksums when ONLY a part of a field IS READ from file due to
+  !! nonfull blocks.
   SUBROUTINE construct_initicon(initicon, p_patch, topography_c, metrics)
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon
     TYPE(t_patch), INTENT(IN) :: p_patch
@@ -1950,7 +1952,7 @@ MODULE mo_initicon_utils
     TYPE(t_nh_metrics), INTENT(IN) :: metrics
 
     ! Local variables: loop control and dimensions
-    INTEGER :: nlev, nlevp1, nblks_c, nblks_e, mpi_comm
+    INTEGER :: nlev, nlevp1, nblks_c, nblks_e
 
     nlev = p_patch%nlev
     nlevp1 = nlev + 1
@@ -2202,7 +2204,9 @@ MODULE mo_initicon_utils
   !! SUBROUTINE allocate_extana_atm
   !! Allocates fields for reading in external analysis data
   !!
-  !! This initalizes all ALLOCATED memory to avoid nondeterministic checksums when ONLY a part of a field IS READ from file due to nonfull blocks.
+  !! This initalizes all ALLOCATED memory to avoid nondeterministic
+  !! checksums when ONLY a part of a field IS READ from file due to
+  !! nonfull blocks.
   SUBROUTINE allocate_extana_atm (jg, nblks_c, nblks_e, initicon)
     INTEGER,                INTENT(IN)    :: jg, nblks_c, nblks_e
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)

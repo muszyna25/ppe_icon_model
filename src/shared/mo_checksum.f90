@@ -149,7 +149,7 @@ CONTAINS
 
         INTEGER :: i, communicator, processCount, error
         LOGICAL :: printDetails
-        INTEGER(KIND = C_INT64_T) :: hash, pseudoRandomBits
+        INTEGER(KIND = C_INT64_T) :: hash
         INTEGER(KIND = C_INT64_T), ALLOCATABLE :: processChecksums(:)
         INTEGER(KIND = C_INT64_T), PARAMETER :: prime1 = 2131876679, prime2 = 1665879031    !just two random primes IN the range
                                                                                             ![2**30, 2**31]
