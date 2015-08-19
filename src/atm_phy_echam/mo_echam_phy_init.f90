@@ -129,6 +129,8 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
     CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
 
+    REAL(wp), ALLOCATABLE :: zfrl(:,:), zfrw(:,:), zfri(:,:), zfrc(:,:,:)
+    INTEGER :: jsfc
 
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
@@ -242,197 +244,239 @@ CONTAINS
 
     ndomain = SIZE(p_patch)
 
-    ! general
-    !--------------------------------------------------------------
-    !< characteristic gridlength needed by sso and sometimes by
-    !! convection and turbulence
-    !--------------------------------------------------------------
-
     IF ( ndomain /= 1 ) THEN
-       CALL finish('','ndomain /=1 is not supported yet')
+      CALL finish('','ndomain /=1 is not supported yet')
     END IF
 
-    IF ( TRIM(nh_test_name) .NE. "APEc_nh" .AND. &
-      &  TRIM(nh_test_name) .NE. "APEc" ) THEN
+    DO jg= 1,ndomain
 
-      DO jg= 1,ndomain
+      IF (ilnd <= nsfc_type) THEN
 
-         ! read time-constant boundary conditions from files
-      
-         ! land, glacier and lake masks
-         stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
-         CALL read_2D(stream_id=stream_id, location=onCells, &
-              &          variable_name='land',               &
-              &          fill_array=prm_field(jg)%lsmask(:,:))
-         CALL read_2D(stream_id=stream_id, location=onCells, &
-              &          variable_name='glac',               &
-              &          fill_array=prm_field(jg)% glac(:,:))
-         CALL read_2D(stream_id=stream_id, location=onCells, &
-              &          variable_name='lake',               &
-              &          fill_array=prm_field(jg)% alake(:,:))
-         CALL closeFile(stream_id)
-         !
-         ! add lake mask to land sea mask to remove lakes again
-         prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
+        ! read time-constant boundary conditions from files
 
-         ! roughness length and background albedo
-         stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
-
-         IF (phy_config%lvdiff) THEN
-            CALL read_2D(stream_id=stream_id, location=onCells, &
-                 &       variable_name='z0',                    &
-                 &       fill_array=prm_field(jg)% z0m(:,:))
-         END IF
-
-         IF (phy_config%lrad) THEN
-            CALL read_2D(stream_id=stream_id, location=onCells, &
-                 &       variable_name='albedo',                &
-                 &       fill_array=prm_field(jg)% alb(:,:))
-         END IF
-
-         CALL closeFile(stream_id)
-         
-         ! orography
-         IF (phy_config%lssodrag) THEN
-            stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
-            CALL read_2D(stream_id=stream_id, location=onCells, &
-                 &       variable_name='oromea',                &
-                 &       fill_array=prm_field(jg)% oromea(:,:))
-            CALL read_2D(stream_id=stream_id, location=onCells, &
-               &         variable_name='orostd',                &
-               &         fill_array=prm_field(jg)% orostd(:,:))
-            CALL read_2D(stream_id=stream_id, location=onCells, &
-               &         variable_name='orosig',                &
-               &         fill_array=prm_field(jg)% orosig(:,:))
-            CALL read_2D(stream_id=stream_id, location=onCells, &
-               &         variable_name='orogam',                &
-               &         fill_array=prm_field(jg)% orogam(:,:))
-            CALL read_2D(stream_id=stream_id, location=onCells, &
-               &         variable_name='orothe',                &
-               &         fill_array=prm_field(jg)% orothe(:,:))
-            CALL read_2D(stream_id=stream_id, location=onCells, &
-               &         variable_name='oropic',                &
-               &         fill_array=prm_field(jg)% oropic(:,:))
-            CALL read_2D(stream_id=stream_id, location=onCells, &
-               &         variable_name='oroval',                &
-               &         fill_array=prm_field(jg)% oroval(:,:))
-            CALL closeFile(stream_id)
-         END IF
-
-      END DO ! jg
-
-      ! read time-dependent boundary conditions from file
-
-      ! well mixed greenhouse gases, horizontally constant
-      IF (ighg > 0) THEN
-        ! read annual means
-        IF (.NOT. bc_greenhouse_gases_file_read) THEN
-           CALL read_bc_greenhouse_gases(ighg)
-        END IF
-        ! interpolate to the current date and time, placing the annual means at
-        ! the mid points of the current and preceding or following year, if the
-        ! current date is in the 1st or 2nd half of the year, respectively.
-        CALL bc_greenhouse_gases_time_interpolation(current_date)
-      ENDIF
-
-      ! interpolation weights for linear interpolation
-      ! of monthly means onto the actual integration time step
-      CALL time_weights_limm(current_date, wi_limm)
-
-      ! sea surface temperature, sea ice concentration and depth
-      IF (.NOT. ctest_name(1:3) == 'TPE') THEN
-        DO jg= 1,ndomain
-          !
-          CALL read_bc_sst_sic(current_date%year, p_patch(1))
-          !
-          CALL bc_sst_sic_time_interpolation(wi_limm                           ,&
-            &                                prm_field(jg)%lsmask(:,:)         ,&
-            &                                prm_field(jg)%tsfc_tile(:,:,iwtr) ,&
-            &                                prm_field(jg)%seaice(:,:)         ,&
-            &                                prm_field(jg)%siced(:,:)          )
+        ! land, glacier and lake masks
+        stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
+        CALL read_2D(stream_id=stream_id, location=onCells, &
+             &          variable_name='land',               &
+             &          fill_array=prm_field(jg)%lsmask(:,:))
+        CALL read_2D(stream_id=stream_id, location=onCells, &
+             &          variable_name='glac',               &
+             &          fill_array=prm_field(jg)% glac(:,:))
+        CALL read_2D(stream_id=stream_id, location=onCells, &
+             &          variable_name='lake',               &
+             &          fill_array=prm_field(jg)% alake(:,:))
+        CALL closeFile(stream_id)
         !
-! TODO: ME preliminary setting for ice and land and total surface
-          prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsfc_tile(:,:,iwtr)
-          prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsfc_tile(:,:,iwtr)
-          prm_field(jg)%tsfc     (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
-          !
-          prm_field(jg)%tsfc_rad (:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
-          prm_field(jg)%tsfc_radt(:,:)      = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        ! add lake mask to land sea mask to remove lakes again
+        prm_field(jg)%lsmask(:,:) = prm_field(jg)%lsmask(:,:) + prm_field(jg)%alake(:,:)
 
-          prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
-          prm_field(jg)% albnirdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for direct radiation 
-          prm_field(jg)% albvisdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for diffuse radiation
-          prm_field(jg)% albnirdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for diffuse radiation
-          prm_field(jg)% albvisdir_tile(:,:,iwtr) = albedoW ! albedo in the visible range for direct radiation
-          prm_field(jg)% albnirdir_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for direct radiation 
-          prm_field(jg)% albvisdif_tile(:,:,iwtr) = albedoW ! albedo in the visible range for diffuse radiation
-          prm_field(jg)% albnirdif_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for diffuse radiation
-          prm_field(jg)% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
-          prm_field(jg)% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation 
-          prm_field(jg)% albvisdif_tile(:,:,iice) = albi    ! albedo in the visible range for diffuse radiation
-          prm_field(jg)% albnirdif_tile(:,:,iice) = albi    ! albedo in the NIR range for diffuse radiation
+        ! roughness length and background albedo
+        stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
 
-          prm_field(jg)%albvisdir(:,:) = albedoW
-          prm_field(jg)%albvisdif(:,:) = albedoW
-          prm_field(jg)%albnirdir(:,:) = albedoW
-          prm_field(jg)%albnirdif(:,:) = albedoW
-          prm_field(jg)%albedo(:,:)    = albedoW
+        IF (phy_config%lvdiff) THEN
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+                &       variable_name='z0',                    &
+                &       fill_array=prm_field(jg)% z0m(:,:))
+        END IF
 
-          !
-! TODO: ME preliminary setting for ice
-          ! The ice model should be able to handle different thickness classes, 
-          ! but for AMIP we ONLY USE one ice class.
-          prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
-          prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
-          prm_field(jg)% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
-          prm_field(jg)% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
-          prm_field(jg)% Tsurf(:,:,:) = Tf
-          prm_field(jg)% T1   (:,:,:) = Tf
-          prm_field(jg)% T2   (:,:,:) = Tf
-          prm_field(jg)% hs   (:,:,:) = 0._wp
-          prm_field(jg)% hi   (:,1,:) = prm_field(jg)%siced(:,:)
-          prm_field(jg)% conc (:,1,:) = prm_field(jg)%seaice(:,:)
+        CALL read_2D(stream_id=stream_id, location=onCells, &
+             &       variable_name='albedo',                &
+             &       fill_array=prm_field(jg)% alb(:,:))
 
-        END DO ! jg
+        CALL closeFile(stream_id)
+
+        ! orography
+        IF (phy_config%lssodrag) THEN
+          stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+               &       variable_name='oromea',                &
+               &       fill_array=prm_field(jg)% oromea(:,:))
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+             &         variable_name='orostd',                &
+             &         fill_array=prm_field(jg)% orostd(:,:))
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+             &         variable_name='orosig',                &
+             &         fill_array=prm_field(jg)% orosig(:,:))
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+             &         variable_name='orogam',                &
+             &         fill_array=prm_field(jg)% orogam(:,:))
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+             &         variable_name='orothe',                &
+             &         fill_array=prm_field(jg)% orothe(:,:))
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+             &         variable_name='oropic',                &
+             &         fill_array=prm_field(jg)% oropic(:,:))
+          CALL read_2D(stream_id=stream_id, location=onCells, &
+             &         variable_name='oroval',                &
+             &         fill_array=prm_field(jg)% oroval(:,:))
+          CALL closeFile(stream_id)
+        END IF
 
       ELSE
 
-        DO jg=1,ndomain
-          prm_field(jg)%tsfc_tile(:,:,ilnd) = tpe_temp
-          prm_field(jg)%tsfc     (:,:)      = tpe_temp
-          !
-          prm_field(jg)%tsfc_rad (:,:)      = tpe_temp
-          prm_field(jg)%tsfc_radt(:,:)      = tpe_temp
-
-          prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
-          prm_field(jg)% albnirdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for direct radiation 
-          prm_field(jg)% albvisdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for diffuse radiation
-          prm_field(jg)% albnirdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for diffuse radiation
-          prm_field(jg)%albvisdir(:,:) = prm_field(jg)%alb(:,:)
-          prm_field(jg)%albvisdif(:,:) = prm_field(jg)%alb(:,:)
-          prm_field(jg)%albnirdir(:,:) = prm_field(jg)%alb(:,:)
-          prm_field(jg)%albnirdif(:,:) = prm_field(jg)%alb(:,:)
-          prm_field(jg)%albedo(:,:)    = prm_field(jg)%alb(:,:)
-        END DO
+        prm_field(jg)%lsmask(:,:) = 0._wp
+        prm_field(jg)%glac  (:,:) = 0._wp
+        prm_field(jg)%alake (:,:) = 0._wp
 
       END IF
 
+    END DO ! jg
+
+    ! read time-dependent boundary conditions from file
+
+    ! well mixed greenhouse gases, horizontally constant
+    IF (ighg > 0) THEN
+      ! read annual means
+      IF (.NOT. bc_greenhouse_gases_file_read) THEN
+        CALL read_bc_greenhouse_gases(ighg)
+      END IF
+      ! interpolate to the current date and time, placing the annual means at
+      ! the mid points of the current and preceding or following year, if the
+      ! current date is in the 1st or 2nd half of the year, respectively.
+      CALL bc_greenhouse_gases_time_interpolation(current_date)
+    ENDIF
+
+    ! interpolation weights for linear interpolation
+    ! of monthly means onto the actual integration time step
+    CALL time_weights_limm(current_date, wi_limm)
+
+!    IF (.NOT. ctest_name(1:3) == 'TPE') THEN
+
+    IF (iice <= nsfc_type .AND. iwtr > nsfc_type) THEN
+      CALL finish('','ice tile and no wtr tile not supported yet!')
+    END IF
+    IF (iice > nsfc_type .AND. iwtr > nsfc_type .AND. ctest_name(1:3) /= 'TPE') THEN
+      CALL finish('','only lnd tile present: must use TPE* testcase!')
+    END IF
+
+    DO jg= 1,ndomain
+
+      IF (iwtr <= nsfc_type) THEN
+        !
+        ! sea surface temperature, sea ice concentration and depth
+        CALL read_bc_sst_sic(current_date%year, p_patch(1))
+        !
+        CALL bc_sst_sic_time_interpolation(wi_limm                        , &
+          &                             prm_field(jg)%lsmask(:,:)         , &
+          &                             prm_field(jg)%tsfc_tile(:,:,iwtr) , &
+          &                             prm_field(jg)%seaice(:,:)         , &
+          &                             prm_field(jg)%siced(:,:)          )
+
+      ELSE
+
+        prm_field(jg)%seaice(:,:) = 0._wp
+
+      END IF
+
+    END DO
+
+    ! Initialize some variables
+
+    DO jg= 1,ndomain
+
+    ! Settings for water, ice and land tiles
+
+      IF (iwtr <= nsfc_type) THEN
+        prm_field(jg)% albvisdir_tile(:,:,iwtr) = albedoW ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_tile(:,:,iwtr) = albedoW ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albedo_tile   (:,:,iwtr) = albedoW
+      END IF
+
+      IF (ilnd <= nsfc_type) THEN
+
+        IF (iwtr <= nsfc_type) THEN
+          prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        ELSE
+          prm_field(jg)%tsfc_tile(:,:,ilnd) = tpe_temp
+        END IF
+
+        prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albedo_tile   (:,:,ilnd) = prm_field(jg)%alb(:,:)
+
+      END IF
+
+      IF (iice <= nsfc_type) THEN
+
+        prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        !
+        prm_field(jg)% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_tile(:,:,iice) = albi    ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,iice) = albi    ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albedo_tile   (:,:,iice) = albi
+        !
+        ! The ice model should be able to handle different thickness classes, 
+        ! but for AMIP we ONLY USE one ice class.
+        prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
+        prm_field(jg)% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% Tsurf(:,:,:) = Tf
+        prm_field(jg)% T1   (:,:,:) = Tf
+        prm_field(jg)% T2   (:,:,:) = Tf
+        prm_field(jg)% hs   (:,:,:) = 0._wp
+        prm_field(jg)% hi   (:,1,:) = prm_field(jg)%siced(:,:)
+        prm_field(jg)% conc (:,1,:) = prm_field(jg)%seaice(:,:)
+
+      END IF
+
+      ! Settings for total surface
+
+      ! Compute tile fractions
+      ALLOCATE(zfrl(SIZE(prm_field(jg)%lsmask,1),SIZE(prm_field(jg)%lsmask,2)))
+      ALLOCATE(zfrw(SIZE(zfrl,1),SIZE(zfrl,2)))
+      ALLOCATE(zfri(SIZE(zfrl,1),SIZE(zfrl,2)))
+      ALLOCATE(zfrc(SIZE(zfrl,1),SIZE(zfrl,2),nsfc_type))
+
+      zfrl(:,:) = prm_field(jg)%lsmask(:,:)
+      zfrw(:,:) = (1._wp - zfrl(:,:)) * (1._wp - prm_field(jg)%seaice(:,:))
+      zfri(:,:) = 1._wp-zfrl(:,:)-zfrw(:,:)
+
+      IF (ilnd.LE.nsfc_type) zfrc(:,:,ilnd) = zfrl(:,:)
+      IF (iwtr.LE.nsfc_type) zfrc(:,:,iwtr) = zfrw(:,:)
+      IF (iice.LE.nsfc_type) zfrc(:,:,iice) = zfri(:,:)
+
+      prm_field(jg)%tsfc (:,:) = 0._wp
+      prm_field(jg)%albvisdir(:,:) = 0._wp
+      prm_field(jg)%albvisdif(:,:) = 0._wp
+      prm_field(jg)%albnirdir(:,:) = 0._wp
+      prm_field(jg)%albnirdif(:,:) = 0._wp
+      DO jsfc=1,nsfc_type
+        prm_field(jg)%tsfc     (:,:) = prm_field(jg)%tsfc     (:,:) + zfrc(:,:,jsfc) * prm_field(jg)%tsfc_tile     (:,:,jsfc)
+        prm_field(jg)%albvisdir(:,:) = prm_field(jg)%albvisdir(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albvisdir_tile(:,:,jsfc)
+        prm_field(jg)%albvisdif(:,:) = prm_field(jg)%albvisdif(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albvisdif_tile(:,:,jsfc)
+        prm_field(jg)%albnirdir(:,:) = prm_field(jg)%albnirdir(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albnirdir_tile(:,:,jsfc)
+        prm_field(jg)%albnirdif(:,:) = prm_field(jg)%albnirdif(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albnirdif_tile(:,:,jsfc)
+        prm_field(jg)%albedo   (:,:) = prm_field(jg)%albedo   (:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albedo_tile   (:,:,jsfc)
+      END DO
+      prm_field(jg)%tsfc_rad (:,:) = prm_field(jg)%tsfc(:,:)
+      prm_field(jg)%tsfc_radt(:,:) = prm_field(jg)%tsfc(:,:)
+
+      DEALLOCATE(zfrl, zfrw, zfri, zfrc)
+
+    END DO ! jg
+
+
 #ifndef __NO_JSBACH__
-      IF (phy_config%ljsbach) THEN
+    IF (ilnd <= nsfc_type .AND. phy_config%ljsbach) THEN
 
-        ! Do basic initialization of JSBACH
-        CALL jsbach_init_base(master_namelist_filename)
+      ! Do basic initialization of JSBACH
+      CALL jsbach_init_base(master_namelist_filename)
 
-        ! Now continue initialization of JSBACH for the different grids
-        DO jg=1,ndomain
-          CALL jsbach_init_model( jg, p_patch(jg))                             !< in
-        END DO ! jg
+      ! Now continue initialization of JSBACH for the different grids
+      DO jg=1,ndomain
+        CALL jsbach_init_model( jg, p_patch(jg))                             !< in
+      END DO ! jg
 
-      END IF ! phy_config%ljsbach
+    END IF ! phy_config%ljsbach
 #endif
 
-    END IF ! nh_test_name
-  
+
     IF (timers_level > 1) CALL timer_stop(timer_prep_echam_phy)
 
   END SUBROUTINE init_echam_phy
@@ -656,6 +700,8 @@ CONTAINS
       field% lwflxupsfc(:,  :) = 0._wp
       field% swflxsfc    (:,:) = 0._wp
       field% lwflxsfc    (:,:) = 0._wp
+      field% swflxsfc_tile(:,:,:) = 0._wp
+      field% lwflxsfc_tile(:,:,:) = 0._wp
       field% lwupflxsfc  (:,:) = 0._wp
       field% dlwflxsfc_dT(:,:) = 0._wp
       field% swflxtoa    (:,:) = 0._wp
@@ -675,10 +721,14 @@ CONTAINS
       field%  evap (:,  :) = 0._wp
       field% lhflx (:,  :) = 0._wp
       field% shflx (:,  :) = 0._wp
+      field% lhflx_tile (:,:,:) = 0._wp
+      field% shflx_tile (:,:,:) = 0._wp
       field%dshflx_dT_tile    (:,:,:)= 0._wp
 
       field% u_stress(:,  :) = 0._wp
       field% v_stress(:,  :) = 0._wp
+      field% u_stress_tile(:,:,:) = 0._wp
+      field% v_stress_tile(:,:,:) = 0._wp
 
       field% u_stress_sso(:,:) = 0._wp
       field% v_stress_sso(:,:) = 0._wp
@@ -735,7 +785,7 @@ CONTAINS
 
       tend% temp_rsw(:,:,:)   = 0._wp
       tend% temp_rlw(:,:,:)   = 0._wp
-
+      tend%temp_rlw_impl(:,:) = 0._wp
       tend% temp_cld(:,:,:)   = 0._wp
       tend%    q_cld(:,:,:,:) = 0._wp
 
