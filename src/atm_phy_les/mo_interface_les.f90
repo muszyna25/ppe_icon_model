@@ -535,6 +535,28 @@ CONTAINS
                             & pt_diag ,                         & !>inout
                             & prm_diag                          ) !>inout
 
+      !Calculate temp tendency due to microphysics in interior points
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
+
+      i_startblk = pt_patch%cells%start_blk(rl_start,1)
+      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx ) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end )
+         DO jk = kstart_moist(jg), nlev
+          DO jc =  i_startidx, i_endidx
+            prm_nwp_tend%ddt_temp_gscp(jc,jk,jb) =  &
+                 ( pt_diag%temp(jc,jk,jb) - z_temp_old(jc,jk,jb) ) / dt_phy_jg(itfastphy)
+          END DO
+         END DO
+      END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 
     ENDIF
@@ -641,11 +663,7 @@ CONTAINS
             ! reset dynamical exner increment to zero
             ! (it is accumulated over one advective time step in solve_nh)
             pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
-
-            !Calculate temp tendency due to microphysics
-            prm_nwp_tend%ddt_temp_gscp(jc,jk,jb) =  &
-                 ( pt_diag%temp(jc,jk,jb) - z_temp_old(jc,jk,jb) ) / dt_phy_jg(itfastphy)
-          ENDDO
+         ENDDO
         ENDDO
 
       ENDDO
