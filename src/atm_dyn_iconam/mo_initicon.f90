@@ -25,7 +25,7 @@ MODULE mo_initicon
   USE mo_kind,                ONLY: wp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, msg_level
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
@@ -34,7 +34,7 @@ MODULE mo_initicon
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
-  USE mo_initicon_types,      ONLY: t_initicon_state
+  USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlevatm_in, lvert_remap_fg, &
     &                               rho_incr_filter_wgt, lread_ana, ltile_init,    &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
@@ -64,13 +64,14 @@ MODULE mo_initicon
   USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points, init_snowtiles,             &
-                                    copy_initicon2prog_atm, copy_initicon2prog_sfc, allocate_initicon, &
+                                    copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
                                     deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
-                                    copy_fg2initicon
+                                    copy_fg2initicon, initVarnamesDict
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
                                     read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc,    &
                                     read_dwdfg_atm_ii
-  USE mo_util_string,         ONLY: one_of                                    
+  USE mo_util_string,         ONLY: one_of, int2string
+  USE mo_checksum,            ONLY: printChecksum
   USE mo_phyparam_soil,       ONLY: cporv, cadp
 
   IMPLICIT NONE
@@ -137,26 +138,12 @@ MODULE mo_initicon
       &       stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'allocation for initicon failed')
 
-    initicon(:)%atm_in%linitialized  = .FALSE.
-    initicon(:)%sfc_in%linitialized  = .FALSE.
-    initicon(:)%atm%linitialized     = .FALSE.
-    initicon(:)%sfc%linitialized     = .FALSE.
-    initicon(:)%atm_inc%linitialized = .FALSE.
-    initicon(:)%sfc_inc%linitialized = .FALSE.
-
-    ! Allocate memory for init_icon state
-    CALL allocate_initicon (p_patch, initicon)
-
-
-    ! Copy the topography fields and coordinate surfaces to initicon
-    !
     DO jg = 1, n_dom
-      initicon(jg)%topography_c(:,:) = ext_data(jg)%atm%topography_c(:,:)
+      CALL construct_initicon(initicon(jg), p_patch(jg), ext_data(jg)%atm%topography_c, p_nh_state(jg)%metrics)
+    END DO
 
-      initicon(jg)%z_ifc(:,:,:) = p_nh_state(jg)%metrics%z_ifc(:,:,:)
-      initicon(jg)%z_mc (:,:,:) = p_nh_state(jg)%metrics%z_mc (:,:,:)
-    ENDDO
-
+    ! Read IN the dictionary for the variable names (IF we need it)
+    CALL initVarnamesDict(ana_varnames_dict)
 
 
     ! -----------------------------------------------
@@ -318,6 +305,7 @@ MODULE mo_initicon
       CALL finish(TRIM(routine), "Invalid operation mode!")
     END SELECT
 
+    CALL printChecksums(p_nh_state, p_lnd_state)
 
     ! Deallocate initicon data type
     !
@@ -343,6 +331,648 @@ MODULE mo_initicon
 
   END SUBROUTINE init_icon
 
+
+  !> output checksums of all possible input fields
+  !!
+  !! XXX: This FUNCTION should have been written using a few
+  !! preprocessor macros taking little more than the NAME of the
+  !! respective variable.
+  !!
+  !!      Alas, such macros would have generated code violating the
+  !!      fortran line limit, so we are stuck with the expanded
+  !!      version.
+  SUBROUTINE printChecksums(p_nh_state, p_lnd_state)
+    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
+
+    INTEGER :: jg, i
+    CHARACTER(LEN = 256) :: prefix
+
+    IF(msg_level < 12) RETURN
+
+    DO jg = 1, n_dom
+        prefix = "checksum of initicon("//TRIM(int2string(jg))//")%"
+        IF(ALLOCATED(initicon(jg)%topography_c)) CALL printChecksum(TRIM(prefix)//"topography_c: ", &
+        & initicon(jg)%topography_c)
+        IF(ALLOCATED(initicon(jg)%z_ifc)) CALL printChecksum(TRIM(prefix)//"z_ifc: ", &
+        & initicon(jg)%z_ifc)
+        IF(ALLOCATED(initicon(jg)%z_mc)) CALL printChecksum(TRIM(prefix)//"z_mc: ", &
+        & initicon(jg)%z_mc)
+        IF(ASSOCIATED(initicon(jg)%atm_in%psfc)) CALL printChecksum(TRIM(prefix)//"atm_in%psfc: ", &
+        & initicon(jg)%atm_in%psfc)
+        IF(ASSOCIATED(initicon(jg)%atm_in%phi_sfc)) CALL printChecksum(TRIM(prefix)//"atm_in%phi_sfc: ", &
+        & initicon(jg)%atm_in%phi_sfc)
+        IF(ASSOCIATED(initicon(jg)%atm_in%temp)) CALL printChecksum(TRIM(prefix)//"atm_in%temp: ", &
+        & initicon(jg)%atm_in%temp)
+        IF(ASSOCIATED(initicon(jg)%atm_in%pres)) CALL printChecksum(TRIM(prefix)//"atm_in%pres: ", &
+        & initicon(jg)%atm_in%pres)
+        IF(ASSOCIATED(initicon(jg)%atm_in%z3d_ifc)) CALL printChecksum(TRIM(prefix)//"atm_in%z3d_ifc: ", &
+        & initicon(jg)%atm_in%z3d_ifc)
+        IF(ASSOCIATED(initicon(jg)%atm_in%w_ifc)) CALL printChecksum(TRIM(prefix)//"atm_in%w_ifc: ", &
+        & initicon(jg)%atm_in%w_ifc)
+        IF(ASSOCIATED(initicon(jg)%atm_in%z3d)) CALL printChecksum(TRIM(prefix)//"atm_in%z3d: ", &
+        & initicon(jg)%atm_in%z3d)
+        IF(ASSOCIATED(initicon(jg)%atm_in%u)) CALL printChecksum(TRIM(prefix)//"atm_in%u: ", &
+        & initicon(jg)%atm_in%u)
+        IF(ASSOCIATED(initicon(jg)%atm_in%v)) CALL printChecksum(TRIM(prefix)//"atm_in%v: ", &
+        & initicon(jg)%atm_in%v)
+        IF(ASSOCIATED(initicon(jg)%atm_in%omega)) CALL printChecksum(TRIM(prefix)//"atm_in%omega: ", &
+        & initicon(jg)%atm_in%omega)
+        IF(ASSOCIATED(initicon(jg)%atm_in%w)) CALL printChecksum(TRIM(prefix)//"atm_in%w: ", &
+        & initicon(jg)%atm_in%w)
+        IF(ASSOCIATED(initicon(jg)%atm_in%vn)) CALL printChecksum(TRIM(prefix)//"atm_in%vn: ", &
+        & initicon(jg)%atm_in%vn)
+        IF(ASSOCIATED(initicon(jg)%atm_in%qv)) CALL printChecksum(TRIM(prefix)//"atm_in%qv: ", &
+        & initicon(jg)%atm_in%qv)
+        IF(ASSOCIATED(initicon(jg)%atm_in%qc)) CALL printChecksum(TRIM(prefix)//"atm_in%qc: ", &
+        & initicon(jg)%atm_in%qc)
+        IF(ASSOCIATED(initicon(jg)%atm_in%qi)) CALL printChecksum(TRIM(prefix)//"atm_in%qi: ", &
+        & initicon(jg)%atm_in%qi)
+        IF(ASSOCIATED(initicon(jg)%atm_in%qr)) CALL printChecksum(TRIM(prefix)//"atm_in%qr: ", &
+        & initicon(jg)%atm_in%qr)
+        IF(ASSOCIATED(initicon(jg)%atm_in%qs)) CALL printChecksum(TRIM(prefix)//"atm_in%qs: ", &
+        & initicon(jg)%atm_in%qs)
+        IF(ASSOCIATED(initicon(jg)%atm_in%rho)) CALL printChecksum(TRIM(prefix)//"atm_in%rho: ", &
+        & initicon(jg)%atm_in%rho)
+        IF(ASSOCIATED(initicon(jg)%atm_in%theta_v)) CALL printChecksum(TRIM(prefix)//"atm_in%theta_v: ", &
+        & initicon(jg)%atm_in%theta_v)
+        IF(ASSOCIATED(initicon(jg)%atm_in%tke)) CALL printChecksum(TRIM(prefix)//"atm_in%tke: ", &
+        & initicon(jg)%atm_in%tke)
+        IF(ASSOCIATED(initicon(jg)%atm_in%tke_ifc)) CALL printChecksum(TRIM(prefix)//"atm_in%tke_ifc: ", &
+        & initicon(jg)%atm_in%tke_ifc)
+        IF(ALLOCATED(initicon(jg)%sfc_in%tsnow)) CALL printChecksum(TRIM(prefix)//"sfc_in%tsnow: ", &
+        & initicon(jg)%sfc_in%tsnow)
+        IF(ALLOCATED(initicon(jg)%sfc_in%tskin)) CALL printChecksum(TRIM(prefix)//"sfc_in%tskin: ", &
+        & initicon(jg)%sfc_in%tskin)
+        IF(ALLOCATED(initicon(jg)%sfc_in%sst)) CALL printChecksum(TRIM(prefix)//"sfc_in%sst: ", &
+        & initicon(jg)%sfc_in%sst)
+        IF(ALLOCATED(initicon(jg)%sfc_in%snowalb)) CALL printChecksum(TRIM(prefix)//"sfc_in%snowalb: ", &
+        & initicon(jg)%sfc_in%snowalb)
+        IF(ALLOCATED(initicon(jg)%sfc_in%snowweq)) CALL printChecksum(TRIM(prefix)//"sfc_in%snowweq: ", &
+        & initicon(jg)%sfc_in%snowweq)
+        IF(ALLOCATED(initicon(jg)%sfc_in%snowdens)) CALL printChecksum(TRIM(prefix)//"sfc_in%snowdens: ", &
+        & initicon(jg)%sfc_in%snowdens)
+        IF(ALLOCATED(initicon(jg)%sfc_in%skinres)) CALL printChecksum(TRIM(prefix)//"sfc_in%skinres: ", &
+        & initicon(jg)%sfc_in%skinres)
+        IF(ALLOCATED(initicon(jg)%sfc_in%ls_mask)) CALL printChecksum(TRIM(prefix)//"sfc_in%ls_mask: ", &
+        & initicon(jg)%sfc_in%ls_mask)
+        IF(ALLOCATED(initicon(jg)%sfc_in%seaice)) CALL printChecksum(TRIM(prefix)//"sfc_in%seaice: ", &
+        & initicon(jg)%sfc_in%seaice)
+        IF(ALLOCATED(initicon(jg)%sfc_in%phi)) CALL printChecksum(TRIM(prefix)//"sfc_in%phi: ", &
+        & initicon(jg)%sfc_in%phi)
+        IF(ALLOCATED(initicon(jg)%sfc_in%tsoil)) CALL printChecksum(TRIM(prefix)//"sfc_in%tsoil: ", &
+        & initicon(jg)%sfc_in%tsoil)
+        IF(ALLOCATED(initicon(jg)%sfc_in%wsoil)) CALL printChecksum(TRIM(prefix)//"sfc_in%wsoil: ", &
+        & initicon(jg)%sfc_in%wsoil)
+        IF(ALLOCATED(initicon(jg)%atm%vn)) CALL printChecksum(TRIM(prefix)//"atm%vn: ", &
+        & initicon(jg)%atm%vn)
+        IF(ALLOCATED(initicon(jg)%atm%u)) CALL printChecksum(TRIM(prefix)//"atm%u: ", &
+        & initicon(jg)%atm%u)
+        IF(ALLOCATED(initicon(jg)%atm%v)) CALL printChecksum(TRIM(prefix)//"atm%v: ", &
+        & initicon(jg)%atm%v)
+        IF(ALLOCATED(initicon(jg)%atm%w)) CALL printChecksum(TRIM(prefix)//"atm%w: ", &
+        & initicon(jg)%atm%w)
+        IF(ALLOCATED(initicon(jg)%atm%temp)) CALL printChecksum(TRIM(prefix)//"atm%temp: ", &
+        & initicon(jg)%atm%temp)
+        IF(ALLOCATED(initicon(jg)%atm%theta_v)) CALL printChecksum(TRIM(prefix)//"atm%theta_v: ", &
+        & initicon(jg)%atm%theta_v)
+        IF(ALLOCATED(initicon(jg)%atm%exner)) CALL printChecksum(TRIM(prefix)//"atm%exner: ", &
+        & initicon(jg)%atm%exner)
+        IF(ALLOCATED(initicon(jg)%atm%rho)) CALL printChecksum(TRIM(prefix)//"atm%rho: ", &
+        & initicon(jg)%atm%rho)
+        IF(ALLOCATED(initicon(jg)%atm%pres)) CALL printChecksum(TRIM(prefix)//"atm%pres: ", &
+        & initicon(jg)%atm%pres)
+        IF(ALLOCATED(initicon(jg)%atm%qv)) CALL printChecksum(TRIM(prefix)//"atm%qv: ", &
+        & initicon(jg)%atm%qv)
+        IF(ALLOCATED(initicon(jg)%atm%qc)) CALL printChecksum(TRIM(prefix)//"atm%qc: ", &
+        & initicon(jg)%atm%qc)
+        IF(ALLOCATED(initicon(jg)%atm%qi)) CALL printChecksum(TRIM(prefix)//"atm%qi: ", &
+        & initicon(jg)%atm%qi)
+        IF(ALLOCATED(initicon(jg)%atm%qr)) CALL printChecksum(TRIM(prefix)//"atm%qr: ", &
+        & initicon(jg)%atm%qr)
+        IF(ALLOCATED(initicon(jg)%atm%qs)) CALL printChecksum(TRIM(prefix)//"atm%qs: ", &
+        & initicon(jg)%atm%qs)
+        IF(ALLOCATED(initicon(jg)%atm%tke)) CALL printChecksum(TRIM(prefix)//"atm%tke: ", &
+        & initicon(jg)%atm%tke)
+        IF(ALLOCATED(initicon(jg)%atm_inc%vn)) CALL printChecksum(TRIM(prefix)//"atm_inc%vn: ", &
+        & initicon(jg)%atm_inc%vn)
+        IF(ALLOCATED(initicon(jg)%atm_inc%u)) CALL printChecksum(TRIM(prefix)//"atm_inc%u: ", &
+        & initicon(jg)%atm_inc%u)
+        IF(ALLOCATED(initicon(jg)%atm_inc%v)) CALL printChecksum(TRIM(prefix)//"atm_inc%v: ", &
+        & initicon(jg)%atm_inc%v)
+        IF(ALLOCATED(initicon(jg)%atm_inc%w)) CALL printChecksum(TRIM(prefix)//"atm_inc%w: ", &
+        & initicon(jg)%atm_inc%w)
+        IF(ALLOCATED(initicon(jg)%atm_inc%temp)) CALL printChecksum(TRIM(prefix)//"atm_inc%temp: ", &
+        & initicon(jg)%atm_inc%temp)
+        IF(ALLOCATED(initicon(jg)%atm_inc%theta_v)) CALL printChecksum(TRIM(prefix)//"atm_inc%theta_v: ", &
+        & initicon(jg)%atm_inc%theta_v)
+        IF(ALLOCATED(initicon(jg)%atm_inc%exner)) CALL printChecksum(TRIM(prefix)//"atm_inc%exner: ", &
+        & initicon(jg)%atm_inc%exner)
+        IF(ALLOCATED(initicon(jg)%atm_inc%rho)) CALL printChecksum(TRIM(prefix)//"atm_inc%rho: ", &
+        & initicon(jg)%atm_inc%rho)
+        IF(ALLOCATED(initicon(jg)%atm_inc%pres)) CALL printChecksum(TRIM(prefix)//"atm_inc%pres: ", &
+        & initicon(jg)%atm_inc%pres)
+        IF(ALLOCATED(initicon(jg)%atm_inc%qv)) CALL printChecksum(TRIM(prefix)//"atm_inc%qv: ", &
+        & initicon(jg)%atm_inc%qv)
+        IF(ALLOCATED(initicon(jg)%atm_inc%qc)) CALL printChecksum(TRIM(prefix)//"atm_inc%qc: ", &
+        & initicon(jg)%atm_inc%qc)
+        IF(ALLOCATED(initicon(jg)%atm_inc%qi)) CALL printChecksum(TRIM(prefix)//"atm_inc%qi: ", &
+        & initicon(jg)%atm_inc%qi)
+        IF(ALLOCATED(initicon(jg)%atm_inc%qr)) CALL printChecksum(TRIM(prefix)//"atm_inc%qr: ", &
+        & initicon(jg)%atm_inc%qr)
+        IF(ALLOCATED(initicon(jg)%atm_inc%qs)) CALL printChecksum(TRIM(prefix)//"atm_inc%qs: ", &
+        & initicon(jg)%atm_inc%qs)
+        IF(ALLOCATED(initicon(jg)%atm_inc%tke)) CALL printChecksum(TRIM(prefix)//"atm_inc%tke: ", &
+        & initicon(jg)%atm_inc%tke)
+        IF(ALLOCATED(initicon(jg)%sfc%tsnow)) CALL printChecksum(TRIM(prefix)//"sfc%tsnow: ", &
+        & initicon(jg)%sfc%tsnow)
+        IF(ALLOCATED(initicon(jg)%sfc%tskin)) CALL printChecksum(TRIM(prefix)//"sfc%tskin: ", &
+        & initicon(jg)%sfc%tskin)
+        IF(ALLOCATED(initicon(jg)%sfc%sst)) CALL printChecksum(TRIM(prefix)//"sfc%sst: ", &
+        & initicon(jg)%sfc%sst)
+        IF(ALLOCATED(initicon(jg)%sfc%snowalb)) CALL printChecksum(TRIM(prefix)//"sfc%snowalb: ", &
+        & initicon(jg)%sfc%snowalb)
+        IF(ALLOCATED(initicon(jg)%sfc%snowweq)) CALL printChecksum(TRIM(prefix)//"sfc%snowweq: ", &
+        & initicon(jg)%sfc%snowweq)
+        IF(ALLOCATED(initicon(jg)%sfc%snowdens)) CALL printChecksum(TRIM(prefix)//"sfc%snowdens: ", &
+        & initicon(jg)%sfc%snowdens)
+        IF(ALLOCATED(initicon(jg)%sfc%skinres)) CALL printChecksum(TRIM(prefix)//"sfc%skinres: ", &
+        & initicon(jg)%sfc%skinres)
+        IF(ALLOCATED(initicon(jg)%sfc%ls_mask)) CALL printChecksum(TRIM(prefix)//"sfc%ls_mask: ", &
+        & initicon(jg)%sfc%ls_mask)
+        IF(ALLOCATED(initicon(jg)%sfc%seaice)) CALL printChecksum(TRIM(prefix)//"sfc%seaice: ", &
+        & initicon(jg)%sfc%seaice)
+        IF(ALLOCATED(initicon(jg)%sfc%tsoil)) CALL printChecksum(TRIM(prefix)//"sfc%tsoil: ", &
+        & initicon(jg)%sfc%tsoil)
+        IF(ALLOCATED(initicon(jg)%sfc%wsoil)) CALL printChecksum(TRIM(prefix)//"sfc%wsoil: ", &
+        & initicon(jg)%sfc%wsoil)
+        IF(ALLOCATED(initicon(jg)%sfc%w_so)) CALL printChecksum(TRIM(prefix)//"sfc%w_so: ", &
+        & initicon(jg)%sfc%w_so)
+        IF(ALLOCATED(initicon(jg)%sfc_inc%w_so)) CALL printChecksum(TRIM(prefix)//"sfc_inc%w_so: ", &
+        & initicon(jg)%sfc_inc%w_so)
+        IF(ALLOCATED(initicon(jg)%sfc_inc%h_snow)) CALL printChecksum(TRIM(prefix)//"sfc_inc%h_snow: ", &
+        & initicon(jg)%sfc_inc%h_snow)
+        IF(ALLOCATED(initicon(jg)%sfc_inc%freshsnow)) CALL printChecksum(TRIM(prefix)//"sfc_inc%freshsnow: ", &
+        & initicon(jg)%sfc_inc%freshsnow)
+
+        IF(ALLOCATED(p_nh_state(jg)%prog)) THEN
+            DO i = 1, SIZE(p_nh_state(jg)%prog, 1)
+                prefix = "checksum of p_nh_state("//TRIM(int2string(jg))//")%prog("//TRIM(int2string(i))//")%"
+                IF(ASSOCIATED(p_nh_state(jg)%prog(i)%w)) CALL printChecksum(TRIM(prefix)//"w: ", &
+                & p_nh_state(jg)%prog(i)%w)
+                IF(ASSOCIATED(p_nh_state(jg)%prog(i)%vn)) CALL printChecksum(TRIM(prefix)//"vn: ", &
+                & p_nh_state(jg)%prog(i)%vn)
+                IF(ASSOCIATED(p_nh_state(jg)%prog(i)%rho)) CALL printChecksum(TRIM(prefix)//"rho: ", &
+                & p_nh_state(jg)%prog(i)%rho)
+                IF(ASSOCIATED(p_nh_state(jg)%prog(i)%exner)) CALL printChecksum(TRIM(prefix)//"exner: ", &
+                & p_nh_state(jg)%prog(i)%exner)
+                IF(ASSOCIATED(p_nh_state(jg)%prog(i)%theta_v)) CALL printChecksum(TRIM(prefix)//"theta_v: ", &
+                & p_nh_state(jg)%prog(i)%theta_v)
+                IF(ASSOCIATED(p_nh_state(jg)%prog(i)%tracer)) CALL printChecksum(TRIM(prefix)//"tracer: ", &
+                & p_nh_state(jg)%prog(i)%tracer)
+                IF(ASSOCIATED(p_nh_state(jg)%prog(i)%tke)) CALL printChecksum(TRIM(prefix)//"tke: ", &
+                & p_nh_state(jg)%prog(i)%tke)
+            END DO
+        END IF
+        prefix = "checksum of p_nh_state("//TRIM(int2string(jg))//")%diag%"
+        IF(ASSOCIATED(p_nh_state(jg)%diag%u)) CALL printChecksum(TRIM(prefix)//"u: ", &
+        & p_nh_state(jg)%diag%u)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%v)) CALL printChecksum(TRIM(prefix)//"v: ", &
+        & p_nh_state(jg)%diag%v)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%vt)) CALL printChecksum(TRIM(prefix)//"vt: ", &
+        & p_nh_state(jg)%diag%vt)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%omega_z)) CALL printChecksum(TRIM(prefix)//"omega_z: ", &
+        & p_nh_state(jg)%diag%omega_z)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%vor)) CALL printChecksum(TRIM(prefix)//"vor: ", &
+        & p_nh_state(jg)%diag%vor)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%ddt_vn_phy)) CALL printChecksum(TRIM(prefix)//"ddt_vn_phy: ", &
+        & p_nh_state(jg)%diag%ddt_vn_phy)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%ddt_exner_phy)) CALL printChecksum(TRIM(prefix)//"ddt_exner_phy: ", &
+        & p_nh_state(jg)%diag%ddt_exner_phy)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%ddt_temp_dyn)) CALL printChecksum(TRIM(prefix)//"ddt_temp_dyn: ", &
+        & p_nh_state(jg)%diag%ddt_temp_dyn)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%ddt_tracer_adv)) CALL printChecksum(TRIM(prefix)//"ddt_tracer_adv: ", &
+        & p_nh_state(jg)%diag%ddt_tracer_adv)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%tracer_vi)) CALL printChecksum(TRIM(prefix)//"tracer_vi: ", &
+        & p_nh_state(jg)%diag%tracer_vi)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%tracer_vi_avg)) CALL printChecksum(TRIM(prefix)//"tracer_vi_avg: ", &
+        & p_nh_state(jg)%diag%tracer_vi_avg)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%exner_old)) CALL printChecksum(TRIM(prefix)//"exner_old: ", &
+        & p_nh_state(jg)%diag%exner_old)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%exner_dyn_incr)) CALL printChecksum(TRIM(prefix)//"exner_dyn_incr: ", &
+        & p_nh_state(jg)%diag%exner_dyn_incr)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%temp)) CALL printChecksum(TRIM(prefix)//"temp: ", &
+        & p_nh_state(jg)%diag%temp)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%tempv)) CALL printChecksum(TRIM(prefix)//"tempv: ", &
+        & p_nh_state(jg)%diag%tempv)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%temp_ifc)) CALL printChecksum(TRIM(prefix)//"temp_ifc: ", &
+        & p_nh_state(jg)%diag%temp_ifc)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%pres)) CALL printChecksum(TRIM(prefix)//"pres: ", &
+        & p_nh_state(jg)%diag%pres)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%pres_ifc)) CALL printChecksum(TRIM(prefix)//"pres_ifc: ", &
+        & p_nh_state(jg)%diag%pres_ifc)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%pres_sfc)) CALL printChecksum(TRIM(prefix)//"pres_sfc: ", &
+        & p_nh_state(jg)%diag%pres_sfc)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%pres_sfc_old)) CALL printChecksum(TRIM(prefix)//"pres_sfc_old: ", &
+        & p_nh_state(jg)%diag%pres_sfc_old)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%pres_msl)) CALL printChecksum(TRIM(prefix)//"pres_msl: ", &
+        & p_nh_state(jg)%diag%pres_msl)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%dpres_mc)) CALL printChecksum(TRIM(prefix)//"dpres_mc: ", &
+        & p_nh_state(jg)%diag%dpres_mc)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%omega)) CALL printChecksum(TRIM(prefix)//"omega: ", &
+        & p_nh_state(jg)%diag%omega)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%hfl_tracer)) CALL printChecksum(TRIM(prefix)//"hfl_tracer: ", &
+        & p_nh_state(jg)%diag%hfl_tracer)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%vfl_tracer)) CALL printChecksum(TRIM(prefix)//"vfl_tracer: ", &
+        & p_nh_state(jg)%diag%vfl_tracer)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%div)) CALL printChecksum(TRIM(prefix)//"div: ", &
+        & p_nh_state(jg)%diag%div)
+        ! For some reason, these provide nondeterministic results.
+!       IF(ASSOCIATED(p_nh_state(jg)%diag%div_ic)) CALL printChecksum(TRIM(prefix)//"div_ic: ", &
+!       & p_nh_state(jg)%diag%div_ic)
+!       IF(ASSOCIATED(p_nh_state(jg)%diag%hdef_ic)) CALL printChecksum(TRIM(prefix)//"hdef_ic: ", &
+!       & p_nh_state(jg)%diag%hdef_ic)
+!       IF(ASSOCIATED(p_nh_state(jg)%diag%dwdx)) CALL printChecksum(TRIM(prefix)//"dwdx: ", &
+!       & p_nh_state(jg)%diag%dwdx)
+!       IF(ASSOCIATED(p_nh_state(jg)%diag%dwdy)) CALL printChecksum(TRIM(prefix)//"dwdy: ", &
+!       & p_nh_state(jg)%diag%dwdy)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%mass_fl_e)) CALL printChecksum(TRIM(prefix)//"mass_fl_e: ", &
+        & p_nh_state(jg)%diag%mass_fl_e)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%mass_fl_e_sv)) CALL printChecksum(TRIM(prefix)//"mass_fl_e_sv: ", &
+        & p_nh_state(jg)%diag%mass_fl_e_sv)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%rho_ic)) CALL printChecksum(TRIM(prefix)//"rho_ic: ", &
+        & p_nh_state(jg)%diag%rho_ic)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%theta_v_ic)) CALL printChecksum(TRIM(prefix)//"theta_v_ic: ", &
+        & p_nh_state(jg)%diag%theta_v_ic)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%w_concorr_c)) CALL printChecksum(TRIM(prefix)//"w_concorr_c: ", &
+        & p_nh_state(jg)%diag%w_concorr_c)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%vn_ie)) CALL printChecksum(TRIM(prefix)//"vn_ie: ", &
+        & p_nh_state(jg)%diag%vn_ie)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%ddt_vn_adv)) CALL printChecksum(TRIM(prefix)//"ddt_vn_adv: ", &
+        & p_nh_state(jg)%diag%ddt_vn_adv)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%ddt_w_adv)) CALL printChecksum(TRIM(prefix)//"ddt_w_adv: ", &
+        & p_nh_state(jg)%diag%ddt_w_adv)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%airmass_now)) CALL printChecksum(TRIM(prefix)//"airmass_now: ", &
+        & p_nh_state(jg)%diag%airmass_now)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%airmass_new)) CALL printChecksum(TRIM(prefix)//"airmass_new: ", &
+        & p_nh_state(jg)%diag%airmass_new)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%grf_tend_vn)) CALL printChecksum(TRIM(prefix)//"grf_tend_vn: ", &
+        & p_nh_state(jg)%diag%grf_tend_vn)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%grf_tend_w)) CALL printChecksum(TRIM(prefix)//"grf_tend_w: ", &
+        & p_nh_state(jg)%diag%grf_tend_w)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%grf_tend_rho)) CALL printChecksum(TRIM(prefix)//"grf_tend_rho: ", &
+        & p_nh_state(jg)%diag%grf_tend_rho)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%grf_tend_mflx)) CALL printChecksum(TRIM(prefix)//"grf_tend_mflx: ", &
+        & p_nh_state(jg)%diag%grf_tend_mflx)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%grf_bdy_mflx)) CALL printChecksum(TRIM(prefix)//"grf_bdy_mflx: ", &
+        & p_nh_state(jg)%diag%grf_bdy_mflx)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%grf_tend_thv)) CALL printChecksum(TRIM(prefix)//"grf_tend_thv: ", &
+        & p_nh_state(jg)%diag%grf_tend_thv)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%grf_tend_tracer)) CALL printChecksum(TRIM(prefix)//"grf_tend_tracer: ", &
+        & p_nh_state(jg)%diag%grf_tend_tracer)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%dvn_ie_int)) CALL printChecksum(TRIM(prefix)//"dvn_ie_int: ", &
+        & p_nh_state(jg)%diag%dvn_ie_int)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%dvn_ie_ubc)) CALL printChecksum(TRIM(prefix)//"dvn_ie_ubc: ", &
+        & p_nh_state(jg)%diag%dvn_ie_ubc)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%mflx_ic_int)) CALL printChecksum(TRIM(prefix)//"mflx_ic_int: ", &
+        & p_nh_state(jg)%diag%mflx_ic_int)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%mflx_ic_ubc)) CALL printChecksum(TRIM(prefix)//"mflx_ic_ubc: ", &
+        & p_nh_state(jg)%diag%mflx_ic_ubc)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%dtheta_v_ic_int)) CALL printChecksum(TRIM(prefix)//"dtheta_v_ic_int: ", &
+        & p_nh_state(jg)%diag%dtheta_v_ic_int)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%dtheta_v_ic_ubc)) CALL printChecksum(TRIM(prefix)//"dtheta_v_ic_ubc: ", &
+        & p_nh_state(jg)%diag%dtheta_v_ic_ubc)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%dw_int)) CALL printChecksum(TRIM(prefix)//"dw_int: ", &
+        & p_nh_state(jg)%diag%dw_int)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%dw_ubc)) CALL printChecksum(TRIM(prefix)//"dw_ubc: ", &
+        & p_nh_state(jg)%diag%dw_ubc)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%q_int)) CALL printChecksum(TRIM(prefix)//"q_int: ", &
+        & p_nh_state(jg)%diag%q_int)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%q_ubc)) CALL printChecksum(TRIM(prefix)//"q_ubc: ", &
+        & p_nh_state(jg)%diag%q_ubc)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%vn_incr)) CALL printChecksum(TRIM(prefix)//"vn_incr: ", &
+        & p_nh_state(jg)%diag%vn_incr)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%exner_incr)) CALL printChecksum(TRIM(prefix)//"exner_incr: ", &
+        & p_nh_state(jg)%diag%exner_incr)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%rho_incr)) CALL printChecksum(TRIM(prefix)//"rho_incr: ", &
+        & p_nh_state(jg)%diag%rho_incr)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%qv_incr)) CALL printChecksum(TRIM(prefix)//"qv_incr: ", &
+        & p_nh_state(jg)%diag%qv_incr)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%u_avg)) CALL printChecksum(TRIM(prefix)//"u_avg: ", &
+        & p_nh_state(jg)%diag%u_avg)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%v_avg)) CALL printChecksum(TRIM(prefix)//"v_avg: ", &
+        & p_nh_state(jg)%diag%v_avg)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%pres_avg)) CALL printChecksum(TRIM(prefix)//"pres_avg: ", &
+        & p_nh_state(jg)%diag%pres_avg)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%temp_avg)) CALL printChecksum(TRIM(prefix)//"temp_avg: ", &
+        & p_nh_state(jg)%diag%temp_avg)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%qv_avg)) CALL printChecksum(TRIM(prefix)//"qv_avg: ", &
+        & p_nh_state(jg)%diag%qv_avg)
+        IF(ASSOCIATED(p_nh_state(jg)%diag%nsteps_avg)) CALL printChecksum(TRIM(prefix)//"nsteps_avg: ", &
+        & p_nh_state(jg)%diag%nsteps_avg)
+        prefix = "checksum of p_nh_state("//TRIM(int2string(jg))//")%ref%"
+        IF(ASSOCIATED(p_nh_state(jg)%ref%vn_ref)) CALL printChecksum(TRIM(prefix)//"vn_ref: ", &
+        & p_nh_state(jg)%ref%vn_ref)
+        IF(ASSOCIATED(p_nh_state(jg)%ref%w_ref)) CALL printChecksum(TRIM(prefix)//"w_ref: ", &
+        & p_nh_state(jg)%ref%w_ref)
+        prefix = "checksum of p_nh_state("//TRIM(int2string(jg))//")%metrics%"
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%z_ifc)) CALL printChecksum(TRIM(prefix)//"z_ifc: ", &
+        & p_nh_state(jg)%metrics%z_ifc)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%z_mc)) CALL printChecksum(TRIM(prefix)//"z_mc: ", &
+        & p_nh_state(jg)%metrics%z_mc)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%ddqz_z_full)) CALL printChecksum(TRIM(prefix)//"ddqz_z_full: ", &
+        & p_nh_state(jg)%metrics%ddqz_z_full)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%geopot)) CALL printChecksum(TRIM(prefix)//"geopot: ", &
+        & p_nh_state(jg)%metrics%geopot)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%geopot_agl)) CALL printChecksum(TRIM(prefix)//"geopot_agl: ", &
+        & p_nh_state(jg)%metrics%geopot_agl)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%geopot_agl_ifc)) CALL printChecksum(TRIM(prefix)//"geopot_agl_ifc: ", &
+        & p_nh_state(jg)%metrics%geopot_agl_ifc)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%dgeopot_mc)) CALL printChecksum(TRIM(prefix)//"dgeopot_mc: ", &
+        & p_nh_state(jg)%metrics%dgeopot_mc)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%rayleigh_w)) CALL printChecksum(TRIM(prefix)//"rayleigh_w: ", &
+        & p_nh_state(jg)%metrics%rayleigh_w)
+        ! For some reason, this provides nondeterministic results.
+!       IF(ASSOCIATED(p_nh_state(jg)%metrics%rayleigh_vn)) CALL printChecksum(TRIM(prefix)//"rayleigh_vn: ", &
+!       & p_nh_state(jg)%metrics%rayleigh_vn)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%enhfac_diffu)) CALL printChecksum(TRIM(prefix)//"enhfac_diffu: ", &
+        & p_nh_state(jg)%metrics%enhfac_diffu)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%scalfac_dd3d)) CALL printChecksum(TRIM(prefix)//"scalfac_dd3d: ", &
+        & p_nh_state(jg)%metrics%scalfac_dd3d)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%vwind_expl_wgt)) CALL printChecksum(TRIM(prefix)//"vwind_expl_wgt: ", &
+        & p_nh_state(jg)%metrics%vwind_expl_wgt)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%vwind_impl_wgt)) CALL printChecksum(TRIM(prefix)//"vwind_impl_wgt: ", &
+        & p_nh_state(jg)%metrics%vwind_impl_wgt)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%theta_ref_mc)) CALL printChecksum(TRIM(prefix)//"theta_ref_mc: ", &
+        & p_nh_state(jg)%metrics%theta_ref_mc)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%theta_ref_me)) CALL printChecksum(TRIM(prefix)//"theta_ref_me: ", &
+        & p_nh_state(jg)%metrics%theta_ref_me)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%theta_ref_ic)) CALL printChecksum(TRIM(prefix)//"theta_ref_ic: ", &
+        & p_nh_state(jg)%metrics%theta_ref_ic)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%tsfc_ref)) CALL printChecksum(TRIM(prefix)//"tsfc_ref: ", &
+        & p_nh_state(jg)%metrics%tsfc_ref)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%exner_ref_mc)) CALL printChecksum(TRIM(prefix)//"exner_ref_mc: ", &
+        & p_nh_state(jg)%metrics%exner_ref_mc)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%rho_ref_mc)) CALL printChecksum(TRIM(prefix)//"rho_ref_mc: ", &
+        & p_nh_state(jg)%metrics%rho_ref_mc)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%rho_ref_me)) CALL printChecksum(TRIM(prefix)//"rho_ref_me: ", &
+        & p_nh_state(jg)%metrics%rho_ref_me)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%zd_intcoef)) CALL printChecksum(TRIM(prefix)//"zd_intcoef: ", &
+        & p_nh_state(jg)%metrics%zd_intcoef)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%zd_geofac)) CALL printChecksum(TRIM(prefix)//"zd_geofac: ", &
+        & p_nh_state(jg)%metrics%zd_geofac)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%zd_e2cell)) CALL printChecksum(TRIM(prefix)//"zd_e2cell: ", &
+        & p_nh_state(jg)%metrics%zd_e2cell)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%zd_diffcoef)) CALL printChecksum(TRIM(prefix)//"zd_diffcoef: ", &
+        & p_nh_state(jg)%metrics%zd_diffcoef)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%inv_ddqz_z_half_e)) CALL printChecksum(TRIM(prefix)//"inv_ddqz_z_half_e: ", &
+        & p_nh_state(jg)%metrics%inv_ddqz_z_half_e)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%inv_ddqz_z_full_e)) CALL printChecksum(TRIM(prefix)//"inv_ddqz_z_full_e: ", &
+        & p_nh_state(jg)%metrics%inv_ddqz_z_full_e)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%inv_ddqz_z_half)) CALL printChecksum(TRIM(prefix)//"inv_ddqz_z_half: ", &
+        & p_nh_state(jg)%metrics%inv_ddqz_z_half)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%inv_ddqz_z_half_v)) CALL printChecksum(TRIM(prefix)//"inv_ddqz_z_half_v: ", &
+        & p_nh_state(jg)%metrics%inv_ddqz_z_half_v)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%wgtfac_v)) CALL printChecksum(TRIM(prefix)//"wgtfac_v: ", &
+        & p_nh_state(jg)%metrics%wgtfac_v)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%mixing_length_sq)) CALL printChecksum(TRIM(prefix)//"mixing_length_sq: ", &
+        & p_nh_state(jg)%metrics%mixing_length_sq)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%rho_ref_corr)) CALL printChecksum(TRIM(prefix)//"rho_ref_corr: ", &
+        & p_nh_state(jg)%metrics%rho_ref_corr)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%fbk_dom_volume)) CALL printChecksum(TRIM(prefix)//"fbk_dom_volume: ", &
+        & p_nh_state(jg)%metrics%fbk_dom_volume)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%ddxn_z_full)) CALL printChecksum(TRIM(prefix)//"ddxn_z_full: ", &
+        & p_nh_state(jg)%metrics%ddxn_z_full)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%ddxt_z_full)) CALL printChecksum(TRIM(prefix)//"ddxt_z_full: ", &
+        & p_nh_state(jg)%metrics%ddxt_z_full)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%ddqz_z_full_e)) CALL printChecksum(TRIM(prefix)//"ddqz_z_full_e: ", &
+        & p_nh_state(jg)%metrics%ddqz_z_full_e)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%ddqz_z_half)) CALL printChecksum(TRIM(prefix)//"ddqz_z_half: ", &
+        & p_nh_state(jg)%metrics%ddqz_z_half)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%inv_ddqz_z_full)) CALL printChecksum(TRIM(prefix)//"inv_ddqz_z_full: ", &
+        & p_nh_state(jg)%metrics%inv_ddqz_z_full)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%wgtfac_c)) CALL printChecksum(TRIM(prefix)//"wgtfac_c: ", &
+        & p_nh_state(jg)%metrics%wgtfac_c)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%wgtfac_e)) CALL printChecksum(TRIM(prefix)//"wgtfac_e: ", &
+        & p_nh_state(jg)%metrics%wgtfac_e)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%wgtfacq_c)) CALL printChecksum(TRIM(prefix)//"wgtfacq_c: ", &
+        & p_nh_state(jg)%metrics%wgtfacq_c)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%wgtfacq_e)) CALL printChecksum(TRIM(prefix)//"wgtfacq_e: ", &
+        & p_nh_state(jg)%metrics%wgtfacq_e)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%wgtfacq1_c)) CALL printChecksum(TRIM(prefix)//"wgtfacq1_c: ", &
+        & p_nh_state(jg)%metrics%wgtfacq1_c)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%wgtfacq1_e)) CALL printChecksum(TRIM(prefix)//"wgtfacq1_e: ", &
+        & p_nh_state(jg)%metrics%wgtfacq1_e)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%coeff_gradekin)) CALL printChecksum(TRIM(prefix)//"coeff_gradekin: ", &
+        & p_nh_state(jg)%metrics%coeff_gradekin)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%coeff1_dwdz)) CALL printChecksum(TRIM(prefix)//"coeff1_dwdz: ", &
+        & p_nh_state(jg)%metrics%coeff1_dwdz)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%coeff2_dwdz)) CALL printChecksum(TRIM(prefix)//"coeff2_dwdz: ", &
+        & p_nh_state(jg)%metrics%coeff2_dwdz)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%zdiff_gradp)) CALL printChecksum(TRIM(prefix)//"zdiff_gradp: ", &
+        & p_nh_state(jg)%metrics%zdiff_gradp)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%coeff_gradp)) CALL printChecksum(TRIM(prefix)//"coeff_gradp: ", &
+        & p_nh_state(jg)%metrics%coeff_gradp)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%exner_exfac)) CALL printChecksum(TRIM(prefix)//"exner_exfac: ", &
+        & p_nh_state(jg)%metrics%exner_exfac)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%d_exner_dz_ref_ic)) CALL printChecksum(TRIM(prefix)//"d_exner_dz_ref_ic: ", &
+        & p_nh_state(jg)%metrics%d_exner_dz_ref_ic)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%d2dexdz2_fac1_mc)) CALL printChecksum(TRIM(prefix)//"d2dexdz2_fac1_mc: ", &
+        & p_nh_state(jg)%metrics%d2dexdz2_fac1_mc)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%d2dexdz2_fac2_mc)) CALL printChecksum(TRIM(prefix)//"d2dexdz2_fac2_mc: ", &
+        & p_nh_state(jg)%metrics%d2dexdz2_fac2_mc)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%pg_exdist)) CALL printChecksum(TRIM(prefix)//"pg_exdist: ", &
+        & p_nh_state(jg)%metrics%pg_exdist)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%vertidx_gradp)) CALL printChecksum(TRIM(prefix)//"vertidx_gradp: ", &
+        & p_nh_state(jg)%metrics%vertidx_gradp)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%zd_indlist)) CALL printChecksum(TRIM(prefix)//"zd_indlist: ", &
+        & p_nh_state(jg)%metrics%zd_indlist)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%zd_blklist)) CALL printChecksum(TRIM(prefix)//"zd_blklist: ", &
+        & p_nh_state(jg)%metrics%zd_blklist)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%zd_edgeidx)) CALL printChecksum(TRIM(prefix)//"zd_edgeidx: ", &
+        & p_nh_state(jg)%metrics%zd_edgeidx)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%zd_edgeblk)) CALL printChecksum(TRIM(prefix)//"zd_edgeblk: ", &
+        & p_nh_state(jg)%metrics%zd_edgeblk)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%zd_vertidx)) CALL printChecksum(TRIM(prefix)//"zd_vertidx: ", &
+        & p_nh_state(jg)%metrics%zd_vertidx)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%pg_edgeidx)) CALL printChecksum(TRIM(prefix)//"pg_edgeidx: ", &
+        & p_nh_state(jg)%metrics%pg_edgeidx)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%pg_edgeblk)) CALL printChecksum(TRIM(prefix)//"pg_edgeblk: ", &
+        & p_nh_state(jg)%metrics%pg_edgeblk)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%pg_vertidx)) CALL printChecksum(TRIM(prefix)//"pg_vertidx: ", &
+        & p_nh_state(jg)%metrics%pg_vertidx)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%nudge_c_idx)) CALL printChecksum(TRIM(prefix)//"nudge_c_idx: ", &
+        & p_nh_state(jg)%metrics%nudge_c_idx)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%nudge_e_idx)) CALL printChecksum(TRIM(prefix)//"nudge_e_idx: ", &
+        & p_nh_state(jg)%metrics%nudge_e_idx)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%nudge_c_blk)) CALL printChecksum(TRIM(prefix)//"nudge_c_blk: ", &
+        & p_nh_state(jg)%metrics%nudge_c_blk)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%nudge_e_blk)) CALL printChecksum(TRIM(prefix)//"nudge_e_blk: ", &
+        & p_nh_state(jg)%metrics%nudge_e_blk)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%bdy_halo_c_idx)) CALL printChecksum(TRIM(prefix)//"bdy_halo_c_idx: ", &
+        & p_nh_state(jg)%metrics%bdy_halo_c_idx)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%bdy_halo_c_blk)) CALL printChecksum(TRIM(prefix)//"bdy_halo_c_blk: ", &
+        & p_nh_state(jg)%metrics%bdy_halo_c_blk)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%ovlp_halo_c_dim)) CALL printChecksum(TRIM(prefix)//"ovlp_halo_c_dim: ", &
+        & p_nh_state(jg)%metrics%ovlp_halo_c_dim)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%ovlp_halo_c_idx)) CALL printChecksum(TRIM(prefix)//"ovlp_halo_c_idx: ", &
+        & p_nh_state(jg)%metrics%ovlp_halo_c_idx)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%ovlp_halo_c_blk)) CALL printChecksum(TRIM(prefix)//"ovlp_halo_c_blk: ", &
+        & p_nh_state(jg)%metrics%ovlp_halo_c_blk)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%bdy_mflx_e_idx)) CALL printChecksum(TRIM(prefix)//"bdy_mflx_e_idx: ", &
+        & p_nh_state(jg)%metrics%bdy_mflx_e_idx)
+        IF(ASSOCIATED(p_nh_state(jg)%metrics%bdy_mflx_e_blk)) CALL printChecksum(TRIM(prefix)//"bdy_mflx_e_blk: ", &
+        & p_nh_state(jg)%metrics%bdy_mflx_e_blk)
+
+        IF(PRESENT(p_lnd_state)) THEN
+            IF(ALLOCATED(p_lnd_state(jg)%prog_lnd)) THEN
+                DO i = 1, SIZE(p_lnd_state(jg)%prog_lnd(:), 1)
+                    prefix = "checksum of p_lnd_state("//TRIM(int2string(jg))//")%prog_lnd("//TRIM(int2string(i))//")%"
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%t_s_t)) CALL printChecksum(TRIM(prefix)//"t_s_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%t_s_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%t_g)) CALL printChecksum(TRIM(prefix)//"t_g: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%t_g)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%t_g_t)) CALL printChecksum(TRIM(prefix)//"t_g_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%t_g_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%w_i_t)) CALL printChecksum(TRIM(prefix)//"w_i_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%w_i_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%w_p_t)) CALL printChecksum(TRIM(prefix)//"w_p_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%w_p_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%w_s_t)) CALL printChecksum(TRIM(prefix)//"w_s_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%w_s_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%t_so_t)) CALL printChecksum(TRIM(prefix)//"t_so_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%t_so_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%w_so_t)) CALL printChecksum(TRIM(prefix)//"w_so_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%w_so_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%w_so_ice_t)) CALL printChecksum(TRIM(prefix)//"w_so_ice_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%w_so_ice_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%t_snow_t)) CALL printChecksum(TRIM(prefix)//"t_snow_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%t_snow_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%w_snow_t)) CALL printChecksum(TRIM(prefix)//"w_snow_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%w_snow_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%rho_snow_t)) CALL printChecksum(TRIM(prefix)//"rho_snow_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%rho_snow_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%t_snow_mult_t)) CALL printChecksum(TRIM(prefix)//"t_snow_mult_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%t_snow_mult_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%wtot_snow_t)) CALL printChecksum(TRIM(prefix)//"wtot_snow_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%wtot_snow_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%wliq_snow_t)) CALL printChecksum(TRIM(prefix)//"wliq_snow_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%wliq_snow_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%rho_snow_mult_t)) &
+                    & CALL printChecksum(TRIM(prefix)//"rho_snow_mult_t: ", p_lnd_state(jg)%prog_lnd(i)%rho_snow_mult_t)
+                    IF(ASSOCIATED(p_lnd_state(jg)%prog_lnd(i)%dzh_snow_t)) CALL printChecksum(TRIM(prefix)//"dzh_snow_t: ", &
+                    & p_lnd_state(jg)%prog_lnd(i)%dzh_snow_t)
+                    !Can't checksum the t_ptr_2d3d fields because they
+                    !generally have ONLY one of the two pointers
+                    !initialized. Thus, checking the association
+                    !status of the pointers would RESULT IN undefined
+                    !behavior.
+                END DO
+            END IF
+            IF(ALLOCATED(p_lnd_state(jg)%prog_wtr)) THEN
+                DO i = 1, SIZE(p_lnd_state(jg)%prog_wtr(:), 1)
+                    prefix = "checksum of p_lnd_state("//TRIM(int2string(jg))//")%prog_wtr("//TRIM(int2string(i))//")%"
+                    ! For some reason, these checksums explode with floating point exception.
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%t_ice)) CALL printChecksum(TRIM(prefix)//"t_ice: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%t_ice)
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%h_ice)) CALL printChecksum(TRIM(prefix)//"h_ice: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%h_ice)
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%t_snow_si)) CALL printChecksum(TRIM(prefix)//"t_snow_si: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%t_snow_si)
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%h_snow_si)) CALL printChecksum(TRIM(prefix)//"h_snow_si: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%h_snow_si)
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%t_snow_lk)) CALL printChecksum(TRIM(prefix)//"t_snow_lk: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%t_snow_lk)
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%h_snow_lk)) CALL printChecksum(TRIM(prefix)//"h_snow_lk: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%h_snow_lk)
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%t_mnw_lk)) CALL printChecksum(TRIM(prefix)//"t_mnw_lk: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%t_mnw_lk)
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%t_wml_lk)) CALL printChecksum(TRIM(prefix)//"t_wml_lk: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%t_wml_lk)
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%h_ml_lk)) CALL printChecksum(TRIM(prefix)//"h_ml_lk: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%h_ml_lk)
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%t_bot_lk)) CALL printChecksum(TRIM(prefix)//"t_bot_lk: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%t_bot_lk)
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%c_t_lk)) CALL printChecksum(TRIM(prefix)//"c_t_lk: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%c_t_lk)
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%t_b1_lk)) CALL printChecksum(TRIM(prefix)//"t_b1_lk: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%t_b1_lk)
+!                   IF(ASSOCIATED(p_lnd_state(jg)%prog_wtr(i)%h_b1_lk)) CALL printChecksum(TRIM(prefix)//"h_b1_lk: ", &
+!                   & p_lnd_state(jg)%prog_wtr(i)%h_b1_lk)
+                END DO
+            END IF
+            prefix = "checksum of p_lnd_state("//TRIM(int2string(jg))//")%diag_lnd%"
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%qv_s)) CALL printChecksum(TRIM(prefix)//"qv_s: ", &
+            & p_lnd_state(jg)%diag_lnd%qv_s)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%t_s)) CALL printChecksum(TRIM(prefix)//"t_s: ", &
+            & p_lnd_state(jg)%diag_lnd%t_s)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%t_seasfc)) CALL printChecksum(TRIM(prefix)//"t_seasfc: ", &
+            & p_lnd_state(jg)%diag_lnd%t_seasfc)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%w_i)) CALL printChecksum(TRIM(prefix)//"w_i: ", &
+            & p_lnd_state(jg)%diag_lnd%w_i)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%w_p)) CALL printChecksum(TRIM(prefix)//"w_p: ", &
+            & p_lnd_state(jg)%diag_lnd%w_p)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%w_s)) CALL printChecksum(TRIM(prefix)//"w_s: ", &
+            & p_lnd_state(jg)%diag_lnd%w_s)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%t_so)) CALL printChecksum(TRIM(prefix)//"t_so: ", &
+            & p_lnd_state(jg)%diag_lnd%t_so)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%w_so)) CALL printChecksum(TRIM(prefix)//"w_so: ", &
+            & p_lnd_state(jg)%diag_lnd%w_so)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%w_so_ice)) CALL printChecksum(TRIM(prefix)//"w_so_ice: ", &
+            & p_lnd_state(jg)%diag_lnd%w_so_ice)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%runoff_s)) CALL printChecksum(TRIM(prefix)//"runoff_s: ", &
+            & p_lnd_state(jg)%diag_lnd%runoff_s)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%runoff_g)) CALL printChecksum(TRIM(prefix)//"runoff_g: ", &
+            & p_lnd_state(jg)%diag_lnd%runoff_g)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%fr_seaice)) CALL printChecksum(TRIM(prefix)//"fr_seaice: ", &
+            & p_lnd_state(jg)%diag_lnd%fr_seaice)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%qv_s_t)) CALL printChecksum(TRIM(prefix)//"qv_s_t: ", &
+            & p_lnd_state(jg)%diag_lnd%qv_s_t)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%runoff_s_t)) CALL printChecksum(TRIM(prefix)//"runoff_s_t: ", &
+            & p_lnd_state(jg)%diag_lnd%runoff_s_t)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%runoff_g_t)) CALL printChecksum(TRIM(prefix)//"runoff_g_t: ", &
+            & p_lnd_state(jg)%diag_lnd%runoff_g_t)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%rstom)) CALL printChecksum(TRIM(prefix)//"rstom: ", &
+            & p_lnd_state(jg)%diag_lnd%rstom)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%rstom_t)) CALL printChecksum(TRIM(prefix)//"rstom_t: ", &
+            & p_lnd_state(jg)%diag_lnd%rstom_t)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%t_snow)) CALL printChecksum(TRIM(prefix)//"t_snow: ", &
+            & p_lnd_state(jg)%diag_lnd%t_snow)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%rho_snow)) CALL printChecksum(TRIM(prefix)//"rho_snow: ", &
+            & p_lnd_state(jg)%diag_lnd%rho_snow)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%w_snow)) CALL printChecksum(TRIM(prefix)//"w_snow: ", &
+            & p_lnd_state(jg)%diag_lnd%w_snow)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%h_snow)) CALL printChecksum(TRIM(prefix)//"h_snow: ", &
+            & p_lnd_state(jg)%diag_lnd%h_snow)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%h_snow_t)) CALL printChecksum(TRIM(prefix)//"h_snow_t: ", &
+            & p_lnd_state(jg)%diag_lnd%h_snow_t)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%freshsnow)) CALL printChecksum(TRIM(prefix)//"freshsnow: ", &
+            & p_lnd_state(jg)%diag_lnd%freshsnow)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%freshsnow_t)) CALL printChecksum(TRIM(prefix)//"freshsnow_t: ", &
+            & p_lnd_state(jg)%diag_lnd%freshsnow_t)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%snowfrac)) CALL printChecksum(TRIM(prefix)//"snowfrac: ", &
+            & p_lnd_state(jg)%diag_lnd%snowfrac)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%snowfrac_t)) CALL printChecksum(TRIM(prefix)//"snowfrac_t: ", &
+            & p_lnd_state(jg)%diag_lnd%snowfrac_t)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%snowfrac_lc_t)) CALL printChecksum(TRIM(prefix)//"snowfrac_lc_t: ", &
+            & p_lnd_state(jg)%diag_lnd%snowfrac_lc_t)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%t_snow_mult)) CALL printChecksum(TRIM(prefix)//"t_snow_mult: ", &
+            & p_lnd_state(jg)%diag_lnd%t_snow_mult)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%rho_snow_mult)) CALL printChecksum(TRIM(prefix)//"rho_snow_mult: ", &
+            & p_lnd_state(jg)%diag_lnd%rho_snow_mult)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%wliq_snow)) CALL printChecksum(TRIM(prefix)//"wliq_snow: ", &
+            & p_lnd_state(jg)%diag_lnd%wliq_snow)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%wtot_snow)) CALL printChecksum(TRIM(prefix)//"wtot_snow: ", &
+            & p_lnd_state(jg)%diag_lnd%wtot_snow)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%dzh_snow)) CALL printChecksum(TRIM(prefix)//"dzh_snow: ", &
+            & p_lnd_state(jg)%diag_lnd%dzh_snow)
+            !Can't checksum the t_ptr_2d3d fields because they
+            !generally have ONLY one of the two pointers
+            !initialized. Thus, checking the association status of the
+            !pointers would RESULT IN undefined behavior.
+        END IF
+    END DO
+  END SUBROUTINE printChecksums
 
   !-------------
   !>
