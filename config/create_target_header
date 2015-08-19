@@ -566,7 +566,7 @@ set_run_target_bullx()
       ;;
   esac
 
-  use_mpi_startrun="srun --cpu-freq=2500000 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((2 * OMP_NUM_THREADS)) --propagate=STACK"
+  use_mpi_startrun="srun --cpu-freq=2500000 --kill-on-bad-exit=1 --nodes=\${no_of_nodes} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((2 * OMP_NUM_THREADS)) --propagate=STACK"
   case _$use_compiler in
     "_intel" )
         add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
@@ -632,7 +632,7 @@ set_run_target_bullx()
 #SBATCH --job-name=$job_name
 #SBATCH --partition=$queue
 #SBATCH --workdir=$output_folder
-#SBATCH --nodes=1
+#SBATCH --nodes=$use_nodes
 #SBATCH --threads-per-core=2
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
