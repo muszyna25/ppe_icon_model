@@ -2214,18 +2214,17 @@ Defined and used in: \verb+src/namelists/mo_io_nml.f90+
 %\hline
 sst & R & 300 & K &
 sea surface temperature for idealized LES simulations &
-nh\_test\_name=CBL, RICO\\
 isrfc\_type=5,4
 \tabularnewline
 
 %\hline
-shflx & R & -999 & Km/s &
+shflx & R & 0.1 & Km/s &
 Kinematic sensible heat flux at surface &
 isrfc\_type = 2
 \tabularnewline
 
 %\hline
-lhflx & R & -999 & m/s &
+lhflx & R & 0 & m/s &
 Kinematic latent heat flux at surface &
 isrfc\_type = 2
 \tabularnewline
@@ -2233,6 +2232,7 @@ isrfc\_type = 2
 %\hline
 isrfc\_type & I & 1 &  &
 surface type \\
+0 = No fluxes and zero shear stress \\
 1 = TERRA land physics \\
 2 = fixed surface fluxes \\
 3 = fixed buoyancy fluxes \\
@@ -2242,7 +2242,14 @@ surface type \\
 
 %\hline
 ufric & R & -999 & m/s &
-friction velocity for idealized LES simulations &
+friction velocity for idealized LES simulations; if < 0 then it is
+automatically diagnosed &
+\tabularnewline
+
+%\hline
+psfc & R & -999 & Pa &
+surface pressure for idealized LES simulations; if < 0 then it uses
+the surface pressure from dynamics &
 \tabularnewline
 
 %\hline
@@ -2271,13 +2278,13 @@ turbulent Prandtl number &
 \tabularnewline
 
 %\hline
-bflux & R & -999 &  m$^2$/s$^3$ &
+bflux & R & 0.0007 &  m$^2$/s$^3$ &
 buoyancy flux for idealized LES simulations (Stevens 2007) &
 isrfc\_type=3
 \tabularnewline
 
 %\hline
-tran\_coeff & R & -999 &  m/s &
+tran\_coeff & R & 0.02 &  m/s &
 transfer coefficient near surface for idealized LES simulation (Stevens 2007)&
 isrfc\_type=3
 \tabularnewline
@@ -2307,6 +2314,11 @@ expname to name the statistical output file &
 %\hline
 ldiag\_les\_out & L & .FALSE. &   &
 Control for the statistical output in LES mode &
+\tabularnewline
+
+%\hline
+les\_metric & L & .FALSE. &   &
+Switch to turn on Smagorinsky diffusion with 3D metric terms to account for topography &
 \tabularnewline
 
 \end{longtab}
