@@ -198,6 +198,13 @@ CONTAINS
     time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
       ! write(0,*) "nold nnew=", nold(1), nnew(1)
 
+      ! Set model time - now before doing the calculation:
+      !  - datetime refers to the currently calculating timestep
+      CALL add_time(dtime,0,0,0,datetime)
+
+      ! Not nice, but the name list output requires this - needed?
+      time_config%sim_time(1) = time_config%sim_time(1) + dtime
+
       CALL datetime_to_string(datestring, datetime)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(routine), message_text)
@@ -313,12 +320,6 @@ CONTAINS
           & jstep)
         IF (ltimer) CALL timer_stop(timer_tracer_ab)
       ENDIF
-
-      ! One integration cycle finished. Set model time.
-      CALL add_time(dtime,0,0,0,datetime)
-
-      ! Not nice, but the name list output requires this
-      time_config%sim_time(1) = time_config%sim_time(1) + dtime
 
       ! perform accumulation for special variables
       IF (timers_level > 2)  CALL timer_start(timer_extra20)

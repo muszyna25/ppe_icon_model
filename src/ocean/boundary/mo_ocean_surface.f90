@@ -795,7 +795,8 @@ CONTAINS
     !  - correction applied daily
     !  calculate time
     dsec  = datetime%daysec        ! real seconds since begin of day
-    IF (limit_elevation .AND. dsec < dtime) THEN
+    ! event at end of first timestep of day - tbd: use mtime
+    IF (limit_elevation .AND. (dsec-dtime)<0.1 ) THEN
       CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h)
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       CALL dbg_print('UpdSfc: h-old+BalElev',p_os%p_prog(nold(1))%h  ,str_module, 1, in_subset=p_patch%cells%owned)
