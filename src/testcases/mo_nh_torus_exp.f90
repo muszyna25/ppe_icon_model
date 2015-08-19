@@ -116,6 +116,7 @@ MODULE mo_nh_torus_exp
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = psfc_cbl
     ex_sfc   = (psfc_cbl/p0ref)**rd_o_cpd
+    les_config(jg)%psfc = psfc_cbl
 
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
