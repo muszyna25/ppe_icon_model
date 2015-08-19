@@ -98,8 +98,8 @@ CONTAINS
     !-----------------------
     sst          = 300._wp
     psfc         = -999._wp
-    shflx        = -999._wp 
-    lhflx        = -999._wp 
+    shflx        = 0.1_wp 
+    lhflx        = 0._wp 
     isrfc_type   = 1 
     ufric        = -999._wp 
 
@@ -111,8 +111,8 @@ CONTAINS
     km_min           = 0.01_wp  
     min_sfc_wind     = 1._wp !Default from Holstag and Boville 1991
 
-    bflux       = -999._wp
-    tran_coeff  = -999._wp
+    bflux       = 0.0007_wp
+    tran_coeff  = 0.02_wp
 
     vert_scheme_type = 2 !implicit
 
