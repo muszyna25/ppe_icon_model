@@ -456,7 +456,7 @@ case "$ac_sitename" in
                 queue         = compute
                 case "$fortran_compiler" in
                     intel*)
-                        load_modules    =  svn/1.8.13   ${load_modules}
+                        load_modules    =  cdo/default svn/1.8.13   ${load_modules}
                         load_modules    =  intel/14.0.3 ${load_modules}
                         config_compiler = intel
                         CC     = icc
