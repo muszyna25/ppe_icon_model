@@ -925,14 +925,17 @@ CONTAINS
         new_list_element%field%var_base_size    = 8
         new_list_element%field%info%cdiDataType = DATATYPE_FLT64
         ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+        new_list_element%field%r_ptr(:,:,:,:,:) = 0._wp
       CASE (INT_T)
         new_list_element%field%var_base_size    = 4
         new_list_element%field%info%cdiDataType = DATATYPE_INT32
         ALLOCATE(new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+        new_list_element%field%i_ptr(:,:,:,:,:) = 0
       CASE (BOOL_T)
         new_list_element%field%var_base_size    = 4
         new_list_element%field%info%cdiDataType = DATATYPE_INT8
         ALLOCATE(new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+        new_list_element%field%l_ptr(:,:,:,:,:) = .FALSE.
       END SELECT
 
       IF (istat /= 0) THEN

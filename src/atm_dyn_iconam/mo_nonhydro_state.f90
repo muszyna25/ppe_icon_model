@@ -256,14 +256,12 @@ MODULE mo_nonhydro_state
         &  p_nh_state_lists(jg)%metrics_list, listname )
 
       !
-      ! Build ref state list (not needed so far for real case applications)
+      ! Build ref state list
       ! includes memory allocation
       !
-      IF ( ltestcase ) THEN
-        WRITE(listname,'(a,i2.2)') 'nh_state_ref_of_domain_',jg
-        CALL new_nh_state_ref_list(p_patch(jg), p_nh_state(jg)%ref, &
-          &  p_nh_state_lists(jg)%ref_list, listname)
-      ENDIF
+      WRITE(listname,'(a,i2.2)') 'nh_state_ref_of_domain_',jg
+      CALL new_nh_state_ref_list(p_patch(jg), p_nh_state(jg)%ref, &
+        &  p_nh_state_lists(jg)%ref_list, listname)
 
     ENDDO ! jg
 
@@ -492,6 +490,12 @@ MODULE mo_nonhydro_state
 
 
     !------------------------------
+    ! Ensure that all pointers have a defined association status
+    !------------------------------
+    NULLIFY(p_prog%w, p_prog%vn, p_prog%rho, p_prog%exner, p_prog%theta_v, p_prog%tracer, p_prog%tke)
+
+
+    !------------------------------
     ! Meteorological quantities
     !------------------------------
 
@@ -546,10 +550,6 @@ MODULE mo_nonhydro_state
       &           "mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in",             &
       &           "LATBC_PREFETCH_VARS") )
 
-    ! Initialize pointers that are not always allocated to NULL
-    p_prog%exner      => NULL()
-    p_prog%tke        => NULL()
-    p_prog%tracer     => NULL()
 
     IF (.NOT. l_extra_timelev) THEN
       ! exner        p_prog%exner(nproma,nlev,nblks_c)
@@ -1298,6 +1298,80 @@ MODULE mo_nonhydro_state
     shape4d_e     = (/nproma, nlev   , nblks_e, ntracer     /)
     shape4d_entl  = (/nproma, nlev   , nblks_e, n_timlevs   /)
     shape4d_chalfntl = (/nproma, nlevp1, nblks_c, n_timlevs /)
+
+    !------------------------------
+    ! Ensure that all pointers have a defined association status
+    !------------------------------
+    NULLIFY(p_diag%u, &
+    &       p_diag%v, &
+    &       p_diag%vt, &
+    &       p_diag%omega_z, &
+    &       p_diag%vor, &
+    &       p_diag%ddt_vn_phy, &
+    &       p_diag%ddt_exner_phy, &
+    &       p_diag%ddt_temp_dyn, &
+    &       p_diag%ddt_tracer_adv, &
+    &       p_diag%tracer_vi, &
+    &       p_diag%tracer_vi_avg, &
+    &       p_diag%exner_old, &
+    &       p_diag%exner_dyn_incr, &
+    &       p_diag%temp, &
+    &       p_diag%tempv, &
+    &       p_diag%temp_ifc, &
+    &       p_diag%pres, &
+    &       p_diag%pres_ifc, &
+    &       p_diag%pres_sfc, &
+    &       p_diag%pres_sfc_old, &
+    &       p_diag%pres_msl, &
+    &       p_diag%dpres_mc, &
+    &       p_diag%omega, &
+    &       p_diag%hfl_tracer, &
+    &       p_diag%vfl_tracer, &
+    &       p_diag%div, &
+    &       p_diag%div_ic, &
+    &       p_diag%hdef_ic, &
+    &       p_diag%dwdx, &
+    &       p_diag%dwdy, &
+    &       p_diag%mass_fl_e, &
+    &       p_diag%mass_fl_e_sv, &
+    &       p_diag%rho_ic, &
+    &       p_diag%theta_v_ic, &
+    &       p_diag%w_concorr_c, &
+    &       p_diag%vn_ie, &
+    &       p_diag%ddt_vn_adv, &
+    &       p_diag%ddt_w_adv, &
+    &       p_diag%airmass_now, &
+    &       p_diag%airmass_new, &
+    &       p_diag%grf_tend_vn, &
+    &       p_diag%grf_tend_w, &
+    &       p_diag%grf_tend_rho, &
+    &       p_diag%grf_tend_mflx, &
+    &       p_diag%grf_bdy_mflx, &
+    &       p_diag%grf_tend_thv, &
+    &       p_diag%grf_tend_tracer, &
+    &       p_diag%dvn_ie_int, &
+    &       p_diag%dvn_ie_ubc, &
+    &       p_diag%mflx_ic_int, &
+    &       p_diag%mflx_ic_ubc, &
+    &       p_diag%dtheta_v_ic_int, &
+    &       p_diag%dtheta_v_ic_ubc, &
+    &       p_diag%dw_int, &
+    &       p_diag%dw_ubc, &
+    &       p_diag%q_int, &
+    &       p_diag%q_ubc, &
+    &       p_diag%vn_incr, &
+    &       p_diag%exner_incr, &
+    &       p_diag%rho_incr, &
+    &       p_diag%qv_incr, &
+    &       p_diag%u_avg, &
+    &       p_diag%v_avg, &
+    &       p_diag%pres_avg, &
+    &       p_diag%temp_avg, &
+    &       p_diag%qv_avg, &
+    &       p_diag%nsteps_avg, &
+    &       p_diag%extra_2d, &
+    &       p_diag%extra_3d)
+
 
 
     !
@@ -2374,6 +2448,16 @@ MODULE mo_nonhydro_state
 
     !--------------------------------------------------------------
 
+    !------------------------------
+    ! Ensure that all pointers have a defined association status
+    !------------------------------
+    NULLIFY(p_ref%vn_ref, p_ref%w_ref)
+
+
+    ! We ONLY need the variables IN p_ref for test runs.
+    IF(.NOT. ltestcase ) RETURN
+
+
     !determine size of arrays
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
@@ -2494,6 +2578,95 @@ MODULE mo_nonhydro_state
     shape3d_e8       = (/8     , nproma , nlev   , nblks_e /)
     shape3d_v        = (/nproma, nlev   , nblks_v    /)     
     shape3d_vhalf    = (/nproma, nlevp1 , nblks_v    /)
+
+
+    !------------------------------
+    ! Ensure that all pointers have a defined association status
+    !------------------------------
+    NULLIFY(p_metrics%z_ifc, &
+    &       p_metrics%z_mc, &
+    &       p_metrics%ddqz_z_full, &
+    &       p_metrics%geopot, &
+    &       p_metrics%geopot_agl, &
+    &       p_metrics%geopot_agl_ifc, &
+    &       p_metrics%dgeopot_mc, &
+    &       p_metrics%rayleigh_w, &
+    &       p_metrics%rayleigh_vn, &
+    &       p_metrics%enhfac_diffu, &
+    &       p_metrics%scalfac_dd3d, &
+    &       p_metrics%vwind_expl_wgt, &
+    &       p_metrics%vwind_impl_wgt, &
+    &       p_metrics%theta_ref_mc, &
+    &       p_metrics%theta_ref_me, &
+    &       p_metrics%theta_ref_ic, &
+    &       p_metrics%tsfc_ref, &
+    &       p_metrics%exner_ref_mc, &
+    &       p_metrics%rho_ref_mc, &
+    &       p_metrics%rho_ref_me, &
+    &       p_metrics%zd_intcoef, &
+    &       p_metrics%zd_geofac, &
+    &       p_metrics%zd_e2cell, &
+    &       p_metrics%zd_diffcoef, &
+    &       p_metrics%inv_ddqz_z_full_e, &
+    &       p_metrics%inv_ddqz_z_full_v, &
+    &       p_metrics%inv_ddqz_z_half, &
+    &       p_metrics%inv_ddqz_z_half_e, &
+    &       p_metrics%inv_ddqz_z_half_v, &
+    &       p_metrics%wgtfac_v, &
+    &       p_metrics%mixing_length_sq, &
+    &       p_metrics%rho_ref_corr, &
+    &       p_metrics%fbk_dom_volume, &
+    &       p_metrics%ddxn_z_full, &
+    &       p_metrics%ddxn_z_full_c, &
+    &       p_metrics%ddxn_z_full_v, &
+    &       p_metrics%ddxn_z_half_e, &
+    &       p_metrics%ddxn_z_half_c, &
+    &       p_metrics%ddxt_z_full, &
+    &       p_metrics%ddxt_z_full_c, &
+    &       p_metrics%ddxt_z_full_v, &
+    &       p_metrics%ddxt_z_half_e, &
+    &       p_metrics%ddxt_z_half_c, &
+    &       p_metrics%ddxt_z_half_v, &
+    &       p_metrics%ddqz_z_full_e, &
+    &       p_metrics%ddqz_z_half, &
+    &       p_metrics%inv_ddqz_z_full, &
+    &       p_metrics%wgtfac_c, &
+    &       p_metrics%wgtfac_e, &
+    &       p_metrics%wgtfacq_c, &
+    &       p_metrics%wgtfacq_e, &
+    &       p_metrics%wgtfacq1_c, &
+    &       p_metrics%wgtfacq1_e, &
+    &       p_metrics%coeff_gradekin, &
+    &       p_metrics%coeff1_dwdz, &
+    &       p_metrics%coeff2_dwdz, &
+    &       p_metrics%zdiff_gradp, &
+    &       p_metrics%coeff_gradp, &
+    &       p_metrics%exner_exfac, &
+    &       p_metrics%d_exner_dz_ref_ic, &
+    &       p_metrics%d2dexdz2_fac1_mc, &
+    &       p_metrics%d2dexdz2_fac2_mc, &
+    &       p_metrics%pg_exdist, &
+    &       p_metrics%vertidx_gradp, &
+    &       p_metrics%zd_indlist, &
+    &       p_metrics%zd_blklist, &
+    &       p_metrics%zd_edgeidx, &
+    &       p_metrics%zd_edgeblk, &
+    &       p_metrics%zd_vertidx, &
+    &       p_metrics%pg_edgeidx, &
+    &       p_metrics%pg_edgeblk, &
+    &       p_metrics%pg_vertidx, &
+    &       p_metrics%nudge_c_idx, &
+    &       p_metrics%nudge_e_idx, &
+    &       p_metrics%nudge_c_blk, &
+    &       p_metrics%nudge_e_blk, &
+    &       p_metrics%bdy_halo_c_idx, &
+    &       p_metrics%bdy_halo_c_blk, &
+    &       p_metrics%ovlp_halo_c_dim, &
+    &       p_metrics%ovlp_halo_c_idx, &
+    &       p_metrics%ovlp_halo_c_blk, &
+    &       p_metrics%bdy_mflx_e_idx, &
+    &       p_metrics%bdy_mflx_e_blk, &
+    &       p_metrics%mask_prog_halo_c)
 
 
     !

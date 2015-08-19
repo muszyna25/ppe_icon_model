@@ -708,6 +708,7 @@ MODULE mo_vertical_grid
       ! Allocate index lists and storage field for boundary mass flux
       ALLOCATE(p_nh(jg)%metrics%bdy_mflx_e_idx(ic),p_nh(jg)%metrics%bdy_mflx_e_blk(ic), &
                p_nh(jg)%diag%grf_bdy_mflx(nlev,ic,2))
+      p_nh(jg)%diag%grf_bdy_mflx(:,:,:) = 0._wp
 
       ! part 3: fill index list with nest boundary points of row 9
       i_startblk = p_patch(jg)%edges%start_block(grf_bdywidth_e)

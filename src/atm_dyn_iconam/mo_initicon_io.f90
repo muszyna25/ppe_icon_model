@@ -39,7 +39,7 @@ MODULE mo_initicon_io
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
     &                               lvert_remap_fg
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom,                  &
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom,                           &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMODE
   USE mo_exception,           ONLY: message, finish, message_text
