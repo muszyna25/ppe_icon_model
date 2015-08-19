@@ -128,7 +128,7 @@ MODULE mo_nh_stepping
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, &
     &                                    is_avgFG_time
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
-  USE mo_synsat_config,            ONLY: lsynsat, num_images
+  USE mo_synsat_config,            ONLY: lsynsat
   USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
@@ -768,7 +768,11 @@ MODULE mo_nh_stepping
       !
       DO jg = 1, n_dom
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-        CALL art_tools_interface('unit_conversion',p_nh_state(jg),jg)
+        CALL art_tools_interface('unit_conversion',                            & !< in
+          &                      p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
+          &                      p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
+          &                      p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
+          &                      p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
       END DO
     ENDIF
 

@@ -43,7 +43,8 @@ MODULE mo_vertical_grid
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, RAYLEIGH_CLASSIC, &
     &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell, min_rledge_int
-  USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c
+  USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
+                                      grf_nudge_start_e, grf_nudge_end_e, grf_nudgezone_width
   USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg, rgrav
   USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
   USE mo_intp_data_strc,        ONLY: t_int_state
@@ -434,6 +435,25 @@ MODULE mo_vertical_grid
         kstart_dd3d(jg) = kstart_dd3d(jg) + 1
       ENDIF
 
+      ! Horizontal mask field for 3D divergence damping term; 2D div damping is generally applied in the 
+      ! immediate vicinity of nest boundaries
+      DO jb = i_startblk,nblks_e
+
+        CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
+                           i_startidx, i_endidx, 1)
+
+        DO je = i_startidx, i_endidx
+          IF (p_patch(jg)%edges%refin_ctrl(je,jb) <= 0 .OR.                                           &
+              p_patch(jg)%edges%refin_ctrl(je,jb) >= grf_nudge_start_e+2*(grf_nudgezone_width-1) ) THEN
+            p_nh(jg)%metrics%hmask_dd3d(je,jb) = 1._wp
+          ELSE IF (p_patch(jg)%edges%refin_ctrl(je,jb) <= grf_nudge_start_e+grf_nudgezone_width-1) THEN
+            p_nh(jg)%metrics%hmask_dd3d(je,jb) = 0._wp
+          ELSE
+            p_nh(jg)%metrics%hmask_dd3d(je,jb) = 1._wp/REAL(grf_nudgezone_width-1,wp) *              &
+              REAL(p_patch(jg)%edges%refin_ctrl(je,jb) - (grf_nudge_start_e+grf_nudgezone_width-1), wp)
+          ENDIF
+        ENDDO
+      ENDDO
 
       ! Compute variable Exner extrapolation factors and offcentering coefficients for the
       ! vertical wind solver to optimize numerical stability over steep orography

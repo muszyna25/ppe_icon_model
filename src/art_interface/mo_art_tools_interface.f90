@@ -21,8 +21,9 @@
 !!
 
 MODULE mo_art_tools_interface
+  USE mo_kind,                          ONLY: wp
   USE mo_run_config,                    ONLY: lart
-  USE mo_nonhydro_types,                ONLY: t_nh_state
+  USE mo_linked_list,                   ONLY: t_var_list
 #ifdef __ICON_ART
   USE mo_art_unit_conversion,           ONLY: art_massmix2density
 #endif
@@ -37,7 +38,7 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_tools_interface(defcase,p_nh_state,jg)
+SUBROUTINE art_tools_interface(defcase, prog_list, tracer_now, tracer_new, rho)
   !>
   !! Interface for ART tools
   !!
@@ -46,15 +47,18 @@ SUBROUTINE art_tools_interface(defcase,p_nh_state,jg)
   
   CHARACTER(len=*),INTENT(in)        :: & 
     &  defcase                            !< definition of case 
-  TYPE(t_nh_state),TARGET,INTENT(in) :: &
-    &  p_nh_state                         !< prognostic state
-  INTEGER,INTENT(in)                 :: &
-    &  jg                                 !< domain index
+  TYPE(t_var_list),TARGET,INTENT(in) :: &
+    &  prog_list                          !< prognostic state list
+  REAL(wp),INTENT(in)                :: &
+    &  tracer_now(:,:,:,:),             & !< tracer concentrations at timelevel nnow
+    &  rho(:,:,:)                         !< Density
+  REAL(wp),INTENT(inout)             :: &
+    &  tracer_new(:,:,:,:)                !< tracer concentrations at timelevel nnew
   
 #ifdef __ICON_ART
   IF (lart) THEN
     IF (TRIM(defcase) .EQ. 'unit_conversion') THEN
-      CALL art_massmix2density(p_nh_state,jg)
+      CALL art_massmix2density(prog_list, tracer_now, tracer_new, rho)
     ENDIF
   ENDIF
 #endif
