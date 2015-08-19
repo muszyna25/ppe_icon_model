@@ -71,7 +71,6 @@ MODULE mo_nwp_gscp_interface
   USE gscp_data,               ONLY: cloud_num
   USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst
   USE mo_grid_config,          ONLY: l_limited_area
-  USE mo_turbulent_diagnostic, ONLY: is_sampling_time, idx_dt_t_gsp
   USE mo_statistics,           ONLY: levels_horizontal_mean
 
   IMPLICIT NONE
@@ -117,7 +116,6 @@ CONTAINS
     INTEGER :: jc,jb,jg,jk               !<block indices
 
     REAL(wp) :: zncn(nproma,p_patch%nlev),qnc(nproma,p_patch%nlev),qnc_s(nproma)
-    REAL(wp) :: z_dtemp(nproma,p_patch%nlev,p_patch%nblks_c),outvar(p_patch%nlev)
     LOGICAL  :: l_nest_other_micro
     LOGICAL  :: ltwomoment
 
@@ -187,6 +185,7 @@ CONTAINS
        ! Nothing to do for other schemes
     END SELECT
 
+   
     ! exclude boundary interpolation zone of nested domains
     i_rlstart = grf_bdywidth_c+1
     i_rlend   = min_rlcell_int
@@ -355,7 +354,6 @@ CONTAINS
                        prec_s = prm_diag%snow_gsp_rate (:,jb),  &!inout precp rate snow
                        prec_g = prm_diag%graupel_gsp_rate (:,jb),&!inout precp rate graupel
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
-                       dtemp  = z_dtemp (:,:,jb),                &!inout opt. temperature increment
                        msg_level = msg_level                ,    &
                        l_cv=.TRUE.          )    
 
@@ -534,13 +532,6 @@ CONTAINS
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
 
-    !Additional diagnostic for idealized LES runs
-    IF(is_sampling_time)THEN
-      CALL levels_horizontal_mean(z_dtemp, p_patch%cells%area, p_patch%cells%owned, outvar)
-      prm_diag%turb_diag_1dvar(kstart_moist(jg):nlev,idx_dt_t_gsp) =      &
-          prm_diag%turb_diag_1dvar(kstart_moist(jg):nlev,idx_dt_t_gsp) +  &
-          outvar(kstart_moist(jg):nlev)/tcall_gscp_jg
-    END IF
      
   END SUBROUTINE nwp_microphysics
 

@@ -177,6 +177,7 @@ CONTAINS
       & z_ddt_temp  (nproma,pt_patch%nlev,pt_patch%nblks_c)   !< Temperature tendency
  
     REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv
+    REAL(wp) :: z_temp_old(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
     !< vertical interfaces
 
@@ -524,6 +525,9 @@ CONTAINS
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
 
+      !Copy temp to calculate its tendency next
+      z_temp_old(:,:,:) = pt_diag%temp(:,:,:)
+
       CALL nwp_microphysics ( dt_phy_jg(itfastphy),             & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
@@ -637,6 +641,10 @@ CONTAINS
             ! reset dynamical exner increment to zero
             ! (it is accumulated over one advective time step in solve_nh)
             pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
+
+            !Calculate temp tendency due to microphysics
+            prm_nwp_tend%ddt_temp_gscp(jc,jk,jb) =  &
+                 ( pt_diag%temp(jc,jk,jb) - z_temp_old(jc,jk,jb) ) / dt_phy_jg(itfastphy)
           ENDDO
         ENDDO
 

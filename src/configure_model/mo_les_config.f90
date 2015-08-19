@@ -33,6 +33,7 @@ MODULE mo_les_config
 
     ! variables from namelist
     REAL(wp) :: sst        ! prescribed SST
+    REAL(wp) :: psfc       ! prescribed surface pressure
     REAL(wp) :: shflx      ! prescribed sensible heat flux (W/m2)
     REAL(wp) :: lhflx      ! prescribed latent heat flux   (W/m2)
     INTEGER  :: isrfc_type ! 1=fixed sst, 2=fixed flux

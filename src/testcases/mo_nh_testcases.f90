@@ -347,6 +347,14 @@ MODULE mo_nh_testcases
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running Convective Boundary Layer Experiment')
 
+  CASE ('2D_BUBBLE')
+
+    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+        CALL finish(TRIM(routine),'2D BUBBLE case is only for plane torus!')
+
+   ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running 2D Warm Bubble test case')
+
   CASE ('RCE_glb')
 
    ! Running Radiative Convective Equilibrium testcase
@@ -1071,7 +1079,7 @@ MODULE mo_nh_testcases
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
 
-    CALL message(TRIM(routine),'End initilization of 2D warn bubble')
+    CALL message(TRIM(routine),'End initilization of 2D warm bubble')
   END SELECT
 
 

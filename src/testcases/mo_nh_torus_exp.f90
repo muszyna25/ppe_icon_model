@@ -240,7 +240,7 @@ MODULE mo_nh_torus_exp
     TYPE(t_nh_ref),        INTENT(INOUT)::  ptr_nh_ref
 
     INTEGER  :: je,jk,jb,i_startidx,i_endidx   !< loop indices
-    INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
+    INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e, jg
     INTEGER  :: nlev, nlevp1                        !< number of full and half levels
     INTEGER  :: nlen, i_rcstartlev, jcn, jbn, ist
 
@@ -266,9 +266,13 @@ MODULE mo_nh_torus_exp
     nlev   = ptr_patch%nlev
     nlevp1 = ptr_patch%nlevp1
 
+    !patch id
+    jg = ptr_patch%id
+
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = psfc_in
     ex_sfc   = (psfc_in/p0ref)**rd_o_cpd
+    les_config(jg)%psfc = psfc_in
 
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
@@ -751,6 +755,8 @@ MODULE mo_nh_torus_exp
     ptr_nh_diag%pres_sfc(:,:) = psfc_in
     ex_sfc   = (psfc_in/p0ref)**rd_o_cpd
 
+    les_config(jg)%psfc = psfc_in
+
     ! Tracers: all zero by default
     ptr_nh_prog%tracer(:,:,:,:) = 0._wp
 
@@ -798,6 +804,10 @@ MODULE mo_nh_torus_exp
                                ptr_patch, opt_calc_pres=.TRUE., opt_calc_temp=.TRUE.)
 
     ENDDO !jb
+
+    !Zero wind
+    ptr_nh_prog%vn = 0._wp
+    ptr_nh_prog%w  = 0._wp
 
     !Add perturbation to theta_v (same as in theta assuming qv,qc same)
 
