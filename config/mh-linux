@@ -415,6 +415,7 @@ case "$ac_sitename" in
         ;;
 #===============================================
     dkrz.de|bullx)
+        load_modules = "svn/1.8.13" "${load_modules}"
         case "$(hostname)" in
             wizard*)
                 load_profile  = "." "/client/etc/profile.wizard"
