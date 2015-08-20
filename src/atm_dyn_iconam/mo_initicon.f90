@@ -848,6 +848,7 @@ MODULE mo_initicon
     END DO
   END SUBROUTINE printChecksums
 
+  ! Write an output line that informs the user of the init_mode we are using (failing the program if init_mode is invalid).
   SUBROUTINE print_init_mode()
     SELECT CASE(init_mode)
         CASE(MODE_DWDANA)   
@@ -870,21 +871,13 @@ MODULE mo_initicon
     END SELECT
   END SUBROUTINE print_init_mode
 
-  SUBROUTINE process_input_data(p_patch, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
+  ! Read the data from the first-guess file.
+  SUBROUTINE read_dwdfg(p_patch, p_nh_state, prm_diag, p_lnd_state)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
-    TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
     TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
-    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
 
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//':init_icon'
-    INTEGER :: jg, jb
-    INTEGER :: i_rlstart, i_rlend, i_nchdom
-    INTEGER :: i_startblk, i_endblk
-
-    ! Read data from first-guess file.
     SELECT CASE(init_mode)
         CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
             CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
@@ -895,8 +888,17 @@ MODULE mo_initicon
         CASE(MODE_COMBINED, MODE_COSMODE)
             CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
     END SELECT
+  END SUBROUTINE read_dwdfg
 
-    ! Do postprocessing of data from first-guess file.
+  ! Do postprocessing of data from first-guess file.
+  SUBROUTINE process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
+    TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
+    TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
+    TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
+    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
+
     SELECT CASE(init_mode)
         CASE(MODE_ICONVREMAP)
             CALL process_input_dwdfg_atm_ii (p_patch, initicon)
@@ -918,8 +920,14 @@ MODULE mo_initicon
                 END IF
             END IF
     END SELECT
+  END SUBROUTINE process_dwdfg
 
-    ! Read data from analysis files.
+  ! Read data from analysis files.
+  SUBROUTINE read_dwdana(p_patch, p_nh_state, p_lnd_state)
+    TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
+
     SELECT CASE(init_mode)
         CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
             IF(lread_ana) CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
@@ -933,8 +941,21 @@ MODULE mo_initicon
         CASE(MODE_ICONVREMAP)
             IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
     END SELECT
+  END SUBROUTINE read_dwdana
 
-    ! Do postprocessing of data from analysis files.
+  ! Do postprocessing of data from analysis files.
+  SUBROUTINE process_dwdana(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
+    TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
+    TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
+    TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
+    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
+
+    INTEGER :: jg, jb
+    INTEGER :: i_rlstart, i_rlend, i_nchdom
+    INTEGER :: i_startblk, i_endblk
+
     SELECT CASE(init_mode)
         CASE(MODE_DWDANA)
             IF(lread_ana) CALL process_input_dwdana_atm(p_patch, initicon)
@@ -1003,6 +1024,22 @@ MODULE mo_initicon
                 ENDDO
             ENDIF
     END SELECT
+  END SUBROUTINE process_dwdana
+
+  ! Reads the data from the first-guess and analysis files, and does any required processing of that input data.
+  SUBROUTINE process_input_data(p_patch, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
+    TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
+    TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
+    TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
+    TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
+    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
+
+    CALL read_dwdfg(p_patch, p_nh_state, prm_diag, p_lnd_state)
+    CALL process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
+    CALL read_dwdana(p_patch, p_nh_state, p_lnd_state)
+    CALL process_dwdana(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
   END SUBROUTINE process_input_data
 
   !>
