@@ -883,130 +883,125 @@ MODULE mo_initicon
     INTEGER :: jg, jb
     INTEGER :: i_rlstart, i_rlend, i_nchdom
     INTEGER :: i_startblk, i_endblk
-    LOGICAL :: lomega_in
+
+    ! Read data from first-guess file.
+    SELECT CASE(init_mode)
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
+            CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+            CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+        CASE(MODE_ICONVREMAP)
+            CALL read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
+            CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+        CASE(MODE_COMBINED, MODE_COSMODE)
+            CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+    END SELECT
+
+    ! Do postprocessing of data from first-guess file.
+    SELECT CASE(init_mode)
+        CASE(MODE_ICONVREMAP)
+            CALL process_input_dwdfg_atm_ii (p_patch, initicon)
+            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMODE)
+            IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
+                                     ! does not change; otherwise, init_mode = 7 must be used based on a full analysis)
+                CALL copy_fg2initicon(p_patch, initicon, p_nh_state)
+                CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, p_patch(:)%nlev, initicon, &
+                &                    opt_convert_omega2w=.FALSE.)
+                CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
+            END IF
+            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
+            IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
+                IF (ntiles_total > 1 .AND. ltile_init) THEN
+                    CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.FALSE.)
+                ELSE IF (ntiles_total > 1 .AND. lsnowtile .AND. .NOT. ltile_coldstart) THEN
+                    CALL init_snowtiles(p_patch, p_lnd_state, ext_data)
+                END IF
+            END IF
+    END SELECT
+
+    ! Read data from analysis files.
+    SELECT CASE(init_mode)
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
+            IF(lread_ana) CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+            IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+        CASE(MODE_IFSANA)
+            CALL read_extana_atm(p_patch, initicon)
+            IF (iforcing == inwp) CALL read_extana_sfc(p_patch, initicon)
+        CASE(MODE_COMBINED, MODE_COSMODE)
+            CALL read_extana_atm(p_patch, initicon)
+            IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+        CASE(MODE_ICONVREMAP)
+            IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+    END SELECT
+
+    ! Do postprocessing of data from analysis files.
+    SELECT CASE(init_mode)
+        CASE(MODE_DWDANA)
+            IF(lread_ana) CALL process_input_dwdana_atm(p_patch, initicon)
+            CALL create_dwdana_atm(p_patch, p_nh_state, p_int_state)
+        CASE(MODE_IAU_OLD, MODE_IAU)
+            IF(lread_ana) CALL process_input_dwdana_atm(p_patch, initicon)
+            CALL create_dwdanainc_atm(p_patch, p_nh_state, p_int_state)
+        CASE(MODE_COMBINED, MODE_IFSANA)
+            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
+            &                    opt_convert_omega2w = .TRUE.)
+            CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
+        CASE(MODE_ICONVREMAP, MODE_COSMODE)
+            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
+            &                    opt_convert_omega2w = .FALSE.)
+            CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
+    END SELECT
 
     SELECT CASE(init_mode)
-    CASE(MODE_DWDANA)
-        CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-        IF(lread_ana) THEN
-          CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-          CALL process_input_dwdana_atm(p_patch, initicon)
-        END IF
-        CALL create_dwdana_atm(p_patch, p_nh_state, p_int_state)
-        CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-        CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
-        IF(lread_ana) THEN
-            CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-            CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
-        END IF
-        CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
+        CASE(MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMODE)
+            IF(lread_ana) CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
+            IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)    ! cannot be moved after create_dwdana_sfc()!
+            CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
+            IF (ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode) .AND. ntiles_total > 1) THEN
+                CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.TRUE.)
+            END IF
+        CASE(MODE_IFSANA)
+            IF (iforcing == inwp) THEN
+                CALL vert_interp_sfc(p_patch, initicon)
+                CALL copy_initicon2prog_sfc(p_patch, initicon, p_lnd_state, ext_data)
+            END IF
+    END SELECT
 
-    CASE(MODE_ICONVREMAP)
-        CALL read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
-        CALL process_input_dwdfg_atm_ii (p_patch, initicon)
-        CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, opt_convert_omega2w=.FALSE.)
-        CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
-        CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-        CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
-        IF(lread_ana) THEN
-            CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-            CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
-        END IF
-        CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
-
-    CASE (MODE_IAU_OLD, MODE_IAU)
-        CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-        IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
-                                 ! does not change; otherwise, init_mode = 7 must be used based on a full analysis)
-            CALL copy_fg2initicon(p_patch, initicon, p_nh_state)
-            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, p_patch(:)%nlev, initicon, &
-            &                    opt_convert_omega2w=.FALSE.)
-            CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
-        END IF
-        IF(lread_ana) THEN
-          CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-          CALL process_input_dwdana_atm(p_patch, initicon)
-        END IF
-        CALL create_dwdanainc_atm(p_patch, p_nh_state, p_int_state)
-        CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-        CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
-        IF (ntiles_total > 1 .AND. ltile_init) THEN
-            CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.FALSE.)
-        ELSE IF (ntiles_total > 1 .AND. lsnowtile .AND. .NOT. ltile_coldstart) THEN
-            CALL init_snowtiles(p_patch, p_lnd_state, ext_data)
-        ENDIF
-        IF(lread_ana) THEN
-            CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-            CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
-        END IF
-        CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
-        CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
-        IF (ntiles_total > 1) THEN
-            CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.TRUE.)
-        END IF
-
-    CASE(MODE_IFSANA)
-        CALL read_extana_atm(p_patch, initicon)
-        CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, opt_convert_omega2w=.TRUE.)
-        CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
-        IF (iforcing == inwp) THEN
-            CALL read_extana_sfc(p_patch, initicon)
-            CALL vert_interp_sfc(p_patch, initicon)
-            CALL copy_initicon2prog_sfc(p_patch, initicon, p_lnd_state, ext_data)
-        END IF
-
-    CASE(MODE_COMBINED,MODE_COSMODE)
-        CALL read_extana_atm(p_patch, initicon)
-        IF (init_mode == MODE_COSMODE) THEN
-          lomega_in = .FALSE.
-        ELSE
-          lomega_in = .TRUE.
-        ENDIF
-        CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, opt_convert_omega2w=lomega_in)
-        CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
-        CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-        CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
-        IF(lread_ana) THEN
-            CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-            CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
-        END IF
-        CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
-        IF (llake) THEN
-            DO jg = 1, n_dom
-                IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-                i_rlstart  = 1
-                i_rlend    = min_rlcell
-                i_nchdom   =  MAX(1,p_patch(jg)%n_childdom)
-                i_startblk = p_patch(jg)%cells%start_blk(i_rlstart,1)
-                i_endblk   = p_patch(jg)%cells%end_blk(i_rlend,i_nchdom)
+    SELECT CASE(init_mode)
+        CASE(MODE_COMBINED,MODE_COSMODE)
+            IF (llake) THEN
+                DO jg = 1, n_dom
+                    IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+                    i_rlstart  = 1
+                    i_rlend    = min_rlcell
+                    i_nchdom   =  MAX(1,p_patch(jg)%n_childdom)
+                    i_startblk = p_patch(jg)%cells%start_blk(i_rlstart,1)
+                    i_endblk   = p_patch(jg)%cells%end_blk(i_rlend,i_nchdom)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb)
-                DO jb = i_startblk, i_endblk
-                    CALL flake_coldinit(                                        &
-                        &   nflkgb      = ext_data(jg)%atm%fp_count    (jb),    &
-                        &   idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb),    &
-                        &   depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb),    &
-                        &   tskin       = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,jb,1),&
-                        &   t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
-                        &   h_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_lk(:,jb), &
-                        &   t_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
-                        &   h_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (:,jb), &
-                        &   t_mnw_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_mnw_lk (:,jb), &
-                        &   t_wml_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk (:,jb), & 
-                        &   t_bot_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk (:,jb), &
-                        &   c_t_lk_p    = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk   (:,jb), &
-                        &   h_ml_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk  (:,jb), &
-                        &   t_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_b1_lk  (:,jb), &
-                        &   h_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_b1_lk  (:,jb), &
-                        &   t_g_lk_p    = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t    (:,jb,isub_lake) )
-                ENDDO
+                    DO jb = i_startblk, i_endblk
+                        CALL flake_coldinit(                                        &
+                            &   nflkgb      = ext_data(jg)%atm%fp_count    (jb),    &
+                            &   idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb),    &
+                            &   depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb),    &
+                            &   tskin       = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,jb,1),&
+                            &   t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
+                            &   h_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_lk(:,jb), &
+                            &   t_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
+                            &   h_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (:,jb), &
+                            &   t_mnw_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_mnw_lk (:,jb), &
+                            &   t_wml_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk (:,jb), &
+                            &   t_bot_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk (:,jb), &
+                            &   c_t_lk_p    = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk   (:,jb), &
+                            &   h_ml_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk  (:,jb), &
+                            &   t_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_b1_lk  (:,jb), &
+                            &   h_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_b1_lk  (:,jb), &
+                            &   t_g_lk_p    = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t    (:,jb,isub_lake) )
+                    ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-            ENDDO
-        ENDIF
-
-    CASE DEFAULT
-        CALL finish(TRIM(routine), "Invalid operation mode!")
+                ENDDO
+            ENDIF
     END SELECT
   END SUBROUTINE process_input_data
 
