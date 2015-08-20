@@ -274,9 +274,9 @@ CONTAINS
     IF(diffusion_config(jg)%lhdiff_w .AND. lhdiff_rcf) &
        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog%w)
 
-    !add all tracers that are used in satad
+    !add all tracers that are used in satad and turbulence
     IF(ltransport) &
-      CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer) 
+      CALL sync_patch_array_mult(SYNC_C, pt_patch, iqm_max, f4din=pt_prog_rcf%tracer) 
 
     !-------------------------------------------------------------------------
     !>  Update the tracer for every advective timestep,
