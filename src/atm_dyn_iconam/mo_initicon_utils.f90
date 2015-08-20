@@ -475,19 +475,22 @@ MODULE mo_initicon_utils
   !!
   !!
   SUBROUTINE create_input_groups(p_patch, grp_vars_fg, ngrp_vars_fg, grp_vars_ana, ngrp_vars_ana, &
+    &                            grp_vars_ana_mandatory, ngrp_vars_ana_mandatory, &
     &                            init_mode)
 
-    TYPE(t_patch)             , INTENT(IN)    :: p_patch          ! current patch
-    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg(:)   ! vars (names) to be read from fg-file
-    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana(:)  ! vars (names) to be read from ana-file
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg     ! number of fields in grp_vars_fg
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana    ! number of fields in grp_vars_ana
-    INTEGER                   , INTENT(IN)    :: init_mode        ! initialization mode
+    TYPE(t_patch)             , INTENT(IN)    :: p_patch                   ! current patch
+    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg(:)            ! vars (names) to be read from fg-file
+    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana(:)           ! vars (names) to be read from ana-file
+    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana_mandatory(:) ! list of mandatory analysis fields (provided via Namelist)
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg              ! number of fields in grp_vars_fg
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana             ! number of fields in grp_vars_ana
+    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana_mandatory   ! number of fields in grp_vars_ana_mandatory
+    INTEGER                   , INTENT(IN)    :: init_mode                 ! initialization mode
 
     ! local variables
-    INTEGER                    :: jg                              ! patch id
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anafile(200)           ! ana-file inventory group
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fgfile(200)            ! fg-file inventory group
+    INTEGER                    :: jg                                       ! patch id
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anafile(200)                    ! ana-file inventory group
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fgfile(200)                     ! fg-file inventory group
     INTEGER :: ivar, mpi_comm
     INTEGER :: index, is_one_of
 
@@ -498,9 +501,7 @@ MODULE mo_initicon_utils
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_default(200), grp_vars_ana_default(200)
     INTEGER :: ngrp_vars_fg_default, ngrp_vars_ana_default
 
-    ! list of mandatory analysis fields (provided via Namelist)
-    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_mandatory(SIZE(grp_vars_ana_default))
-    INTEGER :: nvars_ana_mandatory
+    
 
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anaatm_default(SIZE(grp_vars_ana_default))  ! default vars atm-ana
     INTEGER                    :: ngrp_vars_anaatm_default ! default number grp_vars_anaatm
@@ -529,7 +530,7 @@ MODULE mo_initicon_utils
       jg = p_patch%id
       lmiss_ana = .FALSE.
       lmiss_fg  = .FALSE.
-      nvars_ana_mandatory = 0
+      ngrp_vars_ana_mandatory = 0
       grp_vars_anafile(:) = ""
       grp_vars_fgfile (:) = ""
 
@@ -761,9 +762,9 @@ MODULE mo_initicon_utils
         ! (i.e. due to typos) -> Model abort
         DO ivar=1,SIZE(initicon_config(jg)%ana_varlist)
           IF (initicon_config(jg)%ana_varlist(ivar) /= ' ') THEN
-            nvars_ana_mandatory = nvars_ana_mandatory + 1
+            ngrp_vars_ana_mandatory = ngrp_vars_ana_mandatory + 1
             ! Sanity check
-            IF (nvars_ana_mandatory > SIZE(grp_vars_ana_mandatory)) THEN
+            IF (ngrp_vars_ana_mandatory > SIZE(grp_vars_ana_mandatory)) THEN
               WRITE(message_text,'(a)') 'Number of declared mandatory analysis fields exceeds internal limit.'
               CALL finish(routine, TRIM(message_text))
             ENDIF
@@ -829,7 +830,7 @@ MODULE mo_initicon_utils
           IF ( index == -1) THEN  ! variable not found
             ! Check whether this field is mandatory, or whether we may fall back to 
             ! the first guess
-            is_one_of = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_ana_mandatory(1:nvars_ana_mandatory))
+            is_one_of = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_ana_mandatory(1:ngrp_vars_ana_mandatory))
 
             IF ( is_one_of == -1) THEN  ! analysis field is not mandatory
               ! fall back to first guess
@@ -1959,9 +1960,11 @@ MODULE mo_initicon_utils
 
     ! allocate groups for list of fields that must be read during initialization
     ALLOCATE(initicon%grp_vars_fg (200), &
-             initicon%grp_vars_ana(200))
+             initicon%grp_vars_ana(200), &
+             initicon%grp_vars_ana_mandatory(200))
     initicon%ngrp_vars_fg = -1
     initicon%ngrp_vars_ana = -1
+    initicon%ngrp_vars_ana_mandatory = -1
 
     CALL construct_atm_in(initicon%atm_in)
     CALL construct_sfc_in(initicon%sfc_in)
@@ -2336,8 +2339,9 @@ MODULE mo_initicon_utils
                  initicon(jg)%z_ifc,            &
                  initicon(jg)%z_mc              )
       ! deallocate groups for list of fields that must be read during initialization
-      DEALLOCATE(initicon(jg)%grp_vars_fg,         &
-                 initicon(jg)%grp_vars_ana )
+      DEALLOCATE(initicon(jg)%grp_vars_fg, &
+               & initicon(jg)%grp_vars_ana, &
+               & initicon(jg)%grp_vars_ana_mandatory )
 
       ! atmospheric output data
       IF (initicon(jg)%atm%linitialized) THEN
