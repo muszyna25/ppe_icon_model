@@ -67,9 +67,9 @@ MODULE mo_initicon
                                     copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
                                     deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
                                     copy_fg2initicon, initVarnamesDict
-  USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
-                                    read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc,    &
-                                    read_dwdfg_atm_ii
+  USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, read_dwdfg_atm, &
+                                  & read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc, read_dwdfg_atm_ii, process_input_dwdana_sfc, &
+                                  & process_input_dwdfg_atm_ii, process_input_dwdana_atm, process_input_dwdfg_sfc
   USE mo_util_string,         ONLY: one_of, int2string
   USE mo_checksum,            ONLY: printChecksum
   USE mo_phyparam_soil,       ONLY: cporv, cadp
@@ -1001,6 +1001,7 @@ MODULE mo_initicon
       ! read DWD first guess for atmosphere and store to initicon input state variables
       ! (input data are allowed to have a different number of model levels than the current model grid)
       CALL read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
+      CALL process_input_dwdfg_atm_ii (p_patch, initicon)
 
       ! Perform vertical interpolation from input ICON grid to output ICON grid
       !
@@ -1016,8 +1017,10 @@ MODULE mo_initicon
       ! read DWD first guess for atmosphere
       CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
-      IF(lread_ana) &   ! read DWD analysis from DA for atmosphere
+      IF(lread_ana) THEN   ! read DWD analysis from DA for atmosphere
         CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+        CALL process_input_dwdana_atm(p_patch, initicon)
+      END IF
 
       ! merge first guess with DA analysis and 
       ! convert variables to the NH set of prognostic variables
@@ -1068,8 +1071,10 @@ MODULE mo_initicon
       CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
     ENDIF
 
-    IF(lread_ana) &   
-     CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+    IF(lread_ana) THEN
+      CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+      CALL process_input_dwdana_atm(p_patch, initicon)
+    END IF
 
 
     ! Compute DA increments in terms of the NH set 
@@ -1110,12 +1115,15 @@ MODULE mo_initicon
 
 
     ! read DWD first guess and analysis for surface/land
-    ! 
+    !
     CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
- 
-    IF(lread_ana) &   
-     CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-   
+    CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
+
+    IF(lread_ana) THEN
+        CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+        CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
+    END IF
+
     ! get SST from first soil level t_so (for sea and lake points)
     ! perform consistency checks
     CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
@@ -1154,6 +1162,7 @@ MODULE mo_initicon
     ! read DWD first guess and analysis for surface/land
     ! 
     CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+    CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
 
     ! In case of tile coldstart, fill sub-grid scale land and water points with reasonable data
     ! from neighboring grid points where possible;
@@ -1164,9 +1173,10 @@ MODULE mo_initicon
       CALL init_snowtiles(p_patch, p_lnd_state, ext_data)
     ENDIF
 
-    IF(lread_ana) &   
-      CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-
+    IF(lread_ana) THEN
+        CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+        CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
+    END IF
 
     ! Add increments to time-shifted first guess in one go.
     CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
