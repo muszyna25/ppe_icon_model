@@ -475,31 +475,28 @@ MODULE mo_initicon_utils
   !!
   !!
   SUBROUTINE create_input_groups(p_patch, grp_vars_fg, ngrp_vars_fg, grp_vars_ana, ngrp_vars_ana, &
-    &                            grp_vars_fg_default, ngrp_vars_fg_default,              &
-    &                            grp_vars_ana_default, ngrp_vars_ana_default,            &
     &                            init_mode)
 
     TYPE(t_patch)             , INTENT(IN)    :: p_patch          ! current patch
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg(:)   ! vars (names) to be read from fg-file
     CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana(:)  ! vars (names) to be read from ana-file
-    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_fg_default(:)   ! default vars fg-file
-    CHARACTER(LEN=VARNAME_LEN), INTENT(INOUT) :: grp_vars_ana_default(:)  ! default vars ana-file
     INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg     ! number of fields in grp_vars_fg
     INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana    ! number of fields in grp_vars_ana
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_fg_default  ! default number grp_vars_fg
-    INTEGER                   , INTENT(OUT)   :: ngrp_vars_ana_default ! default number grp_vars_ana
     INTEGER                   , INTENT(IN)    :: init_mode        ! initialization mode
 
     ! local variables
     INTEGER                    :: jg                              ! patch id
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anafile(200)           ! ana-file inventory group
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fgfile(200)            ! fg-file inventory group
-    CHARACTER(LEN=VARNAME_LEN) :: grp_name                        ! group name
     INTEGER :: ivar, mpi_comm
     INTEGER :: index, is_one_of
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':create_input_groups'
     TYPE(t_bool_table) :: bool_table
+
+    ! lists to hold the default sets of fields
+    CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fg_default(200), grp_vars_ana_default(200)
+    INTEGER :: ngrp_vars_fg_default, ngrp_vars_ana_default
 
     ! list of mandatory analysis fields (provided via Namelist)
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_ana_mandatory(SIZE(grp_vars_ana_default))
@@ -545,16 +542,14 @@ MODULE mo_initicon_utils
         CASE(MODE_DWDANA, MODE_ICONVREMAP)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
-          grp_name ='mode_dwd_fg_in' 
-          CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
+          CALL collect_group('mode_dwd_fg_in', grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
 
 
           ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
           !
-          grp_name ='mode_dwd_ana_in' 
-          CALL collect_group(TRIM(grp_name), grp_vars_ana_default, ngrp_vars_ana_default,    &
+          CALL collect_group('mode_dwd_ana_in', grp_vars_ana_default, ngrp_vars_ana_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
           ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
@@ -587,8 +582,7 @@ MODULE mo_initicon_utils
         CASE(MODE_IAU)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
-          grp_name ='mode_iau_fg_in' 
-          CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
+          CALL collect_group('mode_iau_fg_in', grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
           ! in case of tile coldstart, we can omit snowfrac
@@ -599,8 +593,7 @@ MODULE mo_initicon_utils
 
           ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
           !
-          grp_name ='mode_iau_ana_in' 
-          CALL collect_group(TRIM(grp_name), grp_vars_ana_default, ngrp_vars_ana_default,    &
+          CALL collect_group('mode_iau_ana_in' , grp_vars_ana_default, ngrp_vars_ana_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
           ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
@@ -621,8 +614,7 @@ MODULE mo_initicon_utils
             ! however surface analysis fields are read from file
 
             ! Remove fields atmospheric analysis fields from grp_vars_ana_default
-            grp_name ='mode_iau_anaatm_in' 
-            CALL collect_group(TRIM(grp_name), grp_vars_anaatm_default, ngrp_vars_anaatm_default,   &
+            CALL collect_group(TRIM('mode_iau_anaatm_in' ), grp_vars_anaatm_default, ngrp_vars_anaatm_default,   &
               &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
             CALL difference(grp_vars_ana_default, ngrp_vars_ana_default, &
               &             grp_vars_anaatm_default, ngrp_vars_anaatm_default)
@@ -659,8 +651,7 @@ MODULE mo_initicon_utils
         CASE(MODE_IAU_OLD)
           ! Collect group 'grp_vars_fg_default' from mode_iau_old_fg_in
           !
-          grp_name ='mode_iau_old_fg_in' 
-          CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
+          CALL collect_group(TRIM('mode_iau_old_fg_in' ), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
           ! in case of tile coldstart, we can omit snowfrac
@@ -671,8 +662,7 @@ MODULE mo_initicon_utils
 
           ! Collect group 'grp_vars_ana_default' from mode_iau_old_ana_in
           !
-          grp_name ='mode_iau_old_ana_in' 
-          CALL collect_group(TRIM(grp_name), grp_vars_ana_default, ngrp_vars_ana_default,    &
+          CALL collect_group(TRIM('mode_iau_old_ana_in' ), grp_vars_ana_default, ngrp_vars_ana_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
           ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
@@ -693,8 +683,7 @@ MODULE mo_initicon_utils
             ! however surface analysis fields are read from file
 
             ! Remove fields atmospheric analysis fields from grp_vars_ana_default
-            grp_name ='mode_iau_anaatm_in' 
-            CALL collect_group(TRIM(grp_name), grp_vars_anaatm_default, ngrp_vars_anaatm_default,   &
+            CALL collect_group(TRIM('mode_iau_anaatm_in' ), grp_vars_anaatm_default, ngrp_vars_anaatm_default,   &
               &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
             CALL difference(grp_vars_ana_default, ngrp_vars_ana_default,     &
               &             grp_vars_anaatm_default, ngrp_vars_anaatm_default)
@@ -728,17 +717,16 @@ MODULE mo_initicon_utils
           ENDIF
 
         CASE(MODE_COMBINED,MODE_COSMODE)
-
+          ! Collect group 'grp_vars_fg_default' from mode_combined_in or mode_cosmode_in
+          !
           IF (init_mode == MODE_COMBINED) THEN
-            grp_name ='mode_combined_in' 
+              CALL collect_group('mode_combined_in', grp_vars_fg_default, ngrp_vars_fg_default,    &
+                &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
           ELSE
-            grp_name ='mode_cosmode_in' 
+              CALL collect_group('mode_cosmode_in', grp_vars_fg_default, ngrp_vars_fg_default,    &
+                &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
           ENDIF
 
-          ! Collect group 'grp_vars_fg_default' from grp_name
-          !
-          CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
-            &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
           ! remove W_SO from default list and replace it by SMI
           CALL difference (grp_vars_fg_default, ngrp_vars_fg_default, (/'w_so'/), 1)
@@ -1970,14 +1958,10 @@ MODULE mo_initicon_utils
 !$OMP END PARALLEL WORKSHARE
 
     ! allocate groups for list of fields that must be read during initialization
-    ALLOCATE(initicon%grp_vars_fg (200)        , &
-             initicon%grp_vars_ana(200)        , &
-             initicon%grp_vars_fg_default (200), &
-             initicon%grp_vars_ana_default(200)  )
+    ALLOCATE(initicon%grp_vars_fg (200), &
+             initicon%grp_vars_ana(200))
     initicon%ngrp_vars_fg = -1
     initicon%ngrp_vars_ana = -1
-    initicon%ngrp_vars_fg_default = -1
-    initicon%ngrp_vars_ana_default = -1
 
     CALL construct_atm_in(initicon%atm_in)
     CALL construct_sfc_in(initicon%sfc_in)
@@ -2353,9 +2337,7 @@ MODULE mo_initicon_utils
                  initicon(jg)%z_mc              )
       ! deallocate groups for list of fields that must be read during initialization
       DEALLOCATE(initicon(jg)%grp_vars_fg,         &
-                 initicon(jg)%grp_vars_fg_default, &
-                 initicon(jg)%grp_vars_ana,        &
-                 initicon(jg)%grp_vars_ana_default )
+                 initicon(jg)%grp_vars_ana )
 
       ! atmospheric output data
       IF (initicon(jg)%atm%linitialized) THEN

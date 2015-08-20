@@ -177,8 +177,6 @@ MODULE mo_initicon
         CALL create_input_groups(p_patch(jg),                        &
           &   initicon(jg)%grp_vars_fg,  initicon(jg)%ngrp_vars_fg,  &
           &   initicon(jg)%grp_vars_ana, initicon(jg)%ngrp_vars_ana, &
-          &   initicon(jg)%grp_vars_fg_default , initicon(jg)%ngrp_vars_fg_default,  &
-          &   initicon(jg)%grp_vars_ana_default, initicon(jg)%ngrp_vars_ana_default, &
           &   init_mode)
       ENDDO
 
