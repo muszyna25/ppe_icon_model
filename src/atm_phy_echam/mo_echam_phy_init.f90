@@ -129,9 +129,6 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
     CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
 
-    REAL(wp), ALLOCATABLE :: zfrl(:,:), zfrw(:,:), zfri(:,:), zfrc(:,:,:)
-    INTEGER :: jsfc
-
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
     !-------------------------------------------------------------------
@@ -351,7 +348,7 @@ CONTAINS
 
     DO jg= 1,ndomain
 
-      IF (iwtr <= nsfc_type) THEN
+      IF (phy_config%lamip) THEN
         !
         ! sea surface temperature, sea ice concentration and depth
         CALL read_bc_sst_sic(current_date%year, p_patch(1))
@@ -369,98 +366,6 @@ CONTAINS
       END IF
 
     END DO
-
-    ! Initialize some variables
-
-    DO jg= 1,ndomain
-
-    ! Settings for water, ice and land tiles
-
-      IF (iwtr <= nsfc_type) THEN
-        prm_field(jg)% albvisdir_tile(:,:,iwtr) = albedoW ! albedo in the visible range for direct radiation
-        prm_field(jg)% albnirdir_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for direct radiation 
-        prm_field(jg)% albvisdif_tile(:,:,iwtr) = albedoW ! albedo in the visible range for diffuse radiation
-        prm_field(jg)% albnirdif_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for diffuse radiation
-        prm_field(jg)% albedo_tile   (:,:,iwtr) = albedoW
-      END IF
-
-      IF (ilnd <= nsfc_type) THEN
-
-        IF (iwtr <= nsfc_type) THEN
-          prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsfc_tile(:,:,iwtr)
-        ELSE
-          prm_field(jg)%tsfc_tile(:,:,ilnd) = tpe_temp
-        END IF
-
-        prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
-        prm_field(jg)% albnirdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for direct radiation 
-        prm_field(jg)% albvisdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for diffuse radiation
-        prm_field(jg)% albnirdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for diffuse radiation
-        prm_field(jg)% albedo_tile   (:,:,ilnd) = prm_field(jg)%alb(:,:)
-
-      END IF
-
-      IF (iice <= nsfc_type) THEN
-
-        prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsfc_tile(:,:,iwtr)
-        !
-        prm_field(jg)% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
-        prm_field(jg)% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation 
-        prm_field(jg)% albvisdif_tile(:,:,iice) = albi    ! albedo in the visible range for diffuse radiation
-        prm_field(jg)% albnirdif_tile(:,:,iice) = albi    ! albedo in the NIR range for diffuse radiation
-        prm_field(jg)% albedo_tile   (:,:,iice) = albi
-        !
-        ! The ice model should be able to handle different thickness classes, 
-        ! but for AMIP we ONLY USE one ice class.
-        prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
-        prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation 
-        prm_field(jg)% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
-        prm_field(jg)% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
-        prm_field(jg)% Tsurf(:,:,:) = Tf
-        prm_field(jg)% T1   (:,:,:) = Tf
-        prm_field(jg)% T2   (:,:,:) = Tf
-        prm_field(jg)% hs   (:,:,:) = 0._wp
-        prm_field(jg)% hi   (:,1,:) = prm_field(jg)%siced(:,:)
-        prm_field(jg)% conc (:,1,:) = prm_field(jg)%seaice(:,:)
-
-      END IF
-
-      ! Settings for total surface
-
-      ! Compute tile fractions
-      ALLOCATE(zfrl(SIZE(prm_field(jg)%lsmask,1),SIZE(prm_field(jg)%lsmask,2)))
-      ALLOCATE(zfrw(SIZE(zfrl,1),SIZE(zfrl,2)))
-      ALLOCATE(zfri(SIZE(zfrl,1),SIZE(zfrl,2)))
-      ALLOCATE(zfrc(SIZE(zfrl,1),SIZE(zfrl,2),nsfc_type))
-
-      zfrl(:,:) = prm_field(jg)%lsmask(:,:)
-      zfrw(:,:) = (1._wp - zfrl(:,:)) * (1._wp - prm_field(jg)%seaice(:,:))
-      zfri(:,:) = 1._wp-zfrl(:,:)-zfrw(:,:)
-
-      IF (ilnd.LE.nsfc_type) zfrc(:,:,ilnd) = zfrl(:,:)
-      IF (iwtr.LE.nsfc_type) zfrc(:,:,iwtr) = zfrw(:,:)
-      IF (iice.LE.nsfc_type) zfrc(:,:,iice) = zfri(:,:)
-
-      prm_field(jg)%tsfc (:,:) = 0._wp
-      prm_field(jg)%albvisdir(:,:) = 0._wp
-      prm_field(jg)%albvisdif(:,:) = 0._wp
-      prm_field(jg)%albnirdir(:,:) = 0._wp
-      prm_field(jg)%albnirdif(:,:) = 0._wp
-      DO jsfc=1,nsfc_type
-        prm_field(jg)%tsfc     (:,:) = prm_field(jg)%tsfc     (:,:) + zfrc(:,:,jsfc) * prm_field(jg)%tsfc_tile     (:,:,jsfc)
-        prm_field(jg)%albvisdir(:,:) = prm_field(jg)%albvisdir(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albvisdir_tile(:,:,jsfc)
-        prm_field(jg)%albvisdif(:,:) = prm_field(jg)%albvisdif(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albvisdif_tile(:,:,jsfc)
-        prm_field(jg)%albnirdir(:,:) = prm_field(jg)%albnirdir(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albnirdir_tile(:,:,jsfc)
-        prm_field(jg)%albnirdif(:,:) = prm_field(jg)%albnirdif(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albnirdif_tile(:,:,jsfc)
-        prm_field(jg)%albedo   (:,:) = prm_field(jg)%albedo   (:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albedo_tile   (:,:,jsfc)
-      END DO
-      prm_field(jg)%tsfc_rad (:,:) = prm_field(jg)%tsfc(:,:)
-      prm_field(jg)%tsfc_radt(:,:) = prm_field(jg)%tsfc(:,:)
-
-      DEALLOCATE(zfrl, zfrw, zfri, zfrc)
-
-    END DO ! jg
-
 
 #ifndef __NO_JSBACH__
     IF (ilnd <= nsfc_type .AND. phy_config%ljsbach) THEN
@@ -502,6 +407,8 @@ CONTAINS
     ! local variables and pointers
 
     INTEGER  :: nblks_c, jb, jbs, jc, jcs, jce
+    REAL(wp), ALLOCATABLE :: zfrl(:,:), zfrw(:,:), zfri(:,:), zfrc(:,:,:)
+    INTEGER :: jsfc
     REAL(wp) :: zlat
 
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
@@ -513,165 +420,6 @@ CONTAINS
 
       nblks_c = p_patch%nblks_c
       jbs     = p_patch%cells%start_blk(2,1)
-
-        ! For idealized test cases
-
-        SELECT CASE (ctest_name)
-        CASE('APE','APE_echam','RCEhydro') !Note that there is only one surface type in this case
-
-!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = jbs,nblks_c
-            CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
-            DO jc = jcs,jce
-              zlat = p_patch%cells%center(jc,jb)%lat
-              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
-              field% tsfc     (jc,jb     ) = ape_sst(ape_sst_case,zlat)
-            END DO
-            field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
-            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
-            field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
-          END DO
-!$OMP END PARALLEL DO
-
-          IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc or APEc_nh for a coupled run')
-
-        CASE('RCE','RCE_glb','RCE_CBL') !Note that there is only one surface type in this case
-
-!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-            DO jb = jbs,nblks_c
-              CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
-              DO jc = jcs,jce
-                zlat = p_patch%cells%center(jc,jb)%lat
-                field% tsfc_tile(jc,jb,iwtr) = th_cbl(1)
-                field% tsfc     (jc,     jb) = th_cbl(1)
-              END DO
-              field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
-              field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
-              field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
-            END DO
-!$OMP END PARALLEL DO
-
-        CASE('APEi')
-          ! The same as APE, except that whenever SST reaches tmelt, we put
-          ! 1m-thick ice with a concentration of 0.9 on top
-
-!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = jbs,nblks_c
-            CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
-            DO jc = jcs,jce
-              zlat = p_patch%cells%center(jc,jb)%lat
-              ! SST must reach Tf where there's ice. It may be better to modify ape_sst it self.
-              field% tsfc_tile  (jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
-              ! Initialise the ice - Tsurf, T1 & T2 must be in degC
-              field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
-              field% Tsurf      (jc,1, jb  ) = Tf
-              field% T1         (jc,1, jb  ) = Tf
-              field% T2         (jc,1, jb  ) = Tf
-              field% hs         (jc,1, jb  ) = 0._wp
-              IF ( field%tsfc_tile(jc,jb,iwtr) <= Tf + tmelt ) THEN
-                field%Tsurf (jc,1,jb) = field% tsfc_tile(jc,jb,iice) - tmelt
-                field%conc  (jc,1,jb) = 0.9_wp
-                field%hi    (jc,1,jb) = 1.0_wp
-                field%seaice(jc,  jb) = field%conc(jc,1,jb)
-              ELSE
-                field%conc  (jc,1,jb) = 0._wp
-                field%hi    (jc,1,jb) = 0._wp
-                field%seaice(jc,  jb) = field%conc(jc,1,jb)
-              ENDIF
-              field% tsfc(jc,jb) = field%seaice(jc,jb)  *field%tsfc_tile(jc,jb,iice) &
-                &      + ( 1._wp - field%seaice(jc,jb) )*field%tsfc_tile(jc,jb,iwtr)
-            END DO
-            field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
-            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
-          END DO
-!$OMP END PARALLEL DO
-          field% albvisdir_ice(:,:,:) = albi    ! albedo in the visible range for direct radiation
-          field% albnirdir_ice(:,:,:) = albi    ! albedo in the NIR range for direct radiation
-          field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
-          field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
-
-        CASE('APEc','APEc_nh')
-          ! The same as APEi, except we initialize with no ice and don't modify the surface
-          ! temperature. This is meant for a coupled run.
-
-!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = jbs,nblks_c
-            CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
-            DO jc = jcs,jce
-              zlat = p_patch%cells%center(jc,jb)%lat
-              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
-              ! Initialise the ice - Tsurf, T1 & T2 must be in degC
-              field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
-              field% Tsurf      (jc,1, jb  ) = Tf
-              field% T1         (jc,1, jb  ) = Tf
-              field% T2         (jc,1, jb  ) = Tf
-              field% hs         (jc,1, jb  ) = 0._wp
-              field%conc  (jc,1,jb) = 0._wp
-              field%hi    (jc,1,jb) = 0._wp
-              field%seaice(jc,  jb) = field%conc(jc,1,jb)
-              field% tsfc(jc,jb) = field%seaice(jc,jb)  *field%tsfc_tile(jc,jb,iice) &
-                &      + ( 1._wp - field%seaice(jc,jb) )*field%tsfc_tile(jc,jb,iwtr)
-            END DO
-            field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
-            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
-          END DO
-!$OMP END PARALLEL DO
-          field% albvisdir_ice(:,:,:) = albi    ! albedo in the visible range for direct radiation
-          field% albnirdir_ice(:,:,:) = albi    ! albedo in the NIR range for direct radiation
-          field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
-          field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
-
-        CASE('TPEc', 'TPEo') !Note that there is only one surface type (ilnd) in this case
-
-!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = jbs,nblks_c
-            CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
-            field% lsmask(jcs:jce,jb) = 1._wp   ! land fraction = 1
-            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
-            field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
-          END DO
-!$OMP END PARALLEL DO
-
-        CASE('JWw-Moist','LDF-Moist','jabw_m')
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-          DO jb = jbs,nblks_c
-            CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
-
-            ! Set the surface temperature to the same value as the lowest model
-            ! level above surface. For this test case, currently we assume
-            ! there is no land or sea ice.
-
-            field% tsfc_tile(jcs:jce,jb,iwtr) = temp(jcs:jce,nlev,jb)
-            field% tsfc     (jcs:jce,jb     ) = temp(jcs:jce,nlev,jb)
-
-            field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
-            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
-            field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
-          END DO
-!$OMP END DO  NOWAIT
-!$OMP END PARALLEL
-
-        END SELECT
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs,nblks_c
-        CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
-
-        ! Initialize the flag lfland (.TRUE. if the fraction of land in
-        ! a grid box is larger than zero). In ECHAM a local array
-        ! is initialized in each call of the subroutine "physc"
-
-        DO jc = jcs,jce
-          field%lfland(jc,jb) = field%lsmask(jc,jb).GT.0._wp
-          field%lfglac(jc,jb) = field%glac  (jc,jb).GT.0._wp
-        END DO
-
-      END DO      !jb
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
 
       ! Assign initial values for some components of the "field" and
       ! "tend" state vectors.
@@ -737,52 +485,7 @@ CONTAINS
       field% rtype (:,  :) = 0._wp
       field% rintop(:,  :) = 0._wp
 
-      tend% xl_dtr(:,:,:)  = 0._wp  !"xtecl" in ECHAM
-      tend% xi_dtr(:,:,:)  = 0._wp  !"xteci" in ECHAM
-!$OMP END WORKSHARE
-
-      IF (phy_config%ljsbach) THEN
-
-!$OMP WORKSHARE
-        field% csat    (:,  :) = 1.0_wp
-        field% cair    (:,  :) = 1.0_wp
-!$OMP END WORKSHARE
-
-      END IF ! ljsbach
-
-!$OMP END PARALLEL
-
-      IF (phy_config%lvdiff) THEN
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
-      DO jb = jbs,nblks_c
-        CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
-        field% coriol(jcs:jce,jb) = p_patch%cells%f_c(jcs:jce,jb)
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-!$OMP PARALLEL WORKSHARE
-        field% ustar (:,:)   = 1._wp
-        field% kedisp(:,:)   = 0._wp
-        field% tkem0 (:,:,:) = 1.e-4_wp
-        field% tkem1 (:,:,:) = 1.e-4_wp
-        field% thvvar(:,:,:) = 1.e-4_wp
-        field% ocu   (:,:)   = 0._wp
-        field% ocv   (:,:)   = 0._wp
-        field% mixlen(:,:,:) = -999._wp
-!$OMP END PARALLEL WORKSHARE
-        IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
-        IF (iice<=nsfc_type) field% z0m_tile(:,:,iice) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
-        IF (ilnd<=nsfc_type) THEN
-          field% z0m_tile(:,:,ilnd) = field%z0m(:,:) ! or maybe a larger value?
-          field% z0h_lnd(:,:)       = field%z0m(:,:) ! or maybe a larger value?
-        END IF
-      ENDIF
-
-      ! Initialization of tendencies is necessary for doing I/O with
-      ! the NAG compiler
-
+      ! Initialization of tendencies is necessary for doing I/O with the NAG compiler
       tend% temp_rsw(:,:,:)   = 0._wp
       tend% temp_rlw(:,:,:)   = 0._wp
       tend%temp_rlw_impl(:,:) = 0._wp
@@ -816,6 +519,291 @@ CONTAINS
       tend% temp_sso(:,:,:)   = 0._wp
       tend%    u_sso(:,:,:)   = 0._wp
       tend%    v_sso(:,:,:)   = 0._wp
+
+      tend% xl_dtr  (:,:,:)   = 0._wp  !"xtecl" in ECHAM
+      tend% xi_dtr  (:,:,:)   = 0._wp  !"xteci" in ECHAM
+!$OMP END WORKSHARE
+
+      IF (phy_config%ljsbach) THEN
+
+!$OMP WORKSHARE
+        field% csat    (:,  :) = 1.0_wp
+        field% cair    (:,  :) = 1.0_wp
+!$OMP END WORKSHARE
+
+      END IF ! ljsbach
+
+!$OMP END PARALLEL
+
+      IF (phy_config%lvdiff) THEN
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = jbs,nblks_c
+          CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
+          field% coriol(jcs:jce,jb) = p_patch%cells%f_c(jcs:jce,jb)
+        ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+!$OMP PARALLEL WORKSHARE
+        field% ustar (:,:)   = 1._wp
+        field% kedisp(:,:)   = 0._wp
+        field% tkem0 (:,:,:) = 1.e-4_wp
+        field% tkem1 (:,:,:) = 1.e-4_wp
+        field% thvvar(:,:,:) = 1.e-4_wp
+        field% ocu   (:,:)   = 0._wp
+        field% ocv   (:,:)   = 0._wp
+        field% mixlen(:,:,:) = -999._wp
+!$OMP END PARALLEL WORKSHARE
+        IF (iwtr<=nsfc_type) field% z0m_tile(:,:,iwtr) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
+        IF (iice<=nsfc_type) field% z0m_tile(:,:,iice) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
+        IF (ilnd<=nsfc_type) THEN
+          field% z0m_tile(:,:,ilnd) = field%z0m(:,:) ! or maybe a larger value?
+          field% z0h_lnd(:,:)       = field%z0m(:,:) ! or maybe a larger value?
+        END IF
+      ENDIF
+
+      ! Initialize some variables for water, ice and land tiles
+      ! This can be overridden by the testcases below
+
+      IF (iwtr <= nsfc_type) THEN
+        IF (.NOT. phy_config%lamip) THEN
+          prm_field(jg)%tsfc_tile(:,:,iwtr) = temp(:,nlev,:)
+        END IF            ! For lamip=.TRUE., water sfc temp has been already initialized with AMIP SST
+        prm_field(jg)% albvisdir_tile(:,:,iwtr) = albedoW ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for direct radiation
+        prm_field(jg)% albvisdif_tile(:,:,iwtr) = albedoW ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albedo_tile   (:,:,iwtr) = albedoW
+      END IF
+
+      IF (ilnd <= nsfc_type) THEN
+
+        IF (iwtr <= nsfc_type) THEN
+          prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        ELSE
+          prm_field(jg)%tsfc_tile(:,:,ilnd) = temp(:,nlev,:)
+        END IF
+
+        prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for direct radiation
+        prm_field(jg)% albvisdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albedo_tile   (:,:,ilnd) = prm_field(jg)%alb(:,:)
+
+      END IF
+
+      IF (iice <= nsfc_type) THEN
+
+        prm_field(jg)%tsfc_tile(:,:,iice) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        !
+        prm_field(jg)% albvisdir_tile(:,:,iice) = albi    ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_tile(:,:,iice) = albi    ! albedo in the NIR range for direct radiation
+        prm_field(jg)% albvisdif_tile(:,:,iice) = albi    ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_tile(:,:,iice) = albi    ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% albedo_tile   (:,:,iice) = albi
+        !
+        ! The ice model should be able to handle different thickness classes,
+        ! but for AMIP we ONLY USE one ice class.
+        prm_field(jg)% albvisdir_ice(:,:,:) = albi ! albedo in the visible range for direct radiation
+        prm_field(jg)% albnirdir_ice(:,:,:) = albi ! albedo in the NIR range for direct radiation
+        prm_field(jg)% albvisdif_ice(:,:,:) = albi ! albedo in the visible range for diffuse radiation
+        prm_field(jg)% albnirdif_ice(:,:,:) = albi ! albedo in the NIR range for diffuse radiation
+        prm_field(jg)% Tsurf(:,:,:) = Tf
+        prm_field(jg)% T1   (:,:,:) = Tf
+        prm_field(jg)% T2   (:,:,:) = Tf
+        prm_field(jg)% hs   (:,:,:) = 0._wp
+        prm_field(jg)% hi   (:,1,:) = prm_field(jg)%siced(:,:)
+        prm_field(jg)% conc (:,1,:) = prm_field(jg)%seaice(:,:)
+
+      END IF
+
+      ! For idealized test cases
+
+      SELECT CASE (ctest_name)
+      CASE('APE','APE_echam','RCEhydro') !Note that there is only one surface type in this case
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = jbs,nblks_c
+          CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
+          DO jc = jcs,jce
+            zlat = p_patch%cells%center(jc,jb)%lat
+            field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
+          END DO
+          field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+        END DO
+!$OMP END PARALLEL DO
+
+        IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc or APEc_nh for a coupled run')
+
+      CASE('RCE','RCE_glb','RCE_CBL') !Note that there is only one surface type in this case
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = jbs,nblks_c
+          CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
+          DO jc = jcs,jce
+            zlat = p_patch%cells%center(jc,jb)%lat
+            field% tsfc_tile(jc,jb,iwtr) = th_cbl(1)
+          END DO
+          field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+        END DO
+!$OMP END PARALLEL DO
+
+      CASE('APEi')
+        ! The same as APE, except that whenever SST reaches tmelt, we put
+        ! 1m-thick ice with a concentration of 0.9 on top
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = jbs,nblks_c
+          CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
+          DO jc = jcs,jce
+            zlat = p_patch%cells%center(jc,jb)%lat
+            ! SST must reach Tf where there's ice. It may be better to modify ape_sst it self.
+            field% tsfc_tile  (jc,jb,iwtr) = ape_sst(ape_sst_case,zlat) + Tf
+            ! Initialise the ice - Tsurf, T1 & T2 must be in degC
+            field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
+            field% Tsurf      (jc,1, jb  ) = Tf
+            field% T1         (jc,1, jb  ) = Tf
+            field% T2         (jc,1, jb  ) = Tf
+            field% hs         (jc,1, jb  ) = 0._wp
+            IF ( field%tsfc_tile(jc,jb,iwtr) <= Tf + tmelt ) THEN
+              field%Tsurf (jc,1,jb) = field% tsfc_tile(jc,jb,iice) - tmelt
+              field%conc  (jc,1,jb) = 0.9_wp
+              field%hi    (jc,1,jb) = 1.0_wp
+              field%seaice(jc,  jb) = field%conc(jc,1,jb)
+            ELSE
+              field%conc  (jc,1,jb) = 0._wp
+              field%hi    (jc,1,jb) = 0._wp
+              field%seaice(jc,  jb) = field%conc(jc,1,jb)
+            ENDIF
+          END DO
+          field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+        END DO
+!$OMP END PARALLEL DO
+        field% albvisdir_ice(:,:,:) = albi    ! albedo in the visible range for direct radiation
+        field% albnirdir_ice(:,:,:) = albi    ! albedo in the NIR range for direct radiation
+        field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
+        field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
+
+      CASE('APEc','APEc_nh')
+        ! The same as APEi, except we initialize with no ice and don't modify the surface
+        ! temperature. This is meant for a coupled run.
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = jbs,nblks_c
+          CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
+          DO jc = jcs,jce
+            zlat = p_patch%cells%center(jc,jb)%lat
+            field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)
+            ! Initialise the ice - Tsurf, T1 & T2 must be in degC
+            field% tsfc_tile  (jc,jb,iice) = Tf + tmelt
+            field% Tsurf      (jc,1, jb  ) = Tf
+            field% T1         (jc,1, jb  ) = Tf
+            field% T2         (jc,1, jb  ) = Tf
+            field% hs         (jc,1, jb  ) = 0._wp
+            field%conc  (jc,1,jb) = 0._wp
+            field%hi    (jc,1,jb) = 0._wp
+            field%seaice(jc,  jb) = field%conc(jc,1,jb)
+          END DO
+          field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+        END DO
+!$OMP END PARALLEL DO
+        field% albvisdir_ice(:,:,:) = albi    ! albedo in the visible range for direct radiation
+        field% albnirdir_ice(:,:,:) = albi    ! albedo in the NIR range for direct radiation
+        field% albvisdif_ice(:,:,:) = albi    ! albedo in the visible range for diffuse radiation
+        field% albnirdif_ice(:,:,:) = albi    ! albedo in the NIR range for diffuse radiation
+
+      CASE('TPEc', 'TPEo') !Note that there is only one surface type (ilnd) in this case
+
+!$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = jbs,nblks_c
+          CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
+          field% lsmask(jcs:jce,jb) = 1._wp   ! land fraction = 1
+          field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+        END DO
+!$OMP END PARALLEL DO
+
+      CASE('JWw-Moist','LDF-Moist','jabw_m')
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = jbs,nblks_c
+          CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
+
+          ! Set the surface temperature to the same value as the lowest model
+          ! level above surface. For this test case, currently we assume
+          ! there is no land or sea ice.
+
+          field% tsfc_tile(jcs:jce,jb,iwtr) = temp(jcs:jce,nlev,jb)
+
+          field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+          field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+          field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
+        END DO
+!$OMP END DO  NOWAIT
+!$OMP END PARALLEL
+
+      END SELECT
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = jbs,nblks_c
+        CALL get_indices_c( p_patch, jb,jbs,nblks_c, jcs,jce, 2)
+
+        ! Initialize the flag lfland (.TRUE. if the fraction of land in
+        ! a grid box is larger than zero). In ECHAM a local array
+        ! is initialized in each call of the subroutine "physc"
+        DO jc = jcs,jce
+          field%lfland(jc,jb) = field%lsmask(jc,jb).GT.0._wp
+          field%lfglac(jc,jb) = field%glac  (jc,jb).GT.0._wp
+        END DO
+
+      END DO      !jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+      ! Settings for total surface
+      ! (after tile masks and variables potentially have been overwritten by testcases above)
+
+      ! Compute tile fractions
+      ALLOCATE(zfrl(SIZE(prm_field(jg)%lsmask,1),SIZE(prm_field(jg)%lsmask,2)))
+      ALLOCATE(zfrw(SIZE(zfrl,1),SIZE(zfrl,2)))
+      ALLOCATE(zfri(SIZE(zfrl,1),SIZE(zfrl,2)))
+      ALLOCATE(zfrc(SIZE(zfrl,1),SIZE(zfrl,2),nsfc_type))
+
+      zfrl(:,:) = prm_field(jg)%lsmask(:,:)
+      zfrw(:,:) = (1._wp - zfrl(:,:)) * (1._wp - prm_field(jg)%seaice(:,:))
+      zfri(:,:) = 1._wp-zfrl(:,:)-zfrw(:,:)
+
+      IF (ilnd.LE.nsfc_type) zfrc(:,:,ilnd) = zfrl(:,:)
+      IF (iwtr.LE.nsfc_type) zfrc(:,:,iwtr) = zfrw(:,:)
+      IF (iice.LE.nsfc_type) zfrc(:,:,iice) = zfri(:,:)
+
+      prm_field(jg)%tsfc (:,:) = 0._wp
+      prm_field(jg)%albvisdir(:,:) = 0._wp
+      prm_field(jg)%albvisdif(:,:) = 0._wp
+      prm_field(jg)%albnirdir(:,:) = 0._wp
+      prm_field(jg)%albnirdif(:,:) = 0._wp
+      DO jsfc=1,nsfc_type
+        prm_field(jg)%tsfc     (:,:) = prm_field(jg)%tsfc     (:,:) + zfrc(:,:,jsfc) * prm_field(jg)%tsfc_tile     (:,:,jsfc)
+        prm_field(jg)%albvisdir(:,:) = prm_field(jg)%albvisdir(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albvisdir_tile(:,:,jsfc)
+        prm_field(jg)%albvisdif(:,:) = prm_field(jg)%albvisdif(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albvisdif_tile(:,:,jsfc)
+        prm_field(jg)%albnirdir(:,:) = prm_field(jg)%albnirdir(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albnirdir_tile(:,:,jsfc)
+        prm_field(jg)%albnirdif(:,:) = prm_field(jg)%albnirdif(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albnirdif_tile(:,:,jsfc)
+        prm_field(jg)%albedo   (:,:) = prm_field(jg)%albedo   (:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albedo_tile   (:,:,jsfc)
+      END DO
+
+      prm_field(jg)%tsfc_rad (:,:) = prm_field(jg)%tsfc(:,:)
+      prm_field(jg)%tsfc_radt(:,:) = prm_field(jg)%tsfc(:,:)
+
+      DEALLOCATE(zfrl, zfrw, zfri, zfrc)
 
       NULLIFY( field,tend )
 
