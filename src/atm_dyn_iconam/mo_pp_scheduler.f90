@@ -1569,24 +1569,26 @@ CONTAINS
     ! "active":
     IF (ptr_task%activity%check_dom_active) THEN
       jg          = ptr_task%data_input%jg
-      tlev_source = ptr_task%data_input%var%info%tlev_source
 
       IF (.NOT. sim_status%ldom_active(jg)) THEN
         pp_task_is_active = .FALSE.
       END IF
 
-      SELECT CASE (tlev_source)
-      CASE(TLEV_NNOW);     timelevel = sim_status%i_timelevel_dyn(jg)
-      CASE(TLEV_NNOW_RCF); timelevel = sim_status%i_timelevel_phy(jg)
-      CASE DEFAULT
-        CALL finish(routine, 'Unsupported tlev_source')
-      END SELECT
+      IF  (ptr_task%activity%i_timelevel /= ALL_TIMELEVELS) THEN
+         tlev_source = ptr_task%data_input%var%info%tlev_source
 
-      ! check, if current task matches the variable time level (TL1,
-      ! TL2, ...) of the simulation status:
-      IF  ((ptr_task%activity%i_timelevel /= ALL_TIMELEVELS) .AND.  &
-        &  (ptr_task%activity%i_timelevel /= timelevel)) THEN
-        pp_task_is_active = .FALSE.
+         SELECT CASE (tlev_source)
+         CASE(TLEV_NNOW);     timelevel = sim_status%i_timelevel_dyn(jg)
+         CASE(TLEV_NNOW_RCF); timelevel = sim_status%i_timelevel_phy(jg)
+         CASE DEFAULT
+            CALL finish(routine, 'Unsupported tlev_source')
+         END SELECT
+         
+         ! check, if current task matches the variable time level (TL1,
+         ! TL2, ...) of the simulation status:
+         IF  (ptr_task%activity%i_timelevel /= timelevel) THEN
+            pp_task_is_active = .FALSE.
+         END IF
       END IF
     END IF
 
