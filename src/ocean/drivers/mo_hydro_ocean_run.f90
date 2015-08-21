@@ -45,7 +45,8 @@ MODULE mo_hydro_ocean_run
     & update_time_indices
   USE mo_ocean_types,              ONLY: t_hydro_ocean_state, &
     & t_operator_coeff, t_solvercoeff_singleprecision
-  USE mo_ocean_math_operators,     ONLY: calculate_thickness, check_cfl_horizontal, check_cfl_vertical
+  USE mo_ocean_math_operators,     ONLY: calculate_thickness, update_thickness_dependent_operator_coeff,&
+    &                                    check_cfl_horizontal, check_cfl_vertical
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer,             ONLY: advect_tracer_ab
   USE mo_io_restart,             ONLY: create_restart_file
@@ -211,6 +212,7 @@ CONTAINS
       
       IF (timers_level > 2)  CALL timer_start(timer_extra22)
       CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
+	  CALL update_thickness_dependent_operator_coeff( patch_3d, ocean_state(jg), operators_coefficients, solvercoeff_sp)
       IF (timers_level > 2)  CALL timer_stop(timer_extra22)
       
       IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
@@ -234,6 +236,7 @@ CONTAINS
 
       IF (timers_level > 2)  CALL timer_start(timer_extra22)
       CALL calculate_thickness( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
+      CALL update_thickness_dependent_operator_coeff( patch_3d, ocean_state(jg), operators_coefficients, solvercoeff_sp)	  
       IF (timers_level > 2)  CALL timer_stop(timer_extra22)
 
 !       IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
@@ -456,7 +459,8 @@ CONTAINS
     CALL calc_scalar_product_veloc_3d( patch_3d,  ocean_state%p_prog(nnew(1))%vn,&
     & ocean_state%p_diag, operators_coefficients)
     ! CALL calculate_thickness( patch_3d, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
-    
+    ! CALL update_thickness_dependent_operator_coeff( patch_3d, ocean_state, operators_coefficients, solvercoeff_sp)
+	
     ! copy old tracer values to spot value fields for propper initial timestep
     ! output
     IF(no_tracer>=1)THEN

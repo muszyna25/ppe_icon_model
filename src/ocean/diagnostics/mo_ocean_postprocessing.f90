@@ -35,7 +35,7 @@ MODULE mo_ocean_postprocessing
   USE mo_dynamics_config,     ONLY: nold, nnew
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
-  USE mo_ocean_math_operators,  ONLY: calculate_thickness
+  USE mo_ocean_math_operators,  ONLY: calculate_thickness, update_thickness_dependent_operator_coeff
 
   USE mo_mpi,                 ONLY: work_mpi_barrier, my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, ltimer, new_timer, timer_start, timer_stop, &
@@ -176,7 +176,8 @@ CONTAINS
     !---------------------------------------------------------------------
     ! calclulate volume
     CALL calculate_thickness( patch_3D, ocean_state, external_data, operators_coefficients, solverCoeff_sp)
-
+    CALL update_thickness_dependent_operator_coeff( patch_3D, ocean_state, operators_coefficients, solverCoeff_sp)
+	
     CALL calculate_density( patch_3d,            &
         & tracers(:,:,:,1:2),&
         & ocean_state%p_diag%rho(:,:,:) )
