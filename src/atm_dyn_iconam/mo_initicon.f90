@@ -68,8 +68,9 @@ MODULE mo_initicon
                                   & deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
                                   & copy_fg2initicon, initVarnamesDict
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, read_dwdfg_atm, &
-                                  & read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc, read_dwdfg_atm_ii, process_input_dwdana_sfc, &
-                                  & process_input_dwdfg_atm_ii, process_input_dwdana_atm, process_input_dwdfg_sfc
+                                  & read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc, read_dwdfg_atm_ii, &
+                                  & process_input_dwdana_sfc, process_input_dwdfg_atm_ii, process_input_dwdana_atm, &
+                                  & process_input_dwdfg_sfc
   USE mo_util_string,         ONLY: one_of, int2string
   USE mo_checksum,            ONLY: printChecksum
   USE mo_phyparam_soil,       ONLY: cporv, cadp
@@ -976,7 +977,8 @@ MODULE mo_initicon
     SELECT CASE(init_mode)
         CASE(MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMODE)
             IF(lread_ana) CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
-            IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)    ! cannot be moved after create_dwdana_sfc()!
+            ! The following CALL must not be moved after create_dwdana_sfc()!
+            IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
             CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
             IF (ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode) .AND. ntiles_total > 1) THEN
                 CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.TRUE.)
