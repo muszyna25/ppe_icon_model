@@ -49,7 +49,8 @@ MODULE mo_var_list
   USE mo_util_hash,        ONLY: util_hashword
   USE mo_util_string,      ONLY: remove_duplicates, toupper
   USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
-    &                            STR_HINTP_TYPE, MAX_TIME_LEVELS
+    &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
+    &                            TLEV_NNOW
   USE mo_fortran_tools,    ONLY: assign_if_present
   USE mo_action_types,     ONLY: t_var_action 
   USE mo_io_config,        ONLY: restart_file_type
@@ -602,7 +603,7 @@ CONTAINS
     this_info%hgrid               = -1
     this_info%vgrid               = -1
     !
-    this_info%tlev_source         = 0
+    this_info%tlev_source         = TLEV_NNOW
     !
     this_info%cdiVarID            = CDI_UNDEFID
     this_info%cdiVarID_2          = CDI_UNDEFID

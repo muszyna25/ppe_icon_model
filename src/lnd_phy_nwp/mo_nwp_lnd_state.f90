@@ -43,7 +43,7 @@
 MODULE mo_nwp_lnd_state
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, HINTP_TYPE_LONLAT_NNB
+  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, HINTP_TYPE_LONLAT_NNB, TLEV_NNOW_RCF
   USE mo_parallel_config,      ONLY: nproma
   USE mo_nwp_lnd_types,        ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_exception,            ONLY: message, finish
@@ -374,7 +374,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( prog_list, vname_prefix//'t_g'//suffix, p_prog_lnd%t_g,      &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
          & ldims=shape2d,                                                      &
-         & tlev_source=1,                      &! for output take field from nnow_rcf slice
+         & tlev_source=TLEV_NNOW_RCF,                      &! for output take field from nnow_rcf slice
          & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_dwd_fg_in",     &
          &                 "mode_iau_fg_in","mode_iau_old_fg_in",              &
          &                 "mode_combined_in","mode_cosmode_in") ) 
@@ -401,7 +401,7 @@ MODULE mo_nwp_lnd_state
                & grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL),       &
                & ldims=shape2d,                                                &
                & var_class=CLASS_TILE,                                         &
-               & tlev_source=1,                                                & ! for output take field from nnow_rcf slice
+               & tlev_source=TLEV_NNOW_RCF,                                    & ! for output take field from nnow_rcf slice
                & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
       ENDDO
 
@@ -427,7 +427,7 @@ MODULE mo_nwp_lnd_state
            & grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL),      &
            & ldims=shape2d,                                                &
            & var_class=CLASS_TILE,                                         &
-           & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
+           & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
     ENDDO
 
 
@@ -455,7 +455,7 @@ MODULE mo_nwp_lnd_state
            & grib2_var(2, 0, 13, ibits, GRID_REFERENCE, GRID_CELL),        &
            & ldims=shape2d,                                                  &
            & var_class=CLASS_TILE_LAND,                                      &
-           & tlev_source=1,                                                  & ! for output take field from nnow_rcf slice
+           & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t"),          &
            & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
     ENDDO
@@ -483,7 +483,7 @@ MODULE mo_nwp_lnd_state
              & grib2_var(2, 0, 14, ibits, GRID_REFERENCE, GRID_CELL),        &
              & ldims=shape2d,                                                  &
              & var_class=CLASS_TILE_LAND,                                      &
-             & tlev_source=1,                                                  &
+             & tlev_source=TLEV_NNOW_RCF,                                      &
              & in_group=groups("land_tile_vars")) ! for output take field from nnow_rcf slice
       ENDDO
 
@@ -507,7 +507,7 @@ MODULE mo_nwp_lnd_state
              & grib2_var(2, 0, 15, ibits, GRID_REFERENCE, GRID_CELL),        &
              & ldims=shape2d,                                                  &
              & var_class=CLASS_TILE_LAND,                                      &
-             & tlev_source=1,                                                  &
+             & tlev_source=TLEV_NNOW_RCF,                                      &
              & in_group=groups("land_tile_vars")) ! for output take field from nnow_rcf slice
       ENDDO
     END IF  ! itype_interception == 2
@@ -535,7 +535,7 @@ MODULE mo_nwp_lnd_state
            & grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL),        &
            & ldims=(/nproma,nlev_soil+1,kblks/),                             &
            & var_class=CLASS_TILE_LAND,                                      &
-           & tlev_source=1,                                                  & ! for output take field from nnow_rcf slice
+           & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
     ENDDO
 
@@ -565,7 +565,7 @@ MODULE mo_nwp_lnd_state
            & grib2_var(2, 3, 20, ibits, GRID_REFERENCE, GRID_CELL),        &
            & ldims=(/nproma,nlev_soil,kblks/),                               &
            & var_class=CLASS_TILE_LAND,                                      &
-           & tlev_source=1,                                                  & ! for output take field from nnow_rcf slice
+           & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
            & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), & 
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t"),          &
            & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
@@ -596,7 +596,7 @@ MODULE mo_nwp_lnd_state
            & ldims=(/nproma,nlev_soil,kblks/),                               &
            & var_class=CLASS_TILE_LAND,                                      &
            & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), &
-           & tlev_source=1,                                                  & ! for output take field from nnow_rcf slice
+           & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t"),          &
            & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
     ENDDO
@@ -625,7 +625,7 @@ MODULE mo_nwp_lnd_state
              & grib2_var(0, 0, 18, ibits, GRID_REFERENCE, GRID_CELL),      &
              & ldims=shape2d,                                                &
              & var_class=CLASS_TILE_LAND,                                    &
-             & tlev_source=1,                                                & ! for output take field from nnow_rcf slice
+             & tlev_source=TLEV_NNOW_RCF,                                    & ! for output take field from nnow_rcf slice
              & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
     ENDDO
 
@@ -651,7 +651,7 @@ MODULE mo_nwp_lnd_state
            & grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL),      &
            & ldims=shape2d,                                                &
            & var_class=CLASS_TILE_LAND,                                    &
-           & tlev_source=1,                                                & ! for output take field from nnow_rcf slice
+           & tlev_source=TLEV_NNOW_RCF,                                    & ! for output take field from nnow_rcf slice
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t"),        &
            & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
     ENDDO
@@ -678,7 +678,7 @@ MODULE mo_nwp_lnd_state
            & grib2_var(0, 1, 61, ibits, GRID_REFERENCE, GRID_CELL),          &
            & ldims=shape2d,                                                  &
            & var_class=CLASS_TILE_LAND,                                      &
-           & tlev_source=1,                                                  & ! for output take field from nnow_rcf slice
+           & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
     END DO
 
@@ -710,7 +710,7 @@ MODULE mo_nwp_lnd_state
              & ldims=(/nproma,nlev_snow+1,kblks/),                           &
              & var_class=CLASS_TILE_LAND,                                    &
              & lrestart=.TRUE.,                                              &
-             & tlev_source=1,                                                &
+             & tlev_source=TLEV_NNOW_RCF,                                    &
              & in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice 
       ENDDO
 
@@ -738,7 +738,7 @@ MODULE mo_nwp_lnd_state
              & grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL),        &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
              & var_class=CLASS_TILE_LAND,                                      &
-             & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
+             & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -765,7 +765,7 @@ MODULE mo_nwp_lnd_state
              & grib2_var(0, 1, 210, ibits, GRID_REFERENCE, GRID_CELL),         &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
              & var_class=CLASS_TILE_LAND,                                      &
-             & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
+             & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -792,7 +792,7 @@ MODULE mo_nwp_lnd_state
              & grib2_var(0, 1, 61, ibits, GRID_REFERENCE, GRID_CELL),         &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,               &
              & var_class=CLASS_TILE_LAND,                                       &
-             & tlev_source=1,                                                   &
+             & tlev_source=TLEV_NNOW_RCF,                                       &
              & in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice 
       ENDDO
 
@@ -821,7 +821,7 @@ MODULE mo_nwp_lnd_state
                & grib2_var(0, 1, 11, ibits, GRID_REFERENCE, GRID_CELL),        &
                & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
                & var_class=CLASS_TILE_LAND,                                      &
-               & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
+               & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
       ENDDO
 
     ENDIF  ! lmulti_snow
