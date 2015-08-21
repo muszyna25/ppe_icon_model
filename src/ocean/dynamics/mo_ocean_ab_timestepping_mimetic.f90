@@ -94,6 +94,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
   PUBLIC :: calc_normal_velocity_ab_mimetic
   PUBLIC :: calc_vert_velocity_mim_bottomup
   PUBLIC :: init_ho_lhs_fields_mimetic
+  PUBLIC :: invert_mass_matrix
   !
   
   INTEGER, PARAMETER :: topLevel=1
@@ -678,8 +679,7 @@ CONTAINS
     CALL timer_stop(timer_extra3)
  
     ! CALL dbg_print('bc_top_vn'   ,ocean_state%p_aux%bc_top_vn       ,str_module,idt_src, in_subset=owned_edges)
-!     write(0,*) "is_first_timestep=", is_first_timestep
-!     write(0,*) "MASS_MATRIX_INVERSION_TYPE=", MASS_MATRIX_INVERSION_TYPE
+    ! write(0,*) "MASS_MATRIX_INVERSION_TYPE=", MASS_MATRIX_INVERSION_TYPE
     ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%laplacian_horz)
     !---------------------------------------------------------------------
     CALL timer_start(timer_extra4)
@@ -821,17 +821,17 @@ CONTAINS
     IF(MASS_MATRIX_INVERSION_TYPE== MASS_MATRIX_INVERSION_ADVECTION)THEN
        !Here the inversion of the mass matrix is already carried out        
        
-       z_e=ocean_state%p_diag%veloc_adv_horz+ocean_state%p_diag%veloc_adv_vert
-!        Write(0,*)'Horiz ADV before:',&
-!        &maxval(z_e(:,1,:)),minval(z_e(:,1,:))
+       z_e=ocean_state%p_diag%veloc_adv_horz + ocean_state%p_diag%veloc_adv_vert
+        Write(0,*)'ADV before:',&
+        &maxval(z_e(:,1,:)),minval(z_e(:,1,:))
             
        ocean_state%p_diag%veloc_adv_horz = invert_mass_matrix(patch_3d, ocean_state, op_coeffs, z_e)
 
        CALL sync_patch_array(sync_e, patch_2D, z_e)
        
-!        Write(0,*)'Horiz ADV after:',&
-!        &maxval(ocean_state%p_diag%veloc_adv_horz(:,1,:)),& 
-!        &minval(ocean_state%p_diag%veloc_adv_horz(:,1,:))
+        Write(0,*)'ADV after:',&
+        &maxval(ocean_state%p_diag%veloc_adv_horz(:,1,:)),& 
+        &minval(ocean_state%p_diag%veloc_adv_horz(:,1,:))
      
     ENDIF
     
@@ -1951,9 +1951,11 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     
-    tolerance                = 1.0e-6_wp  ! solver_tolerance
+    tolerance                = 1.0e-7_wp  ! solver_tolerance
     inv_flip_flop_e(:,:,:)   = 0.0_wp
     use_absolute_solver_tolerance=.true.
+	
+	
     DO jk=1, n_zlev
     
         iter_sum=0

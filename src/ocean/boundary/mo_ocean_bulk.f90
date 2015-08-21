@@ -1946,6 +1946,7 @@ CONTAINS
     REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
     REAL(wp) :: center, length, zonal_waveno,amplitude
     REAL(wp) :: no_flux_length, south_bound, max_flux_y
+    REAL(wp) :: perturbation_width, perturbation_lat, perturbation_lon,distan, ran	
 
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_flux_analytical'
     !-------------------------------------------------------------------------
@@ -1955,7 +1956,7 @@ CONTAINS
     p_patch         => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
     all_cells => p_patch%cells%all
-
+	
     ! atmosphere fluxes for analytical testcased similar to mo_ocean_initial_conditions:
     SELECT CASE (atmos_flux_analytical_type)
 
@@ -2036,7 +2037,37 @@ CONTAINS
             END DO
           END DO
         ENDIF
-        
+		
+        CASE(202) 
+
+          IF(no_tracer>=1.AND.type_surfRelax_Temp==0)THEN
+
+		    perturbation_lat    = basin_center_lat * deg2rad
+			perturbation_lon    = basin_center_lon * deg2rad
+		    perturbation_width  = 1.5_wp*basin_height_deg * deg2rad
+			
+
+            DO jb = all_cells%start_block, all_cells%end_block
+              CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+              DO jc = start_cell_index, end_cell_index 
+				  
+                atmos_fluxes%data_surfRelax_Temp(jc,jb)     = 0.0_wp
+                atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb) = 0.0_wp
+              
+		        distan=SQRT((p_patch%cells%center(jc,jb)%lat - perturbation_lat)**2 + &
+		          & (p_patch%cells%center(jc,jb)%lon - perturbation_lon)**2)
+
+		        IF(distan<=perturbation_width)THEN
+				
+					CALL random_number(ran)
+					atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb)=-400.0+100.0_wp*ran!random_number(jb)
+		        ENDIF			  
+			  
+              END DO
+            END DO
+          ENDIF		        
+ 				
+
       CASE default
 
         CALL finish(routine, "unknown atmos_flux_analytical_type")

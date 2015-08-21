@@ -131,6 +131,8 @@ CONTAINS
     IF(iswm_oce==1)CALL init_ocean_bathymetry(patch_3d=patch_3d,  cells_bathymetry=external_data%oce%bathymetry_c(:,:))
     
     CALL init_ocean_velocity(patch_3d=patch_3d, normal_velocity=ocean_state%p_prog(nold(1))%vn)
+	
+	
     CALL init_ocean_surface_height(patch_3d=patch_3d, ocean_height=ocean_state%p_prog(nold(1))%h(:,:))
 
     IF (no_tracer > 0) &
@@ -2941,10 +2943,10 @@ stop
     !------------------------------
     CALL message(TRIM(method_name), ': Danilovs Munk gyre flow')
 
-    perturbation_lat = basin_center_lat + 0.1_wp * basin_height_deg
-    perturbation_lon = basin_center_lon + 0.1_wp * basin_width_deg
-    max_perturbation  = 0.1_wp!20.1_wp
-    perturbation_width  = 10.0_wp!1.5_wp
+    perturbation_lat = basin_center_lat !- 0.1_wp * basin_height_deg
+    perturbation_lon = basin_center_lon !- 0.1_wp * basin_width_deg
+    max_perturbation  = 1.0!0.1_wp!20.1_wp
+    perturbation_width  = 2.0_wp!1.5_wp
 
     ! Next update 2011-05-24: due to Danilov the perturbation should be -1 Kelvin, width 3.0
     ! 05-25: max and width larger: -2.0 and 5.0
@@ -2970,16 +2972,17 @@ stop
           distan = SQRT((cell_center(idx,block)%lat - perturbation_lat * deg2rad)**2 + &
             & (cell_center(idx,block)%lon - perturbation_lon * deg2rad)**2)
 
-  !Commented out PK 4/2015        !Local hot perturbation
- !         IF(distan<=5.0_wp*deg2rad)THEN
- !           DO level = 1, levels
- !             ocean_temperature(idx,level,block) =          &
- !               & ocean_temperature(idx,level,block)        &
- !               & + max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) &
- !            !                &   * sin(pi*v_base%zlev_m(level)/4000.0_wp)!&
- !               & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(level) / patch_3d%p_patch_1d(1)%zlev_i(levels+1))
- !           END DO
- !         ENDIF !Local hot perturbation
+  !Commented out PK 4/2015        !Local cold perturbation
+          IF(distan<=5.0_wp)THEN
+            DO level = 1, 1!levels
+              ocean_temperature(idx,level,block) =          &
+                & ocean_temperature(idx,level,block)        &
+                & - max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) !&
+             !                &   * sin(pi*v_base%zlev_m(level)/4000.0_wp)!&
+             !   & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(level) / patch_3d%p_patch_1d(1)%zlev_i(levels+1))
+write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2)			 
+            END DO
+          ENDIF !Local hot perturbation
 
         END IF !(levels > 0)
       END DO
