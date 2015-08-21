@@ -1444,10 +1444,10 @@ CONTAINS
     
     patch_2d   => patch_3d%p_patch_2d(1)
     !-----------------------------------------------------------------------
- !    IF ( patch_2d%cells%max_connectivity == 3 .and. fast_performance_level > 10 ) THEN
- !      CALL map_edges2edges_viacell_2D_per_level_onTriangles( patch_3d, vn_e, operators_coefficients, out_vn_e, level)!&   subset_range)
- !      RETURN
- !   ENDIF
+     IF ( patch_2d%cells%max_connectivity == 3 .and. fast_performance_level > 10 ) THEN
+       CALL map_edges2edges_viacell_2D_per_level_onTriangles( patch_3d, vn_e, operators_coefficients, out_vn_e, level)!&   subset_range)
+       RETURN
+    ENDIF
     !-----------------------------------------------------------------------
     
     edges_inDomain => patch_2d%edges%in_domain
