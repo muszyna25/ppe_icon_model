@@ -49,7 +49,7 @@ MODULE mo_les_nml
   !Some parameters
   REAL(wp) :: smag_constant
   REAL(wp) :: turb_prandtl 
-  REAL(wp) :: km_min        !min turbulent diffusivity
+  REAL(wp) :: km_min        !min mass weighted turbulent viscosity 
   REAL(wp) :: min_sfc_wind  !min sfc wind in free convection limit
 
   !Scheme for vertical discretization

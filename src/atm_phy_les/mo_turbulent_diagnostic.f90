@@ -1046,12 +1046,12 @@ CONTAINS
        longname = 'resolved meridional wind variance'
        unit     = 'm2/s2'
      CASE('kh')
-       longname = '(mass) eddy diffusivity'
-       unit     = 'kg/ms'
+       longname = 'mass weighted eddy diffusivity'
+       unit     = 'kg/(ms)'
        is_at_full_level(n) = .FALSE.
      CASE('km')
-       longname = '(mass) eddy viscosity'
-       unit     = 'kg/ms'
+       longname = 'mass weighted eddy viscosity'
+       unit     = 'kg/(ms)'
        is_at_full_level(n) = .FALSE.
      CASE('wud') !diffuse u flux
        longname = '(mass) subgrid zonal wind flux'

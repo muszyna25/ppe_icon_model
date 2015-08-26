@@ -578,10 +578,10 @@ MODULE mo_sgs_turbulence
        DO jk = 2 , nlev
          DO jc = i_startidx, i_endidx
 #endif
-           diff_smag_ic(jc,jk,jb) = rho_ic(jc,jk,jb) * les_config(jg)%rturb_prandtl      * &
-                     MAX( les_config(jg)%km_min, p_nh_metrics%mixing_length_sq(jc,jk,jb) * &
-                     SQRT(MAX(0._wp, prm_diag%mech_prod(jc,jk,jb)*0.5_wp                 - &
-                     les_config(jg)%rturb_prandtl*prm_diag%bruvais(jc,jk,jb))) ) 
+           diff_smag_ic(jc,jk,jb) = rho_ic(jc,jk,jb) * les_config(jg)%rturb_prandtl * &
+                     p_nh_metrics%mixing_length_sq(jc,jk,jb)             * &
+                     SQRT(MAX(0._wp, prm_diag%mech_prod(jc,jk,jb)*0.5_wp - &
+                     les_config(jg)%rturb_prandtl*prm_diag%bruvais(jc,jk,jb)))  
          END DO
        END DO
        DO jc = i_startidx, i_endidx
@@ -617,8 +617,9 @@ MODULE mo_sgs_turbulence
        DO jk = 1 , nlev
          DO jc = i_startidx, i_endidx
 #endif
-           visc_smag_c(jc,jk,jb) = ( diff_smag_ic(jc,jk,jb)+diff_smag_ic(jc,jk+1,jb) ) * &
-                                     0.5_wp * les_config(jg)%turb_prandtl
+           visc_smag_c(jc,jk,jb) = MAX( les_config(jg)%km_min, &
+                                  (diff_smag_ic(jc,jk,jb)+diff_smag_ic(jc,jk+1,jb)) * &
+                                   0.5_wp * les_config(jg)%turb_prandtl )
          END DO
        END DO
     END DO
@@ -628,15 +629,15 @@ MODULE mo_sgs_turbulence
     !4b) visc at vertices
     CALL cells2verts_scalar(diff_smag_ic, p_patch, p_int%cells_aw_verts, visc_smag_iv, &
                             opt_rlstart=5, opt_rlend=min_rlvert_int-1) 
-    visc_smag_iv = visc_smag_iv * les_config(jg)%turb_prandtl
+    visc_smag_iv = MAX( les_config(jg)%km_min, visc_smag_iv * les_config(jg)%turb_prandtl )
 
     !4c) Now calculate visc_smag at half levels at edge
     CALL cells2edges_scalar(diff_smag_ic, p_patch, p_int%c_lin_e, visc_smag_ie, &
                             opt_rlstart=grf_bdywidth_e, opt_rlend=min_rledge_int-1)
-    visc_smag_ie = visc_smag_ie * les_config(jg)%turb_prandtl
+    visc_smag_ie = MAX( les_config(jg)%km_min, visc_smag_ie * les_config(jg)%turb_prandtl )
 
     !4d)Get visc_smag_ic
-    prm_diag%tkvm = prm_diag%tkvh * les_config(jg)%turb_prandtl 
+    prm_diag%tkvm = MAX( les_config(jg)%km_min, prm_diag%tkvh * les_config(jg)%turb_prandtl )
 
     !DEALLOCATE variables
     DEALLOCATE( div_of_stress, mech_prod_e, vn_ie, vt_ie )

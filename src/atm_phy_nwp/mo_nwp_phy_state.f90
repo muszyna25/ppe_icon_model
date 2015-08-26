@@ -279,7 +279,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CHARACTER(len=8)  :: meaning
     CHARACTER(len=10) :: varunits  ! variable units, depending on "lflux_avg"
     INTEGER :: a_steptype
-    LOGICAL :: lrestart, lhave_graupel, lrestart_tkvh
+    LOGICAL :: lrestart, lhave_graupel
 
     TYPE(t_var_action) :: action_list_reset
     LOGICAL :: lradiance, lcloudy
@@ -329,11 +329,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       END SELECT
     ENDDO
 
-    IF ( atm_phy_nwp_config(k_jg)%is_les_phy ) THEN
-       lrestart_tkvh = .FALSE.
-    ELSE
-       lrestart_tkvh = .TRUE.
-    END IF
 
     !------------------------------
     ! Meteorological quantities
@@ -2432,21 +2427,39 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     !Turbulence 3D variables
     !------------------
 
-   ! &      diag%tkvm(nproma,nlevp1,nblks_c)
-    cf_desc    = t_cf_var('tkvm', 'm**2/s', ' turbulent diffusion coefficients for momentum', &
-         &                DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 2, 31, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'tkvm', diag%tkvm,                             &
-      & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,        &
-      & ldims=shape3dkp1, lrestart=lrestart_tkvh, in_group=groups("pbl_vars") )
-
-   ! &      diag%tkvh(nproma,nlevp1,nblks_c)
-    cf_desc    = t_cf_var('tkvh', 'm**2/s', ' turbulent diffusion coefficients for heat', &
-         &                DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 0, 20, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'tkvh', diag%tkvh,                             &
-      & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,        &
-      & ldims=shape3dkp1, lrestart=lrestart_tkvh, in_group=groups("pbl_vars") ) 
+   IF (.NOT.atm_phy_nwp_config(k_jg)%is_les_phy) THEN
+     ! &      diag%tkvm(nproma,nlevp1,nblks_c)
+      cf_desc    = t_cf_var('tkvm', 'm**2/s', ' turbulent diffusion coefficients for momentum', &
+           &                DATATYPE_FLT32)
+      grib2_desc = grib2_var(0, 2, 31, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'tkvm', diag%tkvm,                             &
+        & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,        &
+        & ldims=shape3dkp1, in_group=groups("pbl_vars") )
+  
+     ! &      diag%tkvh(nproma,nlevp1,nblks_c)
+      cf_desc    = t_cf_var('tkvh', 'm**2/s', ' turbulent diffusion coefficients for heat', &
+           &                DATATYPE_FLT32)
+      grib2_desc = grib2_var(0, 0, 20, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'tkvh', diag%tkvh,                             &
+        & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,        &
+        & ldims=shape3dkp1, in_group=groups("pbl_vars") ) 
+   ELSE
+     ! &      diag%tkvm(nproma,nlevp1,nblks_c)
+      cf_desc    = t_cf_var('tkvm', 'kg/(ms)', ' mass weighted turbulent viscosity', &
+           &                DATATYPE_FLT32)
+      grib2_desc = grib2_var(0, 2, 31, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'tkvm', diag%tkvm,                             &
+        & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,        &
+        & ldims=shape3dkp1, lrestart=.FALSE., in_group=groups("pbl_vars") )
+  
+     ! &      diag%tkvh(nproma,nlevp1,nblks_c)
+      cf_desc    = t_cf_var('tkvh', 'kg/(ms)', ' mass weighted turbulent diffusivity', &
+           &                DATATYPE_FLT32)
+      grib2_desc = grib2_var(0, 0, 20, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'tkvh', diag%tkvh,                             &
+        & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,        &
+        & ldims=shape3dkp1, lrestart=.FALSE., in_group=groups("pbl_vars") ) 
+    END IF
 
    ! &      diag%rcld(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('rcld', '', 'standard deviation of the saturation deficit', &
