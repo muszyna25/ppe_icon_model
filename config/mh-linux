@@ -576,12 +576,12 @@ case "$ac_sitename" in
     kit.edu)
         case $ac_hostname in
             ic2*)
-		NETCDFROOT  = /pfs/imk/ICON
-                NETCDFFROOT = /pfs/imk/ICON
-		HDF5ROOT    = /pfs/imk/ICON
-		SZIPROOT    = /pfs/imk/ICON
+		NETCDFROOT  = /pfs/imk/ICON/LIBRARIES
+		NETCDFFROOT = /pfs/imk/ICON/LIBRARIES
+		HDF5ROOT    = /pfs/imk/ICON/LIBRARIES
+		SZIPROOT    = /pfs/imk/ICON/LIBRARIES
 		ZLIBROOT    = /usr
-		MPIROOT     = /pfs/imk/ICON
+		MPIROOT     = /pfs/imk/ICON/LIBRARIES
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                 CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
                 config_target=ic2
