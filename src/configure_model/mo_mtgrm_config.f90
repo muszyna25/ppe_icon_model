@@ -26,7 +26,7 @@ MODULE mo_meteogram_config
                                                      ! Reading the meteogram namelist from the restart file 
                                                      ! resulted in END OF FILE error in mo_mtgrm_nml.
   INTEGER, PARAMETER :: FTYPE_NETCDF         =    1
-  INTEGER, PARAMETER :: MAX_NVARS            =  100  ! max. no. of meteogram variables
+  INTEGER, PARAMETER :: MAX_NVARS            =  120  ! max. no. of meteogram variables
 
 
   !--------------------------------------------------------------------------

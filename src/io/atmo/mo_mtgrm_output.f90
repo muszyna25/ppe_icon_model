@@ -604,6 +604,8 @@ CONTAINS
         &              jg, prm_diag%swflxsfc_t(:,:,:))
       CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "THBS_T", "W m-2", "longwave net flux (surface)", &
         &              jg, prm_diag%lwflxsfc_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "FRAC_T", "-", "tile fractions (time dependent)", &
+        &              jg, ext_data%atm%frac_t(:,:,:))
     ENDIF
 
 
@@ -1046,7 +1048,7 @@ CONTAINS
               CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3b)')
             !
             meteogram_data%station(jc,jb)%tile_frac(1:ntiles_mtgrm) = &
-              &  ext_data%atm%frac_t(tri_idx(1,jc,jb), tri_idx(2,jc,jb),1:ntiles_mtgrm)
+              &  ext_data%atm%lc_frac_t(tri_idx(1,jc,jb), tri_idx(2,jc,jb),1:ntiles_mtgrm)
             meteogram_data%station(jc,jb)%tile_luclass(1:ntiles_mtgrm) = &
               &  ext_data%atm%lc_class_t(tri_idx(1,jc,jb), tri_idx(2,jc,jb),1:ntiles_mtgrm)
 
