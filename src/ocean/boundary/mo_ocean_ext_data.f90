@@ -42,7 +42,8 @@ MODULE mo_ocean_ext_data
     & forcing_windstress_u_type, &
     & forcing_windstress_v_type, &
     & forcing_fluxes_type,       &
-    & OMIP_FluxFromFile
+    & OMIP_FluxFromFile,         &
+    & use_omip_windstress, use_omip_fluxes, use_omip_forcing
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
@@ -66,14 +67,14 @@ MODULE mo_ocean_ext_data
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
   USE mo_datetime,           ONLY: t_datetime, month2hour
+  USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_PACK16, TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
-    &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
-    &                              DATATYPE_FLT32, DATATYPE_PACK16,                &
-    &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
+    &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M
 
-  USE mo_master_control,        ONLY: is_restart_run
+  USE mo_master_control,     ONLY: is_restart_run
+
 
   IMPLICIT NONE
 
@@ -355,8 +356,6 @@ CONTAINS
     TYPE(t_stream_id) :: stream_id
     INTEGER :: mpi_comm
 
-    LOGICAL :: use_omip_forcing, use_omip_windstress, use_omip_fluxes
-
     !REAL(wp):: z_flux(nproma, 12,p_patch(1)%nblks_c)
     REAL(wp):: z_flux(nproma,forcing_timescale,p_patch(1)%alloc_cell_blocks)
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
@@ -466,10 +465,6 @@ CONTAINS
     !  READ OMIP FORCING
 
     !-------------------------------------------------------------------------
-
-    use_omip_windstress = ( forcing_windstress_u_type == 1 ) .AND. (forcing_windstress_v_type == 1)
-    use_omip_fluxes     = ( forcing_fluxes_type == 1 )
-    use_omip_forcing    = use_omip_windstress .OR. use_omip_fluxes
 
     IF ( use_omip_forcing .AND. iforc_oce == OMIP_FluxFromFile) THEN
 

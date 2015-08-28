@@ -55,7 +55,8 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               HINTP_TYPE_LONLAT_BCTR,             &
   &                               HINTP_TYPE_LONLAT_RBF,              &
   &                               nexlevs_rrg_vnest, RTTOV_BT_CL,     &
-  &                               RTTOV_RAD_CL, RTTOV_RAD_CS
+  &                               RTTOV_RAD_CL, RTTOV_RAD_CS,         &
+  &                               TLEV_NNOW_RCF
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, lart
 USE mo_exception,           ONLY: message, finish !,message_text
@@ -77,13 +78,13 @@ USE mo_nwp_parameters,      ONLY: t_phy_params
 USE mo_cf_convention,       ONLY: t_cf_var
 USE mo_grib2,               ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
 USE mo_io_config,           ONLY: lflux_avg
+USE mo_cdi,                 ONLY: TSTEP_MIN, TSTEP_MAX, TSTEP_INSTANT, TSTEP_CONSTANT, TSTEP_AVG, TSTEP_ACCUM, DATATYPE_PACK16, &
+    &                             DATATYPE_FLT32
 USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,        &
   &                               GRID_CELL, ZA_HYBRID, ZA_HYBRID_HALF,          &
   &                               ZA_SURFACE, ZA_HEIGHT_2M, ZA_HEIGHT_10M,       &
-  &                               ZA_TOA, ZA_DEPTH_BELOW_LAND, DATATYPE_FLT32,   &
-  &                               DATATYPE_PACK16, TSTEP_INSTANT,                &
-  &                               TSTEP_ACCUM, TSTEP_AVG, TSTEP_MAX, TSTEP_MIN,  &
-  &                               TSTEP_CONSTANT, ZA_PRESSURE_0, ZA_PRESSURE_400,&
+  &                               ZA_TOA, ZA_DEPTH_BELOW_LAND,   &
+  &                               ZA_PRESSURE_0, ZA_PRESSURE_400,&
   &                               ZA_PRESSURE_800, ZA_CLOUD_BASE, ZA_CLOUD_TOP,  &
   &                               ZA_ISOTHERM_ZERO
 USE mo_physical_constants,  ONLY: grav
@@ -2780,7 +2781,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       CALL art_tracer_interface('turb', k_jg, kblks, phy_tend_list,  &
                 & 'ddt_', ptr_arr=phy_tend%tracer_turb_ptr,          &
                 & advconf=advection_config(k_jg), phy_tend=phy_tend, &
-                & ldims=shape3d, tlev_source=1)
+                & ldims=shape3d, tlev_source=TLEV_NNOW_RCF)
     ENDIF
 
     cf_desc    = t_cf_var('ddt_tracer_pconv', 's-1', &
@@ -2827,7 +2828,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       CALL art_tracer_interface('conv', k_jg, kblks, phy_tend_list,  &
                 & 'ddt_', ptr_arr=phy_tend%tracer_conv_ptr,          &
                 & advconf=advection_config(k_jg), phy_tend=phy_tend, &
-                & ldims=shape3d, tlev_source=1)
+                & ldims=shape3d, tlev_source=TLEV_NNOW_RCF)
     ENDIF
 
 

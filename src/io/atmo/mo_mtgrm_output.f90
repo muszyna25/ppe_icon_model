@@ -102,7 +102,7 @@ MODULE mo_meteogram_output
   USE mo_kind,                  ONLY: wp
   USE mo_datetime,              ONLY: t_datetime, iso8601
   USE mo_exception,             ONLY: message, message_text, finish
-  USE mo_mpi,                   ONLY: p_n_work, p_max, p_comm_work,       &
+  USE mo_mpi,                   ONLY: p_n_work, p_max,                    &
     &                                 get_my_mpi_all_id, p_wait,          &
     &                                 p_send_packed, p_irecv_packed,      &
     &                                 p_pack_int,    p_pack_real,         &
@@ -142,8 +142,7 @@ MODULE mo_meteogram_output
     &                                 gnat_merge_distributed_queries, gk
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase, &
-    &                                 number_of_grid_used, iqm_max
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase, iqm_max
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, ntiles_lnd
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS

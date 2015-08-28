@@ -42,7 +42,7 @@ MODULE mo_initicon_config
   PUBLIC :: t_initicon_config
 
   ! Variables
-  PUBLIC :: init_mode, nlev_in, nlevsoil_in, zpbl1, zpbl2
+  PUBLIC :: init_mode, nlevatm_in, nlevsoil_in, zpbl1, zpbl2
   PUBLIC :: dt_iau
   PUBLIC :: type_iau_wgt
   PUBLIC :: l_sst_in
@@ -53,6 +53,7 @@ MODULE mo_initicon_config
   PUBLIC :: lp2cintp_incr, lp2cintp_sfcana
   PUBLIC :: ltile_coldstart
   PUBLIC :: ltile_init
+  PUBLIC :: lvert_remap_fg
   PUBLIC :: lcalc_avg_fg
   PUBLIC :: start_time_avg_fg
   PUBLIC :: end_time_avg_fg
@@ -120,6 +121,8 @@ MODULE mo_initicon_config
 
   LOGICAL  :: ltile_init       ! If true, initialize tile-based surface fields from first guess without tiles
 
+  LOGICAL  :: lvert_remap_fg   ! If true, vertical remappting of first guess input is performed
+
   ! Variables controlling computation of temporally averaged first guess fields for DA
   ! The calculation is switched on by setting end_time > start_time
   REAL(wp) :: start_time_avg_fg   ! start time [s]
@@ -170,7 +173,7 @@ MODULE mo_initicon_config
   ! Derived variables / variables based on input file contents
   ! ----------------------------------------------------------------------------
 
-  INTEGER :: nlev_in   = 0  !< number of model levels of input data
+  INTEGER :: nlevatm_in(max_dom) = 0  !< number of atmospheric model levels of input data
   LOGICAL :: lread_vn  = .FALSE. !< control variable that specifies if u/v or vn are read as wind field input
 
   INTEGER :: init_mode_soil     !< initialization mode of soil model (coldstart, warmstart, warmstart+IAU)

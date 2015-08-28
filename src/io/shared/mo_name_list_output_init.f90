@@ -29,7 +29,20 @@ MODULE mo_name_list_output_init
 ! USE_CRAY_POINTER
 
   ! constants and global settings
-  USE mo_cdi_constants          ! We need all
+  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate, &
+                                                & cdiEncodeTime, institutInq, vlistCreate, cdiEncodeParam, vlistDefVar, &
+                                                & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE, &
+                                                & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName, &
+                                                & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
+                                                & gridDefYsize, gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID, &
+                                                & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname, &
+                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals, &
+                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit, &
+                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis
+  USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
+                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_REFERENCE, GRID_EDGE, GRID_CELL, &
+                                                & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
+                                                & ZA_hybrid_half, ZA_hybrid
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                 &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
@@ -53,7 +66,7 @@ MODULE mo_name_list_output_init
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
-    &                                             sort_and_compress_list, one_of
+    &                                             sort_and_compress_list
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_cf_convention,                     ONLY: t_cf_var
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
@@ -78,9 +91,9 @@ MODULE mo_name_list_output_init
 
 #ifndef __NO_ICON_ATMO__
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
-#endif
   USE mo_extpar_config,                     ONLY: i_lctype
   USE mo_lnd_nwp_config,                    ONLY: ntiles_water, ntiles_total, tiles
+#endif
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
     &                                             get_my_mpi_work_communicator,                   &
@@ -136,8 +149,7 @@ MODULE mo_name_list_output_init
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,               &
     &                                             GRP_PREFIX, TILE_PREFIX,                        &
     &                                             t_fname_metadata, all_events, t_patch_info_ll,  &
-    &                                             GRB2_GRID_INFO, is_grid_info_var,               &
-    &                                             GRB2_GRID_INFO_NAME
+    &                                             is_grid_info_var, GRB2_GRID_INFO_NAME
   USE mo_name_list_output_gridinfo,         ONLY: set_grid_info_grb2,                             &
     &                                             set_grid_info_netcdf, collect_all_grid_info,    &
     &                                             copy_grid_info, bcast_grid_info,                &
@@ -2653,9 +2665,9 @@ CONTAINS
         this_cf => info%cf
       END IF
 
-      IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, this_cf%long_name)
-      IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, this_cf%standard_name)
-      IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, this_cf%units)
+      IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, TRIM(this_cf%long_name))
+      IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, TRIM(this_cf%standard_name))
+      IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
 
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
@@ -2706,9 +2718,10 @@ CONTAINS
         ! Set local use SECTION 2
         CALL set_GRIB2_local_keys(vlistID, varID, gribout_config(of%phys_patch_id))
 
+#ifndef __NO_ICON_ATMO__
         ! Set tile-specific GRIB2 keys (if applicable)
         CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype(of%phys_patch_id))
-
+#endif
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
       ENDIF
@@ -2930,6 +2943,7 @@ CONTAINS
     CALL parse_variable_groups()
 
 
+#ifndef __NO_ICON_ATMO__
     ! Go over all output domains
     DO idom = 1, n_dom_out
       CALL p_bcast(gribout_config(idom)%generatingCenter,    bcast_root, p_comm_work_2_io)
@@ -2953,7 +2967,7 @@ CONTAINS
        CALL p_bcast(tiles(:)%GRIB2_tile%numberOfTileAttributes , bcast_root, p_comm_work_2_io)
        CALL p_bcast(tiles(:)%GRIB2_att%tileAttribute           , bcast_root, p_comm_work_2_io)
     end if
-
+#endif
     ! allocate vgrid_buffer on asynchronous output PEs, for storing 
     ! the vertical grid UUID
     !

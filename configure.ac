@@ -89,6 +89,16 @@ AC_ARG_WITH([flags],
     [],
     [])
 
+AC_ARG_WITH([art],
+  [AS_HELP_STRING([--with-art],
+    [enable ART modules via precprocessing directive, if available for selected compiler])],
+  [],
+  [])
+
+AS_IF([test "x$with_art" = "xyes"],
+      [use_art="yes"],
+      [use_art="no"])
+
 case $host in
   i*86-*-linux-*)  
     if test x$fortran_compiler != xintel ; then
@@ -112,8 +122,10 @@ AS_CASE([x"$ac_hostname"],
   [ac_sitename=dkrz.de],
   [xwizard*],
   [ac_sitename=dkrz.de; ac_hostname=wizard],
-  [xbtc*],
+  [xbtc*|mlogin*],
   [ac_sitename=dkrz.de; ac_hostname=btc],
+  [xic2*],
+  [ac_sitename=kit.edu; ac_hostname=ic2],
   [if [[ $(hostname) = $ac_hostname ]] ; then
    fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
 else
@@ -404,8 +416,15 @@ if test -n "$SZIPROOT" ; then
      exit 1    
   fi
   case $(hostname) in
-  btc*)  
-    SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+  btc*|mlogin*)  
+    case $FC in
+    nagfor)
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      ;;
+    *)  
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+      ;;
+    esac
     ;;
   *)
     ;;
@@ -446,8 +465,15 @@ if test -n "$HDF5ROOT" ; then
      exit 1    
   fi
   case $(hostname) in
-  btc*)  
-    HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+  btc*|mlogin*)  
+    case $FC in
+    nagfor)
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      ;;
+    *)
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+     ;;
+    esac    
     ;;
   *)
     ;;
@@ -497,8 +523,15 @@ if test -n "$NETCDFROOT" ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
   case $(hostname) in
-  btc*)    
-    NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+  btc*|mlogin*)    
+    case $FC in
+    nagfor)
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      ;;
+    *)
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+      ;;
+    esac
     ;;
   *)
     ;;
@@ -517,14 +550,22 @@ if test -n "$NETCDFROOT" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff' 
          case $(hostname) in
-         btc*)    
-           NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-           NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-           NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
+         btc*|mlogin*)    
+           case $FC in
+           nagfor)
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+             ;;
+           *)                      
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+             ;;
+           esac         
            ;;
          *)
            ;;
          esac
+         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"	
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
@@ -827,6 +868,14 @@ if [[ "x$use_messy" = xyes ]] ; then
     CFLAGS="${CFLAGS} ${DEFCOPT}MESSY ${DEFOPT}MESSYTIMER"
 fi
 
+if [[ "x$use_art" = xyes ]] ; then
+    FFLAGS="${FFLAGS} ${ART_FFLAGS}"
+    # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
+    if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
+        FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
+    fi
+fi
+
 ac_srcdirs=$my_srcdirs
 
 if test "$use_mpcc_r" = yes ; then
@@ -860,6 +909,7 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
+FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
 if [[ "x$LDFLAGS" = "x" ]] ; then

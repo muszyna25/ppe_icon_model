@@ -82,9 +82,14 @@ MODULE mo_name_list_output
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
   USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
-    &                                     ihs_ocean
+    &                                     ihs_ocean, TLEV_NNOW, TLEV_NNOW_RCF, TLEV_NNEW, TLEV_NNEW_RCF
   USE mo_dynamics_config,           ONLY: iequations
-  USE mo_cdi_constants              ! We need all
+  USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
+      &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
+      &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
+      &                                   cdiGetStringError, streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT
+  USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, &
+      &                                   GRID_UNSTRUCTURED_EDGE
   ! utility functions
   USE mo_io_units,                  ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_exception,                 ONLY: finish, message, message_text
@@ -119,7 +124,7 @@ MODULE mo_name_list_output
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0
   ! calendar operations
   USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime,                &
-    &                                     PROLEPTIC_GREGORIAN, setCalendar, resetCalendar, OPERATOR(-),            &
+    &                                     PROLEPTIC_GREGORIAN, setCalendar, OPERATOR(-),            &
     &                                     timedelta, newTimedelta, deallocateTimedelta
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
@@ -139,13 +144,13 @@ MODULE mo_name_list_output
   USE mo_name_list_output_zaxes,    ONLY: deallocate_level_selection, create_mipz_level_selections
   USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
   ! post-ops
-  USE mo_post_op,                   ONLY: perform_post_op
 
 #ifndef __NO_ICON_ATMO__
+  USE mo_post_op,                   ONLY: perform_post_op
   USE mo_dynamics_config,           ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize
   USE mo_meteogram_config,          ONLY: meteogram_output_config
-  USE mo_intp_data_strc,            ONLY: lonlat_grid_list, t_lon_lat_data
+  USE mo_intp_data_strc,            ONLY: lonlat_grid_list
 #endif
 
   IMPLICIT NONE
@@ -410,7 +415,6 @@ CONTAINS
         CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
         iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
         output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
-        CALL resetCalendar()
       END IF
 
       IF(my_process_is_io()) THEN
@@ -665,10 +669,10 @@ CONTAINS
       IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND.    &
         & .NOT. ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
         SELECT CASE (info%tlev_source)
-          CASE(0); tl = nnow(i_log_dom)
-          CASE(1); tl = nnow_rcf(i_log_dom)
-          CASE(2); tl = nnew(i_log_dom)
-          CASE(3); tl = nnew_rcf(i_log_dom)
+          CASE(TLEV_NNOW);     tl = nnow(i_log_dom)
+          CASE(TLEV_NNOW_RCF); tl = nnow_rcf(i_log_dom)
+          CASE(TLEV_NNEW);     tl = nnew(i_log_dom)
+          CASE(TLEV_NNEW_RCF); tl = nnew_rcf(i_log_dom)
           CASE DEFAULT
             CALL finish(routine,'Unsupported tlev_source')
         END SELECT
@@ -851,6 +855,7 @@ CONTAINS
       ! Perform post-ops (small arithmetic operations on fields)
       ! --------------------------------------------------------
 
+#ifndef __NO_ICON_ATMO__
       IF ( ANY((/POST_OP_SCALE, POST_OP_LUC/) == of%var_desc(iv)%info%post_op%ipost_op_type) ) THEN
         IF (idata_type == iREAL) THEN
           CALL perform_post_op(of%var_desc(iv)%info%post_op, r_ptr)
@@ -858,7 +863,7 @@ CONTAINS
           CALL perform_post_op(of%var_desc(iv)%info%post_op, i_ptr)
         ENDIF
       END IF
-
+#endif
 
       var_ignore_level_selection = .FALSE.
       IF(info%ndims < 3) THEN

@@ -16,13 +16,12 @@ MODULE mo_var_list
 #endif
 
   USE mo_kind,             ONLY: wp, i8
-  USE mo_cdi_constants,    ONLY: DATATYPE_FLT64,                    &
+  USE mo_cdi,              ONLY: DATATYPE_FLT64,                    &
        &                         DATATYPE_INT32,                    &
        &                         DATATYPE_INT8,                     &
        &                         TSTEP_INSTANT,                     &
-       &                         GRID_UNSTRUCTURED_CELL,            &
-       &                         GRID_REGULAR_LONLAT,               &
        &                         CDI_UNDEFID
+  USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
@@ -50,7 +49,8 @@ MODULE mo_var_list
   USE mo_util_hash,        ONLY: util_hashword
   USE mo_util_string,      ONLY: remove_duplicates, toupper
   USE mo_impl_constants,   ONLY: max_var_lists, vname_len,          &
-    &                            STR_HINTP_TYPE, MAX_TIME_LEVELS
+    &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
+    &                            TLEV_NNOW
   USE mo_fortran_tools,    ONLY: assign_if_present
   USE mo_action_types,     ONLY: t_var_action 
   USE mo_io_config,        ONLY: restart_file_type
@@ -603,7 +603,7 @@ CONTAINS
     this_info%hgrid               = -1
     this_info%vgrid               = -1
     !
-    this_info%tlev_source         = 0
+    this_info%tlev_source         = TLEV_NNOW
     !
     this_info%cdiVarID            = CDI_UNDEFID
     this_info%cdiVarID_2          = CDI_UNDEFID
@@ -926,14 +926,17 @@ CONTAINS
         new_list_element%field%var_base_size    = 8
         new_list_element%field%info%cdiDataType = DATATYPE_FLT64
         ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+        new_list_element%field%r_ptr(:,:,:,:,:) = 0._wp
       CASE (INT_T)
         new_list_element%field%var_base_size    = 4
         new_list_element%field%info%cdiDataType = DATATYPE_INT32
         ALLOCATE(new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+        new_list_element%field%i_ptr(:,:,:,:,:) = 0
       CASE (BOOL_T)
         new_list_element%field%var_base_size    = 4
         new_list_element%field%info%cdiDataType = DATATYPE_INT8
         ALLOCATE(new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+        new_list_element%field%l_ptr(:,:,:,:,:) = .FALSE.
       END SELECT
 
       IF (istat /= 0) THEN

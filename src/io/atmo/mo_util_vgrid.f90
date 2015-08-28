@@ -15,7 +15,16 @@
 !!
 MODULE mo_util_vgrid
 
-  USE mo_cdi_constants          ! We need all
+  USE mo_cdi,                               ONLY: streamDefTimestep, streamOpenWrite, gridCreate, institutInq, vlistCreate, &
+                                                & vlistInqVarZaxis, vlistInqVarGrid, streamInqVlist, streamOpenRead, &
+                                                & ZAXIS_REFERENCE, zaxisCreate, TSTEP_CONSTANT, vlistDefVar, FILETYPE_NC2, &
+                                                & DATATYPE_INT32, DATATYPE_FLT64, CDI_UNDEFID, CDI_GLOBAL, vlistDefAttInt, &
+                                                & vlistInqAttInt, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, &
+                                                & streamWriteVarSlice, streamWriteVar, streamDefVlist, cdiGetStringError, &
+                                                & vlistDefVarDatatype, vlistDefVarName, zaxisDefNumber, zaxisDefUUID, &
+                                                & gridDefPosition, gridInqUUID, gridDefNumber, gridDefUUID, zaxisDefLevels, &
+                                                & gridDefNvertex, vlistDefInstitut, zaxisInqUUID, streamReadVar
+  USE mo_cdi_constants,                     ONLY: GRID_REFERENCE
   USE mo_kind,                              ONLY: wp, dp
   USE mo_exception,                         ONLY: finish, message, message_text, warning
   !
@@ -246,6 +255,7 @@ CONTAINS
     CHARACTER(len=1)           :: uuid_string(16)
     CHARACTER(len=132)         :: message_text
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+    INTEGER :: oneInt(1)
 
     CALL message(routine, "create vertical grid description file.")
 
@@ -282,7 +292,7 @@ CONTAINS
       ! cells
       CALL uuid2char(p_patch%grid_uuid, uuid_string)
       CALL gridDefUUID(cdiCellGridID, uuid_string)
-      CALL gridDefNumber(cdiCellGridID, number_of_grid_used)
+      CALL gridDefNumber(cdiCellGridID, number_of_grid_used(1)) !XXX: It might be a bug that only the first element IN number_of_grid_used is used. It may not be a bug. I don't know. Someone ELSE who knows?
       CALL gridDefPosition(cdiCellGridID, 1)
 
       !--- set UUID for vertical grid
@@ -302,7 +312,8 @@ CONTAINS
       CALL vlistDefVarName(cdiVlistID, cdiVarID_c, "z_ifc")
       CALL vlistDefVarDatatype(cdiVlistID, cdiVarID_c, DATATYPE_FLT64)
       !--- add "nflat"
-      iret = vlistDefAttInt(cdiVlistID, CDI_GLOBAL, "nflat", DATATYPE_INT32,  1, nflat)
+      oneInt(1) = nflat
+      iret = vlistDefAttInt(cdiVlistID, CDI_GLOBAL, "nflat", DATATYPE_INT32,  1, oneInt)
 
       !--- open file via CDI
       cdiFileID   = streamOpenWrite(TRIM(filename), output_type)
@@ -371,7 +382,7 @@ CONTAINS
     LOGICAL                  :: lexists
     INTEGER                  :: cdiFileID, cdiVarID_vct_a, cdiVarID_vct_b,       &
       &                         nlevp1, nmiss, iret, cdiVlistID, cdiGridID,      &
-      &                         cdiVarID_z_ifc, cdiZaxisID, communicator
+      &                         cdiVarID_z_ifc, cdiZaxisID, communicator, oneInt(1)
     CHARACTER(len=1)         :: vfile_uuidOfHGrid_string(16) ! uuidOfHGrid contained in the
                                                              ! vertical grid file
     TYPE(t_uuid)             :: vfile_uuidOfHGrid            ! same, but converted to TYPE(t_uuid)
@@ -404,7 +415,8 @@ CONTAINS
       cdiVarID_vct_b     = get_cdi_varID(cdiFileID, "vct_b")
       CALL streamReadVar(cdiFileID, cdiVarID_vct_b, vct_b, nmiss)
       cdiVlistID         = streamInqVlist(cdiFileID)
-      iret               = vlistInqAttInt(cdiVlistID, CDI_GLOBAL, "nflat", 1, nflat)
+      iret = vlistInqAttInt(cdiVlistID, CDI_GLOBAL, "nflat", 1, oneInt)
+      nflat = oneInt(1)
 
       !--- get UUID for horizontal grid contained in vertical grid file
       cdiVarID_z_ifc     = get_cdi_varID(cdiFileID, "z_ifc")

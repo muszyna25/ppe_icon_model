@@ -1850,6 +1850,15 @@ A neighbor search is applied to subgrid-scale ocean points for SST and sea-ice f
 \tabularnewline
 
 %\hline
+lvert\_remap\_fg&
+L & .FALSE.& &
+If true, vertical remapping is applied to the atmospheric first-guess fields, whereas the analysis increments
+remain unchanged. The number of model levels must be the same for input and output fields, and the z\_ifc 
+(alias HHL) field pertaining to the input fields must be appended to the first-guess file. & init\_mode=5,6
+\tabularnewline
+
+
+%\hline
 \textbf{ifs2icon\_filename}&
 C &
 &
@@ -5061,7 +5070,7 @@ Lower bound of velocity-dependent Charnock parameter &
 
 %\hline
 alpha0\_max &
-R                &     0.0123      & 1 &
+R                &     0.0335      & 1 &
 Upper bound of velocity-dependent Charnock parameter. Setting this parameter to 0.0335 or higher values implies unconstrained 
 velocity dependence & 
 \tabularnewline
@@ -6149,6 +6158,19 @@ pre-factor of topography smoother
 &
 n\_iter\_smooth\_topo $>$ 0
 \tabularnewline
+
+
+%\hline
+hgtdiff\_max\_smooth\_topo&
+R &
+0. &
+m &
+RMS height difference to neighbor grid points at which the smoothing pre-factor fac\_smooth\_topo
+reaches its maximum value (linear proportionality for weaker slopes)
+&
+n\_iter\_smooth\_topo $>$ 0
+\tabularnewline
+
 
 %\hline
 heightdiff\_threshold&

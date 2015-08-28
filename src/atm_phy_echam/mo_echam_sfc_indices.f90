@@ -52,7 +52,7 @@ CONTAINS
     CHARACTER(len=*),INTENT(IN) :: ctest_name
 
     SELECT CASE(TRIM(ctest_name))
-    CASE('APE','APE_nwp','APE_echam','RCE','RCE_glb','RCEhydro','RCE_CBL')
+    CASE('APE','APE_echam','RCE','RCE_glb','RCEhydro','RCE_CBL')
       ! Aqua-planet simulation, no land, no ice;
       ! No needed to distinguish the aggregated grid-box mean
       ! and the value on different types of surface

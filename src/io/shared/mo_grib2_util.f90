@@ -18,18 +18,18 @@ MODULE mo_grib2_util
 
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: finish
-  USE mo_cdi_constants,      ONLY: streamInqVlist,                           &
-    &                              vlistInqVarTypeOfGeneratingProcess,       &
-    &                              vlistInqVarTsteptype, TSTEP_CONSTANT,     &
-    &                              TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX,        &
-    &                              TSTEP_MIN, vlistInqTaxis, taxisInqTunit,  &
-    &                              TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR 
+  USE mo_cdi,                ONLY: streamInqVlist, vlistInqVarTypeOfGeneratingProcess, vlistInqVarTsteptype, vlistInqTaxis, &
+                                 & taxisInqTunit, TSTEP_CONSTANT, TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX, TSTEP_MIN, TUNIT_SECOND, &
+                                 & TUNIT_MINUTE, TUNIT_HOUR, vlistDefVarIntKey, vlistDefVarProductDefinitionTemplate, &
+                                 & vlistDefVarTypeOfGeneratingProcess
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_SYNSAT, &
     &                              CLASS_TILE_LAND
   USE mo_action,             ONLY: ACTION_RESET, getActiveAction
   USE mo_util_string,        ONLY: one_of
+#ifndef __NO_ICON_ATMO__
   USE mo_lnd_nwp_config,     ONLY: getNumberOfTiles, select_tile, t_tile
+#endif
   ! calendar operations
   USE mtime,                 ONLY: timedelta, newTimedelta,                 &
     &                              datetime, newDatetime,                   &
@@ -273,6 +273,7 @@ CONTAINS
     TYPE (t_var_metadata),  INTENT(IN) :: info
     INTEGER,                INTENT(IN) :: i_lctype  !< Tile classification
 
+#ifndef __NO_ICON_ATMO__
     ! local
     INTEGER      :: typeOfGeneratingProcess
     INTEGER      :: productDefinitionTemplate        ! Tile template number 
@@ -321,6 +322,7 @@ CONTAINS
 
     ! Set tile attribute
     CALL vlistDefVarIntKey(vlistID, varID, "tileAttribute" , tile%GRIB2_att%tileAttribute)
+#endif
 
   END SUBROUTINE set_GRIB2_tile_keys
 

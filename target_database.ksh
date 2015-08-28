@@ -74,6 +74,9 @@ case ${target} in
     thunder_sun)
        configureoption="--with-fortran=sun"
         ;;
+    thunder_nag_mtime)
+        configureoption="--with-fortran=nag --enable-mtime-loop"
+        ;;
 
     # MPIMAC
     # ------
@@ -109,6 +112,12 @@ case ${target} in
 
     sx9ftromp)
         configureoption="--host=sx9 --with-setup=sx9ftromp --without-ocean"
+        ;;
+
+    # CSCS daint
+    # ----------
+    daint_cpu_cce)
+        configureoption="--with-fortran=cray"
         ;;
 
     # Default (for unspecified target)

@@ -220,6 +220,7 @@ MODULE mo_nonhydro_types
      rayleigh_vn(:)      , & ! Rayleigh damping on the normal velocity
      enhfac_diffu(:)     , & ! Enhancement factor for nabla4 background diffusion
      scalfac_dd3d(:)     , & ! Scaling factor for 3D divergence damping terms
+     hmask_dd3d(:,:)     , & ! Horizontal mask field for 3D divergence damping terms (nproma,nblks_e)
      vwind_expl_wgt(:,:)  , & ! explicit weight in vertical wind solver (nproma,nblks_c)
      vwind_impl_wgt(:,:)  , & ! implicit weight in vertical wind solver (nproma,nblks_c)
      !

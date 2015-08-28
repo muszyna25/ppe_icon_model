@@ -14,7 +14,10 @@
 !!
 MODULE mo_name_list_output_gridinfo
 
-  USE mo_cdi_constants          ! We need all
+  USE mo_cdi,                               ONLY: DATATYPE_PACK16, TSTEP_CONSTANT, vlistDefVar, cdiEncodeParam, streamWriteVar, &
+                                                & vlistDefVarDatatype, vlistDefVarName, vlistDefVarTsteptype, vlistDefVarParam, &
+                                                & gridDefXvals, gridDefYvals, gridDefXbounds, gridDefYbounds
+  USE mo_cdi_constants,                     ONLY: GRID_REFERENCE, GRID_CELL, ZA_surface
   USE mo_kind,                              ONLY: wp
   USE mo_parallel_config,                   ONLY: nproma
   USE mo_exception,                         ONLY: finish
@@ -557,7 +560,6 @@ CONTAINS
     CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
     TYPE (t_grib2_var) :: grid_coord_grib2(2)
     INTEGER :: igrid,i,vlistID,idx(3),gridID(3),zaxisID
-    CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
 
     ! geographical longitude RLON
     grid_coord_grib2(1) = grib2_var(               0,   &  ! discipline

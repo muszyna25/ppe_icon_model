@@ -891,13 +891,13 @@ MODULE mo_solve_nonhydro
         DO je = i_startidx, i_endidx
 !DIR$ IVDEP, PREFERVECTOR
           DO jk = kstart_dd3d(jg), nlev
-            z_graddiv_vn(jk,je,jb) = z_graddiv_vn(jk,je,jb) +                                             &
+            z_graddiv_vn(jk,je,jb) = z_graddiv_vn(jk,je,jb) +  p_nh%metrics%hmask_dd3d(je,jb)*            &
               p_nh%metrics%scalfac_dd3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)*                  &
               ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
 #else
         DO jk = kstart_dd3d(jg), nlev
           DO je = i_startidx, i_endidx
-            z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) +                                             &
+            z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) +  p_nh%metrics%hmask_dd3d(je,jb)*            &
               p_nh%metrics%scalfac_dd3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)*                  &
               ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
 #endif
