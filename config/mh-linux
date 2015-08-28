@@ -423,6 +423,7 @@ case "$ac_sitename" in
                       SZIPROOT    = $software_tree/szip-2.1-static
                       MPIROOT     = $software_tree/mpi/mpich2-1.3.1-static-intel12
                       MPI_LIB     = -lmpichf90 -lmpich -lmpl
+                      XML2ROOT    = /usr
                       OTHER_LIBS  = -lz $OTHER_LIBS
                       ;;
                 esac
@@ -457,6 +458,7 @@ case "$ac_sitename" in
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-$compiler_version
                         HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-$compiler_version
                         SZIPROOT    = $software_tree/sys/libaec-0.3.2-$compiler_version
+                        XML2ROOT    = /usr
                         ZLIBROOT    = /usr
 
                         case "$with_mpi" in
@@ -509,6 +511,7 @@ case "$ac_sitename" in
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-$compiler_version
                         HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-$compiler_version
                         SZIPROOT    = $software_tree/sys/libaec-0.3.2-$compiler_version
+                        XML2ROOT    = /usr
                         ZLIBROOT    = /usr
 
                         MPIROOT     = $software_tree/mpi/openmpi-1.8.4-$compiler_version
@@ -536,6 +539,7 @@ case "$ac_sitename" in
                         IB_LIBS     = -lrdmacm -libverbs 
                         SYS_LIBS    = -lnuma -lrt -lutil -lpthread -lm -ldl
                         MPI_LIB     = -lmpi_usempi -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lpmi -lpmi2 $IB_LIBS $SYS_LIBS
+                        XML2ROOT    = /usr
                         mpi_startrun = srun               
                         ;;
                     *)
