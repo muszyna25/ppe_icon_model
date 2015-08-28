@@ -327,7 +327,7 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk,  &
                              i_startidx, i_endidx, rl_start, rl_end)
 
-        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag, p_metrics,          &
+        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag,          &
                         jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
         CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
@@ -369,7 +369,7 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
       IF (l_any_fastphys .OR. linit) THEN  ! diagnose temperature
-        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag, p_metrics,          &
+        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag,       &
                         jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
       ENDIF
 
@@ -885,8 +885,7 @@ CONTAINS
            &              pt_diag,               & ! inout
            &              prm_diag,              & ! inout
            &              lnd_prog_new,          & ! in
-           &              wtr_prog_new,          & ! in
-           &              p_metrics              ) ! in
+           &              wtr_prog_new           ) ! in
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
      
     ENDIF

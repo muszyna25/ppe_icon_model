@@ -20,7 +20,7 @@ MODULE mo_meteogram_config
 
   IMPLICIT NONE
 
-  INTEGER, PARAMETER :: MAX_NAME_LENGTH      =   32  !<  max. name string length   
+  INTEGER, PARAMETER :: MAX_NAME_LENGTH      =   48  !<  max. name string length   
   INTEGER, PARAMETER :: MAX_NUM_STATIONS     =   60  !<  max. number of meteogram locations (global)
                                                      ! NOTE: MAX_NUM_STATIONS=80 did not work with Intel and GCC.
                                                      ! Reading the meteogram namelist from the restart file 
