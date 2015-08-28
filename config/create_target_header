@@ -44,7 +44,6 @@ fi
 
 set_default use_nodes 1
 set_default use_omp_stacksize 32M
-let "mpi_total_procs=${use_nodes}*${use_mpi_procs_pernode}"
 
 cat >> $output_script << EOF
 #=============================================================================
@@ -83,7 +82,7 @@ export OMP_STACKSIZE=${use_omp_stacksize}
 # MPI variables
 # ----------------------------
 mpi_root=$use_mpi_root
-no_of_nodes=$use_nodes
+no_of_nodes=${use_nodes}
 mpi_procs_pernode=$use_mpi_procs_pernode
 ((mpi_total_procs=no_of_nodes * mpi_procs_pernode))
 START="$start"
@@ -538,7 +537,7 @@ set_run_target_bullx()
   icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
 
   set_default use_nproma 8
-  set_default use_nodes \${SLURM_JOB_NUM_NODES:-1}
+  set_default use_nodes '\${SLURM_JOB_NUM_NODES:-1}'
   set_default use_account_no "$(id -gn)"
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,4"
@@ -567,6 +566,7 @@ set_run_target_bullx()
       ;;
   esac
 
+#  use_mpi_startrun="srun --cpu-freq=2500000 --kill-on-bad-exit=1 --nodes=\${no_of_nodes} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\${SLURM_JOB_NUM_NODES:-1} --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((1 * OMP_NUM_THREADS)) --propagate=STACK"
   use_mpi_startrun="srun --cpu-freq=2500000 --kill-on-bad-exit=1 --nodes=\${no_of_nodes} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\${mpi_total_procs} --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((1 * OMP_NUM_THREADS)) --propagate=STACK"
   case _$use_compiler in
     "_intel" )
@@ -633,7 +633,7 @@ set_run_target_bullx()
 #SBATCH --job-name=$job_name
 #SBATCH --partition=$queue
 #SBATCH --workdir=$output_folder
-#SBATCH --nodes=$use_nodes
+###SBATCH --nodes=$use_nodes
 #SBATCH --threads-per-core=1
 #SBATCH --output=$output_folder/$job_log_name.o
 #SBATCH --error=$output_folder/$job_log_name.o
