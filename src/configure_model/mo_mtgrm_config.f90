@@ -53,6 +53,9 @@ MODULE mo_meteogram_config
     ! Initial step and step interval for meteogram output
     INTEGER                        :: n0_mtgrm, ninc_mtgrm
 
+    ! activate output of some selected tile specific fields
+    LOGICAL                        :: loutput_tiles
+  
     ! Specification of meteogram stations.
     ! Note: This info is the same for all patches.
     INTEGER                           :: nstations

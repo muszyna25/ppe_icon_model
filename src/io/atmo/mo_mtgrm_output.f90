@@ -143,7 +143,7 @@ MODULE mo_meteogram_output
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase, iqm_max
-  USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, ntiles_lnd
+  USE mo_lnd_nwp_config,        ONLY: tiles
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
@@ -165,7 +165,6 @@ MODULE mo_meteogram_output
   PUBLIC ::  meteogram_is_sample_step
   PUBLIC ::  meteogram_sample_vars
   PUBLIC ::  meteogram_finalize  
-  PUBLIC ::  meteogram_flush_file
 
   INTEGER, PARAMETER :: MAX_TIME_STAMPS      =10000  !< max. number of time stamps
   INTEGER, PARAMETER :: MAX_NVARS            =  150  !< max. number of sampled 3d vars
@@ -190,6 +189,10 @@ MODULE mo_meteogram_output
   INTEGER, PARAMETER :: VAR_GROUP_SOIL_ML    =    4  !< variables defined on soil half levels
   INTEGER, PARAMETER :: VAR_GROUP_SOIL_MLp2  =    5  !< height levels [0m, soil half levels, -14.58m]
   INTEGER, PARAMETER :: FLAG_DIAG            =    4  !< Flag bit: if set then this variable is a diagnostic
+
+  INTEGER :: ntiles_mtgrm          ! notal number of tiles (ntiles_total + ntiles_water) 
+                                   ! if NWP tiles are set up
+                                   ! 1 otherwise
 
   !>
   !! Generic interface for adding atmospheric vars to list (required
@@ -586,20 +589,22 @@ CONTAINS
       &              jg, prm_diag%swflx_dn_sfc_diff(:,:))
 
     ! -- tiled surface fields
-    CALL add_atmo_var(meteogram_config, VAR_GROUP_SOIL_ML, "W_SO_T", "m H2O", "soil water content", &
-      &               jg, p_lnd_prog%w_so_t(:,:,:,:))
-    CALL add_atmo_var(meteogram_config, VAR_GROUP_SOIL_MLp2, "T_SO_T", "K", "soil temperature", &
-      &               jg, p_lnd_prog%t_so_t(:,:,:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "T_G_T", "K", "weighted surface temperature", &
-      &              jg, p_lnd_prog%t_g_t(:,:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SHFL_T", "W/m2", "sensible heat flux (surface)", &
-      &              jg, prm_diag%shfl_s_t(:,:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "LHFL_T", "W/m2", "latent heat flux (surface)", &
-      &              jg, prm_diag%lhfl_s_t(:,:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SOBS_T", "W m-2", "shortwave net flux at surface", &
-      &              jg, prm_diag%swflxsfc_t(:,:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "THBS_T", "W m-2", "longwave net flux at surface", &
-      &              jg, prm_diag%lwflxsfc_t(:,:,:))
+    IF (meteogram_config%loutput_tiles) THEN     ! write some selected tile specific fields
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_SOIL_ML, "W_SO_T", "m H2O", "soil water content", &
+        &               jg, p_lnd_prog%w_so_t(:,:,:,:))
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_SOIL_MLp2, "T_SO_T", "K", "soil temperature", &
+        &               jg, p_lnd_prog%t_so_t(:,:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "T_G_T", "K", "surface temperature", &
+        &              jg, p_lnd_prog%t_g_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SHFL_T", "W/m2", "sensible heat flux (surface)", &
+        &              jg, prm_diag%shfl_s_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "LHFL_T", "W/m2", "latent heat flux (surface)", &
+        &              jg, prm_diag%lhfl_s_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SOBS_T", "W m-2", "shortwave net flux (surface)", &
+        &              jg, prm_diag%swflxsfc_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "THBS_T", "W m-2", "longwave net flux (surface)", &
+        &              jg, prm_diag%lwflxsfc_t(:,:,:))
+    ENDIF
 
 
 
@@ -818,6 +823,12 @@ CONTAINS
       CALL finish (routine, 'I/O PE Missing argument(s)!')
     ENDIF
 
+    IF (ALLOCATED(tiles)) THEN
+      ntiles_mtgrm = SIZE(tiles)
+    ELSE
+      ntiles_mtgrm = 1
+    ENDIF
+
     meteogram_data => mtgrm(jg)%meteogram_local_data
 
     mtgrm(jg)%var_list%no_atmo_vars = 0
@@ -1028,24 +1039,24 @@ CONTAINS
             meteogram_data%station(jc,jb)%soiltype =  &
               &  ext_data%atm%soiltyp(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
             !
-            ALLOCATE(meteogram_data%station(jc,jb)%tile_frac(ntiles_total + ntiles_water),    &
-              &      meteogram_data%station(jc,jb)%tile_luclass(ntiles_total + ntiles_water), &
+            ALLOCATE(meteogram_data%station(jc,jb)%tile_frac(ntiles_mtgrm),    &
+              &      meteogram_data%station(jc,jb)%tile_luclass(ntiles_mtgrm), &
               &      stat=ierrstat)
             IF (ierrstat /= SUCCESS) &
               CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3b)')
             !
-            meteogram_data%station(jc,jb)%tile_frac(1:ntiles_total + ntiles_water) = &
-              &  ext_data%atm%frac_t(tri_idx(1,jc,jb), tri_idx(2,jc,jb),1:ntiles_total + ntiles_water)
-            meteogram_data%station(jc,jb)%tile_luclass(1:ntiles_total + ntiles_water) = &
-              &  ext_data%atm%lc_class_t(tri_idx(1,jc,jb), tri_idx(2,jc,jb),1:ntiles_total + ntiles_water)
+            meteogram_data%station(jc,jb)%tile_frac(1:ntiles_mtgrm) = &
+              &  ext_data%atm%frac_t(tri_idx(1,jc,jb), tri_idx(2,jc,jb),1:ntiles_mtgrm)
+            meteogram_data%station(jc,jb)%tile_luclass(1:ntiles_mtgrm) = &
+              &  ext_data%atm%lc_class_t(tri_idx(1,jc,jb), tri_idx(2,jc,jb),1:ntiles_mtgrm)
 
           CASE DEFAULT
             meteogram_data%station(jc,jb)%hsurf    =  0._wp
             meteogram_data%station(jc,jb)%frland   =  0._wp
             meteogram_data%station(jc,jb)%soiltype =  0
             !
-            ALLOCATE(meteogram_data%station(jc,jb)%tile_frac(1),    &
-              &      meteogram_data%station(jc,jb)%tile_luclass(1), &
+            ALLOCATE(meteogram_data%station(jc,jb)%tile_frac(ntiles_mtgrm),    &
+              &      meteogram_data%station(jc,jb)%tile_luclass(ntiles_mtgrm), &
               &      stat=ierrstat)
             IF (ierrstat /= SUCCESS) &
               CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3b)')
@@ -1144,8 +1155,8 @@ CONTAINS
         DO jc=i_startidx,i_endidx
           p_station => mtgrm(jg)%meteogram_global_data%station(jc,jb)
 
-          ALLOCATE(p_station%tile_frac   (ntiles_total + ntiles_water), &
-            &      p_station%tile_luclass(ntiles_total + ntiles_water), &
+          ALLOCATE(p_station%tile_frac   (ntiles_mtgrm), &
+            &      p_station%tile_luclass(ntiles_mtgrm), &
             &      stat=ierrstat)
           IF (ierrstat /= SUCCESS) &
             CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3b)')
@@ -1590,9 +1601,9 @@ CONTAINS
           CALL p_unpack_int(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, p_station%soiltype)
 
           CALL p_unpack_real_1d(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
-            &                   p_station%tile_frac(:), ntiles_total+ntiles_water)
+            &                   p_station%tile_frac(:), ntiles_mtgrm)
           CALL p_unpack_int_1d (mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
-            &                   p_station%tile_luclass(:), ntiles_total+ntiles_water)
+            &                   p_station%tile_luclass(:), ntiles_mtgrm)
 
 
           !-- unpack heights and meteogram data:
@@ -1683,9 +1694,9 @@ CONTAINS
           CALL p_pack_real(p_station%fc, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
           CALL p_pack_int (p_station%soiltype, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
 
-          CALL p_pack_real_1d(p_station%tile_frac(:), ntiles_total+ntiles_water,      &
+          CALL p_pack_real_1d(p_station%tile_frac(:), ntiles_mtgrm,      &
               &                 mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
-          CALL p_pack_int_1d (p_station%tile_luclass(:), ntiles_total+ntiles_water,   &
+          CALL p_pack_int_1d (p_station%tile_luclass(:), ntiles_mtgrm,   &
               &                 mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
 
 
@@ -1814,7 +1825,7 @@ CONTAINS
       &     modname)
     ! write variables:
     CALL nf(nf_def_dim(ncfile, 'nvars',      meteogram_data%nvars, ncid%nvars), modname)
-    CALL nf(nf_def_dim(ncfile, 'ntiles',     ntiles_total+ntiles_water, ncid%ntiles), modname)
+    CALL nf(nf_def_dim(ncfile, 'ntiles',     ntiles_mtgrm, ncid%ntiles), modname)
     IF (meteogram_data%nsfcvars > 0) THEN
       CALL nf(nf_def_dim(ncfile, 'nsfcvars', meteogram_data%nsfcvars,  ncid%nsfcvars), &
         &     modname)
@@ -2020,12 +2031,12 @@ CONTAINS
           &                     modname)
         CALL nf(nf_put_vara_double(ncfile, ncid%station_tile_frac,           &
           &                       (/                         1, istation /), &
-          &                       (/ ntiles_total+ntiles_water, 1 /),        &
+          &                       (/ ntiles_mtgrm, 1 /),                     &
           &                        meteogram_data%station(jc,jb)%tile_frac), &
           &                        modname)
         CALL nf(nf_put_vara_int(ncfile, ncid%station_tile_luclass,        &
           &                    (/                         1, istation /), &
-          &                    (/ ntiles_total+ntiles_water, 1 /),        &
+          &                    (/ ntiles_mtgrm, 1 /),                     &
           &                     meteogram_data%station(jc,jb)%tile_luclass), &
           &                     modname)
 
