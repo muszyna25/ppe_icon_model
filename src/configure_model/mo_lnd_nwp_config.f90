@@ -68,9 +68,7 @@ MODULE mo_lnd_nwp_config
 
   ! namelist variables
   INTEGER ::  nlev_snow          !< number of snow layers
-  INTEGER ::  ntiles_total       !< total number of TILES
   INTEGER ::  ntiles_lnd         !< number of static land surface types
-  INTEGER ::  ntiles_water       !< number of extra tiles for ocean, seaice and lakes
   REAL(wp)::  frlnd_thrhld       !< fraction threshold for creating a land grid point
   REAL(wp)::  frlndtile_thrhld   !< fraction threshold for retaining the respective 
                                  !< tile for a grid point
@@ -102,11 +100,13 @@ MODULE mo_lnd_nwp_config
   CHARACTER(LEN=filename_max) :: sst_td_filename, ci_td_filename
 
   ! derived variables
-  INTEGER ::  nlev_soil   !< number of soil layers (based on zml_soil in impl_constants)
-  INTEGER ::  ibot_w_so   !< number of hydrological active soil layers 
-  INTEGER ::  isub_water  !< (open) water points tile number
-  INTEGER ::  isub_lake   !< lake points tile number
-  INTEGER ::  isub_seaice !< seaice tile number
+  INTEGER ::  nlev_soil    !< number of soil layers (based on zml_soil in impl_constants)
+  INTEGER ::  ibot_w_so    !< number of hydrological active soil layers 
+  INTEGER ::  isub_water   !< (open) water points tile number
+  INTEGER ::  isub_lake    !< lake points tile number
+  INTEGER ::  isub_seaice  !< seaice tile number
+  INTEGER ::  ntiles_total !< total number of TILES
+  INTEGER ::  ntiles_water !< number of extra tiles for ocean, seaice and lakes
 
 !  END TYPE t_nwp_lnd_config
 

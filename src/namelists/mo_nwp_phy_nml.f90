@@ -99,32 +99,6 @@ MODULE mo_nwp_phy_nml
 
 
 CONTAINS
-  !-------------------------------------------------------------------------
-  !>
-  !! Read physics Namelist
-  !!
-  !! @par Revision History
-  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-  !!
- SUBROUTINE read_inwp_nml
-
-  INTEGER :: i_status
-
-  !0!CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-  !0!  &  routine = 'mo_atm_phy_nwp_nml:read_inwp_nml'
-
-    CALL position_nml ('nwp_phy_nml', status=i_status)
-    !
-    SELECT CASE (i_status)
-    CASE (POSITIONED)
-      READ (nnml, nwp_phy_nml)
-    END SELECT
-  !  write the contents of the namelist to an ASCII file
-    IF(my_process_is_stdio()) WRITE(nnml_output,nml=nwp_phy_nml)
-
- END SUBROUTINE read_inwp_nml
-
-
 
   !-------------------------------------------------------------------------
   !

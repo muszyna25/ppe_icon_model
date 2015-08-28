@@ -143,6 +143,7 @@ MODULE mo_meteogram_output
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase, iqm_max
+  USE mo_lnd_nwp_config,        ONLY: tiles
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
@@ -164,11 +165,10 @@ MODULE mo_meteogram_output
   PUBLIC ::  meteogram_is_sample_step
   PUBLIC ::  meteogram_sample_vars
   PUBLIC ::  meteogram_finalize  
-  PUBLIC ::  meteogram_flush_file
 
   INTEGER, PARAMETER :: MAX_TIME_STAMPS      =10000  !< max. number of time stamps
-  INTEGER, PARAMETER :: MAX_NVARS            =  100  !< max. number of sampled 3d vars
-  INTEGER, PARAMETER :: MAX_NSFCVARS         =  100  !< max. number of sampled surface vars
+  INTEGER, PARAMETER :: MAX_NVARS            =  150  !< max. number of sampled 3d vars
+  INTEGER, PARAMETER :: MAX_NSFCVARS         =  150  !< max. number of sampled surface vars
   INTEGER, PARAMETER :: MAX_DESCR_LENGTH     =  128  !< length of info strings (see cf_convention)
   INTEGER, PARAMETER :: MAX_DATE_LEN         =   16  !< length of iso8601 date strings
   ! arbitrarily chosen value for buffer size (somewhat large for safety reasons)
@@ -189,6 +189,10 @@ MODULE mo_meteogram_output
   INTEGER, PARAMETER :: VAR_GROUP_SOIL_ML    =    4  !< variables defined on soil half levels
   INTEGER, PARAMETER :: VAR_GROUP_SOIL_MLp2  =    5  !< height levels [0m, soil half levels, -14.58m]
   INTEGER, PARAMETER :: FLAG_DIAG            =    4  !< Flag bit: if set then this variable is a diagnostic
+
+  INTEGER :: ntiles_mtgrm          ! notal number of tiles (ntiles_total + ntiles_water) 
+                                   ! if NWP tiles are set up
+                                   ! 1 otherwise
 
   !>
   !! Generic interface for adding atmospheric vars to list (required
@@ -249,6 +253,7 @@ MODULE mo_meteogram_output
     CHARACTER(len=MAX_DATE_LEN) :: zdate    !< date and time of point sample (iso8601)
   END TYPE t_time_stamp
 
+
   !>
   !! Data structure containing meteogram data and meta info for a
   !! single station.
@@ -271,6 +276,10 @@ MODULE mo_meteogram_output
     REAL(wp)                        :: frland           !< fraction of land
     REAL(wp)                        :: fc               !< Coriolis parameter
     INTEGER                         :: soiltype         !< soil type
+
+    ! Tile info
+    REAL(wp), ALLOCATABLE           :: tile_frac(:)    !< tile fractions
+    INTEGER , ALLOCATABLE           :: tile_luclass(:) !< tile specific landuse classes
 
     ! Buffer for currently stored meteogram values.
     TYPE(t_var_buffer),     POINTER :: var(:)           !< sampled data (1:nvars)
@@ -313,9 +322,10 @@ MODULE mo_meteogram_output
   !! Data structure specifying NetCDF IDs
   !!
   TYPE t_ncid
-    INTEGER  :: nstations, nvars, charid, station_name, station_lat, station_lon,         &
+    INTEGER  :: nstations, nvars, ntiles, charid, station_name, station_lat, station_lon, &
       &         station_idx, station_blk, station_hsurf, station_frland, station_fc,      &
-      &         station_soiltype, nsfcvars, var_name, var_unit, sfcvar_name, sfcvar_unit, &
+      &         station_soiltype, station_tile_frac, station_tile_luclass,                &
+      &         nsfcvars, var_name, var_unit, sfcvar_name, sfcvar_unit,                   &
       &         var_group_id, sfcvar_group_id, var_nlevs, max_nlevs, var_levels, timeid,  &
       &         time_step, dateid, var_values, sfcvar_values, var_heights, var_longname,  &
       &         sfcvar_longname
@@ -578,6 +588,27 @@ CONTAINS
       &              "shortwave direct downward flux at surface", &
       &              jg, prm_diag%swflx_dn_sfc_diff(:,:))
 
+    ! -- tiled surface fields
+    IF (meteogram_config%loutput_tiles) THEN     ! write some selected tile specific fields
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_SOIL_ML, "W_SO_T", "m H2O", "soil water content", &
+        &               jg, p_lnd_prog%w_so_t(:,:,:,:))
+      CALL add_atmo_var(meteogram_config, VAR_GROUP_SOIL_MLp2, "T_SO_T", "K", "soil temperature", &
+        &               jg, p_lnd_prog%t_so_t(:,:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "T_G_T", "K", "surface temperature", &
+        &              jg, p_lnd_prog%t_g_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SHFL_T", "W/m2", "sensible heat flux (surface)", &
+        &              jg, prm_diag%shfl_s_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "LHFL_T", "W/m2", "latent heat flux (surface)", &
+        &              jg, prm_diag%lhfl_s_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SOBS_T", "W m-2", "shortwave net flux (surface)", &
+        &              jg, prm_diag%swflxsfc_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "THBS_T", "W m-2", "longwave net flux (surface)", &
+        &              jg, prm_diag%lwflxsfc_t(:,:,:))
+      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "FRAC_T", "-", "tile fractions (time dependent)", &
+        &              jg, ext_data%atm%frac_t(:,:,:))
+    ENDIF
+
+
 
     ! -- vertical integrals
 
@@ -794,6 +825,12 @@ CONTAINS
       CALL finish (routine, 'I/O PE Missing argument(s)!')
     ENDIF
 
+    IF (ALLOCATED(tiles)) THEN
+      ntiles_mtgrm = SIZE(tiles)
+    ELSE
+      ntiles_mtgrm = 1
+    ENDIF
+
     meteogram_data => mtgrm(jg)%meteogram_local_data
 
     mtgrm(jg)%var_list%no_atmo_vars = 0
@@ -1003,10 +1040,32 @@ CONTAINS
               &  ext_data%atm%fr_land(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
             meteogram_data%station(jc,jb)%soiltype =  &
               &  ext_data%atm%soiltyp(tri_idx(1,jc,jb), tri_idx(2,jc,jb))
+            !
+            ALLOCATE(meteogram_data%station(jc,jb)%tile_frac(ntiles_mtgrm),    &
+              &      meteogram_data%station(jc,jb)%tile_luclass(ntiles_mtgrm), &
+              &      stat=ierrstat)
+            IF (ierrstat /= SUCCESS) &
+              CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3b)')
+            !
+            meteogram_data%station(jc,jb)%tile_frac(1:ntiles_mtgrm) = &
+              &  ext_data%atm%lc_frac_t(tri_idx(1,jc,jb), tri_idx(2,jc,jb),1:ntiles_mtgrm)
+            meteogram_data%station(jc,jb)%tile_luclass(1:ntiles_mtgrm) = &
+              &  ext_data%atm%lc_class_t(tri_idx(1,jc,jb), tri_idx(2,jc,jb),1:ntiles_mtgrm)
+
           CASE DEFAULT
             meteogram_data%station(jc,jb)%hsurf    =  0._wp
             meteogram_data%station(jc,jb)%frland   =  0._wp
             meteogram_data%station(jc,jb)%soiltype =  0
+            !
+            ALLOCATE(meteogram_data%station(jc,jb)%tile_frac(ntiles_mtgrm),    &
+              &      meteogram_data%station(jc,jb)%tile_luclass(ntiles_mtgrm), &
+              &      stat=ierrstat)
+            IF (ierrstat /= SUCCESS) &
+              CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3b)')
+            !
+            meteogram_data%station(jc,jb)%tile_frac    = 0._wp
+            meteogram_data%station(jc,jb)%tile_luclass = 0
+
           END SELECT
           ! initialize value buffer and set level heights:
           ALLOCATE(meteogram_data%station(jc,jb)%var(meteogram_data%nvars),    &
@@ -1097,6 +1156,12 @@ CONTAINS
         
         DO jc=i_startidx,i_endidx
           p_station => mtgrm(jg)%meteogram_global_data%station(jc,jb)
+
+          ALLOCATE(p_station%tile_frac   (ntiles_mtgrm), &
+            &      p_station%tile_luclass(ntiles_mtgrm), &
+            &      stat=ierrstat)
+          IF (ierrstat /= SUCCESS) &
+            CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 3b)')
 
           ALLOCATE(p_station%var(mtgrm(jg)%meteogram_global_data%nvars), stat=ierrstat)
           IF (ierrstat /= SUCCESS) &
@@ -1360,6 +1425,13 @@ CONTAINS
           DEALLOCATE(meteogram_data%station(jc,jb)%sfc_var, stat=ierrstat)
           IF (ierrstat /= SUCCESS) &
             CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
+
+          DEALLOCATE(meteogram_data%station(jc,jb)%tile_frac,    &
+            &        meteogram_data%station(jc,jb)%tile_luclass, &
+            &        stat=ierrstat)
+          IF (ierrstat /= SUCCESS) &
+            CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
+
         END DO
       END DO
       
@@ -1530,6 +1602,12 @@ CONTAINS
           CALL p_unpack_real(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, p_station%fc)
           CALL p_unpack_int(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, p_station%soiltype)
 
+          CALL p_unpack_real_1d(mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
+            &                   p_station%tile_frac(:), ntiles_mtgrm)
+          CALL p_unpack_int_1d (mtgrm(jg)%msg_buffer(:,istation),mtgrm(jg)%max_buf_size, position, &
+            &                   p_station%tile_luclass(:), ntiles_mtgrm)
+
+
           !-- unpack heights and meteogram data:
           DO ivar=1,meteogram_data%nvars
             nlevs = meteogram_data%var_info(ivar)%nlevs
@@ -1552,14 +1630,17 @@ CONTAINS
           END IF
           station_idx(1:2) = meteogram_data%station(jc,jb)%station_idx(1:2)
           p_station => mtgrm(jg)%meteogram_global_data%station(station_idx(1),station_idx(2))
-          p_station%station_idx(1:2)   = meteogram_data%station(jc,jb)%station_idx(1:2)
-          p_station%tri_idx(1:2)       = meteogram_data%station(jc,jb)%tri_idx(1:2)
-          p_station%tri_idx_local(1:2) = meteogram_data%station(jc,jb)%tri_idx_local(1:2)
-          p_station%owner              = meteogram_data%station(jc,jb)%owner
-          p_station%hsurf              = meteogram_data%station(jc,jb)%hsurf
-          p_station%frland             = meteogram_data%station(jc,jb)%frland
-          p_station%fc                 = meteogram_data%station(jc,jb)%fc
-          p_station%soiltype           = meteogram_data%station(jc,jb)%soiltype
+          p_station%station_idx(1:2)      = meteogram_data%station(jc,jb)%station_idx(1:2)
+          p_station%tri_idx(1:2)          = meteogram_data%station(jc,jb)%tri_idx(1:2)
+          p_station%tri_idx_local(1:2)    = meteogram_data%station(jc,jb)%tri_idx_local(1:2)
+          p_station%owner                 = meteogram_data%station(jc,jb)%owner
+          p_station%hsurf                 = meteogram_data%station(jc,jb)%hsurf
+          p_station%frland                = meteogram_data%station(jc,jb)%frland
+          p_station%fc                    = meteogram_data%station(jc,jb)%fc
+          p_station%soiltype              = meteogram_data%station(jc,jb)%soiltype
+          p_station%tile_frac             = meteogram_data%station(jc,jb)%tile_frac
+          p_station%tile_luclass          = meteogram_data%station(jc,jb)%tile_luclass
+
           ! copy heights and meteogram data
           DO ivar=1,meteogram_data%nvars
             nlevs = meteogram_data%var_info(ivar)%nlevs
@@ -1614,6 +1695,12 @@ CONTAINS
           CALL p_pack_real(p_station%frland, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
           CALL p_pack_real(p_station%fc, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
           CALL p_pack_int (p_station%soiltype, mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
+
+          CALL p_pack_real_1d(p_station%tile_frac(:), ntiles_mtgrm,      &
+              &                 mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
+          CALL p_pack_int_1d (p_station%tile_luclass(:), ntiles_mtgrm,   &
+              &                 mtgrm(jg)%msg_buffer(:,1), mtgrm(jg)%max_buf_size, position)
+
 
           !-- pack heights and meteogram data:
           DO ivar=1,meteogram_data%nvars
@@ -1732,7 +1819,6 @@ CONTAINS
       &                     nf_int,  1, mtgrm(jg)%meteogram_file_info%number_of_grid_used), modname)
 
 
-
     ! for the definition of a character-string variable define
     ! character-position dimension for strings
     CALL nf(nf_def_dim(ncfile, "stringlen",  MAX_DESCR_LENGTH, ncid%charid), modname)
@@ -1741,6 +1827,7 @@ CONTAINS
       &     modname)
     ! write variables:
     CALL nf(nf_def_dim(ncfile, 'nvars',      meteogram_data%nvars, ncid%nvars), modname)
+    CALL nf(nf_def_dim(ncfile, 'ntiles',     ntiles_mtgrm, ncid%ntiles), modname)
     IF (meteogram_data%nsfcvars > 0) THEN
       CALL nf(nf_def_dim(ncfile, 'nsfcvars', meteogram_data%nsfcvars,  ncid%nsfcvars), &
         &     modname)
@@ -1781,6 +1868,14 @@ CONTAINS
     CALL nf(nf_def_var(ncfile, "station_soiltype", NF_INT, 1, ncid%nstations, &
       &                ncid%station_soiltype), modname)
     CALL nf_add_descr("Meteogram station soil type", ncfile, ncid%station_soiltype)
+
+    CALL nf(nf_def_var(ncfile, "station_tile_frac", NF_DOUBLE, 2, (/ncid%ntiles, ncid%nstations/), &
+      &                ncid%station_tile_frac), modname)
+    CALL nf_add_descr("Meteogram station tile fractions", ncfile, ncid%station_tile_frac)
+    CALL nf(nf_def_var(ncfile, "station_tile_luclass", NF_INT, 2, (/ncid%ntiles, ncid%nstations/), &
+      &                ncid%station_tile_luclass), modname)
+    CALL nf_add_descr("Meteogram station tile specific land-use classes", ncfile, ncid%station_tile_luclass)
+
 
     ! create variable info fields:
     ! volume variables
@@ -1936,6 +2031,17 @@ CONTAINS
         CALL nf(nf_put_vara_int(ncfile, ncid%station_soiltype, istation, 1, &
           &                     meteogram_data%station(jc,jb)%soiltype),    &
           &                     modname)
+        CALL nf(nf_put_vara_double(ncfile, ncid%station_tile_frac,           &
+          &                       (/                         1, istation /), &
+          &                       (/ ntiles_mtgrm, 1 /),                     &
+          &                        meteogram_data%station(jc,jb)%tile_frac), &
+          &                        modname)
+        CALL nf(nf_put_vara_int(ncfile, ncid%station_tile_luclass,        &
+          &                    (/                         1, istation /), &
+          &                    (/ ntiles_mtgrm, 1 /),                     &
+          &                     meteogram_data%station(jc,jb)%tile_luclass), &
+          &                     modname)
+
 
         ! model level heights
         DO ivar=1,nvars
@@ -2209,13 +2315,6 @@ CONTAINS
     ! Local variables
     INTEGER                          :: isource_idx, nidx
 
-    IF (TRIM(meteogram_config%var_list(1)) /= "") THEN
-      ! If the user has specified a list of variable names to be
-      ! included in the meteogram, check if this variable is contained
-      ! in the list:
-      IF (one_of(TRIM(zname), meteogram_config%var_list) == -1) RETURN
-    END IF
-
     IF (PRESENT(iidx)) THEN
       CALL add_atmo_var_3d(meteogram_config, igroup_id, zname, &
         &                  zunit, zlong_name, jg, source(:,:,:,iidx))
@@ -2298,13 +2397,6 @@ CONTAINS
     ! Local variables
     INTEGER                 :: isource_idx, nidx
 
-    IF (TRIM(meteogram_config%var_list(1)) /= "") THEN
-      ! If the user has specified a list of variable names to be
-      ! included in the meteogram, check if this variable is contained
-      ! in the list:
-      IF (one_of(TRIM(zname), meteogram_config%var_list) == -1) RETURN
-    END IF
- 
     nidx = SIZE(source, 3) ! get number of 2d var indices (e.g. tile number)
     DO isource_idx=1,nidx
       CALL add_sfc_var_2d(meteogram_config, igroup_id, zname//"_"//int2string(isource_idx), &
