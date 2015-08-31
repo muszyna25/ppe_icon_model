@@ -346,6 +346,15 @@ CONTAINS
     END SELECT
 
     !--------------------------------------------------------------------
+    ! If ltestcase is set to .FALSE. in run_nml set testcase name to empty
+    ! (in case it is still set in the run script)
+    IF (.NOT. ltestcase) THEN
+      ctest_name = ''
+      nh_test_name = ''
+    END IF
+    !--------------------------------------------------------------------
+
+    !--------------------------------------------------------------------
     ! Testcases (hydrostatic)
     !--------------------------------------------------------------------
 

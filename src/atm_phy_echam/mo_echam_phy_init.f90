@@ -22,7 +22,7 @@
 MODULE mo_echam_phy_init
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: finish, message, message_text
+  USE mo_exception,            ONLY: finish, message, warning, message_text
   USE mo_datetime,             ONLY: t_datetime
 
   USE mo_sync,                 ONLY: sync_c, sync_patch_array
@@ -33,7 +33,7 @@ MODULE mo_echam_phy_init
 
   ! model configuration
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: nlev, iqv, iqt, ntracer
+  USE mo_run_config,           ONLY: nlev, iqv, iqt, ntracer, ltestcase
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_echam_phy_config,     ONLY: phy_config => echam_phy_config, &
                                    & configure_echam_phy
@@ -47,7 +47,7 @@ MODULE mo_echam_phy_init
 
   ! test cases
   USE mo_ha_testcases,         ONLY: ape_sst_case
-  USE mo_nh_testcases_nml,     ONLY: nh_test_name, th_cbl, tpe_temp
+  USE mo_nh_testcases_nml,     ONLY: th_cbl, tpe_temp
   USE mo_ape_params,           ONLY: ape_sst
   USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW
 
@@ -163,7 +163,7 @@ CONTAINS
              'isolrad = ', isolrad, ' in radiation_nml namelist is not supported'
         CALL message('init_echam_phy', message_text)
       END SELECT
-      IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
+      IF ( ctest_name == 'RCE' .OR. ctest_name == 'RCE_CBL' ) THEN
         tsi_radt = 0._wp
         ! solar flux (W/m2) in 14 SW bands
         ssi_radt(:) = ssi_rce(:)
@@ -348,7 +348,10 @@ CONTAINS
 
     DO jg= 1,ndomain
 
-      IF (phy_config%lamip) THEN
+      ! Read AMIP SST and SIC data
+      ! Note: For coupled runs, this is only used for initialization of surface temperatures
+      IF (phy_config%lamip .OR.                   &
+          (is_coupled_run() .AND. .NOT. ltestcase) ) THEN
         !
         ! sea surface temperature, sea ice concentration and depth
         CALL read_bc_sst_sic(current_date%year, p_patch(1))
@@ -567,9 +570,6 @@ CONTAINS
       ! This can be overridden by the testcases below
 
       IF (iwtr <= nsfc_type) THEN
-        IF (.NOT. phy_config%lamip) THEN
-          prm_field(jg)%tsfc_tile(:,:,iwtr) = temp(:,nlev,:)
-        END IF            ! For lamip=.TRUE., water sfc temp has been already initialized with AMIP SST
         prm_field(jg)% albvisdir_tile(:,:,iwtr) = albedoW ! albedo in the visible range for direct radiation
         prm_field(jg)% albnirdir_tile(:,:,iwtr) = albedoW ! albedo in the NIR range for direct radiation
         prm_field(jg)% albvisdif_tile(:,:,iwtr) = albedoW ! albedo in the visible range for diffuse radiation
@@ -579,10 +579,8 @@ CONTAINS
 
       IF (ilnd <= nsfc_type) THEN
 
-        IF (iwtr <= nsfc_type) THEN
+        IF (phy_config%lamip .OR. (is_coupled_run() .AND. .NOT. lestcase)) THEN
           prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsfc_tile(:,:,iwtr)
-        ELSE
-          prm_field(jg)%tsfc_tile(:,:,ilnd) = temp(:,nlev,:)
         END IF
 
         prm_field(jg)% albvisdir_tile(:,:,ilnd) = prm_field(jg)%alb(:,:)    ! albedo in the visible range for direct radiation
@@ -727,6 +725,8 @@ CONTAINS
           field% lsmask(jcs:jce,jb) = 1._wp   ! land fraction = 1
           field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
           field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+
+          field% tsfc_tile(jcs:jce,jb,ilnd) = tpe_temp
         END DO
 !$OMP END PARALLEL DO
 
