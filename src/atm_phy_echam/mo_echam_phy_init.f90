@@ -579,7 +579,7 @@ CONTAINS
 
       IF (ilnd <= nsfc_type) THEN
 
-        IF (phy_config%lamip .OR. (is_coupled_run() .AND. .NOT. lestcase)) THEN
+        IF (phy_config%lamip .OR. (is_coupled_run() .AND. .NOT. ltestcase)) THEN
           prm_field(jg)%tsfc_tile(:,:,ilnd) = prm_field(jg)%tsfc_tile(:,:,iwtr)
         END IF
 
