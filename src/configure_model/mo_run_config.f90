@@ -39,7 +39,7 @@ MODULE mo_run_config
   PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6                          !Running index for Volcanic Ash in ICON-ART 
   PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
   PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0                 !Running index for sea salt in ICON-ART
-  PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0,idust_act       !Running index for mineral dust in ICON-ART
+  PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0                 !Running index for mineral dust in ICON-ART
   PUBLIC :: iTRCHBR3,iTRCH2BR2,iTRBRy                                    !Running index for chemical tracer in ICON-ART - VSLS-BRy
   PUBLIC :: iTRCH4,iTRCO2,iTRCO,iTRH2O,iTRO3                             !Running index for chemical tracer in ICON-ART - CH4-CO-CO2-H2O-O3
   PUBLIC :: iTRCH3COCH3                                                  !Running index for chemical tracer in ICON-ART - CH3COCH3
@@ -166,7 +166,6 @@ MODULE mo_run_config
     INTEGER :: idusta0      !< Mineral Dust Aerosol Mode A Number Density
     INTEGER :: idustb0      !< Mineral Dust Aerosol Mode B Number Density
     INTEGER :: idustc0      !< Mineral Dust Aerosol Mode C Number Density
-    INTEGER :: idust_act    !< Activated Mineral Dust Number Density
     INTEGER :: iTRCHBR3     !< chemical tracer in ICON-ART
     INTEGER :: iTRCH2BR2    !< chemical tracer in ICON-ART
     INTEGER :: iTRBRy       !< chemical tracer in ICON-ART
