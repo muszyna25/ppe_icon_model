@@ -346,12 +346,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%u_10m(i_startidx:i_endidx,jb) = prm_diag%u_10m_t(i_startidx:i_endidx,jb,1)
         prm_diag%v_10m(i_startidx:i_endidx,jb) = prm_diag%v_10m_t(i_startidx:i_endidx,jb,1)
 
-        ! dynamic gusts
-        DO jc = i_startidx, i_endidx
-          prm_diag%dyn_gust(jc,jb) = nwp_dyn_gust(prm_diag%u_10m(jc,jb), prm_diag%v_10m(jc,jb), &
-            &  prm_diag%tcm(jc,jb), p_diag%u(jc,nlev,jb), p_diag%v(jc,nlev,jb),                 &
-            &  p_diag%u(jc,jk_gust(jc),jb), p_diag%v(jc,jk_gust(jc),jb) )
-        ENDDO
 
         prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
           &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
@@ -576,20 +570,21 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
           ENDDO
 
-        ENDDO
-
-        ! Dynamic gusts are diagnosed from averaged values in order to avoid artifacts along coastlines
-        DO jc = i_startidx, i_endidx
-          prm_diag%dyn_gust(jc,jb) =  nwp_dyn_gust (prm_diag%u_10m(jc,jb),      &
-            &                                       prm_diag%v_10m(jc,jb),      &
-            &                                       prm_diag%tcm  (jc,jb),      &
-            &                                       p_diag%u      (jc,nlev,jb), &
-            &                                       p_diag%v      (jc,nlev,jb), &
-            &                                       p_diag%u(jc,jk_gust(jc),jb),&
-            &                                       p_diag%v(jc,jk_gust(jc),jb))
-        ENDDO
+        ENDDO  ! jt
 
       ENDIF ! tiles / no tiles
+
+
+      ! Dynamic gusts are diagnosed from averaged values in order to avoid artifacts along coastlines
+      DO jc = i_startidx, i_endidx
+        prm_diag%dyn_gust(jc,jb) =  nwp_dyn_gust (prm_diag%u_10m(jc,jb),      &
+          &                                       prm_diag%v_10m(jc,jb),      &
+          &                                       prm_diag%tcm  (jc,jb),      &
+          &                                       p_diag%u      (jc,nlev,jb), &
+          &                                       p_diag%v      (jc,nlev,jb), &
+          &                                       p_diag%u(jc,jk_gust(jc),jb),&
+          &                                       p_diag%v(jc,jk_gust(jc),jb))
+      ENDDO
 
       ! transform updated turbulent velocity scale back to TKE
       p_prog_rcf%tke(i_startidx:i_endidx,nlevp1,jb)= 0.5_wp*(z_tvs(i_startidx:i_endidx,nlevp1,1))**2
