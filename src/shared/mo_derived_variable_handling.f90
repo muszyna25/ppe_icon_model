@@ -29,7 +29,7 @@ MODULE mo_derived_variable_handling
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_derived_variable_handling'
 
   TYPE(map)       , SAVE :: meanMap
-  TYPE(vector)    , SAVE :: meanVariables
+  TYPE(vector)    , SAVE :: meanVariables(10)
   TYPE(t_var_list)   :: mean_stream_list
   INTEGER, PARAMETER :: ntotal = 1024
 
@@ -64,6 +64,7 @@ CONTAINS
       TYPE is (t_list_element)
         PRINT *,'t_list_element:varname:',my_buffer%field%info%name
       CLASS default
+        PRINT *,' default class print  :'
         CALL class_print(my_buffer)
       END SELECT
     END DO
@@ -77,8 +78,12 @@ CONTAINS
     
     CHARACTER(LEN=max_char_length) :: listname
     
+    integer :: i
+    
     meanMap = map()
-    meanVariables = vector()
+    do i=1,size(meanVariables,1)
+    meanVariables(i)= vector(debug=.true.)
+    enddo
 
     WRITE(listname,'(a)')  'mean_stream_list'
     CALL new_var_list(mean_stream_list, listname, patch_id=patch_2d%id)
@@ -120,6 +125,10 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element
     REAL(wp), POINTER :: ptr(:,:,:)  !< reference to field
     TYPE(vector) :: keys 
+    integer :: inml 
+    type(vector) :: vector_buffer, value_buffer
+    class(*), pointer :: buf
+    type(vector_iterator) :: iter
 
     nvars = 1
     ntotal_vars = total_number_of_variables()
@@ -129,6 +138,7 @@ CONTAINS
 
     ! -- loop over all output namelists
     p_onl => first_output_name_list
+    inml = 1
     
     DO
       IF (.NOT.ASSOCIATED(p_onl)) EXIT
@@ -157,12 +167,15 @@ CONTAINS
           IF (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
           varlist((nvars+1):ntotal_vars) = " "
           
-          IF ( meanMap%has_key(TRIM(p_onl%output_interval(1))) ) THEN
-            CALL meanMap%get(TRIM(p_onl%output_interval(1)),meanVariables)
-          ELSE
-            meanVariables = vector()
-          END IF
           IF (i_typ == level_type_ml) THEN
+          write (0,*)'INML:',inml
+          IF ( meanMap%has_key(TRIM(p_onl%output_interval(1))) ) THEN
+            CALL meanMap%get(TRIM(p_onl%output_interval(1)),vector_buffer)
+            call meanVariables(inml)%add(vector_buffer)
+          !ELSE
+            !call meanVariables(inml)%clear()
+            !meanVariables = vector()
+          END IF
             DO i=1,nvars
               ! collect data variables only, there variables names like
               ! 'grid:clon' which should be excluded
@@ -183,7 +196,7 @@ CONTAINS
 !!!                     post_op=element%field%info%post_op, loutput=.TRUE.,&
 !!!                     lrestart=.FALSE., var_class=element%field%info%var_class)
                 CALL print_green('var:'//TRIM(element%field%info%name)//'---')
-                CALL meanVariables%add(element)
+                CALL meanVariables(inml)%add(element)
 !!!                CALL meanVariables%add(element%field%info%name)
               end if
             end do
@@ -194,9 +207,10 @@ CONTAINS
 !!!              CALL meanVariables%PRINT()
 !!!              CALL print_aqua('}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}')
 !!!            END IF
-            call meanMap%add(trim(p_onl%output_interval(1)),meanVariables,copy=.true.)
+            call meanMap%add(trim(p_onl%output_interval(1)),meanVariables(inml),copy=.true.)
           END IF
         END DO
+      inml = inml + 1
       END IF
       p_onl => p_onl%next
     END DO
@@ -204,7 +218,17 @@ IF ( my_process_is_stdio() ) THEN
   call print_aqua('collected map {{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{')
   keys = meanMap%get_keys()
   call keys%print()
-  call var_print(meanMap%get_values())
+  value_buffer = meanMap%get_values()
+  iter = value_buffer%each()
+
+    DO WHILE(iter%next(buf))
+      SELECT TYPE(buf)
+      type is (vector)
+        call var_print(buf)
+      CLASS default
+      call class_print(buf)
+    end select
+    end do
   call print_aqua('}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}')
 END IF
     !
