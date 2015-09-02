@@ -113,14 +113,13 @@ MODULE mo_model_domimp_patches
     &                              number_of_grid_used, msg_level, check_uuid_gracefully
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
-  USE mo_communication,      ONLY: idx_no, blk_no, idx_1d, t_scatterPattern, &
-    &                              makeScatterPattern
+  USE mo_communication,      ONLY: idx_no, blk_no, idx_1d, makeScatterPattern
   USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
   USE mo_name_list_output_config, ONLY: is_grib_output
 
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, sphere_geometry, &
     &  set_grid_geometry_derived_info, copy_grid_geometry_info,            &
-    & parallel_read_geometry_info, triangular_cell
+    & parallel_read_geometry_info, triangular_cell, planar_channel_geometry
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, &
     & allocate_pre_patch, allocate_remaining_patch
   USE mo_math_constants,     ONLY: pi
@@ -128,7 +127,7 @@ MODULE mo_model_domimp_patches
     &                              reorder_verts
   USE mo_mpi,                ONLY: p_pe_work, my_process_is_mpi_parallel, &
     &                              p_comm_work_test, p_comm_work
-  USE mo_complete_subdivision, ONLY: complete_parallel_setup
+  USE mo_complete_subdivision, ONLY: generate_comm_pat_cvec1
   USE mo_read_netcdf_distributed, ONLY: setup_distrib_read
   USE mo_read_interface, ONLY: t_stream_id, p_t_patch, openInputFile, &
     &                          closeFile, onCells, onEdges, onVertices, &
@@ -518,22 +517,20 @@ CONTAINS
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo )
     ENDDO
 
-    ! setup communication patterns (also done in sequential runs)
-    ! (the communication patterns have to be generated before parent_idx/blk and
-    !  child_idx/blk are transformed from global to local indices (in
-    !  set_parent_child_relations))
-    CALL complete_parallel_setup(patch, is_ocean_decomposition)
-
     ! set parent-child relationships
     DO jg = n_dom_start, n_dom
 
       IF(jg == n_dom_start) THEN
 
-        ! parent_idx/blk is set to 0 since it just doesn't exist,
-        patch(jg)%cells%parent_idx = 0
-        patch(jg)%cells%parent_blk = 0
-        patch(jg)%edges%parent_idx = 0
-        patch(jg)%edges%parent_blk = 0
+        ! parent_loc/glb_idx/blk is set to 0 since it just doesn't exist,
+        patch(jg)%cells%parent_glb_idx = 0
+        patch(jg)%cells%parent_glb_blk = 0
+        patch(jg)%edges%parent_glb_idx = 0
+        patch(jg)%edges%parent_glb_blk = 0
+        patch(jg)%cells%parent_loc_idx = 0
+        patch(jg)%cells%parent_loc_blk = 0
+        patch(jg)%edges%parent_loc_idx = 0
+        patch(jg)%edges%parent_loc_blk = 0
 
         ! For parallel runs, child_idx/blk is set to 0 since it makes
         ! sense only on the local parent
@@ -572,6 +569,11 @@ CONTAINS
     DO jg = n_dom_start, n_dom
       CALL set_verts_phys_id( patch(jg) )
     ENDDO
+
+    ! generates comm_pat_c/v/e/c1 required by the following initialization
+    ! routines (these patterns will be rebuild after the reordering by routine
+    ! complete_parallel_setup)
+    CALL generate_comm_pat_cvec1(patch, is_ocean_decomposition)
 
     IF (.not. my_process_is_ocean()) THEN
       DO jg = n_dom_start, n_dom
@@ -638,7 +640,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------------------------------
   !
-  !> Sets parent_idx/blk in child and child_idx/blk in parent patches.
+  !> Sets parent_loc_idx/blk in child and child_idx/blk in parent patches.
 
   SUBROUTINE set_parent_child_relations(p_pp, p_pc)
 
@@ -647,7 +649,7 @@ CONTAINS
 
     INTEGER :: i, j, jl, jb, jc, jc_g, jp, jp_g
 
-    ! Before this call, parent_idx/parent_blk and child_idx/child_blk still point to the global values.
+    ! Before this call, child_idx/child_blk still point to the global values.
     ! This is changed here.
 
     ! Attention:
@@ -729,17 +731,18 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jp_g = idx_1d(p_pc%cells%parent_idx(jl,jb),p_pc%cells%parent_blk(jl,jb))
+      jp_g = idx_1d(p_pc%cells%parent_glb_idx(jl,jb), &
+        &           p_pc%cells%parent_glb_blk(jl,jb))
       IF(jp_g<1 .OR. jp_g>p_pp%n_patch_cells_g) &
         & CALL finish('set_parent_child_relations','Inv. cell parent index in global child')
 
       jp = get_local_index(p_pp%cells%decomp_info%glb2loc_index, jp_g)
       IF(jp <= 0) THEN
-        p_pc%cells%parent_blk(jl,jb) = 0
-        p_pc%cells%parent_idx(jl,jb) = 0
+        p_pc%cells%parent_loc_blk(jl,jb) = 0
+        p_pc%cells%parent_loc_idx(jl,jb) = 0
       ELSE
-        p_pc%cells%parent_blk(jl,jb) = blk_no(jp)
-        p_pc%cells%parent_idx(jl,jb) = idx_no(jp)
+        p_pc%cells%parent_loc_blk(jl,jb) = blk_no(jp)
+        p_pc%cells%parent_loc_idx(jl,jb) = idx_no(jp)
       ENDIF
 
     ENDDO
@@ -751,17 +754,18 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jp_g = idx_1d(p_pc%edges%parent_idx(jl,jb),p_pc%edges%parent_blk(jl,jb))
+      jp_g = idx_1d(p_pc%edges%parent_glb_idx(jl,jb), &
+        &           p_pc%edges%parent_glb_blk(jl,jb))
       IF(jp_g<1 .OR. jp_g>p_pp%n_patch_edges_g) &
         & CALL finish('set_parent_child_relations','Inv. edge parent index in global child')
 
       jp = get_local_index(p_pp%edges%decomp_info%glb2loc_index, jp_g)
       IF(jp <= 0) THEN
-        p_pc%edges%parent_blk(jl,jb) = 0
-        p_pc%edges%parent_idx(jl,jb) = 0
+        p_pc%edges%parent_loc_blk(jl,jb) = 0
+        p_pc%edges%parent_loc_idx(jl,jb) = 0
       ELSE
-        p_pc%edges%parent_blk(jl,jb) = blk_no(jp)
-        p_pc%edges%parent_idx(jl,jb) = idx_no(jp)
+        p_pc%edges%parent_loc_blk(jl,jb) = blk_no(jp)
+        p_pc%edges%parent_loc_idx(jl,jb) = idx_no(jp)
       ENDIF
 
     ENDDO
@@ -773,13 +777,17 @@ CONTAINS
     IF (my_process_is_mpi_parallel()) THEN
       p_pc%cells%child_idx  = 0
       p_pc%cells%child_blk  = 0
-      p_pp%cells%parent_idx = 0
-      p_pp%cells%parent_blk = 0
+      p_pp%cells%parent_glb_idx = 0
+      p_pp%cells%parent_glb_blk = 0
+      p_pp%cells%parent_loc_idx = 0
+      p_pp%cells%parent_loc_blk = 0
 
       p_pc%edges%child_idx  = 0
       p_pc%edges%child_blk  = 0
-      p_pp%edges%parent_idx = 0
-      p_pp%edges%parent_blk = 0
+      p_pp%edges%parent_glb_idx = 0
+      p_pp%edges%parent_glb_blk = 0
+      p_pp%edges%parent_loc_idx = 0
+      p_pp%edges%parent_loc_blk = 0
     END IF
 
   END SUBROUTINE set_parent_child_relations
@@ -933,7 +941,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     SELECT CASE(patch%geometry_info%geometry_type)
 
-    CASE (planar_torus_geometry)
+    CASE (planar_torus_geometry, planar_channel_geometry)
 
       CALL finish(method_name, "planar_torus_geometry should be read from the grid file")
 
@@ -2157,18 +2165,18 @@ CONTAINS
     gridfile_has_cartesian_info = &
       nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid) == nf_noerr
 
-    IF (gridfile_has_cartesian_info) THEN
-
-      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
-      CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(1)))
-      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
-      CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(2)))
-      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
-      CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(3)))
-        
-      gridfile_has_cartesian_info = ANY(ABS(x(:)) >= 0.001_wp)
-
-    END IF
+!     IF (gridfile_has_cartesian_info) THEN
+! 
+!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
+!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(1)))
+!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
+!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(2)))
+!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
+!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(3)))
+!         
+!       gridfile_has_cartesian_info = ANY(ABS(x(:)) >= 0.001_wp)
+! 
+!     END IF
 
   END FUNCTION gridfile_has_cartesian_info
   !-------------------------------------------------------------------------

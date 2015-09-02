@@ -192,8 +192,19 @@
     	minOccurs="1" maxOccurs="1" />
     <xs:element name="enforce_write_restart" type="xs:boolean"
     	minOccurs="1" maxOccurs="1" />
+    <xs:element name="enforce_write_weight_file" type="write_weight_file_type"
+    	minOccurs="1" maxOccurs="1" />
   </xs:sequence>
   <xs:attribute name="transient_id" type="xs:positiveInteger" use="required" />
+</xs:complexType>
+
+<xs:complexType name="write_weight_file_type">
+  <xs:simpleContent>
+    <xs:extension base="xs:boolean">
+      <xs:attribute name="filename" type="xs:string" use="optional">
+      </xs:attribute>
+    </xs:extension>
+  </xs:simpleContent>
 </xs:complexType>
 
 <xs:complexType name="source_type">
@@ -269,7 +280,15 @@
         <xs:attribute name="constructor_key" type="xs:string" use="optional" />
         <xs:attribute name="do_search_key" type="xs:string" use="optional" />
         <xs:attribute name="filename" type="xs:string" use="optional" />
-        <xs:attribute name="location" type="xs:string" use="optional" />
+        <xs:attribute name="yac_location" use="optional">
+        <xs:simpleType>
+            <xs:restriction base="xs:string">
+              <xs:enumeration value="CELL" />
+              <xs:enumeration value="EDGE" />
+              <xs:enumeration value="CORNER" />
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:attribute>
       </xs:complexType>
     </xs:element>
   </xs:sequence>

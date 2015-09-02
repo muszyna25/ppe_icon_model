@@ -36,7 +36,7 @@ USE mo_scatter_pattern_base, ONLY: t_scatterPattern, deleteScatterPattern
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
-     & p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, p_pe, p_io, &
+     & p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, &
      & get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
      & get_my_mpi_work_id, p_gather, p_gatherv, work_mpi_barrier, &
      & p_alltoallv, p_alltoall, process_mpi_root_id, p_bcast
@@ -60,11 +60,9 @@ PUBLIC :: blk_no, idx_no, idx_1d
 PUBLIC :: setup_comm_pattern, delete_comm_pattern, exchange_data,  &
           exchange_data_mult, exchange_data_grf,                   &
           start_async_comm, complete_async_comm,                   &
-          exchange_data_4de1, delete_comm_gather_pattern
+          exchange_data_4de1, delete_comm_gather_pattern, &
+          get_np_recv, get_np_send, get_pelist_recv
 PUBLIC :: t_comm_pattern
-PUBLIC :: reorder_comm_pattern
-PUBLIC :: reorder_comm_pattern_snd
-PUBLIC :: reorder_comm_pattern_rcv
 
 PUBLIC :: t_comm_gather_pattern
 PUBLIC :: setup_comm_gather_pattern
@@ -78,6 +76,8 @@ PUBLIC :: ASSIGNMENT(=)
 !--------------------------------------------------------------------------------------------------
 !
 TYPE t_comm_pattern
+
+  PRIVATE
 
    ! Number of points we receive in communication,
    ! this is the same as recv_limits
@@ -150,6 +150,9 @@ END TYPE t_comm_pattern
 !
 
 TYPE t_comm_gather_pattern
+
+  PRIVATE
+
   INTEGER, ALLOCATABLE :: collector_pes(:) ! ranks of collector processes
   INTEGER, ALLOCATABLE :: collector_size(:) ! total number of points per
                                             ! collector
@@ -2304,9 +2307,10 @@ END SUBROUTINE complete_async_comm
 !! Optimized version by Guenther Zaengl to process up to two 4D fields or up to six 3D fields
 !! for an array-sized communication pattern (as needed for boundary interpolation) in one step
 !!
-SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1, send1,   &
-                             recv2, send2, recv3, send3, recv4, send4, recv5, send5,       &
-                             recv6, send6, recv4d1, send4d1, recv4d2, send4d2)
+SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
+                             recv2, send2, recv3, send3, recv4, send4, &
+                             recv5, send5, recv6, send6, recv4d1, send4d1, &
+                             recv4d2, send4d2)
 
   TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat(:)
 
@@ -2322,8 +2326,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    CHARACTER(len=*), PARAMETER :: routine = "mo_communication::exchange_data_grf"
    INTEGER, INTENT(IN)           :: nfields  ! total number of input fields
    INTEGER, INTENT(IN)           :: ndim2tot ! sum of vertical levels of input fields
-   INTEGER, INTENT(IN)           :: nsendtot ! total number of send points
-   INTEGER, INTENT(IN)           :: nrecvtot ! total number of receive points
+
+   INTEGER           :: nsendtot ! total number of send points
+   INTEGER           :: nrecvtot ! total number of receive points
 
    TYPE t_fieldptr_recv
      REAL(wp), POINTER :: fld(:,:,:)
@@ -2339,11 +2344,20 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    INTEGER        :: ndim2(nfields), noffset(nfields),            &
                      ioffset_s(SIZE(p_pat)), ioffset_r(SIZE(p_pat))
 
-   REAL(wp) :: send_buf(ndim2tot,nsendtot),recv_buf(ndim2tot,nrecvtot), &
-               auxs_buf(ndim2tot,nsendtot),auxr_buf(ndim2tot,nrecvtot)
+   REAL(wp), ALLOCATABLE :: send_buf(:,:),recv_buf(:,:), &
+                            auxs_buf(:,:),auxr_buf(:,:)
 
    INTEGER :: i, k, ik, jb, jl, n, np, irs, ire, iss, ise, &
-              npats, isum, ioffset, isum1, n4d, pid
+              npats, isum, ioffset, isum1, n4d, pid, num_send, num_recv, j
+   INTEGER, ALLOCATABLE :: pelist_send(:), pelist_recv(:)
+
+!-----------------------------------------------------------------------
+
+  nsendtot = SUM(p_pat(:)%n_send)
+  nrecvtot = SUM(p_pat(:)%n_recv)
+
+  ALLOCATE(send_buf(ndim2tot,nsendtot),recv_buf(ndim2tot,nrecvtot), &
+           auxs_buf(ndim2tot,nsendtot),auxr_buf(ndim2tot,nrecvtot))
 
 !-----------------------------------------------------------------------
 
@@ -2357,6 +2371,72 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 
    npats = SIZE(p_pat)  ! Number of communication patterns provided on input
 
+!-----------------------------------------------------------------------
+
+   ! some adjustmens to the standart communication patterns in order to make
+   ! them work in this routine
+
+   num_send = 0
+   num_recv = 0
+
+   DO np = 0, p_n_work-1 ! loop over PEs
+
+     DO n = 1, npats  ! loop over communication patterns
+       iss = p_pat(n)%send_limits(np)+1
+       ise = p_pat(n)%send_limits(np+1)
+       IF(ise >= iss) THEN
+         num_send = num_send + 1
+         EXIT ! count each processor only once
+       ENDIF
+     ENDDO
+
+     DO n = 1, npats  ! loop over communication patterns
+       irs = p_pat(n)%recv_limits(np)+1
+       ire = p_pat(n)%recv_limits(np+1)
+       IF(ire >= irs) THEN
+         num_recv = num_recv + 1
+         EXIT ! count each processor only once
+       ENDIF
+     ENDDO
+
+   ENDDO
+
+   ALLOCATE(pelist_send(num_send), pelist_recv(num_recv))
+
+   num_send = 0
+   num_recv = 0
+
+   ! Now compute "envelope PE lists" for all communication patterns
+   DO np = 0, p_n_work-1 ! loop over PEs
+
+     DO n = 1, npats  ! loop over communication patterns
+       iss = p_pat(n)%send_limits(np)+1
+       ise = p_pat(n)%send_limits(np+1)
+       IF(ise >= iss) THEN
+         num_send = num_send + 1
+         DO j = 1, npats
+           pelist_send(num_send) = np
+         ENDDO
+         EXIT ! count each processor only once
+       ENDIF
+     ENDDO
+
+     DO n = 1, npats  ! loop over communication patterns
+       irs = p_pat(n)%recv_limits(np)+1
+       ire = p_pat(n)%recv_limits(np+1)
+       IF(ire >= irs) THEN
+         num_recv = num_recv + 1
+         DO j = 1, npats
+           pelist_recv(num_recv) = np
+         ENDDO
+         EXIT ! count each processor only once
+       ENDIF
+     ENDDO
+
+   ENDDO
+
+!-----------------------------------------------------------------------
+
    ! Set up irecv's for receive buffers
    ! Note: the dummy mode (iorder_sendrecv=0) does not work for nest boundary communication
    ! because there may be PEs receiving but not sending data. Therefore, iorder_sendrecv=0
@@ -2364,9 +2444,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    IF ((iorder_sendrecv <= 1 .OR. iorder_sendrecv >= 3) .AND. .NOT. my_process_is_mpi_seq()) THEN
 
      ioffset = 0
-     DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
+     DO np = 1, num_recv ! loop over PEs from where to receive the data
 
-       pid = p_pat(1)%pelist_recv(np) ! ID of receiver PE
+       pid = pelist_recv(np) ! ID of receiver PE
 
        ! Sum up receive points over all communication patterns to be processed
        isum = ioffset
@@ -2465,7 +2545,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
          DO n = 1, nfields
            DO k = 1, ndim2(n) 
              recv(n)%fld( p_pat(np)%recv_dst_idx(i), k, p_pat(np)%recv_dst_blk(i) ) =  &
-               send(np+(n-1)*npats)%fld( k, p_pat(np)%send_src_idx(p_pat(np)%recv_src(i)) )
+               send(np+(n-1)*npats)%fld( k, &
+               idx_1d(p_pat(np)%send_src_idx(p_pat(np)%recv_src(i)), &
+                      p_pat(np)%send_src_blk(p_pat(np)%recv_src(i))))
            ENDDO
          ENDDO
        ENDDO
@@ -2485,7 +2567,8 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
        DO k = 1, ndim2(n)
          DO i = 1, p_pat(np)%n_send
            send_buf(k+noffset(n),i+ioffset_s(np)) =                &
-             & send(np+(n-1)*npats)%fld(k,p_pat(np)%send_src_idx(i))
+             & send(np+(n-1)*npats)%fld(k,idx_1d(p_pat(np)%send_src_idx(i), &
+             &                                   p_pat(np)%send_src_blk(i)))
          ENDDO
        ENDDO
      ENDDO
@@ -2499,7 +2582,7 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 !$OMP DO PRIVATE(jl)
 #endif
      DO i = 1, p_pat(np)%n_send
-       jl = p_pat(np)%send_src_idx(i)
+       jl = idx_1d(p_pat(np)%send_src_idx(i), p_pat(np)%send_src_blk(i))
        DO n = 1, nfields
          DO k = 1, ndim2(n)
            send_buf(k+noffset(n),i+ioffset_s(np)) = &
@@ -2519,9 +2602,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
    IF (iorder_sendrecv <= 1) THEN
      ! Send our data
      ioffset = 0
-     DO np = 1, p_pat(1)%np_send ! loop over PEs where to send the data
+     DO np = 1, num_send ! loop over PEs where to send the data
 
-       pid = p_pat(1)%pelist_send(np) ! ID of sender PE
+       pid = pelist_send(np) ! ID of sender PE
 
        ! Copy send points for all communication patterns into one common send buffer
        isum = ioffset
@@ -2544,9 +2627,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      ENDDO
    ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
      ioffset = 0
-     DO np = 1, p_pat(1)%np_send ! loop over PEs where to send the data
+     DO np = 1, num_send ! loop over PEs where to send the data
 
-       pid = p_pat(1)%pelist_send(np) ! ID of sender PE
+       pid = pelist_send(np) ! ID of sender PE
 
        ! Copy send points for all communication patterns into one common send buffer
        isum = ioffset
@@ -2569,9 +2652,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      ENDDO
 
      ioffset = 0
-     DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
+     DO np = 1, num_recv ! loop over PEs from where to receive the data
 
-       pid = p_pat(1)%pelist_recv(np) ! ID of receiver PE
+       pid = pelist_recv(np) ! ID of receiver PE
 
        ! Sum up receive points over all communication patterns to be processed
        isum = ioffset
@@ -2586,9 +2669,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      ENDDO
    ELSE IF (iorder_sendrecv >= 3) THEN ! use isend/recv
      ioffset = 0
-     DO np = 1, p_pat(1)%np_send ! loop over PEs where to send the data
+     DO np = 1, num_send ! loop over PEs where to send the data
 
-       pid = p_pat(1)%pelist_send(np) ! ID of sender PE
+       pid = pelist_send(np) ! ID of sender PE
 
        ! Copy send points for all communication patterns into one common send buffer
        isum = ioffset
@@ -2625,9 +2708,9 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
 
    ! Copy exchanged data back to receive buffer
    ioffset = 0
-   DO np = 1, p_pat(1)%np_recv ! loop over PEs from where to receive the data
+   DO np = 1, num_recv ! loop over PEs from where to receive the data
 
-     pid = p_pat(1)%pelist_recv(np) ! ID of receiver PE
+     pid = pelist_recv(np) ! ID of receiver PE
 
      isum = ioffset
      DO n = 1, npats
@@ -2993,72 +3076,26 @@ SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2, l_recv_exists)
 
 END SUBROUTINE exchange_data_l2d
 
+FUNCTION get_np_recv(comm_pat)
+  TYPE (t_comm_pattern), INTENT(IN) :: comm_pat
+  INTEGER :: get_np_recv
 
-!> In-situ reordering of communication pattern.
-!
-!  @author F. Prill, DWD (2013-07-30)
-!
-SUBROUTINE reorder_comm_pattern(comm_pat, idx_old2new)
-  TYPE (t_comm_pattern), INTENT(INOUT) :: comm_pat
-  INTEGER,               INTENT(IN)    :: idx_old2new(:) ! permutation array
+  get_np_recv = comm_pat%np_recv
+END FUNCTION get_np_recv
 
-  CALL reorder_comm_pattern_rcv(comm_pat, idx_old2new)
-  CALL reorder_comm_pattern_snd(comm_pat, idx_old2new)
+FUNCTION get_np_send(comm_pat)
+  TYPE (t_comm_pattern), INTENT(IN) :: comm_pat
+  INTEGER :: get_np_send
 
-END SUBROUTINE reorder_comm_pattern
+  get_np_send = comm_pat%np_send
+END FUNCTION get_np_send
 
+SUBROUTINE get_pelist_recv(comm_pat, pelist_recv)
+  TYPE (t_comm_pattern), INTENT(IN) :: comm_pat
+  INTEGER, INTENT(OUT) :: pelist_recv(:)
 
-!> In-situ reordering of communication pattern.
-!
-!  @author F. Prill, DWD (2013-07-30)
-!
-SUBROUTINE reorder_comm_pattern_snd(comm_pat, idx_old2new)
-  TYPE (t_comm_pattern), INTENT(INOUT) :: comm_pat
-  INTEGER,               INTENT(IN)    :: idx_old2new(:) ! permutation array
-  ! local variables
-  INTEGER :: i, iidx
-
-  ! return, if communication pattern has not yet been initialized
-  IF (.NOT. ALLOCATED(comm_pat%recv_limits))  RETURN
-
-  ! "send_src_idx/blk(i)" : For all points i=1,n_send the data in the
-  ! send buffer is copied from the source array at position
-  ! send_src_idx/blk(i)
-
-  ! translate indices, overwriting old values
-  DO i=1,comm_pat%n_send
-    iidx            = idx_1d(comm_pat%send_src_idx(i), comm_pat%send_src_blk(i))
-    iidx            = idx_old2new(iidx)
-    comm_pat%send_src_idx(i) = idx_no(iidx)
-    comm_pat%send_src_blk(i) = blk_no(iidx)
-  END DO
-END SUBROUTINE reorder_comm_pattern_snd
-
-!> In-situ reordering of communication pattern.
-!
-!  @author F. Prill, DWD (2013-07-30)
-!
-SUBROUTINE reorder_comm_pattern_rcv(comm_pat, idx_old2new)
-  TYPE (t_comm_pattern), INTENT(INOUT) :: comm_pat
-  INTEGER,               INTENT(IN)    :: idx_old2new(:) ! permutation array
-  ! local variables
-  INTEGER :: i, iidx
-
-  ! return, if communication pattern has not yet been initialized
-  IF (.NOT. ALLOCATED(comm_pat%recv_limits))  RETURN
-
-  ! "recv_dst_idx/blk(i)": For all points i=1,n_pnts the data received
-  ! is copied to the destination array at position recv_dst_idx/blk(i)
-
-  ! translate indices, overwriting old values
-  DO i=1,comm_pat%n_pnts
-    iidx            = idx_1d(comm_pat%recv_dst_idx(i), comm_pat%recv_dst_blk(i))
-    iidx            = idx_old2new(iidx)
-    comm_pat%recv_dst_idx(i) = idx_no(iidx)
-    comm_pat%recv_dst_blk(i) = blk_no(iidx)
-  END DO
-
-END SUBROUTINE reorder_comm_pattern_rcv
+  pelist_recv = comm_pat%pelist_recv
+END SUBROUTINE get_pelist_recv
 
 SUBROUTINE gather_r_1d_deblock(in_array, out_array, fill_value, gather_pattern)
   ! dimension (nproma, nblk)

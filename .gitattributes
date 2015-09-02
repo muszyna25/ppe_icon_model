@@ -55,9 +55,6 @@ blas/sswap.f -text
 blas/ssyrk.f -text
 blas/strsm.f -text
 blas/xerbla.f -text
-/build_ICON_ECMWF -text
-/build_all -text
-/build_command.ecmwf -text
 /cmake.configure -text
 cmake/FindGRIB_API.cmake -text
 cmake/FindHDF5.cmake -text
@@ -716,7 +713,9 @@ run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_communication -
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_grid -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_jitter -text
 run/checksuite.infrastructure/meanStream/exp.ocean_meanStream -text
-run/checksuite.ocean_internal/buildbot/exp.ocean_omip_ptest -text
+run/checksuite.ocean_internal/eddies/exp.Channel_10km -text
+run/checksuite.ocean_internal/eddies/exp.SDACC_box_fplane65S -text
+run/checksuite.ocean_internal/eddies/exp.ShearFlow_20km -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_AquaAtlanticBox_0079km_edge -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0010km_cell -text
@@ -753,10 +752,7 @@ run/checksuite.ocean_internal/other/post.test_oce_default -text
 run/checksuite.ocean_internal/other/post.test_oce_numeric -text
 run/checksuite.ocean_internal/other/post.test_oce_numeric_tracerconservation -text
 run/checksuite.ocean_internal/other/variations.rb -text
-run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance -text
-run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance_0039km -text
-run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance_0079km -text
-run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp1_GeostrophicBalance_0158km -text
+run/checksuite.ocean_internal/paper_dycore/exp.ocean_GeostrophicBalance_TestCase2 -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp2_WavePropagation -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp3_WindDrivenBasin -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp4_CheckerBoardBasin -text
@@ -764,7 +760,7 @@ run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp6a_Instability_Barotropi
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp6b_Instability_KelvinHelmholtz -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp7_BaroclinicInstabilityChannel_10km -text
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp8_OMIP -text
-run/checksuite.ocean_internal/paper_dycore/make_ShallowWater_runs -text
+run/checksuite.ocean_internal/paper_dycore/make_runs_GeostrophicBalance_TestCase2 -text
 run/checksuite.ocean_internal/paper_dycore/post.ocean_exp1_GeostrophicBalance -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_melting -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_testbed -text
@@ -806,6 +802,7 @@ run/dict.output.dwd -text
 run/exec.iconrun -text
 run/exp.ICOLES_nestgrid -text
 run/exp.ICON_limarea -text
+run/exp.aloy_r2b4 -text
 run/exp.atm_amip -text
 run/exp.atm_amip_hs -text
 run/exp.atm_amip_hs_test -text
@@ -1025,6 +1022,7 @@ scripts/buildbot_scripts/py/exp_plot.py -text
 scripts/buildbot_scripts/py/reference_page.py -text
 scripts/building/README -text
 scripts/building/Rakefile -text
+scripts/building/build_all -text
 scripts/building/compile_for_dev.mpi.ksh -text
 scripts/building/compile_for_developers.ksh -text
 scripts/building/cp_ocean -text
@@ -1250,6 +1248,7 @@ scripts/run_scripts/make_my_runscript -text
 scripts/run_scripts/make_nat-ape-dec_runs -text
 scripts/run_scripts/make_performance_runscripts -text
 scripts/run_scripts/run.rb -text
+scripts/run_scripts/sed_change_namelist -text
 scripts/run_scripts/test/test_experiments.rb -text
 src/CMakeLists.txt -text
 src/advection/mo_advection_geometry.f90 -text
@@ -1533,7 +1532,6 @@ src/coupler/mo_icon_cpl_exchg.f90 -text
 src/coupler/mo_icon_cpl_finalize.f90 -text
 src/coupler/mo_icon_cpl_init.f90 -text
 src/coupler/mo_icon_cpl_init_comp.f90 -text
-src/coupler/mo_icon_cpl_restart.f90 -text
 src/coupler/mo_icon_cpl_search.f90 -text
 src/coupler/psmile_bsend.c -text
 src/coupler/psmile_char2buf.f90 -text
@@ -1572,6 +1570,7 @@ src/io/atmo/mo_async_latbc_utils.f90 -text
 src/io/atmo/mo_io_restart_async.f90 -text
 src/io/atmo/mo_latbc_read_recv.f90 -text
 src/io/atmo/mo_mtgrm_output.f90 -text
+src/io/atmo/mo_post_op.f90 -text
 src/io/atmo/mo_sync_latbc.f90 -text
 src/io/atmo/mo_util_vgrid.f90 -text
 src/io/shared/mo_cf_convention.f90 -text
@@ -1595,7 +1594,6 @@ src/io/shared/mo_nml_annotate.f90 -text
 src/io/shared/mo_output_event_control.f90 -text
 src/io/shared/mo_output_event_handler.f90 -text
 src/io/shared/mo_output_event_types.f90 -text
-src/io/shared/mo_post_op.f90 -text
 src/io/shared/mo_read_interface.f90 -text
 src/io/shared/mo_read_netcdf_broadcast.f90 -text
 src/io/shared/mo_read_netcdf_broadcast_2.f90 -text
@@ -1671,6 +1669,8 @@ src/ocean/boundary/mo_ocean_coupling.f90 -text
 src/ocean/boundary/mo_ocean_ext_data.f90 -text
 src/ocean/boundary/mo_ocean_forcing.f90 -text
 src/ocean/boundary/mo_ocean_initial_conditions.f90 -text
+src/ocean/boundary/mo_ocean_surface.f90 -text
+src/ocean/boundary/mo_ocean_surface_types.f90 -text
 src/ocean/config/mo_ocean_nml.f90 -text
 src/ocean/config/mo_ocean_nml_crosscheck.f90 -text
 src/ocean/config/mo_ocean_read_namelists.f90 -text
@@ -1740,6 +1740,7 @@ src/sea_ice/dynamics_fem/mo_ice_parsup.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_therm_parms.f90 -text
 src/sea_ice/dynamics_fem/mo_icon_iceparam.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice.f90 -text
+src/sea_ice/thermodyn/mo_sea_ice_refactor.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_types.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_winton.f90 -text

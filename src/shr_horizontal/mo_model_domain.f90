@@ -194,10 +194,12 @@ MODULE mo_model_domain
 
     ! line index of parent triangle:
     ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, ALLOCATABLE :: parent_idx(:,:)
+    INTEGER, ALLOCATABLE :: parent_loc_idx(:,:)
+    INTEGER, ALLOCATABLE :: parent_glb_idx(:,:)
     ! block index of parent triangle:
     ! index1=1,nproma, index2=1,nblks_c
-    INTEGER, ALLOCATABLE :: parent_blk(:,:)
+    INTEGER, ALLOCATABLE :: parent_loc_blk(:,:)
+    INTEGER, ALLOCATABLE :: parent_glb_blk(:,:)
     ! parent child index, number of current cell in parent's child_idx/child_blk:
     ! index1=1,nproma, index2=1,nblks_c
     INTEGER, ALLOCATABLE :: pc_idx(:,:)
@@ -368,10 +370,12 @@ MODULE mo_model_domain
 
     ! line index of parent edge:
     ! index1=1,nproma, index2=1,nblks_e
-    INTEGER, ALLOCATABLE :: parent_idx(:,:)
+    INTEGER, ALLOCATABLE :: parent_loc_idx(:,:)
+    INTEGER, ALLOCATABLE :: parent_glb_idx(:,:)
     ! block index of parent edge:
     ! index1=1,nproma, index2=1,nblks_e
-    INTEGER, ALLOCATABLE :: parent_blk(:,:)
+    INTEGER, ALLOCATABLE :: parent_loc_blk(:,:)
+    INTEGER, ALLOCATABLE :: parent_glb_blk(:,:)
     ! parent child index, number of current edge in parent's child_idx/child_blk:
     ! index1=1,nproma, index2=1,nblks_e
     INTEGER, ALLOCATABLE :: pc_idx(:,:)
@@ -1153,6 +1157,12 @@ MODULE mo_model_domain
       &  depth_CellMiddle(:,:,:),      & ! depth of the middle of the prism, update according to the current h
       &  depth_CellInterface(:,:,:)      ! depths at the interface (size is levels + 1)
 
+    !! the vertical distance between the prism centers, dim = n_zlev+1
+    !! constantPrismCenters_zDistance(2) = vertical distance between prisms at 1 and 2 levels
+    REAL(wp), POINTER :: constantPrismCenters_Zdistance(:,:,:)
+    !!the inverse of the above
+    REAL(wp), POINTER :: constantPrismCenters_invZdistance(:,:,:)
+    
   END TYPE t_patch_vert
 
 

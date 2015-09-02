@@ -77,9 +77,9 @@ MODULE mo_name_list_output_init
 
 #ifndef __NO_ICON_ATMO__
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
-#endif
   USE mo_extpar_config,                     ONLY: i_lctype
   USE mo_lnd_nwp_config,                    ONLY: ntiles_water, tiles
+#endif
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
     &                                             get_my_mpi_work_communicator,                   &
@@ -2706,9 +2706,10 @@ CONTAINS
         ! Set local use SECTION 2
         CALL set_GRIB2_local_keys(vlistID, varID, gribout_config(of%phys_patch_id))
 
+#ifndef __NO_ICON_ATMO__
         ! Set tile-specific GRIB2 keys (if applicable)
         CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype(of%phys_patch_id))
-
+#endif
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
       ENDIF
@@ -2930,6 +2931,7 @@ CONTAINS
     CALL parse_variable_groups()
 
 
+#ifndef __NO_ICON_ATMO__
     ! Go over all output domains
     DO idom = 1, n_dom_out
       CALL p_bcast(gribout_config(idom)%generatingCenter,    bcast_root, p_comm_work_2_io)
@@ -2952,7 +2954,7 @@ CONTAINS
        CALL p_bcast(tiles(:)%GRIB2_tile%numberOfTileAttributes , bcast_root, p_comm_work_2_io)
        CALL p_bcast(tiles(:)%GRIB2_att%tileAttribute           , bcast_root, p_comm_work_2_io)
     end if
-
+#endif
     ! allocate vgrid_buffer on asynchronous output PEs, for storing 
     ! the vertical grid UUID
     !
