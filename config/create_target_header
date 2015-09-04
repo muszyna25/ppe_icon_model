@@ -539,6 +539,7 @@ set_run_target_bullx()
   set_default use_nproma 16
   set_default use_nodes '\${SLURM_JOB_NUM_NODES:-1}'
   set_default use_account_no "$(id -gn)"
+  use_submit="$use_submit -N \${SLURM_JOB_NUM_NODES:-1}"
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,4"
   use_omp_stacksize=64M
