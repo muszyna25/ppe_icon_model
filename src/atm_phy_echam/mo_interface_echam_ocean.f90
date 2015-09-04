@@ -523,6 +523,7 @@ CONTAINS
     INTEGER               :: n              ! nproma loop count
     INTEGER               :: nn             ! block offset
     INTEGER               :: i_blk          ! block loop count
+    INTEGER               :: nlen           ! nproma/npromz
 #ifndef YAC_coupling
     INTEGER               :: field_shape(3)
 #endif
@@ -532,6 +533,7 @@ CONTAINS
 
     IF ( .NOT. is_coupled_run() ) RETURN
 
+    
     !-------------------------------------------------------------------------
     ! If running in atm-oce coupled mode, exchange information 
     !-------------------------------------------------------------------------
@@ -589,10 +591,15 @@ CONTAINS
     ! TAUX
     !
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(i_blk, n, nn) ICON_OMP_RUNTIME_SCHEDULE
+!ICON_OMP_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      END IF
+      DO n = 1, nlen
          buffer(nn+n,1) = prm_field(jg)%u_stress_tile(n,i_blk,iwtr)
          buffer(nn+n,2) = prm_field(jg)%u_stress_tile(n,i_blk,iice)
       ENDDO
@@ -615,10 +622,15 @@ CONTAINS
     !
     ! TAUY
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_RUNTIME_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      END IF
+      DO n = 1, nlen
          buffer(nn+n,1) = prm_field(jg)%v_stress_tile(n,i_blk,iwtr)
          buffer(nn+n,2) = prm_field(jg)%v_stress_tile(n,i_blk,iice)
       ENDDO
@@ -639,10 +651,15 @@ CONTAINS
     !
     ! SFWFLX Note: the evap_tile should be properly updated and added
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_RUNTIME_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      END IF
+      DO n = 1, nlen
         buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk) ! total rain
         buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk) ! total snow
         buffer(nn+n,3) = prm_field(jg)%evap_tile(n,i_blk,iwtr)
@@ -664,10 +681,15 @@ CONTAINS
     !
     ! THFLX, total heat flux
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_RUNTIME_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      END IF
+      DO n = 1, nlen
         buffer(nn+n,1) = prm_field(jg)%swflxsfc_tile(n,i_blk,iwtr)
         buffer(nn+n,2) = prm_field(jg)%lwflxsfc_tile(n,i_blk,iwtr)
         buffer(nn+n,3) = prm_field(jg)%shflx_tile   (n,i_blk,iwtr)
@@ -691,10 +713,15 @@ CONTAINS
     !
     ! ICEATM, Ice state determined by atmosphere
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_RUNTIME_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      END IF
+      DO n = 1, nlen
         buffer(nn+n,1) = prm_field(jg)%Qtop(n,1,i_blk)
         buffer(nn+n,2) = prm_field(jg)%Qbot(n,1,i_blk)
         buffer(nn+n,3) = prm_field(jg)%T1  (n,1,i_blk)
@@ -743,10 +770,15 @@ CONTAINS
     !
     IF ( info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_RUNTIME_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
       DO i_blk = 1, p_patch%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             prm_field(jg)%tsfc_tile(n,i_blk,iwtr) = dummy
           ELSE
@@ -775,10 +807,15 @@ CONTAINS
     !
     IF ( info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_RUNTIME_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
       DO i_blk = 1, p_patch%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             prm_field(jg)%ocu(n,i_blk) = dummy
           ELSE
@@ -807,10 +844,15 @@ CONTAINS
     !
     IF ( info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_RUNTIME_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
       DO i_blk = 1, p_patch%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             prm_field(jg)%ocv(n,i_blk) = dummy
           ELSE
@@ -840,10 +882,15 @@ CONTAINS
     !
     IF ( info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_RUNTIME_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
       DO i_blk = 1, p_patch%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             prm_field(jg)%hi  (n,1,i_blk) = dummy
             prm_field(jg)%hs  (n,1,i_blk) = dummy
@@ -866,9 +913,14 @@ CONTAINS
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%conc(:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T1  (:,1,:))
       CALL sync_patch_array(sync_c, p_patch, prm_field(jg)%T2  (:,1,:))
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n) ICON_OMP_RUNTIME_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nlen) ICON_OMP_RUNTIME_SCHEDULE
       DO i_blk = 1, p_patch%nblks_c
-        DO n = 1, nproma
+        IF (i_blk /= p_patch%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch%npromz_c
+        END IF
+        DO n = 1, nlen
           prm_field(jg)%seaice(n,i_blk) = prm_field(jg)%conc(n,1,i_blk)
         ENDDO
       ENDDO

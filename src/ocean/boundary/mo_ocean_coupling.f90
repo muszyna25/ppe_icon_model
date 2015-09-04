@@ -523,6 +523,7 @@ CONTAINS
     INTEGER :: n              ! nproma loop count
     INTEGER :: nn             ! block offset
     INTEGER :: i_blk          ! block loop count
+    INTEGER :: nlen           ! nproma/npromz
     TYPE(t_patch), POINTER:: patch_horz
 #ifndef YAC_coupling
     INTEGER :: field_shape(3)
@@ -569,10 +570,15 @@ CONTAINS
     !
     ! SST
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= patch_horz%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = patch_horz%npromz_c
+      END IF
+      DO n = 1, nlen
         buffer(nn+n,1) = ocean_state%p_prog(nold(1))%tracer(n,1,i_blk,1) + tmelt
       ENDDO
     ENDDO
@@ -592,10 +598,15 @@ CONTAINS
     !
     ! zonal velocity
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= patch_horz%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = patch_horz%npromz_c
+      END IF
+      DO n = 1, nlen
         buffer(nn+n,1) = ocean_state%p_diag%u(n,1,i_blk)
       ENDDO
     ENDDO
@@ -615,10 +626,15 @@ CONTAINS
     !
     ! meridional velocity
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= patch_horz%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = patch_horz%npromz_c
+      END IF
+      DO n = 1, nlen
         buffer(nn+n,1) = ocean_state%p_diag%v(n,1,i_blk)
       ENDDO
     ENDDO
@@ -638,10 +654,15 @@ CONTAINS
     !
     ! Ice thickness, concentration, T1 and T2
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= patch_horz%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = patch_horz%npromz_c
+      END IF
+      DO n = 1, nlen
         buffer(nn+n,1) = ice%hi  (n,1,i_blk)
         buffer(nn+n,2) = ice%hs  (n,1,i_blk)
         buffer(nn+n,3) = ice%conc(n,1,i_blk)
@@ -693,10 +714,15 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             atmos_fluxes%stress_xw(n,i_blk) = dummy
             atmos_fluxes%stress_x (n,i_blk) = dummy
@@ -728,10 +754,15 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             atmos_fluxes%stress_yw(n,i_blk) = dummy
             atmos_fluxes%stress_y (n,i_blk) = dummy
@@ -766,10 +797,15 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = dummy
             atmos_fluxes%FrshFlux_SnowFall     (n,i_blk) = dummy
@@ -809,10 +845,15 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             atmos_fluxes%HeatFlux_ShortWave(n,i_blk) = dummy
             atmos_fluxes%HeatFlux_LongWave (n,i_blk) = dummy
@@ -834,9 +875,14 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%HeatFlux_Latent   (:,:))
 
       ! sum of fluxes for ocean boundary condition
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           atmos_fluxes%HeatFlux_Total(n,i_blk) = atmos_fluxes%HeatFlux_ShortWave(n,i_blk) &
         &                                      + atmos_fluxes%HeatFlux_LongWave (n,i_blk) &
         &                                      + atmos_fluxes%HeatFlux_Sensible (n,i_blk) &
@@ -865,10 +911,15 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             ice%qtop(n,1,i_blk) = dummy
             ice%qbot(n,1,i_blk) = dummy
@@ -910,10 +961,15 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             atmos_fluxes%FrshFlux_Runoff(n,i_blk) = dummy
           ELSE
