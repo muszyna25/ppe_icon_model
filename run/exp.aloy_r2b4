@@ -306,7 +306,7 @@ add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_gre
 
 datadir=/mnt/lustre01/work/mj0060/m212005/data/r2b4_amip
 # Temporary security check until correct input files are in pool
-if [[ `hostname` != mlogin* ]] && [[ $datadir = *lustre* ]] ;then
+if [[ x$target != xbullx ]] && [[ $datadir = *lustre* ]] ;then
   set +x
   echo "You have to adapt the location of the forcing climatologies for ozone and aerosols at three places in the run script:"
   echo "       bc_ozone_cmip5_clim1979-2009.nc"
