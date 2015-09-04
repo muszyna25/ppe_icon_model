@@ -305,6 +305,15 @@ add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_gre
 # - ozone
 
 datadir=/mnt/lustre01/work/mj0060/m212005/data/r2b4_amip
+# Temporary security check until correct input files are in pool
+if [[ `hostname` != mlogin* ]] && [[ $datadir = *lustre* ]] ;then
+  set +x
+  echo "You have to adapt the location of the forcing climatologies for ozone and aerosols at three places in the run script:"
+  echo "       bc_ozone_cmip5_clim1979-2009.nc"
+  echo "       bc_aeropt_kinne_sw_b14_fin_clim1979-2009.nc"
+  echo "       bc_aeropt_stenchikov_lw_b16_sw_b14_clim1979-1999.nc "
+  exit
+fi
 add_link_file $datadir/bc_ozone_cmip5_clim1979-2009.nc 			./bc_ozone.nc
 #datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
 #year=$start_year
