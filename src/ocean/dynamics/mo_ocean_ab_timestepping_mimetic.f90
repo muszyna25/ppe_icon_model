@@ -60,7 +60,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_ext_data_types,            ONLY: t_external_data
   USE mo_ocean_gmres,               ONLY: ocean_restart_gmres, gmres_oce_old, gmres_oce_e2e, &
     & ocean_restart_gmres_singlePrecesicion,ocean_restart_gmres_e2e
-  USE mo_exception,                 ONLY: message, finish, message_text
+  USE mo_exception,                 ONLY: message, finish, warning, message_text
   USE mo_util_dbg_prnt,             ONLY: dbg_print, debug_print_MaxMinMean
   USE mo_ocean_boundcond,           ONLY: VelocityBottomBoundaryCondition_onBlock, top_bound_cond_horz_veloc
   USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press, calc_internal_press_grad
@@ -126,7 +126,7 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE solve_free_sfc_ab_mimetic(patch_3d, ocean_state, p_ext_data, p_sfc_flx, &
-    & p_phys_param, timestep, op_coeffs, solverCoeff_sp)
+    & p_phys_param, timestep, op_coeffs, solverCoeff_sp, return_status)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)       :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET             :: ocean_state
@@ -136,6 +136,7 @@ CONTAINS
     INTEGER, INTENT(in)                           :: timestep
     TYPE(t_operator_coeff)                        :: op_coeffs
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
+    INTEGER :: return_status
     !
     !Local variables
     !
@@ -173,6 +174,7 @@ CONTAINS
     all_edges    => patch_2D%edges%ALL
     owned_cells  => patch_2D%cells%owned
     owned_edges  => patch_2D%edges%owned
+    return_status = 0
     !-------------------------------------------------------------------------------
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -249,69 +251,71 @@ CONTAINS
 
       !-----------------------------------------------------------------------------------------
       CASE (select_gmres)
-          IF(lprecon)THEN
-            !ocean_state%p_aux%p_rhs_sfc_eq = ocean_state%p_aux%p_rhs_sfc_eq *patch%cells%area
+        IF(lprecon)THEN
+          !ocean_state%p_aux%p_rhs_sfc_eq = ocean_state%p_aux%p_rhs_sfc_eq *patch%cells%area
 
-            CALL gmres_oce_old( z_h_c(:,:),       &  ! arg 1 of lhs. x input is the first guess.
-              & lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
-              & ocean_state%p_diag%thick_e,       &  ! edge thickness for LHS
-              & ocean_state%p_diag%thick_c,       &  ! ocean_state%p_diag%thick_c, &
-            ! arg 6 of lhs ocean_state%p_prog(nold(1))%h,
-            ! ocean_state%p_diag%cons_thick_c(:,1,:),&
-              & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
-              & patch_3d,                &  ! arg 3 of lhs
-              ! & z_implcoeff,               &  ! arg 4 of lhs
-              & op_coeffs,                &
-              & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
-              & solver_tolerance,                 &  ! relative tolerance
-              & use_absolute_solver_tolerance,     &  ! NOT absolute tolerance
-              & nmax_iter,                 &  ! max. # of iterations to do
-              & maxIterations_isReached,                 &  ! out: .true. = not converged
-              & n_iter,                    &  ! out: # of iterations done
-              & zresidual,                 &  ! inout: the residual (array)
-              & jacobi_precon )
+          CALL gmres_oce_old( z_h_c(:,:),       &  ! arg 1 of lhs. x input is the first guess.
+            & lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
+            & ocean_state%p_diag%thick_e,       &  ! edge thickness for LHS
+            & ocean_state%p_diag%thick_c,       &  ! ocean_state%p_diag%thick_c, &
+          ! arg 6 of lhs ocean_state%p_prog(nold(1))%h,
+          ! ocean_state%p_diag%cons_thick_c(:,1,:),&
+            & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
+            & patch_3d,                &  ! arg 3 of lhs
+            ! & z_implcoeff,               &  ! arg 4 of lhs
+            & op_coeffs,                &
+            & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
+            & solver_tolerance,                 &  ! relative tolerance
+            & use_absolute_solver_tolerance,     &  ! NOT absolute tolerance
+            & nmax_iter,                 &  ! max. # of iterations to do
+            & maxIterations_isReached,                 &  ! out: .true. = not converged
+            & n_iter,                    &  ! out: # of iterations done
+            & zresidual,                 &  ! inout: the residual (array)
+            & jacobi_precon )
 
-          ELSEIF(.NOT.lprecon)THEN
-            CALL gmres_oce_old( z_h_c(:,:),       &  ! arg 1 of lhs. x input is the first guess.
-              & lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
-              & ocean_state%p_diag%thick_e,       &  ! edge thickness for LHS
-              & ocean_state%p_diag%thick_c,       &  ! ocean_state%p_diag%thick_c, &
-            ! arg 6 of lhs ocean_state%p_prog(nold(1))%h,
-            ! ocean_state%p_diag%cons_thick_c(:,1,:),&
-              & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
-              & patch_3d,                &  ! arg 3 of lhs
-              ! & z_implcoeff,               &  ! arg 4 of lhs
-              & op_coeffs,                &
-              & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
-              & solver_tolerance,                 &  ! relative tolerance
-              & use_absolute_solver_tolerance,                 &  ! NOT absolute tolerance
+        ELSEIF(.NOT.lprecon)THEN
+          CALL gmres_oce_old( z_h_c(:,:),       &  ! arg 1 of lhs. x input is the first guess.
+            & lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
+            & ocean_state%p_diag%thick_e,       &  ! edge thickness for LHS
+            & ocean_state%p_diag%thick_c,       &  ! ocean_state%p_diag%thick_c, &
+          ! arg 6 of lhs ocean_state%p_prog(nold(1))%h,
+          ! ocean_state%p_diag%cons_thick_c(:,1,:),&
+            & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
+            & patch_3d,                &  ! arg 3 of lhs
+            ! & z_implcoeff,               &  ! arg 4 of lhs
+            & op_coeffs,                &
+            & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
+            & solver_tolerance,                 &  ! relative tolerance
+            & use_absolute_solver_tolerance,                 &  ! NOT absolute tolerance
 !              & .FALSE.,                   &  ! NOT absolute tolerance
-              & nmax_iter,                 &  ! max. # of iterations to do
-              & maxIterations_isReached,                 &  ! out: .true. = not converged
-              & n_iter,                    &  ! out: # of iterations done
-              & zresidual )
-          ENDIF
-          
-          IF (maxIterations_isReached) THEN
-            CALL finish('GMRES_oce_old: solver surface equation: ','NOT YET CONVERGED !!')
-          ELSE
-            ! output print level idt_src used for ocean gmres output with call message:
-            IF(n_iter==0)n_iter=1
-            idt_src=1
-            IF (idbg_mxmn >= idt_src) THEN
-              WRITE(string,'(a,i4,a,e28.20)') &
-                & 'iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
-              CALL message('GMRES_oce_old: surface height',TRIM(string))
-            ENDIF
-          ENDIF
-          
-          IF(lprecon)THEN
-            ocean_state%p_prog(nnew(1))%h = z_h_c!*patch_2D%cells%area
-          ELSEIF(.NOT.lprecon)THEN
-            ocean_state%p_prog(nnew(1))%h = z_h_c
-          ENDIF
+            & nmax_iter,                 &  ! max. # of iterations to do
+            & maxIterations_isReached,                 &  ! out: .true. = not converged
+            & n_iter,                    &  ! out: # of iterations done
+            & zresidual )
+        ENDIF
 
-          iter_sum = n_iter*n_iter
+        IF (maxIterations_isReached) THEN
+          return_status = 2
+          CALL warning('GMRES_oce_old:', "NOT YET CONVERGED !!")
+          RETURN
+        ENDIF
+
+        ! output print level idt_src used for ocean gmres output with call message:
+        IF(n_iter==0)n_iter=1
+        idt_src=1
+        IF (idbg_mxmn >= idt_src) THEN
+          WRITE(string,'(a,i4,a,e28.20)') &
+            & 'iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
+          CALL message('GMRES_oce_old: surface height',TRIM(string))
+        ENDIF
+
+        IF(lprecon)THEN
+          ocean_state%p_prog(nnew(1))%h = z_h_c!*patch_2D%cells%area
+        ELSEIF(.NOT.lprecon)THEN
+          ocean_state%p_prog(nnew(1))%h = z_h_c
+        ENDIF
+
+        iter_sum = n_iter*n_iter
         
       !-----------------------------------------------------------------------------------------
       CASE (select_restart_gmres)
@@ -374,8 +378,11 @@ CONTAINS
           CALL message('ocean_restart_gmres: surface height',TRIM(string))
         ENDIF
         
-        IF (residual_norm > solver_tolerance) &
-          & CALL finish(method_name,'NOT YET CONVERGED !!')
+        IF (residual_norm > solver_tolerance) THEN
+          return_status = 2
+          CALL warning(method_name, "NOT YET CONVERGED !!")
+          RETURN
+        ENDIF
         
         ocean_state%p_prog(nnew(1))%h = z_h_c
         
@@ -485,9 +492,12 @@ CONTAINS
           CALL message('mixed ocean_restart_gmres: surface height',TRIM(string))
         ENDIF
 
-        IF (residual_norm > solver_tolerance) &
-          & CALL finish(method_name,'NOT YET CONVERGED !!')
-
+        IF (residual_norm > solver_tolerance) THEN
+          return_status = 2
+          CALL warning(method_name, "NOT YET CONVERGED !!")
+          RETURN
+        ENDIF
+        
         ocean_state%p_prog(nnew(1))%h = z_h_c
 
       !-----------------------------------------------------------------------------------------
@@ -517,8 +527,12 @@ CONTAINS
       idt_src=1  ! output print level (1-5, fix)
       CALL debug_print_MaxMinMean('after ocean_gmres: h-new', minmaxmean, str_module, idt_src)
       IF (my_process_is_stdio()) THEN
-        IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) &
-          CALL finish(method_name, "height below min_top_height")
+        IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) THEN
+!          CALL finish(method_name, "height below min_top_height")
+          return_status = 1
+          CALL warning(method_name, "height below min_top_height")
+          RETURN
+        ENDIF
       ENDIF
       !---------------------------------------------------------------------
       
@@ -1588,7 +1602,6 @@ CONTAINS
 !          CALL map_edges2edges_viacell_2D_per_level( patch_3D, z_grad_h, op_coeffs, z_grad_h,1 )
 !        write(0,*)'New height grad after',&
 !         &maxval(z_grad_h),minval(z_grad_h)
-
 
         
         ! Step 2) Calculate the new velocity from the predicted one and the new surface height

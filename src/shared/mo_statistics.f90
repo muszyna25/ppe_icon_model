@@ -39,10 +39,9 @@ MODULE mo_statistics
   PRIVATE
 #define VerticalDim_Position 2
   
-  !-------------------------------------------------------------------------
-  
+  !-------------------------------------------------------------------------  
   ! NOTE: in order to get correct results make sure you provide the proper in_subset (ie, owned)!
-  PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d
+  PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d, add_sqr_fields
   PUBLIC :: accumulate_mean, levels_horizontal_mean, horizontal_mean, total_mean
   PUBLIC :: horizontal_sum
   
@@ -231,7 +230,10 @@ MODULE mo_statistics
     MODULE PROCEDURE add_fields_2d
   END INTERFACE add_fields
   
-  CHARACTER(LEN=*), PARAMETER :: module_name="mo_statistics"
+   INTERFACE add_sqr_fields
+    MODULE PROCEDURE add_sqr_fields_2d
+  END INTERFACE add_sqr_fields
+ CHARACTER(LEN=*), PARAMETER :: module_name="mo_statistics"
   
 CONTAINS
   
@@ -976,8 +978,8 @@ CONTAINS
     
     IF (my_process_is_mpi_parallel()) THEN
       communicator = get_my_mpi_work_communicator()
-      minmaxmean(1) = p_min( min_value,  comm=communicator ) ! only mpi_all_reduce is avaliable
-      minmaxmean(2) = p_max( max_value,  comm=communicator, root=process_mpi_stdio_id )
+      minmaxmean(1) = p_min( min_value,  comm=communicator ) !  mpi_all_reduce 
+      minmaxmean(2) = p_max( max_value,  comm=communicator )
       
       ! these are avaliable to all processes
       global_number_of_values = p_sum( REAL(number_of_values,wp),  comm=communicator)
@@ -1507,6 +1509,7 @@ CONTAINS
   END SUBROUTINE check_active_statistic_id
   !-----------------------------------------------------------------------
   
+  !-----------------------------------------------------------------------
   SUBROUTINE add_fields_3d(sum_field,field,subset,levels)
     REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
     REAL(wp),INTENT(in)             :: field(:,:,:)
@@ -1566,7 +1569,27 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_fields_2d
 
+  
+  SUBROUTINE add_sqr_fields_2d(sum_field,field,subset)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    
+    INTEGER :: jb,jc,start_index,end_index
+    
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        sum_field(jc,jb) = sum_field(jc,jb) + field(jc,jb)**2
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE add_sqr_fields_2d
+  !-----------------------------------------------------------------------
 
+
+  !-----------------------------------------------------------------------
   !>
   !! Computes updated time average
   !!

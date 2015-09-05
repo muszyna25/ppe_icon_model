@@ -275,7 +275,7 @@ CONTAINS
     
     TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER :: patch_2d
-    REAL(wp) :: vort_flux_old(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)	
+    REAL(wp) :: vort_flux_old(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)
     !-----------------------------------------------------------------------
     patch_2d   => patch_3d%p_patch_2d(1)
     edges_in_domain => patch_2d%edges%in_domain
@@ -1111,9 +1111,15 @@ CONTAINS
       
     END TYPE omp_local_private
     
-    TYPE(omp_local_private) :: omp_this 
+!     TYPE(omp_local_private) :: omp_this 
     INTEGER :: je, blockNo, level
-    !-----------------------------------------------------------------------
+    INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: cell_1_index, cell_2_index, cell_1_block, cell_2_block
+    INTEGER :: edge_11_index, edge_12_index, edge_13_index ! edges of cell_1
+    INTEGER :: edge_11_block, edge_12_block, edge_13_block
+    INTEGER :: edge_21_index, edge_22_index, edge_23_index ! edges of cell_2
+    INTEGER :: edge_21_block, edge_22_block, edge_23_block
+   !-----------------------------------------------------------------------
     IF (no_primal_edges /= 3) &
       & CALL finish ('map_edges2edges_viacell triangle version', 'no_primal_edges /= 3')
     
@@ -1125,52 +1131,54 @@ CONTAINS
     coeffs => operators_coefficients%edge2edge_viacell_coeff
     !-----------------------------------------------------------------------
     
-!ICON_OMP_PARALLEL_DO PRIVATE( je, omp_this, level) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE( je, level, start_edge_index, end_edge_index, &
+!ICON_OMP cell_1_index, cell_2_index, cell_1_block, cell_2_block, &
+!ICON_OMP edge_11_index, edge_12_index, edge_13_index, &
+!ICON_OMP edge_21_index, edge_22_index, edge_23_index, &
+!ICON_OMP edge_21_block, edge_22_block, edge_23_block) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, blockNo, omp_this%start_edge_index, omp_this%end_edge_index)
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       
-      DO je =  omp_this%start_edge_index, omp_this%end_edge_index
+      DO je =  start_edge_index, end_edge_index
         
-        IF (patch_3d%surface_edge_sea_land_mask(je,blockNo) /= sea) CYCLE
+        cell_1_index = patch_2d%edges%cell_idx(je,blockNo,1)
+        cell_1_block = patch_2d%edges%cell_blk(je,blockNo,1)
+        cell_2_index = patch_2d%edges%cell_idx(je,blockNo,2)
+        cell_2_block = patch_2d%edges%cell_blk(je,blockNo,2)
         
-        omp_this%cell_1_index = patch_2d%edges%cell_idx(je,blockNo,1)
-        omp_this%cell_1_block = patch_2d%edges%cell_blk(je,blockNo,1)
-        omp_this%cell_2_index = patch_2d%edges%cell_idx(je,blockNo,2)
-        omp_this%cell_2_block = patch_2d%edges%cell_blk(je,blockNo,2)
+        edge_11_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 1)
+        edge_12_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 2)
+        edge_13_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 3)
+        edge_11_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 1)
+        edge_12_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 2)
+        edge_13_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 3)
         
-        omp_this%edge_11_index = patch_2d%cells%edge_idx(omp_this%cell_1_index, omp_this%cell_1_block, 1)
-        omp_this%edge_12_index = patch_2d%cells%edge_idx(omp_this%cell_1_index, omp_this%cell_1_block, 2)
-        omp_this%edge_13_index = patch_2d%cells%edge_idx(omp_this%cell_1_index, omp_this%cell_1_block, 3)
-        omp_this%edge_11_block = patch_2d%cells%edge_blk(omp_this%cell_1_index, omp_this%cell_1_block, 1)
-        omp_this%edge_12_block = patch_2d%cells%edge_blk(omp_this%cell_1_index, omp_this%cell_1_block, 2)
-        omp_this%edge_13_block = patch_2d%cells%edge_blk(omp_this%cell_1_index, omp_this%cell_1_block, 3)
-        
-        omp_this%edge_21_index = patch_2d%cells%edge_idx(omp_this%cell_2_index, omp_this%cell_2_block, 1)
-        omp_this%edge_22_index = patch_2d%cells%edge_idx(omp_this%cell_2_index, omp_this%cell_2_block, 2)
-        omp_this%edge_23_index = patch_2d%cells%edge_idx(omp_this%cell_2_index, omp_this%cell_2_block, 3)
-        omp_this%edge_21_block = patch_2d%cells%edge_blk(omp_this%cell_2_index, omp_this%cell_2_block, 1)
-        omp_this%edge_22_block = patch_2d%cells%edge_blk(omp_this%cell_2_index, omp_this%cell_2_block, 2)
-        omp_this%edge_23_block = patch_2d%cells%edge_blk(omp_this%cell_2_index, omp_this%cell_2_block, 3)
+        edge_21_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 1)
+        edge_22_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 2)
+        edge_23_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 3)
+        edge_21_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 1)
+        edge_22_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 2)
+        edge_23_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 3)
                 
         ! levels
         DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
           
           out_vn_e(je, level, blockNo) =  &
-            & (  vn_e(omp_this%edge_11_index, level, omp_this%edge_11_block) * coeffs(je, level, blockNo, 1)      &
-            &    * patch_3d%p_patch_1d(1)%prism_thick_e(omp_this%edge_11_index, level, omp_this%edge_11_block)    &
-            &  + vn_e(omp_this%edge_12_index, level, omp_this%edge_12_block) * coeffs(je, level, blockNo, 2)      &
-            &    * patch_3d%p_patch_1d(1)%prism_thick_e(omp_this%edge_12_index, level, omp_this%edge_12_block)    &
-            &  + vn_e(omp_this%edge_13_index, level, omp_this%edge_13_block) * coeffs(je, level, blockNo, 3)      &
-            &    * patch_3d%p_patch_1d(1)%prism_thick_e(omp_this%edge_13_index, level, omp_this%edge_13_block)    &
-            & ) * scalar(omp_this%cell_1_index, level, omp_this%cell_1_block)                                     &
+            & (  vn_e(edge_11_index, level, edge_11_block) * coeffs(je, level, blockNo, 1)      &
+            &    * patch_3d%p_patch_1d(1)%prism_thick_e(edge_11_index, level, edge_11_block)    &
+            &  + vn_e(edge_12_index, level, edge_12_block) * coeffs(je, level, blockNo, 2)      &
+            &    * patch_3d%p_patch_1d(1)%prism_thick_e(edge_12_index, level, edge_12_block)    &
+            &  + vn_e(edge_13_index, level, edge_13_block) * coeffs(je, level, blockNo, 3)      &
+            &    * patch_3d%p_patch_1d(1)%prism_thick_e(edge_13_index, level, edge_13_block)    &
+            & ) * scalar(cell_1_index, level, cell_1_block)                                     &
             & + &
-            & (  vn_e(omp_this%edge_21_index, level, omp_this%edge_21_block) * coeffs(je, level, blockNo, 4)           &
-            &   * patch_3d%p_patch_1d(1)%prism_thick_e(omp_this%edge_21_index, level, omp_this%edge_21_block)  +  &
-            &  vn_e(omp_this%edge_22_index, level, omp_this%edge_22_block) * coeffs(je, level, blockNo, 5)             &
-            &  * patch_3d%p_patch_1d(1)%prism_thick_e(omp_this%edge_22_index, level, omp_this%edge_22_block)  +   &
-            &  vn_e(omp_this%edge_23_index, level, omp_this%edge_23_block) * coeffs(je, level, blockNo, 6)             &
-            & * patch_3d%p_patch_1d(1)%prism_thick_e(omp_this%edge_23_index, level, omp_this%edge_23_block)       &
-            & ) * scalar(omp_this%cell_2_index, level, omp_this%cell_2_block)
+            & (  vn_e(edge_21_index, level, edge_21_block) * coeffs(je, level, blockNo, 4)           &
+            &   * patch_3d%p_patch_1d(1)%prism_thick_e(edge_21_index, level, edge_21_block)  +  &
+            &  vn_e(edge_22_index, level, edge_22_block) * coeffs(je, level, blockNo, 5)             &
+            &  * patch_3d%p_patch_1d(1)%prism_thick_e(edge_22_index, level, edge_22_block)  +   &
+            &  vn_e(edge_23_index, level, edge_23_block) * coeffs(je, level, blockNo, 6)             &
+            & * patch_3d%p_patch_1d(1)%prism_thick_e(edge_23_index, level, edge_23_block)       &
+            & ) * scalar(cell_2_index, level, cell_2_block)
           
         END DO !levels
         
@@ -1282,22 +1290,22 @@ CONTAINS
     INTEGER :: edge_2_1_index, edge_2_2_index, edge_2_3_index
     INTEGER :: edge_1_1_block, edge_1_2_block, edge_1_3_block
     INTEGER :: edge_2_1_block, edge_2_2_block, edge_2_3_block
-    INTEGER :: je, blockNo, start_edge_index, end_edge_index
+    INTEGER :: je, blockNo, start_edge_index, end_edge_index, level
     
     REAL(wp), POINTER :: all_coeffs(:,:,:)
     
     TYPE(t_subset_range), POINTER :: edges_indomain
     TYPE(t_patch), POINTER :: patch_2d
     !-----------------------------------------------------------------------
-    IF (no_primal_edges /= 3) &
-      & CALL finish ('map_edges2edges_viacell triangle version', 'no_primal_edges /= 3')
+!     IF (no_primal_edges /= 3) &
+!       & CALL finish ('map_edges2edges_viacell triangle version', 'no_primal_edges /= 3')
     !-----------------------------------------------------------------------
     patch_2d   => patch_3d%p_patch_2d(1)
     edges_indomain    => patch_2d%edges%in_domain
     all_coeffs        => operators_coefficients%edge2edge_viacell_coeff_all
     
-!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, je, cell_1_index, cell_1_block, &
-!ICON_OMP   cell_2_index, cell_2_block, edge_1_1_index, edge_1_2_index, edge_1_3_index, &
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, je, level, cell_1_index, cell_1_block, &
+!ICON_OMP  cell_2_index, cell_2_block, edge_1_1_index, edge_1_2_index, edge_1_3_index, &
 !ICON_OMP  edge_1_1_block, edge_1_2_block, edge_1_3_block, edge_2_1_index, edge_2_2_index, &
 !ICON_OMP  edge_2_3_index, edge_2_1_block, edge_2_2_block, edge_2_3_block)  ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_indomain%start_block, edges_indomain%end_block
@@ -1307,7 +1315,8 @@ CONTAINS
         
         out_vn_e(je,blockNo) = 0.0_wp
         
-        IF (patch_3d%lsm_e(je,1,blockNo) == sea) THEN ! this if should be removed
+        DO level = 1, MIN(1,patch_3d%p_patch_1d(1)%dolic_e(je,blockNo))
+!         IF (patch_3d%lsm_e(je,1,blockNo) == sea) THEN ! this if should be removed
           
           ! get the two cells of the edge
           cell_1_index = patch_2d%edges%cell_idx(je,blockNo,1)
@@ -1337,7 +1346,7 @@ CONTAINS
             & in_vn_e(edge_2_2_index, edge_2_2_block) * all_coeffs(5, je, blockNo) + &
             & in_vn_e(edge_2_3_index, edge_2_3_block) * all_coeffs(6, je, blockNo)
           
-        ENDIF
+        END DO
       END DO
     END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
 !ICON_OMP_END_PARALLEL_DO
@@ -1359,22 +1368,22 @@ CONTAINS
     INTEGER :: edge_2_1_index, edge_2_2_index, edge_2_3_index
     INTEGER :: edge_1_1_block, edge_1_2_block, edge_1_3_block
     INTEGER :: edge_2_1_block, edge_2_2_block, edge_2_3_block
-    INTEGER :: je, blockNo, start_edge_index, end_edge_index
+    INTEGER :: je, blockNo, start_edge_index, end_edge_index, level
 
     REAL(sp), POINTER :: all_coeffs(:,:,:)
 
     TYPE(t_subset_range), POINTER :: edges_indomain
     TYPE(t_patch), POINTER :: patch_2d
     !-----------------------------------------------------------------------
-    IF (no_primal_edges /= 3) &
-      & CALL finish ('map_edges2edges_viacell triangle version', 'no_primal_edges /= 3')
+!     IF (no_primal_edges /= 3) &
+!       & CALL finish ('map_edges2edges_viacell triangle version', 'no_primal_edges /= 3')
     !-----------------------------------------------------------------------
     patch_2d   => patch_3d%p_patch_2d(1)
     edges_indomain    => patch_2d%edges%in_domain
     all_coeffs        => operators_coefficients%edge2edge_viacell_coeff_all
     
-!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, je, cell_1_index, cell_1_block, &
-!ICON_OMP   cell_2_index, cell_2_block, edge_1_1_index, edge_1_2_index, edge_1_3_index, &
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, je, level, cell_1_index, cell_1_block, &
+!ICON_OMP  cell_2_index, cell_2_block, edge_1_1_index, edge_1_2_index, edge_1_3_index, &
 !ICON_OMP  edge_1_1_block, edge_1_2_block, edge_1_3_block, edge_2_1_index, edge_2_2_index, &
 !ICON_OMP  edge_2_3_index, edge_2_1_block, edge_2_2_block, edge_2_3_block)  ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_indomain%start_block, edges_indomain%end_block
@@ -1384,7 +1393,7 @@ CONTAINS
 
         out_vn_e(je,blockNo) = 0.0_wp
 
-        IF (patch_3d%lsm_e(je,1,blockNo) == sea) THEN ! this if should be removed
+        DO level = 1, MIN(1,patch_3d%p_patch_1d(1)%dolic_e(je,blockNo))
 
           ! get the two cells of the edge
           cell_1_index = patch_2d%edges%cell_idx(je,blockNo,1)
@@ -1414,7 +1423,7 @@ CONTAINS
             & in_vn_e(edge_2_2_index, edge_2_2_block) * all_coeffs(5, je, blockNo) + &
             & in_vn_e(edge_2_3_index, edge_2_3_block) * all_coeffs(6, je, blockNo)
 
-        ENDIF
+        ENDDO
       END DO
     END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
 !ICON_OMP_END_PARALLEL_DO
@@ -1444,10 +1453,10 @@ CONTAINS
     
     patch_2d   => patch_3d%p_patch_2d(1)
     !-----------------------------------------------------------------------
-     IF ( patch_2d%cells%max_connectivity == 3 .and. fast_performance_level > 10 ) THEN
-       CALL map_edges2edges_viacell_2D_per_level_onTriangles( patch_3d, vn_e, operators_coefficients, out_vn_e, level)!&   subset_range)
-       RETURN
-    ENDIF
+!     IF ( patch_2d%cells%max_connectivity == 3 .and. fast_performance_level > 10 ) THEN
+!       CALL map_edges2edges_viacell_2D_per_level_onTriangles( patch_3d, vn_e, operators_coefficients, out_vn_e, level)!&   subset_range)
+!       RETURN
+!     ENDIF
     !-----------------------------------------------------------------------
     
     edges_inDomain => patch_2d%edges%in_domain
@@ -1566,27 +1575,26 @@ CONTAINS
           out_vn_e(je,blockNo) = &
             & in_vn_e(edge_1_1_index, edge_1_1_block) * all_coeffs(1, je, blockNo)       &
             !&*(patch_3d%p_patch_1d(1)%prism_thick_e(edge_1_1_index,level, edge_1_1_block)& 
-            &/(patch_3d%p_patch_1d(1)%prism_thick_c(cell_1_index,level,cell_1_block))     &
+            & * patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_1_index,level,cell_1_block)     &
             &+ &
             & in_vn_e(edge_1_2_index, edge_1_2_block) * all_coeffs(2, je, blockNo)       &
             !&*(patch_3d%p_patch_1d(1)%prism_thick_e(edge_1_2_index,level, edge_1_2_block)&
-            &/(patch_3d%p_patch_1d(1)%prism_thick_c(cell_1_index,level,cell_1_block))     &
+            & * patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_1_index,level,cell_1_block)     &
             &+ &
             & in_vn_e(edge_1_3_index, edge_1_3_block) * all_coeffs(3, je, blockNo)       &
             !&*(patch_3d%p_patch_1d(1)%prism_thick_e(edge_1_3_index,level, edge_1_3_block)&
-            &/(patch_3d%p_patch_1d(1)%prism_thick_c(cell_1_index,level,cell_1_block))     &
+            & * patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_1_index,level,cell_1_block)     &
             &+ &
             & in_vn_e(edge_2_1_index, edge_2_1_block) * all_coeffs(4, je, blockNo)       &
-			!*(patch_3d%p_patch_1d(1)%prism_thick_e(edge_2_1_index,level, edge_2_1_block) &
-            &/(patch_3d%p_patch_1d(1)%prism_thick_c(cell_2_index,level,cell_2_block))     &
+            & * patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_2_index,level,cell_2_block)     &
             &+ &
             & in_vn_e(edge_2_2_index, edge_2_2_block) * all_coeffs(5, je, blockNo)       &
             !&*(patch_3d%p_patch_1d(1)%prism_thick_e(edge_2_2_index,level, edge_2_2_block)&
-            &/(patch_3d%p_patch_1d(1)%prism_thick_c(cell_2_index,level,cell_2_block))     &
+            & * patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_2_index,level,cell_2_block)     &
             &+ &
             & in_vn_e(edge_2_3_index, edge_2_3_block) * all_coeffs(6, je, blockNo)       &
             !&*(patch_3d%p_patch_1d(1)%prism_thick_e(edge_2_3_index,level, edge_2_3_block)&
-            &/(patch_3d%p_patch_1d(1)%prism_thick_c(cell_2_index,level,cell_2_block))     
+            & * patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_2_index,level,cell_2_block)     
           
         ENDIF
       END DO
@@ -1661,26 +1669,26 @@ CONTAINS
           out_vn_e(je,blockNo) = &
             & in_vn_e(edge_1_1_index, edge_1_1_block) * all_coeffs(1, je, blockNo)       &
             !&*(patch_3d%p_patch_1d(1)%prism_thick_e(edge_1_1_index,level, edge_1_1_block)& 
-            &/(patch_3d%p_patch_1d(1)%prism_thick_c(cell_1_index,level,cell_1_block))     &
+            &* (patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_1_index,level,cell_1_block))     &
             &+ &
             & in_vn_e(edge_1_2_index, edge_1_2_block) * all_coeffs(2, je, blockNo)       &
             !&*(patch_3d%p_patch_1d(1)%prism_thick_e(edge_1_2_index,level, edge_1_2_block)&
-            &/(patch_3d%p_patch_1d(1)%prism_thick_c(cell_1_index,level,cell_1_block))     &
+            & * (patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_1_index,level,cell_1_block))     &
             &+ &
             & in_vn_e(edge_1_3_index, edge_1_3_block) * all_coeffs(3, je, blockNo)       &
             !&*(patch_3d%p_patch_1d(1)%prism_thick_e(edge_1_3_index,level, edge_1_3_block)&
-            &/(patch_3d%p_patch_1d(1)%prism_thick_c(cell_1_index,level,cell_1_block))     &
+            & * (patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_1_index,level,cell_1_block))     &
             &+ &
             & in_vn_e(edge_2_1_index, edge_2_1_block) * all_coeffs(4, je, blockNo)       &
-            &/(patch_3d%p_patch_1d(1)%prism_thick_c(cell_2_index,level,cell_2_block))     &
+            & * (patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_2_index,level,cell_2_block))     &
             &+ &
             & in_vn_e(edge_2_2_index, edge_2_2_block) * all_coeffs(5, je, blockNo)       &
             !&*(patch_3d%p_patch_1d(1)%prism_thick_e(edge_2_2_index,level, edge_2_2_block)&
-            &/(patch_3d%p_patch_1d(1)%prism_thick_c(cell_2_index,level,cell_2_block))     &
+            &/(patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_2_index,level,cell_2_block))     &
             &+ &
             & in_vn_e(edge_2_3_index, edge_2_3_block) * all_coeffs(6, je, blockNo)       &
             !&*(patch_3d%p_patch_1d(1)%prism_thick_e(edge_2_3_index,level, edge_2_3_block)&
-            &/(patch_3d%p_patch_1d(1)%prism_thick_c(cell_2_index,level,cell_2_block))     
+            & * (patch_3d%p_patch_1d(1)%inv_prism_thick_c(cell_2_index,level,cell_2_block))     
           
         ENDIF
       END DO
@@ -2033,25 +2041,17 @@ CONTAINS
 !ICON_OMP prism_center_distance,prism_thick) ICON_OMP_DEFAULT_SCHEDULE     
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
     
-      ! this includes the height
-      !prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)   
-      ! this does not include the height
-      !prism_thick => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
       scalar_top(:,:,blockNo) = 0.0_wp
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       DO cell_index = start_cell_index, end_cell_index
-!        dolic  = patch_3D%p_patch_1d(1)%dolic_c(cell_index,blockNo)
-!        IF ( dolic >=min_dolic ) THEN
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_c(cell_index,blockNo)-1
           scalar_top(cell_index,level+1,blockNo) &
           & = 0.5_wp*( scalar_center(cell_index,level,blockNo)    &
           & +          scalar_center(cell_index,level+1,blockNo))              
         END DO
-!       ENDIF
       END DO
     END DO
 !ICON_OMP_END_PARALLEL_DO
-   !CALL sync_patch_array(sync_c, patch_2D, scalar_top)
 
   END SUBROUTINE map_scalar_center2prismtop
   !-------------------------------------------------------------------------

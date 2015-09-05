@@ -67,11 +67,10 @@ MODULE mo_ocean_math_operators
   PUBLIC :: verticalDeriv_scalar_midlevel_on_block
   PUBLIC :: verticalDiv_scalar_midlevel
   PUBLIC :: verticalDiv_scalar_midlevel_on_block
-  PUBLIC :: calculate_thickness
   PUBLIC :: map_edges2vert_3D
   PUBLIC :: check_cfl_horizontal, check_cfl_vertical
   PUBLIC :: smooth_onCells
-  PUBLIC :: update_thickness_dependent_operator_coeff
+  PUBLIC :: update_height_depdendent_variables, calculate_thickness
   
   
   INTERFACE div_oce_3D
@@ -987,13 +986,13 @@ CONTAINS
 !     INTEGER :: end_level
     !-------------------------------------------------------------------------------
     !inv_prism_center_distance => patch_3D%p_patch_1D(1)%inv_prism_center_dist_c  (:,:,blockNo)
-    inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(:,:,blockNo)	
+    inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(:,:,blockNo)
 
     DO jc = start_index, end_index
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
           vertDeriv_scalar(jc,jk) &
           & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & 
-              & * inv_prism_center_distance(jc,jk)
+              & * inv_prism_center_distance(jc,jk+1)
 
         END DO
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed
@@ -1070,7 +1069,7 @@ CONTAINS
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
           vertDiv_scalar(jc,jk) &
           & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & !/ prism_center_distance(jc,jk)
-              & * patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,blockNo)
+              & * patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk+1,blockNo)
 
         END DO
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed
@@ -1309,6 +1308,23 @@ CONTAINS
   END SUBROUTINE smooth_onCells_2D
   !-------------------------------------------------------------------------
 
+  !---------------------------------------------------------------------------------
+  !>
+!<Optimize:inUse>
+  SUBROUTINE update_height_depdendent_variables( patch_3D, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
+    TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
+    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
+    TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
+    TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
+    TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
+    
+    CALL calculate_thickness( patch_3D, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
+    CALL update_thickness_dependent_operator_coeff( patch_3D, ocean_state, &
+	    & operators_coefficients, solvercoeff_sp )
+    
+  END SUBROUTINE update_height_depdendent_variables
+  !---------------------------------------------------------------------------------
+    
  
   !---------------------------------------------------------------------------------
   !>
@@ -1322,17 +1338,9 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE calculate_thickness( patch_3D, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp, inTopCellThickness)
-    !SUBROUTINE calculate_thickness( p_patch_3D, ocean_state, p_ext_data, ice_hi)
-    !
-    ! patch_2D on which computation is performed
     TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
-    !
-    ! Type containing ocean state
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    !
-    ! Type containing external data
     TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
-    !REAL(wp), INTENT(IN)                      :: ice_hi(nproma,1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
     REAL(wp), OPTIONAL :: inTopCellThickness(:,:)
@@ -1355,14 +1363,10 @@ CONTAINS
     INTEGER :: edge_2_1_block, edge_2_2_block, edge_2_3_block
     
     REAL(wp) :: top_vn_1, top_vn_2, integrated_vn
-    REAL(wp), POINTER :: top_coeffs(:,:,:), integrated_coeffs(:,:,:), sum_to_2D_coeffs(:,:,:)
     REAL(wp), POINTER :: cell_thickness(:,:,:), edge_thickness(:,:,:)
     REAL(wp), POINTER :: inv_cell_thickness(:,:,:), inv_edge_thickness(:,:,:)
     REAL(wp), POINTER :: inv_prisms_center_distance(:,:,:), inv_edgefaces_middle_distance(:,:,:)
     REAL(wp)  :: cell_thickness_1, cell_thickness_2
-    !-------------------------------------------------------------------------------
-    ! pointers for the ppm vertical transport
-    TYPE(t_verticaladvection_ppm_coefficients), POINTER :: vertadvppm
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     patch_2D            => patch_3D%p_patch_2D(1)
@@ -1375,11 +1379,7 @@ CONTAINS
     edge_thickness     => patch_3D%p_patch_1d(1)%prism_thick_e
     inv_edge_thickness => patch_3D%p_patch_1d(1)%inv_prism_thick_e
     inv_edgefaces_middle_distance => patch_3D%p_patch_1d(1)%inv_prism_center_dist_e
-    
-    
-    ! already done after update fluxes
-    !    CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_prog(nold(1))%h)
-    
+        
     !Step 1: calculate cell-located variables for 2D and 3D case
     !For 3D and for SWE thick_c contains thickness of fluid column
 
@@ -1388,7 +1388,7 @@ CONTAINS
     !not updated it is initialized in construct_hydro_ocean_diag
     !with z-coordinate-thickness.
     !1) Thickness at cells
-!ICON_OMP_PARALLEL PRIVATE(top_coeffs, integrated_coeffs, sum_to_2D_coeffs)
+!ICON_OMP_PARALLEL
     IF (PRESENT(inTopCellThickness)) THEN
 !ICON_OMP_DO PRIVATE(cell_StartIndex, cell_EndIndex, jc) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = all_cells%start_block, all_cells%end_block
@@ -1414,44 +1414,47 @@ CONTAINS
         END DO
       END DO
 !ICON_OMP_END_DO
-
     ENDIF
+    
     IF ( iswm_oce /= 1 ) THEN  !  3D case      
 !ICON_OMP_DO PRIVATE(cell_StartIndex, cell_EndIndex, jc, level) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, blockNo, cell_StartIndex, cell_EndIndex)
-      DO jc = cell_StartIndex, cell_EndIndex
-        IF ( patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) > 0 ) THEN
+      DO blockNo = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, blockNo, cell_StartIndex, cell_EndIndex)
+        DO jc = cell_StartIndex, cell_EndIndex
+          IF ( patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) > 0 ) THEN
+
+            ! this is located at half levels, the distance between 1,2 cells is assigned to the 2 level
+            patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo) = 0.5_wp * &
+              & (cell_thickness(jc,1,blockNo) + cell_thickness(jc,2,blockNo))
+            
+            patch_3D%p_patch_1d(1)%prism_volume(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * &
+              & patch_2D%cells%area(jc,blockNo)
+            
+            inv_cell_thickness(jc,1,blockNo) = 1.0_wp / cell_thickness(jc,1,blockNo)
+            
+            ! this is located at half levels, the distance between 1,2 cells is assigned to the 2 level
+            inv_prisms_center_distance(jc,2,blockNo) = &
+              & 1.0_wp / patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,2,blockNo)
+            
+            ocean_state%p_diag%thick_c(jc,blockNo) = ocean_state%p_prog(nold(1))%h(jc,blockNo) + patch_3D%column_thick_c(jc,blockNo)
+            
+            patch_3D%p_patch_1d(1)%depth_cellmiddle(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * 0.5_wp
+            patch_3D%p_patch_1d(1)%depth_cellinterface(jc,2,blockNo) = cell_thickness(jc,1,blockNo)
           
-          patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,1,blockNo) = 0.5_wp * &
-            & (cell_thickness(jc,1,blockNo) + cell_thickness(jc,2,blockNo))
-          
-          patch_3D%p_patch_1d(1)%prism_volume(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * &
-            & patch_2D%cells%area(jc,blockNo)
-          
-          inv_cell_thickness(jc,1,blockNo) = 1.0_wp / cell_thickness(jc,1,blockNo)
-          
-          inv_prisms_center_distance(jc,1,blockNo) = &
-            & 1.0_wp / patch_3D%p_patch_1d(1)%prism_center_dist_c(jc,1,blockNo)
-          
-          ocean_state%p_diag%thick_c(jc,blockNo) = ocean_state%p_prog(nold(1))%h(jc,blockNo) + patch_3D%column_thick_c(jc,blockNo)
-          
-          patch_3D%p_patch_1d(1)%depth_cellmiddle(jc,1,blockNo) = cell_thickness(jc,1,blockNo) * 0.5_wp
-          patch_3D%p_patch_1d(1)%depth_cellinterface(jc,2,blockNo) = cell_thickness(jc,1,blockNo)
-          
-        ENDIF
+            DO level=2, patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
+              patch_3D%p_patch_1d(1)%depth_cellmiddle(jc,level,blockNo) = &
+                & patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level,blockNo) + cell_thickness(jc,level,blockNo) * 0.5_wp
+              patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level+1,blockNo) = &
+                & patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level,blockNo) + cell_thickness(jc,level,blockNo)
+            ENDDO
+            
+          ENDIF
         
-        DO level=2, patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
-          patch_3D%p_patch_1d(1)%depth_cellmiddle(jc,level,blockNo) = &
-            & patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level,blockNo) + cell_thickness(jc,level,blockNo) * 0.5_wp
-          patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level+1,blockNo) = &
-            & patch_3D%p_patch_1d(1)%depth_cellinterface(jc,level,blockNo) + cell_thickness(jc,level,blockNo)
-        ENDDO
-        
+        END DO
       END DO
-    END DO
 !ICON_OMP_END_DO
     ENDIF
+    
     !----------------------------------------------------------------------------------------
     IF ( iswm_oce == 1 ) THEN  !  SWM
 !ICON_OMP_DO PRIVATE(cell_StartIndex, cell_EndIndex, jc) ICON_OMP_DEFAULT_SCHEDULE
@@ -1471,12 +1474,12 @@ CONTAINS
           ENDIF
         END DO
       END DO!write(*,*)'bathymetry',maxval(p_ext_data%oce%bathymetry_c),minval(p_ext_data%oce%bathymetry_c)
+!ICON_OMP_END_DO
       !write(*,*)'bathymetry cell',&
       !&maxval(p_ext_data%oce%bathymetry_c),minval(p_ext_data%oce%bathymetry_c),&
       !&maxval(ocean_state%p_diag%thick_c),minval(ocean_state%p_diag%thick_c),&
       !&maxval(ocean_state%p_prog(nold(1))%h),minval(ocean_state%p_prog(nold(1))%h)
       
-!ICON_OMP_END_DO
       
       !Step 2: calculate edge-located variables for 2D and 3D case from respective cell variables
       !For SWE : thick_e = thickness of fluid column at edges
@@ -1511,10 +1514,10 @@ CONTAINS
           ENDIF
         END DO
       END DO
+!ICON_OMP_END_DO
       !write(*,*)'bathymetry edge',&
       !&maxval(ocean_state%p_diag%thick_e),minval(ocean_state%p_diag%thick_e),&
       !&maxval(ocean_state%p_diag%h_e),minval(ocean_state%p_diag%h_e)      
-!ICON_OMP_END_DO
 
 !ICON_OMP_MASTER
       CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%thick_e)
@@ -1568,8 +1571,9 @@ CONTAINS
 !             ocean_state%p_diag%h_e(je,blockNo) = ( z_dist_e_c1 * ocean_state%p_prog(nold(1))%h(il_c1,ib_c1)   &
 !               & +   z_dist_e_c2 * ocean_state%p_prog(nold(1))%h(il_c2,ib_c2) )                                &
 !               & /(z_dist_e_c1 + z_dist_e_c2)              
-            ocean_state%p_diag%h_e(je,blockNo) = ( 0.5_wp * ocean_state%p_prog(nold(1))%h(il_c1,ib_c1)   &
-              & +   0.5_wp * ocean_state%p_prog(nold(1))%h(il_c2,ib_c2) )
+            ocean_state%p_diag%h_e(je,blockNo) = 0.5_wp * &
+              & (ocean_state%p_prog(nold(1))%h(il_c1,ib_c1)   &
+              &  + ocean_state%p_prog(nold(1))%h(il_c2,ib_c2) )
             
           ENDIF
         END DO
@@ -1604,7 +1608,8 @@ CONTAINS
       END DO
 !ICON_OMP_END_DO
       !---------------------------------------------------------------------
-    ENDIF  ! shallow water model
+    ENDIF  ! shallow water model/3D model
+!ICON_OMP_END_PARALLEL
     
 !     !---------------------------------------------------------------------
 !     ! update the coefficients for the edge2edge_viacell_1D fast operator
@@ -1761,8 +1766,7 @@ CONTAINS
 ! !ICON_OMP_END_DO
 ! !ICON_OMP_END_PARALLEL
 !     !-------------------------------------------------------------------------
-    
-    
+        
     !---------Debug Diagnostics-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('heightRelQuant: h_e'    ,ocean_state%p_diag%h_e        ,str_module,idt_src, &
@@ -1796,15 +1800,9 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE update_thickness_dependent_operator_coeff( patch_3D, ocean_state, &
-	  &operators_coefficients, solvercoeff_sp, inTopCellThickness)
-    !SUBROUTINE calculate_thickness( p_patch_3D, ocean_state, p_ext_data, ice_hi)
-    !
-    ! patch_2D on which computation is performed
+	  & operators_coefficients, solvercoeff_sp, inTopCellThickness)
     TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
-    !
-    ! Type containing ocean state
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-    !
     TYPE(t_operator_coeff), INTENT(in)      :: operators_coefficients
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
     REAL(wp), OPTIONAL :: inTopCellThickness(:,:)
@@ -1851,6 +1849,7 @@ CONTAINS
     
     !---------------------------------------------------------------------
     ! update the coefficients for the edge2edge_viacell_1D fast operator
+!ICON_OMP_PARALLEL PRIVATE(top_coeffs, integrated_coeffs, sum_to_2D_coeffs)
     top_coeffs        => operators_coefficients%edge2edge_viacell_coeff_top
     integrated_coeffs => operators_coefficients%edge2edge_viacell_coeff_integrated
     sum_to_2D_coeffs  => operators_coefficients%edge2edge_viacell_coeff_all

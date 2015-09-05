@@ -83,6 +83,7 @@ CONTAINS
     
     ! update ocean state accumulated values
     CALL add_fields(ocean_state%p_acc%h     , ocean_state%p_prog(nnew(1))%h, cells)
+    CALL add_sqr_fields(ocean_state%p_acc%h_sqr , ocean_state%p_prog(nnew(1))%h, cells)
     CALL add_fields(ocean_state%p_acc%u     , ocean_state%p_diag%u         , cells)
     CALL add_fields(ocean_state%p_acc%v     , ocean_state%p_diag%v         , cells)
     CALL add_fields(ocean_state%p_acc%rhopot, ocean_state%p_diag%rhopot    , cells)
@@ -168,6 +169,7 @@ CONTAINS
 !ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE
     p_acc%h                         = p_acc%h                        /REAL(nsteps_since_last_output,wp)
+    p_acc%h_sqr                     = p_acc%h_sqr                    /REAL(nsteps_since_last_output,wp)
     p_acc%u                         = p_acc%u                        /REAL(nsteps_since_last_output,wp)
     p_acc%v                         = p_acc%v                        /REAL(nsteps_since_last_output,wp)
     p_acc%rhopot                    = p_acc%rhopot                   /REAL(nsteps_since_last_output,wp)
@@ -182,20 +184,16 @@ CONTAINS
     p_acc%k_veloc_h                 = p_acc%k_veloc_h                /REAL(nsteps_since_last_output)
     p_acc%a_veloc_v                 = p_acc%a_veloc_v                /REAL(nsteps_since_last_output)
 !ICON_OMP_END_WORKSHARE
-!ICON_OMP_END_PARALLEL
     
     IF(no_tracer>0)THEN
-!ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE
       p_acc%tracer                    = p_acc%tracer                   /REAL(nsteps_since_last_output,wp)
       p_acc%k_tracer_h                = p_acc%k_tracer_h               /REAL(nsteps_since_last_output)
       p_acc%a_tracer_v                = p_acc%a_tracer_v               /REAL(nsteps_since_last_output)
 !ICON_OMP_END_WORKSHARE
-!ICON_OMP_END_PARALLEL
     ENDIF
       
     IF (iforc_oce > No_Forcing) THEN
-!ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE
       p_sfc_flx%topBoundCond_windStress_u_acc = p_sfc_flx%topBoundCond_windStress_u_acc/REAL(nsteps_since_last_output,wp)
       p_sfc_flx%topBoundCond_windStress_v_acc = p_sfc_flx%topBoundCond_windStress_v_acc/REAL(nsteps_since_last_output,wp)
@@ -216,16 +214,20 @@ CONTAINS
       p_sfc_flx%FrshFlux_VolumeTotal_acc      = p_sfc_flx%FrshFlux_VolumeTotal_acc     /REAL(nsteps_since_last_output,wp)
       p_sfc_flx%HeatFlux_Relax_acc            = p_sfc_flx%HeatFlux_Relax_acc           /REAL(nsteps_since_last_output,wp)
 !ICON_OMP_END_WORKSHARE
-!ICON_OMP_END_PARALLEL
 
-        IF(no_tracer>0)THEN
-          p_sfc_flx%data_surfRelax_Temp_acc     = p_sfc_flx%data_surfRelax_Temp_acc        /REAL(nsteps_since_last_output,wp)
-          p_sfc_flx%topBoundCond_Temp_vdiff_acc = p_sfc_flx%topBoundCond_Temp_vdiff_acc    /REAL(nsteps_since_last_output,wp)
-        ENDIF
-        IF(no_tracer>1)THEN
-          p_sfc_flx%topBoundCond_Salt_vdiff_acc = p_sfc_flx%topBoundCond_Salt_vdiff_acc    /REAL(nsteps_since_last_output,wp)
-        ENDIF
-      ENDIF ! iforc_oce > No_Forcing
+      IF(no_tracer>0)THEN
+!ICON_OMP_WORKSHARE
+        p_sfc_flx%data_surfRelax_Temp_acc     = p_sfc_flx%data_surfRelax_Temp_acc        /REAL(nsteps_since_last_output,wp)
+        p_sfc_flx%topBoundCond_Temp_vdiff_acc = p_sfc_flx%topBoundCond_Temp_vdiff_acc    /REAL(nsteps_since_last_output,wp)
+!ICON_OMP_END_WORKSHARE
+      ENDIF
+      IF(no_tracer>1)THEN
+!ICON_OMP_WORKSHARE
+        p_sfc_flx%topBoundCond_Salt_vdiff_acc = p_sfc_flx%topBoundCond_Salt_vdiff_acc    /REAL(nsteps_since_last_output,wp)
+!ICON_OMP_END_WORKSHARE
+      ENDIF
+    ENDIF ! iforc_oce > No_Forcing
+!ICON_OMP_END_PARALLEL
       
   END SUBROUTINE compute_mean_ocean_statistics
   !---------------------------------------------------------------------
@@ -241,6 +243,7 @@ CONTAINS
     IF (PRESENT(nsteps_since_last_output)) nsteps_since_last_output        = 0
     
     p_acc%h                         = 0.0_wp
+    p_acc%h_sqr                     = 0.0_wp
     p_acc%u                         = 0.0_wp
     p_acc%v                         = 0.0_wp
     p_acc%rhopot                    = 0.0_wp

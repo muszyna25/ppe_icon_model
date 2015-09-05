@@ -213,7 +213,6 @@ MODULE mo_ocean_model
       CASE (0)  !  ocean model
         CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
           & ext_data, start_datetime,                     &
-          & (nsteps == INT(time_config%dt_restart/dtime)),&
           & v_sfc_flx, v_oce_sfc,                         &
           & v_params, p_as, atmos_fluxes,v_sea_ice,            &
           & operators_coefficients,                       &

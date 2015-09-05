@@ -41,7 +41,7 @@ MODULE mo_ocean_testbed
   USE mo_ocean_testbed_operators,   ONLY: ocean_test_operators
   USE mo_ocean_testbed_read,        ONLY: ocean_test_read
   USE mo_ocean_testbed_quads,       ONLY: ocean_test_quads
-  USE mo_ocean_math_operators,      ONLY: calculate_thickness, update_thickness_dependent_operator_coeff
+  USE mo_ocean_math_operators,      ONLY: update_height_depdendent_variables
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -78,8 +78,7 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_testbed"
 
-    CALL calculate_thickness( patch_3D, ocean_state(1), external_data(1), operators_coefficients, solverCoeff_sp)
-    CALL update_thickness_dependent_operator_coeff( patch_3D, ocean_state(1), operators_coefficients, solverCoeff_sp)
+    CALL update_height_depdendent_variables( patch_3D, ocean_state(1), external_data(1), operators_coefficients, solverCoeff_sp)
 	
     SELECT CASE (test_mode)
       CASE (1 : 99)  !  1 - 99 test ocean modules

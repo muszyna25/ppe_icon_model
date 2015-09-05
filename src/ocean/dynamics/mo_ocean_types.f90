@@ -228,6 +228,7 @@ MODULE mo_ocean_types
     REAL(wp), POINTER :: agulhas(:)
     REAL(wp), POINTER :: agulhas_long(:)
     REAL(wp), POINTER :: agulhas_longer(:)
+    REAL(wp), POINTER :: florida_strait(:) ! though flow                                               [Sv]
     ! }}}
     REAL(wp), POINTER :: t_mean_na_200m(:) !                                                        [degC]
     REAL(wp), POINTER :: t_mean_na_800m(:) !                                                        [degC]
@@ -290,10 +291,10 @@ MODULE mo_ocean_types
     ! dimension: (nproma, n_zlev, nblks_v)
       & vort_e(:,:,:)         ,& ! vorticity interpolated to triangle edges. Unit [1/s]
     ! dimension: (nproma, n_zlev, nblks_e)
-      & potential_vort_e(:,:,:)         ,& ! potential vorticity at triangle edges. Unit [1/s]
-    ! dimension: (nproma, n_zlev, nblks_e)
-      & potential_vort_c(:,:,:)         ,& ! potential vorticity averaged to triangle cells. Unit [1/s]
-    ! dimension: (nproma, n_zlev, nblks_c)
+!       & potential_vort_e(:,:,:)         ,& ! potential vorticity at triangle edges. Unit [1/s]
+!     ! dimension: (nproma, n_zlev, nblks_e)
+!       & potential_vort_c(:,:,:)         ,& ! potential vorticity averaged to triangle cells. Unit [1/s]
+!     ! dimension: (nproma, n_zlev, nblks_c)
       & kin(:,:,:)            ,& ! kinetic energy. Unit [m/s].
     ! (nproma, n_zlev, alloc_cell_blocks)
       & mld(:,:)              ,& ! mixed layer depth [m].
@@ -315,7 +316,7 @@ MODULE mo_ocean_types
       & press_grad(:,:,:)     ,& ! hydrostatic pressure gradient term. Unit [m/s]
     ! dimension: (nproma, n_zlev, nblks_e)
       & temp_insitu(:,:,:)    ,&
-      & temp_horizontally_diffused(:,:,:)    ,&
+!       & temp_horizontally_diffused(:,:,:)    ,&
       
       & cfl_vert(:,:,:), cfl_horz(:,:,:),& ! vertical and horizontal cfl values    
       & GMRedi_flux_horz(:,:,:,:),& ! dimension: (nproma,n_zlev, nblks_e)
@@ -422,6 +423,7 @@ MODULE mo_ocean_types
   TYPE t_hydro_ocean_acc
     REAL(wp), POINTER :: &
       & h(:,:)                  ,&
+      & h_sqr(:,:)              ,&
       & u(:,:,:)                ,&
       & v(:,:,:)                ,&
       & w(:,:,:)                ,& ! vertical velocity. Unit [m/s].

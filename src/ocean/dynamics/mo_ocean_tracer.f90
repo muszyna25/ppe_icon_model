@@ -203,10 +203,9 @@ CONTAINS
     !!Commented out because of NAG-compiler, PK
     !TODO review IF statements concerning tracer transport
 
-    IF (debug_check_level > 5) THEN
+    IF (debug_check_level > 2) THEN
       IF (no_tracer>=1) THEN
         DO level = 1, n_zlev
-
 
           minmaxmean(:) = global_minmaxmean(values = p_os%p_prog(nnew(1))%tracer(:,level,:,1), &
             & in_subset=cells_in_domain)

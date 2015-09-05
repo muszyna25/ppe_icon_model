@@ -173,9 +173,10 @@ CONTAINS
     REAL(wp) :: z_lower_bound_diff, C_MPIOM
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
     REAL(wp) :: points_in_munk_layer
-    REAL(wp) :: minmaxmean_length(3), k_veloc_factor
+    REAL(wp) :: minmaxmean_length(3), reference_scale
     REAL(wp) :: minDualEdgeLength, minEdgeLength, meanDualEdgeLength, meanEdgeLength
     REAL(wp) :: maxDualEdgeLength, maxEdgeLength
+    REAL(wp) :: minCellArea, meanCellArea, maxCellArea
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp):: length_scale, dual_length_scale
@@ -210,7 +211,10 @@ CONTAINS
     minEdgeLength = minmaxmean_length(1)
     meanEdgeLength = minmaxmean_length(3)
     maxEdgeLength = minmaxmean_length(2)
-
+    minmaxmean_length = global_minmaxmean(patch_2D%cells%area, patch_2D%cells%owned)
+    minCellArea = minmaxmean_length(1)
+    meanCellArea = minmaxmean_length(3)
+    maxCellArea = minmaxmean_length(2)
 
     !Distinghuish between harmonic and biharmonic laplacian
     !Harmonic laplacian
@@ -316,7 +320,6 @@ CONTAINS
           
       CASE(5)
         ! Simple scaling of the constant diffusion
-        ! by the ratio of the dual_edge_length / mein_dual_edge_length
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, start_index, end_index)
           p_phys_param%k_veloc_h(:,:,jb) = 0.0_wp
@@ -331,6 +334,29 @@ CONTAINS
 !            length_scale = length_scale**2 * (1.0_wp + length_scale) * 0.5_wp
             length_scale = length_scale**3
             
+            DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
+              p_phys_param%k_veloc_h(je,jk,jb) = &
+                & p_phys_param%k_veloc_h_back * &
+                & (1.0_wp - HorizontalViscosity_ScaleWeight &
+                &  +  HorizontalViscosity_ScaleWeight * length_scale)
+            END DO
+              
+          END DO
+        END DO
+        
+      CASE(6)
+        ! Simple scaling of the constant diffusion
+        reference_scale = 4.0_wp / (3.0_wp * maxEdgeLength * maxCellArea)
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, start_index, end_index)
+          p_phys_param%k_veloc_h(:,:,jb) = 0.0_wp
+          DO je = start_index, end_index
+            
+            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength 
+            length_scale = &
+              & patch_2D%edges%primal_edge_length(je,jb)**2 * patch_2D%edges%dual_edge_length(je,jb) &
+              & * reference_scale
+                                   
             DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
               p_phys_param%k_veloc_h(je,jk,jb) = &
                 & p_phys_param%k_veloc_h_back * &
