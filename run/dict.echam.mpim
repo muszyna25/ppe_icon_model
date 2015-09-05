@@ -125,41 +125,41 @@
 #off#  con_dtrl           con_dtrl_m
 #off#  con_dtri           con_dtri_m
 #off#  con_iteqv          con_iteqv_m
-#off##
-#off## tendencies from the ECHAM6 physics with prefix 'tend'
-#off## ---------------------------------------------------
-#off##
-#off## temperature:
-#off#  tend_ta            tend_ta_m
-#off#  tend_ta_dyn        tend_ta_dyn_m
-#off#  tend_ta_phy        tend_ta_phy_m
-#off#  tend_ta_rlw        tend_ta_rlw_m
-#off#  tend_ta_rlw_impl   tend_ta_rlw_impl_m
-#off#  tend_ta_rsw        tend_ta_rsw_m
-#off#  tend_ta_cld        tend_ta_cld_m
-#off#  tend_ta_cnv        tend_ta_cnv_m
-#off#  tend_ta_vdf        tend_ta_vdf_m
-#off#  tend_ta_gwh        tend_ta_gwh_m
-#off#  tend_ta_sso        tend_ta_sso_m
-#off##
-#off## u-wind:
-#off#  tend_ua            tend_ua_m
-#off#  tend_ua_dyn        tend_ua_dyn_m
-#off#  tend_ua_phy        tend_ua_phy_m
-#off#  tend_ua_cnv        tend_ua_cnv_m
-#off#  tend_ua_vdf        tend_ua_vdf_m
-#off#  tend_ua_gwh        tend_ua_gwh_m
-#off#  tend_ua_sso        tend_ua_sso_m
-#off##
-#off## v-wind:
-#off#  tend_va            tend_va_m
-#off#  tend_va_dyn        tend_va_dyn_m
-#off#  tend_va_phy        tend_va_phy_m
-#off#  tend_va_cnv        tend_va_cnv_m
-#off#  tend_va_vdf        tend_va_vdf_m
-#off#  tend_va_gwh        tend_va_gwh_m
-#off#  tend_va_sso        tend_va_sso_m
-#off##
+#
+# tendencies from the ECHAM6 physics with prefix 'tend'
+# ---------------------------------------------------
+#
+# temperature:
+  tend_ta            tend_ta_m
+  tend_ta_dyn        tend_ta_dyn_m
+  tend_ta_phy        tend_ta_phy_m
+  tend_ta_rlw        tend_ta_rlw_m
+  tend_ta_rlw_impl   tend_ta_rlw_impl_m
+  tend_ta_rsw        tend_ta_rsw_m
+  tend_ta_cld        tend_ta_cld_m
+  tend_ta_cnv        tend_ta_cnv_m
+  tend_ta_vdf        tend_ta_vdf_m
+  tend_ta_gwh        tend_ta_gwh_m
+  tend_ta_sso        tend_ta_sso_m
+#
+# u-wind:
+  tend_ua            tend_ua_m
+  tend_ua_dyn        tend_ua_dyn_m
+  tend_ua_phy        tend_ua_phy_m
+  tend_ua_cnv        tend_ua_cnv_m
+  tend_ua_vdf        tend_ua_vdf_m
+  tend_ua_gwh        tend_ua_gwh_m
+  tend_ua_sso        tend_ua_sso_m
+#
+# v-wind:
+  tend_va            tend_va_m
+  tend_va_dyn        tend_va_dyn_m
+  tend_va_phy        tend_va_phy_m
+  tend_va_cnv        tend_va_cnv_m
+  tend_va_vdf        tend_va_vdf_m
+  tend_va_gwh        tend_va_gwh_m
+  tend_va_sso        tend_va_sso_m
+#
 #off## specific humidity
 #off#  tend_hus           tend_hus_m
 #off#  tend_hus_dyn       tend_hus_dyn_m
