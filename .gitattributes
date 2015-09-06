@@ -1255,6 +1255,7 @@ scripts/prototypes/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text
 scripts/run_scripts/make_my_runscript -text
 scripts/run_scripts/make_nat-ape-dec_runs -text
+scripts/run_scripts/make_ocean_reference_data -text
 scripts/run_scripts/make_performance_runscripts -text
 scripts/run_scripts/run.rb -text
 scripts/run_scripts/sed_change_namelist -text
