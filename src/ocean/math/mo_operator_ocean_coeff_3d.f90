@@ -132,7 +132,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
             
               
-    CASE ( planar_channel_geometry )
+    CASE ( planar_channel_geometry,  planar_geometry)
     
       ! just a projection
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, this_index, level) ICON_OMP_DEFAULT_SCHEDULE
@@ -171,7 +171,7 @@ CONTAINS
       CALL cvec2gvec ( vector%x(1), vector%x(2), vector%x(3),     &
         & position_local%lon, position_local%lat, &
         & x, y)
-    CASE ( planar_channel_geometry )
+    CASE ( planar_channel_geometry, planar_geometry )
       ! just a projection
       x = vector%x(1)
       y = vector%x(2)
@@ -206,6 +206,8 @@ CONTAINS
       IF (ABS(d_vector%x(1)) > channel_x_modulo  * 0.5_wp) THEN
         d_vector%x(1) = SIGN(1.0_wp, d_vector%x(1)) * (ABS(d_vector%x(1)) - channel_x_modulo)
       ENDIF
+    CASE ( planar_geometry )
+      d_vector%x = y%x - x%x
     CASE DEFAULT
       CALL finish(method_name, "Undefined geometry type")
     END SELECT
@@ -286,7 +288,7 @@ CONTAINS
       CALL finish(method_name, "planar_torus_geometry is not implemented yet")
     CASE (sphere_geometry)
       z_vector%x = x%x !/ d_norma_3d(x)
-    CASE ( planar_channel_geometry )
+    CASE ( planar_channel_geometry, planar_geometry )
       z_vector%x = (/0.0_wp, 0.0_wp, 1.0_wp/)
     CASE DEFAULT
       CALL finish(method_name, "Undefined geometry type")
