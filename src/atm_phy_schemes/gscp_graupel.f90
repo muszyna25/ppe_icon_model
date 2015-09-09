@@ -251,8 +251,8 @@ LOGICAL, PARAMETER :: &
   lsedi_ice    = .TRUE. , &  ! switch for sedimentation of cloud ice (Heymsfield & Donner 1990 *1/3)
   lstickeff    = .TRUE. , &  ! switch for sticking coeff. (work from Guenther Zaengl)
   lsuper_coolw = .TRUE. , &  ! switch for supercooled liquid water (work from Felix Rieper)
-  lred_depgrow = .FALSE.     ! separate switch for reduced depositional growth near tops of water clouds
-                             ! (part of Felix' modifications for supercooled liquid water but not used in ICON)
+  lred_depgrow = .TRUE.      ! separate switch for reduced depositional growth near tops of water clouds
+                             ! (now also used in ICON after correcting the cloud top diagnosis)
 !------------------------------------------------------------------------------
 !> Parameters and variables which are global in this module
 !------------------------------------------------------------------------------
@@ -1198,7 +1198,7 @@ SUBROUTINE graupel     (             &
           znin = MIN(fxna_cooper(tg), znimax )
           fnuc = MIN(znin/znimix, 1.0_wp)
 
-          qcgk_1 = qc(iv,k-1)  !FUO : BUG ? this was out-of-bounds before MAX()
+          qcgk_1 = qc(iv,k-1) + qi(iv,k-1) + qs(iv,k-1)
 
           !! distance from cloud top
           IF( qcgk_1 .LT. zqmin ) THEN      ! upper cloud layer
