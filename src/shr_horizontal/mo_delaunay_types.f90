@@ -17,11 +17,13 @@
 
 MODULE mo_delaunay_types
 
-#ifndef NOMPI
+#if !defined(NOMPI)
 #if !defined (__SUNPRO_F95)
   USE MPI
 #endif
 #endif
+
+!$  USE OMP_LIB
 
   USE mo_exception,         ONLY: finish
   USE mo_impl_constants,    ONLY: SUCCESS
@@ -38,13 +40,21 @@ MODULE mo_delaunay_types
   PUBLIC :: OPERATOR(<), OPERATOR(/), OPERATOR(*), OPERATOR(==), OPERATOR(+)
   PUBLIC :: ccw_spherical, circum_circle_spherical
 
-#ifndef NOMPI
+#if !defined(NOMPI)
 #if defined (__SUNPRO_F95)
   INCLUDE "mpif.h"
 #endif
 #endif
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_delaunay_types'
+
+  ! quadruple precision, needed for some determinant computations
+#ifndef NAGFOR
+  INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (32)
+#else
+  INTEGER, PARAMETER :: QR_K = SELECTED_REAL_KIND (2*precision(1.0_wp))
+#endif
+
 
   ! --------------------------------------------------------------------
   ! OBJECT DECLARATIONS
@@ -134,7 +144,6 @@ MODULE mo_delaunay_types
   CONTAINS
     PROCEDURE :: swap       => swap_triangulation
     PROCEDURE :: cmp        => cmp_triangulation
-    PROCEDURE :: merge      => merge_triangulation
     PROCEDURE :: destructor => destructor_triangulation
     PROCEDURE :: reserve    => reserve_triangulation
     PROCEDURE :: resize     => resize_triangulation
@@ -155,6 +164,28 @@ MODULE mo_delaunay_types
   TYPE t_triptr
     TYPE(t_triangulation), POINTER :: ptr
   END TYPE t_triptr
+
+
+  ! --------------------------------------------------------------------
+  ! DATA TYPES FOR K-WAY MERGE ALGORITHM
+  ! --------------------------------------------------------------------
+
+  TYPE t_min_heap_elt
+    TYPE(t_triangle) :: p
+  END TYPE t_min_heap_elt
+
+  ! min heap node
+  TYPE t_min_heap_node
+    TYPE (t_min_heap_elt) :: elt ! element to be stored
+    INTEGER               :: i   ! array from which the element is taken
+    INTEGER               :: j   ! index of the next element to be picked 
+  END TYPE t_min_heap_node
+
+  TYPE t_min_heap
+    TYPE (t_min_heap_node), ALLOCATABLE :: harr(:)  ! array of elements in heap
+    INTEGER                             :: isize    ! size of min heap    
+  END TYPE t_min_heap
+
 
 
   ! --------------------------------------------------------------------
@@ -197,7 +228,6 @@ MODULE mo_delaunay_types
     MODULE PROCEDURE t_edge_equal
     MODULE PROCEDURE t_point_equal
     MODULE PROCEDURE t_triangle_equal
-    MODULE PROCEDURE t_mpi_triangle_equal
   END INTERFACE
 
   !> operator: subtraction of two points
@@ -224,7 +254,6 @@ MODULE mo_delaunay_types
   INTERFACE OPERATOR ( < )
     MODULE PROCEDURE t_point_cmp
     MODULE PROCEDURE t_triangle_cmp
-    MODULE PROCEDURE t_mpi_triangle_cmp
   END INTERFACE
 
 CONTAINS
@@ -247,7 +276,7 @@ CONTAINS
     TYPE (t_point_list), INTENT(IN)   :: pxyz
     INTEGER,             INTENT(IN)   :: ip(0:2)
     ! local variables
-    TYPE (t_point)              :: d1, d2, d3
+    REAL(wp) :: d1_x, d1_y, d1_z,d2_x, d2_y, d2_z,d3_x, d3_y, d3_z, d1, d2
 
     ! p lies above the plane of (p1,p3,p2) iff p2 lies above the plane
     ! of (p3,p1,p) iff Det(p2-p,p3-p,p1-p) = (p2-p,p3-p X p1-p) > 0.
@@ -255,16 +284,65 @@ CONTAINS
     ! det =      (pxyz%a(ip(1))%x - p%x)*(d3%y*d1%z - d1%y*d3%z) &
     !   &     -  (pxyz%a(ip(1))%y - p%y)*(d3%x*d1%z - d1%x*d3%z) &
     !   &     +  (pxyz%a(ip(1))%z - p%z)*(d3%x*d1%y - d1%x*d3%y)
-    d1 = pxyz%a(ip(0)) - p
-    d2 = pxyz%a(ip(1)) - p
-    d3 = pxyz%a(ip(2)) - p
-    IF ( d2%x*d3%y*d1%z  +  d2%y*d1%x*d3%z + d2%z*d3%x*d1%y &
-      > d2%y*d3%x*d1%z + d2%x*d1%y*d3%z + d2%z*d1%x*d3%y ) THEN 
-      circum_circle_spherical = .TRUE.
+    d1_x = pxyz%a(ip(0))%x - p%x
+    d1_y = pxyz%a(ip(0))%y - p%y
+    d1_z = pxyz%a(ip(0))%z - p%z
+    d2_x = pxyz%a(ip(1))%x - p%x
+    d2_y = pxyz%a(ip(1))%y - p%y
+    d2_z = pxyz%a(ip(1))%z - p%z
+    d3_x = pxyz%a(ip(2))%x - p%x
+    d3_y = pxyz%a(ip(2))%y - p%y
+    d3_z = pxyz%a(ip(2))%z - p%z
+
+    d1 = d2_x*d3_y*d1_z  +  d2_y*d1_x*d3_z + d2_z*d3_x*d1_y
+    d2 = d2_y*d3_x*d1_z + d2_x*d1_y*d3_z + d2_z*d1_x*d3_y 
+    IF (ABS(d1-d2) < 1.e-12_wp) THEN
+      circum_circle_spherical = circum_circle_spherical_q128(p, pxyz, ip)
     ELSE
-      circum_circle_spherical = .FALSE.
+      circum_circle_spherical = (d1 > d2)
     END IF
   END FUNCTION circum_circle_spherical
+
+
+  ! --------------------------------------------------------------------
+  !> Return TRUE if a point (xp,yp) is inside the circumcircle made up
+  !  of the points ip[1,2,3].
+  ! 
+  !  See, e.g., 
+  !  Renka, R. J. Interpolation of Data on the Surface of a Sphere
+  !               ACM Trans. Math. Softw., ACM, 1984, 10, 417-436
+  !  Renka's STRIPACK algorithm (http://www.netlib.org/toms/772)
+  PURE FUNCTION circum_circle_spherical_q128(p, pxyz, ip)
+    LOGICAL :: circum_circle_spherical_q128
+    TYPE (t_point),      INTENT(IN)   :: p
+    TYPE (t_point_list), INTENT(IN)   :: pxyz
+    INTEGER,             INTENT(IN)   :: ip(0:2)
+    ! local variables
+    REAL(QR_K) :: d1_x, d1_y, d1_z,d2_x, d2_y, d2_z,d3_x, d3_y, d3_z
+
+    ! p lies above the plane of (p1,p3,p2) iff p2 lies above the plane
+    ! of (p3,p1,p) iff Det(p2-p,p3-p,p1-p) = (p2-p,p3-p X p1-p) > 0.
+    !
+    ! det =      (pxyz%a(ip(1))%x - p%x)*(d3%y*d1%z - d1%y*d3%z) &
+    !   &     -  (pxyz%a(ip(1))%y - p%y)*(d3%x*d1%z - d1%x*d3%z) &
+    !   &     +  (pxyz%a(ip(1))%z - p%z)*(d3%x*d1%y - d1%x*d3%y)
+    d1_x = pxyz%a(ip(0))%x - p%x
+    d1_y = pxyz%a(ip(0))%y - p%y
+    d1_z = pxyz%a(ip(0))%z - p%z
+    d2_x = pxyz%a(ip(1))%x - p%x
+    d2_y = pxyz%a(ip(1))%y - p%y
+    d2_z = pxyz%a(ip(1))%z - p%z
+    d3_x = pxyz%a(ip(2))%x - p%x
+    d3_y = pxyz%a(ip(2))%y - p%y
+    d3_z = pxyz%a(ip(2))%z - p%z
+
+    IF ( d2_x*d3_y*d1_z  +  d2_y*d1_x*d3_z + d2_z*d3_x*d1_y &
+      > d2_y*d3_x*d1_z + d2_x*d1_y*d3_z + d2_z*d1_x*d3_y ) THEN 
+      circum_circle_spherical_q128 = .TRUE.
+    ELSE
+      circum_circle_spherical_q128 = .FALSE.
+    END IF
+  END FUNCTION circum_circle_spherical_q128
 
 
   ! --------------------------------------------------------------------
@@ -275,18 +353,67 @@ CONTAINS
   !  contains v3, or, in other words, if we "turn left" when going
   !  from v1 to v2 to v3.
   PURE FUNCTION ccw_spherical(v1,v2,v3)
-    REAL(wp) :: ccw_spherical
+    LOGICAL :: ccw_spherical
     TYPE (t_point), INTENT(IN)  :: v1,v2,v3
+    REAL(wp) :: ccw
 
     ! det(v1,v2,v3) = <v1 x v2, v3> = | v1 x v2 | cos(a) 
     !  
     ! where a is the angle between v3 and the normal to the plane
     ! defined by v1 and v2.
     
-    ccw_spherical = v3%x*(v1%y*v2%z - v2%y*v1%z) &
+    ccw =           v3%x*(v1%y*v2%z - v2%y*v1%z) &
       &        -    v3%y*(v1%x*v2%z - v2%x*v1%z) &
-      &        +    v3%z*(v1%x*v2%y - v2%x*v1%y)
+      &        +    v3%z*(v1%x*v2%y - v2%x*v1%y) 
+
+    ! we apply a static error of
+    !   | e - e'| <= 3*2^-48
+    ! to decide if a floating-point evaluation e' of an expression e
+    ! has the correct sign, see Section 2.2 of
+    !
+    ! Burnikel, C.; Funke, S. & Seel, M. 
+    ! "Exact geometric computation using Cascading"
+    ! International Journal of Computational Geometry & Applications, 
+    ! World Scientific, 2001, 11, 245-266
+    IF (ABS(ccw) <= 1.1e-14_wp) THEN
+      ccw_spherical = ccw_spherical_q128(v1,v2,v3)
+    ELSE
+      ccw_spherical = ccw <= 0._wp
+    END IF
   END FUNCTION ccw_spherical
+
+
+  ! --------------------------------------------------------------------
+  !> Locates a point relative to a directed arc. Let v1, v2, and v3 be
+  !  distinct points on the sphere, and denote by v1 -> v2 the
+  !  geodesic connecting v1 and v2 and directed toward v2. This test
+  !  determines which of the two hemispheres defined by v1 -> v2
+  !  contains v3, or, in other words, if we "turn left" when going
+  !  from v1 to v2 to v3.
+  PURE FUNCTION ccw_spherical_q128(v1,v2,v3)
+    LOGICAL :: ccw_spherical_q128
+    TYPE (t_point), INTENT(IN)  :: v1,v2,v3
+    REAL(QR_K) :: v1_x, v1_y, v1_z,v2_x, v2_y, v2_z,v3_x, v3_y, v3_z
+
+    ! det(v1,v2,v3) = <v1 x v2, v3> = | v1 x v2 | cos(a) 
+    !  
+    ! where a is the angle between v3 and the normal to the plane
+    ! defined by v1 and v2.
+    
+    v1_x = v1%x
+    v1_y = v1%y
+    v1_z = v1%z
+    v2_x = v2%x
+    v2_y = v2%y
+    v2_z = v2%z
+    v3_x = v3%x
+    v3_y = v3%y
+    v3_z = v3%z
+
+    ccw_spherical_q128 = v3_x*(v1_y*v2_z - v2_y*v1_z) &
+      &             -    v3_y*(v1_x*v2_z - v2_x*v1_z) &
+      &             +    v3_z*(v1_x*v2_y - v2_x*v1_y)  <= 0._wp
+  END FUNCTION ccw_spherical_q128
 
 
   ! --------------------------------------------------------------------
@@ -312,15 +439,6 @@ CONTAINS
     t_triangle_equal =                                        &
       &    ( (t1%p(0) == t2%p(0)) .AND. (t1%p(1) == t2%p(1)) .AND. (t1%p(2) == t2%p(2)) )
   END FUNCTION t_triangle_equal
-
-
-  ! --------------------------------------------------------------------
-  !> operator: comparison of two mpi_triangles
-  LOGICAL PURE FUNCTION t_mpi_triangle_equal(t1,t2)
-    TYPE(t_mpi_triangle), INTENT(IN) :: t1,t2
-    t_mpi_triangle_equal =                                        &
-      &    ( (t1%p(0) == t2%p(0)) .AND. (t1%p(1) == t2%p(1)) .AND. (t1%p(2) == t2%p(2)) )
-  END FUNCTION t_mpi_triangle_equal
 
 
   ! --------------------------------------------------------------------
@@ -357,45 +475,6 @@ CONTAINS
     t_point_div = t_point(x=t%x/v, y=t%y/v, z=t%z/v, &
       &                   ps=t%ps, gindex=t%gindex)
   END FUNCTION t_point_div
-
-
-  ! --------------------------------------------------------------------
-  !> merge two triangulation into a single, sorted one.
-  SUBROUTINE merge_triangulation(this,t2)
-    CLASS(t_triangulation), INTENT(INOUT)  :: this
-    TYPE(t_triangulation),  INTENT(IN)     :: t2
-    ! local variables
-    INTEGER               :: i1,i2,j
-    TYPE(t_triangulation) :: t3
-
-    CALL t3%initialize()
-
-    i1 = 0
-    i2 = 0
-    CALL t3%reserve(this%nentries + t2%nentries)
-    LOOP0 : DO
-      IF ((i1 >= this%nentries) .OR. (i2 >= t2%nentries))  EXIT LOOP0
-      IF (t2%a(i2) < this%a(i1)) THEN
-        CALL t3%push_back(t2%a(i2))
-        i2 = i2 + 1
-      ELSE
-        IF (this%a(i1) == t2%a(i2))  i2 = i2 + 1
-        CALL t3%push_back(this%a(i1))
-        i1 = i1 + 1
-      END IF
-    END DO LOOP0
-    LOOP1 : DO j=i1,(this%nentries-1)
-      CALL t3%push_back(this%a(j))
-    END DO LOOP1
-    LOOP2 : DO j=i2,(t2%nentries-1)
-      CALL t3%push_back(t2%a(j))
-    END DO LOOP2
-    SELECT TYPE(this)
-    TYPE IS(t_triangulation)
-      this = triangulation(t3)
-    END SELECT
-    CALL t3%destructor()
-  END SUBROUTINE merge_triangulation
 
 
   ! --------------------------------------------------------------------
@@ -485,7 +564,7 @@ CONTAINS
     IF (PRESENT(ioedge))     oedge=ioedge
     IF (PRESENT(icomplete))  complete=icomplete
     triangle = t_triangle(p=(/ip1,ip2,ip3/), oedge=oedge, complete=complete,  &
-      &                   cc=point(-2._wp,-2._wp,-2._wp), r=0._wp, cap_distance=2._wp, rdiscard=1._wp)
+      &                   cc=point(-2._wp,-2._wp,-2._wp), r=0._wp, cap_distance=2._wp, rdiscard=-1._wp)
   END FUNCTION triangle
 
 
@@ -497,16 +576,6 @@ CONTAINS
       &        ((a1%p(0) == a2%p(0)) .AND. (a1%p(1) < a2%p(1)))  .OR.                       &
       &        ((a1%p(0) == a2%p(0)) .AND. (a1%p(1) == a2%p(1)) .AND. (a1%p(2) < a2%p(2)))
   END FUNCTION t_triangle_cmp
-
-
-  ! --------------------------------------------------------------------
-  !> operator: comparison of triangles (wrt. point indices)
-  LOGICAL PURE FUNCTION t_mpi_triangle_cmp(a1,a2)
-    TYPE(t_mpi_triangle), INTENT(IN) :: a1,a2
-    t_mpi_triangle_cmp =  (a1%p(0) < a2%p(0))                        .OR.                       &
-      &            ((a1%p(0) == a2%p(0)) .AND. (a1%p(1) < a2%p(1)))  .OR.                       &
-      &            ((a1%p(0) == a2%p(0)) .AND. (a1%p(1) == a2%p(1)) .AND. (a1%p(2) < a2%p(2)))
-  END FUNCTION t_mpi_triangle_cmp
 
 
   ! --------------------------------------------------------------------
@@ -825,6 +894,7 @@ CONTAINS
     ELSE IF (this%nentries == SIZE(this%a)) THEN
       CALL this%reserve(this%nentries + 1)
     END IF
+
     this%a(this%nentries) = element
     this%nentries         = this%nentries + 1
   END SUBROUTINE push_back_triangulation
@@ -973,95 +1043,294 @@ CONTAINS
   END SUBROUTINE sync_point_list
 
 
+  ! utility function to swap two elements
+  ELEMENTAL SUBROUTINE heap_swap(heap, i, j)
+    TYPE(t_min_heap),      INTENT(INOUT)   :: heap
+    INTEGER,               INTENT(IN)      :: i,j
+    TYPE(t_min_heap_node) :: tmp
+    tmp = heap%harr(i)
+    heap%harr(i) = heap%harr(j)
+    heap%harr(j) = tmp
+  END SUBROUTINE heap_swap
+
+
+  ! to get index of left child of node at index i
+  ELEMENTAL INTEGER FUNCTION heap_left(i) 
+    INTEGER, INTENT(IN) :: i
+    heap_left = (2*i + 1)
+  END FUNCTION heap_left
+
+ 
+  ! build a heap from a given array a[] of given size
+  SUBROUTINE construct_heap(heap, a)
+    TYPE(t_min_heap),      INTENT(INOUT)  :: heap
+    TYPE(t_min_heap_node), INTENT(IN)     :: a(0:)
+    INTEGER :: i
+    
+    heap%isize = SIZE(a)
+    ALLOCATE(heap%harr(0:(heap%isize-1)))
+    heap%harr(:) = a(:)
+    DO i=(heap%isize - 1)/2,0,-1
+      CALL heap_heapify(heap, i)
+    END DO
+  END SUBROUTINE construct_heap
+
+
+  ! Recursive method to heapify a subtree with root at given index.
+  ! This method assumes that the subtrees are already heapified.
+  RECURSIVE SUBROUTINE heap_heapify(heap, i)
+    TYPE(t_min_heap), INTENT(INOUT)   :: heap
+    INTEGER,          INTENT(IN)      :: i
+    INTEGER :: l,r,smallest
+
+    l        = heap_left(i)
+    smallest = i
+    IF (l < heap%isize) THEN
+      IF (heap%harr(l)%elt%p < heap%harr(i)%elt%p)           smallest = l
+      r = l+1
+      IF (r < heap%isize) THEN
+        IF (heap%harr(r)%elt%p < heap%harr(smallest)%elt%p)  smallest = r
+      END IF
+    END IF
+    IF (smallest /= i) THEN
+      CALL heap_swap(heap, i, smallest)
+      CALL heap_heapify(heap, smallest)
+    END IF
+  END SUBROUTINE heap_heapify
+
+
+  ! This function takes an array of arrays as an argument where all
+  ! arrays are assumed to be sorted and merges them together.
+  !
+  ! Time complexity:
+  !  O(nk Logk) ,  where n := SIZE(arr) , k := size(isize)
+  !
+  ! Based on C++ program
+  !
+  ! http://www.geeksforgeeks.org/merge-k-sorted-arrays
+  !
+  SUBROUTINE kway_merge(arr, isize, output, count)
+    TYPE(t_mpi_triangle),  INTENT(IN)     :: arr(0:)
+    INTEGER,               INTENT(IN)     :: isize(0:)
+    TYPE (t_min_heap_elt), INTENT(INOUT)  :: output(0:)
+    INTEGER,               INTENT(OUT)    :: count
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//"::kway_merge"
+    INTEGER                 :: istart(0:(SIZE(isize)-1))
+    INTEGER                 :: k, i, j
+    TYPE(t_min_heap_node)   :: heap_init(0:(SIZE(isize)-1)), root
+    TYPE (t_min_heap)       :: heap
+    TYPE (t_min_heap_elt)   :: last_elt
+
+    k = SIZE(isize)
+
+    ! Create a min heap with k heap nodes. Every heap node has first
+    ! element of an array.
+    istart(0) = 0
+    heap_init(0:(k-1))%j = 1                       ! index of next element to be stored from array
+    heap_init(0:(k-1))%i = (/ ( i, i=0,(k-1) ) /)  ! index of array
+    DO i=0,(k-1)
+      heap_init(i)%elt%p%p = arr(istart(i))%p ! Store the first element
+      IF (i /= (k-1)) THEN
+        istart(i+1) = istart(i) + isize(i)
+      END IF
+    END DO
+    CALL construct_heap(heap, heap_init) ! create the heap
+
+    ! Now one by one get the minimum element from min heap and replace
+    ! it with next element of its array
+    count = 0
+    DO j=0,(SIZE(arr)-1)
+      ! get the minimum element and store it in output
+      root          = heap%harr(0)
+      IF ((j == 0) .OR. (.NOT. (root%elt%p == last_elt%p))) THEN
+        output(count)%p = root%elt%p
+        last_elt        = root%elt
+        count = count + 1
+      END IF
+
+      ! Find the next element that will replace current root of heap.
+      ! The next element belongs to same array as the current root.
+      IF (root%j < isize(root%i)) THEN
+        root%elt%p%p = arr(istart(root%i)+root%j)%p
+        root%j = root%j + 1
+      ELSE
+        ! If root was the last element of its array
+        root%elt%p%p(0) =  HUGE(1)
+      END IF
+      ! Replace root with next element of array
+      heap%harr(0) = root
+      CALL heap_heapify(heap, 0); 
+    END DO
+    ! clean up
+    DEALLOCATE(heap%harr)
+  END SUBROUTINE kway_merge
+
+
   ! --------------------------------------------------------------------
   !> Synchronizes a triangulation between different processors with MPI.
   !
-  !  Duplicate triangles are removed. Alas, there is no usr-defined
-  !  "reduction" operation available for MPIALLGATHER, thus we have to
-  !  communicate all data first and then do the removal on each MPI
-  !  task.
+  !  Duplicate triangles are removed.
   !
-  SUBROUTINE sync_triangulation(this)
+  !  First, this subroutine first calls itself recursively with a
+  !  split MPI communicator, followed by a second call with the
+  !  communicator that contains all worker PEs. This way, the gather
+  !  process is processed in two stages which reqires smaller MPI
+  !  buffers.
+  !
+  RECURSIVE SUBROUTINE sync_triangulation(this, opt_mpi_comm)
     CLASS(t_triangulation) :: this
+    INTEGER, INTENT(IN), OPTIONAL :: opt_mpi_comm
 #if (!defined(NOMPI))
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":sync_triangulation"
-    INTEGER                        :: ierr, mpi_t_triangle, local_nentries, global_nentries, mpi_comm, &
-      &                               oldtypes(2), blockcounts(2), ierrstat, nranks, i, endtri
-    INTEGER(MPI_ADDRESS_KIND)      :: offsets(2)
-    INTEGER, ALLOCATABLE           :: recv_count(:), recv_displs(:)
+    INTEGER,      PARAMETER :: root_pe      = 0
+    LOGICAL,      PARAMETER :: print_timers = .FALSE.
+
+    INTEGER                           :: ierr, mpi_t_triangle, local_nentries,   &
+      &                                  global_nentries, mpi_comm, oldtypes(2), &
+      &                                  blockcounts(2), ierrstat, nranks, i,    &
+      &                                  count, ngroups, comm1, comm2,           &
+      &                                  irank, irank2, color1, color2,          &
+      &                                  alloc_size
+    INTEGER(MPI_ADDRESS_KIND)         :: offsets(2)
+    INTEGER, ALLOCATABLE              :: recv_count(:), recv_displs(:)
     TYPE(t_mpi_triangle), ALLOCATABLE :: tmp(:), recv_tmp(:)
+    TYPE(t_min_heap_elt), ALLOCATABLE :: kway_merge_array_out(:)
+!$  DOUBLE PRECISION                  :: time_s, toc
 
     mpi_comm = p_comm_work
+    IF (PRESENT(opt_mpi_comm))  mpi_comm = opt_mpi_comm
 
-    ! get no. of available MPI ranks:
+    IF (mpi_comm /= MPI_COMM_NULL) THEN
+      ! create an MPI type for a single triangle
+      offsets(1)     = 0_MPI_ADDRESS_KIND
+      oldtypes(1)    = MPI_INTEGER
+      blockcounts(1) = 3
+      CALL MPI_TYPE_CREATE_STRUCT(1, blockcounts, offsets, oldtypes, mpi_t_triangle, ierr) 
+      CALL MPI_TYPE_COMMIT(mpi_t_triangle, ierr) 
+    ELSE
+      RETURN
+    END IF
+
+    ! get no. of available MPI ranks
     CALL MPI_COMM_SIZE (mpi_comm, nranks, ierr)
+    ! determine this worker's rank
+    CALL MPI_COMM_RANK (mpi_comm, irank, ierr)
 
-    ! communicate max. number of points
-    local_nentries = this%nentries
-    ALLOCATE(recv_count(0:(nranks-1)), recv_displs(0:(nranks-1)), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    CALL MPI_ALLGATHER(local_nentries, 1, MPI_INTEGER, recv_count, 1, MPI_INTEGER, mpi_comm, ierr)
-    global_nentries = SUM(recv_count(:))
-
-    ! create an MPI-sendable copy of the point list
-    ALLOCATE(tmp(0:(local_nentries-1)), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    tmp(0:(local_nentries-1))%p(0)  = this%a(0:(local_nentries-1))%p(0)
-    tmp(0:(local_nentries-1))%p(1)  = this%a(0:(local_nentries-1))%p(1)
-    tmp(0:(local_nentries-1))%p(2)  = this%a(0:(local_nentries-1))%p(2)
-    tmp(local_nentries:)%p(0) = -1
-
-    ! create an MPI type for a single triangle
-    offsets(1)     = 0_MPI_ADDRESS_KIND
-    oldtypes(1)    = MPI_INTEGER
-    blockcounts(1) = 3
-    CALL MPI_TYPE_CREATE_STRUCT(1, blockcounts, offsets, oldtypes, mpi_t_triangle, ierr) 
-    CALL MPI_TYPE_COMMIT(mpi_t_triangle, ierr) 
-
-    ! perform gather operation
-    ALLOCATE(recv_tmp(0:(global_nentries-1)), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
-    recv_displs(0) = 0
-    DO i=1,(nranks-1)
-      recv_displs(i) = recv_displs(i-1) + recv_count(i-1)
-    END DO
-    CALL MPI_ALLGATHERV(tmp, local_nentries, mpi_t_triangle, recv_tmp, recv_count, recv_displs, &
-      &                 mpi_t_triangle, mpi_comm, ierr)
-
-    CALL MPI_TYPE_FREE(mpi_t_triangle, ierr) 
-
-    CALL this%resize(global_nentries)
-    this%a(0:(this%nentries-1))%p(0)   = recv_tmp(0:(this%nentries-1))%p(0) 
-    this%a(0:(this%nentries-1))%p(1)   = recv_tmp(0:(this%nentries-1))%p(1) 
-    this%a(0:(this%nentries-1))%p(2)   = recv_tmp(0:(this%nentries-1))%p(2) 
-
-    ! remove duplicates in-situ
-    this%a(0:(this%nentries-1))%complete = 0
-    CALL this%quicksort()
-    endtri = this%nentries-1
-    DO i=1,endtri
-      IF (this%a(i) == this%a(i-1)) THEN
-        this%a(i)%complete = 1
+    IF (.NOT. PRESENT(opt_mpi_comm)) THEN
+      ! we form SQRT(nranks) different groups
+      ngroups = INT( SQRT(REAL(nranks)) )
+      ! split MPI communicator: communicator for gather stage 1
+      color1 = INT(irank/ngroups)
+      CALL MPI_COMM_SPLIT(mpi_comm, color1, irank, comm1, ierr)
+      ! split MPI communicator: communicator for gather stage 2
+      CALL MPI_COMM_RANK (comm1, irank2, ierr)
+      color2 = MPI_UNDEFINED
+      IF (MOD(irank2, ngroups) == root_pe)  color2 = 1
+      CALL MPI_COMM_SPLIT(mpi_comm, color2, irank, comm2, ierr)
+!$  time_s = omp_get_wtime()
+      ! local sort on each PE
+      CALL this%quicksort()
+!$  toc = omp_get_wtime() - time_s
+!$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sorting: ", toc
+      ! recursive call, gather stage 1
+!$  time_s = omp_get_wtime()
+      CALL sync_triangulation(this, comm1)
+!$  toc = omp_get_wtime() - time_s
+!$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sync, stage 1: ", toc
+      ! recursive call, gather stage 2
+!$  time_s = omp_get_wtime()
+      CALL sync_triangulation(this, comm2)
+!$  toc = omp_get_wtime() - time_s
+!$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "sync, stage 2: ", toc
+!$  time_s = omp_get_wtime()
+      IF (irank /= 0) THEN
+        local_nentries = 0
       ELSE
-        this%a(i)%complete = 0
+        local_nentries = this%nentries
       END IF
-    END DO
-    i = 1
-    LOOP1: DO
-      IF (i>endtri)  EXIT LOOP1
-      IF (this%a(i)%complete == 1) THEN
-        this%a(i) = this%a(endtri)
-        endtri = endtri -1
-      ELSE
-        i = i + 1
+      alloc_size = local_nentries
+      ! broadcast buffer size from PE "irank == 0"
+      CALL MPI_BCAST(alloc_size, 1, MPI_INTEGER, 0, mpi_comm, ierr)
+!$  toc = omp_get_wtime() - time_s
+!$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "epilogue 1: ", toc
+    ELSE
+      local_nentries = this%nentries
+      alloc_size     = local_nentries
+    END IF
+
+    ! create an MPI-sendable copy of the triangle list
+    ALLOCATE(tmp(0:(alloc_size-1)), STAT=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+    tmp(0:(local_nentries-1))%p(0) = this%a(0:(local_nentries-1))%p(0)
+    tmp(0:(local_nentries-1))%p(1) = this%a(0:(local_nentries-1))%p(1)
+    tmp(0:(local_nentries-1))%p(2) = this%a(0:(local_nentries-1))%p(2)
+
+    IF (.NOT. PRESENT(opt_mpi_comm)) THEN
+      ! broadcast result from PE "irank == 0"
+!$  time_s = omp_get_wtime()
+      CALL MPI_BCAST(tmp, alloc_size, mpi_t_triangle, 0, mpi_comm, ierr)
+!$  toc = omp_get_wtime() - time_s
+!$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "bcast: ", toc
+!$  time_s = omp_get_wtime()
+      IF (irank /= 0) THEN
+        CALL this%resize(alloc_size)
+        this%a(0:(alloc_size-1))%p(0) = tmp(0:(alloc_size-1))%p(0)
+        this%a(0:(alloc_size-1))%p(1) = tmp(0:(alloc_size-1))%p(1)
+        this%a(0:(alloc_size-1))%p(2) = tmp(0:(alloc_size-1))%p(2)
       END IF
-    END DO LOOP1
-    CALL this%resize(endtri+1)
+
+      DEALLOCATE(tmp, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+!$  toc = omp_get_wtime() - time_s
+!$    IF (print_timers .AND. (irank == 0))  WRITE (0,*) "epilogue 2: ", toc
+    ELSE
+      ! communicate max. number of points
+      ALLOCATE(recv_count(0:(nranks-1)), recv_displs(0:(nranks-1)), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      CALL MPI_GATHER(local_nentries, 1, MPI_INTEGER, recv_count, 1, MPI_INTEGER, root_pe, mpi_comm, ierr)
+      IF (irank == root_pe) THEN
+        global_nentries = SUM(recv_count(:)) ! gather a total of "global_nentries" entries
+      
+        ! perform gather operation
+        ALLOCATE(recv_tmp(0:(global_nentries-1)), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+        recv_displs(0) = 0
+        DO i=1,(nranks-1)
+          recv_displs(i) = recv_displs(i-1) + recv_count(i-1)
+        END DO
+      END IF
+        
+      CALL MPI_GATHERV(tmp, local_nentries, mpi_t_triangle, recv_tmp, recv_count, recv_displs, &
+        &              mpi_t_triangle, root_pe, mpi_comm, ierr)
+
+      DEALLOCATE(tmp, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+               
+      IF (irank == root_pe) THEN
+        ALLOCATE(kway_merge_array_out(0:global_nentries-1), STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
+      
+        ! perform a k-way merging of the sorted arrays from the k MPI
+        ! processes, merge this to "count" entries.
+        CALL kway_merge(recv_tmp, recv_count, kway_merge_array_out, count)
+
+        DEALLOCATE(recv_tmp, recv_count, recv_displs, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+
+        CALL this%resize(count)
+        this%a(0:(this%nentries-1))%p(0) = kway_merge_array_out(0:(this%nentries-1))%p%p(0)
+        this%a(0:(this%nentries-1))%p(1) = kway_merge_array_out(0:(this%nentries-1))%p%p(1)
+        this%a(0:(this%nentries-1))%p(2) = kway_merge_array_out(0:(this%nentries-1))%p%p(2)
+        
+        DEALLOCATE(kway_merge_array_out, STAT=ierrstat)
+        IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+      END IF
+    END IF
 
     ! clean up
-    DEALLOCATE(tmp, recv_tmp, recv_count, recv_displs, STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
+    CALL MPI_TYPE_FREE(mpi_t_triangle, ierr) 
 #endif
   END SUBROUTINE sync_triangulation
 

@@ -30,41 +30,48 @@ MODULE mo_initicon
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
-  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog
+  USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state
-  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlev_in,                   &
-    &                               rho_incr_filter_wgt, lread_ana,               &
+  USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlevatm_in, lvert_remap_fg, &
+    &                               rho_incr_filter_wgt, lread_ana, ltile_init,    &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,          &
-    &                               MODE_DWDANA_INC, MODE_IAU, MODE_IFSANA, MODE_ICONVREMAP, &
-    &                               MODE_COMBINED, MODE_COSMODE, min_rlcell, INWP,           &
-    &                               min_rledge_int, min_rlcell_int, dzsoil_icon => dzsoil
+  USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,   &
+    &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
+    &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE,     &
+    &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
+    &                               min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd, tmelt, tf_salt
   USE mo_exception,           ONLY: message, finish
   USE mo_grid_config,         ONLY: n_dom
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, llake, &
-    &                               isub_lake, isub_water, isub_seaice
-  USE mo_phyparam_soil,       ONLY: cporv, crhosmin_ml
+  USE mo_satad,               ONLY: sat_pres_ice, spec_humi 
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
+    &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, frlake_thrhld
+  USE mo_phyparam_soil,       ONLY: cporv, crhosmaxf, crhosmin_ml, crhosmax_ml
+  USE mo_nwp_soil_init,       ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla4_vec
-  USE mo_cdi_constants,       ONLY: cdiDefAdditionalKey, cdiInqMissval
+  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
+  USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE mo_flake,               ONLY: flake_coldinit
-  USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points,                        &
+  USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points, init_snowtiles,             &
                                     copy_initicon2prog_atm, copy_initicon2prog_sfc, allocate_initicon, &
-                                    deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc
+                                    deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
+                                    copy_fg2initicon
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
                                     read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc,    &
                                     read_dwdfg_atm_ii
   USE mo_util_string,         ONLY: one_of                                    
+  USE mo_phyparam_soil,       ONLY: cporv, cadp
 
   IMPLICIT NONE
 
@@ -161,6 +168,9 @@ MODULE mo_initicon
     CALL cdiDefAdditionalKey("typeOfFirstFixedSurface")
     CALL cdiDefAdditionalKey("typeOfGeneratingProcess")
     CALL cdiDefAdditionalKey("backgroundProcess")
+    CALL cdiDefAdditionalKey("totalNumberOfTileAttributePairs")
+    CALL cdiDefAdditionalKey("tileIndex")
+    CALL cdiDefAdditionalKey("tileAttribute")
 
 
     ! -----------------------------------------------
@@ -168,7 +178,8 @@ MODULE mo_initicon
     ! and generate analysis/FG input lists
     ! -----------------------------------------------
     !
-    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/) == init_mode)) THEN ! read in DWD analysis
+    IF (ANY((/MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/) &
+      &  == init_mode)) THEN ! read in DWD analysis
       CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
         &                  dwdfg_file, dwdana_file)
 
@@ -213,27 +224,27 @@ MODULE mo_initicon
       ! process DWD land/surface analysis data
       CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
 
-    CASE (MODE_DWDANA_INC)
-
-      CALL message(TRIM(routine),'MODE_DWDANA_INC: perform initialization with '// &
-        &                        ' incremental analysis update')
-
-      ! process DWD atmosphere analysis increments
-      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
-
-      ! process DWD land/surface analysis data
-      CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
-
     CASE (MODE_IAU)
 
       CALL message(TRIM(routine),'MODE_IAU: perform initialization with '// &
-        &                        ' incremental analysis update')
+        &                        'incremental analysis update, including snow increments')
 
       ! process DWD atmosphere analysis increments
-      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
+      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
 
       ! process DWD land/surface analysis (increments)
-      CALL process_dwdanainc_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+      CALL process_dwdanainc_sfc (p_patch, p_nh_state, prm_diag, p_lnd_state, ext_data)
+
+    CASE (MODE_IAU_OLD)
+
+      CALL message(TRIM(routine),'MODE_IAU_OLD: perform initialization with '// &
+        &                        'incremental analysis update (retained for backward compat.)')
+
+      ! process DWD atmosphere analysis increments
+      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
+
+      ! process DWD land/surface analysis (increments)
+      CALL process_dwdanainc_sfc (p_patch, p_nh_state, prm_diag, p_lnd_state, ext_data)
 
     CASE(MODE_IFSANA)   ! read in IFS analysis
 
@@ -316,7 +327,7 @@ MODULE mo_initicon
 
     ! close first guess and analysis files and corresponding inventory lists
     ! 
-    IF (ANY((/MODE_DWDANA,MODE_DWDANA_INC,MODE_IAU,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
+    IF (ANY((/MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
       CALL close_init_files(fileID_fg, fileID_ana)
     END IF
 
@@ -360,11 +371,11 @@ MODULE mo_initicon
 
       ! read DWD first guess for atmosphere and store to initicon input state variables
       ! (input data are allowed to have a different number of model levels than the current model grid)
-      CALL read_dwdfg_atm_ii (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+      CALL read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
       ! Perform vertical interpolation from input ICON grid to output ICON grid
       !
-      CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlev_in, initicon, &
+      CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
                            opt_convert_omega2w=.FALSE.)
 
       ! Finally copy the results to the prognostic model variables
@@ -403,11 +414,12 @@ MODULE mo_initicon
   !! Initial version by Daniel Reinert, DWD(2014-01-28)
   !!
   !!
-  SUBROUTINE process_dwdanainc_atm (p_patch, p_nh_state, p_int_state)
+  SUBROUTINE process_dwdanainc_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
+    TYPE(t_gridref_state),  INTENT(IN)    :: p_grf_state(:)
 
 !-------------------------------------------------------------------------
 
@@ -415,6 +427,17 @@ MODULE mo_initicon
     ! read DWD first guess and analysis from DA for atmosphere
     ! 
     CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+
+    IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
+                             ! does not change; otherwise, init_mode = 7 must be used based on a full analysis)
+
+      CALL copy_fg2initicon(p_patch, initicon, p_nh_state)
+
+      CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, p_patch(:)%nlev, initicon, &
+                           opt_convert_omega2w=.FALSE.)
+
+      CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
+    ENDIF
 
     IF(lread_ana) &   
      CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
@@ -486,9 +509,10 @@ MODULE mo_initicon
   !! Initial version by Daniel Reinert, DWD(2014-07-18)
   !!
   !!
-  SUBROUTINE process_dwdanainc_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+  SUBROUTINE process_dwdanainc_sfc (p_patch, p_nh_state, prm_diag, p_lnd_state, ext_data)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(IN)    :: p_nh_state(:)
     TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
     TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
@@ -503,9 +527,12 @@ MODULE mo_initicon
     CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
     ! In case of tile coldstart, fill sub-grid scale land and water points with reasonable data
-    ! from neighboring grid points where possible
-    IF (ntiles_total > 1 .AND. ltile_coldstart) THEN
-      CALL fill_tile_points(p_patch, p_lnd_state, ext_data)
+    ! from neighboring grid points where possible;
+    ! In case of snowtile warmstart, the index lists for snow-covered / snow-free points need to be initialized
+    IF (ntiles_total > 1 .AND. ltile_init) THEN
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.FALSE.)
+    ELSE IF (ntiles_total > 1 .AND. lsnowtile .AND. .NOT. ltile_coldstart) THEN
+      CALL init_snowtiles(p_patch, p_lnd_state, ext_data)
     ENDIF
 
     IF(lread_ana) &   
@@ -513,11 +540,17 @@ MODULE mo_initicon
 
 
     ! Add increments to time-shifted first guess in one go.
-    CALL create_iau_sfc (p_patch, p_lnd_state, ext_data)
+    CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
 
     ! get SST from first soil level t_so (for sea and lake points)
     ! perform consistency checks
     CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
+
+    ! Call neighbor-filling routine for a second time in order to ensure that fr_seaice is filled
+    ! with meaningful data near coastlines if this field is read from the analysis
+    IF (ntiles_total > 1) THEN
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.TRUE.)
+    END IF
 
   END SUBROUTINE process_dwdanainc_sfc
 
@@ -568,7 +601,7 @@ MODULE mo_initicon
     ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
     ! and convert variables to the NH set of prognostic variables
     !
-    CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlev_in, initicon, &
+    CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
                          opt_convert_omega2w=lomega_in)
 
     
@@ -612,7 +645,7 @@ MODULE mo_initicon
 
     ! read horizontally interpolated external (currently IFS) analysis for surface/land
     ! 
-    CALL read_extana_sfc(p_patch, initicon, ext_data)
+    CALL read_extana_sfc(p_patch, initicon)
 
 
     ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
@@ -1091,6 +1124,7 @@ MODULE mo_initicon
       iidx           => p_patch(jg)%edges%cell_idx
       iblk           => p_patch(jg)%edges%cell_blk
 
+
       ! 1) Compute analysis increments in terms of the NH prognostic set of variables.
       !    Increments are computed for vn, w, exner, rho, qv. Note that a theta_v 
       !    increment is not necessary.
@@ -1433,6 +1467,10 @@ MODULE mo_initicon
       ENDIF  ! dt_iau = 0
 
 
+      ! Recompute the hydrostatically integrated pressure from the first guess
+      CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_prog_now, p_prog_now_rcf, p_diag, &
+        &                      p_patch(jg), opt_calc_temp=.FALSE., opt_calc_pres=.TRUE.)
+
     ENDDO  ! jg domain loop
 
   END SUBROUTINE create_dwdanainc_atm
@@ -1445,19 +1483,20 @@ MODULE mo_initicon
   !!
   !! Add increments to time-shifted first guess in one go.
   !! Increments are added for: 
-  !! W_SO, H_SNOW, W_SNOW, FRESHSNW
+  !! W_SO, H_SNOW, FRESHSNW
   !!
   !! Additioanl sanity checks are performed for 
-  !! W_SO 
+  !! W_SO, H_SNOW, FRESHSNW, RHO_SNOW 
   !!
   !! @par Revision History
   !! Initial version by D. Reinert, DWD (2014-07-17)
   !!
   !!
   !-------------------------------------------------------------------------
-  SUBROUTINE create_iau_sfc (p_patch, p_lnd_state, ext_data)
+  SUBROUTINE create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
 
     TYPE(t_patch)             ,INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state) , TARGET ,INTENT(IN)    :: p_nh_state(:)
     TYPE(t_lnd_state), TARGET ,INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data)     ,INTENT(IN)    :: ext_data(:)
 
@@ -1465,10 +1504,19 @@ MODULE mo_initicon
     INTEGER :: nblks_c                   ! number of blocks
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx
+    INTEGER :: ist
 
     LOGICAL :: lerr                      ! error flag
 
+    TYPE(t_nh_diag) , POINTER :: p_diag            ! shortcut to diag state
     TYPE(t_lnd_prog), POINTER :: lnd_prog_now      ! shortcut to prognostic land state
+    TYPE(t_lnd_diag), POINTER :: lnd_diag          ! shortcut to diagnostic land state
+
+    REAL(wp) :: h_snow_t_fg(nproma,ntiles_total)   ! intermediate storage of h_snow first guess
+    REAL(wp) :: snowfrac_lim
+
+    REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value) 
+                                                   ! in order to avoid grib precision problems
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = modname//':create_iau_sfc'
@@ -1483,11 +1531,12 @@ MODULE mo_initicon
       rl_end    = min_rlcell
 
       ! save some paperwork
+      p_diag       =>p_nh_state(jg)%diag
       lnd_prog_now =>p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
-
+      lnd_diag     =>p_lnd_state(jg)%diag_lnd
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jt,jk,jc,i_startidx,i_endidx,lerr)
+!$OMP DO PRIVATE(jb,jt,jk,ic,jc,i_startidx,i_endidx,lerr,h_snow_t_fg,snowfrac_lim,ist)
       DO jb = 1, nblks_c
 
         ! (re)-initialize error flag
@@ -1516,33 +1565,14 @@ MODULE mo_initicon
               ENDIF
 
               ! Safety limits:  min=air dryness point, max=pore volume
-              SELECT CASE(ext_data(jg)%atm%soiltyp(jc,jb))
+              ist = ext_data(jg)%atm%soiltyp(jc,jb)
+              SELECT CASE(ist)
 
-                CASE(3)  !sand
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.364_wp,                                   &
-                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.012_wp) &
-                  &                                )
-                CASE(4)  !sandyloam
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.445_wp,                                   &
-                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.03_wp)  &
-                  &                                )
-                CASE(5)  !loam
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.455_wp,                                   &
-                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.035_wp) &
-                  &                                )
-                CASE(6)  !clayloam
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.475_wp,                                   &
-                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.06_wp)  &
-                  &                                )
-                CASE(7)  !clay
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.507_wp,                                   &
-                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.065_wp) &
-                  &                                )
-                CASE(8)  !peat
-                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*0.863_wp,                                   &
-                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*0.098_wp) &
-                  &                                )          
-                CASE(9,10)!sea water, sea ice
+                CASE (3,4,5,6,7,8) ! soil types with non-zero water content
+                lnd_prog_now%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*cporv(ist),                                  &
+                  &                                MAX(lnd_prog_now%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*cadp(ist)) )
+
+                CASE (9,10) ! sea water, sea ice
                 ! ERROR landpoint has soiltype sea water or sea ice
                 lerr = .TRUE.
               END SELECT
@@ -1555,6 +1585,127 @@ MODULE mo_initicon
         IF (lerr) THEN
           CALL finish(routine, "Landpoint has invalid soiltype (sea water or sea ice)")
         ENDIF
+
+
+        IF (init_mode == MODE_IAU) THEN
+
+          ! store a copy of FG field for subsequent consistency checks
+          h_snow_t_fg(:,:) = lnd_diag%h_snow_t(:,jb,:)
+
+          ! add h_snow and freshsnow increments onto respective first guess fields
+          DO jt = 1, ntiles_total
+
+            IF (ltile_coldstart .OR. .NOT. lsnowtile) THEN 
+              ! Initialize snowfrac with 1 for the time being (the proper initialization follows in nwp_surface_init)
+              ! This is actually needed for lsnowtile=.TRUE. because the snow cover fraction is used below in this case
+              lnd_diag%snowfrac_lc_t(:,jb,jt) = 1._wp
+              lnd_diag%snowfrac_t(:,jb,jt)    = 1._wp
+            ENDIF
+
+            DO ic = 1, ext_data(jg)%atm%gp_count_t(jb,jt)
+              jc = ext_data(jg)%atm%idx_lst_t(ic,jb,jt)
+
+              IF (ABS(initicon(jg)%sfc_inc%h_snow(jc,jb)) < min_hsnow_inc) THEN
+                ! h_snow increment is neglected in order to avoid artefacts due to GRIB2 precision limitation
+                ! minimum height: 0m; maximum height: 40m
+                lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt)))
+              ELSE 
+                IF (lsnowtile .AND. (jt > ntiles_lnd .OR. ltile_coldstart) ) THEN
+                  ! in case of tile warmstart, add increment to snow-covered tiles only, rescaled with the snow-cover fraction
+                  ! for tile coldstart, the snow increment is added in the same way as without snow tiles
+                  snowfrac_lim = MAX(0.01_wp, lnd_diag%snowfrac_lc_t(jc,jb,jt))
+                  lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt) &
+                    &                            + initicon(jg)%sfc_inc%h_snow(jc,jb)/snowfrac_lim ))
+                ELSE IF (lsnowtile .AND. initicon(jg)%sfc_inc%h_snow(jc,jb) > 0._wp .AND. &
+                         lnd_diag%snowfrac_lc_t(jc,jb,jt) == 0._wp .AND. jt <= ntiles_lnd) THEN
+                  ! if new snow is generated by the snow analysis (snowfrac_lc_t = 0 means that no corresponding
+                  ! snow-covered grid point is present), the snow is added to the snow-free tile point
+                  ! for the time being. Transfer to the snow-covered counterpart grid point and rescaling
+                  ! is conducted after the first call to TERRA
+                  lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,initicon(jg)%sfc_inc%h_snow(jc,jb))
+                  !
+                  ! very simple initialization of snow-cover fraction for first TERRA call,
+                  ! avoiding that the snow-free point disappears immediately
+                  lnd_diag%snowfrac_lc_t(jc,jb,jt)  = MIN(0.9_wp,20._wp*lnd_diag%h_snow_t(jc,jb,jt))
+                  lnd_diag%snowfrac_t(jc,jb,jt)     = lnd_diag%snowfrac_lc_t(jc,jb,jt)
+                ELSE ! no snowtiles, snowfrac is initialized in nwp_surface_init in this case
+                  ! minimum height: 0m; maximum height: 40m
+                  lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt) &
+                    &                                             + initicon(jg)%sfc_inc%h_snow(jc,jb)))
+                ENDIF
+              ENDIF
+
+              ! maximum freshsnow factor: 1
+              ! minimum freshsnow factor: 0
+              ! two-sided limitation of freshsnow increment to +/- max_freshsnow_inc (tuning parameter)
+              lnd_diag%freshsnow_t(jc,jb,jt) = MIN(1._wp,lnd_diag%freshsnow_t(jc,jb,jt)                               &
+                &                            + SIGN(                                                                  &
+                &                                  MIN(max_freshsnow_inc,ABS(initicon(jg)%sfc_inc%freshsnow(jc,jb))), &
+                &                                  initicon(jg)%sfc_inc%freshsnow(jc,jb)                              &
+                &                                  ) )
+
+              lnd_diag%freshsnow_t(jc,jb,jt) = MAX(0._wp,lnd_diag%freshsnow_t(jc,jb,jt))
+
+
+              ! adjust t_g and qv_s to new snow coming from the analysis, 
+              ! i.e. at new snow points, where h_snow increment > 0, but h_snow from first guess = 0
+              !
+              IF ( (initicon(jg)%sfc_inc%h_snow(jc,jb) >= min_hsnow_inc) .AND. (h_snow_t_fg(jc,jt) == 0._wp)) THEN
+                lnd_prog_now%t_snow_t(jc,jb,jt) = MIN(tmelt,lnd_prog_now%t_snow_t(jc,jb,jt))
+                lnd_prog_now%t_g_t   (jc,jb,jt) = lnd_diag%snowfrac_t(jc,jb,jt) * lnd_prog_now%t_snow_t(jc,jb,jt) &
+                  &                             + (1._wp - lnd_diag%snowfrac_t(jc,jb,jt)) * lnd_prog_now%t_so_t(jc,1,jb,jt)
+                lnd_diag%qv_s_t      (jc,jb,jt) = spec_humi(sat_pres_ice(lnd_prog_now%t_g_t(jc,jb,jt)),&
+                  &                               p_diag%pres_sfc(jc,jb) )
+              ENDIF
+
+            ENDDO  ! ic
+
+          ENDDO  ! jt
+
+
+
+          ! consistency checks for rho_snow
+          DO jt = 1, ntiles_total
+            DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+
+              ! fresh snow 'missed' by the model
+              IF ( (h_snow_t_fg(jc,jt) == 0._wp)                        .AND. &
+                &  (initicon(jg)%sfc_inc%h_snow(jc,jb) > min_hsnow_inc) .AND. &
+                &  (initicon(jg)%sfc_inc%freshsnow(jc,jb) > 0._wp) ) THEN
+
+                lnd_prog_now%rho_snow_t(jc,jb,jt) = crhosmaxf   ! maximum density of fresh snow (150 kg/m**3)
+              ENDIF
+
+              ! old snow that is re-created by the analysis (i.e. snow melted away too fast in the model)
+              IF ( (h_snow_t_fg(jc,jt) == 0._wp)                        .AND. &
+                &  (initicon(jg)%sfc_inc%h_snow(jc,jb) > min_hsnow_inc) .AND. &
+                &  (initicon(jg)%sfc_inc%freshsnow(jc,jb) <= 0._wp) ) THEN
+
+                ! it is then assumed that we have 'old' snow in the model
+                lnd_prog_now%rho_snow_t(jc,jb,jt) = crhosmax_ml   ! maximum density of snow (400 kg/m**3)
+                lnd_diag%freshsnow_t(jc,jb,jt)    = 0._wp
+              ENDIF
+
+            ENDDO  ! ic
+
+
+            ! Re-diagnose w_snow
+            ! This is done in terra_multlay_init anyway, however it is safer to have consistent fields right 
+            ! from the beginning.
+            lnd_prog_now%w_snow_t(i_startidx:i_endidx,jb,jt) = 0._wp
+
+            CALL get_wsnow(h_snow    = lnd_diag%h_snow_t(:,jb,jt),          &
+              &            rho_snow  = lnd_prog_now%rho_snow_t(:,jb,jt),    &
+              &            t_snow    = lnd_prog_now%t_snow_t(:,jb,jt),      &
+              &            istart    = i_startidx,                          &
+              &            iend      = i_endidx,                            &
+              &            soiltyp   = ext_data(jg)%atm%soiltyp_t(:,jb,jt), &
+              &            w_snow    = lnd_prog_now%w_snow_t(:,jb,jt) )
+
+          ENDDO  ! jt
+
+        ENDIF  ! MODE_IAU
 
       ENDDO  ! jb
 !$OMP END DO
@@ -1591,7 +1742,7 @@ MODULE mo_initicon
     INTEGER :: nblks_c
     REAL(wp):: missval
     INTEGER :: rl_start, rl_end 
-    INTEGER :: i_startidx, i_endidx
+    INTEGER :: i_startidx, i_endidx, i_endblk
     LOGICAL :: lanaread_tso                    ! .TRUE. T_SO(0) was read from analysis
     LOGICAL :: lp_mask(nproma)
   !-------------------------------------------------------------------------
@@ -1634,12 +1785,12 @@ MODULE mo_initicon
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%sp_count(jb)
              jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
-             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb) 
+             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt,initicon(jg)%sfc%sst(jc,jb))
           END DO
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%fp_count(jb)
            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb) 
+           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt,initicon(jg)%sfc%sst(jc,jb))
           END DO
 
           ! Compute mask field for land points
@@ -1694,7 +1845,9 @@ MODULE mo_initicon
              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
              IF ( (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) < crhosmin_ml)  &
-               &  .AND. (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt) >0._wp) )  THEN
+               &  .AND. ( (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp)  .OR.                     &
+               &          (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt) >0._wp) ) &
+               & )  THEN
 
                ! re-initialize rho_snow_t with minimum density of fresh snow (taken from TERRA)
                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) = crhosmin_ml
@@ -1761,9 +1914,40 @@ MODULE mo_initicon
 !$OMP END DO
 !$OMP END PARALLEL
 
+      ! Fill t_seasfc on nest boundary points (needed because the turbtran initialization done in nwp_phy_init
+      ! includes nest boundary points)
 
-    ! Initialization of t_g_t(:,:,isub_water) with t_seasfc is performed in 
-    ! mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
+      IF (jg > 1) THEN
+
+        rl_start = 1
+        rl_end   = grf_bdywidth_c
+        i_endblk = p_patch(jg)%cells%end_block(rl_end)
+
+        DO jb = 1, i_endblk
+
+          CALL get_indices_c(p_patch(jg), jb, 1, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+          DO jc = i_startidx, i_endidx
+            IF (ext_data(jg)%atm%fr_land(jc,jb) <= 1-frlnd_thrhld) THEN ! grid points with non-zero water fraction
+              IF (lanaread_tso) THEN
+                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt,initicon(jg)%sfc%sst(jc,jb))
+              ELSE IF (ext_data(jg)%atm%fr_land(jc,jb) >= frlake_thrhld) THEN
+                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
+              ELSE
+                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
+              ENDIF
+            ENDIF
+          ENDDO
+
+        ENDDO
+
+      ENDIF
+
+      ! This sync is needed because of the subsequent neighbor point filling
+      CALL sync_patch_array(SYNC_C,p_patch(jg),p_lnd_state(jg)%diag_lnd%t_seasfc)
+
+    ! Initialization of t_g_t(:,:,isub_water) and t_s_t(:,:,isub_water/isub_lake) 
+    ! with t_seasfc is performed in mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
 
     ENDDO  ! jg domain loop
 

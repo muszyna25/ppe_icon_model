@@ -113,6 +113,8 @@ else
   nd_txt2 = ''
 end if
 
+obs = 'WHOI'
+
 case stat of
   'diff':
     plotfile= plotdir&'/map.'&expres&'.'&expnum&'-ifs.'&varplot&'.'&verdate&vertime&nd_txt1     # no ".ps"
@@ -121,6 +123,14 @@ case stat of
   'diff_ref':
     plotfile= plotdir&'/map.'&expres&'.'&expnum&'-'&expref&'.'&varplot&'.'&verdate&vertime&nd_txt1     # no ".ps"
     title   = vartitle&'    '&expnum&'   -   '&expref&'    '&inidate&initime&' to '&verdate&vertime&nd_txt2
+    end
+  'diff_obs':
+    plotfile= plotdir&'/map.'&expres&'.'&expnum&'-'&obs&'.'&varplot&'.'&verdate&vertime&nd_txt1     # no ".ps"
+    title   = vartitle&'    '&expnum&'   -   '&obs&'    '&inidate&initime&' to '&verdate&vertime&nd_txt2
+    end
+  'ifs_obs':
+    plotfile= plotdir&'/map.'&expres&'.IFS-'&obs&'.'&varplot&'.'&verdate&vertime&nd_txt1     # no ".ps"
+    title   = vartitle&'    IFS   -   '&obs&'    '&inidate&initime&' to '&verdate&vertime&nd_txt2
     end
   'snap':
     plotfile= plotdir&'/map.'&expres&'.'&expnum&    '.'&varplot&'.'&verdate&vertime&nd_txt1
@@ -164,6 +174,7 @@ case varname of
  'RAIN_GSP':  varfile = '0.1.77'      end
  'SNOW_CON':  varfile = 'csrwe'       end    # 0.1.55
  'SNOW_GSP':  varfile = 'lssrwe'      end    # 0.1.56
+ 'CAPE'    :  varfile = '0.7.6'       end
  'TCC'     :  varfile = '0.6.1'       end
  'HCC'     :  varfile = 'cc.0'        end  # levtype =sfc
  'MCC'     :  varfile = 'cc.400'      end  # levtype =sfc
@@ -198,6 +209,7 @@ case varname of
  'T_2M'    :  varfile = '2t'          end
  'U_10M'   :  varfile = '10u'         end
  'V_10M'   :  varfile = '10v'         end
+ 'SP_10M'  :  varfile = '10si'        end
  'W'       :  varfile = '0.2.9'       end
  'FI'      :  varfile = 'z'           end
  'P'       :  varfile = 'pres'        end
@@ -348,7 +360,7 @@ for nd=1 to ndays do
 
 #--- read IFS data
 	
-  if stat = 'ctr' or stat = 'diff' then
+  if stat = 'ctr' or stat = 'diff' or stat = 'ifs_obs' then
     case levtype2 of
       'pl':
         param = varname
@@ -447,6 +459,34 @@ for nd=1 to ndays do
 end for
 
 
+#--- read observational data: WHO oaflux monthly means and error bars
+
+if varname = 'SP_10M'    or varname = 'T_2M'      or varname = 'T_G' or varname = 'QV_2M' or 
+   varname = 'ACCLHFL_S' or varname = 'ACCSHFL_S' then
+   case varname of
+      'SP_10M'   :   param = 'ws'  end
+      'T_2M'     :   param = 'ta'  end
+      'T_G'      :   param = 'ts'  end
+      'QV_2M'    :   param = 'qa'  end
+      'ACCLHFL_S':   param = 'lh'  end
+      'ACCSHFL_S':   param = 'sh'  end
+   end case
+   source_obs = '/scratch/ms/de/deia/obs_data/'&param&'_oaflux_'&yyyymm&'.grb'
+   var_obs = read(  
+      SOURCE   : source_obs,
+      grid     : grid )
+
+   lsm = retrieve(
+     type : "an",
+     date : -1,
+     param : "lsm",
+     grid : grid,
+     levtype : "sfc")
+   ocean = lsm < 0.5
+
+end if
+
+
 #-----------------------------------------------------------------------
 #--- processing
 
@@ -454,6 +494,10 @@ case stat of
   'diff':     var_data = var_exp-var_ana
   end
   'diff_ref': var_data = var_exp-var_ref
+  end
+  'diff_obs': var_data = (var_exp-var_obs) * ocean
+  end
+  'ifs_obs':  var_data = (var_ana-var_obs) * ocean
   end
   'snap':     var_data = var_exp
   end
@@ -502,12 +546,12 @@ for k=k1 to k2 by k3 do
   # mean of rms of each forecast
   rms_days = integrate(rms_data[k])
 
-  if stat = 'diff' or stat = 'diff_ref' then 
+  if stat = 'diff' or stat = 'diff_ref' or stat = 'diff_obs' or stat = 'ifs_obs' then 
     statistic = statistic&'   RMS:  '&rms          # &'   MEANofRMS:  '&rms_days
-    if stat = 'diff' then
+    if stat = 'diff' or stat = 'diff_obs' or stat = 'ifs_obs' then
       append (plotdir&"/scores_"&expnum&".txt", 
         varname, tab, levtype,' level: ', k, tab, 'inidatetime: ', firstinidate, initime, 
-        '   step: ', step, '   nfc: ', nfc, tab, statistic, newline)
+        '   step: ', step, '   nfc: ', nfc, tab, statistic, tab, stat, newline)
     end if
   end if
   statistic = statistic & '   Mem:  '&nfc
@@ -626,6 +670,8 @@ for k=k1 to k2 by k3 do
   display_window = build_layout()
 
   if stat = 'diff' or stat = 'diff_ref' then
+    plot ( display_window[1], text, var_data[k], cont, legend ) 
+  else if stat = 'diff_obs' or stat = 'ifs_obs' then
     plot ( display_window[1], text, var_data[k], cont, legend ) 
   else
     plot ( display_window[1], text, var_data[k], all,  legend )

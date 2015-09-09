@@ -20,7 +20,7 @@ MODULE mo_ocean_types
     & success, max_char_length, min_dolic,               &
     & full_coriolis, beta_plane_coriolis,                &
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates,cvec2gvec,      &
+  USE mo_math_utilities,      ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
   
   PUBLIC :: t_hydro_ocean_base
@@ -29,6 +29,7 @@ MODULE mo_ocean_types
   PUBLIC :: t_hydro_ocean_diag
   PUBLIC :: t_hydro_ocean_aux
   PUBLIC :: t_hydro_ocean_acc
+  PUBLIC :: t_ocean_monitor
   PUBLIC :: t_pointer_3d_wp
   PUBLIC :: t_oce_config
   PUBLIC :: t_ocean_tracer
@@ -177,6 +178,65 @@ MODULE mo_ocean_types
   !
   !! diagnostic variables
   !
+  
+  TYPE t_ocean_monitor
+    REAL(wp), POINTER :: volume(:)
+    REAL(wp), POINTER :: kin_energy(:)
+    REAL(wp), POINTER :: pot_energy(:)
+    REAL(wp), POINTER :: total_energy(:)
+    REAL(wp), POINTER :: total_salt(:)
+    REAL(wp), POINTER :: vorticity(:)
+    REAL(wp), POINTER :: enstrophy(:)
+    REAL(wp), POINTER :: potential_enstrophy(:)
+    REAL(wp), POINTER :: absolute_vertical_velocity(:)
+    REAL(wp), POINTER :: HeatFlux_ShortWave(:)
+    REAL(wp), POINTER :: HeatFlux_LongWave(:)
+    REAL(wp), POINTER :: HeatFlux_Sensible(:)
+    REAL(wp), POINTER :: HeatFlux_Latent(:)
+    REAL(wp), POINTER :: HeatFlux_Total(:)
+    REAL(wp), POINTER :: FrshFlux_Precipitation(:)
+    REAL(wp), POINTER :: FrshFlux_SnowFall(:)
+    REAL(wp), POINTER :: FrshFlux_Evaporation(:)
+    REAL(wp), POINTER :: FrshFlux_Runoff(:)
+    REAL(wp), POINTER :: FrshFlux_TotalSalt(:)
+    REAL(wp), POINTER :: FrshFlux_TotalOcean(:)
+    REAL(wp), POINTER :: FrshFlux_TotalIce(:)
+    REAL(wp), POINTER :: FrshFlux_VolumeIce(:)
+    REAL(wp), POINTER :: FrshFlux_VolumeTotal(:)
+    REAL(wp), POINTER :: HeatFlux_Relax(:)
+    REAL(wp), POINTER :: FrshFlux_Relax(:)
+    REAL(wp), POINTER :: TempFlux_Relax(:)
+    REAL(wp), POINTER :: SaltFlux_Relax(:)
+    
+    REAL(wp), POINTER :: ice_volume_nh(:)!                                                           [km3]
+    REAL(wp), POINTER :: ice_volume_sh(:)!                                                           [km3]
+    REAL(wp), POINTER :: ice_extent_nh(:)!                                                           [km2]
+    REAL(wp), POINTER :: ice_extent_sh(:)!                                                           [km2]
+    ! ice transport through {{{
+    REAL(wp), POINTER :: ice_framStrait(:) !                                                          [Sv]
+    ! }}}
+    ! throug, POINTER  flows {{{
+    REAL(wp), POINTER :: gibraltar(:)     ! though flow                                               [Sv]
+    REAL(wp), POINTER :: denmark_strait(:)! though flow                                               [Sv]
+    REAL(wp), POINTER :: drake_passage(:) ! though flow                                               [Sv]
+    REAL(wp), POINTER :: indonesian_throughflow(:) !                                                  [Sv]
+    REAL(wp), POINTER :: scotland_iceland(:) !                                                        [Sv]
+    REAL(wp), POINTER :: mozambique(:)
+    REAL(wp), POINTER :: framStrait(:)
+    REAL(wp), POINTER :: beringStrait(:)
+    REAL(wp), POINTER :: barentsOpening(:)
+    REAL(wp), POINTER :: agulhas(:)
+    REAL(wp), POINTER :: agulhas_long(:)
+    REAL(wp), POINTER :: agulhas_longer(:)
+    ! }}}
+    REAL(wp), POINTER :: t_mean_na_200m(:) !                                                        [degC]
+    REAL(wp), POINTER :: t_mean_na_800m(:) !                                                        [degC]
+    REAL(wp), POINTER :: ice_ocean_heat_budget(:)
+    REAL(wp), POINTER :: ice_ocean_salinity_budget(:)
+    REAL(wp), POINTER :: ice_ocean_volume_budget(:)
+    REAL(wp), ALLOCATABLE :: tracer_content(:)
+  END TYPE t_ocean_monitor
+
   TYPE t_hydro_ocean_diag
     
     REAL(wp), POINTER ::        &
@@ -230,6 +290,10 @@ MODULE mo_ocean_types
     ! dimension: (nproma, n_zlev, nblks_v)
       & vort_e(:,:,:)         ,& ! vorticity interpolated to triangle edges. Unit [1/s]
     ! dimension: (nproma, n_zlev, nblks_e)
+      & potential_vort_e(:,:,:)         ,& ! potential vorticity at triangle edges. Unit [1/s]
+    ! dimension: (nproma, n_zlev, nblks_e)
+      & potential_vort_c(:,:,:)         ,& ! potential vorticity averaged to triangle cells. Unit [1/s]
+    ! dimension: (nproma, n_zlev, nblks_c)
       & kin(:,:,:)            ,& ! kinetic energy. Unit [m/s].
     ! (nproma, n_zlev, alloc_cell_blocks)
       & mld(:,:)              ,& ! mixed layer depth [m].
@@ -280,8 +344,8 @@ MODULE mo_ocean_types
     ! dummy pointers for prognostic variables:
     REAL(wp), POINTER :: h(:,:),vn(:,:,:),t(:,:,:),s(:,:,:) ! dummy pointer for output variabless
     !-----------------------------------------------------------------------------------
+    TYPE(t_ocean_monitor) :: monitor
   END TYPE t_hydro_ocean_diag
-  
   !
   !! auxiliary data
   !
@@ -305,20 +369,17 @@ MODULE mo_ocean_types
     ! dimension: (nproma,alloc_cell_blocks)
       & bc_top_v(:,:)        ,& ! meridional velocity boundary condition at surface
     ! dimension: (nproma,alloc_cell_blocks)
-      & bc_bot_u(:,:)        ,& ! zonal velocity boundary condition at bottom
-    ! dimension: (nproma,alloc_cell_blocks)
-      & bc_bot_v(:,:)        ,& ! meridional velocity boundary condition at bottom
-    ! dimension: (nproma,alloc_cell_blocks)
       & bc_top_w(:,:)        ,& ! vertical velocity boundary condition at surface
     ! dimension: (nproma,alloc_cell_blocks)
       & bc_bot_w(:,:)        ,& ! vertical velocity boundary condition at bottom
       & bc_top_tracer(:,:,:) ,& ! vertical velocity boundary condition at surface
     ! dimension: (nproma,alloc_cell_blocks)
       & bc_bot_tracer(:,:,:) ,& ! vertical velocity boundary condition at bottom
-      & p_rhs_sfc_eq(:,:)!,   & ! right hand side of surface equation
+      & p_rhs_sfc_eq(:,:),    & ! right hand side of surface equation
     ! dimension: (nproma,alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates), POINTER :: bc_top_veloc_cc(:,:), &
-      & bc_bot_veloc_cc(:,:)
+      & bc_top_WindStress(:,:)  ! normal velocity boundary condition at surface
+    ! dimension: (nproma,nblks_e)
+    TYPE(t_cartesian_coordinates), POINTER :: bc_top_veloc_cc(:,:)
     TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)     !< pointer array: one pointer for each tracer
 !     TYPE(t_pointer_2d_wp), ALLOCATABLE :: bc_top_tracer(:) !< pointer array: one pointer for each tracer boundary condition
     
@@ -332,6 +393,8 @@ MODULE mo_ocean_types
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
       & forc_3dimRelax_Salt(:,:,:)    ! 3-dim salinity relaxation forcing (1/tau*(T-T*))
     ! dimension: (nproma,n_zlev,alloc_cell_blocks)
+    REAL(wp), POINTER ::         &
+      & relax_3dim_coefficient(:,:,:) ! 3-dim relaxation coefficient when the relaxation varies
 
     TYPE(t_cartesian_coordinates), POINTER :: &
       & slopes(:,:,:)              ! neutral slopes at cell center in cartesian coordinates

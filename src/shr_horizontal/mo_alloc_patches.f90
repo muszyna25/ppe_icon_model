@@ -132,6 +132,9 @@ CONTAINS
     call delete_distrib_read(p_patch%edges%dist_io_data)
     call delete_distrib_read(p_patch%verts%dist_io_data)
 
+    DEALLOCATE(p_patch%cells%dist_io_data, p_patch%edges%dist_io_data, &
+      &        p_patch%verts%dist_io_data)
+
     call deallocate_decomp_info(p_patch%cells%decomp_info)
     call deallocate_decomp_info(p_patch%edges%decomp_info)
     call deallocate_decomp_info(p_patch%verts%decomp_info)
@@ -171,7 +174,7 @@ CONTAINS
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch edge vertex index failed')
     ENDIF
-    DEALLOCATE( p_patch%edges%system_orientation,  stat=ist )
+    DEALLOCATE( p_patch%edges%tangent_orientation,  stat=ist )
     IF(ist/=success)THEN
       CALL finish  (routine,  'deallocate for patch edge system orientation failed')
     ENDIF
@@ -457,7 +460,7 @@ CONTAINS
     ! - n_patch_verts_g
     ! - max_childdom
 
-    p_patch%cell_type = p_patch%cells%max_connectivity
+    p_patch%geometry_info%cell_type = p_patch%cells%max_connectivity
     max_childdom = p_patch%max_childdom
     !
     ! !grid cells
@@ -472,12 +475,12 @@ CONTAINS
     ALLOCATE( p_patch%cells%child_blk(nproma,p_patch%alloc_cell_blocks,4) )
     ALLOCATE( p_patch%cells%child_id(nproma,p_patch%alloc_cell_blocks) )
     ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%alloc_cell_blocks) )
-    ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
-    ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
+    ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
+    ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
+    ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
+    ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
+    ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
+    ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
     ALLOCATE( p_patch%cells%center(nproma,p_patch%alloc_cell_blocks) )
     ALLOCATE( p_patch%cells%refin_ctrl(nproma,p_patch%alloc_cell_blocks) )
     ALLOCATE( p_patch%cells%start_idx(min_rlcell:max_rlcell,max_childdom) )
@@ -836,7 +839,7 @@ CONTAINS
     !
     IF (iopmode /= 2) THEN
       IF (.NOT. ALLOCATED(p_patch%cells%phys_id)) ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%alloc_cell_blocks) )
-      ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%alloc_cell_blocks,p_patch%cell_type) )
+      ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
       ALLOCATE( p_patch%cells%area(nproma,p_patch%alloc_cell_blocks) )
       ALLOCATE( p_patch%cells%f_c(nproma,p_patch%alloc_cell_blocks) )
     ENDIF
@@ -854,7 +857,7 @@ CONTAINS
       ALLOCATE( p_patch%edges%vertex_idx(nproma,p_patch%nblks_e,4) )
       IF (ALLOCATED(p_patch%edges%vertex_blk)) DEALLOCATE(p_patch%edges%vertex_blk)
       ALLOCATE( p_patch%edges%vertex_blk(nproma,p_patch%nblks_e,4) )
-      ALLOCATE( p_patch%edges%system_orientation(nproma,p_patch%nblks_e) )
+      ALLOCATE( p_patch%edges%tangent_orientation(nproma,p_patch%nblks_e) )
       ALLOCATE( p_patch%edges%quad_idx(nproma,p_patch%nblks_e,4) )
       ALLOCATE( p_patch%edges%quad_blk(nproma,p_patch%nblks_e,4) )
       ALLOCATE( p_patch%edges%butterfly_idx(nproma,p_patch%nblks_e,2,2) )
@@ -884,15 +887,15 @@ CONTAINS
     !
     IF (iopmode /= 2) THEN
       ALLOCATE( p_patch%verts%phys_id(nproma,p_patch%nblks_v) )
-      ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-      ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+      ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
+      ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
       IF (ALLOCATED(p_patch%verts%cell_idx)) DEALLOCATE(p_patch%verts%cell_idx)
-      ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+      ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
       IF (ALLOCATED(p_patch%verts%cell_blk)) DEALLOCATE(p_patch%verts%cell_blk)
-      ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-      ALLOCATE( p_patch%verts%edge_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-      ALLOCATE( p_patch%verts%edge_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
-      ALLOCATE( p_patch%verts%edge_orientation(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+      ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
+      ALLOCATE( p_patch%verts%edge_idx(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
+      ALLOCATE( p_patch%verts%edge_blk(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
+      ALLOCATE( p_patch%verts%edge_orientation(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
       IF (ALLOCATED(p_patch%verts%num_edges)) &
            DEALLOCATE(p_patch%verts%num_edges)
       ALLOCATE( p_patch%verts%num_edges(nproma,p_patch%nblks_v) )
@@ -938,7 +941,7 @@ CONTAINS
       p_patch%edges%cell_blk = 0
       p_patch%edges%vertex_idx = 0
       p_patch%edges%vertex_blk = 0
-      p_patch%edges%system_orientation = 0._wp
+      p_patch%edges%tangent_orientation = 0._wp
       p_patch%edges%quad_idx = 0
       p_patch%edges%quad_blk = 0
       p_patch%edges%butterfly_idx = 0

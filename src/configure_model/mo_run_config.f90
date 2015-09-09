@@ -40,13 +40,14 @@ MODULE mo_run_config
   PUBLIC :: iasha, iashb, iashc, iasha0, iashb0, iashc0                  !Running index for Volcanic Ash in ICON-ART
   PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
   PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0                 !Running index for sea salt in ICON-ART
-  PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0,idust_act       !Running index for mineral dust in ICON-ART
+  PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0                 !Running index for mineral dust in ICON-ART
   PUBLIC :: iTRCHBR3,iTRCH2BR2,iTRBRy                                    !Running index for chemical tracer in ICON-ART - VSLS-BRy
   PUBLIC :: iTRCH4,iTRCO2,iTRCO,iTRH2O,iTRO3                             !Running index for chemical tracer in ICON-ART - CH4-CO-CO2-H2O-O3
-  PUBLIC :: iTRSF6l,iTRSF6r,iTRSF6d                                      !Running index for chemical tracer in ICON-ART - SF6
+  PUBLIC :: iTRCH3COCH3                                                  !Running index for chemical tracer in ICON-ART - CH3COCH3
+  PUBLIC :: iTRC2H6                                                      !Running index for chemical tracer in ICON-ART - C2H6
+  PUBLIC :: iTRSF6                                                       !Running index for chemical tracer in ICON-ART - SF6
   PUBLIC :: iTRN2O                                                       !Running index for chemical tracer in ICON-ART - N2O
-  PUBLIC :: iTR1                                                         !Running index for chemical tracer in ICON-ART - artificial tracer
-                                                                         ! RR JS  !Running index for chemical tracer in ICON-ART - VSLS
+  PUBLIC :: iTR1,iTR2,iTR3,iTR4,iTR5                                     !Running index for chemical tracer in ICON-ART - artificial tracer
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
   PUBLIC :: number_of_grid_used       ! non-namelist variables
@@ -172,21 +173,24 @@ MODULE mo_run_config
     INTEGER :: idusta0      !< Mineral Dust Aerosol Mode A Number Density
     INTEGER :: idustb0      !< Mineral Dust Aerosol Mode B Number Density
     INTEGER :: idustc0      !< Mineral Dust Aerosol Mode C Number Density
-    INTEGER :: idust_act    !< Activated Mineral Dust Number Density
     INTEGER :: iTRCHBR3     !< chemical tracer in ICON-ART
     INTEGER :: iTRCH2BR2    !< chemical tracer in ICON-ART
     INTEGER :: iTRBRy       !< chemical tracer in ICON-ART
     INTEGER :: iTRCH4       !< chemical tracer in ICON-ART
     INTEGER :: iTRCO2       !< chemical tracer in ICON-ART
     INTEGER :: iTRCO        !< chemical tracer in ICON-ART
+    INTEGER :: iTRCH3COCH3  !< chemical tracer in ICON-ART
+    INTEGER :: iTRC2H6      !< chemical tracer in ICON-ART
     INTEGER :: iTRH2O       !< chemical tracer in ICON-ART
     INTEGER :: iTRO3        !< chemical tracer in ICON-ART
-    INTEGER :: iTRSF6l      !< chemical tracer in ICON-ART
-    INTEGER :: iTRSF6r      !< chemical tracer in ICON-ART
-    INTEGER :: iTRSF6d      !< chemical tracer in ICON-ART
+    INTEGER :: iTRSF6       !< chemical tracer in ICON-ART
     INTEGER :: iTRN2O       !< chemical tracer in ICON-ART
     INTEGER :: iTR1         !< chemical tracer in ICON-ART
-                            !< RR JS
+    INTEGER :: iTR2         !< chemical tracer in ICON-ART
+    INTEGER :: iTR3         !< chemical tracer in ICON-ART
+    INTEGER :: iTR4         !< chemical tracer in ICON-ART
+    INTEGER :: iTR5         !< chemical tracer in ICON-ART
+
 
     INTEGER :: nlev               !< number of full levels for each domain
     INTEGER :: nlevm1             !< number of half levels for each domain without boundaries

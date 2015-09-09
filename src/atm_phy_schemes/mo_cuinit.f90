@@ -45,7 +45,7 @@ MODULE mo_cuinit
   USE mo_cuparameters,  ONLY : rkap,  r4les, r4ies   ,&
     &                          r5les ,r5ies ,ralfdcp ,&
     &                          lphylin               ,&
-    &                       lmfdudv, entrorg, rdepths,&
+    &                          lmfdudv,  rdepths     ,&
     &                          rcpd   ,retv, rd, rg  ,&
     &                          rlmin                 ,&
     &                          lhook,   dr_hook      ,&
@@ -168,21 +168,21 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: pvervel(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeo(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: paph(klon,klev+1)
-    INTEGER(KIND=jpim),INTENT(out)   :: klwmin(klon)
-    INTEGER(KIND=jpim),INTENT(out)   :: klab(klon,klev)
+    INTEGER(KIND=jpim),INTENT(inout)   :: klwmin(klon)
+    INTEGER(KIND=jpim),INTENT(inout)   :: klab(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: ptenh(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pqenh(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pqenh(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pqsenh(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
-    REAL(KIND=jprb)   ,INTENT(out)   :: ptu(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pqu(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: ptd(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: ptu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pqu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: ptd(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pqd(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: puu(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pvu(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pud(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pvd(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: plu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: puu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pvu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pud(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pvd(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: plu(klon,klev)
     REAL(KIND=jprb) ::     zwmax(klon)
     REAL(KIND=jprb) ::     zph(klon)
     LOGICAL ::  llflag(klon)
@@ -301,7 +301,7 @@ CONTAINS
 
 SUBROUTINE cubasen &
  & ( kidia,    kfdia,  klon,  ktdia, klev, njkt1, njkt2,  &
- & ptenh,    pqenh,    pgeoh,    paph,                    &
+ & entrorg,  texc,  qexc,  ptenh,  pqenh,  pgeoh,  paph,  &
  & pqhfl,    pahfs,                                       &
 !& PSSTRU,   PSSTRV,                                      &
  & pten,     pqen,     pqsen, pgeo,                       &
@@ -455,6 +455,8 @@ INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 INTEGER(KIND=jpim),INTENT(in)    :: njkt1, njkt2
+REAL(KIND=jprb)   ,INTENT(in)    :: entrorg
+REAL(KIND=jprb)   ,INTENT(in)    :: texc, qexc
 REAL(KIND=jprb)   ,INTENT(in)    :: ptenh(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pqenh(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
@@ -652,15 +654,14 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
           ENDIF
         ENDIF
       ENDDO
-   
+
     ELSE
 
       DO jl=kidia,kfdia
         IF (llgo_on(jl)) THEN
-          zrho  = paph(jl,jkk+1)/(rd*(pten(jl,jkk)*(1.0_JPRB+retv*pqen(jl,jkk))))
           ilab(jl,jkk)= 1
-          ztexc=.2_JPRB
-          zqexc=1.e-4_JPRB
+          ztexc=texc
+          zqexc=qexc*pqenh(jl,jkk)
           zqu (jl,jkk) = zqenh(jl,jkk) + zqexc
           zsuh (jl,jkk) = zsenh(jl,jkk) + rcpd*ztexc
           ztu (jl,jkk) = (zsenh(jl,jkk)-pgeoh(jl,jkk))*zrcpd + ztexc
@@ -768,6 +769,8 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
 !         ZMIX(JL)=0.4_JPRB*ENTRORG*ZDZ(JL)*MIN(1.0_JPRB,(PQSEN(JL,JK)/PQSEN(JL,KLEV))**3)
           ZMIX(JL)=( 1.3_JPRB - MIN(1.0_JPRB,PQEN(JL,JK-1)/PQSEN(JL,JK-1)) ) &
          &  *ENTRORG*ZDZ(JL)*MIN(1.0_JPRB,(PQSEN(JL,JK)/PQSEN(JL,KLEV))**3)
+          ! Limitation to avoid trouble at very coarse vertical resolution
+          zmix(jl) = MIN(1.0_jprb,zmix(jl))
           zqu(jl,jk)= zqu(jl,jk+1)*(1.0_JPRB-zmix(jl))+ zqf*zmix(jl)
           zsuh(jl,jk)= zsuh(jl,jk+1)*(1.0_JPRB-zmix(jl))+ zsf*zmix(jl)
           zqold(jl)  = zqu(jl,jk)

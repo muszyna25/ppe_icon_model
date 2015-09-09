@@ -35,7 +35,8 @@ MODULE mo_vertical_grid
   USE mo_nonhydrostatic_config, ONLY: rayleigh_type, rayleigh_coeff, damp_height, &
     &                                 igradp_method, vwind_offctr,                &
     &                                 exner_expol, l_zdiffu_t, thslp_zdiffu,      &
-    &                                 thhgtd_zdiffu, kstart_dd3d, divdamp_type
+    &                                 thhgtd_zdiffu, kstart_dd3d, divdamp_type,   &
+    &                                 divdamp_trans_start, divdamp_trans_end
   USE mo_diffusion_config,      ONLY: diffusion_config
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: msg_level
@@ -107,7 +108,7 @@ MODULE mo_vertical_grid
     INTEGER :: ica(max_dom)
 
     REAL(wp) :: z_diff, z_sin_diff, z_sin_diff_full, z_tanh_diff,    &
-      &         z1, z2, z3, zf, z1_div3d, z2_div3d, z_help(nproma),  &
+      &         z1, z2, z3, zf, z_help(nproma),                      &
       &         z_temp(nproma), z_aux1(nproma), z_aux2(nproma),      &
       &         z0, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6
     REAL(wp) :: z_maxslope, z_maxhdiff, z_offctr
@@ -281,9 +282,11 @@ MODULE mo_vertical_grid
       CALL sync_patch_array_mult(SYNC_E,p_patch(jg),2,z_ddxt_z_half_e, &
         z_ddxn_z_half_e)
 
-      ! remark: ddxt_z_half_e, ddxn_z_half_e in p_nh(jg)%metrics are optionally single precision
-      p_nh(jg)%metrics%ddxt_z_half_e(:,:,:) = z_ddxt_z_half_e(:,:,:)
-      p_nh(jg)%metrics%ddxn_z_half_e(:,:,:) = z_ddxn_z_half_e(:,:,:)
+      IF (atm_phy_nwp_config(jg)%is_les_phy) THEN
+        ! remark: ddxt_z_half_e, ddxn_z_half_e in p_nh(jg)%metrics are optionally single precision
+        p_nh(jg)%metrics%ddxt_z_half_e(:,:,:) = z_ddxt_z_half_e(:,:,:)
+        p_nh(jg)%metrics%ddxn_z_half_e(:,:,:) = z_ddxn_z_half_e(:,:,:)
+      ENDIF
 
       ! vertically averaged metrics
 !$OMP PARALLEL
@@ -296,10 +299,10 @@ MODULE mo_vertical_grid
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             p_nh(jg)%metrics%ddxn_z_full(je,jk,jb) = 0.5_wp * &
-            & (p_nh(jg)%metrics%ddxn_z_half_e(je,jk,jb) + p_nh(jg)%metrics%ddxn_z_half_e(je,jk+1,jb))
+            & (z_ddxn_z_half_e(je,jk,jb) + z_ddxn_z_half_e(je,jk+1,jb))
 
             p_nh(jg)%metrics%ddxt_z_full(je,jk,jb) = 0.5_wp * &
-            & (p_nh(jg)%metrics%ddxt_z_half_e(je,jk,jb) + p_nh(jg)%metrics%ddxt_z_half_e(je,jk+1,jb))
+            & (z_ddxt_z_half_e(je,jk,jb) + z_ddxt_z_half_e(je,jk+1,jb))
           ENDDO
         ENDDO
 
@@ -415,17 +418,15 @@ MODULE mo_vertical_grid
       kstart_dd3d(jg) = 1
       p_nh(jg)%metrics%scalfac_dd3d(:) = 1._wp
       IF (divdamp_type == 32) THEN  ! 3D divergence damping transitioning into 2D divergence damping
-        z1_div3d = 12500._wp   ! set transisition zone from 3D div damping to 2D div damping
-        z2_div3d = 17500._wp   ! between 12.5 km and 17.5 km
         kstart_dd3d(jg) = 0
         DO jk = 1, nlev
           jk1 = jk + p_patch(jg)%nshift_total
           zf = 0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
-          IF (zf >= z2_div3d) THEN
+          IF (zf >= divdamp_trans_end) THEN
             p_nh(jg)%metrics%scalfac_dd3d(jk) = 0._wp
             kstart_dd3d(jg) = jk
-          ELSE IF (zf >= z1_div3d) THEN
-            p_nh(jg)%metrics%scalfac_dd3d(jk) = (z2_div3d-zf)/(z2_div3d-z1_div3d)
+          ELSE IF (zf >= divdamp_trans_start) THEN
+            p_nh(jg)%metrics%scalfac_dd3d(jk) = (divdamp_trans_end-zf)/(divdamp_trans_end-divdamp_trans_start)
           ELSE
             p_nh(jg)%metrics%scalfac_dd3d(jk) = 1._wp
           ENDIF
@@ -493,18 +494,18 @@ MODULE mo_vertical_grid
         jk = nlevp1
         DO jc = i_startidx, i_endidx
 
-          z_maxslope = MAX(ABS(p_nh(jg)%metrics%ddxn_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
-                           ABS(p_nh(jg)%metrics%ddxn_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
-                           ABS(p_nh(jg)%metrics%ddxn_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))),&
-                           ABS(p_nh(jg)%metrics%ddxt_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
-                           ABS(p_nh(jg)%metrics%ddxt_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
-                           ABS(p_nh(jg)%metrics%ddxt_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))) )
+          z_maxslope = MAX(ABS(z_ddxn_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
+                           ABS(z_ddxn_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
+                           ABS(z_ddxn_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))),&
+                           ABS(z_ddxt_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))),&
+                           ABS(z_ddxt_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))),&
+                           ABS(z_ddxt_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))) )
 
-          z_diff = MAX(ABS(p_nh(jg)%metrics%ddxn_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))                     &
+          z_diff = MAX(ABS(z_ddxn_z_half_e(iidx(jc,jb,1),jk,iblk(jc,jb,1))                   &
                          * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,1),iblk(jc,jb,1))), &
-                       ABS(p_nh(jg)%metrics%ddxn_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))                     &
+                       ABS(z_ddxn_z_half_e(iidx(jc,jb,2),jk,iblk(jc,jb,2))                   &
                          * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,2),iblk(jc,jb,2))), &
-                       ABS(p_nh(jg)%metrics%ddxn_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))                     &
+                       ABS(z_ddxn_z_half_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))                   &
                          * p_patch(jg)%edges%dual_edge_length(iidx(jc,jb,3),iblk(jc,jb,3)) ) )
 
           ! Empirically determined values to ensure stability over steep slopes

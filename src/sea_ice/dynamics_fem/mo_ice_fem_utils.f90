@@ -33,9 +33,10 @@ MODULE mo_ice_fem_utils
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_momentum
 !    &                               timer_ice_advection, timer_ice_interp
   USE mo_grid_config,         ONLY: n_dom
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-  USE mo_ocean_types,           ONLY: t_hydro_ocean_state
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec, rotate_latlon,&
     &                               rotate_latlon_vec
   USE mo_exception,           ONLY: message
@@ -51,6 +52,7 @@ MODULE mo_ice_fem_utils
   USE mo_math_constants,      ONLY: rad2deg, deg2rad
   USE mo_physical_constants,  ONLY: rhoi, Cd_ia, rho_ref
   USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync_patch_array_mult
+  USE mo_sea_ice_nml,         ONLY: stress_ice_zero
   USE mo_ocean_nml,           ONLY: n_zlev
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_util_sort,           ONLY: quicksort
@@ -65,7 +67,7 @@ MODULE mo_ice_fem_utils
   PUBLIC  :: exchange_nod2Di
   PUBLIC  :: exchange_elem2D
   PUBLIC  :: ice_fem_grid_post
-  PUBLIC  :: ice_advection
+  PUBLIC  :: ice_advection, ice_advection_vla
   PUBLIC  :: ice_ocean_stress
 
   PRIVATE :: map_edges2verts
@@ -78,6 +80,9 @@ MODULE mo_ice_fem_utils
   ! These values put the north pole on the Indonesian/Malasian island Kalimantan and the south pole
   ! in north-west Brazil, near the border to Venezuela and Colombia.
   REAL(wp), PARAMETER, PRIVATE :: pollon = 114._wp*deg2rad, pollat = 0._wp
+
+  CHARACTER(len=12)           :: str_module    = 'IceFem'  ! Output of module for 1 line debug
+  INTEGER                     :: idt_src       = 1         ! Level of detail for 1 line debug
 
 CONTAINS
 
@@ -166,7 +171,8 @@ CONTAINS
     ! Interpolate tracers to vertices
     buffy_array = 0._wp
     ! TODO: Replace hi/conc to himean
-    CALL cells2verts_scalar( p_ice%hi/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+!    CALL cells2verts_scalar( p_ice%hi/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+    CALL cells2verts_scalar( p_ice%hi*MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     m_ice = buffy(1:SIZE(m_ice) )
@@ -176,7 +182,8 @@ CONTAINS
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     a_ice = buffy(1:SIZE(a_ice) )
 
-    CALL cells2verts_scalar( p_ice%hs/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+!    CALL cells2verts_scalar( p_ice%hs/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+    CALL cells2verts_scalar( p_ice%hs*MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     m_snow= buffy(1:SIZE(m_snow))
@@ -353,6 +360,11 @@ CONTAINS
 !    IF (ltimer) CALL timer_stop(timer_ice_interp)
     IF (ltimer) CALL timer_stop(timer_ice_momentum)
 
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('femIWrap: ice_u' , p_ice%u, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('femIWrap: ice_v' , p_ice%v, str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
   END SUBROUTINE fem_ice_wrap
 
   !-------------------------------------------------------------------------
@@ -375,11 +387,12 @@ CONTAINS
 
     ! Indexing
     INTEGER :: ist, nblks_v
-    INTEGER :: jb, jv
+    INTEGER :: jb, jv, ji
     INTEGER :: i_startidx_v, i_endidx_v
+    INTEGER :: cell_index, cell_block
 
     ! The denominator
-    REAL(wp) :: rdeno
+    REAL(wp) :: rdeno, rsum
 
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
@@ -391,6 +404,7 @@ CONTAINS
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating c2v_wgt failed')
     ENDIF
+    c2v_wgt=0.0_wp
 
     ! Weights for the cells2verts_scalar call
 !     i_startblk = p_patch%verts%all%start_block
@@ -407,38 +421,64 @@ CONTAINS
  
       IDX_LOOP: DO jv =  i_startidx_v, i_endidx_v
  
-        rdeno =  1._wp/MAX( TINY(rdeno),                                &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) )
+!        rdeno =  1._wp/MAX( TINY(rdeno),                                &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) )
+!
+!        c2v_wgt(jv,1,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) * rdeno
+!        c2v_wgt(jv,2,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) * rdeno
+!        c2v_wgt(jv,3,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) * rdeno
+!        c2v_wgt(jv,4,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) * rdeno
+!        c2v_wgt(jv,5,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) * rdeno
+!        c2v_wgt(jv,6,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) * rdeno
 
-        c2v_wgt(jv,1,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) * rdeno 
-        c2v_wgt(jv,2,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) * rdeno 
-        c2v_wgt(jv,3,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) * rdeno 
-        c2v_wgt(jv,4,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) * rdeno 
-        c2v_wgt(jv,5,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) * rdeno 
-        c2v_wgt(jv,6,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) * rdeno 
+   !    first test of bugfix when finding pentagon - cell_index or cell_block returns 0
+   !     -> this code leads to other error in CELLS2VERTS_SCALAR
+        rsum = 0.0_wp
+
+        DO ji = 1, 6
+          cell_index = iidx(jv,jb,ji)
+          cell_block = iblk(jv,jb,ji)
+          IF (cell_index > 0)                                      &
+            & rsum = rsum +                                        &
+            &      p_patch_3D%wet_c  (cell_index,1,cell_block) *   &
+            &      p_patch%cells%area(cell_index,  cell_block)
+
+        ENDDO
+
+        rdeno =  1._wp/MAX( TINY(rdeno), rsum )
+
+        DO ji = 1, 6
+          cell_index = iidx(jv,jb,ji)
+          cell_block = iblk(jv,jb,ji)
+          IF (cell_index > 0)                                 &
+            & c2v_wgt(jv,ji,jb) =                             &
+            &   p_patch_3D%wet_c  (cell_index,1,cell_block) * &
+            &   p_patch%cells%area(cell_index,  cell_block) * rdeno
+
+        ENDDO
 
       ENDDO  IDX_LOOP
  
@@ -1108,13 +1148,143 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%vol (:,:,:))
+!   CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%conc(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hs  (:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hi  (:,:,:))
 
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('ice_adv: vol ice'  , p_ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: vol snow' , p_ice%vols, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: hi'       , p_ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: hs'       , p_ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: conc'     , p_ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
 !    IF (ltimer) CALL timer_stop(timer_ice_advection)
 
   END SUBROUTINE ice_advection
+
+  !-------------------------------------------------------------------------
+  !
+  !> Advection of sea ice and snow on ice.
+  !> Modified to advect ice%hi*ice%conc and conc instead of ice%vol.
+  !! This uses the upwind_hflux_ice routine and the ocean's div_oce_3D routine to do upwind
+  !! advection of the relevant variables.
+  !!
+  !! @par Revision History
+  !! Developed by Vladimir Lapin, MPI-M (2015-06-04)
+  !
+  SUBROUTINE ice_advection_vla( p_patch_3D, p_op_coeff, p_ice )
+    TYPE(t_patch_3D), TARGET, INTENT(IN)    :: p_patch_3D
+    TYPE(t_operator_coeff),   INTENT(IN)    :: p_op_coeff
+    TYPE(t_sea_ice),          INTENT(INOUT) :: p_ice
+
+    ! Local variables
+    ! Patch and range
+    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_subset_range), POINTER :: cells_in_domain
+
+    ! Indexing
+    INTEGER  :: jk, jb, jc
+    INTEGER  :: i_startidx_c, i_endidx_c
+
+    ! Temporary variables/buffers
+    REAL(wp) :: z_adv_flux_h (nproma,p_ice%kice,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp) :: flux_hi  (nproma,p_ice%kice, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: flux_conc(nproma,p_ice%kice, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: flux_hs  (nproma,p_ice%kice, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+
+!--------------------------------------------------------------------------------------------------
+
+!    IF (ltimer) CALL timer_start(timer_ice_advection)
+
+    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    cells_in_domain => p_patch%cells%in_domain
+
+!--------------------------------------------------------------------------------------------------
+! Do advection
+!--------------------------------------------------------------------------------------------------
+
+    !upwind estimate of tracer flux
+    !CALL upwind_hflux_ice( p_patch_3D, p_ice%vol,  p_ice%vn_e, z_adv_flux_h )
+    CALL upwind_hflux_ice( p_patch_3D, p_ice%hi*p_ice%conc,  p_ice%vn_e, z_adv_flux_h )
+    DO jk=1,p_ice%kice
+      CALL div_oce_3D( z_adv_flux_h(:,jk,:), p_patch, p_op_coeff%div_coeff, flux_hi  (:,jk,:),&
+        & 1, cells_in_domain)
+    ENDDO
+
+    CALL upwind_hflux_ice( p_patch_3D, p_ice%conc, p_ice%vn_e, z_adv_flux_h )
+    DO jk=1,p_ice%kice
+      CALL div_oce_3D( z_adv_flux_h(:,jk,:), p_patch, p_op_coeff%div_coeff, flux_conc(:,jk,:),&
+        & 1, cells_in_domain)
+    ENDDO
+
+    !CALL upwind_hflux_ice( p_patch_3D, p_ice%vols, p_ice%vn_e, z_adv_flux_h )
+    CALL upwind_hflux_ice( p_patch_3D, p_ice%hs*p_ice%conc, p_ice%vn_e, z_adv_flux_h )
+    DO jk=1,p_ice%kice
+      CALL div_oce_3D( z_adv_flux_h(:,jk,:), p_patch, p_op_coeff%div_coeff, flux_hs  (:,jk,:),&
+        & 1, cells_in_domain)
+    ENDDO
+
+    DO jk = 1,p_ice%kice
+      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+
+            ! will be divided by p_ice%conc(jc,jk,jb) after the -dtime*flux_conc is added
+            p_ice%hi(jc,jk,jb)=p_ice%hi(jc,jk,jb)*p_ice%conc(jc,jk,jb)
+            p_ice%hs(jc,jk,jb)=p_ice%hs(jc,jk,jb)*p_ice%conc(jc,jk,jb)
+
+            p_ice%conc(jc,jk,jb)= p_ice%conc(jc,jk,jb)-dtime*flux_conc(jc,jk,jb)
+            !p_ice%vol (jc,jk,jb)= p_ice%vol (jc,jk,jb)-dtime*flux_hi  (jc,jk,jb)
+            !p_ice%vols(jc,jk,jb)= p_ice%vols(jc,jk,jb)-dtime*flux_hs  (jc,jk,jb)
+
+            IF ( p_ice%conc(jc,jk,jb) > 0.0_wp) THEN
+              p_ice%hi(jc,jk,jb)= (p_ice%hi(jc,jk,jb)-dtime*flux_hi(jc,jk,jb))/p_ice%conc(jc,jk,jb)
+              p_ice%hs(jc,jk,jb)= (p_ice%hs(jc,jk,jb)-dtime*flux_hs(jc,jk,jb))/p_ice%conc(jc,jk,jb)
+            ENDIF
+          ENDIF
+          ! TODO ram - remove p_patch%cells%area(jc,jb) and test
+          ! See also thermodyn/mo_sea_ice.f90
+          IF ( p_ice%conc(jc,jk,jb) > 0.0_wp) THEN
+            p_ice%vol(jc,jk,jb) = p_ice%hi (jc,jk,jb)   &
+              &         *( p_ice%conc(jc,jk,jb)*p_patch%cells%area(jc,jb) )
+            p_ice%vols(jc,jk,jb) = p_ice%hs(jc,jk,jb)   &
+              &         *( p_ice%conc(jc,jk,jb)*p_patch%cells%area(jc,jb) )
+          ENDIF
+!          IF ( p_ice%conc(jc,jk,jb) > 0.0_wp) THEN
+!            p_ice%hi(jc,jk,jb) = p_ice%vol (jc,jk,jb)   &
+!              &         /( p_ice%conc(jc,jk,jb)*p_patch%cells%area(jc,jb) )
+!            p_ice%hs(jc,jk,jb) = p_ice%vols(jc,jk,jb)   &
+!              &         /( p_ice%conc(jc,jk,jb)*p_patch%cells%area(jc,jb) )
+!          ENDIF
+        END DO
+      END DO
+    END DO
+
+!--------------------------------------------------------------------------------------------------
+! Sync results
+!--------------------------------------------------------------------------------------------------
+
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%vol (:,:,:))
+!   CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%conc(:,:,:))
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%hs  (:,:,:))
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%hi  (:,:,:))
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('ice_adv: vol ice'  , p_ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: vol snow' , p_ice%vols, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: hi'       , p_ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: hs'       , p_ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: conc'     , p_ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
+!    IF (ltimer) CALL timer_stop(timer_ice_advection)
+
+  END SUBROUTINE ice_advection_vla
 
   !-------------------------------------------------------------------------
   !
@@ -1150,19 +1320,29 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 ! Modify oceanic stress
 !--------------------------------------------------------------------------------------------------
+
 !ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c, i_endidx_c, jc, delu, delv, tau) ICON_OMP_DEFAULT_SCHEDULE
+
+  ! wind-stress is either calculated in bulk-formula or from atmosphere via coupling;
+  ! it is stored in stress_xw for open water and stress_x for ice-covered area
+  ! ice velocities are calculated using stress_x in ice dynamics
+  ! difference of ice and ocean velocities determines ocean stress below sea ice
+  ! resulting stress on ocean surface is stored in atmos_fluxes%topBoundCond_windStress_u
   DO jb = all_cells%start_block, all_cells%end_block
     CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
     DO jc = i_startidx_c, i_endidx_c
-      ! Ice with concentration lower than 0.01 simply flows with the speed of the ocean and does
-      ! not alter drag
-      ! TODO: The ice-ocean drag coefficient should depend on the depth of the upper most ocean
-      ! velocity point: C_d_io = ( kappa/log(z/z0) )**2, with z0 ~= 0.4 cm
       delu = p_ice%u(jc,jb) - p_os%p_diag%u(jc,1,jb)
       delv = p_ice%v(jc,jb) - p_os%p_diag%v(jc,1,jb)
-
-      ! Should we multiply with concSum here?
-      tau = p_ice%concSum(jc,jb)*density_0*C_d_io*SQRT( delu**2 + delv**2 )
+      ! Ice with concentration lower than 0.01 simply flows with the speed of the ocean and does not alter drag
+      ! TODO: The ice-ocean drag coefficient should depend on the depth of the upper most ocean
+      ! velocity point: C_d_io = ( kappa/log(z/z0) )**2, with z0 ~= 0.4 cm
+      ! Should we multiply with concSum here? 
+      !tau = p_ice%concSum(jc,jb)*density_0*C_d_io*SQRT( delu**2 + delv**2 )
+      ! #slo# - to avoid stress proportional to concSum**2 it is omitted here
+      tau = density_0*C_d_io*SQRT( delu**2 + delv**2 )
+      ! set ocean stress below sea ice to zero wrt concentration for forced runs without ice dynamics;
+      ! then ocean gets no stress (no deceleration) below sea ice
+      IF (stress_ice_zero) tau = 0.0_wp
       atmos_fluxes%topBoundCond_windStress_u(jc,jb) = atmos_fluxes%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
         &               + p_ice%concSum(jc,jb)*tau*delu
       atmos_fluxes%topBoundCond_windStress_v(jc,jb) = atmos_fluxes%stress_yw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
@@ -1171,10 +1351,19 @@ CONTAINS
   ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
+
 !   CALL sync_patch_array_mult(SYNC_C, p_patch, 2, atmos_fluxes%topBoundCond_windStress_u(:,:), &
 !     & atmos_fluxes%topBoundCond_windStress_v(:,:))
 !   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_u(:,:))
 !   CALL sync_patch_array(SYNC_C, p_patch, atmos_fluxes%topBoundCond_windStress_v(:,:))
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('IO-Str: windStr-u', atmos_fluxes%topBoundCond_windStress_u, str_module, 3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: stress_xw', atmos_fluxes%stress_xw,                 str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: ice%u'    , p_ice%u,                                str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: ice%concS', p_ice%concSum,                          str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('IO-Str: diag%u'   , p_os%p_diag%u,                          str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
 
   END SUBROUTINE ice_ocean_stress
 

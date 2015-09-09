@@ -11,8 +11,6 @@ MODULE mo_cdi_constants
 
   PUBLIC
 
-  INCLUDE 'cdi.inc'
-
   INTEGER, PARAMETER :: GRID_CELL   = 1
   INTEGER, PARAMETER :: GRID_VERTEX = 2
   INTEGER, PARAMETER :: GRID_EDGE   = 3
@@ -21,8 +19,10 @@ MODULE mo_cdi_constants
   INTEGER, PARAMETER :: GRID_UNSTRUCTURED_VERT = 2
   INTEGER, PARAMETER :: GRID_UNSTRUCTURED_EDGE = 3
 
-  INTEGER, PARAMETER :: GRID_REGULAR_LONLAT    = 4
+  INTEGER, PARAMETER :: GRID_REGULAR_LONLAT    = 44
 
+! Intermediate fix, until GRID_REFERENCE has completely been removed from ICON
+  INTEGER, PARAMETER :: GRID_REFERENCE = 9
 
 
   ! Parameters for naming all Z-axes created with zaxisCreate.

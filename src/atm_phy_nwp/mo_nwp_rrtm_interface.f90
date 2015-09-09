@@ -24,7 +24,6 @@
 #endif
 MODULE mo_nwp_rrtm_interface
 
-  USE mo_aerosol_util,         ONLY: zaea_rrtm,zaes_rrtm,zaeg_rrtm
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_exception,            ONLY: message,  finish, message_text
@@ -35,7 +34,6 @@ MODULE mo_nwp_rrtm_interface
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_lrtm_par,             ONLY: jpband => nbndlw
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog
   USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output
@@ -43,9 +41,8 @@ MODULE mo_nwp_rrtm_interface
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
   USE mo_radiation,            ONLY: radiation, radiation_nwp
-  USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2
+  USE mo_radiation_config,     ONLY: irad_o3, irad_aero
   USE mo_radiation_rg_par,     ONLY: aerdis
-  USE mo_srtm_config,          ONLY: jpsw
   USE mo_sync,                 ONLY: global_max, global_min
 
   USE mo_rrtm_data_interface,  ONLY: t_rrtm_data, recv_rrtm_input, send_rrtm_output
@@ -168,6 +165,8 @@ CONTAINS
         & zvio3      = prm_diag%vio3,                & !inout
         & zhmo3      = prm_diag%hmo3  )                !inout
     CASE (7)
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
+    CASE (9)
       CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
     END SELECT
 
@@ -642,7 +641,6 @@ CONTAINS
         & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
                               !
                               ! atmosphere: pressure, tracer mixing ratios and temperature
-        & z_mc       =p_metrics%z_mc    (:,:,jb)     ,&!< in  height at full levels [m]
         & pp_hl      =pt_diag%pres_ifc  (:,:,jb)     ,&!< in  pres at half levels at t-dt [Pa]
         & pp_fl      =pt_diag%pres      (:,:,jb)     ,&!< in  pres at full levels at t-dt [Pa]
         & tk_fl      =pt_diag%temp      (:,:,jb)     ,&!< in  temperature at full level at t-dt
@@ -1111,7 +1109,6 @@ CONTAINS
           & tk_sfc     =zrg_tsfc     (:,jb)       ,&!< in    surface temperature
                                 !
                                 ! atmosphere: pressure, tracer mixing ratios and temperature
-          & z_mc       =p_metrics%z_mc(:,:,jb)  ,&!< in    height at full levels [m]
           & pp_hl      =zrg_pres_ifc(:,:,jb)    ,&!< in    pressure at half levels at t-dt [Pa]
           & pp_fl      =zrg_pres    (:,:,jb)    ,&!< in    pressure at full levels at t-dt [Pa]
           & tk_fl      =zrg_temp    (:,:,jb)    ,&!< in    temperature at full level at t-dt
@@ -1339,7 +1336,6 @@ CONTAINS
           & tk_sfc     =prm_diag%tsfctrad(:,jb)  ,&!< in surface temperature
                                 !
                                 ! atmosphere: pressure, tracer mixing ratios and temperature
-          & z_mc       =p_metrics%z_mc    (:,:,jb)     ,&!< in  height at full levels [m]
           & pp_hl      =pt_diag%pres_ifc  (:,:,jb)     ,&!< in  pres at half levels at t-dt [Pa]
           & pp_fl      =pt_diag%pres      (:,:,jb)     ,&!< in  pres at full levels at t-dt [Pa]
           & tk_fl      =pt_diag%temp      (:,:,jb)     ,&!< in  temperature at full level at t-dt
@@ -1358,11 +1354,11 @@ CONTAINS
                                 ! output
                                 ! ------
                                 !
-          & cld_cvr    = test_aclcov             (:,jb),&!< out cloud cover in a column [m2/m2]
-          & emter_clr  = test_lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
-          & trsol_clr  = test_trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
-          & emter_all  = test_lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
-          & trsol_all  = test_trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
+          & cld_cvr        = test_aclcov             (:,jb),&!< out cloud cover in a column [m2/m2]
+          & flx_lw_net_clr = test_lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
+          & trm_sw_net_clr = test_trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
+          & flx_lw_net     = test_lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
+          & trm_sw_net     = test_trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
           & opt_halo_cosmu0 = .FALSE. )
 
       ENDDO ! blocks
@@ -1464,7 +1460,6 @@ CONTAINS
         & tk_sfc     = rrtm_data%tsfctrad       (:,jb) ,&!< in surface temperature
                               !
                               ! atmosphere: pressure, tracer mixing ratios and temperature
-        & z_mc       = p_metrics%z_mc      (:,:,jb)    ,&!< in  height at full levels [m]
         & pp_hl      = rrtm_data%pres_ifc  (:,:,jb)    ,&!< in  pres at half levels at t-dt [Pa]
         & pp_fl      = rrtm_data%pres      (:,:,jb)    ,&!< in  pres at full levels at t-dt [Pa]
         & tk_fl      = rrtm_data%temp      (:,:,jb)    ,&!< in  temperature at full level at t-dt
@@ -1483,11 +1478,11 @@ CONTAINS
                               ! output
                               ! ------
                               !
-        & cld_cvr    = rrtm_data%aclcov  (:,  jb),&!< out cloud cover in a column [m2/m2]
-        & emter_clr  = rrtm_data%lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
-        & trsol_clr  = rrtm_data%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
-        & emter_all  = rrtm_data%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
-        & trsol_all  = rrtm_data%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
+        & cld_cvr        = rrtm_data%aclcov  (:,  jb),&!< out cloud cover in a column [m2/m2]
+        & flx_lw_net_clr = rrtm_data%lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
+        & trm_sw_net_clr = rrtm_data%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
+        & flx_lw_net     = rrtm_data%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
+        & trm_sw_net     = rrtm_data%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
         & opt_halo_cosmu0 = .FALSE. )
     ENDDO
 !$OMP END DO NOWAIT

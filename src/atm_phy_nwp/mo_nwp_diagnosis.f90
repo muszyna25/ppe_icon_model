@@ -51,13 +51,16 @@ MODULE mo_nwp_diagnosis
   USE mo_advection_config,   ONLY: advection_config
   USE mo_io_config,          ONLY: lflux_avg
   USE mo_sync,               ONLY: global_max, global_min
+  USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_satad,              ONLY: sat_pres_water, spec_humi
+  USE mo_util_phys,          ONLY: calsnowlmt, cal_cape_cin
   USE mo_nwp_ww,             ONLY: ww_diagnostics, ww_datetime
-  USE mo_datetime,           ONLY: date_to_time, rdaylen
+  USE mo_datetime,           ONLY: date_to_time
   USE mo_time_config,        ONLY: time_config
   USE mo_exception,          ONLY: finish
   USE mo_math_constants,     ONLY: pi
   USE mo_statistics,         ONLY: time_avg
+  USE mo_ext_data_types,     ONLY: t_external_data
 
   IMPLICIT NONE
 
@@ -179,7 +182,7 @@ CONTAINS
     ! - surface latent heat flux from bare soil 
     ! - surface sensible heat flux
     ! - surface moisture flux
-    ! - surface u/v-momentum flux
+    ! - surface u/v-momentum flux (turbulent, sso, resolved)
     !
     ! radiative fluxes
     !------------------
@@ -296,17 +299,18 @@ CONTAINS
                 &                                prm_diag%qhfl_s (jc,jb), & 
                 &                                t_wgt )
 
-              ! time averaged surface u-momentum flux
+              ! time averaged surface u-momentum flux turbulence
               prm_diag%aumfl_s(jc,jb) = time_avg(prm_diag%aumfl_s(jc,jb), &
                 &                                prm_diag%umfl_s (jc,jb), &
                 &                                t_wgt )
 
-              ! time averaged surface v-momentum flux
+              ! time averaged surface v-momentum flux turbulence
               prm_diag%avmfl_s(jc,jb) = time_avg(prm_diag%avmfl_s(jc,jb), &
                 &                                prm_diag%vmfl_s (jc,jb), &
                 &                                t_wgt )
 
             ENDDO  ! jc
+
             DO jk = 1, nlev_soil
 !DIR$ IVDEP
               DO jc = i_startidx, i_endidx
@@ -315,6 +319,32 @@ CONTAINS
                 &                                    t_wgt)
               ENDDO  ! jc
             ENDDO  ! jk
+
+            IF (atm_phy_nwp_config(jg)%lcalc_extra_avg) THEN
+!DIR$ IVDEP
+              DO jc = i_startidx, i_endidx
+                ! time averaged surface u-momentum flux SSO
+                prm_diag%astr_u_sso(jc,jb) = time_avg(prm_diag%astr_u_sso(jc,jb), &
+                  &                                   prm_diag%str_u_sso (jc,jb), &
+                  &                                   t_wgt )
+
+                ! time averaged surface v-momentum flux SSO
+                prm_diag%astr_v_sso(jc,jb) = time_avg(prm_diag%astr_v_sso(jc,jb), &
+                  &                                   prm_diag%str_v_sso (jc,jb), &
+                  &                                   t_wgt )
+
+                ! time averaged surface u-momentum flux resolved
+                prm_diag%adrag_u_grid(jc,jb) = time_avg(prm_diag%adrag_u_grid(jc,jb), &
+                  &                                prm_diag%drag_u_grid (jc,jb), &
+                  &                                t_wgt )
+
+                ! time averaged surface v-momentum flux resolved
+                prm_diag%adrag_v_grid(jc,jb) = time_avg(prm_diag%adrag_v_grid(jc,jb), &
+                  &                                prm_diag%drag_v_grid (jc,jb), &
+                  &                                t_wgt )
+              ENDDO  ! jc
+
+            ENDIF  ! lcalc_extra_avg
 
           ENDIF  ! inwp_turb > 0
 
@@ -419,17 +449,18 @@ CONTAINS
                                  &  + prm_diag%qhfl_s(jc,jb)           & 
                                  &  * dt_phy_jg(itfastphy)
 
-              ! accumulated surface u-momentum flux
+              ! accumulated surface u-momentum flux turbulence
               prm_diag%aumfl_s(jc,jb) = prm_diag%aumfl_s(jc,jb)        &
                                 &   + prm_diag%umfl_s(jc,jb)           &
                                 &   * dt_phy_jg(itfastphy)
 
-              ! accumulated surface v-momentum flux
+              ! accumulated surface v-momentum flux turbulence
               prm_diag%avmfl_s(jc,jb) = prm_diag%avmfl_s(jc,jb)        &
                                 &   + prm_diag%vmfl_s(jc,jb)           &
                                 &   * dt_phy_jg(itfastphy)
-
             ENDDO
+
+
             DO jk = 1, nlev_soil
 !DIR$ IVDEP
               DO jc = i_startidx, i_endidx
@@ -438,6 +469,34 @@ CONTAINS
                                  &  * dt_phy_jg(itfastphy) 
               ENDDO  ! jc
             ENDDO  ! jk
+
+
+            IF (atm_phy_nwp_config(jg)%lcalc_extra_avg) THEN
+!DIR$ IVDEP
+              DO jc = i_startidx, i_endidx
+                ! accumulated surface u-momentum flux SSO
+                prm_diag%astr_u_sso(jc,jb) = prm_diag%astr_u_sso(jc,jb)     &
+                                       &   + prm_diag%str_u_sso(jc,jb)      &
+                                       &   * dt_phy_jg(itfastphy)
+
+                ! accumulated surface v-momentum flux SSO
+                prm_diag%astr_v_sso(jc,jb) = prm_diag%astr_v_sso(jc,jb)     &
+                                       &   + prm_diag%str_v_sso(jc,jb)      &
+                                       &   * dt_phy_jg(itfastphy)
+
+                ! accumulated surface u-momentum flux resolved
+                prm_diag%adrag_u_grid(jc,jb) = prm_diag%adrag_u_grid(jc,jb) &
+                                         &   + prm_diag%drag_u_grid(jc,jb)  &
+                                         &   * dt_phy_jg(itfastphy)
+
+                ! accumulated surface v-momentum flux resolved
+                prm_diag%adrag_v_grid(jc,jb) = prm_diag%adrag_v_grid(jc,jb) &
+                                         &   + prm_diag%drag_v_grid(jc,jb)  &
+                                         &   * dt_phy_jg(itfastphy)
+              ENDDO  ! jc
+
+            ENDIF  ! lcalc_extra_avg
+
           ENDIF  ! inwp_turb > 0
 
 
@@ -816,6 +875,7 @@ CONTAINS
   !! - height of convection base and top: hbas_con, htop_con
   !! - height of the top of dry convection: htop_dc
   !! - height of 0 deg C level: hzerocl
+  !! - height of snow fall limit above MSL
   !! - CLDEPTH: modified cloud depth for media
   !! - CLCT_MOD: modified total cloud cover (between 0 and 1) 
   !! - t_ice is filled with t_so(0) for non-ice points (h_ice=0)
@@ -838,6 +898,7 @@ CONTAINS
                             & lnd_diag,                   & !in
                             & p_prog_lnd_now,             & !in
                             & p_prog_wtr_now,             & !in
+                            & ext_data,                   & !in
                             & prm_diag                    ) !inout    
               
     INTEGER,         INTENT(IN)   :: kstart_moist
@@ -853,6 +914,7 @@ CONTAINS
     TYPE(t_lnd_diag),    INTENT(IN)   :: lnd_diag    ! land diag state
     TYPE(t_lnd_prog),    INTENT(IN)   :: p_prog_lnd_now ! land prognostic state (now)
     TYPE(t_wtr_prog),    INTENT(INOUT):: p_prog_wtr_now ! water prognostic state (now)
+    TYPE(t_external_data),INTENT(IN)  ::ext_data       !< external data, inout only for accomodating ext_data%atm%sso_gamma
     TYPE(t_nwp_phy_diag),INTENT(INOUT):: prm_diag
 
     ! Local
@@ -925,7 +987,7 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           IF ( prm_diag%locum(jc,jb)) THEN
             prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
-            prm_diag%htop_con(jc,jb) = p_metrics%z_mc ( jc, prm_diag%mtop_con(jc,jb), jb)
+            prm_diag%htop_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mtop_con(jc,jb), jb)
           ELSE
             prm_diag%hbas_con(jc,jb) = -500._wp
             prm_diag%htop_con(jc,jb) = -500._wp
@@ -994,15 +1056,27 @@ CONTAINS
             CYCLE
           ELSE IF ( pt_diag%temp(jc,jk  ,jb) >= tmelt .AND. &
            &        pt_diag%temp(jc,jk-1,jb) <  tmelt ) THEN
-            prm_diag%hzerocl(jc,jb) = p_metrics%z_ifc(jc,jk-1,jb) -  &
-           &      ( p_metrics%z_ifc(jc,jk-1,jb) - p_metrics%z_ifc(jc,jk,jb) )*  &
-           &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                     &
+            prm_diag%hzerocl(jc,jb) = p_metrics%z_mc(jc,jk-1,jb) -  &
+           &      ( p_metrics%z_mc(jc,jk-1,jb) - p_metrics%z_mc(jc,jk,jb) )*  &
+           &      (    pt_diag%temp(jc,jk-1,jb) - tmelt ) /                   &
            &      (    pt_diag%temp(jc,jk-1,jb) - pt_diag%temp(jc,jk,jb) )
           END IF
         ENDDO
       ENDDO
 
 
+      !
+      !  Height of snow fall limit above MSL (snow line)
+      !
+      CALL calsnowlmt ( snowlmt = prm_diag%snowlmt(:,jb)        , & !inout
+        &               temp    = pt_diag%temp(:,:,jb)          , & !in
+        &               pres    = pt_diag%pres(:,:,jb)          , & !in
+        &               qv      = pt_prog_rcf%tracer(:,:,jb,iqv), & !in
+        &               hhl     = p_metrics%z_ifc(:,:,jb)       , & !in
+        &               hhlr    = vct_a(pt_patch%nshift_total+1:),& !in
+        &               istart  = i_startidx                    , & !in
+        &               iend    = i_endidx                      , & !in
+        &               wbl     = 1.3_wp )
 
 
       ! Fill t_ice with t_so(1) for ice-free points (h_ice<=0)
@@ -1034,6 +1108,15 @@ CONTAINS
         ENDDO
       ENDIF
 
+
+      ! Compute resolved surface drag: ps * del(orog)
+ 
+      DO jc = i_startidx, i_endidx
+         prm_diag%drag_u_grid(jc,jb) = pt_diag%pres_ifc(jc,nlevp1,jb) * ext_data%atm%grad_topo(1,jc,jb)
+         prm_diag%drag_v_grid(jc,jb) = pt_diag%pres_ifc(jc,nlevp1,jb) * ext_data%atm%grad_topo(2,jc,jb)
+      ENDDO
+
+
       IF (atm_phy_nwp_config(jg)%inwp_gscp > 0 ) THEN
 
         CALL ww_diagnostics( nproma, nlev, nlevp1, i_startidx, i_endidx, jg,             &
@@ -1059,6 +1142,18 @@ CONTAINS
           prm_diag%snow_con0(jc,jb) = prm_diag%snow_con(jc,jb)
         ENDDO
       ENDIF
+
+      !
+      !  CAPE and CIN of mean surface layer parcel
+      !
+      CALL cal_cape_cin( i_startidx, i_endidx,                     &
+        &                kmoist  = kstart_moist,                   & !in
+        &                te      = pt_diag%temp(:,:,jb)          , & !in
+        &                qve     = pt_prog_rcf%tracer(:,:,jb,iqv), & !in
+        &                prs     = pt_diag%pres(:,:,jb)          , & !in
+        &                hhl     = p_metrics%z_ifc(:,:,jb)       , & !in
+        &                cape_ml = prm_diag%cape_ml(:,jb)        , & !in
+        &                cin_ml  = prm_diag%cin_ml(:,jb) )
 
     ENDDO  ! jb
 !$OMP END DO

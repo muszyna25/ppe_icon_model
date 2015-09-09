@@ -50,7 +50,7 @@ MODULE mo_advection_quadrature
   USE mo_model_domain,        ONLY: t_patch
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_impl_constants,      ONLY: min_rledge_int
-  USE mo_math_constants,      ONLY: dbl_eps
+  USE mo_math_constants,      ONLY: dbl_eps, eps
   USE mo_parallel_config,     ONLY: nproma
 
   IMPLICIT NONE
@@ -129,7 +129,6 @@ CONTAINS
     REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
 
     INTEGER  :: jb, je, jk          !< loop index for blocks and edges, levels
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -161,8 +160,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -285,7 +282,6 @@ CONTAINS
 
     INTEGER  :: jb, je, jk          !< loop index for blocks and edges, levels
     INTEGER  :: ie                  !< index list loop counter
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -317,8 +313,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -432,10 +426,10 @@ CONTAINS
 
     REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
     REAL(wp) :: z_wgt(4), z_eta(4,4)         !< for precomputation of coefficients
+    REAL(wp) :: z_area                       !< auxiliary for dreg area
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -467,8 +461,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -488,7 +480,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
-!$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP z_quad_vector,z_x,z_y,z_area) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -544,7 +536,8 @@ CONTAINS
 
 
           ! area of departure region
-          p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(je,1:4))
+          z_area = SUM(wgt_t_detjac(je,1:4))
+          p_dreg_area(je,jk,jb) = SIGN(MAX(eps,ABS(z_area)),z_area)
 
         ENDDO ! loop over edges
 
@@ -629,7 +622,6 @@ CONTAINS
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
     INTEGER  :: ie                  !< index list loop counter
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -661,8 +653,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -815,10 +805,10 @@ CONTAINS
 
     REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
     REAL(wp) :: z_wgt(4), z_eta(4,4)         !< for precomputation of coefficients
+    REAL(wp) :: z_area                       !< auxiliary for dreg area
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -850,8 +840,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -871,7 +859,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
-!$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP z_quad_vector,z_x,z_y,z_area) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -932,7 +920,8 @@ CONTAINS
 
 
           ! area of departure region
-          p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(je,1:4))
+          z_area = SUM(wgt_t_detjac(je,1:4))
+          p_dreg_area(je,jk,jb) = SIGN(MAX(eps,ABS(z_area)),z_area)
 
         ENDDO ! loop over edges
 
@@ -1007,10 +996,10 @@ CONTAINS
 
     REAL(wp) :: z_x(nproma,4), z_y(nproma,4) !< storage for local coordinates
     REAL(wp) :: z_wgt(4), z_eta(4,4)         !< for precomputation of coefficients
+    REAL(wp) :: z_area                       !< auxiliary for dreg area
 
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -1042,8 +1031,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -1063,7 +1050,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(je,jk,jb,jg,i_startidx,i_endidx,z_gauss_pts,wgt_t_detjac,&
-!$OMP z_quad_vector,z_x,z_y) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP z_quad_vector,z_x,z_y,z_area) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
@@ -1128,13 +1115,14 @@ CONTAINS
 
 
           ! area of departure region
-          p_dreg_area(je,jk,jb) = SUM(wgt_t_detjac(je,1:4))
+          z_area = SUM(wgt_t_detjac(je,1:4))
+          p_dreg_area(je,jk,jb) = SIGN(MAX(eps,ABS(z_area)),z_area)
 
 !!$IF (p_dreg_area(je,jk,jb) < 0._wp) THEN
 !!$  WRITE(0,*) "ATTENTION: negative areas at je,jk,jb= ", je, jk, jb, p_dreg_area(je,jk,jb)
-!!$  WRITE(0,*) "system orientation: ", p_patch%edges%system_orientation(je,jb)
+!!$  WRITE(0,*) "system orientation: ", p_patch%edges%tangent_orientation(je,jb)
 !!$  ELSE IF ((p_dreg_area(je,jk,jb) >= 0._wp)) THEN
-!!$  WRITE(0,*) "OK for system orientation= ", je, jk, jb, p_patch%edges%system_orientation(je,jb)
+!!$  WRITE(0,*) "OK for system orientation= ", je, jk, jb, p_patch%edges%tangent_orientation(je,jb)
 !!$ENDIF
         ENDDO ! loop over edges
 
@@ -1220,7 +1208,6 @@ CONTAINS
     INTEGER  :: jb, je, jk, jg      !< loop index for blocks and edges, levels and
                                     !< integration points
     INTEGER  :: ie                  !< index list loop counter
-    INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: slev, elev          !< vertical start and end level
@@ -1252,8 +1239,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)

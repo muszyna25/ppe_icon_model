@@ -34,6 +34,7 @@ MODULE mo_cuparameters
   USE mo_exception,  ONLY: message_text, message
   USE mo_datetime,   ONLY: rday => rdaylen
   USE mo_nwp_parameters,  ONLY: t_phy_params
+  USE mo_nwp_tuning_config, ONLY: tune_entrorg
 #endif
 
 #ifdef __GME__
@@ -324,7 +325,7 @@ MODULE mo_cuparameters
   !     NJKT1, NJKT2, NJKT3-5 INTEGER  LEVEL LIMITS FOR CUBASEN/CUDDR
   !     ----------------------------------------------------------------
   
-  REAL(KIND=jprb) :: entrorg
+  ! REAL(KIND=jprb) :: entrorg
   REAL(KIND=jprb) :: entshalp
   REAL(KIND=jprb) :: entstpc1
   REAL(KIND=jprb) :: entstpc2
@@ -424,7 +425,7 @@ MODULE mo_cuparameters
           & rkappa   ,ratm     ,rpi      ,rlmlt     ,&
           & rcvd     ,rsigma
   !yoecumf
-  PUBLIC :: entrorg  ,entshalp ,entstpc1 ,entstpc2  ,&
+  PUBLIC :: entshalp ,entstpc1 ,entstpc2            ,&
           & rprcon   ,rmfcmax  ,rmfcmin,&
           & lmfmid   ,detrpen  ,&
           & lmfdd    ,lmfdudv  ,&
@@ -1049,7 +1050,7 @@ INTEGER(KIND=jpim) :: nulout=6
 
 INTEGER(KIND=jpim) :: jlev
 !INTEGER(KIND=JPIM) :: myrank,ierr,size
-REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean, zres_thresh, zrcucov
+REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean, zres_thresh, zrcucov, zfac, ztrans_end
 !-----------------------------------------------------------------------
 
 IF (lhook) CALL dr_hook('SUCUMF',0,zhook_handle)
@@ -1071,8 +1072,8 @@ detrpen=0.75E-4_JPRB
 !     -------
 
 !ENTRORG=1.75E-3_JPRB     !40r3 default
-!ENTRORG=1.86E-3_JPRB     !for approximate equivalence with previous setting of 1.9e-4*grav
-ENTRORG=1.9E-3_JPRB       !further tuning
+!ENTRORG=1.9E-3_JPRB      !value tuned for ICON before changing to resolution-dependent setting
+! ** entrorg is now set via the tuning namelist and depends on model resolution (see below) **
 
 !     ENTSHALP: SHALLOW ENTRAINMENT DEFINED AS ENTSHALP*ENTRORG
 !     --------
@@ -1135,22 +1136,36 @@ zrcucov      = 0.05_JPRB  ! original IFS value: 0.05
 !
 ! resolution-dependent setting of rhebc for mesh sizes below the threshold given by zres_thresh
 zres_thresh = 20.0E3_JPRB   ! 20 km
+ztrans_end  = 1.0E3_JPRB    ! 1 km - end of transition range
 phy_params%rhebc_land  = zrhebc_land
 phy_params%rhebc_ocean = zrhebc_ocean
 phy_params%rcucov      = zrcucov
 
 !
 IF (rsltn < zres_thresh) THEN
-  phy_params%rhebc_land  = zrhebc_land  + (1._JPRB-zrhebc_land )*LOG(zres_thresh/rsltn)/LOG(1.e-3_jprb*zres_thresh)
-  phy_params%rhebc_ocean = zrhebc_ocean + (1._JPRB-zrhebc_ocean)*LOG(zres_thresh/rsltn)/LOG(1.e-3_jprb*zres_thresh)
+  phy_params%rhebc_land  = zrhebc_land  + (1._JPRB-zrhebc_land )*LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end)
+  phy_params%rhebc_ocean = zrhebc_ocean + (1._JPRB-zrhebc_ocean)*LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end)
   !
-  phy_params%rcucov      = zrcucov      + (1._JPRB-zrcucov)*(LOG(zres_thresh/rsltn)/LOG(1.e-3_jprb*zres_thresh))**2
+  phy_params%rcucov      = zrcucov      + (1._JPRB-zrcucov)*(LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end))**2
   !
-  ! no one should use the convection scheme at resolutions finer than 1 km, but to be safe...
+  ! no one should use the convection scheme at resolutions finer than ztrans_end, but to be safe...
   phy_params%rhebc_land  = MIN(1._JPRB, phy_params%rhebc_land)
   phy_params%rhebc_ocean = MIN(1._JPRB, phy_params%rhebc_ocean)
   phy_params%rcucov      = MIN(1._JPRB, phy_params%rcucov)
 ENDIF
+
+! tuning parameter for organized entrainment of deep convection
+phy_params%entrorg = tune_entrorg + 1.8E-4_JPRB*LOG(zres_thresh/rsltn)
+
+
+! resolution-dependent settings for 'excess values' of temperature and QV used for convection triggering (test parcel ascent)
+
+! This factor is 1 for dx = 20 km or coarser and 0 for dx = ztrans_end or finer
+zfac = MIN(1._JPRB,LOG(MAX(1._JPRB,rsltn/ztrans_end))/LOG(zres_thresh/ztrans_end))
+
+phy_params%texc = zfac*0.125_JPRB   ! K
+phy_params%qexc = zfac*1.25e-2_JPRB ! relative perturbation of grid-scale QV
+
 
 !     SET ADJUSTMENT TIME SCALE FOR CAPE CLOSURE AS A FUNCTION
 !     OF MODEL RESOLUTION
@@ -1167,8 +1182,15 @@ ENDIF
 !     WHERE RTAU (unitless) NOW ONLY REPRESENTS THE RESOLUTION DEPENDENT PART
 
 !phy_params%tau=1.0_JPRB+264.0_JPRB/REAL(ksmax,jprb)
-phy_params%tau=1.0_JPRB+rsltn/75.E3_JPRB
+
+! Basic resolution-dependent setting (tuned for ICON, denominator originally was 75 km)
+phy_params%tau = 1.0_JPRB + rsltn/120.e3_jprb
+
+! Set upper limit
 phy_params%tau=MIN(3.0_JPRB,phy_params%tau)
+
+! Increase adjustment time scale at resolutions below 10 km
+IF (rsltn < 10.e3_jprb) phy_params%tau = phy_params%tau + (LOG(10.e3_jprb/rsltn))**2
 
 ! ** CAPE correction to improve diurnal cycle of convection ** (set now in mo_nwp_phy_nml)
 ! icapdcycl = 0! 0= no CAPE diurnal cycle correction (IFS default prior to cy40r1, i.e. 2013-11-19)
@@ -1223,7 +1245,6 @@ ruvper=0.3_JPRB
 
 phy_params%kcon1=2
 phy_params%kcon2=2
-phy_params%kcon3=nflevg-2
 DO jlev=nflevg,2,-1
   ! IF(STPRE(JLEV) > 350.E2_JPRB)NJKT1=JLEV
   ! IF(STPRE(JLEV) >  60.E2_JPRB)NJKT2=JLEV
@@ -1237,11 +1258,7 @@ DO jlev=nflevg,2,-1
   !  IF(PMEAN(JLEV)/PMEAN(KLEV)*1013.E2 > 500.E2_JPRB)NJKT5=JLEV
   IF(pmean(jlev) > 350.e2_jprb) phy_params%kcon1=jlev
   IF(pmean(jlev) >  60.e2_jprb) phy_params%kcon2=jlev
-  IF(pmean(jlev) > 950.e2_jprb) phy_params%kcon3=jlev
-  IF(pmean(jlev) > 850.e2_jprb) phy_params%kcon4=jlev
-  IF(pmean(jlev) > 500.e2_jprb) phy_params%kcon5=jlev
 ENDDO
-phy_params%kcon3=MIN(nflevg-2,phy_params%kcon3)
 
 #ifdef __GME__
 WRITE(6,*)'SUCUMF: NJKT1=',njkt1,' NJKT2=',njkt2,' NJKT3=',njkt3,' RESOLUTION=',rsltn
@@ -1254,14 +1271,12 @@ WRITE(UNIT=nulout,FMT='('' LMFMID = '',L5 &
 #endif
 
 #ifdef __ICON__
-CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, NJKT3, KSMAX')
-!WRITE(message_text,'(i5,2x,i5,2x,i5,2x,i5)') NJKT1, NJKT2, NJKT3, KSMAX
-WRITE(message_text,'(i7,i7,i7,E12.5)') phy_params%kcon1, phy_params%kcon2, phy_params%kcon3, rsltn 
+CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, KSMAX')
+WRITE(message_text,'(2i7,E12.5)') phy_params%kcon1, phy_params%kcon2, rsltn 
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
-CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE, RCUCOV')
-!WRITE(message_text,'(4x,l5,x,l5,x,l5,x,E12.5)')LMFMID,LMFDD,LMFDUDV,RTAU
-WRITE(message_text,'(4x,l6,l6,l6,4F8.4)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
-  phy_params%rhebc_land,phy_params%rhebc_ocean,phy_params%rcucov
+CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, RHEBC_LND, RHEBC_OCE, RCUCOV, ENTRORG, TEXC')
+WRITE(message_text,'(4x,l6,l6,l6,4F8.4,E11.4,F8.5)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
+  phy_params%rhebc_land,phy_params%rhebc_ocean,phy_params%rcucov,phy_params%entrorg,phy_params%texc
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
 #endif
 

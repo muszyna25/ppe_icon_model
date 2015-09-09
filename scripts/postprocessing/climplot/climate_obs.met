@@ -2065,12 +2065,12 @@ function precip(expid,yys,mms,nm,source_file_sfc,nens,res,display,lplot_curve,fi
       param = "tp"
     end if
     prec_mod_all = read(
-      #type	  :	"fc",
-      #expver :	expid,
+      #type    :	"fc",
+      #expver  :	expid,
       #levtype :	"sfc",
-      grid	  :	my_grid,
-      param	  :	param,
-      source  :     source_file_sfc
+      grid     :	my_grid,
+      param    :	param,
+      source   :        source_file_sfc
     )
 
     #prec_mod_all=1000*86400.*(prec_mod1+prec_mod2)
@@ -4093,7 +4093,7 @@ function era40(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_cur
       case param of
         "2T": param_mod = 500011  ;  end
         "2D": param_mod = 500017  ;  end
-        "SD": param_mod = 502329  ;  end  ###ATTENTION: multiple layers
+        "SD": param_mod = 500045  ;  end  # single layer: 500045,  multi layer: 502329
       end case
     else
       param_mod = param
@@ -4246,20 +4246,11 @@ function era40sn(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_c
     end for
 
     if (model = "icon") then
-      param_mod = 502329   # snow depth "SD"
+      param_mod = 500045   # snow depth "SD", single layer: 500045,  multi layer: 502329
     else
       param_mod = param
     end if
 
-    mod_all_lev1 = read(
-     #type	:	"fc",
-     #expver	:	expid,
-     #levtype	:	"sfc",
-      levelist  :       1,
-      grid	:	my_grid,
-      param	:	param_mod,
-      source    :       source_file_sfc
-     )
     mod_all = read(
      #type	:	"fc",
      #expver	:	expid,
@@ -4267,10 +4258,13 @@ function era40sn(expid,yys,mms,nm,source_file_sfc,nens,res,param,display,lplot_c
       grid	:	my_grid,
       param	:	param_mod,
       source    :       source_file_sfc
-     )
+      )
 
     if (model = "icon") then
-      nsnowlev = count(mod_all) / count(mod_all_lev1)   #multi-layer snow in ICON)
+      mod_all_lev1 = read(
+        param     :     500011,                         #T2m: just to test how many dates
+        source    :     source_file_sfc )
+      nsnowlev = count(mod_all) / count(mod_all_lev1)   #multi-layer snow in ICON
       print("snow levels: ", nsnowlev)
       mod      = 100 * mean(mod_all) * nsnowlev
     else

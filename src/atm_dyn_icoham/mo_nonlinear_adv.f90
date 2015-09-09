@@ -119,7 +119,7 @@ INTEGER  :: nlev              !< number of full levels
 ! number of vertical levels
 nlev = pt_patch%nlev
 
-IF(pt_patch%cell_type == 3) THEN
+IF(pt_patch%geometry_info%cell_type == 3) THEN
   ! get relative vorticity at vertex
   CALL rot_vertex (p_vn, pt_patch, pt_int, pt_diag%rel_vort)
   ! This needs to be synced for lamb_rot
@@ -140,7 +140,7 @@ IF (l_outputtime) THEN
   ! get divergence
   CALL div (p_vn, pt_patch, pt_int, pt_diag%div)
   ! divergence is averaged according to the method used in the model
-  IF(pt_patch%cell_type == 3) THEN
+  IF(pt_patch%geometry_info%cell_type == 3) THEN
     SELECT CASE (idiv_method)
     CASE(2)
       z_aux(:,:,:) = pt_diag%div(:,:,:)
@@ -156,7 +156,7 @@ nblks_e   = pt_patch%nblks_e
 npromz_e  = pt_patch%npromz_e
 
 
-SELECT CASE (pt_patch%cell_type)
+SELECT CASE (pt_patch%geometry_info%cell_type)
          !
 CASE (3) ! for triangular grid (cell_type == 3)
          !
@@ -322,7 +322,7 @@ nlev = pt_patch%nlev
 
 i_nchdom   = MAX(1,pt_patch%n_childdom)
                           !
-SELECT CASE (pt_patch%cell_type)
+SELECT CASE (pt_patch%geometry_info%cell_type)
          !
 CASE (3) ! triangles (cell_type == 3)
          !

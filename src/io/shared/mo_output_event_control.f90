@@ -20,7 +20,7 @@
 !! -----------------------------------------------------------------------------------
 MODULE mo_output_event_control
 
-  USE mo_mpi,                ONLY: my_process_is_mpi_test
+  USE mo_mpi,                ONLY: my_process_is_mpi_test, my_process_is_mpi_workroot
   USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: finish
   USE mo_kind,               ONLY: wp, i4, i8
@@ -138,7 +138,7 @@ CONTAINS
     CALL deallocateDatetime(mtime_begin)
     CALL deallocateDatetime(mtime_end)
     CALL deallocateTimedelta(delta)
-    CALL resetCalendar()
+    !rr CALL resetCalendar()
   END SUBROUTINE compute_matching_sim_steps
 
 
@@ -158,7 +158,7 @@ CONTAINS
     INTEGER,                             INTENT(OUT) :: step                !< result: corresponding simulations step
     CHARACTER(len=MAX_DATETIME_STR_LEN), INTENT(OUT) :: exact_date          !< result: corresponding simulation date
     ! local variables
-    REAL                                 :: intvlsec
+    REAL                                 :: intvlmillisec
     TYPE(datetime),  POINTER             :: mtime_step
     CHARACTER(len=max_timedelta_str_len) :: td_string
     TYPE(divisionquotienttimespan)       :: tq     
@@ -169,8 +169,9 @@ CONTAINS
     ! intvlsec    = REAL(dtime)
     ! step        = CEILING(datetimedividebyseconds(mtime_begin, mtime_date1, intvlsec))
 
-    intvlsec = INT(dtime)
-    CALL getptstringfromseconds(INT(intvlsec,i8), td_string)
+    intvlmillisec = NINT(dtime*1000._wp)
+    CALL getPTStringFromMS(INT(intvlmillisec,i8), td_string)
+    !CALL getptstringfromseconds(INT(intvlsec,i8), td_string)
     vlsec => newtimedelta(td_string)
     
     CALL divideDatetimeDifferenceInSeconds(mtime_current, mtime_begin, vlsec, tq)
@@ -200,12 +201,13 @@ CONTAINS
   !
   ! --------------------------------------------------------------------------------------------------
   FUNCTION generate_output_filenames(nstrings, date_string, sim_steps, &
-    &                                sim_step_info, fname_metadata)  RESULT(result_fnames)
+    &                                sim_step_info, fname_metadata, skipped_dates)  RESULT(result_fnames)
     INTEGER,                INTENT(IN)    :: nstrings           !< no. of string to convert
     CHARACTER(len=*),       INTENT(IN)    :: date_string(:)     !< array of ISO 8601 time stamp strings
     INTEGER,                INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
     TYPE(t_sim_step_info),  INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
     TYPE(t_fname_metadata), INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
+    INTEGER,                INTENT(IN)    :: skipped_dates
     TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::generate_output_filenames"
@@ -357,7 +359,8 @@ CONTAINS
       !                which an "unsplit" namelist would have
       !                produced:
       IF (fname_metadata%npartitions > 1) THEN
-        total_index = fname_metadata%npartitions*(result_fnames(i)%jfile-1) + fname_metadata%ifile_partition
+        total_index = fname_metadata%npartitions*(result_fnames(i)%jfile+skipped_dates-1) + &
+          &           fname_metadata%ifile_partition 
         this_jfile  = total_index
       ELSE
         total_index = result_fnames(i)%jfile

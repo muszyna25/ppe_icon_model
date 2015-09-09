@@ -45,9 +45,9 @@
 LAPACKROOT  =
 LAPACK_LIB  =
 
-LIBS        = "$LIBS" -L../lib -lsupport
+LIBS        = -L../lib -lsupport $LIBS
 
-load_modules=""
+load_modules=
 
 #===============================================
 
@@ -64,7 +64,6 @@ CFLAGS = -std=gnu99 -march=native -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
 
 SVNVERSION=`svnversion | sed 's/ //g'`
 
-
 case "$fortran_compiler" in
     default|gcc)
         config_compiler=gcc
@@ -74,7 +73,7 @@ case "$fortran_compiler" in
         FCPP        = -xf95-cpp-input
         FLANG       = -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=63 -ffree-line-length-132
         FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
-        FDEBUG      = -g -fbacktrace -fbounds-check        
+        FDEBUG      = -g -fbacktrace
         FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
         FOPTIONS    = "$FCPP" "$FLANG" "$FWARN" "$FDEBUG" "$FCHECK"
         FOTPTIM     = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
@@ -89,10 +88,12 @@ case "$fortran_compiler" in
         F77FLAGS    = -march=native -O0 -ffast-math
         LDFLAGS     = "$FOTPTIM"
         OMPFLAG     = -fopenmp
+        ART_FFLAGS  = -D__ICON_ART -fall-intrinsics
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
         MODDIR      = -J
+        WLFLAG      = -Wl
 	;;
     xlf)
         config_compiler=mpixlc_r
@@ -150,6 +151,7 @@ case "$fortran_compiler" in
         DEFCOPT     = -D
         MODOPT      = -I
         MODDIR      = -mdir 
+        WLFLAG      = -Wl,-Wl,
         ;;
     pgi)
         config_compiler=pgi
@@ -166,24 +168,26 @@ case "$fortran_compiler" in
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
-        MODDIR      = -module 
+        MODDIR      = -module
+        WLFLAG      = -Wl        
         ;;
     cray)
         config_compiler=cray
 	CC          = cc
         FC          = ftn
         F77         = "$FC"
-        FFLAGS      = -v -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -r am -Ktrap=divz,ovf
+        FFLAGS      = -v -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -hnoacc -r am -Ktrap=divz,ovf,inv
         CFLAGS      = -v -I${GRIB_API}/include -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -DHAVE_LIBGRIB -DHAVE_LIBGRIB_API -O3  -D__SVN_VERSION="${SVNVERSION}"
         F77FLAGS    = "$FFLAGS"
         FCLIBS      = "-v"
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
 #        OMPFLAG     = -mp
+        ART_FFLAGS  = -D__ICON_ART
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
-        MODDIR      = 
+        MODDIR      = -J
         ;;
     cray_gpu)
         config_compiler=cce                                                     
@@ -201,7 +205,7 @@ case "$fortran_compiler" in
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
-        MODDIR      =
+        MODDIR      = -J
         ;; 
     intel)
         config_compiler=intel
@@ -216,30 +220,12 @@ case "$fortran_compiler" in
         F77         = "$FC"
         F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
         OMPFLAG     = -openmp
+        ART_FFLAGS  = -D__ICON_ART
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
-        MODDIR      = -module 
-        ;;
-    intel-kit)
-        config_compiler=intel
-        compiler_version = $(ifort -V 2>&1 | awk -F "," 'NR==1{split($2,v," "); printf("intel%d",v[2])}')
-        CC     =  icc
-        CFLAGS      = "$CFLAGS" -DpgiFortran
-        FC          = mpif90 -sox
-        ##FDEBUG      = -check bounds -check pointers -check uninit -debug -g
-        FDEBUG      = -g
-        FFLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -D__ICON_ART -xHost -g -traceback
-        FCLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -D__ICON_ART -xHost  -traceback
-        ##FFLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -xHost -g -traceback
-        ##FCLAGS      = -O1  -zero  -fltconsistency   -fpp -prec-div  -D__LOOP_EXCHANGE  -xHost  -traceback
-        F77         = ifort -sox
-        F77FLAGS    = "$FFLAGS"
-        OMPFLAG     = -openmp
-        DEFOPT      = -D
-        DEFCOPT     = -D
-        MODOPT      = -I
-        MODDIR      = -module 
+        MODDIR      = -module
+        WLFLAG      = -Wl
         ;;
 esac
 #===============================================
@@ -251,7 +237,7 @@ esac
 #
 echo "AC_SITENAME" $ac_sitename
 case "$ac_sitename" in
-   cscs.ch)
+   cscs.ch|cm.cluster)
 	echo The host is:  $HOST
         case "$HOST" in
             *daint*)
@@ -267,28 +253,26 @@ case "$ac_sitename" in
 
                 case "$fortran_compiler" in
                     default|gcc)
-                        load_modules="PrgEnv-gnu" "cray-netcdf" "${load_modules}"
+                        load_modules ="PrgEnv-gnu" "cray-netcdf" "cray-hdf5" "${load_modules}"
                         NETCDFROOT = /opt/cray/netcdf/4.2.0/gnu/47
                     ;;
                     intel)
-                        load_modules      = "PrgEnv-intel" "cray-netcdf" "${load_modules}"
+                        load_modules = "PrgEnv-intel" "cray-netcdf" "cray-hdf5" "${load_modules}"
                         NETCDFROOT = /opt/cray/netcdf/4.2.0/intel/120
                         ;;
                     cray)
+                        load_modules = "PrgEnv-cray" "cray-netcdf" "cray-hdf5" "${load_modules}"
 			OMPFLAG     = -h omp
         		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
         		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
-                        load_modules      = "cray-netcdf" "${load_modules}"
-                        NETCDFROOT = /opt/cray/netcdf/default/cray/83
-                        load_modules      = "PrgEnv-cray" "netcdf" "hdf5" "${load_modules}"
+                        NETCDFROOT = /opt/cray/netcdf/4.3.3.1/cray/83
                         ;;
                     cray_gpu)
+                        load_modules = "PrgEnv-cray" "cray-netcdf" "cray-hdf5" "${load_modules}"
 			OMPFLAG     = -h omp
         		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
         		FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -h acc -h acc_model=deep_copy
-                        load_modules      = "cray-netcdf" "${load_modules}"
                         NETCDFROOT = /opt/cray/netcdf/default/cray/83
-                        load_modules      = "PrgEnv-cray" "netcdf" "hdf5" "${load_modules}"
                         ;;
                 esac
                 mpi_startrun="aprun" "-N" "\\\$mpi_procs_pernode" "-n" "\\\$mpi_total_procs" "-d" "\\\$OMP_NUM_THREADS"
@@ -374,29 +358,32 @@ case "$ac_sitename" in
                       STD_FLAGS       = -O2 -xAVX -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
                       FFLAGS          = ${FFLAGS}
                       F77FLAGS        = "$FFLAGS" "$STD_FLAGS"
-                      LIBS            = ${LIBS} -lirng
+                      OTHER_LIBS      = -lirng $OTHER_LIBS
                       ;;
                     cray)
-                      LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
+                      RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
+                      STD_FLAGS       = -D__USE_RTTOV
+                      FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/include/radiance
                       ;;
                     default|gcc)
                       load_modules    = "PrgEnv-gnu" "netcdf" "grib_api" "cray-mpich" "${load_modules}"
                       FFLAGS          = ${FFLAGS}
-                      LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
                       ;;
                 esac
                 ;;
             oflws*)             # Linux workstations with gfortran
-                NETCDFROOT  = /usr
-                NETCDFLIBPATH = /usr/lib64
-                IB_LIBS    = -ldl -Wl,--export-dynamic -lutil -lm -ldl
-# Temporary solution for missing OpenMPI:
-                MPIROOT    = /uwork1/hanlauf/opt/gfortran45/openmpi-1.4
-                MPI_LIB    = -WL,-pthread -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS" -Wl,-R\$(MPIROOT)/lib
-                config_target=oflws
-                make_command="make" "-j8"
-                submit="qsub"
-                sync_submit=qsub -sync y
+                NETCDFROOT            = /usr
+                NETCDFLIBPATH         = /usr/lib64
+                IB_LIBS               = -ldl -Wl,--export-dynamic -lutil -lm -ldl
+                CC                    = /usr/lib64/mpi/gcc/openmpi/bin/mpicc
+                FC                    = /usr/lib64/mpi/gcc/openmpi/bin/mpif90
+                MPI_INCLUDE           = /usr/lib64/mpi/gcc/openmpi/include
+                config_target         = oflws
+                make_command          = "make" "-j8"
+                submit                = "qsub"
+                sync_submit           = qsub -sync y
                 ;;
             *)                  # hpc
                 NETCDFROOT  = /usr/local/pkg
@@ -408,7 +395,7 @@ case "$ac_sitename" in
         esac
         ;;
 #===============================================
-    dkrz.de)
+    dkrz.de|bullx)
         case "$(hostname)" in
             wizard*)
                 load_profile  = "." "/client/etc/profile.wizard"
@@ -436,49 +423,129 @@ case "$ac_sitename" in
                       SZIPROOT    = $software_tree/szip-2.1-static
                       MPIROOT     = $software_tree/mpi/mpich2-1.3.1-static-intel12
                       MPI_LIB     = -lmpichf90 -lmpich -lmpl
-                      LIBS        = ${LIBS} -lz
+                      OTHER_LIBS  = -lz $OTHER_LIBS
                       ;;
                 esac
                 ;;
-            btc*)
+            btc*|mlogin*)
                 load_profile  = "." "/etc/profile"
                 software_tree = /sw/rhel6-x64
-                software_tree = /work/k20200/sw
                 config_target = bullx
                 make_command  = make -j4
                 submit        = sbatch
+                sync_submit   = sbatch
                 queue         = compute
                 case "$fortran_compiler" in
                     intel*)
-                      load_modules    = "intel/14.0.3" "${load_modules}"
-                      config_compiler = intel
-                      CC     = icc
-                      CFLAGS = -std=gnu99 -g -O2 -march=native -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DpgiFortran
-                      F77    = ifort
-                      FC     = ifort
-                      # temporarily removed -check uninit since it fails
-                      # for lapack/dpftri.f with -march=core-avx2 and
-                      # intel 14.0.3
-                      CHECK_FLAGS = -check bounds -check pointers -debug -g -traceback
-                      DEBUG_FLAGS = -debug-parameters -debug -g -O0
-                      STD_FLAGS   = -O2 -march=native -fltconsistency
-                      HIOPT_FLAGS = -O3 -mkl -no-prec-div -static -reentrancy threaded -xHost -vec-report1
-                      FFLAGS      = -pc64 -fpp -D__LOOP_EXCHANGE
-                      F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
+                        load_modules    =  intel/14.0.3 ${load_modules}
+                        config_compiler = intel
+                        CC     = icc
+                        CFLAGS = -std=gnu99 -g -O3 -ftz -march=native -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran
+                        F77    = ifort
+                        FC     = ifort
+                        # temporarily removed -check uninit since it fails
+                        # for lapack/dpftri.f with -march=core-avx2 and
+                        # intel 14.0.3
+                        CHECK_FLAGS = -check bounds -check pointers -debug -g -traceback
+                        DEBUG_FLAGS = -debug-parameters -debug -g -O0
+                        STD_FLAGS   = -ftz -O2 -march=native -fltconsistency
+                        HIOPT_FLAGS = -O3 -mkl=sequential  -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded -xHost -vec-report1
+                        FFLAGS      = -fpp -D__LOOP_EXCHANGE
+                        F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
 
-                      NETCDFROOT  = $software_tree/netcdf-c/4.3.2
-                      NETCDFFROOT = $software_tree/netcdf-fortran/4.4.0-intel14
-                      HDF5ROOT    = $software_tree/hdf5/1.8.13
-                      SZIPROOT    = $software_tree/libaec/0.3
-# to use BullX MPI uncomment the following 2 lines and comment the MPI_LIB and MPIROOT assignment for Intel MPI
-#                      MPIROOT     = /opt/mpi/bullxmpi/1.2.8.2
-#                      MPI_LIB     = -I${MPIROOT}/lib -L${MPIROOT}/lib -Wl,-rpath,${MPIROOT}/lib -lmpi_f90 -lmpi_f77 -lmpi -ldl -lnuma -Wl,--export-dynamic -lrt -lnsl -lutil -lm -ldl
-                      # to use Intel MPI, Makefile needs to be patched as follows
-                      # sed -i '/^MPI_INCLUDE *= -I\$(MPIROOT)\/include\/gfortran\/4.0.0/s@/gfortran/4.0.0.*@@' Makefile
-                      MPIROOT     = /sw/rhel6-x64/intel/impi/4.1.3.049/intel64
-                      MPI_LIB     = -I/sw/rhel6-x64/intel/impi/4.1.3.049/intel64/include -I/sw/rhel6-x64/intel/impi/4.1.3.049/intel64/include -L/sw/rhel6-x64/intel/impi/4.1.3.049/intel64/lib -Xlinker --enable-new-dtags -Xlinker -rpath -Xlinker /sw/rhel6-x64/intel/impi/4.1.3.049/intel64/lib -Xlinker -rpath -Xlinker /opt/intel/mpi-rt/4.1 -lmpigf -lmpi -lmpigi -ldl -lrt -lpthread
-                      LIBS        = ${LIBS} -lz
-                      ;;
+                        NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-$compiler_version
+                        NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-$compiler_version
+                        HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-$compiler_version
+                        SZIPROOT    = $software_tree/sys/libaec-0.3.2-$compiler_version
+                        ZLIBROOT    = /usr
+
+                        case "$with_mpi" in
+			    /opt/mpi/bullxmpi_mlx/1.2.8.3)
+				load_modules = ${load_modules} fca mxm bullxmpi_mlx/bullxmpi_mlx-1.2.8.3
+				FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+				MPIROOT      = $with-mpi
+				SYS_LIBS     = -ldl -lm -lnuma -Wl,--export-dynamic -lrt -lnsl -lutil -lm -ldl
+				MPI_LIB      = $WLFLAG,-rpath,/opt/mpi/bullxmpi_mlx/1.2.8.3/lib -lmpi_f90 -lmpi_f77 $SYS_LIB
+				;;
+                            "$software_tree/intel/impi/5.0.3.048"|"$software_tree/intel/impi/5.0.3.048/intel64"|*)
+                                load_modules = ${load_modules} intelmpi/5.0.3.048
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+                                MPIROOT      = $software_tree/intel/impi/5.0.3.048/intel64
+                                SYS_LIBS     = -ldl -lrt -lpthread
+                                MPI_LIB      = $WLFLAG,-rpath,$MPIROOT/lib -lmpigf -lmpi -lmpigi $SYS_LIBS
+
+                                case "${with_openmp}" in
+                                    yes)
+                                        MPI_LIB="${MPI_LIB/ -lmpi / -lmpi_mt }"
+                                        ;;
+                                esac
+                                ;;
+			    "$software_tree/intel/impi/4.1.3.049"|"$software_tree/intel/impi/4.1.3.049/intel64"|*)
+				load_modules = ${load_modules} intelmpi/4.1.3.049
+				FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      				MPIROOT      = $software_tree/intel/impi/4.1.3.049/intel64
+				SYS_LIBS     = -ldl -lrt -lpthread
+				MPI_LIB      = $WLFLAG,-rpath,$MPIROOT/lib -lmpigf -lmpi -lmpigi $SYS_LIBS
+
+				case "${with_openmp}" in
+				    yes)
+					MPI_LIB="${MPI_LIB/ -lmpi / -lmpi_mt }"
+					;;
+				esac
+				;;
+			esac
+			mpi_startrun = srun               
+                        ;;
+                    gcc*)
+                        load_modules    = "gcc/4.8.2 openmpi/1.8.4-gcc48" "${load_modules}"
+                        config_compiler = gcc
+                        c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
+                        CC     = gcc
+                        CFLAGS = -std=gnu99 -g -O3 -march=native -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran
+                        F77    = gfortran
+                        FC     = gfortran
+
+                        NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-$compiler_version
+                        NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-$compiler_version
+                        HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-$compiler_version
+                        SZIPROOT    = $software_tree/sys/libaec-0.3.2-$compiler_version
+                        ZLIBROOT    = /usr
+
+                        MPIROOT     = $software_tree/mpi/openmpi-1.8.4-$compiler_version
+                        IB_LIBS     = -lrdmacm -libverbs 
+                        SYS_LIBS    = -lnuma -lrt -lutil -lpthread -lm -ldl
+                        MPI_LIB     = $WLFLAG,-rpath,$MPIROOT/lib -lmpi_usempi -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lpmi -lpmi2 $IB_LIBS $SYS_LIBS
+                        mpi_startrun = srun               
+                        ;;
+                    nag*)
+                        load_modules    = "gcc/4.8.2 nag/6.0.1038 openmpi/1.8.4-nag60" "${load_modules}"
+                        config_compiler = gcc
+                        c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
+                        CC     = gcc
+                        CFLAGS = -std=gnu99 -g -O3 -march=native -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran
+                        F77    = nagfor
+                        FC     = nagfor
+
+                        NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-static-$compiler_version
+                        NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-$c_compiler_version
+                        HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-$c_compiler_version
+                        SZIPROOT    = $software_tree/sys/libaec-0.3.2-$c_compiler_version
+                        ZLIBROOT    = /usr
+
+                        MPIROOT     = $software_tree/mpi/openmpi-1.8.4-static-$compiler_version
+                        IB_LIBS     = -lrdmacm -libverbs 
+                        SYS_LIBS    = -lnuma -lrt -lutil -lpthread -lm -ldl
+                        MPI_LIB     = -lmpi_usempi -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lpmi -lpmi2 $IB_LIBS $SYS_LIBS
+                        mpi_startrun = srun               
+                        ;;
+                    *)
+                        echo
+                        echo
+                        echo $fortran_compiler Fortran compiler not supported yet!
+                        echo Select intel ...
+                        echo
+                        exit
+                        ;;
                 esac
                 ;;
         esac
@@ -505,6 +572,26 @@ case "$ac_sitename" in
                 ;;
         esac
         ;;
+#===============================================
+    kit.edu)
+        case $ac_hostname in
+            ic2*)
+		NETCDFROOT  = /pfs/imk/ICON/LIBRARIES
+		NETCDFFROOT = /pfs/imk/ICON/LIBRARIES
+		HDF5ROOT    = /pfs/imk/ICON/LIBRARIES
+		SZIPROOT    = /pfs/imk/ICON/LIBRARIES
+		ZLIBROOT    = /usr
+		MPIROOT     = /pfs/imk/ICON/LIBRARIES
+                MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
+                config_target=ic2
+                make_command="make" "-j8"
+                submit="sbatch"
+		mpi_startrun="runjob" "--ranks-per-node" "\\\$mpi_procs_pernode" "--envs" "OMP_NUM_THREADS=\\\$OMP_NUM_THREADS" "--exe"
+                ;;
+        esac
+
+	;;		
 #===============================================
     zmaw.de)
         dist_codename = $(lsb_release -c | awk '{print $2}')
@@ -544,8 +631,8 @@ case "$ac_sitename" in
                       MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-intel14
                       MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                       # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
-                      HIOPT_FLAGS = -O3 -fpp -mkl -static -xHost -xAVX -g -traceback -D__LOOP_EXCHANGE -D__OMP_FIRSTTOUCH__
-                      STD_FLAGS   = -O2 -fltconsistency -fpp -static -xHost -xAVX -traceback -g -D__LOOP_EXCHANGE
+                      HIOPT_FLAGS = -O3 -fltconsistency -fpp -mkl -static -xHost -xAVX -g -traceback -D__LOOP_EXCHANGE -D__OMP_FIRSTTOUCH__
+                      STD_FLAGS   = -O1 -fltconsistency -fpp -static -xHost -xAVX -traceback -g -D__LOOP_EXCHANGE
                       load_modules="gcc/4.8.2" "intel/14.0.2" "${load_modules}"
                       ;;
                     nag)
@@ -646,22 +733,24 @@ case "$ac_sitename" in
                 F77         = ftn
                 make_command="make" "-j" "8"
                 CFLAGS   = "$CFLAGS" -D_ECMWF
+                RTTOV_LIBS  = -L/home/ms/de/dfj/lib -L/home/ms/de/dfj/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
                 case "$fortran_compiler" in
                     intel*)
                       load_modules    = "PrgEnv-intel/5.0.41" "netcdf" "cray-mpich/6.1.1" "${load_modules}"
                       CFLAGS          = -DHAVE_LIBNETCDF ${CFLAGS}
                       STD_FLAGS       = -O2 -xAVX -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
-                      FFLAGS          = ${FFLAGS}
+                      FFLAGS          = ${FFLAGS} -I/home/ms/de/dfj/include/radiance
                       F77FLAGS        = "$FFLAGS" "$STD_FLAGS"
-                      LIBS            = ${LIBS} -lirng
+                      OTHER_LIBS      = -lirng $RTTOV_LIBS $OTHER_LIBS
                       ;;
                     cray)
-                      LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
+                      FFLAGS          = ${FFLAGS} -I/home/ms/de/dfj/include/radiance
                       ;;
                     default|gcc)
                      #load_modules    = "PrgEnv-gnu/5.1.29" "netcdf" "grib_api" "cray-mpich/6.2.0" "${load_modules}"
-                      FFLAGS          = ${FFLAGS}
-                      LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
+                      FFLAGS          = ${FFLAGS} -I/home/ms/de/dfj/include/radiance
+                      OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
                       ;;
                 esac
         ;;

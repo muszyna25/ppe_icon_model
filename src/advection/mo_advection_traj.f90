@@ -130,7 +130,6 @@ CONTAINS
                                        !< 'tangential' coordinates.
 
     INTEGER :: je, jk, jb        !< index of edge, vert level, block
-    INTEGER :: nlev              !< number of full levels
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend, i_nchdom
     INTEGER :: slev, elev        !< vertical start and end level
@@ -163,8 +162,6 @@ CONTAINS
       i_rlend = min_rledge_int - 2
     ENDIF
 
-    ! number of vertical levels
-    nlev   = ptr_p%nlev
 
     ! number of child domains
     i_nchdom   = MAX(1,ptr_p%n_childdom)
@@ -432,7 +429,7 @@ CONTAINS
       IF (lcounterclock) THEN
         DO jk = slev, elev
           DO je = i_startidx, i_endidx
-            lvn_sys_pos(je,jk) = p_vn(je,jk,jb)*ptr_p%edges%system_orientation(je,jb) >= 0._wp
+            lvn_sys_pos(je,jk) = p_vn(je,jk,jb)*ptr_p%edges%tangent_orientation(je,jb) >= 0._wp
           ENDDO
         ENDDO
       ELSE
@@ -685,7 +682,6 @@ CONTAINS
          &  vn_new, vt_new          !< after bilinear interpolation
 
     INTEGER :: je, jk, jb        !< index of edge, vert level, block
-    INTEGER :: nlev              !< number of full levels
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend, i_nchdom
     INTEGER :: slev, elev        !< vertical start and end level
@@ -724,8 +720,6 @@ CONTAINS
       i_rlend = min_rledge_int - 1
     ENDIF
 
-    ! number of vertical levels
-    nlev = ptr_p%nlev
 
     ! number of child domains
     i_nchdom   = MAX(1,ptr_p%n_childdom)

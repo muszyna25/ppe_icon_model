@@ -28,7 +28,7 @@
 !!  - replaced neighbor_index by neighbor_idx
 !!  - replaced child_index by child_idx
 !! Modification by P. Ripodas (2007-01-31)
-!!  - added system_orientation to TYPE grid_edges
+!!  - added tangent_orientation to TYPE grid_edges
 !! Modification by Hui Wan, MPI-M, (2007-02-22):
 !!  - type cartesian_coordinates and type geographical_coordinates
 !!    moved to mo_math_utilities
@@ -291,7 +291,10 @@ MODULE mo_model_domain
     TYPE(t_grid_domain_decomp_info) :: decomp_info
 
     ! information for distributed read operation
-    TYPE(t_distrib_read_data) :: dist_io_data
+    ! the pointer is needed because mo_read_interface has references this,
+    ! without this pointer p_patch would have to be TARGET everywhere the
+    ! distributed IO is used
+    TYPE(t_distrib_read_data), POINTER :: dist_io_data
 
     ! Please note that the following array is only needed on local parent patches
     ! for storing the corresponding variable from nh_metrics.
@@ -406,7 +409,7 @@ MODULE mo_model_domain
     ! from cell c1 to cell c2 (c2-c1) goes outside the sphere
     ! =-1 if vector product ...       goes inside  the sphere
     ! index=1,nproma, index2=1,nblks_e
-    REAL(wp), ALLOCATABLE :: system_orientation(:,:)
+    REAL(wp), ALLOCATABLE :: tangent_orientation(:,:)
 
     ! line indices of the  of the quadrilateral formed by two adjacent cells:
     ! index1=1,nproma, index2=1,nblks_e, index3=1,4
@@ -558,7 +561,10 @@ MODULE mo_model_domain
     TYPE(t_grid_domain_decomp_info) :: decomp_info
 
     ! information for distributed read operation
-    TYPE(t_distrib_read_data) :: dist_io_data
+    ! the pointer is needed because mo_read_interface has references this,
+    ! without this pointer p_patch would have to be TARGET everywhere the
+    ! distributed IO is used
+    TYPE(t_distrib_read_data), POINTER :: dist_io_data
 
     ! define basic subsets
     TYPE(t_subset_range) :: ALL          ! these are the all valid entities, including all valid halos
@@ -683,7 +689,10 @@ MODULE mo_model_domain
     TYPE(t_grid_domain_decomp_info) :: decomp_info
 
     ! information for distributed read operation
-    TYPE(t_distrib_read_data) :: dist_io_data
+    ! the pointer is needed because mo_read_interface has references this,
+    ! without this pointer p_patch would have to be TARGET everywhere the
+    ! distributed IO is used
+    TYPE(t_distrib_read_data), POINTER :: dist_io_data
 
     ! define basic subsets
     TYPE(t_subset_range) :: ALL          ! these are the all valid entities, including all valid halos
@@ -746,9 +755,9 @@ MODULE mo_model_domain
     !-------------------------------------
     !> The grid domain geometry parameters
     ! cell type =3 or 6
-    INTEGER :: cell_type
+    ! INTEGER :: cell_type     ! included in geometry_info
 
-    INTEGER :: geometry_type
+!     INTEGER :: geometry_type ! included in geometry_info
 
     TYPE(t_grid_geometry_info) :: geometry_info
     !-------------------------------------
@@ -1144,6 +1153,12 @@ MODULE mo_model_domain
       &  depth_CellMiddle(:,:,:),      & ! depth of the middle of the prism, update according to the current h
       &  depth_CellInterface(:,:,:)      ! depths at the interface (size is levels + 1)
 
+    !! the vertical distance between the prism centers, dim = n_zlev+1
+    !! constantPrismCenters_zDistance(2) = vertical distance between prisms at 1 and 2 levels
+    REAL(wp), POINTER :: constantPrismCenters_Zdistance(:,:,:)
+    !!the inverse of the above
+    REAL(wp), POINTER :: constantPrismCenters_invZdistance(:,:,:)
+    
   END TYPE t_patch_vert
 
 

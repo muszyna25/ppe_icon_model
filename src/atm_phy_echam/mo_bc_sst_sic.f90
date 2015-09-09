@@ -28,14 +28,15 @@ MODULE mo_bc_sst_sic
   USE mo_parallel_config,    ONLY: nproma
   USE mo_physical_constants, ONLY: tf_salt !, tmelt
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
+  USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, gridInqSize,      &
+    &                              vlistInqTaxis, streamInqTimestep, taxisInqVdate,  &
+    &                              vlistInqVarGrid, streamClose, cdiGetStringError, streamReadVarslice, vlistPrint
 
   USE mo_time_interpolation_weights,ONLY: t_wi_limm
 
   IMPLICIT NONE
 
   PRIVATE
-
-  INCLUDE 'cdi.inc'
   
   REAL(dp), POINTER :: sst(:,:,:) => NULL()
   REAL(dp), POINTER :: sic(:,:,:) => NULL()

@@ -46,8 +46,11 @@ USE mo_nonhydrostatic_config,ONLY: kstart_moist, kend_qvsubstep, l_open_ubc, &
   &                                itime_scheme
 
 USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
+USE mo_ensemble_pert_config, ONLY: configure_ensemble_pert
+USE mo_synsat_config,        ONLY: configure_synsat
 ! NH-Model states
-USE mo_nonhydro_state,       ONLY: p_nh_state, construct_nh_state, destruct_nh_state
+USE mo_nonhydro_state,       ONLY: p_nh_state, p_nh_state_lists,               &
+  &                                construct_nh_state, destruct_nh_state
 USE mo_opt_diagnostics,      ONLY: construct_opt_diag, destruct_opt_diag
 USE mo_nwp_phy_state,        ONLY: prm_diag, construct_nwp_phy_state,          &
   &                                destruct_nwp_phy_state
@@ -58,7 +61,8 @@ USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
 USE mo_initicon,            ONLY: init_icon
 USE mo_initicon_config,     ONLY: timeshift
-USE mo_ext_data_state,      ONLY: ext_data, init_index_lists
+USE mo_ext_data_state,      ONLY: ext_data
+USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
@@ -81,10 +85,13 @@ USE mo_nh_testcases_nml,    ONLY: nh_test_name
 
 USE mo_mtime_extensions,    ONLY: get_datetime_string
 USE mo_output_event_types,  ONLY: t_sim_step_info
-USE mo_action,              ONLY: ACTION_RESET, action_init  !reset_act
+USE mo_action,              ONLY: ACTION_RESET, reset_act
 USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
 USE mo_limarea_config,      ONLY: latbc_config
 USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
+
+USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
+USE mo_synsat_config,       ONLY: lsynsat
 !-------------------------------------------------------------------------
 
 IMPLICIT NONE
@@ -141,7 +148,11 @@ CONTAINS
       ! are initialized in init_nwp_phy
       CALL init_index_lists (p_patch(1:), ext_data)
 
+      CALL configure_ensemble_pert()
+
       CALL configure_atm_phy_nwp(n_dom, p_patch(1:), dtime)
+
+      CALL configure_synsat()
 
      ! initialize number of chemical tracers for convection 
      DO jg = 1, n_dom
@@ -179,6 +190,11 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for p_nh_state failed')
     ENDIF
 
+    ALLOCATE (p_nh_state_lists(n_dom), stat=ist)
+    IF (ist /= success) THEN
+      CALL finish(TRIM(routine),'allocation for p_nh_state_lists failed')
+    ENDIF
+
     ! Note(GZ): Land state now needs to be allocated even if physics is turned
     ! off because ground temperature is included in feedback since r8133
     ! However, setting inwp_surface = 0 effects that only a few 2D fields are allocated
@@ -196,7 +212,7 @@ CONTAINS
       l_pres_msl(jg) = is_variable_in_output(first_output_name_list, var_name="pres_msl")
       l_omega(jg)    = is_variable_in_output(first_output_name_list, var_name="omega")
     END DO
-    CALL construct_nh_state(p_patch(1:), p_nh_state, n_timelevels=2, &
+    CALL construct_nh_state(p_patch(1:), p_nh_state, p_nh_state_lists, n_timelevels=2, &
       &                     l_pres_msl=l_pres_msl, l_omega=l_omega)
 
     ! Add optional diagnostic variable lists (might remain empty)
@@ -228,8 +244,10 @@ CONTAINS
        &                      iequations, iforcing, iqc, iqt,          &
        &                      kstart_moist(jg), kend_qvsubstep(jg),    &
        &                      lvert_nest, l_open_ubc, ntracer,         &
-       &                      idiv_method, itime_scheme ) 
+       &                      idiv_method, itime_scheme,               &
+       &                      p_nh_state_lists(jg)%tracer_list(:)  ) 
     ENDDO
+
 
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
@@ -366,6 +384,9 @@ CONTAINS
     ! diagnostic quantities like pz-level interpolation
     CALL pp_scheduler_init( (iforcing == inwp) )
 
+    ! setup of RTTOV interface (assumes expanded variable groups)
+    IF (ANY(lsynsat(:)))  CALL rttov_initialize()
+
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO
     IF (output_mode%l_nml) THEN
@@ -425,8 +446,16 @@ CONTAINS
         is_variable_in_output(first_output_name_list, var_name="tracer_vi_avg03") .OR. &
         is_variable_in_output(first_output_name_list, var_name="avg_qv")          .OR. &
         is_variable_in_output(first_output_name_list, var_name="avg_qc")          .OR. &
-        is_variable_in_output(first_output_name_list, var_name="avg_qi") 
-    ENDIF
+        is_variable_in_output(first_output_name_list, var_name="avg_qi")
+
+        atm_phy_nwp_config(1:n_dom)%lcalc_extra_avg = &
+        is_variable_in_output(first_output_name_list, var_name="astr_u_sso")      .OR. &
+        is_variable_in_output(first_output_name_list, var_name="accstr_u_sso")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="astr_v_sso")      .OR. &
+        is_variable_in_output(first_output_name_list, var_name="accstr_v_sso")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="adrag_u_grid")    .OR. &
+        is_variable_in_output(first_output_name_list, var_name="adrag_v_grid")
+     ENDIF
 
     !----------------------!
     !  Initialize actions  !
@@ -434,9 +463,8 @@ CONTAINS
     !
 
     ! Initialize reset-Action, i.e. assign variables to action object
-!DR    CALL reset_act%initialize(ACTION_RESET)
-!DR Workaround for gfortran 4.5 (and potentially others)
-    CALL action_init(ACTION_RESET)
+    CALL reset_act%initialize(ACTION_RESET)
+
 
     !Anurag Dipankar, MPIM (2014-01-14)
     !Special 1D and 0D output for LES runs till we get add_var/nml_out working
@@ -478,15 +506,22 @@ CONTAINS
     ! Destruction of post-processing job queue
     CALL pp_scheduler_finalize()
 
+    ! Destruction of some RTTOV data structures  (if enabled)
+    IF (ANY(lsynsat(:)))  CALL rttov_finalize()
+
     ! Delete optional diagnostics
     CALL destruct_opt_diag()
    
     ! Delete state variables
 
-    CALL destruct_nh_state( p_nh_state )
+    CALL destruct_nh_state( p_nh_state, p_nh_state_lists )
     DEALLOCATE (p_nh_state, STAT=ist)
     IF (ist /= SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for p_nh_state failed')
+    ENDIF
+    DEALLOCATE (p_nh_state_lists, STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for p_nh_state_lists failed')
     ENDIF
 
     IF (iforcing == inwp) THEN

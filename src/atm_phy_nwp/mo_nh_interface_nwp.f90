@@ -56,10 +56,11 @@ MODULE mo_nh_interface_nwp
   USE mo_parallel_config,         ONLY: nproma, p_test_run, use_icon_comm, use_physics_barrier
   USE mo_diffusion_config,        ONLY: diffusion_config
   USE mo_run_config,              ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqtvar, iqtke, iqm_max,    &
-    &                                   msg_level, ltimer, timers_level, nqtendphy, lart
+    &                                   msg_level, ltimer, timers_level, lart
+  USE mo_grid_config,             ONLY: l_limited_area
   USE mo_physical_constants,      ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cvd, cvv
 
-  USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp
+  USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp, diag_pres, diag_temp
 
   USE mo_atm_phy_nwp_config,      ONLY: atm_phy_nwp_config
   USE mo_util_phys,               ONLY: nh_update_prog_phy
@@ -85,12 +86,12 @@ MODULE mo_nh_interface_nwp
     &                                   icon_comm_sync_all, is_ready, until_sync
   USE mo_art_washout_interface,   ONLY: art_washout_interface
   USE mo_art_reaction_interface,  ONLY: art_reaction_interface
-  USE mo_art_config,              ONLY: art_config
   USE mo_linked_list,             ONLY: t_var_list
   USE mo_ls_forcing_nml,          ONLY: is_ls_forcing
   USE mo_ls_forcing,              ONLY: apply_ls_forcing
   USE mo_advection_config,        ONLY: advection_config
   USE mo_util_phys,               ONLY: nh_update_prog_phy
+  USE mo_o3_util,                 ONLY: calc_o3_gems
 
   IMPLICIT NONE
 
@@ -286,58 +287,102 @@ CONTAINS
 
     ENDIF ! diagnose u/v
 
-    IF (l_any_fastphys .OR. linit) THEN
+    IF (msg_level >= 18) THEN
         
-      ! Diagnose temperature if any of the fast physics schemes is called
+      ! Diagnose temperature needed for debugging output
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,    &
            &                              pt_diag, pt_patch,       &
            &                              opt_calc_temp=.TRUE.,    &
            &                              opt_calc_pres=.FALSE.,   &
            &                              opt_rlend=min_rlcell_int )
 
-      IF (msg_level >= 18) THEN ! Initial diagnostic output
-        CALL nwp_diag_output_1(pt_patch, pt_diag, pt_prog_rcf)
-      ENDIF
+      ! Write extensive debugging output
+      CALL nwp_diag_output_1(pt_patch, pt_diag, pt_prog_rcf)
 
-    ENDIF ! fast physics activated
-
-    !!-------------------------------------------------------------------------
-    !> Initial saturation adjustment (a second one follows at the end of the microphysics)
-    !!-------------------------------------------------------------------------
-
-    IF (lcall_phy_jg(itsatad)) THEN
-
-      IF (msg_level >= 15) CALL message('mo_nh_interface_nwp:', 'satad')
-      IF (timers_level > 2) CALL timer_start(timer_satad_v_3D)
-
-      ! exclude boundary interpolation zone of nested domains
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
-
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+    ENDIF
 
 
-!$OMP PARALLEL
+    !-------------------------------------------------------------------------
+    !>  Update the slow-physics tendencies on the tracer fields,
+    !!  afterwards perform saturation adjustment
+    !-------------------------------------------------------------------------
 
-!$OMP WORKSHARE
-        ! Store exner function for sound-wave reduction and open upper boundary condition
-        ! this needs to be done for all grid points (including halo points)
-        z_exner_sv(:,:,:) = pt_prog%exner(:,:,:)
-!$OMP END WORKSHARE
+    IF (msg_level >= 15) CALL message('mo_nh_interface_nwp:', 'satad')
+    IF (timers_level > 2) CALL timer_start(timer_satad_v_3D)
 
-!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum,z_tempv) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
+
+    ! Diagnose pressure and temperature in nest boundary zone
+    ! (needed for the reduced radiation grid)
+    rl_start = 1
+    rl_end   = grf_bdywidth_c
+
+    i_startblk = pt_patch%cells%start_block(rl_start)
+    i_endblk   = pt_patch%cells%end_block(rl_end)
+
+    IF (jg > 1 .OR. l_limited_area) THEN
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end)
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk,  &
+                             i_startidx, i_endidx, rl_start, rl_end)
 
-        !-------------------------------------------------------------------------
-        !   call the saturation adjustment
-        !-------------------------------------------------------------------------
+        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag, p_metrics,          &
+                        jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
-!#ifdef __BOUNDCHECK
-          CALL satad_v_3D( &
+        CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
+                        jb, i_startidx, i_endidx, 1, nlev)
+
+      ENDDO
+!$OMP END DO
+    ENDIF
+
+    ! Save Exner pressure field on halo points (prognostic points are treated below)
+    rl_start = min_rlcell_int-1
+    rl_end   = min_rlcell
+
+    i_startblk = pt_patch%cells%start_block(rl_start)
+    i_endblk   = pt_patch%cells%end_block(rl_end)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk,  &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      z_exner_sv(i_startidx:i_endidx,:,jb) = pt_prog%exner(i_startidx:i_endidx,:,jb)
+    ENDDO
+!$OMP END DO
+
+
+    ! computations on prognostic points
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = pt_patch%cells%start_block(rl_start)
+    i_endblk   = pt_patch%cells%end_block(rl_end)
+
+!$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum,z_tempv) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end)
+
+      IF (l_any_fastphys .OR. linit) THEN  ! diagnose temperature
+        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag, p_metrics,          &
+                        jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
+      ENDIF
+
+      ! Save Exner pressure field (this is needed for a correction to reduce sound-wave generation by latent heating)
+      z_exner_sv(i_startidx:i_endidx,:,jb) = pt_prog%exner(i_startidx:i_endidx,:,jb)
+
+      !!-------------------------------------------------------------------------
+      !> Initial saturation adjustment (a second one follows at the end of the microphysics)
+      !!-------------------------------------------------------------------------
+
+      IF (lcall_phy_jg(itsatad)) THEN
+
+        CALL satad_v_3D( &
                & maxiter  = 10                             ,& !> IN
                & tol      = 1.e-3_wp                       ,& !> IN
                & te       = pt_diag%temp       (:,:,jb)    ,& !> INOUT
@@ -350,7 +395,6 @@ CONTAINS
                & iup      = i_endidx                       ,& !> IN
                & klo      = kstart_moist(jg)               ,& !> IN
                & kup      = nlev                            & !> IN
-              !& count, errstat,                              !> OUT
                )
 
         DO jk = kstart_moist(jg), nlev
@@ -392,21 +436,20 @@ CONTAINS
 
           ENDDO
         ENDDO
-      ENDDO ! nblks
+      ENDIF
+
+      IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsfc)) THEN
+        ! diagnose pressure for subsequent fast-physics parameterizations
+        CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev)
+      ENDIF
+
+    ENDDO ! nblks
 
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      IF (timers_level > 2) CALL timer_stop(timer_satad_v_3D)
+    IF (timers_level > 2) CALL timer_stop(timer_satad_v_3D)
 
-    ELSE ! satad turned off
-
-!$OMP PARALLEL WORKSHARE
-      ! Store exner function for sound-wave reduction and open upper boundary condition
-      z_exner_sv(:,:,:) = pt_prog%exner(:,:,:)
-!$OMP END PARALLEL WORKSHARE
-
-    ENDIF ! satad
 
     !!-------------------------------------------------------------------------
     !>  turbulent transfer and diffusion and microphysics
@@ -417,23 +460,6 @@ CONTAINS
     !!  has to be done afterwards
     !!-------------------------------------------------------------------------
 
-    IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsfc)) THEN
-
-      IF (msg_level >= 15) &
-        & CALL message('mo_nh_interface_nwp:', 'diagnose pressure for fast physics')
-
-      !-------------------------------------------------------------------------
-      !> temperature and virtual temperature are already up to date:
-      !! thus diagnose only pressure on main and interface levels  
-      !! =>  opt_calc_pres_nh=.TRUE.
-      !-------------------------------------------------------------------------
-      CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
-        & pt_diag, pt_patch,      &
-        & opt_calc_temp =.FALSE., &
-        & opt_calc_pres =.TRUE.,  &
-        & opt_rlend=min_rlcell_int)
-
-    ENDIF
 
 
     !For turbulence schemes NOT including the call to the surface scheme.
@@ -533,54 +559,54 @@ CONTAINS
 
     ENDIF
 
-      IF (lart) THEN
-!< JS: added ext_data again, datetime, p_metrics, pt_diag_pt_prog%rho
-        CALL art_reaction_interface(ext_data,                    & !> in
-                  &          pt_patch,                           & !> in
-                  &          datetime,                           & !> in
-                  &          dt_phy_jg(itfastphy),               & !> in
-                  &          p_prog_list,                        & !> in
-                  &          pt_prog,                            & !> in
-                  &          p_metrics,                          & !> in
-                  &          pt_diag,                            & !> inout
-                  &          pt_prog_rcf%tracer)
+    IF (lart) THEN
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
 
-        CALL art_washout_interface(pt_prog,pt_diag,              & !>in
-                  &          dt_phy_jg(itfastphy),               & !>in
-                  &          pt_patch,                           & !>in
-                  &          prm_diag,                           & !>in
-                  &          pt_prog_rcf%tracer)                   !>inout
+      CALL art_reaction_interface(ext_data,                    & !> in
+                &          pt_patch,                           & !> in
+                &          datetime,                           & !> in
+                &          dt_phy_jg(itfastphy),               & !> in
+                &          p_prog_list,                        & !> in
+                &          pt_prog,                            & !> in
+                &          p_metrics,                          & !> in
+                &          prm_diag,                           & !> in
+                &          pt_diag,                            & !> inout
+                &          pt_prog_rcf%tracer)
 
-      ENDIF !lart
-
-
-    IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
-      IF (timers_level > 1) CALL timer_start(timer_fast_phys)
+      CALL art_washout_interface(pt_prog,pt_diag,              & !>in
+                &          dt_phy_jg(itfastphy),               & !>in
+                &          pt_patch,                           & !>in
+                &          prm_diag,                           & !>in
+                &          pt_prog_rcf%tracer)                   !>inout
+    ENDIF !lart
 
 
-      ! Remark: in the (unusual) case that satad is used without any other physics,
-      ! recalculation of the thermodynamic variables is duplicated here. However,
-      ! this is the easiest way to combine minimization of halo communications
-      ! with a failsafe flow control
+    IF (timers_level > 1) CALL timer_start(timer_fast_phys)
 
-      IF (msg_level >= 15) &
-        & CALL message('mo_nh_interface_nwp:', 'recalculate thermodynamic variables')
+    ! Remark: in the (unusual) case that satad is used without any other physics,
+    ! recalculation of the thermodynamic variables is duplicated here. However,
+    ! this is the easiest way to combine minimization of halo communications
+    ! with a failsafe flow control
+
+    IF (msg_level >= 15) &
+      & CALL message('mo_nh_interface_nwp:', 'recalculate thermodynamic variables')
 
 
-      ! exclude boundary interpolation zone of nested domains
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
+    ! exclude boundary interpolation zone of nested domains
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
 
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx, i_endidx, z_qsum) ICON_OMP_DEFAULT_SCHEDULE
 
-      DO jb = i_startblk, i_endblk
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          & i_startidx, i_endidx, rl_start, rl_end )
+    DO jb = i_startblk, i_endblk
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        & i_startidx, i_endidx, rl_start, rl_end )
 
+      IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb)) THEN
         !-------------------------------------------------------------------------
         !>
         !! re-calculate scalar prognostic variables out of physics variables!
@@ -656,22 +682,19 @@ CONTAINS
           pt_diag%exner_dyn_incr(:,kstart_moist(jg):nlev,jb) = 0._wp
         ENDIF
 
-      ENDDO
+      ENDIF ! recalculation
+
+      IF (lcall_phy_jg(itturb) .OR. linit .OR. l_any_slowphys) THEN
+        ! rediagnose pressure
+        CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
+                        jb, i_startidx, i_endidx, 1, nlev)
+      ENDIF
+
+    ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-      IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
-    ENDIF ! end of fast physics part
-
-    IF (lcall_phy_jg(itturb) .OR. linit .OR. l_any_slowphys) THEN
-      ! re-diagnose pressure
-      CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
-        &                      pt_diag, pt_patch,                 &
-        &                      opt_calc_temp     = .FALSE.,       &
-        &                      opt_calc_pres     = .TRUE.,        &
-        &                      opt_rlend         = min_rlcell_int )
-    ENDIF
-
+    IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
 
     IF ( (lcall_phy_jg(itturb) .OR. linit) .AND. ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
 

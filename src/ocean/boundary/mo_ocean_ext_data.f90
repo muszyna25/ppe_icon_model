@@ -38,10 +38,12 @@ MODULE mo_ocean_ext_data
   USE mo_impl_constants,     ONLY: max_char_length, LAND
   USE mo_math_constants,     ONLY: dbl_eps
   USE mo_ocean_nml,          ONLY: iforc_oce, &
-    &                              forcing_timescale, &
-    &                              forcing_windstress_u_type, &
-    &                              forcing_windstress_v_type, &
-    &                              forcing_fluxes_type 
+    & forcing_timescale, &
+    & forcing_windstress_u_type, &
+    & forcing_windstress_v_type, &
+    & forcing_fluxes_type,       &
+    & OMIP_FluxFromFile,         &
+    & use_omip_windstress, use_omip_fluxes, use_omip_forcing
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
@@ -58,21 +60,21 @@ MODULE mo_ocean_ext_data
     &                              delete_var_list
   USE mo_master_nml,         ONLY: model_base_dir
   USE mo_cf_convention,      ONLY: t_cf_var
-  USE mo_grib2,              ONLY: t_grib2_var
+  USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_read_interface,     ONLY: openInputFile, closeFile, onCells, &
     &                              t_stream_id, nf, read_2D, read_2D_int, &
     &                              read_3D, onEdges
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
   USE mo_datetime,           ONLY: t_datetime, month2hour
+  USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_PACK16, TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
     &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
-    &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M,           &
-    &                              DATATYPE_FLT32, DATATYPE_PACK16,                &
-    &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
+    &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M
 
-  USE mo_master_control,        ONLY: is_restart_run
+  USE mo_master_control,     ONLY: is_restart_run
+
 
   IMPLICIT NONE
 
@@ -248,7 +250,7 @@ CONTAINS
     ! bathymetry_c  p_ext_oce%bathymetry_c(nproma,nblks_c)
     cf_desc    = t_cf_var('Model bathymetry at cell center', 'm', &
       &                   'Model bathymetry', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_oce_list, 'bathymetry_c', p_ext_oce%bathymetry_c,      &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
@@ -258,7 +260,7 @@ CONTAINS
     ! bathymetry_e  p_ext_oce%bathymetry_e(nproma,nblks_e)
     cf_desc    = t_cf_var('Model bathymetry at edge', 'm', &
       &                   'Model bathymetry', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ext_oce_list, 'bathymetry_e', p_ext_oce%bathymetry_e,      &
       &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
 
@@ -267,7 +269,7 @@ CONTAINS
     ! lsm_ctr_c  p_ext_oce%lsm_ctr_c(nproma,nblks_c)
     cf_desc    = t_cf_var('Ocean model land-sea-mask at cell center', '-2/-1/1/2', &
       &                   'Ocean model land-sea-mask', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
     !#slo-2011-08-08# does not compile yet?
     CALL add_var( p_ext_oce_list, 'lsm_ctr_c', p_ext_oce%lsm_ctr_c, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
@@ -276,16 +278,16 @@ CONTAINS
     !
     cf_desc    = t_cf_var('Ocean model land-sea-mask at cell edge', '-2/0/2', &
       &                   'Ocean model land-sea-mask', DATATYPE_FLT32)
-    grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ext_oce_list, 'lsm_ctr_e', p_ext_oce%lsm_ctr_e,      &
       &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
 
     ! omip forcing data on cell edge
     !
-    IF (iforc_oce == 12) THEN
+    IF (iforc_oce == OMIP_FluxFromFile) THEN
       cf_desc    = t_cf_var('Ocean model OMIP forcing data at cell edge', 'Pa, K', &
         &                   'OMIP forcing data', DATATYPE_FLT32)
-      grib2_desc = t_grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_oce_list, 'flux_forc_mon_c', p_ext_oce%flux_forc_mon_c,  &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape4d_c )
     END IF
@@ -349,12 +351,10 @@ CONTAINS
     CHARACTER(filename_max) :: omip_file   !< file name for reading in
 
     LOGICAL :: l_exist
-    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_verts, no_tst
+    INTEGER :: jg, i_lev, no_cells, no_verts, no_tst
     INTEGER :: ncid, dimid
     TYPE(t_stream_id) :: stream_id
     INTEGER :: mpi_comm
-
-    LOGICAL :: use_omip_forcing, use_omip_windstress, use_omip_fluxes
 
     !REAL(wp):: z_flux(nproma, 12,p_patch(1)%nblks_c)
     REAL(wp):: z_flux(nproma,forcing_timescale,p_patch(1)%alloc_cell_blocks)
@@ -369,7 +369,6 @@ CONTAINS
     jg = 1
 
     i_lev       = p_patch(jg)%level
-    i_cell_type = p_patch(jg)%cell_type
     z_flux(:,:,:) = 0.0_wp
 
     CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
@@ -397,18 +396,10 @@ CONTAINS
       ! get number of cells and vertices
       !
       CALL nf(nf_inq_dimid(ncid, 'cell', dimid), routine)
-      IF (i_cell_type == 3) THEN ! triangular grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
-      ENDIF
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
 
       CALL nf(nf_inq_dimid(ncid, 'vertex', dimid), routine)
-      IF (i_cell_type == 3) THEN ! triangular grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
-        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells), routine)
-      ENDIF
+      CALL nf(nf_inq_dimlen(ncid, dimid, no_verts), routine)
 
       !
       ! check the number of cells and verts
@@ -475,17 +466,12 @@ CONTAINS
 
     !-------------------------------------------------------------------------
 
-    use_omip_windstress = ( forcing_windstress_u_type == 1 ) .AND. (forcing_windstress_v_type == 1)
-    use_omip_fluxes     = ( forcing_fluxes_type == 1 )
-    use_omip_forcing    = use_omip_windstress .OR. use_omip_fluxes
-
-    IF ( use_omip_forcing .AND. iforc_oce == 12) THEN
+    IF ( use_omip_forcing .AND. iforc_oce == OMIP_FluxFromFile) THEN
 
     !DO jg = 1,n_dom
       jg = 1
 
       i_lev       = p_patch(jg)%level
-      i_cell_type = p_patch(jg)%cell_type
 
 !       WRITE (omip_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
       omip_file='ocean-flux.nc'
@@ -686,7 +672,7 @@ CONTAINS
 
       CALL message( TRIM(routine),'Ocean OMIP fluxes for external data read' )
 
-    END IF ! iforc_oce=12 and iforc_type.ne.5
+    END IF ! iforc_oce=OMIP_FluxFromFile and iforc_type.ne.5
 
   END SUBROUTINE read_ext_data_oce
   !-------------------------------------------------------------------------

@@ -340,6 +340,10 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: io3_amip     =  8
   INTEGER, PARAMETER :: iaero_kinne  =  3
 
+  ! identifier for landcover classification
+  INTEGER, PARAMETER :: GLOBCOVER2009 =  1
+  INTEGER, PARAMETER :: GLC2000       =  2
+
   !
   ! transport identifiers
   !
@@ -472,13 +476,18 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: VINTP_METHOD_PRES  = 4
   INTEGER, PARAMETER :: VINTP_METHOD_LIN_NLEVP1 = 5
 
+  !----- RBF lon-lat interpolation: shape parameter mode
+  INTEGER, PARAMETER :: SCALE_MODE_TABLE   = 1
+  INTEGER, PARAMETER :: SCALE_MODE_AUTO    = 2
+  INTEGER, PARAMETER :: SCALE_MODE_PRESET  = 3
+
   !----- init ICON operation modes -----
   INTEGER, PARAMETER :: MODE_DWDANA      = 1
   INTEGER, PARAMETER :: MODE_IFSANA      = 2
   INTEGER, PARAMETER :: MODE_COMBINED    = 3
   INTEGER, PARAMETER :: MODE_COSMODE     = 4
-  INTEGER, PARAMETER :: MODE_DWDANA_INC  = 5
-  INTEGER, PARAMETER :: MODE_IAU         = 6
+  INTEGER, PARAMETER :: MODE_IAU         = 5
+  INTEGER, PARAMETER :: MODE_IAU_OLD     = 6
   INTEGER, PARAMETER :: MODE_ICONVREMAP  = 7
 
   !----- MPI parallelization -----
@@ -558,6 +567,15 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_AGGREGATED  = 1
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_DETAILED    = 2
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_WRITE_FILES = 3
+
+  !-------------------------!
+  !  RTTOV FIELD CATEGORIES !
+  !-------------------------!
+
+  INTEGER, PARAMETER, PUBLIC :: RTTOV_BT_CL  = 1
+  INTEGER, PARAMETER, PUBLIC :: RTTOV_BT_CS  = 2
+  INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CL = 3
+  INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CS = 4
 
 
 !--------------------------------------------------------------------

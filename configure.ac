@@ -89,6 +89,16 @@ AC_ARG_WITH([flags],
     [],
     [])
 
+AC_ARG_WITH([art],
+  [AS_HELP_STRING([--with-art],
+    [enable ART modules via precprocessing directive, if available for selected compiler])],
+  [],
+  [])
+
+AS_IF([test "x$with_art" = "xyes"],
+      [use_art="yes"],
+      [use_art="no"])
+
 case $host in
   i*86-*-linux-*)  
     if test x$fortran_compiler != xintel ; then
@@ -112,8 +122,10 @@ AS_CASE([x"$ac_hostname"],
   [ac_sitename=dkrz.de],
   [xwizard*],
   [ac_sitename=dkrz.de; ac_hostname=wizard],
-  [xbtc*],
+  [xbtc*|mlogin*],
   [ac_sitename=dkrz.de; ac_hostname=btc],
+  [xic2*],
+  [ac_sitename=kit.edu; ac_hostname=ic2],
   [if [[ $(hostname) = $ac_hostname ]] ; then
    fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
 else
@@ -351,12 +363,16 @@ if test -n "$ZLIBROOT" ; then
   if test -r "$ZLIBROOT/lib/libz.a" ; then
      ZLIB_LIB='-L$(ZLIBROOT)/lib -lz'
   else
-    if test -r "$ZLIBROOT/lib/x86_64-linux-gnu/libz.a" ; then
-       ZLIB_LIB='-L$(ZLIBROOT)/x86_64-linux-gnu/lib -lz'
-    else 
-       echo "cannot read $ZLIBROOT/lib/libz.a"  
-       exit 1    
-    fi
+     if test -r "$ZLIBROOT/lib64/libz.a" -o -r "$ZLIBROOT/lib64/libz.so" ; then     
+        ZLIB_LIB='-L$(ZLIBROOT)/lib64 -lz'
+     else   
+        if test -r "$ZLIBROOT/lib/x86_64-linux-gnu/libz.a" ; then
+           ZLIB_LIB='-L$(ZLIBROOT)/x86_64-linux-gnu/lib -lz'
+        else 
+           echo "cannot read $ZLIBROOT/lib/libz.a"  
+           exit 1    
+        fi
+     fi
   fi
   if test -d "$ZLIBROOT/include" ; then
      ZLIB_INCLUDE='-I$(ZLIBROOT)/include'
@@ -399,6 +415,20 @@ if test -n "$SZIPROOT" ; then
      echo "cannot find $SZIPROOT/include"  
      exit 1    
   fi
+  case $(hostname) in
+  btc*|mlogin*)  
+    case $FC in
+    nagfor)
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      ;;
+    *)  
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+      ;;
+    esac
+    ;;
+  *)
+    ;;
+  esac
 else
   echo "Warning: the variable SZIPROOT is not set in $host_frag"  
   echo "         set SZIPROOT to the szip root directory"
@@ -434,6 +464,20 @@ if test -n "$HDF5ROOT" ; then
      echo "cannot find $HDF5ROOT/include"  
      exit 1    
   fi
+  case $(hostname) in
+  btc*|mlogin*)  
+    case $FC in
+    nagfor)
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      ;;
+    *)
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+     ;;
+    esac    
+    ;;
+  *)
+    ;;
+  esac
 else
   echo "Warning: the variable HDF5ROOT is not set in $host_frag"  
   echo "         set HDF5ROOT to the hdf5 root directory"
@@ -478,7 +522,20 @@ if test -n "$NETCDFROOT" ; then
   if test x$gcc_lib != x ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
-
+  case $(hostname) in
+  btc*|mlogin*)    
+    case $FC in
+    nagfor)
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      ;;
+    *)
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+      ;;
+    esac
+    ;;
+  *)
+    ;;
+  esac
   if test -z "$NETCDFFROOT" ; then
      if test -r "$NETCDFROOT/include/netcdf.inc" ; then
          NETCDF_INCLUDE='-I$(NETCDFROOT)/include'
@@ -490,13 +547,30 @@ if test -n "$NETCDFROOT" ; then
      if test -r "$NETCDFFROOT/include/netcdf.inc" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
-         NETCDF_LIB="-Lmake$NETCDFFROOT/lib -lnetcdff -L$NETCDFROOT/lib -lnetcdf"
+         NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
+         NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff' 
+         case $(hostname) in
+         btc*|mlogin*)    
+           case $FC in
+           nagfor)
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+             ;;
+           *)                      
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+             ;;
+           esac         
+           ;;
+         *)
+           ;;
+         esac
+         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"	
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
        fi
-     fi
-      
+     fi      
   fi
 else
   echo "error: the variable NETCDFROOT is not set in $host_frag"
@@ -692,7 +766,14 @@ else
     *)
       real_path=$(cd $MPIROOT; pwd -P)
 #      mod_file=$(find $real_path -name mpi.mod -print -quit)
-      mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+      case "$MPIROOT" in
+      *impi*)
+        mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | awk 'NR==1')
+        ;;      
+      *)
+        mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+        ;;
+      esac
       ;;
     esac
     if test -r $mod_file ; then
@@ -787,6 +868,14 @@ if [[ "x$use_messy" = xyes ]] ; then
     CFLAGS="${CFLAGS} ${DEFCOPT}MESSY ${DEFOPT}MESSYTIMER"
 fi
 
+if [[ "x$use_art" = xyes ]] ; then
+    FFLAGS="${FFLAGS} ${ART_FFLAGS}"
+    # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
+    if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
+        FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
+    fi
+fi
+
 ac_srcdirs=$my_srcdirs
 
 if test "$use_mpcc_r" = yes ; then
@@ -813,9 +902,14 @@ fi
 if [[ "x$target_os" = xsuperux ]] ; then  
     MODDIR=""	    
 else
-    MODDIR="${MODDIR}../module"
+    if [[ "x$FC" = xifort ]] ; then
+        MODDIR="${MODDIR} ../module"
+    else    
+        MODDIR="${MODDIR}../module"
+    fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
+FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
 if [[ "x$LDFLAGS" = "x" ]] ; then
@@ -876,6 +970,7 @@ AC_SUBST(OS,$target_os)
 AC_SUBST(SITE,$ac_sitename)
 AC_SUBST(HOST,$ac_hostname)
 
+AC_SUBST(NETCDFFROOT,$NETCDFFROOT)
 AC_SUBST(NETCDFROOT,$NETCDFROOT)
 AC_SUBST(NETCDFLIBPATH,$NETCDFLIBPATH)
 AC_SUBST(NETCDF_LIB,$NETCDF_LIB)

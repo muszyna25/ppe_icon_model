@@ -35,7 +35,7 @@ MODULE mo_nml_crosscheck
     &                              UP3, MCYCL, MIURA_MCYCL, MIURA3_MCYCL,     &
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, ifluxl_sm,     &
     &                              ifluxl_m, ihs_ocean, RAYLEIGH_CLASSIC,     &
-    &                              iedmf, icosmo
+    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD 
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -68,14 +68,14 @@ MODULE mo_nml_crosscheck
 
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv
-  USE mo_lnd_nwp_config,     ONLY: ntiles_lnd
+  USE mo_lnd_nwp_config,     ONLY: ntiles_lnd, lsnowtile
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_radiation_config
   USE mo_echam_conv_config,  ONLY: echam_conv_config
   USE mo_gw_hines_config,    ONLY: gw_hines_config
   USE mo_vdiff_config,       ONLY: vdiff_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_initicon_config,    ONLY: init_mode, dt_iau
+  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart
   USE mo_nh_testcases_nml,   ONLY: linit_tracer_fv,nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
@@ -473,10 +473,10 @@ CONTAINS
           SELECT CASE (irad_o3)
           CASE (0) ! ok
             CALL message(TRIM(method_name),'radiation is used without ozone')
-          CASE (2,4,6,7,8) ! ok
+          CASE (2,4,6,7,8,9) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone')
           CASE default
-            CALL finish(TRIM(method_name),'irad_o3 currently has to be 0, 2, 4, 6, 7 or 8.')
+            CALL finish(TRIM(method_name),'irad_o3 currently has to be 0, 2, 4, 6, 7, 8 or 9.')
           END SELECT
 
           ! Tegen aerosol and itopo (Tegen aerosol data have to be read from external data file)
@@ -628,14 +628,16 @@ CONTAINS
         iqns = 10        
         iqng = 11        
         iqnh = 12
+        iqnc = 13
+        ininact = 14
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mixing ratios
-        iqt       = 13    !! start index of other tracers not related at all to moisture
+        iqt       = 15    !! start index of other tracers not related at all to moisture
        
-        ntracer = 12
+        ntracer = 14
 
-      CASE(5)  ! two-moment scheme with prognotic cloud drop number and CCN and IN budgets
+      CASE(5)  ! two-moment scheme with CCN and IN budgets
       
         iqg  = 6
         iqh  = 7
@@ -645,9 +647,9 @@ CONTAINS
         iqng = 11        
         iqnh = 12
         iqnc = 13
-        inccn = 14
-        ininpot = 15
-        ininact = 16
+        ininact = 14
+        inccn   = 15
+        ininpot = 16
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mixing ratios
@@ -665,12 +667,13 @@ CONTAINS
         iqng = 11        
         iqnh = 12
         iqnc = 13
+        ininact = 14
         
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mixing ratios
         iqt       = 14    !! start index of other tracers not related at all to moisture
         
-        ntracer = 13
+        ntracer = 14
         
       END SELECT ! microphysics schemes
 
@@ -711,6 +714,17 @@ CONTAINS
       WRITE(message_text,'(a,i3)') 'Attention: NWP physics is used, '//&
                                    'ntracer is automatically reset to ',ntracer
       CALL message(TRIM(method_name),message_text)
+
+      ! take into account additional passive tracers, if present
+      ! iqt is not increased, since passive tracers do not belong to the hydrometeor group.
+      IF ( advection_config(jg)%npassive_tracer > 0) THEN
+        ntracer = ntracer + advection_config(jg)%npassive_tracer
+        WRITE(message_text,'(a,i3,a,i3)') 'Attention: passive tracers have been added, '//&
+                                     'ntracer is increased by ',advection_config(jg)%npassive_tracer, &
+                                     ' to ',ntracer
+        CALL message(TRIM(method_name),message_text)
+      ENDIF
+
 
       IF (lart) THEN
         
@@ -942,7 +956,7 @@ CONTAINS
     ! Realcase runs
     !--------------------------------------------------------------------
 
-    IF (init_mode == 5) THEN   ! start from dwd analysis with incremental update
+    IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN  ! start from dwd analysis with incremental update
 
       ! check analysis update window
       !
@@ -953,6 +967,16 @@ CONTAINS
           &   "If >0 then at least equal to advective/phys tstep ",dtime
         CALL finish('initicon_nml:', TRIM(message_text))
       ENDIF 
+
+
+      ! IAU modes MODE_IAU_OLD cannot be combined with snowtiles
+      ! when performing snowtile warmstart.
+      IF ((ntiles_lnd > 1) .AND. (.NOT. ltile_coldstart) .AND. (lsnowtile)) THEN
+        IF ( init_mode == MODE_IAU_OLD ) THEN
+          WRITE (message_text,'(a,i2)') "lsnowtile=.TRUE. not allowed for IAU-Mode ", init_mode   
+          CALL finish(method_name, TRIM(message_text))
+        ENDIF
+      ENDIF
 
     ENDIF
 

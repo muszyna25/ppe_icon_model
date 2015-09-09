@@ -33,9 +33,11 @@ MODULE mo_scalar_product
   USE mo_impl_constants,     ONLY: sea_boundary, sea, min_dolic
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
   USE mo_ocean_types,        ONLY: t_hydro_ocean_diag, t_solvercoeff_singleprecision
-  USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, fast_performance_level
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates,cvec2gvec!, gc2cc, vector_product
-  USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges
+  USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, fast_performance_level,l_ANTICIPATED_VORTICITY,&
+                                  & NONLINEAR_CORIOLIS, NONLINEAR_CORIOLIS_PRIMAL_GRID,NONLINEAR_CORIOLIS_DUAL_GRID
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates
+  USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges, &
+    & Get3DVectorToPlanarLocal
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3D, rot_vertex_ocean_3d, map_edges2vert_3d
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_e, sync_v,sync_patch_array,sync_c, sync_patch_array_mult!,  & sync_idx, global_max
@@ -140,9 +142,17 @@ CONTAINS
       DO cell_index =  start_cell_index, end_cell_index
         DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
         
-! the calculation od kin below is not used, since kin is recalculated again fetr the #endif
-#if 0
-          p_diag%kin(cell_index,level,blockNo)=&!p_diag%kin(cell_index,level,blockNo)&
+          ! First option is our default configuration
+          IF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_DUAL_GRID)THEN
+
+          p_diag%kin(cell_index,level,blockNo) = 0.5_wp * &
+            & DOT_PRODUCT(p_diag%p_vn(cell_index,level,blockNo)%x, p_diag%p_vn(cell_index,level,blockNo)%x)
+            !p_diag%kin(cell_index,level,blockNo) = 0.5_wp*DOT_PRODUCT(z_pv_cc(cell_index,level,blockNo)%x,z_pv_cc(cell_index,level,blockNo)%x)
+            !IF(p_diag%kin(cell_index,level,blockNo)/=0.0_wp)&
+            !&write(*,*)'Pv',cell_index,blockNo,p_diag%p_vn(cell_index,level,blockNo)%x, z_pv_cc(cell_index,level,blockNo)%x
+          
+          ELSEIF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_PRIMAL_GRID)THEN
+            p_diag%kin(cell_index,level,blockNo)=&!p_diag%kin(cell_index,level,blockNo)&
             & vn_e       (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
             & *vn_e      (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
             !*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
@@ -167,16 +177,9 @@ CONTAINS
             &*0.5_wp*patch_2D%edges%dual_edge_length &
               & (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))
         
-          p_diag%kin(cell_index,level,blockNo) = 0.5_wp * p_diag%kin(cell_index,level,blockNo) / &
+            p_diag%kin(cell_index,level,blockNo) = 0.5_wp * p_diag%kin(cell_index,level,blockNo) / &
             & patch_2d%cells%area(cell_index,blockNo)
-#endif
-! the above is not actually used since kin is recalculated in the following
-          p_diag%kin(cell_index,level,blockNo) = 0.5_wp * &
-            & DOT_PRODUCT(p_diag%p_vn(cell_index,level,blockNo)%x, p_diag%p_vn(cell_index,level,blockNo)%x)
-            !p_diag%kin(cell_index,level,blockNo) = 0.5_wp*DOT_PRODUCT(z_pv_cc(cell_index,level,blockNo)%x,z_pv_cc(cell_index,level,blockNo)%x)
-            !IF(p_diag%kin(cell_index,level,blockNo)/=0.0_wp)&
-            !&write(*,*)'Pv',cell_index,blockNo,p_diag%p_vn(cell_index,level,blockNo)%x, z_pv_cc(cell_index,level,blockNo)%x
-!           ENDIF            
+         ENDIF            
         END DO
       END DO
 !       CALL sync_patch_array(sync_c, patch_2d,p_diag%kin)
@@ -185,11 +188,8 @@ CONTAINS
       !for output, sea-ice and coupling
       DO cell_index =  start_cell_index, end_cell_index
         DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
-          CALL cvec2gvec ( p_diag%p_vn(cell_index,level,blockNo)%x(1),     &
-            & p_diag%p_vn(cell_index,level,blockNo)%x(2),     &
-            & p_diag%p_vn(cell_index,level,blockNo)%x(3),     &
-            & patch_2d%cells%center(cell_index,blockNo)%lon,&
-            & patch_2d%cells%center(cell_index,blockNo)%lat,&
+          CALL Get3DVectorToPlanarLocal(p_diag%p_vn(cell_index,level,blockNo), &
+            & patch_2d%cells%center(cell_index,blockNo), patch_2d%geometry_info, &
             & p_diag%u(cell_index,level,blockNo), p_diag%v(cell_index,level,blockNo) )
         END DO
       END DO
@@ -198,10 +198,15 @@ CONTAINS
 !ICON_OMP_END_DO_PARALLEL 
     !--------------------------------------------------------------    
     
-    CALL dbg_print('veloc_3d: vn_e',         vn_e                    ,str_module,3, &
+    CALL dbg_print('veloc_3d: vn_e',                   vn_e,      str_module,3, &
           patch_2D%edges%owned )
-    CALL dbg_print('veloc_3d: kin energy'   ,p_diag%kin              ,str_module,3, &
+    CALL dbg_print('veloc_3d: kin energy',             p_diag%kin,str_module,3, &
           patch_2D%cells%owned )
+   CALL dbg_print('veloc_3d: East-West  :u',p_diag%u,  str_module,1, &
+         patch_2D%cells%owned )
+    CALL dbg_print('veloc_3d: North-South :v',p_diag%v, str_module,1, &
+         patch_2D%cells%owned )
+
           
   END SUBROUTINE calc_scalar_product_veloc_3d
   !-------------------------------------------------------------------------
@@ -211,6 +216,10 @@ CONTAINS
   !! Optimized version of the nonlinear_coriolis_3d
   !! Note: intel -o3 will produce very different results when using this version,
   !!  the model exhibits great sensitivity using the AtlanticBoxACC setup
+  !! Note: vn should be zero on land edges, otherwise it will give wrong result.
+  !!
+  !!Option for Anticipated Vorticity added. Code for this option is mostly identical to
+  !! code without this option, but optimization suggests a bit of code doubling. 
   !<Optimize:inUse>
   SUBROUTINE nonlinear_coriolis_3d_fast(patch_3d, vn, p_vn_dual, vort_v, &
     & operators_coefficients, vort_flux)
@@ -228,11 +237,14 @@ CONTAINS
     INTEGER :: start_edge_index, end_edge_index
     INTEGER :: ictr, vertex_edge
     INTEGER :: vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk
+    INTEGER ::  edgeOfVertex_index, edgeOfVertex_block
     REAL(wp):: this_vort_flux(n_zlev, 2) ! for each of the two vertices
     REAL(wp):: thick_edge(n_zlev,2), thick_vert(n_zlev,2)
+    REAL(wp):: numOfEdges(n_zlev,2)
     
     TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER :: patch_2d
+    REAL(wp) :: vort_flux_old(nproma,n_zlev,patch_3d%p_patch_2d(1)%nblks_e)	
     !-----------------------------------------------------------------------
     patch_2d   => patch_3d%p_patch_2d(1)
     edges_in_domain => patch_2d%edges%in_domain
@@ -243,16 +255,18 @@ CONTAINS
     CALL rot_vertex_ocean_3d( patch_3d, vn, p_vn_dual, operators_coefficients, vort_v)
     ! this is not needed, since vort_v is on vertices in domain
     ! CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
-    
+
+    IF(.NOT.l_ANTICIPATED_VORTICITY)THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(blockNo,level,je,start_edge_index,end_edge_index, this_vort_flux, &
 !ICON_OMP  vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk,  &
-!ICON_OMP vertex_edge, ictr) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP vertex_edge, ictr, thick_vert, numOfEdges, edgeOfVertex_index, edgeOfVertex_block, &
+!ICON_OMP thick_edge) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       
       ! vort_flux(:,:,blockNo) = 0.0_wp
       
-      edge_idx_loop: DO je =  start_edge_index, end_edge_index
+      DO je =  start_edge_index, end_edge_index
         
         this_vort_flux(:,:) = 0.0_wp
         
@@ -266,69 +280,201 @@ CONTAINS
         
         thick_vert(1:n_zlev,1)=0.0_wp
         thick_vert(1:n_zlev,2)=0.0_wp
+        numOfEdges(1:n_zlev,1)=0.0_wp
+        numOfEdges(1:n_zlev,2)=0.0_wp
         
         DO vertex_edge=1, patch_2d%verts%num_edges(vertex1_idx,vertex1_blk)
 
           ictr =ictr+1
+          edgeOfVertex_index = patch_2d%verts%edge_idx(vertex1_idx,vertex1_blk,vertex_edge)
+          edgeOfVertex_block = patch_2d%verts%edge_blk(vertex1_idx,vertex1_blk,vertex_edge)
 
-          DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
-          
-            thick_edge(level,1) = 1.0_wp!patch_3D%p_patch_1d(1)%prism_thick_e(&
-              !&patch_2d%verts%edge_idx(vertex1_idx,vertex1_blk,vertex_edge), level, &
-             ! &patch_2d%verts%edge_blk(vertex1_idx,vertex1_blk,vertex_edge))
-              
-            thick_vert(level,1) =1.0_wp! thick_vert(level,1)+thick_edge(level,1)/patch_2d%verts%num_edges(vertex1_idx,vertex1_blk)
+          DO level = startLevel, MIN(patch_3d%p_patch_1d(1)%dolic_e(je,blockNo), &
+            &                        patch_3d%p_patch_1d(1)%dolic_e(edgeOfVertex_index, edgeOfVertex_block))
+
+            numOfEdges(level,1) = numOfEdges(level,1) + 1.0_wp
+            thick_edge(level,1) = patch_3D%p_patch_1d(1)%prism_thick_e(                  &
+              & edgeOfVertex_index, level, edgeOfVertex_block)
+
+            ! This should be calculated in the calculate_thickness routine
+            thick_vert(level,1) = thick_vert(level,1)+thick_edge(level,1)
             
-            this_vort_flux(level, 1) =  this_vort_flux(level, 1) + &
-              & vn( patch_2d%verts%edge_idx(vertex1_idx,vertex1_blk,vertex_edge), level, &
-              &      patch_2d%verts%edge_blk(vertex1_idx,vertex1_blk,vertex_edge))  * &
-              &  operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)&
-              & *thick_edge(level,1)
+            this_vort_flux(level, 1) =  this_vort_flux(level, 1) +                        &
+              & vn( edgeOfVertex_index, level, edgeOfVertex_block)                        &
+              & * operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)   &
+              & * thick_edge(level,1)
 
           ENDDO
 
         END DO ! edges of this vertex
-       !this_vort_flux(:,1) = this_vort_flux(:,1)/thick_vert(:,1)
+        
         ! vertex 2
         ictr = no_dual_edges
         DO vertex_edge=1, patch_2d%verts%num_edges(vertex2_idx,vertex2_blk)!no_dual_cell_edges
 
           ictr =ictr+1
+          edgeOfVertex_index = patch_2d%verts%edge_idx(vertex2_idx,vertex2_blk,vertex_edge)
+          edgeOfVertex_block = patch_2d%verts%edge_blk(vertex2_idx,vertex2_blk,vertex_edge)
 
-          DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
+          DO level = startLevel, MIN(patch_3d%p_patch_1d(1)%dolic_e(je,blockNo), &
+            &                        patch_3d%p_patch_1d(1)%dolic_e(edgeOfVertex_index, edgeOfVertex_block))
 
-            thick_edge(level,2) =1.0_wp! patch_3D%p_patch_1d(1)%prism_thick_e(&
-             ! &patch_2d%verts%edge_idx(vertex2_idx,vertex2_blk,vertex_edge), level, &
-             ! &patch_2d%verts%edge_blk(vertex2_idx,vertex2_blk,vertex_edge))
+            numOfEdges(level,2) = numOfEdges(level,2) + 1.0_wp
+            thick_edge(level,2) = patch_3D%p_patch_1d(1)%prism_thick_e(                  &
+              & edgeOfVertex_index, level, edgeOfVertex_block)
+            
               
-            thick_vert(level,2) = 1.0_wp!thick_vert(level,2)+thick_edge(level,2)/patch_2d%verts%num_edges(vertex2_idx,vertex2_blk)
+            ! This should be calculated in the calculate_thickness routine
+            thick_vert(level,2) = thick_vert(level,2)+thick_edge(level,2)
           
-          
-            this_vort_flux(level, 2) =  this_vort_flux(level, 2) + &
-              & vn( patch_2d%verts%edge_idx(vertex2_idx,vertex2_blk,vertex_edge), level, &
-              &      patch_2d%verts%edge_blk(vertex2_idx,vertex2_blk,vertex_edge))  * &
-              &  operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)&
-              &*thick_edge(level,2)
+            this_vort_flux(level, 2) =  this_vort_flux(level, 2) +                        &
+              & vn( edgeOfVertex_index, level, edgeOfVertex_block)                        &
+              & * operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)   &
+              & * thick_edge(level,2)
 
           ENDDO
         END DO ! edges of this vertex
-        !this_vort_flux(:,2) = this_vort_flux(:,2)/thick_vert(:,2)
         
         DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
           
           vort_flux(je,level,blockNo) =  &
-            & this_vort_flux(level,1) * &
-            & (vort_v(vertex1_idx, level, vertex1_blk) + patch_2d%verts%f_v(vertex1_idx, vertex1_blk))  &
-            & + this_vort_flux(level,2) * &
-            & (vort_v(vertex2_idx, level, vertex2_blk) + patch_2d%verts%f_v(vertex2_idx, vertex2_blk))
-          
+            & this_vort_flux(level,1) &
+            ! divide by the vertex thickness
+            &  * numOfEdges(level,1) / thick_vert(level,1)  &
+            &  * (vort_v(vertex1_idx, level, vertex1_blk) + patch_2d%verts%f_v(vertex1_idx, vertex1_blk))  &
+            & + this_vort_flux(level,2)  &
+            ! divide by the vertex thickness
+            &  * numOfEdges(level,2) / thick_vert(level,2)  &
+            &  * (vort_v(vertex2_idx, level, vertex2_blk) + patch_2d%verts%f_v(vertex2_idx, vertex2_blk))
+
         ENDDO
         
-      END DO edge_idx_loop
+      END DO
       
     END DO ! blockNo = edges_inDomain%start_block, edges_inDomain%end_block
 !ICON_OMP_END_PARALLEL_DO
-    
+
+  ELSEIF(l_ANTICIPATED_VORTICITY)THEN
+
+    !This is only for debugging needed
+    vort_flux_old(:,:,:)=0.0_wp
+	
+!ICON_OMP_PARALLEL_DO PRIVATE(blockNo,level,je,start_edge_index,end_edge_index, this_vort_flux, &
+!ICON_OMP  vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk,  &
+!ICON_OMP vertex_edge, ictr, thick_vert, numOfEdges, edgeOfVertex_index, edgeOfVertex_block, &
+!ICON_OMP thick_edge) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+      
+      ! vort_flux(:,:,blockNo) = 0.0_wp
+      
+      DO je =  start_edge_index, end_edge_index
+        
+        this_vort_flux(:,:) = 0.0_wp
+        
+        vertex1_idx = patch_2d%edges%vertex_idx(je,blockNo,1)
+        vertex1_blk = patch_2d%edges%vertex_blk(je,blockNo,1)
+        vertex2_idx = patch_2d%edges%vertex_idx(je,blockNo,2)
+        vertex2_blk = patch_2d%edges%vertex_blk(je,blockNo,2)
+
+        ! vertex 1
+        ictr = 0
+        
+        thick_vert(1:n_zlev,1)=0.0_wp
+        thick_vert(1:n_zlev,2)=0.0_wp
+        numOfEdges(1:n_zlev,1)=0.0_wp
+        numOfEdges(1:n_zlev,2)=0.0_wp
+        
+        DO vertex_edge=1, patch_2d%verts%num_edges(vertex1_idx,vertex1_blk)
+
+          ictr =ictr+1
+          edgeOfVertex_index = patch_2d%verts%edge_idx(vertex1_idx,vertex1_blk,vertex_edge)
+          edgeOfVertex_block = patch_2d%verts%edge_blk(vertex1_idx,vertex1_blk,vertex_edge)
+
+          DO level = startLevel, MIN(patch_3d%p_patch_1d(1)%dolic_e(je,blockNo), &
+            &                        patch_3d%p_patch_1d(1)%dolic_e(edgeOfVertex_index, edgeOfVertex_block))
+
+            numOfEdges(level,1) = numOfEdges(level,1) + 1.0_wp
+            thick_edge(level,1) = patch_3D%p_patch_1d(1)%prism_thick_e(                  &
+              & edgeOfVertex_index, level, edgeOfVertex_block)
+
+            ! This should be calculated in the calculate_thickness routine
+            thick_vert(level,1) = thick_vert(level,1)+thick_edge(level,1)
+            
+            this_vort_flux(level, 1) =  this_vort_flux(level, 1) +                        &
+              & vn( edgeOfVertex_index, level, edgeOfVertex_block)                        &
+              & * operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)   &
+              & * thick_edge(level,1)
+
+          ENDDO
+
+        END DO ! edges of this vertex
+        
+        ! vertex 2
+        ictr = no_dual_edges
+        DO vertex_edge=1, patch_2d%verts%num_edges(vertex2_idx,vertex2_blk)!no_dual_cell_edges
+
+          ictr =ictr+1
+          edgeOfVertex_index = patch_2d%verts%edge_idx(vertex2_idx,vertex2_blk,vertex_edge)
+          edgeOfVertex_block = patch_2d%verts%edge_blk(vertex2_idx,vertex2_blk,vertex_edge)
+
+          DO level = startLevel, MIN(patch_3d%p_patch_1d(1)%dolic_e(je,blockNo), &
+            &                        patch_3d%p_patch_1d(1)%dolic_e(edgeOfVertex_index, edgeOfVertex_block))
+
+            numOfEdges(level,2) = numOfEdges(level,2) + 1.0_wp
+            thick_edge(level,2) = patch_3D%p_patch_1d(1)%prism_thick_e(                  &
+              & edgeOfVertex_index, level, edgeOfVertex_block)
+            
+              
+            ! This should be calculated in the calculate_thickness routine
+            thick_vert(level,2) = thick_vert(level,2)+thick_edge(level,2)
+          
+            this_vort_flux(level, 2) =  this_vort_flux(level, 2) +                        &
+              & vn( edgeOfVertex_index, level, edgeOfVertex_block)                        &
+              & * operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)   &
+              & * thick_edge(level,2)
+
+          ENDDO
+        END DO ! edges of this vertex
+        
+        DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
+          
+          vort_flux(je,level,blockNo) =  &
+            & this_vort_flux(level,1) &
+            ! divide by the vertex thickness
+            &  * numOfEdges(level,1) / thick_vert(level,1)  &
+            &  * (vort_v(vertex1_idx, level, vertex1_blk) + patch_2d%verts%f_v(vertex1_idx, vertex1_blk))  &
+            & + this_vort_flux(level,2)  &
+            ! divide by the vertex thickness
+            &  * numOfEdges(level,2) / thick_vert(level,2)  &
+            &  * (vort_v(vertex2_idx, level, vertex2_blk) + patch_2d%verts%f_v(vertex2_idx, vertex2_blk))
+
+          vort_flux_old(je,level,blockNo)=vort_flux(je,level,blockNo)
+
+          vort_flux(je,level,blockNo) =  vort_flux(je,level,blockNo)-&
+               &   (this_vort_flux(level,1) * numOfEdges(level,1) / thick_vert(level,1)  &
+               & + this_vort_flux(level,2)  * numOfEdges(level,2) / thick_vert(level,2)) &
+               & *0.5_wp*(vort_v(vertex2_idx, level, vertex2_blk)-vort_v(vertex1_idx, level, vertex1_blk))&
+                &/patch_2d%edges%primal_edge_length(je,blockNo)
+  
+!write(123,*)'details',0.5_wp*(vort_v(vertex2_idx, level, vertex2_blk)-vort_v(vertex1_idx, level, vertex1_blk))&
+!&/patch_2d%edges%primal_edge_length(je,blockNo),&
+!&this_vort_flux(level,1) * numOfEdges(level,1) / thick_vert(level,1)  &
+!& + this_vort_flux(level,2)  * numOfEdges(level,2) / thick_vert(level,2),&
+!&(this_vort_flux(level,1) * numOfEdges(level,1) / thick_vert(level,1)  &
+!              & + this_vort_flux(level,2)  * numOfEdges(level,2) / thick_vert(level,2)) &
+!              & *0.5_wp*(vort_v(vertex2_idx, level, vertex2_blk)-vort_v(vertex1_idx, level, vertex1_blk))&
+!              &/patch_2d%edges%primal_edge_length(je,blockNo)         
+        ENDDO
+        
+      END DO
+      
+    END DO ! blockNo = edges_inDomain%start_block, edges_inDomain%end_block	
+!ICON_OMP_END_PARALLEL_DO
+
+  ENDIF
+
+
   END SUBROUTINE nonlinear_coriolis_3d_fast
   !-------------------------------------------------------------------------
   
@@ -404,17 +550,6 @@ CONTAINS
               ib_v = patch_2d%edges%vertex_blk(je,blockNo,neighbor)
               
               vort_global = (vort_v(il_v,level,ib_v) + patch_2d%verts%f_v(il_v,ib_v))
-              
-              thick_vert=0.0_wp
-              DO vertex_edge=1, patch_2d%verts%num_edges(il_v,ib_v)
-                il_e = patch_2d%verts%edge_idx(il_v,ib_v,vertex_edge)
-                ib_e = patch_2d%verts%edge_blk(il_v,ib_v,vertex_edge)
-                
-                thick_edge = patch_3D%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
-                thick_vert = thick_vert+thick_edge/patch_2d%verts%num_edges(il_v,ib_v)
-              
-              END DO
-              
               DO vertex_edge=1, patch_2d%verts%num_edges(il_v,ib_v)
                 
                 ictr =ictr+1
@@ -422,9 +557,9 @@ CONTAINS
                 il_e = patch_2d%verts%edge_idx(il_v,ib_v,vertex_edge)
                 ib_e = patch_2d%verts%edge_blk(il_v,ib_v,vertex_edge)
                 
-                thick_edge = patch_3D%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+!                 thick_edge = patch_3D%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
                 vort_flux(je,level,blockNo) =  vort_flux(je,level,blockNo)+vn(il_e,level,ib_e)*vort_global&
-                  & *operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)*(thick_edge/thick_vert)
+                  & *operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)!*(thick_edge/thick_vert)
               END DO
             END DO
           ELSE
@@ -435,8 +570,7 @@ CONTAINS
     END DO ! blockNo = edges_inDomain%start_blockold, edges_inDomain%end_block
     ! !$OMP END DO NOWAIT
     ! !$OMP END PARALLEL
-    
-    
+      
 !     !Diagnostic of energetic neutrality
 !     vort_flux_budget_perlevel(1:n_zlev)=0.0_wp
 !     vort_flux_budget_perlevel_pos(1:n_zlev)=0.0_wp
@@ -1754,9 +1888,8 @@ CONTAINS
 !     vec_center(1:nproma,1:n_zlev,blockNo)%x(2)=0.0_wp
 !     vec_center(1:nproma,1:n_zlev,blockNo)%x(3)=0.0_wp
    !-------------------------------------------------------------------------------    
-    ! this includes the height
-    prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)   
-    ! this does not include the height
+    ! these do not include the height
+    prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance  (:,:,blockNo)
     prism_thick           => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
 
     DO jc = start_cell_index, end_cell_index
@@ -1810,9 +1943,9 @@ CONTAINS
 !ICON_OMP prism_center_distance,prism_thick, jc) ICON_OMP_DEFAULT_SCHEDULE  
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
 
-      ! this includes the height
-      prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)
-      ! this does not include the height
+      ! these do not include the height
+      ! if they are used for the GM-Redi then we should re-consider if height is needed
+      prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance  (:,:,blockNo)
       prism_thick => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
 
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)

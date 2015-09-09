@@ -18,6 +18,7 @@ MODULE mo_meteogram_nml
   USE mo_kind,               ONLY: wp
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: max_dom
+  USE mo_exception,          ONLY: finish
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
@@ -25,7 +26,7 @@ MODULE mo_meteogram_nml
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_meteogram_config,   ONLY: t_station_list, t_meteogram_output_config, &
-    &                              meteogram_output_config, &
+    &                              meteogram_output_config, MAX_NVARS, &
     &                              MAX_NAME_LENGTH, MAX_NUM_STATIONS, FTYPE_NETCDF
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
@@ -51,9 +52,16 @@ MODULE mo_meteogram_nml
   ! same for all patches:
   TYPE(t_list_of_stations) :: stationlist_tot(MAX_NUM_STATIONS)   !> list of meteogram stations
 
+  ! Positive-list of variables (optional). Only variables contained in
+  ! this list are included in this meteogram. If the default list is
+  ! not changed by user input, then all available variables are added
+  ! to the meteogram
+  CHARACTER(len=MAX_NAME_LENGTH)    :: var_list(MAX_NVARS)
+
   !> Namelist for meteogram output
   NAMELIST/meteogram_output_nml/ lmeteogram_enabled, zprefix, ldistributed, &
-    &                            n0_mtgrm, ninc_mtgrm, stationlist_tot
+    &                            n0_mtgrm, ninc_mtgrm, stationlist_tot,     &
+    &                            var_list
 
 CONTAINS
   !>
@@ -75,8 +83,11 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN)   :: filename
     ! local variables
+    CHARACTER(len=*), PARAMETER ::  &
+      &  routine = 'mo_mtgrm_nml::read_meteogram_namelist'
+
     INTEGER                        :: istat, funit, idom, istation, &
-      &                               jb, jc, nblks, npromz, nstations
+      &                               jb, jc, nblks, npromz, nstations, idx
     INTEGER                        :: iunit
 
     !-----------------------
@@ -89,6 +100,7 @@ CONTAINS
     ldistributed(:)          =           .TRUE.
     n0_mtgrm(:)              =               0
     ninc_mtgrm(:)            =               1
+    var_list(:)              =             " "
     stationlist_tot(:)%lon   = 0._wp
     stationlist_tot(:)%lat   = 0._wp
     stationlist_tot(:)%zname = ""
@@ -154,6 +166,7 @@ CONTAINS
       meteogram_output_config(idom)%n0_mtgrm     = n0_mtgrm(idom)
       meteogram_output_config(idom)%ninc_mtgrm   = ninc_mtgrm(idom)
       meteogram_output_config(idom)%nstations    = nstations
+      meteogram_output_config(idom)%var_list     = var_list
 
       nblks   = nstations/nproma + 1
       npromz  = nstations - nproma*(nblks-1)
@@ -178,6 +191,21 @@ CONTAINS
           &  stationlist_tot(istation)%lon
       END DO
 
+    END DO
+
+    ! consistency check
+    idx = 0
+    DO idom=1,max_dom
+      IF (meteogram_output_config(idom)%lenabled) THEN 
+        idx = idom
+        EXIT
+      END IF
+    END DO
+    DO idom=(idx+1),max_dom
+      IF (.NOT. meteogram_output_config(idom)%lenabled) CYCLE
+      IF (meteogram_output_config(idom)%ldistributed .NEQV. meteogram_output_config(idx)%ldistributed) THEN
+        CALL finish( TRIM(routine), "Inconsistent namelist setting for domains (ldistributed)!")
+      END IF
     END DO
 
     !-----------------------------------------------------

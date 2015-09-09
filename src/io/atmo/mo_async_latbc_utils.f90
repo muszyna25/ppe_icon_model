@@ -76,7 +76,7 @@
          &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
          &                            MAX_TIMEDELTA_STR_LEN,                       &
-         &                            OPERATOR(>=), OPERATOR(-)
+         &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>)
     USE mo_mtime_extensions,    ONLY: get_datetime_string, get_duration_string_real
     USE mo_datetime,            ONLY: t_datetime
     USE mo_time_config,         ONLY: time_config
@@ -87,14 +87,12 @@
     USE mtime_events,           ONLY: deallocateEvent
     USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
          &                            operator(+)
+    USE mo_cdi,                 ONLY: streamOpenRead, streamClose, cdiGetStringError
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_master_nml,          ONLY: lrestart
     USE mo_run_config,          ONLY: nsteps, dtime
 
     IMPLICIT NONE
-
-    ! required for reading cdi files
-    INCLUDE 'cdi.inc'
 
     PRIVATE
 
@@ -264,7 +262,7 @@
       TYPE(datetime), pointer :: mtime_finish
       LOGICAL       :: done
       INTEGER       :: i, add_delta, end_delta, finish_delta
-      REAL          :: tdiff
+      REAL(wp)      :: tdiff
       CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: tdiff_string
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::prepare_pref_latbc_data"
@@ -286,7 +284,7 @@
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
            TRIM(sim_cur_read), TRIM(sim_end), TRIM(latbc_config%dt_latbc))
 
-      tdiff = (0.5*dtime)
+      tdiff = (0.5_wp*dtime)
       CALL get_duration_string_real(tdiff, tdiff_string)
       my_duration_slack => newTimedelta(tdiff_string)
 
@@ -525,7 +523,7 @@
 
       ! if mtime_read is same as mtime_end the prefetch processor returns without further
       ! proceeding to generate filename and than looking for boundary data file
-      IF(mtime_read >= mtime_end) &
+      IF(mtime_read > mtime_end) &
            RETURN
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
@@ -831,13 +829,11 @@
 
       ! if mtime_read is same as mtime_end the prefetch processor returns without further
       ! proceeding to generate filename and than looking for boundary data file
-      IF(mtime_read >= mtime_end) &
+      IF(mtime_read > mtime_end) &
            RETURN
       latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
-      WRITE(message_text,'(a,a)') 'reading boundary data: ', TRIM(latbc_filename)
-      CALL message(TRIM(routine), message_text)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
       IF (.NOT. l_exist) THEN
          WRITE (message_text,'(a,a)') 'file not found:', TRIM(latbc_filename)

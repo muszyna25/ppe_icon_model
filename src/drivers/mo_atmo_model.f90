@@ -26,10 +26,10 @@ MODULE mo_atmo_model
     &                                   timers_level, timer_model_init,                       &
     &                                   timer_domain_decomp, timer_compute_coeffs,            &
     &                                   timer_ext_data, print_timer
-  USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,               &
+  USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
     &                                   num_restart_procs, use_async_restart_output,          &
     &                                   num_prefetch_proc
-  USE mo_master_control,          ONLY: is_restart_run, get_my_process_name, get_my_model_no
+  USE mo_master_control,          ONLY: is_restart_run
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
   USE mo_mpi,                     ONLY: get_my_mpi_all_id
@@ -66,33 +66,6 @@ MODULE mo_atmo_model
 
   USE mo_nh_testcases,            ONLY: init_nh_testtopo
 
-  ! coupling
-# ifdef YAC_coupling
-  USE mo_kind,                    ONLY: wp
-  USE mo_mpi,                     ONLY: p_n_work
-  USE mo_math_constants,          ONLY: pi
-  USE mo_loopindices,             ONLY: get_indices_c
-  USE mo_parallel_config,         ONLY: nproma
-  USE mo_grid_subset,             ONLY: t_subset_range, get_index_range
-  USE mo_yac_finterface,          ONLY: yac_finit, yac_fdef_comp,                    &
-    &                                   yac_fdef_datetime,                           &
-    &                                   yac_fdef_subdomain, yac_fconnect_subdomains, &
-    &                                   yac_fdef_elements, yac_fdef_points,          &
-    &                                   yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
-    &                                   yac_ffinalize, yac_redirstdout
-
-  USE mo_coupling_config,         ONLY: is_coupled_run
-  USE mo_model_domain,            ONLY: t_patch
-# else
-  USE mo_icon_cpl_init,           ONLY: icon_cpl_init
-  USE mo_icon_cpl_init_comp,      ONLY: icon_cpl_init_comp
-  USE mo_coupling_config,         ONLY: is_coupled_run, config_debug_coupler_level
-  USE mo_icon_cpl_def_grid,       ONLY: icon_cpl_def_grid, icon_cpl_def_location
-  USE mo_icon_cpl_def_field,      ONLY: icon_cpl_def_field
-  USE mo_icon_cpl_search,         ONLY: icon_cpl_search
-  USE mo_icon_cpl_finalize,       ONLY: icon_cpl_finalize
-#endif
-
   USE mo_alloc_patches,           ONLY: destruct_patches
 
   ! horizontal grid, domain decomposition, memory
@@ -109,7 +82,8 @@ MODULE mo_atmo_model
   USE mo_util_vgrid,              ONLY: construct_vertical_grid
 
   ! external data, physics
-  USE mo_ext_data_state,          ONLY: ext_data, init_ext_data, destruct_ext_data
+  USE mo_ext_data_state,          ONLY: ext_data, destruct_ext_data
+  USE mo_ext_data_init,           ONLY: init_ext_data 
   USE mo_rrtm_data_interface,     ONLY: init_rrtm_model_repart, destruct_rrtm_model_repart
   USE mo_nwp_ww,                  ONLY: configure_ww
 
@@ -127,6 +101,10 @@ MODULE mo_atmo_model
   USE mo_intp_lonlat,             ONLY: init_lonlat_grid_list, compute_lonlat_intp_coeffs,    &
     &                                   destroy_lonlat_grid_list
 
+  ! coupling
+  USE mo_coupling_config,         ONLY: is_coupled_run
+  USE mo_interface_echam_ocean,   ONLY: construct_atmo_coupler, destruct_atmo_coupler
+
   ! I/O
   USE mo_io_restart_async,        ONLY: restart_main_proc                                       ! main procedure for Restart PEs
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
@@ -136,9 +114,6 @@ MODULE mo_atmo_model
   USE mo_mtime_extensions,        ONLY: get_datetime_string
   USE mo_output_event_types,      ONLY: t_sim_step_info
   USE mtime,                      ONLY: setCalendar,          &
-# ifdef YAC_coupling
-       &                                MAX_DATETIME_STR_LEN, &
-#endif
        &                                PROLEPTIC_GREGORIAN
 
   ! Prefetching  
@@ -178,9 +153,9 @@ CONTAINS
 
     !---------------------------------------------------------------------
     ! construct the coupler
-
+    !
     IF ( is_coupled_run() ) THEN
-      CALL construct_atmo_coupler()
+      CALL construct_atmo_coupler(p_patch)
     ENDIF
 
     !---------------------------------------------------------------------
@@ -204,15 +179,14 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 13. Integration finished. Carry out the shared clean-up processes
     !---------------------------------------------------------------------
-    CALL destruct_atmo_model()
+    CALL destruct_atmo_model ()
 
     !---------------------------------------------------------------------
     ! destruct the coupler
-# ifdef YAC_coupling
-    IF ( is_coupled_run() ) CALL yac_ffinalize
-# else
-    IF ( is_coupled_run() ) CALL icon_cpl_finalize ()
-# endif
+    !
+    IF ( is_coupled_run() ) THEN
+      CALL destruct_atmo_coupler ()
+    ENDIF
 
     !---------------------------------------------------------------------
     ! (optional:) write resident set size from OS
@@ -282,7 +256,7 @@ CONTAINS
 
 
     ! complete initicon config-state
-    CALL configure_initicon
+    CALL configure_initicon(dtime)
 
 
     !-------------------------------------------------------------------
@@ -615,340 +589,5 @@ CONTAINS
 
   END SUBROUTINE destruct_atmo_model
   !-------------------------------------------------------------------
-
-  !-------------------------------------------------------------------
-  !>
-  SUBROUTINE construct_atmo_coupler()
-    ! For the coupling
-
-    INTEGER, PARAMETER :: no_of_fields = 10
-
-    CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
-    INTEGER :: field_id(no_of_fields)
-    INTEGER :: i, patch_no
-    INTEGER :: error_status
-
-    !---------------------------------------------------------------------
-    ! 11. Do the setup for the coupled run
-    !
-    ! For the time being this could all go into a subroutine which is
-    ! common to atmo and ocean. Does this make sense if the setup deviates
-    ! too much in future.
-    !---------------------------------------------------------------------
-
-# ifdef YAC_coupling
-
-    INTEGER, PARAMETER :: nbr_subdomain_ids = 1
-    INTEGER, PARAMETER :: CELL = 0 ! one point per cell
-    ! (see definition of enum location in points.h)
-
-    REAL(wp), PARAMETER :: deg = 180.0_wp / pi
-
-    CHARACTER(LEN=max_char_length) :: xml_filename
-    CHARACTER(LEN=max_char_length) :: xsd_filename
-    CHARACTER(LEN=max_char_length) :: grid_name
-    CHARACTER(LEN=max_char_length) :: comp_name
-
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: iso8601_ref_datetime ! ISO_8601
-
-    INTEGER :: comp_id
-    INTEGER :: comp_ids(1)
-    INTEGER :: cell_point_ids(1)
-    INTEGER :: cell_mask_ids(1)
-    INTEGER :: domain_id
-    INTEGER :: subdomain_id
-    INTEGER :: subdomain_ids(nbr_subdomain_ids)
-
-    INTEGER :: mask_checksum
-    INTEGER :: i_startidx, i_endidx
-    INTEGER :: nblks
-    INTEGER :: BLOCK, idx, INDEX
-    INTEGER :: nbr_vertices_per_cell
-
-    REAL(wp), ALLOCATABLE :: buffer_lon(:)
-    REAL(wp), ALLOCATABLE :: buffer_lat(:)
-    INTEGER,  ALLOCATABLE :: buffer_c(:,:)
-    INTEGER,  ALLOCATABLE :: ibuffer(:)
-
-    TYPE(t_sim_step_info)   :: sim_step_info  
-    TYPE(t_subset_range), POINTER :: cells_in_domain
-    TYPE(t_patch), POINTER :: patch_horz
-
-    IF ( .NOT. is_coupled_run() ) RETURN
-
-    comp_name = TRIM(get_my_process_name())
-
-    patch_no = 1
-
-    i = LEN_TRIM(comp_name)
-    CALL yac_redirstdout ( TRIM(comp_name), i, 1, p_pe_work, p_n_work, error_status )
-
-    ! Initialise the coupler
-    xml_filename = "coupling.xml"
-    xsd_filename = "coupling.xsd"
-    CALL yac_finit ( xml_filename, xsd_filename )
-
-    ! Inform the coupler about what we are
-    CALL yac_fdef_comp ( comp_name, comp_id )
-    comp_ids(1) = comp_id
-
-    ! Overwrite job start and end date with component data
-    CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
-    CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
-
-    CALL yac_fdef_datetime ( start_datetime = sim_step_info%sim_start,  &
-      &                      end_datetime   = sim_step_info%sim_end   )
-
-    ! Announce one subdomain (patch) to the coupler
-    grid_name = "grid1"
-    CALL yac_fdef_subdomain ( comp_id, grid_name, subdomain_id )
-
-    subdomain_ids(1) = subdomain_id
-
-    patch_horz => p_patch(patch_no)
-    cells_in_domain  => patch_horz%cells%in_domain
-
-    ! Extract cell information
-    !
-    ! cartesian coordinates of cell vertices are stored in
-    ! patch_horz%verts%cartesian(:,:)%x(1:3)
-    ! Here we use the longitudes and latitudes.
-
-    nblks = max(patch_horz%nblks_c,patch_horz%nblks_v)
-
-    ALLOCATE(buffer_lon(nproma*nblks))
-    ALLOCATE(buffer_lat(nproma*nblks))
-    ALLOCATE(buffer_c(3,nproma*nblks))
-
-    nbr_vertices_per_cell = 3
-
-    DO BLOCK = 1, patch_horz%nblks_v
-      DO idx = 1, nproma
-        INDEX = (BLOCK-1)*nproma+idx
-        buffer_lon(INDEX) = patch_horz%verts%vertex(idx,BLOCK)%lon * deg
-        buffer_lat(INDEX) = patch_horz%verts%vertex(idx,BLOCK)%lat * deg
-      ENDDO
-    ENDDO
-
-    DO BLOCK = 1, patch_horz%nblks_c
-      DO idx = 1, nproma
-        INDEX = (BLOCK-1)*nproma+idx
-        buffer_c(1,INDEX) = (patch_horz%cells%vertex_blk(idx,BLOCK,1)-1)*nproma + &
-          &                  patch_horz%cells%vertex_idx(idx,BLOCK,1)
-        buffer_c(2,INDEX) = (patch_horz%cells%vertex_blk(idx,BLOCK,2)-1)*nproma + &
-          &                  patch_horz%cells%vertex_idx(idx,BLOCK,2)
-        buffer_c(3,INDEX) = (patch_horz%cells%vertex_blk(idx,BLOCK,3)-1)*nproma + &
-                             patch_horz%cells%vertex_idx(idx,BLOCK,3)
-      ENDDO
-    ENDDO
-
-    ! Description of elements, here as unstructured grid
-    CALL yac_fdef_elements (      &
-      & subdomain_id,             &
-      & patch_horz%n_patch_verts, &
-      & patch_horz%n_patch_cells, &
-      & nbr_vertices_per_cell,    &
-      & buffer_lon,               &
-      & buffer_lat,               &
-      & buffer_c )
-
-    ! Can we have two fdef_point calls for the same subdomain, i.e.
-    ! one single set of cells?
-    !
-    ! Define cell center points (location = 0)
-    !
-    ! cartesian coordinates of cell centers are stored in
-    ! patch_horz%cells%cartesian_center(:,:)%x(1:3)
-    ! Here we use the longitudes and latitudes.
-
-    DO BLOCK = 1, patch_horz%nblks_c
-      DO idx = 1, nproma
-        INDEX = (BLOCK-1)*nproma+idx
-        buffer_lon(INDEX) = patch_horz%cells%center(idx,BLOCK)%lon * deg
-        buffer_lat(INDEX) = patch_horz%cells%center(idx,BLOCK)%lat * deg
-      ENDDO
-    ENDDO
-
-    ! center points in cells (needed e.g. for patch recovery and nearest neighbour)
-    CALL yac_fdef_points (        &
-      & subdomain_id,             &
-      & patch_horz%n_patch_cells, &
-      & CELL,                     &
-      & buffer_lon,               &
-      & buffer_lat,               &
-      & cell_point_ids(1) )
-
-    DEALLOCATE (buffer_lon, buffer_lat, buffer_c)
-
-    ALLOCATE(ibuffer(nproma*patch_horz%nblks_c))
-
-    DO idx = 1, patch_horz%n_patch_cells
-       IF ( p_pe_work == patch_horz%cells%decomp_info%owner_local(idx) ) THEN
-         ibuffer(idx) = -1
-       ELSE
-         ibuffer(idx) = patch_horz%cells%decomp_info%owner_local(idx)
-       ENDIF
-    ENDDO
-
-    ! decomposition information
-    CALL yac_fdef_index_location (              &
-      & subdomain_id,                           &
-      & patch_horz%n_patch_cells,               &
-      & CELL,                                   &
-      & patch_horz%cells%decomp_info%glb_index, &
-      & ibuffer )
-
-    ! Connect subdomains
-    CALL yac_fconnect_subdomains ( &
-      & comp_id,                   &
-      & nbr_subdomain_ids,         &
-      & subdomain_ids,             &
-      & domain_id )
-
-    !
-    ! The land-sea mask for the ocean is available in patch_3D%surface_cell_sea_land_mask(:,:)
-    !
-    !          -2: inner ocean
-    !          -1: boundary ocean
-    !           1: boundary land
-    !           2: inner land
-    !
-    ! The mask which is used in the ECHAM physics is prm_field(1)%lsmask(:,:).
-    ! This locial mask is set to .TRUE. for land points.
-    ! We can get access to via "USE mo_echam_phy_memory,ONLY: prm_field"
-    !
-    ! Here we use a mask which is hopefully identical to the one used by the
-    ! ocean, and which works independent of the physics chosen. 
-    !
-    mask_checksum = 0
-
-!rr    DO BLOCK = 1, patch_horz%nblks_c
-!rr       CALL get_indices_c ( patch_horz, BLOCK, 1, patch_horz%nblks_c,  &
-!rr                               i_startidx, i_endidx, 2 )
-!rr       DO idx = i_startidx, i_endidx
-!rr          mask_checksum = mask_checksum + ABS(ext_data(1)%atm%lsm_ctr_c(idx,BLOCK))
-!rr       ENDDO
-!rr    ENDDO
-
-    DO i = 1, patch_horz%n_patch_cells
-       ibuffer(i) = 0
-    ENDDO
-
-    IF ( mask_checksum > 0 ) THEN
-       DO BLOCK = 1, patch_horz%nblks_c
-          CALL get_indices_c ( patch_horz, BLOCK, 1, patch_horz%nblks_c,  &
-                               i_startidx, i_endidx, 2 )
-          DO idx = i_startidx, i_endidx
-             IF ( ext_data(1)%atm%lsm_ctr_c(idx,BLOCK) < 0 ) THEN
-                ibuffer((BLOCK-1)*nproma+idx) = 0
-             ELSE
-                ibuffer((BLOCK-1)*nproma+idx) = 1
-             ENDIF
-          ENDDO
-       ENDDO
-    ELSE
-       DO i = 1, patch_horz%n_patch_cells
-          ibuffer(i) = 0
-       ENDDO
-    ENDIF
-
-    CALL yac_fdef_mask (           &
-      & patch_horz%n_patch_cells,  &
-      & ibuffer,                   &
-      & cell_point_ids(1),         &
-      & cell_mask_ids(1) )
-    
-    DEALLOCATE (ibuffer)
-
-    field_name(1) = "TAUX"   ! bundled field containing two components
-    field_name(2) = "TAUY"   ! bundled field containing two components
-    field_name(3) = "SFWFLX" ! bundled field containing two components
-    field_name(4) = "SFTEMP"
-    field_name(5) = "THFLX"  ! bundled field containing two components
-    field_name(6) = "ICEATM" ! bundled field containing four components
-    field_name(7) = "SST"
-    field_name(8) = "OCEANU"
-    field_name(9) = "OCEANV"
-    field_name(10) = "ICEOCE" ! bundled field containing four components
-
-    DO i = 1, no_of_fields
-      CALL yac_fdef_field ( &
-        & field_name(i),    &
-        & comp_id,          &
-        & domain_id,        &
-        & cell_point_ids,   &
-        & cell_mask_ids,    &
-        & 1,                &
-        & field_id(i) )
-    ENDDO
-
-    CALL yac_fsearch ( 1, comp_ids, no_of_fields, field_id, error_status )
-
-# else
-
-    INTEGER :: grid_id
-    INTEGER :: grid_shape(2)
-    INTEGER :: field_shape(3)
-
-    IF ( .NOT. is_coupled_run() ) RETURN
-
-    !------------------------------------------------------------
-    CALL icon_cpl_init(debug_level=config_debug_coupler_level)
-    ! Inform the coupler about what we are
-    CALL icon_cpl_init_comp ( get_my_process_name(), get_my_model_no(), error_status )
-    ! split the global_mpi_communicator into the components
-    !------------------------------------------------------------
-
-    patch_no = 1
-
-    grid_shape(1)=1
-    grid_shape(2)=p_patch(patch_no)%n_patch_cells
-
-    ! CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
-    ! should grid_glob_index become a pointer in icon_cpl_def_grid as well?
-    CALL icon_cpl_def_grid ( &
-      & grid_shape, p_patch(patch_no)%cells%decomp_info%glb_index, & ! input
-      & grid_id, error_status )                                      ! output
-
-    ! Marker for internal and halo points, a list which contains the
-    ! rank where the native cells are located.
-    CALL icon_cpl_def_location ( &
-      & grid_id, grid_shape, p_patch(patch_no)%cells%decomp_info%owner_local, & ! input
-      & p_pe_work,  &                                                           ! this owner id
-      & error_status )                                                          ! output
-
-    field_name(1) = "TAUX"   ! bundled field containing two components
-    field_name(2) = "TAUY"   ! bundled field containing two components
-    field_name(3) = "SFWFLX" ! bundled field containing two components
-    field_name(4) = "SFTEMP"
-    field_name(5) = "THFLX"  ! bundled field containing two components
-    field_name(6) = "ICEATM" ! bundled field containing four components
-    field_name(7) = "SST"
-    field_name(8) = "OCEANU"
-    field_name(9) = "OCEANV"
-    field_name(10) = "ICEOCE" ! bundled field containing four components
-
-    field_shape(1:2) = grid_shape(1:2)
-
-    DO i = 1, no_of_fields
-       IF ( i == 1 .OR. i == 2 .OR. i == 3 .OR. i == 5 ) THEN
-          field_shape(3) = 2
-       ELSE IF ( i == 6 ) THEN
-          field_shape(3) = 4
-       ELSE IF ( i == 10 ) THEN
-          field_shape(3) = 5
-       ELSE
-          field_shape(3) = 1
-       ENDIF
-       CALL icon_cpl_def_field ( &
-         & field_name(i), grid_id, field_id(i), &
-         & field_shape, error_status )
-    ENDDO
-
-    CALL icon_cpl_search
-
-#endif
-
-  END SUBROUTINE construct_atmo_coupler
 
 END MODULE mo_atmo_model

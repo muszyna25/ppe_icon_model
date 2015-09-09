@@ -14,7 +14,7 @@
 !! Modification by Thomas Heinze (2006-09-20):
 !! - added routine grid_and_patch_diagnosis
 !! Modification by Pilar Ripodas, DWD, (2007-01-31)
-!! - addapted to the new TYPE grid_edges (system_orientation added)
+!! - addapted to the new TYPE grid_edges (tangent_orientation added)
 !! Modification by Peter Korn,  MPI-M, (2006-12)
 !! - implementation of topography and boundary treatment, i.e.
 !!   initialization of the grid & patch components that carry
@@ -62,7 +62,7 @@
 !!    rather than read from a grid/patch file.
 !! Modification by Almut Gassmann, MPI-M, (2008-09-21)
 !!  - remove reference to mask and height files, they are never used
-!!  - use cell_type to distinguish cells as triangles or hexagons
+!!  - use patch%geometry_info%cell_type to distinguish cells as triangles or hexagons
 !! Modification by Almut Gassmann, MPI-M (2008-10-30)
 !!  - add subroutine init_coriolis to initialize Coriolis parameter
 !! Modification by Constantin Junk, MPI-M (2011-04-05)
@@ -99,7 +99,7 @@ MODULE mo_model_domimp_setup
   USE mo_impl_constants
   USE mo_math_types
   USE mo_math_utilities
-  USE mo_grid_geometry_info, ONLY: planar_torus_geometry
+  USE mo_grid_geometry_info, ONLY: planar_torus_geometry, planar_channel_geometry
   USE mo_master_control,     ONLY: my_process_is_ocean
   
   IMPLICIT NONE
@@ -177,7 +177,7 @@ CONTAINS
       CALL get_indices_e(patch, jb, i_startblk, nblks_e, &
         & i_startidx, i_endidx, 2)
       
-      IF (patch%cell_type == 3) THEN ! vectorized code for triangular grid
+      IF (patch%geometry_info%cell_type == 3) THEN ! vectorized code for triangular grid
         
         ierror = 0
         
@@ -265,7 +265,7 @@ CONTAINS
             & 'edge-cell index relationships are apparently incorrect')
         ENDIF
         
-      ELSE ! cell_type == 6
+      ELSE ! patch%geometry_info%cell_type == 6
         
         DO je = i_startidx, i_endidx
           
@@ -326,7 +326,7 @@ CONTAINS
           
         END DO ! end edge loop
         
-      ENDIF ! cell_type
+      ENDIF ! patch%geometry_info%cell_type
       
     END DO
 !$OMP END DO NOWAIT
@@ -565,8 +565,9 @@ CONTAINS
     nblks_v  = patch%nblks_v
     npromz_v = patch%npromz_v
 
-    is_plane = lplane .OR. &
-      &        (patch%geometry_info%geometry_type == planar_torus_geometry)
+    is_plane = lplane  &
+      &    .OR.    (patch%geometry_info%geometry_type == planar_torus_geometry) &
+      &    .OR.    (patch%geometry_info%geometry_type == planar_channel_geometry )
     
     IF (lcorio .AND. .NOT. is_plane) THEN
       
@@ -638,7 +639,7 @@ CONTAINS
     
     !-----------------------------------------------------------------------
     
-    IF (patch%cell_type == 3) THEN
+    IF (patch%geometry_info%cell_type == 3) THEN
       
       DO jb = 1, patch%nblks_v
         IF (jb /= patch%nblks_v) THEN

@@ -17,6 +17,7 @@ exec_prefix = @exec_prefix@
 bindir = @bindir@
 libdir = @libdir@
 
+NETCDFFROOT    = @NETCDFFROOT@
 NETCDFROOT     = @NETCDFROOT@
 NETCDFLIBPATH  = @NETCDFLIBPATH@
 NETCDF_LIB     = @NETCDF_LIB@
@@ -92,8 +93,7 @@ all:
 	@for DIR in $(OBJDIRS) ;\
 	  do \
 	    back=`pwd`; \
-	    cd $$DIR ;\
-	    $(MAKE) ; status=$$? ; \
+	    cd $$DIR && $(MAKE) ; status=$$? ; \
 	    if [ $$status != 0 ] ; then \
 	      echo "Exit status from make was $$status" ; exit $$status ; \
 	    fi ; \
@@ -104,8 +104,7 @@ model:
 	  do LASTDIR=$$DIR ;\
 	done ;\
 	back=`pwd` ;\
-	cd $$LASTDIR ;\
-	$(MAKE) icon  ;\
+	cd $$LASTDIR && $(MAKE) icon  ;\
 	cd $$back
 
 one:
@@ -113,24 +112,21 @@ one:
 	  do LASTDIR=$$DIR ;\
 	done ;\
 	back=`pwd` ;\
-	cd $$LASTDIR ;\
-	$(MAKE) $(name)  ;\
+	cd $$LASTDIR && $(MAKE) $(name)  ;\
 	cd $$back
 
 
 install:
 	@for DIR in $(OBJDIRS) ;\
 	  do \
-	  (cd $$DIR ;\
-	  $(MAKE) install ; if [ $$? != 0 ] ; then \
+	  (cd $$DIR && $(MAKE) install ; if [ $$? != 0 ] ; then \
 	        echo "Exit status from make was $$?" ; exit 1 ; fi ;) ;\
 	  done
 
 clean:
 	@for DIR in $(OBJDIRS) ;\
 	  do \
-	  (cd $$DIR ;\
-	  $(MAKE) clean ; if [ $$? != 0 ] ; then \
+	  (cd $$DIR && $(MAKE) clean ; if [ $$? != 0 ] ; then \
 	        echo "Exit status from make was $$?" ; exit 1 ; fi ;) ;\
 	  done
 	-rm -f ${exec_prefix}/bin/*

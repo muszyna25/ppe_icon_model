@@ -58,7 +58,9 @@ MODULE mo_art_config
     ! Atmospheric Chemistry (Details: cf. Tab. 2.3 ICON-ART User Guide)
     LOGICAL :: lart_chem               !< Main switch to enable chemistry
     INTEGER :: iart_chem_mechanism     !< Selects the chemical mechanism
-    
+    CHARACTER(LEN=120) :: cart_emiss_table_path  !< path of tex-files with meta data of emissions. ! MiW
+    CHARACTER(LEN=120) :: cart_emiss_table_file  !< file names of tex-files with meta data of emissions without "_DOM??.tex" at the end. ! MiW
+ 
     ! Atmospheric Aerosol (Details: cf. Tab. 2.4 ICON-ART User Guide)
     LOGICAL :: lart_aerosol            !< Main switch for the treatment of atmospheric aerosol
     INTEGER :: iart_seasalt            !< Treatment of sea salt aerosol

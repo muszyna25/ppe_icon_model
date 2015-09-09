@@ -588,7 +588,7 @@ CONTAINS
     !  function for generating output file names
     INTERFACE
       FUNCTION fct_generate_filenames(nstrings, date_string, sim_steps, &
-        &                             sim_step_info, fname_metadata)  RESULT(result_fnames)
+        &                             sim_step_info, fname_metadata, skipped_dates)  RESULT(result_fnames)
         USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data
         USE mo_name_list_output_types, ONLY: t_fname_metadata
 
@@ -597,6 +597,7 @@ CONTAINS
         INTEGER,                 INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
         TYPE(t_sim_step_info),   INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
         TYPE(t_fname_metadata),  INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
+        INTEGER,                 INTENT(IN)    :: skipped_dates
         TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
       END FUNCTION fct_generate_filenames
     END INTERFACE
@@ -610,7 +611,7 @@ CONTAINS
       &                         sim_end, mtime_dom_start, mtime_dom_end, run_start
     TYPE(timedelta), POINTER :: delta, delta_1day
     INTEGER                  :: ierrstat, i, n_event_steps, iadd_days, &
-      &                         nintvls, iintvl
+      &                         nintvls, iintvl, skipped_dates
     LOGICAL                  :: l_active, l_append_step
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_date_string(:), tmp(:)
     INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
@@ -677,6 +678,7 @@ CONTAINS
 
     ! there may be multiple starts/ends/intervals (usually only one):
     n_event_steps = 0
+    skipped_dates = 0
     DO iintvl=1,nintvls
 
       mtime_begin => newDatetime(TRIM(begin_str(iintvl)))
@@ -686,27 +688,35 @@ CONTAINS
       IF (mtime_end >= mtime_begin) THEN
         EVENT_LOOP: DO
           IF  ((mtime_date >= run_start)      .AND. &
-            & (mtime_date >= mtime_dom_start) .AND. &
             & (sim_end    >=  mtime_date)     .AND. &
             & (mtime_restart >= mtime_date) )  THEN
-            n_event_steps = n_event_steps + 1
-            IF (n_event_steps > SIZE(mtime_date_string)) THEN
-              ! resize buffer
-              ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
-              IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-              tmp(:) = mtime_date_string(:)
-              DEALLOCATE(mtime_date_string, STAT=ierrstat)
-              IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
-              ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
-              IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-              mtime_date_string(1:SIZE(tmp)) = tmp(:)
-              DEALLOCATE(tmp, STAT=ierrstat)
-              IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-            END IF
-            CALL datetimeToString(mtime_date, mtime_date_string(n_event_steps))
-            IF (ldebug) THEN
-              WRITE (0,*) "PE ", get_my_global_mpi_id(), ": Adding step ", n_event_steps, ": ", &
-                &         mtime_date_string(n_event_steps)
+
+            IF  (mtime_date >= mtime_dom_start) THEN
+
+              n_event_steps = n_event_steps + 1
+              IF (n_event_steps > SIZE(mtime_date_string)) THEN
+                ! resize buffer
+                ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
+                IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+                tmp(:) = mtime_date_string(:)
+                DEALLOCATE(mtime_date_string, STAT=ierrstat)
+                IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
+                ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
+                IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
+                mtime_date_string(1:SIZE(tmp)) = tmp(:)
+                DEALLOCATE(tmp, STAT=ierrstat)
+                IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+              END IF
+              CALL datetimeToString(mtime_date, mtime_date_string(n_event_steps))
+              IF (ldebug) THEN
+                WRITE (0,*) "PE ", get_my_global_mpi_id(), ": Adding step ", n_event_steps, ": ", &
+                  &         mtime_date_string(n_event_steps)
+              END IF
+
+            ELSE
+              ! we skip an output date when the domain is not yet
+              ! "active" - this leads to a file count offset.
+              skipped_dates = skipped_dates+1
             END IF
           END IF
           IF (ldebug)  WRITE (0,*) "adding ", additional_days, " days."
@@ -777,7 +787,7 @@ CONTAINS
 
     IF (n_event_steps > 0) THEN
       filename_metadata = fct_generate_filenames(n_event_steps, mtime_date_string,       &
-        &                   mtime_sim_steps, sim_step_info, fname_metadata)
+        &                   mtime_sim_steps, sim_step_info, fname_metadata, skipped_dates)
     END IF
 
     ! from this list of time stamp strings: generate the event steps
@@ -817,7 +827,7 @@ CONTAINS
     CALL deallocateDatetime(run_start)
     CALL deallocateTimedelta(delta)
     CALL deallocateTimedelta(delta_1day)
-    CALL resetCalendar()
+    !rr CALL resetCalendar()
     DEALLOCATE(mtime_date_string, mtime_sim_steps, &
       &        mtime_exactdate, filename_metadata, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
@@ -867,7 +877,7 @@ CONTAINS
     !  function for generating output file names
     INTERFACE
       FUNCTION fct_generate_filenames(nstrings, date_string, sim_steps, &
-        &                             sim_step_info, fname_metadata)  RESULT(result_fnames)
+        &                             sim_step_info, fname_metadata, skipped_dates)  RESULT(result_fnames)
         USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data
         USE mo_name_list_output_types, ONLY: t_fname_metadata
 
@@ -876,6 +886,7 @@ CONTAINS
         INTEGER,                   INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
         TYPE(t_sim_step_info),     INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
         TYPE(t_fname_metadata),    INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
+        INTEGER,                   INTENT(IN)    :: skipped_dates
         TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
       END FUNCTION fct_generate_filenames
     END INTERFACE
@@ -1005,7 +1016,7 @@ CONTAINS
     !  function for generating output file names
     INTERFACE
       FUNCTION fct_generate_filenames(nstrings, date_string, sim_steps, &
-        &                             sim_step_info, fname_metadata)  RESULT(result_fnames)
+        &                             sim_step_info, fname_metadata, skipped_dates)  RESULT(result_fnames)
         USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data
         USE mo_name_list_output_types, ONLY: t_fname_metadata
 
@@ -1014,6 +1025,7 @@ CONTAINS
         INTEGER,                   INTENT(IN)    :: sim_steps(:)       !< array of corresponding simulation steps
         TYPE(t_sim_step_info),     INTENT(IN)    :: sim_step_info      !< definitions: time step size, etc.
         TYPE(t_fname_metadata),    INTENT(IN)    :: fname_metadata     !< additional meta-data for generating output filename
+        INTEGER,                   INTENT(IN)    :: skipped_dates
         TYPE(t_event_step_data) :: result_fnames(SIZE(date_string))
       END FUNCTION fct_generate_filenames
     END INTERFACE

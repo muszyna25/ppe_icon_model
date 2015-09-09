@@ -27,7 +27,7 @@ MODULE mo_io_config
   USE mo_kind,           ONLY: wp
   USE mo_run_config,     ONLY: dtime
   USE mo_io_units,       ONLY: filename_max
-  USE mo_cdi_constants,  ONLY: FILETYPE_NC2
+  USE mo_cdi,            ONLY: FILETYPE_NC2
 
   IMPLICIT NONE
   PUBLIC
@@ -58,8 +58,6 @@ MODULE mo_io_config
     &        output_nml_dict,    &      !< maps variable names onto the internal ICON names.
     &        netcdf_dict                !< maps internal variable names onto names in output file (NetCDF only).
 
-  LOGICAL :: lzaxis_reference           !< use ZAXIS_REFERENCE instead of ZAXIS_HYBRID for atmospheric 
-                                        !  output fields
 
   ! derived variables
   !

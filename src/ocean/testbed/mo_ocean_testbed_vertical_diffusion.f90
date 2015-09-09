@@ -48,13 +48,11 @@ MODULE mo_ocean_testbed_vertical_diffusion
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_ocean_tracer,             ONLY: advect_tracer_ab
   USE mo_ocean_forcing,            ONLY: destruct_ocean_forcing
-  USE mo_sea_ice,                ONLY: destruct_atmos_for_ocean,&
-    & destruct_atmos_fluxes,&
-    & destruct_sea_ice,  &
+  USE mo_sea_ice,                ONLY: destruct_atmos_for_ocean, destruct_sea_ice,  &
     & update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
+  USE mo_physical_constants,     ONLY: rhoi, rhos
   USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_var_list,               ONLY: print_var_list

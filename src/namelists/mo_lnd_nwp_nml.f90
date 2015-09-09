@@ -188,7 +188,7 @@ MODULE mo_lnd_nwp_nml
     itype_root     = 2       ! type of root density distribution
                              ! 1: constant
                              ! 2: exponential
-    itype_heatcond = 1       ! type of soil heat conductivity
+    itype_heatcond = 2       ! type of soil heat conductivity
     itype_interception = 1   ! type of plant interception
     itype_hydbound = 1       ! type of hydraulic lower boundary condition
     lstomata       =.TRUE.   ! map of minimum stomata resistance

@@ -133,6 +133,11 @@ cat >> $output_script << EOF
 nproma=$use_nproma
 cdo="${cdo}"
 cdo_diff="${cdo} ${cdo_diff}"
+icon_data_rootFolder="${icon_data_rootFolder}"
+icon_data_poolFolder="${icon_data_poolFolder}"
+icon_data_buildbotFolder="${icon_data_rootFolder}/buildbot_data"
+icon_data_buildbotFolder_aes="${icon_data_rootFolder}/buildbot_data/aes"
+icon_data_buildbotFolder_oes="${icon_data_rootFolder}/buildbot_data/oes"
 EOF
 
 #for i in {1..$no_of_free_variables}
@@ -152,6 +157,8 @@ set_run_target_blizzard()
   set_default use_nproma 32
   set_default use_nodes 1
   use_OMP_SCHEDULE="dynamic,1"
+  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
   
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
@@ -436,6 +443,8 @@ set_run_target_thunder()
   set_default use_nodes 1
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,4"
+  icon_data_rootFolder=${icon_data_rootFolder:=/scratch/mpi/CC/mh0287}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
@@ -468,10 +477,11 @@ set_run_target_thunder()
         add_free_var KMP_KMP_SETTINGS "1"
         add_free_var OMP_WAIT_POLICY "active"
       ;;
+    "_gcc" )
+        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
+      ;;
   esac
-  # create header
-  start_header
-  
+
   if [[ "$is_serial_run" == "yes"  ]] ; then
     queue=${queue:="mpi-serial"}
     use_nodes=1
@@ -504,7 +514,7 @@ set_run_target_thunder()
   # ------------------------------------
  
   cat >> $output_script << EOF
-# =====================================
+#-----------------------------------------------------------------------------
 # thunder batch job parameters
 #-----------------------------------------------------------------------------
 #SBATCH --job-name=$job_name
@@ -515,15 +525,21 @@ set_run_target_thunder()
 #SBATCH --nodes=$use_nodes
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
-#========================================
 EOF
+
+  # create header
+  start_header
+  
 }
 
 set_run_target_bullx()
 {
+  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
 
   set_default use_nproma 8
-  set_default use_nodes 1
+  set_default use_nodes '\${SLURM_JOB_NUM_NODES:-1}'
+  set_default use_account_no "$(id -gn)"
   # use_OMP_SCHEDULE="static,1"
   use_OMP_SCHEDULE="static,4"
 
@@ -550,17 +566,38 @@ set_run_target_bullx()
       ;;
   esac
 
+  use_mpi_startrun="srun --cpu-freq=2500000 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((2 * OMP_NUM_THREADS)) --propagate=STACK"
   case _$use_compiler in
     "_intel" )
-        use_mpi_startrun="srun --cpu_bind=verbose,cores --distribution=block:cyclic"
         add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
         add_free_var KMP_LIBRARY "turnaround"
         add_free_var KMP_KMP_SETTINGS "1"
         add_free_var OMP_WAIT_POLICY "active"
       ;;
   esac
-  # create header
-  start_header
+  case $use_mpi_root in
+    *bullxmpi*)
+      use_mpi_startrun+=" --mpi=openmpi"
+      add_free_var OMPI_MCA_pml cm
+      add_free_var OMPI_MCA_mtl mxm
+      add_free_var OMPI_MCA_coll '^ghc'
+      add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
+      ;;
+    *intel*mpi*)
+      add_free_var I_MPI_FABRICS shm:dapl
+      add_free_var I_MPI_DAPL_UD enable
+      add_free_var I_MPI_DAPL_UD_PROVIDER ofa-v2-mlx5_0-1u
+      add_free_var DAPL_UCM_REP_TIME 8000
+      add_free_var DAPL_UCM_RTU_TIME 4000
+      add_free_var DAPL_UCM_CQ_SIZE 1000
+      add_free_var DAPL_UCM_QP_SIZE 1000
+      add_free_var DAPL_UCM_RETRY 10
+      add_free_var DAPL_ACK_RETRY 10
+      add_free_var DAPL_ACK_TIMER 20
+      add_free_var DAPL_UCM_TX_BURST 100
+      add_free_var DAPL_WR_MAX 500
+      ;;
+  esac
 
   if [[ "$is_serial_run" == "yes"  ]] ; then
     queue=${queue:="compute"}
@@ -571,9 +608,8 @@ set_run_target_bullx()
     queue=${queue:="compute"}
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=24"
   fi
-  
+
   if [[ "x$BB_SYSTEM" != "x" ]]; then
     # this buildbot, do not use job id
     job_log_name="LOG.$job_name"
@@ -587,30 +623,40 @@ set_run_target_bullx()
      s_cpu_time="SBATCH --time=$use_cpu_time"
   fi
   # ------------------------------------
- 
+
   cat >> $output_script << EOF
-# the following line is only needed for srun to work with Intel MPI
-# but should be commented when using BullX MPI
-export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
 # =====================================
 # btc batch job parameters
 #-----------------------------------------------------------------------------
+#SBATCH --account=$use_account_no
 #SBATCH --job-name=$job_name
-#SBATCH --output=$job_log_name.o
-#SBATCH --error=$job_log_name.o
 #SBATCH --partition=$queue
-# #SBATCH --workdir=$output_folder
-#SBATCH --nodes=$use_nodes
-#$SBATCH_ntasks_per_node
+#SBATCH --workdir=$output_folder
+#SBATCH --nodes=1
 #SBATCH --threads-per-core=2
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
 #SBATCH --exclusive
 # #$s_cpu_time
-# #SBATCH --time=30
-#========================================
+#SBATCH --time=30
+$(if [[ "$use_mpi_root" == *intel*mpi* ]]; then
+  printf '#========================================
+# the following line is only needed for srun to work with Intel MPI
+# but should be commented when using BullX MPI
+export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
+#========================================' ; fi)
+EOF
+  # create header
+  start_header
+  cat >>$output_script <<EOF
+ulimit -s \$((\${OMP_STACKSIZE/M/ * 1024}))
+case " \$loadmodule " in
+  *\ mxm\ *)
+    START+=" --export=LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
+    ;;
+esac
 EOF
 }
-
-
 
 #=============================================================================
 set_run_target_mpipc()
@@ -618,6 +664,8 @@ set_run_target_mpipc()
 
   set_default use_nproma 64
   use_nodes=1
+  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
   
   if [[ $use_mpi == "yes" ]]; then
     set_default use_mpi_procs_pernode 2
@@ -776,6 +824,275 @@ EOF
 
 }
 
+#=============================================================================
+set_run_target_daint_cpu()
+{
+
+  set_default use_nproma 16
+  set_default use_nodes 1
+  # use_OMP_SCHEDULE="static,1"
+  use_OMP_SCHEDULE="static,8"
+
+  is_serial_run="no"
+  if [[ $use_mpi == "yes" ]]; then
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_mpi_procs_pernode 2
+      set_default use_openmp_threads 4
+    else
+      set_default use_mpi_procs_pernode 8
+    fi
+  else
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_openmp_threads 8
+      set_default use_mpi_procs_pernode 1
+     else
+       is_serial_run="yes"
+   fi
+  fi
+
+  case x$use_queue in
+    "xcscs_develop" )
+      queue="viz"
+      ;;
+  esac
+
+  case _$use_compiler in
+    "_intel" )
+        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
+        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+        add_free_var KMP_LIBRARY "turnaround"
+        add_free_var KMP_KMP_SETTINGS "1"
+        add_free_var OMP_WAIT_POLICY "active"
+      ;;
+  esac
+  # create header
+  start_header
+
+  if [[ "$is_serial_run" == "yes"  ]] ; then
+    queue=${queue:="viz"}
+    use_nodes=1
+    tasks_per_node=1
+    SBATCH_ntasks_per_node=""
+ else
+    queue=${queue:="viz"}
+    job_type=parallel
+    tasks_per_node=$use_mpi_procs_pernode
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=2"
+  fi
+
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    job_log_name="LOG.$job_name"
+  else
+    job_log_name="LOG.$job_name.%j"
+  fi
+  # ------------------------------------
+  s_cpu_time=""
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time="SBATCH --time=$use_cpu_time"
+  fi
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this is buldbot, do not run more than 45 minutes
+    s_cpu_time="SBATCH --time=00:45:00"
+  fi
+
+  # ------------------------------------
+
+  cat >> $output_script << EOF
+# =====================================
+# daint batch job parameters
+#-----------------------------------------------------------------------------
+#SBATCH --job-name=$job_name
+#SBATCH --output=$job_log_name.o
+#SBATCH --error=$job_log_name.o
+#SBATCH --partition=$queue
+# #SBATCH --workdir=$output_folder
+#SBATCH --nodes=$use_nodes
+#$SBATCH_ntasks_per_node
+#$s_cpu_time
+#========================================
+EOF
+}
+
+#=============================================================================
+set_run_target_daint_gpu()
+{
+
+  set_default use_nproma 256
+  set_default use_nodes 1
+  use_OMP_SCHEDULE="static,1"
+
+  is_serial_run="no"
+  if [[ $use_mpi == "yes" ]]; then
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_mpi_procs_pernode 1
+      set_default use_openmp_threads 1
+    else
+      set_default use_mpi_procs_pernode 1
+    fi
+  else
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_openmp_threads 1
+      set_default use_mpi_procs_pernode 1
+     else
+       is_serial_run="yes"
+   fi
+  fi
+
+  case x$use_queue in
+    "xcscs_develop" )
+      queue="viz"
+      ;;
+  esac
+
+  case _$use_compiler in
+    "_intel" )
+        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
+        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+        add_free_var KMP_LIBRARY "turnaround"
+        add_free_var KMP_KMP_SETTINGS "1"
+        add_free_var OMP_WAIT_POLICY "active"
+      ;;
+  esac
+  # create header
+  start_header
+
+  if [[ "$is_serial_run" == "yes"  ]] ; then
+    queue=${queue:="viz"}
+    use_nodes=1
+    tasks_per_node=1
+    SBATCH_ntasks_per_node=""
+ else
+    queue=${queue:="viz"}
+    job_type=parallel
+    tasks_per_node=$use_mpi_procs_pernode
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=1"
+  fi
+
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    job_log_name="LOG.$job_name"
+  else
+    job_log_name="LOG.$job_name.%j"
+  fi
+
+  # ------------------------------------
+  s_cpu_time=""
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time="SBATCH --time=$use_cpu_time"
+  fi
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this is buldbot, do not run more than 45 minutes
+    s_cpu_time="SBATCH --time=00:45:00"
+  fi
+
+  # ------------------------------------
+
+  cat >> $output_script << EOF
+# =====================================
+# daint batch job parameters
+#-----------------------------------------------------------------------------
+#SBATCH --job-name=$job_name
+#SBATCH --output=$job_log_name.o
+#SBATCH --error=$job_log_name.o
+#SBATCH --partition=$queue
+# #SBATCH --workdir=$output_folder
+#SBATCH --nodes=$use_nodes
+#$SBATCH_ntasks_per_node
+#$s_cpu_time
+#========================================
+EOF
+}
+
+set_run_target_dora()
+{
+
+  set_default use_nproma 16
+  set_default use_nodes 1
+  # use_OMP_SCHEDULE="static,1"
+  use_OMP_SCHEDULE="static,12"
+
+  is_serial_run="no"
+  if [[ $use_mpi == "yes" ]]; then
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_mpi_procs_pernode 2
+      set_default use_openmp_threads 12
+    else
+      set_default use_mpi_procs_pernode 24
+    fi
+  else
+    if [[ $use_openmp == "yes" ]]; then
+      set_default use_openmp_threads 24
+#      set_default use_mpi_procs_pernode 1
+     else
+       is_serial_run="yes"
+   fi
+  fi
+
+  case x$use_queue in
+    "xcscs_normal" )
+      queue="normal"
+      ;;
+  esac
+
+  case _$use_compiler in
+    "_intel" )
+        use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
+        add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
+        add_free_var KMP_LIBRARY "turnaround"
+        add_free_var KMP_KMP_SETTINGS "1"
+        add_free_var OMP_WAIT_POLICY "active"
+      ;;
+  esac
+  # create header
+  start_header
+
+  if [[ "$is_serial_run" == "yes"  ]] ; then
+    queue=${queue:="normal"}
+    use_nodes=1
+    tasks_per_node=1
+    SBATCH_ntasks_per_node=""
+ else
+    queue=${queue:="normal"}
+    job_type=parallel
+    tasks_per_node=$use_mpi_procs_pernode
+    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=2"
+  fi
+
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this buildbot, do not use job id
+    job_log_name="LOG.$job_name"
+  else
+    job_log_name="LOG.$job_name.%j"
+  fi
+
+  # ------------------------------------
+  s_cpu_time=""
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time="SBATCH --time=$use_cpu_time"
+  fi
+  if [[ "x$BB_SYSTEM" != "x" ]]; then
+    # this is buldbot, do not run more than 45 minutes
+    s_cpu_time="SBATCH --time=00:45:00"
+  fi
+
+  # ------------------------------------
+
+  cat >> $output_script << EOF
+# =====================================
+# thunder batch job parameters
+#-----------------------------------------------------------------------------
+#SBATCH --job-name=$job_name
+#SBATCH --output=$job_log_name.o
+#SBATCH --error=$job_log_name.o
+#SBATCH --partition=$queue
+# #SBATCH --workdir=$output_folder
+#SBATCH --nodes=$use_nodes
+#$SBATCH_ntasks_per_node
+#$s_cpu_time
+#========================================
+EOF
+}
 
 #=============================================================================
 set_run_target_pacluster()

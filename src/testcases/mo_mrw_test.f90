@@ -223,12 +223,12 @@ MODULE mo_mrw_test
         ENDDO
 
 
-        DO iv = 1, pt_patch%cell_type
+        DO iv = 1, pt_patch%geometry_info%cell_type
 
            DO jc = 1, nlen
 
              IF (iv > pt_patch%cells%num_edges(jc,jb)) THEN
-               topo_aux(jc,pt_patch%cell_type+1) = topo_aux(jc,1)
+               topo_aux(jc,pt_patch%geometry_info%cell_type+1) = topo_aux(jc,1)
                CYCLE
              ENDIF
 
@@ -249,7 +249,7 @@ MODULE mo_mrw_test
         DO jc = 1, nlen
 
            pt_ext_data%atm%topography_c(jc,jb) = 0.5_wp*topo_aux(jc,1) + &
-             0.5_wp/REAL(pt_patch%cell_type,wp)*(SUM(topo_aux(jc,2:pt_patch%cell_type+1)))
+             0.5_wp/REAL(pt_patch%geometry_info%cell_type,wp)*(SUM(topo_aux(jc,2:pt_patch%geometry_info%cell_type+1)))
            ! surface pressure
 
            zlat = pt_patch%cells%center(jc,jb)%lat

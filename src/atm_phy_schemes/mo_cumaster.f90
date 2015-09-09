@@ -100,6 +100,7 @@ MODULE mo_cumaster
   USE mo_cudescn,     ONLY: cudlfsn, cuddrafn
   USE mo_cuflxtends,  ONLY: cuflxn, cudtdqn,cududv,cuctracer
   USE mo_nwp_parameters,  ONLY: t_phy_params
+  USE mo_nwp_tuning_config, ONLY: tune_capdcfac_et
   USE mo_fortran_tools,   ONLY: t_ptr_tracer
 
   IMPLICIT NONE
@@ -113,9 +114,9 @@ CONTAINS
 
   !
 SUBROUTINE cumastrn &
- & (  kidia,    kfdia,    klon,     ktdia,    klev,&
- & ldland, ldlake, ptsphy, phy_params, capdcfac, &
- & paer_ss,                                      &
+ & (  kidia,    kfdia,    klon,   ktdia,   klev, &
+ & ldland, ldlake, ptsphy, phy_params, k950,     &
+ & capdcfac,  paer_ss,                           &
  & pten,     pqen,     puen,     pven, plitot,   &
  & pvervel,  pqhfl,    pahfs,                    &
  & pap,      paph,     pgeo,     pgeoh,          &
@@ -316,6 +317,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: klev
 INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia
 INTEGER(KIND=jpim),INTENT(in)    :: ktrac
+INTEGER(KIND=jpim),INTENT(in)    :: k950(klon)
 INTEGER(KIND=jpim)               :: ktdia
 LOGICAL           ,INTENT(in)    :: ldland(klon) 
 LOGICAL           ,INTENT(in)    :: ldlake(klon)
@@ -471,8 +473,10 @@ REAL(KIND=jprb), PARAMETER :: zcapethresh = 7000._jprb
 ldcum(:)=.FALSE.
 pqsen(:,:)=pqen(:,:)
 
-CALL satur (kidia, kfdia, klon, phy_params%kcon2, klev,&
-  & pap,    pten, pqen, pqsen, 1  )
+! GZ, 2015-02-17: Change start level of qsat computation from 60 hPa (phy_params%kcon2) to ktdia,
+! i.e. the general start level of moisture physics, because the previous implementation led to a crash
+! in a pathological case of anomalously deep convection
+CALL satur (kidia, kfdia, klon, ktdia, klev, pap, pten, pqen, pqsen, 1)
 
 
 !*UPG
@@ -547,8 +551,6 @@ llo2(:)= .FALSE.
 !*    2.           INITIALIZE VALUES AT VERTICAL GRID POINTS IN 'CUINI'
 !                  ---------------------------------------------------
 
-! Note by GZ: For unclear reasons, cuinin and cubasen have to be called
-! for all model levels to obtain correct results
 CALL cuinin &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, phy_params%kcon2, &
   & pten,     pqen,     pqsen,    puen,     pven,&
@@ -568,8 +570,9 @@ CALL cuinin &
 !                  ---------------------------------------
 
 CALL cubasen &
-  & ( kidia,    kfdia,    klon,   ktdia,    klev,&
-  & phy_params%kcon1, phy_params%kcon2,          &
+  & ( kidia,    kfdia,    klon,   ktdia,    klev, &
+  & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
+  & phy_params%texc, phy_params%qexc,  &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
   & pten,     pqen,     pqsen,    pgeo,&
@@ -727,7 +730,7 @@ ENDDO
 
 CALL cuascn &
   & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-  & ptsphy,&
+  & phy_params%entrorg, ptsphy,&
   & paer_ss, &
   & ztenh,    zqenh,&
   & ptenq, &
@@ -809,8 +812,7 @@ IF(lmfdd) THEN
 
   CALL cuddrafn &
     & ( kidia,    kfdia,    klon,   ktdia,  klev,&
-    & phy_params%kcon3, llddraf,         &
-    & ztenh,    zqenh                   ,&
+    & k950, llddraf, ztenh,    zqenh            ,&
     & pgeo,     pgeoh,    paph,     zrfl,&
     & zdph,     zdgeoh,                  &
     & ztd,      zqd,      pmfu,&
@@ -864,7 +866,7 @@ DO jl = kidia, kfdia
     ztau(jl) = (pgeoh(jl,ik)-pgeoh(jl,ikb))/((2.0_jprb+MIN(15.0_jprb,pwmean(jl)))*rg)*phy_params%tau
     llo1 = (paph(jl,klev+1)-paph(jl,ikd)) < 50.e2_jprb
     IF (llo1 .AND. ldland(jl)) THEN
-      zcapdcycl(jl) = capdcfac(jl)*zcappbl(jl)*ztau(jl)*phy_params%tau0
+      zcapdcycl(jl) = MAX(tune_capdcfac_et,capdcfac(jl))*zcappbl(jl)*ztau(jl)*phy_params%tau0
     ENDIF
     ! Reduce adjustment time scale for extreme CAPE values
     IF (pcape(jl) > zcapethresh) ztau(jl) = ztau(jl)/phy_params%tau
@@ -883,7 +885,7 @@ DO jl = kidia, kfdia
         zcapdcycl(jl) = zcappbl(jl)*ztau(jl)*phy_params%tau0
       ELSE
         zduten = 2.0_jprb + SQRT(0.5*(puen(jl,ikb)**2 + pven(jl,ikb)**2 + &
-          puen(jl,phy_params%kcon3)**2 + pven(jl,phy_params%kcon3)**2))
+          puen(jl,k950(jl))**2 + pven(jl,k950(jl))**2))
         ztaupbl(jl) = MIN(1.e4_jprb, pgeoh(jl,ikb)-pgeoh(jl,klev+1))/(rg*zduten)
         zcapdcycl(jl) = zcappbl(jl)*ztaupbl(jl)
       ENDIF
@@ -995,7 +997,7 @@ IF(lmfit) THEN
 
   CALL cuascn &
     & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-    & ptsphy,&
+    & phy_params%entrorg, ptsphy,&
     & paer_ss,&
     & ztenh,    zqenh,    &
     & ptenq,            &

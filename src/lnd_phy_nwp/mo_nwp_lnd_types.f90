@@ -163,15 +163,13 @@ MODULE mo_nwp_lnd_types
     &  rho_snow_mult(:,:,:) , & ! snow density                                  (kg/m**3)
     &  wliq_snow    (:,:,:) , & ! liquid water content in the snow              (m H2O)
     &  wtot_snow    (:,:,:) , & ! total (liquid + solid) water content of snow  (m H2O)
-    &  dzh_snow     (:,:,:) , & ! layer thickness between half levels in snow   (  m  )
-    &  w_snow_eff_t (:,:,:)     ! snow water equivalent / snow-cover fraction   !! OBSOLETE ? !! (m H2O)
+    &  dzh_snow     (:,:,:)     ! layer thickness between half levels in snow   (  m  )
 
     TYPE(t_ptr_2d3d), ALLOCATABLE :: qv_st_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: h_snow_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: freshsnow_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: snowfrac_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: snowfrac_lc_ptr(:)
-    TYPE(t_ptr_2d3d), ALLOCATABLE :: w_snow_eff_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: runoff_s_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: runoff_g_ptr(:)
 

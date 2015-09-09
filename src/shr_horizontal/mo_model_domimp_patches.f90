@@ -12,7 +12,7 @@
 !! Modification by Thomas Heinze (2006-09-20):
 !! - added method_name grid_and_patch_diagnosis
 !! Modification by Pilar Ripodas, DWD, (2007-01-31)
-!! - addapted to the new TYPE grid_edges (system_orientation added)
+!! - addapted to the new TYPE grid_edges (tangent_orientation added)
 !! Modification by Peter Korn,  MPI-M, (2006-12)
 !! - implementation of topography and boundary treatment, i.e.
 !!   initialization of the grid & patch components that carry
@@ -120,7 +120,7 @@ MODULE mo_model_domimp_patches
 
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, sphere_geometry, &
     &  set_grid_geometry_derived_info, copy_grid_geometry_info,            &
-    & parallel_read_geometry_info, triangular_cell
+    & parallel_read_geometry_info, triangular_cell, planar_channel_geometry
   USE mo_alloc_patches,      ONLY: set_patches_grid_filename, &
     & allocate_pre_patch, allocate_remaining_patch
   USE mo_math_constants,     ONLY: pi
@@ -458,6 +458,9 @@ CONTAINS
 
     DO jg = n_dom_start, n_dom
 
+      ALLOCATE(patch(jg)%cells%dist_io_data, patch(jg)%edges%dist_io_data, &
+        &      patch(jg)%verts%dist_io_data)
+
       CALL setup_distrib_read(patch(jg)%n_patch_cells_g, &
                               patch(jg)%cells%decomp_info, &
                               patch(jg)%cells%dist_io_data)
@@ -468,6 +471,10 @@ CONTAINS
                               patch(jg)%verts%decomp_info, &
                               patch(jg)%verts%dist_io_data)
       IF (jg > n_dom_start) THEN
+
+        ALLOCATE(p_patch_local_parent(jg)%cells%dist_io_data, &
+          &      p_patch_local_parent(jg)%edges%dist_io_data, &
+          &      p_patch_local_parent(jg)%verts%dist_io_data)
 
         CALL setup_distrib_read(p_patch_local_parent(jg)%n_patch_cells_g, &
                                 p_patch_local_parent(jg)%cells%decomp_info, &
@@ -574,7 +581,7 @@ CONTAINS
         CALL init_quad_twoadjcells( patch(jg) )
         ! Initialize butterfly data structure, formed by the
         ! 4 cells sharing the 2 vertices which bound a given edge.
-        IF (patch(jg)%cell_type == 3) THEN
+        IF (patch(jg)%geometry_info%cell_type == 3) THEN
           ! not useful for hexagonal grid
           CALL init_butterfly_idx( patch(jg) )
         ENDIF
@@ -926,7 +933,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     SELECT CASE(patch%geometry_info%geometry_type)
 
-    CASE (planar_torus_geometry)
+    CASE (planar_torus_geometry, planar_channel_geometry)
 
       CALL finish(method_name, "planar_torus_geometry should be read from the grid file")
 
@@ -1681,10 +1688,10 @@ CONTAINS
         idx_no(multivar_3d_data_int(ip+1)%data(:,:,1:2))
     END DO
 
-    ! p_p%edges%system_orientation(:,:)
+    ! p_p%edges%tangent_orientation(:,:)
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
-      multivar_2d_data_wp(ip+1)%data => p_p%edges%system_orientation(:,:)
+      multivar_2d_data_wp(ip+1)%data => p_p%edges%tangent_orientation(:,:)
     END DO
     CALL read_2D(stream_id, onEdges, 'edge_system_orientation', n_lp+1, &
       &          multivar_2d_data_wp(:))
@@ -2150,18 +2157,18 @@ CONTAINS
     gridfile_has_cartesian_info = &
       nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid) == nf_noerr
 
-    IF (gridfile_has_cartesian_info) THEN
-
-      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
-      CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(1)))
-      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
-      CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(2)))
-      CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
-      CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(3)))
-        
-      gridfile_has_cartesian_info = ANY(ABS(x(:)) >= 0.001_wp)
-
-    END IF
+!     IF (gridfile_has_cartesian_info) THEN
+! 
+!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
+!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(1)))
+!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
+!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(2)))
+!       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
+!       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(3)))
+!         
+!       gridfile_has_cartesian_info = ANY(ABS(x(:)) >= 0.001_wp)
+! 
+!     END IF
 
   END FUNCTION gridfile_has_cartesian_info
   !-------------------------------------------------------------------------

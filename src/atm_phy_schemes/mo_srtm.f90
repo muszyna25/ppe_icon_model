@@ -14,6 +14,7 @@ MODULE mo_srtm
   USE mo_exception,   ONLY: finish
 
   USE mo_kind, ONLY : wp, i4
+  USE mo_physical_constants, ONLY : rd, rgrav
 
   USE mo_srtm_config, ONLY : delwave, wavenum2, wavenum1,            &
     &    ngc, jpinpx, jpb1, jpb2, preflog, tref, repclc, replog,     &
@@ -53,10 +54,13 @@ CONTAINS
     &  col_dry_vr      , wkl_vr                                              , &
     &  cld_frc_vr      , cld_tau_sw_vr   , cld_cg_sw_vr    , cld_piz_sw_vr   , &
     &  aer_tau_sw_vr   , aer_cg_sw_vr    , aer_piz_sw_vr                     , &
-    &  ssi             , z_mc                                                , &
+    &  ssi                                                                   , &
                                 !  output
     &  flxd_sw         , flxu_sw         , flxd_sw_clr     , flxu_sw_clr     , &
-    &  flxd_dff_sfc    , flxd_par_sfc                                          )
+                                ! optional output
+    &  flxd_dff_sfc    , flxd_par_sfc    , vis_frc_sfc                       , &
+    &  nir_dff_frc_sfc , vis_dff_frc_sfc , par_dff_frc_sfc                     )
+
 !!$    &  flxd_sw         , flxu_sw         , flxd_sw_clr     , flxu_sw_clr     , &
 !!$    &  flxd_nir_all_sfc, flxd_vis_all_sfc, flxu_nir_all_toa, flxu_vis_all_toa, &
 !!$    &  flxd_nir_clr_sfc, flxd_vis_clr_sfc, flxu_nir_clr_toa, flxu_vis_clr_toa, &
@@ -101,7 +105,6 @@ CONTAINS
     REAL(wp), INTENT(in)    :: aer_cg_sw_vr(kbdim,klev,ksw)
     REAL(wp), INTENT(in)    :: aer_piz_sw_vr(kbdim,klev,ksw)
     REAL(wp), INTENT(in)    :: ssi(ksw)
-    REAL(wp), INTENT(in)    :: z_mc(kbdim,klev)          !< height at full levels [m]
 
     !-- Output arguments
 
@@ -125,8 +128,13 @@ CONTAINS
 !!$    REAL(wp), INTENT(out)   :: dff_frc_vis_sfc(kbdim)    !< fraction of diffuse visible
 !!$    REAL(wp), INTENT(out)   :: dff_frc_par_sfc(kbdim)    !< fraction of diffuse PAR at the surface
 
-    REAL(wp), INTENT(out), OPTIONAL :: flxd_dff_sfc(kbdim)   !< surface downward diffuse rad
-    REAL(wp), INTENT(out), OPTIONAL :: flxd_par_sfc(kbdim)   !< surface downward photosynthetically active rad
+    REAL(wp), INTENT(out), OPTIONAL :: &
+      & flxd_dff_sfc(kbdim),     & !< surface downward diffuse rad
+      & flxd_par_sfc(kbdim),     & !< surface downward photosynthetically active rad
+      & vis_frc_sfc(kbdim),      & !< Visible fraction of net surface radiation
+      & nir_dff_frc_sfc(kbdim),  & !< Diffuse fraction of downward surface near-infrared radiation
+      & vis_dff_frc_sfc(kbdim),  & !< Diffuse fraction of downward surface visible radiation
+      & par_dff_frc_sfc(kbdim)     !< Diffuse fraction of downward surface PAR
 
     !-- Local variables
 
@@ -161,17 +169,20 @@ CONTAINS
     INTEGER  :: indfor(kbdim,klev), indself(kbdim,klev)
     INTEGER  :: jp(kbdim,klev), jt(kbdim,klev), jt1(kbdim,klev)
 
-    REAL(wp) :: zclear(kbdim), zcloud(kbdim), zeps, zfrcl_above(kbdim), zflxd_diff(kbdim), zflxd_par(kbdim)
+    REAL(wp) :: zclear(kbdim), zcloud(kbdim), zeps, zfrcl_above(kbdim)
     REAL(wp) :: zalbd(kbdim,ksw) , zalbp(kbdim,ksw)
-    REAL(wp) :: frc_vis(ksw), frc_nir(ksw), frc_par
-!!$    REAL(wp) :: zfvis, zfnir, zfpar, total
 
+    REAL(wp) :: frc_vis(ksw), frc_nir(ksw), frc_par
+    REAL(wp) :: zfvis, zfnir, zfpar, total
+    REAL(wp) :: zflxn_vis(kbdim), zflxn(kbdim), zflxd_vis(kbdim), zflxd_nir(kbdim), zflxd_par(kbdim), &
+                zflxd_diff(kbdim), zflxd_vis_diff(kbdim), zflxd_nir_diff(kbdim), zflxd_par_diff(kbdim)
+    
     INTEGER  :: icldatm, inflag, iceflag, i_liqflag, i_nstr
     INTEGER(i4) :: idx(kbdim)
     INTEGER(i4) :: icount, ic, jl, jk, jsw, jb
     REAL(wp) :: zrmu0(kbdim)
-    REAL(wp) :: ccmax, ccran, alpha
-    LOGICAL  :: lcomp_add_vars
+    REAL(wp) :: ccmax, ccran, alpha, deltaz
+    LOGICAL  :: lcomp_fractions
 
     !-----------------------------------------------------------------------
     !-- calculate information needed ny the radiative transfer routine
@@ -215,15 +226,30 @@ CONTAINS
       END DO
     END DO
 
-    IF (PRESENT(flxd_dff_sfc) .AND. PRESENT(flxd_par_sfc)) THEN
-      lcomp_add_vars = .TRUE.
+    IF (PRESENT(flxd_dff_sfc)) THEN
       DO jl = 1, kproma
         flxd_dff_sfc(jl) = 0.0_wp
+      ENDDO
+    ENDIF
+
+    IF (PRESENT(flxd_par_sfc)) THEN
+      DO jl = 1, kproma
         flxd_par_sfc(jl) = 0.0_wp
       ENDDO
-    ELSE
-      lcomp_add_vars = .FALSE.
     ENDIF
+
+    IF (PRESENT(vis_frc_sfc) .AND. PRESENT(nir_dff_frc_sfc) .AND. &
+        PRESENT(vis_dff_frc_sfc) .AND. PRESENT(par_dff_frc_sfc)) THEN
+      lcomp_fractions = .TRUE.
+      DO jl = 1, kproma
+        vis_frc_sfc(jl)     = 0.0_wp
+        nir_dff_frc_sfc(jl) = 0.0_wp
+        vis_dff_frc_sfc(jl) = 0.0_wp
+        par_dff_frc_sfc(jl) = 0.0_wp
+      END DO
+    ELSE
+      lcomp_fractions = .FALSE.
+    END IF
 
     IF (icount == 0) RETURN
 
@@ -268,8 +294,11 @@ CONTAINS
           ccran =      zfrcl(ic,jk) + zcloud(ic) - &
                    & ( zfrcl(ic,jk) * zcloud(ic) )
           IF ( zfrcl_above(ic) > 0.0_wp ) THEN
-            alpha = exp( - (z_mc(ic,jk-1)-z_mc(ic,jk)) / zdecorr )
-          ELSE             ! layer thickness ???
+            ! layer thickness [m] between level jk and next lower (!) level jk-1
+            deltaz = (zpm_fl_vr(ic,jk-1)-zpm_fl_vr(ic,jk))/(zpm_fl_vr(ic,jk-1)+zpm_fl_vr(ic,jk)) * &
+                     (ztk_fl_vr(ic,jk-1)+ztk_fl_vr(ic,jk))*rd*rgrav
+            alpha = exp( - deltaz / zdecorr )
+          ELSE
             alpha = 0.0_wp
           ENDIF
           zfrcl_above(ic) = zfrcl(ic,jk)
@@ -419,10 +448,24 @@ CONTAINS
 !!$      dff_frc_par_sfc(jl)    = 0.0_wp
 !!$    ENDDO
 
-    IF (lcomp_add_vars) THEN
+    IF (PRESENT(flxd_dff_sfc)) THEN ! compute diffuse parts of surface radiation
       zflxd_diff(:) = 0._wp
+    ENDIF
+
+    IF (PRESENT(flxd_par_sfc)) THEN ! compute photosynthetically active parts of surface radiation
       zflxd_par(:)  = 0._wp
     ENDIF
+
+    IF (lcomp_fractions) THEN
+      zflxn_vis(:)      = 0._wp
+      zflxn(:)          = 0._wp
+      zflxd_vis(:)      = 0._wp
+      zflxd_nir(:)      = 0._wp
+      zflxd_par(:)      = 0._wp
+      zflxd_vis_diff(:) = 0._wp
+      zflxd_nir_diff(:) = 0._wp
+      zflxd_par_diff(:) = 0._wp
+    END IF
 
     DO jb = 1,ksw
 
@@ -442,23 +485,69 @@ CONTAINS
         ENDDO
       ENDDO
 
-      IF (lcomp_add_vars) THEN ! compute diffuse and photosynthetically active parts of surface radiation
-        IF (jb == 9) THEN
-          frc_par = 0.533725_wp
-        ELSE IF (jb == 10) THEN
-          frc_par = 1.0_wp
-        ELSE IF (jb == 11) THEN
-          frc_par = 0.550164_wp
-        ELSE
-          frc_par = 0._wp
-        ENDIF
+      IF (jb == 9) THEN
+        frc_par = 0.533725_wp
+      ELSE IF (jb == 10) THEN
+        frc_par = 1.0_wp
+      ELSE IF (jb == 11) THEN
+        frc_par = 0.550164_wp
+      ELSE
+        frc_par = 0._wp
+      ENDIF
+
+      IF (PRESENT(flxd_dff_sfc)) THEN ! compute diffuse parts of surface radiation
         DO ic = 1, icount
           zflxd_diff(ic) = zflxd_diff(ic) + bnd_wght(jb)*( zcloud(ic)*(zbbfd(ic,klev+1,jb)-zsudu(ic,jb))  &
             &                                            + zclear(ic)*(zbbcd(ic,klev+1,jb)-zsuduc(ic,jb)) )
+        ENDDO
+      ENDIF
+
+      IF (PRESENT(flxd_par_sfc)) THEN ! compute photosynthetically active parts of surface radiation
+        DO ic = 1, icount
           zflxd_par(ic)  = zflxd_par(ic)  + frc_par*bnd_wght(jb)*( zcloud(ic)*zbbfd(ic,klev+1,jb) &
             &                                                    + zclear(ic)*zbbcd(ic,klev+1,jb) )
         ENDDO
       ENDIF
+
+      IF (lcomp_fractions) THEN
+        ! VIS, NIR and PAR fractions of bands
+        zfvis = bnd_wght(jb)*frc_vis(jb)
+        zfnir = bnd_wght(jb)*frc_nir(jb)
+        zfpar = bnd_wght(jb)*frc_par
+
+        DO ic=1,icount
+          zflxn_vis(ic)  = zflxn_vis(ic) + zfvis*( &
+            &                 zcloud(ic)*zbbfd(ic,klev+1,jb)     &
+            &               + zclear(ic)*zbbcd(ic,klev+1,jb)     &
+            &               - zcloud(ic)*zbbfu(ic,klev+1,jb)     &
+            &               - zclear(ic)*zbbcu(ic,klev+1,jb)     )
+          zflxn(ic) = zflxd_sw(ic,klev+1) - zflxu_sw(ic,klev+1)
+          zflxd_vis(ic)  = zflxd_vis(ic) + zfvis*(               &
+            &                 zcloud(ic)*zbbfd(ic,klev+1,jb)     &
+            &               + zclear(ic)*zbbcd(ic,klev+1,jb)     )
+          zflxd_nir(ic)  = zflxd_nir(ic) + zfnir*(               &
+            &                 zcloud(ic)*zbbfd(ic,klev+1,jb)     &
+            &               + zclear(ic)*zbbcd(ic,klev+1,jb)     )
+          zflxd_par(ic)  = zflxd_par(ic) + zfpar*(               &
+            &                 zcloud(ic)*zbbfd(ic,klev+1,jb)     &
+            &               + zclear(ic)*zbbcd(ic,klev+1,jb)     )
+          zflxd_vis_diff(ic) = zflxd_vis_diff(ic) + zfvis*(      &
+            &                 zcloud(ic)*zbbfd(ic,klev+1,jb)     &
+            &               + zclear(ic)*zbbcd(ic,klev+1,jb)     &
+            &               - zcloud(ic)*zsudu(ic,jb)            &
+            &               - zclear(ic)*zsuduc(ic,jb))
+          zflxd_nir_diff(ic) = zflxd_nir_diff(ic) + zfnir*(      &
+            &                 zcloud(ic)*zbbfd(ic,klev+1,jb)     &
+            &               + zclear(ic)*zbbcd(ic,klev+1,jb)     &
+            &               - zcloud(ic)*zsudu(ic,jb)            &
+            &               - zclear(ic)*zsuduc(ic,jb))
+          zflxd_par_diff(ic) = zflxd_par_diff(ic) + zfpar*(      &
+            &                 zcloud(ic)*zbbfd(ic,klev+1,jb)     &
+            &               + zclear(ic)*zbbcd(ic,klev+1,jb)     &
+            &               - zcloud(ic)*zsudu(ic,jb)            &
+            &               - zclear(ic)*zsuduc(ic,jb))
+        END DO
+      END IF
 
 !!$      ! PAR fraction
 !!$      IF (ksw /= 14 ) CALL finish ('srtm_srtm_224gp', &
@@ -569,13 +658,33 @@ CONTAINS
       ENDDO
 
 
-      IF (lcomp_add_vars) THEN ! compute diffuse and photosynthetically active parts of surface radiation
+      IF (PRESENT(flxd_dff_sfc)) THEN ! compute diffuse parts of surface radiation
         DO ic = 1, icount
           jl = idx(ic)
           flxd_dff_sfc(jl) = zflxd_diff(ic)
+        ENDDO
+      ENDIF
+
+      IF (PRESENT(flxd_par_sfc)) THEN ! compute photosynthetically active parts of surface radiation
+        DO ic = 1, icount
+          jl = idx(ic)
           flxd_par_sfc(jl) = zflxd_par(ic)
         ENDDO
       ENDIF
+
+      IF (lcomp_fractions) THEN
+        DO ic=1,icount
+          jl = idx(ic)
+          total = zflxn(ic) + zeps
+          vis_frc_sfc(jl) = zflxn_vis(ic) / total
+          total = zflxd_nir(ic) + zeps
+          nir_dff_frc_sfc(jl) = zflxd_nir_diff(ic) / total
+          total = zflxd_vis(ic) + zeps
+          vis_dff_frc_sfc(jl) = zflxd_vis_diff(ic) / total
+          total = zflxd_par(ic) + zeps
+          par_dff_frc_sfc(jl) = zflxd_par_diff(ic) / total
+        END DO
+      END IF
 
 !!$    DO jl=1,kproma
 !!$      total = flxd_nir_all_sfc(jl) + zeps
@@ -1817,7 +1926,8 @@ CONTAINS
           zt3  = zrk2 * (zgamma4 + za1 * prmuz(ic) )
           ! zt4  = zr4
           ! zt5  = zr5
-          zbeta = - zr5 / zr4
+          ! GZ, 2015-06-08: another fix for potential division by zero
+          zbeta = - zr5 / SIGN(MAX(zeps,ABS(zr4)),zr4)
 
           ! collimated beam
 
@@ -1868,7 +1978,8 @@ CONTAINS
           zt3  = zrk2 * (zgamma4 + za1 * prmuz(ic) )
           ! zt4  = zr4
           ! zt5  = zr5
-          zbeta = - zr5 / zr4
+          ! GZ, 2015-06-08: another fix for potential division by zero
+          zbeta = - zr5 / SIGN(MAX(zeps,ABS(zr4)),zr4)
 
           ! collimated beam
 

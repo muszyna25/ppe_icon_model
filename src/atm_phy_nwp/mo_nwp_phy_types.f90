@@ -55,6 +55,14 @@ MODULE mo_nwp_phy_types
   PUBLIC :: t_nwp_phy_diag
   PUBLIC :: t_nwp_phy_tend
 
+
+
+  !> derived data type for synthetic satellite images
+  TYPE t_rttov_image
+    REAL(wp), POINTER :: p(:,:)      ! pointer to 2D image
+  END TYPE t_rttov_image
+
+
   !
   !!data structure defining model states
   !
@@ -133,6 +141,8 @@ MODULE mo_nwp_phy_types
       &   acdnc(:,:,:),        & !! cloud droplet number concentration                   [1/m**3]
       &   cloud_num(:,:),      & !! 2D cloud droplet number concentration for simple aerosol-cloud coupling [1/m**3]
       &   cape    (:,:),       & !! convective available energy
+      &   cape_ml (:,:),       & !! convective available energy of mean surface layer parcel
+      &   cin_ml  (:,:),       & !! convective inhibition of mean surface layer parcel
       &   con_gust(:,:),       & !! convective gusts near surface
       &   con_udd(:,:,:,:),    & !!(nproma,nlev,nblks,8) convective up/downdraft fields
                                  !! 1= convective updraft mass flux (pmfu)
@@ -221,10 +231,18 @@ MODULE mo_nwp_phy_types
       &  athu_s    (:,:),      & !! Surface up thermal radiation [W/m2], accumulated or mean since model start
       &  asodird_s (:,:),      & !! Surface down solar direct rad. [W/m2], accumulated or mean since model start 
       &  asodifd_s (:,:),      & !! Surface down solar diff. rad. [W/m2], accumulated or mean since model start 
-      &  asodifu_s (:,:)         !! Surface up solar diff. rad. [W/m2], accumulated or mean since model start 
+      &  asodifu_s (:,:),      & !! Surface up solar diff. rad. [W/m2], accumulated or mean since model start 
                                  !! _a means average values if lflux_avg=.TRUE.
                                  !! and accumulated values if lflux_avg=.FALSE., default is .FALSE.
-
+      &  snowlmt     (:,:),    & !! height of snowfall limit above MSL
+      &  drag_u_grid (:,:),    & !! zonal resolved surface stress [N/m2]
+      &  drag_v_grid (:,:),    & !! meridional resolved surface stress [N/m2]
+      &  adrag_u_grid(:,:),    & !! zonal resolved surface stress, accumulated or mean since model start
+      &  adrag_v_grid(:,:),    & !! meridional resolved surface stress, accumulated or mean since model start
+      &  str_u_sso   (:,:),    & !! zonal sso surface stress [N/m2]
+      &  str_v_sso   (:,:),    & !! meridional sso surface stress [N/m2]
+      &  astr_u_sso  (:,:),    & !! zonal sso surface stress, accumulated or mean since model start
+      &  astr_v_sso  (:,:)       !! meridional sso surface stress, accumulated or mean since model start
 
 
 
@@ -348,8 +366,17 @@ MODULE mo_nwp_phy_types
       rh(:,:,:)               !> relative humidity
 
     ! Buffer field needed when vertical nesting is combined with a reduced radiation
-    ! grid and processor splitting
+    ! grid and latm_above_top = .TRUE.
     REAL(wp), POINTER :: buffer_rrg(:,:,:)
+
+    ! Buffer field needed for RTTOV calculations on a vertical nested grid
+    REAL(wp), POINTER :: buffer_rttov(:,:,:)
+
+    ! pointer to satellite images (all images in one array):
+    REAL(wp), POINTER    :: synsat_arr(:,:,:)
+
+    ! pointers to satellite images (list of 2D slices)
+    TYPE (t_rttov_image), ALLOCATABLE :: synsat_image(:)
 
     !> Special 1D and 0D diagnostics for LES runs
     REAL(wp), ALLOCATABLE :: &
