@@ -456,6 +456,7 @@ case "$ac_sitename" in
                 queue         = compute
                 case "$fortran_compiler" in
                     intel*)
+                        load_modules    =  cdo/default svn/1.8.13   ${load_modules}
                         load_modules    =  intel/14.0.3 ${load_modules}
                         config_compiler = intel
                         CC     = icc
@@ -469,7 +470,7 @@ case "$ac_sitename" in
                         DEBUG_FLAGS = -debug-parameters -debug -g -O0
                         STD_FLAGS   = -ftz -O2 -march=native -fltconsistency
                         HIOPT_FLAGS = -O3 -mkl=sequential  -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded -xHost -vec-report1
-                        FFLAGS      = -fpp -D__LOOP_EXCHANGE
+                        FFLAGS      = -pc64 -fpp -D__LOOP_EXCHANGE
                         F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-$compiler_version

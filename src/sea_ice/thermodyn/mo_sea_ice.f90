@@ -45,7 +45,7 @@ MODULE mo_sea_ice
   USE mo_ocean_nml,           ONLY: no_tracer, limit_seaice, seaice_limit
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, hnull, hmin, hci_layer, &
     &                               i_ice_albedo, leadclose_1, leadclose_2n, use_IceInitialization_fromTemperature, &
-    &                               use_constant_tfreez, use_calculated_ocean_stress, t_heat_base, &
+    &                               use_constant_tfreez, use_calculated_ocean_stress, use_no_flux_gradients, t_heat_base, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
     &                               init_analytic_hs_param
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
@@ -63,7 +63,7 @@ MODULE mo_sea_ice
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
     &                               t_atmos_for_ocean, t_sea_ice_acc, t_sea_ice_budgets
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
-  USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer
+  USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer, set_ice_temp_zero_nogradients
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
@@ -1213,16 +1213,29 @@ CONTAINS
     ! #achim
     SELECT CASE (i_ice_therm)
     CASE (1)
-      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
-            &   Tsurf,          &
-            &   hi,             &
-            &   hs,             &
-            &   Qtop,           &
-            &   Qbot,           &
-            &   SWnet,          &
-            &   nonsolar,       &
-            &   dnonsolardT,    &
-            &   Tfw)
+      IF (use_no_flux_gradients) THEN
+        CALL set_ice_temp_zero_nogradients(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
+              &   Tsurf,          &
+              &   hi,             &
+              &   hs,             &
+              &   Qtop,           &
+              &   Qbot,           &
+              &   SWnet,          &
+              &   nonsolar,       &
+              &   dnonsolardT,    &
+              &   Tfw)
+      ELSE
+        CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
+              &   Tsurf,          &
+              &   hi,             &
+              &   hs,             &
+              &   Qtop,           &
+              &   Qbot,           &
+              &   SWnet,          &
+              &   nonsolar,       &
+              &   dnonsolardT,    &
+              &   Tfw)
+      ENDIF
     CASE (2)
       CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, pdtime, &
             &   Tsurf,          &

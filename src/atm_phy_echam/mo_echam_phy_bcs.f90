@@ -21,7 +21,6 @@
 MODULE mo_echam_phy_bcs
 
   USE mo_kind                       ,ONLY: wp
-  USE mo_math_constants             ,ONLY: pi
 !!$  USE mo_datetime                   ,ONLY: t_datetime, add_time , OPERATOR(==) ! for t_datetime typed variables
   USE mo_datetime                   ,ONLY: t_datetime, add_time
   USE mo_model_domain               ,ONLY: t_patch
@@ -73,7 +72,6 @@ CONTAINS
     &                              patch        ,&! in
     &                              dtadv_loc    ,&! in
     &                              ltrig_rad    ,&! out
-    &                              time_radtran ,&! out
     &                              datetime_radtran) ! out
 
     ! Arguments
@@ -83,7 +81,6 @@ CONTAINS
     TYPE(t_patch)    ,TARGET ,INTENT(in)    :: patch         !< description of grid jg
     REAL(wp)                 ,INTENT(in)    :: dtadv_loc     !< timestep of advection and physics on grid jg
     LOGICAL                  ,INTENT(out)   :: ltrig_rad     !< trigger for radiation transfer computation
-    REAL(wp)                 ,INTENT(out)   :: time_radtran  !< time of day (in radian) at which radiative transfer is computed
     TYPE(t_datetime)         ,INTENT(out)   :: datetime_radtran !< full date and time variable for radiative transfer calculation
 
     ! Local variables
@@ -127,7 +124,6 @@ CONTAINS
       dsec = 0.5_wp*(echam_phy_config%dt_rad - dtadv_loc) ! [s] time increment for zenith angle
       CALL add_time(dsec,0,0,0,datetime_radtran)          ! datetime_radtran = datetime_radtran + dsec
     END IF
-    time_radtran  = 2._wp*pi * datetime_radtran%daytim  ! time of day in radian
 
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step
@@ -144,7 +140,8 @@ CONTAINS
         &                                 prm_field(jg)%lsmask(:,:)         ,&
         &                                 prm_field(jg)%tsfc_tile(:,:,iwtr) ,&
         &                                 prm_field(jg)%seaice(:,:)         ,&
-        &                                 prm_field(jg)%siced(:,:)          )
+        &                                 prm_field(jg)%siced(:,:)          ,&
+        &                                 patch                              )
 
       ! The ice model should be able to handle different thickness classes, 
       ! but for AMIP we ONLY USE one ice class.
@@ -164,7 +161,7 @@ CONTAINS
       !
       ! interpolation weights for linear interpolation
       ! of monthly means onto the radiation time step
-      CALL time_weights_limm(datetime, wi_limm_radt)
+      CALL time_weights_limm(datetime_radtran, wi_limm_radt)
       !
       ! total and spectral solar irradiation at the mean sun earth distance
       IF (isolrad==1) THEN

@@ -164,7 +164,6 @@ CONTAINS
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
     LOGICAL  :: ltrig_rad
-    REAL(wp) :: time_radtran
     TYPE(t_datetime)   :: datetime_radtran !< date and time for radiative transfer calculation
 
     INTEGER  :: return_status
@@ -394,7 +393,6 @@ CONTAINS
       &                        patch        ,&! in
       &                        dtadv_loc    ,&! in
       &                        ltrig_rad    ,&! out
-      &                        time_radtran ,&! out
       &                        datetime_radtran) ! out
 
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
@@ -437,7 +435,6 @@ CONTAINS
         &                  dtadv_loc    ,&! in
         &                  dtadv_loc    ,&! in
         &                  ltrig_rad    ,&! in
-        &                  time_radtran ,&! in
         &                  datetime_radtran) ! in
 
     END DO

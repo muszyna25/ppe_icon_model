@@ -10,7 +10,7 @@ MODULE mo_psrad_lrtm_netcdf
 !!$  USE mo_mpi,       ONLY: p_parallel_io, p_io, p_bcast
 !!$  USE mo_netcdf,    ONLY: io_inq_varid, io_get_vara_double
 !!$  USE mo_io,        ONLY: io_open, io_close, io_read, file_info  
-  USE mo_netcdf_parallel, ONLY: p_nf_open, p_nf_close, &
+  USE mo_netcdf_parallel, ONLY: p_nf_open,             &
     &                           p_nf_inq_varid,        &
     &                           p_nf_get_vara_double,  &
     &                           nf_read, nf_noerr

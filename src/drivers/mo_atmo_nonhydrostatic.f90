@@ -209,13 +209,14 @@ CONTAINS
     DO jg=1,n_dom
       l_pres_msl(jg) = is_variable_in_output(first_output_name_list, var_name="pres_msl") .OR. &
         &              is_variable_in_output(first_output_name_list, var_name="psl_m")
-      l_omega(jg)    = is_variable_in_output(first_output_name_list, var_name="omega")
+      l_omega(jg)    = is_variable_in_output(first_output_name_list, var_name="omega")    .OR. &
+        &              is_variable_in_output(first_output_name_list, var_name="wap_m")
     END DO
     CALL construct_nh_state(p_patch(1:), p_nh_state, p_nh_state_lists, n_timelevels=2, &
       &                     l_pres_msl=l_pres_msl, l_omega=l_omega)
 
     ! Add optional diagnostic variable lists (might remain empty)
-    CALL construct_opt_diag(p_patch(1:), .TRUE.,iforcing==iecham,l_pres_msl=l_pres_msl(1))
+    CALL construct_opt_diag(p_patch(1:), .TRUE.,iforcing==iecham,l_pres_msl=l_pres_msl(1),l_omega=l_omega(1))
 
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom

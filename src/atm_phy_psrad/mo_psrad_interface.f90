@@ -97,12 +97,12 @@ CONTAINS
        & iaero           ,kproma          ,kbdim           ,klev            ,&
        & krow            ,ktrac           ,ktype           ,nb_sw           ,&
        & laland          ,laglac          ,cemiss          ,pmu0            ,&
-       & pgeom1          ,alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,&
+       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif                      ,&
        & alb_nir_dif     ,pp_fl           ,pp_hl           ,pp_sfc          ,&
        & tk_fl           ,tk_hl           ,tk_sfc          ,xm_vap          ,&
        & xm_liq          ,xm_ice          ,cdnc            ,cld_frc         ,&
-       & cld_cvr         ,xm_o3           ,xm_co2          ,xm_ch4          ,&
-       & xm_n2o          ,xm_cfc          ,xm_o2           ,pxtm1           ,&
+       & xm_o3           ,xm_co2          ,xm_ch4                           ,&
+       & xm_n2o          ,xm_cfc          ,xm_o2           ,&!!$pxtm1           ,&
        & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
        & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
        & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&
@@ -126,7 +126,6 @@ CONTAINS
     REAL(WP),INTENT(IN)  ::            &
          cemiss,                       & !< surface emissivity
          pmu0(kbdim),                  & !< mu0 for solar zenith angle
-         pgeom1(kbdim,klev),           & !< geopotential above ground
          alb_vis_dir(kbdim),           & !< surface albedo for vis range and dir light
          alb_nir_dir(kbdim),           & !< surface albedo for NIR range and dir light
          alb_vis_dif(kbdim),           & !< surface albedo for vis range and dif light
@@ -142,14 +141,13 @@ CONTAINS
          xm_ice(kbdim,klev),           & !< specific ice content in g/g
          cdnc(kbdim,klev),             & !< cloud nuclei concentration
          cld_frc(kbdim,klev),          & !< fractional cloud cover
-         cld_cvr(kbdim),               & !< total cloud cover in m2/m2
          xm_o3(kbdim,klev),            & !< o3  mass mixing ratio
          xm_co2(kbdim,klev),           & !< co2 mass mixing ratio
          xm_ch4(kbdim,klev),           & !< ch4 mass mixing ratio
          xm_n2o(kbdim,klev),           & !< n2o mass mixing ratio
          xm_cfc(kbdim,klev,2),         & !< cfc volume mixing ratio
-         xm_o2(kbdim,klev),            & !< o2  mass mixing ratio
-         pxtm1(kbdim,klev,ktrac)         !< tracer mass mixing ratios
+         xm_o2(kbdim,klev)!!$,            & !< o2  mass mixing ratio
+!!$         pxtm1(kbdim,klev,ktrac)         !< tracer mass mixing ratios
 
     REAL (wp), INTENT (OUT) ::         &
          flx_uplw    (kbdim,klev+1),   & !<   upward LW flux profile, all sky
@@ -167,7 +165,7 @@ CONTAINS
          par_dff_frc(kbdim)              !< Diffuse fraction of downward surface PAR
 
     ! -------------------------------------------------------------------------------------
-    INTEGER  :: jk, jl, jp, jkb,          & !< loop indicies
+    INTEGER  :: jk, jl, jkb,              & !< loop indicies
          icldlyr(kbdim,klev)                !< index for clear or cloudy
 
     REAL(wp) ::                           &
@@ -182,7 +180,6 @@ CONTAINS
     REAL(wp) ::                             &
          col_dry_vr(kbdim,klev),           & !< number of molecules/cm2 of
          pm_fl_vr  (kbdim,klev),           & !< full level pressure [mb] 
-         pm_hl_vr  (kbdim,klev+1),         & !< half level pressure [mb] 
          tk_fl_vr  (kbdim,klev),           & !< full level temperature [K]
          tk_hl_vr  (kbdim,klev+1),         & !< half level temperature [K]
          cdnc_vr   (kbdim,klev),           & !< cloud nuclei concentration
@@ -249,7 +246,6 @@ CONTAINS
     !
 !IBM* ASSERT(NODEPS)
     DO jl = 1, kproma
-      pm_hl_vr(jl,klev+1) = 0.01_wp*pp_hl(jl,1)
       tk_hl_vr(jl,klev+1) = tk_hl(jl,1)
       pm_sfc(jl)          = 0.01_wp*pp_sfc(jl)
     END DO
@@ -261,7 +257,6 @@ CONTAINS
         !
         ! --- thermodynamic arrays
         !
-        pm_hl_vr(jl,jk) = 0.01_wp*pp_hl(jl,jkb+1)
         pm_fl_vr(jl,jk) = 0.01_wp*pp_fl(jl,jkb)
         tk_hl_vr(jl,jk) = tk_hl(jl,jkb+1)
         tk_fl_vr(jl,jk) = tk_fl(jl,jkb)

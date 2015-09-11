@@ -41,7 +41,7 @@ MODULE mo_o3_util
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_o3_gems_data,         ONLY: rghg7
   USE mo_physical_constants,   ONLY: amd,amo3
-  USE mo_time_interpolation_weights,   ONLY: wi=>wi_limm_radt
+  USE mo_time_interpolation_weights,   ONLY: wi=>wi_limm
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone
   
   IMPLICIT NONE

@@ -889,6 +889,7 @@ run/exp.yac_nh_r2b3 -text
 run/exp.yac_r2b3 -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
+run/post.atm_amip_tune -text
 run/post.hat_jww -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
@@ -1345,7 +1346,6 @@ src/atm_phy_echam/mo_cufluxdts.f90 -text
 src/atm_phy_echam/mo_cuinitialize.f90 -text
 src/atm_phy_echam/mo_cumastr.f90 -text
 src/atm_phy_echam/mo_echam_cloud_params.f90 -text
-src/atm_phy_echam/mo_echam_conv_constants.f90 -text
 src/atm_phy_echam/mo_echam_convect_tables.f90 -text
 src/atm_phy_echam/mo_echam_phy_bcs.f90 -text
 src/atm_phy_echam/mo_echam_phy_cleanup.f90 -text
@@ -1526,6 +1526,7 @@ src/configure_model/mo_atm_phy_nwp_config.f90 -text
 src/configure_model/mo_coupling_config.f90 -text
 src/configure_model/mo_diffusion_config.f90 -text
 src/configure_model/mo_dynamics_config.f90 -text
+src/configure_model/mo_echam_cloud_config.f90 -text
 src/configure_model/mo_echam_conv_config.f90 -text
 src/configure_model/mo_echam_phy_config.f90 -text
 src/configure_model/mo_ensemble_pert_config.f90 -text
@@ -1656,6 +1657,7 @@ src/namelists/mo_coupling_nml.f90 -text
 src/namelists/mo_dbg_nml.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
+src/namelists/mo_echam_cloud_nml.f90 -text
 src/namelists/mo_echam_conv_nml.f90 -text
 src/namelists/mo_echam_phy_nml.f90 -text
 src/namelists/mo_ensemble_pert_nml.f90 -text
