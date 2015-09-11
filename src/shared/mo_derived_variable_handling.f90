@@ -15,8 +15,7 @@ MODULE mo_derived_variable_handling
   USE mo_impl_constants, ONLY: vname_len, success, max_char_length
   USE mo_name_list_output_types, ONLY: t_output_name_list
   USE mo_mpi, ONLY: my_process_is_stdio
-  USE mo_var_list_element, ONLY:&
-       level_type_ml, level_type_pl, level_type_hl, level_type_il
+  USE mo_var_list_element, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_name_list_output_config, ONLY: first_output_name_list
   USE mo_var_list, ONLY: nvar_lists, max_var_lists, var_lists, new_var_list,&
        total_number_of_variables, collect_group, get_var_timelevel,&
@@ -39,6 +38,10 @@ MODULE mo_derived_variable_handling
   PUBLIC :: finish_mean_stream
   PUBLIC :: collect_meanstream_variables
   PUBLIC :: mean_stream_list
+
+  TYPE :: t_accumulation_pair
+    TYPE(t_list_element), POINTER :: source, destination
+  END TYPE t_accumulation_pair
 
 !!!  SUBROUTINE collect_target_variables()
 !!!  END SUBROUTINE collect_target_variables
@@ -64,7 +67,10 @@ CONTAINS
     DO WHILE(my_iter%next(my_buffer))
       SELECT TYPE(my_buffer)
       TYPE is (t_list_element)
-        PRINT *,'t_list_element:varname:',my_buffer%field%info%name
+        PRINT *,'t_list_element:varname:',         trim(my_buffer%field%info%name)
+      TYPE is (t_accumulation_pair)
+        PRINT *,'t_accumulation_pair:source     :',trim(my_buffer%source%field%info%name)
+        PRINT *,'t_accumulation_pair:destination:',trim(my_buffer%destination%field%info%name)
       CLASS default
         PRINT *,' default class print  :'
         CALL class_print(my_buffer)
@@ -125,7 +131,7 @@ CONTAINS
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     TYPE (t_output_name_list), POINTER :: p_onl
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
-    TYPE(t_list_element), POINTER :: element
+    TYPE(t_list_element), POINTER :: src_element, dest_element
     REAL(wp), POINTER :: ptr(:,:,:)  !< reference to field
     TYPE(vector) :: keys 
     integer :: inml 
@@ -133,6 +139,7 @@ CONTAINS
     class(*), pointer :: buf
     type(vector_iterator) :: iter
     integer :: shape3d(3)
+    type(t_accumulation_pair) :: accumulation_pair
 
     nvars = 1
     ntotal_vars = total_number_of_variables()
@@ -188,32 +195,28 @@ CONTAINS
 !!!                j = (periods_counter-1)*nvars + i
      
                 ! find existing variable
-                element => find_list_element (src_varlist1, TRIM(varlist(i)))
-                IF (.NOT. ASSOCIATED (element)) element => &
+                src_element => find_list_element (src_varlist1, TRIM(varlist(i)))
+                IF (.NOT. ASSOCIATED (src_element)) src_element => &
                      find_list_element (src_varlist2, TRIM(varlist(i)))
-                IF (.NOT. ASSOCIATED (element)) CALL finish( "collect_meanStream_variables", "Variable not found!")
+                IF (.NOT. ASSOCIATED (src_element)) CALL finish( "collect_meanStream_variables", "Variable not found!")
                 ! add new variable, copy the meta-data from the existing variable
 
               CALL add_var( mean_stream_list, &
                 & get_accumulation_varname(varlist(i),p_onl), &
-                & ptr, element%field%info%hgrid, element%field%info%vgrid, &
-                & element%field%info%cf, element%field%info%grib2,  &
-                & ldims=element%field%info%used_dimensions(1:element%field%info%ndims), &
-                & post_op=element%field%info%post_op, &
+                & ptr, src_element%field%info%hgrid, src_element%field%info%vgrid, &
+                & src_element%field%info%cf, src_element%field%info%grib2,  &
+                & ldims=src_element%field%info%used_dimensions(1:src_element%field%info%ndims), &
+                & post_op=src_element%field%info%post_op, &
                 & loutput=.TRUE., lrestart=.FALSE., &
-                & var_class=element%field%info%var_class )
-                CALL print_green('var:'//TRIM(element%field%info%name)//'---')
-                CALL meanVariables(inml)%add(element)
-!!!                CALL meanVariables%add(element%field%info%name)
+                & var_class=src_element%field%info%var_class )
+              dest_element => find_list_element(mean_stream_list,get_accumulation_varname(varlist(i),p_onl))
+              CALL print_green('var:'//TRIM(src_element%field%info%name)//'---')
+              CALL meanVariables(inml)%add(t_accumulation_pair(src_element,dest_element))
+              CALL meanVariables(inml)%add(dest_element)
+              CALL meanVariables(inml)%add(src_element)
               end if
             end do
 
-            ! add stuff to map
-!!!            IF ( my_process_is_stdio() ) THEN
-!!!              CALL print_aqua('collected variables:{{{{{{{{{{{{{{{{{{{{{{{{{{{')
-!!!              CALL meanVariables%PRINT()
-!!!              CALL print_aqua('}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}')
-!!!            END IF
             call meanMap%add(trim(p_onl%output_interval(1)),meanVariables(inml),copy=.true.)
           END IF
         END DO
