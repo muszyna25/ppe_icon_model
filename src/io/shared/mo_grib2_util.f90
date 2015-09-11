@@ -327,6 +327,105 @@ CONTAINS
   END SUBROUTINE set_GRIB2_tile_keys
 
 
+  !>
+  !! Set ART-specific keys
+  !!
+  !! Set GRIB2 keys which are specific to ART-variables.
+  !!
+  !! @par Revision History
+  !! Initial revision by Jochen Foerstner, DWD (2015-09-07)
+  !!
+  SUBROUTINE set_GRIB2_art_keys(vlistID, varID, info)
+
+    INTEGER,                INTENT(IN) :: vlistID, varID
+    TYPE (t_var_metadata),  INTENT(IN) :: info
+
+#ifdef __ICON_ART
+    ! local
+    INTEGER      :: productDefinitionTemplate
+    INTEGER      :: numberOfDistributionFunctionParameter
+    INTEGER, ALLOCATABLE ::  &
+      &  scaledValueOfDistributionFunctionParameter(:),  &
+      &  scaledFactorOfDistributionFunctionParameter(:)
+
+  !----------------------------------------------------------------
+
+    ! change product definition template
+    SELECT CASE(TRIM(info%tracer%tracer_class))
+    CASE ('volcash')
+      productDefinitionTemplate = 57
+      numberOfDistributionFunctionParameter = 1
+    CASE ('volcash_diag')
+      productDefinitionTemplate = 40
+      numberOfDistributionFunctionParameter = 0
+    CASE ('dust', 'dust_number')
+      productDefinitionTemplate = 57
+      numberOfDistributionFunctionParameter = 2
+    CASE ('dust_diag')
+      productDefinitionTemplate = 48
+      numberOfDistributionFunctionParameter = 0
+    CASE DEFAULT
+      ! skip inapplicable fields
+      RETURN
+    END SELECT
+
+    ! set product definition template
+    CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, productDefinitionTemplate)
+
+    IF ( numberOfDistributionFunctionParameter /= 0 ) THEN
+      ALLOCATE( scaledValueOfDistributionFunctionParameter(numberOfDistributionFunctionParameter),    &
+        &       scaledFactorOfDistributionFunctionParameter(numberOfDistributionFunctionParameter) )
+    END IF
+    
+    SELECT CASE(TRIM(info%tracer%tracer_class))
+
+    CASE ('volcash')
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 1)
+      CALL vlistDefVarIntKey(vlistID, varID, "numberOfModeOfDistribution", 6)
+      CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter", numberOfDistributionFunctionParameter)
+      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
+      CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%modeNumber)
+      scaledValueOfDistributionFunctionParameter(1) = info%tracer%diameter
+      scaledFactorOfDistributionFunctionParameter(1) = 6
+      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",     &
+        &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter(:))
+      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledFactorOfDistributionFunctionParameter",    &
+        &   numberOfDistributionFunctionParameter, scaledFactorOfDistributionFunctionParameter(:))
+
+    CASE ('volcash_diag')
+      
+    CASE ('dust', 'dust_number')
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 7)
+      CALL vlistDefVarIntKey(vlistID, varID, "numberOfModeOfDistribution", 3)
+      CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter", numberOfDistributionFunctionParameter)
+      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62001)
+      CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%modeNumber)
+      scaledValueOfDistributionFunctionParameter(1) = info%tracer%variance
+      scaledFactorOfDistributionFunctionParameter(1) = 1
+      scaledValueOfDistributionFunctionParameter(2) = 2650
+      scaledFactorOfDistributionFunctionParameter(2) = 0
+      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",     &
+        &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter(:))
+      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledFactorOfDistributionFunctionParameter",    &
+        &   numberOfDistributionFunctionParameter, scaledFactorOfDistributionFunctionParameter(:))
+      IF (TRIM(info%tracer%tracer_class) == 'dust') THEN
+        CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
+      END IF
+      
+    CASE ('dust_diag')
+      
+    END SELECT
+
+    IF ( numberOfDistributionFunctionParameter /= 0 ) THEN
+      DEALLOCATE( scaledValueOfDistributionFunctionParameter,    &
+        &       scaledFactorOfDistributionFunctionParameter )
+    END IF
+    
+#endif
+
+  END SUBROUTINE set_GRIB2_art_keys
+
+
   !------------------------------------------------------------------------------------------------
   !> Set additional, time-dependent GRIB2 keys
   !!  
