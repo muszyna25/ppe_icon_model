@@ -61,9 +61,9 @@ MODULE mo_io_restart
   USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
   USE mo_cdi_constants
+  USE mo_cf_convention
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator
-  USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_util_uuid,             ONLY: t_uuid
@@ -364,52 +364,16 @@ CONTAINS
     INTEGER,          INTENT(in) :: nlev_snow
     INTEGER,          INTENT(in) :: nice_class
     !
-    CHARACTER(len=256) :: executable
-    CHARACTER(len=256) :: user_name
-    CHARACTER(len=256) :: os_name
-    CHARACTER(len=256) :: host_name
-    CHARACTER(len=256) :: tmp_string
-    CHARACTER(len=  8) :: date_string
-    CHARACTER(len= 10) :: time_string
-
-    INTEGER :: nlena, nlenb, nlenc, nlend
-    !
     IF (lrestart_initialised) RETURN
     !
-    executable = ''
-    user_name  = ''
-    os_name    = ''
-    host_name  = ''
+    ! set CF-Convention required restart attributes
     !
-    CALL get_command_argument(0, executable, nlend)
-    CALL date_and_time(date_string, time_string)
-    !
-    tmp_string = ''
-    CALL util_os_system (tmp_string, nlena)
-    os_name = tmp_string(1:nlena)
-
-    tmp_string = ''
-    CALL util_user_name (tmp_string, nlenb)
-    user_name = tmp_string(1:nlenb)
-
-    tmp_string = ''
-    CALL util_node_name (tmp_string, nlenc)
-    host_name = tmp_string(1:nlenc)
-    !
-    ! set CD-Convention required restart attributes
-    !
-    CALL set_restart_attribute('title',       &
-         'ICON simulation')
-    CALL set_restart_attribute('institution', &
-         'Max Planck Institute for Meteorology/Deutscher Wetterdienst')
-    CALL set_restart_attribute('source',      &
-         model_name//'-'//model_version)
-    CALL set_restart_attribute('history',     &
-         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
-    CALL set_restart_attribute('references',  &
-         'see MPIM/DWD publications')
-    CALL set_restart_attribute('comment',     &
-         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
+    CALL set_restart_attribute('title',       TRIM(cf_global_info%title))
+    CALL set_restart_attribute('institution', TRIM(cf_global_info%institution))
+    CALL set_restart_attribute('source',      TRIM(cf_global_info%source))
+    CALL set_restart_attribute('history',     TRIM(cf_global_info%history))
+    CALL set_restart_attribute('references',  TRIM(cf_global_info%references))
+    CALL set_restart_attribute('comment',     TRIM(cf_global_info%comment))
     !
     ! define horizontal grids
     !
@@ -477,7 +441,8 @@ CONTAINS
     INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
     REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:)
     !
-    CHARACTER(len=64) :: attribute_name, text_attribute
+    CHARACTER(len=64) :: attribute_name
+    CHARACTER(len=256) :: text_attribute
     REAL(wp) :: real_attribute
     INTEGER :: int_attribute
     LOGICAL :: bool_attribute
