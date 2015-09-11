@@ -22,7 +22,7 @@ MODULE mo_var_metadata_types
 
 
   ! maximum string length for variable names
-  INTEGER, PARAMETER :: VARNAME_LEN = 32
+  INTEGER, PARAMETER :: VARNAME_LEN = 256
 
   ! List of variable groups
   ! 

@@ -183,7 +183,7 @@ MODULE mo_ocean_model
 !       IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
       CALL parse_variable_groups()
       CALL init_mean_stream(ocean_patch_3d%p_patch_2d(1))
-      CALL collect_meanstream_variables(ocean_default_list, ocean_restart_list)
+      CALL collect_meanstream_variables(ocean_default_list, ocean_restart_list,ocean_patch_3d%p_patch_2d(1))
       CALL setcalendar(proleptic_gregorian)
       ! compute sim_start, sim_end
       CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)

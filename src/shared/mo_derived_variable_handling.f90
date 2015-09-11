@@ -9,6 +9,8 @@ MODULE mo_derived_variable_handling
 
   USE mo_kind, ONLY: wp
   USE mo_model_domain, ONLY: t_patch
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_ocean_nml,           ONLY: n_zlev
   USE mo_var_metadata_types, ONLY: varname_len
   USE mo_impl_constants, ONLY: vname_len, success, max_char_length
   USE mo_name_list_output_types, ONLY: t_output_name_list
@@ -18,7 +20,7 @@ MODULE mo_derived_variable_handling
   USE mo_name_list_output_config, ONLY: first_output_name_list
   USE mo_var_list, ONLY: nvar_lists, max_var_lists, var_lists, new_var_list,&
        total_number_of_variables, collect_group, get_var_timelevel,&
-       get_var_name, default_var_list_settings
+       get_var_name, default_var_list_settings, add_var
   USE mo_linked_list, ONLY: find_list_element, t_var_list, t_list_element
   USE mo_exception, ONLY: finish, message, message_text
 
@@ -112,11 +114,12 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE collect_meanstream_variables(src_varlist1, src_varlist2)
+  SUBROUTINE collect_meanstream_variables(src_varlist1, src_varlist2,patch)
     TYPE(t_var_list)   :: src_varlist1
     TYPE(t_var_list)   :: src_varlist2
-    CHARACTER(LEN=*), PARAMETER :: routine = &
-         modname//"::collect_meanStream_variables"
+    type(t_patch)      :: patch
+
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::collect_meanStream_variables"
     CHARACTER(LEN=VARNAME_LEN) :: varname, mean_varname, message_text
     INTEGER :: nvars, i_typ, ierrstat, i, ntotal_vars, j, varlist_length
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
@@ -129,6 +132,7 @@ CONTAINS
     type(vector) :: vector_buffer, value_buffer
     class(*), pointer :: buf
     type(vector_iterator) :: iter
+    integer :: shape3d(3)
 
     nvars = 1
     ntotal_vars = total_number_of_variables()
@@ -167,6 +171,7 @@ CONTAINS
           IF (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
           varlist((nvars+1):ntotal_vars) = " "
           
+          shape3d = (/nproma,n_zlev,patch%alloc_cell_blocks/)
           IF (i_typ == level_type_ml) THEN
           write (0,*)'INML:',inml
           IF ( meanMap%has_key(TRIM(p_onl%output_interval(1))) ) THEN
@@ -186,15 +191,17 @@ CONTAINS
                 element => find_list_element (src_varlist1, TRIM(varlist(i)))
                 IF (.NOT. ASSOCIATED (element)) element => &
                      find_list_element (src_varlist2, TRIM(varlist(i)))
-                IF (.NOT. ASSOCIATED (element)) CALL finish(&
-                     "collect_meanStream_variables", "Variable not found!")
+                IF (.NOT. ASSOCIATED (element)) CALL finish( "collect_meanStream_variables", "Variable not found!")
                 ! add new variable, copy the meta-data from the existing variable
 
-!!!                CALL add_var(mean_stream_list, TRIM(varlist(i)), ptr,&
-!!!                     element%field%info%hgrid, dst_axis, element%field%info%cf,&
-!!!                     element%field%info%grib2, ldims=shape3d, &
-!!!                     post_op=element%field%info%post_op, loutput=.TRUE.,&
-!!!                     lrestart=.FALSE., var_class=element%field%info%var_class)
+              CALL add_var( mean_stream_list, &
+                & get_accumulation_varname(varlist(i),p_onl), &
+                & ptr, element%field%info%hgrid, element%field%info%vgrid, &
+                & element%field%info%cf, element%field%info%grib2,  &
+                & ldims=element%field%info%used_dimensions(1:element%field%info%ndims), &
+                & post_op=element%field%info%post_op, &
+                & loutput=.TRUE., lrestart=.FALSE., &
+                & var_class=element%field%info%var_class )
                 CALL print_green('var:'//TRIM(element%field%info%name)//'---')
                 CALL meanVariables(inml)%add(element)
 !!!                CALL meanVariables%add(element%field%info%name)
@@ -214,23 +221,23 @@ CONTAINS
       END IF
       p_onl => p_onl%next
     END DO
-IF ( my_process_is_stdio() ) THEN
-  call print_aqua('collected map {{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{')
-  keys = meanMap%get_keys()
-  call keys%print()
-  value_buffer = meanMap%get_values()
-  iter = value_buffer%each()
+    IF ( my_process_is_stdio() ) THEN
+      call print_aqua('collected map {{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{')
+      keys = meanMap%get_keys()
+      call keys%print()
+      value_buffer = meanMap%get_values()
+      iter = value_buffer%each()
 
-    DO WHILE(iter%next(buf))
-      SELECT TYPE(buf)
-      type is (vector)
-        call var_print(buf)
-      CLASS default
-      call class_print(buf)
-    end select
-    end do
-  call print_aqua('}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}')
-END IF
+        DO WHILE(iter%next(buf))
+          SELECT TYPE(buf)
+          type is (vector)
+            call var_print(buf)
+          CLASS default
+          call class_print(buf)
+        end select
+        end do
+      call print_aqua('}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}')
+    END IF
     !
     !1. Collect variables uniq by the output interval
     !   this will allow collective events for all variables in this group
@@ -241,4 +248,19 @@ END IF
     !
     !write(0,*)'varlist:',varlist
   END SUBROUTINE collect_meanStream_variables
+  FUNCTION get_accumulation_varname(varname,output_setup)
+    CHARACTER(LEN=VARNAME_LEN)  :: varname
+    type(t_output_name_list) :: output_setup
+
+    CHARACTER(LEN=VARNAME_LEN)  :: get_accumulation_varname
+    CHARACTER(LEN=1)            :: separator
+
+    separator = '_'
+    get_accumulation_varname = &
+      &TRIM(varname)//separator//&
+      &trim(output_setup%operation)//separator//&
+      &TRIM(output_setup%output_interval(1))//separator//&
+      &trim(output_setup%output_start(1))
+
+  END FUNCTION get_accumulation_varname
 END MODULE mo_derived_variable_handling
