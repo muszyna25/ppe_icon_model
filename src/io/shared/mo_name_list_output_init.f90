@@ -1874,7 +1874,7 @@ CONTAINS
           tl = get_var_timelevel(element%field)
 
           ! Check for matching name
-          IF(TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
+          IF(tolower(varlist(ivar)) /= tolower(get_var_name(element%field))) CYCLE
 
           ! Found it, add it to the variable list of output file
           p_var_desc => var_desc
@@ -2642,7 +2642,11 @@ CONTAINS
       ENDIF
 
       ! Search name mapping for name in NetCDF file
-      mapped_name = TRIM(dict_get(out_varnames_dict, info%name, default=info%name))
+      IF (info%cf%short_name /= '') THEN
+        mapped_name = dict_get(out_varnames_dict, info%cf%short_name, default=info%cf%short_name)
+      ELSE
+        mapped_name = dict_get(out_varnames_dict, info%name, default=info%name)
+      END IF
 
       ! note that an explicit call of vlistDefVarTsteptype is obsolete, since
       ! isteptype is already defined via vlistDefVar

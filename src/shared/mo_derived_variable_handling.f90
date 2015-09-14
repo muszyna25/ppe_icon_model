@@ -211,9 +211,15 @@ CONTAINS
               ! copy the source variable to destination pointer
               CALL copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element, ptr)
               dest_element => find_list_element(mean_stream_list,get_accumulation_varname(varlist(i),p_onl))
+              !update the nc-shortname to internal name of the source variable
+              dest_element%field%info%cf%short_name = src_element%field%info%name
               CALL print_green('var:'//TRIM(src_element%field%info%name)//'---')
               CALL meanVariables(inml)%add(src_element) ! source element comes first
               CALL meanVariables(inml)%add(dest_element)
+              ! replace existince varname in output_nml with the meanStream Variable
+              in_varlist(i) = trim(dest_element%field%info%name)
+              write (0,*)'in_varlist  :|',in_varlist(i),'|'
+              write (0,*)'dest_element:|',dest_element%field%info%name,'|'
               end if
             end do
 
