@@ -1279,7 +1279,7 @@ CONTAINS
     acc%pres     = acc%pres     *xfactor
     acc%pres_ifc = acc%pres_ifc *xfactor
     acc%pres_sfc = acc%pres_sfc *xfactor
-    IF (acc%l_pres_msl) acc%pres_msl = acc%pres_msl *xfactor
+    !IF (acc%l_pres_msl) acc%pres_msl = acc%pres_msl *xfactor
     IF (acc%l_omega   ) acc%omega    = acc%omega    *xfactor
     acc%rho      = acc%rho      *xfactor
     !WRITE(message_text,'(a,i2)') '(    ): numberOfAccumulations:',acc%numberOfAccumulations
