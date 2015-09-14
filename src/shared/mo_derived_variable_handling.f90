@@ -40,6 +40,7 @@ MODULE mo_derived_variable_handling
   PUBLIC :: collect_meanstream_variables
   PUBLIC :: mean_stream_list
   PUBLIC :: copy_var_to_list
+  PUBLIC :: perform_accumulation
 
   TYPE :: t_accumulation_pair
     TYPE(t_list_element), POINTER :: source, destination
@@ -187,11 +188,9 @@ CONTAINS
             !meanVariables = vector()
           END IF
             DO i=1,nvars
-    IF ( my_process_is_stdio() ) write (0,*)'nvars: i = ',i,' name = "',trim(varlist(i)),'"'
               ! collect data variables only, there variables names like
               ! 'grid:clon' which should be excluded
               IF ( INDEX(varlist(i),':') < 1 ) THEN
-    IF ( my_process_is_stdio() ) write (0,*)'nvars: i = ',i,' name = "',trim(varlist(i)),'"'
 !!!                j = (periods_counter-1)*nvars + i
      
                 ! find existing variable
@@ -282,4 +281,53 @@ CONTAINS
       &trim(output_setup%output_start(1))
 
   END FUNCTION get_accumulation_varname
+
+  SUBROUTINE accumulation_add(source, destination)
+    type(t_list_element) , INTENT(IN)    :: source
+    type(t_list_element) , INTENT(INOUT) :: destination
+
+    destination%field%r_ptr = destination%field%r_ptr + source%field%r_ptr
+  END SUBROUTINE accumulation_add
+
+  SUBROUTINE perform_accumulation
+    INTEGER :: key_counter,i
+    INTEGER :: element_counter
+    class(*),pointer :: elements,check_src, check_dest
+    type(t_list_element), pointer :: source, destination
+    type(vector_iterator) :: value_iterator
+    type(vector) :: values
+
+    values = meanMap%get_values()
+
+    do i=1, values%length()
+      elements => values%get_item(i)
+      select type(elements)
+      type is (vector)
+        do element_counter=1,elements%length(),2
+          check_src => elements%get_item(element_counter)
+          check_dest => elements%get_item(element_counter+1)
+          select type (check_src)
+          type is (t_list_element)
+            source      => check_src
+            IF ( my_process_is_stdio() ) write(0,*)'sourceName:',trim(source%field%info%name)
+          end select
+          select type (check_dest)
+          type is (t_list_element)
+            destination => check_dest
+            IF ( my_process_is_stdio() ) write(0,*)'destName:',trim(destination%field%info%name)
+          end select
+        end do
+
+        select type (check_src)
+        type is (t_list_element)
+          select type (check_dest)
+          type is (t_list_element)
+            CALL accumulation_add(check_src, check_dest)
+          end select
+        end select
+
+      end select 
+    end do
+
+  END SUBROUTINE perform_accumulation
 END MODULE mo_derived_variable_handling

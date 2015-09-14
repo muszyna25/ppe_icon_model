@@ -74,7 +74,7 @@ cat > ${ocean_namelist} << EOF
   mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .true.
   output_grid      = .TRUE.
-  ml_varlist       =  'u','v','h','group:ocean_monitor'
+  ml_varlist       =  'u','v','h','group:ocean_monitor','volume_Global'
 /
 &output_nml
   output_filename  = "${EXPNAME}_mean_1h"
@@ -113,7 +113,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .true.
   operation        = "mean"
   output_grid      = .TRUE.
-  ml_varlist       =  'u','v','h','volume_Global'
+  ml_varlist       =  'u','v','h','volume_Global','group:ocean_monitor'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
