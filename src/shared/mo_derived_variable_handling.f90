@@ -38,10 +38,17 @@ MODULE mo_derived_variable_handling
   PUBLIC :: finish_mean_stream
   PUBLIC :: collect_meanstream_variables
   PUBLIC :: mean_stream_list
+  PUBLIC :: copy_var_to_list
 
   TYPE :: t_accumulation_pair
     TYPE(t_list_element), POINTER :: source, destination
   END TYPE t_accumulation_pair
+
+  interface copy_var_to_list
+    module procedure copy_var3d_to_list
+    module procedure copy_var2d_to_list
+    module procedure copy_var1d_to_list
+  end interface copy_var_to_list
 
 !!!  SUBROUTINE collect_target_variables()
 !!!  END SUBROUTINE collect_target_variables
@@ -201,14 +208,7 @@ CONTAINS
                 IF (.NOT. ASSOCIATED (src_element)) CALL finish( "collect_meanStream_variables", "Variable not found!")
                 ! add new variable, copy the meta-data from the existing variable
 
-              CALL add_var( mean_stream_list, &
-                & get_accumulation_varname(varlist(i),p_onl), &
-                & ptr, src_element%field%info%hgrid, src_element%field%info%vgrid, &
-                & src_element%field%info%cf, src_element%field%info%grib2,  &
-                & ldims=src_element%field%info%used_dimensions(1:src_element%field%info%ndims), &
-                & post_op=src_element%field%info%post_op, &
-                & loutput=.TRUE., lrestart=.FALSE., &
-                & var_class=src_element%field%info%var_class )
+              CALL copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element, ptr)
               dest_element => find_list_element(mean_stream_list,get_accumulation_varname(varlist(i),p_onl))
               CALL print_green('var:'//TRIM(src_element%field%info%name)//'---')
               CALL meanVariables(inml)%add(t_accumulation_pair(src_element,dest_element))
@@ -251,6 +251,48 @@ CONTAINS
     !
     !write(0,*)'varlist:',varlist
   END SUBROUTINE collect_meanStream_variables
+  SUBROUTINE copy_var3d_to_list(list,name,source_element,ptr)
+    TYPE(t_var_list) :: list
+    CHARACTER(LEN=VARNAME_LEN) :: name
+    TYPE(t_list_element),POINTER :: source_element
+    REAL(wp), POINTER           :: ptr(:,:,:)
+    CALL add_var( list, &
+      & name, &
+      & ptr, source_element%field%info%hgrid, source_element%field%info%vgrid, &
+      & source_element%field%info%cf, source_element%field%info%grib2,  &
+      & ldims=source_element%field%info%used_dimensions(1:source_element%field%info%ndims), &
+      & post_op=source_element%field%info%post_op, &
+      & loutput=.TRUE., lrestart=.FALSE., &
+      & var_class=source_element%field%info%var_class )
+  END SUBROUTINE copy_var3d_to_list
+  SUBROUTINE copy_var2d_to_list(list,name,source_element,ptr)
+    TYPE(t_var_list) :: list
+    CHARACTER(LEN=VARNAME_LEN) :: name
+    TYPE(t_list_element),POINTER :: source_element
+    REAL(wp), POINTER           :: ptr(:,:)
+    CALL add_var( list, &
+      & name, &
+      & ptr, source_element%field%info%hgrid, source_element%field%info%vgrid, &
+      & source_element%field%info%cf, source_element%field%info%grib2,  &
+      & ldims=source_element%field%info%used_dimensions(1:source_element%field%info%ndims), &
+      & post_op=source_element%field%info%post_op, &
+      & loutput=.TRUE., lrestart=.FALSE., &
+      & var_class=source_element%field%info%var_class )
+  END SUBROUTINE copy_var2d_to_list
+  SUBROUTINE copy_var1d_to_list(list,name,source_element,ptr)
+    TYPE(t_var_list) :: list
+    CHARACTER(LEN=VARNAME_LEN) :: name
+    TYPE(t_list_element),POINTER :: source_element
+    REAL(wp), POINTER           :: ptr(:)
+    CALL add_var( list, &
+      & name, &
+      & ptr, source_element%field%info%hgrid, source_element%field%info%vgrid, &
+      & source_element%field%info%cf, source_element%field%info%grib2,  &
+      & ldims=source_element%field%info%used_dimensions(1:source_element%field%info%ndims), &
+      & post_op=source_element%field%info%post_op, &
+      & loutput=.TRUE., lrestart=.FALSE., &
+      & var_class=source_element%field%info%var_class )
+  END SUBROUTINE copy_var1d_to_list
   FUNCTION get_accumulation_varname(varname,output_setup)
     CHARACTER(LEN=VARNAME_LEN)  :: varname
     type(t_output_name_list) :: output_setup
