@@ -309,22 +309,22 @@ CONTAINS
           select type (check_src)
           type is (t_list_element)
             source      => check_src
-            IF ( my_process_is_stdio() ) write(0,*)'sourceName:',trim(source%field%info%name)
           end select
           select type (check_dest)
           type is (t_list_element)
             destination => check_dest
-            IF ( my_process_is_stdio() ) write(0,*)'destName:',trim(destination%field%info%name)
+          end select
+
+          select type (check_src)
+          type is (t_list_element)
+            select type (check_dest)
+            type is (t_list_element)
+              IF ( my_process_is_stdio() ) write(0,*)'sourceName:',trim(source%field%info%name)
+              IF ( my_process_is_stdio() ) write(0,*)'destName:',trim(destination%field%info%name)
+              CALL accumulation_add(source, destination)
+            end select
           end select
         end do
-
-        select type (check_src)
-        type is (t_list_element)
-          select type (check_dest)
-          type is (t_list_element)
-            CALL accumulation_add(check_src, check_dest)
-          end select
-        end select
 
       end select 
     end do
