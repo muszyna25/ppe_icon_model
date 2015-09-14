@@ -208,11 +208,12 @@ CONTAINS
                 IF (.NOT. ASSOCIATED (src_element)) CALL finish( "collect_meanStream_variables", "Variable not found!")
                 ! add new variable, copy the meta-data from the existing variable
 
+              ! copy the source variable to destination pointer
               CALL copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element, ptr)
               dest_element => find_list_element(mean_stream_list,get_accumulation_varname(varlist(i),p_onl))
               CALL print_green('var:'//TRIM(src_element%field%info%name)//'---')
+              CALL meanVariables(inml)%add(src_element) ! source element comes first
               CALL meanVariables(inml)%add(dest_element)
-              CALL meanVariables(inml)%add(src_element)
               end if
             end do
 
