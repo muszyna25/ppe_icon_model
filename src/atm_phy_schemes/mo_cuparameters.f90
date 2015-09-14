@@ -34,7 +34,8 @@ MODULE mo_cuparameters
   USE mo_exception,  ONLY: message_text, message
   USE mo_datetime,   ONLY: rday => rdaylen
   USE mo_nwp_parameters,  ONLY: t_phy_params
-  USE mo_nwp_tuning_config, ONLY: tune_entrorg
+  USE mo_nwp_tuning_config, ONLY: tune_entrorg, tune_rhebc_land, tune_rhebc_ocean, tune_rcucov, &
+                                  tune_texc, tune_qexc
 #endif
 
 #ifdef __GME__
@@ -1051,7 +1052,7 @@ INTEGER(KIND=jpim) :: nulout=6
 
 INTEGER(KIND=jpim) :: jlev
 !INTEGER(KIND=JPIM) :: myrank,ierr,size
-REAL(KIND=jprb) :: zhook_handle, zrhebc_land, zrhebc_ocean, zres_thresh, zrcucov, zfac, ztrans_end
+REAL(KIND=jprb) :: zhook_handle, zres_thresh, zfac, ztrans_end
 !-----------------------------------------------------------------------
 
 IF (lhook) CALL dr_hook('SUCUMF',0,zhook_handle)
@@ -1130,24 +1131,21 @@ rprcon =1.4E-3_JPRB
 
 rcpecons=5.44E-4_JPRB/rg
 rtaumel=5._jprb*3.6E3_JPRB*1.5_JPRB
-! rhebc=0.8_JPRB
-zrhebc_land  = 0.7_JPRB   ! original IFS value: 0.7
-zrhebc_ocean = 0.825_JPRB ! original IFS value: 0.9
-zrcucov      = 0.05_JPRB  ! original IFS value: 0.05
+
 !
 ! resolution-dependent setting of rhebc for mesh sizes below the threshold given by zres_thresh
 zres_thresh = 20.0E3_JPRB   ! 20 km
 ztrans_end  = 1.0E3_JPRB    ! 1 km - end of transition range
-phy_params%rhebc_land  = zrhebc_land
-phy_params%rhebc_ocean = zrhebc_ocean
-phy_params%rcucov      = zrcucov
+phy_params%rhebc_land  = tune_rhebc_land
+phy_params%rhebc_ocean = tune_rhebc_ocean
+phy_params%rcucov      = tune_rcucov
 
 !
 IF (rsltn < zres_thresh) THEN
-  phy_params%rhebc_land  = zrhebc_land  + (1._JPRB-zrhebc_land )*LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end)
-  phy_params%rhebc_ocean = zrhebc_ocean + (1._JPRB-zrhebc_ocean)*LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end)
+  phy_params%rhebc_land  = tune_rhebc_land  + (1._JPRB-tune_rhebc_land )*LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end)
+  phy_params%rhebc_ocean = tune_rhebc_ocean + (1._JPRB-tune_rhebc_ocean)*LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end)
   !
-  phy_params%rcucov      = zrcucov      + (1._JPRB-zrcucov)*(LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end))**2
+  phy_params%rcucov      = tune_rcucov      + (1._JPRB-tune_rcucov)*(LOG(zres_thresh/rsltn)/LOG(zres_thresh/ztrans_end))**2
   !
   ! no one should use the convection scheme at resolutions finer than ztrans_end, but to be safe...
   phy_params%rhebc_land  = MIN(1._JPRB, phy_params%rhebc_land)
@@ -1164,8 +1162,8 @@ phy_params%entrorg = tune_entrorg + 1.8E-4_JPRB*LOG(zres_thresh/rsltn)
 ! This factor is 1 for dx = 20 km or coarser and 0 for dx = ztrans_end or finer
 zfac = MIN(1._JPRB,LOG(MAX(1._JPRB,rsltn/ztrans_end))/LOG(zres_thresh/ztrans_end))
 
-phy_params%texc = zfac*0.125_JPRB   ! K
-phy_params%qexc = zfac*1.25e-2_JPRB ! relative perturbation of grid-scale QV
+phy_params%texc = zfac*tune_texc   ! K
+phy_params%qexc = zfac*tune_qexc   ! relative perturbation of grid-scale QV
 
 
 !     SET ADJUSTMENT TIME SCALE FOR CAPE CLOSURE AS A FUNCTION

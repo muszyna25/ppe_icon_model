@@ -996,7 +996,8 @@ range\_entrorg&
 R&
 0.125e-3&
 1/m&
-Variability range for entrainment parameter in convection scheme &
+Variability range for entrainment parameter in convection scheme & 
+inwp\_convection = 1
 \tabularnewline
 
 
@@ -1009,6 +1010,23 @@ Maximum fraction of CAPE diurnal cycle correction applied in the extratropics &
 icapdcycl = 3
 \tabularnewline
 
+\hline
+range\_rhebc&
+R&
+0.05&
+&
+Variability range for RH threshold for the onset of evaporation below cloud base & 
+inwp\_convection = 1
+\tabularnewline
+
+\hline
+range\_texc&
+R&
+0.025&
+K&
+Variability range for temperature excess value in test parcel ascent & 
+inwp\_convection = 1
+\tabularnewline
 
 \hline
 range\_box\_liq&
@@ -1045,6 +1063,15 @@ R&
 &
 Variability range (multiplicative!) of laminar transport resistance parameter &
 inwp\_turb = 1
+\tabularnewline
+
+\hline
+range\_minsnowfrac&
+R&
+0.05&
+&
+Variability range for minimum value to which snow cover fraction is artificially reduced in case of melting snow & 
+idiag\_snowfrac = 20/30/40
 \tabularnewline
 
 \end{longtab}
@@ -3444,9 +3471,59 @@ run\_nml:iforcing = inwp
 \tabularnewline
 
 \hline
+tune\_rhebc\_land&
+R&
+0.75&
+&
+RH threshold for onset of evaporation below cloud base over land&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+tune\_rhebc\_ocean &
+R&
+0.85&
+&
+RH threshold for onset of evaporation below cloud base over sea&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+tune\_rcucov&
+R&
+0.05&
+&
+Convective area fraction used for computing evaporation below cloud base&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+tune\_texc&
+R&
+0.125&
+K&
+Excess value for temperature used in test parcel ascent&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+tune\_qexc&
+R&
+0.0125&
+&
+Excess fraction of grid-scale QV used in test parcel ascent&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+
+
+
+\hline
 \hline
 \multicolumn{6}{|l|}{\textbf{Misc}} 
 \tabularnewline
+
+
 
 \hline
 itune\_albedo&
@@ -3458,6 +3535,16 @@ MODIS albedo tuning\\
 1: dimmed sahara&
 run\_nml:iforcing = inwp\\
 albedo\_type=2
+\tabularnewline
+
+
+\hline
+tune\_minsnowfrac&
+R&
+0.125&
+&
+Minimum value to which the snow cover fraction is artificially reduced in case of melting show &
+lnd\_nml:idiag\_snowfrac = 20/30/40
 \tabularnewline
 
 
