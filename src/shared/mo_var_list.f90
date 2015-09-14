@@ -148,6 +148,7 @@ MODULE mo_var_list
   ENUM, BIND(C)
     ENUMERATOR :: REAL_T, BOOL_T, INT_T
   END ENUM
+  PUBLIC  :: REAL_T, BOOL_T, INT_T
   
   INTEGER,                  SAVE :: nvar_lists     =   0      ! var_lists allocated so far
   !

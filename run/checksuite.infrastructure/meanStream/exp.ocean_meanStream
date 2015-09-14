@@ -74,7 +74,7 @@ cat > ${ocean_namelist} << EOF
   mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
   include_last     = .true.
   output_grid      = .TRUE.
-  ml_varlist       =  'u','v'
+  ml_varlist       =  'u','v','h','group:ocean_monitor'
 /
 &output_nml
   output_filename  = "${EXPNAME}_mean_1h"
@@ -87,7 +87,7 @@ cat > ${ocean_namelist} << EOF
   operation        = "mean"
   include_last     = .true.
   output_grid      = .TRUE.
-  ml_varlist       =  'u','v'
+  ml_varlist       =  'u','v','h'
 /
 &output_nml
   output_filename  = "${EXPNAME}_mean_2h"
@@ -100,7 +100,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .true.
   operation        = "mean"
   output_grid      = .TRUE.
-  ml_varlist       =  'u','v'
+  ml_varlist       =  'u','v','h'
 /
 &output_nml
   output_filename  = "${EXPNAME}_mean_4h"
@@ -113,7 +113,7 @@ cat > ${ocean_namelist} << EOF
   include_last     = .true.
   operation        = "mean"
   output_grid      = .TRUE.
-  ml_varlist       =  'u','v'
+  ml_varlist       =  'u','v','h','volume_Global'
 /
 &dbg_index_nml
   idbg_mxmn=0                     ! initialize MIN/MAX  debug output
@@ -205,8 +205,8 @@ cat > ${ocean_namelist} << EOF
   initial_temperature_bottom = 10.0
 /
 &io_nml
-  output_nml_dict  = "${dict_file}"
-  netcdf_dict      = "${dict_file}"
+! output_nml_dict  = "${dict_file}"
+! netcdf_dict      = "${dict_file}"
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .TRUE.          ! sync after each timestep
 /

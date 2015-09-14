@@ -19,8 +19,9 @@ MODULE mo_derived_variable_handling
   USE mo_name_list_output_config, ONLY: first_output_name_list
   USE mo_var_list, ONLY: nvar_lists, max_var_lists, var_lists, new_var_list,&
        total_number_of_variables, collect_group, get_var_timelevel,&
-       get_var_name, default_var_list_settings, add_var
+       get_var_name, default_var_list_settings, add_var, REAL_T
   USE mo_linked_list, ONLY: find_list_element, t_var_list, t_list_element
+  USE mo_util_string, ONLY: tolower
   USE mo_exception, ONLY: finish, message, message_text
 
   IMPLICIT NONE
@@ -43,12 +44,6 @@ MODULE mo_derived_variable_handling
   TYPE :: t_accumulation_pair
     TYPE(t_list_element), POINTER :: source, destination
   END TYPE t_accumulation_pair
-
-  interface copy_var_to_list
-    module procedure copy_var3d_to_list
-    module procedure copy_var2d_to_list
-    module procedure copy_var1d_to_list
-  end interface copy_var_to_list
 
 !!!  SUBROUTINE collect_target_variables()
 !!!  END SUBROUTINE collect_target_variables
@@ -139,16 +134,13 @@ CONTAINS
     TYPE (t_output_name_list), POINTER :: p_onl
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     TYPE(t_list_element), POINTER :: src_element, dest_element
-    REAL(wp), POINTER :: ptr(:,:,:)  !< reference to field
     TYPE(vector) :: keys 
     integer :: inml 
     type(vector) :: vector_buffer, value_buffer
     class(*), pointer :: buf
     type(vector_iterator) :: iter
-    integer :: shape3d(3)
     type(t_accumulation_pair) :: accumulation_pair
 
-    nvars = 1
     ntotal_vars = total_number_of_variables()
     ! temporary variables needed for variable group parsing
     ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
@@ -173,11 +165,11 @@ CONTAINS
    
           varlist_length = SIZE(in_varlist)
 
+          nvars = 0
           DO
-            IF (in_varlist(nvars) == ' ') EXIT
+            IF (in_varlist(nvars+1) == ' ') EXIT
             nvars = nvars + 1
           END DO
-          nvars = nvars - 1
 
 !!!          WRITE(message_text,FMT=*) 'nvars: ',nvars
 !!!          CALL message('',message_text)
@@ -185,7 +177,6 @@ CONTAINS
           IF (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
           varlist((nvars+1):ntotal_vars) = " "
           
-          shape3d = (/nproma,n_zlev,patch%alloc_cell_blocks/)
           IF (i_typ == level_type_ml) THEN
           write (0,*)'INML:',inml
           IF ( meanMap%has_key(TRIM(p_onl%output_interval(1))) ) THEN
@@ -196,21 +187,24 @@ CONTAINS
             !meanVariables = vector()
           END IF
             DO i=1,nvars
+    IF ( my_process_is_stdio() ) write (0,*)'nvars: i = ',i,' name = "',trim(varlist(i)),'"'
               ! collect data variables only, there variables names like
               ! 'grid:clon' which should be excluded
               IF ( INDEX(varlist(i),':') < 1 ) THEN
+    IF ( my_process_is_stdio() ) write (0,*)'nvars: i = ',i,' name = "',trim(varlist(i)),'"'
 !!!                j = (periods_counter-1)*nvars + i
      
                 ! find existing variable
                 src_element => find_list_element (src_varlist1, TRIM(varlist(i)))
                 IF (.NOT. ASSOCIATED (src_element)) src_element => &
                      find_list_element (src_varlist2, TRIM(varlist(i)))
-                IF (.NOT. ASSOCIATED (src_element)) CALL finish( "collect_meanStream_variables", "Variable not found!")
+                IF (.NOT. ASSOCIATED (src_element)) CALL finish( "collect_meanStream_variables",&
+                  & "Variable '"//TRIM(varlist(i))//"' not found!")
                 ! add new variable, copy the meta-data from the existing variable
 
               ! copy the source variable to destination pointer
-              CALL copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element, ptr)
-              dest_element => find_list_element(mean_stream_list,get_accumulation_varname(varlist(i),p_onl))
+              dest_element => copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element)
+
               !update the nc-shortname to internal name of the source variable
               dest_element%field%info%cf%short_name = src_element%field%info%name
               CALL print_green('var:'//TRIM(src_element%field%info%name)//'---')
@@ -257,48 +251,22 @@ CONTAINS
     !
     !write(0,*)'varlist:',varlist
   END SUBROUTINE collect_meanStream_variables
-  SUBROUTINE copy_var3d_to_list(list,name,source_element,ptr)
+  FUNCTION copy_var_to_list(list,name,source_element) RESULT(dest_element)
     TYPE(t_var_list) :: list
     CHARACTER(LEN=VARNAME_LEN) :: name
     TYPE(t_list_element),POINTER :: source_element
-    REAL(wp), POINTER           :: ptr(:,:,:)
-    CALL add_var( list, &
-      & name, &
-      & ptr, source_element%field%info%hgrid, source_element%field%info%vgrid, &
+
+    TYPE(t_list_element), POINTER :: dest_element
+    CALL add_var(source_element%field%info%ndims, REAL_T, &
+      & list, name, &
+      & source_element%field%info%hgrid, source_element%field%info%vgrid, &
       & source_element%field%info%cf, source_element%field%info%grib2,  &
-      & ldims=source_element%field%info%used_dimensions(1:source_element%field%info%ndims), &
+      & source_element%field%info%used_dimensions, &
+      & dest_element, &
       & post_op=source_element%field%info%post_op, &
       & loutput=.TRUE., lrestart=.FALSE., &
       & var_class=source_element%field%info%var_class )
-  END SUBROUTINE copy_var3d_to_list
-  SUBROUTINE copy_var2d_to_list(list,name,source_element,ptr)
-    TYPE(t_var_list) :: list
-    CHARACTER(LEN=VARNAME_LEN) :: name
-    TYPE(t_list_element),POINTER :: source_element
-    REAL(wp), POINTER           :: ptr(:,:)
-    CALL add_var( list, &
-      & name, &
-      & ptr, source_element%field%info%hgrid, source_element%field%info%vgrid, &
-      & source_element%field%info%cf, source_element%field%info%grib2,  &
-      & ldims=source_element%field%info%used_dimensions(1:source_element%field%info%ndims), &
-      & post_op=source_element%field%info%post_op, &
-      & loutput=.TRUE., lrestart=.FALSE., &
-      & var_class=source_element%field%info%var_class )
-  END SUBROUTINE copy_var2d_to_list
-  SUBROUTINE copy_var1d_to_list(list,name,source_element,ptr)
-    TYPE(t_var_list) :: list
-    CHARACTER(LEN=VARNAME_LEN) :: name
-    TYPE(t_list_element),POINTER :: source_element
-    REAL(wp), POINTER           :: ptr(:)
-    CALL add_var( list, &
-      & name, &
-      & ptr, source_element%field%info%hgrid, source_element%field%info%vgrid, &
-      & source_element%field%info%cf, source_element%field%info%grib2,  &
-      & ldims=source_element%field%info%used_dimensions(1:source_element%field%info%ndims), &
-      & post_op=source_element%field%info%post_op, &
-      & loutput=.TRUE., lrestart=.FALSE., &
-      & var_class=source_element%field%info%var_class )
-  END SUBROUTINE copy_var1d_to_list
+  END FUNCTION copy_var_to_list
   FUNCTION get_accumulation_varname(varname,output_setup)
     CHARACTER(LEN=VARNAME_LEN)  :: varname
     type(t_output_name_list) :: output_setup

@@ -590,19 +590,19 @@ CONTAINS
           &                            default=p_onl%il_varlist(i))
       END DO
 
-      ! allow case-insensitive variable names:
-      DO i=1,max_var_ml
-        p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
-      END DO
-      DO i=1,max_var_pl
-        p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
-      END DO
-      DO i=1,max_var_hl
-        p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
-      END DO
-      DO i=1,max_var_il
-        p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
-      END DO
+     !! allow case-insensitive variable names:
+     !DO i=1,max_var_ml
+     !  p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
+     !END DO
+     !DO i=1,max_var_pl
+     !  p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
+     !END DO
+     !DO i=1,max_var_hl
+     !  p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
+     !END DO
+     !DO i=1,max_var_il
+     !  p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
+     !END DO
       
       p_onl%next => NULL()
 
@@ -860,7 +860,7 @@ CONTAINS
               &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
               &               opt_vlevel_type=i_typ)
             DO i=1,ngrp_vars
-              grp_vars(i) = tolower(grp_vars(i))
+              grp_vars(i) = grp_vars(i)
             END DO
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
@@ -888,7 +888,7 @@ CONTAINS
               &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
               &               opt_vlevel_type=i_typ)
             DO i=1,ngrp_vars
-              grp_vars(i) = tolower(grp_vars(i))
+              grp_vars(i) = grp_vars(i)
             END DO
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
