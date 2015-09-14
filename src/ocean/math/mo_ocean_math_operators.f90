@@ -60,6 +60,7 @@ MODULE mo_ocean_math_operators
   PUBLIC :: grad_fd_norm_oce_3D_onblock
   PUBLIC :: div_oce_3D, div_oce_2D_sp
   PUBLIC :: div_oce_2D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp, div_oce_3D_onTriangles_onBlock
+  PUBLIC :: div_oce_2D_onQuads_onBlock, div_oce_2D_onQuads_onBlock_sp, div_oce_3D_onQuads_onBlock
   PUBLIC :: rot_vertex_ocean_3D
   PUBLIC :: grad_fd_norm_oce_2D_3D, grad_fd_norm_oce_2D_3D_sp
   PUBLIC :: grad_fd_norm_oce_2D_onBlock
@@ -340,6 +341,45 @@ CONTAINS
   END SUBROUTINE div_oce_3D_onTriangles_onBlock
   !-------------------------------------------------------------------------
 
+
+  !-------------------------------------------------------------------------
+  ! compute the discrete divergence for cell jc by finite volume
+  ! As sbr above but on quads
+!<Optimize:inUse>
+  SUBROUTINE div_oce_3D_onQuads_onBlock( vec_e, patch_3D, div_coeff, div_vec_c, &
+    & blockNo, start_index, end_index, start_level, end_level)
+
+    TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
+    REAL(wp), INTENT(in)          :: vec_e(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
+    REAL(wp), INTENT(in)          :: div_coeff(:,:,:,:)
+    REAL(wp), INTENT(inout)       :: div_vec_c(:,:) ! dim: (nproma,n_zlev,alloc_cell_blocks)
+    INTEGER, INTENT(in)           :: blockNo, start_index, end_index
+    INTEGER, INTENT(in) :: start_level, end_level     ! vertical start and end level
+
+    INTEGER :: jc, level
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    TYPE(t_subset_range), POINTER :: cells_subset
+    !-----------------------------------------------------------------------
+
+    iidx => patch_3D%p_patch_2D(1)%cells%edge_idx
+    iblk => patch_3D%p_patch_2D(1)%cells%edge_blk
+
+    div_vec_c(:,:) = 0.0_wp
+    DO jc = start_index, end_index
+      DO level = start_level, MIN(end_level, patch_3D%p_patch_1d(1)%dolic_c(jc, blockNo))
+        div_vec_c(jc,level) =  &
+          & vec_e(iidx(jc,blockNo,1),level,iblk(jc,blockNo,1)) * div_coeff(jc,level,blockNo,1) + &
+          & vec_e(iidx(jc,blockNo,2),level,iblk(jc,blockNo,2)) * div_coeff(jc,level,blockNo,2) + &
+          & vec_e(iidx(jc,blockNo,3),level,iblk(jc,blockNo,3)) * div_coeff(jc,level,blockNo,3) + &
+          & vec_e(iidx(jc,blockNo,4),level,iblk(jc,blockNo,4)) * div_coeff(jc,level,blockNo,4)		  
+      END DO
+    END DO
+
+  END SUBROUTINE div_oce_3D_onQuads_onBlock
+  !-------------------------------------------------------------------------
+
+
+
  
   !-------------------------------------------------------------------------
   !>
@@ -569,6 +609,45 @@ CONTAINS
     
   END SUBROUTINE div_oce_2D_onTriangles_onBlock
   !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  ! compute the discrete divergence for cell jc by finite volume
+  ! approximation. As subroutine above, but on quadrilaterals
+!<Optimize:inUse>
+  SUBROUTINE div_oce_2D_onQuads_onBlock( vec_e, patch_2D, div_coeff, div_vec_c,  &
+    & level, blockNo, start_index, end_index)
+
+    TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
+    !
+    ! edge based variable of which divergence
+    ! is computed
+    !
+    REAL(wp), INTENT(inout)       :: vec_e(:,:) ! dim: (nproma,nblks_e)
+    REAL(wp), INTENT(in)          :: div_coeff(:,:,:,:)
+    REAL(wp), INTENT(inout)       :: div_vec_c(:) ! dim: (nproma)
+    INTEGER,  INTENT(in)          :: level
+    INTEGER,  INTENT(in) :: blockNo, start_index, end_index
+
+    INTEGER :: jc
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    !-----------------------------------------------------------------------
+
+    iidx => patch_2D%cells%edge_idx
+    iblk => patch_2D%cells%edge_blk
+
+    DO jc = start_index, end_index
+
+      div_vec_c(jc) =  &
+        & vec_e(iidx(jc,blockNo,1),iblk(jc,blockNo,1)) * div_coeff(jc,level,blockNo,1) + &
+        & vec_e(iidx(jc,blockNo,2),iblk(jc,blockNo,2)) * div_coeff(jc,level,blockNo,2) + &
+        & vec_e(iidx(jc,blockNo,3),iblk(jc,blockNo,3)) * div_coeff(jc,level,blockNo,3) + &
+        & vec_e(iidx(jc,blockNo,4),iblk(jc,blockNo,4)) * div_coeff(jc,level,blockNo,4)
+    END DO
+    
+  END SUBROUTINE div_oce_2D_onQuads_onBlock
+  !-------------------------------------------------------------------------
+
   
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
@@ -602,6 +681,43 @@ CONTAINS
 
   END SUBROUTINE div_oce_2D_onTriangles_onBlock_sp
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+!<Optimize:inUse>
+  SUBROUTINE div_oce_2D_onQuads_onBlock_sp( vec_e, patch_2D, div_coeff, div_vec_c,  &
+    &  blockNo, start_index, end_index)
+
+    TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
+    !
+    ! edge based variable of which divergence
+    ! is computed
+    !
+    REAL(sp), INTENT(inout)       :: vec_e(:,:) ! dim: (nproma,nblks_e)
+    REAL(sp), INTENT(in)          :: div_coeff(:,:,:)
+    REAL(sp), INTENT(inout)       :: div_vec_c(:) ! dim: (nproma)
+    INTEGER,  INTENT(in) :: blockNo, start_index, end_index
+
+    INTEGER :: jc
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    !-----------------------------------------------------------------------
+
+    iidx => patch_2D%cells%edge_idx
+    iblk => patch_2D%cells%edge_blk
+
+    DO jc = start_index, end_index
+
+      div_vec_c(jc) =  &
+        & vec_e(iidx(jc,blockNo,1),iblk(jc,blockNo,1)) * div_coeff(jc,blockNo,1) + &
+        & vec_e(iidx(jc,blockNo,2),iblk(jc,blockNo,2)) * div_coeff(jc,blockNo,2) + &
+        & vec_e(iidx(jc,blockNo,3),iblk(jc,blockNo,3)) * div_coeff(jc,blockNo,3) + &
+        & vec_e(iidx(jc,blockNo,4),iblk(jc,blockNo,4)) * div_coeff(jc,blockNo,4)
+		
+    END DO
+
+  END SUBROUTINE div_oce_2D_onQuads_onBlock_sp
+  !-------------------------------------------------------------------------
+
+
 
   !-------------------------------------------------------------------------
   ! as div_oce_3D_1level in single precisison and 2D
@@ -1819,16 +1935,14 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2D
     
     INTEGER :: cell_1_index, cell_2_index, cell_1_block, cell_2_block
-    INTEGER :: edge_1_1_index, edge_1_2_index, edge_1_3_index
-    INTEGER :: edge_2_1_index, edge_2_2_index, edge_2_3_index
-    INTEGER :: edge_1_1_block, edge_1_2_block, edge_1_3_block
-    INTEGER :: edge_2_1_block, edge_2_2_block, edge_2_3_block
+    INTEGER :: edge_1_1_index, edge_1_2_index, edge_1_3_index, edge_1_4_index
+    INTEGER :: edge_2_1_index, edge_2_2_index, edge_2_3_index, edge_2_4_index
+    INTEGER :: edge_1_1_block, edge_1_2_block, edge_1_3_block, edge_1_4_block 
+    INTEGER :: edge_2_1_block, edge_2_2_block, edge_2_3_block, edge_2_4_block
     
     REAL(wp) :: top_vn_1, top_vn_2, integrated_vn
     REAL(wp), POINTER :: top_coeffs(:,:,:), integrated_coeffs(:,:,:), sum_to_2D_coeffs(:,:,:)
     REAL(wp), POINTER :: cell_thickness(:,:,:), edge_thickness(:,:,:)
-    REAL(wp), POINTER :: inv_cell_thickness(:,:,:), inv_edge_thickness(:,:,:)
-    REAL(wp), POINTER :: inv_prisms_center_distance(:,:,:), inv_edgefaces_middle_distance(:,:,:)
     REAL(wp)  :: cell_thickness_1, cell_thickness_2
     !-------------------------------------------------------------------------------
     ! pointers for the ppm vertical transport
@@ -1839,12 +1953,9 @@ CONTAINS
     all_cells           => patch_2D%cells%ALL
     all_edges           => patch_2D%edges%ALL
     edges_in_domain     => patch_2D%edges%in_domain
+	
     cell_thickness     => patch_3D%p_patch_1d(1)%prism_thick_c
-    inv_cell_thickness => patch_3D%p_patch_1d(1)%inv_prism_thick_c
-    inv_prisms_center_distance => patch_3D%p_patch_1d(1)%inv_prism_center_dist_c
     edge_thickness     => patch_3D%p_patch_1d(1)%prism_thick_e
-    inv_edge_thickness => patch_3D%p_patch_1d(1)%inv_prism_thick_e
-    inv_edgefaces_middle_distance => patch_3D%p_patch_1d(1)%inv_prism_center_dist_e
     
     
     !---------------------------------------------------------------------
@@ -1853,77 +1964,158 @@ CONTAINS
     top_coeffs        => operators_coefficients%edge2edge_viacell_coeff_top
     integrated_coeffs => operators_coefficients%edge2edge_viacell_coeff_integrated
     sum_to_2D_coeffs  => operators_coefficients%edge2edge_viacell_coeff_all
+	
+	
+	IF ( patch_2d%cells%max_connectivity == 3 ) THEN
+	
 !ICON_OMP_DO PRIVATE(edge_StartIndex, edge_EndIndex, je, cell_1_index, cell_1_block,  &
 !ICON_OMP cell_2_index, cell_2_block, edge_1_1_index, edge_1_2_index, edge_1_3_index, &
 !ICON_OMP edge_2_1_index, edge_2_2_index, edge_2_3_index, edge_1_1_block, edge_1_2_block, &
 !ICON_OMP edge_1_3_block, edge_2_1_block, edge_2_2_block, edge_2_3_block) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, blockNo, edge_StartIndex, edge_EndIndex)
-      DO je = edge_StartIndex, edge_EndIndex
+      DO blockNo = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, blockNo, edge_StartIndex, edge_EndIndex)
+        DO je = edge_StartIndex, edge_EndIndex
 
-        IF ( patch_3D%p_patch_1d(1)%dolic_e(je,blockNo) > 0 ) THEN
+          IF ( patch_3D%p_patch_1d(1)%dolic_e(je,blockNo) > 0 ) THEN
 
-          ! get the two cells of the edge
-          cell_1_index = patch_2D%edges%cell_idx(je,blockNo,1)
-          cell_1_block = patch_2D%edges%cell_blk(je,blockNo,1)
-          cell_2_index = patch_2D%edges%cell_idx(je,blockNo,2)
-          cell_2_block = patch_2D%edges%cell_blk(je,blockNo,2)
+            ! get the two cells of the edge
+            cell_1_index = patch_2D%edges%cell_idx(je,blockNo,1)
+            cell_1_block = patch_2D%edges%cell_blk(je,blockNo,1)
+            cell_2_index = patch_2D%edges%cell_idx(je,blockNo,2)
+            cell_2_block = patch_2D%edges%cell_blk(je,blockNo,2)
 !           cell_thickness_1 = cell_thickness(cell_1_index, 1, cell_1_block)
 !           cell_thickness_2 = cell_thickness(cell_2_index, 1, cell_2_block)
 
-          ! get the six edges of the two cells
-          edge_1_1_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 1)
-          edge_1_2_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 2)
-          edge_1_3_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 3)
-          edge_2_1_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 1)
-          edge_2_2_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 2)
-          edge_2_3_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 3)
-          edge_1_1_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 1)
-          edge_1_2_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 2)
-          edge_1_3_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 3)
-          edge_2_1_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 1)
-          edge_2_2_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 2)
-          edge_2_3_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 3)
+            ! get the six edges of the two cells
+            edge_1_1_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 1)
+            edge_1_2_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 2)
+            edge_1_3_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 3)
+            edge_2_1_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 1)
+            edge_2_2_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 2)
+            edge_2_3_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 3)
+            edge_1_1_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 1)
+            edge_1_2_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 2)
+            edge_1_3_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 3)
+            edge_2_1_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 1)
+            edge_2_2_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 2)
+            edge_2_3_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 3)
 
 !           sum_to_2D_coeffs(1, je, blockNo) = top_coeffs(1, je, blockNo) * cell_thickness_1 + integrated_coeffs(1, je, blockNo)
 !           sum_to_2D_coeffs(2, je, blockNo) = top_coeffs(2, je, blockNo) * cell_thickness_1 + integrated_coeffs(2, je, blockNo)
 !           sum_to_2D_coeffs(3, je, blockNo) = top_coeffs(3, je, blockNo) * cell_thickness_1 + integrated_coeffs(3, je, blockNo)
-!
 !           sum_to_2D_coeffs(4, je, blockNo) = top_coeffs(4, je, blockNo) * cell_thickness_2 + integrated_coeffs(4, je, blockNo)
 !           sum_to_2D_coeffs(5, je, blockNo) = top_coeffs(5, je, blockNo) * cell_thickness_2 + integrated_coeffs(5, je, blockNo)
 !           sum_to_2D_coeffs(6, je, blockNo) = top_coeffs(6, je, blockNo) * cell_thickness_2 + integrated_coeffs(6, je, blockNo)
 
-          ! now we ues the edge thickeness instead of the cell thickeness for the top layer
+            ! now we ues the edge thickeness instead of the cell thickeness for the top layer
 
-          sum_to_2D_coeffs(1, je, blockNo) = &
-            & top_coeffs(1, je, blockNo) * edge_thickness(edge_1_1_index, 1, edge_1_1_block) &
-            & + integrated_coeffs(1, je, blockNo)
+            sum_to_2D_coeffs(1, je, blockNo) = &
+              & top_coeffs(1, je, blockNo) * edge_thickness(edge_1_1_index, 1, edge_1_1_block) &
+              & + integrated_coeffs(1, je, blockNo)
 
-          sum_to_2D_coeffs(2, je, blockNo) = &
-            & top_coeffs(2, je, blockNo) * edge_thickness(edge_1_2_index, 1, edge_1_2_block) &
-            & + integrated_coeffs(2, je, blockNo)
+            sum_to_2D_coeffs(2, je, blockNo) = &
+              & top_coeffs(2, je, blockNo) * edge_thickness(edge_1_2_index, 1, edge_1_2_block) &
+              & + integrated_coeffs(2, je, blockNo)
 
-          sum_to_2D_coeffs(3, je, blockNo) = &
-            & top_coeffs(3, je, blockNo) * edge_thickness(edge_1_3_index, 1, edge_1_3_block) &
-            & + integrated_coeffs(3, je, blockNo)
+            sum_to_2D_coeffs(3, je, blockNo) = &
+              & top_coeffs(3, je, blockNo) * edge_thickness(edge_1_3_index, 1, edge_1_3_block) &
+              & + integrated_coeffs(3, je, blockNo)
 
-           sum_to_2D_coeffs(4, je, blockNo) = &
-            & top_coeffs(4, je, blockNo) * edge_thickness(edge_2_1_index, 1, edge_2_1_block) &
-            & + integrated_coeffs(4, je, blockNo)
+             sum_to_2D_coeffs(4, je, blockNo) = &
+              & top_coeffs(4, je, blockNo) * edge_thickness(edge_2_1_index, 1, edge_2_1_block) &
+              & + integrated_coeffs(4, je, blockNo)
 
-          sum_to_2D_coeffs(5, je, blockNo) = &
-            & top_coeffs(5, je, blockNo) * edge_thickness(edge_2_2_index, 1, edge_2_2_block) &
-            & + integrated_coeffs(5, je, blockNo)
+            sum_to_2D_coeffs(5, je, blockNo) = &
+              & top_coeffs(5, je, blockNo) * edge_thickness(edge_2_2_index, 1, edge_2_2_block) &
+              & + integrated_coeffs(5, je, blockNo)
 
-          sum_to_2D_coeffs(6, je, blockNo) = &
-            & top_coeffs(6, je, blockNo) * edge_thickness(edge_2_3_index, 1, edge_2_3_block) &
-            & + integrated_coeffs(6, je, blockNo)
+            sum_to_2D_coeffs(6, je, blockNo) = &
+              & top_coeffs(6, je, blockNo) * edge_thickness(edge_2_3_index, 1, edge_2_3_block) &
+              & + integrated_coeffs(6, je, blockNo)	  		  
 
-        ENDIF
-      END DO
-    END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+          ENDIF
+		
+        END DO
+      END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
 !ICON_OMP_END_DO
 
+    ELSEIF ( patch_2d%cells%max_connectivity == 4 ) THEN			  
+
+!ICON_OMP_DO PRIVATE(edge_StartIndex, edge_EndIndex, je, cell_1_index, cell_1_block,  &
+!ICON_OMP cell_2_index, cell_2_block, edge_1_1_index, edge_1_2_index, edge_1_3_index, edge_1_4_index,&
+!ICON_OMP edge_2_1_index, edge_2_2_index, edge_2_3_index, edge_2_4_index, edge_1_1_block, edge_1_2_block, &
+!ICON_OMP edge_1_3_block,edge_1_4_block, edge_2_1_block, edge_2_2_block, edge_2_3_block,edge_2_4_block) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = all_edges%start_block, all_edges%end_block
+	    CALL get_index_range(all_edges, blockNo, edge_StartIndex, edge_EndIndex)
+		DO je = edge_StartIndex, edge_EndIndex
+
+		  IF ( patch_3D%p_patch_1d(1)%dolic_e(je,blockNo) > 0 ) THEN
+
+		    ! get the two cells of the edge
+		    cell_1_index = patch_2D%edges%cell_idx(je,blockNo,1)
+		    cell_1_block = patch_2D%edges%cell_blk(je,blockNo,1)
+		    cell_2_index = patch_2D%edges%cell_idx(je,blockNo,2)
+		    cell_2_block = patch_2D%edges%cell_blk(je,blockNo,2)
+
+		    ! get the eight edges of the two cells
+		    edge_1_1_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 1)
+		    edge_1_2_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 2)
+		    edge_1_3_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 3)
+		    edge_1_4_index = patch_2d%cells%edge_idx(cell_1_index, cell_1_block, 4)			
+		    edge_2_1_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 1)
+		    edge_2_2_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 2)
+		    edge_2_3_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 3)
+		    edge_2_4_index = patch_2d%cells%edge_idx(cell_2_index, cell_2_block, 4)			
+		    edge_1_1_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 1)
+		    edge_1_2_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 2)
+		    edge_1_3_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 3)
+		    edge_1_4_block = patch_2d%cells%edge_blk(cell_1_index, cell_1_block, 4)			
+		    edge_2_1_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 1)
+		    edge_2_2_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 2)
+		    edge_2_3_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 3)
+		    edge_2_4_block = patch_2d%cells%edge_blk(cell_2_index, cell_2_block, 4)
+
+		    ! now we ues the edge thickeness instead of the cell thickeness for the top layer
+
+		    sum_to_2D_coeffs(1, je, blockNo) = &
+		      & top_coeffs(1, je, blockNo) * edge_thickness(edge_1_1_index, 1, edge_1_1_block) &
+		      & + integrated_coeffs(1, je, blockNo)
+
+	        sum_to_2D_coeffs(2, je, blockNo) = &
+	          & top_coeffs(2, je, blockNo) * edge_thickness(edge_1_2_index, 1, edge_1_2_block) &
+		      & + integrated_coeffs(2, je, blockNo)
+
+		    sum_to_2D_coeffs(3, je, blockNo) = &
+		      & top_coeffs(3, je, blockNo) * edge_thickness(edge_1_3_index, 1, edge_1_3_block) &
+		      & + integrated_coeffs(3, je, blockNo)
+			  
+  		    sum_to_2D_coeffs(4, je, blockNo) = &
+  		      & top_coeffs(4, je, blockNo) * edge_thickness(edge_1_4_index, 1, edge_1_4_block) &
+  		      & + integrated_coeffs(4, je, blockNo)			  
+
+		    sum_to_2D_coeffs(5, je, blockNo) = &
+		      & top_coeffs(5, je, blockNo) * edge_thickness(edge_2_1_index, 1, edge_2_1_block) &
+		      & + integrated_coeffs(5, je, blockNo)
+
+		    sum_to_2D_coeffs(6, je, blockNo) = &
+		      & top_coeffs(6, je, blockNo) * edge_thickness(edge_2_2_index, 1, edge_2_2_block) &
+		      & + integrated_coeffs(6, je, blockNo)
+
+		    sum_to_2D_coeffs(7, je, blockNo) = &
+		      & top_coeffs(7, je, blockNo) * edge_thickness(edge_2_3_index, 1, edge_2_3_block) &
+		      & + integrated_coeffs(7, je, blockNo)	  		  
+			  			  
+  		    sum_to_2D_coeffs(8, je, blockNo) = &
+  		      & top_coeffs(8, je, blockNo) * edge_thickness(edge_2_4_index, 1, edge_2_4_block) &
+  		      & + integrated_coeffs(8, je, blockNo)	  		  
+
+		  ENDIF
+		
+		END DO
+      END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      !ICON_OMP_END_DO
+
+    ENDIF
     
     IF (select_solver == select_restart_mixedprecision_gmres) THEN
 !ICON_OMP WORKSHARE

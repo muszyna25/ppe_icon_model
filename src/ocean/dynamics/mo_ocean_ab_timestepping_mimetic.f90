@@ -71,11 +71,12 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & map_edges2edges_viacell_3d_const_z,   &
     & map_edges2edges_viacell_2D_constZ_sp, &
     & map_edges2edges_viacell_2D_per_level
-  USE mo_ocean_math_operators,      ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
-    & grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp, &
+  USE mo_ocean_math_operators,      ONLY: div_oce_3d, grad_fd_norm_oce_3d,        &
+    & grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp,                          &
     & div_oce_2d_sp, grad_fd_norm_oce_2d_onBlock, div_oce_2D_onTriangles_onBlock, &
-    & div_oce_3D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp, &
-    & smooth_onCells
+    & div_oce_3D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp,          &
+    & smooth_onCells, div_oce_2D_onQuads_onBlock, div_oce_2D_onQuads_onBlock_sp,  &
+	& div_oce_3D_onQuads_onBlock
   USE mo_ocean_veloc_advection,     ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
   
   USE mo_ocean_diffusion,           ONLY: velocity_diffusion,&
@@ -1239,31 +1240,64 @@ CONTAINS
     ! note: these two operators can be combined
     ! div_z_c(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)  = 0.0_wp
     
+!	z_e=10.0_wp
+!	!z_e(4,1,4)=10.0_wp
+
+    IF( patch_2d%cells%max_connectivity == 3 )THEN
+
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, jc, jk, div_z_depth_int_c, div_z_c) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       
-      CALL div_oce_3D_onTriangles_onBlock( z_e, patch_3D, op_coeffs%div_coeff, div_z_c, &
-        & blockNo=blockNo, start_index=start_cell_index, end_index=end_cell_index,      &
-        & start_level=1, end_level=n_zlev)
-      ! integrate div on columns
-      div_z_depth_int_c(:) = 0.0_wp
-      DO jc = start_cell_index, end_cell_index
-        div_z_depth_int_c(jc) = SUM(div_z_c(jc, 1:patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)))
+        CALL div_oce_3D_onTriangles_onBlock( z_e, patch_3D, op_coeffs%div_coeff, div_z_c, &
+          & blockNo=blockNo, start_index=start_cell_index, end_index=end_cell_index,      &
+          & start_level=1, end_level=n_zlev)
+        ! integrate div on columns
+        div_z_depth_int_c(:) = 0.0_wp
+        DO jc = start_cell_index, end_cell_index
+          div_z_depth_int_c(jc) = SUM(div_z_c(jc, 1:patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)))
+write(123,*)'div',jc, div_z_c(jc, 1:1)		   		  
+        END DO
+      
+        ocean_state%p_aux%p_rhs_sfc_eq(:,blockNo) = 0.0_wp
+        DO jc = start_cell_index, end_cell_index
+          IF (patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) > 0) THEN
+            ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = ((ocean_state%p_prog(nold(1))%h(jc,blockNo) &
+              & - dtime * div_z_depth_int_c(jc)) * inv_gdt2)
+          ENDIF
+        END DO
+      
       END DO
-      
-      ocean_state%p_aux%p_rhs_sfc_eq(:,blockNo) = 0.0_wp
-      DO jc = start_cell_index, end_cell_index
-        IF (patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) > 0) THEN
-          ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = ((ocean_state%p_prog(nold(1))%h(jc,blockNo) &
-            & - dtime * div_z_depth_int_c(jc)) * inv_gdt2)
-        ENDIF
-      END DO
-      
-    END DO
 !ICON_OMP_END_PARALLEL_DO
-    
-    ! CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%p_rhs_sfc_eq )
+
+    ELSEIF( patch_2d%cells%max_connectivity == 4 )THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, jc, jk, div_z_depth_int_c, div_z_c) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+	    CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+      
+		CALL div_oce_3D_onQuads_onBlock( z_e, patch_3D, op_coeffs%div_coeff, div_z_c, &
+		  & blockNo=blockNo, start_index=start_cell_index, end_index=end_cell_index,      &
+		  & start_level=1, end_level=n_zlev)
+		! integrate div on columns
+		div_z_depth_int_c(:) = 0.0_wp
+		 DO jc = start_cell_index, end_cell_index
+	       div_z_depth_int_c(jc) = SUM(div_z_c(jc, 1:patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)))
+write(456,*)'div',jc, div_z_c(jc, 1:1)		   
+		 END DO
+      
+		 ocean_state%p_aux%p_rhs_sfc_eq(:,blockNo) = 0.0_wp
+		 DO jc = start_cell_index, end_cell_index
+		   IF (patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) > 0) THEN
+		     ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = ((ocean_state%p_prog(nold(1))%h(jc,blockNo) &
+		     & - dtime * div_z_depth_int_c(jc)) * inv_gdt2)
+			 
+		   ENDIF
+		 END DO
+      
+	   END DO
+!ICON_OMP_END_PARALLEL_DO    
+	ENDIF!patch_2d%cells%max_connectivity
+	
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -1410,12 +1444,10 @@ CONTAINS
         & op_coeffs%grad_coeff(:,1,:),    &
         & lhs_z_grad_h(:,:),              &
         & subset_range=patch_2D%edges%gradIsCalculable)
-! 
-!       CALL sync_patch_array(sync_e, patch_2D, lhs_z_grad_h(:,:) )
-! 
+
+
       CALL map_edges2edges_viacell_3d_const_z( patch_3d, lhs_z_grad_h(:,:), op_coeffs, lhs_z_e(:,:))
 
-!       CALL map_grad2edges_viacell_2d_constZ( patch_3d,x(:,:), op_coeffs, lhs_z_e(:,:))
       
     ENDIF ! l_edge_based
     !---------------------------------------
@@ -1425,18 +1457,36 @@ CONTAINS
     !Step 3) Calculate divergence
     ! store the div in lhs for reducing memory and improving performance
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+
+    IF( patch_2d%cells%max_connectivity == 3 )THEN
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
       
-      CALL div_oce_2D_onTriangles_onBlock(lhs_z_e, patch_2D, op_coeffs%div_coeff, lhs(:,blockNo), &
-        & level=topLevel, blockNo=blockNo, start_index=start_index, end_index=end_index)
+        CALL div_oce_2D_onTriangles_onBlock(lhs_z_e, patch_2D, op_coeffs%div_coeff, lhs(:,blockNo), &
+          & level=topLevel, blockNo=blockNo, start_index=start_index, end_index=end_index)
     
-      !Step 4) Finalize LHS calculations
-      DO jc = start_index, end_index        
-        !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
-        lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)        
-      END DO
-    END DO ! blockNo
+        !Step 4) Finalize LHS calculations
+        DO jc = start_index, end_index        
+          !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
+          lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)        
+        END DO
+      END DO ! blockNo
+    ELSEIF( patch_2d%cells%max_connectivity == 4 )THEN
+
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+        CALL div_oce_2D_onQuads_onBlock( lhs_z_e, patch_2D, op_coeffs%div_coeff, lhs(:,blockNo),&
+		& level=topLevel,blockNo=blockNo, start_index=start_index, end_index=end_index)        
+        !Step 4) Finalize LHS calculations
+        DO jc = start_index, end_index
+          !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
+          lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
+        END DO
+      END DO ! blockNo
+	   
+    ENDIF	   	
+	  
+	  
 !ICON_OMP_END_PARALLEL_DO
     !---------------------------------------
     CALL timer_stop(timer_extra32)
@@ -1530,9 +1580,12 @@ CONTAINS
     !Step 3) Calculate divergence
     ! store the div in lhs for reducing memory and improving performance
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
+
+
+  IF( patch_2d%cells%max_connectivity == 3 )THEN
+	  
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
-
       CALL div_oce_2D_onTriangles_onBlock_sp(lhs_z_e_sp, patch_2D, solverCoeffs%div_coeff, lhs(:,blockNo), &
         & blockNo=blockNo, start_index=start_index, end_index=end_index)
         
@@ -1542,6 +1595,24 @@ CONTAINS
         lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
       END DO
     END DO ! blockNo
+	
+   ELSEIF( patch_2d%cells%max_connectivity == 4 )THEN
+
+
+     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+       CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+       CALL div_oce_2D_onQuads_onBlock_sp( lhs_z_e_sp, patch_2D, solverCoeffs%div_coeff, lhs(:,blockNo),&
+	   & blockNo=blockNo, start_index=start_index, end_index=end_index)
+        
+       !Step 4) Finalize LHS calculations
+       DO jc = start_index, end_index
+         !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
+         lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
+       END DO
+     END DO ! blockNo
+	   
+   ENDIF	   	
+	
 !ICON_OMP_END_PARALLEL_DO
     !---------------------------------------
 
@@ -1797,30 +1868,63 @@ CONTAINS
       
       CALL map_edges2edges_viacell_3d_const_z( patch_3d, ocean_state%p_diag%vn_time_weighted, op_coeffs, &
         & ocean_state%p_diag%mass_flx_e)!, patch_3D%p_patch_1D(1)%prism_thick_c)
-      
+
+        IF( patch_2d%cells%max_connectivity == 3 )THEN
+
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-        CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+          DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+            CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
         
-        CALL div_oce_3D_onTriangles_onBlock(                 &
-          & ocean_state%p_diag%mass_flx_e,                   &
-          & patch_3D,op_coeffs%div_coeff,                    &
-          & ocean_state%p_diag%div_mass_flx_c(:,:,blockNo),  &
-          & blockNo=blockNo, start_index=start_index, end_index=end_index,      &
-          & start_level=1, end_level=n_zlev)
+            CALL div_oce_3D_onTriangles_onBlock(                 &
+              & ocean_state%p_diag%mass_flx_e,                   &
+              & patch_3D,op_coeffs%div_coeff,                    &
+              & ocean_state%p_diag%div_mass_flx_c(:,:,blockNo),  &
+              & blockNo=blockNo, start_index=start_index, end_index=end_index,      &
+              & start_level=1, end_level=n_zlev)
         
-        DO jc = start_index, end_index
+            DO jc = start_index, end_index
           
-          !use bottom boundary condition for vertical velocity at bottom of prism
-          ! this should be awlays zero
-          ! vertical_velocity(jc,z_dolic+1,blockNo)=0.0_wp
-          DO jk = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), 1, -1
-            vertical_velocity(jc,jk,blockNo) = vertical_velocity(jc,jk+1,blockNo) - ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo)
-          END DO
-        END DO
+              !use bottom boundary condition for vertical velocity at bottom of prism
+              ! this should be awlays zero
+              ! vertical_velocity(jc,z_dolic+1,blockNo)=0.0_wp
+              DO jk = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), 1, -1
+                vertical_velocity(jc,jk,blockNo) &
+				&= vertical_velocity(jc,jk+1,blockNo) - ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo)
+              END DO
+            END DO
         
-      END DO ! blockNo
+          END DO ! blockNo
 !ICON_OMP_END_PARALLEL_DO 
+
+
+      ELSEIF( patch_2d%cells%max_connectivity == 4 )THEN
+		  
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+		  CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+        
+		  CALL div_oce_3D_onQuads_onBlock(                     &
+		    & ocean_state%p_diag%mass_flx_e,                   &
+		    & patch_3D,op_coeffs%div_coeff,                    &
+		    & ocean_state%p_diag%div_mass_flx_c(:,:,blockNo),  &
+		    & blockNo=blockNo, start_index=start_index, end_index=end_index,      &
+		    & start_level=1, end_level=n_zlev)
+        
+		  DO jc = start_index, end_index
+          
+		    !use bottom boundary condition for vertical velocity at bottom of prism
+		    ! this should be awlays zero
+		    ! vertical_velocity(jc,z_dolic+1,blockNo)=0.0_wp
+		    DO jk = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), 1, -1
+		      vertical_velocity(jc,jk,blockNo) &
+		  	  &= vertical_velocity(jc,jk+1,blockNo) - ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo)
+		    END DO
+		  END DO
+        
+		END DO ! blockNo
+!ICON_OMP_END_PARALLEL_DO 
+		  		  
+	  ENDIF	!patch_2d%cells%max_connectivity  
 
     ENDIF  !  (l_EDGE_BASED)
     
