@@ -69,7 +69,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
   !! Initial revision by Max Bangert, KIT (2013-02-25)
   !!
   ! atmosphere external data                                
-  TYPE(t_external_data), INTENT(IN) :: &
+  TYPE(t_external_data), INTENT(INOUT) :: &
     &  ext_data
   TYPE(t_patch), TARGET, INTENT(IN) :: & 
     &  p_patch                           !< patch on which computation is performed
@@ -130,7 +130,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
     
       SELECT CASE(art_config(jg)%iart_chem_mechanism)
         CASE(0)
-          CALL art_loss_chemtracer(p_patch,           &
+          CALL art_loss_chemtracer(ext_data, p_patch,           &
                  & datetime,                          &
                  & p_dtime,                           &
                  & p_prog_list,                       &
@@ -149,7 +149,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                  & p_metrics,                         &
                  & prm_diag,                          &
                  & p_tracer_now)
-          CALL art_loss_chemtracer(p_patch,           &
+          CALL art_loss_chemtracer(ext_data, p_patch,           &
                  & datetime,                          &
                  & p_dtime,                           &
                  & p_prog_list,                       &

@@ -306,7 +306,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
               &                       p_nh_state%diag%temp,           &
-              &                       p_nh_state%diag%pres_sfc,       &
               &                       p_nh_state%metrics,             &
               &                       ext_data%atm%llsm_atm_c,        &
               &                       p_patch,                        &
@@ -323,7 +322,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
               &                       p_nh_state%diag%temp,           &
-              &                       p_nh_state%diag%pres_sfc,       &
               &                       p_nh_state%metrics,             &
               &                       ext_data%atm%llsm_atm_c,        &
               &                       p_patch,                        &
