@@ -609,27 +609,27 @@ MODULE mo_nh_stepping
     lcfl_watch_mode = .FALSE.
   ENDIF
   
-#ifdef USE_MTIME_LOOP
-!LK++ 
-  ! Should only be called once! Seems to be used more than once and
-  ! deleted inbetween, so it is necessary to call here, needs to be
-  ! tracked back
-
+  ! "setCalendar" should only be called once! Seems to be used more
+  ! than once and deleted inbetween, so it is necessary to call here,
+  ! needs to be tracked back
   CALL setCalendar(PROLEPTIC_GREGORIAN)
 
   ! set events, group and the events
 
   CALL message('','')
 
-  CALL initEventManager(tc_exp_refdate)
-
-  checkpointEvents =  addEventGroup('checkpointEventGroup')
-  checkpointEventGroup => getEventGroup(checkpointEvents)
-
   eventRefDate   => tc_exp_refdate
   eventStartDate => tc_exp_startdate
   eventEndDate   => tc_exp_stopdate
 
+  ! create an event manager, ie. a collection of different events
+  CALL initEventManager(tc_exp_refdate)
+
+  ! --- create an event group for checkpointing and restart
+  checkpointEvents =  addEventGroup('checkpointEventGroup')
+  checkpointEventGroup => getEventGroup(checkpointEvents)
+
+  ! --- --- create checkpointing event
   eventInterval  => tc_dt_checkpoint
   checkpointEvent => newEvent('checkpoint', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
   IF (ierr /= no_Error) THEN
@@ -638,6 +638,7 @@ MODULE mo_nh_stepping
   ENDIF
   lret = addEventToEventGroup(checkpointEvent, checkpointEventGroup)
 
+  ! --- --- create restart event, ie. checkpoint + medel stop
   eventInterval  => tc_dt_restart
   restartEvent => newEvent('restart', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
   IF (ierr /= no_Error) THEN
@@ -652,8 +653,8 @@ MODULE mo_nh_stepping
 
   CALL getPTStringFromMS(NINT(1000.0_wp*dtime,i8), dtime_str)
   model_time_step => newTimedelta(dtime_str)
-  current_date => newDatetime(tc_startdate) 
-  end_date => newDatetime(current_date)
+  current_date    => newDatetime(tc_startdate) 
+  end_date        => newDatetime(current_date)
   end_date = end_date + getEventInterval(restartEvent)
   end_date = min(end_date, tc_exp_stopdate)
   
@@ -665,15 +666,9 @@ MODULE mo_nh_stepping
   WRITE(message_text,'(a,a)') 'Stop date of this run:  ', dstring
   CALL message('',message_text)
   CALL message('','')
-!LK++
-#endif
 
-#ifdef USE_MTIME_LOOP
   jstep = jstep0+jstep_shift+1
   TIME_LOOP: DO
-#else
-  TIME_LOOP: DO jstep = (jstep0+jstep_shift+1), (jstep0+nsteps)
-#endif
     ! Check if a nested domain needs to be turned off
     DO jg=2, n_dom
       IF (p_patch(jg)%ldom_active .AND. time_config%sim_time(1) >= end_time(jg)) THEN
@@ -685,12 +680,8 @@ MODULE mo_nh_stepping
 
     CALL add_time(dtime,0,0,0,datetime_current)
 
-#ifdef USE_MTIME_LOOP
-!LK++
     ! update model date and time mtime based
     current_date = current_date + model_time_step
-!LK++
-#endif
 
     ! store state of output files for restarting purposes
     IF (output_mode%l_nml .AND. jstep>=0 ) THEN
@@ -713,11 +704,8 @@ MODULE mo_nh_stepping
     ENDIF
  
     ! always print the first and the last time step
-    lprint_timestep = lprint_timestep .OR. jstep == jstep0+1 .OR. jstep == jstep0+nsteps
+    lprint_timestep = lprint_timestep .OR. (jstep == jstep0+1) .OR. (jstep == jstep0+nsteps)
 
-!LK++
-    lprint_timestep = .TRUE.
-!LK++
     IF (lprint_timestep) THEN
       ! compute current datetime in a format appropriate for mtime
       CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
@@ -1013,7 +1001,6 @@ MODULE mo_nh_stepping
       lwrite_checkpoint = .FALSE.
     ENDIF
 
-#ifdef USE_MTIME_LOOP
     CALL message('','')
     dstring_old = iso8601(datetime_current)
     call datetimeToString(current_date, dstring_new) 
@@ -1033,17 +1020,10 @@ MODULE mo_nh_stepping
       !   ... make sure (for both cases A and B) that model output is enabled
       &     .AND. .NOT. output_mode%l_none ) THEN
       lwrite_checkpoint = .TRUE.
-!      WRITE(message_text, '(a,l3,a,a,a,a)') 'LK checkpoint event: new T and old ', lwrite_checkpoint, &
-!           &                                ' new: ', dstring_new, ' old: ', dstring_old
-!      CALL message('',message_text)
     ELSE
       lwrite_checkpoint = .FALSE.
-!      WRITE(message_text, '(a,l3,a,a,a,a)') 'LK checkpoint event: new F and old ', lwrite_checkpoint, &
-!           &                                ' new: ', dstring_new, ' old: ', dstring_old
-!      CALL message('',message_text)
     ENDIF
     CALL message('','')
-#endif
 
     IF (lwrite_checkpoint) THEN
       IF (use_async_restart_output) THEN
@@ -1095,7 +1075,6 @@ MODULE mo_nh_stepping
        CALL prefetch_input( datetime_current, p_patch(1), p_int_state(1), p_nh_state(1))
     ENDIF
 
-#ifdef USE_MTIME_LOOP
     IF (current_date >= end_date) then
 #ifdef _MTIME_DEBUG       
        ! consistency check: compare step counter to expected end step
@@ -1108,7 +1087,6 @@ MODULE mo_nh_stepping
        EXIT TIME_LOOP
     end IF
     jstep = jstep + 1
-#endif
   ENDDO TIME_LOOP
 
   IF (use_async_restart_output) CALL close_async_restart
