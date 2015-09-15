@@ -386,7 +386,7 @@ MODULE mo_nh_stepping
     simulation_status = new_simulation_status(l_first_step   = .TRUE.,                  &
       &                                       l_output_step  = .TRUE.,                  &
       &                                       l_dom_active   = p_patch(1:)%ldom_active, &
-      &                                       i_timelevel    = nnow)
+      &                                       i_timelevel_dyn= nnow, i_timelevel_phy= nnow_rcf)
     CALL pp_scheduler_process(simulation_status)
 
     IF (output_mode%l_nml) THEN
@@ -789,7 +789,7 @@ MODULE mo_nh_stepping
     simulation_status = new_simulation_status(l_output_step  = l_nml_output,             &
       &                                       l_last_step    = (jstep==(nsteps+jstep0)), &
       &                                       l_dom_active   = p_patch(1:)%ldom_active,  &
-      &                                       i_timelevel    = nnow)
+      &                                       i_timelevel_dyn= nnow, i_timelevel_phy= nnow_rcf)
     CALL pp_scheduler_process(simulation_status)
 
 #ifdef MESSY

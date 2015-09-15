@@ -36,6 +36,9 @@ MODULE mo_ensemble_pert_nml
     &                               config_range_zvz0i     => range_zvz0i,     &  
     &                               config_range_entrorg   => range_entrorg,   &  
     &                               config_range_capdcfac_et => range_capdcfac_et, &  
+    &                               config_range_minsnowfrac => range_minsnowfrac, &  
+    &                               config_range_rhebc     => range_rhebc,     &  
+    &                               config_range_texc      => range_texc,      &  
     &                               config_range_box_liq   => range_box_liq,   &  
     &                               config_range_tkhmin    => range_tkhmin,    &  
     &                               config_range_tkmmin    => range_tkmmin,    &  
@@ -71,6 +74,15 @@ MODULE mo_ensemble_pert_nml
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  range_capdcfac_et            ! (relevant only if icapdcycl = 3)
 
+  REAL(wp) :: &                    !< RH thresholds for evaporation below cloud base
+    &  range_rhebc
+
+  REAL(wp) :: &                    !< Excess value for temperature used in test parcel ascent
+    &  range_texc
+
+  REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
+    &  range_minsnowfrac           !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
+
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  range_box_liq                ! (in case of inwp_cldcover = 1)
 
@@ -85,9 +97,9 @@ MODULE mo_ensemble_pert_nml
 
   LOGICAL :: use_ensemble_pert     !< main switch
 
-  NAMELIST/ensemble_pert_nml/ range_gkwake, range_gkdrag, range_gfluxlaun, range_zvz0i,    &
-    &                         range_entrorg, range_capdcfac_et, range_box_liq,             &
-    &                         range_tkhmin, range_tkmmin, range_rlam_heat, use_ensemble_pert
+  NAMELIST/ensemble_pert_nml/ use_ensemble_pert, range_gkwake, range_gkdrag, range_gfluxlaun, range_zvz0i, &
+    &                         range_entrorg, range_capdcfac_et, range_box_liq, range_tkhmin, range_tkmmin, &
+    &                         range_rlam_heat, range_rhebc, range_texc, range_minsnowfrac
 
 CONTAINS
 
@@ -139,6 +151,8 @@ CONTAINS
     ! convection
     range_entrorg    = 0.125e-3_wp  ! entrainment parameter for deep convection
     range_capdcfac_et = 0.1_wp      ! fraction of CAPE diurnal cycle correction applied in the extratropics
+    range_rhebc      = 0.05_wp      ! RH thresholds for evaporation below cloud base
+    range_texc       = 0.025_wp     ! Excess value for temperature used in test parcel ascent
     !
     ! cloud cover
     range_box_liq    = 0.01_wp      ! box width scale of liquid clouds
@@ -148,6 +162,10 @@ CONTAINS
     range_tkmmin     = 0.15_wp      ! minimum vertical diffusion for momentum
     range_rlam_heat  = 1.5_wp       ! multiplicative change of laminar transport resistance parameter
                                     ! (compensated by an inverse change of rat_sea)
+    !
+    ! snow cover diagnosis
+    range_minsnowfrac = 0.05_wp     ! Minimum value to which the snow cover fraction is artificially reduced
+                                    ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
 
     use_ensemble_pert = .FALSE.     ! Usage of ensemble perturbations must be turned on explicitly
 
@@ -198,6 +216,9 @@ CONTAINS
     config_range_zvz0i        = range_zvz0i
     config_range_entrorg      = range_entrorg
     config_range_capdcfac_et  = range_capdcfac_et
+    config_range_rhebc        = range_rhebc
+    config_range_texc         = range_texc
+    config_range_minsnowfrac  = range_minsnowfrac
     config_range_box_liq      = range_box_liq
     config_range_tkhmin       = range_tkhmin
     config_range_tkmmin       = range_tkmmin

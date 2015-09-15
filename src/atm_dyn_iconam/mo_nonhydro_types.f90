@@ -257,7 +257,9 @@ MODULE mo_nonhydro_types
      !
      ! Correction term needed to use perturbation density for lateral boundary nudging
      ! (note: this field is defined on the local parent grid in case of MPI parallelization)
-     rho_ref_corr(:,:,:) , & 
+     rho_ref_corr(:,:,:) , &
+     ! Mask field for mountain or upper slope points
+     mask_mtnpoints(:,:) , & ! 
      ! Area of subdomain for which feedback is performed; dim: (nlev)
      fbk_dom_volume(:)
 

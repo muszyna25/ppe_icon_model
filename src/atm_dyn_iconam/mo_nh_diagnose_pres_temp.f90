@@ -39,7 +39,9 @@ MODULE mo_nh_diagnose_pres_temp
   REAL(wp), PARAMETER :: cpd_o_rd  = 1._wp / rd_o_cpd
   REAL(wp), PARAMETER :: grav_o_rd = grav / rd
 
-  PUBLIC :: diagnose_pres_temp, diag_temp, diag_pres
+  PUBLIC :: diagnose_pres_temp
+  PUBLIC :: diag_temp
+  PUBLIC :: diag_pres
 
 
   CONTAINS
@@ -365,11 +367,10 @@ MODULE mo_nh_diagnose_pres_temp
   !! Reduced version for temperature diagnosis to be called from within a block loop
   !!
   !!
-  SUBROUTINE diag_temp (pt_prog, pt_prog_rcf, pt_diag, p_metrics,       &
+  SUBROUTINE diag_temp (pt_prog, pt_prog_rcf, pt_diag,  &
                         jb, i_startidx, i_endidx, slev, slev_moist, nlev)
 
 
-    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
     TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog      !!the prognostic variables
     TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog_rcf  !!the prognostic variables which are
                                                       !! treated with reduced calling frequency

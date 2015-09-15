@@ -55,7 +55,8 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               HINTP_TYPE_LONLAT_BCTR,             &
   &                               HINTP_TYPE_LONLAT_RBF,              &
   &                               nexlevs_rrg_vnest, RTTOV_BT_CL,     &
-  &                               RTTOV_RAD_CL, RTTOV_RAD_CS
+  &                               RTTOV_RAD_CL, RTTOV_RAD_CS,         &
+  &                               TLEV_NNOW_RCF
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, lart
 USE mo_exception,           ONLY: message, finish !,message_text
@@ -2780,7 +2781,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       CALL art_tracer_interface('turb', k_jg, kblks, phy_tend_list,  &
                 & 'ddt_', ptr_arr=phy_tend%tracer_turb_ptr,          &
                 & advconf=advection_config(k_jg), phy_tend=phy_tend, &
-                & ldims=shape3d, tlev_source=1)
+                & ldims=shape3d, tlev_source=TLEV_NNOW_RCF)
     ENDIF
 
     cf_desc    = t_cf_var('ddt_tracer_pconv', 's-1', &
@@ -2827,7 +2828,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       CALL art_tracer_interface('conv', k_jg, kblks, phy_tend_list,  &
                 & 'ddt_', ptr_arr=phy_tend%tracer_conv_ptr,          &
                 & advconf=advection_config(k_jg), phy_tend=phy_tend, &
-                & ldims=shape3d, tlev_source=1)
+                & ldims=shape3d, tlev_source=TLEV_NNOW_RCF)
     ENDIF
 
 

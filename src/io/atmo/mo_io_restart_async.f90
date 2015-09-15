@@ -37,7 +37,8 @@ MODULE mo_io_restart_async
   USE mo_dynamics_config,         ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf, iequations
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, &
-    &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH
+    &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH,        &
+    &                                   TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
     &                                   set_restart_namelist, get_restart_namelist
@@ -2549,11 +2550,11 @@ CONTAINS
       time_level = ICHAR(p_info%name(idx+3:idx+3)) - ICHAR('0')
 
       ! get information about time level to be skipped for current field
-      IF (p_info%tlev_source == 0) THEN
+      IF (p_info%tlev_source == TLEV_NNOW) THEN
         IF (time_level == nnew(id))                    lskip_timelev = .TRUE.
         ! this is needed to skip the extra time levels allocated for nesting
         IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
-      ELSE IF (p_info%tlev_source == 1) THEN
+      ELSE IF (p_info%tlev_source == TLEV_NNOW_RCF) THEN
         IF (time_level == nnew_rcf(id)) lskip_timelev = .TRUE.
       ENDIF
     ENDIF

@@ -560,7 +560,6 @@ CONTAINS
     CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
     TYPE (t_grib2_var) :: grid_coord_grib2(2)
     INTEGER :: igrid,i,vlistID,idx(3),gridID(3),zaxisID
-    CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
 
     ! geographical longitude RLON
     grid_coord_grib2(1) = grib2_var(               0,   &  ! discipline
