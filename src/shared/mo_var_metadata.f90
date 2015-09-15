@@ -40,7 +40,6 @@ MODULE mo_var_metadata
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,    &
     &                              timedelta, newTimedelta, deallocateTimedelta, &
     &                              OPERATOR(+), dateTimeToString, MAX_DATETIME_STR_LEN
-  USE mo_mtime_extensions,   ONLY: get_datetime_string
 
   IMPLICIT NONE
 
@@ -547,9 +546,9 @@ CONTAINS
     !---------------------------------------------------------------------------------
 
     ! create model ini_datetime in ISO_8601 format
-    CALL get_datetime_string(iso8601_ini_datetime, time_config%ini_datetime)
+    CALL dateTimeToString(tc_startdate, iso8601_ini_datetime)
     ! create model end_datetime in ISO_8601 format
-    CALL get_datetime_string(iso8601_end_datetime, time_config%end_datetime)
+    CALL dateTimeToString(tc_stopdate, iso8601_end_datetime)
 
     ! default start time = model initialization time
     start0 = TRIM(iso8601_ini_datetime)
@@ -624,11 +623,6 @@ CONTAINS
 
     ! CONSISTENCY CHECK: compares the implementation above with an
     ! mtime-based implementation
-
-    ! create model ini_datetime in ISO_8601 format
-    CALL dateTimeToString(tc_startdate, iso8601_ini_datetime)
-    ! create model end_datetime in ISO_8601 format
-    CALL dateTimeToString(tc_stopdate, iso8601_end_datetime)
 
     ! default start time = model initialization time
     start = TRIM(iso8601_ini_datetime)
