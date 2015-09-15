@@ -117,6 +117,7 @@ MODULE mo_nh_stepping
   USE mo_name_list_output_init,    ONLY: output_file
   USE mo_pp_scheduler,             ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,                 ONLY: t_simulation_status
+  USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
   USE mo_art_emission_interface,   ONLY: art_emission_interface
   USE mo_art_sedi_interface,       ONLY: art_sedi_interface
   USE mo_art_tools_interface,      ONLY: art_tools_interface
@@ -728,6 +729,7 @@ MODULE mo_nh_stepping
 
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants) THEN
+
       CALL diag_for_output_dyn ()
       IF (iforcing == inwp) THEN
         CALL aggr_landvars
@@ -765,15 +767,22 @@ MODULE mo_nh_stepping
 
 
       ! Unit conversion for output from mass mixing ratios to densities
-      !
+      ! and calculation of ART diagnostics
       DO jg = 1, n_dom
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+        ! Call the ART diagnostics
+        CALL art_diagnostics_interface(p_patch(jg),                              &
+          &                            p_nh_state(jg)%prog(nnew(jg))%rho,        &
+          &                            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
+          &                            p_nh_state(jg)%%metrics%ddqz_z_full, jg)
+        ! Call the ART unit conversion 
         CALL art_tools_interface('unit_conversion',                            & !< in
           &                      p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
           &                      p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
           &                      p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
           &                      p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
       END DO
+
     ENDIF
 
 

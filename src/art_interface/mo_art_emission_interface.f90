@@ -56,7 +56,6 @@ MODULE mo_art_emission_interface
                                           &   t_fields_volc,t_fields_1mom
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
-  USE mo_art_diagnostics_interface,     ONLY: art_diagnostics_interface
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_integration,               ONLY: art_integrate_explicit
 ! Emission Routines
@@ -147,15 +146,10 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         ! Get model layer heights
         DO jk = 1, nlev
           DO jc = istart, iend
-            dz(jc,jk) = p_nh_state%metrics%z_ifc(jc,jk,jb)-p_nh_state%metrics%z_ifc(jc,jk+1,jb)
+            dz(jc,jk) = p_nh_state%metrics%ddqz_z_full(jc,jk,jb)
           ENDDO
         ENDDO
         
-        ! Call the ART diagnostics
-        IF (art_config(jg)%lart_diag_out) THEN
-          CALL art_diagnostics_interface(rho(:,:,jb),tracer(:,:,jb,:), dz(:,:),                  &
-            &                            istart, iend, nlev, jb, art_config(jg), p_art_data(jg))
-        ENDIF
         ! ----------------------------------
         ! --- Preparations for emission routines
         ! ----------------------------------
