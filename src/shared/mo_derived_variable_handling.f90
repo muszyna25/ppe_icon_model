@@ -23,6 +23,7 @@ MODULE mo_derived_variable_handling
   USE mo_linked_list, ONLY: find_list_element, t_var_list, t_list_element
   USE mo_util_string, ONLY: tolower
   USE mo_exception, ONLY: finish, message, message_text
+  USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent
 
   IMPLICIT NONE
 
@@ -136,7 +137,7 @@ CONTAINS
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     TYPE(t_list_element), POINTER :: src_element, dest_element
     TYPE(vector) :: keys 
-    integer :: inml 
+    integer :: inml
     type(vector) :: vector_buffer, value_buffer
     class(*), pointer :: buf
     type(vector_iterator) :: iter
@@ -179,14 +180,14 @@ CONTAINS
           varlist((nvars+1):ntotal_vars) = " "
           
           IF (i_typ == level_type_ml) THEN
-          write (0,*)'INML:',inml
-          IF ( meanMap%has_key(TRIM(p_onl%output_interval(1))) ) THEN
-            CALL meanMap%get(TRIM(p_onl%output_interval(1)),vector_buffer)
-            call meanVariables(inml)%add(vector_buffer)
-          !ELSE
-            !call meanVariables(inml)%clear()
-            !meanVariables = vector()
-          END IF
+            write (0,*)'INML:',inml
+            IF ( meanMap%has_key(TRIM(p_onl%output_interval(1))) ) THEN
+              CALL meanMap%get(TRIM(p_onl%output_interval(1)),vector_buffer)
+              call meanVariables(inml)%add(vector_buffer)
+            !ELSE
+              !call meanVariables(inml)%clear()
+              !meanVariables = vector()
+            END IF
             DO i=1,nvars
               ! collect data variables only, there variables names like
               ! 'grid:clon' which should be excluded
