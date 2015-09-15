@@ -29,7 +29,7 @@ MODULE mo_master_nml
        &                       OPERATOR(+), OPERATOR(<)
   USE mo_master_config,  ONLY: master_component_models, addModel, noOfModels, maxNoOfModels, &
        &                       setInstitution,                                               &
-       &                       setRestart, isREstart, setModelBaseDir,                       &
+       &                       setRestart, setRestartWriteLast, isRestart, setModelBaseDir,  &
        &                       setExpRefdate,                                                &
        &                       setExpStartdate, setExpStopdate,                              &
        &                       setCheckpointTimeInterval,  setRestartTimeInterval,           &
@@ -60,7 +60,13 @@ CONTAINS
     ! Namelist variables
 
     CHARACTER(len=256) :: institute = ''
-    LOGICAL :: lRestart = .FALSE.
+
+    !> Flag: True, if model run is initialized from restart state.
+    LOGICAL :: lRestart             = .FALSE.
+    !> Flag: True, if model run should create restart at experiment end.
+    !  This is independent from the settings of the restart interval.
+    LOGICAL :: lrestart_write_last  = .FALSE.
+
     CHARACTER(len=filename_max) :: modelBaseDir = ''
     
     CHARACTER(len=132)          :: modelName = ''
@@ -83,6 +89,7 @@ CONTAINS
     NAMELIST /master_nml/              &
          &    institute,               &
          &    lRestart,                &
+         &    lrestart_write_last,     &
          &    modelBaseDir
     
     NAMELIST /master_time_control_nml/ &
@@ -142,6 +149,7 @@ CONTAINS
     ! save namelist variables in configuration
 
     CALL setRestart(lRestart)
+    CALL setRestartWriteLast(lrestart_write_last)
     CALL setModelBaseDir(modelBaseDir)
     
     CALL position_nml('master_time_control_nml', STATUS=istat)

@@ -24,7 +24,7 @@ MODULE mo_master_config
   PUBLIC :: addModel, noOfModels, maxNoOfModels
   PUBLIC :: setInstitution
   PUBLIC :: setModelBaseDir, getModelBaseDir
-  PUBLIC :: setRestart, isRestart
+  PUBLIC :: setRestart, setRestartWriteLast, isRestart
   PUBLIC :: setExpRefdate
   PUBLIC :: setExpStartdate, setExpStopdate
   PUBLIC :: setStartdate, setStopdate
@@ -38,6 +38,7 @@ MODULE mo_master_config
   PUBLIC :: tc_stopdate
   PUBLIC :: tc_dt_checkpoint
   PUBLIC :: tc_dt_restart
+  PUBLIC :: lrestart_write_last
   
   ! component model configuration
   !_______________________________________________________________________________________________
@@ -85,6 +86,10 @@ MODULE mo_master_config
   
   LOGICAL, PROTECTED :: lrestart = .false.
 
+  !> Flag: True, if model run should create restart at experiment end.
+  !  This is independent from the settings of the restart interval.
+  LOGICAL, PROTECTED ::  lrestart_write_last = .FALSE.
+
   CHARACTER(len=filename_max), PROTECTED :: model_base_dir = ''
   
 CONTAINS
@@ -99,6 +104,11 @@ CONTAINS
     LOGICAL, INTENT(in) :: lr
     lrestart = lr
   END SUBROUTINE setRestart
+
+  SUBROUTINE setRestartWriteLast(lr)
+    LOGICAL, INTENT(in) :: lr
+    lrestart_write_last = lr
+  END SUBROUTINE setRestartWriteLast
 
   LOGICAL FUNCTION isRestart()
     isRestart = lrestart

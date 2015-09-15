@@ -110,9 +110,9 @@ MODULE mo_nh_stepping
   USE mo_vertical_grid,            ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
-  USE mo_master_config,            ONLY: isRestart, tc_startdate, tc_stopdate, &
-       &                                 tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate, &
-       &                                 tc_dt_checkpoint, tc_dt_restart
+  USE mo_master_config,            ONLY: isRestart, tc_startdate, tc_stopdate,                      &
+       &                                 tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate,         &
+       &                                 tc_dt_checkpoint, tc_dt_restart, lrestart_write_last
   USE mo_io_restart_attributes,    ONLY: get_restart_attribute
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
@@ -1017,11 +1017,21 @@ MODULE mo_nh_stepping
     CALL message('','')
     dstring_old = iso8601(datetime_current)
     call datetimeToString(current_date, dstring_new) 
-    IF ((isCurrentEventActive(checkpointEvent, current_date)                  &
-         &              .or. isCurrentEventActive(restartEvent, current_date) &
-         &              .and. tc_startdate /= current_date)                   &
-         &              .or. tc_exp_stopdate == current_date                  &
-         &              .and. .not. output_mode%l_none ) then
+    ! trigger creation of a restart file ...
+    !
+    IF ( &
+      !   ... CASE A: if normal checkpoint cycle has been reached ...
+      &  (isCurrentEventActive(checkpointEvent, current_date)                  &
+      !          or restart cycle has been reached, i.e. checkpoint+model stop
+      &       .OR.  isCurrentEventActive(restartEvent, current_date)           &
+      !          and the current date differs from simulation start date
+      &       .AND. (tc_startdate /= current_date))                            &
+      !   ... CASE B: if end of experiment has been reached
+      &  .OR.                                                                  &
+      &  ((tc_exp_stopdate == current_date)                                    &
+      &       .AND. lrestart_write_last)                                       &
+      !   ... make sure (for both cases A and B) that model output is enabled
+      &     .AND. .NOT. output_mode%l_none ) THEN
       lwrite_checkpoint = .TRUE.
 !      WRITE(message_text, '(a,l3,a,a,a,a)') 'LK checkpoint event: new T and old ', lwrite_checkpoint, &
 !           &                                ' new: ', dstring_new, ' old: ', dstring_old
