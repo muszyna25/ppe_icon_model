@@ -52,9 +52,9 @@ PROGRAM icon
   USE mo_atmo_model,          ONLY: atmo_model
 #endif
 
-  USE mo_cdi_constants          ! We need all ? 
+  USE mo_cdi,                 ONLY: gribapiLibraryVersion
   USE mo_cf_convention          ! We need all ? 
-  
+
   IMPLICIT NONE
 
   INTEGER                     :: master_control_status, my_process_component

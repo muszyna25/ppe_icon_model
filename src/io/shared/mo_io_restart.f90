@@ -60,7 +60,25 @@ MODULE mo_io_restart
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
-  USE mo_cdi_constants
+  USE mo_cdi,                   ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, ZAXIS_SURFACE, CDI_UNDEFID, COMPRESS_ZIP, &
+                                    & DATATYPE_FLT64, TIME_VARIABLE, CDI_GLOBAL, DATATYPE_INT32, GRID_UNSTRUCTURED, &
+                                    & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_GENERIC, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_HEIGHT, &
+                                    & ZAXIS_HYBRID, ZAXIS_HYBRID_HALF, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, &
+                                    & ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_TOA, TAXIS_RELATIVE, streamOpenRead, streamInqVlist, &
+                                    & vlistInqTaxis, taxisInqVdate, taxisInqVtime, vlistNvars, vlistInqVarGrid, gridInqSize, &
+                                    & vlistInqVarZaxis, zaxisInqType, zaxisInqSize, streamDefTimestep, vlistDefVar, zaxisCreate, &
+                                    & taxisCreate, gridCreate, vlistDefAttInt, vlistDefAttFlt, vlistDefAttTxt, vlistCreate, &
+                                    & streamOpenWrite, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, streamWriteVarSlice, &
+                                    & streamWriteVar, streamDefVlist, cdiGetStringError, vlistDefVarDatatype, vlistDefVarName, &
+                                    & vlistInqVarName, zaxisDefLevels, gridDefNvertex, streamReadVar, zaxisDefLbounds, &
+                                    & zaxisDefUbounds, zaxisDefVct, zaxisDefUnits, vlistDefVarLongname, vlistDefVarUnits, &
+                                    & vlistDefVarMissval, gridDefXlongname, gridDefYlongname, vlistDefTaxis, taxisDefVdate, &
+                                    & taxisDefVtime, gridDefXname, gridDefYname, gridDefXunits, gridDefYunits
+  USE mo_cdi_constants,         ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
+                                    & ZA_HYBRID, ZA_HYBRID_HALF, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_DEPTH_RUNOFF_S, &
+                                    & ZA_DEPTH_RUNOFF_G, ZA_SNOW, ZA_SNOW_HALF, ZA_TOA, ZA_HEIGHT_2M, ZA_HEIGHT_10M, &
+                                    & ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
+                                    & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE
   USE mo_cf_convention
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator
@@ -200,7 +218,7 @@ CONTAINS
     !       are identical for all domains.
     !
     IF (my_process_is_mpi_workroot()) THEN
-      fileID  = streamOpenRead(rst_filename)
+      fileID  = streamOpenRead(TRIM(rst_filename))
       ! check if the file could be opened
       IF (fileID < 0) THEN
         CALL cdiGetStringError(fileID, cdiErrorText)
@@ -228,7 +246,7 @@ CONTAINS
         ! note: we have opened the file for domain 1 already
         IF (idom > 1) THEN
           IF (lexists) THEN
-            fileID  = streamOpenRead(rst_filename)
+            fileID  = streamOpenRead(TRIM(rst_filename))
             vlistID = streamInqVlist(fileID)
           ENDIF
         END IF
@@ -443,8 +461,8 @@ CONTAINS
     !
     CHARACTER(len=64) :: attribute_name
     CHARACTER(len=256) :: text_attribute
-    REAL(wp) :: real_attribute
-    INTEGER :: int_attribute
+    REAL(wp) :: real_attribute(1)
+    INTEGER :: int_attribute(1)
     LOGICAL :: bool_attribute
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
@@ -500,7 +518,7 @@ CONTAINS
       var_lists(i)%p%first = .TRUE.
       !
       IF (my_process_is_mpi_workroot()) THEN
-        var_lists(i)%p%cdiFileID_restart = streamOpenWrite(restart_filename, var_lists(i)%p%restart_type)
+        var_lists(i)%p%cdiFileID_restart = streamOpenWrite(TRIM(restart_filename), var_lists(i)%p%restart_type)
         var_lists(i)%p%filename          = TRIM(restart_filename)
         !
         IF (var_lists(i)%p%cdiFileID_restart < 0) THEN
@@ -546,7 +564,7 @@ CONTAINS
         ! 2.3 real attributes
         !
         DO ia = 1, restart_attributes_count_real()
-          CALL get_restart_attribute(ia, attribute_name, real_attribute)
+          CALL get_restart_attribute(ia, attribute_name, real_attribute(1))
           status = vlistDefAttFlt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
                &                  TRIM(attribute_name),                  &
                &                  DATATYPE_FLT64,                        &
@@ -557,7 +575,7 @@ CONTAINS
         ! 2.4 integer attributes
         !
         DO ia = 1, restart_attributes_count_int()
-          CALL get_restart_attribute(ia, attribute_name, int_attribute)
+          CALL get_restart_attribute(ia, attribute_name, int_attribute(1))
           status = vlistDefAttInt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
                &                  TRIM(attribute_name),                  &
                &                  DATATYPE_INT32,                        &
@@ -570,9 +588,9 @@ CONTAINS
         DO ia = 1, restart_attributes_count_bool()
           CALL get_restart_attribute(ia, attribute_name, bool_attribute)
           IF (bool_attribute) THEN
-            int_attribute = 1
+            int_attribute(1) = 1
           ELSE
-            int_attribute = 0
+            int_attribute(1) = 0
           ENDIF
           status = vlistDefAttInt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
                &                  TRIM(attribute_name),                  &
@@ -1035,10 +1053,10 @@ CONTAINS
       varID = info%cdiVarID
       !
       CALL vlistDefVarDatatype(vlistID, varID, DATATYPE_FLT64)
-      CALL vlistDefVarName(vlistID, varID, info%name)
+      CALL vlistDefVarName(vlistID, varID, TRIM(info%name))
       !
-      IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, info%cf%long_name)
-      IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, info%cf%units)
+      IF (info%cf%long_name /= '') CALL vlistDefVarLongname(vlistID, varID, TRIM(info%cf%long_name))
+      IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, TRIM(info%cf%units))
 
       IF (info%lmiss) THEN
         IF (ASSOCIATED(element%field%r_ptr)) THEN
@@ -1824,7 +1842,7 @@ CONTAINS
       IF (my_process_is_mpi_workroot()) THEN
         WRITE(0,*) "streamOpenRead ", TRIM(restart_filename)
 
-        fileID  = streamOpenRead(name)
+        fileID  = streamOpenRead(TRIM(name))
         vlistID = streamInqVlist(fileID)
         taxisID = vlistInqTaxis(vlistID)
         !

@@ -51,23 +51,25 @@ MODULE mo_ocean_state
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew,nold
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  
+
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
     &                               new_var_list,             &
     &                               delete_var_list,          &
     &                               default_var_list_settings,&
     &                               add_ref
-  USE mo_var_metadata,        ONLY: groups 
+  USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
-  USE mo_cdi_constants
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_INT8, DATATYPE_PACK16, tstep_constant, DATATYPE_FLT64, GRID_LONLAT
+  USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_reference, grid_unstructured_cell, grid_unstructured_edge, &
+      &                             grid_unstructured_vert, grid_vertex, za_depth_below_sea, za_depth_below_sea_half, za_surface
   !  USE mo_ocean_config,        ONLY: ignore_land_points
-  
+
   IMPLICIT NONE
   PRIVATE
-  
- 
+
+
   !public interface
   !
   ! subroutines

@@ -56,7 +56,8 @@ MODULE mo_nh_stepping
   USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode
   USE mo_nwp_lnd_state,            ONLY: p_lnd_state
-  USE mo_ext_data_state,           ONLY: ext_data, interpol_monthly_mean
+  USE mo_ext_data_state,           ONLY: ext_data
+  USE mo_ext_data_init,            ONLY: interpol_monthly_mean
   USE mo_extpar_config,            ONLY: itopo
   USE mo_limarea_config,           ONLY: latbc_config
   USE mo_model_domain,             ONLY: p_patch, t_patch
@@ -87,7 +88,7 @@ MODULE mo_nh_stepping
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
     &                                    inwp, iecham, itturb, itgscp, itsfc,                      &
-    &                                    MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD, MODIS
+    &                                    MODE_IAU, MODE_IAU_OLD, MODIS
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
@@ -141,7 +142,7 @@ MODULE mo_nh_stepping
   USE mo_io_restart_async,         ONLY: prepare_async_restart, write_async_restart, &
     &                                    close_async_restart, set_data_async_restart
   USE mo_nh_prepadv_types,         ONLY: prep_adv, t_prepare_adv, jstep_adv
-  USE mo_action,                   ONLY: reset_action  !reset_act
+  USE mo_action,                   ONLY: reset_act
   USE mo_output_event_handler,     ONLY: get_current_jfile
   USE mo_nwp_diagnosis,            ONLY: nwp_diag_for_output
   USE mo_turbulent_diagnostic,     ONLY: calculate_turbulent_diagnostics, &
@@ -281,7 +282,6 @@ MODULE mo_nh_stepping
 
   INTEGER                              :: jg, jgc, jn
   INTEGER                              :: ierr
-  REAL(wp)                             :: zdt_shift
 
 !!$  INTEGER omp_get_num_threads
 !!$  INTEGER omp_get_max_threads
@@ -297,14 +297,6 @@ MODULE mo_nh_stepping
 
   IF (.NOT. isRestart()) THEN
     IF (timeshift%dt_shift < 0._wp) THEN
-      ! Round dt_shift to the nearest integer multiple of the advection time step
-      zdt_shift = NINT(timeshift%dt_shift/dtime)*dtime
-      IF (ABS((timeshift%dt_shift-zdt_shift)/zdt_shift) > 1.e-10_wp) THEN
-        WRITE(message_text,'(a,f10.3,a)') '*** WARNING: dt_shift adjusted to ', zdt_shift, &
-          &                               ' s in order to be a multiple of the advection time step ***'
-        CALL message('',message_text)
-      ENDIF
-      timeshift%dt_shift = REAL(zdt_shift,wp)
       time_config%sim_time(:) = timeshift%dt_shift
       CALL add_time(timeshift%dt_shift,0,0,0,datetime_current)
     ENDIF
@@ -325,8 +317,9 @@ MODULE mo_nh_stepping
 
 
   IF (sstice_mode > 1 .AND. iforcing == inwp) THEN
-    ! t_seasfc and fr_seaice have to be set again from the ext_td_data files
-    !  the values from the analysis have to be overwritten
+    ! t_seasfc and fr_seaice have to be set again from the ext_td_data files;
+    ! the values from the analysis have to be overwritten.
+    ! In the case of a restart, the call is required to open the file and read the data
     CALL set_actual_td_ext_data (.TRUE.,datetime_current,datetime_current,sstice_mode,  &
                                 &  p_patch(1:), ext_data, p_lnd_state)
   END IF
@@ -384,7 +377,7 @@ MODULE mo_nh_stepping
           IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
         ENDDO
         ! Compute synthetic sat images
-        IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg), num_images)
+        IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
 
       ENDDO
 
@@ -891,7 +884,7 @@ MODULE mo_nh_stepping
             IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
           ENDDO
           ! Compute synthetic sat images
-          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg), num_images)
+          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
 
         ENDDO
 
@@ -904,7 +897,11 @@ MODULE mo_nh_stepping
       !
       DO jg = 1, n_dom
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-        CALL art_tools_interface('unit_conversion',p_nh_state(jg),jg)
+        CALL art_tools_interface('unit_conversion',                            & !< in
+          &                      p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
+          &                      p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
+          &                      p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
+          &                      p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
       END DO
     ENDIF
 
@@ -985,9 +982,8 @@ MODULE mo_nh_stepping
     ! re-initialize MAX/MIN fields with 'resetval'
     ! must be done AFTER output
     !
-!DR      CALL reset_act%execute(slack=dtime)
-!DR Workaround for gfortran 4.5 (and potentially others)
-    CALL reset_action(dtime)
+    CALL reset_act%execute(slack=dtime)
+
     IF ( l_nml_output ) CALL reset_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
     ! re-initialization for FG-averaging. Ensures that average is centered in time.
     IF (is_avgFG_time(datetime_current)) THEN
@@ -1379,7 +1375,7 @@ MODULE mo_nh_stepping
         ! For the time being, we hand over the dynamics time step and replace iadv_rcf by 
         ! ndyn_substeps (for bit-reproducibility).
         IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
-            init_mode /= MODE_DWDANA_INC .AND. init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
+            init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
           CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
             p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
         ENDIF
@@ -1988,7 +1984,7 @@ MODULE mo_nh_stepping
         lsave_mflx = .FALSE.
       ENDIF
 
-      IF ( ANY((/MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
+      IF ( ANY((/MODE_IAU,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
         cur_time = time_config%sim_time(jg)-timeshift%dt_shift+ &
          (REAL(nstep-ndyn_substeps_var(jg),wp)-0.5_wp)*dt_dyn
         CALL compute_iau_wgt(cur_time, dt_dyn, lclean_mflx)

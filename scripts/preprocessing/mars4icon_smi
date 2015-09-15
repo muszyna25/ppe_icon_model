@@ -36,6 +36,7 @@
 #   Martin Koehler  201108  SMI soil moisture index
 #   Helmut Frank    201309  Rewrite with several options
 #   Helmut Frank    201501  Corrections retrieving IFS forecast data
+#   Helmut Frank    20150505  Introduce MARS_EXPVER to be able to set expver!=1.
 # -------------------------------------------------------
 
 # --- argument list ---
@@ -51,7 +52,7 @@ typeset    ozone
 typeset -i debug=0
 typeset -l class_mars='od'
 typeset -l stream_mars='oper'
-typeset    expv=1
+typeset    expv=${MARS_EXPVER:-1}
 typeset    expv_soil=1
 typeset    Dflag
 
@@ -385,6 +386,7 @@ retrieve,
         levtype  = surface
 retrieve,
         ${db_para_soil},
+##      param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn/asn${soiltype},
         param    = tsn/skt/stl1/stl2/stl3/stl4/sd/rsn/asn,
         repres   = gg, 
         resol    = off, 
@@ -463,6 +465,7 @@ read,
 retrieve,
         type     = ${type_mars},
         step     = ${step},
+##      param    = slt/swvl1/swvl2/swvl3/swvl4,
         param    = swvl1/swvl2/swvl3/swvl4,
         gaussian = reduced,
         target   = "${slt_file}",
@@ -471,6 +474,10 @@ retrieve,
         typeset  = an, step=0,
         param    = slt,
         fieldset = slt
+#read,
+#       source   = "${slt_file}",
+#       param    = slt,
+#       fieldset = slt
 	MARS_IFS2ICON2_EOF
       fi
 
