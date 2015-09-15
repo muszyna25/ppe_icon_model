@@ -248,12 +248,15 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               ! --- calculate vertical flux term due to sedimentation
               ! ----------------------------------
               ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
-              CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             & !< in
-                &                       iubc, flx_contra_vsed, dt_sub,          & !< in
-                &                       lcompute_gt, lcleanup_gt, itype_vlimit, & !< in
-                &                       dz,                                     & !< in
-                &                       rhodz_new, lprint_cfl,                  & !< in
-                &                       p_upflux_sed(:,:,:), opt_elev=nlevp1 )    !< out
+              CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
+                &                       iubc, flx_contra_vsed, dt_sub,          &
+                &                       lcompute_gt, lcleanup_gt, itype_vlimit, &
+                &                       dz,                                     &
+                &                       rhodz_new, lprint_cfl,                  &
+                &                       p_upflux_sed(:,:,:),                    &
+                &                       opt_rlstart=i_rlstart,                  &
+                &                       opt_rlend=i_rlend,                      &
+                &                       opt_elev=nlevp1)
     
               ! ----------------------------------
               ! --- update mixing ratio after sedimentation
