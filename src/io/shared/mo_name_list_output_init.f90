@@ -119,7 +119,6 @@ MODULE mo_name_list_output_init
     &                                             OPERATOR(<), newDatetime, deallocateDatetime,   &
     &                                             getTotalMilliSecondsTimeDelta, datetime,        &
     &                                             OPERATOR(+), datetimeToString, OPERATOR(>)
-  USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
     &                                             DEFAULT_EVENT_NAME, t_par_output_event
   USE mo_output_event_control,              ONLY: compute_matching_sim_steps,                     &

@@ -844,7 +844,7 @@ MODULE mo_nh_stepping
     !
     ! dynamics stepping
     !
-    CALL integrate_nh(datetime_current, 1, jstep-jstep_shift, dtime, 1)
+    CALL integrate_nh(datetime_current, current_date, 1, jstep-jstep_shift, dtime, 1)
 
 
     ! Compute diagnostics for output if necessary
@@ -969,13 +969,20 @@ MODULE mo_nh_stepping
 
     ! re-initialize MAX/MIN fields with 'resetval'
     ! must be done AFTER output
+
+    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! NOTE for transition to mtime: The type-bound procedure
+    ! reset_act%execute needs "current_date" as an additional
+    ! argument, st. we can get rid of time_config%cur_datetime there.
+    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
     !
 !DR      CALL reset_act%execute(slack=dtime)
 !DR Workaround for gfortran 4.5 (and potentially others)
     CALL reset_action(dtime)
     IF ( l_nml_output ) CALL reset_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
     ! re-initialization for FG-averaging. Ensures that average is centered in time.
-    IF (is_avgFG_time(datetime_current)) THEN
+    IF (is_avgFG_time(current_date)) THEN
       IF (p_nh_state(1)%diag%nsteps_avg(1) == 0) THEN
         CALL reinit_average_first_guess(p_patch(1), p_nh_state(1)%diag, p_nh_state(1)%prog(nnow_rcf(1)))
       END IF
@@ -1109,13 +1116,14 @@ MODULE mo_nh_stepping
   !! Modification by Daniel Reinert, DWD (2010-07-23)
   !!  - optional reduced calling frequency for transport and physics
   !!
-  RECURSIVE SUBROUTINE integrate_nh (datetime_current, jg, nstep_global,   &
+  RECURSIVE SUBROUTINE integrate_nh (datetime_current, current_date, jg, nstep_global,   &
     &                                dt_loc, num_steps )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:integrate_nh'
 
     TYPE(t_datetime), INTENT(INOUT)         :: datetime_current
+    TYPE(datetime), POINTER                 :: current_date     !< current datetime in mtime format
 
     INTEGER , INTENT(IN)    :: jg           !< current grid level
     INTEGER , INTENT(IN)    :: nstep_global !< counter of global time step
@@ -1729,7 +1737,7 @@ MODULE mo_nh_stepping
           IF(p_patch(jgc)%n_patch_cells > 0) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
-            CALL integrate_nh( datetime_current, jgc, nstep_global, dt_sub, nsteps_nest )
+            CALL integrate_nh( datetime_current, current_date, jgc, nstep_global, dt_sub, nsteps_nest )
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 
@@ -1765,7 +1773,7 @@ MODULE mo_nh_stepping
 
       ! Average atmospheric variables needed as first guess for data assimilation
       !
-      IF ( jg == 1 .AND. is_avgFG_time(datetime_current))  THEN
+      IF ( jg == 1 .AND. is_avgFG_time(current_date))  THEN
         CALL average_first_guess(p_patch(jg), p_int_state(jg), p_nh_state(jg)%diag, &
           p_nh_state(jg)%prog(nnew(jg)), p_nh_state(jg)%prog(nnew_rcf(jg)))
       ENDIF
