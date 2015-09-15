@@ -89,6 +89,7 @@ MODULE mo_nh_stepping
     &                                    inwp, iecham, itturb, itgscp, itsfc,                      &
     &                                    MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD, MODIS
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
+  USE mo_util_string,              ONLY: int2string
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
   USE mo_advection_stepping,       ONLY: step_advection
@@ -181,6 +182,9 @@ MODULE mo_nh_stepping
   IMPLICIT NONE
 
   PRIVATE
+
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_nh_stepping'
 
 
   ! additional flow control variables that need to be dimensioned with the
@@ -509,7 +513,7 @@ MODULE mo_nh_stepping
   SUBROUTINE perform_nh_timeloop (datetime_current)
 !
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_nh_stepping:perform_nh_timeloop'
+      &  routine = modname//':perform_nh_timeloop'
 
   TYPE(t_datetime), INTENT(INOUT)      :: datetime_current
 
@@ -1082,7 +1086,17 @@ MODULE mo_nh_stepping
     ENDIF
 
 #ifdef USE_MTIME_LOOP
-    IF (current_date >= end_date) EXIT TIME_LOOP
+    IF (current_date >= end_date) then
+#ifdef _MTIME_DEBUG       
+       ! consistency check: compare step counter to expected end step
+       if (jstep /= (jstep0+nsteps)) then
+          call finish(routine, 'Step counter does not match expected end step: '//int2string(jstep,'(i0)')&
+               &//' /= '//int2string((jstep0+nsteps),'(i0)'))
+       end if
+#endif
+       ! leave time loop
+       EXIT TIME_LOOP
+    end IF
     jstep = jstep + 1
 #endif
   ENDDO TIME_LOOP

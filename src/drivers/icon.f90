@@ -227,6 +227,11 @@ PROGRAM icon
     CALL message('','')
   END IF
 
+#ifdef _MTIME_DEBUG
+  WRITE(message_text,'(a,a)') 'executable running with MTIME_DEBUG enabled.'
+  CALL message('',message_text)
+#endif
+
   !-------------------------------------------------------------------
   ! Initialize the master control
 
