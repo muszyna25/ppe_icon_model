@@ -24,7 +24,7 @@
 !!
 MODULE mo_nml_crosscheck
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, i8
   USE mo_exception,          ONLY: message, message_text, finish, print_value
   USE mo_impl_constants,     ONLY: max_char_length, max_dom,                  &
     &                              iecham, ildf_echam, inwp, iheldsuarez,     &
@@ -40,7 +40,9 @@ MODULE mo_nml_crosscheck
   USE mo_master_config,      ONLY: tc_exp_stopdate, tc_startdate, tc_stopdate
   USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, datetime,            &
     &                              OPERATOR(>),OPERATOR(/=), newDatetime,     &
-    &                              deallocateDatetime
+    &                              deallocateDatetime, timedelta,             &
+    &                              getPTStringFromMS, newTimedelta, min,      &
+    &                              deallocateTimedelta, OPERATOR(+)
   USE mo_mtime_extensions,   ONLY: get_datetime_string
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
@@ -300,8 +302,10 @@ CONTAINS
     INTEGER :: i_listlen
     INTEGER :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
-    TYPE(datetime),  POINTER             :: mtime_begin, mtime_end
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: mtime_sim_start, mtime_sim_stop
+    TYPE(datetime),   POINTER             :: mtime_begin, mtime_end, mtime_cur
+    TYPE(timedelta),  POINTER             :: mtime_td
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: mtime_sim_start, mtime_sim_stop, dtime_string, &
+      &                                      mtime_sim_cur
 
     !--------------------------------------------------------------------
     ! Parallelization
@@ -1013,8 +1017,24 @@ CONTAINS
       CALL finish(method_name, 'Inconsistent stop definition in namelists: time_nml:end_datetime_string / '&
         &'master_time_control_nml:tc_stopdate')
     END IF
+
+    ! check if "tc_stopdate == min(time_config%end_datetime,
+    ! time_config%cur_datetime+time_config%dt_restart)
+    CALL get_datetime_string(mtime_sim_cur, time_config%cur_datetime)
+    mtime_cur => newDatetime(mtime_sim_cur)
+
+    CALL getPTStringFromMS(INT(time_config%dt_restart*1000,i8), dtime_string)
+    mtime_td => newTimedelta(TRIM(dtime_string))
+    mtime_cur = mtime_cur + mtime_td
+
+    IF (tc_stopdate /= MIN(mtime_cur,mtime_end)) THEN
+      CALL finish(method_name, 'Inconsistent run stop definition in namelists')
+    END IF
+
     CALL deallocateDatetime(mtime_end)
-    
+    CALL deallocateDatetime(mtime_cur)
+    CALL deallocateTimedelta(mtime_td)
+  
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------
 
