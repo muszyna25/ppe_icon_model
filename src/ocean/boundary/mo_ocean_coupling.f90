@@ -36,6 +36,8 @@ MODULE mo_ocean_coupling
 
   USE mo_ocean_types
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
+  USE mo_master_config,       ONLY: tc_startdate, tc_stopdate
+  USE mtime,                  ONLY: datetimeToString
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -50,7 +52,6 @@ MODULE mo_ocean_coupling
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
     &                               yac_ffinalize, yac_fput, yac_fget
   USE mo_coupling_config,     ONLY: is_coupled_run
-  USE mo_mtime_extensions,    ONLY: get_datetime_string
   USE mo_output_event_types,  ONLY: t_sim_step_info
 # else
   USE mo_master_control,      ONLY: get_my_model_no
@@ -183,9 +184,8 @@ CONTAINS
     comp_ids(1) = comp_id
 
     ! Overwrite job start and end date with component data
-    CALL get_datetime_string(sim_step_info%run_start,    time_config%cur_datetime)
-    CALL get_datetime_string(sim_step_info%restart_time, time_config%cur_datetime, &
-      & INT(time_config%dt_restart))
+    CALL datetimeToString(tc_startdate, sim_step_info%run_start)
+    CALL datetimeToString(tc_stopdate, sim_step_info%restart_time)
 
     CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%run_start), &
       &                      end_datetime   = TRIM(sim_step_info%restart_time)   )
