@@ -37,7 +37,8 @@ MODULE mo_interface_echam_ocean
 
   USE mo_ext_data_state      ,ONLY: ext_data
   USE mo_time_config         ,ONLY: time_config      ! variable
-
+  USE mo_master_config,       ONLY: tc_startdate, tc_stopdate
+  USE mtime,                  ONLY: datetimeToString
 
 #ifdef YAC_coupling
   USE mo_master_control      ,ONLY: get_my_process_name
@@ -51,7 +52,6 @@ MODULE mo_interface_echam_ocean
 
   USE mo_exception           ,ONLY: warning
   USE mo_output_event_types  ,ONLY: t_sim_step_info
-  USE mo_mtime_extensions    ,ONLY: get_datetime_string
 
   USE mo_yac_finterface      ,ONLY: yac_fput, yac_fget,                          &
     &                               yac_finit, yac_fdef_comp,                    &
@@ -170,9 +170,8 @@ CONTAINS
     comp_ids(1) = comp_id
 
     ! Overwrite job start and end date with component data
-    CALL get_datetime_string(sim_step_info%run_start,    time_config%cur_datetime)
-    CALL get_datetime_string(sim_step_info%restart_time, time_config%cur_datetime, &
-      & INT(time_config%dt_restart))
+    CALL datetimeToString(tc_startdate, sim_step_info%run_start)
+    CALL datetimeToString(tc_stopdate, sim_step_info%restart_time)
 
     CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%run_start),  &
       &                      end_datetime   = TRIM(sim_step_info%restart_time)   )
