@@ -219,7 +219,7 @@ CONTAINS
 &            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
 &            ldlake = ext_data%atm%llake_c(:,jb), k950 = prm_diag%k950(:,jb)  ,& !! IN
 &            phy_params = phy_params(jg), capdcfac=prm_diag%tropics_mask(:,jb),& !! IN
-&            pten   = p_diag%temp(:,:,jb)                                     ,& !! IN
+&            mtnmask=p_metrics%mask_mtnpoints(:,jb), pten=p_diag%temp(:,:,jb) ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                           ,& !! IN
 &            puen   = p_diag%u   (:,:,jb)   , pven   = p_diag%v( :,:,jb)      ,& !! IN
 &            plitot = z_plitot              , pvervel= z_omega_p              ,& !! IN
@@ -266,7 +266,7 @@ CONTAINS
 &            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
 &            ldlake = ext_data%atm%llake_c(:,jb), k950 = prm_diag%k950(:,jb)  ,& !! IN
 &            phy_params = phy_params(jg), capdcfac=prm_diag%tropics_mask(:,jb),& !! IN
-&            pten   = p_diag%temp(:,:,jb)                                     ,& !! IN
+&            mtnmask=p_metrics%mask_mtnpoints(:,jb), pten=p_diag%temp(:,:,jb) ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                           ,& !! IN
 &            puen   = p_diag%u   (:,:,jb)   , pven   = p_diag%v( :,:,jb)      ,& !! IN
 &            plitot = z_plitot              , pvervel= z_omega_p              ,& !! IN

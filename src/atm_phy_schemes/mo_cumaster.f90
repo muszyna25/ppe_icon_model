@@ -116,7 +116,7 @@ CONTAINS
 SUBROUTINE cumastrn &
  & (  kidia,    kfdia,    klon,   ktdia,   klev, &
  & ldland, ldlake, ptsphy, phy_params, k950,     &
- & capdcfac,  paer_ss,                           &
+ & capdcfac, mtnmask,  paer_ss,                  &
  & pten,     pqen,     puen,     pven, plitot,   &
  & pvervel,  pqhfl,    pahfs,                    &
  & pap,      paph,     pgeo,     pgeoh,          &
@@ -324,6 +324,7 @@ LOGICAL           ,INTENT(in)    :: ldlake(klon)
 REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
 TYPE(t_phy_params),INTENT(in)    :: phy_params
 REAL(KIND=jprb)   ,INTENT(in)    :: capdcfac(klon)
+REAL(KIND=jprb)   ,INTENT(in)    :: mtnmask(klon)
 !KF
 REAL(KIND=jprb)   ,INTENT(in),OPTIONAL :: paer_ss(klon)
 !KF
@@ -572,7 +573,7 @@ CALL cuinin &
 CALL cubasen &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, &
   & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
-  & phy_params%texc, phy_params%qexc,  &
+  & phy_params%texc, phy_params%qexc, mtnmask, &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
   & pten,     pqen,     pqsen,    pgeo,&
@@ -868,6 +869,9 @@ DO jl = kidia, kfdia
     IF (llo1 .AND. ldland(jl)) THEN
       zcapdcycl(jl) = MAX(tune_capdcfac_et,capdcfac(jl))*zcappbl(jl)*ztau(jl)*phy_params%tau0
     ENDIF
+    ! Use (part of the) PBL CAPE to reduce excessive precipitation maxima over small-scale mountain peaks
+    zcapdcycl(jl) = zcapdcycl(jl) + MAX(0._jprb,mtnmask(jl)-capdcfac(jl))* &
+                    MAX(0._jprb,zcappbl(jl))*ztau(jl)*phy_params%tau0
     ! Reduce adjustment time scale for extreme CAPE values
     IF (pcape(jl) > zcapethresh) ztau(jl) = ztau(jl)/phy_params%tau
   ELSE IF (ldcum(jl) .AND. ktype(jl) == 1) THEN

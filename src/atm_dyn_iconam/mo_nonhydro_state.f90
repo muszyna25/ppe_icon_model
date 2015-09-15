@@ -3383,6 +3383,16 @@ MODULE mo_nonhydro_state
                   & ldims=shape2d_c, loutput=.FALSE.,                           &
                   & isteptype=TSTEP_CONSTANT )
 
+      ! Mask field for mountain or upper slope points
+      ! p_metrics%mask_mtnpoints(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('Mask field for mountain points', '-',               &
+      &                     'Mask field for mountain points', DATATYPE_FLT32)
+      grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_metrics_list, 'mask_mtnpoints', p_metrics%mask_mtnpoints, &
+                  & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
+                  & ldims=shape2d_c,                                            &
+                  & isteptype=TSTEP_CONSTANT )
 
     !Add LES related variables : Anurag Dipankar MPIM (2013-04)
     IF(atm_phy_nwp_config(jg)%is_les_phy)THEN
