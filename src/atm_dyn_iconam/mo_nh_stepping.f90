@@ -166,7 +166,7 @@ MODULE mo_nh_stepping
        &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
        &                                 event, eventGroup, newEvent, newEventGroup,                  &
        &                                 addEventToEventGroup, isCurrentEventActive, getEventInterval, &
-       &                                 min
+       &                                 min, datetimeToPosixString
   USE mo_mtime_extensions,         ONLY: get_datetime_string
   USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
 #ifdef MESSY                       
@@ -534,9 +534,8 @@ MODULE mo_nh_stepping
   INTEGER                              :: jstep_shift ! start counter for time loop
   INTEGER, ALLOCATABLE                 :: output_jfile(:)
 
-  TYPE(datetime),  POINTER             :: mtime_begin, mtime_date
   TYPE(timedelta), POINTER             :: forecast_delta
-  CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: mtime_sim_start, mtime_cur_datetime, dstring
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: dstring
   CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dtime_str
   CHARACTER(LEN=128)                   :: forecast_delta_str
 
@@ -707,14 +706,9 @@ MODULE mo_nh_stepping
     lprint_timestep = lprint_timestep .OR. (jstep == jstep0+1) .OR. (jstep == jstep0+nsteps)
 
     IF (lprint_timestep) THEN
-      ! compute current datetime in a format appropriate for mtime
-      CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
-      mtime_date     => newDatetime(mtime_cur_datetime)
       ! compute current forecast time (delta):
-      CALL get_datetime_string(mtime_sim_start, time_config%ini_datetime)
-      mtime_begin    => newDatetime(mtime_sim_start)
       forecast_delta => newTimedelta("P01D")
-      forecast_delta = mtime_date - mtime_begin
+      forecast_delta = current_date - tc_startdate
       ! we append the forecast time delta as an ISO 8601 conforming
       ! string (where, for convenience, the 'T' token has been
       ! replaced by a blank character)
@@ -732,23 +726,21 @@ MODULE mo_nh_stepping
              &                                   forecast_delta%minute, 'M', &
              &                                   forecast_delta%second, 'S'
       ENDIF
-!LK--
+
       CALL message('','')
       IF (iforcing == inwp) THEN
         WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3,a,a)') 'Time step: ', jstep, ' model time ',            &
-             &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ',     &    
-             &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second, '.', &
-             &             mtime_date%time%ms, ' forecast time ', TRIM(forecast_delta_str)
+             &             current_date%date%year, '-', current_date%date%month, '-', current_date%date%day, ' ',     &    
+             &             current_date%time%hour, ':', current_date%time%minute, ':', current_date%time%second, '.', &
+             &             current_date%time%ms, ' forecast time ', TRIM(forecast_delta_str)
       ELSE
         WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') 'Time step: ', jstep, ' model time ',             &
-             &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ', &    
-             &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second
+             &             current_date%date%year, '-', current_date%date%month, '-', current_date%date%day, ' ', &    
+             &             current_date%time%hour, ':', current_date%time%minute, ':', current_date%time%second
       ENDIF
       CALL message('',message_text)
       CALL message('','')
-!LK++
-      CALL deallocateDatetime(mtime_date)
-      CALL deallocateDatetime(mtime_begin)
+
       CALL deallocateTimedelta(forecast_delta)
     ENDIF
 

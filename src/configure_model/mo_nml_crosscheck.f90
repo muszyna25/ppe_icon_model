@@ -37,8 +37,11 @@ MODULE mo_nml_crosscheck
     &                              ifluxl_m, ihs_ocean, RAYLEIGH_CLASSIC,     &
     &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD,     &
     &                              MODE_DWDANA_INC 
-  USE mo_master_config,      ONLY: tc_exp_stopdate, tc_stopdate
-  USE mtime,                 ONLY: OPERATOR(>) 
+  USE mo_master_config,      ONLY: tc_exp_stopdate, tc_startdate, tc_stopdate
+  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, datetime,            &
+    &                              OPERATOR(>),OPERATOR(/=), newDatetime,     &
+    &                              deallocateDatetime
+  USE mo_mtime_extensions,   ONLY: get_datetime_string
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -297,6 +300,8 @@ CONTAINS
     INTEGER :: i_listlen
     INTEGER :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
+    TYPE(datetime),  POINTER             :: mtime_begin
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: mtime_sim_start
 
     !--------------------------------------------------------------------
     ! Parallelization
@@ -985,6 +990,20 @@ CONTAINS
     CALL check_meteogram_configuration(num_io_procs)
 
     CALL land_crosscheck()
+
+    !-----------------------------------------------------
+    ! Consistency checks for transition to mtime module
+    !-----------------------------------------------------
+
+    ! check, if time_nml:ini_datetime_string is equal to
+    ! master_time_control_nml:tc_startdate
+    CALL get_datetime_string(mtime_sim_start, time_config%ini_datetime)
+    mtime_begin    => newDatetime(mtime_sim_start)
+    IF (mtime_begin /= tc_startdate) THEN
+      CALL finish(method_name, 'Inconsistent start definition in namelists: time_nml:ini_datetime_string / '&
+        &'master_time_control_nml:tc_startdate')
+    END IF
+    CALL deallocateDatetime(mtime_begin)
     
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------
