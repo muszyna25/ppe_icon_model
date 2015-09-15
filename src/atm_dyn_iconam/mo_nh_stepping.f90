@@ -164,7 +164,8 @@ MODULE mo_nh_stepping
        &                                 getPTStringFromMS, OPERATOR(-), OPERATOR(+), OPERATOR(>),    &
        &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
        &                                 event, eventGroup, newEvent, newEventGroup,                  &
-       &                                 addEventToEventGroup, isCurrentEventActive, getEventInterval
+       &                                 addEventToEventGroup, isCurrentEventActive, getEventInterval, &
+       &                                 min
   USE mo_mtime_extensions,         ONLY: get_datetime_string
   USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
 #ifdef MESSY                       
@@ -650,9 +651,7 @@ MODULE mo_nh_stepping
   current_date => newDatetime(tc_startdate) 
   end_date => newDatetime(current_date)
   end_date = end_date + getEventInterval(restartEvent)
-  IF (end_date > tc_exp_stopdate) THEN
-    end_date = tc_exp_stopdate
-  ENDIF
+  end_date = min(end_date, tc_exp_stopdate)
   
   CALL message('','')
   CALL datetimeToString(current_date, dstring)
