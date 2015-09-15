@@ -23,7 +23,8 @@ MODULE mo_derived_variable_handling
   USE mo_linked_list, ONLY: find_list_element, t_var_list, t_list_element
   USE mo_util_string, ONLY: tolower
   USE mo_exception, ONLY: finish, message, message_text
-  USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent
+  USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent, event
+  USE mo_output_event_types, ONLY: t_sim_step_info
 
   IMPLICIT NONE
 
@@ -33,6 +34,7 @@ MODULE mo_derived_variable_handling
 
   TYPE(map)       , SAVE :: meanMap
   TYPE(vector)    , SAVE :: meanVariables(10)
+  TYPE(event)     , SAVE :: meanEvents(10)
   TYPE(t_var_list)   :: mean_stream_list
   INTEGER, PARAMETER :: ntotal = 1024
 
@@ -124,10 +126,11 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE collect_meanstream_variables(src_varlist1, src_varlist2,patch)
-    TYPE(t_var_list)   :: src_varlist1
-    TYPE(t_var_list)   :: src_varlist2
-    type(t_patch)      :: patch
+  SUBROUTINE collect_meanstream_variables(sim_step_info, src_varlist1, src_varlist2,patch)
+    TYPE(t_sim_step_info) :: sim_step_info
+    TYPE(t_var_list)      :: src_varlist1
+    TYPE(t_var_list)      :: src_varlist2
+    type(t_patch)         :: patch
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::collect_meanStream_variables"
     CHARACTER(LEN=VARNAME_LEN) :: varname, mean_varname, message_text
@@ -140,6 +143,7 @@ CONTAINS
     integer :: inml
     type(vector) :: vector_buffer, value_buffer
     class(*), pointer :: buf
+    CHARACTER(LEN=1000) :: eventKey
     type(vector_iterator) :: iter
     type(t_accumulation_pair) :: accumulation_pair
 
@@ -181,12 +185,20 @@ CONTAINS
           
           IF (i_typ == level_type_ml) THEN
             write (0,*)'INML:',inml
-            IF ( meanMap%has_key(TRIM(p_onl%output_interval(1))) ) THEN
-              CALL meanMap%get(TRIM(p_onl%output_interval(1)),vector_buffer)
+            eventKey = get_event_key(p_onl)
+            write (0,*)'eventKey:',trim(eventKey)
+            IF ( meanMap%has_key(eventKey) ) THEN
+              CALL meanMap%get(eventKey,vector_buffer)
               call meanVariables(inml)%add(vector_buffer)
-            !ELSE
-              !call meanVariables(inml)%clear()
-              !meanVariables = vector()
+            ELSE
+
+                meanEvents(inml) = newEvent('meanStream', &
+                &             sim_step_info%sim_start, &
+                &             p_onl%output_start(1), &
+                &             p_onl%output_end(1), &
+                &             p_onl%output_interval(1) &
+                &            )
+              call meanVariables(inml)%add(meanEvents(inml) )
             END IF
             DO i=1,nvars
               ! collect data variables only, there variables names like
@@ -212,12 +224,12 @@ CONTAINS
               CALL meanVariables(inml)%add(dest_element)
               ! replace existince varname in output_nml with the meanStream Variable
               in_varlist(i) = trim(dest_element%field%info%name)
-              write (0,*)'in_varlist  :|',in_varlist(i),'|'
-              write (0,*)'dest_element:|',dest_element%field%info%name,'|'
+              CALL print_green('in_varlist  :|'//trim(in_varlist(i))//'|')
+              CALL print_green('dest_element:|'//trim(dest_element%field%info%name)//'|')
               end if
             end do
 
-            call meanMap%add(trim(p_onl%output_interval(1)),meanVariables(inml),copy=.true.)
+            call meanMap%add(eventKey,meanVariables(inml),copy=.true.)
           END IF
         END DO
       inml = inml + 1
@@ -304,31 +316,50 @@ CONTAINS
       elements => values%get_item(i)
       select type(elements)
       type is (vector)
-        do element_counter=1,elements%length(),2
+        do element_counter=2,elements%length(),2 !start at 2 because the event is at index 1
           check_src => elements%get_item(element_counter)
           check_dest => elements%get_item(element_counter+1)
-          select type (check_src)
-          type is (t_list_element)
-            source      => check_src
-          end select
-          select type (check_dest)
-          type is (t_list_element)
-            destination => check_dest
-          end select
-
-          select type (check_src)
-          type is (t_list_element)
+!         if (associated(check_src)) then
+            select type (check_src)
+            type is (t_list_element)
+              source      => check_src
+            end select
+!         end if
+!         if (associated(check_dest)) then
             select type (check_dest)
             type is (t_list_element)
-              IF ( my_process_is_stdio() ) write(0,*)'sourceName:',trim(source%field%info%name)
-              IF ( my_process_is_stdio() ) write(0,*)'destName:',trim(destination%field%info%name)
-              CALL accumulation_add(source, destination)
+              destination => check_dest
             end select
-          end select
+!         end if
+
+!         if (associated(check_src)) then
+            select type (check_src)
+            type is (t_list_element)
+              !if (associated(check_dest)) then
+              select type (check_dest)
+              type is (t_list_element)
+                IF ( my_process_is_stdio() ) write(0,*)'sourceName:',trim(source%field%info%name)
+                IF ( my_process_is_stdio() ) write(0,*)'destName:',trim(destination%field%info%name)
+                CALL accumulation_add(source, destination)
+              end select
+              !end if
+            end select
+!         end if
         end do
 
       end select 
     end do
 
   END SUBROUTINE perform_accumulation
+  FUNCTION get_event_key(output_name_list) RESULT(event_key)
+    TYPE(t_output_name_list) :: output_name_list
+    CHARACTER(LEN=1000) :: event_key
+    CHARACTER(LEN=1)    :: separator
+
+    separator = '_'
+    event_key = &
+      &trim(output_name_list%output_start(1))//separator//&
+      &trim(output_name_list%output_end(1))//separator//&
+      &trim(output_name_list%output_interval(1))
+  END FUNCTION get_event_key
 END MODULE mo_derived_variable_handling
