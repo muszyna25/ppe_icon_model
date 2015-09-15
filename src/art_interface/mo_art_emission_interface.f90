@@ -201,16 +201,25 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                     &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb), istart,iend,emiss_rate(:))
                 case ('dusta')
                   CALL art_emission_dust(dz(:,nlev),                                                 &
+                    &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
+                    &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub),      &
+                    &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_grass),      &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                     &             jb,istart,iend,'dusta',p_art_data(jg)%soil_prop,emiss_rate(:))
                 case ('dustb')
                   CALL art_emission_dust(dz(:,nlev),                                                 &
+                    &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
+                    &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub),      &
+                    &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_grass),      &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                     &             jb,istart,iend,'dustb',p_art_data(jg)%soil_prop,emiss_rate(:))
                 case ('dustc')
                   CALL art_emission_dust(dz(:,nlev),                                                 &
+                    &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
+                    &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub),      &
+                    &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_grass),      &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                     &             jb,istart,iend,'dustc',p_art_data(jg)%soil_prop,emiss_rate(:))

@@ -667,12 +667,13 @@ CONTAINS
         iqng = 11        
         iqnh = 12
         iqnc = 13
+        ininact = 14
         
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mixing ratios
         iqt       = 14    !! start index of other tracers not related at all to moisture
         
-        ntracer = 13
+        ntracer = 14
         
       END SELECT ! microphysics schemes
 
