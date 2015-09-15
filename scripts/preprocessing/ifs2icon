@@ -1,0 +1,485 @@
+#!/bin/ksh
+
+set -e
+
+typeset name=${0##*/} ; name=${name%.ne[uw]}
+
+typeset pdatin=h00
+integer hstep=0
+typeset ires='r3b07'    # resolution of ICON
+integer res_ifs         # resolution of IFS data
+integer iglo_lev        # number of levels of ICON
+typeset lev_ifs=''      # number of levels of IFS
+typeset icon_file       # file with initial data for ICON
+typeset ifs_file        # input IFS file
+typeset grid_file_icon  # ICON grid file
+typeset Dflag=''
+typeset verbosity='-vvv' # '-vvvv'
+typeset queue='ksh'
+
+integer icon_filetype=5
+set -A icon_fileext XX XX grb XX nc nc
+
+typeset ires=${IRES:-${ires}}
+
+while getopts +d:Dg:hi:l:L:o:q:r:R:s:T: opt
+do
+    case ${opt} in
+        d) pdatin=${OPTARG} ;;
+        D) set -x
+           Dflag='-D'
+           verbosity="${verbosity}v"
+           ;;
+        g) grid_file_icon=${OPTARG} ;;
+        h) cat <<-HELP_EOF
+
+	${name} [-d cymdg] [-g grid_file] [-i ifs_file] [-l iglo_lev] [-L lev_ifs]
+	         [-o icon_file] [-r ires] [-R res_ifs] [-s step] [-T icon_filetype]
+
+	Interpolate an ICON initial file from IFS data.
+
+	If no ifs_file is given the data is extracted from MARS. Options -d, -L, -R, -s
+	are used for the MARS request.
+
+	For standard (operational) set up grid_file and iglo_lev only depend on ires.
+
+	Options:
+	   -d cymdg      Initial date and time of ICON data. Default: ${pdatin}
+	   -g grid_file  ICON grid file (netCDF). Default depends on ires
+	   -h            This help text.
+	   -D            Debug flag
+	   -i ifs_file   IFS file. If none is given the data is extracted from MARS.
+	   -l iglo_lev   Number of levels of ICON. Default depends on ires
+	   -L lev_ifs    Levels of IFS. Default: 137
+	   -o icon_file  Initial file for ICON. Default: \${SCRATCHDIR}/ifs2icon_\${ires}_${cymdg}.nc
+	   -q queue      Job queue. ksh executes in foreground in ksh. Default: ${queue}
+	   -r ires       Resolution parameter of ICON. Default: ${ires}
+	   -R res_ifs    Resolution of IFS data.
+	   -s step       If step > 0 ICON is started from IFS forecast VALID at \$cymdg. Hence,
+	                 the IFS data is a forecast started at \$cymdg- \$step h. Default: ${hstep} h
+	   -T icon_filetype  type of ICON initial file: Enter 2 for GRIB, 4 for netCDF, 5 for netCDF-4
+	                     Default: ${icon_filetype}
+
+	Helmut Frank, 22.01.2015
+	   21.04.2015: Set OMP_NUM_THREADS=\$EC_threads_per_task
+	HELP_EOF
+           exit
+           ;;
+        i) ifs_file=${OPTARG} ;;
+        l) iglo_lev=${OPTARG} ;;
+        L) lev_ifs=${OPTARG} ;;
+        o) icon_file=${OPTARG} ;;
+        q) queue=${OPTARG} ;;
+        r) ires=${OPTARG} ;;
+        R) res_ifs=${OPTARG} ;;
+        s) hstep=${OPTARG} ;;
+        T) icon_filetype=${OPTARG} ;;
+    esac
+done
+
+ eval $(routine_config || print -- exit $?)
+# CONST is needed by eval_ires to get the default extpar_date
+ export CONST=${CONST:-"${ROUTINE_CONST}"}
+
+# -------------------------------- #
+# ---  evalute the resolution  --- #
+# -------------------------------- #
+if [[ ${iglo_lev} -le 0 ]]; then
+    eval $(eval_ires ${Dflag} -M ${ires} -v iglo_lev || print -- exit $?)
+fi
+
+#print -- "parameters of the current run"
+#print -- "-----------------------------"
+#print -- "actual host                     = $(hostname)"
+#print -- "actual time                     = \c"
+#print -- $(date '+%d.%m.%Y %T UTC')
+#print -- "resolution of ICON grid         = ${iglo_ires}"
+#print -- "number of vertical levels       = ${iglo_lev}"
+#print -- "constant file directory         = ${CONST}  (CONST)"
+
+
+# -------------------------------- #
+# ---  ICON grid file          --- #
+# -------------------------------- #
+if [[ -z "${grid_file_icon}" ]]; then
+    typeset extpar_date=''
+    eval $(eval_ires ${Dflag} -p -v extpar_date || print -- exit $?)
+    typeset icon_extpar_fn icon_dyngrid_fn icon_radgrid_fn
+    eval $(icon_grid_files ${Dflag} -e netcdf ${ires} ${extpar_date} || print -- exit $?)
+    grid_file_icon=${icon_dyngrid_fn}
+fi
+#print -- "ICON grid file                  = ${grid_file_icon}"
+
+if [[ -n "${ifs_file}" ]]; then
+    if [[ ${ifs_file} != /* ]]; then
+        ifs_file=${PWD}/${ifs_file}
+    fi
+#
+#   Check IFS input data
+#
+    if [[ ! -s ${ifs_file} ]]; then
+        print -- "${name} error! IFS file ${ifs_file} does not exist or has size 0!" >&2
+        exit 10
+    elif [[ ! -r ${ifs_file} ]]; then
+        print -- "${name} error! IFS file ${ifs_file} is not readable!" >&2
+        exit 11
+    fi
+    typeset -L2 hh
+    read cymd hh hstep <<GRIB_GET
+$(grib_get -w count=1 -p dataDate,dataTime:s,step ${ifs_file})
+GRIB_GET
+    cymdg_ifs=${cymd}${hh}
+    cymdg=$(datconv -Cy ${cymdg_ifs} -d ${hstep}h)
+
+    if [[ -z "${icon_file}" ]]; then
+        icon_file=${SCRATCH}/$(basename ${ifs_file}).ifs2icon
+    fi
+#   print -- "ifs_file                        = ${ifs_file}"
+else
+#
+#   Extract data from MARS
+#
+    cymdg=$(datconv -Cy ${pdatin})
+    if [[ ${res_ifs} -lt 0 ]]; then
+        case ${ires} in
+            r3b07) res_ifs=1279 ;;
+            r3b06) res_ifs=799  ;;
+            r2b06) res_ifs=511  ;;
+                *) res_ifs=255  ;;
+        esac
+    fi
+    lev_ifs=${lev_ifs:-137}
+    
+    typeset cymdg_ifs=${cymdg}
+    if [[ ${hstep} -gt 0 ]]; then
+        cymdg_ifs=$(datconv -Cy ${cymdg} -d -${hstep}h)
+        ifs_file=ifs_T{res_ifs}_${cymdg_ifs}_${hstep}.grb
+    else
+        ifs_file=ifs_T{res_ifs}_${cymdg}.grb
+    fi
+    mars4icon_smi -d ${cymdg} -s ${hstep} -r ${res_ifs} -l ${lev_ifs}
+
+    typeset ext=${icon_fileext[$icon_filetype]}
+    icon_file=${icon_file:-${SCRATCH}/ifs2icon_${ires}_${cymdg}.${ext}}
+fi
+
+ if [[ ${icon_file} != /* ]]; then
+    icon_file=${PWD}/${icon_file}
+ fi
+#print -- "term of the analysis (cymdg)    = ${cymdg}"
+#print -- "IFS date and time               = ${cymdg_ifs}"
+#print -- "step [h]                        = ${hstep}"
+#print -- "ifs_file                        = ${ifs_file}"
+#print -- "icon_file                       = ${icon_file}"
+
+ case ${icon_file} in
+    *nc)   icon_filetype=5 ;;
+    *.grb) icon_filetype=2 ;;
+      *)   icon_filetype=5 ;;
+ esac
+
+ typeset job_file=${SCRATCHDIR}/ifs2icon${cymdg}.job$$
+
+ EC_tasks_per_node=${EC_tasks_per_node:-6}
+#EC_total_tasks=${EC_total_tasks:-6}
+ EC_threads_per_task=${EC_threads_per_task:-4}
+ EC_hyperthreads=${EC_hyperthreads:-2}
+
+cat > ${job_file} <<JOB_EOF
+#PBS -S /bin/ksh
+#PBS -N IFS2ICON
+#PBS -q ${queue}
+#PBS -o ifs2icon${cymdg}.out
+#PBS -j oe
+#PBS -m a
+##PBS -v STHOST=sc1
+#
+#PBS -l EC_total_tasks=${EC_total_tasks:-6}
+#PBS -l EC_threads_per_task=${EC_threads_per_task:-4}
+#PBS -l EC_hyperthreads=${EC_hyperthreads:-2}
+#
+ banner   " ${name}"
+ print -- "parameters of the current run"
+ print -- "-----------------------------"
+ print -- "actual host                     = \$(hostname)"
+ print -- "actual time                     = \c"
+ print -- \$(date '+%d.%m.%Y %T UTC')
+ print -- "resolution of ICON grid         = ${iglo_ires}"
+ print -- "number of vertical levels       = ${iglo_lev}"
+ print -- "constant file directory         = ${CONST}  (CONST)"
+ print -- "term of the analysis (cymdg)    = ${cymdg}"
+ print -- "IFS date and time               = ${cymdg_ifs}"
+ print -- "step [h]                        = ${hstep}"
+ print -- "ifs_file                        = ${ifs_file}"
+ print -- "icon_file                       = ${icon_file}"
+ print -- "ICON grid file                  = ${grid_file_icon}"
+
+ work_dir=${WORK_DIR:-\${SCRATCHDIR}}
+ cd \${work_dir}
+ pwd
+
+# =============================================
+
+# ------------------------------
+# write ICON namelist parameters
+# ------------------------------
+
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+typeset nml_file=NAMELIST_PREPICON
+
+cat > \${nml_file} << EOF
+! interpolation regular grid-> ICON
+&remap_nml
+ in_grid_filename  = "${ifs_file}"
+ in_filename       = "${ifs_file}"
+ in_type           = 1
+ out_grid_filename = "${grid_file_icon}"
+ out_filename      = "${icon_file}"	
+ out_type          = 2
+ l_have3dbuffer    = .false.
+ out_filetype      = ${icon_filetype}  ! 2= GRIB2, 4=netCDF, 5=netCDF-4
+!rbf_scale_uv2vec  = 0.05            !use ONLY for R2B5!!!!
+/
+! DEFINITIONS FOR IFS INPUT DATA
+!
+&input_field_nml  ! temperature
+ inputname      = "T"         
+ outputname     = "T"          
+ code           = 130          
+!intp_method    = 3     
+/
+&input_field_nml  ! horiz. wind comp. u and v
+ inputname      = "U", "V"         
+ outputname     = "VN"  
+ code           = 131,132
+/
+&input_field_nml  ! vertical velocity
+ inputname      = "OMEGA" 
+ outputname     = "W"
+ code           = 135
+!intp_method    = 3     
+/
+&input_field_nml  ! surface pressure
+ inputname      = "LNSP"
+ outputname     = "LNPS" 
+ code           = 152
+!intp_method    = 3     
+/
+&input_field_nml  ! geopotential
+ inputname      = "Z"
+ outputname     = "GEOP_SFC"
+ code           = 129
+!intp_method    = 3     
+/
+&input_field_nml  ! geopotential
+ inputname      = "FI"
+ outputname     = "GEOP_ML"
+ code           = 129
+!intp_method    = 3     
+/
+&input_field_nml  ! specific humidity
+ inputname      = "QV"
+ outputname     = "QV" 
+ code           = 133
+!intp_method    = 3     
+/
+&input_field_nml  ! cloud liquid water content
+ inputname      = "CLWC"
+ outputname     = "QC" 
+ code           = 246
+!intp_method    = 3     
+/
+&input_field_nml  ! cloud ice content
+ inputname      = "CIWC"
+ outputname     = "QI" 
+ code           = 247 
+!intp_method    = 3     
+/
+!&input_field_nml  ! ozone mixing ratio
+! inputname      = "O3"
+! outputname     = "O3" 
+! code           = 203
+!!intp_method    = 3     
+!/
+&input_field_nml  ! snow temperature
+ inputname      = "TSN"
+ outputname     = "T_SNOW" 
+ code           = 238
+!intp_method    = 3     
+/
+&input_field_nml  ! water content of snow
+ inputname      = "SD"
+ outputname     = "W_SNOW" 
+ code           = 141
+!intp_method    = 3     
+/
+&input_field_nml  ! density of snow
+ inputname      = "RSN"
+ outputname     = "RHO_SNOW" 
+ code           = 33
+!intp_method    = 3     
+/
+&input_field_nml  ! snow albedo
+ inputname      = "ASN"
+ outputname     = "ALB_SNOW" 
+ code           = 32
+!intp_method    = 3     
+/
+&input_field_nml  ! skin temperature
+ inputname      = "SKT"
+ outputname     = "SKT" 
+ code           = 235
+!intp_method    = 3     
+/
+&input_field_nml  ! sea surface temperature
+ inputname      = "SST"
+ outputname     = "SST" 
+ code           = 34
+!intp_method    = 3     
+/
+&input_field_nml  ! soil temperature level 1
+ inputname      = "STL1"
+ outputname     = "STL1" 
+ code           = 139
+!intp_method    = 3     
+/
+&input_field_nml  ! soil temperature level 2
+ inputname      = "STL2"
+ outputname     = "STL2" 
+ code           = 170
+!intp_method    = 3     
+/
+&input_field_nml  ! soil temperature level 3
+ inputname      = "STL3"
+ outputname     = "STL3" 
+ code           = 183
+!intp_method    = 3     
+/
+&input_field_nml  ! soil temperature level 4
+ inputname      = "STL4"
+ outputname     = "STL4" 
+ code           = 236
+!intp_method    = 3     
+/
+&input_field_nml  ! sea-ice cover
+ inputname      = "CI"
+ outputname     = "CI" 
+ code           = 31
+!intp_method    = 3     
+/
+&input_field_nml  ! water cont. of interception storage
+ inputname      = "SRC"
+ outputname     = "W_I" 
+ code           = 198 
+!intp_method    = 3     
+/
+&input_field_nml  ! surface roughness
+ inputname      = "SR"
+ outputname     = "Z0" 
+ code           = 173
+!intp_method    = 3     
+/
+&input_field_nml  ! Land/sea mask
+ inputname      = "LSM"
+ outputname     = "LSM" 
+!intp_method    = 3     
+ code           = 172 
+/
+&input_field_nml  ! soil moisture index layer 1
+ inputname      = "SWVL1"
+ outputname     = "SMIL1" 
+ code           = 39
+!intp_method    = 3     
+/
+&input_field_nml  ! soil moisture index layer 2
+ inputname      = "SWVL2"
+ outputname     = "SMIL2" 
+ code           = 40
+!intp_method    = 3     
+/
+&input_field_nml  ! soil moisture index layer 3
+ inputname      = "SWVL3"
+ outputname     = "SMIL3" 
+ code           = 41
+!intp_method    = 3     
+/
+&input_field_nml  ! soil moisture index layer 4
+ inputname      = "SWVL4"
+ outputname     = "SMIL4" 
+ code           = 42
+!intp_method    = 3     
+/
+EOF
+
+# 80-83 changed to 39-42 for soil moisture index!!!
+ 
+if [ ${cymdg_ifs} -ge 2010110912 ] ; then
+
+cat >> \${nml_file} << EOF
+&input_field_nml  ! rain water content
+ inputname      = "CRWC"
+ outputname     = "QR" 
+ code           = 75 
+!intp_method    = 3     
+/
+&input_field_nml  ! snow water content
+ inputname      = "CSWC"
+ outputname     = "QS" 
+ code           = 76
+!intp_method    = 3     
+/
+EOF
+
+fi
+
+# remap IFS initial conditions on ICON grid
+
+ typeset modul_iconremap=${MODUL_ICONREMAP:-iconremap_mpi}
+ whence \${modul_iconremap}
+
+#EC_tasks_per_node=${EC_tasks_per_node:-6}
+#EC_total_tasks=${EC_total_tasks:-6}
+#EC_threads_per_task=${EC_threads_per_task:-4}
+#EC_hyperthreads=${EC_hyperthreads:-2}
+ export OMP_NUM_THREADS=${EC_threads_per_task}
+
+ print -- "\nNamelist \${nml_file} for iconremap:"
+ cat \${nml_file}
+  
+ set -x
+ aprun -N \$EC_tasks_per_node -n \$EC_total_tasks -d \$EC_threads_per_task -j \$EC_hyperthreads \
+    \${modul_iconremap} --remap_nml=\${nml_file} ${verbosity}
+  
+
+ print -- "\nInitial file for ICON:"
+ ls -l ${icon_file}
+
+ if [[ -r nml.log ]]; then
+    print -- "\nFile nml.log:"
+    cat nml.log
+ fi
+
+exit
+JOB_EOF
+
+ print -- "\nJob file ${job_file}:\n"
+ cat ${job_file}
+ integer rc
+ typeset sub_cmd
+
+if [[ ${queue} == ksh ]]; then
+    sub_cmd='ksh'
+    if [[ -n "${Dflag}" ]]; then
+        sub_cmd="${sub_cmd} -x"
+    fi
+else
+    sub_cmd='qsub'
+fi
+ ${sub_cmd} ${job_file}
+ rc=$?
+ if [[ ${rc} -ne 0 ]];then
+    print -- "Error ${rc} callling ${sub_cmd} ${job_file}"
+ fi
+
+ rm -f ${job_file}

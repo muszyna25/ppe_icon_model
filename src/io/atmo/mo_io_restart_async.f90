@@ -54,7 +54,22 @@ MODULE mo_io_restart_async
   USE mo_run_config,              ONLY: msg_level, restart_filename
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch
-  USE mo_cdi_constants
+  USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, CDI_GLOBAL, DATATYPE_FLT64, DATATYPE_INT32, &
+                                      & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
+                                      & ZAXIS_HYBRID_HALF, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, ZAXIS_SEDIMENT_BOTTOM_TW, &
+                                      & ZAXIS_SURFACE, ZAXIS_TOA, TIME_VARIABLE, ZAXIS_DEPTH_BELOW_LAND, GRID_UNSTRUCTURED, &
+                                      & vlistDefAttInt, vlistDefVar, zaxisCreate, gridCreate, cdiEncodeDate, cdiEncodeTime, &
+                                      & streamDefTimestep, taxisCreate, vlistDefAttFlt, vlistDefAttTxt, vlistCreate, &
+                                      & streamOpenWrite, taxisDestroy, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, &
+                                      & streamWriteVarSlice, streamDefVlist, cdiGetStringError, vlistDefVarDatatype, &
+                                      & vlistDefVarName, zaxisDefLevels, gridDefNvertex, zaxisDefVct, vlistDefVarLongname, &
+                                      & vlistDefVarUnits, vlistDefVarMissval, gridDefXlongname, gridDefYlongname, vlistDefTaxis, &
+                                      & taxisDefVdate, taxisDefVtime, gridDefXname, gridDefYname, gridDefXunits, gridDefYunits
+  USE mo_cdi_constants,           ONLY: ZA_SURFACE, ZA_HYBRID, ZA_HYBRID_HALF, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, &
+                                      & ZA_SNOW, ZA_SNOW_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, ZA_MIX_LAYER, &
+                                      & ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_DEPTH_BELOW_SEA, &
+                                      & ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G, &
+                                      & GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
   USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string
@@ -3051,10 +3066,10 @@ CONTAINS
       ! set optional parameters
       CALL vlistDefVarName(vlistID, varID, TRIM(p_info%name))
       IF (LEN_TRIM(p_info%cf%long_name) > 0) THEN
-        CALL vlistDefVarLongname(vlistID, varID, p_info%cf%long_name)
+        CALL vlistDefVarLongname(vlistID, varID, TRIM(p_info%cf%long_name))
       ENDIF
       IF (LEN_TRIM(p_info%cf%units) > 0) THEN
-        CALL vlistDefVarUnits(vlistID, varID, p_info%cf%units)
+        CALL vlistDefVarUnits(vlistID, varID, TRIM(p_info%cf%units))
       ENDIF
 
       ! currently only real valued variables are allowed, so we can always use info%missval%rval
@@ -3080,8 +3095,8 @@ CONTAINS
 
     TYPE(t_restart_file), POINTER     :: p_rf
     TYPE(t_v_grid), POINTER           :: p_vgd
-    REAL(wp)                          :: real_attribute
-    INTEGER                           :: i, status, int_attribute, nlevp1
+    REAL(wp)                          :: real_attribute(1)
+    INTEGER                           :: i, status, int_attribute(1), nlevp1
     LOGICAL                           :: bool_attribute
     CHARACTER(LEN=MAX_NAME_LENGTH)    :: attribute_name, text_attribute
     CHARACTER(LEN=*), PARAMETER       :: subname = MODUL_NAME//'init_restart_vlist'
@@ -3122,7 +3137,7 @@ CONTAINS
 
     ! 2.3. real attributes
     DO i = 1, restart_attributes_count_real()
-      CALL get_restart_attribute(i, attribute_name, real_attribute)
+      CALL get_restart_attribute(i, attribute_name, real_attribute(1))
       status = vlistDefAttFlt(p_rf%cdiVlistID, CDI_GLOBAL,           &
            &                  TRIM(attribute_name),                  &
            &                  DATATYPE_FLT64,                        &
@@ -3136,7 +3151,7 @@ CONTAINS
 
     ! 2.4. integer attributes
     DO i = 1, restart_attributes_count_int()
-      CALL get_restart_attribute(i, attribute_name, int_attribute)
+      CALL get_restart_attribute(i, attribute_name, int_attribute(1))
       status = vlistDefAttInt(p_rf%cdiVlistID, CDI_GLOBAL,           &
            &                  TRIM(attribute_name),                  &
            &                  DATATYPE_INT32,                        &
@@ -3152,9 +3167,9 @@ CONTAINS
     DO i = 1, restart_attributes_count_bool()
       CALL get_restart_attribute(i, attribute_name, bool_attribute)
       IF (bool_attribute) THEN
-        int_attribute = 1
+        int_attribute(1) = 1
       ELSE
-        int_attribute = 0
+        int_attribute(1) = 0
       ENDIF
       status = vlistDefAttInt(p_rf%cdiVlistID, CDI_GLOBAL,           &
            &                  TRIM(attribute_name),                  &
@@ -3347,7 +3362,7 @@ CONTAINS
     ! replace keywords in file name
     p_rf%filename = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
-    p_rf%cdiFileID = streamOpenWrite(p_rf%filename, restart_type)
+    p_rf%cdiFileID = streamOpenWrite(TRIM(p_rf%filename), restart_type)
 
     IF (p_rf%cdiFileID < 0) THEN
       CALL cdiGetStringError(p_rf%cdiFileID, cdiErrorText)

@@ -29,7 +29,21 @@ MODULE mo_name_list_output_init
 ! USE_CRAY_POINTER
 
   ! constants and global settings
-  USE mo_cdi_constants          ! We need all
+  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate, &
+                                                & cdiEncodeTime, institutInq, vlistCreate, cdiEncodeParam, vlistDefVar, &
+                                                & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE, &
+                                                & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName, &
+                                                & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
+                                                & gridDefYsize, gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID, &
+                                                & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname, &
+                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals, &
+                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit, &
+                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,   &
+                                                & vlistDefAttTxt, CDI_GLOBAL
+  USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
+                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_REFERENCE, GRID_EDGE, GRID_CELL, &
+                                                & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
+                                                & ZA_hybrid_half, ZA_hybrid
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                 &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
@@ -46,7 +60,8 @@ MODULE mo_name_list_output_init
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
-    &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys
+    &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
+    &                                             set_GRIB2_synsat_keys
   USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
@@ -1935,7 +1950,8 @@ CONTAINS
           ENDIF
         ENDDO
 
-        CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar)))
+        CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar))//&
+          &", patch "//int2string(p_of%log_patch_id,'(i0)'))
       ENDIF
 
       ! append variable descriptor to list
@@ -2655,9 +2671,9 @@ CONTAINS
         this_cf => info%cf
       END IF
 
-      IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, this_cf%long_name)
-      IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, this_cf%standard_name)
-      IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, this_cf%units)
+      IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, TRIM(this_cf%long_name))
+      IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, TRIM(this_cf%standard_name))
+      IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
 
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
@@ -2701,6 +2717,9 @@ CONTAINS
 
         ! Set ensemble keys in SECTION 4 (if applicable)
         CALL set_GRIB2_ensemble_keys(vlistID, varID, gribout_config(of%phys_patch_id))
+
+        ! Set synsat keys (if applicable)
+        CALL set_GRIB2_synsat_keys(vlistID, varID, info)
 
         ! Set local use SECTION 2
         CALL set_GRIB2_local_keys(vlistID, varID, gribout_config(of%phys_patch_id))
