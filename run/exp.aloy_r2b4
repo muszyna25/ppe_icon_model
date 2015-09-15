@@ -304,16 +304,7 @@ add_link_file $datadir/bc_greenhouse_rcp45_1765-2500.nc                 ./bc_gre
 
 # - ozone
 
-datadir=/mnt/lustre01/work/mj0060/m212005/data/r2b4_amip
-# Temporary security check until correct input files are in pool
-if [[ x$target != xbullx ]] && [[ $datadir = *lustre* ]] ;then
-  set +x
-  echo "You have to adapt the location of the forcing climatologies for ozone and aerosols at three places in the run script:"
-  echo "       bc_ozone_cmip5_clim1979-2009.nc"
-  echo "       bc_aeropt_kinne_sw_b14_fin_clim1979-2009.nc"
-  echo "       bc_aeropt_stenchikov_lw_b16_sw_b14_clim1979-1999.nc "
-  exit
-fi
+datadir=/pool/data/ICON/coupled_input_temp/aloy_r2b4
 add_link_file $datadir/bc_ozone_cmip5_clim1979-2009.nc 			./bc_ozone.nc
 #datadir=$INDATA/r2b4_amip/atm/bc_ozone_cmip5
 #year=$start_year
@@ -328,7 +319,7 @@ add_link_file $datadir/bc_ozone_cmip5_clim1979-2009.nc 			./bc_ozone.nc
 datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
 add_link_file $datadir/bc_aeropt_kinne_lw_b16_coa.nc                  	./bc_aeropt_kinne_lw_b16_coa.nc
 add_link_file $datadir/bc_aeropt_kinne_sw_b14_coa.nc                  	./bc_aeropt_kinne_sw_b14_coa.nc
-datadir=/mnt/lustre01/work/mj0060/m212005/data/r2b4_amip
+datadir=/pool/data/ICON/coupled_input_temp/aloy_r2b4
 add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_clim1979-2009.nc	./bc_aeropt_kinne_sw_b14_fin.nc
 
 #datadir=$INDATA/r2b4_amip/atm/bc_aeropt_kinne
@@ -348,7 +339,7 @@ add_link_file $datadir/bc_aeropt_kinne_sw_b14_fin_clim1979-2009.nc	./bc_aeropt_k
 
 # - stratospheric aerosol
 
-datadir=/mnt/lustre01/work/mj0060/m212005/data/r2b4_amip
+datadir=/pool/data/ICON/coupled_input_temp/aloy_r2b4
 add_link_file $datadir/bc_aeropt_stenchikov_lw_b16_sw_b14_clim1979-1999.nc  ./bc_aeropt_stenchikov_lw_b16_sw_b14.nc
 
 #datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
@@ -781,7 +772,8 @@ EOF
 # III.2 Add standard ocean input files 
 # ------------------------------------
 
-add_required_file ${basedir}/data/ts_phc3.0_annual_icon_r2b4_amip_L40.nc initial_state.nc
+datadir=/pool/data/ICON/coupled_input_temp/aloy_r2b4
+add_required_file ${datadir}/ts_phc3.0_annual_icon_r2b4_amip_L40.nc initial_state.nc
 
 #--------------------------------------------------------------------------------------------------
 # IV. coupling section
