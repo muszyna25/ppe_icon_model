@@ -300,8 +300,8 @@ CONTAINS
     INTEGER :: i_listlen
     INTEGER :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
-    TYPE(datetime),  POINTER             :: mtime_begin
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: mtime_sim_start
+    TYPE(datetime),  POINTER             :: mtime_begin, mtime_end
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: mtime_sim_start, mtime_sim_stop
 
     !--------------------------------------------------------------------
     ! Parallelization
@@ -1004,6 +1004,16 @@ CONTAINS
         &'master_time_control_nml:tc_startdate')
     END IF
     CALL deallocateDatetime(mtime_begin)
+
+    ! check, if time_nml:end_datetime_string is equal to
+    ! master_time_control_nml:tc_stopdate
+    CALL get_datetime_string(mtime_sim_stop, time_config%end_datetime)
+    mtime_end => newDatetime(mtime_sim_stop)
+    IF (mtime_end /= tc_stopdate) THEN
+      CALL finish(method_name, 'Inconsistent stop definition in namelists: time_nml:end_datetime_string / '&
+        &'master_time_control_nml:tc_stopdate')
+    END IF
+    CALL deallocateDatetime(mtime_end)
     
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------

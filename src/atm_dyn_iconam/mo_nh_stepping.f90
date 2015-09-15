@@ -166,8 +166,7 @@ MODULE mo_nh_stepping
        &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
        &                                 event, eventGroup, newEvent, newEventGroup,                  &
        &                                 addEventToEventGroup, isCurrentEventActive, getEventInterval, &
-       &                                 min, datetimeToPosixString
-  USE mo_mtime_extensions,         ONLY: get_datetime_string
+       &                                 min
   USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
 #ifdef MESSY                       
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
