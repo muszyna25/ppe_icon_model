@@ -1026,8 +1026,8 @@ MODULE mo_nh_stepping
       &       .OR.  isCurrentEventActive(restartEvent, current_date)           &
       !          and the current date differs from simulation start date
       &       .AND. (tc_startdate /= current_date))                            &
-      !   ... CASE B: if end of experiment has been reached
       &  .OR.                                                                  &
+      !   ... CASE B: if end of experiment has been reached
       &  ((tc_exp_stopdate == current_date)                                    &
       &       .AND. lrestart_write_last)                                       &
       !   ... make sure (for both cases A and B) that model output is enabled
