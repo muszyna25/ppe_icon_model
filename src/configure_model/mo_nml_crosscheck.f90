@@ -42,7 +42,8 @@ MODULE mo_nml_crosscheck
     &                              OPERATOR(>),OPERATOR(/=), newDatetime,     &
     &                              deallocateDatetime, timedelta,             &
     &                              getPTStringFromMS, newTimedelta, min,      &
-    &                              deallocateTimedelta, OPERATOR(+)
+    &                              deallocateTimedelta, OPERATOR(+),          &
+    &                              MAX_TIMEDELTA_STR_LEN, timedeltatostring
   USE mo_mtime_extensions,   ONLY: get_datetime_string
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
@@ -58,7 +59,7 @@ MODULE mo_nml_crosscheck
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,         & 
     &                              inccn, ininact, ininpot,                   &
     &                              activate_sync_timers, timers_level,        &
-    &                              output_mode, lart
+    &                              output_mode, lart, tc_dt_model
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_grid_config
@@ -306,6 +307,8 @@ CONTAINS
     TYPE(timedelta),  POINTER             :: mtime_td
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: mtime_sim_start, mtime_sim_stop, dtime_string, &
       &                                      mtime_sim_cur
+    INTEGER(i8)                           :: dtime_ms
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string, td_string0
 
     !--------------------------------------------------------------------
     ! Parallelization
@@ -1033,6 +1036,18 @@ CONTAINS
 
     CALL deallocateDatetime(mtime_end)
     CALL deallocateDatetime(mtime_cur)
+    CALL deallocateTimedelta(mtime_td)
+
+    ! check if the model time step defined by run_nml:dtime is
+    ! identical to the time step defined by run_nml:modelTimeStep
+    CALL timedeltatostring(tc_dt_model, td_string0)
+    dtime_ms = NINT(dtime*1000, i8)
+    CALL getPTStringFromMS(dtime_ms, td_string)
+    mtime_td => newTimedelta(td_string)
+    IF (mtime_td /= tc_dt_model) THEN
+      CALL finish(method_name, 'Inconsistent time step definitions: '//&
+        &TRIM(td_string0)//' vs. '//TRIM(td_string))
+    END IF
     CALL deallocateTimedelta(mtime_td)
   
   END  SUBROUTINE atm_crosscheck

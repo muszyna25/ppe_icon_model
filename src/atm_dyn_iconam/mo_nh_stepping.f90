@@ -1070,7 +1070,7 @@ MODULE mo_nh_stepping
 
     ! prefetch boundary data if necessary
     IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
-       CALL prefetch_input( datetime_current, p_patch(1), p_int_state(1), p_nh_state(1))
+       CALL prefetch_input( current_date, p_patch(1), p_int_state(1), p_nh_state(1))
     ENDIF
 
     IF (current_date >= end_date) then
@@ -1638,7 +1638,7 @@ MODULE mo_nh_stepping
             IF (num_prefetch_proc == 1) THEN
 
                ! update the coefficients for the linear interpolation
-               CALL update_lin_interpolation(datetime_current)
+               CALL update_lin_interpolation(current_date)
                CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
                     p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=latbc_data(end_latbc_tlev)%atm,           &
                     p_latbc_new=latbc_data(start_latbc_tlev)%atm)

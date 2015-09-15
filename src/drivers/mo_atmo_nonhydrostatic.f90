@@ -345,7 +345,7 @@ CONTAINS
     ! If async prefetching is in effect, init_prefetch is a collective call
     ! with the prefetching processor and effectively starts async prefetching
     IF ((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) &
-       CALL init_prefetch
+       CALL init_prefetch(tc_startdate)
 
     !------------------------------------------------------------------
     ! Prepare output file

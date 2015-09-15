@@ -101,9 +101,9 @@ MODULE mo_async_latbc
          &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2,         &
          &                                  cdiGetStringError
     USE mo_io_units,                  ONLY: filename_max
-!    USE mo_util_cdi_table,            ONLY: print_cdi_summary
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID
+    USE mtime,                        ONLY: datetime
 
 #ifdef USE_CRAY_POINTER
     USE mo_name_list_output_init,     ONLY: set_mem_ptr_sp
@@ -196,8 +196,8 @@ MODULE mo_async_latbc
     !  This routine also cares about opening the output files the first time
     !  and reopening the files after a certain number of steps.
     !
-    SUBROUTINE prefetch_input( datetime, p_patch, p_int_state, p_nh_state)
-      TYPE(t_datetime), OPTIONAL, INTENT(INOUT) :: datetime
+    SUBROUTINE prefetch_input( current_date, p_patch, p_int_state, p_nh_state)
+      TYPE(datetime),         OPTIONAL, INTENT(IN)   :: current_date !< current time
       TYPE(t_patch),          OPTIONAL, INTENT(IN)   :: p_patch
       TYPE(t_int_state),      OPTIONAL, INTENT(IN)   :: p_int_state
       TYPE(t_nh_state),       OPTIONAL, INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
@@ -206,7 +206,7 @@ MODULE mo_async_latbc
 #ifndef NOMPI
       ! Set input prefetch attributes
       IF( my_process_is_work()) THEN
-         CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state, datetime=datetime)
+         CALL pref_latbc_data(patch_data, p_patch, p_nh_state, p_int_state, current_date=current_date)
       ELSE IF( my_process_is_pref()) THEN
          CALL pref_latbc_data(patch_data)
       END IF
@@ -222,13 +222,14 @@ MODULE mo_async_latbc
     !> Main routine for Input Prefetcing PEs.
     !  Please note that this routine never returns.
     !
-    SUBROUTINE prefetch_main_proc()
+    SUBROUTINE prefetch_main_proc(current_date)
+      TYPE(datetime),         INTENT(IN)   :: current_date !< current time
       ! local variables
       LOGICAL                         :: done
       CHARACTER(*), PARAMETER :: method_name = "prefetch_main_proc"
 
       ! call to initalize the prefetch processor with grid data
-      CALL init_prefetch()
+      CALL init_prefetch(current_date)
       ! Enter prefetch loop
       DO
          ! Wait for a message from the compute PEs to start
@@ -355,7 +356,8 @@ MODULE mo_async_latbc
     !------------------------------------------------------------------------------------------------
     !> Replicates data (mainly the variable lists) needed for async prefetching
     !  on the prefetching procs.
-    SUBROUTINE init_prefetch()
+    SUBROUTINE init_prefetch(current_date)
+      TYPE(datetime),         INTENT(IN)   :: current_date !< current time
 
       ! local variables:
       CHARACTER(LEN=*), PARAMETER :: routine = modname//"::init_prefetch"
@@ -390,10 +392,11 @@ MODULE mo_async_latbc
 
       IF( my_process_is_work()) THEN
          ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data, p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
+         CALL prepare_pref_latbc_data(patch_data, current_date, p_patch(1), p_int_state(1), &
+           &                          p_nh_state(1), ext_data(1))
       ELSE IF( my_process_is_pref()) THEN
          ! allocate input data for lateral boundary nudging
-         CALL prepare_pref_latbc_data(patch_data)
+         CALL prepare_pref_latbc_data(patch_data, current_date)
       ENDIF
 
       CALL message(routine,'Done')
@@ -529,8 +532,6 @@ MODULE mo_async_latbc
          ENDIF
 
          vlistID = streamInqVlist(fileID_latbc)
-
-         ! CALL print_cdi_summary(vlistID)
 
          ! get the number of variables
          nvars = vlistNvars(vlistID)

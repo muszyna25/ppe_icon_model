@@ -113,7 +113,6 @@ MODULE mo_atmo_model
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
   USE mo_io_restart_namelist,     ONLY: delete_restart_namelists
   USE mo_time_config,             ONLY: time_config      ! variable
-  USE mo_mtime_extensions,        ONLY: get_datetime_string
   USE mo_output_event_types,      ONLY: t_sim_step_info
   USE mtime,                      ONLY: setCalendar, MAX_DATETIME_STR_LEN,         &
        &                                datetime, newDatetime, deallocateDatetime, &
@@ -231,7 +230,7 @@ CONTAINS
       CALL read_restart_header("atm")
       CALL get_restart_attribute('tc_startdate', startDate)
     ELSE
-      call datetimeToString(tc_exp_startdate, startDate)
+      CALL datetimeToString(tc_exp_startdate, startDate)
     ENDIF
 
     !---------------------------------------------------------------------
@@ -341,7 +340,7 @@ CONTAINS
       num_prefetch_proc = 1
       CALL message(routine,'asynchronous input prefetching is enabled.')
       IF (my_process_is_pref() .AND. (.NOT. my_process_is_mpi_test())) THEN
-        CALL prefetch_main_proc  
+        CALL prefetch_main_proc(tc_startdate)
       ENDIF
     ENDIF
  
@@ -365,11 +364,10 @@ CONTAINS
           IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
           ! compute sim_start, sim_end
-          CALL get_datetime_string(sim_step_info%sim_start, time_config%ini_datetime)
-          CALL get_datetime_string(sim_step_info%sim_end,   time_config%end_datetime)
-          CALL get_datetime_string(sim_step_info%restart_time,  time_config%cur_datetime, &
-            &                      INT(time_config%dt_restart))
-          CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
+          CALL datetimeToString(tc_exp_startdate, sim_step_info%sim_start)
+          CALL datetimeToString(tc_exp_stopdate, sim_step_info%sim_end)
+          CALL datetimeToString(tc_startdate, sim_step_info%run_start)
+          CALL datetimeToString(tc_stopdate, sim_step_info%restart_time)
           sim_step_info%dtime      = dtime
           jstep0 = 0
           IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN

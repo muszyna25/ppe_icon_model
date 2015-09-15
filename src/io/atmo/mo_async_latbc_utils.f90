@@ -76,17 +76,20 @@
          &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
          &                            MAX_TIMEDELTA_STR_LEN,                       &
-         &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>)
-    USE mo_mtime_extensions,    ONLY: get_datetime_string, get_duration_string_real
-    USE mo_datetime,            ONLY: t_datetime
+         &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>),      &
+         &                            datetimeToString, OPERATOR(*),               &
+         &                            newTimedelta, deallocateTimedelta
     USE mo_time_config,         ONLY: time_config
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime
     USE mo_ext_data_types,      ONLY: t_external_data
-    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime
+    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime,  &
+      &                                tc_dt_model
+    USE mo_master_config,       ONLY: tc_startdate, tc_stopdate
+
     USE mo_initicon_config,     ONLY: init_mode
     USE mtime_events,           ONLY: deallocateEvent
-    USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
-         &                            operator(+)
+    USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta,   &
+      &                               OPERATOR(+)
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
                                       streamOpenRead
     USE mo_master_config,       ONLY: isRestart
@@ -131,10 +134,9 @@
          end_latbc_tlev     ! last_ext_tlev is the last written time level index
     TYPE(t_initicon_state) :: latbc_data(2)     ! storage for two time-level boundary data
     INTEGER                :: nlev_in             ! number of vertical levels in the boundary data
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end, sim_cur, sim_cur_read
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end, sim_cur_read
     CHARACTER(LEN=MAX_EVENTNAME_STR_LEN) :: event_name
     TYPE(timedelta), pointer :: my_duration_slack
-    TYPE(datetime), pointer :: mtime_date
     TYPE(datetime), pointer :: mtime_read
     TYPE(datetime), pointer :: mtime_end
     TYPE(event), pointer :: prefetchEvent
@@ -246,8 +248,9 @@
     !! Modified version by M.Pondkule, DWD (2014-01-27)
     !!
 
-    SUBROUTINE prepare_pref_latbc_data(patch_data, p_patch, p_int_state, p_nh_state, ext_data)
+    SUBROUTINE prepare_pref_latbc_data(patch_data, current_date, p_patch, p_int_state, p_nh_state, ext_data)
       TYPE(t_patch_data),     INTENT(IN)   :: patch_data
+      TYPE(datetime),         INTENT(IN)            :: current_date !< current time
       TYPE(t_patch),          OPTIONAL,INTENT(IN)   :: p_patch
       TYPE(t_int_state),      OPTIONAL,INTENT(IN)   :: p_int_state
       TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT):: p_nh_state  !< nonhydrostatic state on the global domain
@@ -262,8 +265,6 @@
       TYPE(datetime), pointer :: mtime_finish
       LOGICAL       :: done
       INTEGER       :: i, add_delta, end_delta, finish_delta
-      REAL(wp)      :: tdiff
-      CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: tdiff_string
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::prepare_pref_latbc_data"
 
@@ -275,18 +276,17 @@
       ENDIF
 
       ! compute sim_start, sim_end in a formate appropriate for mtime
-      CALL get_datetime_string(sim_start, time_config%ini_datetime)
-      CALL get_datetime_string(sim_end, time_config%end_datetime)
-      CALL get_datetime_string(sim_cur_read, time_config%cur_datetime)
+      call datetimeToString(tc_startdate, sim_start)
+      call datetimeToString(tc_stopdate,  sim_end)
+      call datetimeToString(tc_startdate, sim_cur_read)
 
       event_name = 'Prefetch input'
 
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
            TRIM(sim_cur_read), TRIM(sim_end), TRIM(latbc_config%dt_latbc))
 
-      tdiff = (0.5_wp*dtime)
-      CALL get_duration_string_real(tdiff, tdiff_string)
-      my_duration_slack => newTimedelta(tdiff_string)
+      my_duration_slack => newTimedelta(tc_dt_model)
+      my_duration_slack = my_duration_slack * 0.5_wp
 
       delta_dtime => newTimedelta(latbc_config%dt_latbc)
 
@@ -322,7 +322,7 @@
               &                  + 60    *INT(delta_tend%minute) &
               &                  +        INT(delta_tend%second)
 
-         end_delta = FLOOR(finish_delta/delta_dtime_secs) * delta_dtime_secs
+         end_delta = NINT(FLOOR(REAL(finish_delta,wp)/delta_dtime_secs) * delta_dtime_secs)
          ! check if the difference is less than zero than
          ! point mtime_end to time sim_end
          IF((finish_delta - end_delta) < 1e-15) THEN
@@ -369,9 +369,9 @@
       ! read first two time steps
       IF( my_process_is_work()) THEN  ! IF (PRESENT(p_patch)) THEN
          CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, &
-              &                   time_config%cur_datetime, lopt_check_read=.FALSE., lopt_time_incr=.FALSE.)
+              &                   current_date, lopt_check_read=.FALSE., lopt_time_incr=.FALSE.)
       ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data( patch_data, datetime=time_config%cur_datetime, &
+         CALL pref_latbc_data( patch_data, current_date=current_date, &
               &                   lopt_check_read=.FALSE., lopt_time_incr=.FALSE. )
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
@@ -381,9 +381,9 @@
 
       IF( my_process_is_work()) THEN  !IF (PRESENT(p_patch)) THEN
          CALL pref_latbc_data( patch_data, p_patch, p_nh_state, p_int_state, &
-              &                   time_config%cur_datetime, lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
+              &                   current_date, lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
       ELSE IF( my_process_is_pref()) THEN
-         CALL pref_latbc_data( patch_data,datetime=time_config%cur_datetime, &
+         CALL pref_latbc_data( patch_data,current_date=current_date, &
               &                   lopt_check_read=.FALSE., lopt_time_incr=.TRUE.)
          ! Inform compute PEs that we are done
          CALL async_pref_send_handshake()
@@ -405,13 +405,13 @@
     !! Modified version by M. Pondkule, DWD (2014-02-11)
     !!
 
-    SUBROUTINE pref_latbc_data( patch_data, p_patch, p_nh_state, p_int, datetime,&
+    SUBROUTINE pref_latbc_data( patch_data, p_patch, p_nh_state, p_int, current_date,&
          &                   lopt_check_read, lopt_time_incr)
       TYPE(t_patch_data),     INTENT(IN), TARGET     :: patch_data
       TYPE(t_patch),          OPTIONAL,INTENT(IN)    :: p_patch
-      TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT) :: p_nh_state  !< nonhydrostatic state on the global domain
+      TYPE(t_nh_state),       OPTIONAL,INTENT(INOUT) :: p_nh_state   !< nonhydrostatic state on the global domain
       TYPE(t_int_state),      OPTIONAL,INTENT(IN)    :: p_int
-      TYPE(t_datetime),       OPTIONAL,INTENT(INOUT) :: datetime       !< current time
+      TYPE(datetime),         OPTIONAL,TARGET,INTENT(IN)    :: current_date !< current time
       LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_check_read
       LOGICAL,      INTENT(IN), OPTIONAL    :: lopt_time_incr  !< increment latbc_datetime
 
@@ -420,14 +420,15 @@
       LOGICAL                               :: lcheck_read
       LOGICAL                               :: ltime_incr
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::pref_latbc_data"
+      TYPE(datetime), POINTER   :: ptr_current_date !< current time
 
       IF( my_process_is_work()) THEN
-         ! compute current datetime in a format appropriate for mtime
-         CALL get_datetime_string(sim_cur, datetime) ! time_config%cur_datetime)
-         mtime_date  => newDatetime(TRIM(sim_cur))
-
+        IF (.NOT. PRESENT(current_date)) THEN
+          CALL finish('pref_latbc_data', "Optional argument not present!")
+        END IF
+        ptr_current_date => current_date
          ! check for event been active
-         isactive = isCurrentEventActive(prefetchEvent, mtime_date, my_duration_slack)
+         isactive = isCurrentEventActive(prefetchEvent, ptr_current_date, my_duration_slack)
       ENDIF
 
       ! flag to set wether compute processor need to read boundary
@@ -1251,7 +1252,6 @@
       ! deallocating prefetch input event
       CALL deallocateEvent(prefetchEvent)
       ! deallocating Date and time
-      CALL deallocateDatetime(mtime_date)
       CALL deallocateDatetime(mtime_read)
       CALL deallocateDatetime(mtime_end)
       CALL deallocateTimedelta(my_duration_slack)
@@ -1520,20 +1520,15 @@
     !! @par Revision History
     !! Initial version by M. Pondkule, DWD (2014-08-15)
     !!
-    SUBROUTINE update_lin_interpolation( step_datetime )
-      TYPE(t_datetime), INTENT(INOUT) :: step_datetime
-      TYPE(datetime), pointer :: mtime_step
-      TYPE(timedelta), pointer :: delta_tstep
+    SUBROUTINE update_lin_interpolation( current_date )
+      TYPE(datetime),   INTENT(IN)     :: current_date !< current time
+      TYPE(timedelta),  POINTER        :: delta_tstep
       CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_step
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::update_lin_interpolation"
 
-      ! compute current datetime in a format appropriate for mtime
-      CALL get_datetime_string(sim_step, step_datetime)
-      mtime_step  => newDatetime(TRIM(sim_step))
-
       delta_tstep => newTimedelta(latbc_config%dt_latbc)
-      delta_tstep = mtime_read - mtime_step
+      delta_tstep = mtime_read - current_date
 
       IF(delta_tstep%month /= 0) &
            CALL finish(TRIM(routine), "time difference for reading boundary data cannot be more than a month.")
@@ -1546,7 +1541,6 @@
 
       ! deallocating mtime and deltatime
       CALL deallocateTimedelta(delta_tstep)
-      CALL deallocateDatetime(mtime_step)
 
     END SUBROUTINE update_lin_interpolation
 

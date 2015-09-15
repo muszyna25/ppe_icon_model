@@ -54,6 +54,13 @@ PROGRAM icon
 
   USE mo_cdi_constants          ! We need all ? 
   USE mo_cf_convention          ! We need all ? 
+#ifdef _MTIME_DEBUG
+  USE mo_kind, ONLY: wp
+  USE mtime,   ONLY: timedelta, newTimedelta, deallocateTimedelta,  &
+    &                timedeltaToString, ASSIGNMENT(=), OPERATOR(*), &
+    &                MAX_TIMEDELTA_STR_LEN, setCalendar,            &
+    &                PROLEPTIC_GREGORIAN
+#endif
   
   IMPLICIT NONE
 
@@ -87,6 +94,11 @@ PROGRAM icon
   INTEGER                     :: core_dump_flag
   INTEGER                     :: signals(1)
   INTEGER                     :: iret
+#endif
+
+#ifdef _MTIME_DEBUG
+  TYPE(timedelta),  POINTER             :: mtime_td
+  CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
 #endif
 
 !--------------------------------------------------------------------
@@ -230,6 +242,37 @@ PROGRAM icon
 #ifdef _MTIME_DEBUG
   WRITE(message_text,'(a,a)') 'executable running with MTIME_DEBUG enabled.'
   CALL message('',message_text)
+
+  !-------------------------------------------------------------------
+  ! a small test of mtime functionality
+  !-------------------------------------------------------------------
+  IF (my_process_is_global_root()) THEN
+    CALL setCalendar(PROLEPTIC_GREGORIAN)
+    
+    mtime_td => newTimedelta("PT1H1M1S")
+    mtime_td = mtime_td * 0.3_wp
+    CALL timedeltatostring(mtime_td, td_string)
+    WRITE (0,*) "PT1H1M1S * 0.3 = ", TRIM(td_string)
+    CALL deallocateTimedelta(mtime_td)
+
+    mtime_td => newTimedelta("PT1H1M1S")
+    mtime_td = mtime_td * 0.5_wp
+    CALL timedeltatostring(mtime_td, td_string)
+    WRITE (0,*) "PT1H1M1S * 0.5 = ", TRIM(td_string)
+    CALL deallocateTimedelta(mtime_td)
+
+    mtime_td => newTimedelta("PT1H1M1S")
+    mtime_td = mtime_td * 1.5_wp
+    CALL timedeltatostring(mtime_td, td_string)
+    WRITE (0,*) "PT1H1M1S * 1.5 = ", TRIM(td_string)
+    CALL deallocateTimedelta(mtime_td)
+
+    mtime_td => newTimedelta("PT1H1M1S")
+    mtime_td = mtime_td * 2.0_wp
+    CALL timedeltatostring(mtime_td, td_string)
+    WRITE (0,*) "PT1H1M1S * 2.0 = ", TRIM(td_string)
+   CALL deallocateTimedelta(mtime_td)
+  END IF
 #endif
 
   !-------------------------------------------------------------------
