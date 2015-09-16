@@ -30,6 +30,7 @@ MODULE mo_art_diagnostics_interface
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_aero_optical_props,        ONLY: art_calc_aod550_dust, art_calc_aod550_seas
+  USE mo_art_diagnostics,               ONLY: art_volc_diagnostics
   USE mo_art_clipping,                  ONLY: art_clip_lt
 #endif
 
@@ -43,13 +44,15 @@ CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_diagnostics_interface(p_patch, rho, p_trac, dz, jg)
+SUBROUTINE art_diagnostics_interface(p_patch, rho, pres, p_trac, dz, hml, jg)
   
   TYPE(t_patch), TARGET, INTENT(in) ::  & 
     &  p_patch                !< Patch on which computation is performed
   REAL(wp), INTENT(in)   :: &
     &  rho(:,:,:),          & !< Air density
-    &  dz(:,:,:)              !< Layer height
+    &  pres(:,:,:),         & !< Air pressure
+    &  dz(:,:,:),           & !< Layer thickness
+    &  hml(:,:,:)             !< Height of main layer
   REAL(wp),INTENT(inout) :: &
     &  p_trac(:,:,:,:)        !< Tracer mixing ratios [kg/kg]
   INTEGER, INTENT(in)    :: &
@@ -83,15 +86,25 @@ SUBROUTINE art_diagnostics_interface(p_patch, rho, p_trac, dz, jg)
 
       CALL art_clip_lt(p_trac(:,:,jb,:),0.0_wp)
   
-      ! ----------------------------------
+      ! --------------------------------------
       ! --- Calculate aerosol optical depths
-      ! ----------------------------------
+      ! --------------------------------------
       IF (art_config(jg)%iart_dust > 0) THEN
         CALL art_calc_aod550_dust(rho(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), istart, iend, nlev, jb, p_art_data(jg))
       ENDIF
       IF (art_config(jg)%iart_seasalt > 0) THEN
         CALL art_calc_aod550_seas(rho(:,:,jb), p_trac(:,:,:,jb), dz(:,:,jb), istart, iend, nlev, jb, p_art_data(jg))
       ENDIF
+
+      ! -------------------------------------
+      ! --- Calculate volcanic ash products
+      ! -------------------------------------
+      IF (art_config(jg)%iart_volcano > 0) THEN
+        CALL art_volc_diagnostics( rho(:,:,jb), pres(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), hml(:,:,jb),  &
+          &                        istart, iend, nlev, art_config(jg)%npreslay, jb,                       &
+          &                        p_art_data(jg) )
+      END IF
+
     END DO
 
   END IF

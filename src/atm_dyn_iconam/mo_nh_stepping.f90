@@ -773,8 +773,10 @@ MODULE mo_nh_stepping
         ! Call the ART diagnostics
         CALL art_diagnostics_interface(p_patch(jg),                              &
           &                            p_nh_state(jg)%prog(nnew(jg))%rho,        &
+          &                            p_nh_state(jg)%diag%pres,                 &
           &                            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
-          &                            p_nh_state(jg)%%metrics%ddqz_z_full, jg)
+          &                            p_nh_state(jg)%metrics%ddqz_z_full,       &
+          &                            p_nh_state(jg)%metrics%z_mc, jg)
         ! Call the ART unit conversion 
         CALL art_tools_interface('unit_conversion',                            & !< in
           &                      p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
