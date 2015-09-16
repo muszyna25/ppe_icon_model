@@ -258,12 +258,6 @@ CONTAINS
         CALL setExpStopdate(dstring)
       ENDIF
       CALL deallocateDatetime(calculatedStopDate)
-    ELSE
-#ifdef USE_MTIME_LOOP
-      CALL finish('','Cannot calculate this runs stop date.')
-#else
-      CALL message('use_mtime_loop','Cannot calculate this runs stop date.')
-#endif
     ENDIF
 
     IF (ASSOCIATED(tc_startdate)) THEN
