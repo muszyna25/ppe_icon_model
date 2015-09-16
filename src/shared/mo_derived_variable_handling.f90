@@ -366,6 +366,7 @@ CONTAINS
                   call print_aqua("key found !!!",stderr=.true.)
                   ! now check for activity
                   CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
+                  call print_aqua(trim(mtime_cur_datetime))
                   mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
                   isactive = LOGICAL(isCurrentEventActive(e,mtime_date))
                   write (0,*)'---- isactive ----- ',isactive
