@@ -39,9 +39,6 @@ MODULE mo_sea_ice_zerolayer
   USE mo_sea_ice_shared_sr,   ONLY: oce_ice_heatflx
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range 
 
-  ! # achim: for implementation of simple fluxes
-  USE mo_datetime,            ONLY: t_datetime
-
   IMPLICIT NONE
 
   PRIVATE
