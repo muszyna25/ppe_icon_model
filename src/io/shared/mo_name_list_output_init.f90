@@ -566,7 +566,6 @@ CONTAINS
       p_onl%output_start(:)          = output_start(:)
       p_onl%output_end(:)            = output_end
       p_onl%output_interval(:)       = output_interval
-      p_onl%additional_days(:)       = 0
       p_onl%output_bounds(:)         = output_bounds(:)
       p_onl%ready_file               = ready_file
       p_onl%lonlat_id                = lonlat_id
@@ -1003,8 +1002,7 @@ CONTAINS
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_start(MAX_TIME_INTERVALS),     &
       &                                     output_interval(MAX_TIME_INTERVALS)
-    INTEGER                              :: idx, istart, iintvl,  nintvls,        &
-      &                                     additional_days(MAX_TIME_INTERVALS)
+    INTEGER                              :: idx, istart, iintvl,  nintvls
     INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: include_last
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
@@ -1272,7 +1270,6 @@ CONTAINS
         mtime_date2 => newDatetime(sim_step_info%sim_start)
         mtime_date2 = mtime_date2 + mtime_td2
         CALL datetimeToString(mtime_date2, p_onl%output_end(idx))
-        p_onl%additional_days(idx) = 0
 
         IF (my_process_is_stdio()) THEN
           WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start(idx)), " / ", &
@@ -1291,29 +1288,28 @@ CONTAINS
 
       ! there may be multiple "output_bounds" intervals, consider all:        
       INTVL_LOOP : DO idx=1,MAX_TIME_INTERVALS
-        IF (p_onl%additional_days(idx) == 0) THEN
-          IF (TRIM(p_onl%output_start(idx)) == '') CYCLE INTVL_LOOP
-
-          ! compare start date and end date: if these are equal, then
-          ! the interval does not matter and must not be checked.
-          mtime_datetime_start => newDatetime(p_onl%output_start(idx))
-          mtime_datetime_end   => newDatetime(p_onl%output_end(idx))
-          IF (mtime_datetime_end > mtime_datetime_start) THEN
-            mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)))
-            
-            mtime_td => newTimedelta("PT"//TRIM(real2string(sim_step_info%dtime, '(f20.3)'))//"S")
-            CALL timedeltaToString(mtime_td, lower_bound_str)
-            mtime_day => newTimedelta("PT1D")
-            IF (mtime_td > mtime_day)  THEN
-              CALL finish(routine, "Internal error: dtime > 1 day!")
-            END IF
-            IF (mtime_output_interval < mtime_td) THEN
-              CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime !")
-            END IF
-            CALL deallocateTimedelta(mtime_output_interval)
-            CALL deallocateTimeDelta(mtime_td)
-            CALL deallocateTimeDelta(mtime_day)
+        IF (TRIM(p_onl%output_start(idx)) == '') CYCLE INTVL_LOOP
+        
+        ! compare start date and end date: if these are equal, then
+        ! the interval does not matter and must not be checked.
+        mtime_datetime_start => newDatetime(p_onl%output_start(idx))
+        mtime_datetime_end   => newDatetime(p_onl%output_end(idx))
+        IF (mtime_datetime_end > mtime_datetime_start) THEN
+          mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)))
+          
+          mtime_td => newTimedelta("PT"//TRIM(real2string(sim_step_info%dtime, '(f20.3)'))//"S")
+          CALL timedeltaToString(mtime_td, lower_bound_str)
+          mtime_day => newTimedelta("PT1D")
+          IF (mtime_td > mtime_day)  THEN
+            CALL finish(routine, "Internal error: dtime > 1 day!")
           END IF
+          IF (mtime_output_interval < mtime_td) THEN
+            CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime !")
+          END IF
+          CALL deallocateTimedelta(mtime_output_interval)
+          CALL deallocateTimeDelta(mtime_td)
+          CALL deallocateTimeDelta(mtime_day)
+
           CALL deallocateDatetime(mtime_datetime_start)
           CALL deallocateDatetime(mtime_datetime_end)
         END IF
@@ -1664,7 +1660,6 @@ CONTAINS
 
       include_last    = p_onl%include_last
       output_interval = p_onl%output_interval
-      additional_days = p_onl%additional_days
       output_start    = p_onl%output_start
 
       ! Handle the case that one namelist has been split into
@@ -1692,12 +1687,10 @@ CONTAINS
           ! - The output_interval is replaced by "
           !         "npartitions * output_interval"
           total_ms = getTotalMilliSecondsTimeDelta(mtime_interval, mtime_datetime)
-          total_ms = total_ms + additional_days(iintvl)*86400000
           total_ms = total_ms * p_of%npartitions
 
           mtime_td => newTimedelta("PT"//TRIM(int2string(INT(total_ms/1000), '(i0)'))//"S")
           CALL timedeltaToString(mtime_td, output_interval(iintvl))
-          additional_days(iintvl) = 0
           CALL deallocateTimedelta(mtime_td)
 
           IF (p_of%ifile_partition == 1) THEN
@@ -1721,8 +1714,7 @@ CONTAINS
       ! --- I/O PEs communicate their event data, the other PEs create
       ! --- the event data only locally for their own event control:
       p_of%out_event => new_parallel_output_event(p_onl%ready_file,                              &
-        &                  output_start, p_onl%output_end, output_interval,                      &
-        &                  additional_days, include_last,                                        &
+        &                  output_start, p_onl%output_end, output_interval, include_last,        &
         &                  dom_sim_step_info, fname_metadata, compute_matching_sim_steps,        &
         &                  generate_output_filenames, local_i, p_comm_io)
       ! ------------------------------------------------------------------------------------------
