@@ -16,8 +16,12 @@
 MODULE mo_time_nml
 
   USE mo_kind,                  ONLY: wp, i8
+  USE mo_exception,             ONLY: finish
   USE mo_datetime,              ONLY: proleptic_gregorian, time_to_date, &
                                     & date_to_time, string_to_datetime
+  USE mtime,                    ONLY: datetime, newDatetime, deallocateDatetime, &
+    &                                 julianDay, deallocateJulianDay,            &
+    &                                 MAX_DATETIME_STR_LEN, getjuliandayfromdatetime
   USE mo_time_config,           ONLY: time_config
   USE mo_io_units,              ONLY: nnml, nnml_output
   USE mo_master_config,         ONLY: isRestart
@@ -90,6 +94,9 @@ CONTAINS
    REAL(wp)    :: restart_caltime
    REAL(wp)    :: restart_daysec
    INTEGER     :: iunit
+   CHARACTER(len=MAX_DATETIME_STR_LEN) :: restart_date
+   TYPE(datetime), POINTER  :: mtime_current_date
+   TYPE(julianDay), POINTER  :: jd
 
 
    !0!CHARACTER(len=*), PARAMETER ::  routine = 'mo_time_nml:read_time_namelist'
@@ -132,9 +139,7 @@ CONTAINS
 
       ! 2.2 Inquire the date/time at which the previous run stopped
 
-      CALL get_restart_attribute( 'current_caltime', restart_caltime )
-      CALL get_restart_attribute( 'current_calday' , restart_calday  )
-      CALL get_restart_attribute( 'current_daysec' , restart_daysec  )
+      CALL get_restart_attribute( 'tc_startdate', restart_date )
 
     END IF
 
@@ -183,9 +188,21 @@ CONTAINS
 
       ELSE
         time_config%cur_datetime%calendar = time_config%calendar
-        time_config%cur_datetime%caltime  = restart_caltime
-        time_config%cur_datetime%calday   = restart_calday
-        time_config%cur_datetime%daysec   = restart_daysec
+
+        mtime_current_date => newDatetime(restart_date)
+#ifdef _MTIME_DEBUG
+        ! *** NOTE: Probably we need a newJulianDay(...) here! ***
+        CALL getJulianDayFromDatetime(mtime_current_date, jd)
+#endif
+        IF (ASSOCIATED(jd)) THEN
+          time_config%cur_datetime%calday   = jd%day
+          time_config%cur_datetime%daysec   = jd%ms/1000._wp
+          time_config%cur_datetime%caltime  = time_config%cur_datetime%daysec/86400._wp
+          CALL deallocateJulianDay(jd)
+        ELSE
+          CALL finish('read_time_namelist', "Internal error: Julian day conversion!")
+        END IF
+        CALL deallocateDatetime(mtime_current_date)
 
         CALL time_to_date(time_config%cur_datetime) ! fill date time structure
 

@@ -65,6 +65,7 @@ MODULE mo_ha_stepping
       &                             close_async_restart, set_data_async_restart
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_time_config,         ONLY: time_config
+  USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime
 
   IMPLICIT NONE
 
@@ -201,7 +202,7 @@ CONTAINS
   !!
   SUBROUTINE perform_ha_stepping( p_patch, p_int_state,               &
                                 & p_grf_state,                        &
-                                & p_hydro_state, datetime             )
+                                & p_hydro_state, this_datetime             )
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_ha_stepping:perform_ha_stepping'
@@ -210,7 +211,7 @@ CONTAINS
   TYPE(t_int_state),     TARGET, INTENT(IN)    :: p_int_state(n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
 
-  TYPE(t_datetime), INTENT(INOUT)              :: datetime
+  TYPE(t_datetime), INTENT(INOUT)              :: this_datetime
   TYPE(t_hydro_atm), TARGET, INTENT(INOUT)     :: p_hydro_state(n_dom)
 
   REAL(wp), DIMENSION(:,:,:), POINTER          :: p_vn  => NULL()
@@ -219,6 +220,7 @@ CONTAINS
   LOGICAL                                      :: l_nml_output
   LOGICAL                                      :: l_3tl_init(n_dom)
   INTEGER                                      :: jstep0 ! start counter for time loop
+  TYPE(datetime), POINTER                      :: current_date
 
 #ifdef _OPENMP
   INTEGER  :: jb
@@ -284,13 +286,13 @@ CONTAINS
 
     CALL process_grid( p_patch, p_hydro_state, p_int_state, p_grf_state,    &
       &                ext_data, 1, jstep, l_3tl_init, dtime, sim_time,     &
-      &                1, datetime )
+      &                1, this_datetime )
 
     !--------------------------------------------------------------------------
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
     !--------------------------------------------------------------------------
-    CALL add_time(dtime,0,0,0,datetime)
+    CALL add_time(dtime,0,0,0,this_datetime)
 !!$    ! Not nice, but the name list output requires this
 !!$    sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp)
     sim_time(1) = sim_time(1) + dtime   ! RS: is this correct? process_grid already advances sim_time by dtime !
@@ -357,7 +359,7 @@ CONTAINS
 
       IF (l_nml_output) THEN
         CALL message(TRIM(routine),'Output (name_list) at:')
-        CALL print_datetime(datetime)
+        CALL print_datetime(this_datetime)
         CALL write_name_list_output(jstep)
       ENDIF
 
@@ -384,13 +386,20 @@ CONTAINS
         ENDDO
 
         ! call asynchronous restart
-        CALL write_async_restart (datetime, jstep)
+        CALL write_async_restart (this_datetime, jstep)
 
       ELSE
+#ifdef _MTIME_DEBUG
+        ! *** TO BE DEFINED: current_date ***
+        current_date => newDatetime("1970-01-01T00:00:00")
+#endif
         DO jg = 1, n_dom
-          CALL create_restart_file( p_patch(jg), datetime,                        &
+          CALL create_restart_file( p_patch(jg), current_date, &
                                   & jstep, "atm", vct )
         END DO
+#ifdef _MTIME_DEBUG
+        CALL deallocateDatetime(current_date)
+#endif
       END IF
     END IF
 

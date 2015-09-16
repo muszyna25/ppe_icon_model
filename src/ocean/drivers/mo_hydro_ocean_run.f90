@@ -71,6 +71,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_statistics
   USE mo_ocean_output
 ! USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
+  USE mtime,                     ONLY: datetime, newDatetime, deallocateDatetime
 
   IMPLICIT NONE
 
@@ -130,7 +131,7 @@ CONTAINS
   !
 !<Optimize:inUse>
   SUBROUTINE perform_ho_stepping( patch_3d, ocean_state, p_ext_data,          &
-    & datetime, lwrite_restart,            &
+    & this_datetime, lwrite_restart,            &
     & p_sfc_flx, p_sfc, p_phys_param,             &
     & p_as, p_atm_f, p_ice,operators_coefficients, &
     & solvercoeff_sp)
@@ -138,7 +139,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    TYPE(t_datetime), INTENT(inout)                  :: this_datetime
     LOGICAL, INTENT(in)                              :: lwrite_restart
     TYPE(t_sfc_flx)                                  :: p_sfc_flx
     TYPE(t_ocean_surface)                            :: p_sfc
@@ -161,6 +162,7 @@ CONTAINS
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_hydro_ocean_run:perform_ho_stepping'
+    TYPE(datetime), POINTER                      :: current_date
     !------------------------------------------------------------------
 
     patch_2d      => patch_3d%p_patch_2d(1)
@@ -175,7 +177,7 @@ CONTAINS
 
     patch_2d => patch_3d%p_patch_2d(jg)
 
-    ! CALL datetime_to_string(datestring, datetime)
+    ! CALL datetime_to_string(datestring, this_datetime)
 
     time_config%sim_time(:) = 0.0_wp
 
@@ -198,7 +200,7 @@ CONTAINS
     time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
       ! write(0,*) "nold nnew=", nold(1), nnew(1)
 
-      CALL datetime_to_string(datestring, datetime)
+      CALL datetime_to_string(datestring, this_datetime)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(routine), message_text)
       
@@ -218,10 +220,10 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_upd_flx)
       IF (surface_module == 1) THEN
         CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, &
-          & jstep, datetime, operators_coefficients)
+          & jstep, this_datetime, operators_coefficients)
       ELSEIF (surface_module == 2) THEN
         CALL update_ocean_surface( patch_3d, ocean_state(jg), p_as, p_ice, p_atm_f, p_sfc_flx, p_sfc, &
-          & jstep, datetime, operators_coefficients)
+          & jstep, this_datetime, operators_coefficients)
       ENDIF
       IF (ltimer) CALL timer_stop(timer_upd_flx)
 
@@ -315,7 +317,7 @@ CONTAINS
       ENDIF
 
       ! One integration cycle finished. Set model time.
-      CALL add_time(dtime,0,0,0,datetime)
+      CALL add_time(dtime,0,0,0,this_datetime)
 
       ! Not nice, but the name list output requires this
       time_config%sim_time(1) = time_config%sim_time(1) + dtime
@@ -331,7 +333,7 @@ CONTAINS
         ! calculate diagnostic barotropic stream function
         CALL calc_psi (patch_3d, ocean_state(jg)%p_diag%u(:,:,:),         &
           & patch_3D%p_patch_1d(1)%prism_thick_c(:,:,:),                  &
-          & ocean_state(jg)%p_diag%u_vint, datetime)
+          & ocean_state(jg)%p_diag%u_vint, this_datetime)
         CALL dbg_print('calc_psi: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 3, in_subset=patch_2d%cells%owned)
           
         ! calculate diagnostic barotropic stream function with vn
@@ -339,7 +341,7 @@ CONTAINS
     !   CALL calc_psi_vn (patch_3d, ocean_state(jg)%p_prog(nold(1))%vn,   &
     !     & patch_3D%p_patch_1d(1)%prism_thick_e(:,:,:),                  &
     !     & operators_coefficients,                                       &
-    !     & ocean_state(jg)%p_diag%u_vint, ocean_state(jg)%p_diag%v_vint, datetime)
+    !     & ocean_state(jg)%p_diag%u_vint, ocean_state(jg)%p_diag%v_vint, this_datetime)
     !   CALL dbg_print('calc_psi_vn: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 5, in_subset=patch_2d%cells%owned)
     !   CALL dbg_print('calc_psi_vn: v_vint' ,ocean_state(jg)%p_diag%v_vint, str_module, 5, in_subset=patch_2d%cells%owned)
       ENDIF
@@ -363,14 +365,14 @@ CONTAINS
       IF (timers_level > 2)  CALL timer_stop(timer_extra20)
       
       CALL output_ocean( patch_3d, ocean_state, &
-        &                datetime,              &
+        &                this_datetime,              &
         &                p_sfc_flx,             &
         &                p_ice,                 &
         &                jstep, jstep0)
       
       ! #slo#-2015-04-15: call to coupling routine at the end of time stepping loop - TODO: check location
    !  IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
-   !    &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state, p_ice, p_atm_f, jstep, datetime)
+   !    &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state, p_ice, p_atm_f, jstep, this_datetime)
 
       IF (timers_level > 2)  CALL timer_start(timer_extra21)
       ! Shift time indices for the next loop
@@ -381,8 +383,12 @@ CONTAINS
 
       ! write a restart or checkpoint file
       IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
+#ifdef _MTIME_DEBUG
+        ! *** TO BE DEFINED: current_date ***
+        current_date => newDatetime("1970-01-01T00:00:00")
+#endif
         CALL create_restart_file( patch = patch_2d,       &
-          & datetime=datetime,      &
+          & current_date=current_date,   &
           & jstep=jstep,            &
           & model_type="oce",       &
           & opt_sim_time=time_config%sim_time(1),&
@@ -390,6 +396,9 @@ CONTAINS
           & ocean_zlevels=n_zlev,                                         &
           & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
           & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+#ifdef _MTIME_DEBUG
+        CALL deallocateDatetime(current_date)
+#endif
       END IF
 
       ! check cfl criterion

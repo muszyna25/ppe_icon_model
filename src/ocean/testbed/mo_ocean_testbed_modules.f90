@@ -71,6 +71,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run,        ONLY: write_initial_ocean_timestep
+  USE mtime,                     ONLY: datetime, newDatetime, deallocateDatetime
 
   IMPLICIT NONE
   PRIVATE
@@ -85,12 +86,12 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE ocean_test_modules( patch_3d, ocean_state,  &
-    & datetime, surface_fluxes, ocean_surface, physics_parameters,             &
+    & this_datetime, surface_fluxes, ocean_surface, physics_parameters,             &
     & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    TYPE(t_datetime), INTENT(inout)                  :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_ocean_surface)                           :: ocean_surface
     TYPE (t_ho_params)                               :: physics_parameters
@@ -104,7 +105,7 @@ CONTAINS
     SELECT CASE (test_mode)  !  1 - 99 test ocean modules
       CASE (1)
         CALL ocean_test_advection( patch_3d, ocean_state, &
-          & datetime, surface_fluxes, physics_parameters,             &
+          & this_datetime, surface_fluxes, physics_parameters,             &
           & ocean_ice,operators_coefficients)
 
       CASE (2)
@@ -117,12 +118,12 @@ CONTAINS
 
       CASE (4)
         CALL test_surface_flux( patch_3d, ocean_state,  &
-          & datetime, surface_fluxes,             &
+          & this_datetime, surface_fluxes,             &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
 
       CASE (41)
         CALL test_surface_flux_slo( patch_3d, ocean_state,  &
-          & datetime, surface_fluxes, ocean_surface,        &
+          & this_datetime, surface_fluxes, ocean_surface,        &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
 
       CASE (5)
@@ -131,12 +132,12 @@ CONTAINS
 
       CASE (10)
         CALL ocean_test_GMRedi( patch_3d, ocean_state, &
-          & datetime, surface_fluxes, physics_parameters,             &
+          & this_datetime, surface_fluxes, physics_parameters,             &
           & ocean_ice,operators_coefficients)
 
       CASE (11) ! surface only processing to get quasi output fast
         CALL test_output( patch_3d, ocean_state,  &
-          & datetime, surface_fluxes,             &
+          & this_datetime, surface_fluxes,             &
           & physics_parameters,                   &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients)
 
@@ -154,12 +155,12 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE ocean_test_GMRedi( patch_3d, ocean_state, &
-    & datetime, surface_fluxes, physics_parameters,             &
+    & this_datetime, surface_fluxes, physics_parameters,             &
     & ocean_ice,operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    TYPE(t_datetime), INTENT(inout)                  :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_ho_params)                               :: physics_parameters
     TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
@@ -202,7 +203,7 @@ CONTAINS
     trac_cart(1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
     div_diff_flux_horz_cart(1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
     !---------------------------------------------------------------------   
-    CALL datetime_to_string(datestring, datetime)
+    CALL datetime_to_string(datestring, this_datetime)
 
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
@@ -216,7 +217,7 @@ CONTAINS
       !IF(itestcase_oce==28)THEN
       DO jstep = (jstep0+1), (jstep0+nsteps)
       
-        CALL datetime_to_string(datestring, datetime)
+        CALL datetime_to_string(datestring, this_datetime)
         WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
         CALL message (TRIM(method_name), message_text)
  
@@ -345,7 +346,7 @@ ENDIF
 
         ! One integration cycle finished on the lowest grid level (coarsest
         ! resolution). Set model time.
-        CALL add_time(dtime,0,0,0,datetime)
+        CALL add_time(dtime,0,0,0,this_datetime)
       
         ! Not nice, but the name list output requires this
         time_config%sim_time(1) = time_config%sim_time(1) + dtime
@@ -360,7 +361,7 @@ ENDIF
           
         CALL output_ocean( patch_3d, &
           & ocean_state,             &
-          & datetime,                &
+          & this_datetime,                &
           & surface_fluxes,          &
           & ocean_ice,               &
           & jstep, jstep0)
@@ -387,12 +388,12 @@ ENDIF
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE ocean_test_advection( patch_3d, ocean_state, &
-    & datetime, surface_fluxes, physics_parameters,             &
+    & this_datetime, surface_fluxes, physics_parameters,             &
     & ocean_ice,operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    TYPE(t_datetime), INTENT(inout)                  :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_ho_params)                               :: physics_parameters
     TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
@@ -411,7 +412,7 @@ ENDIF
     !------------------------------------------------------------------
     
     patch_2D      => patch_3d%p_patch_2d(1)
-    CALL datetime_to_string(datestring, datetime)
+    CALL datetime_to_string(datestring, this_datetime)
 
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
@@ -424,7 +425,7 @@ ENDIF
       !IF(itestcase_oce==28)THEN
       DO jstep = (jstep0+1), (jstep0+nsteps)
       
-        CALL datetime_to_string(datestring, datetime)
+        CALL datetime_to_string(datestring, this_datetime)
         WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
         CALL message (TRIM(method_name), message_text)
  
@@ -442,7 +443,7 @@ ENDIF
           & jstep)
         ! One integration cycle finished on the lowest grid level (coarsest
         ! resolution). Set model time.
-        CALL add_time(dtime,0,0,0,datetime)
+        CALL add_time(dtime,0,0,0,this_datetime)
       
         ! Not nice, but the name list output requires this
         time_config%sim_time(1) = time_config%sim_time(1) + dtime
@@ -457,7 +458,7 @@ ENDIF
           
         CALL output_ocean( patch_3d, &
           & ocean_state,             &
-          & datetime,                &
+          & this_datetime,                &
           & surface_fluxes,          &
           & ocean_ice,               &
           & jstep, jstep0)
@@ -481,12 +482,12 @@ ENDIF
   !-------------------------------------------------------------------------
   !> surface only call, regular output, restart, checkpoints
   SUBROUTINE test_output( patch_3d, p_os,           &
-    & datetime, surface_fluxes, physics_parameters, &
+    & this_datetime, surface_fluxes, physics_parameters, &
     & p_as, atmos_fluxes, p_ice, operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    TYPE(t_datetime), INTENT(inout)                  :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_ho_params)                               :: physics_parameters
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
@@ -508,6 +509,7 @@ ENDIF
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:test_output'
+    TYPE(datetime), POINTER                      :: current_date
     !------------------------------------------------------------------
     patch_2D      => patch_3d%p_patch_2d(1)
 
@@ -515,7 +517,7 @@ ENDIF
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
 
-    CALL datetime_to_string(datestring, datetime)
+    CALL datetime_to_string(datestring, this_datetime)
 
     time_config%sim_time(:)                                              = 0.0_wp
     jstep0                                                               = 0
@@ -530,17 +532,17 @@ ENDIF
 
     ! timeloop
     DO jstep = (jstep0+1), (jstep0+nsteps)
-      CALL datetime_to_string(datestring, datetime)
+      CALL datetime_to_string(datestring, this_datetime)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(method_name), message_text)
 
       ! Set model time.
-      CALL add_time(dtime,0,0,0,datetime)
+      CALL add_time(dtime,0,0,0,this_datetime)
 
 
       !------------------------------------------------------------------------
       ! call surface model
-      CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
+      CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, this_datetime, &
         &  operators_coefficients)
 
       !------------------------------------------------------------------------
@@ -578,7 +580,7 @@ ENDIF
         ! calculate diagnostic barotropic stream function
         CALL calc_psi (patch_3d, p_os(n_dom)%p_diag%u(:,:,:),         &
           & patch_3D%p_patch_1d(1)%prism_thick_c(:,:,:),                  &
-          & p_os(n_dom)%p_diag%u_vint, datetime)
+          & p_os(n_dom)%p_diag%u_vint, this_datetime)
         CALL dbg_print('calc_psi: u_vint' ,p_os(n_dom)%p_diag%u_vint, debug_string, 3, in_subset=patch_2d%cells%owned)
       END IF
       ! update accumulated vars
@@ -596,7 +598,7 @@ ENDIF
       ! }}}
       CALL output_ocean( patch_3D,   &
         &                p_os(n_dom),&
-        &                datetime,   &
+        &                this_datetime,   &
         &                surface_fluxes,  &
         &                p_ice,      &
         &                jstep, jstep0)
@@ -605,8 +607,12 @@ ENDIF
       ! write a restart or checkpoint file
       lwrite_restart = (nsteps == INT(time_config%dt_restart/dtime))
       IF (MOD(jstep,n_checkpoints())==0 .OR. ((jstep==(jstep0+nsteps)) .AND. lwrite_restart)) THEN
+#ifdef _MTIME_DEBUG
+        ! *** TO BE DEFINED: current_date ***
+        current_date => newDatetime("1970-01-01T00:00:00")
+#endif
         CALL create_restart_file( patch = patch_2d,       &
-          & datetime=datetime,      &
+          & current_date=current_date,      &
           & jstep=jstep,            &
           & model_type="oce",       &
           & opt_sim_time=time_config%sim_time(1),&
@@ -614,6 +620,9 @@ ENDIF
           & ocean_zlevels=n_zlev,                                         &
           & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
           & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+#ifdef _MTIME_DEBUG
+        CALL deallocateDatetime(current_date)
+#endif
       END IF
 
     END DO
@@ -622,12 +631,12 @@ ENDIF
   END SUBROUTINE test_output
 
   SUBROUTINE test_surface_flux( patch_3d, p_os, &
-    & datetime, surface_fluxes,         &
+    & this_datetime, surface_fluxes,         &
     & p_as, atmos_fluxes, p_ice, operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: datetime
+    TYPE(t_datetime), INTENT(inout)                  :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
@@ -658,7 +667,7 @@ ENDIF
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
 
-    CALL datetime_to_string(datestring, datetime)
+    CALL datetime_to_string(datestring, this_datetime)
 
     time_config%sim_time(:)                                              = 0.0_wp
     jstep0                                                               = 0
@@ -711,12 +720,12 @@ ENDIF
         &==============================================')
     
 
-      CALL datetime_to_string(datestring, datetime)
+      CALL datetime_to_string(datestring, this_datetime)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(method_name), message_text)
 
       ! Set model time.
-      CALL add_time(dtime,0,0,0,datetime)
+      CALL add_time(dtime,0,0,0,this_datetime)
 
       ! print out 3d salinity
       CALL dbg_print('IceBudget: saltinity BEFORE' ,&
@@ -742,7 +751,7 @@ ENDIF
 
       !------------------------------------------------------------------------
       ! call surface model
-      CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
+      CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, this_datetime, &
         &  operators_coefficients)
       CALL dbg_print('IceBudget: saltinity  AFTER' ,&
         &             p_os(n_dom)%p_prog(nold(1))%tracer(:,1,:,2),debug_string,4,in_subset=patch_2D%cells%owned)
@@ -820,7 +829,7 @@ ENDIF
       p_os(n_dom)%p_diag%h               = p_os(n_dom)%p_prog(nold(1))%h
       CALL output_ocean( patch_3D,   &
         &                p_os(n_dom),&
-        &                datetime,   &
+        &                this_datetime,   &
         &                surface_fluxes,  &
         &                p_ice,      &
         &                jstep, jstep0)
@@ -843,12 +852,12 @@ ENDIF
   !-------------------------------------------------------------------------
   !>
   SUBROUTINE test_surface_flux_slo( patch_3d, p_os, &
-    & datetime, surface_fluxes, p_oce_sfc,        &
+    & this_datetime, surface_fluxes, p_oce_sfc,        &
     & p_as, atmos_fluxes, p_ice, operators_coefficients)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
-    TYPE(t_datetime),         INTENT(inout)          :: datetime
+    TYPE(t_datetime),         INTENT(inout)          :: this_datetime
     TYPE(t_sfc_flx),          INTENT(inout)          :: surface_fluxes
     TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
@@ -921,7 +930,7 @@ ENDIF
     hCheck(:,:)    = flat(:,:) + p_os(n_dom)%p_prog(nold(1))%h(:,:) - p_ice%draftave(:,:)
     CALL dbg_print('TB.SfcFlux: heightCH2 tst' ,hCheck         (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
 
-    CALL datetime_to_string(datestring, datetime)
+    CALL datetime_to_string(datestring, this_datetime)
 
     time_config%sim_time(:) = 0.0_wp
     jstep0 = 0
@@ -935,12 +944,12 @@ ENDIF
 
       ! p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h
 
-      CALL datetime_to_string(datestring, datetime)
+      CALL datetime_to_string(datestring, this_datetime)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(method_name), message_text)
 
       ! Set model time.
-      CALL add_time(dtime,0,0,0,datetime)
+      CALL add_time(dtime,0,0,0,this_datetime)
 
       budget_type_salt   = 5  ! #slo# merging ocean_sea-ice-thermodyn r208xx
       budget_type_energy = 0
@@ -977,11 +986,11 @@ ENDIF
       !-----------------------------------------------------------------------------------------------------------------
       ! call component
       IF (surface_module == 1) THEN
-        CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, datetime, &
+        CALL update_surface_flux(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, jstep, this_datetime, &
           &  operators_coefficients)
       ELSEIF (surface_module == 2) THEN
         CALL update_ocean_surface(patch_3D, p_os(n_dom), p_as, p_ice, atmos_fluxes, surface_fluxes, p_oce_sfc, &
-          &  jstep, datetime, operators_coefficients)
+          &  jstep, this_datetime, operators_coefficients)
       ENDIF
       !-----------------------------------------------------------------------------------------------------------------
 
@@ -1131,7 +1140,7 @@ ENDIF
 
       CALL output_ocean( patch_3D,   &
         &                p_os(n_dom),&
-        &                datetime,   &
+        &                this_datetime,   &
         &                surface_fluxes,  &
         &                p_ice,      &
         &                jstep, jstep0)

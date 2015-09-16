@@ -95,6 +95,8 @@ MODULE mo_io_restart
     &                                 restart_attributes_count_bool,                &
     &                                 read_and_bcast_attributes
   USE mo_scatter,               ONLY: scatter_array
+  USE mtime,                    ONLY: datetime, datetimeToString,                   &
+    &                                 MAX_DATETIME_STR_LEN
   USE mo_datetime,              ONLY: t_datetime,iso8601,iso8601extended
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
@@ -1082,7 +1084,7 @@ CONTAINS
   !!
   !! Hui Wan (MPI-M, 2011-05)
   !!
-  SUBROUTINE create_restart_file( patch, datetime,             &
+  SUBROUTINE create_restart_file( patch, current_date,         &
                                 & jstep,                       &
                                 & model_type,                  &
                                 & opt_pvct,                    &
@@ -1100,7 +1102,7 @@ CONTAINS
                                 & ocean_Zheight_CellInterfaces)
 
     TYPE(t_patch),       INTENT(IN) :: patch
-    TYPE(t_datetime),    INTENT(IN) :: datetime
+    TYPE(datetime),      POINTER    :: current_date
     INTEGER,             INTENT(IN) :: jstep                ! simulation step
     CHARACTER(len=*),    INTENT(IN) :: model_type           ! store model type
 
@@ -1128,6 +1130,7 @@ CONTAINS
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
     INTEGER :: jp, jp_end   ! loop index and array size
+    CHARACTER(len=MAX_DATETIME_STR_LEN) :: dstring
 
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
@@ -1149,10 +1152,11 @@ CONTAINS
     kedge     = patch%n_patch_edges_g
     icelltype = patch%geometry_info%cell_type
 
-    CALL set_restart_attribute( 'current_caltime', datetime%caltime )
-    CALL set_restart_attribute( 'current_calday' , datetime%calday )
-
-    CALL set_restart_attribute( 'current_daysec' , datetime%daysec )
+    ! store current date as ISO time stamp, not Julian date
+    CALL datetimeToString(current_date, dstring)
+    CALL set_restart_time( dstring )  ! Time tag
+    ! in preparation for move to mtime
+    CALL set_restart_attribute('tc_startdate', dstring) 
 
     CALL set_restart_attribute( 'nold_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nold    (jg))
     CALL set_restart_attribute( 'nnow_DOM'//TRIM(int2string(jg, "(i2.2)"))    , nnow    (jg))
@@ -1294,10 +1298,6 @@ CONTAINS
                      & inlev_soil,        &! total # of depths below land (TERRA or JSBACH)
                      & inlev_snow,        &! total # of vertical snow layers (TERRA)
                      & nice_class         )! total # of ice classes (sea ice)
-
-    CALL set_restart_time( iso8601(datetime) )  ! Time tag
-    ! in preparation for move to mtime
-    CALL set_restart_attribute('tc_startdate', iso8601extended(datetime)) 
 
     ! Open new file, write data, close and then clean-up.
     CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)
