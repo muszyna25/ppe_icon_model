@@ -3,6 +3,7 @@
 # This script is called on all buildbot slaves and should be used to call
 # test jobs or performance jobs.
 # The buildbot server sets the two environment variable BB_SYSTEM and BB_SLAVE
+# e.g.
 #
 # +---------------+-----------+---------------+
 # | builder       | BB_SYSTEM |   BB_SLAVE    |
@@ -17,6 +18,8 @@
 # | THUNDER_intel | thunder   | thunder_intel |
 # |               |           |               |
 # +---------------+-----------+---------------+
+#
+# For the current list see 'ICON.cfg'and '../../target_database.ksh'
 #
 # More info for 'builder' can be find on 
 #	http://buildbot.zmaw.de:8011/buildslaves
