@@ -23,7 +23,6 @@ MODULE mo_initicon_config
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,         &
     &                              MODE_IAU, MODE_IAU_OLD
   USE mo_master_config,      ONLY: tc_startdate
-  USE mo_datetime,           ONLY: t_datetime
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
     &                              max_timedelta_str_len, datetime, newDatetime,     &
     &                              deallocateDatetime, OPERATOR(+),                  &
