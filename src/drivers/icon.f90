@@ -295,6 +295,18 @@ PROGRAM icon
     CALL deallocateDatetime(mtime_date)
     CALL deallocateTimedelta(mtime_td)
 
+    mtime_td => newTimedelta("PT10000000S")
+    CALL timedeltatostring(mtime_td, td_string)
+    WRITE (0,*) "PT10000000S = ", TRIM(td_string)
+
+    mtime_date => newDatetime("2014-06-01T00:00:00")
+    CALL datetimetostring(mtime_date, dstring)
+    WRITE (0,*) "2014-06-01T00:00:00 = ", TRIM(dstring)
+    mtime_date = mtime_date + mtime_td
+    CALL datetimetostring(mtime_date, dstring)
+    WRITE (0,*) "2014-06-01T00:00:00 + PT10000000S = ", TRIM(dstring)
+    CALL deallocateDatetime(mtime_date)
+    CALL deallocateTimedelta(mtime_td)
   END IF
 #endif
 

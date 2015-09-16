@@ -52,7 +52,7 @@ MODULE mo_name_list_output_init
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,      &
     &                                             MAX_NZLEVS, MAX_NILEVS
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
-  USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
+  USE mo_master_config,                     ONLY: getModelBaseDir, isRestart, tc_startdate
   USE mo_master_control,                    ONLY: my_process_is_ocean
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
@@ -72,7 +72,7 @@ MODULE mo_name_list_output_init
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
-  USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string, &
+  USE mo_mtime_extensions,                  ONLY: get_duration_string, &
                                                   get_duration_string_real
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   ! config modules
@@ -133,7 +133,8 @@ MODULE mo_name_list_output_init
     &                                             timedelta, newTimedelta, deallocateTimedelta,   &
     &                                             OPERATOR(<), newDatetime, deallocateDatetime,   &
     &                                             getTotalMilliSecondsTimeDelta, datetime,        &
-    &                                             OPERATOR(+), datetimeToString, OPERATOR(>)
+    &                                             OPERATOR(+), datetimeToString, OPERATOR(>),     &
+    &                                             timedeltaToString
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
     &                                             DEFAULT_EVENT_NAME, t_par_output_event
   USE mo_output_event_control,              ONLY: compute_matching_sim_steps,                     &
@@ -990,9 +991,11 @@ CONTAINS
     TYPE (t_sim_step_info)               :: dom_sim_step_info
     TYPE(t_cf_var),            POINTER   :: this_cf
     TYPE(timedelta),           POINTER   :: mtime_output_interval, mtime_lower_bound,          &
-      &                                     mtime_interval
+      &                                     mtime_interval, mtime_td1, mtime_td2, mtime_td3,   &
+      &                                     mtime_td
     TYPE(datetime),            POINTER   :: mtime_datetime, mtime_datetime_start,              &
-      &                                     mtime_datetime_end
+      &                                     mtime_datetime_end, mtime_date1, mtime_date2,      &
+      &                                     mtime_date
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: lower_bound_str
     CHARACTER(len=MAX_CHAR_LENGTH)       :: attname                        !< attribute name
     CHARACTER(len=MAX_CHAR_LENGTH)       :: proc_list_str                  !< string (unoccupied I/O ranks)
@@ -1260,24 +1263,30 @@ CONTAINS
         istart = (idx-1)*3
         IF (p_onl%output_bounds(istart+1) == -1._wp) CYCLE
         
-        CALL get_datetime_string(p_onl%output_start(idx), &
-          &                      sim_step_info%sim_start, INT(p_onl%output_bounds(istart+1)))
-        CALL get_datetime_string(p_onl%output_end(idx),   &
-          &                      sim_step_info%sim_start, INT(p_onl%output_bounds(istart+2)))
-        CALL get_duration_string(INT(p_onl%output_bounds(istart+3)), p_onl%output_interval(idx), &
-          &                      p_onl%additional_days(idx))
+        mtime_td1 => newTimeDelta("PT"//TRIM(int2string(INT(p_onl%output_bounds(istart+1)),'(i0)'))//"S")
+        mtime_td2 => newTimeDelta("PT"//TRIM(int2string(INT(p_onl%output_bounds(istart+2)),'(i0)'))//"S")
+        mtime_td3 => newTimeDelta("PT"//TRIM(int2string(INT(p_onl%output_bounds(istart+3)),'(i0)'))//"S")
+        CALL timedeltaToString(mtime_td3, p_onl%output_interval(idx))
+
+        mtime_date1 => newDatetime(sim_step_info%sim_start)
+        mtime_date1 = mtime_date1 + mtime_td1
+        CALL datetimeToString(mtime_date1, p_onl%output_start(idx))
+        mtime_date2 => newDatetime(sim_step_info%sim_start)
+        mtime_date2 = mtime_date2 + mtime_td2
+        CALL datetimeToString(mtime_date2, p_onl%output_end(idx))
+        p_onl%additional_days(idx) = 0
+
         IF (my_process_is_stdio()) THEN
-          IF (p_onl%additional_days(idx) == 0) THEN
-            WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start(idx)), " / ", &
-              &                                      TRIM(p_onl%output_end(idx)),   " / ", &
-              &                                      TRIM(p_onl%output_interval(idx))
-          ELSE
-            WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start(idx)), " / ", &
-              &                                      TRIM(p_onl%output_end(idx)),   " / ", &
-              &                                      TRIM(p_onl%output_interval(idx)), " + ", &
-              &                                      p_onl%additional_days(idx), " days"
-          END IF
+          WRITE (0,*) "setting output bounds as ", TRIM(p_onl%output_start(idx)), " / ", &
+            &                                      TRIM(p_onl%output_end(idx)),   " / ", &
+            &                                      TRIM(p_onl%output_interval(idx))
         END IF
+        
+        CALL deallocateTimedelta(mtime_td1)
+        CALL deallocateTimedelta(mtime_td2)
+        CALL deallocateTimedelta(mtime_td3)
+        CALL deallocateDatetime(mtime_date1)
+        CALL deallocateDatetime(mtime_date2)
       END DO
 
       !--- consistency check: do not allow output intervals < dtime:
@@ -1626,9 +1635,20 @@ CONTAINS
 
       ! set model domain start/end time
       dom_sim_step_info = sim_step_info
-      CALL get_datetime_string(dom_sim_step_info%dom_start_time, time_config%ini_datetime, NINT(start_time(p_of%log_patch_id)))
+      mtime_date => newDatetime(tc_startdate)
+      mtime_td   => newTimedelta("PT"//TRIM(int2string(NINT(start_time(p_of%log_patch_id)),'(i0)'))//"S")
+      mtime_date = mtime_date + mtime_td
+      CALL datetimeToString(mtime_date, dom_sim_step_info%dom_start_time)
+      CALL deallocateDatetime(mtime_date)
+      CALL deallocateTimedelta(mtime_td)
+
       IF (end_time(p_of%log_patch_id) < DEFAULT_ENDTIME) THEN
-        CALL get_datetime_string(dom_sim_step_info%dom_end_time,   time_config%ini_datetime, NINT(end_time(p_of%log_patch_id)))
+        mtime_date => newDatetime(tc_startdate)
+        mtime_td   => newTimedelta("PT"//TRIM(int2string(NINT(end_time(p_of%log_patch_id)),'(i0)'))//"S")
+        mtime_date = mtime_date + mtime_td
+        CALL datetimeToString(mtime_date, dom_sim_step_info%dom_end_time)
+        CALL deallocateDatetime(mtime_date)
+        CALL deallocateTimedelta(mtime_td)
       ELSE
         dom_sim_step_info%dom_end_time = dom_sim_step_info%sim_end
       END IF
@@ -1640,9 +1660,13 @@ CONTAINS
       IF (isRestart() .AND. my_process_is_ocean()) THEN
         IF (TRIM(p_onl%output_start(2)) /= '') &
           CALL finish(routine, "Not implemented for ocean model with restart!")
-        CALL get_datetime_string(p_onl%output_start(1), &
-          &                      time_config%cur_datetime,                &
-          &                      opt_td_string=p_onl%output_interval(1))
+
+        mtime_date => newDatetime(tc_startdate)
+        mtime_td   => newTimedelta(p_onl%output_interval(1))
+        mtime_date = mtime_date + mtime_td
+        CALL datetimeToString(mtime_date, p_onl%output_start(1))
+        CALL deallocateDatetime(mtime_date)
+        CALL deallocateTimedelta(mtime_td)
       ENDIF
 
       include_last    = p_onl%include_last
