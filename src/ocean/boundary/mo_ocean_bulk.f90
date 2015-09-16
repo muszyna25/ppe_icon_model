@@ -362,10 +362,10 @@ CONTAINS
         &  str_module, 4, in_subset=p_patch%cells%owned)
 
       ! bulk formula for heat flux are calculated globally using specific OMIP or NCEP fluxes
-      CALL calc_bulk_flux_oce(p_patch, p_as, p_os , atmos_fluxes, datetime)
+      CALL calc_bulk_flux_oce(p_patch, p_as, p_os , atmos_fluxes)
 
       ! #slo# 2014-04-30: identical results after this call for i_sea_ice=0
-      IF (i_sea_ice >= 1) CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, atmos_fluxes, datetime)
+      IF (i_sea_ice >= 1) CALL calc_bulk_flux_ice(p_patch, p_as, p_ice, atmos_fluxes)
 
       ! evaporation results from latent heat flux, as provided by bulk formula using OMIP fluxes
       IF (forcing_enable_freshwater) THEN

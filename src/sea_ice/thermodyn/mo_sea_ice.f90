@@ -73,7 +73,6 @@ MODULE mo_sea_ice
   USE mo_grid_config,         ONLY: n_dom
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_fast, timer_ice_slow
-  USE mo_datetime,            ONLY: t_datetime
   USE mo_time_config,         ONLY: time_config
   USE mo_fortran_tools,       ONLY: assign_if_present
 
@@ -2388,14 +2387,11 @@ CONTAINS
   !  OUTPUT variables:
   !   atmos_fluxes             :  heat fluxes, derivatives, wind stress
   !
-  SUBROUTINE calc_bulk_flux_ice(p_patch, p_as, p_ice, atmos_fluxes, datetime)
+  SUBROUTINE calc_bulk_flux_ice(p_patch, p_as, p_ice, atmos_fluxes)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
     TYPE(t_atmos_fluxes),     INTENT(INOUT) :: atmos_fluxes
-
-    TYPE(t_datetime), OPTIONAL, INTENT(IN)   :: datetime
-
 
     !Local variables
     REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) ::           &
@@ -2643,14 +2639,11 @@ CONTAINS
   !  OUTPUT variables:
   !   atmos_fluxes             :  heat fluxes, derivatives, wind stress
    
-  SUBROUTINE calc_bulk_flux_oce(p_patch, p_as, p_os, atmos_fluxes, datetime)
+  SUBROUTINE calc_bulk_flux_oce(p_patch, p_as, p_os, atmos_fluxes)
     TYPE(t_patch),            INTENT(IN), TARGET    :: p_patch
     TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
     TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
     TYPE(t_atmos_fluxes),     INTENT(INOUT) :: atmos_fluxes
-
-    TYPE(t_datetime), OPTIONAL, INTENT(IN)   :: datetime
-
 
     !Local variables
     REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) ::           &
