@@ -208,20 +208,36 @@ CONTAINS
   !
   ! returns real n as a string (often needed in printing messages)
   !
-  FUNCTION float2string(n) 
+  FUNCTION float2string(n, opt_fmt) 
     CHARACTER(len=32) :: float2string ! result
     REAL, INTENT(in) :: n
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: opt_fmt
     !
-    WRITE(float2string,'(g32.5)') n
+    CHARACTER(len=10) :: fmt
+    !
+    IF (PRESENT(opt_fmt)) THEN
+      fmt = opt_fmt
+    ELSE
+      fmt = '(g32.5)'
+    END IF
+    WRITE(float2string,fmt) n
     float2string = ADJUSTL(float2string)
     !
   END FUNCTION float2string
   !
-  FUNCTION double2string(n) 
+  FUNCTION double2string(n, opt_fmt) 
     CHARACTER(len=32) :: double2string ! result
     DOUBLE PRECISION, INTENT(in) :: n
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: opt_fmt
     !
-    WRITE(double2string,'(g32.5)') n
+    CHARACTER(len=10) :: fmt
+    !
+    IF (PRESENT(opt_fmt)) THEN
+      fmt = opt_fmt
+    ELSE
+      fmt = '(g32.5)'
+    END IF
+    WRITE(double2string,fmt) n
     double2string = ADJUSTL(double2string)
     !
   END FUNCTION double2string

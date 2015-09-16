@@ -286,6 +286,14 @@ PROGRAM icon
     CALL timedeltatostring(mtime_td, td_string)
     WRITE (0,*) "PT987654321S = ", TRIM(td_string)
 
+    mtime_td => newTimedelta("PT7536.3S")
+    CALL timedeltatostring(mtime_td, td_string)
+    WRITE (0,*) "PT7536.3S = ", TRIM(td_string)
+
+    mtime_td => newTimedelta("PT7536.0003S")
+    CALL timedeltatostring(mtime_td, td_string)
+    WRITE (0,*) "PT7536.0003S = ", TRIM(td_string)
+
     mtime_date => newDatetime("1970-01-01T00:00:00")
     CALL datetimetostring(mtime_date, dstring)
     WRITE (0,*) "1970-01-01T00:00:00 = ", TRIM(dstring)

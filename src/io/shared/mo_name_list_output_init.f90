@@ -67,13 +67,11 @@ MODULE mo_name_list_output_init
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
-    &                                             sort_and_compress_list, one_of
+    &                                             sort_and_compress_list, one_of, real2string
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
-  USE mo_mtime_extensions,                  ONLY: get_duration_string, &
-                                                  get_duration_string_real
   USE mo_math_utilities,                    ONLY: merge_values_into_set
   ! config modules
   USE mo_parallel_config,                   ONLY: nproma, p_test_run, use_dp_mpi2io
@@ -990,9 +988,9 @@ CONTAINS
     TYPE(t_par_output_event),  POINTER   :: ev
     TYPE (t_sim_step_info)               :: dom_sim_step_info
     TYPE(t_cf_var),            POINTER   :: this_cf
-    TYPE(timedelta),           POINTER   :: mtime_output_interval, mtime_lower_bound,          &
+    TYPE(timedelta),           POINTER   :: mtime_output_interval,                             &
       &                                     mtime_interval, mtime_td1, mtime_td2, mtime_td3,   &
-      &                                     mtime_td
+      &                                     mtime_td, mtime_day
     TYPE(datetime),            POINTER   :: mtime_datetime, mtime_datetime_start,              &
       &                                     mtime_datetime_end, mtime_date1, mtime_date2,      &
       &                                     mtime_date
@@ -1303,23 +1301,18 @@ CONTAINS
           IF (mtime_datetime_end > mtime_datetime_start) THEN
             mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)))
             
-            !Special case for very small time steps
-            IF(sim_step_info%dtime .LT. 1._wp)THEN
-              CALL get_duration_string_real(sim_step_info%dtime, &
-                &                           lower_bound_str)
-              idummy = 0
-            ELSE  
-              CALL get_duration_string(INT(sim_step_info%dtime), &
-                &                      lower_bound_str, idummy)
+            mtime_td => newTimedelta("PT"//TRIM(real2string(sim_step_info%dtime, '(f20.3)'))//"S")
+            CALL timedeltaToString(mtime_td, lower_bound_str)
+            mtime_day => newTimedelta("PT1D")
+            IF (mtime_td > mtime_day)  THEN
+              CALL finish(routine, "Internal error: dtime > 1 day!")
             END IF
-
-            IF (idummy > 0)  CALL finish(routine, "Internal error: get_duration_string")
-            mtime_lower_bound     => newTimedelta(TRIM(lower_bound_str))
-            IF (mtime_output_interval < mtime_lower_bound) THEN
+            IF (mtime_output_interval < mtime_td) THEN
               CALL finish(routine, "Output interval "//TRIM(p_onl%output_interval(idx))//" < dtime !")
             END IF
             CALL deallocateTimedelta(mtime_output_interval)
-            CALL deallocateTimedelta(mtime_lower_bound)
+            CALL deallocateTimeDelta(mtime_td)
+            CALL deallocateTimeDelta(mtime_day)
           END IF
           CALL deallocateDatetime(mtime_datetime_start)
           CALL deallocateDatetime(mtime_datetime_end)
@@ -1701,7 +1694,12 @@ CONTAINS
           total_ms = getTotalMilliSecondsTimeDelta(mtime_interval, mtime_datetime)
           total_ms = total_ms + additional_days(iintvl)*86400000
           total_ms = total_ms * p_of%npartitions
-          CALL get_duration_string(INT(total_ms/1000), output_interval(iintvl), additional_days(iintvl))
+
+          mtime_td => newTimedelta("PT"//TRIM(int2string(INT(total_ms/1000), '(i0)'))//"S")
+          CALL timedeltaToString(mtime_td, output_interval(iintvl))
+          additional_days(iintvl) = 0
+          CALL deallocateTimedelta(mtime_td)
+
           IF (p_of%ifile_partition == 1) THEN
             WRITE(message_text,'(a,a)') "File stream partitioning: total output interval = ", &
               &                         output_interval(iintvl)

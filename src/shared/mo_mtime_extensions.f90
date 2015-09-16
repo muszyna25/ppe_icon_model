@@ -30,9 +30,9 @@ MODULE mo_mtime_extensions
   PRIVATE
 !  PUBLIC :: getPTStringFromMS
 !  PUBLIC :: getTimeDeltaFromDateTime
-  PUBLIC :: get_duration_string
-  PUBLIC :: get_duration_string_real
-  PUBLIC :: get_datetime_string
+!  PUBLIC :: get_duration_string
+!  PUBLIC :: get_duration_string_real
+   PUBLIC :: get_datetime_string
 !  PUBLIC :: getTriggeredPreviousEventAtDateTime
 
   !> module name
@@ -250,20 +250,20 @@ CONTAINS
     datetime_string = result_string
   END SUBROUTINE get_datetime_string_str
 
- SUBROUTINE get_duration_string_real(iseconds, td_string) 
-    REAL(wp), INTENT(IN)      :: iseconds
-    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN), INTENT(INOUT) :: td_string
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_duration_string_real"
-    REAL(wp) :: seconds
-
-    seconds = iseconds
-    ! create a "timedelta" object
-    IF (seconds <= 8640) THEN
-      ! for small durations: use mtime's conversion routine
-      seconds = seconds*1000
-      CALL getPTStringFromMS(NINT(seconds,i8), td_string)
-    ENDIF
-  END SUBROUTINE get_duration_string_real
+! SUBROUTINE get_duration_string_real(iseconds, td_string) 
+!    REAL(wp), INTENT(IN)      :: iseconds
+!    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN), INTENT(INOUT) :: td_string
+!    ! local variables
+!    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::get_duration_string_real"
+!    REAL(wp) :: seconds
+!
+!    seconds = iseconds
+!    ! create a "timedelta" object
+!    IF (seconds <= 8640) THEN
+!      ! for small durations: use mtime's conversion routine
+!      seconds = seconds*1000
+!      CALL getPTStringFromMS(NINT(seconds,i8), td_string)
+!    ENDIF
+!  END SUBROUTINE get_duration_string_real
 
 END MODULE mo_mtime_extensions
