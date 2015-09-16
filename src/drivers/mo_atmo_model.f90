@@ -246,8 +246,10 @@ CONTAINS
       IF (ASSOCIATED(tc_exp_stopdate)) THEN
         IF (tc_exp_stopdate < calculatedStopDate) THEN
           calculatedStopDate = tc_exp_stopdate
-          CALL message('','Experiment stop date earlier than run stop date. '// &
-           &         'Reset end to experiment stop date!')   
+          IF (msg_level >= 12) THEN
+            CALL message('','Experiment stop date earlier than run stop date. '// &
+              &         'Reset end to experiment stop date!')   
+          END IF
         ENDIF
       ENDIF
       CALL datetimeToString(calculatedStopDate, dstring)

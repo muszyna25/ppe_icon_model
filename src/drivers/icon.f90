@@ -59,7 +59,9 @@ PROGRAM icon
   USE mtime,   ONLY: timedelta, newTimedelta, deallocateTimedelta,  &
     &                timedeltaToString, ASSIGNMENT(=), OPERATOR(*), &
     &                MAX_TIMEDELTA_STR_LEN, setCalendar,            &
-    &                PROLEPTIC_GREGORIAN
+    &                PROLEPTIC_GREGORIAN, datetime,                 &
+    &                datetimetostring, newDatetime, OPERATOR(+),    &
+    &                deallocateDatetime, MAX_DATETIME_STR_LEN
 #endif
   
   IMPLICIT NONE
@@ -98,7 +100,9 @@ PROGRAM icon
 
 #ifdef _MTIME_DEBUG
   TYPE(timedelta),  POINTER             :: mtime_td
+  TYPE(datetime),   POINTER             :: mtime_date
   CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: dstring
 #endif
 
 !--------------------------------------------------------------------
@@ -271,7 +275,26 @@ PROGRAM icon
     mtime_td = mtime_td * 2.0_wp
     CALL timedeltatostring(mtime_td, td_string)
     WRITE (0,*) "PT1H1M1S * 2.0 = ", TRIM(td_string)
-   CALL deallocateTimedelta(mtime_td)
+    CALL deallocateTimedelta(mtime_td)
+
+    mtime_td => newTimedelta("PT98765S")
+    CALL timedeltatostring(mtime_td, td_string)
+    WRITE (0,*) "PT98765S = ", TRIM(td_string)
+    CALL deallocateTimedelta(mtime_td)
+
+    mtime_td => newTimedelta("PT987654321S")
+    CALL timedeltatostring(mtime_td, td_string)
+    WRITE (0,*) "PT987654321S = ", TRIM(td_string)
+
+    mtime_date => newDatetime("1970-01-01T00:00:00")
+    CALL datetimetostring(mtime_date, dstring)
+    WRITE (0,*) "1970-01-01T00:00:00 = ", TRIM(dstring)
+    mtime_date = mtime_date + mtime_td
+    CALL datetimetostring(mtime_date, dstring)
+    WRITE (0,*) "1970-01-01T00:00:00 + PT987654321S = ", TRIM(dstring)
+    CALL deallocateDatetime(mtime_date)
+    CALL deallocateTimedelta(mtime_td)
+
   END IF
 #endif
 
