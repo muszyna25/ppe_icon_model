@@ -38,6 +38,12 @@ case ${target} in
         configureoption="--with-openmp=yes"
         ;;
 
+    # Mistral
+    # -------
+    mistral_intel)
+        configureoption="--with-fortran=intel --with-mpi --with-openmp"
+        ;;
+
     # MPIPC
     # -----
     mpipc | mpipc_gcc)
