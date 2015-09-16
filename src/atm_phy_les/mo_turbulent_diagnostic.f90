@@ -48,7 +48,8 @@ MODULE mo_turbulent_diagnostic
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_write_netcdf      
   USE mo_impl_constants,     ONLY: min_rlcell, min_rlcell_int
-  USE mo_physical_constants, ONLY: cpd, rcvd, p0ref, grav, rcpd, alv, vtmpc1
+  USE mo_physical_constants, ONLY: cpd, rcvd, p0ref, grav, rcpd, alv, &
+                                   rd_o_cpd, vtmpc1
   USE mo_sync,               ONLY: SYNC_C, sync_patch_array
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
  
@@ -116,7 +117,7 @@ CONTAINS
     INTEGER :: i_nchdom                !< domain index
     INTEGER :: jc,jk,jb                !block index
 
-    REAL(wp):: ri_no, z_agl, thv_s
+    REAL(wp):: ri_no
 
     nlev      = p_patch%nlev 
     nlevp1    = p_patch%nlev+1 
@@ -137,7 +138,7 @@ CONTAINS
 
 !$OMP PARALLEL 
 
-!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx,found_cltop,found_clbas)
+!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx,found_cltop,found_clbas)ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
@@ -176,22 +177,20 @@ CONTAINS
 
 
 !  -included calculation of boundary layer height (Anurag Dipankar, MPI Octo 2013).
-!   using Bulk richardson number approach. Assumt exner surface=1
+!   using Bulk richardson number approach. 
 
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_agl,thv_s,ri_no) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,ri_no) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
        DO jc = i_startidx, i_endidx   
         
-         DO jk = nlev, kstart_moist, -1
+         DO jk = nlev-1, kstart_moist, -1
 
-            z_agl = p_metrics%z_mc(jc,jk,jb)-p_metrics%z_ifc(jc,nlevp1,jb)
-
-            thv_s = p_prog_land%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_land%qv_s(jc,jb)) 
-
-            ri_no = (grav/thv_s)*(p_prog%theta_v(jc,jk,jb)-thv_s)*z_agl /  &
-                    MAX(1.e-6_wp,(p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2))
+            ri_no = (grav/p_prog%theta_v(jc,nlev,jb)) * &
+                    ( p_prog%theta_v(jc,jk,jb)-p_prog%theta_v(jc,nlev,jb) ) *  &
+                    ( p_metrics%z_mc(jc,jk,jb)-p_metrics%z_mc(jc,nlev,jb) ) /  &
+                    MAX( 1.e-6,(p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2) )
 
             IF(ri_no > 0.25_wp)THEN
                prm_diag%z_pbl(jc,jb) = p_metrics%z_mc(jc,jk,jb)
