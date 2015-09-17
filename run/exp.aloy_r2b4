@@ -52,7 +52,7 @@ author_list="Marco Giorgetta, Rene Redler, Reiner Schnur"
 # Number of ocean processes
 # -------------------------
 
-mpi_oce_procs=${mpi_oce_procs:=3}   # Ocean crashes currently if run on less than 3 processors.
+mpi_oce_procs=${mpi_oce_procs:=1}
 
 #-----------------------------------------------------------------------------
 
