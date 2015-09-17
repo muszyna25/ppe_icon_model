@@ -141,7 +141,8 @@ CONTAINS
           &                                 prm_field(jg)%lsmask(:,:)         ,&
           &                                 prm_field(jg)%tsfc_tile(:,:,iwtr) ,&
           &                                 prm_field(jg)%seaice(:,:)         ,&
-          &                                 prm_field(jg)%siced(:,:)          )
+          &                                 prm_field(jg)%siced(:,:)          ,&
+          &                                 patch                              )
 
         ! The ice model should be able to handle different thickness classes, 
         ! but for AMIP we ONLY USE one ice class.
