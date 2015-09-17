@@ -162,6 +162,7 @@ cat > ${ocean_namelist} << EOF
 ! i_ice_dyn                       =   0       ! 1/0=switch on/off AWI ice dynamics
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! use_constant_tfreez             = .TRUE.    ! default: true
+  use_no_flux_gradients           = .FALSE.
 /
 &ocean_forcing_nml
   iforc_oce                       =  12       ! OMIP-type forcing

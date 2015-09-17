@@ -32,7 +32,8 @@ MODULE mo_echam_sfc_indices
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: nsfc_type, iwtr, iice, ilnd, igbm   !< variables
+  PUBLIC :: nsfc_type, iwtr, iice, ilnd, igbm   !< index variables
+  PUBLIC :: csfc                                !< sfc names
   PUBLIC :: init_sfc_indices                    !< subroutine
 
   INTEGER :: nsfc_type   !< total number of surface types
@@ -40,6 +41,8 @@ MODULE mo_echam_sfc_indices
   INTEGER :: iice = 2    !< index for ice-covered   surface
   INTEGER :: ilnd = 3    !< index for land          surface
   INTEGER :: igbm        !< index for grid-box mean
+
+  CHARACTER(LEN=3) :: csfc(3) = (/'wtr','ice','lnd'/)
 
 CONTAINS
   !>

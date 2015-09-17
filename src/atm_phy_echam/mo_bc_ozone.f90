@@ -38,7 +38,7 @@ MODULE mo_bc_ozone
   PUBLIC                            :: o3_plev, plev_half_o3, plev_full_o3, nplev_o3
   PUBLIC                            :: read_bc_ozone
 
-  REAL(wp), ALLOCATABLE             :: o3_plev(:,:,:,:)                  ! Ozone at pressure levels
+  REAL(wp), ALLOCATABLE             :: o3_plev(:,:,:,:)                  ! Ozonemass mixing ratio at pressure levels
   REAL(wp), ALLOCATABLE             :: plev_half_o3(:), plev_full_o3(:)  ! Pressure levels in ozone file
   INTEGER                           :: nplev_o3
 

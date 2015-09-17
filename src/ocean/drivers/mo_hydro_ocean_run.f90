@@ -63,7 +63,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_time_config,            ONLY: time_config
-  USE mo_master_control,         ONLY: is_restart_run
+  USE mo_master_config,          ONLY: isRestart
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
   USE mo_dbg_nml,                ONLY: idbg_mxmn
@@ -181,11 +181,11 @@ CONTAINS
 
     !------------------------------------------------------------------
     jstep0 = 0
-    IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+    IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
       ! get start counter for time loop from restart file:
       CALL get_restart_attribute("jstep", jstep0)
     END IF
-    IF (is_restart_run() .AND. mod(nold(jg),2) /=1 ) THEN
+    IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))
     ENDIF

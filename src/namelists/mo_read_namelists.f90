@@ -46,10 +46,12 @@ MODULE mo_read_namelists
   USE mo_nwp_tuning_nml      ,ONLY: read_nwp_tuning_namelist
   USE mo_ensemble_pert_nml   ,ONLY: read_ensemble_pert_namelist
   USE mo_radiation_nml       ,ONLY: read_radiation_namelist
+  USE mo_psrad_radiation     ,ONLY: setup_psrad_radiation
   USE mo_synsat_nml          ,ONLY: read_synsat_namelist
   USE mo_vdiff_nml           ,ONLY: read_vdiff_namelist
   USe mo_turbdiff_nml        ,ONLY: read_turbdiff_namelist
   USE mo_echam_conv_nml      ,ONLY: read_echam_conv_namelist
+  USE mo_echam_cloud_nml     ,ONLY: read_echam_cloud_namelist
   USE mo_gw_hines_nml        ,ONLY: read_gw_hines_namelist
   USE mo_lnd_nwp_nml         ,ONLY: read_nwp_lnd_namelist
   USE mo_art_nml             ,ONLY: read_art_namelist
@@ -68,6 +70,8 @@ MODULE mo_read_namelists
   USE mo_les_nml             ,ONLY: read_les_namelist
   USE mo_ls_forcing_nml      ,ONLY: read_ls_forcing_namelist
   USE mo_limarea_nml         ,ONLY: read_limarea_namelist
+  USE mo_run_config          ,ONLY: iforcing
+  USE mo_impl_constants      ,ONLY: IECHAM, ILDF_ECHAM
   IMPLICIT NONE
 
   PRIVATE
@@ -144,12 +148,16 @@ CONTAINS
     CALL read_vdiff_namelist          (TRIM(atm_namelist_filename))
     CALL read_turbdiff_namelist       (TRIM(atm_namelist_filename))
     CALL read_echam_conv_namelist     (TRIM(atm_namelist_filename))
+    CALL read_echam_cloud_namelist    (TRIM(atm_namelist_filename))
     CALL read_gw_hines_namelist       (TRIM(atm_namelist_filename))
     CALL read_nwp_lnd_namelist        (TRIM(atm_namelist_filename))
     CALL read_sea_ice_namelist        (TRIM(atm_namelist_filename))
     CALL read_art_namelist            (TRIM(atm_namelist_filename))
     CALL read_les_namelist            (TRIM(atm_namelist_filename))
     CALL read_ls_forcing_namelist     (TRIM(atm_namelist_filename))
+    IF (iforcing == IECHAM .OR. iforcing == ILDF_ECHAM) THEN
+      CALL setup_psrad_radiation        (TRIM(atm_namelist_filename))
+    ENDIF
 
     ! Initial conditions
     !
@@ -248,6 +256,7 @@ CONTAINS
     CALL read_radiation_namelist      (TRIM(cpl_dummy_namelist))
     CALL read_vdiff_namelist          (TRIM(cpl_dummy_namelist))
     CALL read_echam_conv_namelist     (TRIM(cpl_dummy_namelist))
+    CALL read_echam_cloud_namelist    (TRIM(cpl_dummy_namelist))
     CALL read_gw_hines_namelist       (TRIM(cpl_dummy_namelist))
     CALL read_nwp_lnd_namelist        (TRIM(cpl_dummy_namelist))
     CALL read_sea_ice_namelist        (TRIM(cpl_dummy_namelist))

@@ -714,6 +714,7 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
+enable_mtime_loop
 with_fortran
 with_openmp
 with_setup
@@ -1356,6 +1357,12 @@ if test -n "$ac_init_help"; then
      short | recursive ) echo "Configuration of icon 1.2.1:";;
    esac
   cat <<\_ACEOF
+
+Optional Features:
+  --disable-option-checking  ignore unrecognized --enable/--with options
+  --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
+  --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
+  --enable-mtime-loop     Use mtime based time loop in nh stepping.
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -2290,6 +2297,12 @@ test -n "$target_alias" &&
 
 
 
+# Check whether --enable-mtime-loop was given.
+if test "${enable_mtime_loop+set}" = set; then :
+  enableval=$enable_mtime_loop;
+fi
+
+
 
 # Check whether --with-fortran was given.
 if test "${with_fortran+set}" = set; then :
@@ -2648,6 +2661,9 @@ for other_package in $icon_components ; do
 
 done
 
+if test "x$enable_mtime_loop" = "xyes"; then :
+  FFLAGS="${FFLAGS} ${DEFOPT}USE_MTIME_LOOP"
+fi
 
 
 if test -n "$ac_tool_prefix"; then

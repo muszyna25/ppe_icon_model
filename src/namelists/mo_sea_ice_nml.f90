@@ -26,7 +26,7 @@ MODULE mo_sea_ice_nml
   USE mo_kind,                ONLY: wp
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,            ONLY: nnml, nnml_output
-  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_master_config,       ONLY: isRestart
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
   USE mo_exception,           ONLY: finish, message
@@ -76,6 +76,7 @@ MODULE mo_sea_ice_nml
   LOGICAL, PUBLIC :: use_IceInitialization_fromTemperature = .true.
   LOGICAL, PUBLIC :: stress_ice_zero             = .TRUE.   !  set stress below sea ice to zero
   LOGICAL, PUBLIC :: use_calculated_ocean_stress = .FALSE.  !  calculate ocean stress instead of reading from OMIP
+  LOGICAL, PUBLIC :: use_no_flux_gradients       = .TRUE.   !  simplified ice_fast without flux gradients
 
   INTEGER         :: iunit
 
@@ -97,6 +98,7 @@ MODULE mo_sea_ice_nml
     &  use_constant_tfreez, &
     &  stress_ice_zero,    &
     &  use_calculated_ocean_stress, &
+    &  use_no_flux_gradients, &
     &  init_analytic_conc_param , &
     &  init_analytic_hi_param, &
     &  init_analytic_hs_param
@@ -133,7 +135,7 @@ CONTAINS
     ! If this is a resumed integration, overwrite the defaults above
     ! by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       funit = open_and_restore_namelist('sea_ice_nml')
       READ(funit,NML=sea_ice_nml)
       CALL close_tmpfile(funit)

@@ -88,7 +88,6 @@ ocean_steps_per_file=360   # 6 months
 #
 dict_file="dict.${EXPNAME}"
 cat dict.icoham.mpim > ${dict_file}
-cat dict.echam.mpim >> ${dict_file}
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -275,9 +274,9 @@ cat > $atmo_namelist << EOF
  ! include_last     = .TRUE.
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_atmo"
- ml_varlist       = 'rsdt' , 'prm_t' , 'ua'    , 'va'      , 'wap'  ,
+ ml_varlist       = 'rsdt' , 'ta'    , 'ua'    , 'va'      , 'wap'  ,
                     'rsns' , 'rlns'  , 'rsnt'  , 'rlnt'    ,
-                    'sic'  , 'prm_ghm' ,
+                    'sic'  , 'gpfull',
                     'clt'    , 'cl'   ,
                     'prlr'   , 'prls' , 'prcr'  , 'prcs'    ,
                     'pr'     , 'prw'  , 'cllvi' , 'clivi'   ,

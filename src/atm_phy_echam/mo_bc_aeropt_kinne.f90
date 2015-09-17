@@ -26,7 +26,7 @@ MODULE mo_bc_aeropt_kinne
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, onCells, &
     &                                t_stream_id, read_0D_real, read_3D_time
-  USE mo_time_interpolation_weights, ONLY: wi=>wi_limm_radt
+  USE mo_time_interpolation_weights, ONLY: wi=>wi_limm
   USE mo_physical_constants,   ONLY: grav, rgrav, rd
   USE mo_echam_phy_memory,     ONLY: prm_field
   USE mo_echam_phy_config,     ONLY: echam_phy_config

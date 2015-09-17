@@ -25,9 +25,9 @@
 !!
 MODULE mo_icon_cpl_exchg
 
-  USE mo_kind, ONLY          : wp
-  USE mo_event_manager, ONLY : event_check, event_update, events
-  USE mo_run_config, ONLY    : dtime, nsteps
+  USE mo_kind,                   ONLY : wp
+  USE mo_icon_cpl_event_manager, ONLY : event_check, event_update, events
+  USE mo_run_config,             ONLY : dtime, nsteps
 
 #ifndef NOMPI
   USE mpi, ONLY : MPI_INTEGER, MPI_TAG, MPI_SOURCE, MPI_STATUS_SIZE, &
@@ -50,7 +50,7 @@ MODULE mo_icon_cpl_exchg
    &                      RESTART,          &
    &                      XCHANGE
 
-  USE mo_master_control,  ONLY  : is_restart_run
+  USE mo_master_config,  ONLY   : isRestart
   USE mo_io_config, ONLY        : dt_checkpoint
   USE mo_time_config, ONLY      : time_config
   USE mo_datetime, ONLY         : iso8601
@@ -112,7 +112,7 @@ CONTAINS
   !!  processes which share common grid points with the caller. Received
   !!  data are gather on the local array and provided to the caller of
   !!  ICON_cpl_get. By calling ICON_cpl_get the internal event handler
-  !!  gets updated. 
+  !!  gets updated.
   !!
   SUBROUTINE ICON_cpl_get ( field_id,          &! in
                             field_shape,       &! in

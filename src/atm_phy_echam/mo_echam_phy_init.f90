@@ -38,6 +38,7 @@ MODULE mo_echam_phy_init
   USE mo_echam_phy_config,     ONLY: phy_config => echam_phy_config, &
                                    & configure_echam_phy
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
+  USE mo_echam_cloud_config,   ONLY: configure_echam_cloud
 
 #ifndef __NO_JSBACH__
   USE mo_master_control,       ONLY: master_namelist_filename
@@ -64,9 +65,6 @@ MODULE mo_echam_phy_init
   ! cumulus convection
   USE mo_convect_tables,       ONLY: init_convect_tables
   USE mo_echam_convect_tables, ONLY: init_echam_convect_tables => init_convect_tables 
-
-  ! stratiform clouds and cloud cover
-  USE mo_echam_cloud_params,   ONLY: init_cloud_tables, sucloud, cvarmin
 
   ! air-sea-land interface
   USE mo_echam_sfc_indices,    ONLY: nsfc_type, iwtr, iice, ilnd, init_sfc_indices
@@ -184,6 +182,10 @@ CONTAINS
       CALL configure_echam_convection(nlev, vct_a, vct_b)
     END IF ! lconv
 
+    IF (phy_config%lcond) THEN
+      CALL configure_echam_cloud
+    END IF ! lcond
+
     ! For surface processes:
     ! nsfc_type, iwtr, etc. are set in this subroutine.
     ! See mo_sfc_indices.f90 for further details.
@@ -215,16 +217,6 @@ CONTAINS
     IF (phy_config%lconv.OR.phy_config%lcond.OR.phy_config%lvdiff) THEN
        CALL init_convect_tables
        CALL init_echam_convect_tables 
-    END IF
-
-    ! For large scale condensation:
-
-    IF (phy_config%lcond) THEN
-      CALL init_cloud_tables
-      CALL sucloud( nlev, vct        &
-        &         , lcouple=.FALSE.  &
-        &         , lipcc=.FALSE.    &
-        &         )
     END IF
 
     ! For subgrid scale orography scheme
@@ -356,11 +348,13 @@ CONTAINS
         ! sea surface temperature, sea ice concentration and depth
         CALL read_bc_sst_sic(current_date%year, p_patch(1))
         !
-        CALL bc_sst_sic_time_interpolation(wi_limm                        , &
-          &                             prm_field(jg)%lsmask(:,:)         , &
-          &                             prm_field(jg)%tsfc_tile(:,:,iwtr) , &
-          &                             prm_field(jg)%seaice(:,:)         , &
-          &                             prm_field(jg)%siced(:,:)          )
+        CALL bc_sst_sic_time_interpolation(wi_limm                           , &
+             &                             prm_field(jg)%lsmask(:,:)         , &
+             &                             prm_field(jg)%tsfc_tile(:,:,iwtr) , &
+             &                             prm_field(jg)%seaice(:,:)         , &
+             &                             prm_field(jg)%siced(:,:)          , &
+             &                             p_patch(1)                        )
+        !
 
       ELSE
 
@@ -430,7 +424,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP WORKSHARE
       field% q    (:,:,:,iqv) = qv(:,:,:)
-      field% xvar (:,:,:)     = qv(:,:,:)*cvarmin
+      field% xvar (:,:,:)     = qv(:,:,:)*0.1_wp
       field% xskew(:,:,:)     = 2._wp
 
       ! Other variabels (cf. subroutine init_g3 in ECHAM6)
@@ -610,7 +604,11 @@ CONTAINS
         prm_field(jg)% Tsurf(:,:,:) = Tf
         prm_field(jg)% T1   (:,:,:) = Tf
         prm_field(jg)% T2   (:,:,:) = Tf
-        prm_field(jg)% hs   (:,:,:) = 0._wp
+        WHERE (prm_field(jg)%seaice(:,:) > 0.0_wp)
+           prm_field(jg)% hs   (:,1,:) = 0.1_wp       ! set initial snow depth on sea ice
+        ELSEWHERE
+           prm_field(jg)% hs   (:,1,:) = 0.0_wp
+        ENDWHERE
         prm_field(jg)% hi   (:,1,:) = prm_field(jg)%siced(:,:)
         prm_field(jg)% conc (:,1,:) = prm_field(jg)%seaice(:,:)
 

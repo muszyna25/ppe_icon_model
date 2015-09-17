@@ -31,6 +31,9 @@ AC_CANONICAL_SYSTEM
 
 dnl ######################################################################
 
+AC_ARG_ENABLE([mtime-loop],
+              AS_HELP_STRING([--enable-mtime-loop],[Use mtime based time loop in nh stepping.]))
+
 AC_ARG_WITH([fortran],
   [AS_HELP_STRING([--with-fortran=COMPILER],
     [select_available compiler (see README.compiler)])],
@@ -259,7 +262,10 @@ for other_package in $icon_components ; do
 
 done
 dnl ######################################################################
+dnl add defines for transitional features (eg. mtime based time loop)
 
+AS_IF([test "x$enable_mtime_loop" = "xyes"], 
+      [FFLAGS="${FFLAGS} ${DEFOPT}USE_MTIME_LOOP"])
 
 dnl ######################################################################
 dnl Checks for programs.

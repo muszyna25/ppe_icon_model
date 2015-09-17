@@ -131,7 +131,7 @@ MODULE mo_meteogram_output
   USE mo_nonhydro_types,        ONLY: t_nh_state, t_nh_prog, t_nh_diag
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,         ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag
-  USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global
+  USE mo_cf_convention,         ONLY: t_cf_var, t_cf_global, cf_global_info
   USE mo_util_string,           ONLY: int2string, one_of
   USE mo_util_uuid,             ONLY: t_uuid, uuid_unparse, uuid_string_length
   USE mo_read_interface,        ONLY: nf
@@ -803,9 +803,12 @@ CONTAINS
     ! set meta data (appears in NetCDF output file)
     cf => mtgrm(jg)%meteogram_file_info%cf
     cf%title       = 'ICON Meteogram File'
-    cf%institution = 'Max Planck Institute for Meteorology/Deutscher Wetterdienst'
-    cf%source      = 'icon-dev'
-    cf%history     = ''
+    cf%institution = TRIM(cf_global_info%institution)
+    cf%source      = TRIM(cf_global_info%source)
+    cf%history     = TRIM(cf_global_info%history)
+    cf%references  = TRIM(cf_global_info%references)
+    cf%comment     = TRIM(cf_global_info%comment)
+    
     mtgrm(jg)%meteogram_file_info%ldistributed = meteogram_output_config%ldistributed
     CALL uuid_unparse(grid_uuid, mtgrm(jg)%meteogram_file_info%uuid_string)
     mtgrm(jg)%meteogram_file_info%number_of_grid_used = number_of_grid_used
