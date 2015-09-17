@@ -356,37 +356,23 @@ CONTAINS
         end do
         call keys%get(i,eventKey)
         do k=1,3
-              e => meanEvents(k)
-              call eventToString(e, msg)
-              IF ( my_process_is_stdio() ) THEN
-                write (0,*)' k  :', k  
-                call print_blue(msg,stderr=.true.)
-                if (msg == eventKey) then
-                  ! found the correnspondin even
-                  call print_aqua("key found !!!",stderr=.true.)
-                  ! now check for activity
-                  CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
-                  call print_aqua(trim(mtime_cur_datetime))
-                  mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
-                  isactive = LOGICAL(isCurrentEventActive(e,mtime_date))
-                  write (0,*)'---- isactive ----- ',isactive
-                end if
-              end if
-
+          e => meanEvents(k)
+          call eventToString(e, msg)
+          IF ( my_process_is_stdio() ) THEN
+            write (0,*)' k  :', k  
+            call print_blue(msg,stderr=.true.)
+            if (msg == eventKey) then
+              ! found the correnspondin even
+              call print_aqua("key found !!!",stderr=.true.)
+              ! now check for activity
+              CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
+              call print_aqua(trim(mtime_cur_datetime))
+              mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
+              isactive = LOGICAL(isCurrentEventActive(e,mtime_date))
+              write (0,*)'---- isactive ----- ',isactive
+            end if
+          end if
         end do
-       !call print_red(eventKey)
-       !do k=1,3
-       !  event_pointer => meanEvents(k)
-       !  if (associated(event_pointer)) then
-       !    call eventToString(event_pointer,eventString)
-       !    if (eventString == eventKey) then
-       !      CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
-       !      mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
-       !      isactive = LOGICAL(isCurrentEventActive(event_pointer,mtime_date))
-       !    end if
-       !  end if
-       !end do
-
       end select 
     end do
 
