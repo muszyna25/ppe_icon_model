@@ -35,12 +35,8 @@ MODULE mo_grf_bdyintp
 !
 USE mo_kind,                ONLY: wp
 USE mo_model_domain,        ONLY: t_patch
-USE mo_intp_data_strc,      ONLY: t_int_state
-USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,   &
-                                  grf_bdyintp_end_c, grf_bdyintp_end_e, grf_bdywidth_e
 USE mo_parallel_config,     ONLY: nproma, p_test_run
-USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-USE mo_communication,       ONLY: exchange_data, exchange_data_grf
+USE mo_communication,       ONLY: exchange_data_grf
 
 USE mo_grf_intp_data_strc
 

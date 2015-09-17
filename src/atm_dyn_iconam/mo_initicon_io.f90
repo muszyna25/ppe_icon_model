@@ -33,14 +33,15 @@ MODULE mo_initicon_io
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var, &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
-  USE mo_initicon_config,     ONLY: init_mode, nlev_in,  l_sst_in, generate_filename,   &
+  USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, l_sst_in, generate_filename, &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lread_ana, lread_vn,      &
-    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
+    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
+    &                               lvert_remap_fg
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom,                  &
-    &                               MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD,            &
-    &                               MODE_IFSANA, MODE_COMBINED, MODE_COSMODE
+    &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
+    &                               MODE_COSMODE
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work,    &
@@ -57,11 +58,11 @@ MODULE mo_initicon_io
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, &
     &                               ntiles_water, lmulti_snow, tiles, get_tile_suffix
-  USE mo_master_nml,          ONLY: model_base_dir
+  USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
-  USE mo_cdi_constants,       ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, &
-    &                               streamInqVlist, streamOpenRead, cdiGetStringError
+  USE mo_cdi,                 ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, &
+    &                               streamInqVlist, streamOpenRead, cdiGetStringError, streamClose, cdiDefMissval
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_util_cdi_table,      ONLY: print_cdi_summary, &
     &                               new_inventory_list, delete_inventory_list, complete_inventory_list
@@ -145,7 +146,7 @@ MODULE mo_initicon_io
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
         jlev = p_patch(jg)%level
         ! generate file name
-        dwdfg_file(jg) = generate_filename(dwdfg_filename, model_base_dir, nroot, jlev, jg)
+        dwdfg_file(jg) = generate_filename(dwdfg_filename, getModelBaseDir(), nroot, jlev, jg)
         INQUIRE (FILE=dwdfg_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'DWD FG file not found: '//TRIM(dwdfg_file(jg)))
@@ -197,7 +198,7 @@ MODULE mo_initicon_io
           IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) CYCLE
           jlev = p_patch(jg)%level
           ! generate file name
-          dwdana_file(jg) = generate_filename(dwdana_filename, model_base_dir, nroot, jlev, jg)
+          dwdana_file(jg) = generate_filename(dwdana_filename, getModelBaseDir(), nroot, jlev, jg)
           INQUIRE (FILE=dwdana_file(jg), EXIST=l_exist)
           IF (.NOT.l_exist) THEN
             CALL finish(TRIM(routine),'DWD ANA file not found: '//TRIM(dwdana_file(jg)))
@@ -473,7 +474,7 @@ MODULE mo_initicon_io
     INTEGER :: jg, jlev, jc, jk, jb, i_endidx
     LOGICAL :: l_exist
 
-    INTEGER :: no_cells, no_levels
+    INTEGER :: no_cells, no_levels, nlev_in
     INTEGER :: ncid, dimid, varid, mpi_comm
     TYPE(t_stream_id) :: stream_id
     INTEGER :: psvar_ndims, geopvar_ndims
@@ -491,11 +492,11 @@ MODULE mo_initicon_io
 
     ! flag. if true, then this PE reads data from file and broadcasts
     lread_process = my_process_is_mpi_workroot()
+    nlev_in = 0
 
     DO jg = 1, n_dom
 
       jlev = p_patch(jg)%level
-
 
       ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
@@ -504,7 +505,7 @@ MODULE mo_initicon_io
       !
       ! generate file name
       !
-      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, model_base_dir, &
+      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, getModelBaseDir(), &
         &                                   nroot, jlev, jg)
 
 
@@ -637,6 +638,8 @@ MODULE mo_initicon_io
       CALL p_bcast(lread_vn,      p_io, mpi_comm)
       CALL p_bcast(psvar_ndims,   p_io, mpi_comm)
       CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
+
+      nlevatm_in(:) = nlev_in
 
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
@@ -845,7 +848,7 @@ MODULE mo_initicon_io
       !
       ! generate file name
       !
-      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, model_base_dir, &
+      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, getModelBaseDir(), &
         &                                   nroot, jlev, jg)
 
       ! Read in data from IFS2ICON
@@ -1115,6 +1118,14 @@ MODULE mo_initicon_io
         CALL read_data_3d (parameters, filetype, 'qs', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
       END IF
 
+      IF (lvert_remap_fg) THEN
+        ! allocate required data structure
+        nlevatm_in(jg) = nlev
+        CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
+
+        CALL read_data_3d (parameters, filetype, 'z_ifc', nlevp1, initicon(jg)%atm_in%z3d_ifc, tileinfo)
+      ENDIF
+
       CALL deleteInputParameters(parameters)
 
       !This call needs its own input parameter object because it's edge based.
@@ -1150,7 +1161,7 @@ MODULE mo_initicon_io
 
     INTEGER :: jg, jk, jc, jb, i_endidx
     INTEGER :: mpi_comm
-    INTEGER :: ngrp_vars_fg, filetype
+    INTEGER :: ngrp_vars_fg, filetype, nlev_in
 
     REAL(wp) :: tempv, exner
     TYPE(t_inputParameters) :: parameters
@@ -1193,6 +1204,7 @@ MODULE mo_initicon_io
         mpi_comm = p_comm_work
       ENDIF
       CALL p_bcast(nlev_in, p_io, mpi_comm)
+      nlevatm_in(jg) = nlev_in
 
       ! allocate data structure for reading input data
       CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
@@ -1297,12 +1309,12 @@ MODULE mo_initicon_io
   !>
   !! Read DA-analysis fields (atmosphere only)
   !!
-  !! Depending on the initialization mode, either ful fields or increments
+  !! Depending on the initialization mode, either full fields or increments
   !! are read (atmosphere only):
   !! MODE_DWDANA: The following full fields are read, if available
   !!              u, v, t, p, qv
-  !! MODE_DWDANA_INC: The following increments are read, if available
-  !!              u, v, t, p, qv
+  !! MODE_IAO_OLD: 
+  !! MODE_IAU:
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
@@ -1355,7 +1367,7 @@ MODULE mo_initicon_io
 
       ! Depending on the initialization mode chosen (incremental vs. non-incremental)
       ! input fields are stored in different locations.
-      IF ( ANY((/MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
+      IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
         IF (lp2cintp_incr(jg)) THEN
           ! Perform parent-to-child interpolation of atmospheric DA increments
           jgp = p_patch(jg)%parent_id
@@ -1394,7 +1406,7 @@ MODULE mo_initicon_io
       my_ptr3d => my_ptr%v
       CALL read_data_3d (parameters, filetype, 'v', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
-      IF ( ANY((/MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
+      IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
         my_ptr3d => my_ptr%qv
       ELSE
         my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
@@ -1563,6 +1575,9 @@ MODULE mo_initicon_io
         my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'freshsnow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
+        my_ptr2d => lnd_diag%snowfrac_lc_t(:,:,jt)
+        CALL read_data_2d(parameters, filetype, 'snowfrac', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
+
         my_ptr2d => lnd_prog%w_snow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'w_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
@@ -1573,7 +1588,7 @@ MODULE mo_initicon_io
         CALL read_data_2d(parameters, filetype, 'h_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_prog%t_snow_t(:,:,jt)
-        CALL read_data_2d(parameters, filetype,'t_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
+        CALL read_data_2d(parameters, filetype, 't_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_prog%rho_snow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'rho_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )

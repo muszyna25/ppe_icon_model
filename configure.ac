@@ -31,6 +31,9 @@ AC_CANONICAL_SYSTEM
 
 dnl ######################################################################
 
+AC_ARG_ENABLE([mtime-loop],
+              AS_HELP_STRING([--enable-mtime-loop],[Use mtime based time loop in nh stepping.]))
+
 AC_ARG_WITH([fortran],
   [AS_HELP_STRING([--with-fortran=COMPILER],
     [select_available compiler (see README.compiler)])],
@@ -89,6 +92,16 @@ AC_ARG_WITH([flags],
     [],
     [])
 
+AC_ARG_WITH([art],
+  [AS_HELP_STRING([--with-art],
+    [enable ART modules via precprocessing directive, if available for selected compiler])],
+  [],
+  [])
+
+AS_IF([test "x$with_art" = "xyes"],
+      [use_art="yes"],
+      [use_art="no"])
+
 case $host in
   i*86-*-linux-*)  
     if test x$fortran_compiler != xintel ; then
@@ -104,33 +117,45 @@ esac
 
 dnl ######################################################################
 
-ac_hostname=$(hostname)
-ac_hostname=${ac_hostname%%\.*}
+AS_CASE([$ac_hostname],
+        [plogin*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],  
+        [wizard*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],  
+        [btc*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],       
+        [mlogin*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],
+        [ic2*],      
+        [ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename],         
+        [
+         AS_IF([test "x$(hostname)" = "x$ac_hostname"],
+               [fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')],
+               [fqdn=$(hostname)])
+         AS_IF([test -n "$fqdn"],
+           [ac_sitename=$(echo $fqdn | $AWK -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')],
+           [ac_sitename=])])
 
-AS_CASE([x"$ac_hostname"],
-  [xplogintest1],
-  [ac_sitename=dkrz.de],
-  [xwizard*],
-  [ac_sitename=dkrz.de; ac_hostname=wizard],
-  [xbtc*|mlogin*],
-  [ac_sitename=dkrz.de; ac_hostname=btc],
-  [if [[ $(hostname) = $ac_hostname ]] ; then
-   fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
-else
-   fqdn=$(hostname)
-fi
-  echo $fqdn
-  if [[ -n "$fqdn" ]]; then
-    ac_sitename=$(echo $fqdn | awk -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')
-  else
-    if [[ -n "$PE_ENV" ]] ; then
-      fqdn=$(echo ${PE_ENV} | awk '{print tolower($0)}')
-      echo "detecting Cray environment... $fqdn"
-    else
-      fqdn=${HOSTNAME}
-    fi
-    ac_sitename=${fqdn}
-  fi])
+AS_IF([ test -n "$fqdn" ],
+      [AS_IF([test -z ac_sitename],
+             [ac_sitename=local.net],
+             [])],
+      [AS_IF([ test -n "$PE_ENV" ],
+             [fqdn=$(echo ${PE_ENV} | awk '{print tolower($0)}')
+              AC_MSG_CHECKING([for Cray environment])
+              AC_MSG_RESULT([$[fqdn]])],
+             [fqdn=${HOSTNAME}])
+       [ac_sitename=${fqdn}]])        
+
+AC_MSG_CHECKING([for hostname])
+AC_MSG_RESULT([$[ac_hostname]])
+AC_MSG_CHECKING([for site name])
+AC_MSG_RESULT([$[ac_sitename]])
 
 dnl ######################################################################
 
@@ -173,7 +198,7 @@ fi
 #------------------------------------
 cat $host_frag > config/mh-config-use
 mh_local_name=config/mh-${ac_sitename}-${ac_hostname}
-echo "mh_local_name=$mh_local_name"
+# echo "mh_local_name=$mh_local_name"
 if test -f $mh_local_name ; then
   cat $mh_local_name >> config/mh-config-use
 # else
@@ -197,28 +222,28 @@ if test "$CC" = mpcc_r ;  then
   use_mpcc_r=yes
 fi
 
-if test "x$load_modules" != x ;  then
-  if test "$0" != "./conf__.tmp" ; then
-    echo "$load_profile" > conf_load_module.tmp
-    echo module purge >> conf_load_module.tmp
-    echo module load "$load_modules" >> conf_load_module.tmp
-    echo module list >> conf_load_module.tmp
-    if test "x$config_target" = xblizzard ;  then
-      # change configure to bash
-      echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
-    else
-      cp configure conf__.tmp 
-    fi
-    echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
-    echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
-    echo "rm conf__.tmp" >> conf_load_module.tmp
-    echo 'exit $rc' >>conf_load_module.tmp
-    chmod +x conf_load_module.tmp
-    ./conf_load_module.tmp ; rc=$?
-    rm conf_load_module.tmp
-    exit $rc
-  fi  
-fi
+dnl if test "x$load_modules" != x ;  then
+dnl   if test "$0" != "./conf__.tmp" ; then
+dnl     echo "$load_profile" > conf_load_module.tmp
+dnl     echo module purge >> conf_load_module.tmp
+dnl     echo module load "$load_modules" >> conf_load_module.tmp
+dnl     echo module list >> conf_load_module.tmp
+dnl     if test "x$config_target" = xblizzard ;  then
+dnl       # change configure to bash
+dnl       echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
+dnl     else
+dnl       cp configure conf__.tmp 
+dnl     fi
+dnl     echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
+dnl     echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
+dnl     echo "rm conf__.tmp" >> conf_load_module.tmp
+dnl     echo 'exit $rc' >>conf_load_module.tmp
+dnl     chmod +x conf_load_module.tmp
+dnl     ./conf_load_module.tmp ; rc=$?
+dnl #    rm conf_load_module.tmp
+dnl     exit $rc
+dnl   fi  
+dnl fi
   
 dnl ######################################################################
 dnl define the packages
@@ -247,7 +272,10 @@ for other_package in $icon_components ; do
 
 done
 dnl ######################################################################
+dnl add defines for transitional features (eg. mtime based time loop)
 
+AS_IF([test "x$enable_mtime_loop" = "xyes"], 
+      [FFLAGS="${FFLAGS} ${DEFOPT}USE_MTIME_LOOP"])
 
 dnl ######################################################################
 dnl Checks for programs.
@@ -549,11 +577,11 @@ if test -n "$NETCDFROOT" ; then
              NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
              ;;
            esac         
-           NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
            ;;
          *)
            ;;
          esac
+         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"	
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
@@ -756,7 +784,11 @@ else
 #      mod_file=$(find $real_path -name mpi.mod -print -quit)
       case "$MPIROOT" in
       *impi*)
-        mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | awk 'NR==1')
+        AS_CASE([$FC],
+                [gfortran],
+                [vers=$(gfortran --version | awk 'NR==1{print $4}')
+                 mod_file=$(find $real_path/include/gfortran/$vers -name mpi.mod -print | awk 'NR==1')],
+                [mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | awk 'NR==1')])
         ;;      
       *)
         mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
@@ -856,6 +888,14 @@ if [[ "x$use_messy" = xyes ]] ; then
     CFLAGS="${CFLAGS} ${DEFCOPT}MESSY ${DEFOPT}MESSYTIMER"
 fi
 
+if [[ "x$use_art" = xyes ]] ; then
+    FFLAGS="${FFLAGS} ${ART_FFLAGS}"
+    # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
+    if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
+        FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
+    fi
+fi
+
 ac_srcdirs=$my_srcdirs
 
 if test "$use_mpcc_r" = yes ; then
@@ -889,6 +929,7 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
+FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
 if [[ "x$LDFLAGS" = "x" ]] ; then

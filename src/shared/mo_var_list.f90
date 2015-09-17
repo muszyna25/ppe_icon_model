@@ -16,13 +16,12 @@ MODULE mo_var_list
 #endif
 
   USE mo_kind,             ONLY: wp, i8
-  USE mo_cdi_constants,    ONLY: DATATYPE_FLT64,                    &
+  USE mo_cdi,              ONLY: DATATYPE_FLT64,                    &
        &                         DATATYPE_INT32,                    &
        &                         DATATYPE_INT8,                     &
        &                         TSTEP_INSTANT,                     &
-       &                         GRID_UNSTRUCTURED_CELL,            &
-       &                         GRID_REGULAR_LONLAT,               &
        &                         CDI_UNDEFID
+  USE mo_cdi_constants,    ONLY: GRID_UNSTRUCTURED_CELL, GRID_REGULAR_LONLAT
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &

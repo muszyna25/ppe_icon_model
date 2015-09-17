@@ -25,7 +25,7 @@ MODULE mo_bc_aeropt_stenchikov
   USE mo_read_interface,         ONLY: openInputFile, closeFile, read_1D, &
     &                                  read_1D_extdim_time, &
     &                                  read_1D_extdim_extdim_time
-  USE mo_time_interpolation_weights, ONLY: wi=>wi_limm_radt
+  USE mo_time_interpolation_weights, ONLY: wi=>wi_limm
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
   USE mo_math_constants,         ONLY: deg2rad, pi_2
@@ -183,7 +183,8 @@ SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       
 ! !LOCAL VARIABLES
   
   INTEGER, PARAMETER                    :: norder=-1 ! latitudes in climatology order from N->S
-  INTEGER, PARAMETER                    :: nm1=1, nm2=2 ! there are only two months stored
+  INTEGER, PARAMETER                    :: nm1=1, nm2=2 ! there are only two months of a year
+                                                        ! stored in the field (saves memory)
   INTEGER                               :: jl,jk,jki,jwl
   INTEGER                               :: idx_lat_1, idx_lat_2, idx_lev
   REAL(wp)                              :: w1_lat, w2_lat
