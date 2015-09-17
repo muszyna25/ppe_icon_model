@@ -809,7 +809,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_5d(ndims, data_type, this_list, name,        &
     &   hgrid, vgrid, cf, grib2, ldims, new_list_element, loutput, lcontainer, &
     &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source,                &
-    &   info, vert_interp, hor_interp, in_group, verbose,                      &
+    &   tracer_info, info, vert_interp, hor_interp, in_group, verbose,         &
     &   l_pp_scheduler_task, post_op, action_list,                             &
     &   p5_r, p5_i, p5_l,                                                      &
     &   initval_r, initval_i, initval_l,                                       &
@@ -834,6 +834,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: isteptype                    ! type of statistical processing
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
     REAL(wp),                POINTER,    OPTIONAL :: p5_r(:,:,:,:,:)              ! provided pointer
     INTEGER,                 POINTER,    OPTIONAL :: p5_i(:,:,:,:,:)              ! provided pointer
@@ -902,15 +903,15 @@ CONTAINS
     CALL assign_if_present(resetval%ival, resetval_i)
     CALL assign_if_present(resetval%lval, resetval_l)
 
-    CALL set_var_metadata (new_list_element%field%info,                           &
-         name=name, hgrid=hgrid, vgrid=vgrid, cf=cf, grib2=grib2,                 &
-         ldims=ldims(1:ndims), loutput=loutput, lcontainer=lcontainer,            &
-         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,         &
-         isteptype=isteptype, resetval=resetval, lmiss=lmiss,                     &
-         missval=missval, tlev_source=tlev_source, vert_interp=vert_interp,       &
-         hor_interp=hor_interp, in_group=in_group, verbose=verbose,               &
-         l_pp_scheduler_task=l_pp_scheduler_task, post_op=post_op,                &
-         action_list=action_list, var_class=var_class )
+    CALL set_var_metadata( new_list_element%field%info,                      &
+         name=name, hgrid=hgrid, vgrid=vgrid, cf=cf, grib2=grib2,            &
+         ldims=ldims(1:ndims), loutput=loutput, lcontainer=lcontainer,       &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,    &
+         isteptype=isteptype, resetval=resetval, lmiss=lmiss,                &
+         missval=missval, tlev_source=tlev_source, tracer_info=tracer_info,  &
+         vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group,  &
+         verbose=verbose, l_pp_scheduler_task=l_pp_scheduler_task,           &
+         post_op=post_op, action_list=action_list, var_class=var_class )
     !
     IF (.NOT. referenced) THEN
       new_list_element%field%info%ndims                    = ndims
@@ -1035,11 +1036,11 @@ CONTAINS
   ! optionally obtain pointer to 3d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_r3d(this_list, name, ptr,       &
-    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
-    &   lrestart, lrestart_cont, initval, isteptype,              &
-    &   resetval, lmiss, missval, tlev_source, info, p5,          &
-    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+  SUBROUTINE add_var_list_element_r3d(this_list, name, ptr,            &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,           &
+    &   lrestart, lrestart_cont, initval, isteptype,                   &
+    &   resetval, lmiss, missval, tlev_source, tracer_info, info, p5,  &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,       &
     &   l_pp_scheduler_task, post_op, action_list, var_class)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
@@ -1060,6 +1061,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
     REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
     REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
@@ -1077,12 +1079,12 @@ CONTAINS
 
     ndims = 3
     idims(1:ndims) = ldims(1:ndims)
-    CALL add_var_list_element_5d(ndims, REAL_T, this_list, name,        &
-      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
-      &   vert_interp, hor_interp, in_group, verbose,                   &
-      &   l_pp_scheduler_task, post_op, action_list, p5_r=p5,           &
-      &   initval_r=initval, resetval_r=resetval, missval_r=missval,    &
+    CALL add_var_list_element_5d(ndims, REAL_T, this_list, name,          &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer,   &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source,         &
+      &   tracer_info, info, vert_interp, hor_interp, in_group, verbose,  &
+      &   l_pp_scheduler_task, post_op, action_list, p5_r=p5,             &
+      &   initval_r=initval, resetval_r=resetval, missval_r=missval,      &
       &   var_class=var_class)
     ptr => element%field%r_ptr(:,:,:,1,1)
     IF (PRESENT(new_element))  new_element => element
@@ -1094,11 +1096,11 @@ CONTAINS
   ! optionally obtain pointer to 2d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,       &
-    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
-    &   lrestart, lrestart_cont, initval, isteptype,              &
-    &   resetval, lmiss, missval, tlev_source, info, p5,          &
-    &   vert_interp, hor_interp, in_group, verbose, new_element,  &
+  SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,            &
+    &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,           &
+    &   lrestart, lrestart_cont, initval, isteptype,                   &
+    &   resetval, lmiss, missval, tlev_source, tracer_info, info, p5,  &
+    &   vert_interp, hor_interp, in_group, verbose, new_element,       &
     &   l_pp_scheduler_task, post_op, action_list, var_class)
     !
     TYPE(t_var_list),        INTENT(inout)        :: this_list                    ! list
@@ -1119,6 +1121,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
     REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
+    TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
     REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
@@ -1136,12 +1139,12 @@ CONTAINS
 
     ndims = 2
     idims(1:ndims) = ldims(1:ndims)
-    CALL add_var_list_element_5d(ndims, REAL_T, this_list, name,        &
-      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer, &
-      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source, info, &
-      &   vert_interp, hor_interp, in_group, verbose,                   &
-      &   l_pp_scheduler_task, post_op, action_list, p5_r=p5,           &
-      &   initval_r=initval, resetval_r=resetval, missval_r=missval,    &
+    CALL add_var_list_element_5d(ndims, REAL_T, this_list, name,          &
+      &   hgrid, vgrid, cf, grib2, idims, element, loutput, lcontainer,   &
+      &   lrestart, lrestart_cont, isteptype, lmiss, tlev_source,         &
+      &   tracer_info, info, vert_interp, hor_interp, in_group, verbose,  &
+      &   l_pp_scheduler_task, post_op, action_list, p5_r=p5,             &
+      &   initval_r=initval, resetval_r=resetval, missval_r=missval,      &
       &   var_class=var_class)
     ptr => element%field%r_ptr(:,:,1,1,1)
     IF (PRESENT(new_element))  new_element => element

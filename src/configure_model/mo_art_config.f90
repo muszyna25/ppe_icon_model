@@ -36,8 +36,9 @@ MODULE mo_art_config
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
-   INTEGER, PARAMETER  :: max_volc_input  = 20 !Maximum number of volcanoes in input namelist art_volclist_tot
-   INTEGER             :: nart_tendphy  = 0    !Maximum number of tracers that are effected by deep convective transport 
+   INTEGER, PARAMETER  :: max_volc_input = 20 !Maximum number of volcanoes in input namelist art_volclist_tot
+   INTEGER, PARAMETER  :: npreslay       = 7  !Number of pressure layers for diagnostic output of maximum concentration
+   INTEGER             :: nart_tendphy   = 0  !Maximum number of tracers that are effected by deep convective transport 
 
   TYPE t_volc_list
     CHARACTER(len=20)                :: zname    ! < name of volcanoe or location

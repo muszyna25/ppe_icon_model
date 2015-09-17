@@ -355,13 +355,13 @@ CONTAINS
     CASE ('volcash')
       productDefinitionTemplate = 57
       numberOfDistributionFunctionParameter = 1
-    CASE ('volcash_diag')
+    CASE ('volcash_diag_mc', 'volcash_diag_mc_max', 'volcash_diag_mc_vi', 'volcash_diag_hml')
       productDefinitionTemplate = 40
       numberOfDistributionFunctionParameter = 0
     CASE ('dust', 'dust_number')
       productDefinitionTemplate = 57
       numberOfDistributionFunctionParameter = 2
-    CASE ('dust_diag')
+    CASE ('dust_diag_tau')
       productDefinitionTemplate = 48
       numberOfDistributionFunctionParameter = 0
     CASE DEFAULT
@@ -382,9 +382,10 @@ CONTAINS
     CASE ('volcash')
       CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 1)
       CALL vlistDefVarIntKey(vlistID, varID, "numberOfModeOfDistribution", 6)
-      CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter", numberOfDistributionFunctionParameter)
+      CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter",  &
+        &                    numberOfDistributionFunctionParameter)
       CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
-      CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%modeNumber)
+      CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
       scaledValueOfDistributionFunctionParameter(1) = info%tracer%diameter
       scaledFactorOfDistributionFunctionParameter(1) = 6
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",     &
@@ -392,14 +393,37 @@ CONTAINS
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledFactorOfDistributionFunctionParameter",    &
         &   numberOfDistributionFunctionParameter, scaledFactorOfDistributionFunctionParameter(:))
 
-    CASE ('volcash_diag')
+    CASE ('volcash_diag_mc')
+      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
+      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
+      
+    CASE ('volcash_diag_mc_max')
+      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
+      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfFirstFixedSurface", 100)
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", 100)
+! JF:       CALL vlistDefVarCharKey(vlistID, varID, "typeOfLevel", "isobaricLayer")
+! JF:       CALL vlistDefVarCharKey(vlistID, varID, "pressureUnits", "hPa")
+      IF (info%tracer%pres_bot_hpa > 0)  &
+        &  CALL vlistDefVarIntKey(vlistID, varID, "bottomLevel", info%tracer%pres_bot_hpa)
+      IF (info%tracer%pres_top_hpa > 0)  &
+        &  CALL vlistDefVarIntKey(vlistID, varID, "topLevel",    info%tracer%pres_top_hpa)
+    
+    CASE ('volcash_diag_mc_vi')
+      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
+      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 3)
+      
+    CASE ('volcash_diag_hml')
+      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
+! JF:       CALL vlistDefVarCharKey(vlistID, varID, "typeOfLevel", "entireAtmosphere")
       
     CASE ('dust', 'dust_number')
       CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 7)
       CALL vlistDefVarIntKey(vlistID, varID, "numberOfModeOfDistribution", 3)
-      CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter", numberOfDistributionFunctionParameter)
+      CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter",  &
+        &                    numberOfDistributionFunctionParameter)
       CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62001)
-      CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%modeNumber)
+      CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
       scaledValueOfDistributionFunctionParameter(1) = info%tracer%variance
       scaledFactorOfDistributionFunctionParameter(1) = 1
       scaledValueOfDistributionFunctionParameter(2) = 2650
@@ -412,7 +436,12 @@ CONTAINS
         CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
       END IF
       
-    CASE ('dust_diag')
+    CASE ('dust_diag_tau')
+      CALL vlistDefVarIntKey(vlistID, varID, "aerosolType", 62001)
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfSizeInterval", 192)
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfWavelengthInterval", 11)
+      CALL vlistDefVarIntKey(vlistID, varID, "scaledValueOfFirstWavelength", info%tracer%tau_wavelength)
+      CALL vlistDefVarIntKey(vlistID, varID, "scaledFactorOfFirstWavelength", 9)
       
     END SELECT
 

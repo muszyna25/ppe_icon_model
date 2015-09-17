@@ -153,8 +153,15 @@ MODULE mo_var_metadata_types
     REAL(wp) :: rrho_tracer       ! particle density in kg m^-3
     !
     REAL(wp) :: halflife_tracer   ! radioactive half-life in s^-1
-    INTEGER  :: imis_tracer       ! IMIS number
+    INTEGER :: imis_tracer        ! IMIS number
     REAL(wp) :: lifetime_tracer   ! lifetime of a chemical tracer
+    !
+    INTEGER :: mode_number        ! number of mode                   for GRIB2 output
+    INTEGER :: diameter           ! diameter of ash particle         for GRIB2 output
+    INTEGER :: variance           ! variance of aerosol mode         for GRIB2 output
+    INTEGER :: pres_bot_hpa       ! bottom of pressure layer in hPa  for GRIB2 output
+    INTEGER :: pres_top_hpa       ! top    of pressure layer in hPa  for GRIB2 output
+    INTEGER :: tau_wavelength     ! wavelength of diagnostic AOD     for GRIB2 output
     !
   END TYPE t_tracer_meta
 
