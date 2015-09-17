@@ -36,6 +36,8 @@ MODULE mo_nml_crosscheck
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, ifluxl_sm,     &
     &                              ifluxl_m, ihs_ocean, RAYLEIGH_CLASSIC,     &
     &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD 
+  USE mo_master_config,      ONLY: tc_exp_stopdate, tc_stopdate
+  USE mtime,                 ONLY: OPERATOR(>) 
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -81,7 +83,7 @@ MODULE mo_nml_crosscheck
 
   USE mo_datetime,           ONLY: add_time, print_datetime_all
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_master_control,     ONLY: is_restart_run, get_my_process_type,      &
+  USE mo_master_control,     ONLY: get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process, radiation_process
 
   USE mo_art_config,         ONLY: art_config
@@ -206,12 +208,20 @@ CONTAINS
 
     ! Length of this integration is limited by length of the restart cycle.
     !
+#ifdef USE_MTIME_LOOP
+    IF (tc_exp_stopdate > tc_stopdate) THEN
+      restart_experiment = .TRUE.
+    ELSE
+      restart_experiment = .FALSE.
+    ENDIF
+#else
     IF (nsteps > INT(time_config%dt_restart/dtime)) THEN
       nsteps = INT(time_config%dt_restart/dtime)
       restart_experiment = .TRUE.
     ELSE
       restart_experiment = .FALSE.
     ENDIF
+#endif
 !     nsteps = MIN(nsteps,INT(time_config%dt_restart/dtime))
 
 
