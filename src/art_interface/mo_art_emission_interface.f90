@@ -143,7 +143,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
        
     IF (art_config(jg)%lart_aerosol) THEN
 
-!$omp parallel do default (shared) private(jb, istart, iend)
+!$omp parallel do default (shared) private(jb, istart, iend, dz)
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &                istart, iend, i_rlstart, i_rlend)
@@ -191,11 +191,19 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           select type (fields=>this_mode%fields)
             type is (t_fields_2mom)
               ! Now the according emission routine has to be found
-!$omp parallel do default (shared) private (jb, istart, iend, emiss_rate)
+!$omp parallel do default (shared) private (jb, istart, iend, emiss_rate, dz)
               DO jb = i_startblk, i_endblk
                 CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                   &                istart, iend, i_rlstart, i_rlend)
-                  select case(TRIM(fields%info%name))
+                  
+                ! Get model layer heights
+                DO jk = 1, nlev
+                  DO jc = istart, iend
+                    dz(jc,jk) = p_nh_state%metrics%z_ifc(jc,jk,jb)-p_nh_state%metrics%z_ifc(jc,jk+1,jb)
+                  ENDDO
+                ENDDO
+                  
+                select case(TRIM(fields%info%name))
                   case ('seasa')
                     CALL art_seas_emiss_martensson(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                        &
                       &             dz(:,nlev), p_diag_lnd%t_s(:,jb),                                                 &
