@@ -247,8 +247,8 @@ MODULE mo_meteogram_output
   !! Data structure containing time slice info.
   !!
   TYPE t_time_stamp
-    INTEGER                     :: istep    !< iteration step of model
-    CHARACTER(len=MAX_DATE_LEN) :: zdate    !< date and time of point sample (iso8601)
+    INTEGER                             :: istep    !< iteration step of model
+    CHARACTER(len=MAX_DATETIME_STR_LEN) :: zdate    !< date and time of point sample (iso8601)
   END TYPE t_time_stamp
 
   !>
