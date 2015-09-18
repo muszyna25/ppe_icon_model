@@ -476,7 +476,7 @@ case "$ac_sitename" in
                                         ;;
                                 esac
                                 ;;
-			    "$software_tree/intel/impi/4.1.3.049"|"$software_tree/intel/impi/4.1.3.049/intel64"|*)
+			    "$software_tree/intel/impi/4.1.3.049"|"$software_tree/intel/impi/4.1.3.049/intel64")
 				load_modules = ${load_modules} intelmpi/4.1.3.049
 				FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
       				MPIROOT      = $software_tree/intel/impi/4.1.3.049/intel64
