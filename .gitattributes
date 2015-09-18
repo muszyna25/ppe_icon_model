@@ -1263,6 +1263,7 @@ scripts/prototypes/mo_statistics.rb -text
 scripts/prototypes/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text
 scripts/run_scripts/luis.iconrun -text
+scripts/run_scripts/luis/lkmpy.run -text
 scripts/run_scripts/make_my_runscript -text
 scripts/run_scripts/make_nat-ape-dec_runs -text
 scripts/run_scripts/make_performance_runscripts -text
