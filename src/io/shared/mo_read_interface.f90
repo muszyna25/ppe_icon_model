@@ -59,7 +59,7 @@ MODULE mo_read_interface
   USE mo_model_domain, ONLY: t_patch
   USE mo_communication, ONLY: t_scatterPattern
   USE mo_mpi, ONLY: p_comm_work, p_io, my_process_is_mpi_workroot, p_bcast
-
+  USE mo_impl_constants, ONLY: on_cells, on_vertices, on_edges
 
   !-------------------------------------------------------------------------
   IMPLICIT NONE
@@ -87,18 +87,18 @@ MODULE mo_read_interface
   PUBLIC :: read_2D_extdim
   PUBLIC :: read_2D_extdim_int
   PUBLIC :: read_3D_extdim
-
-  PUBLIC :: onCells, onVertices, onEdges
-
   PUBLIC :: nf
 
   PUBLIC :: var_data_2d_int, var_data_2d_wp, var_data_3d_int, var_data_3d_wp
 
-  !--------------------------------------------------------
+  PUBLIC :: on_cells, on_vertices, on_edges
+  ! the following are used by jsbach, they will be removed when jsbach is updated
+  PUBLIC :: onCells, onVertices, onEdges
+  INTEGER, PARAMETER :: onCells    = on_cells
+  INTEGER, PARAMETER :: onEdges    = on_edges
+  INTEGER, PARAMETER :: onVertices = on_vertices
 
-  INTEGER, PARAMETER :: onCells = 1
-  INTEGER, PARAMETER :: onVertices = 2
-  INTEGER, PARAMETER :: onEdges = 3
+  !--------------------------------------------------------
 
   TYPE t_read_info
 
@@ -1571,18 +1571,18 @@ CONTAINS
           (patches(1)%p%n_patch_cells_g /= patches(i)%p%n_patch_cells_g)) &
         CALL finish(method_name, "patches do not match")
 
-      openInputFile_dist_multivar%read_info(onCells, i)%n_g = &
+      openInputFile_dist_multivar%read_info(on_cells, i)%n_g = &
         patches(i)%p%n_patch_cells_g
-      openInputFile_dist_multivar%read_info(onEdges, i)%n_g = &
+      openInputFile_dist_multivar%read_info(on_edges, i)%n_g = &
         patches(i)%p%n_patch_edges_g
-      openInputFile_dist_multivar%read_info(onVertices, i)%n_g = &
+      openInputFile_dist_multivar%read_info(on_vertices, i)%n_g = &
         patches(i)%p%n_patch_verts_g
 
-      openInputFile_dist_multivar%read_info(onCells, i)%n_l = &
+      openInputFile_dist_multivar%read_info(on_cells, i)%n_l = &
         patches(i)%p%n_patch_cells
-      openInputFile_dist_multivar%read_info(onEdges, i)%n_l = &
+      openInputFile_dist_multivar%read_info(on_edges, i)%n_l = &
         patches(i)%p%n_patch_edges
-      openInputFile_dist_multivar%read_info(onVertices, i)%n_l = &
+      openInputFile_dist_multivar%read_info(on_vertices, i)%n_l = &
         patches(i)%p%n_patch_verts
     END DO
 
@@ -1592,15 +1592,15 @@ CONTAINS
       openInputFile_dist_multivar%file_id = netcdf_open_input(filename)
 
       DO i = 1, n_var
-        openInputFile_dist_multivar%read_info(onCells, i)%scatter_pattern => &
+        openInputFile_dist_multivar%read_info(on_cells, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_c
-        NULLIFY(openInputFile_dist_multivar%read_info(onCells, i)%dist_read_info)
-        openInputFile_dist_multivar%read_info(onEdges, i)%scatter_pattern => &
+        NULLIFY(openInputFile_dist_multivar%read_info(on_cells, i)%dist_read_info)
+        openInputFile_dist_multivar%read_info(on_edges, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_e
-        NULLIFY(openInputFile_dist_multivar%read_info(onEdges, i)%dist_read_info)
-        openInputFile_dist_multivar%read_info(onVertices, i)%scatter_pattern => &
+        NULLIFY(openInputFile_dist_multivar%read_info(on_edges, i)%dist_read_info)
+        openInputFile_dist_multivar%read_info(on_vertices, i)%scatter_pattern => &
           patches(i)%p%comm_pat_scatter_v
-        NULLIFY(openInputFile_dist_multivar%read_info(onVertices, i)%dist_read_info)
+        NULLIFY(openInputFile_dist_multivar%read_info(on_vertices, i)%dist_read_info)
       END DO
 
     CASE (read_netcdf_distribute_method)
@@ -1608,15 +1608,15 @@ CONTAINS
       openInputFile_dist_multivar%file_id = distrib_nf_open(TRIM(filename))
 
       DO i = 1, n_var
-        openInputFile_dist_multivar%read_info(onCells, i)%dist_read_info => &
+        openInputFile_dist_multivar%read_info(on_cells, i)%dist_read_info => &
           patches(i)%p%cells%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(onCells, i)%scatter_pattern)
-        openInputFile_dist_multivar%read_info(onVertices, i)%dist_read_info => &
+        NULLIFY(openInputFile_dist_multivar%read_info(on_cells, i)%scatter_pattern)
+        openInputFile_dist_multivar%read_info(on_vertices, i)%dist_read_info => &
           patches(i)%p%verts%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(onVertices, i)%scatter_pattern)
-        openInputFile_dist_multivar%read_info(onEdges, i)%dist_read_info => &
+        NULLIFY(openInputFile_dist_multivar%read_info(on_vertices, i)%scatter_pattern)
+        openInputFile_dist_multivar%read_info(on_edges, i)%dist_read_info => &
           patches(i)%p%edges%dist_io_data
-        NULLIFY(openInputFile_dist_multivar%read_info(onEdges, i)%scatter_pattern)
+        NULLIFY(openInputFile_dist_multivar%read_info(on_edges, i)%scatter_pattern)
       END DO
 
     CASE default
@@ -1776,7 +1776,7 @@ CONTAINS
     ! check if the dim have reasonable names
 
     SELECT CASE(location)
-      CASE (onCells)
+      CASE (on_cells)
         IF (.NOT. ((TRIM(var_dim_name(1)) == 'cell') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells'))) THEN
           write(0,*) TRIM(var_dim_name(1))
@@ -1784,7 +1784,7 @@ CONTAINS
             &                   TRIM(var_dim_name(1)), " /= std_cells_dim_name"
           CALL finish(method_name, message_text)
         ENDIF
-      CASE (onVertices)
+      CASE (on_vertices)
         IF (.NOT. ((TRIM(var_dim_name(1)) == 'vertex') .OR. &
           &        (TRIM(var_dim_name(1)) == 'nverts') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells_3'))) THEN
@@ -1793,7 +1793,7 @@ CONTAINS
             &                   " /= std_verts_dim_name"
           CALL finish(method_name, message_text)
         ENDIF
-      CASE (onEdges)
+      CASE (on_edges)
         IF (.NOT. ((TRIM(var_dim_name(1)) == 'edge') .OR. &
           &        (TRIM(var_dim_name(1)) == 'nedges') .OR. &
           &        (TRIM(var_dim_name(1)) == 'ncells_2'))) THEN

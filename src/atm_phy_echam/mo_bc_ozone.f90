@@ -24,7 +24,7 @@ MODULE mo_bc_ozone
   USE mo_parallel_config,          ONLY: p_test_run
   USE mo_io_config,                ONLY: default_read_method
   USE mo_read_interface,           ONLY: nf, openInputFile, closeFile, &
-  &                                      read_3D_time, t_stream_id, onCells
+  &                                      read_3D_time, t_stream_id, on_cells
   USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast, &
                                   &      p_comm_work_test, p_comm_work, p_io
   USE mo_physical_constants,       ONLY: amo3, amd
@@ -65,7 +65,7 @@ CONTAINS
         fname='bc_ozone_'//TRIM(cyear)//'.nc'
         write(0,*) 'Read ozone from file: ',fname 
         stream_id = openInputFile(fname, p_patch, default_read_method)
-        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+        CALL read_3D_time(stream_id=stream_id, location=on_cells, &
           &               variable_name='O3', return_pointer=zo3_plev, &
           &               start_timestep=2,end_timestep=12)
         CALL closeFile(stream_id)
@@ -73,7 +73,7 @@ CONTAINS
         write(cyear,'(i4)') year+1
         fname='bc_ozone_'//TRIM(cyear)//'.nc'
         stream_id = openInputFile(fname, p_patch, default_read_method)
-        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+        CALL read_3D_time(stream_id=stream_id, location=on_cells, &
           &               variable_name='O3', return_pointer=zo3_plev, &
           &               start_timestep=1,end_timestep=1)
         CALL closeFile(stream_id)
@@ -83,7 +83,7 @@ CONTAINS
         fname='bc_ozone_'//TRIM(cyear)//'.nc'
         write(0,*) 'Read ozone from file: ',fname 
         stream_id = openInputFile(fname, p_patch, default_read_method)
-        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+        CALL read_3D_time(stream_id=stream_id, location=on_cells, &
           &               variable_name='O3', return_pointer=zo3_plev)
         CALL closeFile(stream_id)
         ALLOCATE(o3_plev(SIZE(zo3_plev,1),SIZE(zo3_plev,2),SIZE(zo3_plev,3),0:13))
@@ -91,7 +91,7 @@ CONTAINS
         write(cyear,'(i4)') year-1
         fname='bc_ozone_'//TRIM(cyear)//'.nc'
         stream_id = openInputFile(fname, p_patch, default_read_method)
-        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+        CALL read_3D_time(stream_id=stream_id, location=on_cells, &
           &               variable_name='O3', return_pointer=zo3_plev, &
           &               start_timestep=12,end_timestep=12)
         CALL closeFile(stream_id)
@@ -99,7 +99,7 @@ CONTAINS
         write(cyear,'(i4)') year+1
         fname='bc_ozone_'//TRIM(cyear)//'.nc'
         stream_id = openInputFile(fname, p_patch, default_read_method)
-        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+        CALL read_3D_time(stream_id=stream_id, location=on_cells, &
           &               variable_name='O3', return_pointer=zo3_plev, &
           &               start_timestep=1,end_timestep=1)
         CALL closeFile(stream_id)

@@ -34,7 +34,7 @@ MODULE mo_td_ext_data
   USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
 #endif
   USE mo_io_config,           ONLY: default_read_method
-  USE mo_read_interface,      ONLY: openInputFile, closeFile, onCells, &
+  USE mo_read_interface,      ONLY: openInputFile, closeFile, on_cells, &
     &                               t_stream_id, read_2D_1time
   USE mo_datetime,            ONLY: t_datetime, month2hour
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -280,7 +280,7 @@ CONTAINS
 
         CALL message  (routine, TRIM(extpar_file))
         stream_id = openInputFile(extpar_file, p_patch(jg), default_read_method)
-        CALL read_2D_1time(stream_id, onCells, 'SST', &
+        CALL read_2D_1time(stream_id, on_cells, 'SST', &
           &          ext_data(jg)%atm_td%sst_m(:,:,1))
         CALL closeFile(stream_id)
 
@@ -290,7 +290,7 @@ CONTAINS
           &                                m2, y2                   )
         CALL message  (routine, TRIM(extpar_file))
         stream_id = openInputFile(extpar_file, p_patch(jg), default_read_method)
-        CALL read_2D_1time(stream_id, onCells, 'SST', &
+        CALL read_2D_1time(stream_id, on_cells, 'SST', &
           &          ext_data(jg)%atm_td%sst_m(:,:,2))
         CALL closeFile(stream_id)
 
@@ -302,7 +302,7 @@ CONTAINS
           &                                m1,y1                   )
         CALL message  (routine, TRIM(extpar_file))
         stream_id = openInputFile(extpar_file, p_patch(jg), default_read_method)
-        CALL read_2D_1time(stream_id, onCells, 'CI', &
+        CALL read_2D_1time(stream_id, on_cells, 'CI', &
           &          ext_data(jg)%atm_td%fr_ice_m(:,:,1))
         CALL closeFile(stream_id)
 
@@ -312,7 +312,7 @@ CONTAINS
           &                             m2,y2                   )
         CALL message  (routine, TRIM(extpar_file))
         stream_id = openInputFile(extpar_file, p_patch(jg), default_read_method)
-        CALL read_2D_1time(stream_id, onCells, 'CI', &
+        CALL read_2D_1time(stream_id, on_cells, 'CI', &
           &          ext_data(jg)%atm_td%fr_ice_m(:,:,2))
         CALL closeFile(stream_id)
       ENDDO  ! jg
