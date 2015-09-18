@@ -17,7 +17,7 @@
 MODULE mo_grib2_util
 
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
-  USE mo_exception,          ONLY: finish
+  USE mo_exception,          ONLY: finish, message
   USE mo_cdi,                ONLY: streamInqVlist, vlistInqVarTypeOfGeneratingProcess, vlistInqVarTsteptype, vlistInqTaxis, &
                                  & taxisInqTunit, TSTEP_CONSTANT, TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX, TSTEP_MIN, TUNIT_SECOND, &
                                  & TUNIT_MINUTE, TUNIT_HOUR, vlistDefVarIntKey, vlistDefVarProductDefinitionTemplate, &
@@ -351,19 +351,27 @@ CONTAINS
       &  scaleFactorOfDistributionFunctionParameter(:)
 
   !----------------------------------------------------------------
-
+    CHARACTER(LEN=100) :: message_text
+    WRITE(message_text,'(a,i4,a,i4)') 'vlistID = ', vlistID, '  varID = ', varID
+    CALL message(' ==> set_GRIB2_art_keys :',TRIM(message_text),0,5,.TRUE.)
+    CALL message(' ==> set_GRIB2_art_keys :','tracer_class = '//TRIM(info%tracer%tracer_class),0,5,.TRUE.)
+ 
     ! change product definition template
     SELECT CASE(TRIM(info%tracer%tracer_class))
     CASE ('volcash')
+      CALL message(' ==> set_GRIB2_art_keys :','volcash --> PDT=57',0,5,.TRUE.)
       productDefinitionTemplate = 57
       numberOfDistributionFunctionParameter = 1
     CASE ('volcash_diag_mc', 'volcash_diag_mc_max', 'volcash_diag_mc_vi', 'volcash_diag_hml')
+      CALL message(' ==> set_GRIB2_art_keys :','volcash_diag_... --> PDT=40',0,5,.TRUE.)
       productDefinitionTemplate = 40
       numberOfDistributionFunctionParameter = 0
     CASE ('dust', 'dust_number')
+      CALL message(' ==> set_GRIB2_art_keys :','dust[_number] --> PDT=57',0,5,.TRUE.)
       productDefinitionTemplate = 57
       numberOfDistributionFunctionParameter = 2
     CASE ('dust_diag_tau')
+      CALL message(' ==> set_GRIB2_art_keys :','dust_diag_tau --> PDT=48',0,5,.TRUE.)
       productDefinitionTemplate = 48
       numberOfDistributionFunctionParameter = 0
     CASE DEFAULT
