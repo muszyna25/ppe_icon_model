@@ -18,6 +18,7 @@
 !! headers of the routines.
 !!
 !----------------------------
+#include "ocean_dsl_definitions.inc"
 #include "omp_definitions.inc"
 !----------------------------
 MODULE mo_ocean_ab_timestepping_mimetic
@@ -103,13 +104,18 @@ MODULE mo_ocean_ab_timestepping_mimetic
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
   
   ! these are allocated once for efficiency and used only by the lhs for the solver
-  REAL(wp), ALLOCATABLE, TARGET :: lhs_result(:,:)  ! (nproma,patch%alloc_cell_blocks)
-  REAL(wp), ALLOCATABLE :: lhs_z_grad_h(:,:)
-  REAL(wp), ALLOCATABLE :: lhs_z_e     (:,:)
+  onCells_2D :: lhs_result
+  onEdges_2D :: lhs_z_grad_h, lhs_z_e
+  onCells_2D_RealPrecision(sp) :: lhs_result_sp
+  onEdges_2D_RealPrecision(sp) :: lhs_z_grad_h_sp, lhs_z_e_sp
   ! the same as above in single precision
-  REAL(sp), ALLOCATABLE, TARGET :: lhs_result_sp(:,:)  ! (nproma,patch%alloc_cell_blocks)
-  REAL(sp), ALLOCATABLE :: lhs_z_grad_h_sp(:,:)
-  REAL(sp), ALLOCATABLE :: lhs_z_e_sp     (:,:)
+!   REAL(wp), ALLOCATABLE, TARGET :: lhs_result(:,:)  ! (nproma,patch%alloc_cell_blocks)
+!   REAL(wp), ALLOCATABLE :: lhs_z_grad_h(:,:)
+!   REAL(wp), ALLOCATABLE :: lhs_z_e     (:,:)
+!   ! the same as above in single precision
+!   REAL(sp), ALLOCATABLE, TARGET :: lhs_result_sp(:,:)  ! (nproma,patch%alloc_cell_blocks)
+!   REAL(sp), ALLOCATABLE :: lhs_z_grad_h_sp(:,:)
+!   REAL(sp), ALLOCATABLE :: lhs_z_e_sp     (:,:)
 
 
   ! TYPE(t_cartesian_coordinates), ALLOCATABLE :: lhs_z_grad_h_cc(:,:)

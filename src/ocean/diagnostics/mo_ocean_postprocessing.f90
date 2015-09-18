@@ -141,7 +141,7 @@ CONTAINS
 
     CALL read_3D_time(                        &
       & stream_id=stream_id,                  &
-      & location=onCells,                     &
+      & location=on_cells,                    &
       & variable_name="t_acc",                &
       & start_timestep=timeIndex,             &
       & end_timestep=timeIndex,               &
@@ -151,7 +151,7 @@ CONTAINS
 
     CALL read_3D_time(                        &
       & stream_id=stream_id,                  &
-      & location=onCells,                     &
+      & location=on_cells,                    &
       & variable_name="s_acc",                &
       & start_timestep=timeIndex,             &
       & end_timestep=timeIndex,               &
@@ -161,7 +161,7 @@ CONTAINS
 
     CALL read_2D_time(                        &
       & stream_id=stream_id,                  &
-      & location=onCells,                     &
+      & location=on_cells,                    &
       & variable_name="h_acc",                &
       & start_timestep=timeIndex,             &
       & end_timestep=timeIndex,               &

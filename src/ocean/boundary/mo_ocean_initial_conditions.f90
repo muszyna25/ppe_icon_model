@@ -73,7 +73,7 @@ MODULE mo_ocean_initial_conditions
   USE mo_sync,              ONLY: sync_c, sync_patch_array
   USE mo_fortran_tools,     ONLY: assign_if_present
   
-  USE mo_read_interface,    ONLY: read_2D_1Time, read_3D_1Time, onCells, t_stream_id, &
+  USE mo_read_interface,    ONLY: read_2D_1Time, read_3D_1Time, on_cells, t_stream_id, &
     & read_netcdf_broadcast_method, openInputFile, closeFile
   
   IMPLICIT NONE
@@ -172,7 +172,7 @@ CONTAINS
     stream_id = openInputFile(initialState_InputFileName, patch_2d, &
       &                       read_netcdf_broadcast_method)
 
-    CALL read_3D_1Time( stream_id=stream_id, location=onCells, &
+    CALL read_3D_1Time( stream_id=stream_id, location=on_cells, &
       & variable_name=name, fill_array=variable,               &
       & has_missValue=has_missValue, missValue=missValue)
 
@@ -225,7 +225,7 @@ CONTAINS
     stream_id = openInputFile(initialState_InputFileName, patch_2d, &
       &                       read_netcdf_broadcast_method)
     
-    CALL read_2D_1Time( stream_id=stream_id, location=onCells, &
+    CALL read_2D_1Time( stream_id=stream_id, location=on_cells, &
       & variable_name=name, fill_array=variable,               &
       & has_missValue=has_missValue, missValue=missValue)
 

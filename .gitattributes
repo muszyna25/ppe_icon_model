@@ -1687,6 +1687,7 @@ src/ocean/config/mo_ocean_nml_crosscheck.f90 -text
 src/ocean/config/mo_ocean_read_namelists.f90 -text
 src/ocean/diagnostics/mo_ocean_check_tools.f90 -text
 src/ocean/diagnostics/mo_ocean_diagnostics.f90 -text
+src/ocean/diagnostics/mo_ocean_diagnostics_types.f90 -text
 src/ocean/diagnostics/mo_ocean_output.f90 -text
 src/ocean/diagnostics/mo_ocean_postprocessing.f90 -text
 src/ocean/diagnostics/mo_ocean_statistics.f90 -text
@@ -1703,6 +1704,7 @@ src/ocean/dynamics/mo_ocean_tracer_transport_horz.f90 -text
 src/ocean/dynamics/mo_ocean_tracer_transport_vert.f90 -text
 src/ocean/dynamics/mo_ocean_types.f90 -text
 src/ocean/dynamics/mo_ocean_veloc_advection.f90 -text
+src/ocean/include/ocean_dsl_definitions.inc -text
 src/ocean/math/mo_ocean_gmres.f90 -text
 src/ocean/math/mo_ocean_math_operators.f90 -text
 src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text

@@ -56,9 +56,9 @@ MODULE mo_ocean_diagnostics
   USE mo_run_config,         ONLY: dtime, nsteps
   USE mo_physical_constants, ONLY: grav, rhos, rhoi,sice
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d,t_patch_vert, t_grid_edges
-  USE mo_ocean_types,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,&
-    &                                t_ocean_regions, t_ocean_region_volumes, &
-    &                                t_ocean_region_areas, t_ocean_monitor
+  USE mo_ocean_types,        ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
+  USE mo_ocean_diagnostics_types,  ONLY: t_ocean_regions, t_ocean_region_volumes, &
+    &  t_ocean_region_areas, t_ocean_monitor
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
   USE mo_sea_ice_types,      ONLY: t_sfc_flx, t_sea_ice

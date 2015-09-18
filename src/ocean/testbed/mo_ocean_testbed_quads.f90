@@ -75,9 +75,9 @@ CONTAINS
     stream_id = openInputFile(dynamics_grid_filename(1), patch_2d, &
       &                       read_netcdf_broadcast_method)
 
-    CALL read_2D(stream_id=stream_id, location=onCells, &
+    CALL read_2D(stream_id=stream_id, location=on_cells, &
       &          variable_name="cell_area", return_pointer=cell_data_broadcast)
-    CALL read_2D(stream_id=stream_id, location=onVertices, &
+    CALL read_2D(stream_id=stream_id, location=on_vertices, &
       &          variable_name="dual_area", return_pointer=vertex_data_broadcast)
 
     CALL closeFile(stream_id)
@@ -85,9 +85,9 @@ CONTAINS
     stream_id = openInputFile(dynamics_grid_filename(1), patch_2d, &
       &                       read_netcdf_distribute_method)
 
-    CALL read_2D(stream_id=stream_id, location=onCells, &
+    CALL read_2D(stream_id=stream_id, location=on_cells, &
       &          variable_name="cell_area", return_pointer=cell_data_distribute)
-    CALL read_2D(stream_id=stream_id, location=onVertices, &
+    CALL read_2D(stream_id=stream_id, location=on_vertices, &
       &          variable_name="dual_area", return_pointer=vertex_data_distribute)
 
     CALL closeFile(stream_id)

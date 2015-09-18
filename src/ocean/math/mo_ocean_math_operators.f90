@@ -947,9 +947,9 @@ CONTAINS
     verts_in_domain   => patch_2D%verts%in_domain
     start_level       = 1
     !set pointer that carry edge information
-    vertex_boundaryEdgeIndex    => p_op_coeff%bnd_edge_idx
-    vertex_boundaryEdgeBlock    => p_op_coeff%bnd_edge_blk
-    coeffs_VertexEdgeIndex      => p_op_coeff%edge_idx
+    vertex_boundaryEdgeIndex    => p_op_coeff%vertex_bnd_edge_idx
+    vertex_boundaryEdgeBlock    => p_op_coeff%vertex_bnd_edge_blk
+    coeffs_VertexEdgeIndex      => p_op_coeff%boundaryEdge_Coefficient_Index
     !z_orientation    => p_op_coeff%orientation
 
     !In this loop vorticity at vertices is calculated

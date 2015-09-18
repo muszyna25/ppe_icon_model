@@ -37,8 +37,7 @@ MODULE mo_ocean_state
     &                               GMRedi_configuration,GMRedi_combined,                   &
     &                               GM_only,Redi_only, type_3dimrelax_salt, type_3dimrelax_temp
   USE mo_ocean_types,           ONLY: t_hydro_ocean_base ,t_hydro_ocean_state ,t_hydro_ocean_prog ,t_hydro_ocean_diag, &
-    &                               t_hydro_ocean_aux ,t_hydro_ocean_acc, t_oce_config ,t_ocean_tracer ,    &
-    &                               t_ocean_regions ,t_ocean_region_volumes ,t_ocean_region_areas ,t_ocean_basins 
+    &                               t_hydro_ocean_aux ,t_hydro_ocean_acc, t_oce_config ,t_ocean_tracer
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
   USE mo_parallel_config,     ONLY: nproma
   USE mo_master_control,      ONLY: is_restart_run
@@ -226,7 +225,7 @@ CONTAINS
     ! local variables
     
     INTEGER :: ist
-    INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, n_zlvp, n_zlvm!, ie
+    INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, n_zlvp
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_hydro_ocean_base'
     
@@ -239,7 +238,6 @@ CONTAINS
     nblks_e = patch_2d%nblks_e
     nblks_v = patch_2d%nblks_v
     n_zlvp = n_zlev + 1
-    n_zlvm = n_zlev - 1
     
     ! allocate and set vertical level thickness from the namelist
     ALLOCATE(v_base%del_zlev_m(n_zlev),stat=ist)

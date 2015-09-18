@@ -72,7 +72,8 @@ MODULE mo_ocean_initialization
     & t_hydro_ocean_aux, &
     & t_hydro_ocean_acc, &
     & t_oce_config, &
-    & t_ocean_tracer, &
+    & t_ocean_tracer
+  USE mo_ocean_diagnostics_types, ONLY: &
     & t_ocean_regions, &
     & t_ocean_region_volumes, &
     & t_ocean_region_areas, &
