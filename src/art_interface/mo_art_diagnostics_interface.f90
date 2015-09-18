@@ -93,7 +93,7 @@ SUBROUTINE art_diagnostics_interface(p_patch, rho, pres, p_trac, dz, hml, jg)
         CALL art_calc_aod550_dust(rho(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), istart, iend, nlev, jb, p_art_data(jg))
       ENDIF
       IF (art_config(jg)%iart_seasalt > 0) THEN
-        CALL art_calc_aod550_seas(rho(:,:,jb), p_trac(:,:,:,jb), dz(:,:,jb), istart, iend, nlev, jb, p_art_data(jg))
+        CALL art_calc_aod550_seas(rho(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), istart, iend, nlev, jb, p_art_data(jg))
       ENDIF
 
       ! -------------------------------------
