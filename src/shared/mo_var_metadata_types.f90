@@ -159,8 +159,6 @@ MODULE mo_var_metadata_types
     INTEGER :: mode_number        ! number of mode                   for GRIB2 output
     INTEGER :: diameter           ! diameter of ash particle         for GRIB2 output
     INTEGER :: variance           ! variance of aerosol mode         for GRIB2 output
-    INTEGER :: pres_bot_hpa       ! bottom of pressure layer in hPa  for GRIB2 output
-    INTEGER :: pres_top_hpa       ! top    of pressure layer in hPa  for GRIB2 output
     INTEGER :: tau_wavelength     ! wavelength of diagnostic AOD     for GRIB2 output
     !
   END TYPE t_tracer_meta

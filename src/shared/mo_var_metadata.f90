@@ -195,13 +195,12 @@ CONTAINS
   ! Comment by DR: Maybe for the future one could define different sets of default values
   ! for different groups of ART species.
   !
-  FUNCTION create_tracer_metadata( lis_tracer,tracer_class,                        &
-    &                              ihadv_tracer, ivadv_tracer, lturb_tracer,       &
-    &                              lsed_tracer, ldep_tracer, lconv_tracer,         &
-    &                              lwash_tracer,rdiameter_tracer, rrho_tracer,     &
-    &                              halflife_tracer,imis_tracer,lifetime_tracer,    &
-    &                              mode_number, diameter, variance, pres_bot_hpa,  &
-    &                              pres_top_hpa, tau_wavelength )                  &
+  FUNCTION create_tracer_metadata( lis_tracer,tracer_class,                           &
+    &                              ihadv_tracer, ivadv_tracer, lturb_tracer,          &
+    &                              lsed_tracer, ldep_tracer, lconv_tracer,            &
+    &                              lwash_tracer,rdiameter_tracer, rrho_tracer,        &
+    &                              halflife_tracer,imis_tracer,lifetime_tracer,       &
+    &                              mode_number, diameter, variance, tau_wavelength )  &
     &                              RESULT(tracer_meta)
 
     LOGICAL, INTENT(IN), OPTIONAL :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
@@ -222,8 +221,6 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: mode_number      ! number of mode                  for GRIB2 output
     INTEGER, INTENT(IN), OPTIONAL :: diameter         ! diameter of ash particle        for GRIB2 output
     INTEGER, INTENT(IN), OPTIONAL :: variance         ! variance of aerosol mode        for GRIB2 output
-    INTEGER, INTENT(IN), OPTIONAL :: pres_bot_hpa     ! bottom of pressure layer in hPa for GRIB2 output
-    INTEGER, INTENT(IN), OPTIONAL :: pres_top_hpa     ! top    of pressure layer in hPa for GRIB2 output
     INTEGER, INTENT(IN), OPTIONAL :: tau_wavelength   ! wavelength of diagnostic AOD    for GRIB2 output
 
     TYPE(t_tracer_meta) :: tracer_meta                ! tracer metadata
@@ -345,20 +342,6 @@ CONTAINS
       tracer_meta%variance = variance
     ELSE
       tracer_meta%variance = -1
-    ENDIF
-
-    ! pres_bot_hpa
-    IF ( PRESENT(pres_bot_hpa) ) THEN
-      tracer_meta%pres_bot_hpa = pres_bot_hpa
-    ELSE
-      tracer_meta%pres_bot_hpa = -1
-    ENDIF
-
-    ! pres_top_hpa
-    IF ( PRESENT(pres_top_hpa) ) THEN
-      tracer_meta%pres_top_hpa = pres_top_hpa
-    ELSE
-      tracer_meta%pres_top_hpa = -1
     ENDIF
 
     ! wavelength for diagnostic AOD

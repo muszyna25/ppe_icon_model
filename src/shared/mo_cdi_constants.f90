@@ -69,6 +69,17 @@ MODULE mo_cdi_constants
   INTEGER, PARAMETER, PUBLIC      :: ZA_DEPTH_BELOW_SEA_HALF= 33
   INTEGER, PARAMETER, PUBLIC      :: ZA_GENERIC_ICE         = 34
 
+#ifdef __ICON_ART
+  ! Volcanic Ash
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_SFC_200     = 101
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_200_350     = 102
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_350_550     = 103
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_SFC_100     = 104
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_100_245     = 105
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_245_390     = 106
+  INTEGER, PARAMETER, PUBLIC      :: ZA_PRES_FL_390_530     = 107
+#endif
+
 CONTAINS
 
   PURE FUNCTION is_2d_field(izaxis)
@@ -92,6 +103,18 @@ CONTAINS
       &           (izaxis == ZA_PRESSURE_0)              .OR.  &
       &           (izaxis == ZA_DEPTH_RUNOFF_S)          .OR.  &
       &           (izaxis == ZA_DEPTH_RUNOFF_G)
+
+#ifdef __ICON_ART
+    IF (.NOT.is_2d_field) THEN
+       is_2d_field = (izaxis == ZA_PRES_FL_SFC_200)      .OR.  &
+                     (izaxis == ZA_PRES_FL_200_350)      .OR.  &
+                     (izaxis == ZA_PRES_FL_350_550)      .OR.  &
+                     (izaxis == ZA_PRES_FL_SFC_100)      .OR.  &
+                     (izaxis == ZA_PRES_FL_100_245)      .OR.  &
+                     (izaxis == ZA_PRES_FL_245_390)      .OR.  &
+                     (izaxis == ZA_PRES_FL_390_530)
+     END IF
+#endif
   END FUNCTION is_2d_field
 
 END MODULE mo_cdi_constants

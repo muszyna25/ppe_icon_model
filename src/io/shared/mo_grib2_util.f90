@@ -394,22 +394,10 @@ CONTAINS
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledFactorOfDistributionFunctionParameter",    &
         &   numberOfDistributionFunctionParameter, scaledFactorOfDistributionFunctionParameter(:))
 
-    CASE ('volcash_diag_mc')
+    CASE ('volcash_diag_mc', 'volcash_diag_mc_max')
       CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
       CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
       
-    CASE ('volcash_diag_mc_max')
-      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
-      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
-      CALL vlistDefVarIntKey(vlistID, varID, "typeOfFirstFixedSurface", 100)
-      CALL vlistDefVarIntKey(vlistID, varID, "typeOfSecondFixedSurface", 100)
-! JF:       CALL vlistDefVarCharKey(vlistID, varID, "typeOfLevel", "isobaricLayer")
-! JF:       CALL vlistDefVarCharKey(vlistID, varID, "pressureUnits", "hPa")
-      IF (info%tracer%pres_bot_hpa > 0)  &
-        &  CALL vlistDefVarIntKey(vlistID, varID, "bottomLevel", info%tracer%pres_bot_hpa)
-      IF (info%tracer%pres_top_hpa > 0)  &
-        &  CALL vlistDefVarIntKey(vlistID, varID, "topLevel",    info%tracer%pres_top_hpa)
-    
     CASE ('volcash_diag_mc_vi')
       CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
       CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 3)
