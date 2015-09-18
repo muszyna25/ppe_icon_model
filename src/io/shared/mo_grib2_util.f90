@@ -49,6 +49,7 @@ MODULE mo_grib2_util
   PUBLIC :: set_GRIB2_synsat_keys
   PUBLIC :: set_GRIB2_local_keys
   PUBLIC :: set_GRIB2_tile_keys
+  PUBLIC :: set_GRIB2_art_keys
   PUBLIC :: set_GRIB2_timedep_keys
   PUBLIC :: set_GRIB2_timedep_local_keys
 
