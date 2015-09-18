@@ -342,12 +342,13 @@ CONTAINS
     TYPE (t_var_metadata),  INTENT(IN) :: info
 
 #ifdef __ICON_ART
+
     ! local
     INTEGER      :: productDefinitionTemplate
     INTEGER      :: numberOfDistributionFunctionParameter
     INTEGER, ALLOCATABLE ::  &
       &  scaledValueOfDistributionFunctionParameter(:),  &
-      &  scaledFactorOfDistributionFunctionParameter(:)
+      &  scaleFactorOfDistributionFunctionParameter(:)
 
   !----------------------------------------------------------------
 
@@ -375,7 +376,7 @@ CONTAINS
 
     IF ( numberOfDistributionFunctionParameter /= 0 ) THEN
       ALLOCATE( scaledValueOfDistributionFunctionParameter(numberOfDistributionFunctionParameter),    &
-        &       scaledFactorOfDistributionFunctionParameter(numberOfDistributionFunctionParameter) )
+        &       scaleFactorOfDistributionFunctionParameter(numberOfDistributionFunctionParameter) )
     END IF
     
     SELECT CASE(TRIM(info%tracer%tracer_class))
@@ -388,11 +389,11 @@ CONTAINS
       CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
       CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
       scaledValueOfDistributionFunctionParameter(1) = info%tracer%diameter
-      scaledFactorOfDistributionFunctionParameter(1) = 6
+      scaleFactorOfDistributionFunctionParameter(1) = 6
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",     &
         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter(:))
-      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledFactorOfDistributionFunctionParameter",    &
-        &   numberOfDistributionFunctionParameter, scaledFactorOfDistributionFunctionParameter(:))
+      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
+        &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter(:))
 
     CASE ('volcash_diag_mc', 'volcash_diag_mc_max')
       CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
@@ -414,13 +415,13 @@ CONTAINS
       CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62001)
       CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
       scaledValueOfDistributionFunctionParameter(1) = info%tracer%variance
-      scaledFactorOfDistributionFunctionParameter(1) = 1
+      scaleFactorOfDistributionFunctionParameter(1) = 1
       scaledValueOfDistributionFunctionParameter(2) = 2650
-      scaledFactorOfDistributionFunctionParameter(2) = 0
+      scaleFactorOfDistributionFunctionParameter(2) = 0
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",     &
         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter(:))
-      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledFactorOfDistributionFunctionParameter",    &
-        &   numberOfDistributionFunctionParameter, scaledFactorOfDistributionFunctionParameter(:))
+      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
+        &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter(:))
       IF (TRIM(info%tracer%tracer_class) == 'dust') THEN
         CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
       END IF
@@ -430,13 +431,13 @@ CONTAINS
       CALL vlistDefVarIntKey(vlistID, varID, "typeOfSizeInterval", 192)
       CALL vlistDefVarIntKey(vlistID, varID, "typeOfWavelengthInterval", 11)
       CALL vlistDefVarIntKey(vlistID, varID, "scaledValueOfFirstWavelength", info%tracer%tau_wavelength)
-      CALL vlistDefVarIntKey(vlistID, varID, "scaledFactorOfFirstWavelength", 9)
+      CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstWavelength", 9)
       
     END SELECT
 
     IF ( numberOfDistributionFunctionParameter /= 0 ) THEN
       DEALLOCATE( scaledValueOfDistributionFunctionParameter,    &
-        &       scaledFactorOfDistributionFunctionParameter )
+        &         scaleFactorOfDistributionFunctionParameter )
     END IF
     
 #endif
