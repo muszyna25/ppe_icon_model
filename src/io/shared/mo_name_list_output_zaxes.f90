@@ -72,7 +72,7 @@ MODULE mo_name_list_output_zaxes
                                                 & ZAXIS_HYBRID_HALF, ZAXIS_ISOTHERM_ZERO, ZAXIS_LAKE_BOTTOM, ZAXIS_MEANSEA, &
                                                 & ZAXIS_MIX_LAYER, ZAXIS_REFERENCE, ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_SNOW, &
                                                 & ZAXIS_TOA, zaxisCreate, zaxisDefNumber, zaxisDefUUID, zaxisDefLevels, &
-                                                & zaxisDefLbound, zaxisDefUbounds, zaxisDefVct, zaxisDefUnits, zaxisDefNlevRef
+                                                & zaxisDefLbounds, zaxisDefUbounds, zaxisDefVct, zaxisDefUnits, zaxisDefNlevRef
   USE mo_cdi_constants,                     ONLY: ZA_depth_below_sea, ZA_depth_below_sea_half, ZA_GENERIC_ICE, ZA_surface, &
                                                 & ZA_isentropic, ZA_altitude, ZA_pressure, ZA_cloud_base, ZA_cloud_top, &
                                                 & ZA_depth_below_land, ZA_depth_below_land_p1, ZA_depth_runoff_g, &
