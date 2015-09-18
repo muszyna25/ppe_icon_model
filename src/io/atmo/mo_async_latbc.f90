@@ -98,7 +98,7 @@ MODULE mo_async_latbc
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  vlistInqVarGrid, streamClose, streamInqFiletype,   &
          &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2,         &
-         &                                  cdiGetStringError
+         &                                  cdiStringError
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_io_units,                  ONLY: filename_max
 !    USE mo_util_cdi_table,            ONLY: print_cdi_summary
@@ -484,10 +484,10 @@ MODULE mo_async_latbc
          !
          fileID_latbc = streamOpenRead(TRIM(latbc_file))
          IF (fileID_latbc < 0) THEN
-           CALL cdiGetStringError(fileID_latbc, cdiErrorText)
-           WRITE(message_text,'(4a)') 'File ', TRIM(latbc_file), &
-                ' cannot be opened: ', TRIM(cdiErrorText)
-           CALL finish(routine, TRIM(message_text))
+! JF:             ! cdiStringError(fileID_latbc) gives back a character array
+! JF:             message_text = 'File '//TRIM(latbc_file)//' cannot be opened: '//cdiStringError(fileID_latbc)
+! JF:             CALL finish(routine, TRIM(message_text))
+           CALL finish(routine, 'File '//TRIM(latbc_file)//' cannot be opened')
          ENDIF
 
          filetype = streamInqFiletype(fileID_latbc)
@@ -623,10 +623,10 @@ MODULE mo_async_latbc
          !
          fileID_latbc = streamOpenRead(TRIM(latbc_file))
          IF (fileID_latbc < 0) THEN
-           CALL cdiGetStringError(fileID_latbc, cdiErrorText)
-           WRITE(message_text,'(4a)') 'File ', TRIM(latbc_file), &
-                ' cannot be opened: ', TRIM(cdiErrorText)
-           CALL finish(routine, TRIM(message_text))
+! JF:             ! cdiStringError(fileID_latbc) gives back a character array
+! JF:             message_text = 'File '//TRIM(latbc_file)//' cannot be opened: '//cdiStringError(fileID_latbc)
+! JF:             CALL finish(routine, TRIM(message_text))
+           CALL finish(routine, 'File '//TRIM(latbc_file)//' cannot be opened')
          ENDIF
 
          !

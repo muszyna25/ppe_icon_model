@@ -69,7 +69,7 @@ MODULE mo_io_restart
                                     & vlistInqVarZaxis, zaxisInqType, zaxisInqSize, streamDefTimestep, vlistDefVar, zaxisCreate, &
                                     & taxisCreate, gridCreate, vlistDefAttInt, vlistDefAttFlt, vlistDefAttTxt, vlistCreate, &
                                     & streamOpenWrite, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, streamWriteVarSlice, &
-                                    & streamWriteVar, streamDefVlist, cdiGetStringError, vlistDefVarDatatype, vlistDefVarName, &
+                                    & streamWriteVar, streamDefVlist, cdiStringError, vlistDefVarDatatype, vlistDefVarName, &
                                     & vlistInqVarName, zaxisDefLevels, gridDefNvertex, streamReadVar, zaxisDefLbounds, &
                                     & zaxisDefUbounds, zaxisDefVct, zaxisDefUnits, vlistDefVarLongname, vlistDefVarUnits, &
                                     & vlistDefVarMissval, gridDefXlongname, gridDefYlongname, vlistDefTaxis, taxisDefVdate, &
@@ -221,10 +221,10 @@ CONTAINS
       fileID  = streamOpenRead(TRIM(rst_filename))
       ! check if the file could be opened
       IF (fileID < 0) THEN
-        CALL cdiGetStringError(fileID, cdiErrorText)
-        WRITE(message_text,'(4a)') 'File ', TRIM(rst_filename), &
-             ' cannot be opened: ', TRIM(cdiErrorText)
-        CALL finish(routine, TRIM(message_text))
+! JF:          ! cdiStringError(fileID) gives back a character array
+! JF:          message_text = 'File '//TRIM(rst_filename)//' cannot be opened: '//cdiStringError(fileID)
+! JF:          CALL finish(routine, TRIM(message_text))
+         CALL finish(routine, 'File '//TRIM(rst_filename)//' cannot be opened')
       ENDIF
 
       vlistID = streamInqVlist(fileID)
@@ -557,9 +557,9 @@ CONTAINS
         var_lists(i)%p%filename          = TRIM(restart_filename)
         !
         IF (var_lists(i)%p%cdiFileID_restart < 0) THEN
-          CALL cdiGetStringError(var_lists(i)%p%cdiFileID_restart, cdiErrorText)
-          WRITE(message_text,'(a)') TRIM(cdiErrorText)
-          CALL message('',message_text)
+! JF:           ! cdiStringError(var_lists(i)%p%cdiFileID_restart) gives back a character array
+! JF:           message_text = cdiStringError(var_lists(i)%p%cdiFileID_restart)
+! JF:           CALL message('',message_text)
           CALL finish ('open_restart_files', 'open failed on '//TRIM(restart_filename))
         ELSE
           var_lists(i)%p%restart_opened = .TRUE.
