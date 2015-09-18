@@ -689,6 +689,7 @@ LDFLAGS
 CFLAGS
 CC
 RANLIB
+AWK
 target_os
 target_vendor
 target_cpu
@@ -749,6 +750,7 @@ with_setup
 with_yac
 with_messy
 with_flags
+with_art
 with_ocean
 with_xml2
 with_lapack
@@ -1399,6 +1401,8 @@ Optional Packages:
   --with-messy            enable Modular Earth Submodel System (MESSy)
                           interface
   --with-flags=<name>     use specified group od flags (std, hiopt, noopt, etc
+  --with-art              enable ART modules via precprocessing directive, if
+                          available for selected compiler
   --with-ocean=no         compile without ocean
   --with-xml2=DIR         Required libxml2
   --with-lapack=DIR       Alternative vendor optimized LAPACK and BLAS library
@@ -2319,6 +2323,49 @@ test -n "$target_alias" &&
   program_prefix=${target_alias}-
 
 
+for ac_prog in gawk mawk nawk awk
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_AWK+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$AWK"; then
+  ac_cv_prog_AWK="$AWK" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_AWK="$ac_prog"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+AWK=$ac_cv_prog_AWK
+if test -n "$AWK"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $AWK" >&5
+$as_echo "$AWK" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+  test -n "$AWK" && break
+done
+
+
 
 # Check whether --enable-mtime-loop was given.
 if test "${enable_mtime_loop+set}" = set; then :
@@ -2394,6 +2441,19 @@ if test "${with_flags+set}" = set; then :
 fi
 
 
+
+# Check whether --with-art was given.
+if test "${with_art+set}" = set; then :
+  withval=$with_art;
+fi
+
+
+if test "x$with_art" = "xyes"; then :
+  use_art="yes"
+else
+  use_art="no"
+fi
+
 case $host in
   i*86-*-linux-*)
     if test x$fortran_compiler != xintel ; then
@@ -2421,6 +2481,9 @@ case $ac_hostname in #(
   mlogin*) :
     ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename ;; #(
+  ic2*) :
+    ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename ;; #(
   *) :
 
          if test "x$(hostname)" = "x$ac_hostname"; then :
@@ -2434,8 +2497,6 @@ else
   ac_sitename=
 fi ;;
 esac
-
-# if fqdn still empty try another way
 
 if  test -n "$fqdn" ; then :
   if test -z ac_sitename; then :
@@ -2585,6 +2646,28 @@ if test "$CC" = mpcc_r ;  then
   use_mpcc_r=yes
 fi
 
+if test "x$load_modules" != x ;  then
+  if test "$0" != "./conf__.tmp" ; then
+    echo "$load_profile" > conf_load_module.tmp
+    echo module purge >> conf_load_module.tmp
+    echo module load "$load_modules" >> conf_load_module.tmp
+    echo module list >> conf_load_module.tmp
+    if test "x$config_target" = xblizzard ;  then
+      # change configure to bash
+      echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
+    else
+      cp configure conf__.tmp
+    fi
+    echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
+    echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
+    echo "rm conf__.tmp" >> conf_load_module.tmp
+    echo 'exit $rc' >>conf_load_module.tmp
+    chmod +x conf_load_module.tmp
+    ./conf_load_module.tmp ; rc=$?
+#    rm conf_load_module.tmp
+    exit $rc
+  fi
+fi
 
 
 use_components_file=config/icon_components
@@ -3914,11 +3997,11 @@ if test -n "$NETCDFROOT" ; then
              NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
              ;;
            esac
-           NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
            ;;
          *)
            ;;
          esac
+         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
@@ -4303,9 +4386,6 @@ fi
 #      mod_file=$(find $real_path -name mpi.mod -print -quit)
       case "$MPIROOT" in
       *impi*)
-        echo
-        echo Ok ...
-        echo
         case $FC in #(
   gfortran) :
     vers=$(gfortran --version | awk 'NR==1{print $4}')
@@ -4313,9 +4393,6 @@ fi
   *) :
     mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | awk 'NR==1') ;;
 esac
-        echo
-        echo $mod_file
-        echo
         ;;
       *)
         mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
@@ -6094,6 +6171,14 @@ if [ "x$use_messy" = xyes ] ; then
     CFLAGS="${CFLAGS} ${DEFCOPT}MESSY ${DEFOPT}MESSYTIMER"
 fi
 
+if [ "x$use_art" = xyes ] ; then
+    FFLAGS="${FFLAGS} ${ART_FFLAGS}"
+    # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
+    if [ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ] ; then
+        FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
+    fi
+fi
+
 ac_srcdirs=$my_srcdirs
 
 if test "$use_mpcc_r" = yes ; then
@@ -6127,6 +6212,7 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
+FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
 if [ "x$LDFLAGS" = "x" ] ; then
@@ -6898,6 +6984,7 @@ gives unlimited permission to copy, distribute and modify it."
 
 ac_pwd='$ac_pwd'
 srcdir='$srcdir'
+AWK='$AWK'
 test -n "\$AWK" || AWK=awk
 _ACEOF
 

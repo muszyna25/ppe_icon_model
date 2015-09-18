@@ -29,6 +29,8 @@ AC_CONFIG_AUX_DIR(config)
 
 AC_CANONICAL_SYSTEM
 
+AC_PROG_AWK
+
 dnl ######################################################################
 
 AC_ARG_ENABLE([mtime-loop],
@@ -92,6 +94,16 @@ AC_ARG_WITH([flags],
     [],
     [])
 
+AC_ARG_WITH([art],
+  [AS_HELP_STRING([--with-art],
+    [enable ART modules via precprocessing directive, if available for selected compiler])],
+  [],
+  [])
+
+AS_IF([test "x$with_art" = "xyes"],
+      [use_art="yes"],
+      [use_art="no"])
+
 case $host in
   i*86-*-linux-*)  
     if test x$fortran_compiler != xintel ; then
@@ -119,7 +131,10 @@ AS_CASE([$ac_hostname],
          fqdn=$ac_hostname.$ac_sitename],       
         [mlogin*],
         [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],  
+         fqdn=$ac_hostname.$ac_sitename],
+        [ic2*],      
+        [ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename],         
         [
          AS_IF([test "x$(hostname)" = "x$ac_hostname"],
                [fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')],
@@ -127,8 +142,6 @@ AS_CASE([$ac_hostname],
          AS_IF([test -n "$fqdn"],
            [ac_sitename=$(echo $fqdn | $AWK -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')],
            [ac_sitename=])])
-
-# if fqdn still empty try another way
 
 AS_IF([ test -n "$fqdn" ],
       [AS_IF([test -z ac_sitename],
@@ -211,28 +224,28 @@ if test "$CC" = mpcc_r ;  then
   use_mpcc_r=yes
 fi
 
-dnl if test "x$load_modules" != x ;  then
-dnl   if test "$0" != "./conf__.tmp" ; then
-dnl     echo "$load_profile" > conf_load_module.tmp
-dnl     echo module purge >> conf_load_module.tmp
-dnl     echo module load "$load_modules" >> conf_load_module.tmp
-dnl     echo module list >> conf_load_module.tmp
-dnl     if test "x$config_target" = xblizzard ;  then
-dnl       # change configure to bash
-dnl       echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
-dnl     else
-dnl       cp configure conf__.tmp 
-dnl     fi
-dnl     echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
-dnl     echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
-dnl     echo "rm conf__.tmp" >> conf_load_module.tmp
-dnl     echo 'exit $rc' >>conf_load_module.tmp
-dnl     chmod +x conf_load_module.tmp
-dnl     ./conf_load_module.tmp ; rc=$?
-dnl #    rm conf_load_module.tmp
-dnl     exit $rc
-dnl   fi  
-dnl fi
+if test "x$load_modules" != x ;  then
+  if test "$0" != "./conf__.tmp" ; then
+    echo "$load_profile" > conf_load_module.tmp
+    echo module purge >> conf_load_module.tmp
+    echo module load "$load_modules" >> conf_load_module.tmp
+    echo module list >> conf_load_module.tmp
+    if test "x$config_target" = xblizzard ;  then
+      # change configure to bash
+      echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
+    else
+      cp configure conf__.tmp 
+    fi
+    echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
+    echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
+    echo "rm conf__.tmp" >> conf_load_module.tmp
+    echo 'exit $rc' >>conf_load_module.tmp
+    chmod +x conf_load_module.tmp
+    ./conf_load_module.tmp ; rc=$?
+#    rm conf_load_module.tmp
+    exit $rc
+  fi  
+fi
   
 dnl ######################################################################
 dnl define the packages
@@ -566,11 +579,11 @@ if test -n "$NETCDFROOT" ; then
              NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
              ;;
            esac         
-           NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
            ;;
          *)
            ;;
          esac
+         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"	
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
@@ -877,6 +890,14 @@ if [[ "x$use_messy" = xyes ]] ; then
     CFLAGS="${CFLAGS} ${DEFCOPT}MESSY ${DEFOPT}MESSYTIMER"
 fi
 
+if [[ "x$use_art" = xyes ]] ; then
+    FFLAGS="${FFLAGS} ${ART_FFLAGS}"
+    # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
+    if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
+        FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
+    fi
+fi
+
 ac_srcdirs=$my_srcdirs
 
 if test "$use_mpcc_r" = yes ; then
@@ -910,6 +931,7 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
+FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
 if [[ "x$LDFLAGS" = "x" ]] ; then
