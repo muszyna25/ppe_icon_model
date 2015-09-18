@@ -25,7 +25,7 @@ MODULE mo_ocean_Types
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
-  USE mo_ocean_diagnostics_Types, ONLY: t_ocean_monitor
+  USE mo_ocean_diagnostics_types, ONLY: t_ocean_monitor
   
   PUBLIC :: t_hydro_ocean_base
   PUBLIC :: t_hydro_ocean_state
