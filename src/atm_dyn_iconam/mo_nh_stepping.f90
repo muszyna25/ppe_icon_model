@@ -404,12 +404,14 @@ MODULE mo_nh_stepping
       &                                       i_timelevel    = nnow)
     CALL pp_scheduler_process(simulation_status)
 
-    CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
-      &                 p_nh_state(1)%prog(nnow_rcf(1)), &
-      &                 p_nh_state(1)%prog(nnow(1))%rho, &
-      &                 p_nh_state(1)%diag,              &
-      &                 p_patch(1)%cells%owned,          &
-      &                 p_patch(1)%nlev,iforcing==iecham)
+    IF (iforcing==iecham) THEN
+      CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
+        &                 p_nh_state(1)%prog(nnow_rcf(1)), &
+        &                 p_nh_state(1)%prog(nnow(1))%rho, &
+        &                 p_nh_state(1)%diag,              &
+        &                 p_patch(1)%cells%owned,          &
+        &                 p_patch(1)%nlev,iforcing==iecham)
+    END IF
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output(jstep=0)
     END IF
@@ -932,12 +934,14 @@ MODULE mo_nh_stepping
 #endif
 
     ! update accumlated values
-    CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
-      &                 p_nh_state(1)%prog(nnow_rcf(1)), &
-      &                 p_nh_state(1)%prog(nnow(1))%rho, &
-      &                 p_nh_state(1)%diag,              &
-      &                 p_patch(1)%cells%owned,          &
-      &                 p_patch(1)%nlev,iforcing==iecham)
+    IF (iforcing==iecham) THEN
+      CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
+        &                 p_nh_state(1)%prog(nnow_rcf(1)), &
+        &                 p_nh_state(1)%prog(nnow(1))%rho, &
+        &                 p_nh_state(1)%diag,              &
+        &                 p_patch(1)%cells%owned,          &
+        &                 p_patch(1)%nlev,iforcing==iecham)
+    END IF
     IF (l_nml_output) CALL calc_mean_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
 
     ! output of results
