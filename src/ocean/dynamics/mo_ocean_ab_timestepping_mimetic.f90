@@ -1456,9 +1456,9 @@ write(456,*)'div',jc, div_z_c(jc, 1:1)
     CALL timer_start(timer_extra32)
     !Step 3) Calculate divergence
     ! store the div in lhs for reducing memory and improving performance
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
 
     IF( patch_2d%cells%max_connectivity == 3 )THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
       
@@ -1471,23 +1471,24 @@ write(456,*)'div',jc, div_z_c(jc, 1:1)
           lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)        
         END DO
       END DO ! blockNo
+!ICON_OMP_END_PARALLEL_DO
     ELSEIF( patch_2d%cells%max_connectivity == 4 )THEN
 
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
         CALL div_oce_2D_onQuads_onBlock( lhs_z_e, patch_2D, op_coeffs%div_coeff, lhs(:,blockNo),&
-		& level=topLevel,blockNo=blockNo, start_index=start_index, end_index=end_index)        
+                & level=topLevel,blockNo=blockNo, start_index=start_index, end_index=end_index)        
         !Step 4) Finalize LHS calculations
         DO jc = start_index, end_index
           !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
           lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
         END DO
       END DO ! blockNo
-	   
-    ENDIF	   	
-	  
-	  
 !ICON_OMP_END_PARALLEL_DO
+
+    ENDIF
+
     !---------------------------------------
     CALL timer_stop(timer_extra32)
 
@@ -1579,11 +1580,11 @@ write(456,*)'div',jc, div_z_c(jc, 1:1)
 
     !Step 3) Calculate divergence
     ! store the div in lhs for reducing memory and improving performance
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
 
 
   IF( patch_2d%cells%max_connectivity == 3 )THEN
-	  
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
       CALL div_oce_2D_onTriangles_onBlock_sp(lhs_z_e_sp, patch_2D, solverCoeffs%div_coeff, lhs(:,blockNo), &
@@ -1595,14 +1596,15 @@ write(456,*)'div',jc, div_z_c(jc, 1:1)
         lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
       END DO
     END DO ! blockNo
-	
+
    ELSEIF( patch_2d%cells%max_connectivity == 4 )THEN
 
 
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
        CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
        CALL div_oce_2D_onQuads_onBlock_sp( lhs_z_e_sp, patch_2D, solverCoeffs%div_coeff, lhs(:,blockNo),&
-	   & blockNo=blockNo, start_index=start_index, end_index=end_index)
+         & blockNo=blockNo, start_index=start_index, end_index=end_index)
         
        !Step 4) Finalize LHS calculations
        DO jc = start_index, end_index
@@ -1610,10 +1612,10 @@ write(456,*)'div',jc, div_z_c(jc, 1:1)
          lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
        END DO
      END DO ! blockNo
+!ICON_OMP_END_PARALLEL_DO
 	   
    ENDIF	   	
 	
-!ICON_OMP_END_PARALLEL_DO
     !---------------------------------------
 
     IF (ltimer) CALL timer_stop(timer_lhs_sp)

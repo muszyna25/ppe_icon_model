@@ -102,6 +102,7 @@ MODULE mo_ocean_model
   USE mo_ocean_testbed,       ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
   USE mo_io_config,           ONLY: write_initial_state
+  USE mo_coupling_config,    ONLY: is_coupled_run
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -531,7 +532,7 @@ MODULE mo_ocean_model
 
     CALL construct_hydro_ocean_base(patch_3d%p_patch_2d(1), v_base)
     CALL init_ho_base (patch_3d%p_patch_2d(1), external_data(1), v_base)
-    IF (use_omip_forcing) CALL init_ho_basins(patch_3d%p_patch_2d(1),  v_base)
+    IF (use_omip_forcing .or. is_coupled_run()) CALL init_ho_basins(patch_3d%p_patch_2d(1), v_base)
     CALL init_coriolis_oce(patch_3d%p_patch_2d(1) )
     CALL init_patch_3d    (patch_3d,                external_data(1), v_base)
     !CALL init_patch_3D(patch_3D, v_base)
