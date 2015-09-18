@@ -29,6 +29,8 @@ AC_CONFIG_AUX_DIR(config)
 
 AC_CANONICAL_SYSTEM
 
+AC_PROG_AWK
+
 dnl ######################################################################
 
 AC_ARG_ENABLE([mtime-loop],
@@ -222,28 +224,28 @@ if test "$CC" = mpcc_r ;  then
   use_mpcc_r=yes
 fi
 
-dnl if test "x$load_modules" != x ;  then
-dnl   if test "$0" != "./conf__.tmp" ; then
-dnl     echo "$load_profile" > conf_load_module.tmp
-dnl     echo module purge >> conf_load_module.tmp
-dnl     echo module load "$load_modules" >> conf_load_module.tmp
-dnl     echo module list >> conf_load_module.tmp
-dnl     if test "x$config_target" = xblizzard ;  then
-dnl       # change configure to bash
-dnl       echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
-dnl     else
-dnl       cp configure conf__.tmp 
-dnl     fi
-dnl     echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
-dnl     echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
-dnl     echo "rm conf__.tmp" >> conf_load_module.tmp
-dnl     echo 'exit $rc' >>conf_load_module.tmp
-dnl     chmod +x conf_load_module.tmp
-dnl     ./conf_load_module.tmp ; rc=$?
-dnl #    rm conf_load_module.tmp
-dnl     exit $rc
-dnl   fi  
-dnl fi
+if test "x$load_modules" != x ;  then
+  if test "$0" != "./conf__.tmp" ; then
+    echo "$load_profile" > conf_load_module.tmp
+    echo module purge >> conf_load_module.tmp
+    echo module load "$load_modules" >> conf_load_module.tmp
+    echo module list >> conf_load_module.tmp
+    if test "x$config_target" = xblizzard ;  then
+      # change configure to bash
+      echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
+    else
+      cp configure conf__.tmp 
+    fi
+    echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
+    echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
+    echo "rm conf__.tmp" >> conf_load_module.tmp
+    echo 'exit $rc' >>conf_load_module.tmp
+    chmod +x conf_load_module.tmp
+    ./conf_load_module.tmp ; rc=$?
+#    rm conf_load_module.tmp
+    exit $rc
+  fi  
+fi
   
 dnl ######################################################################
 dnl define the packages
