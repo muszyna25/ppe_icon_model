@@ -404,8 +404,6 @@ CONTAINS
     ! local variables and pointers
 
     INTEGER  :: nblks_c, jb, jbs, jc, jcs, jce
-    REAL(wp), ALLOCATABLE :: zfrl(:,:), zfrw(:,:), zfri(:,:), zfrc(:,:,:)
-    INTEGER :: jsfc
     REAL(wp) :: zlat
 
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
@@ -770,38 +768,24 @@ CONTAINS
       ! Settings for total surface
       ! (after tile masks and variables potentially have been overwritten by testcases above)
 
-      ! Compute tile fractions
-      ALLOCATE(zfrl(SIZE(prm_field(jg)%lsmask,1),SIZE(prm_field(jg)%lsmask,2)))
-      ALLOCATE(zfrw(SIZE(zfrl,1),SIZE(zfrl,2)))
-      ALLOCATE(zfri(SIZE(zfrl,1),SIZE(zfrl,2)))
-      ALLOCATE(zfrc(SIZE(zfrl,1),SIZE(zfrl,2),nsfc_type))
-
-      zfrl(:,:) = prm_field(jg)%lsmask(:,:)
-      zfrw(:,:) = (1._wp - zfrl(:,:)) * (1._wp - prm_field(jg)%seaice(:,:))
-      zfri(:,:) = 1._wp-zfrl(:,:)-zfrw(:,:)
-
-      IF (ilnd.LE.nsfc_type) zfrc(:,:,ilnd) = zfrl(:,:)
-      IF (iwtr.LE.nsfc_type) zfrc(:,:,iwtr) = zfrw(:,:)
-      IF (iice.LE.nsfc_type) zfrc(:,:,iice) = zfri(:,:)
-
-      prm_field(jg)%tsfc (:,:) = 0._wp
-      prm_field(jg)%albvisdir(:,:) = 0._wp
-      prm_field(jg)%albvisdif(:,:) = 0._wp
-      prm_field(jg)%albnirdir(:,:) = 0._wp
-      prm_field(jg)%albnirdif(:,:) = 0._wp
-      DO jsfc=1,nsfc_type
-        prm_field(jg)%tsfc     (:,:) = prm_field(jg)%tsfc     (:,:) + zfrc(:,:,jsfc) * prm_field(jg)%tsfc_tile     (:,:,jsfc)
-        prm_field(jg)%albvisdir(:,:) = prm_field(jg)%albvisdir(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albvisdir_tile(:,:,jsfc)
-        prm_field(jg)%albvisdif(:,:) = prm_field(jg)%albvisdif(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albvisdif_tile(:,:,jsfc)
-        prm_field(jg)%albnirdir(:,:) = prm_field(jg)%albnirdir(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albnirdir_tile(:,:,jsfc)
-        prm_field(jg)%albnirdif(:,:) = prm_field(jg)%albnirdif(:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albnirdif_tile(:,:,jsfc)
-        prm_field(jg)%albedo   (:,:) = prm_field(jg)%albedo   (:,:) + zfrc(:,:,jsfc) * prm_field(jg)%albedo_tile   (:,:,jsfc)
-      END DO
+      IF (iwtr <= nsfc_type) THEN
+        prm_field(jg)%tsfc     (:,:) = prm_field(jg)%tsfc_tile(:,:,iwtr)
+        prm_field(jg)%albvisdir(:,:) = albedoW
+        prm_field(jg)%albvisdif(:,:) = albedoW
+        prm_field(jg)%albnirdir(:,:) = albedoW
+        prm_field(jg)%albnirdif(:,:) = albedoW
+        prm_field(jg)%albedo   (:,:) = albedoW
+      ELSE
+        prm_field(jg)%tsfc     (:,:) = prm_field(jg)%tsfc_tile(:,:,ilnd)
+        prm_field(jg)%albvisdir(:,:) = prm_field(jg)%alb(:,:)
+        prm_field(jg)%albvisdif(:,:) = prm_field(jg)%alb(:,:)
+        prm_field(jg)%albnirdir(:,:) = prm_field(jg)%alb(:,:)
+        prm_field(jg)%albnirdif(:,:) = prm_field(jg)%alb(:,:)
+        prm_field(jg)%albedo   (:,:) = prm_field(jg)%alb(:,:)
+      END IF
 
       prm_field(jg)%tsfc_rad (:,:) = prm_field(jg)%tsfc(:,:)
       prm_field(jg)%tsfc_radt(:,:) = prm_field(jg)%tsfc(:,:)
-
-      DEALLOCATE(zfrl, zfrw, zfri, zfrc)
 
       NULLIFY( field,tend )
 
