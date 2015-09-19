@@ -381,8 +381,8 @@ CONTAINS
 
     ! set tablesVersion=14
     CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 14)
-    CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber", 0)
-    CALL vlistDefVarIntKey(vlistID, varID, "typeOfProcessedData", 1)
+! JF:     CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber", 0)
+! JF:     CALL vlistDefVarIntKey(vlistID, varID, "typeOfProcessedData", 1)
 
     ! set product definition template
     CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, productDefinitionTemplate)
