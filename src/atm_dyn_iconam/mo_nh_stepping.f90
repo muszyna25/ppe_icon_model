@@ -764,7 +764,7 @@ MODULE mo_nh_stepping
     IF ( check_newday(datetime_old,datetime_current) ) THEN
 
       WRITE(message_text,'(a,i10,a,i10)') 'New day  day_old: ', datetime_old%day, &
-                &                 'day: ', datetime_current%day
+                &                 ' ,  day: ', datetime_current%day
       CALL message(TRIM(routine),message_text)
 
       !Update ndvi normalized differential vegetation index

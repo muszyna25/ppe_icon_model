@@ -27,7 +27,7 @@ MODULE mo_hydro_ocean_run
   USE mo_grid_config,            ONLY: n_dom
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     & i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation, cfl_write, surface_module
-! USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
+  USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode, debug_check_level
@@ -70,7 +70,7 @@ MODULE mo_hydro_ocean_run
   USE mo_statistics
   USE mo_ocean_statistics
   USE mo_ocean_output
-! USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
+  USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
 
   IMPLICIT NONE
 
@@ -368,9 +368,9 @@ CONTAINS
         &                p_ice,                 &
         &                jstep, jstep0)
       
-      ! #slo#-2015-04-15: call to coupling routine at the end of time stepping loop - TODO: check location
-   !  IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
-   !    &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state, p_ice, p_atm_f, jstep, datetime)
+      ! receive coupling fluxes for ocean at the end of time stepping loop
+      IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
+        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), p_ice, p_atm_f, datetime)
 
       IF (timers_level > 2)  CALL timer_start(timer_extra21)
       ! Shift time indices for the next loop
