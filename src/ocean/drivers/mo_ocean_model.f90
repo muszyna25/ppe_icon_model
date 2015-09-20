@@ -106,6 +106,7 @@ MODULE mo_ocean_model
   !-------------------------------------------------------------
   ! For the coupling
   USE mo_ocean_coupling,      ONLY: construct_ocean_coupling, destruct_ocean_coupling
+  USE mo_coupling_config,     ONLY: is_coupled_run
 
   IMPLICIT NONE
 
@@ -532,7 +533,7 @@ MODULE mo_ocean_model
 
     CALL construct_hydro_ocean_base(patch_3d%p_patch_2d(1), v_base)
     CALL init_ho_base (patch_3d%p_patch_2d(1), external_data(1), v_base)
-    IF (use_omip_forcing) CALL init_ho_basins(patch_3d%p_patch_2d(1),  v_base)
+    IF (use_omip_forcing .OR. is_coupled_run()) CALL init_ho_basins(patch_3d%p_patch_2d(1), v_base)
     CALL init_coriolis_oce(patch_3d%p_patch_2d(1) )
     CALL init_patch_3d    (patch_3d,                external_data(1), v_base)
     !CALL init_patch_3D(patch_3D, v_base)

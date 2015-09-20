@@ -21,7 +21,7 @@ MODULE mo_ocean_coupling
   USE mo_parallel_config,     ONLY: nproma
   USE mo_exception,           ONLY: warning
   USE mo_impl_constants,      ONLY: max_char_length
-  USE mo_physical_constants,  ONLY: tmelt, rho_inv
+  USE mo_physical_constants,  ONLY: tmelt, rhoh2o
   USE mo_mpi,                 ONLY: p_pe_work
   USE mo_datetime,            ONLY: t_datetime
   USE mo_time_config,         ONLY: time_config
@@ -76,7 +76,7 @@ MODULE mo_ocean_coupling
 
 ! CHARACTER(LEN=12)     :: module_name    = 'ocean_coupli'
 
-  INTEGER, PARAMETER    :: no_of_fields = 9
+  INTEGER, PARAMETER    :: no_of_fields = 10
   INTEGER               :: field_id(no_of_fields)
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
@@ -372,6 +372,7 @@ CONTAINS
     field_name(7) = "eastward_sea_water_velocity"
     field_name(8) = "northward_sea_water_velocity"
     field_name(9) = "ocean_sea_ice_bundle"               ! bundled field containing five components
+    field_name(10) = "river_runoff"
 
     DO idx = 1, no_of_fields 
       CALL yac_fdef_field (      &
@@ -522,6 +523,7 @@ CONTAINS
     INTEGER :: n              ! nproma loop count
     INTEGER :: nn             ! block offset
     INTEGER :: i_blk          ! block loop count
+    INTEGER :: nlen           ! nproma/npromz
     TYPE(t_patch), POINTER:: patch_horz
 #ifndef YAC_coupling
     INTEGER :: field_shape(3)
@@ -568,10 +570,15 @@ CONTAINS
     !
     ! SST
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= patch_horz%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = patch_horz%npromz_c
+      END IF
+      DO n = 1, nlen
         buffer(nn+n,1) = ocean_state%p_prog(nold(1))%tracer(n,1,i_blk,1) + tmelt
       ENDDO
     ENDDO
@@ -591,10 +598,15 @@ CONTAINS
     !
     ! zonal velocity
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= patch_horz%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = patch_horz%npromz_c
+      END IF
+      DO n = 1, nlen
         buffer(nn+n,1) = ocean_state%p_diag%u(n,1,i_blk)
       ENDDO
     ENDDO
@@ -614,10 +626,15 @@ CONTAINS
     !
     ! meridional velocity
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= patch_horz%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = patch_horz%npromz_c
+      END IF
+      DO n = 1, nlen
         buffer(nn+n,1) = ocean_state%p_diag%v(n,1,i_blk)
       ENDDO
     ENDDO
@@ -637,10 +654,15 @@ CONTAINS
     !
     ! Ice thickness, concentration, T1 and T2
     !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
     DO i_blk = 1, patch_horz%nblks_c
       nn = (i_blk-1)*nproma
-      DO n = 1, nproma
+      IF (i_blk /= patch_horz%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = patch_horz%npromz_c
+      END IF
+      DO n = 1, nlen
         buffer(nn+n,1) = ice%hi  (n,1,i_blk)
         buffer(nn+n,2) = ice%hs  (n,1,i_blk)
         buffer(nn+n,3) = ice%conc(n,1,i_blk)
@@ -692,10 +714,15 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             atmos_fluxes%stress_xw(n,i_blk) = dummy
             atmos_fluxes%stress_x (n,i_blk) = dummy
@@ -727,10 +754,15 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             atmos_fluxes%stress_yw(n,i_blk) = dummy
             atmos_fluxes%stress_y (n,i_blk) = dummy
@@ -749,6 +781,8 @@ CONTAINS
     !
     ! Apply freshwater flux - 2 parts, precipitation and evaporation - record 3
     !
+    ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
+    !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
     CALL yac_fget ( field_id(3), nbr_hor_cells, 3, 1, 1, buffer(1:nbr_hor_cells,1:3), info, ierror )
@@ -763,18 +797,23 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = dummy
             atmos_fluxes%FrshFlux_SnowFall     (n,i_blk) = dummy
             atmos_fluxes%FrshFlux_Evaporation  (n,i_blk) = dummy
           ELSE
-            atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = buffer(nn+n,1)*rho_inv
-            atmos_fluxes%FrshFlux_SnowFall     (n,i_blk) = buffer(nn+n,2)*rho_inv
-            atmos_fluxes%FrshFlux_Evaporation  (n,i_blk) = buffer(nn+n,3)*rho_inv
+            atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = buffer(nn+n,1) / rhoh2o
+            atmos_fluxes%FrshFlux_SnowFall     (n,i_blk) = buffer(nn+n,2) / rhoh2o
+            atmos_fluxes%FrshFlux_Evaporation  (n,i_blk) = buffer(nn+n,3) / rhoh2o
           ENDIF
         ENDDO
       ENDDO
@@ -806,10 +845,15 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             atmos_fluxes%HeatFlux_ShortWave(n,i_blk) = dummy
             atmos_fluxes%HeatFlux_LongWave (n,i_blk) = dummy
@@ -831,9 +875,14 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%HeatFlux_Latent   (:,:))
 
       ! sum of fluxes for ocean boundary condition
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           atmos_fluxes%HeatFlux_Total(n,i_blk) = atmos_fluxes%HeatFlux_ShortWave(n,i_blk) &
         &                                      + atmos_fluxes%HeatFlux_LongWave (n,i_blk) &
         &                                      + atmos_fluxes%HeatFlux_Sensible (n,i_blk) &
@@ -862,10 +911,15 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
-        DO n = 1, nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
             ice%qtop(n,1,i_blk) = dummy
             ice%qbot(n,1,i_blk) = dummy
@@ -885,6 +939,47 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_horz, ice%qbot(:,1,:))
       CALL sync_patch_array(sync_c, patch_horz, ice%t1  (:,1,:))
       CALL sync_patch_array(sync_c, patch_horz, ice%t2  (:,1,:))
+    END IF
+
+    !
+    !
+    ! Apply freshwater flux - river runoff
+    !
+    ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
+    !
+    IF (ltimer) CALL timer_start(timer_coupling_get)
+#ifdef YAC_coupling
+    CALL yac_fget ( field_id(10), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
+    IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
+#else
+    field_shape(3) = 1
+    CALL icon_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
+    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
+#endif
+    IF (ltimer) CALL timer_stop(timer_coupling_get)
+    !
+    IF (info > 0 .AND. info < 7 ) THEN
+      !
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
+      DO i_blk = 1, patch_horz%nblks_c
+        nn = (i_blk-1)*nproma
+        IF (i_blk /= patch_horz%nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = patch_horz%npromz_c
+        END IF
+        DO n = 1, nlen
+          IF ( nn+n > nbr_inner_cells ) THEN
+            atmos_fluxes%FrshFlux_Runoff(n,i_blk) = dummy
+          ELSE
+            atmos_fluxes%FrshFlux_Runoff(n,i_blk) = buffer(nn+n,1) / rhoh2o
+          ENDIF
+        ENDDO
+      ENDDO
+!ICON_OMP_END_PARALLEL_DO
+      !
+      CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%FrshFlux_Runoff(:,:))
     END IF
 
     IF (ltimer) CALL timer_stop(timer_coupling)
