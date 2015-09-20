@@ -64,7 +64,7 @@ MODULE mo_ocean_physics
   USE mo_impl_constants,      ONLY: success, max_char_length, min_dolic, sea
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_util_dbg_prnt,       ONLY: dbg_print, debug_print_MaxMinMean
-  USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_onEdges_Pointer_3d_wp, t_onCells_FullLevels_Pointer_wp, t_operator_coeff
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_onEdges_Pointer_3d_wp, t_onCells_HalfLevels_Pointer_wp, t_operator_coeff
   USE mo_ocean_state,         ONLY: oce_config
   USE mo_physical_constants,  ONLY: grav, sitodbar,sal_ref
   USE mo_math_constants,      ONLY: dbl_eps
@@ -128,7 +128,7 @@ MODULE mo_ocean_physics
     REAL(wp),POINTER ::     &
       & a_veloc_v(:,:,:),  & ! coefficient of vertical velocity diffusion
       & a_tracer_v(:,:,:,:)  ! coefficient of vertical tracer diffusion
-    TYPE(t_onCells_FullLevels_Pointer_wp), ALLOCATABLE :: tracer_v_ptr(:)
+    TYPE(t_onCells_HalfLevels_Pointer_wp), ALLOCATABLE :: tracer_v_ptr(:)
 
     !constant background values of coefficients above
     REAL(wp) :: k_veloc_h_back, &! coefficient of horizontal velocity diffusion

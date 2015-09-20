@@ -33,7 +33,7 @@ MODULE mo_ocean_Types
   PUBLIC :: t_hydro_ocean_diag
   PUBLIC :: t_hydro_ocean_aux
   PUBLIC :: t_hydro_ocean_acc
-  PUBLIC :: t_onCells_Pointer_3d_wp, t_onCells_FullLevels_Pointer_wp, t_onEdges_Pointer_3d_wp
+  PUBLIC :: t_onCells_Pointer_3d_wp, t_onCells_HalfLevels_Pointer_wp, t_onEdges_Pointer_3d_wp
   PUBLIC :: t_oce_config
   PUBLIC :: t_ocean_tracer
   
@@ -45,15 +45,15 @@ MODULE mo_ocean_Types
   TYPE t_onCells_Pointer_3d_wp
     onCells :: p  ! pointer to 3D array
   END TYPE t_onCells_Pointer_3d_wp
-  TYPE t_onCells_FullLevels_Pointer_wp
-    onCells_FullLevels :: p  ! pointer to 3D array
-  END TYPE t_onCells_FullLevels_Pointer_wp
+  TYPE t_onCells_HalfLevels_Pointer_wp
+    onCells_HalfLevels :: p  ! pointer to 3D array
+  END TYPE t_onCells_HalfLevels_Pointer_wp
   TYPE t_onEdges_Pointer_3d_wp
     onCells :: p  ! pointer to 3D array
   END TYPE t_onEdges_Pointer_3d_wp
-  TYPE t_onEdges_FullLevels_Pointer_wp
-    onEdges_FullLevels :: p  ! pointer to 3D array
-  END TYPE t_onEdges_FullLevels_Pointer_wp
+  TYPE t_onEdges_HalfLevels_Pointer_wp
+    onEdges_HalfLevels :: p  ! pointer to 3D array
+  END TYPE t_onEdges_HalfLevels_Pointer_wp
   
 !   TYPE t_pointer_2d_wp
 !     REAL(wp),POINTER :: p(:,:)   ! pointer to 2D array
@@ -93,7 +93,7 @@ MODULE mo_ocean_Types
     !!             Position of first surface is 0.
     !!             Dimension: n_zlvp = n_zlev + 1
     !!             The vertical velocities are evaluated at such surfaces.
-    onGrid_1DFullLevels :: zlev_i
+    onGrid_HalfLevels1D :: zlev_i
     
     !! del_zlev_i: distance between two z-coordinate surfaces. The first is
     !!             the distance from the ocean surface = zlev_m(1)
@@ -191,10 +191,10 @@ MODULE mo_ocean_Types
     onCells_2D_Type(t_cartesian_coordinates) :: &
       & p_mass_flux_sfc_cc  ! mass flux at surface in cartesian coordinates
       
-    onCells_FullLevels_tracers ::        &
+    onCells_HalfLevels_tracers ::        &
       & GMRedi_flux_vert
 
-    onCells_FullLevels ::        &
+    onCells_HalfLevels ::        &
       & zgrad_rho      ,& ! vertical density gradient. Unit: [kg/m^2] this is allocated on n_zlev
       & w              ,& ! vertical velocity. Unit [m/s].
       & w_old          ,& ! vertical velocity from previous timestep. Unit [m/s].
@@ -222,7 +222,7 @@ MODULE mo_ocean_Types
       & cfl_horz,       & ! horizontal cfl values
       & vn  
       
-    onEdges_FullLevels :: &
+    onEdges_HalfLevels :: &
       & w_e            ! vertical velocity at edges. Unit [m/s]
 
     onVertices :: &
@@ -316,7 +316,7 @@ MODULE mo_ocean_Types
       & div_mass_flx_c   ,& ! divergence of mass flux at cells. Unit [?].
       & kin                 ! kinetic energy. Unit [m/s].
 
-    onCells_FullLevels :: &
+    onCells_HalfLevels :: &
       & w                ,& ! vertical velocity. Unit [m/s].
       & w_time_weighted  ,& ! weighted vertical velocity
       & press_hyd           ! hydrostatic pressure. Unit [m]
@@ -355,10 +355,10 @@ MODULE mo_ocean_Types
     onEdges :: &
       & k_veloc_h             ! coefficient of horizontal velocity diffusion
 
-    onCells_FullLevels_tracers ::    &
+    onCells_HalfLevels_tracers ::    &
       & a_tracer_v            ! coefficient of vertical tracer diffusion
     
-    onEdges_FullLevels ::    &
+    onEdges_HalfLevels ::    &
       & a_veloc_v             ! coefficient of vertical velocity diffusion
       
     TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_horz_physics_ptr(:)

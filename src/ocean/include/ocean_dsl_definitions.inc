@@ -2,13 +2,13 @@
 
 #define onCells_3D_tracers  REAL(wp), POINTER, DIMENSION(:,:,:,:)
 #define onCells_2D_tracers  REAL(wp), POINTER, DIMENSION(:,:,:)
-#define onCells_FullLevels_tracers REAL(wp), POINTER, DIMENSION(:,:,:,:)
+#define onCells_HalfLevels_tracers REAL(wp), POINTER, DIMENSION(:,:,:,:)
 
 #define onCells_3D_Type(tp) TYPE(tp), POINTER, DIMENSION(:,:,:)
 #define onCells_3D_RealPrecision(pr) REAL(pr), POINTER, DIMENSION(:,:,:)
 #define onCells_3D_Real REAL(wp),  POINTER, DIMENSION(:,:,:)
-#define onCells_FullLevels_tracers REAL(wp), POINTER, DIMENSION(:,:,:,:)
-#define onCells_FullLevels         REAL(wp), POINTER, DIMENSION(:,:,:)
+#define onCells_HalfLevels_tracers REAL(wp), POINTER, DIMENSION(:,:,:,:)
+#define onCells_HalfLevels         REAL(wp), POINTER, DIMENSION(:,:,:)
 
 
 #define onCells_2D_Type(tp) TYPE(tp), POINTER, DIMENSION(:,:)
@@ -19,7 +19,7 @@
 #define onCells_2D_Int INTEGER, POINTER, DIMENSION(:,:)
 
 #define onCells_1D_Real REAL(wp), POINTER, DIMENSION(:)
-#define onCells_1DFullLevels_Real REAL(wp), POINTER, DIMENSION(:)
+#define onCells_HalfLevels1D_Real REAL(wp), POINTER, DIMENSION(:)
 
 #define onEdges_3D_tracers  REAL(wp), POINTER, DIMENSION(:,:,:,:)
 #define onEdges_3D_RealPrecision(pr) REAL(pr), POINTER, DIMENSION(:,:,:)
@@ -28,7 +28,7 @@
 #define onEdges_3D_Int INTEGER, POINTER, DIMENSION(:,:,:)
 #define onEdges_3D_Type(tp) TYPE(tp), POINTER, DIMENSION(:,:,:)
 
-#define onEdges_FullLevels REAL(wp), POINTER, DIMENSION(:,:,:)
+#define onEdges_HalfLevels REAL(wp), POINTER, DIMENSION(:,:,:)
 #define onEdges_2D_Real REAL(wp), POINTER, DIMENSION(:,:)
 #define onEdges_2D_RealPrecision(pr) REAL(pr), POINTER,  DIMENSION(:,:)
 #define onEdges_2D_Int INTEGER, POINTER, DIMENSION(:,:)
@@ -78,7 +78,7 @@
 ! generic types
 #define onGrid_1D_Real REAL(wp), POINTER, DIMENSION(:)
 #define onGrid_1D_Int   INTEGER, POINTER, DIMENSION(:)
-#define onGrid_1DFullLevels_Real REAL(wp), POINTER, DIMENSION(:)
+#define onGrid_HalfLevels1D_Real REAL(wp), POINTER, DIMENSION(:)
 
 !---------------------
 ! shortcuts
@@ -92,7 +92,7 @@
 #define onVertices_2D onVertices_2D_Real
 
 #define onCells_1D onCells_1D_Real
-#define onCells_1DFullLevels onCells_1DFullLevels_Real
+#define onCells_HalfLevels1D onCells_HalfLevels1D_Real
 
 #define onCells_Type(tp) onCells_3D_Type(tp)
 #define onEdges_Type(tp) onEdges_3D_Type(tp)
@@ -118,7 +118,7 @@
 #define onEdges_Connectivity onEdges_2D_Connectivity
 
 #define onGrid_1D onGrid_1D_Real
-#define onGrid_1DFullLevels onGrid_1DFullLevels_Real
+#define onGrid_HalfLevels1D onGrid_HalfLevels1D_Real
 
 !---------------------
 ! Upper-lower case
