@@ -32,8 +32,9 @@ MODULE mo_nh_torus_exp
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, min_rledge, min_rlcell, SUCCESS
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_physical_constants,  ONLY: rd, rv, cpd, p0ref, cvd_o_rd, rd_o_cpd, &
-     &                              tmelt,grav, alv, vtmpc1
+     &                              tmelt,grav, alv, vtmpc1, rdv
   USE mo_nh_testcases_nml,    ONLY: ape_sst_val, u_cbl, v_cbl, th_cbl, psfc_cbl
+  USE mo_nh_wk_exp,           ONLY: bub_amp, bub_ver_width, bub_hor_width, bubctr_z
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_math_constants,      ONLY: pi, pi2, rad2deg, pi_2
@@ -726,17 +727,29 @@ MODULE mo_nh_torus_exp
     TYPE(t_nh_ref),        INTENT(INOUT)::  ptr_nh_ref
 
     REAL(wp) :: z_exner_h(1:nproma,ptr_patch%nlev+1), z_help(1:nproma) 
-    REAL(wp) :: ex_sfc, x_loc(3), x_c(3), psfc_in, dis
+    REAL(wp) :: ex_sfc, x_loc(3), x_c(3), psfc_in, dis, inv_th0, pres_new
+    REAL(wp) :: th_new, qv_new, qc_new, th_old, th_ptb, temp_new
     REAL(wp), DIMENSION(ptr_patch%nlev) :: theta_in, qv_in, qc_in, tmp
     INTEGER  :: jc,jk,jb,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c
     INTEGER  :: nlev, nlevp1                  
-    INTEGER  :: nlen, jg
+    INTEGER  :: nlen, jg, itr
 
-    REAL(wp), PARAMETER, DIMENSION(3) :: x_bubble = (/10000._wp,0._wp,2000._wp/)
-    REAL(wp), PARAMETER, DIMENSION(3) :: x_r = (/2000._wp,0._wp,2000._wp/)
+    REAL(wp), DIMENSION(3) :: x_bubble 
+    CHARACTER(len=max_char_length),PARAMETER :: routine  = &
+         &   'mo_nh_torus_exp:init_warm_bubble'
   !-------------------------------------------------------------------------
 
+    !-------------------------------------------------------------------------
+    !Note that this souding is created from a matlab code that 
+    !iterates through the Eqs. 25,26,and 34 of Bryan and Fritsch's paper
+    !given theta_e, qt, and surface pressure. The source code is 
+    !in icon-aes-and/scripts/preprocessing/ named init.f90 and findzero.m
+    !which creates a sound_** file that is then used to read in below
+    !
+    !One can also use the fortran source code from Bryan's website to generate
+    !the initial condition
+    !-------------------------------------------------------------------------
     !Read the sounding file
     CALL  read_ext_profile (ptr_metrics%z_mc(2,:,2), theta_in, qv_in, qc_in, tmp, &
                             psfc_in)
@@ -795,30 +808,26 @@ MODULE mo_nh_torus_exp
                                      (z_exner_h(1:nlen,jk)+z_exner_h(1:nlen,jk+1))
       END DO
 
-      DO jk = 1 , nlev
-        ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
-                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)     
-      END DO !jk
-
-
-      CALL diagnose_pres_temp (ptr_metrics, ptr_nh_prog,ptr_nh_prog, ptr_nh_diag,     &
-                               ptr_patch, opt_calc_pres=.TRUE., opt_calc_temp=.TRUE.)
-
     ENDDO !jb
 
     !Zero wind
     ptr_nh_prog%vn = 0._wp
     ptr_nh_prog%w  = 0._wp
 
-    !Add perturbation to theta_v (same as in theta assuming qv,qc same)
+    !--------------------------------------------------------------------------
+    !Add perturbation to theta_v and iterate to get balanced thermodynamic state
+    !--------------------------------------------------------------------------
+
+    !Bubble center, note that torus domain has center in the middle
+    x_bubble = (/0._wp,0._wp,bubctr_z/)
 
     !First non-dimensionalize bubble ceter
-    x_c(1) = x_bubble(1) / x_r(1)
-    x_c(2) = 0._wp
-    x_c(3) = x_bubble(3) / x_r(3)
+    x_c(1) = x_bubble(1) / bub_hor_width
+    x_c(3) = x_bubble(3) / bub_ver_width
 
-    !Set y coord to 0
-    x_loc(2) = 0._wp
+
+    !the th0 ratio
+    inv_th0 = 1._wp / 300._wp
 
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
@@ -828,15 +837,55 @@ MODULE mo_nh_torus_exp
       ENDIF
       DO jc = 1 , nlen
         DO jk = 1 , nlev
-          x_loc(1) = ptr_patch%cells%cartesian_center(jc,jb)%x(1)/x_r(1)
-          x_loc(3) = ptr_metrics%z_mc(jc,jk,jb)/x_r(3)
+          x_loc(1) = ptr_patch%cells%cartesian_center(jc,jb)%x(1)/bub_hor_width
+          x_loc(2) = ptr_patch%cells%cartesian_center(jc,jb)%x(2)/bub_hor_width
+          x_loc(3) = ptr_metrics%z_mc(jc,jk,jb)/bub_ver_width
+            
+          !to minimize the 3D effect
+          x_c(2)   = x_loc(2)
 
           dis = plane_torus_distance(x_loc,x_c,ptr_patch%geometry_info)
-          ptr_nh_prog%theta_v(jc,jk,jb) = ptr_nh_prog%theta_v(jc,jk,jb) * ( 1._wp + &
-                                          2._wp * cos(pi_2*dis)**2 )
+
+          IF(dis < 1._wp)THEN
+            th_ptb =  bub_amp * cos(pi_2*dis)**2 * inv_th0
+            qv_new = qv_in(jk)
+            qc_new = qc_in(jk)
+            pres_new = p0ref*ptr_nh_prog%exner(jc,jk,jb)**(cpd/rd)
+  
+            DO itr = 1 , 20 
+             th_new = ( th_ptb + 1._wp ) * ptr_nh_prog%theta_v(jc,jk,jb) / &
+                       (1._wp + vtmpc1 * qv_new - qc_new)
+             temp_new = th_new * ptr_nh_prog%exner(jc,jk,jb)
+             qv_new   = spec_humi(sat_pres_water(temp_new),pres_new)
+             qc_new   = qv_in(jk) + qc_in(jk) - qv_new
+
+             IF(qc_new<0._wp)CALL finish(TRIM(routine), 'qc < 0')
+            END DO
+
+            !assign values to proper prog vars
+            ptr_nh_prog%tracer(jc,jk,jb,iqv) = qv_new 
+            ptr_nh_prog%tracer(jc,jk,jb,iqc) = qc_new
+            ptr_nh_prog%theta_v(jc,jk,jb) = th_new * ( 1._wp + vtmpc1*qv_new - qc_new ) 
+
+          END IF
+            
         END DO
       END DO
     END DO 
+
+
+    !calculate some of the variables
+    DO jb = 1, nblks_c
+      IF (jb /= nblks_c) THEN
+         nlen = nproma
+      ELSE
+         nlen = npromz_c
+      ENDIF
+      DO jk = 1 , nlev
+        ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
+                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+      END DO !jk
+    ENDDO !jb
 
 
   END SUBROUTINE init_warm_bubble

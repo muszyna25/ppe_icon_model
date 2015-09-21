@@ -466,6 +466,7 @@ MODULE mo_surface_les
 
     !No fluxes
     CASE(0)
+
       prm_diag%shfl_s  = 0._wp
       prm_diag%lhfl_s  = 0._wp 
       prm_diag%umfl_s  = 0._wp 
