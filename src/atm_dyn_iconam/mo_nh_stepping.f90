@@ -1632,6 +1632,7 @@ MODULE mo_nh_stepping
             time_config%sim_time(jgc)    = time_config%sim_time(jg)
             t_elapsed_phy(jgc,:)         = 0._wp
             linit_dyn(jgc)               = .TRUE.
+            dt_sub                       = dt_loc/2._wp
 
             IF (  atm_phy_nwp_config(jgc)%inwp_surface == 1 ) THEN
               CALL aggregate_landvars(p_patch(jg), ext_data(jg),                &
@@ -1682,7 +1683,7 @@ MODULE mo_nh_stepping
               ENDIF
             ENDIF
 
-            CALL init_slowphysics (datetime_current, jgc, dt_loc, time_config%sim_time)
+            CALL init_slowphysics (datetime_current, jgc, dt_sub, time_config%sim_time)
 
             WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' started at time ',time_config%sim_time(jg)
             CALL message('integrate_nh', TRIM(message_text))
@@ -1983,6 +1984,10 @@ MODULE mo_nh_stepping
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
           &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in 
+
+      ! This is to enforce another slow physics call at the end of the first time step
+      lcall_phy(jg,:)     = .FALSE.
+      t_elapsed_phy(jg,:) = dt_phy(jg,:) - dt_loc
 
       CASE (iecham) ! iforcing
 
