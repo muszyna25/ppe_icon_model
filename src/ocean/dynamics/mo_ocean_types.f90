@@ -16,7 +16,7 @@
 !=============================================================================================
 #include "ocean_dsl_definitions.inc"
 !=============================================================================================
-MODULE mo_ocean_Types
+MODULE mo_ocean_types
 
   USE mo_kind,                ONLY: wp, sp
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
@@ -508,5 +508,5 @@ MODULE mo_ocean_Types
 
   END TYPE t_hydro_ocean_state
   
-END MODULE mo_ocean_Types
+END MODULE mo_ocean_types
 
