@@ -100,7 +100,7 @@ MODULE mo_name_list_output
     &                                     print_timer
   USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
   ! config
-  USE mo_master_nml,                ONLY: model_base_dir
+  USE mo_master_config,             ONLY: getModelBaseDir
   USE mo_grid_config,               ONLY: n_dom
   USE mo_run_config,                ONLY: msg_level
   USE mo_io_config,                 ONLY: lkeep_in_sync
@@ -539,7 +539,7 @@ CONTAINS
     CALL deallocateTimedelta(forecast_delta)
 
     ! substitute tokens in ready file name
-    CALL associate_keyword("<path>",            TRIM(model_base_dir),            keywords)
+    CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),         keywords)
     CALL associate_keyword("<datetime>",        TRIM(get_current_date(ev)),      keywords)
     CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),        keywords)
     rdy_filename = TRIM(with_keywords(keywords, ev%output_event%event_data%name))

@@ -38,7 +38,8 @@ MODULE mo_name_list_output_init
                                                 & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname, &
                                                 & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals, &
                                                 & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit, &
-                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis
+                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,   &
+                                                & vlistDefAttTxt, CDI_GLOBAL
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
                                                 & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_REFERENCE, GRID_EDGE, GRID_CELL, &
                                                 & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
@@ -51,8 +52,8 @@ MODULE mo_name_list_output_init
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,      &
     &                                             MAX_NZLEVS, MAX_NILEVS
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
-  USE mo_master_nml,                        ONLY: model_base_dir
-  USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
+  USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
+  USE mo_master_control,                    ONLY: my_process_is_ocean
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
@@ -68,7 +69,7 @@ MODULE mo_name_list_output_init
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list, one_of
   USE mo_datetime,                          ONLY: t_datetime
-  USE mo_cf_convention,                     ONLY: t_cf_var
+  USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string, &
@@ -464,7 +465,7 @@ CONTAINS
       CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
       CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
 
-      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+      CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       IF(output_nml_dict     /= ' ') THEN
         cfilename = TRIM(with_keywords(keywords, output_nml_dict))
         CALL message(routine, "load dictionary file.")
@@ -963,14 +964,8 @@ CONTAINS
     &                              opt_lprintlist, opt_l_is_ocean)
 
 #ifndef NOMPI
-#ifdef  __SUNPRO_F95
-    INCLUDE "mpif.h"
-#else
     USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
 #endif
-! __SUNPRO_F95
-#endif
-! NOMPI
 
     !> Data structure containing all necessary data for mapping an
     !  output time stamp onto a corresponding simulation step index.
@@ -1621,7 +1616,7 @@ CONTAINS
         fname_metadata%extn                     = TRIM(p_onl%filename_extn)
       END IF
 
-      IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
         ! Restart case: Get starting index of ouput from restart file
         !               (if there is such an attribute available).
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
@@ -1643,7 +1638,7 @@ CONTAINS
       ! special treatment of ocean model: model_date/run_start is the time at
       ! the beginning of the timestep. Output is written at the end of the
       ! timestep
-      IF (is_restart_run() .AND. my_process_is_ocean()) THEN
+      IF (isRestart() .AND. my_process_is_ocean()) THEN
         IF (TRIM(p_onl%output_start(2)) /= '') &
           CALL finish(routine, "Not implemented for ocean model with restart!")
         CALL get_datetime_string(p_onl%output_start(1), &
@@ -1712,7 +1707,7 @@ CONTAINS
       ! ------------------------------------------------------------------------------------------
       IF (dom_sim_step_info%jstep0 > 0) &
         &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, &
-        &                            is_restart_run(), lrecover_open_file=.TRUE.)
+        &                            isRestart(), lrecover_open_file=.TRUE.)
     END DO
 
     ! tell the root I/O process that all output event data structures
@@ -1728,7 +1723,7 @@ CONTAINS
 
     IF (dom_sim_step_info%jstep0 > 0) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, &
-      &                            is_restart_run(), lrecover_open_file=.TRUE.)
+      &                            isRestart(), lrecover_open_file=.TRUE.)
     ! print a table with all output events
     IF (.NOT. my_process_is_mpi_test()) THEN
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
@@ -2311,7 +2306,7 @@ CONTAINS
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::setup_output_vlist"
-    INTEGER                         :: k, i_dom, ll_dim(2), gridtype, idate, itime
+    INTEGER                         :: k, i_dom, ll_dim(2), gridtype, idate, itime, iret
     TYPE(t_lon_lat_data), POINTER   :: lonlat
     TYPE(t_datetime)                :: ini_datetime
     CHARACTER(len=1)                :: uuid_string(16)
@@ -2352,7 +2347,18 @@ CONTAINS
     ! define Institute
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
 
-
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'title',       &
+         &                LEN_TRIM(cf_global_info%title),       TRIM(cf_global_info%title))       
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'institution', &
+         &                LEN_TRIM(cf_global_info%institution), TRIM(cf_global_info%institution)) 
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'source',      &
+         &                LEN_TRIM(cf_global_info%source),      TRIM(cf_global_info%source))      
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'history',     &
+         &                LEN_TRIM(cf_global_info%history),     TRIM(cf_global_info%history))     
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'references',  &
+         &                LEN_TRIM(cf_global_info%references),  TRIM(cf_global_info%references))  
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'comment',     &
+         &                LEN_TRIM(cf_global_info%comment),     TRIM(cf_global_info%comment))     
 
     ! 3. add horizontal grid descriptions
 

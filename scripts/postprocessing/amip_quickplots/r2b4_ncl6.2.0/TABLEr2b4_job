@@ -32,7 +32,7 @@ nclsh ${QUELLE}/tab.ncl -pltdir=${PLTDIR} -quelle=${QUELLE}
 
 cdo -r remapycon,t63grid busy_atm_phy.nc busy_atm_phy_t63.nc
 
-cdo -f grb2 copy busy_atm_phy_t63.nc busy_atm_phy_t63.grb
+cdo -f grb2 delcode,255 busy_atm_phy_t63.nc busy_atm_phy_t63.grb
 
 
   if cdo -s showcode -selcode,97   busy_atm_phy_t63.grb  > /dev/null
