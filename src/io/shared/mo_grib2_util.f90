@@ -407,6 +407,7 @@ CONTAINS
         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter(:))
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter(:))
+      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
 
     CASE ('volcash_diag_mc', 'volcash_diag_mc_max')
       CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
