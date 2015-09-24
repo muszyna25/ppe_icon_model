@@ -1,0 +1,226 @@
+img.menuheader
+{
+ height: 16px;
+}
+
+td.menuheader
+{
+ vertical-align: top;
+ padding: 2px;
+ background-color: #A9D0F5;
+ border-width: 1;
+ border-bottom-width: 0;
+ border-style: solid;
+ border-color: #BBBBBB;
+ font-family: Arial,Helvetica; 
+ font-weight: bold; 
+ font-size: 14px;
+}
+
+td.menuheaderleft
+{
+ vertical-align: top;
+ padding: 2px;
+ background-color: #A9D0F5;
+ border-width: 1;
+ border-bottom-width: 0;
+ border-right-width: 0;
+ border-style: solid;
+ border-color: #BBBBBB;
+ font-family: Arial,Helvetica; 
+ font-weight: bold; 
+ font-size: 14px;
+}
+
+td.menuheaderright
+{
+ vertical-align: top;
+ padding: 2px;
+ background-color: #A9D0F5;
+ border-width: 1;
+ border-bottom-width: 0;
+ border-left-width: 0;
+ border-style: solid;
+ border-color: #BBBBBB;
+ font-family: Arial,Helvetica; 
+ font-weight: bold; 
+ font-size: 14px;
+}
+
+td.menubox
+{
+ vertical-align: top;
+ padding: 3px;
+ background-color: #F0F0F0 ;
+ border-width: 1;
+ border-top-width: 0;
+ border-style: solid;
+ border-color: #BBBBBB;
+ font-family: Arial,Helvetica;
+ font-size: 13px;
+}
+
+td.menuspace
+{
+ vertical-align: top;
+ padding: 2px;
+ background-color: #FFFFFF ;
+ border-width: 0;
+ border-style: solid;
+ border-color: #E0E0E0;
+}
+
+td.productheader
+{
+ vertical-align: top;
+ padding: 2px;
+ background-color: #A9D0F5;
+ border-width: 1;
+ border-bottom-width: 0;
+ border-style: solid;
+ border-color: #BBBBBB;
+ font-family: Arial,Helvetica; 
+ font-weight: bold; 
+ font-size: 14px;
+}
+
+td.productlist
+{
+ vertical-align: top;
+ padding: 3px;
+ border-width: 1;
+ border-top-width: 0;
+ border-style: solid;
+ border-color: #E0E0E0;
+ font-family: Arial,Helvetica;
+ font-size: 15px;
+}
+
+td.imagebox
+{
+ width: 100%;
+ vertical-align: top;
+ horizontal-align: left;
+ border-width: 0;
+ border-style: solid;
+ border-color: #000000;
+ font-family: Arial,Helvetica; 
+ font-weight: bold; 
+ font-size: 14px;
+}
+
+td.listheader
+{
+ vertical-align: top;
+ horizontal-align: left;
+ border-width: 0;
+ border-style: solid;
+ border-color: #000000;
+ background-color: #BBBBBB;
+ font-family: Arial,Helvetica; 
+ font-weight: bold; 
+ font-size: 16px;
+}
+
+td.sidemenu
+{
+ vertical-align: top;
+ horizontal-align: left;
+}
+
+div.plotsum
+{
+ height: 22px;
+ padding: 1px;
+ background-color: #BBBBBB;
+ font-family: Arial,Helvetica; 
+ font-size: 16px;
+ text-align: left;
+}
+
+div.header
+{
+ background-color: #324a92;
+ vertical-align: middle;
+ text-align: center;
+}
+
+div.header .logo
+{
+ float: left;
+}
+
+div.logo img
+{
+ width: 55px;
+}
+
+div.header .title
+{
+ float: left;
+ vertical-align: middle;
+ text-align: center;
+ width: 70%;
+}
+
+div.header .title a
+{
+ position: absolute;
+ color: #ffffff;
+ vertical-align: middle;
+ font-weight: bold; 
+ font-size: 25px;
+ text-align: center;
+ top: 15;
+}
+
+div.clearer
+{
+ clear: both;
+ line-height: 0;
+ height: 0;
+ overflow: hidden;
+}
+
+div.footer .version
+{
+ float: right;
+ vertical-align: middle;
+ text-align: center;
+}
+
+div.footer .version a
+{
+ color: #ffffff;
+ vertical-align: middle;
+ font-size: 16px;
+ text-align: center;
+}
+
+div.footer
+{
+ background-color: #324a92;
+ vertical-align: middle;
+ text-align: center;
+}
+
+img.menushow
+{
+ float: left;
+ height: 14px;
+ border-width: 0;
+ border-style: solid;
+ border-color: #ffffff;
+ display: none;
+}
+
+img.menuhide
+{
+ float: right;
+ height: 14px;
+ border-width: 0;
+ border-style: solid;
+ border-color: #ffffff;
+ display: inline;
+}
+

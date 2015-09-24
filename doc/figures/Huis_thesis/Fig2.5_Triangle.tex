@@ -1,0 +1,79 @@
+\documentclass[8pt]{article}
+\textwidth 21cm \oddsidemargin  -2cm
+\usepackage{pstricks,pstricks-add,pst-math,pst-xkey}
+\usepackage{amssymb}
+\pagestyle{empty}
+
+\begin{document}
+\newrgbcolor{qqttzz}{0 0.2 0.6}
+\newrgbcolor{ccqqqq}{0.8 0 0}
+\psset{xunit=0.9cm,yunit=0.5196152422706631cm}
+\begin{pspicture*}(-6,-6.48)(15,7)
+
+%----- grid and axes -----
+%\psgrid[subgriddiv=0,gridlabels=0,gridcolor=lightgray](0,0)(-5.4,-6.4)(15,7)
+\psset{xunit=3.6cm,yunit=3.6cm,algebraic=true,dotstyle=*,dotsize=3pt
+0,linewidth=0.8pt,arrowsize=3pt 2,arrowinset=0.25}
+\psaxes[xAxis=true,yAxis=true,labels=none,Dx=0.2,Dy=0.2,linestyle=dashed,dash=1.5pt
+1.5pt,linecolor=black,ticksize=0pt
+0,subticks=2]{->}(0,0)(-0.6,-0.5)(0.6,0.9)
+\rput[bl](0.62,-0.03){$x$} \rput[bl](0.05,0.85){$y$}
+
+%----- the origin----
+\rput[tl](0.02,-0.02){$O$}
+
+%----- triangle edges -----
+\psline[linewidth=1.4pt,linecolor=qqttzz](-0.5,-0.29)(0.5,-0.29)
+\psline[linewidth=1.4pt,linecolor=qqttzz](0.5,-0.29)(0,0.58)
+\psline[linewidth=1.4pt,linecolor=qqttzz](0,0.58)(-0.5,-0.29)
+\rput[bl](-0.26,0.3){\qqttzz{$l_3$}} \rput[bl](
+0.2,0.3){\qqttzz{$l_2$}} \rput[bl](-0.18,-0.25){\qqttzz{$l_1$}}
+
+%----- triangle vertices -----
+%
+\rput[bl](-0.65,-0.25){$\varkappa_1$}
+\rput[tl](-1.05,-0.34){$\left(-\frac l2,\,-(-1)^\delta\,\frac{\sqrt{3}}{6}l\right)$} \psdots[dotsize=4pt 0](-0.5,-0.29)
+%
+\rput[bl](0.53,-0.25){$\varkappa_2$}
+\rput[tl](0.25,-0.34){$\left(\frac l2,\,-(-1)^\delta\,\frac{\sqrt{3}}{6}l\right)$} \psdots[dotsize=4pt 0](0.5,-0.29)
+%
+\rput[bl](-0.15,0.6){$\varkappa_3$} \rput[tl](0.03,0.75) {$\left(0,\,(-1)^\delta\,\frac{\sqrt{3}}{3}l\right)$}
+\psdots[dotsize=4pt 0](0,0.58)
+
+%----- normal vectors: arrows and the values----
+
+\psline[linewidth=2pt,linecolor=ccqqqq,arrowsize=2pt 2,arrowinset=0.2]{->}(0.25,0.14)(0.3933,0.225)
+\rput[tl](0.45,0.4){$\ccqqqq{{\textbf n}_{l_2}=}$}
+\rput[tl](0.45,0.3){$\ccqqqq{\left(\frac{\sqrt{3}}{2},(-1)^{\delta}\,\frac12\right)}$}
+
+\psline[linewidth=2pt,linecolor=ccqqqq,arrowsize=2pt 2,arrowinset=0.2]{->}(-0.25,0.14)(-0.3933,0.225)
+\rput[tl](-1.1,0.4){$\ccqqqq{{\textbf n}_{l_3}=}$}
+\rput[tl](-1.1,0.3){$\ccqqqq{\left(-\frac{\sqrt{3}}{2},(-1)^\delta\frac 12\right)}$}
+
+\psline[linewidth=2pt,linecolor=ccqqqq,arrowsize=2pt 2,arrowinset=0.2]{->}(0,-0.29)(-0,-0.45)
+\rput[tl](-0.2,-0.56){$\ccqqqq{{\textbf n}_{l_1}=}$}
+\rput[tl](-0.2,-0.66){$\ccqqqq{\left(0,-(-1)^\delta\right)}$}
+
+%----- midpoint of the edges ---
+\psdots[linecolor=darkgray](0.25,0.14)
+\rput[bl](0.15,0.08){\darkgray{$o_2$}}
+\psdots[linecolor=darkgray](-0.25,0.14)
+\rput[bl](-0.21,0.08){\darkgray{$o_3$}}
+\psdots[linecolor=darkgray](0,-0.29)
+\rput[bl](0.03,-0.25){\darkgray{$o_1$}}
+
+%----- expression of the edges -------
+
+\rput[tl](1.4,0.43){\qqttzz{$l_1: \,y=-(-1)^\delta\frac{\sqrt{3}}{6}l $}}
+\rput[tl](1.4,0.15){\qqttzz{$l_2: \,y=-(-1)^\delta\sqrt{3}\left(x-\frac l 3\right)
+                     ,\;{\rm or}\;\;x=-(-1)^\delta\frac{\sqrt{3}}{3}y+\frac l 3$}}
+\rput[tl](1.4,-0.14){\qqttzz{$l_3: \,y= (-1)^\delta\sqrt{3}\left(x+\frac l3\right)
+                     ,\;{\rm or}\;\; x=(-1)^\delta\frac{\sqrt{3}}{3}y-\frac l 3$}}
+
+
+
+
+
+\end{pspicture*}
+\end{document}
+

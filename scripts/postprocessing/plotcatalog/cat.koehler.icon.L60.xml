@@ -1,0 +1,153 @@
+<?xml version="1.0" standalone="yes" ?>
+<catalog>
+
+<author>Martin Koehler</author>
+<description>ICON 10 day forecast comparison.</description>
+<docutext>
+&lt; h4 &gt; Tests of 4 cloud diagnostic treatments:  &lt; /h4 &gt;
+&lt; li &gt; exp00: no clouds               &lt; br &gt;
+&lt; li &gt; exp01: grid-scale clouds       &lt; br &gt;
+&lt; li &gt; exp02: Gaussian liquid clouds  &lt; br &gt;
+&lt; li &gt; exp03: COSMO clouds            &lt; br &gt; &lt; br &gt;
+The ICON model was run with parameterizations for 
+&lt; li &gt; microphysics   &lt; br &gt;
+&lt; li &gt; convection     &lt; br &gt;
+&lt; li &gt; radiation      &lt; br &gt;
+&lt; li &gt; cloud cover    &lt; br &gt; on 60 levels for 15 days.  
+The zonal means are the average of the last 5 days.  
+The maps correspond to the last time at 15 days. &lt; br &gt;
+&lt; h4 &gt; Further tests: &lt; /h4 &gt;
+&lt; li &gt; exp04: no cloud, no radiation           &lt; br &gt;
+&lt; li &gt; exp05: COSMO clouds with fix of ql,qi in mixed grid/SGS clouds &lt; br &gt;
+</docutext>
+<filename>#exp#/JWmoistnh.R2B04L60.DOM01.#exp##var#.png</filename>
+<plotdir>http://oflxs04.dwd.de/~mkoehler/plots/icon-plots.for-mpi</plotdir>
+<related><text>Experiments on L35</text><cat>cat.koehler.icon.L35.xml</cat></related>
+
+<!-- Parameters -->
+
+<parameter>
+  <shortname>  exp  </shortname>  <fullname>  Experiment  </fullname>
+  <value>  <short>   exp00  </short>   <full>   exp00: no clouds           </full>  </value> 
+  <value>  <short>   exp01  </short>   <full>   exp01: grid-scale clouds   </full>  </value>
+  <value>  <short>   exp02  </short>   <full>   exp02: turbulence clouds   </full>  </value> 
+  <value>  <short>   exp03  </short>   <full>   exp03: COSMO clouds        </full>  </value> 
+  <value>  <short>   exp04  </short>   <full>   exp04: no clouds, no rad.  </full>  </value> 
+  <value>  <short>   exp05  </short>   <full>   exp05: COSMO clouds fixed  </full>  </value> 
+</parameter>
+
+<parameter>
+  <shortname>  var  </shortname>  <fullname>  Variable  </fullname>
+  <value>  <short>   .zonal_cross-0   </short>   <full>   Zonal Cross-section: CC       </full>  </value> 
+  <value>  <short>   .zonal_cross-1   </short>   <full>   Zonal Cross-section: T        </full>  </value> 
+  <value>  <short>   .zonal_cross-2   </short>   <full>   Zonal Cross-section: QV diag  </full>  </value> 
+  <value>  <short>   .zonal_cross-3   </short>   <full>   Zonal Cross-section: QV grid  </full>  </value> 
+  <value>  <short>   .zonal_cross-4   </short>   <full>   Zonal Cross-section: QC diag  </full>  </value> 
+  <value>  <short>   .zonal_cross-5   </short>   <full>   Zonal Cross-section: QC grid  </full>  </value> 
+  <value>  <short>   .zonal_cross-6   </short>   <full>   Zonal Cross-section: QI diag  </full>  </value> 
+  <value>  <short>   .zonal_cross-7   </short>   <full>   Zonal Cross-section: QI grid  </full>  </value> 
+  <value>  <short>   .zonal_cross-8   </short>   <full>   Zonal Cross-section: QR       </full>  </value> 
+  <value>  <short>   .zonal_cross-9   </short>   <full>   Zonal Cross-section: QS       </full>  </value> 
+  <value>  <short>   .zonal_cross-10  </short>   <full>   Zonal Cross-section: U        </full>  </value> 
+  <value>  <short>   .zonal_cross-11  </short>   <full>   Zonal Cross-section: V        </full>  </value> 
+  <value>  <short>   .zonal_cross-12  </short>   <full>   Zonal Cross-section: W        </full>  </value> 
+  <value>  <short>   .zonal_cross-13  </short>   <full>   Zonal Cross-section: u'v'     </full>  </value> 
+  <value>  <short>   .zonal_cross-14  </short>   <full>   Zonal Cross-section: T'v'     </full>  </value> 
+  <value>  <short>   .zonal_cross-15  </short>   <full>   Zonal Cross-section: u'2      </full>  </value> 
+  <value>  <short>   .zonal_cross-16  </short>   <full>   Zonal Cross-section: T'2      </full>  </value> 
+  <value>  <short>   .timeseries-0    </short>   <full>   Time Series: CC 1000m         </full>  </value> 
+  <value>  <short>   .timeseries-1    </short>   <full>   Time Series: CC 7000m         </full>  </value> 
+  <value>  <short>   .timeseries-2    </short>   <full>   Time Series: CC 11000m        </full>  </value> 
+  <value>  <short>   .timeseries-3    </short>   <full>   Time Series: T 1000m          </full>  </value> 
+  <value>  <short>   .timeseries-4    </short>   <full>   Time Series: T 7000m          </full>  </value> 
+  <value>  <short>   .timeseries-5    </short>   <full>   Time Series: T 11000m         </full>  </value> 
+  <value>  <short>   .timeseries-6    </short>   <full>   Time Series: QVdiag 1000m     </full>  </value> 
+  <value>  <short>   .timeseries-7    </short>   <full>   Time Series: QVdiag 7000m     </full>  </value> 
+  <value>  <short>   .timeseries-8    </short>   <full>   Time Series: QVdiag 11000m    </full>  </value> 
+  <value>  <short>   .timeseries-9    </short>   <full>   Time Series: QVgrid 1000m     </full>  </value> 
+  <value>  <short>   .timeseries-10   </short>   <full>   Time Series: QVgrid 7000m     </full>  </value> 
+  <value>  <short>   .timeseries-11   </short>   <full>   Time Series: QVgrid 11000m    </full>  </value> 
+  <value>  <short>   .timeseries-12   </short>   <full>   Time Series: QCdiag 1000m     </full>  </value> 
+  <value>  <short>   .timeseries-13   </short>   <full>   Time Series: QCdiag 7000m     </full>  </value> 
+  <value>  <short>   .timeseries-14   </short>   <full>   Time Series: QCdiag 11000m    </full>  </value> 
+  <value>  <short>   .timeseries-15   </short>   <full>   Time Series: QCgrid 1000m     </full>  </value> 
+  <value>  <short>   .timeseries-16   </short>   <full>   Time Series: QCgrid 7000m     </full>  </value> 
+  <value>  <short>   .timeseries-17   </short>   <full>   Time Series: QCgrid 11000m    </full>  </value> 
+  <value>  <short>   .timeseries-18   </short>   <full>   Time Series: QIdiag 1000m     </full>  </value> 
+  <value>  <short>   .timeseries-19   </short>   <full>   Time Series: QIdiag 7000m     </full>  </value> 
+  <value>  <short>   .timeseries-20   </short>   <full>   Time Series: QIdiag 11000m    </full>  </value> 
+  <value>  <short>   .timeseries-21   </short>   <full>   Time Series: QIgrid 1000m     </full>  </value> 
+  <value>  <short>   .timeseries-22   </short>   <full>   Time Series: QIgrid 7000m     </full>  </value> 
+  <value>  <short>   .timeseries-23   </short>   <full>   Time Series: QIgrid 11000m    </full>  </value> 
+  <value>  <short>   .timeseries-24   </short>   <full>   Time Series: QRgiag 1000m     </full>  </value> 
+  <value>  <short>   .timeseries-25   </short>   <full>   Time Series: QRdiag 7000m     </full>  </value> 
+  <value>  <short>   .timeseries-26   </short>   <full>   Time Series: QRdiag 11000m    </full>  </value> 
+  <value>  <short>   .timeseries-27   </short>   <full>   Time Series: QSgrid 1000m     </full>  </value> 
+  <value>  <short>   .timeseries-28   </short>   <full>   Time Series: QSgrid 7000m     </full>  </value> 
+  <value>  <short>   .timeseries-29   </short>   <full>   Time Series: QSgrid 11000m    </full>  </value> 
+  <value>  <short>   .timeseries-30   </short>   <full>   Time Series: U 1000m          </full>  </value> 
+  <value>  <short>   .timeseries-31   </short>   <full>   Time Series: U 7000m          </full>  </value> 
+  <value>  <short>   .timeseries-32   </short>   <full>   Time Series: U 11000m         </full>  </value> 
+  <value>  <short>   .timeseries-33   </short>   <full>   Time Series: V 1000m          </full>  </value> 
+  <value>  <short>   .timeseries-34   </short>   <full>   Time Series: V 7000m          </full>  </value> 
+  <value>  <short>   .timeseries-35   </short>   <full>   Time Series: V 11000m         </full>  </value> 
+  <value>  <short>   -exp00.maps-0    </short>   <full>   Maps: T 1000m                 </full>  </value> 
+  <value>  <short>   -exp00.maps-1    </short>   <full>   Maps: T 11000m                </full>  </value> 
+  <value>  <short>   -exp00.maps-2    </short>   <full>   Maps: T 11000m                </full>  </value> 
+  <value>  <short>   -exp00.maps-3    </short>   <full>   Maps: CC 1000m                </full>  </value> 
+  <value>  <short>   -exp00.maps-4    </short>   <full>   Maps: CC 11000m               </full>  </value> 
+  <value>  <short>   -exp00.maps-5    </short>   <full>   Maps: CC 11000m               </full>  </value> 
+  <value>  <short>   -exp00.maps-6    </short>   <full>   Maps: QVdiag 1000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-7    </short>   <full>   Maps: QVdiag 7000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-8    </short>   <full>   Maps: QVdiag 11000m           </full>  </value> 
+  <value>  <short>   -exp00.maps-9    </short>   <full>   Maps: QCdiag 1000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-10   </short>   <full>   Maps: QCdiag 7000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-11   </short>   <full>   Maps: QCdiag 11000m           </full>  </value> 
+  <value>  <short>   -exp00.maps-12   </short>   <full>   Maps: QIdiag 1000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-13   </short>   <full>   Maps: QIdiag 7000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-14   </short>   <full>   Maps: QIdiag 11000m           </full>  </value> 
+  <value>  <short>   -exp00.maps-15   </short>   <full>   Maps: QVgrid 1000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-16   </short>   <full>   Maps: QVgrid 7000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-17   </short>   <full>   Maps: QVgrid 11000m           </full>  </value> 
+  <value>  <short>   -exp00.maps-18   </short>   <full>   Maps: QCgrid 1000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-19   </short>   <full>   Maps: QCgrid 7000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-20   </short>   <full>   Maps: QCgrid 11000m           </full>  </value> 
+  <value>  <short>   -exp00.maps-21   </short>   <full>   Maps: QIdiag 1000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-22   </short>   <full>   Maps: QIdiag 7000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-23   </short>   <full>   Maps: QIdiag 11000m           </full>  </value> 
+  <value>  <short>   -exp00.maps-24   </short>   <full>   Maps: QRgrid 1000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-25   </short>   <full>   Maps: QRgrid 7000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-26   </short>   <full>   Maps: QRgrid 11000m           </full>  </value> 
+  <value>  <short>   -exp00.maps-27   </short>   <full>   Maps: QSdiag 1000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-28   </short>   <full>   Maps: QSdiag 7000m            </full>  </value> 
+  <value>  <short>   -exp00.maps-29   </short>   <full>   Maps: QSdiag 11000m           </full>  </value> 
+  <value>  <short>   -exp00.maps-30   </short>   <full>   Maps: Divergence 1000m        </full>  </value> 
+  <value>  <short>   -exp00.maps-31   </short>   <full>   Maps: Divergence 7000m        </full>  </value> 
+  <value>  <short>   -exp00.maps-32   </short>   <full>   Maps: Divergence 11000m       </full>  </value> 
+  <value>  <short>   -exp00.maps-33   </short>   <full>   Maps: U 1000m                 </full>  </value> 
+  <value>  <short>   -exp00.maps-34   </short>   <full>   Maps: U 7000m                 </full>  </value> 
+  <value>  <short>   -exp00.maps-35   </short>   <full>   Maps: U 11000m                </full>  </value> 
+  <value>  <short>   -exp00.maps-36   </short>   <full>   Maps: V 1000m                 </full>  </value> 
+  <value>  <short>   -exp00.maps-37   </short>   <full>   Maps: V 7000m                 </full>  </value> 
+  <value>  <short>   -exp00.maps-38   </short>   <full>   Maps: V 11000m                </full>  </value> 
+  <value>  <short>   -exp00.maps-39   </short>   <full>   Maps: W 1000m                 </full>  </value> 
+  <value>  <short>   -exp00.maps-40   </short>   <full>   Maps: W 7000m                 </full>  </value> 
+  <value>  <short>   -exp00.maps-41   </short>   <full>   Maps: W 11000m                </full>  </value> 
+  <value>  <short>   -exp00.maps-42   </short>   <full>   Maps: MSLP                    </full>  </value> 
+  <value>  <short>   -exp00.maps-43   </short>   <full>   Maps: Rain grid-scale         </full>  </value> 
+  <value>  <short>   -exp00.maps-44   </short>   <full>   Maps: Snow grid-scale         </full>  </value> 
+  <value>  <short>   -exp00.maps-45   </short>   <full>   Maps: Rain convective         </full>  </value> 
+  <value>  <short>   -exp00.maps-46   </short>   <full>   Maps: Snow convective         </full>  </value> 
+  <value>  <short>   -exp00.maps-47   </short>   <full>   Maps: Grid-Scale Precip       </full>  </value> 
+</parameter>
+
+</catalog>
+
+
+<!-- help:
+convert JWmoistnh.R2B04L60.DOM01.exp05.zonal_cross.ps JWmoistnh.R2B04L60.DOM01.exp05.zonal_cross.png
+convert -rotate 270 JWmoistnh.R2B04L60.DOM01.exp05.timeseries.ps JWmoistnh.R2B04L60.DOM01.exp05.timeseries.png
+convert JWmoistnh.R2B04L60.DOM01.exp05-exp00.maps.ps JWmoistnh.R2B04L60.DOM01.exp05-exp00.maps.png
+--> 
+
+

@@ -1,0 +1,75 @@
+\documentclass[11pt]{article}
+\textwidth 20cm \oddsidemargin  0cm
+\usepackage{pstricks,pstricks-add,pst-math,pst-xkey}
+\usepackage{amssymb}
+\pagestyle{empty}
+
+\newcommand{\vtx}        {\varkappa}
+\newcommand{\V}[1]       {{\bf #1}}
+\newcommand{\hl}         {\hat{l}}
+
+\begin{document}
+\newrgbcolor{zzffzz}{0.6 1 0.6}
+\newrgbcolor{qqttzz}{0 0.2 0.6}
+\newrgbcolor{zzzzqq}{0.6 0.6 0}
+\newrgbcolor{lightpink}{0.97 0.88 0.88}
+%\newrgbcolor{lightbrown}{0.9 0.8 0.5}
+\newrgbcolor{greenishbrown}{0.9 0.9 0.7}
+\newrgbcolor{darkgreen}{0.066 .67 0.066}
+\newrgbcolor{darkred}{0.7 0.3 0.3}
+\newrgbcolor{cczzqq}{0.7 0.7 0.4}
+\newrgbcolor{green}{0.75 0.86 0.75}
+\newrgbcolor{gray6}{0.6 0.6 0.6}
+\newrgbcolor{gray7}{0.7 0.7 0.7}
+\newrgbcolor{gray8}{0.8 0.8 0.8}
+\newrgbcolor{purple}{0.61 0.387 0.668}
+\newrgbcolor{greenn}{0.59 0.4375 0.11}
+\newrgbcolor{lightblue}{0.827 0.91 0.95}
+
+\psset{xunit=4.0cm,yunit=4.0cm,algebraic=true,dotstyle=*,dotsize=3pt 0,linewidth=0.8pt,arrowsize=3pt 2,arrowinset=0.25}
+
+
+%===============================================================================================
+\begin{pspicture}(-0.5,-1.578)(1,1.861)
+
+%--------- area associated to edge ----------------------------
+\pspolygon[linewidth=1.6pt,linecolor=lightblue,fillcolor=lightblue,fillstyle=solid](0,0.866)(0,0.289)(0.5,0)(0.5,0.578)
+
+%--------- dual cell ----------------------------
+\pspolygon[linewidth=1.6pt,linestyle=dashed,dash=3pt 3pt,linecolor=cczzqq](0,0.289)(0,-0.289)(0.5,-0.577)(1,-0.289)(1,0.289)(0.5,0.577)
+
+%-------  rhomboid ---------------------------------------------------
+\pspolygon[linewidth=1.6pt,linecolor=gray7](-0.5,0)(0.5,0)(1,0.866)(0,0.866)
+
+
+%------------ primal edge -------------------------------------
+\psline[linewidth=1.6pt,linecolor=gray8](0,0.866)(0.5,0)
+
+
+%------------ the dual edge of interest -------------------------
+\psline[linewidth=2.4pt,linecolor=darkgreen](0,0.289)(0.5,0.578)
+\rput[bl](0.42,0.42){\darkgreen{$\hat{l}$}}
+\rput[bl](0.26,0.3){\darkgreen{dual edge}}
+
+%---------------- normal and tangential directions -----
+
+\psline[linewidth=2pt,linecolor=greenn,arrows=->,arrowsize=2.5pt
+2](0.25,0.433)(0.154,0.6)
+\rput[tl](-0.08,0.47){$\greenn{\V{t}_{\vtx,\,\hl}}$}
+
+\psline[linewidth=3.1pt,linecolor=white](0.261,0.439)(0.07,0.329)
+\psline[linewidth=0.7pt,doubleline=true,doublesep=0.03,linecolor=greenn,arrows=->,arrowsize=2pt
+1.5,arrowinset=0.6](0.25,0.433)(0.084,0.337)
+\rput[tl](0.2,0.65){$\greenn{\V{n}_{\vtx,\,\hl}}$}
+
+\psdots[dotsize=5pt 0,linecolor=zzzzqq](0.5,0)\pscircle(0.5,0){0.08}
+\rput[tc](0.53,-0.09){$\varkappa$}
+\rput[tc](0.5,-0.2){dual cell}
+
+\rput[bl](0.2,0.15){\blue{area $A_l$}}
+
+\end{pspicture}
+
+
+\end{document}
+

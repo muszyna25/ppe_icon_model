@@ -1,0 +1,52 @@
+#!/bin/ksh
+
+%manual
+  -------------------------------------------------
+  INIT_SVN.SMS
+  -------------------------------------------------
+
+  This script is part of the ICON SMS suite
+  Initial implementation: F. Prill, DWD (2012-05-07)
+
+  Corresponding author:
+    Florian Prill, DWD, mailto:florian.prill@dwd.de
+
+  Task objectives:
+  - update ICON sources
+%end
+
+# include the standard header file
+%include <init_ws.h>
+
+# -------------------------------------------------
+
+echo "INIT_SVN.SMS"
+
+
+#if [[ "%SVN_UPDATE%" -eq "1" ]]
+#then
+
+# SVN UPDATE =================================
+
+# requires previous check-out of a working copy
+# with 
+# svn co http://svn.zmaw.de/svn/icon/trunk/%DEIA_ICON_DIR%
+
+  svn=/usr/local/apps/subversion/1.8.9/bin/svn
+  $svn --version
+  $svn update %ECPERMIII%/%DEIA_ICON_DIR%
+  revision=`$svn info %ECPERMIII%/%DEIA_ICON_DIR% | grep Revision | awk '{print $2}'`
+
+  smsevent svn_update
+  
+  smsmeter revision $revision
+
+ #ssh %SCHOST% "cd %SCPERM%/%DEIA_ICON_DIR% ; gmake distclean"
+ #smsevent make_distclean
+
+
+# -------------------------------------------------
+
+# include the standard "tail" file
+%include <end_ws.h>
+

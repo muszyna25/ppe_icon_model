@@ -1,0 +1,53 @@
+#==========================================================================
+#  configure and compile ICON under individual user
+#  ATTENTION: change cd to branch location
+#
+#  - submit on cca as: llsubmit build.job (use explicit branch location!)
+#  - run interactively (use pwd branch)
+#==========================================================================
+
+#==========================================================================
+#PBS -S /usr/bin/ksh
+#PBS -l EC_job_name=ICON_BUILD
+#PBS -o /scratch/ms/de/${USER}/icon_build.out
+#PBS -j oe
+#PBS -m n
+#PBS -q ns
+
+#==========================================================================
+#  configure and compile
+#==========================================================================
+
+set -e
+set -u
+set -x
+
+
+# --- select branch to compile --------------------------------------------
+ 
+#cd ${PERM}/icon-nwp-dev                             # compile icon-nwp-dev
+
+pwd | awk 'BEGIN { FS = "/" } ; { print $6 }'        # compile local branch
+
+
+# --- setup ---------------------------------------------------------------
+
+arch=x86_64-unknown-linux-gnu
+
+module swap cce cce/8.3.1
+    
+module load subversion
+module swap grib_api grib_api/1.12.3
+module load netcdf
+
+
+# --- configure -----------------------------------------------------------
+
+./configure --with-fortran=cray  #--with-openmp     # --with-flags=hiopt
+
+
+# --- compile -------------------------------------------------------------
+
+gmake -j16
+
+exit

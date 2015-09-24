@@ -1,0 +1,188 @@
+#!/bin/ksh
+#=============================================================================
+# Test the coupling of two dummy models
+#=============================================================================
+# This section of the run script defines the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# Marco Giorgetta, MPI-M, 2011-01-29
+# Hui Wan,         MPI-M, 2010-08-17
+# Leonidas Linardakis, MPI-M, 2011-07-20
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#   EXPNAME = experiment name
+#   nproma  = array blocking length / inner loop length
+# They may be overwritten here
+#
+#-----------------------------------------------------------------------------
+# This test must have available at least 2 MPI processes.
+# If the model runs with mpi_procs=1, then this script exits without error:
+if [[ ${mpi_procs} = 1 ]] ; then
+  echo "This test uses at least 2 mpi_procs. Exit test without error"
+  check_error 0 ${EXPNAME}
+  exit 0
+fi
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#-----------------------------------------------------------------------------
+# the namelist filename
+dummy_1_namelist=NAMELIST_${EXPNAME}_1
+dummy_2_namelist=NAMELIST_${EXPNAME}_2
+dummy_3_namelist=NAMELIST_${EXPNAME}_3
+dummy_3_namelist="none"
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-09-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=600
+ndays=10
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+nsteps=5
+#
+#-----------------------------------------------------------------------------
+# model parameters
+model_equations=1   # equation system
+#                     1=hydrost. atm.
+#                     2=non-hydrost. atm., 
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=31             # nlev = number of full levels
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids='iconR2B02-grid.nc'
+#-----------------------------------------------------------------------------
+
+nproma=${nproma:=28}
+
+#-----------------------------------------------------------------------------
+# write ICON namelist parameters
+# input: namelist_filename
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#  
+create_namelist()
+{
+namelist_filename=$1
+cat > $namelist_filename << EOF
+!
+&testbed_nml
+  testbed_model       = 1  ! test the coupler
+/
+&coupling_nml
+  name                = 'TEST1'
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
+/
+&coupling_nml
+  name                = 'TEST2'
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
+/
+&coupling_nml
+  name                = 'TEST3'
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
+/
+&coupling_nml
+  name                = 'TEST4'
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+  l_activated         = .TRUE.
+/
+&coupling_nml
+  name                = 'TEST5'
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST6'
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST7'
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST8'
+  dt_model            =  ${dtime}
+  dt_coupling         =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+/
+&grid_nml
+ ! cell_type is not used = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+&gridref_nml
+/
+&run_nml
+ num_lev     = ${nlev},        ! number of full levels of vertical grid
+ ntracer     = 0            ! number of tracers
+ nsteps      = ${nsteps}    ! [day] length of run
+ dtime       = ${dtime}     ! [s] timestep
+ ldynamics   = .TRUE.       ! dynamics
+ ltransport  = .FALSE.      ! transport 
+ iforcing    = 0            ! no forcing
+ ltestcase   = .TRUE.       ! run testcase
+/
+&testcase_nml
+ ctest_name  = 'JWw'        ! test case identifier
+/
+&dynamics_nml
+ iequations  = ${model_equations}       ! hydrostatic atmosphere using T as progn. var.
+/
+&diffusion_nml
+/
+&transport_nml
+/
+EOF
+}
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+create_namelist $dummy_1_namelist
+create_namelist $dummy_2_namelist
+create_namelist $dummy_3_namelist
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# add standard atmo_hydrostatic_files
+. ${thisdir}/add_required_atmo_hydrostatic_files
+#-----------------------------------------------------------------------------
+

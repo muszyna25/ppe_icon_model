@@ -1,0 +1,45 @@
+!>
+!! @page <program_name> <title>
+!!
+!! @author
+!!     <author1, author2>
+!!     (<affiliation1>)
+!!
+!! @author
+!!     <author3>
+!!     (<affiliation2>)
+!!
+!!
+!! @date <\today or fixed date>
+!!
+
+!>
+!! <Short description of function for listings and indices>
+!!
+!! <Describe the function of the routine and algorithm(s) used in the routine.>
+!! <Include any applicable external references inline as module::procedure,>
+!! <external_procedure(), or by using @see.>
+!! <Don't forget references to literature.>
+!!
+!!
+!! @par Revision History
+!! <Description of activity> by <Name> (YYYY-<MM-DD>)
+!!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
+!!
+PROGRAM <name>
+
+  USE <module>, ONLY:
+
+  IMPLICIT NONE
+
+  <<< program body starts here >>>
+
+END PROGRAM

@@ -1,0 +1,48 @@
+\documentclass[11pt]{article}
+\usepackage{pstricks,pstricks-add,pst-math,pst-xkey}
+\begin{document}
+\psset{xunit=0.8cm,yunit=0.8cm,algebraic=true,dotstyle=*,dotsize=6pt 0,linewidth=1pt,linecolor=black,arrowsize=3pt 2,arrowinset=0.25}
+
+\begin{pspicture*}(-9,-10.48)(10.2,10.13)
+
+
+%--- solid and dashed arcs ---------
+\psarc[linewidth=1.2pt](8,-4.8){12.08}{122.01}{169.23}
+\psarc[linewidth=1.2pt](-8,-4.8){12.15}{10.89}{57.99}
+\psarc[linewidth=1.2pt](0,8.89){10.28}{237.72}{302.6}
+\psarc[linewidth=1.2pt,linestyle=dashed,dash=3pt 3pt](0,10){9.04}{237.14}{303.37}
+\psarc[linewidth=1.2pt,linestyle=dashed,dash=3pt 3pt](0,10.67){7.59}{237.4}{303.2}
+\psarc[linewidth=1.2pt,linestyle=dashed,dash=3pt 3pt](0,11.06){5.88}{239.66}{301.05}
+\psarc[linewidth=1.2pt,linestyle=dashed,dash=3pt 3pt](0,11.4){4.38}{246.84}{293.97} 
+
+
+%----------- vertices of the big triangle -------------
+\psdots[dotsize=6pt 0](0.07,8)\rput[bl](-0.17,9.29){$A$} 
+\psdots[dotsize=6pt 0](-6.8,-1.97)\rput[bl](-8.52,-2.27){$B$} 
+\psdots[dotsize=6pt 0](6.9,-1.93) \rput[bl](8.18,-2.44){$C$} 
+
+%------------ dots along the left and right edges of the big triangle -----------------
+\psdots[linecolor=blue](-2.15,6.37)\pscircle(-2.15,6.37){0.1}\rput[bl](-4.14,7.52){\blue{$B_1$}}
+\psdots[linecolor=blue](-6.13,0.51)\pscircle(-6.13,0.51){0.1}\rput[bl](-8.44,1.36){\blue{$B_4$}}
+\psdots[linecolor=blue](-5.11,2.68)\pscircle(-5.11,2.68){0.1}\rput[bl](-7.34,3.72){\blue{$B_3$}}
+\psdots[linecolor=blue](-3.71,4.72)\pscircle(-3.71,4.72){0.1}\rput[bl](-5.82,5.83){\blue{$B_2$}}
+\psdots[linecolor=blue](6.21,0.57)\pscircle(6.21,0.57){0.1}\rput[bl](7.26,1.28){\blue{$C_4$}}
+\psdots[linecolor=blue](5.17,2.77)\pscircle(5.17,2.77){0.1}\rput[bl](6.07,3.56){\blue{$C_3$}}
+\psdots[linecolor=blue](3.77,4.81)\pscircle(3.77,4.81){0.1}\rput[bl](4.72,5.58){\blue{$C_2$}}
+\psdots[linecolor=blue](2.2,6.46)\pscircle(2.2,6.46){0.1}\rput[bl](2.95,7.35){\blue{$C_1$}}
+
+%------------ dots on the bottom edge of the big triangle and on the dashed arcs ---
+\psdots[linecolor=green](-2.14,1.43)\pscircle(-2.14,1.43){0.1}
+\psdots[linecolor=green](2.14,1.43)\pscircle(2.14,1.43){0.1}
+\psdots[linecolor=green](-4.41,-3.18)\pscircle(-4.41,-3.18){0.1}
+\psdots[linecolor=green](1.56,-3.86)\pscircle(1.56,-3.86){0.1}
+\psdots[linecolor=green](4.41,-3.18)\pscircle(4.41,-3.18){0.1}
+\psdots[linecolor=green](-0,-1.3)\pscircle(-0,-1.3){0.1}
+\psdots[linecolor=green](3.3,-0.81)\pscircle(3.3,-0.81){0.1}
+\psdots[linecolor=green](-3.3,-0.81)\pscircle(-3.3,-0.81){0.1}
+\psdots[linecolor=green](-0,3.71)\pscircle(-0,3.71){0.1}
+\psdots[linecolor=green](-1.57,-3.86)\pscircle(-1.57,-3.86){0.1}
+
+\end{pspicture*}
+\end{document}
+
