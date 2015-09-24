@@ -381,18 +381,6 @@ CONTAINS
       ccw_spherical = ccw <= 0._wp
     END IF
 
-    ! we apply a static error of
-    !   | e - e'| <= 3*2^-48
-    ! to decide if a floating-point evaluation e' of an expression e
-    ! has the correct sign, see Section 2.2 of
-    !
-    ! Burnikel, C.; Funke, S. & Seel, M. 
-    ! "Exact geometric computation using cascading"
-    ! International Journal of Computational Geometry & Applications, 
-    ! World Scientific, 2001, 11, 245-266
-    IF (ABS(ccw_spherical) <= 1.1e-14_wp) THEN
-      ccw_spherical = ccw_spherical_q128(v1,v2,v3)
-    END IF
   END FUNCTION ccw_spherical
 
 
