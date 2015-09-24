@@ -64,6 +64,8 @@
 !!  - renamed grad_lsq_cell -> recon_lsq_cell_l
 !!  Modification by Leonidas Linardakis, MPI-M (2010-21-01)
 !!  - split mo_math_operators into submodules
+!!  Modification by William Sawyer, CSCS (2014-09-23)
+!!  - OpenACC implementation
 !!
 !! @par To Do
 !! Boundary exchange, nblks in presence of halos and dummy edge
@@ -77,6 +79,16 @@
 !! headers of the routines.
 !!
 !!
+
+!----------------------------
+#if defined(__MATH_GRADIENTS_NOACC)
+#undef ACC_LOCAL_FLAG
+#else
+#define ACC_LOCAL_FLAG
+#endif
+#include "openacc_definitions.inc"
+#define ACC_DEBUG !$ACC
+!----------------------------
 
 !----------------------------
 #include "omp_definitions.inc"
@@ -102,6 +114,9 @@ USE mo_run_config,         ONLY: timers_level
 USE mo_exception,          ONLY: finish
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_grad
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
+#ifdef OPENACC_MODE
+USE mo_mpi,                ONLY: i_am_accel_node
+#endif
 
 IMPLICIT NONE
 
@@ -230,15 +245,25 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
 IF (timers_level > 5) CALL timer_start(timer_grad)
 
+#ifdef OPENACC_MODE
+ACC_PREFIX DATA PCOPYIN( psi_c ), PCOPYOUT( grad_norm_psi_e ), IF( i_am_accel_node )
+ACC_DEBUG UPDATE DEVICE( psi_c ), IF( i_am_accel_node )
+ACC_PREFIX PARALLEL &
+ACC_PREFIX PRESENT( ptr_patch, iidx, iblk, psi_c, grad_norm_psi_e ), &
+ACC_PREFIX IF( i_am_accel_node )
+
+ACC_PREFIX LOOP GANG
+#else
 !$OMP PARALLEL
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,jk) ICON_OMP_DEFAULT_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-
+ACC_PREFIX LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO je = i_startidx, i_endidx
       DO jk = slev, elev
@@ -261,9 +286,15 @@ IF (timers_level > 5) CALL timer_start(timer_grad)
     END DO
 
   END DO
+#ifdef OPENACC_MODE
+ACC_PREFIX END PARALLEL
+ACC_DEBUG UPDATE HOST( grad_norm_psi_e ), IF( i_am_accel_node )
+ACC_PREFIX END DATA
+#else
 !$OMP END DO NOWAIT
 
 !$OMP END PARALLEL
+#endif
 
 IF (timers_level > 5) CALL timer_stop(timer_grad)
 
@@ -363,6 +394,20 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
+#ifdef OPENACC_MODE
+ACC_PREFIX DATA PCOPYIN( psi_v ), PCOPYOUT( grad_tang_psi_e ), CREATE( ilv1, ibv1, ilv2, ibv2 ), IF( i_am_accel_node )
+ACC_DEBUG UPDATE DEVICE( psi_v ), IF( i_am_accel_node )
+ACC_PREFIX PARALLEL &
+ACC_PREFIX PRESENT( ptr_patch, psi_v, grad_tang_psi_e ), &
+ACC_PREFIX PRIVATE( ilv1, ibv1, ilv2, ibv2 ), &
+ACC_PREFIX IF( i_am_accel_node )
+
+ACC_PREFIX LOOP GANG
+#else
+!
+! TODO: OpenMP
+!
+#endif
 !
 !  loop through all patch edges (and blocks)
 !
@@ -371,6 +416,7 @@ DO jb = i_startblk, i_endblk
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
+ACC_PREFIX LOOP VECTOR
   DO je = i_startidx, i_endidx
     !
     !  get the line and block indices of the vertices of edge je
@@ -381,6 +427,7 @@ DO jb = i_startblk, i_endblk
     ibv2(je) = ptr_patch%edges%vertex_blk(je,jb,2)
   END DO
 
+ACC_PREFIX LOOP VECTOR COLLAPSE(2)
   DO jk = slev, elev
 
     DO je = i_startidx, i_endidx
@@ -396,6 +443,15 @@ DO jb = i_startblk, i_endblk
   END DO
 
 END DO
+#ifdef OPENACC_MODE
+ACC_PREFIX END PARALLEL
+ACC_DEBUG UPDATE HOST( grad_tang_psi_e ), IF( i_am_accel_node )
+ACC_PREFIX END DATA
+#else
+!
+! TODO: OpenMP
+!
+#endif
 
 END SUBROUTINE grad_fd_tang
 
@@ -490,24 +546,46 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 !
 ! 2. reconstruction of cell based geographical gradient
 !
+#ifdef OPENACC_MODE
+ACC_PREFIX DATA PCOPYIN( p_cc ), PCOPYOUT( p_grad ), IF( i_am_accel_node )
+ACC_DEBUG UPDATE DEVICE( p_cc ), IF( i_am_accel_node )
+#else
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+#endif
 
   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
   IF (ptr_patch%id > 1) THEN
   ! Fill nest boundaries with zero to avoid trouble with MPI synchronization
+#ifdef OPENACC_MODE
+ACC_PREFIX KERNELS PRESENT( p_grad ), IF( i_am_accel_node )
+#else
 !$OMP WORKSHARE
+#endif
     p_grad(:,:,:,1:i_startblk) = 0._wp
+#ifdef OPENACC_MODE
+ACC_PREFIX END KERNELS
+#else
 !$OMP END WORKSHARE
+#endif
   ENDIF
 
+#ifdef OPENACC_MODE
+ACC_PREFIX PARALLEL &
+ACC_PREFIX PRESENT( ptr_patch, ptr_int, iidx, iblk, p_cc, p_grad ), &
+ACC_PREFIX IF( i_am_accel_node )
+
+ACC_PREFIX LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+ACC_PREFIX LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -539,8 +617,14 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
+#ifdef OPENACC_MODE
+ACC_PREFIX END PARALLEL
+ACC_DEBUG UPDATE HOST( p_grad ), IF( i_am_accel_node )
+ACC_PREFIX END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 
 END SUBROUTINE grad_fe_cell_adv
@@ -761,18 +845,32 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 !
 ! 2. reconstruction of cell based geographical gradient
 !
+#ifdef OPENACC_MODE
+ACC_PREFIX DATA PCOPYIN( p_ccpr ), PCOPYOUT( p_grad ),  IF( i_am_accel_node )
+ACC_DEBUG UPDATE DEVICE( p_ccpr ), IF( i_am_accel_node )
+#else
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+#endif
 
   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 
+#ifdef OPENACC_MODE
+ACC_PREFIX PARALLEL &
+ACC_PREFIX PRESENT( ptr_patch, ptr_int, iidx, iblk, p_ccpr, p_grad ), &
+ACC_PREFIX IF( i_am_accel_node )
+
+ACC_PREFIX LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+ACC_PREFIX LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -816,8 +914,14 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
+#ifdef OPENACC_MODE
+ACC_PREFIX END PARALLEL
+ACC_DEBUG UPDATE HOST( p_grad ), IF( i_am_accel_node )
+ACC_PREFIX END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 
 END SUBROUTINE grad_fe_cell_dycore
@@ -926,24 +1030,46 @@ ENDIF
 !
 ! 2. reconstruction of cell based geographical gradient
 !
+#ifdef OPENACC_MODE
+ACC_PREFIX DATA PCOPYIN( p_cc ), PCOPYOUT( p_grad ), IF( i_am_accel_node )
+ACC_DEBUG UPDATE DEVICE( p_cc ), IF( i_am_accel_node )
+#else
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+#endif
 
   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
   IF (ptr_patch%id > 1) THEN
   ! Fill nest boundaries with zero to avoid trouble with MPI synchronization
+#ifdef OPENACC_MODE
+ACC_PREFIX PARALLEL PRESENT( p_grad ), IF( i_am_accel_node )
+#else
 !$OMP WORKSHARE
+#endif
     p_grad(:,:,:,1:i_startblk) = 0._wp
+#ifdef OPENACC_MODE
+ACC_PREFIX END PARALLEL
+#else
 !$OMP END WORKSHARE
+#endif
   ENDIF
 
+#ifdef OPENACC_MODE
+ACC_PREFIX PARALLEL &
+ACC_PREFIX PRESENT( ptr_patch, ptr_int, iidx, iblk, p_cc, p_grad ), &
+ACC_PREFIX IF( i_am_accel_node )
+
+ACC_PREFIX LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+ACC_PREFIX LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -971,8 +1097,14 @@ ENDIF
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
+#ifdef OPENACC_MODE
+ACC_PREFIX END PARALLEL
+ACC_DEBUG UPDATE HOST( p_grad ), IF( i_am_accel_node )
+ACC_PREFIX END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 
 END SUBROUTINE grad_green_gauss_cell_adv
@@ -1044,18 +1176,33 @@ END SUBROUTINE grad_green_gauss_cell_adv
   !
   ! 2. reconstruction of cell based geographical gradient
   !
+
+#ifdef OPENACC_MODE
+ACC_PREFIX DATA PCOPYIN( p_ccpr ), PCOPYOUT( p_grad ), IF( i_am_accel_node )
+ACC_DEBUG UPDATE DEVICE( p_ccpr ), IF( i_am_accel_node )
+#else
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+#endif
 
     i_startblk = ptr_patch%cells%start_blk(rl_start,1)
     i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
+#ifdef OPENACC_MODE
+ACC_PREFIX PARALLEL &
+ACC_PREFIX PRESENT( ptr_patch, ptr_int, iidx, iblk, p_ccpr, p_grad ), &
+ACC_PREFIX IF( i_am_accel_node )
+
+ACC_PREFIX LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+#endif
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
 
+ACC_PREFIX LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -1093,8 +1240,15 @@ END SUBROUTINE grad_green_gauss_cell_adv
       END DO ! end loop over vertical levels
 
     END DO ! end loop over blocks
+
+#ifdef OPENACC_MODE
+ACC_PREFIX END PARALLEL
+ACC_DEBUG UPDATE HOST( p_grad ), IF( i_am_accel_node )
+ACC_PREFIX END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
   END SUBROUTINE grad_green_gauss_cell_dycore
 
 

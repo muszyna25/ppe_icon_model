@@ -66,6 +66,7 @@ MODULE mo_grid_geometry_info
   INTEGER, PARAMETER ::  sphere_geometry         = 1
   INTEGER, PARAMETER ::  planar_torus_geometry   = 2
   INTEGER, PARAMETER ::  planar_channel_geometry = 3
+  INTEGER, PARAMETER ::  cylinder_geometry     = 3
   
   ! -----------------------------
   ! types of grids
