@@ -65,12 +65,6 @@ MODULE mo_ext_data_state
     &                              streamClose, gridInqUUID
   USE mo_cdi_constants,      ONLY: GRID_REFERENCE, GRID_UNSTRUCTURED_CELL, GRID_CELL, ZA_HYBRID, ZA_LAKE_BOTTOM, ZA_SURFACE, &
     &                              ZA_HEIGHT_2M, ZA_PRESSURE
-  USE mo_cdi_constants,      ONLY: FILETYPE_GRB2, DATATYPE_PACK16, DATATYPE_FLT32, &
-    &                              GRID_REFERENCE, TSTEP_CONSTANT, TSTEP_MAX,      &
-    &                              TSTEP_AVG, streamOpenRead, streamInqFileType,   &
-    &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize, &
-    &                              vlistNtsteps, vlistInqVarGrid, vlistInqAttTxt,  &
-    &                              vlistInqVarIntKey, CDI_GLOBAL
 
   IMPLICIT NONE
 

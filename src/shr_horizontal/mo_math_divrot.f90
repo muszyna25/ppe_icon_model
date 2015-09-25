@@ -899,7 +899,7 @@ ACC_PREFIX IF( i_am_accel_node )
 
 ACC_PREFIX LOOP GANG
 #else
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
 #endif
   DO jb = i_startblk, i_endblk
 
@@ -1143,7 +1143,7 @@ ACC_PREFIX IF( i_am_accel_node )
 
 ACC_PREFIX LOOP GANG
 #else
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
 #endif
   DO jb = i_startblk, i_endblk
 
@@ -1389,7 +1389,7 @@ ACC_PREFIX IF( i_am_accel_node )
 
 ACC_PREFIX LOOP GANG
 #else
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
 #endif
   DO jb = i_startblk, i_endblk
 
@@ -1655,7 +1655,7 @@ ACC_PREFIX IF( i_am_accel_node )
 
 ACC_PREFIX LOOP GANG
 #else
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
 #endif
   DO jb = i_startblk, i_endblk
 
@@ -1901,7 +1901,7 @@ ACC_PREFIX IF( i_am_accel_node )
 
 ACC_PREFIX LOOP GANG
 #else
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
 #endif
   DO jb = i_startblk, i_endblk
 
@@ -2189,7 +2189,7 @@ ACC_PREFIX IF( i_am_accel_node )
 
 ACC_PREFIX LOOP GANG
 #else
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
 #endif
   DO jb = i_startblk, i_endblk
 
