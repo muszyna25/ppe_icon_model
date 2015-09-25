@@ -64,7 +64,7 @@ CONTAINS
     &        ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,                &
     &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,            &
     &        rrho_tracer, halflife_tracer, imis_tracer, post_op,lifetime_tracer,   &
-    &        mode_number, diameter, variance)
+    &        mode_number, diameter, variance, constituent)
 
     TYPE(t_var_list)    , INTENT(inout)        :: this_list
     CHARACTER(len=*)    , INTENT(in)           :: target_name
@@ -98,9 +98,10 @@ CONTAINS
     INTEGER             , INTENT(in), OPTIONAL :: imis_tracer      ! IMIS number
     TYPE(t_post_op_meta), INTENT(in), OPTIONAL :: post_op          ! post operation (e.g. scale with const. factor or rho)
     REAL(wp)            , INTENT(in), OPTIONAL :: lifetime_tracer  ! lifetime of a chemical tracer
-    INTEGER             , INTENT(IN), OPTIONAL :: mode_number      ! number of mode            for GRIB2 output
-    INTEGER             , INTENT(IN), OPTIONAL :: diameter         ! diameter of ash particle  for GRIB2 output
-    INTEGER             , INTENT(IN), OPTIONAL :: variance         ! variance of aerosol mode  for GRIB2 output
+    INTEGER             , INTENT(IN), OPTIONAL :: mode_number      ! number of mode              for GRIB2 output
+    INTEGER             , INTENT(IN), OPTIONAL :: diameter         ! diameter of ash particle    for GRIB2 output
+    INTEGER             , INTENT(IN), OPTIONAL :: variance         ! variance of aerosol mode    for GRIB2 output
+    INTEGER             , INTENT(IN), OPTIONAL :: constituent      ! constituent type of tracer  for GRIB2 output
 
     ! Local variables:
     TYPE(t_list_element), POINTER :: target_element
@@ -174,7 +175,8 @@ CONTAINS
       &                                  lifetime_tracer  = lifetime_tracer,  &
       &                                  mode_number      = mode_number,      &
       &                                  diameter         = diameter,         &
-      &                                  variance         = variance )
+      &                                  variance         = variance,         &
+      &                                  constituent      = constituent )
 
 
     ! create new table entry reference including additional tracer metadata

@@ -200,8 +200,8 @@ CONTAINS
     &                              lsed_tracer, ldep_tracer, lconv_tracer,            &
     &                              lwash_tracer,rdiameter_tracer, rrho_tracer,        &
     &                              halflife_tracer,imis_tracer,lifetime_tracer,       &
-    &                              mode_number, diameter, variance, tau_wavelength )  &
-    &                              RESULT(tracer_meta)
+    &                              mode_number, diameter, variance, constituent,      &
+    &                              tau_wavelength )  RESULT(tracer_meta)
 
     LOGICAL, INTENT(IN), OPTIONAL :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
     CHARACTER(len=*), INTENT(IN), OPTIONAL :: tracer_class  ! type of tracer (cloud, volcash, radioact,...)
@@ -221,6 +221,7 @@ CONTAINS
     INTEGER, INTENT(IN), OPTIONAL :: mode_number      ! number of mode                  for GRIB2 output
     INTEGER, INTENT(IN), OPTIONAL :: diameter         ! diameter of ash particle        for GRIB2 output
     INTEGER, INTENT(IN), OPTIONAL :: variance         ! variance of aerosol mode        for GRIB2 output
+    INTEGER, INTENT(IN), OPTIONAL :: constituent      ! constituent type of tracer      for GRIB2 output
     INTEGER, INTENT(IN), OPTIONAL :: tau_wavelength   ! wavelength of diagnostic AOD    for GRIB2 output
 
     TYPE(t_tracer_meta) :: tracer_meta                ! tracer metadata
@@ -342,6 +343,13 @@ CONTAINS
       tracer_meta%variance = variance
     ELSE
       tracer_meta%variance = -1
+    ENDIF
+
+    ! constituent
+    IF ( PRESENT(constituent) ) THEN
+      tracer_meta%constituent = constituent
+    ELSE
+      tracer_meta%constituent = -1
     ENDIF
 
     ! wavelength for diagnostic AOD

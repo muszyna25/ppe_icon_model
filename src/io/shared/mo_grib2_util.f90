@@ -362,7 +362,7 @@ CONTAINS
       CALL message(' ==> set_GRIB2_art_keys :','volcash --> PDT=57',0,5,.TRUE.)
       productDefinitionTemplate = 57
       numberOfDistributionFunctionParameter = 1
-    CASE ('volcash_diag_mc', 'volcash_diag_mc_max', 'volcash_diag_mc_vi', 'volcash_diag_hml')
+    CASE ('volcash_diag_mc', 'volcash_diag_mc_max', 'volcash_diag_mc_vi', 'volcash_diag_hml', 'radioact')
       CALL message(' ==> set_GRIB2_art_keys :','volcash_diag_... --> PDT=40',0,5,.TRUE.)
       productDefinitionTemplate = 40
       numberOfDistributionFunctionParameter = 0
@@ -447,6 +447,9 @@ CONTAINS
       CALL vlistDefVarIntKey(vlistID, varID, "scaledValueOfFirstWavelength", info%tracer%tau_wavelength)
       CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstWavelength", 9)
       
+    CASE ('radioact')
+      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", info%tracer%constituent)
+
     END SELECT
 
     IF ( numberOfDistributionFunctionParameter /= 0 ) THEN

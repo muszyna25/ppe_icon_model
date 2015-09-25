@@ -159,6 +159,7 @@ MODULE mo_var_metadata_types
     INTEGER :: mode_number        ! number of mode                   for GRIB2 output
     INTEGER :: diameter           ! diameter of ash particle         for GRIB2 output
     INTEGER :: variance           ! variance of aerosol mode         for GRIB2 output
+    INTEGER :: constituent        ! constituent type of tracer       for GRIB2 output
     INTEGER :: tau_wavelength     ! wavelength of diagnostic AOD     for GRIB2 output
     !
   END TYPE t_tracer_meta
