@@ -24,7 +24,7 @@
 !!
 MODULE mo_nml_crosscheck
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, i8
   USE mo_exception,          ONLY: message, message_text, finish, print_value
   USE mo_impl_constants,     ONLY: max_char_length, max_dom,                  &
     &                              iecham, ildf_echam, inwp, iheldsuarez,     &
@@ -37,7 +37,9 @@ MODULE mo_nml_crosscheck
     &                              ifluxl_m, ihs_ocean, RAYLEIGH_CLASSIC,     &
     &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD 
   USE mo_master_config,      ONLY: tc_exp_stopdate, tc_stopdate
-  USE mtime,                 ONLY: OPERATOR(>) 
+  USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta, &
+       &                           MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,     &
+       &                           OPERATOR(>), OPERATOR(/=), timedeltaToString   
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
@@ -52,7 +54,7 @@ MODULE mo_nml_crosscheck
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,         & 
     &                              inccn, ininact, ininpot,                   &
     &                              activate_sync_timers, timers_level,        &
-    &                              output_mode, lart
+    &                              output_mode, lart, tc_dt_model
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_grid_config
@@ -296,7 +298,10 @@ CONTAINS
     INTEGER :: i_listlen
     INTEGER :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
-
+    TYPE(timedelta),  POINTER             :: mtime_td
+    INTEGER(i8)                           :: dtime_ms
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string, td_string0
+    
     !--------------------------------------------------------------------
     ! Parallelization
     !--------------------------------------------------------------------
@@ -1003,6 +1008,20 @@ CONTAINS
     CALL check_meteogram_configuration(num_io_procs)
 
     CALL land_crosscheck()
+
+    ! Intermediate testing for consistency between old and mtime scheme 
+   
+    ! check if the model time step defined by run_nml:dtime is
+    ! identical to the time step defined by run_nml:modelTimeStep
+    CALL timedeltatostring(tc_dt_model, td_string0)
+    dtime_ms = NINT(dtime*1000, i8)
+    CALL getPTStringFromMS(dtime_ms, td_string)
+    mtime_td => newTimedelta(td_string)
+    IF (mtime_td /= tc_dt_model) THEN
+      CALL finish(method_name, 'Inconsistent time step definitions: '//&
+        &TRIM(td_string0)//' vs. '//TRIM(td_string))
+    END IF
+    CALL deallocateTimedelta(mtime_td)
     
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------

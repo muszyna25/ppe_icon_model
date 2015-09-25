@@ -162,7 +162,7 @@ MODULE mo_nh_stepping
        &                                 timedelta, newTimedelta, deallocateTimedelta,                &
        &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,                 &
        &                                 MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
-       &                                 getPTStringFromMS, OPERATOR(-), OPERATOR(+),                 &
+       &                                 getPTStringFromMS, OPERATOR(-), OPERATOR(+), OPERATOR(>),    &
        &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
        &                                 event, eventGroup, newEvent, newEventGroup,                  &
        &                                 addEventToEventGroup, isCurrentEventActive, getEventInterval
@@ -647,7 +647,10 @@ MODULE mo_nh_stepping
   current_date => newDatetime(tc_startdate) 
   end_date => newDatetime(current_date)
   end_date = end_date + getEventInterval(restartEvent)
-
+  IF (end_date > tc_exp_stopdate) THEN
+    end_date = tc_exp_stopdate
+  ENDIF
+  
   CALL message('','')
   CALL datetimeToString(current_date, dstring)
   WRITE(message_text,'(a,a)') 'Start date of this run: ', dstring
