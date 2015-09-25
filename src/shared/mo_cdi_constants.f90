@@ -113,7 +113,8 @@ CONTAINS
                      (izaxis == ZA_PRES_FL_SFC_100)      .OR.  &
                      (izaxis == ZA_PRES_FL_100_245)      .OR.  &
                      (izaxis == ZA_PRES_FL_245_390)      .OR.  &
-                     (izaxis == ZA_PRES_FL_390_530)
+                     (izaxis == ZA_PRES_FL_390_530)      .OR.  &
+                     (izaxis == ZA_ATMOSPHERE)
      END IF
 #endif
   END FUNCTION is_2d_field
