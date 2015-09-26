@@ -277,14 +277,14 @@ CONTAINS
       CALL solve_free_surface_eq_ab (patch_3d, ocean_state(jg), p_ext_data(jg), &
         & surface_fluxes, p_phys_param, jstep, operators_coefficients, solvercoeff_sp, return_status)!, p_int(jg))
       IF (return_status /= 0) THEN
-!        CALL output_ocean(              &
-!          & patch_3d=patch_3d,          &
-!          & ocean_state=ocean_state,    &
-!          & datetime=datetime,          &
-!          & surface_fluxes=surface_fluxes, &
-!          & sea_ice=sea_ice,            &
-!          & jstep=jstep, jstep0=jstep0, &
-!          & force_output=.true.)
+       CALL output_ocean(              &
+         & patch_3d=patch_3d,          &
+         & ocean_state=ocean_state,    &
+         & datetime=datetime,          &
+         & surface_fluxes=surface_fluxes, &
+         & sea_ice=sea_ice,            &
+         & jstep=jstep, jstep0=jstep0, &
+         & force_output=.true.)
         CALL finish(TRIM(routine), 'solve_free_surface_eq_ab  returned error')
       ENDIF
       

@@ -39,11 +39,11 @@ MODULE mo_ocean_GM_Redi
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
-  USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
-  USE mo_ocean_types,                 ONLY: t_hydro_ocean_state, t_ocean_tracer !, v_base
+  USE mo_run_config,                ONLY: dtime, ltimer
+  USE mo_ocean_types,               ONLY: t_hydro_ocean_state, t_ocean_tracer !, v_base
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_exception,                 ONLY: finish !, message_text, message
-  USE mo_ocean_boundcond,             ONLY: top_bound_cond_tracer
+  USE mo_ocean_boundcond,           ONLY: top_bound_cond_tracer
   USE mo_ocean_physics
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range

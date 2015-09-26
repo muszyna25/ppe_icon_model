@@ -202,6 +202,9 @@ MODULE mo_ocean_nml
   REAL(wp) :: threshold_min_S       =  0.0_wp    ! abort criterion for salinity minimum
   REAL(wp) :: threshold_max_S       = 60.0_wp    ! abort criterion for salinity minimum
 
+  REAL(wp) :: tracer_threshold_min(8), tracer_threshold_max(8) ! as above but with indexes
+  CHARACTER(LEN=8) :: namelist_tracer_name(8) 
+
   INTEGER  :: no_tracer             = 2          ! number of tracers
 
   ! more ocean parameters, not yet well placed
@@ -732,234 +735,234 @@ MODULE mo_ocean_nml
 !<Optimize:inUse>
  SUBROUTINE read_ocean_namelist( filename )
 
-    CHARACTER(LEN=*), INTENT(IN) :: filename
+  CHARACTER(LEN=*), INTENT(IN) :: filename
 
-    ! LOGICAL  :: ignore_land_points = .false.
+  ! LOGICAL  :: ignore_land_points = .false.
 
-    ! NAMELIST/ocean_run_nml/ ignore_land_points
+  ! NAMELIST/ocean_run_nml/ ignore_land_points
 
-    INTEGER :: i_status, istat
-    INTEGER :: iunit
+  INTEGER :: i_status, istat
+  INTEGER :: iunit
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
-            routine = 'mo_ocean_nml/read_ocean_namelist:'
+  CHARACTER(len=max_char_length), PARAMETER :: &
+          routine = 'mo_ocean_nml/read_ocean_namelist:'
 
-    CALL message(TRIM(routine),'running the hydrostatic ocean model')
+  CALL message(TRIM(routine),'running the hydrostatic ocean model')
 
-     !------------------------------------------------------------
-     ! 4.0 set up the default values for ocean_nml
-     !------------------------------------------------------------
+    !------------------------------------------------------------
+    ! 4.0 set up the default values for ocean_nml
+    !------------------------------------------------------------
 
-     ! default values when namelist is not present and no default on definition
+    ! default values when namelist is not present and no default on definition
 
-     n_zlev            = -1 ! 5
-     dzlev_m(:)        = -1.0_wp
+    n_zlev            = -1 ! 5
+    dzlev_m(:)        = -1.0_wp
 
-     !dzlev_m(1:n_zlev) =  (/ 50.0_wp, 150.0_wp, 500.0_wp, 1300.0_wp, 2500.0_wp  /)
-     !  lower level of layers:  50       200       700       2000       4500
-     !  surface coord. levels:  25       125       450       1350       3250
+    !dzlev_m(1:n_zlev) =  (/ 50.0_wp, 150.0_wp, 500.0_wp, 1300.0_wp, 2500.0_wp  /)
+    !  lower level of layers:  50       200       700       2000       4500
+    !  surface coord. levels:  25       125       450       1350       3250
 
-     ! maximal diffusion coefficient for tracer used in implicit vertical tracer diffusion,
-     !   if stability criterion is met
-     MAX_VERT_DIFF_TRAC  = 100.0_wp * k_pot_temp_v
-     MAX_VERT_DIFF_VELOC = 100.0_wp * k_veloc_v
+    ! maximal diffusion coefficient for tracer used in implicit vertical tracer diffusion,
+    !   if stability criterion is met
+    MAX_VERT_DIFF_TRAC  = 100.0_wp * k_pot_temp_v
+    MAX_VERT_DIFF_VELOC = 100.0_wp * k_veloc_v
 
-     !------------------------------------------------------------
-     ! 5.0 Read ocean_nml namelist
-     !------------------------------------------------------------
-     ! (done so far by all MPI processes)
+    !------------------------------------------------------------
+    ! 5.0 Read ocean_nml namelist
+    !------------------------------------------------------------
+    ! (done so far by all MPI processes)
 
-     CALL open_nml(TRIM(filename))
-     !==================================================================
-     ! NOTE: DO NOT USE STATUS FLAG in READ(nnml) WITHOUT CHECKING IT  !
-     ! This will result undetected unread namelists                    !
-     !==================================================================
+    CALL open_nml(TRIM(filename))
+    !==================================================================
+    ! NOTE: DO NOT USE STATUS FLAG in READ(nnml) WITHOUT CHECKING IT  !
+    ! This will result undetected unread namelists                    !
+    !==================================================================
 
-     CALL position_nml ('ocean_dynamics_nml', status=i_status)
-     IF (my_process_is_stdio()) THEN
-       iunit = temp_defaults()
-       WRITE(iunit, ocean_dynamics_nml) ! write defaults to temporary text file
-     END IF
-     SELECT CASE (i_status)
-     CASE (positioned)
-       READ (nnml, ocean_dynamics_nml)                         ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         iunit = temp_settings()
-         WRITE(iunit, ocean_dynamics_nml) ! write settings to temporary text file
-       END IF
-     END SELECT
+    CALL position_nml ('ocean_dynamics_nml', status=i_status)
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, ocean_dynamics_nml) ! write defaults to temporary text file
+    END IF
+    SELECT CASE (i_status)
+    CASE (positioned)
+      READ (nnml, ocean_dynamics_nml)                         ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, ocean_dynamics_nml) ! write settings to temporary text file
+      END IF
+    END SELECT
 
-     CALL position_nml ('ocean_physics_nml', status=i_status)
-     IF (my_process_is_stdio()) THEN
-       iunit = temp_defaults()
-       WRITE(iunit, ocean_physics_nml)    ! write defaults to temporary text file
-     END IF
-     SELECT CASE (i_status)
-     CASE (positioned)
-       READ (nnml, ocean_physics_nml)                            ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         iunit = temp_settings()
-         WRITE(iunit, ocean_physics_nml)    ! write settings to temporary text file
-       END IF
-     END SELECT
+    CALL position_nml ('ocean_physics_nml', status=i_status)
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, ocean_physics_nml)    ! write defaults to temporary text file
+    END IF
+    SELECT CASE (i_status)
+    CASE (positioned)
+      READ (nnml, ocean_physics_nml)                            ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, ocean_physics_nml)    ! write settings to temporary text file
+      END IF
+    END SELECT
 
-     CALL position_nml ('ocean_diffusion_nml', status=i_status)
-     IF (my_process_is_stdio()) THEN
-       iunit = temp_defaults()
-       WRITE(iunit, ocean_diffusion_nml)    ! write defaults to temporary text file
-     END IF
-     SELECT CASE (i_status)
-     CASE (positioned)
-       READ (nnml, ocean_diffusion_nml)                            ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         iunit = temp_settings()
-         WRITE(iunit, ocean_diffusion_nml)    ! write settings to temporary text file
-       END IF
-     END SELECT
+    CALL position_nml ('ocean_diffusion_nml', status=i_status)
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, ocean_diffusion_nml)    ! write defaults to temporary text file
+    END IF
+    SELECT CASE (i_status)
+    CASE (positioned)
+      READ (nnml, ocean_diffusion_nml)                            ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, ocean_diffusion_nml)    ! write settings to temporary text file
+      END IF
+    END SELECT
 
-    CALL position_nml ('ocean_tracer_transport_nml', status=i_status)
-     IF (my_process_is_stdio()) THEN
-       iunit = temp_defaults()
-       WRITE(iunit, ocean_tracer_transport_nml)    ! write defaults to temporary text file
-     END IF
-     SELECT CASE (i_status)
-     CASE (positioned)
-       READ (nnml, ocean_tracer_transport_nml)                            ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         iunit = temp_settings()
-         WRITE(iunit, ocean_tracer_transport_nml)    ! write settings to temporary text file
-       END IF
-     END SELECT
-     
-     CALL position_nml ('ocean_forcing_nml', status=i_status)
-     IF (my_process_is_stdio()) THEN
-       iunit = temp_defaults()
-       WRITE(iunit, ocean_forcing_nml)  ! write defaults to temporary text file
-     END IF
-     SELECT CASE (i_status)
-     CASE (positioned)
-       READ (nnml, ocean_forcing_nml)                          ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         iunit = temp_settings()
-         WRITE(iunit, ocean_forcing_nml)  ! write settings to temporary text file
-       END IF
-     END SELECT
+  CALL position_nml ('ocean_tracer_transport_nml', status=i_status)
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, ocean_tracer_transport_nml)    ! write defaults to temporary text file
+    END IF
+    SELECT CASE (i_status)
+    CASE (positioned)
+      READ (nnml, ocean_tracer_transport_nml)                            ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, ocean_tracer_transport_nml)    ! write settings to temporary text file
+      END IF
+    END SELECT
+    
+    CALL position_nml ('ocean_forcing_nml', status=i_status)
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, ocean_forcing_nml)  ! write defaults to temporary text file
+    END IF
+    SELECT CASE (i_status)
+    CASE (positioned)
+      READ (nnml, ocean_forcing_nml)                          ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, ocean_forcing_nml)  ! write settings to temporary text file
+      END IF
+    END SELECT
 
-     CALL position_nml ('ocean_initialConditions_nml', status=i_status)
-     IF (my_process_is_stdio()) THEN
-       iunit = temp_defaults()
-       WRITE(iunit, ocean_initialConditions_nml)  ! write defaults to temporary text file
-     END IF
-     SELECT CASE (i_status)
-     CASE (positioned)
-       READ (nnml, ocean_initialConditions_nml)                          ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         iunit = temp_settings()
-         WRITE(iunit, ocean_initialConditions_nml)  ! write settings to temporary text file
-       END IF
-     END SELECT
+    CALL position_nml ('ocean_initialConditions_nml', status=i_status)
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, ocean_initialConditions_nml)  ! write defaults to temporary text file
+    END IF
+    SELECT CASE (i_status)
+    CASE (positioned)
+      READ (nnml, ocean_initialConditions_nml)                          ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, ocean_initialConditions_nml)  ! write settings to temporary text file
+      END IF
+    END SELECT
 
-     CALL position_nml ('ocean_diagnostics_nml', status=i_status)
-     IF (my_process_is_stdio()) THEN
-       iunit = temp_defaults()
-       WRITE(iunit, ocean_diagnostics_nml)   ! write defaults to temporary text file
-     END IF
-     SELECT CASE (i_status)
-     CASE (positioned)
-       READ (nnml, ocean_diagnostics_nml)                           ! overwrite default settings
-       IF (my_process_is_stdio()) THEN
-         iunit = temp_settings()
-         WRITE(iunit, ocean_diagnostics_nml)   ! write settings to temporary text file
-       END IF
-     END SELECT
+    CALL position_nml ('ocean_diagnostics_nml', status=i_status)
+    IF (my_process_is_stdio()) THEN
+      iunit = temp_defaults()
+      WRITE(iunit, ocean_diagnostics_nml)   ! write defaults to temporary text file
+    END IF
+    SELECT CASE (i_status)
+    CASE (positioned)
+      READ (nnml, ocean_diagnostics_nml)                           ! overwrite default settings
+      IF (my_process_is_stdio()) THEN
+        iunit = temp_settings()
+        WRITE(iunit, ocean_diagnostics_nml)   ! write settings to temporary text file
+      END IF
+    END SELECT
 
-     !------------------------------------------------------------
-     ! 6.0 check the consistency of the parameters
-     !------------------------------------------------------------
+    !------------------------------------------------------------
+    ! 6.0 check the consistency of the parameters
+    !------------------------------------------------------------
 
-     IF( n_zlev < 1 ) &
-       & CALL finish(TRIM(routine),  'n_zlev < 1')
-     IF( iswm_oce == 1 .AND. n_zlev > 1 ) THEN
-       CALL message(TRIM(routine),'WARNING, shallow water model (ocean): n_zlev set to 1')
-       n_zlev = 1
-     ENDIF
+    IF( n_zlev < 1 ) &
+      & CALL finish(TRIM(routine),  'n_zlev < 1')
+    IF( iswm_oce == 1 .AND. n_zlev > 1 ) THEN
+      CALL message(TRIM(routine),'WARNING, shallow water model (ocean): n_zlev set to 1')
+      n_zlev = 1
+    ENDIF
 
-     IF(discretization_scheme == 1)THEN
-       CALL message(TRIM(routine),'You have choosen the mimetic dicretization')
-     !ELSEIF(discretization_scheme == 2)THEN
-     !  CALL message(TRIM(routine),'You have choosen the RBF dicretization')
-     ELSE
-       CALL finish(TRIM(routine), 'wrong parameter for discretization scheme')
-     ENDIF
+    IF(discretization_scheme == 1)THEN
+      CALL message(TRIM(routine),'You have choosen the mimetic dicretization')
+    !ELSEIF(discretization_scheme == 2)THEN
+    !  CALL message(TRIM(routine),'You have choosen the RBF dicretization')
+    ELSE
+      CALL finish(TRIM(routine), 'wrong parameter for discretization scheme')
+    ENDIF
 
-     !consistency check for horizontal advection in edge_based configuration
-     IF(l_edge_based)THEN
-       CALL message(TRIM(routine),'You are using the EDGE_BASED discretization')
-       IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind ) THEN
-         CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5')
-       ENDIF
-       !the fct case requires suitable choices of high- and low order fluxes and of limiter
-       IF( flux_calculation_horz == fct_horz) THEN
-         !high and low order flux check
-         IF(fct_low_order_flux/=upwind .AND. fct_low_order_flux/=miura_order1)THEN
-           CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
-         ENDIF
-         IF(fct_high_order_flux/= central.AND.fct_high_order_flux/=lax_friedrichs.AND.fct_high_order_flux/=miura_order1)THEN
-            CALL finish(TRIM(routine), 'wrong parameter for high order advection scheme in horizontal fct')
-         ENDIF
-         !limiter check
-         IF(      fct_limiter_horz/=fct_limiter_horz_zalesak&
-            &.AND.fct_limiter_horz/=fct_limiter_horz_minmod &
-            &.AND.fct_limiter_horz/=fct_limiter_horz_posdef)THEN
-            CALL finish(TRIM(routine), 'wrong parameter for limiter in horizontal fct')         
-         ENDIF
-     
-       ENDIF
-     !consistency check for horizontal advection in cell_based configuration       
-     ELSEIF(.NOT.l_edge_based)THEN
-       CALL message(TRIM(routine),'You are using the CELL_BASED discretization')
-       IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind.OR.flux_calculation_horz==lax_friedrichs ) THEN
-         CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5 without 3')
-       ENDIF     
-       IF( flux_calculation_horz == fct_horz) THEN
-         !high and low order flux check
-         IF(fct_low_order_flux/=upwind)THEN
-           CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
-         ENDIF
-         !there is no option for high- or low order fluxes in cell_based config, this is all prescribed.
-         !a wrong option has no effect.
-         !limiter check
-         IF(     fct_limiter_horz/=fct_limiter_horz_zalesak &
-            &.AND.fct_limiter_horz/=fct_limiter_horz_minmod &
-            &.AND.fct_limiter_horz/=fct_limiter_horz_posdef)THEN
-           CALL finish(TRIM(routine), 'wrong parameter for limiter in horizontal fct')         
-         ENDIF     
-       ENDIF     
-     ENDIF
-     
-     !check for vertical advection
-     IF(      flux_calculation_vert/=upwind        &
-        &.AND.flux_calculation_vert/=fct_vert_ppm  &
-        &.AND.flux_calculation_vert/=fct_vert_adpo &
-        &.AND.flux_calculation_vert/=fct_vert_zalesak&
-        &.AND.flux_calculation_vert/=fct_vert_minmod)THEN
-       CALL finish(TRIM(routine), 'wrong parameter for vertical advection')   
-     ENDIF
+    !consistency check for horizontal advection in edge_based configuration
+    IF(l_edge_based)THEN
+      CALL message(TRIM(routine),'You are using the EDGE_BASED discretization')
+      IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind ) THEN
+        CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5')
+      ENDIF
+      !the fct case requires suitable choices of high- and low order fluxes and of limiter
+      IF( flux_calculation_horz == fct_horz) THEN
+        !high and low order flux check
+        IF(fct_low_order_flux/=upwind .AND. fct_low_order_flux/=miura_order1)THEN
+          CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
+        ENDIF
+        IF(fct_high_order_flux/= central.AND.fct_high_order_flux/=lax_friedrichs.AND.fct_high_order_flux/=miura_order1)THEN
+          CALL finish(TRIM(routine), 'wrong parameter for high order advection scheme in horizontal fct')
+        ENDIF
+        !limiter check
+        IF(      fct_limiter_horz/=fct_limiter_horz_zalesak&
+          &.AND.fct_limiter_horz/=fct_limiter_horz_minmod &
+          &.AND.fct_limiter_horz/=fct_limiter_horz_posdef)THEN
+          CALL finish(TRIM(routine), 'wrong parameter for limiter in horizontal fct')         
+        ENDIF
+    
+      ENDIF
+    !consistency check for horizontal advection in cell_based configuration       
+    ELSEIF(.NOT.l_edge_based)THEN
+      CALL message(TRIM(routine),'You are using the CELL_BASED discretization')
+      IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind.OR.flux_calculation_horz==lax_friedrichs ) THEN
+        CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5 without 3')
+      ENDIF     
+      IF( flux_calculation_horz == fct_horz) THEN
+        !high and low order flux check
+        IF(fct_low_order_flux/=upwind)THEN
+          CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
+        ENDIF
+        !there is no option for high- or low order fluxes in cell_based config, this is all prescribed.
+        !a wrong option has no effect.
+        !limiter check
+        IF(     fct_limiter_horz/=fct_limiter_horz_zalesak &
+          &.AND.fct_limiter_horz/=fct_limiter_horz_minmod &
+          &.AND.fct_limiter_horz/=fct_limiter_horz_posdef)THEN
+          CALL finish(TRIM(routine), 'wrong parameter for limiter in horizontal fct')         
+        ENDIF     
+      ENDIF     
+    ENDIF
+    
+    !check for vertical advection
+    IF(      flux_calculation_vert/=upwind        &
+      &.AND.flux_calculation_vert/=fct_vert_ppm  &
+      &.AND.flux_calculation_vert/=fct_vert_adpo &
+      &.AND.flux_calculation_vert/=fct_vert_zalesak&
+      &.AND.flux_calculation_vert/=fct_vert_minmod)THEN
+      CALL finish(TRIM(routine), 'wrong parameter for vertical advection')   
+    ENDIF
 
-     IF(i_bc_veloc_lateral/= 0) THEN
-       CALL finish(TRIM(routine), &
-         &  'free-slip boundary condition for velocity currently not supported')
-     ENDIF
-     IF(i_bc_veloc_top < 0 .OR. (i_bc_veloc_top > 1 .and. i_bc_veloc_top /= 4)) THEN
-     !  option >1 disabled due to unphysical difference of stress minus velocity
-     !  see routine top_bound_cond_horz_veloc (#slo#, 2014-04)
-       CALL finish(TRIM(routine), &
-         &  'top boundary condition for velocity currently not supported: choose = 0,1')
-     ENDIF
-     IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>2) THEN
-       CALL finish(TRIM(routine), &
-         &  'bottom boundary condition for velocity currently not supported: choose = 0, 1, 2')
-     ENDIF
+    IF(i_bc_veloc_lateral/= 0) THEN
+      CALL finish(TRIM(routine), &
+        &  'free-slip boundary condition for velocity currently not supported')
+    ENDIF
+    IF(i_bc_veloc_top < 0 .OR. (i_bc_veloc_top > 1 .and. i_bc_veloc_top /= 4)) THEN
+    !  option >1 disabled due to unphysical difference of stress minus velocity
+    !  see routine top_bound_cond_horz_veloc (#slo#, 2014-04)
+      CALL finish(TRIM(routine), &
+        &  'top boundary condition for velocity currently not supported: choose = 0,1')
+    ENDIF
+    IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>2) THEN
+      CALL finish(TRIM(routine), &
+        &  'bottom boundary condition for velocity currently not supported: choose = 0, 1, 2')
+    ENDIF
 
 !      IF(no_tracer == 1 .OR. no_tracer < 0 .OR. no_tracer > 2) THEN
 !        IF(no_tracer == 1) THEN
@@ -981,58 +984,65 @@ MODULE mo_ocean_nml
     !  CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with forcing_enable_freshwater=.TRUE.')
     !END IF
 
-     IF (forcing_set_runoff_to_zero) THEN
-       CALL message(TRIM(routine),'WARNING, forcing_set_runoff_to_zero is .TRUE. - forcing with river runoff is set to zero')
-     END IF
+    IF (forcing_set_runoff_to_zero) THEN
+      CALL message(TRIM(routine),'WARNING, forcing_set_runoff_to_zero is .TRUE. - forcing with river runoff is set to zero')
+    END IF
 
 #ifndef __NO_ICON_ATMO__
-     IF ( is_coupled_run() ) THEN
-       iforc_oce = Coupled_FluxFromAtmo
-       CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
-       limit_elevation = .FALSE.
-       CALL message(TRIM(routine),'WARNING, limit_elevation set to .FALSE. for coupled experiment')
-       limit_seaice = .FALSE.
-       CALL message(TRIM(routine),'WARNING, limit_seaice set to .FALSE. - no limit for coupled experiment')
-     END IF
+    IF ( is_coupled_run() ) THEN
+      iforc_oce = Coupled_FluxFromAtmo
+      CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
+      limit_elevation = .FALSE.
+      CALL message(TRIM(routine),'WARNING, limit_elevation set to .FALSE. for coupled experiment')
+      limit_seaice = .FALSE.
+      CALL message(TRIM(routine),'WARNING, limit_seaice set to .FALSE. - no limit for coupled experiment')
+    END IF
 #endif
 
-     ! write the contents of the namelist to an ASCII file
-     IF(my_process_is_stdio()) THEN
-       WRITE(nnml_output,nml=ocean_dynamics_nml)
-       WRITE(nnml_output,nml=ocean_physics_nml) 
-       WRITE(nnml_output,nml=ocean_diffusion_nml)       
-       WRITE(nnml_output,nml=ocean_tracer_transport_nml)
-       WRITE(nnml_output,nml=ocean_forcing_nml)
-       WRITE(nnml_output,nml=ocean_initialConditions_nml)
-       WRITE(nnml_output,nml=ocean_diagnostics_nml)
-     ENDIF
-     !------------------------------------------------------------
-     ! 6.0 Read octst_nml namelist
-     !------------------------------------------------------------
-     ! (done so far by all MPI processes)
+    ! write the contents of the namelist to an ASCII file
+    IF(my_process_is_stdio()) THEN
+      WRITE(nnml_output,nml=ocean_dynamics_nml)
+      WRITE(nnml_output,nml=ocean_physics_nml) 
+      WRITE(nnml_output,nml=ocean_diffusion_nml)       
+      WRITE(nnml_output,nml=ocean_tracer_transport_nml)
+      WRITE(nnml_output,nml=ocean_forcing_nml)
+      WRITE(nnml_output,nml=ocean_initialConditions_nml)
+      WRITE(nnml_output,nml=ocean_diagnostics_nml)
+    ENDIF
+    !------------------------------------------------------------
+    ! 6.0 Read octst_nml namelist
+    !------------------------------------------------------------
+    ! (done so far by all MPI processes)
 
-     ! 3-char string with marked processes to be printed out for debug purposes
-     str_proc_tst =  (/  & 
-       &  'all', &  ! initiate print messages in all routines
-       &  'abm', &  ! main timestepping routines       in mo_ocean_ab_timestepping (mimetic/rbf)
-       &  'vel', &  ! velocity advection and diffusion in mo_ocean_veloc_advection
-       &  'dif', &  ! diffusion                        in mo_ocean_diffusion
-       &  'trc', &  ! tracer advection and diffusion   in mo_ocean_tracer_transport
-       &  '   ', &  ! ...
-       &  '   ', &
-       &  '   ', &
-       &  '   ', &
-       &  '   '  /)
+    ! 3-char string with marked processes to be printed out for debug purposes
+    str_proc_tst =  (/  & 
+      &  'all', &  ! initiate print messages in all routines
+      &  'abm', &  ! main timestepping routines       in mo_ocean_ab_timestepping (mimetic/rbf)
+      &  'vel', &  ! velocity advection and diffusion in mo_ocean_veloc_advection
+      &  'dif', &  ! diffusion                        in mo_ocean_diffusion
+      &  'trc', &  ! tracer advection and diffusion   in mo_ocean_tracer_transport
+      &  '   ', &  ! ...
+      &  '   ', &
+      &  '   ', &
+      &  '   ', &
+      &  '   '  /)
 
-     CALL position_nml ('octst_nml', status=i_status)
-     SELECT CASE (i_status)
-     CASE (positioned)
-       READ (nnml, octst_nml)
-     END SELECT
-     CALL close_nml
+    CALL position_nml ('octst_nml', status=i_status)
+    SELECT CASE (i_status)
+    CASE (positioned)
+      READ (nnml, octst_nml)
+    END SELECT
+    CALL close_nml
 
-     ! write the contents of the namelist to an ASCII file
-     IF(my_process_is_stdio()) WRITE(nnml_output,nml=octst_nml)
+    ! write the contents of the namelist to an ASCII file
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=octst_nml)
+
+    tracer_threshold_min(1) = threshold_min_T
+    tracer_threshold_max(1) = threshold_max_T
+    tracer_threshold_min(2) = threshold_min_S
+    tracer_threshold_max(2) = threshold_max_S
+    namelist_tracer_name(1)          = "Temperature"
+    namelist_tracer_name(2)          = "Salinity"
      
     use_omip_windstress = ( forcing_windstress_u_type == 1 ) .AND. (forcing_windstress_v_type == 1)
     use_omip_fluxes     = ( forcing_fluxes_type == 1 )

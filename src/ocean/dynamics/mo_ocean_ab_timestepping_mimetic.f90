@@ -86,8 +86,8 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_grid_config,               ONLY: n_dom
   USE mo_parallel_config,           ONLY: p_test_run
-  USE mo_mpi,                       ONLY: my_process_is_stdio, get_my_global_mpi_id ! my_process_is_mpi_parallel
-  USE mo_statistics,                ONLY: global_minmaxmean
+  USE mo_mpi,                       ONLY: my_process_is_stdio, get_my_global_mpi_id, work_mpi_barrier ! my_process_is_mpi_parallel
+  USE mo_statistics,                ONLY: global_minmaxmean, print_value_location
   IMPLICIT NONE
   
   PRIVATE  
@@ -535,13 +535,14 @@ CONTAINS
       minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=owned_cells)
       idt_src=1  ! output print level (1-5, fix)
       CALL debug_print_MaxMinMean('after ocean_gmres: h-new', minmaxmean, str_module, idt_src)
-      IF (my_process_is_stdio()) THEN
-        IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) THEN
+      IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) THEN
 !          CALL finish(method_name, "height below min_top_height")
-          return_status = 1
-          CALL warning(method_name, "height below min_top_height")
-          RETURN
-        ENDIF
+        CALL warning(method_name, "height below min_top_height")
+        CALL print_value_location(ocean_state%p_prog(nnew(1))%h(:,:), minmaxmean(1), owned_cells)
+        CALL print_value_location(ocean_state%p_prog(nnew(2))%h(:,:), minmaxmean(1), owned_cells)
+        CALL work_mpi_barrier()
+        return_status = 1
+        RETURN
       ENDIF
       !---------------------------------------------------------------------
       
