@@ -1265,7 +1265,7 @@ CONTAINS
         div_z_depth_int_c(:) = 0.0_wp
         DO jc = start_cell_index, end_cell_index
           div_z_depth_int_c(jc) = SUM(div_z_c(jc, 1:patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)))
-write(123,*)'div',jc, div_z_c(jc, 1:1)		   		  
+! write(123,*)'div',jc, div_z_c(jc, 1:1)		   		  
         END DO
       
         ocean_state%p_aux%p_rhs_sfc_eq(:,blockNo) = 0.0_wp
@@ -1291,7 +1291,7 @@ write(123,*)'div',jc, div_z_c(jc, 1:1)
 		div_z_depth_int_c(:) = 0.0_wp
 		 DO jc = start_cell_index, end_cell_index
 	       div_z_depth_int_c(jc) = SUM(div_z_c(jc, 1:patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)))
-write(456,*)'div',jc, div_z_c(jc, 1:1)		   
+! write(456,*)'div',jc, div_z_c(jc, 1:1)		   
 		 END DO
       
 		 ocean_state%p_aux%p_rhs_sfc_eq(:,blockNo) = 0.0_wp
