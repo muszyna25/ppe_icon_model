@@ -847,7 +847,10 @@ CONTAINS
 !           & " iidx(je,blockNo,1)=", iidx(je,blockNo,1), " iidx(je,blockNo,2)=", iidx(je,blockNo,2)
 !         CALL finish("invalid connectivity", "")
 !       ENDIF
-      
+!       IF (iidx(je,blockNo,2) < 1 .or. iblk(je,blockNo,2) < 1 .or. &
+!         & iidx(je,blockNo,1) < 1 .or. iblk(je,blockNo,1) < 1) &
+!         & CALL finish("grad_fd_norm_oce_2D_onBlock", "invalid pointer")
+
       grad_norm_psi_e(je) =  &
         & (psi_c(iidx(je,blockNo,2),iblk(je,blockNo,2))-psi_c(iidx(je,blockNo,1),iblk(je,blockNo,1)))&
         & * grad_coeff(je)

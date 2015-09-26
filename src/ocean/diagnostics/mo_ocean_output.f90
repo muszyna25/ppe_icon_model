@@ -50,7 +50,6 @@ MODULE mo_ocean_output
   USE mo_ocean_diagnostics,        ONLY: calc_slow_oce_diagnostics, calc_fast_oce_diagnostics, &
     & destruct_oce_diagnostics, t_oce_timeseries, &
     & calc_moc, calc_psi
-  USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_linked_list,            ONLY: t_list_element, find_list_element
   USE mo_var_list,               ONLY: print_var_list
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute

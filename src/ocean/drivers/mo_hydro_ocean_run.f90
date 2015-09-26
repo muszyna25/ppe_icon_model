@@ -61,7 +61,7 @@ MODULE mo_hydro_ocean_run
     & calculate_density! , ocean_correct_ThermoExpansion
   USE mo_name_list_output,       ONLY: write_name_list_output
   USE mo_ocean_diagnostics,        ONLY: calc_fast_oce_diagnostics, calc_psi, calc_psi_vn
-  USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
+  USE mo_ocean_ab_timestepping_mimetic, ONLY: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_time_config,            ONLY: time_config
   USE mo_master_control,         ONLY: is_restart_run
@@ -78,7 +78,7 @@ MODULE mo_hydro_ocean_run
   PRIVATE
 
   PUBLIC  :: perform_ho_stepping
-  PUBLIC  :: prepare_ho_stepping
+  PUBLIC  :: prepare_ho_stepping, end_ho_stepping
   PUBLIC  :: write_initial_ocean_timestep
   
   CHARACTER(LEN=12)  :: str_module = 'HYDRO-ocerun'  ! Output of module for 1 line debug
@@ -116,10 +116,20 @@ CONTAINS
 !     !      & operators_coefficients%matrix_vert_diff_e,&
 !     !      & operators_coefficients%matrix_vert_diff_c)
 ! 
-     CALL init_ho_lhs_fields_mimetic   ( patch_3d )
+     CALL construct_ho_lhs_fields_mimetic   ( patch_3d )
 ! 
   END SUBROUTINE prepare_ho_stepping
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !<Optimize:inUse>
+  SUBROUTINE end_ho_stepping()
+
+     CALL destruct_ho_lhs_fields_mimetic()
+    
+  END SUBROUTINE end_ho_stepping
+  !-------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------
   !>

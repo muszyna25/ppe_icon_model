@@ -74,8 +74,9 @@ MODULE mo_ocean_model
   USE mo_operator_ocean_coeff_3d,ONLY: construct_operators_coefficients, &
     & destruct_operators_coefficients
 
-  USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping,&
-    & prepare_ho_stepping, write_initial_ocean_timestep
+  USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping, &
+    & prepare_ho_stepping, write_initial_ocean_timestep, &
+    & end_ho_stepping
   USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
     & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
   USE mo_sea_ice,             ONLY: ice_init, &
@@ -266,6 +267,7 @@ MODULE mo_ocean_model
 
     !------------------------------------------------------------------
     !  cleaning up process
+    CALL end_ho_stepping()
     CALL destruct_ocean_model()
 
   END SUBROUTINE ocean_model
@@ -460,7 +462,7 @@ MODULE mo_ocean_model
     ! initialize ocean indices for debug output (including 3-dim lsm)
     CALL init_oce_index(ocean_patch_3d%p_patch_2d,ocean_patch_3d, ocean_state, ext_data )
 
-    CALL init_ho_params(ocean_patch_3d, v_params)
+    CALL init_ho_params(ocean_patch_3d, v_params, p_as%fu10)
 
 !    IF (.not. is_restart_run()) &
     CALL apply_initial_conditions(ocean_patch_3d, ocean_state(1), ext_data(1), operators_coefficients)

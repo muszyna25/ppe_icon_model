@@ -95,7 +95,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
   PUBLIC :: solve_free_sfc_ab_mimetic
   PUBLIC :: calc_normal_velocity_ab_mimetic
   PUBLIC :: calc_vert_velocity_mim_bottomup
-  PUBLIC :: init_ho_lhs_fields_mimetic
+  PUBLIC :: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
   PUBLIC :: invert_mass_matrix
   !
   
@@ -108,6 +108,8 @@ MODULE mo_ocean_ab_timestepping_mimetic
   onEdges_2D :: lhs_z_grad_h, lhs_z_e
   onCells_2D_RealPrecision(sp) :: lhs_result_sp
   onEdges_2D_RealPrecision(sp) :: lhs_z_grad_h_sp, lhs_z_e_sp
+  onCells_2D :: z_h_c
+
   ! the same as above in single precision
 !   REAL(wp), ALLOCATABLE, TARGET :: lhs_result(:,:)  ! (nproma,patch%alloc_cell_blocks)
 !   REAL(wp), ALLOCATABLE :: lhs_z_grad_h(:,:)
@@ -153,7 +155,6 @@ CONTAINS
     INTEGER :: jc,blockNo,je   ! ,jk,il_v1,il_v2,ib_v1,ib_v2
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: start_edge_index, end_edge_index
-    REAL(wp) :: z_h_c(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     ! REAL(wp) :: z_h_e(nproma,patch_3d%p_patch_2d(1)%nblks_e)
     LOGICAL :: lprecon         = .FALSE.
     ! REAL(wp) :: z_implcoeff
@@ -239,6 +240,7 @@ CONTAINS
       
       
       ! Solve surface equation with ocean_gmres solver
+!       z_h_c = 0.0_wp
       SELECT CASE (solver_FirstGuess)
       CASE (1)
         CALL smooth_onCells(patch_3D=patch_3d,      &
@@ -1329,7 +1331,7 @@ write(456,*)'div',jc, div_z_c(jc, 1:1)
   
   !-------------------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE init_ho_lhs_fields_mimetic(patch_3d)
+  SUBROUTINE construct_ho_lhs_fields_mimetic(patch_3d)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     
@@ -1338,9 +1340,11 @@ write(456,*)'div',jc, div_z_c(jc, 1:1)
     
     patch         => patch_3d%p_patch_2d(1)
     
-    ALLOCATE(lhs_result(nproma,patch%alloc_cell_blocks), &
+    ALLOCATE( &
+      & lhs_result(nproma,patch%alloc_cell_blocks), &
       & lhs_z_grad_h(nproma,patch%nblks_e),     &
       & lhs_z_e     (nproma,patch%nblks_e),     &
+      & z_h_c(nproma,patch%alloc_cell_blocks), &
 !      & lhs_z_e_top (nproma,patch%nblks_e),     &
 !      & lhs_z_grad_h_cc(nproma,patch%alloc_cell_blocks),  &
       & stat = return_status)
@@ -1358,6 +1362,7 @@ write(456,*)'div',jc, div_z_c(jc, 1:1)
     lhs_result(:,:)   = 0.0_wp
     lhs_z_grad_h(:,:) = 0.0_wp
     lhs_z_e     (:,:) = 0.0_wp
+    z_h_c       (:,:) = 0.0_wp
 !    lhs_z_e_top (:,:) = 0.0_wp
 
     lhs_result_sp(:,:)   = 0.0_wp
@@ -1369,9 +1374,34 @@ write(456,*)'div',jc, div_z_c(jc, 1:1)
 !    lhs_z_grad_h_cc(:,:)%x(2) = 0.0_wp
 !    lhs_z_grad_h_cc(:,:)%x(3) = 0.0_wp
 
-  END SUBROUTINE init_ho_lhs_fields_mimetic
+  END SUBROUTINE construct_ho_lhs_fields_mimetic
   !-------------------------------------------------------------------------------------
   
+  !-------------------------------------------------------------------------------------
+!<Optimize:inUse>
+  SUBROUTINE destruct_ho_lhs_fields_mimetic()
+
+    DEALLOCATE(         &
+      & lhs_result,     &
+      & lhs_z_grad_h,   &
+      & lhs_z_e     ,   &
+      & z_h_c)
+
+    DEALLOCATE(lhs_result_sp, &
+      & lhs_z_grad_h_sp,     &
+      & lhs_z_e_sp)
+
+    NULLIFY (lhs_result)
+    NULLIFY (lhs_z_grad_h)
+    NULLIFY (lhs_z_e)
+    NULLIFY (z_h_c)
+    NULLIFY (lhs_result_sp)
+    NULLIFY (lhs_z_grad_h_sp)
+    NULLIFY (lhs_z_e_sp)
+
+  END SUBROUTINE destruct_ho_lhs_fields_mimetic
+  !-------------------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------------------
   !>
   !! Computation of left-hand side of the surface height equation

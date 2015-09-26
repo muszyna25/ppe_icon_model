@@ -162,10 +162,11 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2010-07)
 !<Optimize:inUse:initOnly>
-  SUBROUTINE init_ho_params(  patch_3d, p_phys_param )
+  SUBROUTINE init_ho_params(  patch_3d, p_phys_param, fu10 )
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE (t_ho_params)                          :: p_phys_param
-
+    REAL(wp), TARGET                     :: fu10   (:,:) ! t_atmos_for_ocean%fu10
+ 
     ! Local variables
     INTEGER :: i, i_no_trac
     INTEGER :: je, jb, jk
@@ -185,6 +186,8 @@ CONTAINS
     !-------------------------------------------------------------------------
     all_edges => patch_2D%edges%ALL
     owned_edges => patch_2D%edges%owned
+    !-------------------------------------------------------------------------
+    WindAmplitude_at10m => fu10
     !-------------------------------------------------------------------------
     points_in_munk_layer = REAL(n_points_in_munk_layer,wp)
     !Init from namelist
@@ -752,7 +755,7 @@ CONTAINS
     INTEGER :: tracer_index
     !-------------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_upd_phys)
-    WindAmplitude_at10m => fu10
+!     WindAmplitude_at10m => fu10
     SeaIceConcentration => concsum
     
     SELECT CASE (physics_parameters_type)
@@ -1538,6 +1541,9 @@ CONTAINS
       
       wind_mixing(:) = 0.0_wp
       IF (use_wind_mixing .AND. patch_3d%p_patch_1d(1)%dolic_e(je, blockNo) > 0) THEN
+!         IF (cell_1_idx < 1 .or. cell_1_block < 1 .or. &
+!           & cell_2_idx < 1 .or. cell_2_block < 1)     &
+!           & CALL finish("ICON_PP_Edge_vnPredict wind mixing", "invalid cell pointers")
         ! wind-mixing: Marsland et al., 2003
         ! wind-mixing at surface, eq. (15) of Marsland et al., 2003
         wind_mixing(1) =           &
