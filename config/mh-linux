@@ -434,7 +434,6 @@ case "$ac_sitename" in
                 config_target = bullx
                 make_command  = make -j4
                 submit        = sbatch
-                # sync_submit   = sbatch
                 sync_submit   = srunjob
                 queue         = compute
                 case "$fortran_compiler" in
