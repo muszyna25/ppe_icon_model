@@ -254,12 +254,12 @@ case "$ac_sitename" in
                     default|gcc)
                         config_target=daint_cpu
                         load_modules ="PrgEnv-gnu" "cray-netcdf" "${load_modules}"
-        		CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
+        		CFLAGS      = "$CFLAGS" -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
                     ;;
                     intel)
                         config_target=daint_cpu
                         load_modules = "PrgEnv-intel" "cray-netcdf" "${load_modules}"
-        		CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
+        		CFLAGS      = "$CFLAGS" -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
                     ;;
                     pgi)
                         config_target=daint_cpu

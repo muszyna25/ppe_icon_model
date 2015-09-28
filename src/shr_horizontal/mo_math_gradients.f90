@@ -89,6 +89,7 @@
 #include "openacc_definitions.inc"
 #define ACC_DEBUG !$ACC
 !----------------------------
+#define ACC_PREFIX !NOACC
 
 !----------------------------
 #include "omp_definitions.inc"
