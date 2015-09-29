@@ -1558,13 +1558,21 @@ CONTAINS
     ! subset range pointer
     p_patch      => p_patch_3D%p_patch_2D(1)
 
-    ! Fix over shoots - ONLY for the one-ice-class case
+    ! Fix overshoots - ONLY for the one-ice-class case
     WHERE ( p_ice%conc(:,1,:) > 1._wp )
       p_ice%conc(:,1,:) = 1._wp
 
       ! New ice and snow thickness
       p_ice%hi   (:,1,:) = p_ice%vol (:,1,:)/( p_ice%conc(:,1,:)*p_patch%cells%area(:,:) )
       p_ice%hs   (:,1,:) = p_ice%vols(:,1,:)/( p_ice%conc(:,1,:)*p_patch%cells%area(:,:) )
+    ENDWHERE
+
+    ! Fix undershoots - ONLY for the one-ice-class case
+    ! Quick fix, should be reformulated to occur at the advection stage
+    WHERE ( ( p_ice%conc(:,1,:) < 0._wp ) .OR. ( p_ice%hi(:,1,:) < 0._wp ) )
+      p_ice%conc(:,1,:) = 0._wp
+      p_ice%hi(:,1,:)   = 0._wp
+      p_ice%hs(:,1,:)   = 0._wp
     ENDWHERE
 
     p_ice%concSum                           = SUM(p_ice%conc, 2)
