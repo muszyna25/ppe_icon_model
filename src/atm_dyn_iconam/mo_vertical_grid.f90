@@ -1580,7 +1580,7 @@ MODULE mo_vertical_grid
     !PREPARE LES, Anurag Dipankar MPIM (2013-04)
     DO jg = 1 , n_dom
       IF(atm_phy_nwp_config(jg)%is_les_phy)  &
-        CALL prepare_les_model(p_patch(jg), p_nh(jg), p_int(jg))
+        CALL prepare_les_model(p_patch(jg), p_nh(jg), p_int(jg), jg)
     END DO
 
   END SUBROUTINE set_nh_metrics
@@ -1902,7 +1902,7 @@ MODULE mo_vertical_grid
   !! @par Revision History
   !! Developed by Anurag Dipankar, MPIM (2013-04)
   !!
-  SUBROUTINE prepare_les_model(p_patch, p_nh, p_int)
+  SUBROUTINE prepare_les_model(p_patch, p_nh, p_int, jg)
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_vertical_grid:prepare_les_model'
@@ -1910,8 +1910,9 @@ MODULE mo_vertical_grid
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
+    INTEGER, INTENT(IN)                  :: jg
 
-    REAL(wp)  :: les_filter, z_mc, z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c), max_dz
+    REAL(wp)  :: les_filter, z_mc, z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c)
     
     INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c, npromz_e
     INTEGER :: nlev, nlevp1, i_startblk
@@ -1923,16 +1924,6 @@ MODULE mo_vertical_grid
     nblks_e   = p_patch%nblks_e
     npromz_e  = p_patch%npromz_e
 
-    !Use the  triangle area to decide the les filter. 
-    max_dz = MAXVAL(p_nh%metrics%ddqz_z_full(:,nlev,:))
-    max_dz = global_max(max_dz) 
-    les_filter = les_config(1)%smag_constant*(max_dz*p_patch%geometry_info%mean_cell_area)**0.33333_wp
-
-    IF (msg_level >= 10) THEN
-      WRITE(message_text,'(a,i4,a,f8.3)') 'LES grid-scale filter for domain ',p_patch%id,' =',les_filter
-      CALL message(TRIM(routine),message_text)
-    END IF
-     
     i_startblk = p_patch%edges%start_block(2)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
@@ -1947,7 +1938,7 @@ MODULE mo_vertical_grid
     END DO 
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jc,jk,nlen,z_mc) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,nlen,z_mc,les_filter) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -1957,6 +1948,9 @@ MODULE mo_vertical_grid
        DO jk = 1 , nlevp1 
         DO jc = 1 , nlen
          z_mc  = p_nh%metrics%geopot_agl_ifc(jc,jk,jb) * rgrav
+
+         les_filter = les_config(jg)%smag_constant * MIN( les_config(jg)%max_turb_scale, &
+                      (p_nh%metrics%ddqz_z_full(jc,jk,jb)*p_patch%geometry_info%mean_cell_area)**0.33333_wp )
 
          p_nh%metrics%mixing_length_sq(jc,jk,jb) = (les_filter*z_mc)**2    &
                       / ((les_filter/akt)**2+z_mc**2)
