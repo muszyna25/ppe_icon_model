@@ -28,7 +28,7 @@ MODULE mo_td_ext_data
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_io_units,           ONLY: filename_max
-  USE mo_master_nml,         ONLY: model_base_dir
+  USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_mpi,                ONLY: p_comm_work_test, p_comm_work
 #ifdef NOMPI
   USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
@@ -274,7 +274,7 @@ CONTAINS
 
         !! READ SST files
         extpar_file = generate_td_filename(sst_td_filename,                   &
-          &                                model_base_dir,                    &
+          &                                getModelBaseDir(),                 &
           &                                TRIM(p_patch(jg)%grid_filename),   &
           &                                m1,y1                   )
 
@@ -285,7 +285,7 @@ CONTAINS
         CALL closeFile(stream_id)
 
         extpar_file = generate_td_filename(sst_td_filename,                   &
-          &                                model_base_dir,                    &
+          &                                getModelBaseDir(),                 &
           &                                TRIM(p_patch(jg)%grid_filename),   &
           &                                m2, y2                   )
         CALL message  (routine, TRIM(extpar_file))
@@ -296,9 +296,9 @@ CONTAINS
 
         !! READ CI files
 
-        extpar_file = generate_td_filename(ci_td_filename,                  &
-          &                                model_base_dir,                  &
-          &                                TRIM(p_patch(jg)%grid_filename), &
+        extpar_file = generate_td_filename(ci_td_filename,                    &
+          &                                getModelBaseDir(),                 &
+          &                                TRIM(p_patch(jg)%grid_filename),   &
           &                                m1,y1                   )
         CALL message  (routine, TRIM(extpar_file))
         stream_id = openInputFile(extpar_file, p_patch(jg), default_read_method)
@@ -306,9 +306,9 @@ CONTAINS
           &          ext_data(jg)%atm_td%fr_ice_m(:,:,1))
         CALL closeFile(stream_id)
 
-        extpar_file = generate_td_filename(ci_td_filename,                &
-          &                             model_base_dir,                    &
-          &                             TRIM(p_patch(jg)%grid_filename),   &
+        extpar_file = generate_td_filename(ci_td_filename,                    &
+          &                                getModelBaseDir(),                 &             
+          &                             TRIM(p_patch(jg)%grid_filename),      &
           &                             m2,y2                   )
         CALL message  (routine, TRIM(extpar_file))
         stream_id = openInputFile(extpar_file, p_patch(jg), default_read_method)

@@ -18,7 +18,7 @@ MODULE mo_parallel_nml
 
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_master_config,       ONLY: isRestart
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     & open_and_restore_namelist, close_tmpfile
@@ -291,7 +291,7 @@ MODULE mo_parallel_nml
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
     !----------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       funit = open_and_restore_namelist('parallel_nml')
       READ(funit,NML=parallel_nml)
       CALL close_tmpfile(funit)

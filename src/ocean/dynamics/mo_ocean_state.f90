@@ -40,7 +40,6 @@ MODULE mo_ocean_state
     &                               t_hydro_ocean_aux ,t_hydro_ocean_acc, t_oce_config ,t_ocean_tracer
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     &                               success, max_char_length, MIN_DOLIC,               &
     &                               full_coriolis, beta_plane_coriolis,                &

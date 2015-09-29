@@ -23,101 +23,31 @@ db_status=0 # exit status of database, 0=ok, 1=target not known
 # --------------------
 case ${target} in
 
-    # Blizzard
-    # --------
-    blizz_nMnO)
-        configureoption="--with-mpi=no --with-openmp=no"
+    # Generic
+    # -------
+    intel_hybrid)
+        configureoption="--with-fortran=intel --with-openmp"
         ;;
-    blizz_nMyO)
-        configureoption="--with-mpi=no --with-openmp=yes"
-        ;;
-    blizz_yMnO)
-        configureoption="--with-openmp=no"
-        ;;
-    blizz_yMyO)
-        configureoption="--with-openmp=yes"
-        ;;
-
-    # MPIPC
-    # -----
-    mpipc | mpipc_gcc)
-        configureoption="--with-fortran=gcc"
-        ;;
-    mpipc_nag)
-        configureoption="--with-fortran=nag"
-        ;;
-    mpipc_intel)
+    intel)
         configureoption="--with-fortran=intel"
         ;;
-    mpipc_pgi)
-        configureoption="--with-fortran=pgi"
+    intel_openmp)
+        configureoption="--with-fortran=intel --without-mpi --with-openmp"
         ;;
-    mpipc_sun)
-        configureoption="--with-fortran=sun"
+    cce)
+        configureoption="--with-fortran=cray"
         ;;
-
-    # Thunder
-    # ------
-    thunder | thunder_gcc)
+    gcc)
         configureoption="--with-fortran=gcc"
         ;;
-    thunder_nag)
+    nag)
         configureoption="--with-fortran=nag"
         ;;
-    thunder_intel)
-        # configureoption="--with-fortran=intel --with-mpi --with-openmp --with-flags=hiopt"
-        configureoption="--with-fortran=intel --with-mpi --with-openmp"
+    nag_serial)
+        configureoption="--with-fortran=nag --without-mpi"
         ;;
-    thunder_pgi)
-        configureoption="--with-fortran=pgi"
-        ;;
-    thunder_sun)
-       configureoption="--with-fortran=sun"
-        ;;
-    thunder_nag_mtime)
+    nag_mtime)
         configureoption="--with-fortran=nag --enable-mtime-loop"
-        ;;
-
-    # MPIMAC
-    # ------
-    mpimac | mpimac_gcc)
-        configureoption="--with-fortran=gcc"
-        ;;
-
-    # DWD hpc 
-    # -------
-    hpc | hpc_noomp)
-       configureoption="--with-fortran=sun-noomp"
-        ;;
-    hpc_sun_debug)
-       configureoption="--with-fortran=sun-debug --without-mpi"
-        ;;
-    hpc_serial )
-        configureoption="--with-fortran=sun --without-mpi"
-        ;;
-
-    # DWD SX9
-    # -------
-    sx9)
-        configureoption="--host=sx9 --with-setup=sx9 --without-ocean"
-        ;;
-
-    sx9omp)
-        configureoption="--host=sx9 --with-setup=sx9omp --without-ocean"
-        ;;
-
-    sx9mpiomp)
-        configureoption="--host=sx9 --with-setup=sx9mpiomp --without-ocean"
-        ;;
-
-    sx9ftromp)
-        configureoption="--host=sx9 --with-setup=sx9ftromp --without-ocean"
-        ;;
-
-    # CSCS daint
-    # ----------
-    daint_cpu_cce)
-        configureoption="--with-fortran=cray"
         ;;
 
     # Default (for unspecified target)

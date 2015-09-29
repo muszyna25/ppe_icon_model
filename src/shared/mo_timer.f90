@@ -92,7 +92,6 @@ MODULE mo_timer
   PUBLIC :: timer_rrtm_prep, timer_rrtm_post
   PUBLIC :: timer_lrtm, timer_srtm
 
-
   PUBLIC :: timer_satad_v_3D
   PUBLIC :: timer_phys_exner
   PUBLIC :: timer_phys_u_v
@@ -262,7 +261,6 @@ MODULE mo_timer
   ! echam radiation
   INTEGER :: timer_rrtm_prep, timer_rrtm_post
   INTEGER :: timer_lrtm, timer_srtm
-
 
   INTEGER :: timer_omp_radiation
   INTEGER :: timer_write_restart_file

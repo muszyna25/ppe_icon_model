@@ -65,7 +65,6 @@ MODULE mo_ocean_initial_conditions
   USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3d, smooth_onCells
   USE mo_ocean_ab_timestepping,ONLY: update_time_indices
-  USE mo_master_control,     ONLY: is_restart_run
   USE mo_ape_params,         ONLY: ape_sst
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range

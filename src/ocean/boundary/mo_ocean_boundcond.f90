@@ -44,7 +44,7 @@ MODULE mo_ocean_boundcond
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates, gvec2cvec
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   USE mo_sync,               ONLY: SYNC_E, sync_patch_array
-  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_master_config,      ONLY: isRestart
 
   IMPLICIT NONE
   
@@ -115,7 +115,7 @@ CONTAINS
     patch_2D   => patch_3D%p_patch_2D(1)
     all_edges  => patch_2D%edges%all
     !-----------------------------------------------------------------------
-    IF (is_restart_run() .OR. i_bc_veloc_top /= 4) THEN
+    IF (isRestart() .OR. i_bc_veloc_top /= 4) THEN
       smooth_coeff = 1.0_wp
     ELSE
       smooth_coeff = MIN(REAL(current_step, wp) / REAL(forcing_smooth_steps, wp), 1.0_wp)
@@ -210,7 +210,7 @@ CONTAINS
     patch_2D   => patch_3D%p_patch_2D(1)
     all_cells => patch_2D%cells%all
     !-----------------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       smooth_coeff = 1.0_wp
     ELSE
       smooth_coeff = MIN(REAL(current_step, wp) / REAL(forcing_smooth_steps, wp), 1.0_wp)
@@ -303,7 +303,7 @@ CONTAINS
  !    !       to subtract velocity from wind stress is unphysical - to be checked
  !    !  option disabled (#slo#, 2014-04)
 
- !    IF (is_restart_run()) THEN
+ !    IF (isRestart()) THEN
  !      smooth_coeff = 1.0_wp
  !    ELSE
  !      smooth_coeff = MIN(REAL(current_step, wp) / REAL(forcing_smooth_steps, wp), 1.0_wp)
