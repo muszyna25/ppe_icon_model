@@ -150,7 +150,7 @@ CONTAINS
     !
     ! convection
     range_entrorg    = 0.125e-3_wp  ! entrainment parameter for deep convection
-    range_capdcfac_et = 0.1_wp      ! fraction of CAPE diurnal cycle correction applied in the extratropics
+    range_capdcfac_et = 0.125_wp    ! fraction of CAPE diurnal cycle correction applied in the extratropics
     range_rhebc      = 0.05_wp      ! RH thresholds for evaporation below cloud base
     range_texc       = 0.025_wp     ! Excess value for temperature used in test parcel ascent
     !
