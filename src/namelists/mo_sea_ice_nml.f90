@@ -76,7 +76,7 @@ MODULE mo_sea_ice_nml
   LOGICAL, PUBLIC :: use_IceInitialization_fromTemperature = .true.
   LOGICAL, PUBLIC :: stress_ice_zero             = .TRUE.   !  set stress below sea ice to zero
   LOGICAL, PUBLIC :: use_calculated_ocean_stress = .FALSE.  !  calculate ocean stress instead of reading from OMIP
-  LOGICAL, PUBLIC :: use_no_flux_gradients       = .FALSE.  !  simplified ice_fast without flux gradients
+  LOGICAL, PUBLIC :: use_no_flux_gradients       = .TRUE.   !  simplified ice_fast without flux gradients
 
   INTEGER         :: iunit
 

@@ -395,9 +395,9 @@ CONTAINS
         &                sea_ice,                 &
         &                jstep, jstep0)
       
-      ! #slo#-2015-04-15: call to coupling routine at the end of time stepping loop - TODO: check location
-   !  IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
-   !    &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state, sea_ice, p_atm_f, jstep, datetime)
+      ! receive coupling fluxes for ocean at the end of time stepping loop
+      IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
+        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), p_ice, p_atm_f, datetime)
 
       IF (timers_level > 2)  CALL timer_start(timer_extra21)
       ! Shift time indices for the next loop
