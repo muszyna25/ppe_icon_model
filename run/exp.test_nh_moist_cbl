@@ -46,6 +46,10 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 dtime=0.2
 dt_checkpoint=`expr 50 \* 60 `  # write restart file every 50 mins
 #
+# restart intervals
+checkpoint_interval="PT50M"
+restart_interval="P60D"
+#
 #-----------------------------------------------------------------------------
 # model parameters
 atmo_model_equations=3 # equation system
@@ -86,7 +90,8 @@ cat > ${atmo_namelist} << EOF
 / 
 &run_nml
  num_lev     = ${nlev},      ! number of full levels of vertical grid
- dtime       = ${dtime}     ! [s] timestep in seconds
+ dtime       = ${dtime}     ! [s] timestep in seconds !! MUST BE EQUAL TO "modelTimeStep" !!
+ modelTimeStep = "PT0.2S"   ! preliminary fix
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics   = .TRUE.       ! dynamics
  ltransport  = .TRUE.       ! transport

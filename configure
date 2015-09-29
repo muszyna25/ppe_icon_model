@@ -2646,6 +2646,28 @@ if test "$CC" = mpcc_r ;  then
   use_mpcc_r=yes
 fi
 
+if test "x$load_modules" != x ;  then
+  if test "$0" != "./conf__.tmp" ; then
+    echo "$load_profile" > conf_load_module.tmp
+    echo module purge >> conf_load_module.tmp
+    echo module load "$load_modules" >> conf_load_module.tmp
+    echo module list >> conf_load_module.tmp
+    if test "x$config_target" = xblizzard ;  then
+      # change configure to bash
+      echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
+    else
+      cp configure conf__.tmp
+    fi
+    echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
+    echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
+    echo "rm conf__.tmp" >> conf_load_module.tmp
+    echo 'exit $rc' >>conf_load_module.tmp
+    chmod +x conf_load_module.tmp
+    ./conf_load_module.tmp ; rc=$?
+#    rm conf_load_module.tmp
+    exit $rc
+  fi
+fi
 
 
 use_components_file=config/icon_components

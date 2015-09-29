@@ -141,7 +141,8 @@ cat > ${atmo_namelist} << EOF
 &run_nml
  num_lev        = ${nlev},        ! number of full levels of vertical grid
  nsteps         = ${nsteps}    ! 50 ! 1200 ! 7200 !
- dtime          = ${dtime}     ! timestep in seconds
+ dtime          = ${dtime}     ! timestep in seconds !! MUST BE EQUAL TO "modelTimeStep" !!
+ modelTimeStep  = "PT8M"       ! preliminary fix
  ldynamics      = .TRUE.       ! dynamics
  ltransport     = .TRUE.
  ntracer        = 5            ! default: 0
