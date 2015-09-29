@@ -419,6 +419,7 @@ case "$ac_sitename" in
                 esac
                 ;;
             btc*|mlogin*)
+                load_modules  = ncl/6.2.1-gccsys
                 load_profile  = "." "/etc/profile"
                 software_tree = /sw/rhel6-x64
                 config_target = bullx
