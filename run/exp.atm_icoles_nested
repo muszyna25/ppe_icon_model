@@ -47,30 +47,30 @@ iforcing=3             # 3 for inwp forcing which then calls the LES physics
 # the grid and other files
 #
 # the grid parameters
-grids_folder="${icon_data_poolFolder}/ICON-DE/GRIDS"
+grids_folder="${icon_data_poolFolder}/buildbot_data/aes/icoles_nested/"
 grid_1=icoles_IconChecksuite_DOM01_R4996m
 grid_2=icoles_IconChecksuite_DOM02_R2498m
 atmo_dyn_grids="${grid_1}.nc  ${grid_2}.nc"
 dynamics_parent_grid_id="  0,       1"
 #
 # absolute path to directory with LAM data
-LAMDATA=${icon_data_poolFolder}/ICON-DE
+LAMDATA=${grids_folder}
 #
 #LATBC PATH
-LATBC_PATH=$LAMDATA/NUDG_germany/4996/
+LATBC_PATH=${LAMDATA}
 #
 #EXT DATA
-ext_data_path=$LAMDATA/EXTPAR
+ext_data_path=${LAMDATA}
 add_link_file $ext_data_path/extpar_${grid_1}.nc  extpar_${grid_1}.nc
 add_link_file $ext_data_path/extpar_${grid_2}.nc  extpar_${grid_2}.nc
 
 #INITIAL DATA
-init_data_path=$LAMDATA/INIT_germany
+init_data_path=${LAMDATA}
 init_date=2013042400
-add_link_file $init_data_path/4996/init_${grid_1}_${init_date}.nc ifs2icon_R2B09_DOM01.nc
-add_link_file $init_data_path/4996/init_${grid_1}_${init_date}.nc dwdFG_R2B09_DOM01.nc
-add_link_file $init_data_path/2500/init_${grid_2}_${init_date}.nc ifs2icon_R2B10_DOM02.nc
-add_link_file $init_data_path/2500/init_${grid_2}_${init_date}.nc dwdFG_R2B10_DOM02.nc
+add_link_file $init_data_path/init_${grid_1}_${init_date}.nc ifs2icon_R2B09_DOM01.nc
+add_link_file $init_data_path/init_${grid_1}_${init_date}.nc dwdFG_R2B09_DOM01.nc
+add_link_file $init_data_path/init_${grid_2}_${init_date}.nc ifs2icon_R2B10_DOM02.nc
+add_link_file $init_data_path/init_${grid_2}_${init_date}.nc dwdFG_R2B10_DOM02.nc
 #
 #-----------------------------------------------------------------------------
 #
@@ -146,7 +146,7 @@ cat > ${atmo_namelist} << EOF
  hdiff_tv_ratio   = 1.0
 /
 &nwp_phy_nml
-inwp_gscp       = 4,4 !temporary switched off:two moment microphysics
+inwp_gscp       = 1,1 !temporary switched off:two moment microphysics
 inwp_convection = 0,0
 inwp_radiation  = 1,1
 inwp_cldcover   = 5,5
@@ -239,7 +239,8 @@ lsq_high_ord      = 2
  include_last     = .TRUE.
  output_filename  = '${EXPNAME}_prog_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qni','qnr','qns','qng','qnh','u','v','w','temp','pres'
+ !ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qni','qnr','qns','qng','qnh','u','v','w','temp','pres'
+ ml_varlist       = 'qv','qc','qi','qr','qs','u','v','w','temp','pres'
  output_grid      = .TRUE.
 /
 &output_nml
