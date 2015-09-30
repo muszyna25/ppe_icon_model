@@ -40,7 +40,8 @@ MODULE mo_ice_fem_utils
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec, rotate_latlon,&
     &                               rotate_latlon_vec, cc_norm!, disp_new_vect
   USE mo_exception,           ONLY: message
-  USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar
+!  USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar
+  USE mo_icon_to_fem_interpolation, ONLY: cells2verts_scalar_seaice
   USE mo_run_config,          ONLY: dtime, ltimer
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_impl_constants,      ONLY: sea_boundary, sea
@@ -169,24 +170,24 @@ CONTAINS
     buffy_array = 0._wp
     ! TODO: Replace hi/conc to himean
 !    CALL cells2verts_scalar( p_ice%hi/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
-    CALL cells2verts_scalar( p_ice%hi*MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+    CALL cells2verts_scalar_seaice( p_ice%hi*MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     m_ice = buffy(1:SIZE(m_ice) )
 
-    CALL cells2verts_scalar( p_ice%conc, p_patch, c2v_wgt, buffy_array )
+    CALL cells2verts_scalar_seaice( p_ice%conc, p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     a_ice = buffy(1:SIZE(a_ice) )
 
 !    CALL cells2verts_scalar( p_ice%hs/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
-    CALL cells2verts_scalar( p_ice%hs*MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+    CALL cells2verts_scalar_seaice( p_ice%hs*MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     m_snow= buffy(1:SIZE(m_snow))
 
     ! Interpolate SSH to vertices
-    CALL cells2verts_scalar( RESHAPE(p_os%p_prog(nold(1))%h(:,:), &
+    CALL cells2verts_scalar_seaice( RESHAPE(p_os%p_prog(nold(1))%h(:,:), &
       & (/ nproma, 1, p_patch%alloc_cell_blocks /)), p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
