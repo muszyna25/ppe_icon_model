@@ -347,7 +347,7 @@ MODULE mo_nh_testcases
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running Convective Boundary Layer Experiment')
 
-  CASE ('2D_BUBBLE')
+  CASE ('2D_BUBBLE', '3D_BUBBLE')
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
         CALL finish(TRIM(routine),'2D BUBBLE case is only for plane torus!')
@@ -1065,7 +1065,7 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End init with sounding')
 
-  CASE ('2D_BUBBLE') !to initialize with sounding
+  CASE ('2D_BUBBLE', '3D_BUBBLE') !to initialize with sounding
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
         CALL finish(TRIM(routine),'2D warm bubble case is only for torus!')

@@ -81,6 +81,8 @@ cat >> ${atmo_namelist} << EOF
  nh_test_name   = '2D_BUBBLE'     ! test case identifier
  bub_amp        = 2.0
  bubctr_z       = 2000.0
+ bubctr_x       = 0.0
+ bubctr_y       = 0.0
  bub_hor_width  = 2000.0
  bub_ver_width  = 2000.0
 /
@@ -104,7 +106,7 @@ cat >> ${atmo_namelist} << EOF
  inwp_convection = 0 ! 1:Tiedtke/Bechtold
  inwp_radiation  = 0 ! 1:RRTM radiation
  inwp_cldcover   = 5 ! 3: clouds from COSMO SGS cloud scheme
- inwp_turb       = 0 ! 1: COSMO diffusion and transfer
+ inwp_turb       = 5 ! 1: COSMO diffusion and transfer
  inwp_satad      = 1
  inwp_surface    = 0 ! 0: none; 1: TERRA
  latm_above_top  = .false.

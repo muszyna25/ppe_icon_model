@@ -33,7 +33,8 @@ MODULE mo_nh_torus_exp
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_physical_constants,  ONLY: rd, rv, cpd, p0ref, cvd_o_rd, rd_o_cpd, &
      &                              tmelt,grav, alv, vtmpc1, rdv
-  USE mo_nh_testcases_nml,    ONLY: ape_sst_val, u_cbl, v_cbl, th_cbl, psfc_cbl
+  USE mo_nh_testcases_nml,    ONLY: ape_sst_val, u_cbl, v_cbl, th_cbl, psfc_cbl, &
+                                    bubctr_x, bubctr_y, nh_test_name
   USE mo_nh_wk_exp,           ONLY: bub_amp, bub_ver_width, bub_hor_width, bubctr_z
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -819,10 +820,12 @@ MODULE mo_nh_torus_exp
     !--------------------------------------------------------------------------
 
     !Bubble center, note that torus domain has center in the middle
-    x_bubble = (/0._wp,0._wp,bubctr_z/)
+    !Uses bubctr_lon and bubctr_lat to represent x,y in torus
+    x_bubble = (/bubctr_x,bubctr_y,bubctr_z/)
 
     !First non-dimensionalize bubble ceter
     x_c(1) = x_bubble(1) / bub_hor_width
+    x_c(2) = x_bubble(2) / bub_hor_width
     x_c(3) = x_bubble(3) / bub_ver_width
 
 
@@ -841,8 +844,9 @@ MODULE mo_nh_torus_exp
           x_loc(2) = ptr_patch%cells%cartesian_center(jc,jb)%x(2)/bub_hor_width
           x_loc(3) = ptr_metrics%z_mc(jc,jk,jb)/bub_ver_width
             
-          !to minimize the 3D effect
-          x_c(2)   = x_loc(2)
+          IF(nh_test_name.eq.'2D_BUBBLE')THEN
+           x_c(2)   = x_loc(2)
+          END IF
 
           dis = plane_torus_distance(x_loc,x_c,ptr_patch%geometry_info)
 
