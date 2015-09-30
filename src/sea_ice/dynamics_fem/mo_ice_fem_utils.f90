@@ -1870,6 +1870,10 @@ CONTAINS
     all_cells => p_patch%cells%all
     all_verts => p_patch%verts%all
 
+    p_vn_c_3D(:,:,:)%x(1) = 0.0_wp
+    p_vn_c_3D(:,:,:)%x(2) = 0.0_wp
+    p_vn_c_3D(:,:,:)%x(3) = 0.0_wp
+
     !**************************************************************
     ! (1) Rotate, reshape and copy ice velocities to ICON variables
     !     and convert to cartesian coordinates
