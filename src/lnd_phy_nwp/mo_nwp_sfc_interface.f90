@@ -7,7 +7,6 @@
 !!
 !! @par Revision History
 !! Initial Kristina Froehlich, DWD, Offenbach (2010-01-25)
-!! Implementation of the Canopy-Model MIRI_QUIDI, Juergen Helmert, (2015-09-29) 
 !!
 !! @par Copyright and License
 !!
@@ -42,7 +41,7 @@ MODULE mo_nwp_sfc_interface
     &                               ntiles_lnd, lsnowtile, isub_water, isub_seaice,   &
     &                               isub_lake, itype_interception
   USE mo_satad,               ONLY: sat_pres_water, sat_pres_ice, spec_humi  
-  USE mo_soil_ml,             ONLY: miri_quidi, terra_multlay
+  USE mo_soil_ml,             ONLY: terra_multlay
   USE mo_nwp_sfc_utils,       ONLY: diag_snowfrac_tg, update_idx_lists_lnd, update_idx_lists_sea
   USE mo_flake,               ONLY: flake_interface
   USE mo_data_flake,          ONLY: h_Ice_min_flk
@@ -126,82 +125,49 @@ CONTAINS
     REAL(wp) :: sso_sigma_t(nproma)
     INTEGER  :: lc_class_t (nproma)
 
-    REAL(wp) :: t_snow_veg_now_t (nproma)
-    REAL(wp) :: t_snow_veg_new_t (nproma)
     REAL(wp) :: t_snow_now_t (nproma)
     REAL(wp) :: t_snow_new_t (nproma)
 
-    REAL(wp) :: t_s_veg_now_t  (nproma)
-    REAL(wp) :: t_s_veg_new_t  (nproma)
     REAL(wp) :: t_s_now_t  (nproma)
     REAL(wp) :: t_s_new_t  (nproma)
 
     REAL(wp) :: t_g_t      (nproma)
     REAL(wp) :: qv_s_t     (nproma)
-    REAL(wp) :: t_g_veg_t      (nproma)
-    REAL(wp) :: qv_s_veg_t     (nproma)
 
-    REAL(wp) :: w_snow_veg_now_t(nproma)
-    REAL(wp) :: w_snow_veg_new_t(nproma)
     REAL(wp) :: w_snow_now_t(nproma)
     REAL(wp) :: w_snow_new_t(nproma)
   
-
-    REAL(wp) :: rho_snow_veg_now_t (nproma)
-    REAL(wp) :: rho_snow_veg_new_t (nproma)
     REAL(wp) :: rho_snow_now_t (nproma)
     REAL(wp) :: rho_snow_new_t (nproma)
 
     REAL(wp) :: h_snow_t (nproma)
     REAL(wp) :: h_snow_gp_t (nproma)
     REAL(wp) :: meltrate (nproma)
-    REAL(wp) :: h_snow_veg_t (nproma)
-    REAL(wp) :: h_snow_gp_veg_t (nproma)
-    REAL(wp) :: meltrate_veg (nproma)
-
 
     REAL(wp) :: w_i_now_t (nproma)
     REAL(wp) :: w_i_new_t (nproma)
-    REAL(wp) :: w_i_now_veg_t (nproma)
-    REAL(wp) :: w_i_new_veg_t (nproma)
 
     REAL(wp) :: w_p_now_t (nproma)
     REAL(wp) :: w_p_new_t (nproma)
-    REAL(wp) :: w_p_now_veg_t (nproma)
-    REAL(wp) :: w_p_new_veg_t (nproma)
 
-
-    REAL(wp) :: w_s_veg_now_t (nproma)
-    REAL(wp) :: w_s_veg_new_t (nproma)
     REAL(wp) :: w_s_now_t (nproma)
     REAL(wp) :: w_s_new_t (nproma)
 
-
     REAL(wp) :: u_10m_t    (nproma)
     REAL(wp) :: v_10m_t    (nproma)
-    REAL(wp) :: freshsnow_veg_t(nproma)
-    REAL(wp) :: snowfrac_veg_t (nproma)
     REAL(wp) :: freshsnow_t(nproma)
     REAL(wp) :: snowfrac_t (nproma)
 
-    REAL(wp) :: tch_veg_t      (nproma)
-    REAL(wp) :: tcm_veg_t      (nproma)
-    REAL(wp) :: tfv_veg_t      (nproma)
     REAL(wp) :: tch_t      (nproma)
     REAL(wp) :: tcm_t      (nproma)
     REAL(wp) :: tfv_t      (nproma)
-
-
 
     REAL(wp) :: sobs_t     (nproma)
     REAL(wp) :: thbs_t     (nproma)
     REAL(wp) :: pabs_t     (nproma)
 
-    REAL(wp) :: runoff_s_veg_t (nproma)
-    REAL(wp) :: runoff_g_veg_t (nproma)
     REAL(wp) :: runoff_s_t (nproma)
     REAL(wp) :: runoff_g_t (nproma)
-
 
     INTEGER  :: soiltyp_t (nproma)
     REAL(wp) :: plcov_t   (nproma)
@@ -216,28 +182,18 @@ CONTAINS
     ! pointer to actual or dummy precipitation rate of graupel
     REAL(wp), POINTER :: p_graupel_gsp_rate(:,:)
 
-    REAL(wp) :: t_snow_mult_veg_now_t(nproma, nlev_snow+1)
-    REAL(wp) :: t_snow_mult_veg_new_t(nproma, nlev_snow+1)
     REAL(wp) :: t_snow_mult_now_t(nproma, nlev_snow+1)
     REAL(wp) :: t_snow_mult_new_t(nproma, nlev_snow+1)
 
-    REAL(wp) :: rho_snow_mult_veg_now_t(nproma, nlev_snow)
-    REAL(wp) :: rho_snow_mult_veg_new_t(nproma, nlev_snow)
     REAL(wp) :: rho_snow_mult_now_t(nproma, nlev_snow)
     REAL(wp) :: rho_snow_mult_new_t(nproma, nlev_snow)
 
-    REAL(wp) :: wliq_snow_veg_now_t(nproma, nlev_snow)
-    REAL(wp) :: wliq_snow_veg_new_t(nproma, nlev_snow)
     REAL(wp) :: wliq_snow_now_t(nproma, nlev_snow)
     REAL(wp) :: wliq_snow_new_t(nproma, nlev_snow)
 
-    REAL(wp) :: wtot_snow_veg_now_t(nproma, nlev_snow)
-    REAL(wp) :: wtot_snow_veg_new_t(nproma, nlev_snow)
     REAL(wp) :: wtot_snow_now_t(nproma, nlev_snow)
     REAL(wp) :: wtot_snow_new_t(nproma, nlev_snow)
 
-    REAL(wp) :: dzh_snow_veg_now_t(nproma, nlev_snow)
-    REAL(wp) :: dzh_snow_veg_new_t(nproma, nlev_snow)
     REAL(wp) :: dzh_snow_now_t(nproma, nlev_snow)
     REAL(wp) :: dzh_snow_new_t(nproma, nlev_snow)
 
@@ -260,19 +216,6 @@ CONTAINS
     REAL(wp) :: graupel_gsp_rate(nproma, ntiles_total)
     REAL(wp), PARAMETER :: small = 1.E-06_wp
 
-    REAL(wp) :: t_g_s_veg(nproma)
-    REAL(wp) :: shfl_s_veg_t    (nproma) ! sensible heat flux sfc
-    REAL(wp) :: lhfl_s_veg_t    (nproma) ! latent heat flux sfc
-    REAL(wp) :: qhfl_s_veg_t    (nproma) ! moisture flux sfc
-    REAL(wp) :: shfl_soil_veg_t (nproma) ! sensible heat flux sfc (snow free)
-    REAL(wp) :: lhfl_soil_veg_t (nproma) ! latent heat flux sfc   (snow free)
-    REAL(wp) :: shfl_snow_veg_t (nproma) ! sensible heat flux sfc (snow covered)
-    REAL(wp) :: lhfl_snow_veg_t (nproma) ! latent heat flux sfc   (snow covered)
-    REAL(wp) :: lhfl_bs_veg_t   (nproma)
-    REAL(wp) :: lhfl_pl_veg_t   (nproma, nlev_soil)
-    REAL(wp) :: rstom_veg_t     (nproma)
-
-
     REAL(wp) :: t_g_s(nproma)
     REAL(wp) :: shfl_s_t    (nproma) ! sensible heat flux sfc
     REAL(wp) :: lhfl_s_t    (nproma) ! latent heat flux sfc
@@ -284,6 +227,7 @@ CONTAINS
     REAL(wp) :: lhfl_bs_t   (nproma)
     REAL(wp) :: lhfl_pl_t   (nproma, nlev_soil)
     REAL(wp) :: rstom_t     (nproma)
+
 !--------------------------------------------------------------
 
     ! get patch ID
@@ -551,116 +495,6 @@ CONTAINS
 !
 !---------- END Copy index list fields
 
-!!$        CALL miri_quidi(                                    &
-!!$        &  ie=nproma                                         , & !IN array dimensions
-!!$        &  istartpar=1,       iendpar=i_count                , & !IN optional start/end indicies
-!!$        &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & !IN without lowermost (climat.) soil layer
-!!$        &  ke_soil_hy   = ibot_w_so                          , & !IN number of hydrological active soil layers
-!!$        &  czmls=zml_soil,    ldiag_tg=.FALSE.               , & !IN processing soil level structure 
-!!$        &  inwp_turb    = atm_phy_nwp_config(jg)%inwp_turb   , & !IN !!! Dangerous HACK !!!
-!!$        &  nclass_gscp  = atm_phy_nwp_config(jg)%nclass_gscp , & !IN number of hydrometeor classes
-!!$        &  dt=tcall_sfc_jg                                   , & !IN 
-!!$        &  soiltyp_subs = soiltyp_t              , & !IN type of the soil (keys 0-9)         --    
-!!$        &  plcov        = plcov_t                , & !IN fraction of plant cover             --
-!!$        &  rootdp       = rootdp_t               , & !IN depth of the roots                ( m  )
-!!$        &  sai          = sai_t                  , & !IN surface area index                  --
-!!$        &  tai          = tai_t                  , & !IN surface area index                  --
-!!$        &  eai          = eai_t                  , & !IN surface area index                  --
-!!$        &  rsmin2d      = rsmin2d_t              , & !IN minimum stomata resistance        ( s/m )
-!!$!
-!!$        &  u  =  u_t                             , & !IN zonal wind speed
-!!$        &  v  =  v_t                             , & !IN meridional wind speed 
-!!$        &  t  =  t_t                             , & !IN temperature                       (  K  )
-!!$        &  qv =  qv_t                            , & !IN specific water vapor content      (kg/kg)
-!!$        &  p0 =  p0_t                            , & !IN base state pressure               ( Pa  ) 
-!!$        &  ps =  ps_t                            , & !IN surface pressure                  ( Pa  )
-!!$!
-!!$        &  t_snow_now    = t_snow_veg_now_t          , & !INOUT temperature of the snow-surface (  K  )
-!!$        &  t_snow_new    = t_snow_veg_new_t          , & !OUT temperature of the snow-surface   (  K  )
-!!$!
-!!$        &  t_snow_mult_now = t_snow_mult_veg_now_t , & !INOUT temperature of the snow-surface (  K  )
-!!$        &  t_snow_mult_new = t_snow_mult_veg_new_t , & !OUT temperature of the snow-surface   (  K  )
-!!$!
-!!$        &  t_s_now       = t_s_veg_now_t             , & !INOUT temperature of the ground surface (  K  )
-!!$        &  t_s_new       = t_s_veg_new_t             , & !OUT temperature of the ground surface   (  K  )
-!!$!
-!!$        &  t_g           = t_g_veg_t                 , & !INOUT weighted surface temperature      (  K  )
-!!$        &  qv_s          = qv_s_veg_t                , & !INOUT specific humidity at the surface  (kg/kg)
-!!$!
-!!$        &  w_snow_now    = w_snow_veg_now_t          , & !INOUT water content of snow         (m H2O) 
-!!$        &  w_snow_new    = w_snow_veg_new_t          , & !OUT water content of snow           (m H2O) 
-!!$!
-!!$        &  rho_snow_now      = rho_snow_veg_now_t    , & !IN  snow density                    (kg/m**3)
-!!$        &  rho_snow_new      = rho_snow_veg_new_t    , & !OUT snow density                    (kg/m**3)
-!!$!
-!!$        &  rho_snow_mult_now = rho_snow_mult_veg_now_t, & !INOUT snow density               (kg/m**3) 
-!!$        &  rho_snow_mult_new = rho_snow_mult_veg_new_t, & !OUT snow density                 (kg/m**3) 
-!!$!
-!!$        &  h_snow        = h_snow_veg_t              , & !INOUT snow height
-!!$        &  h_snow_gp     = h_snow_gp_veg_t           , & !IN grid-point averaged snow height
-!!$        &  meltrate      = meltrate_veg              , & !OUT snow melting rate
-!!$!
-!!$        &  w_i_now       = w_i_now_veg_t             , & !INOUT water content of interception water(m H2O)
-!!$        &  w_i_new       = w_i_new_veg_t             , & !OUT water content of interception water(m H2O)
-!!$!
-!!$        &  w_p_now       = w_p_now_veg_t             , & !INOUT water content of interception water(m H2O)
-!!$        &  w_p_new       = w_p_new_veg_t             , & !OUT water content of interception water(m H2O)
-!!$!
-!!$        &  w_s_now       = w_s_veg_now_t             , & !INOUT water content of interception water(m H2O)
-!!$        &  w_s_new       = w_s_veg_new_t             , & !OUT water content of interception water(m H2O)
-!!$!
-!!$        &  t_so_now      = t_so_now_t          , & !INOUT soil temperature (main level)    (  K  )
-!!$        &  t_so_new      = t_so_new_t          , & !OUT soil temperature (main level)      (  K  )
-!!$!
-!!$        &  w_so_now      = w_so_now_t          , & !IN  total water content (ice + liquid water) (m H20)
-!!$        &  w_so_new      = w_so_new_t          , & !OUT total water content (ice + liquid water) (m H20)
-!!$!
-!!$        &  w_so_ice_now  = w_so_ice_now_t      , & !IN  ice content   (m H20)
-!!$        &  w_so_ice_new  = w_so_ice_new_t      , & !OUT ice content   (m H20)
-!!$!
-!!$        &  u_10m         = u_10m_t               , & !IN zonal wind in 10m                 ( m/s )
-!!$        &  v_10m         = v_10m_t               , & !IN meridional wind in 10m            ( m/s )
-!!$        &  freshsnow     = freshsnow_veg_t           , & !INOUT indicator for age of snow in top of snow layer (  -  )
-!!$        &  zf_snow       = snowfrac_veg_t            , & !INOUT snow-cover fraction                            (  -  )
-!!$!
-!!$        &  wliq_snow_now = wliq_snow_veg_now_t     , & !INOUT liquid water content in the snow     (m H2O)
-!!$        &  wliq_snow_new = wliq_snow_veg_new_t     , & !OUT liquid water content in the snow       (m H2O)
-!!$!                                                            
-!!$        &  wtot_snow_now = wtot_snow_veg_now_t     , & !INOUT total (liquid + solid) water content of snow  (m H2O)
-!!$        &  wtot_snow_new = wtot_snow_veg_new_t     , & !OUT total (liquid + solid) water content of snow  (m H2O)
-!!$!
-!!$        &  dzh_snow_now  = dzh_snow_veg_now_t      , & !INOUT layer thickness between half levels in snow (  m  )
-!!$        &  dzh_snow_new  = dzh_snow_veg_new_t      , & !OUT layer thickness between half levels in snow   (  m  )
-!!$!
-!!$        &  prr_con       = prr_con_t             , & !IN precipitation rate of rain, convective       (kg/m2*s)
-!!$        &  prs_con       = prs_con_t             , & !IN precipitation rate of snow, convective       (kg/m2*s)
-!!$        &  prr_gsp       = prr_gsp_t             , & !IN precipitation rate of rain, grid-scale       (kg/m2*s)
-!!$        &  prs_gsp       = prs_gsp_t             , & !IN precipitation rate of snow, grid-scale       (kg/m2*s)
-!!$        &  prg_gsp       = prg_gsp_t             , & !IN precipitation rate of graupel, grid-scale    (kg/m2*s)
-!!$!
-!!$        &  tch           = tch_veg_t                 , & !INOUT turbulent transfer coefficient for heat     ( -- )
-!!$        &  tcm           = tcm_veg_t                 , & !INOUT turbulent transfer coefficient for momentum ( -- )
-!!$        &  tfv           = tfv_veg_t                 , & !INOUT laminar reduction factor for evaporation    ( -- )
-!!$!
-!!$        &  sobs          = sobs_t                , & !IN solar radiation at the ground               (W/m2)
-!!$        &  thbs          = thbs_t                , & !IN thermal radiation at the ground             (W/m2)
-!!$        &  pabs          = pabs_t                , & !IN photosynthetic active radiation             (W/m2)
-!!$!
-!!$        &  runoff_s      = runoff_s_veg_t            , & !INOUT surface water runoff; sum over forecast  (kg/m2)
-!!$        &  runoff_g      = runoff_g_veg_t            , & !INOUT soil water runoff; sum over forecast     (kg/m2)
-!!$!
-!!$        &  zshfl_s       = shfl_soil_veg_t           , & !OUT sensible heat flux soil/air interface    (W/m2) 
-!!$        &  zlhfl_s       = lhfl_soil_veg_t           , & !OUT latent   heat flux soil/air interface    (W/m2) 
-!!$        &  zshfl_snow    = shfl_snow_veg_t           , & !OUT sensible heat flux snow/air interface    (W/m2) 
-!!$        &  zlhfl_snow    = lhfl_snow_veg_t           , & !OUT latent   heat flux snow/air interface    (W/m2) 
-!!$        &  lhfl_bs       = lhfl_bs_veg_t             , & !OUT latent heat flux from bare soil evap.    (W/m2)
-!!$        &  lhfl_pl       = lhfl_pl_veg_t             , & !OUT latent heat flux from bare soil evap.    (W/m2)
-!!$        &  rstom         = rstom_veg_t               , & !OUT stomatal resistance                      ( s/m )
-!!$        &  zshfl_sfc     = shfl_s_veg_t              , & !OUT sensible heat flux surface interface     (W/m2) 
-!!$        &  zlhfl_sfc     = lhfl_s_veg_t              , & !OUT latent   heat flux surface interface     (W/m2) 
-!!$        &  zqhfl_sfc     = qhfl_s_veg_t                ) !OUT moisture flux surface interface          (kg/m2/s) 
-!!$
-
         CALL terra_multlay(                                    &
         &  ie=nproma                                         , & !IN array dimensions
         &  istartpar=1,       iendpar=i_count                , & !IN optional start/end indicies
@@ -769,6 +603,7 @@ CONTAINS
         &  zshfl_sfc     = shfl_s_t              , & !OUT sensible heat flux surface interface     (W/m2) 
         &  zlhfl_sfc     = lhfl_s_t              , & !OUT latent   heat flux surface interface     (W/m2) 
         &  zqhfl_sfc     = qhfl_s_t                ) !OUT moisture flux surface interface          (kg/m2/s) 
+
 
         ! Multiply w_snow with old snow fraction in order to obtain the area-average SWE needed for
         ! diagnosing the new snow fraction
