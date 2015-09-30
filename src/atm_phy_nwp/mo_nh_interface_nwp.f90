@@ -1130,7 +1130,7 @@ CONTAINS
     
     IF (timers_level > 2) CALL timer_start(timer_phys_acc)
     !-------------------------------------------------------------------------
-    !>  accumulate tendencies of slow_physics: Not called when LS focing is ON
+    !>  accumulate tendencies of slow_physics
     !-------------------------------------------------------------------------
     IF( (l_any_slowphys .OR. lcall_phy_jg(itradheat)) .OR. is_ls_forcing) THEN
 
