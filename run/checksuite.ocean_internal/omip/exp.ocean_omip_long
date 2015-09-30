@@ -159,11 +159,11 @@ cat > ${ocean_namelist} << EOF
 /                                           
 &sea_ice_nml
 ! i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
-! i_ice_dyn                       =   0       ! 1/0=switch on/off AWI ice dynamics
+  i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! use_constant_tfreez             = .TRUE.    ! default: true
-  leadclose_1                     =   0.25    ! default: 0.5 - value of MPIOM: 0.25
-  leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
+! leadclose_1                     =   0.25    ! default: 0.5 - value of MPIOM: 0.25
+! leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
 
 /
 &ocean_forcing_nml
