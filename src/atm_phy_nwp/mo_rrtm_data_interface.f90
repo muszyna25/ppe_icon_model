@@ -33,8 +33,7 @@ MODULE mo_rrtm_data_interface
   USE mo_nonhydro_types,      ONLY: t_nh_diag
   
   USE mo_parallel_config,     ONLY: parallel_radiation_mode, radiation_division_file_name, &
-    & nproma, division_method, ext_div_medial_redrad, ext_div_medial_redrad_cluster,       &
-    & use_icon_comm, ext_div_from_file
+    & nproma, division_method, use_icon_comm, ext_div_from_file
   USE mo_mpi,                 ONLY: my_process_is_mpi_seq, get_my_mpi_work_communicator,       &
     & num_work_procs, get_my_mpi_work_id, get_my_mpi_work_comm_size, get_mpi_all_workroot_id,  &
     & p_bcast
@@ -256,10 +255,7 @@ CONTAINS
       DEALLOCATE(radiation_owner)
 
       radiation_cells => radiation_cells_
-    
-    CASE(ext_div_medial_redrad, ext_div_medial_redrad_cluster)
-      radiation_cells => patch%radiation_cells
-       !  radiation_owner should be already filled   
+
     CASE DEFAULT
       CALL finish(method_name, &
         & 'value of division_method not compatible with redistributed radiation')

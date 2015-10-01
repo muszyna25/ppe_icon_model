@@ -38,9 +38,8 @@ MODULE mo_parallel_config
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-       &  redrad_split_factor, restart_chunk_size
-  PUBLIC :: ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
-       & ext_div_medial_redrad_cluster, ext_div_from_file
+       &  restart_chunk_size
+  PUBLIC :: ext_div_from_file
 
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
 
@@ -56,16 +55,11 @@ MODULE mo_parallel_config
 
   ! Division method for area subdivision
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
-  INTEGER, PARAMETER :: ext_div_medial = 101
-  INTEGER, PARAMETER :: ext_div_medial_cluster = 102
-  INTEGER, PARAMETER :: ext_div_medial_redrad = 103
-  INTEGER, PARAMETER :: ext_div_medial_redrad_cluster = 104
   INTEGER, PARAMETER :: ext_div_from_file = 201 ! Read from file
 
   INTEGER :: division_method(0:max_dom) = 1
   CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom)! if ext_div_from_file
   CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom)! if parallel_radiation_mode = 1
-  INTEGER :: redrad_split_factor = 6
 
   ! Flag if (in case of merged domains) physical domains shall be considered for
   ! computing the domain decomposition
@@ -228,16 +222,6 @@ CONTAINS
           & 'n_ghost_rows<1 in parallel_nml namelist is not allowed')
     END IF
 
-    ! check division_method
-    ! this will be checked during the decomposition
-!     SELECT CASE (division_method)
-!     CASE(ext_div_from_file, div_geometric, ext_div_medial, ext_div_medial_cluster, &
-!       & ext_div_medial_redrad, ext_div_medial_redrad_cluster)
-!       ! ok
-!     CASE DEFAULT
-!       CALL finish(method_name, &
-!         & 'value of division_method in parallel_nml namelist is not allowed')
-!     END SELECT
     ! for safety only
     IF (num_io_procs < 0)      num_io_procs = 0
     IF (num_restart_procs < 0) num_restart_procs = 0

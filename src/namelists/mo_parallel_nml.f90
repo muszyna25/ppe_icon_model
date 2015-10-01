@@ -63,7 +63,6 @@ MODULE mo_parallel_nml
     & config_sync_barrier_mode   => sync_barrier_mode,        &
     & config_max_mpi_message_size => max_mpi_message_size,    &
     & config_use_physics_barrier  => use_physics_barrier,     &
-    & config_redrad_split_factor => redrad_split_factor,      &
     & config_restart_chunk_size => restart_chunk_size
 
   IMPLICIT NONE
@@ -89,15 +88,10 @@ MODULE mo_parallel_nml
 
     INTEGER :: division_method(0:max_dom)
 !                      div_geometric = 1  ! Geometric subdivision
-!                      ext_div_medial = 101
-!                      ext_div_medial_cluster = 102
-!                      ext_div_medial_redrad = 103
-!                      ext_div_medial_redrad_cluster = 104
 !                      ext_div_from_file = 201 ! Read from file
 
     CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom) ! if ext_div_from_file
     CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom) ! if ext_div_from_file
-    INTEGER :: redrad_split_factor
 
     ! Flag if (in case of merged domains) physical domains shall be considered for
     ! computing the domain decomposition
@@ -193,7 +187,7 @@ MODULE mo_parallel_nml
       & icon_comm_method, max_no_of_comm_variables,       &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-      & redrad_split_factor, restart_chunk_size, num_prefetch_proc !parallel_radiation_omp
+      & restart_chunk_size, num_prefetch_proc !parallel_radiation_omp
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -210,7 +204,6 @@ MODULE mo_parallel_nml
     division_method(:) = div_geometric
     division_file_name(:) = ""
     radiation_division_file_name(:) = ""
-    redrad_split_factor = config_redrad_split_factor
 
     ! Flag if (in case of merged domains) physical domains shall be considered for
     ! computing the domain decomposition
@@ -333,7 +326,6 @@ MODULE mo_parallel_nml
     config_division_file_name(:) = division_file_name(:)
     config_ldiv_phys_dom       = ldiv_phys_dom
     config_rad_division_file_name(:)  = radiation_division_file_name(:)
-    config_redrad_split_factor = redrad_split_factor
     config_l_log_checks        = l_log_checks
     config_l_fast_sum          = l_fast_sum
     config_p_test_run          = p_test_run
