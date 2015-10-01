@@ -198,7 +198,6 @@ CONTAINS
     DO jl = 1, kproma  ! loop over columns
       ncbands(jl)      = 1
       tauctot(jl,:)    = 0.0_wp
-      taucloud(jl,:,:) = 0.0_wp
     ENDDO
 
     DO ib = 1,nbndlw
@@ -217,6 +216,8 @@ CONTAINS
           DO ib = 1,nbndlw
             taucloud(jl,jk,ib) = taucld(jl,jk,ib)
           END DO
+        ELSE
+          taucloud(jl,jk,:) = 0.0_wp
         END IF
       END DO
     ENDDO
