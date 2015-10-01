@@ -1081,9 +1081,9 @@ CONTAINS
       idom     = of%phys_patch_id
       idom_log = patch_info(idom)%log_patch_id
       idx(:)    = (/ ICELL, IEDGE, IVERT /)
-      isize(:)  = (/ patch_info(idom_log)%cells%n_glb, &
-        &            patch_info(idom_log)%edges%n_glb, &
-        &            patch_info(idom_log)%verts%n_glb /)
+      isize(1) = patch_info(idom_log)%cells%n_glb
+      isize(2) = patch_info(idom_log)%edges%n_glb
+      isize(3) = patch_info(idom_log)%verts%n_glb
       gptr(1)%ptr => patch_info(idom_log)%cells%grid_info
       gptr(2)%ptr => patch_info(idom_log)%edges%grid_info
       gptr(3)%ptr => patch_info(idom_log)%verts%grid_info
