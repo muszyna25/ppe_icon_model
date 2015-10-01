@@ -1053,7 +1053,6 @@ CONTAINS
             albthresh = 0.3_wp ! threshold value for albedo modification
 
 !$OMP PARALLEL
-!$OMP WORKSHARE
             ! Scale from [%] to [1]
             CALL var_scale(ext_data(jg)%atm_td%alb_dif(:,:,:), 1._wp/100._wp)
             CALL var_scale(ext_data(jg)%atm_td%albuv_dif(:,:,:), 1._wp/100._wp)
