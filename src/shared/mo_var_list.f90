@@ -942,7 +942,8 @@ CONTAINS
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       this_list%p%memory_used = this_list%p%memory_used &
-        +INT(new_list_element%field%var_base_size*PRODUCT(idims(1:5)),i8)
+           + INT(new_list_element%field%var_base_size, i8) &
+           & * INT(PRODUCT(idims(1:5)),i8)
     ELSE
       SELECT CASE(data_type)
       CASE (REAL_T)
