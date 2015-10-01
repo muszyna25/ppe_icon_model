@@ -35,7 +35,8 @@ MODULE mo_setup_subdivision
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
-       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge
+       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
+       c_vertex
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -1086,7 +1087,8 @@ CONTAINS
         wrk_p_patch%cells%edge_idx(jl,jb,i) = idx_no(je)
         wrk_p_patch%cells%edge_blk(jl,jb,i) = blk_no(je)
 
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%vertex,1,(/jg,i/),jvg)
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+             (/jg,i/), jvg)
 !CDIR IEXPAND
         CALL get_local_idx(wrk_p_patch%verts%decomp_info, jvg, jv)
 
@@ -1544,7 +1546,7 @@ CONTAINS
           END IF
 
           n_temp_vertices = n_temp_vertices + 1
-          CALL dist_mult_array_get(wrk_p_patch_pre%cells%vertex,1, &
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
             &                      (/flag2_c_list(0)%idx(ic),i/), &
             &                      temp_vertices(n_temp_vertices))
         END DO
@@ -1835,7 +1837,8 @@ CONTAINS
 
             DO i = 1, temp_num_edges
 
-              CALL dist_mult_array_get(wrk_p_patch_pre%cells%vertex,1,(/jc,i/),jv)
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+                   (/jc,i/),jv)
 
               IF (jv > 0) THEN
                 n_temp_vertices = n_temp_vertices + 1
@@ -2897,7 +2900,8 @@ CONTAINS
 
           IF (cclat >= 0._wp) THEN
             DO i = 1, 3
-              CALL dist_mult_array_get(wrk_p_patch_pre%cells%vertex,1,(/j,i/),jv)
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+                   (/j,i/), jv)
               CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 1, (/jv/),&
                 &                      temp_lat)
               CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 2, (/jv/),&
@@ -2907,7 +2911,8 @@ CONTAINS
             ENDDO
           ELSE
             DO i = 1, 3
-              CALL dist_mult_array_get(wrk_p_patch_pre%cells%vertex,1,(/j,i/),jv)
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+                   (/j,i/), jv)
               CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 1, (/jv/),&
                 &                      temp_lat)
               CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 2, (/jv/),&

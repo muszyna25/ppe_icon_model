@@ -32,7 +32,7 @@ MODULE mo_alloc_patches
     & max_dom
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, &
-       c_child, c_phys_id, c_neighbor, c_edge
+       c_child, c_phys_id, c_neighbor, c_edge, c_vertex
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              init_glb2loc_index_lookup, &
     &                              t_glb2loc_index_lookup, &
@@ -625,13 +625,13 @@ CONTAINS
     TYPE(global_array_desc) :: dist_vert_owner_desc(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc_cell(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc_vertex(2)
-    TYPE(global_array_desc) :: dist_cell_desc(6)
+    TYPE(global_array_desc) :: dist_cell_desc(7)
 
     TYPE(extent) :: &
       &             local_edge_chunk_child(2,1), local_edge_chunk_cell(2,1), &
       &             local_vert_chunk_cell(2,1), local_cell_chunk_center(1,2), &
       &             local_vert_chunk_vertex(1,2), &
-      &             local_cell_chunks(2, 6)
+      &             local_cell_chunks(2, 7)
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -668,6 +668,8 @@ CONTAINS
          = extent(first=1, size = p_patch_pre%cell_type)
 
     dist_cell_desc(c_edge) = dist_cell_desc(c_neighbor)
+
+    dist_cell_desc(c_vertex) = dist_cell_desc(c_neighbor)
 
     dist_edge_owner_desc(1)%a_rank = 1
     dist_edge_owner_desc(1)%rect(1)%first = 1
@@ -732,13 +734,10 @@ CONTAINS
     !
     local_cell_chunks(1, :) = p_patch_pre%cells%local_chunk(1, 1)
     local_cell_chunks(2, c_child) = extent(first=1, size=4)
-    local_cell_chunks(2, c_neighbor:c_edge) &
+    local_cell_chunks(2, c_neighbor:c_vertex) &
          = extent(first=1, size=p_patch_pre%cell_type)
     p_patch_pre%cells%dist = dist_mult_array_new( &
       dist_cell_desc, local_cell_chunks, p_comm_work)
-    p_patch_pre%cells%vertex = dist_mult_array_new( &
-      dist_cell_desc(c_neighbor:c_neighbor), &
-      local_cell_chunks(:, c_neighbor:c_neighbor), p_comm_work)
     p_patch_pre%cells%center = dist_mult_array_new( &
       dist_cell_owner_desc_center, local_cell_chunk_center, p_comm_work)
     p_patch_pre%cells%refin_ctrl = dist_mult_array_new( &
@@ -880,8 +879,6 @@ CONTAINS
     ! !grid cells
     !
     CALL dist_mult_array_delete(p_patch_pre%cells%dist)
-    CALL dist_mult_array_unexpose(p_patch_pre%cells%vertex)
-    CALL dist_mult_array_delete(p_patch_pre%cells%vertex)
     CALL dist_mult_array_unexpose(p_patch_pre%cells%center)
     CALL dist_mult_array_delete(p_patch_pre%cells%center)
     CALL dist_mult_array_unexpose(p_patch_pre%cells%refin_ctrl)
