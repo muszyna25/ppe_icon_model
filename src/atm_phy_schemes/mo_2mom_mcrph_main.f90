@@ -2644,7 +2644,7 @@ CONTAINS
     REAL(wp)  :: e_si
     REAL(wp)  :: ni_hom,ri_hom,mi_hom
     REAL(wp)  :: v_th,n_sat,flux,phi,cool,tau,delta,w_pre,scr
-    REAL(wp)  :: ctau, tau_g,acoeff(3),bcoeff(2), ri_dot
+    REAL(wp)  :: ctau, acoeff(3),bcoeff(2), ri_dot
     REAL(wp)  :: kappa,sqrtkap,ren,R_imfc,R_im,R_ik,ri_0
 
     ! variables for Hande et al. nucleation parameterization for HDCP2 simulations
@@ -2947,7 +2947,6 @@ CONTAINS
               ctau    = T_a * ( 0.004*T_a - 2. ) + 304.4
               tau     = 1.0 / (ctau * cool)                       ! freezing timescale, eq. (5)
               delta   = (bcoeff(2) * r_0)                         ! dimless aerosol radius, eq.(4)
-              tau_g   = (bcoeff(1) / r_0) / (1 + delta)           ! timescale for initial growth, eq.(4)
               phi     = acoeff(1)*ssi / ( acoeff(2) + acoeff(3)*ssi) * (atmo%w(i,k) - w_pre)
 
               ! monodisperse approximation following KHL06
@@ -3005,7 +3004,6 @@ CONTAINS
     REAL(wp), PARAMETER :: eps  = 1.d-20
     REAL(wp)            :: T_a
     REAL(wp)            :: e_si            !..saturation water pressure over ice
-    REAL(wp)            :: e_sw            !..saturation water pressure over liquid
     REAL(wp)            :: e_d,p_a,dep_sum !,weight
 
     IF (isdebug) CALL message(routine, "vapor_deposition_growth")
@@ -3022,7 +3020,6 @@ CONTAINS
           IF (T_a < T_3) THEN
              e_d  = atmo%qv(i,k) * R_d * T_a
              e_si = e_es(T_a)
-             e_sw = e_ws(T_a)
              s_si(i,k) = e_d / e_si - 1.0    !..supersaturation over ice
              D_vtp = diffusivity(T_a,p_a)    !  D_v = 8.7602e-5 * T_a**(1.81) / p_a
              g_i(i,k) = 4.0*pi / ( L_ed**2 / (K_T * R_d * T_a**2) + R_d * T_a / (D_vtp * e_si) )
@@ -4156,7 +4153,7 @@ CONTAINS
     INTEGER             :: i,k
     REAL(wp)            :: T_a
     REAL(wp)            :: q_g,n_g,x_g,d_g,v_g
-    REAL(wp)            :: q_c,n_c,x_c,d_c,v_c,x_coll_c
+    REAL(wp)            :: q_c,n_c,x_c,d_c,v_c
     REAL(wp)            :: rime_n,rime_q,e_coll_n
     REAL(wp)            :: melt_n,melt_q,e_coll_q
     REAL(wp)            :: shed_n,shed_q
@@ -4170,8 +4167,6 @@ CONTAINS
          x_shed = 4./3.*pi * rho_w * r_shedding**3
 
     IF (isdebug) CALL message(routine, "graupel_cloud_riming")
-
-    x_coll_c = (D_coll_c/cloud%a_geo)**3          !..lower threshold for collection
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -4282,7 +4277,7 @@ CONTAINS
     INTEGER             :: i,k
     REAL(wp)            :: T_a
     REAL(wp)            :: q_h,n_h,x_h,d_h,v_h
-    REAL(wp)            :: q_c,n_c,x_c,d_c,v_c,x_coll_c
+    REAL(wp)            :: q_c,n_c,x_c,d_c,v_c
     REAL(wp)            :: rime_n,rime_q,e_coll_n
     REAL(wp)            :: melt_n,melt_q,e_coll_q
     REAL(wp)            :: shed_n,shed_q
@@ -4297,9 +4292,6 @@ CONTAINS
 
 
     IF (isdebug) CALL message(routine, "hail_cloud_riming")
-
-    x_coll_c = (D_coll_c/cloud%a_geo)**3          !..lower mass for collection
-
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -4882,11 +4874,10 @@ CONTAINS
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: q_i,n_i,x_i,d_i
-    REAL(wp)            :: T_a,x_coll_c,x_r
+    REAL(wp)            :: T_a,x_r
     REAL(wp)            :: rime_n,rime_q,rime_qr,rime_qi
     REAL(wp)            :: conv_n,conv_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
-    REAL(wp)            :: const2
     REAL(wp), PARAMETER :: &
          const3 = 1.0_wp/(T_mult_opt - T_mult_min), &
          const4 = 1.0_wp/(T_mult_opt - T_mult_max), &
@@ -4909,9 +4900,6 @@ CONTAINS
     CALL ice_cloud_riming()
     CALL ice_rain_riming()
 
-    x_coll_c = (D_coll_c/cloud%a_geo)**3   !..lower mean mass for collection
-
-    const2 = 1.0/x_coll_c
     !
     ! Complete ice-cloud and ice-rain riming
 
@@ -5088,7 +5076,7 @@ CONTAINS
       !*******************************************************************************
       INTEGER             :: i,k
       REAL(wp)            :: q_i,n_i,x_i,d_i,v_i
-      REAL(wp)            :: q_c,n_c,x_c,d_c,v_c,e_coll,x_coll_c
+      REAL(wp)            :: q_c,n_c,x_c,d_c,v_c,e_coll
       REAL(wp)            :: rime_n,rime_q
       REAL(wp), PARAMETER :: &
            !..collision efficiency coeff
@@ -5096,7 +5084,6 @@ CONTAINS
 
       IF (isdebug) CALL message(routine, "ice_cloud_riming")
 
-      x_coll_c = (D_coll_c/cloud%a_geo)**3         !..lower mass threshold for collection
 
       DO k = kstart,kend
          DO i = istart,iend
@@ -5239,12 +5226,10 @@ CONTAINS
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: T_a
-    REAL(wp)            :: q_s,n_s,x_s,d_s
-    REAL(wp)            :: x_coll_c,x_r
+    REAL(wp)            :: q_s,n_s,x_s,d_s, x_r
     REAL(wp)            :: rime_n,rime_q,rime_qr,rime_qs
     REAL(wp)            :: conv_n,conv_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
-    REAL(wp)            :: const2
     REAL(wp), PARAMETER :: &
          const3 = 1.0/(T_mult_opt - T_mult_min), &
          const4 = 1.0/(T_mult_opt - T_mult_max), &
@@ -5265,10 +5250,6 @@ CONTAINS
 
     CALL snow_cloud_riming()
     CALL snow_rain_riming()
-
-    x_coll_c = (D_coll_c/cloud%a_geo)**3   !..lower mean mass for collection
-
-    const2 = 1.0/x_coll_c
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -5586,7 +5567,7 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER            :: i,k,nuc_typ
-    REAL(wp)           :: n_c,q_c,rho_a
+    REAL(wp)           :: n_c,q_c
     REAL(wp)           :: nuc_n, nuc_q
     REAL(wp)           :: Ncn, wcb, &
          tab_Ndrop(n_wcb,n_ncn), & ! number of cloud droplets in look_up-Table
@@ -5654,7 +5635,6 @@ CONTAINS
           nuc_n = 0.d0
           n_c   = cloud%n(i,k)
           q_c   = cloud%q(i,k)
-          rho_a = atmo%rho(i,k)
           wcb   = atmo%w(i,k)
 
           if (q_c > 0.0_wp .and. wcb > 0.0_wp) then
