@@ -3,7 +3,7 @@
 !!
 !! This module initializes and applies the large-scale forcing for idealized simulations
 !! This module assumes that the model grid is FLAT
-!! 2013-JUNE-04: AT THIS STAGE LS FORCING WILL WORK IN RESTART MODE ONLY IF ITS CALLED EVERY 
+!! 2013-JUNE-04: AT THIS STAGE LS FORCING WILL WORK IN RESTART MODE ONLY IF ITS CALLED EVERY
 !! DYNAMIC TIMESTEP. TO MAKE IT WORK "SMOOTHLY" ADD_VAR HAS TO WORK ON 1D VARS
 !!
 !! @author Anurag Dipankar, MPI-M
@@ -45,9 +45,9 @@ MODULE mo_ls_forcing
 
   PUBLIC :: init_ls_forcing, apply_ls_forcing
 
-  !Anurag Dipankar, MPIM (2013-May): variables for large-scale (LS) 
+  !Anurag Dipankar, MPIM (2013-May): variables for large-scale (LS)
   !forcing to be used in periodic domain or other relveant cases.
-    
+
   !Constant in time and horizontal space
   REAL(wp), SAVE, ALLOCATABLE ::  &
     w_ls(:),            & !subsidence          [m/s]
@@ -69,14 +69,14 @@ MODULE mo_ls_forcing
   !! Initial release by Anurag Dipankar, MPI-M (2013-May-30)
   SUBROUTINE init_ls_forcing(p_metrics)
 
-    TYPE(t_nh_metrics),INTENT(in),   TARGET :: p_metrics 
+    TYPE(t_nh_metrics),INTENT(in),   TARGET :: p_metrics
 
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_ls_forcing:init_ls_forcing'
 
     REAL(wp), ALLOCATABLE, DIMENSION(:) :: zz, zw, zu, zv, z_dt_temp_adv, &
                                            z_dt_temp_rad, z_dt_qv_adv
     INTEGER   :: iunit, ist, nk, jk, nlev
-    
+
     !Open formatted file to read ls forcing data
     iunit = find_next_free_unit(10,20)
     OPEN (unit=iunit,file='ls_forcing.dat',access='SEQUENTIAL', &
@@ -84,18 +84,18 @@ MODULE mo_ls_forcing
 
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), 'open ls_forcing.dat failed')
-    ENDIF  
+    ENDIF
 
     !Read the input file till end. The order of file assumed is:
-    !Z(m) - w_ls - u_geo - v_geo - ddt_temp_hadv_ls - ddt_temp_rad_ls - ddt_qv_hadv_ls    
-    
+    !Z(m) - w_ls - u_geo - v_geo - ddt_temp_hadv_ls - ddt_temp_rad_ls - ddt_qv_hadv_ls
+
     !Read first line
     READ(iunit,*,IOSTAT=ist)
     IF(ist/=success)CALL finish(TRIM(routine), 'problem reading first line in ls_forcing.dat')
 
     READ(iunit,*,IOSTAT=ist)nk
     IF(ist/=success)CALL finish(TRIM(routine), 'problem reading second line in ls_forcing.dat')
-   
+
     ALLOCATE( zz(nk), zw(nk), zu(nk), zv(nk), z_dt_temp_adv(nk), &
               z_dt_temp_rad(nk), z_dt_qv_adv(nk) )
 
@@ -106,7 +106,7 @@ MODULE mo_ls_forcing
           CALL finish (TRIM(routine), 'something wrong in forcing.dat')
       END IF
     END DO
-    
+
     !Check if the file is written in descending order
     IF(zz(1) < zz(nk))CALL finish (TRIM(routine), 'Write LS forcing data in descending order!')
 
@@ -118,7 +118,7 @@ MODULE mo_ls_forcing
 
     !Now perform interpolation to grid levels assuming:
     !a) linear interpolation
-    !b) Beyond the last Z level the values are linearly extrapolated 
+    !b) Beyond the last Z level the values are linearly extrapolated
     !c) Assuming model grid is flat-NOT on sphere
 
     CALL vert_intp_linear_1d(zz,zw,p_metrics%z_mc(1,:,1),w_ls)
@@ -130,7 +130,7 @@ MODULE mo_ls_forcing
 
     DEALLOCATE( zz, zw, zu, zv, z_dt_temp_adv, z_dt_temp_rad, z_dt_qv_adv )
 
-   
+
   END SUBROUTINE init_ls_forcing
 
   !>
@@ -140,7 +140,7 @@ MODULE mo_ls_forcing
   !! It uses the most updated u,v to calculate the large-scale subsidence induced
   !! advective tendencies. All other tendencies don't need any computation.
   !! All tendencies are then accumulated in the slow physics tendency terms
-  !!   
+  !!
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-May-30)
@@ -150,7 +150,7 @@ MODULE mo_ls_forcing
                               ddt_qv_ls                      )           !out
 
     TYPE(t_patch),INTENT(in),        TARGET :: p_patch
-    TYPE(t_nh_metrics),INTENT(in),   TARGET :: p_metrics 
+    TYPE(t_nh_metrics),INTENT(in),   TARGET :: p_metrics
     TYPE(t_nh_prog),INTENT(in),      TARGET :: p_prog
     TYPE(t_nh_diag),INTENT(in),      TARGET :: p_diag
     INTEGER,        INTENT(in)              :: rl_start
@@ -160,7 +160,7 @@ MODULE mo_ls_forcing
     REAL(wp),       INTENT(out)             :: ddt_v_ls(:)
     REAL(wp),       INTENT(out)             :: ddt_temp_ls(:)
     REAL(wp),       INTENT(out)             :: ddt_qv_ls(:)
-    
+
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_ls_forcing:apply_ls_forcing'
     REAL(wp) :: varin(nproma,p_patch%nlev,p_patch%nblks_c)
     REAL(wp), DIMENSION(p_patch%nlev+1) :: u_gb_hl, v_gb_hl, th_gb_hl, qv_gb_hl
@@ -182,14 +182,14 @@ MODULE mo_ls_forcing
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    !Some precalculations   
+    !Some precalculations
     IF(is_subsidence_heat .OR. is_advection .OR. is_rad_forcing) &
       CALL global_hor_mean(p_patch, p_prog%exner(:,:,:), exner_gb, inv_no_gb_cells, i_nchdom)
-      
+
     inv_exner_gb = 1./exner_gb
-      
+
     IF(is_subsidence_moment.OR.is_subsidence_heat) &
-      inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(1,:,1)        
+      inv_dz(:) = 1._wp / p_metrics%ddqz_z_full(1,:,1)
 
     !1a) Horizontal mean of variables and their vertical advective tendency - momentum
 
@@ -201,16 +201,16 @@ MODULE mo_ls_forcing
       CALL vert_intp_linear_1d(p_metrics%z_mc(1,:,1),var_gb,p_metrics%z_ifc(1,:,1),v_gb_hl)
 
       ddt_u_ls =  ddt_u_ls - w_ls*vertical_derivative(u_gb_hl,inv_dz)
-      ddt_v_ls =  ddt_v_ls - w_ls*vertical_derivative(v_gb_hl,inv_dz)     
+      ddt_v_ls =  ddt_v_ls - w_ls*vertical_derivative(v_gb_hl,inv_dz)
     END IF
 
-    !1b) Horizontal mean of variables and their vertical advective tendency 
+    !1b) Horizontal mean of variables and their vertical advective tendency
 
     IF(is_subsidence_heat)THEN
       !use theta instead of temperature for subsidence
 !$OMP PARALLEL WORKSHARE
         varin(:,:,i_startblk:i_endblk) = p_diag%temp(:,:,i_startblk:i_endblk) / &
-                                         p_prog%exner(:,:,i_startblk:i_endblk) 
+                                         p_prog%exner(:,:,i_startblk:i_endblk)
 !$OMP END PARALLEL WORKSHARE
       CALL global_hor_mean(p_patch, varin, var_gb, inv_no_gb_cells, i_nchdom)
       CALL vert_intp_linear_1d(p_metrics%z_mc(1,:,1),var_gb,p_metrics%z_ifc(1,:,1),th_gb_hl)
@@ -218,7 +218,7 @@ MODULE mo_ls_forcing
       CALL global_hor_mean(p_patch, qv, var_gb, inv_no_gb_cells, i_nchdom)
       CALL vert_intp_linear_1d(p_metrics%z_mc(1,:,1),var_gb,p_metrics%z_ifc(1,:,1),qv_gb_hl)
 
-      ddt_temp_ls = ddt_temp_ls - w_ls*vertical_derivative(th_gb_hl,inv_dz)      
+      ddt_temp_ls = ddt_temp_ls - w_ls*vertical_derivative(th_gb_hl,inv_dz)
       ddt_qv_ls   = ddt_qv_ls   - w_ls*vertical_derivative(qv_gb_hl,inv_dz)
     END IF
 
@@ -228,16 +228,16 @@ MODULE mo_ls_forcing
       ddt_qv_ls   = ddt_qv_ls + ddt_qv_hadv_ls
 
       IF(is_theta)THEN
-        ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls 
+        ddt_temp_ls = ddt_temp_ls + ddt_temp_hadv_ls
       ELSE
-        ddt_temp_ls = ddt_temp_ls + inv_exner_gb*ddt_temp_hadv_ls 
+        ddt_temp_ls = ddt_temp_ls + inv_exner_gb*ddt_temp_hadv_ls
       END IF
 
     END IF
 
     !3)Coriolis and geostrophic wind
     IF(is_geowind)THEN
-      !Remember model grid is flat   
+      !Remember model grid is flat
       ddt_u_ls = ddt_u_ls - p_patch%cells%f_c(1,1) * v_geo
       ddt_v_ls = ddt_v_ls + p_patch%cells%f_c(1,1) * u_geo
     END IF
@@ -252,12 +252,12 @@ MODULE mo_ls_forcing
     END IF
 
     !Convert theta tendency to temp at once
-    ddt_temp_ls = exner_gb * ddt_temp_ls 
-    
+    ddt_temp_ls = exner_gb * ddt_temp_ls
+
   END SUBROUTINE apply_ls_forcing
 
 !-------------------------------------------------------------------------------
-     
+
 END MODULE mo_ls_forcing
 
 

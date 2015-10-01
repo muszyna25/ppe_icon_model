@@ -195,7 +195,7 @@ INTEGER,  DIMENSION(:,:,:),   POINTER :: icidx, icblk, ividx, ivblk
 
 !-----------------------------------------------------------------------
 IF (p_test_run) THEN
-  z_div_c(:,:,:)=0.0_wp 
+  z_div_c(:,:,:)=0.0_wp
   z_rot_v(:,:,:)=0.0_wp
   z_rot_e(:,:,:)=0.0_wp
 ENDIF
@@ -482,7 +482,7 @@ IF (PRESENT(opt_nabla2) ) THEN
   p_nabla2 => opt_nabla2
 ELSE
   ALLOCATE (z_nabla2_vec_e(nproma,ptr_patch%nlev,ptr_patch%nblks_e))
-  
+
   p_nabla2 => z_nabla2_vec_e
 ENDIF
 

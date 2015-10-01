@@ -10,22 +10,22 @@
 !! 2. Assign new actionTyp to variables of your choice.
 !!    E.g. add the following code snippet to an add_var/add_ref of your choice:
 !!    action_list=actions(new_action(ACTION_XXX,'PTXXH'), new_action(...), ...)
-!!    ACTION_XXX is the actionTyp defined in step 1, and PTXXH is the 
-!!    interval at which the action should be triggered.  
-!! 3. Create an extension of the abstract type t_action_obj and overwrite 
-!!    the deferred procedure 'kernel' with your action-specific kernel-routine 
+!!    ACTION_XXX is the actionTyp defined in step 1, and PTXXH is the
+!!    interval at which the action should be triggered.
+!! 3. Create an extension of the abstract type t_action_obj and overwrite
+!!    the deferred procedure 'kernel' with your action-specific kernel-routine
 !!    (to be defined in step 5).
 !! 4. Create a variable (object) of the type defined in step 3.
-!! 5. Write your own action-Routine (action-kernel). This is the routine which actually does 
+!! 5. Write your own action-Routine (action-kernel). This is the routine which actually does
 !!    the work. (see e.g. routine 'reset_kernel' for actionTyp=ACTION_RESET)
 !! 6. Initialize the new action object by invoking the type-bound procedure 'initialize'.
-!!    (CALL act_obj%initialize(actionTyp)). The actiontyp defines the specific action to be 
-!!    initialized. By this, you assign all matching fields to your particular action. 
+!!    (CALL act_obj%initialize(actionTyp)). The actiontyp defines the specific action to be
+!!    initialized. By this, you assign all matching fields to your particular action.
 !!    I.e. this is the reverse operation of assigning actions to fields as done in step 2.
-!! 7. Execute your newly defined action object at a suitable place by invoking the 
-!!    type-bound procedure 'execute' (CALL act_obj%execute(slack)). 'Slack' is the user-defined 
-!!    maximum allowed time mismatch for executing the action.  
-!!    
+!! 7. Execute your newly defined action object at a suitable place by invoking the
+!!    type-bound procedure 'execute' (CALL act_obj%execute(slack)). 'Slack' is the user-defined
+!!    maximum allowed time mismatch for executing the action.
+!!
 !!
 !! @author Daniel Reinert, DWD
 !!
@@ -81,7 +81,7 @@ MODULE mo_action
   ! PARAMETER
   PUBLIC :: ACTION_NAMES
 
-  INTEGER, PARAMETER :: NMAX_VARS = 50  ! maximum number of fields that can be 
+  INTEGER, PARAMETER :: NMAX_VARS = 50  ! maximum number of fields that can be
                                         ! assigned to a single action
 
 
@@ -99,7 +99,7 @@ MODULE mo_action
   TYPE t_var_element_ptr
     TYPE(t_var_list_element), POINTER :: p
     TYPE(event)             , POINTER :: event     ! event from mtime library
-    INTEGER                           :: patch_id  ! patch on which field lives 
+    INTEGER                           :: patch_id  ! patch on which field lives
   END TYPE t_var_element_ptr
 
 
@@ -110,7 +110,7 @@ MODULE mo_action
     TYPE(t_var_element_ptr)    :: var_element_ptr(NMAX_VARS)  ! assigned variables
     INTEGER                    :: var_action_index(NMAX_VARS) ! index in var_element_ptr(10)%action
 
-    INTEGER                    :: nvars                 ! number of variables for which 
+    INTEGER                    :: nvars                 ! number of variables for which
                                                         ! this action is to be performed
   CONTAINS
 
@@ -149,14 +149,14 @@ MODULE mo_action
 
 CONTAINS
 
-  !> 
+  !>
   !! Initialize action object
   !!
   !! Assign variables to specific actions/initialize action-object.
-  !! When generating a new field via add_var, it is possible to assign various 
-  !! actions to this field. Here, we go the other way around. For a specific 
-  !! action, we loop over all fields and check, whether this action must 
-  !! be performed for the particular field. If this is the case, this field 
+  !! When generating a new field via add_var, it is possible to assign various
+  !! actions to this field. Here, we go the other way around. For a specific
+  !! action, we loop over all fields and check, whether this action must
+  !! be performed for the particular field. If this is the case, this field
   !! is assigned to the action.
   !! The action to be initialized is identified via the actionTyp.
   !!
@@ -166,7 +166,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-01-13)
   !!
-  SUBROUTINE action_collect_vars(act_obj, actionTyp) 
+  SUBROUTINE action_collect_vars(act_obj, actionTyp)
     CLASS(t_action_obj)         :: act_obj
     INTEGER      , INTENT(IN)   :: actionTyp
 
@@ -209,8 +209,8 @@ CONTAINS
         ! Loop over all variable-specific actions
         !
         LOOPACTION: DO iact = 1,action_list%n_actions
- 
-          ! If the variable specific action fits, assign variable 
+
+          ! If the variable specific action fits, assign variable
           ! to the corresponding action.
           IF (action_list%action(iact)%actionTyp == actionTyp) THEN
 
@@ -222,7 +222,7 @@ CONTAINS
 
 
             ! Create event for this specific field
-            write(str_actionTyp,'(i2)') actionTyp 
+            write(str_actionTyp,'(i2)') actionTyp
             event_name = 'act_TYP'//TRIM(str_actionTyp)//'_'//TRIM(action_list%action(iact)%intvl)
             act_obj%var_element_ptr(nvars)%event =>newEvent(                            &
               &                                    TRIM(event_name),                    &
@@ -310,7 +310,7 @@ CONTAINS
 
         var_action_idx = act_obj%var_action_index(ivar)
 
-        irow = irow + 1 
+        irow = irow + 1
         CALL set_table_entry(table,irow,"VarName", TRIM(act_obj%var_element_ptr(ivar)%p%info%name))
         write(str_patch_id,'(i2)')  act_obj%var_element_ptr(ivar)%patch_id
         CALL set_table_entry(table,irow,"PID", TRIM(str_patch_id))
@@ -336,9 +336,9 @@ CONTAINS
   !>
   !! Execute action
   !!
-  !! For each field attached to this action it is checked, whether the action should 
-  !! be executed at the datetime given. This routine does not make any assumption 
-  !! about the details of the action to be executed. The action itself is encapsulated 
+  !! For each field attached to this action it is checked, whether the action should
+  !! be executed at the datetime given. This routine does not make any assumption
+  !! about the details of the action to be executed. The action itself is encapsulated
   !! in the kernel-routine.
   !!
   !! @par Revision History
@@ -350,15 +350,15 @@ CONTAINS
     REAL(wp), INTENT(IN)      :: slack     !< allowed slack for event triggering  [s]
     ! local variables
     INTEGER :: ivar                        !< loop index for fields
-    INTEGER :: var_action_idx              !< Index of this particular action in 
+    INTEGER :: var_action_idx              !< Index of this particular action in
                                            !< field-specific action list
 
     TYPE(t_var_list_element), POINTER :: & !< Pointer to particular field
       &  field
     TYPE(event)             , POINTER :: & !< Pointer to variable specific event info
-      &  this_event 
+      &  this_event
     TYPE(datetime),           POINTER :: & !< Current date in mtime format
-      &  mtime_date 
+      &  mtime_date
 
     LOGICAL :: isactive
 
@@ -375,7 +375,7 @@ CONTAINS
 
     ! compute current datetime in a format appropriate for mtime
     CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
-    mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
+    mtime_date  => newDatetime(TRIM(mtime_cur_datetime))
 
     ! compute allowed slack in PT-Format
     ! Use factor 999 instead of 1000, since no open interval is available
@@ -386,7 +386,7 @@ CONTAINS
     p_slack => newTimedelta(str_slack)
 
 
-! openMP parallelization currently does not work as expected. Maybe this is only 
+! openMP parallelization currently does not work as expected. Maybe this is only
 ! because of a non-threadsave message routine. Thus, we stick to a poor mens kernel
 ! parallelization for the time being.
 !!$OMP PARALLEL
@@ -409,7 +409,7 @@ CONTAINS
       ENDIF
 
 
-      ! Note that a second call to isCurrentEventActive will lead to 
+      ! Note that a second call to isCurrentEventActive will lead to
       ! a different result! Is this a bug or a feature?
       ! triggers in interval [trigger_date + slack]
       isactive = LOGICAL(isCurrentEventActive(this_event,mtime_date, plus_slack=p_slack))
@@ -424,7 +424,7 @@ CONTAINS
         field%info%action_list%action(var_action_idx)%lastActive = TRIM(mtime_cur_datetime)
         ! store latest intended triggering date
         CALL getTriggeredPreviousEventAtDateTime(this_event, lastTrigger_datetime)
-        field%info%action_list%action(var_action_idx)%EventLastTriggerDate = lastTrigger_datetime 
+        field%info%action_list%action(var_action_idx)%EventLastTriggerDate = lastTrigger_datetime
 
 
         IF (msg_level >= 12) THEN
@@ -463,12 +463,12 @@ CONTAINS
   SUBROUTINE reset_kernel(act_obj, ivar)
     ! usually, we have "t_reset_obj" as PASS type for this deferred
     ! subroutine, however, the PGI 12.3 expects the base class type...
-#if defined (__PGI) 
+#if defined (__PGI)
     CLASS (t_action_obj) :: act_obj
 #else
     CLASS (t_reset_obj)  :: act_obj
 #endif
-    INTEGER, INTENT(IN) :: ivar    ! element number 
+    INTEGER, INTENT(IN) :: ivar    ! element number
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_action:reset_kernel'
@@ -493,12 +493,12 @@ CONTAINS
   !>
   !! Get index of potentially active action-event
   !!
-  !! For a specific variable, 
+  !! For a specific variable,
   !! get index of potentially active action-event of selected action-type.
   !!
   !! The variable's info state and the action-type must be given.
-  !! The function returns the active action index within the variable's array 
-  !! of actions. If no matching action is found, the function returns 
+  !! The function returns the active action index within the variable's array
+  !! of actions. If no matching action is found, the function returns
   !! the result -1.
   !!
   !! @par Revision History
@@ -520,11 +520,11 @@ CONTAINS
 
     ! loop over all variable-specific actions
     !
-    ! We unconditionally take the first active one found, even if there are more active ones. 
-    ! (which however would normally make little sense) 
+    ! We unconditionally take the first active one found, even if there are more active ones.
+    ! (which however would normally make little sense)
     DO iact = 1,var_info%action_list%n_actions
       IF (var_info%action_list%action(iact)%actionTyp /= actionTyp ) CYCLE  ! skip all non-matching action types
-      
+
       start_date => newDatetime(TRIM(var_info%action_list%action(iact)%start))
       end_date   => newDatetime(TRIM(var_info%action_list%action(iact)%end))
 

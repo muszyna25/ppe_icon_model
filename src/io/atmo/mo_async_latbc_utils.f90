@@ -315,7 +315,7 @@
          mtime_finish => newDatetime(TRIM(sim_end))
          delta_tend => newTimedelta(latbc_config%dt_latbc)
 
-         delta_tend = mtime_finish - mtime_read  
+         delta_tend = mtime_finish - mtime_read
 
          finish_delta = 86400 *INT(delta_tend%day)    &
               &                  + 3600  *INT(delta_tend%hour)   &

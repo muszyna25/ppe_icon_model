@@ -84,10 +84,10 @@ MODULE mo_advection_hflux
   USE mo_interpol_config,     ONLY: llsq_lin_consv, llsq_high_consv, lsq_high_ord, &
     &                               lsq_high_set
   USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge                         
+  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_edge
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer, timers_level
-  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c 
+  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array,          &
     &                               sync_patch_array_4de1
   USE mo_parallel_config,     ONLY: p_test_run
@@ -204,11 +204,11 @@ CONTAINS
 
     INTEGER :: jt                   !< tracer loop index
     INTEGER :: jg                   !< patch ID
-    INTEGER :: i_rlend, i_rlend_vt  
+    INTEGER :: i_rlend, i_rlend_vt
     INTEGER :: qvsubstep_elev       !< end level for qv-substepping
     INTEGER :: iadv_min_slev        !< scheme specific minimum slev
-                                    !< i.e. minimum slev of all tracers which 
-                                    !< are advected with the given scheme 
+                                    !< i.e. minimum slev of all tracers which
+                                    !< are advected with the given scheme
     INTEGER :: nsubsteps            !< number of substeps in miura_cycl (2 or 3)
 
     REAL(wp)::   &                  !< unweighted tangential velocity
@@ -227,14 +227,14 @@ CONTAINS
 
     IF (timers_level > 2) CALL timer_start(timer_adv_horz)
 
-    ! In case that different transport schemes (MIURA, MIURA3) are used 
-    ! for different tracers, the double computation of tangential velocity 
-    ! vt should be avoided. Instead of computing vt inside each of the 
-    ! flux-routines, vt is computed only once per timestep prior to the flux 
-    ! routines. The resulting tangential velocity field is then passed to  
-    ! MIURA and MIURA3 as optional argument. 
+    ! In case that different transport schemes (MIURA, MIURA3) are used
+    ! for different tracers, the double computation of tangential velocity
+    ! vt should be avoided. Instead of computing vt inside each of the
+    ! flux-routines, vt is computed only once per timestep prior to the flux
+    ! routines. The resulting tangential velocity field is then passed to
+    ! MIURA and MIURA3 as optional argument.
 
-    IF (ANY(p_ihadv_tracer(:)/= UP) .AND. ANY(p_ihadv_tracer(:)/= UP3)) THEN 
+    IF (ANY(p_ihadv_tracer(:)/= UP) .AND. ANY(p_ihadv_tracer(:)/= UP3)) THEN
 
       i_rlend_vt = MIN(i_rlend, min_rledge_int - 1)
 
@@ -268,7 +268,7 @@ CONTAINS
       CASE( UP )      ! ihadv_tracer = 1
         ! CALL first order upwind
         CALL upwind_hflux_up( p_patch, p_cc(:,:,:,jt),                &! in
-          &                 p_mass_flx_e, p_upflux(:,:,:,jt),         &! in,inout  
+          &                 p_mass_flx_e, p_upflux(:,:,:,jt),         &! in,inout
           &                 opt_slev=p_iadv_slev(jt),opt_rlend=i_rlend)! in
 
 
@@ -306,7 +306,7 @@ CONTAINS
 
         iadv_min_slev = advection_config(jg)%ffsl_h%iadv_min_slev
 
-        ! CALL Flux form semi Lagrangian scheme (extension of MIURA3-scheme) 
+        ! CALL Flux form semi Lagrangian scheme (extension of MIURA3-scheme)
         ! with second or third order accurate reconstruction
         CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
           &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
@@ -323,7 +323,7 @@ CONTAINS
 
         iadv_min_slev = advection_config(jg)%ffsl_hyb_h%iadv_min_slev
 
-        ! CALL hybrid FFSL/miura3 scheme (i.e. if a prescribed CFL threshold 
+        ! CALL hybrid FFSL/miura3 scheme (i.e. if a prescribed CFL threshold
         ! is exceeded, the scheme switches from MIURA3 to FFSL
         CALL hflux_ffsl_hybrid( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
           &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
@@ -349,7 +349,7 @@ CONTAINS
           &             p_iord_backtraj, p_upflux(:,:,:,jt),              &! in,inout
           &             elev = p_patch%nlev,                              &! in
           &             opt_lconsv  = llsq_lin_consv,                     &! in
-          &             opt_rlend   = i_rlend,                            &! in 
+          &             opt_rlend   = i_rlend,                            &! in
           &             opt_slev    = p_iadv_slev(jt),                    &! in
           &             opt_ti_slev = iadv_min_slev                       )! in
 
@@ -358,7 +358,7 @@ CONTAINS
 
         qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
 
-        ! CALL standard MIURA for lower atmosphere and the subcycling version of 
+        ! CALL standard MIURA for lower atmosphere and the subcycling version of
         ! MIURA for upper atmosphere
         CALL upwind_hflux_miura( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,  &! in
           &              p_vn, z_real_vt, p_dtime, p_int,                &! in
@@ -374,8 +374,8 @@ CONTAINS
 
         IF (qvsubstep_elev > 0) THEN
 
-        ! Note that lcompute/lcleanup%mcycl_h is generally used for miura 
-        ! with substepping. This prevents us from computing the backward 
+        ! Note that lcompute/lcleanup%mcycl_h is generally used for miura
+        ! with substepping. This prevents us from computing the backward
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
@@ -396,7 +396,7 @@ CONTAINS
 
         qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
 
-        ! CALL standard MIURA3 for lower atmosphere and the subcycling version of 
+        ! CALL standard MIURA3 for lower atmosphere and the subcycling version of
         ! MIURA for upper atmosphere
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
           &              p_vn, z_real_vt, p_dtime, p_int,                &! in
@@ -411,8 +411,8 @@ CONTAINS
 
         IF (qvsubstep_elev > 0) THEN
 
-        ! Note that lcompute/lcleanup%mcycl_h is generally used for miura 
-        ! with substepping. This prevents us from computing the backward 
+        ! Note that lcompute/lcleanup%mcycl_h is generally used for miura
+        ! with substepping. This prevents us from computing the backward
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
@@ -432,7 +432,7 @@ CONTAINS
 
         qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
 
-        ! CALL standard FFSL for lower atmosphere and the subcycling version of 
+        ! CALL standard FFSL for lower atmosphere and the subcycling version of
         ! MIURA for upper atmosphere
         CALL upwind_hflux_ffsl( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
           &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
@@ -448,8 +448,8 @@ CONTAINS
 
         IF (qvsubstep_elev > 0) THEN
 
-        ! Note that lcompute/lcleanup%mcycl_h is generally used for miura 
-        ! with substepping. This prevents us from computing the backward 
+        ! Note that lcompute/lcleanup%mcycl_h is generally used for miura
+        ! with substepping. This prevents us from computing the backward
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
@@ -470,7 +470,7 @@ CONTAINS
 
         qvsubstep_elev = advection_config(jg)%iadv_qvsubstep_elev
 
-        ! CALL hybrid FFSL/MIURA3 for lower atmosphere and the subcycling 
+        ! CALL hybrid FFSL/MIURA3 for lower atmosphere and the subcycling
         ! version of MIURA for upper atmosphere
         CALL hflux_ffsl_hybrid( p_patch, p_cc(:,:,:,jt), p_mass_flx_e,    &! in
           &                 p_vn, z_real_vt, p_dtime, p_int,              &! in
@@ -487,8 +487,8 @@ CONTAINS
 
         IF (qvsubstep_elev > 0) THEN
 
-        ! Note that lcompute/lcleanup%mcycl_h is generally used for miura 
-        ! with substepping. This prevents us from computing the backward 
+        ! Note that lcompute/lcleanup%mcycl_h is generally used for miura
+        ! with substepping. This prevents us from computing the backward
         ! trajectories multiple times when combining the substepping scheme with
         ! different other schemes.
         CALL upwind_hflux_miura_cycl( p_patch, p_cc(:,:,:,jt), p_rho,       &! in
@@ -746,11 +746,11 @@ CONTAINS
                                        !< i.e. output flux across the edge
 
     REAL(vp), TARGET ::    &                   !< reconstructed gradient vector at
-      &  z_grad(2,nproma,p_patch%nlev,p_patch%nblks_c) 
+      &  z_grad(2,nproma,p_patch%nlev,p_patch%nblks_c)
                                                !< cell center (geographical coordinates)
 
     REAL(wp), TARGET ::    &                        !< coefficient of the lsq reconstruction
-      &  z_lsq_coeff(3,nproma,p_patch%nlev,p_patch%nblks_c) 
+      &  z_lsq_coeff(3,nproma,p_patch%nlev,p_patch%nblks_c)
                                                     !< at cell center (geogr. coordinates)
                                                     !< includes coeff0 and gradients in
                                                     !< zonal and meridional direction
@@ -760,10 +760,10 @@ CONTAINS
                                         !< (geographical coordinates)
                                         !< dim: (nproma,nlev,p_patch%nblks_e,2)
 
-    INTEGER, ALLOCATABLE, SAVE  ::  &   !< line indices of cell centers in which 
+    INTEGER, ALLOCATABLE, SAVE  ::  &   !< line indices of cell centers in which
       &  z_cell_idx(:,:,:)              !< the calculated barycenters are located
                                         !< dim: (nproma,nlev,p_patch%nblks_e)
-    INTEGER, ALLOCATABLE, SAVE  ::  &   !< block indices of cell centers in which 
+    INTEGER, ALLOCATABLE, SAVE  ::  &   !< block indices of cell centers in which
       &  z_cell_blk(:,:,:)              !< the calculated barycenters are located
                                         !< dim: (nproma,nlev,p_patch%nblks_e)
 
@@ -844,7 +844,7 @@ CONTAINS
 
 
     IF (p_iord_backtraj == 1)  THEN
-      i_rlend_vt = i_rlend_tr 
+      i_rlend_vt = i_rlend_tr
     ELSE
       i_rlend_vt = MAX(i_rlend_tr - 1, min_rledge)
     ENDIF
@@ -1001,7 +1001,7 @@ CONTAINS
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
             ! area which is swept across the corresponding edge.
             ilc0 = z_cell_idx(je,jk,jb)
-            ibc0 = z_cell_blk(je,jk,jb)  
+            ibc0 = z_cell_blk(je,jk,jb)
 
             ! Calculate 'edge value' of advected quantity (cc_bary)
             p_out_e(je,jk,jb) = p_cc(ilc0,jk,ibc0)                       &
@@ -1018,7 +1018,7 @@ CONTAINS
           DO je = i_startidx, i_endidx
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
-            ! area which is swept across the corresponding edge.  
+            ! area which is swept across the corresponding edge.
             ilc0 = z_cell_idx(je,jk,jb)
             ibc0 = z_cell_blk(je,jk,jb)
 
@@ -1038,7 +1038,7 @@ CONTAINS
           DO je = i_startidx, i_endidx
 
             ! Calculate reconstructed tracer value at barycenter of rhomboidal
-            ! area which is swept across the corresponding edge.  
+            ! area which is swept across the corresponding edge.
             ilc0 = z_cell_idx(je,jk,jb)
             ibc0 = z_cell_blk(je,jk,jb)
 
@@ -1094,13 +1094,13 @@ CONTAINS
   !!
   !! Calculation of time averaged horizontal tracer fluxes at triangle edges
   !! using a Flux form semi-lagrangian (FFSL)-method based on the second order
-  !! MIURA-scheme. This particular version of the scheme includes a time 
+  !! MIURA-scheme. This particular version of the scheme includes a time
   !! subcyling-option.
   !!
   !! @par Revision History
   !! - Initial revision by Daniel Reinert, DWD (2011-09-20)
   !! Modification by Daniel Reinert, DWD (2012-01-25)
-  !! - bug fix for positive definite limiter. Limiter is now called after each 
+  !! - bug fix for positive definite limiter. Limiter is now called after each
   !!   substep.
   !! Modification by Daniel Reinert, DWD (2013-09-27)
   !! - increased number of subcycling steps from 2 to 3 (hard coded)
@@ -1170,7 +1170,7 @@ CONTAINS
     REAL(wp), INTENT(INOUT) ::  &   !< output field, containing the upwind flux or the
       &  p_out_e(:,:,:)             !< reconstructed edge value; dim: (nproma,nlev,nblks_e)
 
-    INTEGER, INTENT(IN)     :: & !< vertical end level; not an optional argument since it 
+    INTEGER, INTENT(IN)     :: & !< vertical end level; not an optional argument since it
       &  elev                    !< is used to dimension local arrays
 
     LOGICAL, INTENT(IN), OPTIONAL :: & !< optional: if true, conservative reconstruction
@@ -1192,11 +1192,11 @@ CONTAINS
       &  opt_ti_elev
 
     REAL(vp), TARGET ::    &                   !< reconstructed gradient vector at
-      &  z_grad(2,nproma,p_patch%nlev,p_patch%nblks_c) 
+      &  z_grad(2,nproma,p_patch%nlev,p_patch%nblks_c)
                                                !< cell center (geographical coordinates)
 
     REAL(wp), TARGET ::    &                        !< coefficient of the lsq reconstruction
-      &  z_lsq_coeff(3,nproma,p_patch%nlev,p_patch%nblks_c) 
+      &  z_lsq_coeff(3,nproma,p_patch%nlev,p_patch%nblks_c)
                                                     !< at cell center (geogr. coordinates)
                                                     !< includes coeff0 and gradients in
                                                     !< zonal and meridional direction
@@ -1224,10 +1224,10 @@ CONTAINS
     REAL(vp) ::                     &   !< mass flux divergence at cell center
       &  z_fluxdiv_c(nproma,elev)
 
-    REAL(wp), TARGET ::             &   !< 'tracer cell value' at interm.  
+    REAL(wp), TARGET ::             &   !< 'tracer cell value' at interm.
       &  z_tracer(nproma,elev,p_patch%nblks_c,2) !< old and new timestep
 
-    REAL(wp) ::                     &   !< density (i.e. \rho\Delta z) at interm.  
+    REAL(wp) ::                     &   !< density (i.e. \rho\Delta z) at interm.
       &  z_rho(nproma,elev,p_patch%nblks_c,2) !< old and new timestep
 
     INTEGER  :: pid
@@ -1259,7 +1259,7 @@ CONTAINS
     ! get patch ID
     pid = p_patch%id
 
-    ! Check for optional arguments               
+    ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
       slev = opt_slev
     ELSE
@@ -1304,7 +1304,7 @@ CONTAINS
 !!$    ENDIF
 
     IF (p_iord_backtraj == 1)  THEN
-      i_rlend_vt = i_rlend_tr 
+      i_rlend_vt = i_rlend_tr
     ELSE
       i_rlend_vt = MAX(i_rlend_tr - 1, min_rledge)
     ENDIF
@@ -1469,7 +1469,7 @@ CONTAINS
         !
         ! 3.1 Compute reconstructed tracer value at barycenter of rhomboidal
         !     area which is swept across the corresponding edge.
-        ! 3.2 Compute intermediate tracer mass flux 
+        ! 3.2 Compute intermediate tracer mass flux
         !
         IF (use_zlsq) THEN
 !CDIR UNROLL=5
@@ -1478,7 +1478,7 @@ CONTAINS
             DO je = i_startidx, i_endidx
 
               ilc0 = z_cell_idx(je,jk,jb)
-              ibc0 = z_cell_blk(je,jk,jb)  
+              ibc0 = z_cell_blk(je,jk,jb)
 
               ! compute intermediate flux at cell edge (cc_bary*v_{n}* \Delta p)
               z_tracer_mflx(je,jk,jb,nsub) = ( z_lsq_coeff(1,ilc0,jk,ibc0)        &
@@ -1495,7 +1495,7 @@ CONTAINS
             DO je = i_startidx, i_endidx
 
               ilc0 = z_cell_idx(je,jk,jb)
-              ibc0 = z_cell_blk(je,jk,jb)  
+              ibc0 = z_cell_blk(je,jk,jb)
 
               ! compute intermediate flux at cell edge (cc_bary*v_{n}* \Delta p)
               z_tracer_mflx(je,jk,jb,nsub) = ( z_tracer(ilc0,jk,ibc0,nnow)   &
@@ -1520,7 +1520,7 @@ CONTAINS
         CALL hflx_limiter_sm( p_patch, p_int, z_dtsub          , & !in
           &                   z_tracer(:,:,:,nnow)             , & !in
           &                   z_tracer_mflx(:,:,:,nsub)        , & !inout
-          &                   slev, elev, opt_rlend=i_rlend    , & !in 
+          &                   slev, elev, opt_rlend=i_rlend    , & !in
           &                   opt_rho = z_rho(:,:,:,nnow)        ) !in
       ENDIF
 
@@ -1635,7 +1635,7 @@ CONTAINS
     ! Before starting, preset halo edges that are not processed with zero's in order
     ! to avoid access of uninitialized array elements in subsequent routines
     ! Necessary when called within dycore
-  
+
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
@@ -1745,7 +1745,7 @@ CONTAINS
       &  p_itype_hlimit             !< for horizontal transport
 
     REAL(wp), INTENT(INOUT) ::  &   !< output field, containing the tracer mass flux
-      &  p_out_e(:,:,:)             !< or the reconstructed edge value depending on 
+      &  p_out_e(:,:,:)             !< or the reconstructed edge value depending on
                                     !< opt_lout_edge
                                     !< dim: (nproma,nlev,nblks_e)
 
@@ -1774,7 +1774,7 @@ CONTAINS
                                        !< i.e. output flux across the edge
 
     REAL(wp) ::   &                     !< coefficients of lsq reconstruction
-      &  z_lsq_coeff(lsq_high_set%dim_unk+1,nproma,p_patch%nlev,p_patch%nblks_c) 
+      &  z_lsq_coeff(lsq_high_set%dim_unk+1,nproma,p_patch%nlev,p_patch%nblks_c)
                                        !< at cell center
                                        !< includes c0 and gradients in zonal and
                                        !< meridional direction
@@ -2098,7 +2098,7 @@ CONTAINS
 
       ELSE   ! Compute flux at cell edge (edge value * mass_flx)
 
-       ! Calculate flux at cell edge 
+       ! Calculate flux at cell edge
        !
        ! Integral over departure region, normalized by departure region area
        ! (equals the tracer area average) times the mass flux
@@ -2165,7 +2165,7 @@ CONTAINS
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in 
+        &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in
         &           opt_niter=advection_config(pid)%niter_fct,           & !in
         &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
@@ -2195,10 +2195,10 @@ CONTAINS
   !>
   !! Flux-form semi Lagrangian scheme (extended MIURA3 scheme)
   !!
-  !! Flux form semi Lagrangian scheme (extended MIURA3 scheme), where the overlap 
+  !! Flux form semi Lagrangian scheme (extended MIURA3 scheme), where the overlap
   !! between the flux area and the underlying grid cells is taken into account.
-  !! The scheme provides the time averaged horizontal tracer fluxes at triangle 
-  !! edges. A third or fourth order accurate (i.e. quadratic, cubic) least squares 
+  !! The scheme provides the time averaged horizontal tracer fluxes at triangle
+  !! edges. A third or fourth order accurate (i.e. quadratic, cubic) least squares
   !! reconstruction can be selected.
   !!
   !! @par Revision History
@@ -2281,7 +2281,7 @@ CONTAINS
                                        !< i.e. output flux across the edge
 
    REAL(wp) ::   &                     !< coefficients of lsq reconstruction
-      &  z_lsq_coeff(lsq_high_set%dim_unk+1,nproma,p_patch%nlev,p_patch%nblks_c) 
+      &  z_lsq_coeff(lsq_high_set%dim_unk+1,nproma,p_patch%nlev,p_patch%nblks_c)
                                        !< at cell center
                                        !< includes c0 and gradients in zonal and
                                        !< meridional direction
@@ -2440,7 +2440,7 @@ CONTAINS
         &              opt_slev=slev_ti, opt_elev=elev_ti              )! in
 
 
-      ! Flux area (aka. departure region) is subdivided according to its overlap 
+      ! Flux area (aka. departure region) is subdivided according to its overlap
       ! with the underlying grid.
       CALL divide_flux_area(p_patch, p_int, p_vn, p_vt,                &! in
         &                   dreg_patch0, dreg_patch1, dreg_patch2,     &! out
@@ -2596,7 +2596,7 @@ CONTAINS
 
 
 
-    ! Pointer to line and block indices of the cells to which the departure 
+    ! Pointer to line and block indices of the cells to which the departure
     ! region patches belong.
     ptr_ilc0 => patch0_cell_idx(:,:,:)
     ptr_ibc0 => patch0_cell_blk(:,:,:)
@@ -2623,7 +2623,7 @@ CONTAINS
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
 
-      ! Calculate flux at cell edge 
+      ! Calculate flux at cell edge
       !
       ! Integral over departure region, normalized by departure region area
       ! (equals the tracer area average) times the mass flux
@@ -2723,7 +2723,7 @@ CONTAINS
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in 
+        &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in
         &           opt_niter=advection_config(pid)%niter_fct,           & !in
         &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN
@@ -2757,10 +2757,10 @@ CONTAINS
   !>
   !! Hybrid FFSL/MIURA3-scheme
   !!
-  !! Flux form semi Lagrangian scheme (extended MIURA3 scheme), where the overlap 
+  !! Flux form semi Lagrangian scheme (extended MIURA3 scheme), where the overlap
   !! between the flux area and the underlying grid cells is taken into account.
-  !! The scheme provides the time averaged horizontal tracer fluxes at triangle 
-  !! edges. A third or fourth order accurate (i.e. quadratic, cubic) least squares 
+  !! The scheme provides the time averaged horizontal tracer fluxes at triangle
+  !! edges. A third or fourth order accurate (i.e. quadratic, cubic) least squares
   !! reconstruction can be selected.
   !!
   !! @par Revision History
@@ -2843,7 +2843,7 @@ CONTAINS
                                        !< i.e. output flux across the edge
 
    REAL(wp) ::   &                     !< coefficients of lsq reconstruction
-      &  z_lsq_coeff(lsq_high_set%dim_unk+1,nproma,p_patch%nlev,p_patch%nblks_c) 
+      &  z_lsq_coeff(lsq_high_set%dim_unk+1,nproma,p_patch%nlev,p_patch%nblks_c)
                                        !< at cell center
                                        !< includes c0 and gradients in zonal and
                                        !< meridional direction
@@ -2871,8 +2871,8 @@ CONTAINS
 
 
     TYPE(t_list2D), SAVE ::   &    !< list with points for which a local
-      &  falist                    !< polynomial approximation is insufficient 
-                                   !< and a piecewise approximation is needed, 
+      &  falist                    !< polynomial approximation is insufficient
+                                   !< and a piecewise approximation is needed,
                                    !< instead
 
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
@@ -3020,7 +3020,7 @@ CONTAINS
           &  'patch1/2_cell_idx,  patch1/2_cell_blk, dreg_patch1/2 failed' )
       ENDIF
 
-      ! Flux area (aka. departure region) is subdivided according to its overlap 
+      ! Flux area (aka. departure region) is subdivided according to its overlap
       ! with the underlying grid.
       CALL divide_flux_area_list(p_patch, p_int, p_vn, p_vt, falist,   &! in
         &                   dreg_patch0, dreg_patch1, dreg_patch2,     &! out
@@ -3161,7 +3161,7 @@ CONTAINS
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
 
-      ! Calculate flux at cell edge 
+      ! Calculate flux at cell edge
       !
       ! Integral over departure region, normalized by departure region area
       ! (equals the tracer area average) times the mass flux
@@ -3275,7 +3275,7 @@ CONTAINS
     !
     IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_m) THEN
       CALL hflx_limiter_mo( p_patch, p_int, p_dtime, p_cc, p_mass_flx_e, & !in
-        &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in 
+        &           p_out_e, slev, elev, opt_rlend=i_rlend,              & !inout,in
         &           opt_niter=advection_config(pid)%niter_fct,           & !in
         &           opt_beta_fct=advection_config(pid)%beta_fct          ) !in
     ELSE IF (.NOT. l_out_edgeval .AND. p_itype_hlimit == ifluxl_sm) THEN

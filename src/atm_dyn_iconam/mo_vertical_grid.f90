@@ -161,7 +161,7 @@ MODULE mo_vertical_grid
             &                                           p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb))
         ENDDO
       ENDDO
-!$OMP END DO 
+!$OMP END DO
 
 !$OMP DO PRIVATE(jb, nlen, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,nblks_c
@@ -226,7 +226,7 @@ MODULE mo_vertical_grid
         ! geopot above ground  - because physics needs positive values
         !-------------------------------------------------------------
 
-          p_nh(jg)%metrics%geopot_agl_ifc(1:nlen,nlevp1,jb) = 0._wp     
+          p_nh(jg)%metrics%geopot_agl_ifc(1:nlen,nlevp1,jb) = 0._wp
 
           DO jk = nlev,1,-1
             ! geopotential (interfaces)
@@ -333,7 +333,7 @@ MODULE mo_vertical_grid
       DEALLOCATE(z_aux_e)
 
 
-      ! offcentering in vertical mass flux 
+      ! offcentering in vertical mass flux
       p_nh(jg)%metrics%vwind_impl_wgt(:,:)    = 0.5_wp + vwind_offctr
       p_nh(jg)%metrics%vwind_expl_wgt(:,:)    = 1.0_wp - p_nh(jg)%metrics%vwind_impl_wgt(:,:)
 
@@ -357,7 +357,7 @@ MODULE mo_vertical_grid
         ! z - z_h  with z at half levels
         z_sin_diff  = MAX(0.0_wp,vct_a(jk1)-damp_height(jg))
 
-        ! z_top - z    
+        ! z_top - z
         z_tanh_diff = vct_a(1) - vct_a(jk1)
 
         ! z - z_h  with z at full levels
@@ -539,7 +539,7 @@ MODULE mo_vertical_grid
       DEALLOCATE(z_ddxn_z_half_e,z_ddxt_z_half_e)
 
 
-      ! Index lists for boundary nudging (including halo cells so that no 
+      ! Index lists for boundary nudging (including halo cells so that no
       ! sync is needed afterwards; halo edges are excluded, however, because
       ! a sync follows afterwards anyway
       ic = 0
@@ -1099,7 +1099,7 @@ MODULE mo_vertical_grid
         CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
                            i_startidx, i_endidx, 2)
 
-        IF (igradp_method <= 3) THEN 
+        IF (igradp_method <= 3) THEN
 
           DO je = i_startidx, i_endidx
 
@@ -1164,14 +1164,14 @@ MODULE mo_vertical_grid
                   coef1 =  z_me(je,jk,jb)-z0
                   coef2 = (z_me(je,jk,jb)-z0)*(z_me(je,jk,jb)-z1)
                   coef3 = (z_me(je,jk,jb)-z0)*(z_me(je,jk,jb)-z1)*(z_me(je,jk,jb)-z2)
-                  
+
                   dn1 = 1._wp/(z0-z1)
                   dn2 = 1._wp/(z1-z2)
                   dn3 = 1._wp/(z2-z3)
                   dn4 = 1._wp/(z0-z2)
                   dn5 = 1._wp/(z0-z3)
                   dn6 = 1._wp/(z1-z3)
-                  
+
                   p_nh(jg)%metrics%coeff_gradp(1,je,jk,jb) =            &
                     1._wp + coef1*dn1 + coef2*dn1*dn4 + coef3*dn1*dn4*dn5
                   p_nh(jg)%metrics%coeff_gradp(2,je,jk,jb) =                               &
@@ -1193,11 +1193,11 @@ MODULE mo_vertical_grid
 
                   coef1 =  z_me(je,jk,jb)-z0
                   coef2 = (z_me(je,jk,jb)-z0)*(z_me(je,jk,jb)-z1)
-                  
+
                   dn1 = 1._wp/(z0-z1)
                   dn2 = 1._wp/(z1-z2)
                   dn4 = 1._wp/(z0-z2)
-                  
+
                   p_nh(jg)%metrics%coeff_gradp(1,je,jk,jb) = 1._wp + coef1*dn1 + coef2*dn1*dn4
                   p_nh(jg)%metrics%coeff_gradp(2,je,jk,jb) = -(coef1*dn1 + coef2*dn4*(dn1+dn2))
                   p_nh(jg)%metrics%coeff_gradp(3,je,jk,jb) = coef2*dn2*dn4
@@ -1239,14 +1239,14 @@ MODULE mo_vertical_grid
                   coef1 =  z_me(je,jk,jb)-z0
                   coef2 = (z_me(je,jk,jb)-z0)*(z_me(je,jk,jb)-z1)
                   coef3 = (z_me(je,jk,jb)-z0)*(z_me(je,jk,jb)-z1)*(z_me(je,jk,jb)-z2)
-                  
+
                   dn1 = 1._wp/(z0-z1)
                   dn2 = 1._wp/(z1-z2)
                   dn3 = 1._wp/(z2-z3)
                   dn4 = 1._wp/(z0-z2)
                   dn5 = 1._wp/(z0-z3)
                   dn6 = 1._wp/(z1-z3)
-                  
+
                   p_nh(jg)%metrics%coeff_gradp(5,je,jk,jb) =            &
                     1._wp + coef1*dn1 + coef2*dn1*dn4 + coef3*dn1*dn4*dn5
                   p_nh(jg)%metrics%coeff_gradp(6,je,jk,jb) =                               &
@@ -1268,11 +1268,11 @@ MODULE mo_vertical_grid
 
                   coef1 =  z_me(je,jk,jb)-z0
                   coef2 = (z_me(je,jk,jb)-z0)*(z_me(je,jk,jb)-z1)
-                  
+
                   dn1 = 1._wp/(z0-z1)
                   dn2 = 1._wp/(z1-z2)
                   dn4 = 1._wp/(z0-z2)
-                  
+
                   p_nh(jg)%metrics%coeff_gradp(5,je,jk,jb) = 1._wp + coef1*dn1 + coef2*dn1*dn4
                   p_nh(jg)%metrics%coeff_gradp(6,je,jk,jb) = -(coef1*dn1 + coef2*dn4*(dn1+dn2))
                   p_nh(jg)%metrics%coeff_gradp(7,je,jk,jb) = coef2*dn2*dn4
@@ -1307,7 +1307,7 @@ MODULE mo_vertical_grid
 
         extrapol_dist = 5._wp ! maximum allowed extrapolation distance; may become a namelist variable later on
 
-        ! Recompute indices and height differences if truly horizontal pressure gradient 
+        ! Recompute indices and height differences if truly horizontal pressure gradient
         ! computation would intersect the ground
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jk_start, je, z_aux1, z_aux2, &
@@ -1397,14 +1397,14 @@ MODULE mo_vertical_grid
                       coef1 =  z_aux2(je)-z0
                       coef2 = (z_aux2(je)-z0)*(z_aux2(je)-z1)
                       coef3 = (z_aux2(je)-z0)*(z_aux2(je)-z1)*(z_aux2(je)-z2)
-                  
+
                       dn1 = 1._wp/(z0-z1)
                       dn2 = 1._wp/(z1-z2)
                       dn3 = 1._wp/(z2-z3)
                       dn4 = 1._wp/(z0-z2)
                       dn5 = 1._wp/(z0-z3)
                       dn6 = 1._wp/(z1-z3)
-                  
+
                       p_nh(jg)%metrics%coeff_gradp(1,je,jk,jb) =            &
                         1._wp + coef1*dn1 + coef2*dn1*dn4 + coef3*dn1*dn4*dn5
                       p_nh(jg)%metrics%coeff_gradp(2,je,jk,jb) =                               &
@@ -1428,11 +1428,11 @@ MODULE mo_vertical_grid
 
                       coef1 =  z_aux2(je)-z0
                       coef2 = (z_aux2(je)-z0)*(z_aux2(je)-z1)
-                  
+
                       dn1 = 1._wp/(z0-z1)
                       dn2 = 1._wp/(z1-z2)
                       dn4 = 1._wp/(z0-z2)
-                  
+
                       p_nh(jg)%metrics%coeff_gradp(1,je,jk,jb) = &
                         1._wp + coef1*dn1 + coef2*dn1*dn4
                       p_nh(jg)%metrics%coeff_gradp(2,je,jk,jb) = &
@@ -1467,14 +1467,14 @@ MODULE mo_vertical_grid
                       coef1 =  z_aux2(je)-z0
                       coef2 = (z_aux2(je)-z0)*(z_aux2(je)-z1)
                       coef3 = (z_aux2(je)-z0)*(z_aux2(je)-z1)*(z_aux2(je)-z2)
-                  
+
                       dn1 = 1._wp/(z0-z1)
                       dn2 = 1._wp/(z1-z2)
                       dn3 = 1._wp/(z2-z3)
                       dn4 = 1._wp/(z0-z2)
                       dn5 = 1._wp/(z0-z3)
                       dn6 = 1._wp/(z1-z3)
-                  
+
                       p_nh(jg)%metrics%coeff_gradp(5,je,jk,jb) =            &
                         1._wp + coef1*dn1 + coef2*dn1*dn4 + coef3*dn1*dn4*dn5
                       p_nh(jg)%metrics%coeff_gradp(6,je,jk,jb) =                               &
@@ -1498,11 +1498,11 @@ MODULE mo_vertical_grid
 
                       coef1 =  z_aux2(je)-z0
                       coef2 = (z_aux2(je)-z0)*(z_aux2(je)-z1)
-                  
+
                       dn1 = 1._wp/(z0-z1)
                       dn2 = 1._wp/(z1-z2)
                       dn4 = 1._wp/(z0-z2)
-                  
+
                       p_nh(jg)%metrics%coeff_gradp(5,je,jk,jb) = &
                         1._wp + coef1*dn1 + coef2*dn1*dn4
                       p_nh(jg)%metrics%coeff_gradp(6,je,jk,jb) = &
@@ -1728,7 +1728,7 @@ MODULE mo_vertical_grid
     ! Recompute index list after removal of empty points
     ji = 0
     DO jb = i_startblk,nblks_c
-        
+
       CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
                          i_startidx, i_endidx, grf_bdywidth_c+1)
 
@@ -1911,7 +1911,7 @@ MODULE mo_vertical_grid
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
 
     REAL(wp)  :: les_filter, z_mc, z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c), max_dz
-    
+
     INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c, npromz_e
     INTEGER :: nlev, nlevp1, i_startblk
 
@@ -1922,28 +1922,28 @@ MODULE mo_vertical_grid
     nblks_e   = p_patch%nblks_e
     npromz_e  = p_patch%npromz_e
 
-    !Use the  triangle area to decide the les filter. 
+    !Use the  triangle area to decide the les filter.
     max_dz = MAXVAL(p_nh%metrics%ddqz_z_full(:,nlev,:))
-    max_dz = global_max(max_dz) 
+    max_dz = global_max(max_dz)
     les_filter = les_config(1)%smag_constant*(max_dz*p_patch%geometry_info%mean_cell_area)**0.33333_wp
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i4,a,f8.3)') 'LES grid-scale filter for domain ',p_patch%id,' =',les_filter
       CALL message(TRIM(routine),message_text)
     END IF
-     
+
     i_startblk = p_patch%edges%start_block(2)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,nblks_e
      CALL get_indices_e(p_patch, jb, i_startblk, nblks_e, i_startidx, i_endidx, 2)
-      DO jk = 1 , nlev 
+      DO jk = 1 , nlev
        DO je = i_startidx, i_endidx
-         p_nh%metrics%inv_ddqz_z_full_e(je,jk,jb) =  & 
+         p_nh%metrics%inv_ddqz_z_full_e(je,jk,jb) =  &
                 1._wp / p_nh%metrics%ddqz_z_full_e(je,jk,jb)
        END DO
       END DO
-    END DO 
+    END DO
 !$OMP END DO
 
 !$OMP DO PRIVATE(jb,jc,jk,nlen,z_mc) ICON_OMP_DEFAULT_SCHEDULE
@@ -1952,8 +1952,8 @@ MODULE mo_vertical_grid
          nlen = nproma
       ELSE
          nlen = npromz_c
-      ENDIF     
-       DO jk = 1 , nlevp1 
+      ENDIF
+       DO jk = 1 , nlevp1
         DO jc = 1 , nlen
          z_mc  = p_nh%metrics%geopot_agl_ifc(jc,jk,jb) * rgrav
 
@@ -1963,10 +1963,10 @@ MODULE mo_vertical_grid
          p_nh%metrics%inv_ddqz_z_half(jc,jk,jb) = 1._wp / p_nh%metrics%ddqz_z_half(jc,jk,jb)
        END DO
       END DO
-    END DO 
+    END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-  
+
    IF(p_test_run)THEN
 !$OMP PARALLEL WORKSHARE
     p_nh%metrics%inv_ddqz_z_half_v(:,:,:) = 0._wp

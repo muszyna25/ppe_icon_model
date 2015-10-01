@@ -41,7 +41,7 @@ MODULE mo_fortran_tools
   ! Type to pass pointer arrays to convection and turbulent diffusion subroutines
   TYPE t_ptr_tracer
     REAL(wp), POINTER :: ptr(:,:)
-    INTEGER           :: idx_tracer    
+    INTEGER           :: idx_tracer
   END TYPE t_ptr_tracer
 
   PUBLIC :: assign_if_present
@@ -72,7 +72,7 @@ CONTAINS
     CHARACTER(len=*), INTENT(inout)        :: y
     CHARACTER(len=*), INTENT(in) ,OPTIONAL :: x
     IF (.NOT. PRESENT(x)) RETURN
-    IF ( x == ' ' )       RETURN      
+    IF ( x == ' ' )       RETURN
     y = x
   END SUBROUTINE assign_if_present_character
 
@@ -125,7 +125,7 @@ CONTAINS
 
 
   !>
-  !! Swap content of two Integers 
+  !! Swap content of two Integers
   !!
   !! Swap content of two Integers
   !!
@@ -147,7 +147,7 @@ CONTAINS
 
 
   !>
-  !! Expand array by given size 
+  !! Expand array by given size
   !!
   !! Expand a 1D character array by given size.
   !!

@@ -80,7 +80,7 @@ MODULE mo_interface_les
                                      write_vertical_profiles, write_time_series, &
                                      avg_interval_step, sampl_freq_step,  &
                                      is_sampling_time, is_writing_time, les_cloud_diag
-  USE mo_les_utilities,       ONLY: init_vertical_grid_for_les                                     
+  USE mo_les_utilities,       ONLY: init_vertical_grid_for_les
 
   IMPLICIT NONE
 

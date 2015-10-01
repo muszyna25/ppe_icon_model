@@ -15,7 +15,7 @@
 !! Modification by Daniel Reinert, DWD (2010-10-06)
 !! - implemented positive definite FCT-limiter for FFSL-scheme
 !! Modification by Daniel Reinert, DWD (2012-05-04)
-!! - removed slope limiter for horizontal transport, since they were 
+!! - removed slope limiter for horizontal transport, since they were
 !!   no longer used.
 !! Modification by Daniel Reinert, DWD (2013-05-23)
 !! - removed obsolete slope limiters for vertical MUSCL scheme.
@@ -78,8 +78,8 @@ CONTAINS
   !! @par Literature:
   !! - Zalesak, S.T. (1979): Fully Multidimensional Flux-corrected Transport
   !!   Algorithms for Fluids. JCP, 31, 335-362
-  !! - Schaer, C. and P.K. Smolarkiewicz (1996): A synchronous and iterative 
-  !!   flux-correction formalism for coupled transport equations. J. comput. Phys., 
+  !! - Schaer, C. and P.K. Smolarkiewicz (1996): A synchronous and iterative
+  !!   flux-correction formalism for coupled transport equations. J. comput. Phys.,
   !!   128, 101-120
   !!
   !! @par Revision History
@@ -118,7 +118,7 @@ CONTAINS
     INTEGER, INTENT(IN) ::      &    !< vertical end level
       &  elev
 
-    REAL(wp), INTENT(IN), OPTIONAL ::  & !< factor for multiplicative spreading of range 
+    REAL(wp), INTENT(IN), OPTIONAL ::  & !< factor for multiplicative spreading of range
       &  opt_beta_fct                    !< of permissible values
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: number of iterations
@@ -149,7 +149,7 @@ CONTAINS
       &  z_fluxdiv_c(nproma,slev:elev)
 
     REAL(wp) ::                 &    !< new tracer field after hor. transport,
-      &  z_tracer_new_low(nproma,slev:elev,ptr_patch%nblks_c) 
+      &  z_tracer_new_low(nproma,slev:elev,ptr_patch%nblks_c)
                                      !< if the low order fluxes are used
 
     REAL(vp) ::                 &    !< local maximum of current tracer value and low
@@ -159,7 +159,7 @@ CONTAINS
       &  z_tracer_min(nproma,slev:elev,ptr_patch%nblks_c) !< order update
 
     ! remark: single precision would be sufficient for r_m and r_p, but SP-sync is not yet available
-    REAL(wp) ::                 &    !< fraction which must multiply all in/out fluxes 
+    REAL(wp) ::                 &    !< fraction which must multiply all in/out fluxes
       &  r_p(nproma,slev:elev,ptr_patch%nblks_c),&   !< of cell jc to guarantee
       &  r_m(nproma,slev:elev,ptr_patch%nblks_c)     !< no overshoot/undershoot
 
@@ -167,10 +167,10 @@ CONTAINS
                        !< the flux at the edge
 
     REAL(vp) :: z_min(nproma,slev:elev), & !< minimum/maximum value in cell and neighboring cells
-      &         z_max(nproma,slev:elev) 
+      &         z_max(nproma,slev:elev)
     REAL(wp) :: z_signum             !< sign of antidiffusive velocity
     REAL(wp) :: beta_fct             !< factor of allowed over-/undershooting in monotonous limiter
-    REAL(wp) :: r_beta_fct           !< ... and its reverse value   
+    REAL(wp) :: r_beta_fct           !< ... and its reverse value
 
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of two
       &  iilc, iibc                          !< neighbor cells (array)
@@ -276,9 +276,9 @@ CONTAINS
 
 
           ! calculate antidiffusive flux for each edge
-          ! only correct for i_rlend_e = min_rledge_int - 1, if p_mflx_tracer_h 
-          ! is not synchronized. This is sufficient for niter=1, but insufficient 
-          ! for niter>1. Therefore a SYNC of p_mflx_tracer_h has been introduced 
+          ! only correct for i_rlend_e = min_rledge_int - 1, if p_mflx_tracer_h
+          ! is not synchronized. This is sufficient for niter=1, but insufficient
+          ! for niter>1. Therefore a SYNC of p_mflx_tracer_h has been introduced
           ! for niter>1.
           z_anti(je,jk,jb)     = p_mflx_tracer_h(je,jk,jb) - z_mflx_low(je,jk,jb)
 
@@ -401,7 +401,7 @@ CONTAINS
     ENDDO
 !$OMP END DO
 
-    ! Additional initialization of lateral boundary points is needed 
+    ! Additional initialization of lateral boundary points is needed
     ! for limited-area mode or iterative flux limitation
     IF ( (l_limited_area .OR. niter > 1) .AND. ptr_patch%id == 1) THEN
 
@@ -478,7 +478,7 @@ CONTAINS
     ! Synchronize r_m and r_p and determine i_rlstart/i_rlend
     !
     IF (nit /= niter) THEN
-      ! full sync necessary, since z_mflx_low and z_anti need to be computed 
+      ! full sync necessary, since z_mflx_low and z_anti need to be computed
       ! for halo edges, as well.
       CALL sync_patch_array_mult(SYNC_C, ptr_patch, 2, r_m, r_p)
       i_rlstart_nit_e = i_rlstart_e
@@ -497,8 +497,8 @@ CONTAINS
     !    Depending on the iteration count, either
     !    - compute improved low order flux and updated antidiffusive fluxes
     !    or
-    !    - at the end, compute new, limited fluxes which are then passed to 
-    !      the main program. Note that p_mflx_tracer_h now denotes the 
+    !    - at the end, compute new, limited fluxes which are then passed to
+    !      the main program. Note that p_mflx_tracer_h now denotes the
     !      LIMITED flux.
     !
 
@@ -676,7 +676,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
     ! set default values
-    i_rlstart = grf_bdywidth_e - 1 ! needed for call from miura_cycl scheme, 
+    i_rlstart = grf_bdywidth_e - 1 ! needed for call from miura_cycl scheme,
                                    ! otherwise grf_bdywidth_e would be sufficient
     i_rlend   = min_rledge_int - 1
 
@@ -757,10 +757,10 @@ CONTAINS
 
           z_mflx(jc,jk,2) = ptr_int%geofac_div(jc,2,jb) * p_dtime &
             &                * p_mflx_tracer_h(iidx(jc,jb,2),jk,iblk(jc,jb,2))
-  
+
           z_mflx(jc,jk,3) = ptr_int%geofac_div(jc,3,jb) * p_dtime &
             &                * p_mflx_tracer_h(iidx(jc,jb,3),jk,iblk(jc,jb,3))
-  
+
         ENDDO
       ENDDO
 
@@ -825,7 +825,7 @@ CONTAINS
           p_mflx_tracer_h(je,jk,jb) = p_mflx_tracer_h(je,jk,jb) * 0.5_wp  &
             & *( (1._wp + z_signum) * r_m(iilc(je,jb,1),jk,iibc(je,jb,1)) &
             &   +(1._wp - z_signum) * r_m(iilc(je,jb,2),jk,iibc(je,jb,2)) )
-  
+
         ENDDO
       ENDDO
     ENDDO
@@ -840,7 +840,7 @@ CONTAINS
   !! Positive definite flux limiter for vertical advection
   !!
   !! Positive definite Zalesak Flux-Limiter (Flux corrected transport).
-  !! for the nonhydrostatic core. Only outward fluxes are re-scaled, in 
+  !! for the nonhydrostatic core. Only outward fluxes are re-scaled, in
   !! order to maintain positive definiteness.
   !!
   !! @par Literature:
@@ -849,8 +849,8 @@ CONTAINS
   !! - Harris, L. M. and P. H. Lauritzen (2010): A flux-form version of the
   !!   Conservative Semi-Lagrangian Multi-tracer transport scheme (CSLAM) on
   !!   the cubed sphere grid.  J. Comput. Phys., 230, 1215-1237
-  !! - Smolarkiewicz, P. K., 1989: Comment on "A positive definite advection 
-  !!   scheme obtained by nonlinear renormalization of the advective fluxes.", 
+  !! - Smolarkiewicz, P. K., 1989: Comment on "A positive definite advection
+  !!   scheme obtained by nonlinear renormalization of the advective fluxes.",
   !!   Mon. Wea. Rev., 117, 2626-2632
   !!
   !! @par Revision History
@@ -986,7 +986,7 @@ CONTAINS
           p_mflx_tracer_v(jc,jk,jb) =  p_mflx_tracer_v(jc,jk,jb)  * 0.5_wp    &
             &                       * ( (1._wp + z_signum(jc)) * r_m(jc,jk)   &
             &                       +   (1._wp - z_signum(jc)) * r_m(jc,jkm1) )
-  
+
         ENDDO
       ENDDO
     ENDDO
@@ -1003,7 +1003,7 @@ CONTAINS
   !! Positive definite flux limiter for vertical advection
   !!
   !! Positive definite Zalesak Flux-Limiter (Flux corrected transport).
-  !! for the hydrostatic core. Only outward fluxes are re-scaled, in 
+  !! for the hydrostatic core. Only outward fluxes are re-scaled, in
   !! order to maintain positive definiteness.
   !!
   !! @par Literature:
@@ -1012,8 +1012,8 @@ CONTAINS
   !! - Harris, L. M. and P. H. Lauritzen (2010): A flux-form version of the
   !!   Conservative Semi-Lagrangian Multi-tracer transport scheme (CSLAM) on
   !!   the cubed sphere grid.  J. Comput. Phys., 230, 1215-1237
-  !! - Smolarkiewicz, P. K., 1989: Comment on "A positive definite advection 
-  !!   scheme obtained by nonlinear renormalization of the advective fluxes.", 
+  !! - Smolarkiewicz, P. K., 1989: Comment on "A positive definite advection
+  !!   scheme obtained by nonlinear renormalization of the advective fluxes.",
   !!   Mon. Wea. Rev., 117, 2626-2632
   !!
   !! @par Revision History
@@ -1147,7 +1147,7 @@ CONTAINS
           p_mflx_tracer_v(jc,jk,jb) =  p_mflx_tracer_v(jc,jk,jb)  * 0.5_wp    &
             &                       * ( (1._wp + z_signum(jc)) * r_m(jc,jkm1) &
             &                       +   (1._wp - z_signum(jc)) * r_m(jc,jk) )
-  
+
         ENDDO
       ENDDO
     ENDDO

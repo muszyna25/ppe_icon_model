@@ -405,7 +405,7 @@ END SUBROUTINE grad_fd_tang
 !>
 !! Computes the cell centered gradient in geographical coordinates.
 !!
-!! The gradient is computed by taking the derivative of the shape functions 
+!! The gradient is computed by taking the derivative of the shape functions
 !! for a three-node triangular element (Finite Element thinking).
 !!
 !! @par Revision History
@@ -517,10 +517,10 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
       DO jc = i_startidx, i_endidx
 #endif
 
-        ! We do not make use of the intrinsic function DOT_PRODUCT on purpose, 
-        ! since it is extremely slow on the SX9, when combined with indirect 
+        ! We do not make use of the intrinsic function DOT_PRODUCT on purpose,
+        ! since it is extremely slow on the SX9, when combined with indirect
         ! addressing.
- 
+
         ! multiply cell-based input values with precomputed grid geometry factor
 
         ! zonal(u)-component of Green-Gauss gradient
@@ -554,7 +554,7 @@ END SUBROUTINE grad_fe_cell_adv
 !>
 !! Computes the cell centered gradient in geographical coordinates.
 !!
-!! The gradient is computed by taking the derivative of the shape functions 
+!! The gradient is computed by taking the derivative of the shape functions
 !! for a three-node triangular element (Finite Element thinking).
 !! 2D version, i.e. for a single vertical level
 !!
@@ -643,10 +643,10 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 
     DO jc = i_startidx, i_endidx
 
-      ! We do not make use of the intrinsic function DOT_PRODUCT on purpose, 
-      ! since it is extremely slow on the SX9, when combined with indirect 
+      ! We do not make use of the intrinsic function DOT_PRODUCT on purpose,
+      ! since it is extremely slow on the SX9, when combined with indirect
       ! addressing.
- 
+
       ! multiply cell-based input values with precomputed grid geometry factor
 
       ! zonal(u)-component of gradient
@@ -678,7 +678,7 @@ END SUBROUTINE grad_fe_cell_adv_2d
 !>
 !! Computes the cell centered gradient in geographical coordinates.
 !!
-!! The gradient is computed by taking the derivative of the shape functions 
+!! The gradient is computed by taking the derivative of the shape functions
 !! for a three-node triangular element (Finite Element thinking).
 !! Special dycore version, which handles two fields at a time.
 !!
@@ -782,10 +782,10 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
       DO jc = i_startidx, i_endidx
 #endif
 
-        ! We do not make use of the intrinsic function DOT_PRODUCT on purpose, 
-        ! since it is extremely slow on the SX9, when combined with indirect 
+        ! We do not make use of the intrinsic function DOT_PRODUCT on purpose,
+        ! since it is extremely slow on the SX9, when combined with indirect
         ! addressing.
- 
+
         ! multiply cell-based input values with shape function derivatives
 
         ! zonal(u)-component of gradient, field 1
@@ -988,7 +988,7 @@ END SUBROUTINE grad_green_gauss_cell_adv
   !  data structure for interpolation
   !
   TYPE(t_int_state), TARGET, INTENT(in) :: ptr_int
-  
+
   !  cell centered I/O variables
   !
   REAL(vp), INTENT(in) :: p_ccpr(:,:,:,:) ! perturbation fields passed from dycore (2,nproma,nlev,nblks_c)

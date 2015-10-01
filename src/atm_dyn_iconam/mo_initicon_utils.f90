@@ -96,7 +96,7 @@ MODULE mo_initicon_utils
   PUBLIC :: allocate_extana_atm
   PUBLIC :: allocate_extana_sfc
   PUBLIC :: deallocate_initicon
-  PUBLIC :: deallocate_extana_atm 
+  PUBLIC :: deallocate_extana_atm
   PUBLIC :: deallocate_extana_sfc
   PUBLIC :: average_first_guess
   PUBLIC :: reinit_average_first_guess
@@ -111,7 +111,7 @@ MODULE mo_initicon_utils
   !-------------
   !>
   !! SUBROUTINE initicon_inverse_post_op
-  !! Perform inverse post_op on input field, if necessary 
+  !! Perform inverse post_op on input field, if necessary
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2013-07-05)
@@ -146,7 +146,7 @@ MODULE mo_initicon_utils
     info => NULL()
     DO i = 1,nvar_lists
       ! loop only over model level variables
-      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE 
+      IF (var_lists(i)%p%vlevel_type /= level_type_ml) CYCLE
 
       element => NULL()
       DO
@@ -199,16 +199,16 @@ MODULE mo_initicon_utils
   !! Check validity of input fields. So far, the following checks are performed:
   !!
   !! For First Guess:
-  !! - Check validity of uuidOfHgrid: The uuidOfHGrid of the input fields must 
+  !! - Check validity of uuidOfHgrid: The uuidOfHGrid of the input fields must
   !!   match the uuidOfHgrid of the horizontal grid file.
-  !! - Check validity of first guess validity time: First guess validity time 
-  !!   must comply with the model's initialization time (ini_datetime) minus 
+  !! - Check validity of first guess validity time: First guess validity time
+  !!   must comply with the model's initialization time (ini_datetime) minus
   !!   dt_shift.
   !!
   !! For Analysis (increments)
-  !! - Check validity of uuidOfHgrid: The uuidOfHGrid of the input fields must 
+  !! - Check validity of uuidOfHgrid: The uuidOfHGrid of the input fields must
   !!   match the uuidOfHgrid of the horizontal grid file.
-  !! - Check validity of analysis validity time:  The analysis field's validity 
+  !! - Check validity of analysis validity time:  The analysis field's validity
   !!   time must match the model's initialization time (ini_datetime)
   !! - MODE_IAU, MODE_IAU_OLD:  check for matching typeOfGeneratingProcess.
   !!
@@ -279,7 +279,7 @@ MODULE mo_initicon_utils
 
 
 
-    lmatch_uuid  = .FALSE. 
+    lmatch_uuid  = .FALSE.
     lmatch_vtime = .FALSE.
 
     ! get ini-datetime in mtime-format
@@ -415,7 +415,7 @@ MODULE mo_initicon_utils
               &                       //TRIM(this_list_element%field%name)//'. 201 expected'
             CALL finish(routine, TRIM(message_text))
           ENDIF
-        
+
         ELSE IF ( index_ful /= -1) THEN  ! field required as full field
           IF (this_list_element%field%typeOfGeneratingProcess /=0) THEN
             WRITE(message_text,'(a)') 'Non-matching typeOfGeneratingProcess for analysis field '&
@@ -443,9 +443,9 @@ MODULE mo_initicon_utils
   !-------------
   !>
   !! SUBROUTINE create_input_groups
-  !! Generates groups 'grp_vars_fg' and 'grp_vars_ana', which contain all those fields that  
+  !! Generates groups 'grp_vars_fg' and 'grp_vars_ana', which contain all those fields that
   !! must be read from the FG- and ANA-File, respectively.
-  !! Both groups are based on two out of a bunch of available ICON-internal output groups, depending on 
+  !! Both groups are based on two out of a bunch of available ICON-internal output groups, depending on
   !! which input mode is used
   !! groups for MODE_DWD     : mode_dwd_fg_in, mode_dwd_ana_in
   !! groups for MODE_IAU     : mode_iau_fg_in, mode_iau_ana_in
@@ -454,15 +454,15 @@ MODULE mo_initicon_utils
   !! groups for MODE_COSMODE : mode_cosmode_in
   !!
   !! In a first step it is checked, whether the ANA-File contains all members of the group 'grp_vars_ana'.
-  !! If a member is missing, it is checked (based on the group grp_vars_ana_mandatory) whether the 
-  !! ANA-Field is mandatory or not. If the field is mandatory, i.e. if it is part of the group 
-  !! grp_vars_ana_mandatory provided via Namelist, the model aborts. If it is not mandatory, the model 
+  !! If a member is missing, it is checked (based on the group grp_vars_ana_mandatory) whether the
+  !! ANA-Field is mandatory or not. If the field is mandatory, i.e. if it is part of the group
+  !! grp_vars_ana_mandatory provided via Namelist, the model aborts. If it is not mandatory, the model
   !! tries to fall back to the corresponding FG-Field. This is done as follows:
-  !! The missing ANA-Field is removed from the group 'grp_vars_ana' and added to the group 
-  !! 'in_grp_vars_fg'. A warning is issued, however the model does not abort. In a second step it is 
-  !! checked, whether the FG-File contains all members of the group 'grp_vars_fg'. If this is not the 
+  !! The missing ANA-Field is removed from the group 'grp_vars_ana' and added to the group
+  !! 'in_grp_vars_fg'. A warning is issued, however the model does not abort. In a second step it is
+  !! checked, whether the FG-File contains all members of the group 'grp_vars_fg'. If this is not the
   !! case, the model aborts.
-  !! At the end, a table is printed that shows which variables are part of which input group, meaning 
+  !! At the end, a table is printed that shows which variables are part of which input group, meaning
   !! which field will be read from which file.
   !!
   !! Special case: lread_ana=.FALSE.  : In this case, ICON will be started from first guess fields only
@@ -543,7 +543,7 @@ MODULE mo_initicon_utils
         CASE(MODE_DWDANA, MODE_ICONVREMAP)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
-          grp_name ='mode_dwd_fg_in' 
+          grp_name ='mode_dwd_fg_in'
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
@@ -551,11 +551,11 @@ MODULE mo_initicon_utils
 
           ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
           !
-          grp_name ='mode_dwd_ana_in' 
+          grp_name ='mode_dwd_ana_in'
           CALL collect_group(TRIM(grp_name), grp_vars_ana_default, ngrp_vars_ana_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
-          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
+          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control
           ! the reading stuff
           !
           IF (lread_ana) THEN
@@ -585,7 +585,7 @@ MODULE mo_initicon_utils
         CASE(MODE_IAU)
           ! Collect group 'grp_vars_fg_default' from mode_dwd_fg_in
           !
-          grp_name ='mode_iau_fg_in' 
+          grp_name ='mode_iau_fg_in'
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
@@ -597,11 +597,11 @@ MODULE mo_initicon_utils
 
           ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
           !
-          grp_name ='mode_iau_ana_in' 
+          grp_name ='mode_iau_ana_in'
           CALL collect_group(TRIM(grp_name), grp_vars_ana_default, ngrp_vars_ana_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
-          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
+          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control
           ! the reading stuff
           !
           IF (.NOT. lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg) ) THEN
@@ -615,11 +615,11 @@ MODULE mo_initicon_utils
 
           ELSE IF (lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg)) THEN
             ! SFC-ANA read
-            ! atmospheric analysis fieds are interpolated from parent domain, 
+            ! atmospheric analysis fieds are interpolated from parent domain,
             ! however surface analysis fields are read from file
 
             ! Remove fields atmospheric analysis fields from grp_vars_ana_default
-            grp_name ='mode_iau_anaatm_in' 
+            grp_name ='mode_iau_anaatm_in'
             CALL collect_group(TRIM(grp_name), grp_vars_anaatm_default, ngrp_vars_anaatm_default,   &
               &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
             CALL difference(grp_vars_ana_default, ngrp_vars_ana_default, &
@@ -657,7 +657,7 @@ MODULE mo_initicon_utils
         CASE(MODE_IAU_OLD)
           ! Collect group 'grp_vars_fg_default' from mode_iau_old_fg_in
           !
-          grp_name ='mode_iau_old_fg_in' 
+          grp_name ='mode_iau_old_fg_in'
           CALL collect_group(TRIM(grp_name), grp_vars_fg_default, ngrp_vars_fg_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
@@ -669,11 +669,11 @@ MODULE mo_initicon_utils
 
           ! Collect group 'grp_vars_ana_default' from mode_iau_old_ana_in
           !
-          grp_name ='mode_iau_old_ana_in' 
+          grp_name ='mode_iau_old_ana_in'
           CALL collect_group(TRIM(grp_name), grp_vars_ana_default, ngrp_vars_ana_default,    &
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
-          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control 
+          ! initialize grp_vars_fg and grp_vars_ana which will be the groups that control
           ! the reading stuff
           !
           IF (.NOT. lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg) ) THEN
@@ -687,11 +687,11 @@ MODULE mo_initicon_utils
 
           ELSE IF (lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg)) THEN
             ! SFC-ANA read
-            ! atmospheric analysis fieds are interpolated from parent domain, 
+            ! atmospheric analysis fieds are interpolated from parent domain,
             ! however surface analysis fields are read from file
 
             ! Remove fields atmospheric analysis fields from grp_vars_ana_default
-            grp_name ='mode_iau_anaatm_in' 
+            grp_name ='mode_iau_anaatm_in'
             CALL collect_group(TRIM(grp_name), grp_vars_anaatm_default, ngrp_vars_anaatm_default,   &
               &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
             CALL difference(grp_vars_ana_default, ngrp_vars_ana_default,     &
@@ -728,9 +728,9 @@ MODULE mo_initicon_utils
         CASE(MODE_COMBINED,MODE_COSMODE)
 
           IF (init_mode == MODE_COMBINED) THEN
-            grp_name ='mode_combined_in' 
+            grp_name ='mode_combined_in'
           ELSE
-            grp_name ='mode_cosmode_in' 
+            grp_name ='mode_cosmode_in'
           ENDIF
 
           ! Collect group 'grp_vars_fg_default' from grp_name
@@ -767,7 +767,7 @@ MODULE mo_initicon_utils
 
       IF( lread_ana .AND. initicon_config(jg)%ana_varlist(1) /= ' ' ) THEN
         ! translate GRIB2 varname to internal netcdf varname
-        ! If requested GRIB2 varname is not found in the dictionary 
+        ! If requested GRIB2 varname is not found in the dictionary
         ! (i.e. due to typos) -> Model abort
         DO ivar=1,SIZE(initicon_config(jg)%ana_varlist)
           IF (initicon_config(jg)%ana_varlist(ivar) /= ' ') THEN
@@ -827,9 +827,9 @@ MODULE mo_initicon_utils
       !======================================
 
       ! Check, whether the ANA-file inventory list contains all required analysis fields.
-      ! If not, check whether the missing field is mandatory. If so, issue an error and abort. If 
-      ! the field is not mandatory, remove the corresponding variable name from the group 
-      ! 'grp_vars_ana' and issue a warning. The missing field is added to the group 'grp_vars_fg' 
+      ! If not, check whether the missing field is mandatory. If so, issue an error and abort. If
+      ! the field is not mandatory, remove the corresponding variable name from the group
+      ! 'grp_vars_ana' and issue a warning. The missing field is added to the group 'grp_vars_fg'
       ! and thus the model tries to read it from the FG-File as fall back.
       !
       IF (lread_ana .AND. .NOT. (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) ) THEN
@@ -837,7 +837,7 @@ MODULE mo_initicon_utils
           index = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_anafile(:))
 
           IF ( index == -1) THEN  ! variable not found
-            ! Check whether this field is mandatory, or whether we may fall back to 
+            ! Check whether this field is mandatory, or whether we may fall back to
             ! the first guess
             is_one_of = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_ana_mandatory(1:nvars_ana_mandatory))
 
@@ -872,12 +872,12 @@ MODULE mo_initicon_utils
             ENDIF
           ENDIF
         ENDDO
-      ENDIF  ! lread_ana  
+      ENDIF  ! lread_ana
 
 
 
-      ! Check, whether the FG-file inventory group contains all fields which are needed for a 
-      ! successfull model start. If not, then stop the model and issue an error. 
+      ! Check, whether the FG-file inventory group contains all fields which are needed for a
+      ! successfull model start. If not, then stop the model and issue an error.
       DO ivar=1,ngrp_vars_fg
         index = one_of(TRIM(grp_vars_fg(ivar)),grp_vars_fgfile(:))
 
@@ -965,7 +965,7 @@ MODULE mo_initicon_utils
         WRITE(message_text,'(a)') 'Field(s) '//TRIM(buffer_miss_fg)// &
           &                       ' missing in FG-input file.'
         CALL finish(routine, TRIM(message_text))
-      ENDIF  
+      ENDIF
 
 
 
@@ -980,7 +980,7 @@ MODULE mo_initicon_utils
 
 
     IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test 
+      mpi_comm = p_comm_work_test
     ELSE
       mpi_comm = p_comm_work
     ENDIF
@@ -996,13 +996,13 @@ MODULE mo_initicon_utils
   !>
   !! SUBROUTINE fill_tile_points
   !! Used in the case of a 'cold' tile initialization
-  !!  i.e. initializing a run with tiles with first guess data not containing tiles. The first guess data 
+  !!  i.e. initializing a run with tiles with first guess data not containing tiles. The first guess data
   !!  orignate from a run without tiles.
   !! or tile coldstart
   !!  i.e. initializing a run with tiles with first guess data not containing tiles. The first guess data
   !!  orignate from a run without tiles (but tile-averaged variables).
   !!  In the latter case the filling routine is only applied to the ANA fields fr_seaice and t_seasfc.
-  !! 
+  !!
   !! Specifically, this routine fills sub-grid scale (previously nonexistent) land and water points
   !! with appropriate data from neighboring grid points where possible
   !!
@@ -1257,7 +1257,7 @@ MODULE mo_initicon_utils
 
       ! initialize snowfrac_t with appropriate values
       DO jt = ntiles_lnd+1, ntiles_total
-        WHERE (lnd_diag%snowfrac_lc_t(:,:,jt) > 0._wp) 
+        WHERE (lnd_diag%snowfrac_lc_t(:,:,jt) > 0._wp)
           lnd_diag%snowfrac_t(:,:,jt) = 1._wp
         ELSEWHERE
           lnd_diag%snowfrac_t(:,:,jt) = 0._wp
@@ -1273,7 +1273,7 @@ MODULE mo_initicon_utils
   !>
   !! SUBROUTINE copy_initicon2prog_atm
   !! Copies atmospheric fields interpolated by init_icon to the
-  !! prognostic model state variables 
+  !! prognostic model state variables
   !!
   !! Required input: initicon state
   !! Output is written on fields of NH state
@@ -1491,7 +1491,7 @@ MODULE mo_initicon_utils
           initicon(jg)%atm_in%tke_ifc(jc,nlevp1,jb) = p_nh_state(jg)%prog(ntlr)%tke(jc,nlevp1,jb)
         ENDDO
 
-        ! interpolate half-level variables to full levels and diagnose pressure and temperature 
+        ! interpolate half-level variables to full levels and diagnose pressure and temperature
         DO jk = 1, nlev
           DO jc = 1, nlen
 
@@ -1528,7 +1528,7 @@ MODULE mo_initicon_utils
 
   !>
   !! SUBROUTINE average_first_guess
-  !! Averages atmospheric variables needed as first guess for data assimilation 
+  !! Averages atmospheric variables needed as first guess for data assimilation
   !!
   !!
   !! @par Revision History
@@ -1612,7 +1612,7 @@ MODULE mo_initicon_utils
   !>
   !! SUBROUTINE reinit_average_first_guess
   !! Re-Initialization routine for SUBROUTINE average_first_guess.
-  !! Ensures that the average is centered in time. 
+  !! Ensures that the average is centered in time.
   !!
   !!
   !! @par Revision History
@@ -1676,8 +1676,8 @@ MODULE mo_initicon_utils
   !-------------
   !>
   !! SUBROUTINE copy_initicon2prog_sfc
-  !! Copies surface fields interpolated by init_icon to the prognostic model 
-  !! state variables. 
+  !! Copies surface fields interpolated by init_icon to the prognostic model
+  !! state variables.
   !!
   !! Required input: initicon state
   !! Output is written on fields of land state
@@ -1728,24 +1728,24 @@ MODULE mo_initicon_utils
         ENDDO
 
         ! Fill also SST and sea ice fraction fields over ocean points; SST is limited to 30 deg C
-        ! Note: missing values of the sea ice fraction, which may occur due to differing land-sea masks, 
+        ! Note: missing values of the sea ice fraction, which may occur due to differing land-sea masks,
         ! are indicated with -999.9; non-ocean points are filled with zero for both fields
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, ext_data(jg)%atm%sp_count(jb)
           jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
           IF ( l_sst_in .AND. initicon(jg)%sfc%sst(jc,jb) > 10._wp  ) THEN
-            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb)              
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb)
           ELSE
            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,initicon(jg)%sfc%tskin(jc,jb))
           ENDIF
           !
-          ! In case of missing sea ice fraction values, we make use of the sea 
-          ! surface temperature (tskin over ocean points). For tskin<=tf_salt, 
+          ! In case of missing sea ice fraction values, we make use of the sea
+          ! surface temperature (tskin over ocean points). For tskin<=tf_salt,
           ! we set the sea ice fraction to one. For tskin>tf_salt, we set it to 0.
           ! Note: tf_salt=271.45K is the salt-water freezing point
           !
           IF ( initicon(jg)%sfc%seaice(jc,jb) > -999.0_wp ) THEN
-            p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = initicon(jg)%sfc%seaice(jc,jb) 
+            p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = initicon(jg)%sfc%seaice(jc,jb)
           ELSE    ! missing value
             IF ( initicon(jg)%sfc%tskin(jc,jb) <= tf_salt ) THEN
               p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) = 1._wp     ! sea ice point
@@ -1800,7 +1800,7 @@ MODULE mo_initicon_utils
                 p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp, &
             &                           (initicon(jg)%sfc%snowalb (jc,jb)-zminsnow_alb)   &
             &                          /(zmaxsnow_alb-zminsnow_alb)))                     &
-            &                          * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp) 
+            &                          * REAL(NINT(ext_data(jg)%atm%fr_land(jc,jb)),wp)
               ELSE
                 p_lnd_state(jg)%diag_lnd%freshsnow_t(jc,jb,jt)    =  MAX(0._wp,MIN(1._wp, &
             &                     1._wp - ((initicon(jg)%sfc%snowalb (jc,jb)-crhosmin_ml) &
@@ -1812,7 +1812,7 @@ MODULE mo_initicon_utils
               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt)           = &
                 &                                                initicon(jg)%sfc%snowweq (jc,jb)
               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt)         = &
-                &                                                initicon(jg)%sfc%snowdens(jc,jb) 
+                &                                                initicon(jg)%sfc%snowdens(jc,jb)
               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_i_t(jc,jb,jt)              = &
                 &                                                initicon(jg)%sfc%skinres (jc,jb)
 
@@ -1856,13 +1856,13 @@ MODULE mo_initicon_utils
 
           ! Coldstart for sea-ice parameterization scheme
           ! Sea-ice surface temperature is initialized with tskin from IFS.
-          ! Since the seaice index list is not yet available at this stage, we loop over 
-          ! all sea points and initialize points with fr_seaice>threshold. 
+          ! Since the seaice index list is not yet available at this stage, we loop over
+          ! all sea points and initialize points with fr_seaice>threshold.
           ! The threshold is 0.5 without tiles and frsi_min with tiles.
-          ! Note that exactly the same threshold values must be used as in init_sea_lists. 
+          ! Note that exactly the same threshold values must be used as in init_sea_lists.
           ! If not, you will see what you get.
-          !@Pilar: This should still work out for you, since the non-sea-ice points are 
-          !        now initialized during warmstart initialization 
+          !@Pilar: This should still work out for you, since the non-sea-ice points are
+          !        now initialized during warmstart initialization
           !        in mo_nwp_sfc_utils:nwp_surface_init
           !
           IF (lseaice) THEN
@@ -1890,7 +1890,7 @@ MODULE mo_initicon_utils
           ! The procedure is the same as in "int2lm".
           ! Note that no lake ice is assumed at the cold start.
 
-          ! Make use of sfc%ls_mask in order to identify potentially problematic points, 
+          ! Make use of sfc%ls_mask in order to identify potentially problematic points,
           ! where depth_lk>0 (lake point in ICON) but ls_mask >0.5 (land point in IFS).
           ! At these points, tskin should not be used to initialize the water temperature.
 
@@ -1905,7 +1905,7 @@ MODULE mo_initicon_utils
               &     t_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
               &     h_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (:,jb), &
               &     t_mnw_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_mnw_lk (:,jb), &
-              &     t_wml_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk (:,jb), & 
+              &     t_wml_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk (:,jb), &
               &     t_bot_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk (:,jb), &
               &     c_t_lk_p    = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk   (:,jb), &
               &     h_ml_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk  (:,jb), &
@@ -2021,7 +2021,7 @@ MODULE mo_initicon_utils
                  initicon(jg)%atm_inc%v    (nproma,nlev,nblks_c      ), &
                  initicon(jg)%atm_inc%vn   (nproma,nlev,nblks_e      ), &
                  initicon(jg)%atm_inc%qv   (nproma,nlev,nblks_c      )  )
-      
+
         initicon(jg)%atm_inc%linitialized = .TRUE.
       ENDIF
 
@@ -2029,7 +2029,7 @@ MODULE mo_initicon_utils
       IF ( (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
         ALLOCATE(initicon(jg)%sfc_inc%w_so (nproma,nlev_soil,nblks_c ) )
 
-        ! initialize with 0, since some increments are only read 
+        ! initialize with 0, since some increments are only read
         ! for specific times
 !$OMP PARALLEL WORKSHARE
         initicon(jg)%sfc_inc%w_so(:,:,:) = 0._wp
@@ -2042,7 +2042,7 @@ MODULE mo_initicon_utils
           ALLOCATE(initicon(jg)%sfc_inc%h_snow    (nproma,nblks_c ), &
             &      initicon(jg)%sfc_inc%freshsnow (nproma,nblks_c )  )
 
-        ! initialize with 0, since some increments are only read 
+        ! initialize with 0, since some increments are only read
         ! for specific times
 !$OMP PARALLEL WORKSHARE
         initicon(jg)%sfc_inc%h_snow   (:,:) = 0._wp
@@ -2057,7 +2057,7 @@ MODULE mo_initicon_utils
     ENDDO ! loop over model domains
 
     IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test 
+      mpi_comm = p_comm_work_test
     ELSE
       mpi_comm = p_comm_work
     ENDIF
@@ -2065,13 +2065,13 @@ MODULE mo_initicon_utils
     ! read the map file into dictionary data structure:
     CALL dict_init(ana_varnames_dict, lcase_sensitive=.FALSE.)
     IF(ana_varnames_map_file /= ' ') THEN
-      IF (my_process_is_stdio()) THEN 
+      IF (my_process_is_stdio()) THEN
         CALL dict_loadfile(ana_varnames_dict, TRIM(ana_varnames_map_file))
       END IF
       CALL p_bcast(ana_varnames_dict%nmax_entries,     p_io, mpi_comm)
       CALL p_bcast(ana_varnames_dict%nentries,         p_io, mpi_comm)
       CALL p_bcast(ana_varnames_dict%lcase_sensitive,  p_io, mpi_comm)
-      IF (.NOT. my_process_is_stdio()) THEN 
+      IF (.NOT. my_process_is_stdio()) THEN
         CALL dict_resize(ana_varnames_dict, ana_varnames_dict%nmax_entries)
       END IF
       CALL p_bcast(ana_varnames_dict%array(1,:), p_io, mpi_comm)
@@ -2202,7 +2202,7 @@ MODULE mo_initicon_utils
                    initicon(jg)%atm%w,       &
                    initicon(jg)%atm%temp,    &
                    initicon(jg)%atm%exner,   &
-                   initicon(jg)%atm%pres,    &  
+                   initicon(jg)%atm%pres,    &
                    initicon(jg)%atm%rho,     &
                    initicon(jg)%atm%theta_v, &
                    initicon(jg)%atm%qv,      &

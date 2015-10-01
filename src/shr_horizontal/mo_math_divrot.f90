@@ -173,7 +173,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   &                           opt_slev, opt_elev, opt_rlstart,      &
   &                           opt_rlend, opt_lconsv )
 
-  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
+  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation
     &  ptr_patch                          !<is performed
 
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
@@ -344,7 +344,7 @@ END SUBROUTINE recon_lsq_cell_l
 !! cell : solution coefficients defined at cell center
 !! l    : linear reconstruction
 !!
-!! The least squares approach is used. Solves Ax = b via Singular 
+!! The least squares approach is used. Solves Ax = b via Singular
 !! Value Decomposition (SVD)
 !! x = PINV(A) * b
 !!
@@ -360,7 +360,7 @@ END SUBROUTINE recon_lsq_cell_l
 SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   &                           opt_slev, opt_elev, opt_rlstart, opt_rlend )
 
-  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
+  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation
     &  ptr_patch                          !< is performed
 
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
@@ -447,7 +447,7 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 #endif
 
         ! note that the multiplication with lsq_weights_c(jc,js,jb) at
-        ! runtime is now avoided. Instead, the weights have been shifted 
+        ! runtime is now avoided. Instead, the weights have been shifted
         ! into the pseudoinverse.
         z_b(1,jc,jk) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
         z_b(2,jc,jk) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
@@ -498,7 +498,7 @@ END SUBROUTINE recon_lsq_cell_l_svd
 !! cell : solution coefficients defined at cell center
 !! l    : linear reconstruction
 !!
-!! The least squares approach is used. Solves Ax = b via Singular 
+!! The least squares approach is used. Solves Ax = b via Singular
 !! Value Decomposition (SVD)
 !! x = PINV(A) * b
 !!
@@ -515,7 +515,7 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   &                                    opt_slev, opt_elev, opt_rlstart,      &
   &                                    opt_rlend, opt_lconsv )
 
-  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
+  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation
     &  ptr_patch                          !< is performed
 
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
@@ -611,7 +611,7 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 #endif
 
         ! note that the multiplication with lsq_weights_c(jc,js,jb) at
-        ! runtime is now avoided. Instead, the weights have been shifted 
+        ! runtime is now avoided. Instead, the weights have been shifted
         ! into the pseudoinverse.
         z_b(1,jc,jk) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
         z_b(2,jc,jk) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
@@ -647,7 +647,7 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 
-          ! In the case of a conservative reconstruction, 
+          ! In the case of a conservative reconstruction,
           ! the coefficient c0 is derived from the linear constraint
           !
           p_coeff(1,jc,jk,jb) = p_coeff(1,jc,jk,jb)                                    &
@@ -716,7 +716,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) ::   & !< patch on which computation
     &  ptr_patch                   !< is performed
-                                        
+
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -909,7 +909,7 @@ END SUBROUTINE recon_lsq_cell_q
 !! q    : quadratic reconstruction
 !!
 !! Computes unknown coefficients (derivatives) of a quadratic polynomial,
-!! using the least-squares method. The coefficients are provided at cell 
+!! using the least-squares method. The coefficients are provided at cell
 !! centers in a local 2D cartesian system (tangential plane).
 !!
 !! Mathematically we solve Ax = b via Singular Value Decomposition (SVD)
@@ -943,7 +943,7 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) ::   & !< patch on which computation
     &  ptr_patch                   !< is performed
-                                        
+
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1144,7 +1144,7 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
     &  ptr_patch                 !< is performed
-                                        
+
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1355,8 +1355,8 @@ END SUBROUTINE recon_lsq_cell_cpoor
 !! c    : cubic reconstruction
 !!
 !! Computes unknown coefficients (derivatives) of a cubic polynomial,
-!! without cross derivatives, using the least-squares method. The 
-!! coefficients are provided at cell centers in a local 2D cartesian 
+!! without cross derivatives, using the least-squares method. The
+!! coefficients are provided at cell centers in a local 2D cartesian
 !! system (tangential plane).
 !!
 !! Mathematically we solve Ax = b via Singular Value Decomposition (SVD)
@@ -1392,7 +1392,7 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
     &  ptr_patch                 !< is performed
-                                        
+
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1596,7 +1596,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
     &  ptr_patch                 !< is performed
-                                        
+
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1829,7 +1829,7 @@ END SUBROUTINE recon_lsq_cell_c
 !! c    : cubic reconstruction
 !!
 !! Computes unknown coefficients (derivatives) of a cubic polynomial,
-!! using the least-squares method. The coefficients are provided at 
+!! using the least-squares method. The coefficients are provided at
 !! cell centers in a local 2D cartesian system (tangential plane).
 !!
 !! Mathematically we solve Ax = b via Singular Value Decomposition (SVD)
@@ -1868,7 +1868,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
     &  ptr_patch                 !< is performed
-                                        
+
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -2895,7 +2895,7 @@ END SUBROUTINE rot_vertex_atmos
 
 !>
 !! Same as above routine, but expects reversed index order (vertical first)
-!! of the output field if __LOOP_EXCHANGE is specified. In addition, the 
+!! of the output field if __LOOP_EXCHANGE is specified. In addition, the
 !! output field (vorticity) has single precision if __MIXED_PRECISION is specified
 !!
 !!

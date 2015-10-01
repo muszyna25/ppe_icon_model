@@ -9,9 +9,9 @@
 !! First version by Hui Wan, MPI-M (2010-02-02)
 !! First version for non-hydrostatic core by Daniel Reinert, DWD (2010-04-14)
 !! Modification by Daniel Reinert, DWD (2011-02-14)
-!! - included computation of nonzero fluxes at the upper boundary 
+!! - included computation of nonzero fluxes at the upper boundary
 !!   (necessery if vertical nesting is swithced on)
-!! 
+!!
 !!
 !! @par Copyright and License
 !!
@@ -58,7 +58,7 @@ CONTAINS
   !! for the tracer transport scheme, under the assumption that
   !! a two time level time stepping scheme is used by the
   !! dynamical core.
-  !! Note that boundary fluxes (when using horizontal/vertical nesting) 
+  !! Note that boundary fluxes (when using horizontal/vertical nesting)
   !! are set in mo_nh_nest_utilities/boundary_interpolation.
   !!
   !! @par Revision History
@@ -66,7 +66,7 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2010-07-23)
   !! - adaption to reduced calling frequency
   !! Modification by Daniel Reinert, DWD (2013-05-06)
-  !! - removed rho_ic which became obsolete after removing the second order 
+  !! - removed rho_ic which became obsolete after removing the second order
   !!   MUSCL scheme for vertical transport
   !!
   SUBROUTINE prepare_tracer( p_patch, p_now, p_new, p_metrics, p_int,         &!in
@@ -90,7 +90,7 @@ CONTAINS
     LOGICAL, INTENT(IN) :: lclean_mflx   !< switch for re-initializing time integrated
                                          !< mass fluxes and trajectory-velocities
     LOGICAL, INTENT(IN) :: lfull_comp    !< perform full amount of computations (comes in as .FALSE. if
-                                         !< part of the precomputations has already been done in 
+                                         !< part of the precomputations has already been done in
                                          !< solve_nh and only standard settings are used)
 
     REAL(wp),INTENT(INOUT) :: p_vn_traj(:,:,:)      ! (nproma,  nlev,p_patch%nblks_e)
@@ -103,7 +103,7 @@ CONTAINS
     REAL(wp) :: r_ndyn_substeps           !< reciprocal of ndyn_substeps
     REAL(wp) :: z_mass_flx_me(nproma,p_patch%nlev, p_patch%nblks_e)
     REAL(wp) :: z_topflx_tra (nproma,ntracer, p_patch%nblks_c)
-    REAL(wp) :: w_tavg               !< contravariant vertical velocity at n+\alpha 
+    REAL(wp) :: w_tavg               !< contravariant vertical velocity at n+\alpha
 
     ! Pointers to quad edge indices
     INTEGER,  POINTER :: iqidx(:,:,:), iqblk(:,:,:)
@@ -133,7 +133,7 @@ CONTAINS
     ! Set pointers to quad edges
     iqidx => p_patch%edges%quad_idx
     iqblk => p_patch%edges%quad_blk
- 
+
 !!$    ! The full set of computations is NOT exectuted when the tracer advection is running together
 !!$    ! with the dynmical core (solve_nh) and only standard namelist settings are chosen (i.e. flux limiter,
 !!$    ! first-order backward trajectory computation, CFL-safe vertical advection, idiv_method = 1)
@@ -380,10 +380,10 @@ CONTAINS
 
 !$OMP END PARALLEL
 
-    !  
-    ! diagnose vertical tracer fluxes at top margin, i.e. multiply horizontally 
-    ! interpolated face value q_ubc with time averaged mass flux at nested 
-    ! domain top. Since we make direct use of the dycore mass flux, this procedure 
+    !
+    ! diagnose vertical tracer fluxes at top margin, i.e. multiply horizontally
+    ! interpolated face value q_ubc with time averaged mass flux at nested
+    ! domain top. Since we make direct use of the dycore mass flux, this procedure
     ! ensures tracer and air mass consistency.
     !
     IF (lstep_advphy .AND. lvert_nest .AND. p_patch%nshift > 0) THEN ! vertical nesting
@@ -412,7 +412,7 @@ CONTAINS
 
       i_startblk = p_patch%cells%start_blk(i_rlstart_c,1)
       i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
- 
+
 !$OMP PARALLEL DO PRIVATE(jb,jt,jc,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
         CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,           &
@@ -428,7 +428,7 @@ CONTAINS
 
     ELSE IF (lstep_advphy) THEN               ! no vertical nesting
 
-      p_topflx_tra(:,:,:) = 0._wp    
+      p_topflx_tra(:,:,:) = 0._wp
       CALL sync_patch_array(SYNC_C,p_patch,p_mass_flx_ic)
 
     ENDIF
@@ -448,8 +448,8 @@ CONTAINS
   !>
   !! Compute updated air mass within grid cell
   !!
-  !! Compute updated air mass within grid cell. Note that here, the air mass is defined 
-  !! as \rho*\Delta z [kg m-2]. Thus, in order to get the true grid cell air mass one has to 
+  !! Compute updated air mass within grid cell. Note that here, the air mass is defined
+  !! as \rho*\Delta z [kg m-2]. Thus, in order to get the true grid cell air mass one has to
   !! multiply with the grid cell area.
   !!
   !! @par Revision History

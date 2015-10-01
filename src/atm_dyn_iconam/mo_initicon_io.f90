@@ -1141,7 +1141,7 @@ MODULE mo_initicon_io
   !>
   !! Read DWD first guess (atmosphere only) and store to initicon input state
   !! First guess (FG) is read for theta_v, rho, vn, w, tke,
-  !! whereas DA output is read for T, p, u, v, 
+  !! whereas DA output is read for T, p, u, v,
   !! qv, qc, qi, qr, qs.
   !!
   !! @par Revision History
@@ -1149,7 +1149,7 @@ MODULE mo_initicon_io
   !! Modifications for GRIB2 : F. Prill, DWD (2013-02-19)
   !! Modifications by Daniel Reinert, DWD (2014-01-27)
   !! - split off reading of FG fields
-  !! 
+  !!
   !!
   SUBROUTINE read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
@@ -1181,14 +1181,14 @@ MODULE mo_initicon_io
 
     DO jg = 1, n_dom
 
-      ! Skip reading the atmospheric input data if a model domain 
+      ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
 
       ! determine number of HALF LEVELS of generalized Z-AXIS
       ! use 'theta_v' for testing (may have chosen another one as well)
-      IF(lread_process) THEN 
+      IF(lread_process) THEN
         IF (filetype_fg(jg) == FILETYPE_GRB2) THEN
           nlev_in = get_cdi_NlevRef(fileID_fg(jg), 'theta_v', opt_dict=ana_varnames_dict)
         ELSE
@@ -1217,7 +1217,7 @@ MODULE mo_initicon_io
       ! Read in DWD first guess (atmosphere)  !
       !---------------------------------------!
 
-      IF(my_process_is_stdio() ) THEN 
+      IF(my_process_is_stdio() ) THEN
         CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(dwdfg_file(jg)))
       ENDIF  ! p_io
 
@@ -1261,11 +1261,11 @@ MODULE mo_initicon_io
       CALL deleteInputParameters(parameters)
 
       ! Interpolate half level variables from interface levels to main levels, and convert thermodynamic variables
-      ! into temperature and pressure as expected by the vertical interpolation routine  
+      ! into temperature and pressure as expected by the vertical interpolation routine
 !$OMP PARALLEL
 !$OMP DO PRIVATE (jk,jc,jb,i_endidx,tempv,exner) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1,p_patch(jg)%nblks_c
-        
+
         IF (jb /= p_patch(jg)%nblks_c) THEN
           i_endidx = nproma
         ELSE
@@ -1801,9 +1801,9 @@ MODULE mo_initicon_io
       CALL deleteInputParameters(parameters)
 
       ! MODE_IAU_OLD: H_SNOW, FRESHSNOW, W_SNOW and RHO_SNOW are read from analysis (full fields)
-      ! Since only the first tile index is filled (see above), we fill (here) the remaining tiles 
-      ! if tile approach is used. Note that for MODE_IAU this copy is skipped on purpose, 
-      ! since for ltile_coldstart=.FALSE. tile information would be overwritten. 
+      ! Since only the first tile index is filled (see above), we fill (here) the remaining tiles
+      ! if tile approach is used. Note that for MODE_IAU this copy is skipped on purpose,
+      ! since for ltile_coldstart=.FALSE. tile information would be overwritten.
       !
       IF (ANY((/ MODE_IAU_OLD /) == init_mode) .AND. ntiles_total>1) THEN
 
