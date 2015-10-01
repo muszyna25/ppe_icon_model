@@ -28,12 +28,11 @@ MODULE mo_parallel_config
   PUBLIC :: parallel_radiation_mode, test_parallel_radiation
 
   PUBLIC :: n_ghost_rows,                                     &
-       &  div_from_file, div_geometric, division_method, &
-       &  division_file_name, radiation_division_file_name, &
-       &  l_log_checks, l_fast_sum, ldiv_phys_dom,                  &
-       &  p_test_run, l_test_openmp,                                &
+       &  div_geometric, division_method, division_file_name,       &
+       &  radiation_division_file_name, l_log_checks, l_fast_sum,   &
+       &  ldiv_phys_dom, p_test_run, l_test_openmp,                 &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
-       &  num_restart_procs, num_prefetch_proc,                                       &
+       &  num_restart_procs, num_prefetch_proc,                     &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
        &  use_dycore_barrier, itype_exch_barrier, use_dp_mpi2io,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
@@ -56,16 +55,15 @@ MODULE mo_parallel_config
                                  ! instead the system's value will be used
 
   ! Division method for area subdivision
-  INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
   INTEGER, PARAMETER :: ext_div_medial = 101
   INTEGER, PARAMETER :: ext_div_medial_cluster = 102
   INTEGER, PARAMETER :: ext_div_medial_redrad = 103
   INTEGER, PARAMETER :: ext_div_medial_redrad_cluster = 104
-  INTEGER, PARAMETER :: ext_div_from_file = 201
+  INTEGER, PARAMETER :: ext_div_from_file = 201 ! Read from file
 
   INTEGER :: division_method(0:max_dom) = 1
-  CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom)! if div_from_file
+  CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom)! if ext_div_from_file
   CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom)! if parallel_radiation_mode = 1
   INTEGER :: redrad_split_factor = 6
 
@@ -233,7 +231,7 @@ CONTAINS
     ! check division_method
     ! this will be checked during the decomposition
 !     SELECT CASE (division_method)
-!     CASE(div_from_file, div_geometric, ext_div_medial, ext_div_medial_cluster, &
+!     CASE(ext_div_from_file, div_geometric, ext_div_medial, ext_div_medial_cluster, &
 !       & ext_div_medial_redrad, ext_div_medial_redrad_cluster)
 !       ! ok
 !     CASE DEFAULT

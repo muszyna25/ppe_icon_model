@@ -88,16 +88,15 @@ MODULE mo_parallel_nml
     INTEGER :: n_ghost_rows
 
     INTEGER :: division_method(0:max_dom)
-!                      div_from_file = 0  ! Read from file
 !                      div_geometric = 1  ! Geometric subdivision
 !                      ext_div_medial = 101
 !                      ext_div_medial_cluster = 102
 !                      ext_div_medial_redrad = 103
 !                      ext_div_medial_redrad_cluster = 104
-!                      ext_div_from_file = 201
+!                      ext_div_from_file = 201 ! Read from file
 
-    CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom) ! if div_from_file
-    CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom) ! if div_from_file
+    CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom) ! if ext_div_from_file
+    CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom) ! if ext_div_from_file
     INTEGER :: redrad_split_factor
 
     ! Flag if (in case of merged domains) physical domains shall be considered for

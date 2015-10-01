@@ -49,7 +49,7 @@ MODULE mo_setup_subdivision
     & p_pe_work, p_n_work, my_process_is_mpi_parallel, p_alltoall, p_alltoallv
 
   USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, &
-    & division_method, division_file_name, n_ghost_rows, div_from_file,   &
+    & division_method, division_file_name, n_ghost_rows, &
     & div_geometric, ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
     & ext_div_medial_redrad_cluster, ext_div_from_file, redrad_split_factor
 
@@ -489,15 +489,14 @@ CONTAINS
     INTEGER, POINTER :: local_owner_ptr(:)
     INTEGER :: n, i, j
     INTEGER, ALLOCATABLE :: flag_c(:)
-    CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
+    CHARACTER(LEN=filename_max) :: use_division_file_name ! if ext_div_from_file
 
     ! Please note: Unfortunately we cannot use p_io for doing I/O,
     ! since this might be the test PE which is never calling this routine
     ! (this is the case in the actual setup).
     ! Thus we use the worker PE 0 for I/O and don't use message() for output.
 
-    IF (division_method(patch_no) == div_from_file     .OR. &
-        division_method(patch_no) == ext_div_from_file .OR. &
+    IF (division_method(patch_no) == ext_div_from_file .OR. &
         division_method(patch_no) > 100) THEN
 
       ALLOCATE(cell_owner(wrk_p_patch_pre%n_patch_cells_g))
@@ -505,31 +504,7 @@ CONTAINS
       ! only procs 0 will decompose and then broadcast
       IF (p_pe_work == 0) THEN
 
-        IF (division_method(patch_no) == div_from_file) THEN
-
-          ! Area subdivision is read from file
-
-          IF (division_file_name(patch_no) == "") THEN
-            use_division_file_name = &
-              & TRIM(get_filename_noext(wrk_p_patch_pre%grid_filename))//'.cell_domain_ids'
-          ELSE
-            use_division_file_name = division_file_name(patch_no)
-          ENDIF
-
-          WRITE(0,*) "Read decomposition from file: ", TRIM(use_division_file_name)
-          n = find_next_free_unit(10,99)
-
-          OPEN(n,FILE=TRIM(use_division_file_name),STATUS='OLD',IOSTAT=i)
-          IF(i /= 0) CALL finish('divide_patch',&
-            & 'Unable to open input file: '//TRIM(use_division_file_name))
-
-          DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-            READ(n,*,IOSTAT=i) cell_owner(j)
-            IF(i /= 0) CALL finish('divide_patch','Error reading: '//TRIM(use_division_file_name))
-          ENDDO
-          CLOSE(n)
-
-        ELSEIF (division_method(patch_no) == ext_div_from_file) THEN
+        IF (division_method(patch_no) == ext_div_from_file) THEN
 
           IF (division_file_name(patch_no) == "") THEN
             use_division_file_name = &
@@ -628,8 +603,7 @@ CONTAINS
         CALL divide_parent_cells(wrk_p_patch_pre, wrk_p_parent_patch_pre, &
           &                      dist_cell_owner, dist_cell_owner_p)
 
-    ELSE ! IF (division_method(patch_no) == div_from_file     .OR. &
-         !     division_method(patch_no) == ext_div_from_file .OR. &
+    ELSE ! IF (division_method(patch_no) == ext_div_from_file .OR. &
          !     division_method(patch_no) > 100)
 
       IF(division_method(patch_no) == div_geometric) THEN
