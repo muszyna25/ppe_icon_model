@@ -36,7 +36,7 @@ MODULE mo_setup_subdivision
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex, c_center
+       c_vertex, c_center, c_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -948,7 +948,8 @@ CONTAINS
          end_g = wrk_p_patch_pre%cells%end, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .TRUE., &
-         refin_ctrl = wrk_p_patch_pre%cells%refin_ctrl, &
+         refin_ctrl = wrk_p_patch_pre%cells%dist, &
+         refin_ctrl_aidx = c_refin_ctrl, &
          refinement_predicate = refine_cells)
     !---------------------------------------------------------------------------------------
     CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_edges, &
@@ -974,6 +975,7 @@ CONTAINS
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .FALSE., &
          refin_ctrl = wrk_p_patch_pre%edges%refin_ctrl, &
+         refin_ctrl_aidx = 1, &
          refinement_predicate = refine_edges)
     !---------------------------------------------------------------------------------------
     CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_verts, &
@@ -999,6 +1001,7 @@ CONTAINS
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .FALSE., &
          refin_ctrl = wrk_p_patch_pre%verts%refin_ctrl, &
+         refin_ctrl_aidx = 1, &
          refinement_predicate = refine_verts)
 
     ! Sanity checks: are there still elements of the index lists filled with dummy values?
@@ -1124,8 +1127,8 @@ CONTAINS
         &                      wrk_p_patch%cells%center(jl,jb)%lat)
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, (/jg, 2/), &
         &                      wrk_p_patch%cells%center(jl,jb)%lon)
-      CALL dist_mult_array_get(wrk_p_patch_pre%cells%refin_ctrl, 1, (/jg/), &
-        &                      wrk_p_patch%cells%refin_ctrl(jl,jb))
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_refin_ctrl, &
+           (/jg/), wrk_p_patch%cells%refin_ctrl(jl,jb))
     ENDDO
 
     DO j = 0, 2 * n_boundary_rows
@@ -2100,11 +2103,11 @@ CONTAINS
        flag2_list, n2_ilev, decomp_info, &
        start_index, start_block, end_index, end_block, &
        start_g, end_g, order_type_of_halos, l_cell_correction, refin_ctrl, &
-       refinement_predicate)
+       refin_ctrl_aidx, refinement_predicate)
     INTEGER, INTENT(in) :: n_patch_cve, n_patch_cve_g, &
          patch_id, nblks, npromz, cell_type, &
          min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve
-    INTEGER, INTENT(in) :: order_type_of_halos
+    INTEGER, INTENT(in) :: order_type_of_halos, refin_ctrl_aidx
     LOGICAL, INTENT(in) :: l_cell_correction
     TYPE(dist_mult_array) :: refin_ctrl
     INTEGER, INTENT(in) :: n2_ilev(0:)
@@ -2167,7 +2170,7 @@ CONTAINS
       j = 0
       DO WHILE (j < n_patch_cve_g .AND. jf <= n_patch_cve)
         j = temp_glb_index(jf)
-        CALL dist_mult_array_get(refin_ctrl, 1, (/j/), irl0)
+        CALL dist_mult_array_get(refin_ctrl, refin_ctrl_aidx, (/j/), irl0)
         IF (refinement_predicate(temp_ilev(jf), irl0)) THEN
           decomp_info%glb_index(k) = j
           decomp_info%owner_local(k) = temp_owner(jf)
@@ -2256,7 +2259,7 @@ CONTAINS
         irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
         DO j = 1, n2_ilev(ilev)
           jf = flag2_list(ilev)%idx(j)
-          CALL dist_mult_array_get(refin_ctrl, 1, (/jf/), irl0)
+          CALL dist_mult_array_get(refin_ctrl, refin_ctrl_aidx, (/jf/), irl0)
           IF (.NOT. refinement_predicate(ilev, irl0)) THEN
             k = k + 1
             decomp_info%glb_index(k) = jf
@@ -2881,8 +2884,8 @@ CONTAINS
           ! Skip cell if it is not in subset or does not belong to current physical domain
           IF (subset_flag(j) /= idp .AND. lsplit_merged_domains .OR. subset_flag(j) <= 0) CYCLE
 
-          CALL dist_mult_array_get(wrk_p_patch_pre%cells%refin_ctrl, 1, (/j/), &
-            &                      refin_ctrl)
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_refin_ctrl, &
+               (/j/), refin_ctrl)
 
           ! Disregard outer nest boundary points for the time being. They do very little
           ! computational work, so they can be added to the closest PEs afterwards

@@ -349,7 +349,9 @@ MODULE mo_model_domain
        c_vertex = 7, &
        ! cell geometry
        ! longitude & latitude of centers of triangular cells
-       c_center = 8
+       c_center = 8, &
+       ! refinement control flag
+       c_refin_ctrl = 9
 
   TYPE t_pre_grid_cells
 
@@ -358,9 +360,6 @@ MODULE mo_model_domain
 
     INTEGER :: max_connectivity
     TYPE(dist_mult_array) :: dist
-
-    ! refinement control flag
-    TYPE(dist_mult_array) :: refin_ctrl
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell (defined in mo_impl_constants)
