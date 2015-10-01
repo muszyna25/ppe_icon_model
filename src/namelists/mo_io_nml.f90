@@ -104,7 +104,6 @@ CONTAINS
       &        output_nml_dict,    &     !< maps variable names onto the internal ICON names.
       &        netcdf_dict               !< maps internal variable names onto names in output file (NetCDF only).
 
-    LOGICAL ::  use_set_event_to_simstep
 
     INTEGER :: restart_file_type
 
@@ -114,7 +113,6 @@ CONTAINS
       &              inextra_2d, inextra_3d,                 &
       &              lflux_avg, itype_pres_msl, itype_rh,    &
       &              output_nml_dict, netcdf_dict,           &
-      &              use_set_event_to_simstep,               &
       &              restart_file_type, write_initial_state
 
     !-----------------------
