@@ -593,7 +593,7 @@ MODULE mo_model_domain
     TYPE(extent) :: local_chunk(1,1)
 
     ! index of parent edge:
-    INTEGER, ALLOCATABLE :: parent(:)
+    TYPE(dist_mult_array) :: parent
 
     ! indices of child edges:
     ! index2=1,4

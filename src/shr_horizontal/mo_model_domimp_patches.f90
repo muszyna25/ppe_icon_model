@@ -1471,9 +1471,14 @@ CONTAINS
       &                     local_ptr))
     CALL dist_mult_array_expose(patch_pre%cells%refin_ctrl)
 
-    ! patch_pre%edges%parent(:)
+    ! patch_pre%edges%parent
     CALL nf(nf_inq_varid(ncid_grf, 'parent_edge_index', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%edges%parent(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%edges%parent, 1, local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
+      &                     local_ptr))
+    CALL dist_mult_array_expose(patch_pre%edges%parent)
 
     ! patch_pre%edges%child
     CALL nf(nf_inq_varid(ncid_grf, 'child_edge_index', varid))

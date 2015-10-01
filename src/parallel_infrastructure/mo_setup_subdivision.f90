@@ -1036,7 +1036,7 @@ CONTAINS
       ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
-      jpg = wrk_p_patch_pre%edges%parent(jg)
+      CALL dist_mult_array_get(wrk_p_patch_pre%edges%parent, 1, (/jg/), jpg)
       DO i = 1, 4
         CALL dist_mult_array_get(wrk_p_patch_pre%edges%child, 1, (/jg, i/), jcg(i))
       END DO

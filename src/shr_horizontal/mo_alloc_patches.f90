@@ -734,7 +734,8 @@ CONTAINS
     !
     ! !grid edges
     !
-    ALLOCATE( p_patch_pre%edges%parent(p_patch_pre%n_patch_edges_g) )
+    p_patch_pre%edges%parent = dist_mult_array_new( &
+      dist_edge_owner_desc, p_patch_pre%edges%local_chunk, p_comm_work)
     p_patch_pre%edges%child = dist_mult_array_new( &
       dist_edge_owner_desc_child, local_edge_chunk_child, p_comm_work)
     p_patch_pre%edges%refin_ctrl = dist_mult_array_new( &
@@ -761,7 +762,6 @@ CONTAINS
     p_patch_pre%cells%start = 0
     p_patch_pre%cells%end = 0
 
-    p_patch_pre%edges%parent = 0
     p_patch_pre%edges%cell = 0
     p_patch_pre%edges%start = 0
     p_patch_pre%edges%end = 0
@@ -888,7 +888,8 @@ CONTAINS
     !
     ! !grid edges
     !
-    DEALLOCATE( p_patch_pre%edges%parent )
+    CALL dist_mult_array_unexpose(p_patch_pre%edges%parent)
+    CALL dist_mult_array_delete(p_patch_pre%edges%parent)
     CALL dist_mult_array_unexpose(p_patch_pre%edges%child)
     CALL dist_mult_array_delete(p_patch_pre%edges%child)
     DEALLOCATE( p_patch_pre%edges%cell )
