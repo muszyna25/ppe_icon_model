@@ -406,7 +406,8 @@ MODULE mo_2mom_mcrph_main
   TYPE(asym_riming_params), SAVE :: irr_params
   !> run-time- and location-invariant ice cloud riming parameters
   TYPE(sym_riming_params), SAVE :: icr_params
-
+  !> run-time- and location-invariant hail rain riming parameters
+  TYPE(sym_riming_params), SAVE :: hrr_params
 CONTAINS
 
   !*******************************************************************************
@@ -863,6 +864,46 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "    theta_q_ic = ", icr_params%theta_q_ab ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "    theta_q_cc = ", icr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
     END IF
+
+    ! hail rain riming
+    hrr_params%delta_n_aa = coll_delta_11(hail,rain,0)
+    hrr_params%delta_n_ab = coll_delta_12(hail,rain,0)
+    hrr_params%delta_n_bb = coll_delta_22(hail,rain,0)
+    hrr_params%delta_q_aa = coll_delta_11(hail,rain,0)
+    hrr_params%delta_q_ab = coll_delta_12(hail,rain,1)
+    hrr_params%delta_q_bb = coll_delta_22(hail,rain,1)
+
+    hrr_params%theta_n_aa = coll_theta_11(hail,rain,0)
+    hrr_params%theta_n_ab = coll_theta_12(hail,rain,0)
+    hrr_params%theta_n_bb = coll_theta_22(hail,rain,0)
+    hrr_params%theta_q_aa = coll_theta_11(hail,rain,0)
+    hrr_params%theta_q_ab = coll_theta_12(hail,rain,1)
+    hrr_params%theta_q_bb = coll_theta_22(hail,rain,1)
+
+    IF (isdebug) THEN
+      WRITE(txt,*) " hail_rain_riming:" ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     a_hail     = ",hail%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     b_hail     = ",hail%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     alf_hail   = ",hail%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     bet_hail   = ",hail%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     a_rain     = ",rain%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     b_rain     = ",rain%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     alf_rain   = ",rain%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     bet_rain   = ",rain%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_n_hh = ",hrr_params%delta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_n_hr = ",hrr_params%delta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_n_rr = ",hrr_params%delta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_n_hh = ",hrr_params%theta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_n_hr = ",hrr_params%theta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_n_rr = ",hrr_params%theta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_q_hh = ",hrr_params%delta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_q_hr = ",hrr_params%delta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_q_rr = ",hrr_params%delta_q_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_q_hh = ",hrr_params%theta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_q_hr = ",hrr_params%theta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_q_rr = ",hrr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
+    END IF
+
 
 
   END SUBROUTINE init_2mom_scheme_once
@@ -4756,7 +4797,6 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
     REAL(wp)            :: q_h,n_h,x_h,d_h,v_h
     REAL(wp)            :: q_r,n_r,x_r,d_r,v_r
@@ -4767,66 +4807,8 @@ CONTAINS
          const3 = 1.0/(T_mult_opt - T_mult_min), &
          const4 = 1.0/(T_mult_opt - T_mult_max)
 
-    REAL(wp), SAVE      :: delta_n_hh,delta_n_hr,delta_n_rr
-    REAL(wp), SAVE      :: delta_q_hh,delta_q_hr,delta_q_rr
-    REAL(wp), SAVE      :: theta_n_hh,theta_n_hr,theta_n_rr
-    REAL(wp), SAVE      :: theta_q_hh,theta_q_hr,theta_q_rr
-!$omp threadprivate (firstcall)
-!$omp threadprivate (delta_n_hh)
-!$omp threadprivate (delta_n_hr)
-!$omp threadprivate (delta_n_rr)
-!$omp threadprivate (delta_q_hh)
-!$omp threadprivate (delta_q_hr)
-!$omp threadprivate (delta_q_rr)
-!$omp threadprivate (theta_n_hh)
-!$omp threadprivate (theta_n_hr)
-!$omp threadprivate (theta_n_rr)
-!$omp threadprivate (theta_q_hh)
-!$omp threadprivate (theta_q_hr)
-!$omp threadprivate (theta_q_rr)
 
-    IF (firstcall.NE.1) THEN
-      delta_n_hh = coll_delta_11(hail,rain,0)
-      delta_n_hr = coll_delta_12(hail,rain,0)
-      delta_n_rr = coll_delta_22(hail,rain,0)
-      delta_q_hh = coll_delta_11(hail,rain,0)
-      delta_q_hr = coll_delta_12(hail,rain,1)
-      delta_q_rr = coll_delta_22(hail,rain,1)
-
-      theta_n_hh = coll_theta_11(hail,rain,0)
-      theta_n_hr = coll_theta_12(hail,rain,0)
-      theta_n_rr = coll_theta_22(hail,rain,0)
-      theta_q_hh = coll_theta_11(hail,rain,0)
-      theta_q_hr = coll_theta_12(hail,rain,1)
-      theta_q_rr = coll_theta_22(hail,rain,1)
-
-      IF (isdebug) THEN
-         WRITE(txt,*) " hail_rain_riming:" ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     a_hail     = ",hail%a_geo ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     b_hail     = ",hail%b_geo ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     alf_hail   = ",hail%a_vel ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     bet_hail   = ",hail%b_vel ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     a_rain     = ",rain%a_geo ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     b_rain     = ",rain%b_geo ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     alf_rain   = ",rain%a_vel ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     bet_rain   = ",rain%b_vel ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     delta_n_hh = ",delta_n_hh ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     delta_n_hr = ",delta_n_hr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     delta_n_rr = ",delta_n_rr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     theta_n_hh = ",theta_n_hh ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     theta_n_hr = ",theta_n_hr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     theta_n_rr = ",theta_n_rr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     delta_q_hh = ",delta_q_hh ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     delta_q_hr = ",delta_q_hr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     delta_q_rr = ",delta_q_rr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     theta_q_hh = ",theta_q_hh ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     theta_q_hr = ",theta_q_hr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "     theta_q_rr = ",theta_q_rr ; CALL message(routine,TRIM(txt))
-      END IF
-      firstcall = 1
-    ELSEIF (isdebug) THEN
-      CALL message(routine, "hail_rain_riming")
-    ENDIF
+    IF (isdebug) CALL message(routine, "hail_rain_riming")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -4853,12 +4835,12 @@ CONTAINS
             v_r = rain%velocity(x_r) * rain%rho_v(i,k)
 
             rime_n = pi4 * n_h * n_r * dt &
-                 & *     (delta_n_hh * D_h**2 + delta_n_hr * D_h*D_r + delta_n_rr * D_r**2) &
-                 & * sqrt(theta_n_hh * v_h**2 - theta_n_hr * v_h*v_r + theta_n_rr * v_r**2)
+                 & *     (hrr_params%delta_n_aa * D_h**2 + hrr_params%delta_n_ab * D_h*D_r + hrr_params%delta_n_bb * D_r**2) &
+                 & * sqrt(hrr_params%theta_n_aa * v_h**2 - hrr_params%theta_n_ab * v_h*v_r + hrr_params%theta_n_bb * v_r**2)
 
             rime_q = pi4 * n_h * q_r * dt &
-                 & *     (delta_q_hh * D_h**2 + delta_q_hr * D_h*D_r + delta_q_rr * D_r**2) &
-                 & * sqrt(theta_q_hh * v_h**2 - theta_q_hr * v_h*v_r + theta_q_rr * v_r**2)
+                 & *     (hrr_params%delta_q_aa * D_h**2 + hrr_params%delta_q_ab * D_h*D_r + hrr_params%delta_q_bb * D_r**2) &
+                 & * sqrt(hrr_params%theta_q_aa * v_h**2 - hrr_params%theta_q_ab * v_h*v_r + hrr_params%theta_q_bb * v_r**2)
 
             rime_n = MIN(n_r,rime_n)
             rime_q = MIN(q_r,rime_q)
