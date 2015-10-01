@@ -195,7 +195,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
     ! Some run time diagnostics (can also be used for other schemes)
-    IF (msg_level>10 .AND. ltwomoment) THEN
+    IF (msg_level>14 .AND. ltwomoment) THEN
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
     
@@ -530,7 +530,7 @@ CONTAINS
 !$OMP END PARALLEL
  
     ! Some more run time diagnostics (can also be used for other schemes)
-    IF (msg_level>10 .AND. ltwomoment) THEN
+    IF (msg_level>14 .AND. ltwomoment) THEN
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
 
