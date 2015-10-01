@@ -6110,24 +6110,19 @@ CONTAINS
 
     TYPE(particle), INTENT(in)             :: rain
     INTEGER,  INTENT(IN)                   :: its,ite,kts,kte
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT):: qp,np,qc
-    REAL(wp), DIMENSION(:,:), INTENT(IN)   :: adz,rhocorr
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT):: qp,np
+    REAL(wp), DIMENSION(:,:), INTENT(IN)   :: adz,qc,rhocorr
     REAL(wp), DIMENSION(:),   INTENT(OUT)  :: precrate
     REAL(wp), INTENT(IN)                   :: dt
     REAL(wp), INTENT(INOUT), OPTIONAL      :: cmax
 
-    INTEGER  :: i, k, kk
-    REAL(wp) :: x_p,D_m,D_p,mue,v_n,v_q, cmax_temp
+    INTEGER  :: i, k
+    REAL(wp) :: x_p,D_m,D_p,mue,v_n,v_q
 
-    REAL(wp), DIMENSION(its:ite,kts-1:kte) :: q_fluss, n_fluss
     REAL(wp), DIMENSION(its:ite,kts-1:kte) :: v_n_sedi,v_q_sedi
-    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
-    LOGICAL,  DIMENSION(its:ite) :: cflag
 
     v_n_sedi(:,kts-1) = 0.0_wp
     v_q_sedi(:,kts-1) = 0.0_wp
-    q_fluss  = 0.0_wp
-    n_fluss  = 0.0_wp
 
     DO k = kts,kte
       DO i = its,ite
@@ -6158,97 +6153,8 @@ CONTAINS
     END DO
 
 
-    IF (PRESENT(cmax)) THEN
-      cmax_temp = cmax
-    ELSE
-      cmax_temp = 0.0_wp
-    END IF
-    DO k = kts,kte
-
-        DO i = its,ite
-          v_nv(i) = 0.5 * (v_n_sedi(i,k-1)+v_n_sedi(i,k))   ! Das sollte wohl k-1 sein.
-          v_qv(i) = 0.5 * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
-          ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
-          c_nv(i) = -v_nv(i) * adz(i,k) * dt
-          c_qv(i) = -v_qv(i) * adz(i,k) * dt
-          cmax_temp = MAX(cmax_temp, c_qv(i))
-        END DO
-
-        kk = k
-        s_nv = 0._wp
-        DO i = its,ite
-          IF (c_nv(i) <= 1._wp) THEN
-            s_nv(i) = v_nv(i) * np(i,k)
-          END IF
-        END DO
-        IF (ANY(c_nv > 1._wp)) THEN
-          cflag = .FALSE.
-          DO WHILE (ANY(c_nv > 1._wp) .AND. kk > 2)
-            DO i = its,ite
-              IF (c_nv(i) > 1._wp) THEN
-                cflag(i) = .TRUE.
-                s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)
-                c_nv(i) = (c_nv(i) - 1._wp) * adz(i,kk-1)/adz(i,kk)
-              END IF
-            END DO
-            kk  = kk - 1
-          ENDDO
-          DO i = its,ite
-            IF (cflag(i)) THEN
-              s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)*MIN(c_nv(i),1.0_wp)
-              s_nv(i) = -s_nv(i) / dt
-            END IF
-          END DO
-        ENDIF
-
-        kk = k
-        s_qv = 0.0
-        DO i = its,ite
-          IF (c_qv(i) <= 1._wp) THEN
-            s_qv(i) = v_qv(i) * qp(i,k)
-          END IF
-        END DO
-        IF (ANY(c_qv > 1._wp)) THEN
-          cflag = .FALSE.
-          DO WHILE (ANY(c_qv > 1._wp) .AND. kk > 2)
-            DO i = its,ite
-              IF (c_qv(i) > 1._wp) THEN
-                cflag(i) = .TRUE.
-                s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)
-                c_qv(i) = (c_qv(i) - 1) * adz(i,kk-1)/adz(i,kk)
-              END IF
-            END DO
-            kk  = kk - 1
-          ENDDO
-          DO i = its,ite
-            IF (cflag(i)) THEN
-              s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)*MIN(c_qv(i),1.0_wp)
-              s_qv(i) = -s_qv(i) / dt
-            END IF
-          END DO
-        ENDIF
-
-        ! Flux-limiter to avoid negative values
-        DO i = its,ite
-          n_fluss(i,k) = MAX(s_nv(i),n_fluss(i,k-1)-np(i,k)/(adz(i,k)*dt))
-          q_fluss(i,k) = MAX(s_qv(i),q_fluss(i,k-1)-qp(i,k)/(adz(i,k)*dt))
-        END DO
-
-    END DO
-    IF (PRESENT(cmax)) cmax = cmax_temp
-
-    n_fluss(:,kts-1) = 0._wp ! obere Randbedingung
-    q_fluss(:,kts-1) = 0._wp ! upper BC
-
-    DO k = kts,kte
-        DO i = its,ite
-          np(i,k) = np(i,k) + ( n_fluss(i,k) - n_fluss(i,k-1) )*adz(i,k)*dt
-          qp(i,k) = qp(i,k) + ( q_fluss(i,k) - q_fluss(i,k-1) )*adz(i,k)*dt
-        ENDDO
-    ENDDO
-    precrate(its:ite) = - q_fluss(its:ite,kte) ! Regenrate
-
-    RETURN
+    CALL sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
+         np, qp, precrate, cmax)
 
   END SUBROUTINE sedi_icon_rain
 
@@ -6264,18 +6170,13 @@ CONTAINS
     REAL(wp), INTENT(IN)                    :: dt
     REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
 
-    INTEGER  :: i, k, kk
-    REAL(wp) :: x_p,v_n,v_q,lam,cmax_temp
+    INTEGER  :: i, k
+    REAL(wp) :: x_p,v_n,v_q,lam
 
-    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss, n_fluss
     REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi
-    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
-    LOGICAL,  DIMENSION(its:ite) :: cflag
 
     v_n_sedi(:, kts-1) = 0.0_wp
     v_q_sedi(:, kts-1) = 0.0_wp
-    q_fluss  = 0.0_wp
-    n_fluss  = 0.0_wp
 
     DO k = kts,kte
       DO i = its,ite
@@ -6302,6 +6203,37 @@ CONTAINS
       END DO
     END DO
 
+    CALL sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
+         np, qp, precrate, cmax)
+
+    DO k=kts,kte
+      DO i = its,ite
+        np(i,k) = MIN(np(i,k), qp(i,k)/ptype%x_min)
+        np(i,k) = MAX(np(i,k), qp(i,k)/ptype%x_max)
+      END DO
+    END DO
+
+  END SUBROUTINE sedi_icon_sphere
+
+  SUBROUTINE sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
+       np, qp, precrate, cmax)
+    REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
+    REAL(wp), INTENT(in) :: dt
+    INTEGER, INTENT(IN) :: its,ite,kts,kte
+    REAL(wp), DIMENSION(its:,kts-1:), INTENT(in) :: v_n_sedi,v_q_sedi
+    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
+    REAL(wp), DIMENSION(:), INTENT(OUT)   :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT):: np,qp
+
+    REAL(wp), DIMENSION(its:ite,kts-1:kte) :: q_fluss, n_fluss
+    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
+    LOGICAL,  DIMENSION(its:ite) :: cflag
+    INTEGER :: i, k, kk
+    REAL(wp) :: cmax_temp
+
+    q_fluss(:, kts-1)  = 0.0_wp
+    n_fluss(:, kts-1)  = 0.0_wp
+
     IF (PRESENT(cmax)) THEN
       cmax_temp = cmax
     ELSE
@@ -6309,81 +6241,77 @@ CONTAINS
     END IF
     DO k = kts,kte
 
-        DO i = its,ite
-          v_nv(i) = 0.5 * (v_n_sedi(i,k-1)+v_n_sedi(i,k))   ! Das sollte wohl k-1 sein.
-          v_qv(i) = 0.5 * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
-          ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
-          c_nv(i) = -v_nv(i) * adz(i,k) * dt
-          c_qv(i) = -v_qv(i) * adz(i,k) * dt
-          cmax_temp = MAX(cmax_temp, c_qv(i))
-        END DO
+      DO i = its,ite
+        v_nv(i) = 0.5 * (v_n_sedi(i,k-1)+v_n_sedi(i,k))   ! Das sollte wohl k-1 sein.
+        v_qv(i) = 0.5 * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
+        ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
+        c_nv(i) = -v_nv(i) * adz(i,k) * dt
+        c_qv(i) = -v_qv(i) * adz(i,k) * dt
+        cmax_temp = MAX(cmax_temp, c_qv(i))
+      END DO
 
-        kk = k
-        s_nv = 0.0
-        DO i = its,ite
-          IF (c_nv(i) <= 1._wp) THEN
-            s_nv(i) = v_nv(i) * np(i,k)
-          END IF
-        END DO
-        IF (ANY(c_nv > 1._wp)) THEN
-          cflag = .FALSE.
-          DO WHILE (ANY(c_nv > 1._wp) .AND. kk > 2)
-            DO i = its,ite
-              IF (c_nv(i) > 1._wp) THEN
-                cflag(i) = .TRUE.
-                s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)
-                c_nv(i) = (c_nv(i) - 1._wp) * adz(i,kk-1)/adz(i,kk)
-              END IF
-            END DO
-            kk  = kk - 1
-          ENDDO
+      kk = k
+      s_nv = 0._wp
+      DO i = its,ite
+        IF (c_nv(i) <= 1._wp) THEN
+          s_nv(i) = v_nv(i) * np(i,k)
+        END IF
+      END DO
+      IF (ANY(c_nv > 1._wp)) THEN
+        cflag = .FALSE.
+        DO WHILE (ANY(c_nv > 1._wp) .AND. kk > 2)
           DO i = its,ite
-            IF (cflag(i)) THEN
-              s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)*MIN(c_nv(i),1.0_wp)
-              s_nv(i) = -s_nv(i) / dt
+            IF (c_nv(i) > 1._wp) THEN
+              cflag(i) = .TRUE.
+              s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)
+              c_nv(i) = (c_nv(i) - 1._wp) * adz(i,kk-1)/adz(i,kk)
             END IF
           END DO
-        ENDIF
-
-        kk = k
-        s_qv = 0.0
+          kk  = kk - 1
+        ENDDO
         DO i = its,ite
-          IF (c_qv(i) <= 1) THEN
-            s_qv(i) = v_qv(i) * qp(i,k)
+          IF (cflag(i)) THEN
+            s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)*MIN(c_nv(i),1.0_wp)
+            s_nv(i) = -s_nv(i) / dt
           END IF
         END DO
-        IF (ANY(c_qv > 1._wp)) THEN
-          cflag = .FALSE.
-          DO WHILE (ANY(c_qv > 1._wp) .AND. kk > 2)
-            DO i = its,ite
-              IF (c_qv(i) > 1._wp) THEN
-                cflag(i) = .TRUE.
-                s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)
-                c_qv(i) = (c_qv(i) - 1._wp) * adz(i,kk-1)/adz(i,kk)
-              END IF
-            END DO
-            kk  = kk - 1
-          ENDDO
+      ENDIF
+
+      kk = k
+      s_qv = 0.0
+      DO i = its,ite
+        IF (c_qv(i) <= 1._wp) THEN
+          s_qv(i) = v_qv(i) * qp(i,k)
+        END IF
+      END DO
+      IF (ANY(c_qv > 1._wp)) THEN
+        cflag = .FALSE.
+        DO WHILE (ANY(c_qv > 1._wp) .AND. kk > 2)
           DO i = its,ite
-            IF (cflag(i)) THEN
-              s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)*MIN(c_qv(i),1.0_wp)
-              s_qv(i) = -s_qv(i) / dt
+            IF (c_qv(i) > 1._wp) THEN
+              cflag(i) = .TRUE.
+              s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)
+              c_qv(i) = (c_qv(i) - 1) * adz(i,kk-1)/adz(i,kk)
             END IF
           END DO
-        ENDIF
-
-        ! Flux-limiter to avoid negative values
+          kk  = kk - 1
+        ENDDO
         DO i = its,ite
-          n_fluss(i,k) = MAX(s_nv(i),n_fluss(i,k-1)-np(i,k)/(adz(i,k)*dt))
-          q_fluss(i,k) = MAX(s_qv(i),q_fluss(i,k-1)-qp(i,k)/(adz(i,k)*dt))
+          IF (cflag(i)) THEN
+            s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)*MIN(c_qv(i),1.0_wp)
+            s_qv(i) = -s_qv(i) / dt
+          END IF
         END DO
+      ENDIF
+
+      ! Flux-limiter to avoid negative values
+      DO i = its,ite
+        n_fluss(i,k) = MAX(s_nv(i),n_fluss(i,k-1)-np(i,k)/(adz(i,k)*dt))
+        q_fluss(i,k) = MAX(s_qv(i),q_fluss(i,k-1)-qp(i,k)/(adz(i,k)*dt))
+      END DO
 
     END DO
-
     IF (PRESENT(cmax)) cmax = cmax_temp
-
-    n_fluss(:,kts-1) = 0._wp ! obere Randbedingung
-    q_fluss(:,kts-1) = 0._wp ! upper BC
 
     DO k = kts,kte
         DO i = its,ite
@@ -6393,16 +6321,7 @@ CONTAINS
     ENDDO
     precrate(its:ite) = - q_fluss(its:ite,kte) ! Regenrate
 
-    DO k=kts,kte
-      DO i = its,ite
-        np(i,k) = MIN(np(i,k), qp(i,k)/ptype%x_min)
-        np(i,k) = MAX(np(i,k), qp(i,k)/ptype%x_max)
-      END DO
-    END DO
-
-    RETURN
-
-  END SUBROUTINE sedi_icon_sphere
+  END SUBROUTINE sedi_icon_core
 
   SUBROUTINE check(ik_slice, mtxt,cloud,rain,ice,snow,graupel,hail)
     ! start and end indices for 2D slices
