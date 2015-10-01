@@ -150,7 +150,7 @@ MODULE mo_name_list_output
   USE mo_dynamics_config,           ONLY: nnow, nnow_rcf, nnew, nnew_rcf
   USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize
   USE mo_meteogram_config,          ONLY: meteogram_output_config
-  USE mo_intp_data_strc,            ONLY: lonlat_grid_list, t_lon_lat_data
+  USE mo_intp_data_strc,            ONLY: lonlat_grid_list
 #endif
 
   IMPLICIT NONE
@@ -1394,6 +1394,8 @@ CONTAINS
     LOGICAL                        :: have_GRIB
     INTEGER, ALLOCATABLE           :: bufr_metainfo(:)
     INTEGER                        :: nmiss    ! missing value indicator
+    INTEGER                        :: ichunk, nchunks, chunk_start, chunk_end, &
+      &                               this_chunk_nlevs, io_proc_chunk_size, ilev
 
     !-- for timing
     CHARACTER(len=10)              :: ctime
@@ -1439,10 +1441,12 @@ CONTAINS
       IF(info%ndims == 3) nlev_max = MAX(nlev_max, info%used_dimensions(2))
     ENDDO
 
+    io_proc_chunk_size = nlev_max
+
     IF (use_dp_mpi2io) THEN
-      ALLOCATE(var1_dp(nval*nlev_max), STAT=ierrstat)
+      ALLOCATE(var1_dp(nval*io_proc_chunk_size), STAT=ierrstat)
     ELSE
-      ALLOCATE(var1_sp(nval*nlev_max), STAT=ierrstat)
+      ALLOCATE(var1_sp(nval*io_proc_chunk_size), STAT=ierrstat)
     ENDIF
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
@@ -1536,48 +1540,6 @@ CONTAINS
           CALL finish(routine,'unknown grid type')
       END SELECT
 
-      ! Retrieve part of variable from every worker PE using MPI_Get
-
-      nv_off  = 0
-      DO np = 0, num_work_procs-1
-
-        IF(p_ri%pe_own(np) == 0) CYCLE
-
-        nval = p_ri%pe_own(np)*nlevs ! Number of words to transfer
-
-        t_0 = p_mpi_wtime()
-        CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, of%mem_win%mpi_win, mpierr)
-
-        IF (use_dp_mpi2io) THEN
-          CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
-            &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
-        ELSE
-          CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
-            &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
-        ENDIF
-
-        CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
-        t_get  = t_get  + p_mpi_wtime() - t_0
-        mb_get = mb_get + nval
-
-        ! Update the offset in var1
-        nv_off = nv_off + nval
-
-        ! Update the offset in the memory window on compute PEs
-        ioff(np) = ioff(np) + INT(nval,i8)
-
-      ENDDO
-
-      ! compute the total offset for each PE
-      nv_off       = 0
-      nv_off_np(0) = 0
-      DO np = 0, num_work_procs-1
-        voff(np)        = nv_off
-        nval            = p_ri%pe_own(np)*nlevs
-        nv_off          = nv_off + nval
-        nv_off_np(np+1) = nv_off_np(np) + p_ri%pe_own(np)
-      END DO
-
       ! var1 is stored in the order in which the variable was stored on compute PEs,
       ! get it back into the global storage order
 
@@ -1591,30 +1553,64 @@ CONTAINS
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
       t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
 
-      LevelLoop: DO jk = 1, nlevs
-        t_0 = p_mpi_wtime() ! performance measurement
+      ! no. of chunks of levels (each of size "io_proc_chunk_size"):
+      nchunks = (nlevs-1)/io_proc_chunk_size + 1
+      ! loop over all chunks (of levels)
+      DO ichunk=1,nchunks
 
-        IF (use_dp_mpi2io) THEN
-          var3_dp(:) = 0._wp
+        chunk_start       = (ichunk-1)*io_proc_chunk_size + 1
+        chunk_end         = MIN(chunk_start+io_proc_chunk_size-1, nlevs)
+        this_chunk_nlevs  = (chunk_end - chunk_start + 1)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
-          DO np = 0, num_work_procs-1
-            dst_start = nv_off_np(np)+1
-            dst_end   = nv_off_np(np+1)
-            src_start = voff(np)+1
-            src_end   = voff(np)+p_ri%pe_own(np)
-            voff(np)  = src_end
-            var3_dp(p_ri%reorder_index(dst_start:dst_end)) = var1_dp(src_start:src_end)
-          ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-        ELSE
+        ! Retrieve part of variable from every worker PE using MPI_Get
+        nv_off  = 0
+        DO np = 0, num_work_procs-1
 
-          IF (have_GRIB) THEN
+          IF(p_ri%pe_own(np) == 0) CYCLE
+
+          ! Number of words to transfer
+          nval = p_ri%pe_own(np) * this_chunk_nlevs
+
+          t_0 = p_mpi_wtime()
+          CALL MPI_Win_lock(MPI_LOCK_SHARED, np, MPI_MODE_NOCHECK, &
+            &               of%mem_win%mpi_win, mpierr)
+
+          IF (use_dp_mpi2io) THEN
+            CALL MPI_Get(var1_dp(nv_off+1), nval, p_real_dp, np, ioff(np), &
+              &          nval, p_real_dp, of%mem_win%mpi_win, mpierr)
+          ELSE
+            CALL MPI_Get(var1_sp(nv_off+1), nval, p_real_sp, np, ioff(np), &
+              &          nval, p_real_sp, of%mem_win%mpi_win, mpierr)
+          ENDIF
+
+          CALL MPI_Win_unlock(np, of%mem_win%mpi_win, mpierr)
+          t_get  = t_get  + p_mpi_wtime() - t_0
+          mb_get = mb_get + nval
+
+          ! Update the offset in var1
+          nv_off = nv_off + nval
+
+          ! Update the offset in the memory window on compute PEs
+          ioff(np) = ioff(np) + INT(nval,i8)
+
+        ENDDO
+
+        ! compute the total offset for each PE
+        nv_off       = 0
+        nv_off_np(0) = 0
+        DO np = 0, num_work_procs-1
+          voff(np)        = nv_off
+          nval            = p_ri%pe_own(np)*this_chunk_nlevs
+          nv_off          = nv_off + nval
+          nv_off_np(np+1) = nv_off_np(np) + p_ri%pe_own(np)
+        END DO
+
+        DO ilev=chunk_start, chunk_end
+          t_0 = p_mpi_wtime() ! performance measurement
+
+          IF (use_dp_mpi2io) THEN
             var3_dp(:) = 0._wp
 
-            ! ECMWF GRIB-API/CDI has only a double precision interface at the date of coding this
 !$OMP PARALLEL
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
             DO np = 0, num_work_procs-1
@@ -1623,40 +1619,64 @@ CONTAINS
               src_start = voff(np)+1
               src_end   = voff(np)+p_ri%pe_own(np)
               voff(np)  = src_end
-              var3_dp(p_ri%reorder_index(dst_start:dst_end)) = REAL(var1_sp(src_start:src_end), dp)
+              var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
+                var1_dp(src_start:src_end)
             ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
           ELSE
-            var3_sp(:) = 0._sp
+
+            IF (have_GRIB) THEN
+              var3_dp(:) = 0._wp
+
+              ! ECMWF GRIB-API/CDI has only a double precision interface at the
+              ! date of coding this
 !$OMP PARALLEL
 !$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
-            DO np = 0, num_work_procs-1
-              dst_start = nv_off_np(np)+1
-              dst_end   = nv_off_np(np+1)
-              src_start = voff(np)+1
-              src_end   = voff(np)+p_ri%pe_own(np)
-              voff(np)  = src_end
-              var3_sp(p_ri%reorder_index(dst_start:dst_end)) = var1_sp(src_start:src_end)
-            ENDDO
+              DO np = 0, num_work_procs-1
+                dst_start = nv_off_np(np)+1
+                dst_end   = nv_off_np(np+1)
+                src_start = voff(np)+1
+                src_end   = voff(np)+p_ri%pe_own(np)
+                voff(np)  = src_end
+                var3_dp(p_ri%reorder_index(dst_start:dst_end)) = &
+                  REAL(var1_sp(src_start:src_end), dp)
+              ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-          END IF
-        ENDIF
-        t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
-        ! Write calls (via CDIs) of the asynchronous I/O PEs:
-        t_0 = p_mpi_wtime() ! performance measurement
+            ELSE
+              var3_sp(:) = 0._sp
+!$OMP PARALLEL
+!$OMP DO PRIVATE(dst_start, dst_end, src_start, src_end)
+              DO np = 0, num_work_procs-1
+                dst_start = nv_off_np(np)+1
+                dst_end   = nv_off_np(np+1)
+                src_start = voff(np)+1
+                src_end   = voff(np)+p_ri%pe_own(np)
+                voff(np)  = src_end
+                var3_sp(p_ri%reorder_index(dst_start:dst_end)) = &
+                  var1_sp(src_start:src_end)
+              ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+            END IF
+          ENDIF
+          t_copy = t_copy + p_mpi_wtime() - t_0 ! performance measurement
+          ! Write calls (via CDIs) of the asynchronous I/O PEs:
+          t_0 = p_mpi_wtime() ! performance measurement
 
-        IF (use_dp_mpi2io .OR. have_GRIB) THEN
-          CALL streamWriteVarSlice(of%cdiFileID, info%cdiVarID, jk-1, var3_dp, nmiss)
-          mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
-        ELSE
-          CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, jk-1, var3_sp, nmiss)
-          mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
-        ENDIF
-        t_write = t_write + p_mpi_wtime() - t_0 ! performance measurement
+          IF (use_dp_mpi2io .OR. have_GRIB) THEN
+            CALL streamWriteVarSlice(of%cdiFileID, info%cdiVarID, ilev-1, var3_dp, nmiss)
+            mb_wr = mb_wr + REAL(SIZE(var3_dp), wp)
+          ELSE
+            CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, ilev-1, var3_sp, nmiss)
+            mb_wr = mb_wr + REAL(SIZE(var3_sp),wp)
+          ENDIF
+          t_write = t_write + p_mpi_wtime() - t_0 ! performance measurement
 
-      ENDDO LevelLoop
+        ENDDO ! ilev
+
+      ENDDO ! chunk loop
 
       IF (use_dp_mpi2io .OR. have_GRIB) THEN
         DEALLOCATE(var3_dp, STAT=ierrstat)
@@ -1664,6 +1684,7 @@ CONTAINS
         DEALLOCATE(var3_sp, STAT=ierrstat)
       ENDIF
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+
     ENDDO ! Loop over output variables
 
     IF (use_dp_mpi2io) THEN

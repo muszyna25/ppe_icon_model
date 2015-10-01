@@ -7585,9 +7585,8 @@ CONTAINS
 
 #if !defined(NOMPI)
      CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_real2D1D")
-     INTEGER :: p_comm, p_error
+     INTEGER :: p_error
 
-     p_comm = comm
      CALL MPI_GATHERV(sendbuf, sendcount, p_real_dp,   &    ! sendbuf, sendcount, sendtype
        &              recvbuf, recvcounts, displs,     &    ! recvbuf, recvcounts, displs
        &              p_real_dp, p_dest, p_comm_work, p_error)  ! recvtype, root, comm, error
@@ -7608,9 +7607,8 @@ CONTAINS
 
 #if !defined(NOMPI)
     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_int2D1D")
-    INTEGER :: p_comm, p_error
+    INTEGER :: p_error
 
-    p_comm = comm
     CALL MPI_GATHERV(sendbuf, sendcount, p_int,       &    ! sendbuf, sendcount, sendtype
       &              recvbuf, recvcounts, displs,     &    ! recvbuf, recvcounts, displs
       &              p_int, p_dest, p_comm_work, p_error)  ! recvtype, root, comm, error
@@ -7631,9 +7629,8 @@ CONTAINS
 
 #if !defined(NOMPI)
      CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_gatherv_real2D1D")
-     INTEGER :: p_comm, p_error
+     INTEGER :: p_error
 
-     p_comm = comm
      CALL MPI_GATHERV(sendbuf, sendcount, p_real_dp,   &    ! sendbuf, sendcount, sendtype
        &              recvbuf, recvcounts, displs,     &    ! recvbuf, recvcounts, displs
        &              p_real_dp, p_dest, p_comm_work, p_error)  ! recvtype, root, comm, error
@@ -7654,9 +7651,8 @@ CONTAINS
 
 #if !defined(NOMPI)
      CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_scatterv_real1D2D")
-     INTEGER :: p_comm, p_error
+     INTEGER :: p_error
 
-     p_comm = comm
      ! FIXME: I may be wrong, but this looks like a bug to me:
      !        This call *ignores* the communicator that is passed in and uses p_comm_work instead.
      CALL MPI_SCATTERV(sendbuf, sendcounts, displs,   &           ! sendbuf, sendcount, displs
