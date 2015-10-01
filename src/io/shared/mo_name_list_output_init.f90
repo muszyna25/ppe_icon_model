@@ -152,10 +152,9 @@ MODULE mo_name_list_output_init
     &                                             t_fname_metadata, all_events, t_patch_info_ll,  &
     &                                             GRB2_GRID_INFO, is_grid_info_var,               &
     &                                             GRB2_GRID_INFO_NAME
-  USE mo_name_list_output_gridinfo,         ONLY: set_grid_info_grb2,                             &
-    &                                             set_grid_info_netcdf, collect_all_grid_info,    &
-    &                                             copy_grid_info, bcast_grid_info,                &
-    &                                             deallocate_all_grid_info,                       &
+  USE mo_name_list_output_gridinfo,         ONLY: set_grid_info_grb2, set_grid_info_netcdf,       &
+    &                                             collect_all_grid_info, copy_grid_info,          &
+    &                                             allgather_grid_info, deallocate_all_grid_info,  &
     &                                             GRID_INFO_NONE, GRID_INFO_FILE, GRID_INFO_BCAST
   USE mo_name_list_output_metadata,         ONLY: metainfo_allocate_memory_window
   USE mo_name_list_output_zaxes,            ONLY: setup_ml_axes_atmo, setup_pl_axis_atmo,         &
@@ -1204,8 +1203,8 @@ CONTAINS
     ! physical/logical patch we must collect the geographical
     ! locations of cells, edges, and vertices
 
-    ! Pure I/O PEs may skip this...
-    IF (.NOT. (use_async_name_list_io .AND. my_process_is_io())) THEN
+    ! Only needed if no async name list io is used
+    IF (.NOT. use_async_name_list_io) THEN
       ! Go over all output domains
       DO idom = 1, n_dom_out
         IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
@@ -2803,6 +2802,7 @@ CONTAINS
     INTEGER :: nvgrid, ivgrid
     INTEGER :: size_tiles
     INTEGER :: size_var_groups_dyn
+    INTEGER :: idom_log
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
@@ -3004,7 +3004,9 @@ CONTAINS
       CALL p_bcast(patch_info(idom)%max_cell_connectivity, bcast_root, p_comm_work_2_io)
 
       IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
-        CALL bcast_grid_info(patch_info(idom), bcast_root)
+        ! logical domain ID
+        idom_log = patch_info(idom)%log_patch_id
+        CALL allgather_grid_info(patch_info(idom), idom_log, bcast_root)
       END IF
     END DO
 
