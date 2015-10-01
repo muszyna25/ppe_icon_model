@@ -1534,11 +1534,17 @@ CONTAINS
 
        ! more riming
        IF (ice_typ > 1) THEN
-          CALL hail_cloud_riming(ik_slice, dt, atmo, hail, cloud, rain, ice)
+          CALL prtcl_cloud_riming(ik_slice, dt, atmo, hail, &
+               ecoll_hc/(D_coll_c - D_crit_c), ecoll_hc, d_shed_h, &
+               q_crit_hc, d_crit_hc, hail_shedding, hcr_params, &
+               cloud, rain, ice)
           CALL hail_rain_riming(ik_slice, dt, atmo, hail, rain, ice)
       IF (ischeck) CALL check(ik_slice, 'hail riming',cloud,rain,ice,snow,graupel,hail)
        END IF
-       CALL graupel_cloud_riming(ik_slice, dt, atmo, graupel, cloud, rain, ice)
+       CALL prtcl_cloud_riming(ik_slice, dt, atmo, graupel, &
+            ecoll_gc/(D_coll_c - D_crit_c), ecoll_gc, d_shed_g, &
+            q_crit_gc, d_crit_gc, graupel_shedding, gcr_params, &
+            cloud, rain, ice)
        CALL graupel_rain_riming(ik_slice, dt, atmo, graupel, rain, ice)
       IF (ischeck) CALL check(ik_slice, 'graupel riming',cloud,rain,ice,snow,graupel,hail)
 
@@ -4142,7 +4148,9 @@ CONTAINS
     END DO
   END SUBROUTINE ice_melting
 
-  SUBROUTINE graupel_cloud_riming(ik_slice, dt, atmo, graupel, cloud, rain, ice)
+  SUBROUTINE prtcl_cloud_riming(ik_slice, dt, atmo, prtcl, &
+    const1, ecoll_pc, D_shed_p, q_crit_pc, D_crit_pc, lshedding, params, &
+    cloud, rain, ice)
     !*******************************************************************************
     ! see SB2006                                                                   *
     !*******************************************************************************
@@ -4150,28 +4158,30 @@ CONTAINS
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
-    REAL(wp), INTENT(in) :: dt
+    REAL(wp), INTENT(in) :: dt, const1, ecoll_pc, d_shed_p, q_crit_pc, D_crit_pc
+
+    LOGICAL, INTENT(in) :: lshedding
+    TYPE(sym_riming_params), INTENT(in) :: params
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: cloud, rain, ice, graupel
+    TYPE(particle), INTENT(inout) :: cloud, rain, ice, prtcl
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: T_a
-    REAL(wp)            :: q_g,n_g,x_g,d_g,v_g
+    REAL(wp)            :: q_p,n_p,x_p,d_p,v_p
     REAL(wp)            :: q_c,n_c,x_c,d_c,v_c
     REAL(wp)            :: rime_n,rime_q,e_coll_n
     REAL(wp)            :: melt_n,melt_q,e_coll_q
     REAL(wp)            :: shed_n,shed_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
     REAL(wp), PARAMETER :: &
-         const1 = ecoll_gc/(D_coll_c - D_crit_c), &
          const2 = 1.0/(T_mult_opt - T_mult_min), &
          const3 = 1.0/(T_mult_opt - T_mult_max), &
          const4 = c_w / L_ew, &
-         !..mean mass of shedding drops
+                                !..mean mass of shedding drops
          x_shed = 4./3.*pi * rho_w * r_shedding**3
 
-    IF (isdebug) CALL message(routine, "graupel_cloud_riming")
+    IF (isdebug) CALL message(routine, "prtcl_cloud_riming")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -4179,214 +4189,89 @@ CONTAINS
     kend   = ik_slice(4)
 
     DO k = kstart,kend
-       DO i = istart,iend
+      DO i = istart,iend
 
-          q_c = cloud%q(i,k)
-          q_g = graupel%q(i,k)
-          n_c = cloud%n(i,k)
-          n_g = graupel%n(i,k)
+        q_c = cloud%q(i,k)
+        q_p = prtcl%q(i,k)
+        n_c = cloud%n(i,k)
+        n_p = prtcl%n(i,k)
 
-          x_g = particle_meanmass(graupel, q_g,n_g)
-          D_g = particle_diameter(graupel, x_g)
-          x_c = particle_meanmass(cloud, q_c,n_c)
-          D_c = particle_diameter(cloud, x_c)
+        x_p = particle_meanmass(prtcl, q_p,n_p)
+        D_p = particle_diameter(prtcl, x_p)
+        x_c = particle_meanmass(cloud, q_c,n_c)
+        D_c = particle_diameter(cloud, x_c)
 
-          T_a = atmo%T(i,k)
-          IF (q_c > q_crit_c .AND. q_g > q_crit_gc .AND. D_g > D_crit_gc .AND. &
-               & D_c > D_crit_c) THEN
+        T_a = atmo%T(i,k)
+        IF (q_c > q_crit_c .AND. q_p > q_crit_pc .AND. D_p > D_crit_pc .AND. &
+             & D_c > D_crit_c) THEN
 
-             v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
-             v_c = particle_velocity(cloud, x_c)   * cloud%rho_v(i,k)
+          v_p = particle_velocity(prtcl, x_p) * prtcl%rho_v(i,k)
+          v_c = particle_velocity(cloud, x_c) * cloud%rho_v(i,k)
 
-             e_coll_n = MIN(ecoll_gc, MAX(const1*(D_c - D_crit_c),ecoll_min))
-             e_coll_q = e_coll_n
+          e_coll_n = MIN(ecoll_pc, MAX(const1*(D_c - D_crit_c),ecoll_min))
+          e_coll_q = e_coll_n
 
-             rime_n = pi4 * e_coll_n * n_g * n_c * dt &
-                  & *     (gcr_params%delta_n_aa * D_g*D_g + gcr_params%delta_n_ab * D_g*D_c + gcr_params%delta_n_bb * D_c*D_c) &
-                  & * sqrt(gcr_params%theta_n_aa * v_g*v_g - gcr_params%theta_n_ab * v_g*v_c + gcr_params%theta_n_bb * v_c*v_c)
+          rime_n = pi4 * e_coll_n * n_p * n_c * dt &
+               & *     (params%delta_n_aa * D_p*D_p + params%delta_n_ab * D_p*D_c + params%delta_n_bb * D_c*D_c) &
+               & * sqrt(params%theta_n_aa * v_p*v_p - params%theta_n_ab * v_p*v_c + params%theta_n_bb * v_c*v_c)
 
-             rime_q = pi4 * e_coll_q * n_g * q_c * dt &
-                  & *     (gcr_params%delta_q_aa * D_g*D_g + gcr_params%delta_q_ab * D_g*D_c + gcr_params%delta_q_bb * D_c*D_c) &
-                  & * sqrt(gcr_params%theta_q_aa * v_g*v_g - gcr_params%theta_q_ab * v_g*v_c + gcr_params%theta_q_bb * v_c*v_c)
+          rime_q = pi4 * e_coll_q * n_p * q_c * dt &
+               & *     (params%delta_q_aa * D_p*D_p + params%delta_q_ab * D_p*D_c + params%delta_q_bb * D_c*D_c) &
+               & * sqrt(params%theta_q_aa * v_p*v_p - params%theta_q_ab * v_p*v_c + params%theta_q_bb * v_c*v_c)
 
-             rime_q = MIN(q_c,rime_q)
-             rime_n = MIN(n_c,rime_n)
+          rime_q = MIN(q_c,rime_q)
+          rime_n = MIN(n_c,rime_n)
 
-             graupel%q(i,k) = graupel%q(i,k) + rime_q
-             cloud%q(i,k)   = cloud%q(i,k)   - rime_q
-             cloud%n(i,k)   = cloud%n(i,k)   - rime_n
+          prtcl%q(i,k) = prtcl%q(i,k) + rime_q
+          cloud%q(i,k)   = cloud%q(i,k)   - rime_q
+          cloud%n(i,k)   = cloud%n(i,k)   - rime_n
 
-             ! ice multiplication based on Hallet and Mossop
-             mult_q = 0.0_wp
-             IF (T_a < T_3 .AND. ice_multiplication) THEN
-                mult_1 = const2*(T_a - T_mult_min)
-                mult_2 = const3*(T_a - T_mult_max)
-                mult_1 = MAX(0.0_wp,MIN(mult_1,1.0_wp))
-                mult_2 = MAX(0.0_wp,MIN(mult_2,1.0_wp))
-                mult_n = C_mult * mult_1 * mult_2 * rime_q
-                mult_q = mult_n * ice%x_min
-                mult_q = MIN(rime_q,mult_q)
+          ! ice multiplication based on Hallet and Mossop
+          IF (T_a < T_3 .AND. ice_multiplication) THEN
+            mult_1 = const2*(T_a - T_mult_min)
+            mult_2 = const3*(T_a - T_mult_max)
+            mult_1 = MAX(0.0_wp,MIN(mult_1,1.0_wp))
+            mult_2 = MAX(0.0_wp,MIN(mult_2,1.0_wp))
+            mult_n = C_mult * mult_1 * mult_2 * rime_q
+            mult_q = mult_n * ice%x_min
+            mult_q = MIN(rime_q,mult_q)
 
-                ice%n(i,k)     = ice%n(i,k)     + mult_n
-                ice%q(i,k)     = ice%q(i,k)     + mult_q
-                graupel%q(i,k) = graupel%q(i,k) - mult_q
-             ENDIF
-
-             ! enhancement of melting of graupel
-             IF (T_a > T_3 .AND. enhanced_melting) THEN
-                melt_q = const4 * (T_a - T_3) * rime_q
-                melt_n = melt_q / x_g
-
-                melt_q = MIN(graupel%q(i,k),melt_q)
-                melt_n = MIN(graupel%n(i,k),melt_n)
-
-                graupel%q(i,k) = graupel%q(i,k) - melt_q
-                rain%q(i,k)    = rain%q(i,k)    + melt_q
-                graupel%n(i,k) = graupel%n(i,k) - melt_n
-                rain%n(i,k)    = rain%n(i,k)    + melt_n
-             ELSE
-                melt_q = 0.0_wp
-             ENDIF
-
-             ! Shedding
-             IF ((graupel_shedding .AND. D_g > D_shed_g .AND. T_a > T_shed) .OR. T_a > T_3 ) THEN
-                q_g = graupel%q(i,k)
-                n_g = graupel%n(i,k)
-                x_g = particle_meanmass(graupel, q_g,n_g)
-
-                shed_q = MIN(q_g,rime_q)
-                shed_n = shed_q / MIN(x_shed,x_g)
-
-                graupel%q(i,k) = graupel%q(i,k) - shed_q
-                rain%q(i,k)    = rain%q(i,k)    + shed_q
-                rain%n(i,k)    = rain%n(i,k)    + shed_n
-             ENDIF
+            ice%n(i,k)   = ice%n(i,k)   + mult_n
+            ice%q(i,k)   = ice%q(i,k)   + mult_q
+            prtcl%q(i,k) = prtcl%q(i,k) - mult_q
           ENDIF
-       ENDDO
-    ENDDO
-  END SUBROUTINE graupel_cloud_riming
 
-  SUBROUTINE hail_cloud_riming(ik_slice, dt, atmo, hail, cloud, rain, ice)
-    !*******************************************************************************
-    ! see SB2006 for the equations                                                 *
-    !*******************************************************************************
-    ! start and end indices for 2D slices
-    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
-    REAL(wp), INTENT(in) :: dt
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: cloud, rain, ice, hail
-    ! start and end indices for 2D slices
-    INTEGER :: istart, iend, kstart, kend
-    INTEGER             :: i,k
-    REAL(wp)            :: T_a
-    REAL(wp)            :: q_h,n_h,x_h,d_h,v_h
-    REAL(wp)            :: q_c,n_c,x_c,d_c,v_c
-    REAL(wp)            :: rime_n,rime_q,e_coll_n
-    REAL(wp)            :: melt_n,melt_q,e_coll_q
-    REAL(wp)            :: shed_n,shed_q
-    REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
-    REAL(wp), PARAMETER :: &
-         const1 = ecoll_hc/(D_coll_c - D_crit_c), &
-         const2 = 1.0/(T_mult_opt - T_mult_min), &
-         const3 = 1.0/(T_mult_opt - T_mult_max), &
-         const4 = c_w / L_ew, &
-         !..mean mass of shedding droplets
-         x_shed = 4./3.*pi * rho_w * r_shedding**3
+          ! enhancement of melting of prtcl
+          IF (T_a > T_3 .AND. enhanced_melting) THEN
+            melt_q = const4 * (T_a - T_3) * rime_q
+            melt_n = melt_q / x_p
 
+            melt_q = MIN(prtcl%q(i,k),melt_q)
+            melt_n = MIN(prtcl%n(i,k),melt_n)
 
-    IF (isdebug) CALL message(routine, "hail_cloud_riming")
-
-    istart = ik_slice(1)
-    iend   = ik_slice(2)
-    kstart = ik_slice(3)
-    kend   = ik_slice(4)
-
-    DO k = kstart,kend
-       DO i = istart,iend
-
-          T_a = atmo%T(i,k)
-          q_c = cloud%q(i,k)
-          q_h = hail%q(i,k)
-          n_c = cloud%n(i,k)
-          n_h = hail%n(i,k)
-
-          x_h = particle_meanmass(hail, q_h,n_h)
-          D_h = particle_diameter(hail, x_h)
-          x_c = particle_meanmass(cloud, q_c,n_c)
-          D_c = particle_diameter(cloud, x_c)
-
-          IF (q_c > q_crit_c .AND. q_h > q_crit_hc .AND. D_h > D_crit_hc .AND. &
-               & D_c > D_crit_c) THEN
-
-            v_h = particle_velocity(hail, x_h)  * hail%rho_v(i,k)
-            v_c = particle_velocity(cloud, x_c) * cloud%rho_v(i,k)
-
-            e_coll_n = MIN(ecoll_hc, MAX(const1*(D_c - D_crit_c),ecoll_min))
-            e_coll_q = e_coll_n
-
-            rime_n = pi4 * e_coll_n * n_h * n_c * dt &
-                 &   * (hcr_params%delta_n_aa * D_h*D_h + hcr_params%delta_n_ab * D_h*D_c + hcr_params%delta_n_bb * D_c*D_c) &
-                 &   * SQRT(hcr_params%theta_n_aa * v_h*v_h - hcr_params%theta_n_ab * v_h*v_c + hcr_params%theta_n_bb * v_c*v_c)
-
-            rime_q = pi4 * e_coll_q * n_h * q_c * dt &
-                 &   * (hcr_params%delta_q_aa * D_h*D_h + hcr_params%delta_q_ab * D_h*D_c + hcr_params%delta_q_bb * D_c*D_c) &
-                 &   * SQRT(hcr_params%theta_q_aa * v_h*v_h - hcr_params%theta_q_ab * v_h*v_c + hcr_params%theta_q_bb * v_c*v_c)
-
-            rime_q = MIN(q_c,rime_q)
-            rime_n = MIN(n_c,rime_n)
-
-            hail%q(i,k)  = hail%q(i,k) + rime_q
-            cloud%q(i,k) = cloud%q(i,k) - rime_q
-            cloud%n(i,k) = cloud%n(i,k) - rime_n
-
-            ! ice multiplication
-            IF (T_a < T_3 .AND. ice_multiplication) THEN
-              mult_1 = const2*(T_a - T_mult_min)
-              mult_2 = const3*(T_a - T_mult_max)
-              mult_1 = MAX(0.0_wp,MIN(mult_1,1.0_wp))
-              mult_2 = MAX(0.0_wp,MIN(mult_2,1.0_wp))
-              mult_n = C_mult * mult_1 * mult_2 * rime_q
-              mult_q = mult_n * ice%x_min
-              mult_q = MIN(rime_q,mult_q)
-
-              ice%n(i,k)  = ice%n(i,k)  + mult_n
-              ice%q(i,k)  = ice%q(i,k)  + mult_q
-              hail%q(i,k) = hail%q(i,k) - mult_q
-            ENDIF
-
-            ! enhancement of melting of hail
-            IF (T_a > T_3 .AND. enhanced_melting) THEN
-              melt_q = const4 * (T_a - T_3) * rime_q
-              melt_n = melt_q / x_h
-
-              melt_q = MIN(hail%q(i,k),melt_q)
-              melt_n = MIN(hail%n(i,k),melt_n)
-
-              hail%q(i,k) = hail%q(i,k) - melt_q
-              rain%q(i,k) = rain%q(i,k) + melt_q
-              hail%n(i,k) = hail%n(i,k) - melt_n
-              rain%n(i,k) = rain%n(i,k) + melt_n
-            ENDIF
-
-            ! Shedding
-            IF ((D_h > D_shed_h .AND. T_a > T_shed .AND. hail_shedding) .OR. T_a > T_3 ) THEN
-              q_h = hail%q(i,k)
-              n_h = hail%n(i,k)
-              x_h = particle_meanmass(hail, q_h,n_h)
-
-              shed_q = MIN(q_h,rime_q)
-              shed_n = shed_q / MIN(x_shed,x_h)
-
-              hail%q(i,k) = hail%q(i,k) - shed_q
-              rain%q(i,k) = rain%q(i,k) + shed_q
-              rain%n(i,k) = rain%n(i,k) + shed_n
-            ENDIF
+            prtcl%q(i,k) = prtcl%q(i,k) - melt_q
+            rain%q(i,k)  = rain%q(i,k)  + melt_q
+            prtcl%n(i,k) = prtcl%n(i,k) - melt_n
+            rain%n(i,k)  = rain%n(i,k)  + melt_n
           ENDIF
-       ENDDO
+
+          ! Shedding
+          IF ((lshedding .AND. D_p > D_shed_p .AND. T_a > T_shed) .OR. T_a > T_3 ) THEN
+            q_p = prtcl%q(i,k)
+            n_p = prtcl%n(i,k)
+            x_p = particle_meanmass(prtcl, q_p,n_p)
+
+            shed_q = MIN(q_p,rime_q)
+            shed_n = shed_q / MIN(x_shed,x_p)
+
+            prtcl%q(i,k) = prtcl%q(i,k) - shed_q
+            rain%q(i,k)  = rain%q(i,k)  + shed_q
+            rain%n(i,k)  = rain%n(i,k)  + shed_n
+          ENDIF
+        ENDIF
+      ENDDO
     ENDDO
-  END SUBROUTINE hail_cloud_riming
+  END SUBROUTINE prtcl_cloud_riming
 
   SUBROUTINE graupel_rain_riming(ik_slice, dt, atmo,graupel,rain,ice)
     !*******************************************************************************
