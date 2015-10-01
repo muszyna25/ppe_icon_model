@@ -292,7 +292,7 @@ CONTAINS
       ! cells
       CALL uuid2char(p_patch%grid_uuid, uuid_string)
       CALL gridDefUUID(cdiCellGridID, uuid_string)
-      CALL gridDefNumber(cdiCellGridID, number_of_grid_used(1)) !XXX: It might be a bug that only the first element IN number_of_grid_used is used. It may not be a bug. I don't know. Someone ELSE who knows?
+      CALL gridDefNumber(cdiCellGridID, number_of_grid_used(p_patch%id))
       CALL gridDefPosition(cdiCellGridID, 1)
 
       !--- set UUID for vertical grid
