@@ -216,7 +216,7 @@ MODULE mo_mpi
   PUBLIC :: p_scatter, p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
   PUBLIC :: p_allreduce_minloc
-  PUBLIC :: p_gatherv
+  PUBLIC :: p_gatherv, p_allgather
   PUBLIC :: p_scatterv
   PUBLIC :: p_allreduce_max
   PUBLIC :: p_commit_type_struct
@@ -578,6 +578,10 @@ MODULE mo_mpi
      MODULE PROCEDURE p_gather_int_0d1d
      MODULE PROCEDURE p_gather_int_1d1d
      MODULE PROCEDURE p_gather_char_0d1d
+  END INTERFACE
+
+  INTERFACE p_allgather
+     MODULE PROCEDURE p_allgather_int_0d1d
   END INTERFACE
 
   INTERFACE p_scatterv
@@ -7721,6 +7725,30 @@ CONTAINS
         recvbuf(1:recvcount) = sendbuf((displs(1)+1):(displs(1)+recvcount))
 #endif
    END SUBROUTINE p_scatterv_single1D1D
+
+   SUBROUTINE p_allgather_int_0d1d(sendbuf, recvbuf, comm)
+     INTEGER,           INTENT(inout) :: recvbuf(:)
+     INTEGER,           INTENT(in) :: sendbuf
+     INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_allgather_int_0d1d")
+     INTEGER :: p_comm
+
+     IF (PRESENT(comm)) THEN
+       p_comm = comm
+     ELSE
+       p_comm = process_mpi_all_comm
+     ENDIF
+
+     CALL mpi_allgather(sendbuf, 1, mpi_integer, &
+          &             recvbuf, 1, mpi_integer, &
+          &             p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in mpi_allgather operation!')
+#else
+     recvbuf = sendbuf
+#endif
+   END SUBROUTINE p_allgather_int_0d1d
 
 
    SUBROUTINE p_allreduce_minloc(array, ntotal, comm)
