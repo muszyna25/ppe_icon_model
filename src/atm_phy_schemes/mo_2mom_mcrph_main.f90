@@ -454,6 +454,8 @@ MODULE mo_2mom_mcrph_main
   TYPE(melt_params), SAVE :: gm_params
   !> run-time- and location-invariant hail melting parameters
   TYPE(melt_params), SAVE :: hm_params
+  !> run-time- and location-invariant snow melting parameters
+  TYPE(melt_params), SAVE :: sm_params
 
 CONTAINS
 
@@ -1318,6 +1320,22 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "    a_vent = ",hm_params%a_vent ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "    b_vent = ",hm_params%b_vent ; CALL message(routine,TRIM(txt))
     ENDIF
+
+    ! snow melting parameter setup
+    sm_params%a_vent = vent_coeff_a(snow,1)
+    sm_params%b_vent = vent_coeff_b(snow,1) * N_sc**n_f / SQRT(nu_l)
+
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "    a_geo  = ",snow%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_geo  = ",snow%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_vel  = ",snow%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_vel  = ",snow%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_ven  = ",snow%a_ven ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_ven  = ",snow%b_ven ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_vent = ",sm_params%a_vent ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_vent = ",sm_params%b_vent ; CALL message(routine,TRIM(txt))
+    ENDIF
+
 
   END SUBROUTINE init_2mom_scheme_once
 
@@ -3672,33 +3690,11 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: q_s,n_s,x_s,d_s,v_s,T_a,e_a
     REAL(wp)            :: melt,melt_v,melt_h,melt_n,melt_q
     REAL(wp)            :: fh_q,fv_q
-    REAL(wp), SAVE      :: a_vent,b_vent
-!$omp threadprivate (firstcall)
-!$omp threadprivate (a_vent)
-!$omp threadprivate (b_vent)
 
     IF (isdebug) CALL message(routine, "snow_melting")
-
-    IF (firstcall.NE.1) THEN
-      a_vent = vent_coeff_a(snow,1)
-      b_vent = vent_coeff_b(snow,1) * N_sc**n_f / sqrt(nu_l)
-
-      IF (isdebug) THEN
-        WRITE(txt,'(A,D10.3)') "    a_geo  = ",snow%a_geo ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    b_geo  = ",snow%b_geo ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    a_vel  = ",snow%a_vel ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    b_vel  = ",snow%b_vel ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    a_ven  = ",snow%a_ven ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    b_ven  = ",snow%b_ven ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    a_vent = ",a_vent ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    b_vent = ",b_vent ; CALL message(routine,TRIM(txt))
-      ENDIF
-      firstcall = 1
-    ENDIF
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -3718,7 +3714,7 @@ CONTAINS
             D_s = snow%diameter(x_s)
             v_s = snow%velocity(x_s) * snow%rho_v(i,k)
 
-            fv_q = a_vent + b_vent * sqrt(v_s*D_s)
+            fv_q = sm_params%a_vent + sm_params%b_vent * sqrt(v_s*D_s)
 
             ! UB: Based on Rasmussen and Heymsfield (1987) the ratio fh_q / fv_q is approx. 1.05
             !     for a wide temperature- and pressure range:
