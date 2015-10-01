@@ -422,30 +422,35 @@ CONTAINS
     !-----------------------------------------------------------------------
     DO jc = istart, iend
       DO ji = 1, k_dim(jc)
-        DO jj = ji, k_dim(jc)
+        jj = ji
+        z_sum = p_a(jc,ji,jj)
+
+        DO jk = ji-1, 1, -1
+          z_sum = z_sum - p_a(jc,ji,jk) * p_a(jc,jj,jk)
+        ENDDO
+
+#if defined(SINGULARITY_CHECKS)
+        IF (z_sum <= 1.e-12_wp) THEN
+          WRITE (*,*) p_a
+          CALL message ('mo_math_utilities:choldec',                           &
+               & 'error in matrix inversion, nearly singular matrix')
+          CALL finish  ('mo_math_utilities:choldec',                           &
+               & 'error in matrix inversion, nearly singular matrix')
+        ELSE
+#endif
+          p_diag(jc,ji) = SQRT(z_sum)
+#if defined(SINGULARITY_CHECKS)
+        ENDIF
+#endif
+
+        DO jj = ji + 1, k_dim(jc)
           z_sum = p_a(jc,ji,jj)
 
           DO jk = ji-1, 1, -1
             z_sum = z_sum - p_a(jc,ji,jk) * p_a(jc,jj,jk)
           ENDDO
 
-          IF (ji == jj) THEN
-#if defined(SINGULARITY_CHECKS)
-            IF (z_sum <= 1.e-12_wp) THEN
-              WRITE (*,*) p_a
-              CALL message ('mo_math_utilities:choldec',                           &
-                & 'error in matrix inversion, nearly singular matrix')
-              CALL finish  ('mo_math_utilities:choldec',                           &
-                & 'error in matrix inversion, nearly singular matrix')
-            ELSE
-#endif
-              p_diag(jc,ji) = SQRT(z_sum)
-#if defined(SINGULARITY_CHECKS)
-            ENDIF
-#endif
-          ELSE
-            p_a(jc,jj,ji) = z_sum / p_diag(jc,ji)
-          ENDIF
+          p_a(jc,jj,ji) = z_sum / p_diag(jc,ji)
         ENDDO
       ENDDO
     ENDDO
