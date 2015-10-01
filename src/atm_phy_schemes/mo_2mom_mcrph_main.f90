@@ -159,10 +159,6 @@ MODULE mo_2mom_mcrph_main
     REAL(wp), pointer, dimension(:,:) :: n     !..number density
     REAL(wp), pointer, dimension(:,:) :: q     !..mass density
     REAL(wp), pointer, dimension(:,:) :: rho_v !..density correction of terminal fall velocity
-  CONTAINS
-    PROCEDURE     :: meanmass => particle_meanmass
-    PROCEDURE     :: diameter => particle_diameter
-    PROCEDURE     :: velocity => particle_velocity
   END TYPE PARTICLE
 
   ! .. for spherical particles we need to store the coefficients for the
@@ -372,6 +368,8 @@ MODULE mo_2mom_mcrph_main
   REAL(wp), PARAMETER :: pi6 = pi/6.0_wp, pi8 = pi/8.0_wp ! more pieces of pi
 
   PUBLIC :: atmosphere, particle
+
+  PUBLIC :: particle_meanmass
 
   PUBLIC :: init_2mom_scheme, init_2mom_scheme_once, clouds_twomoment
 
@@ -1591,34 +1589,31 @@ CONTAINS
   !*******************************************************************************
 
   ! mean mass with limiters, Eq. (94) of SB2006
-  PURE FUNCTION particle_meanmass(this,q,n) RESULT(xmean)
-    CLASS(particle), INTENT(in) :: this
+  ELEMENTAL FUNCTION particle_meanmass(this,q,n) RESULT(xmean)
+    TYPE(particle), INTENT(in) :: this
     REAL(wp),        INTENT(in) :: q,n
     REAL(wp)                    :: xmean
     REAL(wp), PARAMETER         :: eps = 1e-20_wp
 
     xmean = MIN(MAX(q/(n+eps),this%x_min),this%x_max)
-    RETURN
   END FUNCTION particle_meanmass
 
   ! mass-diameter relation, power law, Eq. (32) of SB2006
-  PURE FUNCTION particle_diameter(this,x) RESULT(D)
-    CLASS(particle), INTENT(in) :: this
+  ELEMENTAL FUNCTION particle_diameter(this,x) RESULT(D)
+    TYPE(particle), INTENT(in) :: this
     REAL(wp),        INTENT(in) :: x
     REAL(wp)                    :: D
 
     D = this%a_geo * exp(this%b_geo*log(x))    ! v = a_geo * x**b_geo
-    RETURN
   END FUNCTION particle_diameter
 
   ! terminal fall velocity of particles, cf. Eq. (33) of SB2006
-  PURE FUNCTION particle_velocity(this,x) RESULT(v)
-    CLASS(particle), INTENT(in) :: this
+  ELEMENTAL FUNCTION particle_velocity(this,x) RESULT(v)
+    TYPE(particle), INTENT(in) :: this
     REAL(wp),        INTENT(in) :: x
     REAL(wp)                    :: v
 
     v = this%a_vel * exp(this%b_vel * log(x))  ! v = a_vel * x**b_vel
-    RETURN
   END FUNCTION particle_velocity
 
   ! mue-Dm relation of raindrops
@@ -1633,7 +1628,6 @@ CONTAINS
     else
        mue = this%cmu1*tanh(delta**2) + this%cmu4
     endif
-    return
   END FUNCTION rain_mue_dm_relation
 
   !*******************************************************************************
@@ -1803,7 +1797,7 @@ CONTAINS
 
     do i=its,ite
        if (q(i).gt.q_crit) then
-          D_m = this%diameter(x(i))
+          D_m = particle_diameter(this, x(i))
           IF (PRESENT(qc)) THEN
              if (qc(i) >= q_crit) THEN
                 mue = (this%nu+1.0_wp)/this%b_geo - 1.0_wp
@@ -1984,7 +1978,7 @@ CONTAINS
 
             n_c = cloud%n(i,k)
             q_r = rain%q(i,k)
-            x_c = cloud%meanmass(q_c,n_c)
+            x_c = particle_meanmass(cloud, q_c,n_c)
 
             au  = k_au * q_c**2 * x_c**2 * dt * cloud%rho_v(i,k)
             tau = MIN(MAX(1.0-q_c/(q_c+q_r+eps),eps),0.9_wp)
@@ -2048,7 +2042,7 @@ CONTAINS
 
              ac = MIN(q_c,ac)
 
-             x_c = cloud%meanmass(q_c,n_c)
+             x_c = particle_meanmass(cloud, q_c,n_c)
 
              rain%q(i,k)  = rain%q(i,k)  + ac
              cloud%q(i,k) = cloud%q(i,k) - ac
@@ -2093,8 +2087,8 @@ CONTAINS
           n_r = rain%n(i,k)
           q_r = rain%q(i,k)
           IF (q_r > 0.0_wp) THEN
-            x_r = rain%meanmass(q_r,n_r)
-            D_r = rain%diameter(x_r)
+            x_r = particle_meanmass(rain, q_r,n_r)
+            D_r = particle_diameter(rain, x_r)
 
             !..Selfcollection as in SB2001
             sc = k_rr *  n_r * q_r * rain%rho_v(i,k) * dt
@@ -2141,7 +2135,7 @@ CONTAINS
           n_c = cloud%n(i,k)
           IF (q_c > q_crit) THEN
 
-             x_c = cloud%meanmass(q_c,n_c)
+             x_c = particle_meanmass(cloud, q_c,n_c)
 
              !..Berechnung der Autokonversionsrate nach Beheng (1994)
              au = k_a * (x_c*1e3)**(3.3) * (q_c*1e-3)**(1.4) * dt * 1e3
@@ -2358,8 +2352,8 @@ CONTAINS
              ! note that 2*pi is correct, because c_r = 1/2 is assumed
              g_d = 2.0*pi / ( L_wd**2 / (K_T * R_d * T_a**2) + R_d * T_a / (D_vtp * e_sw) )
 
-             x_r = rain%meanmass(q_r,n_r)
-             D_m = rain%diameter(x_r)
+             x_r = particle_meanmass(rain, q_r,n_r)
+             D_m = particle_diameter(rain, x_r)
 
              ! Eq. (20) of Seifert (2008)
              IF (D_m.LE.rain_coeffs%cmu3) THEN
@@ -2456,9 +2450,9 @@ CONTAINS
             g_d = 4.0*pi / ( L_wd**2 / (K_T * R_d * T_3**2) + R_d * T_3 / (D_v * e_sw) )
 
             n_g = graupel%n(i,k)
-            x_g = graupel%meanmass(q_g,n_g)
-            d_g = graupel%diameter(x_g)
-            v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
+            x_g = particle_meanmass(graupel, q_g,n_g)
+            d_g = particle_diameter(graupel, x_g)
+            v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
 
             !..note that a_f includes more than just ventilation, do never ever set f_v=1
             f_v = ge_params%a_f + ge_params%b_f * sqrt(v_g*d_g)
@@ -2517,9 +2511,9 @@ CONTAINS
             g_d = 4.0*pi / ( L_wd**2 / (K_T * R_d * T_3**2) + R_d * T_3 / (D_v * e_sw) )
 
             n_h = hail%n(i,k)
-            x_h = hail%meanmass(q_h,n_h)
-            d_h = hail%diameter(x_h)
-            v_h = hail%velocity(x_h) * hail%rho_v(i,k)
+            x_h = particle_meanmass(hail, q_h,n_h)
+            d_h = particle_diameter(hail, x_h)
+            v_h = particle_velocity(hail, x_h) * hail%rho_v(i,k)
 
             f_v  = he_params%a_f + he_params%b_f * sqrt(v_h*D_h)
 
@@ -2577,9 +2571,9 @@ CONTAINS
 
             n_s = snow%n(i,k)
 
-            x_s = snow%meanmass(q_s,n_s)
-            D_s = snow%diameter(x_s)
-            v_s = snow%velocity(x_s) * snow%rho_v(i,k)
+            x_s = particle_meanmass(snow, q_s,n_s)
+            D_s = particle_diameter(snow, x_s)
+            v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
 
             f_v  = se_params%a_f + se_params%b_f * sqrt(v_s*D_s)
 
@@ -2642,7 +2636,7 @@ CONTAINS
                    fr_q = q_c             !..instantaneous freezing
                    fr_n = n_c             !..below -50 C
                 ELSE
-                   x_c = cloud%meanmass(q_c,n_c)
+                   x_c = particle_meanmass(cloud, q_c,n_c)
 
                    !..Hom. freezing based on Jeffrey und Austin (1997), see also Cotton und Field (2001)
                    IF (T_c > -30.0_wp) THEN
@@ -3009,7 +3003,7 @@ CONTAINS
 
             n_i = ice%n(i,k)
             q_i = ice%q(i,k)
-            x_i = ice%meanmass(q_i,n_i)
+            x_i = particle_meanmass(ice, q_i,n_i)
             r_i = (x_i/(4./3.*pi*rho_ice))**(1./3.)
 
             v_th  = SQRT( 8.*k_b*T_a/(pi*ma_w) )
@@ -3227,9 +3221,9 @@ CONTAINS
             ELSE
               n_i = ice%n(i,k)
               q_i = ice%q(i,k)
-              x_i = ice%meanmass(q_i,n_i)
-              D_i = ice%diameter(x_i)
-              v_i = ice%velocity(x_i) * ice%rho_v(i,k)
+              x_i = particle_meanmass(ice, q_i,n_i)
+              D_i = particle_diameter(ice, x_i)
+              v_i = particle_velocity(ice, x_i) * ice%rho_v(i,k)
 
               !..note that a_f includes more than just ventilation, do never ever set f_v=1
               f_v  = vid_params%a_f + vid_params%b_f * sqrt(v_i*d_i)
@@ -3255,9 +3249,9 @@ CONTAINS
             ELSE
                n_g = graupel%n(i,k)
                q_g = graupel%q(i,k)
-               x_g = graupel%meanmass(q_g,n_g)
-               d_g = graupel%diameter(x_g)
-               v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
+               x_g = particle_meanmass(graupel, q_g,n_g)
+               d_g = particle_diameter(graupel, x_g)
+               v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
 
                f_v  = vgd_params%a_f + vgd_params%b_f * sqrt(v_g*d_g)
                f_v  = MAX(f_v,vgd_params%a_f/graupel%a_ven)
@@ -3282,9 +3276,9 @@ CONTAINS
             ELSE
                n_h = hail%n(i,k)
                q_h = hail%q(i,k)
-               x_h = hail%meanmass(q_h,n_h)
-               D_h = hail%diameter(x_h)
-               v_h = hail%velocity(x_h) * hail%rho_v(i,k)
+               x_h = particle_meanmass(hail, q_h,n_h)
+               D_h = particle_diameter(hail, x_h)
+               v_h = particle_velocity(hail, x_h) * hail%rho_v(i,k)
 
                f_v  = vhd_params%a_f + vhd_params%b_f * sqrt(v_h*d_h)
                f_v  = MAX(f_v,vhd_params%a_f/hail%a_ven)
@@ -3310,9 +3304,9 @@ CONTAINS
                n_s = snow%n(i,k)
                q_s = snow%q(i,k)
 
-               x_s = snow%meanmass(q_s,n_s)
-               D_s = snow%diameter(x_s)
-               v_s = snow%velocity(x_s) * snow%rho_v(i,k)
+               x_s = particle_meanmass(snow, q_s,n_s)
+               D_s = particle_diameter(snow, x_s)
+               v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
 
                f_v  = vsd_params%a_f + vsd_params%b_f * sqrt(D_s*v_s)
                f_v  = MAX(f_v,vsd_params%a_f/snow%a_ven)
@@ -3351,8 +3345,8 @@ CONTAINS
           n = prtcl%n(i,k)
           q = prtcl%q(i,k)
 
-          x = prtcl%meanmass(q,n)
-          D = prtcl%diameter(x)
+          x = particle_meanmass(prtcl, q,n)
+          D = particle_diameter(prtcl, x)
           v = particle_velocity(prtcl, x) * prtcl%rho_v(i,k)
 
           f_v  = params%a_f + params%b_f * SQRT(D*v)
@@ -3439,7 +3433,7 @@ CONTAINS
                    fr_n_tmp = 0.0 ; fr_q_tmp = 0.0
                 END IF
              ELSE
-                x_r = rain%meanmass(q_r,n_r)
+                x_r = particle_meanmass(rain, q_r,n_r)
                 n_r = q_r / x_r
                 IF (T_a < T_f) THEN
                    ! Diesen Zweig koennte man auch weglassen. ist zudem zwar quantitativ richtig,
@@ -3644,8 +3638,8 @@ CONTAINS
           q_i = ice%q(i,k)
           n_i = ice%n(i,k)
 
-          x_i = ice%meanmass(q_i,n_i)
-          D_i = ice%diameter(x_i)
+          x_i = particle_meanmass(ice, q_i,n_i)
+          D_i = particle_diameter(ice, x_i)
 
           IF ( n_i > 0.0_wp .AND. q_i > q_crit_ii .AND. D_i > D_crit_ii ) THEN
 
@@ -3742,9 +3736,9 @@ CONTAINS
              e_coll = MAX(0.1_wp,MIN(EXP(0.09*(T_a-T_3)),1.0_wp))
 
              n_s = snow%n(i,k)
-             x_s = snow%meanmass(q_s,n_s)
-             D_s = snow%diameter(x_s)
-             v_s = snow%velocity(x_s) * snow%rho_v(i,k)
+             x_s = particle_meanmass(snow, q_s,n_s)
+             D_s = particle_diameter(snow, x_s)
+             v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
 
              self_n = pi8 * e_coll * n_s * n_s * snow_sc_delta_n * D_s * D_s * &
                   &          sqrt(  snow_sc_theta_n * v_s * v_s                &
@@ -3794,9 +3788,9 @@ CONTAINS
             e_a = e_ws(T_a)            ! saturation pressure
             n_s = snow%n(i,k)
 
-            x_s = snow%meanmass(q_s,n_s)
-            D_s = snow%diameter(x_s)
-            v_s = snow%velocity(x_s) * snow%rho_v(i,k)
+            x_s = particle_meanmass(snow, q_s,n_s)
+            D_s = particle_diameter(snow, x_s)
+            v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
 
             fv_q = sm_params%a_vent + sm_params%b_vent * sqrt(v_s*D_s)
 
@@ -3879,13 +3873,13 @@ CONTAINS
             n_s = snow%n(i,k)
             n_g = graupel%n(i,k)
 
-            x_g = graupel%meanmass(q_g,n_g)
-            d_g = graupel%diameter(x_g)
-            v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
+            x_g = particle_meanmass(graupel, q_g,n_g)
+            d_g = particle_diameter(graupel, x_g)
+            v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
 
-            x_s = snow%meanmass(q_s,n_s)
-            d_s = snow%diameter(x_s)
-            v_s = snow%velocity(x_s) * snow%rho_v(i,k)
+            x_s = particle_meanmass(snow, q_s,n_s)
+            d_s = particle_diameter(snow, x_s)
+            v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
 
             coll_n = pi4 * n_g * n_s * e_coll * dt &
                  & *     (gsc_params%delta_n_aa * D_g**2 + gsc_params%delta_n_ab * D_g*D_s + gsc_params%delta_n_bb * D_s**2) &
@@ -3951,13 +3945,13 @@ CONTAINS
             n_s = snow%n(i,k)
             n_h = hail%n(i,k)
 
-            x_s = snow%meanmass(q_s,n_s)
-            D_s = snow%diameter(x_s)
-            v_s = snow%velocity(x_s) * snow%rho_v(i,k)
+            x_s = particle_meanmass(snow, q_s,n_s)
+            D_s = particle_diameter(snow, x_s)
+            v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
 
-            x_h = hail%meanmass(q_h,n_h)
-            D_h = hail%diameter(x_h)
-            v_h = hail%velocity(x_h) * hail%rho_v(i,k)
+            x_h = particle_meanmass(hail, q_h,n_h)
+            D_h = particle_diameter(hail, x_h)
+            v_h = particle_velocity(hail, x_h) * hail%rho_v(i,k)
 
             coll_n = pi4 * n_h * n_s * e_coll * dt &
                  & *     (hsc_params%delta_n_aa * D_h**2 + hsc_params%delta_n_ab * D_h*D_s + hsc_params%delta_n_bb * D_s**2) &
@@ -4022,13 +4016,13 @@ CONTAINS
             n_i = ice%n(i,k)
             n_g = graupel%n(i,k)
 
-            x_g = graupel%meanmass(q_g,n_g)
-            d_g = graupel%diameter(x_g)
-            v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
+            x_g = particle_meanmass(graupel, q_g,n_g)
+            d_g = particle_diameter(graupel, x_g)
+            v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
 
-            x_i = ice%meanmass(q_i,n_i)
-            d_i = ice%diameter(x_i)
-            v_i = ice%velocity(x_i) * ice%rho_v(i,k)
+            x_i = particle_meanmass(ice, q_i,n_i)
+            d_i = particle_diameter(ice, x_i)
+            v_i = particle_velocity(ice, x_i) * ice%rho_v(i,k)
 
             coll_n = pi4 * n_g * n_i * e_coll * dt &
                  & *     (gic_params%delta_n_aa * D_g**2 + gic_params%delta_n_ab * D_g*D_i + gic_params%delta_n_bb * D_i**2) &
@@ -4091,13 +4085,13 @@ CONTAINS
             n_i = ice%n(i,k)
             n_h = hail%n(i,k)
 
-            x_h = hail%meanmass(q_h,n_h)
-            D_h = hail%diameter(x_h)
-            v_h = hail%velocity(x_h) * hail%rho_v(i,k)
+            x_h = particle_meanmass(hail, q_h,n_h)
+            D_h = particle_diameter(hail, x_h)
+            v_h = particle_velocity(hail, x_h) * hail%rho_v(i,k)
 
-            x_i = ice%meanmass(q_i,n_i)
-            D_i = ice%diameter(x_i)
-            v_i = ice%velocity(x_i) * ice%rho_v(i,k)
+            x_i = particle_meanmass(ice, q_i,n_i)
+            D_i = particle_diameter(ice, x_i)
+            v_i = particle_velocity(ice, x_i) * ice%rho_v(i,k)
 
             coll_n = pi4 * n_h * n_i * e_coll * dt &
                  & *     (hic_params%delta_n_aa * D_h**2 + hic_params%delta_n_ab * D_h*D_i + hic_params%delta_n_bb * D_i**2) &
@@ -4160,13 +4154,13 @@ CONTAINS
             n_i = ice%n(i,k)
             n_s = snow%n(i,k)
 
-            x_i = ice%meanmass(q_i,n_i)
-            d_i = ice%diameter(x_i)
-            v_i = ice%velocity(x_i) * ice%rho_v(i,k)
+            x_i = particle_meanmass(ice, q_i,n_i)
+            d_i = particle_diameter(ice, x_i)
+            v_i = particle_velocity(ice, x_i) * ice%rho_v(i,k)
 
-            x_s = snow%meanmass(q_s,n_s)
-            d_s = snow%diameter(x_s)
-            v_s = snow%velocity(x_s) * snow%rho_v(i,k)
+            x_s = particle_meanmass(snow, q_s,n_s)
+            d_s = particle_diameter(snow, x_s)
+            v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
 
             coll_n = pi4 * n_s * n_i * e_coll * dt &
                  & *     (sic_params%delta_n_aa * D_s**2 + sic_params%delta_n_ab * D_s*D_i + sic_params%delta_n_bb * D_i**2) &
@@ -4248,9 +4242,9 @@ CONTAINS
           IF ( q_g > q_crit ) THEN
 
              n_g = graupel%n(i,k)
-             x_g = graupel%meanmass(q_g,n_g)
-             d_g = graupel%diameter(x_g)
-             v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
+             x_g = particle_meanmass(graupel, q_g,n_g)
+             d_g = particle_diameter(graupel, x_g)
+             v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
 
              self_n = graupel_sc_coll_n * n_g**2 * D_g**2 * v_g * dt
 
@@ -4300,7 +4294,7 @@ CONTAINS
           IF (atmo%T(i,k) > T_3 .AND. q_i > 0.0) THEN
 
             n_i = ice%n(i,k)
-            x_i = ice%meanmass(q_i,n_i)
+            x_i = particle_meanmass(ice, q_i,n_i)
 
             ! complete melting within this time step
             melt_q = q_i
@@ -4368,17 +4362,17 @@ CONTAINS
           n_c = cloud%n(i,k)
           n_g = graupel%n(i,k)
 
-          x_g = graupel%meanmass(q_g,n_g)
-          D_g = graupel%diameter(x_g)
-          x_c = cloud%meanmass(q_c,n_c)
-          D_c = cloud%diameter(x_c)
+          x_g = particle_meanmass(graupel, q_g,n_g)
+          D_g = particle_diameter(graupel, x_g)
+          x_c = particle_meanmass(cloud, q_c,n_c)
+          D_c = particle_diameter(cloud, x_c)
 
           T_a = atmo%T(i,k)
           IF (q_c > q_crit_c .AND. q_g > q_crit_gc .AND. D_g > D_crit_gc .AND. &
                & D_c > D_crit_c) THEN
 
-             v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
-             v_c = cloud%velocity(x_c)   * cloud%rho_v(i,k)
+             v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
+             v_c = particle_velocity(cloud, x_c)   * cloud%rho_v(i,k)
 
              e_coll_n = MIN(ecoll_gc, MAX(const1*(D_c - D_crit_c),ecoll_min))
              e_coll_q = e_coll_n
@@ -4434,7 +4428,7 @@ CONTAINS
              IF ((graupel_shedding .AND. D_g > D_shed_g .AND. T_a > T_shed) .OR. T_a > T_3 ) THEN
                 q_g = graupel%q(i,k)
                 n_g = graupel%n(i,k)
-                x_g = graupel%meanmass(q_g,n_g)
+                x_g = particle_meanmass(graupel, q_g,n_g)
 
                 shed_q = MIN(q_g,rime_q)
                 shed_n = shed_q / MIN(x_shed,x_g)
@@ -4499,16 +4493,16 @@ CONTAINS
           n_c = cloud%n(i,k)
           n_h = hail%n(i,k)
 
-          x_h = hail%meanmass(q_h,n_h)
-          D_h = hail%diameter(x_h)
-          x_c = cloud%meanmass(q_c,n_c)
-          D_c = cloud%diameter(x_c)
+          x_h = particle_meanmass(hail, q_h,n_h)
+          D_h = particle_diameter(hail, x_h)
+          x_c = particle_meanmass(cloud, q_c,n_c)
+          D_c = particle_diameter(cloud, x_c)
 
           IF (q_c > q_crit_c .AND. q_h > q_crit_hc .AND. D_h > D_crit_hc .AND. &
                & D_c > D_crit_c) THEN
 
-            v_h = hail%velocity(x_h)  * hail%rho_v(i,k)
-            v_c = cloud%velocity(x_c) * cloud%rho_v(i,k)
+            v_h = particle_velocity(hail, x_h)  * hail%rho_v(i,k)
+            v_c = particle_velocity(cloud, x_c) * cloud%rho_v(i,k)
 
             e_coll_n = MIN(ecoll_hc, MAX(const1*(D_c - D_crit_c),ecoll_min))
             e_coll_q = e_coll_n
@@ -4561,7 +4555,7 @@ CONTAINS
             IF ((D_h > D_shed_h .AND. T_a > T_shed .AND. hail_shedding) .OR. T_a > T_3 ) THEN
               q_h = hail%q(i,k)
               n_h = hail%n(i,k)
-              x_h = hail%meanmass(q_h,n_h)
+              x_h = particle_meanmass(hail, q_h,n_h)
 
               shed_q = MIN(q_h,rime_q)
               shed_n = shed_q / MIN(x_shed,x_h)
@@ -4622,12 +4616,12 @@ CONTAINS
             n_r = rain%n(i,k)
             n_g = graupel%n(i,k)
 
-            x_g = graupel%meanmass(q_g,n_g)
-            d_g = graupel%diameter(x_g)
-            v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
-            x_r = rain%meanmass(q_r,n_r)
-            d_r = rain%diameter(x_r)
-            v_r = rain%velocity(x_r) * rain%rho_v(i,k)
+            x_g = particle_meanmass(graupel, q_g,n_g)
+            d_g = particle_diameter(graupel, x_g)
+            v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
+            x_r = particle_meanmass(rain, q_r,n_r)
+            d_r = particle_diameter(rain, x_r)
+            v_r = particle_velocity(rain, x_r) * rain%rho_v(i,k)
 
             rime_n = pi4 * n_g * n_r * dt &
                  & *     (grr_params%delta_n_aa * D_g**2 + grr_params%delta_n_ab * D_g*D_r + grr_params%delta_n_bb * D_r**2) &
@@ -4681,7 +4675,7 @@ CONTAINS
             IF ((graupel_shedding .AND. D_g > D_shed_g .AND. T_a > T_shed) .OR. T_a > T_3 ) THEN
                q_g = graupel%q(i,k)
                n_g = graupel%n(i,k)
-               x_g = graupel%meanmass(q_g,n_g)
+               x_g = particle_meanmass(graupel, q_g,n_g)
 
                shed_q = MIN(q_g,rime_q)
                IF (T_a <= T_3) THEN
@@ -4747,13 +4741,13 @@ CONTAINS
             n_r = rain%n(i,k)
             n_h = hail%n(i,k)
 
-            x_h = hail%meanmass(q_h,n_h)
-            D_h = hail%diameter(x_h)
-            v_h = hail%velocity(x_h) * hail%rho_v(i,k)
+            x_h = particle_meanmass(hail, q_h,n_h)
+            D_h = particle_diameter(hail, x_h)
+            v_h = particle_velocity(hail, x_h) * hail%rho_v(i,k)
 
-            x_r = rain%meanmass(q_r,n_r)
-            D_r = rain%diameter(x_r)
-            v_r = rain%velocity(x_r) * rain%rho_v(i,k)
+            x_r = particle_meanmass(rain, q_r,n_r)
+            D_r = particle_diameter(rain, x_r)
+            v_r = particle_velocity(rain, x_r) * rain%rho_v(i,k)
 
             rime_n = pi4 * n_h * n_r * dt &
                  & *     (hrr_params%delta_n_aa * D_h**2 + hrr_params%delta_n_ab * D_h*D_r + hrr_params%delta_n_bb * D_r**2) &
@@ -4807,7 +4801,7 @@ CONTAINS
             IF ((hail_shedding .AND. D_h > D_shed_h .AND. T_a > T_shed) .OR. T_a > T_3 ) THEN
               q_h = hail%q(i,k)
               n_h = hail%n(i,k)
-              x_h = hail%meanmass(q_h,n_h)
+              x_h = particle_meanmass(hail, q_h,n_h)
 
               shed_q = MIN(q_h,rime_q)
               IF (T_a <= T_3) THEN
@@ -4865,9 +4859,9 @@ CONTAINS
              e_a = e_ws(T_a)
              n_g = graupel%n(i,k)
 
-             x_g = graupel%meanmass(q_g,n_g)
-             D_g = graupel%diameter(x_g)
-             v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
+             x_g = particle_meanmass(graupel, q_g,n_g)
+             D_g = particle_diameter(graupel, x_g)
+             v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
 
              fv_q = gm_params%a_vent + gm_params%b_vent * SQRT(v_g*D_g)
              fh_q = 1.05 * fv_q
@@ -4933,9 +4927,9 @@ CONTAINS
             e_a = e_ws(T_a)
             n_h = hail%n(i,k)
 
-            x_h = hail%meanmass(q_h,n_h)
-            D_h = hail%diameter(x_h)
-            v_h = hail%velocity(x_h) * hail%rho_v(i,k)
+            x_h = particle_meanmass(hail, q_h,n_h)
+            D_h = particle_diameter(hail, x_h)
+            v_h = particle_velocity(hail, x_h) * hail%rho_v(i,k)
 
             fv_q = hm_params%a_vent + hm_params%b_vent * sqrt(v_h*D_h)
             fh_q = 1.05 * fv_q                            ! UB: based on Rasmussen and Heymsfield
@@ -5002,8 +4996,8 @@ CONTAINS
           q_g = graupel%q(i,k)
           n_g = graupel%n(i,k)
 
-          x_g = graupel%meanmass(q_g,n_g)
-          D_g = graupel%diameter(x_g)
+          x_g = particle_meanmass(graupel, q_g,n_g)
+          D_g = particle_diameter(graupel, x_g)
           n_g = q_g / x_g  ! for consistency for limiters, n_g is used explicitly below
 
           T_a = atmo%T(i,k)
@@ -5179,8 +5173,8 @@ CONTAINS
 
               n_i = ice%n(i,k)
               q_i = ice%q(i,k)
-              x_i = ice%meanmass(q_i,n_i)
-              D_i = ice%diameter(x_i)
+              x_i = particle_meanmass(ice, q_i,n_i)
+              D_i = particle_diameter(ice, x_i)
 
               rime_q = rime_rate_qc(i,k)
               rime_n = rime_rate_nc(i,k)
@@ -5208,7 +5202,7 @@ CONTAINS
                  q_i = ice%q(i,k)
                  conv_q = (rime_q - mult_q) / ( const5 * (pi6*rho_ice*d_i**3/x_i - 1.0) )
                  conv_q = MIN(q_i,conv_q)
-                 x_i    = ice%meanmass(q_i,n_i)
+                 x_i    = particle_meanmass(ice, q_i,n_i)
                  conv_n = conv_q / MAX(x_i,x_conv)
                  conv_n = MIN(ice%n(i,k),conv_n)
               ELSE
@@ -5253,7 +5247,7 @@ CONTAINS
               IF (T_a >= T_3) THEN
                  ! shedding of rain at warm temperatures
                  ! i.e. undo time integration, but with modified rain%n
-                 x_r = rain%meanmass(rain%q(i,k),rain%n(i,k))
+                 x_r = particle_meanmass(rain, rain%q(i,k),rain%n(i,k))
                  ice%n(i,k)  = ice%n(i,k)  + rime_n
                  rain%n(i,k) = rain%n(i,k) + rime_qr / x_r
                  ice%q(i,k)  = ice%q(i,k)  + rime_qi
@@ -5297,15 +5291,15 @@ CONTAINS
             n_i = ice%n(i,k)
             q_i = ice%q(i,k)
 
-            x_c = cloud%meanmass(q_c,n_c)
-            D_c = cloud%diameter(x_c)
-            x_i = ice%meanmass(q_i,n_i)
-            D_i = ice%diameter(x_i)
+            x_c = particle_meanmass(cloud, q_c,n_c)
+            D_c = particle_diameter(cloud, x_c)
+            x_i = particle_meanmass(ice, q_i,n_i)
+            D_i = particle_diameter(ice, x_i)
 
             IF (q_c > q_crit_c .AND. q_i > q_crit_ic .AND. D_i > D_crit_ic .AND. D_c > D_crit_c) THEN
 
-               v_c = cloud%velocity(x_c) * cloud%rho_v(i,k)
-               v_i = ice%velocity(x_i)   * ice%rho_v(i,k)
+               v_c = particle_velocity(cloud, x_c) * cloud%rho_v(i,k)
+               v_i = particle_velocity(ice, x_i)   * ice%rho_v(i,k)
 
                e_coll = MIN(ecoll_ic, MAX(const1*(D_c - D_crit_c), ecoll_min))
 
@@ -5354,15 +5348,15 @@ CONTAINS
             n_r = rain%n(i,k)
             n_i = ice%n(i,k)
 
-            x_i = ice%meanmass(q_i,n_i)
-            D_i = ice%diameter(x_i)
+            x_i = particle_meanmass(ice, q_i,n_i)
+            D_i = particle_diameter(ice, x_i)
 
             IF (q_r > q_crit .AND. q_i > q_crit_ir .AND. D_i > D_crit_ir) THEN
 
-               x_r = rain%meanmass(q_r,n_r)
-               D_r = rain%diameter(x_r)
-               v_r = rain%velocity(x_r) * rain%rho_v(i,k)
-               v_i = ice%velocity(x_i) * ice%rho_v(i,k)
+               x_r = particle_meanmass(rain, q_r,n_r)
+               D_r = particle_diameter(rain, x_r)
+               v_r = particle_velocity(rain, x_r) * rain%rho_v(i,k)
+               v_i = particle_velocity(ice, x_i) * ice%rho_v(i,k)
 
                rime_n  = pi4 * n_i * n_r * dt &
                     &  *     (irr_params%delta_n_aa * D_i * D_i &
@@ -5547,8 +5541,8 @@ CONTAINS
 
               n_s = snow%n(i,k)
               q_s = snow%q(i,k)
-              x_s = snow%meanmass(q_s,n_s)
-              D_s = snow%diameter(x_s)
+              x_s = particle_meanmass(snow, q_s,n_s)
+              D_s = particle_diameter(snow, x_s)
 
               rime_q = rime_rate_qc(i,k)
               rime_n = rime_rate_nc(i,k)
@@ -5580,7 +5574,7 @@ CONTAINS
               IF (D_s > D_conv_sg) THEN
                  conv_q = (rime_q - mult_q) / ( const5 * (pi6*rho_ice*d_s**3/x_s - 1.0) )
                  conv_q = MIN(q_s,conv_q)
-                 x_s    = snow%meanmass(q_s,n_s)
+                 x_s    = particle_meanmass(snow, q_s,n_s)
                  conv_n = conv_q / MAX(x_s,x_conv)
                  conv_n = MIN(snow%n(i,k),conv_n)
               ELSE
@@ -5629,7 +5623,7 @@ CONTAINS
               IF (T_a >= T_3) THEN
                  ! shedding of rain at warm temperatures
                  ! i.e. undo time integration, but with modified rain%n
-                 x_r = rain%meanmass(rain%q(i,k),rain%n(i,k))
+                 x_r = particle_meanmass(rain, rain%q(i,k),rain%n(i,k))
                  snow%n(i,k) = snow%n(i,k) + rime_n
                  rain%n(i,k) = rain%n(i,k) + rime_qr / x_r
                  snow%q(i,k) = snow%q(i,k) + rime_qs
@@ -5670,15 +5664,15 @@ CONTAINS
          n_r = rain%n(i,k)
          n_s = snow%n(i,k)
 
-         x_s = snow%meanmass(q_s,n_s)
-         D_s = snow%diameter(x_s)
+         x_s = particle_meanmass(snow, q_s,n_s)
+         D_s = particle_diameter(snow, x_s)
 
          IF (q_r > q_crit .AND. q_s > q_crit_sr .AND. D_s > D_crit_sr) THEN
 
-            x_r = rain%meanmass(q_r,n_r)
-            D_r = rain%diameter(x_r)
-            v_r = rain%velocity(x_r) * rain%rho_v(i,k)
-            v_s = snow%velocity(x_s) * snow%rho_v(i,k)
+            x_r = particle_meanmass(rain, q_r,n_r)
+            D_r = particle_diameter(rain, x_r)
+            v_r = particle_velocity(rain, x_r) * rain%rho_v(i,k)
+            v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
 
             rime_n = pi4 * n_s * n_r * dt &
                  & *     (srr_params%delta_n_aa * D_s**2 + srr_params%delta_n_ab * D_s*D_r + srr_params%delta_n_bb * D_r**2) &
@@ -5724,15 +5718,15 @@ CONTAINS
            n_s = snow%n(i,k)
            q_s = snow%q(i,k)
 
-           x_c = cloud%meanmass(q_c,n_c)
-           D_c = cloud%diameter(x_c)
-           x_s = snow%meanmass(q_s,n_s)
-           D_s = snow%diameter(x_s)
+           x_c = particle_meanmass(cloud, q_c,n_c)
+           D_c = particle_diameter(cloud, x_c)
+           x_s = particle_meanmass(snow, q_s,n_s)
+           D_s = particle_diameter(snow, x_s)
 
            IF (q_c > q_crit_c .AND. q_s > q_crit_sc .AND. D_s > D_crit_sc .AND. D_c > D_crit_c) THEN
 
-              v_c = cloud%velocity(x_c) * cloud%rho_v(i,k)
-              v_s = snow%velocity(x_s)  * snow%rho_v(i,k)
+              v_c = particle_velocity(cloud, x_c) * cloud%rho_v(i,k)
+              v_s = particle_velocity(snow, x_s)  * snow%rho_v(i,k)
 
               e_coll = MIN(ecoll_sc, MAX(const1*(D_c - D_crit_c), ecoll_min))
 
@@ -6223,8 +6217,8 @@ CONTAINS
 
         IF (qp(i,k) > q_crit) THEN
 
-          x_p = rain%meanmass(qp(i,k) ,np(i,k))
-          D_m = rain%diameter(x_p)
+          x_p = particle_meanmass(rain, qp(i,k) ,np(i,k))
+          D_m = particle_diameter(rain, x_p)
           IF (qc(i,k) >= q_crit) THEN
             mue = (rain%nu+1.0_wp)/rain%b_geo - 1.0_wp
           ELSE
@@ -6370,7 +6364,7 @@ CONTAINS
       DO i = its,ite
         IF (qp(i,k) > q_crit) THEN
 
-          x_p = ptype%meanmass(qp(i,k),np(i,k))
+          x_p = particle_meanmass(ptype, qp(i,k),np(i,k))
           lam = EXP(ptype%b_vel* LOG(pcoeffs%coeff_lambda*x_p))
 
           v_n = pcoeffs%coeff_alfa_n * lam

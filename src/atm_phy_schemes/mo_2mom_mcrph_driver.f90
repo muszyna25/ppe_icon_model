@@ -62,6 +62,7 @@ USE mo_2mom_mcrph_main,     ONLY:                              &
      &                       sedi_vel_rain, sedi_vel_sphere,   &
      &                       sedi_icon_rain,sedi_icon_sphere,  &
      &                       atmosphere, particle,             &
+     &                       particle_meanmass, &
      &                       rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
      &                       ccn_coeffs, in_coeffs,                     &
      &                       init_2mom_scheme, init_2mom_scheme_once,   &
@@ -534,11 +535,11 @@ CONTAINS
       DO k=kts+1,kte
 
         do i=its,ite
-           xr_now(i) = rain%meanmass(qr(i,k),qnr(i,k))
-           xi_now(i) = ice%meanmass(qi(i,k),qni(i,k))
-           xs_now(i) = snow%meanmass(qs(i,k),qns(i,k))
-           xg_now(i) = graupel%meanmass(qg(i,k),qng(i,k))
-           xh_now(i) = hail%meanmass(qh(i,k),qnh(i,k))
+           xr_now(i) = particle_meanmass(rain, qr(i,kts),qnr(i,kts))
+           xi_now(i) = particle_meanmass(ice, qi(i,kts),qni(i,kts))
+           xs_now(i) = particle_meanmass(snow, qs(i,kts),qns(i,kts))
+           xg_now(i) = particle_meanmass(graupel, qg(i,kts),qng(i,kts))
+           xh_now(i) = particle_meanmass(hail, qh(i,kts),qnh(i,kts))
         end do
 
         call sedi_vel_rain(rain,rain_coeffs,qr(:,k),xr_now,vr_sedn_now,vr_sedq_now,its,ite,qc(:,k))
