@@ -2,7 +2,11 @@ MODULE mo_divide_cells_by_location_mpi
 #ifndef NOMPI
   USE mo_kind, ONLY: i8, wp
   USE mo_mpi, ONLY: mpi_op_null, mpi_datatype_null, mpi_success, abort_mpi, &
-       mpi_in_place, p_int, p_int_i8, mpi_address_kind, mpi_sum, MPI_2INTEGER
+       mpi_in_place, p_int, p_int_i8, mpi_address_kind, mpi_sum, mpi_2integer, &
+       mpi_integer
+#ifdef SLOW_MPI_USER_REDUCTION
+  USE mpi, ONLY: mpi_min, mpi_max
+#endif
   USE mo_math_utilities, ONLY: flp_lon, flp_lat
   USE mo_decomposition_tools, ONLY: t_cell_info
   USE mo_io_units, ONLY: nerr
@@ -15,7 +19,7 @@ MODULE mo_divide_cells_by_location_mpi
   INTEGER :: divide_cells_reduce_dt = mpi_datatype_null
   TYPE t_divide_cells_agg
     SEQUENCE
-    INTEGER :: max_lat, min_lat, max_lon, min_lon
+    INTEGER :: max_lat, max_lon, min_lat, min_lon
     INTEGER(i8) :: lat_sum, lon_sum
   END TYPE t_divide_cells_agg
 
@@ -25,9 +29,12 @@ MODULE mo_divide_cells_by_location_mpi
 CONTAINS
 
   SUBROUTINE init_divide_cells_by_location_mpi
+#ifndef SLOW_MPI_USER_REDUCTION
     IF (divide_cells_reduce_dt == mpi_datatype_null) CALL create_dc_op_and_dt
+#endif
   END SUBROUTINE init_divide_cells_by_location_mpi
 
+#ifndef SLOW_MPI_USER_REDUCTION
   SUBROUTINE divide_cells_agg(a, b, n, dt)
     INTEGER, INTENT(in) :: n, dt
     TYPE(t_divide_cells_agg), INTENT(in) :: a(n)
@@ -111,6 +118,7 @@ CONTAINS
       CALL abort_mpi
     END IF
   END SUBROUTINE create_dc_op_and_dt
+#endif
 
   !-------------------------------------------------------------------------
   !>
@@ -137,6 +145,9 @@ CONTAINS
     INTEGER :: nsubpart, i, ierror
     TYPE(stack) :: part_size_stack(0:BIT_SIZE(1))
     INTEGER :: cell_num_bounds(2)
+#ifdef SLOW_MPI_IN_PLACE
+    INTEGER :: cell_num_bounds_temp(2)
+#endif
 
     cell_num_bounds(1) = HUGE(cell_num_bounds(1))
     cell_num_bounds(2) = -HUGE(cell_num_bounds(2))
@@ -145,6 +156,7 @@ CONTAINS
       cell_num_bounds(1) = MIN(cell_num_bounds(1), cell_desc(i)%cell_number)
       cell_num_bounds(2) = MAX(cell_num_bounds(2), cell_desc(i)%cell_number)
     END DO
+#ifndef SLOW_MPI_USER_REDUCTION
     CALL mpi_allreduce(mpi_in_place, cell_num_bounds, 1, MPI_2INTEGER, &
          cell_num_bounds_reduce_op, comm, ierror)
     IF (ierror /= mpi_success) THEN
@@ -152,6 +164,27 @@ CONTAINS
       WRITE (nerr,'(a,i4)') ' Error =  ', ierror
       CALL abort_mpi
     END IF
+#else
+#  ifdef SLOW_MPI_IN_PLACE
+    CALL mpi_allreduce(cell_num_bounds(1), cell_num_bounds_temp(1), &
+         1, mpi_integer, mpi_min, comm, ierror)
+    IF (ierror /= mpi_success) THEN
+      WRITE (nerr,'(a,a)') method_name, ' mpi_allreduce failed.'
+      WRITE (nerr,'(a,i4)') ' Error =  ', ierror
+      CALL abort_mpi
+    END IF
+    CALL mpi_allreduce(cell_num_bounds(2), cell_num_bounds_temp(2), &
+         1, mpi_integer, mpi_max, comm, ierror)
+    IF (ierror /= mpi_success) THEN
+      WRITE (nerr,'(a,a)') method_name, ' mpi_allreduce failed.'
+      WRITE (nerr,'(a,i4)') ' Error =  ', ierror
+      CALL abort_mpi
+    END IF
+    cell_num_bounds = cell_num_bounds_temp
+#  else
+    "mpi_in_place without mpi user reductions unimplemented"
+#  endif
+#endif
 
     ! set owner to 0 to reflect intermediate assignment to root set
     ! at first the corresponding path will be temporarily stored in %owner
@@ -257,9 +290,11 @@ CONTAINS
       INTEGER :: pivot_le(max_pivot_le, 2)
       INTEGER :: npivot_le, ncells2divide
       INTEGER :: pivot_guess_min, pivot_guess_med, pivot_guess_max
-      LOGICAL :: pivot_found
       REAL(wp) :: min_lat, max_lat, min_lon, max_lon, avglat, scalexp
-
+#ifdef SLOW_MPI_IN_PLACE
+      TYPE(t_divide_cells_agg) :: agg_temp
+      INTEGER :: pivot_le_temp(max_pivot_le)
+#endif
       agg%min_lat = HUGE(agg%min_lat)
       agg%max_lat = -HUGE(agg%max_lat)
       agg%min_lon = HUGE(agg%min_lon)
@@ -278,6 +313,7 @@ CONTAINS
         END IF
       END DO
 
+#ifndef SLOW_MPI_USER_REDUCTION
       CALL mpi_allreduce(mpi_in_place, agg, 1, divide_cells_reduce_dt, &
            divide_cells_reduce_op, comm, ierror)
       IF (ierror /= mpi_success) THEN
@@ -285,6 +321,34 @@ CONTAINS
         WRITE (nerr,'(a,i4)') ' Error =  ', ierror
         CALL abort_mpi
       END IF
+#else
+#  ifdef SLOW_MPI_IN_PLACE
+      CALL mpi_allreduce(agg%min_lat, agg_temp%min_lat, 2, mpi_integer, &
+           mpi_min, comm, ierror)
+      IF (ierror /= mpi_success) THEN
+        WRITE (nerr,'(a,a)') method_name, ' mpi_allreduce failed.'
+        WRITE (nerr,'(a,i4)') ' Error =  ', ierror
+        CALL abort_mpi
+      END IF
+      CALL mpi_allreduce(agg%max_lat, agg_temp%max_lat, 2, mpi_integer, &
+           mpi_max, comm, ierror)
+      IF (ierror /= mpi_success) THEN
+        WRITE (nerr,'(a,a)') method_name, ' mpi_allreduce failed.'
+        WRITE (nerr,'(a,i4)') ' Error =  ', ierror
+        CALL abort_mpi
+      END IF
+      CALL mpi_allreduce(agg%lat_sum, agg_temp%lat_sum, 2, p_int_i8, &
+           mpi_sum, comm, ierror)
+      IF (ierror /= mpi_success) THEN
+        WRITE (nerr,'(a,a)') method_name, ' mpi_allreduce failed.'
+        WRITE (nerr,'(a,i4)') ' Error =  ', ierror
+        CALL abort_mpi
+      END IF
+      agg = agg_temp
+#  else
+     "mpi_in_place without mpi user reductions unimplemented"
+#  endif
+#endif
 
       min_lon = flp_lon(agg%min_lon)
       min_lat = flp_lat(agg%min_lat)
@@ -334,9 +398,15 @@ CONTAINS
         END DO
 !$OMP END DO
 !$OMP END PARALLEL
-
+#ifndef SLOW_MPI_IN_PLACE
         CALL mpi_allreduce(mpi_in_place, pivot_le(1:npivot_le, 2), &
-             npivot_le, p_int, mpi_sum, comm, ierror)
+             npivot_le, mpi_integer, mpi_sum, comm, ierror)
+#else
+        CALL mpi_allreduce(pivot_le(1:npivot_le, 2), &
+             pivot_le_temp(1:npivot_le), &
+             npivot_le, mpi_integer, mpi_sum, comm, ierror)
+        pivot_le(1:npivot_le, 2) = pivot_le_temp(1:npivot_le)
+#endif
         IF (ierror /= mpi_success) THEN
           WRITE (nerr,'(a,a)') method_name, ' mpi_allreduce failed.'
           WRITE (nerr,'(a,i4)') ' Error =  ', ierror
@@ -396,7 +466,7 @@ CONTAINS
       TYPE(t_pivot), INTENT(in) :: pivot
       INTEGER, INTENT(in) :: pivot_val, method, ipath
       INTEGER :: count_le
-      SELECT CASE (pivot%div_method)
+      SELECT CASE (method)
       CASE (dm_lat)
         count_le = COUNT(cell_desc%owner == ipath &
              &           .AND. cell_desc%lat .LE. pivot_val)

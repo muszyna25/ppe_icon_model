@@ -100,7 +100,7 @@ case "$fortran_compiler" in
         OPTFLAGS = -q64 -O2  -qmaxmem=-1 -qstrict -qarch=auto -qtune=auto -qcache=auto -qfloat=fltint
         INFOFLAGS= -qlistopt -qphsinfo -V
         INFOFLAGS=
-        GENFLAGS = $INFOFLAGS -WF,-DSLOW_MPI_MAXMINLOC
+        GENFLAGS = $INFOFLAGS -WF,-DSLOW_MPI_MAXMINLOC -WF,-DSLOW_MPI_USER_REDUCTION -WF,-DSLOW_MPI_IN_PLACE
         CFLAGS   = -DHAVE_CF_INTERFACE -DIBMR2Fortran -O2 -qipa
 
         FC       = mpixlf2003_r
