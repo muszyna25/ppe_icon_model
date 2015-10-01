@@ -390,13 +390,13 @@ CONTAINS
           pivot_le(i, 1) = pivot_guess_min + INT(INT(i - 1, i8) * nom1 / denom1)
           pivot_le(i, 2) = count_le(pivot, pivot_le(i, 1), pivot%div_method, path)
         END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP DO
         DO i = npivot_le/2 + 2, npivot_le
           pivot_le(i, 1) = pivot_guess_med + INT(INT(i - npivot_le/2 - 1, i8) * nom2 / denom2)
           pivot_le(i, 2) = count_le(pivot, pivot_le(i, 1), pivot%div_method, path)
         END DO
-!$OMP END DO
+!$OMP END DO NOWAIT
 !$OMP END PARALLEL
 #ifndef SLOW_MPI_IN_PLACE
         CALL mpi_allreduce(mpi_in_place, pivot_le(1:npivot_le, 2), &
