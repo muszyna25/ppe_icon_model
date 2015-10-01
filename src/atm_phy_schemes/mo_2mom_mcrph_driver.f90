@@ -917,9 +917,6 @@ CONTAINS
 
     IF (msg_level>dbg_level) CALL message (TRIM(routine), " finished init_dmin_wetgrowth")
 
-    ! .. set the particle types, and calculate some coefficients
-    CALL init_2mom_scheme_once(cloud_type)
-
     IF (PRESENT(N_cn0)) THEN
        ccn_type   = ccn_type_gscp5
        cloud_type = cloud_type_default_gscp5 + 10 * ccn_type
@@ -927,6 +924,9 @@ CONTAINS
        ccn_type   = ccn_type_gscp4
        cloud_type = cloud_type_default_gscp4 + 10 * ccn_type
     END IF
+
+    ! .. set the particle types, and calculate some coefficients
+    CALL init_2mom_scheme_once(cloud_type)
 
     IF (present(N_cn0)) THEN
 
