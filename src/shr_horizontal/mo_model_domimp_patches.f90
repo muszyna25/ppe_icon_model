@@ -97,7 +97,7 @@ MODULE mo_model_domimp_patches
     &                              min_rlvert_int
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent, &
-       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor
+       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
     &                              get_valid_local_index, &
     &                              t_grid_domain_decomp_info, get_local_index
@@ -1349,7 +1349,7 @@ CONTAINS
 
     ! patch_pre%cells%edge
     CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
-    CALL dist_mult_array_local_ptr(patch_pre%cells%edge, 1, local_ptr_2d)
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_edge, local_ptr_2d)
     local_ptr_2d(:,:) = 0
     CALL nf(nf_get_vara_int(ncid, varid, &
       &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
@@ -1377,8 +1377,6 @@ CONTAINS
 
       END DO ! cells
     ENDIF
-
-    CALL dist_mult_array_expose(patch_pre%cells%edge)
 
     !----------------------------------------------------------------------------------
     ! compute cells%num_edges

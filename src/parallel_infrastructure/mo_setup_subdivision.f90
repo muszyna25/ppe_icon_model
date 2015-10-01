@@ -35,7 +35,7 @@ MODULE mo_setup_subdivision
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
-       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor
+       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -1078,7 +1078,8 @@ CONTAINS
         wrk_p_patch%cells%neighbor_idx(jl,jb,i) = idx_no(jc)
         wrk_p_patch%cells%neighbor_blk(jl,jb,i) = blk_no(jc)
 
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%edge,1,(/jg,i/),jeg)
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_edge, &
+             (/jg,i/), jeg)
 !CDIR IEXPAND
         CALL get_local_idx(wrk_p_patch%edges%decomp_info, jeg, je)
 
@@ -1518,7 +1519,7 @@ CONTAINS
           &                      (/flag2_c_list(0)%idx(ic)/), temp_num_edges)
         DO i = 1, temp_num_edges
 
-          CALL dist_mult_array_get(wrk_p_patch_pre%cells%edge, 1, &
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_edge, &
             &                      (/flag2_c_list(0)%idx(ic),i/), je)
 
           CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell, 1, (/je,1/), jc)
@@ -1755,7 +1756,8 @@ CONTAINS
             CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, &
               &                      (/jc/), temp_num_edges)
             DO i = 1, temp_num_edges
-              CALL dist_mult_array_get(wrk_p_patch_pre%cells%edge,1,(/jc,i/),je)
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_edge, &
+                   (/jc,i/), je)
               n_temp_edges = n_temp_edges + 1
               temp_edges(n_temp_edges) = je
               edge_cells(n_temp_edges) = jc

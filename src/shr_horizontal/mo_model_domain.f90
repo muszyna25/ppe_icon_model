@@ -340,7 +340,10 @@ MODULE mo_model_domain
        c_phys_id = 4, &
        ! indices of triangles next to each cell:
        ! index2=1,3
-       c_neighbor = 5
+       c_neighbor = 5, &
+       ! indices of edges of triangle:
+       ! index2=1,3
+       c_edge = 6
 
   TYPE t_pre_grid_cells
 
@@ -349,10 +352,6 @@ MODULE mo_model_domain
 
     INTEGER :: max_connectivity
     TYPE(dist_mult_array) :: dist
-
-    ! indices of edges of triangle:
-    ! index2=1,3
-    TYPE(dist_mult_array) :: edge
 
     ! indices of verts of triangle:
     ! index2=1,3
