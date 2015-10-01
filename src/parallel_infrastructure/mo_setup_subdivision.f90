@@ -35,7 +35,7 @@ MODULE mo_setup_subdivision
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
-       c_num_edges, c_parent
+       c_num_edges, c_parent, c_child
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -363,7 +363,7 @@ CONTAINS
         jg = patch%cells%decomp_info%glb_index(idx_1d(jl, jb))
 
         DO i = 1, 4
-          CALL dist_mult_array_get(parent_patch_pre%cells%child, 1, (/ip, i/), jc)
+          CALL dist_mult_array_get(parent_patch_pre%cells%dist, c_child, (/ip, i/), jc)
           IF (jc == jg) patch%cells%pc_idx(jl,jb) = i
         END DO
 !          IF(patch%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
@@ -1110,7 +1110,7 @@ CONTAINS
       wrk_p_patch%cells%parent_glb_idx(jl,jb)  = idx_no(jc_p)
       wrk_p_patch%cells%parent_glb_blk(jl,jb)  = blk_no(jc_p)
       DO i = 1, 4
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%child, 1, (/jg, i/), jc)
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_child, (/jg, i/), jc)
         wrk_p_patch%cells%child_idx(jl,jb,i) = idx_no(jc)
         wrk_p_patch%cells%child_blk(jl,jb,i) = blk_no(jc)
       END DO

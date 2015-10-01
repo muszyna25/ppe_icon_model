@@ -330,8 +330,11 @@ MODULE mo_model_domain
   ! index of distributed sub-arrays in t_pre_grid_cells%dist
   INTEGER, PUBLIC, PARAMETER :: &
        c_num_edges = 1, &    ! number of edges connected to cell
-       c_parent = 2    ! index of parent triangle:
-
+       c_parent = 2, &    ! index of parent triangle:
+       ! parent child index, number of current cell in parent's child_idx/child_blk:
+       ! indices of child triangles:
+       ! index2=1,4
+       c_child = 3
 
   TYPE t_pre_grid_cells
 
@@ -341,11 +344,7 @@ MODULE mo_model_domain
     INTEGER :: max_connectivity
     TYPE(dist_mult_array) :: dist
 
-    ! parent child index, number of current cell in parent's child_idx/child_blk:
 
-    ! indices of child triangles:
-    ! index2=1,4
-    TYPE(dist_mult_array) :: child
     ! physical domain ID of triangles
     ! (may differ from the "normal" domain ID in case of domain merging):
     TYPE(dist_mult_array) :: phys_id
