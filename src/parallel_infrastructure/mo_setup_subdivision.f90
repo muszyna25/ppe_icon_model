@@ -37,7 +37,7 @@ MODULE mo_setup_subdivision
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
        c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
-       e_refin_ctrl, v_cell, v_num_edges
+       e_refin_ctrl, v_cell, v_num_edges, v_vertex
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -1190,10 +1190,10 @@ CONTAINS
 
       jg = wrk_p_patch%verts%decomp_info%glb_index(j)
 
-      CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 1, (/jg/), &
-        &                      wrk_p_patch%verts%vertex(jl,jb)%lat)
-      CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 2, (/jg/), &
-        &                      wrk_p_patch%verts%vertex(jl,jb)%lon)
+      CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+           (/jg, 1/), wrk_p_patch%verts%vertex(jl,jb)%lat)
+      CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+           (/jg, 2/), wrk_p_patch%verts%vertex(jl,jb)%lon)
       CALL dist_mult_array_get(wrk_p_patch_pre%verts%refin_ctrl, 1, (/jg/), &
         &                      wrk_p_patch%verts%refin_ctrl(jl,jb))
     ENDDO
@@ -2921,10 +2921,10 @@ CONTAINS
             DO i = 1, 3
               CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
                    (/j,i/), jv)
-              CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 1, (/jv/),&
-                &                      temp_lat)
-              CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 2, (/jv/),&
-                &                      temp_lon)
+              CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+                   (/jv, 1/), temp_lat)
+              CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+                   (/jv, 2/), temp_lon)
               cclat = MAX(cclat, temp_lat)
               cclon = MAX(cclon, temp_lon)
             ENDDO
@@ -2932,10 +2932,10 @@ CONTAINS
             DO i = 1, 3
               CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
                    (/j,i/), jv)
-              CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 1, (/jv/),&
-                &                      temp_lat)
-              CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 2, (/jv/),&
-                &                      temp_lon)
+              CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+                   (/jv, 1/), temp_lat)
+              CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+                   (/jv, 2/), temp_lon)
               cclat = MIN(cclat, temp_lat)
               cclon = MAX(cclon, temp_lon)
             ENDDO

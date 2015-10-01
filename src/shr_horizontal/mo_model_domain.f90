@@ -722,7 +722,10 @@ MODULE mo_model_domain
        ! index2=1,6
        v_cell = 1, &
        ! number of edges connected to vertex
-       v_num_edges = 2
+       v_num_edges = 2, &
+       ! longitude & latitude of vertex:
+       ! index2=1,2
+       v_vertex = 3
 
   TYPE t_pre_grid_vertices
 
@@ -731,12 +734,7 @@ MODULE mo_model_domain
 
     INTEGER :: max_connectivity
 
-    ! line indices of cells around each vertex:
-    ! index2=1,6
     TYPE(dist_mult_array) :: dist
-
-    ! longitude & latitude of vertex:
-    TYPE(dist_mult_array) :: vertex
 
     ! refinement control flag
     TYPE(dist_mult_array) :: refin_ctrl
