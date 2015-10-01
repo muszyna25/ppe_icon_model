@@ -443,6 +443,9 @@ MODULE mo_2mom_mcrph_main
   TYPE(evaporation_deposition_params), SAVE :: ge_params
   !> run-time- and location-invariant hail evaporation parameters
   TYPE(evaporation_deposition_params), SAVE :: he_params
+  !> run-time- and location-invariant snow evaporation parameters
+  TYPE(evaporation_deposition_params), SAVE :: se_params
+
 CONTAINS
 
   !*******************************************************************************
@@ -1270,6 +1273,17 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "     a_f = ",he_params%a_f   ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     b_f = ",he_params%b_f   ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     c_h = ",he_params%c   ; CALL message(routine,TRIM(txt))
+    END IF
+
+    ! snow evaporation parameter setup
+    se_params%a_f = vent_coeff_a(snow,1)
+    se_params%b_f = vent_coeff_b(snow,1) * N_sc**n_f / sqrt(nu_l)
+    se_params%c = 1.0_wp / snow%cap
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "snow_evaporation:" ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     a_f = ",se_params%a_f ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     b_f = ",se_params%b_f ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     c_s = ",se_params%c ; CALL message(routine,TRIM(txt))
     END IF
 
 
@@ -2479,30 +2493,10 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a,e_sw,s_sw,g_d,eva
     REAL(wp)            :: q_s,n_s,x_s,d_s,v_s,f_v,e_d
-    REAL(wp), SAVE      :: c_s
-    REAL(wp), SAVE      :: a_f,b_f
-!$omp threadprivate (firstcall)
-!$omp threadprivate (a_f)
-!$omp threadprivate (b_f)
-!$omp threadprivate (c_s)
 
-    IF (firstcall.NE.1) THEN
-      a_f = vent_coeff_a(snow,1)
-      b_f = vent_coeff_b(snow,1) * N_sc**n_f / sqrt(nu_l)
-      c_s = 1.0/snow%cap
-      firstcall = 1
-      IF (isdebug) THEN
-        WRITE(txt,'(A,D10.3)') "snow_evaporation:" ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     a_f = ",a_f ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     b_f = ",b_f ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     c_s = ",c_s ; CALL message(routine,TRIM(txt))
-      END IF
-    ELSEIF (isdebug) THEN
-      CALL message(routine, "snow_evaporation")
-    END IF
+    IF (isdebug) CALL message(routine, "snow_evaporation")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -2529,9 +2523,9 @@ CONTAINS
             D_s = snow%diameter(x_s)
             v_s = snow%velocity(x_s) * snow%rho_v(i,k)
 
-            f_v  = a_f + b_f * sqrt(v_s*D_s)
+            f_v  = se_params%a_f + se_params%b_f * sqrt(v_s*D_s)
 
-            eva = g_d * n_s * c_s * d_s * f_v * s_sw * dt
+            eva = g_d * n_s * se_params%c * d_s * f_v * s_sw * dt
 
             eva = MAX(-eva,0.0_wp)
             eva = MIN(eva,q_s)
