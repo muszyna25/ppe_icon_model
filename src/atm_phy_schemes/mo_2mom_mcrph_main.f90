@@ -2706,13 +2706,13 @@ CONTAINS
     TYPE(atmosphere), INTENT(inout) :: atmo
     TYPE(particle), INTENT(inout) :: cloud, ice, snow
     REAL(wp), DIMENSION(:,:) :: n_inact
-    REAL(wp), DIMENSION(:,:),OPTIONAL :: n_inpot
+    REAL(wp), DIMENSION(:,:), OPTIONAL :: n_inpot
 
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER              :: i,k,nuc_typ
     REAL(wp)             :: nuc_n, nuc_q
-    REAL(wp)             :: T_a,p_a,ssi
+    REAL(wp)             :: T_a, p_a, ssi
     REAL(wp)             :: q_i,n_i,x_i,r_i
     REAL(wp)             :: ndiag, ndiag_dust, ndiag_all
 
@@ -2754,9 +2754,15 @@ CONTAINS
     REAL      :: xt,xs,ssr
     INTEGER   :: ss,tt
 
-    LOGICAL   :: use_homnuc
+    LOGICAL   :: use_homnuc, lwrite_n_inpot
 
     REAL(wp), DIMENSION(3) :: infrac
+
+    LOGICAL :: ndiag_mask(ik_slice(1):ik_slice(2), ik_slice(3):ik_slice(4))
+    REAL(wp) :: &
+         nuc_n_a(ik_slice(1):ik_slice(2), ik_slice(3):ik_slice(4))
+
+
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -2892,7 +2898,7 @@ CONTAINS
                  infrac(3) = (AINT(xt)+1.0-xt) * afrac_orga(tt,99) &
                       &        + (xt-AINT(xt)) * afrac_orga(tt+1,99)
               END IF
-           ELSE
+            ELSE
               ! deposition nucleation below water saturation
 
               IF (use_hdcp2_het) THEN
@@ -2904,75 +2910,88 @@ CONTAINS
                     ndiag = 0.0_wp
                  end if
               ELSE
-                 ! calculate indices used for 2D look-up tables
-                 xs = 100. * real(ssi-1.0_wp) / ssstep
-                 xs = MIN(xs,real(ssmax-1))
-                 ss = MAX(1,INT(xs))
-                 ssr = MAX(1.0, AINT(xs))
-                 ! bi-linear interpolation in look-up tables
-                 infrac(1) =   (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
-                      &        * afrac_dust(tt, ss) &
-                      &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
-                      &        * afrac_dust(tt+1, ss) &
-                      &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
-                      &        * afrac_dust(tt, ss+1) &
-                      &      + (xt - AINT(xt)) * (xs - ssr) &
-                      &        * afrac_dust(tt+1, ss+1)
-                 infrac(2) =   (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
-                      &        * afrac_soot(tt, ss) &
-                      &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
-                      &        * afrac_soot(tt+1, ss  ) &
-                      &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
-                      &        * afrac_soot(tt, ss + 1) &
-                      &      + (xt - AINT(xt)) * (xs - ssr) &
-                      &        * afrac_soot(tt+1, ss+1)
-                 infrac(3) = (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
-                      &        * afrac_orga(tt,ss) &
-                      &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
-                      &        * afrac_orga(tt+1, ss) &
-                      &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
-                      &        * afrac_orga(tt, ss+1) &
-                      &      + (xt - AINT(xt)) * (xs - ssr) &
-                      &        * afrac_orga(tt+1, ss+1)
-
+                ! deposition nucleation below water saturation
+                ! calculate indices used for 2D look-up tables
+                xs = 100. * REAL(ssi-1.0_wp) / ssstep
+                xs = MIN(xs,REAL(ssmax-1))
+                ss = MAX(1,INT(xs))
+                ssr = MAX(1.0, AINT(xs))
+                ! bi-linear interpolation in look-up tables
+                infrac(1) =   (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
+                     &        * afrac_dust(tt, ss) &
+                     &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
+                     &        * afrac_dust(tt+1, ss) &
+                     &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
+                     &        * afrac_dust(tt, ss+1) &
+                     &      + (xt - AINT(xt)) * (xs - ssr) &
+                     &        * afrac_dust(tt+1, ss+1)
+                infrac(2) =   (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
+                     &        * afrac_soot(tt, ss) &
+                     &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
+                     &        * afrac_soot(tt+1, ss  ) &
+                     &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
+                     &        * afrac_soot(tt, ss + 1) &
+                     &      + (xt - AINT(xt)) * (xs - ssr) &
+                     &        * afrac_soot(tt+1, ss+1)
+                infrac(3) = (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
+                     &        * afrac_orga(tt,ss) &
+                     &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
+                     &        * afrac_orga(tt+1, ss) &
+                     &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
+                     &        * afrac_orga(tt, ss+1) &
+                     &      + (xt - AINT(xt)) * (xs - ssr) &
+                     &        * afrac_orga(tt+1, ss+1)
               END IF
-           ENDIF
+            END IF
 
-           IF (.not.use_hdcp2_het) THEN
-              ! only for Phillips scheme we have to sum up the three modes
-              IF (use_prog_in) THEN
-                 ! n_inpot replaces na_dust, na_soot and na_orga are assumed to constant
-                 ndiag_all  = n_inpot(i,k) * infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)
-                 ndiag_dust = n_inpot(i,k) * infrac(1)
-                 ndiag = ndiag_all
-              ELSE
-                 ! all aerosol species are diagnostic
-                 ndiag = na_dust * infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)
-              END IF
-              ndiag = MIN(ndiag,ni_het_max)
-           END IF
+          IF (.NOT. use_hdcp2_het) THEN
+            ! only for Phillips scheme we have to sum up the three modes
+            ndiag = na_soot * infrac(2) + na_orga * infrac(3)
+            IF (use_prog_in) THEN
+              ! n_inpot replaces na_dust, na_soot and na_orga are assumed to constant
+              ndiag  = n_inpot(i,k) * infrac(1) + ndiag
+              ndiag_dust = n_inpot(i,k) * infrac(1)
+              ndiag_all = ndiag
+            ELSE
+              ! all aerosol species are diagnostic
+              ndiag = na_dust * infrac(1) + ndiag
+            END IF
+            ndiag = MIN(ndiag,ni_het_max)
+          END IF
 
-           nuc_n = MAX(ndiag - n_inact(i,k),0.0_wp)
-           nuc_q = MIN(nuc_n * ice%x_min, atmo%qv(i,k))
-           nuc_n = nuc_q / ice%x_min
+          nuc_n = MAX(ndiag - n_inact(i,k),0.0_wp)
+          nuc_q = MIN(nuc_n * ice%x_min, atmo%qv(i,k))
+          nuc_n = nuc_q / ice%x_min
 
-           ice%n(i,k)   = ice%n(i,k)   + nuc_n
-           ice%q(i,k)   = ice%q(i,k)   + nuc_q
-           atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
-           n_inact(i,k) = n_inact(i,k) + nuc_n
+          ice%n(i,k)   = ice%n(i,k)   + nuc_n
+          ice%q(i,k)   = ice%q(i,k)   + nuc_q
+          atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
+          n_inact(i,k) = n_inact(i,k) + nuc_n
 
-           IF (use_prog_in .and. ndiag.gt.1e-12) THEN
-              IF (use_hdcp2_het) THEN
-                 n_inpot(i,k) = max(n_inpot(i,k) - nuc_n,0.0_wp)
-              ELSE
-                 ! estimate the number of activated dust particles and substract from n_inpot
-                 n_inpot(i,k) = max(n_inpot(i,k) - nuc_n * ndiag_dust/ndiag_all,0.0_wp)
-              END IF
-           END IF
+          lwrite_n_inpot = use_prog_in .AND. ndiag .GT. 1d-12
+          ndiag_mask(i, k) = lwrite_n_inpot
+
+          IF (lwrite_n_inpot .AND. .NOT. use_hdcp2_het) THEN
+            nuc_n = nuc_n * ndiag_dust / ndiag_all
+          END IF
+          nuc_n_a(i, k) = nuc_n
+        ELSE
+          nuc_n_a(i, k) = 0.0_wp
+          ndiag_mask(i, k) = .FALSE.
         ENDIF
 
       END DO
     END DO
+
+    IF (use_prog_in) THEN
+      DO k = kstart, kend
+        DO i = istart, iend
+          n_inpot(i,k) = MERGE(MAX(n_inpot(i,k) - nuc_n_a(i, k), 0.0_wp), &
+               &               n_inpot(i, k), &
+               &               ndiag_mask(i, k))
+        END DO
+      END DO
+    END IF
 
     ! Homogeneous nucleation using KHL06 approach
     IF (use_homnuc) THEN
