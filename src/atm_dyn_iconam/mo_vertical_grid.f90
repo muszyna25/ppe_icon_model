@@ -1950,7 +1950,7 @@ MODULE mo_vertical_grid
          z_mc  = p_nh%metrics%geopot_agl_ifc(jc,jk,jb) * rgrav
 
          les_filter = les_config(jg)%smag_constant * MIN( les_config(jg)%max_turb_scale, &
-                      (p_nh%metrics%ddqz_z_full(jc,jk,jb)*p_patch%geometry_info%mean_cell_area)**0.33333_wp )
+                      (p_nh%metrics%ddqz_z_half(jc,jk,jb)*p_patch%geometry_info%mean_cell_area)**0.33333_wp )
 
          p_nh%metrics%mixing_length_sq(jc,jk,jb) = (les_filter*z_mc)**2    &
                       / ((les_filter/akt)**2+z_mc**2)
