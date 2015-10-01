@@ -571,7 +571,6 @@ set_run_target_bullx()
   esac
 
   use_mpi_startrun="srun --cpu-freq=2500000 --kill-on-bad-exit=1 --nodes=\${no_of_nodes} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\${mpi_total_procs} --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((2 * OMP_NUM_THREADS)) --propagate=STACK"
-  use_load_modules
   
   case " $use_load_modules " in
   *\ mxm\ *)
