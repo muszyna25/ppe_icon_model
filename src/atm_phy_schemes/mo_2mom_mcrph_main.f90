@@ -446,6 +446,13 @@ MODULE mo_2mom_mcrph_main
   !> run-time- and location-invariant snow evaporation parameters
   TYPE(evaporation_deposition_params), SAVE :: se_params
 
+  TYPE melt_params
+    REAL(wp) :: a_vent, b_vent
+  END TYPE melt_params
+
+  !> run-time- and location-invariant graupel melting parameters
+  TYPE(melt_params), SAVE :: gm_params
+
 CONTAINS
 
   !*******************************************************************************
@@ -1285,6 +1292,21 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "     b_f = ",se_params%b_f ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     c_s = ",se_params%c ; CALL message(routine,TRIM(txt))
     END IF
+
+    ! graupel melting parameter setup
+    gm_params%a_vent = vent_coeff_a(graupel,1)
+    gm_params%b_vent = vent_coeff_b(graupel,1) * N_sc**n_f / SQRT(nu_l)
+    IF (isdebug) THEN
+      WRITE(txt,*) " graupel_melting "
+      WRITE(txt,'(A,D10.3)') "   a_geo    = ",graupel%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   b_geo    = ",graupel%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   a_vel    = ",graupel%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   b_vel    = ",graupel%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   a_ven    = ",graupel%a_ven ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   b_ven    = ",graupel%b_ven ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   a_vent = ",gm_params%a_vent ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   b_vent = ",gm_params%b_vent ; CALL message(routine,TRIM(txt))
+    ENDIF
 
 
   END SUBROUTINE init_2mom_scheme_once
@@ -4734,33 +4756,11 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: q_g,n_g,x_g,d_g,v_g,T_a,e_a
     REAL(wp)            :: melt,melt_v,melt_h,melt_n,melt_q
     REAL(wp)            :: fh_q,fv_q
-    REAL(wp), SAVE      :: a_vent,b_vent
-!$omp threadprivate (firstcall)
-!$omp threadprivate (a_vent)
-!$omp threadprivate (b_vent)
 
-    IF (firstcall.NE.1) THEN
-      a_vent = vent_coeff_a(graupel,1)
-      b_vent = vent_coeff_b(graupel,1) * N_sc**n_f / sqrt(nu_l)
-      firstcall = 1
-      IF (isdebug) THEN
-        WRITE(txt,*) " graupel_melting "
-        WRITE(txt,'(A,D10.3)') "   a_geo    = ",graupel%a_geo ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   b_geo    = ",graupel%b_geo ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   a_vel    = ",graupel%a_vel ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   b_vel    = ",graupel%b_vel ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   a_ven    = ",graupel%a_ven ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   b_ven    = ",graupel%b_ven ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   a_vent = ",a_vent ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   b_vent = ",b_vent ; CALL message(routine,TRIM(txt))
-      ENDIF
-    ELSEIF (isdebug) THEN
-      CALL message(routine, "graupel_melting")
-    ENDIF
+    IF (isdebug) CALL message(routine, "graupel_melting")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -4781,7 +4781,7 @@ CONTAINS
              D_g = graupel%diameter(x_g)
              v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
 
-             fv_q = a_vent + b_vent * sqrt(v_g*D_g)
+             fv_q = gm_params%a_vent + gm_params%b_vent * SQRT(v_g*D_g)
              fh_q = 1.05 * fv_q
 
              melt   = 2.0*pi / L_ew * D_g * n_g * dt
