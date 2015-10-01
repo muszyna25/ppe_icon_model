@@ -3281,7 +3281,7 @@ CONTAINS
     CALL assertion( ppm_int &
          == dm_array%sub_arrays_global_desc(sub_array_idx)%element_dt, &
          __FILE__, &
-         __LINE__, "rank mismatch in array reference")
+         __LINE__, "type mismatch in array reference")
 
     sub_array_ptr => dm_array%base(sub_array_idx)%i4_1d(:)
 
@@ -3304,7 +3304,7 @@ CONTAINS
     CALL assertion( ppm_int &
          == dm_array%sub_arrays_global_desc(sub_array_idx)%element_dt, &
          __FILE__, &
-         __LINE__, "rank mismatch in array reference")
+         __LINE__, "type mismatch in array reference")
 
     sub_array_ptr => dm_array%base(sub_array_idx)%i4_2d(:,:)
 
@@ -3327,7 +3327,7 @@ CONTAINS
     CALL assertion( ppm_real_dp &
          == dm_array%sub_arrays_global_desc(sub_array_idx)%element_dt, &
          __FILE__, &
-         __LINE__, "rank mismatch in array reference")
+         __LINE__, "type mismatch in array reference")
 
     sub_array_ptr => dm_array%base(sub_array_idx)%dp_1d(:)
 
@@ -3350,7 +3350,7 @@ CONTAINS
     CALL assertion( ppm_real_dp &
          == dm_array%sub_arrays_global_desc(sub_array_idx)%element_dt, &
          __FILE__, &
-         __LINE__, "rank mismatch in array reference")
+         __LINE__, "type mismatch in array reference")
 
     sub_array_ptr => dm_array%base(sub_array_idx)%dp_2d
 
