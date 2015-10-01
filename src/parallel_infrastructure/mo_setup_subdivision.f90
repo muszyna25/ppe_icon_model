@@ -1419,8 +1419,8 @@ CONTAINS
           CALL dist_mult_array_get(wrk_p_patch_pre%cells%edge, 1, &
             &                      (/flag2_c_list(0)%idx(ic),i/), je)
 
-          jc = wrk_p_patch_pre%edges%cell(je, 1)
-          jc_ = wrk_p_patch_pre%edges%cell(je, 2)
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell, 1, (/je,1/), jc)
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell, 1, (/je,2/), jc_)
 
           IF (jc <= 0 .OR. jc_ <= 0 .OR. jc == jc_) THEN
             n_inner_edges = n_inner_edges + 1
@@ -1563,10 +1563,10 @@ CONTAINS
         DO i = 1, n_temp_edges
 
           je = temp_edges(i)
-          jc = wrk_p_patch_pre%edges%cell(je, 1)
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell,1, (/je,1/), jc)
 
           IF (jc == edge_cells(i)) THEN
-            jc = wrk_p_patch_pre%edges%cell(je, 2)
+            CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell,1, (/je,2/),jc)
           END IF
 
           IF (jc > 0 .AND. jc /= edge_cells(i)) THEN
@@ -1932,7 +1932,8 @@ CONTAINS
       DO i = 1, SIZE(edges)
 
         je = edges(i)
-        a_idx(:) = wrk_p_patch_pre%edges%cell(je, 1:2)
+        CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell,1,(/je,1/),a_idx(1))
+        CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell,1,(/je,2/),a_idx(2))
         ! outer boundary edges always belong to single adjacent cell owner
         a_idx(:) = MERGE(a_idx(:), MAXVAL(a_idx(:)), a_idx(:) > 0)
         CALL dist_mult_array_get(dist_cell_owner, 1, (/a_idx(1)/), a_iown(1))

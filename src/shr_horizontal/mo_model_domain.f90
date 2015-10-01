@@ -601,7 +601,7 @@ MODULE mo_model_domain
 
     ! indices of adjacent cells:
     ! index2=1,2
-    INTEGER, ALLOCATABLE :: cell(:,:)
+    TYPE(dist_mult_array) :: cell
 
     !-------------------------------------------------
     ! edges geometry

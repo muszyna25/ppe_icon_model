@@ -625,12 +625,13 @@ CONTAINS
     TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(global_array_desc) :: dist_edge_owner_desc(1)
     TYPE(global_array_desc) :: dist_edge_owner_desc_child(1)
+    TYPE(global_array_desc) :: dist_edge_owner_desc_cell(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc(1)
     TYPE(global_array_desc) :: dist_cell_owner_desc_child(1)
     TYPE(global_array_desc) :: dist_cell_owner_desc_neighbor(1)
 
     TYPE(extent) :: local_cell_chunk_child(2,1), local_cell_chunk_neighbor(2,1), &
-      &             local_edge_chunk_child(2,1)
+      &             local_edge_chunk_child(2,1), local_edge_chunk_cell(2,1)
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -669,6 +670,11 @@ CONTAINS
     dist_edge_owner_desc_child(1)%a_rank = 2
     dist_edge_owner_desc_child(1)%rect(2)%first = 1
     dist_edge_owner_desc_child(1)%rect(2)%size = 4
+
+    dist_edge_owner_desc_cell(1) = dist_edge_owner_desc(1)
+    dist_edge_owner_desc_cell(1)%a_rank = 2
+    dist_edge_owner_desc_cell(1)%rect(2)%first = 1
+    dist_edge_owner_desc_cell(1)%rect(2)%size = 2
 
     dist_cell_owner_desc_neighbor(1) = dist_cell_owner_desc(1)
     dist_cell_owner_desc_neighbor(1)%a_rank = 2
@@ -709,6 +715,10 @@ CONTAINS
     local_edge_chunk_child(2,1)%first = 1
     local_edge_chunk_child(2,1)%size = 4
 
+    local_edge_chunk_cell(1,1) = p_patch_pre%edges%local_chunk(1,1)
+    local_edge_chunk_cell(2,1)%first = 1
+    local_edge_chunk_cell(2,1)%size = 2
+
     !
     ! !grid cells
     !
@@ -740,7 +750,8 @@ CONTAINS
       dist_edge_owner_desc_child, local_edge_chunk_child, p_comm_work)
     p_patch_pre%edges%refin_ctrl = dist_mult_array_new( &
       dist_edge_owner_desc, p_patch_pre%edges%local_chunk, p_comm_work)
-    ALLOCATE( p_patch_pre%edges%cell(p_patch_pre%n_patch_edges_g,2) )
+    p_patch_pre%edges%cell = dist_mult_array_new( &
+      dist_edge_owner_desc_cell, local_edge_chunk_cell, p_comm_work)
     ALLOCATE( p_patch_pre%edges%start(min_rledge:max_rledge) )
     ALLOCATE( p_patch_pre%edges%end(min_rledge:max_rledge) )
 
@@ -762,7 +773,6 @@ CONTAINS
     p_patch_pre%cells%start = 0
     p_patch_pre%cells%end = 0
 
-    p_patch_pre%edges%cell = 0
     p_patch_pre%edges%start = 0
     p_patch_pre%edges%end = 0
 
@@ -892,7 +902,8 @@ CONTAINS
     CALL dist_mult_array_delete(p_patch_pre%edges%parent)
     CALL dist_mult_array_unexpose(p_patch_pre%edges%child)
     CALL dist_mult_array_delete(p_patch_pre%edges%child)
-    DEALLOCATE( p_patch_pre%edges%cell )
+    CALL dist_mult_array_unexpose(p_patch_pre%edges%cell)
+    CALL dist_mult_array_delete(p_patch_pre%edges%cell)
     CALL dist_mult_array_unexpose(p_patch_pre%edges%refin_ctrl)
     CALL dist_mult_array_delete(p_patch_pre%edges%refin_ctrl)
     DEALLOCATE( p_patch_pre%edges%start )

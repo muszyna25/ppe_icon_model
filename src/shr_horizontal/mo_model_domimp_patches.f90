@@ -1537,8 +1537,13 @@ CONTAINS
 
     ! patch_pre%edges%cell(:,:)
     CALL nf(nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid))
-    CALL nf(nf_get_var_int(ncid, varid, patch_pre%edges%cell(:,:)))
-    WHERE(patch_pre%edges%cell(:, :) < 0) patch_pre%edges%cell(:, :) = 0
+    CALL dist_mult_array_local_ptr(patch_pre%edges%cell, 1, local_ptr_2d)
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%edges%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%edges%local_chunk(1,1)%size, 2/), &
+      &                     local_ptr_2d))
+    WHERE(local_ptr_2d(:, :) < 0) local_ptr_2d(:, :) = 0
+    CALL dist_mult_array_expose(patch_pre%edges%cell)
 
     ! END NEW SUBDIV
 
