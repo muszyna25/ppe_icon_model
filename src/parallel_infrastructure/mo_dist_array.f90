@@ -2864,7 +2864,7 @@ __FILE__
     USE mo_mpi, ONLY: abort_mpi
     CHARACTER(*), INTENT(in) :: source, msg
     INTEGER, INTENT(in) :: line, comm
-    WRITE(0, *) msg, "problem detected at", source, ":", line
+    WRITE(0, '(4a,i0)') msg, " problem detected at ", source, ":", line
     CALL abort_mpi
   END SUBROUTINE abort_ppm
 
