@@ -7466,14 +7466,18 @@ CONTAINS
 #ifndef NOMPI
      INTEGER :: p_comm
 
-     IF (LEN(sbuf) /= LEN(recvbuf(1))) THEN
-       CALL finish (routine, 'Internal error: String lengths do not match!')
-     END IF
      IF (PRESENT(comm)) THEN
        p_comm = comm
      ELSE
        p_comm = process_mpi_all_comm
      ENDIF
+
+     ! recvbuf argument is only significant on root
+     IF (p_comm_rank(p_comm) == p_dest) THEN
+       IF (LEN(sbuf) /= LEN(recvbuf(1))) THEN
+         CALL finish (routine, 'Internal error: String lengths do not match!')
+       END IF
+     END IF
 
      CALL MPI_GATHER(sbuf, LEN(sbuf), p_char,    &
        &             recvbuf, LEN(sbuf), p_char, &
