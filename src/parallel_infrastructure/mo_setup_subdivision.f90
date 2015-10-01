@@ -3053,9 +3053,16 @@ CONTAINS
 
     INTEGER :: i, ii, j, jd, jj, jn, &
          first_unassigned_onb, last_unassigned_onb, &
-         ncs, nce, num_set_on_this_pass, temp_num_edges
+         ncs, nce, num_set_on_this_pass
     TYPE(t_cell_info) :: temp
+    INTEGER, POINTER :: cells_num_edges_local_ptr(:), &
+      &                 cells_neighbor_local_ptr(:,:)
     INTEGER, ALLOCATABLE :: set_on_this_pass(:)
+
+    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%num_edges, 1, &
+      &                            cells_num_edges_local_ptr)
+    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%neighbor, 1, &
+      &                            cells_neighbor_local_ptr)
 
     DO jd = 1, num_physdom
       ncs = ncell_offset(jd-1)+1
@@ -3076,11 +3083,8 @@ CONTAINS
         num_set_on_this_pass = 0
         DO i = last_unassigned_onb, first_unassigned_onb, -1
           j = cell_desc(i)%cell_number
-          CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
-            &                      (/j/), temp_num_edges)
-          DO ii = 1, temp_num_edges
-            CALL dist_mult_array_get(wrk_p_patch_pre%cells%neighbor, 1, &
-              &                      (/j, ii/), jn)
+          DO ii = 1, cells_num_edges_local_ptr(j)
+            jn = cells_neighbor_local_ptr(j, ii)
             IF (jn > 0) THEN
               IF (owner(jn) >= 0) THEN
                 ! move found cells to end of onb area
@@ -3123,27 +3127,31 @@ CONTAINS
     INTEGER, INTENT(in) :: ncell_offset(0:max_phys_dom)
     INTEGER, INTENT(in) :: num_physdom, n_onb_points
 
-    INTEGER :: i, ii, j, jd, jj, jn, temp_num_edges, &
-         first_unassigned_onb, last_unassigned_onb, &
-         ncs, nce, owner_value, owner_idx(1), ierror
+    INTEGER :: i, ii, j, jd, jj, jn, first_unassigned_onb, &
+      &        last_unassigned_onb, ncs, nce, owner_value, owner_idx(1), ierror
     TYPE(t_cell_info) :: temp
-    INTEGER, POINTER :: owners_local(:)
+    INTEGER, POINTER :: owners_local_ptr(:), cells_num_edges_local_ptr(:), &
+      &                 cells_neighbor_local_ptr(:,:)
     INTEGER, ALLOCATABLE :: tmp_owners_local(:)
     LOGICAL :: owner_missing, any_onb_points
     CHARACTER(14), PARAMETER :: routine = 'set_owners_mpi'
 
-    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, owners_local)
+    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, owners_local_ptr)
+    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%num_edges, 1, &
+      &                            cells_num_edges_local_ptr)
+    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%neighbor, 1, &
+      &                            cells_neighbor_local_ptr)
 
     DO jd = 1, num_physdom
       ncs = ncell_offset(jd-1) + range_start
       nce = ncell_offset(jd) + range_start - 1
       DO j = ncs, nce
-        owners_local(cell_desc(j)%cell_number) = cell_desc(j)%owner
+        owners_local_ptr(cell_desc(j)%cell_number) = cell_desc(j)%owner
       END DO
     END DO
 
     ALLOCATE(tmp_owners_local(range_start:range_end))
-    tmp_owners_local = owners_local
+    tmp_owners_local = owners_local_ptr
 
     ! Add outer nest boundary points that have been disregarded so far
     any_onb_points = n_onb_points > 0
@@ -3154,7 +3162,7 @@ CONTAINS
       first_unassigned_onb = range_end - n_onb_points + 1
       last_unassigned_onb = range_end
       ! Iterations are needed because outer nest boundary row contains
-      ! indirect neighbors
+      ! indirect neighbours
       owner_missing = first_unassigned_onb <= last_unassigned_onb
       CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
            mpi_lor, p_comm_work, ierror)
@@ -3163,12 +3171,8 @@ CONTAINS
         CALL dist_mult_array_expose(dist_cell_owner)
         DO i = last_unassigned_onb, first_unassigned_onb, -1
           j = cell_desc(i)%cell_number
-          CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
-            &                      (/j/), temp_num_edges)
-          DO ii = 1, temp_num_edges
-            ! todo: use local patch information here
-            CALL dist_mult_array_get(wrk_p_patch_pre%cells%neighbor, 1, &
-              &                      (/j, ii/), jn)
+          DO ii = 1, cells_num_edges_local_ptr(j)
+            jn = cells_neighbor_local_ptr(j, ii)
             IF (jn > 0) THEN
               owner_idx(1) = jn
               CALL dist_mult_array_get(dist_cell_owner, 1, owner_idx, &
@@ -3188,7 +3192,7 @@ CONTAINS
           ENDDO
         ENDDO
         CALL dist_mult_array_unexpose(dist_cell_owner)
-        owners_local = tmp_owners_local
+        owners_local_ptr = tmp_owners_local
         owner_missing = first_unassigned_onb <= last_unassigned_onb
         CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
              mpi_lor, p_comm_work, ierror)
