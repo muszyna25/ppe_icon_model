@@ -3130,7 +3130,8 @@ CONTAINS
     CALL vapor_deposition_generic(ik_slice, snow, vsd_params, g_i, s_si, &
          dt_local, dep_snow)
     CALL vapor_deposition_graupel()
-    IF (ice_typ > 1) CALL vapor_deposition_hail()
+    IF (ice_typ > 1) CALL vapor_deposition_generic(ik_slice, hail, vhd_params, &
+         g_i, s_si, dt_local, dep_hail)
 
     zdt = 1.0/dt_local
 
@@ -3209,32 +3210,6 @@ CONTAINS
 
   CONTAINS
 
-    SUBROUTINE vapor_deposition_ice()
-      INTEGER             :: i,k
-      REAL(wp)            :: q_i,n_i,x_i,d_i,v_i,f_v
-
-      DO k = kstart,kend
-         DO i = istart,iend
-
-            IF (ice%q(i,k) == 0.0_wp) THEN
-               dep_ice(i,k) = 0.0_wp
-            ELSE
-              n_i = ice%n(i,k)
-              q_i = ice%q(i,k)
-              x_i = particle_meanmass(ice, q_i,n_i)
-              D_i = particle_diameter(ice, x_i)
-              v_i = particle_velocity(ice, x_i) * ice%rho_v(i,k)
-
-              !..note that a_f includes more than just ventilation, do never ever set f_v=1
-              f_v  = vid_params%a_f + vid_params%b_f * sqrt(v_i*d_i)
-              f_v  = MAX(f_v,vid_params%a_f/ice%a_ven)
-
-              dep_ice(i,k) = g_i(i,k) * n_i * vid_params%c * d_i * f_v * s_si(i,k) * dt_local
-           ENDIF
-        ENDDO
-     ENDDO
-   END SUBROUTINE vapor_deposition_ice
-
    SUBROUTINE vapor_deposition_graupel()
      INTEGER             :: i,k
      REAL(wp)            :: q_g,n_g,x_g,d_g,v_g,f_v
@@ -3262,65 +3237,9 @@ CONTAINS
       ENDDO
     END SUBROUTINE vapor_deposition_graupel
 
-    SUBROUTINE vapor_deposition_hail()
-      INTEGER             :: i,k
-      REAL(wp)            :: q_h,n_h,x_h,d_h,v_h,f_v
-
-      IF (isdebug) CALL message(routine, "vapor_deposition_hail")
-
-      DO k = kstart,kend
-         DO i = istart,iend
-
-            IF (hail%q(i,k) == 0.0_wp) THEN
-               dep_hail(i,k)   = 0.0_wp
-            ELSE
-               n_h = hail%n(i,k)
-               q_h = hail%q(i,k)
-               x_h = particle_meanmass(hail, q_h,n_h)
-               D_h = particle_diameter(hail, x_h)
-               v_h = particle_velocity(hail, x_h) * hail%rho_v(i,k)
-
-               f_v  = vhd_params%a_f + vhd_params%b_f * sqrt(v_h*d_h)
-               f_v  = MAX(f_v,vhd_params%a_f/hail%a_ven)
-
-               dep_hail(i,k) = g_i(i,k) * n_h * vhd_params%c * d_h * f_v * s_si(i,k) * dt_local
-            ENDIF
-         ENDDO
-      ENDDO
-    END SUBROUTINE vapor_deposition_hail
-
-    SUBROUTINE vapor_deposition_snow()
-      REAL(wp)            :: q_s,n_s,x_s,d_s,v_s,f_v
-      INTEGER             :: i,k
-
-      IF (isdebug) CALL message(routine, "vapor_depositiosnow%n")
-
-      DO k = kstart,kend
-         DO i = istart,iend
-
-            IF (snow%q(i,k) == 0.0_wp) THEN
-               dep_snow(i,k) = 0.0_wp
-            ELSE
-               n_s = snow%n(i,k)
-               q_s = snow%q(i,k)
-
-               x_s = particle_meanmass(snow, q_s,n_s)
-               D_s = particle_diameter(snow, x_s)
-               v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
-
-               f_v  = vsd_params%a_f + vsd_params%b_f * sqrt(D_s*v_s)
-               f_v  = MAX(f_v,vsd_params%a_f/snow%a_ven)
-
-               dep_snow(i,k) = g_i(i,k) * n_s * vsd_params%c * d_s * f_v * s_si(i,k) * dt_local
-            ENDIF
-
-         ENDDO
-      ENDDO
-    END SUBROUTINE vapor_deposition_snow
-
   END SUBROUTINE vapor_dep_relaxation
 
-  SUBROUTINE vapor_deposition_generic(ik_slice, prtcl, params, g_i, s_si, &
+  PURE SUBROUTINE vapor_deposition_generic(ik_slice, prtcl, params, g_i, s_si, &
        dt, dep)
     INTEGER, INTENT(in) :: ik_slice(4)
     TYPE(particle), INTENT(in) :: prtcl
