@@ -472,6 +472,14 @@ CONTAINS
         is_variable_in_output(first_output_name_list, var_name="adrag_v_grid")
      ENDIF
 
+    !Anurag Dipankar, MPIM (2015-08-01): always call this routine
+    !for LES simulation
+    DO jg = 1 , n_dom
+      atm_phy_nwp_config(jg)%lcalc_moist_integral_avg &
+           = atm_phy_nwp_config(jg)%lcalc_moist_integral_avg &
+           .OR. atm_phy_nwp_config(jg)%is_les_phy
+    END DO
+
     !----------------------!
     !  Initialize actions  !
     !----------------------!
@@ -484,17 +492,13 @@ CONTAINS
     !Anurag Dipankar, MPIM (2014-01-14)
     !Special 1D and 0D output for LES runs till we get add_var/nml_out working
     !Only for Torus runs with single domain
-    IF(atm_phy_nwp_config(1)%is_les_phy .AND. is_plane_torus)THEN
-      atm_phy_nwp_config(1)%lcalc_moist_integral_avg = .TRUE.
+    DO jg = 1 , n_dom
 
-      IF(isRestart()) &
-        CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
-                               time_config%sim_time(1), l_rh(1), ldelete=.FALSE.)
+      IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
+           CALL init_les_turbulent_output(p_patch(jg), p_nh_state(jg)%metrics, &
+           time_config%sim_time(jg), l_rh(jg), ldelete=(.NOT. isRestart()))
 
-      IF(.NOT.isRestart()) &
-        CALL init_les_turbulent_output(p_patch(1), p_nh_state(1)%metrics, &
-                               time_config%sim_time(1), l_rh(1), ldelete=.TRUE.)
-    END IF
+    END DO
 
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
