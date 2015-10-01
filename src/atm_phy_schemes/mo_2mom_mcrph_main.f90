@@ -412,6 +412,8 @@ MODULE mo_2mom_mcrph_main
   TYPE(asym_riming_params), SAVE :: grr_params
   !> run-time- and location-invariant hail cloud riming parameters
   TYPE(sym_riming_params), SAVE :: hcr_params
+  !> run-time- and location-invariant graupel cloud riming parameters
+  TYPE(sym_riming_params), SAVE :: gcr_params
 CONTAINS
 
   !*******************************************************************************
@@ -971,6 +973,37 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "     theta_q_hc  = ", hcr_params%theta_q_ab ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     theta_q_cc  = ", hcr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
     END IF
+
+    ! graupel cloud riming parameters
+    gcr_params%delta_n_aa = coll_delta_11(graupel,cloud,0)
+    gcr_params%delta_n_ab = coll_delta_12(graupel,cloud,0)
+    gcr_params%delta_n_bb = coll_delta_22(graupel,cloud,0)
+    gcr_params%delta_q_aa = coll_delta_11(graupel,cloud,0)
+    gcr_params%delta_q_ab = coll_delta_12(graupel,cloud,1)
+    gcr_params%delta_q_bb = coll_delta_22(graupel,cloud,1)
+
+    gcr_params%theta_n_aa = coll_theta_11(graupel,cloud,0)
+    gcr_params%theta_n_ab = coll_theta_12(graupel,cloud,0)
+    gcr_params%theta_n_bb = coll_theta_22(graupel,cloud,0)
+    gcr_params%theta_q_aa = coll_theta_11(graupel,cloud,0)
+    gcr_params%theta_q_ab = coll_theta_12(graupel,cloud,1)
+    gcr_params%theta_q_bb = coll_theta_22(graupel,cloud,1)
+
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "    delta_n_gg  = ", gcr_params%delta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_gc  = ", gcr_params%delta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_cc  = ", gcr_params%delta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_gg  = ", gcr_params%theta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_gc  = ", gcr_params%theta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_cc  = ", gcr_params%theta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_gg  = ", gcr_params%delta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_gc  = ", gcr_params%delta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_cc  = ", gcr_params%delta_q_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_gg  = ", gcr_params%theta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_gc  = ", gcr_params%theta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_cc  = ", gcr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
+    END IF
+
 
   END SUBROUTINE init_2mom_scheme_once
 
@@ -4326,7 +4359,6 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
     REAL(wp)            :: q_g,n_g,x_g,d_g,v_g
     REAL(wp)            :: q_c,n_c,x_c,d_c,v_c,x_coll_c
@@ -4340,57 +4372,8 @@ CONTAINS
          const4 = c_w / L_ew, &
          !..mean mass of shedding drops
          x_shed = 4./3.*pi * rho_w * r_shedding**3
-    REAL(wp), SAVE      :: delta_n_gg,delta_n_gc,delta_n_cc
-    REAL(wp), SAVE      :: delta_q_gg,delta_q_gc,delta_q_cc
-    REAL(wp), SAVE      :: theta_n_gg,theta_n_gc,theta_n_cc
-    REAL(wp), SAVE      :: theta_q_gg,theta_q_gc,theta_q_cc
-!$omp threadprivate (firstcall)
-!$omp threadprivate (delta_n_gg)
-!$omp threadprivate (delta_n_gc)
-!$omp threadprivate (delta_n_cc)
-!$omp threadprivate (delta_q_gg)
-!$omp threadprivate (delta_q_gc)
-!$omp threadprivate (delta_q_cc)
-!$omp threadprivate (theta_n_gg)
-!$omp threadprivate (theta_n_gc)
-!$omp threadprivate (theta_n_cc)
-!$omp threadprivate (theta_q_gg)
-!$omp threadprivate (theta_q_gc)
-!$omp threadprivate (theta_q_cc)
 
     IF (isdebug) CALL message(routine, "graupel_cloud_riming")
-
-    IF (firstcall.NE.1) THEN
-      delta_n_gg = coll_delta_11(graupel,cloud,0)
-      delta_n_gc = coll_delta_12(graupel,cloud,0)
-      delta_n_cc = coll_delta_22(graupel,cloud,0)
-      delta_q_gg = coll_delta_11(graupel,cloud,0)
-      delta_q_gc = coll_delta_12(graupel,cloud,1)
-      delta_q_cc = coll_delta_22(graupel,cloud,1)
-
-      theta_n_gg = coll_theta_11(graupel,cloud,0)
-      theta_n_gc = coll_theta_12(graupel,cloud,0)
-      theta_n_cc = coll_theta_22(graupel,cloud,0)
-      theta_q_gg = coll_theta_11(graupel,cloud,0)
-      theta_q_gc = coll_theta_12(graupel,cloud,1)
-      theta_q_cc = coll_theta_22(graupel,cloud,1)
-
-      IF (isdebug) THEN
-        WRITE(txt,'(A,D10.3)') "    delta_n_gg  = ",delta_n_gg ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n_gc  = ",delta_n_gc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n_cc  = ",delta_n_cc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_gg  = ",theta_n_gg ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_gc  = ",theta_n_gc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_cc  = ",theta_n_cc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_q_gg  = ",delta_q_gg ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_q_gc  = ",delta_q_gc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_q_cc  = ",delta_q_cc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_q_gg  = ",theta_q_gg ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_q_gc  = ",theta_q_gc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_q_cc  = ",theta_q_cc ; CALL message(routine,TRIM(txt))
-      END IF
-      firstcall = 1
-    ENDIF
 
     x_coll_c = (D_coll_c/cloud%a_geo)**3          !..lower threshold for collection
     const1 = ecoll_gc/(D_coll_c - D_crit_c)
@@ -4424,12 +4407,12 @@ CONTAINS
              e_coll_q = e_coll_n
 
              rime_n = pi4 * e_coll_n * n_g * n_c * dt &
-                  & *     (delta_n_gg * D_g*D_g + delta_n_gc * D_g*D_c + delta_n_cc * D_c*D_c) &
-                  & * sqrt(theta_n_gg * v_g*v_g - theta_n_gc * v_g*v_c + theta_n_cc * v_c*v_c)
+                  & *     (gcr_params%delta_n_aa * D_g*D_g + gcr_params%delta_n_ab * D_g*D_c + gcr_params%delta_n_bb * D_c*D_c) &
+                  & * sqrt(gcr_params%theta_n_aa * v_g*v_g - gcr_params%theta_n_ab * v_g*v_c + gcr_params%theta_n_bb * v_c*v_c)
 
              rime_q = pi4 * e_coll_q * n_g * q_c * dt &
-                  & *     (delta_q_gg * D_g*D_g + delta_q_gc * D_g*D_c + delta_q_cc * D_c*D_c) &
-                  & * sqrt(theta_q_gg * v_g*v_g - theta_q_gc * v_g*v_c + theta_q_cc * v_c*v_c)
+                  & *     (gcr_params%delta_q_aa * D_g*D_g + gcr_params%delta_q_ab * D_g*D_c + gcr_params%delta_q_bb * D_c*D_c) &
+                  & * sqrt(gcr_params%theta_q_aa * v_g*v_g - gcr_params%theta_q_ab * v_g*v_c + gcr_params%theta_q_bb * v_c*v_c)
 
              rime_q = MIN(q_c,rime_q)
              rime_n = MIN(n_c,rime_n)
