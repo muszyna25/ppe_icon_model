@@ -66,7 +66,7 @@ MODULE mo_setup_subdivision
   USE mo_decomposition_tools, ONLY: t_decomposition_structure, &
     & divide_geometric_medial, divide_cells_by_location, &
     & t_cell_info, sort_cell_info_by_cell_number, &
-    & read_ascii_decomposition
+    & read_ascii_decomposition, partidx_of_elem_uniform_deco
   USE mo_math_utilities,      ONLY: geographical_to_cartesian, fxp_lat, fxp_lon
   USE mo_master_control,      ONLY: get_my_process_type, ocean_process, &
                                     testbed_process
@@ -122,13 +122,12 @@ CONTAINS
       &        n_procs_decomp
     INTEGER :: nprocs(p_patch_pre(1)%n_childdom)
     INTEGER, POINTER :: cell_owner(:)
-    INTEGER, POINTER :: cell_owner_p(:)
     REAL(wp) :: weight(p_patch_pre(1)%n_childdom)
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
     ! LOGICAL :: l_compute_grid
     INTEGER :: my_process_type, order_type_of_halos
     INTEGER, POINTER :: radiation_owner(:)
-    TYPE(dist_mult_array) :: dist_cell_owner
+    TYPE(dist_mult_array) :: dist_cell_owner, dist_cell_owner_p
 
     CALL message(routine, 'start of domain decomposition')
 
@@ -277,9 +276,6 @@ CONTAINS
       ! Every cells gets assigned an owner.
 
       ALLOCATE(cell_owner(p_patch_pre(jg)%n_patch_cells_g))
-      IF(jg > n_dom_start) THEN
-        ALLOCATE(cell_owner_p(p_patch_pre(jgp)%n_patch_cells_g))
-      END IF
 
       IF (my_process_is_mpi_parallel()) THEN
         ! Set division method, divide_for_radiation is only used for patch 0
@@ -289,12 +285,6 @@ CONTAINS
              divide_for_radiation = (jg == 0))
       ELSE
         cell_owner(:) = 0 ! trivial "decomposition"
-      END IF
-
-      IF(jg > n_dom_start) THEN
-        ! Assign the cell owners of the current patch to the parent cells
-        ! for the construction of the local parent, set "-1" elsewhere.
-        CALL divide_parent_cells(p_patch_pre(jg),cell_owner,cell_owner_p)
       END IF
 
       ! Please note: Previously, for jg==0 no ghost rows were set.
@@ -320,7 +310,6 @@ CONTAINS
         &               radiation_owner, n_ghost_rows, order_type_of_halos, &
         &               p_pe_work)
 
-      CALL dist_mult_array_delete(dist_cell_owner)
 
       IF (ASSOCIATED(radiation_owner)) THEN
         DEALLOCATE(radiation_owner)
@@ -328,15 +317,19 @@ CONTAINS
       END IF
 
       IF(jg > n_dom_start) THEN
+
+        ! Assign the cell owners of the current patch to the parent cells
+        ! for the construction of the local parent, set "-1" elsewhere.
+        CALL divide_parent_cells(p_patch_pre(jg), p_patch_pre(jgp), &
+          &                      dist_cell_owner, dist_cell_owner_p)
+
         order_type_of_halos = 0
 
-        CALL setup_dist_cell_owner(dist_cell_owner, cell_owner_p)
-
         CALL divide_patch(p_patch_local_parent(jg), p_patch_pre(jgp), &
-          &               dist_cell_owner, radiation_owner, 1, &
+          &               dist_cell_owner_p, radiation_owner, 1, &
           &               order_type_of_halos,  p_pe_work)
 
-        CALL dist_mult_array_delete(dist_cell_owner)
+        CALL dist_mult_array_delete(dist_cell_owner_p)
 
         CALL set_pc_idx(p_patch(jg), p_patch_pre(jgp))
         IF (jgp > n_dom_start) THEN
@@ -346,8 +339,9 @@ CONTAINS
         END IF
       ENDIF
 
+      CALL dist_mult_array_delete(dist_cell_owner)
+
       DEALLOCATE(cell_owner)
-      IF(jg > n_dom_start) DEALLOCATE(cell_owner_p)
 
     ENDDO
 
@@ -716,37 +710,113 @@ CONTAINS
   !! Sets the owner for the division of the cells of the parent patch
   !! with the same subdivision as the child
 
-  SUBROUTINE divide_parent_cells(p_patch_pre, cell_owner, cell_owner_p)
+  SUBROUTINE divide_parent_cells(p_patch_pre, p_parent_patch_pre, &
+    &                            dist_cell_owner, dist_cell_owner_p)
 
-    TYPE(t_pre_patch), INTENT(INOUT) :: p_patch_pre  !> Patch for which the parent should be divided
-    INTEGER, POINTER  :: cell_owner(:)   !> Ownership of cells in p_patch_pre
-    INTEGER, INTENT(OUT) :: cell_owner_p(:) !> Output: Cell division for parent.
-                                            !> Must be allocated to n_patch_cells of the global parent
+    !> Patch for which the parent should be divided
+    TYPE(t_pre_patch), INTENT(INOUT) :: p_patch_pre
+    !> Parent patch
+    TYPE(t_pre_patch), INTENT(INOUT) :: p_parent_patch_pre
+    !> Ownership of cells in p_patch_pre
+    TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner
+    !> Output: Cell division for parent. Must be allocated to n_patch_cells of!
+    !! the global parent
+    TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner_p
 
-    INTEGER :: j, jp
-    INTEGER :: cnt(SIZE(cell_owner_p))
+    INTEGER :: child_chunk_first, child_chunk_last, child_chunk_size, i
+    INTEGER :: n_cells_parent_g, parent_part_rank
+    TYPE(global_array_desc) :: dist_cell_owner_p_desc(1)
+    TYPE(extent) :: parent_chunk(1,1)
+    INTEGER, POINTER :: parent_chunk_ptr(:), child_chunk_ptr(:), &
+      &                 child_chunk_parent_ptr(:)
+    INTEGER, ALLOCATABLE :: num_parent_owner_send(:), num_parent_owner_recv(:),&
+      &                     parent_owner_send_displ(:), &
+      &                     parent_owner_recv_displ(:), &
+      &                     parent_cell_owner_map(:,:), parent_chunk_prep(:,:)
 
-    cell_owner_p(:) = -1
-    cnt(:) = 0
+    ! get local chunk
+    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, child_chunk_ptr)
+    child_chunk_first = LBOUND(child_chunk_ptr, 1)
+    child_chunk_size = SIZE(child_chunk_ptr)
+    child_chunk_last = child_chunk_first + child_chunk_size - 1
+    CALL dist_mult_array_local_ptr(p_patch_pre%cells%parent, 1, &
+      &                            child_chunk_parent_ptr)
 
-    DO j = 1, p_patch_pre%n_patch_cells_g
+    n_cells_parent_g = p_parent_patch_pre%n_patch_cells_g
 
-      CALL dist_mult_array_get(p_patch_pre%cells%parent, 1, (/j/), jp)
+    dist_cell_owner_p_desc(1)%a_rank = 1
+    dist_cell_owner_p_desc(1)%rect(1)%first = 1
+    dist_cell_owner_p_desc(1)%rect(1)%size = n_cells_parent_g
+    dist_cell_owner_p_desc(1)%element_dt = ppm_int
 
-      IF(cell_owner_p(jp) < 0) THEN
-        cell_owner_p(jp) = cell_owner(j)
-      ELSEIF(cell_owner_p(jp) /= cell_owner(j)) THEN
-        CALL finish('divide_parent_cells','Divided parent cell encountered')
-      ENDIF
-      cnt(jp) = cnt(jp) + 1 ! Only for safety check below
-    ENDDO
+    ! get parent cells global index for all child cells of child chunk and their
+    ! respective owners (parent cells can occur more than once)
+    ALLOCATE(parent_cell_owner_map(2, child_chunk_first:child_chunk_last))
+    parent_cell_owner_map(1,:) = child_chunk_ptr
+    parent_cell_owner_map(2,:) = child_chunk_parent_ptr
 
-    ! Safety check
-    IF(ANY(cnt(:)/=0 .AND. cnt(:)/=4)) &
-      & CALL finish('divide_parent_cells','Incomplete parent cell encountered')
+    ! sort both arrays according to parent cell global index
+    CALL quicksort(parent_cell_owner_map(2,:), parent_cell_owner_map(1,:))
+
+    ! compute number of parent cells per process
+    ALLOCATE(num_parent_owner_send(0:p_n_work-1), &
+      &      num_parent_owner_recv(0:p_n_work-1), &
+      &      parent_owner_send_displ(0:p_n_work-1), &
+      &      parent_owner_recv_displ(0:p_n_work-1))
+    num_parent_owner_send = 0
+    DO i = child_chunk_first, child_chunk_last
+      ! compute for each parent cell global index the respective process
+      parent_part_rank = &
+        partidx_of_elem_uniform_deco(dist_cell_owner_p_desc(1)%rect(1), p_n_work, &
+        &                            parent_cell_owner_map(2,i))-1
+      num_parent_owner_send(parent_part_rank) = &
+        num_parent_owner_send(parent_part_rank) + 1
+    END DO
+
+    ! alltoall number of parent cells per process
+    CALL p_alltoall(num_parent_owner_send, num_parent_owner_recv, p_comm_work)
+
+    ! alltoallv parent cell global index and owners
+    parent_owner_send_displ(0) = 0
+    parent_owner_recv_displ(0) = 0
+    DO i = 1, p_n_work-1
+      parent_owner_send_displ(i) = parent_owner_send_displ(i-1) + &
+        &                          num_parent_owner_send(i-1)
+      parent_owner_recv_displ(i) = parent_owner_recv_displ(i-1) + &
+        &                          num_parent_owner_recv(i-1)
+    END DO
+    ALLOCATE(parent_chunk_prep(2,parent_owner_recv_displ(p_n_work-1) + &
+      &                          num_parent_owner_recv(p_n_work-1)))
+    CALL p_alltoallv(parent_cell_owner_map, num_parent_owner_send, &
+      &              parent_owner_send_displ, &
+      &              parent_chunk_prep, num_parent_owner_recv, &
+      &              parent_owner_recv_displ, p_comm_work)
+
+    ! sort according to parent cell global index
+    CALL quicksort(parent_chunk_prep(2,:), parent_chunk_prep(1,:))
+
+    ! check that each parent cell global index occurs either 0 or 4 times
+    IF (MOD(SIZE(parent_chunk_prep, 2), 4) /= 0) &
+      CALL finish('divide_parent_cells','Incomplete parent cell encountered')
+    DO i = 1, SIZE(parent_chunk_prep, 2), 4
+      IF (ANY((parent_chunk_prep(1,i) /= parent_chunk_prep(1,i+1:i+3)) .OR. &
+        &     (parent_chunk_prep(2,i) /= parent_chunk_prep(2,i+1:i+3)))) &
+        CALL finish('divide_parent_cells','Incomplete parent cell encountered')
+    END DO
+
+    ! set up dist_array
+    parent_chunk = p_parent_patch_pre%cells%local_chunk
+    dist_cell_owner_p = dist_mult_array_new(dist_cell_owner_p_desc, &
+      &                                     parent_chunk, p_comm_work)
+    CALL dist_mult_array_local_ptr(dist_cell_owner_p, 1, parent_chunk_ptr)
+    parent_chunk_ptr = -1
+    DO i = 1, SIZE(parent_chunk_prep, 2), 4
+      parent_chunk_ptr(parent_chunk_prep(2,i)) = parent_chunk_prep(1,i)
+    END DO
+
+    CALL dist_mult_array_expose(dist_cell_owner_p)
 
   END SUBROUTINE divide_parent_cells
-
 
   !-------------------------------------------------------------------------------------------------
   !>
