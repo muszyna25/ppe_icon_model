@@ -1476,12 +1476,7 @@ CONTAINS
     IF (ice_typ > 0) THEN
 
        ! homogeneous and heterogeneous ice nucleation
-       ! FIXME: optional arguments passed conditionally
-       IF (present(n_inpot)) THEN
-          CALL ice_nucleation_homhet(ik_slice, use_prog_in, atmo, cloud, ice, snow, n_inact, n_inpot)
-       ELSE
-          CALL ice_nucleation_homhet(ik_slice, use_prog_in, atmo, cloud, ice, snow, n_inact)
-       END IF
+      CALL ice_nucleation_homhet(ik_slice, use_prog_in, atmo, cloud, ice, snow, n_inact, n_inpot)
 
        ! homogeneous freezing of cloud droplets
        CALL cloud_freeze(ik_slice, dt, atmo, cloud, ice)
