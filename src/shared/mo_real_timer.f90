@@ -975,23 +975,29 @@ CONTAINS
          tmr%val_tot_max(timer_top), tmr%val_call_n(timer_top), &
          tmr%tot_rank_min(timer_top), tmr%tot_rank_max(timer_top), &
          tmr%rank_min(timer_top), tmr%rank_max(timer_top))
-!$OMP PARALLEL
-!$OMP MASTER
+!$omp parallel
+!$omp master
     tmr%val_min    = rt(1:timer_top)%min
     tmr%val_max    = rt(1:timer_top)%max
     tmr%val_tot    = rt(1:timer_top)%tot
     tmr%val_call_n = REAL(MAX(1,rt(1:timer_top)%call_n), dp)
-!$OMP END MASTER
-!$OMP END PARALLEL
-
+!$omp end master
+!$omp barrier
+!$omp sections
+!$omp section
     tmr%val_tot_min = tmr%val_tot
+!$omp section
     tmr%val_tot_max = tmr%val_tot
-
+!$omp section
     tmr%rank_min       = p_pe_work
+!$omp section
     tmr%rank_max       = p_pe_work
+!$omp section
     tmr%tot_rank_min   = p_pe_work
+!$omp section
     tmr%tot_rank_max   = p_pe_work
-
+!$omp end sections
+!$omp end parallel
     ! Note: The following operations are MPI-collective!
     tmr%val_min = p_min(tmr%val_min, proc_id=tmr%rank_min, &
          comm=p_comm_work, root=0)
