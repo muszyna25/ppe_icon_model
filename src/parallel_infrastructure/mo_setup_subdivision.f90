@@ -484,7 +484,7 @@ CONTAINS
 
     INTEGER, POINTER :: cell_owner(:) !> Cell division
     INTEGER :: n, i, j, jp, temp_phys_id
-    INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
+    INTEGER, ALLOCATABLE :: flag_c(:), parent_cell_owner(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
 
     ALLOCATE(cell_owner(wrk_p_patch_pre%n_patch_cells_g))
@@ -640,28 +640,30 @@ CONTAINS
 
         ! Divide subset of patch
         ! Receives the PE  numbers for every cell
-        ALLOCATE(tmp(wrk_p_parent_patch_pre%n_patch_cells_g))
+        ALLOCATE(parent_cell_owner(wrk_p_parent_patch_pre%n_patch_cells_g))
 
         IF(division_method(patch_no) == div_geometric) THEN
           CALL divide_subset_geometric(flag_c, n_proc, wrk_p_parent_patch_pre, &
-               tmp, .TRUE., divide_for_radiation = divide_for_radiation)
+               parent_cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
+               divide_for_radiation = divide_for_radiation)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
-          CALL divide_subset_metis( flag_c, n_proc, wrk_p_parent_patch_pre, tmp)
+          CALL divide_subset_metis(flag_c, n_proc, wrk_p_parent_patch_pre, &
+            &                      parent_cell_owner)
 #endif
         ELSE
           CALL finish('divide_patch','Illegal division_method setting')
         ENDIF
 
-        ! Owners of the cells of the parent patch are now in tmp.
+        ! Owners of the cells of the parent patch are now in parent_cell_owner.
         ! Set owners in current patch from this
 
         DO j = 1, wrk_p_patch_pre%n_patch_cells_g
           CALL dist_mult_array_get(wrk_p_patch_pre%cells%parent, 1, (/j/), jp)
-          cell_owner(j) = tmp(jp)
+          cell_owner(j) = parent_cell_owner(jp)
         ENDDO
 
-        DEALLOCATE(flag_c, tmp)
+        DEALLOCATE(flag_c, parent_cell_owner)
 
       ELSE
 
@@ -676,7 +678,8 @@ CONTAINS
 
         IF(division_method(patch_no) == div_geometric) THEN
           CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_pre, &
-               cell_owner, .FALSE., divide_for_radiation = divide_for_radiation)
+               cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
+               divide_for_radiation = divide_for_radiation)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
           CALL divide_subset_metis(flag_c, n_proc, wrk_p_patch_pre, cell_owner)
