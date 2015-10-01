@@ -147,7 +147,7 @@ MODULE mo_nh_stepping
   USE mo_nwp_diagnosis,            ONLY: nwp_diag_for_output
   USE mo_turbulent_diagnostic,     ONLY: calculate_turbulent_diagnostics, &
                                          write_vertical_profiles, write_time_series, &
-                                         sampl_freq_step
+                                         sampl_freq_step, les_cloud_diag
   USE mo_opt_diagnostics,          ONLY: update_opt_acc, reset_opt_acc, &
     &                                    calc_mean_opt_acc, p_nh_opt_diag
   USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list
@@ -354,36 +354,55 @@ MODULE mo_nh_stepping
       ! Initial call of (slow) physics schemes, including computation of transfer coefficients
       CALL init_slowphysics (datetime_current, 1, dtime, time_config%sim_time)
 
-      DO jg=1, n_dom
-      IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-        ! diagnostics which are only required for output
-        CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
-          &                      ih_clch(jg), ih_clcm(jg),               & !in
-          &                      p_patch(jg),                            & !in
-          &                      p_nh_state(jg)%metrics,                 & !in
-          &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
-          &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
-          &                      p_nh_state(jg)%diag,                    & !in
-          &                      p_lnd_state(jg)%diag_lnd,               & !in
-          &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
-          &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
-          &                      ext_data(jg),                           & !in
-          &                      prm_diag(jg)                            ) !inout
+      DO jg = 1, n_dom
 
-        ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
-        DO jn = 1, p_patch(jg)%n_childdom
-          jgc = p_patch(jg)%child_id(jn)
-          IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
-          IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
-        ENDDO
-        ! Compute synthetic sat images
-        IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
+        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
-      ENDDO
+        IF(.NOT.atm_phy_nwp_config(jg)%is_les_phy) THEN
+
+          ! diagnostics which are only required for output
+          CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
+               &                      ih_clch(jg), ih_clcm(jg),               & !in
+               &                      p_patch(jg),                            & !in
+               &                      p_nh_state(jg)%metrics,                 & !in
+               &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
+               &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
+               &                      p_nh_state(jg)%diag,                    & !in
+               &                      p_lnd_state(jg)%diag_lnd,               & !in
+               &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
+               &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
+               &                      ext_data(jg),                           & !in
+               &                      prm_diag(jg)                            ) !inout
+
+          ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
+          DO jn = 1, p_patch(jg)%n_childdom
+            jgc = p_patch(jg)%child_id(jn)
+            IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
+            IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
+          ENDDO
+          ! Compute synthetic sat images
+          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
+
+        ELSE !is_les_phy
+
+           !LES specific diagnostics only for output
+           CALL les_cloud_diag    ( kstart_moist(jg),                       & !in
+             &                      ih_clch(jg), ih_clcm(jg),               & !in
+             &                      p_patch(jg),                            & !in
+             &                      p_nh_state(jg)%metrics,                 & !in
+             &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
+             &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
+             &                      p_nh_state(jg)%diag,                    & !in
+             &                      p_lnd_state(jg)%diag_lnd,               & !in
+             &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
+             &                      prm_diag(jg)                            ) !inout
+
+         END IF!is_les_phy
+      ENDDO!jg
 
       CALL fill_nestlatbc_phys
 
-    ENDIF
+    ENDIF!is_restart
   CASE (iecham)
     IF (.NOT.isRestart()) THEN
       CALL init_slowphysics (datetime_current, 1, dtime, time_config%sim_time)
@@ -862,40 +881,58 @@ MODULE mo_nh_stepping
     ! Compute diagnostics for output if necessary
     IF (l_compute_diagnostic_quants .OR. iforcing==iecham) THEN
       CALL diag_for_output_dyn ()
+
       IF (iforcing == inwp) THEN
         CALL aggr_landvars
 
-        DO jg=1, n_dom
+        DO jg = 1, n_dom
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-          ! diagnostics which are only required for output
-          CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
-            &                      ih_clch(jg), ih_clcm(jg),               & !in
-            &                      p_patch(jg),                            & !in
-            &                      p_nh_state(jg)%metrics,                 & !in
-            &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
-            &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
-            &                      p_nh_state(jg)%diag,                    & !in
-            &                      p_lnd_state(jg)%diag_lnd,               & !in
-            &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
-            &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
-            &                      ext_data(jg),                           & !in
-            &                      prm_diag(jg)                            ) !inout
 
-          ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
-          DO jn = 1, p_patch(jg)%n_childdom
-            jgc = p_patch(jg)%child_id(jn)
-            IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
-            IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
-          ENDDO
-          ! Compute synthetic sat images
-          IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
+          IF(.NOT.atm_phy_nwp_config(jg)%is_les_phy) THEN
+            ! diagnostics which are only required for output
+            CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
+                 &                      ih_clch(jg), ih_clcm(jg),               & !in
+                 &                      p_patch(jg),                            & !in
+                 &                      p_nh_state(jg)%metrics,                 & !in
+                 &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
+                 &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
+                 &                      p_nh_state(jg)%diag,                    & !in
+                 &                      p_lnd_state(jg)%diag_lnd,               & !in
+                 &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
+                 &                      p_lnd_state(jg)%prog_wtr(nnow_rcf(jg)), & !inout
+                 &                      ext_data(jg),                           & !in
+                 &                      prm_diag(jg)                            ) !inout
 
-        ENDDO
+            ! In case of vertical nesting, copy upper levels of synsat input fields to local parent grid
+            DO jn = 1, p_patch(jg)%n_childdom
+              jgc = p_patch(jg)%child_id(jn)
+              IF (.NOT. p_patch(jgc)%ldom_active) CYCLE
+              IF (lsynsat(jgc) .AND. p_patch(jgc)%nshift > 0) CALL copy_rttov_ubc (jg, jgc)
+            ENDDO
+            ! Compute synthetic sat images
+            IF (lsynsat(jg)) CALL rttov_driver (jg, p_patch(jg)%parent_id, nnow_rcf(jg))
+
+          ELSE !is_les_phy
+
+            !LES specific diagnostics only for output
+            CALL les_cloud_diag    ( kstart_moist(jg),                       & !in
+              &                      ih_clch(jg), ih_clcm(jg),               & !in
+              &                      p_patch(jg),                            & !in
+              &                      p_nh_state(jg)%metrics,                 & !in
+              &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
+              &                      p_nh_state(jg)%prog(nnow_rcf(jg)),      & !in  !nnow or nnew?
+              &                      p_nh_state(jg)%diag,                    & !in
+              &                      p_lnd_state(jg)%diag_lnd,               & !in
+              &                      p_lnd_state(jg)%prog_lnd(nnow_rcf(jg)), & !in
+              &                      prm_diag(jg)                            ) !inout
+
+          END IF!is_les_phy
+
+        ENDDO!jg
 
         CALL fill_nestlatbc_phys
 
-      ENDIF  ! iforcing == inwp
-
+      END IF !iforcing=inwp
 
       ! Unit conversion for output from mass mixing ratios to densities
       !

@@ -2397,6 +2397,42 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       diag%turb_diag_1dvar = 0._wp
       diag%turb_diag_0dvar = 0._wp
 
+      !  
+      !Some diagnostics specific to HDCP2
+      !
+
+      ! &      diag%t_cbase(nproma,nblks_c) 
+      cf_desc    = t_cf_var('t_cbase', 'K', 'cloud base temperature', &
+           &                DATATYPE_FLT32)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 't_cbase', diag%t_cbase,                         &
+        & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
+        & ldims=shape2d, lrestart=.FALSE. )
+     
+      ! &      diag%p_cbase(nproma,nblks_c) 
+      cf_desc    = t_cf_var('p_cbase', 'Pa', 'cloud base pressure', &
+           &                DATATYPE_FLT32)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'p_cbase', diag%p_cbase,                         &
+        & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
+        & ldims=shape2d, lrestart=.FALSE. )
+
+      ! &      diag%t_ctop(nproma,nblks_c) 
+      cf_desc    = t_cf_var('t_ctop', 'K', 'cloud top temperature', &
+           &                DATATYPE_FLT32)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 't_ctop', diag%t_ctop,                         &
+        & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,          &
+        & ldims=shape2d, lrestart=.FALSE. )
+
+      ! &      diag%p_ctop(nproma,nblks_c) 
+      cf_desc    = t_cf_var('p_ctop', 'K', 'cloud top pressure', &
+           &                DATATYPE_FLT32)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( diag_list, 'p_ctop', diag%p_ctop,                           &
+        & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
+        & ldims=shape2d, lrestart=.FALSE. )
+
     END IF  
 
 

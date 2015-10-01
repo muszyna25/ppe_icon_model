@@ -51,6 +51,7 @@ MODULE mo_turbulent_diagnostic
   USE mo_physical_constants, ONLY: cpd, rcvd, p0ref, grav, rcpd, alv, vtmpc1
   USE mo_sync,               ONLY: SYNC_C, sync_patch_array
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
+  USE mo_satad,              ONLY: sat_pres_water, spec_humi
  
   IMPLICIT NONE
 
@@ -82,66 +83,80 @@ CONTAINS
 
   !> AD: 28 July 2014- more diag yet to be added
   !!
-  !! <Calculates cloud diagnostics for realistic LES runs when convective 
-  !!  parameterization is off> !!  Very preliminary for now
+  !! Calculates cloud diagnostics for realistic LES runs when convective 
+  !! parameterization is off> !!  Very preliminary for now
   !!
-  !! <Describe the purpose of the subroutine and its algorithm(s).>
-  !! <Include any applicable external references inline as module::procedure,>
-  !! <external_procedure(), or by using @see.>
-  !! <Don't forget references to literature.>
+  !! Most of the diagnostics are from mo_nwp_diagnosis/nwp_diag_for_output
+  !! routine. Some of them which were very specific to NWP have been deleted.
   !!
   !! @par Revision History
   !!
-  SUBROUTINE les_cloud_diag(p_patch, p_prog_rcf, kstart_moist,  &
-                            p_prog_land, p_diag_land, p_diag,   &
-                            p_prog, p_metrics, prm_diag)
-                            
+  SUBROUTINE les_cloud_diag(  kstart_moist,               & !in
+                            & ih_clch, ih_clcm,           & !in
+                            & p_patch, p_metrics,         & !in
+                            & p_prog,                     & !in
+                            & p_prog_rcf,                 & !in
+                            & p_diag,                     & !in
+                            & p_diag_land,                & !in
+                            & p_prog_land,                & !in
+                            & prm_diag                    ) !inout    
+
     !>
     ! !INPUT PARAMETERS:
-    TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
-    TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog_rcf !<the prognostic variables (with
     INTEGER                , INTENT(in)   :: kstart_moist
+    INTEGER                ,INTENT(IN)    :: ih_clch, ih_clcm
+
+    TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
     TYPE(t_lnd_prog),        INTENT(in)   :: p_prog_land
     TYPE(t_lnd_diag),        INTENT(in)   :: p_diag_land
     TYPE(t_nh_diag), TARGET, INTENT(in)   :: p_diag     !<the diagnostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog_rcf !<the prognostic variables (with
     TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog     !<the prognostic variables
     TYPE(t_nh_metrics), INTENT(in)        :: p_metrics
     TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag
 
     REAL(wp), PARAMETER :: qc_min = 1.e-8_wp
+    REAL(wp), PARAMETER :: grav_o_cpd = grav/cpd
+    REAL(wp), PARAMETER :: zundef = -999._wp   ! undefined value for 0 deg C level
+
+    REAL(wp):: zbuoy, zqsat, zcond
+    REAL(wp):: ri_no, z_agl, thv_s
+    REAL(wp):: ztp(nproma), zqp(nproma)
+
     INTEGER :: found_cltop, found_clbas
     INTEGER :: nlev, nlevp1
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
+    INTEGER :: i_nchdom, jg            !< domain index
     INTEGER :: jc,jk,jb                !block index
-
-    REAL(wp):: ri_no, z_agl, thv_s
+    INTEGER :: mtop_min
+    INTEGER :: mlab(nproma)
 
     nlev      = p_patch%nlev 
     nlevp1    = p_patch%nlev+1 
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
+    jg        = p_patch%id
 
     rl_start   = grf_bdywidth_c+1
     rl_end     = min_rlcell_int
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    !Cloud base and cloud height: get the model levels only
-    !rest of the calulations are performed in mo_nwp_diag
-    !using the variables hbas_con/htop_con designed for convective
-    !parametrization
+    ! minimum top index for dry convection
+    mtop_min = (ih_clch+ih_clcm)/2    
 
     prm_diag%locum(:,:) = .FALSE.
 
 !$OMP PARALLEL 
-
-!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx,found_cltop,found_clbas)
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,found_cltop,found_clbas,z_agl,thv_s, ri_no,&
+!$               mlab,ztp,zqp,zbuoy,zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE 
     DO jb = i_startblk,i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
+
+       !Cloud base and cloud top model levels
        DO jc = i_startidx, i_endidx
 
          found_cltop = -1
@@ -171,20 +186,12 @@ CONTAINS
            prm_diag%mtop_con(jc,jb) = -1
          END IF
 
-       END DO
-    END DO
-!$OMP END DO
-
+       END DO!jc
 
 !  -included calculation of boundary layer height (Anurag Dipankar, MPI Octo 2013).
 !   using Bulk richardson number approach. Assumt exner surface=1
 
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_agl,thv_s,ri_no) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                          i_startidx, i_endidx, rl_start, rl_end)
-       DO jc = i_startidx, i_endidx   
-        
+       DO jc = i_startidx, i_endidx           
          DO jk = nlev, kstart_moist, -1
 
             z_agl = p_metrics%z_mc(jc,jk,jb)-p_metrics%z_ifc(jc,nlevp1,jb)
@@ -199,12 +206,92 @@ CONTAINS
                EXIT
             END IF
          END DO 
-
        ENDDO
-    ENDDO ! jb
-!$OMP END DO
+       !
+       ! height of ccloud base and top: hbas_con, htop_con
+       ! 
+       DO jc = i_startidx, i_endidx
+         IF ( prm_diag%locum(jc,jb)) THEN
+           prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
+           prm_diag%htop_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mtop_con(jc,jb), jb)
+         ELSE
+           prm_diag%hbas_con(jc,jb) = zundef
+           prm_diag%htop_con(jc,jb) = zundef
+         END IF
+       ENDDO  ! jc
+       !
+       ! height of the top of dry convection
+       !
+       DO jc = i_startidx, i_endidx 
+         prm_diag%htop_dc(jc,jb) = zundef
+         mlab(jc) = 1
+         ztp (jc) = p_diag%temp(jc,nlev,jb) + 0.25_wp
+         zqp (jc) = p_prog_rcf%tracer(jc,nlev,jb,iqv)
+       ENDDO
 
-!$OMP END PARALLEL 
+       DO jk = nlev-1, mtop_min, -1
+         DO jc = i_startidx, i_endidx 
+           IF ( mlab(jc) == 1) THEN
+             ztp(jc) = ztp(jc)  - grav_o_cpd*( p_metrics%z_mc(jc,jk,jb)    &
+            &                                 -p_metrics%z_mc(jc,jk+1,jb) )
+             zbuoy = ztp(jc)*( 1._wp + vtmpc1*zqp(jc) ) - p_diag%tempv(jc,jk,jb)
+             zqsat = spec_humi( sat_pres_water(ztp(jc)), p_diag%pres(jc,jk,jb) )
+             zcond = zqp(jc) - zqsat
+
+             IF ( zcond < 0._wp .AND. zbuoy > 0._wp) THEN
+               prm_diag%htop_dc(jc,jb) = p_metrics%z_ifc(jc,jk,jb)
+             ELSE
+               mlab(jc) = 0
+             END IF
+           END IF
+         ENDDO
+       ENDDO
+
+       DO jc = i_startidx, i_endidx 
+         IF ( prm_diag%htop_dc(jc,jb) > zundef) THEN
+           prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),        &
+          &                p_metrics%z_ifc(jc,nlevp1,jb) + 3000._wp )
+           IF ( prm_diag%locum(jc,jb)) THEN
+             prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),      &
+            &                               prm_diag%hbas_con(jc,jb) )
+           END IF
+         ELSE
+           prm_diag%htop_dc(jc,jb) = MIN( 0._wp, p_metrics%z_ifc(jc,nlevp1,jb) )
+         END IF
+       ENDDO
+       ! 
+       ! Compute wind speed in 10m
+       ! 
+       IF (atm_phy_nwp_config(jg)%inwp_turb > 0 ) THEN
+         DO jc = i_startidx, i_endidx
+           prm_diag%sp_10m(jc,jb) = SQRT(prm_diag%u_10m(jc,jb)**2 &
+             &                    +      prm_diag%v_10m(jc,jb)**2 )
+         ENDDO
+       ENDIF
+      
+       !
+       !Extended diagnostics for HDCP2
+       !
+      
+       !Temperature and pressure at cloud base and top
+       DO jc = i_startidx, i_endidx
+         IF ( prm_diag%locum(jc,jb)) THEN
+           prm_diag%t_cbase(jc,jb) = p_diag%temp(jc, prm_diag%mbas_con(jc,jb), jb)
+           prm_diag%p_cbase(jc,jb) = p_diag%pres(jc, prm_diag%mbas_con(jc,jb), jb)
+
+           prm_diag%t_ctop(jc,jb)  = p_diag%temp(jc, prm_diag%mtop_con(jc,jb), jb)
+           prm_diag%p_ctop(jc,jb)  = p_diag%pres(jc, prm_diag%mtop_con(jc,jb), jb)
+         ELSE
+           prm_diag%t_cbase(jc,jb) = zundef
+           prm_diag%p_cbase(jc,jb) = zundef
+           prm_diag%t_ctop(jc,jb)  = zundef
+           prm_diag%p_ctop(jc,jb)  = zundef
+         END IF
+       ENDDO  ! jc
+
+    ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL  
 
 
   END SUBROUTINE les_cloud_diag

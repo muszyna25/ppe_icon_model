@@ -79,7 +79,7 @@ MODULE mo_interface_les
   USE mo_turbulent_diagnostic, ONLY: calculate_turbulent_diagnostics, &
                                      write_vertical_profiles, write_time_series, &
                                      avg_interval_step, sampl_freq_step,  &
-                                     is_sampling_time, is_writing_time, les_cloud_diag
+                                     is_sampling_time, is_writing_time
   USE mo_les_utilities,       ONLY: init_vertical_grid_for_les
   USE mo_fortran_tools,       ONLY: copy
 
@@ -1440,13 +1440,6 @@ CONTAINS
                         & pt_prog, pt_prog_rcf,          & !in
                         & pt_diag,                       & !inout
                         & prm_diag                       ) !inout
-
-
-    !Cloud diagnostics (cloud base, top, etc) for LES
-    IF (  lcall_phy_jg(itturb) .OR. linit ) &
-      CALL les_cloud_diag(pt_patch, pt_prog_rcf, kstart_moist(jg),   &
-                          lnd_prog_new, lnd_diag, pt_diag, &
-                          pt_prog, p_metrics, prm_diag)
 
 
     !Special diagnostics for LES runs- 1D, time series
