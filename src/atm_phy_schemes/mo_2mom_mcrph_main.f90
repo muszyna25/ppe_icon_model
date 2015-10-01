@@ -4426,10 +4426,14 @@ CONTAINS
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
     REAL(wp)            :: q_g,n_g,x_g,d_g,v_g
-    REAL(wp)            :: q_r,n_r,x_r,d_r,v_r,x_shed
+    REAL(wp)            :: q_r,n_r,x_r,d_r,v_r
     REAL(wp)            :: rime_n,rime_q,melt_n,melt_q,shed_n,shed_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
-    REAL(wp)            :: const3,const4
+    REAL(wp), PARAMETER :: &
+         x_shed = 4./3. * pi * rho_w * r_shedding**3, &
+         const3 = 1/(T_mult_opt - T_mult_min), &
+         const4 = 1/(T_mult_opt - T_mult_max)
+
     REAL(wp), SAVE      :: delta_n_gg,delta_n_gr,delta_n_rr
     REAL(wp), SAVE      :: delta_q_gg,delta_q_gr,delta_q_rg,delta_q_rr
     REAL(wp), SAVE      :: theta_n_gg,theta_n_gr,theta_n_rr
@@ -4487,11 +4491,6 @@ CONTAINS
       END IF
       firstcall = 1
     ENDIF
-
-    x_shed = 4./3. * pi * rho_w * r_shedding**3
-
-    const3 = 1/(T_mult_opt - T_mult_min)
-    const4 = 1/(T_mult_opt - T_mult_max)
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -4609,10 +4608,14 @@ CONTAINS
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
     REAL(wp)            :: q_h,n_h,x_h,d_h,v_h
-    REAL(wp)            :: q_r,n_r,x_r,d_r,v_r,x_shed
+    REAL(wp)            :: q_r,n_r,x_r,d_r,v_r
     REAL(wp)            :: rime_n,rime_q,melt_n,melt_q,shed_n,shed_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
-    REAL(wp)            :: const3,const4
+    REAL(wp), PARAMETER :: &
+         x_shed = 4./3. * pi * rho_w * r_shedding**3, &
+         const3 = 1.0/(T_mult_opt - T_mult_min), &
+         const4 = 1.0/(T_mult_opt - T_mult_max)
+
     REAL(wp), SAVE      :: delta_n_hh,delta_n_hr,delta_n_rr
     REAL(wp), SAVE      :: delta_q_hh,delta_q_hr,delta_q_rr
     REAL(wp), SAVE      :: theta_n_hh,theta_n_hr,theta_n_rr
@@ -4673,11 +4676,6 @@ CONTAINS
     ELSEIF (isdebug) THEN
        WRITE(txt,*) " hail_rain_riming" ; CALL message(routine,TRIM(txt))
     ENDIF
-
-    x_shed = 4./3. * pi * rho_w * r_shedding**3
-
-    const3 = 1.0/(T_mult_opt - T_mult_min)
-    const4 = 1.0/(T_mult_opt - T_mult_max)
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -5065,7 +5063,12 @@ CONTAINS
     REAL(wp)            :: rime_n,rime_q,rime_qr,rime_qi
     REAL(wp)            :: conv_n,conv_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
-    REAL(wp)            :: const2,const3,const4,const5
+    REAL(wp)            :: const2
+    REAL(wp), PARAMETER :: &
+         const3 = 1.0_wp/(T_mult_opt - T_mult_min), &
+         const4 = 1.0_wp/(T_mult_opt - T_mult_max), &
+         const5 = alpha_spacefilling * rho_w/rho_ice
+
 
     IF (isdebug) THEN
        WRITE(txt,*) " ice riming" ; CALL message(routine,TRIM(txt))
@@ -5088,9 +5091,6 @@ CONTAINS
     x_coll_c = (D_coll_c/cloud%a_geo)**3   !..lower mean mass for collection
 
     const2 = 1.0/x_coll_c
-    const3 = 1.0/(T_mult_opt - T_mult_min)
-    const4 = 1.0/(T_mult_opt - T_mult_max)
-    const5 = alpha_spacefilling * rho_w/rho_ice
     !
     ! Complete ice-cloud and ice-rain riming
 
@@ -5274,7 +5274,10 @@ CONTAINS
       REAL(wp), SAVE      :: delta_q_ii,delta_q_ic,delta_q_cc
       REAL(wp), SAVE      :: theta_n_ii,theta_n_ic,theta_n_cc
       REAL(wp), SAVE      :: theta_q_ii,theta_q_ic,theta_q_cc
-      REAL(wp)            :: const1
+      REAL(wp), PARAMETER :: &
+           !..collision efficiency coeff
+           const1   = ecoll_ic/(D_coll_c - D_crit_c)
+
 !$omp threadprivate (firstcall)
 !$omp threadprivate (delta_n_ii)
 !$omp threadprivate (delta_n_ic)
@@ -5333,7 +5336,6 @@ CONTAINS
          firstcall = 1
       ENDIF
 
-      const1   = ecoll_ic/(D_coll_c - D_crit_c)    !..collision efficiency coeff
       x_coll_c = (D_coll_c/cloud%a_geo)**3         !..lower mass threshold for collection
 
       DO k = kstart,kend
@@ -5513,7 +5515,11 @@ CONTAINS
     REAL(wp)            :: rime_n,rime_q,rime_qr,rime_qs
     REAL(wp)            :: conv_n,conv_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
-    REAL(wp)            :: const2,const3,const4,const5
+    REAL(wp)            :: const2
+    REAL(wp), PARAMETER :: &
+         const3 = 1.0/(T_mult_opt - T_mult_min), &
+         const4 = 1.0/(T_mult_opt - T_mult_max), &
+         const5 = alpha_spacefilling * rho_w/rho_ice
 
     IF (isdebug) THEN
        WRITE(txt,*) "snow_riming" ; CALL message(routine,TRIM(txt))
@@ -5536,9 +5542,6 @@ CONTAINS
     x_coll_c = (D_coll_c/cloud%a_geo)**3   !..lower mean mass for collection
 
     const2 = 1.0/x_coll_c
-    const3 = 1.0/(T_mult_opt - T_mult_min)
-    const4 = 1.0/(T_mult_opt - T_mult_max)
-    const5 = alpha_spacefilling * rho_w/rho_ice
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -5856,7 +5859,8 @@ CONTAINS
      REAL(wp)            :: q_s,n_s,x_s,d_s,v_s
      REAL(wp)            :: q_c,n_c,x_c,d_c,v_c,e_coll
      REAL(wp)            :: rime_n,rime_q
-     REAL(wp)            :: const1
+     REAL(wp), PARAMETER :: const1 = ecoll_sc/(D_coll_c - D_crit_c)
+
      REAL(wp), SAVE      :: delta_n_ss,delta_n_sc,delta_n_cc
      REAL(wp), SAVE      :: delta_q_ss,delta_q_sc,delta_q_cc
      REAL(wp), SAVE      :: theta_n_ss,theta_n_sc,theta_n_cc
@@ -5918,8 +5922,6 @@ CONTAINS
         END IF
         firstcall = 1
      ENDIF
-
-     const1 = ecoll_sc/(D_coll_c - D_crit_c)
 
      DO k = kstart,kend
         DO i = istart,iend
