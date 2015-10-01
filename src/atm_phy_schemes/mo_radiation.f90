@@ -148,7 +148,7 @@ CONTAINS
     ! local insolation = constant = global mean insolation (ca. 340 W/m2)
     ! zenith angle = 0,
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = 1._wp ! sun in zenith everywhere
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt/4._wp ! scale ztsi to get the correct global mean insolation
@@ -159,7 +159,7 @@ CONTAINS
     ! local time always 12:00
     ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt/pi ! because sun is always in local noon, the TSI needs to be
@@ -171,7 +171,7 @@ CONTAINS
     ! local time always  07:14:15 or 16:45:45
     ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )/pi
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
@@ -197,8 +197,7 @@ CONTAINS
 
         ie = kbdim
         DO jb = 1, pt_patch%nblks_c
-
-          IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+          ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
           z_cosmu0(1:ie,jb) = -COS( pt_patch%cells%center(1:ie,jb)%lat ) &
             & *COS( pt_patch%cells%center(1:ie,jb)%lon                &
@@ -425,7 +424,7 @@ CONTAINS
     IF (izenith == 3) THEN
 
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = -COS( pt_patch%cells%center(1:ie,jb)%lat ) &
           & *COS( pt_patch%cells%center(1:ie,jb)%lon                &
           &      +zstunde/24._wp* 2._wp*pi )
@@ -458,7 +457,7 @@ CONTAINS
       ENDIF
 
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsinphi(1:ie,jb)      = SIN (pt_patch%cells%center(1:ie,jb)%lat)
         zcosphi(1:ie,jb)      = SQRT(1.0_wp - zsinphi(1:ie,jb)**2)
         zeitrad(1:ie,jb)      = zeit0 + pt_patch%cells%center(1:ie,jb)%lon
@@ -475,7 +474,7 @@ CONTAINS
      ! the product tsi*cos(zenith angle) should equal 340 W/m2
      ! see Popke et al. 2013 and Cronin 2013
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS(zenithang*pi/180._wp)
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce

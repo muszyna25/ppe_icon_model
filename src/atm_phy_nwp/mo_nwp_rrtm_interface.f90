@@ -1416,8 +1416,8 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
     DO jb = 1, rrtm_data%no_of_blocks
 
-      i_endidx = rrtm_data%block_size
-      IF (jb == rrtm_data%no_of_blocks) i_endidx = rrtm_data%end_index
+      i_endidx = MERGE(rrtm_data%block_size, rrtm_data%end_index, &
+           jb /= rrtm_data%no_of_blocks)
 
       !Calculate direct albedo from diffuse albedo and solar zenith angle
       !formula as in Ritter-Geleyn's fesft
