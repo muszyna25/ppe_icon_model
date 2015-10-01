@@ -39,7 +39,8 @@ MODULE mo_real_timer
 
 #ifndef NOMPI
   USE mo_mpi,             ONLY: p_recv, p_send, p_barrier, p_real_dp, &
-                                p_pe, p_io, my_process_is_stdio, p_comm_work, p_comm_work_test
+                                p_pe, p_io, my_process_is_stdio, p_comm_work, &
+                                p_comm_work_test, get_my_mpi_all_comm_size
   USE mo_parallel_config, ONLY: p_test_run
 #else
   USE mo_mpi,             ONLY: p_pe, p_io, my_process_is_stdio,  p_comm_work, p_comm_work_test
@@ -47,7 +48,7 @@ MODULE mo_real_timer
 
   USE mo_mpi,             ONLY: num_test_procs, num_work_procs, get_my_mpi_work_id, &
     &                           get_mpi_comm_world_ranks, p_pe_work, p_min, p_max,  &
-    &                           num_work_procs, p_sum
+    &                           num_work_procs, p_sum, p_allgather
   USE mo_master_control,  ONLY: get_my_process_name
   USE mo_run_config,      ONLY: profiling_output
 
@@ -127,6 +128,7 @@ MODULE mo_real_timer
          val_tot_min(:), val_tot_max(:), val_call_n(:)
     INTEGER, ALLOCATABLE :: tot_rank_min(:), tot_rank_max(:), &
          rank_min(:), rank_max(:)
+    LOGICAL :: inconsistent_timers
   END TYPE t_timer_reductions
 
   TYPE(t_srt), SAVE      :: srt(timer_max)
@@ -954,6 +956,9 @@ CONTAINS
 
     IF (p_pe_work == 0) THEN
       !-- print the table
+      IF (tmr%inconsistent_timers) &
+           CALL message('', 'timer hierarchy inconsistencies detected, &
+           &timing report truncated')
       CALL print_table(table, opt_delimiter='   ', opt_hline=.TRUE.)
       CALL message ('','',all_print=.TRUE.)
       !-- clean up
@@ -999,6 +1004,7 @@ CONTAINS
     tmr%val_tot = p_sum(tmr%val_tot, comm=p_comm_work, root=0)
     tmr%val_call_n = p_sum(tmr%val_call_n, comm=p_comm_work, root=0)
 
+    tmr%inconsistent_timers = .FALSE.
   END SUBROUTINE get_timer_reductions
 
   !
@@ -1011,15 +1017,17 @@ CONTAINS
     INTEGER,          INTENT(INOUT)       :: irow        !< table row index
     INTEGER,          INTENT(IN)          :: it
     INTEGER,          INTENT(IN)          :: nd          !<  nesting depth
-    TYPE(t_timer_reductions), INTENT(in) :: tmr
+    TYPE(t_timer_reductions), INTENT(inout) :: tmr
     ! local variables
-    INTEGER :: n, &                                      ! number of sub-timers
+    INTEGER :: i, n, &                                   ! number of sub-timers
       &        subtimer_list(timer_top), &               ! valid entries: 1..n
-      &        k
+      &        k, ntasks
+    INTEGER, ALLOCATABLE :: tcounts(:), tmrlists(:, :)
+    LOGICAL :: consistent_sub_timer_counts, consistent_timer_lists
 
     CALL print_report_aggregated(table, irow, it, nd, tmr)
     irow = irow + 1
-    
+
     ! How many sub-timers has <it>, and which?
     n = 0
     DO k=1,timer_top
@@ -1029,11 +1037,35 @@ CONTAINS
       ENDIF
     END DO
 
-    ! print subtimers
-    DO k=1,n
-      CALL print_report_hierch_agg(table, irow, subtimer_list(k), nd+1)
-    ENDDO
-
+#ifndef NOMPI
+    ntasks = get_my_mpi_all_comm_size()
+#else
+    ntasks = 1
+#endif
+    ALLOCATE(tcounts(0:ntasks-1))
+    CALL p_allgather(n, tcounts)
+    consistent_sub_timer_counts = ALL(tcounts(1:) == tcounts(0))
+    consistent_timer_lists = .FALSE.
+    IF (consistent_sub_timer_counts) THEN
+      ALLOCATE(tmrlists(n, 0:ntasks-1))
+      CALL p_allgather(subtimer_list(1:n), tmrlists)
+      consistent_timer_lists = .TRUE.
+      DO i = 1, n
+        consistent_timer_lists = consistent_timer_lists .AND. &
+             ALL(tmrlists(i, 0:ntasks-1) == tmrlists(i, 0))
+      END DO
+    END IF
+    IF (consistent_sub_timer_counts .AND. consistent_timer_lists) THEN
+      ! print subtimers
+      DO k=1,n
+        CALL print_report_hierch_agg(table, irow, subtimer_list(k), nd+1,tmr)
+      ENDDO
+    ELSE
+      IF (my_process_is_stdio()) &
+           WRITE (0, '(2a,3(", ",i0))') 'problem: sub-timers inconsistent! ', &
+           TRIM(srt(it)%text), it, irow - 1, n
+      tmr%inconsistent_timers = .TRUE.
+    END IF
   END SUBROUTINE print_report_hierch_agg
 
 
