@@ -99,7 +99,7 @@ MODULE mo_model_domimp_patches
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
        c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
-       e_refin_ctrl
+       e_refin_ctrl, v_cell
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
     &                              get_valid_local_index, &
     &                              t_grid_domain_decomp_info, get_local_index
@@ -1531,7 +1531,7 @@ CONTAINS
 
     ! BEGIN NEW SUBDIV
     CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
-    CALL dist_mult_array_local_ptr(patch_pre%verts%cell, 1, local_ptr_2d)
+    CALL dist_mult_array_local_ptr(patch_pre%verts%dist, v_cell, local_ptr_2d)
     CALL nf(nf_get_vara_int(ncid, varid, &
       &                     (/patch_pre%verts%local_chunk(1,1)%first, 1/), &
       &                     (/patch_pre%verts%local_chunk(1,1)%size, &
@@ -1546,7 +1546,6 @@ CONTAINS
     CALL move_dummies_to_end(local_ptr_2d, &
       patch_pre%verts%local_chunk(1,1)%size, max_verts_connectivity, &
       use_duplicated_connectivity)
-    CALL dist_mult_array_expose(patch_pre%verts%cell)
 
     !
     ! Set verts%num_edges
@@ -1567,6 +1566,7 @@ CONTAINS
       &                     local_ptr_2d))
     WHERE(local_ptr_2d(:, :) < 0) local_ptr_2d(:, :) = 0
 
+    CALL dist_mult_array_expose(patch_pre%verts%dist)
     CALL dist_mult_array_expose(patch_pre%edges%dist)
 
     ! END NEW SUBDIV

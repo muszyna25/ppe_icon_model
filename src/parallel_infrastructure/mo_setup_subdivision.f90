@@ -37,7 +37,7 @@ MODULE mo_setup_subdivision
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
        c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
-       e_refin_ctrl
+       e_refin_ctrl, v_cell
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -1718,7 +1718,8 @@ CONTAINS
           CALL dist_mult_array_get(wrk_p_patch_pre%verts%num_edges, 1, &
             &                      (/jv_/), temp_num_edges)
           DO i = 1, temp_num_edges
-            CALL dist_mult_array_get(wrk_p_patch_pre%verts%cell,1,(/jv_,i/),jc)
+            CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_cell, &
+                 (/jv_,i/), jc)
             IF (jc > 0) THEN
               n_temp_cells = n_temp_cells + 1
               temp_cells(n_temp_cells) = jc
@@ -2025,8 +2026,8 @@ CONTAINS
         jv = vertices(i)
         CALL dist_mult_array_get(wrk_p_patch_pre%verts%num_edges, 1, (/jv/), n)
         DO j = 1, n
-          CALL dist_mult_array_get(wrk_p_patch_pre%verts%cell, 1, (/jv, j/), &
-            &                      t_cells(j))
+          CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_cell, &
+               (/jv, j/), t_cells(j))
         END DO
         CALL insertion_sort(t_cells(1:n))
         DO j = 1, n

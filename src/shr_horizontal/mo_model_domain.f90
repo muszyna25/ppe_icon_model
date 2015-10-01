@@ -716,6 +716,12 @@ MODULE mo_model_domain
 
   END TYPE t_grid_vertices
 
+  ! index of distributed sub-arrays in t_pre_grid_vertices%dist
+  INTEGER, PUBLIC, PARAMETER :: &
+       ! line indices of cells around each vertex:
+       ! index2=1,6
+       v_cell = 1
+
   TYPE t_pre_grid_vertices
 
     ! extents of the local chunk of the distributed arrays
@@ -725,7 +731,7 @@ MODULE mo_model_domain
 
     ! line indices of cells around each vertex:
     ! index2=1,6
-    TYPE(dist_mult_array) :: cell
+    TYPE(dist_mult_array) :: dist
 
     ! number of edges connected to vertex
     TYPE(dist_mult_array) :: num_edges
