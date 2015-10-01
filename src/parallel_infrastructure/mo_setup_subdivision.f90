@@ -43,7 +43,7 @@ MODULE mo_setup_subdivision
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
     &                              uniform_partition
-  USE mo_mpi,                ONLY: p_bcast, proc_split
+  USE mo_mpi,                ONLY: p_bcast, proc_split, p_max
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
        mpi_in_place, mpi_success, mpi_sum, mpi_lor, p_bool
@@ -224,7 +224,7 @@ CONTAINS
         n = n + nprocs(jc)
       ENDDO
 
-      ! ... for deeper level descandants
+      ! ... for deeper level descendants
 
       DO jg = 2, n_dom
 
@@ -492,8 +492,8 @@ CONTAINS
     TYPE(dist_mult_array) :: dist_parent_cell_owner !> Cell division
     INTEGER, POINTER :: cell_owner(:) !> Cell division
     INTEGER, POINTER :: local_owner_ptr(:), local_parent_ptr(:)
-    INTEGER :: n, i, j, jp, temp_phys_id
-    INTEGER, ALLOCATABLE :: flag_c(:)
+    INTEGER :: n, i, j
+    INTEGER, POINTER :: flag_c(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
 
     ! Please note: Unfortunately we cannot use p_io for doing I/O,
@@ -631,9 +631,25 @@ CONTAINS
          !     division_method(patch_no) == ext_div_from_file .OR. &
          !     division_method(patch_no) > 100)
 
+      IF(division_method(patch_no) == div_geometric) THEN
+        IF(ASSOCIATED(wrk_p_parent_patch_pre)) THEN
+          ALLOCATE(flag_c(wrk_p_parent_patch_pre%cells%local_chunk(1,1)%first:&
+                          wrk_p_parent_patch_pre%cells%local_chunk(1,1)%first+&
+        &                 wrk_p_parent_patch_pre%cells%local_chunk(1,1)%size-1))
+        ELSE
+          ALLOCATE(flag_c(wrk_p_patch_pre%cells%local_chunk(1,1)%first: &
+                          wrk_p_patch_pre%cells%local_chunk(1,1)%first + &
+        &                 wrk_p_patch_pre%cells%local_chunk(1,1)%size - 1))
+        END IF
+#ifdef HAVE_METIS
+      ELSE IF(division_method(patch_no) == div_metis) THEN
+        ALLOCATE(flag_c(wrk_p_parent_patch_pre%n_patch_cells_g))
+#endif
+      ELSE
+        CALL finish('divide_patch','Illegal division_method setting')
+      END IF
 
       ! Built-in subdivison methods
-
       IF(ASSOCIATED(wrk_p_parent_patch_pre)) THEN
 
         ! Cells with the same parent must not go to different PEs.
@@ -641,32 +657,35 @@ CONTAINS
         ! which cover the actual patch and then assign the ownership
         ! of the cells of the actual patch according to the parent cells
 
-        ! Determine the subset of the parent patch covering the actual patch
-        ! by flagging the according cells
-
-        ALLOCATE(flag_c(wrk_p_parent_patch_pre%n_patch_cells_g))
-        flag_c(:) = 0
-
-        DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-          CALL dist_mult_array_get(wrk_p_patch_pre%cells%parent, 1, (/j/), jp)
-          CALL dist_mult_array_get(wrk_p_patch_pre%cells%phys_id, 1, (/j/), &
-            &                      temp_phys_id)
-          flag_c(jp) = MAX(1,temp_phys_id)
-        ENDDO
-
         ! Divide subset of patch
         ! Receives the PE  numbers for every cell
         IF(division_method(patch_no) == div_geometric) THEN
+
+          ! Determine the subset of the parent patch covering the actual patch
+          ! by flagging the according cells
+          CALL compute_flag_c(flag_c, wrk_p_patch_pre, wrk_p_parent_patch_pre)
+
           CALL divide_subset_geometric(flag_c, n_proc, wrk_p_parent_patch_pre, &
                dist_parent_cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
                divide_for_radiation = divide_for_radiation)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
+
+          ! Determine the subset of the parent patch covering the actual patch
+          ! by flagging the according cells
+          IF (p_pe_work == 0) THEN
+            flag_c = 0
+            DO j = 1, wrk_p_patch_pre%n_patch_cells_g
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%parent, 1, (/j/), jp)
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%phys_id, 1, (/j/), &
+                &                      temp_phys_id)
+              flag_c(jp) = MAX(1,temp_phys_id)
+            ENDDO
+          END IF
+          CALL p_bcast(flag_c, 0, p_comm_work)
           CALL divide_subset_metis(flag_c, n_proc, wrk_p_parent_patch_pre, &
             &                      dist_parent_cell_owner)
 #endif
-        ELSE
-          CALL finish('divide_patch','Illegal division_method setting')
         ENDIF
 
         CALL dist_mult_array_expose(dist_parent_cell_owner)
@@ -685,19 +704,15 @@ CONTAINS
         ENDDO
 
         CALL dist_mult_array_delete(dist_parent_cell_owner)
-        DEALLOCATE(flag_c)
 
       ELSE
 
-        ! No parent patch, simply divide current patch
-
         ! Set subset flags where the "subset" is the whole patch
-
-        ALLOCATE(flag_c(wrk_p_patch_pre%n_patch_cells_g))
         flag_c(:) = 1
 
-        ! Divide complete patch
+        ! No parent patch, simply divide current patch
 
+        ! Divide complete patch
         IF(division_method(patch_no) == div_geometric) THEN
           CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_pre, &
                dist_cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
@@ -707,13 +722,11 @@ CONTAINS
           CALL divide_subset_metis(flag_c, n_proc, wrk_p_patch_pre, &
             &                      dist_cell_owner)
 #endif
-        ELSE
-          CALL finish('divide_patch','Illegal division_method setting')
         ENDIF
 
-        DEALLOCATE(flag_c)
-
       ENDIF
+
+      DEALLOCATE(flag_c)
 
       ! Set processor offset
       CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
@@ -721,6 +734,66 @@ CONTAINS
       CALL dist_mult_array_expose(dist_cell_owner)
 
     ENDIF ! division_method
+
+  CONTAINS
+
+    SUBROUTINE compute_flag_c(flag_c, wrk_p_patch_pre, wrk_p_parent_patch_pre)
+
+      INTEGER, POINTER :: flag_c(:)
+      TYPE(t_pre_patch), INTENT(IN) :: wrk_p_patch_pre
+      TYPE(t_pre_patch), INTENT(IN) :: wrk_p_parent_patch_pre
+
+      INTEGER, POINTER :: local_parent_ptr(:), local_phys_id_ptr(:)
+      INTEGER, ALLOCATABLE :: parent_phys_id_map(:,:), num_send(:), num_recv(:), &
+        &                     send_displs(:), recv_displs(:), flag_c_prep(:,:)
+      INTEGER :: parent_part_rank
+      TYPE(extent) :: global_extent
+
+      flag_c = 0
+
+      CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%phys_id, 1, &
+        &                            local_phys_id_ptr)
+      CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%parent, 1, &
+        &                            local_parent_ptr)
+
+      ALLOCATE(parent_phys_id_map(2,LBOUND(local_parent_ptr,1):&
+        &                           UBOUND(local_parent_ptr,1)))
+
+      parent_phys_id_map(1, :) = local_parent_ptr
+      parent_phys_id_map(2, :) = local_phys_id_ptr
+
+      CALL quicksort(parent_phys_id_map(1, :), parent_phys_id_map(2, :))
+
+      global_extent%first = 1
+      global_extent%size = wrk_p_parent_patch_pre%n_patch_cells_g
+
+      ALLOCATE(num_send(p_n_work), num_recv(p_n_work), &
+        &      send_displs(p_n_work), recv_displs(p_n_work))
+
+      num_send = 0
+      DO i = LBOUND(local_parent_ptr, 1), UBOUND(local_parent_ptr, 1)
+        parent_part_rank = &
+          partidx_of_elem_uniform_deco(global_extent, p_n_work, &
+          &                            local_parent_ptr(i))
+        num_send(parent_part_rank) = num_send(parent_part_rank) + 1
+      END DO
+
+      CALL p_alltoall(num_send, num_recv, p_comm_work)
+
+      send_displs(1) = 0
+      recv_displs(1) = 0
+      DO i = 2, p_n_work
+        send_displs(i) = send_displs(i-1) + num_send(i-1)
+        recv_displs(i) = recv_displs(i-1) + num_recv(i-1)
+      END DO
+      ALLOCATE(flag_c_prep(2,recv_displs(p_n_work)+num_recv(p_n_work)))
+      CALL p_alltoallv(parent_phys_id_map, num_send, send_displs, &
+        &              flag_c_prep, num_recv, recv_displs, p_comm_work)
+
+      DO i = 1, SIZE(flag_c_prep, 2)
+        flag_c(flag_c_prep(1,i)) = MAX(1, flag_c_prep(2,i))
+      END DO
+    END SUBROUTINE compute_flag_c
 
   END SUBROUTINE divide_patch_cells
 
@@ -2656,7 +2729,7 @@ CONTAINS
                                      dist_cell_owner, lparent_level, &
                                      divide_for_radiation)
 
-    INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
+    INTEGER, POINTER    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
     TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre ! out is required for
                                                         ! the distributed arrays
@@ -2697,18 +2770,14 @@ CONTAINS
 
     lsplit_merged_domains = .FALSE.
 
+    my_cell_start = LBOUND(subset_flag, 1)
+    my_cell_end = UBOUND(subset_flag, 1)
     IF (p_n_work > 1) THEN
-      my_cell_start = wrk_p_patch_pre%cells%local_chunk(1,1)%first
-      my_cell_end = wrk_p_patch_pre%cells%local_chunk(1,1)%first + &
-        &           wrk_p_patch_pre%cells%local_chunk(1,1)%size - 1
 #ifndef NOMPI
       CALL init_divide_cells_by_location_mpi
 #else
       CALL finish("number of processors > 1 but MPI unavailable!")
 #endif
-    ELSE
-      my_cell_start = 1
-      my_cell_end = wrk_p_patch_pre%n_patch_cells_g
     END IF
 
     ! Check if domain merging has been applied; for large PE numbers, calculating the DD
@@ -2794,7 +2863,11 @@ CONTAINS
       num_physdom       = 1
       proc_count(1)     = n_proc
       proc_offset(1)    = 0
-      id_physdom(1)     = MAXVAL(subset_flag)
+      IF (SIZE(subset_flag) > 0) THEN
+        id_physdom(1) = p_max(MAXVAL(subset_flag), p_comm_work)
+      ELSE
+        id_physdom(1) = p_max(0, p_comm_work)
+      END IF
     ENDIF
 
 
@@ -2807,8 +2880,7 @@ CONTAINS
 
     CALL build_cell_info(my_cell_start, my_cell_end, cell_desc, &
          wrk_p_patch_pre, divide_for_radiation, num_physdom, &
-         subset_flag(my_cell_start:my_cell_end), &
-         lsplit_merged_domains, lparent_level, locean, &
+         subset_flag, lsplit_merged_domains, lparent_level, locean, &
          id_physdom, ncell_offset, n_onb_points)
     IF (p_n_work > 1) THEN
 #ifndef NOMPI
