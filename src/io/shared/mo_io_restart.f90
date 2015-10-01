@@ -94,7 +94,6 @@ MODULE mo_io_restart
     &                                 restart_attributes_count_int,                 &
     &                                 restart_attributes_count_bool,                &
     &                                 read_and_bcast_attributes
-  USE mo_scatter,               ONLY: scatter_array
   USE mo_datetime,              ONLY: t_datetime,iso8601,iso8601extended
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
@@ -114,7 +113,8 @@ MODULE mo_io_restart
   USE mo_model_domain,          ONLY: t_patch
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, &
     & my_process_is_mpi_test
-  USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data
+  USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data, &
+    &                                 t_scatterPattern
 
   !
   IMPLICIT NONE
@@ -1297,7 +1297,7 @@ CONTAINS
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
     ! in preparation for move to mtime
-    CALL set_restart_attribute('tc_startdate', iso8601extended(datetime)) 
+    CALL set_restart_attribute('tc_startdate', iso8601extended(datetime))
 
     ! Open new file, write data, close and then clean-up.
     CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)
@@ -1635,7 +1635,7 @@ CONTAINS
           SELECT CASE(var_ref_pos)
           CASE (1)
             CALL exchange_data( in_array=element%field%r_ptr(nindex,:,lev,:,1), &
-              &                 out_array=r_out_wp, gather_pattern=gather_pattern)            
+              &                 out_array=r_out_wp, gather_pattern=gather_pattern)
           CASE (2)
             CALL exchange_data( in_array=element%field%r_ptr(:,nindex,lev,:,1), &
               &                 out_array=r_out_wp, gather_pattern=gather_pattern)
@@ -1783,16 +1783,17 @@ CONTAINS
     END type model_search
     TYPE(model_search) :: abbreviations(nvar_lists)
     !
-    TYPE (t_list_element), POINTER :: element
-    TYPE (t_var_metadata), POINTER :: info
-    CHARACTER(len=80)              :: restart_filename, name
-    INTEGER                        :: fileID, vlistID, gridID, zaxisID, taxisID,    &
-      &                                varID, idate, itime, ic, il, n, nfiles, i,   &
-      &                                iret, istat, key, vgrid, gdims(5), nindex,   &
-      &                                nmiss, nvars, root_pe, var_ref_pos, lev
-    CHARACTER(len=8)               :: model_type
-    REAL(wp), POINTER              :: r1d(:), rptr2d(:,:), rptr3d(:,:,:)
-    INTEGER, POINTER               :: glb_index(:)
+    TYPE (t_list_element), POINTER   :: element
+    TYPE (t_var_metadata), POINTER   :: info
+    CHARACTER(len=80)                :: restart_filename, name
+    INTEGER                          :: fileID, vlistID, gridID, zaxisID, taxisID,    &
+      &                                 varID, idate, itime, ic, il, n, nfiles, i,   &
+      &                                 iret, istat, key, vgrid, gdims(5), nindex,   &
+      &                                 nmiss, nvars, root_pe, var_ref_pos, lev
+    CHARACTER(len=8)                 :: model_type
+    REAL(wp), POINTER                :: r1d(:), rptr2d(:,:), rptr3d(:,:,:)
+    INTEGER, POINTER                 :: glb_index(:)
+    CLASS(t_scatterPattern), POINTER :: scatter_pattern
 
     ! rank of broadcast root PE
     root_pe = 0
@@ -1815,6 +1816,11 @@ CONTAINS
         n = n+1
       ENDIF
     ENDDO for_all_model_types
+
+    ALLOCATE(r1d(1),STAT=istat)
+    IF (istat /= 0) THEN
+      CALL finish('','allocation of r1d failed ...')
+    ENDIF
 
     nfiles = n-1
     !
@@ -1884,29 +1890,29 @@ CONTAINS
               ! allocate temporary global array on output processor
               ! and gather field from other processors
               !
-              NULLIFY(r1d)
               NULLIFY(rptr2d)
               NULLIFY(rptr3d)
               !
               IF (my_process_is_mpi_workroot()) THEN
                 gridID  = vlistInqVarGrid(vlistID, varID)
-                ic      = gridInqSize(gridID)
                 zaxisID = vlistInqVarZaxis(vlistID, varID)
                 vgrid   = zaxisInqType(zaxisID)
+                ic = gridInqSize(gridID)
+                IF (SIZE(r1d, 1) /= ic) THEN
+                  DEALLOCATE(r1d)
+                  ALLOCATE(r1d(ic),STAT=istat)
+                  IF (istat /= 0) THEN
+                    CALL finish('','allocation of r1d failed ...')
+                  ENDIF
+                END IF
                 IF (vgrid == ZAXIS_SURFACE) THEN
                   il = 1
                 ELSE
                   il = zaxisInqSize(zaxisID)
                 ENDIF
               END IF
-              CALL p_bcast(ic, root_pe, comm=p_comm_work)
+
               CALL p_bcast(il, root_pe, comm=p_comm_work)
-              !
-              !
-              ALLOCATE(r1d(ic),STAT=istat)
-              IF (istat /= 0) THEN
-                CALL finish('','allocation of r1d failed ...')
-              ENDIF
               !
               IF (info%lcontained) THEN
                 nindex = info%ncontained
@@ -1929,7 +1935,7 @@ CONTAINS
                 CASE default
                   CALL finish(routine, "internal error!")
                 END SELECT
-              CASE (3) 
+              CASE (3)
                 var_ref_pos = 4
                 IF (info%lcontained)  var_ref_pos = info%var_ref_pos
                 SELECT CASE(var_ref_pos)
@@ -1948,44 +1954,31 @@ CONTAINS
                 CALL finish(routine, "internal error!")
               END SELECT
 
+              SELECT CASE (info%hgrid)
+              CASE (GRID_UNSTRUCTURED_CELL)
+                scatter_pattern => p_patch%comm_pat_scatter_c
+              CASE (GRID_UNSTRUCTURED_VERT)
+                scatter_pattern => p_patch%comm_pat_scatter_v
+              CASE (GRID_UNSTRUCTURED_EDGE)
+                scatter_pattern => p_patch%comm_pat_scatter_e
+              CASE default
+                CALL finish('out_stream','unknown grid type')
+              END SELECT
+
               DO lev = 1, il
                 IF (my_process_is_mpi_workroot()) THEN
                   CALL streamReadVarSlice(fileID, varID, lev-1, r1d, nmiss)
                 ENDIF
-                SELECT CASE (info%hgrid)
-                CASE (GRID_UNSTRUCTURED_CELL)
-                  IF (info%ndims == 2) THEN
-                    CALL scatter_array(r1d, rptr2d, &
-                      &                p_patch%cells%decomp_info%glb_index)
-                  ELSE
-                    CALL scatter_array(r1d, rptr3d(:,lev,:), &
-                      &                p_patch%cells%decomp_info%glb_index)
-                  ENDIF
-                CASE (GRID_UNSTRUCTURED_VERT)
-                  IF (info%ndims == 2) THEN
-                    CALL scatter_array(r1d, rptr2d, &
-                      &                p_patch%verts%decomp_info%glb_index)
-                  ELSE
-                    CALL scatter_array(r1d, rptr3d(:,lev,:), &
-                      &                p_patch%verts%decomp_info%glb_index)
-                  ENDIF
-                CASE (GRID_UNSTRUCTURED_EDGE)
-                  IF (info%ndims == 2) THEN
-                    CALL scatter_array(r1d, rptr2d, &
-                      &                p_patch%edges%decomp_info%glb_index)
-                  ELSE
-                    CALL scatter_array(r1d, rptr3d(:,lev,:), &
-                      &                p_patch%edges%decomp_info%glb_index)
-                  ENDIF
-                CASE default
-                  CALL finish('out_stream','unknown grid type')
-                END SELECT
+                IF (info%ndims == 2) THEN
+                  CALL scatter_pattern%distribute(r1d, rptr2d, .FALSE.)
+                ELSE
+                  CALL scatter_pattern%distribute(r1d, rptr3d(:,lev,:), .FALSE.)
+                ENDIF
               END DO
 
               !
               ! deallocate temporary global arrays
               !
-              IF (ASSOCIATED (r1d)) DEALLOCATE (r1d)
               !
               IF (my_process_is_mpi_workroot()) THEN
                 WRITE (0,*) ' ... read ',TRIM(element%field%info%name)
@@ -2000,6 +1993,8 @@ CONTAINS
       IF (my_process_is_mpi_workroot())  CALL streamClose(fileID)
       !
     ENDDO for_all_files
+
+    DEALLOCATE (r1d)
     !
     CALL message('','')
     CALL message('',separator)
