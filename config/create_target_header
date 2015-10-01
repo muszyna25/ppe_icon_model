@@ -649,7 +649,7 @@ EOF
   # create header
   start_header
   cat >>$output_script <<EOF
-ulimit -s \$((\${OMP_STACKSIZE/M/ * 1024}))
+ulimit -s 2097152
 case " \$loadmodule " in
   *\ mxm\ *)
     START+=" --export=\$(env | sed '/()=/d;/=/{;s/=.*//;b;};d' | tr '\n' ',')LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
