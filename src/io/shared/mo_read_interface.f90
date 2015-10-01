@@ -378,7 +378,7 @@ CONTAINS
           &                           fill_array, n_g, scatter_patterns)
       IF (PRESENT(return_pointer)) return_pointer(1:n_var) = tmp_return
     CASE (read_netcdf_distribute_method)
-    
+
       ALLOCATE(var_data_2d(n_var))
 
       ! gather pointers of all output fields
@@ -504,7 +504,7 @@ CONTAINS
             &                     fill_array, n_g, scatter_patterns)
       IF (PRESENT(return_pointer)) return_pointer(1:n_var) = tmp_return
     CASE (read_netcdf_distribute_method)
-    
+
       ALLOCATE(var_data_2d(n_var))
 
       ! gather pointers of all output fields
@@ -952,7 +952,7 @@ CONTAINS
           return_pointer(i)%data => var_data_3d(i)%data
         END DO
       END IF
-    
+
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_3d, &
         &               var_dimlen(2), idx_blk_time, &
         &               (/(stream_id%read_info(location, i)%dist_read_info, &
@@ -1047,7 +1047,7 @@ CONTAINS
         tmp_pointer(:,:,:) = 0
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-    
+
       CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
         &               var_dimlen(2), idx_blk_time, &
         &               stream_id%read_info(location, 1)%dist_read_info, &
@@ -1240,7 +1240,7 @@ CONTAINS
       ENDIF
 
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-    
+
       CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
         &               var_dimlen(2), idx_lvl_blk, &
         &               stream_id%read_info(location, 1)%dist_read_info)
@@ -1458,7 +1458,7 @@ CONTAINS
       ENDIF
 
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-    
+
       IF (PRESENT(start_extdim)) THEN
         CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
           &               var_dimlen(2:3), &
