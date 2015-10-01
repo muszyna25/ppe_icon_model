@@ -86,8 +86,17 @@ MODULE ppm_distributed_array
        not_exposed = 0, &
        exposed = 1
 
+  INTEGER, PARAMETER, PUBLIC :: &
+       !> in this mode calls to dist_mult_array_get will immediately
+       !! retrieve the requested value
+       sync_mode_passive_target = 0, &
+       !> in this mode calls to dist_mult_array_get will result in
+       !! the passed variable to become defined only after the next call
+       !! to dist_mult_array_unexpose
+       sync_mode_active_target = 1
+
   TYPE dm_array_cache_entry
-    INTEGER(mpi_address_kind) :: win_size, base
+    INTEGER(mpi_address_kind) :: base
     INTEGER :: composite_dt
     INTEGER :: rank
     INTEGER :: access_stamp
@@ -109,8 +118,6 @@ MODULE ppm_distributed_array
     TYPE(extent), ALLOCATABLE :: local_chunks(:, :, :)
     !> MPI communicator of all ranks holding the distributed array
     INTEGER :: comm
-    !> group corresponding to communicator
-    INTEGER :: comm_group
     !> size of above communicator
     INTEGER :: comm_size
     !> rank within above communicator
@@ -119,8 +126,8 @@ MODULE ppm_distributed_array
     INTEGER :: win
     !> exposure status (either not_exposed or exposed)
     INTEGER :: exposure_status
-    !> address of local MPI RDMA window memory
-    INTEGER(mpi_address_kind) :: win_base
+    !> synchronization model (passive or active target)
+    INTEGER :: sync_mode
     !> base extent of datatype of each sub-array, shape = (/ num_sub_arrays /)
     INTEGER(mpi_address_kind), ALLOCATABLE :: dt_extent(:)
     !> stamp of most recent remote access
@@ -223,7 +230,8 @@ CONTAINS
   !! over the ranks of the communicator passed to this function.
   !! @return initialized dist_mult_array structure
   !! @remark This operation is collective for all MPI ranks in @a comm
-  FUNCTION dist_mult_array_new(sub_arrays, local_chunk, comm, cache_size) &
+  FUNCTION dist_mult_array_new(sub_arrays, local_chunk, comm, &
+       cache_size, sync_mode) &
        RESULT(dm_array)
     !> gives number (by its size), array ranks, data types
     !! and bounds of each distributed global array. The bounds are represented
@@ -240,13 +248,24 @@ CONTAINS
     !! collectively created
     INTEGER, INTENT(in) :: comm
     !> number of ranks to cache remote local parts of
-    INTEGER, OPTIONAL, INTENT(in) :: cache_size
+    INTEGER, OPTIONAL, INTENT(in) :: cache_size, sync_mode
     TYPE(dist_mult_array) :: dm_array
 
     INTEGER :: ierror, num_sub_arrays, max_sub_array_rank, &
          comm_rank, comm_size, i, rank
     INTEGER(mpi_address_kind) :: remote_win_size, max_remote_win_size
-    INTEGER :: cache_size_
+    INTEGER :: cache_size_, sync_mode_
+
+    IF (PRESENT(sync_mode)) THEN
+      sync_mode_ = sync_mode
+      CALL assertion(sync_mode == IAND(sync_mode, 1), &
+           __FILE__, &
+           __LINE__, "sync_mode must be one of sync_mode_passive_target or &
+           &sync_mode_active_target!")
+    ELSE
+      sync_mode_ = sync_mode_passive_target
+    END IF
+
 
     num_sub_arrays = SIZE(sub_arrays)
     dm_array%num_sub_arrays = num_sub_arrays
@@ -271,47 +290,53 @@ CONTAINS
     CALL handle_mpi_error(ierror, comm, __LINE__)
     CALL mpi_comm_dup(comm, dm_array%comm, ierror)
     CALL handle_mpi_error(ierror, comm, __LINE__)
-    CALL mpi_comm_group(dm_array%comm, dm_array%comm_group, ierror)
-    CALL handle_mpi_error(ierror, comm, __LINE__)
 
-    IF (PRESENT(cache_size)) THEN
-      cache_size_ = cache_size
-    ELSE
-      ! todo: this heuristic needs to improved!
-      cache_size_ = MIN(CEILING(SQRT(REAL(comm_size))), max_sub_array_rank)
+    dm_array%sync_mode = sync_mode_
+    IF (sync_mode_ == sync_mode_passive_target) THEN
+      IF (PRESENT(cache_size)) THEN
+        cache_size_ = cache_size
+      ELSE
+        ! todo: this heuristic needs to improved!
+        cache_size_ = MIN(CEILING(SQRT(REAL(comm_size))), max_sub_array_rank)
+      END IF
+      ALLOCATE(dm_array%cache(0:cache_size_))
+      ! stamps are used to establish data age
+      dm_array%access_stamp = 0
+      dm_array%valid_stamp = 0
+      ! initialize cache
+      DO i = 0, cache_size_
+        dm_array%cache(i)%rank = -1
+        dm_array%cache(i)%base = 0
+        dm_array%cache(i)%composite_dt = mpi_datatype_null
+        dm_array%cache(i)%access_stamp = -1
+        ALLOCATE(dm_array%cache(i)%offset(num_sub_arrays))
+      END DO
+    ELSE ! sync_mode == sync_mode_active_target
+      ALLOCATE(dm_array%cache(0:0))
+      ALLOCATE(dm_array%cache(0)%offset(num_sub_arrays))
     END IF
-    ALLOCATE(dm_array%cache(0:cache_size_))
-    ! stamps are used to establish data age
-    dm_array%access_stamp = 0
-    dm_array%valid_stamp = 0
-    ! initialize cache
-    DO i = 0, cache_size_
-      dm_array%cache(i)%rank = -1
-      dm_array%cache(i)%base = 0
-      dm_array%cache(i)%composite_dt = mpi_datatype_null
-      dm_array%cache(i)%access_stamp = -1
-      ALLOCATE(dm_array%cache(i)%offset(num_sub_arrays))
-    END DO
 
     CALL get_extents
     CALL init_local_mem
 
-    ! establish maximal memory size of remote chunks to use in allocation of
-    ! memory for caches
-    max_remote_win_size = 0_mpi_address_kind
-    DO rank = 0, comm_size - 1
-      remote_win_size = 0_mpi_address_kind
-      DO i = 1, num_sub_arrays
-        remote_win_size = align_addr(remote_win_size + dm_array%dt_extent(i) &
-             * INT(extent_size(dm_array%local_chunks(1: &
-             sub_arrays(i)%a_rank, i, rank)), mpi_address_kind))
+    IF (sync_mode_ == sync_mode_passive_target) THEN
+      ! establish maximal memory size of remote chunks to use in allocation of
+      ! memory for caches
+      max_remote_win_size = 0_mpi_address_kind
+      DO rank = 0, comm_size - 1
+        remote_win_size = 0_mpi_address_kind
+        DO i = 1, num_sub_arrays
+          remote_win_size = align_addr(remote_win_size + dm_array%dt_extent(i) &
+               * INT(extent_size(dm_array%local_chunks(1: &
+               sub_arrays(i)%a_rank, i, rank)), mpi_address_kind))
+        END DO
+        IF (remote_win_size > max_remote_win_size) &
+             max_remote_win_size = remote_win_size
       END DO
-      if (remote_win_size > max_remote_win_size) &
-           max_remote_win_size = remote_win_size
-    END DO
-    dm_array%max_win_size = max_remote_win_size
-    CALL mpi_win_lock(mpi_lock_exclusive, dm_array%comm_rank, &
-         mpi_mode_nocheck, dm_array%win, ierror)
+      dm_array%max_win_size = max_remote_win_size
+      CALL mpi_win_lock(mpi_lock_exclusive, dm_array%comm_rank, &
+           mpi_mode_nocheck, dm_array%win, ierror)
+    END IF
   CONTAINS
     !> get extent for each sub_array element datatype
     SUBROUTINE get_extents
@@ -360,16 +385,16 @@ CONTAINS
     IF (dm_array%exposure_status == exposed) THEN
       CALL dist_mult_array_unexpose(dm_array)
     END IF
-    CALL mpi_win_unlock(dm_array%comm_rank, dm_array%win, ierror)
+    IF (dm_array%sync_mode == sync_mode_passive_target) &
+         CALL mpi_win_unlock(dm_array%comm_rank, dm_array%win, ierror)
     CALL mpi_win_free(dm_array%win, ierror)
     CALL handle_mpi_error(ierror, dm_array%comm, __LINE__)
-    DO i = LBOUND(dm_array%cache, 1), UBOUND(dm_array%cache, 1)
-      CALL delete_cache_entry(dm_array%cache(i), dm_array%comm)
-    END DO
 
-    CALL mpi_group_free(dm_array%comm_group, ierror)
-    CALL handle_mpi_error(ierror, dm_array%comm, __LINE__)
-
+    IF (dm_array%sync_mode == sync_mode_passive_target) THEN
+      DO i = LBOUND(dm_array%cache, 1), UBOUND(dm_array%cache, 1)
+        CALL delete_cache_entry(dm_array%cache(i), dm_array%comm)
+      END DO
+    END IF
     CALL mpi_comm_free(dm_array%comm, ierror)
     CALL handle_mpi_error(ierror, ppm_default_comm, __LINE__)
     dm_array%comm = mpi_comm_null
@@ -496,8 +521,12 @@ CONTAINS
     CALL assertion(dm_array%exposure_status == not_exposed, &
          __FILE__, &
          __LINE__, "distributed multi-array must not already be exposed!")
-    CALL mpi_win_unlock(dm_array%comm_rank, dm_array%win, ierror)
-    CALL mpi_barrier(dm_array%comm, ierror)
+    IF (dm_array%sync_mode == sync_mode_passive_target) THEN
+      CALL mpi_win_unlock(dm_array%comm_rank, dm_array%win, ierror)
+      CALL mpi_barrier(dm_array%comm, ierror)
+    ELSE ! dm_array%sync_mode == sync_mode_active_target
+      CALL mpi_win_fence(mpi_mode_noput, dm_array%win, ierror)
+    END IF
     CALL handle_mpi_error(ierror, dm_array%comm, __LINE__)
     dm_array%exposure_status = exposed
     dm_array%valid_stamp = dm_array%access_stamp + 1
@@ -513,15 +542,20 @@ CONTAINS
   SUBROUTINE dist_mult_array_unexpose(dm_array)
     TYPE(dist_mult_array), INTENT(inout) :: dm_array
 
+    INTEGER :: fence_assert = IOR(IOR(mpi_mode_nostore, mpi_mode_noput), &
+         mpi_mode_nosucceed)
     INTEGER :: ierror
     CALL assertion(dm_array%exposure_status == exposed, &
          __FILE__, &
          __LINE__, &
          "distributed multi-array must have previously been made accessible!")
-    CALL mpi_barrier(dm_array%comm, ierror)
-    CALL mpi_win_lock(mpi_lock_exclusive, dm_array%comm_rank, &
-         mpi_mode_nocheck, dm_array%win, ierror)
-
+    IF (dm_array%sync_mode == sync_mode_passive_target) THEN
+      CALL mpi_barrier(dm_array%comm, ierror)
+      CALL mpi_win_lock(mpi_lock_exclusive, dm_array%comm_rank, &
+           mpi_mode_nocheck, dm_array%win, ierror)
+    ELSE ! dm_array%sync_mode == sync_mode_active_target
+      CALL mpi_win_fence(fence_assert, dm_array%win, ierror)
+    END IF
     CALL handle_mpi_error(ierror, dm_array%comm, __LINE__)
     dm_array%exposure_status = not_exposed
   END SUBROUTINE dist_mult_array_unexpose
@@ -617,6 +651,38 @@ CONTAINS
     END SUBROUTINE cache_get
   END FUNCTION dist_mult_array_cache_rank
 
+  FUNCTION dist_mult_array_coord2rank(dm_array, sub_array, coord) &
+       RESULT(rank)
+    TYPE(dist_mult_array), INTENT(inout) :: dm_array
+    INTEGER, INTENT(in) :: sub_array
+    INTEGER, INTENT(in) :: coord(:)
+    INTEGER :: rank, ref_rank
+
+    INTEGER :: comm_rank, comm_size, max_dist, dist
+
+    comm_rank = dm_array%comm_rank
+    comm_size = dm_array%comm_size
+    max_dist = (comm_size + 1)/2
+    ref_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
+    DO dist = 0, max_dist
+      IF (is_contained_in(coord, dm_array%local_chunks(1:ref_rank, sub_array, &
+           MOD(comm_rank + dist, comm_size)))) THEN
+        rank = MOD(comm_rank + dist, comm_size)
+        RETURN
+      ELSE IF (is_contained_in(coord, &
+           dm_array%local_chunks(1:ref_rank, sub_array, &
+           MODULO(comm_rank - dist, comm_size)))) THEN
+        rank = MODULO(comm_rank - dist, comm_size)
+        RETURN
+      END IF
+    END DO
+    rank = -1
+    CALL abort_ppm("invalid coordinate", &
+         __FILE__, &
+         __LINE__, dm_array%comm)
+
+  END FUNCTION dist_mult_array_coord2rank
+
   !> establish remote MPI rank holding data of sub-array at coordinate
   !> and fetch data if not already in-cache
   FUNCTION dist_mult_array_get_cache_idx(dm_array, sub_array, coord, &
@@ -626,7 +692,7 @@ CONTAINS
     INTEGER, INTENT(in) :: coord(:)
     INTEGER(mpi_address_kind), INTENT(in) :: ref_extent
 
-    INTEGER :: ref_rank, dist, comm_rank, comm_size, max_dist
+    INTEGER :: ref_rank, comm_rank, comm_size, max_dist
     INTEGER :: cache_idx, ierror
     INTEGER(mpi_address_kind) :: lb, extent
 
@@ -653,25 +719,8 @@ CONTAINS
     comm_rank = dm_array%comm_rank
     comm_size = dm_array%comm_size
     max_dist = (comm_size + 1)/2
-    cache_idx = -1
-    DO dist = 0, max_dist
-      IF (is_contained_in(coord, dm_array%local_chunks(1:ref_rank, sub_array, &
-           MOD(comm_rank + dist, comm_size)))) THEN
-        cache_idx = dist_mult_array_cache_rank(dm_array, &
-             MOD(comm_rank + dist, comm_size))
-        EXIT
-      ELSE IF (is_contained_in(coord, &
-           dm_array%local_chunks(1:ref_rank, sub_array, &
-           MODULO(comm_rank - dist, comm_size)))) THEN
-        cache_idx = dist_mult_array_cache_rank(dm_array, &
-             MODULO(comm_rank - dist, comm_size))
-        EXIT
-      END IF
-    END DO
-    CALL assertion(cache_idx >= 0, &
-         __FILE__, &
-         __LINE__, "invalid coordinate")
-
+    cache_idx = dist_mult_array_cache_rank(dm_array, &
+         dist_mult_array_coord2rank(dm_array, sub_array, coord))
   END FUNCTION dist_mult_array_get_cache_idx
 
 
@@ -695,31 +744,31 @@ CONTAINS
     SELECT CASE (SIZE(coord))
 
     CASE (1)
-      CALL dist_mult_array_cache_chunk_ptr_i4_1d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i4_1d(dm_array, sub_array_idx, &
            cache_idx, p1)
       v = p1(coord(1))
     CASE (2)
-      CALL dist_mult_array_cache_chunk_ptr_i4_2d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i4_2d(dm_array, sub_array_idx, &
            cache_idx, p2)
       v = p2(coord(1),coord(2))
     CASE (3)
-      CALL dist_mult_array_cache_chunk_ptr_i4_3d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i4_3d(dm_array, sub_array_idx, &
            cache_idx, p3)
       v = p3(coord(1),coord(2),coord(3))
     CASE (4)
-      CALL dist_mult_array_cache_chunk_ptr_i4_4d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i4_4d(dm_array, sub_array_idx, &
            cache_idx, p4)
       v = p4(coord(1),coord(2),coord(3),coord(4))
     CASE (5)
-      CALL dist_mult_array_cache_chunk_ptr_i4_5d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i4_5d(dm_array, sub_array_idx, &
            cache_idx, p5)
       v = p5(coord(1),coord(2),coord(3),coord(4),coord(5))
     CASE (6)
-      CALL dist_mult_array_cache_chunk_ptr_i4_6d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i4_6d(dm_array, sub_array_idx, &
            cache_idx, p6)
       v = p6(coord(1),coord(2),coord(3),coord(4),coord(5),coord(6))
     CASE (7)
-      CALL dist_mult_array_cache_chunk_ptr_i4_7d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i4_7d(dm_array, sub_array_idx, &
            cache_idx, p7)
       v = p7(coord(1),coord(2),coord(3),coord(4),coord(5),coord(6),coord(7))
     CASE default
@@ -731,7 +780,7 @@ CONTAINS
 
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_1d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i4_1d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -753,7 +802,7 @@ CONTAINS
     sub_array_ptr(extent_start(dm_array%local_chunks(1, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_1d
+  END SUBROUTINE dist_mult_array_cache_ptr_i4_1d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i4_1d(dm_array, sub_array_idx, &
@@ -762,12 +811,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i4), POINTER :: sub_array_ptr(:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i4_1d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i4_1d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i4_1d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_2d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i4_2d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -791,7 +840,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(2, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_2d
+  END SUBROUTINE dist_mult_array_cache_ptr_i4_2d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i4_2d(dm_array, sub_array_idx, &
@@ -800,12 +849,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i4), POINTER :: sub_array_ptr(:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i4_2d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i4_2d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i4_2d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_3d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i4_3d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -831,7 +880,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(3, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_3d
+  END SUBROUTINE dist_mult_array_cache_ptr_i4_3d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i4_3d(dm_array, sub_array_idx, &
@@ -840,12 +889,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i4), POINTER :: sub_array_ptr(:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i4_3d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i4_3d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i4_3d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_4d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i4_4d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -873,7 +922,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(4, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_4d
+  END SUBROUTINE dist_mult_array_cache_ptr_i4_4d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i4_4d(dm_array, sub_array_idx, &
@@ -882,12 +931,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i4), POINTER :: sub_array_ptr(:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i4_4d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i4_4d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i4_4d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_5d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i4_5d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -917,7 +966,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(5, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_5d
+  END SUBROUTINE dist_mult_array_cache_ptr_i4_5d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i4_5d(dm_array, sub_array_idx, &
@@ -926,12 +975,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i4), POINTER :: sub_array_ptr(:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i4_5d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i4_5d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i4_5d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_6d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i4_6d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -963,7 +1012,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(6, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_6d
+  END SUBROUTINE dist_mult_array_cache_ptr_i4_6d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i4_6d(dm_array, sub_array_idx, &
@@ -972,12 +1021,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i4), POINTER :: sub_array_ptr(:,:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i4_6d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i4_6d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i4_6d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_7d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i4_7d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1011,7 +1060,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(7, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i4_7d
+  END SUBROUTINE dist_mult_array_cache_ptr_i4_7d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i4_7d(dm_array, sub_array_idx, &
@@ -1020,9 +1069,55 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i4), POINTER :: sub_array_ptr(:,:,:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i4_7d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i4_7d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i4_7d
+
+
+  SUBROUTINE dist_mult_array_get_deferred_i4(dm_array, sub_array, coord, v)
+    TYPE(dist_mult_array), INTENT(inout) :: dm_array
+    INTEGER, INTENT(in) :: sub_array
+    INTEGER, INTENT(in) :: coord(:)
+    INTEGER(i4), INTENT(out) :: v
+
+    INTEGER(mpi_address_kind) :: byte_offset, ofs_factor
+    INTEGER :: coord_base(7), a_rank, i
+    TYPE(dm_array_cache_entry) :: cache_entry
+    INTEGER :: src_comm_rank, comm, dt, ierror
+    TYPE(c_ptr) :: baseptr_c
+    INTEGER(i4), POINTER :: baseptr
+
+    comm = dm_array%comm
+    src_comm_rank = dist_mult_array_coord2rank(dm_array, sub_array, coord)
+    ALLOCATE(cache_entry%offset(dm_array%num_sub_arrays))
+    CALL compute_cache_addr(cache_entry, dm_array%sub_arrays_global_desc, &
+         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_extent)
+    a_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
+    coord_base(1:a_rank) &
+         = dm_array%local_chunks(1:a_rank, sub_array, src_comm_rank)%first
+    byte_offset = cache_entry%offset(sub_array)
+    ofs_factor = dm_array%dt_extent(sub_array)
+    DO i = 1, a_rank
+      byte_offset = byte_offset + (coord(i) - coord_base(i)) * ofs_factor
+      ofs_factor = ofs_factor &
+           * INT(dm_array%local_chunks(i, sub_array, src_comm_rank)%size, &
+           &     mpi_address_kind)
+    END DO
+    dt = dm_array%sub_arrays_global_desc(sub_array)%element_dt
+
+    IF (src_comm_rank == dm_array%comm_rank) THEN
+      baseptr_c = TRANSFER(dm_array%cache(0)%base + byte_offset, baseptr_c)
+      CALL C_F_POINTER(baseptr_c, baseptr)
+      CALL mpi_sendrecv(baseptr, 1, dt, 0, 0, v, 1, dt, 0, 0, &
+           mpi_comm_self, mpi_status_ignore, ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+    ELSE
+      CALL mpi_get(v, 1, dt, src_comm_rank, byte_offset, 1, dt, dm_array%win, &
+           ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+    END IF
+
+  END SUBROUTINE dist_mult_array_get_deferred_i4
 
   SUBROUTINE dist_mult_array_get_i4(dm_array, sub_array, coord, v)
     TYPE(dist_mult_array), INTENT(inout) :: dm_array
@@ -1032,10 +1127,13 @@ CONTAINS
 
     INTEGER :: cache_idx
 
-    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, &
-         INT(mp_i4_extent, mpi_address_kind))
-    CALL dist_mult_array_get_cache_val_i4(dm_array, sub_array, &
-         cache_idx, coord, v)
+    IF (dm_array%sync_mode == sync_mode_passive_target) THEN
+      cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, INT(mp_i4_extent, mpi_address_kind))
+      CALL dist_mult_array_get_cache_val_i4(dm_array, sub_array, &
+           cache_idx, coord, v)
+    ELSE ! dm_array%sync_mode == sync_mode_active_target
+      CALL dist_mult_array_get_deferred_i4(dm_array, sub_array, coord, v)
+    END IF
   END SUBROUTINE dist_mult_array_get_i4
 
 
@@ -1058,31 +1156,31 @@ CONTAINS
     SELECT CASE (SIZE(coord))
 
     CASE (1)
-      CALL dist_mult_array_cache_chunk_ptr_i8_1d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i8_1d(dm_array, sub_array_idx, &
            cache_idx, p1)
       v = p1(coord(1))
     CASE (2)
-      CALL dist_mult_array_cache_chunk_ptr_i8_2d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i8_2d(dm_array, sub_array_idx, &
            cache_idx, p2)
       v = p2(coord(1),coord(2))
     CASE (3)
-      CALL dist_mult_array_cache_chunk_ptr_i8_3d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i8_3d(dm_array, sub_array_idx, &
            cache_idx, p3)
       v = p3(coord(1),coord(2),coord(3))
     CASE (4)
-      CALL dist_mult_array_cache_chunk_ptr_i8_4d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i8_4d(dm_array, sub_array_idx, &
            cache_idx, p4)
       v = p4(coord(1),coord(2),coord(3),coord(4))
     CASE (5)
-      CALL dist_mult_array_cache_chunk_ptr_i8_5d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i8_5d(dm_array, sub_array_idx, &
            cache_idx, p5)
       v = p5(coord(1),coord(2),coord(3),coord(4),coord(5))
     CASE (6)
-      CALL dist_mult_array_cache_chunk_ptr_i8_6d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i8_6d(dm_array, sub_array_idx, &
            cache_idx, p6)
       v = p6(coord(1),coord(2),coord(3),coord(4),coord(5),coord(6))
     CASE (7)
-      CALL dist_mult_array_cache_chunk_ptr_i8_7d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_i8_7d(dm_array, sub_array_idx, &
            cache_idx, p7)
       v = p7(coord(1),coord(2),coord(3),coord(4),coord(5),coord(6),coord(7))
     CASE default
@@ -1094,7 +1192,7 @@ CONTAINS
 
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_1d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i8_1d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1116,7 +1214,7 @@ CONTAINS
     sub_array_ptr(extent_start(dm_array%local_chunks(1, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_1d
+  END SUBROUTINE dist_mult_array_cache_ptr_i8_1d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i8_1d(dm_array, sub_array_idx, &
@@ -1125,12 +1223,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i8), POINTER :: sub_array_ptr(:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i8_1d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i8_1d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i8_1d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_2d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i8_2d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1154,7 +1252,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(2, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_2d
+  END SUBROUTINE dist_mult_array_cache_ptr_i8_2d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i8_2d(dm_array, sub_array_idx, &
@@ -1163,12 +1261,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i8), POINTER :: sub_array_ptr(:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i8_2d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i8_2d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i8_2d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_3d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i8_3d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1194,7 +1292,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(3, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_3d
+  END SUBROUTINE dist_mult_array_cache_ptr_i8_3d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i8_3d(dm_array, sub_array_idx, &
@@ -1203,12 +1301,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i8), POINTER :: sub_array_ptr(:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i8_3d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i8_3d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i8_3d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_4d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i8_4d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1236,7 +1334,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(4, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_4d
+  END SUBROUTINE dist_mult_array_cache_ptr_i8_4d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i8_4d(dm_array, sub_array_idx, &
@@ -1245,12 +1343,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i8), POINTER :: sub_array_ptr(:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i8_4d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i8_4d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i8_4d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_5d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i8_5d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1280,7 +1378,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(5, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_5d
+  END SUBROUTINE dist_mult_array_cache_ptr_i8_5d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i8_5d(dm_array, sub_array_idx, &
@@ -1289,12 +1387,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i8), POINTER :: sub_array_ptr(:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i8_5d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i8_5d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i8_5d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_6d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i8_6d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1326,7 +1424,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(6, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_6d
+  END SUBROUTINE dist_mult_array_cache_ptr_i8_6d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i8_6d(dm_array, sub_array_idx, &
@@ -1335,12 +1433,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i8), POINTER :: sub_array_ptr(:,:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i8_6d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i8_6d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i8_6d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_7d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_i8_7d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1374,7 +1472,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(7, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_i8_7d
+  END SUBROUTINE dist_mult_array_cache_ptr_i8_7d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_i8_7d(dm_array, sub_array_idx, &
@@ -1383,9 +1481,55 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     INTEGER(i8), POINTER :: sub_array_ptr(:,:,:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_i8_7d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_i8_7d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_i8_7d
+
+
+  SUBROUTINE dist_mult_array_get_deferred_i8(dm_array, sub_array, coord, v)
+    TYPE(dist_mult_array), INTENT(inout) :: dm_array
+    INTEGER, INTENT(in) :: sub_array
+    INTEGER, INTENT(in) :: coord(:)
+    INTEGER(i8), INTENT(out) :: v
+
+    INTEGER(mpi_address_kind) :: byte_offset, ofs_factor
+    INTEGER :: coord_base(7), a_rank, i
+    TYPE(dm_array_cache_entry) :: cache_entry
+    INTEGER :: src_comm_rank, comm, dt, ierror
+    TYPE(c_ptr) :: baseptr_c
+    INTEGER(i8), POINTER :: baseptr
+
+    comm = dm_array%comm
+    src_comm_rank = dist_mult_array_coord2rank(dm_array, sub_array, coord)
+    ALLOCATE(cache_entry%offset(dm_array%num_sub_arrays))
+    CALL compute_cache_addr(cache_entry, dm_array%sub_arrays_global_desc, &
+         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_extent)
+    a_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
+    coord_base(1:a_rank) &
+         = dm_array%local_chunks(1:a_rank, sub_array, src_comm_rank)%first
+    byte_offset = cache_entry%offset(sub_array)
+    ofs_factor = dm_array%dt_extent(sub_array)
+    DO i = 1, a_rank
+      byte_offset = byte_offset + (coord(i) - coord_base(i)) * ofs_factor
+      ofs_factor = ofs_factor &
+           * INT(dm_array%local_chunks(i, sub_array, src_comm_rank)%size, &
+           &     mpi_address_kind)
+    END DO
+    dt = dm_array%sub_arrays_global_desc(sub_array)%element_dt
+
+    IF (src_comm_rank == dm_array%comm_rank) THEN
+      baseptr_c = TRANSFER(dm_array%cache(0)%base + byte_offset, baseptr_c)
+      CALL C_F_POINTER(baseptr_c, baseptr)
+      CALL mpi_sendrecv(baseptr, 1, dt, 0, 0, v, 1, dt, 0, 0, &
+           mpi_comm_self, mpi_status_ignore, ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+    ELSE
+      CALL mpi_get(v, 1, dt, src_comm_rank, byte_offset, 1, dt, dm_array%win, &
+           ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+    END IF
+
+  END SUBROUTINE dist_mult_array_get_deferred_i8
 
   SUBROUTINE dist_mult_array_get_i8(dm_array, sub_array, coord, v)
     TYPE(dist_mult_array), INTENT(inout) :: dm_array
@@ -1395,10 +1539,13 @@ CONTAINS
 
     INTEGER :: cache_idx
 
-    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, &
-         INT(mp_i8_extent, mpi_address_kind))
-    CALL dist_mult_array_get_cache_val_i8(dm_array, sub_array, &
-         cache_idx, coord, v)
+    IF (dm_array%sync_mode == sync_mode_passive_target) THEN
+      cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, INT(mp_i8_extent, mpi_address_kind))
+      CALL dist_mult_array_get_cache_val_i8(dm_array, sub_array, &
+           cache_idx, coord, v)
+    ELSE ! dm_array%sync_mode == sync_mode_active_target
+      CALL dist_mult_array_get_deferred_i8(dm_array, sub_array, coord, v)
+    END IF
   END SUBROUTINE dist_mult_array_get_i8
 
 
@@ -1421,31 +1568,31 @@ CONTAINS
     SELECT CASE (SIZE(coord))
 
     CASE (1)
-      CALL dist_mult_array_cache_chunk_ptr_l_1d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_l_1d(dm_array, sub_array_idx, &
            cache_idx, p1)
       v = p1(coord(1))
     CASE (2)
-      CALL dist_mult_array_cache_chunk_ptr_l_2d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_l_2d(dm_array, sub_array_idx, &
            cache_idx, p2)
       v = p2(coord(1),coord(2))
     CASE (3)
-      CALL dist_mult_array_cache_chunk_ptr_l_3d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_l_3d(dm_array, sub_array_idx, &
            cache_idx, p3)
       v = p3(coord(1),coord(2),coord(3))
     CASE (4)
-      CALL dist_mult_array_cache_chunk_ptr_l_4d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_l_4d(dm_array, sub_array_idx, &
            cache_idx, p4)
       v = p4(coord(1),coord(2),coord(3),coord(4))
     CASE (5)
-      CALL dist_mult_array_cache_chunk_ptr_l_5d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_l_5d(dm_array, sub_array_idx, &
            cache_idx, p5)
       v = p5(coord(1),coord(2),coord(3),coord(4),coord(5))
     CASE (6)
-      CALL dist_mult_array_cache_chunk_ptr_l_6d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_l_6d(dm_array, sub_array_idx, &
            cache_idx, p6)
       v = p6(coord(1),coord(2),coord(3),coord(4),coord(5),coord(6))
     CASE (7)
-      CALL dist_mult_array_cache_chunk_ptr_l_7d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_l_7d(dm_array, sub_array_idx, &
            cache_idx, p7)
       v = p7(coord(1),coord(2),coord(3),coord(4),coord(5),coord(6),coord(7))
     CASE default
@@ -1457,7 +1604,7 @@ CONTAINS
 
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_l_1d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_l_1d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1479,7 +1626,7 @@ CONTAINS
     sub_array_ptr(extent_start(dm_array%local_chunks(1, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_l_1d
+  END SUBROUTINE dist_mult_array_cache_ptr_l_1d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_l_1d(dm_array, sub_array_idx, &
@@ -1488,12 +1635,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     LOGICAL, POINTER :: sub_array_ptr(:)
 
-    CALL dist_mult_array_cache_chunk_ptr_l_1d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_l_1d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_l_1d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_l_2d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_l_2d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1517,7 +1664,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(2, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_l_2d
+  END SUBROUTINE dist_mult_array_cache_ptr_l_2d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_l_2d(dm_array, sub_array_idx, &
@@ -1526,12 +1673,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     LOGICAL, POINTER :: sub_array_ptr(:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_l_2d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_l_2d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_l_2d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_l_3d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_l_3d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1557,7 +1704,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(3, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_l_3d
+  END SUBROUTINE dist_mult_array_cache_ptr_l_3d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_l_3d(dm_array, sub_array_idx, &
@@ -1566,12 +1713,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     LOGICAL, POINTER :: sub_array_ptr(:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_l_3d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_l_3d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_l_3d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_l_4d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_l_4d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1599,7 +1746,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(4, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_l_4d
+  END SUBROUTINE dist_mult_array_cache_ptr_l_4d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_l_4d(dm_array, sub_array_idx, &
@@ -1608,12 +1755,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     LOGICAL, POINTER :: sub_array_ptr(:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_l_4d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_l_4d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_l_4d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_l_5d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_l_5d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1643,7 +1790,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(5, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_l_5d
+  END SUBROUTINE dist_mult_array_cache_ptr_l_5d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_l_5d(dm_array, sub_array_idx, &
@@ -1652,12 +1799,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     LOGICAL, POINTER :: sub_array_ptr(:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_l_5d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_l_5d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_l_5d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_l_6d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_l_6d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1689,7 +1836,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(6, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_l_6d
+  END SUBROUTINE dist_mult_array_cache_ptr_l_6d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_l_6d(dm_array, sub_array_idx, &
@@ -1698,12 +1845,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     LOGICAL, POINTER :: sub_array_ptr(:,:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_l_6d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_l_6d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_l_6d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_l_7d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_l_7d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1737,7 +1884,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(7, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_l_7d
+  END SUBROUTINE dist_mult_array_cache_ptr_l_7d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_l_7d(dm_array, sub_array_idx, &
@@ -1746,9 +1893,55 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     LOGICAL, POINTER :: sub_array_ptr(:,:,:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_l_7d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_l_7d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_l_7d
+
+
+  SUBROUTINE dist_mult_array_get_deferred_l(dm_array, sub_array, coord, v)
+    TYPE(dist_mult_array), INTENT(inout) :: dm_array
+    INTEGER, INTENT(in) :: sub_array
+    INTEGER, INTENT(in) :: coord(:)
+    LOGICAL, INTENT(out) :: v
+
+    INTEGER(mpi_address_kind) :: byte_offset, ofs_factor
+    INTEGER :: coord_base(7), a_rank, i
+    TYPE(dm_array_cache_entry) :: cache_entry
+    INTEGER :: src_comm_rank, comm, dt, ierror
+    TYPE(c_ptr) :: baseptr_c
+    LOGICAL, POINTER :: baseptr
+
+    comm = dm_array%comm
+    src_comm_rank = dist_mult_array_coord2rank(dm_array, sub_array, coord)
+    ALLOCATE(cache_entry%offset(dm_array%num_sub_arrays))
+    CALL compute_cache_addr(cache_entry, dm_array%sub_arrays_global_desc, &
+         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_extent)
+    a_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
+    coord_base(1:a_rank) &
+         = dm_array%local_chunks(1:a_rank, sub_array, src_comm_rank)%first
+    byte_offset = cache_entry%offset(sub_array)
+    ofs_factor = dm_array%dt_extent(sub_array)
+    DO i = 1, a_rank
+      byte_offset = byte_offset + (coord(i) - coord_base(i)) * ofs_factor
+      ofs_factor = ofs_factor &
+           * INT(dm_array%local_chunks(i, sub_array, src_comm_rank)%size, &
+           &     mpi_address_kind)
+    END DO
+    dt = dm_array%sub_arrays_global_desc(sub_array)%element_dt
+
+    IF (src_comm_rank == dm_array%comm_rank) THEN
+      baseptr_c = TRANSFER(dm_array%cache(0)%base + byte_offset, baseptr_c)
+      CALL C_F_POINTER(baseptr_c, baseptr)
+      CALL mpi_sendrecv(baseptr, 1, dt, 0, 0, v, 1, dt, 0, 0, &
+           mpi_comm_self, mpi_status_ignore, ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+    ELSE
+      CALL mpi_get(v, 1, dt, src_comm_rank, byte_offset, 1, dt, dm_array%win, &
+           ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+    END IF
+
+  END SUBROUTINE dist_mult_array_get_deferred_l
 
   SUBROUTINE dist_mult_array_get_l(dm_array, sub_array, coord, v)
     TYPE(dist_mult_array), INTENT(inout) :: dm_array
@@ -1758,10 +1951,13 @@ CONTAINS
 
     INTEGER :: cache_idx
 
-    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, &
-         INT(mp_l_extent, mpi_address_kind))
-    CALL dist_mult_array_get_cache_val_l(dm_array, sub_array, &
-         cache_idx, coord, v)
+    IF (dm_array%sync_mode == sync_mode_passive_target) THEN
+      cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, INT(mp_l_extent, mpi_address_kind))
+      CALL dist_mult_array_get_cache_val_l(dm_array, sub_array, &
+           cache_idx, coord, v)
+    ELSE ! dm_array%sync_mode == sync_mode_active_target
+      CALL dist_mult_array_get_deferred_l(dm_array, sub_array, coord, v)
+    END IF
   END SUBROUTINE dist_mult_array_get_l
 
 
@@ -1784,31 +1980,31 @@ CONTAINS
     SELECT CASE (SIZE(coord))
 
     CASE (1)
-      CALL dist_mult_array_cache_chunk_ptr_sp_1d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_sp_1d(dm_array, sub_array_idx, &
            cache_idx, p1)
       v = p1(coord(1))
     CASE (2)
-      CALL dist_mult_array_cache_chunk_ptr_sp_2d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_sp_2d(dm_array, sub_array_idx, &
            cache_idx, p2)
       v = p2(coord(1),coord(2))
     CASE (3)
-      CALL dist_mult_array_cache_chunk_ptr_sp_3d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_sp_3d(dm_array, sub_array_idx, &
            cache_idx, p3)
       v = p3(coord(1),coord(2),coord(3))
     CASE (4)
-      CALL dist_mult_array_cache_chunk_ptr_sp_4d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_sp_4d(dm_array, sub_array_idx, &
            cache_idx, p4)
       v = p4(coord(1),coord(2),coord(3),coord(4))
     CASE (5)
-      CALL dist_mult_array_cache_chunk_ptr_sp_5d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_sp_5d(dm_array, sub_array_idx, &
            cache_idx, p5)
       v = p5(coord(1),coord(2),coord(3),coord(4),coord(5))
     CASE (6)
-      CALL dist_mult_array_cache_chunk_ptr_sp_6d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_sp_6d(dm_array, sub_array_idx, &
            cache_idx, p6)
       v = p6(coord(1),coord(2),coord(3),coord(4),coord(5),coord(6))
     CASE (7)
-      CALL dist_mult_array_cache_chunk_ptr_sp_7d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_sp_7d(dm_array, sub_array_idx, &
            cache_idx, p7)
       v = p7(coord(1),coord(2),coord(3),coord(4),coord(5),coord(6),coord(7))
     CASE default
@@ -1820,7 +2016,7 @@ CONTAINS
 
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_1d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_sp_1d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1842,7 +2038,7 @@ CONTAINS
     sub_array_ptr(extent_start(dm_array%local_chunks(1, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_1d
+  END SUBROUTINE dist_mult_array_cache_ptr_sp_1d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_sp_1d(dm_array, sub_array_idx, &
@@ -1851,12 +2047,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(sp), POINTER :: sub_array_ptr(:)
 
-    CALL dist_mult_array_cache_chunk_ptr_sp_1d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_sp_1d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_sp_1d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_2d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_sp_2d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1880,7 +2076,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(2, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_2d
+  END SUBROUTINE dist_mult_array_cache_ptr_sp_2d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_sp_2d(dm_array, sub_array_idx, &
@@ -1889,12 +2085,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(sp), POINTER :: sub_array_ptr(:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_sp_2d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_sp_2d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_sp_2d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_3d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_sp_3d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1920,7 +2116,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(3, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_3d
+  END SUBROUTINE dist_mult_array_cache_ptr_sp_3d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_sp_3d(dm_array, sub_array_idx, &
@@ -1929,12 +2125,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(sp), POINTER :: sub_array_ptr(:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_sp_3d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_sp_3d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_sp_3d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_4d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_sp_4d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -1962,7 +2158,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(4, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_4d
+  END SUBROUTINE dist_mult_array_cache_ptr_sp_4d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_sp_4d(dm_array, sub_array_idx, &
@@ -1971,12 +2167,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(sp), POINTER :: sub_array_ptr(:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_sp_4d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_sp_4d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_sp_4d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_5d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_sp_5d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -2006,7 +2202,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(5, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_5d
+  END SUBROUTINE dist_mult_array_cache_ptr_sp_5d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_sp_5d(dm_array, sub_array_idx, &
@@ -2015,12 +2211,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(sp), POINTER :: sub_array_ptr(:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_sp_5d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_sp_5d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_sp_5d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_6d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_sp_6d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -2052,7 +2248,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(6, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_6d
+  END SUBROUTINE dist_mult_array_cache_ptr_sp_6d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_sp_6d(dm_array, sub_array_idx, &
@@ -2061,12 +2257,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(sp), POINTER :: sub_array_ptr(:,:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_sp_6d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_sp_6d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_sp_6d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_7d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_sp_7d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -2100,7 +2296,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(7, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_sp_7d
+  END SUBROUTINE dist_mult_array_cache_ptr_sp_7d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_sp_7d(dm_array, sub_array_idx, &
@@ -2109,9 +2305,55 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(sp), POINTER :: sub_array_ptr(:,:,:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_sp_7d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_sp_7d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_sp_7d
+
+
+  SUBROUTINE dist_mult_array_get_deferred_sp(dm_array, sub_array, coord, v)
+    TYPE(dist_mult_array), INTENT(inout) :: dm_array
+    INTEGER, INTENT(in) :: sub_array
+    INTEGER, INTENT(in) :: coord(:)
+    REAL(sp), INTENT(out) :: v
+
+    INTEGER(mpi_address_kind) :: byte_offset, ofs_factor
+    INTEGER :: coord_base(7), a_rank, i
+    TYPE(dm_array_cache_entry) :: cache_entry
+    INTEGER :: src_comm_rank, comm, dt, ierror
+    TYPE(c_ptr) :: baseptr_c
+    REAL(sp), POINTER :: baseptr
+
+    comm = dm_array%comm
+    src_comm_rank = dist_mult_array_coord2rank(dm_array, sub_array, coord)
+    ALLOCATE(cache_entry%offset(dm_array%num_sub_arrays))
+    CALL compute_cache_addr(cache_entry, dm_array%sub_arrays_global_desc, &
+         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_extent)
+    a_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
+    coord_base(1:a_rank) &
+         = dm_array%local_chunks(1:a_rank, sub_array, src_comm_rank)%first
+    byte_offset = cache_entry%offset(sub_array)
+    ofs_factor = dm_array%dt_extent(sub_array)
+    DO i = 1, a_rank
+      byte_offset = byte_offset + (coord(i) - coord_base(i)) * ofs_factor
+      ofs_factor = ofs_factor &
+           * INT(dm_array%local_chunks(i, sub_array, src_comm_rank)%size, &
+           &     mpi_address_kind)
+    END DO
+    dt = dm_array%sub_arrays_global_desc(sub_array)%element_dt
+
+    IF (src_comm_rank == dm_array%comm_rank) THEN
+      baseptr_c = TRANSFER(dm_array%cache(0)%base + byte_offset, baseptr_c)
+      CALL C_F_POINTER(baseptr_c, baseptr)
+      CALL mpi_sendrecv(baseptr, 1, dt, 0, 0, v, 1, dt, 0, 0, &
+           mpi_comm_self, mpi_status_ignore, ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+    ELSE
+      CALL mpi_get(v, 1, dt, src_comm_rank, byte_offset, 1, dt, dm_array%win, &
+           ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+    END IF
+
+  END SUBROUTINE dist_mult_array_get_deferred_sp
 
   SUBROUTINE dist_mult_array_get_sp(dm_array, sub_array, coord, v)
     TYPE(dist_mult_array), INTENT(inout) :: dm_array
@@ -2121,10 +2363,13 @@ CONTAINS
 
     INTEGER :: cache_idx
 
-    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, &
-         INT(mp_sp_extent, mpi_address_kind))
-    CALL dist_mult_array_get_cache_val_sp(dm_array, sub_array, &
-         cache_idx, coord, v)
+    IF (dm_array%sync_mode == sync_mode_passive_target) THEN
+      cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, INT(mp_sp_extent, mpi_address_kind))
+      CALL dist_mult_array_get_cache_val_sp(dm_array, sub_array, &
+           cache_idx, coord, v)
+    ELSE ! dm_array%sync_mode == sync_mode_active_target
+      CALL dist_mult_array_get_deferred_sp(dm_array, sub_array, coord, v)
+    END IF
   END SUBROUTINE dist_mult_array_get_sp
 
 
@@ -2147,31 +2392,31 @@ CONTAINS
     SELECT CASE (SIZE(coord))
 
     CASE (1)
-      CALL dist_mult_array_cache_chunk_ptr_dp_1d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_dp_1d(dm_array, sub_array_idx, &
            cache_idx, p1)
       v = p1(coord(1))
     CASE (2)
-      CALL dist_mult_array_cache_chunk_ptr_dp_2d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_dp_2d(dm_array, sub_array_idx, &
            cache_idx, p2)
       v = p2(coord(1),coord(2))
     CASE (3)
-      CALL dist_mult_array_cache_chunk_ptr_dp_3d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_dp_3d(dm_array, sub_array_idx, &
            cache_idx, p3)
       v = p3(coord(1),coord(2),coord(3))
     CASE (4)
-      CALL dist_mult_array_cache_chunk_ptr_dp_4d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_dp_4d(dm_array, sub_array_idx, &
            cache_idx, p4)
       v = p4(coord(1),coord(2),coord(3),coord(4))
     CASE (5)
-      CALL dist_mult_array_cache_chunk_ptr_dp_5d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_dp_5d(dm_array, sub_array_idx, &
            cache_idx, p5)
       v = p5(coord(1),coord(2),coord(3),coord(4),coord(5))
     CASE (6)
-      CALL dist_mult_array_cache_chunk_ptr_dp_6d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_dp_6d(dm_array, sub_array_idx, &
            cache_idx, p6)
       v = p6(coord(1),coord(2),coord(3),coord(4),coord(5),coord(6))
     CASE (7)
-      CALL dist_mult_array_cache_chunk_ptr_dp_7d(dm_array, sub_array_idx, &
+      CALL dist_mult_array_cache_ptr_dp_7d(dm_array, sub_array_idx, &
            cache_idx, p7)
       v = p7(coord(1),coord(2),coord(3),coord(4),coord(5),coord(6),coord(7))
     CASE default
@@ -2183,7 +2428,7 @@ CONTAINS
 
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_1d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_dp_1d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -2205,7 +2450,7 @@ CONTAINS
     sub_array_ptr(extent_start(dm_array%local_chunks(1, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_1d
+  END SUBROUTINE dist_mult_array_cache_ptr_dp_1d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_dp_1d(dm_array, sub_array_idx, &
@@ -2214,12 +2459,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(dp), POINTER :: sub_array_ptr(:)
 
-    CALL dist_mult_array_cache_chunk_ptr_dp_1d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_dp_1d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_dp_1d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_2d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_dp_2d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -2243,7 +2488,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(2, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_2d
+  END SUBROUTINE dist_mult_array_cache_ptr_dp_2d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_dp_2d(dm_array, sub_array_idx, &
@@ -2252,12 +2497,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(dp), POINTER :: sub_array_ptr(:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_dp_2d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_dp_2d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_dp_2d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_3d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_dp_3d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -2283,7 +2528,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(3, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_3d
+  END SUBROUTINE dist_mult_array_cache_ptr_dp_3d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_dp_3d(dm_array, sub_array_idx, &
@@ -2292,12 +2537,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(dp), POINTER :: sub_array_ptr(:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_dp_3d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_dp_3d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_dp_3d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_4d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_dp_4d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -2325,7 +2570,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(4, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_4d
+  END SUBROUTINE dist_mult_array_cache_ptr_dp_4d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_dp_4d(dm_array, sub_array_idx, &
@@ -2334,12 +2579,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(dp), POINTER :: sub_array_ptr(:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_dp_4d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_dp_4d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_dp_4d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_5d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_dp_5d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -2369,7 +2614,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(5, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_5d
+  END SUBROUTINE dist_mult_array_cache_ptr_dp_5d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_dp_5d(dm_array, sub_array_idx, &
@@ -2378,12 +2623,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(dp), POINTER :: sub_array_ptr(:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_dp_5d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_dp_5d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_dp_5d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_6d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_dp_6d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -2415,7 +2660,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(6, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_6d
+  END SUBROUTINE dist_mult_array_cache_ptr_dp_6d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_dp_6d(dm_array, sub_array_idx, &
@@ -2424,12 +2669,12 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(dp), POINTER :: sub_array_ptr(:,:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_dp_6d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_dp_6d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_dp_6d
 
   ! see @ref dist_mult_array_local_ptr
-  SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_7d(dm_array, sub_array_idx, &
+  SUBROUTINE dist_mult_array_cache_ptr_dp_7d(dm_array, sub_array_idx, &
        cache_idx, sub_array_ptr)
     TYPE(dist_mult_array), INTENT(in) :: dm_array
     INTEGER, INTENT(in) :: sub_array_idx
@@ -2463,7 +2708,7 @@ CONTAINS
          &        extent_start(dm_array%local_chunks(7, sub_array_idx, &
          &                          dm_array%cache(cache_idx)%rank)):) &
          => sub_array_ptr
-  END SUBROUTINE dist_mult_array_cache_chunk_ptr_dp_7d
+  END SUBROUTINE dist_mult_array_cache_ptr_dp_7d
 
   ! see @ref dist_mult_array_local_ptr
   SUBROUTINE dist_mult_array_local_ptr_dp_7d(dm_array, sub_array_idx, &
@@ -2472,9 +2717,55 @@ CONTAINS
     INTEGER, INTENT(in) :: sub_array_idx
     REAL(dp), POINTER :: sub_array_ptr(:,:,:,:,:,:,:)
 
-    CALL dist_mult_array_cache_chunk_ptr_dp_7d(dm_array, sub_array_idx, 0, &
+    CALL dist_mult_array_cache_ptr_dp_7d(dm_array, sub_array_idx, 0, &
          sub_array_ptr)
   END SUBROUTINE dist_mult_array_local_ptr_dp_7d
+
+
+  SUBROUTINE dist_mult_array_get_deferred_dp(dm_array, sub_array, coord, v)
+    TYPE(dist_mult_array), INTENT(inout) :: dm_array
+    INTEGER, INTENT(in) :: sub_array
+    INTEGER, INTENT(in) :: coord(:)
+    REAL(dp), INTENT(out) :: v
+
+    INTEGER(mpi_address_kind) :: byte_offset, ofs_factor
+    INTEGER :: coord_base(7), a_rank, i
+    TYPE(dm_array_cache_entry) :: cache_entry
+    INTEGER :: src_comm_rank, comm, dt, ierror
+    TYPE(c_ptr) :: baseptr_c
+    REAL(dp), POINTER :: baseptr
+
+    comm = dm_array%comm
+    src_comm_rank = dist_mult_array_coord2rank(dm_array, sub_array, coord)
+    ALLOCATE(cache_entry%offset(dm_array%num_sub_arrays))
+    CALL compute_cache_addr(cache_entry, dm_array%sub_arrays_global_desc, &
+         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_extent)
+    a_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
+    coord_base(1:a_rank) &
+         = dm_array%local_chunks(1:a_rank, sub_array, src_comm_rank)%first
+    byte_offset = cache_entry%offset(sub_array)
+    ofs_factor = dm_array%dt_extent(sub_array)
+    DO i = 1, a_rank
+      byte_offset = byte_offset + (coord(i) - coord_base(i)) * ofs_factor
+      ofs_factor = ofs_factor &
+           * INT(dm_array%local_chunks(i, sub_array, src_comm_rank)%size, &
+           &     mpi_address_kind)
+    END DO
+    dt = dm_array%sub_arrays_global_desc(sub_array)%element_dt
+
+    IF (src_comm_rank == dm_array%comm_rank) THEN
+      baseptr_c = TRANSFER(dm_array%cache(0)%base + byte_offset, baseptr_c)
+      CALL C_F_POINTER(baseptr_c, baseptr)
+      CALL mpi_sendrecv(baseptr, 1, dt, 0, 0, v, 1, dt, 0, 0, &
+           mpi_comm_self, mpi_status_ignore, ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+    ELSE
+      CALL mpi_get(v, 1, dt, src_comm_rank, byte_offset, 1, dt, dm_array%win, &
+           ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+    END IF
+
+  END SUBROUTINE dist_mult_array_get_deferred_dp
 
   SUBROUTINE dist_mult_array_get_dp(dm_array, sub_array, coord, v)
     TYPE(dist_mult_array), INTENT(inout) :: dm_array
@@ -2484,10 +2775,13 @@ CONTAINS
 
     INTEGER :: cache_idx
 
-    cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, &
-         INT(mp_dp_extent, mpi_address_kind))
-    CALL dist_mult_array_get_cache_val_dp(dm_array, sub_array, &
-         cache_idx, coord, v)
+    IF (dm_array%sync_mode == sync_mode_passive_target) THEN
+      cache_idx = dist_mult_array_get_cache_idx(dm_array, sub_array, coord, INT(mp_dp_extent, mpi_address_kind))
+      CALL dist_mult_array_get_cache_val_dp(dm_array, sub_array, &
+           cache_idx, coord, v)
+    ELSE ! dm_array%sync_mode == sync_mode_active_target
+      CALL dist_mult_array_get_deferred_dp(dm_array, sub_array, coord, v)
+    END IF
   END SUBROUTINE dist_mult_array_get_dp
 
 
