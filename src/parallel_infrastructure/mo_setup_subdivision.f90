@@ -121,7 +121,6 @@ CONTAINS
     INTEGER :: jg, jgp, jc, jgc, n, &
       &        n_procs_decomp
     INTEGER :: nprocs(p_patch_pre(1)%n_childdom)
-    INTEGER, POINTER :: cell_owner(:)
     REAL(wp) :: weight(p_patch_pre(1)%n_childdom)
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
     ! LOGICAL :: l_compute_grid
@@ -276,15 +275,11 @@ CONTAINS
       ! Every cells gets assigned an owner.
 
       IF (my_process_is_mpi_parallel()) THEN
-        ALLOCATE(cell_owner(p_patch_pre(jg)%n_patch_cells_g))
         ! Set division method, divide_for_radiation is only used for patch 0
         CALL divide_patch_cells(p_patch_pre(jg), jg, p_patch(jg)%n_proc, &
-             p_patch(jg)%proc0, cell_owner, wrk_p_parent_patch_pre, &
+             p_patch(jg)%proc0, dist_cell_owner, wrk_p_parent_patch_pre, &
              radiation_owner, &
              divide_for_radiation = (jg == 0))
-        CALL setup_dist_cell_owner(dist_cell_owner, &
-          &                        p_patch_pre(jg)%n_patch_cells_g, cell_owner)
-        DEALLOCATE(cell_owner)
       ELSE
         ! trivial "decomposition"
         CALL setup_dist_cell_owner(dist_cell_owner, &
@@ -421,6 +416,8 @@ CONTAINS
 
   END SUBROUTINE set_pc_idx
 
+  END SUBROUTINE decompose_domain
+
   SUBROUTINE setup_dist_cell_owner(dist_cell_owner, n_cells_g, cell_owner)
 
     TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
@@ -453,8 +450,6 @@ CONTAINS
     CALL dist_mult_array_expose(dist_cell_owner)
   END SUBROUTINE setup_dist_cell_owner
 
-  END SUBROUTINE decompose_domain
-
   !-----------------------------------------------------------------------------
   !>
   !! Divides the cells of a patch (in wrk_p_patch_pre) for parallelization.
@@ -471,7 +466,7 @@ CONTAINS
   !! Split out as a separate routine, Rainer Johanni, Oct 2010
 
   SUBROUTINE divide_patch_cells(wrk_p_patch_pre, patch_no, n_proc, proc0, &
-       &                        cell_owner, wrk_p_parent_patch_pre, &
+       &                        dist_cell_owner, wrk_p_parent_patch_pre, &
        &                        radiation_owner, divide_for_radiation)
 
     TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre
@@ -479,7 +474,7 @@ CONTAINS
                                      ! used to identify patch specific decomposition
     INTEGER, INTENT(IN)  :: n_proc !> Number of processors for split
     INTEGER, INTENT(IN)  :: proc0  !> First processor of patch
-    INTEGER, POINTER :: cell_owner(:) !> Cell division
+    TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner !> Cell division
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
     INTEGER, POINTER :: radiation_owner(:)
     ! Private flag if patch should be divided for radiation calculation
@@ -487,9 +482,12 @@ CONTAINS
 
     TYPE(t_decomposition_structure)  :: decomposition_struct
 
+    INTEGER, POINTER :: cell_owner(:) !> Cell division
     INTEGER :: n, i, j, jp, temp_phys_id
     INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
+
+    ALLOCATE(cell_owner(wrk_p_patch_pre%n_patch_cells_g))
 
     ! Please note: Unfortunatly we cannot use p_io for doing I/O,
     ! since this might be the test PE which is never calling this routine
@@ -705,6 +703,10 @@ CONTAINS
   !      PRINT '(a,i5,a,i8)','PE',n,' # cells: ',COUNT(cell_owner(:) == n)
   !    ENDDO
   !  ENDIF
+
+  CALL setup_dist_cell_owner(dist_cell_owner, &
+    &                        wrk_p_patch_pre%n_patch_cells_g, cell_owner)
+  DEALLOCATE(cell_owner)
 
   END SUBROUTINE divide_patch_cells
 
