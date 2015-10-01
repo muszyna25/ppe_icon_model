@@ -90,7 +90,8 @@ MODULE mo_ext_data_init
   USE mo_cdi,                ONLY: FILETYPE_GRB2, streamOpenRead, streamInqFileType, &
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize,   &
     &                              vlistNtsteps, vlistInqVarGrid, vlistInqAttTxt,    &
-    &                              vlistInqVarIntKey, CDI_GLOBAL, gridInqUUID, streamClose
+    &                              vlistInqVarIntKey, CDI_GLOBAL, gridInqUUID, &
+    &                              streamClose, cdiStringError
   USE mo_math_gradients,     ONLY: grad_fe_cell
   USE mo_fortran_tools,      ONLY: var_scale
 
@@ -348,6 +349,7 @@ CONTAINS
     INTEGER                 :: mpi_comm, vlist_id, lu_class_fraction_id, zaxis_id, var_id
     LOGICAL                 :: l_exist
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
+    INTEGER :: extpar_file_namelen
 
     CHARACTER(len=1)        :: extpar_uuidOfHGrid_string(16)  ! uuidOfHGrid contained in the
                                                               ! extpar file
@@ -372,13 +374,19 @@ CONTAINS
       extpar_file = generate_filename(extpar_filename,                   &
         &                             getModelBaseDir(),                 &
         &                             TRIM(p_patch(jg)%grid_filename))
-      CALL message(routine, "extpar_file = "//TRIM(extpar_file))
+      extpar_file_namelen = LEN_TRIM(extpar_file)
+      CALL message(routine, "extpar_file = "//extpar_file(1:extpar_file_namelen))
 
       INQUIRE (FILE=extpar_file, EXIST=l_exist)
       IF (.NOT.l_exist)  CALL finish(routine,'external data file is not found.')
 
       ! open file
-      cdi_extpar_id = streamOpenRead(TRIM(extpar_file))
+      cdi_extpar_id = streamOpenRead(extpar_file(1:extpar_file_namelen))
+      IF (cdi_extpar_id < 0) THEN
+        WRITE (message_text, '(133a)') "Cannot open external parameter file ", &
+             cdiStringError(cdi_extpar_id)
+        CALL finish(routine, TRIM(message_text))
+      END IF
       cdi_filetype  = streamInqFileType(cdi_extpar_id)
 
 
