@@ -1412,7 +1412,7 @@ CONTAINS
 
     l_loop_end = .FALSE.
 
-!$OMP PARALLEL num_threads(nproc),                    &
+!$OMP PARALLEL num_threads(nproc)                    &
 !$OMP          private(lcomplete,iproc)
 
       iproc = 1
