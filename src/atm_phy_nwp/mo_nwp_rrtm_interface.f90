@@ -566,7 +566,7 @@ CONTAINS
 
 
     ! Local scalars:
-    INTEGER:: jc,jb
+    INTEGER:: jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
 
@@ -597,8 +597,8 @@ CONTAINS
     IF (msg_level >= 12) &
       &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
+!$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
