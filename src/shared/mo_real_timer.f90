@@ -774,7 +774,7 @@ CONTAINS
     IF (profiling_output == TIMER_MODE_WRITE_FILES) CLOSE(timer_file_id)
 
 #ifndef NOMPI
-    IF (p_pe < num_test_procs+num_work_procs-1) THEN
+    IF (p_pe < get_my_mpi_all_comm_size()-1) THEN
       CALL p_send(ibuf(1), p_pe+1, report_tag)
     ENDIF
     CALL p_barrier(MERGE(p_comm_work, p_comm_work_test, .NOT. p_test_run))
