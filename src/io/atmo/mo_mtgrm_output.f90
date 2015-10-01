@@ -147,12 +147,15 @@ MODULE mo_meteogram_output
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase, &
-    &                                 number_of_grid_used, iqm_max
+    &                                 number_of_grid_used, iqm_max, iqni, &
+    &                                 iqns, iqng, iqnh, iqnr, iqnc, ininact, &
+                                      iqg, iqh  
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_util_phys,             ONLY: rel_hum, swdir_s
   USE mo_grid_config,           ONLY: grid_sphere_radius, is_plane_torus
+  USE mo_les_config,            ONLY: les_config
 
   IMPLICIT NONE
 
@@ -383,6 +386,8 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-11-09)
   !!
+  !! Anurag Dipankar, MPIM, 29 July 2015: Commenting out many variables
+  !! for HDCP2 runs. IT MUST BE UNCOMMENTED AFTERWARDS
   SUBROUTINE meteogram_setup_variables(meteogram_config, ext_data, p_nh_state, &
     &                                  prm_diag, p_lnd_state, jg)
     ! station data from namelist
@@ -414,12 +419,16 @@ CONTAINS
     mtgrm(jg)%i_SWDIFD_S = -1
     mtgrm(jg)%i_SOBS     = -1
 
+
+    !! Anurag Dipankar, MPIM, 29 July 2015: Commenting out many variables
+    !! for HDCP2 runs. IT MUST BE UNCOMMENTED AFTERWARDS
+    
     ! -- atmosphere
 
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "P", "Pa", "Pressure", jg, diag%pres(:,:,:))
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "T", "K", "Temperature", jg, diag%temp(:,:,:))
-    CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "PEXNER", "-", "Exner pressure", &
-      &               jg, prog%exner(:,:,:))
+    !CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "PEXNER", "-", "Exner pressure", &
+    !  &               jg, prog%exner(:,:,:))
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "RHO", "kg/m^3", "Density", jg, prog%rho(:,:,:))
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "THETAV", "K", "virtual potential temperature", &
       &               jg, prog%theta_v(:,:,:))
@@ -429,7 +438,7 @@ CONTAINS
 
     ! For dry test cases: do not sample variables defined below this line:
     ! (but allow for TORUS moist runs; see call in mo_atmo_nonhydrostatic.F90)
-    IF (ltestcase .AND. .NOT. is_plane_torus) RETURN
+    !IF (ltestcase .AND. les_config(jg)%is_dry_cbl) RETURN
 
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QV", "kg kg-1", "specific humidity", &
       &               jg, prog%tracer_ptr(iqv)%p_3d(:,:,:))
@@ -444,193 +453,214 @@ CONTAINS
     CALL add_atmo_var(meteogram_config, IBSET(VAR_GROUP_ATMO_ML, FLAG_DIAG), "REL_HUM", "%", "relative humidity", &
       &               jg, prog%tracer_ptr(iqv)%p_3d(:,:,:))
 
-    CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QV_DIA", "kg kg-1", "total specific humidity (diagnostic)", &
-      &               jg, prm_diag%tot_ptr(iqv)%p_3d(:,:,:))
-    CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QC_DIA", "kg kg-1", "total specific cloud water content (diagnostic)", &
-      &               jg, prm_diag%tot_ptr(iqc)%p_3d(:,:,:))
-    CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QI_DIA", "kg kg-1", "total specific cloud ice content (diagnostic)", &
-      &               jg, prm_diag%tot_ptr(iqi)%p_3d(:,:,:))
+    IF(atm_phy_nwp_config(jg)%inwp_gscp==4 .OR. atm_phy_nwp_config(jg)%inwp_gscp==5) THEN
+        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QG", "kg kg-1", "graupel_mixing_ratio", &
+        &               jg, prog%tracer_ptr(iqg)%p_3d(:,:,:))
+        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QH", "kg kg-1", "graupel_mixing_ratio", &
+        &               jg, prog%tracer_ptr(iqh)%p_3d(:,:,:))
+        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNI", "kg-1", "number concentration ice", &
+        &               jg, prog%tracer_ptr(iqni)%p_3d(:,:,:))
+        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNS", "kg-1", "number concentration snow", &
+        &               jg, prog%tracer_ptr(iqns)%p_3d(:,:,:))
+        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNR", "kg-1", "number concentration rain droplet", &
+        &               jg, prog%tracer_ptr(iqnr)%p_3d(:,:,:))
+        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNG", "kg-1", "number concentration graupel", &
+        &               jg, prog%tracer_ptr(iqng)%p_3d(:,:,:))
+        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNH", "kg-1", "number concentration hail", &
+        &               jg, prog%tracer_ptr(iqnh)%p_3d(:,:,:))
+        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QNC", "kg-1", "number concentration cloud water", &
+        &               jg, prog%tracer_ptr(iqnc)%p_3d(:,:,:))
+        CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "NIACT", "kg-1", "number concentration activated ice nuclei", &
+        &               jg, prog%tracer_ptr(ininact)%p_3d(:,:,:))
+    END IF
+
+    !CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QV_DIA", "kg kg-1", "total specific humidity (diagnostic)", &
+    !  &               jg, prm_diag%tot_ptr(iqv)%p_3d(:,:,:))
+    !CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QC_DIA", "kg kg-1", "total specific cloud water content (diagnostic)", &
+    !  &               jg, prm_diag%tot_ptr(iqc)%p_3d(:,:,:))
+    !CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "QI_DIA", "kg kg-1", "total specific cloud ice content (diagnostic)", &
+    !  &               jg, prm_diag%tot_ptr(iqi)%p_3d(:,:,:))
 
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "CLC", "-", "cloud cover", &
       &               jg, prm_diag%clc(:,:,:))
-    CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "TKVM", "m**2/s", &
-      &               "turbulent diffusion coefficients for momentum", &
-      &               jg, prm_diag%tkvm(:,:,:))
+    !CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "TKVM", "m**2/s", &
+    !  &               "turbulent diffusion coefficients for momentum", &
+    !  &               jg, prm_diag%tkvm(:,:,:))
     CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "TKVH", "m**2/s", &
       &               "turbulent diffusion coefficients for heat", &
       &               jg, prm_diag%tkvh(:,:,:))
-    CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "PHALF", "Pa", "Pressure on the half levels", &
-      &               jg, diag%pres_ifc(:,:,:))
+    !CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_HL, "PHALF", "Pa", "Pressure on the half levels", &
+    !  &               jg, diag%pres_ifc(:,:,:))
 
     ! -- soil related
 
-    IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
-      CALL add_atmo_var(meteogram_config, VAR_GROUP_SOIL_MLp2, "T_SO", "K", "soil temperature", &
-        &               jg, p_lnd_diag%t_so(:,:,:))
-      CALL add_atmo_var(meteogram_config, VAR_GROUP_SOIL_ML, "W_SO", "m H2O", &
-        &               "total water content (ice + liquid water)", &
-        &               jg, p_lnd_diag%w_so(:,:,:))
-      CALL add_atmo_var(meteogram_config, VAR_GROUP_SOIL_ML, "W_SO_ICE", "m H2O", "ice content", &
-        &               jg, p_lnd_diag%w_so_ice(:,:,:))
+    !IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+    !  CALL add_atmo_var(meteogram_config, VAR_GROUP_SOIL_MLp2, "T_SO", "K", "soil temperature", &
+    !    &               jg, p_lnd_diag%t_so(:,:,:))
+    !  CALL add_atmo_var(meteogram_config, VAR_GROUP_SOIL_ML, "W_SO", "m H2O", &
+    !    &               "total water content (ice + liquid water)", &
+    !    &               jg, p_lnd_diag%w_so(:,:,:))
+    !  CALL add_atmo_var(meteogram_config, VAR_GROUP_SOIL_ML, "W_SO_ICE", "m H2O", "ice content", &
+    !    &               jg, p_lnd_diag%w_so_ice(:,:,:))
 
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "PL_COV", "-", "ground fraction covered by plants", &
-        &              jg, ext_data%atm%plcov(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "LA_IND", "-", "leaf area index (vegetation period)", &
-        &              jg, ext_data%atm%lai(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "RO_DEPT", "m", "root depth", &
-        &              jg, ext_data%atm%rootdp(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "Z0", "m", "roughness length*g", &
-                       jg, prm_diag%gz0(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "QV_S", "kg/kg", "specific humidity at the surface", &
-        &              jg, p_lnd_diag%qv_s(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "W_I", "m H2O", "water content of interception water", &
-        &              jg, p_lnd_diag%w_i(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "W_SNOW", "m H2O", "water content of snow", &
-        &              jg, p_lnd_diag%w_snow(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "RUNOFF_S", "kg/m2",   &
-        &              "surface water runoff; sum over forecast", &
-        &              jg, p_lnd_diag%runoff_s(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "RUNOFF_G", "kg/m2",   &
-        &              "soil water runoff; sum over forecast",    &
-        &              jg, p_lnd_diag%runoff_g(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "T_SNOW", "K", "temperature of the snow-surface", &
-        &              jg, p_lnd_diag%t_snow(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "T_S", "K", "temperature of the ground surface", &
-        &              jg, p_lnd_diag%t_s(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "T_G", "K", "weighted surface temperature", &
-        &              jg, p_lnd_prog%t_g(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "FRESHSNW", "-",              &
-        &              "indicator for age of snow in top of snow layer", &
-        &              jg, p_lnd_diag%freshsnow(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "RHO_SNOW", "kg/m**3", "snow density", &
-        &              jg, p_lnd_diag%rho_snow(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "H_SNOW", "m", "snow height", &
-        &              jg, p_lnd_diag%h_snow(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "FR_SEAICE", "-", "fraction of sea ice", &
-        &              jg, p_lnd_diag%fr_seaice(:,:))
-    ENDIF
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "PL_COV", "-", "ground fraction covered by plants", &
+    !    &              jg, ext_data%atm%plcov(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "LA_IND", "-", "leaf area index (vegetation period)", &
+    !    &              jg, ext_data%atm%lai(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "RO_DEPT", "m", "root depth", &
+    !    &              jg, ext_data%atm%rootdp(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "Z0", "m", "roughness length*g", &
+    !                   jg, prm_diag%gz0(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "QV_S", "kg/kg", "specific humidity at the surface", &
+    !    &              jg, p_lnd_diag%qv_s(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "W_I", "m H2O", "water content of interception water", &
+    !    &              jg, p_lnd_diag%w_i(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "W_SNOW", "m H2O", "water content of snow", &
+    !    &              jg, p_lnd_diag%w_snow(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "RUNOFF_S", "kg/m2",   &
+    !    &              "surface water runoff; sum over forecast", &
+    !    &              jg, p_lnd_diag%runoff_s(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "RUNOFF_G", "kg/m2",   &
+    !    &              "soil water runoff; sum over forecast",    &
+    !    &              jg, p_lnd_diag%runoff_g(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "T_SNOW", "K", "temperature of the snow-surface", &
+    !    &              jg, p_lnd_diag%t_snow(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "T_S", "K", "temperature of the ground surface", &
+    !    &              jg, p_lnd_diag%t_s(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "T_G", "K", "weighted surface temperature", &
+    !    &              jg, p_lnd_prog%t_g(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "FRESHSNW", "-",              &
+    !    &              "indicator for age of snow in top of snow layer", &
+    !    &              jg, p_lnd_diag%freshsnow(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "RHO_SNOW", "kg/m**3", "snow density", &
+    !    &              jg, p_lnd_diag%rho_snow(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "H_SNOW", "m", "snow height", &
+    !    &              jg, p_lnd_diag%h_snow(:,:))
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "FR_SEAICE", "-", "fraction of sea ice", &
+    !    &              jg, p_lnd_diag%fr_seaice(:,:))
+    !ENDIF
 
     ! -- single level variables
 
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "P_SFC", "Pa", "surface pressure", &
-      &              jg, diag%pres_sfc(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TCM", "-", "turbulent transfer coefficients for momentum", &
-      &              jg, prm_diag%tcm(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TCH", "-", "turbulent transfer coefficients for heat", &
-      &              jg, prm_diag%tch(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SHFL", "W/m2", "sensible heat flux (surface)", &
-      &              jg, prm_diag%shfl_s(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "LHFL", "W/m2", "latent heat flux (surface)", &
-      &              jg, prm_diag%lhfl_s(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "VIO3", "Pa O3", "vertically integrated ozone amount", &
-      &              jg, prm_diag%vio3(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "HMO3", "Pa", "height of O3 maximum", &
-      &              jg, prm_diag%hmo3(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "T2M", "K", "temperature in 2m", &
-      &              jg, prm_diag%t_2m(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TD2M", "K", "dew-point temperature in 2m", &
-      &              jg, prm_diag%td_2m(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "U10M", "m/s", "zonal wind in 10m", &
-      &              jg, prm_diag%u_10m(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "V10M", "m/s", "meridional wind in 10m", &
-      &              jg, prm_diag%v_10m(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "VBMAX10M", "m/s", "gust in 10m", &
-      &              jg, prm_diag%gust10(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SOBT", "W m-2", "shortwave net flux at toa", &
-      &              jg, prm_diag%swflxtoa(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "THBT", "W m-2", "longwave net flux at toa", &
-      &              jg, prm_diag%lwflxall(:,1,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SOBS", "W m-2", "shortwave net flux at surface", &
-      &              jg, prm_diag%swflxsfc(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "THBS", "W m-2", "longwave net flux at surface", &
-      &              jg, prm_diag%lwflxsfc(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "ALB", "-", "surface shortwave albedo, diffuse", &
-      &              jg, prm_diag%albdif(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "RAIN_GSP", "kg/m2", "accumulated grid-scale surface rain", &
-      &              jg, prm_diag%rain_gsp(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SNOW_GSP", "kg/m2", "accumulated grid-scale surface snow", &
-      &              jg, prm_diag%snow_gsp(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "RAIN_CON", "kg/m2", "accumulated convective surface rain", &
-      &              jg, prm_diag%rain_con(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SNOW_CON", "kg/m2", "accumulated convective surface snow", &
-      &              jg, prm_diag%snow_con(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "H_ICE", "m", "sea ice depth", &
-      &              jg, p_lnd_state%prog_wtr(nnow(jg))%h_ice(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "P_SFC", "Pa", "surface pressure", &
+    !  &              jg, diag%pres_sfc(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TCM", "-", "turbulent transfer coefficients for momentum", &
+    !  &              jg, prm_diag%tcm(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TCH", "-", "turbulent transfer coefficients for heat", &
+    !  &              jg, prm_diag%tch(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SHFL", "W/m2", "sensible heat flux (surface)", &
+    !  &              jg, prm_diag%shfl_s(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "LHFL", "W/m2", "latent heat flux (surface)", &
+    !  &              jg, prm_diag%lhfl_s(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "VIO3", "Pa O3", "vertically integrated ozone amount", &
+    !  &              jg, prm_diag%vio3(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "HMO3", "Pa", "height of O3 maximum", &
+    !  &              jg, prm_diag%hmo3(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "T2M", "K", "temperature in 2m", &
+    !  &              jg, prm_diag%t_2m(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TD2M", "K", "dew-point temperature in 2m", &
+    !  &              jg, prm_diag%td_2m(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "U10M", "m/s", "zonal wind in 10m", &
+    !  &              jg, prm_diag%u_10m(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "V10M", "m/s", "meridional wind in 10m", &
+    !  &              jg, prm_diag%v_10m(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "VBMAX10M", "m/s", "gust in 10m", &
+    !  &              jg, prm_diag%gust10(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SOBT", "W m-2", "shortwave net flux at toa", &
+    !  &              jg, prm_diag%swflxtoa(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "THBT", "W m-2", "longwave net flux at toa", &
+    !  &              jg, prm_diag%lwflxall(:,1,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SOBS", "W m-2", "shortwave net flux at surface", &
+    !  &              jg, prm_diag%swflxsfc(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "THBS", "W m-2", "longwave net flux at surface", &
+    !  &              jg, prm_diag%lwflxsfc(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "ALB", "-", "surface shortwave albedo, diffuse", &
+    !  &              jg, prm_diag%albdif(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "RAIN_GSP", "kg/m2", "accumulated grid-scale surface rain", &
+    !  &              jg, prm_diag%rain_gsp(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SNOW_GSP", "kg/m2", "accumulated grid-scale surface snow", &
+    !  &              jg, prm_diag%snow_gsp(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "RAIN_CON", "kg/m2", "accumulated convective surface rain", &
+    !  &              jg, prm_diag%rain_con(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SNOW_CON", "kg/m2", "accumulated convective surface snow", &
+    !  &              jg, prm_diag%snow_con(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "H_ICE", "m", "sea ice depth", &
+    !  &              jg, p_lnd_state%prog_wtr(nnow(jg))%h_ice(:,:))
 
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCT", "%", "total cloud cover", &
-      &              jg, prm_diag%clct(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCL", "%", "low level cloud cover", &
-      &              jg, prm_diag%clcl(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCM", "%", "mid level cloud cover", &
-      &              jg, prm_diag%clcm(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCH", "%", "high level cloud cover", &
-      &              jg, prm_diag%clch(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCT", "%", "total cloud cover", &
+    !  &              jg, prm_diag%clct(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCL", "%", "low level cloud cover", &
+    !  &              jg, prm_diag%clcl(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCM", "%", "mid level cloud cover", &
+    !  &              jg, prm_diag%clcm(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "CLCH", "%", "high level cloud cover", &
+    !  &              jg, prm_diag%clch(:,:))
 
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "UMFL_S", "N m-2", "u-momentum flux at the surface", &
-      &              jg, prm_diag%umfl_s(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "VMFL_S", "N m-2", "v-momentum flux at the surface", &
-      &              jg, prm_diag%vmfl_s(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "UMFL_S", "N m-2", "u-momentum flux at the surface", &
+    !  &              jg, prm_diag%umfl_s(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "VMFL_S", "N m-2", "v-momentum flux at the surface", &
+    !  &              jg, prm_diag%vmfl_s(:,:))
 
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SWDIFU_S", "W m-2", "shortwave upward flux at surface", &
-      &              jg, prm_diag%swflx_up_sfc(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SWDIFD_S", "W m-2", "shortwave diffuse downward flux at surface", &
-      &              jg, prm_diag%swflx_dn_sfc_diff(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "PAB_S", "W m-2", &
-      &              "photosynthetically active shortwave downward flux at surface", &
-      &              jg, prm_diag%swflx_par_sfc(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SWDIFU_S", "W m-2", "shortwave upward flux at surface", &
+    !  &              jg, prm_diag%swflx_up_sfc(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "SWDIFD_S", "W m-2", "shortwave diffuse downward flux at surface", &
+    !  &              jg, prm_diag%swflx_dn_sfc_diff(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "PAB_S", "W m-2", &
+    !  &              "photosynthetically active shortwave downward flux at surface", &
+    !  &              jg, prm_diag%swflx_par_sfc(:,:))
 
-    CALL add_sfc_var(meteogram_config, IBSET(VAR_GROUP_SURFACE, FLAG_DIAG), "SWDIR_S", "W m-2", &
-      &              "shortwave direct downward flux at surface", &
-      &              jg, prm_diag%swflx_dn_sfc_diff(:,:))
-
-
-    ! -- vertical integrals
-
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQV", "kg m-2", "column integrated water vapour", &
-      &              jg, diag%tracer_vi_ptr(iqv)%p_2d(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQC", "kg m-2", "column integrated cloud water", &
-      &              jg, diag%tracer_vi_ptr(iqc)%p_2d(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQI", "kg m-2", "column integrated cloud ice", &
-      &              jg, diag%tracer_vi_ptr(iqi)%p_2d(:,:))
-    IF ( iqm_max >= 4) THEN
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQR", "kg m-2", "column integrated rain", &
-        &              jg, diag%tracer_vi_ptr(iqr)%p_2d(:,:))
-    ENDIF
-    IF ( iqm_max >= 5) THEN
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQS", "kg m-2", "column integrated snow", &
-        &              jg, diag%tracer_vi_ptr(iqs)%p_2d(:,:))
-    END IF
-
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQV_DIA", "kg m-2", &
-      &              "total column integrated water vapour (diagnostic)",      &
-      &              jg, prm_diag%tci_ptr(iqv)%p_2d(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQC_DIA", "kg m-2", &
-      &              "total column integrated cloud water (diagnostic)",       &
-      &              jg, prm_diag%tci_ptr(iqc)%p_2d(:,:))
-    CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQI_DIA", "kg m-2", &
-      &              "total column integrated cloud ice (diagnostic)",         &
-      &              jg, prm_diag%tci_ptr(iqi)%p_2d(:,:))
+    !CALL add_sfc_var(meteogram_config, IBSET(VAR_GROUP_SURFACE, FLAG_DIAG), "SWDIR_S", "W m-2", &
+    !  &              "shortwave direct downward flux at surface", &
+    !  &              jg, prm_diag%swflx_dn_sfc_diff(:,:))
 
 
-    IF (inextra_2d > 0) THEN
-      ! Variable: Extra 2D
-      CALL add_sfc_var (meteogram_config, VAR_GROUP_SURFACE, "EXTRA2D","","-", jg, diag%extra_2d(:,:,1:inextra_2d))
-    ENDIF
-    IF (inextra_3d > 0) THEN
-      ! Variable: Extra 3D
-      CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "EXTRA3D","","-", jg, diag%extra_3d(:,:,:,1:inextra_3d))
-    END IF
+    !! -- vertical integrals
 
-    ! several variable indices, stored for convenience (when computing
-    ! additional diagnostics):
-    mtgrm(jg)%i_T        = get_var("T"       , jg)
-    mtgrm(jg)%i_QV       = get_var("QV"      , jg)
-    mtgrm(jg)%i_REL_HUM  = get_var("REL_HUM" , jg)
-    mtgrm(jg)%i_PEXNER   = get_var("PEXNER"  , jg)
-    mtgrm(jg)%i_SWDIR_S  = get_sfcvar("SWDIR_S" , jg)
-    mtgrm(jg)%i_ALB      = get_sfcvar("ALB"     , jg)
-    mtgrm(jg)%i_SWDIFD_S = get_sfcvar("SWDIFD_S", jg)
-    mtgrm(jg)%i_SOBS     = get_sfcvar("SOBS"    , jg)
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQV", "kg m-2", "column integrated water vapour", &
+    !  &              jg, diag%tracer_vi_ptr(iqv)%p_2d(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQC", "kg m-2", "column integrated cloud water", &
+    !  &              jg, diag%tracer_vi_ptr(iqc)%p_2d(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQI", "kg m-2", "column integrated cloud ice", &
+    !  &              jg, diag%tracer_vi_ptr(iqi)%p_2d(:,:))
+    !IF ( iqm_max >= 4) THEN
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQR", "kg m-2", "column integrated rain", &
+    !    &              jg, diag%tracer_vi_ptr(iqr)%p_2d(:,:))
+    !ENDIF
+    !IF ( iqm_max >= 5) THEN
+    !  CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQS", "kg m-2", "column integrated snow", &
+    !    &              jg, diag%tracer_vi_ptr(iqs)%p_2d(:,:))
+    !END IF
+
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQV_DIA", "kg m-2", &
+    !  &              "total column integrated water vapour (diagnostic)",      &
+    !  &              jg, prm_diag%tci_ptr(iqv)%p_2d(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQC_DIA", "kg m-2", &
+    !  &              "total column integrated cloud water (diagnostic)",       &
+    !  &              jg, prm_diag%tci_ptr(iqc)%p_2d(:,:))
+    !CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQI_DIA", "kg m-2", &
+    !  &              "total column integrated cloud ice (diagnostic)",         &
+    !  &              jg, prm_diag%tci_ptr(iqi)%p_2d(:,:))
+
+
+    !IF (inextra_2d > 0) THEN
+    !  ! Variable: Extra 2D
+    !  CALL add_sfc_var (meteogram_config, VAR_GROUP_SURFACE, "EXTRA2D","","-", jg, diag%extra_2d(:,:,1:inextra_2d))
+    !ENDIF
+    !IF (inextra_3d > 0) THEN
+    !  ! Variable: Extra 3D
+    !  CALL add_atmo_var(meteogram_config, VAR_GROUP_ATMO_ML, "EXTRA3D","","-", jg, diag%extra_3d(:,:,:,1:inextra_3d))
+    !END IF
+
+    !! several variable indices, stored for convenience (when computing
+    !! additional diagnostics):
+    !mtgrm(jg)%i_T        = get_var("T"       , jg)
+    !mtgrm(jg)%i_QV       = get_var("QV"      , jg)
+    !mtgrm(jg)%i_REL_HUM  = get_var("REL_HUM" , jg)
+    !mtgrm(jg)%i_PEXNER   = get_var("PEXNER"  , jg)
+    !mtgrm(jg)%i_SWDIR_S  = get_sfcvar("SWDIR_S" , jg)
+    !mtgrm(jg)%i_ALB      = get_sfcvar("ALB"     , jg)
+    !mtgrm(jg)%i_SWDIFD_S = get_sfcvar("SWDIFD_S", jg)
+    !mtgrm(jg)%i_SOBS     = get_sfcvar("SOBS"    , jg)
 
   END SUBROUTINE meteogram_setup_variables
 
