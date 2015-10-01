@@ -3132,7 +3132,8 @@ CONTAINS
     END DO
 
     CALL vapor_deposition_ice()
-    CALL vapor_deposition_snow()
+    CALL vapor_deposition_generic(ik_slice, snow, vsd_params, g_i, s_si, &
+         dt_local, dep_snow)
     CALL vapor_deposition_graupel()
     IF (ice_typ > 1) CALL vapor_deposition_hail()
 
@@ -3323,6 +3324,44 @@ CONTAINS
     END SUBROUTINE vapor_deposition_snow
 
   END SUBROUTINE vapor_dep_relaxation
+
+  SUBROUTINE vapor_deposition_generic(ik_slice, prtcl, params, g_i, s_si, &
+       dt, dep)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(particle), INTENT(in) :: prtcl
+    TYPE(evaporation_deposition_params), INTENT(in) :: params
+    REAL(wp), INTENT(in) :: g_i(:, :), s_si(:, :)
+    REAL(wp), INTENT(in) :: dt
+    REAL(wp), INTENT(out) :: dep(:, :)
+    REAL(wp)            :: q,n,x,d,v,f_v
+    INTEGER             :: i,k
+    INTEGER :: istart, iend, kstart, kend
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
+    DO k = kstart,kend
+      DO i = istart,iend
+        IF (prtcl%q(i,k) == 0.0_wp) THEN
+          dep(i,k) = 0.0_wp
+        ELSE
+          n = prtcl%n(i,k)
+          q = prtcl%q(i,k)
+
+          x = prtcl%meanmass(q,n)
+          D = prtcl%diameter(x)
+          v = prtcl%velocity(x) * prtcl%rho_v(i,k)
+
+          f_v  = params%a_f + params%b_f * SQRT(D*v)
+          f_v  = MAX(f_v,params%a_f/prtcl%a_ven)
+
+          dep(i,k) = g_i(i,k) * n * params%c * d * f_v * s_si(i,k) * dt
+        ENDIF
+      ENDDO
+    ENDDO
+  END SUBROUTINE vapor_deposition_generic
 
   SUBROUTINE rain_freeze_gamlook(ik_slice, dt, atmo,rain,ice,snow,graupel,hail)
     !*******************************************************************************
