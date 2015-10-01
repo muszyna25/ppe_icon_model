@@ -89,7 +89,7 @@
 
 MODULE mo_2mom_mcrph_main
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: sp, wp
   USE mo_exception,          ONLY: finish, message, txt => message_text
   USE mo_math_constants,     ONLY: pi, pi4 => pi_4
   USE mo_physical_constants, ONLY: &
@@ -251,7 +251,7 @@ MODULE mo_2mom_mcrph_main
        &    ttstep = 2,               & ! increment for temperature in look-up table
        &    ssstep = 1                  ! increment for ice supersaturation in look-up table
 
-  REAL(wp), DIMENSION(0:100,0:100)  :: &
+  REAL(sp), DIMENSION(0:100,0:100)  :: &
        &    afrac_dust, &  ! look-up table of activated fraction of dust particles acting as ice nuclei
        &    afrac_soot, &  ! ... of soot particles
        &    afrac_orga     ! ... of organic material
