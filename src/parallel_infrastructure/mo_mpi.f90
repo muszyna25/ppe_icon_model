@@ -221,6 +221,7 @@ MODULE mo_mpi
   PUBLIC :: p_commit_type_struct
   PUBLIC :: p_alltoall
   PUBLIC :: p_alltoallv
+  PUBLIC :: p_alltoallv_p2p
   PUBLIC :: p_clear_request
   PUBLIC :: p_mpi_wtime
   PUBLIC :: get_mpi_comm_world_ranks
@@ -647,6 +648,11 @@ MODULE mo_mpi
     MODULE PROCEDURE p_alltoallv_int
     MODULE PROCEDURE p_alltoallv_real_2d
     MODULE PROCEDURE p_alltoallv_int_2d
+  END INTERFACE
+
+  INTERFACE p_alltoallv_p2p
+    MODULE PROCEDURE p_alltoallv_p2p_real_2d
+    MODULE PROCEDURE p_alltoallv_p2p_int_2d
   END INTERFACE
 
 CONTAINS
@@ -7870,6 +7876,92 @@ CONTAINS
        sendbuf(sdispls(1)+1:sdispls(1)+sendcounts(1))
 #endif
    END SUBROUTINE p_alltoallv_int
+
+
+   SUBROUTINE p_alltoallv_p2p_real_2d (sendbuf, sendcounts, sdispls, &
+     &                             recvbuf, recvcounts, rdispls, comm)
+     REAL(wp),          INTENT(in) :: sendbuf(:,:)
+     INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
+     REAL(wp),          INTENT(inout) :: recvbuf(:,:)
+     INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
+     INTEGER,           INTENT(in) :: comm
+#if !defined(NOMPI)
+     REAL(wp), ALLOCATABLE   :: temp_sendbuf(:,:)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_p2p_real_2d")
+     INTEGER :: dim1_size, i, comm_size, tag
+
+     ALLOCATE(temp_sendbuf(SIZE(sendbuf,1), SIZE(sendbuf,2)))
+
+     temp_sendbuf = sendbuf
+
+     CALL p_wait
+
+     comm_size = p_comm_size(comm)
+     tag = 1
+     dim1_size = SIZE(sendbuf, 1)
+     DO i = 1, comm_size
+       IF (recvcounts(LBOUND(recvcounts,1) + i - 1) > 0) THEN
+         CALL p_irecv(recvbuf(LBOUND(recvbuf,1), LBOUND(recvbuf,2) + &
+           &                  rdispls(LBOUND(rdispls,1) + i - 1)), i - 1, &
+           &          tag, recvcounts(LBOUND(recvcounts,1) + i - 1) * dim1_size, &
+           &          comm)
+       END IF
+       IF (sendcounts(LBOUND(sendcounts,1) + i - 1) > 0) THEN
+         CALL p_isend(temp_sendbuf(1, sdispls(LBOUND(sdispls,1) + i - 1) + 1), &
+           &          i - 1, tag, &
+           &          sendcounts(LBOUND(sendcounts,1) + i - 1) * dim1_size, comm)
+       END IF
+     END DO
+     CALL p_wait
+#else
+     ! displs are zero based -> have to add 1
+     recvbuf(:,rdispls(1)+1:rdispls(1)+recvcounts(1)) = &
+       sendbuf(:,sdispls(1)+1:sdispls(1)+sendcounts(1))
+#endif
+   END SUBROUTINE p_alltoallv_p2p_real_2d
+
+
+   SUBROUTINE p_alltoallv_p2p_int_2d (sendbuf, sendcounts, sdispls, &
+     &                            recvbuf, recvcounts, rdispls, comm)
+     INTEGER,           INTENT(in) :: sendbuf(:,:)
+     INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
+     INTEGER,           INTENT(inout) :: recvbuf(:,:)
+     INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
+     INTEGER,           INTENT(in) :: comm
+#if !defined(NOMPI)
+     INTEGER, ALLOCATABLE    :: temp_sendbuf(:,:)
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_p2p_int_2d")
+     INTEGER :: dim1_size, i, comm_size, tag
+
+     ALLOCATE(temp_sendbuf(SIZE(sendbuf,1), SIZE(sendbuf,2)))
+
+     temp_sendbuf = sendbuf
+
+     CALL p_wait
+
+     comm_size = p_comm_size(comm)
+     tag = 1
+     dim1_size = SIZE(sendbuf, 1)
+     DO i = 1, comm_size
+       IF (recvcounts(LBOUND(recvcounts,1) + i - 1) > 0) THEN
+         CALL p_irecv(recvbuf(LBOUND(recvbuf,1), LBOUND(recvbuf,2) + &
+           &                  rdispls(LBOUND(rdispls,1) + i - 1)), i - 1, &
+           &          tag, recvcounts(LBOUND(recvcounts,1) + i - 1) * dim1_size, &
+           &          comm)
+       END IF
+       IF (sendcounts(LBOUND(sendcounts,1) + i - 1) > 0) THEN
+         CALL p_isend(temp_sendbuf(1, sdispls(LBOUND(sdispls,1) + i - 1) + 1), &
+           &          i - 1, tag, &
+           &          sendcounts(LBOUND(sendcounts,1) + i - 1) * dim1_size, comm)
+       END IF
+     END DO
+     CALL p_wait
+#else
+     ! displs are zero based -> have to add 1
+     recvbuf(:,rdispls(1)+1:rdispls(1)+recvcounts(1)) = &
+       sendbuf(:,sdispls(1)+1:sdispls(1)+sendcounts(1))
+#endif
+   END SUBROUTINE p_alltoallv_p2p_int_2d
 
 
   SUBROUTINE p_clear_request(request)

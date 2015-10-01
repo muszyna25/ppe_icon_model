@@ -39,7 +39,7 @@ USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
      & p_comm_work, my_process_is_mpi_seq, p_pe_work, p_n_work, &
      & get_my_mpi_work_communicator, get_my_mpi_work_comm_size, &
      & get_my_mpi_work_id, p_gather, p_gatherv, work_mpi_barrier, &
-     & p_alltoallv, p_alltoall, process_mpi_root_id, p_bcast
+     & p_alltoallv, p_alltoall, process_mpi_root_id, p_bcast, p_alltoallv_p2p
 USE mo_parallel_config, ONLY: iorder_sendrecv, nproma, itype_exch_barrier
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_exch_data, timer_exch_data_async, timer_barrier, timer_exch_data_wait
@@ -3375,13 +3375,13 @@ SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
   END DO
 
   IF (PRESENT(send_buffer_r)) &
-    CALL p_alltoallv(send_buffer_r, num_send_per_process, send_displ, &
-      &              collector_buffer_nofill_r, num_recv_per_process, &
-      &              recv_displ, p_comm_work)
+    CALL p_alltoallv_p2p(send_buffer_r, num_send_per_process, send_displ, &
+      &                  collector_buffer_nofill_r, num_recv_per_process, &
+      &                  recv_displ, p_comm_work)
   IF (PRESENT(send_buffer_i)) &
-    CALL p_alltoallv(send_buffer_i, num_send_per_process, send_displ, &
-      &              collector_buffer_nofill_i, num_recv_per_process, &
-      &              recv_displ, p_comm_work)
+    CALL p_alltoallv_p2p(send_buffer_i, num_send_per_process, send_displ, &
+      &                  collector_buffer_nofill_i, num_recv_per_process, &
+      &                  recv_displ, p_comm_work)
 
   ! reorder collector_buffer
   IF (PRESENT(send_buffer_r)) &
