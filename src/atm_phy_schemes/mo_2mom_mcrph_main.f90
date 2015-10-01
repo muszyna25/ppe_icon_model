@@ -6367,44 +6367,44 @@ CONTAINS
     INTEGER  :: i, k, kk
     REAL(wp) :: x_p,D_m,D_p,mue,v_n,v_q, cmax_temp
 
-    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss, n_fluss
-    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi
+    REAL(wp), DIMENSION(its:ite,kts-1:kte) :: q_fluss, n_fluss
+    REAL(wp), DIMENSION(its:ite,kts-1:kte) :: v_n_sedi,v_q_sedi
     REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
     LOGICAL,  DIMENSION(its:ite) :: cflag
 
-    v_n_sedi = 0.0_wp
-    v_q_sedi = 0.0_wp
+    v_n_sedi(:,kts-1) = 0.0_wp
+    v_q_sedi(:,kts-1) = 0.0_wp
     q_fluss  = 0.0_wp
     n_fluss  = 0.0_wp
 
     DO k = kts,kte
-       DO i = its,ite
+      DO i = its,ite
 
-          IF (qp(i,k) > q_crit) THEN
+        IF (qp(i,k) > q_crit) THEN
 
-             x_p = rain%meanmass(qp(i,k) ,np(i,k))
-             D_m = rain%diameter(x_p)
-             IF (qc(i,k) >= q_crit) THEN
-                mue = (rain%nu+1.0_wp)/rain%b_geo - 1.0_wp
-             ELSE
-                mue = rain_coeffs%mue_Dm_relation(D_m)
-             END IF
-             D_p = D_m * exp((-1./3.)*log((mue+3.)*(mue+2.)*(mue+1.)))
+          x_p = rain%meanmass(qp(i,k) ,np(i,k))
+          D_m = rain%diameter(x_p)
+          IF (qc(i,k) >= q_crit) THEN
+            mue = (rain%nu+1.0_wp)/rain%b_geo - 1.0_wp
+          ELSE
+            mue = rain_coeffs%mue_Dm_relation(D_m)
+          END IF
+          D_p = D_m * EXP((-1./3.)*LOG((mue+3.)*(mue+2.)*(mue+1.)))
 
-             v_n = rain_coeffs%alfa - rain_coeffs%beta * exp(-(mue+1.)*log(1.0 + rain_coeffs%gama*D_p))
-             v_q = rain_coeffs%alfa - rain_coeffs%beta * exp(-(mue+4.)*log(1.0 + rain_coeffs%gama*D_p))
-             v_n = v_n * rhocorr(i,k)
-             v_q = v_q * rhocorr(i,k)
+          v_n = rain_coeffs%alfa - rain_coeffs%beta * EXP(-(mue+1.)*LOG(1.0 + rain_coeffs%gama*D_p))
+          v_q = rain_coeffs%alfa - rain_coeffs%beta * EXP(-(mue+4.)*LOG(1.0 + rain_coeffs%gama*D_p))
+          v_n = v_n * rhocorr(i,k)
+          v_q = v_q * rhocorr(i,k)
 
-             v_n_sedi(i,k) = - v_n
-             v_q_sedi(i,k) = - v_q
-          ENDIF
-       END DO
+          v_n_sedi(i,k) = - v_n
+          v_q_sedi(i,k) = - v_q
+        ELSE
+          v_n_sedi(i,k) = 0.0_wp
+          v_q_sedi(i,k) = 0.0_wp
+        ENDIF
+      END DO
     END DO
 
-    v_n_sedi(:,kte+1) = v_n_sedi(:,kte)   ! untere Randbedingung fuer Fallgeschw.
-    v_q_sedi(:,kte+1) = v_q_sedi(:,kte)   ! lower BC for the terminal veloc.
-                                          ! top bc is 0
 
     IF (PRESENT(cmax)) THEN
       cmax_temp = cmax
@@ -6520,33 +6520,35 @@ CONTAINS
     REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
     LOGICAL,  DIMENSION(its:ite) :: cflag
 
-    v_n_sedi = 0.0_wp
-    v_q_sedi = 0.0_wp
+    v_n_sedi(:, kts-1) = 0.0_wp
+    v_q_sedi(:, kts-1) = 0.0_wp
     q_fluss  = 0.0_wp
     n_fluss  = 0.0_wp
 
     DO k = kts,kte
-       DO i = its,ite
-          IF (qp(i,k) > q_crit) THEN
+      DO i = its,ite
+        IF (qp(i,k) > q_crit) THEN
 
-             x_p = ptype%meanmass(qp(i,k),np(i,k))
-             lam = exp(ptype%b_vel* log(pcoeffs%coeff_lambda*x_p))
+          x_p = ptype%meanmass(qp(i,k),np(i,k))
+          lam = EXP(ptype%b_vel* LOG(pcoeffs%coeff_lambda*x_p))
 
-             v_n = pcoeffs%coeff_alfa_n * lam
-             v_q = pcoeffs%coeff_alfa_q * lam
-             v_n = MAX(v_n,ptype%vsedi_min)
-             v_q = MAX(v_q,ptype%vsedi_min)
-             v_n = MIN(v_n,ptype%vsedi_max)
-             v_q = MIN(v_q,ptype%vsedi_max)
-             v_n = v_n * rhocorr(i,k)
-             v_q = v_q * rhocorr(i,k)
+          v_n = pcoeffs%coeff_alfa_n * lam
+          v_q = pcoeffs%coeff_alfa_q * lam
+          v_n = MAX(v_n,ptype%vsedi_min)
+          v_q = MAX(v_q,ptype%vsedi_min)
+          v_n = MIN(v_n,ptype%vsedi_max)
+          v_q = MIN(v_q,ptype%vsedi_max)
+          v_n = v_n * rhocorr(i,k)
+          v_q = v_q * rhocorr(i,k)
 
-             v_n_sedi(i,k) = -v_n
-             v_q_sedi(i,k) = -v_q
-          END IF
-       END DO
+          v_n_sedi(i,k) = -v_n
+          v_q_sedi(i,k) = -v_q
+        ELSE
+          v_n_sedi(i,k) = 0.0_wp
+          v_q_sedi(i,k) = 0.0_wp
+        END IF
+      END DO
     END DO
-
 
     IF (PRESENT(cmax)) THEN
       cmax_temp = cmax
