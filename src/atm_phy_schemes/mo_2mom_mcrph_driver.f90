@@ -72,6 +72,7 @@ USE mo_2mom_mcrph_util, ONLY:                            &
      &                       ltabdminwgg,                &
      &                       init_dmin_wetgrowth,        &
      &                       init_dmin_wg_gr_ltab_equi
+USE mo_2mom_prepare, ONLY: prepare_twomoment, post_twomoment
 
 !==============================================================================
 
@@ -153,10 +154,10 @@ CONTAINS
 
     ! Microphysics variables
     REAL(wp), DIMENSION(:,:), INTENT(INOUT) , TARGET :: &
-         &               qv, qc, qnc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh
+         qv, qc, qnc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh, ninact
 
     REAL(wp), DIMENSION(:,:), INTENT(INOUT), TARGET, OPTIONAL :: &
-         &               nccn, ninpot, ninact
+         &               nccn, ninpot
 
     ! Precip rates, vertical profiles
     REAL(wp), DIMENSION(:), INTENT (INOUT)  :: &
@@ -299,7 +300,11 @@ CONTAINS
     !    (pointers are used to avoid passing everything explicitly by argument and
     !     to avoid local allocates within the OpenMP-loop, and keep everything on stack)
 
-    CALL prepare_twomoment()
+    CALL prepare_twomoment(atmo, cloud, rain, ice, snow, graupel, hail, &
+         rho, rhocorr, rhocld, pres, w, tk, &
+         nccn, ninpot, ninact, &
+         qv, qc, qnc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh, &
+         lprogccn, lprogin, its, ite, kts, kte)
 
     IF (msg_level>dbg_level) CALL message(TRIM(routine)," calling clouds_twomoment")
 
@@ -362,7 +367,10 @@ CONTAINS
     IF (debug) CALL check_clouds()
 
     ! .. convert back and nullify two-moment pointers
-    CALL post_twomoment()
+    CALL post_twomoment(atmo, cloud, rain, ice, snow, graupel, hail, &
+         rho_r, qnc, nccn, ninpot, ninact, &
+         qv, qc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh, &
+         lprogccn, lprogin, its, ite, kts, kte)
 
     IF (clipping) THEN
        WHERE(qr < 0.0_wp) qr = 0.0_wp
@@ -434,8 +442,6 @@ CONTAINS
       ! (see COSMO documentation for details)
       !
 
-      integer :: i,k
-
       ! a few 1d arrays, maybe we can reduce this later or we keep them ...
       real(wp), dimension(isize) :: &
            & qr_flux_now,qr_flux_new,qr_sum,qr_flux_sum,vr_sedq_new,vr_sedq_now,qr_impl,qr_star,xr_now, &
@@ -449,7 +455,8 @@ CONTAINS
            & qi_flux_now,qi_flux_new,qi_sum,qi_flux_sum,vi_sedq_new,vi_sedq_now,qi_impl,qi_star,xi_now, &
            & ni_flux_now,ni_flux_new,ni_sum,ni_flux_sum,vi_sedn_new,vi_sedn_now,ni_impl,ni_star,xi_new
 
-      real(wp), dimension(isize,ke) :: rdzdt
+      REAL(wp), DIMENSION(isize,ke) :: rdzdt
+      INTEGER :: i, ii, k, kk
 
       logical, parameter :: lmicro_impl = .true.  ! microphysics within semi-implicit sedimentation loop?
 
@@ -786,133 +793,6 @@ CONTAINS
 
    END SUBROUTINE clouds_twomoment_implicit
 
-   SUBROUTINE prepare_twomoment()
-
-     ! ... Transformation of microphysics variables to densities
-     DO kk = kts, kte
-        DO ii = its, ite
-
-           ! ... concentrations --> number densities
-           qnc(ii,kk) = rho(ii,kk) * qnc(ii,kk)
-           qnr(ii,kk) = rho(ii,kk) * qnr(ii,kk)
-           qni(ii,kk) = rho(ii,kk) * qni(ii,kk)
-           qns(ii,kk) = rho(ii,kk) * qns(ii,kk)
-           qng(ii,kk) = rho(ii,kk) * qng(ii,kk)
-           qnh(ii,kk) = rho(ii,kk) * qnh(ii,kk)
-
-           ! ... mixing ratios -> mass densities
-           qv(ii,kk) = rho(ii,kk) * qv(ii,kk)
-           qc(ii,kk) = rho(ii,kk) * qc(ii,kk)
-           qr(ii,kk) = rho(ii,kk) * qr(ii,kk)
-           qi(ii,kk) = rho(ii,kk) * qi(ii,kk)
-           qs(ii,kk) = rho(ii,kk) * qs(ii,kk)
-           qg(ii,kk) = rho(ii,kk) * qg(ii,kk)
-           qh(ii,kk) = rho(ii,kk) * qh(ii,kk)
-
-           ninact(ii,kk)  = rho(ii,kk) * ninact(ii,kk)
-
-           if (lprogccn) then
-              nccn(ii,kk) = rho(ii,kk) * nccn(ii,kk)
-           end if
-           if (lprogin) then
-              ninpot(ii,kk)  = rho(ii,kk) * ninpot(ii,kk)
-           end if
-        END DO
-     END DO
-
-     ! set pointers
-     atmo%w   => w
-     atmo%T   => tk
-     atmo%p   => pres
-     atmo%qv  => qv
-     atmo%rho => rho
-
-     cloud%rho_v   => rhocld
-     rain%rho_v    => rhocorr
-     ice%rho_v     => rhocorr
-     graupel%rho_v => rhocorr
-     snow%rho_v    => rhocorr
-     hail%rho_v    => rhocorr
-
-     cloud%q   => qc
-     cloud%n   => qnc
-     rain%q    => qr
-     rain%n    => qnr
-     ice%q     => qi
-     ice%n     => qni
-     snow%q    => qs
-     snow%n    => qns
-     graupel%q => qg
-     graupel%n => qng
-     hail%q    => qh
-     hail%n    => qnh
-
-   END SUBROUTINE prepare_twomoment
-
-   SUBROUTINE post_twomoment()
-
-     ! nullify pointers
-     atmo%w   => null()
-     atmo%T   => null()
-     atmo%p   => null()
-     atmo%qv  => null()
-     atmo%rho => null()
-
-     cloud%rho_v   => null()
-     rain%rho_v    => null()
-     ice%rho_v     => null()
-     graupel%rho_v => null()
-     snow%rho_v    => null()
-     hail%rho_v    => null()
-
-     cloud%q   => null()
-     cloud%n   => null()
-     rain%q    => null()
-     rain%n    => null()
-     ice%q     => null()
-     ice%n     => null()
-     snow%q    => null()
-     snow%n    => null()
-     graupel%q => null()
-     graupel%n => null()
-     hail%q    => null()
-     hail%n    => null()
-
-     ! ... Transformation of variables back to ICON standard variables
-     DO kk = kts, kte
-        DO ii = its, ite
-
-           hlp = rho_r(ii,kk)
-
-           ! ... from mass densities back to mixing ratios
-           qv(ii,kk) = hlp * qv(ii,kk)
-           qc(ii,kk) = hlp * qc(ii,kk)
-           qr(ii,kk) = hlp * qr(ii,kk)
-           qi(ii,kk) = hlp * qi(ii,kk)
-           qs(ii,kk) = hlp * qs(ii,kk)
-           qg(ii,kk) = hlp * qg(ii,kk)
-           qh(ii,kk) = hlp * qh(ii,kk)
-
-           ! ... number concentrations
-           qnc(ii,kk) = hlp * qnc(ii,kk)
-           qnr(ii,kk) = hlp * qnr(ii,kk)
-           qni(ii,kk) = hlp * qni(ii,kk)
-           qns(ii,kk) = hlp * qns(ii,kk)
-           qng(ii,kk) = hlp * qng(ii,kk)
-           qnh(ii,kk) = hlp * qnh(ii,kk)
-
-           ninact(ii,kk)  = hlp * ninact(ii,kk)
-
-           if (lprogccn) THEN
-              nccn(ii,kk) = hlp * nccn(ii,kk)
-           end if
-           if (lprogin) THEN
-              ninpot(ii,kk)  = hlp * ninpot(ii,kk)
-           end if
-        ENDDO
-     ENDDO
-
-   END SUBROUTINE post_twomoment
 
    !
    ! sedimentation for explicit solver, i.e., sedimentation is done with an explicit

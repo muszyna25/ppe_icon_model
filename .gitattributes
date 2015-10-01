@@ -1474,6 +1474,7 @@ src/atm_phy_schemes/gscp_kessler.f90 -text
 src/atm_phy_schemes/mo_2mom_mcrph_driver.f90 -text
 src/atm_phy_schemes/mo_2mom_mcrph_main.f90 -text
 src/atm_phy_schemes/mo_2mom_mcrph_util.f90 -text
+src/atm_phy_schemes/mo_2mom_prepare.f90 -text
 src/atm_phy_schemes/mo_adjust.f90 -text
 src/atm_phy_schemes/mo_aerosol_util.f90 -text
 src/atm_phy_schemes/mo_albedo.f90 -text
