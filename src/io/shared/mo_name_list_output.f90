@@ -105,7 +105,8 @@ MODULE mo_name_list_output
   USE mo_run_config,                ONLY: msg_level
   USE mo_io_config,                 ONLY: lkeep_in_sync
   USE mo_gribout_config,            ONLY: gribout_config
-  USE mo_parallel_config,           ONLY: p_test_run, use_dp_mpi2io, num_io_procs
+  USE mo_parallel_config,           ONLY: p_test_run, use_dp_mpi2io, &
+       num_io_procs, io_proc_chunk_size
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
   USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC
@@ -1410,7 +1411,7 @@ CONTAINS
     INTEGER, ALLOCATABLE           :: bufr_metainfo(:)
     INTEGER                        :: nmiss    ! missing value indicator
     INTEGER                        :: ichunk, nchunks, chunk_start, chunk_end, &
-      &                               this_chunk_nlevs, io_proc_chunk_size, ilev
+      &                               this_chunk_nlevs, ilev
 
     !-- for timing
     CHARACTER(len=10)              :: ctime
