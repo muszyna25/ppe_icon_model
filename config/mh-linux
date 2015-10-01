@@ -482,13 +482,13 @@ case "$ac_sitename" in
                         ZLIBROOT    = /usr
 
                         case "$with_mpi" in
-                            "$software_tree/intel/impi/5.1.0.038_dapl2.1.6"|*)
+                            "$software_tree/intel/impi/5.1.0.038_dapl2.1.6")
                                 load_modules = ${load_modules} intelmpi/5.1.0.038_dapl2.1.6
                                 FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
                                 MPIROOT      = $with_mpi/compilers_and_libraries_2016.0.079/linux/mpi/intel64
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
                                 ;;
-                            "$software_tree/intel/impi/4.1.3.049"|"$software_tree/intel/impi/4.1.3.049/intel64"|*)
+                            "$software_tree/intel/impi/4.1.3.049"|"$software_tree/intel/impi/4.1.3.049/intel64")
                                 FFLAGS = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
                                 load_modules=${load_modules} intelmpi/4.1.3.049
 
