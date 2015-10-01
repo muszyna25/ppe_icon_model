@@ -1554,7 +1554,7 @@ CONTAINS
 
        ! evaporation from melting ice particles
        CALL evaporation(ik_slice, dt, atmo, snow, se_params)
-       CALL graupel_evaporation(ik_slice, dt, atmo, graupel)
+       CALL evaporation(ik_slice, dt, atmo, graupel, ge_params)
        IF (ice_typ > 1) CALL evaporation(ik_slice, dt, atmo, hail, he_params)
        IF (ischeck) CALL check(ik_slice, 'evaporation of ice',cloud,rain,ice,snow,graupel,hail)
 
@@ -2404,67 +2404,6 @@ CONTAINS
     END DO
 
   END SUBROUTINE rain_evaporation
-
-  SUBROUTINE graupel_evaporation(ik_slice, dt, atmo, graupel)
-    !*******************************************************************************
-    ! Evaporation from melting graupel, see SB2006                                 *
-    !*******************************************************************************
-    ! start and end indices for 2D slices
-    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
-    REAL(wp), INTENT(in) :: dt
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle)      :: graupel
-    ! start and end indices for 2D slices
-    INTEGER :: istart, iend, kstart, kend
-    INTEGER             :: i,k
-    REAL(wp)            :: T_a,e_sw,s_sw,g_d,eva
-    REAL(wp)            :: q_g,n_g,x_g,d_g,v_g,f_v,e_d
-
-    IF (isdebug) CALL message(routine, "graupel_evaporation")
-
-    istart = ik_slice(1)
-    iend   = ik_slice(2)
-    kstart = ik_slice(3)
-    kend   = ik_slice(4)
-
-    DO k = kstart,kend
-       DO i = istart,iend
-
-          q_g = graupel%q(i,k)
-          T_a = atmo%T(i,k)
-
-          IF (q_g > 0.0_wp .AND. T_a > T_3) THEN
-
-            e_d  = atmo%qv(i,k) * R_d * T_a
-            e_sw = e_ws(T_a)
-            s_sw = e_d / e_sw - 1.0
-
-            !..Eq. (37) of SB2006, note that 4*pi is correct because c_g is used below
-            g_d = 4.0*pi / ( L_wd**2 / (K_T * R_d * T_3**2) + R_d * T_3 / (D_v * e_sw) )
-
-            n_g = graupel%n(i,k)
-            x_g = particle_meanmass(graupel, q_g,n_g)
-            d_g = particle_diameter(graupel, x_g)
-            v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
-
-            !..note that a_f includes more than just ventilation, do never ever set f_v=1
-            f_v = ge_params%a_f + ge_params%b_f * sqrt(v_g*d_g)
-
-            eva = g_d * n_g * ge_params%c * d_g * f_v * s_sw * dt
-
-            eva = MAX(-eva,0.0_wp)
-            eva = MIN(eva,q_g)
-
-            atmo%qv(i,k)   = atmo%qv(i,k)   + eva
-            graupel%q(i,k) = graupel%q(i,k) - eva
-
-          END IF
-       END DO
-    END DO
-
-  END SUBROUTINE graupel_evaporation
 
   SUBROUTINE evaporation(ik_slice, dt, atmo, prtcl, params)
     !*******************************************************************************
