@@ -213,7 +213,7 @@ MODULE mo_2mom_mcrph_main
   ! These are the fundamental particle variables for the two-moment scheme
   ! These pointers will be specified from the list of pre-defined particles
   TYPE(particle_sphere)          :: ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs
-  TYPE(particle_rain),   POINTER :: rain_coeffs
+  TYPE(particle_rain) :: rain_coeffs
   TYPE(aerosol_ccn)              :: ccn_coeffs
   TYPE(aerosol_in)               :: in_coeffs
 
@@ -357,188 +357,6 @@ MODULE mo_2mom_mcrph_main
   REAL(wp), PARAMETER :: snow_cmu4 = 5.5_wp      ! a
   INTEGER,  PARAMETER :: snow_cmu5 = 1           ! exponent
 
-  !..Pre-defined particle types
-  TYPE(particle), TARGET :: graupelhail_cosmo5 = particle( & ! graupelhail2test4
-       &                                 'graupelhail_cosmo5' ,& !.name...Bezeichnung
-       &                                 1.000000, & !..nu.....Breiteparameter der Verteil.
-       &                                 0.333333, & !..mu.....Exp.-parameter der Verteil.
-       &                                 5.00d-04, & !..x_max..maximale Teilchenmasse
-       &                                 1.00d-09, & !..x_min..minimale Teilchenmasse
-       &                                 1.42d-01, & !..a_geo..Koeff. Geometrie
-       &                                 0.314000, & !..b_geo..Koeff. Geometrie = 1/3.10
-       &                                 86.89371, & !..a_vel..Koeff. Fallgesetz
-       &                                 0.268325, & !..b_vel..Koeff. Fallgesetz
-       &                                 0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
-       &                                 0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
-       &                                 2.00,     & !..cap....Koeff. Kapazitaet
-       &                                 30.0,     & !..vsedi_max
-       &                                 0.10,     & !..vsedi_min
-       &                                 null(),   & !..n pointer
-       &                                 null(),   & !..q pointer
-       &                                 null() )    !..rho_v pointer
-
-  TYPE(particle), TARGET :: hail_cosmo5 = particle( & ! hailULItest
-       &                                 'hail_cosmo5' ,& !.name...Bezeichnung
-       &                                 1.000000, & !..nu.....Breiteparameter der Verteil.
-       &                                 0.333333, & !..mu.....Exp.-parameter der Verteil.
-       &                                 5.00d-04, & !..x_max..maximale Teilchenmasse
-       &                                 2.60d-9,  & !..x_min..minimale Teilchenmasse
-       &                                 0.1366 ,  & !..a_geo..Koeff. Geometrie
-       &                                 0.333333, & !..b_geo..Koeff. Geometrie = 1/3
-       &                                 39.3    , & !..a_vel..Koeff. Fallgesetz
-       &                                 0.166667, & !..b_vel..Koeff. Fallgesetz
-       &                                 0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
-       &                                 0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
-       &                                 2.00,     & !..cap....Koeff. Kapazitaet
-       &                                 30.0,     & !..vsedi_max
-       &                                 0.1,      & !..vsedi_min
-       &                                 null(),   & !..n pointer
-       &                                 null(),   & !..q pointer
-       &                                 null() )    !..rho_v pointer
-
-  TYPE(particle), TARGET :: cloud_cosmo5 = PARTICLE( &
-       &                               'cloud_cosmo5',  & !.name...Bezeichnung der Partikelklasse
-       &                                 0.0,      & !..nu.....Breiteparameter der Verteil.
-       &                                 0.333333, & !..mu.....Exp.-parameter der Verteil.
-       &                                 2.60d-10, & !..x_max..maximale Teilchenmasse D=80e-6m
-       &                                 4.20d-15, & !..x_min..minimale Teilchenmasse D=2.e-6m
-       &                                 1.24d-01, & !..a_geo..Koeff. Geometrie
-       &                                 0.333333, & !..b_geo..Koeff. Geometrie = 1/3
-       &                                 3.75d+05, & !..a_vel..Koeff. Fallgesetz
-       &                                 0.666667, & !..b_vel..Koeff. Fallgesetz
-       &                                 0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
-       &                                 0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
-       &                                 2.00,     & !..cap....Koeff. Kapazitaet
-       &                                 1.0,      & !..vsedi_max
-       &                                 0.0,      & !..vsedi_min
-       &                                 null(),   & !..n pointer
-       &                                 null(),   & !..q pointer
-       &                                 null() )    !..rho_v pointer
-
-  TYPE(particle), TARGET :: cloud_nue1mue1 = PARTICLE( &
-       &                                 'cloud_nue1mue1',  & !.name...Bezeichnung der Partikelklasse
-       &                                 1.000000, & !..nu.....Breiteparameter der Verteil.
-       &                                 1.000000, & !..mu.....Exp.-parameter der Verteil.
-       &                                 2.60d-10, & !..x_max..maximale Teilchenmasse D=80e-6m
-       &                                 4.20d-15, & !..x_min..minimale Teilchenmasse D=2.e-6m
-       &                                 1.24d-01, & !..a_geo..Koeff. Geometrie
-       &                                 0.333333, & !..b_geo..Koeff. Geometrie = 1/3
-       &                                 3.75d+05, & !..a_vel..Koeff. Fallgesetz
-       &                                 0.666667, & !..b_vel..Koeff. Fallgesetz
-       &                                 0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
-       &                                 0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
-       &                                 2.00,     & !..cap....Koeff. Kapazitaet
-       &                                 1.0,      & !..vsedi_max
-       &                                 0.0,      & !..vsedi_min
-       &                                 null(),   & !..n pointer
-       &                                 null(),   & !..q pointer
-       &                                 null() )    !..rho_v pointer
-
-  TYPE(particle), TARGET :: ice_cosmo5 =  particle( & ! iceCRY2test
-       &                                 'ice_cosmo5', & !.name...Bezeichnung der Partikelklasse
-       &                                 0.000000, & !..nu...e..Breiteparameter der Verteil.
-       &                                 0.333333, & !..mu.....Exp.-parameter der Verteil.
-       &                                 1.00d-05, & !..x_max..maximale Teilchenmasse D=???e-2m
-       &                                 1.00d-12, & !..x_min..minimale Teilchenmasse D=200e-6m
-       &                                 0.835000, & !..a_geo..Koeff. Geometrie
-       &                                 0.390000, & !..b_geo..Koeff. Geometrie
-       &                                 2.77d+01, & !..a_vel..Koeff. Fallgesetz
-       &                                 0.215790, & !..b_vel..Koeff. Fallgesetz = 0.41/1.9
-       &                                 0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
-       &                                 0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
-       &                                 2.0,      & !..cap....Koeff. Kapazitaet
-       &                                 3.0,      & !..vsedi_max
-       &                                 0.0,      & !..vsedi_min
-       &                                 null(),   & !..n pointer
-       &                                 null(),   & !..q pointer
-       &                                 null() )    !..rho_v pointer
-
-  TYPE(particle), TARGET :: snow_cosmo5 = particle( & ! nach Andy Heymsfield (CRYSTAL-FACE)
-       &                                 'snow_cosmo5', & !.name...Bezeichnung der Partikelklasse
-       &                                 0.000000, & !..nu.....Breiteparameter der Verteil.
-       &                                 0.500000, & !..mu.....Exp.-parameter der Verteil.
-       &                                 2.00d-05, & !..x_max..maximale Teilchenmasse D=???e-2m
-       &                                 1.00d-10, & !..x_min..minimale Teilchenmasse D=200e-6m
-       &                                 2.400000, & !..a_geo..Koeff. Geometrie
-       &                                 0.455000, & !..b_geo..Koeff. Geometrie
-       &                                 8.800000, & !..a_vel..Koeff. Fallgesetz
-       &                                 0.150000, & !..b_vel..Koeff. Fallgesetz
-       &                                 0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
-       &                                 0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
-       &                                 2.00,     & !..cap....Koeff. Kapazitaet
-       &                                 3.0,      & !..vsedi_max
-       &                                 0.1,      & !..vsedi_min
-       &                                 null(),   & !..n pointer
-       &                                 null(),   & !..q pointer
-       &                                 null() )    !..rho_v pointer
-
-  TYPE(particle), TARGET :: snowSBB =  particle(   & !
-       &                                 'snowSBB',& !..name...Bezeichnung der Partikelklasse
-       &                                 0.000000, & !..nu.....Breiteparameter der Verteil.
-       &                                 0.500000, & !..mu.....Exp.-parameter der Verteil.
-       &                                 2.00d-05, & !..x_max..maximale Teilchenmasse
-       &                                 1.00d-10, & !..x_min..minimale Teilchenmasse
-       &                                 5.130000, & !..a_geo..Koeff. Geometrie, x = 0.038*D**2
-       &                                 0.500000, & !..b_geo..Koeff. Geometrie = 1/2
-       &                                 8.294000, & !..a_vel..Koeff. Fallgesetz
-       &                                 0.125000, & !..b_vel..Koeff. Fallgesetz
-       &                                 0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
-       &                                 0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
-       &                                 2.00,     & !..cap....Koeff. Kapazitaet
-       &                                 3.0,      & !..vsedi_max
-       &                                 0.1,      & !..vsedi_min
-       &                                 null(),   & !..n pointer
-       &                                 null(),   & !..q pointer
-       &                                 null() )    !..rho_v pointer
-
-  TYPE(particle), TARGET :: rainULI = particle( & ! Blahak, v=v(x) gefittet 6.9.2005
-       &                                 'rainULI', & !..name
-       &                                 0.000000,  & !..nu
-       &                                 0.333333,  & !..mu
-       &                                 3.00d-06,  & !..x_max
-       &                                 2.60d-10,  & !..x_min
-       &                                 1.24d-01,  & !..a_geo
-       &                                 0.333333,  & !..b_geo
-       &                                 114.0137,  & !..a_vel
-       &                                 0.234370,  & !..b_vel
-       &                                 0.780000,  & !..a_ven
-       &                                 0.308000,  & !..b_ven
-       &                                 2.00,      & !..cap
-       &                                 20.0,      & !..vsedi_max
-       &                                 0.1,       & !..vsedi_min
-       &                                 null(),    & !..n pointer
-       &                                 null(),    & !..q pointer
-       &                                 null() )     !..rho_v pointer
-
-  TYPE(particle), TARGET :: rainSBB = particle( &
-       &                                 'rainSBB', & !..name
-       &                                 0.000000,  & !..nu
-       &                                 0.333333,  & !..mu
-       &                                 3.00d-06,  & !..x_max
-       &                                 2.60d-10,  & !..x_min
-       &                                 1.24d-01,  & !..a_geo
-       &                                 0.333333,  & !..b_geo
-       &                                 114.0137,  & !..a_vel
-       &                                 0.234370,  & !..b_vel
-       &                                 0.780000,  & !..a_ven
-       &                                 0.308000,  & !..b_ven
-       &                                 2.000000,  & !..cap
-       &                                 2.000d+1,  & !..vsedi_max
-       &                                 0.1,       & !..vsedi_min
-       &                                 null(),    & !..n pointer
-       &                                 null(),    & !..q pointer
-       &                                 null() )     !..rho_v pointer
-
-  TYPE(particle_rain), TARGET :: rainSBBcoeffs = particle_rain( &
-       &                              9.292000,  & !..alfa
-       &                              9.623000,  & !..beta
-       &                              6.222d+2,  & !..gama
-       &                              6.000000,  & !..cmu0
-       &                              3.000d+1,  & !..cmu1
-       &                              1.000d+3,  & !..cmu2
-       &                              1.100d-3,  & !..cmu3 = D_br
-       &                              1.000000,  & !..cmu4
-       &                              2 )          !..cmu5
 
   REAL(wp), PARAMETER :: pi6 = pi/6.0_wp, pi8 = pi/8.0_wp ! more pieces of pi
 
@@ -553,7 +371,6 @@ MODULE mo_2mom_mcrph_main
   PUBLIC :: rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
        ccn_coeffs, in_coeffs
 
-  ! must be fixed: used for (non-threadsafe) argument passing
   PUBLIC :: qnc_const
 
 CONTAINS
@@ -573,6 +390,190 @@ CONTAINS
     INTEGER :: wolke_typ = 2403 ! default cloud type
 
     REAL(wp), DIMENSION(1:1) :: q_r,x_r,q_c,vn_rain_min, vq_rain_min, vn_rain_max, vq_rain_max
+
+    !..Pre-defined particle types
+    TYPE(particle), PARAMETER :: graupelhail_cosmo5 = particle( & ! graupelhail2test4
+         &        'graupelhail_cosmo5' ,& !.name...Bezeichnung
+         &        1.000000, & !..nu.....Breiteparameter der Verteil.
+         &        0.333333, & !..mu.....Exp.-parameter der Verteil.
+         &        5.00d-04, & !..x_max..maximale Teilchenmasse
+         &        1.00d-09, & !..x_min..minimale Teilchenmasse
+         &        1.42d-01, & !..a_geo..Koeff. Geometrie
+         &        0.314000, & !..b_geo..Koeff. Geometrie = 1/3.10
+         &        86.89371, & !..a_vel..Koeff. Fallgesetz
+         &        0.268325, & !..b_vel..Koeff. Fallgesetz
+         &        0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
+         &        0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
+         &        2.00,     & !..cap....Koeff. Kapazitaet
+         &        30.0,     & !..vsedi_max
+         &        0.10,     & !..vsedi_min
+         &        null(),   & !..n pointer
+         &        null(),   & !..q pointer
+         &        null() )    !..rho_v pointer
+    TYPE(particle), PARAMETER :: hail_cosmo5 = particle( & ! hailULItest
+         &        'hail_cosmo5' ,& !.name...Bezeichnung
+         &        1.000000, & !..nu.....Breiteparameter der Verteil.
+         &        0.333333, & !..mu.....Exp.-parameter der Verteil.
+         &        5.00d-04, & !..x_max..maximale Teilchenmasse
+         &        2.60d-9,  & !..x_min..minimale Teilchenmasse
+         &        0.1366 ,  & !..a_geo..Koeff. Geometrie
+         &        0.333333, & !..b_geo..Koeff. Geometrie = 1/3
+         &        39.3    , & !..a_vel..Koeff. Fallgesetz
+         &        0.166667, & !..b_vel..Koeff. Fallgesetz
+         &        0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
+         &        0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
+         &        2.00,     & !..cap....Koeff. Kapazitaet
+         &        30.0,     & !..vsedi_max
+         &        0.1,      & !..vsedi_min
+         &        null(),   & !..n pointer
+         &        null(),   & !..q pointer
+         &        null() )    !..rho_v pointer
+
+    TYPE(particle), PARAMETER :: cloud_cosmo5 = PARTICLE( &
+         &      'cloud_cosmo5',  & !.name...Bezeichnung der Partikelklasse
+         &        0.0,      & !..nu.....Breiteparameter der Verteil.
+         &        0.333333, & !..mu.....Exp.-parameter der Verteil.
+         &        2.60d-10, & !..x_max..maximale Teilchenmasse D=80e-6m
+         &        4.20d-15, & !..x_min..minimale Teilchenmasse D=2.e-6m
+         &        1.24d-01, & !..a_geo..Koeff. Geometrie
+         &        0.333333, & !..b_geo..Koeff. Geometrie = 1/3
+         &        3.75d+05, & !..a_vel..Koeff. Fallgesetz
+         &        0.666667, & !..b_vel..Koeff. Fallgesetz
+         &        0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
+         &        0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
+         &        2.00,     & !..cap....Koeff. Kapazitaet
+         &        1.0,      & !..vsedi_max
+         &        0.0,      & !..vsedi_min
+         &        null(),   & !..n pointer
+         &        null(),   & !..q pointer
+         &        null() )    !..rho_v pointer
+
+    TYPE(particle), PARAMETER :: cloud_nue1mue1 = PARTICLE( &
+         &        'cloud_nue1mue1',  & !.name...Bezeichnung der Partikelklasse
+         &        1.000000, & !..nu.....Breiteparameter der Verteil.
+         &        1.000000, & !..mu.....Exp.-parameter der Verteil.
+         &        2.60d-10, & !..x_max..maximale Teilchenmasse D=80e-6m
+         &        4.20d-15, & !..x_min..minimale Teilchenmasse D=2.e-6m
+         &        1.24d-01, & !..a_geo..Koeff. Geometrie
+         &        0.333333, & !..b_geo..Koeff. Geometrie = 1/3
+         &        3.75d+05, & !..a_vel..Koeff. Fallgesetz
+         &        0.666667, & !..b_vel..Koeff. Fallgesetz
+         &        0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
+         &        0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
+         &        2.00,     & !..cap....Koeff. Kapazitaet
+         &        1.0,      & !..vsedi_max
+         &        0.0,      & !..vsedi_min
+         &        null(),   & !..n pointer
+         &        null(),   & !..q pointer
+         &        null() )    !..rho_v pointer
+
+    TYPE(particle), PARAMETER :: ice_cosmo5 =  particle( & ! iceCRY2test
+         &        'ice_cosmo5', & !.name...Bezeichnung der Partikelklasse
+         &        0.000000, & !..nu...e..Breiteparameter der Verteil.
+         &        0.333333, & !..mu.....Exp.-parameter der Verteil.
+         &        1.00d-05, & !..x_max..maximale Teilchenmasse D=???e-2m
+         &        1.00d-12, & !..x_min..minimale Teilchenmasse D=200e-6m
+         &        0.835000, & !..a_geo..Koeff. Geometrie
+         &        0.390000, & !..b_geo..Koeff. Geometrie
+         &        2.77d+01, & !..a_vel..Koeff. Fallgesetz
+         &        0.215790, & !..b_vel..Koeff. Fallgesetz = 0.41/1.9
+         &        0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
+         &        0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
+         &        2.0,      & !..cap....Koeff. Kapazitaet
+         &        3.0,      & !..vsedi_max
+         &        0.0,      & !..vsedi_min
+         &        null(),   & !..n pointer
+         &        null(),   & !..q pointer
+         &        null() )    !..rho_v pointer
+
+    TYPE(particle), PARAMETER :: snow_cosmo5 = particle( & ! nach Andy Heymsfield (CRYSTAL-FACE)
+         &        'snow_cosmo5', & !.name...Bezeichnung der Partikelklasse
+         &        0.000000, & !..nu.....Breiteparameter der Verteil.
+         &        0.500000, & !..mu.....Exp.-parameter der Verteil.
+         &        2.00d-05, & !..x_max..maximale Teilchenmasse D=???e-2m
+         &        1.00d-10, & !..x_min..minimale Teilchenmasse D=200e-6m
+         &        2.400000, & !..a_geo..Koeff. Geometrie
+         &        0.455000, & !..b_geo..Koeff. Geometrie
+         &        8.800000, & !..a_vel..Koeff. Fallgesetz
+         &        0.150000, & !..b_vel..Koeff. Fallgesetz
+         &        0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
+         &        0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
+         &        2.00,     & !..cap....Koeff. Kapazitaet
+         &        3.0,      & !..vsedi_max
+         &        0.1,      & !..vsedi_min
+         &        null(),   & !..n pointer
+         &        null(),   & !..q pointer
+         &        null() )    !..rho_v pointer
+
+    TYPE(particle), PARAMETER :: snowSBB =  particle(   & !
+         &        'snowSBB',& !..name...Bezeichnung der Partikelklasse
+         &        0.000000, & !..nu.....Breiteparameter der Verteil.
+         &        0.500000, & !..mu.....Exp.-parameter der Verteil.
+         &        2.00d-05, & !..x_max..maximale Teilchenmasse
+         &        1.00d-10, & !..x_min..minimale Teilchenmasse
+         &        5.130000, & !..a_geo..Koeff. Geometrie, x = 0.038*D**2
+         &        0.500000, & !..b_geo..Koeff. Geometrie = 1/2
+         &        8.294000, & !..a_vel..Koeff. Fallgesetz
+         &        0.125000, & !..b_vel..Koeff. Fallgesetz
+         &        0.780000, & !..a_ven..Koeff. Ventilation (PK, S.541)
+         &        0.308000, & !..b_ven..Koeff. Ventilation (PK, S.541)
+         &        2.00,     & !..cap....Koeff. Kapazitaet
+         &        3.0,      & !..vsedi_max
+         &        0.1,      & !..vsedi_min
+         &        null(),   & !..n pointer
+         &        null(),   & !..q pointer
+         &        null() )    !..rho_v pointer
+
+    TYPE(particle), PARAMETER :: rainULI = particle( & ! Blahak, v=v(x) gefittet 6.9.2005
+         &        'rainULI', & !..name
+         &        0.000000,  & !..nu
+         &        0.333333,  & !..mu
+         &        3.00d-06,  & !..x_max
+         &        2.60d-10,  & !..x_min
+         &        1.24d-01,  & !..a_geo
+         &        0.333333,  & !..b_geo
+         &        114.0137,  & !..a_vel
+         &        0.234370,  & !..b_vel
+         &        0.780000,  & !..a_ven
+         &        0.308000,  & !..b_ven
+         &        2.00,      & !..cap
+         &        20.0,      & !..vsedi_max
+         &        0.1,       & !..vsedi_min
+         &        null(),    & !..n pointer
+         &        null(),    & !..q pointer
+         &        null() )     !..rho_v pointer
+
+    TYPE(particle), PARAMETER :: rainSBB = particle( &
+         &        'rainSBB', & !..name
+         &        0.000000,  & !..nu
+         &        0.333333,  & !..mu
+         &        3.00d-06,  & !..x_max
+         &        2.60d-10,  & !..x_min
+         &        1.24d-01,  & !..a_geo
+         &        0.333333,  & !..b_geo
+         &        114.0137,  & !..a_vel
+         &        0.234370,  & !..b_vel
+         &        0.780000,  & !..a_ven
+         &        0.308000,  & !..b_ven
+         &        2.000000,  & !..cap
+         &        2.000d+1,  & !..vsedi_max
+         &        0.1,       & !..vsedi_min
+         &        null(),    & !..n pointer
+         &        null(),    & !..q pointer
+         &        null() )     !..rho_v pointer
+
+    TYPE(particle_rain), PARAMETER :: rainSBBcoeffs = particle_rain( &
+         &     9.292000,  & !..alfa
+         &     9.623000,  & !..beta
+         &     6.222d+2,  & !..gama
+         &     6.000000,  & !..cmu0
+         &     3.000d+1,  & !..cmu1
+         &     1.000d+3,  & !..cmu2
+         &     1.100d-3,  & !..cmu3 = D_br
+         &     1.000000,  & !..cmu4
+         &     2 )          !..cmu5
+
+
 
     wolke_typ = cloud_type
 
@@ -600,7 +601,7 @@ CONTAINS
       hail    = hail_cosmo5
     END IF
 
-    rain_coeffs => rainSBBcoeffs
+    rain_coeffs = rainSBBcoeffs
 
     IF (PRESENT(iinit)) THEN
 
