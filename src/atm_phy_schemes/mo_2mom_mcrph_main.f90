@@ -1507,7 +1507,7 @@ CONTAINS
        IF (ischeck) CALL check(ik_slice, 'melting',cloud,rain,ice,snow,graupel,hail)
 
        ! evaporation from melting ice particles
-       CALL snow_evaporation(ik_slice, dt, atmo, snow)
+       CALL evaporation(ik_slice, dt, atmo, snow, se_params)
        CALL graupel_evaporation(ik_slice, dt, atmo, graupel)
        IF (ice_typ > 1) CALL hail_evaporation(ik_slice, dt, atmo, hail)
        IF (ischeck) CALL check(ik_slice, 'evaporation of ice',cloud,rain,ice,snow,graupel,hail)
@@ -2528,9 +2528,9 @@ CONTAINS
     END DO
   END SUBROUTINE hail_evaporation
 
-  SUBROUTINE snow_evaporation(ik_slice, dt, atmo, snow)
+  SUBROUTINE evaporation(ik_slice, dt, atmo, prtcl, params)
     !*******************************************************************************
-    ! Evaporation of melting snow, see SB2006                                      *
+    ! Evaporation of melting snow/graupel/hail, see SB2006                                      *
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
@@ -2538,15 +2538,14 @@ CONTAINS
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: snow
+    TYPE(particle), INTENT(inout) :: prtcl
+    TYPE(evaporation_deposition_params), INTENT(in) :: params
 
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: T_a,e_sw,s_sw,g_d,eva
-    REAL(wp)            :: q_s,n_s,x_s,d_s,v_s,f_v,e_d
-
-    IF (isdebug) CALL message(routine, "snow_evaporation")
+    REAL(wp)            :: q,n,x,d,v,f_v,e_d
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -2556,10 +2555,10 @@ CONTAINS
     DO k = kstart,kend
        DO i = istart,iend
 
-          q_s = snow%q(i,k)
+          q = prtcl%q(i,k)
           T_a = atmo%T(i,k)
 
-          IF (q_s > 0.0_wp .AND. T_a > T_3) THEN
+          IF (q > 0.0_wp .AND. T_a > T_3) THEN
 
             e_d  = atmo%qv(i,k) * R_d * T_a
             e_sw = e_ws(T_a)
@@ -2567,26 +2566,26 @@ CONTAINS
 
             g_d = 4.0*pi / ( L_wd**2 / (K_T * R_d * T_3**2) + R_d * T_3 / (D_v * e_sw) )
 
-            n_s = snow%n(i,k)
+            n = prtcl%n(i,k)
+            x = particle_meanmass(prtcl, q,n)
+            D = particle_diameter(prtcl, x)
+            v = particle_velocity(prtcl, x) * prtcl%rho_v(i,k)
 
-            x_s = particle_meanmass(snow, q_s,n_s)
-            D_s = particle_diameter(snow, x_s)
-            v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
+            f_v  = params%a_f + params%b_f * sqrt(v*D)
 
-            f_v  = se_params%a_f + se_params%b_f * sqrt(v_s*D_s)
-
-            eva = g_d * n_s * se_params%c * d_s * f_v * s_sw * dt
+            eva = g_d * n * params%c * d * f_v * s_sw * dt
 
             eva = MAX(-eva,0.0_wp)
-            eva = MIN(eva,q_s)
+            eva = MIN(eva,q)
 
             atmo%qv(i,k) = atmo%qv(i,k) + eva
-            snow%q(i,k)  = snow%q(i,k)  - eva
+            prtcl%q(i,k)  = prtcl%q(i,k)  - eva
 
           END IF
        END DO
     END DO
-  END SUBROUTINE snow_evaporation
+
+  END SUBROUTINE evaporation
 
   SUBROUTINE cloud_freeze(ik_slice, dt, atmo, cloud, ice)
     !*******************************************************************************
