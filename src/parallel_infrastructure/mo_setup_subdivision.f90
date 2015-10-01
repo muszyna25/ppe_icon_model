@@ -37,7 +37,7 @@ MODULE mo_setup_subdivision
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
        c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
-       e_refin_ctrl, v_cell
+       e_refin_ctrl, v_cell, v_num_edges
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -1715,7 +1715,7 @@ CONTAINS
         n_temp_cells = 0
         DO jv = 1, n_temp_vertices
           jv_ = temp_vertices(jv)
-          CALL dist_mult_array_get(wrk_p_patch_pre%verts%num_edges, 1, &
+          CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_num_edges, &
             &                      (/jv_/), temp_num_edges)
           DO i = 1, temp_num_edges
             CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_cell, &
@@ -2024,7 +2024,8 @@ CONTAINS
       ! compute ownership of vertices
       DO i = 1, SIZE(vertices)
         jv = vertices(i)
-        CALL dist_mult_array_get(wrk_p_patch_pre%verts%num_edges, 1, (/jv/), n)
+        CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_num_edges, &
+             (/jv/), n)
         DO j = 1, n
           CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_cell, &
                (/jv, j/), t_cells(j))

@@ -34,7 +34,7 @@ MODULE mo_alloc_patches
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, &
        c_child, c_phys_id, c_neighbor, c_edge, c_vertex, c_center, &
        c_refin_ctrl, e_parent, e_child, e_cell, e_refin_ctrl, &
-       v_cell
+       v_cell, v_num_edges
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              init_glb2loc_index_lookup, &
     &                              t_glb2loc_index_lookup, &
@@ -623,13 +623,13 @@ CONTAINS
     TYPE(global_array_desc) :: dist_vert_owner_desc(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc_vertex(2)
     TYPE(global_array_desc) :: dist_cell_desc(9), dist_edge_desc(4), &
-         dist_vert_desc(1)
+         dist_vert_desc(2)
 
     TYPE(extent) :: &
       &             local_vert_chunk_vertex(1,2), &
       &             local_cell_chunks(2, 9), &
       &             local_edge_chunks(2, 4), &
-      &             local_vert_chunks(2, 1)
+      &             local_vert_chunks(2, 2)
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -700,6 +700,11 @@ CONTAINS
     dist_vert_desc(v_cell)%rect(2) = extent(first = 1, size = 6)
     dist_vert_desc(v_cell)%element_dt = ppm_int
 
+    dist_vert_desc(v_num_edges)%a_rank = 1
+    dist_vert_desc(v_num_edges)%rect(1)%first = 1
+    dist_vert_desc(v_num_edges)%rect(1)%size = p_patch_pre%n_patch_verts_g
+    dist_vert_desc(v_num_edges)%element_dt = ppm_int
+
     dist_vert_owner_desc(1)%a_rank = 1
     dist_vert_owner_desc(1)%rect(1)%first = 1
     dist_vert_owner_desc(1)%rect(1)%size = p_patch_pre%n_patch_verts_g
@@ -754,14 +759,13 @@ CONTAINS
     !
     local_vert_chunks(1, v_cell) = p_patch_pre%verts%local_chunk(1,1)
     local_vert_chunks(2, v_cell) = extent(first = 1, size = 6)
+    local_vert_chunks(1, v_num_edges) = p_patch_pre%verts%local_chunk(1,1)
 
     p_patch_pre%verts%dist = dist_mult_array_new( &
       dist_vert_desc, local_vert_chunks, p_comm_work)
     p_patch_pre%verts%vertex = dist_mult_array_new( &
       dist_vert_owner_desc_vertex, local_vert_chunk_vertex, p_comm_work)
     p_patch_pre%verts%refin_ctrl = dist_mult_array_new( &
-      dist_vert_owner_desc, p_patch_pre%verts%local_chunk, p_comm_work)
-    p_patch_pre%verts%num_edges = dist_mult_array_new( &
       dist_vert_owner_desc, p_patch_pre%verts%local_chunk, p_comm_work)
     ALLOCATE( p_patch_pre%verts%start(min_rlvert:max_rlvert) )
     ALLOCATE( p_patch_pre%verts%end(min_rlvert:max_rlvert) )
@@ -886,8 +890,6 @@ CONTAINS
     CALL dist_mult_array_delete(p_patch_pre%verts%dist)
     CALL dist_mult_array_unexpose(p_patch_pre%verts%vertex)
     CALL dist_mult_array_delete(p_patch_pre%verts%vertex)
-    CALL dist_mult_array_unexpose(p_patch_pre%verts%num_edges)
-    CALL dist_mult_array_delete(p_patch_pre%verts%num_edges)
     CALL dist_mult_array_unexpose(p_patch_pre%verts%refin_ctrl)
     CALL dist_mult_array_delete(p_patch_pre%verts%refin_ctrl)
     DEALLOCATE( p_patch_pre%verts%start )

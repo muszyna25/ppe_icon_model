@@ -720,7 +720,9 @@ MODULE mo_model_domain
   INTEGER, PUBLIC, PARAMETER :: &
        ! line indices of cells around each vertex:
        ! index2=1,6
-       v_cell = 1
+       v_cell = 1, &
+       ! number of edges connected to vertex
+       v_num_edges = 2
 
   TYPE t_pre_grid_vertices
 
@@ -732,9 +734,6 @@ MODULE mo_model_domain
     ! line indices of cells around each vertex:
     ! index2=1,6
     TYPE(dist_mult_array) :: dist
-
-    ! number of edges connected to vertex
-    TYPE(dist_mult_array) :: num_edges
 
     ! longitude & latitude of vertex:
     TYPE(dist_mult_array) :: vertex
