@@ -58,7 +58,7 @@ MODULE mo_util_table
   !> Type definition for a complete table
   TYPE t_table
     INTEGER                                    :: n_columns, n_rows
-    TYPE (t_column)                            :: column(MAX_TABLE_COLUMNS) 
+    TYPE (t_column)                            :: column(MAX_TABLE_COLUMNS)
   END TYPE t_table
 
 
@@ -79,11 +79,11 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::finalize_table"
     INTEGER :: i, ierrstat
-    
+
     DO i=1,SIZE(table%column)
       IF (ALLOCATED(table%column(i)%row)) THEN
         DEALLOCATE(table%column(i)%row, STAT=ierrstat)
-        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')    
+        IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
       END IF
     END DO
 
@@ -159,7 +159,7 @@ CONTAINS
       i = i + 1
     END DO COLFIND_LOOP
   END FUNCTION get_column_index
-  
+
 
   !> @return Set table entry in the given row and for a given column.
   !
@@ -211,7 +211,7 @@ CONTAINS
 
     delimiter = ' | '
     IF (PRESENT(opt_delimiter))  delimiter = opt_delimiter
-    
+
     dst = 0
     IF (PRESENT(opt_dstfile)) dst = opt_dstfile
 

@@ -10,7 +10,7 @@
 !! @par Revision History
 !! Initial release by Guenther Zaengl (2010-10-13) based on earlier work
 !! by Almut Gassmann, MPI-M
-!! 
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -228,12 +228,12 @@ MODULE mo_solve_nonhydro
       CALL timer_stop(timer_barrier)
     ENDIF
     !-------------------------------------------------------------------
-    
+
     IF (ltimer) CALL timer_start(timer_solve_nh)
 
     jg = p_patch%id
 
-    IF (lvert_nest .AND. (p_patch%nshift_total > 0)) THEN  
+    IF (lvert_nest .AND. (p_patch%nshift_total > 0)) THEN
       l_vert_nested = .TRUE.
       nshift_total  = p_patch%nshift_total
     ELSE
@@ -278,11 +278,11 @@ MODULE mo_solve_nonhydro
 
     ! scaling factor for second-order divergence damping: divdamp_fac_o2*delta_x**2
     ! delta_x**2 is approximated by the mean cell area
-    scal_divdamp_o2 = divdamp_fac_o2 * p_patch%geometry_info%mean_cell_area 
+    scal_divdamp_o2 = divdamp_fac_o2 * p_patch%geometry_info%mean_cell_area
 
     ! Fourth-order divergence damping
     !
-    ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly 
+    ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly
     ! with height to a value of 0.004 (= the namelist default) at 40 km
     DO jk = 1, nlev
       jks = jk + nshift_total
@@ -297,7 +297,7 @@ MODULE mo_solve_nonhydro
 
     scal_divdamp(:) = - enh_divdamp_fac(:) * p_patch%geometry_info%mean_cell_area**2
 
-    ! Time increment for backward-shifting of lateral boundary mass flux 
+    ! Time increment for backward-shifting of lateral boundary mass flux
     dt_shift = dtime*REAL(2*ndyn_substeps_var(jg)-1,wp)/2._wp
 
     ! Coefficient for reduced fourth-order divergence damping along nest boundaries
@@ -355,7 +355,7 @@ MODULE mo_solve_nonhydro
 
     ! Preparations for igradp_method = 3/5 (reformulated extrapolation below the ground)
     IF (istep == 1 .AND. (igradp_method == 3 .OR. igradp_method == 5)) THEN
-      
+
       iplev  => p_nh%metrics%pg_vertidx
       ipeidx => p_nh%metrics%pg_edgeidx
       ipeblk => p_nh%metrics%pg_edgeblk
@@ -569,7 +569,7 @@ MODULE mo_solve_nonhydro
 
       ENDIF ! istep = 1/2
 
-      ! rho and theta at top level (in case of vertical nesting, upper boundary conditions 
+      ! rho and theta at top level (in case of vertical nesting, upper boundary conditions
       !                             are set in the vertical solver loop)
       IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
         IF ( istep == 1 ) THEN
@@ -716,7 +716,7 @@ MODULE mo_solve_nonhydro
 
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
 
-    IF (istep == 1) THEN 
+    IF (istep == 1) THEN
       ! Compute 'edge values' of density and virtual potential temperature for horizontal
       ! flux divergence term; this is included in upwind_hflux_miura3 for option 3
       IF (iadv_rhotheta <= 2) THEN
@@ -810,7 +810,7 @@ MODULE mo_solve_nonhydro
               DO je = i_startidx, i_endidx
 
                 ilc0 = z_cell_idx(je,jk,jb)
-                ibc0 = z_cell_blk(je,jk,jb)  
+                ibc0 = z_cell_blk(je,jk,jb)
 
                 ! Calculate "edge values" of rho and theta_v
                 ! Note: z_rth_pr contains the perturbation values of rho and theta_v,
@@ -1058,7 +1058,7 @@ MODULE mo_solve_nonhydro
               p_nh%prog(nnow)%theta_v(icidx(je,jb,1),ikidx(1,je,nlev,jb)+1,icblk(je,jb,1)) * &
               p_nh%metrics%coeff_gradp(3,je,nlev,jb) +                                         &
               p_nh%prog(nnow)%theta_v(icidx(je,jb,1),ikp1                 ,icblk(je,jb,1)) * &
-              p_nh%metrics%coeff_gradp(4,je,nlev,jb) 
+              p_nh%metrics%coeff_gradp(4,je,nlev,jb)
 
             z_theta2 =                                                                       &
               p_nh%prog(nnow)%theta_v(icidx(je,jb,2),ikidx(2,je,nlev,jb)-1,icblk(je,jb,2)) * &
@@ -1068,7 +1068,7 @@ MODULE mo_solve_nonhydro
               p_nh%prog(nnow)%theta_v(icidx(je,jb,2),ikidx(2,je,nlev,jb)+1,icblk(je,jb,2)) * &
               p_nh%metrics%coeff_gradp(7,je,nlev,jb) +                                         &
               p_nh%prog(nnow)%theta_v(icidx(je,jb,2),ikp2                 ,icblk(je,jb,2)) * &
-              p_nh%metrics%coeff_gradp(8,je,nlev,jb) 
+              p_nh%metrics%coeff_gradp(8,je,nlev,jb)
 
             z_hydro_corr(je,jb) = grav_o_cpd*p_patch%edges%inv_dual_edge_length(je,jb)*    &
               (z_theta2-z_theta1)*4._wp/(z_theta1+z_theta2)**2
@@ -1173,7 +1173,7 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDIF
         IF (divdamp_order == 4 .OR. (divdamp_order == 24 .AND. divdamp_fac_o2 <= 4._wp*divdamp_fac) ) THEN
-          IF (l_limited_area .OR. jg > 1) THEN 
+          IF (l_limited_area .OR. jg > 1) THEN
             ! fourth-order divergence damping with reduced damping coefficient along nest boundary
             ! (scal_divdamp is negative whereas bdy_divdamp is positive; decreasing the divergence
             ! damping along nest boundaries is beneficial because this reduces the interference
@@ -1289,7 +1289,7 @@ MODULE mo_solve_nonhydro
       CALL timer_start(timer_solve_nh_exch)
     ENDIF
 
-    IF (use_icon_comm) THEN 
+    IF (use_icon_comm) THEN
       IF (istep == 1) THEN
         CALL icon_comm_sync(p_nh%prog(nnew)%vn, z_rho_e, p_patch%sync_edges_not_owned, &
           & name="solve_step1_vn")
@@ -1415,7 +1415,7 @@ MODULE mo_solve_nonhydro
               + p_int%e_flx_avg(je,3,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
               + p_int%e_flx_avg(je,4,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
               + p_int%e_flx_avg(je,5,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-           
+
            ENDDO
         ENDDO
 
@@ -1668,7 +1668,7 @@ MODULE mo_solve_nonhydro
 !$OMP END DO
 #endif
     ENDIF
- 
+
     IF (idiv_method == 2) THEN ! Compute fluxes at edges from original velocities
       rl_start = 7
       rl_end = min_rledge_int - 3
@@ -2232,7 +2232,7 @@ MODULE mo_solve_nonhydro
       CALL timer_start(timer_solve_nh_exch)
     ENDIF
 
-    IF (use_icon_comm) THEN 
+    IF (use_icon_comm) THEN
       IF (istep == 1 .AND. lhdiff_rcf .AND. divdamp_type >= 3) THEN
         CALL icon_comm_sync(p_nh%prog(nnew)%w, z_dwdz_dd, p_patch%sync_cells_not_owned, &
             & name="solve_step1_w")
@@ -2249,7 +2249,7 @@ MODULE mo_solve_nonhydro
         IF (lhdiff_rcf .AND. divdamp_type >= 3) THEN
           ! Synchronize w and vertical contribution to divergence damping
           CALL sync_patch_array_mult(SYNC_C,p_patch,2,p_nh%prog(nnew)%w,z_dwdz_dd)
-        ELSE 
+        ELSE
           ! Only w needs to be synchronized
           CALL sync_patch_array(SYNC_C,p_patch,p_nh%prog(nnew)%w)
         ENDIF
@@ -2270,7 +2270,7 @@ MODULE mo_solve_nonhydro
     IF (my_process_is_mpi_all_seq() ) THEN
       IF (ltimer) CALL timer_stop(timer_solve_nh)
       RETURN
-    ENDIF 
+    ENDIF
 
 ! OpenMP directives are commented for the NEC because the overhead is too large
 #ifndef __SX__
@@ -2279,7 +2279,7 @@ MODULE mo_solve_nonhydro
     IF (l_limited_area .OR. jg > 1) THEN
 
       ! Index list over halo points lying in the boundary interpolation zone
-      ! Note: this list typically contains at most 10 grid points 
+      ! Note: this list typically contains at most 10 grid points
 #ifndef __SX__
 !$OMP DO PRIVATE(jb,ic,jk,jc) ICON_OMP_DEFAULT_SCHEDULE
 #endif

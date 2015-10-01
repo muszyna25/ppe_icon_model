@@ -167,17 +167,17 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
 ! conversion of soil types TERRA (mo_phyparam_soil.f90) to TESSEL (cy36r1 Tab8.8)
   INTEGER  :: soiltyp_conv(10)
-                        ! ksoty     TERRA        TESSEL [0:NSOTY], NSOTY=7 
-  DATA        soiltyp_conv /0,  & ! ice             
-                         &  0,  & ! rock            
-                         &  1,  & ! sand         1: coarse   
+                        ! ksoty     TERRA        TESSEL [0:NSOTY], NSOTY=7
+  DATA        soiltyp_conv /0,  & ! ice
+                         &  0,  & ! rock
+                         &  1,  & ! sand         1: coarse
                          &  2,  & ! sandyloam    2: medium
                          &  3,  & ! loam         3: medium-fine
                          &  4,  & ! clayloam     4: fine
                          &  5,  & ! clay         5: very fine
                          &  6,  & ! peat         6: organic  (7: loamy (CH))
-                         &  0,  & ! sea water   
-                         &  0   / ! sea ice     
+                         &  0,  & ! sea water
+                         &  0   / ! sea ice
 
 ! conversion of vegetation types TERRA (Tab11.5) to TESSEL (cy36r1 Tab8.1)
   INTEGER  :: vegtyp_conv(23)
@@ -315,14 +315,14 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         ENDIF
       ENDIF
     ELSE  ! inwp_surface/=0
-      ! 
+      !
       !> adjust humidity at water surface because of changing surface pressure
       !
       DO jc = i_startidx, i_endidx
         lnd_diag%qv_s_t(jc,jb,isub_water) = &
           &         spec_humi(sat_pres_water(lnd_prog_now%t_g_t(jc,jb,isub_water)),&
           &                                   p_diag%pres_sfc(jc,jb) )
-      ENDDO    
+      ENDDO
     ENDIF
 
 
@@ -471,7 +471,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
             !no snow part of tile:
             zfrti(jc,jtile) = zfrti(jc,jtile) + &
               ext_data%atm%frac_t(jc,jb,jt) * (1.0_wp - lnd_diag%snowfrac_lc_t(jc,jb,jt))
-            
+
             !snow part of tile:
             SELECT CASE ( JTILE )
               CASE (4)
@@ -625,7 +625,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & PQ2M    = prm_diag%qv_2m(:,jb)                       ,&! (OUT)  "-"
         & PZINV   = zdummy_vdf_1m                              ,&! (OUT) optional out: PBL HEIGHT (moist parcel, not for stable PBL)
         & PBLH    = zdummy_vdf_1n                              ,&! (OUT) optional out: PBL HEIGHT (dry diagnostic based on Ri#)
-        & KHPBLN  = khpbln                                     ,&! (OUT) optional out: PBL top level 
+        & KHPBLN  = khpbln                                     ,&! (OUT) optional out: PBL top level
         & KVARTOP = kvartop                                    ,&! (OUT) optional out: top level of predictied qt,var
         & PSSRFLTI= PSSRFLTI                                   ,&! (OUT) net SW sfc flux for each tile (use tile ablbedo)
         & PEVAPSNW= zdummy_vdf_1o                              ,&! (OUT) optional out: evaporation from snow under forest
@@ -746,10 +746,10 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
                  & + tcall_turb_jg * zae(jc,jk), 0._wp), 1._wp)
 
 ! * Update wind speed with turbulence tendencies:
-! Note: the update of wind speed is done here in order to pass u and v at the correct 
+! Note: the update of wind speed is done here in order to pass u and v at the correct
 ! time level to the convection scheme. However, the update of the prognostic variable vn
-! is done at the end of the NWP interface nwp_nh_interface for efficiency reasons by 
-! first interpolating the u/v tendencies to the velocity points (in order to minimize 
+! is done at the end of the NWP interface nwp_nh_interface for efficiency reasons by
+! first interpolating the u/v tendencies to the velocity points (in order to minimize
 ! interpolation errors) and then adding the tendencies to vn.
 
           p_diag%u(jc,jk,jb) = p_diag%u(jc,jk,jb) + tcall_turb_jg*prm_nwp_tend%ddt_u_turb(jc,jk,jb)
@@ -784,24 +784,24 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 !attention: these are all TERRA/ICON tiles (1 - ntiles_total+ntiles_water) ... transfer coefficients
           prm_diag%tch  (jc,jb) = prm_diag%tch(jc,jb) + tch_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
           prm_diag%tcm  (jc,jb) = prm_diag%tcm(jc,jb) + tcm_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
-          prm_diag%tfv  (jc,jb) = prm_diag%tfv(jc,jb) + tfv_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)           
+          prm_diag%tfv  (jc,jb) = prm_diag%tfv(jc,jb) + tfv_ex(jc,jt) * ext_data%atm%frac_t(jc,jb,jt)
           prm_diag%tch_t(jc,jb,jt) = tch_ex(jc,jt)
           prm_diag%tcm_t(jc,jb,jt) = tcm_ex(jc,jt)
           prm_diag%tfv_t(jc,jb,jt) = tfv_ex(jc,jt)
 !attention: these are all TESSEL/IFS tiles (1-8) ...  fluxes ???
-          prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(jc,jt)   
-          prm_diag%lhfl_s_t(jc,jb,jt) = evap_s_t(jc,jt)*alv 
+          prm_diag%shfl_s_t(jc,jb,jt) = shfl_s_t(jc,jt)
+          prm_diag%lhfl_s_t(jc,jb,jt) = evap_s_t(jc,jt)*alv
           prm_diag%umfl_s_t(jc,jb,jt) = ustr_s_t(jc,jt) ! prognostic surface stress U (sfc momentum flux)
           prm_diag%vmfl_s_t(jc,jb,jt) = vstr_s_t(jc,jt) ! prognostic surface stress V (sfc momentum flux)
-        ENDDO           
+        ENDDO
       ENDDO
 
       IF (itype_interception == 2) THEN
        DO jt = 1, ntiles_total
         DO jc = i_startidx, i_endidx
-            lnd_prog_new%w_p_t     (jc,jb,jt) = w_p_t_new     (jc,jb,jt)             
-            lnd_prog_new%w_s_t     (jc,jb,jt) = w_s_t_new     (jc,jb,jt)     
-          ENDDO           
+            lnd_prog_new%w_p_t     (jc,jb,jt) = w_p_t_new     (jc,jb,jt)
+            lnd_prog_new%w_s_t     (jc,jb,jt) = w_s_t_new     (jc,jb,jt)
+          ENDDO
         ENDDO
       END IF
 

@@ -80,7 +80,7 @@ CONTAINS
   !! In a final step, this vector is transformed into a rotated coordinate system
   !! which has its origin at the circumcenter. The coordinate axes point to the local
   !! east and local north. Note that this subroutine has specifically been designed
-  !! for the MIURA scheme with second order (linear) reconstruction of the subgrid 
+  !! for the MIURA scheme with second order (linear) reconstruction of the subgrid
   !! distribution.
   !!
   !! @par Revision History
@@ -267,23 +267,23 @@ CONTAINS
   !! Note: So far, we take care that the vertices of the departure region are stored in
   !! counterclockwise order. This ensures that the gaussian quadrature is positive definite.
   !!
-  !! NOTE_1: Since we are only interested in the departure region average rather than 
-  !!       the departure region integral, counterclockwise numbering is not strictly 
-  !!       necessary. Maybe we should remove the computational overhead of counterclockwise 
+  !! NOTE_1: Since we are only interested in the departure region average rather than
+  !!       the departure region integral, counterclockwise numbering is not strictly
+  !!       necessary. Maybe we should remove the computational overhead of counterclockwise
   !!       numbering at some time. However, the points must not be numbered in random order.
-  !!       Care must be taken that the points are numbered either clockwise or counterclockwise. 
-  !!       
-  !! Note_2: The coordinates for 2 of the 4 vertices do not change with time. However, 
-  !!       tests indicated that re-computing these coordinates is faster than fetching 
-  !!       precomputed ones from memory. 
+  !!       Care must be taken that the points are numbered either clockwise or counterclockwise.
+  !!
+  !! Note_2: The coordinates for 2 of the 4 vertices do not change with time. However,
+  !!       tests indicated that re-computing these coordinates is faster than fetching
+  !!       precomputed ones from memory.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-05-12)
   !! Modification by Daniel Reinert, DWD (2012-04-24)
-  !! - bug fix: counterclockwise numbering is now ensured independent of the 
+  !! - bug fix: counterclockwise numbering is now ensured independent of the
   !!   edge system-orientation.
   !! Modification by Daniel Reinert, DWD (2013-11-01)
-  !! - optionally derive list of edges for which the standard Miura scheme is 
+  !! - optionally derive list of edges for which the standard Miura scheme is
   !!   potentially insufficient
   !!
   SUBROUTINE btraj_dreg( ptr_p, ptr_int, p_vn, p_vt, p_dt, lcounterclock, &
@@ -306,7 +306,7 @@ CONTAINS
     REAL(wp), INTENT(IN)    ::  &  !< time step $\Delta t$
          &  p_dt
 
-    LOGICAL, INTENT(IN)     ::  &  !< if TRUE, flux area vertices are ordered 
+    LOGICAL, INTENT(IN)     ::  &  !< if TRUE, flux area vertices are ordered
          &  lcounterclock            !< counterclockwise. If FALSE, some are ordered
                                      !< counterclockwise, some clockwise
 
@@ -334,11 +334,11 @@ CONTAINS
          &  opt_elev
 
     TYPE(t_list2D), INTENT(INOUT), OPTIONAL :: & !< list with points for which a local
-         &  opt_falist                      !< polynomial approximation is insufficient 
-                                            !< and a piecewise approximation is needed, 
+         &  opt_falist                      !< polynomial approximation is insufficient
+                                            !< and a piecewise approximation is needed,
                                             !< instead
 
-    REAL(wp) ::            &       !< coordinates of departure points 
+    REAL(wp) ::            &       !< coordinates of departure points
          &  depart_pts(nproma,2,2) !< in edge-based coordinate system
 
     REAL(wp) ::            &       !< coordinates of departure region vertices
@@ -501,7 +501,7 @@ CONTAINS
 
           !
           ! Calculate backward trajectories, starting at the two edge vertices
-          ! (arrival points). It is assumed that the velocity vector is constant 
+          ! (arrival points). It is assumed that the velocity vector is constant
           ! along the edge.
           !
 
@@ -516,7 +516,7 @@ CONTAINS
             &                          ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
 
 
-          ! departure points of the departure cell. Point 1 belongs to edge-vertex 1, 
+          ! departure points of the departure cell. Point 1 belongs to edge-vertex 1,
           ! point 2 belongs to edge_vertex 2.
           !
           ! position of vertex 4 (vn > 0) / vertex 2(vn < 0) in normal direction

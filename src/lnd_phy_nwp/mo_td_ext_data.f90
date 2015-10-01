@@ -7,7 +7,7 @@
 !! <external_procedure(), or by using @see.>
 !! <Don't forget references to literature.>
 !!
-!! 
+!!
 !! @author Pilar Ripodas, DWD, Offenbach (2012-12)
 !!
 !!
@@ -61,10 +61,10 @@ CONTAINS
   !>
   !! Set the SST and sea ice fraction to the values corresponding to datetime
   !!
-  !! The SST and sea ice fraction are set to the values of the corresponding 
+  !! The SST and sea ice fraction are set to the values of the corresponding
   !!  day and month. Values are interpolated from  climatological monthly
-  !!  means (ext_data_mode = 2) or from the actual monthly means (ext_data_mode = 3). 
-  !!  Another option not yet implemented (ext_data_mode = 4) will set SST and 
+  !!  means (ext_data_mode = 2) or from the actual monthly means (ext_data_mode = 3).
+  !!  Another option not yet implemented (ext_data_mode = 4) will set SST and
   !!  sea ice cover to the actual (day, month, year) daily mean
   !!
   !! @par Revision History
@@ -92,7 +92,7 @@ CONTAINS
       routine = 'mo_td_ext_data:set_actual_td_ext_data  '
 
     !---------------------------------------------------------------
- 
+
       IF(p_test_run) THEN
         mpi_comm = p_comm_work_test
       ELSE
@@ -101,15 +101,15 @@ CONTAINS
 
       SELECT CASE (ext_data_mode)
 
-       CASE (2) !SST and sea ice fraction updated based 
+       CASE (2) !SST and sea ice fraction updated based
                 !  on the climatological monthly values
         CALL month2hour (datetime, month1, month2, pw2 )
         pw1 = 1._wp - pw2
 
         DO jg = 1, n_dom
-     
+
            i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk, i_rlstart, i_rlend)     
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk, i_rlstart, i_rlend)
            i_rlstart = grf_bdywidth_c+1
            i_rlend   = min_rlcell_int
 
@@ -126,10 +126,10 @@ CONTAINS
              IF (ext_data(jg)%atm_td%sst_m(jc,jb,1) >= 0._wp .AND.   &
                 & ext_data(jg)%atm_td%sst_m(jc,jb,2) >= 0._wp ) THEN
                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =                   &
-                            pw1*ext_data(jg)%atm_td%sst_m(jc,jb,month1)    & 
+                            pw1*ext_data(jg)%atm_td%sst_m(jc,jb,month1)    &
                 &         + pw2*ext_data(jg)%atm_td%sst_m(jc,jb,month2)
                p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) =                  &
-                            pw1*ext_data(jg)%atm_td%fr_ice_m(jc,jb,month1) & 
+                            pw1*ext_data(jg)%atm_td%fr_ice_m(jc,jb,month1) &
                 &         + pw2*ext_data(jg)%atm_td%fr_ice_m(jc,jb,month2)
 
                IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) < frsi_min ) THEN
@@ -145,8 +145,8 @@ CONTAINS
 
         END DO ! jg
 
-        
-       CASE (3) !SST and sea ice fraction updated based 
+
+       CASE (3) !SST and sea ice fraction updated based
                 !  on the actual monthly values
         CALL month2hour (datetime_old, m1, m2, pw2_old )
         CALL month2hour (datetime, month1, month2, year1, year2, pw2 )
@@ -159,9 +159,9 @@ CONTAINS
         pw1 = 1._wp - pw2
 
         DO jg = 1, n_dom
-     
+
            i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk, i_rlstart, i_rlend)          
+!$OMP PARALLEL PRIVATE(i_startblk,i_endblk, i_rlstart, i_rlend)
            i_rlstart = grf_bdywidth_c+1
            i_rlend   = min_rlcell_int
 
@@ -183,17 +183,17 @@ CONTAINS
               ELSE IF (ext_data(jg)%atm_td%sst_m(jc,jb,1) >= 0._wp .AND.   &
                 & ext_data(jg)%atm_td%sst_m(jc,jb,2) >= 0._wp ) THEN
                p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =              &
-                            pw1*ext_data(jg)%atm_td%sst_m(jc,jb,1)    & 
+                            pw1*ext_data(jg)%atm_td%sst_m(jc,jb,1)    &
                 &         + pw2*ext_data(jg)%atm_td%sst_m(jc,jb,2)
                p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) =            &
-                            pw1*ext_data(jg)%atm_td%fr_ice_m(jc,jb,1) & 
+                            pw1*ext_data(jg)%atm_td%fr_ice_m(jc,jb,1) &
                 &         + pw2*ext_data(jg)%atm_td%fr_ice_m(jc,jb,2)
 
                IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) < frsi_min ) THEN
                  p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb)= 0._wp
                ELSE IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) > 1._wp-frsi_min ) THEN
                  p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb)= 1._wp
-               END IF               
+               END IF
               END IF
             ENDDO
           ENDDO
@@ -202,15 +202,15 @@ CONTAINS
 
         END DO ! jg
 
-       CASE (4) !SST and sea ice fraction updated based 
+       CASE (4) !SST and sea ice fraction updated based
                 !  on the actual daily values
         !Not implemented
         WRITE( message_text,'(a)') 'ext_data_mode == 4 not yet implemented '
         CALL finish  (routine, TRIM(message_text))
 
-      END SELECT 
+      END SELECT
 
-    
+
 
   END SUBROUTINE set_actual_td_ext_data
 !-----------------------------------------------------------------------
@@ -239,12 +239,12 @@ CONTAINS
   !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
   !!
 
-    INTEGER, INTENT(IN)                  :: m1,m2,y1,y2 ! month and year of the 
+    INTEGER, INTENT(IN)                  :: m1,m2,y1,y2 ! month and year of the
                                                ! nearest months to datetime
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
-    CHARACTER(LEN=filename_max) :: extpar_file 
+    CHARACTER(LEN=filename_max) :: extpar_file
     INTEGER                     :: jg, mpi_comm
     TYPE(t_stream_id)           :: stream_id
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
