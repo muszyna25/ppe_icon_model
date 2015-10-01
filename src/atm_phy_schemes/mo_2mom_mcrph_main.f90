@@ -1274,7 +1274,7 @@ CONTAINS
     INTEGER          :: i,k
     INTEGER,  SAVE   :: firstcall
     REAL(wp), SAVE   :: k_au,k_sc
-    REAL(wp)         :: q_c, q_r, n_c, x_c, nu, mu, tau, phi, x_s, au, sc
+    REAL(wp)         :: q_c, q_r, n_c, x_c, nu, mu, tau, phi, x_s_i, au, sc
 
     REAL(wp), PARAMETER :: k_c  = 9.44e+9_wp   !..Long-Kernel
     REAL(wp), PARAMETER :: k_1  = 6.00e+2_wp   !..Parameter for Phi
@@ -1293,18 +1293,18 @@ CONTAINS
     kstart = ik_slice(3)
     kend   = ik_slice(4)
 
-    x_s = cloud%x_max
+    x_s_i = 1.0_wp / cloud%x_max
 
     IF (firstcall.NE.1) THEN
        nu = cloud%nu
        mu = cloud%mu
        IF (mu == 1.0) THEN
           !.. see SB2001
-          k_au  = k_c / (20.0_wp*x_s) * (nu+2.0)*(nu+4.0)/(nu+1.0)**2
+          k_au  = k_c * x_s_i * (1.0_wp / 20.0_wp) * (nu+2.0)*(nu+4.0)/(nu+1.0)**2
           k_sc  = k_c * (nu+2.0)/(nu+1.0)
        ELSE
           !.. see Eq. (3.44) of Seifert (2002)
-          k_au = k_c / (20.0_wp*x_s)                                       &
+         k_au = k_c * x_s_i * (1.0_wp / 20.0_wp)                            &
                & * ( 2.0_wp * gfct((nu+4.0)/mu)**1                          &
                &            * gfct((nu+2.0)/mu)**1 * gfct((nu+1.0)/mu)**2   &
                &   - 1.0_wp * gfct((nu+3.0)/mu)**2 * gfct((nu+1.0)/mu)**2 ) &
@@ -1332,7 +1332,7 @@ CONTAINS
 
             sc  = k_sc * q_c**2 * dt * cloud%rho_v(i,k)
 
-            rain%n(i,k)  = rain%n(i,k)  + au / x_s
+            rain%n(i,k)  = rain%n(i,k)  + au * x_s_i
             rain%q(i,k)  = rain%q(i,k)  + au
             cloud%n(i,k) = cloud%n(i,k) - MIN(n_c,sc)
             cloud%q(i,k) = cloud%q(i,k) - au
