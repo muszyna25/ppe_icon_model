@@ -330,7 +330,8 @@ MODULE mo_model_domain
     TYPE(dist_mult_array) :: num_edges
 
     ! index of parent triangle:
-    INTEGER, ALLOCATABLE :: parent(:)
+    TYPE(dist_mult_array) :: parent
+    ! parent child index, number of current cell in parent's child_idx/child_blk:
 
     ! indices of child triangles:
     ! index2=1,4

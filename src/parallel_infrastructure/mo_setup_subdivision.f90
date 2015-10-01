@@ -455,7 +455,7 @@ CONTAINS
 
     TYPE(t_decomposition_structure)  :: decomposition_struct
 
-    INTEGER :: n, i, j
+    INTEGER :: n, i, j, jp
     INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
 
@@ -602,7 +602,8 @@ CONTAINS
         flag_c(:) = 0
 
         DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-          flag_c(wrk_p_patch_pre%cells%parent(j)) = &
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%parent, 1, (/j/), jp)
+          flag_c(jp) = &
             MAX(1,wrk_p_patch_pre%cells%phys_id(j))
         ENDDO
 
@@ -624,8 +625,10 @@ CONTAINS
         ! Owners of the cells of the parent patch are now in tmp.
         ! Set owners in current patch from this
 
-        cell_owner(1:wrk_p_patch_pre%n_patch_cells_g) = &
-          tmp(wrk_p_patch_pre%cells%parent(1:wrk_p_patch_pre%n_patch_cells_g))
+        DO j = 1, wrk_p_patch_pre%n_patch_cells_g
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%parent, 1, (/j/), jp)
+          cell_owner(j) = tmp(jp)
+        ENDDO
 
         DEALLOCATE(flag_c, tmp)
 
@@ -680,7 +683,7 @@ CONTAINS
 
   SUBROUTINE divide_parent_cells(p_patch_pre, cell_owner, cell_owner_p)
 
-    TYPE(t_pre_patch), INTENT(IN) :: p_patch_pre  !> Patch for which the parent should be divided
+    TYPE(t_pre_patch), INTENT(INOUT) :: p_patch_pre  !> Patch for which the parent should be divided
     INTEGER, POINTER  :: cell_owner(:)   !> Ownership of cells in p_patch_pre
     INTEGER, INTENT(OUT) :: cell_owner_p(:) !> Output: Cell division for parent.
                                             !> Must be allocated to n_patch_cells of the global parent
@@ -693,7 +696,7 @@ CONTAINS
 
     DO j = 1, p_patch_pre%n_patch_cells_g
 
-      jp = p_patch_pre%cells%parent(j)
+      CALL dist_mult_array_get(p_patch_pre%cells%parent, 1, (/j/), jp)
 
       IF(cell_owner_p(jp) < 0) THEN
         cell_owner_p(jp) = cell_owner(j)
@@ -992,7 +995,7 @@ CONTAINS
       ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
-      jc_p = wrk_p_patch_pre%cells%parent(jg)
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%parent, 1, (/jg/), jc_p)
 
       wrk_p_patch%cells%parent_glb_idx(jl,jb)  = idx_no(jc_p)
       wrk_p_patch%cells%parent_glb_blk(jl,jb)  = blk_no(jc_p)
