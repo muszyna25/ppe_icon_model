@@ -6429,9 +6429,9 @@ CONTAINS
             s_nv(i) = v_nv(i) * np(i,k)
           END IF
         END DO
-        IF (ANY(c_nv(its:ite) > 1._wp)) THEN
+        IF (ANY(c_nv > 1._wp)) THEN
           cflag = .FALSE.
-          DO WHILE (ANY(c_nv(its:ite) > 1._wp) .AND. kk > 2)
+          DO WHILE (ANY(c_nv > 1._wp) .AND. kk > 2)
             DO i = its,ite
               IF (c_nv(i) > 1._wp) THEN
                 cflag(i) = .TRUE.
@@ -6456,9 +6456,9 @@ CONTAINS
             s_qv(i) = v_qv(i) * qp(i,k)
           END IF
         END DO
-        IF (ANY(c_qv(its:ite) > 1._wp)) THEN
+        IF (ANY(c_qv > 1._wp)) THEN
           cflag = .FALSE.
-          DO WHILE (ANY(c_qv(its:ite) > 1._wp) .AND. kk > 2)
+          DO WHILE (ANY(c_qv > 1._wp) .AND. kk > 2)
             DO i = its,ite
               IF (c_qv(i) > 1._wp) THEN
                 cflag(i) = .TRUE.
@@ -6573,9 +6573,9 @@ CONTAINS
             s_nv(i) = v_nv(i) * np(i,k)
           END IF
         END DO
-        IF (ANY(c_nv(its:ite) > 1._wp)) THEN
+        IF (ANY(c_nv > 1._wp)) THEN
           cflag = .FALSE.
-          DO WHILE (ANY(c_nv(its:ite) > 1._wp) .AND. kk > 2)
+          DO WHILE (ANY(c_nv > 1._wp) .AND. kk > 2)
             DO i = its,ite
               IF (c_nv(i) > 1._wp) THEN
                 cflag(i) = .TRUE.
@@ -6600,9 +6600,9 @@ CONTAINS
             s_qv(i) = v_qv(i) * qp(i,k)
           END IF
         END DO
-        IF (ANY(c_qv(its:ite) > 1._wp)) THEN
+        IF (ANY(c_qv > 1._wp)) THEN
           cflag = .FALSE.
-          DO WHILE (ANY(c_qv(its:ite) > 1._wp) .AND. kk > 2)
+          DO WHILE (ANY(c_qv > 1._wp) .AND. kk > 2)
             DO i = its,ite
               IF (c_qv(i) > 1._wp) THEN
                 cflag(i) = .TRUE.
