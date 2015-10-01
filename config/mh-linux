@@ -97,8 +97,10 @@ case "$fortran_compiler" in
         config_compiler=mpixlc_r
         CC       = mpixlc_r
         OPTFLAGS = -q64 -O2  -qmaxmem=-1 -qstrict -qarch=auto -qtune=auto -qcache=auto -qfloat=fltint
-        GENFLAGS =
-        CFLAGS   = -DHAVE_CF_INTERFACE -DIBMR2Fortran
+        INFOFLAGS= -qlistopt -qphsinfo -V
+        INFOFLAGS=
+        GENFLAGS = $INFOFLAGS
+        CFLAGS   = -DHAVE_CF_INTERFACE -DIBMR2Fortran -O2 -qipa
 
         FC       = mpixlf2003_r
         DEBUG_FLAGS = -OO -qnoopt -g -qfullpath -WF,-DNOXLFPROCESS
