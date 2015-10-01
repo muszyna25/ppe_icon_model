@@ -4078,11 +4078,7 @@ CONTAINS
              self_n = graupel_sc_coll_n * n_g**2 * D_g**2 * v_g * dt
 
              ! sticking efficiency does only distinguish dry and wet based on T_3
-             IF (atmo%T(i,k) > T_3) THEN
-                self_n = self_n * ecoll_gg_wet
-             ELSE
-                self_n = self_n * ecoll_gg
-             END IF
+             self_n = self_n * MERGE(ecoll_gg_wet, ecoll_gg, atmo%T(i,k) > T_3)
 
              self_n = MIN(self_n,n_g)
 
