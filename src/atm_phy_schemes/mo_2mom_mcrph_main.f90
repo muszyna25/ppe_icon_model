@@ -2288,16 +2288,11 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a,p_a,e_sw,s_sw,g_d,eva_q,eva_n
     REAL(wp)            :: q_r,n_r,x_r,e_d,f_v
     REAL(wp)            :: mue,d_m,gamma_eva,lam,d_vtp,gfak
     REAL(wp)            :: aa,bb,cc,mm
-    REAL(wp), SAVE      :: a_q,b_q
     REAL(wp), PARAMETER :: D_br = 1.1e-3_wp
-!$omp threadprivate (firstcall)
-!$omp threadprivate (a_q)
-!$omp threadprivate (b_q)
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -2308,28 +2303,7 @@ CONTAINS
     bb = rain_coeffs%beta
     cc = rain_coeffs%gama
 
-    IF (firstcall.NE.1) THEN
-      a_q = vent_coeff_a(rain,1)
-      b_q = vent_coeff_b(rain,1)
-      firstcall = 1
-      IF (isdebug) THEN
-        WRITE(txt,'(A,D10.3)') "rain_evaporation:" ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     nu    = ",rain%nu ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     mu    = ",rain%mu ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     a_geo = ",rain%a_geo ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     b_geo = ",rain%b_geo ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     a_q   = ",a_q ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     b_q   = ",b_q ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     cmu0  = ",rain_coeffs%cmu0 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     cmu1  = ",rain_coeffs%cmu1 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     cmu2  = ",rain_coeffs%cmu2 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     cmu3  = ",rain_coeffs%cmu3 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     cmu4  = ",rain_coeffs%cmu4 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     g_fak = ",rain_gfak ; CALL message(routine,TRIM(txt))
-      END IF
-    ELSEIF (isdebug) THEN
-      CALL message(routine, "rain_evaporation")
-    END IF
+    IF (isdebug) CALL message(routine, "rain_evaporation")
 
     DO k = kstart,kend
        DO i = istart,iend
