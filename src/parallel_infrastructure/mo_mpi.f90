@@ -7877,6 +7877,68 @@ CONTAINS
 #endif
    END SUBROUTINE p_alltoallv_int
 
+#if !defined(NOMPI)
+   SUBROUTINE p_alltoallv_p2p_real_2d_core(dim1_size, sendbuf, sendcounts, sdispls, &
+        &                             recvbuf, recvcounts, rdispls, comm)
+     INTEGER, INTENT(in) :: dim1_size
+     REAL(wp),          INTENT(in) :: sendbuf(dim1_size,*)
+     INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
+     REAL(wp),          INTENT(inout) :: recvbuf(dim1_size,*)
+     INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
+     INTEGER,           INTENT(in) :: comm
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_p2p_real_2d"
+     INTEGER :: i, comm_size, tag, ofs, datatype
+
+     CALL p_wait
+
+     comm_size = p_comm_size(comm)
+     tag = 1
+     SELECT CASE (wp)
+       CASE(sp)
+         datatype = p_real_sp
+       CASE(dp)
+         datatype = p_real_dp
+       CASE DEFAULT
+         datatype = -1
+         CALL finish (routine, 'invalid read type')
+     END SELECT
+     DO i = 1, comm_size
+       IF (recvcounts(i) > 0) THEN
+         ofs = 1 + rdispls(i)
+         CALL p_inc_request
+         CALL mpi_irecv(recvbuf(:, ofs:ofs+recvcounts(i)-1), &
+              &         recvcounts(i) * dim1_size, datatype, i - 1, tag, &
+              &         comm, p_request(p_irequest), p_error)
+#ifdef DEBUG
+         IF (p_error /= MPI_SUCCESS) THEN
+           WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', &
+                my_process_mpi_all_id, &
+                ' from ', i - 1, ' for tag ', tag, ' failed.'
+           WRITE (nerr,'(a,i4)') ' Error = ', p_error
+           CALL abort_mpi
+         END IF
+#endif
+       END IF
+       IF (sendcounts(i) > 0) THEN
+         ofs = 1 + sdispls(i)
+         CALL p_inc_request
+         CALL mpi_isend(sendbuf(:, ofs:ofs+sendcounts(i)-1), &
+              &         sendcounts(i) * dim1_size, datatype, i - 1, tag, &
+              &         comm, p_request(p_irequest), p_error)
+#ifdef DEBUG
+         IF (p_error /= MPI_SUCCESS) THEN
+           WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND on ', &
+                my_process_mpi_all_id, &
+                ' from ', i - 1, ' for tag ', tag, ' failed.'
+           WRITE (nerr,'(a,i4)') ' Error = ', p_error
+           CALL abort_mpi
+         END IF
+#endif
+       END IF
+     END DO
+     CALL p_wait
+   END SUBROUTINE p_alltoallv_p2p_real_2d_core
+#endif
 
    SUBROUTINE p_alltoallv_p2p_real_2d (sendbuf, sendcounts, sdispls, &
      &                             recvbuf, recvcounts, rdispls, comm)
@@ -7886,33 +7948,13 @@ CONTAINS
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     REAL(wp), ALLOCATABLE   :: temp_sendbuf(:,:)
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_p2p_real_2d")
-     INTEGER :: dim1_size, i, comm_size, tag
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_p2p_real_2d"
+     INTEGER :: dim1_size
 
-     ALLOCATE(temp_sendbuf(SIZE(sendbuf,1), SIZE(sendbuf,2)))
-
-     temp_sendbuf = sendbuf
-
-     CALL p_wait
-
-     comm_size = p_comm_size(comm)
-     tag = 1
      dim1_size = SIZE(sendbuf, 1)
-     DO i = 1, comm_size
-       IF (recvcounts(LBOUND(recvcounts,1) + i - 1) > 0) THEN
-         CALL p_irecv(recvbuf(LBOUND(recvbuf,1), LBOUND(recvbuf,2) + &
-           &                  rdispls(LBOUND(rdispls,1) + i - 1)), i - 1, &
-           &          tag, recvcounts(LBOUND(recvcounts,1) + i - 1) * dim1_size, &
-           &          comm)
-       END IF
-       IF (sendcounts(LBOUND(sendcounts,1) + i - 1) > 0) THEN
-         CALL p_isend(temp_sendbuf(1, sdispls(LBOUND(sdispls,1) + i - 1) + 1), &
-           &          i - 1, tag, &
-           &          sendcounts(LBOUND(sendcounts,1) + i - 1) * dim1_size, comm)
-       END IF
-     END DO
-     CALL p_wait
+     CALL p_alltoallv_p2p_real_2d_core(dim1_size, &
+          &                            sendbuf, sendcounts, sdispls, &
+          &                            recvbuf, recvcounts, rdispls, comm)
 #else
      ! displs are zero based -> have to add 1
      recvbuf(:,rdispls(1)+1:rdispls(1)+recvcounts(1)) = &
@@ -7920,49 +7962,81 @@ CONTAINS
 #endif
    END SUBROUTINE p_alltoallv_p2p_real_2d
 
+#if !defined(NOMPI)
+   SUBROUTINE p_alltoallv_p2p_int_2d_core(dim1_size, sendbuf, sendcounts, sdispls, &
+        &                                 recvbuf, recvcounts, rdispls, comm)
+     INTEGER, INTENT(in) :: dim1_size
+     INTEGER,           INTENT(in) :: sendbuf(dim1_size,*)
+     INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
+     INTEGER,           INTENT(inout) :: recvbuf(dim1_size,*)
+     INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
+     INTEGER,           INTENT(in) :: comm
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_p2p_int_2d"
+     INTEGER :: i, comm_size, tag, ofs
+
+     CALL p_wait
+
+     comm_size = p_comm_size(comm)
+     tag = 1
+     DO i = 1, comm_size
+       IF (recvcounts(i) > 0) THEN
+         ofs = 1 + rdispls(i)
+         CALL p_inc_request
+         CALL mpi_irecv(recvbuf(:, ofs:ofs+recvcounts(i)-1), &
+              &         recvcounts(i) * dim1_size, p_int, i - 1, tag, &
+              &         comm, p_request(p_irequest), p_error)
+#ifdef DEBUG
+         IF (p_error /= MPI_SUCCESS) THEN
+           WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', &
+                my_process_mpi_all_id, &
+                ' from ', i - 1, ' for tag ', tag, ' failed.'
+           WRITE (nerr,'(a,i4)') ' Error = ', p_error
+           CALL abort_mpi
+         END IF
+#endif
+       END IF
+       IF (sendcounts(i) > 0) THEN
+         ofs = 1 + sdispls(i)
+         CALL p_inc_request
+         CALL mpi_isend(sendbuf(:, ofs:ofs+sendcounts(i)-1), &
+              &         sendcounts(i) * dim1_size, p_int, i - 1, tag, &
+              &         comm, p_request(p_irequest), p_error)
+#ifdef DEBUG
+         IF (p_error /= MPI_SUCCESS) THEN
+           WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_ISEND on ', &
+                my_process_mpi_all_id, &
+                ' from ', i - 1, ' for tag ', tag, ' failed.'
+           WRITE (nerr,'(a,i4)') ' Error = ', p_error
+           CALL abort_mpi
+         END IF
+#endif
+       END IF
+     END DO
+     CALL p_wait
+   END SUBROUTINE p_alltoallv_p2p_int_2d_core
+#endif
 
    SUBROUTINE p_alltoallv_p2p_int_2d (sendbuf, sendcounts, sdispls, &
-     &                            recvbuf, recvcounts, rdispls, comm)
+     &                                recvbuf, recvcounts, rdispls, comm)
      INTEGER,           INTENT(in) :: sendbuf(:,:)
      INTEGER,           INTENT(in) :: sendcounts(:), sdispls(:)
      INTEGER,           INTENT(inout) :: recvbuf(:,:)
      INTEGER,           INTENT(in) :: recvcounts(:), rdispls(:)
      INTEGER,           INTENT(in) :: comm
 #if !defined(NOMPI)
-     INTEGER, ALLOCATABLE    :: temp_sendbuf(:,:)
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_alltoallv_p2p_int_2d")
-     INTEGER :: dim1_size, i, comm_size, tag
+     CHARACTER(*), PARAMETER :: routine = "mo_mpi:p_alltoallv_p2p_int_2d"
+     INTEGER :: dim1_size
 
-     ALLOCATE(temp_sendbuf(SIZE(sendbuf,1), SIZE(sendbuf,2)))
-
-     temp_sendbuf = sendbuf
-
-     CALL p_wait
-
-     comm_size = p_comm_size(comm)
-     tag = 1
      dim1_size = SIZE(sendbuf, 1)
-     DO i = 1, comm_size
-       IF (recvcounts(LBOUND(recvcounts,1) + i - 1) > 0) THEN
-         CALL p_irecv(recvbuf(LBOUND(recvbuf,1), LBOUND(recvbuf,2) + &
-           &                  rdispls(LBOUND(rdispls,1) + i - 1)), i - 1, &
-           &          tag, recvcounts(LBOUND(recvcounts,1) + i - 1) * dim1_size, &
-           &          comm)
-       END IF
-       IF (sendcounts(LBOUND(sendcounts,1) + i - 1) > 0) THEN
-         CALL p_isend(temp_sendbuf(1, sdispls(LBOUND(sdispls,1) + i - 1) + 1), &
-           &          i - 1, tag, &
-           &          sendcounts(LBOUND(sendcounts,1) + i - 1) * dim1_size, comm)
-       END IF
-     END DO
-     CALL p_wait
+     CALL p_alltoallv_p2p_int_2d_core(dim1_size, &
+          &                           sendbuf, sendcounts, sdispls, &
+          &                           recvbuf, recvcounts, rdispls, comm)
 #else
      ! displs are zero based -> have to add 1
      recvbuf(:,rdispls(1)+1:rdispls(1)+recvcounts(1)) = &
        sendbuf(:,sdispls(1)+1:sdispls(1)+sendcounts(1))
 #endif
    END SUBROUTINE p_alltoallv_p2p_int_2d
-
 
   SUBROUTINE p_clear_request(request)
     INTEGER, INTENT(INOUT) :: request
