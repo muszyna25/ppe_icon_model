@@ -4859,10 +4859,7 @@ CONTAINS
     IF (isdebug) CALL message(routine, "ice riming")
 
     rime_rate_qc(:,:) = 0.0_wp
-    rime_rate_qr(:,:) = 0.0_wp
-    rime_rate_qi(:,:) = 0.0_wp
     rime_rate_nc(:,:) = 0.0_wp
-    rime_rate_qr(:,:) = 0.0_wp
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -4870,7 +4867,9 @@ CONTAINS
     kend   = ik_slice(4)
 
     CALL ice_cloud_riming()
-    CALL ice_rain_riming()
+    CALL riming_asym_core(ik_slice, ice, ice_s_vel, q_crit_ir, d_crit_ir, &
+         &                rain, q_crit, irr_params, dt, &
+         &                rime_rate_qi, rime_rate_qr, rime_rate_nr)
 
     !
     ! Complete ice-cloud and ice-rain riming
@@ -5103,72 +5102,6 @@ CONTAINS
       ENDDO
     END SUBROUTINE ice_cloud_riming
 
-    SUBROUTINE ice_rain_riming()
-      !*******************************************************************************
-      !  Riming rate of ice collecting rain drop, or rain collecting ice             *
-      !*******************************************************************************
-      INTEGER             :: i,k
-      REAL(wp)            :: q_i,n_i,x_i,d_i,v_i
-      REAL(wp)            :: q_r,n_r,x_r,d_r,v_r
-      REAL(wp)            :: rime_n,rime_qi,rime_qr
-
-      IF (isdebug) CALL message(routine, "ice_rain_riming")
-
-      DO k = kstart,kend
-         DO i = istart,iend
-
-            q_r = rain%q(i,k)
-            q_i = ice%q(i,k)
-            n_r = rain%n(i,k)
-            n_i = ice%n(i,k)
-
-            x_i = particle_meanmass(ice, q_i,n_i)
-            D_i = particle_diameter(ice, x_i)
-
-            IF (q_r > q_crit .AND. q_i > q_crit_ir .AND. D_i > D_crit_ir) THEN
-
-               x_r = particle_meanmass(rain, q_r,n_r)
-               D_r = particle_diameter(rain, x_r)
-               v_r = particle_velocity(rain, x_r) * rain%rho_v(i,k)
-               v_i = particle_velocity(ice, x_i) * ice%rho_v(i,k)
-
-               rime_n  = pi4 * n_i * n_r * dt &
-                    &  *     (irr_params%delta_n_aa * D_i * D_i &
-                    &         + irr_params%delta_n_ab * D_i * D_r &
-                    &         + irr_params%delta_n_bb * D_r * D_r) &
-                    &  * SQRT(irr_params%theta_n_aa * v_i * v_i &
-                    &         - irr_params%theta_n_ab * v_i * v_r &
-                    &         + irr_params%theta_n_bb * v_r * v_r &
-                    &         + ice_s_vel**2)
-
-               rime_qr = pi4 * n_i * q_r * dt &
-                    &  *     (irr_params%delta_n_aa * D_i * D_i &
-                    &         + irr_params%delta_q_ab * D_i * D_r &
-                    &         + irr_params%delta_q_bb * D_r * D_r) &
-                    &  * SQRT(irr_params%theta_n_aa * v_i * v_i &
-                    &         - irr_params%theta_q_ab * v_i * v_r &
-                    &         + irr_params%theta_q_bb * v_r * v_r &
-                    &         + ice_s_vel**2)
-
-               rime_qi = pi4 * n_r * q_i * dt &
-                    &  *     (irr_params%delta_q_aa * D_i * D_i &
-                    &         + irr_params%delta_q_ba * D_i * D_r &
-                    &         + irr_params%delta_n_bb * D_r * D_r) &
-                    &  * SQRT(irr_params%theta_q_aa * v_i * v_i &
-                    &         - irr_params%theta_q_ba * v_i * v_r &
-                    &         + irr_params%theta_n_bb * v_r * v_r &
-                    &         + ice_s_vel**2)
-
-               rime_rate_nr(i,k) = rime_n
-               rime_rate_qi(i,k) = rime_qi
-               rime_rate_qr(i,k) = rime_qr
-
-            ENDIF
-         ENDDO
-      ENDDO
-
-    END SUBROUTINE ice_rain_riming
-
   END SUBROUTINE ice_riming
 
   SUBROUTINE snow_riming(ik_slice, dt, atmo, &
@@ -5215,13 +5148,13 @@ CONTAINS
     kend   = ik_slice(4)
 
     rime_rate_qc(:,:) = 0.0_wp
-    rime_rate_qr(:,:) = 0.0_wp
-    rime_rate_qs(:,:) = 0.0_wp
     rime_rate_nc(:,:) = 0.0_wp
-    rime_rate_qr(:,:) = 0.0_wp
 
     CALL snow_cloud_riming()
-    CALL snow_rain_riming()
+    CALL riming_asym_core(ik_slice, &
+         &                snow, snow_s_vel, q_crit_sr, d_crit_sr, &
+         &                rain, q_crit, srr_params, dt, &
+         &                rime_rate_qs, rime_rate_qr, rime_rate_nr)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -5413,59 +5346,6 @@ CONTAINS
 
  CONTAINS
 
-   SUBROUTINE snow_rain_riming()
-     !*******************************************************************************
-     ! Riming of snow with raindrops                                                *
-     !*******************************************************************************
-     INTEGER             :: i,k
-     REAL(wp)            :: q_s,n_s,x_s,d_s,v_s
-     REAL(wp)            :: q_r,n_r,x_r,d_r,v_r
-     REAL(wp)            :: rime_n,rime_qr,rime_qs
-
-     IF (isdebug) CALL message(routine, "snow_rain_riming")
-
-     DO k = kstart,kend
-       DO i = istart,iend
-
-         q_r = rain%q(i,k)
-         q_s = snow%q(i,k)
-         n_r = rain%n(i,k)
-         n_s = snow%n(i,k)
-
-         x_s = particle_meanmass(snow, q_s,n_s)
-         D_s = particle_diameter(snow, x_s)
-
-         IF (q_r > q_crit .AND. q_s > q_crit_sr .AND. D_s > D_crit_sr) THEN
-
-            x_r = particle_meanmass(rain, q_r,n_r)
-            D_r = particle_diameter(rain, x_r)
-            v_r = particle_velocity(rain, x_r) * rain%rho_v(i,k)
-            v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
-
-            rime_n = pi4 * n_s * n_r * dt &
-                 & *     (srr_params%delta_n_aa * D_s**2 + srr_params%delta_n_ab * D_s*D_r + srr_params%delta_n_bb * D_r**2) &
-                 & * sqrt(srr_params%theta_n_aa * v_s**2 - srr_params%theta_n_ab * v_s*v_r + srr_params%theta_n_bb * v_r**2  &
-                 &       +snow_s_vel**2)
-
-            rime_qr = pi4 * n_s * q_r * dt &
-                 &  *     (srr_params%delta_n_aa * D_s**2 + srr_params%delta_q_ab * D_s*D_r + srr_params%delta_q_bb * D_r**2) &
-                 &  * sqrt(srr_params%theta_n_aa * v_s**2 - srr_params%theta_q_ab * v_s*v_r + srr_params%theta_q_bb * v_r**2  &
-                 &        +snow_s_vel**2)
-
-            rime_qs = pi4 * n_r * q_s * dt &
-                 &  *     (srr_params%delta_q_aa * D_s**2 + srr_params%delta_q_ba * D_s*D_r + srr_params%delta_n_bb * D_r**2) &
-                 &  * sqrt(srr_params%theta_q_aa * v_s**2 - srr_params%theta_q_ba * v_s*v_r + srr_params%theta_n_bb * v_r**2  &
-                 &        +snow_s_vel**2)
-
-            rime_rate_nr(i,k)  = rime_n
-            rime_rate_qs(i,k)  = rime_qs
-            rime_rate_qr(i,k)  = rime_qr
-
-         ENDIF
-       ENDDO
-     ENDDO
-   END SUBROUTINE snow_rain_riming
-
    SUBROUTINE snow_cloud_riming()
      !*******************************************************************************
      ! Riming of snow with cloud droplets                                           *
@@ -5518,6 +5398,95 @@ CONTAINS
    END SUBROUTINE snow_cloud_riming
 
  END SUBROUTINE snow_riming
+
+  SUBROUTINE riming_asym_core(ik_slice, &
+       &                      prtcla, prtcla_s_vel, q_crit_ar, d_crit_ar, &
+       &                      prtclb, q_crit_b, params, dt, &
+       &                      rime_rate_qa, rime_rate_qb, rime_rate_nb)
+    !*******************************************************************************
+    !  Riming rate of ice collecting rain drop, or rain collecting ice             *
+    !  and riming of snow with raindrops.
+    !
+    !*******************************************************************************
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(particle), INTENT(in) :: prtcla, prtclb
+    REAL(wp), INTENT(in) :: prtcla_s_vel, q_crit_ar, d_crit_ar, q_crit_b, dt
+    TYPE(asym_riming_params), INTENT(in) :: params
+    REAL(wp), INTENT(out) :: rime_rate_qa(:,:), rime_rate_qb(:,:), &
+         rime_rate_nb(:,:)
+
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
+    INTEGER             :: i,k
+    REAL(wp)            :: q_a,n_a,x_a,d_a,v_a
+    REAL(wp)            :: q_b,n_b,x_b,d_b,v_b
+    REAL(wp)            :: rime_n,rime_qi,rime_qr
+
+    IF (isdebug) CALL message(routine, "ice_rain_riming")
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
+    DO k = kstart,kend
+      DO i = istart,iend
+
+        q_b = prtclb%q(i,k)
+        q_a = prtcla%q(i,k)
+        n_b = prtclb%n(i,k)
+        n_a = prtcla%n(i,k)
+
+        x_a = particle_meanmass(prtcla, q_a,n_a)
+        D_a = particle_diameter(prtcla, x_a)
+
+        IF (q_b > q_crit_b .AND. q_a > q_crit_ar .AND. D_a > D_crit_ar) THEN
+
+          x_b = particle_meanmass(prtclb, q_b,n_b)
+          D_b = particle_diameter(prtclb, x_b)
+          v_b = particle_velocity(prtclb, x_b) * prtclb%rho_v(i,k)
+          v_a = particle_velocity(prtcla, x_a) * prtcla%rho_v(i,k)
+
+          rime_n  = pi4 * n_a * n_b * dt &
+               &  *     (  params%delta_n_aa * D_a * D_a &
+               &         + params%delta_n_ab * D_a * D_b &
+               &         + params%delta_n_bb * D_b * D_b) &
+               &  * SQRT(params%theta_n_aa * v_a * v_a &
+               &         - params%theta_n_ab * v_a * v_b &
+               &         + params%theta_n_bb * v_b * v_b &
+               &         + prtcla_s_vel**2)
+
+          rime_qr = pi4 * n_a * q_b * dt &
+               &  *     (  params%delta_n_aa * D_a * D_a &
+               &         + params%delta_q_ab * D_a * D_b &
+               &         + params%delta_q_bb * D_b * D_b) &
+               &  * SQRT(  params%theta_n_aa * v_a * v_a &
+               &         - params%theta_q_ab * v_a * v_b &
+               &         + params%theta_q_bb * v_b * v_b &
+               &         + prtcla_s_vel**2)
+
+          rime_qi = pi4 * n_b * q_a * dt &
+               &  *     (  params%delta_q_aa * D_a * D_a &
+               &         + params%delta_q_ba * D_a * D_b &
+               &         + params%delta_n_bb * D_b * D_b) &
+               &  * SQRT(  params%theta_q_aa * v_a * v_a &
+               &         - params%theta_q_ba * v_a * v_b &
+               &         + params%theta_n_bb * v_b * v_b &
+               &         + prtcla_s_vel**2)
+
+          rime_rate_nb(i,k) = rime_n
+          rime_rate_qa(i,k) = rime_qi
+          rime_rate_qb(i,k) = rime_qr
+        ELSE
+          rime_rate_nb(i,k) = 0.0_wp
+          rime_rate_qa(i,k) = 0.0_wp
+          rime_rate_qb(i,k) = 0.0_wp
+        ENDIF
+      ENDDO
+    ENDDO
+  END SUBROUTINE riming_asym_core
 
  SUBROUTINE ccn_activation_sk(ik_slice, atmo,cloud,n_cn)
    !*******************************************************************************
