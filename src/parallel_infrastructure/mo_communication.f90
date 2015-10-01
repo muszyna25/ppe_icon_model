@@ -3110,6 +3110,7 @@ SUBROUTINE gather_r_1d_deblock(in_array, out_array, fill_value, gather_pattern)
   TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
 
   REAL(wp), ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  REAL(wp), POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, idx, blk
 
   num_send_points = SUM(gather_pattern%collector_send_size(:))
@@ -3129,8 +3130,12 @@ SUBROUTINE gather_r_1d_deblock(in_array, out_array, fill_value, gather_pattern)
     send_buffer(1,i) = in_array(idx, blk)
   END DO
 
-  CALL two_phase_gather(send_buffer_r=send_buffer, recv_buffer_r=recv_buffer, &
-    &                   fill_value=fill_value, gather_pattern=gather_pattern)
+  CALL two_phase_gather_first(send_buffer_r=send_buffer, fill_value=fill_value,&
+                              gather_pattern=gather_pattern, &
+                              collector_buffer_r=collector_buffer)
+  CALL two_phase_gather_second(recv_buffer_r=recv_buffer, fill_value=fill_value,&
+                               gather_pattern=gather_pattern, &
+                               collector_buffer_r=collector_buffer)
 
   IF (p_pe_work == process_mpi_root_id) &
     out_array(1:SIZE(recv_buffer, 2)) = recv_buffer(1,:)
@@ -3152,6 +3157,7 @@ SUBROUTINE gather_i_1d_deblock(in_array, out_array, fill_value, gather_pattern)
   TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
 
   INTEGER, ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  INTEGER, POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, idx, blk
 
   num_send_points = SUM(gather_pattern%collector_send_size(:))
@@ -3171,8 +3177,12 @@ SUBROUTINE gather_i_1d_deblock(in_array, out_array, fill_value, gather_pattern)
     send_buffer(1,i) = in_array(idx, blk)
   END DO
 
-  CALL two_phase_gather(send_buffer_i=send_buffer, recv_buffer_i=recv_buffer, &
-    &                   fill_value=fill_value, gather_pattern=gather_pattern)
+  CALL two_phase_gather_first(send_buffer_i=send_buffer, fill_value=fill_value,&
+                              gather_pattern=gather_pattern, &
+                              collector_buffer_i=collector_buffer)
+  CALL two_phase_gather_second(recv_buffer_i=recv_buffer, fill_value=fill_value,&
+                               gather_pattern=gather_pattern, &
+                               collector_buffer_i=collector_buffer)
 
   IF (p_pe_work == process_mpi_root_id) &
     out_array(1:SIZE(recv_buffer, 2)) = recv_buffer(1,:)
@@ -3194,6 +3204,7 @@ SUBROUTINE gather_r_2d_deblock(in_array, out_array, fill_value, gather_pattern)
   TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
 
   REAL(wp), ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  REAL(wp), POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, nlev, idx, blk
 
   nlev = SIZE(in_array, 2)
@@ -3225,8 +3236,12 @@ SUBROUTINE gather_r_2d_deblock(in_array, out_array, fill_value, gather_pattern)
     send_buffer(:,i) = in_array(idx, :, blk)
   END DO
 
-  CALL two_phase_gather(send_buffer_r=send_buffer, recv_buffer_r=recv_buffer, &
-    &                   fill_value=fill_value, gather_pattern=gather_pattern)
+  CALL two_phase_gather_first(send_buffer_r=send_buffer, fill_value=fill_value,&
+                              gather_pattern=gather_pattern, &
+                              collector_buffer_r=collector_buffer)
+  CALL two_phase_gather_second(recv_buffer_r=recv_buffer, fill_value=fill_value,&
+                               gather_pattern=gather_pattern, &
+                               collector_buffer_r=collector_buffer)
 
   IF (p_pe_work == process_mpi_root_id) &
     out_array(1:SIZE(recv_buffer, 2),1:SIZE(recv_buffer, 1)) = &
@@ -3249,6 +3264,7 @@ SUBROUTINE gather_i_2d_deblock(in_array, out_array, fill_value, gather_pattern)
   TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
 
   INTEGER, ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  INTEGER, POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, nlev, idx, blk
 
   nlev = SIZE(in_array, 2)
@@ -3280,8 +3296,12 @@ SUBROUTINE gather_i_2d_deblock(in_array, out_array, fill_value, gather_pattern)
     send_buffer(:,i) = in_array(idx, :, blk)
   END DO
 
-  CALL two_phase_gather(send_buffer_i=send_buffer, recv_buffer_i=recv_buffer, &
-    &                   fill_value=fill_value, gather_pattern=gather_pattern)
+  CALL two_phase_gather_first(send_buffer_i=send_buffer, fill_value=fill_value,&
+                              gather_pattern=gather_pattern, &
+                              collector_buffer_i=collector_buffer)
+  CALL two_phase_gather_second(recv_buffer_i=recv_buffer, fill_value=fill_value,&
+                               gather_pattern=gather_pattern, &
+                               collector_buffer_i=collector_buffer)
 
   IF (p_pe_work == process_mpi_root_id) &
     out_array(1:SIZE(recv_buffer, 2),1:SIZE(recv_buffer, 1)) = &
@@ -3291,33 +3311,29 @@ SUBROUTINE gather_i_2d_deblock(in_array, out_array, fill_value, gather_pattern)
 
 END SUBROUTINE gather_i_2d_deblock
 
-SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
-                            recv_buffer_r, recv_buffer_i, fill_value, &
-                            gather_pattern)
+SUBROUTINE two_phase_gather_first(send_buffer_r, send_buffer_i, fill_value, &
+                                  gather_pattern, collector_buffer_r, &
+                                  collector_buffer_i)
   ! dimension (:, length), prepared according to gather pattern
   REAL(wp), OPTIONAL, INTENT(IN) :: send_buffer_r(:,:)
   INTEGER, OPTIONAL, INTENT(IN) :: send_buffer_i(:,:)
-  ! dimension (:, global length); only required on root
-  REAL(wp), OPTIONAL, INTENT(INOUT) :: recv_buffer_r(:,:)
-  INTEGER, OPTIONAL, INTENT(INOUT) :: recv_buffer_i(:,:)
   REAL(wp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
                                                ! be replaced with this value
                                                ! if not provided all valid
                                                ! points will be packed to the
                                                ! front of the array
   TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+  REAL(wp), POINTER, OPTIONAL, INTENT(OUT) :: collector_buffer_r(:,:)
+  INTEGER, POINTER, OPTIONAL, INTENT(OUT) :: collector_buffer_i(:,:)
 
-  REAL(wp), ALLOCATABLE, TARGET :: collector_buffer_nofill_r(:,:)
-  REAL(wp), ALLOCATABLE, TARGET :: collector_buffer_fill_r(:,:)
-  REAL(wp), POINTER :: collector_buffer_r(:,:)
-  INTEGER, ALLOCATABLE, TARGET :: collector_buffer_nofill_i(:,:)
-  INTEGER, ALLOCATABLE, TARGET :: collector_buffer_fill_i(:,:)
-  INTEGER, POINTER :: collector_buffer_i(:,:)
+  REAL(wp), POINTER :: collector_buffer_nofill_r(:,:)
+  REAL(wp), POINTER :: collector_buffer_fill_r(:,:)
+  INTEGER, POINTER :: collector_buffer_nofill_i(:,:)
+  INTEGER, POINTER :: collector_buffer_fill_i(:,:)
   INTEGER :: num_send_per_process(p_n_work), send_displ(p_n_work)
   INTEGER :: num_recv_per_process(p_n_work), recv_displ(p_n_work)
   INTEGER :: i, collector_idx, collector_buffer_nofill_size, &
-    &        collector_buffer_fill_size, num_collectors, &
-    &        num_points_per_coll
+    &        collector_buffer_fill_size, num_collectors, num_points_per_coll
   LOGICAL :: use_fill_value
 
   IF (ANY(gather_pattern%collector_pes == p_pe_work)) THEN
@@ -3350,9 +3366,9 @@ SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
     collector_buffer_fill_size = 0
   END IF
 
-  IF ((PRESENT(send_buffer_r) .NEQV. PRESENT(recv_buffer_r)) .OR. &
-      (PRESENT(send_buffer_i) .NEQV. PRESENT(recv_buffer_i))) &
-    CALL finish("two_phase_gather", "invalid arguments")
+  IF ((PRESENT(send_buffer_r) .NEQV. PRESENT(collector_buffer_r)) .OR. &
+      (PRESENT(send_buffer_i) .NEQV. PRESENT(collector_buffer_i))) &
+    CALL finish("two_phase_gather_first", "invalid arguments")
 
   IF (PRESENT(send_buffer_r)) &
     ALLOCATE(collector_buffer_nofill_r(SIZE(send_buffer_r, 1), &
@@ -3397,6 +3413,7 @@ SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
       collector_buffer_fill_r = fill_value
       collector_buffer_fill_r(:,gather_pattern%recv_buffer_reorder_fill) = &
         collector_buffer_nofill_r
+      DEALLOCATE(collector_buffer_nofill_r)
       collector_buffer_r => collector_buffer_fill_r
     END IF
     IF (PRESENT(send_buffer_i)) THEN
@@ -3405,6 +3422,7 @@ SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
       collector_buffer_fill_i = fill_value
       collector_buffer_fill_i(:,gather_pattern%recv_buffer_reorder_fill) = &
         collector_buffer_nofill_i
+      DEALLOCATE(collector_buffer_nofill_i)
       collector_buffer_i => collector_buffer_fill_i
     END IF
   ELSE
@@ -3413,6 +3431,56 @@ SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
     IF (PRESENT(send_buffer_i)) &
       collector_buffer_i => collector_buffer_nofill_i
   END IF
+END SUBROUTINE two_phase_gather_first
+
+SUBROUTINE two_phase_gather_second(recv_buffer_r, recv_buffer_i, fill_value, &
+                                   gather_pattern, collector_buffer_r, &
+                                   collector_buffer_i)
+  ! dimension (:, global length); only required on root
+  REAL(wp), OPTIONAL, INTENT(INOUT) :: recv_buffer_r(:,:)
+  INTEGER, OPTIONAL, INTENT(INOUT) :: recv_buffer_i(:,:)
+  REAL(wp), INTENT(IN), OPTIONAL :: fill_value ! if provided missing values will
+                                               ! be replaced with this value
+                                               ! if not provided all valid
+                                               ! points will be packed to the
+                                               ! front of the array
+  TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
+  REAL(wp), POINTER, OPTIONAL, INTENT(INOUT) :: collector_buffer_r(:,:)
+  INTEGER, POINTER, OPTIONAL, INTENT(INOUT) :: collector_buffer_i(:,:)
+
+  INTEGER :: num_recv_per_process(p_n_work), recv_displ(p_n_work)
+  INTEGER :: i, collector_idx, collector_buffer_fill_size, num_collectors, &
+    &        num_points_per_coll
+  LOGICAL :: use_fill_value
+
+  IF (ANY(gather_pattern%collector_pes == p_pe_work)) THEN
+    collector_idx = MINLOC(ABS(gather_pattern%collector_pes - p_pe_work), 1)
+  ELSE
+    collector_idx = -1
+  END IF
+
+  IF (collector_idx /= -1) THEN
+    IF (PRESENT(fill_value)) THEN
+      num_collectors = SIZE(gather_pattern%collector_pes)
+      num_points_per_coll = (gather_pattern%global_size + num_collectors - 1) &
+        &                   / num_collectors
+      collector_buffer_fill_size = &
+        MIN(num_points_per_coll, &
+          & gather_pattern%global_size - &
+          & MAX(0,num_points_per_coll * (collector_idx- 1)))
+      use_fill_value = (collector_buffer_fill_size /= &
+        &               gather_pattern%collector_size(collector_idx)) .AND. &
+        &              (collector_buffer_fill_size > 0)
+    ELSE
+      use_fill_value = .FALSE.
+    END IF
+  ELSE
+    use_fill_value = .FALSE.
+  END IF
+
+  IF ((PRESENT(recv_buffer_r) .NEQV. PRESENT(collector_buffer_r)) .OR. &
+      (PRESENT(recv_buffer_i) .NEQV. PRESENT(collector_buffer_i))) &
+    CALL finish("two_phase_gather_second", "invalid arguments")
 
   num_recv_per_process(:) = 0
   IF (p_pe_work == process_mpi_root_id) THEN
@@ -3431,20 +3499,19 @@ SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
     recv_displ(i) = recv_displ(i-1) + num_recv_per_process(i-1)
   END DO
 
-  IF (PRESENT(send_buffer_r)) &
+  IF (PRESENT(recv_buffer_r)) THEN
     CALL p_gatherv(collector_buffer_r, SIZE(collector_buffer_r, 2), &
       &            recv_buffer_r, num_recv_per_process, recv_displ, &
       &            process_mpi_root_id, p_comm_work)
-  IF (PRESENT(send_buffer_i)) &
+    DEALLOCATE(collector_buffer_r)
+  END IF
+  IF (PRESENT(recv_buffer_i)) THEN
     CALL p_gatherv(collector_buffer_i, SIZE(collector_buffer_i, 2), &
       &            recv_buffer_i, num_recv_per_process, recv_displ, &
       &            process_mpi_root_id, p_comm_work)
-
-  IF (ALLOCATED(collector_buffer_nofill_r)) DEALLOCATE(collector_buffer_nofill_r)
-  IF (ALLOCATED(collector_buffer_fill_r)) DEALLOCATE(collector_buffer_fill_r)
-  IF (ALLOCATED(collector_buffer_nofill_i)) DEALLOCATE(collector_buffer_nofill_i)
-  IF (ALLOCATED(collector_buffer_fill_i)) DEALLOCATE(collector_buffer_fill_i)
-END SUBROUTINE two_phase_gather
+    DEALLOCATE(collector_buffer_i)
+  END IF
+END SUBROUTINE two_phase_gather_second
 
     !-------------------------------------------------------------------------------------------------------------------------------
     !> Factory method for t_scatterPattern. Destroy with deleteScatterPattern().
