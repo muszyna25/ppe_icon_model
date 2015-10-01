@@ -90,7 +90,6 @@ MODULE mo_parallel_nml
     INTEGER :: division_method(0:max_dom)
 !                      div_from_file = 0  ! Read from file
 !                      div_geometric = 1  ! Geometric subdivision
-!                      div_metis     = 2  ! Use Metis
 !                      ext_div_medial = 101
 !                      ext_div_medial_cluster = 102
 !                      ext_div_medial_redrad = 103

@@ -28,7 +28,7 @@ MODULE mo_parallel_config
   PUBLIC :: parallel_radiation_mode, test_parallel_radiation
 
   PUBLIC :: n_ghost_rows,                                     &
-       &  div_from_file, div_geometric, div_metis, division_method, &
+       &  div_from_file, div_geometric, division_method, &
        &  division_file_name, radiation_division_file_name, &
        &  l_log_checks, l_fast_sum, ldiv_phys_dom,                  &
        &  p_test_run, l_test_openmp,                                &
@@ -58,7 +58,6 @@ MODULE mo_parallel_config
   ! Division method for area subdivision
   INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
-  INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
   INTEGER, PARAMETER :: ext_div_medial = 101
   INTEGER, PARAMETER :: ext_div_medial_cluster = 102
   INTEGER, PARAMETER :: ext_div_medial_redrad = 103
@@ -237,13 +236,6 @@ CONTAINS
 !     CASE(div_from_file, div_geometric, ext_div_medial, ext_div_medial_cluster, &
 !       & ext_div_medial_redrad, ext_div_medial_redrad_cluster)
 !       ! ok
-!     CASE(div_metis)
-! #ifdef HAVE_METIS
-!     ! ok
-! #else
-!       CALL finish(method_name, &
-!         & 'division_method=div_metis=2 in parallel_nml namelist is not allowed')
-! #endif
 !     CASE DEFAULT
 !       CALL finish(method_name, &
 !         & 'value of division_method in parallel_nml namelist is not allowed')

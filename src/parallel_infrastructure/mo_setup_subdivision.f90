@@ -20,9 +20,6 @@
 !!
 !!
 MODULE mo_setup_subdivision
-  ! If METIS is installed, uncomment the following line
-  ! (or better adjust configure to recognize that)
-  !#define HAVE_METIS
   !
   !-------------------------------------------------------------------------
   !    ProTeX FORTRAN source: Style 2
@@ -56,9 +53,6 @@ MODULE mo_setup_subdivision
     & div_geometric, ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
     & ext_div_medial_redrad_cluster, ext_div_from_file, redrad_split_factor
 
-#ifdef HAVE_METIS
-  USE mo_parallel_config,    ONLY: div_metis
-#endif
   USE mo_communication,      ONLY: blk_no, idx_no, idx_1d
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
@@ -494,7 +488,7 @@ CONTAINS
     INTEGER, POINTER :: cell_owner(:) !> Cell division
     INTEGER, POINTER :: local_owner_ptr(:)
     INTEGER :: n, i, j
-    INTEGER, POINTER :: flag_c(:)
+    INTEGER, ALLOCATABLE :: flag_c(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
 
     ! Please note: Unfortunately we cannot use p_io for doing I/O,
@@ -648,10 +642,6 @@ CONTAINS
                           wrk_p_patch_pre%cells%local_chunk(1,1)%first + &
         &                 wrk_p_patch_pre%cells%local_chunk(1,1)%size - 1))
         END IF
-#ifdef HAVE_METIS
-      ELSE IF(division_method(patch_no) == div_metis) THEN
-        ALLOCATE(flag_c(wrk_p_parent_patch_pre%n_patch_cells_g))
-#endif
       ELSE
         CALL finish('divide_patch','Illegal division_method setting')
       END IF
@@ -664,36 +654,15 @@ CONTAINS
         ! which cover the actual patch and then assign the ownership
         ! of the cells of the actual patch according to the parent cells
 
+        ! Determine the subset of the parent patch covering the actual patch
+        ! by flagging the according cells
+        CALL compute_flag_c(flag_c, wrk_p_patch_pre, wrk_p_parent_patch_pre)
+
         ! Divide subset of patch
         ! Receives the PE  numbers for every cell
-        IF(division_method(patch_no) == div_geometric) THEN
-
-          ! Determine the subset of the parent patch covering the actual patch
-          ! by flagging the according cells
-          CALL compute_flag_c(flag_c, wrk_p_patch_pre, wrk_p_parent_patch_pre)
-
-          CALL divide_subset_geometric(flag_c, n_proc, wrk_p_parent_patch_pre, &
-               dist_cell_owner_p, ASSOCIATED(wrk_p_parent_patch_pre), &
-               divide_for_radiation = divide_for_radiation)
-#ifdef HAVE_METIS
-        ELSE IF(division_method(patch_no) == div_metis) THEN
-
-          ! Determine the subset of the parent patch covering the actual patch
-          ! by flagging the according cells
-          IF (p_pe_work == 0) THEN
-            flag_c = 0
-            DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-              CALL dist_mult_array_get(wrk_p_patch_pre%cells%parent, 1, (/j/), jp)
-              CALL dist_mult_array_get(wrk_p_patch_pre%cells%phys_id, 1, (/j/), &
-                &                      temp_phys_id)
-              flag_c(jp) = MAX(1,temp_phys_id)
-            ENDDO
-          END IF
-          CALL p_bcast(flag_c, 0, p_comm_work)
-          CALL divide_subset_metis(flag_c, n_proc, wrk_p_parent_patch_pre, &
-            &                      dist_cell_owner_p)
-#endif
-        ENDIF
+        CALL divide_subset_geometric(flag_c, n_proc, wrk_p_parent_patch_pre, &
+             dist_cell_owner_p, ASSOCIATED(wrk_p_parent_patch_pre), &
+             divide_for_radiation = divide_for_radiation)
 
         CALL dist_mult_array_expose(dist_cell_owner_p)
 
@@ -707,25 +676,15 @@ CONTAINS
       ELSE
 
         ! Set subset flags where the "subset" is the whole patch
-        flag_c(:) = 1
+        flag_c = 1
 
         ! No parent patch, simply divide current patch
 
         ! Divide complete patch
-        IF(division_method(patch_no) == div_geometric) THEN
-          CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_pre, &
-               dist_cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
-               divide_for_radiation = divide_for_radiation)
-#ifdef HAVE_METIS
-        ELSE IF(division_method(patch_no) == div_metis) THEN
-          CALL divide_subset_metis(flag_c, n_proc, wrk_p_patch_pre, &
-            &                      dist_cell_owner)
-#endif
-        ENDIF
-
+        CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_pre, &
+             dist_cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
+             divide_for_radiation = divide_for_radiation)
       ENDIF
-
-      DEALLOCATE(flag_c)
 
       ! Set processor offset
       CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
@@ -737,7 +696,7 @@ CONTAINS
 
     SUBROUTINE compute_flag_c(flag_c, wrk_p_patch_pre, wrk_p_parent_patch_pre)
 
-      INTEGER, POINTER :: flag_c(:)
+      INTEGER, ALLOCATABLE :: flag_c(:)
       TYPE(t_pre_patch), INTENT(IN) :: wrk_p_patch_pre
       TYPE(t_pre_patch), INTENT(IN) :: wrk_p_parent_patch_pre
 
@@ -2794,7 +2753,7 @@ CONTAINS
                                      dist_cell_owner, lparent_level, &
                                      divide_for_radiation)
 
-    INTEGER, POINTER    :: subset_flag(:) ! if > 0 a cell belongs to the subset
+    INTEGER, ALLOCATABLE   :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
     TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre ! out is required for
                                                         ! the distributed arrays
@@ -3337,122 +3296,6 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE set_owners_mpi
-#endif
-
-
-#ifdef HAVE_METIS
-  !-------------------------------------------------------------------------
-  !>
-  !! Makes a area subdivision for a subset of wrk_p_patch.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial version by Rainer Johanni, Nov 2009
-  !!
-  SUBROUTINE divide_subset_metis(subset_flag, n_proc, wrk_p_patch_pre, &
-                                 dist_cell_owner)
-
-    INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
-    INTEGER, INTENT(in)    :: n_proc   ! Number of processors
-    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
-    ! receives the owner PE for every cell
-    TYPE(dist_mult_array), INTENT(out)   :: dist_cell_owner(:)
-    ! (-1 for cells not in subset)
-
-
-    INTEGER, ALLOCATABLE   :: owner(:) ! receives the owner PE for every cell
-    INTEGER :: i, j, jl, jb, jl_n, jb_n, na, nc
-    INTEGER, ALLOCATABLE :: local_index(:), tmp(:)
-    INTEGER, ALLOCATABLE :: metis_xadj(:), metis_adjncy(:)
-    INTEGER :: metis_options(5), metis_edgecut
-
-    !-----------------------------------------------------------------------
-
-    IF(p_pe_work==0) WRITE(0,*) 'divide_patch: Using METIS for area subdivision'
-
-    ! Get the local index (i.e. contiguous numbers) of the cells in the subset.
-    ! Since the METIS rountine is called with the option for C-Style numbering,
-    ! we let local_index start with 0 here!
-
-    ALLOCATE(local_index(wrk_p_patch_pre%n_patch_cells_g), &
-      &      owner(wrk_p_patch_pre%n_patch_cells_g))
-    local_index(:) = -1
-
-    nc = 0
-    DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-      jb = blk_no(j) ! block index
-      jl = idx_no(j) ! line index
-      IF(subset_flag(j)>0) THEN
-        local_index(j) = nc
-        nc = nc+1
-      ENDIF
-    ENDDO
-
-    ! Construct adjacency structure of graph
-    ! Please note that the Metis vertices are our grid cells!
-
-    ALLOCATE(metis_xadj(0:wrk_p_patch_pre%n_patch_cells_g))
-    ALLOCATE(metis_adjncy(wrk_p_patch_pre%n_patch_cells_g * &
-      &                   wrk_p_patch_pre%cell_type))
-    metis_options(:) = 0
-
-    metis_xadj(0) = 0
-    na = 0 ! Counts adjacency entries
-    nc = 0 ! Counts cells in subset
-
-    DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-      jb = blk_no(j) ! block index
-      jl = idx_no(j) ! line index
-
-      IF(subset_flag(j)<=0) CYCLE ! Cell not in subset
-
-      ! Loop over all neighbors of the cell and include neighbors
-      ! which are also in the subset in the adjacency list
-
-      nc = nc+1
-
-      CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
-        &                      (/j/), temp_num_edges)
-      DO i = 1, temp_num_edges
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%neighbor,1,(/j,i/),jn)
-
-        ! Neighbor not existing
-        IF(jn > wrk_p_patch_pre%n_patch_cells_g .OR. jn < 1) CYCLE
-
-        ! Neighbor not in subset
-        IF(subset_flag(jn)<0) CYCLE
-
-        na = na+1
-        metis_adjncy(na) = local_index(jn)
-      ENDDO
-      metis_xadj(nc) = na
-    ENDDO
-
-    ! Divide graph with Metis - currently no weights are assigned to vertices/edges
-
-    ALLOCATE(tmp(nc))
-    CALL metis_partgraphrecursive(nc, metis_xadj, metis_adjncy, 0, 0, 0, 0, &
-      & n_proc, metis_options, metis_edgecut, tmp)
-
-    ! The owner list delivered by mets (in tmp) contains only owners for
-    ! cells in subset, scatter it into the global owner list
-
-    owner(:) = -1
-    nc = 0 ! Counts cells in subset
-
-    DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-      IF(subset_flag(j)>0) THEN
-        nc = nc+1
-        owner(j) = tmp(nc)
-      ENDIF
-    ENDDO
-
-    DEALLOCATE(metis_xadj, metis_adjncy, local_index, tmp)
-
-    CALL create_dist_cell_owner(dist_cell_owner,wrk_p_patch_pre%n_patch_cells_g)
-    CALL init_dist_cell_owner(dist_cell_owner, owner)
-
-  END SUBROUTINE divide_subset_metis
 #endif
 
   !-------------------------------------------------------------------------
