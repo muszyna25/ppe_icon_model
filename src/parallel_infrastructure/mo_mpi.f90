@@ -7801,7 +7801,9 @@ CONTAINS
      IF (p_error /=  MPI_SUCCESS) &
        CALL finish (routine, 'Error in MPI_ALLTOALLV operation!')
 #else
-     recvbuf(:,:) = sendbuf(:,1:sendcounts(1))
+     ! displs are zero based -> have to add 1
+     recvbuf(:,rdispls(1)+1:rdispls(1)+recvcounts(1)) = &
+       sendbuf(:,sdispls(1)+1:sdispls(1)+sendcounts(1))
 #endif
    END SUBROUTINE p_alltoallv_real_2d
 
@@ -7826,7 +7828,9 @@ CONTAINS
      IF (p_error /=  MPI_SUCCESS) &
        CALL finish (routine, 'Error in MPI_ALLTOALLV operation!')
 #else
-     recvbuf(:,:) = sendbuf(:,1:sendcounts(1))
+     ! displs are zero based -> have to add 1
+     recvbuf(:,rdispls(1)+1:rdispls(1)+recvcounts(1)) = &
+       sendbuf(:,sdispls(1)+1:sdispls(1)+sendcounts(1))
 #endif
    END SUBROUTINE p_alltoallv_int_2d
 
@@ -7847,7 +7851,9 @@ CONTAINS
      IF (p_error /=  MPI_SUCCESS) &
        CALL finish (routine, 'Error in MPI_ALLTOALLV operation!')
 #else
-     recvbuf(:) = sendbuf(1:sendcounts(1))
+     ! displs are zero based -> have to add 1
+     recvbuf(rdispls(1)+1:rdispls(1)+recvcounts(1)) = &
+       sendbuf(sdispls(1)+1:sdispls(1)+sendcounts(1))
 #endif
    END SUBROUTINE p_alltoallv_int
 
