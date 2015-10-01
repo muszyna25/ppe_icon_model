@@ -1211,6 +1211,7 @@ set_run_target_juqueen()
 # @ notification = error
 # @ notify_user = $(whoami)
 # @ job_type = bluegene
+# @ initialdir = $output_folder
 # @ bg_size = ${use_nodes}
 # @ queue
 # ==========================
