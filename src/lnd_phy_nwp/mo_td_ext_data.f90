@@ -241,7 +241,7 @@ CONTAINS
 
     INTEGER, INTENT(IN)                  :: m1,m2,y1,y2 ! month and year of the 
                                                ! nearest months to datetime
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
     CHARACTER(LEN=filename_max) :: extpar_file 

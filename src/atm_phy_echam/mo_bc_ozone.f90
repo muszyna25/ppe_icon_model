@@ -49,7 +49,7 @@ CONTAINS
   SUBROUTINE read_bc_ozone(year, p_patch)
 
     INTEGER      , INTENT(in)         :: year
-    TYPE(t_patch), INTENT(in)         :: p_patch
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 
     CHARACTER(len=16)                 :: fname
     TYPE(t_stream_id)                 :: stream_id

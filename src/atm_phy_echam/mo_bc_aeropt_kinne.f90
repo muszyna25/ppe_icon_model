@@ -341,7 +341,7 @@ SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   INTEGER, INTENT(in)            :: iyear ! base year. if month=0, month 12 of previous year is read, if month=13, month 1
                                           ! of subsequent year is read
   CHARACTER(len=*), INTENT(in)   :: cfname   ! file name containing variables
-  TYPE(t_patch), INTENT(in)      :: p_patch
+  TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 
   INTEGER                        :: ifile_id, kmonthb, kmonthe, ilen_cfname
   TYPE(t_stream_id)              :: stream_id

@@ -468,7 +468,7 @@ MODULE mo_initicon_io
   !!
   SUBROUTINE read_extana_atm (p_patch, initicon)
 
-    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_patch), TARGET,  INTENT(IN)    :: p_patch(:)
     TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
 
     INTEGER :: jg, jlev, jc, jk, jb, i_endidx
