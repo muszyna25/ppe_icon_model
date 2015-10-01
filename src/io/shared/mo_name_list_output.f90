@@ -1435,13 +1435,16 @@ CONTAINS
     END DO
 #endif
 
-    nlev_max = 1
-    DO iv = 1, of%num_vars
-      info => of%var_desc(iv)%info
-      IF(info%ndims == 3) nlev_max = MAX(nlev_max, info%used_dimensions(2))
-    ENDDO
+    ! if no valid io_proc_chunk_size has been set by the parallel name list
+    IF (io_proc_chunk_size <= 0) THEN
+      nlev_max = 1
+      DO iv = 1, of%num_vars
+        info => of%var_desc(iv)%info
+        IF(info%ndims == 3) nlev_max = MAX(nlev_max, info%used_dimensions(2))
+      ENDDO
 
-    io_proc_chunk_size = nlev_max
+      io_proc_chunk_size = nlev_max
+    END IF
 
     IF (use_dp_mpi2io) THEN
       ALLOCATE(var1_dp(nval*io_proc_chunk_size), STAT=ierrstat)

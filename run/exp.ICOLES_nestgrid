@@ -104,6 +104,7 @@ cat > ${atmo_namelist} << EOF
  l_test_openmp  = .false.
  l_log_checks   = .false.
  num_io_procs   = 0
+ io_proc_chunk_size = -1
  num_prefetch_proc = 0
 /
 &grid_nml

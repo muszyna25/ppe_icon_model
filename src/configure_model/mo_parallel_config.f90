@@ -39,7 +39,7 @@ MODULE mo_parallel_config
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
        &  restart_chunk_size, ext_div_from_file, write_div_to_file, &
-       &  use_div_from_file
+       &  use_div_from_file, io_proc_chunk_size
 
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
 
@@ -149,6 +149,10 @@ MODULE mo_parallel_config
   ! The (asynchronous) restart is capable of writing and communicating
   ! more than one 2D slice at once
   INTEGER :: restart_chunk_size
+
+  ! The (asynchronous) name list output is capable of writing and communicating
+  ! more than one 2D slice at once
+  INTEGER :: io_proc_chunk_size
 
 CONTAINS
 
