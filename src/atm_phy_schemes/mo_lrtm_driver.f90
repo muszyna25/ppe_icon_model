@@ -296,14 +296,20 @@ CONTAINS
       ENDDO
     ENDDO
 
-    IF (idrv .EQ. 1) THEN
+    IF (idrv .EQ. 1 .and. present(duflx_dt)) THEN
       DO jk = 0, klev
         DO jl = 1, kproma  ! loop over columns
           duflx_dt(jl,jk+1) = dtotuflux_dt(jl,jk)
-          duflxc_dt(jl,jk+1) = dtotuclfl_dt(jl,jk)
         ENDDO
       ENDDO
     ENDIF
+    IF (idrv .EQ. 1 .and. present(duflxc_dt) ) THEN
+      DO jk = 0, klev
+        DO jl = 1, kproma  ! loop over columns
+          duflxc_dt(jl,jk+1) = dtotuclfl_dt(jl,jk)
+        ENDDO
+      ENDDO
+    END IF
 
   END SUBROUTINE lrtm
   !-----------------------------------------------------------------------------
