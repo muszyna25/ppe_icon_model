@@ -87,6 +87,7 @@ case "$fortran_compiler" in
         LDFLAGS     = "$FOTPTIM"
         OMPFLAG     = -fopenmp
         ART_FFLAGS  = -D__ICON_ART -fall-intrinsics
+        CC_OMPFLAG  = -fopenmp
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -119,9 +120,11 @@ case "$fortran_compiler" in
           debug)
             OMPFLAG = -qsmp=omp:noopt
             F77FLAGS = $GENFLAGS $FMISMATCH -O0 -g
+            CC_OMPFLAG  = -qsmp=omp:noopt
             ;;
           *)
             OMPFLAG = -qsmp=omp
+            CC_OMPFLAG  = -qsmp=omp
             ;;
         esac
         DEFOPT   = -WF,-D
@@ -142,7 +145,14 @@ case "$fortran_compiler" in
         FFLAGS      = "$GEN_FLAGS" -f2003 "$FDEBUG" "$MISMATCHS" "$INCLUDES"
         F77         = nagfor
         F77FLAGS    = "$GEN_FLAGS" "$FDEBUG" -w=obs -O -dcfuns -mismatch_all
-        OMPFLAG     = 
+        case "$with_openmp" in
+          yes)
+            FFLAGS=${FFLAGS/ -gline / }
+            F77FLAGS=${F77FLAGS/ -gline / }
+          ;;
+        esac
+        OMPFLAG     = -openmp
+        CC_OMPFLAG  =
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -159,6 +169,7 @@ case "$fortran_compiler" in
         F77         = "$FC"
         F77FLAGS    = "$FFLAGS"
         OMPFLAG     = -mp
+        CC_OMPFLAG  = -mp
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -218,6 +229,7 @@ case "$fortran_compiler" in
         F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
         OMPFLAG     = -openmp
         ART_FFLAGS  = -D__ICON_ART
+        CC_OMPFLAG  = -openmp
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
