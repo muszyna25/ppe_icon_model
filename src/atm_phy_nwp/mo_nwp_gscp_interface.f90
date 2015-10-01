@@ -64,7 +64,7 @@ MODULE mo_nwp_gscp_interface
   USE gscp_graupel,            ONLY: graupel
   USE gscp_hydci_pp_ice,       ONLY: hydci_pp_ice
   USE mo_exception,            ONLY: finish
-  USE mo_mcrph_sb,             ONLY: two_moment_mcrph, &
+  USE mo_mcrph_sb,             ONLY: two_moment_mcrph, set_qnc, &
        &                             set_qnr,set_qni,set_qns,set_qng
   USE mo_art_clouds_interface, ONLY: art_clouds_interface_twomom
   USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
@@ -170,7 +170,7 @@ CONTAINS
              
              DO jk = 1, nlev
                 DO jc = i_startidx, i_endidx
-                   p_prog_rcf%tracer(jc,jk,jb,iqnc) = set_qnr(p_prog_rcf%tracer(jc,jk,jb,iqc))
+                   p_prog_rcf%tracer(jc,jk,jb,iqnc) = set_qnc(p_prog_rcf%tracer(jc,jk,jb,iqc))
                    p_prog_rcf%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_rcf%tracer(jc,jk,jb,iqr))
                    p_prog_rcf%tracer(jc,jk,jb,iqni) = set_qni(p_prog_rcf%tracer(jc,jk,jb,iqi))
                    p_prog_rcf%tracer(jc,jk,jb,iqns) = set_qns(p_prog_rcf%tracer(jc,jk,jb,iqs))
