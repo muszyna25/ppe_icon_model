@@ -492,7 +492,7 @@ CONTAINS
     TYPE(t_decomposition_structure)  :: decomposition_struct
 
     INTEGER, POINTER :: cell_owner(:) !> Cell division
-    INTEGER, POINTER :: local_owner_ptr(:), local_parent_ptr(:)
+    INTEGER, POINTER :: local_owner_ptr(:)
     INTEGER :: n, i, j
     INTEGER, POINTER :: flag_c(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
@@ -700,15 +700,9 @@ CONTAINS
         ! Owners of the cells of the parent patch are now in dist_cell_owner_p.
         ! Set owners in current patch from this
 
-        CALL create_dist_cell_owner(dist_cell_owner, &
-          &                         wrk_p_patch_pre%n_patch_cells_g)
-        CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
-        CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%parent, 1, &
-          &                            local_parent_ptr)
-        DO j = LBOUND(local_owner_ptr,1), UBOUND(local_owner_ptr,1)
-          CALL dist_mult_array_get(dist_cell_owner_p, 1, &
-            &                      (/local_parent_ptr(j)/), local_owner_ptr(j))
-        ENDDO
+        CALL compute_dist_owner_from_dist_owner_p( &
+          dist_cell_owner, wrk_p_patch_pre, wrk_p_parent_patch_pre, &
+          dist_cell_owner_p)
 
       ELSE
 
@@ -750,7 +744,7 @@ CONTAINS
       INTEGER, POINTER :: local_parent_ptr(:), local_phys_id_ptr(:)
       INTEGER, ALLOCATABLE :: parent_phys_id_map(:,:), num_send(:), num_recv(:), &
         &                     send_displs(:), recv_displs(:), flag_c_prep(:,:)
-      INTEGER :: parent_part_rank
+      INTEGER :: parent_part_rank, i
       TYPE(extent) :: global_extent
 
       flag_c = 0
@@ -799,8 +793,75 @@ CONTAINS
       END DO
     END SUBROUTINE compute_flag_c
 
-  END SUBROUTINE divide_patch_cells
+    SUBROUTINE compute_dist_owner_from_dist_owner_p(dist_cell_owner, &
+      wrk_p_patch_pre, wrk_p_parent_patch_pre, dist_cell_owner_p)
 
+      TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
+      TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre
+      TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_parent_patch_pre
+      TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner_p
+
+      INTEGER, POINTER :: local_parent_ptr(:), local_owner_p_ptr(:), &
+        &                 local_owner_ptr(:)
+      INTEGER :: i, parent_part_rank
+      INTEGER, ALLOCATABLE :: parent_cell_idx(:), parent_cell_idx_permutation(:), &
+        &                     num_send(:), num_recv(:), send_displs(:), &
+        &                     recv_displs(:), inquired_parent_cell_idx(:)
+      TYPE(extent) :: global_extent
+
+      CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%parent, 1, &
+        &                            local_parent_ptr)
+      ALLOCATE(parent_cell_idx(LBOUND(local_parent_ptr,1): &
+        &                      UBOUND(local_parent_ptr,1)), &
+        &      parent_cell_idx_permutation(LBOUND(local_parent_ptr,1): &
+        &                                  UBOUND(local_parent_ptr,1)))
+      parent_cell_idx = local_parent_ptr
+      parent_cell_idx_permutation = &
+        (/(i,i=LBOUND(parent_cell_idx,1),UBOUND(parent_cell_idx,1))/)
+
+      CALL quicksort(parent_cell_idx, parent_cell_idx_permutation)
+
+      global_extent%first = 1
+      global_extent%size = wrk_p_parent_patch_pre%n_patch_cells_g
+
+      ALLOCATE(num_send(p_n_work), num_recv(p_n_work), &
+        &      send_displs(p_n_work), recv_displs(p_n_work))
+      num_send = 0
+      DO i = LBOUND(parent_cell_idx,1), UBOUND(parent_cell_idx,1)
+        parent_part_rank = &
+          partidx_of_elem_uniform_deco(global_extent, p_n_work, &
+          &                            parent_cell_idx(i))
+        num_send(parent_part_rank) = num_send(parent_part_rank) + 1
+      END DO
+
+      CALL p_alltoall(num_send, num_recv, p_comm_work)
+
+      send_displs(1) = 0
+      recv_displs(1) = 0
+      DO i = 2, p_n_work
+        send_displs(i) = send_displs(i-1) + num_send(i-1)
+        recv_displs(i) = recv_displs(i-1) + num_recv(i-1)
+      END DO
+      ALLOCATE(inquired_parent_cell_idx(recv_displs(p_n_work)+num_recv(p_n_work)))
+      CALL p_alltoallv(parent_cell_idx, num_send, send_displs, &
+        &              inquired_parent_cell_idx, num_recv, recv_displs, p_comm_work)
+
+      CALL dist_mult_array_local_ptr(dist_cell_owner_p, 1, local_owner_p_ptr)
+
+      inquired_parent_cell_idx = local_owner_p_ptr(inquired_parent_cell_idx)
+
+      CALL p_alltoallv(inquired_parent_cell_idx, num_recv, recv_displs, &
+        &              parent_cell_idx, num_send, send_displs, p_comm_work)
+
+      CALL create_dist_cell_owner(dist_cell_owner, &
+        &                         wrk_p_patch_pre%n_patch_cells_g)
+      CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
+
+      local_owner_ptr(parent_cell_idx_permutation) = parent_cell_idx
+
+    END SUBROUTINE compute_dist_owner_from_dist_owner_p
+
+  END SUBROUTINE divide_patch_cells
 
   !-------------------------------------------------------------------------------------------------
   !>
