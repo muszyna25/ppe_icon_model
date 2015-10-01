@@ -237,17 +237,17 @@ CONTAINS
     kte = ke
 
     ! inverse of vertical layer thickness
-    rdz(its:ite,:) = 1._wp / dz(its:ite,:)
+    rdz(its:ite,kts:kte) = 1._wp / dz(its:ite,kts:kte)
 
     lprogccn = PRESENT(nccn)
     lprogin = PRESENT(ninpot)
 
     IF (clipping) THEN
-       WHERE(qr < 0.0_wp) qr = 0.0_wp
-       WHERE(qi < 0.0_wp) qi = 0.0_wp
-       WHERE(qs < 0.0_wp) qs = 0.0_wp
-       WHERE(qg < 0.0_wp) qg = 0.0_wp
-       WHERE(qh < 0.0_wp) qh = 0.0_wp
+       WHERE(qr(its:ite,kts:kte) < 0.0_wp) qr(its:ite,kts:kte) = 0.0_wp
+       WHERE(qi(its:ite,kts:kte) < 0.0_wp) qi(its:ite,kts:kte) = 0.0_wp
+       WHERE(qs(its:ite,kts:kte) < 0.0_wp) qs(its:ite,kts:kte) = 0.0_wp
+       WHERE(qg(its:ite,kts:kte) < 0.0_wp) qg(its:ite,kts:kte) = 0.0_wp
+       WHERE(qh(its:ite,kts:kte) < 0.0_wp) qh(its:ite,kts:kte) = 0.0_wp
     END IF
 
     ! indices as used in two-moment scheme
@@ -308,8 +308,8 @@ CONTAINS
     IF (explicit_solver) then
 
        ! ... save old variables for latent heat calculation
-       q_vap_old(:,:) = qv(:,:)
-       q_liq_old(:,:) = qc(:,:) + qr(:,:)
+       q_vap_old(its:ite,kts:kte) = qv(its:ite,kts:kte)
+       q_liq_old(its:ite,kts:kte) = qc(its:ite,kts:kte) + qr(its:ite,kts:kte)
 
        ! .. this subroutine calculates all the microphysical sources and sinks
        CALL clouds_twomoment(ik_slice, dt, lprogin, &
@@ -317,7 +317,7 @@ CONTAINS
 
        IF (lprogccn) THEN
           !WHERE(qc > 0.0_wp)  cloud%n = 5000e6_wp
-          WHERE(qc == 0.0_wp) cloud%n = 0.0_wp
+          WHERE(qc(its:ite,kts:kte) == 0.0_wp) cloud%n(its:ite,kts:kte) = 0.0_wp
        END IF
 
        ! .. latent heat term for temperature equation
@@ -366,16 +366,17 @@ CONTAINS
          lprogccn, lprogin, its, ite, kts, kte)
 
     IF (clipping) THEN
-       WHERE(qr < 0.0_wp) qr = 0.0_wp
-       WHERE(qi < 0.0_wp) qi = 0.0_wp
-       WHERE(qs < 0.0_wp) qs = 0.0_wp
-       WHERE(qg < 0.0_wp) qg = 0.0_wp
-       WHERE(qh < 0.0_wp) qh = 0.0_wp
-       WHERE(qnr < 0.0_wp) qnr = 0.0_wp
-       WHERE(qni < 0.0_wp) qni = 0.0_wp
-       WHERE(qns < 0.0_wp) qns = 0.0_wp
-       WHERE(qng < 0.0_wp) qng = 0.0_wp
-       WHERE(qnh < 0.0_wp) qnh = 0.0_wp
+       WHERE(qr(its:ite,kts:kte) < 0.0_wp) qr(its:ite,kts:kte) = 0.0_wp
+       WHERE(qi(its:ite,kts:kte) < 0.0_wp) qi(its:ite,kts:kte) = 0.0_wp
+       WHERE(qs(its:ite,kts:kte) < 0.0_wp) qs(its:ite,kts:kte) = 0.0_wp
+       WHERE(qg(its:ite,kts:kte) < 0.0_wp) qg(its:ite,kts:kte) = 0.0_wp
+       WHERE(qh(its:ite,kts:kte) < 0.0_wp) qh(its:ite,kts:kte) = 0.0_wp
+       WHERE(qnr(its:ite,kts:kte) < 0.0_wp) qnr(its:ite,kts:kte) = 0.0_wp
+       WHERE(qni(its:ite,kts:kte) < 0.0_wp) qni(its:ite,kts:kte) = 0.0_wp
+       WHERE(qns(its:ite,kts:kte) < 0.0_wp) qns(its:ite,kts:kte) = 0.0_wp
+       WHERE(qng(its:ite,kts:kte) < 0.0_wp) qng(its:ite,kts:kte) = 0.0_wp
+       WHERE(qnh(its:ite,kts:kte) < 0.0_wp) qnh(its:ite,kts:kte) = 0.0_wp
+
     END IF
 
     IF (lprogccn) THEN
@@ -419,15 +420,15 @@ CONTAINS
       END DO
     END IF
 
-    IF (lprogccn) WHERE(nccn < 35.0_wp) nccn = 35e6_wp
+    IF (lprogccn) &
+      WHERE(nccn(its:ite,kts:kte) < 35.0_wp) nccn(its:ite,kts:kte) = 35e6_wp
 
-    WHERE(qc < 1.0e-12_wp) qnc = 0.0_wp
-
-    WHERE(qr > 0.02_wp) qr = 0.02_wp
-    WHERE(qi > 0.02_wp) qi = 0.02_wp
-    WHERE(qs > 0.02_wp) qs = 0.02_wp
-    WHERE(qg > 0.02_wp) qg = 0.02_wp
-    WHERE(qh > 0.02_wp) qh = 0.02_wp
+    WHERE(qc(its:ite,kts:kte) < 1.0e-12_wp) qnc(its:ite,kts:kte) = 0.0_wp
+    WHERE(qr(its:ite,kts:kte) > 0.02_wp) qr(its:ite,kts:kte) = 0.02_wp
+    WHERE(qi(its:ite,kts:kte) > 0.02_wp) qi(its:ite,kts:kte) = 0.02_wp
+    WHERE(qs(its:ite,kts:kte) > 0.02_wp) qs(its:ite,kts:kte) = 0.02_wp
+    WHERE(qg(its:ite,kts:kte) > 0.02_wp) qg(its:ite,kts:kte) = 0.02_wp
+    WHERE(qh(its:ite,kts:kte) > 0.02_wp) qh(its:ite,kts:kte) = 0.02_wp
 
     IF (msg_level>dbg_level) CALL message(TRIM(routine), "two moment mcrph ends!")
 
@@ -468,8 +469,8 @@ CONTAINS
       if (.not.lmicro_impl) then
 
          ! ... save old variables for latent heat calculation
-         q_vap_old(:,:) = qv(:,:)
-         q_liq_old(:,:) = qc(:,:) + qr(:,:)
+         q_vap_old(its:ite,kts:kte) = qv(its:ite,kts:kte)
+         q_liq_old(its:ite,kts:kte) = qc(its:ite,kts:kte) + qr(its:ite,kts:kte)
 
          ! .. this subroutine calculates all the microphysical sources and sinks
          CALL clouds_twomoment(ik_slice, dt, lprogin, atmo, cloud, rain, &
@@ -488,18 +489,18 @@ CONTAINS
       end if
 
       ! clipping maybe not necessary
-      WHERE(qr < 0.0_wp) qr = 0.0_wp
-      WHERE(qi < 0.0_wp) qi = 0.0_wp
-      WHERE(qs < 0.0_wp) qs = 0.0_wp
-      WHERE(qg < 0.0_wp) qg = 0.0_wp
-      WHERE(qh < 0.0_wp) qh = 0.0_wp
-      WHERE(qnr < 0.0_wp) qnr = 0.0_wp
-      WHERE(qni < 0.0_wp) qni = 0.0_wp
-      WHERE(qns < 0.0_wp) qns = 0.0_wp
-      WHERE(qng < 0.0_wp) qng = 0.0_wp
-      WHERE(qnh < 0.0_wp) qnh = 0.0_wp
+      WHERE(qr(its:ite,kts:kte) < 0.0_wp) qr(its:ite,kts:kte) = 0.0_wp
+      WHERE(qi(its:ite,kts:kte) < 0.0_wp) qi(its:ite,kts:kte) = 0.0_wp
+      WHERE(qs(its:ite,kts:kte) < 0.0_wp) qs(its:ite,kts:kte) = 0.0_wp
+      WHERE(qg(its:ite,kts:kte) < 0.0_wp) qg(its:ite,kts:kte) = 0.0_wp
+      WHERE(qh(its:ite,kts:kte) < 0.0_wp) qh(its:ite,kts:kte) = 0.0_wp
+      WHERE(qnr(its:ite,kts:kte) < 0.0_wp) qnr(its:ite,kts:kte) = 0.0_wp
+      WHERE(qni(its:ite,kts:kte) < 0.0_wp) qni(its:ite,kts:kte) = 0.0_wp
+      WHERE(qns(its:ite,kts:kte) < 0.0_wp) qns(its:ite,kts:kte) = 0.0_wp
+      WHERE(qng(its:ite,kts:kte) < 0.0_wp) qng(its:ite,kts:kte) = 0.0_wp
+      WHERE(qnh(its:ite,kts:kte) < 0.0_wp) qnh(its:ite,kts:kte) = 0.0_wp
 
-      rdzdt = 0.5_wp * rdz * dt
+      rdzdt(its:ite,kts:kte) = 0.5_wp * rdz(its:ite,kts:kte) * dt
 
       qr_flux_now(:) = 0.0_wp
       nr_flux_now(:) = 0.0_wp
@@ -802,13 +803,13 @@ CONTAINS
          prec_s(:) = 0._wp
          prec_g(:) = 0._wp
 
-         IF (ANY(qi(:,:)>0._wp)) &
+         IF (ANY(qi(its:ite,kts:kte)>0._wp)) &
               call sedi_icon_sphere (ice,ice_coeffs,qi,qni,prec_i,rhocorr,rdz,dt,its,ite,kts,kte)
 
-         IF (ANY(qs(:,:)>0._wp)) &
+         IF (ANY(qs(its:ite,kts:kte)>0._wp)) &
               call sedi_icon_sphere (snow,snow_coeffs,qs,qns,prec_s,rhocorr,rdz,dt,its,ite,kts,kte)
 
-         IF (ANY(qg(:,:)>0._wp)) THEN
+         IF (ANY(qg(its:ite,kts:kte)>0._wp)) THEN
             ntsedi = 1
             DO ii=1,ntsedi
                call sedi_icon_sphere (graupel,graupel_coeffs,qg,qng,prec_g,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
@@ -818,7 +819,7 @@ CONTAINS
 
       IF (cloud_type.ge.2000) THEN
          prec_h(:) = 0.0
-         IF (ANY(qh(:,:)>0._wp)) THEN
+         IF (ANY(qh(its:ite,kts:kte)>0._wp)) THEN
             ntsedi = 1
             DO ii=1,ntsedi
                call sedi_icon_sphere (hail,hail_coeffs,qh,qnh,prec_h,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
@@ -841,54 +842,54 @@ CONTAINS
       REAL(wp), PARAMETER :: meps = -1e-12
 
       IF (cloud_type.lt.2000) THEN
-         IF (ANY(qh(:,:)>0._wp)) THEN
-            qh(:,:)  = 0.0_wp
+         IF (ANY(qh(its:ite,kts:kte)>0._wp)) THEN
+            qh(its:ite,kts:kte)  = 0.0_wp
             WRITE (message_text,'(1X,A)') '  qh > 0, after cloud_twomoment for cloud_type < 2000'
             CALL message(routine,TRIM(message_text))
             CALL finish(TRIM(routine),'Error in two_moment_mcrph')
          END IF
-         IF (ANY(qnh(:,:)>0._wp)) THEN
-            qnh(:,:)  = 0.0_wp
+         IF (ANY(qnh(its:ite,kts:kte)>0._wp)) THEN
+            qnh(its:ite,kts:kte)  = 0.0_wp
             WRITE (message_text,'(1X,A)') '  qnh > 0, after cloud_twomoment for cloud_type < 2000'
             CALL message(routine,TRIM(message_text))
             CALL finish(TRIM(routine),'Error in two_moment_mcrph')
          END IF
       END IF
       IF (msg_level>dbg_level) CALL message(TRIM(routine), " test for negative values")
-      IF (MINVAL(cloud%q) < meps) THEN
+      IF (MINVAL(cloud%q(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, cloud%q < 0')
       ENDIF
-      IF (MINVAL(rain%q) < meps) THEN
+      IF (MINVAL(rain%q(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, rain%q < 0')
       ENDIF
-      IF (MINVAL(ice%q) < meps) THEN
+      IF (MINVAL(ice%q(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, ice%q < 0,')
       ENDIF
-      IF (MINVAL(snow%q) < meps) THEN
+      IF (MINVAL(snow%q(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, snow%q < 0')
       ENDIF
-      IF (MINVAL(graupel%q) < meps) THEN
+      IF (MINVAL(graupel%q(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, graupel%q < 0')
       ENDIF
-      IF (MINVAL(hail%q) < meps) THEN
+      IF (MINVAL(hail%q(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, hail%q < 0')
       ENDIF
 !      IF (MINVAL(cloud%n) < meps) THEN
 !         CALL finish(TRIM(routine),'Error in two_moment_mcrph, cloud%n < 0')
 !      ENDIF
-      IF (MINVAL(rain%n) < meps) THEN
+      IF (MINVAL(rain%n(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, rain%n < 0')
       ENDIF
-      IF (MINVAL(ice%n) < meps) THEN
+      IF (MINVAL(ice%n(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, ice%n < 0')
       ENDIF
-      IF (MINVAL(snow%n) < meps) THEN
+      IF (MINVAL(snow%n(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, snow%n < 0')
       ENDIF
-      IF (MINVAL(graupel%n) < meps) THEN
+      IF (MINVAL(graupel%n(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, graupel%n < 0')
       ENDIF
-      IF (MINVAL(hail%n) < meps) THEN
+      IF (MINVAL(hail%n(its:ite,kts:kte)) < meps) THEN
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, hail%n < 0')
       ENDIF
     END subroutine check_clouds
