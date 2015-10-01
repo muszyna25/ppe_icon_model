@@ -4313,7 +4313,6 @@ CONTAINS
       firstcall = 1
     ENDIF
 
-
     x_coll_c = (D_coll_c/cloud%a_geo)**3          !..lower mass for collection
 
 
@@ -4361,7 +4360,6 @@ CONTAINS
             cloud%n(i,k) = cloud%n(i,k) - rime_n
 
             ! ice multiplication
-            mult_q = 0.0_wp
             IF (T_a < T_3 .AND. ice_multiplication) THEN
               mult_1 = const2*(T_a - T_mult_min)
               mult_2 = const3*(T_a - T_mult_max)
@@ -4388,8 +4386,6 @@ CONTAINS
               rain%q(i,k) = rain%q(i,k) + melt_q
               hail%n(i,k) = hail%n(i,k) - melt_n
               rain%n(i,k) = rain%n(i,k) + melt_n
-            ELSE
-              melt_q = 0.0
             ENDIF
 
             ! Shedding
