@@ -460,6 +460,9 @@ MODULE mo_2mom_mcrph_main
   !> run-time- and location invariant for graupel selfcollection
   REAL(wp), SAVE :: graupel_sc_coll_n
 
+  !> run-time- and location invariant for snow selfcollection
+  REAL(wp), SAVE :: snow_sc_delta_n, snow_sc_theta_n
+
 CONTAINS
 
   !*******************************************************************************
@@ -1340,6 +1343,7 @@ CONTAINS
     ENDIF
 
     CALL setup_graupel_selfcollection(graupel)
+    CALL setup_snow_selfcollection(snow)
 
   END SUBROUTINE init_2mom_scheme_once
 
@@ -3594,6 +3598,33 @@ CONTAINS
 
   END SUBROUTINE ice_selfcollection
 
+  SUBROUTINE setup_snow_selfcollection(snow)
+    TYPE(particle), INTENT(in) :: snow
+    REAL(wp) :: delta_n_11,delta_n_12
+    REAL(wp) :: theta_n_11,theta_n_12
+
+    delta_n_11 = coll_delta_11(snow,snow,0)
+    delta_n_12 = coll_delta_12(snow,snow,0)
+    theta_n_11 = coll_theta_11(snow,snow,0)
+    theta_n_12 = coll_theta_12(snow,snow,0)
+
+    snow_sc_delta_n = (2.0*delta_n_11 + delta_n_12)
+    snow_sc_theta_n = (2.0*theta_n_11 - theta_n_12)
+
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "    a_snow     = ",snow%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_snow     = ",snow%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    alf_snow   = ",snow%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    bet_snow   = ",snow%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_11 = ",delta_n_11  ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_12 = ",delta_n_12  ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n    = ",snow_sc_delta_n     ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_11 = ",theta_n_11  ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_12 = ",theta_n_12  ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n    = ",snow_sc_theta_n     ; CALL message(routine,TRIM(txt))
+    END IF
+  END SUBROUTINE setup_snow_selfcollection
+
   SUBROUTINE snow_selfcollection(ik_slice, dt, atmo, snow)
     !*******************************************************************************
     !                                                                              *
@@ -3608,43 +3639,11 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
     REAL(wp)            :: q_s,n_s,x_s,d_s,v_s,e_coll
     REAL(wp)            :: self_n
-    REAL(wp)            :: delta_n_11,delta_n_12
-    REAL(wp)            :: theta_n_11,theta_n_12
-    REAL(wp),SAVE       :: delta_n
-    REAL(wp),SAVE       :: theta_n
-!$omp threadprivate (firstcall)
-!$omp threadprivate (delta_n)
-!$omp threadprivate (theta_n)
 
     IF (isdebug) CALL message(routine, "snow_selfcollection")
-
-    IF (firstcall.NE.1) THEN
-      delta_n_11 = coll_delta_11(snow,snow,0)
-      delta_n_12 = coll_delta_12(snow,snow,0)
-      theta_n_11 = coll_theta_11(snow,snow,0)
-      theta_n_12 = coll_theta_12(snow,snow,0)
-
-      delta_n = (2.0*delta_n_11 + delta_n_12)
-      theta_n = (2.0*theta_n_11 - theta_n_12)
-
-      IF (isdebug) THEN
-        WRITE(txt,'(A,D10.3)') "    a_snow     = ",snow%a_geo ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    b_snow     = ",snow%b_geo ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    alf_snow   = ",snow%a_vel ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    bet_snow   = ",snow%b_vel ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n_11 = ",delta_n_11  ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n_12 = ",delta_n_12  ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n    = ",delta_n     ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_11 = ",theta_n_11  ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_12 = ",theta_n_12  ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n    = ",theta_n     ; CALL message(routine,TRIM(txt))
-      END IF
-      firstcall = 1
-    ENDIF
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -3667,8 +3666,9 @@ CONTAINS
              D_s = snow%diameter(x_s)
              v_s = snow%velocity(x_s) * snow%rho_v(i,k)
 
-             self_n = pi8 * e_coll * n_s * n_s * delta_n * D_s * D_s * &
-                  &          sqrt( theta_n * v_s * v_s + 2.0 * snow_s_vel**2 ) * dt
+             self_n = pi8 * e_coll * n_s * n_s * snow_sc_delta_n * D_s * D_s * &
+                  &          sqrt(  snow_sc_theta_n * v_s * v_s                &
+                  &               + 2.0 * snow_s_vel**2 ) * dt
 
              self_n = MIN(self_n,n_s)
 
