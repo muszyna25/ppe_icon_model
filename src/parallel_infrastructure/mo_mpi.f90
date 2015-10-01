@@ -6541,14 +6541,14 @@ CONTAINS
   !------------------------------------------------------
 
   !------------------------------------------------------
-  FUNCTION p_sum_dp_1d (zfield, comm) RESULT (p_sum)
+  FUNCTION p_sum_dp_1d (zfield, comm, root) RESULT (p_sum)
 
     REAL(dp),          INTENT(in) :: zfield(:)
-    INTEGER, OPTIONAL, INTENT(in) :: comm
+    INTEGER, OPTIONAL, INTENT(in) :: comm, root
     REAL(dp)                      :: p_sum (SIZE(zfield))
 
 #ifndef NOMPI
-    INTEGER :: p_comm
+    INTEGER :: p_comm, my_rank
 
     IF (PRESENT(comm)) THEN
        p_comm = comm
@@ -6557,8 +6557,17 @@ CONTAINS
     ENDIF
 
     IF (my_process_is_mpi_all_parallel()) THEN
-       CALL MPI_ALLREDUCE (zfield, p_sum, SIZE(zfield), p_real_dp, &
-            MPI_SUM, p_comm, p_error)
+      IF (PRESENT(root)) THEN
+        CALL mpi_reduce(zfield, p_sum, SIZE(zfield), p_real_dp, &
+             mpi_sum, root, p_comm, p_error)
+        ! get local PE identification
+        CALL mpi_comm_rank(p_comm, my_rank, p_error)
+        ! do not use the result on all the other ranks:
+        IF (root /= my_rank) p_sum = zfield
+      ELSE
+        CALL mpi_allreduce (zfield, p_sum, SIZE(zfield), p_real_dp, &
+             mpi_sum, p_comm, p_error)
+      END IF
     ELSE
        p_sum = zfield
     END IF
