@@ -23,7 +23,7 @@
 MODULE mo_alloc_patches
   !-------------------------------------------------------------------------
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, i8
   USE mo_impl_constants,     ONLY: success, &
     & max_char_length,  &
     & min_rlcell, max_rlcell, &
@@ -35,7 +35,8 @@ MODULE mo_alloc_patches
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              init_glb2loc_index_lookup, &
     &                              t_glb2loc_index_lookup, &
-    &                              deallocate_glb2loc_index_lookup
+    &                              deallocate_glb2loc_index_lookup, &
+    &                              uniform_partition
   USE mo_parallel_config,    ONLY: nproma
   USE mo_grid_config,        ONLY: n_dom, n_dom_start, max_childdom, &
     & dynamics_grid_filename,   dynamics_parent_grid_id,  &
@@ -620,8 +621,7 @@ CONTAINS
 
     TYPE(t_pre_patch), INTENT(inout) :: p_patch_pre
 
-    INTEGER :: max_childdom, num_cells_per_rank, num_edges_per_rank, &
-      &        num_verts_per_rank
+    INTEGER :: max_childdom
     TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(global_array_desc) :: dist_cell_owner_desc_child(1)
     TYPE(global_array_desc) :: dist_cell_owner_desc_neighbor(1)
@@ -701,27 +701,12 @@ CONTAINS
     dist_vert_owner_desc_vertex(1:2)%rect(1)%size = p_patch_pre%n_patch_verts_g
     dist_vert_owner_desc_vertex(1:2)%element_dt = ppm_real_dp
 
-    num_cells_per_rank = (p_patch_pre%n_patch_cells_g + p_n_work - 1) / p_n_work
-    num_edges_per_rank = (p_patch_pre%n_patch_edges_g + p_n_work - 1) / p_n_work
-    num_verts_per_rank = (p_patch_pre%n_patch_verts_g + p_n_work - 1) / p_n_work
-
-    p_patch_pre%cells%local_chunk(1,1)%first = &
-      MIN(p_patch_pre%n_patch_cells_g, p_pe_work * num_cells_per_rank + 1)
-    p_patch_pre%cells%local_chunk(1,1)%size = &
-      MAX(0, MIN(p_patch_pre%n_patch_cells_g + 1 - &
-        &        p_patch_pre%cells%local_chunk(1,1)%first, num_cells_per_rank))
-
-    p_patch_pre%edges%local_chunk(1,1)%first = &
-      MIN(p_patch_pre%n_patch_edges_g, p_pe_work * num_edges_per_rank + 1)
-    p_patch_pre%edges%local_chunk(1,1)%size = &
-      MAX(0, MIN(p_patch_pre%n_patch_edges_g + 1 - &
-        &        p_patch_pre%edges%local_chunk(1,1)%first, num_edges_per_rank))
-
-    p_patch_pre%verts%local_chunk(1,1)%first = &
-      MIN(p_patch_pre%n_patch_verts_g, p_pe_work * num_verts_per_rank + 1)
-    p_patch_pre%verts%local_chunk(1,1)%size = &
-      MAX(0, MIN(p_patch_pre%n_patch_verts_g + 1 - &
-        &        p_patch_pre%verts%local_chunk(1,1)%first, num_verts_per_rank))
+    p_patch_pre%cells%local_chunk(1,1) = &
+      uniform_partition(dist_cell_owner_desc(1)%rect(1), p_n_work, p_pe_work+1)
+    p_patch_pre%edges%local_chunk(1,1) = &
+      uniform_partition(dist_edge_owner_desc(1)%rect(1), p_n_work, p_pe_work+1)
+    p_patch_pre%verts%local_chunk(1,1) = &
+      uniform_partition(dist_vert_owner_desc(1)%rect(1), p_n_work, p_pe_work+1)
 
     local_cell_chunk_child(1,1) = p_patch_pre%cells%local_chunk(1,1)
     local_cell_chunk_child(2,1)%first = 1

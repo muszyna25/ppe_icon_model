@@ -41,7 +41,8 @@ MODULE mo_setup_subdivision
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
-    &                              set_inner_glb_index, set_outer_glb_index
+    &                              set_inner_glb_index, set_outer_glb_index, &
+    &                              uniform_partition
   USE mo_mpi,                ONLY: p_bcast, proc_split
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
@@ -432,7 +433,6 @@ CONTAINS
     TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
     INTEGER, INTENT(IN) :: cell_owner(:)
 
-    INTEGER :: num_cells_per_rank
     TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(extent) :: local_chunk(1,1)
     INTEGER, POINTER :: local_ptr(:)
@@ -442,11 +442,8 @@ CONTAINS
     dist_cell_owner_desc(1)%rect(1)%size = SIZE(cell_owner(:))
     dist_cell_owner_desc(1)%element_dt = ppm_int
 
-    num_cells_per_rank = (SIZE(cell_owner(:)) + p_n_work - 1) / p_n_work
-
-    local_chunk(1,1)%first = p_pe_work * num_cells_per_rank + 1
-    local_chunk(1,1)%size = MIN(SIZE(cell_owner(:)) + 1 - &
-      &                         local_chunk(1,1)%first, num_cells_per_rank)
+    local_chunk(1,1) = uniform_partition(dist_cell_owner_desc(1)%rect(1), &
+      &                                  p_n_work, p_pe_work+1)
 
     dist_cell_owner = dist_mult_array_new(dist_cell_owner_desc, local_chunk, &
       &                                   p_comm_work)
@@ -2613,12 +2610,9 @@ CONTAINS
     lsplit_merged_domains = .FALSE.
 
     IF (p_n_work > 1) THEN
-      my_cell_start = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
-           &               * INT(p_pe_work, i8)) &
-           &              / INT(p_n_work, i8) + 1)
-      my_cell_end = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
-           &             * INT(p_pe_work + 1, i8)) &
-           &            / INT(p_n_work, i8))
+      my_cell_start = wrk_p_patch_pre%cells%local_chunk(1,1)%first
+      my_cell_end = wrk_p_patch_pre%cells%local_chunk(1,1)%first + &
+        &           wrk_p_patch_pre%cells%local_chunk(1,1)%size - 1
 #ifndef NOMPI
       CALL init_divide_cells_by_location_mpi
 #else
