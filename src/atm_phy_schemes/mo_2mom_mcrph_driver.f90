@@ -65,7 +65,7 @@ USE mo_2mom_mcrph_main,     ONLY:                              &
      &                       rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
      &                       ccn_coeffs, in_coeffs,                     &
      &                       init_2mom_scheme,                          &
-     &                       qnc_const, q_crit, lprogin => use_prog_in
+     &                       qnc_const, q_crit
 
 USE mo_2mom_mcrph_util, ONLY:                            &
      &                       gfct,                       &  ! Gamma function (becomes intrinsic in Fortran2008)
@@ -189,7 +189,7 @@ CONTAINS
     REAL(wp) :: z_heat_cap_r       ! reciprocal of cpdr or cvdr (depending on l_cv)
     REAL(wp) :: rdz(isize,ke), rho_r(isize,ke)
 
-    LOGICAL :: lprogccn
+    LOGICAL :: lprogccn, lprogin
 
     LOGICAL, PARAMETER :: debug     = .false.       !
     LOGICAL, PARAMETER :: clipping  = .true.        ! not really necessary, just for cleanup
@@ -242,11 +242,7 @@ CONTAINS
     ELSE
        lprogccn = .false.
     ENDIF
-    IF (PRESENT(ninpot)) THEN
-       lprogin  = .true.
-    ELSE
-       lprogin  = .false.
-    ENDIF
+    lprogin = PRESENT(ninpot)
 
     IF (clipping) THEN
        WHERE(qr < 0.0_wp) qr = 0.0_wp
@@ -315,10 +311,10 @@ CONTAINS
 
        ! .. this subroutine calculates all the microphysical sources and sinks
        ! FIXME: optional arguments passed conditionally
-       IF (PRESENT(ninpot)) THEN
-          CALL clouds_twomoment(ik_slice, dt, atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
+       IF (lprogin) THEN
+          CALL clouds_twomoment(ik_slice, dt, lprogin, atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
        ELSE
-          CALL clouds_twomoment(ik_slice, dt, atmo, cloud, rain, ice, snow, graupel, hail, ninact)
+          CALL clouds_twomoment(ik_slice, dt, lprogin, atmo, cloud, rain, ice, snow, graupel, hail, ninact)
        ENDIF
 
        IF (lprogccn) THEN
@@ -354,7 +350,7 @@ CONTAINS
     ELSE
 
        ! .. semi-implicit solver includes microphysics and sedimentation
-       if (PRESENT(ninpot)) THEN
+       if (lprogin) THEN
           CALL message(TRIM(routine)," ERROR: gscp=5 not implemented for implicit solver")
           CALL finish(TRIM(routine),'Error in two_moment_mcrph')
        ELSE
@@ -468,11 +464,11 @@ CONTAINS
 
          ! .. this subroutine calculates all the microphysical sources and sinks
          ! FIXME: optional arguments passed conditionally
-         IF (PRESENT(ninpot)) THEN
-            CALL clouds_twomoment(ik_slice, dt, atmo, cloud, rain, &
+         IF (lprogin) THEN
+            CALL clouds_twomoment(ik_slice, dt, lprogin, atmo, cloud, rain, &
                  ice, snow, graupel, hail, ninact, nccn, ninpot)
          ELSE
-            CALL clouds_twomoment(ik_slice, dt, atmo, cloud, rain, &
+            CALL clouds_twomoment(ik_slice, dt, lprogin, atmo, cloud, rain, &
                  ice, snow, graupel, hail, ninact)
          ENDIF
 
@@ -729,11 +725,11 @@ CONTAINS
            ik_slice(3) = k
            ik_slice(4) = k
            ! FIXME: optional arguments passed conditionally
-           IF (PRESENT(ninpot)) THEN
-              CALL clouds_twomoment(ik_slice, dt, &
+           IF (lprogin) THEN
+              CALL clouds_twomoment(ik_slice, dt, lprogin, &
                    atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
            ELSE
-              CALL clouds_twomoment(ik_slice, dt, &
+              CALL clouds_twomoment(ik_slice, dt, lprogin, &
                    atmo, cloud, rain, ice, snow, graupel, hail, ninact)
            ENDIF
 

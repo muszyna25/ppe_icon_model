@@ -339,7 +339,6 @@ MODULE mo_2mom_mcrph_main
   ! some cloud microphysical switches
   LOGICAL, PARAMETER     :: ice_multiplication = .TRUE.  ! default is .true.
   LOGICAL, PARAMETER     :: enhanced_melting   = .TRUE.  ! default is .true.
-  LOGICAL                :: use_prog_in        = .FALSE.
 
   ! switches for shedding
   ! UB: Das angefrorene Wasser wird bei T > T_shed,
@@ -555,7 +554,7 @@ MODULE mo_2mom_mcrph_main
        ccn_coeffs, in_coeffs
 
   ! must be fixed: used for (non-threadsafe) argument passing
-  PUBLIC :: qnc_const, use_prog_in
+  PUBLIC :: qnc_const
 
 CONTAINS
 
@@ -706,7 +705,7 @@ CONTAINS
   ! splitting. Temperature is only updated in the driver.
   !*******************************************************************************
 
-  SUBROUTINE clouds_twomoment(ik_slice, dt, atmo, &
+  SUBROUTINE clouds_twomoment(ik_slice, dt, use_prog_in, atmo, &
        cloud, rain, ice, snow, graupel, hail, n_inact, n_cn, n_inpot)
 
     ! start and end indices for 2D slices
@@ -714,6 +713,7 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
+    LOGICAL, INTENT(in) :: use_prog_in
     TYPE(atmosphere), INTENT(inout) :: atmo
     TYPE(particle), INTENT(inout) :: cloud, rain, ice, snow, graupel, hail
 
@@ -778,10 +778,11 @@ CONTAINS
     IF (ice_typ > 0) THEN
 
        ! homogeneous and heterogeneous ice nucleation
+       ! FIXME: optional arguments passed conditionally
        IF (present(n_inpot)) THEN
-          CALL ice_nucleation_homhet(ik_slice, atmo, cloud, ice, snow, n_inact, n_inpot)
+          CALL ice_nucleation_homhet(ik_slice, use_prog_in, atmo, cloud, ice, snow, n_inact, n_inpot)
        ELSE
-          CALL ice_nucleation_homhet(ik_slice, atmo, cloud, ice, snow, n_inact)
+          CALL ice_nucleation_homhet(ik_slice, use_prog_in, atmo, cloud, ice, snow, n_inact)
        END IF
 
        ! homogeneous freezing of cloud droplets
@@ -2092,7 +2093,8 @@ CONTAINS
     END DO
   END SUBROUTINE cloud_freeze
 
-  SUBROUTINE ice_nucleation_homhet(ik_slice, atmo, cloud, ice, snow, n_inact, n_inpot)
+  SUBROUTINE ice_nucleation_homhet(ik_slice, use_prog_in, &
+       atmo, cloud, ice, snow, n_inact, n_inpot)
   !*******************************************************************************
   !                                                                              *
   ! Homogeneous and heterogeneous ice nucleation                                 *
@@ -2114,6 +2116,8 @@ CONTAINS
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
+    LOGICAL, INTENT(in) :: use_prog_in
+
     TYPE(atmosphere), INTENT(inout) :: atmo
     TYPE(particle), INTENT(inout) :: cloud, ice, snow
     REAL(wp), DIMENSION(:,:) :: n_inact
