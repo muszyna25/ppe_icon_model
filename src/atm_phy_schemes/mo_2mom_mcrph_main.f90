@@ -4166,8 +4166,9 @@ CONTAINS
     REAL(wp)            :: melt_n,melt_q,e_coll_q
     REAL(wp)            :: shed_n,shed_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
-    REAL(wp)            :: const1
-    REAL(wp), PARAMETER :: const2 = 1.0/(T_mult_opt - T_mult_min), &
+    REAL(wp), PARAMETER :: &
+         const1 = ecoll_gc/(D_coll_c - D_crit_c), &
+         const2 = 1.0/(T_mult_opt - T_mult_min), &
          const3 = 1.0/(T_mult_opt - T_mult_max), &
          const4 = c_w / L_ew, &
          !..mean mass of shedding drops
@@ -4176,7 +4177,6 @@ CONTAINS
     IF (isdebug) CALL message(routine, "graupel_cloud_riming")
 
     x_coll_c = (D_coll_c/cloud%a_geo)**3          !..lower threshold for collection
-    const1 = ecoll_gc/(D_coll_c - D_crit_c)
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
