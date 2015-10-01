@@ -17,13 +17,18 @@ MODULE mo_test_communication
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_mpi,                 ONLY: work_mpi_barrier, p_n_work, p_pe_work
+  USE mo_mpi,                 ONLY: work_mpi_barrier, p_n_work, p_pe_work, &
+    &                               p_comm_work, p_comm_rank, p_comm_size, &
+    &                               p_barrier
   USE mo_timer,               ONLY: ltimer, new_timer, timer_start, timer_stop, &
     & print_timer, activate_sync_timers, timers_level, timer_barrier, timer_radiaton_recv
   USE mo_parallel_config,     ONLY: nproma, icon_comm_method
   USE mo_communication,       ONLY: t_comm_gather_pattern, &
     &                               setup_comm_gather_pattern, &
-    &                               delete_comm_gather_pattern, exchange_data
+    &                               delete_comm_gather_pattern, exchange_data, &
+    &                               t_comm_allgather_pattern, &
+    &                               setup_comm_allgather_pattern, &
+    &                               delete_comm_allgather_pattern
 
   USE mo_master_control,      ONLY: get_my_process_name
 
@@ -1037,9 +1042,10 @@ CONTAINS
 
     INTEGER :: i, j
 
-    INTEGER :: local_size, global_size
+    INTEGER :: local_size, p_n_intercomm_remote, global_size
     INTEGER, ALLOCATABLE :: owner_local(:), glb_index(:)
     TYPE(t_comm_gather_pattern) :: gather_pattern
+    TYPE(t_comm_allgather_pattern) :: allgather_pattern
     LOGICAL :: disable_consistency_check
 
     INTEGER :: nlev
@@ -1050,6 +1056,10 @@ CONTAINS
     INTEGER, ALLOCATABLE :: out_array_i_1d(:), out_array_i_2d(:,:)
     INTEGER, ALLOCATABLE :: ref_out_array_i_1d(:), ref_out_array_i_2d(:,:)
     REAL(wp) :: fill_value
+    INTEGER :: p_comm_work_backup, p_pe_work_backup, p_n_work_backup
+    INTEGER :: intercomm, p_comm_work_new, ierr
+    LOGICAL :: is_active
+    
 
     CHARACTER(*), PARAMETER :: method_name = &
       "mo_test_communication:gather_communication_testbed"
@@ -1460,6 +1470,152 @@ CONTAINS
     CALL delete_comm_gather_pattern(gather_pattern)
     DEALLOCATE(owner_local, glb_index)
 
+#ifndef NOMPI
+    !---------------------------------------------------------------------------
+    ! initial setup for allgather_intercomm tests
+    !---------------------------------------------------------------------------
+    p_comm_work_backup = p_comm_work
+    p_pe_work_backup = p_pe_work
+    p_n_work_backup = p_n_work
+    CALL MPI_Comm_split(p_comm_work, p_pe_work/((p_n_work*2)/3), p_pe_work, &
+      &                 p_comm_work_new, ierr)
+    CALL MPI_Intercomm_create(p_comm_work_new, 0, p_comm_work, &
+      MERGE((p_n_work*2)/3, 0, p_pe_work < (p_n_work*2)/3), 2, intercomm, ierr)
+    p_comm_work = p_comm_work_new
+    p_pe_work = p_comm_rank(p_comm_work_new)
+    p_n_work = p_comm_size(p_comm_work_new)
+    CALL MPI_Comm_remote_size(intercomm, p_n_intercomm_remote, ierr)
+    IF (p_n_intercomm_remote /= p_n_work_backup - p_n_work) &
+      CALL finish(method_name, "problem with intercomm")
+
+    !---------------------------------------------------------------------------
+    ! simple allgather_intercomm test in which each process has its own local
+    ! contiguous part of the global array
+    !---------------------------------------------------------------------------
+    ! generate gather pattern
+    local_size = 10 * nproma
+    global_size = p_n_work * local_size
+    ALLOCATE(owner_local(local_size), glb_index(local_size))
+    DO i = 1, local_size
+      owner_local(i) = p_pe_work
+      glb_index(i) = local_size * p_pe_work + i
+    END DO
+    disable_consistency_check = .FALSE.
+    CALL setup_comm_gather_pattern(global_size, owner_local, glb_index, &
+      &                            gather_pattern)
+    CALL setup_comm_allgather_pattern(gather_pattern, intercomm, &
+      &                               allgather_pattern)
+
+    ! initialise in- and reference out data
+    nlev = 5
+    fill_value = -1
+    ALLOCATE(in_array_r_1d(nproma, local_size / nproma), &
+      &      in_array_i_1d(nproma, local_size / nproma))
+    DO i = 0, local_size-1
+      in_array_r_1d(MOD(i,nproma)+1, i/nproma+1) = p_pe_work * local_size + i
+      in_array_i_1d(MOD(i,nproma)+1, i/nproma+1) = p_pe_work * local_size + i
+    END DO
+    global_size = p_n_intercomm_remote * local_size
+    ALLOCATE(out_array_r_1d(global_size), &
+      &      out_array_i_1d(global_size), &
+      &      ref_out_array_r_1d(global_size), &
+      &      ref_out_array_i_1d(global_size))
+    DO i = 0, global_size - 1
+      ref_out_array_r_1d(i+1) = i
+      ref_out_array_i_1d(i+1) = i
+    END DO
+
+    ! check gather pattern
+    CALL check_exchange_allgather(in_array_r_1d, in_array_i_1d, &
+      &                           out_array_r_1d, ref_out_array_r_1d, &
+      &                           out_array_i_1d, ref_out_array_i_1d, &
+      &                           allgather_pattern, __LINE__)
+    CALL check_exchange_allgather(in_array_r_1d, in_array_i_1d, &
+      &                           out_array_r_1d, ref_out_array_r_1d, &
+      &                           out_array_i_1d, ref_out_array_i_1d, &
+      &                           allgather_pattern, __LINE__, fill_value)
+!
+    ! delete gather pattern and other arrays
+    DEALLOCATE(in_array_r_1d, in_array_i_1d, &
+      &        out_array_r_1d, out_array_i_1d, &
+      &        ref_out_array_r_1d, ref_out_array_i_1d)
+    CALL delete_comm_allgather_pattern(allgather_pattern)
+    CALL delete_comm_gather_pattern(gather_pattern)
+    DEALLOCATE(owner_local, glb_index)
+
+    !---------------------------------------------------------------------------
+    ! simple allgather_intercomm test in which each process has its own local
+    ! contiguous part of the global array (only one side of the intercomm has
+    ! data)
+    !---------------------------------------------------------------------------
+    do j = 0, 1
+
+      is_active = (p_n_work < (p_n_work_backup / 2)) .EQV. (j == 0)
+
+      ! generate gather pattern
+      local_size = MERGE(10 * nproma, 0, is_active)
+      global_size = p_n_work * local_size
+      ALLOCATE(owner_local(local_size), glb_index(local_size))
+      DO i = 1, local_size
+        owner_local(i) = p_pe_work
+        glb_index(i) = local_size * p_pe_work + i
+      END DO
+      disable_consistency_check = .FALSE.
+      CALL setup_comm_gather_pattern(global_size, owner_local, glb_index, &
+        &                            gather_pattern)
+      CALL setup_comm_allgather_pattern(gather_pattern, intercomm, &
+        &                               allgather_pattern)
+
+      ! initialise in- and reference out data
+      nlev = 5
+      fill_value = -1
+      ALLOCATE(in_array_r_1d(nproma, local_size / nproma), &
+        &      in_array_i_1d(nproma, local_size / nproma))
+      DO i = 0, local_size-1
+        in_array_r_1d(MOD(i,nproma)+1, i/nproma+1) = p_pe_work * local_size + i
+        in_array_i_1d(MOD(i,nproma)+1, i/nproma+1) = p_pe_work * local_size + i
+      END DO
+      global_size = p_n_intercomm_remote * MERGE(0, 10 * nproma, is_active)
+      ALLOCATE(out_array_r_1d(global_size), &
+        &      out_array_i_1d(global_size), &
+        &      ref_out_array_r_1d(global_size), &
+        &      ref_out_array_i_1d(global_size))
+      DO i = 0, global_size - 1
+        ref_out_array_r_1d(i+1) = i
+        ref_out_array_i_1d(i+1) = i
+      END DO
+
+      ! check gather pattern
+      CALL check_exchange_allgather(in_array_r_1d, in_array_i_1d, &
+        &                           out_array_r_1d, ref_out_array_r_1d, &
+        &                           out_array_i_1d, ref_out_array_i_1d, &
+        &                           allgather_pattern, __LINE__)
+      CALL check_exchange_allgather(in_array_r_1d, in_array_i_1d, &
+        &                           out_array_r_1d, ref_out_array_r_1d, &
+        &                           out_array_i_1d, ref_out_array_i_1d, &
+        &                           allgather_pattern, __LINE__, fill_value)
+  !
+      ! delete gather pattern and other arrays
+      DEALLOCATE(in_array_r_1d, in_array_i_1d, &
+        &        out_array_r_1d, out_array_i_1d, &
+        &        ref_out_array_r_1d, ref_out_array_i_1d)
+      CALL delete_comm_allgather_pattern(allgather_pattern)
+      CALL delete_comm_gather_pattern(gather_pattern)
+      DEALLOCATE(owner_local, glb_index)
+    END DO
+
+    !---------------------------------------------------------------------------
+    ! clean up allgather_intercomm stuff
+    !---------------------------------------------------------------------------
+
+    CALL MPI_Comm_free(intercomm, ierr)
+    CALL MPI_Comm_free(p_comm_work, ierr)
+
+    p_comm_work = p_comm_work_backup
+    p_pe_work = p_pe_work_backup
+    p_n_work = p_n_work_backup
+#endif
+
   CONTAINS
 
     SUBROUTINE check_exchange(in_array_r_1d, in_array_r_2d, &
@@ -1510,6 +1666,46 @@ CONTAINS
       IF (p_pe_work == 0) THEN
         IF (ANY(out_array_i_2d /= ref_out_array_i_2d)) THEN
           WRITE(message_text,'(a,i0)') "Wrong gather result i_2d, line=", line
+          CALL finish(method_name, message_text)
+        END IF
+      END IF
+    END SUBROUTINE
+
+    SUBROUTINE check_exchange_allgather(in_array_r_1d, &
+      &                                 in_array_i_1d, &
+      &                                 out_array_r_1d, &
+      &                                 ref_out_array_r_1d, &
+      &                                 out_array_i_1d, &
+      &                                 ref_out_array_i_1d, &
+      &                                 allgather_pattern, line, &
+      &                                 fill_value)
+
+      REAL(wp), INTENT(IN) :: in_array_r_1d(:,:)
+      INTEGER, INTENT(IN) :: in_array_i_1d(:,:)
+      REAL(wp), INTENT(OUT) :: out_array_r_1d(:)
+      REAL(wp), INTENT(IN) :: ref_out_array_r_1d(:)
+      INTEGER, INTENT(OUT) :: out_array_i_1d(:)
+      INTEGER, INTENT(IN) :: ref_out_array_i_1d(:)
+      TYPE(t_comm_allgather_pattern), INTENT(IN) :: allgather_pattern
+      INTEGER, INTENT(in) :: line
+      REAL(wp), OPTIONAL, INTENT(IN) :: fill_value
+      INTEGER :: i
+
+      CALL exchange_data(in_array=in_array_r_1d, out_array=out_array_r_1d, &
+        &                allgather_pattern=allgather_pattern, &
+        &                fill_value=fill_value)
+      IF (p_pe_work == 0) THEN
+        IF (ANY(out_array_r_1d /= ref_out_array_r_1d)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong gather result r_1d, line=", line
+          CALL finish(method_name, message_text)
+        END IF
+      END IF
+      CALL exchange_data(in_array=in_array_i_1d, out_array=out_array_i_1d, &
+        &                allgather_pattern=allgather_pattern, &
+        &                fill_value=fill_value)
+      IF (p_pe_work == 0) THEN
+        IF (ANY(out_array_i_1d /= ref_out_array_i_1d)) THEN
+          WRITE(message_text,'(a,i0)') "Wrong gather result i_1d, line=", line
           CALL finish(method_name, message_text)
         END IF
       END IF

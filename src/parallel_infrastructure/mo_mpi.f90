@@ -215,7 +215,7 @@ MODULE mo_mpi
     &       p_unpack_string, p_unpack_real_2d, p_test
   PUBLIC :: p_scatter, p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
-  PUBLIC :: p_gatherv, p_allgather
+  PUBLIC :: p_gatherv, p_allgather, p_allgatherv
   PUBLIC :: p_scatterv
   PUBLIC :: p_allreduce_max
   PUBLIC :: p_commit_type_struct
@@ -224,6 +224,8 @@ MODULE mo_mpi
   PUBLIC :: p_alltoallv_p2p
   PUBLIC :: p_clear_request
   PUBLIC :: p_mpi_wtime
+  PUBLIC :: p_comm_is_intercomm
+  PUBLIC :: p_comm_remote_size
   PUBLIC :: get_mpi_comm_world_ranks
 
   !----------- to be removed -----------------------------------------
@@ -237,18 +239,18 @@ MODULE mo_mpi
 
 #ifndef NOMPI
 #ifdef  __SUNPRO_F95
-  INTEGER,PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS,                     &
-            MPI_INFO_NULL, MPI_ADDRESS_KIND, MPI_COMM_NULL, MPI_COMM_SELF, &
+  INTEGER,PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, &
+            MPI_INFO_NULL, MPI_ADDRESS_KIND, MPI_COMM_SELF, &
             MPI_UNDEFINED, mpi_max, mpi_in_place
 #else
-  PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS,                     &
-            MPI_INFO_NULL, MPI_ADDRESS_KIND, MPI_COMM_NULL, MPI_COMM_SELF, &
+  PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, &
+            MPI_INFO_NULL, MPI_ADDRESS_KIND, MPI_COMM_SELF, &
             MPI_UNDEFINED, mpi_max, mpi_in_place, mpi_op_null, &
             mpi_datatype_null, mpi_sum, mpi_lor
 #endif
   PUBLIC :: MPI_2INTEGER
 #endif
-  PUBLIC :: MPI_ANY_SOURCE
+  PUBLIC :: MPI_ANY_SOURCE, MPI_COMM_NULL
 
   ! real data type matching real type of MPI implementation
   PUBLIC :: p_real_dp, p_real_sp
@@ -583,6 +585,11 @@ MODULE mo_mpi
   INTERFACE p_allgather
      MODULE PROCEDURE p_allgather_int_0d1d
      MODULE PROCEDURE p_allgather_int_1d2d
+  END INTERFACE
+
+  INTERFACE p_allgatherv
+     MODULE PROCEDURE p_allgatherv_real_1d
+     MODULE PROCEDURE p_allgatherv_int_1d
   END INTERFACE
 
   INTERFACE p_scatterv
@@ -7771,6 +7778,98 @@ CONTAINS
 #endif
    END SUBROUTINE p_allgather_int_1d2d
 
+   SUBROUTINE p_allgatherv_real_1d(sendbuf, recvbuf, recvcounts, comm)
+     REAL(dp),          INTENT(in)    :: sendbuf(:)
+     REAL(dp),          INTENT(inout) :: recvbuf(:)
+     INTEGER,           INTENT(in)    :: recvcounts(:)
+     INTEGER, OPTIONAL, INTENT(in)    :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_allgatherv_real_1d")
+     INTEGER :: p_comm, sendcount, comm_size, i
+     INTEGER, ALLOCATABLE :: displs(:)
+
+     IF (PRESENT(comm)) THEN
+       p_comm = comm
+     ELSE
+       p_comm = process_mpi_all_comm
+     ENDIF
+
+     IF (p_comm_is_intercomm(p_comm)) THEN
+      comm_size = p_comm_remote_size(p_comm)
+     ELSE
+      comm_size = p_comm_size(p_comm)
+     END IF
+
+     IF ((comm_size > SIZE(recvcounts, 1)) .OR. &
+      &  (SUM(recvcounts) > SIZE(recvbuf, 1))) &
+       CALL finish(routine, "invalid recvcounts")
+
+     ALLOCATE(displs(comm_size))
+     displs(1) = 0
+     DO i = 2, comm_size
+       displs(i) = displs(i-1) + recvcounts(i-1)
+     END DO
+
+     sendcount = SIZE(sendbuf)
+     CALL mpi_allgatherv(sendbuf, sendcount, p_real_dp, &
+          &              recvbuf, recvcounts, displs, p_real_dp, &
+          &              p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in mpi_allgatherv operation!')
+
+     DEALLOCATE(displs)
+#else
+     recvbuf = sendbuf
+#endif
+   END SUBROUTINE p_allgatherv_real_1d
+
+   SUBROUTINE p_allgatherv_int_1d(sendbuf, recvbuf, recvcounts, comm)
+     INTEGER,           INTENT(in)    :: sendbuf(:)
+     INTEGER,           INTENT(inout) :: recvbuf(:)
+     INTEGER,           INTENT(in)    :: recvcounts(:)
+     INTEGER, OPTIONAL, INTENT(in)    :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_allgatherv_int_1d")
+     INTEGER :: p_comm, sendcount, comm_size, i
+     INTEGER, ALLOCATABLE :: displs(:)
+
+     IF (PRESENT(comm)) THEN
+       p_comm = comm
+     ELSE
+       p_comm = process_mpi_all_comm
+     ENDIF
+
+     IF (p_comm_is_intercomm(p_comm)) THEN
+      comm_size = p_comm_remote_size(p_comm)
+     ELSE
+      comm_size = p_comm_size(p_comm)
+     END IF
+
+     IF ((comm_size > SIZE(recvcounts, 1)) .OR. &
+      &  (SUM(recvcounts) > SIZE(recvbuf, 1))) &
+       CALL finish(routine, "invalid recvcounts")
+
+     ALLOCATE(displs(comm_size))
+     displs(1) = 0
+     DO i = 2, comm_size
+       displs(i) = displs(i-1) + recvcounts(i-1)
+     END DO
+
+     sendcount = SIZE(sendbuf)
+     CALL mpi_allgatherv(sendbuf, sendcount, mpi_integer, &
+          &              recvbuf, recvcounts, displs, mpi_integer, &
+          &              p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) &
+       CALL finish (routine, 'Error in mpi_allgatherv operation!')
+
+     DEALLOCATE(displs)
+#else
+     recvbuf = sendbuf
+#endif
+   END SUBROUTINE p_allgatherv_int_1d
+
 
    ! Commits a user-defined MPI type
    !
@@ -8107,5 +8206,44 @@ CONTAINS
 #endif
   END SUBROUTINE get_mpi_comm_world_ranks
 
+  !--------------------------------------------------------------------
+
+  LOGICAL FUNCTION p_comm_is_intercomm(intercomm)
+
+    INTEGER, INTENT(IN) :: intercomm
+    LOGICAL :: flag
+    INTEGER :: p_error
+
+#ifndef NOMPI
+    CALL MPI_COMM_TEST_INTER(intercomm, flag, p_error)
+    IF (p_error /= MPI_SUCCESS) &
+      CALL finish ("p_comm_is_intercomm", &
+        &          'Error in MPI_Comm_test_inter operation!')
+
+    p_comm_is_intercomm = flag
+#else
+    p_comm_is_intercomm = .FALSE.
+#endif
+  END FUNCTION p_comm_is_intercomm
+
+  !--------------------------------------------------------------------
+
+  INTEGER FUNCTION p_comm_remote_size(intercomm)
+
+    INTEGER, INTENT(IN) :: intercomm
+    INTEGER :: remote_size, p_error
+
+#ifndef NOMPI
+    CALL MPI_COMM_REMOTE_SIZE(intercomm, remote_size, p_error)
+    IF (p_error /= MPI_SUCCESS) &
+      CALL finish ("p_comm_remote_size", &
+        &          'Error in MPI_Comm_remote_size operation!')
+
+    p_comm_remote_size = remote_size
+#else
+    p_comm_remote_size = 0
+#endif
+
+  END FUNCTION p_comm_remote_size
 
 END MODULE mo_mpi
