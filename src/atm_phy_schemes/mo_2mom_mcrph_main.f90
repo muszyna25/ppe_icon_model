@@ -186,8 +186,6 @@ MODULE mo_2mom_mcrph_main
     REAL(wp)      :: cmu3   !     min value of relation
     REAL(wp)      :: cmu4   !     location of min value = breakup equilibrium diameter
     INTEGER       :: cmu5   !     exponent
-  CONTAINS
-    PROCEDURE :: mue_Dm_relation => rain_mue_Dm_relation
   END TYPE particle_rain
 
   TYPE aerosol_ccn
@@ -1802,10 +1800,10 @@ CONTAINS
              if (qc(i) >= q_crit) THEN
                 mue = (this%nu+1.0_wp)/this%b_geo - 1.0_wp
              else
-                mue = thisCoeffs%mue_Dm_relation(D_m)
+                mue = rain_mue_dm_relation(thisCoeffs, D_m)
              end if
           ELSE
-             mue = thisCoeffs%mue_Dm_relation(D_m)
+             mue = rain_mue_dm_relation(thisCoeffs, D_m)
           END IF
           D_p = D_m * exp((-1./3.)*log((mue+3.)*(mue+2.)*(mue+1.)))
           vn(i) = thisCoeffs%alfa - thisCoeffs%beta * exp(-(mue+1.)*log(1.0 + thisCoeffs%gama*D_p))
@@ -6141,7 +6139,7 @@ CONTAINS
           IF (qc(i,k) >= q_crit) THEN
             mue = (rain%nu+1.0_wp)/rain%b_geo - 1.0_wp
           ELSE
-            mue = rain_coeffs%mue_Dm_relation(D_m)
+            mue = rain_mue_dm_relation(rain_coeffs, D_m)
           END IF
           D_p = D_m * EXP((-1./3.)*LOG((mue+3.)*(mue+2.)*(mue+1.)))
 
