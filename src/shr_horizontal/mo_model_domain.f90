@@ -591,7 +591,10 @@ MODULE mo_model_domain
   ! index of distributed sub-arrays in t_pre_grid_edges%dist
   INTEGER, PUBLIC, PARAMETER :: &
        ! index of parent edge:
-       e_parent = 1
+       e_parent = 1, &
+       ! indices of child edges:
+       ! index2=1,4
+       e_child = 2
 
   TYPE t_pre_grid_edges
 
@@ -599,10 +602,6 @@ MODULE mo_model_domain
     TYPE(extent) :: local_chunk(1,1)
 
     TYPE(dist_mult_array) :: dist
-
-    ! indices of child edges:
-    ! index2=1,4
-    TYPE(dist_mult_array) :: child
 
     ! indices of adjacent cells:
     ! index2=1,2

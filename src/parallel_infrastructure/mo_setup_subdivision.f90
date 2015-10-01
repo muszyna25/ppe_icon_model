@@ -36,7 +36,7 @@ MODULE mo_setup_subdivision
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex, c_center, c_refin_ctrl, e_parent
+       c_vertex, c_center, c_refin_ctrl, e_parent, e_child
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -388,7 +388,8 @@ CONTAINS
         jg = patch%edges%decomp_info%glb_index(idx_1d(jl, jb))
 
         DO i = 1, 4
-          CALL dist_mult_array_get(parent_patch_pre%edges%child, 1, (/ip, i/), jc)
+          CALL dist_mult_array_get(parent_patch_pre%edges%dist, e_child, &
+               (/ip, i/), jc)
           IF (jc == jg) patch%edges%pc_idx(jl,jb) = i
         END DO
 !          IF(patch%edges%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edges%pc_idx')
@@ -1156,7 +1157,8 @@ CONTAINS
       CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_parent, &
            (/jg/), jpg)
       DO i = 1, 4
-        CALL dist_mult_array_get(wrk_p_patch_pre%edges%child, 1, (/jg, i/), jcg(i))
+        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_child, &
+             (/jg, i/), jcg(i))
       END DO
 
       wrk_p_patch%edges%parent_glb_idx(jl,jb)    = idx_no(jpg)
