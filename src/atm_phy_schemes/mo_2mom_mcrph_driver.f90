@@ -385,7 +385,8 @@ CONTAINS
           !..reset nccn for cloud-free grid points to background profile
           IF (qc(ii,kk) .LE. q_crit) THEN
             IF(zf > ccn_coeffs%z0) THEN
-              nccn(ii,kk) = MAX(nccn(ii,kk),ccn_coeffs%Ncn0*EXP((ccn_coeffs%z0 - zf)/ccn_coeffs%z1e))
+              nccn(ii,kk) = MAX(nccn(ii,kk),ccn_coeffs%Ncn0 &
+                   * EXP((ccn_coeffs%z0 - zf)*(1._wp/ccn_coeffs%z1e)))
             ELSE
               nccn(ii,kk) = MAX(nccn(ii,kk),ccn_coeffs%Ncn0)
             END IF
@@ -398,7 +399,7 @@ CONTAINS
       DO ii=its,ite
         !..relaxation of activated IN number density to zero
         IF(qi(ii,kk) == 0) THEN
-          ninact(ii,kk) = ninact(ii,kk) - ninact(ii,kk)/tau_inact*dt
+          ninact(ii,kk) = ninact(ii,kk) - ninact(ii,kk)*(1._wp/tau_inact)*dt
         END IF
       END DO
     END DO
@@ -409,11 +410,11 @@ CONTAINS
           zf = 0.5_wp*(vct_a(kk)+vct_a(kk+1))
           !..relaxation of potential IN number density to background profile
           IF(zf > in_coeffs%z0) THEN
-            in_bgrd = in_coeffs%N0*EXP((in_coeffs%z0 - zf)/in_coeffs%z1e)
+            in_bgrd = in_coeffs%N0*EXP((in_coeffs%z0 - zf)*(1._wp/in_coeffs%z1e))
           ELSE
             in_bgrd = in_coeffs%N0
           END IF
-          ninpot(ii,kk) = ninpot(ii,kk) - (ninpot(ii,kk)-in_bgrd)/tau_inpot*dt
+          ninpot(ii,kk) = ninpot(ii,kk) - (ninpot(ii,kk)-in_bgrd)*(1._wp/tau_inpot)*dt
         END DO
       END DO
     END IF
