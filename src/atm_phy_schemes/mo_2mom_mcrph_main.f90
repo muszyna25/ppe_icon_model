@@ -452,6 +452,8 @@ MODULE mo_2mom_mcrph_main
 
   !> run-time- and location-invariant graupel melting parameters
   TYPE(melt_params), SAVE :: gm_params
+  !> run-time- and location-invariant hail melting parameters
+  TYPE(melt_params), SAVE :: hm_params
 
 CONTAINS
 
@@ -1308,6 +1310,14 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "   b_vent = ",gm_params%b_vent ; CALL message(routine,TRIM(txt))
     ENDIF
 
+    ! hail melting parameters
+    hm_params%a_vent = vent_coeff_a(hail,1)
+    hm_params%b_vent = vent_coeff_b(hail,1) * N_sc**n_f / SQRT(nu_l)
+    IF (isdebug) THEN
+      WRITE(txt,*) " hail_melting: " ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_vent = ",hm_params%a_vent ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_vent = ",hm_params%b_vent ; CALL message(routine,TRIM(txt))
+    ENDIF
 
   END SUBROUTINE init_2mom_scheme_once
 
@@ -4824,27 +4834,11 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: q_h,n_h,x_h,d_h,v_h,T_a,e_a
     REAL(wp)            :: melt,melt_v,melt_h,melt_n,melt_q
     REAL(wp)            :: fh_q,fv_q
-    REAL(wp), SAVE      :: a_vent,b_vent
-!$omp threadprivate (firstcall)
-!$omp threadprivate (a_vent)
-!$omp threadprivate (b_vent)
 
-    IF (firstcall.NE.1) THEN
-      a_vent = vent_coeff_a(hail,1)
-      b_vent = vent_coeff_b(hail,1) * N_sc**n_f / sqrt(nu_l)
-      firstcall = 1
-      IF (isdebug) THEN
-        WRITE(txt,*) " hail_melting: " ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    a_vent = ",a_vent ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    b_vent = ",b_vent ; CALL message(routine,TRIM(txt))
-      ENDIF
-    ELSEIF (isdebug) THEN
-      CALL message(routine, "hail_melting")
-    ENDIF
+    IF (isdebug) CALL message(routine, "hail_melting")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -4865,7 +4859,7 @@ CONTAINS
             D_h = hail%diameter(x_h)
             v_h = hail%velocity(x_h) * hail%rho_v(i,k)
 
-            fv_q = a_vent + b_vent * sqrt(v_h*D_h)
+            fv_q = hm_params%a_vent + hm_params%b_vent * sqrt(v_h*D_h)
             fh_q = 1.05 * fv_q                            ! UB: based on Rasmussen and Heymsfield
 
             melt   = 2.0*pi / L_ew * D_h * n_h * dt
