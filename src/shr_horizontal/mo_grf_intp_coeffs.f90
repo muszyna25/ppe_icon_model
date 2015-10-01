@@ -1457,7 +1457,7 @@ REAL(wp)           :: z_nxprod              ! scalar product of normal
                                             ! velocity vectors
 REAL(wp)           :: z_wgtsum              ! sum of weighting factors (for normalization)
 
-REAL(wp), ALLOCATABLE :: z_idwwgt(:)      ! IDW weighting factors
+REAL(wp) :: z_idwwgt(6)      ! IDW weighting factors
 
 ! Index variables
 INTEGER :: jg, jb, je, jcd, jgc, &
@@ -1491,13 +1491,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   i_startblk = p_pp%edges%start_blk(grf_bdyintp_start_e,jcd)
   i_endblk   = p_pp%edges%end_blk(min_rledge_int,jcd)
 
-!$OMP PARALLEL PRIVATE (z_idwwgt,istencil,ist,jb)
-  ALLOCATE( z_idwwgt(6),  STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:idw_compute_coeff_grf',      &
-      &             'allocation for z_idwwgt failed')
-  ENDIF
-
+!$OMP PARALLEL PRIVATE (z_idwwgt,istencil,ist,jb, i_startidx, i_endidx)
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
@@ -1752,13 +1746,6 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
     ENDDO
 !$OMP END DO NOWAIT
   ENDDO ! blocks
-
-  ! deallocate temporary array
-  DEALLOCATE( z_idwwgt, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:idw_compute_coeff_grf',      &
-      &             'deallocation for z_idwwgt failed')
-  ENDIF
 
 !$OMP END PARALLEL
 
