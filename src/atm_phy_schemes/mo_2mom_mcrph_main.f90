@@ -2118,7 +2118,7 @@ CONTAINS
 
     ! switch for version of Phillips et al. scheme
     ! (but make sure you have the correct INCLUDE file)
-    INTEGER             :: iphillips = 2010
+    INTEGER, PARAMETER :: iphillips = 2010
 
     ! switch for Hande et al. ice nucleation, if .true. this turns off Phillips scheme
     LOGICAL              :: use_hdcp2_het = .false.
