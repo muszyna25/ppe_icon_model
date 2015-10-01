@@ -64,7 +64,6 @@ MODULE mo_sgs_turbmetric
   PRIVATE
   REAL(wp),         PARAMETER :: z_1by3  = 1._wp/3._wp, z_2by3  = 2._wp/3._wp, &
                                  z_4by3  = 4._wp/3._wp
-  LOGICAL,          PARAMETER :: sb_debug = .FALSE.
 
   !Parameter for vertical scheme type
   INTEGER, PARAMETER :: iexplicit = 1
@@ -1054,23 +1053,10 @@ MODULE mo_sgs_turbmetric
                       (visc_smag_ie(je,jk,jb) * (vt_vert4i - vt_vert3i) - &
                       visc_smag_ie(je,jk+1,jb) * (vt_vert4i_p1 - vt_vert4i_p1))))
 
-         !norm_metr = 0._wp
-         !tang_metr = 0._wp
-
          tot_tend(je,jk,jb) = ( (flux_up_c-flux_dn_c)*p_patch%edges%inv_dual_edge_length(je,jb) + &
                         p_patch%edges%tangent_orientation(je,jb) * (flux_up_v-flux_dn_v) * &
                         p_patch%edges%inv_primal_edge_length(je,jb) * 2._wp &
                         - norm_metr - tang_metr) * inv_rhoe(je,jk,jb)
-
-         IF(sb_debug.AND.(jb==309).AND.(je==1).AND.(jk==50)) THEN
-           PRINT *, 'HOR tot_tend(1)', tot_tend(je,1,jb)
-           PRINT *, 'HOR tot_tend(48)', tot_tend(je,48,jb)
-           PRINT *, 'HOR tot_tend(49)', tot_tend(je,49,jb)
-           PRINT *, 'HOR tot_tend(50)', tot_tend(je,50,jb)
-           PRINT *, 'norm_metr = ', norm_metr
-           PRINT *, 'tang_metr', tang_metr
-         END IF
-
        END DO
       END DO
     END DO
@@ -1306,12 +1292,6 @@ MODULE mo_sgs_turbmetric
 
              rhs(je,jk) =  p_nh_prog%vn(je,jk,jb) * inv_dt + dwdn
 
-           IF(sb_debug.AND.(jb==309).AND.(je==1) .AND. (jk==49)) THEN
-             PRINT *, '-------'
-             PRINT *, 'a(1,48)*vn(47) = ', a(je,48)*p_nh_prog%vn(je,47,jb)
-             PRINT *, 'b(1,48)*vn(48) = ', b(je,48)*p_nh_prog%vn(je,48,jb)
-             PRINT *, 'c(1,48)*vn(49) = ', c(je,48)*p_nh_prog%vn(je,49,jb)
-           END IF
            END DO
          END DO
 
@@ -1391,28 +1371,9 @@ MODULE mo_sgs_turbmetric
          END DO
 
          !CALL TDMA
-         IF((jb==309).AND.(je==1).AND.(jk==47)) PRINT *, 'inv_dt', inv_dt
-
          DO je = i_startidx, i_endidx
            CALL tdma_solver(a(je,:),b(je,:),c(je,:),rhs(je,:),nlev,var_new(:))
-           IF(sb_debug.AND.(jb==309).AND.(je==1)) THEN
-             PRINT *, 'var_new(47)= ', var_new(47)
-             PRINT *, 'var_new(48)= ', var_new(48)
-             PRINT *, 'var_new(49)= ', var_new(49)
-             PRINT *, 'var_new(50)= ', var_new(50)
-             PRINT *, 'vn(47)= ', p_nh_prog%vn(je,47,jb)
-             PRINT *, 'vn(48)= ', p_nh_prog%vn(je,48,jb)
-             PRINT *, 'vn(49)= ', p_nh_prog%vn(je,49,jb)
-             PRINT *, 'vn(50)= ', p_nh_prog%vn(je,50,jb)
-             PRINT *, 'OLD tot_tend(48)', tot_tend(je,48,jb)
-             PRINT *, 'OLD tot_tend(49)', tot_tend(je,49,jb)
-           END IF
            tot_tend(je,:,jb) = tot_tend(je,:,jb) + (var_new(:) - p_nh_prog%vn(je,:,jb)) * inv_dt
-           IF(sb_debug.AND.(jb==309).AND.(je==1)) THEN
-             PRINT *, 'NEW tot_tend(48)', tot_tend(je,48,jb)
-             PRINT *, 'NEW tot_tend(49)', tot_tend(je,49,jb)
-             PRINT *, '-------------------'
-           END IF
          END DO
 
       END DO!block loop
@@ -1828,14 +1789,6 @@ MODULE mo_sgs_turbmetric
                                p_patch%edges%tangent_orientation(je,jb) * (flux_up_v - flux_dn_v) *  &
                                p_patch%edges%inv_primal_edge_length(je,jb) * 2._wp - &
                                norm_metr - tang_metr
-
-         IF(sb_debug.AND.(je==1).AND.(jb==309).AND.(jk==50)) THEN
-           PRINT *, 'flux_dn_v=', flux_dn_v
-           PRINT *, 'flux_up_v=', flux_up_v
-           PRINT *, 'flux_up_c=', flux_up_c
-           PRINT *, 'flux_dn_c=', flux_dn_c
-         END IF
-
        END DO
       END DO
     END DO
@@ -1872,15 +1825,6 @@ MODULE mo_sgs_turbmetric
                  hor_tend(ieidx(jc,jb,2),jk,ieblk(jc,jb,2))*p_int%e_bln_c_s(jc,2,jb)  + &
                  hor_tend(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))*p_int%e_bln_c_s(jc,3,jb) )
 
-         IF(sb_debug.AND.(jb==189).AND.(jc==1).AND.(jk==50)) THEN
-           PRINT *, '----vertical velocity----'
-           PRINT *, 'HOR tot_tend(2)', tot_tend(jc,2,jb)
-           PRINT *, 'HOR tot_tend(48)', tot_tend(jc,48,jb)
-           PRINT *, 'HOR tot_tend(49)', tot_tend(jc,49,jb)
-           PRINT *, 'HOR tot_tend(50)', tot_tend(jc,50,jb)
-           PRINT *, 'norm_metr = ', norm_metr
-           PRINT *, 'tang_metr', tang_metr
-         END IF
          END DO
        END DO
     END DO
@@ -2026,27 +1970,7 @@ MODULE mo_sgs_turbmetric
 
          DO jc = i_startidx, i_endidx
            CALL tdma_solver(a(jc,2:nlev),b(jc,2:nlev),c(jc,2:nlev),rhs(jc,2:nlev),nlev-1,var_new(2:nlev))
-             IF(sb_debug.AND.(jb==189).AND.(jc==1).AND.(jk==50)) THEN
-               PRINT *, 'var_new(2)= ', var_new(2)
-               PRINT *, 'var_new(48)= ', var_new(48)
-               PRINT *, 'var_new(49)= ', var_new(49)
-               PRINT *, 'var_new(50)= ', var_new(50)
-               PRINT *, 'vn(2) = ', p_nh_prog%vn(jc,2,jb)
-               PRINT *, 'vn(48) = ', p_nh_prog%w(jc,48,jb)
-               PRINT *, 'vn(49) = ', p_nh_prog%w(jc,49,jb)
-               PRINT *, 'vn(50) = ', p_nh_prog%w(jc,50,jb)
-               PRINT *, 'OLD tot_tend(1,2,50)= ', tot_tend(jc,2,jb)
-               PRINT *, 'OLD tot_tend(1,48,50)= ', tot_tend(jc,48,jb)
-               PRINT *, 'OLD tot_tend(1,49,50)= ', tot_tend(jc,49,jb)
-               PRINT *, 'OLD tot_tend(1,50,50)= ', tot_tend(jc,50,jb)
-             END IF
            tot_tend(jc,2:nlev,jb) = tot_tend(jc,2:nlev,jb) + (var_new(2:nlev) - p_nh_prog%w(jc,2:nlev,jb)) * inv_dt
-             IF(sb_debug.AND.(jb==189).AND.(jc==1).AND.(jk==50)) THEN
-               PRINT *, 'NEW tot_tend(1,2,50)= ', tot_tend(jc,2,jb)
-               PRINT *, 'NEW tot_tend(1,48,50)= ', tot_tend(jc,48,jb)
-               PRINT *, 'NEW tot_tend(1,49,50)= ', tot_tend(jc,49,jb)
-               PRINT *, 'NEW tot_tend(1,50,50)= ', tot_tend(jc,50,jb)
-             END IF
          END DO
 
       END DO !block
@@ -2453,14 +2377,6 @@ MODULE mo_sgs_turbmetric
              metric_tend_e(je,jk,jb) = (norm_metr*p_nh_metrics%ddxn_z_full(je,jk,jb) - &
                          tang_metr*p_nh_metrics%ddxt_z_full(je,jk,jb)) * p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)
 
-             IF(sb_debug.AND.je==1.AND.jb==309.AND.jk==49) THEN
-                PRINT *, 'tang_metr=', tang_metr
-                PRINT *, 'norm_metr=', norm_metr
-                PRINT *, 'metric_tend_e(1,2,=', metric_tend_e(je,jk,jb)
-                PRINT *, 'metric_tend_e=', metric_tend_e(je,jk,jb)
-                PRINT *, 'metric_tend_e=', metric_tend_e(je,jk,jb)
-             END IF
-
             ENDDO
           ENDDO
 
@@ -2694,35 +2610,10 @@ MODULE mo_sgs_turbmetric
                              p_nh_metrics%inv_ddqz_z_full(jc,nlev,jb) * fac(jc,nlev,jb)
            END DO
 
-           !CALL TDMA
-           !DO jc = i_startidx, i_endidx
-           !  CALL tdma_solver(a(jc,:),b(jc,:),c(jc,:),rhs(jc,:),nlev,var_new)
-           !  tot_tend(jc,:,jb) = tot_tend(jc,:,jb) + ( var_new(:) - var(jc,:,jb) ) * inv_dt
-           !END DO
+         !CALL TDMA
          DO jc = i_startidx, i_endidx
             CALL tdma_solver(a(jc,:),b(jc,:),c(jc,:),rhs(jc,:),nlev,var_new)
-             IF(sb_debug.AND.(jb==189).AND.(jc==1).AND.(jk==50)) THEN
-             PRINT *, 'SCALAR : ', TRIM(scalar_name)
-               PRINT *, 'var_new(1)= ', var_new(1)
-               PRINT *, 'var_new(48)= ', var_new(48)
-               PRINT *, 'var_new(49)= ', var_new(49)
-               PRINT *, 'var_new(50)= ', var_new(50)
-               PRINT *, 'var(1) = ', var(jc,1,jb)
-               PRINT *, 'var(48) = ', var(jc,48,jb)
-               PRINT *, 'var(49) = ', var(jc,49,jb)
-               PRINT *, 'var(50) = ', var(jc,50,jb)
-               PRINT *, 'OLD tot_tend(1,2,i189)= ', tot_tend(jc,2,jb)
-               PRINT *, 'OLD tot_tend(1,48,189)= ', tot_tend(jc,48,jb)
-               PRINT *, 'OLD tot_tend(1,49,189)= ', tot_tend(jc,49,jb)
-               PRINT *, 'OLD tot_tend(1,50,189)= ', tot_tend(jc,50,jb)
-             END IF
              tot_tend(jc,:,jb) = tot_tend(jc,:,jb) + ( var_new(:) - var(jc,:,jb) ) * inv_dt
-             IF(sb_debug.AND.(jb==189).AND.(jc==1).AND.(jk==50)) THEN
-               PRINT *, 'NEW tot_tend(1,2,189)= ', tot_tend(jc,2,jb)
-               PRINT *, 'NEW tot_tend(1,48,189)= ', tot_tend(jc,48,jb)
-               PRINT *, 'NEW tot_tend(1,49,189)= ', tot_tend(jc,49,jb)
-               PRINT *, 'NEW tot_tend(1,50,189)= ', tot_tend(jc,50,jb)
-             END IF
          END DO
 
          END DO!block
