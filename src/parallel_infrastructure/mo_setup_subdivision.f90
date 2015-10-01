@@ -42,7 +42,7 @@ MODULE mo_setup_subdivision
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
     &                              uniform_partition
-  USE mo_mpi,                ONLY: p_bcast, proc_split, p_max
+  USE mo_mpi,                ONLY: proc_split, p_max
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
        mpi_in_place, mpi_success, mpi_sum, mpi_lor, p_bool
@@ -3232,19 +3232,14 @@ CONTAINS
     TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner
     INTEGER, INTENT(IN) :: no_of_cells
 
-    INTEGER :: i, ncid, dimid, varid
-    INTEGER, ALLOCATABLE :: cell_owner(:)
-
+    INTEGER :: i, j, ncid, dimid, varid
+    INTEGER, ALLOCATABLE :: cell_owner_buffer(:)
+    INTEGER :: part_size, num_parts, curr_part_size
+    INTEGER :: start_value(1), value_count(1)
 
     IF (p_pe_work == 0) THEN
 
       WRITE(0,*) "Write decomposition to file: ", TRIM(netcdf_file_name)
-
-      ! very simple implementation...could be optimised if necessary
-      ALLOCATE(cell_owner(MERGE(no_of_cells, 0, p_pe_work == 0)))
-      DO i = 1, no_of_cells
-        CALL dist_mult_array_get(dist_cell_owner, 1, (/i/), cell_owner(i))
-      END DO
 
       ! generate decomposition file
       CALL nf(nf_create(TRIM(netcdf_file_name), NF_CLOBBER, ncid))
@@ -3260,8 +3255,27 @@ CONTAINS
 
       CALL nf(nf_enddef(ncid))
 
-      ! write decomposition
-      CALL nf(nf_put_var_int(ncid, varid, cell_owner))
+      ! write cell owner to file
+      part_size = MIN(1024 * 1024 / 8, no_of_cells);
+      num_parts = (no_of_cells + part_size - 1) / part_size
+      ALLOCATE(cell_owner_buffer(part_size))
+      DO i = 1, num_parts
+        curr_part_size = MIN(part_size, no_of_cells - part_size * (i - 1))
+        DO j = 1, curr_part_size
+          CALL dist_mult_array_get(dist_cell_owner, 1, &
+            &                      (/j + part_size * (i - 1)/), &
+            &                      cell_owner_buffer(j))
+        END DO
+
+        start_value(1) = part_size * (i - 1) + 1
+        value_count(1) = curr_part_size
+
+        CALL nf(nf_put_vara_int(ncid, varid, start_value, value_count, &
+          &     cell_owner_buffer))
+
+      END DO
+
+      DEALLOCATE(cell_owner_buffer)
 
       CALL nf(nf_close(ncid))
 
