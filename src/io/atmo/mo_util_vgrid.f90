@@ -23,8 +23,8 @@ MODULE mo_util_vgrid
                                                 & streamWriteVarSlice, streamWriteVar, streamDefVlist, cdiGetStringError, &
                                                 & vlistDefVarDatatype, vlistDefVarName, zaxisDefNumber, zaxisDefUUID, &
                                                 & gridDefPosition, gridInqUUID, gridDefNumber, gridDefUUID, zaxisDefLevels, &
-                                                & gridDefNvertex, vlistDefInstitut, zaxisInqUUID, streamReadVar
-  USE mo_cdi_constants,                     ONLY: GRID_REFERENCE
+                                                & gridDefNvertex, vlistDefInstitut, zaxisInqUUID, streamReadVar, &
+                                                & GRID_UNSTRUCTURED
   USE mo_kind,                              ONLY: wp, dp
   USE mo_exception,                         ONLY: finish, message, message_text, warning
   !
@@ -261,7 +261,7 @@ CONTAINS
 
     nlevp1 = p_patch%nlevp1
     IF (my_process_is_mpi_workroot()) THEN
-      gridtype    = GRID_REFERENCE
+      gridtype    = GRID_UNSTRUCTURED
       output_type = FILETYPE_NC2
 
       !--- create meta-data
