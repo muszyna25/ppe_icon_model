@@ -47,7 +47,7 @@ MODULE mo_setup_subdivision
   USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
        mpi_in_place, mpi_success, mpi_sum, mpi_lor, p_bool
 #endif
-  USE mo_mpi,                ONLY: p_comm_work, &
+  USE mo_mpi,                ONLY: p_comm_work, p_int, &
     & p_pe_work, p_n_work, my_process_is_mpi_parallel
 
   USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, &
@@ -736,7 +736,8 @@ CONTAINS
 
     TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch ! output patch, designated as INOUT because
                                                 ! a few attributes are already set
-    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
+    TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre ! out is required for
+                                                        ! the distributed arrays
 
     INTEGER, POINTER :: cell_owner(:)
     INTEGER, POINTER :: radiation_owner(:)
@@ -1000,8 +1001,9 @@ CONTAINS
       wrk_p_patch%cells%child_blk(jl,jb,1:4) = &
         blk_no(wrk_p_patch_pre%cells%child(jg,1:4))
 
-      wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_pre%cells%num_edges( &
-        wrk_p_patch%cells%decomp_info%glb_index(j))
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
+        &                      (/wrk_p_patch%cells%decomp_info%glb_index(j)/), &
+        &                      wrk_p_patch%cells%num_edges(jl,jb))
       wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_pre%cells%center(jg)%lat
       wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_pre%cells%center(jg)%lon
       wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_pre%cells%refin_ctrl(jg)
@@ -1312,7 +1314,8 @@ CONTAINS
                               temp_vertices_owner(:), temp_edges(:), &
                               temp_edges_owner(:), inner_edges(:), &
                               edge_cells(:)
-      INTEGER :: n_inner_edges, n_temp_edges, n_temp_cells, n_temp_vertices
+      INTEGER :: n_inner_edges, n_temp_edges, n_temp_cells, n_temp_vertices, &
+        &        temp_num_edges
 
       !---------------------------------------------------------------------
       ! flag_c_list(-1)%idx empty dummy list
@@ -1400,7 +1403,9 @@ CONTAINS
       ! collect inner and outer edges and vertices adjacent to cells of level 0
       DO ic = 1, n2_ilev_c(0)
 
-        DO i = 1, wrk_p_patch_pre%cells%num_edges(flag2_c_list(0)%idx(ic))
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
+          &                      (/flag2_c_list(0)%idx(ic)/), temp_num_edges)
+        DO i = 1, temp_num_edges
 
           je = wrk_p_patch_pre%cells%edge(flag2_c_list(0)%idx(ic),i)
 
@@ -1632,7 +1637,9 @@ CONTAINS
         DO k = -1, 0
           DO ic = 1, n2_ilev_c(2*ilev+k)
             jc = flag2_c_list(2*ilev+k)%idx(ic)
-            DO i = 1, wrk_p_patch_pre%cells%num_edges(jc)
+            CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
+              &                      (/jc/), temp_num_edges)
+            DO i = 1, temp_num_edges
               je = wrk_p_patch_pre%cells%edge(jc, i)
               n_temp_edges = n_temp_edges + 1
               temp_edges(n_temp_edges) = je
@@ -1706,7 +1713,10 @@ CONTAINS
 
             jc = flag2_c_list(2*ilev+k)%idx(ic)
 
-            DO i = 1, wrk_p_patch_pre%cells%num_edges(jc)
+            CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
+              &                      (/jc/), temp_num_edges)
+
+            DO i = 1, temp_num_edges
 
               jv = wrk_p_patch_pre%cells%vertex(jc, i)
 
@@ -2490,7 +2500,8 @@ CONTAINS
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
-    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
+    TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre ! out is required for
+                                                        ! the distributed arrays
     INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
     LOGICAL, INTENT(IN)    :: lparent_level ! indicates if domain decomposition is executed for
@@ -2498,7 +2509,7 @@ CONTAINS
     ! Private flag if patch should be divided for radiation calculation
     LOGICAL, INTENT(in) :: divide_for_radiation
 
-    INTEGER :: i, j, nc, nc_g, ncs, nce, n_onb_points, jm(1)
+    INTEGER :: i, j, nc, nc_g, ncs, nce, n_onb_points, jm(1), temp_num_edges
     INTEGER :: count_physdom(0:max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
                ncell_offset(0:max_phys_dom), ncell_offset_g(0:max_phys_dom)
@@ -2880,7 +2891,7 @@ CONTAINS
     INTEGER, INTENT(in) :: range_start, range_end
      !> receives the owner PE for every cell
     INTEGER, INTENT(out) :: owner(range_start:range_end)
-    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
+    TYPE(t_pre_patch), INTENT(inout) :: wrk_p_patch_pre
     TYPE(t_cell_info), INTENT(inout) :: cell_desc(range_start:range_end)
     !> if > 0 a cell belongs to the subset
     INTEGER, INTENT(in) :: ncell_offset(0:max_phys_dom)
@@ -2888,7 +2899,7 @@ CONTAINS
 
     INTEGER :: i, ii, j, jd, jj, jn, &
          first_unassigned_onb, last_unassigned_onb, &
-         ncs, nce, num_set_on_this_pass
+         ncs, nce, num_set_on_this_pass, temp_num_edges
     TYPE(t_cell_info) :: temp
     INTEGER, ALLOCATABLE :: set_on_this_pass(:)
 
@@ -2911,7 +2922,9 @@ CONTAINS
         num_set_on_this_pass = 0
         DO i = last_unassigned_onb, first_unassigned_onb, -1
           j = cell_desc(i)%cell_number
-          DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
+            &                      (/j/), temp_num_edges)
+          DO ii = 1, temp_num_edges
             jn = wrk_p_patch_pre%cells%neighbor(j,ii)
             IF (jn > 0) THEN
               IF (owner(jn) >= 0) THEN
@@ -2952,13 +2965,13 @@ CONTAINS
          range_start, range_end
      !> receives the owner PE for every cell
     INTEGER, INTENT(out) :: owner(range_start:range_end)
-    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
+    TYPE(t_pre_patch), INTENT(inout) :: wrk_p_patch_pre
     TYPE(t_cell_info), INTENT(inout) :: cell_desc(range_start:range_end)
     !> if > 0 a cell belongs to the subset
     INTEGER, INTENT(in) :: ncell_offset(0:max_phys_dom)
     INTEGER, INTENT(in) :: num_physdom, n_onb_points
 
-    INTEGER :: i, ii, j, jd, jj, jn, &
+    INTEGER :: i, ii, j, jd, jj, jn, temp_num_edges, &
          first_unassigned_onb, last_unassigned_onb, &
          ncs, nce, owner_value, owner_idx(1), ierror
     TYPE(t_cell_info) :: temp
@@ -3005,7 +3018,9 @@ CONTAINS
 
         DO i = last_unassigned_onb, first_unassigned_onb, -1
           j = cell_desc(i)%cell_number
-          DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
+            &                      (/j/), temp_num_edges)
+          DO ii = 1, temp_num_edges
             ! todo: use local patch information here
             jn = wrk_p_patch_pre%cells%neighbor(j,ii)
             IF (jn > 0) THEN
@@ -3105,7 +3120,9 @@ CONTAINS
 
       nc = nc+1
 
-      DO i = 1,wrk_p_patch_pre%cells%num_edges(j)
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
+        &                      (/j/), temp_num_edges)
+      DO i = 1, temp_num_edges
         jn = wrk_p_patch_pre%cells%neighbor(j,i)
 
         ! Neighbor not existing

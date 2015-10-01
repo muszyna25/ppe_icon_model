@@ -89,6 +89,8 @@ MODULE mo_model_domain
   USE mo_grid_geometry_info, ONLY: t_grid_geometry_info
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data
+  USE ppm_distributed_array,  ONLY: dist_mult_array
+  USE ppm_extents,            ONLY: extent
 
   IMPLICIT NONE
 
@@ -320,9 +322,12 @@ MODULE mo_model_domain
 
   TYPE t_pre_grid_cells
 
+    ! extents of the local chunk of the distributed arrays
+    TYPE(extent) :: local_chunk(1,1)
+
     INTEGER :: max_connectivity
     ! number of edges connected to cell
-    INTEGER, ALLOCATABLE :: num_edges(:)
+    TYPE(dist_mult_array) :: num_edges
 
     ! index of parent triangle:
     INTEGER, ALLOCATABLE :: parent(:)

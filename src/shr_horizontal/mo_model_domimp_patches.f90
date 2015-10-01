@@ -138,6 +138,8 @@ MODULE mo_model_domimp_patches
 #ifndef __NO_ICON_ATMO__
   USE mo_interpol_config,    ONLY: nudge_zone_width
 #endif
+  USE ppm_distributed_array,  ONLY: dist_mult_array_local_ptr, &
+    &                               dist_mult_array_expose
 
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
@@ -1033,6 +1035,7 @@ CONTAINS
     INTEGER :: ji
     INTEGER :: jc, ic
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id, dim_idxlist
+    INTEGER, POINTER :: local_ptr(:)
     !-----------------------------------------------------------------------
 
     ! set dummy values to zero
@@ -1423,10 +1426,14 @@ CONTAINS
     !----------------------------------------------------------------------------------
     ! compute cells%num_edges
     ! works for general unstructured grid
-    DO jc = 1, patch_pre%n_patch_cells_g
-      patch_pre%cells%num_edges(jc) = &
-        COUNT(patch_pre%cells%edge(jc, 1:max_cell_connectivity) > 0)
+    CALL dist_mult_array_local_ptr(patch_pre%cells%num_edges, 1, local_ptr)
+    DO jc = patch_pre%cells%local_chunk(1,1)%first, &
+      patch_pre%cells%local_chunk(1,1)%first + &
+      patch_pre%cells%local_chunk(1,1)%size - 1
+      local_ptr(jc) = COUNT(patch_pre%cells%edge(jc, 1:max_cell_connectivity) > 0)
     END DO
+
+    CALL dist_mult_array_expose(patch_pre%cells%num_edges)
 
     !----------------------------------------------------------------------------------
     ! account for pentagons in the hex gird,

@@ -42,8 +42,14 @@ MODULE mo_alloc_patches
     & radiation_grid_filename, lplane
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
   USE mo_master_config,      ONLY: getModelBaseDir
-  USE mo_mpi,                ONLY: my_process_is_mpi_seq
+  USE mo_mpi,                ONLY: my_process_is_mpi_seq, p_pe_work, &
+    &                              p_comm_work, p_n_work
   USE mo_read_netcdf_distributed, ONLY: delete_distrib_read
+  USE ppm_distributed_array, ONLY: global_array_desc, &
+    &                              dist_mult_array_new, &
+    &                              dist_mult_array_delete, &
+    &                              dist_mult_array_unexpose, &
+    &                              ppm_int
 
   IMPLICIT NONE
 
@@ -599,7 +605,7 @@ CONTAINS
     p_patch%verts%end_block = 0
 
   END SUBROUTINE allocate_basic_patch
-  
+
   !-------------------------------------------------------------------------
   !> Allocates all arrays in a basic patch
   !! These are the arrays which have to be read in full size on every PE
@@ -613,7 +619,23 @@ CONTAINS
 
     TYPE(t_pre_patch), INTENT(inout) :: p_patch_pre
 
-    INTEGER :: max_childdom
+    INTEGER :: max_childdom, num_cells_per_rank
+    TYPE(global_array_desc) :: dist_cell_owner_desc(1)
+
+    ! some preliminary computation for the distributed data
+
+    dist_cell_owner_desc(1)%a_rank = 1
+    dist_cell_owner_desc(1)%rect(1)%first = 1
+    dist_cell_owner_desc(1)%rect(1)%size = p_patch_pre%n_patch_cells_g
+    dist_cell_owner_desc(1)%element_dt = ppm_int
+
+    num_cells_per_rank = (p_patch_pre%n_patch_cells_g + p_n_work - 1) / p_n_work
+
+    p_patch_pre%cells%local_chunk(1,1)%first = &
+      MIN(p_patch_pre%n_patch_cells_g, p_pe_work * num_cells_per_rank + 1)
+    p_patch_pre%cells%local_chunk(1,1)%size = &
+      MAX(0, MIN(p_patch_pre%n_patch_cells_g + 1 - &
+        &        p_patch_pre%cells%local_chunk(1,1)%first, num_cells_per_rank))
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -629,7 +651,8 @@ CONTAINS
     !
     ! !grid cells
     !
-    ALLOCATE( p_patch_pre%cells%num_edges(p_patch_pre%n_patch_cells_g) )
+    p_patch_pre%cells%num_edges = dist_mult_array_new( &
+      dist_cell_owner_desc, p_patch_pre%cells%local_chunk, p_comm_work)
     ALLOCATE( p_patch_pre%cells%parent(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%child(p_patch_pre%n_patch_cells_g,4) )
     ALLOCATE( p_patch_pre%cells%phys_id(p_patch_pre%n_patch_cells_g) )
@@ -662,7 +685,6 @@ CONTAINS
     ALLOCATE( p_patch_pre%verts%end(min_rlvert:max_rlvert) )
     ! Set all newly allocated arrays to 0
 
-    p_patch_pre%cells%num_edges = 0
     p_patch_pre%cells%parent = 0
     p_patch_pre%cells%child = 0
     p_patch_pre%cells%phys_id = 0
@@ -785,7 +807,8 @@ CONTAINS
     !
     ! !grid cells
     !
-    DEALLOCATE( p_patch_pre%cells%num_edges )
+    CALL dist_mult_array_unexpose(p_patch_pre%cells%num_edges)
+    CALL dist_mult_array_delete(p_patch_pre%cells%num_edges)
     DEALLOCATE( p_patch_pre%cells%parent )
     DEALLOCATE( p_patch_pre%cells%child )
     DEALLOCATE( p_patch_pre%cells%neighbor )
