@@ -215,7 +215,6 @@ MODULE mo_mpi
     &       p_unpack_string, p_unpack_real_2d, p_test
   PUBLIC :: p_scatter, p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
-  PUBLIC :: p_allreduce_minloc
   PUBLIC :: p_gatherv, p_allgather
   PUBLIC :: p_scatterv
   PUBLIC :: p_allreduce_max
@@ -6716,6 +6715,107 @@ CONTAINS
 
   END FUNCTION p_field_sum_1d
 
+  !> common code of min/max reductions
+  SUBROUTINE p_minmax_common(in_field, out_field, n, op, loc_op, &
+       proc_id, keyval, comm, root)
+    INTEGER, INTENT(in) :: n, op, loc_op
+    REAL(dp), INTENT(in) :: in_field(n)
+    REAL(dp), INTENT(out) :: out_field(n)
+
+    INTEGER, OPTIONAL, INTENT(inout) :: proc_id(n)
+    INTEGER, OPTIONAL, INTENT(inout) :: keyval(n)
+    INTEGER, OPTIONAL, INTENT(in)    :: root
+    INTEGER, OPTIONAL, INTENT(in)    :: comm
+
+#ifndef NOMPI
+    INTEGER  :: p_comm, rank, comm_size
+    LOGICAL :: compute_ikey
+    INTEGER, ALLOCATABLE  :: meta_info(:), ikey(:)
+#ifndef SLOW_MPI_MAXMINLOC
+    DOUBLE PRECISION, ALLOCATABLE :: val_loc(:,:,:)
+#endif
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+       comm_size = p_comm_size(comm)
+    ELSE
+       p_comm = process_mpi_all_comm
+       comm_size = process_mpi_all_size
+    ENDIF
+
+    IF (comm_size > 1) THEN
+
+      IF (PRESENT(proc_id) .OR. PRESENT(keyval)) THEN
+        ! encode meta information
+        ALLOCATE(meta_info(n), ikey(n))
+        meta_info = 0
+        IF (PRESENT(keyval))  meta_info = meta_info + keyval*comm_size
+        IF (PRESENT(proc_id)) meta_info = meta_info + proc_id
+        ! use mpi_minloc to transfer additional data
+#ifndef SLOW_MPI_MAXMINLOC
+        ALLOCATE(val_loc(2, n, 2))
+#endif
+        IF (PRESENT(root)) THEN
+          CALL MPI_COMM_RANK(p_comm, rank, p_error)
+#ifdef SLOW_MPI_MAXMINLOC
+          ! on BG/Q, {max|min}loc is slow
+          CALL mpi_allreduce(in_field, out_field, n, mpi_double_precision, &
+               op, p_comm, p_error)
+          ikey = MERGE(meta_info, HUGE(1), in_field == out_field)
+          CALL mpi_reduce(ikey, meta_info, n, mpi_integer, &
+               mpi_min, root, p_comm, p_error)
+#else
+          val_loc(1, :, 1) = DBLE(in_field)
+          val_loc(2, :, 1) = DBLE(meta_info)
+          CALL mpi_reduce(val_loc(:, :, 1), val_loc(:, :, 2), &
+               n, mpi_2double_precision, loc_op, root, p_comm, p_error)
+          IF (rank == root) THEN ; out_field = val_loc(1, :, 2) ; ELSE &
+               ; out_field = 0. ; END IF
+#endif
+          compute_ikey = rank == root
+        ELSE
+#ifdef SLOW_MPI_MAXMINLOC
+          CALL mpi_allreduce(in_field, out_field, n, mpi_double_precision, &
+               op, p_comm, p_error)
+          ikey = MERGE(meta_info, HUGE(1), in_field == out_field)
+          CALL mpi_allreduce(ikey, meta_info, n, mpi_integer, &
+               mpi_min, p_comm, p_error)
+#else
+          CALL mpi_allreduce(val_loc(:, :, 1), val_loc(:, :, 2), &
+               n, mpi_2double_precision, loc_op, p_comm, p_error)
+          out_field = val_loc(1, :, 2)
+#endif
+          compute_ikey = .TRUE.
+        END IF
+        ! decode meta info:
+        IF (compute_ikey) THEN
+#ifdef SLOW_MPI_MAXMINLOC
+          ikey = meta_info / comm_size
+          IF (PRESENT(proc_id)) proc_id = meta_info - ikey
+#else
+          ikey = NINT(val_loc(2, :, 2)) / comm_size
+          IF (PRESENT(proc_id)) proc_id = NINT(val_loc(2, :, 2)) - ikey
+#endif
+          IF (PRESENT(keyval)) keyval = ikey
+        END IF
+      ELSE
+        ! compute simple (standard) minimum
+        IF (PRESENT(root)) THEN
+          CALL mpi_reduce(in_field, out_field, n, p_real_dp, &
+               op, root, p_comm, p_error)
+        ELSE
+          CALL mpi_allreduce(in_field, out_field, n, p_real_dp, &
+               op, p_comm, p_error)
+        END IF
+     END IF
+    ELSE
+      out_field = in_field
+    END IF
+#else
+    out_field = in_field
+#endif
+  END SUBROUTINE p_minmax_common
+
   !> computes a global maximum of real numbers
   !
   ! @param[out]   proc_id  (Optional:) PE number of maximum value
@@ -6735,57 +6835,34 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(inout) :: keyval
     INTEGER, OPTIONAL, INTENT(in)    :: root
     INTEGER, OPTIONAL, INTENT(in)    :: comm
-#ifndef NOMPI
-    INTEGER  :: p_comm
-    INTEGER  :: meta_info, ikey, rank
-    DOUBLE PRECISION :: in_val(2), rcv_val(2)
 
-    IF (PRESENT(comm)) THEN
-       p_comm = comm
-    ELSE
-       p_comm = process_mpi_all_comm
-    ENDIF
-
-    IF (my_process_is_mpi_all_parallel()) THEN
-
-      IF (PRESENT(proc_id) .OR. PRESENT(keyval)) THEN
-        ! encode meta information
-        meta_info = 0
-        IF (PRESENT(keyval))  meta_info = meta_info + keyval*process_mpi_all_size
-        IF (PRESENT(proc_id)) meta_info = meta_info + proc_id
-        ! use MPI_MAXLOC to transfer additional data
-        in_val(1) = zfield
-        in_val(2) = DBLE( meta_info )
-        IF (PRESENT(root)) THEN
-          CALL MPI_REDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
-            MPI_MAXLOC, root, p_comm, p_error)
-          CALL MPI_COMM_RANK(p_comm, rank, p_error)
-          if (rank /= root)  rcv_val = 0.
-        ELSE
-          CALL MPI_ALLREDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
-            MPI_MAXLOC, p_comm, p_error)
-        END IF
-        ! decode meta info:
-        p_max = rcv_val(1)
-        ikey = INT(rcv_val(2)+0.5)/process_mpi_all_size
-        IF (PRESENT(keyval))  keyval  = ikey
-        IF (PRESENT(proc_id)) proc_id = INT(rcv_val(2)+0.5) - ikey
-      ELSE
-        ! compute simple (standard) maximum
-        IF (PRESENT(root)) THEN
-          CALL MPI_REDUCE (zfield, p_max, 1, p_real_dp, &
-            MPI_MAX, root, p_comm, p_error)
-        ELSE
-          CALL MPI_ALLREDUCE (zfield, p_max, 1, p_real_dp, &
-            MPI_MAX, p_comm, p_error)
-        END IF
-     END IF
-    ELSE
-       p_max = zfield
-    END IF
-#else
-    p_max = zfield
+    REAL(dp) :: temp_in(1), temp_out(1)
+    INTEGER :: temp_keyval(1), temp_proc_id(1)
+#ifdef NOMPI
+    INTEGER, PARAMETER :: mpi_max = 3333, mpi_maxloc = 3333
 #endif
+    temp_in(1) = zfield
+    IF (PRESENT(proc_id) .AND. PRESENT(keyval)) THEN
+      temp_keyval(1) = keyval; temp_proc_id(1) = proc_id
+      CALL p_minmax_common(temp_in, temp_out, 1, mpi_max, mpi_maxloc, &
+           proc_id=temp_proc_id, keyval=temp_keyval, comm=comm, root=root)
+      keyval = temp_keyval(1); proc_id = temp_proc_id(1)
+    ELSE IF (PRESENT(proc_id)) THEN
+      temp_proc_id(1) = proc_id
+      CALL p_minmax_common(temp_in, temp_out, 1, mpi_max, mpi_maxloc, &
+           proc_id=temp_proc_id, comm=comm, root=root)
+      proc_id = temp_proc_id(1)
+    ELSE IF (PRESENT(keyval)) THEN
+      temp_keyval(1) = keyval
+      CALL p_minmax_common(temp_in, temp_out, 1, mpi_max, mpi_maxloc, &
+         keyval=temp_keyval, comm=comm, root=root)
+      keyval = temp_keyval(1)
+    ELSE ! .not. present(keyval) .and. .not. present(proc_id)
+      CALL p_minmax_common(temp_in, temp_out, 1, mpi_max, mpi_maxloc, &
+           comm=comm, root=root)
+    END IF
+
+    p_max = temp_out(1)
 
   END FUNCTION p_max_0d
 
@@ -6834,79 +6911,12 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in)    :: root
     INTEGER, OPTIONAL, INTENT(in)    :: comm
     REAL(dp)                         :: p_max (SIZE(zfield))
-
-#ifndef NOMPI
-    INTEGER :: p_comm
-    INTEGER  :: meta_info, ikey, j, rank
-    REAL(dp) :: in_val(2, SIZE(zfield)), rcv_val(2, SIZE(zfield))
-
-    IF (PRESENT(comm)) THEN
-       p_comm = comm
-       CALL MPI_COMM_RANK(p_comm, rank, p_error)
-    ELSE
-       p_comm = process_mpi_all_comm
-       rank   = p_pe
-    ENDIF
-
-    IF (my_process_is_mpi_all_parallel()) THEN
-
-      IF (PRESENT(proc_id) .OR. PRESENT(keyval)) THEN
-        ! encode meta information
-        in_val(1,:) = zfield(:)
-        DO j=1, SIZE(zfield)
-          meta_info = 0
-          IF (PRESENT(keyval))  meta_info = meta_info + keyval(j)*process_mpi_all_size
-          IF (PRESENT(proc_id)) meta_info = meta_info + proc_id(j)
-          in_val(2,j) = REAL( meta_info, wp )
-        END DO
-        ! use MPI_MAXLOC to transfer additional data
-        IF (PRESENT(root)) THEN
-          CALL MPI_REDUCE (in_val, rcv_val, SIZE(zfield), MPI_2DOUBLE_PRECISION, &
-            &              MPI_MAXLOC, root, p_comm, p_error)
-        ELSE
-          CALL MPI_ALLREDUCE (in_val, rcv_val, SIZE(zfield), MPI_2DOUBLE_PRECISION, &
-            &                 MPI_MAXLOC, p_comm, p_error)
-        END IF
-        ! decode meta info:
-        IF (PRESENT(root)) THEN
-          IF (rank == root) THEN
-            p_max = rcv_val(1,:)
-            DO j=1, SIZE(zfield)
-              ikey = INT(rcv_val(2,j)+0.5)/process_mpi_all_size
-              IF (PRESENT(keyval))  keyval(j)  = ikey
-              IF (PRESENT(proc_id)) proc_id(j) = &
-                & INT(rcv_val(2,j)+0.5) - ikey*process_mpi_all_size
-            END DO
-          ELSE
-            ! trivial result output for the other, non-root PEs:
-            p_max = zfield
-          END IF
-        ELSE
-          p_max = rcv_val(1,:)
-          DO j=1, SIZE(zfield)
-            ikey = INT(rcv_val(2,j)+0.5)/process_mpi_all_size
-            IF (PRESENT(keyval))  keyval(j)  = ikey
-            IF (PRESENT(proc_id)) proc_id(j) = &
-              & INT(rcv_val(2,j)+0.5) - ikey*process_mpi_all_size
-          END DO
-        END IF
-      ELSE
-        ! compute simple (standard) maximum
-        IF (PRESENT(root)) THEN
-          CALL MPI_REDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
-            &              MPI_MAX, root, p_comm, p_error)
-        ELSE
-          CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
-            &                 MPI_MAX, p_comm, p_error)
-        END IF
-      END IF
-
-    ELSE
-       p_max = zfield
-    END IF
-#else
-    p_max = zfield
+#ifdef NOMPI
+    INTEGER, PARAMETER :: mpi_max = 3333, mpi_maxloc = 3333
 #endif
+
+    CALL p_minmax_common(zfield, p_max, SIZE(zfield), mpi_max, mpi_maxloc, &
+           proc_id=proc_id, keyval=keyval, comm=comm, root=root)
 
   END FUNCTION p_max_1d
 
@@ -7023,57 +7033,33 @@ CONTAINS
     INTEGER, OPTIONAL, INTENT(in)    :: root
     INTEGER, OPTIONAL, INTENT(in)    :: comm
 
-#ifndef NOMPI
-    INTEGER  :: p_comm
-    INTEGER  :: meta_info, ikey, rank
-    DOUBLE PRECISION :: in_val(2,1), rcv_val(2,1)
-
-    IF (PRESENT(comm)) THEN
-       p_comm = comm
-    ELSE
-       p_comm = process_mpi_all_comm
-    ENDIF
-
-    IF (my_process_is_mpi_all_parallel()) THEN
-
-      IF (PRESENT(proc_id) .OR. PRESENT(keyval)) THEN
-        ! encode meta information
-        meta_info = 0
-        IF (PRESENT(keyval))  meta_info = meta_info + keyval*process_mpi_all_size
-        IF (PRESENT(proc_id)) meta_info = meta_info + proc_id
-        ! use MPI_MINLOC to transfer additional data
-        in_val(1,1) = DBLE( zfield )
-        in_val(2,1) = DBLE( meta_info )
-        IF (PRESENT(root)) THEN
-          CALL MPI_REDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
-            MPI_MINLOC, root, p_comm, p_error)
-          CALL MPI_COMM_RANK(p_comm, rank, p_error)
-          if (rank /= root)  rcv_val = 0.
-        ELSE
-          CALL MPI_ALLREDUCE (in_val, rcv_val, 1, MPI_2DOUBLE_PRECISION, &
-            MPI_MINLOC, p_comm, p_error)
-        END IF
-        ! decode meta info:
-        p_min = rcv_val(1,1)
-        ikey = INT(rcv_val(2,1)+0.5)/process_mpi_all_size
-        IF (PRESENT(keyval))  keyval  = ikey
-        IF (PRESENT(proc_id)) proc_id = INT(rcv_val(2,1)+0.5) - ikey
-      ELSE
-        ! compute simple (standard) minimum
-        IF (PRESENT(root)) THEN
-          CALL MPI_REDUCE (zfield, p_min, 1, p_real_dp, &
-            MPI_MIN, root, p_comm, p_error)
-        ELSE
-          CALL MPI_ALLREDUCE (zfield, p_min, 1, p_real_dp, &
-            MPI_MIN, p_comm, p_error)
-        END IF
-     END IF
-    ELSE
-       p_min = zfield
-    END IF
-#else
-    p_min = zfield
+    REAL(dp) :: temp_in(1), temp_out(1)
+    INTEGER :: temp_keyval(1), temp_proc_id(1)
+#ifdef NOMPI
+    INTEGER, PARAMETER :: mpi_min = 4444, mpi_minloc = 4444
 #endif
+    temp_in(1) = zfield
+    IF (PRESENT(proc_id) .AND. PRESENT(keyval)) THEN
+      temp_keyval(1) = keyval; temp_proc_id(1) = proc_id
+      CALL p_minmax_common(temp_in, temp_out, 1, mpi_min, mpi_minloc, &
+           proc_id=temp_proc_id, keyval=temp_keyval, comm=comm, root=root)
+      keyval = temp_keyval(1); proc_id = temp_proc_id(1)
+    ELSE IF (PRESENT(proc_id)) THEN
+      temp_proc_id(1) = proc_id
+      CALL p_minmax_common(temp_in, temp_out, 1, mpi_min, mpi_minloc, &
+           proc_id=temp_proc_id, comm=comm, root=root)
+      proc_id = temp_proc_id(1)
+    ELSE IF (PRESENT(keyval)) THEN
+      temp_keyval(1) = keyval
+      CALL p_minmax_common(temp_in, temp_out, 1, mpi_min, mpi_minloc, &
+         keyval=temp_keyval, comm=comm, root=root)
+      keyval = temp_keyval(1)
+    ELSE ! .not. present(keyval) .and. .not. present(proc_id)
+      CALL p_minmax_common(temp_in, temp_out, 1, mpi_min, mpi_minloc, &
+           comm=comm, root=root)
+    END IF
+
+    p_min = temp_out(1)
 
   END FUNCTION p_min_0d
 
@@ -7103,30 +7089,20 @@ CONTAINS
 
   END FUNCTION p_min_int_0d
 
-  FUNCTION p_min_1d (zfield, comm) RESULT (p_min)
+  FUNCTION p_min_1d (zfield, proc_id, keyval, comm, root) RESULT (p_min)
 
     REAL(dp),          INTENT(in) :: zfield(:)
+    INTEGER, OPTIONAL, INTENT(inout) :: proc_id(SIZE(zfield))
+    INTEGER, OPTIONAL, INTENT(inout) :: keyval(SIZE(zfield))
+    INTEGER, OPTIONAL, INTENT(in) :: root
     INTEGER, OPTIONAL, INTENT(in) :: comm
     REAL(dp)                      :: p_min (SIZE(zfield))
-
-#ifndef NOMPI
-    INTEGER :: p_comm
-
-    IF (PRESENT(comm)) THEN
-       p_comm = comm
-    ELSE
-       p_comm = process_mpi_all_comm
-    ENDIF
-
-    IF (my_process_is_mpi_all_parallel()) THEN
-       CALL MPI_ALLREDUCE (zfield, p_min, SIZE(zfield), p_real_dp, &
-            MPI_MIN, p_comm, p_error)
-    ELSE
-       p_min = zfield
-    END IF
-#else
-    p_min = zfield
+#ifdef NOMPI
+    INTEGER, PARAMETER :: mpi_min = 4444, mpi_minloc = 4444
 #endif
+
+    CALL p_minmax_common(zfield, p_min, SIZE(zfield), mpi_min, mpi_minloc, &
+           proc_id=proc_id, keyval=keyval, comm=comm, root=root)
 
   END FUNCTION p_min_1d
 
@@ -7784,30 +7760,6 @@ CONTAINS
 #endif
    END SUBROUTINE p_allgather_int_1d2d
 
-
-   SUBROUTINE p_allreduce_minloc(array, ntotal, comm)
-
-     INTEGER,           INTENT(IN)    :: ntotal
-     REAL,              INTENT(INOUT) :: array(2,ntotal)
-     INTEGER, OPTIONAL, INTENT(IN)    :: comm
-
-#ifndef NOMPI
-     INTEGER :: p_comm, ierr
-     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_allreduce_minloc")
-
-     IF (PRESENT(comm)) THEN
-       p_comm = comm
-     ELSE
-       p_comm = process_mpi_all_comm
-     ENDIF
-     CALL MPI_ALLREDUCE( MPI_IN_PLACE, array, ntotal, MPI_2REAL, MPI_MINLOC, &
-       &                 p_comm, ierr )
-     IF (ierr /= 0)  &
-       CALL finish (routine, 'Error in MPI_ALLREDUCE operation!')
-#else
-     ! do nothing
-#endif
-   END SUBROUTINE p_allreduce_minloc
 
    ! Commits a user-defined MPI type
    !
