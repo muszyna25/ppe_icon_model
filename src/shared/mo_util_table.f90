@@ -148,15 +148,12 @@ CONTAINS
     INTEGER :: i
 
     ! find the (first) matching column index
-    i    =  1
     icol = -1
-    COLFIND_LOOP : DO
-      IF (i > table%n_columns)  EXIT COLFIND_LOOP
+    COLFIND_LOOP : DO i = 1, table%n_columns
       IF (TRIM(column_title) == TRIM(table%column(i)%title)) THEN
         icol = i
         EXIT COLFIND_LOOP
       END IF
-      i = i + 1
     END DO COLFIND_LOOP
   END FUNCTION get_column_index
 
