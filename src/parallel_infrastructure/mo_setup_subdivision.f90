@@ -1602,7 +1602,7 @@ CONTAINS
           CALL dist_mult_array_get(wrk_p_patch_pre%verts%num_edges, 1, &
             &                      (/jv_/), temp_num_edges)
           DO i = 1, temp_num_edges
-            jc = wrk_p_patch_pre%verts%cell(jv_, i)
+            CALL dist_mult_array_get(wrk_p_patch_pre%verts%cell,1,(/jv_,i/),jc)
             IF (jc > 0) THEN
               n_temp_cells = n_temp_cells + 1
               temp_cells(n_temp_cells) = jc
@@ -1901,7 +1901,10 @@ CONTAINS
       DO i = 1, SIZE(vertices)
         jv = vertices(i)
         CALL dist_mult_array_get(wrk_p_patch_pre%verts%num_edges, 1, (/jv/), n)
-        t_cells(1:n) = wrk_p_patch_pre%verts%cell(jv, 1:n)
+        DO j = 1, n
+          CALL dist_mult_array_get(wrk_p_patch_pre%verts%cell, 1, (/jv, j/), &
+            &                      t_cells(j))
+        END DO
         CALL insertion_sort(t_cells(1:n))
         DO j = 1, n
           CALL dist_mult_array_get(dist_cell_owner, 1, (/t_cells(j)/), &

@@ -726,7 +726,7 @@ MODULE mo_model_domain
 
     ! line indices of cells around each vertex:
     ! index2=1,6
-    INTEGER, ALLOCATABLE :: cell(:,:)
+    TYPE(dist_mult_array) :: cell
 
     ! number of edges connected to vertex
     TYPE(dist_mult_array) :: num_edges

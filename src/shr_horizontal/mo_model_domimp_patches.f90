@@ -1517,24 +1517,30 @@ CONTAINS
 
     ! BEGIN NEW SUBDIV
     CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
-    CALL nf(nf_get_var_int(ncid, varid, patch_pre%verts%cell(:,1:max_verts_connectivity)))
+    CALL dist_mult_array_local_ptr(patch_pre%verts%cell, 1, local_ptr_2d)
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%verts%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%verts%local_chunk(1,1)%size, &
+      &                       max_verts_connectivity/), &
+      &                     local_ptr_2d))
     ! eliminate indices < 0, this should not happen but some older grid files
     ! seem to contain such indices
-    WHERE(patch_pre%verts%cell(:,1:max_verts_connectivity) < 0) &
-      patch_pre%verts%cell(:,1:max_verts_connectivity) = 0
+    WHERE(local_ptr_2d(:, :) < 0) local_ptr_2d(:, :) = 0
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
-    CALL move_dummies_to_end(patch_pre%verts%cell(:,1:max_verts_connectivity), &
-      patch_pre%n_patch_verts_g, max_verts_connectivity, &
+    CALL move_dummies_to_end(local_ptr_2d, &
+      patch_pre%verts%local_chunk(1,1)%size, max_verts_connectivity, &
       use_duplicated_connectivity)
+    CALL dist_mult_array_expose(patch_pre%verts%cell)
+
     !
     ! Set verts%num_edges
     CALL dist_mult_array_local_ptr(patch_pre%verts%num_edges, 1, local_ptr)
     DO ji = patch_pre%verts%local_chunk(1,1)%first, &
       patch_pre%verts%local_chunk(1,1)%first + &
       patch_pre%verts%local_chunk(1,1)%size - 1
-      local_ptr(ji) = COUNT(patch_pre%verts%cell(ji,1:max_verts_connectivity) > 0)
+      local_ptr(ji) = COUNT(local_ptr_2d(ji, 1:max_verts_connectivity) > 0)
     END DO
     CALL dist_mult_array_expose(patch_pre%verts%num_edges)
 
