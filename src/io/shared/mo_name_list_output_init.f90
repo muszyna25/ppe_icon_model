@@ -2842,8 +2842,7 @@ CONTAINS
         ! Count the number of variable entries
         element => var_lists(iv)%p%first_list_element
         nelems = 0
-        DO
-          IF(.NOT.ASSOCIATED(element)) EXIT
+        DO WHILE (ASSOCIATED(element))
           nelems = nelems+1
           element => element%next_list_element
         ENDDO
