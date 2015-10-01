@@ -462,6 +462,10 @@ MODULE mo_2mom_mcrph_main
   !> run-time- and location invariant for cloud freeze
   REAL(wp), SAVE :: cloud_freeze_coeff_z
 
+  !> run-time- and location invariants for ice selfcollection
+  REAL(wp), SAVE :: ice_sc_delta_n, ice_sc_delta_q, &
+       ice_sc_theta_n, ice_sc_theta_q
+
 CONTAINS
 
   !*******************************************************************************
@@ -1343,6 +1347,7 @@ CONTAINS
 
     CALL setup_graupel_selfcollection(graupel)
     CALL setup_snow_selfcollection(snow)
+    CALL setup_ice_selfcollection(ice)
 
     ! setup coefficient for cloud_freeze
     cloud_freeze_coeff_z = moment_gamma(cloud,2)
@@ -3377,6 +3382,57 @@ CONTAINS
     END DO
   END SUBROUTINE rain_freeze_gamlook
 
+  SUBROUTINE setup_ice_selfcollection(ice)
+    TYPE(particle), INTENT(in) :: ice
+
+    REAL(wp) :: delta_n_11,delta_n_12,delta_n_22
+    REAL(wp) :: delta_q_11,delta_q_12,delta_q_22
+    REAL(wp) :: theta_n_11,theta_n_12,theta_n_22
+    REAL(wp) :: theta_q_11,theta_q_12,theta_q_22
+
+    delta_n_11 = coll_delta_11(ice,ice,0)
+    delta_n_12 = coll_delta_12(ice,ice,0)
+    delta_n_22 = coll_delta_22(ice,ice,0)
+    delta_q_11 = coll_delta_11(ice,ice,0)
+    delta_q_12 = coll_delta_12(ice,ice,1)
+    delta_q_22 = coll_delta_22(ice,ice,1)
+
+    theta_n_11 = coll_theta_11(ice,ice,0)
+    theta_n_12 = coll_theta_12(ice,ice,0)
+    theta_n_22 = coll_theta_22(ice,ice,0)
+    theta_q_11 = coll_theta_11(ice,ice,0)
+    theta_q_12 = coll_theta_12(ice,ice,1)
+    theta_q_22 = coll_theta_22(ice,ice,1)
+
+    ice_sc_delta_n = delta_n_11 + delta_n_12 + delta_n_22
+    ice_sc_delta_q = delta_q_11 + delta_q_12 + delta_q_22
+    ice_sc_theta_n = theta_n_11 - theta_n_12 + theta_n_22
+    ice_sc_theta_q = theta_q_11 - theta_q_12 + theta_q_22
+
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "    a_ice      = ",ice%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_ice      = ",ice%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    alf_ice    = ",ice%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    bet_ice    = ",ice%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_11 = ",delta_n_11 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_12 = ",delta_n_12 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_22 = ",delta_n_22 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n    = ",ice_sc_delta_n    ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_11 = ",theta_n_11 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_12 = ",theta_n_12 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_22 = ",theta_n_22 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n    = ",ice_sc_theta_n    ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_11 = ",delta_q_11 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_12 = ",delta_q_12 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_22 = ",delta_q_22 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q    = ",ice_sc_delta_q    ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_11 = ",theta_q_11 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_12 = ",theta_q_12 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_22 = ",theta_q_22 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q    = ",ice_sc_theta_q    ; CALL message(routine,TRIM(txt))
+    END IF
+  END SUBROUTINE setup_ice_selfcollection
+
   SUBROUTINE ice_selfcollection(ik_slice, dt, atmo, ice, snow)
     !*******************************************************************************
     ! selfcollection of ice crystals, see SB2006 or Seifert (2002)                 *
@@ -3391,21 +3447,9 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
     REAL(wp)            :: q_i,n_i,x_i,d_i,v_i,e_coll,x_conv_ii
     REAL(wp)            :: self_n,self_q
-    REAL(wp)            :: delta_n_11,delta_n_12,delta_n_22
-    REAL(wp)            :: delta_q_11,delta_q_12,delta_q_22
-    REAL(wp)            :: theta_n_11,theta_n_12,theta_n_22
-    REAL(wp)            :: theta_q_11,theta_q_12,theta_q_22
-    REAL(wp),SAVE       :: delta_n,delta_q
-    REAL(wp),SAVE       :: theta_n,theta_q
-!$omp threadprivate (firstcall)
-!$omp threadprivate (delta_n)
-!$omp threadprivate (delta_q)
-!$omp threadprivate (theta_n)
-!$omp threadprivate (theta_q)
 
     IF (isdebug) CALL message(routine, "ice_selfcollection")
 
@@ -3413,51 +3457,6 @@ CONTAINS
     iend   = ik_slice(2)
     kstart = ik_slice(3)
     kend   = ik_slice(4)
-
-    IF (firstcall.NE.1) THEN
-      delta_n_11 = coll_delta_11(ice,ice,0)
-      delta_n_12 = coll_delta_12(ice,ice,0)
-      delta_n_22 = coll_delta_22(ice,ice,0)
-      delta_q_11 = coll_delta_11(ice,ice,0)
-      delta_q_12 = coll_delta_12(ice,ice,1)
-      delta_q_22 = coll_delta_22(ice,ice,1)
-
-      theta_n_11 = coll_theta_11(ice,ice,0)
-      theta_n_12 = coll_theta_12(ice,ice,0)
-      theta_n_22 = coll_theta_22(ice,ice,0)
-      theta_q_11 = coll_theta_11(ice,ice,0)
-      theta_q_12 = coll_theta_12(ice,ice,1)
-      theta_q_22 = coll_theta_22(ice,ice,1)
-
-      delta_n = delta_n_11 + delta_n_12 + delta_n_22
-      delta_q = delta_q_11 + delta_q_12 + delta_q_22
-      theta_n = theta_n_11 - theta_n_12 + theta_n_22
-      theta_q = theta_q_11 - theta_q_12 + theta_q_22
-
-      IF (isdebug) THEN
-        WRITE(txt,'(A,D10.3)') "    a_ice      = ",ice%a_geo ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    b_ice      = ",ice%b_geo ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    alf_ice    = ",ice%a_vel ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    bet_ice    = ",ice%b_vel ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n_11 = ",delta_n_11 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n_12 = ",delta_n_12 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n_22 = ",delta_n_22 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n    = ",delta_n    ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_11 = ",theta_n_11 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_12 = ",theta_n_12 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_22 = ",theta_n_22 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n    = ",theta_n    ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_q_11 = ",delta_q_11 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_q_12 = ",delta_q_12 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_q_22 = ",delta_q_22 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_q    = ",delta_q    ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_q_11 = ",theta_q_11 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_q_12 = ",theta_q_12 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_q_22 = ",theta_q_22 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_q    = ",theta_q    ; CALL message(routine,TRIM(txt))
-      END IF
-      firstcall = 1
-    ENDIF
 
     x_conv_ii = (D_conv_ii/snow%a_geo)**(1./snow%b_geo)
 
@@ -3480,11 +3479,11 @@ CONTAINS
 
              v_i = ice%a_vel * x_i**ice%b_vel * ice%rho_v(i,k)
 
-             self_n = pi4 * e_coll * delta_n * n_i * n_i * D_i * D_i &
-                  & * sqrt( theta_n * v_i * v_i + 2.0*ice_s_vel**2 ) * dt
+             self_n = pi4 * e_coll * ice_sc_delta_n * n_i * n_i * D_i * D_i &
+                  & * sqrt( ice_sc_theta_n * v_i * v_i + 2.0*ice_s_vel**2 ) * dt
 
-             self_q = pi4 * e_coll * delta_q * n_i * q_i * D_i * D_i &
-                  & * sqrt( theta_q * v_i * v_i + 2.0*ice_s_vel**2 ) * dt
+             self_q = pi4 * e_coll * ice_sc_delta_q * n_i * q_i * D_i * D_i &
+                  & * sqrt( ice_sc_theta_q * v_i * v_i + 2.0*ice_s_vel**2 ) * dt
 
              self_q = MIN(self_q,q_i)
              self_n = MIN(MIN(self_n,self_q/x_conv_ii),n_i)
