@@ -120,7 +120,7 @@ MODULE mo_2mom_mcrph_main
        & incgfct_lower_lookup,       &  !   interpolation in table, lower incomplete Gamma function
        & incgfct_upper_lookup,       &  !   interpolation in talbe, upper incomplete Gamma function
        & dmin_wg_gr_ltab_equi,       &  ! For look-up table of wet growth diameter
-       & ltabdminwgg, lookupt_4D        !
+       & ltabdminwgg
 
   IMPLICIT NONE
 
