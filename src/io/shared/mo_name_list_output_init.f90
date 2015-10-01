@@ -40,7 +40,7 @@ MODULE mo_name_list_output_init
                                                 & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit, &
                                                 & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
-                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_REFERENCE, GRID_EDGE, GRID_CELL, &
+                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL, &
                                                 & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
                                                 & ZA_hybrid_half, ZA_hybrid
   USE mo_kind,                              ONLY: wp, i8, dp, sp
@@ -2320,13 +2320,7 @@ CONTAINS
 
     pi_180 = ATAN(1._wp)/45._wp
 
-    IF (of%output_type == FILETYPE_GRB2) THEN
-      ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the
-      ! grid type is changed to "GRID_REFERENCE".
-      gridtype = GRID_REFERENCE
-    ELSE
-      gridtype = GRID_UNSTRUCTURED
-    ENDIF
+    gridtype = GRID_UNSTRUCTURED
 
     i_dom = of%phys_patch_id
     max_cell_connectivity = patch_info(i_dom)%max_cell_connectivity
