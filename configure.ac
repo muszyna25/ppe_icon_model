@@ -445,7 +445,7 @@ if test -n "$SZIPROOT" ; then
      echo "cannot find $SZIPROOT/include"  
      exit 1    
   fi
-  case $(hostname) in
+  case $ac_hostname in
   btc*|mlogin*)
     case $FC in
     nagfor)
@@ -494,7 +494,7 @@ if test -n "$HDF5ROOT" ; then
      echo "cannot find $HDF5ROOT/include"  
      exit 1    
   fi
-  case $(hostname) in
+  case $ac_hostname in
   btc*|mlogin*)  
     case $FC in
     nagfor)
@@ -552,7 +552,7 @@ if test -n "$NETCDFROOT" ; then
   if test x$gcc_lib != x ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
-  case $(hostname) in
+  case $ac_hostname in
   btc*|mlogin*)
     case $FC in
     nagfor)
@@ -579,7 +579,7 @@ if test -n "$NETCDFROOT" ; then
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
-         case $(hostname) in
+         case $ac_hostname in
          btc*|mlogin*)
            case $FC in
            nagfor)
