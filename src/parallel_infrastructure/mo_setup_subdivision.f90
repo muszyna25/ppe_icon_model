@@ -766,7 +766,7 @@ CONTAINS
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
-    CALL setup_dist_cell_owner()
+    CALL setup_dist_cell_owner(dist_cell_owner, cell_owner)
     CALL compute_owned_cells()
 
 #ifdef __PGIC__
@@ -1104,7 +1104,7 @@ CONTAINS
       END DO
     END IF
 
-    CALL delete_dist_cell_owner()
+    CALL dist_mult_array_delete(dist_cell_owner)
     DEALLOCATE(owned_cells)
 
   CONTAINS
@@ -1171,7 +1171,10 @@ CONTAINS
 
     END SUBROUTINE compute_owned_cells
 
-    SUBROUTINE setup_dist_cell_owner()
+    SUBROUTINE setup_dist_cell_owner(dist_cell_owner, cell_owner)
+
+      TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
+      INTEGER, INTENT(IN) :: cell_owner(:)
 
       INTEGER :: num_cells_per_rank
       TYPE(global_array_desc) :: dist_cell_owner_desc(1)
@@ -1198,12 +1201,6 @@ CONTAINS
 
       CALL dist_mult_array_expose(dist_cell_owner)
     END SUBROUTINE setup_dist_cell_owner
-
-    SUBROUTINE delete_dist_cell_owner()
-
-      CALL dist_mult_array_unexpose(dist_cell_owner)
-      CALL dist_mult_array_delete(dist_cell_owner)
-    END SUBROUTINE
 
     SUBROUTINE prepare_patch(wrk_p_patch_pre, wrk_p_patch, &
          n_patch_cells, n_patch_edges, n_patch_verts)
