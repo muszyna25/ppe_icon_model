@@ -434,6 +434,8 @@ MODULE mo_2mom_mcrph_main
   TYPE(vapor_deposition_params), SAVE :: vid_params
   !> run-time- and location-invariant vapor graupel deposition parameters
   TYPE(vapor_deposition_params), SAVE :: vgd_params
+  !> run-time- and location-invariant vapor hail deposition parameters
+  TYPE(vapor_deposition_params), SAVE :: vhd_params
 CONTAINS
 
   !*******************************************************************************
@@ -1209,6 +1211,21 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "    c_g   = ", vgd_params%c ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "    a_f   = ", vgd_params%a_f ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "    b_f   = ", vgd_params%b_f ; CALL message(routine,TRIM(txt))
+    END IF
+
+    ! vapor hail deposition parameter setup
+    vhd_params%c = 1.0 / hail%cap
+    vhd_params%a_f = vent_coeff_a(hail,1)
+    vhd_params%b_f = vent_coeff_b(hail,1) * N_sc**n_f / sqrt(nu_l)
+    IF (isdebug) THEN
+      WRITE(txt,*) "  vapor_deposition_hail: "
+      WRITE(txt,'(A,D10.3)') "    a_geo = ",hail%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_geo = ",hail%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_vel = ",hail%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_vel = ",hail%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    c_h   = ",vhd_params%c ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_f   = ",vhd_params%a_f ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_f   = ",vhd_params%b_f ; CALL message(routine,TRIM(txt))
     END IF
 
   END SUBROUTINE init_2mom_scheme_once
@@ -3153,33 +3170,9 @@ CONTAINS
 
     SUBROUTINE vapor_deposition_hail()
       INTEGER             :: i,k
-      INTEGER, SAVE       :: firstcall
       REAL(wp)            :: q_h,n_h,x_h,d_h,v_h,f_v
-      REAL(wp), SAVE      :: c_h
-      REAL(wp), SAVE      :: a_f,b_f
-!$omp threadprivate (firstcall)
-!$omp threadprivate (a_f)
-!$omp threadprivate (b_f)
-!$omp threadprivate (c_h)
 
-      IF (firstcall.NE.1) THEN
-         c_h = 1.0 / hail%cap
-         a_f = vent_coeff_a(hail,1)
-         b_f = vent_coeff_b(hail,1) * N_sc**n_f / sqrt(nu_l)
-         IF (isdebug) THEN
-            WRITE(txt,*) "  vapor_deposition_hail: "
-            WRITE(txt,'(A,D10.3)') "    a_geo = ",hail%a_geo ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    b_geo = ",hail%b_geo ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    a_vel = ",hail%a_vel ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    b_vel = ",hail%b_vel ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    c_h   = ",c_h ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    a_f   = ",a_f ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    b_f   = ",b_f ; CALL message(routine,TRIM(txt))
-         END IF
-         firstcall = 1
-      ELSEIF (isdebug) THEN
-        CALL message(routine, "vapor_deposition_hail")
-      ENDIF
+      IF (isdebug) CALL message(routine, "vapor_deposition_hail")
 
       DO k = kstart,kend
          DO i = istart,iend
@@ -3193,10 +3186,10 @@ CONTAINS
                D_h = hail%diameter(x_h)
                v_h = hail%velocity(x_h) * hail%rho_v(i,k)
 
-               f_v  = a_f + b_f * sqrt(v_h*d_h)
-               f_v  = MAX(f_v,a_f/hail%a_ven)
+               f_v  = vhd_params%a_f + vhd_params%b_f * sqrt(v_h*d_h)
+               f_v  = MAX(f_v,vhd_params%a_f/hail%a_ven)
 
-               dep_hail(i,k) = g_i(i,k) * n_h * c_h * d_h * f_v * s_si(i,k) * dt_local
+               dep_hail(i,k) = g_i(i,k) * n_h * vhd_params%c * d_h * f_v * s_si(i,k) * dt_local
             ENDIF
          ENDDO
       ENDDO
