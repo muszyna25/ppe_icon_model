@@ -105,7 +105,7 @@ case "$fortran_compiler" in
 
         FC       = mpixlf2003_r
 
-        CHECK_FLAGS = -g -qcheck=all -qstackprotect=all
+        CHECK_FLAGS = -g -qcheck -qstackprotect=all
         DEBUG_FLAGS = -OO -qnoopt -g -qfullpath -WF,-DNOXLFPROCESS
         BASIC_OPT_FLAGS = -qalias_size -q64 -qmaxmem=-1 -qarch=auto -qtune=auto -qcache=auto -qfloat=fltint -WF,-D__LOOP_EXCHANGE
         STD_FLAGS = -O2 -qstrict -qlinedebug "$BASIC_OPT_FLAGS" "$INFOFLAGS"
