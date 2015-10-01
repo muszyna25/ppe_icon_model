@@ -29,7 +29,7 @@ MODULE mo_setup_subdivision
   !    modified for ICON project, DWD/MPI-M 2006
   !-------------------------------------------------------------------------
   !
-  USE mo_kind,               ONLY: wp, i8
+  USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell,  &
     & min_rledge, max_rledge, min_rlvert, max_rlvert, max_phys_dom,  &
     & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw
@@ -283,7 +283,7 @@ CONTAINS
       ELSE
         ! trivial "decomposition"
         CALL create_dist_cell_owner(dist_cell_owner, &
-          &                        p_patch_pre(jg)%n_patch_cells_g)
+          &                         p_patch_pre(jg)%n_patch_cells_g)
         CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
         local_ptr = 0
       END IF
@@ -489,14 +489,14 @@ CONTAINS
 
     TYPE(t_decomposition_structure)  :: decomposition_struct
 
+    TYPE(dist_mult_array) :: dist_parent_cell_owner !> Cell division
     INTEGER, POINTER :: cell_owner(:) !> Cell division
+    INTEGER, POINTER :: local_owner_ptr(:), local_parent_ptr(:)
     INTEGER :: n, i, j, jp, temp_phys_id
-    INTEGER, ALLOCATABLE :: flag_c(:), parent_cell_owner(:)
+    INTEGER, ALLOCATABLE :: flag_c(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
 
-    ALLOCATE(cell_owner(wrk_p_patch_pre%n_patch_cells_g))
-
-    ! Please note: Unfortunatly we cannot use p_io for doing I/O,
+    ! Please note: Unfortunately we cannot use p_io for doing I/O,
     ! since this might be the test PE which is never calling this routine
     ! (this is the case in the actual setup).
     ! Thus we use the worker PE 0 for I/O and don't use message() for output.
@@ -504,6 +504,8 @@ CONTAINS
     IF (division_method(patch_no) == div_from_file     .OR. &
         division_method(patch_no) == ext_div_from_file .OR. &
         division_method(patch_no) > 100) THEN
+
+      ALLOCATE(cell_owner(wrk_p_patch_pre%n_patch_cells_g))
 
       ! only procs 0 will decompose and then broadcast
       IF (p_pe_work == 0) THEN
@@ -618,6 +620,13 @@ CONTAINS
 
       ENDIF
 
+      ! Set processor offset
+      cell_owner(:) = cell_owner(:) + proc0
+
+      CALL create_dist_cell_owner(dist_cell_owner, wrk_p_patch_pre%n_patch_cells_g)
+      CALL init_dist_cell_owner(dist_cell_owner, cell_owner)
+      DEALLOCATE(cell_owner)
+
     ELSE ! IF (division_method(patch_no) == div_from_file     .OR. &
          !     division_method(patch_no) == ext_div_from_file .OR. &
          !     division_method(patch_no) > 100)
@@ -647,30 +656,36 @@ CONTAINS
 
         ! Divide subset of patch
         ! Receives the PE  numbers for every cell
-        ALLOCATE(parent_cell_owner(wrk_p_parent_patch_pre%n_patch_cells_g))
-
         IF(division_method(patch_no) == div_geometric) THEN
           CALL divide_subset_geometric(flag_c, n_proc, wrk_p_parent_patch_pre, &
-               parent_cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
+               dist_parent_cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
                divide_for_radiation = divide_for_radiation)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
           CALL divide_subset_metis(flag_c, n_proc, wrk_p_parent_patch_pre, &
-            &                      parent_cell_owner)
+            &                      dist_parent_cell_owner)
 #endif
         ELSE
           CALL finish('divide_patch','Illegal division_method setting')
         ENDIF
 
-        ! Owners of the cells of the parent patch are now in parent_cell_owner.
+        CALL dist_mult_array_expose(dist_parent_cell_owner)
+
+        ! Owners of the cells of the parent patch are now in dist_parent_cell_owner.
         ! Set owners in current patch from this
 
-        DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-          CALL dist_mult_array_get(wrk_p_patch_pre%cells%parent, 1, (/j/), jp)
-          cell_owner(j) = parent_cell_owner(jp)
+        CALL create_dist_cell_owner(dist_cell_owner, &
+          &                         wrk_p_patch_pre%n_patch_cells_g)
+        CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
+        CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%parent, 1, &
+          &                            local_parent_ptr)
+        DO j = LBOUND(local_owner_ptr,1), UBOUND(local_owner_ptr,1)
+          CALL dist_mult_array_get(dist_parent_cell_owner, 1, &
+            &                      (/local_parent_ptr(j)/), local_owner_ptr(j))
         ENDDO
 
-        DEALLOCATE(flag_c, parent_cell_owner)
+        CALL dist_mult_array_delete(dist_parent_cell_owner)
+        DEALLOCATE(flag_c)
 
       ELSE
 
@@ -685,11 +700,12 @@ CONTAINS
 
         IF(division_method(patch_no) == div_geometric) THEN
           CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_pre, &
-               cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
+               dist_cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
                divide_for_radiation = divide_for_radiation)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
-          CALL divide_subset_metis(flag_c, n_proc, wrk_p_patch_pre, cell_owner)
+          CALL divide_subset_metis(flag_c, n_proc, wrk_p_patch_pre, &
+            &                      dist_cell_owner)
 #endif
         ELSE
           CALL finish('divide_patch','Illegal division_method setting')
@@ -699,24 +715,12 @@ CONTAINS
 
       ENDIF
 
+      ! Set processor offset
+      CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
+      local_owner_ptr = local_owner_ptr + proc0
+      CALL dist_mult_array_expose(dist_cell_owner)
+
     ENDIF ! division_method
-
-    ! Set processor offset
-    cell_owner(:) = cell_owner(:) + proc0
-
-    ! Output how many cells go to every PE
-
-  !  IF(p_pe_work==0) THEN
-  !    PRINT '(a,i0,a,i0)','Patch: ',wrk_p_patch_pre%id,&
-  !      & ' Total number of cells: ',wrk_p_patch_pre%n_patch_cells_g
-  !    DO n = 0, p_n_work-1
-  !      PRINT '(a,i5,a,i8)','PE',n,' # cells: ',COUNT(cell_owner(:) == n)
-  !    ENDDO
-  !  ENDIF
-
-  CALL create_dist_cell_owner(dist_cell_owner, wrk_p_patch_pre%n_patch_cells_g)
-  CALL init_dist_cell_owner(dist_cell_owner, cell_owner)
-  DEALLOCATE(cell_owner)
 
   END SUBROUTINE divide_patch_cells
 
@@ -2649,28 +2653,29 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !!
   SUBROUTINE divide_subset_geometric(subset_flag, n_proc, wrk_p_patch_pre, &
-                                     owner, lparent_level, divide_for_radiation)
+                                     dist_cell_owner, lparent_level, &
+                                     divide_for_radiation)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
     TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre ! out is required for
                                                         ! the distributed arrays
-    INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
+    TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
     LOGICAL, INTENT(IN)    :: lparent_level ! indicates if domain decomposition is executed for
                               ! the parent grid level (true) or for the target grid level (false)
     ! Private flag if patch should be divided for radiation calculation
     LOGICAL, INTENT(in) :: divide_for_radiation
 
-    INTEGER :: i, j, nc, nc_g, ncs, nce, n_onb_points, jm(1)
+    INTEGER :: j, nc, nc_g, ncs, nce, n_onb_points, jm(1)
     INTEGER :: count_physdom(0:max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
                ncell_offset(0:max_phys_dom), ncell_offset_g(0:max_phys_dom)
     TYPE(t_cell_info), ALLOCATABLE :: cell_desc(:)
-    INTEGER, ALLOCATABLE :: owner_gather(:,:)
     REAL(wp) :: corr_ratio(max_phys_dom)
     LOGICAL  :: lsplit_merged_domains, locean
-    INTEGER :: my_cell_start, my_cell_end, current_end, last_end
+    INTEGER :: my_cell_start, my_cell_end
+    INTEGER, POINTER :: owner_chunk_ptr(:)
     INTEGER :: ierror
     CHARACTER(*), PARAMETER :: routine = 'divide_subset_geometric'
 
@@ -2689,9 +2694,6 @@ CONTAINS
     ELSE
       locean = .FALSE.
     ENDIF
-
-    ! Initialization of cell owner field
-    owner(:) = -1
 
     lsplit_merged_domains = .FALSE.
 
@@ -2844,30 +2846,21 @@ CONTAINS
 
     ENDDO
 
+    ! set up distributed owner array
+    CALL create_dist_cell_owner(dist_cell_owner,wrk_p_patch_pre%n_patch_cells_g)
+
+    ! Initialization of cell owner field
+    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, owner_chunk_ptr)
+    owner_chunk_ptr = -1
+
     IF (p_n_work > 1) THEN
 #ifndef NOMPI
-      CALL set_owners_mpi(1, wrk_p_patch_pre%n_patch_cells_g, &
-           my_cell_start, my_cell_end, &
-           owner(my_cell_start:my_cell_end), wrk_p_patch_pre, &
-           cell_desc, ncell_offset, num_physdom, n_onb_points)
-      ALLOCATE(owner_gather(0:p_n_work-1, 2))
-      last_end = 0
-      DO i = 0, p_n_work - 1
-        current_end = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
-             &             * INT(i + 1, i8)) / INT(p_n_work, i8))
-        owner_gather(i, 1) = current_end - last_end
-        owner_gather(i, 2) = last_end
-        last_end = current_end
-      END DO
-      CALL mpi_allgatherv(mpi_in_place, owner_gather(p_pe_work, 1), p_int, &
-           owner, owner_gather(:, 1), owner_gather(:, 2), p_int, &
-           p_comm_work, ierror)
-      IF (ierror /= mpi_success) CALL finish(routine, 'error in allgatherv')
-      DEALLOCATE(owner_gather)
+      CALL set_owners_mpi(my_cell_start, my_cell_end, dist_cell_owner, &
+           wrk_p_patch_pre, cell_desc, ncell_offset, num_physdom, n_onb_points)
 #endif
     ELSE
       CALL set_owners(1, wrk_p_patch_pre%n_patch_cells_g, &
-           owner, wrk_p_patch_pre, cell_desc, ncell_offset, &
+           owner_chunk_ptr, wrk_p_patch_pre, cell_desc, ncell_offset, &
            num_physdom, n_onb_points)
     END IF
 
@@ -3116,17 +3109,14 @@ CONTAINS
 
 #ifndef NOMPI
   ! Set owner list (of complete patch)
-  SUBROUTINE set_owners_mpi(global_range_start, global_range_end, &
-       range_start, range_end, &
-       owner, wrk_p_patch_pre, cell_desc, ncell_offset, &
-       num_physdom, n_onb_points)
+  SUBROUTINE set_owners_mpi(range_start, range_end, dist_cell_owner, &
+       wrk_p_patch_pre, cell_desc, ncell_offset, num_physdom, n_onb_points)
     USE mpi
     USE ppm_extents
     USE ppm_distributed_array
-    INTEGER, INTENT(in) :: global_range_start, global_range_end, &
-         range_start, range_end
+    INTEGER, INTENT(in) :: range_start, range_end
      !> receives the owner PE for every cell
-    INTEGER, INTENT(out) :: owner(range_start:range_end)
+    TYPE(dist_mult_array), INTENT(inout) :: dist_cell_owner
     TYPE(t_pre_patch), INTENT(inout) :: wrk_p_patch_pre
     TYPE(t_cell_info), INTENT(inout) :: cell_desc(range_start:range_end)
     !> if > 0 a cell belongs to the subset
@@ -3137,34 +3127,29 @@ CONTAINS
          first_unassigned_onb, last_unassigned_onb, &
          ncs, nce, owner_value, owner_idx(1), ierror
     TYPE(t_cell_info) :: temp
-    TYPE(dist_mult_array) :: owners_ga
-    TYPE(global_array_desc) :: owners_ga_desc(1)
-    TYPE(extent) :: local_owners_desc(1, 1)
-    INTEGER, POINTER :: owners_ga_local(:)
+    INTEGER, POINTER :: owners_local(:)
+    INTEGER, ALLOCATABLE :: tmp_owners_local(:)
     LOGICAL :: owner_missing, any_onb_points
     CHARACTER(14), PARAMETER :: routine = 'set_owners_mpi'
+
+    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, owners_local)
 
     DO jd = 1, num_physdom
       ncs = ncell_offset(jd-1) + range_start
       nce = ncell_offset(jd) + range_start - 1
       DO j = ncs, nce
-        owner(cell_desc(j)%cell_number) = cell_desc(j)%owner
+        owners_local(cell_desc(j)%cell_number) = cell_desc(j)%owner
       END DO
     END DO
+
+    ALLOCATE(tmp_owners_local(range_start:range_end))
+    tmp_owners_local = owners_local
 
     ! Add outer nest boundary points that have been disregarded so far
     any_onb_points = n_onb_points > 0
     CALL mpi_allreduce(mpi_in_place, any_onb_points, 1, p_bool, &
          mpi_lor, p_comm_work, ierror)
     IF (any_onb_points) THEN
-      local_owners_desc(1, 1) = extent(range_start, range_end - range_start + 1)
-      owners_ga_desc(1)%a_rank = 1
-      owners_ga_desc(1)%rect(1) = extent(global_range_start, &
-           global_range_end - global_range_start + 1)
-      owners_ga_desc(1)%element_dt = p_int
-      owners_ga = dist_mult_array_new(owners_ga_desc, local_owners_desc, &
-           p_comm_work)
-      CALL dist_mult_array_local_ptr(owners_ga, 1, owners_ga_local)
 
       first_unassigned_onb = range_end - n_onb_points + 1
       last_unassigned_onb = range_end
@@ -3175,9 +3160,7 @@ CONTAINS
            mpi_lor, p_comm_work, ierror)
       DO WHILE (owner_missing)
         IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
-        owners_ga_local(:) = owner(:)
-        CALL dist_mult_array_expose(owners_ga)
-
+        CALL dist_mult_array_expose(dist_cell_owner)
         DO i = last_unassigned_onb, first_unassigned_onb, -1
           j = cell_desc(i)%cell_number
           CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
@@ -3188,7 +3171,8 @@ CONTAINS
               &                      (/j, ii/), jn)
             IF (jn > 0) THEN
               owner_idx(1) = jn
-              CALL dist_mult_array_get(owners_ga, 1, owner_idx, owner_value)
+              CALL dist_mult_array_get(dist_cell_owner, 1, owner_idx, &
+                &                      owner_value)
               IF (owner_value >= 0) THEN
                 ! move found cells to end of onb area
                 temp = cell_desc(i)
@@ -3196,19 +3180,19 @@ CONTAINS
                   cell_desc(jj) = cell_desc(jj + 1)
                 END DO
                 cell_desc(last_unassigned_onb) = temp
-                owner(j) = owner_value
+                tmp_owners_local(j) = owner_value
                 last_unassigned_onb = last_unassigned_onb - 1
                 EXIT
               ENDIF
             ENDIF
           ENDDO
         ENDDO
-        CALL dist_mult_array_unexpose(owners_ga)
+        CALL dist_mult_array_unexpose(dist_cell_owner)
+        owners_local = tmp_owners_local
         owner_missing = first_unassigned_onb <= last_unassigned_onb
         CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
              mpi_lor, p_comm_work, ierror)
       ENDDO
-      CALL dist_mult_array_delete(owners_ga)
     ENDIF
 
   END SUBROUTINE set_owners_mpi
@@ -3225,15 +3209,17 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !!
   SUBROUTINE divide_subset_metis(subset_flag, n_proc, wrk_p_patch_pre, &
-                                 owner)
+                                 dist_cell_owner)
 
     INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
     TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
-    INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
+    ! receives the owner PE for every cell
+    TYPE(dist_mult_array), INTENT(out)   :: dist_cell_owner(:)
     ! (-1 for cells not in subset)
 
 
+    INTEGER, ALLOCATABLE   :: owner(:) ! receives the owner PE for every cell
     INTEGER :: i, j, jl, jb, jl_n, jb_n, na, nc
     INTEGER, ALLOCATABLE :: local_index(:), tmp(:)
     INTEGER, ALLOCATABLE :: metis_xadj(:), metis_adjncy(:)
@@ -3247,7 +3233,8 @@ CONTAINS
     ! Since the METIS rountine is called with the option for C-Style numbering,
     ! we let local_index start with 0 here!
 
-    ALLOCATE(local_index(wrk_p_patch_pre%n_patch_cells_g))
+    ALLOCATE(local_index(wrk_p_patch_pre%n_patch_cells_g), &
+      &      owner(wrk_p_patch_pre%n_patch_cells_g))
     local_index(:) = -1
 
     nc = 0
@@ -3320,6 +3307,9 @@ CONTAINS
     ENDDO
 
     DEALLOCATE(metis_xadj, metis_adjncy, local_index, tmp)
+
+    CALL create_dist_cell_owner(dist_cell_owner,wrk_p_patch_pre%n_patch_cells_g)
+    CALL init_dist_cell_owner(dist_cell_owner, owner)
 
   END SUBROUTINE divide_subset_metis
 #endif
