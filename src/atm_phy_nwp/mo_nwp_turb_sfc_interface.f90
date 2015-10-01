@@ -163,7 +163,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
 ! estimates of tile albedo ???
   REAL(wp) :: zalbti_est(8)
-  DATA        zalbti_est  / 0.06, 0.80, 0.20, 0.20, 0.70, 0.15, 0.35, 0.40 /
+  DATA        zalbti_est  / 0.06_wp, 0.80_wp, 0.20_wp, 0.20_wp, 0.70_wp, 0.15_wp, 0.35_wp, 0.40_wp /
 
 ! conversion of soil types TERRA (mo_phyparam_soil.f90) to TESSEL (cy36r1 Tab8.8)
   INTEGER  :: soiltyp_conv(10)
