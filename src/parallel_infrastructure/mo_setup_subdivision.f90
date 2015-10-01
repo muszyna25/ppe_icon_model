@@ -80,7 +80,6 @@ MODULE mo_setup_subdivision
     &                               dist_mult_array_new, &
     &                               dist_mult_array_local_ptr, &
     &                               dist_mult_array_expose, &
-    &                               dist_mult_array_unexpose, &
     &                               dist_mult_array_delete, dist_mult_array_get, &
     &                               ppm_int
   USE ppm_extents,            ONLY: extent
@@ -1365,7 +1364,7 @@ CONTAINS
       ! INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
       INTEGER, INTENT(IN) :: order_type_of_halos
 
-      INTEGER :: n, i, ic, j, jv, jv_, je, ilev, jc, jc_, k, owner_jc, owner_jc_
+      INTEGER :: n, i, ic, jv, jv_, je, ilev, jc, jc_, k, owner_jc, owner_jc_
       LOGICAL, ALLOCATABLE :: pack_mask(:)
       INTEGER, ALLOCATABLE :: temp_cells(:), temp_vertices(:), &
                               temp_vertices_owner(:), temp_edges(:), &
@@ -2580,8 +2579,7 @@ CONTAINS
     ! Private flag if patch should be divided for radiation calculation
     LOGICAL, INTENT(in) :: divide_for_radiation
 
-    INTEGER :: i, j, nc, nc_g, ncs, nce, n_onb_points, jm(1), temp_num_edges, &
-      &        refin_ctrl
+    INTEGER :: i, j, nc, nc_g, ncs, nce, n_onb_points, jm(1)
     INTEGER :: count_physdom(0:max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
                ncell_offset(0:max_phys_dom), ncell_offset_g(0:max_phys_dom)
