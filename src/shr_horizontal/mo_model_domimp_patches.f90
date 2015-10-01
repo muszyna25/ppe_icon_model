@@ -142,8 +142,7 @@ MODULE mo_model_domimp_patches
   USE mo_interpol_config,    ONLY: nudge_zone_width
 #endif
   USE ppm_distributed_array,  ONLY: dist_mult_array_local_ptr, &
-    &                               dist_mult_array_expose, &
-    &                               dist_mult_array_get
+    &                               dist_mult_array_expose
 
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
