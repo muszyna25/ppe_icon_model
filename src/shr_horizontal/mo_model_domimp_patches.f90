@@ -149,18 +149,18 @@ MODULE mo_model_domimp_patches
 
   USE mo_netcdf_parallel, ONLY:                      &
     & nf_nowrite, nf_global, nf_noerr, nf_strerror,  &
-    & nf_inq_attid       => p_nf_inq_attid,          &
-    & nf_open            => p_nf_open,               &
-    & nf_close           => p_nf_close,              &
-    & nf_inq_dimid       => p_nf_inq_dimid,          &
-    & nf_inq_dimlen      => p_nf_inq_dimlen,         &
-    & nf_inq_varid       => p_nf_inq_varid,          &
-    & nf_get_att_text    => p_nf_get_att_text,       &
-    & nf_get_att_int     => p_nf_get_att_int,        &
-    & nf_get_var_int     => p_nf_get_var_int,        &
-    & nf_get_vara_int    => p_nf_get_vara_int,       &
-    & nf_get_var_double  => p_nf_get_var_double,     &
-    & nf_get_vara_double => p_nf_get_vara_double
+    & nf_inq_attid        => p_nf_inq_attid,          &
+    & nf_open             => p_nf_open,               &
+    & nf_close            => p_nf_close,              &
+    & nf_inq_dimid        => p_nf_inq_dimid,          &
+    & nf_inq_dimlen       => p_nf_inq_dimlen,         &
+    & nf_inq_varid        => p_nf_inq_varid,          &
+    & nf_get_att_text     => p_nf_get_att_text,       &
+    & nf_get_att_int      => p_nf_get_att_int,        &
+    & nf_get_var_int      => p_nf_get_var_int,        &
+    & nf_get_vara_int     => p_nf_get_vara_int,       &
+    & nf_get_var_double   => p_nf_get_var_double,     &
+    & nf_get_vara_double  => p_nf_get_vara_double_
 #endif
 
   IMPLICIT NONE
@@ -1037,6 +1037,7 @@ CONTAINS
     INTEGER :: jc, ic
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id, dim_idxlist
     INTEGER, POINTER :: local_ptr(:), local_ptr_2d(:,:)
+    REAL(wp), POINTER :: local_ptr_wp(:)
     !-----------------------------------------------------------------------
 
     ! set dummy values to zero
@@ -1425,13 +1426,22 @@ CONTAINS
 
     CALL dist_mult_array_expose(patch_pre%cells%vertex)
 
-    ! patch_pre%cells%center(:)%lon
-    CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
-    CALL nf(nf_get_var_double(ncid, varid, patch_pre%cells%center(:)%lon))
-
-    ! patch_pre%cells%center(:)%lat
+    ! patch_pre%cells%center latitude
     CALL nf(nf_inq_varid(ncid, 'lat_cell_centre', varid))
-    CALL nf(nf_get_var_double(ncid, varid, patch_pre%cells%center(:)%lat))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%center, 1, local_ptr_wp)
+    CALL nf(nf_get_vara_double(ncid, varid, &
+      &                        (/patch_pre%cells%local_chunk(1,1)%first/), &
+      &                        (/patch_pre%cells%local_chunk(1,1)%size/), &
+      &                        local_ptr_wp(:)))
+
+    ! patch_pre%cells%center longitude
+    CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%center, 2, local_ptr_wp)
+    CALL nf(nf_get_vara_double(ncid, varid, &
+      &                        (/patch_pre%cells%local_chunk(1,1)%first/), &
+      &                        (/patch_pre%cells%local_chunk(1,1)%size/), &
+      &                        local_ptr_wp(:)))
+    CALL dist_mult_array_expose(patch_pre%cells%center)
 
     ! patch_pre%verts%vertex(:)%lon
     CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))

@@ -57,6 +57,7 @@ PUBLIC :: p_nf_get_var_int
 PUBLIC :: p_nf_get_vara_int
 PUBLIC :: p_nf_get_var_double
 PUBLIC :: p_nf_get_vara_double
+PUBLIC :: p_nf_get_vara_double_
 PUBLIC :: p_nf_inq_attid
 
 ! constants
@@ -522,6 +523,25 @@ INTEGER FUNCTION p_nf_get_vara_int(ncid, varid, start, count, ivals)
    p_nf_get_vara_int = nf_get_vara_int(ncid, varid, start, count, ivals)
 
 END FUNCTION p_nf_get_vara_int
+
+!-------------------------------------------------------------------------
+!>
+!!               Wrapper for nf_get_vara_double.
+!!
+!!
+!! @par Revision History
+!! Initial version by Marco Giorgetta, Sept 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
+!!
+INTEGER FUNCTION p_nf_get_vara_double_(ncid, varid, start, count, dvals)
+
+!
+   INTEGER, INTENT(in)  :: ncid, varid, start(*), count(*)
+   REAL(dp), INTENT(out) :: dvals(*)
+
+   p_nf_get_vara_double_ = nf_get_vara_double(ncid, varid, start, count, dvals)
+
+END FUNCTION p_nf_get_vara_double_
 
 !-------------------------------------------------------------------------
 !>

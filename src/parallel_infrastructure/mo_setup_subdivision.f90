@@ -1004,11 +1004,12 @@ CONTAINS
         wrk_p_patch%cells%child_blk(jl,jb,i) = blk_no(jc)
       END DO
 
-      CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
-        &                      (/wrk_p_patch%cells%decomp_info%glb_index(j)/), &
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, (/jg/), &
         &                      wrk_p_patch%cells%num_edges(jl,jb))
-      wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_pre%cells%center(jg)%lat
-      wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_pre%cells%center(jg)%lon
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 1, (/jg/), &
+        &                      wrk_p_patch%cells%center(jl,jb)%lat)
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 2, (/jg/), &
+        &                      wrk_p_patch%cells%center(jl,jb)%lon)
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%refin_ctrl, 1, (/jg/), &
         &                      wrk_p_patch%cells%refin_ctrl(jl,jb))
     ENDDO
@@ -2777,8 +2778,8 @@ CONTAINS
         ! This is accomplished by mapping all cells to one section
         ! lying in the NH and having a width of 0.4*pi (72 deg)
 
-        cclat = wrk_p_patch_pre%cells%center(j)%lat
-        cclon = wrk_p_patch_pre%cells%center(j)%lon
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 1, (/j/), cclat)
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 2, (/j/), cclon)
 
         IF (cclat>=0._wp .AND. cclon>=-0.2_wp*pi .AND. cclon<=0.2_wp*pi) THEN
         ELSE IF (cclat>=0._wp .AND. cclon>=0.2_wp*pi .AND. cclon<=0.6_wp*pi) THEN
@@ -2830,13 +2831,14 @@ CONTAINS
 
         IF (subset_flag(j) <= 0) CYCLE
 
-        cell_desc(range_start + nc)%lat = fxp_lat(wrk_p_patch_pre%cells%center(j)%lat)
-        cell_desc(range_start + nc)%lon = fxp_lon(wrk_p_patch_pre%cells%center(j)%lon)
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 1, (/j/), cclat)
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 2, (/j/), cclon)
+        cell_desc(range_start + nc)%lat = fxp_lat(cclat)
+        cell_desc(range_start + nc)%lon = fxp_lon(cclon)
         cell_desc(range_start + nc)%cell_number = j
         cell_desc(range_start + nc)%owner = 0
 
         nc = nc + 1 ! Cell counter
-
       ENDDO
 
       ncell_offset(1) = nc
@@ -2865,8 +2867,8 @@ CONTAINS
             CYCLE
           ENDIF
 
-          cclat = wrk_p_patch_pre%cells%center(j)%lat
-          cclon = wrk_p_patch_pre%cells%center(j)%lon
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 1, (/j/), cclat)
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 2, (/j/), cclon)
 
           ! Using the center of the cells for geometric subdivision leads
           ! to "toothed" edges of the subdivision area
@@ -3208,10 +3210,10 @@ CONTAINS
       & CALL finish (method_name, "ALLOCATE(decomposition_struct")
 
     DO cell = 1, no_of_cells
-      decomposition_struct%cell_geo_center(cell)%lat = &
-        patch_pre%cells%center(cell)%lat
-      decomposition_struct%cell_geo_center(cell)%lon = &
-        patch_pre%cells%center(cell)%lon
+      CALL dist_mult_array_get(patch_pre%cells%center, 1, (/cell/), &
+        &                      decomposition_struct%cell_geo_center(cell)%lat)
+      CALL dist_mult_array_get(patch_pre%cells%center, 2, (/cell/), &
+        &                      decomposition_struct%cell_geo_center(cell)%lon)
       CALL dist_mult_array_get(patch_pre%cells%vertex,1,(/cell,1/), &
         &                      decomposition_struct%cells_vertex(1, cell))
       CALL dist_mult_array_get(patch_pre%cells%vertex,1,(/cell,2/), &

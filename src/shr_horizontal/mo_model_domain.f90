@@ -355,7 +355,7 @@ MODULE mo_model_domain
     ! cell geometry
 
     ! longitude & latitude of centers of triangular cells
-    TYPE(t_geographical_coordinates), ALLOCATABLE :: center(:)
+    TYPE(dist_mult_array) :: center
 
     ! refinement control flag
     TYPE(dist_mult_array) :: refin_ctrl
