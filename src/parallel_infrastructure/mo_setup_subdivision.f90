@@ -35,7 +35,7 @@ MODULE mo_setup_subdivision
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
-       c_num_edges, c_parent, c_child
+       c_num_edges, c_parent, c_child, c_phys_id
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -600,7 +600,7 @@ CONTAINS
 
       flag_c = 0
 
-      CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%phys_id, 1, &
+      CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_phys_id, &
         &                            local_phys_id_ptr)
       CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_parent, &
         &                            local_parent_ptr)

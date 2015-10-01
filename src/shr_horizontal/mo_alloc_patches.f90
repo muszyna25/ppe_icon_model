@@ -32,7 +32,7 @@ MODULE mo_alloc_patches
     & max_dom
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, &
-       c_child
+       c_child, c_phys_id
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              init_glb2loc_index_lookup, &
     &                              t_glb2loc_index_lookup, &
@@ -626,13 +626,13 @@ CONTAINS
     TYPE(global_array_desc) :: dist_vert_owner_desc(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc_cell(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc_vertex(2)
-    TYPE(global_array_desc) :: dist_cell_desc(3)
+    TYPE(global_array_desc) :: dist_cell_desc(4)
 
     TYPE(extent) :: local_cell_chunk_neighbor(2,1), &
       &             local_edge_chunk_child(2,1), local_edge_chunk_cell(2,1), &
       &             local_vert_chunk_cell(2,1), local_cell_chunk_center(1,2), &
       &             local_vert_chunk_vertex(1,2), &
-      &             local_cell_chunks(2, 3)
+      &             local_cell_chunks(2, 4)
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -660,6 +660,8 @@ CONTAINS
     dist_cell_desc(c_child) = dist_cell_owner_desc(1)
     dist_cell_desc(c_child)%a_rank = 2
     dist_cell_desc(c_child)%rect(2) = extent(first=1, size = 4)
+
+    dist_cell_desc(c_phys_id) = dist_cell_owner_desc(1)
 
     dist_edge_owner_desc(1)%a_rank = 1
     dist_edge_owner_desc(1)%rect(1)%first = 1
@@ -735,8 +737,6 @@ CONTAINS
     local_cell_chunks(2, c_child) = extent(first=1, size=4)
     p_patch_pre%cells%dist = dist_mult_array_new( &
       dist_cell_desc, local_cell_chunks, p_comm_work)
-    p_patch_pre%cells%phys_id = dist_mult_array_new( &
-      dist_cell_owner_desc, p_patch_pre%cells%local_chunk, p_comm_work)
     p_patch_pre%cells%neighbor = dist_mult_array_new( &
       dist_cell_owner_desc_neighbor, local_cell_chunk_neighbor, p_comm_work)
     p_patch_pre%cells%edge = dist_mult_array_new( &
@@ -890,8 +890,6 @@ CONTAINS
     CALL dist_mult_array_delete(p_patch_pre%cells%edge)
     CALL dist_mult_array_unexpose(p_patch_pre%cells%vertex)
     CALL dist_mult_array_delete(p_patch_pre%cells%vertex)
-    CALL dist_mult_array_unexpose(p_patch_pre%cells%phys_id)
-    CALL dist_mult_array_delete(p_patch_pre%cells%phys_id)
     CALL dist_mult_array_unexpose(p_patch_pre%cells%center)
     CALL dist_mult_array_delete(p_patch_pre%cells%center)
     CALL dist_mult_array_unexpose(p_patch_pre%cells%refin_ctrl)

@@ -334,7 +334,10 @@ MODULE mo_model_domain
        ! parent child index, number of current cell in parent's child_idx/child_blk:
        ! indices of child triangles:
        ! index2=1,4
-       c_child = 3
+       c_child = 3, &
+       ! physical domain ID of triangles
+       ! (may differ from the "normal" domain ID in case of domain merging):
+       c_phys_id = 4
 
   TYPE t_pre_grid_cells
 
@@ -343,11 +346,6 @@ MODULE mo_model_domain
 
     INTEGER :: max_connectivity
     TYPE(dist_mult_array) :: dist
-
-
-    ! physical domain ID of triangles
-    ! (may differ from the "normal" domain ID in case of domain merging):
-    TYPE(dist_mult_array) :: phys_id
 
     ! indices of triangles next to each cell:
     ! index2=1,3
