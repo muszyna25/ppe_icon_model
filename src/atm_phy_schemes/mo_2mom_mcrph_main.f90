@@ -4068,9 +4068,14 @@ CONTAINS
     REAL(wp)            :: q_c,n_c,x_c,d_c,v_c,x_coll_c
     REAL(wp)            :: rime_n,rime_q,e_coll_n
     REAL(wp)            :: melt_n,melt_q,e_coll_q
-    REAL(wp)            :: shed_n,shed_q,x_shed
+    REAL(wp)            :: shed_n,shed_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
-    REAL(wp)            :: const1,const2,const3,const4
+    REAL(wp)            :: const1
+    REAL(wp), PARAMETER :: const2 = 1.0/(T_mult_opt - T_mult_min), &
+         const3 = 1.0/(T_mult_opt - T_mult_max), &
+         const4 = c_w / L_ew, &
+         !..mean mass of shedding drops
+         x_shed = 4./3.*pi * rho_w * r_shedding**3
     REAL(wp), SAVE      :: delta_n_gg,delta_n_gc,delta_n_cc
     REAL(wp), SAVE      :: delta_q_gg,delta_q_gc,delta_q_cc
     REAL(wp), SAVE      :: theta_n_gg,theta_n_gc,theta_n_cc
@@ -4125,14 +4130,8 @@ CONTAINS
       firstcall = 1
     ENDIF
 
-    x_shed = 4./3.*pi * rho_w * r_shedding**3     !..mean mass of shedding drops
-
     x_coll_c = (D_coll_c/cloud%a_geo)**3          !..lower threshold for collection
-
     const1 = ecoll_gc/(D_coll_c - D_crit_c)
-    const2 = 1.0/(T_mult_opt - T_mult_min)
-    const3 = 1.0/(T_mult_opt - T_mult_max)
-    const4 = c_w / L_ew
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
