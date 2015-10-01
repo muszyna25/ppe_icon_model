@@ -115,8 +115,8 @@ CONTAINS
 
 
   SUBROUTINE collect_all_grid_info(p_patch, patch_info)
-    TYPE(t_patch),        INTENT(IN)    :: p_patch 
-    TYPE(t_patch_info),   INTENT(INOUT) :: patch_info 
+    TYPE(t_patch),        INTENT(IN)    :: p_patch
+    TYPE(t_patch_info),   INTENT(INOUT) :: patch_info
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::collect_all_grid_info"
     INTEGER                             :: ierrstat, max_cell_connectivity
@@ -945,7 +945,6 @@ CONTAINS
     REAL(wp), ALLOCATABLE          :: lonv(:,:,:), latv(:,:,:)
     REAL(wp), POINTER              :: r1d(:)
     REAL(wp), TARGET               :: dummy(1)
-    REAL(wp), ALLOCATABLE :: test(:)
 
     IF(my_process_is_io()) THEN
       ALLOCATE(grid_info%lon(nproma*nblks_glb),                &
