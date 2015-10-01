@@ -6775,8 +6775,11 @@ CONTAINS
           val_loc(2, :, 1) = DBLE(meta_info)
           CALL mpi_reduce(val_loc(:, :, 1), val_loc(:, :, 2), &
                n, mpi_2double_precision, loc_op, root, p_comm, p_error)
-          IF (rank == root) THEN ; out_field = val_loc(1, :, 2) ; ELSE &
-               ; out_field = 0. ; END IF
+          IF (rank == root) THEN
+             out_field = val_loc(1, :, 2)
+          ELSE
+             out_field = 0.
+          END IF
 #endif
           compute_ikey = rank == root
         ELSE
@@ -6787,6 +6790,8 @@ CONTAINS
           CALL mpi_allreduce(ikey, meta_info, n, mpi_integer, &
                mpi_min, p_comm, p_error)
 #else
+          val_loc(1, :, 1) = DBLE(in_field)
+          val_loc(2, :, 1) = DBLE(meta_info)
           CALL mpi_allreduce(val_loc(:, :, 1), val_loc(:, :, 2), &
                n, mpi_2double_precision, loc_op, p_comm, p_error)
           out_field = val_loc(1, :, 2)
@@ -6797,10 +6802,10 @@ CONTAINS
         IF (compute_ikey) THEN
 #ifdef SLOW_MPI_MAXMINLOC
           ikey = meta_info / comm_size
-          IF (PRESENT(proc_id)) proc_id = meta_info - ikey
+          IF (PRESENT(proc_id)) proc_id = mod(meta_info,comm_size)
 #else
           ikey = NINT(val_loc(2, :, 2)) / comm_size
-          IF (PRESENT(proc_id)) proc_id = NINT(val_loc(2, :, 2)) - ikey
+          IF (PRESENT(proc_id)) proc_id = mod(nint(val_loc(2, :, 2)),comm_size)
 #endif
           IF (PRESENT(keyval)) keyval = ikey
         END IF
