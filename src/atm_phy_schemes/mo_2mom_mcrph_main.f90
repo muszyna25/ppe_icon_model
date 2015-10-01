@@ -472,6 +472,12 @@ MODULE mo_2mom_mcrph_main
   !> run-time- and location invariants for autoconversionSB
   REAL(wp), SAVE :: autoconversion_sb_k_au, autoconversion_sb_k_sc
 
+
+  TYPE dep_imm_params
+    REAL(wp) :: alf_dep, bet_dep, nin_dep, &
+         alf_imm, bet_imm, nin_imm
+  END TYPE dep_imm_params
+
 CONTAINS
 
   !*******************************************************************************
@@ -1975,7 +1981,7 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER          :: i,k
-    REAL(wp)         :: q_c, q_r, n_c, x_c, nu, mu, tau, phi, x_s_i, au, sc
+    REAL(wp)         :: q_c, q_r, n_c, x_c, tau, phi, x_s_i, au, sc
 
     REAL(wp), PARAMETER :: k_1  = 6.00e+2_wp   !..Parameter for Phi
     REAL(wp), PARAMETER :: k_2  = 0.68e+0_wp   !..Parameter fof Phi
@@ -2574,7 +2580,6 @@ CONTAINS
     REAL(wp)             :: nuc_n, nuc_q
     REAL(wp)             :: T_a, p_a, ssi
     REAL(wp)             :: q_i,n_i,x_i,r_i
-    REAL(wp)             :: ndiag, ndiag_dust, ndiag_all
 
     ! switch for version of Phillips et al. scheme
     ! (but make sure you have the correct INCLUDE file)
@@ -2598,25 +2603,52 @@ CONTAINS
     REAL(wp)  :: ctau, acoeff(3),bcoeff(2), ri_dot
     REAL(wp)  :: kappa,sqrtkap,ren,R_imfc,R_im,R_ik,ri_0
 
-    ! variables for Hande et al. nucleation parameterization for HDCP2 simulations
-    REAL(wp)  :: alf_dep, bet_dep, nin_dep
-    REAL(wp)  :: alf_imm, bet_imm, nin_imm
+    ! parameters for Hande et al. nucleation parameterization for HDCP2 simulations
+    TYPE(dep_imm_params), PARAMETER :: hdcp2_nuc_params(5) &
+         = (/ dep_imm_params(&
+                                ! Spring of Table 1
+         nin_imm = 1.5684e5, &
+         alf_imm = 0.2466, &
+         bet_imm = 1.2293, &
+         nin_dep = 1.7836e5, &
+         alf_dep = 0.0075, &
+         bet_dep = 2.0341), &
+         dep_imm_params(&
+                                ! Summer
+         nin_imm = 2.9694e4, &
+         alf_imm = 0.2813, &
+         bet_imm = 1.1778, &
+         nin_dep = 2.6543e4, &
+         alf_dep = 0.0020, &
+         bet_dep = 2.5128), &
+         dep_imm_params(&
+                                ! Autumn
+         nin_imm = 4.9920e4, &
+         alf_imm = 0.2622, &
+         bet_imm = 1.2044, &
+         nin_dep = 7.7167e4, &
+         alf_dep = 0.0406, &
+         bet_dep = 1.4705), &
+         dep_imm_params(&
+                                ! Winter
+         nin_imm = 1.0259e5, &
+         alf_imm = 0.2073, &
+         bet_imm = 1.2873, &
+         nin_dep = 1.1663e4, &
+         alf_dep = 0.0194, &
+         bet_dep = 1.6943), &
+         dep_imm_params(&
+                                ! Spring with 95th percentile scaling factor
+         nin_imm = 1.5684e5 * 17.82, &
+         alf_imm = 0.2466, &
+         bet_imm = 1.2293, &
+         nin_dep = 1.7836e5 * 5.87, &
+         alf_dep = 0.0075, &
+         bet_dep = 2.0341) /)
 
-    ! parameters for deposition formula, Eq (2) of Hande et al.
-    REAL(wp), PARAMETER :: a_dep =  2.7626_wp
-    REAL(wp), PARAMETER :: b_dep =  6.2100_wp  ! 0.0621*100, because we use ssi instead of RHi
-    REAL(wp), PARAMETER :: c_dep = -1.3107_wp
-    REAL(wp), PARAMETER :: d_dep =  2.6789_wp
 
-    REAL(wp), PARAMETER :: eps = 1.e-20_wp
 
-    ! variables for interpolation in look-up table (real is good enough here)
-    REAL      :: xt,xs,ssr
-    INTEGER   :: ss,tt
-
-    LOGICAL   :: use_homnuc, lwrite_n_inpot
-
-    REAL(wp), DIMENSION(3) :: infrac
+    LOGICAL   :: use_homnuc
 
     LOGICAL :: ndiag_mask(ik_slice(1):ik_slice(2), ik_slice(3):ik_slice(4))
     REAL(wp) :: &
@@ -2654,51 +2686,13 @@ CONTAINS
 
     ! Heterogeneous nucleation using Hande et al. scheme
     IF (use_hdcp2_het) THEN
-      IF (nuc_typ.EQ.1) THEN
-        ! Spring of Table 1
-        nin_imm = 1.5684e5
-        alf_imm = 0.2466
-        bet_imm = 1.2293
-        nin_dep = 1.7836e5
-        alf_dep = 0.0075
-        bet_dep = 2.0341
-      ELSEIF (nuc_typ.EQ.2) THEN
-        ! Summer
-        nin_imm = 2.9694e4
-        alf_imm = 0.2813
-        bet_imm = 1.1778
-        nin_dep = 2.6543e4
-        alf_dep = 0.0020
-        bet_dep = 2.5128
-      ELSEIF (nuc_typ.EQ.3) THEN
-        ! Autumn
-        nin_imm = 4.9920e4
-        alf_imm = 0.2622
-        bet_imm = 1.2044
-        nin_dep = 7.7167e4
-        alf_dep = 0.0406
-        bet_dep = 1.4705
-      ELSEIF (nuc_typ.EQ.4) THEN
-        ! Winter
-        nin_imm = 1.0259e5
-        alf_imm = 0.2073
-        bet_imm = 1.2873
-        nin_dep = 1.1663e4
-        alf_dep = 0.0194
-        bet_dep = 1.6943
-      ELSEIF (nuc_typ.EQ.5) THEN
-        ! Spring with 95th percentile scaling factor
-        nin_imm = 1.5684e5 * 17.82
-        alf_imm = 0.2466
-        bet_imm = 1.2293
-        nin_dep = 1.7836e5 * 5.87
-        alf_dep = 0.0075
-        bet_dep = 2.0341
-      ELSE
-        CALL finish(TRIM(routine),&
-             & 'Error in two_moment_mcrph: Invalid value nuc_typ in case of use_hdcp2_het=.true.')
+      IF (nuc_typ < 1 .OR. nuc_typ > 5) THEN
+        CALL finish(TRIM(routine), &
+             & 'Error in two_moment_mcrph: Invalid value nuc_typ in case of &
+             &use_hdcp2_het=.true.')
       END IF
-
+      CALL ice_nucleation_homhet_hdcp2(ik_slice, atmo, ice, snow, cloud, &
+           use_prog_in, hdcp2_nuc_params(nuc_typ), n_inact, ndiag_mask, nuc_n_a)
     ELSE
       ! Heterogeneous nucleation using Phillips et al. scheme
       IF (iphillips == 2010) THEN
@@ -2720,128 +2714,10 @@ CONTAINS
                & 'Error in two_moment_mcrph: Invalid value nuc_typ in case of use_hdcp2_het=.false.')
         END IF
       END IF
+      CALL ice_nucleation_homhet_philips(ik_slice, atmo, ice, snow, cloud, &
+           use_prog_in, n_inact, ndiag_mask, nuc_n_a, n_inpot)
     END IF
 
-    DO k = kstart,kend
-      DO i = istart,iend
-
-        p_a  = atmo%p(i,k)
-        T_a  = atmo%T(i,k)
-        e_si = e_es(T_a)
-        ssi  = atmo%qv(i,k) * R_d * T_a / e_si
-
-        IF (T_a < T_nuc .AND. T_a > 180.0_wp .AND. ssi > 1.0_wp  &
-             & .AND. ( ice%n(i,k)+snow%n(i,k) < ni_het_max ) ) THEN
-
-          xt = (274.- REAL(atmo%T(i,k)))  / ttstep
-          xt = MIN(xt,REAL(ttmax-1))
-          tt = INT(xt)
-
-           IF (cloud%q(i,k) > 0.0_wp) THEN
-
-              ! immersion freezing at water saturation
-
-              IF (use_hdcp2_het) THEN
-                 ! Hande et al. scheme, Eq. (1)
-                 if (T_a.lt.261.15_wp) then
-                    ndiag = nin_imm * exp( - alf_imm * exp(bet_imm*log(MAX(eps,T_a - 237.15_wp))) )
-                 else
-                    ndiag = 0.0_wp
-                 end if
-              ELSE
-                 ! Phillips scheme
-                 ! immersion freezing at water saturation
-                 infrac(1) = (AINT(xt)+1.0-xt) * afrac_dust(tt,99) &
-                      &        + (xt-AINT(xt)) * afrac_dust(tt+1,99)
-                 infrac(2) = (AINT(xt)+1.0-xt) * afrac_soot(tt,99) &
-                      &        + (xt-AINT(xt)) * afrac_soot(tt+1,99)
-                 infrac(3) = (AINT(xt)+1.0-xt) * afrac_orga(tt,99) &
-                      &        + (xt-AINT(xt)) * afrac_orga(tt+1,99)
-              END IF
-            ELSE
-              ! deposition nucleation below water saturation
-
-              IF (use_hdcp2_het) THEN
-                 ! Hande et al. scheme, Eq. (3) with (2) and (1)
-                 if (T_a.lt.253.0_wp) then
-                    ndiag = nin_dep * exp( - alf_dep * exp(bet_dep*log(MAX(eps,T_a - 220.0_wp))) )
-                    ndiag = ndiag * (a_dep * atan(b_dep*(ssi-1.0_wp)+c_dep) + d_dep)
-                 else
-                    ndiag = 0.0_wp
-                 end if
-              ELSE
-                ! deposition nucleation below water saturation
-                ! calculate indices used for 2D look-up tables
-                xs = 100. * REAL(ssi-1.0_wp) / ssstep
-                xs = MIN(xs,REAL(ssmax-1))
-                ss = MAX(1,INT(xs))
-                ssr = MAX(1.0, AINT(xs))
-                ! bi-linear interpolation in look-up tables
-                infrac(1) =   (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
-                     &        * afrac_dust(tt, ss) &
-                     &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
-                     &        * afrac_dust(tt+1, ss) &
-                     &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
-                     &        * afrac_dust(tt, ss+1) &
-                     &      + (xt - AINT(xt)) * (xs - ssr) &
-                     &        * afrac_dust(tt+1, ss+1)
-                infrac(2) =   (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
-                     &        * afrac_soot(tt, ss) &
-                     &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
-                     &        * afrac_soot(tt+1, ss  ) &
-                     &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
-                     &        * afrac_soot(tt, ss + 1) &
-                     &      + (xt - AINT(xt)) * (xs - ssr) &
-                     &        * afrac_soot(tt+1, ss+1)
-                infrac(3) = (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
-                     &        * afrac_orga(tt,ss) &
-                     &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
-                     &        * afrac_orga(tt+1, ss) &
-                     &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
-                     &        * afrac_orga(tt, ss+1) &
-                     &      + (xt - AINT(xt)) * (xs - ssr) &
-                     &        * afrac_orga(tt+1, ss+1)
-              END IF
-            END IF
-
-          IF (.NOT. use_hdcp2_het) THEN
-            ! only for Phillips scheme we have to sum up the three modes
-            ndiag = na_soot * infrac(2) + na_orga * infrac(3)
-            IF (use_prog_in) THEN
-              ! n_inpot replaces na_dust, na_soot and na_orga are assumed to constant
-              ndiag  = n_inpot(i,k) * infrac(1) + ndiag
-              ndiag_dust = n_inpot(i,k) * infrac(1)
-              ndiag_all = ndiag
-            ELSE
-              ! all aerosol species are diagnostic
-              ndiag = na_dust * infrac(1) + ndiag
-            END IF
-            ndiag = MIN(ndiag,ni_het_max)
-          END IF
-
-          nuc_n = MAX(ndiag - n_inact(i,k),0.0_wp)
-          nuc_q = MIN(nuc_n * ice%x_min, atmo%qv(i,k))
-          nuc_n = nuc_q / ice%x_min
-
-          ice%n(i,k)   = ice%n(i,k)   + nuc_n
-          ice%q(i,k)   = ice%q(i,k)   + nuc_q
-          atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
-          n_inact(i,k) = n_inact(i,k) + nuc_n
-
-          lwrite_n_inpot = use_prog_in .AND. ndiag .GT. 1d-12
-          ndiag_mask(i, k) = lwrite_n_inpot
-
-          IF (lwrite_n_inpot .AND. .NOT. use_hdcp2_het) THEN
-            nuc_n = nuc_n * ndiag_dust / ndiag_all
-          END IF
-          nuc_n_a(i, k) = nuc_n
-        ELSE
-          nuc_n_a(i, k) = 0.0_wp
-          ndiag_mask(i, k) = .FALSE.
-        ENDIF
-
-      END DO
-    END DO
 
     IF (use_prog_in) THEN
       DO k = kstart, kend
@@ -2929,6 +2805,231 @@ CONTAINS
     END IF
 
   END SUBROUTINE ice_nucleation_homhet
+
+  SUBROUTINE ice_nucleation_homhet_philips(ik_slice, atmo, ice, snow, cloud, &
+       use_prog_in, n_inact, ndiag_mask, nuc_n_a, n_inpot)
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(in) :: ice, snow, cloud
+    LOGICAL, INTENT(in) :: use_prog_in
+    REAL(wp), INTENT(inout), DIMENSION(:,:) :: n_inact
+    REAL(wp), INTENT(out) :: &
+         nuc_n_a(ik_slice(1):ik_slice(2), ik_slice(3):ik_slice(4))
+    LOGICAL, INTENT(out) :: &
+         ndiag_mask(ik_slice(1):ik_slice(2), ik_slice(3):ik_slice(4))
+    REAL(wp), DIMENSION(:,:), OPTIONAL :: n_inpot
+
+    REAL(wp)             :: nuc_n, nuc_q
+    REAL(wp)             :: T_a, ssi, e_si
+    REAL(wp)             :: ndiag, ndiag_dust, ndiag_all
+    REAL(wp) :: infrac(3)
+    LOGICAL :: lwrite_n_inpot
+
+    ! variables for interpolation in look-up table (real is good enough here)
+    REAL      :: xt,xs,ssr
+    INTEGER   :: ss,tt
+
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
+    INTEGER :: i, k
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
+    DO k = kstart,kend
+      DO i = istart,iend
+
+        T_a  = atmo%T(i,k)
+        e_si = e_es(T_a)
+        ssi  = atmo%qv(i,k) * R_d * T_a / e_si
+
+        IF (T_a < T_nuc .AND. T_a > 180.0_wp .AND. ssi > 1.0_wp  &
+             & .AND. ( ice%n(i,k)+snow%n(i,k) < ni_het_max ) ) THEN
+
+          xt = (274.- REAL(atmo%T(i,k)))  / ttstep
+          xt = MIN(xt,REAL(ttmax-1))
+          tt = INT(xt)
+
+          IF (cloud%q(i,k) > 0.0_wp) THEN
+            ! immersion freezing at water saturation
+            ! Phillips scheme
+            ! immersion freezing at water saturation
+            infrac(1) = (AINT(xt) + 1.0 - xt) * afrac_dust(tt,99) &
+                 &        + (xt - AINT(xt)) * afrac_dust(tt+1,99)
+            infrac(2) = (AINT(xt) + 1.0 - xt) * afrac_soot(tt,99) &
+                 &        + (xt - AINT(xt)) * afrac_soot(tt+1,99)
+            infrac(3) = (AINT(xt) + 1.0 - xt) * afrac_orga(tt,99) &
+                 &        + (xt-AINT(xt)) * afrac_orga(tt+1,99)
+          ELSE
+            ! deposition nucleation below water saturation
+            ! calculate indices used for 2D look-up tables
+            xs = 100. * REAL(ssi-1.0) / ssstep
+            xs = MIN(xs,REAL(ssmax-1))
+            ss = MAX(1,INT(xs))
+            ssr = MAX(1.0, AINT(xs))
+            ! bi-linear interpolation in look-up tables
+            infrac(1) =   (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
+                 &        * afrac_dust(tt, ss) &
+                 &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
+                 &        * afrac_dust(tt+1, ss) &
+                 &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
+                 &        * afrac_dust(tt, ss+1) &
+                 &      + (xt - AINT(xt)) * (xs - ssr) &
+                 &        * afrac_dust(tt+1, ss+1)
+            infrac(2) =   (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
+                 &        * afrac_soot(tt, ss) &
+                 &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
+                 &        * afrac_soot(tt+1, ss  ) &
+                 &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
+                 &        * afrac_soot(tt, ss + 1) &
+                 &      + (xt - AINT(xt)) * (xs - ssr) &
+                 &        * afrac_soot(tt+1, ss+1)
+            infrac(3) = (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
+                 &        * afrac_orga(tt,ss) &
+                 &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
+                 &        * afrac_orga(tt+1, ss) &
+                 &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
+                 &        * afrac_orga(tt, ss+1) &
+                 &      + (xt - AINT(xt)) * (xs - ssr) &
+                 &        * afrac_orga(tt+1, ss+1)
+          END IF
+
+          ! only for Phillips scheme we have to sum up the three modes
+          ndiag = infrac(1) + na_soot * infrac(2) + na_orga * infrac(3)
+          IF (use_prog_in) THEN
+            ! n_inpot replaces na_dust, na_soot and na_orga are assumed to constant
+            ndiag  = n_inpot(i,k) * ndiag
+            ndiag_dust = n_inpot(i,k) * infrac(1)
+            ndiag_all = ndiag
+          ELSE
+            ! all aerosol species are diagnostic
+            ndiag = na_dust * ndiag
+          END IF
+          ndiag = MIN(ndiag,ni_het_max)
+
+          nuc_n = MAX(ndiag - n_inact(i,k),0.0_wp)
+          nuc_q = MIN(nuc_n * ice%x_min, atmo%qv(i,k))
+          nuc_n = nuc_q / ice%x_min
+
+          ice%n(i,k)   = ice%n(i,k)   + nuc_n
+          ice%q(i,k)   = ice%q(i,k)   + nuc_q
+          atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
+          n_inact(i,k) = n_inact(i,k) + nuc_n
+
+          lwrite_n_inpot = use_prog_in .AND. ndiag .GT. 1d-12
+          ndiag_mask(i, k) = lwrite_n_inpot
+
+          IF (lwrite_n_inpot) THEN
+            nuc_n = nuc_n * ndiag_dust / ndiag_all
+          END IF
+          nuc_n_a(i, k) = nuc_n
+
+        ELSE
+          nuc_n_a(i, k) = 0.0_wp
+          ndiag_mask(i, k) = .FALSE.
+        ENDIF
+
+      END DO
+    END DO
+
+
+  END SUBROUTINE ice_nucleation_homhet_philips
+
+  SUBROUTINE ice_nucleation_homhet_hdcp2(ik_slice, atmo, ice, snow, cloud, &
+       use_prog_in, nuc_params, n_inact, ndiag_mask, nuc_n_a)
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(in) :: ice, snow, cloud
+    LOGICAL, INTENT(in) :: use_prog_in
+    TYPE(dep_imm_params), INTENT(in) :: nuc_params
+    REAL(wp), INTENT(inout), DIMENSION(:,:) :: n_inact
+    REAL(wp), INTENT(out) :: &
+         nuc_n_a(ik_slice(1):ik_slice(2), ik_slice(3):ik_slice(4))
+    LOGICAL, INTENT(out) :: &
+         ndiag_mask(ik_slice(1):ik_slice(2), ik_slice(3):ik_slice(4))
+
+
+    ! parameters for deposition formula, Eq (2) of Hande et al.
+    REAL(wp), PARAMETER :: a_dep =  2.7626_wp
+    REAL(wp), PARAMETER :: b_dep =  6.2100_wp  ! 0.0621*100, because we use ssi instead of RHi
+    REAL(wp), PARAMETER :: c_dep = -1.3107_wp
+    REAL(wp), PARAMETER :: d_dep =  2.6789_wp
+
+    REAL(wp)             :: nuc_n, nuc_q
+    REAL(wp)             :: T_a, ssi, e_si
+    REAL(wp)             :: ndiag
+
+    LOGICAL :: lwrite_n_inpot
+
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
+    INTEGER :: i, k
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
+    DO k = kstart,kend
+      DO i = istart,iend
+
+        T_a  = atmo%T(i,k)
+        e_si = e_es(T_a)
+        ssi  = atmo%qv(i,k) * R_d * T_a / e_si
+
+        IF (T_a < T_nuc .AND. T_a > 180.0_wp .AND. ssi > 1.0_wp  &
+             & .AND. ( ice%n(i,k)+snow%n(i,k) < ni_het_max ) ) THEN
+
+          IF (cloud%q(i,k) > 0.0_wp) THEN
+            ! Hande et al. scheme, Eq. (1)
+            T_a = MAX(T_a,237.1501_wp)
+            IF (T_a.LT.261.15_wp) THEN
+              ndiag = nuc_params%nin_imm * EXP( - nuc_params%alf_imm &
+                   * EXP(nuc_params%bet_imm*LOG(T_a - 237.15_wp)) )
+            ELSE
+              ndiag = 0.0_wp
+            END IF
+          ELSE
+            ! Hande et al. scheme, Eq. (3) with (2) and (1)
+            T_a = max(T_a,220.001_wp)
+            IF (T_a.LT.253.0_wp) THEN
+              ndiag = nuc_params%nin_dep * EXP( - nuc_params%alf_dep &
+                   * EXP(nuc_params%bet_dep*LOG(T_a - 220.0_wp)) )
+              ndiag = ndiag * (a_dep * atan(b_dep*(ssi-1.0_wp)+c_dep) + d_dep)
+            ELSE
+              ndiag = 0.0_wp
+            END IF
+          END IF
+
+
+          nuc_n = MAX(ndiag - n_inact(i,k),0.0_wp)
+          nuc_q = MIN(nuc_n * ice%x_min, atmo%qv(i,k))
+          nuc_n = nuc_q / ice%x_min
+
+          ice%n(i,k)   = ice%n(i,k)   + nuc_n
+          ice%q(i,k)   = ice%q(i,k)   + nuc_q
+          atmo%qv(i,k) = atmo%qv(i,k) - nuc_q
+          n_inact(i,k) = n_inact(i,k) + nuc_n
+
+          lwrite_n_inpot = use_prog_in .AND. ndiag .GT. 1d-12
+          ndiag_mask(i, k) = lwrite_n_inpot
+
+          nuc_n_a(i, k) = nuc_n
+
+        ELSE
+          nuc_n_a(i, k) = 0.0_wp
+          ndiag_mask(i, k) = .FALSE.
+        ENDIF
+
+      END DO
+    END DO
+  END SUBROUTINE ice_nucleation_homhet_hdcp2
 
   SUBROUTINE vapor_dep_relaxation(ik_slice, dt_local, &
        &               atmo, ice, snow, graupel, hail, dep_rate_ice, dep_rate_snow)
