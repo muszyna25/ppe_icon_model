@@ -410,6 +410,8 @@ MODULE mo_2mom_mcrph_main
   TYPE(sym_riming_params), SAVE :: hrr_params
   !> run-time- and location-invariant graupel rain riming parameters
   TYPE(asym_riming_params), SAVE :: grr_params
+  !> run-time- and location-invariant hail cloud riming parameters
+  TYPE(sym_riming_params), SAVE :: hcr_params
 CONTAINS
 
   !*******************************************************************************
@@ -940,6 +942,35 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "     theta_q_rr = ",grr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
     END IF
 
+    ! hail cloud riming parameter setup
+    hcr_params%delta_n_aa = coll_delta_11(hail,cloud,0)
+    hcr_params%delta_n_ab = coll_delta_12(hail,cloud,0)
+    hcr_params%delta_n_bb = coll_delta_22(hail,cloud,0)
+    hcr_params%delta_q_aa = coll_delta_11(hail,cloud,0)
+    hcr_params%delta_q_ab = coll_delta_12(hail,cloud,1)
+    hcr_params%delta_q_bb = coll_delta_22(hail,cloud,1)
+
+    hcr_params%theta_n_aa = coll_theta_11(hail,cloud,0)
+    hcr_params%theta_n_ab = coll_theta_12(hail,cloud,0)
+    hcr_params%theta_n_bb = coll_theta_22(hail,cloud,0)
+    hcr_params%theta_q_aa = coll_theta_11(hail,cloud,0)
+    hcr_params%theta_q_ab = coll_theta_12(hail,cloud,1)
+    hcr_params%theta_q_bb = coll_theta_22(hail,cloud,1)
+
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "     delta_n_hh  = ", hcr_params%delta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_n_hc  = ", hcr_params%delta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_n_cc  = ", hcr_params%delta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_n_hh  = ", hcr_params%theta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_n_hc  = ", hcr_params%theta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_n_cc  = ", hcr_params%theta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_q_hh  = ", hcr_params%delta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_q_hc  = ", hcr_params%delta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_q_cc  = ", hcr_params%delta_q_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_q_hh  = ", hcr_params%theta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_q_hc  = ", hcr_params%theta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_q_cc  = ", hcr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
+    END IF
 
   END SUBROUTINE init_2mom_scheme_once
 
@@ -4473,7 +4504,6 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
     REAL(wp)            :: q_h,n_h,x_h,d_h,v_h
     REAL(wp)            :: q_c,n_c,x_c,d_c,v_c,x_coll_c
@@ -4490,57 +4520,7 @@ CONTAINS
          x_shed = 4./3.*pi * rho_w * r_shedding**3
 
 
-    REAL(wp), SAVE      :: delta_n_hh,delta_n_hc,delta_n_cc
-    REAL(wp), SAVE      :: delta_q_hh,delta_q_hc,delta_q_cc
-    REAL(wp), SAVE      :: theta_n_hh,theta_n_hc,theta_n_cc
-    REAL(wp), SAVE      :: theta_q_hh,theta_q_hc,theta_q_cc
-!$omp threadprivate (firstcall)
-!$omp threadprivate (delta_n_hh)
-!$omp threadprivate (delta_n_hc)
-!$omp threadprivate (delta_n_cc)
-!$omp threadprivate (delta_q_hh)
-!$omp threadprivate (delta_q_hc)
-!$omp threadprivate (delta_q_cc)
-!$omp threadprivate (theta_n_hh)
-!$omp threadprivate (theta_n_hc)
-!$omp threadprivate (theta_n_cc)
-!$omp threadprivate (theta_q_hh)
-!$omp threadprivate (theta_q_hc)
-!$omp threadprivate (theta_q_cc)
-
     IF (isdebug) CALL message(routine, "hail_cloud_riming")
-
-    IF (firstcall.NE.1) THEN
-      delta_n_hh = coll_delta_11(hail,cloud,0)
-      delta_n_hc = coll_delta_12(hail,cloud,0)
-      delta_n_cc = coll_delta_22(hail,cloud,0)
-      delta_q_hh = coll_delta_11(hail,cloud,0)
-      delta_q_hc = coll_delta_12(hail,cloud,1)
-      delta_q_cc = coll_delta_22(hail,cloud,1)
-
-      theta_n_hh = coll_theta_11(hail,cloud,0)
-      theta_n_hc = coll_theta_12(hail,cloud,0)
-      theta_n_cc = coll_theta_22(hail,cloud,0)
-      theta_q_hh = coll_theta_11(hail,cloud,0)
-      theta_q_hc = coll_theta_12(hail,cloud,1)
-      theta_q_cc = coll_theta_22(hail,cloud,1)
-
-      IF (isdebug) THEN
-        WRITE(txt,'(A,D10.3)') "     delta_n_hh  = ",delta_n_hh ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     delta_n_hc  = ",delta_n_hc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     delta_n_cc  = ",delta_n_cc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     theta_n_hh  = ",theta_n_hh ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     theta_n_hc  = ",theta_n_hc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     theta_n_cc  = ",theta_n_cc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     delta_q_hh  = ",delta_q_hh ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     delta_q_hc  = ",delta_q_hc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     delta_q_cc  = ",delta_q_cc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     theta_q_hh  = ",theta_q_hh ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     theta_q_hc  = ",theta_q_hc ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     theta_q_cc  = ",theta_q_cc ; CALL message(routine,TRIM(txt))
-      END IF
-      firstcall = 1
-    ENDIF
 
     x_coll_c = (D_coll_c/cloud%a_geo)**3          !..lower mass for collection
 
@@ -4574,12 +4554,12 @@ CONTAINS
             e_coll_q = e_coll_n
 
             rime_n = pi4 * e_coll_n * n_h * n_c * dt &
-                 &   * (delta_n_hh * D_h*D_h + delta_n_hc * D_h*D_c + delta_n_cc * D_c*D_c) &
-                 &   * SQRT(theta_n_hh * v_h*v_h - theta_n_hc * v_h*v_c + theta_n_cc * v_c*v_c)
+                 &   * (hcr_params%delta_n_aa * D_h*D_h + hcr_params%delta_n_ab * D_h*D_c + hcr_params%delta_n_bb * D_c*D_c) &
+                 &   * SQRT(hcr_params%theta_n_aa * v_h*v_h - hcr_params%theta_n_ab * v_h*v_c + hcr_params%theta_n_bb * v_c*v_c)
 
             rime_q = pi4 * e_coll_q * n_h * q_c * dt &
-                 &   * (delta_q_hh * D_h*D_h + delta_q_hc * D_h*D_c + delta_q_cc * D_c*D_c) &
-                 &   * SQRT(theta_q_hh * v_h*v_h - theta_q_hc * v_h*v_c + theta_q_cc * v_c*v_c)
+                 &   * (hcr_params%delta_q_aa * D_h*D_h + hcr_params%delta_q_ab * D_h*D_c + hcr_params%delta_q_bb * D_c*D_c) &
+                 &   * SQRT(hcr_params%theta_q_aa * v_h*v_h - hcr_params%theta_q_ab * v_h*v_c + hcr_params%theta_q_bb * v_c*v_c)
 
             rime_q = MIN(q_c,rime_q)
             rime_n = MIN(n_c,rime_n)
