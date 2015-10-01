@@ -416,6 +416,8 @@ MODULE mo_2mom_mcrph_main
   TYPE(sym_riming_params), SAVE :: gcr_params
   !> run-time- and location-invariant snow ice collection parameters
   TYPE(sym_riming_params), SAVE :: sic_params
+  !> run-time- and location-invariant hail ice collection parameters
+  TYPE(sym_riming_params), SAVE :: hic_params
 CONTAINS
 
   !*******************************************************************************
@@ -1036,6 +1038,35 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "   theta_q_ii = ", sic_params%theta_q_bb ; CALL message(routine,TRIM(txt))
     END IF
 
+    ! hail ice collection parameter setup
+    hic_params%delta_n_aa = coll_delta_11(hail,ice,0)
+    hic_params%delta_n_ab = coll_delta_12(hail,ice,0)
+    hic_params%delta_n_bb = coll_delta_22(hail,ice,0)
+    hic_params%delta_q_aa = coll_delta_11(hail,ice,0)
+    hic_params%delta_q_ab = coll_delta_12(hail,ice,1)
+    hic_params%delta_q_bb = coll_delta_22(hail,ice,1)
+
+    hic_params%theta_n_aa = coll_theta_11(hail,ice,0)
+    hic_params%theta_n_ab = coll_theta_12(hail,ice,0)
+    hic_params%theta_n_bb = coll_theta_22(hail,ice,0)
+    hic_params%theta_q_aa = coll_theta_11(hail,ice,0)
+    hic_params%theta_q_ab = coll_theta_12(hail,ice,1)
+    hic_params%theta_q_bb = coll_theta_22(hail,ice,1)
+
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "    delta_n_hh = ", hic_params%delta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_hi = ", hic_params%delta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_ii = ", hic_params%delta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_hh = ", hic_params%theta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_hi = ", hic_params%theta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_ii = ", hic_params%theta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_hh = ", hic_params%delta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_hi = ", hic_params%delta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_ii = ", hic_params%delta_q_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_hh = ", hic_params%theta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_hi = ", hic_params%theta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_ii = ", hic_params%theta_q_bb ; CALL message(routine,TRIM(txt))
+    END IF
 
   END SUBROUTINE init_2mom_scheme_once
 
@@ -4018,62 +4049,12 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
     REAL(wp)            :: q_h,n_h,x_h,d_h,v_h
     REAL(wp)            :: q_i,n_i,x_i,d_i,v_i
     REAL(wp)            :: coll_n,coll_q,e_coll
-    REAL(wp), SAVE      :: delta_n_hh,delta_n_hi,delta_n_ii
-    REAL(wp), SAVE      :: delta_q_hh,delta_q_hi,delta_q_ii
-    REAL(wp), SAVE      :: theta_n_hh,theta_n_hi,theta_n_ii
-    REAL(wp), SAVE      :: theta_q_hh,theta_q_hi,theta_q_ii
-!$omp threadprivate (firstcall)
-!$omp threadprivate (delta_n_hh)
-!$omp threadprivate (delta_n_hi)
-!$omp threadprivate (delta_n_ii)
-!$omp threadprivate (delta_q_hh)
-!$omp threadprivate (delta_q_hi)
-!$omp threadprivate (delta_q_ii)
-!$omp threadprivate (theta_n_hh)
-!$omp threadprivate (theta_n_hi)
-!$omp threadprivate (theta_n_ii)
-!$omp threadprivate (theta_q_hh)
-!$omp threadprivate (theta_q_hi)
-!$omp threadprivate (theta_q_ii)
 
     IF (isdebug) CALL message(routine, "hail_ice_collection")
-
-    IF (firstcall.NE.1) THEN
-      delta_n_hh = coll_delta_11(hail,ice,0)
-      delta_n_hi = coll_delta_12(hail,ice,0)
-      delta_n_ii = coll_delta_22(hail,ice,0)
-      delta_q_hh = coll_delta_11(hail,ice,0)
-      delta_q_hi = coll_delta_12(hail,ice,1)
-      delta_q_ii = coll_delta_22(hail,ice,1)
-
-      theta_n_hh = coll_theta_11(hail,ice,0)
-      theta_n_hi = coll_theta_12(hail,ice,0)
-      theta_n_ii = coll_theta_22(hail,ice,0)
-      theta_q_hh = coll_theta_11(hail,ice,0)
-      theta_q_hi = coll_theta_12(hail,ice,1)
-      theta_q_ii = coll_theta_22(hail,ice,1)
-
-      IF (isdebug) THEN
-        WRITE(txt,'(A,D10.3)') "    delta_n_hh = ",delta_n_hh ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n_hi = ",delta_n_hi ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n_ii = ",delta_n_ii ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_hh = ",theta_n_hh ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_hi = ",theta_n_hi ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_ii = ",theta_n_ii ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_q_hh = ",delta_q_hh ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_q_hi = ",delta_q_hi ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_q_ii = ",delta_q_ii ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_q_hh = ",theta_q_hh ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_q_hi = ",theta_q_hi ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_q_ii = ",theta_q_ii ; CALL message(routine,TRIM(txt))
-      END IF
-      firstcall = 1
-    ENDIF
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -4103,12 +4084,12 @@ CONTAINS
             v_i = ice%velocity(x_i) * ice%rho_v(i,k)
 
             coll_n = pi4 * n_h * n_i * e_coll * dt &
-                 & *     (delta_n_hh * D_h**2 + delta_n_hi * D_h*D_i + delta_n_ii * D_i**2) &
-                 & * sqrt(theta_n_hh * v_h**2 - theta_n_hi * v_h*v_i + theta_n_ii * v_i**2)
+                 & *     (hic_params%delta_n_aa * D_h**2 + hic_params%delta_n_ab * D_h*D_i + hic_params%delta_n_bb * D_i**2) &
+                 & * sqrt(hic_params%theta_n_aa * v_h**2 - hic_params%theta_n_ab * v_h*v_i + hic_params%theta_n_bb * v_i**2)
 
             coll_q = pi4 * n_h * q_i * e_coll * dt &
-                 & *     (delta_q_hh * D_h**2 + delta_q_hi * D_h*D_i + delta_q_ii * D_i**2) &
-                 & * sqrt(theta_q_hh * v_h**2 - theta_q_hi * v_h*v_i + theta_q_ii * v_i**2)
+                 & *     (hic_params%delta_q_aa * D_h**2 + hic_params%delta_q_ab * D_h*D_i + hic_params%delta_q_bb * D_i**2) &
+                 & * sqrt(hic_params%theta_q_aa * v_h**2 - hic_params%theta_q_ab * v_h*v_i + hic_params%theta_q_bb * v_i**2)
 
             coll_n = MIN(n_i,coll_n)
             coll_q = MIN(q_i,coll_q)
