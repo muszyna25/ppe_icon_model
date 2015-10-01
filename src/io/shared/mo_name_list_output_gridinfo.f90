@@ -988,10 +988,9 @@ CONTAINS
     DEALLOCATE (lonv, latv)
   END SUBROUTINE allgather_grid_info_cve
 
-  SUBROUTINE allgather_grid_info(patch_info, idom_log, bcast_root)
+  SUBROUTINE allgather_grid_info(patch_info, idom_log)
     TYPE(t_patch_info),    INTENT(INOUT) :: patch_info
     INTEGER,               INTENT(IN)    :: idom_log
-    INTEGER,               INTENT(IN)    :: bcast_root
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allgather_grid_info"

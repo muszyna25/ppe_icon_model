@@ -3006,7 +3006,7 @@ CONTAINS
       IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
         ! logical domain ID
         idom_log = patch_info(idom)%log_patch_id
-        CALL allgather_grid_info(patch_info(idom), idom_log, bcast_root)
+        CALL allgather_grid_info(patch_info(idom), idom_log)
       END IF
     END DO
 
