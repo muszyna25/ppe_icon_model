@@ -6225,14 +6225,14 @@ CONTAINS
     REAL(wp), DIMENSION(:), INTENT(OUT)   :: precrate
     REAL(wp), DIMENSION(:,:), INTENT(INOUT):: np,qp
 
-    REAL(wp), DIMENSION(its:ite,kts-1:kte) :: q_fluss, n_fluss
+    REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss
     REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, s_nv, s_qv, c_nv, c_qv
     LOGICAL,  DIMENSION(its:ite) :: cflag
-    INTEGER :: i, k, kk
+    INTEGER :: i, k, kk, k_c, k_p
     REAL(wp) :: cmax_temp
 
-    q_fluss(:, kts-1)  = 0.0_wp
-    n_fluss(:, kts-1)  = 0.0_wp
+    q_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    n_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
 
     IF (PRESENT(cmax)) THEN
       cmax_temp = cmax
@@ -6305,21 +6305,22 @@ CONTAINS
       ENDIF
 
       ! Flux-limiter to avoid negative values
+      k_c = IAND(k, 1)
+      k_p = 1-IAND(k, 1)
       DO i = its,ite
-        n_fluss(i,k) = MAX(s_nv(i),n_fluss(i,k-1)-np(i,k)/(adz(i,k)*dt))
-        q_fluss(i,k) = MAX(s_qv(i),q_fluss(i,k-1)-qp(i,k)/(adz(i,k)*dt))
+        n_fluss(i,k_c) = MAX(s_nv(i),n_fluss(i,k_p)-np(i,k)/(adz(i,k)*dt))
+        q_fluss(i,k_c) = MAX(s_qv(i),q_fluss(i,k_p)-qp(i,k)/(adz(i,k)*dt))
       END DO
+
+      DO i = its,ite
+        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+      ENDDO
 
     END DO
     IF (PRESENT(cmax)) cmax = cmax_temp
 
-    DO k = kts,kte
-        DO i = its,ite
-          np(i,k) = np(i,k) + ( n_fluss(i,k) - n_fluss(i,k-1) )*adz(i,k)*dt
-          qp(i,k) = qp(i,k) + ( q_fluss(i,k) - q_fluss(i,k-1) )*adz(i,k)*dt
-        ENDDO
-    ENDDO
-    precrate(its:ite) = - q_fluss(its:ite,kte) ! Regenrate
+    precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
 
   END SUBROUTINE sedi_icon_core
 
