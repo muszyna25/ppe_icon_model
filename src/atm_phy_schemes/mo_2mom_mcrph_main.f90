@@ -2680,24 +2680,24 @@ CONTAINS
 
   SUBROUTINE ice_nucleation_homhet(ik_slice, use_prog_in, &
        atmo, cloud, ice, snow, n_inact, n_inpot)
-  !*******************************************************************************
-  !                                                                              *
-  ! Homogeneous and heterogeneous ice nucleation                                 *
-  !                                                                              *
-  ! Nucleation scheme is based on the papers:                                    *
-  !                                                                              *
-  ! "A parametrization of cirrus cloud formation: Homogenous                     *
-  ! freezing of supercooled aerosols" by B. Kaercher and                         *
-  ! U. Lohmann 2002 (KL02 hereafter)                                             *
-  !                                                                              *
-  ! "Physically based parameterization of cirrus cloud formation                 *
-  ! for use in global atmospheric models" by B. Kaercher, J. Hendricks           *
-  ! and U. Lohmann 2006 (KHL06 hereafter)                                        *
-  !                                                                              *
-  ! and Phillips et al. (2008) with extensions                                   *
-  !                                                                              *
-  ! implementation by Carmen Koehler and AS                                      *
-  !*******************************************************************************
+    !*******************************************************************************
+    !                                                                              *
+    ! Homogeneous and heterogeneous ice nucleation                                 *
+    !                                                                              *
+    ! Nucleation scheme is based on the papers:                                    *
+    !                                                                              *
+    ! "A parametrization of cirrus cloud formation: Homogenous                     *
+    ! freezing of supercooled aerosols" by B. Kaercher and                         *
+    ! U. Lohmann 2002 (KL02 hereafter)                                             *
+    !                                                                              *
+    ! "Physically based parameterization of cirrus cloud formation                 *
+    ! for use in global atmospheric models" by B. Kaercher, J. Hendricks           *
+    ! and U. Lohmann 2006 (KHL06 hereafter)                                        *
+    !                                                                              *
+    ! and Phillips et al. (2008) with extensions                                   *
+    !                                                                              *
+    ! implementation by Carmen Koehler and AS                                      *
+    !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
@@ -2738,57 +2738,57 @@ CONTAINS
     REAL(wp)  :: ctau, tau_g,acoeff(3),bcoeff(2), ri_dot
     REAL(wp)  :: kappa,sqrtkap,ren,R_imfc,R_im,R_ik,ri_0
 
-  ! variables for Hande et al. nucleation parameterization for HDCP2 simulations
-  REAL(wp)  :: alf_dep, bet_dep, nin_dep
-  REAL(wp)  :: alf_imm, bet_imm, nin_imm
+    ! variables for Hande et al. nucleation parameterization for HDCP2 simulations
+    REAL(wp)  :: alf_dep, bet_dep, nin_dep
+    REAL(wp)  :: alf_imm, bet_imm, nin_imm
 
-  ! parameters for deposition formula, Eq (2) of Hande et al.
-  REAL(wp), PARAMETER :: a_dep =  2.7626_wp
-  REAL(wp), PARAMETER :: b_dep =  6.2100_wp  ! 0.0621*100, because we use ssi instead of RHi
-  REAL(wp), PARAMETER :: c_dep = -1.3107_wp
-  REAL(wp), PARAMETER :: d_dep =  2.6789_wp
+    ! parameters for deposition formula, Eq (2) of Hande et al.
+    REAL(wp), PARAMETER :: a_dep =  2.7626_wp
+    REAL(wp), PARAMETER :: b_dep =  6.2100_wp  ! 0.0621*100, because we use ssi instead of RHi
+    REAL(wp), PARAMETER :: c_dep = -1.3107_wp
+    REAL(wp), PARAMETER :: d_dep =  2.6789_wp
 
-  REAL(wp), PARAMETER :: eps = 1.e-20_wp
+    REAL(wp), PARAMETER :: eps = 1.e-20_wp
 
-  ! variables for interpolation in look-up table (real is good enough here)
-  REAL      :: xt,xs
-  INTEGER   :: ss,tt
+    ! variables for interpolation in look-up table (real is good enough here)
+    REAL      :: xt,xs,ssr
+    INTEGER   :: ss,tt
 
-  LOGICAL   :: use_homnuc
+    LOGICAL   :: use_homnuc
 
-  REAL(wp), DIMENSION(3) :: infrac
+    REAL(wp), DIMENSION(3) :: infrac
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
     kstart = ik_slice(3)
     kend   = ik_slice(4)
 
-  nuc_typ = nuc_i_typ
+    nuc_typ = nuc_i_typ
 
-  SELECT CASE (nuc_typ)
-  CASE(0)
-    ! Heterogeneous nucleation ONLY
-    use_homnuc = .FALSE.
-  CASE(1:9)
-    ! Homog. and het. nucleation"
-    use_homnuc = .TRUE.
-  END SELECT
+    SELECT CASE (nuc_typ)
+    CASE(0)
+      ! Heterogeneous nucleation ONLY
+      use_homnuc = .FALSE.
+    CASE(1:9)
+      ! Homog. and het. nucleation"
+      use_homnuc = .TRUE.
+    END SELECT
 
-  IF (isdebug) THEN
-    IF (.NOT.use_homnuc) THEN
-       WRITE(txt,*) "ice_nucleation_homhet: Heterogeneous nucleation only"
-    ELSE
-       WRITE(txt,*) "ice_nucleation_homhet: Homogeneous and heterogeneous nucleation"
+    IF (isdebug) THEN
+      IF (.NOT.use_homnuc) THEN
+        WRITE(txt,*) "ice_nucleation_homhet: Heterogeneous nucleation only"
+      ELSE
+        WRITE(txt,*) "ice_nucleation_homhet: Homogeneous and heterogeneous nucleation"
+      END IF
+      CALL message(routine,TRIM(txt))
     END IF
-    CALL message(routine,TRIM(txt))
-  END IF
 
-  ! switch for Hande et al. ice nucleation, if .true. this turns off Phillips scheme
-  IF (nuc_typ.le.5) use_hdcp2_het = .true.
+    ! switch for Hande et al. ice nucleation, if .true. this turns off Phillips scheme
+    IF (nuc_typ.LE.5) use_hdcp2_het = .TRUE.
 
-  ! Heterogeneous nucleation using Hande et al. scheme
-  IF (use_hdcp2_het) THEN
-     IF (nuc_typ.EQ.1) THEN
+    ! Heterogeneous nucleation using Hande et al. scheme
+    IF (use_hdcp2_het) THEN
+      IF (nuc_typ.EQ.1) THEN
         ! Spring of Table 1
         nin_imm = 1.5684e5
         alf_imm = 0.2466
@@ -2796,7 +2796,7 @@ CONTAINS
         nin_dep = 1.7836e5
         alf_dep = 0.0075
         bet_dep = 2.0341
-     ELSEIF (nuc_typ.EQ.2) THEN
+      ELSEIF (nuc_typ.EQ.2) THEN
         ! Summer
         nin_imm = 2.9694e4
         alf_imm = 0.2813
@@ -2804,7 +2804,7 @@ CONTAINS
         nin_dep = 2.6543e4
         alf_dep = 0.0020
         bet_dep = 2.5128
-     ELSEIF (nuc_typ.EQ.3) THEN
+      ELSEIF (nuc_typ.EQ.3) THEN
         ! Autumn
         nin_imm = 4.9920e4
         alf_imm = 0.2622
@@ -2812,7 +2812,7 @@ CONTAINS
         nin_dep = 7.7167e4
         alf_dep = 0.0406
         bet_dep = 1.4705
-     ELSEIF (nuc_typ.EQ.4) THEN
+      ELSEIF (nuc_typ.EQ.4) THEN
         ! Winter
         nin_imm = 1.0259e5
         alf_imm = 0.2073
@@ -2820,7 +2820,7 @@ CONTAINS
         nin_dep = 1.1663e4
         alf_dep = 0.0194
         bet_dep = 1.6943
-     ELSEIF (nuc_typ.EQ.5) THEN
+      ELSEIF (nuc_typ.EQ.5) THEN
         ! Spring with 95th percentile scaling factor
         nin_imm = 1.5684e5 * 17.82
         alf_imm = 0.2466
@@ -2828,36 +2828,36 @@ CONTAINS
         nin_dep = 1.7836e5 * 5.87
         alf_dep = 0.0075
         bet_dep = 2.0341
-     ELSE
+      ELSE
         CALL finish(TRIM(routine),&
              & 'Error in two_moment_mcrph: Invalid value nuc_typ in case of use_hdcp2_het=.true.')
-     END IF
+      END IF
 
-  ELSE
-     ! Heterogeneous nucleation using Phillips et al. scheme
-     IF (iphillips == 2010) THEN
+    ELSE
+      ! Heterogeneous nucleation using Phillips et al. scheme
+      IF (iphillips == 2010) THEN
         ! possible pre-defined choices
         IF (nuc_typ.EQ.6) THEN  ! with no organics and rather high soot, coming close to Meyers formula at -20 C
-           na_dust  = 160.e4_wp    ! initial number density of dust [1/m3]
-           na_soot  =  30.e6_wp    ! initial number density of soot [1/m3]
-           na_orga  =   0.e0_wp    ! initial number density of organics [1/m3]
+          na_dust  = 160.e4_wp    ! initial number density of dust [1/m3]
+          na_soot  =  30.e6_wp    ! initial number density of soot [1/m3]
+          na_orga  =   0.e0_wp    ! initial number density of organics [1/m3]
         ELSEIF (nuc_typ.EQ.7) THEN     ! with some organics and rather high soot,
-           na_dust  = 160.e4_wp    !          coming close to Meyers formula at -20 C
-           na_soot  =  25.e6_wp
-           na_orga  =  30.e6_wp
+          na_dust  = 160.e4_wp    !          coming close to Meyers formula at -20 C
+          na_soot  =  25.e6_wp
+          na_orga  =  30.e6_wp
         ELSEIF (nuc_typ.EQ.8) THEN     ! no organics, no soot, coming close to DeMott et al. 2010 at -20 C
-           na_dust  =  70.e4_wp    ! i.e. roughly one order in magnitude lower than Meyers
-           na_soot  =   0.e6_wp
-           na_orga  =   0.e6_wp
+          na_dust  =  70.e4_wp    ! i.e. roughly one order in magnitude lower than Meyers
+          na_soot  =   0.e6_wp
+          na_orga  =   0.e6_wp
         ELSE
-           CALL finish(TRIM(routine),&
-                & 'Error in two_moment_mcrph: Invalid value nuc_typ in case of use_hdcp2_het=.false.')
+          CALL finish(TRIM(routine),&
+               & 'Error in two_moment_mcrph: Invalid value nuc_typ in case of use_hdcp2_het=.false.')
         END IF
-     END IF
-  END IF
+      END IF
+    END IF
 
-  DO k = kstart,kend
-     DO i = istart,iend
+    DO k = kstart,kend
+      DO i = istart,iend
 
         p_a  = atmo%p(i,k)
         T_a  = atmo%T(i,k)
@@ -2866,6 +2866,10 @@ CONTAINS
 
         IF (T_a < T_nuc .AND. T_a > 180.0_wp .AND. ssi > 1.0_wp  &
              & .AND. ( ice%n(i,k)+snow%n(i,k) < ni_het_max ) ) THEN
+
+          xt = (274.- REAL(atmo%T(i,k)))  / ttstep
+          xt = MIN(xt,REAL(ttmax-1))
+          tt = INT(xt)
 
            IF (cloud%q(i,k) > 0.0_wp) THEN
 
@@ -2880,12 +2884,13 @@ CONTAINS
                  end if
               ELSE
                  ! Phillips scheme
-                 xt = (274.- real(atmo%T(i,k)))  / ttstep
-                 xt = MIN(xt,real(ttmax-1))
-                 tt = INT(xt)
-                 infrac(1) = (tt+1-xt) * afrac_dust(tt,99) + (xt-tt) * afrac_dust(tt+1,99)
-                 infrac(2) = (tt+1-xt) * afrac_soot(tt,99) + (xt-tt) * afrac_soot(tt+1,99)
-                 infrac(3) = (tt+1-xt) * afrac_orga(tt,99) + (xt-tt) * afrac_orga(tt+1,99)
+                 ! immersion freezing at water saturation
+                 infrac(1) = (AINT(xt)+1.0-xt) * afrac_dust(tt,99) &
+                      &        + (xt-AINT(xt)) * afrac_dust(tt+1,99)
+                 infrac(2) = (AINT(xt)+1.0-xt) * afrac_soot(tt,99) &
+                      &        + (xt-AINT(xt)) * afrac_soot(tt+1,99)
+                 infrac(3) = (AINT(xt)+1.0-xt) * afrac_orga(tt,99) &
+                      &        + (xt-AINT(xt)) * afrac_orga(tt+1,99)
               END IF
            ELSE
               ! deposition nucleation below water saturation
@@ -2900,19 +2905,35 @@ CONTAINS
                  end if
               ELSE
                  ! calculate indices used for 2D look-up tables
-                 xt = (274.- real(atmo%T(i,k)))  / ttstep
                  xs = 100. * real(ssi-1.0_wp) / ssstep
-                 xt = MIN(xt,real(ttmax-1))
                  xs = MIN(xs,real(ssmax-1))
-                 tt = INT(xt)
                  ss = MAX(1,INT(xs))
+                 ssr = MAX(1.0, AINT(xs))
                  ! bi-linear interpolation in look-up tables
-                 infrac(1) = (tt+1-xt)*(ss+1-xs) * afrac_dust(tt,ss  ) + (xt-tt)*(ss+1-xs) * afrac_dust(tt+1,ss  ) &
-                      &    + (tt+1-xt)*(xs-ss)   * afrac_dust(tt,ss+1) + (xt-tt)*(xs-ss)   * afrac_dust(tt+1,ss+1)
-                 infrac(2) = (tt+1-xt)*(ss+1-xs) * afrac_soot(tt,ss  ) + (xt-tt)*(ss+1-xs) * afrac_soot(tt+1,ss  ) &
-                      &    + (tt+1-xt)*(xs-ss)   * afrac_soot(tt,ss+1) + (xt-tt)*(xs-ss)   * afrac_soot(tt+1,ss+1)
-                 infrac(3) = (tt+1-xt)*(ss+1-xs) * afrac_orga(tt,ss  ) + (xt-tt)*(ss+1-xs) * afrac_orga(tt+1,ss  ) &
-                      &    + (tt+1-xt)*(xs-ss)   * afrac_orga(tt,ss+1) + (xt-tt)*(xs-ss)   * afrac_orga(tt+1,ss+1)
+                 infrac(1) =   (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
+                      &        * afrac_dust(tt, ss) &
+                      &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
+                      &        * afrac_dust(tt+1, ss) &
+                      &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
+                      &        * afrac_dust(tt, ss+1) &
+                      &      + (xt - AINT(xt)) * (xs - ssr) &
+                      &        * afrac_dust(tt+1, ss+1)
+                 infrac(2) =   (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
+                      &        * afrac_soot(tt, ss) &
+                      &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
+                      &        * afrac_soot(tt+1, ss  ) &
+                      &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
+                      &        * afrac_soot(tt, ss + 1) &
+                      &      + (xt - AINT(xt)) * (xs - ssr) &
+                      &        * afrac_soot(tt+1, ss+1)
+                 infrac(3) = (AINT(xt) + 1.0 - xt) * (ssr + 1.0 - xs) &
+                      &        * afrac_orga(tt,ss) &
+                      &      + (xt - AINT(xt)) * (ssr + 1.0 - xs) &
+                      &        * afrac_orga(tt+1, ss) &
+                      &      + (AINT(xt) + 1.0 - xt) * (xs - ssr) &
+                      &        * afrac_orga(tt, ss+1) &
+                      &      + (xt - AINT(xt)) * (xs - ssr) &
+                      &        * afrac_orga(tt+1, ss+1)
 
               END IF
            ENDIF
@@ -2950,12 +2971,12 @@ CONTAINS
            END IF
         ENDIF
 
-     END DO
-  END DO
+      END DO
+    END DO
 
-  ! Homogeneous nucleation using KHL06 approach
-  IF (use_homnuc) THEN
-     DO k = kstart,kend
+    ! Homogeneous nucleation using KHL06 approach
+    IF (use_homnuc) THEN
+      DO k = kstart,kend
         DO i = istart,iend
           p_a  = atmo%p(i,k)
           T_a  = atmo%T(i,k)
@@ -3007,7 +3028,7 @@ CONTAINS
               ren     = 3. * sqrtkap / ( 2. + SQRT(1.+9.*kappa/pi) )       ! analy. approx. of erfc by RM05
               R_imfc  = 4. * pi * bcoeff(1)/bcoeff(2)**2 / svol
               R_im    = R_imfc / (1.+ delta) * ( delta**2 - 1. &
-                & + (1.+0.5*kappa*(1.+ delta)**2) * ren/sqrtkap)           ! RIM Eq. 6 KHL06
+                   & + (1.+0.5*kappa*(1.+ delta)**2) * ren/sqrtkap)           ! RIM Eq. 6 KHL06
 
               ! number concentration and radius of ice particles
               ni_hom  = phi / R_im                                         ! ni Eq.9 KHL06
@@ -3025,9 +3046,9 @@ CONTAINS
 
             END IF
           END IF
-       ENDDO
-    ENDDO
-  END IF
+        ENDDO
+      ENDDO
+    END IF
 
   END SUBROUTINE ice_nucleation_homhet
 
