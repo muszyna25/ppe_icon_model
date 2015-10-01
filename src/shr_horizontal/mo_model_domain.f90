@@ -350,7 +350,7 @@ MODULE mo_model_domain
 
     ! indices of verts of triangle:
     ! index2=1,3
-    INTEGER, ALLOCATABLE :: vertex(:,:)
+    TYPE(dist_mult_array)  :: vertex
 
     ! cell geometry
 

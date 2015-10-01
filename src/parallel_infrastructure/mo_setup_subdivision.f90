@@ -750,7 +750,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::divide_patch'
-    INTEGER :: i, j, jl, jb, je, jv, jg, jc, jc_p, jpg, jcg(4), jng, jeg
+    INTEGER :: i, j, jl, jb, je, jv, jg, jc, jc_p, jpg, jcg(4), jng, jeg, jvg
 
 #ifdef __PGIC__
     TYPE(nb_flag_list_elem), ALLOCATABLE :: flag2_c_list(:), &
@@ -975,9 +975,9 @@ CONTAINS
         wrk_p_patch%cells%edge_idx(jl,jb,i) = idx_no(je)
         wrk_p_patch%cells%edge_blk(jl,jb,i) = blk_no(je)
 
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%vertex,1,(/jg,i/),jvg)
 !CDIR IEXPAND
-        CALL get_local_idx(wrk_p_patch%verts%decomp_info, &
-          & wrk_p_patch_pre%cells%vertex(jg,i), jv)
+        CALL get_local_idx(wrk_p_patch%verts%decomp_info, jvg, jv)
 
         wrk_p_patch%cells%vertex_idx(jl,jb,i) = idx_no(jv)
         wrk_p_patch%cells%vertex_blk(jl,jb,i) = blk_no(jv)
@@ -1436,8 +1436,9 @@ CONTAINS
           END IF
 
           n_temp_vertices = n_temp_vertices + 1
-          temp_vertices(n_temp_vertices) = &
-            wrk_p_patch_pre%cells%vertex(flag2_c_list(0)%idx(ic), i)
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%vertex,1, &
+            &                      (/flag2_c_list(0)%idx(ic),i/), &
+            &                      temp_vertices(n_temp_vertices))
         END DO
       END DO
 
@@ -1723,7 +1724,7 @@ CONTAINS
 
             DO i = 1, temp_num_edges
 
-              jv = wrk_p_patch_pre%cells%vertex(jc, i)
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%vertex,1,(/jc,i/),jv)
 
               IF (jv > 0) THEN
                 n_temp_vertices = n_temp_vertices + 1
@@ -2735,7 +2736,7 @@ CONTAINS
        id_physdom, ncell_offset, n_onb_points)
     INTEGER, INTENT(in) :: range_start, range_end
     TYPE(t_cell_info), INTENT(out) :: cell_desc(range_start:range_end)
-    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
+    TYPE(t_pre_patch), INTENT(inout) :: wrk_p_patch_pre
     LOGICAL, INTENT(in) :: divide_for_radiation, lsplit_merged_domains, &
          lparent_level, locean
     INTEGER, INTENT(in) :: num_physdom
@@ -2859,13 +2860,13 @@ CONTAINS
 
           IF (cclat >= 0._wp) THEN
             DO i = 1, 3
-              jv = wrk_p_patch_pre%cells%vertex(j,i)
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%vertex,1,(/j,i/),jv)
               cclat = MAX(cclat, wrk_p_patch_pre%verts%vertex(jv)%lat)
               cclon = MAX(cclon, wrk_p_patch_pre%verts%vertex(jv)%lon)
             ENDDO
           ELSE
             DO i = 1, 3
-              jv = wrk_p_patch_pre%cells%vertex(j,i)
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%vertex,1,(/j,i/),jv)
               cclat = MIN(cclat, wrk_p_patch_pre%verts%vertex(jv)%lat)
               cclon = MAX(cclon, wrk_p_patch_pre%verts%vertex(jv)%lon)
             ENDDO
@@ -3197,8 +3198,12 @@ CONTAINS
         patch_pre%cells%center(cell)%lat
       decomposition_struct%cell_geo_center(cell)%lon = &
         patch_pre%cells%center(cell)%lon
-      decomposition_struct%cells_vertex(1:3, cell) = &
-        patch_pre%cells%vertex(cell,1:3)
+      CALL dist_mult_array_get(patch_pre%cells%vertex,1,(/cell,1/), &
+        &                      decomposition_struct%cells_vertex(1, cell))
+      CALL dist_mult_array_get(patch_pre%cells%vertex,1,(/cell,2/), &
+        &                      decomposition_struct%cells_vertex(2, cell))
+      CALL dist_mult_array_get(patch_pre%cells%vertex,1,(/cell,3/), &
+        &                      decomposition_struct%cells_vertex(3, cell))
     ENDDO
 
     decomposition_struct%vertex_geo_coord(1:no_of_verts) = &
