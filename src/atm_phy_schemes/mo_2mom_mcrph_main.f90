@@ -402,6 +402,8 @@ MODULE mo_2mom_mcrph_main
   TYPE(sym_riming_params), SAVE :: scr_params
   !> run-time- and location-invariant snow rain riming parameters
   TYPE(asym_riming_params), SAVE :: srr_params
+  !> run-time- and location-invariant ice rain riming parameters
+  TYPE(asym_riming_params), SAVE :: irr_params
 
 CONTAINS
 
@@ -778,6 +780,48 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "    theta_q_sr = ",srr_params%theta_q_ab ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "    theta_q_rs = ",srr_params%theta_q_ba ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "    theta_q_rr = ",srr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
+    END IF
+
+    ! ice rain riming parameters
+    irr_params%delta_n_aa = coll_delta_11(ice,rain,0)
+    irr_params%delta_n_ab = coll_delta_12(ice,rain,0)
+    irr_params%delta_n_bb = coll_delta_22(ice,rain,0)
+    irr_params%delta_q_aa = coll_delta_11(ice,rain,1) ! here mass weighted
+    irr_params%delta_q_ab = coll_delta_12(ice,rain,1)
+    irr_params%delta_q_ba = coll_delta_12(rain,ice,1)
+    irr_params%delta_q_bb = coll_delta_22(ice,rain,1)
+
+    irr_params%theta_n_aa = coll_theta_11(ice,rain,0)
+    irr_params%theta_n_ab = coll_theta_12(ice,rain,0)
+    irr_params%theta_n_bb = coll_theta_22(ice,rain,0)
+    irr_params%theta_q_aa = coll_theta_11(ice,rain,1) ! here mass weighted
+    irr_params%theta_q_ab = coll_theta_12(ice,rain,1)
+    irr_params%theta_q_ba = coll_theta_12(rain,ice,1)
+    irr_params%theta_q_bb = coll_theta_22(ice,rain,1)
+
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "     a_ice      = ",ice%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     b_ice      = ",ice%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     alf_ice    = ",ice%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     bet_ice    = ",ice%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     a_rain    = ",rain%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     b_rain    = ",rain%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     alf_rain  = ",rain%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     bet_rain  = ",rain%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_n_ii = ", irr_params%delta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_n_ir = ", irr_params%delta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_n_rr = ", irr_params%delta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_n_ii = ", irr_params%theta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_n_ir = ", irr_params%theta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_n_rr = ", irr_params%theta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_q_ii = ", irr_params%delta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_q_ir = ", irr_params%delta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_q_ri = ", irr_params%delta_q_ba ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     delta_q_rr = ", irr_params%delta_q_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_q_ii = ", irr_params%theta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_q_ir = ", irr_params%theta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_q_ri = ", irr_params%theta_q_ba ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     theta_q_rr = ", irr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
     END IF
 
 
@@ -5442,60 +5486,11 @@ CONTAINS
       !  Riming rate of ice collecting rain drop, or rain collecting ice             *
       !*******************************************************************************
       INTEGER             :: i,k
-      INTEGER, SAVE       :: firstcall
       REAL(wp)            :: q_i,n_i,x_i,d_i,v_i
       REAL(wp)            :: q_r,n_r,x_r,d_r,v_r
       REAL(wp)            :: rime_n,rime_qi,rime_qr
-      REAL(wp), SAVE      :: delta_n_ii,delta_n_ir,           delta_n_rr
-      REAL(wp), SAVE      :: delta_q_ii,delta_q_ir,delta_q_ri,delta_q_rr
-      REAL(wp), SAVE      :: theta_n_ii,theta_n_ir,           theta_n_rr
-      REAL(wp), SAVE      :: theta_q_ii,theta_q_ir,theta_q_ri,theta_q_rr
 
       IF (isdebug) CALL message(routine, "ice_rain_riming")
-
-      IF (firstcall.NE.1) THEN
-         delta_n_ii = coll_delta_11(ice,rain,0)
-         delta_n_ir = coll_delta_12(ice,rain,0)
-         delta_n_rr = coll_delta_22(ice,rain,0)
-         delta_q_ii = coll_delta_11(ice,rain,1) ! here mass weighted
-         delta_q_ir = coll_delta_12(ice,rain,1)
-         delta_q_ri = coll_delta_12(rain,ice,1)
-         delta_q_rr = coll_delta_22(ice,rain,1)
-
-         theta_n_ii = coll_theta_11(ice,rain,0)
-         theta_n_ir = coll_theta_12(ice,rain,0)
-         theta_n_rr = coll_theta_22(ice,rain,0)
-         theta_q_ii = coll_theta_11(ice,rain,1) ! here mass weighted
-         theta_q_ir = coll_theta_12(ice,rain,1)
-         theta_q_ri = coll_theta_12(rain,ice,1)
-         theta_q_rr = coll_theta_22(ice,rain,1)
-
-         IF (isdebug) THEN
-            WRITE(txt,'(A,D10.3)') "     a_ice      = ",ice%a_geo ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     b_ice      = ",ice%b_geo ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     alf_ice    = ",ice%a_vel ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     bet_ice    = ",ice%b_vel ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     a_rain    = ",rain%a_geo ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     b_rain    = ",rain%b_geo ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     alf_rain  = ",rain%a_vel ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     bet_rain  = ",rain%b_vel ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     delta_n_ii = ",delta_n_ii ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     delta_n_ir = ",delta_n_ir ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     delta_n_rr = ",delta_n_rr ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     theta_n_ii = ",theta_n_ii ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     theta_n_ir = ",theta_n_ir ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     theta_n_rr = ",theta_n_rr ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     delta_q_ii = ",delta_q_ii ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     delta_q_ir = ",delta_q_ir ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     delta_q_ri = ",delta_q_ri ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     delta_q_rr = ",delta_q_rr ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     theta_q_ii = ",theta_q_ii ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     theta_q_ir = ",theta_q_ir ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     theta_q_ri = ",theta_q_ri ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "     theta_q_rr = ",theta_q_rr ; CALL message(routine,TRIM(txt))
-         END IF
-         firstcall = 1
-      ENDIF
 
       DO k = kstart,kend
          DO i = istart,iend
@@ -5516,19 +5511,31 @@ CONTAINS
                v_i = ice%velocity(x_i) * ice%rho_v(i,k)
 
                rime_n  = pi4 * n_i * n_r * dt &
-                    &  *     (delta_n_ii * D_i*D_i + delta_n_ir * D_i*D_r + delta_n_rr * D_r*D_r) &
-                    &  * sqrt(theta_n_ii * v_i*v_i - theta_n_ir * v_i*v_r + theta_n_rr * v_r*v_r  &
-                    &         +ice_s_vel**2)
+                    &  *     (irr_params%delta_n_aa * D_i * D_i &
+                    &         + irr_params%delta_n_ab * D_i * D_r &
+                    &         + irr_params%delta_n_bb * D_r * D_r) &
+                    &  * SQRT(irr_params%theta_n_aa * v_i * v_i &
+                    &         - irr_params%theta_n_ab * v_i * v_r &
+                    &         + irr_params%theta_n_bb * v_r * v_r &
+                    &         + ice_s_vel**2)
 
                rime_qr = pi4 * n_i * q_r * dt &
-                    &  *     (delta_n_ii * D_i*D_i + delta_q_ir * D_i*D_r + delta_q_rr * D_r*D_r) &
-                    &  * sqrt(theta_n_ii * v_i*v_i - theta_q_ir * v_i*v_r + theta_q_rr * v_r*v_r  &
-                    &        +ice_s_vel**2)
+                    &  *     (irr_params%delta_n_aa * D_i * D_i &
+                    &         + irr_params%delta_q_ab * D_i * D_r &
+                    &         + irr_params%delta_q_bb * D_r * D_r) &
+                    &  * SQRT(irr_params%theta_n_aa * v_i * v_i &
+                    &         - irr_params%theta_q_ab * v_i * v_r &
+                    &         + irr_params%theta_q_bb * v_r * v_r &
+                    &         + ice_s_vel**2)
 
                rime_qi = pi4 * n_r * q_i * dt &
-                    &  *     (delta_q_ii * D_i*D_i + delta_q_ri * D_i*D_r + delta_n_rr * D_r*D_r) &
-                    &  * sqrt(theta_q_ii * v_i*v_i - theta_q_ri * v_i*v_r + theta_n_rr * v_r*v_r  &
-                    &        +ice_s_vel**2)
+                    &  *     (irr_params%delta_q_aa * D_i * D_i &
+                    &         + irr_params%delta_q_ba * D_i * D_r &
+                    &         + irr_params%delta_n_bb * D_r * D_r) &
+                    &  * SQRT(irr_params%theta_q_aa * v_i * v_i &
+                    &         - irr_params%theta_q_ba * v_i * v_r &
+                    &         + irr_params%theta_n_bb * v_r * v_r &
+                    &         + ice_s_vel**2)
 
                rime_rate_nr(i,k) = rime_n
                rime_rate_qi(i,k) = rime_qi
