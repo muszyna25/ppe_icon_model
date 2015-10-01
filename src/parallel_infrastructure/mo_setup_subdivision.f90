@@ -1069,7 +1069,10 @@ CONTAINS
 
       jg = wrk_p_patch%verts%decomp_info%glb_index(j)
 
-      wrk_p_patch%verts%vertex(jl,jb)     = wrk_p_patch_pre%verts%vertex(jg)
+      CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 1, (/jg/), &
+        &                      wrk_p_patch%verts%vertex(jl,jb)%lat)
+      CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 2, (/jg/), &
+        &                      wrk_p_patch%verts%vertex(jl,jb)%lon)
       CALL dist_mult_array_get(wrk_p_patch_pre%verts%refin_ctrl, 1, (/jg/), &
         &                      wrk_p_patch%verts%refin_ctrl(jl,jb))
     ENDDO
@@ -2760,7 +2763,7 @@ CONTAINS
     INTEGER, INTENT(in) :: id_physdom(max_phys_dom)
 
     INTEGER :: i, j, nc, jd, idp, jv, refin_ctrl
-    REAL(wp) :: cclat, cclon
+    REAL(wp) :: cclat, cclon, temp_lat, temp_lon
 
     nc = 0
     n_onb_points = 0
@@ -2877,14 +2880,22 @@ CONTAINS
           IF (cclat >= 0._wp) THEN
             DO i = 1, 3
               CALL dist_mult_array_get(wrk_p_patch_pre%cells%vertex,1,(/j,i/),jv)
-              cclat = MAX(cclat, wrk_p_patch_pre%verts%vertex(jv)%lat)
-              cclon = MAX(cclon, wrk_p_patch_pre%verts%vertex(jv)%lon)
+              CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 1, (/jv/),&
+                &                      temp_lat)
+              CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 2, (/jv/),&
+                &                      temp_lon)
+              cclat = MAX(cclat, temp_lat)
+              cclon = MAX(cclon, temp_lon)
             ENDDO
           ELSE
             DO i = 1, 3
               CALL dist_mult_array_get(wrk_p_patch_pre%cells%vertex,1,(/j,i/),jv)
-              cclat = MIN(cclat, wrk_p_patch_pre%verts%vertex(jv)%lat)
-              cclon = MAX(cclon, wrk_p_patch_pre%verts%vertex(jv)%lon)
+              CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 1, (/jv/),&
+                &                      temp_lat)
+              CALL dist_mult_array_get(wrk_p_patch_pre%verts%vertex, 2, (/jv/),&
+                &                      temp_lon)
+              cclat = MIN(cclat, temp_lat)
+              cclon = MAX(cclon, temp_lon)
             ENDDO
           ENDIF
 
@@ -3191,7 +3202,7 @@ CONTAINS
     TYPE(t_decomposition_structure) :: decomposition_struct
     TYPE(t_pre_patch) :: patch_pre
 
-    INTEGER :: no_of_cells, no_of_verts, cell
+    INTEGER :: no_of_cells, no_of_verts, cell, i
     INTEGER :: return_status
 
     CHARACTER(*), PARAMETER :: method_name = "fill_wrk_decomposition_struct"
@@ -3222,8 +3233,12 @@ CONTAINS
         &                      decomposition_struct%cells_vertex(3, cell))
     ENDDO
 
-    decomposition_struct%vertex_geo_coord(1:no_of_verts) = &
-      patch_pre%verts%vertex(1:no_of_verts)
+    DO i = 1, no_of_verts
+      CALL dist_mult_array_get(patch_pre%verts%vertex, 1, (/i/),&
+        &                      decomposition_struct%vertex_geo_coord(i)%lat)
+      CALL dist_mult_array_get(patch_pre%verts%vertex, 2, (/i/),&
+        &                      decomposition_struct%vertex_geo_coord(i)%lon)
+    END DO
 
     NULLIFY(decomposition_struct%cell_cartesian_center)
     CALL geographical_to_cartesian(decomposition_struct%cell_geo_center, no_of_cells, &

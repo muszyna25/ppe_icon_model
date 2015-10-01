@@ -732,7 +732,7 @@ MODULE mo_model_domain
     TYPE(dist_mult_array) :: num_edges
 
     ! longitude & latitude of vertex:
-    TYPE(t_geographical_coordinates), ALLOCATABLE :: vertex(:)
+    TYPE(dist_mult_array) :: vertex
 
     ! refinement control flag
     TYPE(dist_mult_array) :: refin_ctrl

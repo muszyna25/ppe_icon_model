@@ -1443,13 +1443,22 @@ CONTAINS
       &                        local_ptr_wp(:)))
     CALL dist_mult_array_expose(patch_pre%cells%center)
 
-    ! patch_pre%verts%vertex(:)%lon
-    CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, patch_pre%verts%vertex(:)%lon))
-
     ! patch_pre%verts%vertex(:)%lat
     CALL nf(nf_inq_varid(ncid, 'latitude_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, patch_pre%verts%vertex(:)%lat))
+    CALL dist_mult_array_local_ptr(patch_pre%verts%vertex, 1, local_ptr_wp)
+    CALL nf(nf_get_vara_double(ncid, varid, &
+      &                        (/patch_pre%verts%local_chunk(1,1)%first/), &
+      &                        (/patch_pre%verts%local_chunk(1,1)%size/), &
+      &                        local_ptr_wp(:)))
+
+    ! patch_pre%verts%vertex(:)%lon
+    CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))
+    CALL dist_mult_array_local_ptr(patch_pre%verts%vertex, 2, local_ptr_wp)
+    CALL nf(nf_get_vara_double(ncid, varid, &
+      &                        (/patch_pre%verts%local_chunk(1,1)%first/), &
+      &                        (/patch_pre%verts%local_chunk(1,1)%size/), &
+      &                        local_ptr_wp(:)))
+    CALL dist_mult_array_expose(patch_pre%verts%vertex)
 
     !------------------------------------------
     ! nesting/lateral boundary indexes

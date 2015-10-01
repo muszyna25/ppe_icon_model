@@ -631,10 +631,12 @@ CONTAINS
     TYPE(global_array_desc) :: dist_edge_owner_desc_cell(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc_cell(1)
+    TYPE(global_array_desc) :: dist_vert_owner_desc_vertex(2)
 
     TYPE(extent) :: local_cell_chunk_child(2,1), local_cell_chunk_neighbor(2,1), &
       &             local_edge_chunk_child(2,1), local_edge_chunk_cell(2,1), &
-      &             local_vert_chunk_cell(2,1), local_cell_chunk_center(1,2)
+      &             local_vert_chunk_cell(2,1), local_cell_chunk_center(1,2), &
+      &             local_vert_chunk_vertex(1,2)
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -694,6 +696,11 @@ CONTAINS
     dist_cell_owner_desc_center(1:2)%rect(1)%size = p_patch_pre%n_patch_cells_g
     dist_cell_owner_desc_center(1:2)%element_dt = ppm_real_dp
 
+    dist_vert_owner_desc_vertex(1:2)%a_rank = 1
+    dist_vert_owner_desc_vertex(1:2)%rect(1)%first = 1
+    dist_vert_owner_desc_vertex(1:2)%rect(1)%size = p_patch_pre%n_patch_verts_g
+    dist_vert_owner_desc_vertex(1:2)%element_dt = ppm_real_dp
+
     num_cells_per_rank = (p_patch_pre%n_patch_cells_g + p_n_work - 1) / p_n_work
     num_edges_per_rank = (p_patch_pre%n_patch_edges_g + p_n_work - 1) / p_n_work
     num_verts_per_rank = (p_patch_pre%n_patch_verts_g + p_n_work - 1) / p_n_work
@@ -738,6 +745,8 @@ CONTAINS
 
     local_cell_chunk_center(1,1:2) = p_patch_pre%cells%local_chunk(1,1)
 
+    local_vert_chunk_vertex(1,1:2) = p_patch_pre%verts%local_chunk(1,1)
+
     !
     ! !grid cells
     !
@@ -779,7 +788,8 @@ CONTAINS
     !
     ! !grid verts
     !
-    ALLOCATE( p_patch_pre%verts%vertex(p_patch_pre%n_patch_verts_g) )
+    p_patch_pre%verts%vertex = dist_mult_array_new( &
+      dist_vert_owner_desc_vertex, local_vert_chunk_vertex, p_comm_work)
     p_patch_pre%verts%refin_ctrl = dist_mult_array_new( &
       dist_vert_owner_desc, p_patch_pre%verts%local_chunk, p_comm_work)
     p_patch_pre%verts%cell = dist_mult_array_new( &
@@ -796,8 +806,6 @@ CONTAINS
     p_patch_pre%edges%start = 0
     p_patch_pre%edges%end = 0
 
-    p_patch_pre%verts%vertex(:)%lon = 0._wp
-    p_patch_pre%verts%vertex(:)%lat = 0._wp
     p_patch_pre%verts%start = 0
     p_patch_pre%verts%end = 0
 
@@ -932,7 +940,8 @@ CONTAINS
     !
     ! !grid verts
     !
-    DEALLOCATE( p_patch_pre%verts%vertex )
+    CALL dist_mult_array_unexpose(p_patch_pre%verts%vertex)
+    CALL dist_mult_array_delete(p_patch_pre%verts%vertex)
     CALL dist_mult_array_unexpose(p_patch_pre%verts%cell)
     CALL dist_mult_array_delete(p_patch_pre%verts%cell)
     CALL dist_mult_array_unexpose(p_patch_pre%verts%num_edges)
