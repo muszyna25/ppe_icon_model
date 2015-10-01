@@ -1249,7 +1249,7 @@ CONTAINS
     END DO
     disable_consistency_check = .TRUE.
     CALL setup_comm_gather_pattern(global_size, owner_local, glb_index, &
-      &                            gather_pattern)
+      &                            gather_pattern, disable_consistency_check)
 
     ! initialise in- and reference out data
     nlev = 5
@@ -1344,7 +1344,7 @@ CONTAINS
     END DO
     disable_consistency_check = .TRUE.
     CALL setup_comm_gather_pattern(global_size, owner_local, glb_index, &
-      &                            gather_pattern)
+      &                            gather_pattern, disable_consistency_check)
 
     ! initialise in- and reference out data
     nlev = 5
