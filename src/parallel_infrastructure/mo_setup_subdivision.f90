@@ -76,6 +76,14 @@ MODULE mo_setup_subdivision
   USE mo_grid_config,         ONLY: use_dummy_cell_closure
   USE mo_util_sort,           ONLY: quicksort, insertion_sort
   USE mo_dist_dir,            ONLY: dist_dir_setup
+  USE ppm_distributed_array,  ONLY: dist_mult_array, global_array_desc, &
+    &                               dist_mult_array_new, &
+    &                               dist_mult_array_local_ptr, &
+    &                               dist_mult_array_expose, &
+    &                               dist_mult_array_unexpose, &
+    &                               dist_mult_array_delete, dist_mult_array_get, &
+    &                               ppm_int
+  USE ppm_extents,            ONLY: extent
 
   IMPLICIT NONE
 
@@ -714,8 +722,6 @@ CONTAINS
   !!                       in the first case, a finer distinction between different halo
   !!                       cell/edge/vertex levels is made to optimize communication
   !!                     2=move all halos to the end (for ocean)
-
-
   !!
   !! On exit, the entries of wrk_p_patch are set.
   !!
@@ -752,9 +758,13 @@ CONTAINS
     INTEGER :: n2_ilev_c(0:2*n_boundary_rows), n2_ilev_v(0:n_boundary_rows+1), &
          n2_ilev_e(0:2*n_boundary_rows+1)
 #endif
-    INTEGER, ALLOCATABLE :: owned_edges(:), owned_verts(:)
+    TYPE(dist_mult_array) :: dist_cell_owner
+    INTEGER, ALLOCATABLE :: owned_cells(:), owned_edges(:), owned_verts(:)
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
+
+    CALL setup_dist_cell_owner()
+    CALL compute_owned_cells()
 
 #ifdef __PGIC__
     ALLOCATE(flag2_c_list(0:2*n_boundary_rows), &
@@ -1080,7 +1090,64 @@ CONTAINS
       END DO
     END IF
 
+    CALL delete_dist_cell_owner()
+    DEALLOCATE(owned_cells)
+
   CONTAINS
+
+    SUBROUTINE compute_owned_cells()
+
+      INTEGER :: n_owned_cells, i, n
+
+      n_owned_cells = COUNT(cell_owner(:)==my_proc)
+
+      ALLOCATE(owned_cells(n_owned_cells))
+
+      IF (n_owned_cells == 0) RETURN
+
+      i = 1
+
+      DO n = 1, SIZE(cell_owner(:))
+        IF (cell_owner(n) == my_proc) THEN
+          owned_cells(i) = n
+          i = i + 1
+        END IF
+      END DO
+    END SUBROUTINE compute_owned_cells
+
+    SUBROUTINE setup_dist_cell_owner()
+
+      INTEGER :: num_cells_per_rank
+      TYPE(global_array_desc) :: dist_cell_owner_desc(1)
+      TYPE(extent) :: local_chunk(1,1)
+      INTEGER, POINTER :: local_ptr(:)
+
+      dist_cell_owner_desc(1)%a_rank = 1
+      dist_cell_owner_desc(1)%rect(1)%first = 1
+      dist_cell_owner_desc(1)%rect(1)%size = SIZE(cell_owner(:))
+      dist_cell_owner_desc(1)%element_dt = ppm_int
+
+      num_cells_per_rank = (SIZE(cell_owner(:)) + p_n_work - 1) / p_n_work
+
+      local_chunk(1,1)%first = p_pe_work * num_cells_per_rank + 1
+      local_chunk(1,1)%size = MIN(SIZE(cell_owner(:)) + 1 - &
+        &                         local_chunk(1,1)%first, num_cells_per_rank)
+
+      dist_cell_owner = dist_mult_array_new(dist_cell_owner_desc, local_chunk, &
+        &                                   p_comm_work)
+
+      CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
+      local_ptr(:) = cell_owner(local_chunk(1,1)%first: &
+        &                       local_chunk(1,1)%first+local_chunk(1,1)%size-1)
+
+      CALL dist_mult_array_expose(dist_cell_owner)
+    END SUBROUTINE setup_dist_cell_owner
+
+    SUBROUTINE delete_dist_cell_owner()
+
+      CALL dist_mult_array_unexpose(dist_cell_owner)
+      CALL dist_mult_array_delete(dist_cell_owner)
+    END SUBROUTINE
 
     SUBROUTINE prepare_patch(wrk_p_patch_pre, wrk_p_patch, &
          n_patch_cells, n_patch_edges, n_patch_verts)
@@ -1239,7 +1306,7 @@ CONTAINS
       ! INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
       INTEGER, INTENT(IN) :: order_type_of_halos
 
-      INTEGER :: n, i, ic, j, jv, jv_, je, ilev, jc, jc_, k
+      INTEGER :: n, i, ic, j, jv, jv_, je, ilev, jc, jc_, k, owner_jc, owner_jc_
       LOGICAL, ALLOCATABLE :: pack_mask(:)
       INTEGER, ALLOCATABLE :: temp_cells(:), temp_vertices(:), &
                               temp_vertices_owner(:), temp_edges(:), &
@@ -1298,7 +1365,7 @@ CONTAINS
       ALLOCATE(pack_mask(0))
 
       ! collect cells of level 0
-      n2_ilev_c(0) = COUNT(cell_owner(:)==my_proc)
+      n2_ilev_c(0) = SIZE(owned_cells(:))
 
       IF (n2_ilev_c(0) == wrk_p_patch_pre%n_patch_cells_g) THEN
 
@@ -1315,13 +1382,7 @@ CONTAINS
       ALLOCATE(flag2_c_list(0)%idx(n2_ilev_c(0)), &
         &      flag2_c_list(0)%owner(n2_ilev_c(0)))
 
-      j = 0
-      DO i = 1, wrk_p_patch_pre%n_patch_cells_g
-        IF (cell_owner(i) == my_proc) THEN
-          j = j + 1
-          flag2_c_list(0)%idx(j) = i
-        END IF
-      END DO
+      flag2_c_list(0)%idx(:) = owned_cells(:)
       flag2_c_list(0)%owner(:) = my_proc
 
       n_inner_edges = 0
@@ -1349,13 +1410,19 @@ CONTAINS
           IF (jc <= 0 .OR. jc_ <= 0 .OR. jc == jc_) THEN
             n_inner_edges = n_inner_edges + 1
             inner_edges(n_inner_edges) = je
-          ELSE IF (cell_owner(jc) == cell_owner(jc_)) THEN
-            n_inner_edges = n_inner_edges + 1
-            inner_edges(n_inner_edges) = je
           ELSE
-            n_temp_edges = n_temp_edges + 1
-            temp_edges(n_temp_edges) = je
-            edge_cells(n_temp_edges) = flag2_c_list(0)%idx(ic)
+
+            CALL dist_mult_array_get(dist_cell_owner, 1, (/jc/), owner_jc)
+            CALL dist_mult_array_get(dist_cell_owner, 1, (/jc_/), owner_jc_)
+
+            IF (owner_jc == owner_jc_) THEN
+              n_inner_edges = n_inner_edges + 1
+              inner_edges(n_inner_edges) = je
+            ELSE
+              n_temp_edges = n_temp_edges + 1
+              temp_edges(n_temp_edges) = je
+              edge_cells(n_temp_edges) = flag2_c_list(0)%idx(ic)
+            END IF
           END IF
 
           n_temp_vertices = n_temp_vertices + 1
@@ -1500,7 +1567,10 @@ CONTAINS
         ALLOCATE(flag2_c_list(2*ilev-1)%idx(n_temp_cells), &
           &      flag2_c_list(2*ilev-1)%owner(n_temp_cells))
         flag2_c_list(2*ilev-1)%idx(:) = temp_cells(1:n_temp_cells)
-        flag2_c_list(2*ilev-1)%owner(:) = cell_owner(temp_cells(1:n_temp_cells))
+        DO i = 1, n_temp_cells
+          CALL dist_mult_array_get(dist_cell_owner, 1, (/temp_cells(i)/), &
+            &                      flag2_c_list(2*ilev-1)%owner(i))
+        END DO
 
         ! collect all cells adjacent to the outer vertices
         IF (SIZE(temp_cells(:)) < n_temp_vertices * &
@@ -1534,7 +1604,10 @@ CONTAINS
         ALLOCATE(flag2_c_list(2*ilev)%idx(n_temp_cells), &
           &      flag2_c_list(2*ilev)%owner(n_temp_cells))
         flag2_c_list(2*ilev)%idx(:) = temp_cells(1:n_temp_cells)
-        flag2_c_list(2*ilev)%owner(:) = cell_owner(temp_cells(1:n_temp_cells))
+        DO i = 1, n_temp_cells
+          CALL dist_mult_array_get(dist_cell_owner, 1, (/temp_cells(i)/), &
+            &                      flag2_c_list(2*ilev)%owner(i))
+        END DO
 
         ! get all edges of cells of level 2*ilev and level 2*ilev-1
         IF (SIZE(temp_edges(:)) < (n2_ilev_c(2*ilev) + &
@@ -1807,7 +1880,10 @@ CONTAINS
         n = wrk_p_patch_pre%verts%num_edges(jv)
         t_cells(1:n) = wrk_p_patch_pre%verts%cell(jv, 1:n)
         CALL insertion_sort(t_cells(1:n))
-        t_cell_owner(1:n) = cell_owner(t_cells(1:n))
+        DO j = 1, n
+          CALL dist_mult_array_get(dist_cell_owner, 1, (/t_cells(j)/), &
+            &                      t_cell_owner(j))
+        END DO
         jc = COUNT(t_cell_owner(1:n) >= 0)
         t_cell_owner(1:jc) = PACK(t_cell_owner(1:n), t_cell_owner(1:n) >= 0)
         n = jc
@@ -1838,7 +1914,8 @@ CONTAINS
         a_idx(:) = wrk_p_patch_pre%edges%cell(je, 1:2)
         ! outer boundary edges always belong to single adjacent cell owner
         a_idx(:) = MERGE(a_idx(:), MAXVAL(a_idx(:)), a_idx(:) > 0)
-        a_iown(:) = cell_owner(a_idx(:))
+        CALL dist_mult_array_get(dist_cell_owner, 1, (/a_idx(1)/), a_iown(1))
+        CALL dist_mult_array_get(dist_cell_owner, 1, (/a_idx(2)/), a_iown(2))
         a_iown(:) = MERGE(a_iown(:), MAXVAL(a_iown(:)), a_iown(:) >= 0)
         a_mod_iown(1:2) = MOD(a_iown(1:2), 2)
         ! 50% chance of acquiring an edge
