@@ -948,7 +948,7 @@ CONTAINS
     meteogram_data%nsfcvars  = mtgrm(jg)%var_list%no_sfc_vars
     meteogram_data%nvars     = mtgrm(jg)%var_list%no_atmo_vars
     meteogram_data%max_nlevs = &
-      & MAXVAL(meteogram_data%var_info(1:meteogram_data%nvars)%nlevs)
+      & MAX(0, MAXVAL(meteogram_data%var_info(1:meteogram_data%nvars)%nlevs))
 
     ! set up list of level indices
     ! (Note: For the time being, level indices are simply:
