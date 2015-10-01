@@ -1938,34 +1938,31 @@ MODULE mo_vertical_grid
 
 !$OMP DO PRIVATE(jb,jc,jk,nlen,z_mc,les_filter) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = 1,nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
-       DO jk = 1 , nlevp1
+      nlen = MERGE(nproma, npromz_c, jb /= nblks_c)
+      DO jk = 1 , nlevp1
         DO jc = 1 , nlen
-         z_mc  = p_nh%metrics%geopot_agl_ifc(jc,jk,jb) * rgrav
+          z_mc  = p_nh%metrics%geopot_agl_ifc(jc,jk,jb) * rgrav
 
-         les_filter = les_config(jg)%smag_constant * MIN( les_config(jg)%max_turb_scale, &
-                      (p_nh%metrics%ddqz_z_full(jc,jk,jb)*p_patch%geometry_info%mean_cell_area)**0.33333_wp )
-         p_nh%metrics%mixing_length_sq(jc,jk,jb) = (les_filter*z_mc)**2    &
-                      / ((les_filter/akt)**2+z_mc**2)
+          les_filter = les_config(jg)%smag_constant * MIN( les_config(jg)%max_turb_scale, &
+               (p_nh%metrics%ddqz_z_half(jc,jk,jb)*p_patch%geometry_info%mean_cell_area)**0.33333_wp )
 
-         p_nh%metrics%inv_ddqz_z_half(jc,jk,jb) = 1._wp / p_nh%metrics%ddqz_z_half(jc,jk,jb)
-       END DO
+          p_nh%metrics%mixing_length_sq(jc,jk,jb) = (les_filter*z_mc)**2    &
+               / ((les_filter/akt)**2+z_mc**2)
+
+          p_nh%metrics%inv_ddqz_z_half(jc,jk,jb) = 1._wp / p_nh%metrics%ddqz_z_half(jc,jk,jb)
+        END DO
       END DO
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
-   IF(p_test_run)THEN
+    IF(p_test_run)THEN
 !$OMP PARALLEL
-     CALL init(p_nh%metrics%inv_ddqz_z_half_v(:,:,:))
-     CALL init(p_nh%metrics%inv_ddqz_z_half_e(:,:,:))
-     call init(p_nh%metrics%wgtfac_v(:,:,:))
+      CALL init(p_nh%metrics%inv_ddqz_z_half_v(:,:,:))
+      CALL init(p_nh%metrics%inv_ddqz_z_half_e(:,:,:))
+      CALL init(p_nh%metrics%wgtfac_v(:,:,:))
 !$OMP END PARALLEL
-  END IF
+    END IF
 
    CALL cells2verts_scalar(p_nh%metrics%inv_ddqz_z_half, p_patch, p_int%cells_aw_verts, &
                            p_nh%metrics%inv_ddqz_z_half_v, opt_rlend=min_rlvert_int)
