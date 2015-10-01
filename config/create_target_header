@@ -143,7 +143,7 @@ EOF
 #for i in {1..$no_of_free_variables}
 i=1;while [ $i -le ${no_of_free_variables} ]
 do
-  echo "export ${free_variable[$i]}=${free_variable_value[$i]}" >> $output_script
+  echo "export ${free_variable[$i]}=\"${free_variable_value[$i]}\"" >> $output_script
   i=$((i+1));
 done
 
