@@ -424,6 +424,14 @@ MODULE mo_2mom_mcrph_main
   TYPE(sym_riming_params), SAVE :: hsc_params
   !> run-time- and location-invariant graupel snow collection parameters
   TYPE(sym_riming_params), SAVE :: gsc_params
+
+  TYPE vapor_deposition_params
+    REAL(wp) :: c          !< coeff for capacity
+    REAL(wp) :: a_f,b_f    !< coeffs for ventilation
+  END TYPE vapor_deposition_params
+
+  !> run-time- and location-invariant vapor ice deposition parameters
+  TYPE(vapor_deposition_params), SAVE :: vid_params
 CONTAINS
 
   !*******************************************************************************
@@ -1172,6 +1180,19 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "    theta_q_ss = ", gsc_params%theta_q_bb ; CALL message(routine,TRIM(txt))
     END IF
 
+    ! vapor ice deposition params
+    vid_params%c = 1.0 / ice%cap
+    vid_params%a_f = vent_coeff_a(ice,1)
+    vid_params%b_f = vent_coeff_b(ice,1) * N_sc**n_f / SQRT(nu_l)
+    IF (isdebug) THEN
+      WRITE (txt,'(A,D10.3)') "    a_geo   = ",ice%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE (txt,'(A,D10.3)') "    b_geo   = ",ice%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE (txt,'(A,D10.3)') "    a_vel   = ",ice%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE (txt,'(A,D10.3)') "    b_vel   = ",ice%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE (txt,'(A,D10.3)') "    c_i     = ", vid_params%c ; CALL message(routine,TRIM(txt))
+      WRITE (txt,'(A,D10.3)') "    a_f     = ", vid_params%a_f ; CALL message(routine,TRIM(txt))
+      WRITE (txt,'(A,D10.3)') "    b_f     = ", vid_params%b_f ; CALL message(routine,TRIM(txt))
+    END IF
 
   END SUBROUTINE init_2mom_scheme_once
 
@@ -3062,33 +3083,7 @@ CONTAINS
 
     SUBROUTINE vapor_deposition_ice()
       INTEGER             :: i,k
-      INTEGER, SAVE       :: firstcall
       REAL(wp)            :: q_i,n_i,x_i,d_i,v_i,f_v
-      REAL(wp), SAVE      :: c_i        ! coeff for capacity
-      REAL(wp), SAVE      :: a_f,b_f    ! coeffs for ventilation
-!$omp threadprivate (firstcall)
-!$omp threadprivate (a_f)
-!$omp threadprivate (b_f)
-!$omp threadprivate (c_i)
-
-      IF (firstcall.NE.1) THEN
-         c_i = 1.0 / ice%cap
-         a_f = vent_coeff_a(ice,1)
-         b_f = vent_coeff_b(ice,1) * N_sc**n_f / sqrt(nu_l)
-         IF (isdebug) THEN
-            CALL message(routine,"vapor_depositioice%n:")
-            WRITE (txt,'(A,D10.3)') "    a_geo   = ",ice%a_geo ; CALL message(routine,TRIM(txt))
-            WRITE (txt,'(A,D10.3)') "    b_geo   = ",ice%b_geo ; CALL message(routine,TRIM(txt))
-            WRITE (txt,'(A,D10.3)') "    a_vel   = ",ice%a_vel ; CALL message(routine,TRIM(txt))
-            WRITE (txt,'(A,D10.3)') "    b_vel   = ",ice%b_vel ; CALL message(routine,TRIM(txt))
-            WRITE (txt,'(A,D10.3)') "    c_i     = ",c_i ; CALL message(routine,TRIM(txt))
-            WRITE (txt,'(A,D10.3)') "    a_f     = ",a_f ; CALL message(routine,TRIM(txt))
-            WRITE (txt,'(A,D10.3)') "    b_f     = ",b_f ; CALL message(routine,TRIM(txt))
-            firstcall = 1
-         ELSEIF (isdebug) THEN
-            CALL message(routine, "vapor_depositioice%n")
-         ENDIF
-      END IF
 
       DO k = kstart,kend
          DO i = istart,iend
@@ -3103,10 +3098,10 @@ CONTAINS
               v_i = ice%velocity(x_i) * ice%rho_v(i,k)
 
               !..note that a_f includes more than just ventilation, do never ever set f_v=1
-              f_v  = a_f + b_f * sqrt(v_i*d_i)
-              f_v  = MAX(f_v,a_f/ice%a_ven)
+              f_v  = vid_params%a_f + vid_params%b_f * sqrt(v_i*d_i)
+              f_v  = MAX(f_v,vid_params%a_f/ice%a_ven)
 
-              dep_ice(i,k) = g_i(i,k) * n_i * c_i * d_i * f_v * s_si(i,k) * dt_local
+              dep_ice(i,k) = g_i(i,k) * n_i * vid_params%c * d_i * f_v * s_si(i,k) * dt_local
            ENDIF
         ENDDO
      ENDDO
