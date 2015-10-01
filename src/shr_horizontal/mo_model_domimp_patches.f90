@@ -98,7 +98,7 @@ MODULE mo_model_domimp_patches
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex, c_center, c_refin_ctrl, e_parent, e_child
+       c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
     &                              get_valid_local_index, &
     &                              t_grid_domain_decomp_info, get_local_index
@@ -1510,8 +1510,6 @@ CONTAINS
         & 'negative child edge indices detected - patch files are too old')
     ENDIF
 
-    CALL dist_mult_array_expose(patch_pre%edges%dist)
-
     ! patch_pre%edges%refin_ctrl
     CALL nf(nf_inq_varid(ncid_grf, 'refin_e_ctrl', varid))
     CALL dist_mult_array_local_ptr(patch_pre%edges%refin_ctrl, 1, local_ptr)
@@ -1561,13 +1559,14 @@ CONTAINS
 
     ! patch_pre%edges%cell(:,:)
     CALL nf(nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid))
-    CALL dist_mult_array_local_ptr(patch_pre%edges%cell, 1, local_ptr_2d)
+    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_cell, local_ptr_2d)
     CALL nf(nf_get_vara_int(ncid, varid, &
       &                     (/patch_pre%edges%local_chunk(1,1)%first, 1/), &
       &                     (/patch_pre%edges%local_chunk(1,1)%size, 2/), &
       &                     local_ptr_2d))
     WHERE(local_ptr_2d(:, :) < 0) local_ptr_2d(:, :) = 0
-    CALL dist_mult_array_expose(patch_pre%edges%cell)
+
+    CALL dist_mult_array_expose(patch_pre%edges%dist)
 
     ! END NEW SUBDIV
 

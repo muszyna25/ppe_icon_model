@@ -594,7 +594,10 @@ MODULE mo_model_domain
        e_parent = 1, &
        ! indices of child edges:
        ! index2=1,4
-       e_child = 2
+       e_child = 2, &
+       ! indices of adjacent cells:
+       ! index2=1,2
+       e_cell = 3
 
   TYPE t_pre_grid_edges
 
@@ -602,10 +605,6 @@ MODULE mo_model_domain
     TYPE(extent) :: local_chunk(1,1)
 
     TYPE(dist_mult_array) :: dist
-
-    ! indices of adjacent cells:
-    ! index2=1,2
-    TYPE(dist_mult_array) :: cell
 
     !-------------------------------------------------
     ! edges geometry

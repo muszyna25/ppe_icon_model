@@ -33,7 +33,7 @@ MODULE mo_alloc_patches
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, &
        c_child, c_phys_id, c_neighbor, c_edge, c_vertex, c_center, &
-       c_refin_ctrl, e_parent, e_child
+       c_refin_ctrl, e_parent, e_child, e_cell
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              init_glb2loc_index_lookup, &
     &                              t_glb2loc_index_lookup, &
@@ -620,18 +620,16 @@ CONTAINS
     INTEGER :: max_childdom
     TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(global_array_desc) :: dist_edge_owner_desc(1)
-    TYPE(global_array_desc) :: dist_edge_owner_desc_cell(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc_cell(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc_vertex(2)
-    TYPE(global_array_desc) :: dist_cell_desc(9), dist_edge_desc(2)
+    TYPE(global_array_desc) :: dist_cell_desc(9), dist_edge_desc(3)
 
     TYPE(extent) :: &
-      &             local_edge_chunk_cell(2,1), &
       &             local_vert_chunk_cell(2,1), &
       &             local_vert_chunk_vertex(1,2), &
       &             local_cell_chunks(2, 9), &
-      &             local_edge_chunks(2, 2)
+      &             local_edge_chunks(2, 3)
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -689,6 +687,11 @@ CONTAINS
     dist_edge_desc(e_child)%a_rank = 2
     dist_edge_desc(e_child)%rect(2) = extent(first = 1, size = 4)
 
+    dist_edge_desc(e_cell) = dist_edge_desc(e_parent)
+    dist_edge_desc(e_cell)%a_rank = 2
+    dist_edge_desc(e_cell)%rect(2)%first = 1
+    dist_edge_desc(e_cell)%rect(2)%size = 2
+
     dist_edge_owner_desc(1)%a_rank = 1
     dist_edge_owner_desc(1)%rect(1)%first = 1
     dist_edge_owner_desc(1)%rect(1)%size = p_patch_pre%n_patch_edges_g
@@ -699,10 +702,6 @@ CONTAINS
     dist_vert_owner_desc(1)%rect(1)%size = p_patch_pre%n_patch_verts_g
     dist_vert_owner_desc(1)%element_dt = ppm_int
 
-    dist_edge_owner_desc_cell(1) = dist_edge_owner_desc(1)
-    dist_edge_owner_desc_cell(1)%a_rank = 2
-    dist_edge_owner_desc_cell(1)%rect(2)%first = 1
-    dist_edge_owner_desc_cell(1)%rect(2)%size = 2
 
     dist_vert_owner_desc_cell(1) = dist_vert_owner_desc(1)
     dist_vert_owner_desc_cell(1)%a_rank = 2
@@ -720,10 +719,6 @@ CONTAINS
       uniform_partition(dist_edge_owner_desc(1)%rect(1), p_n_work, p_pe_work+1)
     p_patch_pre%verts%local_chunk(1,1) = &
       uniform_partition(dist_vert_owner_desc(1)%rect(1), p_n_work, p_pe_work+1)
-
-    local_edge_chunk_cell(1,1) = p_patch_pre%edges%local_chunk(1,1)
-    local_edge_chunk_cell(2,1)%first = 1
-    local_edge_chunk_cell(2,1)%size = 2
 
     local_vert_chunk_cell(1,1) = p_patch_pre%verts%local_chunk(1,1)
     local_vert_chunk_cell(2,1)%first = 1
@@ -752,12 +747,13 @@ CONTAINS
     local_edge_chunks(1, e_parent) = p_patch_pre%edges%local_chunk(1, 1)
     local_edge_chunks(1, e_child) = p_patch_pre%edges%local_chunk(1, 1)
     local_edge_chunks(2, e_child) = extent(first = 1, size = 4)
+    local_edge_chunks(1, e_cell) = p_patch_pre%edges%local_chunk(1, 1)
+    local_edge_chunks(2, e_cell) = extent(first = 1, size = 2)
+
     p_patch_pre%edges%dist = dist_mult_array_new( &
       dist_edge_desc, local_edge_chunks, p_comm_work)
     p_patch_pre%edges%refin_ctrl = dist_mult_array_new( &
       dist_edge_owner_desc, p_patch_pre%edges%local_chunk, p_comm_work)
-    p_patch_pre%edges%cell = dist_mult_array_new( &
-      dist_edge_owner_desc_cell, local_edge_chunk_cell, p_comm_work)
     ALLOCATE( p_patch_pre%edges%start(min_rledge:max_rledge) )
     ALLOCATE( p_patch_pre%edges%end(min_rledge:max_rledge) )
 
@@ -887,8 +883,6 @@ CONTAINS
     ! !grid edges
     !
     CALL dist_mult_array_delete(p_patch_pre%edges%dist)
-    CALL dist_mult_array_unexpose(p_patch_pre%edges%cell)
-    CALL dist_mult_array_delete(p_patch_pre%edges%cell)
     CALL dist_mult_array_unexpose(p_patch_pre%edges%refin_ctrl)
     CALL dist_mult_array_delete(p_patch_pre%edges%refin_ctrl)
     DEALLOCATE( p_patch_pre%edges%start )

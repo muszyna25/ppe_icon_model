@@ -36,7 +36,7 @@ MODULE mo_setup_subdivision
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex, c_center, c_refin_ctrl, e_parent, e_child
+       c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -1530,8 +1530,10 @@ CONTAINS
           CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_edge, &
             &                      (/flag2_c_list(0)%idx(ic),i/), je)
 
-          CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell, 1, (/je,1/), jc)
-          CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell, 1, (/je,2/), jc_)
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+               (/je,1/), jc)
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+               (/je,2/), jc_)
 
           IF (jc <= 0 .OR. jc_ <= 0 .OR. jc == jc_) THEN
             n_inner_edges = n_inner_edges + 1
@@ -1674,10 +1676,12 @@ CONTAINS
         DO i = 1, n_temp_edges
 
           je = temp_edges(i)
-          CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell,1, (/je,1/), jc)
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+               (/je,1/), jc)
 
           IF (jc == edge_cells(i)) THEN
-            CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell,1, (/je,2/),jc)
+            CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+                 (/je,2/),jc)
           END IF
 
           IF (jc > 0 .AND. jc /= edge_cells(i)) THEN
@@ -2055,8 +2059,10 @@ CONTAINS
       DO i = 1, SIZE(edges)
 
         je = edges(i)
-        CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell,1,(/je,1/),a_idx(1))
-        CALL dist_mult_array_get(wrk_p_patch_pre%edges%cell,1,(/je,2/),a_idx(2))
+        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+             (/je,1/), a_idx(1))
+        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+             (/je,2/),a_idx(2))
         ! outer boundary edges always belong to single adjacent cell owner
         a_idx(:) = MERGE(a_idx(:), MAXVAL(a_idx(:)), a_idx(:) > 0)
         CALL dist_mult_array_get(dist_cell_owner, 1, (/a_idx(1)/), a_iown(1))
