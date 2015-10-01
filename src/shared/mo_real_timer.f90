@@ -291,15 +291,17 @@ CONTAINS
     INTEGER :: jt
 
   !------------------------------------------------------------------------------------------------
-    IF (PRESENT(timer_id)) THEN
-      new_timer = timer_id
-      IF (timer_id > 0) RETURN
-    ENDIF
-
 #ifdef _OPENMP
     IF ( omp_in_parallel() ) &
          CALL real_timer_abort(0,'new_timer called in parallel region')
 #endif
+
+    IF (need_init) CALL mo_real_timer_init
+
+    IF (PRESENT(timer_id)) THEN
+      new_timer = timer_id
+      IF (timer_id > 0) RETURN
+    ENDIF
 
     timer_top = timer_top+1
     IF (timer_top > timer_max) THEN
@@ -325,8 +327,6 @@ CONTAINS
     IF (PRESENT(timer_id)) THEN
       timer_id = new_timer
     ENDIF
-
-    IF (need_init) CALL mo_real_timer_init
 
   END FUNCTION new_timer
 
