@@ -378,37 +378,45 @@ CONTAINS
        WHERE(qnh < 0.0_wp) qnh = 0.0_wp
     END IF
 
+    IF (lprogccn) THEN
+      DO kk=kts,kte
+        zf = 0.5_wp*(vct_a(kk)+vct_a(kk+1))
+        DO ii=its,ite
+          !..reset nccn for cloud-free grid points to background profile
+          IF (qc(ii,kk) .LE. q_crit) THEN
+            IF(zf > ccn_coeffs%z0) THEN
+              nccn(ii,kk) = MAX(nccn(ii,kk),ccn_coeffs%Ncn0*EXP((ccn_coeffs%z0 - zf)/ccn_coeffs%z1e))
+            ELSE
+              nccn(ii,kk) = MAX(nccn(ii,kk),ccn_coeffs%Ncn0)
+            END IF
+          END IF
+        END DO
+      END DO
+    END IF
+
     DO kk=kts,kte
-       DO ii=its,ite
-          zf = 0.5_wp*(vct_a(kk)+vct_a(kk+1))
-
-          IF (lprogccn) THEN
-             !..reset nccn for cloud-free grid points to background profile
-             IF (qc(ii,kk) .le. q_crit) then
-                IF(zf > ccn_coeffs%z0) THEN
-                   nccn(ii,kk) = max(nccn(ii,kk),ccn_coeffs%Ncn0*exp((ccn_coeffs%z0 - zf)/ccn_coeffs%z1e))
-                ELSE
-                   nccn(ii,kk) = max(nccn(ii,kk),ccn_coeffs%Ncn0)
-                END IF
-             END IF
-          END IF
-          IF (lprogin) THEN
-             !..relaxation of potential IN number density to background profile
-             IF(zf > in_coeffs%z0) THEN
-                in_bgrd = in_coeffs%N0*exp((in_coeffs%z0 - zf)/in_coeffs%z1e)
-             ELSE
-                in_bgrd = in_coeffs%N0
-             END IF
-             ninpot(ii,kk) = ninpot(ii,kk) - (ninpot(ii,kk)-in_bgrd)/tau_inpot*dt
-          END IF
-
-          !..relaxation of activated IN number density to zero
-          IF(qi(ii,kk) == 0) THEN
-             ninact(ii,kk) = ninact(ii,kk) - ninact(ii,kk)/tau_inact*dt
-          END IF
-
-       END DO
+      DO ii=its,ite
+        !..relaxation of activated IN number density to zero
+        IF(qi(ii,kk) == 0) THEN
+          ninact(ii,kk) = ninact(ii,kk) - ninact(ii,kk)/tau_inact*dt
+        END IF
+      END DO
     END DO
+
+    IF (lprogin) THEN
+      DO kk=kts,kte
+        DO ii=its,ite
+          zf = 0.5_wp*(vct_a(kk)+vct_a(kk+1))
+          !..relaxation of potential IN number density to background profile
+          IF(zf > in_coeffs%z0) THEN
+            in_bgrd = in_coeffs%N0*EXP((in_coeffs%z0 - zf)/in_coeffs%z1e)
+          ELSE
+            in_bgrd = in_coeffs%N0
+          END IF
+          ninpot(ii,kk) = ninpot(ii,kk) - (ninpot(ii,kk)-in_bgrd)/tau_inpot*dt
+        END DO
+      END DO
+    END IF
 
     IF (lprogccn) WHERE(nccn < 35.0_wp) nccn = 35e6_wp
 
