@@ -182,9 +182,8 @@ MODULE mo_pp_scheduler
   USE mo_grib2,                   ONLY: t_grib2_var, grib2_var
   USE mo_util_string,             ONLY: int2string, remove_duplicates,                      &
     &                                   difference, toupper, tolower
-  USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_PACK16
-  USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,                          &
-    &                                   GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,                &
+  USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_PACK16, GRID_UNSTRUCTURED
+  USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,     &
     &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,                   &
     &                                   is_2d_field, ZA_ISENTROPIC
   USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
@@ -1168,7 +1167,7 @@ CONTAINS
       IF (l_intp_p) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%plevels%nvalues, nblks_c /)
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
-        grib2_desc = grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = grib2_var(0, 3, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_gh,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, grib2_desc,           &
           & ldims=shape3d, lrestart=.FALSE. )
@@ -1178,7 +1177,7 @@ CONTAINS
       IF (l_intp_i) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%ilevels%nvalues, nblks_c /)
         cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
-        grib2_desc = grib2_var(0, 3, 5, ibits, GRID_REFERENCE, GRID_CELL)
+        grib2_desc = grib2_var(0, 3, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_gh,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_ISENTROPIC, cf_desc, grib2_desc,         &
           & ldims=shape3d, lrestart=.FALSE. )
