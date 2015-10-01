@@ -425,19 +425,19 @@ MODULE mo_2mom_mcrph_main
   !> run-time- and location-invariant graupel snow collection parameters
   TYPE(sym_riming_params), SAVE :: gsc_params
 
-  TYPE vapor_deposition_params
+  TYPE evaporation_deposition_params
     REAL(wp) :: c          !< coeff for capacity
     REAL(wp) :: a_f,b_f    !< coeffs for ventilation
-  END TYPE vapor_deposition_params
+  END TYPE evaporation_deposition_params
 
   !> run-time- and location-invariant vapor ice deposition parameters
-  TYPE(vapor_deposition_params), SAVE :: vid_params
+  TYPE(evaporation_deposition_params), SAVE :: vid_params
   !> run-time- and location-invariant vapor graupel deposition parameters
-  TYPE(vapor_deposition_params), SAVE :: vgd_params
+  TYPE(evaporation_deposition_params), SAVE :: vgd_params
   !> run-time- and location-invariant vapor hail deposition parameters
-  TYPE(vapor_deposition_params), SAVE :: vhd_params
+  TYPE(evaporation_deposition_params), SAVE :: vhd_params
   !> run-time- and location-invariant vapor snow deposition parameters
-  TYPE(vapor_deposition_params), SAVE :: vsd_params
+  TYPE(evaporation_deposition_params), SAVE :: vsd_params
 CONTAINS
 
   !*******************************************************************************
