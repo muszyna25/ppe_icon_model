@@ -873,10 +873,6 @@ MODULE mo_model_domain
     TYPE(t_grid_vertices) ::  &
       & verts
 
-    ! Cells processed when running the radiation
-    ! (only used with redistributed radiation)
-    INTEGER, POINTER :: radiation_cells(:)
-
     !
     ! communication patterns for parallelization
     !

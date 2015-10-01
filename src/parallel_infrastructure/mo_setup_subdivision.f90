@@ -30,11 +30,10 @@ MODULE mo_setup_subdivision
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell,  &
     & min_rledge, max_rledge, min_rlvert, max_rlvert, max_phys_dom,  &
     & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw
-  USE mo_math_constants,     ONLY: pi
   USE mo_exception,          ONLY: finish, message, get_filename_noext
 
   USE mo_run_config,         ONLY: msg_level
-  USE mo_io_units,           ONLY: find_next_free_unit, filename_max
+  USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
@@ -59,7 +58,7 @@ MODULE mo_setup_subdivision
   USE mo_decomposition_tools, ONLY: divide_cells_by_location, t_cell_info, &
     & sort_cell_info_by_cell_number, read_ascii_decomposition, &
     & partidx_of_elem_uniform_deco
-  USE mo_math_utilities,      ONLY: geographical_to_cartesian, fxp_lat, fxp_lon
+  USE mo_math_utilities,      ONLY: fxp_lat, fxp_lon
   USE mo_master_control,      ONLY: get_my_process_type, ocean_process, &
                                     testbed_process
 #ifndef NOMPI
@@ -117,12 +116,10 @@ CONTAINS
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
     ! LOGICAL :: l_compute_grid
     INTEGER :: my_process_type, order_type_of_halos
-    INTEGER, POINTER :: radiation_owner(:), local_ptr(:)
+    INTEGER, POINTER :: local_ptr(:)
     TYPE(dist_mult_array) :: dist_cell_owner, dist_cell_owner_p
 
     CALL message(routine, 'start of domain decomposition')
-
-    NULLIFY(radiation_owner)
 
     ! This subroutine has 2 different operating modes:
     !
@@ -267,11 +264,10 @@ CONTAINS
       ! Every cells gets assigned an owner.
 
       IF (my_process_is_mpi_parallel()) THEN
-        ! Set division method, divide_for_radiation is only used for patch 0
+        ! Set division method
         CALL divide_patch_cells(p_patch_pre(jg), jg, p_patch(jg)%n_proc, &
              p_patch(jg)%proc0, dist_cell_owner, dist_cell_owner_p, &
-             wrk_p_parent_patch_pre, radiation_owner, &
-             divide_for_radiation = (jg == 0))
+             wrk_p_parent_patch_pre)
       ELSE
         ! trivial "decomposition"
         CALL create_dist_cell_owner(dist_cell_owner, &
@@ -301,21 +297,14 @@ CONTAINS
       END SELECT
 
       CALL divide_patch(p_patch(jg), p_patch_pre(jg), dist_cell_owner, &
-        &               radiation_owner, n_ghost_rows, order_type_of_halos, &
-        &               p_pe_work)
-
-      IF (ASSOCIATED(radiation_owner)) THEN
-        DEALLOCATE(radiation_owner)
-        NULLIFY(radiation_owner)
-      END IF
+        &               n_ghost_rows, order_type_of_halos, p_pe_work)
 
       IF(jg > n_dom_start) THEN
 
         order_type_of_halos = 0
 
         CALL divide_patch(p_patch_local_parent(jg), p_patch_pre(jgp), &
-          &               dist_cell_owner_p, radiation_owner, 1, &
-          &               order_type_of_halos,  p_pe_work)
+          &               dist_cell_owner_p, 1, order_type_of_halos,  p_pe_work)
 
         CALL dist_mult_array_delete(dist_cell_owner_p)
 
@@ -464,8 +453,7 @@ CONTAINS
 
   SUBROUTINE divide_patch_cells(wrk_p_patch_pre, patch_no, n_proc, proc0, &
        &                        dist_cell_owner, dist_cell_owner_p, &
-       &                        wrk_p_parent_patch_pre, radiation_owner, &
-       &                        divide_for_radiation)
+       &                        wrk_p_parent_patch_pre)
 
     TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre
     INTEGER, INTENT(IN)  :: patch_no !> The patch number,
@@ -477,13 +465,9 @@ CONTAINS
     !! associated)
     TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner_p
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
-    INTEGER, POINTER :: radiation_owner(:)
-    ! Private flag if patch should be divided for radiation calculation
-    LOGICAL, INTENT(in) :: divide_for_radiation
 
     INTEGER, POINTER :: cell_owner(:) !> Cell division
     INTEGER, POINTER :: local_owner_ptr(:)
-    INTEGER :: n, i, j
     INTEGER, ALLOCATABLE :: flag_c(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if ext_div_from_file
 
@@ -570,8 +554,7 @@ CONTAINS
         ! Divide subset of patch
         ! Receives the PE  numbers for every cell
         CALL divide_subset_geometric(flag_c, n_proc, wrk_p_parent_patch_pre, &
-             dist_cell_owner_p, ASSOCIATED(wrk_p_parent_patch_pre), &
-             divide_for_radiation = divide_for_radiation)
+             dist_cell_owner_p, ASSOCIATED(wrk_p_parent_patch_pre))
 
         CALL dist_mult_array_expose(dist_cell_owner_p)
 
@@ -591,8 +574,7 @@ CONTAINS
 
         ! Divide complete patch
         CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_pre, &
-             dist_cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
-             divide_for_radiation = divide_for_radiation)
+             dist_cell_owner, ASSOCIATED(wrk_p_parent_patch_pre))
       ENDIF
 
       ! Set processor offset
@@ -865,8 +847,7 @@ CONTAINS
   !! Major rewrite to reduce memory consumption, Thomas Jahns and Moritz Hanke, Sep 2013
 
   SUBROUTINE divide_patch(wrk_p_patch, wrk_p_patch_pre, dist_cell_owner, &
-    &                     radiation_owner, n_boundary_rows, &
-    &                     order_type_of_halos, my_proc)
+    &                     n_boundary_rows, order_type_of_halos, my_proc)
 
     TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch ! output patch, designated as INOUT because
                                                 ! a few attributes are already set
@@ -874,7 +855,6 @@ CONTAINS
                                                         ! the distributed arrays
 
     TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner
-    INTEGER, POINTER :: radiation_owner(:)
     INTEGER, INTENT(IN) :: n_boundary_rows
     INTEGER, INTENT(IN) :: order_type_of_halos
     INTEGER, INTENT(IN) :: my_proc
@@ -1217,23 +1197,6 @@ CONTAINS
       END DO
     END DO
 
-    IF (ASSOCIATED(radiation_owner)) THEN
-
-      ALLOCATE(wrk_p_patch%radiation_cells( &
-        COUNT(radiation_owner(:) == p_pe_work)))
-
-      i = 1
-
-      DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-
-        IF (radiation_owner(j) == p_pe_work) THEN
-
-          wrk_p_patch%radiation_cells(i) = j
-          i = i + 1
-        END IF
-      END DO
-    END IF
-
     DEALLOCATE(owned_cells)
 
   CONTAINS
@@ -1361,8 +1324,6 @@ CONTAINS
       wrk_p_patch%nshift_total       = wrk_p_patch_pre%nshift_total
       wrk_p_patch%nshift_child       = wrk_p_patch_pre%nshift_child
       wrk_p_patch%grid_uuid          = wrk_p_patch_pre%grid_uuid
-
-      NULLIFY(wrk_p_patch%radiation_cells)
 
       !-----------------------------------------------------------------------------------------------
       ! Allocate the required data arrays in patch
@@ -2659,8 +2620,7 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !!
   SUBROUTINE divide_subset_geometric(subset_flag, n_proc, wrk_p_patch_pre, &
-                                     dist_cell_owner, lparent_level, &
-                                     divide_for_radiation)
+                                     dist_cell_owner, lparent_level)
 
     INTEGER, ALLOCATABLE   :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
@@ -2670,8 +2630,6 @@ CONTAINS
     ! (-1 for cells not in subset)
     LOGICAL, INTENT(IN)    :: lparent_level ! indicates if domain decomposition is executed for
                               ! the parent grid level (true) or for the target grid level (false)
-    ! Private flag if patch should be divided for radiation calculation
-    LOGICAL, INTENT(in) :: divide_for_radiation
 
     INTEGER :: j, nc, nc_g, ncs, nce, n_onb_points, jm(1)
     INTEGER :: count_physdom(0:max_phys_dom), count_total, id_physdom(max_phys_dom), &
@@ -2687,13 +2645,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
-    IF(p_pe_work==0) THEN
-      IF(divide_for_radiation) THEN
-        WRITE(0,*) 'divide_patch: Using geometric area subdivision for radiation'
-      ELSE
-        WRITE(0,*) 'divide_patch: Using geometric area subdivision (normal)'
-      ENDIF
-    ENDIF
+    IF(p_pe_work==0) WRITE(0,*) 'divide_patch: Using geometric area subdivision'
 
     IF (get_my_process_type() == ocean_process) THEN
       locean = .TRUE.
@@ -2716,7 +2668,7 @@ CONTAINS
     ! Check if domain merging has been applied; for large PE numbers, calculating the DD
     ! for each physical domain separately tends to yield a more balanced distribution
     ! of the halo points
-    IF (ldiv_phys_dom .AND. .NOT. divide_for_radiation) THEN
+    IF (ldiv_phys_dom) THEN
       count_physdom(:) = 0
       count_total      = 0
       num_physdom      = 0
@@ -2812,9 +2764,8 @@ CONTAINS
     ALLOCATE(cell_desc(my_cell_start:my_cell_end))
 
     CALL build_cell_info(my_cell_start, my_cell_end, cell_desc, &
-         wrk_p_patch_pre, divide_for_radiation, num_physdom, &
-         subset_flag, lsplit_merged_domains, lparent_level, locean, &
-         id_physdom, ncell_offset, n_onb_points)
+         wrk_p_patch_pre, num_physdom, subset_flag, lsplit_merged_domains, &
+         lparent_level, locean, id_physdom, ncell_offset, n_onb_points)
     IF (p_n_work > 1) THEN
 #ifndef NOMPI
       CALL mpi_allreduce(ncell_offset, ncell_offset_g, SIZE(ncell_offset), &
@@ -2873,14 +2824,12 @@ CONTAINS
   END SUBROUTINE divide_subset_geometric
 
   SUBROUTINE build_cell_info(range_start, range_end, cell_desc, &
-       wrk_p_patch_pre, divide_for_radiation, num_physdom, subset_flag, &
-       lsplit_merged_domains, lparent_level, locean, &
-       id_physdom, ncell_offset, n_onb_points)
+       wrk_p_patch_pre, num_physdom, subset_flag, lsplit_merged_domains, &
+       lparent_level, locean, id_physdom, ncell_offset, n_onb_points)
     INTEGER, INTENT(in) :: range_start, range_end
     TYPE(t_cell_info), INTENT(out) :: cell_desc(range_start:range_end)
     TYPE(t_pre_patch), INTENT(inout) :: wrk_p_patch_pre
-    LOGICAL, INTENT(in) :: divide_for_radiation, lsplit_merged_domains, &
-         lparent_level, locean
+    LOGICAL, INTENT(in) :: lsplit_merged_domains, lparent_level, locean
     INTEGER, INTENT(in) :: num_physdom
     ! also ends on range_end, but we want implicit shape argument
     INTEGER, INTENT(in) :: subset_flag(range_start:range_end)
@@ -2894,67 +2843,7 @@ CONTAINS
     nc = 0
     n_onb_points = 0
 
-    IF(divide_for_radiation) THEN
-
-      DO j = range_start, range_end
-        cell_desc(j)%lat = HUGE(cell_desc(j)%lat)! for finding min lat/lon
-        cell_desc(j)%lon = HUGE(cell_desc(j)%lon) ! for finding min lat/lon
-        IF (subset_flag(j)<=0) CYCLE ! Cell not in subset
-
-        ! Patch division for radiation calculations:
-        ! To minimize load imbalance, every patch contains 10 areas
-        ! distributed in a way similar as the "diamonds" in GME
-        ! This is accomplished by mapping all cells to one section
-        ! lying in the NH and having a width of 0.4*pi (72 deg)
-
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 1, (/j/), cclat)
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 2, (/j/), cclon)
-
-        IF (cclat>=0._wp .AND. cclon>=-0.2_wp*pi .AND. cclon<=0.2_wp*pi) THEN
-        ELSE IF (cclat>=0._wp .AND. cclon>=0.2_wp*pi .AND. cclon<=0.6_wp*pi) THEN
-          cclon = cclon - 0.4_wp*pi
-        ELSE IF (cclat>=0._wp .AND. cclon>=0.6_wp*pi) THEN
-          cclon = cclon - 0.8_wp*pi
-        ELSE IF (cclat>=0._wp .AND. cclon<=-0.6_wp*pi) THEN
-          cclon = cclon + 0.8_wp*pi
-        ELSE IF (cclat>=0._wp .AND. cclon>=-0.6_wp*pi .AND. cclon<=-0.2_wp*pi) THEN
-          cclon = cclon + 0.4_wp*pi
-        ELSE IF (cclat<0._wp .AND. (cclon<=-0.8_wp*pi .OR. cclon>=0.8_wp*pi)) THEN
-          cclat = -cclat
-          cclon = cclon + pi
-        ELSE IF (cclat<0._wp .AND. cclon>=-0.8_wp*pi .AND. cclon<=-0.4_wp*pi) THEN
-          cclat = -cclat
-          cclon = cclon + 0.6_wp*pi
-        ELSE IF (cclat<0._wp .AND. cclon>=-0.4_wp*pi .AND. cclon<=0.0_wp*pi) THEN
-          cclat = -cclat
-          cclon = cclon + 0.2_wp*pi
-        ELSE IF (cclat<0._wp .AND. cclon>=0.0_wp*pi .AND. cclon<=0.4_wp*pi) THEN
-          cclat = -cclat
-          cclon = cclon - 0.2_wp*pi
-        ELSE IF (cclat<0._wp .AND. cclon>=0.4_wp*pi .AND. cclon<=0.8_wp*pi) THEN
-          cclat = -cclat
-          cclon = cclon - 0.6_wp*pi
-        ENDIF
-
-        IF (cclon > pi) THEN
-          cclon = cclon - 2._wp*pi
-        ELSE IF (cclon < -pi) THEN
-          cclon = cclon + 2._wp*pi
-        ENDIF
-
-        cell_desc(range_start + nc)%lat = fxp_lat(cclat)
-        cell_desc(range_start + nc)%lon = fxp_lon(cclon)
-        cell_desc(range_start + nc)%cell_number = j
-        cell_desc(range_start + nc)%owner = 0
-
-        nc = nc+1 ! Cell counter
-
-      ENDDO
-
-      ncell_offset(0) = 0
-      ncell_offset(1) = nc
-
-    ELSE IF (wrk_p_patch_pre%cell_type == 6) THEN
+    IF (wrk_p_patch_pre%cell_type == 6) THEN
 
       DO j = range_start, range_end
 
