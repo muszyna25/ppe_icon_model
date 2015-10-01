@@ -4319,7 +4319,6 @@ esac
 
 MPI_INCLUDE=""
 
-withval=no
 
 # Check whether --with-mpi was given.
 if test "${with_mpi+set}" = set; then :
@@ -4328,24 +4327,19 @@ fi
 
 
 
-#default is with mpi
-if test "x$with_mpi" != xno ; then
-  withval=yes
-fi
-
-if test x$withval = xno ; then
+if test x"$with_mpi" = xno; then :
   FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
-  CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
-  MPI_LIB=""
-  MPI_VERSION=none
-  MPIROOT=""
-  use_mpcc_r=no
+   CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
+   MPI_LIB=""
+   MPI_VERSION=none
+   MPIROOT=""
+   use_mpcc_r=no
 else
   if test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno; then :
   MPIROOT=$with_mpi
 fi
-  if test -n "$MPIROOT" ; then
-    as_ac_File=`$as_echo "ac_cv_file_$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" | $as_tr_sh`
+   if test x"$MPIROOT" != x; then :
+  as_ac_File=`$as_echo "ac_cv_file_$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" | $as_tr_sh`
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" >&5
 $as_echo_n "checking for $MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h... " >&6; }
 if eval \${$as_ac_File+:} false; then :
@@ -4423,10 +4417,10 @@ esac
     else
       MPI_INCLUDE="$MPI_M_INCLUDE $MPI_I_INCLUDE"
     fi
-  else
-    MPI="${DEFOPT}NOMPI"
+else
+  MPI="${DEFOPT}NOMPI"
     MPI_LIB=""
-  fi
+fi
 fi
 
 

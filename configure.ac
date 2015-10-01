@@ -745,37 +745,30 @@ esac
 
 MPI_INCLUDE=""
 
-withval=no
 AC_ARG_WITH([mpi],
             [AC_HELP_STRING([--with-mpi=DIR],
                             [MPI library])],,)
 
 
-#default is with mpi
-if test "x$with_mpi" != xno ; then
-  withval=yes
-fi
-
-if test x$withval = xno ; then
-  FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
-  CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
-  MPI_LIB=""
-  MPI_VERSION=none
-  MPIROOT=""
-  use_mpcc_r=no
-else
-  AS_IF([test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno],
+AS_IF([test x"$with_mpi" = xno],
+  [FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
+   CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
+   MPI_LIB=""
+   MPI_VERSION=none
+   MPIROOT=""
+   use_mpcc_r=no],
+  [AS_IF([test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno],
     [MPIROOT=$with_mpi])
-  if test -n "$MPIROOT" ; then
-    AC_CHECK_FILE($MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h,[],AC_MSG_ERROR([MPIROOT not properly defined]))
+   AS_IF([test x"$MPIROOT" != x],
+    [AC_CHECK_FILE([$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h],,[AC_MSG_ERROR([MPIROOT not properly defined])])
     case $host in
     *-*-darwin*)
       MPI_LIB="$(mpif90 -show | awk '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
-      ;;    
+      ;;
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
-      ;;   
-    esac 
+      ;;
+    esac
     MPI_I_INCLUDE="-I\$(MPIROOT)/include/${MPI_INCLUDE_THREAD}"
     case $host in
     powerpc-ibm-aix*)
@@ -820,12 +813,9 @@ else
       MPI_INCLUDE="$MPI_M_INCLUDE"
     else
       MPI_INCLUDE="$MPI_M_INCLUDE $MPI_I_INCLUDE"
-    fi  
-  else
-    MPI="${DEFOPT}NOMPI"
-    MPI_LIB=""
-  fi
-fi
+    fi],
+   [MPI="${DEFOPT}NOMPI"
+    MPI_LIB=""])])
 
 
 dnl ######################################################################
