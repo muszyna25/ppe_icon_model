@@ -437,7 +437,8 @@ CONTAINS
       &                                  p_n_work, p_pe_work+1)
 
     dist_cell_owner = dist_mult_array_new(dist_cell_owner_desc, local_chunk, &
-      &                                   p_comm_work)
+      &                                   p_comm_work, &
+      cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))))
   END SUBROUTINE create_dist_cell_owner
 
   !-----------------------------------------------------------------------------
@@ -819,7 +820,8 @@ CONTAINS
     ! set up dist_array
     parent_chunk = p_parent_patch_pre%cells%local_chunk
     dist_cell_owner_p = dist_mult_array_new(dist_cell_owner_p_desc, &
-      &                                     parent_chunk, p_comm_work)
+      &                                     parent_chunk, p_comm_work, &
+      cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))))
     CALL dist_mult_array_local_ptr(dist_cell_owner_p, 1, parent_chunk_ptr)
     parent_chunk_ptr = -1
     DO i = 1, SIZE(parent_chunk_prep, 2), 4
