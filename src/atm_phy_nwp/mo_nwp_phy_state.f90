@@ -2377,7 +2377,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( diag_list, 'bruvais', diag%bruvais,                     &
         & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,      &
-        & ldims=shape3dkp1, lrestart=.FALSE. )                                   
+        & ldims=shape3dkp1, initval=0.0_wp, lrestart=.FALSE. )                                   
 
       ! &      diag%mech_prod(nproma,nlev+1,nblks_c)
       cf_desc    = t_cf_var('mech_prod', 'm**2/s**3', 'mechanical production term in TKE Eq', &
@@ -2385,7 +2385,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( diag_list, 'mech_prod', diag%mech_prod,                     &
         & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,          &
-        & ldims=shape3dkp1, lrestart=.FALSE. )                                   
+        & ldims=shape3dkp1, initval=0.0_wp, lrestart=.FALSE. )                                   
 
       !1D and 0D diagnostic variables that can not be part of add_var
       ALLOCATE( diag%turb_diag_1dvar(klevp1,SIZE(turb_profile_list,1)),  &
