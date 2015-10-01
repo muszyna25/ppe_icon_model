@@ -191,14 +191,13 @@ CONTAINS
 
 !  -included calculation of boundary layer height (Anurag Dipankar, MPI Octo 2013).
 !   using Bulk richardson number approach. 
-
        DO jc = i_startidx, i_endidx           
-         DO jk = nlev, kstart_moist, -1
+         DO jk = nlev-1, kstart_moist, -1
 
             ri_no = (grav/p_prog%theta_v(jc,nlev,jb)) * &
                     ( p_prog%theta_v(jc,jk,jb)-p_prog%theta_v(jc,nlev,jb) ) *  &
                     ( p_metrics%z_mc(jc,jk,jb)-p_metrics%z_mc(jc,nlev,jb) ) /  &
-                    MAX( 1._wp-6,(p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2) )
+                    MAX( 1.e-6,(p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2) )
 
             IF(ri_no > 0.28_wp)THEN
                prm_diag%z_pbl(jc,jb) = p_metrics%z_mc(jc,jk,jb)
@@ -744,6 +743,8 @@ CONTAINS
        CALL levels_horizontal_mean(prm_diag%mech_prod, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlevp1))
        outvar = outvar * 0.5_wp          
+       outvar(1)      = outvar(2) 
+       outvar(nlevp1) = outvar(nlev) 
 
      CASE('wthsfs')!subfilter scale flux: see Erlebacher et al. 1992
 
