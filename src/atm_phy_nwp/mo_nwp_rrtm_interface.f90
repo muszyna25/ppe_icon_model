@@ -20,7 +20,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 #if defined __xlC__
-@PROCESS SPILL(1024)
+@PROCESS SPILL(1058)
 #endif
 MODULE mo_nwp_rrtm_interface
 
