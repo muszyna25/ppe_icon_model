@@ -58,7 +58,6 @@ USE mo_physical_constants,   ONLY: &
 USE mo_exception,      ONLY: finish, message, message_text
 
 USE mo_2mom_mcrph_main,     ONLY:                              &
-     &                       istart,iend,kstart,kend,          &
      &                       clouds_twomoment,                 &
      &                       sedi_vel_rain, sedi_vel_sphere,   &
      &                       sedi_icon_rain,sedi_icon_sphere,  &
@@ -66,12 +65,12 @@ USE mo_2mom_mcrph_main,     ONLY:                              &
      &                       rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
      &                       dt_twomoment => dt,               &
      &                       ccn_coeffs, in_coeffs,                     &
-     &                       ltabdminwgg,                               &
      &                       init_2mom_scheme,                          &
      &                       qnc_const, q_crit, lprogin => use_prog_in
 
 USE mo_2mom_mcrph_util, ONLY:                            &
      &                       gfct,                       &  ! Gamma function (becomes intrinsic in Fortran2008)
+     &                       ltabdminwgg,                &
      &                       init_dmin_wetgrowth,        &
      &                       init_dmin_wg_gr_ltab_equi
 
@@ -208,6 +207,7 @@ CONTAINS
     ! mpi thread).
     TYPE(atmosphere)         :: atmo
     TYPE(particle)           :: cloud, rain, ice, snow, graupel, hail
+    INTEGER :: ik_slice(4)
 
     IF (PRESENT(nccn)) THEN
        cloud_type = cloud_type_default_gscp5 + 10 * ccn_type
@@ -258,10 +258,10 @@ CONTAINS
     END IF
 
     ! indices as used in two-moment scheme
-    istart = its
-    iend   = ite
-    kstart = kts
-    kend   = kte
+    ik_slice(1) = its
+    ik_slice(2) = ite
+    ik_slice(3) = kts
+    ik_slice(4) = kte
 
     IF (PRESENT(l_cv)) THEN
       IF (l_cv) THEN
@@ -318,9 +318,9 @@ CONTAINS
 
        ! .. this subroutine calculates all the microphysical sources and sinks
        IF (PRESENT(ninpot)) THEN
-          CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact,nccn,ninpot)
+          CALL clouds_twomoment(ik_slice, atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
        ELSE
-          CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact)
+          CALL clouds_twomoment(ik_slice, atmo, cloud, rain, ice, snow, graupel, hail, ninact)
        ENDIF
 
        IF (lprogccn) THEN
@@ -470,9 +470,9 @@ CONTAINS
 
          ! .. this subroutine calculates all the microphysical sources and sinks
          IF (PRESENT(ninpot)) THEN
-            CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact,nccn,ninpot)
+            CALL clouds_twomoment(ik_slice,  atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
          ELSE
-            CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact)
+            CALL clouds_twomoment(ik_slice,  atmo, cloud, rain, ice, snow, graupel, hail, ninact)
          ENDIF
 
          DO kk=kts,kte
@@ -725,12 +725,12 @@ CONTAINS
               q_liq_old(ii,k) = qc(ii,k) + qr(ii,k)
            END DO
 
-           kstart = k
-           kend   = k
+           ik_slice(3) = k
+           ik_slice(4) = k
            IF (PRESENT(ninpot)) THEN
-              CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact,nccn,ninpot)
+              CALL clouds_twomoment(ik_slice, atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
            ELSE
-              CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact)
+              CALL clouds_twomoment(ik_slice, atmo, cloud, rain, ice, snow, graupel, hail, ninact)
            ENDIF
 
            ! .. latent heat term for temperature equation

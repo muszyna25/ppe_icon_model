@@ -124,12 +124,9 @@ MODULE mo_2mom_mcrph_main
 
   IMPLICIT NONE
 
-  PUBLIC
+  PRIVATE
 
   CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_main'
-
-  ! start and end indices for 2D slices
-  INTEGER :: istart, iend, kstart, kend
 
   ! time step within two-moment scheme
   REAL(wp) :: dt
@@ -548,6 +545,20 @@ MODULE mo_2mom_mcrph_main
 
   REAL(wp), PARAMETER :: pi6 = pi/6.0_wp, pi8 = pi/8.0_wp ! more pieces of pi
 
+  PUBLIC :: atmosphere, particle
+
+  PUBLIC :: init_2mom_scheme, clouds_twomoment
+
+  PUBLIC :: sedi_vel_rain, sedi_vel_sphere, sedi_icon_rain,sedi_icon_sphere
+
+  PUBLIC :: q_crit
+  ! these should be fixed to private for reasons of encapsulation
+  PUBLIC :: rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
+       ccn_coeffs, in_coeffs
+
+  ! must be fixed: used for (non-threadsafe) argument passing
+  PUBLIC :: dt, qnc_const, use_prog_in
+
 CONTAINS
 
   !*******************************************************************************
@@ -697,7 +708,11 @@ CONTAINS
   ! splitting. Temperature is only updated in the driver.
   !*******************************************************************************
 
-  SUBROUTINE clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,n_inact,n_cn,n_inpot)
+  SUBROUTINE clouds_twomoment(ik_slice, atmo,cloud,rain,ice,snow,graupel,hail,n_inact,n_cn,n_inpot)
+
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
 
     TYPE(atmosphere)         :: atmo
     TYPE(particle)           :: cloud, rain, ice, snow, graupel, hail
@@ -710,9 +725,16 @@ CONTAINS
 
     REAL(wp), DIMENSION(size(cloud%n,1),size(cloud%n,2)) :: dep_rate_ice, dep_rate_snow
 
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER :: k, i
 
     IF (isdebug) CALL message(TRIM(routine),"clouds_twomoment start")
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     dep_rate_ice(:,:)  = 0.0_wp
     dep_rate_snow(:,:) = 0.0_wp
@@ -729,20 +751,20 @@ CONTAINS
           CALL finish(TRIM(routine),&
                & 'Error in two_moment_mcrph: Hande et al activation not supported for progn. aerosol')
        ELSE
-          CALL ccn_activation_hdcp2(atmo,cloud)
+          CALL ccn_activation_hdcp2(ik_slice, atmo, cloud)
        END IF
     ELSE
        IF (isdebug) CALL message(TRIM(routine), &
             & '  ... CCN activation using look-up tables according to Segal& Khain')
        IF (PRESENT(n_cn)) THEN
-          CALL ccn_activation_sk(atmo,cloud,n_cn)
+          CALL ccn_activation_sk(ik_slice, atmo, cloud, n_cn)
        ELSE
           CALL finish(TRIM(routine),&
                & 'Error in two_moment_mcrph: Segal and Khain activation only supported for progn. aerosol')
        END IF
     END IF
 
-    IF (ischeck) CALL check('start',cloud,rain,ice,snow,graupel,hail)
+    IF (ischeck) CALL check(ik_slice, 'start',cloud,rain,ice,snow,graupel,hail)
 
     IF (nuc_c_typ.ne.0) THEN
       DO k=kstart,kend
@@ -757,14 +779,14 @@ CONTAINS
 
        ! homogeneous and heterogeneous ice nucleation
        IF (present(n_inpot)) THEN
-          CALL ice_nucleation_homhet(atmo,cloud,ice,snow,n_inact,n_inpot)
+          CALL ice_nucleation_homhet(ik_slice, atmo, cloud, ice, snow, n_inact, n_inpot)
        ELSE
-          CALL ice_nucleation_homhet(atmo,cloud,ice,snow,n_inact)
+          CALL ice_nucleation_homhet(ik_slice, atmo, cloud, ice, snow, n_inact)
        END IF
 
        ! homogeneous freezing of cloud droplets
-       CALL cloud_freeze(atmo,cloud,ice)
-       IF (ischeck) CALL check('cloud_freeze',cloud,rain,ice,snow,graupel,hail)
+       CALL cloud_freeze(ik_slice, atmo, cloud, ice)
+       IF (ischeck) CALL check(ik_slice, 'cloud_freeze', cloud, rain, ice, snow, graupel,hail)
 
        DO k=kstart,kend
         DO i=istart,iend
@@ -772,73 +794,75 @@ CONTAINS
           ice%n(i,k) = MAX(ice%n(i,k), ice%q(i,k)/ice%x_max)
         END DO
        END DO
-       IF (ischeck) CALL check('ice nucleation',cloud,rain,ice,snow,graupel,hail)
+       IF (ischeck) CALL check(ik_slice, 'ice nucleation',cloud,rain,ice,snow,graupel,hail)
 
        ! depositional growth of all ice particles
        ! ( store deposition rate of ice and snow for conversion calculation in
        !   ice_riming and snow_riming )
-       CALL vapor_dep_relaxation(dt,atmo,ice,snow,graupel,hail,dep_rate_ice,dep_rate_snow)
-       IF (ischeck) CALL check('vapor_dep_relaxation',cloud,rain,ice,snow,graupel,hail)
+       CALL vapor_dep_relaxation(ik_slice, dt,atmo,ice,snow,graupel,hail,dep_rate_ice,dep_rate_snow)
+       IF (ischeck) CALL check(ik_slice, 'vapor_dep_relaxation',cloud,rain,ice,snow,graupel,hail)
 
        if (.true.) then
 
        ! ice-ice collisions
-       CALL ice_selfcollection(atmo,ice,snow)
-       CALL snow_selfcollection(atmo,snow)
-       CALL snow_ice_collection(atmo,ice,snow)
-       IF (ischeck) CALL check('ice and snow collection',cloud,rain,ice,snow,graupel,hail)
+       CALL ice_selfcollection(ik_slice, atmo, ice, snow)
+       CALL snow_selfcollection(ik_slice, atmo, snow)
+       CALL snow_ice_collection(ik_slice, atmo, ice, snow)
+       IF (ischeck) CALL check(ik_slice, 'ice and snow collection',cloud,rain,ice,snow,graupel,hail)
 
-       CALL graupel_selfcollection(atmo,graupel)
-       CALL graupel_ice_collection(atmo,ice,graupel)
-       CALL graupel_snow_collection(atmo,snow,graupel)
-       IF (ischeck) CALL check('graupel collection',cloud,rain,ice,snow,graupel,hail)
+       CALL graupel_selfcollection(ik_slice, atmo, graupel)
+       CALL graupel_ice_collection(ik_slice, atmo, ice, graupel)
+       CALL graupel_snow_collection(ik_slice, atmo, snow, graupel)
+       IF (ischeck) CALL check(ik_slice, 'graupel collection',cloud,rain,ice,snow,graupel,hail)
 
        IF (ice_typ > 1) THEN
 
           ! conversion of graupel to hail in wet growth regime
-          CALL graupel_hail_conv_wet_gamlook(atmo,graupel,cloud,rain,ice,snow,hail)
-          IF (ischeck) CALL check('graupel_hail_conv_wet_gamlook',cloud,rain,ice,snow,graupel,hail)
+          CALL graupel_hail_conv_wet_gamlook(ik_slice, atmo, graupel, cloud, &
+               rain, ice, snow, hail)
+          IF (ischeck) CALL check(ik_slice, 'graupel_hail_conv_wet_gamlook',cloud,rain,ice,snow,graupel,hail)
 
           ! hail collisions
-          CALL hail_ice_collection(atmo,ice,hail)    ! Important?
-          CALL hail_snow_collection(atmo,snow,hail)
-          IF (ischeck) CALL check('hail collection',cloud,rain,ice,snow,graupel,hail)
+          CALL hail_ice_collection(ik_slice, atmo, ice, hail)    ! Important?
+          CALL hail_snow_collection(ik_slice, atmo, snow, hail)
+          IF (ischeck) CALL check(ik_slice, 'hail collection',cloud,rain,ice,snow,graupel,hail)
        END IF
 
        ! riming of ice with cloud droplets and rain drops, and conversion to graupel
-       CALL ice_riming(atmo,ice,cloud,rain,graupel,dep_rate_ice)
-       IF (ischeck) CALL check('ice_riming',cloud,rain,ice,snow,graupel,hail)
+       CALL ice_riming(ik_slice, atmo, ice, cloud, rain, graupel, dep_rate_ice)
+       IF (ischeck) CALL check(ik_slice, 'ice_riming',cloud,rain,ice,snow,graupel,hail)
 
        ! riming of snow with cloud droplets and rain drops, and conversion to graupel
-       CALL snow_riming(atmo,snow,cloud,rain,ice,graupel,dep_rate_snow)
-       IF (ischeck) CALL check('snow_riming',cloud,rain,ice,snow,graupel,hail)
+       CALL snow_riming(ik_slice, atmo, &
+            snow, cloud, rain, ice, graupel, dep_rate_snow)
+       IF (ischeck) CALL check(ik_slice, 'snow_riming',cloud,rain,ice,snow,graupel,hail)
 
        ! more riming
        IF (ice_typ > 1) THEN
-          CALL hail_cloud_riming(atmo,hail,cloud,rain,ice)
-          CALL hail_rain_riming(atmo,hail,rain,ice)
-      IF (ischeck) CALL check('hail riming',cloud,rain,ice,snow,graupel,hail)
+          CALL hail_cloud_riming(ik_slice, atmo, hail, cloud, rain, ice)
+          CALL hail_rain_riming(ik_slice, atmo, hail, rain, ice)
+      IF (ischeck) CALL check(ik_slice, 'hail riming',cloud,rain,ice,snow,graupel,hail)
        END IF
-       CALL graupel_cloud_riming(atmo,graupel,cloud,rain,ice)
-       CALL graupel_rain_riming(atmo,graupel,rain,ice)
-      IF (ischeck) CALL check('graupel riming',cloud,rain,ice,snow,graupel,hail)
+       CALL graupel_cloud_riming(ik_slice, atmo, graupel, cloud, rain, ice)
+       CALL graupel_rain_riming(ik_slice, atmo, graupel, rain, ice)
+      IF (ischeck) CALL check(ik_slice, 'graupel riming',cloud,rain,ice,snow,graupel,hail)
 
        ! freezing of rain and conversion to ice/graupel/hail
-       CALL rain_freeze_gamlook(atmo,rain,ice,snow,graupel,hail)
-       IF (ischeck) CALL check('rain_freeze_gamlook',cloud,rain,ice,snow,graupel,hail)
+       CALL rain_freeze_gamlook(ik_slice, atmo,rain,ice,snow,graupel,hail)
+       IF (ischeck) CALL check(ik_slice, 'rain_freeze_gamlook',cloud,rain,ice,snow,graupel,hail)
 
        ! melting
-       CALL ice_melting(atmo,ice,cloud,rain)
-       CALL snow_melting(atmo,snow,rain)
-       CALL graupel_melting(atmo,graupel,rain)
-       IF (ice_typ > 1) CALL hail_melting(atmo,hail,rain)
-       IF (ischeck) CALL check('melting',cloud,rain,ice,snow,graupel,hail)
+       CALL ice_melting(ik_slice, atmo, ice, cloud, rain)
+       CALL snow_melting(ik_slice, atmo,snow,rain)
+       CALL graupel_melting(ik_slice, atmo, graupel, rain)
+       IF (ice_typ > 1) CALL hail_melting(ik_slice, atmo, hail, rain)
+       IF (ischeck) CALL check(ik_slice, 'melting',cloud,rain,ice,snow,graupel,hail)
 
        ! evaporation from melting ice particles
-       CALL snow_evaporation(atmo,snow)
-       CALL graupel_evaporation(atmo,graupel)
-       IF (ice_typ > 1) CALL hail_evaporation(atmo,hail)
-       IF (ischeck) CALL check('evaporation of ice',cloud,rain,ice,snow,graupel,hail)
+       CALL snow_evaporation(ik_slice, atmo, snow)
+       CALL graupel_evaporation(ik_slice, atmo, graupel)
+       IF (ice_typ > 1) CALL hail_evaporation(ik_slice, atmo, hail)
+       IF (ischeck) CALL check(ik_slice, 'evaporation of ice',cloud,rain,ice,snow,graupel,hail)
 
        end if
     ENDIF
@@ -846,24 +870,24 @@ CONTAINS
     ! warm rain processes
     ! (using something other than SB is somewhat inconsistent and not recommended)
     IF (auto_typ == 1) THEN
-       CALL autoconversionKB(cloud,rain)   ! Beheng (1994)
-       CALL accretionKB(cloud,rain)
-       CALL rain_selfcollectionSB(rain)
+       CALL autoconversionKB(ik_slice, cloud, rain)   ! Beheng (1994)
+       CALL accretionKB(ik_slice, cloud, rain)
+       CALL rain_selfcollectionSB(ik_slice, rain)
     ELSE IF (auto_typ == 2) THEN
        ! Khairoutdinov and Kogan (2000)
        ! (KK2000 originally assume a 25 micron size threshold)
-       CALL autoconversionKK(cloud,rain)
-       CALL accretionKK(cloud,rain)
-       CALL rain_selfcollectionSB(rain)
+       CALL autoconversionKK(ik_slice, cloud, rain)
+       CALL accretionKK(ik_slice, cloud, rain)
+       CALL rain_selfcollectionSB(ik_slice, rain)
     ELSE IF (auto_typ == 3) THEN
-       CALL autoconversionSB(cloud,rain)   ! Seifert and Beheng (2001)
-       CALL accretionSB(cloud,rain)
-       CALL rain_selfcollectionSB(rain)
+       CALL autoconversionSB(ik_slice, cloud, rain)  ! Seifert and Beheng (2001)
+       CALL accretionSB(ik_slice, cloud, rain)
+       CALL rain_selfcollectionSB(ik_slice, rain)
     ENDIF
-    IF (ischeck) CALL check('warm rain',cloud,rain,ice,snow,graupel,hail)
+    IF (ischeck) CALL check(ik_slice, 'warm rain',cloud,rain,ice,snow,graupel,hail)
 
     ! evaporation of rain following Seifert (2008)
-    CALL rain_evaporation(atmo,cloud,rain)
+    CALL rain_evaporation(ik_slice, atmo, cloud, rain)
 
     ! size limits for all hydrometeors
     IF (nuc_c_typ > 0) THEN
@@ -903,7 +927,7 @@ CONTAINS
        END DO
     END IF
 
-    IF (ischeck) CALL check('clouds_twomoment end',cloud,rain,ice,snow,graupel,hail)
+    IF (ischeck) CALL check(ik_slice, 'clouds_twomoment end',cloud,rain,ice,snow,graupel,hail)
     IF (isdebug) CALL message(TRIM(routine),"clouds_twomoment end")
 
   END SUBROUTINE clouds_twomoment
@@ -1248,11 +1272,16 @@ CONTAINS
   !   e_es_vec  = e_3 * EXP (A_e * (ta - T_3) / (ta - B_e))
   ! END FUNCTION e_es_vec
 
-  SUBROUTINE autoconversionSB(cloud,rain)
+  SUBROUTINE autoconversionSB(ik_slice, cloud,rain)
     !*******************************************************************************
     ! Autoconversion of Seifert and Beheng (2001, Atmos. Res.)                     *
     !*******************************************************************************
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
     TYPE(particle)   :: cloud, rain
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER          :: i,k
     INTEGER,  SAVE   :: firstcall
     REAL(wp), SAVE   :: k_au,k_sc
@@ -1269,6 +1298,11 @@ CONTAINS
     IF (isdebug) THEN
       WRITE(txt,*) "autoconversionSB" ; CALL message(routine,TRIM(txt))
     END IF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     x_s = cloud%x_max
 
@@ -1320,11 +1354,17 @@ CONTAINS
 
   END SUBROUTINE autoconversionSB
 
-  SUBROUTINE accretionSB(cloud,rain)
+  SUBROUTINE accretionSB(ik_slice, cloud,rain)
     !*******************************************************************************
     ! Accretion of Seifert and Beheng (2001, Atmos. Res.)                          *
     !*******************************************************************************
+        ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+
     TYPE(particle)  :: cloud, rain
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER     :: i, k
     REAL(wp)    :: ac
     REAL(wp)    :: q_c, q_r, tau, phi, n_c, x_c
@@ -1336,6 +1376,11 @@ CONTAINS
     IF (isdebug) THEN
       WRITE(txt,*) "accretionSB" ; CALL message(routine,TRIM(txt))
     END IF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -1363,11 +1408,16 @@ CONTAINS
 
   END SUBROUTINE accretionSB
 
-  SUBROUTINE rain_selfcollectionSB(rain)
+  SUBROUTINE rain_selfcollectionSB(ik_slice, rain)
     !*******************************************************************************
     ! Selfcollection of Seifert and Beheng (2001, Atmos. Res.)                     *
     !*******************************************************************************
-    TYPE(particle) :: rain
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(particle) , INTENT(inout) :: rain
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER        :: i, k
     REAL(wp)       :: sc, br
     REAL(wp)       :: q_r, n_r, x_r, d_r
@@ -1380,6 +1430,11 @@ CONTAINS
     IF (isdebug) THEN
       WRITE(txt,*) "rain_selfcollectionSB" ; CALL message(routine,TRIM(txt))
     END IF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -1406,11 +1461,22 @@ CONTAINS
 
   END SUBROUTINE rain_selfcollectionSB
 
-  SUBROUTINE autoconversionKB(cloud,rain)
+  SUBROUTINE autoconversionKB(ik_slice, cloud, rain)
 
-    TYPE(particle)   :: cloud, rain
+        ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+
+    TYPE(particle), INTENT(inout) :: cloud, rain
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER          :: i,k
     REAL(wp)         :: q_c, x_c, nu_c, n_c, k_a, x_s, au
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     nu_c = 9.59
     x_s  = cloud%x_max
@@ -1441,14 +1507,25 @@ CONTAINS
 
   END SUBROUTINE autoconversionKB
 
-  SUBROUTINE accretionKB(cloud,rain)
+  SUBROUTINE accretionKB(ik_slice, cloud, rain)
 
-    TYPE(particle)   :: cloud,rain
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(particle), INTENT(inout)   :: cloud, rain
+
     !..Parameter of Beheng (1994)
     REAL(wp), PARAMETER :: k_r = 6.00d+00
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER      :: i,k
     REAL(wp)     :: ac
     REAL(wp)     :: q_c, q_r
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -1470,12 +1547,22 @@ CONTAINS
 
   END SUBROUTINE accretionKB
 
-  SUBROUTINE autoconversionKK (cloud,rain)
+  SUBROUTINE autoconversionKK(ik_slice, cloud,rain)
 
-    TYPE(particle)      :: cloud, rain
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(particle), INTENT(inout) :: cloud, rain
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: q_c, x_s, au, n_c
     REAL(wp), PARAMETER :: k_a  = 1350.0_wp
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     x_s  = cloud%x_max
 
@@ -1503,12 +1590,22 @@ CONTAINS
 
   END SUBROUTINE autoconversionKK
 
-  SUBROUTINE accretionKK (cloud,rain)
+  SUBROUTINE accretionKK(ik_slice, cloud, rain)
 
-    TYPE(particle)      :: cloud, rain
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(particle), INTENT(inout) :: cloud, rain
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: ac, q_c, q_r
     REAL(wp), PARAMETER :: k_a = 6.70d+01
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     !..Parameterization of Khairoutdinov and Kogan (2000), MWR 128, 229-243
     DO k = kstart,kend
@@ -1530,12 +1627,17 @@ CONTAINS
 
   END SUBROUTINE accretionKK
 
-  SUBROUTINE rain_evaporation(atmo,cloud,rain)
+  SUBROUTINE rain_evaporation(ik_slice, atmo,cloud,rain)
     !*******************************************************************************
     ! Evaporation of rain based on Seifert (2008, J. Atmos. Sci.)                  *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
     TYPE(particle)      :: cloud,rain
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a,p_a,e_sw,s_sw,g_d,eva_q,eva_n
@@ -1547,6 +1649,11 @@ CONTAINS
 !$omp threadprivate (firstcall)
 !$omp threadprivate (a_q)
 !$omp threadprivate (b_q)
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     aa = rain_coeffs%alfa
     bb = rain_coeffs%beta
@@ -1652,12 +1759,17 @@ CONTAINS
 
   END SUBROUTINE rain_evaporation
 
-  SUBROUTINE graupel_evaporation(atmo,graupel)
+  SUBROUTINE graupel_evaporation(ik_slice, atmo,graupel)
     !*******************************************************************************
     ! Evaporation from melting graupel, see SB2006                                 *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
     TYPE(particle)      :: graupel
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a,e_sw,s_sw,g_d,eva
@@ -1682,6 +1794,11 @@ CONTAINS
     ELSEIF (isdebug) THEN
       WRITE(txt,*) "graupel_evaporation " ; CALL message(routine,TRIM(txt))
     END IF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -1720,12 +1837,17 @@ CONTAINS
 
   END SUBROUTINE graupel_evaporation
 
-  SUBROUTINE hail_evaporation(atmo,hail)
+  SUBROUTINE hail_evaporation(ik_slice, atmo,hail)
     !*******************************************************************************
     ! Evaporation of melting graupel, see SB2006                                   *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: hail
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: hail
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a,e_sw,s_sw,g_d,eva
@@ -1751,6 +1873,11 @@ CONTAINS
     ELSEIF (isdebug) THEN
       WRITE(txt,*) "hail_evaporation " ; CALL message(routine,TRIM(txt))
     END IF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -1787,12 +1914,18 @@ CONTAINS
     END DO
   END SUBROUTINE hail_evaporation
 
-  SUBROUTINE snow_evaporation(atmo,snow)
+  SUBROUTINE snow_evaporation(ik_slice, atmo, snow)
     !*******************************************************************************
     ! Evaporation of melting snow, see SB2006                                      *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: snow
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: snow
+
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a,e_sw,s_sw,g_d,eva
@@ -1818,6 +1951,11 @@ CONTAINS
     ELSEIF (isdebug) THEN
       WRITE(txt,*) "snow_evaporation " ; CALL message(routine,TRIM(txt))
     END IF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -1854,14 +1992,19 @@ CONTAINS
     END DO
   END SUBROUTINE snow_evaporation
 
-  SUBROUTINE cloud_freeze(atmo,cloud,ice)
+  SUBROUTINE cloud_freeze(ik_slice, atmo, cloud, ice)
     !*******************************************************************************
     ! This is only the homogeneous freezing of liquid water droplets.              *
     ! Immersion freezing and homogeneous freezing of liquid aerosols are           *
     ! treated in the subroutine ice_nucleation_homhet()                            *
     !*******************************************************************************
-    TYPE(atmosphere)   :: atmo
-    TYPE(particle)     :: cloud, ice
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout)  :: cloud, ice
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER            :: i, k
     REAL(wp)           :: fr_q,fr_n,T_a,q_c,x_c,n_c,j_hom,T_c
     REAL(wp), SAVE     :: coeff_z
@@ -1873,6 +2016,11 @@ CONTAINS
        firstcall = 1
        coeff_z   = moment_gamma(cloud,2)
     END IF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -1924,7 +2072,7 @@ CONTAINS
     END DO
   END SUBROUTINE cloud_freeze
 
-  SUBROUTINE ice_nucleation_homhet(atmo, cloud, ice, snow, n_inact, n_inpot)
+  SUBROUTINE ice_nucleation_homhet(ik_slice, atmo, cloud, ice, snow, n_inact, n_inpot)
   !*******************************************************************************
   !                                                                              *
   ! Homogeneous and heterogeneous ice nucleation                                 *
@@ -1943,12 +2091,16 @@ CONTAINS
   !                                                                              *
   ! implementation by Carmen Koehler and AS                                      *
   !*******************************************************************************
-    TYPE(atmosphere)         :: atmo
-    TYPE(particle)           :: cloud, ice, snow
-
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: cloud, ice, snow
     REAL(wp), DIMENSION(:,:) :: n_inact
-    REAL(wp), DIMENSION(:,:), OPTIONAL :: n_inpot
+    REAL(wp), DIMENSION(:,:),OPTIONAL :: n_inpot
 
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER              :: i,k,nuc_typ
     REAL(wp)             :: nuc_n, nuc_q
     REAL(wp)             :: T_a,p_a,ssi
@@ -1996,6 +2148,11 @@ CONTAINS
   LOGICAL   :: use_homnuc
 
   REAL(wp), DIMENSION(3) :: infrac
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
   nuc_typ = nuc_i_typ
 
@@ -2265,11 +2422,14 @@ CONTAINS
 
   END SUBROUTINE ice_nucleation_homhet
 
-  SUBROUTINE vapor_dep_relaxation(dt_local, &
+  SUBROUTINE vapor_dep_relaxation(ik_slice, dt_local, &
        &               atmo, ice, snow, graupel, hail, dep_rate_ice, dep_rate_snow)
     !*******************************************************************************
     ! Deposition and sublimation                                                   *
     !*******************************************************************************
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
     TYPE(atmosphere)         :: atmo
     TYPE(particle)           :: ice, snow, graupel, hail
     REAL(wp), INTENT(IN)     :: dt_local
@@ -2278,6 +2438,8 @@ CONTAINS
     REAL(wp), DIMENSION(size(dep_rate_ice,1),size(dep_rate_ice,2)) :: &
                                     & s_si,g_i,dep_ice,dep_snow,dep_graupel,dep_hail
 
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: D_vtp
     REAL(wp)            :: zdt,qvsidiff,Xi_i,Xfac
@@ -2291,6 +2453,11 @@ CONTAINS
     IF (isdebug) THEN
        WRITE(txt,*) "vapor_deposition_growth " ; CALL message(routine,TRIM(txt))
     ENDIF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -2608,16 +2775,21 @@ CONTAINS
 
   END SUBROUTINE vapor_dep_relaxation
 
-  SUBROUTINE rain_freeze_gamlook(atmo,rain,ice,snow,graupel,hail)
+  SUBROUTINE rain_freeze_gamlook(ik_slice, atmo,rain,ice,snow,graupel,hail)
     !*******************************************************************************
     ! Freezing of raindrops                                                        *
     ! by Uli Blahak                                                                *
     !                                                                              *
     ! incomplete gamma functions are implemented as look-up tables                 *
     !*******************************************************************************
-    TYPE(atmosphere)         :: atmo
-    TYPE(particle)           :: rain, ice, snow, graupel, hail
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: rain, ice, snow, graupel, hail
 
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: fr_q,fr_n,T_a,q_r,x_r,n_r,j_het,               &
          &                 fr_q_i,fr_n_i,fr_q_g,fr_n_g,fr_q_h,fr_n_h,n_0, &
@@ -2646,6 +2818,11 @@ CONTAINS
 
     xmax_ice = ( (D_rainfrz_ig/rain%a_geo)**(1.0_wp/rain%b_geo) )**rain%mu
     xmax_gr  = ( (D_rainfrz_gh/rain%a_geo)**(1.0_wp/rain%b_geo) )**rain%mu
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -2786,12 +2963,17 @@ CONTAINS
     END DO
   END SUBROUTINE rain_freeze_gamlook
 
-  SUBROUTINE ice_selfcollection(atmo,ice,snow)
+  SUBROUTINE ice_selfcollection(ik_slice, atmo, ice, snow)
     !*******************************************************************************
     ! selfcollection of ice crystals, see SB2006 or Seifert (2002)                 *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: ice, snow
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: ice, snow
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
@@ -2812,6 +2994,11 @@ CONTAINS
     IF (isdebug) THEN
       WRITE(txt,*) "ice_selfcollection " ; CALL message(routine,TRIM(txt))
     END IF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     IF (firstcall.NE.1) THEN
       delta_n_11 = coll_delta_11(ice,ice,0)
@@ -2900,12 +3087,17 @@ CONTAINS
 
   END SUBROUTINE ice_selfcollection
 
-  SUBROUTINE snow_selfcollection(atmo,snow)
+  SUBROUTINE snow_selfcollection(ik_slice, atmo, snow)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: snow
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: snow
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
@@ -2947,6 +3139,11 @@ CONTAINS
       firstcall = 1
     ENDIF
 
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
     DO k = kstart,kend
        DO i = istart,iend
 
@@ -2976,12 +3173,17 @@ CONTAINS
 
   END SUBROUTINE snow_selfcollection
 
-  SUBROUTINE snow_melting(atmo,snow,rain)
+  SUBROUTINE snow_melting(ik_slice, atmo,snow,rain)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: rain, snow
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: rain, snow
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: q_s,n_s,x_s,d_s,v_s,T_a,e_a
@@ -3012,6 +3214,11 @@ CONTAINS
       ENDIF
       firstcall = 1
     ENDIF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -3064,14 +3271,19 @@ CONTAINS
 
   END SUBROUTINE snow_melting
 
-  SUBROUTINE graupel_snow_collection(atmo,snow,graupel)
+  SUBROUTINE graupel_snow_collection(ik_slice, atmo, snow, graupel)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
-    TYPE(atmosphere)         :: atmo
-    TYPE(particle)           :: snow, graupel
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: snow, graupel
 
     ! Locale Variablen
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
@@ -3132,6 +3344,11 @@ CONTAINS
       firstcall = 1
     ENDIF
 
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
     DO k = kstart,kend
        DO i = istart,iend
 
@@ -3178,12 +3395,17 @@ CONTAINS
 
   END SUBROUTINE graupel_snow_collection
 
-  SUBROUTINE hail_snow_collection(atmo,snow,hail)
+  SUBROUTINE hail_snow_collection(ik_slice, atmo, snow, hail)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: snow, hail
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: snow, hail
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
@@ -3244,6 +3466,11 @@ CONTAINS
       firstcall = 1
     ENDIF
 
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
     DO k = kstart,kend
        DO i = istart,iend
 
@@ -3290,12 +3517,17 @@ CONTAINS
 
   END SUBROUTINE hail_snow_collection
 
-  SUBROUTINE graupel_ice_collection(atmo,ice,graupel)
+  SUBROUTINE graupel_ice_collection(ik_slice, atmo, ice, graupel)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: ice, graupel
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: ice, graupel
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
@@ -3364,6 +3596,11 @@ CONTAINS
       firstcall = 1
     ENDIF
 
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
     DO k = kstart,kend
        DO i = istart,iend
 
@@ -3407,12 +3644,17 @@ CONTAINS
 
   END SUBROUTINE graupel_ice_collection
 
-  SUBROUTINE hail_ice_collection(atmo,ice,hail)
+  SUBROUTINE hail_ice_collection(ik_slice, atmo, ice, hail)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: ice, hail
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: ice, hail
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
@@ -3473,6 +3715,11 @@ CONTAINS
       firstcall = 1
     ENDIF
 
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
     DO k = kstart,kend
        DO i = istart,iend
 
@@ -3516,12 +3763,17 @@ CONTAINS
 
   END SUBROUTINE hail_ice_collection
 
-  SUBROUTINE snow_ice_collection(atmo,ice,snow)
+  SUBROUTINE snow_ice_collection(ik_slice, atmo,ice,snow)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: ice, snow
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: ice, snow
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
@@ -3582,6 +3834,11 @@ CONTAINS
       firstcall = 1
     ENDIF
 
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
     DO k = kstart,kend
        DO i = istart,iend
 
@@ -3626,12 +3883,17 @@ CONTAINS
 
   END SUBROUTINE snow_ice_collection
 
-  SUBROUTINE graupel_selfcollection(atmo,graupel)
+  SUBROUTINE graupel_selfcollection(ik_slice, atmo, graupel)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: graupel
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: graupel
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: q_g,n_g,x_g,d_g,v_g
@@ -3669,6 +3931,11 @@ CONTAINS
       firstcall = 1
     ENDIF
 
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
     DO k = kstart,kend
        DO i = istart,iend
 
@@ -3698,12 +3965,17 @@ CONTAINS
 
   END SUBROUTINE graupel_selfcollection
 
-  SUBROUTINE ice_melting(atmo,ice,cloud,rain)
+  SUBROUTINE ice_melting(ik_slice, atmo, ice, cloud, rain)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: cloud, rain, ice
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: cloud, rain, ice
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: q_i,x_i,n_i
     REAL(wp)            :: melt_q,melt_n
@@ -3711,6 +3983,11 @@ CONTAINS
     IF (isdebug) THEN
       WRITE(txt,*) "ice_melting" ; CALL message(routine,TRIM(txt))
     END IF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -3742,12 +4019,17 @@ CONTAINS
     END DO
   END SUBROUTINE ice_melting
 
-  SUBROUTINE graupel_cloud_riming(atmo,graupel,cloud,rain,ice)
+  SUBROUTINE graupel_cloud_riming(ik_slice, atmo, graupel, cloud, rain, ice)
     !*******************************************************************************
     ! see SB2006                                                                   *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: cloud, rain, ice, graupel
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: cloud, rain, ice, graupel
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
@@ -3820,6 +4102,11 @@ CONTAINS
     const2 = 1.0/(T_mult_opt - T_mult_min)
     const3 = 1.0/(T_mult_opt - T_mult_max)
     const4 = c_w / L_ew
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -3911,12 +4198,17 @@ CONTAINS
     ENDDO
   END SUBROUTINE graupel_cloud_riming
 
-  SUBROUTINE hail_cloud_riming(atmo,hail,cloud,rain,ice)
+  SUBROUTINE hail_cloud_riming(ik_slice, atmo, hail, cloud, rain, ice)
     !*******************************************************************************
     ! see SB2006 for the equations                                                 *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: cloud, rain, ice, hail
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: cloud, rain, ice, hail
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
@@ -3989,6 +4281,11 @@ CONTAINS
     const2 = 1.0/(T_mult_opt - T_mult_min)
     const3 = 1.0/(T_mult_opt - T_mult_max)
     const4 = c_w / L_ew
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -4081,12 +4378,17 @@ CONTAINS
     ENDDO
   END SUBROUTINE hail_cloud_riming
 
-  SUBROUTINE graupel_rain_riming(atmo,graupel,rain,ice)
+  SUBROUTINE graupel_rain_riming(ik_slice, atmo,graupel,rain,ice)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: rain, ice, graupel
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: rain, ice, graupel
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
@@ -4157,6 +4459,11 @@ CONTAINS
 
     const3 = 1/(T_mult_opt - T_mult_min)
     const4 = 1/(T_mult_opt - T_mult_max)
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -4251,13 +4558,18 @@ CONTAINS
 
   END SUBROUTINE graupel_rain_riming
 
-  SUBROUTINE hail_rain_riming(atmo,hail,rain,ice)
+  SUBROUTINE hail_rain_riming(ik_slice, atmo, hail, rain, ice)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: rain, ice, hail
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: rain, ice, hail
 
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
@@ -4331,6 +4643,11 @@ CONTAINS
 
     const3 = 1.0/(T_mult_opt - T_mult_min)
     const4 = 1.0/(T_mult_opt - T_mult_max)
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -4426,12 +4743,17 @@ CONTAINS
 
   END SUBROUTINE hail_rain_riming
 
-  SUBROUTINE graupel_melting(atmo,graupel,rain)
+  SUBROUTINE graupel_melting(ik_slice, atmo, graupel, rain)
     !*******************************************************************************
     ! Melting of graupel                                                           *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: rain, graupel
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: rain, graupel
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: q_g,n_g,x_g,d_g,v_g,T_a,e_a
@@ -4460,6 +4782,11 @@ CONTAINS
     ELSEIF (isdebug) THEN
       WRITE(txt,*) " graupel_melting " ; CALL message(routine,TRIM(txt))
     ENDIF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -4504,12 +4831,17 @@ CONTAINS
     ENDDO
   END SUBROUTINE graupel_melting
 
-  SUBROUTINE hail_melting(atmo,hail,rain)
+  SUBROUTINE hail_melting(ik_slice, atmo, hail, rain)
     !*******************************************************************************
     ! Melting of hail                                                              *
     !*******************************************************************************
-    TYPE(atmosphere)    :: atmo
-    TYPE(particle)      :: rain, hail
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: rain, hail
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     INTEGER, SAVE       :: firstcall
     REAL(wp)            :: q_h,n_h,x_h,d_h,v_h,T_a,e_a
@@ -4532,6 +4864,11 @@ CONTAINS
     ELSEIF (isdebug) THEN
       WRITE(txt,*) " hail_melting " ; CALL message(routine,TRIM(txt))
     ENDIF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -4577,14 +4914,20 @@ CONTAINS
 
   END SUBROUTINE hail_melting
 
-  SUBROUTINE graupel_hail_conv_wet_gamlook(atmo,graupel,cloud,rain,ice,snow,hail)
+  SUBROUTINE graupel_hail_conv_wet_gamlook(ik_slice, atmo, graupel, cloud, &
+       rain, ice, snow, hail)
     !*******************************************************************************
     !  Wet growth and conversion of graupel to hail                                *
     !  (uses look-up table for incomplete gamma functions)                         *
     !  by Uli Blahak                                                               *
     !*******************************************************************************
-   TYPE(atmosphere)     :: atmo
-    TYPE(particle)      :: cloud, rain, ice, graupel, snow, hail
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: cloud, rain, ice, graupel, snow, hail
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: T_a, p_a, d_trenn, qw_a, qi_a, N_0, lam, xmin
     REAL(wp)            :: q_g,n_g,x_g,d_g
@@ -4594,6 +4937,11 @@ CONTAINS
     IF (isdebug) THEN
       WRITE(txt,*) "graupel_hail_conv_wet_gamlook" ; CALL message(routine,TRIM(txt))
     ENDIF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -4647,7 +4995,7 @@ CONTAINS
 
   END SUBROUTINE graupel_hail_conv_wet_gamlook
 
-  SUBROUTINE ice_riming(atmo,ice,cloud,rain,graupel,dep_rate_ice)
+  SUBROUTINE ice_riming(ik_slice, atmo, ice, cloud, rain, graupel, dep_rate_ice)
     !*******************************************************************************
     !  Riming of ice with cloud droplet and rain drops. First the process rates    *
     !  are calculated in                                                           *
@@ -4656,14 +5004,19 @@ CONTAINS
     !  using those rates and the previously calculated and stored deposition       *
     !  rate the conversion of snow to graupel and rain is done.                    *
     !*******************************************************************************
-    TYPE(atmosphere)         :: atmo
-    TYPE(particle)           :: cloud, ice, rain, graupel
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: cloud, ice, rain, graupel
     REAL(wp), INTENT (IN), DIMENSION(:,:) :: dep_rate_ice
 
     REAL(wp), DIMENSION(size(dep_rate_ice,1),size(dep_rate_ice,2)) ::       &
          &               rime_rate_qc, rime_rate_nc,                        &
          &               rime_rate_qi, rime_rate_qr, rime_rate_nr
 
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: q_i,n_i,x_i,d_i
     REAL(wp)            :: T_a,x_coll_c,x_r
@@ -4681,6 +5034,11 @@ CONTAINS
     rime_rate_qi(:,:) = 0.0_wp
     rime_rate_nc(:,:) = 0.0_wp
     rime_rate_qr(:,:) = 0.0_wp
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     CALL ice_cloud_riming()
     CALL ice_rain_riming()
@@ -5081,7 +5439,8 @@ CONTAINS
 
   END SUBROUTINE ice_riming
 
-  SUBROUTINE snow_riming(atmo,snow,cloud,rain,ice,graupel,dep_rate_snow)
+  SUBROUTINE snow_riming(ik_slice, atmo, &
+       snow, cloud, rain, ice, graupel, dep_rate_snow)
     !*******************************************************************************
     !  Riming of snow with cloud droplet and rain drops. First the process rates   *
     !  are calculated in                                                           *
@@ -5090,14 +5449,19 @@ CONTAINS
     !  using those rates and the previously calculated and stored deposition       *
     !  rate the conversion of snow to graupel and rain is done.                    *
     !*******************************************************************************
-    TYPE(atmosphere)         :: atmo
-    TYPE(particle)           :: cloud, rain, snow, ice, graupel
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: cloud, rain, snow, ice, graupel
     REAL(wp), INTENT(IN), DIMENSION(:,:) :: dep_rate_snow
 
     REAL(wp), DIMENSION(size(dep_rate_snow,1),size(dep_rate_snow,2)) ::       &
          & rime_rate_qc, rime_rate_nc,                                        &
          & rime_rate_qs, rime_rate_qr, rime_rate_nr
 
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: T_a
     REAL(wp)            :: q_s,n_s,x_s,d_s
@@ -5110,6 +5474,11 @@ CONTAINS
     IF (isdebug) THEN
        WRITE(txt,*) "snow_riming" ; CALL message(routine,TRIM(txt))
     END IF
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     rime_rate_qc(:,:) = 0.0_wp
     rime_rate_qr(:,:) = 0.0_wp
@@ -5549,21 +5918,25 @@ CONTAINS
 
  END SUBROUTINE snow_riming
 
- SUBROUTINE ccn_activation_sk(atmo,cloud,n_cn)
+ SUBROUTINE ccn_activation_sk(ik_slice, atmo,cloud,n_cn)
    !*******************************************************************************
    !       Calculation of ccn activation                                          *
    !       using the look-up tables by Segal and Khain 2006 (JGR, vol.11)         *
    !       (implemented by Heike Noppel)                                          *
    !*******************************************************************************
-    IMPLICIT NONE
 
-    TYPE(atmosphere)         :: atmo
-    TYPE(particle)           :: cloud
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout) :: cloud
     REAL(wp), DIMENSION(:,:) :: n_cn
 
     ! Locale Variablen
     INTEGER, PARAMETER :: n_ncn=8, n_r2=3, n_lsigs=5, n_wcb=4
     INTEGER            :: i_lsigs, i_R2
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER            :: i,k,nuc_typ
     REAL(wp)           :: n_c,q_c,rho_a
     REAL(wp)           :: nuc_n, nuc_q
@@ -5616,6 +5989,11 @@ CONTAINS
     END IF
 
     CALL lookuptable(tab_Ndrop,i_lsigs,i_R2)
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        DO i = istart,iend
@@ -5876,7 +6254,6 @@ CONTAINS
 
       ! Interpolation of the look-up table with respect to aerosol concentration Ncn
 
-      IMPLICIT NONE
       INTEGER, PARAMETER ::  n_wcb = 4, n_ncn=8
       INTEGER            ::  ki
       REAL(wp)           ::  ip_ndrop_ncn(n_wcb)
@@ -5955,17 +6332,22 @@ CONTAINS
 
   END SUBROUTINE ccn_activation_sk
 
- SUBROUTINE ccn_activation_hdcp2(atmo,cloud)
+ SUBROUTINE ccn_activation_hdcp2(ik_slice, atmo, cloud)
    !*******************************************************************************
    !       Calculation of ccn activation                                          *
    !       using the approach of Hande et al 2015                                 *
    !*******************************************************************************
     IMPLICIT NONE
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
 
-    TYPE(atmosphere)         :: atmo
-    TYPE(particle)           :: cloud
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    TYPE(particle), INTENT(inout)  :: cloud
 
     ! Locale Variablen
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
     INTEGER            :: i,k,nuc_typ
     REAL(wp)           :: n_c,q_c
     REAL(wp)           :: nuc_n,nuc_q
@@ -5979,6 +6361,11 @@ CONTAINS
     DATA a_ccn(2),b_ccn(2),c_ccn(2),d_ccn(2) /0.10147358938_wp,4.473190485e-05_wp,3.22011836758_wp,0.6258809883_wp/
     DATA a_ccn(3),b_ccn(3),c_ccn(3),d_ccn(3) /-0.2922395814_wp,0.0001843225275_wp,13.8499423719_wp,0.8907491812_wp/
     DATA a_ccn(4),b_ccn(4),c_ccn(4),d_ccn(4) /229189886.226_wp,0.0001986158191_wp,16.2461600644_wp,360848977.55_wp/
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     nuc_typ = nuc_c_typ
 
@@ -6314,11 +6701,17 @@ CONTAINS
 
   END SUBROUTINE sedi_icon_sphere
 
-  SUBROUTINE check(mtxt,cloud,rain,ice,snow,graupel,hail)
-    CHARACTER(len=*)     :: mtxt
-    TYPE(particle)       :: cloud, rain, ice, snow, graupel, hail
-    INTEGER              :: k
+  SUBROUTINE check(ik_slice, mtxt,cloud,rain,ice,snow,graupel,hail)
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+    CHARACTER(len=*), INTENT(in) :: mtxt
+    TYPE(particle), INTENT(in) :: cloud, rain, ice, snow, graupel, hail
+    INTEGER :: k, kstart, kend
     REAL(wp), PARAMETER  :: meps = -1e-12
+
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
 
     DO k = kstart,kend
        IF (MINVAL(cloud%q(:,k)) < meps) THEN
