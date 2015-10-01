@@ -459,6 +459,9 @@ MODULE mo_2mom_mcrph_main
   !> run-time- and location invariant for snow selfcollection
   REAL(wp), SAVE :: snow_sc_delta_n, snow_sc_theta_n
 
+  !> run-time- and location invariant for cloud freeze
+  REAL(wp), SAVE :: cloud_freeze_coeff_z
+
 CONTAINS
 
   !*******************************************************************************
@@ -1340,6 +1343,9 @@ CONTAINS
 
     CALL setup_graupel_selfcollection(graupel)
     CALL setup_snow_selfcollection(snow)
+
+    ! setup coefficient for cloud_freeze
+    cloud_freeze_coeff_z = moment_gamma(cloud,2)
 
   END SUBROUTINE init_2mom_scheme_once
 
@@ -2520,15 +2526,6 @@ CONTAINS
     INTEGER :: istart, iend, kstart, kend
     INTEGER            :: i, k
     REAL(wp)           :: fr_q,fr_n,T_a,q_c,x_c,n_c,j_hom,T_c
-    REAL(wp), SAVE     :: coeff_z
-    INTEGER,  SAVE     :: firstcall
-!$omp threadprivate (firstcall)
-!$omp threadprivate (coeff_z)
-
-    IF (firstcall.NE.1) THEN
-       firstcall = 1
-       coeff_z   = moment_gamma(cloud,2)
-    END IF
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -2561,7 +2558,7 @@ CONTAINS
                    ENDIF
 
                    fr_n  = j_hom * q_c *  dt
-                   fr_q  = j_hom * q_c * x_c * dt * coeff_z
+                   fr_q  = j_hom * q_c * x_c * dt * cloud_freeze_coeff_z
                    fr_q  = MIN(fr_q,q_c)
                    fr_n  = MIN(fr_n,n_c)
                 END IF
