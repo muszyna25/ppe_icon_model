@@ -595,7 +595,7 @@ if test -n "$NETCDFROOT" ; then
          *)
            ;;
          esac
-         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"	
+         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
