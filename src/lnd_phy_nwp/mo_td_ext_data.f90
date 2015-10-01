@@ -177,7 +177,7 @@ CONTAINS
             DO jc = i_startidx, i_endidx
               IF (ext_data(jg)%atm_td%sst_m(jc,jb,1) < 0._wp .AND.   &
                 & ext_data(jg)%atm_td%sst_m(jc,jb,2) >= 0._wp )  THEN
-                 WRITE( message_text,'(a,2g10.5)') 'something ist wrong,', &
+                 WRITE( message_text,'(a,2g10.5)') 'something is wrong,', &
                  & ext_data(jg)%atm_td%sst_m(jc,jb,1), ext_data(jg)%atm_td%sst_m(jc,jb,2)
                  CALL message  (routine, TRIM(message_text))
               ELSE IF (ext_data(jg)%atm_td%sst_m(jc,jb,1) >= 0._wp .AND.   &
@@ -307,7 +307,7 @@ CONTAINS
         CALL closeFile(stream_id)
 
         extpar_file = generate_td_filename(ci_td_filename,                    &
-          &                                getModelBaseDir(),                 &             
+          &                                getModelBaseDir(),                 &
           &                             TRIM(p_patch(jg)%grid_filename),      &
           &                             m2,y2                   )
         CALL message  (routine, TRIM(extpar_file))
