@@ -16,8 +16,8 @@ MODULE mo_name_list_output_gridinfo
 
   USE mo_cdi,                               ONLY: DATATYPE_PACK16, TSTEP_CONSTANT, vlistDefVar, cdiEncodeParam, streamWriteVar, &
                                                 & vlistDefVarDatatype, vlistDefVarName, vlistDefVarTsteptype, vlistDefVarParam, &
-                                                & gridDefXvals, gridDefYvals, gridDefXbounds, gridDefYbounds
-  USE mo_cdi_constants,                     ONLY: GRID_REFERENCE, GRID_CELL, ZA_surface
+                                                & gridDefXvals, gridDefYvals, gridDefXbounds, gridDefYbounds, GRID_UNSTRUCTURED
+  USE mo_cdi_constants,                     ONLY: GRID_CELL, ZA_surface
   USE mo_kind,                              ONLY: wp
   USE mo_parallel_config,                   ONLY: nproma
   USE mo_exception,                         ONLY: finish
@@ -566,7 +566,7 @@ CONTAINS
       &                                          191,   &  ! category
       &                                            2,   &  ! number
       &                              DATATYPE_PACK16,   &  ! bits
-      &                               GRID_REFERENCE,   &  ! gridtype
+      &                            GRID_UNSTRUCTURED,   &  ! gridtype
       &                                    GRID_CELL )     ! subgridtype
 
     ! geographical latitude RLAT
@@ -574,7 +574,7 @@ CONTAINS
       &                                          191,   &  ! category
       &                                            1,   &  ! number
       &                              DATATYPE_PACK16,   &  ! bits
-      &                               GRID_REFERENCE,   &  ! gridtype
+      &                            GRID_UNSTRUCTURED,   &  ! gridtype
       &                                    GRID_CELL )     ! subgridtype
 
     vlistID = of%cdiVlistID
