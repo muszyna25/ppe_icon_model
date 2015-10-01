@@ -2114,16 +2114,16 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER          :: i,k
-    REAL(wp)         :: q_c, x_c, nu_c, n_c, k_a, x_s_i, au
+    REAL(wp)         :: q_c, x_c, n_c, x_s_i, au
+    REAL(wp), PARAMETER :: nu_c = 9.59
+    REAL(wp), PARAMETER :: k_a  = 6.0d+25 * nu_c**(-1.7)
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
     kstart = ik_slice(3)
     kend   = ik_slice(4)
 
-    nu_c = 9.59
     x_s_i = 1.0_wp / cloud%x_max
-    k_a  = 6.0d+25 * nu_c**(-1.7)
 
     !..Parameterization of Beheng (1994)
     DO k = kstart,kend
