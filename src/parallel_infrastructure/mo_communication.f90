@@ -3375,13 +3375,13 @@ SUBROUTINE two_phase_gather(send_buffer_r, send_buffer_i, &
   END DO
 
   IF (PRESENT(send_buffer_r)) &
-    CALL p_alltoallv_p2p(send_buffer_r, num_send_per_process, send_displ, &
-      &                  collector_buffer_nofill_r, num_recv_per_process, &
-      &                  recv_displ, p_comm_work)
+    CALL p_alltoallv(send_buffer_r, num_send_per_process, send_displ, &
+      &              collector_buffer_nofill_r, num_recv_per_process, &
+      &              recv_displ, p_comm_work)
   IF (PRESENT(send_buffer_i)) &
-    CALL p_alltoallv_p2p(send_buffer_i, num_send_per_process, send_displ, &
-      &                  collector_buffer_nofill_i, num_recv_per_process, &
-      &                  recv_displ, p_comm_work)
+    CALL p_alltoallv(send_buffer_i, num_send_per_process, send_displ, &
+      &              collector_buffer_nofill_i, num_recv_per_process, &
+      &              recv_displ, p_comm_work)
 
   ! reorder collector_buffer
   IF (PRESENT(send_buffer_r)) &
