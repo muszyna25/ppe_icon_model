@@ -63,7 +63,6 @@ USE mo_2mom_mcrph_main,     ONLY:                              &
      &                       sedi_icon_rain,sedi_icon_sphere,  &
      &                       atmosphere, particle,             &
      &                       rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
-     &                       dt_twomoment => dt,               &
      &                       ccn_coeffs, in_coeffs,                     &
      &                       init_2mom_scheme,                          &
      &                       qnc_const, q_crit, lprogin => use_prog_in
@@ -281,8 +280,6 @@ CONTAINS
     END IF
 
     ! time step for two-moment microphysics is the same as all other fast physics
-    dt_twomoment = dt
-
     IF (msg_level>dbg_level) CALL message(TRIM(routine), "prepare variable for 2mom")
 
     DO kk = kts, kte
@@ -317,10 +314,11 @@ CONTAINS
        q_liq_old(:,:) = qc(:,:) + qr(:,:)
 
        ! .. this subroutine calculates all the microphysical sources and sinks
+       ! FIXME: optional arguments passed conditionally
        IF (PRESENT(ninpot)) THEN
-          CALL clouds_twomoment(ik_slice, atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
+          CALL clouds_twomoment(ik_slice, dt, atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
        ELSE
-          CALL clouds_twomoment(ik_slice, atmo, cloud, rain, ice, snow, graupel, hail, ninact)
+          CALL clouds_twomoment(ik_slice, dt, atmo, cloud, rain, ice, snow, graupel, hail, ninact)
        ENDIF
 
        IF (lprogccn) THEN
@@ -469,10 +467,13 @@ CONTAINS
          q_liq_old(:,:) = qc(:,:) + qr(:,:)
 
          ! .. this subroutine calculates all the microphysical sources and sinks
+         ! FIXME: optional arguments passed conditionally
          IF (PRESENT(ninpot)) THEN
-            CALL clouds_twomoment(ik_slice,  atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
+            CALL clouds_twomoment(ik_slice, dt, atmo, cloud, rain, &
+                 ice, snow, graupel, hail, ninact, nccn, ninpot)
          ELSE
-            CALL clouds_twomoment(ik_slice,  atmo, cloud, rain, ice, snow, graupel, hail, ninact)
+            CALL clouds_twomoment(ik_slice, dt, atmo, cloud, rain, &
+                 ice, snow, graupel, hail, ninact)
          ENDIF
 
          DO kk=kts,kte
@@ -727,10 +728,13 @@ CONTAINS
 
            ik_slice(3) = k
            ik_slice(4) = k
+           ! FIXME: optional arguments passed conditionally
            IF (PRESENT(ninpot)) THEN
-              CALL clouds_twomoment(ik_slice, atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
+              CALL clouds_twomoment(ik_slice, dt, &
+                   atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
            ELSE
-              CALL clouds_twomoment(ik_slice, atmo, cloud, rain, ice, snow, graupel, hail, ninact)
+              CALL clouds_twomoment(ik_slice, dt, &
+                   atmo, cloud, rain, ice, snow, graupel, hail, ninact)
            ENDIF
 
            ! .. latent heat term for temperature equation
