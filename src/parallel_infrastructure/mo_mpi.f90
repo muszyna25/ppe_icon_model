@@ -582,6 +582,7 @@ MODULE mo_mpi
 
   INTERFACE p_allgather
      MODULE PROCEDURE p_allgather_int_0d1d
+     MODULE PROCEDURE p_allgather_int_1d2d
   END INTERFACE
 
   INTERFACE p_scatterv
@@ -7749,6 +7750,30 @@ CONTAINS
      recvbuf = sendbuf
 #endif
    END SUBROUTINE p_allgather_int_0d1d
+
+   SUBROUTINE p_allgather_int_1d2d(sendbuf, recvbuf, comm)
+     INTEGER,           INTENT(inout) :: recvbuf(:,:)
+     INTEGER,           INTENT(in) :: sendbuf(:)
+     INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+     CHARACTER(*), PARAMETER :: routine = TRIM("mo_mpi:p_allgather_int_0d1d")
+     INTEGER :: p_comm, n
+
+     IF (PRESENT(comm)) THEN
+       p_comm = comm
+     ELSE
+       p_comm = process_mpi_all_comm
+     ENDIF
+     n = SIZE(sendbuf)
+     CALL mpi_allgather(sendbuf, n, mpi_integer, &
+          &             recvbuf, n, mpi_integer, &
+          &             p_comm, p_error)
+     IF (p_error /=  MPI_SUCCESS) CALL finish (routine, 'Error in mpi_allgather operation!')
+#else
+     recvbuf(:, 1) = sendbuf
+#endif
+   END SUBROUTINE p_allgather_int_1d2d
 
 
    SUBROUTINE p_allreduce_minloc(array, ntotal, comm)
