@@ -184,8 +184,8 @@ CONTAINS
     REAL(wp) :: q_liq_new,q_vap_new
     REAL(wp) :: zf,hlp,dtemp_loc
     REAL(wp) :: convliq,convice
-    REAL(wp) :: tau_inact =  600.  ! relaxation time scale for activated IN number density
-    REAL(wp) :: tau_inpot = 1800.  ! relaxation time scale for potential IN number density
+    REAL(wp), PARAMETER :: tau_inact =  600.  ! relaxation time scale for activated IN number density
+    REAL(wp), PARAMETER :: tau_inpot = 1800.  ! relaxation time scale for potential IN number density
     REAL(wp) :: in_bgrd            ! background profile of IN number density
     REAL(wp) :: z_heat_cap_r       ! reciprocal of cpdr or cvdr (depending on l_cv)
     REAL(wp) :: rdz(isize,ke), rho_r(isize,ke)
