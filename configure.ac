@@ -1281,6 +1281,7 @@ use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
 use_icon_components="$icon_components"
+use_flags_group="$use_flags_group"
 #############################
 EOF
 

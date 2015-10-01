@@ -568,6 +568,11 @@ set_run_target_bullx()
   esac
 
   use_mpi_startrun="srun --cpu-freq=2500000 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((2 * OMP_NUM_THREADS)) --propagate=STACK"
+  case $use_flags_group in
+    debug)
+      use_mpi_startrun="${use_mpi_startrun},CORE"
+      ;;
+  esac
   case _$use_compiler in
     "_intel" )
         add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
@@ -651,6 +656,11 @@ EOF
   start_header
   cat >>$output_script <<EOF
 ulimit -s 2097152
+$(case $use_flags_group in
+    (debug)
+      printf 'ulimit -c unlimited'
+      ;;
+  esac)
 case " \$loadmodule " in
   *\ mxm\ *)
     START+=" --export=\$(env | sed '/()=/d;/=/{;s/=.*//;b;};d' | tr '\n' ',')LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
