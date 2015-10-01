@@ -2581,7 +2581,7 @@ CONTAINS
     INTEGER, PARAMETER :: iphillips = 2010
 
     ! switch for Hande et al. ice nucleation, if .true. this turns off Phillips scheme
-    LOGICAL              :: use_hdcp2_het = .false.
+    LOGICAL  :: use_hdcp2_het
 
     ! some more constants needed for homogeneous nucleation scheme
     REAL(wp), PARAMETER ::            &
@@ -2650,7 +2650,7 @@ CONTAINS
     END IF
 
     ! switch for Hande et al. ice nucleation, if .true. this turns off Phillips scheme
-    IF (nuc_typ.LE.5) use_hdcp2_het = .TRUE.
+    use_hdcp2_het = (nuc_typ.le.5)
 
     ! Heterogeneous nucleation using Hande et al. scheme
     IF (use_hdcp2_het) THEN
