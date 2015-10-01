@@ -47,7 +47,7 @@ MODULE mo_io_nml
                                  & config_write_initial_state     => write_initial_state
 
   USE mo_exception,        ONLY: finish
-  USE mo_parallel_config,  ONLY: nproma
+
 
   IMPLICIT NONE
   PUBLIC :: read_io_namelist
@@ -99,9 +99,6 @@ CONTAINS
                                           ! 1: WMO: water only (e_s=e_s_water)
                                           ! 2: IFS: mixed phases (e_s=a*e_s_water + b*e_s_ice)
 
-    LOGICAL :: lzaxis_reference           ! use ZAXIS_REFERENCE instead of ZAXIS_HYBRID for atmospheric
-                                          ! output fields
-
 
     CHARACTER(LEN=filename_max) :: &
       &        output_nml_dict,    &     !< maps variable names onto the internal ICON names.
@@ -117,7 +114,7 @@ CONTAINS
       &              inextra_2d, inextra_3d,                 &
       &              lflux_avg, itype_pres_msl, itype_rh,    &
       &              output_nml_dict, netcdf_dict,           &
-      &              lzaxis_reference, use_set_event_to_simstep, &
+      &              use_set_event_to_simstep,               &
       &              restart_file_type, write_initial_state
 
     !-----------------------
@@ -136,7 +133,6 @@ CONTAINS
     output_nml_dict         = ' '
     netcdf_dict             = ' '
 
-    lzaxis_reference        = .TRUE. ! use ZAXIS_REFERENCE (generalVertical)
     restart_file_type       = config_restart_file_type
     write_initial_state     = config_write_initial_state
     !------------------------------------------------------------------
@@ -199,14 +195,6 @@ CONTAINS
       WRITE(nnml_output,nml=io_nml)
     END IF
 
-
-    ! Throw a warning for deprecated parameters: ---------
-    IF (lzaxis_reference .EQV. .FALSE.) THEN
-      ! default value has been modified; inform the user that this
-      ! switch has no effect:
-      IF (my_process_is_stdio()) &
-        WRITE (0,*) "WARNING: Namelist switch 'lzaxis_reference' has no effect any more and will soon be removed!"
-    END IF
 
   END SUBROUTINE read_io_namelist
 
