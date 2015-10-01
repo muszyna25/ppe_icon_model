@@ -725,7 +725,9 @@ MODULE mo_model_domain
        v_num_edges = 2, &
        ! longitude & latitude of vertex:
        ! index2=1,2
-       v_vertex = 3
+       v_vertex = 3, &
+       ! refinement control flag
+       v_refin_ctrl = 4
 
   TYPE t_pre_grid_vertices
 
@@ -735,9 +737,6 @@ MODULE mo_model_domain
     INTEGER :: max_connectivity
 
     TYPE(dist_mult_array) :: dist
-
-    ! refinement control flag
-    TYPE(dist_mult_array) :: refin_ctrl
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert (defined in mo_impl_constants)

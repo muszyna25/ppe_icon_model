@@ -37,7 +37,7 @@ MODULE mo_setup_subdivision
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
        c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
-       e_refin_ctrl, v_cell, v_num_edges, v_vertex
+       e_refin_ctrl, v_cell, v_num_edges, v_vertex, v_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -1002,8 +1002,8 @@ CONTAINS
          end_g = wrk_p_patch_pre%verts%end, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .FALSE., &
-         refin_ctrl = wrk_p_patch_pre%verts%refin_ctrl, &
-         refin_ctrl_aidx = 1, &
+         refin_ctrl = wrk_p_patch_pre%verts%dist, &
+         refin_ctrl_aidx = v_refin_ctrl, &
          refinement_predicate = refine_verts)
 
     ! Sanity checks: are there still elements of the index lists filled with dummy values?
@@ -1194,8 +1194,8 @@ CONTAINS
            (/jg, 1/), wrk_p_patch%verts%vertex(jl,jb)%lat)
       CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
            (/jg, 2/), wrk_p_patch%verts%vertex(jl,jb)%lon)
-      CALL dist_mult_array_get(wrk_p_patch_pre%verts%refin_ctrl, 1, (/jg/), &
-        &                      wrk_p_patch%verts%refin_ctrl(jl,jb))
+      CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_refin_ctrl, &
+           (/jg/), wrk_p_patch%verts%refin_ctrl(jl,jb))
     ENDDO
 
     DO j = 0, n_boundary_rows + 1
