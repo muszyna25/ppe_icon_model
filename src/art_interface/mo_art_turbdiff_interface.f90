@@ -127,7 +127,7 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
 
       IF ( .NOT. PRESENT(opt_sv) ) THEN
         CALL art_surface_value( p_patch, p_prog_rcf, p_metrics, p_diag, prm_diag, &
-          &                     art_diag, p_rho(:,:,:), dt, jb, vdep, sv )
+          &                     art_diag, p_rho(:,:,:), dt, jg, jb, vdep, sv )
       END IF
 
       DO idx_trac = 1, art_config(jg)%nturb_tracer
