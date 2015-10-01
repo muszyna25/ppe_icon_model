@@ -19,9 +19,10 @@
 !! Modification by Daniel Rieger, KIT (2014-11-12)
 !! - First adaptions for unified use of parameterizations within
 !!   ICON-ART and COSMO-ART. Changes performed for: Mineral dust, Sea salt
-!!
-!!  chemical tracer section
-!!  by Roland Ruhnke (RR), Jennifer Schroeter (JS), KIT (2014-11-27)
+!! Modification by Roland Ruhnke (RR), Jennifer Schroeter (JS), KIT (2014-11-27)
+!! - chemical tracer section
+!! Modification by Jonas Straub, Daniel Rieger KIT (2015-09-15)
+!! - Included OpenMP statements
 !!
 !! @par Copyright and License
 !!
@@ -68,6 +69,7 @@ MODULE mo_art_emission_interface
   USE mo_art_emission_dust_simple,      ONLY: art_prepare_emission_dust_simple
   USE mo_art_emission_chemtracer,       ONLY: art_emiss_chemtracer
   USE mo_art_emission_gasphase,         ONLY: art_emiss_gasphase
+  USE omp_lib 
 #endif
 
   IMPLICIT NONE
@@ -132,13 +134,15 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
 
 
   IF (lart) THEN
-  
+    
     ALLOCATE(emiss_rate(nproma))
     ALLOCATE(dz(nproma,nlev))
   
     CALL art_air_properties(p_patch,p_art_data(jg))
        
     IF (art_config(jg)%lart_aerosol) THEN
+
+!$omp parallel do default (shared) private(jb, istart, iend, dz)
       DO jb = i_startblk, i_endblk
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           &                istart, iend, i_rlstart, i_rlend)
@@ -153,47 +157,61 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         ! ----------------------------------
         ! --- Preparations for emission routines
         ! ----------------------------------
-        select case(art_config(jg)%iart_dust)
-          case(0)
+        SELECT CASE(art_config(jg)%iart_dust)
+          CASE(0)
             ! Nothing to do, no dust emissions
-          case(1)
+          CASE(1)
             CALL art_prepare_emission_dust(p_nh_state%diag%u(:,nlev,jb),p_nh_state%diag%v(:,nlev,jb), &
               &          rho(:,nlev,jb),prm_diag%tcm(:,jb),p_diag_lnd%w_so(:,1,jb),                   &
               &          dzsoil(1),p_diag_lnd%h_snow(:,jb),jb,istart,iend,p_art_data(jg)%soil_prop)
-          case(2)
+          CASE(2)
             ! not available yet
-          case default
+          CASE default
             CALL finish('mo_art_emission_interface:art_emission_interface', &
-                 &      'ART: Unknown dust emissions configuration')
-        end select
-        
-        ! ----------------------------------
-        ! --- Call the emission routines
-        ! ----------------------------------
-        
-        this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
+              &         'ART: Unknown dust emissions configuration')
+        END SELECT
+      ENDDO !jb   
+!$omp end parallel do
+
+      ! ----------------------------------
+      ! --- Call the emission routines
+      ! ----------------------------------
       
-        DO WHILE(ASSOCIATED(this_mode))
-          emiss_rate(:) = 0._wp
-          ! Check how many moments the mode has
-          select type (fields=>this_mode%fields)
-            type is (t_fields_2mom)
-              ! Now the according emission routine has to be found
-              select case(TRIM(fields%info%name))
-                case ('seasa')
+      this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
+      
+      DO WHILE(ASSOCIATED(this_mode))
+        emiss_rate(:) = 0._wp
+        ! Check how many moments the mode has
+        SELECT TYPE (fields=>this_mode%fields)
+          TYPE is (t_fields_2mom)
+            ! Now the according emission routine has to be found
+!$omp parallel do default (shared) private (jb, istart, iend, emiss_rate, dz)
+            DO jb = i_startblk, i_endblk
+              CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                &                istart, iend, i_rlstart, i_rlend)
+                
+              ! Get model layer heights
+              DO jk = 1, nlev
+                DO jc = istart, iend
+                  dz(jc,jk) = p_nh_state%metrics%ddqz_z_full(jc,jk,jb)
+                ENDDO
+              ENDDO
+
+              SELECT CASE(TRIM(fields%info%name))
+                CASE ('seasa')
                   CALL art_seas_emiss_martensson(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                          &
                     &             dz(:,nlev), p_diag_lnd%t_s(:,jb),                                                   &
                     &             ext_data%atm%fr_land(:,jb),p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb),   &
                     &             istart,iend,emiss_rate(:))
-                case ('seasb')
+                CASE ('seasb')
                   CALL art_seas_emiss_monahan(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                             &
                     &             dz(:,nlev), ext_data%atm%fr_land(:,jb),                                             &
                     &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb), istart,iend,emiss_rate(:))
-                case ('seasc')
+                CASE ('seasc')
                   CALL art_seas_emiss_smith(prm_diag%u_10m(:,jb), prm_diag%v_10m(:,jb),                               &
                     &             dz(:,nlev), ext_data%atm%fr_land(:,jb),                                             &
                     &             p_diag_lnd%fr_seaice(:,jb),ext_data%atm%fr_lake(:,jb), istart,iend,emiss_rate(:))
-                case ('dusta')
+                CASE ('dusta')
                   CALL art_emission_dust(dz(:,nlev),                                                 &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub),      &
@@ -201,7 +219,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                     &             jb,istart,iend,'dusta',p_art_data(jg)%soil_prop,emiss_rate(:))
-                case ('dustb')
+                CASE ('dustb')
                   CALL art_emission_dust(dz(:,nlev),                                                 &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub),      &
@@ -209,7 +227,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                     &             jb,istart,iend,'dustb',p_art_data(jg)%soil_prop,emiss_rate(:))
-                case ('dustc')
+                CASE ('dustc')
                   CALL art_emission_dust(dz(:,nlev),                                                 &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub_eg),   &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_shrub),      &
@@ -217,8 +235,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_bare_soil),  &
                     &             ext_data%atm%lu_class_fraction(:,jb,ext_data%atm%i_lc_sparse),     &
                     &             jb,istart,iend,'dustc',p_art_data(jg)%soil_prop,emiss_rate(:))
-              end select
-              
+              END SELECT
+            
               ! Update mass mixing ratios
               DO ijsp = 1, fields%info%njsp
                 CALL art_integrate_explicit(tracer(:,nlev,jb,fields%info%jsp(ijsp)),  emiss_rate(:), dtime,  &
@@ -228,16 +246,16 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
               CALL art_integrate_explicit(tracer(:,nlev,jb,fields%info%i_number_conc), emiss_rate(:), dtime, &
                 &                         istart,iend, opt_rho = rho(:,nlev,jb),                             &
                 &                         opt_fac=(fields%info%mode_fac * fields%info%factnum))
-                
-            class is (t_fields_1mom)
-              ! drieg: This needs to be done here instead of the version outside the jb loop below in the future
-            class default
-              call finish('mo_art_emission_interface:art_emission_interface', &
-                   &      'ART: Unknown mode field type')
-          end select
-          this_mode => this_mode%next_mode
-        ENDDO !while(associated)
-      ENDDO !jb
+            ENDDO !jb
+!$omp end parallel do
+          CLASS is (t_fields_1mom)
+            ! drieg: This needs to be done here instead of the version outside the jb loop below in the future
+          CLASS default
+            CALL finish('mo_art_emission_interface:art_emission_interface', &
+              &         'ART: Unknown mode field type')
+        END SELECT
+        this_mode => this_mode%next_mode
+      ENDDO !while(associated)
     
       DEALLOCATE(emiss_rate)
       DEALLOCATE(dz)
@@ -247,40 +265,40 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
      
       DO WHILE(ASSOCIATED(this_mode))
         ! Select type of mode
-        select type (fields=>this_mode%fields)
-          type is (t_fields_2mom)
+        SELECT TYPE (fields=>this_mode%fields)
+          TYPE is (t_fields_2mom)
             ! Nothing to do here
-          class is (t_fields_radio)
-            select case(TRIM(fields%info%name))
-              case ('CS137')
-                call art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iCS137),373)
-              case ('I131')
-                call art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131),340)
-              case ('TE132')
-                call art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iTE132),325)
-              case ('ZR95')
-                call art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iZR95),184)
-              case ('XE133')
-                call art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iXE133),355)
-              case ('I131g')
-                call art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131g),870)
-              case ('I131o')
-                call art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131o),880)
-              case ('BA140')
-                call art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iBA140),384)
-              case ('RU103')
-                call art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iRU103),220)
+          CLASS is (t_fields_radio)
+            SELECT CASE(TRIM(fields%info%name))
+              CASE ('CS137')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iCS137),373)
+              CASE ('I131')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131),340)
+              CASE ('TE132')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iTE132),325)
+              CASE ('ZR95')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iZR95),184)
+              CASE ('XE133')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iXE133),355)
+              CASE ('I131g')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131g),870)
+              CASE ('I131o')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131o),880)
+              CASE ('BA140')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iBA140),384)
+              CASE ('RU103')
+                CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iRU103),220)
               ! And Default...
-              case default
-                call finish('mo_art_emission_interface:art_emission_interface', &
-                     &      'No according emission routine to mode')
-            end select
-          class is (t_fields_volc)
+              CASE default
+                CALL finish('mo_art_emission_interface:art_emission_interface', &
+                  &         'No according emission routine to mode')
+            END SELECT
+          CLASS is (t_fields_volc)
             ! nothing to do here, see below
-          class default
-            call finish('mo_art_emission_interface:art_emission_interface', &
-                 &      'ART: Unknown mode field type')
-        end select
+          CLASS default
+            CALL finish('mo_art_emission_interface:art_emission_interface', &
+              &         'ART: Unknown mode field type')
+        END SELECT
         this_mode => this_mode%next_mode
       ENDDO
   
