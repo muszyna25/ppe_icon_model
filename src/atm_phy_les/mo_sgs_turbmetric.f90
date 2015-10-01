@@ -2300,30 +2300,30 @@ MODULE mo_sgs_turbmetric
 
 !$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx)
     DO jb = i_startblk,i_endblk
-       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
 #ifdef __LOOP_EXCHANGE
-     DO jc = i_startidx, i_endidx
-       DO jk = 2, nlev
+      DO jc = i_startidx, i_endidx
+        DO jk = 2, nlev
 #else
-       DO jk = 2, nlev
-         DO jc = i_startidx, i_endidx
+      DO jk = 2, nlev
+        DO jc = i_startidx, i_endidx
 #endif
-           var_ic(jc,jk,jb) = ( p_nh_metrics%wgtfac_c(jc,jk,jb)*var(jc,jk,jb) + &
-                                (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*var(jc,jk-1,jb) )
-         END DO
-       END DO
+          var_ic(jc,jk,jb) = ( p_nh_metrics%wgtfac_c(jc,jk,jb)*var(jc,jk,jb) + &
+               (1._wp-p_nh_metrics%wgtfac_c(jc,jk,jb))*var(jc,jk-1,jb) )
+        END DO
+      END DO
 
-     DO jc = i_startidx, i_endidx
+      DO jc = i_startidx, i_endidx
         var_ic(jc,nlev+1,jb) =                                &
-          p_nh_metrics%wgtfacq_c(jc,1,jb)*var(jc,nlev  ,jb) + &
-          p_nh_metrics%wgtfacq_c(jc,2,jb)*var(jc,nlev-1,jb) + &
-          p_nh_metrics%wgtfacq_c(jc,3,jb)*var(jc,nlev-2,jb)
+             p_nh_metrics%wgtfacq_c(jc,1,jb)*var(jc,nlev  ,jb) + &
+             p_nh_metrics%wgtfacq_c(jc,2,jb)*var(jc,nlev-1,jb) + &
+             p_nh_metrics%wgtfacq_c(jc,3,jb)*var(jc,nlev-2,jb)
         var_ic(jc,1,jb) =                                &
-          p_nh_metrics%wgtfacq1_c(jc,1,jb)*var(jc,1,jb) + &
-          p_nh_metrics%wgtfacq1_c(jc,2,jb)*var(jc,2,jb) + &
-          p_nh_metrics%wgtfacq1_c(jc,3,jb)*var(jc,3,jb)
-     ENDDO
+             p_nh_metrics%wgtfacq1_c(jc,1,jb)*var(jc,1,jb) + &
+             p_nh_metrics%wgtfacq1_c(jc,2,jb)*var(jc,2,jb) + &
+             p_nh_metrics%wgtfacq1_c(jc,3,jb)*var(jc,3,jb)
+      END DO
     END DO
 !$OMP END DO
 !$OMP END PARALLEL
