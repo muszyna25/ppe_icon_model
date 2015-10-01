@@ -760,7 +760,7 @@ CONTAINS
 
     REAL(wp), DIMENSION(:), ALLOCATABLE :: max_pres_ifc, max_pres, max_temp, max_acdnc, &
         max_qv, max_qc, max_qi, max_cc, min_pres_ifc, min_pres, min_temp, min_acdnc, &
-        min_qv, min_qc, min_qi, min_cc 
+        min_qv, min_qc, min_qi, min_cc
 
     REAL(wp), DIMENSION(pt_patch%nlevp1) :: max_lwflx, min_lwflx, max_swtrans, min_swtrans
 

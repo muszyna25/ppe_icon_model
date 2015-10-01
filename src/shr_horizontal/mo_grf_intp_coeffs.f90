@@ -457,7 +457,7 @@ DO jg = n_dom_start+1, n_dom
   ierrcount(:) = 0
 
   ! If the nested domain is barely larger than the boundary interpolation zone,
-  ! the setting of the start and end indices may fail in the presence of 
+  ! the setting of the start and end indices may fail in the presence of
   ! multiple nests per nesting level. As such small nests do not make sense anyway,
   ! we just stop here in such pathological cases.
   ierror = 0
@@ -596,7 +596,7 @@ DO jg = n_dom_start+1, n_dom
         ENDIF
 
         IF (MINVAL(wgt(1:4)) < 0.0_wp) ierrcount(jb) = ierrcount(jb) + 1
-          
+
         ! Save the weighting factors in fbk_wgt_bln
         p_grfp%fbk_wgt_bln(jc,jb,1:4) = wgt(1:4)
       ENDDO

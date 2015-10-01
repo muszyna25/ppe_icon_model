@@ -118,8 +118,8 @@ CONTAINS
     REAL(wp) ::                    &
       & p_sim_time_rad,            &
       & zstunde,                   & ! output from routine get_utc_date_tr
-      & ztwo, ztho  ,              & 
-      & zdek,                      & 
+      & ztwo, ztho  ,              &
+      & zdek,                      &
       & zsocof, zeit0,             &
       & zsct_h
 
@@ -159,7 +159,7 @@ CONTAINS
     ! local time always 12:00
     ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
+        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt/pi ! because sun is always in local noon, the TSI needs to be
@@ -171,7 +171,7 @@ CONTAINS
     ! local time always  07:14:15 or 16:45:45
     ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
+        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )/pi
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
@@ -311,7 +311,7 @@ CONTAINS
 
         DO jc = 1,ie
           IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
-            ! The averaged cosine of zenith angle is limited to 0.05 in order to avoid 
+            ! The averaged cosine of zenith angle is limited to 0.05 in order to avoid
             ! numerical trouble along the day-night boundary near the model top
             zsmu0(jc,jb) = MAX(0.05_wp,SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp)))
           ELSE
@@ -395,7 +395,7 @@ CONTAINS
       ! circular non-seasonal orbit, zenith angle dependent on latitude only,
       ! no diurnal cycle (always at 12:00 local time --> sin(time of day)=1 )
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
+        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt/pi ! because sun is always in local noon, the TSI needs to be
@@ -405,7 +405,7 @@ CONTAINS
       ! circular non-seasonal orbit, no diurnal cycle
       ! at 07:14:15 or 16:45:45 local time (--> sin(time of day)=1/pi )
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
+        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )/pi
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
@@ -423,7 +423,7 @@ CONTAINS
 
     !Second case izenith==3 (time (but no date) needed)
     IF (izenith == 3) THEN
-      
+
       DO jb = 1, pt_patch%nblks_c
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
         zsmu0(1:ie,jb) = -COS( pt_patch%cells%center(1:ie,jb)%lat ) &
@@ -434,7 +434,7 @@ CONTAINS
 
     !Third: case izenith=4 (time and date needed)
     ELSEIF (izenith == 4) THEN
-    
+
       ztwo    = 0.681_wp + 0.2422_wp*REAL(jj-1949,wp)-REAL((jj-1949)/4,wp)
       ztho    = 2._wp*pi*( REAL(itaja, wp) -1.0_wp + ztwo )/365.2422_wp
       zdtzgl  = 0.000075_wp + 0.001868_wp*COS(      ztho) - 0.032077_wp*SIN(      ztho) &
@@ -466,7 +466,7 @@ CONTAINS
           COS(zeitrad(1:ie,jb))
 
       ENDDO
-      
+
     ELSEIF (izenith == 5) THEN
      ! Radiative convective equilibrium
      ! circular non-seasonal orbit,
@@ -490,8 +490,8 @@ CONTAINS
   !!
   !! @remarks This routine organises the input/output for the radiation
   !! computation.  The state of radiatively active constituents is set as the
-  !! input. Output are flux transmissivities (ratio solar flux/solar input) 
-  !! and thermal fluxes at all the half levels of the grid. This output will be 
+  !! input. Output are flux transmissivities (ratio solar flux/solar input)
+  !! and thermal fluxes at all the half levels of the grid. This output will be
   !! used in radheat at all time steps until the next full radiation time step.
   !
   SUBROUTINE radiation(                                                    &
@@ -552,8 +552,8 @@ CONTAINS
       &  zaeq4(kbdim,klev) , & !< aerosol volcano ashes
       &  zaeq5(kbdim,klev) , & !< aerosol stratospheric background
       &  dt_rad                !< radiation time step
-    
-    LOGICAL, INTENT(in), OPTIONAL :: opt_halo_cosmu0    
+
+    LOGICAL, INTENT(in), OPTIONAL :: opt_halo_cosmu0
 
     ! output
     ! ------
@@ -637,7 +637,7 @@ CONTAINS
     ELSE
       cos_mu0_mod(1:jce) = cos_mu0(1:jce)
     ENDIF !l_halo_cosmu0
-    
+
     !
     ! 1.1 p, T, q(vap,liq,ice) and clouds
     ! -----------------------------------
@@ -882,7 +882,7 @@ CONTAINS
 
 
     IF (ltimer) CALL timer_start(timer_radiation)
-    
+
     !
     ! 1.1 p, T, q(vap,liq,ice) and clouds
     ! -----------------------------------
@@ -1216,7 +1216,7 @@ CONTAINS
       &  zscratch                           !< scratch array
 
     REAL(wp) :: z_sum_aea, z_sum_aes !help variables for aerosol
-    
+
     !
     ! --- vertically reversed _vr variables
     !
@@ -1417,7 +1417,7 @@ CONTAINS
             aer_tau_sw_vr(jl,jk,jspec-jpband) = z_sum_aea + z_sum_aes
 
             ! sw aerosol single scattering albedo
-            aer_piz_sw_vr(jl,jk,jspec-jpband) = z_sum_aes / ( z_sum_aea + z_sum_aes ) 
+            aer_piz_sw_vr(jl,jk,jspec-jpband) = z_sum_aes / ( z_sum_aea + z_sum_aes )
 
             ! sw aerosol asymmetry factor
             aer_cg_sw_vr(jl,jk,jspec-jpband) =                                  &
@@ -1664,9 +1664,9 @@ CONTAINS
     REAL(wp), INTENT(inout), OPTIONAL :: &
       &     pflxsfcsw (kbdim), &       ! shortwave surface net flux [W/m2]
       &     pflxsfclw (kbdim), &       ! longwave  surface net flux [W/m2]
-      &     pflxsfcsw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific shortwave 
+      &     pflxsfcsw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific shortwave
                                                     ! surface net flux [W/m2]
-      &     pflxsfclw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific longwave 
+      &     pflxsfclw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific longwave
                                                     ! surface net flux [W/m2]
       &     pflxtoasw (kbdim), &       ! shortwave toa net flux [W/m2]
       &     pflxtoalw (kbdim), &       ! longwave  toa net flux [W/m2]
@@ -1786,7 +1786,7 @@ CONTAINS
       ! Disaggregation of longwave and shortwave fluxes for tile approach
       IF (ntiles > 1) THEN
         IF (lcalc_trsolclr) THEN ! (relevant for Ritter-Geleyn radiation scheme only)
-          ! parameterization of clear-air solar transmissivity in order to use the same 
+          ! parameterization of clear-air solar transmissivity in order to use the same
           ! formulation as in mo_phys_nest_utilities:downscale_rad_output
           DO jc = jcs, jce
             trsolclr(jc) = MAX(0.02_wp,0.8_wp*cosmu0(jc)/(0.25_wp*tqv(jc))**0.15)**0.333_wp*&
@@ -1847,7 +1847,7 @@ CONTAINS
         DO ic = 1, lp_count
           jc = idx_lst_lp(ic)
           pflxsfcsw_t(jc,1) = zflxsw(jc,klevp1)
-          pflxsfclw_t(jc,1) = zflxlw(jc,klevp1) 
+          pflxsfclw_t(jc,1) = zflxlw(jc,klevp1)
         ENDDO
 
 !CDIR NODEP,VOVERTAKE,VOB
@@ -1879,7 +1879,7 @@ CONTAINS
       zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
       ! - Atmosphere
       zflxlw(jcs:jce,2:klev) = pflxlw(jcs:jce,2:klev)
-      
+
       ! - Surface
       !   Adjust net sfc longwave radiation for changed surface temperature (ptsfc) with respect to the
       !   surface temperature used for the longwave flux computation (ptsfctrad).
@@ -1898,7 +1898,7 @@ CONTAINS
 
 
     ENDIF
-    
+
     !
     !
     !     4.2  Fluxes and heating rates except for lowest layer
@@ -1920,7 +1920,7 @@ CONTAINS
     IF ( PRESENT(pflxtoasw) ) pflxtoasw(jcs:jce) = zflxsw(jcs:jce,1)
     IF ( PRESENT(pflxtoalw) ) pflxtoalw(jcs:jce) = zflxlw(jcs:jce,1)
 
-    
+
   END SUBROUTINE radheat
 
 END MODULE mo_radiation
