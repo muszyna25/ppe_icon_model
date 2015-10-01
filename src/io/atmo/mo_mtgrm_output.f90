@@ -118,6 +118,7 @@ MODULE mo_meteogram_output
     &                                 get_mpi_all_workroot_id,            &
     &                                 my_process_is_mpi_workroot,         &
     &                                 my_process_is_io,                   &
+    &                                 my_process_is_work,                 &
     &                                 my_process_is_mpi_test,             &
     &                                 p_real_dp_byte,                     &
     &                                 MPI_ANY_SOURCE,                     &
@@ -760,6 +761,7 @@ CONTAINS
     ! PE collecting variable info to send it to pure I/O PEs.
     ! (only relevant if pure I/O PEs exist)
     mtgrm(jg)%l_is_varlist_sender = (process_mpi_io_size > 0)    .AND.  &
+      &                   my_process_is_work() .AND. &
       &                   my_process_is_mpi_workroot() .AND.  &
       &             .NOT. my_process_is_mpi_test()
 
