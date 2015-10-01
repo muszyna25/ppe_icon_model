@@ -48,7 +48,7 @@ MODULE mo_setup_subdivision
        mpi_in_place, mpi_success, mpi_sum, mpi_lor, p_bool
 #endif
   USE mo_mpi,                ONLY: p_comm_work, p_int, &
-    & p_pe_work, p_n_work, my_process_is_mpi_parallel
+    & p_pe_work, p_n_work, my_process_is_mpi_parallel, p_alltoall, p_alltoallv
 
   USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, &
     & division_method, division_file_name, n_ghost_rows, div_from_file,   &
@@ -1111,22 +1111,64 @@ CONTAINS
 
     SUBROUTINE compute_owned_cells()
 
-      INTEGER :: n_owned_cells, i, n
+      INTEGER, POINTER :: local_chunk(:)
+      INTEGER :: local_chunk_first, local_chunk_last, local_chunk_size, i
+      INTEGER, ALLOCATABLE :: n_cells_owned_per_proc(:)
+      ! n_cells_from_proc(i) = number of cell ownerships transferred
+      ! from process i
+      INTEGER, ALLOCATABLE :: n_cells_from_proc(:)
+      INTEGER, ALLOCATABLE :: glb_index_per_proc(:)
+      INTEGER, ALLOCATABLE :: sorted_local_chunk(:)
+      INTEGER, ALLOCATABLE :: send_displs(:)
+      INTEGER, ALLOCATABLE :: recv_displs(:)
 
-      n_owned_cells = COUNT(cell_owner(:)==my_proc)
+      ! get local chunk
+      CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_chunk)
+      local_chunk_first = LBOUND(local_chunk, 1)
+      local_chunk_size = SIZE(local_chunk)
+      local_chunk_last = local_chunk_first + local_chunk_size - 1
 
-      ALLOCATE(owned_cells(n_owned_cells))
+      ! for parent patches most of the entries are -1
+      ALLOCATE(n_cells_owned_per_proc(-1:p_n_work-1), &
+        &      n_cells_from_proc(0:p_n_work-1), &
+        &      glb_index_per_proc(local_chunk_first:local_chunk_last), &
+        &      sorted_local_chunk(local_chunk_first:local_chunk_last))
 
-      IF (n_owned_cells == 0) RETURN
+      ! compute n_cells_owned_per_proc
+      n_cells_owned_per_proc = 0
+      DO i = local_chunk_first, local_chunk_last
+        n_cells_owned_per_proc(local_chunk(i)) = &
+          n_cells_owned_per_proc(local_chunk(i)) + 1
 
-      i = 1
-
-      DO n = 1, SIZE(cell_owner(:))
-        IF (cell_owner(n) == my_proc) THEN
-          owned_cells(i) = n
-          i = i + 1
-        END IF
+        ! initialise glb_index_per_proc
+        glb_index_per_proc(i) = i
       END DO
+
+      ! mpi_alltoall n_cells_owned_per_proc
+      CALL p_alltoall(n_cells_owned_per_proc(0:), n_cells_from_proc, &
+        &             p_comm_work)
+
+      ! compute glb_index_per_proc sort by owner (see SUBROUTINE quicksort)
+      sorted_local_chunk = local_chunk
+      CALL quicksort(sorted_local_chunk, glb_index_per_proc)
+
+      ! mpi_alltoallv glb_index_per_proc -> owned_cells
+      ALLOCATE(send_displs(0:p_n_work-1), recv_displs(0:p_n_work-1))
+      send_displs(0) = n_cells_owned_per_proc(-1)
+      recv_displs(0) = 0
+      DO i = 1, p_n_work-1
+        send_displs(i) = send_displs(i-1) + n_cells_owned_per_proc(i-1)
+        recv_displs(i) = recv_displs(i-1) + n_cells_from_proc(i-1)
+      END DO
+      ALLOCATE(owned_cells(recv_displs(p_n_work-1) + &
+        &                  n_cells_from_proc(p_n_work-1)))
+      CALL p_alltoallv(glb_index_per_proc, n_cells_owned_per_proc(0:), &
+        &              send_displs, owned_cells, n_cells_from_proc, &
+        &              recv_displs, p_comm_work)
+
+      ! sort owned_cells
+      CALL quicksort(owned_cells)
+
     END SUBROUTINE compute_owned_cells
 
     SUBROUTINE setup_dist_cell_owner()
