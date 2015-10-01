@@ -842,6 +842,7 @@ run/exp.hat_icoham_apei -text
 run/exp.hat_jww -text
 run/exp.hat_rce_120km -text
 run/exp.hdcp2_final -text
+run/exp.hdcp2_final_3dom -text
 run/exp.hdcp2_germany_776km-diam_1250m_test -text
 run/exp.icon-testbed_read-netcdf -text
 run/exp.mtest_nat_rce_cbl_120km_nwp_test -text

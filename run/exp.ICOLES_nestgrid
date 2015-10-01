@@ -177,6 +177,7 @@ dt_rad           = 900.,900.,900.
  isrfc_type        = 1  !1=TERRA,2=Fixed flux, 5=fixed SST, 3=fixed bflux
  vert_scheme_type  = 2
  ldiag_les_out     = .FALSE.
+ les_metric        = .TRUE.
 /
 &lnd_nml
 ntiles   = 1
