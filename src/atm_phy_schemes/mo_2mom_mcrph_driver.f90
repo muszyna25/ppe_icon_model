@@ -786,7 +786,6 @@ CONTAINS
 
      cmax = 0.0_wp
 
-     prec_r  = 0._wp
      CALL sedi_icon_rain (rain,qr,qnr,prec_r,qc,rhocorr,rdz,dt,its,ite,kts,kte,cmax)
 
       IF (cloud_type.ge.1000) THEN
