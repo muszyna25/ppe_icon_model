@@ -313,7 +313,7 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
                       52.100,   5.180, 'c7',
                       51.400,   6.960, 'c8',
                       54.100,  13.400, 'c9',
-                      49.700,   7.330, 'c1O',
+                      49.700,   7.330, 'c10',
                       49.430,  11.900, 'c11',
                       52.210,  14.110, 'c12',
                       50.560,  10.380, 'c13',
@@ -338,7 +338,8 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
                       48.354,  11.775, 'c32', 
                       51.288,   6.769, 'c33', 
                       53.633,   9.994, 'c34', 
-                      52.560,  13.288, 'c35'
+                      52.560,  13.288, 'c35',
+                      51.353,  12.435, 'c36'
 /
 &output_nml
  output_start     = "${out_start_night}"
@@ -349,7 +350,8 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  output_filename  = '3d_coarse_night_ll'
  remap            = 1
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
+ !ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','u','v','w','temp','pres','tkvh','clc'
  reg_lon_def      = 4.5,0.017,14.5
  reg_lat_def      = 47.5,0.011,54.5
  filetype         = 5
@@ -364,7 +366,8 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  output_filename  = '3d_coarse_day_ll'
  remap            = 1
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
+ !ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','u','v','w','temp','pres','tkvh','clc'
  reg_lon_def      = 4.5,0.017,14.5
  reg_lat_def      = 47.5,0.011,54.5
  filetype         = 5
@@ -378,7 +381,8 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  include_last     = .FALSE.
  output_filename  = '3d_fine_day'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
+ !ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres','tkvh','clc'
+ ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','u','v','w','temp','pres','tkvh','clc'
  filetype         = 5
  dom              = 3
 /
@@ -392,7 +396,7 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
  ml_varlist       = 'tqv_dia','tqc_dia','tqi_dia','clct','z_pbl','rain_gsp_rate','ice_gsp_rate',
                     'snow_gsp_rate','hail_gsp_rate','graupel_gsp_rate','hbas_con','htop_con',
-                    'p_ctop','t_ctop','p_cbase','t_cbase','clch','clcm','clcl'
+                    'p_ctop','t_ctop','p_cbase','t_cbase','clch','clcm','clcl','htop_dc'
  filetype         = 5
  dom              = 3
 /
@@ -406,7 +410,7 @@ rbf_scale_mode_ll = 1 !2=default for automatic calculations
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
  ml_varlist       = 'tqv_dia','tqc_dia','tqi_dia','clct','z_pbl','rain_gsp_rate','ice_gsp_rate',
                     'snow_gsp_rate','hail_gsp_rate','graupel_gsp_rate','hbas_con','htop_con',
-                    'p_ctop','t_ctop','p_cbase','t_cbase','clch','clcm','clcl'
+                    'p_ctop','t_ctop','p_cbase','t_cbase','clch','clcm','clcl','htop_dc'
  filetype         = 5
  dom              = 3
 /
