@@ -32,7 +32,9 @@ MODULE mo_turbdiff_nml
   USE mo_turbdiff_config,     ONLY: turbdiff_config 
 
   USE mo_data_turbdiff,       ONLY: &
-    & itype_tran, itype_sher, itype_wcld, itype_synd, &
+!MR:<
+    & itype_sher, itype_wcld, &
+!MR:>
     & imode_tran, imode_turb, icldm_tran, icldm_turb, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, ltkeshs, &
@@ -59,7 +61,9 @@ MODULE mo_turbdiff_nml
                          ! .TRUE.: ON
 
   NAMELIST/turbdiff_nml/ &
-    & itype_tran, itype_sher, itype_wcld, itype_synd, &
+!MR:<
+    & itype_sher, itype_wcld, &
+!MR:>
     & imode_tran, imode_turb, icldm_tran, icldm_turb, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
     & tur_len, pat_len, a_stab, tkhmin, tkmmin, c_diff, ltkeshs, &
@@ -156,7 +160,7 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg= 0,max_dom
-      turbdiff_config(jg)%itype_tran   = itype_tran
+!MR: ohne 'itype_tran', 'itype_synd'
       turbdiff_config(jg)%imode_tran   = imode_tran
       turbdiff_config(jg)%icldm_tran   = icldm_tran
       turbdiff_config(jg)%imode_turb   = imode_turb
@@ -174,7 +178,6 @@ CONTAINS
       turbdiff_config(jg)%lcpfluc      = lcpfluc
       turbdiff_config(jg)%lsflcnd      = lsflcnd
       turbdiff_config(jg)%itype_wcld   = itype_wcld
-      turbdiff_config(jg)%itype_synd   = itype_synd
       turbdiff_config(jg)%tur_len      = tur_len
       turbdiff_config(jg)%pat_len      = pat_len
       turbdiff_config(jg)%a_stab       = a_stab

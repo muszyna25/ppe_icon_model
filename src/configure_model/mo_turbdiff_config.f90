@@ -42,8 +42,7 @@ MODULE mo_turbdiff_config
     REAL(wp), DIMENSION(:), POINTER :: &
       &  impl_weight    ! implicit weights for tridiagonal solver
 
-    INTEGER :: &   ! type of surface-atmosphere transfer
-      &  itype_tran
+!MR: ohne 'itype_tran', 'itype_synd'
     INTEGER :: &   ! mode of surface-atmosphere transfer
       &  imode_tran 
     INTEGER :: &   ! mode of cloud representation in transfer parametr.
@@ -130,9 +129,6 @@ MODULE mo_turbdiff_config
     !
     INTEGER :: &  ! type of water cloud diagnosis
       &  itype_wcld
-    INTEGER :: &  ! type of diagnostics of synoptical near surface variables
-      &  itype_synd
-
 
     !
     ! derived variables

@@ -145,7 +145,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   REAL(wp)            :: pref(p_patch%nlev)
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
   REAL(wp)            :: zpres
-  REAL(wp)            :: gz0(nproma)
+!MR:<
+  REAL(wp)            :: gz0(nproma), l_hori(nproma)
+!MR:>
   REAL(wp)            :: scale_fac ! scale factor used only for RCE cases
 
   CHARACTER(len=16)   :: cur_date     ! current date (iso-Format)
@@ -1213,20 +1215,28 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         ENDDO
       ENDIF
 
+!MR:< !should be dependent on location in future!
+      l_hori(i_startidx:i_endidx)=phy_params%mean_charlen
+!MR>
 
       nlevcm = nlevp1
 
+!MR: There should be an initialization for each tile, or the initialization can be
+!    executed for 'turbtran' and 'turbdiff' within a single CALL of 'organize_turbdiff'!
+!<
       ! turbtran
-      CALL organize_turbdiff( lstfnct=.TRUE., &
-        &  lturatm=.FALSE., ltursrf=.TRUE., iini=1, &
-        &  ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
-        &  lmomdif=.FALSE., lscadif=.FALSE., itnd=0, &
+      CALL organize_turbdiff( &
+        &  iini=1, lturatm=.FALSE., ltursrf=.TRUE. , lstfnct=.TRUE. ,         & !only surface-layer turbulence
+        &          lnsfdia=.TRUE. , ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, & !including near-surface diagnostics
+        &  itnd=0, lum_dif=.FALSE., lvm_dif=.FALSE., lscadif=.FALSE.,         & !and surface-flux calculations
+        &          lsrflux=.TRUE. , lsfluse=.FALSE., lqvcrst=.FALSE.,         & !but without vertical diffusion calculation
+!
         &  dt_var=atm_phy_nwp_config(jg)%dt_fastphy, &
         &  dt_tke=atm_phy_nwp_config(jg)%dt_fastphy, &
         &  nprv=1, ntur=1, ntim=1, &
         &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm, &
         &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx, &
-        &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), &
+        &  l_hori=l_hori, hhl=p_metrics%z_ifc(:,:,jb), &
         &  dp0=p_diag%dpres_mc(:,:,jb), &
         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
         &  h_ice=p_prog_wtr_now%h_ice(:,jb), gz0=prm_diag%gz0(:,jb), &
@@ -1237,9 +1247,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         &  t=p_diag%temp(:,:,jb), prs=p_diag%pres(:,:,jb), &
         &  qv=p_prog_now%tracer(:,:,jb,iqv), qc=p_prog_now%tracer(:,:,jb,iqc), &
         &  tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+        &  tvm=prm_diag%tvm(:,jb), tvh=prm_diag%tvh(:,jb), tkr=prm_diag%tkr(:,jb), &
         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
         &  tke=p_prog_now%tke(:,:,jb), &
-        &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh(:,2:nlevp1,jb), &
+        &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb), &
         &  rcld=prm_diag%rcld(:,:,jb), &
         &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), &
         &  td_2m=prm_diag%td_2m(:,jb), rh_2m=prm_diag%rh_2m(:,jb), &
@@ -1252,16 +1263,18 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         
 
       ! turbdiff 
-      CALL organize_turbdiff( lstfnct=.TRUE., lsfluse=lsflcnd, &
-        &  lturatm=.TRUE., ltursrf=.FALSE., iini=1, &
-        &  ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, &
-        &  lmomdif=.TRUE., lscadif=.TRUE., itnd=0, &
+      CALL organize_turbdiff( &
+        &  iini=1, lturatm=.TRUE. , ltursrf=.FALSE., lstfnct=.TRUE. ,         & !atmosph. turbulence and vertical diffusion
+        &          lnsfdia=.FALSE., ltkeinp=ltkeinp_loc, lgz0inp=lgz0inp_loc, & !but no surface-layer turbulence (turbtran)
+        &  itnd=0, lum_dif=.TRUE. , lvm_dif=.TRUE. , lscadif=.TRUE. ,         & !and thus (implicitly) neither surface-layer diagn.
+        &          lsrflux=.FALSE., lsfluse=lsflcnd, lqvcrst=.FALSE.,         & !nor surface-flux calculation (both in turbtran)
+!MR: turbulent diffusion can be switched off for initialization!
         &  dt_var=atm_phy_nwp_config(jg)%dt_fastphy, &
         &  dt_tke=atm_phy_nwp_config(jg)%dt_fastphy, &
         &  nprv=1, ntur=1, ntim=1, &
         &  ie=nproma, ke=nlev, ke1=nlevp1, kcm=nlevcm, &
         &  i_st=i_startidx, i_en=i_endidx, i_stp=i_startidx, i_enp=i_endidx, &
-        &  l_hori=phy_params%mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), &
+        &  l_hori=l_hori, hhl=p_metrics%z_ifc(:,:,jb), &
         &  dp0=p_diag%dpres_mc(:,:,jb), &
         &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
         &  h_ice=p_prog_wtr_now%h_ice(:,jb), gz0=prm_diag%gz0(:,jb), &
@@ -1274,10 +1287,12 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         &  rho=p_prog_now%rho(:,:,jb), epr=p_prog_now%exner(:,:,jb), &
         &  qv=p_prog_now%tracer(:,:,jb,iqv), qc=p_prog_now%tracer(:,:,jb,iqc), &
 !         &  ptr=???, &  ! for the diffusion of additional tracer variables!
-        &  tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+!Achtung:
+ &  tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
+        &  tvm=prm_diag%tvm(:,jb), tvh=prm_diag%tvh(:,jb), &
         &  tfm=prm_diag%tfm(:,jb), tfh=prm_diag%tfh(:,jb), tfv=prm_diag%tfv(:,jb), &
         &  tke=p_prog_now%tke(:,:,jb), &
-        &  tkvm=prm_diag%tkvm(:,2:nlevp1,jb), tkvh=prm_diag%tkvh(:,2:nlevp1,jb), &
+        &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb), &
         &  rcld=prm_diag%rcld(:,:,jb), &
         &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), &
         &  v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
@@ -1285,6 +1300,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb), &
         &  shfl_s=prm_diag%shfl_s(:,jb), qvfl_s=prm_diag%qhfl_s(:,jb), &
         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
+!>
 
       ! preparation for concentration boundary condition. Usually inactive for standard ICON runs.
       IF ( .NOT. lsflcnd ) THEN
@@ -1300,6 +1316,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         prm_diag%tvs_s_t (:,jb,jt) = p_prog_now%tke(:,nlevp1,jb)  !here: SQRT(2*TKE) 
         prm_diag%tkvm_s_t(:,jb,jt) = prm_diag%tkvm(:,nlevp1,jb)
         prm_diag%tkvh_s_t(:,jb,jt) = prm_diag%tkvh(:,nlevp1,jb)
+!MR:<
+        prm_diag%tkr_t   (:,jb,jt) = prm_diag%tkr(:,jb)
+!MR:>
       ENDDO
 
 

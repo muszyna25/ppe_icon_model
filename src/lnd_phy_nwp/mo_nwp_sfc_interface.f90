@@ -26,7 +26,9 @@ MODULE mo_nwp_sfc_interface
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish!, message_text
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, iedmf
+!MR:< mit 'icosmo' und ohne 'ityep_tran'
+  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, iedmf, icosmo
+!MR:>
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data_types,      ONLY: t_external_data
@@ -48,7 +50,6 @@ MODULE mo_nwp_sfc_interface
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt
-  USE mo_data_turbdiff,       ONLY: itype_tran
   USE mo_turbdiff_config,     ONLY: turbdiff_config
 
   
@@ -102,7 +103,9 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
     INTEGER :: nlev                    !< number of full levels
-    INTEGER :: isubs, isubs_snow
+!MR:<
+    INTEGER :: isubs, isubs_snow, icant
+!MR:>
 
     ! Local scalars:
     !
@@ -258,11 +261,14 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-
-    ! needed by TERRA (this copy avoids putting the stuff into the argument list)
-    ! necessary, since itype_tran could potentially be different for different patches
-    itype_tran = turbdiff_config(jg)%itype_tran
-
+!MR:<
+    ! canopy-type needed by TERRA:
+    IF ( atm_phy_nwp_config(jg)%inwp_turb == icosmo ) THEN
+       icant=2 !canopy-treatment related to Raschendorfer-transfer-scheme
+    ELSE
+       icant=1 !canopy-treatment related to Louis-transfer-scheme
+    END IF
+!MR:>
 
     IF (msg_level >= 15) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
@@ -496,6 +502,9 @@ CONTAINS
 !---------- END Copy index list fields
 
         CALL terra_multlay(                                    &
+!MR:<
+        &  icant=icant                                       , & !IN canopy-type
+!MR:>
         &  ie=nproma                                         , & !IN array dimensions
         &  istartpar=1,       iendpar=i_count                , & !IN optional start/end indicies
         &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & !IN without lowermost (climat.) soil layer
