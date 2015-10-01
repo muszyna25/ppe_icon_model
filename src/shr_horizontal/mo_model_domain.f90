@@ -588,13 +588,17 @@ MODULE mo_model_domain
 
   END TYPE t_grid_edges
 
+  ! index of distributed sub-arrays in t_pre_grid_edges%dist
+  INTEGER, PUBLIC, PARAMETER :: &
+       ! index of parent edge:
+       e_parent = 1
+
   TYPE t_pre_grid_edges
 
     ! extents of the local chunk of the distributed arrays
     TYPE(extent) :: local_chunk(1,1)
 
-    ! index of parent edge:
-    TYPE(dist_mult_array) :: parent
+    TYPE(dist_mult_array) :: dist
 
     ! indices of child edges:
     ! index2=1,4

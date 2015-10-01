@@ -33,7 +33,7 @@ MODULE mo_alloc_patches
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, &
        c_child, c_phys_id, c_neighbor, c_edge, c_vertex, c_center, &
-       c_refin_ctrl
+       c_refin_ctrl, e_parent
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              init_glb2loc_index_lookup, &
     &                              t_glb2loc_index_lookup, &
@@ -625,13 +625,14 @@ CONTAINS
     TYPE(global_array_desc) :: dist_vert_owner_desc(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc_cell(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc_vertex(2)
-    TYPE(global_array_desc) :: dist_cell_desc(9)
+    TYPE(global_array_desc) :: dist_cell_desc(9), dist_edge_desc(1)
 
     TYPE(extent) :: &
       &             local_edge_chunk_child(2,1), local_edge_chunk_cell(2,1), &
       &             local_vert_chunk_cell(2,1), &
       &             local_vert_chunk_vertex(1,2), &
-      &             local_cell_chunks(2, 9)
+      &             local_cell_chunks(2, 9), &
+      &             local_edge_chunks(1, 1)
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -679,6 +680,11 @@ CONTAINS
     dist_cell_desc(c_center)%element_dt = ppm_real_dp
 
     dist_cell_desc(c_refin_ctrl) = dist_cell_owner_desc(1)
+
+    dist_edge_desc(e_parent)%a_rank = 1
+    dist_edge_desc(e_parent)%rect(1)%first = 1
+    dist_edge_desc(e_parent)%rect(1)%size = p_patch_pre%n_patch_edges_g
+    dist_edge_desc(e_parent)%element_dt = ppm_int
 
     dist_edge_owner_desc(1)%a_rank = 1
     dist_edge_owner_desc(1)%rect(1)%first = 1
@@ -749,8 +755,9 @@ CONTAINS
     !
     ! !grid edges
     !
-    p_patch_pre%edges%parent = dist_mult_array_new( &
-      dist_edge_owner_desc, p_patch_pre%edges%local_chunk, p_comm_work)
+    local_edge_chunks(1, e_parent) = p_patch_pre%edges%local_chunk(1, 1)
+    p_patch_pre%edges%dist = dist_mult_array_new( &
+      dist_edge_desc, local_edge_chunks, p_comm_work)
     p_patch_pre%edges%child = dist_mult_array_new( &
       dist_edge_owner_desc_child, local_edge_chunk_child, p_comm_work)
     p_patch_pre%edges%refin_ctrl = dist_mult_array_new( &
@@ -885,8 +892,7 @@ CONTAINS
     !
     ! !grid edges
     !
-    CALL dist_mult_array_unexpose(p_patch_pre%edges%parent)
-    CALL dist_mult_array_delete(p_patch_pre%edges%parent)
+    CALL dist_mult_array_delete(p_patch_pre%edges%dist)
     CALL dist_mult_array_unexpose(p_patch_pre%edges%child)
     CALL dist_mult_array_delete(p_patch_pre%edges%child)
     CALL dist_mult_array_unexpose(p_patch_pre%edges%cell)

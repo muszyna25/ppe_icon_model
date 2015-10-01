@@ -98,7 +98,7 @@ MODULE mo_model_domimp_patches
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex, c_center, c_refin_ctrl
+       c_vertex, c_center, c_refin_ctrl, e_parent
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
     &                              get_valid_local_index, &
     &                              t_grid_domain_decomp_info, get_local_index
@@ -1489,12 +1489,12 @@ CONTAINS
 
     ! patch_pre%edges%parent
     CALL nf(nf_inq_varid(ncid_grf, 'parent_edge_index', varid))
-    CALL dist_mult_array_local_ptr(patch_pre%edges%parent, 1, local_ptr)
+    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_parent, local_ptr)
     CALL nf(nf_get_vara_int(ncid_grf, varid, &
       &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
       &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
       &                     local_ptr))
-    CALL dist_mult_array_expose(patch_pre%edges%parent)
+    CALL dist_mult_array_expose(patch_pre%edges%dist)
 
     ! patch_pre%edges%child
     CALL nf(nf_inq_varid(ncid_grf, 'child_edge_index', varid))

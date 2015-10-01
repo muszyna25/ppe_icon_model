@@ -36,7 +36,7 @@ MODULE mo_setup_subdivision
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex, c_center, c_refin_ctrl
+       c_vertex, c_center, c_refin_ctrl, e_parent
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -1153,7 +1153,8 @@ CONTAINS
       ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
-      CALL dist_mult_array_get(wrk_p_patch_pre%edges%parent, 1, (/jg/), jpg)
+      CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_parent, &
+           (/jg/), jpg)
       DO i = 1, 4
         CALL dist_mult_array_get(wrk_p_patch_pre%edges%child, 1, (/jg, i/), jcg(i))
       END DO
