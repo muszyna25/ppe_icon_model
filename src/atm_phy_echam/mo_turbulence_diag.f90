@@ -1,8 +1,4 @@
-#ifdef __xlC__
-@PROCESS HOT
-#else
-#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
-#endif
+#include "fsel.inc"
 !>
 !! @brief Subroutines for computing turbulent exchange coefficients.
 !!
