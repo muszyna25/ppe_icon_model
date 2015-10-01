@@ -63,7 +63,7 @@ MODULE mo_io_config
   !
   INTEGER, PARAMETER :: read_netcdf_broadcast_method  = 1
   INTEGER, PARAMETER :: read_netcdf_distribute_method = 2
-  INTEGER :: default_read_method = read_netcdf_broadcast_method
+  INTEGER :: default_read_method = 2
 
   INTEGER :: restart_file_type = FILETYPE_NC2
 
