@@ -329,7 +329,7 @@ MODULE mo_model_domain
 
   ! index of distributed sub-arrays in t_pre_grid_cells%dist
   INTEGER, PUBLIC, PARAMETER :: &
-       c_num_edges = 1, &    ! number of edges connected to cell
+       c_num_edges = 8, &    ! number of edges connected to cell
        c_parent = 2, &    ! index of parent triangle:
        ! parent child index, number of current cell in parent's child_idx/child_blk:
        ! indices of child triangles:
@@ -349,7 +349,7 @@ MODULE mo_model_domain
        c_vertex = 7, &
        ! cell geometry
        ! longitude & latitude of centers of triangular cells
-       c_center = 8, &
+       c_center = 1, &
        ! refinement control flag
        c_refin_ctrl = 9
 
@@ -720,12 +720,12 @@ MODULE mo_model_domain
   INTEGER, PUBLIC, PARAMETER :: &
        ! line indices of cells around each vertex:
        ! index2=1,6
-       v_cell = 1, &
+       v_cell = 3, &
        ! number of edges connected to vertex
        v_num_edges = 2, &
        ! longitude & latitude of vertex:
        ! index2=1,2
-       v_vertex = 3, &
+       v_vertex = 1, &
        ! refinement control flag
        v_refin_ctrl = 4
 

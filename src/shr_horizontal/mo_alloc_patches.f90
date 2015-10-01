@@ -33,7 +33,7 @@ MODULE mo_alloc_patches
     & max_dom
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, c_num_edges, &
-       c_child, c_phys_id, c_neighbor, c_edge, c_vertex, c_center, &
+       c_parent, c_child, c_phys_id, c_neighbor, c_edge, c_vertex, c_center, &
        c_refin_ctrl, e_parent, e_child, e_cell, e_refin_ctrl, &
        v_cell, v_num_edges, v_vertex, v_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
@@ -641,10 +641,15 @@ CONTAINS
 
     ! some preliminary computation for the distributed data
 
-    dist_cell_desc(1:2)%a_rank = 1
-    dist_cell_desc(1:2)%rect(1)%first = 1
-    dist_cell_desc(1:2)%rect(1)%size = p_patch_pre%n_patch_cells_g
-    dist_cell_desc(1:2)%element_dt = ppm_int
+    dist_cell_desc(c_num_edges)%a_rank = 1
+    dist_cell_desc(c_num_edges)%rect(1)%first = 1
+    dist_cell_desc(c_num_edges)%rect(1)%size = p_patch_pre%n_patch_cells_g
+    dist_cell_desc(c_num_edges)%element_dt = ppm_int
+
+    dist_cell_desc(c_parent)%a_rank = 1
+    dist_cell_desc(c_parent)%rect(1)%first = 1
+    dist_cell_desc(c_parent)%rect(1)%size = p_patch_pre%n_patch_cells_g
+    dist_cell_desc(c_parent)%element_dt = ppm_int
 
     dist_cell_desc(c_child) = dist_cell_desc(c_num_edges)
     dist_cell_desc(c_child)%a_rank = 2

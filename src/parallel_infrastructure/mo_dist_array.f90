@@ -103,6 +103,11 @@ MODULE ppm_distributed_array
     INTEGER(mpi_address_kind), ALLOCATABLE :: offset(:)
   END TYPE dm_array_cache_entry
 
+  TYPE dtype_info
+    LOGICAL :: is_basic_type
+    INTEGER(mpi_address_kind) :: extent
+  END TYPE dtype_info
+
   !> dist_mult_array describes a global array where each rank only
   !! holds a part of the whole and this object can be used to access values
   !! stored on other ranks.
@@ -129,7 +134,7 @@ MODULE ppm_distributed_array
     !> synchronization model (passive or active target)
     INTEGER :: sync_mode
     !> base extent of datatype of each sub-array, shape = (/ num_sub_arrays /)
-    INTEGER(mpi_address_kind), ALLOCATABLE :: dt_extent(:)
+    TYPE(dtype_info), ALLOCATABLE :: dt_info(:)
     !> stamp of most recent remote access
     INTEGER :: access_stamp, valid_stamp
     !> maximal window size over all members
@@ -270,7 +275,7 @@ CONTAINS
     TYPE(dist_mult_array) :: dm_array
 
     INTEGER :: ierror, num_sub_arrays, max_sub_array_rank, &
-         comm_rank, comm_size, i, rank
+         comm_rank, comm_size, i, rank, dtype_prev
     INTEGER(mpi_address_kind) :: remote_win_size, max_remote_win_size
     INTEGER :: cache_size_, sync_mode_, win_create_info
 
@@ -294,7 +299,7 @@ CONTAINS
     ALLOCATE(dm_array%sub_arrays_global_desc(num_sub_arrays), &
          dm_array%local_chunks(max_sub_array_rank, num_sub_arrays, &
          0:comm_size-1), &
-         dm_array%dt_extent(num_sub_arrays))
+         dm_array%dt_info(num_sub_arrays))
     dm_array%sub_arrays_global_desc = sub_arrays
     CALL mpi_comm_rank(comm, comm_rank, ierror)
     CALL handle_mpi_error(ierror, comm, __LINE__)
@@ -339,7 +344,7 @@ CONTAINS
       ALLOCATE(dm_array%cache(0)%offset(num_sub_arrays))
     END IF
 
-    CALL get_extents
+    CALL get_extra_dtype_info
     CALL init_local_mem
 
     IF (sync_mode_ == sync_mode_passive_target) THEN
@@ -348,10 +353,16 @@ CONTAINS
       max_remote_win_size = 0_mpi_address_kind
       DO rank = 0, comm_size - 1
         remote_win_size = 0_mpi_address_kind
+        dtype_prev = mpi_datatype_null
         DO i = 1, num_sub_arrays
-          remote_win_size = align_addr(remote_win_size + dm_array%dt_extent(i) &
+          remote_win_size = align_addr(remote_win_size, &
+               &  dtype_prev, dm_array%sub_arrays_global_desc(i)%element_dt, &
+               &  dm_array%dt_info(i)) &
+               + dm_array%dt_info(i)%extent &
                * INT(extent_size(dm_array%local_chunks(1: &
-               sub_arrays(i)%a_rank, i, rank)), mpi_address_kind))
+               &                      sub_arrays(i)%a_rank, i, rank)), &
+               &     mpi_address_kind)
+          dtype_prev = dm_array%sub_arrays_global_desc(i)%element_dt
         END DO
         IF (remote_win_size > max_remote_win_size) &
              max_remote_win_size = remote_win_size
@@ -365,16 +376,18 @@ CONTAINS
     END IF
   CONTAINS
     !> get extent for each sub_array element datatype
-    SUBROUTINE get_extents
+    SUBROUTINE get_extra_dtype_info
       INTEGER :: i
       INTEGER(mpi_address_kind) :: lb
 
       DO i = 1, num_sub_arrays
         CALL mpi_type_get_extent(sub_arrays(i)%element_dt, lb, &
-             dm_array%dt_extent(i), ierror)
+             dm_array%dt_info(i)%extent, ierror)
         CALL handle_mpi_error(ierror, comm, __LINE__)
+        dm_array%dt_info(i)%is_basic_type &
+             = is_basic_type(sub_arrays(i)%element_dt, comm)
       END DO
-    END SUBROUTINE get_extents
+    END SUBROUTINE get_extra_dtype_info
 
     !> create memory to store local parts in
     SUBROUTINE init_local_mem
@@ -383,7 +396,7 @@ CONTAINS
       INTEGER, POINTER :: baseptr
 
       CALL compute_cache_addr(dm_array%cache(0), sub_arrays, local_chunk, &
-           dm_array%dt_extent, local_win_size)
+           dm_array%dt_info, local_win_size)
       CALL mpi_alloc_mem(local_win_size, mpi_info_null, &
            dm_array%cache(0)%base, ierror)
       CALL handle_mpi_error(ierror, comm, __LINE__)
@@ -426,7 +439,7 @@ CONTAINS
     dm_array%comm = mpi_comm_null
 
     DEALLOCATE(dm_array%sub_arrays_global_desc, dm_array%local_chunks, &
-         dm_array%dt_extent)
+         dm_array%dt_info)
 
   END SUBROUTINE dist_mult_array_delete
 
@@ -473,43 +486,89 @@ CONTAINS
 
   !> computes offset each sub-array is stored at in cache memory
   !! optionally computes total size of corresponding window area
-  SUBROUTINE compute_cache_addr(cache_entry, sub_arrays, chunk, dt_extent, &
+  SUBROUTINE compute_cache_addr(cache_entry, sub_arrays, chunk, dt_info, &
        win_size)
     TYPE(dm_array_cache_entry), INTENT(inout) :: cache_entry
     TYPE(global_array_desc), INTENT(in) :: sub_arrays(:)
     TYPE(extent), INTENT(in) :: chunk(:, :)
-    INTEGER(mpi_address_kind), INTENT(in) :: dt_extent(:)
+    TYPE(dtype_info), INTENT(in) :: dt_info(:)
     INTEGER(mpi_address_kind), OPTIONAL, INTENT(out) :: win_size
 
-    INTEGER :: i, num_sub_arrays
+    INTEGER :: i, num_sub_arrays, dtprev
     INTEGER(mpi_address_kind) :: win_size_
 
     num_sub_arrays = SIZE(sub_arrays)
     win_size_ = 0_mpi_address_kind
+    dtprev = mpi_datatype_null
     DO i = 1, num_sub_arrays
+      win_size_ = align_addr(win_size_, dtprev, &
+           sub_arrays(i)%element_dt, dt_info(i))
       cache_entry%offset(i) = win_size_
-      win_size_ = align_addr(win_size_ + dt_extent(i) &
+      win_size_ = win_size_ + dt_info(i)%extent &
            * INT(extent_size(chunk(1:sub_arrays(i)%a_rank, i)), &
-           &     mpi_address_kind))
+           &     mpi_address_kind)
+      dtprev = sub_arrays(i)%element_dt
     END DO
     IF (PRESENT(win_size)) win_size = win_size_
   END SUBROUTINE compute_cache_addr
 
-  FUNCTION align_addr(addr) RESULT(aligned_addr)
+  FUNCTION align_addr(addr, dtype_prev, dtype2align_for, &
+       dt_info) RESULT(aligned_addr)
     INTEGER(mpi_address_kind), INTENT(in) :: addr
+    INTEGER, INTENT(in) :: dtype_prev, dtype2align_for
+    TYPE(dtype_info), INTENT(in) :: dt_info
     INTEGER(mpi_address_kind) :: aligned_addr
 
-    ! round up to next multiple of ppm_maximum_alignment
-    IF (IAND(ppm_maximum_alignment, &
-         ppm_maximum_alignment - 1_ppm_address_kind) &
-         == 0_ppm_address_kind) THEN
-      aligned_addr = IAND(addr + ppm_maximum_alignment - 1, &
-           -ppm_maximum_alignment)
+    IF (dtype_prev == mpi_datatype_null .OR. dtype_prev == dtype2align_for) THEN
+      aligned_addr = addr
+    ELSE IF (dt_info%is_basic_type) THEN
+      ! align basic type to multiple of its extent
+      aligned_addr = ((addr + dt_info%extent - 1) &
+           / dt_info%extent) * dt_info%extent
     ELSE
-      aligned_addr = ((addr + ppm_maximum_alignment - 1) &
-           / ppm_maximum_alignment) * ppm_maximum_alignment
+      ! align non-basic type not at start of composite
+      ! round up to next multiple of ppm_maximum_alignment
+      IF (IAND(ppm_maximum_alignment, &
+           ppm_maximum_alignment - 1_ppm_address_kind) &
+           == 0_ppm_address_kind) THEN
+        aligned_addr = IAND(addr + ppm_maximum_alignment - 1, &
+             -ppm_maximum_alignment)
+      ELSE
+        aligned_addr = ((addr + ppm_maximum_alignment - 1) &
+             / ppm_maximum_alignment) * ppm_maximum_alignment
+      END IF
     END IF
   END FUNCTION align_addr
+
+  !> determine if type is a basic datatype
+  RECURSIVE FUNCTION is_basic_type(dtype, comm) RESULT(is_basic_type_)
+    INTEGER, INTENT(in) :: dtype
+    INTEGER :: comm
+    LOGICAL :: is_basic_type_
+    INTEGER(mpi_address_kind) :: cont_a(1)
+    INTEGER :: num_int, num_addr, num_dt, combiner, ierror, &
+         cont_i(1), cont_dt(1)
+    CALL mpi_type_get_envelope(dtype, num_int, num_addr, num_dt, combiner, &
+         ierror)
+    CALL handle_mpi_error(ierror, comm, __LINE__)
+    IF (combiner == mpi_combiner_named) THEN
+      is_basic_type_ = .TRUE.
+    ELSE IF (combiner == mpi_combiner_dup) THEN
+      CALL mpi_type_get_contents(dtype, num_int, num_addr, num_dt, &
+           cont_i, cont_a, cont_dt, ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+      is_basic_type_ = is_basic_type(cont_dt(1), comm)
+      CALL mpi_type_get_envelope(cont_dt(1), num_int, num_addr, num_dt, &
+           combiner, ierror)
+      CALL handle_mpi_error(ierror, comm, __LINE__)
+      IF (.NOT. combiner == mpi_combiner_named) THEN
+        CALL mpi_type_free(cont_dt(1), ierror)
+        CALL handle_mpi_error(ierror, comm, __LINE__)
+      END IF
+    ELSE
+      is_basic_type_ = .FALSE.
+    END IF
+  END FUNCTION is_basic_type
 
   !> retrieve TYPE(c_ptr) corresponding to a cached sub-array chunk
   SUBROUTINE dist_mult_array_cache_ptr_c(dm_array, sub_array_idx, &
@@ -656,7 +715,7 @@ CONTAINS
     ! create datatype for mpi_get
     CALL compute_cache_addr(dm_array%cache(oldest), &
          dm_array%sub_arrays_global_desc, &
-         dm_array%local_chunks(:, :, rank), dm_array%dt_extent)
+         dm_array%local_chunks(:, :, rank), dm_array%dt_info)
 
     num_sub_arrays = dm_array%num_sub_arrays
     DO i = 1, num_sub_arrays
@@ -1138,12 +1197,12 @@ CONTAINS
     src_comm_rank = dist_mult_array_coord2rank(dm_array, sub_array, coord)
     ALLOCATE(cache_entry%offset(dm_array%num_sub_arrays))
     CALL compute_cache_addr(cache_entry, dm_array%sub_arrays_global_desc, &
-         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_extent)
+         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_info)
     a_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
     coord_base(1:a_rank) &
          = dm_array%local_chunks(1:a_rank, sub_array, src_comm_rank)%first
     byte_offset = cache_entry%offset(sub_array)
-    ofs_factor = dm_array%dt_extent(sub_array)
+    ofs_factor = dm_array%dt_info(sub_array)%extent
     DO i = 1, a_rank
       byte_offset = byte_offset + (coord(i) - coord_base(i)) * ofs_factor
       ofs_factor = ofs_factor &
@@ -1551,12 +1610,12 @@ CONTAINS
     src_comm_rank = dist_mult_array_coord2rank(dm_array, sub_array, coord)
     ALLOCATE(cache_entry%offset(dm_array%num_sub_arrays))
     CALL compute_cache_addr(cache_entry, dm_array%sub_arrays_global_desc, &
-         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_extent)
+         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_info)
     a_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
     coord_base(1:a_rank) &
          = dm_array%local_chunks(1:a_rank, sub_array, src_comm_rank)%first
     byte_offset = cache_entry%offset(sub_array)
-    ofs_factor = dm_array%dt_extent(sub_array)
+    ofs_factor = dm_array%dt_info(sub_array)%extent
     DO i = 1, a_rank
       byte_offset = byte_offset + (coord(i) - coord_base(i)) * ofs_factor
       ofs_factor = ofs_factor &
@@ -1964,12 +2023,12 @@ CONTAINS
     src_comm_rank = dist_mult_array_coord2rank(dm_array, sub_array, coord)
     ALLOCATE(cache_entry%offset(dm_array%num_sub_arrays))
     CALL compute_cache_addr(cache_entry, dm_array%sub_arrays_global_desc, &
-         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_extent)
+         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_info)
     a_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
     coord_base(1:a_rank) &
          = dm_array%local_chunks(1:a_rank, sub_array, src_comm_rank)%first
     byte_offset = cache_entry%offset(sub_array)
-    ofs_factor = dm_array%dt_extent(sub_array)
+    ofs_factor = dm_array%dt_info(sub_array)%extent
     DO i = 1, a_rank
       byte_offset = byte_offset + (coord(i) - coord_base(i)) * ofs_factor
       ofs_factor = ofs_factor &
@@ -2377,12 +2436,12 @@ CONTAINS
     src_comm_rank = dist_mult_array_coord2rank(dm_array, sub_array, coord)
     ALLOCATE(cache_entry%offset(dm_array%num_sub_arrays))
     CALL compute_cache_addr(cache_entry, dm_array%sub_arrays_global_desc, &
-         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_extent)
+         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_info)
     a_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
     coord_base(1:a_rank) &
          = dm_array%local_chunks(1:a_rank, sub_array, src_comm_rank)%first
     byte_offset = cache_entry%offset(sub_array)
-    ofs_factor = dm_array%dt_extent(sub_array)
+    ofs_factor = dm_array%dt_info(sub_array)%extent
     DO i = 1, a_rank
       byte_offset = byte_offset + (coord(i) - coord_base(i)) * ofs_factor
       ofs_factor = ofs_factor &
@@ -2790,12 +2849,12 @@ CONTAINS
     src_comm_rank = dist_mult_array_coord2rank(dm_array, sub_array, coord)
     ALLOCATE(cache_entry%offset(dm_array%num_sub_arrays))
     CALL compute_cache_addr(cache_entry, dm_array%sub_arrays_global_desc, &
-         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_extent)
+         dm_array%local_chunks(:, :, src_comm_rank), dm_array%dt_info)
     a_rank = dm_array%sub_arrays_global_desc(sub_array)%a_rank
     coord_base(1:a_rank) &
          = dm_array%local_chunks(1:a_rank, sub_array, src_comm_rank)%first
     byte_offset = cache_entry%offset(sub_array)
-    ofs_factor = dm_array%dt_extent(sub_array)
+    ofs_factor = dm_array%dt_info(sub_array)%extent
     DO i = 1, a_rank
       byte_offset = byte_offset + (coord(i) - coord_base(i)) * ofs_factor
       ofs_factor = ofs_factor &
