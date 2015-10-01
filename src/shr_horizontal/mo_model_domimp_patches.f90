@@ -1530,10 +1530,13 @@ CONTAINS
       use_duplicated_connectivity)
     !
     ! Set verts%num_edges
-    DO ji = 1, patch_pre%n_patch_verts_g
-      patch_pre%verts%num_edges(ji) = &
-        COUNT(patch_pre%verts%cell(ji,1:max_verts_connectivity) /= 0)
+    CALL dist_mult_array_local_ptr(patch_pre%verts%num_edges, 1, local_ptr)
+    DO ji = patch_pre%verts%local_chunk(1,1)%first, &
+      patch_pre%verts%local_chunk(1,1)%first + &
+      patch_pre%verts%local_chunk(1,1)%size - 1
+      local_ptr(ji) = COUNT(patch_pre%verts%cell(ji,1:max_verts_connectivity) > 0)
     END DO
+    CALL dist_mult_array_expose(patch_pre%verts%num_edges)
 
     ! patch_pre%edges%cell(:,:)
     CALL nf(nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid))

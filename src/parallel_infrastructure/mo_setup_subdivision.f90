@@ -1599,7 +1599,9 @@ CONTAINS
         n_temp_cells = 0
         DO jv = 1, n_temp_vertices
           jv_ = temp_vertices(jv)
-          DO i = 1, wrk_p_patch_pre%verts%num_edges(jv_)
+          CALL dist_mult_array_get(wrk_p_patch_pre%verts%num_edges, 1, &
+            &                      (/jv_/), temp_num_edges)
+          DO i = 1, temp_num_edges
             jc = wrk_p_patch_pre%verts%cell(jv_, i)
             IF (jc > 0) THEN
               n_temp_cells = n_temp_cells + 1
@@ -1898,7 +1900,7 @@ CONTAINS
       ! compute ownership of vertices
       DO i = 1, SIZE(vertices)
         jv = vertices(i)
-        n = wrk_p_patch_pre%verts%num_edges(jv)
+        CALL dist_mult_array_get(wrk_p_patch_pre%verts%num_edges, 1, (/jv/), n)
         t_cells(1:n) = wrk_p_patch_pre%verts%cell(jv, 1:n)
         CALL insertion_sort(t_cells(1:n))
         DO j = 1, n

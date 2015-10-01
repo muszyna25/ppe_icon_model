@@ -729,7 +729,7 @@ MODULE mo_model_domain
     INTEGER, ALLOCATABLE :: cell(:,:)
 
     ! number of edges connected to vertex
-    INTEGER, ALLOCATABLE :: num_edges(:)
+    TYPE(dist_mult_array) :: num_edges
 
     ! longitude & latitude of vertex:
     TYPE(t_geographical_coordinates), ALLOCATABLE :: vertex(:)
