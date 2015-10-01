@@ -2050,7 +2050,7 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER          :: i,k
-    REAL(wp)         :: q_c, x_c, nu_c, n_c, k_a, x_s, au
+    REAL(wp)         :: q_c, x_c, nu_c, n_c, k_a, x_s_i, au
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -2058,7 +2058,7 @@ CONTAINS
     kend   = ik_slice(4)
 
     nu_c = 9.59
-    x_s  = cloud%x_max
+    x_s_i = 1.0_wp / cloud%x_max
     k_a  = 6.0d+25 * nu_c**(-1.7)
 
     !..Parameterization of Beheng (1994)
@@ -2075,9 +2075,9 @@ CONTAINS
              au = k_a * (x_c*1e3)**(3.3) * (q_c*1e-3)**(1.4) * dt * 1e3
              au = MIN(q_c,au)
 
-             rain%n(i,k)  = rain%n(i,k)  + au / x_s
+             rain%n(i,k)  = rain%n(i,k)  + au * x_s_i
              rain%q(i,k)  = rain%q(i,k)  + au
-             cloud%n(i,k) = cloud%n(i,k) - au / x_s * 2.0
+             cloud%n(i,k) = cloud%n(i,k) - au * x_s_i * 2.0
              cloud%q(i,k) = cloud%q(i,k) - au
 
           ENDIF
