@@ -958,6 +958,7 @@ if [[ "x$use_openmp" = xyes ]] ; then
    FFLAGS="${FFLAGS} ${OMPFLAG}"
    F77FLAGS="${F77FLAGS} ${OMPFLAG}"
    LDFLAGS="${LDFLAGS} ${OMPFLAG}"
+   CFLAGS="${CFLAGS} ${OMPFLAG}"
 fi
 
 #------------------------
