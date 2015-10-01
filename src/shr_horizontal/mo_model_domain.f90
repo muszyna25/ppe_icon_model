@@ -335,7 +335,7 @@ MODULE mo_model_domain
 
     ! indices of child triangles:
     ! index2=1,4
-    INTEGER, ALLOCATABLE :: child(:,:)
+    TYPE(dist_mult_array) :: child
     ! physical domain ID of triangles
     ! (may differ from the "normal" domain ID in case of domain merging):
     INTEGER, ALLOCATABLE :: phys_id(:)

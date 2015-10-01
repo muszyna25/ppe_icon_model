@@ -364,7 +364,7 @@ CONTAINS
 
     ! local variables
 
-    INTEGER :: jg, jb, jl, nlen, ip
+    INTEGER :: jg, jb, jl, nlen, ip, i
 
     !-----------------------------------------------------------------------
 
@@ -385,10 +385,10 @@ CONTAINS
                     patch%cells%parent_glb_blk(jl,jb))
         jg = patch%cells%decomp_info%glb_index(idx_1d(jl, jb))
 
-        IF(parent_patch_pre%cells%child(ip,1) == jg ) patch%cells%pc_idx(jl,jb) = 1
-        IF(parent_patch_pre%cells%child(ip,2) == jg ) patch%cells%pc_idx(jl,jb) = 2
-        IF(parent_patch_pre%cells%child(ip,3) == jg ) patch%cells%pc_idx(jl,jb) = 3
-        IF(parent_patch_pre%cells%child(ip,4) == jg ) patch%cells%pc_idx(jl,jb) = 4
+        DO i = 1, 4
+          CALL dist_mult_array_get(parent_patch_pre%cells%child, 1, (/ip, i/), jc)
+          IF (jc == jg) patch%cells%pc_idx(jl,jb) = i
+        END DO
 !          IF(patch%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
 
       ENDDO
@@ -999,10 +999,11 @@ CONTAINS
 
       wrk_p_patch%cells%parent_glb_idx(jl,jb)  = idx_no(jc_p)
       wrk_p_patch%cells%parent_glb_blk(jl,jb)  = blk_no(jc_p)
-      wrk_p_patch%cells%child_idx(jl,jb,1:4) = &
-        idx_no(wrk_p_patch_pre%cells%child(jg,1:4))
-      wrk_p_patch%cells%child_blk(jl,jb,1:4) = &
-        blk_no(wrk_p_patch_pre%cells%child(jg,1:4))
+      DO i = 1, 4
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%child, 1, (/jg, i/), jc)
+        wrk_p_patch%cells%child_idx(jl,jb,i) = idx_no(jc)
+        wrk_p_patch%cells%child_blk(jl,jb,i) = blk_no(jc)
+      END DO
 
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
         &                      (/wrk_p_patch%cells%decomp_info%glb_index(j)/), &

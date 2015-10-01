@@ -1036,7 +1036,7 @@ CONTAINS
     INTEGER :: ji
     INTEGER :: jc, ic
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id, dim_idxlist
-    INTEGER, POINTER :: local_ptr(:)
+    INTEGER, POINTER :: local_ptr(:), local_ptr_2d(:,:)
     !-----------------------------------------------------------------------
 
     ! set dummy values to zero
@@ -1344,8 +1344,8 @@ CONTAINS
     ! nesting/lateral boundary indexes
     IF (max_cell_connectivity == 3) THEN ! triangular grid
 
-      CALL nf(nf_inq_varid(ncid_grf, 'parent_cell_index', varid))
       ! patch_pre%cells%parent
+      CALL nf(nf_inq_varid(ncid_grf, 'parent_cell_index', varid))
       CALL dist_mult_array_local_ptr(patch_pre%cells%parent, 1, local_ptr)
       CALL nf(nf_get_vara_int(ncid_grf, varid, &
         &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
@@ -1354,7 +1354,12 @@ CONTAINS
       CALL dist_mult_array_expose(patch_pre%cells%parent)
       ! patch_pre%cells%child(:,:)
       CALL nf(nf_inq_varid(ncid_grf, 'child_cell_index', varid))
-      CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%cells%child(:,:)))
+      CALL dist_mult_array_local_ptr(patch_pre%cells%child, 1, local_ptr_2d)
+      CALL nf(nf_get_vara_int(ncid_grf, varid, &
+        &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
+        &                     (/patch_pre%cells%local_chunk(1,1)%size, 4/), &
+        &                     local_ptr_2d))
+      CALL dist_mult_array_expose(patch_pre%cells%child)
 
     ELSE
       CALL message ('read_patch',&
