@@ -358,11 +358,22 @@ MODULE mo_2mom_mcrph_main
   INTEGER,  PARAMETER :: snow_cmu5 = 1           ! exponent
 
 
+    TYPE(particle_rain), PARAMETER :: rainSBBcoeffs = particle_rain( &
+         &     9.292000,  & !..alfa
+         &     9.623000,  & !..beta
+         &     6.222d+2,  & !..gama
+         &     6.000000,  & !..cmu0
+         &     3.000d+1,  & !..cmu1
+         &     1.000d+3,  & !..cmu2
+         &     1.100d-3,  & !..cmu3 = D_br
+         &     1.000000,  & !..cmu4
+         &     2 )          !..cmu5
+
   REAL(wp), PARAMETER :: pi6 = pi/6.0_wp, pi8 = pi/8.0_wp ! more pieces of pi
 
   PUBLIC :: atmosphere, particle
 
-  PUBLIC :: init_2mom_scheme, clouds_twomoment
+  PUBLIC :: init_2mom_scheme, init_2mom_scheme_once, clouds_twomoment
 
   PUBLIC :: sedi_vel_rain, sedi_vel_sphere, sedi_icon_rain,sedi_icon_sphere
 
@@ -381,15 +392,8 @@ CONTAINS
   ! classes according to predefined parameter sets (see above).
   !*******************************************************************************
 
-  SUBROUTINE init_2mom_scheme(cloud_type,cloud,rain,ice,snow,graupel,hail,iinit)
-    IMPLICIT NONE
-    INTEGER, INTENT(in)  :: cloud_type
-    TYPE(particle)       :: cloud, rain, ice, snow, graupel, hail
-    INTEGER, OPTIONAL    :: iinit ! currently just
-
-    INTEGER :: wolke_typ
-
-    REAL(wp), DIMENSION(1:1) :: q_r,x_r,q_c,vn_rain_min, vq_rain_min, vn_rain_max, vq_rain_max
+  SUBROUTINE init_2mom_scheme(cloud,rain,ice,snow,graupel,hail)
+    TYPE(particle), INTENT(out) :: cloud, rain, ice, snow, graupel, hail
 
     !..Pre-defined particle types
     TYPE(particle), PARAMETER :: graupelhail_cosmo5 = particle( & ! graupelhail2test4
@@ -562,141 +566,121 @@ CONTAINS
          &        null(),    & !..q pointer
          &        null() )     !..rho_v pointer
 
-    TYPE(particle_rain), PARAMETER :: rainSBBcoeffs = particle_rain( &
-         &     9.292000,  & !..alfa
-         &     9.623000,  & !..beta
-         &     6.222d+2,  & !..gama
-         &     6.000000,  & !..cmu0
-         &     3.000d+1,  & !..cmu1
-         &     1.000d+3,  & !..cmu2
-         &     1.100d-3,  & !..cmu3 = D_br
-         &     1.000000,  & !..cmu4
-         &     2 )          !..cmu5
+    cloud   = cloud_nue1mue1
+    rain    = rainSBB
+    ice     = ice_cosmo5
+    snow    = snowSBB
+    graupel = graupelhail_cosmo5
+    hail    = hail_cosmo5
 
+  END SUBROUTINE init_2mom_scheme
 
+  SUBROUTINE init_2mom_scheme_once(cloud_type)
+    INTEGER, INTENT(in)  :: cloud_type
 
-    wolke_typ = cloud_type
+    CHARACTER(len=*), PARAMETER :: routine = 'init_2mom_scheme_once'
+    REAL(wp), DIMENSION(1:1) :: q_r,x_r,q_c,vn_rain_min, vq_rain_min, vn_rain_max, vq_rain_max
+    TYPE(particle) :: cloud, rain, ice, snow, graupel, hail
 
-    ice_typ   = wolke_typ/1000           ! (0) no ice, (1) no hail (2) with hail
-    nuc_i_typ = MOD(wolke_typ/100,10)    ! choice of ice nucleation, see ice_nucleation_homhet()
-    nuc_c_typ = MOD(wolke_typ/10,10)     ! choice of CCN assumptions, see cloud_nucleation()
-    auto_typ  = MOD(wolke_typ,10)        ! choice of warm rain scheme, see clouds_twomoment()
+    CALL init_2mom_scheme(cloud,rain,ice,snow,graupel,hail)
 
-    IF (cloud_type < 2000) THEN
-      ! Without hail class:
-      cloud   = cloud_nue1mue1
-      rain    = rainSBB
-      ice     = ice_cosmo5
-      snow    = snowSBB
-      graupel = graupelhail_cosmo5
-      ! Dummy value for hail:
-      hail    = hail_cosmo5
-    ELSE
-      ! Including hail class:
-      cloud   = cloud_nue1mue1
-      rain    = rainSBB
-      ice     = ice_cosmo5
-      snow    = snowSBB
-      graupel = graupelhail_cosmo5
-      hail    = hail_cosmo5
-    END IF
+    ice_typ   = cloud_type/1000           ! (0) no ice, (1) no hail (2) with hail
+    nuc_i_typ = MOD(cloud_type/100,10)    ! choice of ice nucleation, see ice_nucleation_homhet()
+    nuc_c_typ = MOD(cloud_type/10,10)     ! choice of CCN assumptions, see cloud_nucleation()
+    auto_typ  = MOD(cloud_type,10)        ! choice of warm rain scheme, see clouds_twomoment()
 
     rain_coeffs = rainSBBcoeffs
 
-    IF (PRESENT(iinit)) THEN
+    CALL message(TRIM(routine), "calculate run-time coefficients")
+    WRITE(txt,'(A,I10)')   "  cloud_type = ",cloud_type ; CALL message(routine,TRIM(txt))
 
-       CALL message(TRIM(routine), "init_2mom_scheme: calculate run-time coefficients")
-       WRITE(txt,'(A,I10)')   "  cloud_type = ",cloud_type ; CALL message(routine,TRIM(txt))
+    ! initialize bulk sedimentation velocities
+    ! calculates coeff_alfa_n, coeff_alfa_q, and coeff_lambda
+    call init_sedi_vel(ice,ice_coeffs)
+    call init_sedi_vel(snow,snow_coeffs)
+    call init_sedi_vel(graupel,graupel_coeffs)
+    call init_sedi_vel(hail,hail_coeffs)
 
-       ! initialize bulk sedimentation velocities
-       ! calculates coeff_alfa_n, coeff_alfa_q, and coeff_lambda
-       call init_sedi_vel(ice,ice_coeffs)
-       call init_sedi_vel(snow,snow_coeffs)
-       call init_sedi_vel(graupel,graupel_coeffs)
-       call init_sedi_vel(hail,hail_coeffs)
+    ! look-up table and parameters for rain_freeze_gamlook
+    rain_nm1 = (rain%nu+1.0)/rain%mu
+    rain_nm2 = (rain%nu+2.0)/rain%mu
+    rain_nm3 = (rain%nu+3.0)/rain%mu
+    CALL incgfct_lower_lookupcreate(rain_nm1, rain_ltable1, nlookup, nlookuphr_dummy)
+    CALL incgfct_lower_lookupcreate(rain_nm2, rain_ltable2, nlookup, nlookuphr_dummy)
+    CALL incgfct_lower_lookupcreate(rain_nm3, rain_ltable3, nlookup, nlookuphr_dummy)
+    rain_g1 = rain_ltable1%igf(rain_ltable1%n) ! ordinary gamma function of nm1 is the last value in table 1
+    rain_g2 = rain_ltable2%igf(rain_ltable2%n) ! ordinary gamma function of nm2 is the last value in table 2
 
-       ! look-up table and parameters for rain_freeze_gamlook
-       rain_nm1 = (rain%nu+1.0)/rain%mu
-       rain_nm2 = (rain%nu+2.0)/rain%mu
-       rain_nm3 = (rain%nu+3.0)/rain%mu
-       CALL incgfct_lower_lookupcreate(rain_nm1, rain_ltable1, nlookup, nlookuphr_dummy)
-       CALL incgfct_lower_lookupcreate(rain_nm2, rain_ltable2, nlookup, nlookuphr_dummy)
-       CALL incgfct_lower_lookupcreate(rain_nm3, rain_ltable3, nlookup, nlookuphr_dummy)
-       rain_g1 = rain_ltable1%igf(rain_ltable1%n) ! ordinary gamma function of nm1 is the last value in table 1
-       rain_g2 = rain_ltable2%igf(rain_ltable2%n) ! ordinary gamma function of nm2 is the last value in table 2
+    ! table and parameters for graupel_hail_conv_wet_gamlook
+    graupel_nm1 = (graupel%nu+1.0)/graupel%mu
+    graupel_nm2 = (graupel%nu+2.0)/graupel%mu
+    CALL incgfct_lower_lookupcreate(graupel_nm1, graupel_ltable1, nlookup, nlookuphr_dummy)
+    CALL incgfct_lower_lookupcreate(graupel_nm2, graupel_ltable2, nlookup, nlookuphr_dummy)
+    graupel_g1 = graupel_ltable1%igf(graupel_ltable1%n) ! ordinary gamma function of nm1 is the last value in table 1
+    graupel_g2 = graupel_ltable2%igf(graupel_ltable2%n) ! ordinary gamma function of nm2 is the last value in table 2
 
-       ! table and parameters for graupel_hail_conv_wet_gamlook
-       graupel_nm1 = (graupel%nu+1.0)/graupel%mu
-       graupel_nm2 = (graupel%nu+2.0)/graupel%mu
-       CALL incgfct_lower_lookupcreate(graupel_nm1, graupel_ltable1, nlookup, nlookuphr_dummy)
-       CALL incgfct_lower_lookupcreate(graupel_nm2, graupel_ltable2, nlookup, nlookuphr_dummy)
-       graupel_g1 = graupel_ltable1%igf(graupel_ltable1%n) ! ordinary gamma function of nm1 is the last value in table 1
-       graupel_g2 = graupel_ltable2%igf(graupel_ltable2%n) ! ordinary gamma function of nm2 is the last value in table 2
+    ! other options for mue-D-relation of raindrops (for sensitivity studies)
+    IF (mu_Dm_rain_typ.EQ.0) THEN
+      !..constant mue value
+      rain_coeffs%cmu0 = 0.0
+      rain_coeffs%cmu1 = 0.0
+      rain_coeffs%cmu2 = 1.0
+      rain_coeffs%cmu3 = 1.0
+      rain_coeffs%cmu4 = (rain%nu+1.0_wp)/rain%b_geo - 1.0_wp ! <-- this is the (constant) mue value
+      rain_coeffs%cmu5 = 1
+      rain_gfak = -1.0  ! In this case gamma = 1 in rain_evaporation
+    ELSEIF (mu_Dm_rain_typ.EQ.1) THEN
+      !..Axel's mu-Dm-relation for raindrops based on 1d-bin model
+      !  (this is the default and the cmus are set in the particle constructor)
+      rain_gfak = 1.0
+    ELSEIF (mu_Dm_rain_typ.EQ.2) THEN
+      !..Modifikation of mu-Dm-relation for experiments with increased evaporation
+      rain_coeffs%cmu0 = 11.0            ! instead of 6.0
+      rain_coeffs%cmu1 = 30.0            !
+      rain_coeffs%cmu2 = 1.00d+3         !
+      rain_coeffs%cmu3 = 1.10d-3         !
+      rain_coeffs%cmu4 = 4.0             ! instead of 1.0
+      rain_coeffs%cmu5 = 2               !
+      rain_gfak = 0.5             ! instead of 1.0
+    ELSEIF (mu_Dm_rain_typ.EQ.3) THEN
+      !..Jason Milbrandts mu-Dm-relation'
+      rain_coeffs%cmu0 = 19.0           !
+      rain_coeffs%cmu1 = 19.0           ! Jason Milbrandt's mu-Dm-relation for rain_coeffs
+      rain_coeffs%cmu2 = 0.60d+3        ! (Milbrandt&Yau 2005, JAS, Table 1)
+      rain_coeffs%cmu3 = 1.80d-3        !
+      rain_coeffs%cmu4 = 17.0           !
+      rain_coeffs%cmu5 = 1              !
+      rain_gfak = -1.0  ! In this case gamma = 1 in rain_evaporation
+    ENDIF
 
-       ! other options for mue-D-relation of raindrops (for sensitivity studies)
-       IF (mu_Dm_rain_typ.EQ.0) THEN
-          !..constant mue value
-          rain_coeffs%cmu0 = 0.0
-          rain_coeffs%cmu1 = 0.0
-          rain_coeffs%cmu2 = 1.0
-          rain_coeffs%cmu3 = 1.0
-          rain_coeffs%cmu4 = (rain%nu+1.0_wp)/rain%b_geo - 1.0_wp ! <-- this is the (constant) mue value
-          rain_coeffs%cmu5 = 1
-          rain_gfak = -1.0  ! In this case gamma = 1 in rain_evaporation
-       ELSEIF (mu_Dm_rain_typ.EQ.1) THEN
-          !..Axel's mu-Dm-relation for raindrops based on 1d-bin model
-          !  (this is the default and the cmus are set in the particle constructor)
-          rain_gfak = 1.0
-       ELSEIF (mu_Dm_rain_typ.EQ.2) THEN
-          !..Modifikation of mu-Dm-relation for experiments with increased evaporation
-          rain_coeffs%cmu0 = 11.0            ! instead of 6.0
-          rain_coeffs%cmu1 = 30.0            !
-          rain_coeffs%cmu2 = 1.00d+3         !
-          rain_coeffs%cmu3 = 1.10d-3         !
-          rain_coeffs%cmu4 = 4.0             ! instead of 1.0
-          rain_coeffs%cmu5 = 2               !
-          rain_gfak = 0.5             ! instead of 1.0
-       ELSEIF (mu_Dm_rain_typ.EQ.3) THEN
-          !..Jason Milbrandts mu-Dm-relation'
-          rain_coeffs%cmu0 = 19.0           !
-          rain_coeffs%cmu1 = 19.0           ! Jason Milbrandt's mu-Dm-relation for rain_coeffs
-          rain_coeffs%cmu2 = 0.60d+3        ! (Milbrandt&Yau 2005, JAS, Table 1)
-          rain_coeffs%cmu3 = 1.80d-3        !
-          rain_coeffs%cmu4 = 17.0           !
-          rain_coeffs%cmu5 = 1              !
-          rain_gfak = -1.0  ! In this case gamma = 1 in rain_evaporation
-       ENDIF
-
-       CALL message(TRIM(routine), "init_2mom_scheme: rain coeffs and sedi vel")
-       q_r = 1.0e-3_wp
-       WRITE (txt,'(2A)') "    name  = ",rain%name ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     alfa  = ",rain_coeffs%alfa ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     beta  = ",rain_coeffs%beta ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     gama  = ",rain_coeffs%gama ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     cmu0  = ",rain_coeffs%cmu0 ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     cmu1  = ",rain_coeffs%cmu1 ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     cmu2  = ",rain_coeffs%cmu2 ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     cmu3  = ",rain_coeffs%cmu3 ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     cmu4  = ",rain_coeffs%cmu4 ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,I10)')   "     cmu5  = ",rain_coeffs%cmu5 ; CALL message(routine,TRIM(txt))
-       x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_min,vq_rain_min,1,1)
-       x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_max,vq_rain_max,1,1)
-       WRITE(txt,'(A)')       "    out-of-cloud: " ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     vn_rain_min  = ",vn_rain_min ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     vn_rain_max  = ",vn_rain_max ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     vq_rain_min  = ",vq_rain_min ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     vq_rain_max  = ",vq_rain_max ; CALL message(routine,TRIM(txt))
-       q_c = 1e-3_wp
-       x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_min,vq_rain_min,1,1,q_c)
-       x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_max,vq_rain_max,1,1,q_c)
-       WRITE(txt,'(A)')       "    in-cloud: " ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     vn_rain_min  = ",vn_rain_min ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     vn_rain_max  = ",vn_rain_max ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     vq_rain_min  = ",vq_rain_min ; CALL message(routine,TRIM(txt))
-       WRITE(txt,'(A,D10.3)') "     vq_rain_max  = ",vq_rain_max ; CALL message(routine,TRIM(txt))
-    END IF
-
-  END SUBROUTINE init_2mom_scheme
+    CALL message(TRIM(routine), "init_2mom_scheme: rain coeffs and sedi vel")
+    q_r = 1.0e-3_wp
+    WRITE (txt,'(2A)') "    name  = ",rain%name ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     alfa  = ",rain_coeffs%alfa ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     beta  = ",rain_coeffs%beta ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     gama  = ",rain_coeffs%gama ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     cmu0  = ",rain_coeffs%cmu0 ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     cmu1  = ",rain_coeffs%cmu1 ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     cmu2  = ",rain_coeffs%cmu2 ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     cmu3  = ",rain_coeffs%cmu3 ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     cmu4  = ",rain_coeffs%cmu4 ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,I10)')   "     cmu5  = ",rain_coeffs%cmu5 ; CALL message(routine,TRIM(txt))
+    x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_min,vq_rain_min,1,1)
+    x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_max,vq_rain_max,1,1)
+    WRITE(txt,'(A)')       "    out-of-cloud: " ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     vn_rain_min  = ",vn_rain_min ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     vn_rain_max  = ",vn_rain_max ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     vq_rain_min  = ",vq_rain_min ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     vq_rain_max  = ",vq_rain_max ; CALL message(routine,TRIM(txt))
+    q_c = 1e-3_wp
+    x_r = rain%x_min ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_min,vq_rain_min,1,1,q_c)
+    x_r = rain%x_max ; CALL sedi_vel_rain(rain,rain_coeffs,q_r,x_r,vn_rain_max,vq_rain_max,1,1,q_c)
+    WRITE(txt,'(A)')       "    in-cloud: " ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     vn_rain_min  = ",vn_rain_min ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     vn_rain_max  = ",vn_rain_max ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     vq_rain_min  = ",vq_rain_min ; CALL message(routine,TRIM(txt))
+    WRITE(txt,'(A,D10.3)') "     vq_rain_max  = ",vq_rain_max ; CALL message(routine,TRIM(txt))
+  END SUBROUTINE init_2mom_scheme_once
 
   !*******************************************************************************
   ! Main subroutine of the two-moment microphysics

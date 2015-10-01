@@ -64,7 +64,7 @@ USE mo_2mom_mcrph_main,     ONLY:                              &
      &                       atmosphere, particle,             &
      &                       rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
      &                       ccn_coeffs, in_coeffs,                     &
-     &                       init_2mom_scheme,                          &
+     &                       init_2mom_scheme, init_2mom_scheme_once,   &
      &                       qnc_const, q_crit
 
 USE mo_2mom_mcrph_util, ONLY:                            &
@@ -290,7 +290,7 @@ CONTAINS
     END DO
 
     ! .. set the particle types, but no calculations
-    CALL init_2mom_scheme(cloud_type,cloud,rain,ice,snow,graupel,hail)
+    CALL init_2mom_scheme(cloud,rain,ice,snow,graupel,hail)
 
     ! .. convert to densities and set pointerns to two-moment module
     !    (pointers are used to avoid passing everything explicitly by argument and
@@ -896,7 +896,6 @@ CONTAINS
          & N_cn0,z0_nccn,z1e_nccn,    &
          & N_in0,z0_nin,z1e_nin
 
-    TYPE(particle) :: cloud, rain, ice, snow, graupel, hail
     INTEGER        :: unitnr
 
     IF (msg_level>5) CALL message (TRIM(routine), " Initialization of two-moment microphysics scheme")
@@ -908,6 +907,9 @@ CONTAINS
 
     IF (msg_level>dbg_level) CALL message (TRIM(routine), " finished init_dmin_wetgrowth")
 
+    ! .. set the particle types, and calculate some coefficients
+    CALL init_2mom_scheme_once(cloud_type)
+
     IF (PRESENT(N_cn0)) THEN
        ccn_type   = ccn_type_gscp5
        cloud_type = cloud_type_default_gscp5 + 10 * ccn_type
@@ -915,9 +917,6 @@ CONTAINS
        ccn_type   = ccn_type_gscp4
        cloud_type = cloud_type_default_gscp4 + 10 * ccn_type
     END IF
-
-    ! .. set the particle types, and calculate some coefficients
-    CALL init_2mom_scheme(cloud_type,cloud,rain,ice,snow,graupel,hail,1)
 
     IF (present(N_cn0)) THEN
 
