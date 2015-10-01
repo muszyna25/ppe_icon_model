@@ -6466,8 +6466,8 @@ CONTAINS
           ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
           c_nv(i) = -v_nv(i) * adz(i,k) * dt
           c_qv(i) = -v_qv(i) * adz(i,k) * dt
+          cmax_temp = MAX(cmax_temp, c_qv(i))
         END DO
-        cmax_temp = MAX(cmax_temp,MAXVAL(c_qv))
 
         kk = k
         s_nv = 0._wp
