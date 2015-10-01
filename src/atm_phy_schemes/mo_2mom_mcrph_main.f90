@@ -225,7 +225,6 @@ MODULE mo_2mom_mcrph_main
   ! Physical parameters and coefficients which occur only in the two-moment scheme
 
   ! ... some physical parameters not found in ICON
-  REAL(wp), PARAMETER :: rho0    = 1.225_wp     !..Norm-Luftdichte
   REAL(wp), PARAMETER :: T_f     = 233.0_wp     !..Bei T < T_f kein Fl.wasser
   REAL(wp), PARAMETER :: rho_ice = 916.7_wp     !..Materialdichte von Eis
 
@@ -248,10 +247,6 @@ MODULE mo_2mom_mcrph_main
        &    T_mult_min = 265.0_wp, &    !..Minimale Temp. Splintering
        &    T_mult_max = 270.0_wp, &    !..Maximale Temp. Splintering
        &    T_mult_opt = 268.0_wp       !..Optimale Temp. Splintering
-
-  ! .. exponents for simple height dependency of terminal fall velocity
-  REAL(wp), PARAMETER :: rho_vel    = 0.4e0_wp    !..exponent for density correction
-  REAL(wp), PARAMETER :: rho_vel_c  = 0.2e0_wp    !..for cloud droplets
 
   ! .. Phillips et al. ice nucleation scheme, see ice_nucleation_homhet() for more details
   REAL(wp) ::                         &

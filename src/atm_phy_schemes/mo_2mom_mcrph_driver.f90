@@ -65,7 +65,6 @@ USE mo_2mom_mcrph_main,     ONLY:                              &
      &                       atmosphere, particle,             &
      &                       rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
      &                       dt_twomoment => dt,               &
-     &                       rho_vel, rho_vel_c, rho0,         &
      &                       ccn_coeffs, in_coeffs,                     &
      &                       ltabdminwgg,                               &
      &                       init_2mom_scheme,                          &
@@ -83,6 +82,11 @@ PUBLIC
 
 CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_driver'
 INTEGER,          PARAMETER :: dbg_level = 25                   ! level for debug prints
+
+  ! .. exponents for simple height dependency of terminal fall velocity
+  REAL(wp), PARAMETER :: rho_vel    = 0.4e0_wp    !..exponent for density correction
+  REAL(wp), PARAMETER :: rho_vel_c  = 0.2e0_wp    !..for cloud droplets
+  REAL(wp), PARAMETER :: rho0    = 1.225_wp     !..Norm-Luftdichte
 
 INTEGER :: cloud_type, ccn_type
 
