@@ -337,7 +337,10 @@ MODULE mo_model_domain
        c_child = 3, &
        ! physical domain ID of triangles
        ! (may differ from the "normal" domain ID in case of domain merging):
-       c_phys_id = 4
+       c_phys_id = 4, &
+       ! indices of triangles next to each cell:
+       ! index2=1,3
+       c_neighbor = 5
 
   TYPE t_pre_grid_cells
 
@@ -346,10 +349,6 @@ MODULE mo_model_domain
 
     INTEGER :: max_connectivity
     TYPE(dist_mult_array) :: dist
-
-    ! indices of triangles next to each cell:
-    ! index2=1,3
-    TYPE(dist_mult_array) :: neighbor
 
     ! indices of edges of triangle:
     ! index2=1,3

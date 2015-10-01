@@ -35,7 +35,7 @@ MODULE mo_setup_subdivision
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
-       c_num_edges, c_parent, c_child, c_phys_id
+       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -1071,7 +1071,7 @@ CONTAINS
       jg = wrk_p_patch%cells%decomp_info%glb_index(j)
 
       DO i=1,wrk_p_patch%geometry_info%cell_type
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%neighbor,1,(/jg,i/),jng)
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_neighbor,(/jg,i/),jng)
 !CDIR IEXPAND
         CALL get_local_idx(wrk_p_patch%cells%decomp_info, jng, jc)
 
@@ -2956,7 +2956,7 @@ CONTAINS
 
     CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_num_edges, &
       &                            cells_num_edges_local_ptr)
-    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%neighbor, 1, &
+    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_neighbor, &
       &                            cells_neighbor_local_ptr)
 
     DO jd = 1, num_physdom
@@ -3034,7 +3034,7 @@ CONTAINS
     CALL dist_mult_array_local_ptr(dist_cell_owner, 1, owners_local_ptr)
     CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_num_edges, &
       &                            cells_num_edges_local_ptr)
-    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%neighbor, 1, &
+    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_neighbor, &
       &                            cells_neighbor_local_ptr)
 
     DO jd = 1, num_physdom
