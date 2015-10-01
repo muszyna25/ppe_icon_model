@@ -48,7 +48,7 @@ MODULE mo_radiation
 
   USE mo_model_domain,         ONLY: t_patch
 
-  USE mo_math_constants,       ONLY: pi
+  USE mo_math_constants,       ONLY: pi, rpi
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
     &                                amco2, amch4, amn2o, amo3, amo2, &
     &                                stbo,  vpp_ch4, vpp_n2o
@@ -162,7 +162,7 @@ CONTAINS
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
       ENDDO
-      IF (PRESENT(zsct)) zsct = tsi_radt/pi ! because sun is always in local noon, the TSI needs to be
+      IF (PRESENT(zsct)) zsct = tsi_radt * rpi ! because sun is always in local noon, the TSI needs to be
       ! scaled by 1/pi to get the correct global mean insolation
     ELSEIF (izenith == 2) THEN
     ! circular non-seasonal orbit,
@@ -172,7 +172,7 @@ CONTAINS
     ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
       DO jb = 1, pt_patch%nblks_c
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
-        zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )/pi
+        zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat ) * rpi
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
     ELSEIF (izenith == 3) THEN  !Second: case izenith==3 (time (but no date) needed)
@@ -405,7 +405,7 @@ CONTAINS
       ! at 07:14:15 or 16:45:45 local time (--> sin(time of day)=1/pi )
       DO jb = 1, pt_patch%nblks_c
         IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
-        zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )/pi
+        zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat ) * rpi
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
       RETURN
@@ -427,7 +427,7 @@ CONTAINS
         ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = -COS( pt_patch%cells%center(1:ie,jb)%lat ) &
           & *COS( pt_patch%cells%center(1:ie,jb)%lon                &
-          &      +zstunde/24._wp* 2._wp*pi )
+          &      +zstunde * (1._wp/24._wp) * 2._wp * pi )
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
 
