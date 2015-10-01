@@ -366,6 +366,7 @@ export MP_BULK_MIN_MSG_SIZE=128k
 export MP_RFIFO_SIZE=4M
 export MP_SHM_ATTACH_THRESH=500000
 export LAPI_DEBUG_STRIPE_SEND_FLIP=8
+replicate_grid=2147483647
 #========================================
 
 run_model()
