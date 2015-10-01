@@ -238,11 +238,7 @@ CONTAINS
     ! inverse of vertical layer thickness
     rdz(its:ite,:) = 1._wp / dz(its:ite,:)
 
-    IF (PRESENT(nccn)) THEN
-       lprogccn = .true.
-    ELSE
-       lprogccn = .false.
-    ENDIF
+    lprogccn = PRESENT(nccn)
     lprogin = PRESENT(ninpot)
 
     IF (clipping) THEN
