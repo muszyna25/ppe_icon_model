@@ -4265,8 +4265,6 @@ CONTAINS
                 graupel%q(i,k) = graupel%q(i,k) - shed_q
                 rain%q(i,k)    = rain%q(i,k)    + shed_q
                 rain%n(i,k)    = rain%n(i,k)    + shed_n
-             ELSE
-                shed_q = 0.0
              ENDIF
           ENDIF
        ENDDO
@@ -4392,10 +4390,7 @@ CONTAINS
               hail%q(i,k) = hail%q(i,k) - shed_q
               rain%q(i,k) = rain%q(i,k) + shed_q
               rain%n(i,k) = rain%n(i,k) + shed_n
-            ELSE
-              shed_q = 0.0
             ENDIF
-
           ENDIF
        ENDDO
     ENDDO
