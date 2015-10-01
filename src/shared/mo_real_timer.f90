@@ -107,8 +107,7 @@ MODULE mo_real_timer
   END TYPE t_srt
 
   ! thread-private part of timer
-  TYPE t_rt
-    SEQUENCE
+  TYPE, BIND(c) :: t_rt
 #ifdef __xlC__
     INTEGER  :: mark1(4)
 #else
