@@ -128,6 +128,7 @@ CONTAINS
     ! LOGICAL :: l_compute_grid
     INTEGER :: my_process_type, order_type_of_halos
     INTEGER, POINTER :: radiation_owner(:)
+    TYPE(dist_mult_array) :: dist_cell_owner
 
     CALL message(routine, 'start of domain decomposition')
 
@@ -313,10 +314,13 @@ CONTAINS
         order_type_of_halos = 1
       END SELECT
 
-      ! CALL divide_patch(p_patch(jg), p_patch_pre(jg), cell_owner, n_ghost_rows, l_compute_grid, p_pe_work)
-      CALL divide_patch(p_patch(jg), p_patch_pre(jg), cell_owner, &
+      CALL setup_dist_cell_owner(dist_cell_owner, cell_owner)
+
+      CALL divide_patch(p_patch(jg), p_patch_pre(jg), dist_cell_owner, &
         &               radiation_owner, n_ghost_rows, order_type_of_halos, &
         &               p_pe_work)
+
+      CALL dist_mult_array_delete(dist_cell_owner)
 
       IF (ASSOCIATED(radiation_owner)) THEN
         DEALLOCATE(radiation_owner)
@@ -325,9 +329,14 @@ CONTAINS
 
       IF(jg > n_dom_start) THEN
         order_type_of_halos = 0
+
+        CALL setup_dist_cell_owner(dist_cell_owner, cell_owner_p)
+
         CALL divide_patch(p_patch_local_parent(jg), p_patch_pre(jgp), &
-          &               cell_owner_p, radiation_owner, 1, &
+          &               dist_cell_owner, radiation_owner, 1, &
           &               order_type_of_halos,  p_pe_work)
+
+        CALL dist_mult_array_delete(dist_cell_owner)
 
         CALL set_pc_idx(p_patch(jg), p_patch_pre(jgp))
         IF (jgp > n_dom_start) THEN
@@ -418,6 +427,37 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE set_pc_idx
+
+  SUBROUTINE setup_dist_cell_owner(dist_cell_owner, cell_owner)
+
+    TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
+    INTEGER, INTENT(IN) :: cell_owner(:)
+
+    INTEGER :: num_cells_per_rank
+    TYPE(global_array_desc) :: dist_cell_owner_desc(1)
+    TYPE(extent) :: local_chunk(1,1)
+    INTEGER, POINTER :: local_ptr(:)
+
+    dist_cell_owner_desc(1)%a_rank = 1
+    dist_cell_owner_desc(1)%rect(1)%first = 1
+    dist_cell_owner_desc(1)%rect(1)%size = SIZE(cell_owner(:))
+    dist_cell_owner_desc(1)%element_dt = ppm_int
+
+    num_cells_per_rank = (SIZE(cell_owner(:)) + p_n_work - 1) / p_n_work
+
+    local_chunk(1,1)%first = p_pe_work * num_cells_per_rank + 1
+    local_chunk(1,1)%size = MIN(SIZE(cell_owner(:)) + 1 - &
+      &                         local_chunk(1,1)%first, num_cells_per_rank)
+
+    dist_cell_owner = dist_mult_array_new(dist_cell_owner_desc, local_chunk, &
+      &                                   p_comm_work)
+
+    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
+    local_ptr(:) = cell_owner(local_chunk(1,1)%first: &
+      &                       local_chunk(1,1)%first+local_chunk(1,1)%size-1)
+
+    CALL dist_mult_array_expose(dist_cell_owner)
+  END SUBROUTINE setup_dist_cell_owner
 
   END SUBROUTINE decompose_domain
 
@@ -732,7 +772,7 @@ CONTAINS
   !! Changed for usage for parent patch division, Rainer Johanni, Oct 2010
   !! Major rewrite to reduce memory consumption, Thomas Jahns and Moritz Hanke, Sep 2013
 
-  SUBROUTINE divide_patch(wrk_p_patch, wrk_p_patch_pre, cell_owner, &
+  SUBROUTINE divide_patch(wrk_p_patch, wrk_p_patch_pre, dist_cell_owner, &
     &                     radiation_owner, n_boundary_rows, &
     &                     order_type_of_halos, my_proc)
 
@@ -741,7 +781,7 @@ CONTAINS
     TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre ! out is required for
                                                         ! the distributed arrays
 
-    INTEGER, POINTER :: cell_owner(:)
+    TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner
     INTEGER, POINTER :: radiation_owner(:)
     INTEGER, INTENT(IN) :: n_boundary_rows
     INTEGER, INTENT(IN) :: order_type_of_halos
@@ -761,12 +801,10 @@ CONTAINS
     INTEGER :: n2_ilev_c(0:2*n_boundary_rows), n2_ilev_v(0:n_boundary_rows+1), &
          n2_ilev_e(0:2*n_boundary_rows+1)
 #endif
-    TYPE(dist_mult_array) :: dist_cell_owner
     INTEGER, ALLOCATABLE :: owned_cells(:), owned_edges(:), owned_verts(:)
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
 
-    CALL setup_dist_cell_owner(dist_cell_owner, cell_owner)
     CALL compute_owned_cells()
 
 #ifdef __PGIC__
@@ -1104,7 +1142,6 @@ CONTAINS
       END DO
     END IF
 
-    CALL dist_mult_array_delete(dist_cell_owner)
     DEALLOCATE(owned_cells)
 
   CONTAINS
@@ -1170,37 +1207,6 @@ CONTAINS
       CALL quicksort(owned_cells)
 
     END SUBROUTINE compute_owned_cells
-
-    SUBROUTINE setup_dist_cell_owner(dist_cell_owner, cell_owner)
-
-      TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
-      INTEGER, INTENT(IN) :: cell_owner(:)
-
-      INTEGER :: num_cells_per_rank
-      TYPE(global_array_desc) :: dist_cell_owner_desc(1)
-      TYPE(extent) :: local_chunk(1,1)
-      INTEGER, POINTER :: local_ptr(:)
-
-      dist_cell_owner_desc(1)%a_rank = 1
-      dist_cell_owner_desc(1)%rect(1)%first = 1
-      dist_cell_owner_desc(1)%rect(1)%size = SIZE(cell_owner(:))
-      dist_cell_owner_desc(1)%element_dt = ppm_int
-
-      num_cells_per_rank = (SIZE(cell_owner(:)) + p_n_work - 1) / p_n_work
-
-      local_chunk(1,1)%first = p_pe_work * num_cells_per_rank + 1
-      local_chunk(1,1)%size = MIN(SIZE(cell_owner(:)) + 1 - &
-        &                         local_chunk(1,1)%first, num_cells_per_rank)
-
-      dist_cell_owner = dist_mult_array_new(dist_cell_owner_desc, local_chunk, &
-        &                                   p_comm_work)
-
-      CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
-      local_ptr(:) = cell_owner(local_chunk(1,1)%first: &
-        &                       local_chunk(1,1)%first+local_chunk(1,1)%size-1)
-
-      CALL dist_mult_array_expose(dist_cell_owner)
-    END SUBROUTINE setup_dist_cell_owner
 
     SUBROUTINE prepare_patch(wrk_p_patch_pre, wrk_p_patch, &
          n_patch_cells, n_patch_edges, n_patch_verts)
@@ -1825,6 +1831,7 @@ CONTAINS
       ! INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
 
       INTEGER :: i
+      LOGICAL :: position_error
 
       !---------------------------------------------------------------------
       ! flag_c_list(-1)%idx empty dummy list
@@ -1874,9 +1881,13 @@ CONTAINS
       ! compute flag2 arrays
       !--------------------------------------------------------------------------
 
-      IF (COUNT(cell_owner(:)==my_proc) /= wrk_p_patch_pre%n_patch_cells_g) &
+      position_error = .FALSE.
+      DO i = 1, wrk_p_patch_pre%n_patch_cells_g
+        position_error = (owned_cells(i) /= i) .OR. position_error
+      END DO
+      IF (position_error) &
         CALL finish("compute_flag_lists_short", &
-          &         "cell_owner content does not fit for this routine")
+          &         "owned_cells content is inconsistent")
 
       ! set n2_ilev_cve arrays
       n2_ilev_c(:) = 0
