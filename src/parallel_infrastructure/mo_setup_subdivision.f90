@@ -409,10 +409,10 @@ CONTAINS
                     patch%edges%parent_glb_blk(jl,jb))
         jg = patch%edges%decomp_info%glb_index(idx_1d(jl, jb))
 
-        IF(parent_patch_pre%edges%child(ip,1) == jg ) patch%edges%pc_idx(jl,jb) = 1
-        IF(parent_patch_pre%edges%child(ip,2) == jg ) patch%edges%pc_idx(jl,jb) = 2
-        IF(parent_patch_pre%edges%child(ip,3) == jg ) patch%edges%pc_idx(jl,jb) = 3
-        IF(parent_patch_pre%edges%child(ip,4) == jg ) patch%edges%pc_idx(jl,jb) = 4
+        DO i = 1, 4
+          CALL dist_mult_array_get(parent_patch_pre%edges%child, 1, (/ip, i/), jc)
+          IF (jc == jg) patch%edges%pc_idx(jl,jb) = i
+        END DO
 !          IF(patch%edges%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edges%pc_idx')
 
       ENDDO
@@ -1037,7 +1037,9 @@ CONTAINS
       ! This will be changed in set_parent_child_relations.
 
       jpg = wrk_p_patch_pre%edges%parent(jg)
-      jcg = wrk_p_patch_pre%edges%child(jg,1:4)
+      DO i = 1, 4
+        CALL dist_mult_array_get(wrk_p_patch_pre%edges%child, 1, (/jg, i/), jcg(i))
+      END DO
 
       wrk_p_patch%edges%parent_glb_idx(jl,jb)    = idx_no(jpg)
       wrk_p_patch%edges%parent_glb_blk(jl,jb)    = blk_no(jpg)

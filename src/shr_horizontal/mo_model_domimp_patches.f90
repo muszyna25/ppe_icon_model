@@ -1475,16 +1475,22 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid_grf, 'parent_edge_index', varid))
     CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%edges%parent(:)))
 
-    ! patch_pre%edges%child(:,:)
+    ! patch_pre%edges%child
     CALL nf(nf_inq_varid(ncid_grf, 'child_edge_index', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%edges%child(:,:)))
+    CALL dist_mult_array_local_ptr(patch_pre%edges%child, 1, local_ptr_2d)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%edges%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%edges%local_chunk(1,1)%size, 4/), &
+      &                     local_ptr_2d))
 
     ! First ensure that child edge indices are all positive;
     ! if there are negative values, grid files are too old
-    IF(ANY(patch_pre%edges%child(:,1:4)<0)) THEN
+    IF(ANY(local_ptr_2d(:,1:4)<0)) THEN
       CALL finish (TRIM(method_name), &
         & 'negative child edge indices detected - patch files are too old')
     ENDIF
+
+    CALL dist_mult_array_expose(patch_pre%edges%child)
 
     ! patch_pre%edges%refin_ctrl
     CALL nf(nf_inq_varid(ncid_grf, 'refin_e_ctrl', varid))

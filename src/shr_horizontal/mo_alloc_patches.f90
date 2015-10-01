@@ -624,11 +624,13 @@ CONTAINS
       &        num_verts_per_rank
     TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(global_array_desc) :: dist_edge_owner_desc(1)
+    TYPE(global_array_desc) :: dist_edge_owner_desc_child(1)
     TYPE(global_array_desc) :: dist_vert_owner_desc(1)
     TYPE(global_array_desc) :: dist_cell_owner_desc_child(1)
     TYPE(global_array_desc) :: dist_cell_owner_desc_neighbor(1)
 
-    TYPE(extent) :: local_chunk_child(2,1), local_chunk_neighbor(2,1)
+    TYPE(extent) :: local_cell_chunk_child(2,1), local_cell_chunk_neighbor(2,1), &
+      &             local_edge_chunk_child(2,1)
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -651,7 +653,7 @@ CONTAINS
     dist_edge_owner_desc(1)%a_rank = 1
     dist_edge_owner_desc(1)%rect(1)%first = 1
     dist_edge_owner_desc(1)%rect(1)%size = p_patch_pre%n_patch_edges_g
-    dist_edge_owner_desc(1)%element_dt = p_int
+    dist_edge_owner_desc(1)%element_dt = ppm_int
 
     dist_vert_owner_desc(1)%a_rank = 1
     dist_vert_owner_desc(1)%rect(1)%first = 1
@@ -662,6 +664,11 @@ CONTAINS
     dist_cell_owner_desc_child(1)%a_rank = 2
     dist_cell_owner_desc_child(1)%rect(2)%first = 1
     dist_cell_owner_desc_child(1)%rect(2)%size = 4
+
+    dist_edge_owner_desc_child(1) = dist_edge_owner_desc(1)
+    dist_edge_owner_desc_child(1)%a_rank = 2
+    dist_edge_owner_desc_child(1)%rect(2)%first = 1
+    dist_edge_owner_desc_child(1)%rect(2)%size = 4
 
     dist_cell_owner_desc_neighbor(1) = dist_cell_owner_desc(1)
     dist_cell_owner_desc_neighbor(1)%a_rank = 2
@@ -690,13 +697,17 @@ CONTAINS
       MAX(0, MIN(p_patch_pre%n_patch_verts_g + 1 - &
         &        p_patch_pre%verts%local_chunk(1,1)%first, num_verts_per_rank))
 
-    local_chunk_child(1,1) = p_patch_pre%cells%local_chunk(1,1)
-    local_chunk_child(2,1)%first = 1
-    local_chunk_child(2,1)%size = 4
+    local_cell_chunk_child(1,1) = p_patch_pre%cells%local_chunk(1,1)
+    local_cell_chunk_child(2,1)%first = 1
+    local_cell_chunk_child(2,1)%size = 4
 
-    local_chunk_neighbor(1,1) = p_patch_pre%cells%local_chunk(1,1)
-    local_chunk_neighbor(2,1)%first = 1
-    local_chunk_neighbor(2,1)%size = p_patch_pre%cell_type
+    local_cell_chunk_neighbor(1,1) = p_patch_pre%cells%local_chunk(1,1)
+    local_cell_chunk_neighbor(2,1)%first = 1
+    local_cell_chunk_neighbor(2,1)%size = p_patch_pre%cell_type
+
+    local_edge_chunk_child(1,1) = p_patch_pre%edges%local_chunk(1,1)
+    local_edge_chunk_child(2,1)%first = 1
+    local_edge_chunk_child(2,1)%size = 4
 
     !
     ! !grid cells
@@ -706,14 +717,14 @@ CONTAINS
     p_patch_pre%cells%parent = dist_mult_array_new( &
       dist_cell_owner_desc, p_patch_pre%cells%local_chunk, p_comm_work)
     p_patch_pre%cells%child = dist_mult_array_new( &
-      dist_cell_owner_desc_child, local_chunk_child, p_comm_work)
+      dist_cell_owner_desc_child, local_cell_chunk_child, p_comm_work)
     ALLOCATE( p_patch_pre%cells%phys_id(p_patch_pre%n_patch_cells_g) )
     p_patch_pre%cells%neighbor = dist_mult_array_new( &
-      dist_cell_owner_desc_neighbor, local_chunk_neighbor, p_comm_work)
+      dist_cell_owner_desc_neighbor, local_cell_chunk_neighbor, p_comm_work)
     p_patch_pre%cells%edge = dist_mult_array_new( &
-      dist_cell_owner_desc_neighbor, local_chunk_neighbor, p_comm_work)
+      dist_cell_owner_desc_neighbor, local_cell_chunk_neighbor, p_comm_work)
     p_patch_pre%cells%vertex = dist_mult_array_new( &
-      dist_cell_owner_desc_neighbor, local_chunk_neighbor, p_comm_work)
+      dist_cell_owner_desc_neighbor, local_cell_chunk_neighbor, p_comm_work)
     ALLOCATE( p_patch_pre%cells%center(p_patch_pre%n_patch_cells_g) )
     p_patch_pre%cells%refin_ctrl = dist_mult_array_new( &
       dist_cell_owner_desc, p_patch_pre%cells%local_chunk, p_comm_work)
@@ -724,7 +735,8 @@ CONTAINS
     ! !grid edges
     !
     ALLOCATE( p_patch_pre%edges%parent(p_patch_pre%n_patch_edges_g) )
-    ALLOCATE( p_patch_pre%edges%child(p_patch_pre%n_patch_edges_g,4) )
+    p_patch_pre%edges%child = dist_mult_array_new( &
+      dist_edge_owner_desc_child, local_edge_chunk_child, p_comm_work)
     p_patch_pre%edges%refin_ctrl = dist_mult_array_new( &
       dist_edge_owner_desc, p_patch_pre%edges%local_chunk, p_comm_work)
     ALLOCATE( p_patch_pre%edges%cell(p_patch_pre%n_patch_edges_g,2) )
@@ -750,7 +762,6 @@ CONTAINS
     p_patch_pre%cells%end = 0
 
     p_patch_pre%edges%parent = 0
-    p_patch_pre%edges%child = 0
     p_patch_pre%edges%cell = 0
     p_patch_pre%edges%start = 0
     p_patch_pre%edges%end = 0
@@ -878,7 +889,8 @@ CONTAINS
     ! !grid edges
     !
     DEALLOCATE( p_patch_pre%edges%parent )
-    DEALLOCATE( p_patch_pre%edges%child )
+    CALL dist_mult_array_unexpose(p_patch_pre%edges%child)
+    CALL dist_mult_array_delete(p_patch_pre%edges%child)
     DEALLOCATE( p_patch_pre%edges%cell )
     CALL dist_mult_array_unexpose(p_patch_pre%edges%refin_ctrl)
     CALL dist_mult_array_delete(p_patch_pre%edges%refin_ctrl)

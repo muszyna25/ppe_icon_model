@@ -597,7 +597,7 @@ MODULE mo_model_domain
 
     ! indices of child edges:
     ! index2=1,4
-    INTEGER, ALLOCATABLE :: child(:,:)
+    TYPE(dist_mult_array) :: child
 
     ! indices of adjacent cells:
     ! index2=1,2
