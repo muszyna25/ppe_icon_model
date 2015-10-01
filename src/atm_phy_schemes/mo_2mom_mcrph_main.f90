@@ -6412,7 +6412,7 @@ CONTAINS
     REAL(wp), INTENT(INOUT), OPTIONAL      :: cmax
 
     INTEGER  :: i, k, kk
-    REAL(wp) :: x_p,D_m,D_p,mue,v_n,v_q
+    REAL(wp) :: x_p,D_m,D_p,mue,v_n,v_q, cmax_temp
 
     REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss, n_fluss
     REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi
@@ -6453,6 +6453,11 @@ CONTAINS
     v_q_sedi(:,kte+1) = v_q_sedi(:,kte)   ! lower BC for the terminal veloc.
                                           ! top bc is 0
 
+    IF (PRESENT(cmax)) THEN
+      cmax_temp = cmax
+    ELSE
+      cmax_temp = 0.0_wp
+    END IF
     DO k = kts,kte
 
         DO i = its,ite
@@ -6462,7 +6467,7 @@ CONTAINS
           c_nv(i) = -v_nv(i) * adz(i,k) * dt
           c_qv(i) = -v_qv(i) * adz(i,k) * dt
         END DO
-        IF (PRESENT(cmax)) cmax = MAX(cmax,MAXVAL(c_qv))
+        cmax_temp = MAX(cmax_temp,MAXVAL(c_qv))
 
         kk = k
         s_nv = 0._wp
@@ -6525,6 +6530,7 @@ CONTAINS
         END DO
 
     END DO
+    IF (PRESENT(cmax)) cmax = cmax_temp
 
     n_fluss(:,kts-1) = 0._wp ! obere Randbedingung
     q_fluss(:,kts-1) = 0._wp ! upper BC
@@ -6554,7 +6560,7 @@ CONTAINS
     REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
 
     INTEGER  :: i, k, kk
-    REAL(wp) :: x_p,v_n,v_q,lam
+    REAL(wp) :: x_p,v_n,v_q,lam,cmax_temp
 
     REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: q_fluss, n_fluss
     REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi
@@ -6588,10 +6594,12 @@ CONTAINS
        END DO
     END DO
 
-    v_n_sedi(:,kte+1) = v_n_sedi(:,kte)   ! untere Randbedingung fuer Fallgeschw.
-    v_q_sedi(:,kte+1) = v_q_sedi(:,kte)   ! lower BC for the terminal veloc.
-                                          ! top bc is 0
 
+    IF (PRESENT(cmax)) THEN
+      cmax_temp = cmax
+    ELSE
+      cmax_temp = 0.0_wp
+    END IF
     DO k = kts,kte
 
         DO i = its,ite
@@ -6600,8 +6608,8 @@ CONTAINS
           ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
           c_nv(i) = -v_nv(i) * adz(i,k) * dt
           c_qv(i) = -v_qv(i) * adz(i,k) * dt
+          cmax_temp = MAX(cmax_temp, c_qv(i))
         END DO
-        IF (PRESENT(cmax)) cmax = MAX(cmax,MAXVAL(c_qv))
 
         kk = k
         s_nv = 0.0
@@ -6664,6 +6672,8 @@ CONTAINS
         END DO
 
     END DO
+
+    IF (PRESENT(cmax)) cmax = cmax_temp
 
     n_fluss(:,kts-1) = 0._wp ! obere Randbedingung
     q_fluss(:,kts-1) = 0._wp ! upper BC
