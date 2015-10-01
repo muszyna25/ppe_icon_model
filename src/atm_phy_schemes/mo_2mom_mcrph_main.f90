@@ -3041,7 +3041,8 @@ CONTAINS
          dt_local, dep_ice)
     CALL vapor_deposition_generic(ik_slice, snow, vsd_params, g_i, s_si, &
          dt_local, dep_snow)
-    CALL vapor_deposition_graupel()
+    CALL vapor_deposition_generic(ik_slice, graupel, vgd_params, g_i, s_si, &
+         dt_local, dep_graupel)
     IF (ice_typ > 1) CALL vapor_deposition_generic(ik_slice, hail, vhd_params, &
          g_i, s_si, dt_local, dep_hail)
 
@@ -3119,35 +3120,6 @@ CONTAINS
           ENDIF
        ENDDO
     ENDDO
-
-  CONTAINS
-
-   SUBROUTINE vapor_deposition_graupel()
-     INTEGER             :: i,k
-     REAL(wp)            :: q_g,n_g,x_g,d_g,v_g,f_v
-
-     IF (isdebug) CALL message(routine, "vapor_deposition_graupel")
-
-      DO k = kstart,kend
-         DO i = istart,iend
-
-            IF (graupel%q(i,k) == 0.0_wp) THEN
-               dep_graupel(i,k) = 0.0_wp
-            ELSE
-               n_g = graupel%n(i,k)
-               q_g = graupel%q(i,k)
-               x_g = particle_meanmass(graupel, q_g,n_g)
-               d_g = particle_diameter(graupel, x_g)
-               v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
-
-               f_v  = vgd_params%a_f + vgd_params%b_f * sqrt(v_g*d_g)
-               f_v  = MAX(f_v,vgd_params%a_f/graupel%a_ven)
-
-               dep_graupel(i,k) = g_i(i,k) * n_g * vgd_params%c * d_g * f_v * s_si(i,k) * dt_local
-            ENDIF
-         ENDDO
-      ENDDO
-    END SUBROUTINE vapor_deposition_graupel
 
   END SUBROUTINE vapor_dep_relaxation
 
