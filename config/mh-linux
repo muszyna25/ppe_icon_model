@@ -174,7 +174,7 @@ case "$fortran_compiler" in
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
-        MODDIR      = -module
+        MODDIR      = -module 
         WLFLAG      = -Wl        
         ;;
     cray)
@@ -234,7 +234,7 @@ case "$fortran_compiler" in
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
-        MODDIR      = -module
+        MODDIR      = -module 
         WLFLAG      = -Wl
         ;;
 esac
