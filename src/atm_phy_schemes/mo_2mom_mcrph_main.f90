@@ -391,7 +391,17 @@ MODULE mo_2mom_mcrph_main
           &      theta_q_aa, theta_q_ab, theta_q_bb
   END TYPE sym_riming_params
 
+  TYPE asym_riming_params
+    REAL(wp) :: delta_n_aa,delta_n_ab,delta_n_bb, &
+         &      delta_q_aa,delta_q_ab,delta_q_ba,delta_q_bb, &
+         &      theta_n_aa,theta_n_ab,theta_n_bb, &
+         &      theta_q_aa,theta_q_ab,theta_q_ba,theta_q_bb
+  END TYPE asym_riming_params
+
+  !> run-time- and location-invariant snow cloud riming parameters
   TYPE(sym_riming_params), SAVE :: scr_params
+  !> run-time- and location-invariant snow rain riming parameters
+  TYPE(asym_riming_params), SAVE :: srr_params
 
 CONTAINS
 
@@ -726,6 +736,48 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "   theta_q_ss = ",scr_params%theta_q_aa ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "   theta_q_sc = ",scr_params%theta_q_ab ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "   theta_q_cc = ",scr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
+    END IF
+
+    ! coefficients for snow_rain_riming
+    srr_params%delta_n_aa = coll_delta_11(snow,rain,0)
+    srr_params%delta_n_ab = coll_delta_12(snow,rain,0)
+    srr_params%delta_n_bb = coll_delta_22(snow,rain,0)
+    srr_params%delta_q_aa = coll_delta_11(snow,rain,1) ! mass weighted
+    srr_params%delta_q_ab = coll_delta_12(snow,rain,1)
+    srr_params%delta_q_ba = coll_delta_12(rain,snow,1)
+    srr_params%delta_q_bb = coll_delta_22(snow,rain,1)
+
+    srr_params%theta_n_aa = coll_theta_11(snow,rain,0)
+    srr_params%theta_n_ab = coll_theta_12(snow,rain,0)
+    srr_params%theta_n_bb = coll_theta_22(snow,rain,0)
+    srr_params%theta_q_aa = coll_theta_11(snow,rain,1) ! mass weighted
+    srr_params%theta_q_ab = coll_theta_12(snow,rain,1)
+    srr_params%theta_q_ba = coll_theta_12(rain,snow,1)
+    srr_params%theta_q_bb = coll_theta_22(snow,rain,1)
+
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "    a_snow     = ",snow%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_snow     = ",snow%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    alf_snow   = ",snow%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    bet_snow   = ",snow%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_rain     = ",rain%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_rain     = ",rain%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    alf_rain   = ",rain%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    bet_rain   = ",rain%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_ss = ",srr_params%delta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_sr = ",srr_params%delta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_rr = ",srr_params%delta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_ss = ",srr_params%theta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_sr = ",srr_params%theta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_rr = ",srr_params%theta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_ss = ",srr_params%delta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_sr = ",srr_params%delta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_rs = ",srr_params%delta_q_ba ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_rr = ",srr_params%delta_q_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_ss = ",srr_params%theta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_sr = ",srr_params%theta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_rs = ",srr_params%theta_q_ba ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_rr = ",srr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
     END IF
 
 
@@ -5743,76 +5795,14 @@ CONTAINS
      ! Riming of snow with raindrops                                                *
      !*******************************************************************************
      INTEGER             :: i,k
-     INTEGER, SAVE       :: firstcall
      REAL(wp)            :: q_s,n_s,x_s,d_s,v_s
      REAL(wp)            :: q_r,n_r,x_r,d_r,v_r
      REAL(wp)            :: rime_n,rime_qr,rime_qs
-     REAL(wp), SAVE      :: delta_n_ss,delta_n_sr,delta_n_rr
-     REAL(wp), SAVE      :: delta_q_ss,delta_q_sr,delta_q_rs,delta_q_rr
-     REAL(wp), SAVE      :: theta_n_ss,theta_n_sr,theta_n_rr
-     REAL(wp), SAVE      :: theta_q_ss,theta_q_sr,theta_q_rs,theta_q_rr
-!$omp threadprivate (firstcall)
-!$omp threadprivate (delta_n_ss)
-!$omp threadprivate (delta_n_sr)
-!$omp threadprivate (delta_n_rr)
-!$omp threadprivate (delta_q_ss)
-!$omp threadprivate (delta_q_sr)
-!$omp threadprivate (delta_q_rr)
-!$omp threadprivate (theta_n_ss)
-!$omp threadprivate (theta_n_sr)
-!$omp threadprivate (theta_n_rr)
-!$omp threadprivate (theta_q_ss)
-!$omp threadprivate (theta_q_sr)
-!$omp threadprivate (theta_q_rr)
 
      IF (isdebug) CALL message(routine, "snow_rain_riming")
 
-     IF (firstcall.NE.1) THEN
-        delta_n_ss = coll_delta_11(snow,rain,0)
-        delta_n_sr = coll_delta_12(snow,rain,0)
-        delta_n_rr = coll_delta_22(snow,rain,0)
-        delta_q_ss = coll_delta_11(snow,rain,1) ! mass weighted
-        delta_q_sr = coll_delta_12(snow,rain,1)
-        delta_q_rs = coll_delta_12(rain,snow,1)
-        delta_q_rr = coll_delta_22(snow,rain,1)
-
-        theta_n_ss = coll_theta_11(snow,rain,0)
-        theta_n_sr = coll_theta_12(snow,rain,0)
-        theta_n_rr = coll_theta_22(snow,rain,0)
-        theta_q_ss = coll_theta_11(snow,rain,1) ! mass weighted
-        theta_q_sr = coll_theta_12(snow,rain,1)
-        theta_q_rs = coll_theta_12(rain,snow,1)
-        theta_q_rr = coll_theta_22(snow,rain,1)
-
-        IF (isdebug) THEN
-         WRITE(txt,'(A,D10.3)') "    a_snow     = ",snow%a_geo ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    b_snow     = ",snow%b_geo ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    alf_snow   = ",snow%a_vel ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    bet_snow   = ",snow%b_vel ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    a_rain     = ",rain%a_geo ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    b_rain     = ",rain%b_geo ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    alf_rain   = ",rain%a_vel ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    bet_rain   = ",rain%b_vel ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    delta_n_ss = ",delta_n_ss ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    delta_n_sr = ",delta_n_sr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    delta_n_rr = ",delta_n_rr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    theta_n_ss = ",theta_n_ss ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    theta_n_sr = ",theta_n_sr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    theta_n_rr = ",theta_n_rr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    delta_q_ss = ",delta_q_ss ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    delta_q_sr = ",delta_q_sr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    delta_q_rs = ",delta_q_rs ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    delta_q_rr = ",delta_q_rr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    theta_q_ss = ",theta_q_ss ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    theta_q_sr = ",theta_q_sr ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    theta_q_rs = ",theta_q_rs ; CALL message(routine,TRIM(txt))
-         WRITE(txt,'(A,D10.3)') "    theta_q_rr = ",theta_q_rr ; CALL message(routine,TRIM(txt))
-      END IF
-      firstcall = 1
-   ENDIF
-
-   DO k = kstart,kend
-      DO i = istart,iend
+     DO k = kstart,kend
+       DO i = istart,iend
 
          q_r = rain%q(i,k)
          q_s = snow%q(i,k)
@@ -5830,18 +5820,18 @@ CONTAINS
             v_s = snow%velocity(x_s) * snow%rho_v(i,k)
 
             rime_n = pi4 * n_s * n_r * dt &
-                 & *     (delta_n_ss * D_s**2 + delta_n_sr * D_s*D_r + delta_n_rr * D_r**2) &
-                 & * sqrt(theta_n_ss * v_s**2 - theta_n_sr * v_s*v_r + theta_n_rr * v_r**2  &
+                 & *     (srr_params%delta_n_aa * D_s**2 + srr_params%delta_n_ab * D_s*D_r + srr_params%delta_n_bb * D_r**2) &
+                 & * sqrt(srr_params%theta_n_aa * v_s**2 - srr_params%theta_n_ab * v_s*v_r + srr_params%theta_n_bb * v_r**2  &
                  &       +snow_s_vel**2)
 
             rime_qr = pi4 * n_s * q_r * dt &
-                 &  *     (delta_n_ss * D_s**2 + delta_q_sr * D_s*D_r + delta_q_rr * D_r**2) &
-                 &  * sqrt(theta_n_ss * v_s**2 - theta_q_sr * v_s*v_r + theta_q_rr * v_r**2  &
+                 &  *     (srr_params%delta_n_aa * D_s**2 + srr_params%delta_q_ab * D_s*D_r + srr_params%delta_q_bb * D_r**2) &
+                 &  * sqrt(srr_params%theta_n_aa * v_s**2 - srr_params%theta_q_ab * v_s*v_r + srr_params%theta_q_bb * v_r**2  &
                  &        +snow_s_vel**2)
 
             rime_qs = pi4 * n_r * q_s * dt &
-                 &  *     (delta_q_ss * D_s**2 + delta_q_rs * D_s*D_r + delta_n_rr * D_r**2) &
-                 &  * sqrt(theta_q_ss * v_s**2 - theta_q_rs * v_s*v_r + theta_n_rr * v_r**2  &
+                 &  *     (srr_params%delta_q_aa * D_s**2 + srr_params%delta_q_ba * D_s*D_r + srr_params%delta_n_bb * D_r**2) &
+                 &  * sqrt(srr_params%theta_q_aa * v_s**2 - srr_params%theta_q_ba * v_s*v_r + srr_params%theta_n_bb * v_r**2  &
                  &        +snow_s_vel**2)
 
             rime_rate_nr(i,k)  = rime_n
