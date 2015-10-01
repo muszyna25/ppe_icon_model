@@ -277,8 +277,8 @@ CONTAINS
       IF (my_process_is_mpi_parallel()) THEN
         ! Set division method, divide_for_radiation is only used for patch 0
         CALL divide_patch_cells(p_patch_pre(jg), jg, p_patch(jg)%n_proc, &
-             p_patch(jg)%proc0, dist_cell_owner, wrk_p_parent_patch_pre, &
-             radiation_owner, &
+             p_patch(jg)%proc0, dist_cell_owner, dist_cell_owner_p, &
+             wrk_p_parent_patch_pre, radiation_owner, &
              divide_for_radiation = (jg == 0))
       ELSE
         ! trivial "decomposition"
@@ -286,6 +286,9 @@ CONTAINS
           &                         p_patch_pre(jg)%n_patch_cells_g)
         CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
         local_ptr = 0
+        IF (jg > n_dom_start) &
+          CALL divide_parent_cells(p_patch_pre(jg), p_patch_pre(jgp), &
+            &                      dist_cell_owner, dist_cell_owner_p)
       END IF
 
       ! Please note: Previously, for jg==0 no ghost rows were set.
@@ -315,11 +318,6 @@ CONTAINS
       END IF
 
       IF(jg > n_dom_start) THEN
-
-        ! Assign the cell owners of the current patch to the parent cells
-        ! for the construction of the local parent, set "-1" elsewhere.
-        CALL divide_parent_cells(p_patch_pre(jg), p_patch_pre(jgp), &
-          &                      dist_cell_owner, dist_cell_owner_p)
 
         order_type_of_halos = 0
 
@@ -473,8 +471,9 @@ CONTAINS
   !! Split out as a separate routine, Rainer Johanni, Oct 2010
 
   SUBROUTINE divide_patch_cells(wrk_p_patch_pre, patch_no, n_proc, proc0, &
-       &                        dist_cell_owner, wrk_p_parent_patch_pre, &
-       &                        radiation_owner, divide_for_radiation)
+       &                        dist_cell_owner, dist_cell_owner_p, &
+       &                        wrk_p_parent_patch_pre, radiation_owner, &
+       &                        divide_for_radiation)
 
     TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre
     INTEGER, INTENT(IN)  :: patch_no !> The patch number,
@@ -482,6 +481,9 @@ CONTAINS
     INTEGER, INTENT(IN)  :: n_proc !> Number of processors for split
     INTEGER, INTENT(IN)  :: proc0  !> First processor of patch
     TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner !> Cell division
+    !> Cell division for parent (only computed when wrk_p_parent_patch_pre
+    !! associated)
+    TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner_p
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
     INTEGER, POINTER :: radiation_owner(:)
     ! Private flag if patch should be divided for radiation calculation
@@ -489,7 +491,6 @@ CONTAINS
 
     TYPE(t_decomposition_structure)  :: decomposition_struct
 
-    TYPE(dist_mult_array) :: dist_parent_cell_owner !> Cell division
     INTEGER, POINTER :: cell_owner(:) !> Cell division
     INTEGER, POINTER :: local_owner_ptr(:), local_parent_ptr(:)
     INTEGER :: n, i, j
@@ -627,6 +628,12 @@ CONTAINS
       CALL init_dist_cell_owner(dist_cell_owner, cell_owner)
       DEALLOCATE(cell_owner)
 
+      ! Assign the cell owners of the current patch to the parent cells
+      ! for the construction of the local parent, set "-1" elsewhere.
+      IF (ASSOCIATED(wrk_p_parent_patch_pre)) &
+        CALL divide_parent_cells(wrk_p_patch_pre, wrk_p_parent_patch_pre, &
+          &                      dist_cell_owner, dist_cell_owner_p)
+
     ELSE ! IF (division_method(patch_no) == div_from_file     .OR. &
          !     division_method(patch_no) == ext_div_from_file .OR. &
          !     division_method(patch_no) > 100)
@@ -666,7 +673,7 @@ CONTAINS
           CALL compute_flag_c(flag_c, wrk_p_patch_pre, wrk_p_parent_patch_pre)
 
           CALL divide_subset_geometric(flag_c, n_proc, wrk_p_parent_patch_pre, &
-               dist_parent_cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
+               dist_cell_owner_p, ASSOCIATED(wrk_p_parent_patch_pre), &
                divide_for_radiation = divide_for_radiation)
 #ifdef HAVE_METIS
         ELSE IF(division_method(patch_no) == div_metis) THEN
@@ -684,13 +691,13 @@ CONTAINS
           END IF
           CALL p_bcast(flag_c, 0, p_comm_work)
           CALL divide_subset_metis(flag_c, n_proc, wrk_p_parent_patch_pre, &
-            &                      dist_parent_cell_owner)
+            &                      dist_cell_owner_p)
 #endif
         ENDIF
 
-        CALL dist_mult_array_expose(dist_parent_cell_owner)
+        CALL dist_mult_array_expose(dist_cell_owner_p)
 
-        ! Owners of the cells of the parent patch are now in dist_parent_cell_owner.
+        ! Owners of the cells of the parent patch are now in dist_cell_owner_p.
         ! Set owners in current patch from this
 
         CALL create_dist_cell_owner(dist_cell_owner, &
@@ -699,11 +706,9 @@ CONTAINS
         CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%parent, 1, &
           &                            local_parent_ptr)
         DO j = LBOUND(local_owner_ptr,1), UBOUND(local_owner_ptr,1)
-          CALL dist_mult_array_get(dist_parent_cell_owner, 1, &
+          CALL dist_mult_array_get(dist_cell_owner_p, 1, &
             &                      (/local_parent_ptr(j)/), local_owner_ptr(j))
         ENDDO
-
-        CALL dist_mult_array_delete(dist_parent_cell_owner)
 
       ELSE
 
@@ -732,7 +737,6 @@ CONTAINS
       CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
       local_owner_ptr = local_owner_ptr + proc0
       CALL dist_mult_array_expose(dist_cell_owner)
-
     ENDIF ! division_method
 
   CONTAINS
