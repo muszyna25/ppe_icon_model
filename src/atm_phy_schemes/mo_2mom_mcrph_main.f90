@@ -5986,20 +5986,23 @@ CONTAINS
     INTEGER            :: i,k,nuc_typ
     REAL(wp)           :: n_c,q_c,rho_a
     REAL(wp)           :: nuc_n, nuc_q
-    REAL(wp)           :: Ncn, wcb
-    REAL(wp)           :: tab_Ncn(n_ncn),         & ! look-up-table for Ncn
-                          tab_R2(n_r2),           & ! look-up_tbale for R2
-                          tab_lsigs(n_lsigs),     & ! look-up-table for log(sigma_s)
-                          tab_wcb(n_wcb),         & ! look-up-table for w at cloud base
-                          tab_Ndrop(n_wcb,n_ncn), & ! number of cloud droplets in look_up-Table
-                          tab_Ndrop_i(n_wcb)        ! number of cloud droplets in look_up-Table,
-                                                    !           interpolated with respect to Ncn
-    nuc_typ = nuc_c_typ
+    REAL(wp)           :: Ncn, wcb, &
+         tab_Ndrop(n_wcb,n_ncn), & ! number of cloud droplets in look_up-Table
+         tab_Ndrop_i(n_wcb)        ! number of cloud droplets in look_up-Table,
+                                   ! interpolated with respect to Ncn
 
-    tab_R2  = (/0.02d0, 0.03d0, 0.04d0/)     ! in 10^(-6) m
-    tab_wcb = (/0.5d0, 1.0d0, 2.5d0, 5.0d0/)
-    tab_Ncn = (/50.d06, 100.d06, 200.d06, 400.d06, 800.d06, 1600.d06, 3200.d06, 6400.d06/)
-    tab_lsigs = (/0.1d0, 0.2d0, 0.3d0, 0.4d0, 0.5d0/)
+    REAL(wp), PARAMETER :: &
+          ! look-up-table for Ncn
+         tab_Ncn(n_ncn) = (/   50.d06,  100.d06,  200.d06,  400.d06, &
+         &                    800.d06, 1600.d06, 3200.d06, 6400.d06 /), &
+         ! look-up_tbale for R2, in 10^(-6) m
+         tab_R2(n_r2) = (/0.02d0, 0.03d0, 0.04d0/), &
+         ! look-up-table for log(sigma_s)
+         tab_lsigs(n_lsigs)  = (/0.1d0, 0.2d0, 0.3d0, 0.4d0, 0.5d0/), &
+         ! look-up-table for w at cloud base
+         tab_wcb(n_wcb) = (/0.5d0, 1.0d0, 2.5d0, 5.0d0/)
+
+    nuc_typ = nuc_c_typ
 
     ! ATTENTION: At the moment only the values given above can be chosen for R2,
     ! and lsigs (see below).
@@ -6092,206 +6095,151 @@ CONTAINS
   CONTAINS
 
     SUBROUTINE lookuptable(tab_ndrop,i_lsigs,i_R2)
-
-      IMPLICIT NONE
-
-      INTEGER, PARAMETER ::  n_wcb = 4, n_ncn = 8
-      INTEGER            ::  i_lsigs, i_R2
-      DOUBLE PRECISION   ::  &
-        ndrop1_11(n_ncn), ndrop1_12(n_ncn), ndrop1_13(n_ncn), ndrop1_14(n_ncn), ndrop1_15(n_ncn), &
-        ndrop1_21(n_ncn), ndrop1_22(n_ncn), ndrop1_23(n_ncn), ndrop1_24(n_ncn), ndrop1_25(n_ncn), &
-        ndrop1_31(n_ncn), ndrop1_32(n_ncn), ndrop1_33(n_ncn), ndrop1_34(n_ncn), ndrop1_35(n_ncn), &
-        ndrop1_41(n_ncn), ndrop1_42(n_ncn), ndrop1_43(n_ncn), ndrop1_44(n_ncn), ndrop1_45(n_ncn), &
-        ndrop2_11(n_ncn), ndrop2_12(n_ncn), ndrop2_13(n_ncn), ndrop2_14(n_ncn), ndrop2_15(n_ncn), &
-        ndrop2_21(n_ncn), ndrop2_22(n_ncn), ndrop2_23(n_ncn), ndrop2_24(n_ncn), ndrop2_25(n_ncn), &
-        ndrop2_31(n_ncn), ndrop2_32(n_ncn), ndrop2_33(n_ncn), ndrop2_34(n_ncn), ndrop2_35(n_ncn), &
-        ndrop2_41(n_ncn), ndrop2_42(n_ncn), ndrop2_43(n_ncn), ndrop2_44(n_ncn), ndrop2_45(n_ncn), &
-        ndrop3_11(n_ncn), ndrop3_12(n_ncn), ndrop3_13(n_ncn), ndrop3_14(n_ncn), ndrop3_15(n_ncn), &
-        ndrop3_21(n_ncn), ndrop3_22(n_ncn), ndrop3_23(n_ncn), ndrop3_24(n_ncn), ndrop3_25(n_ncn), &
-        ndrop3_31(n_ncn), ndrop3_32(n_ncn), ndrop3_33(n_ncn), ndrop3_34(n_ncn), ndrop3_35(n_ncn), &
-        ndrop3_41(n_ncn), ndrop3_42(n_ncn), ndrop3_43(n_ncn), ndrop3_44(n_ncn), ndrop3_45(n_ncn), &
-        tab_ndrop(n_wcb,n_ncn)
-
-      ! look up tables
-      ! Ncn              50       100       200       400       800       1600      3200      6400
-      ! table4a (R2=0.02mum, wcb=0.5m/s) (for Ncn=3200  and Ncn=6400 "extrapolated")
-      ndrop1_11 =  (/  42.2d06,  70.2d06, 112.2d06, 173.1d06, 263.7d06, 397.5d06, 397.5d06, 397.5d06/)
-      ndrop1_12 =  (/  35.5d06,  60.1d06, 100.0d06, 163.9d06, 264.5d06, 418.4d06, 418.4d06, 418.4d06/)
-      ndrop1_13 =  (/  32.6d06,  56.3d06,  96.7d06, 163.9d06, 272.0d06, 438.5d06, 438.5d06, 438.5d06/)
-      ndrop1_14 =  (/  30.9d06,  54.4d06,  94.6d06, 162.4d06, 271.9d06, 433.5d06, 433.5d06, 433.5d06/)
-      ndrop1_15 =  (/  29.4d06,  51.9d06,  89.9d06, 150.6d06, 236.5d06, 364.4d06, 364.4d06, 364.4d06/)
-      ! table4b (R2=0.02mum, wcb=1.0m/s) (for Ncn=50 "interpolted" and Ncn=6400 extrapolated)
-      ndrop1_21 =  (/  45.3d06,  91.5d06, 158.7d06, 264.4d06, 423.1d06, 672.5d06, 397.5d06, 397.5d06/)
-      ndrop1_22 =  (/  38.5d06,  77.1d06, 133.0d06, 224.9d06, 376.5d06, 615.7d06, 418.4d06, 418.4d06/)
-      ndrop1_23 =  (/  35.0d06,  70.0d06, 122.5d06, 212.0d06, 362.1d06, 605.3d06, 438.5d06, 438.5d06/)
-      ndrop1_24 =  (/  32.4d06,  65.8d06, 116.4d06, 204.0d06, 350.6d06, 584.4d06, 433.5d06, 433.5d06/)
-      ndrop1_25 =  (/  31.2d06,  62.3d06, 110.1d06, 191.3d06, 320.6d06, 501.3d06, 364.4d06, 364.4d06/)
-      ! table4c (R2=0.02mum, wcb=2.5m/s) (for Ncn=50 and Ncn=100 "interpolated")
-      ndrop1_31 =  (/  50.3d06, 100.5d06, 201.1d06, 373.1d06, 664.7d06,1132.8d06,1876.8d06,2973.7d06/)
-      ndrop1_32 =  (/  44.1d06,  88.1d06, 176.2d06, 314.0d06, 546.9d06, 941.4d06,1579.2d06,2542.2d06/)
-      ndrop1_33 =  (/  39.7d06,  79.5d06, 158.9d06, 283.4d06, 498.9d06, 865.9d06,1462.6d06,2355.8d06/)
-      ndrop1_34 =  (/  37.0d06,  74.0d06, 148.0d06, 264.6d06, 468.3d06, 813.3d06,1371.3d06,2137.2d06/)
-      ndrop1_35 =  (/  34.7d06,  69.4d06, 138.8d06, 246.9d06, 432.9d06, 737.8d06,1176.7d06,1733.0d06/)
-      ! table4d (R2=0.02mum, wcb=5.0m/s) (for Ncn=50,100,200 "interpolated")
-      ndrop1_41 =  (/  51.5d06, 103.1d06, 206.1d06, 412.2d06, 788.1d06,1453.1d06,2585.1d06,4382.5d06/)
-      ndrop1_42 =  (/  46.6d06,  93.2d06, 186.3d06, 372.6d06, 657.2d06,1202.8d06,2098.0d06,3556.9d06/)
-      ndrop1_43 =  (/  70.0d06,  70.0d06, 168.8d06, 337.6d06, 606.7d06,1078.5d06,1889.0d06,3206.9d06/)
-      ndrop1_44 =  (/  42.2d06,  84.4d06, 166.4d06, 312.7d06, 562.2d06,1000.3d06,1741.1d06,2910.1d06/)
-      ndrop1_45 =  (/  36.5d06,  72.9d06, 145.8d06, 291.6d06, 521.0d06, 961.1d06,1551.1d06,2444.6d06/)
-      ! table5a (R2=0.03mum, wcb=0.5m/s)
-      ndrop2_11 =  (/  50.0d06,  95.8d06, 176.2d06, 321.6d06, 562.3d06, 835.5d06, 835.5d06, 835.5d06/)
-      ndrop2_12 =  (/  44.7d06,  81.4d06, 144.5d06, 251.5d06, 422.7d06, 677.8d06, 677.8d06, 677.8d06/)
-      ndrop2_13 =  (/  40.2d06,  72.8d06, 129.3d06, 225.9d06, 379.9d06, 606.5d06, 606.5d06, 606.5d06/)
-      ndrop2_14 =  (/  37.2d06,  67.1d06, 119.5d06, 206.7d06, 340.5d06, 549.4d06, 549.4d06, 549.4d06/)
-      ndrop2_15 =  (/  33.6d06,  59.0d06,  99.4d06, 150.3d06, 251.8d06, 466.0d06, 466.0d06, 466.0d06/)
-      ! table5b (R2=0.03mum, wcb=1.0m/s) (Ncn=50 "interpolated", Ncn=6400 "extrapolated)
-      ndrop2_21 =  (/  50.7d06, 101.4d06, 197.6d06, 357.2d06, 686.6d06,1186.4d06,1892.2d06,1892.2d06/)
-      ndrop2_22 =  (/  46.6d06,  93.3d06, 172.2d06, 312.1d06, 550.7d06, 931.6d06,1476.6d06,1476.6d06/)
-      ndrop2_23 =  (/  42.2d06,  84.4d06, 154.0d06, 276.3d06, 485.6d06, 811.2d06,1271.7d06,1271.7d06/)
-      ndrop2_24 =  (/  39.0d06,  77.9d06, 141.2d06, 251.8d06, 436.7d06, 708.7d06,1117.7d06,1117.7d06/)
-      ndrop2_25 =  (/  35.0d06,  70.1d06, 123.9d06, 210.2d06, 329.9d06, 511.9d06, 933.4d06, 933.4d06/)
-      ! table5c (R2=0.03mum, wcb=2.5m/s)
-      ndrop2_31 =  (/  51.5d06, 103.0d06, 205.9d06, 406.3d06, 796.4d06,1524.0d06,2781.4d06,4609.3d06/)
-      ndrop2_32 =  (/  49.6d06,  99.1d06, 198.2d06, 375.5d06, 698.3d06,1264.1d06,2202.8d06,3503.6d06/)
-      ndrop2_33 =  (/  45.8d06,  91.6d06, 183.2d06, 339.5d06, 618.9d06,1105.2d06,1881.8d06,2930.9d06/)
-      ndrop2_34 =  (/  42.3d06,  84.7d06, 169.3d06, 310.3d06, 559.5d06, 981.7d06,1611.6d06,2455.6d06/)
-      ndrop2_35 =  (/  38.2d06,  76.4d06, 152.8d06, 237.3d06, 473.3d06, 773.1d06,1167.9d06,1935.0d06/)
-      ! table5d (R2=0.03mum, wcb=5.0m/s)
-      ndrop2_41 =  (/  51.9d06, 103.8d06, 207.6d06, 415.1d06, 819.6d06,1616.4d06,3148.2d06,5787.9d06/)
-      ndrop2_42 =  (/  50.7d06, 101.5d06, 203.0d06, 405.9d06, 777.0d06,1463.8d06,2682.6d06,4683.0d06/)
-      ndrop2_43 =  (/  47.4d06,  94.9d06, 189.7d06, 379.4d06, 708.7d06,1301.3d06,2334.3d06,3951.8d06/)
-      ndrop2_44 =  (/  44.0d06,  88.1d06, 176.2d06, 352.3d06, 647.8d06,1173.0d06,2049.7d06,3315.6d06/)
-      ndrop2_45 =  (/  39.7d06,  79.4d06, 158.8d06, 317.6d06, 569.5d06, 988.5d06,1615.6d06,2430.3d06/)
-      ! table6a (R2=0.04mum, wcb=0.5m/s)
-      ndrop3_11 =  (/  50.6d06, 100.3d06, 196.5d06, 374.7d06, 677.3d06,1138.9d06,1138.9d06,1138.9d06/)
-      ndrop3_12 =  (/  48.4d06,  91.9d06, 170.6d06, 306.9d06, 529.2d06, 862.4d06, 862.4d06, 862.4d06/)
-      ndrop3_13 =  (/  44.4d06,  82.5d06, 150.3d06, 266.4d06, 448.0d06, 740.7d06, 740.7d06, 740.7d06/)
-      ndrop3_14 =  (/  40.9d06,  75.0d06, 134.7d06, 231.9d06, 382.1d06, 657.6d06, 657.6d06, 657.6d06/)
-      ndrop3_15 =  (/  34.7d06,  59.3d06,  93.5d06, 156.8d06, 301.9d06, 603.8d06, 603.8d06, 603.8d06/)
-      ! table6b (R2=0.04mum, wcb=1.0m/s)
-      ndrop3_21 =  (/  50.9d06, 101.7d06, 201.8d06, 398.8d06, 773.7d06,1420.8d06,2411.8d06,2411.8d06/)
-      ndrop3_22 =  (/  49.4d06,  98.9d06, 189.7d06, 356.2d06, 649.5d06,1117.9d06,1805.2d06,1805.2d06/)
-      ndrop3_23 =  (/  45.6d06,  91.8d06, 171.5d06, 214.9d06, 559.0d06, 932.8d06,1501.6d06,1501.6d06/)
-      ndrop3_24 =  (/  42.4d06,  84.7d06, 155.8d06, 280.5d06, 481.9d06, 779.0d06,1321.9d06,1321.9d06/)
-      ndrop3_25 =  (/  36.1d06,  72.1d06, 124.4d06, 198.4d06, 319.1d06, 603.8d06,1207.6d06,1207.6d06/)
-      ! table6c (R2=0.04mum, wcb=2.5m/s)
-      ndrop3_31 =  (/  51.4d06, 102.8d06, 205.7d06, 406.9d06, 807.6d06,1597.5d06,3072.2d06,5393.9d06/)
-      ndrop3_32 =  (/  50.8d06, 101.8d06, 203.6d06, 396.0d06, 760.4d06,1422.1d06,2517.4d06,4062.8d06/)
-      ndrop3_33 =  (/  48.2d06,  96.4d06, 193.8d06, 367.3d06, 684.0d06,1238.3d06,2087.3d06,3287.1d06/)
-      ndrop3_34 =  (/  45.2d06,  90.4d06, 180.8d06, 335.7d06, 611.2d06,1066.3d06,1713.4d06,2780.3d06/)
-      ndrop3_35 =  (/  38.9d06,  77.8d06, 155.5d06, 273.7d06, 455.2d06, 702.2d06,1230.7d06,2453.7d06/)
-      ! table6d (R2=0.04mum, wcb=5.0m/s)
-      ndrop3_41 =  (/  53.1d06, 106.2d06, 212.3d06, 414.6d06, 818.3d06,1622.2d06,3216.8d06,6243.9d06/)
-      ndrop3_42 =  (/  51.6d06, 103.2d06, 206.3d06, 412.5d06, 805.3d06,1557.4d06,2940.4d06,5210.1d06/)
-      ndrop3_43 =  (/  49.6d06,  99.2d06, 198.4d06, 396.7d06, 755.5d06,1414.5d06,2565.3d06,4288.1d06/)
-      ndrop3_44 =  (/  46.5d06,  93.0d06, 186.0d06, 371.9d06, 692.9d06,1262.0d06,2188.3d06,3461.2d06/)
-      ndrop3_45 =  (/  39.9d06,  79.9d06, 159.7d06, 319.4d06, 561.7d06, 953.9d06,1493.9d06,2464.7d06/)
-
-      SELECT CASE (i_lsigs)
-      CASE(1)
-          SELECT CASE(i_R2)
-          Case(1)
-            tab_Ndrop(1,:)=ndrop1_11
-            tab_Ndrop(2,:)=ndrop1_21
-            tab_Ndrop(3,:)=ndrop1_31
-            tab_Ndrop(4,:)=ndrop1_41
-          CASE(2)
-            tab_Ndrop(1,:)=ndrop2_11
-            tab_Ndrop(2,:)=ndrop2_21
-            tab_Ndrop(3,:)=ndrop2_31
-            tab_Ndrop(4,:)=ndrop2_41
-          CASE(3)
-            tab_Ndrop(1,:)=ndrop3_11
-            tab_Ndrop(2,:)=ndrop3_21
-            tab_Ndrop(3,:)=ndrop3_31
-            tab_Ndrop(4,:)=ndrop3_41
-          CASE DEFAULT
-            write(*,*) "!!!! wrong value for R2 in cloud_nucleation_SK !!!!!"
-          END SELECT
-      CASE(2)
-          SELECT CASE(i_R2)
-          CASE(1)
-            tab_Ndrop(1,:)=ndrop1_12
-            tab_Ndrop(2,:)=ndrop1_22
-            tab_Ndrop(3,:)=ndrop1_32
-            tab_Ndrop(4,:)=ndrop1_42
-          CASE(2)
-            tab_Ndrop(1,:)=ndrop2_12
-            tab_Ndrop(2,:)=ndrop2_22
-            tab_Ndrop(3,:)=ndrop2_32
-            tab_Ndrop(4,:)=ndrop2_42
-          CASE(3)
-            tab_Ndrop(1,:)=ndrop3_12
-            tab_Ndrop(2,:)=ndrop3_22
-            tab_Ndrop(3,:)=ndrop3_32
-            tab_Ndrop(4,:)=ndrop3_42
-          CASE DEFAULT
-            write(*,*) "!!!! wrong value for R2 in cloud_nucleation_SK !!!!!"
-          END SELECT
-      CASE(3)
-          SELECT CASE(i_R2)
-          CASE(1)
-            tab_Ndrop(1,:)=ndrop1_13
-            tab_Ndrop(2,:)=ndrop1_23
-            tab_Ndrop(3,:)=ndrop1_33
-            tab_Ndrop(4,:)=ndrop1_43
-          CASE(2)
-            tab_Ndrop(1,:)=ndrop2_13
-            tab_Ndrop(2,:)=ndrop2_23
-            tab_Ndrop(3,:)=ndrop2_33
-            tab_Ndrop(4,:)=ndrop2_43
-          CASE(3)
-            tab_Ndrop(1,:)=ndrop3_13
-            tab_Ndrop(2,:)=ndrop3_23
-            tab_Ndrop(3,:)=ndrop3_33
-            tab_Ndrop(4,:)=ndrop3_43
-          CASE DEFAULT
-            write(*,*) "!!!! wrong value for R2 in cloud_nucleation_SK !!!!!"
-          END SELECT
-      CASE(4)
-          SELECT CASE(i_R2)
-          CASE(1)
-            tab_Ndrop(1,:)=ndrop1_14
-            tab_Ndrop(2,:)=ndrop1_24
-            tab_Ndrop(3,:)=ndrop1_34
-            tab_Ndrop(4,:)=ndrop1_44
-          CASE(2)
-            tab_Ndrop(1,:)=ndrop2_14
-            tab_Ndrop(2,:)=ndrop2_24
-            tab_Ndrop(3,:)=ndrop2_34
-            tab_Ndrop(4,:)=ndrop2_44
-          CASE(3)
-            tab_Ndrop(1,:)=ndrop3_14
-            tab_Ndrop(2,:)=ndrop3_24
-            tab_Ndrop(3,:)=ndrop3_34
-            tab_Ndrop(4,:)=ndrop3_44
-          CASE DEFAULT
-            write(*,*) "!!!! wrong value for R2 in cloud_nucleation_SK !!!!!"
-          END SELECT
-      CASE(5)
-          SELECT CASE(i_R2)
-          CASE(1)
-            tab_Ndrop(1,:)=ndrop1_15
-            tab_Ndrop(2,:)=ndrop1_25
-            tab_Ndrop(3,:)=ndrop1_35
-            tab_Ndrop(4,:)=ndrop1_45
-          CASE(2)
-            tab_Ndrop(1,:)=ndrop2_15
-            tab_Ndrop(2,:)=ndrop2_25
-            tab_Ndrop(3,:)=ndrop2_35
-            tab_Ndrop(4,:)=ndrop2_45
-          CASE(3)
-            tab_Ndrop(1,:)=ndrop3_15
-            tab_Ndrop(2,:)=ndrop3_25
-            tab_Ndrop(3,:)=ndrop3_35
-            tab_Ndrop(4,:)=ndrop3_45
-          CASE DEFAULT
-            write(*,*) "!!!! wrong value for R2 in cloud_nucleation_SK !!!!!"
-          END SELECT
-      CASE DEFAULT
-        write(*,*)  "!!!! wrong value for lsigs in cloud_nucleation_SK !!!!!"
-      END SELECT
-      RETURN
+      REAL(wp), INTENT(out) :: tab_ndrop(n_wcb,n_ncn)
+      INTEGER, INTENT(in) :: i_lsigs, i_R2
+      INTEGER :: i
+      REAL(wp), PARAMETER :: ndrop(n_ncn,5,n_wcb,3) &
+           ! look up tables
+           ! Ncn              50       100       200       400       800       1600      3200      6400
+           ! table4a (R2=0.02mum, wcb=0.5m/s) (for Ncn=3200  and Ncn=6400 "extrapolated")
+           = RESHAPE((/ &
+           !ndrop1_11 =
+           42.2d06,  70.2d06, 112.2d06, 173.1d06, 263.7d06, 397.5d06, 397.5d06, 397.5d06, &
+           !ndrop1_12 =
+           35.5d06,  60.1d06, 100.0d06, 163.9d06, 264.5d06, 418.4d06, 418.4d06, 418.4d06, &
+           !ndrop1_13
+           32.6d06,  56.3d06,  96.7d06, 163.9d06, 272.0d06, 438.5d06, 438.5d06, 438.5d06, &
+           !ndrop1_14
+           30.9d06,  54.4d06,  94.6d06, 162.4d06, 271.9d06, 433.5d06, 433.5d06, 433.5d06, &
+           !ndrop1_15
+           29.4d06,  51.9d06,  89.9d06, 150.6d06, 236.5d06, 364.4d06, 364.4d06, 364.4d06, &
+           ! table4b (R2=0.02mum, wcb=1.0m/s) (for Ncn=50 "interpolted" and Ncn=6400 extrapolated)
+           !ndrop1_21
+           45.3d06,  91.5d06, 158.7d06, 264.4d06, 423.1d06, 672.5d06, 397.5d06, 397.5d06, &
+           !ndrop1_22
+           38.5d06,  77.1d06, 133.0d06, 224.9d06, 376.5d06, 615.7d06, 418.4d06, 418.4d06, &
+           !ndrop1_23
+           35.0d06,  70.0d06, 122.5d06, 212.0d06, 362.1d06, 605.3d06, 438.5d06, 438.5d06, &
+           !ndrop1_24
+           32.4d06,  65.8d06, 116.4d06, 204.0d06, 350.6d06, 584.4d06, 433.5d06, 433.5d06, &
+           !ndrop1_25
+           31.2d06,  62.3d06, 110.1d06, 191.3d06, 320.6d06, 501.3d06, 364.4d06, 364.4d06, &
+           ! table4c (R2=0.02mum, wcb=2.5m/s) (for Ncn=50 and Ncn=100 "interpolated")
+           !ndrop1_31
+           50.3d06, 100.5d06, 201.1d06, 373.1d06, 664.7d06,1132.8d06,1876.8d06,2973.7d06, &
+           !ndrop1_32
+           44.1d06,  88.1d06, 176.2d06, 314.0d06, 546.9d06, 941.4d06,1579.2d06,2542.2d06, &
+           !ndrop1_33
+           39.7d06,  79.5d06, 158.9d06, 283.4d06, 498.9d06, 865.9d06,1462.6d06,2355.8d06, &
+           !ndrop1_34
+           37.0d06,  74.0d06, 148.0d06, 264.6d06, 468.3d06, 813.3d06,1371.3d06,2137.2d06, &
+           !ndrop1_35
+           34.7d06,  69.4d06, 138.8d06, 246.9d06, 432.9d06, 737.8d06,1176.7d06,1733.0d06, &
+           ! table4d (R2=0.02mum, wcb=5.0m/s) (for Ncn=50,100,200 "interpolated")
+           !ndrop1_41
+           51.5d06, 103.1d06, 206.1d06, 412.2d06, 788.1d06,1453.1d06,2585.1d06,4382.5d06, &
+           !ndrop1_42
+           46.6d06,  93.2d06, 186.3d06, 372.6d06, 657.2d06,1202.8d06,2098.0d06,3556.9d06, &
+           !ndrop1_43
+           70.0d06,  70.0d06, 168.8d06, 337.6d06, 606.7d06,1078.5d06,1889.0d06,3206.9d06, &
+           !ndrop1_44
+           42.2d06,  84.4d06, 166.4d06, 312.7d06, 562.2d06,1000.3d06,1741.1d06,2910.1d06, &
+           !ndrop1_45
+           36.5d06,  72.9d06, 145.8d06, 291.6d06, 521.0d06, 961.1d06,1551.1d06,2444.6d06, &
+           ! table5a (R2=0.03mum, wcb=0.5m/s)
+           !ndrop2_11
+           50.0d06,  95.8d06, 176.2d06, 321.6d06, 562.3d06, 835.5d06, 835.5d06, 835.5d06, &
+           !ndrop2_12
+           44.7d06,  81.4d06, 144.5d06, 251.5d06, 422.7d06, 677.8d06, 677.8d06, 677.8d06, &
+           !ndrop2_13
+           40.2d06,  72.8d06, 129.3d06, 225.9d06, 379.9d06, 606.5d06, 606.5d06, 606.5d06, &
+           !ndrop2_14
+           37.2d06,  67.1d06, 119.5d06, 206.7d06, 340.5d06, 549.4d06, 549.4d06, 549.4d06, &
+           !ndrop2_15
+           33.6d06,  59.0d06,  99.4d06, 150.3d06, 251.8d06, 466.0d06, 466.0d06, 466.0d06, &
+           ! table5b (R2=0.03mum, wcb=1.0m/s) (Ncn=50 "interpolated", Ncn=6400 "extrapolated)
+           !ndrop2_21
+           50.7d06, 101.4d06, 197.6d06, 357.2d06, 686.6d06,1186.4d06,1892.2d06,1892.2d06, &
+           !ndrop2_22
+           46.6d06,  93.3d06, 172.2d06, 312.1d06, 550.7d06, 931.6d06,1476.6d06,1476.6d06, &
+           !ndrop2_23
+           42.2d06,  84.4d06, 154.0d06, 276.3d06, 485.6d06, 811.2d06,1271.7d06,1271.7d06, &
+           !ndrop2_24
+           39.0d06,  77.9d06, 141.2d06, 251.8d06, 436.7d06, 708.7d06,1117.7d06,1117.7d06, &
+           !ndrop2_25
+           35.0d06,  70.1d06, 123.9d06, 210.2d06, 329.9d06, 511.9d06, 933.4d06, 933.4d06, &
+           ! table5c (R2=0.03mum, wcb=2.5m/s)
+           !ndrop2_31
+           51.5d06, 103.0d06, 205.9d06, 406.3d06, 796.4d06,1524.0d06,2781.4d06,4609.3d06, &
+           !ndrop2_32
+           49.6d06,  99.1d06, 198.2d06, 375.5d06, 698.3d06,1264.1d06,2202.8d06,3503.6d06, &
+           !ndrop2_33
+           45.8d06,  91.6d06, 183.2d06, 339.5d06, 618.9d06,1105.2d06,1881.8d06,2930.9d06, &
+           !ndrop2_34
+           42.3d06,  84.7d06, 169.3d06, 310.3d06, 559.5d06, 981.7d06,1611.6d06,2455.6d06, &
+           !ndrop2_35
+           38.2d06,  76.4d06, 152.8d06, 237.3d06, 473.3d06, 773.1d06,1167.9d06,1935.0d06, &
+           ! table5d (R2=0.03mum, wcb=5.0m/s)
+           !ndrop2_41
+           51.9d06, 103.8d06, 207.6d06, 415.1d06, 819.6d06,1616.4d06,3148.2d06,5787.9d06, &
+           !ndrop2_42
+           50.7d06, 101.5d06, 203.0d06, 405.9d06, 777.0d06,1463.8d06,2682.6d06,4683.0d06, &
+           !ndrop2_43
+           47.4d06,  94.9d06, 189.7d06, 379.4d06, 708.7d06,1301.3d06,2334.3d06,3951.8d06, &
+           !ndrop2_44
+           44.0d06,  88.1d06, 176.2d06, 352.3d06, 647.8d06,1173.0d06,2049.7d06,3315.6d06, &
+           !ndrop2_45
+           39.7d06,  79.4d06, 158.8d06, 317.6d06, 569.5d06, 988.5d06,1615.6d06,2430.3d06, &
+           ! table6a (R2=0.04mum, wcb=0.5m/s)
+           !ndrop3_11
+           50.6d06, 100.3d06, 196.5d06, 374.7d06, 677.3d06,1138.9d06,1138.9d06,1138.9d06, &
+           !ndrop3_12
+           48.4d06,  91.9d06, 170.6d06, 306.9d06, 529.2d06, 862.4d06, 862.4d06, 862.4d06, &
+           !ndrop3_13
+           44.4d06,  82.5d06, 150.3d06, 266.4d06, 448.0d06, 740.7d06, 740.7d06, 740.7d06, &
+           !ndrop3_14
+           40.9d06,  75.0d06, 134.7d06, 231.9d06, 382.1d06, 657.6d06, 657.6d06, 657.6d06, &
+           !ndrop3_15
+           34.7d06,  59.3d06,  93.5d06, 156.8d06, 301.9d06, 603.8d06, 603.8d06, 603.8d06, &
+           ! table6b (R2=0.04mum, wcb=1.0m/s)
+           !ndrop3_21
+           50.9d06, 101.7d06, 201.8d06, 398.8d06, 773.7d06,1420.8d06,2411.8d06,2411.8d06, &
+           !ndrop3_22
+           49.4d06,  98.9d06, 189.7d06, 356.2d06, 649.5d06,1117.9d06,1805.2d06,1805.2d06, &
+           !ndrop3_23
+           45.6d06,  91.8d06, 171.5d06, 214.9d06, 559.0d06, 932.8d06,1501.6d06,1501.6d06, &
+           !ndrop3_24
+           42.4d06,  84.7d06, 155.8d06, 280.5d06, 481.9d06, 779.0d06,1321.9d06,1321.9d06, &
+           !ndrop3_25
+           36.1d06,  72.1d06, 124.4d06, 198.4d06, 319.1d06, 603.8d06,1207.6d06,1207.6d06, &
+           ! table6c (R2=0.04mum, wcb=2.5m/s)
+           !ndrop3_31
+           51.4d06, 102.8d06, 205.7d06, 406.9d06, 807.6d06,1597.5d06,3072.2d06,5393.9d06, &
+           !ndrop3_32
+           50.8d06, 101.8d06, 203.6d06, 396.0d06, 760.4d06,1422.1d06,2517.4d06,4062.8d06, &
+           !ndrop3_33
+           48.2d06,  96.4d06, 193.8d06, 367.3d06, 684.0d06,1238.3d06,2087.3d06,3287.1d06, &
+           !ndrop3_34
+           45.2d06,  90.4d06, 180.8d06, 335.7d06, 611.2d06,1066.3d06,1713.4d06,2780.3d06, &
+           !ndrop3_35
+           38.9d06,  77.8d06, 155.5d06, 273.7d06, 455.2d06, 702.2d06,1230.7d06,2453.7d06, &
+           ! table6d (R2=0.04mum, wcb=5.0m/s)
+           !ndrop3_41
+           53.1d06, 106.2d06, 212.3d06, 414.6d06, 818.3d06,1622.2d06,3216.8d06,6243.9d06, &
+           !ndrop3_42
+           51.6d06, 103.2d06, 206.3d06, 412.5d06, 805.3d06,1557.4d06,2940.4d06,5210.1d06, &
+           !ndrop3_43
+           49.6d06,  99.2d06, 198.4d06, 396.7d06, 755.5d06,1414.5d06,2565.3d06,4288.1d06, &
+           !ndrop3_44
+           46.5d06,  93.0d06, 186.0d06, 371.9d06, 692.9d06,1262.0d06,2188.3d06,3461.2d06, &
+           !ndrop3_45
+           39.9d06,  79.9d06, 159.7d06, 319.4d06, 561.7d06, 953.9d06,1493.9d06,2464.7d06 /), (/ n_ncn, 5, n_wcb, 3 /) )
+      IF (i_lsigs < 1 .OR. i_lsigs > 5 .OR. i_r2 < 1 .OR. i_r2 > 3) THEN
+        WRITE(0, '(a)') "!!!! wrong value for lsigs or R2 in cloud_nucleation_SK !!!!!"
+      END IF
+      DO i = 1, 4
+        tab_ndrop(i, :) = ndrop(:, i_lsigs, i, i_r2)
+      END DO
     END SUBROUTINE lookuptable
 
     !--------------
@@ -6299,11 +6247,9 @@ CONTAINS
     FUNCTION ip_ndrop_ncn(tab_ndrop,tab_ncn,Ncn)
 
       ! Interpolation of the look-up table with respect to aerosol concentration Ncn
-
-      INTEGER, PARAMETER ::  n_wcb = 4, n_ncn=8
+      REAL(wp) :: ip_ndrop_ncn(n_wcb)
+      REAL(wp), INTENT(in) :: Ncn, tab_ndrop(n_wcb,n_ncn), tab_ncn(n_ncn)
       INTEGER            ::  ki
-      REAL(wp)           ::  ip_ndrop_ncn(n_wcb)
-      DOUBLE PRECISION   ::  tab_ncn(n_ncn), tab_ndrop(n_wcb,n_ncn), Ncn
       LOGICAL :: found
 
       ! Interpolation of Ndrop from the values of Ncn in the look-up-table to given Ncn
@@ -6334,17 +6280,11 @@ CONTAINS
     END FUNCTION  ip_ndrop_ncn
 
     !------------------
-
+    ! Interpolation of the interpolated look-up table with respect to w_cb
     FUNCTION ip_ndrop_wcb(tab_Ndrop_i,tab_wcb,wcb)
-
-      ! Interpolation of the interpolated look-up table with respect to w_cb
-
-      IMPLICIT NONE
-
-      REAL(wp)           :: ip_ndrop_wcb
-      INTEGER, PARAMETER :: n_wcb = 4
+      REAL(wp) :: ip_ndrop_wcb
+      REAL(wp), INTENT(in) :: tab_wcb(1:n_wcb), tab_Ndrop_i(1:n_wcb), wcb
       INTEGER            :: ki
-      DOUBLE PRECISION   :: tab_wcb(1:n_wcb), tab_Ndrop_i(1:n_wcb), wcb
       LOGICAL :: found
 
       !... Interpolation for Ndrop from the values of wcb in the look-up-tabel to detected wcb
