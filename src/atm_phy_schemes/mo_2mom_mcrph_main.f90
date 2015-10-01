@@ -1509,7 +1509,7 @@ CONTAINS
        ! evaporation from melting ice particles
        CALL evaporation(ik_slice, dt, atmo, snow, se_params)
        CALL graupel_evaporation(ik_slice, dt, atmo, graupel)
-       IF (ice_typ > 1) CALL hail_evaporation(ik_slice, dt, atmo, hail)
+       IF (ice_typ > 1) CALL evaporation(ik_slice, dt, atmo, hail, he_params)
        IF (ischeck) CALL check(ik_slice, 'evaporation of ice',cloud,rain,ice,snow,graupel,hail)
 
        end if
@@ -2469,65 +2469,6 @@ CONTAINS
 
   END SUBROUTINE graupel_evaporation
 
-  SUBROUTINE hail_evaporation(ik_slice, dt, atmo, hail)
-    !*******************************************************************************
-    ! Evaporation of melting graupel, see SB2006                                   *
-    !*******************************************************************************
-    ! start and end indices for 2D slices
-    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
-    REAL(wp), INTENT(in) :: dt
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: hail
-    ! start and end indices for 2D slices
-    INTEGER :: istart, iend, kstart, kend
-    INTEGER             :: i,k
-    REAL(wp)            :: T_a,e_sw,s_sw,g_d,eva
-    REAL(wp)            :: q_h,n_h,x_h,d_h,v_h,f_v,e_d
-
-    IF (isdebug) CALL message(routine, "hail_evaporation")
-
-    istart = ik_slice(1)
-    iend   = ik_slice(2)
-    kstart = ik_slice(3)
-    kend   = ik_slice(4)
-
-    DO k = kstart,kend
-       DO i = istart,iend
-
-          q_h = hail%q(i,k)
-          T_a = atmo%T(i,k)
-
-          IF (q_h > 0.0_wp .AND. T_a > T_3) THEN
-
-            e_d  = atmo%qv(i,k) * R_d * T_a
-            e_sw = e_ws(T_a)
-            s_sw = e_d / e_sw - 1.0
-
-            !..Eq. (37) of SB2006, note that 4*pi is correct because c_h is used below
-            g_d = 4.0*pi / ( L_wd**2 / (K_T * R_d * T_3**2) + R_d * T_3 / (D_v * e_sw) )
-
-            n_h = hail%n(i,k)
-            x_h = particle_meanmass(hail, q_h,n_h)
-            d_h = particle_diameter(hail, x_h)
-            v_h = particle_velocity(hail, x_h) * hail%rho_v(i,k)
-
-            f_v  = he_params%a_f + he_params%b_f * sqrt(v_h*D_h)
-
-            eva = g_d * n_h * he_params%c * d_h * f_v * s_sw * dt
-
-            eva = MAX(-eva,0.0_wp)
-            eva = MIN(eva,q_h)
-
-            atmo%qv(i,k) = atmo%qv(i,k) + eva
-            hail%q(i,k)  = hail%q(i,k)  - eva
-
-          END IF
-       END DO
-    END DO
-  END SUBROUTINE hail_evaporation
-
   SUBROUTINE evaporation(ik_slice, dt, atmo, prtcl, params)
     !*******************************************************************************
     ! Evaporation of melting snow/graupel/hail, see SB2006                                      *
@@ -2564,6 +2505,7 @@ CONTAINS
             e_sw = e_ws(T_a)
             s_sw = e_d / e_sw - 1.0
 
+            !..Eq. (37) of SB2006, note that 4*pi is correct because c is used below
             g_d = 4.0*pi / ( L_wd**2 / (K_T * R_d * T_3**2) + R_d * T_3 / (D_v * e_sw) )
 
             n = prtcl%n(i,k)
