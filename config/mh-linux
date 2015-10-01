@@ -501,6 +501,8 @@ case "$ac_sitename" in
                                     ;;
                                 esac
                                 ;;
+                            no)
+                                ;;
                             /opt/mpi/bullxmpi_mlx/1.2.8.3|*)
 				load_modules = ${load_modules} fca mxm bullxmpi_mlx/bullxmpi_mlx-1.2.8.3
 				FFLAGS       = $FFLAGS
