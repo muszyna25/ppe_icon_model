@@ -38,8 +38,8 @@ MODULE mo_parallel_config
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-       &  restart_chunk_size
-  PUBLIC :: ext_div_from_file
+       &  restart_chunk_size, ext_div_from_file, write_div_to_file, &
+       &  use_div_from_file
 
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
 
@@ -60,6 +60,10 @@ MODULE mo_parallel_config
   INTEGER :: division_method(0:max_dom) = 1
   CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom)! if ext_div_from_file
   CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom)! if parallel_radiation_mode = 1
+  LOGICAL :: use_div_from_file = .FALSE. ! check for domain decomposition from file
+                                         ! if file is not available use division_method
+                                         ! to generate decomposition online
+  LOGICAL :: write_div_to_file = .FALSE. ! write result of domain decomposition to file
 
   ! Flag if (in case of merged domains) physical domains shall be considered for
   ! computing the domain decomposition

@@ -52,15 +52,14 @@ MODULE mo_setup_subdivision
 
   USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, &
     & division_method, division_file_name, n_ghost_rows, &
-    & div_geometric, ext_div_from_file
+    & div_geometric, ext_div_from_file, write_div_to_file, use_div_from_file
 
   USE mo_communication,      ONLY: blk_no, idx_no, idx_1d
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_pre_patch
   USE mo_decomposition_tools, ONLY: divide_cells_by_location, t_cell_info, &
-    & sort_cell_info_by_cell_number, read_ascii_decomposition, &
-    & partidx_of_elem_uniform_deco
+    & sort_cell_info_by_cell_number, partidx_of_elem_uniform_deco
   USE mo_math_utilities,      ONLY: fxp_lat, fxp_lon
   USE mo_master_control,      ONLY: get_my_process_type, ocean_process, &
                                     testbed_process
@@ -78,10 +77,19 @@ MODULE mo_setup_subdivision
     &                               dist_mult_array_delete, dist_mult_array_get, &
     &                               ppm_int
   USE ppm_extents,            ONLY: extent
+  USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
+    &                                   distrib_nf_close, distrib_read, nf, &
+    &                                   delete_distrib_read, setup_distrib_read
+  USE ppm_distributed_array,  ONLY: dist_mult_array, global_array_desc
+  USE mo_util_uuid, ONLY: uuid_string_length, uuid_unparse
+  USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
+    &                                   netcdf_read_att_int
 
   IMPLICIT NONE
 
   PRIVATE
+
+  INCLUDE 'netcdf.inc'
 
   !modules interface-------------------------------------------
   !subroutines
@@ -471,64 +479,74 @@ CONTAINS
     TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner_p
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
 
-    INTEGER, POINTER :: cell_owner(:) !> Cell division
     INTEGER, POINTER :: local_owner_ptr(:)
     INTEGER, ALLOCATABLE :: flag_c(:)
+    CHARACTER(LEN=uuid_string_length) :: p_grid_uuid, grid_uuid
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if ext_div_from_file
+    LOGICAL :: div_from_file, div_file_exists
+    INTEGER :: num_proc_in_div_file, ncid, ret
 
-    ! Please note: Unfortunately we cannot use p_io for doing I/O,
-    ! since this might be the test PE which is never calling this routine
-    ! (this is the case in the actual setup).
-    ! Thus we use the worker PE 0 for I/O and don't use message() for output.
+    div_from_file = .FALSE.
 
-    IF (division_method(patch_no) == ext_div_from_file) THEN
+    IF (use_div_from_file .OR. &
+        (division_method(patch_no) == ext_div_from_file)) THEN
 
-      ALLOCATE(cell_owner(wrk_p_patch_pre%n_patch_cells_g))
+      ! Please note: Unfortunately we cannot use p_io for doing I/O,
+      ! since this might be the test PE which is never calling this routine
+      ! (this is the case in the actual setup).
 
-      ! only procs 0 will decompose and then broadcast
-      IF (p_pe_work == 0) THEN
+      IF (division_file_name(patch_no) == "") THEN
+        IF (ASSOCIATED(wrk_p_parent_patch_pre)) THEN
+          CALL uuid_unparse(wrk_p_parent_patch_pre%grid_uuid, p_grid_uuid)
+        ELSE
+          p_grid_uuid = "-";
+        END IF
+        CALL uuid_unparse(wrk_p_patch_pre%grid_uuid, grid_uuid)
+        use_division_file_name = &
+          & TRIM(get_filename_noext(wrk_p_patch_pre%grid_filename)) // "_" //&
+          & TRIM(p_grid_uuid) // "_" // TRIM(grid_uuid) // '_cell_owner.nc'
+      ELSE
+        use_division_file_name = division_file_name(patch_no)
+      ENDIF
 
-        IF (division_method(patch_no) == ext_div_from_file) THEN
+      ! check whether file is available
+      INQUIRE(FILE=use_division_file_name, EXIST=div_file_exists)
 
-          IF (division_file_name(patch_no) == "") THEN
-            use_division_file_name = &
-              & TRIM(get_filename_noext(wrk_p_patch_pre%grid_filename))//'.cell_domain_ids'
-          ELSE
-            use_division_file_name = division_file_name(patch_no)
-          ENDIF
+      ! check whether number of procs matches
+      IF (div_file_exists) THEN
 
-          CALL read_ascii_decomposition(use_division_file_name, cell_owner, &
-            &                           wrk_p_patch_pre%n_patch_cells_g)
+        ncid = netcdf_open_input(use_division_file_name)
 
-        ENDIF ! subddivision_method(patch_no)
+        num_proc_in_div_file = netcdf_read_att_int(ncid, "cell_owner", "nprocs")
 
-        ! Quick check for correct values
-        IF(MINVAL(cell_owner(:)) < 0 .or. &
-           MAXVAL(cell_owner(:)) >= n_proc) THEN
-          WRITE(0,*) "n_porc=",n_proc, " MINAVAL=", MINVAL(cell_owner(:)), &
-            " MAXVAL=", MAXVAL(cell_owner(:))
-          CALL finish('divide_patch','Illegal subdivision in input file')
-        ENDIF
+        ret = netcdf_close(ncid)
+      ELSE
+        num_proc_in_div_file = 0
+      END IF
 
-      ENDIF ! IF (p_pe_work == 0)
+      IF (division_method(patch_no) == ext_div_from_file) THEN
+        IF (.NOT. div_file_exists) &
+          CALL finish('divide_patch','decomposition file not found')
+        IF (num_proc_in_div_file /= p_n_work) &
+          CALL finish('divide_patch','wrong number of procs in decomposition file')
+      END IF
 
-      ! broadcast cell_owner array to other processes
-      CALL p_bcast(cell_owner, 0, comm=p_comm_work)
+      div_from_file = num_proc_in_div_file == p_n_work
 
-      ! Set processor offset
-      cell_owner(:) = cell_owner(:) + proc0
+      IF (div_from_file) THEN
+        CALL read_netcdf_decomposition(use_division_file_name, dist_cell_owner, &
+          &                            wrk_p_patch_pre%n_patch_cells_g)
 
-      CALL create_dist_cell_owner(dist_cell_owner, wrk_p_patch_pre%n_patch_cells_g)
-      CALL init_dist_cell_owner(dist_cell_owner, cell_owner)
-      DEALLOCATE(cell_owner)
+        ! Assign the cell owners of the current patch to the parent cells
+        ! for the construction of the local parent, set "-1" elsewhere.
+        IF (ASSOCIATED(wrk_p_parent_patch_pre)) &
+          CALL divide_parent_cells(wrk_p_patch_pre, wrk_p_parent_patch_pre, &
+            &                      dist_cell_owner, dist_cell_owner_p)
+      END IF
 
-      ! Assign the cell owners of the current patch to the parent cells
-      ! for the construction of the local parent, set "-1" elsewhere.
-      IF (ASSOCIATED(wrk_p_parent_patch_pre)) &
-        CALL divide_parent_cells(wrk_p_patch_pre, wrk_p_parent_patch_pre, &
-          &                      dist_cell_owner, dist_cell_owner_p)
+    END IF
 
-    ELSE ! IF (division_method(patch_no) == ext_div_from_file)
+    IF (.NOT. div_from_file) THEN
 
       IF(division_method(patch_no) == div_geometric) THEN
         IF(ASSOCIATED(wrk_p_parent_patch_pre)) THEN
@@ -540,8 +558,8 @@ CONTAINS
                           wrk_p_patch_pre%cells%local_chunk(1,1)%first + &
         &                 wrk_p_patch_pre%cells%local_chunk(1,1)%size - 1))
         END IF
-      ELSE
-        CALL finish('divide_patch','Illegal division_method setting')
+      ELSE IF(division_method(patch_no) == ext_div_from_file) THEN
+        CALL finish('divide_patch','invalid division method')
       END IF
 
       ! Built-in subdivison methods
@@ -586,6 +604,26 @@ CONTAINS
       CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
       local_owner_ptr = local_owner_ptr + proc0
       CALL dist_mult_array_expose(dist_cell_owner)
+
+      IF (write_div_to_file) THEN
+
+        IF (division_file_name(patch_no) == "") THEN
+          IF (ASSOCIATED(wrk_p_parent_patch_pre)) THEN
+            CALL uuid_unparse(wrk_p_parent_patch_pre%grid_uuid, p_grid_uuid)
+          ELSE
+            p_grid_uuid = "-";
+          END IF
+          CALL uuid_unparse(wrk_p_patch_pre%grid_uuid, grid_uuid)
+          use_division_file_name = &
+            & TRIM(get_filename_noext(wrk_p_patch_pre%grid_filename)) // "_" // &
+            & TRIM(p_grid_uuid) // "_" // TRIM(grid_uuid) // '_cell_owner.nc'
+        ELSE
+          use_division_file_name = division_file_name(patch_no)
+        ENDIF
+
+        CALL write_netcdf_decomposition(use_division_file_name, dist_cell_owner, &
+          &                             wrk_p_patch_pre%n_patch_cells_g)
+      END IF
     ENDIF ! division_method
 
   CONTAINS
@@ -3124,6 +3162,112 @@ CONTAINS
 
   END SUBROUTINE set_owners_mpi
 #endif
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE read_netcdf_decomposition(netcdf_file_name, dist_cell_owner, no_of_cells)
+    CHARACTER(LEN=*) :: netcdf_file_name
+    TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
+    INTEGER, INTENT(IN) :: no_of_cells
+
+    TYPE(global_array_desc) :: dist_cell_owner_desc(1)
+    TYPE(extent) :: local_chunk(1,1)
+    INTEGER, POINTER :: local_ptr(:)
+    INTEGER, ALLOCATABLE :: buffer(:,:)
+    INTEGER :: i, ncid
+    TYPE(t_grid_domain_decomp_info) :: decomp_info
+    TYPE(t_distrib_read_data) :: io_data
+    CHARACTER(*), PARAMETER :: method_name = "read_netcdf_decomposition"
+
+    dist_cell_owner_desc(1)%a_rank = 1
+    dist_cell_owner_desc(1)%rect(1)%first = 1
+    dist_cell_owner_desc(1)%rect(1)%size = no_of_cells
+    dist_cell_owner_desc(1)%element_dt = ppm_int
+
+    ! compute uniform partition
+    local_chunk(1,1) = uniform_partition(dist_cell_owner_desc(1)%rect(1), &
+      &                                  p_n_work, p_pe_work+1)
+
+    ! generate distributed array cell_owner array
+    dist_cell_owner = dist_mult_array_new(dist_cell_owner_desc, local_chunk, &
+      &                                   p_comm_work)
+
+    ! get pointer to local chunk of cell_owner array
+    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
+
+    ! allocate temporary buffer (read method only outputs nproma-blocked data)
+    ALLOCATE(buffer(nproma, (SIZE(local_ptr) + nproma - 1)/nproma))
+
+    ! setup io data
+    ALLOCATE(decomp_info%glb_index(SIZE(local_ptr)))
+    decomp_info%glb_index = (/(i, i=LBOUND(local_ptr,1), UBOUND(local_ptr,1))/)
+    CALL setup_distrib_read(no_of_cells, decomp_info, io_data)
+
+    ! read cell owner
+    IF (p_pe_work == 0) &
+      WRITE(0,*) "Read decomposition from file: ", TRIM(netcdf_file_name)
+    ncid = distrib_nf_open(netcdf_file_name)
+    CALL distrib_read(ncid, "cell_owner", buffer, io_data)
+    CALL distrib_nf_close(ncid)
+
+    DO i = 0, SIZE(local_ptr) - 1
+      local_ptr(i + LBOUND(local_ptr, 1)) = &
+        buffer(MOD(i, nproma) + 1, i / nproma + 1)
+    END DO
+
+    CALL dist_mult_array_expose(dist_cell_owner)
+
+    ! clean-up
+    DEALLOCATE(decomp_info%glb_index)
+    CALL delete_distrib_read(io_data)
+
+  END SUBROUTINE read_netcdf_decomposition
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE write_netcdf_decomposition(netcdf_file_name, dist_cell_owner, &
+    &                                   no_of_cells)
+    CHARACTER(LEN=*) :: netcdf_file_name
+    TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner
+    INTEGER, INTENT(IN) :: no_of_cells
+
+    INTEGER :: i, ncid, dimid, varid
+    INTEGER, ALLOCATABLE :: cell_owner(:)
+
+
+    IF (p_pe_work == 0) THEN
+
+      WRITE(0,*) "Write decomposition to file: ", TRIM(netcdf_file_name)
+
+      ! very simple implementation...could be optimised if necessary
+      ALLOCATE(cell_owner(MERGE(no_of_cells, 0, p_pe_work == 0)))
+      DO i = 1, no_of_cells
+        CALL dist_mult_array_get(dist_cell_owner, 1, (/i/), cell_owner(i))
+      END DO
+
+      ! generate decomposition file
+      CALL nf(nf_create(TRIM(netcdf_file_name), NF_CLOBBER, ncid))
+
+      ! define dimension
+      CALL nf(nf_def_dim(ncid, "ncells", no_of_cells, dimid))
+
+      ! define variable
+      CALL nf(nf_def_var(ncid, "cell_owner", NF_INT, 1, (/dimid/), varid))
+
+      ! put the number of processes
+      CALL nf(nf_put_att_int(ncid, varid, "nprocs", NF_INT, 1, (/p_n_work/)))
+
+      CALL nf(nf_enddef(ncid))
+
+      ! write decomposition
+      CALL nf(nf_put_var_int(ncid, varid, cell_owner))
+
+      CALL nf(nf_close(ncid))
+
+    END IF
+
+  END SUBROUTINE write_netcdf_decomposition
   !-------------------------------------------------------------------------
 
 END MODULE mo_setup_subdivision

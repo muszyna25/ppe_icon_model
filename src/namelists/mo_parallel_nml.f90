@@ -30,6 +30,8 @@ MODULE mo_parallel_nml
     & config_n_ghost_rows        => n_ghost_rows,        &
     & config_division_method     => division_method,     &
     & config_division_file_name  => division_file_name,  &
+    & config_write_div_to_file   => write_div_to_file,   &
+    & config_use_div_from_file   => use_div_from_file,   &
     & config_ldiv_phys_dom       => ldiv_phys_dom,       &
     & config_rad_division_file_name  => radiation_division_file_name,  &
     & config_l_log_checks        => l_log_checks,        &
@@ -92,6 +94,9 @@ MODULE mo_parallel_nml
 
     CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom) ! if ext_div_from_file
     CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom) ! if ext_div_from_file
+
+    LOGICAL :: write_div_to_file
+    LOGICAL :: use_div_from_file
 
     ! Flag if (in case of merged domains) physical domains shall be considered for
     ! computing the domain decomposition
@@ -183,6 +188,7 @@ MODULE mo_parallel_nml
       & test_parallel_radiation, openmp_threads, &
       & icon_comm_debug, max_send_recv_buffer_size, &
       & division_file_name, radiation_division_file_name, use_dycore_barrier, &
+      & write_div_to_file, use_div_from_file, &
       & use_dp_mpi2io, itype_exch_barrier,                &
       & icon_comm_method, max_no_of_comm_variables,       &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
@@ -204,6 +210,8 @@ MODULE mo_parallel_nml
     division_method(:) = div_geometric
     division_file_name(:) = ""
     radiation_division_file_name(:) = ""
+    write_div_to_file = .FALSE.
+    use_div_from_file = .FALSE.
 
     ! Flag if (in case of merged domains) physical domains shall be considered for
     ! computing the domain decomposition
@@ -324,6 +332,8 @@ MODULE mo_parallel_nml
     config_n_ghost_rows        = n_ghost_rows
     config_division_method(:)  = division_method(:)
     config_division_file_name(:) = division_file_name(:)
+    config_write_div_to_file   = write_div_to_file
+    config_use_div_from_file   = use_div_from_file
     config_ldiv_phys_dom       = ldiv_phys_dom
     config_rad_division_file_name(:)  = radiation_division_file_name(:)
     config_l_log_checks        = l_log_checks
