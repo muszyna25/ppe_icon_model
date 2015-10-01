@@ -59,17 +59,13 @@
 !!    2a) ldistributed == .TRUE.
 !!        Invalid case, caught by namelist cross checks
 !!    2b) ldistributed == .FALSE.
-!!        The first I/O PE collects data from working PEs and writes
-!!        the NetCDF output. Thus, the PE with rank
-!!        "process_mpi_all_ioroot_id" has "l_is_collecting_pe" and
+!!        The last I/O PE collects data from working PEs and writes
+!!        the NetCDF output. Thus, this PE has "l_is_collecting_pe" and
 !!        "l_is_writer" enabled.  Since this output PE has no
 !!        information on variable (levels) and patches, it has also
 !!        the flag "l_pure_io_pe" enabled and receives this setup from
 !!        a dedicated working PE (workroot). The latter has
 !!        "l_is_varlist_sender" enabled.
-!!        MoHa: Potentially the last I/O PE has the least work to do.
-!!              To reduce maximum memory consumption of the I/O PEs
-!!              the last of them will do the meteogram output.
 !!
 !! Known limitations:
 !! ------------------
