@@ -122,6 +122,12 @@ MODULE mo_real_timer
     INTEGER  :: active_under            ! ID of superordinate timer; -1: "undefined", 0: "none", >0: id
   END TYPE t_rt
 
+  TYPE t_timer_reductions
+    REAL(dp), ALLOCATABLE :: val_min(:), val_max(:), val_tot(:), &
+         val_tot_min(:), val_tot_max(:), val_call_n(:)
+    INTEGER, ALLOCATABLE :: tot_rank_min(:), tot_rank_max(:), &
+         rank_min(:), rank_max(:)
+  END TYPE t_timer_reductions
 
   TYPE(t_srt), SAVE      :: srt(timer_max)
   TYPE(t_rt)             :: rt(timer_max)
@@ -800,7 +806,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
 
     CALL print_report(it, timer_file_id, nd)
-    
+
     ! How many sub-timers has <it>, and which?
     n = 0
     DO k=1,timer_top
@@ -903,6 +909,7 @@ CONTAINS
     INTEGER                        :: nranks, ranks(num_work_procs)
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: ranklist_str
     TYPE (t_table)                 :: table
+    TYPE(t_timer_reductions)        :: tmr
 
 #ifdef _OPENMP
     IF ( omp_in_parallel() ) &
@@ -910,7 +917,7 @@ CONTAINS
 #endif
 
     !-- start the table output
-    
+
     IF (p_pe_work == 0) THEN
       CALL message ('','',all_print=.TRUE.)
       IF (num_work_procs > 1) THEN
@@ -936,13 +943,15 @@ CONTAINS
       irow = 1
     END IF
 
+    CALL get_timer_reductions(tmr)
+
     !-- collect the timer data lines
     DO it = 1, timer_top
       IF (rt(it)%stat /= rt_undef_stat .AND. rt(it)%active_under == 0) THEN
-        CALL print_report_hierch_agg(table, irow, it, 0)
+        CALL print_report_hierch_agg(table, irow, it, 0,tmr)
       ENDIF
     ENDDO
-    
+
     IF (p_pe_work == 0) THEN
       !-- print the table
       CALL print_table(table, opt_delimiter='   ', opt_hline=.TRUE.)
@@ -953,23 +962,62 @@ CONTAINS
 
   END SUBROUTINE timer_report_aggregated
 
+  SUBROUTINE get_timer_reductions(tmr)
+    TYPE(t_timer_reductions), INTENT(out) :: tmr
+
+    ALLOCATE(tmr%val_min(timer_top), tmr%val_max(timer_top), &
+         tmr%val_tot(timer_top), tmr%val_tot_min(timer_top), &
+         tmr%val_tot_max(timer_top), tmr%val_call_n(timer_top), &
+         tmr%tot_rank_min(timer_top), tmr%tot_rank_max(timer_top), &
+         tmr%rank_min(timer_top), tmr%rank_max(timer_top))
+!$OMP PARALLEL
+!$OMP MASTER
+    tmr%val_min    = rt(1:timer_top)%min
+    tmr%val_max    = rt(1:timer_top)%max
+    tmr%val_tot    = rt(1:timer_top)%tot
+    tmr%val_call_n = REAL(MAX(1,rt(1:timer_top)%call_n), dp)
+!$OMP END MASTER
+!$OMP END PARALLEL
+
+    tmr%val_tot_min = tmr%val_tot
+    tmr%val_tot_max = tmr%val_tot
+
+    tmr%rank_min       = p_pe_work
+    tmr%rank_max       = p_pe_work
+    tmr%tot_rank_min   = p_pe_work
+    tmr%tot_rank_max   = p_pe_work
+
+    ! Note: The following operations are MPI-collective!
+    tmr%val_min = p_min(tmr%val_min, proc_id=tmr%rank_min, &
+         comm=p_comm_work, root=0)
+    tmr%val_max = p_max(tmr%val_max, proc_id=tmr%rank_max, &
+         comm=p_comm_work, root=0)
+    tmr%val_tot_min = p_min(tmr%val_tot_min, proc_id=tmr%tot_rank_min, &
+         comm=p_comm_work, root=0)
+    tmr%val_tot_max = p_max(tmr%val_tot_max, proc_id=tmr%tot_rank_max, &
+         comm=p_comm_work, root=0)
+    tmr%val_tot = p_sum(tmr%val_tot, comm=p_comm_work, root=0)
+    tmr%val_call_n = p_sum(tmr%val_call_n, comm=p_comm_work, root=0)
+
+  END SUBROUTINE get_timer_reductions
 
   !
   ! print statistics for timer <it> and all of its sub-timers
   !
   ! Note: MPI-aggregated implementation.
   !
-  RECURSIVE SUBROUTINE print_report_hierch_agg(table, irow, it, nd)
+  RECURSIVE SUBROUTINE print_report_hierch_agg(table, irow, it, nd,tmr)
     TYPE (t_table),   INTENT(INOUT)       :: table       !< print-out table
     INTEGER,          INTENT(INOUT)       :: irow        !< table row index
-    INTEGER,          INTENT(IN)          :: it          
+    INTEGER,          INTENT(IN)          :: it
     INTEGER,          INTENT(IN)          :: nd          !<  nesting depth
+    TYPE(t_timer_reductions), INTENT(in) :: tmr
     ! local variables
     INTEGER :: n, &                                      ! number of sub-timers
       &        subtimer_list(timer_top), &               ! valid entries: 1..n
       &        k
 
-    CALL print_report_aggregated(table, irow, it, nd)
+    CALL print_report_aggregated(table, irow, it, nd, tmr)
     irow = irow + 1
     
     ! How many sub-timers has <it>, and which?
@@ -993,67 +1041,44 @@ CONTAINS
   !-- print statistics for one timer "it1", merges all ranks in MPI
   !-- work communicator and all OMP thread-copies.
   !
-  SUBROUTINE print_report_aggregated(table, irow, it, nd)
+  SUBROUTINE print_report_aggregated(table, irow, it, nd, tmr)
     TYPE (t_table),   INTENT(INOUT)       :: table           !< print-out table
     INTEGER,          INTENT(INOUT)       :: irow            !< table row index
     INTEGER,          INTENT(in)          :: it
     INTEGER,          INTENT(in)          :: nd              !< nesting depth (determines the print indention)
+    TYPE(t_timer_reductions), INTENT(in) :: tmr
     ! local variables
-    REAL(dp)            :: val_min, val_max, val_avg, val_call_n, val_tot, val_tot_min, val_tot_max
-    INTEGER             :: rank_min, rank_max, tot_rank_min, tot_rank_max
+    REAL(dp)            :: val_avg
     CHARACTER(len=12)   :: min_str, avg_str, max_str, tot_min_str, tot_max_str
 
     ! OpenMP: We take the values of the master thread
-!$OMP PARALLEL 
-!$OMP MASTER
-    val_min    = rt(it)%min
-    val_max    = rt(it)%max
-    val_tot    = rt(it)%tot
-    val_call_n = REAL(MAX(1,rt(it)%call_n), dp)
-!$OMP END MASTER
-!$OMP END PARALLEL
 
-    val_tot_min = val_tot
-    val_tot_max = val_tot
 
-    rank_min       = p_pe_work
-    rank_max       = p_pe_work
-    tot_rank_min   = p_pe_work
-    tot_rank_max   = p_pe_work
-
-    ! Note: The following operations are MPI-collective!
-    val_min     = p_min(val_min,     proc_id=rank_min, comm=p_comm_work, root=0)
-    val_max     = p_max(val_max,     proc_id=rank_max, comm=p_comm_work, root=0)
-    val_tot_min = p_min(val_tot_min, proc_id=tot_rank_min, comm=p_comm_work, root=0)
-    val_tot_max = p_max(val_tot_max, proc_id=tot_rank_max, comm=p_comm_work, root=0)
-    val_tot     = p_sum(val_tot,     comm=p_comm_work, root=0)
-    val_call_n  = p_sum(val_call_n,  comm=p_comm_work, root=0)
-
-    IF ((p_pe_work == 0) .AND. ( val_call_n > 1.e-6_dp )) THEN
-      val_avg = val_tot/val_call_n
-      min_str = time_str(val_min)
+    IF ((p_pe_work == 0) .AND. ( tmr%val_call_n(it) > 1.e-6_dp )) THEN
+      val_avg = tmr%val_tot(it)/tmr%val_call_n(it)
+      min_str = time_str(tmr%val_min(it))
       avg_str = time_str(val_avg)
-      max_str = time_str(val_max)
+      max_str = time_str(tmr%val_max(it))
 
-      WRITE (tot_min_str, '(f12.3)') val_tot_min
-      WRITE (tot_max_str, '(f12.3)') val_tot_max
+      WRITE (tot_min_str, '(f12.3)') tmr%val_tot_min(it)
+      WRITE (tot_max_str, '(f12.3)') tmr%val_tot_max(it)
 
       CALL set_table_entry(table, irow, "name",     &
         &                  REPEAT('   ',MAX(nd-1,0))//REPEAT(' L ',MIN(nd,1))//srt(it)%text)
-      CALL set_table_entry(table, irow, "# calls",  TRIM(int2string(INT(val_call_n))))
+      CALL set_table_entry(table, irow, "# calls",  TRIM(int2string(INT(tmr%val_call_n(it)))))
       CALL set_table_entry(table, irow, "t_min",         TRIM(min_str))
       IF (num_work_procs > 1) &
-        CALL set_table_entry(table, irow, "min rank", "["//TRIM(int2string(rank_min))//"]")
+        CALL set_table_entry(table, irow, "min rank", "["//TRIM(int2string(tmr%rank_min(it)))//"]")
       CALL set_table_entry(table, irow, "t_avg",         TRIM(avg_str))
       CALL set_table_entry(table, irow, "t_max",         TRIM(max_str))
       IF (num_work_procs > 1) &
-        CALL set_table_entry(table, irow, "max rank", "["//TRIM(int2string(rank_max))//"]")
+        CALL set_table_entry(table, irow, "max rank", "["//TRIM(int2string(tmr%rank_max(it)))//"]")
       CALL set_table_entry(table, irow, "total min (s)",           TRIM(tot_min_str))
       IF (num_work_procs > 1) &
-        CALL set_table_entry(table, irow, "total min rank", "["//TRIM(int2string(tot_rank_min))//"]")
+        CALL set_table_entry(table, irow, "total min rank", "["//TRIM(int2string(tmr%tot_rank_min(it)))//"]")
       CALL set_table_entry(table, irow, "total max (s)",           TRIM(tot_max_str))
       IF (num_work_procs > 1) &
-        CALL set_table_entry(table, irow, "total max rank", "["//TRIM(int2string(tot_rank_max))//"]")
+        CALL set_table_entry(table, irow, "total max rank", "["//TRIM(int2string(tmr%tot_rank_max(it)))//"]")
     ENDIF
 
   END SUBROUTINE print_report_aggregated
