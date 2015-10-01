@@ -600,6 +600,7 @@ set_run_target_bullx()
       ;;
   esac
 
+  add_free_var MALLOC_TRIM_THRESHOLD_ -1
   if [[ "$is_serial_run" == "yes"  ]] ; then
     queue=${queue:="compute"}
     use_nodes=1
