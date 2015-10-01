@@ -40,10 +40,12 @@ MODULE mo_real_timer
 #ifndef NOMPI
   USE mo_mpi,             ONLY: p_recv, p_send, p_barrier, p_real_dp, &
                                 p_pe, p_io, my_process_is_stdio, p_comm_work, &
-                                p_comm_work_test, get_my_mpi_all_comm_size
+                                p_comm_work_test, get_my_mpi_all_comm_size, &
+                                p_comm_size
   USE mo_parallel_config, ONLY: p_test_run
 #else
-  USE mo_mpi,             ONLY: p_pe, p_io, my_process_is_stdio,  p_comm_work, p_comm_work_test
+  USE mo_mpi,             ONLY: p_pe, p_io, my_process_is_stdio, p_comm_work, &
+       p_comm_work_test
 #endif
 
   USE mo_mpi,             ONLY: num_test_procs, num_work_procs, get_my_mpi_work_id, &
@@ -623,15 +625,9 @@ CONTAINS
 #endif
 
 #ifndef NOMPI
-    IF(p_test_run) THEN
-      CALL MPI_GATHER(sbuf, SIZE(sbuf), p_real_dp, &
-           rbuf, SIZE(sbuf), p_real_dp, &
-           p_io, p_comm_work_test, p_error)
-    ELSE
-      CALL MPI_GATHER(sbuf, SIZE(sbuf), p_real_dp, &
-           rbuf, SIZE(sbuf), p_real_dp, &
-           p_io, p_comm_work, p_error)
-    ENDIF
+    CALL MPI_GATHER(sbuf, SIZE(sbuf), p_real_dp, &
+         rbuf, SIZE(sbuf), p_real_dp, &
+         p_io, MERGE(p_comm_work, p_comm_work_test, .NOT. p_test_run), p_error)
 #else
     rbuf(:,:,1) = sbuf(:,:)
 #endif
@@ -781,11 +777,7 @@ CONTAINS
     IF (p_pe < num_test_procs+num_work_procs-1) THEN
       CALL p_send(ibuf(1), p_pe+1, report_tag)
     ENDIF
-    IF(p_test_run) THEN
-      CALL p_barrier(p_comm_work_test)
-    ELSE
-      CALL p_barrier(p_comm_work)
-    ENDIF
+    CALL p_barrier(MERGE(p_comm_work, p_comm_work_test, .NOT. p_test_run))
 #endif
 
     CALL message ('',separator,all_print=.TRUE.)
@@ -1044,17 +1036,17 @@ CONTAINS
     END DO
 
 #ifndef NOMPI
-    ntasks = get_my_mpi_all_comm_size()
+    ntasks = p_comm_size(p_comm_work)
 #else
     ntasks = 1
 #endif
     ALLOCATE(tcounts(0:ntasks-1))
-    CALL p_allgather(n, tcounts)
+    CALL p_allgather(n, tcounts, comm=p_comm_work)
     consistent_sub_timer_counts = ALL(tcounts(1:) == tcounts(0))
     consistent_timer_lists = .FALSE.
     IF (consistent_sub_timer_counts) THEN
       ALLOCATE(tmrlists(n, 0:ntasks-1))
-      CALL p_allgather(subtimer_list(1:n), tmrlists)
+      CALL p_allgather(subtimer_list(1:n), tmrlists, comm=p_comm_work)
       consistent_timer_lists = .TRUE.
       DO i = 1, n
         consistent_timer_lists = consistent_timer_lists .AND. &
