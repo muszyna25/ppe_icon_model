@@ -1309,15 +1309,81 @@ CONTAINS
     CALL nf(nf_inq_varid(ncid_grf, 'phys_cell_id', varid))
     CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%cells%phys_id(:)))
 
-    ! patch_pre%cells%neighbor(:,:)
+    ! patch_pre%cells%neighbor
     CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
-    CALL nf(nf_get_var_int(ncid, varid, &
-      &                    patch_pre%cells%neighbor(:,1:max_cell_connectivity)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%neighbor, 1, local_ptr_2d)
+    local_ptr_2d(:,:) = 0
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size, &
+      &                       max_cell_connectivity/), &
+      &                     local_ptr_2d(:,1:max_cell_connectivity)))
 
-    ! patch_pre%cells%edge(:,:)
+    IF (max_cell_connectivity == 6 .AND. use_duplicated_connectivity) THEN
+      DO ic = patch_pre%cells%local_chunk(1,1)%first, &
+        patch_pre%cells%local_chunk(1,1)%first + &
+        patch_pre%cells%local_chunk(1,1)%size - 1
+
+        DO ji = 1, 6
+
+          ! account for dummy cells arising in case of a pentagon
+          IF (local_ptr_2d(ic,ji) == 0) THEN
+            IF ( ji /= 6 ) THEN
+              local_ptr_2d(ic,ji) = local_ptr_2d(ic,6)
+              ! this should not happen
+              ! CALL finish(method_name, "cells%neighbor_idx=0 not at the end")
+            END IF
+            ! Fill dummy neighbor with an existing index to simplify do loops
+            ! Note, however, that related multiplication factors must be zero
+            local_ptr_2d(ic,6) = local_ptr_2d(ic,5)
+          END IF
+        END DO  ! ji = 1, 6
+      END DO ! cells
+    END IF
+    CALL dist_mult_array_expose(patch_pre%cells%neighbor)
+
+    ! patch_pre%cells%edge
     CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
-    CALL nf(nf_get_var_int(ncid, varid, &
-      &     patch_pre%cells%edge(:,1:max_cell_connectivity)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%edge, 1, local_ptr_2d)
+    local_ptr_2d(:,:) = 0
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size, &
+      &                       max_cell_connectivity/), &
+      &                     local_ptr_2d(:,1:max_cell_connectivity)))
+
+    IF (max_cell_connectivity == 6 .AND. use_duplicated_connectivity) THEN
+
+      DO ic = 1, patch_pre%n_patch_cells_g
+
+        DO ji = 1, 6
+
+          ! account for dummy edges arising in case of a pentagon
+          IF ( local_ptr_2d(ic,ji) == 0 ) THEN
+            IF ( ji /= 6 ) local_ptr_2d(ic,ji) = local_ptr_2d(ic,6)
+            ! Fill dummy edge with existing index to simplify do loops
+            ! Note, however, that related multiplication factors must be zero
+            local_ptr_2d(ic,6) = local_ptr_2d(ic,5)
+          END IF
+
+        END DO  ! ji = 1, 6
+
+      END DO ! cells
+    ENDIF
+
+    CALL dist_mult_array_expose(patch_pre%cells%edge)
+
+    !----------------------------------------------------------------------------------
+    ! compute cells%num_edges
+    ! works for general unstructured grid
+    CALL dist_mult_array_local_ptr(patch_pre%cells%num_edges, 1, local_ptr)
+    DO jc = patch_pre%cells%local_chunk(1,1)%first, &
+      patch_pre%cells%local_chunk(1,1)%first + &
+      patch_pre%cells%local_chunk(1,1)%size - 1
+      local_ptr(jc) = COUNT(local_ptr_2d(jc, 1:max_cell_connectivity) > 0)
+    END DO
+
+    CALL dist_mult_array_expose(patch_pre%cells%num_edges)
 
     ! patch_pre%cells%vertex(:,:)
     CALL nf(nf_inq_varid(ncid, 'vertex_of_cell', varid))
@@ -1435,36 +1501,13 @@ CONTAINS
     ENDIF
 
     !----------------------------------------------------------------------------------
-    ! compute cells%num_edges
-    ! works for general unstructured grid
-    CALL dist_mult_array_local_ptr(patch_pre%cells%num_edges, 1, local_ptr)
-    DO jc = patch_pre%cells%local_chunk(1,1)%first, &
-      patch_pre%cells%local_chunk(1,1)%first + &
-      patch_pre%cells%local_chunk(1,1)%size - 1
-      local_ptr(jc) = COUNT(patch_pre%cells%edge(jc, 1:max_cell_connectivity) > 0)
-    END DO
-
-    CALL dist_mult_array_expose(patch_pre%cells%num_edges)
-
-    !----------------------------------------------------------------------------------
     ! account for pentagons in the hex gird,
     ! Note: this needs to be checked
     IF (max_cell_connectivity == 6 .AND. use_duplicated_connectivity) THEN
+
       DO ic = 1, patch_pre%n_patch_cells_g
 
         DO ji = 1, 6
-
-          ! account for dummy cells arising in case of a pentagon
-          IF ( patch_pre%cells%neighbor(ic,ji) == 0 ) THEN
-            IF ( ji /= 6 ) THEN
-              patch_pre%cells%neighbor(ic,ji) = patch_pre%cells%neighbor(ic,6)
-              ! this should not happen
-              ! CALL finish(method_name, "cells%neighbor_idx=0 not at the end")
-            END IF
-            ! Fill dummy neighbor with an existing index to simplify do loops
-            ! Note, however, that related multiplication factors must be zero
-            patch_pre%cells%neighbor(ic,6) = patch_pre%cells%neighbor(ic,5)
-          END IF
 
           ! account for dummy verts arising in case of a pentagon
           IF ( patch_pre%cells%vertex(ic,ji) == 0 ) THEN
@@ -1474,16 +1517,6 @@ CONTAINS
             ! Fill dummy edge with existing index to simplify do loops
             ! Note, however, that related multiplication factors must be zero
             patch_pre%cells%vertex(ic,6) = patch_pre%cells%vertex(ic,5)
-          END IF
-
-          ! account for dummy edges arising in case of a pentagon
-          IF ( patch_pre%cells%edge(ic,ji) == 0 ) THEN
-            IF ( ji /= 6 ) THEN
-              patch_pre%cells%edge(ic,ji) = patch_pre%cells%edge(ic,6)
-            END IF
-            ! Fill dummy edge with existing index to simplify do loops
-            ! Note, however, that related multiplication factors must be zero
-            patch_pre%cells%edge(ic,6) = patch_pre%cells%edge(ic,5)
           END IF
 
         END DO  ! ji = 1, 6

@@ -623,8 +623,20 @@ CONTAINS
     INTEGER :: max_childdom, num_cells_per_rank
     TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(global_array_desc) :: dist_cell_owner_desc_child(1)
+    TYPE(global_array_desc) :: dist_cell_owner_desc_neighbor(1)
 
-    TYPE(extent) :: local_chunk_child(2,1)
+    TYPE(extent) :: local_chunk_child(2,1), local_chunk_neighbor(2,1)
+
+    ! Please note: The following variables in the patch MUST already be set:
+    ! - alloc_cell_blocks
+    ! - nblks_e
+    ! - nblks_v
+    ! - n_patch_cells_g
+    ! - n_patch_edges_g
+    ! - n_patch_verts_g
+    ! - max_childdom
+    p_patch_pre%cell_type = p_patch_pre%cells%max_connectivity
+    max_childdom = p_patch_pre%max_childdom
 
     ! some preliminary computation for the distributed data
 
@@ -638,6 +650,11 @@ CONTAINS
     dist_cell_owner_desc_child(1)%rect(2)%first = 1
     dist_cell_owner_desc_child(1)%rect(2)%size = 4
 
+    dist_cell_owner_desc_neighbor(1) = dist_cell_owner_desc(1)
+    dist_cell_owner_desc_neighbor(1)%a_rank = 2
+    dist_cell_owner_desc_neighbor(1)%rect(2)%first = 1
+    dist_cell_owner_desc_neighbor(1)%rect(2)%size = p_patch_pre%cell_type
+
     num_cells_per_rank = (p_patch_pre%n_patch_cells_g + p_n_work - 1) / p_n_work
 
     p_patch_pre%cells%local_chunk(1,1)%first = &
@@ -650,17 +667,10 @@ CONTAINS
     local_chunk_child(2,1)%first = 1
     local_chunk_child(2,1)%size = 4
 
-    ! Please note: The following variables in the patch MUST already be set:
-    ! - alloc_cell_blocks
-    ! - nblks_e
-    ! - nblks_v
-    ! - n_patch_cells_g
-    ! - n_patch_edges_g
-    ! - n_patch_verts_g
-    ! - max_childdom
+    local_chunk_neighbor(1,1) = p_patch_pre%cells%local_chunk(1,1)
+    local_chunk_neighbor(2,1)%first = 1
+    local_chunk_neighbor(2,1)%size = p_patch_pre%cell_type
 
-    p_patch_pre%cell_type = p_patch_pre%cells%max_connectivity
-    max_childdom = p_patch_pre%max_childdom
     !
     ! !grid cells
     !
@@ -668,11 +678,13 @@ CONTAINS
       dist_cell_owner_desc, p_patch_pre%cells%local_chunk, p_comm_work)
     p_patch_pre%cells%parent = dist_mult_array_new( &
       dist_cell_owner_desc, p_patch_pre%cells%local_chunk, p_comm_work)
-     p_patch_pre%cells%child = dist_mult_array_new( &
+    p_patch_pre%cells%child = dist_mult_array_new( &
       dist_cell_owner_desc_child, local_chunk_child, p_comm_work)
     ALLOCATE( p_patch_pre%cells%phys_id(p_patch_pre%n_patch_cells_g) )
-    ALLOCATE( p_patch_pre%cells%neighbor(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
-    ALLOCATE( p_patch_pre%cells%edge(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
+    p_patch_pre%cells%neighbor = dist_mult_array_new( &
+      dist_cell_owner_desc_neighbor, local_chunk_neighbor, p_comm_work)
+    p_patch_pre%cells%edge = dist_mult_array_new( &
+      dist_cell_owner_desc_neighbor, local_chunk_neighbor, p_comm_work)
     ALLOCATE( p_patch_pre%cells%vertex(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
     ALLOCATE( p_patch_pre%cells%center(p_patch_pre%n_patch_cells_g) )
     ALLOCATE( p_patch_pre%cells%refin_ctrl(p_patch_pre%n_patch_cells_g) )
@@ -700,8 +712,7 @@ CONTAINS
     ALLOCATE( p_patch_pre%verts%end(min_rlvert:max_rlvert) )
     ! Set all newly allocated arrays to 0
 
-    p_patch_pre%cells%neighbor = 0
-    p_patch_pre%cells%edge = 0
+    p_patch_pre%cells%phys_id = 0
     p_patch_pre%cells%vertex = 0
     p_patch_pre%cells%center(:)%lon = 0._wp
     p_patch_pre%cells%center(:)%lat = 0._wp
@@ -825,8 +836,10 @@ CONTAINS
     CALL dist_mult_array_delete(p_patch_pre%cells%parent)
     CALL dist_mult_array_unexpose(p_patch_pre%cells%child)
     CALL dist_mult_array_delete(p_patch_pre%cells%child)
-    DEALLOCATE( p_patch_pre%cells%neighbor )
-    DEALLOCATE( p_patch_pre%cells%edge )
+    CALL dist_mult_array_unexpose(p_patch_pre%cells%neighbor)
+    CALL dist_mult_array_delete(p_patch_pre%cells%neighbor)
+    CALL dist_mult_array_unexpose(p_patch_pre%cells%edge)
+    CALL dist_mult_array_delete(p_patch_pre%cells%edge)
     DEALLOCATE( p_patch_pre%cells%vertex )
     DEALLOCATE( p_patch_pre%cells%center )
     DEALLOCATE( p_patch_pre%cells%refin_ctrl )

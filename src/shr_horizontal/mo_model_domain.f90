@@ -342,11 +342,11 @@ MODULE mo_model_domain
 
     ! indices of triangles next to each cell:
     ! index2=1,3
-    INTEGER, ALLOCATABLE :: neighbor(:,:)
+    TYPE(dist_mult_array) :: neighbor
 
     ! indices of edges of triangle:
     ! index2=1,3
-    INTEGER, ALLOCATABLE :: edge(:,:)
+    TYPE(dist_mult_array) :: edge
 
     ! indices of verts of triangle:
     ! index2=1,3

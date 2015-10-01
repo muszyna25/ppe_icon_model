@@ -750,7 +750,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::divide_patch'
-    INTEGER :: i, j, jl, jb, je, jv, jg, jc, jc_p, jpg, jcg(4)
+    INTEGER :: i, j, jl, jb, je, jv, jg, jc, jc_p, jpg, jcg(4), jng, jeg
 
 #ifdef __PGIC__
     TYPE(nb_flag_list_elem), ALLOCATABLE :: flag2_c_list(:), &
@@ -961,16 +961,16 @@ CONTAINS
       jg = wrk_p_patch%cells%decomp_info%glb_index(j)
 
       DO i=1,wrk_p_patch%geometry_info%cell_type
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%neighbor,1,(/jg,i/),jng)
 !CDIR IEXPAND
-        CALL get_local_idx(wrk_p_patch%cells%decomp_info, &
-          & wrk_p_patch_pre%cells%neighbor(jg,i), jc)
+        CALL get_local_idx(wrk_p_patch%cells%decomp_info, jng, jc)
 
         wrk_p_patch%cells%neighbor_idx(jl,jb,i) = idx_no(jc)
         wrk_p_patch%cells%neighbor_blk(jl,jb,i) = blk_no(jc)
 
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%edge,1,(/jg,i/),jeg)
 !CDIR IEXPAND
-        CALL get_local_idx(wrk_p_patch%edges%decomp_info, &
-          & wrk_p_patch_pre%cells%edge(jg,i), je)
+        CALL get_local_idx(wrk_p_patch%edges%decomp_info, jeg, je)
 
         wrk_p_patch%cells%edge_idx(jl,jb,i) = idx_no(je)
         wrk_p_patch%cells%edge_blk(jl,jb,i) = blk_no(je)
@@ -1411,7 +1411,8 @@ CONTAINS
           &                      (/flag2_c_list(0)%idx(ic)/), temp_num_edges)
         DO i = 1, temp_num_edges
 
-          je = wrk_p_patch_pre%cells%edge(flag2_c_list(0)%idx(ic),i)
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%edge, 1, &
+            &                      (/flag2_c_list(0)%idx(ic),i/), je)
 
           jc = wrk_p_patch_pre%edges%cell(je, 1)
           jc_ = wrk_p_patch_pre%edges%cell(je, 2)
@@ -1644,7 +1645,7 @@ CONTAINS
             CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
               &                      (/jc/), temp_num_edges)
             DO i = 1, temp_num_edges
-              je = wrk_p_patch_pre%cells%edge(jc, i)
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%edge,1,(/jc,i/),je)
               n_temp_edges = n_temp_edges + 1
               temp_edges(n_temp_edges) = je
               edge_cells(n_temp_edges) = jc
@@ -2929,7 +2930,8 @@ CONTAINS
           CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
             &                      (/j/), temp_num_edges)
           DO ii = 1, temp_num_edges
-            jn = wrk_p_patch_pre%cells%neighbor(j,ii)
+            CALL dist_mult_array_get(wrk_p_patch_pre%cells%neighbor, 1, &
+              &                      (/j, ii/), jn)
             IF (jn > 0) THEN
               IF (owner(jn) >= 0) THEN
                 ! move found cells to end of onb area
@@ -3026,7 +3028,8 @@ CONTAINS
             &                      (/j/), temp_num_edges)
           DO ii = 1, temp_num_edges
             ! todo: use local patch information here
-            jn = wrk_p_patch_pre%cells%neighbor(j,ii)
+            CALL dist_mult_array_get(wrk_p_patch_pre%cells%neighbor, 1, &
+              &                      (/j, ii/), jn)
             IF (jn > 0) THEN
               owner_idx(1) = jn
               CALL dist_mult_array_get(owners_ga, 1, owner_idx, owner_value)
@@ -3127,7 +3130,7 @@ CONTAINS
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
         &                      (/j/), temp_num_edges)
       DO i = 1, temp_num_edges
-        jn = wrk_p_patch_pre%cells%neighbor(j,i)
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%neighbor,1,(/j,i/),jn)
 
         ! Neighbor not existing
         IF(jn > wrk_p_patch_pre%n_patch_cells_g .OR. jn < 1) CYCLE
