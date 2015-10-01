@@ -1548,11 +1548,8 @@ MODULE mo_initicon_io
 !$OMP PARALLEL DO PRIVATE(jb,jc,i_endidx)
         ! include boundary interpolation zone of nested domains and halo points
           DO jb = 1, p_patch(jg)%nblks_c
-            IF (jb == p_patch(jg)%nblks_c) THEN
-              i_endidx = p_patch(jg)%npromz_c
-            ELSE
-              i_endidx = nproma
-            ENDIF
+            i_endidx = MERGE(nproma, p_patch(jg)%npromz_c, &
+                 jb /= p_patch(jg)%nblks_c)
 
             DO jc = 1, i_endidx
               lnd_prog%t_g(jc,jb)  = lnd_prog%t_g_t(jc,jb,1)
