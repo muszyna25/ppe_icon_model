@@ -24,37 +24,37 @@
 MODULE mo_alloc_patches
   !-------------------------------------------------------------------------
 
-  USE mo_kind,               ONLY: wp, i8
+  USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: success, &
     & max_char_length,  &
     & min_rlcell, max_rlcell, &
     & min_rledge, max_rledge, &
-    & min_rlvert, max_rlvert, &
-    & max_dom
-  USE mo_exception,          ONLY: message_text, message, finish
+    & min_rlvert, max_rlvert
+  USE mo_exception,          ONLY: message, finish
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, c_num_edges, &
        c_parent, c_child, c_phys_id, c_neighbor, c_edge, c_vertex, c_center, &
        c_refin_ctrl, e_parent, e_child, e_cell, e_refin_ctrl, &
        v_cell, v_num_edges, v_vertex, v_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              init_glb2loc_index_lookup, &
-    &                              t_glb2loc_index_lookup, &
     &                              deallocate_glb2loc_index_lookup, &
     &                              uniform_partition
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_grid_config,        ONLY: n_dom, n_dom_start, max_childdom, &
-    & dynamics_grid_filename,   dynamics_parent_grid_id,  &
-    & radiation_grid_filename, lplane
+  USE mo_grid_config,        ONLY: n_dom, n_dom_start, &
+    & dynamics_grid_filename,  &
+    & radiation_grid_filename
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
   USE mo_master_config,      ONLY: getModelBaseDir
-  USE mo_mpi,                ONLY: my_process_is_mpi_seq, p_pe_work, &
+  USE mo_mpi,                ONLY: p_pe_work, &
     &                              p_comm_work, p_n_work
   USE mo_read_netcdf_distributed, ONLY: delete_distrib_read
   USE ppm_distributed_array, ONLY: global_array_desc, &
     &                              dist_mult_array_new, &
     &                              dist_mult_array_delete, &
-    &                              ppm_int, ppm_real_dp, &
-    &                              sync_mode_active_target
+    &                              ppm_int, ppm_real_dp
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+  USE ppm_distributed_array, ONLY: sync_mode_active_target
+#endif
   USE ppm_extents,           ONLY: extent
 
   IMPLICIT NONE
@@ -1009,15 +1009,15 @@ CONTAINS
     IF (iopmode /= 3) THEN
 
       CALL allocate_decomp_info(p_patch%cells%decomp_info, &
-        &                  p_patch%n_patch_cells, p_patch%n_patch_cells_g, &
+        &                  p_patch%n_patch_cells, &
         &                  p_patch%nblks_c)  ! this size is used for broadcasting,
                                              ! should not include the local ghost cell
        !  &                  p_patch%alloc_cell_blocks)
       CALL allocate_decomp_info(p_patch%edges%decomp_info, &
-        &                  p_patch%n_patch_edges, p_patch%n_patch_edges_g, &
+        &                  p_patch%n_patch_edges, &
         &                  p_patch%nblks_e)
       CALL allocate_decomp_info(p_patch%verts%decomp_info, &
-        &                  p_patch%n_patch_verts, p_patch%n_patch_verts_g, &
+        &                  p_patch%n_patch_verts, &
         &                  p_patch%nblks_v)
 
       CALL init_decomp_info(p_patch%cells%decomp_info, p_patch%npromz_c, &
@@ -1089,9 +1089,9 @@ CONTAINS
 
   CONTAINS
 
-    SUBROUTINE allocate_decomp_info(decomp_info, n, n_g, n_blk)
+    SUBROUTINE allocate_decomp_info(decomp_info, n, n_blk)
       TYPE(t_grid_domain_decomp_info), INTENT(OUT) :: decomp_info
-      INTEGER, INTENT(IN) :: n, n_g, n_blk
+      INTEGER, INTENT(IN) :: n, n_blk
 
       ALLOCATE( decomp_info%decomp_domain(nproma,n_blk) )
       ! aliasing the halo_level to decomp_domain
