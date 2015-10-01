@@ -764,12 +764,9 @@ if test x$withval = xno ; then
   MPIROOT=""
   use_mpcc_r=no
 else
-  if test "x$with_mpi" != x ; then
-    if test x"$with_mpi" != xyes && x"$with_mpi" != xno  ; then
-      MPIROOT=$with_mpi
-    fi
-  fi
-  if test -n "$MPIROOT" ; then    
+  AS_IF([test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno],
+    [MPIROOT=$with_mpi])
+  if test -n "$MPIROOT" ; then
     AC_CHECK_FILE($MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h,[],AC_MSG_ERROR([MPIROOT not properly defined]))
     case $host in
     *-*-darwin*)

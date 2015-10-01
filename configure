@@ -4341,11 +4341,9 @@ if test x$withval = xno ; then
   MPIROOT=""
   use_mpcc_r=no
 else
-  if test "x$with_mpi" != x ; then
-    if test x"$with_mpi" != xyes && x"$with_mpi" != xno  ; then
-      MPIROOT=$with_mpi
-    fi
-  fi
+  if test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno; then :
+  MPIROOT=$with_mpi
+fi
   if test -n "$MPIROOT" ; then
     as_ac_File=`$as_echo "ac_cv_file_$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" | $as_tr_sh`
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" >&5
