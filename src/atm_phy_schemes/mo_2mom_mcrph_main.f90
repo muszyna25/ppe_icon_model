@@ -1284,9 +1284,7 @@ CONTAINS
 !$omp threadprivate (k_au)
 !$omp threadprivate (k_sc)
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "autoconversionSB" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "autoconversionSB")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -1363,9 +1361,7 @@ CONTAINS
     REAL(wp), PARAMETER :: k_1 = 5.00e-04_wp   ! Phi function
     REAL(wp), PARAMETER :: eps = 1.00e-25_wp
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "accretionSB" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "accretionSB")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -1419,9 +1415,7 @@ CONTAINS
     REAL(wp), PARAMETER :: k_rr = 4.33e+0_wp
     REAL(wp), PARAMETER :: k_br = 1.00e+3_wp
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "rain_selfcollectionSB" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "rain_selfcollectionSB")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -1677,7 +1671,7 @@ CONTAINS
         WRITE(txt,'(A,D10.3)') "     g_fak = ",rain_gfak ; CALL message(routine,TRIM(txt))
       END IF
     ELSEIF (isdebug) THEN
-      WRITE(txt,*) "rain_evaporation " ; CALL message(routine,TRIM(txt))
+      CALL message(routine, "rain_evaporation")
     END IF
 
     DO k = kstart,kend
@@ -1792,7 +1786,7 @@ CONTAINS
         WRITE(txt,'(A,D10.3)') "     c_g = ",c_g ; CALL message(routine,TRIM(txt))
       END IF
     ELSEIF (isdebug) THEN
-      WRITE(txt,*) "graupel_evaporation " ; CALL message(routine,TRIM(txt))
+      CALL message(routine, "graupel_evaporation")
     END IF
 
     istart = ik_slice(1)
@@ -1873,7 +1867,7 @@ CONTAINS
         WRITE(txt,'(A,D10.3)') "     c_h = ",c_h   ; CALL message(routine,TRIM(txt))
       END IF
     ELSEIF (isdebug) THEN
-      WRITE(txt,*) "hail_evaporation " ; CALL message(routine,TRIM(txt))
+      CALL message(routine, "hail_evaporation")
     END IF
 
     istart = ik_slice(1)
@@ -1953,7 +1947,7 @@ CONTAINS
         WRITE(txt,'(A,D10.3)') "     c_s = ",c_s ; CALL message(routine,TRIM(txt))
       END IF
     ELSEIF (isdebug) THEN
-      WRITE(txt,*) "snow_evaporation " ; CALL message(routine,TRIM(txt))
+      CALL message(routine, "snow_evaporation")
     END IF
 
     istart = ik_slice(1)
@@ -2459,9 +2453,7 @@ CONTAINS
     REAL(wp)            :: e_sw            !..saturation water pressure over liquid
     REAL(wp)            :: e_d,p_a,dep_sum !,weight
 
-    IF (isdebug) THEN
-       WRITE(txt,*) "vapor_deposition_growth " ; CALL message(routine,TRIM(txt))
-    ENDIF
+    IF (isdebug) CALL message(routine, "vapor_deposition_growth")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -2654,7 +2646,7 @@ CONTAINS
         END IF
         firstcall = 1
       ELSEIF (isdebug) THEN
-        WRITE(txt,*) "  vapor_deposition_graupel" ; CALL message(routine,TRIM(txt))
+        CALL message(routine, "vapor_deposition_graupel")
       ENDIF
 
       DO k = kstart,kend
@@ -2705,7 +2697,7 @@ CONTAINS
          END IF
          firstcall = 1
       ELSEIF (isdebug) THEN
-         WRITE(txt,*) "  vapor_deposition_hail" ; CALL message(routine,TRIM(txt))
+        CALL message(routine, "vapor_deposition_hail")
       ENDIF
 
       DO k = kstart,kend
@@ -2756,7 +2748,7 @@ CONTAINS
         END IF
         firstcall = 1
       ELSEIF (isdebug) THEN
-        WRITE(txt,*) "  vapor_depositiosnow%n " ; CALL message(routine,TRIM(txt))
+        CALL message(routine, "vapor_depositiosnow%n")
       ENDIF
 
       DO k = kstart,kend
@@ -2820,11 +2812,11 @@ CONTAINS
       firstcall = 1
       coeff_z = moment_gamma(rain,2)  ! coeff for 2nd moment
       IF (isdebug) THEN
-        WRITE(txt,*) "rain_freeze_gamlook:" ; CALL message(routine,TRIM(txt))
+        CALL message(routine, "rain_freeze_gamlook:")
         WRITE(txt,'(A,D10.3)') "    coeff_z= ",coeff_z ; CALL message(routine,TRIM(txt))
       ENDIF
     ELSE IF (isdebug) THEN
-      WRITE(txt,*) "rain_freeze_gamlook" ; CALL message(routine,TRIM(txt))
+      CALL message(routine, "rain_freeze_gamlook")
     ENDIF
 
     xmax_ice = ( (D_rainfrz_ig/rain%a_geo)**(1.0_wp/rain%b_geo) )**rain%mu
@@ -3004,9 +2996,7 @@ CONTAINS
 !$omp threadprivate (theta_n)
 !$omp threadprivate (theta_q)
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "ice_selfcollection " ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "ice_selfcollection")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -3126,9 +3116,7 @@ CONTAINS
 !$omp threadprivate (delta_n)
 !$omp threadprivate (theta_n)
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "snow_selfcollection " ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "snow_selfcollection")
 
     IF (firstcall.NE.1) THEN
       delta_n_11 = coll_delta_11(snow,snow,0)
@@ -3211,9 +3199,7 @@ CONTAINS
 !$omp threadprivate (a_vent)
 !$omp threadprivate (b_vent)
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "snow_melting " ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "snow_melting")
 
     IF (firstcall.NE.1) THEN
       a_vent = vent_coeff_a(snow,1)
@@ -3327,9 +3313,7 @@ CONTAINS
 !$omp threadprivate (theta_q_gs)
 !$omp threadprivate (theta_q_ss)
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "graupel_snow_collection" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "graupel_snow_collection")
 
     IF (firstcall.NE.1) THEN
       delta_n_gg = coll_delta_11(graupel,snow,0)
@@ -3451,9 +3435,7 @@ CONTAINS
 !$omp threadprivate (theta_q_hs)
 !$omp threadprivate (theta_q_ss)
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "hail_snow_collection" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "hail_snow_collection")
 
     IF (firstcall.NE.1) THEN
       delta_n_hh = coll_delta_11(hail,snow,0)
@@ -3575,9 +3557,7 @@ CONTAINS
 !$omp threadprivate (theta_q_gi)
 !$omp threadprivate (theta_q_ii)
 
-    IF (isdebug) THEN
-      WRITE(txt,*) " graupel_ice_collection" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "graupel_ice_collection")
 
     IF (firstcall.NE.1) THEN
       delta_n_gg = coll_delta_11(graupel,ice,0)
@@ -3704,9 +3684,7 @@ CONTAINS
 !$omp threadprivate (theta_q_hi)
 !$omp threadprivate (theta_q_ii)
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "hail_ice_collection" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "hail_ice_collection")
 
     IF (firstcall.NE.1) THEN
       delta_n_hh = coll_delta_11(hail,ice,0)
@@ -3825,9 +3803,7 @@ CONTAINS
 !$omp threadprivate (theta_q_si)
 !$omp threadprivate (theta_q_ii)
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "snow_ice_collection" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "snow_ice_collection")
 
     IF (firstcall.NE.1) THEN
       delta_n_ss = coll_delta_11(snow,ice,0)
@@ -3934,9 +3910,7 @@ CONTAINS
 !$omp threadprivate (firstcall)
 !$omp threadprivate (coll_n)
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "graupel_selfcollection" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "graupel_selfcollection")
 
     IF (firstcall.NE.1) THEN
       delta_n_11 = coll_delta_11(graupel,graupel,0)
@@ -4009,9 +3983,7 @@ CONTAINS
     REAL(wp)            :: q_i,x_i,n_i
     REAL(wp)            :: melt_q,melt_n
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "ice_melting" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "ice_melting")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -4094,9 +4066,7 @@ CONTAINS
 !$omp threadprivate (theta_q_gc)
 !$omp threadprivate (theta_q_cc)
 
-    IF (isdebug) THEN
-       WRITE(txt,*) "graupel_cloud_riming" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "graupel_cloud_riming")
 
     IF (firstcall.NE.1) THEN
       delta_n_gg = coll_delta_11(graupel,cloud,0)
@@ -4277,9 +4247,7 @@ CONTAINS
 !$omp threadprivate (theta_q_hc)
 !$omp threadprivate (theta_q_cc)
 
-    IF (isdebug) THEN
-       WRITE(txt,*) " hail_cloud_riming" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "hail_cloud_riming")
 
     IF (firstcall.NE.1) THEN
       delta_n_hh = coll_delta_11(hail,cloud,0)
@@ -4452,9 +4420,7 @@ CONTAINS
 !$omp threadprivate (theta_q_gr)
 !$omp threadprivate (theta_q_rr)
 
-    IF (isdebug) THEN
-       WRITE(txt,*) " graupel_rain_riming" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "graupel_rain_riming")
 
     IF (firstcall.NE.1) THEN
       delta_n_gg = coll_delta_11(graupel,rain,0)
@@ -4674,7 +4640,7 @@ CONTAINS
       END IF
       firstcall = 1
     ELSEIF (isdebug) THEN
-       WRITE(txt,*) " hail_rain_riming" ; CALL message(routine,TRIM(txt))
+      CALL message(routine, "hail_rain_riming")
     ENDIF
 
     istart = ik_slice(1)
@@ -4815,7 +4781,7 @@ CONTAINS
         WRITE(txt,'(A,D10.3)') "   b_vent = ",b_vent ; CALL message(routine,TRIM(txt))
       ENDIF
     ELSEIF (isdebug) THEN
-      WRITE(txt,*) " graupel_melting " ; CALL message(routine,TRIM(txt))
+      CALL message(routine, "graupel_melting")
     ENDIF
 
     istart = ik_slice(1)
@@ -4899,7 +4865,7 @@ CONTAINS
         WRITE(txt,'(A,D10.3)') "    b_vent = ",b_vent ; CALL message(routine,TRIM(txt))
       ENDIF
     ELSEIF (isdebug) THEN
-      WRITE(txt,*) " hail_melting " ; CALL message(routine,TRIM(txt))
+      CALL message(routine, "hail_melting")
     ENDIF
 
     istart = ik_slice(1)
@@ -4971,9 +4937,7 @@ CONTAINS
     REAL(wp)            :: q_c,q_r
     REAL(wp)            :: conv_n,conv_q
 
-    IF (isdebug) THEN
-      WRITE(txt,*) "graupel_hail_conv_wet_gamlook" ; CALL message(routine,TRIM(txt))
-    ENDIF
+    IF (isdebug) CALL message(routine, "graupel_hail_conv_wet_gamlook")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -5070,9 +5034,7 @@ CONTAINS
          const5 = alpha_spacefilling * rho_w/rho_ice
 
 
-    IF (isdebug) THEN
-       WRITE(txt,*) " ice riming" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "ice riming")
 
     rime_rate_qc(:,:) = 0.0_wp
     rime_rate_qr(:,:) = 0.0_wp
@@ -5292,9 +5254,7 @@ CONTAINS
 !$omp threadprivate (theta_q_ic)
 !$omp threadprivate (theta_q_cc)
 
-      IF (isdebug) THEN
-         WRITE(txt,*) "ice_cloud_riming" ; CALL message(routine,TRIM(txt))
-      END IF
+      IF (isdebug) CALL message(routine, "ice_cloud_riming")
 
       IF (firstcall.NE.1) THEN
          delta_n_ii = coll_delta_11(ice,cloud,0)
@@ -5390,9 +5350,7 @@ CONTAINS
       REAL(wp), SAVE      :: theta_n_ii,theta_n_ir,           theta_n_rr
       REAL(wp), SAVE      :: theta_q_ii,theta_q_ir,theta_q_ri,theta_q_rr
 
-      IF (isdebug) THEN
-         WRITE(txt,*) "ice_rain_riming " ; CALL message(routine,TRIM(txt))
-      END IF
+      IF (isdebug) CALL message(routine, "ice_rain_riming")
 
       IF (firstcall.NE.1) THEN
          delta_n_ii = coll_delta_11(ice,rain,0)
@@ -5521,9 +5479,7 @@ CONTAINS
          const4 = 1.0/(T_mult_opt - T_mult_max), &
          const5 = alpha_spacefilling * rho_w/rho_ice
 
-    IF (isdebug) THEN
-       WRITE(txt,*) "snow_riming" ; CALL message(routine,TRIM(txt))
-    END IF
+    IF (isdebug) CALL message(routine, "snow_riming")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -5760,9 +5716,7 @@ CONTAINS
 !$omp threadprivate (theta_q_sr)
 !$omp threadprivate (theta_q_rr)
 
-     IF (isdebug) THEN
-        WRITE(txt,*) "snow_rain_riming" ; CALL message(routine,TRIM(txt))
-     END IF
+     IF (isdebug) CALL message(routine, "snow_rain_riming")
 
      IF (firstcall.NE.1) THEN
         delta_n_ss = coll_delta_11(snow,rain,0)
@@ -5879,9 +5833,7 @@ CONTAINS
 !$omp threadprivate (theta_q_sc)
 !$omp threadprivate (theta_q_cc)
 
-     IF (isdebug) THEN
-        WRITE(txt,*) "snow_cloud_riming " ; CALL message(routine,TRIM(txt))
-     END IF
+     IF (isdebug) CALL message(routine, "snow_cloud_riming")
 
      IF (firstcall.NE.1) THEN
         delta_n_ss = coll_delta_11(snow,cloud,0)
@@ -6012,7 +5964,8 @@ CONTAINS
     ! This assumption might be wrong!!! (comment by Heike Noppel)
 
     IF(isdebug) THEN
-       WRITE(txt,*) "cloud_activation_SK: nuc_typ = ",nuc_typ ; CALL message(routine,TRIM(txt))
+       WRITE(txt,*) "cloud_activation_SK: nuc_typ = ",nuc_typ
+       CALL message(routine, TRIM(txt))
     ENDIF
 
     ! this could be done in an IF(firstcall.eq.false) block and i-value stored in ccn_coeffs
