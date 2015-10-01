@@ -1189,8 +1189,8 @@ CONTAINS
 
   ! initialize coefficients for bulk sedimentation velocity
   subroutine init_sedi_vel(this,thisCoeffs)
-    TYPE(particle)        :: this
-    TYPE(particle_sphere) :: thisCoeffs
+    TYPE(particle), INTENT(in) :: this
+    TYPE(particle_sphere), INTENT(out) :: thisCoeffs
 
     thisCoeffs%coeff_alfa_n = this%a_vel * gfct((this%nu+this%b_vel+1.0)/this%mu) / gfct((this%nu+1.0)/this%mu)
     thisCoeffs%coeff_alfa_q = this%a_vel * gfct((this%nu+this%b_vel+2.0)/this%mu) / gfct((this%nu+2.0)/this%mu)
