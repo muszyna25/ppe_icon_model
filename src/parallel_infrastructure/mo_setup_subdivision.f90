@@ -1366,8 +1366,8 @@ CONTAINS
     DO j = 1, wrk_p_patch%n_patch_cells
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
-      wrk_p_patch%cells%parent_idx(jl,jb)  = idx_no(cell_parent_idx(j))
-      wrk_p_patch%cells%parent_blk(jl,jb)  = blk_no(cell_parent_idx(j))
+      wrk_p_patch%cells%parent_glb_idx(jl,jb)  = idx_no(cell_parent_idx(j))
+      wrk_p_patch%cells%parent_glb_blk(jl,jb)  = blk_no(cell_parent_idx(j))
       DO i = 1, 4
         wrk_p_patch%cells%child_idx(jl,jb,i) = idx_no(cell_child_idx(j,i))
         wrk_p_patch%cells%child_blk(jl,jb,i) = blk_no(cell_child_idx(j,i))
@@ -1457,8 +1457,8 @@ CONTAINS
       ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
-      wrk_p_patch%edges%parent_idx(jl,jb)    = idx_no(edge_parent_idx(j))
-      wrk_p_patch%edges%parent_blk(jl,jb)    = blk_no(edge_parent_idx(j))
+      wrk_p_patch%edges%parent_glb_idx(jl,jb)    = idx_no(edge_parent_idx(j))
+      wrk_p_patch%edges%parent_glb_blk(jl,jb)    = blk_no(edge_parent_idx(j))
       wrk_p_patch%edges%child_idx(jl,jb,1:4) = idx_no(edge_child_idx(j,:))
       wrk_p_patch%edges%child_blk(jl,jb,1:4) = blk_no(edge_child_idx(j,:))
     ENDDO
