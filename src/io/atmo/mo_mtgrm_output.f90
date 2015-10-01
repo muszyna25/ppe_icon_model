@@ -67,6 +67,9 @@
 !!        the flag "l_pure_io_pe" enabled and receives this setup from
 !!        a dedicated working PE (workroot). The latter has
 !!        "l_is_varlist_sender" enabled.
+!!        MoHa: Potentially the last I/O PE has the least work to do.
+!!              To reduce maximum memory consumption of the I/O PEs
+!!              the last of them will do the meteogram output.
 !!
 !! Known limitations:
 !! ------------------
@@ -81,6 +84,7 @@
 !! @par Revision History
 !! Initial implementation,            F. Prill, DWD (2011-08-22)
 !! Adaptation to asynchronous output, F. Prill, DWD (2011-11-11)
+!! Last I/O PE does output,           M. Hanke, DKRZ(2015-07-27)
 !!
 !! @par Copyright and License
 !!
@@ -112,15 +116,14 @@ MODULE mo_meteogram_output
     &                                 p_unpack_int_1d, p_unpack_real_1d,  &
     &                                 p_unpack_string, p_unpack_real_2d,  &
     &                                 get_mpi_all_workroot_id,            &
-    &                                 get_mpi_all_ioroot_id,              &
     &                                 my_process_is_mpi_workroot,         &
-    &                                 my_process_is_mpi_ioroot,           &
     &                                 my_process_is_io,                   &
     &                                 my_process_is_mpi_test,             &
     &                                 p_real_dp_byte,                     &
     &                                 MPI_ANY_SOURCE,                     &
     &                                 process_mpi_io_size,                &
-    &                                 p_barrier, p_comm_work_io
+    &                                 p_barrier, p_comm_work_io,          &
+    &                                 p_comm_io, p_comm_rank, p_comm_size
   USE mo_model_domain,          ONLY: t_patch
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS, zml_soil, &
@@ -749,6 +752,7 @@ CONTAINS
     TYPE(t_cf_global)        , POINTER :: cf  !< meta info
     TYPE(t_gnat_tree)                  :: gnat
 
+    INTEGER                            :: io_collector_rank
 
     !-- define the different roles in the MPI communication inside
     !-- this module
@@ -763,18 +767,33 @@ CONTAINS
     mtgrm(jg)%l_pure_io_pe        = (process_mpi_io_size > 0) .AND.  &
       &                   my_process_is_io()
 
+    io_collector_rank = -1
+    IF (process_mpi_io_size > 0) THEN
+
+      ! determine rank of last I/O PE
+      IF (my_process_is_io()) THEN
+        IF (p_comm_rank(p_comm_io) == p_comm_size(p_comm_io) - 1) THEN
+          io_collector_rank = get_my_mpi_all_id()
+        END IF
+      END IF
+
+      ! distribute rank of last I/O PE
+      io_collector_rank = p_max(io_collector_rank, comm=p_comm_work_io)
+    END IF
+
     ! Flag. True, if this PE collects data from (other) working PEs
     mtgrm(jg)%l_is_collecting_pe  = (.NOT. meteogram_output_config%ldistributed)   &
       &            .AND.  ( ((process_mpi_io_size == 0)  .AND.           &
       &                      my_process_is_mpi_workroot() .AND.          &
       &                      (p_n_work > 1) )                            &
-      &               .OR.  (mtgrm(jg)%l_pure_io_pe .AND. my_process_is_mpi_ioroot()) )
+      &               .OR.  (mtgrm(jg)%l_pure_io_pe .AND.                &
+      &                     (get_my_mpi_all_id() == io_collector_rank)) )
 
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       IF (process_mpi_io_size == 0) THEN
         mtgrm(jg)%process_mpi_all_collector_id = get_mpi_all_workroot_id()
       ELSE
-        mtgrm(jg)%process_mpi_all_collector_id = get_mpi_all_ioroot_id()
+        mtgrm(jg)%process_mpi_all_collector_id = io_collector_rank
       END IF
     END IF
 
@@ -895,7 +914,7 @@ CONTAINS
     ! Here, they get it from working PE#0 which has collected it in
     ! "mtgrm(jg)%msg_varlist_buffer" during the add_xxx_var calls
     IF ( mtgrm(jg)%l_is_varlist_sender .OR. &
-      & (mtgrm(jg)%l_pure_io_pe .AND. my_process_is_mpi_ioroot())) THEN
+      & (mtgrm(jg)%l_pure_io_pe .AND. mtgrm(jg)%l_is_collecting_pe)) THEN
       mtgrm(jg)%max_varlist_buf_size = MAX_NVARS*(3*MAX_DESCR_LENGTH+5*4)
       ALLOCATE(mtgrm(jg)%msg_varlist_buffer(mtgrm(jg)%max_varlist_buf_size), stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
@@ -933,12 +952,12 @@ CONTAINS
           &                TAG_VARLIST, mtgrm(jg)%vbuf_pos)
       END IF
     ELSE
-      IF (my_process_is_mpi_ioroot()) &
+      IF (mtgrm(jg)%l_is_collecting_pe) &
         CALL receive_var_info(mtgrm(jg)%meteogram_local_data, jg)
     END IF
 
     IF ( mtgrm(jg)%l_is_varlist_sender .OR. &
-      & (mtgrm(jg)%l_pure_io_pe .AND. my_process_is_mpi_ioroot())) THEN
+      & (mtgrm(jg)%l_pure_io_pe .AND. mtgrm(jg)%l_is_collecting_pe)) THEN
       ! deallocate buffer
       DEALLOCATE(mtgrm(jg)%msg_varlist_buffer, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
