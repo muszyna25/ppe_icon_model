@@ -315,12 +315,8 @@ CONTAINS
        q_liq_old(:,:) = qc(:,:) + qr(:,:)
 
        ! .. this subroutine calculates all the microphysical sources and sinks
-       ! FIXME: optional arguments passed conditionally
-       IF (lprogin) THEN
-          CALL clouds_twomoment(ik_slice, dt, lprogin, atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
-       ELSE
-          CALL clouds_twomoment(ik_slice, dt, lprogin, atmo, cloud, rain, ice, snow, graupel, hail, ninact)
-       ENDIF
+       CALL clouds_twomoment(ik_slice, dt, lprogin, &
+            atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
 
        IF (lprogccn) THEN
           !WHERE(qc > 0.0_wp)  cloud%n = 5000e6_wp
@@ -470,14 +466,8 @@ CONTAINS
          q_liq_old(:,:) = qc(:,:) + qr(:,:)
 
          ! .. this subroutine calculates all the microphysical sources and sinks
-         ! FIXME: optional arguments passed conditionally
-         IF (lprogin) THEN
-            CALL clouds_twomoment(ik_slice, dt, lprogin, atmo, cloud, rain, &
-                 ice, snow, graupel, hail, ninact, nccn, ninpot)
-         ELSE
-            CALL clouds_twomoment(ik_slice, dt, lprogin, atmo, cloud, rain, &
-                 ice, snow, graupel, hail, ninact)
-         ENDIF
+         CALL clouds_twomoment(ik_slice, dt, lprogin, atmo, cloud, rain, &
+              ice, snow, graupel, hail, ninact, nccn, ninpot)
 
          DO kk=kts,kte
             DO ii = its, ite
@@ -731,14 +721,9 @@ CONTAINS
 
            ik_slice(3) = k
            ik_slice(4) = k
-           ! FIXME: optional arguments passed conditionally
-           IF (lprogin) THEN
-              CALL clouds_twomoment(ik_slice, dt, lprogin, &
-                   atmo, cloud, rain, ice, snow, graupel, hail, ninact, nccn, ninpot)
-           ELSE
-              CALL clouds_twomoment(ik_slice, dt, lprogin, &
-                   atmo, cloud, rain, ice, snow, graupel, hail, ninact)
-           ENDIF
+           CALL clouds_twomoment(ik_slice, dt, lprogin, &
+                atmo, cloud, rain, ice, snow, graupel, hail, &
+                ninact, nccn, ninpot)
 
            ! .. latent heat term for temperature equation
            DO ii = its, ite
