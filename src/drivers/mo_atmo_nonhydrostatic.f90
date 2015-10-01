@@ -107,11 +107,11 @@ CONTAINS
 
   !---------------------------------------------------------------------
   SUBROUTINE atmo_nonhydrostatic
-    
+
 !!$    CHARACTER(*), PARAMETER :: routine = "mo_atmo_nonhydrostatic"
 
     CALL construct_atmo_nonhydrostatic()
-    
+
     !------------------------------------------------------------------
     ! Now start the time stepping:
     ! The special initial time step for the three time level schemes
@@ -119,25 +119,25 @@ CONTAINS
     !------------------------------------------------------------------
 
     CALL perform_nh_stepping( time_config%cur_datetime )
- 
+
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.
     !---------------------------------------------------------------------
     CALL destruct_atmo_nonhydrostatic()
-   
+
   END SUBROUTINE atmo_nonhydrostatic
   !---------------------------------------------------------------------
-  
+
   !---------------------------------------------------------------------
   SUBROUTINE construct_atmo_nonhydrostatic
-    
+
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
     INTEGER :: jg, ist
     LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
     LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
-    TYPE(t_sim_step_info) :: sim_step_info  
+    TYPE(t_sim_step_info) :: sim_step_info
     INTEGER :: jstep0
     REAL(wp) :: sim_time
 
@@ -146,7 +146,7 @@ CONTAINS
     IF(iforcing == inwp) THEN
       !
       ! - generate index lists for tiles (land, ocean, lake)
-      ! index lists for ice-covered and non-ice covered ocean points 
+      ! index lists for ice-covered and non-ice covered ocean points
       ! are initialized in init_nwp_phy
       CALL init_index_lists (p_patch(1:), ext_data)
 
@@ -156,7 +156,7 @@ CONTAINS
 
       CALL configure_synsat()
 
-     ! initialize number of chemical tracers for convection 
+     ! initialize number of chemical tracers for convection
      DO jg = 1, n_dom
        CALL configure_art(jg)
      ENDDO
@@ -237,19 +237,19 @@ CONTAINS
     CALL messy_init_memory(n_dom)
 #endif
 
-    ! Due to the required ability to overwrite advection-Namelist settings 
-    ! via add_ref/add_tracer_ref for ICON-ART, configure_advection is called 
-    ! AFTER the nh_state is created. Otherwise, potential modifications of the 
+    ! Due to the required ability to overwrite advection-Namelist settings
+    ! via add_ref/add_tracer_ref for ICON-ART, configure_advection is called
+    ! AFTER the nh_state is created. Otherwise, potential modifications of the
     ! advection-Namelist can not be taken into account properly.
-    ! Unfortunatley this conflicts with our trying to call the config-routines 
-    ! as early as possible. 
+    ! Unfortunatley this conflicts with our trying to call the config-routines
+    ! as early as possible.
     DO jg =1,n_dom
      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,  &
        &                      iequations, iforcing, iqc, iqt,          &
        &                      kstart_moist(jg), kend_qvsubstep(jg),    &
        &                      lvert_nest, l_open_ubc, ntracer,         &
        &                      idiv_method, itime_scheme,               &
-       &                      p_nh_state_lists(jg)%tracer_list(:)  ) 
+       &                      p_nh_state_lists(jg)%tracer_list(:)  )
     ENDDO
 
 
@@ -305,7 +305,7 @@ CONTAINS
           CALL read_restart_files( p_patch(jg), n_dom )
         ENDIF
       END DO
-#endif      
+#endif
       CALL message(TRIM(routine),'normal exit from read_restart_files')
       IF (timers_level > 5) CALL timer_stop(timer_read_restart)
 
@@ -361,7 +361,7 @@ CONTAINS
     ! Prepare output file
     !------------------------------------------------------------------
 
-    CALL configure_io()   ! set n_chkpt and n_diag, which control 
+    CALL configure_io()   ! set n_chkpt and n_diag, which control
                           ! writing of restart files and tot_int diagnostics.
 
     ! Add a special metrics variable containing the area weights of
@@ -499,10 +499,10 @@ CONTAINS
     IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
   END SUBROUTINE construct_atmo_nonhydrostatic
-  
+
   !---------------------------------------------------------------------
   SUBROUTINE destruct_atmo_nonhydrostatic
-    
+
     CHARACTER(*), PARAMETER :: routine = "destruct_atmo_nonhydrostatic"
 
 
@@ -526,7 +526,7 @@ CONTAINS
 
     ! Delete optional diagnostics
     CALL destruct_opt_diag()
-   
+
     ! Delete state variables
 
     CALL destruct_nh_state( p_nh_state, p_nh_state_lists )
@@ -548,7 +548,7 @@ CONTAINS
       CALL cleanup_echam_phy
     ENDIF
 
-    ! call close name list prefetch 
+    ! call close name list prefetch
     IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) &
        CALL close_prefetch
 
@@ -576,7 +576,7 @@ CONTAINS
     END DO
 
     CALL message(TRIM(routine),'clean-up finished')
-    
+
   END SUBROUTINE destruct_atmo_nonhydrostatic
   !---------------------------------------------------------------------
 

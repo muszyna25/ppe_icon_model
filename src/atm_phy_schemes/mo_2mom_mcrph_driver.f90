@@ -9,20 +9,20 @@
 !!
 !!
 !! @par Revision History
-!! Ported into ICON from UCLA-LES by Anurag Dipankar (2013-12-15) 
+!! Ported into ICON from UCLA-LES by Anurag Dipankar (2013-12-15)
 !!
 !!==============================================================================
 !!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
-!! its most recent form.     
+!! its most recent form.
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-!!     
+!!
 !!==============================================================================
- 
+
 MODULE mo_mcrph_sb
 
 !------------------------------------------------------------------------------
@@ -45,7 +45,7 @@ MODULE mo_mcrph_sb
 ! Microphysical constants and variables
 !------------------------------------------------------------------------------
 
-USE mo_kind,                 ONLY: wp 
+USE mo_kind,                 ONLY: wp
 USE mo_math_constants,       ONLY: pi
 USE mo_vertical_coord_table, ONLY: vct_a
 USE mo_physical_constants,   ONLY: &
@@ -79,7 +79,7 @@ USE mo_2mom_mcrph_util, ONLY:                            &
 !==============================================================================
 
 IMPLICIT NONE
-PUBLIC 
+PUBLIC
 
 CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_driver'
 INTEGER,          PARAMETER :: dbg_level = 25                   ! level for debug prints
@@ -110,7 +110,7 @@ CONTAINS
                        ke,                & ! in: end level/array size
                        is,                & ! in: start index, optional
                        ie,                & ! in: end index, optional
-                       ks,                & ! in: start index vertical , optional 
+                       ks,                & ! in: start index vertical , optional
                        dt,                & ! in: time step
                        dz,                & ! in: vertical layer thickness
                        rho,               & ! in: density
@@ -123,9 +123,9 @@ CONTAINS
                        qg, qng,           & ! inout: graupel
                        qh, qnh,           & ! inout: hail
                        nccn,              & ! inout: ccn
-                       ninpot,            & ! inout: potential ice nuclei 
-                       ninact,            & ! inout: activated ice nuclei 
-                       tk,                & ! inout: temp 
+                       ninpot,            & ! inout: potential ice nuclei
+                       ninact,            & ! inout: activated ice nuclei
+                       tk,                & ! inout: temp
                        w,                 & ! inout: w
                        prec_r,            & ! inout: precip rate rain
                        prec_i,            & ! inout: precip rate ice
@@ -135,7 +135,7 @@ CONTAINS
                        dtemp,             & ! inout: opt. temp increment
                        msg_level,         & ! in: msg_level
                        l_cv          )      ! in: switch for cv/cp
-                
+
 
     ! Declare variables in argument list
 
@@ -148,7 +148,7 @@ CONTAINS
     REAL(wp), DIMENSION(:,:), INTENT(IN), TARGET :: dz, rho, pres, w
 
     REAL(wp), DIMENSION(:,:), INTENT(INOUT), TARGET :: tk
-     
+
     ! Microphysics variables
     REAL(wp), DIMENSION(:,:), INTENT(INOUT) , TARGET :: &
          &               qv, qc, qnc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh
@@ -162,7 +162,7 @@ CONTAINS
 
     REAL(wp), OPTIONAL, INTENT (INOUT)  :: dtemp(:,:)
 
-    INTEGER,  INTENT (IN)             :: msg_level 
+    INTEGER,  INTENT (IN)             :: msg_level
     LOGICAL,  OPTIONAL,  INTENT (IN)  :: l_cv
 
     ! ... Variables which are global in module_2mom_mcrph_main
@@ -177,7 +177,7 @@ CONTAINS
     INTEGER  :: its,ite,kts,kte
     INTEGER  :: ii,kk
     INTEGER  :: ntsedi     ! for sedimentation sub stepping
-    
+
     REAL(wp) :: q_liq_new,q_vap_new
     REAL(wp) :: zf,hlp,dtemp_loc
     REAL(wp) :: convliq,convice
@@ -197,10 +197,10 @@ CONTAINS
     LOGICAL, PARAMETER :: explicit_solver = .true.  ! explicit or semi-implicit solver
 
     ! These structures include the pointers to the model arrays (which are automatic arrays
-    ! of this driver subroutine). These structures live only for one time step and are 
+    ! of this driver subroutine). These structures live only for one time step and are
     ! different for the OpenMP threads. In contrast, the types like rain_coeffs, ice_coeffs,
-    ! etc. that are declared in mo_2mom_mcrph_main live for the whole runtime and may include 
-    ! coefficients that are calculated once during initialization (and there is only one per 
+    ! etc. that are declared in mo_2mom_mcrph_main live for the whole runtime and may include
+    ! coefficients that are calculated once during initialization (and there is only one per
     ! mpi thread).
     TYPE(atmosphere)         :: atmo
     TYPE(particle)           :: cloud, rain, ice, snow, graupel, hail
@@ -258,7 +258,7 @@ CONTAINS
     iend   = ite
     kstart = kts
     kend   = kte
-     
+
     IF (PRESENT(l_cv)) THEN
       IF (l_cv) THEN
         z_heat_cap_r = cvdr
@@ -268,7 +268,7 @@ CONTAINS
     ELSE
        z_heat_cap_r = cpdr
     ENDIF
-     
+
     IF (msg_level>dbg_level) CALL message(TRIM(routine),'')
 
     IF (msg_level>dbg_level)THEN
@@ -303,7 +303,7 @@ CONTAINS
     !     to avoid local allocates within the OpenMP-loop, and keep everything on stack)
 
     CALL prepare_twomoment()
-                     
+
     IF (msg_level>dbg_level) CALL message(TRIM(routine)," calling clouds_twomoment")
 
     IF (explicit_solver) then
@@ -329,11 +329,11 @@ CONTAINS
        convliq = z_heat_cap_r * (alv-als)
        DO kk = kts, kte
           DO ii = its, ite
-             
+
              ! .. new variables
              q_vap_new = qv(ii,kk)
              q_liq_new = qr(ii,kk) + qc(ii,kk)
-             
+
              ! .. update temperature
              dtemp_loc  = - convice * rho_r(ii,kk) * (q_vap_new - q_vap_old(ii,kk))  &
                   &       + convliq * rho_r(ii,kk) * (q_liq_new - q_liq_old(ii,kk))
@@ -351,7 +351,7 @@ CONTAINS
 
     ELSE
 
-       ! .. semi-implicit solver includes microphysics and sedimentation       
+       ! .. semi-implicit solver includes microphysics and sedimentation
        if (PRESENT(ninpot)) THEN
           CALL message(TRIM(routine)," ERROR: gscp=5 not implemented for implicit solver")
           CALL finish(TRIM(routine),'Error in two_moment_mcrph')
@@ -371,7 +371,7 @@ CONTAINS
        WHERE(qi < 0.0_wp) qi = 0.0_wp
        WHERE(qs < 0.0_wp) qs = 0.0_wp
        WHERE(qg < 0.0_wp) qg = 0.0_wp
-       WHERE(qh < 0.0_wp) qh = 0.0_wp       
+       WHERE(qh < 0.0_wp) qh = 0.0_wp
        WHERE(qnr < 0.0_wp) qnr = 0.0_wp
        WHERE(qni < 0.0_wp) qni = 0.0_wp
        WHERE(qns < 0.0_wp) qns = 0.0_wp
@@ -402,7 +402,7 @@ CONTAINS
              END IF
              ninpot(ii,kk) = ninpot(ii,kk) - (ninpot(ii,kk)-in_bgrd)/tau_inpot*dt
           END IF
-          
+
           !..relaxation of activated IN number density to zero
           IF(qi(ii,kk) == 0) THEN
              ninact(ii,kk) = ninact(ii,kk) - ninact(ii,kk)/tau_inact*dt
@@ -410,7 +410,7 @@ CONTAINS
 
        END DO
     END DO
-    
+
     IF (lprogccn) WHERE(nccn < 35.0_wp) nccn = 35e6_wp
 
     WHERE(qc < 1.0e-12_wp) qnc = 0.0_wp
@@ -427,7 +427,7 @@ CONTAINS
     !
     ! end of driver routine, but many details are below in the contains-part of this subroutine
     !
-  CONTAINS 
+  CONTAINS
 
     SUBROUTINE clouds_twomoment_implicit()
       !
@@ -459,7 +459,7 @@ CONTAINS
       convliq = z_heat_cap_r * (alv-als)
 
       if (.not.lmicro_impl) then
-         
+
          ! ... save old variables for latent heat calculation
          q_vap_old(:,:) = qv(:,:)
          q_liq_old(:,:) = qc(:,:) + qr(:,:)
@@ -488,7 +488,7 @@ CONTAINS
       WHERE(qi < 0.0_wp) qi = 0.0_wp
       WHERE(qs < 0.0_wp) qs = 0.0_wp
       WHERE(qg < 0.0_wp) qg = 0.0_wp
-      WHERE(qh < 0.0_wp) qh = 0.0_wp       
+      WHERE(qh < 0.0_wp) qh = 0.0_wp
       WHERE(qnr < 0.0_wp) qnr = 0.0_wp
       WHERE(qni < 0.0_wp) qni = 0.0_wp
       WHERE(qns < 0.0_wp) qns = 0.0_wp
@@ -497,30 +497,30 @@ CONTAINS
 
       rdzdt = 0.5_wp * rdz * dt
 
-      qr_flux_now(:) = 0.0_wp 
-      nr_flux_now(:) = 0.0_wp 
-      qr_flux_new(:) = 0.0_wp 
-      nr_flux_new(:) = 0.0_wp 
+      qr_flux_now(:) = 0.0_wp
+      nr_flux_now(:) = 0.0_wp
+      qr_flux_new(:) = 0.0_wp
+      nr_flux_new(:) = 0.0_wp
 
-      qi_flux_now(:) = 0.0_wp 
-      ni_flux_now(:) = 0.0_wp 
-      qi_flux_new(:) = 0.0_wp 
-      ni_flux_new(:) = 0.0_wp 
+      qi_flux_now(:) = 0.0_wp
+      ni_flux_now(:) = 0.0_wp
+      qi_flux_new(:) = 0.0_wp
+      ni_flux_new(:) = 0.0_wp
 
-      qs_flux_now(:) = 0.0_wp 
-      ns_flux_now(:) = 0.0_wp 
-      qs_flux_new(:) = 0.0_wp 
-      ns_flux_new(:) = 0.0_wp 
+      qs_flux_now(:) = 0.0_wp
+      ns_flux_now(:) = 0.0_wp
+      qs_flux_new(:) = 0.0_wp
+      ns_flux_new(:) = 0.0_wp
 
-      qg_flux_now(:) = 0.0_wp 
-      ng_flux_now(:) = 0.0_wp 
-      qg_flux_new(:) = 0.0_wp 
-      ng_flux_new(:) = 0.0_wp 
+      qg_flux_now(:) = 0.0_wp
+      ng_flux_now(:) = 0.0_wp
+      qg_flux_new(:) = 0.0_wp
+      ng_flux_new(:) = 0.0_wp
 
-      qh_flux_now(:) = 0.0_wp 
-      nh_flux_now(:) = 0.0_wp 
-      qh_flux_new(:) = 0.0_wp 
-      nh_flux_new(:) = 0.0_wp 
+      qh_flux_now(:) = 0.0_wp
+      nh_flux_now(:) = 0.0_wp
+      qh_flux_new(:) = 0.0_wp
+      nh_flux_new(:) = 0.0_wp
 
       convice = z_heat_cap_r * als
       convliq = z_heat_cap_r * (alv-als)
@@ -535,16 +535,16 @@ CONTAINS
 
       ! here we simply assume that there is no cloud or precip in the uppermost level
       ! i.e. we start from kts+1 going down in physical space
-     
-!DIR$ IVDEP 
+
+!DIR$ IVDEP
       DO k=kts+1,kte
 
         do i=its,ite
-           xr_now(i) = rain%meanmass(qr(i,k),qnr(i,k))                       
-           xi_now(i) = ice%meanmass(qi(i,k),qni(i,k))                       
-           xs_now(i) = snow%meanmass(qs(i,k),qns(i,k))                       
-           xg_now(i) = graupel%meanmass(qg(i,k),qng(i,k))                       
-           xh_now(i) = hail%meanmass(qh(i,k),qnh(i,k))                       
+           xr_now(i) = rain%meanmass(qr(i,k),qnr(i,k))
+           xi_now(i) = ice%meanmass(qi(i,k),qni(i,k))
+           xs_now(i) = snow%meanmass(qs(i,k),qns(i,k))
+           xg_now(i) = graupel%meanmass(qg(i,k),qng(i,k))
+           xh_now(i) = hail%meanmass(qh(i,k),qnh(i,k))
         end do
 
         call sedi_vel_rain(rain,rain_coeffs,qr(:,k),xr_now,vr_sedn_now,vr_sedq_now,its,ite,qc(:,k))
@@ -577,7 +577,7 @@ CONTAINS
            nr_impl(i) = 1.0_wp/(1.0_wp + vr_sedn_new(i) * rdzdt(i,k))
            qr_impl(i) = 1.0_wp/(1.0_wp + vr_sedq_new(i) * rdzdt(i,k))
 
-           nr_star(i) = nr_impl(i) * nr_sum(i)  ! intermediate values for calculating 
+           nr_star(i) = nr_impl(i) * nr_sum(i)  ! intermediate values for calculating
            qr_star(i) = qr_impl(i) * qr_sum(i)  ! sources and sinks
 
            qnr(i,k) = nr_star(i)                ! overwrite array with intermediate
@@ -608,7 +608,7 @@ CONTAINS
            ni_impl(i) = 1.0_wp/(1.0_wp + vi_sedn_new(i) * rdzdt(i,k))
            qi_impl(i) = 1.0_wp/(1.0_wp + vi_sedq_new(i) * rdzdt(i,k))
 
-           ni_star(i) = ni_impl(i) * ni_sum(i)  ! intermediate values for calculating 
+           ni_star(i) = ni_impl(i) * ni_sum(i)  ! intermediate values for calculating
            qi_star(i) = qi_impl(i) * qi_sum(i)  ! sources and sinks
 
            qni(i,k) = ni_star(i)                ! overwrite array with intermediate
@@ -639,7 +639,7 @@ CONTAINS
            ns_impl(i) = 1.0_wp/(1.0_wp + vs_sedn_new(i) * rdzdt(i,k))
            qs_impl(i) = 1.0_wp/(1.0_wp + vs_sedq_new(i) * rdzdt(i,k))
 
-           ns_star(i) = ns_impl(i) * ns_sum(i)  ! intermediate values for calculating 
+           ns_star(i) = ns_impl(i) * ns_sum(i)  ! intermediate values for calculating
            qs_star(i) = qs_impl(i) * qs_sum(i)  ! sources and sinks
 
            qns(i,k) = ns_star(i)                ! overwrite array with intermediate
@@ -670,7 +670,7 @@ CONTAINS
            ng_impl(i) = 1.0_wp/(1.0_wp + vg_sedn_new(i) * rdzdt(i,k))
            qg_impl(i) = 1.0_wp/(1.0_wp + vg_sedq_new(i) * rdzdt(i,k))
 
-           ng_star(i) = ng_impl(i) * ng_sum(i)  ! intermediate values for calculating 
+           ng_star(i) = ng_impl(i) * ng_sum(i)  ! intermediate values for calculating
            qg_star(i) = qg_impl(i) * qg_sum(i)  ! sources and sinks
 
            qng(i,k) = ng_star(i)                ! overwrite array with intermediate
@@ -701,7 +701,7 @@ CONTAINS
            nh_impl(i) = 1.0_wp/(1.0_wp + vh_sedn_new(i) * rdzdt(i,k))
            qh_impl(i) = 1.0_wp/(1.0_wp + vh_sedq_new(i) * rdzdt(i,k))
 
-           nh_star(i) = nh_impl(i) * nh_sum(i)  ! intermediate values for calculating 
+           nh_star(i) = nh_impl(i) * nh_sum(i)  ! intermediate values for calculating
            qh_star(i) = qh_impl(i) * qh_sum(i)  ! sources and sinks
 
            qnh(i,k) = nh_star(i)                ! overwrite array with intermediate
@@ -721,14 +721,14 @@ CONTAINS
               q_liq_old(ii,k) = qc(ii,k) + qr(ii,k)
            END DO
 
-           kstart = k  
-           kend   = k         
+           kstart = k
+           kend   = k
            IF (PRESENT(ninpot)) THEN
               CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact,nccn,ninpot)
            ELSE
               CALL clouds_twomoment(atmo,cloud,rain,ice,snow,graupel,hail,ninact)
            ENDIF
-         
+
            ! .. latent heat term for temperature equation
            DO ii = its, ite
               q_vap_new  = qv(ii,k)
@@ -755,15 +755,15 @@ CONTAINS
 
            ! prepare for next level
            nr_flux_new(i) = qnr(i,k) * vr_sedn_new(i)     ! flux_(k),new
-           ni_flux_new(i) = qni(i,k) * vi_sedn_new(i)     ! for next level (loop dependency) 
-           ns_flux_new(i) = qns(i,k) * vs_sedn_new(i)     ! 
-           ng_flux_new(i) = qng(i,k) * vg_sedn_new(i)     ! 
-           nh_flux_new(i) = qnh(i,k) * vh_sedn_new(i)     ! 
+           ni_flux_new(i) = qni(i,k) * vi_sedn_new(i)     ! for next level (loop dependency)
+           ns_flux_new(i) = qns(i,k) * vs_sedn_new(i)     !
+           ng_flux_new(i) = qng(i,k) * vg_sedn_new(i)     !
+           nh_flux_new(i) = qnh(i,k) * vh_sedn_new(i)     !
            qr_flux_new(i) = qr(i,k)  * vr_sedq_new(i)     !
-           qi_flux_new(i) = qi(i,k)  * vi_sedq_new(i)     ! 
-           qs_flux_new(i) = qs(i,k)  * vs_sedq_new(i)     ! 
-           qg_flux_new(i) = qg(i,k)  * vg_sedq_new(i)     ! 
-           qh_flux_new(i) = qh(i,k)  * vh_sedq_new(i)     ! 
+           qi_flux_new(i) = qi(i,k)  * vi_sedq_new(i)     !
+           qs_flux_new(i) = qs(i,k)  * vs_sedq_new(i)     !
+           qg_flux_new(i) = qg(i,k)  * vg_sedq_new(i)     !
+           qh_flux_new(i) = qh(i,k)  * vh_sedq_new(i)     !
 
            vr_sedn_new(i) = vr_sedn_now(i)
            vi_sedn_new(i) = vi_sedn_now(i)
@@ -787,24 +787,24 @@ CONTAINS
      ! ... Transformation of microphysics variables to densities
      DO kk = kts, kte
         DO ii = its, ite
-           
+
            ! ... concentrations --> number densities
            qnc(ii,kk) = rho(ii,kk) * qnc(ii,kk)
-           qnr(ii,kk) = rho(ii,kk) * qnr(ii,kk) 
-           qni(ii,kk) = rho(ii,kk) * qni(ii,kk) 
+           qnr(ii,kk) = rho(ii,kk) * qnr(ii,kk)
+           qni(ii,kk) = rho(ii,kk) * qni(ii,kk)
            qns(ii,kk) = rho(ii,kk) * qns(ii,kk)
            qng(ii,kk) = rho(ii,kk) * qng(ii,kk)
            qnh(ii,kk) = rho(ii,kk) * qnh(ii,kk)
-           
+
            ! ... mixing ratios -> mass densities
-           qv(ii,kk) = rho(ii,kk) * qv(ii,kk) 
-           qc(ii,kk) = rho(ii,kk) * qc(ii,kk) 
-           qr(ii,kk) = rho(ii,kk) * qr(ii,kk) 
-           qi(ii,kk) = rho(ii,kk) * qi(ii,kk) 
-           qs(ii,kk) = rho(ii,kk) * qs(ii,kk) 
-           qg(ii,kk) = rho(ii,kk) * qg(ii,kk) 
-           qh(ii,kk) = rho(ii,kk) * qh(ii,kk) 
-           
+           qv(ii,kk) = rho(ii,kk) * qv(ii,kk)
+           qc(ii,kk) = rho(ii,kk) * qc(ii,kk)
+           qr(ii,kk) = rho(ii,kk) * qr(ii,kk)
+           qi(ii,kk) = rho(ii,kk) * qi(ii,kk)
+           qs(ii,kk) = rho(ii,kk) * qs(ii,kk)
+           qg(ii,kk) = rho(ii,kk) * qg(ii,kk)
+           qh(ii,kk) = rho(ii,kk) * qh(ii,kk)
+
            ninact(ii,kk)  = rho(ii,kk) * ninact(ii,kk)
 
            if (lprogccn) then
@@ -815,14 +815,14 @@ CONTAINS
            end if
         END DO
      END DO
-     
+
      ! set pointers
      atmo%w   => w
      atmo%T   => tk
      atmo%p   => pres
      atmo%qv  => qv
      atmo%rho => rho
-     
+
      cloud%rho_v   => rhocld
      rain%rho_v    => rhocorr
      ice%rho_v     => rhocorr
@@ -842,7 +842,7 @@ CONTAINS
      graupel%n => qng
      hail%q    => qh
      hail%n    => qnh
-     
+
    END SUBROUTINE prepare_twomoment
 
    SUBROUTINE post_twomoment()
@@ -853,14 +853,14 @@ CONTAINS
      atmo%p   => null()
      atmo%qv  => null()
      atmo%rho => null()
-     
+
      cloud%rho_v   => null()
      rain%rho_v    => null()
      ice%rho_v     => null()
      graupel%rho_v => null()
      snow%rho_v    => null()
      hail%rho_v    => null()
-     
+
      cloud%q   => null()
      cloud%n   => null()
      rain%q    => null()
@@ -877,7 +877,7 @@ CONTAINS
      ! ... Transformation of variables back to ICON standard variables
      DO kk = kts, kte
         DO ii = its, ite
-           
+
            hlp = rho_r(ii,kk)
 
            ! ... from mass densities back to mixing ratios
@@ -917,23 +917,23 @@ CONTAINS
    SUBROUTINE sedimentation_explicit()
 
      REAL(wp) :: cmax
-     
+
      cmax = 0.0_wp
 
      prec_r  = 0._wp
      CALL sedi_icon_rain (rain,qr,qnr,prec_r,qc,rhocorr,rdz,dt,its,ite,kts,kte,cmax)
-      
+
       IF (cloud_type.ge.1000) THEN
          prec_i(:) = 0._wp
          prec_s(:) = 0._wp
          prec_g(:) = 0._wp
-         
+
          IF (ANY(qi(:,:)>0._wp)) &
               call sedi_icon_sphere (ice,ice_coeffs,qi,qni,prec_i,rhocorr,rdz,dt,its,ite,kts,kte)
-         
+
          IF (ANY(qs(:,:)>0._wp)) &
               call sedi_icon_sphere (snow,snow_coeffs,qs,qns,prec_s,rhocorr,rdz,dt,its,ite,kts,kte)
-         
+
          IF (ANY(qg(:,:)>0._wp)) THEN
             ntsedi = 1
             DO ii=1,ntsedi
@@ -1018,7 +1018,7 @@ CONTAINS
          CALL finish(TRIM(routine),'Error in two_moment_mcrph, hail%n < 0')
       ENDIF
     END subroutine check_clouds
-    
+
   END SUBROUTINE two_moment_mcrph
 
 !===========================================================================================
@@ -1029,9 +1029,9 @@ CONTAINS
 
     REAL(wp), OPTIONAL, INTENT(OUT) ::             & ! for CCN and IN in case of gscp=5
          & N_cn0,z0_nccn,z1e_nccn,    &
-         & N_in0,z0_nin,z1e_nin         
+         & N_in0,z0_nin,z1e_nin
 
-    TYPE(particle) :: cloud, rain, ice, snow, graupel, hail 
+    TYPE(particle) :: cloud, rain, ice, snow, graupel, hail
     INTEGER        :: unitnr
 
     IF (msg_level>5) CALL message (TRIM(routine), " Initialization of two-moment microphysics scheme")
@@ -1056,7 +1056,7 @@ CONTAINS
 
     IF (present(N_cn0)) THEN
 
-       !..parameters for CCN and IN are set here. The 3D fields are then 
+       !..parameters for CCN and IN are set here. The 3D fields are then
        !  initialized in mo_nwp_phy_init.
 
        !..parameters for exponential decrease of N_ccn with height
@@ -1069,14 +1069,14 @@ CONTAINS
        ! characteristics of different kinds of CN
        ! (copied from COSMO 5.0 Segal & Khain nucleation subroutine)
        SELECT CASE(ccn_type)
-       CASE(6) 
+       CASE(6)
           !... maritime case
           ccn_coeffs%Ncn0 = 100.0d06   ! CN concentration at ground
           ccn_coeffs%Nmin =  35.0d06
           ccn_coeffs%lsigs = 0.4d0      ! log(sigma_s)
           ccn_coeffs%R2    = 0.03d0     ! in mum
           ccn_coeffs%etas  = 0.9        ! soluble fraction
-       CASE(7) 
+       CASE(7)
           !... intermediate case
           ccn_coeffs%Ncn0 = 500.0d06
           ccn_coeffs%Nmin =  35.0d06
@@ -1090,13 +1090,13 @@ CONTAINS
           ccn_coeffs%lsigs = 0.2d0
           ccn_coeffs%R2    = 0.03d0       ! in mum
           ccn_coeffs%etas  = 0.7          ! soluble fraction
-       CASE(9) 
-          !... "polluted" continental 
+       CASE(9)
+          !... "polluted" continental
           ccn_coeffs%Ncn0 = 3200.0d06
           ccn_coeffs%Nmin =   35.0d06
           ccn_coeffs%lsigs = 0.2d0
           ccn_coeffs%R2    = 0.03d0       ! in mum
-          ccn_coeffs%etas  = 0.7          ! soluble fraction 
+          ccn_coeffs%etas  = 0.7          ! soluble fraction
        CASE(1)
           !... dummy values
           ccn_coeffs%Ncn0 =  200.0d06
@@ -1123,7 +1123,7 @@ CONTAINS
        in_coeffs%N0  = 200.0e6_wp ! this is currently just a scaling factor for the PDA scheme
        in_coeffs%z0  = 3000.0d0
        in_coeffs%z1e = 1000.0d0
- 
+
        N_in0   = in_coeffs%N0
        z0_nin  = in_coeffs%z0
        z1e_nin = in_coeffs%z1e

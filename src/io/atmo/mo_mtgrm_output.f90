@@ -1,7 +1,7 @@
 !>
 !! Data structures and subroutines for meteogram output.
 !!
-!! The sampling intervals for meteogram data are independent 
+!! The sampling intervals for meteogram data are independent
 !! from global output steps. Values are buffered in memory until
 !! the next field output is invoked.
 !! Before each write operation, data is gathered from all working
@@ -94,7 +94,7 @@
 !! TODO[FP] : use the same GNAT data structure as for the RBF
 !!            coefficient computation!
 !! TODO[FP] : use cdi functionality instead of direct NetCDF access.
-!! TODO[FP] : MPI communication of height levels and header info is 
+!! TODO[FP] : MPI communication of height levels and header info is
 !!            necessary only once at the beginning.
 
 MODULE mo_meteogram_output
@@ -149,9 +149,9 @@ MODULE mo_meteogram_output
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_util_phys,             ONLY: rel_hum, swdir_s
   USE mo_grid_config,           ONLY: grid_sphere_radius, is_plane_torus
-  
+
   IMPLICIT NONE
-  
+
   PRIVATE
   CHARACTER(LEN=MAX_CHAR_LENGTH), PARAMETER :: modname       = 'mo_meteogram_output'
   INTEGER,                        PARAMETER :: dbg_level     = 0
@@ -161,10 +161,10 @@ MODULE mo_meteogram_output
   ! IO routines.
   ! called collectively, though non-IO PEs are occupied
   ! only for the case of distributed write mode.
-  PUBLIC ::  meteogram_init  
+  PUBLIC ::  meteogram_init
   PUBLIC ::  meteogram_is_sample_step
   PUBLIC ::  meteogram_sample_vars
-  PUBLIC ::  meteogram_finalize  
+  PUBLIC ::  meteogram_finalize
   PUBLIC ::  meteogram_flush_file
 
   INTEGER, PARAMETER :: MAX_TIME_STAMPS      =10000  !< max. number of time stamps
@@ -206,7 +206,7 @@ MODULE mo_meteogram_output
     MODULE PROCEDURE add_sfc_var_2d
     MODULE PROCEDURE add_sfc_var_3d
   END INTERFACE
-  
+
   !>
   !! Storage for information on a single variable
   !!
@@ -267,7 +267,7 @@ MODULE mo_meteogram_output
     INTEGER                         :: station_idx(2)   !< (idx,block) of station specification
     INTEGER                         :: tri_idx(2)       !< triangle index (global idx,block)
     INTEGER                         :: tri_idx_local(2) !< triangle index (idx,block)
-    INTEGER                         :: owner            !< proc ID where station is located.    
+    INTEGER                         :: owner            !< proc ID where station is located.
     REAL(wp)                        :: hsurf            !< surface height
     REAL(wp)                        :: frland           !< fraction of land
     REAL(wp)                        :: fc               !< Coriolis parameter
@@ -296,7 +296,7 @@ MODULE mo_meteogram_output
     INTEGER                         :: nstations, nblks, npromz
     INTEGER                         :: pstation(MAX_NUM_STATIONS)       !< "owner" PE for this station
   END TYPE t_meteogram_data
-  
+
   !>
   !! Data structure specifying output file for meteogram data.
   !!
@@ -332,22 +332,22 @@ MODULE mo_meteogram_output
 
   ! -------------------------------------------------------------------------------------------
 
-  !> 
+  !>
   !! Data structure containing meteogram buffers and other data.
   !!
   TYPE t_buffer_state
     TYPE(t_meteogram_data)  :: meteogram_local_data             !< meteogram data local to this PE
     TYPE(t_meteogram_data)  :: meteogram_global_data            !< collected buffers (on IO PE)
     TYPE(t_meteogram_file)  :: meteogram_file_info              !< meteogram file handle etc.
-    
+
     TYPE(t_ncid)            :: ncid_list                        !< NetCDF dimension IDs
     TYPE(t_var)             :: var_list                         !< internal indices of variables
-    
+
     !! -- data for distributed meteogram sampling (MPI) --
     CHARACTER, ALLOCATABLE  :: msg_buffer(:,:)                  !< MPI buffer for station data
     INTEGER                 :: max_buf_size                     !< max buffer size for MPI messages
     CHARACTER, ALLOCATABLE  :: msg_varlist_buffer(:)            !< MPI buffer for variable info
-    INTEGER                 :: max_varlist_buf_size             !< max buffer size for var list 
+    INTEGER                 :: max_varlist_buf_size             !< max buffer size for var list
     INTEGER                 :: vbuf_pos
     ! different roles in communication:
     LOGICAL                 :: l_is_sender, l_is_writer,         &
@@ -355,7 +355,7 @@ MODULE mo_meteogram_output
       &                        l_is_varlist_sender
     INTEGER                 :: process_mpi_all_collector_id     !< rank of PE which gathers data
     INTEGER                 :: global_idx(MAX_NUM_STATIONS)     !< rank of sender PE for each station
-    
+
     ! several variable indices, stored for convenience (when computing additional diagnostics)
     INTEGER                 :: i_T        = -1,  &
       &                        i_REL_HUM  = -1,  &
@@ -595,7 +595,7 @@ CONTAINS
     IF ( iqm_max >= 5) THEN
       CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQS", "kg m-2", "column integrated snow", &
         &              jg, diag%tracer_vi_ptr(iqs)%p_2d(:,:))
-    END IF 
+    END IF
 
     CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE, "TQV_DIA", "kg m-2", &
       &              "total column integrated water vapour (diagnostic)",      &
@@ -681,13 +681,13 @@ CONTAINS
         albedo   = station%sfc_var(mtgrm(jg)%i_ALB)%values(i_tstep)
         swdifd_s = station%sfc_var(mtgrm(jg)%i_SWDIFD_S)%values(i_tstep)
         sobs     = station%sfc_var(mtgrm(jg)%i_SOBS)%values(i_tstep)
-        station%sfc_var(mtgrm(jg)%i_SWDIR_S)%values(i_tstep) = swdir_s(albedo, swdifd_s, sobs) 
+        station%sfc_var(mtgrm(jg)%i_SWDIR_S)%values(i_tstep) = swdir_s(albedo, swdifd_s, sobs)
       ELSE
         WRITE(message_text,*) ">>> meteogram: SWDIR_S could not be computed (ALB, SWDIFD_S, and/or SOBS missing)"
         CALL message(routine, TRIM(message_text))
       END IF
     END IF
-    
+
   END SUBROUTINE compute_diagnostics
 
 
@@ -784,10 +784,10 @@ CONTAINS
       & ((.NOT. PRESENT(ptr_patch))   .OR.  (.NOT. PRESENT(ext_data))    .OR.  &
       &  (.NOT. PRESENT(p_nh_state))  .OR.                                     &
       &  (.NOT. PRESENT(p_lnd_state)) .OR.  (.NOT. PRESENT(iforcing)) )) THEN
-      CALL finish (routine, 'Missing argument(s)!')      
+      CALL finish (routine, 'Missing argument(s)!')
     END IF
 
-    ! Consistency check II: If this is a pure I/O PE, then number_of_grid_used 
+    ! Consistency check II: If this is a pure I/O PE, then number_of_grid_used
     ! and grid_uuid must be available.
     IF (mtgrm(jg)%l_pure_io_pe .AND. &
       & ( (.NOT. PRESENT(number_of_grid_used) .OR. &
@@ -825,14 +825,14 @@ CONTAINS
       ! in_points(...)
       nstations = meteogram_output_config%nstations
       nblks     = meteogram_output_config%nblks
-      npromz    = meteogram_output_config%npromz   
-      
+      npromz    = meteogram_output_config%npromz
+
       DO jb=1,nblks
         i_startidx = 1
         i_endidx   = nproma
         IF (jb == nblks) i_endidx = npromz
-        
-        DO jc=i_startidx,i_endidx    
+
+        DO jc=i_startidx,i_endidx
           in_points(jc,jb,:) = &
             &  (/ meteogram_output_config%station_list(jc,jb)%location%lon, &
             &     meteogram_output_config%station_list(jc,jb)%location%lat  /) * pi_180
@@ -872,7 +872,7 @@ CONTAINS
         i_startidx = 1
         i_endidx   = nproma
         IF (jb == meteogram_data%nblks) i_endidx = meteogram_data%npromz
-        
+
         DO jc=i_startidx,i_endidx
           istation = istation + 1
           mtgrm(jg)%meteogram_local_data%pstation( mtgrm(jg)%global_idx(istation) ) = get_my_mpi_all_id()
@@ -932,7 +932,7 @@ CONTAINS
         CALL p_send_packed(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%process_mpi_all_collector_id, &
           &                TAG_VARLIST, mtgrm(jg)%vbuf_pos)
       END IF
-    ELSE 
+    ELSE
       IF (my_process_is_mpi_ioroot()) &
         CALL receive_var_info(mtgrm(jg)%meteogram_local_data, jg)
     END IF
@@ -978,7 +978,7 @@ CONTAINS
         i_startidx = 1
         i_endidx   = nproma
         IF (jb == nblks) i_endidx = npromz
-        
+
         DO jc=i_startidx,i_endidx
           istation = istation + 1
           istation_glb = mtgrm(jg)%global_idx(istation)
@@ -1076,8 +1076,8 @@ CONTAINS
     IO_PE : IF (mtgrm(jg)%l_is_collecting_pe) THEN
 
       mtgrm(jg)%meteogram_global_data%nstations =  meteogram_output_config%nstations
-      mtgrm(jg)%meteogram_global_data%nblks     =  meteogram_output_config%nblks    
-      mtgrm(jg)%meteogram_global_data%npromz    =  meteogram_output_config%npromz   
+      mtgrm(jg)%meteogram_global_data%nblks     =  meteogram_output_config%nblks
+      mtgrm(jg)%meteogram_global_data%npromz    =  meteogram_output_config%npromz
       mtgrm(jg)%meteogram_global_data%pstation  =  mtgrm(jg)%meteogram_local_data%pstation
 
       ! Note: variable info is not duplicated
@@ -1098,14 +1098,14 @@ CONTAINS
         i_startidx = 1
         i_endidx   = nproma
         IF (jb == nblks_global) i_endidx = npromz_global
-        
+
         DO jc=i_startidx,i_endidx
           p_station => mtgrm(jg)%meteogram_global_data%station(jc,jb)
 
           ALLOCATE(p_station%var(mtgrm(jg)%meteogram_global_data%nvars), stat=ierrstat)
           IF (ierrstat /= SUCCESS) &
             CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 9)')
-          
+
           DO ivar=1,mtgrm(jg)%meteogram_global_data%nvars
             nlevs = meteogram_data%var_info(ivar)%nlevs
             ALLOCATE(p_station%var(ivar)%values(nlevs, MAX_TIME_STAMPS), &
@@ -1141,7 +1141,7 @@ CONTAINS
     mtgrm(jg)%l_is_writer         = (meteogram_output_config%ldistributed .AND.       &
       &                    (mtgrm(jg)%meteogram_local_data%nstations > 0))  .OR.  &
       &                   mtgrm(jg)%l_is_collecting_pe
-    
+
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       ! compute maximum buffer size for MPI messages:
       ! (max_var_size: contains also height levels)
@@ -1150,37 +1150,37 @@ CONTAINS
       mtgrm(jg)%max_buf_size    = MAX_HEADER_SIZE*p_real_dp_byte            & ! header size
         &               + MAX_TIME_STAMPS*(MAX_DATE_LEN+4)        & ! time stamp info
         &               + meteogram_data%nvars*max_var_size       &
-        &               + meteogram_data%nsfcvars*max_sfcvar_size 
+        &               + meteogram_data%nsfcvars*max_sfcvar_size
 
       ! allocate buffer:
       IF (mtgrm(jg)%l_is_collecting_pe .AND. (.NOT. ALLOCATED(mtgrm(jg)%msg_buffer))) THEN
-        ALLOCATE(mtgrm(jg)%msg_buffer(mtgrm(jg)%max_buf_size, MAX_NUM_STATIONS), stat=ierrstat)  
+        ALLOCATE(mtgrm(jg)%msg_buffer(mtgrm(jg)%max_buf_size, MAX_NUM_STATIONS), stat=ierrstat)
         IF (ierrstat /= SUCCESS) THEN
           WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm(jg)%max_buf_size = ", &
             & mtgrm(jg)%max_buf_size, "; MAX_NUM_STATIONS = ", MAX_NUM_STATIONS
           WRITE (0,*) "MAX_HEADER_SIZE         = ", MAX_HEADER_SIZE
-          WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte         
-          WRITE (0,*) "MAX_TIME_STAMPS         = ", MAX_TIME_STAMPS        
-          WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN           
-          WRITE (0,*) "meteogram_data%nvars    = ", meteogram_data%nvars   
-          WRITE (0,*) "max_var_size            = ", max_var_size           
+          WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte
+          WRITE (0,*) "MAX_TIME_STAMPS         = ", MAX_TIME_STAMPS
+          WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
+          WRITE (0,*) "meteogram_data%nvars    = ", meteogram_data%nvars
+          WRITE (0,*) "max_var_size            = ", max_var_size
           WRITE (0,*) "meteogram_data%nsfcvars = ", meteogram_data%nsfcvars
-          WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size        
+          WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size
           CALL finish (routine, 'ALLOCATE of meteogram message buffer failed (collector)')
         END IF
       ELSE IF  (.NOT. ALLOCATED(mtgrm(jg)%msg_buffer)) THEN
         ! allocate buffer:
-        ALLOCATE(mtgrm(jg)%msg_buffer(mtgrm(jg)%max_buf_size, 1), stat=ierrstat)  
+        ALLOCATE(mtgrm(jg)%msg_buffer(mtgrm(jg)%max_buf_size, 1), stat=ierrstat)
         IF (ierrstat /= SUCCESS) THEN
           WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm(jg)%max_buf_size = ", mtgrm(jg)%max_buf_size
           WRITE (0,*) "MAX_HEADER_SIZE         = ", MAX_HEADER_SIZE
-          WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte         
-          WRITE (0,*) "MAX_TIME_STAMPS         = ", MAX_TIME_STAMPS        
-          WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN           
-          WRITE (0,*) "meteogram_data%nvars    = ", meteogram_data%nvars   
-          WRITE (0,*) "max_var_size            = ", max_var_size           
+          WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte
+          WRITE (0,*) "MAX_TIME_STAMPS         = ", MAX_TIME_STAMPS
+          WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
+          WRITE (0,*) "meteogram_data%nvars    = ", meteogram_data%nvars
+          WRITE (0,*) "max_var_size            = ", max_var_size
           WRITE (0,*) "meteogram_data%nsfcvars = ", meteogram_data%nsfcvars
-          WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size        
+          WRITE (0,*) "max_sfcvar_size         = ", max_sfcvar_size
           CALL finish (routine, 'ALLOCATE of meteogram message buffer failed (dummy)')
         END IF
       END IF
@@ -1212,10 +1212,10 @@ CONTAINS
       &  (cur_step >= meteogram_output_config%n0_mtgrm) .AND. &
       &  (MOD((cur_step - meteogram_output_config%n0_mtgrm),  &
       &       meteogram_output_config%ninc_mtgrm) == 0)
-    
+
   END FUNCTION meteogram_is_sample_step
 
-  
+
   !>
   !! Adds values for current model time to buffer.
   !! For gathered NetCDF output, this is a collective operation,
@@ -1269,14 +1269,14 @@ CONTAINS
         VAR_LOOP : DO ivar=1,mtgrm(jg)%var_list%no_atmo_vars
           IF (BTEST(meteogram_data%var_info(ivar)%igroup_id, FLAG_DIAG)) &
             & CYCLE VAR_LOOP
-          
+
           IF (ASSOCIATED(meteogram_data%var_info(ivar)%p_source)) THEN
             DO ilev=1,meteogram_data%var_info(ivar)%nlevs
               meteogram_data%station(jc,jb)%var(ivar)%values(ilev, i_tstep) = &
                 &  meteogram_data%var_info(ivar)%p_source(                    &
                 &       iidx, meteogram_data%var_info(ivar)%levels(ilev), iblk )
             END DO
-          ELSE 
+          ELSE
             CALL finish (routine, 'Source array not associated!')
           END IF
         END DO VAR_LOOP
@@ -1287,7 +1287,7 @@ CONTAINS
           meteogram_data%station(jc,jb)%sfc_var(ivar)%values(i_tstep) =  &
             &  meteogram_data%sfc_var_info(ivar)%p_source( iidx, iblk )
         END DO SFCVAR_LOOP
-        
+
         ! compute additional diagnostic quantities:
         CALL compute_diagnostics(meteogram_data%station(jc,jb), jg, i_tstep)
 
@@ -1324,7 +1324,7 @@ CONTAINS
       DEALLOCATE(meteogram_data%time_stamp, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-      
+
       nvars    = meteogram_data%nvars
       nsfcvars = meteogram_data%nsfcvars
       DO ivar=1,nvars
@@ -1337,13 +1337,13 @@ CONTAINS
       DEALLOCATE(meteogram_data%var_info, meteogram_data%sfc_var_info, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-      
+
       DO jb=1,meteogram_data%nblks
         i_startidx = 1
         i_endidx   = nproma
         IF (jb == meteogram_data%nblks) &
           &  i_endidx = meteogram_data%npromz
-        
+
         DO jc=i_startidx,i_endidx
           DO ivar=1,nvars
             DEALLOCATE(meteogram_data%station(jc,jb)%var(ivar)%values,  &
@@ -1366,7 +1366,7 @@ CONTAINS
             CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
         END DO
       END DO
-      
+
       DEALLOCATE(meteogram_data%station, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
@@ -1391,12 +1391,12 @@ CONTAINS
 
       nvars    = mtgrm(jg)%meteogram_global_data%nvars
       nsfcvars = mtgrm(jg)%meteogram_global_data%nsfcvars
-    
+
       DO jb=1,mtgrm(jg)%meteogram_global_data%nblks
         i_startidx = 1
         i_endidx   = nproma
         IF (jb == mtgrm(jg)%meteogram_global_data%nblks) i_endidx = mtgrm(jg)%meteogram_global_data%npromz
-        
+
         DO jc=i_startidx,i_endidx
           DO ivar=1,nvars
             DEALLOCATE(mtgrm(jg)%meteogram_global_data%station(jc,jb)%var(ivar)%values,  &
@@ -1424,7 +1424,7 @@ CONTAINS
       DEALLOCATE(mtgrm(jg)%meteogram_global_data%station, stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
         CALL finish (routine, 'DEALLOCATE of meteogram data structures failed')
-      
+
     END IF IO_PE
 
   END SUBROUTINE meteogram_finalize
@@ -1456,7 +1456,7 @@ CONTAINS
     TYPE(t_meteogram_station), POINTER :: p_station
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter (collecting PE=", mtgrm(jg)%l_is_collecting_pe, ")"
-     
+
     meteogram_data => mtgrm(jg)%meteogram_local_data
 
     ! global time stamp index
@@ -1753,7 +1753,7 @@ CONTAINS
       &     modname)
     ! create time dimension:
     CALL nf(nf_def_dim(ncfile, 'time', NF_UNLIMITED, ncid%timeid), modname)
-    
+
     ! create station variables:
     station_name_dims = (/ ncid%charid, ncid%nstations /)
     CALL nf(nf_def_var(ncfile, "station_name", NF_CHAR, 2, station_name_dims(:), &
@@ -1908,7 +1908,7 @@ CONTAINS
         IF (iowner < 0) THEN
           IF (dbg_level > 5) &
             WRITE (*,*) "skipping station!"
-          istation = istation + 1 
+          istation = istation + 1
           CYCLE
         END IF
 
@@ -1951,7 +1951,7 @@ CONTAINS
             &    modname)
         END DO
 
-        istation = istation + 1 
+        istation = istation + 1
 
       END DO
     END DO
@@ -1981,7 +1981,7 @@ CONTAINS
     TYPE(t_meteogram_data), POINTER :: meteogram_data
     TYPE(t_ncid)          , POINTER :: ncid
     INTEGER                         :: istart4(4), icount4(4)
-  
+
     IF (dbg_level > 5)  WRITE (*,*) routine, " Enter"
 
     ncid => mtgrm(jg)%ncid_list
@@ -2004,7 +2004,7 @@ CONTAINS
 
     IF (dbg_level > 0) THEN
       WRITE(message_text,*) "Meteogram"
-      CALL message(routine, TRIM(message_text))    
+      CALL message(routine, TRIM(message_text))
     END IF
 
     ! inquire about current number of records in file:
@@ -2096,7 +2096,7 @@ CONTAINS
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
   SUBROUTINE meteogram_create_filename (meteogram_output_config, jg)
-    
+
     ! station data from namelist
     TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
     ! patch index
@@ -2185,11 +2185,11 @@ CONTAINS
       CALL p_pack_int   (FLAG_VARLIST_ATMO,                              mtgrm(jg)%msg_varlist_buffer(:), &
         &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
       CALL p_pack_string(meteogram_data%var_info(ivar)%cf%standard_name, mtgrm(jg)%msg_varlist_buffer(:), &
-        &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)      
+        &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
       CALL p_pack_string(meteogram_data%var_info(ivar)%cf%long_name,     mtgrm(jg)%msg_varlist_buffer(:), &
-        &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)      
+        &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
       CALL p_pack_string(meteogram_data%var_info(ivar)%cf%units,         mtgrm(jg)%msg_varlist_buffer(:), &
-        &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)      
+        &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
       CALL p_pack_int   (igroup_id,                                      mtgrm(jg)%msg_varlist_buffer(:), &
         &                mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
       CALL p_pack_int   (nlev,                                           mtgrm(jg)%msg_varlist_buffer(:), &
@@ -2253,7 +2253,7 @@ CONTAINS
       ! in the list:
       IF (one_of(TRIM(zname), meteogram_config%var_list) == -1) RETURN
     END IF
- 
+
     IF (dbg_level > 0) &
       CALL message(routine, "add surface var "//zname)
 
@@ -2277,11 +2277,11 @@ CONTAINS
       CALL p_pack_int   (FLAG_VARLIST_SFC,                                   &
         &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
       CALL p_pack_string(meteogram_data%sfc_var_info(ivar)%cf%standard_name, &
-        &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)     
+        &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
       CALL p_pack_string(meteogram_data%sfc_var_info(ivar)%cf%long_name,     &
-        &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)      
+        &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
       CALL p_pack_string(meteogram_data%sfc_var_info(ivar)%cf%units,         &
-        &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)      
+        &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
       CALL p_pack_int   (igroup_id,                                          &
         &                mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos)
     END IF
@@ -2308,7 +2308,7 @@ CONTAINS
       ! in the list:
       IF (one_of(TRIM(zname), meteogram_config%var_list) == -1) RETURN
     END IF
- 
+
     nidx = SIZE(source, 3) ! get number of 2d var indices (e.g. tile number)
     DO isource_idx=1,nidx
       CALL add_sfc_var_2d(meteogram_config, igroup_id, zname//"_"//int2string(isource_idx), &
@@ -2331,24 +2331,24 @@ CONTAINS
     INTEGER                 :: id, ivar
     TYPE(t_cf_var), POINTER :: cf        => NULL()
     INTEGER       , POINTER :: igroup_id => NULL()
-    
+
     ! wait for messages to arrive:
     CALL p_wait()
 
     ! from the received message, unpack the atmosphere/surface
     ! variables one by one:
-    RCV_LOOP : DO 
+    RCV_LOOP : DO
       CALL p_unpack_int(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos, id)
       SELECT CASE(id)
-      CASE(FLAG_VARLIST_END) 
+      CASE(FLAG_VARLIST_END)
         EXIT RCV_LOOP
-      CASE(FLAG_VARLIST_ATMO) 
+      CASE(FLAG_VARLIST_ATMO)
         ! create new variable index
         mtgrm(jg)%var_list%no_atmo_vars = mtgrm(jg)%var_list%no_atmo_vars + 1
         ivar = mtgrm(jg)%var_list%no_atmo_vars
         cf        => meteogram_data%var_info(ivar)%cf
         igroup_id => meteogram_data%var_info(ivar)%igroup_id
-      CASE(FLAG_VARLIST_SFC) 
+      CASE(FLAG_VARLIST_SFC)
         mtgrm(jg)%var_list%no_sfc_vars = mtgrm(jg)%var_list%no_sfc_vars + 1
         ivar = mtgrm(jg)%var_list%no_sfc_vars
         cf        => meteogram_data%sfc_var_info(ivar)%cf
@@ -2356,7 +2356,7 @@ CONTAINS
       CASE DEFAULT
         CALL finish(routine, "Unknown message flag!")
       END SELECT
-      
+
       CALL p_unpack_string(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos, cf%standard_name)
       CALL p_unpack_string(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos, cf%long_name)
       CALL p_unpack_string(mtgrm(jg)%msg_varlist_buffer(:), mtgrm(jg)%max_varlist_buf_size, mtgrm(jg)%vbuf_pos, cf%units)
@@ -2375,7 +2375,7 @@ CONTAINS
 #endif
   END SUBROUTINE receive_var_info
 
-  
+
   !>
   !! @return Index of (3d) variable with given name.
   !!
@@ -2402,7 +2402,7 @@ CONTAINS
     ! the following consistency check is disabled (since the user may
     ! use the namelist parameter "var_list"):
     !
-    ! IF (get_var == -1)  CALL finish (routine, 'Invalid name: '//TRIM(zname))      
+    ! IF (get_var == -1)  CALL finish (routine, 'Invalid name: '//TRIM(zname))
   END FUNCTION get_var
 
 
@@ -2432,7 +2432,7 @@ CONTAINS
     ! the following consistency check is disabled (since the user may
     ! use the namelist parameter "var_list"):
     !
-    ! IF (get_sfcvar == -1)  CALL finish (routine, 'Invalid name!')      
+    ! IF (get_sfcvar == -1)  CALL finish (routine, 'Invalid name!')
   END FUNCTION get_sfcvar
 
 

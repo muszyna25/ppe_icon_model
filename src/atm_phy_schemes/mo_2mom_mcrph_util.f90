@@ -12,15 +12,15 @@
 !
 ! Some code standards or recommendations, at least:
 !
-! - All changes that potentially change the results need to 
+! - All changes that potentially change the results need to
 !   be approved by AS and UB
 ! - All new variables/subroutines should be named in English
-! - In the future also comments should be written in English, 
+! - In the future also comments should be written in English,
 !   but temporary use of some German is OK, too.
 ! - Length of names of subroutines should be <= 20
 ! - Length of names of variables should be <= 15
 ! - Length of lines has to be < 100 including comments,
-!   recommended is <= 80 for code without comments. 
+!   recommended is <= 80 for code without comments.
 ! - Temporary modifications for experiments should be marked by
 !
 !     AS_YYYYMMDD>
@@ -54,8 +54,8 @@ MODULE mo_2mom_mcrph_util
 !       & N_avo => avo,    & ! Avogadro number [1/mol]
 !       & k_b   => ak,     & ! Boltzmann constant [J/K]
        & grav               ! acceleration due to Earth's gravity
-  
-  IMPLICIT NONE 
+
+  IMPLICIT NONE
 
   PRIVATE
 
@@ -69,7 +69,7 @@ MODULE mo_2mom_mcrph_util
        & init_dmin_wetgrowth,        & ! driver
        & init_dmin_wg_gr_ltab_equi,  & ! driver
        & ltabdminwgg,                & ! main
-       & lookupt_4D,                 & ! 
+       & lookupt_4D,                 & !
        & dmin_wg_gr_ltab_equi          ! main
 
   CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_util'
@@ -91,7 +91,7 @@ MODULE mo_2mom_mcrph_util
     REAL(wp)                        :: odx2  ! one over dx 2
     REAL(wp), DIMENSION(:,:,:,:), POINTER :: ltable
   END TYPE lookupt_2D
-  
+
   ! Type declaration for a general 4D equidistant lookup table:
   TYPE lookupt_4D
     INTEGER :: n1  ! number of grid points in x1-direction
@@ -126,14 +126,14 @@ MODULE mo_2mom_mcrph_util
   INTEGER, PARAMETER                     :: nlookuphr = 10000   ! Internal number of bins (high res part)
 
   ! dummy of internal number of bins (high res part) in case the high resolution part is not really needed:
-  INTEGER, PARAMETER                     :: nlookuphr_dummy = 10 
+  INTEGER, PARAMETER                     :: nlookuphr_dummy = 10
 
   ! Type to hold the lookup table for the incomplete gamma functions.
   ! The table is divided into a low resolution part, which spans the
   ! whole range of x-values up to the 99.5 % x-value, and a high resolution part for the
   ! smallest 1 % of these x-values, where the incomplete gamma function may increase
   ! very rapidly and nonlinearily, depending on paramter a.
-  ! For some applications (e.g., Newtons Method in future subroutine 
+  ! For some applications (e.g., Newtons Method in future subroutine
   ! graupel_hail_conv_wetgrowth_Dg_gamlook() ), this rapid change requires a much higher
   ! accuracy of the table lookup as compared to be achievable with the low resolution table.
 
@@ -142,14 +142,14 @@ MODULE mo_2mom_mcrph_util
     INTEGER                         :: n        ! Internal number of bins (low res part)
     INTEGER                         :: nhr      ! Internal number of bins (high res part)
     REAL(wp)                        :: a        ! a-parameter
-    REAL(wp), DIMENSION(:), POINTER :: x        ! vector of x-parameters (limit of integration) - 
+    REAL(wp), DIMENSION(:), POINTER :: x        ! vector of x-parameters (limit of integration) -
                                                 ! always starts at 0 and has equidistant dx (low resolution part)
-    REAL(wp), DIMENSION(:), POINTER :: xhr      ! vector of x-parameters (limit of integration) - 
-                                                ! always starts at 0 and has equidistant dxhr (high resolution part) 
+    REAL(wp), DIMENSION(:), POINTER :: xhr      ! vector of x-parameters (limit of integration) -
+                                                ! always starts at 0 and has equidistant dxhr (high resolution part)
     REAL(wp)                        :: dx       ! dx   (low resolution part)
-    REAL(wp)                        :: dxhr     ! dxhr (high resolution part) 
-    REAL(wp)                        :: odx      ! one over dx 
-    REAL(wp)                        :: odxhr    ! one over dxhr 
+    REAL(wp)                        :: dxhr     ! dxhr (high resolution part)
+    REAL(wp)                        :: odx      ! one over dx
+    REAL(wp)                        :: odxhr    ! one over dxhr
     REAL(wp), DIMENSION(:), POINTER :: igf      ! value of the inc. gamma function at (a,x) (low res)
     REAL(wp), DIMENSION(:), POINTER :: igfhr    ! value of the inc. gamma function at (a,x) (high res)
   END TYPE gamlookuptable
@@ -229,11 +229,11 @@ CONTAINS
     DOUBLE PRECISION, SAVE :: cof(6), stp, half, one, fpf
     DOUBLE PRECISION :: xx,tmp,ser,gamma
     INTEGER j
-      
+
     DATA cof,stp/76.18009173d0,-86.50532033d0,24.01409822d0,  &
           &     -1.231739516d0,.120858003d-2,-.536382d-5,2.50662827465d0/
     DATA half,one,fpf/0.5d0,1.0d0,5.5d0/
-      
+
     xx  = x  - one
     tmp = xx + fpf
     tmp = (xx + half) * LOG(tmp) - tmp
@@ -248,7 +248,7 @@ CONTAINS
     gfct2 = gamma
     RETURN
   END FUNCTION gfct2
-  
+
   !*******************************************************************************
   !       Incomplete Gamma function taken from Press et al.,  Numerical Recipes (F77)
   !
@@ -310,10 +310,10 @@ CONTAINS
     DOUBLE PRECISION, PARAMETER :: EPS=3.d-7
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION, INTENT(out) :: gamser, gln
-      
+
     INTEGER :: n
     DOUBLE PRECISION :: ap,del,sum
-    
+
     gln=gammln(a)
     IF (x.LE.0.) THEN
       IF (x.LT.0.) THEN
@@ -336,7 +336,7 @@ CONTAINS
     END DO
 
     IF (ABS(del).GE.ABS(sum)*EPS) THEN
-      WRITE (txt,*) 'ERROR in GSER: a too large, ITMAX too small' ; 
+      WRITE (txt,*) 'ERROR in GSER: a too large, ITMAX too small' ;
       CALL message(routine,TRIM(txt))
       gamser = 0.0d0
       CALL finish(TRIM(routine),'Error in gser')
@@ -353,7 +353,7 @@ CONTAINS
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION, INTENT(out) :: gln
     DOUBLE PRECISION :: gammcf, gamser
-    
+
     IF (x.LT.0.0d0 .OR. a .LE. 0.0d0) THEN
       WRITE (txt,*) 'ERROR in GAMMP: bad arguments'
       CALL message(routine,TRIM(txt))
@@ -380,7 +380,7 @@ CONTAINS
     DOUBLE PRECISION :: gammcf, gamser
 
     IF (x.LT.0.0d0 .OR. a .LE. 0.0d0) THEN
-      WRITE (txt,*) 'ERROR in GAMMQ: bad arguments' 
+      WRITE (txt,*) 'ERROR in GAMMQ: bad arguments'
       CALL message(routine,TRIM(txt))
       gammq = 0.0d0
       CALL finish(TRIM(routine),'Error in gammq')
@@ -412,7 +412,7 @@ CONTAINS
     IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION :: gam, gln
-    
+
     gam = gammq(a,x,gln)
     incgfct_upper = EXP(gln) * gam
 
@@ -430,7 +430,7 @@ CONTAINS
     IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION :: gam, gln
-    
+
     gam = gammp(a,x,gln)
     incgfct_lower = EXP(gln) * gam
 
@@ -445,16 +445,16 @@ CONTAINS
   DOUBLE PRECISION FUNCTION incgfct(a,x1,x2)
     IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a, x1, x2
-    
+
     incgfct = incgfct_lower(a,x2) - incgfct_lower(a,x1)
 
   END FUNCTION incgfct
-  
+
   !*******************************************************************************
   ! Create Lookup-table vectors for the lower incomplete gamma function,
   !              int(0)(x) exp(-t) t^(a-1) dt
-  ! as function of x at constant a. 
-  ! The table runs from x=0 to the 99.5 % - value of the normalized 
+  ! as function of x at constant a.
+  ! The table runs from x=0 to the 99.5 % - value of the normalized
   ! incomplete gamma function. This 99.5 % - value has been fitted
   ! with high accuracy as function of a in the range a in [0;20], but can
   ! safely be applied also to higher values of a. (Fit created with the
@@ -548,7 +548,7 @@ CONTAINS
 
   !*******************************************************************************
   ! Retrieve values from a lookup table of the lower incomplete gamma function,
-  ! as function of x at a constant a, for which the lookup table has been 
+  ! as function of x at a constant a, for which the lookup table has been
   ! created.
   !
   ! The last value in the table has to correspond to x = infinity, so that
@@ -565,7 +565,7 @@ CONTAINS
   ! Concerning the accuracy, comparisons show that the results of table lookup
   ! are accurate to within better than 0.1 % or even much less, except for
   ! very small values of X, for which the absolute values are however very
-  ! close to 0. For X -> infinity (X > 99.5 % - value), accuracy may be 
+  ! close to 0. For X -> infinity (X > 99.5 % - value), accuracy may be
   ! somewhat reduced up to about 0.5 % ,
   ! because the table is truncated at the 99.5 % value (second-last value)
   ! and the last value is set to the ordinary gamma function.
@@ -598,7 +598,7 @@ CONTAINS
   ! Statt linearer Interpolation wird eine quadratische Interpolation gemacht
   ! und hierfuer am "kleinen" Ende der lookup table der 50-fach hoeher aufgeloeste
   ! high-resolution Ast benutzt.
-  ! (an benachbarte 3 Punkte eine Parabel interpolieren und interpolierten Wert von der Parabel nehmen -- 
+  ! (an benachbarte 3 Punkte eine Parabel interpolieren und interpolierten Wert von der Parabel nehmen --
   !  weil es jeweils 2 moegliche 3-Punkte-Nachbarschaften gibt, wird aus Stetigkeitsgruenden der Mittelwert
   ! von beiden genommen):
   DOUBLE PRECISION FUNCTION incgfct_lower_lookup_parabolic(x, ltable)
@@ -623,7 +623,7 @@ CONTAINS
       io = im + 1
 
       ! interpolate parabolicly:
-      ! coefficients of the interpolating parabola wrsp. to Newton's polynome form 
+      ! coefficients of the interpolating parabola wrsp. to Newton's polynome form
       ! with Newton's tableau ("divided differences"):
       f12  = (ltable%igfhr(im) - ltable%igfhr(iu)) * ltable%odxhr
       f23  = (ltable%igfhr(io) - ltable%igfhr(im)) * ltable%odxhr
@@ -642,7 +642,7 @@ CONTAINS
         io = im + 1
 
         ! interpolate parabolicly:
-        ! coefficients of the interpolating parabola wrsp. to Newton's polynome form 
+        ! coefficients of the interpolating parabola wrsp. to Newton's polynome form
         ! with Newton's tableau ("divided differences"):
         f12  = (ltable%igfhr(im) - ltable%igfhr(iu)) * ltable%odxhr
         f23  = (ltable%igfhr(io) - ltable%igfhr(im)) * ltable%odxhr
@@ -670,7 +670,7 @@ CONTAINS
       io = im + 1
 
       ! interpolate parabolicly:
-      ! coefficients of the interpolating parabola wrsp. to Newton's polynome form 
+      ! coefficients of the interpolating parabola wrsp. to Newton's polynome form
       ! with Newton's tableau ("divided differences"):
       f12  = (ltable%igf(im) - ltable%igf(iu)) * ltable%odx
       f23  = (ltable%igf(io) - ltable%igf(im)) * ltable%odx
@@ -689,7 +689,7 @@ CONTAINS
         io = im + 1
 
         ! interpolate parabolicly:
-        ! coefficients of the interpolating parabola wrsp. to Newton's polynome form 
+        ! coefficients of the interpolating parabola wrsp. to Newton's polynome form
         ! with Newton's tableau ("divided differences"):
         f12  = (ltable%igf(im) - ltable%igf(iu)) * ltable%odx
         f23  = (ltable%igf(io) - ltable%igf(im)) * ltable%odx
@@ -712,12 +712,12 @@ CONTAINS
 
   !*******************************************************************************
   !
-  ! Retrieve values of the upper incomplete gamma function 
+  ! Retrieve values of the upper incomplete gamma function
   ! from a lookup table of the lower incomplete gamma function,
-  ! as function of x at a constant a, for which the lookup table has been 
+  ! as function of x at a constant a, for which the lookup table has been
   ! created.
   !
-  ! The last value in the table has to correspond to x = infinity 
+  ! The last value in the table has to correspond to x = infinity
   ! (the ordinary gamma function of a), so that
   ! during the reconstruction of incgfct-values from the table,
   ! the x-value can safely be truncated at the maximum table x-value:
@@ -745,7 +745,7 @@ CONTAINS
     iu = MIN(FLOOR(xt * ltable%odx) + 1, ltable%n-1)
     io = iu + 1
 
-    ! interpolate lower inc. gamma function linearily and subtract from 
+    ! interpolate lower inc. gamma function linearily and subtract from
     ! the ordinary gamma function to get the upper
     ! incomplete gamma function:
     incgfct_upper_lookup = ltable%igf(ltable%n) - ltable%igf(iu) -  &
@@ -761,10 +761,10 @@ CONTAINS
     RETURN
   END FUNCTION incgfct_upper_lookup
 
-  ! Statt linearer Interpolation wird eine quadratische Interpolation gemacht 
+  ! Statt linearer Interpolation wird eine quadratische Interpolation gemacht
   ! und hierfuer am "kleinen" Ende der lookup table der 50-fach hoeher aufgeloeste
   ! high-resolution Ast benutzt.
-  ! (an benachbarte 3 Punkte eine Parabel interpolieren und interpolierten Wert von der Parabel nehmen -- 
+  ! (an benachbarte 3 Punkte eine Parabel interpolieren und interpolierten Wert von der Parabel nehmen --
   !  weil es jeweils 2 moegliche 3-Punkte-Nachbarschaften gibt, wird aus Stetigkeitsgruenden der Mittelwert
   ! von beiden genommen):
   DOUBLE PRECISION FUNCTION incgfct_upper_lookup_parabolic(x, ltable)
@@ -788,7 +788,7 @@ CONTAINS
       iu = im - 1
       io = im + 1
 
-      ! interpolate parabolicly (lower incomplete gamma function -- 
+      ! interpolate parabolicly (lower incomplete gamma function --
       ! will be converted to upper function later):
       ! coefficients of the interpolating parabola wrsp. to Newton's polynome form
       ! with Newton's tableau ("divided differences"):
@@ -888,7 +888,7 @@ CONTAINS
   !===========================================================================
   ! Subroutinen fuer die Wet Growth Parametrisierung:
   ! Initialisierung: Einlesen der Lookup-table aus einer Textdatei.
-  ! Diese Subroutine muss von der Interface-Routine des 2-M-Schemas 
+  ! Diese Subroutine muss von der Interface-Routine des 2-M-Schemas
   ! aufgerufen werden.
   ! Eventuelle Verteilung der Table auf alle Knoten bei Parallelbetrieb
   ! muss ebenfalls von der Interface-Routine besorgt werden.
@@ -943,7 +943,7 @@ CONTAINS
       WRITE (txt,*) 'init_dmin_wetgrowth: Error reading dmin from ' // TRIM(dateiname)
       CALL message(routine,TRIM(txt))
       CALL finish(TRIM(routine),'Error in init_dmin_wetgrowth')
-    END IF    
+    END IF
     CLOSE(unitnr)
 
     RETURN
@@ -956,7 +956,7 @@ CONTAINS
     REAL(wp) :: dmin_wetgrowth_graupel
     REAL(wp), INTENT(in) :: p_a,T_a,qw_a,qi_a
     REAL(wp) :: p_lok,T_lok,qw_lok,qi_lok
-    
+
     INTEGER :: i
     INTEGER :: iu, io, ju, jo, ku, ko, lu, lo
 
@@ -1067,13 +1067,13 @@ CONTAINS
            (pvec_wg_g(io)-pvec_wg_g(iu)) * (p_lok-pvec_wg_g(iu))
       hilf3 = hilf2(1,:,:) + &
            (hilf2(2,:,:)-hilf2(1,:,:)) / (Tvec_wg_g(jo)-Tvec_wg_g(ju)) * (T_lok-Tvec_wg_g(ju))
-      
+
       hilf4 = hilf3(1,:) + &
            (hilf3(2,:)-hilf3(1,:)) / (qwvec_wg_g(ko)-qwvec_wg_g(ku)) * (qw_lok-qwvec_wg_g(ku))
-      
+
       dmin_wetgrowth_graupel = hilf4(1) + &
            (hilf4(2)-hilf4(1)) / (qivec_wg_g(lo)-qivec_wg_g(lu)) * (qi_lok-qivec_wg_g(lu))
-      
+
     END IF
 
     RETURN
@@ -1085,12 +1085,12 @@ CONTAINS
   ! fuer eine bessere Vektorisierung.
   !
   ! - Initialisierung: Einlesen der Lookup-table aus einer Textdatei.
-  !   Diese Subroutine muss von der Interface-Routine des 2-M-Schemas 
+  !   Diese Subroutine muss von der Interface-Routine des 2-M-Schemas
   !   aufgerufen werden.
   !   Eventuelle Verteilung der Table auf alle Knoten bei Parallelbetrieb
   !   muss ebenfalls von der Interface-Routine besorgt werden.
   !
-  ! - Die eingelesene lookup table muss bereits in p, qw und qi aequidistant sein. Nur bzgl. T kann eine 
+  ! - Die eingelesene lookup table muss bereits in p, qw und qi aequidistant sein. Nur bzgl. T kann eine
   !   nicht-aequidistanter grid-Vektor vorliegen.
   !
   ! Fuer die eigentliche Table wird das Struct lookupt_4D verwendet:
@@ -1175,7 +1175,7 @@ CONTAINS
 
     CLOSE(unitnr)
 
-    ! 2) Generate equidistant table vectors and construct the 
+    ! 2) Generate equidistant table vectors and construct the
     !    equidistant Dmin-lookuptable by linear oversampling:
     ltab%n2 = ndT
 
@@ -1184,7 +1184,7 @@ CONTAINS
 
     minT  = Tvec_wg_g_loc (1)
     maxT  = Tvec_wg_g_loc (anzT_wg_loc)
-    
+
     ltab%dx1      = ltab%x1(2) - ltab%x1(1)
     ltab%odx1     = 1.0d0 / ltab%dx1
     ltab%dx2      = (maxT - minT) / (ndT - 1.0d0)
@@ -1268,5 +1268,5 @@ CONTAINS
 
     RETURN
   END FUNCTION dmin_wg_gr_ltab_equi
-  
+
 END MODULE mo_2mom_mcrph_util
