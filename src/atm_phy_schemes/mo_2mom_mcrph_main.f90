@@ -466,6 +466,9 @@ MODULE mo_2mom_mcrph_main
   REAL(wp), SAVE :: ice_sc_delta_n, ice_sc_delta_q, &
        ice_sc_theta_n, ice_sc_theta_q
 
+  !> run-time- and location invariants for rain_freeze_gamlook
+  REAL(wp), SAVE :: rain_freeze_coeff_z
+
 CONTAINS
 
   !*******************************************************************************
@@ -1351,6 +1354,13 @@ CONTAINS
 
     ! setup coefficient for cloud_freeze
     cloud_freeze_coeff_z = moment_gamma(cloud,2)
+
+    rain_freeze_coeff_z = moment_gamma(rain,2)  ! coeff for 2nd moment
+    IF (isdebug) THEN
+      CALL message(routine, "rain_freeze_gamlook:")
+      WRITE(txt,'(A,D10.3)') "    coeff_z= ",rain_freeze_coeff_z
+      CALL message(routine,TRIM(txt))
+    ENDIF
 
   END SUBROUTINE init_2mom_scheme_once
 
@@ -3188,21 +3198,7 @@ CONTAINS
     REAL(wp), PARAMETER :: eps = 1e-15_wp      ! for clipping
     LOGICAL,  PARAMETER :: lclipping = .true.
 
-    INTEGER, SAVE       :: firstcall
-    REAL(wp), SAVE      :: coeff_z
-!$omp threadprivate (firstcall)
-!$omp threadprivate (coeff_z)
-
-    IF (firstcall.NE.1) THEN
-      firstcall = 1
-      coeff_z = moment_gamma(rain,2)  ! coeff for 2nd moment
-      IF (isdebug) THEN
-        CALL message(routine, "rain_freeze_gamlook:")
-        WRITE(txt,'(A,D10.3)') "    coeff_z= ",coeff_z ; CALL message(routine,TRIM(txt))
-      ENDIF
-    ELSE IF (isdebug) THEN
-      CALL message(routine, "rain_freeze_gamlook")
-    ENDIF
+    IF (isdebug) CALL message(routine, "rain_freeze_gamlook")
 
     xmax_ice = ( (D_rainfrz_ig/rain%a_geo)**(1.0_wp/rain%b_geo) )**rain%mu
     xmax_gr  = ( (D_rainfrz_gh/rain%a_geo)**(1.0_wp/rain%b_geo) )**rain%mu
@@ -3272,7 +3268,7 @@ CONTAINS
                    ! und von xmax_gr bis unendlich (--> Hagel).
                    IF (j_het >= 1d-20) THEN
                       fr_n  = j_het * q_r
-                      fr_q  = j_het * q_r * x_r * coeff_z
+                      fr_q  = j_het * q_r * x_r * rain_freeze_coeff_z
 
                       lam = ( rain_g1 / rain_g2 * x_r)**(-rain%mu)
                       n_0 = rain%mu * n_r * lam**(rain_nm1) / rain_g1
@@ -5039,69 +5035,6 @@ CONTAINS
           END IF
        END DO
     END DO
-
-  CONTAINS
-
-    SUBROUTINE ice_cloud_riming()
-      !*******************************************************************************
-      !  Riming rate of ice collecting cloud droplets                                *
-      !*******************************************************************************
-      INTEGER             :: i,k
-      REAL(wp)            :: q_i,n_i,x_i,d_i,v_i
-      REAL(wp)            :: q_c,n_c,x_c,d_c,v_c,e_coll
-      REAL(wp)            :: rime_n,rime_q
-      REAL(wp), PARAMETER :: &
-           !..collision efficiency coeff
-           const1   = ecoll_ic/(D_coll_c - D_crit_c)
-
-      IF (isdebug) CALL message(routine, "ice_cloud_riming")
-
-
-      DO k = kstart,kend
-         DO i = istart,iend
-
-            n_c = cloud%n(i,k)
-            q_c = cloud%q(i,k)
-            n_i = ice%n(i,k)
-            q_i = ice%q(i,k)
-
-            x_c = particle_meanmass(cloud, q_c,n_c)
-            D_c = particle_diameter(cloud, x_c)
-            x_i = particle_meanmass(ice, q_i,n_i)
-            D_i = particle_diameter(ice, x_i)
-
-            IF (q_c > q_crit_c .AND. q_i > q_crit_ic .AND. D_i > D_crit_ic .AND. D_c > D_crit_c) THEN
-
-               v_c = particle_velocity(cloud, x_c) * cloud%rho_v(i,k)
-               v_i = particle_velocity(ice, x_i)   * ice%rho_v(i,k)
-
-               e_coll = MIN(ecoll_ic, MAX(const1*(D_c - D_crit_c), ecoll_min))
-
-               rime_n = pi4 * e_coll * n_i * n_c * dt &
-                    &   *     (icr_params%delta_n_aa * D_i * D_i &
-                    &          + icr_params%delta_n_ab * D_i * D_c &
-                    &          + icr_params%delta_n_bb * D_c * D_c) &
-                    &   * SQRT(icr_params%theta_n_aa * v_i * v_i &
-                    &          - icr_params%theta_n_ab * v_i * v_c &
-                    &          + icr_params%theta_n_bb * v_c * v_c &
-                    &          + ice_s_vel**2)
-
-               rime_q = pi4 * e_coll * n_i * q_c * dt &
-                    &   *     (icr_params%delta_q_aa * D_i * D_i &
-                    &          + icr_params%delta_q_ab * D_i * D_c &
-                    &          + icr_params%delta_q_bb * D_c * D_c) &
-                    &   * SQRT(icr_params%theta_q_aa * v_i * v_i &
-                    &          - icr_params%theta_q_ab * v_i * v_c &
-                    &          + icr_params%theta_q_bb * v_c * v_c  &
-                    &          + ice_s_vel**2)
-
-               rime_rate_qc(i,k) = rime_q
-               rime_rate_nc(i,k) = rime_n
-
-            ENDIF
-         ENDDO
-      ENDDO
-    END SUBROUTINE ice_cloud_riming
 
   END SUBROUTINE ice_riming
 
