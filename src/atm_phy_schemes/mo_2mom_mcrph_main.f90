@@ -432,6 +432,8 @@ MODULE mo_2mom_mcrph_main
 
   !> run-time- and location-invariant vapor ice deposition parameters
   TYPE(vapor_deposition_params), SAVE :: vid_params
+  !> run-time- and location-invariant vapor graupel deposition parameters
+  TYPE(vapor_deposition_params), SAVE :: vgd_params
 CONTAINS
 
   !*******************************************************************************
@@ -1192,6 +1194,21 @@ CONTAINS
       WRITE (txt,'(A,D10.3)') "    c_i     = ", vid_params%c ; CALL message(routine,TRIM(txt))
       WRITE (txt,'(A,D10.3)') "    a_f     = ", vid_params%a_f ; CALL message(routine,TRIM(txt))
       WRITE (txt,'(A,D10.3)') "    b_f     = ", vid_params%b_f ; CALL message(routine,TRIM(txt))
+    END IF
+
+    ! vapor graupel deposition parameter setup
+    vgd_params%c = 1.0 / graupel%cap
+    vgd_params%a_f = vent_coeff_a(graupel,1)
+    vgd_params%b_f = vent_coeff_b(graupel,1) * N_sc**n_f / SQRT(nu_l)
+    IF (isdebug) THEN
+      WRITE(txt,*) "  vapor_deposition_graupel: " ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_geo = ",graupel%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_geo = ",graupel%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_vel = ",graupel%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_vel = ",graupel%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    c_g   = ", vgd_params%c ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_f   = ", vgd_params%a_f ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_f   = ", vgd_params%b_f ; CALL message(routine,TRIM(txt))
     END IF
 
   END SUBROUTINE init_2mom_scheme_once
@@ -3109,33 +3126,9 @@ CONTAINS
 
    SUBROUTINE vapor_deposition_graupel()
      INTEGER             :: i,k
-     INTEGER, SAVE       :: firstcall
      REAL(wp)            :: q_g,n_g,x_g,d_g,v_g,f_v
-     REAL(wp), SAVE      :: c_g
-     REAL(wp), SAVE      :: a_f,b_f
-!$omp threadprivate (firstcall)
-!$omp threadprivate (a_f)
-!$omp threadprivate (b_f)
-!$omp threadprivate (c_g)
 
-     IF (firstcall.NE.1) THEN
-        c_g = 1.0 / graupel%cap
-        a_f = vent_coeff_a(graupel,1)
-        b_f = vent_coeff_b(graupel,1) * N_sc**n_f / sqrt(nu_l)
-        IF (isdebug) THEN
-          WRITE(txt,*) "  vapor_deposition_graupel: " ; CALL message(routine,TRIM(txt))
-          WRITE(txt,'(A,D10.3)') "    a_geo = ",graupel%a_geo ; CALL message(routine,TRIM(txt))
-          WRITE(txt,'(A,D10.3)') "    b_geo = ",graupel%b_geo ; CALL message(routine,TRIM(txt))
-          WRITE(txt,'(A,D10.3)') "    a_vel = ",graupel%a_vel ; CALL message(routine,TRIM(txt))
-          WRITE(txt,'(A,D10.3)') "    b_vel = ",graupel%b_vel ; CALL message(routine,TRIM(txt))
-          WRITE(txt,'(A,D10.3)') "    c_g   = ",c_g ; CALL message(routine,TRIM(txt))
-          WRITE(txt,'(A,D10.3)') "    a_f   = ",a_f ; CALL message(routine,TRIM(txt))
-          WRITE(txt,'(A,D10.3)') "    b_f   = ",b_f ; CALL message(routine,TRIM(txt))
-        END IF
-        firstcall = 1
-      ELSEIF (isdebug) THEN
-        CALL message(routine, "vapor_deposition_graupel")
-      ENDIF
+     IF (isdebug) CALL message(routine, "vapor_deposition_graupel")
 
       DO k = kstart,kend
          DO i = istart,iend
@@ -3149,10 +3142,10 @@ CONTAINS
                d_g = graupel%diameter(x_g)
                v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
 
-               f_v  = a_f + b_f * sqrt(v_g*d_g)
-               f_v  = MAX(f_v,a_f/graupel%a_ven)
+               f_v  = vgd_params%a_f + vgd_params%b_f * sqrt(v_g*d_g)
+               f_v  = MAX(f_v,vgd_params%a_f/graupel%a_ven)
 
-               dep_graupel(i,k) = g_i(i,k) * n_g * c_g * d_g * f_v * s_si(i,k) * dt_local
+               dep_graupel(i,k) = g_i(i,k) * n_g * vgd_params%c * d_g * f_v * s_si(i,k) * dt_local
             ENDIF
          ENDDO
       ENDDO
