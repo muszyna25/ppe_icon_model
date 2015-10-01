@@ -96,7 +96,8 @@ MODULE mo_model_domimp_patches
     &                              min_rledge_int,         &
     &                              min_rlvert_int
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
-  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent
+  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent, &
+       c_num_edges, c_parent
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
     &                              get_valid_local_index, &
     &                              t_grid_domain_decomp_info, get_local_index
@@ -217,7 +218,7 @@ CONTAINS
     INTEGER,                   INTENT(in)    :: num_lev(:), nshift(:)
     TYPE(t_pre_patch), TARGET, INTENT(inout) :: patch_pre(n_dom_start:)
     !> If .true., read fields related to grid refinement from separate  grid files
-    LOGICAL,                   INTENT(OUT)   :: lsep_grfinfo       
+    LOGICAL,                   INTENT(OUT)   :: lsep_grfinfo
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/import_basic_patch'
     INTEGER                           :: jg, jg1, n_chd, n_chdc
@@ -442,7 +443,7 @@ CONTAINS
     TYPE(t_patch), TARGET,     INTENT(inout) :: patch(n_dom_start:)
     LOGICAL,                   INTENT(IN)    :: is_ocean_decomposition
     !> If .true., read fields related to grid refinement from separate  grid files
-    LOGICAL,                   INTENT(IN)    :: lsep_grfinfo       
+    LOGICAL,                   INTENT(IN)    :: lsep_grfinfo
 
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
@@ -1008,7 +1009,7 @@ CONTAINS
     TYPE(t_pre_patch), TARGET,         INTENT(inout) ::  patch_pre           ! patch data structure
     CHARACTER(LEN=uuid_string_length), INTENT(inout) :: uuid_grid, uuid_par, uuid_chi(5)
     !> If .true., read fields related to grid refinement from separate  grid files:
-    LOGICAL,                           INTENT(OUT)   :: lsep_grfinfo 
+    LOGICAL,                           INTENT(OUT)   :: lsep_grfinfo
 
     ! local variables
     INTEGER, ALLOCATABLE :: &
@@ -1384,14 +1385,12 @@ CONTAINS
     !----------------------------------------------------------------------------------
     ! compute cells%num_edges
     ! works for general unstructured grid
-    CALL dist_mult_array_local_ptr(patch_pre%cells%num_edges, 1, local_ptr)
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_num_edges, local_ptr)
     DO jc = patch_pre%cells%local_chunk(1,1)%first, &
       patch_pre%cells%local_chunk(1,1)%first + &
       patch_pre%cells%local_chunk(1,1)%size - 1
       local_ptr(jc) = COUNT(local_ptr_2d(jc, 1:max_cell_connectivity) > 0)
     END DO
-
-    CALL dist_mult_array_expose(patch_pre%cells%num_edges)
 
     ! patch_pre%cells%vertex
     CALL nf(nf_inq_varid(ncid, 'vertex_of_cell', varid))
@@ -1466,12 +1465,11 @@ CONTAINS
 
       ! patch_pre%cells%parent
       CALL nf(nf_inq_varid(ncid_grf, 'parent_cell_index', varid))
-      CALL dist_mult_array_local_ptr(patch_pre%cells%parent, 1, local_ptr)
+      CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_parent, local_ptr)
       CALL nf(nf_get_vara_int(ncid_grf, varid, &
         &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
         &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
         &                     local_ptr))
-      CALL dist_mult_array_expose(patch_pre%cells%parent)
       ! patch_pre%cells%child(:,:)
       CALL nf(nf_inq_varid(ncid_grf, 'child_cell_index', varid))
       CALL dist_mult_array_local_ptr(patch_pre%cells%child, 1, local_ptr_2d)
@@ -1485,6 +1483,8 @@ CONTAINS
       CALL message ('read_patch',&
         & 'nesting incompatible with non-triangular grid')
     ENDIF
+
+    CALL dist_mult_array_expose(patch_pre%cells%dist)
 
     ! patch_pre%cells%refin_ctrl
     CALL nf(nf_inq_varid(ncid_grf, 'refin_c_ctrl', varid))
@@ -1609,7 +1609,7 @@ CONTAINS
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
     !> If .true., read fields related to grid refinement from separate  grid files
-    LOGICAL,       INTENT(IN)    :: lsep_grfinfo       
+    LOGICAL,       INTENT(IN)    :: lsep_grfinfo
 
     INTEGER :: ncid, dimid, varid, ncid_grf
     TYPE(t_stream_id) :: stream_id, stream_id_grf
@@ -2287,16 +2287,16 @@ CONTAINS
       nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid) == nf_noerr
 
 !     IF (gridfile_has_cartesian_info) THEN
-! 
+!
 !       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
 !       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(1)))
 !       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
 !       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(2)))
 !       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
 !       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(3)))
-!         
+!
 !       gridfile_has_cartesian_info = ANY(ABS(x(:)) >= 0.001_wp)
-! 
+!
 !     END IF
 
   END FUNCTION gridfile_has_cartesian_info

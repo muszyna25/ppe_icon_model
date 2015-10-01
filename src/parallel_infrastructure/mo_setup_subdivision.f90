@@ -34,7 +34,8 @@ MODULE mo_setup_subdivision
 
   USE mo_run_config,         ONLY: msg_level
   USE mo_io_units,           ONLY: filename_max
-  USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch
+  USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
+       c_num_edges, c_parent
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -601,7 +602,7 @@ CONTAINS
 
       CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%phys_id, 1, &
         &                            local_phys_id_ptr)
-      CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%parent, 1, &
+      CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_parent, &
         &                            local_parent_ptr)
 
       ALLOCATE(parent_phys_id_map(2,LBOUND(local_parent_ptr,1):&
@@ -659,7 +660,7 @@ CONTAINS
         &                     recv_displs(:), inquired_parent_cell_idx(:)
       TYPE(extent) :: global_extent
 
-      CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%parent, 1, &
+      CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_parent, &
         &                            local_parent_ptr)
       ALLOCATE(parent_cell_idx(LBOUND(local_parent_ptr,1): &
         &                      UBOUND(local_parent_ptr,1)), &
@@ -747,7 +748,7 @@ CONTAINS
     child_chunk_first = LBOUND(child_chunk_ptr, 1)
     child_chunk_size = SIZE(child_chunk_ptr)
     child_chunk_last = child_chunk_first + child_chunk_size - 1
-    CALL dist_mult_array_local_ptr(p_patch_pre%cells%parent, 1, &
+    CALL dist_mult_array_local_ptr(p_patch_pre%cells%dist, c_parent, &
       &                            child_chunk_parent_ptr)
 
     n_cells_parent_g = p_parent_patch_pre%n_patch_cells_g
@@ -1104,7 +1105,7 @@ CONTAINS
       ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
-      CALL dist_mult_array_get(wrk_p_patch_pre%cells%parent, 1, (/jg/), jc_p)
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_parent, (/jg/), jc_p)
 
       wrk_p_patch%cells%parent_glb_idx(jl,jb)  = idx_no(jc_p)
       wrk_p_patch%cells%parent_glb_blk(jl,jb)  = blk_no(jc_p)
@@ -1114,7 +1115,7 @@ CONTAINS
         wrk_p_patch%cells%child_blk(jl,jb,i) = blk_no(jc)
       END DO
 
-      CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, (/jg/), &
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, (/jg/), &
         &                      wrk_p_patch%cells%num_edges(jl,jb))
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 1, (/jg/), &
         &                      wrk_p_patch%cells%center(jl,jb)%lat)
@@ -1513,7 +1514,7 @@ CONTAINS
       ! collect inner and outer edges and vertices adjacent to cells of level 0
       DO ic = 1, n2_ilev_c(0)
 
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, &
           &                      (/flag2_c_list(0)%idx(ic)/), temp_num_edges)
         DO i = 1, temp_num_edges
 
@@ -1751,7 +1752,7 @@ CONTAINS
         DO k = -1, 0
           DO ic = 1, n2_ilev_c(2*ilev+k)
             jc = flag2_c_list(2*ilev+k)%idx(ic)
-            CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
+            CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, &
               &                      (/jc/), temp_num_edges)
             DO i = 1, temp_num_edges
               CALL dist_mult_array_get(wrk_p_patch_pre%cells%edge,1,(/jc,i/),je)
@@ -1827,7 +1828,7 @@ CONTAINS
 
             jc = flag2_c_list(2*ilev+k)%idx(ic)
 
-            CALL dist_mult_array_get(wrk_p_patch_pre%cells%num_edges, 1, &
+            CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, &
               &                      (/jc/), temp_num_edges)
 
             DO i = 1, temp_num_edges
@@ -2953,7 +2954,7 @@ CONTAINS
       &                 cells_neighbor_local_ptr(:,:)
     INTEGER, ALLOCATABLE :: set_on_this_pass(:)
 
-    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%num_edges, 1, &
+    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_num_edges, &
       &                            cells_num_edges_local_ptr)
     CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%neighbor, 1, &
       &                            cells_neighbor_local_ptr)
@@ -3031,7 +3032,7 @@ CONTAINS
     CHARACTER(14), PARAMETER :: routine = 'set_owners_mpi'
 
     CALL dist_mult_array_local_ptr(dist_cell_owner, 1, owners_local_ptr)
-    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%num_edges, 1, &
+    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_num_edges, &
       &                            cells_num_edges_local_ptr)
     CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%neighbor, 1, &
       &                            cells_neighbor_local_ptr)

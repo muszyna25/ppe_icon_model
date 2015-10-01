@@ -326,17 +326,21 @@ MODULE mo_model_domain
 
   END TYPE t_grid_cells
 
+
+  ! index of distributed sub-arrays in t_pre_grid_cells%dist
+  INTEGER, PUBLIC, PARAMETER :: &
+       c_num_edges = 1, &    ! number of edges connected to cell
+       c_parent = 2    ! index of parent triangle:
+
+
   TYPE t_pre_grid_cells
 
     ! extents of the local chunk of the distributed arrays
     TYPE(extent) :: local_chunk(1,1)
 
     INTEGER :: max_connectivity
-    ! number of edges connected to cell
-    TYPE(dist_mult_array) :: num_edges
+    TYPE(dist_mult_array) :: dist
 
-    ! index of parent triangle:
-    TYPE(dist_mult_array) :: parent
     ! parent child index, number of current cell in parent's child_idx/child_blk:
 
     ! indices of child triangles:
