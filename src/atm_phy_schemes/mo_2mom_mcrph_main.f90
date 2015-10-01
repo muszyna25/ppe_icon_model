@@ -404,6 +404,8 @@ MODULE mo_2mom_mcrph_main
   TYPE(asym_riming_params), SAVE :: srr_params
   !> run-time- and location-invariant ice rain riming parameters
   TYPE(asym_riming_params), SAVE :: irr_params
+  !> run-time- and location-invariant ice cloud riming parameters
+  TYPE(sym_riming_params), SAVE :: icr_params
 
 CONTAINS
 
@@ -822,6 +824,44 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "     theta_q_ir = ", irr_params%theta_q_ab ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     theta_q_ri = ", irr_params%theta_q_ba ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     theta_q_rr = ", irr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
+    END IF
+
+    ! ice cloud riming parameter setup
+    icr_params%delta_n_aa = coll_delta_11(ice,cloud,0)
+    icr_params%delta_n_ab = coll_delta_12(ice,cloud,0)
+    icr_params%delta_n_bb = coll_delta_22(ice,cloud,0)
+    icr_params%delta_q_aa = coll_delta_11(ice,cloud,0)
+    icr_params%delta_q_ab = coll_delta_12(ice,cloud,1)
+    icr_params%delta_q_bb = coll_delta_22(ice,cloud,1)
+
+    icr_params%theta_n_aa = coll_theta_11(ice,cloud,0)
+    icr_params%theta_n_ab = coll_theta_12(ice,cloud,0)
+    icr_params%theta_n_bb = coll_theta_22(ice,cloud,0)
+    icr_params%theta_q_aa = coll_theta_11(ice,cloud,0)
+    icr_params%theta_q_ab = coll_theta_12(ice,cloud,1)
+    icr_params%theta_q_bb = coll_theta_22(ice,cloud,1)
+
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "    a_ice      = ",ice%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_ice      = ",ice%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    alf_ice    = ",ice%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    bet_ice    = ",ice%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_cloud    = ",cloud%a_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_cloud    = ",cloud%b_geo ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    alf_cloud  = ",cloud%a_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    bet_cloud  = ",cloud%b_vel ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_ii = ", icr_params%delta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_ic = ", icr_params%delta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_cc = ", icr_params%delta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_ii = ", icr_params%theta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_ic = ", icr_params%theta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_cc = ", icr_params%theta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_ii = ", icr_params%delta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_ic = ", icr_params%delta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_cc = ", icr_params%delta_q_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_ii = ", icr_params%theta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_ic = ", icr_params%theta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_cc = ", icr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
     END IF
 
 
@@ -5373,73 +5413,14 @@ CONTAINS
       !  Riming rate of ice collecting cloud droplets                                *
       !*******************************************************************************
       INTEGER             :: i,k
-      INTEGER, SAVE       :: firstcall
       REAL(wp)            :: q_i,n_i,x_i,d_i,v_i
       REAL(wp)            :: q_c,n_c,x_c,d_c,v_c,e_coll,x_coll_c
       REAL(wp)            :: rime_n,rime_q
-      REAL(wp), SAVE      :: delta_n_ii,delta_n_ic,delta_n_cc
-      REAL(wp), SAVE      :: delta_q_ii,delta_q_ic,delta_q_cc
-      REAL(wp), SAVE      :: theta_n_ii,theta_n_ic,theta_n_cc
-      REAL(wp), SAVE      :: theta_q_ii,theta_q_ic,theta_q_cc
       REAL(wp), PARAMETER :: &
            !..collision efficiency coeff
            const1   = ecoll_ic/(D_coll_c - D_crit_c)
 
-!$omp threadprivate (firstcall)
-!$omp threadprivate (delta_n_ii)
-!$omp threadprivate (delta_n_ic)
-!$omp threadprivate (delta_n_cc)
-!$omp threadprivate (delta_q_ii)
-!$omp threadprivate (delta_q_ic)
-!$omp threadprivate (delta_q_cc)
-!$omp threadprivate (theta_n_ii)
-!$omp threadprivate (theta_n_ic)
-!$omp threadprivate (theta_n_cc)
-!$omp threadprivate (theta_q_ii)
-!$omp threadprivate (theta_q_ic)
-!$omp threadprivate (theta_q_cc)
-
       IF (isdebug) CALL message(routine, "ice_cloud_riming")
-
-      IF (firstcall.NE.1) THEN
-         delta_n_ii = coll_delta_11(ice,cloud,0)
-         delta_n_ic = coll_delta_12(ice,cloud,0)
-         delta_n_cc = coll_delta_22(ice,cloud,0)
-         delta_q_ii = coll_delta_11(ice,cloud,0)
-         delta_q_ic = coll_delta_12(ice,cloud,1)
-         delta_q_cc = coll_delta_22(ice,cloud,1)
-
-         theta_n_ii = coll_theta_11(ice,cloud,0)
-         theta_n_ic = coll_theta_12(ice,cloud,0)
-         theta_n_cc = coll_theta_22(ice,cloud,0)
-         theta_q_ii = coll_theta_11(ice,cloud,0)
-         theta_q_ic = coll_theta_12(ice,cloud,1)
-         theta_q_cc = coll_theta_22(ice,cloud,1)
-
-         IF (isdebug) THEN
-            WRITE(txt,'(A,D10.3)') "    a_ice      = ",ice%a_geo ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    b_ice      = ",ice%b_geo ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    alf_ice    = ",ice%a_vel ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    bet_ice    = ",ice%b_vel ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    a_cloud    = ",cloud%a_geo ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    b_cloud    = ",cloud%b_geo ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    alf_cloud  = ",cloud%a_vel ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    bet_cloud  = ",cloud%b_vel ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    delta_n_ii = ",delta_n_ii ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    delta_n_ic = ",delta_n_ic ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    delta_n_cc = ",delta_n_cc ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    theta_n_ii = ",theta_n_ii ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    theta_n_ic = ",theta_n_ic ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    theta_n_cc = ",theta_n_cc ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    delta_q_ii = ",delta_q_ii ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    delta_q_ic = ",delta_q_ic ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    delta_q_cc = ",delta_q_cc ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    theta_q_ii = ",theta_q_ii ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    theta_q_ic = ",theta_q_ic ; CALL message(routine,TRIM(txt))
-            WRITE(txt,'(A,D10.3)') "    theta_q_cc = ",theta_q_cc ; CALL message(routine,TRIM(txt))
-         END IF
-         firstcall = 1
-      ENDIF
 
       x_coll_c = (D_coll_c/cloud%a_geo)**3         !..lower mass threshold for collection
 
@@ -5464,14 +5445,22 @@ CONTAINS
                e_coll = MIN(ecoll_ic, MAX(const1*(D_c - D_crit_c), ecoll_min))
 
                rime_n = pi4 * e_coll * n_i * n_c * dt &
-                    &   *     (delta_n_ii * D_i*D_i + delta_n_ic * D_i*D_c + delta_n_cc * D_c*D_c) &
-                    &   * SQRT(theta_n_ii * v_i*v_i - theta_n_ic * v_i*v_c + theta_n_cc * v_c*v_c  &
-                    &         +ice_s_vel**2)
+                    &   *     (icr_params%delta_n_aa * D_i * D_i &
+                    &          + icr_params%delta_n_ab * D_i * D_c &
+                    &          + icr_params%delta_n_bb * D_c * D_c) &
+                    &   * SQRT(icr_params%theta_n_aa * v_i * v_i &
+                    &          - icr_params%theta_n_ab * v_i * v_c &
+                    &          + icr_params%theta_n_bb * v_c * v_c &
+                    &          + ice_s_vel**2)
 
                rime_q = pi4 * e_coll * n_i * q_c * dt &
-                    &   *     (delta_q_ii * D_i*D_i + delta_q_ic * D_i*D_c + delta_q_cc * D_c*D_c) &
-                    &   * SQRT(theta_q_ii * v_i*v_i - theta_q_ic * v_i*v_c + theta_q_cc * v_c*v_c  &
-                    &          +ice_s_vel**2)
+                    &   *     (icr_params%delta_q_aa * D_i * D_i &
+                    &          + icr_params%delta_q_ab * D_i * D_c &
+                    &          + icr_params%delta_q_bb * D_c * D_c) &
+                    &   * SQRT(icr_params%theta_q_aa * v_i * v_i &
+                    &          - icr_params%theta_q_ab * v_i * v_c &
+                    &          + icr_params%theta_q_bb * v_c * v_c  &
+                    &          + ice_s_vel**2)
 
                rime_rate_qc(i,k) = rime_q
                rime_rate_nc(i,k) = rime_n
