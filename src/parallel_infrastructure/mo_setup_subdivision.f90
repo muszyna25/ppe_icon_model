@@ -125,7 +125,7 @@ CONTAINS
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
     ! LOGICAL :: l_compute_grid
     INTEGER :: my_process_type, order_type_of_halos
-    INTEGER, POINTER :: radiation_owner(:)
+    INTEGER, POINTER :: radiation_owner(:), local_ptr(:)
     TYPE(dist_mult_array) :: dist_cell_owner, dist_cell_owner_p
 
     CALL message(routine, 'start of domain decomposition')
@@ -282,8 +282,10 @@ CONTAINS
              divide_for_radiation = (jg == 0))
       ELSE
         ! trivial "decomposition"
-        CALL setup_dist_cell_owner(dist_cell_owner, &
+        CALL create_dist_cell_owner(dist_cell_owner, &
           &                        p_patch_pre(jg)%n_patch_cells_g)
+        CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
+        local_ptr = 0
       END IF
 
       ! Please note: Previously, for jg==0 no ghost rows were set.
@@ -418,15 +420,30 @@ CONTAINS
 
   END SUBROUTINE decompose_domain
 
-  SUBROUTINE setup_dist_cell_owner(dist_cell_owner, n_cells_g, cell_owner)
+  SUBROUTINE init_dist_cell_owner(dist_cell_owner, cell_owner)
+    TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner
+    INTEGER, OPTIONAL, INTENT(IN) :: cell_owner(:)
+
+    INTEGER, POINTER :: local_ptr(:)
+
+    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
+    IF (PRESENT(cell_owner)) THEN
+      local_ptr(:) = cell_owner(LBOUND(local_ptr,1):UBOUND(local_ptr,1))
+    ELSE
+      local_ptr(:) = 0
+    END IF
+
+    CALL dist_mult_array_expose(dist_cell_owner)
+
+  END SUBROUTINE init_dist_cell_owner
+
+  SUBROUTINE create_dist_cell_owner(dist_cell_owner, n_cells_g)
 
     TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
     INTEGER, INTENT(IN) :: n_cells_g
-    INTEGER, OPTIONAL, INTENT(IN) :: cell_owner(:)
 
     TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(extent) :: local_chunk(1,1)
-    INTEGER, POINTER :: local_ptr(:)
 
     dist_cell_owner_desc(1)%a_rank = 1
     dist_cell_owner_desc(1)%rect(1)%first = 1
@@ -438,17 +455,7 @@ CONTAINS
 
     dist_cell_owner = dist_mult_array_new(dist_cell_owner_desc, local_chunk, &
       &                                   p_comm_work)
-
-    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
-    IF (PRESENT(cell_owner)) THEN
-      local_ptr(:) = cell_owner(local_chunk(1,1)%first: &
-        &                       local_chunk(1,1)%first+local_chunk(1,1)%size-1)
-    ELSE
-      local_ptr(:) = 0
-    END IF
-
-    CALL dist_mult_array_expose(dist_cell_owner)
-  END SUBROUTINE setup_dist_cell_owner
+  END SUBROUTINE create_dist_cell_owner
 
   !-----------------------------------------------------------------------------
   !>
@@ -707,8 +714,8 @@ CONTAINS
   !    ENDDO
   !  ENDIF
 
-  CALL setup_dist_cell_owner(dist_cell_owner, &
-    &                        wrk_p_patch_pre%n_patch_cells_g, cell_owner)
+  CALL create_dist_cell_owner(dist_cell_owner, wrk_p_patch_pre%n_patch_cells_g)
+  CALL init_dist_cell_owner(dist_cell_owner, cell_owner)
   DEALLOCATE(cell_owner)
 
   END SUBROUTINE divide_patch_cells
