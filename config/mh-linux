@@ -138,6 +138,7 @@ case "$fortran_compiler" in
         CFLAGS      = "$CFLAGS" -DNAGf90Fortran
         FC          = nagfor
         GEN_FLAGS   = -float-store -colour -nan -fpp
+        DEBUG_FLAGS = -Wc,-O0 -Wc,-march=native
         STD_FLAGS   = -Wc,-O3 -Wc,-march=native
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all 
