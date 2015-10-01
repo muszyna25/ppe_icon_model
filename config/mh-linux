@@ -213,7 +213,7 @@ case "$fortran_compiler" in
         MODOPT      = -I
         MODDIR      = -J
         ;; 
-    intel)
+    intel|intel15|intel14)
         config_compiler  = intel
         compiler_version = $(ifort -V 2>&1 | awk -F "," 'NR==1{split($2,v," "); printf("intel%d",v[2])}')
         # CC          = icc
@@ -445,9 +445,17 @@ case "$ac_sitename" in
                 submit        = sbatch
                 sync_submit   = srunjob
                 queue         = compute
+                load_modules    =  cdo/default svn/1.8.13 ${load_modules}
                 case "$fortran_compiler" in
                     intel*)
-                        load_modules    = intel/14.0.3 ${load_modules}
+                        case "$fortran_compiler" in
+                          intel15|intel15.*)
+                            load_modules    = "intel/15.0.1" "${load_modules}"
+                            ;;
+                          intel14|intel*)
+                            load_modules    = "intel/14.0.3" "${load_modules}"
+                            ;;
+                        esac
                         config_compiler = intel
                         CC          = icc
                         CFLAGS      = -std=gnu99 -g -O3 -ftz -march=native -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran
