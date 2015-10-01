@@ -2363,7 +2363,7 @@ CONTAINS
           ssi  = atmo%qv(i,k) * R_d * T_a / e_si
 
           ! critical supersaturation for homogeneous nucleation
-          scr  = 2.349 - T_a / 259.00
+          scr  = 2.349 - T_a * (1.0_wp/ 259.00_wp)
 
           IF (ssi > scr .AND. T_a < 235.0 .AND. ice%n(i,k) < ni_hom_max ) THEN
 
