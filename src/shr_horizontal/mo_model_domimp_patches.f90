@@ -1600,7 +1600,7 @@ CONTAINS
     !> If .true., read fields related to grid refinement from separate  grid files
     LOGICAL,       INTENT(IN)    :: lsep_grfinfo
 
-    INTEGER :: ncid, dimid, varid, ncid_grf
+    INTEGER :: ncid, varid, ncid_grf
     TYPE(t_stream_id) :: stream_id, stream_id_grf
     INTEGER :: ip, jv, igrid_id, idx, blk
     INTEGER :: max_cell_connectivity, max_verts_connectivity

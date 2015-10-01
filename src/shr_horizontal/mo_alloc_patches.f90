@@ -17,8 +17,9 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!!
-
+!! MH/TJ 2015-06-17
+!! For an explanation of HAVE_SLOW_PASSIVE_TARGET_ONESIDED,
+!! see mo_setup_subdivision.f90
 
 MODULE mo_alloc_patches
   !-------------------------------------------------------------------------
@@ -52,8 +53,8 @@ MODULE mo_alloc_patches
   USE ppm_distributed_array, ONLY: global_array_desc, &
     &                              dist_mult_array_new, &
     &                              dist_mult_array_delete, &
-    &                              dist_mult_array_unexpose, &
-    &                              ppm_int, ppm_real_dp
+    &                              ppm_int, ppm_real_dp, &
+    &                              sync_mode_active_target
   USE ppm_extents,           ONLY: extent
 
   IMPLICIT NONE
@@ -724,7 +725,12 @@ CONTAINS
 
     p_patch_pre%cells%dist = dist_mult_array_new( &
          dist_cell_desc, local_cell_chunks, p_comm_work, &
-         cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))))
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+         sync_mode=sync_mode_active_target &
+#else
+         cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))) &
+#endif
+         )
     ALLOCATE( p_patch_pre%cells%start(min_rlcell:max_rlcell) )
     ALLOCATE( p_patch_pre%cells%end(min_rlcell:max_rlcell) )
 
@@ -740,7 +746,12 @@ CONTAINS
 
     p_patch_pre%edges%dist = dist_mult_array_new( &
       dist_edge_desc, local_edge_chunks, p_comm_work, &
-      cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))))
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+         sync_mode=sync_mode_active_target &
+#else
+         cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))) &
+#endif
+         )
     ALLOCATE( p_patch_pre%edges%start(min_rledge:max_rledge) )
     ALLOCATE( p_patch_pre%edges%end(min_rledge:max_rledge) )
 
@@ -756,7 +767,12 @@ CONTAINS
 
     p_patch_pre%verts%dist = dist_mult_array_new( &
       dist_vert_desc, local_vert_chunks, p_comm_work, &
-      cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))))
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+         sync_mode=sync_mode_active_target &
+#else
+         cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))) &
+#endif
+         )
     ALLOCATE( p_patch_pre%verts%start(min_rlvert:max_rlvert) )
     ALLOCATE( p_patch_pre%verts%end(min_rlvert:max_rlvert) )
     ! Set all newly allocated arrays to 0

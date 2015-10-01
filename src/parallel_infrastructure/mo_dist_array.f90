@@ -2887,6 +2887,15 @@ MODULE ppm_distributed_array
   INTEGER, PARAMETER :: not_exposed = 0
   INTEGER, PARAMETER :: exposed = 1
 
+  INTEGER, PARAMETER, PUBLIC :: &
+       !> in this mode calls to dist_mult_array_get will immediately
+       !! retrieve the requested value
+       sync_mode_passive_target = 0, &
+       !> in this mode calls to dist_mult_array_get will result in
+       !! the passed variable to become defined only after the next call
+       !! to dist_mult_array_unexpose
+       sync_mode_active_target = 1
+
   TYPE t_data_ptr
     INTEGER(i4), POINTER :: i4_1d(:)
     INTEGER(i4), POINTER :: i4_2d(:,:)
@@ -2923,6 +2932,7 @@ MODULE ppm_distributed_array
   PUBLIC :: dist_mult_array_new, dist_mult_array_delete
   PUBLIC :: dist_mult_array_local_ptr, dist_mult_array_get
   PUBLIC :: dist_mult_array_expose, dist_mult_array_unexpose
+  PUBLIC :: dist_mult_array_rma_sync
 
   INTERFACE dist_mult_array_local_ptr
     ! MODULE PROCEDURE dist_mult_array_local_ptr_c
@@ -2973,13 +2983,15 @@ MODULE ppm_distributed_array
 
 CONTAINS
 
-  FUNCTION dist_mult_array_new(sub_arrays, local_chunk, comm, cache_size) &
+  FUNCTION dist_mult_array_new(sub_arrays, local_chunk, comm, cache_size, &
+       sync_mode) &
        RESULT(dm_array)
     TYPE(global_array_desc), INTENT(in) :: sub_arrays(:)
     !> shape = (/ max_rank or more, num_sub_arrays /)
     TYPE(extent), INTENT(in) :: local_chunk(:, :)
     INTEGER, INTENT(in) :: comm
     INTEGER, OPTIONAL, INTENT(in) :: cache_size
+    INTEGER, OPTIONAL, INTENT(in) :: sync_mode
     TYPE(dist_mult_array) :: dm_array
 
     INTEGER :: num_sub_arrays, i
@@ -3294,6 +3306,10 @@ CONTAINS
     TYPE(dist_mult_array), INTENT(inout) :: dm_array
     dm_array%exposure_status = not_exposed
   END SUBROUTINE dist_mult_array_unexpose
+
+  SUBROUTINE dist_mult_array_rma_sync(dm_array)
+    TYPE(dist_mult_array), INTENT(inout) :: dm_array
+  END SUBROUTINE dist_mult_array_rma_sync
 
   SUBROUTINE assertion(cond, source, line, msg)
     LOGICAL, INTENT(in) :: cond
