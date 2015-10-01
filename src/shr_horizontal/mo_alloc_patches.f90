@@ -31,7 +31,7 @@ MODULE mo_alloc_patches
     & min_rlvert, max_rlvert, &
     & max_dom
   USE mo_exception,          ONLY: message_text, message, finish
-  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, &
+  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, c_num_edges, &
        c_child, c_phys_id, c_neighbor, c_edge, c_vertex, c_center, &
        c_refin_ctrl, e_parent, e_child, e_cell, e_refin_ctrl, &
        v_cell, v_num_edges, v_vertex, v_refin_ctrl
@@ -619,7 +619,6 @@ CONTAINS
     TYPE(t_pre_patch), INTENT(inout) :: p_patch_pre
 
     INTEGER :: max_childdom
-    TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(global_array_desc) :: dist_cell_desc(9), dist_edge_desc(4), &
          dist_vert_desc(4)
 
@@ -641,23 +640,18 @@ CONTAINS
 
     ! some preliminary computation for the distributed data
 
-    dist_cell_owner_desc(1)%a_rank = 1
-    dist_cell_owner_desc(1)%rect(1)%first = 1
-    dist_cell_owner_desc(1)%rect(1)%size = p_patch_pre%n_patch_cells_g
-    dist_cell_owner_desc(1)%element_dt = ppm_int
-
     dist_cell_desc(1:2)%a_rank = 1
     dist_cell_desc(1:2)%rect(1)%first = 1
     dist_cell_desc(1:2)%rect(1)%size = p_patch_pre%n_patch_cells_g
     dist_cell_desc(1:2)%element_dt = ppm_int
 
-    dist_cell_desc(c_child) = dist_cell_owner_desc(1)
+    dist_cell_desc(c_child) = dist_cell_desc(c_num_edges)
     dist_cell_desc(c_child)%a_rank = 2
     dist_cell_desc(c_child)%rect(2) = extent(first=1, size = 4)
 
-    dist_cell_desc(c_phys_id) = dist_cell_owner_desc(1)
+    dist_cell_desc(c_phys_id) = dist_cell_desc(c_num_edges)
 
-    dist_cell_desc(c_neighbor) = dist_cell_owner_desc(1)
+    dist_cell_desc(c_neighbor) = dist_cell_desc(c_num_edges)
     dist_cell_desc(c_neighbor)%a_rank = 2
     dist_cell_desc(c_neighbor)%rect(2) &
          = extent(first=1, size = p_patch_pre%cell_type)
@@ -673,7 +667,7 @@ CONTAINS
          = extent(first = 1, size = 2)
     dist_cell_desc(c_center)%element_dt = ppm_real_dp
 
-    dist_cell_desc(c_refin_ctrl) = dist_cell_owner_desc(1)
+    dist_cell_desc(c_refin_ctrl) = dist_cell_desc(c_num_edges)
 
     dist_edge_desc(e_parent)%a_rank = 1
     dist_edge_desc(e_parent)%rect(1)%first = 1
@@ -712,7 +706,7 @@ CONTAINS
     dist_vert_desc(v_refin_ctrl) = dist_vert_desc(v_num_edges)
 
     p_patch_pre%cells%local_chunk(1,1) = &
-      uniform_partition(dist_cell_owner_desc(1)%rect(1), p_n_work, p_pe_work+1)
+      uniform_partition(dist_cell_desc(c_num_edges)%rect(1), p_n_work, p_pe_work+1)
     p_patch_pre%edges%local_chunk(1,1) = &
       uniform_partition(dist_edge_desc(e_parent)%rect(1), p_n_work, p_pe_work+1)
     p_patch_pre%verts%local_chunk(1,1) = &
