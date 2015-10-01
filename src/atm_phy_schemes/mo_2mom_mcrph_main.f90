@@ -3131,7 +3131,8 @@ CONTAINS
        dep_hail(:,k)    = 0.0
     END DO
 
-    CALL vapor_deposition_ice()
+    CALL vapor_deposition_generic(ik_slice, ice, vid_params, g_i, s_si, &
+         dt_local, dep_ice)
     CALL vapor_deposition_generic(ik_slice, snow, vsd_params, g_i, s_si, &
          dt_local, dep_snow)
     CALL vapor_deposition_graupel()
@@ -3352,7 +3353,7 @@ CONTAINS
 
           x = prtcl%meanmass(q,n)
           D = prtcl%diameter(x)
-          v = prtcl%velocity(x) * prtcl%rho_v(i,k)
+          v = particle_velocity(prtcl, x) * prtcl%rho_v(i,k)
 
           f_v  = params%a_f + params%b_f * SQRT(D*v)
           f_v  = MAX(f_v,params%a_f/prtcl%a_ven)
