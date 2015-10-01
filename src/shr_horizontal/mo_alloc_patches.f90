@@ -739,7 +739,8 @@ CONTAINS
       dist_cell_owner_desc, p_patch_pre%cells%local_chunk, p_comm_work)
     p_patch_pre%cells%child = dist_mult_array_new( &
       dist_cell_owner_desc_child, local_cell_chunk_child, p_comm_work)
-    ALLOCATE( p_patch_pre%cells%phys_id(p_patch_pre%n_patch_cells_g) )
+    p_patch_pre%cells%phys_id = dist_mult_array_new( &
+      dist_cell_owner_desc, p_patch_pre%cells%local_chunk, p_comm_work)
     p_patch_pre%cells%neighbor = dist_mult_array_new( &
       dist_cell_owner_desc_neighbor, local_cell_chunk_neighbor, p_comm_work)
     p_patch_pre%cells%edge = dist_mult_array_new( &
@@ -780,7 +781,6 @@ CONTAINS
     ALLOCATE( p_patch_pre%verts%end(min_rlvert:max_rlvert) )
     ! Set all newly allocated arrays to 0
 
-    p_patch_pre%cells%phys_id = 0
     p_patch_pre%cells%center(:)%lon = 0._wp
     p_patch_pre%cells%center(:)%lat = 0._wp
     p_patch_pre%cells%start = 0
@@ -901,6 +901,8 @@ CONTAINS
     CALL dist_mult_array_delete(p_patch_pre%cells%edge)
     CALL dist_mult_array_unexpose(p_patch_pre%cells%vertex)
     CALL dist_mult_array_delete(p_patch_pre%cells%vertex)
+    CALL dist_mult_array_unexpose(p_patch_pre%cells%phys_id)
+    CALL dist_mult_array_delete(p_patch_pre%cells%phys_id)
     DEALLOCATE( p_patch_pre%cells%center )
     CALL dist_mult_array_unexpose(p_patch_pre%cells%refin_ctrl)
     CALL dist_mult_array_delete(p_patch_pre%cells%refin_ctrl)

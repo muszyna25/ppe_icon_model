@@ -296,8 +296,6 @@ CONTAINS
         CALL divide_parent_cells(p_patch_pre(jg),cell_owner,cell_owner_p)
       END IF
 
-      DEALLOCATE(p_patch_pre(jg)%cells%phys_id)
-
       ! Please note: Previously, for jg==0 no ghost rows were set.
       ! Currently, we need ghost rows for jg==0 also for dividing the int state and grf state
       ! Have still to check if int state/grf state is needed at all for jg==0,
@@ -455,7 +453,7 @@ CONTAINS
 
     TYPE(t_decomposition_structure)  :: decomposition_struct
 
-    INTEGER :: n, i, j, jp
+    INTEGER :: n, i, j, jp, temp_phys_id
     INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
 
@@ -603,8 +601,9 @@ CONTAINS
 
         DO j = 1, wrk_p_patch_pre%n_patch_cells_g
           CALL dist_mult_array_get(wrk_p_patch_pre%cells%parent, 1, (/j/), jp)
-          flag_c(jp) = &
-            MAX(1,wrk_p_patch_pre%cells%phys_id(j))
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%phys_id, 1, (/j/), &
+            &                      temp_phys_id)
+          flag_c(jp) = MAX(1,temp_phys_id)
         ENDDO
 
         ! Divide subset of patch

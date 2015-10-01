@@ -338,7 +338,7 @@ MODULE mo_model_domain
     TYPE(dist_mult_array) :: child
     ! physical domain ID of triangles
     ! (may differ from the "normal" domain ID in case of domain merging):
-    INTEGER, ALLOCATABLE :: phys_id(:)
+    TYPE(dist_mult_array) :: phys_id
 
     ! indices of triangles next to each cell:
     ! index2=1,3

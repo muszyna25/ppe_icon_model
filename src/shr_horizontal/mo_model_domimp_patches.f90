@@ -1307,7 +1307,12 @@ CONTAINS
 
     ! patch_pre%cells%phys_id(:)
     CALL nf(nf_inq_varid(ncid_grf, 'phys_cell_id', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%cells%phys_id(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%phys_id, 1, local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
+      &                     local_ptr(:)))
+    CALL dist_mult_array_expose(patch_pre%cells%phys_id)
 
     ! patch_pre%cells%neighbor
     CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
