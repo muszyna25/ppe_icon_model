@@ -2137,7 +2137,9 @@ MODULE mo_solve_nonhydro
         IF (istep == 1 .AND. my_process_is_mpi_all_seq() ) THEN
 
           DO jk = 1, nlev
+#if __INTEL_COMPILER != 1400 || __INTEL_COMPILER_UPDATE != 3
 !DIR$ IVDEP
+#endif
             DO jc = i_startidx, i_endidx
 
               p_nh%prog(nnew)%rho(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb) + &
@@ -2168,7 +2170,9 @@ MODULE mo_solve_nonhydro
           ! halo communications
 
           DO jk = 1, nlev
+#if __INTEL_COMPILER != 1400 || __INTEL_COMPILER_UPDATE != 3
 !DIR$ IVDEP
+#endif
             DO jc = i_startidx, i_endidx
 
               p_nh%prog(nnew)%rho(jc,jk,jb) = p_nh%prog(nnow)%rho(jc,jk,jb) + &
