@@ -651,7 +651,7 @@ EOF
 ulimit -s \$((\${OMP_STACKSIZE/M/ * 1024}))
 case " \$loadmodule " in
   *\ mxm\ *)
-    START+=" --export=LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
+    START+=" --export=\$(env | sed '/()=/d;/=/{;s/=.*//;b;};d' | tr '\n' ',')LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
     ;;
 esac
 EOF
