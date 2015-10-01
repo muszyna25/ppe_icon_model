@@ -29,6 +29,7 @@ MODULE mo_decomposition_tools
   USE mo_util_sort,          ONLY: quicksort
   USE mo_impl_constants,     ONLY: success
   USE mo_dist_dir,           ONLY: t_dist_dir
+  USE ppm_extents,           ONLY: extent, extent_start, extent_size
 
   IMPLICIT NONE
 
@@ -53,6 +54,8 @@ MODULE mo_decomposition_tools
   PUBLIC :: set_inner_glb_index
   PUBLIC :: set_outer_glb_index
   PUBLIC :: deallocate_glb2loc_index_lookup
+  PUBLIC :: partidx_of_elem_uniform_deco, uniform_partition, &
+    &       uniform_partition_start
 
   PRIVATE
 
@@ -1937,6 +1940,56 @@ CONTAINS
          .OR. a%cell_number /= b%cell_number &
          .OR. a%owner /= b%owner
   END FUNCTION t_cell_info_ne
+
+  !> compute start integer of uniform interval partition
+  ELEMENTAL FUNCTION uniform_partition_start(set_interval, nparts, &
+    &                                        part_idx) RESULT(start)
+    INTEGER, INTENT(in) :: nparts
+    TYPE(extent), INTENT(in) :: set_interval
+    INTEGER, INTENT(in) :: part_idx
+    INTEGER :: start, part_offset, sym_part_idx
+    INTEGER(i8) :: sym_size
+
+    part_offset = INT((INT(extent_size(set_interval), i8) &
+         &             * INT(part_idx - 1, i8)) / INT(nparts, i8))
+    start = extent_start(set_interval) + part_offset
+
+  END FUNCTION uniform_partition_start
+
+  !> compute nth part of integer set interval
+  !!
+  !! The interval is divided into roughly same sized sub-intervals
+  !! forming a uniform partition.
+  !! @param set_interval global domain
+  !! @param nparts number of parts to decompose into
+  !! @param part_idx number of sub-interval to compute
+  !! <tt>SIZE(uniform_partition(i)) == SIZE(uniform_partition(nparts - i + 1))</tt>
+  !! @return part range corresponding to part_idx
+  ELEMENTAL FUNCTION uniform_partition(set_interval, nparts, part_idx) &
+    & RESULT(interval)
+    INTEGER, INTENT(in) :: nparts
+    TYPE(extent), INTENT(in) :: set_interval
+    INTEGER, INTENT(in) :: part_idx
+    TYPE(extent) :: interval
+    INTEGER :: start_part, start_next_part
+
+    start_part = uniform_partition_start(set_interval, nparts, part_idx)
+    start_next_part = uniform_partition_start(set_interval, nparts, &
+         part_idx + 1)
+    interval = extent(start_part, start_next_part - start_part)
+  END FUNCTION uniform_partition
+
+  ELEMENTAL FUNCTION partidx_of_elem_uniform_deco(set_interval, nparts, &
+    &                                             elem_idx) RESULT(part_idx)
+    TYPE(extent), INTENT(in) :: set_interval
+    INTEGER, INTENT(in) :: nparts, elem_idx
+    INTEGER :: part_idx
+
+    part_idx = INT((INT(elem_idx - extent_start(set_interval), i8) &
+                    * INT(nparts, i8) + INT(nparts, i8) - 1) &
+                   / INT(extent_size(set_interval), i8)) + 1
+
+  END FUNCTION partidx_of_elem_uniform_deco
 
 END MODULE mo_decomposition_tools
 
