@@ -358,7 +358,7 @@ MODULE mo_model_domain
     TYPE(t_geographical_coordinates), ALLOCATABLE :: center(:)
 
     ! refinement control flag
-    INTEGER, ALLOCATABLE :: refin_ctrl(:)
+    TYPE(dist_mult_array) :: refin_ctrl
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rlcell,max_rlcell (defined in mo_impl_constants)
@@ -589,6 +589,9 @@ MODULE mo_model_domain
 
   TYPE t_pre_grid_edges
 
+    ! extents of the local chunk of the distributed arrays
+    TYPE(extent) :: local_chunk(1,1)
+
     ! index of parent edge:
     INTEGER, ALLOCATABLE :: parent(:)
 
@@ -604,7 +607,7 @@ MODULE mo_model_domain
     ! edges geometry
 
     ! refinement control flag
-    INTEGER, ALLOCATABLE :: refin_ctrl(:)
+    TYPE(dist_mult_array) :: refin_ctrl
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rledge,max_rledge (defined in mo_impl_constants)
@@ -716,6 +719,9 @@ MODULE mo_model_domain
 
   TYPE t_pre_grid_vertices
 
+    ! extents of the local chunk of the distributed arrays
+    TYPE(extent) :: local_chunk(1,1)
+
     INTEGER :: max_connectivity
 
     ! line indices of cells around each vertex:
@@ -729,7 +735,7 @@ MODULE mo_model_domain
     TYPE(t_geographical_coordinates), ALLOCATABLE :: vertex(:)
 
     ! refinement control flag
-    INTEGER, ALLOCATABLE :: refin_ctrl(:)
+    TYPE(dist_mult_array) :: refin_ctrl
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rlvert,max_rlvert (defined in mo_impl_constants)

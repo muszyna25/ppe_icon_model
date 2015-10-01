@@ -1462,9 +1462,14 @@ CONTAINS
         & 'nesting incompatible with non-triangular grid')
     ENDIF
 
-    ! patch_pre%cells%refin_ctrl(:)
+    ! patch_pre%cells%refin_ctrl
     CALL nf(nf_inq_varid(ncid_grf, 'refin_c_ctrl', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%cells%refin_ctrl(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%refin_ctrl, 1, local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
+      &                     local_ptr))
+    CALL dist_mult_array_expose(patch_pre%cells%refin_ctrl)
 
     ! patch_pre%edges%parent(:)
     CALL nf(nf_inq_varid(ncid_grf, 'parent_edge_index', varid))
@@ -1481,13 +1486,23 @@ CONTAINS
         & 'negative child edge indices detected - patch files are too old')
     ENDIF
 
-    ! patch_pre%edges%refin_ctrl(:)
+    ! patch_pre%edges%refin_ctrl
     CALL nf(nf_inq_varid(ncid_grf, 'refin_e_ctrl', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%edges%refin_ctrl(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%edges%refin_ctrl, 1, local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
+      &                     local_ptr))
+    CALL dist_mult_array_expose(patch_pre%edges%refin_ctrl)
 
-    ! patch_pre%verts%refin_ctrl(:)
+    ! patch_pre%verts%refin_ctrl
     CALL nf(nf_inq_varid(ncid_grf, 'refin_v_ctrl', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%verts%refin_ctrl(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%verts%refin_ctrl, 1, local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%verts%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%verts%local_chunk(1,1)%size/), &
+      &                     local_ptr))
+    CALL dist_mult_array_expose(patch_pre%verts%refin_ctrl)
 
     ! BEGIN NEW SUBDIV
     CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))

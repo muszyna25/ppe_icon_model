@@ -1010,7 +1010,8 @@ CONTAINS
         &                      wrk_p_patch%cells%num_edges(jl,jb))
       wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_pre%cells%center(jg)%lat
       wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_pre%cells%center(jg)%lon
-      wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_pre%cells%refin_ctrl(jg)
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%refin_ctrl, 1, (/jg/), &
+        &                      wrk_p_patch%cells%refin_ctrl(jl,jb))
     ENDDO
 
     DO j = 0, 2 * n_boundary_rows
@@ -1043,7 +1044,8 @@ CONTAINS
       wrk_p_patch%edges%child_idx(jl,jb,1:4) = idx_no(jcg)
       wrk_p_patch%edges%child_blk(jl,jb,1:4) = blk_no(jcg)
 
-      wrk_p_patch%edges%refin_ctrl(jl,jb)    = wrk_p_patch_pre%edges%refin_ctrl(jg)
+      CALL dist_mult_array_get(wrk_p_patch_pre%edges%refin_ctrl, 1, (/jg/), &
+        &                      wrk_p_patch%edges%refin_ctrl(jl,jb))
     ENDDO
 
     DO j = 0, 2 * n_boundary_rows + 1
@@ -1066,7 +1068,8 @@ CONTAINS
       jg = wrk_p_patch%verts%decomp_info%glb_index(j)
 
       wrk_p_patch%verts%vertex(jl,jb)     = wrk_p_patch_pre%verts%vertex(jg)
-      wrk_p_patch%verts%refin_ctrl(jl,jb) = wrk_p_patch_pre%verts%refin_ctrl(jg)
+      CALL dist_mult_array_get(wrk_p_patch_pre%verts%refin_ctrl, 1, (/jg/), &
+        &                      wrk_p_patch%verts%refin_ctrl(jl,jb))
     ENDDO
 
     DO j = 0, n_boundary_rows + 1
@@ -1983,7 +1986,8 @@ CONTAINS
          min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve
     INTEGER, INTENT(in) :: order_type_of_halos
     LOGICAL, INTENT(in) :: l_cell_correction
-    INTEGER, INTENT(in) :: refin_ctrl(:), n2_ilev(0:)
+    TYPE(dist_mult_array) :: refin_ctrl
+    INTEGER, INTENT(in) :: n2_ilev(0:)
     TYPE(nb_flag_list_elem), INTENT(in) :: flag2_list(0:)
     TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
     INTEGER, DIMENSION(min_rlcve:), INTENT(inout) :: &
@@ -2043,7 +2047,7 @@ CONTAINS
       j = 0
       DO WHILE (j < n_patch_cve_g .AND. jf <= n_patch_cve)
         j = temp_glb_index(jf)
-        irl0 = refin_ctrl(j)
+        CALL dist_mult_array_get(refin_ctrl, 1, (/j/), irl0)
         IF (refinement_predicate(temp_ilev(jf), irl0)) THEN
           decomp_info%glb_index(k) = j
           decomp_info%owner_local(k) = temp_owner(jf)
@@ -2132,7 +2136,7 @@ CONTAINS
         irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
         DO j = 1, n2_ilev(ilev)
           jf = flag2_list(ilev)%idx(j)
-          irl0 = refin_ctrl(jf)
+          CALL dist_mult_array_get(refin_ctrl, 1, (/jf/), irl0)
           IF (.NOT. refinement_predicate(ilev, irl0)) THEN
             k = k + 1
             decomp_info%glb_index(k) = jf
@@ -2515,7 +2519,8 @@ CONTAINS
     ! Private flag if patch should be divided for radiation calculation
     LOGICAL, INTENT(in) :: divide_for_radiation
 
-    INTEGER :: i, j, nc, nc_g, ncs, nce, n_onb_points, jm(1), temp_num_edges
+    INTEGER :: i, j, nc, nc_g, ncs, nce, n_onb_points, jm(1), temp_num_edges, &
+      &        refin_ctrl
     INTEGER :: count_physdom(0:max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
                ncell_offset(0:max_phys_dom), ncell_offset_g(0:max_phys_dom)
@@ -2746,7 +2751,7 @@ CONTAINS
     INTEGER, INTENT(out) :: n_onb_points
     INTEGER, INTENT(in) :: id_physdom(max_phys_dom)
 
-    INTEGER :: i, j, nc, jd, idp, jv
+    INTEGER :: i, j, nc, jd, idp, jv, refin_ctrl
     REAL(wp) :: cclat, cclon
 
     nc = 0
@@ -2841,11 +2846,13 @@ CONTAINS
           ! Skip cell if it is not in subset or does not belong to current physical domain
           IF (subset_flag(j) /= idp .AND. lsplit_merged_domains .OR. subset_flag(j) <= 0) CYCLE
 
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%refin_ctrl, 1, (/j/), &
+            &                      refin_ctrl)
+
           ! Disregard outer nest boundary points for the time being. They do very little
           ! computational work, so they can be added to the closest PEs afterwards
-          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) == -1   .OR.     &
-              .NOT. lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) >= 1 .AND. &
-               wrk_p_patch_pre%cells%refin_ctrl(j) <= 3 .AND. .NOT. locean) THEN
+          IF (lparent_level .AND. refin_ctrl == -1 .OR. .NOT. lparent_level &
+            & .AND. refin_ctrl >= 1 .AND. refin_ctrl <= 3 .AND. .NOT. locean) THEN
             cell_desc(range_end-n_onb_points)%cell_number = j
             n_onb_points = n_onb_points + 1
             CYCLE
