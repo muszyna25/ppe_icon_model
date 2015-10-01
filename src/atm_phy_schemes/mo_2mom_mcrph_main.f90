@@ -387,7 +387,7 @@ CONTAINS
     TYPE(particle)       :: cloud, rain, ice, snow, graupel, hail
     INTEGER, OPTIONAL    :: iinit ! currently just
 
-    INTEGER :: wolke_typ = 2403 ! default cloud type
+    INTEGER :: wolke_typ
 
     REAL(wp), DIMENSION(1:1) :: q_r,x_r,q_c,vn_rain_min, vq_rain_min, vn_rain_max, vq_rain_max
 
