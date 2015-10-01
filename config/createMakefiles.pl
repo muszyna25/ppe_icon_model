@@ -278,17 +278,29 @@ foreach my $dir ( @directories ) {
 	}
 
     } else {
-	print MAKEFILE ".PHONY: create_version_c\n\n";
-	print MAKEFILE "create_version_c:\n";
-	print MAKEFILE "\t../../../config/pvcs.pl --srcdir ../../..\n\n";
-	print MAKEFILE "version.c: | create_version_c\n\n";
-	print MAKEFILE "version.o: version.c\n\n";
+	print MAKEFILE <<"__EOF__"
+.PHONY: create_version_c
+
+create_version_c:
+\t../../../config/pvcs.pl --srcdir ../../..
+
+version.c: | create_version_c
+
+version.o: version.c
+
+libicon.a: \$(OBJS)
+\t\$(AR) \$(ARFLAGS) \$@ \$(OBJS)
+
+__EOF__
+;
 	while ( my ($key, $value) = each(%target_programs) ) {
 	    my $okey = $key;
 	    $okey =~ s/ *$/.o/;	
-	    print MAKEFILE "$okey: $value\n";
-	    print MAKEFILE "../bin/$key: $okey \$(OBJS) version.o\n";
-	    print MAKEFILE "\t\$(FC) \$(LDFLAGS) -o \$@ \$< \$(OBJS) version.o \$(LIBS)\n\n";
+	    print MAKEFILE "$okey: $value
+../bin/$key: $okey libicon.a version.o
+\t\$(FC) \$(LDFLAGS) -o \$@ \$< libicon.a version.o \$(LIBS)
+
+";
 	}
     }
     
