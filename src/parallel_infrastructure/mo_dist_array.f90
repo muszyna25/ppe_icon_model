@@ -2954,7 +2954,8 @@ CONTAINS
     CHARACTER(*), INTENT(in) :: source, msg
     INTEGER, INTENT(in) :: line
     IF (.NOT. cond) THEN
-      WRITE(message_text,*) "assertion "//msg//" failed ", source, ":", line
+      WRITE(message_text,'(5a,i0)') "assertion ", msg, " failed ", source, &
+           ":", line
       CALL finish("assertion", message_text)
     END IF
   END SUBROUTINE assertion
