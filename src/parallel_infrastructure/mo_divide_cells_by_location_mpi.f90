@@ -398,15 +398,9 @@ CONTAINS
         END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-#ifndef SLOW_MPI_IN_PLACE
+
         CALL mpi_allreduce(mpi_in_place, pivot_le(1:npivot_le, 2), &
              npivot_le, mpi_integer, mpi_sum, comm, ierror)
-#else
-        CALL mpi_allreduce(pivot_le(1:npivot_le, 2), &
-             pivot_le_temp(1:npivot_le), &
-             npivot_le, mpi_integer, mpi_sum, comm, ierror)
-        pivot_le(1:npivot_le, 2) = pivot_le_temp(1:npivot_le)
-#endif
         IF (ierror /= mpi_success) THEN
           WRITE (nerr,'(a,a)') method_name, ' mpi_allreduce failed.'
           WRITE (nerr,'(a,i4)') ' Error =  ', ierror
