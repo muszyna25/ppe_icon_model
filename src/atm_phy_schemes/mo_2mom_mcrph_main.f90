@@ -438,6 +438,9 @@ MODULE mo_2mom_mcrph_main
   TYPE(evaporation_deposition_params), SAVE :: vhd_params
   !> run-time- and location-invariant vapor snow deposition parameters
   TYPE(evaporation_deposition_params), SAVE :: vsd_params
+
+  !> run-time- and location-invariant graupel evaporation parameters
+  TYPE(evaporation_deposition_params), SAVE :: ge_params
 CONTAINS
 
   !*******************************************************************************
@@ -1244,6 +1247,18 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "    a_f   = ",vsd_params%a_f ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     b_f  = ",vsd_params%b_f ; CALL message(routine,TRIM(txt))
     END IF
+
+    ! graupel evaporation parameters
+    ge_params%a_f = vent_coeff_a(graupel,1)
+    ge_params%b_f = vent_coeff_b(graupel,1) * N_sc**n_f / SQRT(nu_l)
+    ge_params%c = 1.0_wp / graupel%cap
+    IF (isdebug) THEN
+      WRITE(txt,'(A)') "graupel_evaporation:"  ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     a_f = ",ge_params%a_f ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     b_f = ",ge_params%b_f ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     c_g = ",ge_params%c ; CALL message(routine,TRIM(txt))
+    END IF
+
 
   END SUBROUTINE init_2mom_scheme_once
 
@@ -2330,29 +2345,10 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a,e_sw,s_sw,g_d,eva
     REAL(wp)            :: q_g,n_g,x_g,d_g,v_g,f_v,e_d
-    REAL(wp), SAVE      :: a_f,b_f,c_g
-!$omp threadprivate (firstcall)
-!$omp threadprivate (a_f)
-!$omp threadprivate (b_f)
-!$omp threadprivate (c_g)
 
-    IF (firstcall.NE.1) THEN
-      a_f = vent_coeff_a(graupel,1)
-      b_f = vent_coeff_b(graupel,1) * N_sc**n_f / sqrt(nu_l)
-      c_g = 1.0 / graupel%cap
-      firstcall = 1
-      IF (isdebug) THEN
-        WRITE(txt,'(A)') "graupel_evaporation:"  ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     a_f = ",a_f ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     b_f = ",b_f ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     c_g = ",c_g ; CALL message(routine,TRIM(txt))
-      END IF
-    ELSEIF (isdebug) THEN
-      CALL message(routine, "graupel_evaporation")
-    END IF
+    IF (isdebug) CALL message(routine, "graupel_evaporation")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -2380,9 +2376,9 @@ CONTAINS
             v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
 
             !..note that a_f includes more than just ventilation, do never ever set f_v=1
-            f_v = a_f + b_f * sqrt(v_g*d_g)
+            f_v = ge_params%a_f + ge_params%b_f * sqrt(v_g*d_g)
 
-            eva = g_d * n_g * c_g * d_g * f_v * s_sw * dt
+            eva = g_d * n_g * ge_params%c * d_g * f_v * s_sw * dt
 
             eva = MAX(-eva,0.0_wp)
             eva = MIN(eva,q_g)
