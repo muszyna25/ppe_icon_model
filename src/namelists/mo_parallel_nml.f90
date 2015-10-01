@@ -66,7 +66,8 @@ MODULE mo_parallel_nml
     & config_max_mpi_message_size => max_mpi_message_size,    &
     & config_use_physics_barrier  => use_physics_barrier,     &
     & config_restart_chunk_size => restart_chunk_size,        &
-    & config_io_proc_chunk_size => io_proc_chunk_size
+    & config_io_proc_chunk_size => io_proc_chunk_size,        &
+    & config_num_dist_array_replicas => num_dist_array_replicas
 
   IMPLICIT NONE
   PRIVATE
@@ -181,6 +182,10 @@ MODULE mo_parallel_nml
     ! more than one 2D slice at once
     INTEGER :: io_proc_chunk_size
 
+    ! number of replications being stored in the distributed arrays of the
+    ! t_patch_pre
+    INTEGER :: num_dist_array_replicas
+
     NAMELIST /parallel_nml/ n_ghost_rows,  division_method, ldiv_phys_dom, &
       & l_log_checks,      l_fast_sum,          &
       & p_test_run,        l_test_openmp,       &
@@ -198,7 +203,8 @@ MODULE mo_parallel_nml
       & icon_comm_method, max_no_of_comm_variables,       &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-      & restart_chunk_size, io_proc_chunk_size, num_prefetch_proc !parallel_radiation_omp
+      & restart_chunk_size, io_proc_chunk_size, num_prefetch_proc, &
+      & num_dist_array_replicas !parallel_radiation_omp
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -293,6 +299,8 @@ MODULE mo_parallel_nml
 
     io_proc_chunk_size = -1
 
+    num_dist_array_replicas = 1
+
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
@@ -376,6 +384,7 @@ MODULE mo_parallel_nml
     config_use_dp_mpi2io        = use_dp_mpi2io
     config_restart_chunk_size   = restart_chunk_size
     config_io_proc_chunk_size   = io_proc_chunk_size
+    config_num_dist_array_replicas   = num_dist_array_replicas
     !-----------------------------------------------------
     CALL check_parallel_configuration()
 

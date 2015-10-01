@@ -89,12 +89,12 @@ MODULE mo_setup_subdivision
     &                               dist_mult_array_expose, &
     &                               dist_mult_array_delete, &
     &                               dist_mult_array_get, &
-    &                               dist_mult_array_rma_sync, &
     &                               ppm_int
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
-  USE ppm_distributed_array,  ONLY: sync_mode_active_target
+  USE ppm_distributed_array,  ONLY: sync_mode_active_target, &
+    &                               dist_mult_array_rma_sync
 #endif
-  USE ppm_extents,            ONLY: extent
+  USE ppm_extents,            ONLY: extent, extent_start, extent_end, extent_size
   USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
     &                                   distrib_nf_close, distrib_read, nf, &
     &                                   delete_distrib_read, setup_distrib_read
@@ -308,7 +308,9 @@ CONTAINS
       ELSE
         ! trivial "decomposition"
         CALL create_dist_cell_owner(dist_cell_owner, &
-          &                         p_patch_pre(jg)%n_patch_cells_g)
+          &                         p_patch_pre(jg)%n_patch_cells_g, &
+          &                         p_patch_pre(jg)%dist_array_comm, &
+          &                         p_patch_pre(jg)%dist_array_pes)
         CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
         local_ptr = 0
         IF (jg > n_dom_start) &
@@ -491,28 +493,36 @@ CONTAINS
 
   END SUBROUTINE init_dist_cell_owner
 
-  SUBROUTINE create_dist_cell_owner(dist_cell_owner, n_cells_g)
+  SUBROUTINE create_dist_cell_owner(dist_cell_owner, n_cells_g, &
+    &                               dist_array_comm, dist_array_pes)
 
     TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
-    INTEGER, INTENT(IN) :: n_cells_g
+    INTEGER, INTENT(IN) :: n_cells_g, dist_array_comm
+    TYPE(extent), INTENT(IN) :: dist_array_pes
 
     TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(extent) :: local_chunk(1,1)
+    INTEGER :: dist_array_pes_start, dist_array_pes_size
 
     dist_cell_owner_desc(1)%a_rank = 1
     dist_cell_owner_desc(1)%rect(1)%first = 1
     dist_cell_owner_desc(1)%rect(1)%size = n_cells_g
     dist_cell_owner_desc(1)%element_dt = ppm_int
 
+    dist_array_pes_start = extent_start(dist_array_pes) - 1
+    dist_array_pes_size = extent_size(dist_array_pes)
+
+    ! compute uniform partition
     local_chunk(1,1) = uniform_partition(dist_cell_owner_desc(1)%rect(1), &
-      &                                  p_n_work, p_pe_work+1)
+        &                                dist_array_pes_size, &
+        &                                p_pe_work + 1 - dist_array_pes_start)
 
     dist_cell_owner = dist_mult_array_new(dist_cell_owner_desc, local_chunk, &
-      &                                   p_comm_work, &
+      &                                   dist_array_comm, &
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
       &          sync_mode=sync_mode_active_target &
 #else
-      &          cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))) &
+      &          cache_size=MIN(10, CEILING(SQRT(REAL(dist_array_pes_size)))) &
 #endif
       )
   END SUBROUTINE create_dist_cell_owner
@@ -603,7 +613,9 @@ CONTAINS
 
       IF (div_from_file) THEN
         CALL read_netcdf_decomposition(use_division_file_name, dist_cell_owner, &
-          &                            wrk_p_patch_pre%n_patch_cells_g)
+          &                            wrk_p_patch_pre%n_patch_cells_g, &
+          &                            wrk_p_patch_pre%dist_array_comm, &
+          &                            wrk_p_patch_pre%dist_array_pes)
 
         ! Assign the cell owners of the current patch to the parent cells
         ! for the construction of the local parent, set "-1" elsewhere.
@@ -705,7 +717,7 @@ CONTAINS
       INTEGER, POINTER :: local_parent_ptr(:), local_phys_id_ptr(:)
       INTEGER, ALLOCATABLE :: parent_phys_id_map(:,:), num_send(:), num_recv(:), &
         &                     send_displs(:), recv_displs(:), flag_c_prep(:,:)
-      INTEGER :: parent_part_rank, i
+      INTEGER :: parent_part_rank, i, dist_array_pes_size
       TYPE(extent) :: global_extent
 
       flag_c = 0
@@ -726,28 +738,35 @@ CONTAINS
       global_extent%first = 1
       global_extent%size = wrk_p_parent_patch_pre%n_patch_cells_g
 
-      ALLOCATE(num_send(p_n_work), num_recv(p_n_work), &
-        &      send_displs(p_n_work), recv_displs(p_n_work))
+      dist_array_pes_size = extent_size(wrk_p_patch_pre%dist_array_pes)
+
+      ALLOCATE(num_send(dist_array_pes_size), &
+        &      num_recv(dist_array_pes_size), &
+        &      send_displs(dist_array_pes_size), &
+        &      recv_displs(dist_array_pes_size))
 
       num_send = 0
       DO i = LBOUND(local_parent_ptr, 1), UBOUND(local_parent_ptr, 1)
         parent_part_rank = &
-          partidx_of_elem_uniform_deco(global_extent, p_n_work, &
+          partidx_of_elem_uniform_deco(global_extent, dist_array_pes_size, &
           &                            local_parent_ptr(i))
         num_send(parent_part_rank) = num_send(parent_part_rank) + 1
       END DO
 
-      CALL p_alltoall(num_send, num_recv, p_comm_work)
+      CALL p_alltoall(num_send, num_recv, &
+        &             wrk_p_parent_patch_pre%dist_array_comm)
 
       send_displs(1) = 0
       recv_displs(1) = 0
-      DO i = 2, p_n_work
+      DO i = 2, dist_array_pes_size
         send_displs(i) = send_displs(i-1) + num_send(i-1)
         recv_displs(i) = recv_displs(i-1) + num_recv(i-1)
       END DO
-      ALLOCATE(flag_c_prep(2,recv_displs(p_n_work)+num_recv(p_n_work)))
+      ALLOCATE(flag_c_prep(2,recv_displs(dist_array_pes_size) + &
+        &                    num_recv(dist_array_pes_size)))
       CALL p_alltoallv(parent_phys_id_map, num_send, send_displs, &
-        &              flag_c_prep, num_recv, recv_displs, p_comm_work)
+        &              flag_c_prep, num_recv, recv_displs, &
+        &              wrk_p_parent_patch_pre%dist_array_comm)
 
       DO i = 1, SIZE(flag_c_prep, 2)
         flag_c(flag_c_prep(1,i)) = MAX(1, flag_c_prep(2,i))
@@ -764,7 +783,7 @@ CONTAINS
 
       INTEGER, POINTER :: local_parent_ptr(:), local_owner_p_ptr(:), &
         &                 local_owner_ptr(:)
-      INTEGER :: i, parent_part_rank
+      INTEGER :: i, parent_part_rank, dist_array_pes_size
       INTEGER, ALLOCATABLE :: parent_cell_idx(:), parent_cell_idx_permutation(:), &
         &                     num_send(:), num_recv(:), send_displs(:), &
         &                     recv_displs(:), inquired_parent_cell_idx(:)
@@ -782,40 +801,52 @@ CONTAINS
 
       CALL quicksort(parent_cell_idx, parent_cell_idx_permutation)
 
+      dist_array_pes_size = extent_size(wrk_p_patch_pre%dist_array_pes)
+
       global_extent%first = 1
       global_extent%size = wrk_p_parent_patch_pre%n_patch_cells_g
 
-      ALLOCATE(num_send(p_n_work), num_recv(p_n_work), &
-        &      send_displs(p_n_work), recv_displs(p_n_work))
+      ALLOCATE(num_send(dist_array_pes_size), &
+        &      num_recv(dist_array_pes_size), &
+        &      send_displs(dist_array_pes_size), &
+        &      recv_displs(dist_array_pes_size))
       num_send = 0
       DO i = LBOUND(parent_cell_idx,1), UBOUND(parent_cell_idx,1)
         parent_part_rank = &
-          partidx_of_elem_uniform_deco(global_extent, p_n_work, &
+          partidx_of_elem_uniform_deco(global_extent, &
+          &                            dist_array_pes_size, &
           &                            parent_cell_idx(i))
         num_send(parent_part_rank) = num_send(parent_part_rank) + 1
       END DO
 
-      CALL p_alltoall(num_send, num_recv, p_comm_work)
+      CALL p_alltoall(num_send, num_recv, &
+        &             wrk_p_parent_patch_pre%dist_array_comm)
 
       send_displs(1) = 0
       recv_displs(1) = 0
-      DO i = 2, p_n_work
+      DO i = 2, dist_array_pes_size
         send_displs(i) = send_displs(i-1) + num_send(i-1)
         recv_displs(i) = recv_displs(i-1) + num_recv(i-1)
       END DO
-      ALLOCATE(inquired_parent_cell_idx(recv_displs(p_n_work)+num_recv(p_n_work)))
+      ALLOCATE( &
+        &  inquired_parent_cell_idx(recv_displs(dist_array_pes_size) + &
+        &  num_recv(dist_array_pes_size)))
       CALL p_alltoallv(parent_cell_idx, num_send, send_displs, &
-        &              inquired_parent_cell_idx, num_recv, recv_displs, p_comm_work)
+        &              inquired_parent_cell_idx, num_recv, recv_displs, &
+        &              wrk_p_parent_patch_pre%dist_array_comm)
 
       CALL dist_mult_array_local_ptr(dist_cell_owner_p, 1, local_owner_p_ptr)
 
       inquired_parent_cell_idx = local_owner_p_ptr(inquired_parent_cell_idx)
 
       CALL p_alltoallv(inquired_parent_cell_idx, num_recv, recv_displs, &
-        &              parent_cell_idx, num_send, send_displs, p_comm_work)
+        &              parent_cell_idx, num_send, send_displs, &
+        &              wrk_p_parent_patch_pre%dist_array_comm)
 
       CALL create_dist_cell_owner(dist_cell_owner, &
-        &                         wrk_p_patch_pre%n_patch_cells_g)
+        &                         wrk_p_patch_pre%n_patch_cells_g, &
+        &                         wrk_p_patch_pre%dist_array_comm, &
+        &                         wrk_p_patch_pre%dist_array_pes)
       CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
 
       local_owner_ptr(parent_cell_idx_permutation) = parent_cell_idx
@@ -843,7 +874,7 @@ CONTAINS
     TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner_p
 
     INTEGER :: child_chunk_first, child_chunk_last, child_chunk_size, i
-    INTEGER :: n_cells_parent_g, parent_part_rank
+    INTEGER :: n_cells_parent_g, parent_part_rank, dist_array_pes_size
     TYPE(global_array_desc) :: dist_cell_owner_p_desc(1)
     TYPE(extent) :: parent_chunk(1,1)
     INTEGER, POINTER :: parent_chunk_ptr(:), child_chunk_ptr(:), &
@@ -877,39 +908,46 @@ CONTAINS
     ! sort both arrays according to parent cell global index
     CALL quicksort(parent_cell_owner_map(2,:), parent_cell_owner_map(1,:))
 
+    dist_array_pes_size = extent_size(p_patch_pre%dist_array_pes)
+
     ! compute number of parent cells per process
-    ALLOCATE(num_parent_owner_send(0:p_n_work-1), &
-      &      num_parent_owner_recv(0:p_n_work-1), &
-      &      parent_owner_send_displ(0:p_n_work-1), &
-      &      parent_owner_recv_displ(0:p_n_work-1))
+    ALLOCATE(num_parent_owner_send(0:dist_array_pes_size-1), &
+      &      num_parent_owner_recv(0:dist_array_pes_size-1), &
+      &      parent_owner_send_displ(0:dist_array_pes_size-1), &
+      &      parent_owner_recv_displ(0:dist_array_pes_size-1))
     num_parent_owner_send = 0
     DO i = child_chunk_first, child_chunk_last
       ! compute for each parent cell global index the respective process
       parent_part_rank = &
-        partidx_of_elem_uniform_deco(dist_cell_owner_p_desc(1)%rect(1), p_n_work, &
+        partidx_of_elem_uniform_deco(dist_cell_owner_p_desc(1)%rect(1), &
+        &                            dist_array_pes_size, &
         &                            parent_cell_owner_map(2,i))-1
       num_parent_owner_send(parent_part_rank) = &
         num_parent_owner_send(parent_part_rank) + 1
     END DO
 
     ! alltoall number of parent cells per process
-    CALL p_alltoall(num_parent_owner_send, num_parent_owner_recv, p_comm_work)
+    CALL p_alltoall(num_parent_owner_send, num_parent_owner_recv, &
+      &             p_parent_patch_pre%dist_array_comm)
 
     ! alltoallv parent cell global index and owners
     parent_owner_send_displ(0) = 0
     parent_owner_recv_displ(0) = 0
-    DO i = 1, p_n_work-1
+    DO i = 1, dist_array_pes_size-1
       parent_owner_send_displ(i) = parent_owner_send_displ(i-1) + &
         &                          num_parent_owner_send(i-1)
       parent_owner_recv_displ(i) = parent_owner_recv_displ(i-1) + &
         &                          num_parent_owner_recv(i-1)
     END DO
-    ALLOCATE(parent_chunk_prep(2,parent_owner_recv_displ(p_n_work-1) + &
-      &                          num_parent_owner_recv(p_n_work-1)))
+    ALLOCATE( &
+      parent_chunk_prep( &
+      & 2, parent_owner_recv_displ(dist_array_pes_size-1) + &
+      &    num_parent_owner_recv(dist_array_pes_size-1)))
     CALL p_alltoallv(parent_cell_owner_map, num_parent_owner_send, &
       &              parent_owner_send_displ, &
       &              parent_chunk_prep, num_parent_owner_recv, &
-      &              parent_owner_recv_displ, p_comm_work)
+      &              parent_owner_recv_displ, &
+      &              p_parent_patch_pre%dist_array_comm)
 
     ! sort according to parent cell global index
     CALL quicksort(parent_chunk_prep(2,:), parent_chunk_prep(1,:))
@@ -926,11 +964,12 @@ CONTAINS
     ! set up dist_array
     parent_chunk = p_parent_patch_pre%cells%local_chunk
     dist_cell_owner_p = dist_mult_array_new(dist_cell_owner_p_desc, &
-      &                                     parent_chunk, p_comm_work, &
+      &                                     parent_chunk, &
+      &                                     p_parent_patch_pre%dist_array_comm, &
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
       &          sync_mode=sync_mode_active_target &
 #else
-      &          cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))) &
+      &          cache_size=MIN(10, CEILING(SQRT(REAL(dist_array_pes_size)))) &
 #endif
       )
     CALL dist_mult_array_local_ptr(dist_cell_owner_p, 1, parent_chunk_ptr)
@@ -1039,8 +1078,8 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
     CALL dist_dir_setup(wrk_p_patch%cells%decomp_info%owner_dist_dir, &
       &                 flag2_c_list(0)%idx(1:n2_ilev_c(0)), &
-      &                 wrk_p_patch%n_patch_cells_g, p_comm_work, &
-      &                 p_pe_work, p_n_work)
+      &                 wrk_p_patch%n_patch_cells_g, &
+      &                 p_comm_work, p_pe_work, p_n_work)
     CALL dist_dir_setup(wrk_p_patch%verts%decomp_info%owner_dist_dir, &
       &                 owned_verts, wrk_p_patch%n_patch_verts_g, &
       &                 p_comm_work, p_pe_work, p_n_work)
@@ -1511,6 +1550,11 @@ CONTAINS
       INTEGER, ALLOCATABLE :: sorted_local_chunk(:)
       INTEGER, ALLOCATABLE :: send_displs(:)
       INTEGER, ALLOCATABLE :: recv_displs(:)
+      INTEGER :: dist_array_pes_start, dist_array_pes_end, dist_array_pes_size
+
+      dist_array_pes_start = extent_start(wrk_p_patch_pre%dist_array_pes) - 1
+      dist_array_pes_end = extent_end(wrk_p_patch_pre%dist_array_pes) - 1
+      dist_array_pes_size = extent_size(wrk_p_patch_pre%dist_array_pes)
 
       ! get local chunk
       CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_chunk)
@@ -1520,7 +1564,7 @@ CONTAINS
 
       ! for parent patches most of the entries are -1
       ALLOCATE(n_cells_owned_per_proc(-1:p_n_work-1), &
-        &      n_cells_from_proc(0:p_n_work-1), &
+        &      n_cells_from_proc(dist_array_pes_start:dist_array_pes_end), &
         &      glb_index_per_proc(local_chunk_first:local_chunk_last), &
         &      sorted_local_chunk(local_chunk_first:local_chunk_last))
 
@@ -1535,26 +1579,34 @@ CONTAINS
       END DO
 
       ! mpi_alltoall n_cells_owned_per_proc
-      CALL p_alltoall(n_cells_owned_per_proc(0:), n_cells_from_proc, &
-        &             p_comm_work)
+      CALL p_alltoall(n_cells_owned_per_proc(dist_array_pes_start: &
+        &                                    dist_array_pes_size-1), &
+        &             n_cells_from_proc, &
+        &             wrk_p_patch_pre%dist_array_comm)
 
       ! compute glb_index_per_proc sort by owner (see SUBROUTINE quicksort)
       sorted_local_chunk = local_chunk
       CALL quicksort(sorted_local_chunk, glb_index_per_proc)
 
       ! mpi_alltoallv glb_index_per_proc -> owned_cells
-      ALLOCATE(send_displs(0:p_n_work-1), recv_displs(0:p_n_work-1))
+      ALLOCATE(send_displs(0:p_n_work-1), &
+        &      recv_displs(dist_array_pes_start:dist_array_pes_end))
       send_displs(0) = n_cells_owned_per_proc(-1)
-      recv_displs(0) = 0
+      recv_displs(dist_array_pes_start) = 0
       DO i = 1, p_n_work-1
         send_displs(i) = send_displs(i-1) + n_cells_owned_per_proc(i-1)
+      END DO
+      DO i = dist_array_pes_start + 1, dist_array_pes_end
         recv_displs(i) = recv_displs(i-1) + n_cells_from_proc(i-1)
       END DO
-      ALLOCATE(owned_cells(recv_displs(p_n_work-1) + &
-        &                  n_cells_from_proc(p_n_work-1)))
-      CALL p_alltoallv(glb_index_per_proc, n_cells_owned_per_proc(0:), &
-        &              send_displs, owned_cells, n_cells_from_proc, &
-        &              recv_displs, p_comm_work)
+      ALLOCATE(owned_cells(SUM(n_cells_from_proc)))
+      CALL p_alltoallv(glb_index_per_proc, &
+        &              n_cells_owned_per_proc(dist_array_pes_start: &
+        &                                     dist_array_pes_size-1), &
+        &              send_displs(dist_array_pes_start: &
+        &                          dist_array_pes_size-1), &
+        &              owned_cells, n_cells_from_proc, &
+        &              recv_displs, wrk_p_patch_pre%dist_array_comm)
 
       ! sort owned_cells
       CALL quicksort(owned_cells)
@@ -2540,7 +2592,7 @@ CONTAINS
       INTEGER, INTENT(IN) :: vertices(:)
       INTEGER, INTENT(OUT) :: owner(:)
 
-      INTEGER :: i, jv, j, jc, temp_num_owners, &
+      INTEGER :: i, jv, j, temp_num_owners, &
         &        a_iown(2), a_mod_iown(2)
       LOGICAL :: swap
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
@@ -3460,7 +3512,7 @@ CONTAINS
     IF (p_n_work > 1) THEN
 #ifndef NOMPI
       CALL mpi_allreduce(ncell_offset, ncell_offset_g, SIZE(ncell_offset), &
-           p_int, mpi_sum, p_comm_work, ierror)
+           p_int, mpi_sum, wrk_p_patch_pre%dist_array_comm, ierror)
       IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
 #endif
     END IF
@@ -3476,7 +3528,7 @@ CONTAINS
 #ifndef NOMPI
         nc_g = ncell_offset_g(j) - ncell_offset_g(j-1)
         CALL divide_cells_by_location_mpi(nc_g, nc, cell_desc(ncs:nce), &
-             proc_count(j), p_comm_work)
+             proc_count(j), wrk_p_patch_pre%dist_array_comm)
 #endif
       ELSE
         CALL divide_cells_by_location(nc, cell_desc(ncs:nce), &
@@ -3494,7 +3546,10 @@ CONTAINS
     ENDDO
 
     ! set up distributed owner array
-    CALL create_dist_cell_owner(dist_cell_owner,wrk_p_patch_pre%n_patch_cells_g)
+    CALL create_dist_cell_owner(dist_cell_owner, &
+      &                         wrk_p_patch_pre%n_patch_cells_g, &
+      &                         wrk_p_patch_pre%dist_array_comm, &
+      &                         wrk_p_patch_pre%dist_array_pes)
 
     ! Initialization of cell owner field
     CALL dist_mult_array_local_ptr(dist_cell_owner, 1, owner_chunk_ptr)
@@ -3893,7 +3948,7 @@ CONTAINS
     ! Add outer nest boundary points that have been disregarded so far
     any_onb_points = n_onb_points > 0
     CALL mpi_allreduce(mpi_in_place, any_onb_points, 1, p_bool, &
-         mpi_lor, p_comm_work, ierror)
+         mpi_lor, wrk_p_patch_pre%dist_array_comm, ierror)
     IF (any_onb_points) THEN
 
       first_unassigned_onb = range_end - n_onb_points + 1
@@ -3906,7 +3961,7 @@ CONTAINS
       ! indirect neighbors
       owner_missing = first_unassigned_onb <= last_unassigned_onb
       CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
-           mpi_lor, p_comm_work, ierror)
+           mpi_lor, wrk_p_patch_pre%dist_array_comm, ierror)
       DO WHILE (owner_missing)
         IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
         CALL dist_mult_array_expose(dist_cell_owner)
@@ -3945,7 +4000,7 @@ CONTAINS
         owners_local_ptr = tmp_owners_local
         owner_missing = first_unassigned_onb <= last_unassigned_onb
         CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
-             mpi_lor, p_comm_work, ierror)
+             mpi_lor, wrk_p_patch_pre%dist_array_comm, ierror)
       ENDDO
       DEALLOCATE(owner_value)
 #else
@@ -3954,7 +4009,7 @@ CONTAINS
       ! indirect neighbours
       owner_missing = first_unassigned_onb <= last_unassigned_onb
       CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
-           mpi_lor, p_comm_work, ierror)
+           mpi_lor, wrk_p_patch_pre%dist_array_comm, ierror)
       DO WHILE (owner_missing)
         IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
         CALL dist_mult_array_expose(dist_cell_owner)
@@ -3984,7 +4039,7 @@ CONTAINS
         owners_local_ptr = tmp_owners_local
         owner_missing = first_unassigned_onb <= last_unassigned_onb
         CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
-             mpi_lor, p_comm_work, ierror)
+             mpi_lor, wrk_p_patch_pre%dist_array_comm, ierror)
       ENDDO
 
 #endif
@@ -3997,10 +4052,13 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE read_netcdf_decomposition(netcdf_file_name, dist_cell_owner, no_of_cells)
+  SUBROUTINE read_netcdf_decomposition(netcdf_file_name, dist_cell_owner, &
+    &                                  no_of_cells, dist_array_comm, &
+    &                                  dist_array_pes)
     CHARACTER(LEN=*) :: netcdf_file_name
     TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
-    INTEGER, INTENT(IN) :: no_of_cells
+    INTEGER, INTENT(IN) :: no_of_cells, dist_array_comm
+    TYPE(extent), INTENT(IN) :: dist_array_pes
 
     TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(extent) :: local_chunk(1,1)
@@ -4009,6 +4067,7 @@ CONTAINS
     INTEGER :: i, ncid
     TYPE(t_grid_domain_decomp_info) :: decomp_info
     TYPE(t_distrib_read_data) :: io_data
+    INTEGER :: dist_array_pes_start, dist_array_pes_size
     CHARACTER(*), PARAMETER :: method_name = "read_netcdf_decomposition"
 
     dist_cell_owner_desc(1)%a_rank = 1
@@ -4016,17 +4075,21 @@ CONTAINS
     dist_cell_owner_desc(1)%rect(1)%size = no_of_cells
     dist_cell_owner_desc(1)%element_dt = ppm_int
 
+    dist_array_pes_start = extent_start(dist_array_pes) - 1
+    dist_array_pes_size = extent_size(dist_array_pes)
+
     ! compute uniform partition
     local_chunk(1,1) = uniform_partition(dist_cell_owner_desc(1)%rect(1), &
-      &                                  p_n_work, p_pe_work+1)
+        &                                dist_array_pes_size, &
+        &                                p_pe_work + 1 - dist_array_pes_start)
 
     ! generate distributed array cell_owner array
     dist_cell_owner = dist_mult_array_new(dist_cell_owner_desc, local_chunk, &
-      &          p_comm_work, &
+      &          dist_array_comm, &
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
       &          sync_mode=sync_mode_active_target &
 #else
-      &          cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))) &
+      &          cache_size=MIN(10, CEILING(SQRT(REAL(dist_array_pes_size)))) &
 #endif
     )
 

@@ -1035,6 +1035,20 @@ MODULE mo_model_domain
     TYPE(t_pre_grid_cells) :: cells
     TYPE(t_pre_grid_edges) :: edges
     TYPE(t_pre_grid_vertices) :: verts
+    !
+    ! Most of the data of the cells, edges and verts in t_pre_patch is stored in
+    ! dist_mult_array. For performance reasons the process in p_comm_work are
+    ! split into one or multiple contiguous chunks. Together the processes of
+    ! each chunk has a complete copy of the cells, edges and verts data. The
+    ! number of chunks is set by the name list parameter num_dist_array_replicas
+    !
+    ! ! communicator containing all process of the process chunk
+    !
+    INTEGER :: dist_array_comm
+    !
+    ! ! process ranks (+1) of the chunk the local process is a part of
+    !
+    TYPE(extent) :: dist_array_pes
 
   END TYPE t_pre_patch
 

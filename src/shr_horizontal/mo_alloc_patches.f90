@@ -38,8 +38,9 @@ MODULE mo_alloc_patches
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              init_glb2loc_index_lookup, &
     &                              deallocate_glb2loc_index_lookup, &
-    &                              uniform_partition
-  USE mo_parallel_config,    ONLY: nproma
+    &                              uniform_partition, &
+    &                              partidx_of_elem_uniform_deco
+  USE mo_parallel_config,    ONLY: nproma, num_dist_array_replicas
   USE mo_grid_config,        ONLY: n_dom, n_dom_start, &
     & dynamics_grid_filename,  &
     & radiation_grid_filename
@@ -55,7 +56,7 @@ MODULE mo_alloc_patches
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
   USE ppm_distributed_array, ONLY: sync_mode_active_target
 #endif
-  USE ppm_extents,           ONLY: extent
+  USE ppm_extents,           ONLY: extent, extent_start, extent_size
 
   IMPLICIT NONE
 
@@ -626,7 +627,10 @@ CONTAINS
     TYPE(extent) :: &
       &             local_cell_chunks(2, 9), &
       &             local_edge_chunks(2, 4), &
-      &             local_vert_chunks(2, 4)
+      &             local_vert_chunks(2, 4), &
+      &             process_space
+    INTEGER :: num_replicas, replica_idx, mpierr, dist_array_comm, &
+      &        dist_array_pes_start, dist_array_pes_size
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -711,12 +715,35 @@ CONTAINS
 
     dist_vert_desc(v_refin_ctrl) = dist_vert_desc(v_num_edges)
 
+    process_space = extent(1, p_n_work)
+    num_replicas = MAX(1, MIN(num_dist_array_replicas, p_n_work))
+    replica_idx = partidx_of_elem_uniform_deco(process_space, num_replicas, &
+      &                                        p_pe_work+1)
+#ifndef NOMPI
+    CALL MPI_Comm_split(p_comm_work, replica_idx, p_pe_work, dist_array_comm, &
+      &                 mpierr)
+#else
+    dist_array_comm = p_comm_work
+#endif
+    p_patch_pre%dist_array_pes = &
+      uniform_partition(process_space, num_replicas, replica_idx)
+    p_patch_pre%dist_array_comm = dist_array_comm
+
+    dist_array_pes_start = extent_start(p_patch_pre%dist_array_pes) - 1
+    dist_array_pes_size = extent_size(p_patch_pre%dist_array_pes)
+
     p_patch_pre%cells%local_chunk(1,1) = &
-      uniform_partition(dist_cell_desc(c_num_edges)%rect(1), p_n_work, p_pe_work+1)
+      uniform_partition(dist_cell_desc(c_num_edges)%rect(1), &
+        &               dist_array_pes_size, &
+        &               p_pe_work + 1 - dist_array_pes_start)
     p_patch_pre%edges%local_chunk(1,1) = &
-      uniform_partition(dist_edge_desc(e_parent)%rect(1), p_n_work, p_pe_work+1)
+      uniform_partition(dist_edge_desc(e_parent)%rect(1), &
+        &               dist_array_pes_size, &
+        &               p_pe_work + 1 - dist_array_pes_start)
     p_patch_pre%verts%local_chunk(1,1) = &
-      uniform_partition(dist_vert_desc(v_cell)%rect(1), p_n_work, p_pe_work+1)
+      uniform_partition(dist_vert_desc(v_cell)%rect(1), &
+        &               dist_array_pes_size, &
+        &               p_pe_work + 1 - dist_array_pes_start)
 
     !
     ! !grid cells
@@ -729,7 +756,7 @@ CONTAINS
     local_cell_chunks(2, c_center) = extent(first = 1, size = 2)
 
     p_patch_pre%cells%dist = dist_mult_array_new( &
-         dist_cell_desc, local_cell_chunks, p_comm_work, &
+         dist_cell_desc, local_cell_chunks, dist_array_comm, &
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
          sync_mode=sync_mode_active_target &
 #else
@@ -750,7 +777,7 @@ CONTAINS
     local_edge_chunks(1, e_refin_ctrl) = p_patch_pre%edges%local_chunk(1, 1)
 
     p_patch_pre%edges%dist = dist_mult_array_new( &
-      dist_edge_desc, local_edge_chunks, p_comm_work, &
+      dist_edge_desc, local_edge_chunks, dist_array_comm, &
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
          sync_mode=sync_mode_active_target &
 #else
@@ -771,7 +798,7 @@ CONTAINS
     local_vert_chunks(1, v_refin_ctrl) = p_patch_pre%verts%local_chunk(1,1)
 
     p_patch_pre%verts%dist = dist_mult_array_new( &
-      dist_vert_desc, local_vert_chunks, p_comm_work, &
+      dist_vert_desc, local_vert_chunks, dist_array_comm, &
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
          sync_mode=sync_mode_active_target &
 #else
@@ -883,6 +910,7 @@ CONTAINS
   SUBROUTINE deallocate_pre_patch(p_patch_pre)
 
     TYPE(t_pre_patch), INTENT(inout) :: p_patch_pre
+    INTEGER :: mpierr
     !
     ! !grid cells
     !
@@ -901,7 +929,9 @@ CONTAINS
     CALL dist_mult_array_delete(p_patch_pre%verts%dist)
     DEALLOCATE( p_patch_pre%verts%start )
     DEALLOCATE( p_patch_pre%verts%end )
-
+#ifndef NOMPI
+    CALL MPI_Comm_free(p_patch_pre%dist_array_comm, mpierr)
+#endif
   END SUBROUTINE deallocate_pre_patch
   !-------------------------------------------------------------------------
 
