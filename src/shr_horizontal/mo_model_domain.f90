@@ -597,7 +597,9 @@ MODULE mo_model_domain
        e_child = 2, &
        ! indices of adjacent cells:
        ! index2=1,2
-       e_cell = 3
+       e_cell = 3, &
+       ! refinement control flag
+       e_refin_ctrl = 4
 
   TYPE t_pre_grid_edges
 
@@ -605,12 +607,6 @@ MODULE mo_model_domain
     TYPE(extent) :: local_chunk(1,1)
 
     TYPE(dist_mult_array) :: dist
-
-    !-------------------------------------------------
-    ! edges geometry
-
-    ! refinement control flag
-    TYPE(dist_mult_array) :: refin_ctrl
 
     ! list of start indices for each refin_ctrl level
     ! index1=min_rledge,max_rledge (defined in mo_impl_constants)

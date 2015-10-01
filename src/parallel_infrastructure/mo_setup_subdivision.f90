@@ -36,7 +36,8 @@ MODULE mo_setup_subdivision
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell
+       c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
+       e_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -975,8 +976,8 @@ CONTAINS
          end_g = wrk_p_patch_pre%edges%end, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .FALSE., &
-         refin_ctrl = wrk_p_patch_pre%edges%refin_ctrl, &
-         refin_ctrl_aidx = 1, &
+         refin_ctrl = wrk_p_patch_pre%edges%dist, &
+         refin_ctrl_aidx = e_refin_ctrl, &
          refinement_predicate = refine_edges)
     !---------------------------------------------------------------------------------------
     CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_verts, &
@@ -1166,8 +1167,8 @@ CONTAINS
       wrk_p_patch%edges%child_idx(jl,jb,1:4) = idx_no(jcg)
       wrk_p_patch%edges%child_blk(jl,jb,1:4) = blk_no(jcg)
 
-      CALL dist_mult_array_get(wrk_p_patch_pre%edges%refin_ctrl, 1, (/jg/), &
-        &                      wrk_p_patch%edges%refin_ctrl(jl,jb))
+      CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_refin_ctrl, &
+           (/jg/), wrk_p_patch%edges%refin_ctrl(jl,jb))
     ENDDO
 
     DO j = 0, 2 * n_boundary_rows + 1
