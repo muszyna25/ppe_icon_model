@@ -441,6 +441,8 @@ MODULE mo_2mom_mcrph_main
 
   !> run-time- and location-invariant graupel evaporation parameters
   TYPE(evaporation_deposition_params), SAVE :: ge_params
+  !> run-time- and location-invariant hail evaporation parameters
+  TYPE(evaporation_deposition_params), SAVE :: he_params
 CONTAINS
 
   !*******************************************************************************
@@ -1257,6 +1259,17 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "     a_f = ",ge_params%a_f ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     b_f = ",ge_params%b_f ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "     c_g = ",ge_params%c ; CALL message(routine,TRIM(txt))
+    END IF
+
+    ! hail evaporation parameter setup
+    he_params%a_f = vent_coeff_a(hail,1)
+    he_params%b_f = vent_coeff_b(hail,1) * N_sc**n_f / sqrt(nu_l)
+    he_params%c = 1.0_wp / hail%cap
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "hail_evaporation:" ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     a_f = ",he_params%a_f   ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     b_f = ",he_params%b_f   ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "     c_h = ",he_params%c   ; CALL message(routine,TRIM(txt))
     END IF
 
 
@@ -2406,30 +2419,10 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a,e_sw,s_sw,g_d,eva
     REAL(wp)            :: q_h,n_h,x_h,d_h,v_h,f_v,e_d
-    REAL(wp), SAVE      :: c_h
-    REAL(wp), SAVE      :: a_f,b_f
-!$omp threadprivate (firstcall)
-!$omp threadprivate (a_f)
-!$omp threadprivate (b_f)
-!$omp threadprivate (c_h)
 
-    IF (firstcall.NE.1) THEN
-      a_f = vent_coeff_a(hail,1)
-      b_f = vent_coeff_b(hail,1) * N_sc**n_f / sqrt(nu_l)
-      c_h = 1.0 / hail%cap
-      firstcall = 1
-      IF (isdebug) THEN
-        WRITE(txt,'(A,D10.3)') "hail_evaporation:" ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     a_f = ",a_f   ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     b_f = ",b_f   ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "     c_h = ",c_h   ; CALL message(routine,TRIM(txt))
-      END IF
-    ELSEIF (isdebug) THEN
-      CALL message(routine, "hail_evaporation")
-    END IF
+    IF (isdebug) CALL message(routine, "hail_evaporation")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -2456,9 +2449,9 @@ CONTAINS
             d_h = hail%diameter(x_h)
             v_h = hail%velocity(x_h) * hail%rho_v(i,k)
 
-            f_v  = a_f + b_f * sqrt(v_h*D_h)
+            f_v  = he_params%a_f + he_params%b_f * sqrt(v_h*D_h)
 
-            eva = g_d * n_h * c_h * d_h * f_v * s_sw * dt
+            eva = g_d * n_h * he_params%c * d_h * f_v * s_sw * dt
 
             eva = MAX(-eva,0.0_wp)
             eva = MIN(eva,q_h)
