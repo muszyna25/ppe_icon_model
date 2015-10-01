@@ -6403,7 +6403,7 @@ CONTAINS
   SUBROUTINE sedi_icon_rain (rain,qp,np,precrate,qc,rhocorr,adz,dt, &
       &                  its,ite,kts,kte,cmax) !
 
-    TYPE(particle)                         :: rain
+    TYPE(particle), INTENT(in)             :: rain
     INTEGER,  INTENT(IN)                   :: its,ite,kts,kte
     REAL(wp), DIMENSION(:,:), INTENT(INOUT):: qp,np,qc
     REAL(wp), DIMENSION(:,:), INTENT(IN)   :: adz,rhocorr
