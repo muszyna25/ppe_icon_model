@@ -1974,7 +1974,10 @@ CONTAINS
 
     ! LOCAL VARIABLES
 
-    REAL(wp) :: dtvdz_thresh
+    ! Threshold for switching between analytical formulas for constant
+    ! temperature and constant vertical gradient of temperature,
+    ! respectively
+    REAL(wp), PARAMETER :: dtvdz_thresh = 1.e-4_wp ! 0.1 K/km
 
     INTEGER  :: jb, jkm, jkp, jc, jkm_start
     INTEGER  :: nlen, ierror(nblks)
@@ -1983,6 +1986,8 @@ CONTAINS
 
     REAL(wp) :: z_up, z_down
     REAL(wp), DIMENSION(nproma,nlevs_pl) :: wfac_ml, dtvdz
+    ! temporary to store pre-computed inverse of differences
+    REAL(wp), DIMENSION(nproma,nlevs_ml) :: z3d_ml_di
     REAL(wp), DIMENSION(nproma)          :: tmsl, tsfc_mod, tempv1, tempv2, vtgrad_up, sfc_inv
 
     LOGICAL :: l_found(nproma),lfound_all
@@ -1990,13 +1995,11 @@ CONTAINS
 !-------------------------------------------------------------------------
 
 
-    ! Threshold for switching between analytical formulas for constant temperature and
-    ! constant vertical gradient of temperature, respectively
-    dtvdz_thresh = 1.e-4_wp ! 0.1 K/km
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jkm,jkp,jc,nlen,jkm_start,bot_idx_ml,idx0_ml,z_up,z_down,wfac_ml,tmsl, &
-!$OMP   tsfc_mod,dtvdz,tempv1,tempv2,vtgrad_up,sfc_inv,l_found,lfound_all) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jkm,jkp,jc,nlen,jkm_start,bot_idx_ml,idx0_ml,z_up,z_down,&
+!$OMP wfac_ml,tmsl,tsfc_mod,dtvdz,tempv1,tempv2,vtgrad_up,sfc_inv,l_found,&
+!$OMP lfound_all,z3d_ml_di) ICON_OMP_DEFAULT_SCHEDULE
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -2161,14 +2164,20 @@ CONTAINS
         ENDDO
       ENDDO
 
+      DO jkm = 1, nlevs_ml - 1
+        DO jc = 1, nlen
+          z3d_ml_di(jc, jkm) = 1.0_wp &
+               / (z3d_ml(jc,jkm,jb) - z3d_ml(jc,jkm+1,jb))
+        END DO
+      END DO
+
       ! Now, compute vertical gradients of virtual potential temperature
       DO jkp = 1, nlevs_pl
         DO jc = 1, nlen
           IF (jkp <= bot_idx_ml(jc)) THEN
             jkm = idx0_ml(jc,jkp)
-            dtvdz(jc,jkp) = (tempv_ml(jc,jkm,jb)-tempv_ml(jc,jkm+1,jb)) / &
-                            (z3d_ml  (jc,jkm,jb)-z3d_ml  (jc,jkm+1,jb))
-
+            dtvdz(jc,jkp) = (tempv_ml(jc,jkm,jb)-tempv_ml(jc,jkm+1,jb)) &
+                 * z3d_ml_di(jc, jkm)
           ELSE IF (z3d_ml(jc,nlevs_ml,jb) > 1._wp) THEN ! extrapolation below lowest model level required
             dtvdz(jc,jkp) = (tsfc_mod(jc)-tmsl(jc))/z3d_ml(jc,nlevs_ml,jb)
 
