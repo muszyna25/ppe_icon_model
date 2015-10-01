@@ -165,8 +165,6 @@ CONTAINS
     ! Gammafunktion aus Numerical Recipes (F77)                                    *
     ! (intrinsic function in Fortran2008)                                          *
     !*******************************************************************************
-    IMPLICIT NONE
-
     DOUBLE PRECISION cof(6)
     DOUBLE PRECISION stp,half,one,x,xx,fpf,tmp,ser,gamma
     INTEGER j
@@ -195,7 +193,6 @@ CONTAINS
   ! LOG(Gamma function) taken from Press et al.,  Numerical Recipes (F77)        *
   ! (intrinsic function in Fortran2008)                                          *
   !*******************************************************************************
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: x
     DOUBLE PRECISION, SAVE :: cof(6), stp
     DOUBLE PRECISION :: xx,tmp,ser
@@ -224,7 +221,6 @@ CONTAINS
   !       Gammafunktion aus Numerical Recipes (F77)                              *
   !       (etwas umformuliert, aber dieselben Ergebnisse wie obige Originalfunktion)
   !*******************************************************************************
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: x
     DOUBLE PRECISION, SAVE :: cof(6), stp, half, one, fpf
     DOUBLE PRECISION :: xx,tmp,ser,gamma
@@ -260,8 +256,6 @@ CONTAINS
   ! 1) diverse Hilfsfunktionen:
 
   SUBROUTINE gcf(gammcf,a,x,gln)
-
-    IMPLICIT NONE
 
     INTEGER, PARAMETER :: ITMAX = 100
     DOUBLE PRECISION, PARAMETER :: EPS = 3.d-7, FPMIN = 1.d-30
@@ -303,8 +297,6 @@ CONTAINS
   END SUBROUTINE gcf
 
   SUBROUTINE gser(gamser,a,x,gln)
-
-    IMPLICIT NONE
 
     INTEGER, PARAMETER :: ITMAX = 100
     DOUBLE PRECISION, PARAMETER :: EPS=3.d-7
@@ -349,7 +341,6 @@ CONTAINS
   END SUBROUTINE gser
 
   DOUBLE PRECISION FUNCTION gammp(a,x,gln)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION, INTENT(out) :: gln
     DOUBLE PRECISION :: gammcf, gamser
@@ -372,8 +363,6 @@ CONTAINS
   END FUNCTION gammp
 
   DOUBLE PRECISION FUNCTION gammq(a,x,gln)
-
-    IMPLICIT NONE
 
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION, INTENT(out) :: gln
@@ -409,7 +398,6 @@ CONTAINS
   !*******************************************************************************
 
   DOUBLE PRECISION FUNCTION incgfct_upper(a,x)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION :: gam, gln
 
@@ -427,7 +415,6 @@ CONTAINS
   !*******************************************************************************
 
   DOUBLE PRECISION FUNCTION incgfct_lower(a,x)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a, x
     DOUBLE PRECISION :: gam, gln
 
@@ -443,7 +430,6 @@ CONTAINS
   !*******************************************************************************
 
   DOUBLE PRECISION FUNCTION incgfct(a,x1,x2)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a, x1, x2
 
     incgfct = incgfct_lower(a,x2) - incgfct_lower(a,x1)
@@ -467,7 +453,6 @@ CONTAINS
   !*******************************************************************************
 
   SUBROUTINE incgfct_lower_lookupcreate(a,ltable,nl,nlhr)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: a  ! value of a
     TYPE(gamlookuptable), INTENT(inout) :: ltable
     INTEGER, INTENT(in) :: nl, nlhr
@@ -574,7 +559,6 @@ CONTAINS
   !*******************************************************************************
 
   DOUBLE PRECISION FUNCTION incgfct_lower_lookup(x, ltable)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in) :: x  ! value of x for table lookup
     TYPE(gamlookuptable), INTENT(in) :: ltable
     INTEGER :: iu, io
@@ -602,7 +586,6 @@ CONTAINS
   !  weil es jeweils 2 moegliche 3-Punkte-Nachbarschaften gibt, wird aus Stetigkeitsgruenden der Mittelwert
   ! von beiden genommen):
   DOUBLE PRECISION FUNCTION incgfct_lower_lookup_parabolic(x, ltable)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in)     :: x       ! value of x for table lookup
     TYPE(gamlookuptable), INTENT(in) :: ltable
 
@@ -729,7 +712,6 @@ CONTAINS
   !*******************************************************************************
 
   DOUBLE PRECISION FUNCTION incgfct_upper_lookup(x, ltable)
-    IMPLICIT NONE
 
     DOUBLE PRECISION, INTENT(in)     :: x    ! value of x for table lookup
     TYPE(gamlookuptable), INTENT(in) :: ltable
@@ -768,7 +750,6 @@ CONTAINS
   !  weil es jeweils 2 moegliche 3-Punkte-Nachbarschaften gibt, wird aus Stetigkeitsgruenden der Mittelwert
   ! von beiden genommen):
   DOUBLE PRECISION FUNCTION incgfct_upper_lookup_parabolic(x, ltable)
-    IMPLICIT NONE
     DOUBLE PRECISION, INTENT(in)     :: x  ! value of x for table lookup
     TYPE(gamlookuptable), INTENT(in) :: ltable
 
@@ -894,7 +875,6 @@ CONTAINS
   ! muss ebenfalls von der Interface-Routine besorgt werden.
 
   SUBROUTINE init_dmin_wetgrowth(dateiname, unitnr)
-    IMPLICIT NONE
     CHARACTER(len=*), INTENT(in) :: dateiname
     INTEGER, INTENT(in) :: unitnr
     INTEGER :: error
@@ -951,7 +931,6 @@ CONTAINS
 
   ! wet growth Grenzdurchmesser fuer graupelhail2test in m:
   FUNCTION dmin_wetgrowth_graupel(p_a,T_a,qw_a,qi_a)
-    IMPLICIT NONE
 
     REAL(wp) :: dmin_wetgrowth_graupel
     REAL(wp), INTENT(in) :: p_a,T_a,qw_a,qi_a
@@ -1098,7 +1077,6 @@ CONTAINS
   !===========================================================================
 
   SUBROUTINE init_dmin_wg_gr_ltab_equi(dateiname, unitnr, ndT, ltab)
-    IMPLICIT NONE
 
     CHARACTER(len=*), INTENT(in) :: dateiname
     INTEGER, INTENT(in) :: unitnr
@@ -1228,7 +1206,6 @@ CONTAINS
 
   ! wet growth Grenzdurchmesser in m
   FUNCTION dmin_wg_gr_ltab_equi(p_a,T_a,qw_a,qi_a,ltab) RESULT (dmin_loc)
-    IMPLICIT NONE
 
     REAL(wp) :: dmin_loc
     REAL(wp), INTENT(in) :: p_a,T_a,qw_a,qi_a
