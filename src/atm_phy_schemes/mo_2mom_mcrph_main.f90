@@ -457,6 +457,9 @@ MODULE mo_2mom_mcrph_main
   !> run-time- and location-invariant snow melting parameters
   TYPE(melt_params), SAVE :: sm_params
 
+  !> run-time- and location invariant for graupel selfcollection
+  REAL(wp), SAVE :: graupel_sc_coll_n
+
 CONTAINS
 
   !*******************************************************************************
@@ -1336,6 +1339,7 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "    b_vent = ",sm_params%b_vent ; CALL message(routine,TRIM(txt))
     ENDIF
 
+    CALL setup_graupel_selfcollection(graupel)
 
   END SUBROUTINE init_2mom_scheme_once
 
@@ -4106,6 +4110,33 @@ CONTAINS
 
   END SUBROUTINE snow_ice_collection
 
+  SUBROUTINE setup_graupel_selfcollection(graupel)
+    TYPE(particle), INTENT(in) :: graupel
+    REAL(wp) :: delta_n_11,delta_n_12
+    REAL(wp) :: theta_n_11,theta_n_12
+    REAL(wp) :: delta_n, theta_n
+
+    delta_n_11 = coll_delta_11(graupel,graupel,0)
+    delta_n_12 = coll_delta_12(graupel,graupel,0)
+    theta_n_11 = coll_theta_11(graupel,graupel,0)
+    theta_n_12 = coll_theta_12(graupel,graupel,0)
+
+    delta_n = (2.0*delta_n_11 + delta_n_12)
+    theta_n = (2.0*theta_n_11 - theta_n_12)**0.5
+    graupel_sc_coll_n  = pi8 * delta_n * theta_n
+
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "    delta_n_11 = ",delta_n_11 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_12 = ",delta_n_12 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n    = ",delta_n    ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_11 = ",theta_n_11 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_12 = ",theta_n_12 ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n    = ",theta_n    ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    coll_n     = ",graupel_sc_coll_n     ; CALL message(routine,TRIM(txt))
+    END IF
+  END SUBROUTINE setup_graupel_selfcollection
+
+
   SUBROUTINE graupel_selfcollection(ik_slice, dt, atmo, graupel)
     !*******************************************************************************
     !                                                                              *
@@ -4120,39 +4151,10 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: q_g,n_g,x_g,d_g,v_g
     REAL(wp)            :: self_n
-    REAL(wp)            :: delta_n_11,delta_n_12
-    REAL(wp)            :: theta_n_11,theta_n_12
-    REAL(wp)            :: delta_n, theta_n
-    REAL(wp),SAVE       :: coll_n
-!$omp threadprivate (firstcall)
-!$omp threadprivate (coll_n)
 
     IF (isdebug) CALL message(routine, "graupel_selfcollection")
-
-    IF (firstcall.NE.1) THEN
-      delta_n_11 = coll_delta_11(graupel,graupel,0)
-      delta_n_12 = coll_delta_12(graupel,graupel,0)
-      theta_n_11 = coll_theta_11(graupel,graupel,0)
-      theta_n_12 = coll_theta_12(graupel,graupel,0)
-
-      delta_n = (2.0*delta_n_11 + delta_n_12)
-      theta_n = (2.0*theta_n_11 - theta_n_12)**0.5
-      coll_n  = pi8 * delta_n * theta_n
-
-      IF (isdebug) THEN
-        WRITE(txt,'(A,D10.3)') "    delta_n_11 = ",delta_n_11 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n_12 = ",delta_n_12 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    delta_n    = ",delta_n    ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_11 = ",theta_n_11 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n_12 = ",theta_n_12 ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    theta_n    = ",theta_n    ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "    coll_n     = ",coll_n     ; CALL message(routine,TRIM(txt))
-      END IF
-      firstcall = 1
-    ENDIF
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -4170,7 +4172,7 @@ CONTAINS
              d_g = graupel%diameter(x_g)
              v_g = graupel%velocity(x_g) * graupel%rho_v(i,k)
 
-             self_n = coll_n * n_g**2 * D_g**2 * v_g * dt
+             self_n = graupel_sc_coll_n * n_g**2 * D_g**2 * v_g * dt
 
              ! sticking efficiency does only distinguish dry and wet based on T_3
              IF (atmo%T(i,k) > T_3) THEN
