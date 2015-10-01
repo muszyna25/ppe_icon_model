@@ -36,7 +36,7 @@ MODULE mo_setup_subdivision
   USE mo_io_units,           ONLY: filename_max
   USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex
+       c_vertex, c_center
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
     &                              set_inner_glb_index, set_outer_glb_index, &
@@ -1120,9 +1120,9 @@ CONTAINS
 
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, (/jg/), &
         &                      wrk_p_patch%cells%num_edges(jl,jb))
-      CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 1, (/jg/), &
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, (/jg, 1/), &
         &                      wrk_p_patch%cells%center(jl,jb)%lat)
-      CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 2, (/jg/), &
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, (/jg, 2/), &
         &                      wrk_p_patch%cells%center(jl,jb)%lon)
       CALL dist_mult_array_get(wrk_p_patch_pre%cells%refin_ctrl, 1, (/jg/), &
         &                      wrk_p_patch%cells%refin_ctrl(jl,jb))
@@ -2855,8 +2855,10 @@ CONTAINS
 
         IF (subset_flag(j) <= 0) CYCLE
 
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 1, (/j/), cclat)
-        CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 2, (/j/), cclon)
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, &
+             (/j, 1/), cclat)
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, &
+             (/j, 2/), cclon)
         cell_desc(range_start + nc)%lat = fxp_lat(cclat)
         cell_desc(range_start + nc)%lon = fxp_lon(cclon)
         cell_desc(range_start + nc)%cell_number = j
@@ -2891,8 +2893,10 @@ CONTAINS
             CYCLE
           ENDIF
 
-          CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 1, (/j/), cclat)
-          CALL dist_mult_array_get(wrk_p_patch_pre%cells%center, 2, (/j/), cclon)
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, &
+               (/j, 1/), cclat)
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, &
+               (/j, 2/), cclon)
 
           ! Using the center of the cells for geometric subdivision leads
           ! to "toothed" edges of the subdivision area

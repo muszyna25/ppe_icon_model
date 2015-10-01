@@ -98,7 +98,7 @@ MODULE mo_model_domimp_patches
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
   USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent, &
        c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
-       c_vertex
+       c_vertex, c_center
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
     &                              get_valid_local_index, &
     &                              t_grid_domain_decomp_info, get_local_index
@@ -1039,7 +1039,7 @@ CONTAINS
     INTEGER :: jc, ic
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id, dim_idxlist
     INTEGER, POINTER :: local_ptr(:), local_ptr_2d(:,:)
-    REAL(wp), POINTER :: local_ptr_wp(:)
+    REAL(wp), POINTER :: local_ptr_wp(:), local_ptr_wp_2d(:, :)
     !-----------------------------------------------------------------------
 
     ! set dummy values to zero
@@ -1422,20 +1422,18 @@ CONTAINS
 
     ! patch_pre%cells%center latitude
     CALL nf(nf_inq_varid(ncid, 'lat_cell_centre', varid))
-    CALL dist_mult_array_local_ptr(patch_pre%cells%center, 1, local_ptr_wp)
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_center, local_ptr_wp_2d)
     CALL nf(nf_get_vara_double(ncid, varid, &
       &                        (/patch_pre%cells%local_chunk(1,1)%first/), &
       &                        (/patch_pre%cells%local_chunk(1,1)%size/), &
-      &                        local_ptr_wp(:)))
+      &                        local_ptr_wp_2d(:, 1)))
 
     ! patch_pre%cells%center longitude
     CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
-    CALL dist_mult_array_local_ptr(patch_pre%cells%center, 2, local_ptr_wp)
     CALL nf(nf_get_vara_double(ncid, varid, &
       &                        (/patch_pre%cells%local_chunk(1,1)%first/), &
       &                        (/patch_pre%cells%local_chunk(1,1)%size/), &
-      &                        local_ptr_wp(:)))
-    CALL dist_mult_array_expose(patch_pre%cells%center)
+      &                        local_ptr_wp_2d(:, 2)))
 
     ! patch_pre%verts%vertex(:)%lat
     CALL nf(nf_inq_varid(ncid, 'latitude_vertices', varid))
