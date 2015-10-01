@@ -414,6 +414,8 @@ MODULE mo_2mom_mcrph_main
   TYPE(sym_riming_params), SAVE :: hcr_params
   !> run-time- and location-invariant graupel cloud riming parameters
   TYPE(sym_riming_params), SAVE :: gcr_params
+  !> run-time- and location-invariant snow ice collection parameters
+  TYPE(sym_riming_params), SAVE :: sic_params
 CONTAINS
 
   !*******************************************************************************
@@ -1002,6 +1004,36 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "    theta_q_gg  = ", gcr_params%theta_q_aa ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "    theta_q_gc  = ", gcr_params%theta_q_ab ; CALL message(routine,TRIM(txt))
       WRITE(txt,'(A,D10.3)') "    theta_q_cc  = ", gcr_params%theta_q_bb ; CALL message(routine,TRIM(txt))
+    END IF
+
+    ! snow ice collection parameters setup
+    sic_params%delta_n_aa = coll_delta_11(snow,ice,0)
+    sic_params%delta_n_ab = coll_delta_12(snow,ice,0)
+    sic_params%delta_n_bb = coll_delta_22(snow,ice,0)
+    sic_params%delta_q_aa = coll_delta_11(snow,ice,0)
+    sic_params%delta_q_ab = coll_delta_12(snow,ice,1)
+    sic_params%delta_q_bb = coll_delta_22(snow,ice,1)
+
+    sic_params%theta_n_aa = coll_theta_11(snow,ice,0)
+    sic_params%theta_n_ab = coll_theta_12(snow,ice,0)
+    sic_params%theta_n_bb = coll_theta_22(snow,ice,0)
+    sic_params%theta_q_aa = coll_theta_11(snow,ice,0)
+    sic_params%theta_q_ab = coll_theta_12(snow,ice,1)
+    sic_params%theta_q_bb = coll_theta_22(snow,ice,1)
+
+    IF (isdebug) THEN
+      WRITE(txt,'(A,D10.3)') "   delta_n_ss = ", sic_params%delta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   delta_n_si = ", sic_params%delta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   delta_n_ii = ", sic_params%delta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   theta_n_ss = ", sic_params%theta_n_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   theta_n_si = ", sic_params%theta_n_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   theta_n_ii = ", sic_params%theta_n_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   delta_q_ss = ", sic_params%delta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   delta_q_si = ", sic_params%delta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   delta_q_ii = ", sic_params%delta_q_bb ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   theta_q_ss = ", sic_params%theta_q_aa ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   theta_q_si = ", sic_params%theta_q_ab ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "   theta_q_ii = ", sic_params%theta_q_bb ; CALL message(routine,TRIM(txt))
     END IF
 
 
@@ -4105,62 +4137,12 @@ CONTAINS
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
-    INTEGER, SAVE       :: firstcall
     REAL(wp)            :: T_a
     REAL(wp)            :: q_s,n_s,x_s,d_s,v_s
     REAL(wp)            :: q_i,n_i,x_i,d_i,v_i
     REAL(wp)            :: coll_n,coll_q,e_coll
-    REAL(wp), SAVE      :: delta_n_ss,delta_n_si,delta_n_ii
-    REAL(wp), SAVE      :: delta_q_ss,delta_q_si,delta_q_ii
-    REAL(wp), SAVE      :: theta_n_ss,theta_n_si,theta_n_ii
-    REAL(wp), SAVE      :: theta_q_ss,theta_q_si,theta_q_ii
-!$omp threadprivate (firstcall)
-!$omp threadprivate (delta_n_ss)
-!$omp threadprivate (delta_n_si)
-!$omp threadprivate (delta_n_ii)
-!$omp threadprivate (delta_q_ss)
-!$omp threadprivate (delta_q_si)
-!$omp threadprivate (delta_q_ii)
-!$omp threadprivate (theta_n_ss)
-!$omp threadprivate (theta_n_si)
-!$omp threadprivate (theta_n_ii)
-!$omp threadprivate (theta_q_ss)
-!$omp threadprivate (theta_q_si)
-!$omp threadprivate (theta_q_ii)
 
     IF (isdebug) CALL message(routine, "snow_ice_collection")
-
-    IF (firstcall.NE.1) THEN
-      delta_n_ss = coll_delta_11(snow,ice,0)
-      delta_n_si = coll_delta_12(snow,ice,0)
-      delta_n_ii = coll_delta_22(snow,ice,0)
-      delta_q_ss = coll_delta_11(snow,ice,0)
-      delta_q_si = coll_delta_12(snow,ice,1)
-      delta_q_ii = coll_delta_22(snow,ice,1)
-
-      theta_n_ss = coll_theta_11(snow,ice,0)
-      theta_n_si = coll_theta_12(snow,ice,0)
-      theta_n_ii = coll_theta_22(snow,ice,0)
-      theta_q_ss = coll_theta_11(snow,ice,0)
-      theta_q_si = coll_theta_12(snow,ice,1)
-      theta_q_ii = coll_theta_22(snow,ice,1)
-
-      IF (isdebug) THEN
-        WRITE(txt,'(A,D10.3)') "   delta_n_ss = ",delta_n_ss ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   delta_n_si = ",delta_n_si ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   delta_n_ii = ",delta_n_ii ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   theta_n_ss = ",theta_n_ss ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   theta_n_si = ",theta_n_si ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   theta_n_ii = ",theta_n_ii ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   delta_q_ss = ",delta_q_ss ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   delta_q_si = ",delta_q_si ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   delta_q_ii = ",delta_q_ii ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   theta_q_ss = ",theta_q_ss ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   theta_q_si = ",theta_q_si ; CALL message(routine,TRIM(txt))
-        WRITE(txt,'(A,D10.3)') "   theta_q_ii = ",theta_q_ii ; CALL message(routine,TRIM(txt))
-      END IF
-      firstcall = 1
-    ENDIF
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -4190,13 +4172,13 @@ CONTAINS
             v_s = snow%velocity(x_s) * snow%rho_v(i,k)
 
             coll_n = pi4 * n_s * n_i * e_coll * dt &
-                 & *     (delta_n_ss * D_s**2 + delta_n_si * D_s*D_i + delta_n_ii * D_i**2) &
-                 & * sqrt(theta_n_ss * v_s**2 - theta_n_si * v_s*v_i + theta_n_ii * v_i**2  &
+                 & *     (sic_params%delta_n_aa * D_s**2 + sic_params%delta_n_ab * D_s*D_i + sic_params%delta_n_bb * D_i**2) &
+                 & * sqrt(sic_params%theta_n_aa * v_s**2 - sic_params%theta_n_ab * v_s*v_i + sic_params%theta_n_bb * v_i**2  &
                  &       +snow_s_vel**2 + ice_s_vel**2)
 
             coll_q = pi4 * n_s * q_i * e_coll * dt &
-                 & *     (delta_q_ss * D_s**2 + delta_q_si * D_s*D_i + delta_q_ii * D_i**2) &
-                 & * sqrt(theta_q_ss * v_s**2 - theta_q_si * v_s*v_i + theta_q_ii * v_i**2  &
+                 & *     (sic_params%delta_q_aa * D_s**2 + sic_params%delta_q_ab * D_s*D_i + sic_params%delta_q_bb * D_i**2) &
+                 & * sqrt(sic_params%theta_q_aa * v_s**2 - sic_params%theta_q_ab * v_s*v_i + sic_params%theta_q_bb * v_i**2  &
                  &       +snow_s_vel**2 + ice_s_vel**2)
 
             coll_n = MIN(n_i,coll_n)
