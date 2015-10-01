@@ -752,7 +752,7 @@ AC_ARG_WITH([mpi],
 
 
 #default is with mpi
-if test x$with_mpi != xno ; then
+if test "x$with_mpi" != xno ; then
   withval=yes
 fi
 
@@ -764,8 +764,8 @@ if test x$withval = xno ; then
   MPIROOT=""
   use_mpcc_r=no
 else
-  if test x$with_mpi != x ; then
-    if test $with_mpi != yes && $with_mpi != no  ; then
+  if test "x$with_mpi" != x ; then
+    if test x"$with_mpi" != xyes && x"$with_mpi" != xno  ; then
       MPIROOT=$with_mpi
     fi
   fi
