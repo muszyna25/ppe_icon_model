@@ -275,16 +275,20 @@ CONTAINS
       ! Here comes the actual domain decomposition:
       ! Every cells gets assigned an owner.
 
-      ALLOCATE(cell_owner(p_patch_pre(jg)%n_patch_cells_g))
-
       IF (my_process_is_mpi_parallel()) THEN
+        ALLOCATE(cell_owner(p_patch_pre(jg)%n_patch_cells_g))
         ! Set division method, divide_for_radiation is only used for patch 0
         CALL divide_patch_cells(p_patch_pre(jg), jg, p_patch(jg)%n_proc, &
              p_patch(jg)%proc0, cell_owner, wrk_p_parent_patch_pre, &
              radiation_owner, &
              divide_for_radiation = (jg == 0))
+        CALL setup_dist_cell_owner(dist_cell_owner, &
+          &                        p_patch_pre(jg)%n_patch_cells_g, cell_owner)
+        DEALLOCATE(cell_owner)
       ELSE
-        cell_owner(:) = 0 ! trivial "decomposition"
+        ! trivial "decomposition"
+        CALL setup_dist_cell_owner(dist_cell_owner, &
+          &                        p_patch_pre(jg)%n_patch_cells_g)
       END IF
 
       ! Please note: Previously, for jg==0 no ghost rows were set.
@@ -304,12 +308,9 @@ CONTAINS
         order_type_of_halos = 1
       END SELECT
 
-      CALL setup_dist_cell_owner(dist_cell_owner, cell_owner)
-
       CALL divide_patch(p_patch(jg), p_patch_pre(jg), dist_cell_owner, &
         &               radiation_owner, n_ghost_rows, order_type_of_halos, &
         &               p_pe_work)
-
 
       IF (ASSOCIATED(radiation_owner)) THEN
         DEALLOCATE(radiation_owner)
@@ -340,8 +341,6 @@ CONTAINS
       ENDIF
 
       CALL dist_mult_array_delete(dist_cell_owner)
-
-      DEALLOCATE(cell_owner)
 
     ENDDO
 
@@ -422,10 +421,11 @@ CONTAINS
 
   END SUBROUTINE set_pc_idx
 
-  SUBROUTINE setup_dist_cell_owner(dist_cell_owner, cell_owner)
+  SUBROUTINE setup_dist_cell_owner(dist_cell_owner, n_cells_g, cell_owner)
 
     TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
-    INTEGER, INTENT(IN) :: cell_owner(:)
+    INTEGER, INTENT(IN) :: n_cells_g
+    INTEGER, OPTIONAL, INTENT(IN) :: cell_owner(:)
 
     TYPE(global_array_desc) :: dist_cell_owner_desc(1)
     TYPE(extent) :: local_chunk(1,1)
@@ -433,7 +433,7 @@ CONTAINS
 
     dist_cell_owner_desc(1)%a_rank = 1
     dist_cell_owner_desc(1)%rect(1)%first = 1
-    dist_cell_owner_desc(1)%rect(1)%size = SIZE(cell_owner(:))
+    dist_cell_owner_desc(1)%rect(1)%size = n_cells_g
     dist_cell_owner_desc(1)%element_dt = ppm_int
 
     local_chunk(1,1) = uniform_partition(dist_cell_owner_desc(1)%rect(1), &
@@ -443,8 +443,12 @@ CONTAINS
       &                                   p_comm_work)
 
     CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
-    local_ptr(:) = cell_owner(local_chunk(1,1)%first: &
-      &                       local_chunk(1,1)%first+local_chunk(1,1)%size-1)
+    IF (PRESENT(cell_owner)) THEN
+      local_ptr(:) = cell_owner(local_chunk(1,1)%first: &
+        &                       local_chunk(1,1)%first+local_chunk(1,1)%size-1)
+    ELSE
+      local_ptr(:) = 0
+    END IF
 
     CALL dist_mult_array_expose(dist_cell_owner)
   END SUBROUTINE setup_dist_cell_owner
