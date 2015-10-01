@@ -393,22 +393,22 @@ rbf_vec_scale_e   = 0.45, 0.37, 0.25, 0.1
  filetype         = 5
  dom              = 1
 /
-&output_nml
- output_start     = "${out_start_day}"
- output_end       = "${out_end_day}"
- output_interval  = "PT15M"
- file_interval    = "PT06H"
- include_last     = .TRUE.
- output_filename  = '3d_fuzzy_hope_ll'
- filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- remap            = 1
- ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres'
- reg_lon_def      = 6.087,0.004,6.738
- reg_lat_def      = 50.704,0.003,51.112
- output_grid      = .TRUE.
- filetype         = 5
- dom              = 3
-/
+!&output_nml
+! output_start     = "${out_start_day}"
+! output_end       = "${out_end_day}"
+! output_interval  = "PT15M"
+! file_interval    = "PT06H"
+! include_last     = .TRUE.
+! output_filename  = '3d_fuzzy_hope_ll'
+! filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+! remap            = 1
+! ml_varlist       = 'qv','qc','qi','qr','qs','qg','qh','qnc','qni','qnr','qns','qng','qnh','ninact','u','v','w','temp','pres'
+! reg_lon_def      = 6.087,0.004,6.738
+! reg_lat_def      = 50.704,0.003,51.112
+! output_grid      = .TRUE.
+! filetype         = 5
+! dom              = 3
+!/
 &extpar_nml
  itopo          = 1
  n_iter_smooth_topo = 1,1,3,5
