@@ -81,6 +81,7 @@ MODULE mo_interface_les
                                      avg_interval_step, sampl_freq_step,  &
                                      is_sampling_time, is_writing_time, les_cloud_diag
   USE mo_les_utilities,       ONLY: init_vertical_grid_for_les
+  USE mo_fortran_tools,       ONLY: copy
 
   IMPLICIT NONE
 
@@ -356,11 +357,10 @@ CONTAINS
 
 !$OMP PARALLEL
 
-!$OMP WORKSHARE
         ! Store exner function for sound-wave reduction and open upper boundary condition
         ! this needs to be done for all grid points (including halo points)
-        z_exner_sv(:,:,:) = pt_prog%exner(:,:,:)
-!$OMP END WORKSHARE
+      CALL copy(pt_prog%exner(:,:,:), z_exner_sv(:,:,:))
+!$OMP BARRIER
 
 !$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk, i_endblk
@@ -435,10 +435,10 @@ CONTAINS
 
     ELSE ! satad turned off
 
-!$OMP PARALLEL WORKSHARE
+!$OMP PARALLEL
       ! Store exner function for sound-wave reduction and open upper boundary condition
-      z_exner_sv(:,:,:) = pt_prog%exner(:,:,:)
-!$OMP END PARALLEL WORKSHARE
+      CALL copy(pt_prog%exner(:,:,:), z_exner_sv(:,:,:))
+!$OMP END PARALLEL
 
     ENDIF ! satad
 

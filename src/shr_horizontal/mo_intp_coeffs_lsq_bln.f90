@@ -163,6 +163,7 @@ USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync
 USE mo_grid_config,         ONLY: grid_sphere_radius
 USE mo_grid_geometry_info,  ONLY: planar_torus_geometry, sphere_geometry
 USE mo_intp_data_strc,      ONLY: t_lsq, t_int_state
+USE mo_fortran_tools,       ONLY: copy
 
 IMPLICIT NONE
 
@@ -241,11 +242,13 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int_lsq%lsq_dim_stencil,1),UBOUND(ptr_int_lsq%l
 
     ! the cell and block indices are just copied from ptr_patch%cells%neighbor_idx
     ! and ptr_patch%cells%neighbor_blk
-!$OMP WORKSHARE
-    ptr_int_lsq%lsq_idx_c(:,:,:) = ptr_patch%cells%neighbor_idx(:,:,:)
-    ptr_int_lsq%lsq_blk_c(:,:,:) = ptr_patch%cells%neighbor_blk(:,:,:)
-    ptr_int_lsq%lsq_dim_stencil(:,:) = ptr_patch%cells%num_edges(:,:)
-!$OMP END WORKSHARE
+    CALL copy(ptr_patch%cells%neighbor_idx(:,:,:), &
+         ptr_int_lsq%lsq_idx_c(:,:,:))
+    CALL copy(ptr_patch%cells%neighbor_blk(:,:,:), &
+         ptr_int_lsq%lsq_blk_c(:,:,:))
+    CALL copy(ptr_patch%cells%num_edges(:,:), &
+         ptr_int_lsq%lsq_dim_stencil(:,:))
+!$OMP BARRIER
 
   ELSE IF (lsq_dim_c == 9) THEN
 

@@ -56,7 +56,7 @@ USE mo_mpi,                 ONLY: my_process_is_mpi_seq
 USE mo_seaice_nwp,          ONLY: frsi_min
 USE mo_flake,               ONLY: flake_coldinit
 USE mo_data_flake,          ONLY: tpl_T_r, C_T_min, rflk_depth_bs_ref
-
+USE mo_fortran_tools,       ONLY: init, copy
 
 IMPLICIT NONE
 
@@ -762,20 +762,20 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
     ! Perform communication from parent to local parent grid in the MPI case,
     ! and set pointers such that further processing is the same for MPI / non-MPI cases
 
-!$OMP PARALLEL WORKSHARE
-    zpg_aux3d(:,1:nshift,:) = 0._wp
-    zpg_aux3d(:,iclcov,:) = rg_aclcov(:,:)
-    zpg_aux3d(:,itsfc,:)  = tsfc_rg(:,:)
-    zpg_aux3d(:,ialb,:)   = albdif_rg(:,:)
-    zpg_aux3d(:,iemis,:)  = emis_rad_rg(:,:)
-    zpg_aux3d(:,icosmu0,:)= cosmu0_rg(:,:)
-    zpg_aux3d(:,ilwsfc,:) = rg_lwflx_up_sfc(:,:)
-    zpg_aux3d(:,itrutoa,:)= rg_trsol_up_toa(:,:)
-    zpg_aux3d(:,itrusfc,:)= rg_trsol_up_sfc(:,:)
-    zpg_aux3d(:,itrdiff,:)= rg_trsol_dn_sfc_diff(:,:)
-    zpg_aux3d(:,itrclrsfc,:)= rg_trsol_clr_sfc(:,:)
-    zpg_aux3d(:,itrparsfc,:)= rg_trsol_par_sfc(:,:)
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+    CALL init(zpg_aux3d(:,1:nshift,:))
+    CALL copy(rg_aclcov(:,:), zpg_aux3d(:,iclcov,:))
+    CALL copy(tsfc_rg(:,:), zpg_aux3d(:,itsfc,:))
+    CALL copy(albdif_rg(:,:), zpg_aux3d(:,ialb,:))
+    CALL copy(emis_rad_rg(:,:), zpg_aux3d(:,iemis,:))
+    CALL copy(cosmu0_rg(:,:), zpg_aux3d(:,icosmu0,:))
+    CALL copy(rg_lwflx_up_sfc(:,:), zpg_aux3d(:,ilwsfc,:))
+    CALL copy(rg_trsol_up_toa(:,:), zpg_aux3d(:,itrutoa,:))
+    CALL copy(rg_trsol_up_sfc(:,:), zpg_aux3d(:,itrusfc,:))
+    CALL copy(rg_trsol_dn_sfc_diff(:,:), zpg_aux3d(:,itrdiff,:))
+    CALL copy(rg_trsol_clr_sfc(:,:), zpg_aux3d(:,itrclrsfc,:))
+    CALL copy(rg_trsol_par_sfc(:,:), zpg_aux3d(:,itrparsfc,:))
+!$OMP END PARALLEL
 
     nlev_tot = 2*nlevp1_rg + n2dvars
 
@@ -796,21 +796,21 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
     p_trsolall   => rg_trsolall
     p_pres_ifc   => pres_ifc_rg
     p_tot_cld    => tot_cld_rg
-    
-!$OMP PARALLEL WORKSHARE
-    zrg_aux3d(:,1:nshift,:) = 0._wp
-    zrg_aux3d(:,iclcov,:) = rg_aclcov(:,:)
-    zrg_aux3d(:,itsfc,:)  = tsfc_rg(:,:)
-    zrg_aux3d(:,ialb,:)   = albdif_rg(:,:)
-    zrg_aux3d(:,iemis,:)  = emis_rad_rg(:,:)
-    zrg_aux3d(:,icosmu0,:)= cosmu0_rg(:,:)
-    zrg_aux3d(:,ilwsfc,:) = rg_lwflx_up_sfc(:,:)
-    zrg_aux3d(:,itrutoa,:)= rg_trsol_up_toa(:,:)
-    zrg_aux3d(:,itrusfc,:)= rg_trsol_up_sfc(:,:)
-    zrg_aux3d(:,itrdiff,:)= rg_trsol_dn_sfc_diff(:,:)
-    zrg_aux3d(:,itrclrsfc,:)= rg_trsol_clr_sfc(:,:)
-    zrg_aux3d(:,itrparsfc,:)= rg_trsol_par_sfc(:,:)
-!$OMP END PARALLEL WORKSHARE
+
+!$OMP PARALLEL
+    CALL init(zrg_aux3d(:,1:nshift,:))
+    CALL copy(rg_aclcov(:,:), zrg_aux3d(:,iclcov,:))
+    CALL copy(tsfc_rg(:,:), zrg_aux3d(:,itsfc,:))
+    CALL copy(albdif_rg(:,:), zrg_aux3d(:,ialb,:))
+    CALL copy(emis_rad_rg(:,:), zrg_aux3d(:,iemis,:))
+    CALL copy(cosmu0_rg(:,:), zrg_aux3d(:,icosmu0,:))
+    CALL copy(rg_lwflx_up_sfc(:,:), zrg_aux3d(:,ilwsfc,:))
+    CALL copy(rg_trsol_up_toa(:,:), zrg_aux3d(:,itrutoa,:))
+    CALL copy(rg_trsol_up_sfc(:,:), zrg_aux3d(:,itrusfc,:))
+    CALL copy(rg_trsol_dn_sfc_diff(:,:), zrg_aux3d(:,itrdiff,:))
+    CALL copy(rg_trsol_clr_sfc(:,:), zrg_aux3d(:,itrclrsfc,:))
+    CALL copy(rg_trsol_par_sfc(:,:), zrg_aux3d(:,itrparsfc,:))
+!$OMP END PARALLEL
   ENDIF
 
   ! Compute transmissivity differences before downscaling
@@ -878,11 +878,10 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
-!$OMP WORKSHARE
-  aclcov(:,:)        = z_aux3d(:,1,:)
-  tsfc_backintp(:,:) = z_aux3d(:,2,:)
-  alb_backintp(:,:)  = z_aux3d(:,3,:)
-!$OMP END WORKSHARE
+  CALL copy(z_aux3d(:,1,:), aclcov(:,:))
+  CALL copy(z_aux3d(:,2,:), tsfc_backintp(:,:))
+  CALL copy(z_aux3d(:,3,:), alb_backintp(:,:))
+!$OMP BARRIER
 
   ! Reconstruct solar transmissivities from interpolated transmissivity differences
 

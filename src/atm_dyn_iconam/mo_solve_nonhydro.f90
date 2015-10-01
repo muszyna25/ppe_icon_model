@@ -64,6 +64,7 @@ MODULE mo_solve_nonhydro
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_nh_prepadv_types,  ONLY: t_prepare_adv
   USE mo_initicon_config,   ONLY: is_iau_active, iau_wgt_dyn
+  USE mo_fortran_tools,     ONLY: init
   IMPLICIT NONE
 
   PRIVATE
@@ -388,9 +389,8 @@ MODULE mo_solve_nonhydro
 
     ! initialize nest boundary points of z_rth_pr with zero
     IF (istep == 1 .AND. (jg > 1 .OR. l_limited_area)) THEN
-!$OMP WORKSHARE
-      z_rth_pr(:,:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(z_rth_pr(:,:,:,1:i_startblk))
+!$OMP BARRIER
     ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc,z_exner_ic,z_theta_v_pr_ic,z_w_backtraj,&
@@ -725,10 +725,9 @@ MODULE mo_solve_nonhydro
         i_startblk = p_patch%edges%start_block(min_rledge_int-2)
         i_endblk   = p_patch%edges%end_block  (min_rledge_int-3)
 
-!$OMP WORKSHARE
-        z_rho_e    (:,:,i_startblk:i_endblk) = 0._wp
-        z_theta_v_e(:,:,i_startblk:i_endblk) = 0._wp
-!$OMP END WORKSHARE
+        CALL init(z_rho_e    (:,:,i_startblk:i_endblk))
+        CALL init(z_theta_v_e(:,:,i_startblk:i_endblk))
+!$OMP BARRIER
 
         rl_start = 7
         rl_end   = min_rledge_int-1
@@ -738,10 +737,9 @@ MODULE mo_solve_nonhydro
 
         ! initialize also nest boundary points with zero
         IF (jg > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-          z_rho_e    (:,:,1:i_startblk) = 0._wp
-          z_theta_v_e(:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+          CALL init(z_rho_e    (:,:,1:i_startblk))
+          CALL init(z_theta_v_e(:,:,1:i_startblk))
+!$OMP BARRIER
         ENDIF
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0,lvn_pos,&
@@ -1677,9 +1675,8 @@ MODULE mo_solve_nonhydro
       i_endblk   = p_patch%edges%end_block(rl_end)
 
       IF (jg > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-        z_theta_v_fl_e(:,:,p_patch%edges%start_block(5):i_startblk) = 0._wp
-!$OMP END WORKSHARE
+        CALL init(z_theta_v_fl_e(:,:,p_patch%edges%start_block(5):i_startblk))
+!$OMP BARRIER
       ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE

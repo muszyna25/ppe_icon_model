@@ -37,6 +37,7 @@ MODULE mo_advection_geometry
     &                               t_geographical_coordinates
   USE mo_advection_utils,     ONLY: t_list2D
   USE mo_run_config,          ONLY: msg_level
+  USE mo_fortran_tools,       ONLY: copy
 
 
   IMPLICIT NONE
@@ -226,10 +227,9 @@ CONTAINS
     ! get arrival and departure points. Note that the indices of the departure
     ! points have to be switched so that departure point 1 belongs to arrival
     ! point one and departure point 2 to arrival point 2.
-!$OMP WORKSHARE
-    arrival_pts(:,1:2,1:2,:,:) = dreg_patch0(:,1:2,1:2,:,:)
-    depart_pts (:,1:2,1:2,:,:) = dreg_patch0(:,4:3:-1,1:2,:,:)
-!$OMP END WORKSHARE
+    CALL copy(dreg_patch0(:,1:2,1:2,:,:),    arrival_pts(:,1:2,1:2,:,:))
+    CALL copy(dreg_patch0(:,4:3:-1,1:2,:,:), depart_pts (:,1:2,1:2,:,:))
+!$OMP BARRIER
 
 !$OMP DO PRIVATE(jb,jk,je,jl,i_startidx,i_endidx,lvn_pos,fl_line,tri_line1, &
 !$OMP            tri_line2,fl_e1,fl_e2,lintersect_line1,lintersect_line2,   &

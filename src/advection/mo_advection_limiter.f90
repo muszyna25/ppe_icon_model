@@ -36,7 +36,7 @@ MODULE mo_advection_limiter
 
   USE mo_kind,                ONLY: wp, vp
   USE mo_math_constants,      ONLY: dbl_eps
-  USE mo_fortran_tools,       ONLY: assign_if_present
+  USE mo_fortran_tools,       ONLY: assign_if_present, init
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -408,10 +408,9 @@ CONTAINS
       i_startblk   = ptr_patch%cells%start_blk(1,1)
       i_endblk     = ptr_patch%cells%end_blk(grf_bdywidth_c-1,1)
 
-!$OMP WORKSHARE
-      r_m(:,:,i_startblk:i_endblk) = 0._wp
-      r_p(:,:,i_startblk:i_endblk) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(r_m(:,:,i_startblk:i_endblk))
+      CALL init(r_p(:,:,i_startblk:i_endblk))
+!$OMP BARRIER
     ENDIF
 
     ! 4. Limit the antidiffusive fluxes z_mflx_anti, such that the updated tracer
@@ -719,9 +718,8 @@ CONTAINS
       i_startblk   = ptr_patch%cells%start_blk(1,1)
       i_endblk     = ptr_patch%cells%end_blk(grf_bdywidth_c-1,1)
 
-!$OMP WORKSHARE
-      r_m(:,:,i_startblk:i_endblk) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(r_m(:,:,i_startblk:i_endblk))
+!$OMP BARRIER
     ENDIF
 
     i_rlstart_c = grf_bdywidth_c

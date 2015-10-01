@@ -66,6 +66,7 @@ MODULE mo_action
   USE mo_linked_list,        ONLY: t_list_element
   USE mo_var_list_element,   ONLY: t_var_list_element
   USE mo_var_metadata_types, ONLY: t_var_metadata
+  USE mo_fortran_tools,      ONLY: init
 
   IMPLICIT NONE
 
@@ -476,13 +477,15 @@ CONTAINS
 
     ! re-set field to its pre-defined reset-value
     IF (ASSOCIATED(act_obj%var_element_ptr(ivar)%p%r_ptr)) THEN
-!$OMP PARALLEL WORKSHARE
-      act_obj%var_element_ptr(ivar)%p%r_ptr = act_obj%var_element_ptr(ivar)%p%info%resetval%rval
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+      CALL init(act_obj%var_element_ptr(ivar)%p%r_ptr, &
+           act_obj%var_element_ptr(ivar)%p%info%resetval%rval)
+!$OMP END PARALLEL
     ELSE IF (ASSOCIATED(act_obj%var_element_ptr(ivar)%p%i_ptr)) THEN
-!$OMP PARALLEL WORKSHARE
-      act_obj%var_element_ptr(ivar)%p%i_ptr = act_obj%var_element_ptr(ivar)%p%info%resetval%ival
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+      CALL init(act_obj%var_element_ptr(ivar)%p%i_ptr, &
+           act_obj%var_element_ptr(ivar)%p%info%resetval%ival)
+!$OMP END PARALLEL
     ELSE
       CALL finish (routine, 'Field not allocated for '//TRIM(act_obj%var_element_ptr(ivar)%p%info%name))
     ENDIF

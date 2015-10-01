@@ -101,6 +101,7 @@ MODULE mo_model_domimp_setup
   USE mo_math_utilities
   USE mo_grid_geometry_info, ONLY: planar_torus_geometry, planar_channel_geometry
   USE mo_master_control,     ONLY: my_process_is_ocean
+  USE mo_fortran_tools,      ONLY: init
 
   IMPLICIT NONE
 
@@ -161,12 +162,11 @@ CONTAINS
 
     ! Initialize array elements along nest boundaries with zero
     IF (patch%id > 1) THEN
-!$OMP WORKSHARE
-      patch%edges%quad_area(:,1:i_startblk)            = 0._wp
-      patch%edges%quad_idx(:,1:i_startblk,1:4)         = 0
-      patch%edges%quad_blk(:,1:i_startblk,1:4)         = 0
-      patch%edges%quad_orientation(:,1:i_startblk,1:4) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(patch%edges%quad_area(:,1:i_startblk))
+      CALL init(patch%edges%quad_idx(:,1:i_startblk,1:4))
+      CALL init(patch%edges%quad_blk(:,1:i_startblk,1:4))
+      CALL init(patch%edges%quad_orientation(:,1:i_startblk,1:4))
+!$OMP BARRIER
     ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,iie,ilc1,ibc1,ilc2,ibc2,ile1,ibe1,ile2,ibe2,&
@@ -410,10 +410,9 @@ CONTAINS
 
     ! Initialize array elements along nest boundaries with zero
     IF (patch%id > 1) THEN
-!$OMP WORKSHARE
-      patch%edges%butterfly_idx(:,1:i_startblk,:,:)  = 0
-      patch%edges%butterfly_blk(:,1:i_startblk,:,:)  = 0
-!$OMP END WORKSHARE
+      CALL init(patch%edges%butterfly_idx(:,1:i_startblk,:,:))
+      CALL init(patch%edges%butterfly_blk(:,1:i_startblk,:,:))
+!$OMP BARRIER
     ENDIF
 
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilc1,ilc2,ibc1,ibc2, &

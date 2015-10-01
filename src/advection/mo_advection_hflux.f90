@@ -105,6 +105,7 @@ MODULE mo_advection_hflux
   USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm
   USE mo_timer,               ONLY: timer_adv_horz, timer_start, timer_stop
   USE mo_vertical_coord_table,ONLY: vct_a
+  USE mo_fortran_tools,       ONLY: init, copy
 
   IMPLICIT NONE
 
@@ -971,9 +972,8 @@ CONTAINS
       i_startblk = p_patch%edges%start_blk(i_rlend-1,i_nchdom)
       i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
 
-!$OMP WORKSHARE
-      p_out_e(:,:,i_startblk:i_endblk) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(p_out_e(:,:,i_startblk:i_endblk))
+!$OMP BARRIER
     ENDIF
 
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
@@ -981,9 +981,8 @@ CONTAINS
 
     ! initialize also nest boundary points with zero
     IF ( l_out_edgeval .AND. (p_patch%id > 1 .OR. l_limited_area)) THEN
-!$OMP WORKSHARE
-      p_out_e(:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(p_out_e(:,:,1:i_startblk))
+!$OMP BARRIER
     ENDIF
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), ICON_OMP_RUNTIME_SCHEDULE
@@ -1333,10 +1332,8 @@ CONTAINS
     nnow = 1
     nnew = 2
 !$OMP PARALLEL
-!$OMP WORKSHARE
-    z_tracer(:,slev:elev,:,nnow) = p_cc (:,slev:elev,:)
-    z_rho   (:,slev:elev,:,nnow) = p_rho(:,slev:elev,:)
-!$OMP END WORKSHARE
+    CALL copy(p_cc (:,slev:elev,:), z_tracer(:,slev:elev,:,nnow))
+    CALL copy(p_rho(:,slev:elev,:), z_rho   (:,slev:elev,:,nnow))
 !$OMP END PARALLEL
 
 
@@ -1454,9 +1451,8 @@ CONTAINS
 
 
     IF ( p_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-      z_tracer_mflx(:,:,1:i_startblk,nsub) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(z_tracer_mflx(:,:,1:i_startblk,nsub))
+!$OMP BARRIER
     ENDIF
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0) ICON_OMP_DEFAULT_SCHEDULE
@@ -1540,9 +1536,9 @@ CONTAINS
 
     ! initialize nest boundary points at the second time level
     IF ( nsub == 1 .AND. (p_patch%id > 1 .OR. l_limited_area) ) THEN
-!$OMP WORKSHARE
-      z_tracer(:,slev:elev,1:i_startblk,nnew) = z_tracer(:,slev:elev,1:i_startblk,nnow)
-!$OMP END WORKSHARE
+      CALL copy(z_tracer(:,slev:elev,1:i_startblk,nnow), &
+           z_tracer(:,slev:elev,1:i_startblk,nnew))
+!$OMP BARRIER
     ENDIF
 
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_fluxdiv_c) ICON_OMP_DEFAULT_SCHEDULE
@@ -2023,9 +2019,8 @@ CONTAINS
       i_startblk = p_patch%edges%start_blk(i_rlend-1,i_nchdom)
       i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
 
-!$OMP WORKSHARE
-      p_out_e(:,:,i_startblk:i_endblk) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(p_out_e(:,:,i_startblk:i_endblk))
+!$OMP BARRIER
     ENDIF
 
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
@@ -2033,9 +2028,8 @@ CONTAINS
 
     ! initialize also nest boundary points with zero
     IF ( l_out_edgeval .AND. (p_patch%id > 1 .OR. l_limited_area) ) THEN
-!$OMP WORKSHARE
-      p_out_e(:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(p_out_e(:,:,1:i_startblk))
+!$OMP BARRIER
     ENDIF
 
  !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE

@@ -91,7 +91,7 @@
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_master_config,       ONLY: isRestart
     USE mo_run_config,          ONLY: nsteps, dtime
-
+    USE mo_fortran_tools,       ONLY: copy, init
     IMPLICIT NONE
 
     PRIVATE
@@ -227,11 +227,12 @@
 
          ! topography and metrics are time independent
 !$OMP PARALLEL
-!$OMP WORKSHARE
-         latbc_data(tlev)%topography_c(:,:) = opt_ext_data%atm%topography_c(:,:)
-         latbc_data(tlev)%z_ifc(:,:,:) = opt_p_nh_state%metrics%z_ifc(:,:,:)
-         latbc_data(tlev)%z_mc (:,:,:) = opt_p_nh_state%metrics%z_mc (:,:,:)
-!$OMP END WORKSHARE
+         CALL copy(opt_ext_data%atm%topography_c(:,:), &
+              latbc_data(tlev)%topography_c(:,:))
+         CALL copy(opt_p_nh_state%metrics%z_ifc(:,:,:), &
+              latbc_data(tlev)%z_ifc(:,:,:))
+         CALL copy(opt_p_nh_state%metrics%z_mc (:,:,:), &
+              latbc_data(tlev)%z_mc (:,:,:))
 !$OMP END PARALLEL
 
       END DO
@@ -1098,9 +1099,8 @@
          ENDDO
 !$OMP END DO
       ELSE
-!$OMP WORKSHARE
-         latbc_data(tlev)%atm_in%qr(:,:,:)=0._sp
-!$OMP END WORKSHARE
+        CALL init(latbc_data(tlev)%atm_in%qr(:,:,:))
+!$OMP BARRIER
       ENDIF
 
       IF (latbc_buffer%lread_qs) THEN
@@ -1116,9 +1116,8 @@
          ENDDO
 !$OMP END DO
       ELSE
-!$OMP WORKSHARE
-         latbc_data(tlev)%atm_in%qs(:,:,:)=0._sp
-!$OMP END WORKSHARE
+        CALL init(latbc_data(tlev)%atm_in%qs(:,:,:))
+!$OMP BARRIER
       ENDIF
 
       ! Read parameter surface pressure (LNPS)

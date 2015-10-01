@@ -107,6 +107,7 @@ USE mo_grid_config,         ONLY: l_limited_area
 USE mo_parallel_config,     ONLY: nproma
 USE mo_exception,           ONLY: finish
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+USE mo_fortran_tools,       ONLY: init, copy
 ! USE mo_timer,              ONLY: timer_start, timer_stop, timer_div
 
 IMPLICIT NONE
@@ -799,9 +800,8 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-    p_coeff(:,:,1:6,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_coeff(:,:,1:6,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
@@ -1013,9 +1013,8 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-    p_coeff(:,:,1:6,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_coeff(:,:,1:6,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
@@ -1228,9 +1227,8 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-    p_coeff(:,:,1:8,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_coeff(:,:,1:8,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
@@ -1462,9 +1460,8 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-    p_coeff(:,:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_coeff(:,:,:,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
@@ -1680,9 +1677,8 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-    p_coeff(:,:,1:10,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_coeff(:,:,1:10,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
@@ -1939,9 +1935,8 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-    p_coeff(:,:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_coeff(:,:,:,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
@@ -2526,16 +2521,12 @@ IF (l_limited_area .OR. ptr_patch%id > 1) THEN
   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_start_l2,1)
 !
-  IF (l2fields) THEN
-!$OMP WORKSHARE
-     div_vec_c(:,:,i_startblk:i_endblk) =  aux_c (:,:,i_startblk:i_endblk)
-     opt_out2 (:,:,i_startblk:i_endblk) =  aux_c2(:,:,i_startblk:i_endblk)
-!$OMP END WORKSHARE
-  ELSE
-!$OMP WORKSHARE
-     div_vec_c(:,:,i_startblk:i_endblk) =  aux_c(:,:,i_startblk:i_endblk)
-!$OMP END WORKSHARE
-  ENDIF
+  CALL copy(aux_c (:,:,i_startblk:i_endblk), &
+       div_vec_c(:,:,i_startblk:i_endblk))
+  IF (l2fields) &
+       CALL copy(aux_c2(:,:,i_startblk:i_endblk), &
+       &         opt_out2 (:,:,i_startblk:i_endblk))
+!$OMP BARRIER
 ENDIF
 
 !

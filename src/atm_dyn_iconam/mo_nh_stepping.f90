@@ -156,7 +156,7 @@ MODULE mo_nh_stepping
     &                                    end_latbc_tlev, latbc_data, update_lin_interpolation
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_interface_les,            ONLY: init_les_phy_interface
-  USE mo_fortran_tools,            ONLY: swap
+  USE mo_fortran_tools,            ONLY: swap, copy, init
   USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, &
        &                                 PROLEPTIC_GREGORIAN, setCalendar,                            &
        &                                 timedelta, newTimedelta, deallocateTimedelta,                &
@@ -1173,12 +1173,14 @@ MODULE mo_nh_stepping
       n_save = nsav2(jg)
       n_now = nnow(jg)
 !$OMP PARALLEL
-!$OMP WORKSHARE
-      p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
-      p_nh_state(jg)%prog(n_save)%w       = p_nh_state(jg)%prog(n_now)%w
-      p_nh_state(jg)%prog(n_save)%rho     = p_nh_state(jg)%prog(n_now)%rho
-      p_nh_state(jg)%prog(n_save)%theta_v = p_nh_state(jg)%prog(n_now)%theta_v
-!$OMP END WORKSHARE
+      CALL copy(p_nh_state(jg)%prog(n_now)%vn, &
+           p_nh_state(jg)%prog(n_save)%vn)
+      CALL copy(p_nh_state(jg)%prog(n_now)%w, &
+           p_nh_state(jg)%prog(n_save)%w)
+      CALL copy(p_nh_state(jg)%prog(n_now)%rho, &
+           p_nh_state(jg)%prog(n_save)%rho)
+      CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, &
+           p_nh_state(jg)%prog(n_save)%theta_v)
 !$OMP END PARALLEL
 
     ENDIF
@@ -1193,12 +1195,14 @@ MODULE mo_nh_stepping
         n_now = nnow(jg)
         n_save = nsav2(jg)
 !$OMP PARALLEL
-!$OMP WORKSHARE
-        p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
-        p_nh_state(jg)%prog(n_save)%w       = p_nh_state(jg)%prog(n_now)%w
-        p_nh_state(jg)%prog(n_save)%rho     = p_nh_state(jg)%prog(n_now)%rho
-        p_nh_state(jg)%prog(n_save)%theta_v = p_nh_state(jg)%prog(n_now)%theta_v
-!$OMP END WORKSHARE
+        CALL copy(p_nh_state(jg)%prog(n_now)%vn, &
+             p_nh_state(jg)%prog(n_save)%vn)
+        CALL copy(p_nh_state(jg)%prog(n_now)%w, &
+             p_nh_state(jg)%prog(n_save)%w)
+        CALL copy(p_nh_state(jg)%prog(n_now)%rho, &
+             p_nh_state(jg)%prog(n_save)%rho)
+        CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, &
+             p_nh_state(jg)%prog(n_save)%theta_v)
 !$OMP END PARALLEL
       ENDIF
 
@@ -1217,12 +1221,16 @@ MODULE mo_nh_stepping
         ! interpolation tendencies
         n_now  = nnow(jg)
         n_save = nsav1(jg)
-!$OMP PARALLEL WORKSHARE
-        p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
-        p_nh_state(jg)%prog(n_save)%w       = p_nh_state(jg)%prog(n_now)%w
-        p_nh_state(jg)%prog(n_save)%rho     = p_nh_state(jg)%prog(n_now)%rho
-        p_nh_state(jg)%prog(n_save)%theta_v = p_nh_state(jg)%prog(n_now)%theta_v
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+        CALL copy(p_nh_state(jg)%prog(n_now)%vn, &
+             p_nh_state(jg)%prog(n_save)%vn)
+        CALL copy(p_nh_state(jg)%prog(n_now)%w, &
+             p_nh_state(jg)%prog(n_save)%w)
+        CALL copy(p_nh_state(jg)%prog(n_now)%rho, &
+             p_nh_state(jg)%prog(n_save)%rho)
+        CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, &
+             p_nh_state(jg)%prog(n_save)%theta_v)
+!$OMP END PARALLEL
 
       ENDIF
 
@@ -2422,9 +2430,10 @@ MODULE mo_nh_stepping
     INTEGER, INTENT(IN) :: nnow ! time step indicator
 
 
-!$OMP PARALLEL WORKSHARE
-    p_nh_state(jg)%diag%exner_old(:,:,:) = p_nh_state(jg)%prog(nnow)%exner(:,:,:)
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+    CALL copy(p_nh_state(jg)%prog(nnow)%exner, &
+         p_nh_state(jg)%diag%exner_old)
+!$OMP END PARALLEL
 
   END SUBROUTINE init_exner_old
 
@@ -2766,13 +2775,11 @@ MODULE mo_nh_stepping
     ! initialize (as long as restart output is synchroinzed with advection,
     ! these variables do not need to go into the restart file)
 !$OMP PARALLEL
-!$OMP WORKSHARE
-    prep_adv(jg)%mass_flx_me (:,:,:) = 0._wp
-    prep_adv(jg)%mass_flx_ic (:,:,:) = 0._wp
-    prep_adv(jg)%vn_traj     (:,:,:) = 0._wp
-    prep_adv(jg)%w_traj      (:,:,:) = 0._wp
-    prep_adv(jg)%topflx_tra  (:,:,:) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(prep_adv(jg)%mass_flx_me)
+    CALL init(prep_adv(jg)%mass_flx_ic)
+    CALL init(prep_adv(jg)%vn_traj)
+    CALL init(prep_adv(jg)%w_traj)
+    CALL init(prep_adv(jg)%topflx_tra)
 !$OMP END PARALLEL
 
   ENDDO

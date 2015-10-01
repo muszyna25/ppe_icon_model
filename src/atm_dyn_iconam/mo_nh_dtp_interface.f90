@@ -42,6 +42,7 @@ MODULE mo_nh_dtp_interface
   USE mo_advection_config,   ONLY: advection_config
   USE mo_initicon_config,     ONLY: is_iau_active, iau_wgt_adv
   USE mo_timer,              ONLY: timers_level, timer_start, timer_stop, timer_prep_tracer
+  USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
   PRIVATE
@@ -203,10 +204,9 @@ CONTAINS
     ENDIF
 
     IF (lfull_comp .AND. p_test_run .AND. lclean_mflx) THEN ! Reset also halo points to zero
-!$OMP WORKSHARE
-        p_vn_traj    (:,:,i_endblk+1:p_patch%nblks_e) = 0._wp
-        p_mass_flx_me(:,:,i_endblk+1:p_patch%nblks_e) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(p_vn_traj    (:,:,i_endblk+1:p_patch%nblks_e))
+      CALL init(p_mass_flx_me(:,:,i_endblk+1:p_patch%nblks_e))
+!$OMP BARRIER
     ENDIF
 
 
@@ -252,10 +252,9 @@ CONTAINS
     ENDIF
 
     IF (lfull_comp .AND. p_test_run .AND. lclean_mflx) THEN ! Reset also halo points to zero
-!$OMP WORKSHARE
-        p_mass_flx_ic(:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
-        p_w_traj     (:,:,i_endblk+1:p_patch%nblks_c) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(p_mass_flx_ic(:,:,i_endblk+1:p_patch%nblks_c))
+      CALL init(p_w_traj     (:,:,i_endblk+1:p_patch%nblks_c))
+!$OMP BARRIER
     ENDIF
 
 

@@ -172,6 +172,7 @@ MODULE mo_intp_coeffs
   USE mo_grid_subset,         ONLY: get_index_range
   USE mo_grid_geometry_info,  ONLY: planar_torus_geometry, sphere_geometry
   USE mo_grid_subset,         ONLY: get_index_range
+  USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
 
@@ -2824,22 +2825,21 @@ CONTAINS
 
     ! Initialization of lateral boundary points
     IF (ptr_patch%id > 1) THEN
-!$OMP WORKSHARE
-      ptr_patch%edges%inv_dual_edge_length(:,1:i_startblk)    = 0._wp
-      ptr_patch%edges%vertex_idx(:,1:i_startblk,3)            = 0
-      ptr_patch%edges%vertex_idx(:,1:i_startblk,4)            = 0
-      ptr_patch%edges%vertex_blk(:,1:i_startblk,3)            = 0
-      ptr_patch%edges%vertex_blk(:,1:i_startblk,4)            = 0
-      ptr_patch%edges%inv_vert_vert_length(:,1:i_startblk)    = 0._wp
-      ptr_patch%edges%primal_normal_cell(:,1:i_startblk,:)%v1 = 0._wp
-      ptr_patch%edges%dual_normal_cell  (:,1:i_startblk,:)%v1 = 0._wp
-      ptr_patch%edges%primal_normal_vert(:,1:i_startblk,:)%v1 = 0._wp
-      ptr_patch%edges%dual_normal_vert  (:,1:i_startblk,:)%v1 = 0._wp
-      ptr_patch%edges%primal_normal_cell(:,1:i_startblk,:)%v2 = 0._wp
-      ptr_patch%edges%dual_normal_cell  (:,1:i_startblk,:)%v2 = 0._wp
-      ptr_patch%edges%primal_normal_vert(:,1:i_startblk,:)%v2 = 0._wp
-      ptr_patch%edges%dual_normal_vert  (:,1:i_startblk,:)%v2 = 0._wp
-!$OMP END WORKSHARE
+      CALL init(ptr_patch%edges%inv_dual_edge_length(:,1:i_startblk))
+      CALL init(ptr_patch%edges%vertex_idx(:,1:i_startblk,3))
+      CALL init(ptr_patch%edges%vertex_idx(:,1:i_startblk,4))
+      CALL init(ptr_patch%edges%vertex_blk(:,1:i_startblk,3))
+      CALL init(ptr_patch%edges%vertex_blk(:,1:i_startblk,4))
+      CALL init(ptr_patch%edges%inv_vert_vert_length(:,1:i_startblk))
+      CALL init(ptr_patch%edges%primal_normal_cell(:,1:i_startblk,:)%v1)
+      CALL init(ptr_patch%edges%dual_normal_cell  (:,1:i_startblk,:)%v1)
+      CALL init(ptr_patch%edges%primal_normal_vert(:,1:i_startblk,:)%v1)
+      CALL init(ptr_patch%edges%dual_normal_vert  (:,1:i_startblk,:)%v1)
+      CALL init(ptr_patch%edges%primal_normal_cell(:,1:i_startblk,:)%v2)
+      CALL init(ptr_patch%edges%dual_normal_cell  (:,1:i_startblk,:)%v2)
+      CALL init(ptr_patch%edges%primal_normal_vert(:,1:i_startblk,:)%v2)
+      CALL init(ptr_patch%edges%dual_normal_vert  (:,1:i_startblk,:)%v2)
+!$OMP BARRIER
     ENDIF
     !
     ! loop through all patch edges

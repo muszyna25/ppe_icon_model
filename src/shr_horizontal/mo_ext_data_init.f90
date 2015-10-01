@@ -92,6 +92,7 @@ MODULE mo_ext_data_init
     &                              vlistNtsteps, vlistInqVarGrid, vlistInqAttTxt,    &
     &                              vlistInqVarIntKey, CDI_GLOBAL, gridInqUUID, streamClose
   USE mo_math_gradients,     ONLY: grad_fe_cell
+  USE mo_fortran_tools,      ONLY: var_scale
 
   IMPLICIT NONE
 
@@ -1046,10 +1047,10 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP WORKSHARE
             ! Scale from [%] to [1]
-            ext_data(jg)%atm_td%alb_dif(:,:,:)   = ext_data(jg)%atm_td%alb_dif(:,:,:)/100._wp
-            ext_data(jg)%atm_td%albuv_dif(:,:,:) = ext_data(jg)%atm_td%albuv_dif(:,:,:)/100._wp
-            ext_data(jg)%atm_td%albni_dif(:,:,:) = ext_data(jg)%atm_td%albni_dif(:,:,:)/100._wp
-!$OMP END WORKSHARE
+            CALL var_scale(ext_data(jg)%atm_td%alb_dif(:,:,:), 1._wp/100._wp)
+            CALL var_scale(ext_data(jg)%atm_td%albuv_dif(:,:,:), 1._wp/100._wp)
+            CALL var_scale(ext_data(jg)%atm_td%albni_dif(:,:,:), 1._wp/100._wp)
+!$OMP BARRIER
 
 
             IF (itune_albedo >= 1) THEN

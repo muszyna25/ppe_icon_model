@@ -108,6 +108,7 @@ MODULE mo_nwp_phy_init
   USE mo_nwp_tuning_config,   ONLY: tune_gkwake, tune_gkdrag, tune_zceff_min, &
     &                               tune_v0snow, tune_zvz0i
   USE mo_sso_cosmo,           ONLY: sso_cosmo_init_param
+  USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
 
@@ -1367,10 +1368,10 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     CALL susveg
     CALL sussoil
 
-!$OMP PARALLEL WORKSHARE
+!$OMP PARALLEL
     ! paranoia: Make sure that rcld is initialized  (needed by cloud cover scheme)
-    prm_diag%rcld(:,:,:)    = 0._wp
-!$OMP END PARALLEL WORKSHARE
+    CALL init(prm_diag%rcld(:,:,:))
+!$OMP END PARALLEL
 
   ENDIF
 

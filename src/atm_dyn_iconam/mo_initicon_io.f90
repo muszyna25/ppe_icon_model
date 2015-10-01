@@ -69,6 +69,7 @@ MODULE mo_initicon_io
   USE mo_io_util,             ONLY: get_filetype
   USE mo_initicon_utils,      ONLY: initicon_inverse_post_op, allocate_extana_atm, allocate_extana_sfc
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
+  USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
 
@@ -1517,9 +1518,9 @@ MODULE mo_initicon_io
       IF (init_mode /= MODE_COSMODE) THEN
         CALL read_data_2d(parameters, filetype, 'fr_seaice', lnd_diag%fr_seaice, tileinfo, opt_checkgroup=checkgrp)
       ELSE
-!$OMP PARALLEL WORKSHARE
-        lnd_diag%fr_seaice(:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+        CALL init(lnd_diag%fr_seaice(:,:))
+!$OMP END PARALLEL
       ENDIF ! init_mode /= MODE_COSMODE
 
 

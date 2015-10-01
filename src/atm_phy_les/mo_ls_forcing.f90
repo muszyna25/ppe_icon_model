@@ -38,6 +38,7 @@ MODULE mo_ls_forcing
   USE mo_les_utilities
   USE mo_ls_forcing_nml
   USE mo_physical_constants,  ONLY: rd, cpd, alv, cvd
+  USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
 
@@ -168,12 +169,12 @@ MODULE mo_ls_forcing
     REAL(wp) :: inv_no_gb_cells
     INTEGER  :: i_nchdom, i_startblk, i_endblk, jk, nlev, nlevp1
 
-    !0) Initialize all passed ddt's to 0 
-!$OMP PARALLEL WORKSHARE
-    ddt_u_ls  = 0._wp; ddt_v_ls = 0._wp;  ddt_temp_ls = 0._wp
-    ddt_qv_ls = 0._wp
-!$OMP END PARALLEL WORKSHARE
-   
+    !0) Initialize all passed ddt's to 0
+!$OMP PARALLEL
+    CALL init(ddt_u_ls); CALL init(ddt_v_ls);  CALL init(ddt_temp_ls)
+    call init(ddt_qv_ls)
+!$OMP END PARALLEL
+
     i_nchdom  = MAX(1,p_patch%n_childdom)
     nlev      = p_patch%nlev
     nlevp1    = p_patch%nlev+1

@@ -57,6 +57,7 @@ MODULE mo_sgs_turbmetric
                                     idx_sgs_u_flx, idx_sgs_v_flx
   USE mo_statistics,          ONLY: levels_horizontal_mean
   USE mo_les_utilities,       ONLY: brunt_vaisala_freq, vert_intp_full2half_cell_3d
+  USE mo_fortran_tools,       ONLY: copy, init
 
   IMPLICIT NONE
 
@@ -160,11 +161,11 @@ MODULE mo_sgs_turbmetric
 
     !Initialize
 
-!$OMP PARALLEL WORKSHARE
-    visc_smag_iv(:,:,:) = 0._wp
-    visc_smag_c(:,:,:)  = 0._wp
-    visc_smag_ie(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+    CALL init(visc_smag_iv(:,:,:))
+    CALL init(visc_smag_c(:,:,:))
+    CALL init(visc_smag_ie(:,:,:))
+!$OMP END PARALLEL
 
     IF(p_test_run)THEN
       u_vert(:,:,:)     = 0._wp; v_vert(:,:,:) = 0._wp; w_vert(:,:,:) = 0._wp
@@ -231,10 +232,8 @@ MODULE mo_sgs_turbmetric
                           p_nh_prog%exner, prm_diag, p_nh_prog%rho, dt, 'qc')
     ELSE
 !$OMP PARALLEL
-!$OMP WORKSHARE
-      prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv) = 0._wp
-      prm_nwp_tend%ddt_tracer_turb(:,:,:,iqc) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(prm_nwp_tend%ddt_tracer_turb(:,:,:,iqv))
+      CALL init(prm_nwp_tend%ddt_tracer_turb(:,:,:,iqc))
 !$OMP END PARALLEL
     END IF
 
@@ -773,11 +772,11 @@ MODULE mo_sgs_turbmetric
     iecidx => p_patch%edges%cell_idx
     iecblk => p_patch%edges%cell_blk
 
-!$OMP PARALLEL WORKSHARE
-    a(:,:) = 0._wp; c(:,:) = 0._wp
-    tot_tend(:,:,:) = 0._wp
-    vn_new(:,:,:) = p_nh_prog%vn(:,:,:)
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+    CALL init(a(:,:)); CALL init(c(:,:))
+    CALL init(tot_tend(:,:,:))
+    CALL copy(p_nh_prog%vn(:,:,:), vn_new(:,:,:))
+!$OMP END PARALLEL
 
     !density at edge
     CALL cells2edges_scalar(p_nh_prog%rho, p_patch, p_int%c_lin_e, inv_rhoe, &
@@ -1485,12 +1484,11 @@ MODULE mo_sgs_turbmetric
 
     IF(is_sampling_time)THEN
 
-!$OMP PARALLEL
-!$OMP WORKSHARE
-      unew(:,:,:)   = 0._wp
-      vnew(:,:,:)   = 0._wp
-      vn_new(:,:,:) = 0._wp
-!$OMP END WORKSHARE
+!$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
+      CALL init(unew(:,:,:))
+      CALL init(vnew(:,:,:))
+      CALL init(vn_new(:,:,:))
+!$OMP BARRIER
 
       rl_start = grf_bdywidth_e+1
       rl_end   = min_rledge_int
@@ -1637,10 +1635,9 @@ MODULE mo_sgs_turbmetric
     tot_tend => ddt_w
 
     !Some initializations
-!$OMP PARALLEL WORKSHARE
-    a(:,:) = 0._wp;
-    c(:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+    CALL init(a(:,:)); CALL init(c(:,:))
+!$OMP END PARALLEL
 
     IF(p_test_run)THEN
       tot_tend(:,:,:) = 0._wp
@@ -2169,14 +2166,14 @@ MODULE mo_sgs_turbmetric
 
     !1) First set exner local vars to 1 for other scalars
     !   Soon get different routines for different scalars
-!$OMP PARALLEL WORKSHARE
-    exner_me(:,:,:) = 1._wp
-    exner_ie(:,:,:) = 1._wp
-    exner_ic(:,:,:) = 1._wp
-    a(:,:)          = 0._wp
-    c(:,:)          = 0._wp
-    var_ic(:,:,:)   = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+    CALL init(exner_me(:,:,:))
+    CALL init(exner_ie(:,:,:))
+    CALL init(exner_ic(:,:,:))
+    CALL init(a(:,:))
+    CALL init(c(:,:))
+    CALL init(var_ic(:,:,:))
+!$OMP END PARALLEL
 
     !2) Calculate exner at edge for horizontal diffusion
 

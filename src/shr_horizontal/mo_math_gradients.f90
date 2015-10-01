@@ -102,6 +102,7 @@ USE mo_run_config,         ONLY: timers_level
 USE mo_exception,          ONLY: finish
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_grad
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
+USE mo_fortran_tools,      ONLY: init
 
 IMPLICIT NONE
 
@@ -497,9 +498,8 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 
   IF (ptr_patch%id > 1) THEN
   ! Fill nest boundaries with zero to avoid trouble with MPI synchronization
-!$OMP WORKSHARE
-    p_grad(:,:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_grad(:,:,:,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
@@ -629,9 +629,8 @@ i_nchdom = MAX(1,ptr_patch%n_childdom)
 
   IF (ptr_patch%id > 1) THEN
   ! Fill nest boundaries with zero to avoid trouble with MPI synchronization
-!$OMP WORKSHARE
-    p_grad(:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_grad(:,:,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
@@ -933,9 +932,8 @@ ENDIF
 
   IF (ptr_patch%id > 1) THEN
   ! Fill nest boundaries with zero to avoid trouble with MPI synchronization
-!$OMP WORKSHARE
-    p_grad(:,:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_grad(:,:,:,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE

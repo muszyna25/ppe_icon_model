@@ -61,7 +61,8 @@ MODULE mo_sync_latbc
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport
   USE mo_initicon_config,     ONLY: init_mode
-  
+  USE mo_fortran_tools,       ONLY: copy
+
   IMPLICIT NONE
 
   ! required for reading netcdf files
@@ -172,11 +173,12 @@ MODULE mo_sync_latbc
 
       ! topography and metrics are time independent
 !$OMP PARALLEL
-!$OMP WORKSHARE
-      p_latbc_data(tlev)%topography_c(:,:) = ext_data%atm%topography_c(:,:)
-      p_latbc_data(tlev)%z_ifc(:,:,:) = p_nh_state%metrics%z_ifc(:,:,:)
-      p_latbc_data(tlev)%z_mc (:,:,:) = p_nh_state%metrics%z_mc (:,:,:) 
-!$OMP END WORKSHARE
+      CALL copy(ext_data%atm%topography_c(:,:), &
+           p_latbc_data(tlev)%topography_c(:,:))
+      CALL copy(p_nh_state%metrics%z_ifc(:,:,:), &
+           p_latbc_data(tlev)%z_ifc(:,:,:))
+      CALL copy(p_nh_state%metrics%z_mc (:,:,:), &
+           p_latbc_data(tlev)%z_mc(:,:,:))
 !$OMP END PARALLEL
 
     END DO

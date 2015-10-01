@@ -58,6 +58,7 @@ MODULE mo_vertical_grid
   USE mo_les_config,           ONLY: les_config
   USE mo_impl_constants,       ONLY: min_rlvert_int
   USE mo_data_turbdiff,        ONLY: akt
+  USE mo_fortran_tools,        ONLY: copy, init
 
   IMPLICIT NONE
 
@@ -446,13 +447,11 @@ MODULE mo_vertical_grid
       ALLOCATE (z_maxslp(nproma,nlev,nblks_c), z_maxhgtd(nproma,nlev,nblks_c) )
 
 !$OMP PARALLEL
-!$OMP WORKSHARE
       ! Initialization to ensure that values are properly set at lateral boundaries
-      p_nh(jg)%metrics%exner_exfac(:,:,:) = exner_expol
-
-      z_maxslp(:,:,:)  = 0._wp
-      z_maxhgtd(:,:,:) = 0._wp
-!$OMP END WORKSHARE
+      CALL init(p_nh(jg)%metrics%exner_exfac(:,:,:), exner_expol)
+      CALL init(z_maxslp(:,:,:))
+      CALL init(z_maxhgtd(:,:,:))
+!$OMP BARRIER
 
 !$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jc, z_maxslope, z_offctr, z_diff) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,nblks_c
@@ -1968,11 +1967,11 @@ MODULE mo_vertical_grid
 !$OMP END PARALLEL
 
    IF(p_test_run)THEN
-!$OMP PARALLEL WORKSHARE
-    p_nh%metrics%inv_ddqz_z_half_v(:,:,:) = 0._wp
-    p_nh%metrics%inv_ddqz_z_half_e(:,:,:) = 0._wp
-    p_nh%metrics%wgtfac_v(:,:,:)          = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+     CALL init(p_nh%metrics%inv_ddqz_z_half_v(:,:,:))
+     CALL init(p_nh%metrics%inv_ddqz_z_half_e(:,:,:))
+     call init(p_nh%metrics%wgtfac_v(:,:,:))
+!$OMP END PARALLEL
   END IF
 
    CALL cells2verts_scalar(p_nh%metrics%inv_ddqz_z_half, p_patch, p_int%cells_aw_verts, &

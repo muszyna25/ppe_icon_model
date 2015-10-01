@@ -143,7 +143,7 @@ USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
 USE mo_model_domain,        ONLY: t_patch
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc,      ONLY: t_int_state
-
+USE mo_fortran_tools,       ONLY: init
 IMPLICIT NONE
 
 
@@ -405,10 +405,9 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !$OMP PARALLEL
 
 IF (ptr_patch%id > 1) THEN
-!$OMP WORKSHARE
-  grad_x(:,:,1:i_startblk) = 0._wp
-  grad_y(:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+  CALL init(grad_x(:,:,1:i_startblk))
+  CALL init(grad_y(:,:,1:i_startblk))
+!$OMP BARRIER
 ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE

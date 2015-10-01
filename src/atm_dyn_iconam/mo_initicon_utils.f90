@@ -77,6 +77,7 @@ MODULE mo_initicon_utils
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_statistics,          ONLY: time_avg
+  USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
 
@@ -2031,10 +2032,9 @@ MODULE mo_initicon_utils
 
         ! initialize with 0, since some increments are only read
         ! for specific times
-!$OMP PARALLEL WORKSHARE
-        initicon(jg)%sfc_inc%w_so(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
-
+!$OMP PARALLEL
+        CALL init(initicon(jg)%sfc_inc%w_so(:,:,:))
+!$OMP END PARALLEL
         initicon(jg)%sfc_inc%linitialized = .TRUE.
 
         ! allocate additional fields for MODE_IAU
@@ -2044,10 +2044,10 @@ MODULE mo_initicon_utils
 
         ! initialize with 0, since some increments are only read
         ! for specific times
-!$OMP PARALLEL WORKSHARE
-        initicon(jg)%sfc_inc%h_snow   (:,:) = 0._wp
-        initicon(jg)%sfc_inc%freshsnow(:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+          CALL init(initicon(jg)%sfc_inc%h_snow   (:,:))
+          CALL init(initicon(jg)%sfc_inc%freshsnow(:,:))
+!$OMP END PARALLEL
         ENDIF  ! MODE_IAU
 
       ENDIF
