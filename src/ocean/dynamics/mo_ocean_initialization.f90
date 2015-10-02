@@ -30,13 +30,14 @@
 MODULE mo_ocean_initialization
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
-  USE mo_mpi,                 ONLY: global_mpi_barrier,my_process_is_mpi_test
+  USE mo_mpi,                 ONLY: my_process_is_mpi_test
   USE mo_parallel_config,     ONLY: nproma
   USE mo_master_config,       ONLY: isRestart
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     & success, max_char_length, min_dolic,               &
     & full_coriolis, beta_plane_coriolis,                &
-    & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
+    & f_plane_coriolis, zero_coriolis, halo_levels_ceiling, &
+    & on_cells, on_edges, on_vertices
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
     & coriolis_type, basin_center_lat, basin_height_deg, iswm_oce, coriolis_fplane_latitude
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
@@ -72,7 +73,8 @@ MODULE mo_ocean_initialization
     & t_hydro_ocean_aux, &
     & t_hydro_ocean_acc, &
     & t_oce_config, &
-    & t_ocean_tracer, &
+    & t_ocean_tracer
+  USE mo_ocean_diagnostics_types, ONLY: &
     & t_ocean_regions, &
     & t_ocean_region_volumes, &
     & t_ocean_region_areas, &
@@ -1841,10 +1843,13 @@ CONTAINS
         ENDDO
       ENDDO
       ! recalculate cells subsets
-      CALL fill_subset(patch_2d%cells%ALL, patch_2d, patch_2d%cells%decomp_info%halo_level, &
-        & 0, halo_levels_ceiling)
-      CALL fill_subset(patch_2d%cells%owned, patch_2d, patch_2d%cells%decomp_info%halo_level, 0, 0)
-      CALL fill_subset(patch_2d%cells%in_domain, patch_2d, patch_2d%cells%decomp_info%halo_level, 0, 0)
+      CALL fill_subset(subset=patch_2D%cells%all, patch=patch_2D, &
+        & mask=patch_2D%cells%decomp_info%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_cells)
+      CALL fill_subset(subset=patch_2D%cells%owned, patch=patch_2D, &
+        & mask=patch_2D%cells%decomp_info%halo_level, start_mask=0, end_mask=0, located=on_cells)
+      
+      CALL fill_subset(subset=patch_2D%cells%in_domain, patch=patch_2D, &
+        & mask=patch_2D%cells%decomp_info%halo_level, start_mask=0, end_mask=0, located=on_cells)
       
       ! edges
       DO BLOCK = all_edges%start_block, all_edges%end_block
@@ -1857,11 +1862,13 @@ CONTAINS
         ENDDO
       ENDDO
       ! recalculate edges subsets
-      CALL fill_subset(patch_2d%edges%ALL, patch_2d, patch_2d%edges%decomp_info%halo_level, &
-        & 0, halo_levels_ceiling)
-      CALL fill_subset(patch_2d%edges%in_domain, patch_2d, patch_2d%edges%decomp_info%halo_level, 0, 0)
-      CALL fill_subset(patch_2d%edges%in_domain, patch_2d, patch_2d%edges%decomp_info%halo_level, 0, 1)
-      
+      CALL fill_subset(subset=patch_2D%edges%all, patch=patch_2D, &
+        & mask=patch_2D%edges%decomp_info%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_edges)
+      CALL fill_subset(subset=patch_2D%edges%owned, patch=patch_2D, &
+        & mask=patch_2D%edges%decomp_info%halo_level, start_mask=0, end_mask=0, located=on_edges)
+      CALL fill_subset(subset=patch_2D%edges%in_domain, patch=patch_2D, &
+        & mask=patch_2D%edges%decomp_info%halo_level, start_mask=0, end_mask=1, located=on_edges)
+
       ! verts
       DO BLOCK = all_verts%start_block, all_verts%end_block
         CALL get_index_range(all_verts, BLOCK, startidx, endidx)
@@ -1873,10 +1880,12 @@ CONTAINS
         ENDDO
       ENDDO
       ! recalculate verts subsets
-      CALL fill_subset(patch_2d%verts%ALL, patch_2d, patch_2d%verts%decomp_info%halo_level, &
-        & 0, halo_levels_ceiling)
-      CALL fill_subset(patch_2d%verts%owned, patch_2d, patch_2d%verts%decomp_info%halo_level, 0, 0)
-      CALL fill_subset(patch_2d%verts%in_domain, patch_2d, patch_2d%verts%decomp_info%halo_level, 0, 1)
+      CALL fill_subset(subset=patch_2D%verts%all,  patch=patch_2D, &
+        & mask=patch_2D%verts%decomp_info%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_vertices)
+      CALL fill_subset(subset=patch_2D%verts%owned, patch=patch_2D, &
+        & mask=patch_2D%verts%decomp_info%halo_level, start_mask=0, end_mask=0, located=on_vertices)
+      CALL fill_subset(subset=patch_2D%verts%in_domain, patch=patch_2D, &
+        & mask=patch_2D%verts%decomp_info%halo_level, start_mask=0, end_mask=1, located=on_vertices)
       
     ENDIF
   END SUBROUTINE ocean_subsets_ignore_land

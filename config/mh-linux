@@ -430,12 +430,13 @@ case "$ac_sitename" in
                 ;;
             btc*|mlogin*)
                 load_profile  = "." "/etc/profile"
+                load_modules  = ncl cdo ${load_modules}
                 software_tree = /sw/rhel6-x64
                 config_target = bullx
                 make_command  = make -j4
                 submit        = sbatch
                 sync_submit   = srunjob
-                queue         = compute
+                queue         = compute                
                 case "$fortran_compiler" in
                     intel*)
                         load_modules    =  cdo/default svn/1.8.13   ${load_modules}
