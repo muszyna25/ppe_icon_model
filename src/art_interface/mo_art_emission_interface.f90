@@ -201,7 +201,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
         this_mode => p_mode_state(jg)%p_mode_list%p%first_mode
       
         DO WHILE(ASSOCIATED(this_mode))
-          emiss_rate(:,:) = 0._wp
           ! Check how many moments the mode has
           select type (fields=>this_mode%fields)
             type is (t_fields_2mom)
@@ -211,6 +210,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                 CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                   &                istart, iend, i_rlstart, i_rlend)
                   
+                emiss_rate(:,:) = 0._wp
+                
                 ! Get model layer heights
                 DO jk = 1, nlev
                   DO jc = istart, iend
