@@ -31,8 +31,8 @@ MODULE mo_io_restart_attributes
   !------------------------------------------------------------------------------------------------
   !
   TYPE t_att_text
-    CHARACTER(len=64) :: name
-    CHARACTER(len=64) :: val
+    CHARACTER(len= 64) :: name
+    CHARACTER(len=256) :: val
   END TYPE t_att_text
   !
   TYPE t_att_real
@@ -324,7 +324,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: root_pe      !< rank of broadcast root PE
     INTEGER, INTENT(IN) :: comm         !< MPI communicator
     !
-    CHARACTER(len=64) :: att_name
+    CHARACTER(len=256) :: att_name
     INTEGER :: natts, att_type, att_len, status, text_len, i
     REAL(KIND = C_DOUBLE) :: oneDouble(1)
     INTEGER(KIND = C_INT) :: oneInt(1)

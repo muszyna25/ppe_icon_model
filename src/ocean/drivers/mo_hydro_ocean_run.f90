@@ -27,7 +27,7 @@ MODULE mo_hydro_ocean_run
   USE mo_grid_config,            ONLY: n_dom
   USE mo_ocean_nml,              ONLY: iswm_oce, n_zlev, no_tracer, &
     & i_sea_ice, cfl_check, cfl_threshold, cfl_stop_on_violation, cfl_write, surface_module
-! USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
+  USE mo_ocean_nml,              ONLY: iforc_oce, Coupled_FluxFromAtmo
   USE mo_dynamics_config,        ONLY: nold, nnew
   USE mo_io_config,              ONLY: n_checkpoints
   USE mo_run_config,             ONLY: nsteps, dtime, ltimer, output_mode, debug_check_level
@@ -63,14 +63,14 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_time_config,            ONLY: time_config
-  USE mo_master_control,         ONLY: is_restart_run
+  USE mo_master_config,          ONLY: isRestart
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
   USE mo_dbg_nml,                ONLY: idbg_mxmn
   USE mo_statistics
   USE mo_ocean_statistics
   USE mo_ocean_output
-! USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
+  USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
 
   IMPLICIT NONE
 
@@ -181,11 +181,11 @@ CONTAINS
 
     !------------------------------------------------------------------
     jstep0 = 0
-    IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+    IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
       ! get start counter for time loop from restart file:
       CALL get_restart_attribute("jstep", jstep0)
     END IF
-    IF (is_restart_run() .AND. mod(nold(jg),2) /=1 ) THEN
+    IF (isRestart() .AND. mod(nold(jg),2) /=1 ) THEN
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))
     ENDIF
@@ -368,9 +368,9 @@ CONTAINS
         &                p_ice,                 &
         &                jstep, jstep0)
       
-      ! #slo#-2015-04-15: call to coupling routine at the end of time stepping loop - TODO: check location
-   !  IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
-   !    &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state, p_ice, p_atm_f, jstep, datetime)
+      ! receive coupling fluxes for ocean at the end of time stepping loop
+      IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
+        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), p_ice, p_atm_f, datetime)
 
       IF (timers_level > 2)  CALL timer_start(timer_extra21)
       ! Shift time indices for the next loop

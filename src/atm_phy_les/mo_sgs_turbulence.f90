@@ -56,7 +56,6 @@ MODULE mo_sgs_turbulence
                                     idx_sgs_u_flx, idx_sgs_v_flx
   USE mo_statistics,          ONLY: levels_horizontal_mean
   USE mo_les_utilities,       ONLY: brunt_vaisala_freq, vert_intp_full2half_cell_3d
-  USE mo_sgs_turbmetric,      ONLY: drive_subgrid_diffusion_m
 
   IMPLICIT NONE
 
@@ -89,7 +88,7 @@ MODULE mo_sgs_turbulence
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-03-05)
-  SUBROUTINE drive_subgrid_diffusion(linit, p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
+  SUBROUTINE drive_subgrid_diffusion(p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
                                      p_patch, p_int, p_prog_lnd_now, p_prog_lnd_new,   &
                                      p_diag_lnd, prm_diag, prm_nwp_tend, dt)
 
@@ -105,7 +104,6 @@ MODULE mo_sgs_turbulence
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
     REAL(wp),          INTENT(in)        :: dt
-    LOGICAL,           INTENT(in)        :: linit         !indicate the first time step
 
     REAL(wp), ALLOCATABLE :: theta(:,:,:), theta_v(:,:,:)
 
@@ -126,15 +124,6 @@ MODULE mo_sgs_turbulence
     nlevp1 = nlev+1
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
-    ! if les metrics is choosen, drive the subgrid diffusion from mo_sgs_turbmetric
-    IF (les_config(jg)%les_metric) THEN
-      CALL drive_subgrid_diffusion_m(linit, p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
-                                     p_patch, p_int, p_prog_lnd_now, p_prog_lnd_new,   &
-                                     p_diag_lnd, prm_diag, prm_nwp_tend, dt)
-      RETURN
-    ENDIF
-
-   
     ALLOCATE( u_vert(nproma,nlev,p_patch%nblks_v),           &
               v_vert(nproma,nlev,p_patch%nblks_v),           &
               w_vert(nproma,nlevp1,p_patch%nblks_v),         &
@@ -190,7 +179,7 @@ MODULE mo_sgs_turbulence
     CALL vert_intp_full2half_cell_3d(p_patch, p_nh_metrics, p_nh_prog%rho, rho_ic, &
                                      2, min_rlcell_int-2)
 
-    CALL surface_conditions(linit, p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
+    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
                             p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &
                             p_nh_prog%tracer(:,:,:,iqv))
 
@@ -1187,15 +1176,18 @@ MODULE mo_sgs_turbulence
       CALL rbf_vec_interpol_cell(vn_new, p_patch, p_int, unew, vnew, &
                                  opt_rlend=min_rlcell_int)
 
+      !u sgs flux
       CALL levels_horizontal_mean(unew, p_patch%cells%area, p_patch%cells%owned, outvar)
-      CALL levels_horizontal_mean(vnew, p_patch%cells%area, p_patch%cells%owned, outvar)
-
       prm_diag%turb_diag_1dvar(1,idx_sgs_u_flx) = 0._wp
-      prm_diag%turb_diag_1dvar(1,idx_sgs_v_flx) = 0._wp
       DO jk = 2 , nlevp1
         prm_diag%turb_diag_1dvar(jk,idx_sgs_u_flx) =  &
               prm_diag%turb_diag_1dvar(jk,idx_sgs_u_flx)+outvar(jk-1)
+      END DO
 
+      !v sgs flux
+      CALL levels_horizontal_mean(vnew, p_patch%cells%area, p_patch%cells%owned, outvar)
+      prm_diag%turb_diag_1dvar(1,idx_sgs_v_flx) = 0._wp
+      DO jk = 2 , nlevp1
         prm_diag%turb_diag_1dvar(jk,idx_sgs_v_flx) =  &
               prm_diag%turb_diag_1dvar(jk,idx_sgs_v_flx)+outvar(jk-1)
       END DO
