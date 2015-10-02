@@ -58,7 +58,7 @@ MODULE mo_ocean_ext_data
     &                              add_var, add_ref,            &
     &                              new_var_list,                &
     &                              delete_var_list
-  USE mo_master_nml,         ONLY: model_base_dir
+  USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
   USE mo_read_interface,     ONLY: openInputFile, closeFile, onCells, &
@@ -73,7 +73,7 @@ MODULE mo_ocean_ext_data
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
     &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M
 
-  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_master_config,      ONLY: isRestart
 
 
   IMPLICIT NONE
@@ -371,7 +371,7 @@ CONTAINS
     i_lev       = p_patch(jg)%level
     z_flux(:,:,:) = 0.0_wp
 
-    CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+    CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
     grid_file = TRIM(with_keywords(keywords, TRIM(dynamics_grid_filename(jg))))
 
     IF(my_process_is_stdio()) THEN

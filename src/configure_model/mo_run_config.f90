@@ -24,19 +24,22 @@ MODULE mo_run_config
   USE mo_impl_constants, ONLY: MAX_DOM, IHELDSUAREZ, INWP, IECHAM, ILDF_ECHAM, &
                                IMPIOM, INOFORCING, ILDF_DRY, MAX_CHAR_LENGTH,  &
                                TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
-
+  USE mtime,             ONLY: timedelta, newTimedelta
+  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: ltestcase, ldynamics, iforcing, lforcing
   PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1
   PUBLIC :: lart
   PUBLIC :: lvert_nest, num_lev, nshift, nsteps, dtime
+  PUBLIC :: tc_dt_model, setModelTimeStep
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
   PUBLIC :: iqh, iqnh, iqnr, iqns, iqng, iqnc, inccn, ininpot, ininact
   PUBLIC :: iqtke
   PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6                          !Running index for Volcanic Ash in ICON-ART 
+  PUBLIC :: iasha, iashb, iashc, iasha0, iashb0, iashc0                  !Running index for Volcanic Ash in ICON-ART
   PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
   PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0                 !Running index for sea salt in ICON-ART
   PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0                 !Running index for mineral dust in ICON-ART
@@ -57,6 +60,7 @@ MODULE mo_run_config
   PUBLIC :: restart_filename
   PUBLIC :: profiling_output, TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
   PUBLIC :: check_uuid_gracefully
+  PUBLIC :: irad_type
 
     ! Namelist variables
     !
@@ -76,7 +80,8 @@ MODULE mo_run_config
 
     INTEGER :: nsteps          !< number of time steps to integrate
     REAL(wp):: dtime           !< [s] length of a time step
-
+    TYPE(timedelta), POINTER, PROTECTED :: tc_dt_model => NULL()
+    
     LOGICAL :: ltimer          !< if .TRUE.,  the timer is switched on
     INTEGER :: timers_level    !< what level of timers to run
     LOGICAL :: activate_sync_timers
@@ -102,7 +107,7 @@ MODULE mo_run_config
     INTEGER :: grid_generatingCenter   (0:MAX_DOM)   !< patch generating center
     INTEGER :: grid_generatingSubcenter(0:MAX_DOM)   !< patch generating subcenter
     INTEGER :: number_of_grid_used(0:MAX_DOM)  !< Number of grid used (GRIB2 key)
-
+    
 
     ! Derived variables
     !
@@ -145,6 +150,12 @@ MODULE mo_run_config
     INTEGER :: iash4        !< Volcanic ash, fourth class
     INTEGER :: iash5        !< Volcanic ash, fifth class
     INTEGER :: iash6        !< Volcanic ash, sixth class
+    INTEGER :: iasha        !< Volcanic ash Mode A Mass Density
+    INTEGER :: iashb        !< Volcanic ash Mode B Mass Density
+    INTEGER :: iashc        !< Volcanic ash Mode C Mass Density
+    INTEGER :: iasha0       !< Volcanic ash Mode A Number Density
+    INTEGER :: iashb0       !< Volcanic ash Mode B Number Density
+    INTEGER :: iashc0       !< Volcanic ash Mode C Number Density
     INTEGER :: iCS137       !< radioactive nuclides
     INTEGER :: iI131        !<
     INTEGER :: iTE132       !< 
@@ -203,6 +214,10 @@ MODULE mo_run_config
     !> substition patterns)
     CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
 
+    !> variable irad_type determines choice of radiation flux scheme
+    !> irad_type=1: rrtm, irad_type=2: psrad
+    INTEGER :: irad_type
+
 CONTAINS
   !>
   !!
@@ -243,6 +258,11 @@ CONTAINS
   END SUBROUTINE configure_run
   !-------------------------------------------------------------
 
+  SUBROUTINE setModelTimeStep(modelTimeStep)
+    CHARACTER(len=*), INTENT(in) :: modelTimeStep
+    tc_dt_model => newTimedelta(modelTimeStep)
+  END SUBROUTINE setModelTimeStep
+  
 !  !---------------------------------------
 !  !>
 !  LOGICAL FUNCTION get_ltestcase()

@@ -96,7 +96,7 @@ MODULE mo_sgs_turbmetric
   !! Initial release by Anurag Dipankar, MPI-M (2013-03-05)
   !! Modified by Slavko Brdar, DWD (2014-08-01)
   !!   - include turbulent metric terms
-  SUBROUTINE drive_subgrid_diffusion_m(linit, p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
+  SUBROUTINE drive_subgrid_diffusion_m(p_nh_prog, p_nh_prog_rcf, p_nh_diag, p_nh_metrics,&
                                      p_patch, p_int, p_prog_lnd_now, p_prog_lnd_new,   &
                                      p_diag_lnd, prm_diag, prm_nwp_tend, dt)
 
@@ -112,7 +112,6 @@ MODULE mo_sgs_turbmetric
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
     REAL(wp),          INTENT(in)        :: dt
-    LOGICAL,           INTENT(in)        :: linit         !indicate the first time step
 
     REAL(wp), ALLOCATABLE :: theta(:,:,:), theta_v(:,:,:)
 
@@ -201,7 +200,7 @@ MODULE mo_sgs_turbmetric
     CALL vert_intp_full2half_cell_3d(p_patch, p_nh_metrics, p_nh_prog%rho, rho_ic, &
                                      2, min_rlcell_int-2)
 
-    CALL surface_conditions(linit, p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
+    CALL surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, p_prog_lnd_now, &
                             p_prog_lnd_new, p_diag_lnd, prm_diag, theta,             &
                             p_nh_prog%tracer(:,:,:,iqv))
 
@@ -1550,15 +1549,18 @@ MODULE mo_sgs_turbmetric
       CALL rbf_vec_interpol_cell(vn_new, p_patch, p_int, unew, vnew, &
                                  opt_rlend=min_rlcell_int)
 
+      !u sgs flux
       CALL levels_horizontal_mean(unew, p_patch%cells%area, p_patch%cells%owned, outvar)
-      CALL levels_horizontal_mean(vnew, p_patch%cells%area, p_patch%cells%owned, outvar)
-
       prm_diag%turb_diag_1dvar(1,idx_sgs_u_flx) = 0._wp
-      prm_diag%turb_diag_1dvar(1,idx_sgs_v_flx) = 0._wp
       DO jk = 2 , nlevp1
         prm_diag%turb_diag_1dvar(jk,idx_sgs_u_flx) =  &
               prm_diag%turb_diag_1dvar(jk,idx_sgs_u_flx)+outvar(jk-1)
+      END DO
 
+      !v sgs flux
+      CALL levels_horizontal_mean(vnew, p_patch%cells%area, p_patch%cells%owned, outvar)
+      prm_diag%turb_diag_1dvar(1,idx_sgs_v_flx) = 0._wp
+      DO jk = 2 , nlevp1
         prm_diag%turb_diag_1dvar(jk,idx_sgs_v_flx) =  &
               prm_diag%turb_diag_1dvar(jk,idx_sgs_v_flx)+outvar(jk-1)
       END DO

@@ -41,7 +41,7 @@ MODULE mo_var_metadata_types
   ! New groups can be added by extending the VAR_GROUPS list.
   !
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(47) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(51) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -53,6 +53,10 @@ MODULE mo_var_metadata_types
     &  "CLOUD_DIAG            ",  &
     &  "PBL_VARS              ",  &
     &  "PHYS_TENDENCIES       ",  &
+    &  "PROG_TIMEMEAN         ",  &
+    &  "ECHAM_TIMEMEAN        ",  &
+    &  "TRACER_TIMEMEAN       ",  &
+    &  "ATMO_TIMEMEAN         ",  &
     &  "LAND_VARS             ",  &
     &  "LAND_TILE_VARS        ",  &
     &  "MULTISNOW_VARS        ",  &

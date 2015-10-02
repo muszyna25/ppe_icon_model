@@ -24,17 +24,14 @@ MODULE mo_master_control
 !
 !-------------------------------------------------------------------------
 
-  USE mo_exception,          ONLY: message, finish
-  USE mo_mpi,                ONLY: set_process_mpi_name, get_my_global_mpi_id, &
-    &                              split_global_mpi_communicator
+  USE mo_exception,     ONLY: message, finish
+  USE mo_mpi,           ONLY: set_process_mpi_name, get_my_global_mpi_id, split_global_mpi_communicator
 
-  USE mo_io_units,           ONLY: filename_max
+  USE mo_io_units,      ONLY: filename_max
 
-  USE mo_master_nml,         ONLY: read_master_namelist, lrestart,  &
-    & no_of_models, master_nml_array
-
-  !USE mo_namelist,           ONLY: open_nml,  close_nml
-
+  USE mo_master_config, ONLY: noOfModels, master_component_models, isRestart
+  USE mo_master_nml,    ONLY: read_master_namelist
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -42,7 +39,7 @@ MODULE mo_master_control
   PUBLIC ::  init_master_control, master_namelist_filename,               &
     & get_my_namelist_filename, get_my_process_type, get_my_process_name, &
     & atmo_process, ocean_process, radiation_process, testbed_process,    &
-    & my_process_is_ocean, is_restart_run, get_my_model_no,               &
+    & my_process_is_ocean, get_my_model_no,                               &
     & are_multiple_models
    
 
@@ -52,6 +49,7 @@ MODULE mo_master_control
   INTEGER, PARAMETER :: radiation_process = 3
   INTEGER, PARAMETER :: testbed_process   = 99
   ! ------------------------------------------------------------------------
+
   INTEGER :: my_process_model ! =atmo_process,ocean_process,...
   INTEGER :: my_model_no ! 1,2,3  (id uniquely this process, even if it has the
                          ! same my_process_model with other compnents
@@ -65,7 +63,7 @@ MODULE mo_master_control
   LOGICAL :: multiple_models
 
 
-  CONTAINS
+CONTAINS
 
   !------------------------------------------------------------------------
   !>
@@ -74,80 +72,84 @@ MODULE mo_master_control
   INTEGER FUNCTION init_master_control(namelist_filename)
 
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
-    !
-    ! !Local variables
-    !
+
     INTEGER :: master_namelist_status
-    INTEGER :: model_no, jg
+    INTEGER :: model_no, jg, js, je, jinc
 
     CHARACTER(LEN=*), PARAMETER :: method_name = "master_control"
     !-----------------------------------------------------------------------
 
     CALL message(method_name,'start model initialization.')
 
-    !------------------------------------------------------------
     master_namelist_status = read_master_namelist(TRIM(namelist_filename))
 
     !------------------------------------------------------------
     ! some checks
+
     IF (master_namelist_status == -1) THEN
-      CALL finish(method_name,'model identity (atm/oce) can no longer '//&
-                 'be derived from namelist run_nml!')
+      CALL finish(method_name,'model identity (atm/oce) can no longer be derived from namelist run_nml!')
     ENDIF
-    IF (no_of_models < 1) THEN
-      CALL finish(method_name,'no_of_models < 1')
+
+    IF (noOfModels() < 1) THEN
+      CALL finish(method_name,'no of models < 1')
     ENDIF
 
     !------------------------------------------------------------
-    ! Save filename of master namelist
+
     master_namelist_filename = TRIM(namelist_filename)
 
     !------------------------------------------------------------
     ! find what is my process
-    multiple_models = no_of_models > 1    
+
+    multiple_models = noOfModels() > 1    
 
     IF ( multiple_models ) THEN
+      
       CALL set_my_component_null()
 
-      DO model_no =1, no_of_models
+      COMPONENT_MODELS: DO model_no = 1, noOfModels()
 
-!         write(0,*) 'master_nml_array:', model_no, master_nml_array(model_no)%model_name        
-        DO jg = master_nml_array(model_no)%model_min_rank,&
-          & master_nml_array(model_no)%model_max_rank,&
-          & master_nml_array(model_no)%model_inc_rank
+        !         write(0,*) 'master_component_models:', model_no, trim(master_component_models(model_no)%model_name)
+
+        js   = master_component_models(model_no)%model_min_rank
+        je   = master_component_models(model_no)%model_max_rank
+        jinc = master_component_models(model_no)%model_inc_rank
+        
+        DO jg = js, je, jinc
 
           IF ( get_my_global_mpi_id() == jg ) THEN
-
-            CALL set_my_component(model_no,             &
-               & master_nml_array(model_no)%model_name, &
-               & master_nml_array(model_no)%model_type ,&
-               & master_nml_array(model_no)%model_namelist_filename)
-
+            
+            CALL set_my_component(model_no,                                      &
+                 &                master_component_models(model_no)%model_name,  &
+                 &                master_component_models(model_no)%model_type,  &
+                 &                master_component_models(model_no)%model_namelist_filename)
+            
           ENDIF
-
+          
         ENDDO
-
-      ENDDO !model_no =1, no_of_models
+        
+      ENDDO COMPONENT_MODELS
 
       CALL split_global_mpi_communicator ( my_model_no )
 
-    ELSE
-      ! only one component    
-      model_no=1
-      CALL set_my_component(model_no,             &
-          & master_nml_array(model_no)%model_name, &
-          & master_nml_array(model_no)%model_type ,&
-          & master_nml_array(model_no)%model_namelist_filename)
+    ELSE ! only one component    
+
+      model_no = 1
+      CALL set_my_component(model_no,                                      &
+           &                master_component_models(model_no)%model_name,  &
+           &                master_component_models(model_no)%model_type,  &
+           &                master_component_models(model_no)%model_namelist_filename)
 
     ENDIF
+
     !------------------------------------------------------------
-    ! check if my component is ok
+    
     CALL check_my_component()
-
+    
     !------------------------------------------------------------
-
+    
     init_master_control = 0
-
+    
   END FUNCTION init_master_control
   !------------------------------------------------------------------------
 
@@ -162,13 +164,14 @@ MODULE mo_master_control
     my_model_no          = comp_no
     my_process_model     = comp_id
     my_namelist_filename = TRIM(comp_namelist)
-    my_model_name = TRIM(comp_name)
+    my_model_name        = TRIM(comp_name)
 
-    my_model_min_rank    = master_nml_array(comp_no)%model_min_rank
-    my_model_max_rank    = master_nml_array(comp_no)%model_max_rank
-    my_model_inc_rank    = master_nml_array(comp_no)%model_inc_rank
+    my_model_min_rank    = master_component_models(comp_no)%model_min_rank
+    my_model_max_rank    = master_component_models(comp_no)%model_max_rank
+    my_model_inc_rank    = master_component_models(comp_no)%model_inc_rank
 
     CALL check_my_component()
+    
     CALL set_process_mpi_name(TRIM(my_model_name))
 
   END SUBROUTINE set_my_component
@@ -249,14 +252,6 @@ MODULE mo_master_control
     are_multiple_models = multiple_models
 
   END FUNCTION are_multiple_models
-  !------------------------------------------------------------------------
-
-  !------------------------------------------------------------------------
-  LOGICAL FUNCTION is_restart_run()
-
-    is_restart_run = lrestart
-
-  END FUNCTION is_restart_run
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------

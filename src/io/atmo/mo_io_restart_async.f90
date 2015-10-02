@@ -54,7 +54,6 @@ MODULE mo_io_restart_async
   USE mo_run_config,              ONLY: msg_level, restart_filename
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch
-  USE mo_util_sysinfo,            ONLY: util_user_name, util_os_system, util_node_name
   USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, CDI_GLOBAL, DATATYPE_FLT64, DATATYPE_INT32, &
                                       & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
                                       & ZAXIS_HYBRID_HALF, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, ZAXIS_SEDIMENT_BOTTOM_TW, &
@@ -71,6 +70,7 @@ MODULE mo_io_restart_async
                                       & ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_DEPTH_BELOW_SEA, &
                                       & ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G, &
                                       & GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
+  USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string
 
@@ -140,11 +140,6 @@ MODULE mo_io_restart_async
 
   ! common constant strings
   CHARACTER(LEN=*), PARAMETER :: MODUL_NAME               = 'shared/mo_io_restart_async/'
-  CHARACTER(LEN=*), PARAMETER :: MODEL_TITLE              = 'ICON simulation'
-  CHARACTER(LEN=*), PARAMETER :: MODEL_INSTITUTION        = &
-    &                            'Max Planck Institute for Meteorology/Deutscher Wetterdienst'
-  CHARACTER(LEN=*), PARAMETER :: MODEL_VERSION            = '1.2.2'
-  CHARACTER(LEN=*), PARAMETER :: MODEL_REFERENCES         = 'see MPIM/DWD publications'
   CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED          = 'ALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: DEALLOCATE_FAILED        = 'DEALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: UNKNOWN_GRID_TYPE        = 'Unknown grid type!'
@@ -2333,16 +2328,12 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
     INTEGER                        :: jp, jp_end, jg, nlev_soil, &
       &                               nlev_snow, nlev_ocean, nice_class, ierrstat, &
-      &                               nlena, nlenb, nlenc, nlend, i,current_jfile
+      &                               i,current_jfile
 
     CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'set_restart_attributes'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int  = '(a,i2.2)'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int2 = '(a,i2.2,a,i2.2)'
 
-    CHARACTER(LEN=256)             :: executable, user_name, os_name, host_name, &
-      &                               tmp_string
-    CHARACTER(LEN=  8)             :: date_string
-    CHARACTER(LEN= 10)             :: time_string
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
 
 #ifdef DEBUG
@@ -2352,35 +2343,14 @@ CONTAINS
     ! delete old attributes
     CALL delete_attributes()
 
-    ! get environment attributes
-    CALL get_command_argument(0, executable, nlend)
-    CALL date_and_time(date_string, time_string)
-
-    tmp_string = ''
-    CALL util_os_system (tmp_string, nlena)
-    os_name = tmp_string(1:nlena)
-
-    tmp_string = ''
-    CALL util_user_name (tmp_string, nlenb)
-    user_name = tmp_string(1:nlenb)
-
-    tmp_string = ''
-    CALL util_node_name (tmp_string, nlenc)
-    host_name = tmp_string(1:nlenc)
-
-    ! set CD-Convention required restart attributes
-    CALL set_restart_attribute('title',       &
-         MODEL_TITLE)
-    CALL set_restart_attribute('institution', &
-         MODEL_INSTITUTION)
-    CALL set_restart_attribute('source',      &
-         'ICON'//'-'//MODEL_VERSION)
-    CALL set_restart_attribute('history',     &
-         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
-    CALL set_restart_attribute('references',  &
-         MODEL_REFERENCES)
-    CALL set_restart_attribute('comment',     &
-         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
+    ! set CF-Convention required restart attributes
+    !
+    CALL set_restart_attribute('title',       TRIM(cf_global_info%title))
+    CALL set_restart_attribute('institution', TRIM(cf_global_info%institution))
+    CALL set_restart_attribute('source',      TRIM(cf_global_info%source))
+    CALL set_restart_attribute('history',     TRIM(cf_global_info%history))
+    CALL set_restart_attribute('references',  TRIM(cf_global_info%references))
+    CALL set_restart_attribute('comment',     TRIM(cf_global_info%comment))
 
     ! set restart time
     p_ra => restart_args

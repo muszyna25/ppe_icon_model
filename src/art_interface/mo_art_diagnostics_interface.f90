@@ -101,7 +101,7 @@ SUBROUTINE art_diagnostics_interface(p_patch, rho, pres, p_trac, dz, hml, jg)
       ! -------------------------------------
       IF (art_config(jg)%iart_volcano > 0) THEN
         CALL art_volc_diagnostics( rho(:,:,jb), pres(:,:,jb), p_trac(:,:,jb,:), dz(:,:,jb), hml(:,:,jb),  &
-          &                        istart, iend, nlev, jb, p_art_data(jg) )
+          &                        istart, iend, nlev, jb, p_art_data(jg), art_config(jg)%iart_volcano )
       END IF
 
     END DO

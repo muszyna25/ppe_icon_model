@@ -79,9 +79,9 @@ MODULE mo_io_restart
                                     & ZA_DEPTH_RUNOFF_G, ZA_SNOW, ZA_SNOW_HALF, ZA_TOA, ZA_HEIGHT_2M, ZA_HEIGHT_10M, &
                                     & ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
                                     & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE
+  USE mo_cf_convention
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator
-  USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_util_uuid,             ONLY: t_uuid
@@ -95,7 +95,7 @@ MODULE mo_io_restart
     &                                 restart_attributes_count_bool,                &
     &                                 read_and_bcast_attributes
   USE mo_scatter,               ONLY: scatter_array
-  USE mo_datetime,              ONLY: t_datetime,iso8601
+  USE mo_datetime,              ONLY: t_datetime,iso8601,iso8601extended
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
     &                                 timer_write_restart_file
@@ -212,7 +212,7 @@ CONTAINS
     ! Read all namelists used in the previous run
     ! and store them in a buffer. These values will overwrite the
     ! model default, and will later be overwritten if the user has
-    ! specified something different for this integraion.
+    ! specified something different for this integration.
     !
     ! Note: We read the namelists only once and assume that these
     !       are identical for all domains.
@@ -382,52 +382,16 @@ CONTAINS
     INTEGER,          INTENT(in) :: nlev_snow
     INTEGER,          INTENT(in) :: nice_class
     !
-    CHARACTER(len=256) :: executable
-    CHARACTER(len=256) :: user_name
-    CHARACTER(len=256) :: os_name
-    CHARACTER(len=256) :: host_name
-    CHARACTER(len=256) :: tmp_string
-    CHARACTER(len=  8) :: date_string
-    CHARACTER(len= 10) :: time_string
-
-    INTEGER :: nlena, nlenb, nlenc, nlend
-    !
     IF (lrestart_initialised) RETURN
     !
-    executable = ''
-    user_name  = ''
-    os_name    = ''
-    host_name  = ''
+    ! set CF-Convention required restart attributes
     !
-    CALL get_command_argument(0, executable, nlend)
-    CALL date_and_time(date_string, time_string)
-    !
-    tmp_string = ''
-    CALL util_os_system (tmp_string, nlena)
-    os_name = tmp_string(1:nlena)
-
-    tmp_string = ''
-    CALL util_user_name (tmp_string, nlenb)
-    user_name = tmp_string(1:nlenb)
-
-    tmp_string = ''
-    CALL util_node_name (tmp_string, nlenc)
-    host_name = tmp_string(1:nlenc)
-    !
-    ! set CD-Convention required restart attributes
-    !
-    CALL set_restart_attribute('title',       &
-         'ICON simulation')
-    CALL set_restart_attribute('institution', &
-         'Max Planck Institute for Meteorology/Deutscher Wetterdienst')
-    CALL set_restart_attribute('source',      &
-         model_name//'-'//model_version)
-    CALL set_restart_attribute('history',     &
-         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
-    CALL set_restart_attribute('references',  &
-         'see MPIM/DWD publications')
-    CALL set_restart_attribute('comment',     &
-         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
+    CALL set_restart_attribute('title',       TRIM(cf_global_info%title))
+    CALL set_restart_attribute('institution', TRIM(cf_global_info%institution))
+    CALL set_restart_attribute('source',      TRIM(cf_global_info%source))
+    CALL set_restart_attribute('history',     TRIM(cf_global_info%history))
+    CALL set_restart_attribute('references',  TRIM(cf_global_info%references))
+    CALL set_restart_attribute('comment',     TRIM(cf_global_info%comment))
     !
     ! define horizontal grids
     !
@@ -495,7 +459,8 @@ CONTAINS
     INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
     REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:)
     !
-    CHARACTER(len=64) :: attribute_name, text_attribute
+    CHARACTER(len=64) :: attribute_name
+    CHARACTER(len=256) :: text_attribute
     REAL(wp) :: real_attribute(1)
     INTEGER :: int_attribute(1)
     LOGICAL :: bool_attribute
@@ -1331,6 +1296,8 @@ CONTAINS
                      & nice_class         )! total # of ice classes (sea ice)
 
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
+    ! in preparation for move to mtime
+    CALL set_restart_attribute('tc_startdate', iso8601extended(datetime)) 
 
     ! Open new file, write data, close and then clean-up.
     CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)

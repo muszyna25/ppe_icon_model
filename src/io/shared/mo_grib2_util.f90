@@ -366,8 +366,8 @@ CONTAINS
       CALL message(' ==> set_GRIB2_art_keys :','volcash_diag_... --> PDT=40',0,5,.TRUE.)
       productDefinitionTemplate = 40
       numberOfDistributionFunctionParameter = 0
-    CASE ('dust', 'dust_number')
-      CALL message(' ==> set_GRIB2_art_keys :','dust[_number] --> PDT=57',0,5,.TRUE.)
+    CASE ('ash', 'ash_number', 'dust', 'dust_number')
+      CALL message(' ==> set_GRIB2_art_keys :','ash|dust[_number] --> PDT=57',0,5,.TRUE.)
       productDefinitionTemplate = 57
       numberOfDistributionFunctionParameter = 2
     CASE ('dust_diag_tau')
@@ -381,8 +381,6 @@ CONTAINS
 
     ! set tablesVersion=14
     CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 14)
-! JF:     CALL vlistDefVarIntKey(vlistID, varID, "localDefinitionNumber", 0)
-! JF:     CALL vlistDefVarIntKey(vlistID, varID, "typeOfProcessedData", 1)
 
     ! set product definition template
     CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, productDefinitionTemplate)
@@ -419,24 +417,27 @@ CONTAINS
       
     CASE ('volcash_diag_hml')
       CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
-! JF:       CALL vlistDefVarCharKey(vlistID, varID, "typeOfLevel", "entireAtmosphere")
       
-    CASE ('dust', 'dust_number')
+    CASE ('ash', 'ash_number', 'dust', 'dust_number')
       CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 7)
       CALL vlistDefVarIntKey(vlistID, varID, "numberOfModeOfDistribution", 3)
       CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter",  &
         &                    numberOfDistributionFunctionParameter)
-      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62001)
+      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", info%tracer%constituent)
       CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
       scaledValueOfDistributionFunctionParameter(1) = info%tracer%variance
-      scaleFactorOfDistributionFunctionParameter(1) = 1
-      scaledValueOfDistributionFunctionParameter(2) = 2650
+      scaleFactorOfDistributionFunctionParameter(1) = 3
+      IF ( info%tracer%tracer_class(1:3) == 'ash' )  &
+        &  scaledValueOfDistributionFunctionParameter(2) = 2600
+      IF ( info%tracer%tracer_class(1:4) == 'dust' ) &
+        &  scaledValueOfDistributionFunctionParameter(2) = 2650
       scaleFactorOfDistributionFunctionParameter(2) = 0
-      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",     &
+      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",    &
         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter(:))
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter(:))
-      IF (TRIM(info%tracer%tracer_class) == 'dust') THEN
+      IF ( TRIM(info%tracer%tracer_class) == 'ash' .OR.  &
+        &  TRIM(info%tracer%tracer_class) == 'dust' ) THEN
         CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
       END IF
       

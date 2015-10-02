@@ -19,7 +19,7 @@
 MODULE mo_echam_conv_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish, print_value, message, message_text
+  USE mo_exception,          ONLY: finish, print_value, message
   USE mo_impl_constants,     ONLY: SUCCESS
   USE mo_physical_constants, ONLY: grav, p0sl_bg, p0ref
 
@@ -36,43 +36,44 @@ MODULE mo_echam_conv_config
 
     ! Namelist variables
 
-    INTEGER :: iconv     !< 1,2,3 for different convection schemes
-    INTEGER :: ncvmicro  !< 0 or 1. Scheme for convective microphysics
-  
-    LOGICAL :: lmfpen    !< true when penetrative convection is switched on
-!    LOGICAL :: lmfmid    !< true when midlevel    convection is switched on
-!    LOGICAL :: lmfdd     !< true when cumulus downdraft      is switched on
-!    LOGICAL :: lmfdudv   !< true when cumulus friction       is switched on
+    LOGICAL  :: lmfpen    !< true when penetrative convection is switched on
+    LOGICAL  :: lmfmid    !< true when midlevel    convection is switched on
+    LOGICAL  :: lmfdd     !< true when cumulus downdraft      is switched on
+    LOGICAL  :: lmfdudv   !< true when cumulus friction       is switched on
 
-!    REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". 
-                         !< Critical thickness (unit: Pa) necessary for 
-                         !< the onset of convective precipitation
-  
-!    REAL(wp) :: cmftau   !< characteristic adjustment time scale
-                         !< (replaces "ztau" in "cumastr"
-!    REAL(wp) :: cmfctop  !< fractional convective mass flux across the 
-                         !< top of cloud
-!    REAL(wp) :: cprcon   !< coefficient for determining conversion
-                         !< from cloud water to rain
-  
-!    REAL(wp) :: cminbuoy !< minimum excess buoyancy
-!    REAL(wp) :: entrpen  !< entrainment rate for penetrative convection
- 
-    ! Currently unused namelist variables 
-    !INTEGER :: nauto        !< autoconversion scheme. 1 or 2.
-    !LOGICAL :: lconvmassfix !< aerosol mass fixer in convection
-    !LOGICAL :: lmfscv       !< true when shallow convection is switched on
+    REAL(wp) :: entrmid   !< average entrainment rate for midlevel convection
+    REAL(wp) :: entrscv   !< average entrainment rate for shallow convection
+    REAL(wp) :: entrpen   !< average entrainment rate for penetrative convection
+    REAL(wp) :: entrdd    !< average entrainment rate for cumulus downdrafts
 
-    ! Derived variables
+    REAL(wp) :: cprcon    !< coefficient for determining conversion from cloud water to rain
+    REAL(wp) :: cmfctop   !< fractional convective mass flux across the top of cloud
+    REAL(wp) :: cmfdeps   !< fractional convective mass flux for downdrafts at lfs
 
-    INTEGER :: nmctop    !< max. level for cloud base of mid level conv.
+    REAL(wp) :: cminbuoy  !< minimum excess buoyancy
+    REAL(wp) :: cmaxbuoy  !< maximum excess buoyancy
+    REAL(wp) :: cbfac     !< factor for std dev of virtual pot temp
+    REAL(wp) :: centrmax  !< maximum entrainment/detrainment rate
+
+    REAL(wp) :: dlev_land
+    REAL(wp) :: dlev_ocean 
+
+    REAL(wp) :: cmftau    !< characteristic adjustment time scale (s)
+
+
+    ! Variables set by routine configure_echam_convection
+
+    REAL(wp) :: cmfcmin   !< minimum massflux value (for safety)
+    REAL(wp) :: cmfcmax   !< maximum massflux value allowed for updrafts etc
+
+    INTEGER  :: nmctop    !< max. level for cloud base of mid level conv.
 
     REAL(wp),ALLOCATABLE :: cevapcu(:)  !< evaporation coefficient for kuo0
                                         !< In ECHAM6 it is declared in 
                                         !< mo_physc2, allocated in subroutine 
                                         !< alloc_mods, and initialized in 
                                         !< subroutine iniphy.
-  
+
   END TYPE t_echam_conv_config
 
   !>
@@ -82,7 +83,7 @@ MODULE mo_echam_conv_config
   !! thus the variable is declared as a scalar. Later it might be changed into
   !! an array of shape (/n_dom/) or (/MAX_DOM/).
   !!
-  TYPE(t_echam_conv_config) :: echam_conv_config
+  TYPE(t_echam_conv_config), TARGET :: echam_conv_config
 
 CONTAINS
   !---------------------------------------------------------------------------
@@ -103,41 +104,13 @@ CONTAINS
     INTEGER  :: jk, istat
 
     CHARACTER(LEN=*),PARAMETER :: &
-             routine = 'mo_echam_conv_config:config_echam_convection'
+             routine = 'mo_echam_conv_config:configure_echam_convection'
 
     !------------------------------------------------------------------------
-    ! Print the configuration on stdio
-    !------------------------------------------------------------------------
-    CALL message('','')
-    CALL message('','------- configuration of the ECHAM convection scheme --------')
-
-    SELECT CASE (echam_conv_config% iconv)
-    CASE(1); CALL message('','--- iconv = 1 -> Convection: Nordeng (default)')
-    CASE(2); CALL message('','--- iconv = 2 -> Convection: Tiedtke')
-    CASE(3); CALL message('','--- iconv = 3 -> Convection: Hybrid')
-    CASE default
-      WRITE(message_text,'(a,i0,a)') 'iconv = ',echam_conv_config% iconv, &
-                                     ' is not supported'
-      CALL finish(TRIM(routine),message_text)
-    END SELECT
-
-    SELECT CASE(echam_conv_config% ncvmicro)
-    CASE (0); CALL message('','--- ncvmicro = 0')
-    CASE DEFAULT
-      CALL finish(TRIM(routine),'ncvmicro > 0 not yet supported in ICON')
-    END SELECT
-
-    CALL print_value(' lmfpen   ', echam_conv_config% lmfpen)
-
-!    CALL print_value(' cmftau   ', echam_conv_config% cmftau)
-!    CALL print_value(' cmfctop  ', echam_conv_config% cmfctop)
-!    CALL print_value(' cprcon   ', echam_conv_config% cprcon)
-!    CALL print_value(' cminbuoy ', echam_conv_config% cminbuoy)
-!    CALL print_value(' entrpen  ', echam_conv_config% entrpen)
-!    CALL print_value(' dlev     ', echam_conv_config% dlev)
-
-    CALL message('','---------------------------')
-    CALL message('','')
+    ! Set lower and upper fractional limits of the convective mass flux
+    !
+    echam_conv_config%cmfcmin = 1.e-10_wp
+    echam_conv_config%cmfcmax = 1.0_wp
 
     !------------------------------------------------------------------------
     ! Determine highest level *nmctop* for cloud base of midlevel convection
@@ -157,7 +130,7 @@ CONTAINS
     ! can be used to distinguish the pressure and height sigma grid:
     ! - pressure sigma grid : a(1) < a(2)
     ! - height   sigma grid : a(1) > a(2)
-
+    !
     IF (vct_a(1) < vct_a(2)) THEN
       !
       ! pressure sigma grid
@@ -189,23 +162,54 @@ CONTAINS
       echam_conv_config%nmctop = jk
       IF(zp(jk) > 30000.0_wp) EXIT
     END DO
-    !
-    CALL message('','')
-    CALL print_value('highest level for cloud base of mid level convection: nmctop = ', &
-      &              echam_conv_config%nmctop)
-    CALL message('','')
 
-    !--------------------------------------
+    !------------------------------------------------------------------------
     ! Set evaporation coefficient for kuo0
-    !--------------------------------------
-
+    !
     ALLOCATE( echam_conv_config%cevapcu(nlev),STAT=istat )
     IF (istat/=SUCCESS) CALL finish(TRIM(routine),'allocation of cevapcu failed')
-
+    !
     DO jk = 1,nlev
        ztmp = 1.E3_wp/(38.3_wp*0.293_wp)*SQRT(zeta(jk))
        echam_conv_config%cevapcu(jk) = 1.93E-6_wp*261._wp*SQRT(ztmp)*0.5_wp/grav
     END DO
+
+    !------------------------------------------------------------------------
+    ! Print the configuration on stdio
+    !
+    CALL message('','')
+    CALL message('','------- configuration of the ECHAM convection scheme --------')
+    CALL message('','')
+    CALL print_value(' lmfmid   ', echam_conv_config% lmfmid  )
+    CALL print_value(' lmfpen   ', echam_conv_config% lmfpen  )
+    CALL print_value(' lmfdd    ', echam_conv_config% lmfdd   )
+    CALL print_value(' lmfdudv  ', echam_conv_config% lmfdudv )
+    CALL message('','')
+    CALL print_value(' entrscv  ', echam_conv_config% entrscv )
+    CALL print_value(' entrmid  ', echam_conv_config% entrmid )
+    CALL print_value(' entrpen  ', echam_conv_config% entrpen )
+    CALL print_value(' entrdd   ', echam_conv_config% entrdd  )
+    CALL message('','')
+    CALL print_value(' cprcon   ', echam_conv_config% cprcon  )
+    CALL print_value(' cmfctop  ', echam_conv_config% cmfctop )
+    CALL print_value(' cmfdeps  ', echam_conv_config% cmfdeps )
+    CALL message('','')
+    CALL print_value(' cminbuoy ', echam_conv_config% cminbuoy)
+    CALL print_value(' cmaxbuoy ', echam_conv_config% cmaxbuoy)
+    CALL print_value(' cbfac    ', echam_conv_config% cbfac   )
+    CALL print_value(' centrmax ', echam_conv_config% centrmax)
+    CALL message('','')
+    CALL print_value(' dlev_land ', echam_conv_config% dlev_land  )
+    CALL print_value(' dlev_ocean', echam_conv_config% dlev_ocean  )
+    CALL message('','')
+    CALL print_value(' cmftau   ', echam_conv_config% cmftau  )
+    CALL message('','')
+    CALL message('','---------------------------')
+    CALL message('','')
+    CALL print_value(' nmctop   ', echam_conv_config% nmctop )
+    CALL print_value(' cmfcmin  ', echam_conv_config% cmfcmin )
+    CALL print_value(' cmfcmax  ', echam_conv_config% cmfcmax )
+    CALL message('','')
 
   END SUBROUTINE configure_echam_convection
   !------------

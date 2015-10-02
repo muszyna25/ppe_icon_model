@@ -31,6 +31,9 @@ AC_CANONICAL_SYSTEM
 
 dnl ######################################################################
 
+AC_ARG_ENABLE([mtime-loop],
+              AS_HELP_STRING([--enable-mtime-loop],[Use mtime based time loop in nh stepping.]))
+
 AC_ARG_WITH([fortran],
   [AS_HELP_STRING([--with-fortran=COMPILER],
     [select_available compiler (see README.compiler)])],
@@ -259,7 +262,10 @@ for other_package in $icon_components ; do
 
 done
 dnl ######################################################################
+dnl add defines for transitional features (eg. mtime based time loop)
 
+AS_IF([test "x$enable_mtime_loop" = "xyes"], 
+      [FFLAGS="${FFLAGS} ${DEFOPT}USE_MTIME_LOOP"])
 
 dnl ######################################################################
 dnl Checks for programs.
@@ -276,6 +282,8 @@ fi
 dnl ######################################################################
 dnl Checks for XML2.
 
+if test x$use_yac = xyes ; then
+
 XML2_LIB=""
 XML2_INCLUDE=""
 
@@ -284,37 +292,47 @@ AC_ARG_WITH([xml2],
                             [Required libxml2])],,
 			    withval=yes)
 
-if test x$withval = xyes; then
-  if test x$with_xml2 != x; then
-    XML2ROOT=$with_xml2
+  if test x$withval = xyes; then
+    if test x$with_xml2 != x; then
+      XML2ROOT=$with_xml2
+    fi
   fi
-fi
 
-if test -n "$XML2ROOT" ; then
+  if test -n "$XML2ROOT" ; then
 
-  if test -r "$XML2ROOT/lib/libxml2.a" ; then
-     XML2_LIB='-L$(XML2ROOT)/lib -lxml2'
+    if test -r "$XML2ROOT/lib/libxml2.a" ; then
+       XML2_LIB='-L$(XML2ROOT)/lib -lxml2'
+    else
+      if test -r "$XML2ROOT/lib64/libxml2.a" -o -r "$XML2ROOT/lib64/libxml2.so" ; then     
+          XML2_LIB='-L$(XML2ROOT)/lib64 -lxml2'
+      else   
+          if test -r "$XML2ROOT/lib/x86_64-linux-gnu/libxml2.a" ; then
+             XML2_LIB='-L$(XML2ROOT)/x86_64-linux-gnu/lib -lxml2'
+          else 
+             echo "cannot read $XML2ROOT/lib/libxml2.a"  
+             exit 1    
+          fi
+      fi
+    fi
+
+    if test -d "$XML2ROOT/include/libxml2" ; then
+       XML2_INCLUDE='-I$(XML2ROOT)/include/libxml2'
+    else
+       echo "cannot find $XML2ROOT/include/libxml2"  
+       exit 1    
+    fi
+
+    FFLAGS="${FFLAGS} ${DEFOPT}USE_XML2"
+    CFLAGS="${CFLAGS} ${DEFCOPT}USE_XML2"
+
   else
-     echo "cannot read $XML2ROOT/lib/libxml2.a"  
-     exit 1    
+
+    echo "Warning: the variable XML2ROOT is not set in $host_frag"  
+    echo "         set XML2ROOT to the xml2 root directory"
+
   fi
 
-  if test -d "$XML2ROOT/include/libxml2" ; then
-     XML2_INCLUDE='-I$(XML2ROOT)/include/libxml2'
-  else
-     echo "cannot find $XML2ROOT/include/libxml2"  
-     exit 1    
-  fi
-
-  FFLAGS="${FFLAGS} ${DEFOPT}USE_XML2"
-  CFLAGS="${CFLAGS} ${DEFCOPT}USE_XML2"
-
-else
-
-  echo "Warning: the variable XML2ROOT is not set in $host_frag"  
-  echo "         set XML2ROOT to the xml2 root directory"
 fi
-
 
 dnl ######################################################################
 dnl Checks for LAPACK/BLAS
