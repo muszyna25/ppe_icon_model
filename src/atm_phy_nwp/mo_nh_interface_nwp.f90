@@ -661,7 +661,7 @@ CONTAINS
         ! compute dynamical temperature tendency from increments of Exner function and density
         ! the virtual increment is neglected here because this tendency is used only as
         ! input for the convection scheme, which is rather insensitive against this quantity
-        IF ( lcall_phy_jg(itconv)  ) THEN
+        IF ( lcall_phy_jg(itconv) ) THEN
           DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
             DO jc =  i_startidx, i_endidx
@@ -671,16 +671,13 @@ CONTAINS
                 ( pt_diag%airmass_new(jc,jk,jb)-pt_diag%airmass_now(jc,jk,jb) ) /            &
                 pt_diag%airmass_new(jc,jk,jb) )
 
-              ! reset dynamical exner increment to zero
-              ! (it is accumulated over one advective time step in solve_nh)
-              pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
-
             ENDDO
           ENDDO
-        ELSE
-          ! reset only the dynamical exner increment
-          pt_diag%exner_dyn_incr(:,kstart_moist(jg):nlev,jb) = 0._wp
         ENDIF
+
+        ! reset dynamical exner increment to zero
+        ! (it is accumulated over one advective time step in solve_nh)
+        pt_diag%exner_dyn_incr(:,kstart_moist(jg):nlev,jb) = 0._wp
 
       ENDIF ! recalculation
 
