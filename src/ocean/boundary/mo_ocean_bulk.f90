@@ -39,7 +39,7 @@ USE mo_io_units,            ONLY: filename_max
 USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
 USE mo_parallel_config,     ONLY: p_test_run
 USE mo_read_interface,      ONLY: openInputFile, closeFile, t_stream_id, &
-  &                               onCells, read_2D_time, read_3D
+  &                               on_cells, read_2D_time, read_3D
 USE mo_datetime,            ONLY: t_datetime
 USE mo_time_config,         ONLY: time_config
 USE mo_ext_data_types,      ONLY: t_external_data
@@ -1946,6 +1946,7 @@ CONTAINS
     REAL(wp) :: z_temp_max, z_temp_min, z_temp_incr
     REAL(wp) :: center, length, zonal_waveno,amplitude
     REAL(wp) :: no_flux_length, south_bound, max_flux_y
+    REAL(wp) :: perturbation_width, perturbation_lat, perturbation_lon,distan, ran	
 
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ocean_bulk:update_flux_analytical'
     !-------------------------------------------------------------------------
@@ -1955,7 +1956,7 @@ CONTAINS
     p_patch         => p_patch_3D%p_patch_2D(1)
     !-------------------------------------------------------------------------
     all_cells => p_patch%cells%all
-
+	
     ! atmosphere fluxes for analytical testcased similar to mo_ocean_initial_conditions:
     SELECT CASE (atmos_flux_analytical_type)
 
@@ -2036,7 +2037,37 @@ CONTAINS
             END DO
           END DO
         ENDIF
-        
+		
+        CASE(202) 
+
+          IF(no_tracer>=1.AND.type_surfRelax_Temp==0)THEN
+
+		    perturbation_lat    = basin_center_lat * deg2rad
+			perturbation_lon    = basin_center_lon * deg2rad
+		    perturbation_width  = 1.5_wp*basin_height_deg * deg2rad
+			
+
+            DO jb = all_cells%start_block, all_cells%end_block
+              CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+              DO jc = start_cell_index, end_cell_index 
+				  
+                atmos_fluxes%data_surfRelax_Temp(jc,jb)     = 0.0_wp
+                atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb) = 0.0_wp
+              
+		        distan=SQRT((p_patch%cells%center(jc,jb)%lat - perturbation_lat)**2 + &
+		          & (p_patch%cells%center(jc,jb)%lon - perturbation_lon)**2)
+
+		        IF(distan<=perturbation_width)THEN
+				
+					CALL random_number(ran)
+					atmos_fluxes%topBoundCond_Temp_vdiff(jc,jb)=-400.0+100.0_wp*ran!random_number(jb)
+		        ENDIF			  
+			  
+              END DO
+            END DO
+          ENDIF		        
+ 				
+
       CASE default
 
         CALL finish(routine, "unknown atmos_flux_analytical_type")
@@ -2316,7 +2347,7 @@ CONTAINS
       ! zonal wind stress
       !write(0,*) ' ncep set 1: dimensions:',p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
       ! &  forcing_timescale, nproma, p_patch%nblks_c
-      !CALL read_3D(stream_id, onCells, 'stress_x', z_flx2(:,:,:))
+      !CALL read_3D(stream_id, on_cells, 'stress_x', z_flx2(:,:,:))
       !write(0,*) ' READ_FORC, READ 1: first data sets: stress-x, block=5, index=1,5:'
       !do jt=1,jtime
       !  write(0,*) 'jt=',jt,' val:',(z_flx2(jc,jt,5),jc=1,5)
@@ -2341,7 +2372,7 @@ CONTAINS
         CALL message( TRIM(routine), TRIM(message_text) )
       END IF
 
-      CALL read_2D_time(stream_id, onCells, 'stress_x', &
+      CALL read_2D_time(stream_id, on_cells, 'stress_x', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2349,7 +2380,7 @@ CONTAINS
       END DO
 
       ! meridional wind stress
-      CALL read_2D_time(stream_id, onCells, 'stress_y', &
+      CALL read_2D_time(stream_id, on_cells, 'stress_y', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2357,7 +2388,7 @@ CONTAINS
       END DO
 
       ! SST
-      CALL read_2D_time(stream_id, onCells, 'SST', &
+      CALL read_2D_time(stream_id, on_cells, 'SST', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2373,7 +2404,7 @@ CONTAINS
  !    ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
 
       ! 2m-temperature
-      CALL read_2D_time(stream_id, onCells, 'temp_2m', &
+      CALL read_2D_time(stream_id, on_cells, 'temp_2m', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2381,7 +2412,7 @@ CONTAINS
       END DO
 
       ! 2m dewpoint temperature
-      CALL read_2D_time(stream_id, onCells, 'dpt_temp_2m', &
+      CALL read_2D_time(stream_id, on_cells, 'dpt_temp_2m', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2389,7 +2420,7 @@ CONTAINS
       END DO
 
       ! Scalar wind
-      CALL read_2D_time(stream_id, onCells, 'scalar_wind', &
+      CALL read_2D_time(stream_id, on_cells, 'scalar_wind', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2397,7 +2428,7 @@ CONTAINS
       END DO
 
       ! cloud cover
-      CALL read_2D_time(stream_id, onCells, 'cloud', &
+      CALL read_2D_time(stream_id, on_cells, 'cloud', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2405,7 +2436,7 @@ CONTAINS
       END DO
 
       ! sea level pressure
-      CALL read_2D_time(stream_id, onCells, 'pressure', &
+      CALL read_2D_time(stream_id, on_cells, 'pressure', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2413,7 +2444,7 @@ CONTAINS
       END DO
 
       ! total solar radiation
-      CALL read_2D_time(stream_id, onCells, 'tot_solar', &
+      CALL read_2D_time(stream_id, on_cells, 'tot_solar', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2421,7 +2452,7 @@ CONTAINS
       END DO
 
       ! precipitation
-  !   CALL read_2D_time(stream_id, onCells, 'precip', &
+  !   CALL read_2D_time(stream_id, on_cells, 'precip', &
   !     &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
   !     &               end_timestep=i_count(2) + i_start(2))
   !   DO jt = 1, jtime
@@ -2429,13 +2460,13 @@ CONTAINS
   !   END DO
 
       ! evaporation or downward surface LW flux
-  !   CALL read_2D_time(stream_id, onCells, 'evap', &
+  !   CALL read_2D_time(stream_id, on_cells, 'evap', &
   !     &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
   !     &               end_timestep=i_count(2) + i_start(2))
   !   DO jt = 1, jtime
   !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
   !   END DO
-  !   CALL read_2D_time(stream_id, onCells, 'dlwrf', &
+  !   CALL read_2D_time(stream_id, on_cells, 'dlwrf', &
   !     &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
   !     &               end_timestep=i_count(2) + i_start(2))
   !   DO jt = 1, jtime
@@ -2443,7 +2474,7 @@ CONTAINS
   !   END DO
 
       ! runoff
-  !   CALL read_2D_time(stream_id, onCells, 'runoff', &
+  !   CALL read_2D_time(stream_id, on_cells, 'runoff', &
   !     &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
   !     &               end_timestep=i_count(2) + i_start(2))
   !   DO jt = 1, jtime

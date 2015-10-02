@@ -71,7 +71,7 @@ MODULE mo_ext_data_init
     &                              nlev_o3, nmonths
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_io_config,          ONLY: default_read_method
-  USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, onCells, &
+  USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, on_cells, &
     &                              t_stream_id, read_2D, read_2D_int, &
     &                              read_3D_extdim
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
@@ -822,7 +822,7 @@ CONTAINS
         ! get land-sea-mask on cells, integer marks are:
         ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
         ! boundary land (1, cells and vertices), inner land (2)
-        CALL read_2D_int(stream_id, onCells, 'cell_sea_land_mask', &
+        CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
           &              ext_data(jg)%atm%lsm_ctr_c)
 
         ! get topography [m]
@@ -834,14 +834,14 @@ CONTAINS
         SELECT CASE (iequations)
         CASE (ihs_atm_temp,ihs_atm_theta) ! iequations
           ! Read topography
-          CALL read_2D(stream_id, onCells, 'cell_elevation', &
+          CALL read_2D(stream_id, on_cells, 'cell_elevation', &
             &          ext_data(jg)%atm%elevation_c)
           ! Mask out ocean
           ext_data(jg)%atm%elevation_c(:,:) = MERGE(ext_data(jg)%atm%elevation_c(:,:), 0._wp, &
             &                                       ext_data(jg)%atm%lsm_ctr_c(:,:)  > 0     )
         CASE (inh_atmosphere) ! iequations
           ! Read topography
-          CALL read_2D(stream_id, onCells, 'cell_elevation', &
+          CALL read_2D(stream_id, on_cells, 'cell_elevation', &
             &          ext_data(jg)%atm%topography_c)
           ! Mask out ocean
           ext_data(jg)%atm%topography_c(:,:) = MERGE(ext_data(jg)%atm%topography_c(:,:), 0._wp, &
@@ -1202,7 +1202,7 @@ CONTAINS
 
         stream_id = openInputFile(ozone_file, p_patch(jg), default_read_method)
 
-        CALL read_3D_extdim(stream_id, onCells, TRIM(o3name), &
+        CALL read_3D_extdim(stream_id, on_cells, TRIM(o3name), &
           &                 ext_data(jg)%atm_td%O3)
 
         WRITE(0,*)'MAX/MIN o3 ppmv',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
@@ -1253,7 +1253,7 @@ CONTAINS
 
          stream_id = openInputFile(sst_td_file, p_patch(jg), &
           &                        default_read_method)
-         CALL read_2D (stream_id, onCells, 'SST', &
+         CALL read_2D (stream_id, on_cells, 'SST', &
           &            ext_data(jg)%atm_td%sst_m(:,:,im)) 
          CALL closeFile(stream_id)
 
@@ -1274,7 +1274,7 @@ CONTAINS
          ENDIF
 
          stream_id = openInputFile(ci_td_file, p_patch(jg), default_read_method)
-         CALL read_2D(stream_id, onCells, 'CI', &
+         CALL read_2D(stream_id, on_cells, 'CI', &
           &           ext_data(jg)%atm_td%fr_ice_m(:,:,im)) 
          CALL closeFile(stream_id)
 
