@@ -231,8 +231,8 @@
       PARAMETER (GRID_PROJECTION        = 15)
 
 ! Intermediate fix, until GRID_REFERENCE has completely been removed from ICON
-      INTEGER    GRID_REFERENCE        
-      PARAMETER (GRID_REFERENCE         = 9)
+!      INTEGER    GRID_REFERENCE        
+!      PARAMETER (GRID_REFERENCE         = 9)
 
 !
 !  ZAXIS types
