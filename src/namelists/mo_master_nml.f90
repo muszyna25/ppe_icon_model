@@ -34,7 +34,10 @@ MODULE mo_master_nml
        &                       setExpStartdate, setExpStopdate,                              &
        &                       setCheckpointTimeInterval,  setRestartTimeInterval,           &
        &                       tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate,            &
-       &                       tc_dt_checkpoint, tc_dt_restart
+       &                       tc_dt_checkpoint, tc_dt_restart,                              &
+       &                       cfg_experimentReferenceDate => experimentReferenceDate,       &
+       &                       cfg_experimentStartDate     => experimentStartDate,           &
+       &                       cfg_experimentStopDate      => experimentStopDate
 
   IMPLICIT NONE
   
@@ -139,7 +142,7 @@ CONTAINS
     CASE ('MPIM')  
       CALL setInstitution('Max Planck Institute for Meteorology')
     CASE ('KIT')  
-      CALL setInstitution('Karlsruhe Institute for Technology')
+      CALL setInstitution('Karlsruhe Institute of Technology')
     CASE ('CSCS')
       CALL setInstitution('Swiss National Supercomputing Centre')      
     CASE DEFAULT
@@ -156,6 +159,10 @@ CONTAINS
     IF (istat == POSITIONED) THEN
       READ (nnml, master_time_control_nml)
     ENDIF
+
+    cfg_experimentReferenceDate = experimentReferenceDate
+    cfg_experimentStartDate     = experimentStartDate
+    cfg_experimentStopDate      = experimentStopDate
 
     ! set calendar (singleton, so do not change later!)
     

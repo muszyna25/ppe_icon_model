@@ -14,7 +14,8 @@
 !!
 MODULE mo_master_config
 
-  USE mtime,       ONLY: datetime, timedelta, newDatetime, newTimedelta
+  USE mtime,       ONLY: datetime, timedelta, newDatetime, newTimedelta, &
+    &                    max_datetime_str_len
   USE mo_io_units, ONLY: filename_max
   
   IMPLICIT NONE
@@ -39,6 +40,7 @@ MODULE mo_master_config
   PUBLIC :: tc_dt_checkpoint
   PUBLIC :: tc_dt_restart
   PUBLIC :: lrestart_write_last
+  PUBLIC :: experimentReferenceDate, experimentStartDate, experimentStopDate
   
   ! component model configuration
   !_______________________________________________________________________________________________
@@ -91,6 +93,11 @@ MODULE mo_master_config
   LOGICAL, PROTECTED ::  lrestart_write_last = .FALSE.
 
   CHARACTER(len=filename_max), PROTECTED :: model_base_dir = ''
+
+
+  CHARACTER(len=max_datetime_str_len) :: experimentReferenceDate
+  CHARACTER(len=max_datetime_str_len) :: experimentStartDate
+  CHARACTER(len=max_datetime_str_len) :: experimentStopDate
   
 CONTAINS
 
