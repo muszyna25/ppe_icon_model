@@ -273,11 +273,11 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
                 ! Update mass mixing ratios
                 DO ijsp = 1, fields%info%njsp
                   CALL art_integrate_explicit(tracer(:,nlev,jb,fields%info%jsp(ijsp)),  emiss_rate(:,:), dtime,  &
-                    &                         istart,iend, opt_rho = rho(:,nlev,jb))
+                    &                         istart, iend, nlev, opt_rho = rho(:,nlev,jb))
                 ENDDO
                 ! Update mass-specific number
                 CALL art_integrate_explicit(tracer(:,nlev,jb,fields%info%i_number_conc), emiss_rate(:,:), dtime, &
-                  &                         istart,iend, opt_rho = rho(:,nlev,jb),                             &
+                  &                         istart, iend, nlev, opt_rho = rho(:,nlev,jb),                        &
                   &                         opt_fac=(fields%info%mode_fac * fields%info%factnum))
               ENDDO !jb
 !$omp end parallel do
