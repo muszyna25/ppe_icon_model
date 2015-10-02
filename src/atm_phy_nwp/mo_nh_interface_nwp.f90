@@ -1263,7 +1263,10 @@ CONTAINS
    &          prm_nwp_tend%ddt_v_gwd     (i_startidx:i_endidx,:,jb) &
    &        + zddt_v_raylfric            (i_startidx:i_endidx,:)    &
    &        + prm_nwp_tend%ddt_v_sso     (i_startidx:i_endidx,:,jb) &
-   &        + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb) 
+   &        + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb)
+        ELSE IF (is_ls_forcing) THEN
+          z_ddt_u_tot(i_startidx:i_endidx,:,jb) = 0._wp
+          z_ddt_v_tot(i_startidx:i_endidx,:,jb) = 0._wp
         ENDIF
 
 
