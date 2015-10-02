@@ -26,7 +26,7 @@ case "$fortran_compiler" in
       FC       = mpxlf_r
       FC       = mpxlf2003_r
      
-      DEBUG_FLAGS = -O0 -g -qcheck -qstackprotect=all -WF,-DNOXLFPROCESS
+      DEBUG_FLAGS = -O0 -qnoopt -qkeepparm -g -qcheck -qstackprotect=all -WF,-DNOXLFPROCESS
       BASIC_OPT_FLAGS = -qalias_size -q64 -qmaxmem=-1 -qarch=pwr6 -qtune=auto -qcache=auto -qfloat=fltint -WF,-D__LOOP_EXCHANGE      
       STD_FLAGS = -O2 -qstrict -qlinedebug "$BASIC_OPT_FLAGS" "$INFOFLAGS"  -qspillsize=32648
       HIOPT_FLAGS = -O3 -qhot -qstrict -qarch=pwr6 -qtune=balanced -qcache=auto -qxflag=nvectver -qxflag=nsmine -qfloat=fltint -qessl -q64 -qmaxmem=-1  -qlinedebug  -WF,-D__LOOP_EXCHANGE -WF,-DHAVE_FAST_MATH_LIB -WF,-DHAVE_MASS

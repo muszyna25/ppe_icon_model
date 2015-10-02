@@ -1020,7 +1020,7 @@ MODULE mo_nh_testcases
         CALL finish(TRIM(routine),'CBL case is only for plane torus!')
 
     DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
+      nlev   = p_patch(jg)%nlev
       CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
  

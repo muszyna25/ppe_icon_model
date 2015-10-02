@@ -639,7 +639,6 @@ AR
 OTHER_LIBS
 PROFILE_INCLUDE
 PROFILE_LIB
-METIS_LIB
 LAPACK_LIB
 LAPACK_LIB_PATH
 LAPACKROOT
@@ -3808,11 +3807,11 @@ if test -n "$SZIPROOT" ; then
      echo "cannot find $SZIPROOT/include"
      exit 1
   fi
-  case $(hostname) in
+  case $ac_hostname in
   btc*|mlogin*)
     case $FC in
     nagfor)
-      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
     *)
       SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -3859,11 +3858,11 @@ if test -n "$HDF5ROOT" ; then
      echo "cannot find $HDF5ROOT/include"
      exit 1
   fi
-  case $(hostname) in
+  case $ac_hostname in
   btc*|mlogin*)
     case $FC in
     nagfor)
-      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
     *)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -3970,11 +3969,11 @@ if test -n "$NETCDFROOT" ; then
   if test x$gcc_lib != x ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
-  case $(hostname) in
+  case $ac_hostname in
   btc*|mlogin*)
     case $FC in
     nagfor)
-      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
     *)
       NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -3997,12 +3996,12 @@ if test -n "$NETCDFROOT" ; then
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
-         case $(hostname) in
+         case $ac_hostname in
          btc*|mlogin*)
            case $FC in
            nagfor)
-             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
-             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
              ;;
            *)
              NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -4320,7 +4319,6 @@ esac
 
 MPI_INCLUDE=""
 
-withval=no
 
 # Check whether --with-mpi was given.
 if test "${with_mpi+set}" = set; then :
@@ -4329,26 +4327,19 @@ fi
 
 
 
-#default is with mpi
-if test x$with_mpi != xno ; then
-  withval=yes
-fi
-
-if test x$withval = xno ; then
+if test x"$with_mpi" = xno; then :
   FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
-  CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
-  MPI_LIB=""
-  MPI_VERSION=none
-  MPIROOT=""
-  use_mpcc_r=no
+   CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
+   MPI_LIB=""
+   MPI_VERSION=none
+   MPIROOT=""
+   use_mpcc_r=no
 else
-  if test x$with_mpi != x ; then
-    if test $with_mpi != yes && $with_mpi != no  ; then
-      MPIROOT=$with_mpi
-    fi
-  fi
-  if test -n "$MPIROOT" ; then
-    as_ac_File=`$as_echo "ac_cv_file_$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" | $as_tr_sh`
+  if test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno; then :
+  MPIROOT=$with_mpi
+fi
+   if test x"$MPIROOT" != x; then :
+  as_ac_File=`$as_echo "ac_cv_file_$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" | $as_tr_sh`
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" >&5
 $as_echo_n "checking for $MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h... " >&6; }
 if eval \${$as_ac_File+:} false; then :
@@ -4426,10 +4417,10 @@ esac
     else
       MPI_INCLUDE="$MPI_M_INCLUDE $MPI_I_INCLUDE"
     fi
-  else
-    MPI="${DEFOPT}NOMPI"
+else
+  MPI="${DEFOPT}NOMPI"
     MPI_LIB=""
-  fi
+fi
 fi
 
 
@@ -6237,7 +6228,9 @@ fi
 
 if [ "x$use_openmp" = xyes ] ; then
    FFLAGS="${FFLAGS} ${OMPFLAG}"
+   F77FLAGS="${F77FLAGS} ${OMPFLAG}"
    LDFLAGS="${LDFLAGS} ${OMPFLAG}"
+   CFLAGS="${CFLAGS} ${CC_OMPFLAG}"
 fi
 
 #------------------------
@@ -6360,9 +6353,6 @@ LAPACKROOT=$LAPACKROOT
 LAPACK_LIB_PATH=$LAPACK_LIB_PATH
 
 LAPACK_LIB=$LAPACK_LIB
-
-
-METIS_LIB=$METIS_LIB
 
 
 PROFILE_LIB=$PROFILE_LIB
@@ -7907,6 +7897,7 @@ use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
 use_icon_components="$icon_components"
+use_flags_group="$use_flags_group"
 #############################
 EOF
 
