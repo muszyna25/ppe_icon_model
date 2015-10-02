@@ -28,9 +28,9 @@ MODULE mo_bc_sst_sic
   USE mo_parallel_config,    ONLY: nproma
   USE mo_physical_constants, ONLY: tf_salt !, tmelt
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
-  USE mo_cdi_constants,      ONLY: streamOpenRead, streamInqVlist, gridInqSize,      &
+  USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, gridInqSize,      &
     &                              vlistInqTaxis, streamInqTimestep, taxisInqVdate,  &
-    &                              vlistInqVarGrid
+    &                              vlistInqVarGrid, streamClose, cdiGetStringError, streamReadVarslice, vlistPrint
 
   USE mo_time_interpolation_weights,ONLY: t_wi_limm
 
@@ -175,13 +175,14 @@ CONTAINS
 
   END SUBROUTINE read_sst_sic_data
 
-  SUBROUTINE bc_sst_sic_time_interpolation(wi, slf, tsw, seaice, siced)
+  SUBROUTINE bc_sst_sic_time_interpolation(wi, slf, tsw, seaice, siced, p_patch)
     
     TYPE(t_wi_limm), INTENT(in)  :: wi
     REAL(dp)       , INTENT(in)  :: slf(:,:) 
     REAL(dp)       , INTENT(out) :: tsw(:,:) 
     REAL(dp)       , INTENT(out) :: seaice(:,:) 
     REAL(dp)       , INTENT(out) :: siced(:,:) 
+    TYPE(t_patch)  , INTENT(in)  :: p_patch
 
     REAL(dp) :: zts(SIZE(tsw,1),SIZE(tsw,2))
     REAL(dp) :: zic(SIZE(tsw,1),SIZE(tsw,2))
@@ -203,8 +204,11 @@ CONTAINS
       !   tsw(:,:)=MAX(zts(:,:), tf_salt)
       ! END IF
       tsw(:,:) = MERGE(tf_salt, MAX(zts(:,:), tf_salt), seaice(:,:) > 0.0_dp) 
-    !TODO: preliminary fixed value for sea ice depth
-      siced(:,:) = MERGE(1.5_dp, 0.0_dp, seaice(:,:) > 0.0_dp) 
+      WHERE (p_patch%cells%center(:,:)%lat > 0.0_dp)
+         siced(:,:) = MERGE(2.0_dp, 0.0_dp, seaice(:,:) > 0.0_dp) 
+      ELSEWHERE
+         siced(:,:) = MERGE(1.0_dp, 0.0_dp, seaice(:,:) > 0.0_dp)
+      ENDWHERE
     ELSEWHERE                                  ! land
       seaice(:,:) = 0.0_dp
       siced(:,:)  = 0.0_dp
@@ -212,7 +216,7 @@ CONTAINS
       tsw(:,:) = zts(:,:)
     ENDWHERE
 
-    CALL message('','Interpolated sea surface temperature and sea ice cover.')
+    !CALL message('','Interpolated sea surface temperature and sea ice cover.')
 
   END SUBROUTINE bc_sst_sic_time_interpolation
 

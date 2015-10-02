@@ -76,10 +76,10 @@ MODULE mo_ocean_physics
   USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
+  USE mo_cdi,                 ONLY: datatype_pack16, datatype_flt32, filetype_nc2
   USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_reference,           &
     & grid_unstructured_edge, grid_unstructured_cell, &
-    & za_depth_below_sea, za_depth_below_sea_half,    &
-    & datatype_pack16, datatype_flt32, filetype_nc2
+    & za_depth_below_sea, za_depth_below_sea_half
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, global_max
   USE  mo_ocean_thermodyn,      ONLY: calculate_density_onColumn

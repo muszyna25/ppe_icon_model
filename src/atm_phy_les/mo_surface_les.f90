@@ -52,7 +52,7 @@ MODULE mo_surface_les
   USE mo_util_phys,           ONLY: nwp_dyn_gust
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_nh_testcases_nml,    ONLY: th_cbl, psfc_cbl, pseudo_rhos
+  USE mo_nh_testcases_nml,    ONLY: th_cbl, psfc_cbl
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_turbdiff_config,     ONLY: turbdiff_config
 
@@ -95,7 +95,7 @@ MODULE mo_surface_les
   !!------------------------------------------------------------------------
   !! @par Revision History
   !! Initial release by Anurag Dipankar, MPI-M (2013-02-06)
-  SUBROUTINE  surface_conditions(linit, p_nh_metrics, p_patch, p_nh_diag, p_int, &
+  SUBROUTINE  surface_conditions(p_nh_metrics, p_patch, p_nh_diag, p_int, &
                                  p_prog_lnd_now, p_prog_lnd_new, p_diag_lnd, &
                                  prm_diag, theta, qv)
 
@@ -109,7 +109,6 @@ MODULE mo_surface_les
     TYPE(t_nwp_phy_diag),   INTENT(inout):: prm_diag      !< atm phys vars
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
-    LOGICAL,           INTENT(in)        :: linit         !indicate first time step
 
     REAL(wp) :: rhos, obukhov_length, z_mc, ustar, inv_mwind, mwind, wstar
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
@@ -172,7 +171,7 @@ MODULE mo_surface_les
     CASE(2)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,mwind,z_mc,RIB, &
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,exner,zrough,mwind,z_mc,RIB,rhos, &
 !$OMP            ustar,obukhov_length,theta_sfc),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -222,11 +221,15 @@ MODULE mo_surface_les
             p_diag_lnd%qv_s(jc,jb) = qv(jc,jk,jb) + les_config(jg)%lhflx / ustar * &
                                      businger_heat(zrough,z_mc,obukhov_length) 
 
+            !rho at surface: no qc at suface
+            rhos   =  psfc_cbl/( rd * &
+                     p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
+
             !Get surface fluxes
-            prm_diag%shfl_s(jc,jb)  = les_config(jg)%shflx * pseudo_rhos * cpd
-            prm_diag%lhfl_s(jc,jb)  = les_config(jg)%lhflx * pseudo_rhos * alv
-            prm_diag%umfl_s(jc,jb)  = ustar**2 * pseudo_rhos * p_nh_diag%u(jc,jk,jb) / mwind
-            prm_diag%vmfl_s(jc,jb)  = ustar**2 * pseudo_rhos * p_nh_diag%v(jc,jk,jb) / mwind
+            prm_diag%shfl_s(jc,jb)  = les_config(jg)%shflx * rhos * cpd
+            prm_diag%lhfl_s(jc,jb)  = les_config(jg)%lhflx * rhos * alv
+            prm_diag%umfl_s(jc,jb)  = ustar**2 * rhos * p_nh_diag%u(jc,jk,jb) / mwind
+            prm_diag%vmfl_s(jc,jb)  = ustar**2 * rhos * p_nh_diag%v(jc,jk,jb) / mwind
 
          END DO  
       END DO
@@ -264,7 +267,7 @@ MODULE mo_surface_les
       
       diff = 1._wp
       itr = 0 
-      DO WHILE (diff > 1._wp-6 .AND. itr < 10)
+      DO WHILE (diff > 1.e-6_wp .AND. itr < 10)
          bflx1 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
                  theta_nlev*(spec_humi(sat_pres_water(t_sfc),psfc_cbl)- &
                  qv_nlev) )*grav/theta_nlev
@@ -289,7 +292,7 @@ MODULE mo_surface_les
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,z_mc,mwind,RIB,ustar, &
-!$OMP            obukhov_length),ICON_OMP_RUNTIME_SCHEDULE 
+!$OMP            obukhov_length,rhos),ICON_OMP_RUNTIME_SCHEDULE 
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                             i_startidx, i_endidx, rl_start, rl_end)
@@ -324,12 +327,16 @@ MODULE mo_surface_les
             !Get surface qv 
             p_diag_lnd%qv_s(jc,jb) = spec_humi(sat_pres_water(p_prog_lnd_new%t_g(jc,jb)),psfc_cbl)
 
-            prm_diag%shfl_s(jc,jb) = pseudo_rhos*cpd*les_config(jg)%tran_coeff* &
+            !rho at surface: no qc at suface
+            rhos   =  psfc_cbl/( rd * &
+                     p_prog_lnd_new%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_lnd%qv_s(jc,jb)) )  
+
+            prm_diag%shfl_s(jc,jb) = rhos*cpd*les_config(jg)%tran_coeff* &
                                      (theta_sfc-theta(jc,jk,jb))
-            prm_diag%lhfl_s(jc,jb) = pseudo_rhos*alv*les_config(jg)%tran_coeff* &
+            prm_diag%lhfl_s(jc,jb) = rhos*alv*les_config(jg)%tran_coeff* &
                                      (p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))
-            prm_diag%umfl_s(jc,jb)  = ustar**2 * pseudo_rhos * p_nh_diag%u(jc,jk,jb) / mwind
-            prm_diag%vmfl_s(jc,jb)  = ustar**2 * pseudo_rhos * p_nh_diag%v(jc,jk,jb) / mwind
+            prm_diag%umfl_s(jc,jb)  = ustar**2 * rhos * p_nh_diag%u(jc,jk,jb) / mwind
+            prm_diag%vmfl_s(jc,jb)  = ustar**2 * rhos * p_nh_diag%v(jc,jk,jb) / mwind
 
          END DO  
       END DO
@@ -373,9 +380,6 @@ MODULE mo_surface_les
     !Fix SST case
     CASE(5)
 
-
-    IF(linit)prm_diag%tcm(:,:) = 0._wp
-
 !   Get roughness length * grav           
     IF(turbdiff_config(jg)%lconst_z0 .AND. turbdiff_config(jg)%const_z0 <= 0._wp)THEN
       DO jb = i_startblk,i_endblk
@@ -383,7 +387,7 @@ MODULE mo_surface_les
                            i_startidx, i_endidx, rl_start, rl_end)
         DO jc = i_startidx, i_endidx           
            mwind = MAX( les_config(jg)%min_sfc_wind, SQRT(p_nh_diag%u(jc,jk,jb)**2+p_nh_diag%v(jc,jk,jb)**2) )
-           var(jc,jb) = SQRT(prm_diag%tcm(jc,jb))*mwind
+           var(jc,jb) = SQRT( MAX(0._wp,prm_diag%tcm(jc,jb)) ) * mwind
         END DO         
       END DO
 
@@ -421,18 +425,16 @@ MODULE mo_surface_les
            !Z height to be used as a reference height in surface layer
            z_mc   = p_nh_metrics%z_mc(jc,jk,jb) - p_nh_metrics%z_ifc(jc,jkp1,jb)
 
-           IF(linit)THEN
-             !First guess for ustar and th star using bulk approach
-             RIB = grav * (theta(jc,jk,jb)-theta_sfc) * (z_mc-zrough) / (theta_sfc * mwind**2)
+           !First guess for tch and tcm using bulk approach
+           RIB = grav * (theta(jc,jk,jb)-theta_sfc) * (z_mc-zrough) / (theta_sfc * mwind**2)
 
-             tcn_mom             = (akt/LOG(z_mc/zrough))**2
-             prm_diag%tcm(jc,jb) = tcn_mom * stability_function_mom(RIB,z_mc/zrough,tcn_mom)
+           tcn_mom             = (akt/LOG(z_mc/zrough))**2
+           prm_diag%tcm(jc,jb) = tcn_mom * stability_function_mom(RIB,z_mc/zrough,tcn_mom)
 
-             !Heat transfer coefficient
-             tcn_heat            = akt**2/(LOG(z_mc/zrough)*LOG(z_mc/zrough))
-             prm_diag%tch(jc,jb) = tcn_heat * stability_function_heat(RIB,z_mc/zrough,tcn_heat)
-           END IF
+           tcn_heat            = akt**2/(LOG(z_mc/zrough)*LOG(z_mc/zrough))
+           prm_diag%tch(jc,jb) = tcn_heat * stability_function_heat(RIB,z_mc/zrough,tcn_heat)
 
+           !now iterate
            DO itr = 1 , 5
               shfl = prm_diag%tch(jc,jb)*mwind*(theta_sfc-theta(jc,jk,jb))
               lhfl = prm_diag%tch(jc,jb)*mwind*(p_diag_lnd%qv_s(jc,jb)-qv(jc,jk,jb))

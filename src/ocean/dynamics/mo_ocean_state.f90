@@ -41,7 +41,6 @@ MODULE mo_ocean_state
     &                               t_ocean_regions ,t_ocean_region_volumes ,t_ocean_region_areas ,t_ocean_basins 
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_master_control,      ONLY: is_restart_run
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     &                               success, max_char_length, MIN_DOLIC,               &
     &                               full_coriolis, beta_plane_coriolis,                &
@@ -52,23 +51,25 @@ MODULE mo_ocean_state
     & use_dummy_cell_closure
   USE mo_dynamics_config,     ONLY: nnew,nold
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, t_geographical_coordinates
-  
+
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: add_var,                  &
     &                               new_var_list,             &
     &                               delete_var_list,          &
     &                               default_var_list_settings,&
     &                               add_ref
-  USE mo_var_metadata,        ONLY: groups 
+  USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
   USE mo_grib2,               ONLY: grib2_var, t_grib2_var
-  USE mo_cdi_constants
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_INT8, DATATYPE_PACK16, tstep_constant, DATATYPE_FLT64, GRID_LONLAT
+  USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_reference, grid_unstructured_cell, grid_unstructured_edge, &
+      &                             grid_unstructured_vert, grid_vertex, za_depth_below_sea, za_depth_below_sea_half, za_surface
   !  USE mo_ocean_config,        ONLY: ignore_land_points
-  
+
   IMPLICIT NONE
   PRIVATE
-  
- 
+
+
   !public interface
   !
   ! subroutines

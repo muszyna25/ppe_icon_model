@@ -96,7 +96,10 @@ MODULE mo_model_domimp_patches
     &                              min_rledge_int,         &
     &                              min_rlvert_int
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
-  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent
+  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent, &
+       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
+       c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
+       e_refin_ctrl, v_cell, v_num_edges, v_vertex, v_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
     &                              get_valid_local_index, &
     &                              t_grid_domain_decomp_info, get_local_index
@@ -138,6 +141,8 @@ MODULE mo_model_domimp_patches
 #ifndef __NO_ICON_ATMO__
   USE mo_interpol_config,    ONLY: nudge_zone_width
 #endif
+  USE ppm_distributed_array,  ONLY: dist_mult_array_local_ptr, &
+    &                               dist_mult_array_expose
 
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
@@ -146,18 +151,18 @@ MODULE mo_model_domimp_patches
 
   USE mo_netcdf_parallel, ONLY:                      &
     & nf_nowrite, nf_global, nf_noerr, nf_strerror,  &
-    & nf_inq_attid       => p_nf_inq_attid,          &
-    & nf_open            => p_nf_open,               &
-    & nf_close           => p_nf_close,              &
-    & nf_inq_dimid       => p_nf_inq_dimid,          &
-    & nf_inq_dimlen      => p_nf_inq_dimlen,         &
-    & nf_inq_varid       => p_nf_inq_varid,          &
-    & nf_get_att_text    => p_nf_get_att_text,       &
-    & nf_get_att_int     => p_nf_get_att_int,        &
-    & nf_get_var_int     => p_nf_get_var_int,        &
-    & nf_get_vara_int    => p_nf_get_vara_int,       &
-    & nf_get_var_double  => p_nf_get_var_double,     &
-    & nf_get_vara_double => p_nf_get_vara_double
+    & nf_inq_attid        => p_nf_inq_attid,          &
+    & nf_open             => p_nf_open,               &
+    & nf_close            => p_nf_close,              &
+    & nf_inq_dimid        => p_nf_inq_dimid,          &
+    & nf_inq_dimlen       => p_nf_inq_dimlen,         &
+    & nf_inq_varid        => p_nf_inq_varid,          &
+    & nf_get_att_text     => p_nf_get_att_text,       &
+    & nf_get_att_int      => p_nf_get_att_int,        &
+    & nf_get_var_int      => p_nf_get_var_int,        &
+    & nf_get_vara_int     => p_nf_get_vara_int,       &
+    & nf_get_var_double   => p_nf_get_var_double,     &
+    & nf_get_vara_double  => p_nf_get_vara_double_
 #endif
 
   IMPLICIT NONE
@@ -214,7 +219,7 @@ CONTAINS
     INTEGER,                   INTENT(in)    :: num_lev(:), nshift(:)
     TYPE(t_pre_patch), TARGET, INTENT(inout) :: patch_pre(n_dom_start:)
     !> If .true., read fields related to grid refinement from separate  grid files
-    LOGICAL,                   INTENT(OUT)   :: lsep_grfinfo       
+    LOGICAL,                   INTENT(OUT)   :: lsep_grfinfo
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/import_basic_patch'
     INTEGER                           :: jg, jg1, n_chd, n_chdc
@@ -439,7 +444,7 @@ CONTAINS
     TYPE(t_patch), TARGET,     INTENT(inout) :: patch(n_dom_start:)
     LOGICAL,                   INTENT(IN)    :: is_ocean_decomposition
     !> If .true., read fields related to grid refinement from separate  grid files
-    LOGICAL,                   INTENT(IN)    :: lsep_grfinfo       
+    LOGICAL,                   INTENT(IN)    :: lsep_grfinfo
 
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
@@ -1005,7 +1010,7 @@ CONTAINS
     TYPE(t_pre_patch), TARGET,         INTENT(inout) ::  patch_pre           ! patch data structure
     CHARACTER(LEN=uuid_string_length), INTENT(inout) :: uuid_grid, uuid_par, uuid_chi(5)
     !> If .true., read fields related to grid refinement from separate  grid files:
-    LOGICAL,                           INTENT(OUT)   :: lsep_grfinfo 
+    LOGICAL,                           INTENT(OUT)   :: lsep_grfinfo
 
     ! local variables
     INTEGER, ALLOCATABLE :: &
@@ -1033,6 +1038,8 @@ CONTAINS
     INTEGER :: ji
     INTEGER :: jc, ic
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id, dim_idxlist
+    INTEGER, POINTER :: local_ptr(:), local_ptr_2d(:,:)
+    REAL(wp), POINTER :: local_ptr_wp(:), local_ptr_wp_2d(:, :)
     !-----------------------------------------------------------------------
 
     ! set dummy values to zero
@@ -1303,106 +1310,261 @@ CONTAINS
 
     ! patch_pre%cells%phys_id(:)
     CALL nf(nf_inq_varid(ncid_grf, 'phys_cell_id', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%cells%phys_id(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_phys_id, local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
+      &                     local_ptr(:)))
 
-    ! patch_pre%cells%neighbor(:,:)
+    ! patch_pre%cells%neighbor
     CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
-    CALL nf(nf_get_var_int(ncid, varid, &
-      &                    patch_pre%cells%neighbor(:,1:max_cell_connectivity)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_neighbor, local_ptr_2d)
+    local_ptr_2d(:,:) = 0
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size, &
+      &                       max_cell_connectivity/), &
+      &                     local_ptr_2d(:,1:max_cell_connectivity)))
 
-    ! patch_pre%cells%edge(:,:)
+    IF (max_cell_connectivity == 6 .AND. use_duplicated_connectivity) THEN
+      DO ic = patch_pre%cells%local_chunk(1,1)%first, &
+        patch_pre%cells%local_chunk(1,1)%first + &
+        patch_pre%cells%local_chunk(1,1)%size - 1
+
+        DO ji = 1, 6
+
+          ! account for dummy cells arising in case of a pentagon
+          IF (local_ptr_2d(ic,ji) == 0) THEN
+            IF ( ji /= 6 ) THEN
+              local_ptr_2d(ic,ji) = local_ptr_2d(ic,6)
+              ! this should not happen
+              ! CALL finish(method_name, "cells%neighbor_idx=0 not at the end")
+            END IF
+            ! Fill dummy neighbor with an existing index to simplify do loops
+            ! Note, however, that related multiplication factors must be zero
+            local_ptr_2d(ic,6) = local_ptr_2d(ic,5)
+          END IF
+        END DO  ! ji = 1, 6
+      END DO ! cells
+    END IF
+
+    ! patch_pre%cells%edge
     CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
-    CALL nf(nf_get_var_int(ncid, varid, &
-      &     patch_pre%cells%edge(:,1:max_cell_connectivity)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_edge, local_ptr_2d)
+    local_ptr_2d(:,:) = 0
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size, &
+      &                       max_cell_connectivity/), &
+      &                     local_ptr_2d(:,1:max_cell_connectivity)))
 
-    ! patch_pre%cells%vertex(:,:)
+    IF (max_cell_connectivity == 6 .AND. use_duplicated_connectivity) THEN
+
+      DO ic = patch_pre%cells%local_chunk(1,1)%first, &
+        patch_pre%cells%local_chunk(1,1)%first + &
+        patch_pre%cells%local_chunk(1,1)%size - 1
+
+        DO ji = 1, 6
+
+          ! account for dummy edges arising in case of a pentagon
+          IF ( local_ptr_2d(ic,ji) == 0 ) THEN
+            IF ( ji /= 6 ) local_ptr_2d(ic,ji) = local_ptr_2d(ic,6)
+            ! Fill dummy edge with existing index to simplify do loops
+            ! Note, however, that related multiplication factors must be zero
+            local_ptr_2d(ic,6) = local_ptr_2d(ic,5)
+          END IF
+
+        END DO  ! ji = 1, 6
+
+      END DO ! cells
+    ENDIF
+
+    !----------------------------------------------------------------------------------
+    ! compute cells%num_edges
+    ! works for general unstructured grid
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_num_edges, local_ptr)
+    DO jc = patch_pre%cells%local_chunk(1,1)%first, &
+      patch_pre%cells%local_chunk(1,1)%first + &
+      patch_pre%cells%local_chunk(1,1)%size - 1
+      local_ptr(jc) = COUNT(local_ptr_2d(jc, 1:max_cell_connectivity) > 0)
+    END DO
+
+    ! patch_pre%cells%vertex
     CALL nf(nf_inq_varid(ncid, 'vertex_of_cell', varid))
-    CALL nf(nf_get_var_int(ncid, varid, &
-      &                    patch_pre%cells%vertex(:,1:max_cell_connectivity)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_vertex, local_ptr_2d)
+    local_ptr_2d(:,:) = 0
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size, &
+      &                       max_cell_connectivity/), &
+      &                     local_ptr_2d(:,1:max_cell_connectivity)))
 
-    ! patch_pre%cells%center(:)%lon
-    CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
-    CALL nf(nf_get_var_double(ncid, varid, patch_pre%cells%center(:)%lon))
+    IF (max_cell_connectivity == 6 .AND. use_duplicated_connectivity) THEN
 
-    ! patch_pre%cells%center(:)%lat
+      DO ic = patch_pre%cells%local_chunk(1,1)%first, &
+        patch_pre%cells%local_chunk(1,1)%first + &
+        patch_pre%cells%local_chunk(1,1)%size - 1
+
+        DO ji = 1, 6
+
+          ! account for dummy verts arising in case of a pentagon
+          IF ( local_ptr_2d(ic,ji) == 0 ) THEN
+            IF ( ji /= 6 ) local_ptr_2d(ic,ji) = local_ptr_2d(ic,6)
+            ! Fill dummy edge with existing index to simplify do loops
+            ! Note, however, that related multiplication factors must be zero
+            local_ptr_2d(ic,6) = local_ptr_2d(ic,5)
+          END IF
+
+        END DO  ! ji = 1, 6
+
+      END DO ! cells
+    ENDIF
+
+    ! patch_pre%cells%center latitude
     CALL nf(nf_inq_varid(ncid, 'lat_cell_centre', varid))
-    CALL nf(nf_get_var_double(ncid, varid, patch_pre%cells%center(:)%lat))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_center, local_ptr_wp_2d)
+    CALL nf(nf_get_vara_double(ncid, varid, &
+      &                        (/patch_pre%cells%local_chunk(1,1)%first/), &
+      &                        (/patch_pre%cells%local_chunk(1,1)%size/), &
+      &                        local_ptr_wp_2d(:, 1)))
 
-    ! patch_pre%verts%vertex(:)%lon
-    CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, patch_pre%verts%vertex(:)%lon))
+    ! patch_pre%cells%center longitude
+    CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
+    CALL nf(nf_get_vara_double(ncid, varid, &
+      &                        (/patch_pre%cells%local_chunk(1,1)%first/), &
+      &                        (/patch_pre%cells%local_chunk(1,1)%size/), &
+      &                        local_ptr_wp_2d(:, 2)))
 
     ! patch_pre%verts%vertex(:)%lat
     CALL nf(nf_inq_varid(ncid, 'latitude_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, patch_pre%verts%vertex(:)%lat))
+    CALL dist_mult_array_local_ptr(patch_pre%verts%dist, v_vertex, &
+         local_ptr_wp_2d)
+    CALL nf(nf_get_vara_double(ncid, varid, &
+      &                        (/patch_pre%verts%local_chunk(1,1)%first/), &
+      &                        (/patch_pre%verts%local_chunk(1,1)%size/), &
+      &                        local_ptr_wp_2d(:, 1)))
+
+    ! patch_pre%verts%vertex(:)%lon
+    CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))
+    CALL nf(nf_get_vara_double(ncid, varid, &
+      &                        (/patch_pre%verts%local_chunk(1,1)%first/), &
+      &                        (/patch_pre%verts%local_chunk(1,1)%size/), &
+      &                        local_ptr_wp_2d(:, 2)))
 
     !------------------------------------------
     ! nesting/lateral boundary indexes
     IF (max_cell_connectivity == 3) THEN ! triangular grid
 
+      ! patch_pre%cells%parent
       CALL nf(nf_inq_varid(ncid_grf, 'parent_cell_index', varid))
-      ! patch_pre%cells%parent(:)
-      CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%cells%parent(:)))
+      CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_parent, local_ptr)
+      CALL nf(nf_get_vara_int(ncid_grf, varid, &
+        &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
+        &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
+        &                     local_ptr))
       ! patch_pre%cells%child(:,:)
       CALL nf(nf_inq_varid(ncid_grf, 'child_cell_index', varid))
-      CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%cells%child(:,:)))
+      CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_child, local_ptr_2d)
+      CALL nf(nf_get_vara_int(ncid_grf, varid, &
+        &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
+        &                     (/patch_pre%cells%local_chunk(1,1)%size, 4/), &
+        &                     local_ptr_2d))
 
     ELSE
       CALL message ('read_patch',&
         & 'nesting incompatible with non-triangular grid')
     ENDIF
 
-    ! patch_pre%cells%refin_ctrl(:)
+    CALL dist_mult_array_expose(patch_pre%cells%dist)
+
+    ! patch_pre%cells%refin_ctrl
     CALL nf(nf_inq_varid(ncid_grf, 'refin_c_ctrl', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%cells%refin_ctrl(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_refin_ctrl, &
+         local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
+      &                     local_ptr))
 
-    ! patch_pre%edges%parent(:)
+    ! patch_pre%edges%parent
     CALL nf(nf_inq_varid(ncid_grf, 'parent_edge_index', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%edges%parent(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_parent, local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
+      &                     local_ptr))
 
-    ! patch_pre%edges%child(:,:)
+    ! patch_pre%edges%child
     CALL nf(nf_inq_varid(ncid_grf, 'child_edge_index', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%edges%child(:,:)))
+    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_child, local_ptr_2d)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%edges%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%edges%local_chunk(1,1)%size, 4/), &
+      &                     local_ptr_2d))
 
     ! First ensure that child edge indices are all positive;
     ! if there are negative values, grid files are too old
-    IF(ANY(patch_pre%edges%child(:,1:4)<0)) THEN
+    IF(ANY(local_ptr_2d(:,1:4)<0)) THEN
       CALL finish (TRIM(method_name), &
         & 'negative child edge indices detected - patch files are too old')
     ENDIF
 
-    ! patch_pre%edges%refin_ctrl(:)
+    ! patch_pre%edges%refin_ctrl
     CALL nf(nf_inq_varid(ncid_grf, 'refin_e_ctrl', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%edges%refin_ctrl(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_refin_ctrl, &
+         local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
+      &                     local_ptr))
 
-    ! patch_pre%verts%refin_ctrl(:)
+    ! patch_pre%verts%refin_ctrl
     CALL nf(nf_inq_varid(ncid_grf, 'refin_v_ctrl', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%verts%refin_ctrl(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%verts%dist, v_refin_ctrl, &
+         local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%verts%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%verts%local_chunk(1,1)%size/), &
+      &                     local_ptr))
 
     ! BEGIN NEW SUBDIV
     CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
-    CALL nf(nf_get_var_int(ncid, varid, patch_pre%verts%cell(:,1:max_verts_connectivity)))
+    CALL dist_mult_array_local_ptr(patch_pre%verts%dist, v_cell, local_ptr_2d)
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%verts%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%verts%local_chunk(1,1)%size, &
+      &                       max_verts_connectivity/), &
+      &                     local_ptr_2d))
     ! eliminate indices < 0, this should not happen but some older grid files
     ! seem to contain such indices
-    WHERE(patch_pre%verts%cell(:,1:max_verts_connectivity) < 0) &
-      patch_pre%verts%cell(:,1:max_verts_connectivity) = 0
+    WHERE(local_ptr_2d(:, :) < 0) local_ptr_2d(:, :) = 0
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
-    CALL move_dummies_to_end(patch_pre%verts%cell(:,1:max_verts_connectivity), &
-      patch_pre%n_patch_verts_g, max_verts_connectivity, &
+    CALL move_dummies_to_end(local_ptr_2d, &
+      patch_pre%verts%local_chunk(1,1)%size, max_verts_connectivity, &
       use_duplicated_connectivity)
+
     !
     ! Set verts%num_edges
-    DO ji = 1, patch_pre%n_patch_verts_g
-      patch_pre%verts%num_edges(ji) = &
-        COUNT(patch_pre%verts%cell(ji,1:max_verts_connectivity) /= 0)
+    CALL dist_mult_array_local_ptr(patch_pre%verts%dist, v_num_edges, local_ptr)
+    DO ji = patch_pre%verts%local_chunk(1,1)%first, &
+      patch_pre%verts%local_chunk(1,1)%first + &
+      patch_pre%verts%local_chunk(1,1)%size - 1
+      local_ptr(ji) = COUNT(local_ptr_2d(ji, 1:max_verts_connectivity) > 0)
     END DO
 
     ! patch_pre%edges%cell(:,:)
     CALL nf(nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid))
-    CALL nf(nf_get_var_int(ncid, varid, patch_pre%edges%cell(:,:)))
-    WHERE(patch_pre%edges%cell(:, :) < 0) patch_pre%edges%cell(:, :) = 0
+    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_cell, local_ptr_2d)
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%edges%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%edges%local_chunk(1,1)%size, 2/), &
+      &                     local_ptr_2d))
+    WHERE(local_ptr_2d(:, :) < 0) local_ptr_2d(:, :) = 0
+
+    CALL dist_mult_array_expose(patch_pre%verts%dist)
+    CALL dist_mult_array_expose(patch_pre%edges%dist)
 
     ! END NEW SUBDIV
 
@@ -1420,59 +1582,6 @@ CONTAINS
       CALL finish (TRIM(method_name), 'deallocation for array_[cev]_indlist failed')
     ENDIF
 
-    !----------------------------------------------------------------------------------
-    ! compute cells%num_edges
-    ! works for general unstructured grid
-    DO jc = 1, patch_pre%n_patch_cells_g
-      patch_pre%cells%num_edges(jc) = &
-        COUNT(patch_pre%cells%edge(jc, 1:max_cell_connectivity) > 0)
-    END DO
-
-    !----------------------------------------------------------------------------------
-    ! account for pentagons in the hex gird,
-    ! Note: this needs to be checked
-    IF (max_cell_connectivity == 6 .AND. use_duplicated_connectivity) THEN
-      DO ic = 1, patch_pre%n_patch_cells_g
-
-        DO ji = 1, 6
-
-          ! account for dummy cells arising in case of a pentagon
-          IF ( patch_pre%cells%neighbor(ic,ji) == 0 ) THEN
-            IF ( ji /= 6 ) THEN
-              patch_pre%cells%neighbor(ic,ji) = patch_pre%cells%neighbor(ic,6)
-              ! this should not happen
-              ! CALL finish(method_name, "cells%neighbor_idx=0 not at the end")
-            END IF
-            ! Fill dummy neighbor with an existing index to simplify do loops
-            ! Note, however, that related multiplication factors must be zero
-            patch_pre%cells%neighbor(ic,6) = patch_pre%cells%neighbor(ic,5)
-          END IF
-
-          ! account for dummy verts arising in case of a pentagon
-          IF ( patch_pre%cells%vertex(ic,ji) == 0 ) THEN
-            IF ( ji /= 6 ) THEN
-              patch_pre%cells%vertex(ic,ji) = patch_pre%cells%vertex(ic,6)
-            END IF
-            ! Fill dummy edge with existing index to simplify do loops
-            ! Note, however, that related multiplication factors must be zero
-            patch_pre%cells%vertex(ic,6) = patch_pre%cells%vertex(ic,5)
-          END IF
-
-          ! account for dummy edges arising in case of a pentagon
-          IF ( patch_pre%cells%edge(ic,ji) == 0 ) THEN
-            IF ( ji /= 6 ) THEN
-              patch_pre%cells%edge(ic,ji) = patch_pre%cells%edge(ic,6)
-            END IF
-            ! Fill dummy edge with existing index to simplify do loops
-            ! Note, however, that related multiplication factors must be zero
-            patch_pre%cells%edge(ic,6) = patch_pre%cells%edge(ic,5)
-          END IF
-
-        END DO  ! ji = 1, 6
-
-      END DO ! cells
-    ENDIF
-
     CALL message (TRIM(method_name), 'read_patches finished')
 
   END SUBROUTINE read_pre_patch
@@ -1488,9 +1597,9 @@ CONTAINS
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
     !> If .true., read fields related to grid refinement from separate  grid files
-    LOGICAL,       INTENT(IN)    :: lsep_grfinfo       
+    LOGICAL,       INTENT(IN)    :: lsep_grfinfo
 
-    INTEGER :: ncid, dimid, varid, ncid_grf
+    INTEGER :: ncid, varid, ncid_grf
     TYPE(t_stream_id) :: stream_id, stream_id_grf
     INTEGER :: ip, jv, igrid_id, idx, blk
     INTEGER :: max_cell_connectivity, max_verts_connectivity
@@ -2166,16 +2275,16 @@ CONTAINS
       nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid) == nf_noerr
 
 !     IF (gridfile_has_cartesian_info) THEN
-! 
+!
 !       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
 !       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(1)))
 !       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
 !       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(2)))
 !       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
 !       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(3)))
-!         
+!
 !       gridfile_has_cartesian_info = ANY(ABS(x(:)) >= 0.001_wp)
-! 
+!
 !     END IF
 
   END FUNCTION gridfile_has_cartesian_info

@@ -29,7 +29,12 @@ AC_CONFIG_AUX_DIR(config)
 
 AC_CANONICAL_SYSTEM
 
+AC_PROG_AWK
+
 dnl ######################################################################
+
+AC_ARG_ENABLE([mtime-loop],
+              AS_HELP_STRING([--enable-mtime-loop],[Use mtime based time loop in nh stepping.]))
 
 AC_ARG_WITH([fortran],
   [AS_HELP_STRING([--with-fortran=COMPILER],
@@ -89,6 +94,16 @@ AC_ARG_WITH([flags],
     [],
     [])
 
+AC_ARG_WITH([art],
+  [AS_HELP_STRING([--with-art],
+    [enable ART modules via precprocessing directive, if available for selected compiler])],
+  [],
+  [])
+
+AS_IF([test "x$with_art" = "xyes"],
+      [use_art="yes"],
+      [use_art="no"])
+
 case $host in
   i*86-*-linux-*)  
     if test x$fortran_compiler != xintel ; then
@@ -104,33 +119,45 @@ esac
 
 dnl ######################################################################
 
-ac_hostname=$(hostname)
-ac_hostname=${ac_hostname%%\.*}
+AS_CASE([$ac_hostname],
+        [plogin*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],  
+        [wizard*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],  
+        [btc*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],       
+        [mlogin*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],
+        [ic2*],      
+        [ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename],         
+        [
+         AS_IF([test "x$(hostname)" = "x$ac_hostname"],
+               [fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')],
+               [fqdn=$(hostname)])
+         AS_IF([test -n "$fqdn"],
+           [ac_sitename=$(echo $fqdn | $AWK -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')],
+           [ac_sitename=])])
 
-AS_CASE([x"$ac_hostname"],
-  [xplogintest1],
-  [ac_sitename=dkrz.de],
-  [xwizard*],
-  [ac_sitename=dkrz.de; ac_hostname=wizard],
-  [xbtc*|mlogin*],
-  [ac_sitename=dkrz.de; ac_hostname=btc],
-  [if [[ $(hostname) = $ac_hostname ]] ; then
-   fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
-else
-   fqdn=$(hostname)
-fi
-  echo $fqdn
-  if [[ -n "$fqdn" ]]; then
-    ac_sitename=$(echo $fqdn | awk -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')
-  else
-    if [[ -n "$PE_ENV" ]] ; then
-      fqdn=$(echo ${PE_ENV} | awk '{print tolower($0)}')
-      echo "detecting Cray environment... $fqdn"
-    else
-      fqdn=${HOSTNAME}
-    fi
-    ac_sitename=${fqdn}
-  fi])
+AS_IF([ test -n "$fqdn" ],
+      [AS_IF([test -z ac_sitename],
+             [ac_sitename=local.net],
+             [])],
+      [AS_IF([ test -n "$PE_ENV" ],
+             [fqdn=$(echo ${PE_ENV} | awk '{print tolower($0)}')
+              AC_MSG_CHECKING([for Cray environment])
+              AC_MSG_RESULT([$[fqdn]])],
+             [fqdn=${HOSTNAME}])
+       [ac_sitename=${fqdn}]])        
+
+AC_MSG_CHECKING([for hostname])
+AC_MSG_RESULT([$[ac_hostname]])
+AC_MSG_CHECKING([for site name])
+AC_MSG_RESULT([$[ac_sitename]])
 
 dnl ######################################################################
 
@@ -173,7 +200,7 @@ fi
 #------------------------------------
 cat $host_frag > config/mh-config-use
 mh_local_name=config/mh-${ac_sitename}-${ac_hostname}
-echo "mh_local_name=$mh_local_name"
+# echo "mh_local_name=$mh_local_name"
 if test -f $mh_local_name ; then
   cat $mh_local_name >> config/mh-config-use
 # else
@@ -215,7 +242,7 @@ if test "x$load_modules" != x ;  then
     echo 'exit $rc' >>conf_load_module.tmp
     chmod +x conf_load_module.tmp
     ./conf_load_module.tmp ; rc=$?
-    rm conf_load_module.tmp
+#    rm conf_load_module.tmp
     exit $rc
   fi  
 fi
@@ -247,7 +274,10 @@ for other_package in $icon_components ; do
 
 done
 dnl ######################################################################
+dnl add defines for transitional features (eg. mtime based time loop)
 
+AS_IF([test "x$enable_mtime_loop" = "xyes"], 
+      [FFLAGS="${FFLAGS} ${DEFOPT}USE_MTIME_LOOP"])
 
 dnl ######################################################################
 dnl Checks for programs.
@@ -264,6 +294,8 @@ fi
 dnl ######################################################################
 dnl Checks for XML2.
 
+if test x$use_yac = xyes ; then
+
 XML2_LIB=""
 XML2_INCLUDE=""
 
@@ -272,37 +304,47 @@ AC_ARG_WITH([xml2],
                             [Required libxml2])],,
 			    withval=yes)
 
-if test x$withval = xyes; then
-  if test x$with_xml2 != x; then
-    XML2ROOT=$with_xml2
+  if test x$withval = xyes; then
+    if test x$with_xml2 != x; then
+      XML2ROOT=$with_xml2
+    fi
   fi
-fi
 
-if test -n "$XML2ROOT" ; then
+  if test -n "$XML2ROOT" ; then
 
-  if test -r "$XML2ROOT/lib/libxml2.a" ; then
-     XML2_LIB='-L$(XML2ROOT)/lib -lxml2'
+    if test -r "$XML2ROOT/lib/libxml2.a" ; then
+       XML2_LIB='-L$(XML2ROOT)/lib -lxml2'
+    else
+      if test -r "$XML2ROOT/lib64/libxml2.a" -o -r "$XML2ROOT/lib64/libxml2.so" ; then     
+          XML2_LIB='-L$(XML2ROOT)/lib64 -lxml2'
+      else   
+          if test -r "$XML2ROOT/lib/x86_64-linux-gnu/libxml2.a" ; then
+             XML2_LIB='-L$(XML2ROOT)/x86_64-linux-gnu/lib -lxml2'
+          else 
+             echo "cannot read $XML2ROOT/lib/libxml2.a"  
+             exit 1    
+          fi
+      fi
+    fi
+
+    if test -d "$XML2ROOT/include/libxml2" ; then
+       XML2_INCLUDE='-I$(XML2ROOT)/include/libxml2'
+    else
+       echo "cannot find $XML2ROOT/include/libxml2"  
+       exit 1    
+    fi
+
+    FFLAGS="${FFLAGS} ${DEFOPT}USE_XML2"
+    CFLAGS="${CFLAGS} ${DEFCOPT}USE_XML2"
+
   else
-     echo "cannot read $XML2ROOT/lib/libxml2.a"  
-     exit 1    
+
+    echo "Warning: the variable XML2ROOT is not set in $host_frag"  
+    echo "         set XML2ROOT to the xml2 root directory"
+
   fi
 
-  if test -d "$XML2ROOT/include/libxml2" ; then
-     XML2_INCLUDE='-I$(XML2ROOT)/include/libxml2'
-  else
-     echo "cannot find $XML2ROOT/include/libxml2"  
-     exit 1    
-  fi
-
-  FFLAGS="${FFLAGS} ${DEFOPT}USE_XML2"
-  CFLAGS="${CFLAGS} ${DEFCOPT}USE_XML2"
-
-else
-
-  echo "Warning: the variable XML2ROOT is not set in $host_frag"  
-  echo "         set XML2ROOT to the xml2 root directory"
 fi
-
 
 dnl ######################################################################
 dnl Checks for LAPACK/BLAS
@@ -403,13 +445,13 @@ if test -n "$SZIPROOT" ; then
      echo "cannot find $SZIPROOT/include"  
      exit 1    
   fi
-  case $(hostname) in
-  btc*|mlogin*)  
+  case $ac_hostname in
+  btc*|mlogin*)
     case $FC in
     nagfor)
-      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
-    *)  
+    *)
       SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
       ;;
     esac
@@ -452,11 +494,11 @@ if test -n "$HDF5ROOT" ; then
      echo "cannot find $HDF5ROOT/include"  
      exit 1    
   fi
-  case $(hostname) in
+  case $ac_hostname in
   btc*|mlogin*)  
     case $FC in
     nagfor)
-      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
     *)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -510,11 +552,11 @@ if test -n "$NETCDFROOT" ; then
   if test x$gcc_lib != x ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
-  case $(hostname) in
-  btc*|mlogin*)    
+  case $ac_hostname in
+  btc*|mlogin*)
     case $FC in
     nagfor)
-      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
     *)
       NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -536,24 +578,24 @@ if test -n "$NETCDFROOT" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
-         NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff' 
-         case $(hostname) in
-         btc*|mlogin*)    
+         NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
+         case $ac_hostname in
+         btc*|mlogin*)
            case $FC in
            nagfor)
-             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
-             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
              ;;
-           *)                      
+           *)
              NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
              NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
              ;;
-           esac         
-           NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
+           esac
            ;;
          *)
            ;;
          esac
+         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
@@ -703,40 +745,30 @@ esac
 
 MPI_INCLUDE=""
 
-withval=no
 AC_ARG_WITH([mpi],
             [AC_HELP_STRING([--with-mpi=DIR],
                             [MPI library])],,)
 
 
-#default is with mpi
-if test x$with_mpi != xno ; then
-  withval=yes
-fi
-
-if test x$withval = xno ; then
-  FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
-  CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
-  MPI_LIB=""
-  MPI_VERSION=none
-  MPIROOT=""
-  use_mpcc_r=no
-else
-  if test x$with_mpi != x ; then
-    if test $with_mpi != yes && $with_mpi != no  ; then
-      MPIROOT=$with_mpi
-    fi
-  fi
-  if test -n "$MPIROOT" ; then    
-    AC_CHECK_FILE($MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h,[],AC_MSG_ERROR([MPIROOT not properly defined]))
+AS_IF([test x"$with_mpi" = xno],
+  [FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
+   CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
+   MPI_LIB=""
+   MPI_VERSION=none
+   MPIROOT=""
+   use_mpcc_r=no],
+  [AS_IF([test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno],
+    [MPIROOT=$with_mpi])
+   AS_IF([test x"$MPIROOT" != x],
+    [AC_CHECK_FILE([$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h],,[AC_MSG_ERROR([MPIROOT not properly defined])])
     case $host in
     *-*-darwin*)
       MPI_LIB="$(mpif90 -show | awk '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
-      ;;    
+      ;;
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
-      ;;   
-    esac 
+      ;;
+    esac
     MPI_I_INCLUDE="-I\$(MPIROOT)/include/${MPI_INCLUDE_THREAD}"
     case $host in
     powerpc-ibm-aix*)
@@ -756,7 +788,11 @@ else
 #      mod_file=$(find $real_path -name mpi.mod -print -quit)
       case "$MPIROOT" in
       *impi*)
-        mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | awk 'NR==1')
+        AS_CASE([$FC],
+                [gfortran],
+                [vers=$(gfortran --version | awk 'NR==1{print $4}')
+                 mod_file=$(find $real_path/include/gfortran/$vers -name mpi.mod -print | awk 'NR==1')],
+                [mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | awk 'NR==1')])
         ;;      
       *)
         mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
@@ -777,12 +813,9 @@ else
       MPI_INCLUDE="$MPI_M_INCLUDE"
     else
       MPI_INCLUDE="$MPI_M_INCLUDE $MPI_I_INCLUDE"
-    fi  
-  else
-    MPI="${DEFOPT}NOMPI"
-    MPI_LIB=""
-  fi
-fi
+    fi],
+   [MPI="${DEFOPT}NOMPI"
+    MPI_LIB=""])])
 
 
 dnl ######################################################################
@@ -856,6 +889,14 @@ if [[ "x$use_messy" = xyes ]] ; then
     CFLAGS="${CFLAGS} ${DEFCOPT}MESSY ${DEFOPT}MESSYTIMER"
 fi
 
+if [[ "x$use_art" = xyes ]] ; then
+    FFLAGS="${FFLAGS} ${ART_FFLAGS}"
+    # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
+    if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
+        FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
+    fi
+fi
+
 ac_srcdirs=$my_srcdirs
 
 if test "$use_mpcc_r" = yes ; then
@@ -889,6 +930,7 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
+FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
 if [[ "x$LDFLAGS" = "x" ]] ; then
@@ -900,8 +942,10 @@ if [[ "x$LDFLAGS" = "x" ]] ; then
 fi
 
 if [[ "x$use_openmp" = xyes ]] ; then
-   FFLAGS="${FFLAGS} ${OMPFLAG}"   
+   FFLAGS="${FFLAGS} ${OMPFLAG}"
+   F77FLAGS="${F77FLAGS} ${OMPFLAG}"
    LDFLAGS="${LDFLAGS} ${OMPFLAG}"
+   CFLAGS="${CFLAGS} ${CC_OMPFLAG}"
 fi
 
 #------------------------
@@ -987,8 +1031,6 @@ AC_SUBST(MPI_INCLUDE,$MPI_INCLUDE)
 AC_SUBST(LAPACKROOT,$LAPACKROOT)
 AC_SUBST(LAPACK_LIB_PATH,$LAPACK_LIB_PATH)
 AC_SUBST(LAPACK_LIB,$LAPACK_LIB)
-
-AC_SUBST(METIS_LIB,$METIS_LIB)
 
 AC_SUBST(PROFILE_LIB,$PROFILE_LIB)
 AC_SUBST(PROFILE_INCLUDE,$PROFILE_INCLUDE)
@@ -1239,6 +1281,7 @@ use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
 use_icon_components="$icon_components"
+use_flags_group="$use_flags_group"
 #############################
 EOF
 

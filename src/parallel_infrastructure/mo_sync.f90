@@ -278,7 +278,7 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    INTEGER,     INTENT(IN)         :: nfields
 
    REAL(wp), OPTIONAL, INTENT(INOUT) ::  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), &
-                                         f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
+      &                                  f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
 
    REAL(wp), ALLOCATABLE :: arr3(:,:,:)
    TYPE(t_comm_pattern), POINTER :: p_pat

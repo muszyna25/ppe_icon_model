@@ -91,10 +91,9 @@ lapack/*.settings
 lapack/.cproject
 lapack/.project
 lapack/icon-dev
-run/*.settings
-run/.cproject
-run/.project
-run/icon-dev
+run/exp.*.run
+run/exp.*.status
+run/post.*.run
 schedulers/*.settings
 schedulers/.cproject
 schedulers/.project

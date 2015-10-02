@@ -25,22 +25,17 @@ MODULE mo_util_cdi
   USE mo_run_config,         ONLY: msg_level
   USE mo_mpi,                ONLY: p_bcast, p_io, my_process_is_stdio, p_mpi_wtime,  &
     &                              my_process_is_mpi_workroot
-  USE mo_util_string,        ONLY: tolower, one_of
+  USE mo_util_string,        ONLY: tolower, int2string
   USE mo_fortran_tools,      ONLY: assign_if_present
   USE mo_dictionary,         ONLY: t_dictionary, dict_get, dict_init, dict_copy, dict_finalize, DICT_MAX_STRLEN
-  USE mo_gribout_config,     ONLY: t_gribout_config
-  USE mo_var_metadata_types, ONLY: t_var_metadata
-  USE mo_action,             ONLY: ACTION_RESET, getActiveAction
-  USE mo_cdi_constants,      ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, &
-    &                              vlistNvars, vlistInqVarDatatype, vlistInqVarIntKey,      &
-    &                              vlistInqVarZaxis, zaxisInqType, ZAXIS_REFERENCE,         &
-    &                              zaxisInqNlevRef, vlistInqVarGrid, gridInqSize,           &
-    &                              zaxisInqSize, DATATYPE_FLT64, DATATYPE_INT32,            &
-    &                              streamInqTimestep, vlistInqVarTsteptype, TSTEP_CONSTANT, &
-    &                              TSTEP_INSTANT, TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX,        &
-    &                              TSTEP_MIN, vlistInqTaxis, taxisInqTunit,                 &
-    &                              TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR,                  &
-    &                              vlistInqVarSubtype, subtypeInqSize, subtypeDefActiveIndex
+  USE mo_cdi,                ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, streamInqVlist, vlistNvars, vlistInqVarDatatype, &
+                                 & vlistInqVarIntKey, vlistInqVarZaxis, zaxisInqType, ZAXIS_REFERENCE, zaxisInqNlevRef, &
+                                 & vlistInqVarGrid, gridInqSize, zaxisInqSize, DATATYPE_FLT64, DATATYPE_INT32, streamInqTimestep, &
+                                 & vlistInqVarTsteptype, TSTEP_CONSTANT, TSTEP_INSTANT, TSTEP_MAX, TSTEP_MIN, vlistInqTaxis, &
+                                 & taxisInqTunit, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR, vlistDefVarIntKey, &
+                                 & vlistDefVarTypeOfGeneratingProcess, streamReadVarSliceF, streamReadVarSlice, vlistInqVarName, &
+                                 & TSTEP_AVG,TSTEP_ACCUM,TSTEP_MAX,TSTEP_MIN, vlistInqVarSubtype, subtypeInqSize, &
+                                 & subtypeDefActiveIndex
 
   IMPLICIT NONE
   PRIVATE
@@ -190,7 +185,8 @@ CONTAINS
 
             subtypeID = vlistInqVarSubtype(vlistID,i-1)
             subtypeSize(i) = subtypeInqSize(subtypeID)
-            !
+            IF(subtypeSize(i) < 1) subtypeSize(i) = 1   !We need this to ensure that the trivial_tileinfo is actually stored somewhere IN the CASE of non-tile variables. Otherwise, non-tile variables can never be found.
+
             ALLOCATE(me%variableTileinfo(i)%tile(subtypeSize(i)), &
               &      me%variableTileinfo(i)%tile_index(subtypeSize(i)), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
@@ -272,11 +268,21 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish(routine, "DEALLOCATE failed!")
   END FUNCTION makeInputParameters
 
+  ! This function is only a workaround for a compiler bug on the blizzard. May be reintegrated into inputParametersFindVarId() once we are not concerned about xlf anymore.
+  LOGICAL FUNCTION compareTiledVars(name1, idx1, att1, name2, idx2, att2) RESULT(RESULT)
+    CHARACTER(LEN = *), INTENT(IN) :: name1, name2
+    INTEGER, VALUE :: idx1, att1, idx2, att2
+
+    RESULT = .TRUE.
+    IF(TRIM(tolower(name1)) /= TRIM(tolower(name2))) RESULT = .FALSE.
+    IF(idx1 /= idx2) RESULT = .FALSE.
+    IF(att1 /= att2) RESULT = .FALSE.
+  END FUNCTION compareTiledVars
 
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Determine the datatype of the given variable in the input file
   !---------------------------------------------------------------------------------------------------------------------------------
-  SUBROUTINE inputParametersFindVarId(me, name, tileinfo, varID, tile_index) 
+  SUBROUTINE inputParametersFindVarId(me, name, tileinfo, varID, tile_index)
     IMPLICIT NONE
     CLASS(t_inputParameters), INTENT(IN)  :: me
     CHARACTER(len=*),         INTENT(IN)  :: name
@@ -296,14 +302,14 @@ CONTAINS
 
     varID      = -1
     tile_index = -1
+
     DO i = 1, SIZE(me%variableNames)
       DO j = 1, SIZE(me%variableTileinfo(i)%tile)
-        IF ((TRIM(tolower(TRIM(me%variableNames(i)))) == TRIM(mapped_name)) .AND.  & 
-          & (me%variableTileinfo(i)%tile(j)%idx == tileinfo%idx)            .AND.  &
-          & (me%variableTileinfo(i)%tile(j)%att == tileinfo%att)) THEN
+        IF (compareTiledVars(me%variableNames(i), me%variableTileinfo(i)%tile(j)%idx, me%variableTileinfo(i)%tile(j)%att, &
+          &                  mapped_name, tileinfo%idx, tileinfo%att)) THEN
           varID      = i-1
           tile_index = me%variableTileinfo(i)%tile_index(j)
-          EXIT
+          RETURN
         END IF
       END DO
     END DO
@@ -311,6 +317,21 @@ CONTAINS
 
     ! insanity check
     IF(varID < 0) THEN
+      IF(my_process_is_stdio()) THEN
+        print*, routine//": mapped_name = '"//TRIM(mapped_name)//"'"
+        print*, routine//": tile idx = ", tileinfo%idx, ", att = ", tileinfo%att
+        print*, routine//": list of variables:"
+        DO i = 1, SIZE(me%variableNames)
+          ! the following "tolower" function call should be enclosed
+          ! in a TRIM() intrinsic; however, this throws an (erroneous)
+          ! compiler error on some Cray compiler versions.
+          print*, routine//":     '"//tolower(me%variableNames(i))//"'"
+          DO j = 1, SIZE(me%variableTileinfo(i)%tile)
+            print*, routine//":         tile idx = ", me%variableTileinfo(i)%tile(j)%idx, &
+            &                             ", att = ", me%variableTileinfo(i)%tile(j)%att
+          END DO
+        END DO
+      END IF
       CALL finish(routine, "Variable "//TRIM(name)//" not found!")
     END IF
   END SUBROUTINE inputParametersFindVarId
@@ -350,7 +371,7 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':deleteInputParameters'
 
-    IF(msg_level >= 5 .and. my_process_is_stdio()) then
+    IF(msg_level >= 10 .and. my_process_is_stdio()) then
         WRITE(0,*) routine, ": Total read statistics for stream ID ", me%streamId
         WRITE(0,'(8X,A,I19,A)')   "amount:    ", me%readBytes, " bytes"
         WRITE(0,'(8X,A,F19.3,A)') "duration:  ", me%readDuration, " seconds"
@@ -375,12 +396,12 @@ CONTAINS
   !
   FUNCTION test_cdi_varID(streamID, name, opt_dict) RESULT(result_varID)
     INTEGER                                 :: result_varID
-    INTEGER,           INTENT(IN)           :: streamID            !< link to file 
+    INTEGER,           INTENT(IN)           :: streamID            !< link to file
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
     CHARACTER(len=MAX_CHAR_LENGTH)  :: zname
-    INTEGER                         :: nvars, varID, vlistID, tileidx
+    INTEGER                         :: nvars, varID, vlistID
     CHARACTER(LEN=DICT_MAX_STRLEN)  :: mapped_name
 
     mapped_name = TRIM(name)
@@ -417,7 +438,7 @@ CONTAINS
   !
   FUNCTION get_cdi_varID(streamID, name, opt_dict) RESULT(result_varID)
     INTEGER                                 :: result_varID
-    INTEGER,           INTENT(IN)           :: streamID            !< link to file 
+    INTEGER,           INTENT(IN)           :: streamID            !< link to file
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
@@ -439,13 +460,13 @@ CONTAINS
   !
   FUNCTION get_cdi_NlevRef(streamID, name, opt_dict) RESULT(result_NlevRef)
     INTEGER                                 :: result_NlevRef
-    INTEGER,           INTENT(IN)           :: streamID            !< link to file 
+    INTEGER,           INTENT(IN)           :: streamID            !< link to file
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
     INTEGER :: varID                                              ! variable ID
     INTEGER :: vlistID
-    INTEGER :: zaxisID 
+    INTEGER :: zaxisID
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::get_cdi_NlevRef'
 
     varID = test_cdi_varID(streamID, name, opt_dict)
@@ -641,12 +662,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Read 3D dataset from file.
-  ! 
+  !
   !  Note: This implementation uses a 2D buffer.
-  ! 
+  !
   !  @par Revision History
   !  Initial revision by F. Prill, DWD (2013-02-19)
-  ! 
+  !
   SUBROUTINE read_cdi_3d_real_tiles(parameters, varname, nlevs, var_out, tileinfo, opt_lvalue_add, opt_lev_dim)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
@@ -682,7 +703,10 @@ CONTAINS
       gridId = vlistInqVarGrid(vlistId, varId)
       IF ((gridInqSize(gridId) /= parameters%glb_arr_len) .OR.  &
         & (zaxisInqSize(zaxisId) /= nlevs)) THEN
-        CALL finish(routine, "Incompatible dimensions!")
+        CALL finish(routine, "Incompatible dimensions! Grid size = "//trim(int2string(gridInqSize(gridId)))//&
+        &                    " (expected "//trim(int2string(parameters%glb_arr_len))//"),"//&
+        &                    " level count = "//trim(int2string(zaxisInqSize(zaxisId)))//&
+        &                    " (expected "//trim(int2string(nlevs))//")")
       END IF
     END IF
 
@@ -703,12 +727,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Read 3D dataset from file.
-  ! 
+  !
   !  Note: This implementation uses a 2D buffer.
-  ! 
+  !
   !  @par Revision History
   !  Initial revision by F. Prill, DWD (2013-02-19)
-  ! 
+  !
   SUBROUTINE read_cdi_3d_real(parameters, varname, nlevs, var_out, opt_lvalue_add, opt_lev_dim)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
@@ -784,7 +808,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
   SUBROUTINE read_cdi_2d_real_tiles (parameters, varname, var_out, tileinfo)
@@ -810,7 +834,8 @@ CONTAINS
       IF (tile_index >= 0)  CALL subtypeDefActiveIndex(subtypeID, tile_index)
       !sanity check on the variable dimensions
       gridId    = vlistInqVarGrid(vlistId, varId)
-      IF (gridInqSize(gridId) /= parameters%glb_arr_len) CALL finish(routine, "Incompatible dimensions!")
+      IF (gridInqSize(gridId) /= parameters%glb_arr_len) CALL finish(routine, "Incompatible dimensions!"//&
+      & " Grid size = "//trim(int2string(gridInqSize(gridId)))//" (expected "//trim(int2string(parameters%glb_arr_len))//")")
     END IF
     SELECT CASE(parameters%lookupDatatype(varId))
         CASE(DATATYPE_FLT64, DATATYPE_INT32)
@@ -831,7 +856,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
   SUBROUTINE read_cdi_2d_real (parameters, varname, var_out)
@@ -847,7 +872,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for INTEGER fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
 
@@ -881,7 +906,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for INTEGER fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
 
@@ -898,7 +923,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
   SUBROUTINE read_cdi_2d_time_tiles (parameters, ntime, varname, var_out, tileinfo)
@@ -946,7 +971,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
   SUBROUTINE read_cdi_2d_time (parameters, ntime, varname, var_out)

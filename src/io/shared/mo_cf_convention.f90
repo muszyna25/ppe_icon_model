@@ -105,11 +105,11 @@ MODULE mo_cf_convention
   PUBLIC :: set_cf_var
   PUBLIC :: set_cf_gridspec
 
+  TYPE(t_cf_global), SAVE, PUBLIC, PROTECTED :: cf_global_info
+  
 CONTAINS
 
-  FUNCTION set_cf_global(title, institution, source, history, references, comment) &
-       RESULT(cf_global_info)
-    TYPE(t_cf_global) :: cf_global_info
+  SUBROUTINE set_cf_global(title, institution, source, history, references, comment)
     CHARACTER(len=*), INTENT(in), OPTIONAL :: title
     CHARACTER(len=*), INTENT(in), OPTIONAL :: institution
     CHARACTER(len=*), INTENT(in), OPTIONAL :: source
@@ -117,14 +117,14 @@ CONTAINS
     CHARACTER(len=*), INTENT(in), OPTIONAL :: references
     CHARACTER(len=*), INTENT(in), OPTIONAL :: comment
    
-    IF (PRESENT(title))       cf_global_info%title       = title
-    IF (PRESENT(institution)) cf_global_info%institution = institution
-    IF (PRESENT(source))      cf_global_info%source      = source 
-    IF (PRESENT(history))     cf_global_info%history     = history  
-    IF (PRESENT(references))  cf_global_info%references  = references
-    IF (PRESENT(comment))     cf_global_info%comment     = comment
+    IF (PRESENT(title))       cf_global_info%title       = TRIM(title)
+    IF (PRESENT(institution)) cf_global_info%institution = TRIM(institution)
+    IF (PRESENT(source))      cf_global_info%source      = TRIM(source) 
+    IF (PRESENT(history))     cf_global_info%history     = TRIM(history)  
+    IF (PRESENT(references))  cf_global_info%references  = TRIM(references)
+    IF (PRESENT(comment))     cf_global_info%comment     = TRIM(comment)
 
-  END FUNCTION set_cf_global
+  END SUBROUTINE set_cf_global
 
   FUNCTION set_cf_var(long_name, units, standard_name, datatype) &
        RESULT(cf_var_info)

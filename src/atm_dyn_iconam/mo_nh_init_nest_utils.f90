@@ -130,9 +130,9 @@ MODULE mo_nh_init_nest_utils
                i_startidx, i_endidx
     INTEGER :: rl_start, rl_end
     INTEGER :: nlev_c, nlev_p
-    INTEGER :: nshift      ! difference between upper boundary of parent or feedback-parent 
-                           ! domain and upper boundary of child domain (in terms 
-                           ! of vertical levels) 
+    INTEGER :: nshift      ! difference between upper boundary of parent or feedback-parent
+                           ! domain and upper boundary of child domain (in terms
+                           ! of vertical levels)
     INTEGER :: num_lndvars, num_wtrvars, num_phdiagvars
 
     ! Local arrays for variables living on the local parent grid in the MPI case. These have
@@ -201,14 +201,14 @@ MODULE mo_nh_init_nest_utils
     nshift = p_pc%nshift
 
     ! number of land and water variables to be interpolated
-    ! Remark (GZ): the multi-layer snow variables are initialized afterwards in terra_multlay_init. This 
+    ! Remark (GZ): the multi-layer snow variables are initialized afterwards in terra_multlay_init. This
     ! turned out to cause occasional conflicts with directly interpolating those variables here; thus
     ! the interpolation of the multi-layer snow fields has been completely removed from this routine
     num_lndvars = 2*nlev_soil+1+ &     ! multi-layer soil variables t_so and w_so (w_so_ice is initialized in terra_multlay_init)
                   5+4+1                ! single-layer prognostic variables + t_g, freshsnow, t_seasfc and qv_s + aux variable for lake temp
     num_wtrvars  = 5                   ! water state fields + fr_seaice
     num_phdiagvars = 21                ! number of physics diagnostic variables (copied from interpol_phys_grf)
-    
+
     ALLOCATE(thv_pr_par  (nproma, nlev_p,      p_patch(jg)%nblks_c), &
              rho_pr_par  (nproma, nlev_p,      p_patch(jg)%nblks_c), &
              lndvars_par (nproma, num_lndvars, p_patch(jg)%nblks_c), &
@@ -243,7 +243,7 @@ MODULE mo_nh_init_nest_utils
 
     IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN
       ! Step 0: get lake surface temperature
-      !       
+      !
       ! exclude nest boundary and halo points
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
@@ -262,7 +262,7 @@ MODULE mo_nh_init_nest_utils
         ! a) initialize with t_g
         lndvars_par(:,num_lndvars,jb) = lnd_prog%t_g(:,jb)
 
-        i_count = ext_data(jg)%atm%fp_count(jb) 
+        i_count = ext_data(jg)%atm%fp_count(jb)
 !CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, i_count
           jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
@@ -384,8 +384,8 @@ MODULE mo_nh_init_nest_utils
           ELSE
             wtrvars_par(jc,1,jb) = p_parent_lprog%t_g(jc,jb)
           ENDIF
-          wtrvars_par(jc,2,jb) = p_parent_wprog%h_ice(jc,jb) 
-          wtrvars_par(jc,3,jb) = p_parent_wprog%t_snow_si(jc,jb) 
+          wtrvars_par(jc,2,jb) = p_parent_wprog%h_ice(jc,jb)
+          wtrvars_par(jc,3,jb) = p_parent_wprog%t_snow_si(jc,jb)
           wtrvars_par(jc,4,jb) = p_parent_wprog%h_snow_si(jc,jb)
           wtrvars_par(jc,5,jb) = p_parent_ldiag%fr_seaice(jc,jb)
         ENDDO
@@ -650,7 +650,7 @@ MODULE mo_nh_init_nest_utils
           p_child_ldiag%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,wtrvars_chi(jc,5,jb)))
           IF (p_child_ldiag%fr_seaice(jc,jb) < frsi_min )         p_child_ldiag%fr_seaice(jc,jb) = 0._wp
           IF (p_child_ldiag%fr_seaice(jc,jb) > (1._wp-frsi_min) ) p_child_ldiag%fr_seaice(jc,jb) = 1._wp
-          IF (ext_data(jg)%atm%fr_land(jc,jb) >= 1._wp-MAX(frlake_thrhld,frsea_thrhld)) THEN ! pure land point
+          IF (ext_data(jgc)%atm%fr_land(jc,jb) >= 1._wp-MAX(frlake_thrhld,frsea_thrhld)) THEN ! pure land point
             p_child_wprog%h_ice(jc,jb) = 0._wp
             p_child_wprog%h_snow_si(jc,jb) = 0._wp
             p_child_ldiag%fr_seaice(jc,jb) = 0._wp
@@ -671,7 +671,7 @@ MODULE mo_nh_init_nest_utils
           &   t_ice_p     = p_child_wprog%t_ice    (:,jb),          &
           &   h_ice_p     = p_child_wprog%h_ice    (:,jb),          &
           &   t_mnw_lk_p  = p_child_wprog%t_mnw_lk (:,jb),          &
-          &   t_wml_lk_p  = p_child_wprog%t_wml_lk (:,jb),          & 
+          &   t_wml_lk_p  = p_child_wprog%t_wml_lk (:,jb),          &
           &   t_bot_lk_p  = p_child_wprog%t_bot_lk (:,jb),          &
           &   c_t_lk_p    = p_child_wprog%c_t_lk   (:,jb),          &
           &   h_ml_lk_p   = p_child_wprog%h_ml_lk  (:,jb),          &
@@ -792,7 +792,7 @@ MODULE mo_nh_init_nest_utils
             &               + initicon(jg)%atm_inc%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
             &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2)      &
             &               + p_int_state(jg)%c_lin_e(je,2,jb)                       &
-            &               *(initicon(jg)%atm_inc%u(iidx(je,jb,2),jk,iblk(je,jb,2)) & 
+            &               *(initicon(jg)%atm_inc%u(iidx(je,jb,2),jk,iblk(je,jb,2)) &
             &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1       &
             &               + initicon(jg)%atm_inc%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
             &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2  )
@@ -930,7 +930,7 @@ MODULE mo_nh_init_nest_utils
 
     ! Number of variables to be interpolated
     num_lndvars = nlev_soil + 5
-    
+
     ALLOCATE(lndvars_par (nproma, num_lndvars, p_patch(jg)%nblks_c), &
              lndvars_chi (nproma, num_lndvars, p_patch(jgc)%nblks_c) )
 
@@ -1047,10 +1047,8 @@ MODULE mo_nh_init_nest_utils
         ! diagnose h_snow after interpolation
         p_child_ldiag%h_snow_t(jc,jb,1) = p_child_lprog%w_snow_t(jc,jb,1)/p_child_lprog%rho_snow_t(jc,jb,1)*rhoh2o
 
-        ! set limits and remove small fractions of fr_seaice
+        ! set limits
         p_child_ldiag%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,p_child_ldiag%fr_seaice(jc,jb)))
-        IF (p_child_ldiag%fr_seaice(jc,jb) < frsi_min )         p_child_ldiag%fr_seaice(jc,jb) = 0._wp
-        IF (p_child_ldiag%fr_seaice(jc,jb) > (1._wp-frsi_min) ) p_child_ldiag%fr_seaice(jc,jb) = 1._wp
         p_child_ldiag%freshsnow_t(jc,jb,1) = MIN(1._wp,p_child_ldiag%freshsnow_t(jc,jb,1))
       ENDDO
 
@@ -1097,7 +1095,7 @@ MODULE mo_nh_init_nest_utils
 
   !---------------------------------------------------------------------------
   !>
-  !! Computes topography blending for nested domains initialized with real 
+  !! Computes topography blending for nested domains initialized with real
   !! topography data
   !!
   !! @par Revision History
@@ -1143,7 +1141,7 @@ MODULE mo_nh_init_nest_utils
     ptr_int    => p_int_state_local_parent(jgc)
 
     ALLOCATE(z_topo_clp(nproma,1,ptr_pp%nblks_c))
-    
+
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(2(a,i2))') 'topography blending, domain ',&
         p_pp%id,'  => domain ',p_pc%id
@@ -1164,7 +1162,7 @@ MODULE mo_nh_init_nest_utils
     ENDDO
 
     ! 1.(b) Copy this auxiliary field to the local parent in case of MPI parallelization
-    
+
     CALL exchange_data(ptr_pp%comm_pat_glb_to_loc_c, RECV=z_topo_clp, SEND=z_topo_cp)
     ptr_topo_cp => z_topo_clp
 
@@ -1243,7 +1241,7 @@ MODULE mo_nh_init_nest_utils
 
   !---------------------------------------------------------------------------
   !>
-  !! Computes topography feedback for nested domains initialized with real 
+  !! Computes topography feedback for nested domains initialized with real
   !! topography data
   !!
   !! @par Revision History
@@ -1337,7 +1335,7 @@ MODULE mo_nh_init_nest_utils
 
       DO jc = i_startidx, i_endidx
 
-        z_topo_cp(jc,1,jb) = topo_cp(jc,jb) 
+        z_topo_cp(jc,1,jb) = topo_cp(jc,jb)
 
       ENDDO
     ENDDO

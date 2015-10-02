@@ -454,9 +454,7 @@ MODULE mo_impl_constants
   !---------------------!
 
   ! Division method for area subdivision
-  INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
-  INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
 
   !-----  horizontal interpolation: type of interpolation
   CHARACTER(len=32), PARAMETER :: STR_HINTP_TYPE(4) = &
@@ -489,7 +487,6 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: MODE_IAU         = 5
   INTEGER, PARAMETER :: MODE_IAU_OLD     = 6
   INTEGER, PARAMETER :: MODE_ICONVREMAP  = 7
-  INTEGER, PARAMETER :: MODE_DWDANA_INC  = 8
 
   !----- MPI parallelization -----
   INTEGER, PARAMETER :: MAX_NUM_IO_PROCS = 100      !< max. number of output ranks

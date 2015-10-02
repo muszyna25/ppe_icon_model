@@ -76,6 +76,7 @@ MODULE mo_nh_testcases
   USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl,init_nh_state_rce_cbl,        &
                                    & init_nh_state_rce,                              & 
                                    & init_nh_state_rico,init_nh_state_gate
+  USE mo_nh_tpe_exp,           ONLY: init_nh_state_prog_TPE
   
   IMPLICIT NONE  
   
@@ -294,6 +295,22 @@ MODULE mo_nh_testcases
     ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running coupled Aqua-Planet Experiment with non-hydrostatic atm. dynamics')
 
+  CASE ('TPEo')
+
+    ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running Terra-Planet Experiment with ECHAM physics')
+    IF ( itopo == 0 ) THEN
+      CALL message(TRIM(routine), 'using zero topography for TPEc experiment')
+    END IF
+
+  CASE ('TPEc')
+
+   ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running Terra-Planet Experiment with ECHAM physics')
+    IF ( itopo == 0 ) THEN
+      CALL message(TRIM(routine), 'using zero topography for TPEc experiment')
+    END IF
+  
   CASE ('g_lim_area')
 
     DO jg = 1, n_dom 
@@ -783,6 +800,36 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup non-hydrostatic APE test (APE_nwp, APE_echam, APE_nh, APEc_nh)')
 
+  CASE ('TPEc', 'TPEo')  ! Terra-Planet Experiment
+
+    jw_up = 1._wp
+
+    DO jg = 1, n_dom
+    
+!!$      CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+!!$                                     & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+!!$                                     & p_int(jg),                                   &
+!!$                                     & p_sfc_jabw,jw_up )
+!!$
+!!$      CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+!!$                                & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+!!$                                & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
+!!$                                & opt_global_moist=global_moist)
+!!$          p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv+1:) = 0._wp
+!!$
+!!$      ext_data(jg)%atm%topography_c = 0._wp
+
+      CALL init_nh_state_prog_TPE(p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag, &
+                                  ext_data(jg), p_nh_state(jg)%metrics,                            &
+                                  rh_at_1000hpa, qv_max, tpe_moist, tpe_psfc, tpe_temp)
+
+      ! why do we call this?   
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    
+    ENDDO !jg
+
+    CALL message(TRIM(routine),'End setup TPEc test')
+
   CASE ('wk82')
 
    CALL message(TRIM(routine),'wk82 test')
@@ -973,7 +1020,7 @@ MODULE mo_nh_testcases
         CALL finish(TRIM(routine),'CBL case is only for plane torus!')
 
     DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
+      nlev   = p_patch(jg)%nlev
       CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
  

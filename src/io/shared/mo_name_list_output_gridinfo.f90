@@ -14,14 +14,22 @@
 !!
 MODULE mo_name_list_output_gridinfo
 
-  USE mo_cdi_constants          ! We need all
+  USE mo_cdi,                               ONLY: DATATYPE_PACK16, TSTEP_CONSTANT, vlistDefVar, cdiEncodeParam, streamWriteVar, &
+                                                & vlistDefVarDatatype, vlistDefVarName, vlistDefVarTsteptype, vlistDefVarParam, &
+                                                & gridDefXvals, gridDefYvals, gridDefXbounds, gridDefYbounds
+  USE mo_cdi_constants,                     ONLY: GRID_REFERENCE, GRID_CELL, ZA_surface
   USE mo_kind,                              ONLY: wp
   USE mo_parallel_config,                   ONLY: nproma
   USE mo_exception,                         ONLY: finish
-  USE mo_model_domain,                      ONLY: t_patch
+  USE mo_model_domain,                      ONLY: t_patch, p_patch
   USE mo_math_utilities,                    ONLY: t_geographical_coordinates,               &
     &                                             check_orientation
-  USE mo_communication,                     ONLY: t_comm_gather_pattern, exchange_data
+  USE mo_communication,                     ONLY: t_comm_gather_pattern, exchange_data,     &
+    &                                             t_comm_allgather_pattern,       &
+    &                                             setup_comm_allgather_pattern,   &
+    &                                             delete_comm_allgather_pattern,   &
+    &                                             setup_comm_gather_pattern,   &
+    &                                             delete_comm_gather_pattern
   USE mo_grib2,                             ONLY: t_grib2_var, grib2_var
   USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys,                &
     &                                             set_GRIB2_ensemble_keys,                  &
@@ -63,7 +71,7 @@ MODULE mo_name_list_output_gridinfo
   PUBLIC :: set_grid_info_netcdf
   PUBLIC :: set_grid_info_grb2
   PUBLIC :: copy_grid_info
-  PUBLIC :: bcast_grid_info
+  PUBLIC :: allgather_grid_info
   PUBLIC :: write_grid_info_grb2
 
   ! constants: modes how to collect grid information (for output)
@@ -107,8 +115,8 @@ CONTAINS
 
 
   SUBROUTINE collect_all_grid_info(p_patch, patch_info)
-    TYPE(t_patch),        INTENT(IN)    :: p_patch 
-    TYPE(t_patch_info),   INTENT(INOUT) :: patch_info 
+    TYPE(t_patch),        INTENT(IN)    :: p_patch
+    TYPE(t_patch_info),   INTENT(INOUT) :: patch_info
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::collect_all_grid_info"
     INTEGER                             :: ierrstat, max_cell_connectivity
@@ -205,6 +213,10 @@ CONTAINS
         &      out_lonlat%lonv(dim3,nproma*nblks_glb), &
         &      out_lonlat%latv(dim3,nproma*nblks_glb), &
         &      STAT=ierrstat)
+      out_lonlat%lon = 0._wp
+      out_lonlat%lat = 0._wp
+      out_lonlat%lonv = 0._wp
+      out_lonlat%latv = 0._wp
     ELSE
       ALLOCATE(out_lonlat%lon(1), out_lonlat%lat (1),            &
         &      out_lonlat%lonv(dim3,1), out_lonlat%latv(dim3,1), &
@@ -907,53 +919,137 @@ CONTAINS
 
   END SUBROUTINE copy_grid_info
 
-  
-  SUBROUTINE bcast_grid_info(patch_info, bcast_root)
-    TYPE(t_patch_info), INTENT(INOUT) :: patch_info
-    INTEGER,            intent(IN)    :: bcast_root
-    ! local variables
-    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::bcast_grid_info"
-    INTEGER :: ierrstat, dim_c, dim_e, dim_v
+  SUBROUTINE allgather_grid_info_cve(idom_log, connectivity, nblks, nblks_glb, &
+    &                                coordinates, grid_info, gather_pattern, &
+    &                                cf_1_1_grid)
+    INTEGER,            INTENT(IN)                     :: idom_log
+    INTEGER,            INTENT(IN)                     :: connectivity
+    INTEGER,            INTENT(IN)                     :: nblks
+    INTEGER,            INTENT(IN)                     :: nblks_glb
+    TYPE(t_geographical_coordinates), INTENT(IN)       :: coordinates(:,:)
+    TYPE(t_grid_info), TARGET, INTENT(INOUT)           :: grid_info
+    TYPE(t_comm_gather_pattern), TARGET, INTENT(INOUT) :: gather_pattern
+    INTERFACE
+      SUBROUTINE cf_1_1_grid(p_patch, lonv, latv)
+        USE mo_model_domain, ONLY: t_patch
+        USE mo_kind,         ONLY: wp
+        TYPE(t_patch),      INTENT(IN)    :: p_patch
+        REAL(wp),           INTENT(INOUT) :: lonv(:,:,:), latv(:,:,:)
+      END SUBROUTINE cf_1_1_grid
+    END INTERFACE
 
-    dim_c = patch_info%max_cell_connectivity
-    dim_e =                  4
-    dim_v = 9 - patch_info%max_cell_connectivity
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allgather_grid_info_cve"
+    INTEGER :: i
+    TYPE(t_comm_allgather_pattern) :: allgather_pattern
+    REAL(wp), ALLOCATABLE          :: lonv(:,:,:), latv(:,:,:)
+    REAL(wp), POINTER              :: r1d(:)
+    REAL(wp), TARGET               :: dummy(1)
 
     IF(my_process_is_io()) THEN
-      ALLOCATE(patch_info%cells%grid_info%lon(nproma*patch_info%nblks_glb_c),         &
-        &      patch_info%cells%grid_info%lat(nproma*patch_info%nblks_glb_c),         &
-        &      patch_info%cells%grid_info%lonv(nproma*patch_info%nblks_glb_c, dim_c), &
-        &      patch_info%cells%grid_info%latv(nproma*patch_info%nblks_glb_c, dim_c), &
-        !
-        &      patch_info%edges%grid_info%lon(nproma*patch_info%nblks_glb_e),         &
-        &      patch_info%edges%grid_info%lat(nproma*patch_info%nblks_glb_e),         &
-        &      patch_info%edges%grid_info%lonv(nproma*patch_info%nblks_glb_e, dim_e), &
-        &      patch_info%edges%grid_info%latv(nproma*patch_info%nblks_glb_e, dim_e), &
-        !
-        &      patch_info%verts%grid_info%lon(nproma*patch_info%nblks_glb_v),         &
-        &      patch_info%verts%grid_info%lat(nproma*patch_info%nblks_glb_v),         &
-        &      patch_info%verts%grid_info%lonv(nproma*patch_info%nblks_glb_v, dim_v), &
-        &      patch_info%verts%grid_info%latv(nproma*patch_info%nblks_glb_v, dim_v), &
-        &      STAT=ierrstat)
-      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+      ALLOCATE(grid_info%lon(nproma*nblks_glb),                &
+        &      grid_info%lat(nproma*nblks_glb),                &
+        &      grid_info%lonv(nproma*nblks_glb, connectivity), &
+        &      grid_info%latv(nproma*nblks_glb, connectivity), &
+        &      lonv(0,0,1), latv(0,0,1))
+      grid_info%lon = 0._wp
+      grid_info%lat = 0._wp
+      grid_info%lonv = 0._wp
+      grid_info%latv = 0._wp
+    ELSE
+      ALLOCATE(lonv(nproma, nblks, connectivity), &
+        &      latv(nproma, nblks, connectivity))
+      CALL cf_1_1_grid(p_patch(idom_log), lonv, latv)
     END IF
 
-    ! cells
-    CALL p_bcast(patch_info%cells%grid_info%lon,  bcast_root, p_comm_work_2_io)
-    CALL p_bcast(patch_info%cells%grid_info%lat,  bcast_root, p_comm_work_2_io)
-    CALL p_bcast(patch_info%cells%grid_info%lonv, bcast_root, p_comm_work_2_io)
-    CALL p_bcast(patch_info%cells%grid_info%latv, bcast_root, p_comm_work_2_io)
-    ! edges
-    CALL p_bcast(patch_info%edges%grid_info%lon,  bcast_root, p_comm_work_2_io)
-    CALL p_bcast(patch_info%edges%grid_info%lat,  bcast_root, p_comm_work_2_io)
-    CALL p_bcast(patch_info%edges%grid_info%lonv, bcast_root, p_comm_work_2_io)
-    CALL p_bcast(patch_info%edges%grid_info%latv, bcast_root, p_comm_work_2_io)
-    ! vertices
-    CALL p_bcast(patch_info%verts%grid_info%lon,  bcast_root, p_comm_work_2_io)
-    CALL p_bcast(patch_info%verts%grid_info%lat,  bcast_root, p_comm_work_2_io)
-    CALL p_bcast(patch_info%verts%grid_info%lonv, bcast_root, p_comm_work_2_io)
-    CALL p_bcast(patch_info%verts%grid_info%latv, bcast_root, p_comm_work_2_io)
-  END SUBROUTINE bcast_grid_info
+    CALL setup_comm_allgather_pattern(gather_pattern, p_comm_work_2_io, &
+      &                               allgather_pattern)
+
+    r1d => dummy
+
+    ! gathers coordinates on all io procs
+    IF (my_process_is_io()) r1d => grid_info%lon
+    CALL exchange_data(in_array=coordinates(:,:)%lon, out_array=r1d, &
+      &                allgather_pattern=allgather_pattern)
+    IF (my_process_is_io()) r1d => grid_info%lat
+    CALL exchange_data(in_array=coordinates(:,:)%lat, out_array=r1d, &
+      &                allgather_pattern=allgather_pattern)
+    DO i = 1, connectivity
+      IF (my_process_is_io()) r1d => grid_info%lonv(:,i)
+      CALL exchange_data(in_array=lonv(:,:,1), out_array=r1d, &
+        &                allgather_pattern=allgather_pattern)
+      IF (my_process_is_io()) r1d => grid_info%latv(:,i)
+      CALL exchange_data(in_array=latv(:,:,1), out_array=r1d, &
+        &                allgather_pattern=allgather_pattern)
+    END DO
+
+    CALL delete_comm_allgather_pattern(allgather_pattern)
+
+    DEALLOCATE (lonv, latv)
+  END SUBROUTINE allgather_grid_info_cve
+
+  SUBROUTINE allgather_grid_info(patch_info, idom_log)
+    TYPE(t_patch_info),    INTENT(INOUT) :: patch_info
+    INTEGER,               INTENT(IN)    :: idom_log
+
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER :: routine = modname//"::allgather_grid_info"
+    TYPE(t_geographical_coordinates), TARGET :: dummy_coordinates(1,1)
+    TYPE(t_geographical_coordinates), POINTER :: coordinates(:,:)
+    INTEGER :: dummy_global_size, dummy_owner_local(0), dummy_glb_index(0)
+    TYPE(t_comm_gather_pattern), TARGET :: empty_gather_pattern
+    TYPE(t_comm_gather_pattern), POINTER :: gather_pattern
+
+    IF (my_process_is_io()) THEN
+      dummy_global_size = 0
+      CALL setup_comm_gather_pattern(dummy_global_size, dummy_owner_local, &
+        &                            dummy_glb_index, empty_gather_pattern)
+      dummy_coordinates(1,1)%lon = -1._wp
+      dummy_coordinates(1,1)%lat = -1._wp
+      coordinates => dummy_coordinates
+      gather_pattern => empty_gather_pattern
+    ELSE
+      coordinates => p_patch(idom_log)%cells%center
+      gather_pattern => patch_info%p_pat_c
+    END IF
+
+    CALL allgather_grid_info_cve(idom_log, patch_info%max_cell_connectivity, &
+      &                          patch_info%nblks_glb_c, patch_info%nblks_glb_c, &
+      &                          coordinates, patch_info%cells%grid_info, &
+      &                          gather_pattern, cf_1_1_grid_cells)
+
+    IF (.NOT. my_process_is_io()) THEN
+      coordinates => p_patch(idom_log)%verts%vertex
+      gather_pattern => patch_info%p_pat_v
+    END IF
+
+    IF (my_process_is_ocean()) THEN
+      CALL allgather_grid_info_cve(idom_log, 9 - patch_info%max_cell_connectivity, &
+        &                          patch_info%nblks_glb_v, patch_info%nblks_glb_v, &
+        &                          coordinates, patch_info%verts%grid_info, &
+        &                          gather_pattern, cf_1_1_grid_verts_ocean)
+    ELSE
+      CALL allgather_grid_info_cve(idom_log, 9 - patch_info%max_cell_connectivity, &
+        &                          patch_info%nblks_glb_v, patch_info%nblks_glb_v, &
+        &                          coordinates, patch_info%verts%grid_info, &
+        &                          gather_pattern, cf_1_1_grid_verts)
+    END IF
+
+    IF (.NOT. my_process_is_io()) THEN
+      coordinates => p_patch(idom_log)%edges%center
+      gather_pattern => patch_info%p_pat_e
+    END IF
+
+    CALL allgather_grid_info_cve(idom_log, 4, &
+      &                          patch_info%nblks_glb_e, patch_info%nblks_glb_e, &
+      &                          coordinates, patch_info%edges%grid_info, &
+      &                          gather_pattern, cf_1_1_grid_edges)
+
+    IF(my_process_is_io()) THEN
+      CALL delete_comm_gather_pattern(empty_gather_pattern)
+    END IF
+
+  END SUBROUTINE allgather_grid_info
 
 
   !------------------------------------------------------------------------------------------------
@@ -984,9 +1080,9 @@ CONTAINS
       idom     = of%phys_patch_id
       idom_log = patch_info(idom)%log_patch_id
       idx(:)    = (/ ICELL, IEDGE, IVERT /)
-      isize(:)  = (/ patch_info(idom_log)%cells%n_glb, &
-        &            patch_info(idom_log)%edges%n_glb, &
-        &            patch_info(idom_log)%verts%n_glb /)
+      isize(1) = patch_info(idom_log)%cells%n_glb
+      isize(2) = patch_info(idom_log)%edges%n_glb
+      isize(3) = patch_info(idom_log)%verts%n_glb
       gptr(1)%ptr => patch_info(idom_log)%cells%grid_info
       gptr(2)%ptr => patch_info(idom_log)%edges%grid_info
       gptr(3)%ptr => patch_info(idom_log)%verts%grid_info

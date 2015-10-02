@@ -171,10 +171,8 @@ MODULE mo_pp_scheduler
     &                                   get_var_timelevel
   USE mo_var_list_element,        ONLY: level_type_ml,                                      &
     &                                   level_type_pl, level_type_hl, level_type_il
-  USE mo_var_metadata_types,      ONLY: t_var_metadata, VINTP_TYPE_LIST, VARNAME_LEN,       &
-    &                                   t_post_op_meta
-  USE mo_var_metadata,            ONLY: create_hor_interp_metadata, vintp_types,            &
-    &                                   vintp_type_id
+  USE mo_var_metadata_types,      ONLY: t_var_metadata, VARNAME_LEN, t_post_op_meta
+  USE mo_var_metadata,            ONLY: create_hor_interp_metadata, vintp_type_id
   USE mo_intp_data_strc,          ONLY: lonlat_grid_list,                                   &
     &                                   t_lon_lat_intp, p_int_state,                        &
     &                                   MAX_LONLAT_GRIDS
@@ -189,11 +187,11 @@ MODULE mo_pp_scheduler
   USE mo_grib2,                   ONLY: t_grib2_var, grib2_var
   USE mo_util_string,             ONLY: int2string, remove_duplicates,                      &
     &                                   difference, toupper, tolower
+  USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_PACK16
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_REFERENCE,                          &
     &                                   GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,                &
     &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,                   &
-    &                                   DATATYPE_FLT32, DATATYPE_PACK16, ZA_ISENTROPIC,     &
-    &                                   is_2d_field
+    &                                   is_2d_field, ZA_ISENTROPIC
   USE mo_linked_list,             ONLY: t_var_list, t_list_element, find_list_element
   USE mo_grid_config,             ONLY: n_dom
   USE mo_pp_tasks,                ONLY: pp_task_lonlat, pp_task_sync, pp_task_ipzlev_setup, &
@@ -327,7 +325,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  TRIM("mo_pp_scheduler:init_vn_horizontal")
     TYPE(t_list_element), POINTER :: element_u, element_v, element, new_element, new_element_2
     INTEGER                       :: i, shape3d_ll(3), nblks_lonlat, &
-      &                              nblks_e, nlev, jg, tl
+      &                              nlev, jg, tl
     TYPE(t_job_queue),    POINTER :: task
     TYPE(t_var_metadata), POINTER :: info
     REAL(wp),             POINTER :: p_opt_field_r3d(:,:,:)
@@ -405,7 +403,6 @@ CONTAINS
         
         !- predefined array shapes
         nlev = element%field%info%used_dimensions(2)
-        nblks_e   = p_patch(jg)%nblks_e
         ptr_int_lonlat => lonlat_grid_list(ll_grid_id)%intp(jg)
         nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
         shape3d_ll = (/ nproma, nlev, nblks_lonlat /)
@@ -794,11 +791,9 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine =  &
       &  TRIM("mo_pp_scheduler::collect_output_variables")
     TYPE (t_output_name_list), POINTER :: p_onl
-    LOGICAL :: l_jg_active, vert_intp_type(SIZE(VINTP_TYPE_LIST))
+    LOGICAL :: l_jg_active
     INTEGER :: ivar, iphys_dom
     CHARACTER(LEN=vname_len), POINTER :: nml_varlist(:)         !< varlist (hl/ml/pl/il) in output_nml namelist
-
-    vert_intp_type(:) = vintp_types(TRIM(vintp_name))
 
     l_uv_vertical_intp = .FALSE.
     p_onl => first_output_name_list
@@ -1569,6 +1564,9 @@ CONTAINS
     IF (ANY(ptr_task%activity%status_flags(:)  .AND.  &
       &     sim_status%status_flags(:))) pp_task_is_active = .TRUE.
 
+    IF ( ptr_task%job_type  == TASK_INTP_MSL .AND. &
+      &  sim_status%status_flags(4))  pp_task_is_active = .TRUE.
+
     ! check, if current task applies only to domains which are
     ! "active":
     DO i=1,n_dom
@@ -1636,13 +1634,13 @@ CONTAINS
   ! Quasi-constructor for "t_simulation_status" variables
   ! 
   ! Fills data structure with default values (unless set otherwise).
-  FUNCTION new_simulation_status(l_output_step, l_first_step, l_last_step, &
+  FUNCTION new_simulation_status(l_output_step, l_first_step, l_last_step, l_accumulation_step, &
     &                            l_dom_active, i_timelevel)  &
     RESULT(sim_status)
 
     TYPE(t_simulation_status) :: sim_status
     LOGICAL, INTENT(IN), OPTIONAL      :: &
-      &  l_output_step, l_first_step, l_last_step
+      &  l_output_step, l_first_step, l_last_step, l_accumulation_step
     LOGICAL, INTENT(IN), OPTIONAL      :: &
       &  l_dom_active(:)
     INTEGER, INTENT(IN), OPTIONAL      :: &
@@ -1651,12 +1649,13 @@ CONTAINS
     INTEGER :: ndom
 
     ! set default values
-    sim_status%status_flags(:) = (/ .FALSE., .FALSE., .FALSE. /)
+    sim_status%status_flags(:) = (/ .FALSE., .FALSE., .FALSE. , .FALSE./)
 
     ! supersede with user definitions
     CALL assign_if_present(sim_status%status_flags(1), l_output_step)
     CALL assign_if_present(sim_status%status_flags(2), l_first_step)
     CALL assign_if_present(sim_status%status_flags(3), l_last_step)
+    CALL assign_if_present(sim_status%status_flags(4), l_accumulation_step)
 
     ! as a default, all domains are "inactive", i.e. the activity
     ! flags are not considered:

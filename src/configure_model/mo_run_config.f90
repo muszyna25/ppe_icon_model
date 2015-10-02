@@ -24,13 +24,15 @@ MODULE mo_run_config
   USE mo_impl_constants, ONLY: MAX_DOM, IHELDSUAREZ, INWP, IECHAM, ILDF_ECHAM, &
                                IMPIOM, INOFORCING, ILDF_DRY, MAX_CHAR_LENGTH,  &
                                TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
-
+  USE mtime,             ONLY: timedelta, newTimedelta
+  
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: ltestcase, ldynamics, iforcing, lforcing
   PUBLIC :: ltransport, ntracer, nlev, nlevm1, nlevp1
   PUBLIC :: lart
   PUBLIC :: lvert_nest, num_lev, nshift, nsteps, dtime
+  PUBLIC :: tc_dt_model, setModelTimeStep
   PUBLIC :: ltimer, timers_level, activate_sync_timers, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqtvar, nqtendphy, iqt, ico2
   PUBLIC :: iqni, iqni_nuc, iqg, iqm_max
@@ -42,10 +44,11 @@ MODULE mo_run_config
   PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0,idust_act       !Running index for mineral dust in ICON-ART
   PUBLIC :: iTRCHBR3,iTRCH2BR2,iTRBRy                                    !Running index for chemical tracer in ICON-ART - VSLS-BRy
   PUBLIC :: iTRCH4,iTRCO2,iTRCO,iTRH2O,iTRO3                             !Running index for chemical tracer in ICON-ART - CH4-CO-CO2-H2O-O3
-  PUBLIC :: iTRSF6l,iTRSF6r,iTRSF6d                                      !Running index for chemical tracer in ICON-ART - SF6
+  PUBLIC :: iTRCH3COCH3                                                  !Running index for chemical tracer in ICON-ART - CH3COCH3
+  PUBLIC :: iTRC2H6                                                      !Running index for chemical tracer in ICON-ART - C2H6
+  PUBLIC :: iTRSF6                                                       !Running index for chemical tracer in ICON-ART - SF6
   PUBLIC :: iTRN2O                                                       !Running index for chemical tracer in ICON-ART - N2O
-  PUBLIC :: iTR1                                                         !Running index for chemical tracer in ICON-ART - artificial tracer
-                                                                         ! RR JS  !Running index for chemical tracer in ICON-ART - VSLS
+  PUBLIC :: iTR1,iTR2,iTR3,iTR4,iTR5                                     !Running index for chemical tracer in ICON-ART - artificial tracer
   PUBLIC :: grid_generatingCenter     ! non-namelist variables
   PUBLIC :: grid_generatingSubcenter  ! non-namelist variables
   PUBLIC :: number_of_grid_used       ! non-namelist variables
@@ -56,6 +59,7 @@ MODULE mo_run_config
   PUBLIC :: restart_filename
   PUBLIC :: profiling_output, TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
   PUBLIC :: check_uuid_gracefully
+  PUBLIC :: irad_type
 
     ! Namelist variables
     !
@@ -75,7 +79,8 @@ MODULE mo_run_config
 
     INTEGER :: nsteps          !< number of time steps to integrate
     REAL(wp):: dtime           !< [s] length of a time step
-
+    TYPE(timedelta), POINTER, PROTECTED :: tc_dt_model => NULL()
+    
     LOGICAL :: ltimer          !< if .TRUE.,  the timer is switched on
     INTEGER :: timers_level    !< what level of timers to run
     LOGICAL :: activate_sync_timers
@@ -101,7 +106,7 @@ MODULE mo_run_config
     INTEGER :: grid_generatingCenter   (0:MAX_DOM)   !< patch generating center
     INTEGER :: grid_generatingSubcenter(0:MAX_DOM)   !< patch generating subcenter
     INTEGER :: number_of_grid_used(0:MAX_DOM)  !< Number of grid used (GRIB2 key)
-
+    
 
     ! Derived variables
     !
@@ -172,14 +177,18 @@ MODULE mo_run_config
     INTEGER :: iTRCH4       !< chemical tracer in ICON-ART
     INTEGER :: iTRCO2       !< chemical tracer in ICON-ART
     INTEGER :: iTRCO        !< chemical tracer in ICON-ART
+    INTEGER :: iTRCH3COCH3  !< chemical tracer in ICON-ART
+    INTEGER :: iTRC2H6      !< chemical tracer in ICON-ART
     INTEGER :: iTRH2O       !< chemical tracer in ICON-ART
     INTEGER :: iTRO3        !< chemical tracer in ICON-ART
-    INTEGER :: iTRSF6l      !< chemical tracer in ICON-ART
-    INTEGER :: iTRSF6r      !< chemical tracer in ICON-ART
-    INTEGER :: iTRSF6d      !< chemical tracer in ICON-ART
+    INTEGER :: iTRSF6       !< chemical tracer in ICON-ART
     INTEGER :: iTRN2O       !< chemical tracer in ICON-ART
     INTEGER :: iTR1         !< chemical tracer in ICON-ART
-                            !< RR JS
+    INTEGER :: iTR2         !< chemical tracer in ICON-ART
+    INTEGER :: iTR3         !< chemical tracer in ICON-ART
+    INTEGER :: iTR4         !< chemical tracer in ICON-ART
+    INTEGER :: iTR5         !< chemical tracer in ICON-ART
+
 
     INTEGER :: nlev               !< number of full levels for each domain
     INTEGER :: nlevm1             !< number of half levels for each domain without boundaries
@@ -198,6 +207,10 @@ MODULE mo_run_config
     !> file name for restart/checkpoint files (containg keyword
     !> substition patterns)
     CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
+
+    !> variable irad_type determines choice of radiation flux scheme
+    !> irad_type=1: rrtm, irad_type=2: psrad
+    INTEGER :: irad_type
 
 CONTAINS
   !>
@@ -239,6 +252,11 @@ CONTAINS
   END SUBROUTINE configure_run
   !-------------------------------------------------------------
 
+  SUBROUTINE setModelTimeStep(modelTimeStep)
+    CHARACTER(len=*), INTENT(in) :: modelTimeStep
+    tc_dt_model => newTimedelta(modelTimeStep)
+  END SUBROUTINE setModelTimeStep
+  
 !  !---------------------------------------
 !  !>
 !  LOGICAL FUNCTION get_ltestcase()

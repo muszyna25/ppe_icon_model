@@ -27,17 +27,17 @@ MODULE mo_io_config
   USE mo_kind,           ONLY: wp
   USE mo_run_config,     ONLY: dtime
   USE mo_io_units,       ONLY: filename_max
-  USE mo_cdi_constants,  ONLY: FILETYPE_NC2
+  USE mo_cdi,            ONLY: FILETYPE_NC2
 
   IMPLICIT NONE
   PUBLIC
 
   !--------------------------------------------------------------------------
-  ! Derived type 
+  ! Derived type
   !--------------------------------------------------------------------------
 
   ! from namelist
-  
+
   LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
   REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
   REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
@@ -45,10 +45,10 @@ MODULE mo_io_config
   INTEGER :: inextra_2d                 ! number of extra output fields for debugging
   INTEGER :: inextra_3d                 ! number of extra output fields for debugging
 
-  LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated 
+  LOGICAL :: lflux_avg                  ! if .FALSE. the output fluxes are accumulated
                                         ! from the beginning of the run
-                                        ! if .TRUE. the output fluxex are average values 
-                                        ! from the beginning of the run, except of 
+                                        ! if .TRUE. the output fluxex are average values
+                                        ! from the beginning of the run, except of
                                         ! TOT_PREC that would be accumulated
 
   INTEGER :: itype_pres_msl             ! Specifies method for computation of mean sea level pressure
@@ -63,7 +63,7 @@ MODULE mo_io_config
   !
   INTEGER, PARAMETER :: read_netcdf_broadcast_method  = 1
   INTEGER, PARAMETER :: read_netcdf_distribute_method = 2
-  INTEGER :: default_read_method = read_netcdf_broadcast_method
+  INTEGER :: default_read_method = 2
 
   INTEGER :: restart_file_type = FILETYPE_NC2
 
@@ -77,14 +77,14 @@ MODULE mo_io_config
   ! currently used by hydrostatic model only
   LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
   LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written at the end of the time step.
-  
+
 CONTAINS
 
   !>
   !! Set up derived components of the I/O config state
   !!
-  !! Set up derived components of the I/O config state. This routine is 
-  !! called, after all namelists have been read and a synoptic consistency 
+  !! Set up derived components of the I/O config state. This routine is
+  !! called, after all namelists have been read and a synoptic consistency
   !! check has been done.
   !!
   !! @par Revision History
@@ -112,7 +112,7 @@ CONTAINS
      n_checkpoints = NINT(dt_checkpoint/dtime)  ! write restart files
    END FUNCTION n_checkpoints
   !----------------------------------------------------------------------------------
-   
+
   !----------------------------------------------------------------------------------
    FUNCTION n_diags()
 
@@ -148,9 +148,9 @@ CONTAINS
   !>
   !! Decides about diagnostic computation of total integrals
   !!
-  !! Decides about diagnostic computation of total integrals, which 
+  !! Decides about diagnostic computation of total integrals, which
   !! is performed in "supervise_total_integrals_nh"
-  !! Total integrals are computed 
+  !! Total integrals are computed
   !! - at the first time step (or the first time step after restart)
   !! - if (MOD(current_step,n_diag) == 0)
   !! - at the very last time step
