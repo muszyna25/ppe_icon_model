@@ -62,8 +62,8 @@ MODULE mo_art_emission_interface
   USE mo_art_config,                    ONLY: art_config
   USE mo_art_integration,               ONLY: art_integrate_explicit
 ! Emission Routines
-  USE mo_art_emission_volc,             ONLY: art_organize_emission_volc
-  USE mo_art_emission_volc_mod,         ONLY: art_prepare_emission_volc, &
+  USE mo_art_emission_volc_1mom,        ONLY: art_organize_emission_volc
+  USE mo_art_emission_volc_2mom,        ONLY: art_prepare_emission_volc, &
                                           &   art_calculate_emission_volc
   USE mo_art_radioactive,               ONLY: art_emiss_radioact
   USE mo_art_emission_seas,             ONLY: art_seas_emiss_martensson, &
