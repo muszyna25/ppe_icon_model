@@ -24,7 +24,7 @@ MODULE mo_grib2_util
                                  & vlistDefVarTypeOfGeneratingProcess
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_SYNSAT, &
-    &                              CLASS_TILE_LAND
+    &                              CLASS_TILE_LAND, VARNAME_LEN
   USE mo_action,             ONLY: ACTION_RESET, getActiveAction
   USE mo_util_string,        ONLY: one_of
 #ifndef __NO_ICON_ATMO__
@@ -344,6 +344,8 @@ CONTAINS
 #ifdef __ICON_ART
 
     ! local
+    CHARACTER(LEN=VARNAME_LEN) :: tracer_class
+    INTEGER                    :: scale_factor, first_factor, second_param
     INTEGER      :: productDefinitionTemplate
     INTEGER      :: numberOfDistributionFunctionParameter
     INTEGER, ALLOCATABLE ::  &
@@ -355,23 +357,62 @@ CONTAINS
     WRITE(message_text,'(a,i4,a,i4)') 'vlistID = ', vlistID, '  varID = ', varID
     CALL message(' ==> set_GRIB2_art_keys :',TRIM(message_text),0,5,.TRUE.)
     CALL message(' ==> set_GRIB2_art_keys :','tracer_class = '//TRIM(info%tracer%tracer_class),0,5,.TRUE.)
- 
-    ! change product definition template
+
+    tracer_class = info%tracer%tracer_class
+    scale_factor = 0
+    first_factor = 3
+
+    ! set a generic tracer_class to simplify differentation of cases
     SELECT CASE(TRIM(info%tracer%tracer_class))
+    CASE ('volcash_diag_mc', 'volcash_diag_mc_max')
+      tracer_class = 'volcash_diag'
+      scale_factor = 9
+    CASE ('volcash_diag_mc_vi')
+      tracer_class = 'volcash_diag'
+      scale_factor = 3
+    CASE ('volcash_diag_hml')
+      tracer_class = 'volcash_diag'
+    CASE ('asha', 'ashb', 'ashc')
+      tracer_class = 'aerosol'
+      second_param = 2600
+      scale_factor = 9
+    CASE ('asha_number', 'ashb_number', 'ashc_number')
+      tracer_class = 'aerosol_number'
+      second_param = 2600
+    CASE ('dusta', 'dustb', 'dustc')
+      tracer_class = 'aerosol'
+      second_param = 2650
+      scale_factor = 9
+    CASE ('dusta_number', 'dustb_number', 'dustc_number')
+      tracer_class = 'aerosol_number'
+      second_param = 2650
+    CASE ('seasa', 'seasb', 'seasc')
+      tracer_class = 'aerosol'
+      second_param = 2200
+      scale_factor = 9
+    CASE ('seasa_number', 'seasb_number', 'seasc_number')
+      tracer_class = 'aerosol_number'
+      second_param = 2200
+    CASE ('dust_diag_tau', 'seas_diag_tau')
+      tracer_class = 'diag_tau'
+    END SELECT
+    
+    ! change product definition template
+    SELECT CASE(TRIM(tracer_class))
     CASE ('volcash')
       CALL message(' ==> set_GRIB2_art_keys :','volcash --> PDT=57',0,5,.TRUE.)
       productDefinitionTemplate = 57
       numberOfDistributionFunctionParameter = 1
-    CASE ('volcash_diag_mc', 'volcash_diag_mc_max', 'volcash_diag_mc_vi', 'volcash_diag_hml', 'radioact')
-      CALL message(' ==> set_GRIB2_art_keys :','volcash_diag_... --> PDT=40',0,5,.TRUE.)
+    CASE ('volcash_diag', 'radioact')
+      CALL message(' ==> set_GRIB2_art_keys :','volcash_diag_... | radioact --> PDT=40',0,5,.TRUE.)
       productDefinitionTemplate = 40
       numberOfDistributionFunctionParameter = 0
-    CASE ('ash', 'ash_number', 'dust', 'dust_number')
-      CALL message(' ==> set_GRIB2_art_keys :','ash|dust[_number] --> PDT=57',0,5,.TRUE.)
+    CASE ('aerosol', 'aerosol_number')
+      CALL message(' ==> set_GRIB2_art_keys :','ash|dust|seas[_number] --> PDT=57',0,5,.TRUE.)
       productDefinitionTemplate = 57
       numberOfDistributionFunctionParameter = 2
-    CASE ('dust_diag_tau')
-      CALL message(' ==> set_GRIB2_art_keys :','dust_diag_tau --> PDT=48',0,5,.TRUE.)
+    CASE ('diag_tau')
+      CALL message(' ==> set_GRIB2_art_keys :','dust|seas_diag_tau --> PDT=48',0,5,.TRUE.)
       productDefinitionTemplate = 48
       numberOfDistributionFunctionParameter = 0
     CASE DEFAULT
@@ -390,7 +431,7 @@ CONTAINS
         &       scaleFactorOfDistributionFunctionParameter(numberOfDistributionFunctionParameter) )
     END IF
     
-    SELECT CASE(TRIM(info%tracer%tracer_class))
+    SELECT CASE(TRIM(tracer_class))
 
     CASE ('volcash')
       CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 1)
@@ -407,18 +448,11 @@ CONTAINS
         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter(:))
       CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
 
-    CASE ('volcash_diag_mc', 'volcash_diag_mc_max')
+    CASE ('volcash_diag')
       CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
-      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
+      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", scale_factor)
       
-    CASE ('volcash_diag_mc_vi')
-      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
-      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 3)
-      
-    CASE ('volcash_diag_hml')
-      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
-      
-    CASE ('ash', 'ash_number', 'dust', 'dust_number')
+    CASE ('aerosol', 'aerosol_number')
       CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 7)
       CALL vlistDefVarIntKey(vlistID, varID, "numberOfModeOfDistribution", 3)
       CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter",  &
@@ -426,23 +460,17 @@ CONTAINS
       CALL vlistDefVarIntKey(vlistID, varID, "constituentType", info%tracer%constituent)
       CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
       scaledValueOfDistributionFunctionParameter(1) = info%tracer%variance
-      scaleFactorOfDistributionFunctionParameter(1) = 3
-      IF ( info%tracer%tracer_class(1:3) == 'ash' )  &
-        &  scaledValueOfDistributionFunctionParameter(2) = 2600
-      IF ( info%tracer%tracer_class(1:4) == 'dust' ) &
-        &  scaledValueOfDistributionFunctionParameter(2) = 2650
+      scaleFactorOfDistributionFunctionParameter(1) = first_factor
+      scaledValueOfDistributionFunctionParameter(2) = second_param
       scaleFactorOfDistributionFunctionParameter(2) = 0
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",    &
         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter(:))
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter(:))
-      IF ( TRIM(info%tracer%tracer_class) == 'ash' .OR.  &
-        &  TRIM(info%tracer%tracer_class) == 'dust' ) THEN
-        CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
-      END IF
+      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", scale_factor)
       
-    CASE ('dust_diag_tau')
-      CALL vlistDefVarIntKey(vlistID, varID, "aerosolType", 62001)
+    CASE ('diag_tau')
+      CALL vlistDefVarIntKey(vlistID, varID, "aerosolType", info%tracer%constituent)
       CALL vlistDefVarIntKey(vlistID, varID, "typeOfSizeInterval", 192)
       CALL vlistDefVarIntKey(vlistID, varID, "typeOfWavelengthInterval", 11)
       CALL vlistDefVarIntKey(vlistID, varID, "scaledValueOfFirstWavelength", info%tracer%tau_wavelength)
