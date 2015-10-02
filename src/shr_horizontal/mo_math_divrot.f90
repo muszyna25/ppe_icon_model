@@ -87,13 +87,7 @@
 !!
 
 !----------------------------
-#if defined(__MATH_DIVROT_NOACC)
-#undef ACC_LOCAL_FLAG
-#else
-#define ACC_LOCAL_FLAG
-#endif
 #include "openacc_definitions.inc"
-#define ACC_DEBUG !$ACC
 !----------------------------
 
 !----------------------------
@@ -119,7 +113,7 @@ USE mo_grid_config,         ONLY: l_limited_area
 USE mo_parallel_config,     ONLY: nproma
 USE mo_exception,           ONLY: finish
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-#ifdef OPENACC_MODE
+#ifdef _OPENACC
 USE mo_mpi,                 ONLY: i_am_accel_node
 #endif
 
@@ -128,7 +122,6 @@ USE mo_mpi,                 ONLY: i_am_accel_node
 IMPLICIT NONE
 
 PRIVATE
-
 
 PUBLIC :: recon_lsq_cell_l, recon_lsq_cell_l_svd, recon_lsq_cell_l_consv_svd
 PUBLIC :: recon_lsq_cell_q, recon_lsq_cell_q_svd
@@ -145,7 +138,6 @@ INTERFACE rot_vertex
 
 END INTERFACE
 
-
 INTERFACE div
 
   MODULE PROCEDURE div3d
@@ -154,9 +146,16 @@ INTERFACE div
 
 END INTERFACE
 
+#if defined( _OPENACC )
+#define ACC_DEBUG $ACC
+#if defined(__MATH_DIVROT_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
 
 CONTAINS
-
 
 !-------------------------------------------------------------------------
 !
@@ -271,15 +270,15 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   !
   ! 1. reconstruction of cell based gradient (geographical components)
   !
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_d, z_qt_times_d ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
-ACC_PREFIX PRIVATE( z_d, z_qt_times_d ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_d, z_qt_times_d ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_d, z_qt_times_d ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
@@ -289,7 +288,7 @@ ACC_PREFIX LOOP GANG
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -309,7 +308,7 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 
@@ -340,7 +339,7 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     END DO ! end loop over vertical levels
 
     IF (l_consv) THEN
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
           ! constant
@@ -354,10 +353,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     ENDIF
 
   END DO ! end loop over blocks
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -467,15 +466,15 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   !
   ! 1. reconstruction of cell based gradient (geographical components)
   !
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_b ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
-ACC_PREFIX PRIVATE( z_b ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_b ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_b ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
@@ -485,7 +484,7 @@ ACC_PREFIX LOOP GANG
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -508,7 +507,7 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     ! 2. compute cell based coefficients for linear reconstruction
     !    calculate matrix vector product PINV(A) * b
     !
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 
@@ -528,10 +527,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
 
 
   END DO ! end loop over blocks
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -650,15 +649,15 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   !
   ! 1. reconstruction of cell based gradient (geographical components)
   !
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
-ACC_PREFIX PRIVATE( z_b ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_b ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
@@ -668,7 +667,7 @@ ACC_PREFIX LOOP GANG
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -691,7 +690,7 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     ! 2. compute cell based coefficients for linear reconstruction
     !    calculate matrix vector product PINV(A) * b
     ! 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
       DO jc = i_startidx, i_endidx
 
@@ -727,10 +726,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     ENDIF
 
   END DO ! end loop over blocks
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -869,35 +868,35 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ptr_rutri => ptr_int_lsq%lsq_rmat_utri_c(:,:,:)
 
 
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), &
-ACC_PREFIX      CREATE(  z_d, z_qt_times_d ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE ( p_cc, ptr_rrdiag, ptr_rutri, p_coeff ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), &
+!$ACC      CREATE(  z_d, z_qt_times_d ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( p_cc, ptr_rrdiag, ptr_rutri, p_coeff ), IF( i_am_accel_node .AND. acc_on )
 #else
 !$OMP PARALLEL
 #endif
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-#ifdef OPENACC_MODE
-ACC_PREFIX KERNELS PRESENT( p_coeff ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC KERNELS PRESENT( p_coeff ), IF( i_am_accel_node .AND. acc_on )
 #else
 !$OMP WORKSHARE
 #endif
     p_coeff(:,:,1:6,1:i_startblk) = 0._wp
-#ifdef OPENACC_MODE
-ACC_PREFIX END KERNELS
+#ifdef _OPENACC
+!$ACC END KERNELS
 #else
 !$OMP END WORKSHARE
 #endif
   ENDIF
 
-#ifdef OPENACC_MODE
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
-ACC_PREFIX PRIVATE( z_d, z_qt_times_d ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_d, z_qt_times_d ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -909,7 +908,7 @@ ACC_PREFIX LOOP GANG
     !
     ! 1. compute right hand side of linear system
     !
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -936,7 +935,7 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     !
     ! 2. compute cell based coefficients for quadratic reconstruction
     !
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
 
       DO jc = i_startidx, i_endidx
@@ -985,10 +984,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -1114,34 +1113,34 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
 
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node ) 
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on ) 
 #else
 !$OMP PARALLEL
 #endif
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-#ifdef OPENACC_MODE
-ACC_PREFIX KERNELS PRESENT( p_coeff ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC KERNELS PRESENT( p_coeff ), IF( i_am_accel_node .AND. acc_on )
 #else
 !$OMP WORKSHARE
 #endif
     p_coeff(:,:,1:6,1:i_startblk) = 0._wp
-#ifdef OPENACC_MODE
-ACC_PREFIX END KERNELS
+#ifdef _OPENACC
+!$ACC END KERNELS
 #else
 !$OMP END WORKSHARE
 #endif
   ENDIF
 
-#ifdef OPENACC_MODE
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
-ACC_PREFIX PRIVATE( z_b ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_b ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1154,7 +1153,7 @@ ACC_PREFIX LOOP GANG
     ! 1. compute right hand side of linear system
     !
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -1182,7 +1181,7 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     ! 2. compute cell based coefficients for quadratic reconstruction
     !    calculate matrix vector product PINV(A) * b
     !
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
 
       DO jc = i_startidx, i_endidx
@@ -1215,10 +1214,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(p_coeff) IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -1359,35 +1358,35 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
 
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN(  ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_d, z_qt_times_d ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN(  ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_d, z_qt_times_d ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on )
 #else
 !$OMP PARALLEL
 #endif
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-#ifdef OPENACC_MODE
-ACC_PREFIX KERNELS PRESENT( p_coeff ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC KERNELS PRESENT( p_coeff ), IF( i_am_accel_node .AND. acc_on )
 #else
 !$OMP WORKSHARE
 #endif
     p_coeff(:,:,1:8,1:i_startblk) = 0._wp
 
-#ifdef OPENACC_MODE
-ACC_PREFIX END KERNELS
+#ifdef _OPENACC
+!$ACC END KERNELS
 #else
 !$OMP END WORKSHARE
 #endif
   ENDIF
 
-#ifdef OPENACC_MODE
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
-ACC_PREFIX PRIVATE( z_d, z_qt_times_d ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_d, z_qt_times_d ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1400,7 +1399,7 @@ ACC_PREFIX LOOP GANG
     ! 1. compute right hand side of linear system
     !
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -1426,7 +1425,7 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     !
     ! 2. compute cell based coefficients for quadratic reconstruction
     !
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
 
       DO jc = i_startidx, i_endidx
@@ -1493,10 +1492,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -1624,36 +1623,36 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   iidx => ptr_int_lsq%lsq_idx_c
   iblk => ptr_int_lsq%lsq_blk_c
 
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_b ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_b ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on )
 #else
 !$OMP PARALLEL
 #endif
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
 
-#ifdef OPENACC_MODE
-ACC_PREFIX KERNELS PRESENT( p_coeff ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC KERNELS PRESENT( p_coeff ), IF( i_am_accel_node .AND. acc_on )
 #else
 !$OMP WORKSHARE
 #endif
     p_coeff(:,:,:,1:i_startblk) = 0._wp
-#ifdef OPENACC_MODE
-ACC_PREFIX END KERNELS
+#ifdef _OPENACC
+!$ACC END KERNELS
 #else
 !$OMP END WORKSHARE
 #endif
   ENDIF
 
 
-#ifdef OPENACC_MODE
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
-ACC_PREFIX PRIVATE( z_b ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_b ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1665,7 +1664,7 @@ ACC_PREFIX LOOP GANG
     !
     ! 1. compute right hand side of linear system
     !
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -1692,7 +1691,7 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     ! 2. compute cell based coefficients for poor man's cubic reconstruction
     !    calculate matrix vector product PINV(A) * b
     !
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
 
       DO jc = i_startidx, i_endidx
@@ -1728,10 +1727,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(p_coeff) IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -1872,34 +1871,34 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ptr_rutri => ptr_int_lsq%lsq_rmat_utri_c(:,:,:)
 
 
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_d,z_qt_times_d ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_d,z_qt_times_d ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_cc, p_coeff ), IF( i_am_accel_node .AND. acc_on )
 #else
 !$OMP PARALLEL
 #endif
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-#ifdef OPENACC_MODE
-ACC_PREFIX KERNELS PRESENT( p_coeff ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC KERNELS PRESENT( p_coeff ), IF( i_am_accel_node .AND. acc_on )
 #else
 !$OMP WORKSHARE
 #endif
     p_coeff(:,:,1:10,1:i_startblk) = 0._wp
-#ifdef OPENACC_MODE
-ACC_PREFIX END KERNELS
+#ifdef _OPENACC
+!$ACC END KERNELS
 #else
 !$OMP END WORKSHARE
 #endif
   ENDIF
 
-#ifdef OPENACC_MODE
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, p_cc, ptr_int_lsq, p_coeff ), &
-ACC_PREFIX PRIVATE( z_d, z_qt_times_d ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, p_cc, ptr_int_lsq, p_coeff ), &
+!$ACC PRIVATE( z_d, z_qt_times_d ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -1911,7 +1910,7 @@ ACC_PREFIX LOOP GANG
     !
     ! 1. compute right hand side of linear system
     !
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -1937,7 +1936,7 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     !
     ! 2. compute cell based coefficients for quadratic reconstruction
     !
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
 
       DO jc = i_startidx, i_endidx
@@ -2026,10 +2025,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(p_coeff) IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -2160,34 +2159,34 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   iidx => ptr_int_lsq%lsq_idx_c
   iblk => ptr_int_lsq%lsq_blk_c
 
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_b), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE ( p_cc, p_coeff  ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int_lsq, p_cc ), PCOPY( p_coeff ), CREATE( z_b), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( p_cc, p_coeff  ), IF( i_am_accel_node .AND. acc_on )
 #else
 !$OMP PARALLEL
 #endif
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-#ifdef OPENACC_MODE
-ACC_PREFIX KERNELS PRESENT( p_coeff ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC KERNELS PRESENT( p_coeff ), IF( i_am_accel_node .AND. acc_on )
 #else
 !$OMP WORKSHARE
 #endif
     p_coeff(:,:,:,1:i_startblk) = 0._wp
-#ifdef OPENACC_MODE
-ACC_PREFIX END KERNELS
+#ifdef _OPENACC
+!$ACC END KERNELS
 #else
 !$OMP END WORKSHARE
 #endif
   ENDIF
 
-#ifdef OPENACC_MODE
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
-ACC_PREFIX PRIVATE( z_b ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int_lsq, p_cc, p_coeff ), &
+!$ACC PRIVATE( z_b ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -2200,7 +2199,7 @@ ACC_PREFIX LOOP GANG
     ! 1. compute right hand side of linear system
     !
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -2228,7 +2227,7 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     ! 2. compute cell based coefficients for cubic reconstruction
     !    calculate matrix vector product PINV(A) * b
     !
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
     DO jk = slev, elev
 
       DO jc = i_startidx, i_endidx
@@ -2270,10 +2269,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     END DO ! end loop over vertical levels
 
   END DO ! end loop over blocks
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(p_coeff) IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_coeff) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -2391,14 +2390,14 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !IF(ltimer) CALL timer_start(timer_div)
 
 
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int, vec_e ), PCOPY( div_vec_c ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE ( vec_e, div_vec_c ) IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int, vec_e, iidx, iblk, div_vec_c ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, vec_e ), PCOPY( div_vec_c ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( vec_e, div_vec_c ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, iidx, iblk, div_vec_c ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -2423,7 +2422,7 @@ ACC_PREFIX LOOP GANG
     ! coefficient (equal to +-1) is necessary, given by
     ! ptr_patch%grid%cells%edge_orientation)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
@@ -2441,10 +2440,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
       END DO
 
   END DO
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(div_vec_c) IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(div_vec_c) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -2542,14 +2541,14 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !IF(ltimer) CALL timer_start(timer_div)
 
 
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int, vec_e, in2 ), PCOPY( div_vec_c, out2 ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE ( vec_e, in2, div_vec_c, out2 ), IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int, vec_e, in2, div_vec_c, out2 ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, vec_e, in2 ), PCOPY( div_vec_c, out2 ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( vec_e, in2, div_vec_c, out2 ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, in2, div_vec_c, out2 ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE
@@ -2574,7 +2573,7 @@ ACC_PREFIX LOOP GANG
     ! coefficient (equal to +-1) is necessary, given by
     ! ptr_patch%grid%cells%edge_orientation)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
@@ -2597,10 +2596,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
       END DO
 
   END DO
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(div_vec_c, out2) IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(div_vec_c, out2) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -2701,14 +2700,14 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !IF(ltimer) CALL timer_start(timer_div)
 
 
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int, f4din ), PCOPY( f4dout ),  IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE ( f4din, f4dout ), IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int, f4din, f4dout ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, f4din ), PCOPY( f4dout ),  IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( f4din, f4dout ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, f4din, f4dout ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,ji) ICON_OMP_DEFAULT_SCHEDULE
@@ -2718,7 +2717,7 @@ ACC_PREFIX LOOP GANG
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-ACC_PREFIX LOOP VECTOR
+!$ACC LOOP VECTOR
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO ji = 1, dim4d
@@ -2740,10 +2739,10 @@ ACC_PREFIX LOOP VECTOR
 
   ENDDO
 
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(f4dout) IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(f4dout) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -2872,11 +2871,11 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
 ! First compute divergence
 !
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int, vec_e, avg_coeff ), PCOPY( div_vec_c ), CREATE( aux_c ), IF( i_am_accel_node )
-ACC_PREFIX DATA PCOPYIN( opt_in2 ), PCOPY( opt_out2 ), CREATE( aux_c2 ), IF( i_am_accel_node .AND. l2fields )
-ACC_DEBUG UPDATE DEVICE ( vec_e, div_vec_c ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE ( opt_in2, opt_out2 ), IF( i_am_accel_node .AND. l2fields )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, vec_e, avg_coeff ), PCOPY( div_vec_c ), CREATE( aux_c ), IF( i_am_accel_node .AND. acc_on )
+!$ACC DATA PCOPYIN( opt_in2 ), PCOPY( opt_out2 ), CREATE( aux_c2 ), IF( i_am_accel_node .AND. acc_on .AND. l2fields )
+!ACC_DEBUG UPDATE DEVICE ( vec_e, div_vec_c ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( opt_in2, opt_out2 ), IF( i_am_accel_node .AND. acc_on .AND. l2fields )
 #else
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 #endif
@@ -2885,12 +2884,12 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end_l1,i_nchdom)
 
 IF (l2fields) THEN
 
-#ifdef OPENACC_MODE
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int, vec_e, opt_in2, aux_c, aux_c2 ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, opt_in2, aux_c, aux_c2 ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -2899,7 +2898,7 @@ ACC_PREFIX LOOP GANG
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end_l1)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -2921,20 +2920,20 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
       END DO
     END DO
   END DO
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
+#ifdef _OPENACC
+!$ACC END PARALLEL
 #else
 !$OMP END DO
 #endif
 
 ELSE
 
-#ifdef OPENACC_MODE
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int, vec_e, aux_c ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, aux_c ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -2943,7 +2942,7 @@ ACC_PREFIX LOOP GANG
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end_l1)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -2960,8 +2959,8 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     END DO
 
   END DO
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
+#ifdef _OPENACC
+!$ACC END PARALLEL
 #else
 !$OMP END DO
 #endif
@@ -2975,29 +2974,29 @@ IF (l_limited_area .OR. ptr_patch%id > 1) THEN
   i_endblk   = ptr_patch%cells%end_blk(rl_start_l2,1)
 !
   IF (l2fields) THEN
-#ifdef OPENACC_MODE
-ACC_PREFIX KERNELS PRESENT( div_vec_c, opt_out2 ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC KERNELS PRESENT( div_vec_c, opt_out2 ), IF( i_am_accel_node .AND. acc_on )
 #else
 !$OMP WORKSHARE
 #endif
      div_vec_c(:,:,i_startblk:i_endblk) =  aux_c (:,:,i_startblk:i_endblk)
      opt_out2 (:,:,i_startblk:i_endblk) =  aux_c2(:,:,i_startblk:i_endblk)
-#ifdef OPENACC_MODE
-ACC_PREFIX END KERNELS
+#ifdef _OPENACC
+!$ACC END KERNELS
 #else
 !$OMP END WORKSHARE
 #endif
   ELSE
-#ifdef OPENACC_MODE
-ACC_PREFIX KERNELS PRESENT( div_vec_c ), IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC KERNELS PRESENT( div_vec_c ), IF( i_am_accel_node .AND. acc_on )
 #else
-!$OMP WORKSHARE
+!!!  TODO: this is causing intel 15.0 to hang:    !$OMP WORKSHARE
 #endif
      div_vec_c(:,:,i_startblk:i_endblk) =  aux_c(:,:,i_startblk:i_endblk)
-#ifdef OPENACC_MODE
-ACC_PREFIX END KERNELS
+#ifdef _OPENACC
+!$ACC END KERNELS
 #else
-!$OMP END WORKSHARE
+!!!  TODO: this is causing intel 15.0 to hang:  !$OMP END WORKSHARE
 #endif
   ENDIF
 ENDIF
@@ -3014,12 +3013,12 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 IF (l2fields) THEN
 
-#ifdef OPENACC_MODE
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, aux_c, aux_c2, avg_coeff, div_vec_c, opt_out2 ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, aux_c, aux_c2, avg_coeff, div_vec_c, opt_out2 ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -3028,7 +3027,7 @@ ACC_PREFIX LOOP GANG
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start_l2, rl_end)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -3054,20 +3053,20 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     END DO !vertical levels loop
   END DO !block loop
 
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
+#ifdef _OPENACC
+!$ACC END PARALLEL
 #else
 !$OMP END DO NOWAIT
 #endif
 
 ELSE
 
-#ifdef OPENACC_MODE
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, aux_c, avg_coeff, div_vec_c), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, aux_c, avg_coeff, div_vec_c), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -3076,7 +3075,7 @@ ACC_PREFIX LOOP GANG
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start_l2, rl_end)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jc = i_startidx, i_endidx
       DO jk = slev, elev
@@ -3097,19 +3096,19 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
 
   END DO !block loop
 
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
+#ifdef _OPENACC
+!$ACC END PARALLEL
 #else
 !$OMP END DO NOWAIT
 #endif
 
 ENDIF
 
-#ifdef OPENACC_MODE
-ACC_DEBUG UPDATE HOST(div_vec_c) IF( i_am_accel_node )
-ACC_DEBUG UPDATE HOST(opt_out2) IF( i_am_accel_node .AND. l2fields )
-ACC_PREFIX END DATA
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!ACC_DEBUG UPDATE HOST(div_vec_c) IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE HOST(opt_out2) IF( i_am_accel_node .AND. acc_on .AND. l2fields )
+!$ACC END DATA
+!$ACC END DATA
 #else
 !$OMP END PARALLEL
 #endif
@@ -3214,14 +3213,14 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 !
 ! loop through all patch edges (and blocks)
 !
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int, vec_e ), PCOPY( div_vec_e ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE ( vec_e, div_vec_e ) IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int, vec_e, div_vec_e ), &
-ACC_PREFIX IF( i_am_accel_node )
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, vec_e ), PCOPY( div_vec_e ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( vec_e, div_vec_e ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, div_vec_e ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_RUNTIME_SCHEDULE
@@ -3231,7 +3230,7 @@ DO jb = i_startblk, i_endblk
   CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
   DO je = i_startidx, i_endidx
     DO jk = slev, elev
@@ -3250,10 +3249,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
   END DO
 
 END DO
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(div_vec_e) IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(div_vec_e) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -3366,13 +3365,13 @@ END IF
   i_startblk = ptr_patch%verts%start_blk(rl_start,1)
   i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int, vec_e ), PCOPY( rot_vec ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE ( vec_e, rot_vec ) IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int, vec_e, rot_vec ), &
-ACC_PREFIX IF( i_am_accel_node )
-ACC_PREFIX LOOP GANG
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, vec_e ), PCOPY( rot_vec ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( vec_e, rot_vec ) IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, rot_vec ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), ICON_OMP_RUNTIME_SCHEDULE
@@ -3398,7 +3397,7 @@ ACC_PREFIX LOOP GANG
     ! is necessary, given by g%verts%edge_orientation
     !
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO jv = i_startidx, i_endidx
       DO jk = slev, elev
@@ -3424,10 +3423,10 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     END DO
 
   ENDDO
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(rot_vec) IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(rot_vec) IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -3515,13 +3514,13 @@ END IF
   i_endblk   = ptr_patch%verts%end_block(rl_end)
 
 
-#ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( ptr_patch, ptr_int, vec_e ), PCOPY( rot_vec ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE ( vec_e, rot_vec ), IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int, vec_e, rot_vec ), &
-ACC_PREFIX IF( i_am_accel_node )
-ACC_PREFIX LOOP GANG
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( ptr_patch, ptr_int, vec_e ), PCOPY( rot_vec ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE ( vec_e, rot_vec ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, vec_e, rot_vec ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+!$ACC LOOP GANG
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk), ICON_OMP_RUNTIME_SCHEDULE
@@ -3554,10 +3553,10 @@ ACC_PREFIX LOOP GANG
     END DO
 
   ENDDO
-#ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(rot_vec), IF( i_am_accel_node )
-ACC_PREFIX END DATA
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(rot_vec), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

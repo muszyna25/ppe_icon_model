@@ -169,6 +169,16 @@ PRIVATE
 PUBLIC :: rbf_vec_interpol_cell, rbf_interpol_c2grad,     &
         & rbf_vec_interpol_vertex, rbf_vec_interpol_edge
 
+#if defined( _OPENACC )
+#define ACC_DEBUG $ACC
+#if defined(__INTP_RBF_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
+
+
 CONTAINS
 
 !-------------------------------------------------------------------------
@@ -286,13 +296,13 @@ i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 #ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( p_vn_in ), PCOPY( p_u_out, p_v_out ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE( p_vn_in, p_u_out, p_v_out ), IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int, p_vn_in, p_u_out, p_v_out ), &
-ACC_PREFIX IF( i_am_accel_node )
+!$ACC DATA PCOPYIN( p_vn_in ), PCOPY( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_vn_in, p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, p_vn_in, p_u_out, p_v_out ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
@@ -303,7 +313,7 @@ DO jb = i_startblk, i_endblk
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
   DO jc = i_startidx, i_endidx
     DO jk = slev, elev
@@ -339,9 +349,9 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
 
 ENDDO
 #ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST(p_u_out,p_v_out), IF( i_am_accel_node )
-ACC_PREFIX END DATA
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_u_out,p_v_out), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -442,27 +452,27 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 IF (ptr_patch%id > 1) THEN
 #ifdef OPENACC_MODE
-ACC_PREFIX KERNELS IF ( i_am_accel_node )
+!$ACC KERNELS IF ( i_am_accel_node .AND. acc_on )
 #else
 !$OMP WORKSHARE
 #endif
   grad_x(:,:,1:i_startblk) = 0._wp
   grad_y(:,:,1:i_startblk) = 0._wp
 #ifdef OPENACC_MODE
-ACC_PREFIX END KERNELS
+!$ACC END KERNELS
 #else
 !$OMP END WORKSHARE
 #endif
 ENDIF
 
 #ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( p_cell_in ), PCOPY( grad_x, grad_y ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE( p_cell_in, grad_x, grad_y ), IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int, p_cell_in, grad_x, grad_y ), &
-ACC_PREFIX IF( i_am_accel_node )
+!$ACC DATA PCOPYIN( p_cell_in ), PCOPY( grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_cell_in, grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, p_cell_in, grad_x, grad_y ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
 #endif
@@ -472,7 +482,7 @@ DO jb = i_startblk, i_endblk
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
   DO jc = i_startidx, i_endidx
     DO jk = slev, elev
@@ -510,9 +520,9 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
 
 ENDDO
 #ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST( grad_x, grad_y ), IF( i_am_accel_node )
-ACC_PREFIX END DATA
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -619,13 +629,13 @@ i_startblk = ptr_patch%verts%start_blk(rl_start,1)
 i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
 #ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( p_e_in ), PCOPY( p_u_out, p_v_out ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE( p_e_in, p_u_out, p_v_out ), IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int, p_e_in, p_u_out, p_v_out ), &
-ACC_PREFIX IF( i_am_accel_node )
+!$ACC DATA PCOPYIN( p_e_in ), PCOPY( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_e_in, p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, p_e_in, p_u_out, p_v_out ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jv), ICON_OMP_RUNTIME_SCHEDULE
@@ -635,7 +645,7 @@ DO jb = i_startblk, i_endblk
   CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
   DO jv = i_startidx, i_endidx
     DO jk = slev, elev
@@ -666,9 +676,9 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
 ENDDO
 
 #ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST( p_u_out, p_v_out ), IF( i_am_accel_node )
-ACC_PREFIX END DATA
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -767,13 +777,13 @@ i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
 #ifdef OPENACC_MODE
-ACC_PREFIX DATA PCOPYIN( p_vn_in ), PCOPY( p_vt_out ), IF( i_am_accel_node )
-ACC_DEBUG UPDATE DEVICE( p_vn_in, p_vt_out ), IF( i_am_accel_node )
-ACC_PREFIX PARALLEL &
-ACC_PREFIX PRESENT( ptr_patch, ptr_int, p_vn_in, p_vt_out ), &
-ACC_PREFIX IF( i_am_accel_node )
+!$ACC DATA PCOPYIN( p_vn_in ), PCOPY( p_vt_out ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_vn_in, p_vt_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, p_vn_in, p_vt_out ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
 
-ACC_PREFIX LOOP GANG
+!$ACC LOOP GANG
 #else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
@@ -783,7 +793,7 @@ ACC_PREFIX LOOP GANG
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-ACC_PREFIX LOOP VECTOR COLLAPSE(2)
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO je = i_startidx, i_endidx
       DO jk = slev, elev
@@ -803,9 +813,9 @@ ACC_PREFIX LOOP VECTOR COLLAPSE(2)
     ENDDO
   ENDDO
 #ifdef OPENACC_MODE
-ACC_PREFIX END PARALLEL
-ACC_DEBUG UPDATE HOST( p_vt_out ), IF( i_am_accel_node )
-ACC_PREFIX END DATA
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( p_vt_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
 #else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
