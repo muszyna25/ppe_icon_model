@@ -34,6 +34,22 @@ dnl ######################################################################
 AC_ARG_ENABLE([mtime-loop],
               AS_HELP_STRING([--enable-mtime-loop],[Use mtime based time loop in nh stepping.]))
 
+AC_ARG_ENABLE([atmo],
+              AS_HELP_STRING([--enable-atmo],[Use atmosphere model component.]),
+              [],[enable_atmo=yes])
+
+AC_ARG_ENABLE([jsbach],
+              AS_HELP_STRING([--enable-jsbach],[Use jsbach model component.]),
+              [],[enable_jsbach=yes])
+
+AC_ARG_ENABLE([ocean],
+              AS_HELP_STRING([--enable-ocean],[Use ocean model component.]),
+              [],[enable_ocean=yes])
+
+AC_ARG_ENABLE([testbed],
+              AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
+              [],[enable_testbed=no])
+
 AC_ARG_WITH([fortran],
   [AS_HELP_STRING([--with-fortran=COMPILER],
     [select_available compiler (see README.compiler)])],
@@ -236,31 +252,29 @@ if test "x$load_modules" != x ;  then
 fi
   
 dnl ######################################################################
-dnl define the packages
+dnl define the package
 
-use_components_file=config/icon_components
-
-AC_ARG_WITH([ocean],
-            [AC_HELP_STRING([--with-ocean=no],
-                            [compile without ocean])],,
-                            with_ocean=yes)
-
-if [[ $with_ocean = no ]]; then
-  use_components_file=config/icon_components_no_ocean
-  echo "icon_components=NO_ICON_OCEAN" > $use_components_file
-fi
-
-if test -f $use_components_file ; then
-  AC_GET_MH($use_components_file)
-fi
 FFLAGS="${FFLAGS} ${DEFOPT}__${package}__"
 CFLAGS="${CFLAGS} ${DEFCOPT}__${package}__"
 
-for other_package in $icon_components ; do
-  FFLAGS="${FFLAGS} ${DEFOPT}__${other_package}__"
-  CFLAGS="${CFLAGS} ${DEFCOPT}__${other_package}__"
+dnl #####################################################################
+dnl add defines for model components
 
-done
+AS_IF([test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"],
+      [AC_MSG_ERROR([currently, enable-atmo=yes needs enable-ocean=yes (because of sea-ice)])])
+
+AS_IF([test "x$enable_atmo" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_ATMO__"])
+
+AS_IF([test "x$enable_jsbach" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_JSBACH__"])
+
+AS_IF([test "x$enable_ocean" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_OCEAN__"])
+
+AS_IF([test "x$enable_testbed" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"])
+
 dnl ######################################################################
 dnl add defines for transitional features (eg. mtime based time loop)
 
@@ -1076,7 +1090,7 @@ if test -n "$CROSS" ; then
    cp $cross_config config/config.h
 fi
 
-config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --with_ocean="${with_ocean}"
+config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --enable_ocean="${enable_ocean}" --enable_atmo="${enable_atmo}" --enable_jsbach="${enable_jsbach}" --enable_testbed="${enable_testbed}"
 
 #-----------------------------------------------------------------------------
 case $host in
@@ -1277,7 +1291,6 @@ use_make_command="$make_command"
 use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
-use_icon_components="$icon_components"
 #############################
 EOF
 

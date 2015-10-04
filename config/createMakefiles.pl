@@ -18,12 +18,18 @@ use File::Path;
 
 my $target;
 my $srcdirs;
-my $with_ocean;
+my $enable_atmo;
+my $enable_ocean;
+my $enable_jsbach;
+my $enable_testbed;
 
 GetOptions( 
 	    'target=s'  => \$target,
             'srcdirs=s' => \$srcdirs,
-            'with_ocean=s' => \$with_ocean,
+            'enable_atmo=s' => \$enable_atmo,
+            'enable_ocean=s' => \$enable_ocean,
+            'enable_jsbach=s' => \$enable_jsbach,
+            'enable_testbed=s' => \$enable_testbed,
 	    ) or die "\n\nUsage: config/createMakefiles.pl --target=<OS_CPU> --srcdirs=< list of src directories>\n";  
 
 #__________________________________________________________________________________________________________________________________
@@ -77,6 +83,15 @@ if ( -d "externals/yac/include" ) {
     closedir(DIR);
     foreach my $inc ( @incs ) {
 	copy ( "externals/yac/include/${inc}", "${build_path}/include/${inc}" );
+    }
+}
+
+if ( ($enable_jsbach eq "yes") and -d "src/lnd_phy_jsbach/include" ) {
+    opendir(DIR, "src/lnd_phy_jsbach/include");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach my $inc ( @incs ) {
+	copy ( "src/lnd_phy_jsbach/include/${inc}", "${build_path}/include/${inc}" );
     }
 }
 
@@ -383,7 +398,9 @@ sub ScanDirectory {
         next if ($name eq "nh");
         next if ($name eq "phys");
         next if ($name eq "sw_options");
-        next if (($with_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice")) );
+        next if (($enable_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice")) );
+        next if (($enable_jsbach eq "no") and ($name eq "lnd_phy_jsbach") );
+        next if (($enable_testbed eq "no") and ($name eq "testbed") and ($workpath eq "src") );
 
         if (-d $name){
 	    my $nextpath="$workpath/$name";
