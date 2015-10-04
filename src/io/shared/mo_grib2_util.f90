@@ -447,9 +447,9 @@ CONTAINS
       scaledValueOfDistributionFunctionParameter(1) = info%tracer%diameter
       scaleFactorOfDistributionFunctionParameter(1) = 6
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",     &
-        &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter(:))
+        &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter)
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
-        &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter(:))
+        &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter)
       CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
 
     CASE ('volcash_diag')
@@ -468,9 +468,9 @@ CONTAINS
       scaledValueOfDistributionFunctionParameter(2) = second_param
       scaleFactorOfDistributionFunctionParameter(2) = 0
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",    &
-        &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter(:))
+        &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter)
       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
-        &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter(:))
+        &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter)
       CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", scale_factor)
       
     CASE ('aerosol_diag_tau')
