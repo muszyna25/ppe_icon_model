@@ -204,6 +204,7 @@ fi
 #------------------------------------
 cat $host_frag > config/mh-config-use
 mh_local_name=config/mh-${ac_sitename}-${ac_hostname}
+mh_local_name=config/mh-${ac_hostname}
 echo "mh_local_name=$mh_local_name"
 if test -f $mh_local_name ; then
   cat $mh_local_name >> config/mh-config-use

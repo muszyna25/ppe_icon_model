@@ -117,7 +117,7 @@ MODULE mo_sea_ice_types
   ! On cells
   TYPE t_atmos_for_ocean
 
-    REAL(wp), ALLOCATABLE :: &
+    REAL(wp), POINTER :: &
       & tafo(:,:),             &  ! 2 m air temperature                              [C]
       & ftdew(:,:),            &  ! 2 m dew-point temperature                        [K]
       & fclou(:,:),            &  ! Fractional cloud cover
