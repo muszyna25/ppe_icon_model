@@ -394,7 +394,7 @@ CONTAINS
       tracer_class = 'aerosol_number'
       second_param = 2200
     CASE ('dust_diag_tau', 'seas_diag_tau')
-      tracer_class = 'diag_tau'
+      tracer_class = 'aerosol_diag_tau'
     END SELECT
     
     ! change product definition template
@@ -404,16 +404,20 @@ CONTAINS
       productDefinitionTemplate = 57
       numberOfDistributionFunctionParameter = 1
     CASE ('volcash_diag', 'radioact')
-      CALL message(' ==> set_GRIB2_art_keys :','volcash_diag_... | radioact --> PDT=40',0,5,.TRUE.)
+      CALL message(' ==> set_GRIB2_art_keys :','volcash_diag|radioact --> PDT=40',0,5,.TRUE.)
       productDefinitionTemplate = 40
       numberOfDistributionFunctionParameter = 0
     CASE ('aerosol', 'aerosol_number')
-      CALL message(' ==> set_GRIB2_art_keys :','ash|dust|seas[_number] --> PDT=57',0,5,.TRUE.)
+      CALL message(' ==> set_GRIB2_art_keys :','aerosol[_number] --> PDT=57',0,5,.TRUE.)
       productDefinitionTemplate = 57
       numberOfDistributionFunctionParameter = 2
-    CASE ('diag_tau')
-      CALL message(' ==> set_GRIB2_art_keys :','dust|seas_diag_tau --> PDT=48',0,5,.TRUE.)
+    CASE ('aerosol_diag_tau')
+      CALL message(' ==> set_GRIB2_art_keys :','aerosol_diag_tau --> PDT=48',0,5,.TRUE.)
       productDefinitionTemplate = 48
+      numberOfDistributionFunctionParameter = 0
+    CASE ('radioact_diag')
+      CALL message(' ==> set_GRIB2_art_keys :','radioact_diag --> PDT=42',0,5,.TRUE.)
+      productDefinitionTemplate = 42
       numberOfDistributionFunctionParameter = 0
     CASE DEFAULT
       ! skip inapplicable fields
@@ -469,14 +473,14 @@ CONTAINS
         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter(:))
       CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", scale_factor)
       
-    CASE ('diag_tau')
+    CASE ('aerosol_diag_tau')
       CALL vlistDefVarIntKey(vlistID, varID, "aerosolType", info%tracer%constituent)
       CALL vlistDefVarIntKey(vlistID, varID, "typeOfSizeInterval", 192)
       CALL vlistDefVarIntKey(vlistID, varID, "typeOfWavelengthInterval", 11)
       CALL vlistDefVarIntKey(vlistID, varID, "scaledValueOfFirstWavelength", info%tracer%tau_wavelength)
       CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstWavelength", 9)
       
-    CASE ('radioact')
+    CASE ('radioact', 'radioact_diag')
       CALL vlistDefVarIntKey(vlistID, varID, "constituentType", info%tracer%constituent)
 
     END SELECT
