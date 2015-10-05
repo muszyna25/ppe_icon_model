@@ -1,4 +1,3 @@
-#! /usr/bin/env perl
 #__________________________________________________________________________________________________________________________________
 #
 # Createes Makefiles for the list of given source code directories. 
@@ -92,6 +91,15 @@ if ( ($enable_jsbach eq "yes") and -d "src/lnd_phy_jsbach/include" ) {
     closedir(DIR);
     foreach my $inc ( @incs ) {
 	copy ( "src/lnd_phy_jsbach/include/${inc}", "${build_path}/include/${inc}" );
+    }
+}
+
+if ( ($enable_ocean eq "yes") and -d "src/ocean/include" ) {
+    opendir(DIR, "src/ocean/include");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach my $inc ( @incs ) {
+	copy ( "src/ocean/include/${inc}", "${build_path}/include/${inc}" );
     }
 }
 
