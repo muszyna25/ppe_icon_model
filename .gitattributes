@@ -1794,6 +1794,7 @@ src/sea_ice/thermodyn/mo_sea_ice_zerolayer.f90 -text
 src/shared/mo_action.f90 -text
 src/shared/mo_action_types.f90 -text
 src/shared/mo_cdi_constants.f90 -text
+src/shared/mo_checksum.f90 -text
 src/shared/mo_datetime.f90 -text
 src/shared/mo_dictionary.f90 -text
 src/shared/mo_event_manager.f90 -text
