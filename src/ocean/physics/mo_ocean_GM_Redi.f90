@@ -557,9 +557,9 @@ CONTAINS
 !     CALL sync_patch_array(sync_c, patch_2D, grad_T_vec(:,:,:)%x(3))
        
     IF(no_tracer>=2)THEN        
-      CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(1))
-      CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(2))
-      CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(3))
+!       CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(1))
+!       CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(2))
+!       CALL sync_patch_array(sync_c, patch_2D, grad_S_vec(:,:,:)%x(3))
       
       CALL map_edges2cell_3d(patch_3D, &
           & grad_S_horz,               &
@@ -574,7 +574,7 @@ CONTAINS
     ENDIF
 
     ! CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%DerivTemperature_vert_center)
-    IF(no_tracer>=2)   CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%DerivSalinity_vert_center)
+!     IF(no_tracer>=2)   CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%DerivSalinity_vert_center)
     !------------------------------------------------------------------------------
     
     !------------------------------------------------------------------------------                                
