@@ -526,15 +526,15 @@ CONTAINS
     END DO ! blocks
 !ICON_OMP_END_PARALLEL_DO
 
-   CALL sync_patch_array(sync_c, patch_2D, grad_T_vert)       
-   IF(no_tracer>=2)   CALL sync_patch_array(sync_c, patch_2D, grad_S_vert)   
+!    CALL sync_patch_array(sync_c, patch_2D, grad_T_vert)       
+!    IF(no_tracer>=2)   CALL sync_patch_array(sync_c, patch_2D, grad_S_vert)   
 
    !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print level (1-5, fix)
     CALL dbg_print('neutral_slopes: grad_T_vert',grad_T_vert,&
-    &str_module,idt_src, in_subset=cells_in_domain)      
+      & str_module,idt_src, in_subset=cells_in_domain)      
     CALL dbg_print('neutral_slopes: grad_S_vert',grad_S_vert,&
-    &str_module,idt_src, in_subset=cells_in_domain)      
+      & str_module,idt_src, in_subset=cells_in_domain)      
   !---------------------------------------------------------------------   
    
     !2) map horizontal and vertial derivative to cell centered vector
