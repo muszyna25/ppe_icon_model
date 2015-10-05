@@ -600,7 +600,7 @@ case "$ac_sitename" in
         case $ac_hostname in
             thunder*)
                 config_target=thunder
-                HDF5ROOT    = $software_tree/hdf5-1.8.7-static
+                HDF5ROOT    = $software_tree/hdf5-1.8.12-static
                 SZIPROOT    = $software_tree/szip-2.1-static
                 ZLIBROOT    = /usr
                 XML2ROOT    = /usr
