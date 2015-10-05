@@ -715,12 +715,16 @@ CONTAINS
     REAL(wp) :: lambda
     REAL(wp) :: depth_scale, depth
     REAL(wp) :: Coriolis_abs
+    REAL(wp) :: inv_S_d
     
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain 
     start_level=1
-    !-------------------------------------------------------------------------------    
+    inv_S_d = 1.0_wp / S_d
+    !-------------------------------------------------------------------------------
+!ICON_OMP_PARALLEL   
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -732,11 +736,14 @@ CONTAINS
           DO level = start_level, end_level
             ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) =&
               & 0.5_wp*(1.0_wp + tanh((S_max - sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)))/S_d))
+!               & 0.5_wp*(1.0_wp + tanh((S_max - sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)))*inv_S_d))
 
           END DO
         ENDIF
       END DO
     END DO
+!ICON_OMP_END_DO
+
 !     CALL sync_patch_array(sync_c, patch_2D,ocean_state%p_aux%taper_function_1)
 ! Do level=1,n_zlev
 ! write(0,*)'max-min taper 1',maxval( ocean_state%p_aux%taper_function_1(:,level,:)),&
@@ -747,6 +754,8 @@ CONTAINS
     !tapering function
     IF(tapering_scheme/=tapering_DanaMcWilliams)THEN
 
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, &
+!ICON_OMP Coriolis_abs,lambda,depth_scale,depth) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -774,8 +783,11 @@ CONTAINS
           ENDIF
         END DO
       END DO
+!ICON_OMP_END_DO
 !       CALL sync_patch_array(sync_c, patch_2D,ocean_state%p_aux%taper_function_2)
     ENDIF
+!ICON_OMP_END_PARALLEL
+
 !  Do level=1,n_zlev
 !  write(0,*)'max-min taper1/2',level,&
 !   &maxval( ocean_state%p_aux%taper_function_1(:,level,:)),&
