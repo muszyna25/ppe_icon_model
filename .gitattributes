@@ -286,7 +286,6 @@ doc/userguide/pictures/vorticity_16-o.png -text
 doc/userguide/style/chicago_lmdocu.bst -text
 doc/userguide/style/icon_docu_style.cls -text
 doc/userguide/style/pageformatting_toc.tex -text
-include/cdi.inc -text
 lapack/CMakeLists.txt -text
 lapack/dbbcsd.f -text
 lapack/dbdsdc.f -text
