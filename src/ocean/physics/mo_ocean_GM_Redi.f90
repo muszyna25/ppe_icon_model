@@ -1164,9 +1164,9 @@ CONTAINS
       END DO
 
     END SELECT
-    CALL sync_patch_array(sync_c, patch_2D,K_I)
-    CALL sync_patch_array(sync_c, patch_2D,K_D)
-    CALL sync_patch_array(sync_c, patch_2D,kappa)
+!     CALL sync_patch_array(sync_c, patch_2D,K_I)
+!     CALL sync_patch_array(sync_c, patch_2D,K_D)
+!     CALL sync_patch_array(sync_c, patch_2D,kappa)
       
 ! write(0,*)'geometric factor',&
 ! & maxval(sqrt(patch_2D%cells%area)*geometric_scale_factor_GMR ),&
