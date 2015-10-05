@@ -220,13 +220,13 @@ CONTAINS
                     & taper_off_diagonal_horz,       &
                     & taper_off_diagonal_vert  )
 
-    CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_horz(:,:,:)%x(1))
-    CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_horz(:,:,:)%x(2))
-    CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_horz(:,:,:)%x(3))
-
-    CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_vert(:,:,:)%x(1))
-    CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_vert(:,:,:)%x(2))
-    CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_vert(:,:,:)%x(3))
+!     CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_horz(:,:,:)%x(1))
+!     CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_horz(:,:,:)%x(2))
+!     CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_horz(:,:,:)%x(3))
+! 
+!     CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_vert(:,:,:)%x(1))
+!     CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_vert(:,:,:)%x(2))
+!     CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_vert(:,:,:)%x(3))
 
     CALL sync_patch_array(sync_c, patch_2D, taper_diagonal_horz)
     CALL sync_patch_array(sync_c, patch_2D, taper_diagonal_vert_expl)
