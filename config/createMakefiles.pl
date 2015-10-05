@@ -1,3 +1,4 @@
+#! /usr/bin/env perl
 #__________________________________________________________________________________________________________________________________
 #
 # Createes Makefiles for the list of given source code directories. 
