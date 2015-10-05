@@ -14,9 +14,10 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!----------------------------
+!=============================================================================================
 ! #include "omp_definitions.inc"
-!----------------------------
+#include "ocean_dsl_definitions.inc"
+!=============================================================================================
 MODULE mo_ocean_GM_Redi
   !-------------------------------------------------------------------------
   USE mo_kind,                      ONLY: wp
@@ -120,24 +121,28 @@ CONTAINS
     INTEGER :: start_cell_index, end_cell_index, jc, jb
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
-    !-------------------------------------------------------------------------------
-    patch_2D        => patch_3d%p_patch_2d(1)
-    cells_in_domain => patch_2D%cells%in_domain   
     
+    onEdges                :: GMredi_flux_horz
+    onCells_HalfLevels     :: GMredi_flux_vert
+    !-------------------------------------------------------------------------------
+    patch_2D         => patch_3d%p_patch_2d(1)
+    cells_in_domain  => patch_2D%cells%in_domain   
+    GMredi_flux_horz => ocean_state%p_diag%GMRedi_flux_horz(:,:,:,tracer_index)
+    GMredi_flux_vert => ocean_state%p_diag%GMRedi_flux_vert(:,:,:,tracer_index)
     
     SELECT CASE(GMRedi_configuration)!GMRedi_configuration==Cartesian_Mixing)RETURN
 
  
     CASE(GMRedi_combined)
-        CALL calc_combined_GentMcWilliamsRedi_flux( patch_3d,   &
-                                                 & ocean_state,&
-                                                 & param,      &
-                                                 & op_coeff,   &
-                                                 & ocean_state%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
-                                                 & ocean_state%p_diag%GMRedi_flux_vert(:,:,:,tracer_index),&
+      CALL calc_combined_GentMcWilliamsRedi_flux( patch_3d,        &
+                                                 & ocean_state,      &
+                                                 & param,            &
+                                                 & op_coeff,         &
+                                                 & GMRedi_flux_horz, &
+                                                 & GMRedi_flux_vert, &
                                                  & tracer_index)
     CASE DEFAULT
-    CALL finish(TRIM('mo_ocean_GM_Redi'), 'This GMRedi_configuration is not supported')
+      CALL finish(TRIM('mo_ocean_GM_Redi'), 'This GMRedi_configuration is not supported')
     
     END SELECT
 
@@ -160,8 +165,8 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
     TYPE(t_ho_params),      INTENT(inout)    :: param
     TYPE(t_operator_coeff), INTENT(in)       :: op_coeff
-    REAL(wp), INTENT(inout)                  :: GMredi_flux_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(inout)                  :: GMredi_flux_vert(1:nproma,1:n_zlev+1,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    onEdges, INTENT(inout)                   :: GMredi_flux_horz
+    onCells_HalfLevels, INTENT(inout)        :: GMredi_flux_vert
     INTEGER, INTENT(IN)                      :: tracer_index 
     
     !Local variables
@@ -228,8 +233,8 @@ CONTAINS
 !     CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_vert(:,:,:)%x(2))
 !     CALL sync_patch_array(sync_c, patch_2D, taper_off_diagonal_vert(:,:,:)%x(3))
 
-    CALL sync_patch_array(sync_c, patch_2D, taper_diagonal_horz)
-    CALL sync_patch_array(sync_c, patch_2D, taper_diagonal_vert_expl)
+!     CALL sync_patch_array(sync_c, patch_2D, taper_diagonal_horz)
+!     CALL sync_patch_array(sync_c, patch_2D, taper_diagonal_vert_expl)
 !     CALL sync_patch_array(sync_c, patch_2D, taper_diagonal_vert_impl)
     
     
@@ -294,7 +299,7 @@ CONTAINS
       CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(1))
       CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(2))
       CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(3))
-      CALL sync_patch_array(sync_c, patch_2D, flux_vert_center)
+!       CALL sync_patch_array(sync_c, patch_2D, flux_vert_center)
 
 !   IF(tracer_index==2)THEN
 !      Do jk=1,5!n_zlev
@@ -322,7 +327,6 @@ CONTAINS
             END DO                  
           END DO                
         END DO       
-        CALL sync_patch_array(sync_c, patch_2D, flux_vert_center)          
       ELSEIF(vertical_tracer_diffusion_type == implicit_diffusion)THEN
 ! 
 !         CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
@@ -343,6 +347,7 @@ CONTAINS
 ! !      END DO
       ENDIF
 
+!       CALL sync_patch_array(sync_c, patch_2D, flux_vert_center)
    
       !map quantities to cell boundary
       CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)
