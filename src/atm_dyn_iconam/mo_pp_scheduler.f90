@@ -682,8 +682,8 @@ CONTAINS
             IF (ASSOCIATED(element%field%r_ptr)) THEN
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
                 &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
-                &           tracer_info=info%tracer_info,                         &
                 &           ldims=var_shape, lrestart=.FALSE.,                    &
+                &           tracer_info=info%tracer_info,                         &
                 &           loutput=.TRUE., new_element=new_element,              &
                 &           isteptype=info%isteptype,                             &
                 &           hor_interp=create_hor_interp_metadata(                &
@@ -696,8 +696,8 @@ CONTAINS
             IF (ASSOCIATED(element%field%i_ptr)) THEN
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_i3d,          &
                 &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
-                &           tracer_info=info%tracer_info,                         &
                 &           ldims=var_shape, lrestart=.FALSE.,                    &
+                &           tracer_info=info%tracer_info,                         &
                 &           loutput=.TRUE., new_element=new_element,              &
                 &           isteptype=info%isteptype,                             &
                 &           hor_interp=create_hor_interp_metadata(                &
@@ -869,7 +869,7 @@ CONTAINS
     ! add new variable, copy the meta-data from the existing variable
     CALL add_var( dst_varlist, TRIM(name), ptr, element%field%info%hgrid, dst_axis,     &
       &           element%field%info%cf, element%field%info%grib2, ldims=shape3d,       &
-      &           tracer_info=info%tracer_info,                                         &
+      &           tracer_info=element%field%info%tracer_info,                           &
       &           post_op=element%field%info%post_op, loutput=.TRUE., lrestart=.FALSE., &
       &           var_class=element%field%info%var_class )
   END SUBROUTINE copy_variable
@@ -1347,8 +1347,8 @@ CONTAINS
 
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d, &
                 &           info%hgrid, vgrid, info%cf, info%grib2,      &
-                &           tracer_info=info%tracer_info,                &
                 &           ldims=shape3d, lrestart=.FALSE.,             &
+                &           tracer_info=info%tracer_info,                &
                 &           loutput=.TRUE., new_element=new_element,     &
                 &           post_op=info%post_op, var_class=info%var_class)
 
