@@ -718,7 +718,7 @@ CONTAINS
         ENDIF
       END DO
     END DO
-    CALL sync_patch_array(sync_c, patch_2D,ocean_state%p_aux%taper_function_1)
+!     CALL sync_patch_array(sync_c, patch_2D,ocean_state%p_aux%taper_function_1)
 ! Do level=1,n_zlev
 ! write(0,*)'max-min taper 1',maxval( ocean_state%p_aux%taper_function_1(:,level,:)),&
 ! &minval( ocean_state%p_aux%taper_function_1(:,level,:))     
@@ -755,7 +755,7 @@ CONTAINS
           ENDIF
         END DO
       END DO
-      CALL sync_patch_array(sync_c, patch_2D,ocean_state%p_aux%taper_function_2)
+!       CALL sync_patch_array(sync_c, patch_2D,ocean_state%p_aux%taper_function_2)
     ENDIF
 !  Do level=1,n_zlev
 !  write(0,*)'max-min taper1/2',level,&
