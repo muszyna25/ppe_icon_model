@@ -117,35 +117,47 @@ esac
 
 dnl ######################################################################
 
-ac_hostname=$(hostname)
-ac_hostname=${ac_hostname%%\.*}
+AC_PROG_AWK
 
-AS_CASE([x"$ac_hostname"],
-  [xplogintest1],
-  [ac_sitename=dkrz.de],
-  [xwizard*],
-  [ac_sitename=dkrz.de; ac_hostname=wizard],
-  [xbtc*|mlogin*],
-  [ac_sitename=dkrz.de; ac_hostname=btc],
-  [xic2*],
-  [ac_sitename=kit.edu; ac_hostname=ic2],
-  [if [[ $(hostname) = $ac_hostname ]] ; then
-   fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
-else
-   fqdn=$(hostname)
-fi
-  echo $fqdn
-  if [[ -n "$fqdn" ]]; then
-    ac_sitename=$(echo $fqdn | awk -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')
-  else
-    if [[ -n "$PE_ENV" ]] ; then
-      fqdn=$(echo ${PE_ENV} | awk '{print tolower($0)}')
-      echo "detecting Cray environment... $fqdn"
-    else
-      fqdn=${HOSTNAME}
-    fi
-    ac_sitename=${fqdn}
-  fi])
+AS_CASE([$ac_hostname],
+        [plogin*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],  
+        [wizard*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],  
+        [btc*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],       
+        [mlogin*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],
+        [ic2*],      
+        [ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename],         
+        [
+         AS_IF([test "x$(hostname)" = "x$ac_hostname"],
+               [fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')],
+               [fqdn=$(hostname)])
+         AS_IF([test -n "$fqdn"],
+           [ac_sitename=$(echo $fqdn | $AWK -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')],
+           [ac_sitename=])])
+
+AS_IF([ test -n "$fqdn" ],
+      [AS_IF([test -z ac_sitename],
+             [ac_sitename=local.net],
+             [])],
+      [AS_IF([ test -n "$PE_ENV" ],
+             [fqdn=$(echo ${PE_ENV} | $AWK '{print tolower($0)}')
+              AC_MSG_CHECKING([for Cray environment])
+              AC_MSG_RESULT([$[fqdn]])],
+             [fqdn=${HOSTNAME}])
+       [ac_sitename=${fqdn}]])        
+
+AC_MSG_CHECKING([for hostname])
+AC_MSG_RESULT([$[ac_hostname]])
+AC_MSG_CHECKING([for site name])
+AC_MSG_RESULT([$[ac_sitename]])
 
 dnl ######################################################################
 
@@ -188,8 +200,7 @@ fi
 #------------------------------------
 cat $host_frag > config/mh-config-use
 mh_local_name=config/mh-${ac_sitename}-${ac_hostname}
-mh_local_name=config/mh-${ac_hostname}
-echo "mh_local_name=$mh_local_name"
+# echo "mh_local_name=$mh_local_name"
 if test -f $mh_local_name ; then
   cat $mh_local_name >> config/mh-config-use
 # else
@@ -231,7 +242,7 @@ if test "x$load_modules" != x ;  then
     echo 'exit $rc' >>conf_load_module.tmp
     chmod +x conf_load_module.tmp
     ./conf_load_module.tmp ; rc=$?
-    rm conf_load_module.tmp
+#    rm conf_load_module.tmp
     exit $rc
   fi  
 fi
@@ -702,8 +713,8 @@ case $host in
   powerpc-ibm-aix*)
     q64_result="no"
     mt_result="no"
-    q64_result=$(echo $FFLAGS | awk -v b="-q64" '$0 ~ b { print "yes" }')
-    mt_result=$(echo $FC | awk -v b="_r" '$0 ~ b { print "yes" } ')
+    q64_result=$(echo $FFLAGS | $AWK -v b="-q64" '$0 ~ b { print "yes" }')
+    mt_result=$(echo $FC | $AWK -v b="_r" '$0 ~ b { print "yes" } ')
     if [[ x$mt_result != xyes ]]; then
       echo "error: IBM MPI requires thread safe compiler versions."
       echo "       add _r to compiler selected by FC."
@@ -762,7 +773,7 @@ else
     AC_CHECK_FILE($MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h,[],AC_MSG_ERROR([MPIROOT not properly defined]))
     case $host in
     *-*-darwin*)
-      MPI_LIB="$(mpif90 -show | awk '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
+      MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
       ;;    
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
@@ -780,17 +791,21 @@ else
       ;;
     *-*-darwin*)
       real_path=$(cd $MPIROOT; pwd -P)
-      mod_file=$(find $real_path/include $real_path/lib -name mpi.mod -print | awk 'NR==1')
+      mod_file=$(find $real_path/include $real_path/lib -name mpi.mod -print | $AWK 'NR==1')
       ;;
     *)
       real_path=$(cd $MPIROOT; pwd -P)
 #      mod_file=$(find $real_path -name mpi.mod -print -quit)
       case "$MPIROOT" in
       *impi*)
-        mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | awk 'NR==1')
+        AS_CASE([$FC],
+                [gfortran],
+                [vers=$(gfortran --version | $AWK 'NR==1{print $4}')
+                 mod_file=$(find $real_path/include/gfortran/$vers -name mpi.mod -print | $AWK 'NR==1')],
+                [mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | $AWK 'NR==1')])
         ;;      
       *)
-        mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+        mod_file=$(find $real_path -name mpi.mod -print | $AWK 'NR==1')
         ;;
       esac
       ;;
@@ -932,7 +947,7 @@ FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
 if [[ "x$LDFLAGS" = "x" ]] ; then
-  if [[ $(echo $FC | awk '{print index($0, "gfortran")}') -ne 0 ]] ; then  
+  if [[ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ]] ; then  
     LDFLAGS=${FFLAGS//-xf95-cpp-input/}
   else
     LDFLAGS=$FFLAGS
@@ -1082,16 +1097,16 @@ config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --with_
 #-----------------------------------------------------------------------------
 case $host in
   xt?-cray-*)
-    f90version=$($(echo $FC -V) 2>&1 | awk 'NR==2')
-    ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
+    ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
     ;;
   *-*-solaris*)
-    f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1' | cut -f2- -d" ")
-    ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
+    ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
     ;;
   sx*-*-*)
-    f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1;NR==5' | tr -d "\n")
-    ccversion=$($(echo sxc++ -V) 2>&1 | sed -e 's/.c.*$//' | sed -e 's/C++\/SX Compiler //' | sed -e 's/C\/C++ Compiler //' | awk 'NR==1;NR==3' | tr -d "\n")
+    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1;NR==5' | tr -d "\n")
+    ccversion=$($(echo sxc++ -V) 2>&1 | sed -e 's/.c.*$//' | sed -e 's/C++\/SX Compiler //' | sed -e 's/C\/C++ Compiler //' | $AWK 'NR==1;NR==3' | tr -d "\n")
     ;;
   *-ibm-aix*)
     f90version=$($(echo $FC -qversion) 2>&1 | tr -d "\n" | sed 's/Version: / \(/' | sed 's/$/\)/')
@@ -1100,34 +1115,34 @@ case $host in
   *-*-linux-*)
     case $fortran_compiler in
     default|gcc)
-      f90version=$($(echo $FC --version) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC --version) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     nag)
-      f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     intel)
-      f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     path)
-      f90version=$($(echo $FC -v) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -v) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     pgi)
-      f90version=$($(echo $FC -V) 2>&1 | awk 'NR==2')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     sun)
-      f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1' | cut -f2- -d" ")
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     esac
     ;;
   *-*-darwin*)
-      f90version=$($(echo $FC --version) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC --version) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
   *)
     f90version="unknown"
@@ -1148,12 +1163,12 @@ if test x$MPIROOT = x || test x$CROSS = xyes; then
 case $host in
 powerpc-ibm-aix*)
   if test "$use_mpcc_r" = yes ; then
-    mpi_version_number=$(lslpp -l ppe.poe | grep ppe.poe | uniq | awk '{print $2}')
+    mpi_version_number=$(lslpp -l ppe.poe | grep ppe.poe | uniq | $AWK '{print $2}')
     MPI_VERSION="IBM MPI ${mpi_version_number}"
   fi
   ;;
 sx?-nec-superux)
-  mpi_version_number=$(strings $MPIROOT/lib/libmpi.a | grep "MPI/SX: library Version" | awk '{print $4}')
+  mpi_version_number=$(strings $MPIROOT/lib/libmpi.a | grep "MPI/SX: library Version" | $AWK '{print $4}')
   MPI_VERSION="SX MPI ${mpi_version_number}"
   ;;
 *)
@@ -1163,7 +1178,7 @@ esac
 else
 case $host in
 *-*-darwin*)
-  mpi_version_number=$(mpiexec --version | awk 'NR==2{print $2}')
+  mpi_version_number=$(mpiexec --version | $AWK 'NR==2{print $2}')
   MPI_VERSION="mpich ${mpi_version_number} (MacPorts)"
   ;;		       
 *)
