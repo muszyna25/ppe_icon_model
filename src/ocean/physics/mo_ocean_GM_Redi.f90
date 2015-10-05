@@ -1001,9 +1001,9 @@ CONTAINS
 ! & maxval(taper_diagonal_vert_impl(:,level,:)),minval(taper_diagonal_vert_impl(:,level,:)) 
 ! END DO
     
-    CALL sync_patch_array(sync_c, patch_2D,K_I)
-    CALL sync_patch_array(sync_c, patch_2D,K_D)
-    CALL sync_patch_array(sync_c, patch_2D,kappa)
+!     CALL sync_patch_array(sync_c, patch_2D,K_I)
+!     CALL sync_patch_array(sync_c, patch_2D,K_D)
+!     CALL sync_patch_array(sync_c, patch_2D,kappa)
       
 !     CALL dbg_print('apply_tapering: K_I', K_I , this_mod_name, 3, patch_2D%cells%in_domain)
 !     CALL dbg_print('apply_tapering: K_D', K_D , this_mod_name, 3, patch_2D%cells%in_domain)
