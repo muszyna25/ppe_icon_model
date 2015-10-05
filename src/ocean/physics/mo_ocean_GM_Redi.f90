@@ -178,7 +178,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: taper_off_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: taper_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: taper_diagonal_vert_expl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
-    REAL(wp) :: taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)        
+!     REAL(wp) :: taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)        
     REAL(wp) :: mapped_verticaloff_diagonal_impl(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)            
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(1)
@@ -209,14 +209,14 @@ CONTAINS
     
     taper_diagonal_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
     taper_diagonal_vert_expl(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
-    taper_diagonal_vert_impl(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp    
+!     taper_diagonal_vert_impl(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp    
     
     mapped_verticaloff_diagonal_impl(1:nproma,1:n_zlev+1,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)=0.0_wp
     
     CALL calc_tapering(patch_3d, ocean_state, param,  &
                     & taper_diagonal_horz,           &
                     & taper_diagonal_vert_expl,      &
-                    & taper_diagonal_vert_impl,      &
+!                     & taper_diagonal_vert_impl,      &
                     & taper_off_diagonal_horz,       &
                     & taper_off_diagonal_vert  )
 
@@ -230,7 +230,7 @@ CONTAINS
 
     CALL sync_patch_array(sync_c, patch_2D, taper_diagonal_horz)
     CALL sync_patch_array(sync_c, patch_2D, taper_diagonal_vert_expl)
-    CALL sync_patch_array(sync_c, patch_2D, taper_diagonal_vert_impl)
+!     CALL sync_patch_array(sync_c, patch_2D, taper_diagonal_vert_impl)
     
     
     IF(no_tracer<=2)THEN
@@ -263,30 +263,30 @@ CONTAINS
         
           !horizontal GMRedi Flux at top layer
           flux_vec_horz_center(jc,start_level,blockNo)%x &
-          &=taper_diagonal_horz(jc,start_level,blockNo) &
-          &*tracer_gradient_horz_vec_center(jc,start_level,blockNo)%x
+            &=taper_diagonal_horz(jc,start_level,blockNo) &
+            &*tracer_gradient_horz_vec_center(jc,start_level,blockNo)%x
 
         
           flux_vert_center(jc,start_level,blockNo) &
-          &=taper_diagonal_vert_expl(jc,start_level,blockNo)& 
-          &*tracer_gradient_vert_center(jc,start_level,blockNo)
+            &=taper_diagonal_vert_expl(jc,start_level,blockNo)&
+            &*tracer_gradient_vert_center(jc,start_level,blockNo)
 
 
           DO jk = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
           
             !horizontal GM-Redi Flux
             flux_vec_horz_center(jc,jk,blockNo)%x &
-            &=taper_diagonal_horz(jc,jk,blockNo)  &
-            &* tracer_gradient_horz_vec_center(jc,jk,blockNo)%x&
-            &+taper_off_diagonal_horz(jc,jk,blockNo)%x&
-            &*tracer_gradient_vert_center(jc,jk,blockNo)
+              &=taper_diagonal_horz(jc,jk,blockNo)  &
+              &* tracer_gradient_horz_vec_center(jc,jk,blockNo)%x&
+              &+taper_off_diagonal_horz(jc,jk,blockNo)%x&
+              &*tracer_gradient_vert_center(jc,jk,blockNo)
               
             !vertical GM-Redi Flux
             flux_vert_center(jc,jk,blockNo)= &
-            !&taper_diagonal_vert_expl(jc,jk,blockNo)& 
-            !&*tracer_gradient_vert_center(jc,jk,blockNo)&
-            &+Dot_Product(tracer_gradient_horz_vec_center(jc,jk,blockNo)%x,&
-            &             taper_off_diagonal_vert(jc,jk,blockNo)%x)
+              !&taper_diagonal_vert_expl(jc,jk,blockNo)&
+              !&*tracer_gradient_vert_center(jc,jk,blockNo)&
+              &+Dot_Product(tracer_gradient_horz_vec_center(jc,jk,blockNo)%x,&
+              &             taper_off_diagonal_vert(jc,jk,blockNo)%x)
                 
           END DO                  
         END DO                
@@ -813,13 +813,13 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE calc_tapering(patch_3d, ocean_state, param,taper_diagonal_horz,taper_diagonal_vert_expl,&
-  &taper_diagonal_vert_impl, taper_off_diagonal_horz, taper_off_diagonal_vert )
+    & taper_off_diagonal_horz, taper_off_diagonal_vert )
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
     REAL(wp), INTENT(inout)                          :: taper_diagonal_horz(:,:,:)
     REAL(wp), INTENT(inout)                          :: taper_diagonal_vert_expl(:,:,:)        
-    REAL(wp), INTENT(inout)                          :: taper_diagonal_vert_impl(:,:,:)    
+!     REAL(wp), INTENT(inout)                          :: taper_diagonal_vert_impl(:,:,:)    
     TYPE(t_cartesian_coordinates), INTENT(inout)     :: taper_off_diagonal_horz(:,:,:)
     TYPE(t_cartesian_coordinates), INTENT(inout)     :: taper_off_diagonal_vert(:,:,:)    
     
@@ -863,9 +863,9 @@ CONTAINS
               taper_diagonal_vert_expl(cell_index,level,blockNo)  &
                 &=K_D(cell_index,level,blockNo)*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
               
-              taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
-                &=(K_I(cell_index,level,blockNo)*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
-                &+K_D(cell_index,level,blockNo))*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
+!               taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
+!                 &=(K_I(cell_index,level,blockNo)*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
+!                 &+K_D(cell_index,level,blockNo))*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
 
               taper_off_diagonal_horz(cell_index,level,blockNo)%x&
                 = (K_I(cell_index,level,blockNo)-kappa(cell_index,level,blockNo))&
@@ -915,10 +915,10 @@ CONTAINS
                 &*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
                 &*ocean_state%p_aux%taper_function_2(cell_index,level,blockNo)
 
-              taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
-                &=(K_I(cell_index,level,blockNo)*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
-                &+K_D(cell_index,level,blockNo))*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
-                &*ocean_state%p_aux%taper_function_2(cell_index,level,blockNo)
+!               taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
+!                 &=(K_I(cell_index,level,blockNo)*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
+!                 &+K_D(cell_index,level,blockNo))*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
+!                 &*ocean_state%p_aux%taper_function_2(cell_index,level,blockNo)
               
               taper_off_diagonal_horz(cell_index,level,blockNo)%x&
                 = (K_I(cell_index,level,blockNo)-kappa(cell_index,level,blockNo))&
@@ -961,10 +961,10 @@ CONTAINS
               taper_diagonal_vert_expl(cell_index,level,blockNo)  &
                 &=K_D(cell_index,level,blockNo)              
 
-              taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
-                &=(K_I(cell_index,level,blockNo)*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
-                &+K_D(cell_index,level,blockNo))*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
-                &*ocean_state%p_aux%taper_function_2(cell_index,level,blockNo)              
+!               taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
+!                 &=(K_I(cell_index,level,blockNo)*ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)&
+!                 &+K_D(cell_index,level,blockNo))*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)&
+!                 &*ocean_state%p_aux%taper_function_2(cell_index,level,blockNo)              
               
               taper_off_diagonal_horz(cell_index,level,blockNo)%x&
                 = (K_I(cell_index,level,blockNo)-kappa(cell_index,level,blockNo))&
