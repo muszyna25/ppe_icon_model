@@ -240,8 +240,6 @@ CONTAINS
     
     
     IF(no_tracer<=2)THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index,jc, jk, end_level, &
-!ICON_OMP ) ICON_OMP_DEFAULT_SCHEDULE
 
       IF(tracer_index==1)THEN
 !       write(0,*) "DerivTemperature_vert_center"
@@ -255,7 +253,10 @@ CONTAINS
 
 !       CALL sync_patch_array(sync_c, patch_2D, tracer_gradient_vert_center)        
 !       CALL sync_patch_array(sync_c, patch_2D, K_D)
+
       
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
 
         flux_vert_center    (1:nproma,1:n_zlev,blockNo)     =0.0_wp
@@ -297,6 +298,8 @@ CONTAINS
           END DO                  
         END DO                
       END DO
+!ICON_OMP_END_DO
+
 !       CALL sync_patch_array(sync_c, patch_2D, flux_vert_center)
 
 !   IF(tracer_index==2)THEN
@@ -311,6 +314,7 @@ CONTAINS
 
       IF(vertical_tracer_diffusion_type == explicit_diffusion)THEN
         
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
         DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       
           CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
@@ -324,8 +328,10 @@ CONTAINS
                
             END DO                  
           END DO                
-        END DO       
-      ELSEIF(vertical_tracer_diffusion_type == implicit_diffusion)THEN
+        END DO
+!ICON_OMP_END_DO
+ 
+!       ELSEIF(vertical_tracer_diffusion_type == implicit_diffusion)THEN
 ! 
 !         CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
 !       
@@ -344,6 +350,7 @@ CONTAINS
 ! !      &minval(K_I(:,jk,:))
 ! !      END DO
       ENDIF
+!ICON_OMP_END_PARALLEL
 
 !       CALL sync_patch_array(sync_c, patch_2D, flux_vert_center)
    
@@ -468,7 +475,8 @@ CONTAINS
     
     !-------------------------------------------------------------------------------
     !1) calculation of horizontal and vertical gradient for potential temperature and salinity
-!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       
@@ -490,17 +498,14 @@ CONTAINS
         & start_edge_index, end_edge_index, blockNo)
      ENDIF 
     END DO ! blocks
+!ICON_OMP_END_DO
+
 !     CALL sync_patch_array(sync_e, patch_2D, grad_T_horz)
 !     IF(no_tracer>=2)   CALL sync_patch_array(sync_e, patch_2D, grad_S_horz)
 
 
-    !---------DEBUG DIAGNOSTICS-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('calc_slopes: grad_T_horz',grad_T_horz,&
-      & str_module,idt_src, in_subset=edges_in_domain)
-    CALL dbg_print('calc_slopes: grad_S_horz',grad_S_horz,&
-      & str_module,idt_src, in_subset=edges_in_domain)
     !---------------------------------------------------------------------
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -526,6 +531,13 @@ CONTAINS
     END DO ! blocks
 !ICON_OMP_END_PARALLEL_DO
 
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('calc_slopes: grad_T_horz',grad_T_horz,&
+      & str_module,idt_src, in_subset=edges_in_domain)
+    CALL dbg_print('calc_slopes: grad_S_horz',grad_S_horz,&
+      & str_module,idt_src, in_subset=edges_in_domain)
+
 !    CALL sync_patch_array(sync_c, patch_2D, grad_T_vert)       
 !    IF(no_tracer>=2)   CALL sync_patch_array(sync_c, patch_2D, grad_S_vert)   
 
@@ -543,7 +555,7 @@ CONTAINS
         & op_coeff,                &
         & grad_T_vec)
 
-    CALL sync_patch_array(sync_c, patch_2D, grad_T_vert)
+!     CALL sync_patch_array(sync_c, patch_2D, grad_T_vert)
     
     CALL map_scalar_prismtop2center(patch_3d,&
         & grad_T_vert,                &
@@ -1410,7 +1422,6 @@ CONTAINS
   !!
   !<Optimize:inUse>
   FUNCTION calc_neutralslope_coeff_func_onColumn(t,s,p,levels) result(coeff)
-    !
     !-----------------------------------------------------------------
     ! REFERENCES:
     !    McDougall, T.J. 1987.  Neutral Surfaces
