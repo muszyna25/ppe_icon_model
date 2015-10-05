@@ -15,7 +15,7 @@
 !! headers of the routines.
 !!
 !=============================================================================================
-! #include "omp_definitions.inc"
+#include "omp_definitions.inc"
 #include "ocean_dsl_definitions.inc"
 !=============================================================================================
 MODULE mo_ocean_GM_Redi
@@ -529,7 +529,8 @@ CONTAINS
 
       ENDIF
     END DO ! blocks
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
