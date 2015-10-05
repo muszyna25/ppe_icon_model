@@ -735,8 +735,8 @@ CONTAINS
 
           DO level = start_level, end_level
             ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) =&
-              & 0.5_wp*(1.0_wp + tanh((S_max - sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)))/S_d))
-!               & 0.5_wp*(1.0_wp + tanh((S_max - sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)))*inv_S_d))
+!               & 0.5_wp*(1.0_wp + tanh((S_max - sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)))/S_d))
+              & 0.5_wp*(1.0_wp + tanh((S_max - sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)))*inv_S_d))
 
           END DO
         ENDIF
