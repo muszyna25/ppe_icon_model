@@ -50199,7 +50199,12 @@ void gribapiAddRecord(stream_t * streamptr, int param, grib_handle *gh,
       {
         size_t  nvalues;
         size_t length;
-        GRIB_CHECK(grib_get_size(gh, cdiAdditionalGRIBKeys[i], &length), 0);
+
+        int ret = grib_get_size(gh, cdiAdditionalGRIBKeys[i], &length);
+        if (ret != 0) {
+          fprintf(stderr, "grib_get_size(gh, \"%s\", ...) failed!\n", cdiAdditionalGRIBKeys[i]);
+          GRIB_CHECK(ret, 0);
+        }
         double* dvals  = (double *)xmalloc((size_t)length * sizeof (double));
         long*   lvals  = (long *)  xmalloc((size_t)length * sizeof (long));
 

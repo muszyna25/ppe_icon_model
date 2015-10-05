@@ -2728,14 +2728,14 @@ CONTAINS
         ! Set local use SECTION 2
         CALL set_GRIB2_local_keys(vlistID, varID, gribout_config(of%phys_patch_id))
 
-#ifndef __NO_ICON_ATMO__
-        ! Set tile-specific GRIB2 keys (if applicable)
-        CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype(of%phys_patch_id))
-#endif
-
 #ifdef __ICON_ART
         ! Set ART-specific GRIB2 keys (if applicable)
         CALL set_GRIB2_art_keys(vlistID, varID, info)
+#endif
+
+#ifndef __NO_ICON_ATMO__
+        ! Set tile-specific GRIB2 keys (if applicable)
+        CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype(of%phys_patch_id))
 #endif
 
       ELSE ! NetCDF
