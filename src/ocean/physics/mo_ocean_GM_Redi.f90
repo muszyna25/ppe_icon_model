@@ -350,6 +350,7 @@ CONTAINS
       !map quantities to cell boundary
       CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)
 
+      ! use a vector communicator
       CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(1))
       CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(2))
       CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(3))
@@ -465,10 +466,7 @@ CONTAINS
     grad_T_vert(1:nproma, 1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
     grad_S_vert(1:nproma, 1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
     
-!     size_grad_T_horz_vec(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
-!     size_grad_S_horz_vec(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp    
-   !-------------------------------------------------------------------------------    
-
+    !-------------------------------------------------------------------------------
     !1) calculation of horizontal and vertical gradient for potential temperature and salinity
 !ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
@@ -492,16 +490,16 @@ CONTAINS
         & start_edge_index, end_edge_index, blockNo)
      ENDIF 
     END DO ! blocks
-    CALL sync_patch_array(sync_e, patch_2D, grad_T_horz)
-    IF(no_tracer>=2)   CALL sync_patch_array(sync_e, patch_2D, grad_S_horz)
+!     CALL sync_patch_array(sync_e, patch_2D, grad_T_horz)
+!     IF(no_tracer>=2)   CALL sync_patch_array(sync_e, patch_2D, grad_S_horz)
 
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('calc_slopes: grad_T_horz',grad_T_horz,&
-    &str_module,idt_src, in_subset=edges_in_domain)
+      & str_module,idt_src, in_subset=edges_in_domain)
     CALL dbg_print('calc_slopes: grad_S_horz',grad_S_horz,&
-    &str_module,idt_src, in_subset=edges_in_domain)
+      & str_module,idt_src, in_subset=edges_in_domain)
     !---------------------------------------------------------------------
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
