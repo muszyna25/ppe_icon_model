@@ -1153,7 +1153,7 @@ CONTAINS
       !  in order to avoid unphysically low test parcel temperature.
       !  Otherwise computation crashes in sat_pres_water  
       CALL cal_cape_cin( i_startidx, i_endidx,                     &
-        &                kmoist  = MAX(kstart_moist,phy_params%kcon2), & !in
+        &                kmoist  = MAX(kstart_moist,phy_params%k060), & !in
         &                te      = pt_diag%temp(:,:,jb)          , & !in
         &                qve     = pt_prog_rcf%tracer(:,:,jb,iqv), & !in
         &                prs     = pt_diag%pres(:,:,jb)          , & !in

@@ -494,17 +494,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   END IF
 
 
-  !--------------------------------------------------------------
-  !< characteristic gridlength needed by convection and turbulence
-  !--------------------------------------------------------------
-!   CALL sphere_cell_mean_char_length (p_patch%n_patch_cells_g, phy_params%mean_charlen)
-  ! read it directly from the patch%geometry_info
-  phy_params%mean_charlen = p_patch%geometry_info%mean_characteristic_length
-!   write(0,*) "=============================================="
-!   write(0,*) "mean_charlen=", phy_params%mean_charlen, &
-!     & p_patch%geometry_info%mean_characteristic_length
-!   write(0,*) "=============================================="
-
 
   ! index of first half level with height >= 1500 m (above boundary layer)
   k1500m = 1
@@ -529,6 +518,27 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     ELSE
       pref(jk) = ptropo*EXP(-grav*(zfull-htropo)/(rd*ttropo))
     ENDIF
+  ENDDO
+
+
+  ! start filling phy_params
+  !
+  !--------------------------------------------------------------
+  !< characteristic gridlength needed by convection and turbulence
+  !--------------------------------------------------------------
+!   CALL sphere_cell_mean_char_length (p_patch%n_patch_cells_g, phy_params%mean_charlen)
+  ! read it directly from the patch%geometry_info
+  phy_params%mean_charlen = p_patch%geometry_info%mean_characteristic_length
+!   write(0,*) "=============================================="
+!   write(0,*) "mean_charlen=", phy_params%mean_charlen, &
+!     & p_patch%geometry_info%mean_characteristic_length
+!   write(0,*) "=============================================="
+
+  ! compute level index corresponding to the HAG of the 60hPa level 
+  ! (currently only needed by mo_nwp_diagnosis:cal_cape_cin) 
+  phy_params%k060=1
+  DO jk=nlev,1,-1
+    IF(pref(jk) >  60.e2_wp) phy_params%k060=jk
   ENDDO
 
 
