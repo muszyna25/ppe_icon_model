@@ -6,7 +6,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2001-01-01T00:00:00Z"
-  end_date="2001-01-03T00:00:00Z"
+  end_date="2001-01-04T00:00:00Z"
 # restart=".true."
 #-----------------------------------------------------------------------------
 # model timing
@@ -139,6 +139,7 @@ cat > ${ocean_namelist} << EOF
 /
 &ocean_physics_nml
   i_sea_ice                       =   1       ! 0 = no sea ice; 1 = sea ice model on
+  i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics
   richardson_tracer               =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
   richardson_veloc                =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
 ! bottom_drag_coeff               =   2.5E-3  ! default=2.5E-3
