@@ -37,7 +37,7 @@ MODULE mo_run_nml
                          & config_profiling_output => profiling_output, &
                          & config_check_uuid_gracefully => check_uuid_gracefully, &
                          & config_irad_type         => irad_type, &
-                         & setModelTimeStep, tc_dt_model
+                         & cfg_modelTimeStep => modelTimeStep
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish, message, message_text, &
     &                      config_msg_timestamp   => msg_timestamp
@@ -53,7 +53,7 @@ MODULE mo_run_nml
 
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,   &
        &                            open_and_restore_namelist, close_tmpfile
-  USE mtime,                  ONLY: max_timedelta_str_len, timedeltaToString
+  USE mtime,                  ONLY: max_timedelta_str_len
   
   IMPLICIT NONE
   PRIVATE
@@ -98,7 +98,6 @@ MODULE mo_run_nml
   INTEGER :: debug_check_level
 
   CHARACTER(len=max_timedelta_str_len) :: modelTimeStep
-  CHARACTER(len=max_timedelta_str_len) :: dstring
   
   !> output mode (logicals)
   !  one or multiple of "none", "nml", "totint"
@@ -164,8 +163,11 @@ CONTAINS
                          ! will not work properly.
 
     nsteps = -999
-    dtime  = 600._wp     ! [s] for R2B04 + semi-implicit time steppping
-    modelTimeStep = 'PT10M'
+
+    ! Note: The default needs to be empty, since there exist
+    ! concurrent namelist parameters to specify these values:
+    modelTimeStep = "" 
+    dtime         = 0._wp
     
     ltimer               = .TRUE.
     timers_level         = 1
@@ -237,18 +239,7 @@ CONTAINS
     IF (ANY(nshift  < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')
 
     IF (nsteps < 0 .AND. nsteps /= -999) CALL finish(TRIM(routine),'"nsteps" must not be negative')
-    IF (dtime <= 0._wp) CALL finish(TRIM(routine),'"dtime" must be positive')
     IF (irad_type > 2 .OR. irad_type < 1 ) CALL finish(TRIM(routine),'"irad_type" must be 1 or 2')
-
-    CALL setModelTimeStep(modelTimeStep)
-
-    IF (ASSOCIATED(tc_dt_model)) THEN
-      CALL timedeltaToString(tc_dt_model, dstring)
-      WRITE(message_text,'(a,a)') 'Model time step          : ', dstring
-      CALL message('',message_text)
-      CALL message('','')
-    ENDIF
-    
 
     IF (.NOT. ltimer) timers_level = 0
 
@@ -287,6 +278,8 @@ CONTAINS
     config_check_uuid_gracefully = check_uuid_gracefully
 
     config_irad_type        = irad_type
+
+    cfg_modelTimeStep       = modelTimeStep
 
     IF (TRIM(output(1)) /= "default") THEN
       config_output(:) = output(:)

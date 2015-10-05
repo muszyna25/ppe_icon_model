@@ -42,6 +42,7 @@ MODULE mo_impl_constants
 !
 !
   USE mo_kind,               ONLY: wp
+  USE mtime,                 ONLY: MAX_TIMEDELTA_STR_LEN
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
 
   IMPLICIT NONE
@@ -576,6 +577,13 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: RTTOV_BT_CS  = 2
   INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CL = 3
   INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CS = 4
+
+  !------------------------!
+  !  DEFAULT DATE SETTINGS !
+  !------------------------!
+
+  CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: DEFAULT_RESTART_INTVL = "P30D"
+  CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: DEFAULT_CHECKPT_INTVL = "P30D"
 
 
 !--------------------------------------------------------------------

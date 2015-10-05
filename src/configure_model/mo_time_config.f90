@@ -27,11 +27,29 @@ MODULE mo_time_config
   USE mo_kind,                  ONLY: wp
   USE mo_datetime,              ONLY: t_datetime
   USE mo_impl_constants,        ONLY: max_dom
+  USE mtime,                    ONLY: max_calendar_str_len
  
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: t_time_config, time_config, restart_experiment
+  PUBLIC :: ini_datetime_string, end_datetime_string, calendar
+  PUBLIC :: restart_ini_datetime_string, restart_end_datetime_string, restart_calendar
+  PUBLIC :: dt_restart, is_relative_time
+  PUBLIC :: t_time_config, time_config
 
+  !> namelist parameters (as raw character strings):
+  !
+  ! these are the namelist settings originating from the restart file:
+  CHARACTER(len=32)                   :: restart_ini_datetime_string
+  CHARACTER(len=32)                   :: restart_end_datetime_string
+  INTEGER                             :: restart_calendar
+  !
+  !  these are namelist setting which may originate from the restart
+  !  file, but with user modifications in the current run:
+  CHARACTER(len=32)                   :: ini_datetime_string
+  CHARACTER(len=32)                   :: end_datetime_string
+  CHARACTER(len=max_calendar_str_len) :: calendar = ''
+  REAL(wp)                            :: dt_restart          !< Length of restart cycle in seconds
+  LOGICAL                             :: is_relative_time
 
   !>
   !! Derived type containing information for time control. 
@@ -62,13 +80,6 @@ MODULE mo_time_config
   !! The actual variable
   !!
   TYPE(t_time_config) :: time_config
-
-  LOGICAL :: restart_experiment ! if true, we have to restart the experiment
-  
-!CONTAINS
-!
-!  SUBROUTINE configure_time
-!  END SUBROUTINE configure_time
-
+ 
 END MODULE mo_time_config
 

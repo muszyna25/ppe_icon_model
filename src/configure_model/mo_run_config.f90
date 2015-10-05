@@ -24,7 +24,7 @@ MODULE mo_run_config
   USE mo_impl_constants, ONLY: MAX_DOM, IHELDSUAREZ, INWP, IECHAM, ILDF_ECHAM, &
                                IMPIOM, INOFORCING, ILDF_DRY, MAX_CHAR_LENGTH,  &
                                TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
-  USE mtime,             ONLY: timedelta, newTimedelta
+  USE mtime,             ONLY: timedelta, newTimedelta, MAX_TIMEDELTA_STR_LEN
   
   IMPLICIT NONE
   PRIVATE
@@ -60,6 +60,7 @@ MODULE mo_run_config
   PUBLIC :: profiling_output, TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
   PUBLIC :: check_uuid_gracefully
   PUBLIC :: irad_type
+  PUBLIC :: modelTimeStep
 
     ! Namelist variables
     !
@@ -211,6 +212,9 @@ MODULE mo_run_config
     !> variable irad_type determines choice of radiation flux scheme
     !> irad_type=1: rrtm, irad_type=2: psrad
     INTEGER :: irad_type
+
+    !> namelist parameter (as raw character string):
+    CHARACTER(len=max_timedelta_str_len) :: modelTimeStep
 
 CONTAINS
   !>

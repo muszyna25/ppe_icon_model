@@ -60,7 +60,7 @@ MODULE mo_atmo_model
     &                                   dtime, output_mode,                                   &
     &                                   grid_generatingCenter,                                & ! grid generating center
     &                                   grid_generatingSubcenter,                             & ! grid generating subcenter
-    &                                   iforcing
+    &                                   iforcing, nsteps
   USE mo_gribout_config,          ONLY: configure_gribout
 
   ! time stepping

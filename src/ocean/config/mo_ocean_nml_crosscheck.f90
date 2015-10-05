@@ -27,7 +27,7 @@ MODULE mo_ocean_nml_crosscheck
   USE mo_grid_config,       ONLY: init_grid_configuration
   USE mo_parallel_config,   ONLY: check_parallel_configuration, p_test_run, l_fast_sum
   USE mo_run_config,        ONLY: nsteps, dtime
-  USE mo_time_config,       ONLY: time_config, restart_experiment
+  USE mo_time_config,       ONLY: time_config
   USE mo_datetime,          ONLY: add_time, print_datetime_all
   USE mo_io_config,         ONLY: dt_checkpoint, write_initial_state
   USE mo_grid_config,       ONLY: grid_rescale_factor, use_duplicated_connectivity
@@ -102,18 +102,6 @@ CONTAINS
 
       nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
     END IF
-
-
-    ! Length of this integration is limited by length of the restart cycle.
-    !
-    IF (nsteps > INT(time_config%dt_restart/dtime)) THEN
-      nsteps = INT(time_config%dt_restart/dtime)
-      restart_experiment = .TRUE.
-    ELSE
-      restart_experiment = .FALSE.
-    ENDIF
-!     nsteps = MIN(nsteps,INT(time_config%dt_restart/dtime))
-
 
     CALL message(' ',' ')
     CALL message(method_name,'Initial date and time')

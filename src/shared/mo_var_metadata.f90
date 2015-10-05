@@ -35,7 +35,6 @@ MODULE mo_var_metadata
   USE mo_action_types,       ONLY: t_var_action_element, t_var_action
   USE mo_util_string,        ONLY: toupper
   USE mo_fortran_tools,      ONLY: assign_if_present, resize_arr_c1d
-  USE mo_time_config,        ONLY: time_config
   USE mo_master_config,      ONLY: tc_startdate, tc_stopdate
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,    &
     &                              timedelta, newTimedelta, deallocateTimedelta, &

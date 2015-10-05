@@ -30,10 +30,11 @@ PROGRAM icon
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_io_units,            ONLY: filename_max
   USE mo_mpi,                 ONLY: start_mpi , stop_mpi, my_process_is_global_root
+  USE mtime,                  ONLY: OPERATOR(>)
   USE mo_master_control,      ONLY: init_master_control,                                &
     &                               get_my_namelist_filename, get_my_process_type,      &
     &                               atmo_process, ocean_process, testbed_process
-  USE mo_time_config,         ONLY: restart_experiment
+  USE mo_master_config,       ONLY: tc_exp_stopdate, tc_stopdate
   USE mo_util_signal
   USE mo_util_sysinfo,        ONLY: util_user_name, util_os_system, util_node_name
   USE mo_util_vcs,            ONLY: util_repository_url,                                &
@@ -351,7 +352,8 @@ PROGRAM icon
   ! write the control.status file
   IF (my_process_is_global_root()) THEN
     OPEN (500, FILE="finish.status")
-    IF (restart_experiment) THEN
+    IF (tc_exp_stopdate > tc_stopdate) THEN
+      ! restart experiment
       WRITE(500,*) "RESTART"
     ELSE
       WRITE(500,*) "OK"
