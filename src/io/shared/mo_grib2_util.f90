@@ -78,8 +78,8 @@ CONTAINS
     !
     ! Load correct tables
     !
-    ! set tablesVersion=11
-    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 11)
+    ! set tablesVersion=14
+    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 14)
     !
     CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
       &                    grib_conf%significanceOfReferenceTime)
@@ -423,9 +423,6 @@ CONTAINS
       ! skip inapplicable fields
       RETURN
     END SELECT
-
-    ! set tablesVersion=14
-    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 14)
 
     ! set product definition template
     CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, productDefinitionTemplate)
