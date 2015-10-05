@@ -590,11 +590,15 @@ CONTAINS
 !     IF(no_tracer>=2)   CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%DerivSalinity_vert_center)
     !------------------------------------------------------------------------------
     
-    !------------------------------------------------------------------------------                                
+    !------------------------------------------------------------------------------
+!ICON_OMP_PARALLEL PRIVATE(salinityColumn)                             
     salinityColumn(1:n_zlev) = sal_ref  ! in case of absent salinty tracer
-    DO blockNo = all_cells%start_block, all_cells%end_block
-    
-      CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,neutral_coeff, &
+!ICON_OMP  level) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+!     DO blockNo = all_cells%start_block, all_cells%end_block    
+!       CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
 
       DO cell_index = start_cell_index, end_cell_index
         end_level = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
@@ -642,6 +646,8 @@ CONTAINS
           
       END DO ! cell_index = start_cell_index, end_cell_index
     END DO  ! blockNo = all_cells%start_block, all_cells%end_block
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
     
 !write(123,*)'--------------------------------------------------------------'
 !     CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%slopes(:,:,:)%x(1))
