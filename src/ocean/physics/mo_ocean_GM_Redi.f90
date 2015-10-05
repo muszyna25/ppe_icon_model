@@ -252,8 +252,8 @@ CONTAINS
         tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
       ENDIF
 
-      CALL sync_patch_array(sync_c, patch_2D, tracer_gradient_vert_center)        
-      CALL sync_patch_array(sync_c, patch_2D, K_D)
+!       CALL sync_patch_array(sync_c, patch_2D, tracer_gradient_vert_center)        
+!       CALL sync_patch_array(sync_c, patch_2D, K_D)
       
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
 
@@ -296,9 +296,6 @@ CONTAINS
           END DO                  
         END DO                
       END DO
-      CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(1))
-      CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(2))
-      CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(3))
 !       CALL sync_patch_array(sync_c, patch_2D, flux_vert_center)
 
 !   IF(tracer_index==2)THEN
@@ -321,8 +318,8 @@ CONTAINS
             DO jk = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
               !vertical GM-Redi Flux
                flux_vert_center(jc,jk,blockNo)   &
-               &=flux_vert_center(jc,jk,blockNo) &
-               &+(K_I(jc,jk,blockNo)*slopes_squared(jc,jk,blockNo))*tracer_gradient_vert_center(jc,jk,blockNo)
+                &=flux_vert_center(jc,jk,blockNo) &
+                &+(K_I(jc,jk,blockNo)*slopes_squared(jc,jk,blockNo))*tracer_gradient_vert_center(jc,jk,blockNo)
                
             END DO                  
           END DO                
@@ -351,6 +348,10 @@ CONTAINS
    
       !map quantities to cell boundary
       CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)
+
+      CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(1))
+      CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(2))
+      CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(3))
       CALL map_cell2edges_3D         ( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)

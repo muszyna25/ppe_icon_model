@@ -1822,17 +1822,18 @@ CONTAINS
         cell_2_block = patch_2d%edges%cell_blk(je,blockNo,2)
         DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(je,blockNo)
           
-            ptp_vn(je,level,blockNo) =&
-              & DOT_PRODUCT(p_vn_c(cell_1_index,level,cell_1_block)%x,&
-              & operators_coefficients%edge2cell_coeff_cc_t(je,level,blockNo,1)%x)&
-              & +DOT_PRODUCT(p_vn_c(cell_2_index,level,cell_2_block)%x,&
-              & operators_coefficients%edge2cell_coeff_cc_t(je,level,blockNo,2)%x)
+          ptp_vn(je,level,blockNo) =&
+            & DOT_PRODUCT(p_vn_c(cell_1_index,level,cell_1_block)%x,&
+            & operators_coefficients%edge2cell_coeff_cc_t(je,level,blockNo,1)%x)&
+            & +DOT_PRODUCT(p_vn_c(cell_2_index,level,cell_2_block)%x,&
+            & operators_coefficients%edge2cell_coeff_cc_t(je,level,blockNo,2)%x)
           
         END DO 
       END DO
       
     END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
 !ICON_OMP_END_PARALLEL_DO    
+
     ! sync the result if necessary
     IF (PRESENT(subset_range)) THEN
       IF (.NOT. subset_range%is_in_domain) &
