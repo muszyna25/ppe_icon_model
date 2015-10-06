@@ -58,9 +58,14 @@
 !!
 MODULE mo_cumastr
   USE mo_kind,                 ONLY: wp
-  USE mo_physical_constants,   ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd, cpv, vtmpc2
   USE mo_echam_convect_tables, ONLY: prepare_ua_index_spline,lookup_ua_spline, lookup_ubc
+#ifndef __ICON__
+  USE mo_physical_constants,   ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd, cpv, vtmpc2
   USE mo_echam_conv_constants, ONLY: entrpen, entrscv, lmfdd, cmfdeps, lmfdudv, cmftau
+#else
+  USE mo_physical_constants,   ONLY: grav, alv, als, tmelt, vtmpc1, rd, cpd, cpv
+  USE mo_echam_conv_config,    ONLY: echam_conv_config
+#endif
   USE mo_cuinitialize,         ONLY: cuini, cubase
   USE mo_cuascent,             ONLY: cuasc
   USE mo_cudescent,            ONLY: cudlfs, cuddraf
@@ -73,6 +78,13 @@ MODULE mo_cumastr
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cucall
+
+#ifdef __ICON__
+  ! to simplify access to components of echam_conv_config
+  LOGICAL , POINTER :: lmfdd, lmfdudv
+  REAL(wp), POINTER :: entrpen, entrscv, cmfdeps, cmftau
+#endif
+
 
 CONTAINS 
   !>
@@ -100,7 +112,7 @@ CONTAINS
     &                  ptopmax                                        ) ! inout
 #else
     &                  ptopmax,                                        &! inout
-    &                  nmctop, cevapcu,                                &! in
+    &                  cevapcu,                                        &! in
     &                  pcd, pcv,                                       &! in
     &                  pqte_dyn, pqte_phy,                             &! in
     &                  pcon_dtrl, pcon_dtri, pcon_iqte,                &! inout
@@ -112,7 +124,6 @@ CONTAINS
     REAL(wp),INTENT (IN) :: ptime_step_len
 #ifdef __ICON__
     REAL(wp),INTENT (IN) :: cevapcu(:)
-    INTEGER, INTENT (IN) :: nmctop
     REAL(wp),INTENT (IN) :: pcd, pcv
 #endif
     REAL(wp)::  ptm1(kbdim,klev),         pqm1(kbdim,klev),              &
@@ -251,7 +262,7 @@ CONTAINS
       &          ptte,     pvom,     pvol,                            &
       &          paprc,    paprs,                                     &
 #else
-      &          nmctop,   cevapcu,                                   &
+      &          cevapcu,                                             &
       &          zcq,                                                 &
       &          pcon_dtrl, pcon_dtri, pcon_iqte,                     &
       &          ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv,pxtte_cnv,    &
@@ -315,7 +326,7 @@ CONTAINS
     &        ptte,     pvom,     pvol,                                    &
     &        paprc,    paprs,                                             &
 #else
-    &        nmctop,   cevapcu,                                           &
+    &        cevapcu,                                                     &
     &        pcen,                                                        &
     &        pcon_dtrl, pcon_dtri, pcon_iqte,                             &
     &        ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv,           &
@@ -333,7 +344,6 @@ CONTAINS
       &                      paprc(kbdim),            paprs(kbdim)
     REAL(wp),INTENT(INOUT):: pxtte(kbdim,klev,ktrac)
 #else
-    INTEGER, INTENT(IN)   :: nmctop
     REAL(wp),INTENT(IN)   :: cevapcu(:)
     REAL(wp),INTENT(INOUT):: pcon_dtrl(kbdim), pcon_dtri(kbdim)
     REAL(wp),INTENT(INOUT):: pcon_iqte(kbdim)
@@ -409,7 +419,17 @@ CONTAINS
     INTRINSIC MIN, MAX
     !
     !  Executable statements
-    
+
+#ifdef __ICON__
+    ! to simplify access to components of echam_conv_config
+    lmfdd    => echam_conv_config% lmfdd
+    lmfdudv  => echam_conv_config% lmfdudv
+    entrscv  => echam_conv_config% entrscv
+    entrpen  => echam_conv_config% entrpen
+    cmfdeps  => echam_conv_config% cmfdeps
+    cmftau   => echam_conv_config% cmftau
+#endif
+
 #ifndef __ICON__
     IF (lconvmassfix) THEN
       CALL xt_conv_massfix(kproma,         kbdim,         klev,              &
@@ -535,7 +555,7 @@ CONTAINS
         ! mpuetz: too few instructions (FP dependencies)
         CALL prepare_ua_index_spline('cumastr',kproma,ztenh(1,jk),loidx(1),za(1))
         CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
-        CALL lookup_ubc('cumastr',kproma,ztenh(1,jk),ub(1))
+        CALL lookup_ubc(kproma,ztenh(1,jk),ub(1))
         zjk = REAL(jk,wp)
 !IBM* NOVECTOR
         DO jl=1,kproma
@@ -670,12 +690,11 @@ CONTAINS
       &        zmful,    plude,    pqude,    zdmfup,                     &
       &        ihmin,    zhhatt,   zhcbase,  zqsenh,                     &
       &        pcpen,    zcpcu,                                          &
-      &        kcbot,    kctop,    ictop0,                               &
+      &        kcbot,    kctop,    ictop0                                &
 #ifndef __ICON__
-      &        zmwc,     zmrateprecip                      )
-#else
-      &        nmctop                                      )
+      &      , zmwc,     zmrateprecip                                    &
 #endif
+      &       )
     !
     !*     (C) Check cloud depth and change entrainment rate accordingly
     !          Calculate precipitation rate (for downdraft calculation)
@@ -908,12 +927,12 @@ CONTAINS
       &        zmful,    plude,    pqude,    zdmfup,                     &
       &        ihmin,    zhhatt,   zhcbase,  zqsenh,                     &
       &        pcpen,    zcpcu,                                          &
-      &        kcbot,    kctop,    ictop0,                               &
+      &        kcbot,    kctop,    ictop0                                &
 #ifndef __ICON__
-      &        zmwc,     zmrateprecip                     )
-#else
-      &        nmctop                                     )
+      &      , zmwc,     zmrateprecip                                    &
 #endif
+      &       )
+
     !-----------------------------------------------------------------------
     !*    7.0      Determine final convective fluxes in 'cuflx'
     !              --------------------------------------------

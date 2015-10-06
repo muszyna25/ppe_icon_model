@@ -29,7 +29,21 @@ MODULE mo_name_list_output_init
 ! USE_CRAY_POINTER
 
   ! constants and global settings
-  USE mo_cdi_constants          ! We need all
+  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate, &
+                                                & cdiEncodeTime, institutInq, vlistCreate, cdiEncodeParam, vlistDefVar, &
+                                                & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE, &
+                                                & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName, &
+                                                & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
+                                                & gridDefYsize, gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID, &
+                                                & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname, &
+                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals, &
+                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit, &
+                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,   &
+                                                & vlistDefAttTxt, CDI_GLOBAL
+  USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
+                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_REFERENCE, GRID_EDGE, GRID_CELL, &
+                                                & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
+                                                & ZA_hybrid_half, ZA_hybrid
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                 &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
@@ -46,7 +60,8 @@ MODULE mo_name_list_output_init
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
-    &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys
+    &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
+    &                                             set_GRIB2_synsat_keys
   USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
@@ -54,7 +69,7 @@ MODULE mo_name_list_output_init
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list, one_of
   USE mo_datetime,                          ONLY: t_datetime
-  USE mo_cf_convention,                     ONLY: t_cf_var
+  USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string, &
@@ -949,14 +964,8 @@ CONTAINS
     &                              opt_lprintlist, opt_l_is_ocean)
 
 #ifndef NOMPI
-#ifdef  __SUNPRO_F95
-    INCLUDE "mpif.h"
-#else
     USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
 #endif
-! __SUNPRO_F95
-#endif
-! NOMPI
 
     !> Data structure containing all necessary data for mapping an
     !  output time stamp onto a corresponding simulation step index.
@@ -1942,7 +1951,8 @@ CONTAINS
           ENDIF
         ENDDO
 
-        CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar)))
+        CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar))//&
+          &", patch "//int2string(p_of%log_patch_id,'(i0)'))
       ENDIF
 
       ! append variable descriptor to list
@@ -2296,7 +2306,7 @@ CONTAINS
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::setup_output_vlist"
-    INTEGER                         :: k, i_dom, ll_dim(2), gridtype, idate, itime
+    INTEGER                         :: k, i_dom, ll_dim(2), gridtype, idate, itime, iret
     TYPE(t_lon_lat_data), POINTER   :: lonlat
     TYPE(t_datetime)                :: ini_datetime
     CHARACTER(len=1)                :: uuid_string(16)
@@ -2337,7 +2347,18 @@ CONTAINS
     ! define Institute
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
 
-
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'title',       &
+         &                LEN_TRIM(cf_global_info%title),       TRIM(cf_global_info%title))       
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'institution', &
+         &                LEN_TRIM(cf_global_info%institution), TRIM(cf_global_info%institution)) 
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'source',      &
+         &                LEN_TRIM(cf_global_info%source),      TRIM(cf_global_info%source))      
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'history',     &
+         &                LEN_TRIM(cf_global_info%history),     TRIM(cf_global_info%history))     
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'references',  &
+         &                LEN_TRIM(cf_global_info%references),  TRIM(cf_global_info%references))  
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'comment',     &
+         &                LEN_TRIM(cf_global_info%comment),     TRIM(cf_global_info%comment))     
 
     ! 3. add horizontal grid descriptions
 
@@ -2651,9 +2672,9 @@ CONTAINS
         this_cf => info%cf
       END IF
 
-      IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, this_cf%long_name)
-      IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, this_cf%standard_name)
-      IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, this_cf%units)
+      IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, TRIM(this_cf%long_name))
+      IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, TRIM(this_cf%standard_name))
+      IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
 
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
@@ -2697,6 +2718,9 @@ CONTAINS
 
         ! Set ensemble keys in SECTION 4 (if applicable)
         CALL set_GRIB2_ensemble_keys(vlistID, varID, gribout_config(of%phys_patch_id))
+
+        ! Set synsat keys (if applicable)
+        CALL set_GRIB2_synsat_keys(vlistID, varID, info)
 
         ! Set local use SECTION 2
         CALL set_GRIB2_local_keys(vlistID, varID, gribout_config(of%phys_patch_id))

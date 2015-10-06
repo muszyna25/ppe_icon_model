@@ -37,7 +37,11 @@ dtime=10
 #
 #restart interval
 dt_checkpoint=60 #1 min
+dt_restart=86400 #1 day
 #
+# restart intervals
+checkpoint_interval="PT1M"
+restart_interval="P1D"
 #-----------------------------------------------------------------------------
 # model parameters
 atmo_model_equations=3 # NH equation system
@@ -47,30 +51,30 @@ iforcing=3             # 3 for inwp forcing which then calls the LES physics
 # the grid and other files
 #
 # the grid parameters
-grids_folder="${icon_data_poolFolder}/buildbot_data/aes/icoles_nested/"
+grids_folder="${icon_data_poolFolder}/ICON-DE/GRIDS"
 grid_1=icoles_IconChecksuite_DOM01_R4996m
 grid_2=icoles_IconChecksuite_DOM02_R2498m
 atmo_dyn_grids="${grid_1}.nc  ${grid_2}.nc"
 dynamics_parent_grid_id="  0,       1"
 #
 # absolute path to directory with LAM data
-LAMDATA=${grids_folder}
+LAMDATA=${icon_data_poolFolder}/ICON-DE
 #
 #LATBC PATH
-LATBC_PATH=${LAMDATA}
+LATBC_PATH=$LAMDATA/NUDG_germany/4996/
 #
 #EXT DATA
-ext_data_path=${LAMDATA}
+ext_data_path=$LAMDATA/EXTPAR
 add_link_file $ext_data_path/extpar_${grid_1}.nc  extpar_${grid_1}.nc
 add_link_file $ext_data_path/extpar_${grid_2}.nc  extpar_${grid_2}.nc
 
 #INITIAL DATA
-init_data_path=${LAMDATA}
+init_data_path=$LAMDATA/INIT_germany
 init_date=2013042400
-add_link_file $init_data_path/init_${grid_1}_${init_date}.nc ifs2icon_R2B09_DOM01.nc
-add_link_file $init_data_path/init_${grid_1}_${init_date}.nc dwdFG_R2B09_DOM01.nc
-add_link_file $init_data_path/init_${grid_2}_${init_date}.nc ifs2icon_R2B10_DOM02.nc
-add_link_file $init_data_path/init_${grid_2}_${init_date}.nc dwdFG_R2B10_DOM02.nc
+add_link_file $init_data_path/4996/init_${grid_1}_${init_date}.nc ifs2icon_R2B09_DOM01.nc
+add_link_file $init_data_path/4996/init_${grid_1}_${init_date}.nc dwdFG_R2B09_DOM01.nc
+add_link_file $init_data_path/2500/init_${grid_2}_${init_date}.nc ifs2icon_R2B10_DOM02.nc
+add_link_file $init_data_path/2500/init_${grid_2}_${init_date}.nc dwdFG_R2B10_DOM02.nc
 #
 #-----------------------------------------------------------------------------
 #
@@ -110,7 +114,8 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev     = 50,50        ! number of full levels of vertical grid
- dtime       = ${dtime}     ! [s] timestep in seconds
+ dtime       = ${dtime}     ! [s] timestep in seconds!! MUST BE EQUAL TO "modelTimeStep" !!
+ modelTimeStep    = "PT10S" ! preliminary fix
  ldynamics   = .TRUE.       ! dynamics
  ltestcase   = .FALSE.      ! testcase
  ltransport  = .TRUE.       ! transport
@@ -146,7 +151,7 @@ cat > ${atmo_namelist} << EOF
  hdiff_tv_ratio   = 1.0
 /
 &nwp_phy_nml
-inwp_gscp       = 4,4 
+inwp_gscp       = 1,1 !temporarily switched off:two moment microphysics
 inwp_convection = 0,0
 inwp_radiation  = 1,1
 inwp_cldcover   = 5,5
@@ -158,7 +163,7 @@ inwp_surface    = 1,1
 latm_above_top  = .true.,.true.
 efdt_min_raylfric = 7200.
 itype_z0         = 2
-dt_rad           = 60.,60.
+dt_rad           = 240.,240.
 /
 &les_nml
  smag_constant     = 0.23

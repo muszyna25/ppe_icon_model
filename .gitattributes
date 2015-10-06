@@ -147,13 +147,20 @@ doc/science/dynamics/vortex_bracket_ICONAM.tex -text
 doc/science/physics/ICON_COSMO_micro_scheme_changes.tex -text
 doc/science/physics/IFS_gw_param.pdf -text
 doc/science/physics/Microphys.tar -text
-doc/science/physics/albnirdif_20120104_00UTC.png -text
-doc/science/physics/albnirdir_20120104_00UTC.png -text
-doc/science/physics/albvisdif_20120104_00UTC.png -text
-doc/science/physics/albvisdir_20120104_00UTC.png -text
+doc/science/physics/albnirdif_20120601_tuned-untuned.png -text svneol=unset#image/png
+doc/science/physics/albnirdif_20120601_tuned.png -text svneol=unset#image/png
+doc/science/physics/albnirdif_20120601_untuned.png -text svneol=unset#image/png
+doc/science/physics/albnirdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
+doc/science/physics/albvisdif_20120601_tuned-untuned.png -text svneol=unset#image/png
+doc/science/physics/albvisdif_20120601_tuned.png -text svneol=unset#image/png
+doc/science/physics/albvisdif_20120601_untuned.png -text svneol=unset#image/png
+doc/science/physics/albvisdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
 doc/science/physics/cloud_cover_docu.tex -text
 doc/science/physics/detrainment_anvil.pdf -text
 doc/science/physics/detrainment_anvil.ppt -text
+doc/science/physics/direct_albedo_Briegleb.png -text svneol=unset#image/png
+doc/science/physics/direct_albedo_Ritter.png -text svneol=unset#image/png
+doc/science/physics/direct_albedo_Zaengl.png -text svneol=unset#image/png
 doc/science/physics/graupelscheme.eps -text
 doc/science/physics/icon-docu-cloud.pdf -text
 doc/science/physics/icon-docu-cloud.tex -text
@@ -194,6 +201,7 @@ doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
 doc/technical/dwd_database/grid_geometry.tex -text
 doc/technical/dwd_database/icon_in_sky.tex -text
+doc/technical/dwd_database/iglo_namelst_output.pl -text
 doc/technical/dwd_database/input.tex -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_maxheight_i.txt -text
@@ -205,6 +213,7 @@ doc/technical/dwd_database/output_GRIB2_forecast.tex -text
 doc/technical/dwd_database/output_GRIB2_forecast_singlelvl.tex -text
 doc/technical/dwd_database/output_GRIB2_global.tex -text
 doc/technical/dwd_database/output_GRIB2_nest.tex -text
+doc/technical/dwd_database/output_GRIB2_sma.tex -text
 doc/technical/dwd_database/output_GRIB2_vv0.tex -text
 doc/technical/dwd_database/output_description.tex -text
 doc/technical/dwd_database/output_statproc.tex -text
@@ -891,6 +900,7 @@ run/exp.yac_nh_r2b3 -text
 run/exp.yac_r2b3 -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
+run/post.atm_amip_tune -text
 run/post.hat_jww -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
@@ -1239,6 +1249,7 @@ scripts/preprocessing/WARM_BUBBLE_INIT/init.m -text
 scripts/preprocessing/estimate.py -text
 scripts/preprocessing/gauss_to_icon.ksh -text
 scripts/preprocessing/icon_pre_lnd_atm.ksh -text
+scripts/preprocessing/ifs2icon -text
 scripts/preprocessing/mars4icon.all -text
 scripts/preprocessing/mars4icon_e4_sst -text
 scripts/preprocessing/mars4icon_monmean -text
@@ -1349,7 +1360,6 @@ src/atm_phy_echam/mo_cufluxdts.f90 -text
 src/atm_phy_echam/mo_cuinitialize.f90 -text
 src/atm_phy_echam/mo_cumastr.f90 -text
 src/atm_phy_echam/mo_echam_cloud_params.f90 -text
-src/atm_phy_echam/mo_echam_conv_constants.f90 -text
 src/atm_phy_echam/mo_echam_convect_tables.f90 -text
 src/atm_phy_echam/mo_echam_phy_bcs.f90 -text
 src/atm_phy_echam/mo_echam_phy_cleanup.f90 -text
@@ -1497,6 +1507,7 @@ src/atm_phy_schemes/mo_lrtm_setup.f90 -text
 src/atm_phy_schemes/mo_lrtm_taumol.f90 -text
 src/atm_phy_schemes/mo_newcld_optics.f90 -text
 src/atm_phy_schemes/mo_o3_gems_data.f90 -text
+src/atm_phy_schemes/mo_o3_macc_data.f90 -text
 src/atm_phy_schemes/mo_o3_util.f90 -text
 src/atm_phy_schemes/mo_rad_diag.f90 -text
 src/atm_phy_schemes/mo_radiation.f90 -text
@@ -1530,6 +1541,7 @@ src/configure_model/mo_atm_phy_nwp_config.f90 -text
 src/configure_model/mo_coupling_config.f90 -text
 src/configure_model/mo_diffusion_config.f90 -text
 src/configure_model/mo_dynamics_config.f90 -text
+src/configure_model/mo_echam_cloud_config.f90 -text
 src/configure_model/mo_echam_conv_config.f90 -text
 src/configure_model/mo_echam_phy_config.f90 -text
 src/configure_model/mo_ensemble_pert_config.f90 -text
@@ -1660,6 +1672,7 @@ src/namelists/mo_coupling_nml.f90 -text
 src/namelists/mo_dbg_nml.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
+src/namelists/mo_echam_cloud_nml.f90 -text
 src/namelists/mo_echam_conv_nml.f90 -text
 src/namelists/mo_echam_phy_nml.f90 -text
 src/namelists/mo_ensemble_pert_nml.f90 -text
@@ -1841,6 +1854,7 @@ src/shr_horizontal/intp_functions.inc -text
 src/shr_horizontal/mo_alloc_patches.f90 -text
 src/shr_horizontal/mo_delaunay.f90 -text
 src/shr_horizontal/mo_delaunay_types.f90 -text
+src/shr_horizontal/mo_ext_data_init.f90 -text
 src/shr_horizontal/mo_ext_data_state.f90 -text
 src/shr_horizontal/mo_ext_data_types.f90 -text
 src/shr_horizontal/mo_grf_bdyintp.f90 -text
@@ -1858,6 +1872,7 @@ src/shr_horizontal/mo_intp_coeffs.f90 -text
 src/shr_horizontal/mo_intp_coeffs_lsq_bln.f90 -text
 src/shr_horizontal/mo_intp_data_strc.f90 -text
 src/shr_horizontal/mo_intp_lonlat.f90 -text
+src/shr_horizontal/mo_intp_lonlat_baryctr.f90 -text
 src/shr_horizontal/mo_intp_rbf.f90 -text
 src/shr_horizontal/mo_intp_rbf_coeffs.f90 -text
 src/shr_horizontal/mo_intp_state.f90 -text
@@ -1920,6 +1935,7 @@ support/CMakeLists.txt -text
 support/cdi_int.h -text
 support/cdilib.c -text
 support/cfortran.h -text
+support/mo_cdi.f90 -text
 support/nml_annotate.c -text
 support/nml_annotate.rl -text
 support/rtc_sx.s -text

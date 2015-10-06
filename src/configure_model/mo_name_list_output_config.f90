@@ -29,7 +29,7 @@ MODULE mo_name_list_output_config
   USE mo_impl_constants,        ONLY: max_var_ml, max_var_pl, &
     &                                 max_var_hl, max_var_il, &
     &                                 MAX_TIME_LEVELS
-  USE mo_cdi_constants,         ONLY: FILETYPE_GRB, FILETYPE_GRB2
+  USE mo_cdi,                   ONLY: FILETYPE_GRB, FILETYPE_GRB2
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_string,           ONLY: toupper
   USE mo_name_list_output_types,ONLY: t_output_name_list, t_output_file, &

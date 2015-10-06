@@ -1464,7 +1464,9 @@ n\_dom$>$1\tabularnewline
 %\hline
 rbf\_scale\_grf\_e&
 R(n\_dom)& 0.5& &
-RBF scale factor for grid refinement (edges)&
+RBF scale factor for grid refinement (lateral boundary interpolation to edges). Refers to the
+respective parent domain and thus does not need to be specified for the innermost nest. Lower values
+than the default of 0.5 are needed for child mesh sizes less than about 500 m.&
 n\_dom$>$1\tabularnewline
 
 %\hline
@@ -1720,21 +1722,20 @@ I & 2& &
 6: MODE\_IAU\_OLD\\ \quad start from DWD analysis with incremental analysis update. NOTE: Extension of mode MODE\_DWDANA\_INC 
    including W\_SO increments. \\
 7: MODE\_ICONVREMAP\\ \quad start from DWD first guess with subsequent vertical remapping (work in progress; so far, changing
-the number of model levels does not yet work)\\
-8: MODE\_DWDANA\_INC\\ \quad start from DWD analysis with incremental analysis update (atmospheric increments only)&
+the number of model levels does not yet work) &
 \tabularnewline
 
 dt\_iau&
 R & 10800 & s &
 Time interval during which an incremental analysis update (IAU) is performed &
-init\_mode=5,6,8
+init\_mode=5,6
 \tabularnewline
 
 dt\_shift&
 R & 0 & s &
 Time by which the actual model start time is shifted ahead of the nominal date.
 Must be NEGATIVE, usually $- 0.5$ dt\_iau. &
-init\_mode=5,6,8
+init\_mode=5,6
 \tabularnewline
 
 start\_time\_avg\_fg&
@@ -1756,7 +1757,7 @@ Corresponding averaging interval. Note that end\_time\_avg\_fg $-$ start\_time\_
 rho\_incr\_filter\_wgt &
 R & 0 &  &
 Vertical filtering weight on density increments &
-init\_mode=5,6,8
+init\_mode=5,6
 \tabularnewline
 
 %\hline
@@ -1765,7 +1766,7 @@ I & 1 &  &
 Weighting function for performing IAU\\
 1: Top-Hat\\
 2: SIN2 &
-init\_mode=5,6,8
+init\_mode=5,6
 \tabularnewline
 
 %\hline
@@ -1808,7 +1809,7 @@ lconsistency\_checks&
 L & .TRUE.& &
 If .FALSE., consistency checks for Analysis and First Guess fields are skipped. On default, checks are performed for 
 \emph{uuidOfHGrid} and \emph{validity time}. &
-init\_mode=1,3,4,5,6,8
+init\_mode=1,3,4,5,6
 \tabularnewline
 
 %\hline
@@ -1822,7 +1823,7 @@ lp2cintp\_incr&
 L(n\_dom) & .FALSE.& &
 If true, interpolate atmospheric data assimilation increments from parent domain. \\
 Can be specified separately for each nested domain; setting the first (global) entry to true activates
-the interpolation for all nested domains. & init\_mode=5,6,8
+the interpolation for all nested domains. & init\_mode=5,6
 \tabularnewline
 
 %\hline
@@ -1830,16 +1831,32 @@ lp2cintp\_sfcana&
 L(n\_dom) & .FALSE.& &
 If true, interpolate atmospheric surface analysis data from parent domain. \\
 Can be specified separately for each nested domain; setting the first (global) entry to true activates
-the interpolation for all nested domains. & init\_mode=5,6,8
+the interpolation for all nested domains. & init\_mode=5,6
+\tabularnewline
+
+%\hline
+ltile\_init&
+L & .FALSE.& &
+True: initialize tiled surface fields from a first guess coming from a run without tiles. \\
+Along coastlines and lake shores, a neighbor search is executed to fill the variables on previously non-existing
+land or water points with reasonable values. Should be combined with ltile\_coldstart = .TRUE. & init\_mode=1,5,6
 \tabularnewline
 
 %\hline
 ltile\_coldstart&
 L & .FALSE.& &
-If true, tiled surface fields are initialized with tile-averaged fields (or first-guess fields from a no-tile run). \\
-Along coastlines and lake shores, a neighbor search is executed to fill the variables on previously non-existing
-land or water points with reasonable values. & init\_mode=5,6
+If true, tiled surface fields are initialized with tile-averaged fields from a previous run with tiles. \\
+A neighbor search is applied to subgrid-scale ocean points for SST and sea-ice fraction. & init\_mode=1,5,6
 \tabularnewline
+
+%\hline
+lvert\_remap\_fg&
+L & .FALSE.& &
+If true, vertical remapping is applied to the atmospheric first-guess fields, whereas the analysis increments
+remain unchanged. The number of model levels must be the same for input and output fields, and the z\_ifc 
+(alias HHL) field pertaining to the input fields must be appended to the first-guess file. & init\_mode=5,6
+\tabularnewline
+
 
 %\hline
 \textbf{ifs2icon\_filename}&
@@ -1862,7 +1879,7 @@ Filename of DWD first-guess input file, default
 ''\texttt{<path>dwdFG\_R<nroot>B<jlev>\_DOM <idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
-and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6,8
+and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6
 \tabularnewline
 
 %\hline
@@ -1875,7 +1892,7 @@ Filename of DWD analysis input file, default
 <idom>.nc}''.
 May contain the keywords \texttt{<path>} which will be substituted by
 \texttt{model\_base\_dir}, as well as \texttt{nroot}, \texttt{jlev},
-and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6,8
+and \texttt{idom} defining the current patch. & init\_mode=1,3,5,6
 \tabularnewline
 
 %\hline
@@ -1889,11 +1906,19 @@ If this parameter has not been set, we try to determine the file type by its ext
 
 
 %\hline
-\textbf{ana\_varlist} &
-C& & &
-List of mandatory analysis fields that must be present in the analysis file. If these fields are not found, 
+ana\_varlist &
+C(:)& & &
+List of mandatory analysis fields for the \textbf{global domain} that must be present in the analysis file. If these fields are not found, 
 the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
-& init\_mode=1,5,6,8
+& init\_mode=1,5,6
+\tabularnewline
+
+%\hline
+ana\_varlist\_n2 &
+C(:)& & &
+List of mandatory analysis fields for \textbf{domain 2} that must be present in the analysis file. If these fields are not found, 
+the model aborts. For all other analysis fields, the FG-fields will serve as fallback position.
+& init\_mode=5,6
 \tabularnewline
 
 
@@ -2549,7 +2574,7 @@ I & 2 &  & type of bare soil evaporation parameterization \\
 
 %\hline
 itype\_heatcond &
-I & 1 &  & type of soil heat conductivity \\
+I & 2 &  & type of soil heat conductivity \\
 1 = constant soil heat conductivity\\
 2 = moisture dependent soil heat conductivity &
 \tabularnewline
@@ -2949,8 +2974,20 @@ I& 3 & &
 Type of divergence damping: \\
 2 = divergence damping acting on 2D divergence \\
 3 = divergence damping acting on 3D divergence \\
-32 = combination of 3D div. damping in the troposphere with transition to 2D div. damping in the stratosphere (recommended for data assimilation cycle only!) &
+32 = combination of 3D div. damping in the troposphere with transition to 2D div. damping in the stratosphere &
 lhdiff\_rcf = .TRUE.
+\tabularnewline
+
+divdamp\_trans\_start&
+R & 12500. & &
+Lower bound of transition zone between 2D and 3D divergence damping  &
+divdamp\_type = 32
+\tabularnewline
+
+divdamp\_trans\_end&
+R & 17500. & &
+Upper bound of transition zone between 2D and 3D divergence damping  &
+divdamp\_type = 32
 \tabularnewline
 
 %\hline
@@ -3134,6 +3171,14 @@ I&
  &
 0: off \\
 1: simple coupling between autoconversion and Tegen aerosol climatology; requires irad\_aero=6 &
+\tabularnewline
+
+icpl\_o3\_tp&
+I&
+1&
+ &
+0: off \\
+1: simple coupling between the ozone mixing ratio and the thermal tropopause, restricted to the extratropics & irad\_o3 = 7 or 9
 \tabularnewline
 
 %\hline
@@ -4168,7 +4213,91 @@ more than one 2D slice at once. &
 
 Defined and used in: \verb+src/namelists/mo_parallel_nml.f90+
 
+%------------------------------------------------------------------------------
+% psrad_nml:
+%------------------------------------------------------------------------------
+\subsection{psrad\_nml}
 
+\begin{longtab}
+
+%\hline
+lradforcing &
+L(2)&
+.FALSE.&
+&
+switch for diagnostics of aerosol forcing in the solar spectral range
+(lradforcing(1)) and the thermal spectral range (lradforcing(2)). 
+\tabularnewline
+
+%hline
+lw\_gpts\_ts &
+I&
+1&
+&
+number of g--points in Monte--Carlo
+   spectral integration for thermal radiation, see lw\_spec\_samp
+\tabularnewline
+
+%hline
+lw\_spec\_samp &
+I&
+1&
+&
+sampling of spectral bands in radiation
+calculation for thermal radiation\newline
+lw\_spec\_samp = 1: standard broad
+band sampling\newline
+lw\_spec\_samp = 2: Monte--Carlo spec-
+ tral integration (MSCI); lw\_gpts\_ts
+randomly chosen g--points per column
+ and radiation call\newline
+lw\_spec\_samp = 3: choose g--points not
+ completely randomly in order to reduce
+errors in the surface radiative fluxes
+\tabularnewline
+
+%hline
+rad\_perm &
+I&
+0&
+&
+integer number that influences the perturba- 
+  tion of the random seed from column 
+  to column
+\tabularnewline
+
+%hline
+sw\_gpts\_ts &
+I&
+1&
+&
+number of g--points in Monte--Carlo 
+    spectral integration for solar radiation, 
+    see sw\_spec\_samp 
+\tabularnewline
+
+
+%hline
+sw\_spec\_samp&
+I&
+1&
+&
+sampling of spectral bands in radiation 
+calculation for solar radiation \newline
+sw\_spec\_samp = 1: standard broad 
+band sampling\newline 
+sw\_spec\_samp = 2: Monte--Carlo spectral integration (MSCI); lw\_gpts\_ts 
+  randomly chosen g--points per column 
+    and radiation call\newline 
+    sw\_spec\_samp = 3: choose g--points not 
+      completely randomly in order to reduce 
+      errors in the surface radiative fluxes 
+\tabularnewline
+
+%hline
+\end{longtab}
+
+Defined and used in: \verb+src/echam_phy_psrad/mo_psrad_radiation.f90+
 %------------------------------------------------------------------------------
 % radiation_nml:
 %------------------------------------------------------------------------------
@@ -4249,6 +4378,22 @@ iforcing=inwp
 \tabularnewline
 
 %\hline
+\textbf{direct\_albedo}&
+I&
+4&
+&
+Direct beam surface albedo. Options mainly differ in terms of their solar zenith angle (SZA) dependency\\
+1: SZA dependency following Ritter-Geleyn; applied to unconditionally all grid points\\
+2: SZA dependency following Zaengl (pers.\ comm.). Same as 1 for water, but for 'rough surfaces' over land the direct albedo 
+   is not allowed to exceed the corresponding broadband diffuse albedo.\\
+3: SZA dependency following Yang (2008) for snow-free land points. Same as 1 for water/ice and 2 for snow.\\
+4: SZA dependency following Briegleb (1992) for snow-free land points. Same as 1 for water/ice and 2 for snow.
+&
+iforcing=inwp\\
+albedo\_type=2
+\tabularnewline
+
+%\hline
 irad\_h2o\par
 irad\_co2\par
 irad\_ch4\par
@@ -4277,7 +4422,9 @@ Switches for the concentration of radiative agents\par
 irad\_o3 = 2: ozone climatology from MPI \par
 irad\_o3 = 4: ozone clim for Aqua Planet Exp \par
 irad\_o3 = 6: ozone climatology with T5 geographical distribution and Fourier series for seasonal cycle {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
-irad\_o3 = 7: GEMS ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)}
+irad\_o3 = 7: GEMS ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
+irad\_o3 = 8: ozone climatology for AMIP \par
+irad\_o3 = 9: MACC ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)}
 &
 Note: until further notice, please use \par
 irad\_h2o = 1\par
@@ -4605,6 +4752,75 @@ read smoothed topography from file (TRUE) or compute internally (FALSE)&
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_sleve_nml.f90+
+
+
+%-----------------------------------------------------------------------------
+% synsat_nml:
+%-----------------------------------------------------------------------------
+\subsection[synsat\_nml]{synsat\_nml%
+\footnote{Important note: This feature is currently active for configuration \texttt{dwd+cray} only.}}
+
+This namelist enables the RTTOV library incorporated into ICON for
+simulating satellite radiance and brightness temperatures.
+%
+RTTOV is a radiative transfer model for nadir-viewing passive visible, infrared
+and microwave satellite radiometers, spectrometers and
+interferometers, see
+\begin{center}
+\verb+https://nwpsaf.eu/deliverables/rtm+
+\end{center}
+for detailed information.
+
+\begin{longtab}
+
+%\hline
+{lsynsat}&
+L (max\_dom) & .FALSE.& 
+& Main switch: Enables/disables computation of synthetic satellite imagery for each model domain.
+&
+\tabularnewline
+
+%\hline
+{nlev\_rttov}&
+I& 51&
+& Number of RTTOV levels.
+&
+\tabularnewline
+
+%\hline
+\end{longtab}
+
+Enabling the synsat module makes the following 32 two-dimensional output fields available:
+%
+{\renewcommand{\baselinestretch}{1.25}\normalsize%
+\begin{tabbing}
+\hspace*{14em} \= \hspace*{14em} \= \hspace*{14em} \= \hspace*{14em} \kill
+\verb+SYNMSG_RAD_CL_IR3.9+   \>  \verb+SYNMSG_BT_CL_IR3.9+    \>
+\verb+SYNMSG_RAD_CL_WV6.2+   \>   \verb+SYNMSG_BT_CL_WV6.2+   \\
+\verb+SYNMSG_RAD_CL_WV7.3+   \>   \verb+SYNMSG_BT_CL_WV7.3+   \>
+\verb+SYNMSG_RAD_CL_IR8.7+   \>   \verb+SYNMSG_BT_CL_IR8.7+   \\
+\verb+SYNMSG_RAD_CL_IR9.7+   \>   \verb+SYNMSG_BT_CL_IR9.7+   \>
+\verb+SYNMSG_RAD_CL_IR10.8+  \>   \verb+SYNMSG_BT_CL_IR10.8+  \\
+\verb+SYNMSG_RAD_CL_IR12.1+  \>   \verb+SYNMSG_BT_CL_IR12.1+  \>
+\verb+SYNMSG_RAD_CL_IR13.4+  \>   \verb+SYNMSG_BT_CL_IR13.4+  \\
+\verb+SYNMSG_RAD_CS_IR3.9+   \>   \verb+SYNMSG_BT_CS_IR3.9+   \>
+\verb+SYNMSG_RAD_CS_WV6.2+   \>   \verb+SYNMSG_BT_CS_WV6.2+   \\
+\verb+SYNMSG_RAD_CS_WV7.3+   \>   \verb+SYNMSG_BT_CS_WV7.3+   \>
+\verb+SYNMSG_RAD_CS_IR8.7+   \>   \verb+SYNMSG_BT_CS_IR8.7+   \\
+\verb+SYNMSG_RAD_CS_IR9.7+   \>   \verb+SYNMSG_BT_CS_IR9.7+   \>
+\verb+SYNMSG_RAD_CS_IR10.8+  \>   \verb+SYNMSG_BT_CS_IR10.8+  \\
+\verb+SYNMSG_RAD_CS_IR12.1+  \>   \verb+SYNMSG_BT_CS_IR12.1+  \>
+\verb+SYNMSG_RAD_CS_IR13.4+  \>   \verb+SYNMSG_BT_CS_IR13.4+
+\end{tabbing}
+}
+Here, 
+\verb+RAD+ denotes radiance, 
+\verb+BT+ brightness temperature,
+\verb+CL+ cloudy, and
+\verb+CS+ clear sky, 
+supplemented by the channel name.
+
+Defined and used in: \verb+src/namelists/mo_synsat_nml.f90+
 
 
 %------------------------------------------------------------------------------
@@ -4959,7 +5175,7 @@ Lower bound of velocity-dependent Charnock parameter &
 
 %\hline
 alpha0\_max &
-R                &     0.0123      & 1 &
+R                &     0.0335      & 1 &
 Upper bound of velocity-dependent Charnock parameter. Setting this parameter to 0.0335 or higher values implies unconstrained 
 velocity dependence & 
 \tabularnewline
@@ -4974,9 +5190,23 @@ for heat and moisture &
 %\hline
 tkmmin &
 R                &     0.75      & $\mathrm{m^2/s}$ &
-Scaling factor for minimum vertical diffusion coefficient  (proportional to $1/\sqrt{Ri}$)
+Scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
  for momentum & 
 \tabularnewline
+
+
+tkmmin\_strat &
+R                &     5      & $\mathrm{m^2/s}$ &
+Enhanced scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
+ for momentum, valid in the stratosphere above 30 km & 
+\tabularnewline
+
+tkhmin\_strat &
+R                &     5      & $\mathrm{m^2/s}$ &
+Enhanced scaling factor for minimum vertical diffusion coefficient (proportional to $1/\sqrt{Ri}$)
+for heat and moisture, valid in the stratosphere above 30 km  &
+\tabularnewline
+
 
 %\hline
 itype\_synd &
@@ -6033,6 +6263,19 @@ pre-factor of topography smoother
 &
 n\_iter\_smooth\_topo $>$ 0
 \tabularnewline
+
+
+%\hline
+hgtdiff\_max\_smooth\_topo&
+R &
+0. &
+m &
+RMS height difference to neighbor grid points at which the smoothing pre-factor fac\_smooth\_topo
+reaches its maximum value (linear proportionality for weaker slopes)
+&
+n\_iter\_smooth\_topo $>$ 0
+\tabularnewline
+
 
 %\hline
 heightdiff\_threshold&

@@ -28,6 +28,7 @@ MODULE mo_master_nml
        &                       max_timedelta_str_len, timedeltaToString,                     &
        &                       OPERATOR(+), OPERATOR(<)
   USE mo_master_config,  ONLY: master_component_models, addModel, noOfModels, maxNoOfModels, &
+       &                       setInstitution,                                               &
        &                       setRestart, isREstart, setModelBaseDir,                       &
        &                       setExpRefdate,                                                &
        &                       setExpStartdate, setExpStopdate,                              &
@@ -58,6 +59,7 @@ CONTAINS
     
     ! Namelist variables
 
+    CHARACTER(len=256) :: institute = ''
     LOGICAL :: lRestart = .FALSE.
     CHARACTER(len=filename_max) :: modelBaseDir = ''
     
@@ -79,6 +81,7 @@ CONTAINS
     CHARACTER(len=max_timedelta_str_len) :: restartTimeIntval = ''
     
     NAMELIST /master_nml/              &
+         &    institute,               &
          &    lRestart,                &
          &    modelBaseDir
     
@@ -123,6 +126,19 @@ CONTAINS
       READ (nnml, master_nml)
     ENDIF
 
+    SELECT CASE (institute)
+    CASE ('DWD')
+      CALL setInstitution('Deutscher Wetterdienst')
+    CASE ('MPIM')  
+      CALL setInstitution('Max Planck Institute for Meteorology')
+    CASE ('KIT')  
+      CALL setInstitution('Karlsruhe Institute for Technology')
+    CASE ('CSCS')
+      CALL setInstitution('Swiss National Supercomputing Centre')      
+    CASE DEFAULT
+      CALL setInstitution('Max Planck Institute for Meteorology/Deutscher Wetterdienst')
+    END SELECT
+    
     ! save namelist variables in configuration
 
     CALL setRestart(lRestart)
@@ -186,8 +202,6 @@ CONTAINS
         CALL message('','No restart and checkpoint time interval given: depend on restart file.')
       ENDIF
     ENDIF
-
-
 
     ! inform about time setup
 

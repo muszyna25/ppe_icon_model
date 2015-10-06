@@ -40,6 +40,7 @@ MODULE mo_ocean_surface
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
+  USE mo_cdi,                 ONLY: DATATYPE_FLT32, DATATYPE_PACK16
   USE mo_datetime,            ONLY: t_datetime
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ocean_ext_data,      ONLY: ext_data
@@ -76,7 +77,6 @@ MODULE mo_ocean_surface
   USE mo_sea_ice_refactor,    ONLY: ice_slow_slo
   USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection_vla, ice_ocean_stress !ice_advection
   USE mo_sea_ice_nml,         ONLY: use_calculated_ocean_stress, i_ice_dyn
-  USE mo_ocean_coupling,      ONLY: couple_ocean_toatmo_fluxes
 
   IMPLICIT NONE
   
@@ -365,9 +365,10 @@ CONTAINS
     CASE (Coupled_FluxFromAtmo)                                       !  14
 
       !  Driving the ocean in a coupled mode:
+      !  nothing to be done, atmospheric fluxes are provided at the end of time stepping
       !  atmospheric fluxes drive the ocean; fluxes are calculated by atmospheric model
-      !  use atmospheric fluxes directly, i.e. no bulk formula as for OMIP are applied
-      CALL couple_ocean_toatmo_fluxes(p_patch_3D, p_os, p_ice, atmos_fluxes, datetime)
+      !  use atmospheric fluxes directly, i.e. no bulk formula as for OMIP is applied
+      CONTINUE
 
     CASE DEFAULT
 

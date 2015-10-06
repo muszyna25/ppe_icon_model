@@ -93,7 +93,9 @@ MODULE mo_interface_iconam_echam
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
   USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
-
+#ifndef __NO_JSBACH__
+  USE mo_jsb_interface         ,ONLY: jsbach_start_timestep, jsbach_finish_timestep
+#endif
   USE mo_timer                 ,ONLY: ltimer, timer_start, timer_stop,           &
     &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
@@ -164,7 +166,6 @@ CONTAINS
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
     LOGICAL  :: ltrig_rad
-    REAL(wp) :: time_radtran
     TYPE(t_datetime)   :: datetime_radtran !< date and time for radiative transfer calculation
 
     INTEGER  :: return_status
@@ -394,7 +395,6 @@ CONTAINS
       &                        patch        ,&! in
       &                        dtadv_loc    ,&! in
       &                        ltrig_rad    ,&! out
-      &                        time_radtran ,&! out
       &                        datetime_radtran) ! out
 
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
@@ -409,6 +409,12 @@ CONTAINS
     !     to the parameterization of vertical turbulent fluxes.
     !
     IF (ltimer) CALL timer_start(timer_echam_phy)
+
+#ifndef __NO_JSBACH__
+    IF (echam_phy_config%ljsbach) THEN
+      CALL jsbach_start_timestep(jg)
+    END IF
+#endif
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
@@ -437,7 +443,6 @@ CONTAINS
         &                  dtadv_loc    ,&! in
         &                  dtadv_loc    ,&! in
         &                  ltrig_rad    ,&! in
-        &                  time_radtran ,&! in
         &                  datetime_radtran) ! in
 
     END DO
@@ -448,6 +453,11 @@ CONTAINS
     !
     !=====================================================================================
 
+#ifndef __NO_JSBACH__
+    IF (echam_phy_config%ljsbach) THEN
+      CALL jsbach_finish_timestep(jg)
+    END IF
+#endif
     !=====================================================================================
     !
     ! (5) Couple to ocean surface if an ocean is present and this is a coupling time step.

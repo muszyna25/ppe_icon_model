@@ -253,15 +253,15 @@ CONTAINS
       !
       ! Are any layers cloudy? 
       !
-	  colcldMask(1:kproma,       1:n_gpts_ts) = ANY(cldMask(1:kproma,1:klev,1:n_gpts_ts), DIM=2)
+       colcldMask(1:kproma,       1:n_gpts_ts) = ANY(cldMask(1:kproma,1:klev,1:n_gpts_ts), DIM=2)
       !
       ! Clear-sky scaling is gpt_scaling/frac_clr or 0 if all samples are cloudy 
       !
-	  clrSky_scaling(1:kproma) = gpt_scaling *                  &
-								 MERGE( REAL(n_gpts_ts,KIND=wp) / &
-                                       (REAL(n_gpts_ts - COUNT(colCldMask(1:kproma,:),DIM=2),KIND=wp)), &
-									   0._wp,                   &
-                                       ANY(.not. colCldMask(1:kproma,:),DIM=2))
+       clrSky_scaling(1:kproma) = gpt_scaling *                  &
+            MERGE( REAL(n_gpts_ts,KIND=wp) / &
+            (REAL(n_gpts_ts - COUNT(colCldMask(1:kproma,:),DIM=2),KIND=wp)), &
+            0._wp,                   &
+            ANY(.not. colCldMask(1:kproma,:),DIM=2))
     END IF
     !
     ! ---  2.2. Gas optical depth calculations
@@ -410,14 +410,14 @@ CONTAINS
         !
 !IBM* ASSERT(NODEPS)
         DO jk = 0, klev
-		  uflxc(1:kproma,jk) = uflxc(1:kproma,jk)                             &
-							 + MERGE(0._wp,                                   &
-									 zgpfu(1:kproma,jk) * clrSky_scaling(1:kproma), &
-									 colCldMask(1:kproma,ig))
-		  dflxc(1:kproma,jk) = dflxc(1:kproma,jk)                             &
-							 + MERGE(0._wp,                                   &
-									 zgpfd(1:kproma,jk) * clrSky_scaling(1:kproma), &
-									 colCldMask(1:kproma,ig))
+           uflxc(1:kproma,jk) = uflxc(1:kproma,jk)                             &
+                + MERGE(0._wp,                                   &
+                zgpfu(1:kproma,jk) * clrSky_scaling(1:kproma), &
+                colCldMask(1:kproma,ig))
+           dflxc(1:kproma,jk) = dflxc(1:kproma,jk)                             &
+                + MERGE(0._wp,                                   &
+                zgpfd(1:kproma,jk) * clrSky_scaling(1:kproma), &
+                colCldMask(1:kproma,ig))
         END DO 
       END IF 
     END DO ! Loop over samples
@@ -426,15 +426,15 @@ CONTAINS
     ! ---  3.1 If computing clear-sky fluxes from samples, flag any columns where all samples were cloudy
     ! 
     ! --------------------------------
-	IF(.not. l_do_sep_clear_sky) THEN 
+    IF(.not. l_do_sep_clear_sky) THEN 
 !IBM* ASSERT(NODEPS)
-	  DO jl = 1, kproma
-	    IF(ALL(colCldMask(jl,:))) THEN
-	      uflxc(jl,0:klev) = rad_undef
-	      dflxc(jl,0:klev) = rad_undef
-	    END IF
-	  END DO 
-	END IF 
+       DO jl = 1, kproma
+          IF(ALL(colCldMask(jl,:))) THEN
+             uflxc(jl,0:klev) = rad_undef
+             dflxc(jl,0:klev) = rad_undef
+          END IF
+       END DO
+    END IF
   END SUBROUTINE lrtm
 
   !----------------------------------------------------------------------------

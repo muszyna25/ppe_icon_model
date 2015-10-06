@@ -51,7 +51,7 @@ done
 check_error $? "oce_numeric: $nclCaller"
 
 # check for identical results compared to the reference
-slave=${BB_SLAVE:-thunder_gcc}
+slave=${BB_SYSTEM:-thunder}_${BB_SLAVE:-gcc}
 refDir=${ocean_data_MainFolder}/reference/${slave}/${EXPNAME}
 #case ${slave} in  
 #  thunder*)

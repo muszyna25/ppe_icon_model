@@ -63,6 +63,7 @@ MODULE mo_nh_testcases_nml
     &       ape_sst_case, ape_sst_val, w_perturb, th_perturb,                &
     &       mount_height, torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,  &
     &       jw_up, rh_at_1000hpa,  qv_max,                                   &
+    &       tpe_moist, tpe_psfc, tpe_temp,                                   &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              & 
     &       linit_tracer_fv, lhs_fric_heat, lcoupled_rho, u_cbl, v_cbl,      &
     &       th_cbl, psfc_cbl, sol_const, zenithang, bubctr_x, bubctr_y
@@ -86,6 +87,9 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: hs_nh_vn_ptb_scale     ! amplitude of the random noise
   REAL(wp) :: rh_at_1000hpa          ! relative humidity at 1000 hPa [%]
   REAL(wp) :: qv_max                 ! limit of maximum specific humidity in the tropics [kg/kg]
+  REAL(wp) :: tpe_moist              ! initial total moisture content for terra planet [kg/m2]
+  REAL(wp) :: tpe_psfc               ! initial surface pressure for terra planet [Pa]
+  REAL(wp) :: tpe_temp               ! iitial atmospheric temperature for terra planet [K]
   REAL(wp) :: ape_sst_val            ! (K) value to be used for SST computation for aqua planet
   REAL(wp) :: w_perturb, th_perturb !Random perturbation scale for torus based experiments
   REAL(wp) :: sol_const              ! [W/m2] solar constant
@@ -108,6 +112,7 @@ MODULE mo_nh_testcases_nml
                             rotate_axis_deg,                                 &
                             lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,               &
                             rh_at_1000hpa, qv_max,                           &
+                            tpe_moist, tpe_psfc, tpe_temp,                   &
                             ape_sst_case, ape_sst_val,                       &
                             linit_tracer_fv, lhs_fric_heat,                  &
                             qv_max_wk, u_infty_wk,                           &
@@ -173,6 +178,9 @@ MODULE mo_nh_testcases_nml
     lhs_fric_heat          = .FALSE.
     hs_nh_vn_ptb_scale     = 1._wp  ! magnitude of the random noise
     rh_at_1000hpa          = 0.7_wp
+    tpe_moist              = 25._wp
+    tpe_psfc               = 1.e5_wp
+    tpe_temp               = 290._wp
     qv_max                 = 20.e-3_wp ! 20 g/kg
     ape_sst_case           = 'sst1'
     ape_sst_val            = 29.0_wp ! 29 degC

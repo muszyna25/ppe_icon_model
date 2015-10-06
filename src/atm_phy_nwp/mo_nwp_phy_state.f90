@@ -55,8 +55,7 @@ USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               HINTP_TYPE_LONLAT_BCTR,             &
   &                               HINTP_TYPE_LONLAT_RBF,              &
   &                               nexlevs_rrg_vnest, RTTOV_BT_CL,     &
-  &                               RTTOV_BT_CS, RTTOV_RAD_CL,          &
-  &                               RTTOV_RAD_CS
+  &                               RTTOV_RAD_CL, RTTOV_RAD_CS
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: nqtendphy, iqv, iqc, iqi, lart
 USE mo_exception,           ONLY: message, finish !,message_text
@@ -69,8 +68,7 @@ USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list
-USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, CLASS_TILE, CLASS_SYNSAT,       &
-  &                               VARNAME_LEN
+USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, CLASS_SYNSAT,  VARNAME_LEN
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
   &                               create_hor_interp_metadata,   &
   &                               groups, vintp_types, post_op, &
@@ -79,25 +77,23 @@ USE mo_nwp_parameters,      ONLY: t_phy_params
 USE mo_cf_convention,       ONLY: t_cf_var
 USE mo_grib2,               ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
 USE mo_io_config,           ONLY: lflux_avg
+USE mo_cdi,                 ONLY: TSTEP_MIN, TSTEP_MAX, TSTEP_INSTANT, TSTEP_CONSTANT, TSTEP_AVG, TSTEP_ACCUM, DATATYPE_PACK16, &
+    &                             DATATYPE_FLT32
 USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,        &
   &                               GRID_CELL, ZA_HYBRID, ZA_HYBRID_HALF,          &
   &                               ZA_SURFACE, ZA_HEIGHT_2M, ZA_HEIGHT_10M,       &
-  &                               ZA_TOA, ZA_DEPTH_BELOW_LAND, DATATYPE_FLT32,   &
-  &                               DATATYPE_PACK16, TSTEP_INSTANT,                &
-  &                               TSTEP_ACCUM, TSTEP_AVG, TSTEP_MAX, TSTEP_MIN,  &
-  &                               TSTEP_CONSTANT, ZA_PRESSURE_0, ZA_PRESSURE_400,&
+  &                               ZA_TOA, ZA_DEPTH_BELOW_LAND,   &
+  &                               ZA_PRESSURE_0, ZA_PRESSURE_400,&
   &                               ZA_PRESSURE_800, ZA_CLOUD_BASE, ZA_CLOUD_TOP,  &
   &                               ZA_ISOTHERM_ZERO
 USE mo_physical_constants,  ONLY: grav
 USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
 
 USE mo_advection_config,     ONLY: advection_config
-USE mo_synsat_config,        ONLY: nlev_rttov, lsynsat, num_images,              &
-  &                                get_synsat_name, sat_compute, num_sensors,    &
-  &                                numchans, get_synsat_grib_triple
+USE mo_synsat_config,        ONLY: lsynsat, num_images, get_synsat_name, num_sensors, &
+  &                                total_numchans, get_synsat_grib_triple
 USE mo_art_config,           ONLY: nart_tendphy
 USE mo_art_tracer_interface, ONLY: art_tracer_interface
-USE mo_action_types,         ONLY: t_var_action
 USE mo_action,               ONLY: ACTION_RESET
 USE mo_les_nml,              ONLY: turb_profile_list, turb_tseries_list
 
@@ -281,10 +277,9 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     INTEGER :: a_steptype
     LOGICAL :: lrestart, lhave_graupel
 
-    TYPE(t_var_action) :: action_list_reset
     LOGICAL :: lradiance, lcloudy
     INTEGER :: ichan, idiscipline, icategory, inumber, &
-      &        wave_no, iimage, isens, k
+      &        wave_no, wave_no_scalfac, iimage, isens, k
     CHARACTER(LEN=VARNAME_LEN) :: shortname
     CHARACTER(LEN=128)         :: longname, unit
 
@@ -297,23 +292,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     shape3dsubs    = (/nproma, kblks,    ntiles_total     /)
     shape3dsubsw   = (/nproma, kblks,    ntiles_total+ntiles_water /)
 
-    ! Quick and dirty implementation of domain-specific statistics intervals
-    ! Initially, global domain and nest have distinct statistics intervals (3h vs. 1h). 
-    ! However, after 78h the statistics interval of the nest is re-set to that of the global domain.  
-    SELECT CASE(k_jg)
-    CASE(1)  ! global domain
-      action_list_reset = actions(new_action(ACTION_RESET,"PT03H"))
-    CASE(2)  ! nesting level 1
-      action_list_reset = actions(                                  &
-                  &               new_action(ACTION_RESET,"PT01H",  &
-                  &                          opt_end  ="P03DT06H"), &
-                  &               new_action(ACTION_RESET,"PT03H",  &
-                  &                          opt_start="P03DT06H",  &
-                  &                          opt_ref  ="P03DT06H")  &
-                  &               )
-    CASE DEFAULT
-      action_list_reset = actions(new_action(ACTION_RESET,"PT03H"))
-    END SELECT
 
     ! Register a field list and apply default settings
 
@@ -675,7 +653,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                 & ldims=shape2d, lrestart=.TRUE., in_group=groups("pbl_vars"), &
                 & isteptype=TSTEP_MAX,                                         &
                 & initval=0._wp, resetval=0._wp,                               &
-                & action_list=action_list_reset )
+                & action_list=actions(new_action(ACTION_RESET,"PT01H")) )
 
     ! &      diag%dyn_gust(nproma,nblks_c)
     cf_desc    = t_cf_var('dyn_gust', 'm s-1 ', 'dynamical gust', DATATYPE_FLT32)
@@ -1827,7 +1805,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.TRUE.,                                   &
       & isteptype=TSTEP_MAX, initval=-999._wp, resetval=-999._wp,         &
-      & action_list=action_list_reset, &
+      & action_list=actions(new_action(ACTION_RESET,"PT06H")),            &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
       &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) ) 
 
@@ -1838,7 +1816,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M, cf_desc, grib2_desc,        &
       & ldims=shape2d, lrestart=.TRUE.,                                   &
       & isteptype=TSTEP_MIN, initval=999._wp, resetval=999._wp,           &
-      & action_list=action_list_reset, &
+      & action_list=actions(new_action(ACTION_RESET,"PT06H")),            &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_BCTR, &
       &                                       fallback_type=HINTP_TYPE_LONLAT_RBF) )
 
@@ -2560,9 +2538,10 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       iimage = 0
       sensor_loop: DO isens = 1, num_sensors
 
-        DO ichan = 1,numchans(isens)
+        DO ichan = 1,total_numchans(isens)
 
           DO k=1,4
+            ! the following translation can be derived by gazing at the corresponding RTTOV loop
             lradiance = ((MOD(iimage,4)+1) == RTTOV_RAD_CL) .OR. ((MOD(iimage,4)+1) == RTTOV_RAD_CS)
             lcloudy   = ((MOD(iimage,4)+1) == RTTOV_BT_CL)  .OR. ((MOD(iimage,4)+1) == RTTOV_RAD_CL)
             iimage = iimage + 1
@@ -2575,12 +2554,13 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
             CALL get_synsat_name(lradiance, lcloudy, ichan, shortname, longname)
             CALL get_synsat_grib_triple(lradiance, lcloudy, ichan,       &
-              &                         idiscipline, icategory, inumber, wave_no)
+              &                         idiscipline, icategory, inumber, &
+              &                         wave_no, wave_no_scalfac)
             
             cf_desc    = t_cf_var(TRIM(shortname), TRIM(unit), TRIM(longname), DATATYPE_FLT32)
             grib2_desc = grib2_var(idiscipline, icategory, inumber, ibits, GRID_REFERENCE, GRID_CELL)   &
-              &           + t_grib2_int_key("productDefinitionTemplateNumber", 31)                      &
               &           + t_grib2_int_key("scaledValueOfCentralWaveNumber", wave_no)                  &
+              &           + t_grib2_int_key("scaleFactorOfCentralWaveNumber", wave_no_scalfac)          &
               &           + t_grib2_int_key("satelliteSeries", 333)                                     &
               &           + t_grib2_int_key("satelliteNumber",  72)                                     &
               &           + t_grib2_int_key("instrumentType",  207)

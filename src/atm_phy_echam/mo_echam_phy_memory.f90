@@ -52,13 +52,13 @@ MODULE mo_echam_phy_memory
   USE mo_var_metadata,        ONLY: create_vert_interp_metadata, vintp_types
   USE mo_cf_convention,       ONLY: t_cf_var
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
+  USE mo_cdi,                 ONLY: DATATYPE_PACK16, DATATYPE_PACK24,  &
+    &                               DATATYPE_FLT32,                    &
+    &                               TSTEP_INSTANT, TSTEP_AVG, cdiDefMissval
   USE mo_cdi_constants,       ONLY: GRID_REFERENCE,                    &
     &                               GRID_UNSTRUCTURED_CELL, GRID_CELL, &
     &                               ZA_HYBRID, ZA_HYBRID_HALF,         &
-    &                               ZA_SURFACE, ZA_GENERIC_ICE,        &
-    &                               DATATYPE_PACK16, DATATYPE_PACK24,  &
-    &                               DATATYPE_FLT32,                    &
-    &                               TSTEP_INSTANT, TSTEP_AVG
+    &                               ZA_SURFACE, ZA_GENERIC_ICE
   USE mo_sea_ice_nml,         ONLY: kice
 
 
@@ -881,13 +881,13 @@ CONTAINS
     !------------------
     ! 2D variables
 
-   !ALLOCATE( field% cosmu0    (nproma,       nblks),          &
-    cf_desc    = t_cf_var('cosmu0', '', 'cosine of the zenith angle', DATATYPE_FLT32)
+    cf_desc    = t_cf_var('cosmu0'    , '', 'cosine of the zenith angle for rad. heating' , DATATYPE_FLT32)
     grib2_desc = grib2_var(192,214,1, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'cosmu0', field%cosmu0,                   &
+    CALL add_var( field_list, prefix//'cosmu0'    , field%cosmu0,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
-    cf_desc    = t_cf_var('cosmu0_rad', '', '', DATATYPE_FLT32)
-    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+
+    cf_desc    = t_cf_var('cosmu0_rad', '', 'cosine of the zenith angle for rad. transfer', DATATYPE_FLT32)
+    grib2_desc = grib2_var(192,214,1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'cosmu0_rad', field%cosmu0_rad,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 

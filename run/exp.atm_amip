@@ -40,11 +40,12 @@ start_date="1979-01-01T00:00:00Z"
   end_date="2009-01-01T00:00:00Z"
 
 # restart intervals
-checkpoint_interval="P1M"
+checkpoint_interval="P1Y"
 restart_interval="P1Y"
 
 # output intervals
-output_interval="PT6H"
+output_interval_3d="PT6H"
+output_interval_2d="PT2H"
 file_interval="P1M"
 
 # namelist files
@@ -67,7 +68,6 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 600         ! [s] time step   !! MUST BE EQUAL TO "modelTimeStep" !!
  modelTimeStep    = "PT10M"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
@@ -78,6 +78,7 @@ cat > ${atmo_namelist} << EOF
  msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
  irad_type        = 2
+ activate_sync_timers = .TRUE.
 /
 &extpar_nml
  itopo            = 1           ! 1: read topography from the grid file
@@ -147,14 +148,18 @@ cat > ${atmo_namelist} << EOF
  lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
  ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
  izenith          = 4           ! 4: seasonal and diurnal cycle
- isolrad          = 0           ! 1: transient solar irradiance (at 1 AE)
+ isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
 rad_perm          = 1           ! Integer for perturbing random number seeds
 /
 &echam_conv_nml
 /
+&echam_cloud_nml
+/
 &gw_hines_nml
+/
+&sea_ice_nml
 /
 EOF
 
@@ -293,7 +298,6 @@ cat >> ${atmo_namelist} << EOF
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
- lzaxis_reference = .FALSE. 
 /
 EOF
 
@@ -314,11 +318,11 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
+ output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull'
+                    'zg','pfull','ps'
 /
 EOF
 fi
@@ -336,10 +340,10 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
+ output_interval  = "${output_interval_2d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ps'      , 'psl'     ,
+ ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
                     'cosmu0'  , 'daylght_frc', 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
@@ -381,7 +385,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
+ output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
@@ -396,7 +400,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_va_cnv'  ,
                     'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
                     'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,
-                    'pfull'
+                    'pfull','ps'
 /
 EOF
 fi
@@ -414,13 +418,13 @@ if [[ "$output_aer_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
+ output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'aer_aod_533',  'aer_ssa_533',  'aer_asy_533' , 
                     'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325', 
                     'aer_aod_9731',
-                    'pfull'
+                    'pfull','ps'
 /
 EOF
 fi
@@ -438,7 +442,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval}"
+ output_interval  = "${output_interval_2d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'

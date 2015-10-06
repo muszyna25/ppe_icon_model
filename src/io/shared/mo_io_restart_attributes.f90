@@ -7,10 +7,12 @@
 !! headers of the routines.
 MODULE mo_io_restart_attributes
   !
+  USE ISO_C_BINDING,            ONLY: C_DOUBLE, C_INT
   USE mo_kind,                  ONLY: wp, i8
   USE mo_exception,             ONLY: finish
   USE mo_mpi,                   ONLY: p_bcast
-  USE mo_cdi_constants
+  USE mo_cdi,                   ONLY: DATATYPE_FLT64, DATATYPE_INT32, DATATYPE_TXT, CDI_GLOBAL, vlistInqNatts, vlistInqAtt, &
+      &                               vlistInqAttFlt, vlistInqAttInt, vlistInqAttTxt
   !
   IMPLICIT NONE
   !
@@ -29,8 +31,8 @@ MODULE mo_io_restart_attributes
   !------------------------------------------------------------------------------------------------
   !
   TYPE t_att_text
-    CHARACTER(len=64) :: name
-    CHARACTER(len=64) :: val
+    CHARACTER(len= 64) :: name
+    CHARACTER(len=256) :: val
   END TYPE t_att_text
   !
   TYPE t_att_real
@@ -322,8 +324,10 @@ CONTAINS
     INTEGER, INTENT(IN) :: root_pe      !< rank of broadcast root PE
     INTEGER, INTENT(IN) :: comm         !< MPI communicator
     !
-    CHARACTER(len=64) :: att_name
-    INTEGER :: natts, att_type, att_len, status, text_len, mlen, i
+    CHARACTER(len=256) :: att_name
+    INTEGER :: natts, att_type, att_len, status, text_len, i
+    REAL(KIND = C_DOUBLE) :: oneDouble(1)
+    INTEGER(KIND = C_INT) :: oneInt(1)
     !
     IF (.NOT. ALLOCATED(restart_attributes_text)) THEN
       ALLOCATE(restart_attributes_text(nmax_atts))
@@ -364,9 +368,8 @@ CONTAINS
         IF (natts_real > SIZE(restart_attributes_real))  CALL finish("", "Too many restart arguments!")
         restart_attributes_real(natts_real)%name = TRIM(att_name)
         IF (lread_pe) THEN
-          mlen   = 1
-          status =  vlistInqAttFlt(vlistID, CDI_GLOBAL, &              
-            &                      TRIM(att_name), mlen, restart_attributes_real(natts_real)%val)
+          status = vlistInqAttFlt(vlistID, CDI_GLOBAL, TRIM(att_name), 1, oneDouble)
+          restart_attributes_real(natts_real)%val = oneDouble(1)
         END IF
         CALL p_bcast(restart_attributes_real(natts_real)%val, root_pe, comm)
       CASE(DATATYPE_INT32)
@@ -375,21 +378,18 @@ CONTAINS
           IF (natts_bool > SIZE(restart_attributes_bool))  CALL finish("", "Too many restart arguments!")
           restart_attributes_bool(natts_bool)%name = TRIM(att_name(6:))
           IF (lread_pe) THEN
-            mlen   = 1
-            status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
-              &                      TRIM(att_name), mlen, restart_attributes_bool(natts_bool)%store)
+            status = vlistInqAttInt(vlistID, CDI_GLOBAL, TRIM(att_name), 1, oneInt)
+            restart_attributes_bool(natts_bool)%store = oneInt(1)
           END IF
           CALL p_bcast(restart_attributes_bool(natts_bool)%store, root_pe, comm)
-          restart_attributes_bool(natts_bool)%val = &
-               (restart_attributes_bool(natts_bool)%store == 1)
+          restart_attributes_bool(natts_bool)%val = (restart_attributes_bool(natts_bool)%store == 1)
         ELSE
           natts_int = natts_int+1
           IF (natts_int > SIZE(restart_attributes_int))  CALL finish("", "Too many restart arguments!")
           restart_attributes_int(natts_int)%name = TRIM(att_name)
           IF (lread_pe) THEN
-            mlen   = 1
-            status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
-              &                      TRIM(att_name), mlen, restart_attributes_int(natts_int)%val)
+            status = vlistInqAttInt(vlistID, CDI_GLOBAL, TRIM(att_name), 1, oneInt)
+            restart_attributes_int(natts_int)%val = oneInt(1)
           END IF
           CALL p_bcast(restart_attributes_int(natts_int)%val, root_pe, comm)
         ENDIF
@@ -400,7 +400,7 @@ CONTAINS
         restart_attributes_text(natts_text)%val  = ''
         IF (lread_pe) THEN
           text_len = att_len
-          status =  vlistInqAttTxt(vlistID, CDI_GLOBAL, &
+          status = vlistInqAttTxt(vlistID, CDI_GLOBAL, &
             &                   TRIM(att_name), text_len, restart_attributes_text(natts_text)%val)
         END IF
         CALL p_bcast(restart_attributes_text(natts_text)%val, root_pe, comm)

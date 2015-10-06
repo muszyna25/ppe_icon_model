@@ -84,7 +84,12 @@ MODULE mo_name_list_output
   USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
     &                                     ihs_ocean
   USE mo_dynamics_config,           ONLY: iequations
-  USE mo_cdi_constants              ! We need all
+  USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
+      &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
+      &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
+      &                                   cdiGetStringError, streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT
+  USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, &
+      &                                   GRID_UNSTRUCTURED_EDGE
   ! utility functions
   USE mo_io_units,                  ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_exception,                 ONLY: finish, message, message_text

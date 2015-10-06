@@ -86,7 +86,11 @@ MODULE mo_cover
   USE mo_kind,                 ONLY : wp
   USE mo_physical_constants,   ONLY : vtmpc1, cpd, grav
   USE mo_echam_convect_tables, ONLY : prepare_ua_index_spline,lookup_ua_eor_uaw_spline
+#ifndef __ICON__
   USE mo_echam_cloud_params,   ONLY : jbmin, jbmax, csatsc, crt, crs, nex, nadd, cinv
+#else
+  USE mo_echam_cloud_config,   ONLY: echam_cloud_config
+#endif
 #ifdef _PROFILE
   USE mo_profile,              ONLY : trace_start, trace_stop
 #endif
@@ -94,6 +98,13 @@ MODULE mo_cover
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cover
+
+#ifdef __ICON__
+  ! to simplify access to components of echam_cloud_config
+  INTEGER , POINTER :: jbmin, jbmax, nex, nadd
+  REAL(wp), POINTER :: csatsc, crt, crs, cinv
+#endif
+
 
 CONTAINS
   !>
@@ -154,6 +165,18 @@ CONTAINS
     REAL(wp) :: zknvb(kbdim),            zphase(kbdim)
 
     INTEGER :: loidx(kproma*klev)
+
+#ifdef __ICON__
+    ! to simplify access to components of echam_cloud_config
+    jbmin  => echam_cloud_config% jbmin
+    jbmax  => echam_cloud_config% jbmax
+    csatsc => echam_cloud_config% csatsc
+    crs    => echam_cloud_config% crs
+    crt    => echam_cloud_config% crt
+    nex    => echam_cloud_config% nex
+    nadd   => echam_cloud_config% nadd
+    cinv   => echam_cloud_config% cinv
+#endif
 
 #ifdef _PROFILE
     CALL trace_start ('cover', 9)
