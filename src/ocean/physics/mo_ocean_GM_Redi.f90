@@ -1474,10 +1474,10 @@ CONTAINS
     !-----------------------------------------------------------------
     !
     INTEGER, INTENT(in)   :: levels
-    REAL(wp), INTENT(in)  :: t(1:levels)        !  potential temperature (in ITS-90) [C]
-    REAL(wp), INTENT(in)  :: s(1:levels)        !  salinity (in PSS-78) [psu]
-    REAL(wp), INTENT(in)  :: p(1:levels)       !  pressure (in dezi-bar) [db]
-    REAL(wp)              :: coeff(1:levels,2) !  thermal expansion [1/C] and saline contraction [1/psu] coefficients
+    REAL(wp), INTENT(in)  :: t(:)        !  potential temperature (in ITS-90) [C]
+    REAL(wp), INTENT(in)  :: s(:)        !  salinity (in PSS-78) [psu]
+    REAL(wp), INTENT(in)  :: p(:)       !  pressure (in dezi-bar) [db]
+    REAL(wp)              :: coeff(1:n_zlev,2) !  thermal expansion [1/C] and saline contraction [1/psu] coefficients
 
     ! local variables, following the naming of the FESOM implementation
     REAL(wp):: aob(1:levels), t1(1:levels), t2(1:levels), t3(1:levels), t4(1:levels), &
