@@ -629,7 +629,7 @@ case "$ac_sitename" in
                       load_modules="gcc/4.8.2" "pgi/14.7" "${load_modules}"
                       ;;
                     intel)
-                      NETCDFFROOT  = $software_tree/netcdf_fortran-4.4.2-static-nag60
+                      NETCDFFROOT  = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
                       NETCDFROOT  = $software_tree/netcdf-4.3.3.1-static
                       MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
                       MPI_LIB     = -I$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil
