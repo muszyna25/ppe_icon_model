@@ -731,7 +731,7 @@ CONTAINS
 
     ELSE ! no in_subset%vertical_levels
 
-!ICON_OMP_DO PRIVATE(block, start_index, end_index)
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
         DO idx = start_index, end_index
