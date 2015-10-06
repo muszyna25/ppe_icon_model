@@ -631,7 +631,7 @@ case "$ac_sitename" in
                     intel)
                       NETCDFFROOT  = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
                       NETCDFROOT  = $software_tree/netcdf-4.3.3.1-static
-                      MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
+                      MPIROOT     = $software_tree/mpilib/openmpi-1.8.1-static-${compiler_version}
                       MPI_LIB     = -I$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil
                       # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
                       HIOPT_FLAGS = -O3 -fltconsistency -fpp -mkl -static -xHost -xAVX -g -traceback -D__LOOP_EXCHANGE -D__OMP_FIRSTTOUCH__
