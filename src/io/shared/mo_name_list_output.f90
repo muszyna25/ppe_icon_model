@@ -87,7 +87,8 @@ MODULE mo_name_list_output
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
-      &                                   cdiGetStringError, streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT
+      &                                   cdiGetStringError, streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
+      &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps
   USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, &
       &                                   GRID_UNSTRUCTURED_EDGE
   ! utility functions
@@ -189,12 +190,56 @@ CONTAINS
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables:
     CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::open_output_file"
-    CHARACTER(LEN=filename_max)       :: filename
+    CHARACTER(LEN=filename_max)       :: filename, filename_for_append
     CHARACTER(LEN=MAX_CHAR_LENGTH)    :: cdiErrorText
-
-    ! open file:
+    INTEGER :: tsID
+    LOGICAL :: lexist, lappend
+ 
+    ! open/append file: as this is a preliminary solution only, I do not try to
+    ! streamline the conditionals
     filename = TRIM(get_current_filename(of%out_event))
-    of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
+    filename_for_append = ''
+    lappend = .FALSE.
+    ! check and reset filename, if data should be appended
+    IF (split_output_filename(filename, filename_for_append, '_part_') > 0) THEN
+      ! does the file to append to exist
+      INQUIRE(file=TRIM(filename_for_append), exist=lexist)
+      IF (lexist) THEN
+        ! store the orginal allocated vlist (the handlers different) for later use with new files
+        of%cdiVlistID_orig = of%cdiVlistID
+        of%cdiTaxisID_orig = of%cdiTaxisID
+        ! open for append
+        of%cdiFileID = streamOpenAppend(TRIM(filename_for_append))
+        ! inquire the opened file for its associated vlist
+        of%cdiVlistID = streamInqVlist(of%cdiFileID)
+        ! and time axis, the only components different to the previous model prepared vlist
+        of%cdiTaxisID = vlistInqTaxis(of%cdiVlistID)
+        ! get the already stored number of time steps
+        of%cdiTimeIndex = vlistNtsteps(of%cdiVlistID)
+        lappend = .TRUE.
+        of%appending = .TRUE.
+      ELSE
+        IF (of%appending) THEN
+          ! restore model internal vlist and time axis handler association
+          of%cdiVlistID = of%cdiVlistID_orig
+          of%cdiVlistID_orig = CDI_UNDEFID
+          of%cdiTaxisID = of%cdiTaxisID_orig
+          of%cdiTaxisID_orig = CDI_UNDEFID
+        ENDIF
+        of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
+        of%appending = .FALSE.
+      ENDIF
+    ELSE
+      if (of%appending) THEN
+        ! restore model internal vlist and time axis handler association
+        of%cdiVlistID = of%cdiVlistID_orig
+        of%cdiVlistID_orig = CDI_UNDEFID
+        of%cdiTaxisID = of%cdiTaxisID_orig
+        of%cdiTaxisID_orig = CDI_UNDEFID
+      ENDIF
+      of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
+      of%appending = .FALSE.
+    ENDIF
 
     IF (of%cdiFileID < 0) THEN
       CALL cdiGetStringError(of%cdiFileID, cdiErrorText)
@@ -202,14 +247,34 @@ CONTAINS
       CALL message('',message_text,all_print=.TRUE.)
       CALL finish (routine, 'open failed on '//TRIM(filename))
     ELSE IF (msg_level >= 8) THEN
-      CALL message (routine, 'opened '//TRIM(filename),all_print=.TRUE.)
-    END IF
+      IF (lappend) THEN
+        CALL message (routine, 'to add more data, reopened '//TRIM(filename_for_append),all_print=.TRUE.)
+      ELSE
+        CALL message (routine, 'opened '//TRIM(filename),all_print=.TRUE.)
+      END IF
+    ENDIF
 
-    ! assign the vlist (which must have ben set before)
-    CALL streamDefVlist(of%cdiFileID, of%cdiVlistID)
+    IF (.NOT. lappend) THEN
+      ! assign the vlist (which must have ben set before)
+      CALL streamDefVlist(of%cdiFileID, of%cdiVlistID)
+      ! set cdi internal time index to 0 for writing time slices in netCDF
+      of%cdiTimeIndex = 0
+    ENDIF
 
-    ! set cdi internal time index to 0 for writing time slices in netCDF
-    of%cdiTimeIndex = 0
+  CONTAINS
+
+    FUNCTION split_output_filename(instring, string1, delim) RESULT (idx)
+      INTEGER :: idx
+      CHARACTER(len=*), INTENT(in)  :: instring ,delim
+      CHARACTER(len=*), INTENT(out) :: string1
+      CHARACTER(len=256) :: tmp_string
+
+      tmp_string = TRIM(instring)
+
+      idx = INDEX(tmp_string, delim)
+      string1 = tmp_string(1:idx-1)
+
+    END FUNCTION split_output_filename
 
   END SUBROUTINE open_output_file
 
@@ -1080,7 +1145,7 @@ CONTAINS
                     END IF
                   END IF
                 ENDDO
-                if (l_error)   CALL finish(routine,"Sync error!")
+                IF (l_error)   CALL finish(routine,"Sync error!")
               ENDIF
             ENDIF
           
