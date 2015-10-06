@@ -1084,7 +1084,8 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   !>
-  !! !  SUBROUTINE calculates vertical derivative for a scalar that is located at cell center and at midelevel, i.e. at the center of a 3D prism.
+  !! !  SUBROUTINE calculates vertical derivative for a scalar that is located at cell center and at midelevel,
+  !! i.e. at the center of a 3D prism.
   !!    start level has to be specifed, at end level value zero is assigned to vert. derivative 
   !!
   !! @par Revision History
@@ -1097,7 +1098,7 @@ CONTAINS
     REAL(wp), INTENT(in)                             :: scalar_in(nproma, n_zlev)
     INTEGER, INTENT(in)                              :: start_level
     INTEGER, INTENT(in)                              :: blockNo, start_index, end_index
-    REAL(wp), INTENT(inout)                          :: vertDeriv_scalar(nproma, n_zlev)    ! out
+    REAL(wp), INTENT(inout)                          :: vertDeriv_scalar(nproma, n_zlev+1)    ! out
 
     !Local variables
     INTEGER :: jk, jc!,jb
@@ -1108,12 +1109,12 @@ CONTAINS
     inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(:,:,blockNo)
 
     DO jc = start_index, end_index
-        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
-          vertDeriv_scalar(jc,jk) &
-          & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & 
-              & * inv_prism_center_distance(jc,jk+1)
+      DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
+        vertDeriv_scalar(jc,jk) &
+          & = (scalar_in(jc,jk-1) - scalar_in(jc,jk))  &
+          &   * inv_prism_center_distance(jc,jk)
 
-        END DO
+      END DO
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed
 !      ENDIF
     END DO
@@ -1125,8 +1126,8 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE verticalDiv_scalar_midlevel( patch_3d, scalar_in, vertDiv_scalar, subset_range)
     TYPE(t_patch_3d), TARGET, INTENT(in) :: patch_3D
-    REAL(wp), INTENT(in)                 :: scalar_in(nproma, n_zlev, patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp), INTENT(inout)              :: vertDiv_scalar(nproma, n_zlev, patch_3D%p_patch_2D(1)%alloc_cell_blocks)    ! out
+    REAL(wp), INTENT(in)                 :: scalar_in(:,:,:) ! (nproma, n_zlev+1, patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(inout)              :: vertDiv_scalar(:,:,:) ! (nproma, n_zlev+1, patch_3D%p_patch_2D(1)%alloc_cell_blocks)    ! out
     TYPE(t_subset_range), TARGET, OPTIONAL :: subset_range
 
     INTEGER :: blockNo,start_level,jk
@@ -1146,7 +1147,7 @@ CONTAINS
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
     
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
-      vertDiv_scalar(:,:,blockNo)=0.0_wp
+      vertDiv_scalar(:,:,blockNo) = 0.0_wp ! only for the top level
       CALL verticalDiv_scalar_midlevel_on_block(patch_3d, scalar_in(:,:,blockNo), vertDiv_scalar(:,:,blockNo), start_level, &
         & blockNo, start_cell_index, end_cell_index)
       
@@ -1160,7 +1161,8 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   !>
-  !! !  SUBROUTINE calculates vertical derivative for a scalar that is located at cell center and at midelevel, i.e. at the center of a 3D prism.
+  !! !  SUBROUTINE calculates vertical derivative for a scalar that is located at cell center and at midelevel,
+  !!    i.e. at the center of a 3D prism.
   !!    start level has to be specifed, at end level value zero is assigned to vert. derivative 
   !!
   !! @par Revision History
@@ -1170,7 +1172,7 @@ CONTAINS
   SUBROUTINE verticalDiv_scalar_midlevel_on_block(patch_3d, scalar_in, vertDiv_scalar, start_level, &
     & blockNo, start_index, end_index)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
-    REAL(wp), INTENT(in)                             :: scalar_in(nproma, n_zlev)
+    REAL(wp), INTENT(in)                             :: scalar_in(nproma, n_zlev+1)
     INTEGER, INTENT(in)                              :: start_level
     INTEGER, INTENT(in)                              :: blockNo, start_index, end_index
     REAL(wp), INTENT(inout)                          :: vertDiv_scalar(nproma, n_zlev)    ! out
@@ -1187,8 +1189,8 @@ CONTAINS
 !      IF ( end_level >=min_dolic ) THEN
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
           vertDiv_scalar(jc,jk) &
-          & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & !/ prism_center_distance(jc,jk)
-              & * patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk+1,blockNo)
+            & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & !/ prism_center_distance(jc,jk)
+              & * patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,blockNo)
 
         END DO
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed
