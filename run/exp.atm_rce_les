@@ -54,6 +54,7 @@ iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
+grids_folder="/pool/data/ICON/buildbot_data/aes/rce_les/"
 atmo_dyn_grids='torus_grid_r2km_s64.nc'
 #
 #-----------------------------------------------------------------------------
@@ -78,7 +79,7 @@ cat >> ${atmo_namelist} << EOF
  corio_lat = 0.0
 /
 &nh_testcase_nml
- nh_test_name   = 'RCE'     ! test case identifier
+ nh_test_name   = 'SOUND'     ! test case identifier
  ape_sst_case   = 'sst_const'
  sol_const      = 685
  zenithang      = 51.7
@@ -213,12 +214,10 @@ EOF
 #----------------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
 DATADIR=${ICON_BASE_PATH}/data
-add_required_file ${DATADIR}/rrtmg_lw.nc           ./
-add_required_file ${DATADIR}/ECHAM6_CldOptProps.nc ./
-add_required_file ${DATADIR}/dmin_wetgrowth_lookup.dat ./   #for inwp_gscp==4
-add_required_file ${DATADIR}/sound_in              ./
-add_required_file ${DATADIR}/pmod.txt              ./
-add_required_file ${DATADIR}/pmod.txt              ./
-OZONEDIR=${ICON_BASE_PATH}/data/external/ape_ozone              
-add_required_file ${OZONEDIR}/torus_r2km_s64_o3_CMIP5_ape_1870_march.nc  ./o3_icon_DOM01.nc
+add_link_file ${DATADIR}/rrtmg_lw.nc                 rrtmg_lw.nc 
+add_link_file ${DATADIR}/ECHAM6_CldOptProps.nc       ECHAM6_CldOptProps.nc
+add_link_file ${DATADIR}/dmin_wetgrowth_lookup.dat   dmin_wetgrowth_lookup.dat  #for inwp_gscp==4
+pooldir=/pool/data/ICON/buildbot_data/aes/rce_les
+add_link_file ${pooldir}/torus_r2km_s64_o3_CMIP5_ape_1870_march.nc  o3_icon_DOM01.nc
+add_link_file ${pooldir}/sound_in              sound_in
 #----------------------------------------------------------------------------------
