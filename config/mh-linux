@@ -449,7 +449,8 @@ case "$ac_sitename" in
                         # replaced -fltconsitency because the option is deprected and should be replaced by -fp-model source
                         FPPFLAGS    = -fpp -D__LOOP_EXCHANGE  
                         STD_FLAGS   =  -ftz -O2 -march=native -pc64 -fp-model source -qopt-report-file=stdout -qopt-report=2 -qopt-report-phase=vec
-                        HIOPT_FLAGS = -O3 -march=native -pc64 -mkl=sequential -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded
+                        HIOPT_FLAGS = -O3 -march=native -pc64 -fp-model source -mkl=sequential -fast-transcendentials -reentrancy threaded -qopt-report-file=stdout -qopt-report=2 -qopt-report-phase=vec
+
                         FFLAGS      = "$FPPFLAGS"
                         F77FLAGS    = "$FPPFLAGS" "$STD_FLAGS"
 
