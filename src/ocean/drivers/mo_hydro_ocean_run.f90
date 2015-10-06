@@ -60,7 +60,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_thermodyn,          ONLY: calc_potential_density, &
     & calculate_density! , ocean_correct_ThermoExpansion
   USE mo_name_list_output,       ONLY: write_name_list_output
-  USE mo_ocean_diagnostics,        ONLY: calc_fast_oce_diagnostics, calc_psi, calc_psi_vn
+  USE mo_ocean_diagnostics,        ONLY: calc_fast_oce_diagnostics, calc_psi
   USE mo_ocean_ab_timestepping_mimetic, ONLY: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_time_config,            ONLY: time_config

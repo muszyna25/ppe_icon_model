@@ -48,7 +48,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_ocean_physics
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
-  USE mo_sync,                      ONLY: sync_c, sync_e, sync_patch_array
+  USE mo_sync,                      ONLY: sync_patch_array_mult, sync_c, sync_e!, sync_patch_array
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_dif_vert
   USE mo_statistics,                ONLY: global_minmaxmean
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
@@ -359,9 +359,11 @@ CONTAINS
       CALL map_scalar_center2prismtop(patch_3d, flux_vert_center, op_coeff,GMredi_flux_vert)
 
       ! use a vector communicator
-      CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(1))
-      CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(2))
-      CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(3))
+      CALL sync_patch_array_mult(sync_c, patch_2D, 3, &
+        & flux_vec_horz_center(:,:,:)%x(1), flux_vec_horz_center(:,:,:)%x(2), flux_vec_horz_center(:,:,:)%x(3))
+!       CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(1))
+!       CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(2))
+!       CALL sync_patch_array(sync_c, patch_2D, flux_vec_horz_center(:,:,:)%x(3))
       CALL map_cell2edges_3D         ( patch_3D,flux_vec_horz_center, GMredi_flux_horz, op_coeff)
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)

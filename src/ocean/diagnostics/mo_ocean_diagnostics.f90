@@ -107,7 +107,7 @@ MODULE mo_ocean_diagnostics
   PUBLIC :: t_oce_timeseries
   PUBLIC :: calc_moc
   PUBLIC :: calc_psi
-  PUBLIC :: calc_psi_vn
+!   PUBLIC :: calc_psi_vn
   
   TYPE t_oce_monitor
     REAL(wp) :: volume

@@ -55,8 +55,8 @@ MODULE mo_ocean_testbed_modules
   USE mo_ocean_physics,          ONLY: t_ho_params
   USE mo_ocean_GM_Redi,          ONLY: calc_neutralslope_coeff, calc_neutralslope_coeff_func_onColumn, &
   &                                    prepare_ocean_physics,calc_ocean_physics
-  USE mo_ocean_diagnostics,        ONLY: calc_fast_oce_diagnostics, calc_psi, calc_psi_vn
-  USE mo_ocean_thermodyn,          ONLY: calc_potential_density, calculate_density
+  USE mo_ocean_diagnostics,      ONLY: calc_fast_oce_diagnostics, calc_psi
+  USE mo_ocean_thermodyn,        ONLY: calc_potential_density, calculate_density
   USE mo_time_config,            ONLY: time_config
   USE mo_statistics
   USE mo_util_dbg_prnt,          ONLY: dbg_print
