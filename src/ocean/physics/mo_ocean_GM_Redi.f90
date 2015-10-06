@@ -185,7 +185,7 @@ CONTAINS
     REAL(wp) :: taper_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: taper_diagonal_vert_expl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
 !     REAL(wp) :: taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)        
-    REAL(wp) :: mapped_verticaloff_diagonal_impl(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)            
+!     REAL(wp) :: mapped_verticaloff_diagonal_impl(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)            
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain 
@@ -198,26 +198,26 @@ CONTAINS
     slopes_squared=> ocean_state%p_aux%slopes_squared
     
     start_level=1
-    flux_vert_center    (1:nproma,1:n_zlev,  1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
-    flux_vec_horz_center(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(1)=0.0_wp
-    flux_vec_horz_center(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(2)=0.0_wp
-    flux_vec_horz_center(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(3)=0.0_wp
-
-        
-    taper_off_diagonal_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(1)=0.0_wp
-    taper_off_diagonal_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(2)=0.0_wp
-    taper_off_diagonal_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(3)=0.0_wp
-
-    taper_off_diagonal_vert(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(1)=0.0_wp
-    taper_off_diagonal_vert(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(2)=0.0_wp
-    taper_off_diagonal_vert(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(3)=0.0_wp
-    
-    
-    taper_diagonal_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
-    taper_diagonal_vert_expl(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+!     flux_vert_center    (1:nproma,1:n_zlev,  1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+!     flux_vec_horz_center(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(1)=0.0_wp
+!     flux_vec_horz_center(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(2)=0.0_wp
+!     flux_vec_horz_center(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(3)=0.0_wp
+! 
+!         
+!     taper_off_diagonal_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(1)=0.0_wp
+!     taper_off_diagonal_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(2)=0.0_wp
+!     taper_off_diagonal_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(3)=0.0_wp
+! 
+!     taper_off_diagonal_vert(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(1)=0.0_wp
+!     taper_off_diagonal_vert(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(2)=0.0_wp
+!     taper_off_diagonal_vert(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)%x(3)=0.0_wp
+!     
+!     
+!     taper_diagonal_horz(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+!     taper_diagonal_vert_expl(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
 !     taper_diagonal_vert_impl(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp    
     
-    mapped_verticaloff_diagonal_impl(1:nproma,1:n_zlev+1,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)=0.0_wp
+!     mapped_verticaloff_diagonal_impl(1:nproma,1:n_zlev+1,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)=0.0_wp
     
     CALL calc_tapering(patch_3d, ocean_state, param,  &
                     & taper_diagonal_horz,           &
@@ -269,15 +269,16 @@ CONTAINS
         DO cell_index = start_cell_index, end_cell_index
         
           !horizontal GMRedi Flux at top layer
-          flux_vec_horz_center(cell_index,start_level,blockNo)%x &
-            &=taper_diagonal_horz(cell_index,start_level,blockNo) &
-            &*tracer_gradient_horz_vec_center(cell_index,start_level,blockNo)%x
+          DO level = start_level, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo),start_level)
+            flux_vec_horz_center(cell_index,start_level,blockNo)%x &
+              &=taper_diagonal_horz(cell_index,start_level,blockNo) &
+              &*tracer_gradient_horz_vec_center(cell_index,start_level,blockNo)%x
 
-        
-          flux_vert_center(cell_index,start_level,blockNo) &
-            &=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
-            &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
 
+            flux_vert_center(cell_index,start_level,blockNo) &
+              &=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
+              &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
+          ENDDO
 
           DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
           
