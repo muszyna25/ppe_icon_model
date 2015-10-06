@@ -259,10 +259,10 @@ CONTAINS
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
 
-        flux_vert_center    (1:nproma,1:n_zlev,blockNo)     =0.0_wp
-        flux_vec_horz_center(1:nproma,1:n_zlev,blockNo)%x(1)=0.0_wp
-        flux_vec_horz_center(1:nproma,1:n_zlev,blockNo)%x(2)=0.0_wp
-        flux_vec_horz_center(1:nproma,1:n_zlev,blockNo)%x(3)=0.0_wp        
+!         flux_vert_center    (1:nproma,1:n_zlev,blockNo)     =0.0_wp
+!         flux_vec_horz_center(1:nproma,1:n_zlev,blockNo)%x(1)=0.0_wp
+!         flux_vec_horz_center(1:nproma,1:n_zlev,blockNo)%x(2)=0.0_wp
+!         flux_vec_horz_center(1:nproma,1:n_zlev,blockNo)%x(3)=0.0_wp        
         
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       
