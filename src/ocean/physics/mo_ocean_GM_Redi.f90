@@ -119,7 +119,7 @@ CONTAINS
     INTEGER, INTENT(IN)                      :: tracer_index
     
     !Local variables
-    INTEGER :: start_cell_index, end_cell_index, jc, jb
+    INTEGER :: start_cell_index, end_cell_index, cell_index, blockNo
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     
@@ -171,7 +171,7 @@ CONTAINS
     INTEGER, INTENT(IN)                      :: tracer_index 
     
     !Local variables
-    INTEGER :: start_cell_index, end_cell_index, jc, jb,jk,start_level,end_level,blockNo
+    INTEGER :: start_cell_index, end_cell_index, cell_index,level,start_level,end_level,blockNo
     INTEGER :: start_edge_index, end_edge_index, je     
     TYPE(t_subset_range), POINTER :: cells_in_domain,edges_in_domain
     TYPE(t_patch), POINTER :: patch_2D
@@ -256,7 +256,7 @@ CONTAINS
 
       
 !ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
 
         flux_vert_center    (1:nproma,1:n_zlev,blockNo)     =0.0_wp
@@ -266,34 +266,34 @@ CONTAINS
         
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       
-        DO jc = start_cell_index, end_cell_index
+        DO cell_index = start_cell_index, end_cell_index
         
           !horizontal GMRedi Flux at top layer
-          flux_vec_horz_center(jc,start_level,blockNo)%x &
-            &=taper_diagonal_horz(jc,start_level,blockNo) &
-            &*tracer_gradient_horz_vec_center(jc,start_level,blockNo)%x
+          flux_vec_horz_center(cell_index,start_level,blockNo)%x &
+            &=taper_diagonal_horz(cell_index,start_level,blockNo) &
+            &*tracer_gradient_horz_vec_center(cell_index,start_level,blockNo)%x
 
         
-          flux_vert_center(jc,start_level,blockNo) &
-            &=taper_diagonal_vert_expl(jc,start_level,blockNo)&
-            &*tracer_gradient_vert_center(jc,start_level,blockNo)
+          flux_vert_center(cell_index,start_level,blockNo) &
+            &=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
+            &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
 
 
-          DO jk = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
+          DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
           
             !horizontal GM-Redi Flux
-            flux_vec_horz_center(jc,jk,blockNo)%x &
-              &=taper_diagonal_horz(jc,jk,blockNo)  &
-              &* tracer_gradient_horz_vec_center(jc,jk,blockNo)%x&
-              &+taper_off_diagonal_horz(jc,jk,blockNo)%x&
-              &*tracer_gradient_vert_center(jc,jk,blockNo)
+            flux_vec_horz_center(cell_index,level,blockNo)%x &
+              &=taper_diagonal_horz(cell_index,level,blockNo)  &
+              &* tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x&
+              &+taper_off_diagonal_horz(cell_index,level,blockNo)%x&
+              &*tracer_gradient_vert_center(cell_index,level,blockNo)
               
             !vertical GM-Redi Flux
-            flux_vert_center(jc,jk,blockNo)= &
-              !&taper_diagonal_vert_expl(jc,jk,blockNo)&
-              !&*tracer_gradient_vert_center(jc,jk,blockNo)&
-              &+Dot_Product(tracer_gradient_horz_vec_center(jc,jk,blockNo)%x,&
-              &             taper_off_diagonal_vert(jc,jk,blockNo)%x)
+            flux_vert_center(cell_index,level,blockNo)= &
+              !&taper_diagonal_vert_expl(cell_index,level,blockNo)&
+              !&*tracer_gradient_vert_center(cell_index,level,blockNo)&
+              &+Dot_Product(tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x,&
+              &             taper_off_diagonal_vert(cell_index,level,blockNo)%x)
                 
           END DO                  
         END DO                
@@ -303,10 +303,10 @@ CONTAINS
 !       CALL sync_patch_array(sync_c, patch_2D, flux_vert_center)
 
 !   IF(tracer_index==2)THEN
-!      Do jk=1,5!n_zlev
-!      write(0,*)'GMR',jk,&
-!      &maxval(tracer_gradient_vert_center(:,jk,:)),minval(tracer_gradient_vert_center(:,jk,:)),&
-!      &maxval(slopes_squared(:,jk,:)),minval(slopes_squared(:,jk,:)),&
+!      Do level=1,5!n_zlev
+!      write(0,*)'GMR',level,&
+!      &maxval(tracer_gradient_vert_center(:,level,:)),minval(tracer_gradient_vert_center(:,level,:)),&
+!      &maxval(slopes_squared(:,level,:)),minval(slopes_squared(:,level,:)),&
 !      &maxval(K_I(:,:,:) * slopes_squared),minval(K_I(:,:,:) * slopes_squared)
 !      END DO
 !    ENDIF
@@ -314,17 +314,18 @@ CONTAINS
 
       IF(vertical_tracer_diffusion_type == explicit_diffusion)THEN
         
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
         DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       
           CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       
-          DO jc = start_cell_index, end_cell_index
-            DO jk = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
+          DO cell_index = start_cell_index, end_cell_index
+            DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
               !vertical GM-Redi Flux
-               flux_vert_center(jc,jk,blockNo)   &
-                &=flux_vert_center(jc,jk,blockNo) &
-                &+(K_I(jc,jk,blockNo)*slopes_squared(jc,jk,blockNo))*tracer_gradient_vert_center(jc,jk,blockNo)
+               flux_vert_center(cell_index,level,blockNo)   &
+                &=flux_vert_center(cell_index,level,blockNo) &
+                & +(K_I(cell_index,level,blockNo)*slopes_squared(cell_index,level,blockNo)) &
+                & * tracer_gradient_vert_center(cell_index,level,blockNo)
                
             END DO                  
           END DO                
@@ -344,10 +345,10 @@ CONTAINS
 !      
 !      param%a_tracer_v(:,:,:, tracer_index)=max(param%a_tracer_v(:,:,:, tracer_index),mapped_verticaloff_diagonal_impl)
 !      CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
-! !      Do jk=1,4!n_zlev
-! !      write(0,*)'New vert coeff',tracer_index,jk,maxval(param%a_tracer_v(:,jk,:, tracer_index)),&
-! !      &minval(param%a_tracer_v(:,jk,:, tracer_index)),maxval(K_I(:,jk,:)),&
-! !      &minval(K_I(:,jk,:))
+! !      Do level=1,4!n_zlev
+! !      write(0,*)'New vert coeff',tracer_index,level,maxval(param%a_tracer_v(:,level,:, tracer_index)),&
+! !      &minval(param%a_tracer_v(:,level,:, tracer_index)),maxval(K_I(:,level,:)),&
+! !      &minval(K_I(:,level,:))
 ! !      END DO
       ENDIF
 !ICON_OMP_END_PARALLEL
@@ -380,14 +381,14 @@ CONTAINS
     ENDIF
   
  
-!   Do jk=1,n_zlev
-!   write(0,*)'Horz/vert GMREDI flux',tracer_index,jk,&
-!   &maxval(GMredi_flux_horz(:,jk,:)),minval(GMredi_flux_horz(:,jk,:)),&
-!   &maxval(GMredi_flux_vert(:,jk,:)),minval(GMredi_flux_vert(:,jk,:))  
+!   Do level=1,n_zlev
+!   write(0,*)'Horz/vert GMREDI flux',tracer_index,level,&
+!   &maxval(GMredi_flux_horz(:,level,:)),minval(GMredi_flux_horz(:,level,:)),&
+!   &maxval(GMredi_flux_vert(:,level,:)),minval(GMredi_flux_vert(:,level,:))
 !   END DO
   
-!   Do jk=1,n_zlev
-!   write(0,*)'VERT GMREDI flux',tracer_index,jk,maxval(GMredi_flux_vert(:,jk,:)),minval(GMredi_flux_vert(:,jk,:))
+!   Do level=1,n_zlev
+!   write(0,*)'VERT GMREDI flux',tracer_index,level,maxval(GMredi_flux_vert(:,level,:)),minval(GMredi_flux_vert(:,level,:))
 !   END DO
 
   END SUBROUTINE calc_combined_GentMcWilliamsRedi_flux
@@ -422,10 +423,9 @@ CONTAINS
     REAL(wp),POINTER :: grad_T_vert_center(:,:,:)
     REAL(wp),POINTER :: grad_S_vert_center(:,:,:)
    
-    INTEGER :: jk, blockNo, je, jc,jb, end_level
+    INTEGER :: level, blockNo, je, start_level, end_level
     INTEGER :: start_cell_index, end_cell_index, cell_index
     INTEGER :: start_edge_index, end_edge_index
-    INTEGER :: start_level, level
     REAL(wp) :: alpha, beta
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain, all_cells
     TYPE(t_patch), POINTER :: patch_2D
@@ -880,6 +880,7 @@ CONTAINS
     SELECT CASE(tapering_scheme)
 
     CASE(tapering_DanaMcWilliams)
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -921,7 +922,7 @@ CONTAINS
           ENDIF
         END DO
       END DO
-
+!ICON_OMP_END_PARALLEL_DO
       
 ! Do level=start_level,end_level
 ! write(*,*)'max/min',level,&
@@ -930,6 +931,7 @@ CONTAINS
 ! & maxval(taper_diagonal_vert_impl(:,level,:)),minval(taper_diagonal_vert_impl(:,level,:)) 
 ! END DO
     CASE(tapering_Large)
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, geometric_scale) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -976,9 +978,11 @@ CONTAINS
           ENDIF
         END DO
       END DO
+!ICON_OMP_END_PARALLEL_DO
               
 
     CASE(tapering_Griffies)
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, geometric_scale) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -1023,6 +1027,7 @@ CONTAINS
           ENDIF
         END DO
       END DO
+!ICON_OMP_END_PARALLEL_DO
 
     END SELECT
 ! Do level=start_level,4!end_level
@@ -1114,6 +1119,7 @@ CONTAINS
     SELECT CASE(tapering_scheme)
 
     CASE(tapering_DanaMcWilliams)
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, geometric_scale) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -1137,7 +1143,10 @@ CONTAINS
           ENDIF
         END DO
       END DO
+!ICON_OMP_END_PARALLEL_DO
+
     CASE(tapering_Large)
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, geometric_scale) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -1165,8 +1174,10 @@ CONTAINS
           ENDIF
         END DO
       END DO
+!ICON_OMP_END_PARALLEL_DO
 
     CASE(tapering_Griffies)
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, end_level,level, geometric_scale) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
 
@@ -1193,6 +1204,7 @@ CONTAINS
           ENDIF
         END DO
       END DO
+!ICON_OMP_END_PARALLEL_DO
 
     END SELECT
 !     CALL sync_patch_array(sync_c, patch_2D,K_I)
@@ -1238,8 +1250,8 @@ CONTAINS
     REAL(wp), POINTER :: depth_cellinterface(:,:,:)
     
     REAL(wp):: neutral_coeff(1:n_zlev, 2), salinity(1:n_zlev)
-    INTEGER :: jc, jb, levels
-    INTEGER :: start_index, end_index
+    INTEGER :: cell_index, blockNo, levels
+    INTEGER :: start_cell_index, end_cell_index
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER :: patch_2D
     !-----------------------------------------------------------------------
@@ -1249,54 +1261,59 @@ CONTAINS
     !-------------------------------------------------------------------------
     !  tracer 1: potential temperature
     !  tracer 2: salinity
+!ICON_OMP_PARALLEL PRIVATE(salinity ) 
     salinity(1:n_zlev) = sal_ref  ! in case of absent salinty tracer
       
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, start_index, end_index)
-      DO jc = start_index, end_index
-        levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index,cell_index,levels, neutral_coeff) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+      DO cell_index = start_cell_index, end_cell_index
+        levels = patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
         
-        IF (no_tracer>=2) salinity(1:levels) = tracer(jc,1:levels,jb,2)
+        IF (no_tracer>=2) salinity(1:levels) = tracer(cell_index,1:levels,blockNo,2)
 
         neutral_coeff = calc_neutralslope_coeff_func_onColumn( &
-          & tracer(jc,1:levels,jb,1), salinity(1:levels), depth_cellinterface(jc,2:levels+1,jb), levels)
+          & tracer(cell_index,1:levels,blockNo,1), salinity(1:levels), &
+          & depth_cellinterface(cell_index,2:levels+1,blockNo), levels)
           
-        neutral_alph(jc,1:levels,jb) = neutral_coeff(1:levels,1)
-        neutral_beta(jc,1:levels,jb) = neutral_coeff(1:levels,2)
+        neutral_alph(cell_index,1:levels,blockNo) = neutral_coeff(1:levels,1)
+        neutral_beta(cell_index,1:levels,blockNo) = neutral_coeff(1:levels,2)
         
-!         DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
+!         DO level=1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo) ! operate on wet ocean points only
 !           ! compute pressure in dezi-bar, i.e. depth of water column in vertical centre (meter)
 !           !  - account for individual layer depth at bottom for use of partial cells (prism_thick_flat_sfc_c)
 !           !  - add elevation by passing old, new, or intermediate value of surface elevation (e.g. p_prog(nold(1)%h)
-! !             pressure = patch_3d%p_patch_1d(1)%zlev_i(jk) &
-! !               &      + patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,jk,jb)*0.5_wp &
-! !               &      + surface_elevation(jc,jb)
-! !            pressure = depth_cellinterface(jc,jk+1,jb)
+! !             pressure = patch_3d%p_patch_1d(1)%zlev_i(level) &
+! !               &      + patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)*0.5_wp &
+! !               &      + surface_elevation(cell_index,blockNo)
+! !            pressure = depth_cellinterface(cell_index,level+1,blockNo)
 !           neutral_coeff = calc_neutralslope_coeff_func( &
-!             & tracer(jc,jk,jb,1), tracer(jc,jk,jb,2), depth_cellinterface(jc,jk+1,jb))
+!             & tracer(cell_index,level,blockNo,1), tracer(cell_index,level,blockNo,2), depth_cellinterface(cell_index,level+1,blockNo))
 !             
-!           neutral_alph(jc,jk,jb) = neutral_coeff(1)
-!           neutral_beta(jc,jk,jb) = neutral_coeff(2)
+!           neutral_alph(cell_index,level,blockNo) = neutral_coeff(1)
+!           neutral_beta(cell_index,level,blockNo) = neutral_coeff(2)
 !         END DO
       END DO
     END DO
-      
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
+    
 !     ELSEIF(no_tracer==1)THEN
 !       
 ! !ICON_OMP_PARALLEL
-! !ICON_OMP_DO PRIVATE(start_index, end_index, jc, jk, pressure, neutral_coeff) ICON_OMP_DEFAULT_SCHEDULE
-!       DO jb = all_cells%start_block, all_cells%end_block
-!         CALL get_index_range(all_cells, jb, start_index, end_index)
-!         DO jc = start_index, end_index
-!           DO jk=1, patch_3d%p_patch_1d(1)%dolic_c(jc,jb) ! operate on wet ocean points only
-! !             pressure = patch_3d%p_patch_1d(1)%zlev_i(jk) &
-! !               &      + patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,jk,jb)*0.5_wp &
-! !               &      + surface_elevation(jc,jb)
-! !            pressure = depth_cellinterface(jc,jk+1,jb)
+! !ICON_OMP_DO PRIVATE(start_index, end_index, cell_index, level, pressure, neutral_coeff) ICON_OMP_DEFAULT_SCHEDULE
+!       DO blockNo = all_cells%start_block, all_cells%end_block
+!         CALL get_index_range(all_cells, blockNo, start_index, end_index)
+!         DO cell_index = start_index, end_index
+!           DO level=1, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo) ! operate on wet ocean points only
+! !             pressure = patch_3d%p_patch_1d(1)%zlev_i(level) &
+! !               &      + patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(cell_index,level,blockNo)*0.5_wp &
+! !               &      + surface_elevation(cell_index,blockNo)
+! !            pressure = depth_cellinterface(cell_index,level+1,blockNo)
 !             neutral_coeff = calc_neutralslope_coeff_func( &
-!               & tracer(jc,jk,jb,1), sal_ref, depth_cellinterface(jc,jk+1,jb))
-!             neutral_alph(jc,jk,jb) = neutral_coeff(1)
-!             neutral_beta(jc,jk,jb) = neutral_coeff(2)
+!               & tracer(cell_index,level,blockNo,1), sal_ref, depth_cellinterface(cell_index,level+1,blockNo))
+!             neutral_alph(cell_index,level,blockNo) = neutral_coeff(1)
+!             neutral_beta(cell_index,level,blockNo) = neutral_coeff(2)
 !           END DO
 !         END DO
 !       END DO
