@@ -880,8 +880,6 @@ run/exp.test_atm_rce_les -text
 run/exp.test_couple_atmo-ocean -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nat_rce_cbl_120km_nwp -text
-run/exp.test_nh_hdcp2_lam_r15000_modified -text
-run/exp.test_nh_moist_cbl -text
 run/exp.test_nwp_R02B04N06multi -text
 run/exp.test_nwp_R02B04_R02B05_nest -text
 run/exp.test_oce_testbed_read -text
