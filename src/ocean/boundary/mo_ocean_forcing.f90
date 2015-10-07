@@ -69,7 +69,7 @@ MODULE mo_ocean_forcing
   USE mo_cdi_constants,      ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, ZA_SURFACE
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_read_interface,     ONLY: openInputFile, closeFile, t_stream_id, &
-    &                              onCells, read_2D_1lev_1time
+    &                              on_cells, read_2D_1lev_1time
   USE mo_ocean_initial_conditions,     ONLY: tracer_ConstantSurface, &
     & varyTracerVerticallyExponentially
 
@@ -595,7 +595,7 @@ CONTAINS
       ! read temperature
       !  - read one data set, annual mean only
       !  - "T": annual mean temperature
-      CALL read_2D_1lev_1time(stream_id, onCells, 'T', z_surfRelax)
+      CALL read_2D_1lev_1time(stream_id, on_cells, 'T', z_surfRelax)
 
       IF (no_tracer>=1) THEN
         atmos_fluxes%data_surfRelax_Temp(:,:) = z_surfRelax(:,:)
@@ -606,7 +606,7 @@ CONTAINS
       ! read salinity
       !  - "S": annual mean salinity
       IF (no_tracer > 1) THEN
-        CALL read_2D_1lev_1time(stream_id, onCells, 'S', z_surfRelax)
+        CALL read_2D_1lev_1time(stream_id, on_cells, 'S', z_surfRelax)
         atmos_fluxes%data_surfRelax_Salt(:,:) = z_surfRelax(:,:)
       END IF
 
@@ -890,7 +890,9 @@ CONTAINS
 !     CALL dbg_print('init wind speed'           ,fu10                                  ,str_module,idt_src,in_subset=owned_cells)
 
   END SUBROUTINE init_ocean_WindForcing
+  !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
 !<Optimize:inUse>
   SUBROUTINE set_windstress(patch_2D, windstress, &
       &                     control, amplitude, zonal_waveno, meridional_waveno)

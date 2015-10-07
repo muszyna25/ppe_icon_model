@@ -31,7 +31,7 @@ MODULE mo_icon_cpl_def_field
      &                            cpl_field_acc
 
   USE mo_coupling_config, ONLY  : config_cpl_fields
-  USE mo_event_manager, ONLY    : event_add
+  USE mo_icon_cpl_event_manager, ONLY    : event_add
 
   IMPLICIT NONE
 

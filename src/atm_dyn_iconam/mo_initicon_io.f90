@@ -49,7 +49,7 @@ MODULE mo_initicon_io
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
-    &                               read_3d_1time, onCells, onEdges
+    &                               read_3d_1time, on_cells, on_edges
   USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d, t_inputParameters,        &
     &                               makeInputParameters, deleteInputParameters,         &
     &                               get_cdi_NlevRef, t_tileinfo_elt, trivial_tileinfo
@@ -58,7 +58,7 @@ MODULE mo_initicon_io
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, &
     &                               ntiles_water, lmulti_snow, tiles, get_tile_suffix
-  USE mo_master_nml,          ONLY: model_base_dir
+  USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_cdi,                 ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, &
@@ -146,7 +146,7 @@ MODULE mo_initicon_io
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
         jlev = p_patch(jg)%level
         ! generate file name
-        dwdfg_file(jg) = generate_filename(dwdfg_filename, model_base_dir, nroot, jlev, jg)
+        dwdfg_file(jg) = generate_filename(dwdfg_filename, getModelBaseDir(), nroot, jlev, jg)
         INQUIRE (FILE=dwdfg_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'DWD FG file not found: '//TRIM(dwdfg_file(jg)))
@@ -198,7 +198,7 @@ MODULE mo_initicon_io
           IF (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) CYCLE
           jlev = p_patch(jg)%level
           ! generate file name
-          dwdana_file(jg) = generate_filename(dwdana_filename, model_base_dir, nroot, jlev, jg)
+          dwdana_file(jg) = generate_filename(dwdana_filename, getModelBaseDir(), nroot, jlev, jg)
           INQUIRE (FILE=dwdana_file(jg), EXIST=l_exist)
           IF (.NOT.l_exist) THEN
             CALL finish(TRIM(routine),'DWD ANA file not found: '//TRIM(dwdana_file(jg)))
@@ -505,7 +505,7 @@ MODULE mo_initicon_io
       !
       ! generate file name
       !
-      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, model_base_dir, &
+      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, getModelBaseDir(), &
         &                                   nroot, jlev, jg)
 
 
@@ -660,55 +660,55 @@ MODULE mo_initicon_io
 
       ! start reading atmospheric fields
       !
-      CALL read_3d_1time(stream_id, onCells, 'T', fill_array=initicon(jg)%atm_in%temp)
+      CALL read_3d_1time(stream_id, on_cells, 'T', fill_array=initicon(jg)%atm_in%temp)
 
       IF (lread_vn) THEN
-        CALL read_3d_1time(stream_id, onEdges, 'VN', fill_array=initicon(jg)%atm_in%vn)
+        CALL read_3d_1time(stream_id, on_edges, 'VN', fill_array=initicon(jg)%atm_in%vn)
       ELSE
-        CALL read_3d_1time(stream_id, onCells, 'U', fill_array=initicon(jg)%atm_in%u)
+        CALL read_3d_1time(stream_id, on_cells, 'U', fill_array=initicon(jg)%atm_in%u)
 
-        CALL read_3d_1time(stream_id, onCells, 'V', fill_array=initicon(jg)%atm_in%v)
+        CALL read_3d_1time(stream_id, on_cells, 'V', fill_array=initicon(jg)%atm_in%v)
       ENDIF
 
 
       IF (init_mode == MODE_COSMODE) THEN
-        CALL read_3d_1time(stream_id, onCells, 'W', fill_array=initicon(jg)%atm_in%w_ifc)
+        CALL read_3d_1time(stream_id, on_cells, 'W', fill_array=initicon(jg)%atm_in%w_ifc)
       ELSE
         ! Note: in this case, input vertical velocity is in fact omega (Pa/s)
-        CALL read_3d_1time(stream_id, onCells, 'W', fill_array=initicon(jg)%atm_in%omega)
+        CALL read_3d_1time(stream_id, on_cells, 'W', fill_array=initicon(jg)%atm_in%omega)
       ENDIF
 
-      CALL read_3d_1time(stream_id, onCells, 'QV', fill_array=initicon(jg)%atm_in%qv)
-      CALL read_3d_1time(stream_id, onCells, 'QC', fill_array=initicon(jg)%atm_in%qc)
-      CALL read_3d_1time(stream_id, onCells, 'QI', fill_array=initicon(jg)%atm_in%qi)
+      CALL read_3d_1time(stream_id, on_cells, 'QV', fill_array=initicon(jg)%atm_in%qv)
+      CALL read_3d_1time(stream_id, on_cells, 'QC', fill_array=initicon(jg)%atm_in%qc)
+      CALL read_3d_1time(stream_id, on_cells, 'QI', fill_array=initicon(jg)%atm_in%qi)
 
       IF (lread_qr) THEN
-        CALL read_3d_1time(stream_id, onCells, 'QR', fill_array=initicon(jg)%atm_in%qr)
+        CALL read_3d_1time(stream_id, on_cells, 'QR', fill_array=initicon(jg)%atm_in%qr)
       ELSE
         initicon(jg)%atm_in%qr(:,:,:)=0._wp
       ENDIF
 
       IF (lread_qs) THEN
-        CALL read_3d_1time(stream_id, onCells, 'QS', fill_array=initicon(jg)%atm_in%qs)
+        CALL read_3d_1time(stream_id, on_cells, 'QS', fill_array=initicon(jg)%atm_in%qs)
       ELSE
         initicon(jg)%atm_in%qs(:,:,:)=0._wp
       ENDIF
 
       IF (psvar_ndims==2)THEN
-        CALL read_2d_1time(stream_id, onCells, TRIM(psvar), &
+        CALL read_2d_1time(stream_id, on_cells, TRIM(psvar), &
           &                     fill_array=initicon(jg)%atm_in%psfc)
       ELSEIF(psvar_ndims==3)THEN
-        CALL read_2d_1lev_1time(stream_id, onCells, TRIM(psvar), &
+        CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(psvar), &
           &                     fill_array=initicon(jg)%atm_in%psfc)
       ELSE
         CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' dimension mismatch')
       END IF
 
       IF (geopvar_ndims==2)THEN
-        CALL read_2d_1time(stream_id, onCells, TRIM(geop_ml_var), &
+        CALL read_2d_1time(stream_id, on_cells, TRIM(geop_ml_var), &
           &                     fill_array=initicon(jg)%atm_in%phi_sfc)
       ELSEIF(geopvar_ndims==3)THEN
-        CALL read_2d_1lev_1time(stream_id, onCells, TRIM(geop_ml_var), &
+        CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(geop_ml_var), &
           &                     fill_array=initicon(jg)%atm_in%phi_sfc)
       ELSE
         CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' dimension mismatch')
@@ -754,8 +754,8 @@ MODULE mo_initicon_io
 
       ELSE IF (init_mode == MODE_COSMODE) THEN ! in case of COSMO-DE initial data
 
-        CALL read_3d_1time(stream_id, onCells, 'HHL', fill_array=initicon(jg)%atm_in%z3d_ifc)
-        CALL read_3d_1time(stream_id, onCells, 'P', fill_array=initicon(jg)%atm_in%pres)
+        CALL read_3d_1time(stream_id, on_cells, 'HHL', fill_array=initicon(jg)%atm_in%z3d_ifc)
+        CALL read_3d_1time(stream_id, on_cells, 'P', fill_array=initicon(jg)%atm_in%pres)
 
         ! Interpolate input 'z3d' and 'w' from interface levels to main levels
 !$OMP PARALLEL
@@ -848,7 +848,7 @@ MODULE mo_initicon_io
       !
       ! generate file name
       !
-      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, model_base_dir, &
+      ifs2icon_file(jg) = generate_filename(ifs2icon_filename, getModelBaseDir(), &
         &                                   nroot, jlev, jg)
 
       ! Read in data from IFS2ICON
@@ -962,54 +962,54 @@ MODULE mo_initicon_io
       ! start reading surface fields
       !
       IF (geop_sfc_var_ndims == 3) THEN
-        CALL read_2d_1lev_1time(stream_id, onCells, TRIM(geop_sfc_var), &
+        CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(geop_sfc_var), &
           &                     fill_array=initicon(jg)%sfc_in%phi)
       ELSE IF (geop_sfc_var_ndims == 2) THEN
-        CALL read_2d_1time(stream_id, onCells, TRIM(geop_sfc_var), &
+        CALL read_2d_1time(stream_id, on_cells, TRIM(geop_sfc_var), &
           &                     fill_array=initicon(jg)%sfc_in%phi)
       ELSE
         CALL finish(TRIM(routine),"geop_sfc_var: Dimension mismatch")
       ENDIF
 
-      CALL read_2d_1time(stream_id, onCells, 'SKT', &
+      CALL read_2d_1time(stream_id, on_cells, 'SKT', &
         &                fill_array=initicon(jg)%sfc_in%tskin)
 
       IF ( l_sst_in) THEN
-        CALL read_2d_1time(stream_id, onCells, 'SST', &
+        CALL read_2d_1time(stream_id, on_cells, 'SST', &
           &                fill_array=initicon(jg)%sfc_in%sst)
       ELSE
        initicon(jg)%sfc_in%sst(:,:)=0.0_wp
       END IF
 
-      CALL read_2d_1time(stream_id, onCells, 'T_SNOW', &
+      CALL read_2d_1time(stream_id, on_cells, 'T_SNOW', &
         &                fill_array=initicon(jg)%sfc_in%tsnow)
-      CALL read_2d_1time(stream_id, onCells, TRIM(alb_snow_var), &
+      CALL read_2d_1time(stream_id, on_cells, TRIM(alb_snow_var), &
         &                fill_array=initicon(jg)%sfc_in%snowalb)
-      CALL read_2d_1time(stream_id, onCells, 'W_SNOW', &
+      CALL read_2d_1time(stream_id, on_cells, 'W_SNOW', &
         &                fill_array=initicon(jg)%sfc_in%snowweq)
-      CALL read_2d_1time(stream_id, onCells, 'RHO_SNOW', &
+      CALL read_2d_1time(stream_id, on_cells, 'RHO_SNOW', &
         &                fill_array=initicon(jg)%sfc_in%snowdens)
-      CALL read_2d_1time(stream_id, onCells, 'W_I', &
+      CALL read_2d_1time(stream_id, on_cells, 'W_I', &
         &                fill_array=initicon(jg)%sfc_in%skinres)
-      CALL read_2d_1time(stream_id, onCells, 'LSM', &
+      CALL read_2d_1time(stream_id, on_cells, 'LSM', &
         &                fill_array=initicon(jg)%sfc_in%ls_mask)
-      CALL read_2d_1time(stream_id, onCells, 'CI', &
+      CALL read_2d_1time(stream_id, on_cells, 'CI', &
         &                fill_array=initicon(jg)%sfc_in%seaice)
-      CALL read_2d_1lev_1time(stream_id, onCells, 'STL1', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'STL1', &
         &                     fill_array=initicon(jg)%sfc_in%tsoil(:,:,1))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'STL2', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'STL2', &
         &                     fill_array=initicon(jg)%sfc_in%tsoil(:,:,2))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'STL3', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'STL3', &
         &                     fill_array=initicon(jg)%sfc_in%tsoil(:,:,3))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'STL4', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'STL4', &
         &                     fill_array=initicon(jg)%sfc_in%tsoil(:,:,4))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'SMIL1', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'SMIL1', &
         &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,1))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'SMIL2', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'SMIL2', &
         &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,2))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'SMIL3', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'SMIL3', &
         &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,3))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'SMIL4', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'SMIL4', &
         &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,4))
 
       ! close file

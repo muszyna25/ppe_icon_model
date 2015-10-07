@@ -45,7 +45,7 @@ MODULE mo_o3_util
   USE mo_o3_macc_data,         ONLY: rghg7_macc
   USE mo_radiation_config,     ONLY: irad_o3
   USE mo_physical_constants,   ONLY: amd,amo3,rd,grav
-  USE mo_time_interpolation_weights,   ONLY: wi=>wi_limm_radt
+  USE mo_time_interpolation_weights,   ONLY: wi=>wi_limm
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone, icpl_o3_tp
   
   IMPLICIT NONE

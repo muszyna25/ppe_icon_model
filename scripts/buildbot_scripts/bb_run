@@ -412,11 +412,11 @@ then
 
 fi
 
-if [ "x$BB_SLAVE" != "x"  ]   # --> from environment variable BB_SLAVE
+if [ "x$BB_SYSTEM" != "x" -o "x$BB_SLAVE" != "x"  ] # --> from environment
 then
 
-    target="$BB_SLAVE"
-    source='$BB_SLAVE'
+    target="${BB_SYSTEM}_$BB_SLAVE"
+    source='${BB_SYSTEM}_$BB_SLAVE'
 
 else                         # --> as default
   if [ "$target" == "NotSet" ]

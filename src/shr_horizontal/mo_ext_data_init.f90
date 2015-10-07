@@ -69,9 +69,9 @@ MODULE mo_ext_data_init
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_ext_data_state,     ONLY: construct_ext_data, levelname, cellname, o3name, o3unit, &
     &                              nlev_o3, nmonths
-  USE mo_master_nml,         ONLY: model_base_dir
+  USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_io_config,          ONLY: default_read_method
-  USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, onCells, &
+  USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, on_cells, &
     &                              t_stream_id, read_2D, read_2D_int, &
     &                              read_3D_extdim
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
@@ -86,7 +86,7 @@ MODULE mo_ext_data_init
     &                              dict_loadfile
   USE mo_initicon_config,    ONLY: timeshift
   USE mo_nwp_tuning_config,  ONLY: itune_albedo
-  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_master_config,      ONLY: isRestart
   USE mo_cdi,                ONLY: FILETYPE_GRB2, streamOpenRead, streamInqFileType, &
     &                              streamInqVlist, vlistInqVarZaxis, zaxisInqSize,   &
     &                              vlistNtsteps, vlistInqVarGrid, vlistInqAttTxt,    &
@@ -271,12 +271,12 @@ CONTAINS
         ! When restarting, the target interpolation time must be set to cur_datetime 
         ! midnight. 
         ! 
-        IF (.NOT. is_restart_run()) THEN
+        IF (.NOT. isRestart()) THEN
           datetime     = time_config%ini_datetime
           IF (timeshift%dt_shift < 0._wp) CALL add_time(timeshift%dt_shift,0,0,0,datetime)
         ELSE
           datetime     = time_config%cur_datetime
-        END IF  ! is_restart_run
+        END IF  ! isRestart
         !
         datetime%hour= 0   ! always assume midnight
 
@@ -369,7 +369,7 @@ CONTAINS
     IF (my_process_is_mpi_workroot()) THEN
       ! generate file name
       extpar_file = generate_filename(extpar_filename,                   &
-        &                             model_base_dir,                    &
+        &                             getModelBaseDir(),                 &
         &                             TRIM(p_patch(jg)%grid_filename))
       CALL message(routine, "extpar_file = "//TRIM(extpar_file))
       
@@ -808,7 +808,7 @@ CONTAINS
       mpi_comm = p_comm_work
     ENDIF
 
-    IF ( iforcing == iecham .OR. iforcing == ildf_echam ) THEN
+    IF ( itopo == 1 .AND. ( iforcing == iecham .OR. iforcing == ildf_echam ) ) THEN
 
       ! Read elevation of grid cells centers from grid file; this is then used to dynamically "grow" a topography for
       ! the hydrostatic model (in mo_ha_diag_util). This should be removed once the echam atmosphere is realistically 
@@ -822,7 +822,7 @@ CONTAINS
         ! get land-sea-mask on cells, integer marks are:
         ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
         ! boundary land (1, cells and vertices), inner land (2)
-        CALL read_2D_int(stream_id, onCells, 'cell_sea_land_mask', &
+        CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
           &              ext_data(jg)%atm%lsm_ctr_c)
 
         ! get topography [m]
@@ -834,14 +834,14 @@ CONTAINS
         SELECT CASE (iequations)
         CASE (ihs_atm_temp,ihs_atm_theta) ! iequations
           ! Read topography
-          CALL read_2D(stream_id, onCells, 'cell_elevation', &
+          CALL read_2D(stream_id, on_cells, 'cell_elevation', &
             &          ext_data(jg)%atm%elevation_c)
           ! Mask out ocean
           ext_data(jg)%atm%elevation_c(:,:) = MERGE(ext_data(jg)%atm%elevation_c(:,:), 0._wp, &
             &                                       ext_data(jg)%atm%lsm_ctr_c(:,:)  > 0     )
         CASE (inh_atmosphere) ! iequations
           ! Read topography
-          CALL read_2D(stream_id, onCells, 'cell_elevation', &
+          CALL read_2D(stream_id, on_cells, 'cell_elevation', &
             &          ext_data(jg)%atm%topography_c)
           ! Mask out ocean
           ext_data(jg)%atm%topography_c(:,:) = MERGE(ext_data(jg)%atm%topography_c(:,:), 0._wp, &
@@ -1202,7 +1202,7 @@ CONTAINS
 
         stream_id = openInputFile(ozone_file, p_patch(jg), default_read_method)
 
-        CALL read_3D_extdim(stream_id, onCells, TRIM(o3name), &
+        CALL read_3D_extdim(stream_id, on_cells, TRIM(o3name), &
           &                 ext_data(jg)%atm_td%O3)
 
         WRITE(0,*)'MAX/MIN o3 ppmv',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
@@ -1236,7 +1236,7 @@ CONTAINS
         DO im=1,12
 
          sst_td_file= generate_td_filename(sst_td_filename,                &
-           &                             model_base_dir,                   &
+           &                             getModelBaseDir(),                &
            &                             TRIM(p_patch(jg)%grid_filename),  &
            &                             im,clim=.TRUE.                   )
 
@@ -1253,12 +1253,12 @@ CONTAINS
 
          stream_id = openInputFile(sst_td_file, p_patch(jg), &
           &                        default_read_method)
-         CALL read_2D (stream_id, onCells, 'SST', &
+         CALL read_2D (stream_id, on_cells, 'SST', &
           &            ext_data(jg)%atm_td%sst_m(:,:,im)) 
          CALL closeFile(stream_id)
 
          ci_td_file= generate_td_filename(ci_td_filename,                  &
-           &                             model_base_dir,                   &
+           &                             getModelBaseDir(),                &
            &                             TRIM(p_patch(jg)%grid_filename),  &
            &                             im,clim=.TRUE.                   )
 
@@ -1274,7 +1274,7 @@ CONTAINS
          ENDIF
 
          stream_id = openInputFile(ci_td_file, p_patch(jg), default_read_method)
-         CALL read_2D(stream_id, onCells, 'CI', &
+         CALL read_2D(stream_id, on_cells, 'CI', &
           &           ext_data(jg)%atm_td%fr_ice_m(:,:,im)) 
          CALL closeFile(stream_id)
 
