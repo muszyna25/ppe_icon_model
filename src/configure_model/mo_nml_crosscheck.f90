@@ -61,7 +61,7 @@ MODULE mo_nml_crosscheck
   USE mo_grid_config,        ONLY: lplane, n_dom, init_grid_configuration
 
   USE mo_art_config,         ONLY: art_config
-  USE mo_time_settings,      ONLY: compute_timestep_settings,                        &
+  USE mo_time_management,    ONLY: compute_timestep_settings,                        &
     &                              compute_restart_settings,                         &
     &                              compute_date_settings
 

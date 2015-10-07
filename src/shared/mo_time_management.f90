@@ -18,7 +18,7 @@
 !! headers of the routines.
 !!
 !! -----------------------------------------------------------------------------------
-MODULE mo_time_settings
+MODULE mo_time_management
 
   USE, INTRINSIC :: iso_c_binding, ONLY: c_int32_t
   USE mo_kind,                     ONLY: wp, i8
@@ -84,7 +84,7 @@ MODULE mo_time_settings
   PRIVATE
 
   !> module name
-  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_time_settings'
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_time_management'
 
 
 CONTAINS 
@@ -741,4 +741,4 @@ CONTAINS
     CALL message('',message_text)
   END SUBROUTINE compute_date_settings
  
-END MODULE mo_time_settings
+END MODULE mo_time_management
