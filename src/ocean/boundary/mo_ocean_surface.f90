@@ -133,40 +133,40 @@ CONTAINS
     alloc_cell_blocks =  p_patch%alloc_cell_blocks
   ! nblks_e           =  p_patch%nblks_e
 
-    CALL add_var(ocean_default_list, 'TopBC_WindStress_u', p_oce_sfc%TopBC_WindStress_u, &
+    CALL add_var(ocean_default_list, 'oceTopBC_WindStress_u', p_oce_sfc%TopBC_WindStress_u, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('TopBC_WindStress_u', 'Pa', 'Zonal Wind Stress', DATATYPE_FLT32),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(ocean_default_list, 'TopBC_WindStress_v', p_oce_sfc%TopBC_WindStress_v, &
+    CALL add_var(ocean_default_list, 'oceTopBC_WindStress_v', p_oce_sfc%TopBC_WindStress_v, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('TopBC_WindStress_v', 'Pa', 'Meridional Wind Stress', DATATYPE_FLT32),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(ocean_default_list, 'Wind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
+    CALL add_var(ocean_default_list, 'oceWind_Speed_10m', p_oce_sfc%Wind_Speed_10m, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('Wind_Speed_10m', 'Pa', 'Wind Speed at 10m height', DATATYPE_FLT32),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
 
-    CALL add_var(ocean_default_list, 'HeatFlux_Total', p_oce_sfc%HeatFlux_Total, &
+    CALL add_var(ocean_default_list, 'oceHeatFlux_Total', p_oce_sfc%HeatFlux_Total, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Total', 'W/m2', 'Total Heat Flux', DATATYPE_FLT32),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(ocean_default_list, 'HeatFlux_Shortwave', p_oce_sfc%HeatFlux_Shortwave, &
+    CALL add_var(ocean_default_list, 'oceHeatFlux_Shortwave', p_oce_sfc%HeatFlux_Shortwave, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('HeatFlux_Shortwave', 'W/m2', 'Shortwave Heat Flux', DATATYPE_FLT32),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
 
-    CALL add_var(ocean_default_list, 'FrshFlux_VolumeTotal', p_oce_sfc%FrshFlux_VolumeTotal, &
+    CALL add_var(ocean_default_list, 'oceFrshFlux_VolumeTotal', p_oce_sfc%FrshFlux_VolumeTotal, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_VolumeTotal', 'm/s', 'Freshwater Flux due to Volume Change', DATATYPE_FLT32), &
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &        ldims=(/nproma,alloc_cell_blocks/))
 
-    CALL add_var(ocean_default_list, 'FrshFlux_TotalIce', p_oce_sfc%FrshFlux_TotalIce, &
+    CALL add_var(ocean_default_list, 'oceFrshFlux_TotalIce', p_oce_sfc%FrshFlux_TotalIce, &
       &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &        t_cf_var('FrshFlux_TotalIce', 'm/s', 'Freshwater Flux due to Sea Ice Change', DATATYPE_FLT32),&
       &        grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
@@ -190,14 +190,14 @@ CONTAINS
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/))
 
-    CALL add_var(ocean_default_list, 'data_surfRelax_Temp', p_oce_sfc%data_surfRelax_Temp, &
+    CALL add_var(ocean_default_list, 'oce_data_surfRelax_Temp', p_oce_sfc%data_surfRelax_Temp, &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('data_surfRelax_Temp', 'C', 'Data to Relax Temperature to', DATATYPE_FLT32),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
       &          ldims=(/nproma,alloc_cell_blocks/), &
       &          lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-    CALL add_var(ocean_default_list, 'data_surfRelax_Salt', p_oce_sfc%data_surfRelax_Salt, &
+    CALL add_var(ocean_default_list, 'oce_data_surfRelax_Salt', p_oce_sfc%data_surfRelax_Salt, &
       &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       &          t_cf_var('data_surfRelax_Salt', 'psu', 'Data to Relax Salinity to', DATATYPE_FLT32),&
       &          grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
@@ -499,6 +499,17 @@ CONTAINS
         atmos_fluxes%rpreci(:,:) = 0._wp
         atmos_fluxes%rprecw(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_SnowFall(:,:)
       ENDWHERE
+
+      ! copy fluxes to allocated variables for output and statistic purposes only:
+      p_sfc_flx%FrshFlux_Precipitation = atmos_fluxes%FrshFlux_Precipitation
+      p_sfc_flx%FrshFlux_Evaporation   = atmos_fluxes%FrshFlux_Evaporation
+      p_sfc_flx%FrshFlux_SnowFall      = atmos_fluxes%FrshFlux_SnowFall
+      p_sfc_flx%FrshFlux_Runoff        = atmos_fluxes%FrshFlux_Runoff
+      p_sfc_flx%HeatFlux_Total         = atmos_fluxes%HeatFlux_Total
+      p_sfc_flx%HeatFlux_ShortWave     = atmos_fluxes%HeatFlux_ShortWave
+      p_sfc_flx%HeatFlux_Longwave      = atmos_fluxes%HeatFlux_Longwave
+      p_sfc_flx%HeatFlux_Sensible      = atmos_fluxes%HeatFlux_Sensible
+      p_sfc_flx%HeatFlux_Latent        = atmos_fluxes%HeatFlux_Latent
 
     ENDIF  ! iforc_oce
 
