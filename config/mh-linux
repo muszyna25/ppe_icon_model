@@ -435,7 +435,7 @@ case "$ac_sitename" in
                 case "$fortran_compiler" in
                     intel*)
                         load_modules    =  cdo/default svn/1.8.13   ${load_modules}
-                        load_modules    =  intel/14.0.3 ${load_modules}
+                        load_modules    =  intel/16.0 ${load_modules}
                         config_compiler = intel
                         CC     = icc
                         CFLAGS = -std=gnu99 -g -O3 -ftz -march=native -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran
@@ -446,15 +446,17 @@ case "$ac_sitename" in
                         # intel 14.0.3
                         CHECK_FLAGS = -check bounds -check pointers -debug -g -traceback
                         DEBUG_FLAGS = -debug-parameters -debug -g -O0
-                        STD_FLAGS   = -ftz -O2 -march=native -pc64 -fltconsistency
-                        HIOPT_FLAGS = -O3 -mkl=sequential -pc64 -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded -xHost -vec-report1
-                        FFLAGS      = -pc64 -fpp -D__LOOP_EXCHANGE
-                        F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
+                        # replaced -fltconsitency because the option is deprected and should be replaced by -fp-model source
+                        FPPFLAGS    = -fpp -D__LOOP_EXCHANGE  
+                        STD_FLAGS   =  -ftz -O2 -march=native -pc64 -fp-model source -qopt-report-file=stdout -qopt-report=2 -qopt-report-phase=vec
+                        HIOPT_FLAGS = -O3 -march=native -pc64 -mkl=sequential -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded
+                        FFLAGS      = "$FPPFLAGS"
+                        F77FLAGS    = "$FPPFLAGS" "$STD_FLAGS"
 
-                        NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-$compiler_version
-                        NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-$compiler_version
-                        HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-$compiler_version
-                        SZIPROOT    = $software_tree/sys/libaec-0.3.2-$compiler_version
+                        NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-intel14
+                        NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-gcc48
+                        HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-gcc48
+                        SZIPROOT    = $software_tree/sys/libaec-0.3.2-gcc48
                         XML2ROOT    = /usr
                         ZLIBROOT    = /usr
 
