@@ -44,7 +44,7 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 checkpoint_interval="P1Y"
 restart_interval="P1Y"
 
-output_interval="PT10M"
+output_interval="P01D"
 file_interval="P01D"
 
 # namelist files
