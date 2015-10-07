@@ -87,7 +87,7 @@ MODULE mo_name_list_output
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
-      &                                   cdiStringError, streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT
+      &                                   cdiGetStringError, streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT
   USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, &
       &                                   GRID_UNSTRUCTURED_EDGE
   ! utility functions
@@ -197,9 +197,9 @@ CONTAINS
     of%cdiFileID = streamOpenWrite(TRIM(filename), of%output_type)
 
     IF (of%cdiFileID < 0) THEN
-! JF:       ! cdiStringError(of%cdiFileID) gives back a character array
-! JF:       message_text = cdiStringError(of%cdiFileID)
-! JF:       CALL message('',message_text,all_print=.TRUE.)
+      CALL cdiGetStringError(of%cdiFileID, cdiErrorText)
+      WRITE(message_text,'(a)') TRIM(cdiErrorText)
+      CALL message('',message_text,all_print=.TRUE.)
       CALL finish (routine, 'open failed on '//TRIM(filename))
     ELSE IF (msg_level >= 8) THEN
       CALL message (routine, 'opened '//TRIM(filename),all_print=.TRUE.)

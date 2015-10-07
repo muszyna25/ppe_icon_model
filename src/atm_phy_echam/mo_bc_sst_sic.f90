@@ -30,7 +30,7 @@ MODULE mo_bc_sst_sic
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, gridInqSize,      &
     &                              vlistInqTaxis, streamInqTimestep, taxisInqVdate,  &
-    &                              vlistInqVarGrid, streamClose, cdiStringError, streamReadVarslice, vlistPrint
+    &                              vlistInqVarGrid, streamClose, cdiGetStringError, streamReadVarslice, vlistPrint
 
   USE mo_time_interpolation_weights,ONLY: t_wi_limm
 
@@ -134,10 +134,9 @@ CONTAINS
 
     streamID = streamOpenRead(fn)
     IF ( streamID < 0 ) THEN
-! JF:       ! cdiStringError(streamID) gives back a character array
-! JF:       message_text = cdiStringError(streamID)
-! JF:       CALL finish('mo_bc_sst_sic:read_sst_sic_data', message_text)
-      CALL finish('mo_bc_sst_sic:read_sst_sic_data', 'open failed on '//TRIM(fn))
+      CALL cdiGetStringError(streamID, cdiErrorText)
+      WRITE(message_text,*) TRIM(cdiErrorText)
+      CALL finish('mo_bc_sst_sic:read_sst_sic_data', message_text)
     END IF
     
     vlistID = streamInqVlist(streamID)

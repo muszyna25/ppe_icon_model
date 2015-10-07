@@ -20,7 +20,7 @@ MODULE mo_util_vgrid
                                                 & ZAXIS_REFERENCE, zaxisCreate, TSTEP_CONSTANT, vlistDefVar, FILETYPE_NC2, &
                                                 & DATATYPE_INT32, DATATYPE_FLT64, CDI_UNDEFID, CDI_GLOBAL, vlistDefAttInt, &
                                                 & vlistInqAttInt, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, &
-                                                & streamWriteVarSlice, streamWriteVar, streamDefVlist, cdiStringError, &
+                                                & streamWriteVarSlice, streamWriteVar, streamDefVlist, cdiGetStringError, &
                                                 & vlistDefVarDatatype, vlistDefVarName, zaxisDefNumber, zaxisDefUUID, &
                                                 & gridDefPosition, gridInqUUID, gridDefNumber, gridDefUUID, zaxisDefLevels, &
                                                 & gridDefNvertex, vlistDefInstitut, zaxisInqUUID, streamReadVar
@@ -319,10 +319,10 @@ CONTAINS
       cdiFileID   = streamOpenWrite(TRIM(filename), output_type)
       ! check if the file could be opened
       IF (cdiFileID < 0) THEN
-! JF:         ! cdiStringError(cdiFileID) gives back a character array
-! JF:         message_text = 'File '//TRIM(filename)//' cannot be opened: '//cdiStringError(cdiFileID)
-! JF:         CALL finish(routine, TRIM(message_text))
-        CALL finish(routine, 'File '//TRIM(filename)//' cannot be opened')
+        CALL cdiGetStringError(cdiFileID, cdiErrorText)
+        WRITE(message_text,'(4a)') 'File ', TRIM(filename), &
+             ' cannot be opened: ', TRIM(cdiErrorText)
+        CALL finish(routine, TRIM(message_text))
       ENDIF
 
       ! assign the vlist (which must have ben set before)
@@ -403,10 +403,10 @@ CONTAINS
       cdiFileID = streamOpenRead(TRIM(filename))
       ! check if the file could be opened
       IF (cdiFileID < 0) THEN
-! JF:         ! cdiStringError(cdiFileID) gives back a character array
-! JF:         message_text = 'File '//TRIM(filename)//' cannot be opened: '//cdiStringError(cdiFileID)
-! JF:         CALL finish(routine, TRIM(message_text))
-        CALL finish(routine, 'File '//TRIM(filename)//' cannot be opened')
+        CALL cdiGetStringError(cdiFileID, cdiErrorText)
+        WRITE(message_text,'(4a)') 'File ', TRIM(filename), &
+             ' cannot be opened: ', TRIM(cdiErrorText)
+        CALL finish(routine, TRIM(message_text))
       ENDIF
 
       !--- read vct_a, vct_b

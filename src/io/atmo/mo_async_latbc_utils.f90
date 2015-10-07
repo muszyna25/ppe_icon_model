@@ -87,7 +87,7 @@
     USE mtime_events,           ONLY: deallocateEvent
     USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
          &                            operator(+)
-    USE mo_cdi,                 ONLY: streamOpenRead, streamClose, cdiStringError
+    USE mo_cdi,                 ONLY: streamOpenRead, streamClose, cdiGetStringError
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_master_config,       ONLY: isRestart
     USE mo_run_config,          ONLY: nsteps, dtime
@@ -539,10 +539,10 @@
       latbc_fileID  = streamOpenRead(TRIM(latbc_full_filename))
       ! check if the file could be opened
       IF (latbc_fileID < 0) THEN
-! JF:          ! cdiStringError(latbc_fileID) gives back a character array
-! JF:          message_text = 'File '//TRIM(latbc_full_filename)//' cannot be opened: '//cdiStringError(latbc_fileID)
-! JF:          CALL finish(routine, TRIM(message_text))
-         CALL finish(routine, 'File '//TRIM(latbc_full_filename)//' cannot be opened')
+         CALL cdiGetStringError(latbc_fileID, cdiErrorText)
+         WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
+              ' cannot be opened: ', TRIM(cdiErrorText)
+         CALL finish(routine, TRIM(message_text))
       ENDIF
 
       ! initializing the displacement array for each compute processor
@@ -844,10 +844,10 @@
       latbc_fileID  = streamOpenRead(TRIM(latbc_full_filename))
       ! check if the file could be opened
       IF (latbc_fileID < 0) THEN
-! JF:          ! cdiStringError(latbc_fileID) gives back a character array
-! JF:          message_text = 'File '//TRIM(latbc_full_filename)//' cannot be opened: '//cdiStringError(latbc_fileID)
-! JF:          CALL finish(routine, TRIM(message_text))
-         CALL finish(routine, 'File '//TRIM(latbc_full_filename)//' cannot be opened')
+         CALL cdiGetStringError(latbc_fileID, cdiErrorText)
+         WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
+              ' cannot be opened: ', TRIM(cdiErrorText)
+         CALL finish(routine, TRIM(message_text))
       ENDIF
 
       ! initializing the displacement array for each compute processor

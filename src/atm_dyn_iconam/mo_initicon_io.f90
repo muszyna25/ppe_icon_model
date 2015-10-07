@@ -62,7 +62,7 @@ MODULE mo_initicon_io
   USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_cdi,                 ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, &
-    &                               streamInqVlist, streamOpenRead, cdiStringError, streamClose, cdiDefMissval
+    &                               streamInqVlist, streamOpenRead, cdiGetStringError, streamClose, cdiDefMissval
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_util_cdi_table,      ONLY: print_cdi_summary, &
     &                               new_inventory_list, delete_inventory_list, complete_inventory_list
@@ -164,10 +164,10 @@ MODULE mo_initicon_io
         fileID_fg(jg)  = streamOpenRead(TRIM(dwdfg_file(jg)))
         ! check if the file could be opened
         IF (fileID_fg(jg) < 0) THEN
-! JF:           ! cdiStringError(fileID_fg(jg)) gives back a character array
-! JF:           message_text = 'File '//TRIM(dwdfg_file(jg))//' cannot be opened: '//cdiStringError(fileID_fg(jg))
-! JF:           CALL finish(routine, TRIM(message_text))
-          CALL finish(routine, 'File '//TRIM(dwdfg_file(jg))//' cannot be opened')
+          CALL cdiGetStringError(fileID_fg(jg), cdiErrorText)
+          WRITE(message_text,'(4a)') 'File ', TRIM(dwdfg_file(jg)), &
+               ' cannot be opened: ', TRIM(cdiErrorText)
+          CALL finish(routine, TRIM(message_text))
         ENDIF
 
         ! check whether the file is empty (does not work unfortunately; internal CDI error)
@@ -216,10 +216,10 @@ MODULE mo_initicon_io
           fileID_ana(jg)  = streamOpenRead(TRIM(dwdana_file(jg)))
           ! check if the file could be opened
           IF (fileID_ana(jg) < 0) THEN
-! JF:             ! cdiStringError(fileID_ana(jg)) gives back a character array
-! JF:             message_text = 'File '//TRIM(dwdana_file(jg))//' cannot be opened: '//cdiStringError(fileID_ana(jg))
-! JF:             CALL finish(routine, TRIM(message_text))
-            CALL finish(routine, 'File '//TRIM(dwdana_file(jg))//' cannot be opened')
+            CALL cdiGetStringError(fileID_ana(jg), cdiErrorText)
+            WRITE(message_text,'(4a)') 'File ', TRIM(dwdana_file(jg)), &
+                 ' cannot be opened: ', TRIM(cdiErrorText)
+            CALL finish(routine, TRIM(message_text))
           ENDIF
 
           ! check whether the file is empty (does not work unfortunately; internal CDI error)

@@ -61,7 +61,7 @@ MODULE mo_io_restart_async
                                       & vlistDefAttInt, vlistDefVar, zaxisCreate, gridCreate, cdiEncodeDate, cdiEncodeTime, &
                                       & streamDefTimestep, taxisCreate, vlistDefAttFlt, vlistDefAttTxt, vlistCreate, &
                                       & streamOpenWrite, taxisDestroy, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, &
-                                      & streamWriteVarSlice, streamDefVlist, cdiStringError, vlistDefVarDatatype, &
+                                      & streamWriteVarSlice, streamDefVlist, cdiGetStringError, vlistDefVarDatatype, &
                                       & vlistDefVarName, zaxisDefLevels, gridDefNvertex, zaxisDefVct, vlistDefVarLongname, &
                                       & vlistDefVarUnits, vlistDefVarMissval, gridDefXlongname, gridDefYlongname, vlistDefTaxis, &
                                       & taxisDefVdate, taxisDefVtime, gridDefXname, gridDefYname, gridDefXunits, gridDefYunits
@@ -3365,9 +3365,9 @@ CONTAINS
     p_rf%cdiFileID = streamOpenWrite(TRIM(p_rf%filename), restart_type)
 
     IF (p_rf%cdiFileID < 0) THEN
-! JF:       ! cdiStringError(p_rf%cdiFileID) gives back a character array
-! JF:       message_text = cdiStringError(p_rf%cdiFileID)
-! JF:       CALL message('', message_text, all_print=.TRUE.)
+      CALL cdiGetStringError(p_rf%cdiFileID, cdiErrorText)
+      WRITE(message_text,'(a)') TRIM(cdiErrorText)
+      CALL message('', message_text, all_print=.TRUE.)
       CALL finish (subname, 'open failed on '//TRIM(p_rf%filename))
     ELSE
       CALL message (subname, 'opened '//TRIM(p_rf%filename), all_print=.TRUE.)
