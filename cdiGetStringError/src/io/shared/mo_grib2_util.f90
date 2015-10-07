@@ -24,7 +24,8 @@ MODULE mo_grib2_util
                                  & TSTEP_MIN, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR,   &
                                  & vlistDefVarProductDefinitionTemplate,                &
                                  & vlistDefVarTypeOfGeneratingProcess,                  &
-                                 & vlistDefVarIntKey, vlistDefVarIntArrayKey
+                                 & vlistDefVarIntKey
+! JF:                                  & vlistDefVarIntKey, vlistDefVarIntArrayKey
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_SYNSAT, &
     &                              CLASS_TILE_LAND, VARNAME_LEN
@@ -446,10 +447,10 @@ CONTAINS
       CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
       scaledValueOfDistributionFunctionParameter(1) = info%tracer%diameter
       scaleFactorOfDistributionFunctionParameter(1) = 6
-      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",     &
-        &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter)
-      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
-        &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter)
+! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",     &
+! JF:         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter)
+! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
+! JF:         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter)
       CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
 
     CASE ('volcash_diag')
@@ -467,10 +468,10 @@ CONTAINS
       scaleFactorOfDistributionFunctionParameter(1) = first_factor
       scaledValueOfDistributionFunctionParameter(2) = second_param
       scaleFactorOfDistributionFunctionParameter(2) = 0
-      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",    &
-        &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter)
-      CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
-        &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter)
+! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",    &
+! JF:         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter)
+! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
+! JF:         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter)
       CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", scale_factor)
       
     CASE ('aerosol_diag_tau')
