@@ -351,19 +351,6 @@ EOF
                     'ts','evspsbl','hfls','hfss',
                     'tauu','tauv','rho'
 /
-&output_nml
- output_filename  = "${EXPNAME}_timeMeanOnPL"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 0
- output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"                          ! ISO-format interval
- file_interval    = "${file_interval}"               ! ISO-format interval
- include_last     = .FALSE.
- pl_varlist       = 'qi_m','qv_m','rho_m','u_m','temp_m','v_m'
- p_levels         = 20000,30000,50000,70000,85000
-/
 EOF
 fi
 
