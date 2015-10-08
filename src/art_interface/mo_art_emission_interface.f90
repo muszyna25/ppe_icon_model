@@ -45,11 +45,7 @@ MODULE mo_art_emission_interface
   USE mo_nwp_phy_types,                 ONLY: t_nwp_phy_diag
   USE mo_ext_data_types,                ONLY: t_external_data
   USE mo_nwp_lnd_types,                 ONLY: t_lnd_diag
-  USE mo_run_config,                    ONLY: lart,                         &
-                                          &   iCS137,iI131,iTE132,          &
-                                          &   iZR95,iXE133,iI131g,          &
-                                          &   iI131o,iBA140,iRU103,         &
-                                          &   iasha, iashb, iashc
+  USE mo_run_config,                    ONLY: lart
   USE mo_datetime,                      ONLY: t_datetime
 #ifdef __ICON_ART
 ! Infrastructure Routines
@@ -59,15 +55,19 @@ MODULE mo_art_emission_interface
   USE mo_art_data,                      ONLY: p_art_data
   USE mo_art_aerosol_utilities,         ONLY: art_air_properties
   USE mo_art_diagnostics_interface,     ONLY: art_diagnostics_interface
-  USE mo_art_config,                    ONLY: art_config
+  USE mo_art_config,                    ONLY: art_config,                   &
+                                          &   iCS137,iI131,iTE132,          &
+                                          &   iZR95,iXE133,iI131g,          &
+                                          &   iI131o,iBA140,iRU103,         &
+                                          &   iasha, iashb, iashc
   USE mo_art_integration,               ONLY: art_integrate_explicit
 ! Emission Routines
   USE mo_art_emission_volc_1mom,        ONLY: art_organize_emission_volc
-  USE mo_art_emission_volc_2mom,        ONLY: art_prepare_emission_volc, &
+  USE mo_art_emission_volc_2mom,        ONLY: art_prepare_emission_volc,    &
                                           &   art_calculate_emission_volc
   USE mo_art_radioactive,               ONLY: art_emiss_radioact
-  USE mo_art_emission_seas,             ONLY: art_seas_emiss_martensson, &
-                                          &   art_seas_emiss_monahan, &
+  USE mo_art_emission_seas,             ONLY: art_seas_emiss_martensson,    &
+                                          &   art_seas_emiss_monahan,       &
                                           &   art_seas_emiss_smith
   USE mo_art_emission_dust,             ONLY: art_emission_dust,art_prepare_emission_dust
   USE mo_art_emission_dust_simple,      ONLY: art_prepare_emission_dust_simple
@@ -170,8 +170,8 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
           case(0)
             ! Nothing to do, no dust emissions
           case(1)
-            CALL art_prepare_emission_dust(p_nh_state%diag%u(:,nlev,jb),p_nh_state%diag%v(:,nlev,jb), &
-              &          rho(:,nlev,jb),prm_diag%tcm(:,jb),p_diag_lnd%w_so(:,1,jb),                   &
+            CALL art_prepare_emission_dust(p_nh_state%diag%u(:,nlev,jb),p_nh_state%diag%v(:,nlev,jb),           &
+              &          rho(:,nlev,jb),prm_diag%tcm(:,jb),p_diag_lnd%w_so(:,1,jb),p_diag_lnd%w_so_ice(:,1,jb), &
               &          dzsoil(1),p_diag_lnd%h_snow(:,jb),jb,istart,iend,p_art_data(jg)%soil_prop)
           case(2)
             ! not available yet
