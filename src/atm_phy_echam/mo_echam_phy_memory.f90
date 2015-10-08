@@ -1404,7 +1404,7 @@ CONTAINS
     cf_desc    = t_cf_var('turbulent_kinetic_energy', 'J kg-1', 'turbulent kinetic energy', &
          &                DATATYPE_FLT32)
     grib2_desc = grib2_var(0,19,11, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, prefix//'tke', field%tke,                         &
+    CALL add_var( field_list, prefix//'tke_echam', field%tke,                         &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &             vert_intp_type=vintp_types("P","Z","I"),                   &
@@ -1526,13 +1526,13 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
       ! &       field% tkem0  (nproma,nlev,nblks), &
-      cf_desc    = t_cf_var('tke', 'm2 s-2', 'TKE at step t', DATATYPE_FLT32)
+      cf_desc    = t_cf_var('tkem0', 'm2 s-2', 'TKE at step t', DATATYPE_FLT32)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( field_list, prefix//'tkem0', field%tkem0,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
       ! &       field% tkem1  (nproma,nlev,nblks), &
-      cf_desc    = t_cf_var('tke', 'm2 s-2', 'TKE at step t-dt', DATATYPE_FLT32)
+      cf_desc    = t_cf_var('tkem1', 'm2 s-2', 'TKE at step t-dt', DATATYPE_FLT32)
       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
       CALL add_var( field_list, prefix//'tkem1', field%tkem1,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )

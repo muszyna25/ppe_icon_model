@@ -660,11 +660,17 @@ end
 
 desc "check timemean output for single and twp dtime output"
 task :checkTimeMean, :pattern, :referenceExp do |t,args|
+  require 'parallel'
+  require 'jobqueue'
+
   puts 'checkTimeMean ==================================================================='
   varlist = {
-    :tracer => %w[qc qv qi],
-    :prog   => %w[u v temp pres_sfc pres_msl z_mc rho],
-    :echam  => %w[cosmu0 flxdwswtoa aclcov rsfl rsfc ssfl ssfc totprec qvi xlvi xivi swflxsfc swflxtoa lwflxsfc lwflxtoa tsfc evap lhflx shflx u_stress v_stress],
+   #:tracer => %w[qc qv qi],
+   #:prog   => %w[u v temp pres_sfc pres_msl z_mc rho],
+   #:echam  => %w[cosmu0 flxdwswtoa aclcov rsfl rsfc ssfl ssfc totprec qvi xlvi xivi swflxsfc swflxtoa lwflxsfc lwflxtoa tsfc evap lhflx shflx u_stress v_stress],
+    :tracer => %w[clw hus cli],
+    :prog   => %w[ua va ta ps psl rho],
+    :echam  => %w[cosmu0 rsdt clt prlr prcr prls prcs pr prw cllvi clivi rsns rsnt rlns rlnt ts evspsbl hfls hfss tauu tauv]
   }.each {|k,v| v.map {|item| item << '_m'}}
 
   dbg(varlist)
@@ -688,9 +694,11 @@ task :checkTimeMean, :pattern, :referenceExp do |t,args|
     refFiles.each_with_index {|refile,i|
       expfile = files[i]
       varlist.each {|group, varnames|
+        q = JobQueue.new
         puts 
         puts group.to_s.upcase.colorize(:green)
-        varnames.each {|varname|
+        Parallel.each(varnames,:in_processes => 10) {|varname|
+#       q.push {
           diff = Cdo.diffv(input: [
                     "-timmean -seltimestep,#{accConfig[:refTimesteps]} -selname,#{varname} #{refile}",
                     "         -seltimestep,#{accConfig[:accTimesteps]} -selname,#{varname} #{expfile}"
@@ -702,9 +710,10 @@ task :checkTimeMean, :pattern, :referenceExp do |t,args|
           else
             print "#{varname} ".colorize(:green)
           end
-
         }
+#       }
         puts
+#       q.run
       }
     }
   }
@@ -712,19 +721,24 @@ end
 
 desc "check single precission output of dtime output"
 task :checkTimeMeanSP, :pattern do |t,args|
+  require 'parallel'
+  require 'jobqueue'
+
   #tightly connected to the current dictionary
   varlist = {
-    :tracer => %w[qc qv qi],
-    :prog   => %w[u v temp pres_sfc pres_msl z_mc rho],
-    :echam  => %w[cosmu0 flxdwswtoa aclcov rsfl rsfc ssfl ssfc totprec qvi xlvi xivi swflxsfc swflxtoa lwflxsfc lwflxtoa tsfc evap lhflx shflx u_stress v_stress]
+    :tracer => %w[clw hus cli],
+    :prog   => %w[ua va ta ps psl rho],
+#   :echam  => %w[cosmu0 flxdwswtoa aclcov rsfl rsfc ssfl ssfc totprec qvi xlvi xivi swflxsfc swflxtoa lwflxsfc lwflxtoa tsfc evap lhflx shflx u_stress v_stress]
+    :echam  => %w[cosmu0 rsdt clt prlr prcr prls prcs pr prw cllvi clivi rsns rsnt rlns rlnt ts evspsbl hfls hfss tauu tauv]
   }.each {|k,v| v.map {|item| item << '_m'}}
   reflist = {
     :tracer => %w[clw hus cli],
-    :prog   => %w[ua va ta ps psl zg rho], 
+    :prog   => %w[ua va ta ps psl rho], 
     :echam  => %w[cosmu0 rsdt clt prlr prcr prls prcs pr prw cllvi clivi rsns rsnt rlns rlnt ts evspsbl hfls hfss tauu tauv]
   }
 #Cdo.debug = true
   ifiles = Dir.glob("./#{args.pattern}")
+  ifiles = Dir.glob(args.pattern)
   if ifiles.empty? then
     warn "Could not find input file #{args.pattern}"
     exit(1)
@@ -733,9 +747,12 @@ task :checkTimeMeanSP, :pattern do |t,args|
   checkFiles4Variables([varlist.values,reflist.values].flatten,ifile)
   
 #Cdo.debug = true
+  q = JobQueue.new
   avoidFirst = lambda {|ifile| "-seltimestep,2/#{Cdo.ntime(input: ifile)[0]}" }
-  varlist.each {|area,vlist|
-    vlist.each_index {|i|
+# Parallel.each(varlist,:in_processes => 8) {|area,vlist|
+  varlist.each{|area,vlist|
+#   vlist.each_index {|i| q.push {
+    Parallel.each(0...vlist.size,:in_processes => 8)  {|i| 
       varname, refname = vlist[i], reflist[area][i]
       sel = avoidFirst.call(ifile)
       diff = Cdo.diffv(input: "-selname,#{varname} #{sel} #{ifile} -selname,#{refname} #{sel} #{ifile}")
@@ -745,8 +762,9 @@ task :checkTimeMeanSP, :pattern do |t,args|
         puts [varname,refname].join(' ').colorize(:red)
 #       pp diff
       end
-    }
+    }#}
   }
+  q.run
 end
 desc "Check status of given of all experiments"
 task :stat, :expname do |t,args|

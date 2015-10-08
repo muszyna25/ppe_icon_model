@@ -351,6 +351,19 @@ EOF
                     'ts','evspsbl','hfls','hfss',
                     'tauu','tauv','rho'
 /
+&output_nml
+ output_filename  = "${EXPNAME}_mean"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ output_interval  = "${output_interval}"                          ! ISO-format interval
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ operation        = "mean"
+ ml_varlist       = 'group:atmo_ml_vars'
+/
 EOF
 fi
 

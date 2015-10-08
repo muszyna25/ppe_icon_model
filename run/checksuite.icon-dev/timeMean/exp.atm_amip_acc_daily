@@ -38,13 +38,13 @@ atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1979-01-01T00:50:00Z"        # ISO-format date+time
+  end_date="1979-01-02T00:00:00Z"        # ISO-format date+time
 
 # restart interval
 checkpoint_interval="P1Y"
 restart_interval="P1Y"
 
-output_interval="PT20M"
+output_interval="P01D"
 file_interval="P01D"
 
 # namelist files
@@ -68,7 +68,7 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 600         ! [s] time step
+ modelTimeStep    = "PT10M"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
