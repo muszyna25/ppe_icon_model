@@ -759,7 +759,7 @@ CONTAINS
         CALL rotate_latlon(lat, lon, pollat, pollon)
 
 !==========================================================================
-    coriolis_nod2D(k) = calc_f_rot(lat,lon,pollat,earth_angular_velocity)
+        coriolis_nod2D(k) = calc_f_rot(lat,lon,pollat,earth_angular_velocity)
 
         ! x-coords in degrees
         coord_nod2D(1,k) = lon*rad2deg
@@ -1355,8 +1355,8 @@ CONTAINS
 
   implicit none
 
-  real(wp), intent(in)           :: lat, lon, pollat, omega
-  real(wp)			 :: calc_f_rot
+  real(wp), intent(in)  :: lat, lon, pollat, omega
+  real(wp)              :: calc_f_rot
 
   calc_f_rot = 2._wp*omega*(-cos(lon)*cos(lat)*cos(pollat)+sin(lat)*sin(pollat))
 
@@ -1377,9 +1377,9 @@ CONTAINS
   !
   SUBROUTINE intrp_to_fem_grid_vec_old( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff ) ! TODO: replace oce_vel by oce_stress in the future.
 
-    USE mo_ice,          ONLY: a_ice, u_ice, v_ice, u_w, v_w, stress_atmice_x, stress_atmice_y
+    USE mo_ice,         ONLY: a_ice, u_ice, v_ice, u_w, v_w, stress_atmice_x, stress_atmice_y
     USE mo_physical_constants,    ONLY: Cd_io
-    USE mo_ice_mesh,     ONLY: coord_nod2D		
+    USE mo_ice_mesh,    ONLY: coord_nod2D
 
     TYPE(t_patch_3D), TARGET, INTENT(IN)     :: p_patch_3D
     TYPE(t_sea_ice),          INTENT(INOUT)  :: p_ice
@@ -1665,7 +1665,7 @@ CONTAINS
   !
   SUBROUTINE intrp_to_fem_grid_vec( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff ) ! TODO: replace oce_vel by oce_stress in the future.
 
-    USE mo_ice,          ONLY: u_w, v_w, stress_atmice_x, stress_atmice_y !, a_ice, u_ice, v_ice
+    USE mo_ice,          ONLY: u_w, v_w, stress_atmice_x, stress_atmice_y, u_ice, v_ice !, a_ice
     USE mo_ice_mesh,     ONLY: coord_nod2D
     USE mo_physical_constants,    ONLY: Cd_io
 
@@ -1763,8 +1763,8 @@ CONTAINS
 	  ! are first converted to degrees and then back to radians. 
           ! lon = coord_nod2D(1,jk)*deg2rad ! FEM x-coords in degrees -- NOOOOOOOOOO
           ! lat = coord_nod2D(2,jk)*deg2rad ! FEM x-coords in degrees -- NOOOOOOOOOO
-	  lon = coord_nod2D(1,jk)
-	  lat = coord_nod2D(2,jk)
+          lon = coord_nod2D(1,jk)
+          lat = coord_nod2D(2,jk)
 !          lat1 = p_patch%verts%vertex(jv,jb)%lat
 !          lon1 = p_patch%verts%vertex(jv,jb)%lon
 !          CALL rotate_latlon(lat1, lon1, pollat, pollon)
@@ -1807,8 +1807,8 @@ CONTAINS
 !            ! Strictly speaking p_ice%u_prog and p_ice%v_prog are only used by the restart files
 !            ! now, so this does not need to be done every timestep, only after restart file is
 !            ! read.
-!            u_ice(jk) = p_ice%u_prog(jv,jb)
-!            v_ice(jk) = p_ice%v_prog(jv,jb)
+            u_ice(jk) = p_ice%u_prog(jv,jb)
+            v_ice(jk) = p_ice%v_prog(jv,jb)
 !          ENDIF
 !        ELSE
 !          stress_atmice_x(jk) = 0._wp
