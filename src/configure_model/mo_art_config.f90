@@ -28,26 +28,57 @@ MODULE mo_art_config
   USE mo_impl_constants,       ONLY: max_dom
   USE mo_math_utilities,       ONLY: t_geographical_coordinates  
   IMPLICIT NONE
+  
+  PRIVATE
 
-
-  PUBLIC 
-
-
+  PUBLIC :: nart_tendphy
+  PUBLIC :: t_art_config
+  PUBLIC :: art_config
+  PUBLIC :: configure_art
+  ! Tracer indices
+  PUBLIC :: iash1,iash2,iash3,iash4,iash5,iash6                          !Running index for Volcanic Ash in ICON-ART 
+  PUBLIC :: iasha, iashb, iashc, iasha0, iashb0, iashc0                  !Running index for Volcanic Ash in ICON-ART
+  PUBLIC :: iCS137,iI131,iTE132,iZR95,iXE133,iI131g,iI131o,iBA140,iRU103 !Running index for radioactive nuclides  in ICON-ART
+  PUBLIC :: iseasa,iseasb,iseasc,iseasa0,iseasb0,iseasc0                 !Running index for sea salt in ICON-ART
+  PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0                 !Running index for mineral dust in ICON-ART
+  PUBLIC :: iTRCHBR3,iTRCH2BR2,iTRBRy                                    !Running index for chemical tracer in ICON-ART - VSLS-BRy
+  PUBLIC :: iTRCH4,iTRCO2,iTRCO,iTRH2O,iTRO3                             !Running index for chemical tracer in ICON-ART - CH4-CO-CO2-H2O-O3
+  PUBLIC :: iTRCH3COCH3,iTRC2H6,iTRSF6,iTRN2O                            !Running index for chemical tracer in ICON-ART - CH3COCH3,C2H6,SF6,N2O
+  PUBLIC :: iTR1,iTR2,iTR3,iTR4,iTR5                                     !Running index for chemical tracer in ICON-ART - artificial tracer
+  
+  
+  
+  !!--------------------------------------------------------------------------
+  !! Tracer indices of ICON-ART species
+  !!--------------------------------------------------------------------------
+  INTEGER :: & !< Volcanic ash tracer indicies (bulk scheme)
+    &  iash1, iash2, iash3, iash4, iash5, iash6
+  INTEGER :: & !< Volcanic ash tracer indicies (modal scheme)
+    &  iasha, iashb, iashc, iasha0, iashb0, iashc0
+  INTEGER :: & !< Radioactive nuclides (bulk scheme)
+    &  iCS137, iI131, iTE132, iZR95, iXE133, &
+    &  iI131g, iI131o, iBA140, iRU103
+  INTEGER :: & !< seasalt aerosol tracer indicies (modal scheme)
+    &  iseasa, iseasb, iseasc, iseasa0, iseasb0, iseasc0
+  INTEGER :: & !< mineral dust aerosol tracer indicies (modal scheme)
+    &  idusta, idustb, idustc, idusta0, idustb0, idustc0
+  INTEGER :: & !< Chemical tracers
+    &  iTRCHBR3, iTRCH2BR2, iTRBRy, &
+    &  iTRCH4, iTRCO2, iTRCO,       &
+    &  iTRCH3COCH3, iTRC2H6, iTRH2O,&
+    &  iTRO3, iTRSF6, iTRN2O,       &
+    &  iTR1, iTR2, iTR3, iTR4, iTR5
+  
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
-   INTEGER, PARAMETER  :: max_volc_input  = 20 !Maximum number of volcanoes in input namelist art_volclist_tot
-   INTEGER             :: nart_tendphy  = 0    !Maximum number of tracers that are effected by deep convective transport 
-
-  TYPE t_volc_list
-    CHARACTER(len=20)                :: zname    ! < name of volcanoe or location
-    TYPE(t_geographical_coordinates) :: location !< geographical position
-  END TYPE t_volc_list
-
+  INTEGER             :: nart_tendphy  = 0    !Maximum number of tracers that are effected by deep convective transport 
+  
+  
   TYPE t_art_config ! Namelist variables for ART
-
+    
     ! Namelist variables
-
+    
     ! General control variables (Details: cf. Tab. 2.2 ICON-ART User Guide)
     CHARACTER(LEN=120) :: cart_folder  !< Absolute Path to ART source code
     INTEGER :: iart_ntracer            !< number of transported ART tracers
