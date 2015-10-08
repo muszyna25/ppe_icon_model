@@ -14,13 +14,16 @@ subroutine stress_tensor
 ! EVP rheology implementation. Computes stress tensor components based on ice 
 ! velocity field. They are stored as elemental arrays (sigma11, sigma22 and
 ! sigma12). 
-  use mo_ice_param
+
   use mo_ice_elements
   use mo_ice_mesh
   use mo_ice
   use mo_ice_parsup
-  use mo_ice_iceparam
-  use mo_ice_therm_parms
+
+  USE mo_run_config,          ONLY: dtime
+  USE mo_sea_ice_nml,         ONLY: delta_min, evp_rheol_steps, Tevp_inv, theta_io
+  use mo_physical_constants,  ONLY: Pstar, ellipse, c_pressure, earth_radius
+
   USE mo_kind,    ONLY: wp
 
 implicit none
@@ -37,7 +40,7 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
   val3=1.0_wp/3.0_wp
   vale=1.0_wp/(ellipse**2)
    
-  dte=dt/(1.0_wp*REAL(evp_rheol_steps,wp))
+  dte=dtime/(1.0_wp*REAL(evp_rheol_steps,wp))
   det1=1.0_wp+0.5_wp*Tevp_inv*dte
   det2=1.0_wp+0.5_wp*Tevp_inv*dte*ellipse**2    !RTSD corrected 8.3.2006
                                               ! There is error in CICE 
@@ -55,7 +58,7 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
      dx=bafux(:,elem)
      dy=bafuy(:,elem)
 
-     meancos=sin_elem2D(elem)/cos_elem2D(elem)/r_earth  !metrics
+     meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius  !metrics
      vsum=sum(v_ice(elnodes))                           !metrics   
      usum=sum(u_ice(elnodes))                           !metrics
 
@@ -122,13 +125,14 @@ subroutine stress2rhs
 ! EVP implementation:
 ! Computes the divergence of stress tensor and puts the result into the
 ! rhs vectors 
-  use mo_ice_param
+
   use mo_ice_elements
   use mo_ice_mesh
   use mo_ice
   use mo_ice_parsup
-  use mo_ice_iceparam
-  use mo_ice_therm_parms
+
+
+  use mo_physical_constants,  ONLY: rhoi, rhos, earth_radius
   USE mo_kind,    ONLY: wp
 
 
@@ -155,7 +159,7 @@ val3=1._wp/3.0_wp
      if (aa==0._wp) CYCLE
       ! =====
 
-     meancos=sin_elem2D(elem)/cos_elem2D(elem)/r_earth         !metrics
+     meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius         !metrics
      dx=bafux(:,elem)
      dy=bafuy(:,elem)
      elevation_elem=elevation(elnodes)
@@ -181,7 +185,7 @@ val3=1._wp/3.0_wp
   DO i=1, myDim_nod2D
      row=myList_nod2D(i)             
      cluster_area=lmass_matrix(row)
-     mass=cluster_area*(m_ice(row)*rhoice+m_snow(row)*rhosno)
+     mass=cluster_area*(m_ice(row)*rhoi+m_snow(row)*rhos)
      
      if (mass.ne.0._wp) then
      rhs_u(row)=rhs_u(row)/mass + rhs_a(row)/cluster_area 
@@ -196,13 +200,16 @@ end subroutine stress2rhs
 !===================================================================
 subroutine EVPdynamics
 ! EVP implementation. Does cybcycling and boundary conditions.  
-  use mo_ice_param
+
   use mo_ice_elements
   use mo_ice_mesh
   use mo_ice
   use mo_ice_parsup
-  use mo_ice_iceparam
-  use mo_ice_therm_parms
+
+  USE mo_run_config,            ONLY: dtime
+  USE mo_sea_ice_nml,           ONLY: evp_rheol_steps, theta_io
+  USE mo_physical_constants,    ONLY: rhoi, rhos, Cd_io, rho_ref
+
   USE mo_kind,    ONLY: wp
   USE mo_ice_fem_utils,   ONLY: exchange_nod2D
   USE mo_kind,            ONLY: wp
@@ -214,7 +221,7 @@ REAL(wp)    ::  drag, inv_mass, det, umod, rhsu, rhsv
 integer         ::  i,j
 REAL(wp)    :: ax, ay
 
-    rdt=dt/(1.0_wp*REAL(evp_rheol_steps,wp))
+    rdt=dtime/(1.0_wp*REAL(evp_rheol_steps,wp))
     steps=evp_rheol_steps
     ! theta_io should be zero - set in ice_main.f90
     ax=cos(theta_io)
@@ -242,13 +249,13 @@ do shortstep=1, steps
     i=myList_nod2D(j)
   if (index_nod2D(i)>0) CYCLE          ! Skip boundary nodes
   if (a_ice(i) > 0.01_wp) then             ! If ice is present, update velocities
-   inv_mass=(rhoice*m_ice(i)+rhosno*m_snow(i))/a_ice(i)
+   inv_mass=(rhoi*m_ice(i)+rhos*m_snow(i))/a_ice(i)
    inv_mass=max(inv_mass, 9.0_wp)        ! Limit the weighted mass 
                                        ! if it is too small
    inv_mass=1.0_wp/inv_mass
 
    umod=sqrt((u_ice(i)-u_w(i))**2+(v_ice(i)-v_w(i))**2)
-   drag=C_d_io*umod*density_0*inv_mass
+   drag=Cd_io*umod*rho_ref*inv_mass
    
    rhsu=u_ice(i)+rdt*(drag*(ax*u_w(i)-ay*v_w(i))+inv_mass*stress_atmice_x(i)+rhs_u(i))
    rhsv=v_ice(i)+rdt*(drag*(ax*v_w(i)+ay*u_w(i))+inv_mass*stress_atmice_y(i)+rhs_v(i))

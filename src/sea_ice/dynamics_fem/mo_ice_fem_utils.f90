@@ -636,7 +636,7 @@ CONTAINS
     INTEGER :: il_v1, il_v2,ib_v1, ib_v2
     INTEGER :: i_startidx, i_endidx
 
-    TYPE(t_cartesian_coordinates)	    :: p_vn_dual_e
+    TYPE(t_cartesian_coordinates)   :: p_vn_dual_e
 
     !-----------------------------------------------------------------------
 
@@ -662,7 +662,7 @@ CONTAINS
             ELSE
               vn(je,jb) = 0._wp
             ENDIF
-      	END DO
+        END DO
     END DO
 
 
@@ -683,7 +683,7 @@ CONTAINS
     USE mo_ice_mesh,           ONLY: coord_nod2D, nod2D, index_nod2D
     USE mo_ice_elements,       ONLY: elem2D_nodes, elem2D
     USE mo_physical_constants, ONLY: earth_angular_velocity
-    USE mo_ice_iceparam,       ONLY: coriolis_nod2D
+    USE mo_ice_mesh,           ONLY: coriolis_nod2D
    ! USE mo_mpi
 
     TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
@@ -759,7 +759,7 @@ CONTAINS
         CALL rotate_latlon(lat, lon, pollat, pollon)
 
 !==========================================================================
-	coriolis_nod2D(k) = calc_f_rot(lat,lon,pollat,earth_angular_velocity)
+    coriolis_nod2D(k) = calc_f_rot(lat,lon,pollat,earth_angular_velocity)
 
         ! x-coords in degrees
         coord_nod2D(1,k) = lon*rad2deg
@@ -962,8 +962,7 @@ CONTAINS
     USE mo_ice_parsup,          ONLY: myList_nod2D, myList_elem2D
     USE mo_ice,                 ONLY: lmass_matrix
     USE mo_ice_elements,        ONLY: voltriangle
-    USE mo_ice_iceparam,        ONLY: coriolis_nod2D
-    USE mo_ice_mesh,            ONLY: cos_elem2D, sin_elem2D
+    USE mo_ice_mesh,            ONLY: cos_elem2D, sin_elem2D, coriolis_nod2D
 
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
 
@@ -1126,7 +1125,7 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%vol (:,:,:))
-    CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
+!   CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%conc(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hs  (:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hi  (:,:,:))
@@ -1247,7 +1246,7 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%vol (:,:,:))
-    CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
+!   CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%conc(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hs  (:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hi  (:,:,:))
@@ -1274,8 +1273,7 @@ CONTAINS
   !! Developed by Einar Olason, MPI-M (2013-06-05)
   !
   SUBROUTINE ice_ocean_stress( p_patch, atmos_fluxes, p_ice, p_os )
-    USE mo_ice_param,    ONLY: density_0
-    USE mo_ice_iceparam, ONLY: C_d_io
+    use mo_physical_constants,  ONLY:  rho_ref, Cd_io
     TYPE(t_patch), TARGET,    INTENT(IN)    :: p_patch
     TYPE (t_atmos_fluxes),    INTENT(INOUT) :: atmos_fluxes
     TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
@@ -1313,11 +1311,11 @@ CONTAINS
       delv = p_ice%v(jc,jb) - p_os%p_diag%v(jc,1,jb)
       ! Ice with concentration lower than 0.01 simply flows with the speed of the ocean and does not alter drag
       ! TODO: The ice-ocean drag coefficient should depend on the depth of the upper most ocean
-      ! velocity point: C_d_io = ( kappa/log(z/z0) )**2, with z0 ~= 0.4 cm
+      ! velocity point: Cd_io = ( kappa/log(z/z0) )**2, with z0 ~= 0.4 cm
       ! Should we multiply with concSum here? 
-      !tau = p_ice%concSum(jc,jb)*density_0*C_d_io*SQRT( delu**2 + delv**2 )
+      !tau = p_ice%concSum(jc,jb)*rho_ref*Cd_io*SQRT( delu**2 + delv**2 )
       ! #slo# - to avoid stress proportional to concSum**2 it is omitted here
-      tau = density_0*C_d_io*SQRT( delu**2 + delv**2 )
+      tau = rho_ref*Cd_io*SQRT( delu**2 + delv**2 )
       ! set ocean stress below sea ice to zero wrt concentration for forced runs without ice dynamics;
       ! then ocean gets no stress (no deceleration) below sea ice
       IF (stress_ice_zero) tau = 0.0_wp
@@ -1380,7 +1378,7 @@ CONTAINS
   SUBROUTINE intrp_to_fem_grid_vec_old( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff ) ! TODO: replace oce_vel by oce_stress in the future.
 
     USE mo_ice,          ONLY: a_ice, u_ice, v_ice, u_w, v_w, stress_atmice_x, stress_atmice_y
-    USE mo_ice_iceparam, ONLY: C_d_io
+    USE mo_physical_constants,    ONLY: Cd_io
     USE mo_ice_mesh,     ONLY: coord_nod2D		
 
     TYPE(t_patch_3D), TARGET, INTENT(IN)     :: p_patch_3D
@@ -1514,8 +1512,8 @@ CONTAINS
             DO WHILE ( u_change > 1e-6_wp )
               u_change = SQRT(u_ice(jk)**2+v_ice(jk)**2)
               delu = SQRT( (u_w(jk)-u_ice(jk))**2 + (v_w(jk)-v_ice(jk))**2 )
-              u_ice(jk) = stress_atmice_x(jk)/( C_d_io*rho_ref*delu )
-              v_ice(jk) = stress_atmice_y(jk)/( C_d_io*rho_ref*delu )
+              u_ice(jk) = stress_atmice_x(jk)/( Cd_io*rho_ref*delu )
+              v_ice(jk) = stress_atmice_y(jk)/( Cd_io*rho_ref*delu )
               u_change = ABS(u_change-SQRT(u_ice(jk)**2+v_ice(jk)**2))
             ENDDO
           ELSE
@@ -1669,7 +1667,7 @@ CONTAINS
 
     USE mo_ice,          ONLY: u_w, v_w, stress_atmice_x, stress_atmice_y !, a_ice, u_ice, v_ice
     USE mo_ice_mesh,     ONLY: coord_nod2D
-!    USE mo_ice_iceparam, ONLY: C_d_io
+    USE mo_physical_constants,    ONLY: Cd_io
 
     TYPE(t_patch_3D), TARGET, INTENT(IN)     :: p_patch_3D
     TYPE(t_sea_ice),          INTENT(INOUT)  :: p_ice
@@ -1801,8 +1799,8 @@ CONTAINS
 !            DO WHILE ( u_change > 1e-6_wp )
 !              u_change = SQRT(u_ice(jk)**2+v_ice(jk)**2)
 !              delu = SQRT( (u_w(jk)-u_ice(jk))**2 + (v_w(jk)-v_ice(jk))**2 )
-!              u_ice(jk) = stress_atmice_x(jk)/( C_d_io*rho_ref*delu )
-!              v_ice(jk) = stress_atmice_y(jk)/( C_d_io*rho_ref*delu )
+!              u_ice(jk) = stress_atmice_x(jk)/( Cd_io*rho_ref*delu )
+!              v_ice(jk) = stress_atmice_y(jk)/( Cd_io*rho_ref*delu )
 !              u_change = ABS(u_change-SQRT(u_ice(jk)**2+v_ice(jk)**2))
 !            ENDDO
 !          ELSE

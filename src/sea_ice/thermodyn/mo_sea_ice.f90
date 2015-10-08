@@ -70,6 +70,7 @@ MODULE mo_sea_ice
   USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, init_fem_wgts, destruct_fem_wgts,             &
     &                               ice_fem_grid_init, ice_fem_grid_post, ice_advection,        &
     &                               ice_advection_vla, ice_ocean_stress
+  USE mo_ice_init,            ONLY: ice_init_fem
   USE mo_grid_config,         ONLY: n_dom
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_fast, timer_ice_slow
@@ -880,7 +881,7 @@ CONTAINS
       &          lrestart_cont=.TRUE.)
 
     ! Initialize with zero
-    atmos_fluxes%counter = 0.0_wp
+    atmos_fluxes%counter = 0
 
     ! Initialise the albedos sensibly
     atmos_fluxes%albvisdir (:,:,:) = albi

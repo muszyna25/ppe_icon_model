@@ -32,6 +32,7 @@ MODULE mo_sea_ice_nml
   USE mo_exception,           ONLY: finish, message
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
+  USE mo_run_config,          ONLY: dtime
 
   IMPLICIT NONE
 
@@ -78,6 +79,23 @@ MODULE mo_sea_ice_nml
   LOGICAL, PUBLIC :: use_calculated_ocean_stress = .FALSE.  !  calculate ocean stress instead of reading from OMIP
   LOGICAL, PUBLIC :: use_no_flux_gradients       = .TRUE.   !  simplified ice_fast without flux gradients
 
+  ! Rheology
+  LOGICAL,PUBLIC  :: ice_VP_rheology=.false.  ! VP=.true., EVP=.false.
+  LOGICAL,PUBLIC  :: ice_EVP1=.true.      ! standard EVP .true., modified EVP .false.
+  REAL(wp),PUBLIC :: delta_min            ! (1/s) Limit for minimum divergence; valid for both VP and EVP
+  ! VP, not implemented
+!  INTEGER,PUBLIC  :: ice_VP_iter=10       ! The numberof Pickard iterations
+!  REAL(wp),PUBLIC :: ice_VP_soltol=1.0e-10
+  ! EVP
+  INTEGER,PUBLIC  :: evp_rheol_steps   ! the number of sybcycling steps in EVP
+  REAL(wp),PUBLIC :: Tevp_inv          ! Time scale of the standard EVP, inverse of the relaxation time
+                                       ! Tevp_inv=3/dtime is the default value
+!  REAL(wp),PUBLIC :: alpha_evp        ! Parameters  of modified EVP formulation in Bouillon (2013)
+!  REAL(wp),PUBLIC :: beta_evp
+  ! Motion
+  INTEGER ,PUBLIC :: ice_advection         ! type of ice advection
+  REAL(wp),PUBLIC :: theta_io          ! ice/ocean rotation angle. Implemented in EVP, can beadded to VP
+
   INTEGER         :: iunit
 
   NAMELIST /sea_ice_nml/ &
@@ -101,7 +119,19 @@ MODULE mo_sea_ice_nml
     &  use_no_flux_gradients, &
     &  init_analytic_conc_param , &
     &  init_analytic_hi_param, &
-    &  init_analytic_hs_param
+    &  init_analytic_hs_param, &
+
+    &  ice_VP_rheology, &
+    &  ice_EVP1, &
+    &  delta_min, &
+!    &  ice_VP_iter, &
+!    &  ice_VP_soltol, &
+    &  evp_rheol_steps, &
+    &  Tevp_inv, &
+!    &  alpha_evp, &
+!    &  beta_evp, &
+    &  ice_advection, &
+    &  theta_io
 
 CONTAINS
   !>
@@ -129,7 +159,16 @@ CONTAINS
     leadclose_1 = 0.5_wp
     leadclose_2n = 0.0_wp
 
-    ramp_wind   = 1.0_wp
+    ramp_wind    = 1.0_wp
+
+    delta_min    = 2.0e-11_wp ! Hibler, Hunke normally use 2.0e-9, which does much stronger limiting
+    evp_rheol_steps = 120
+    Tevp_inv     = 3.0_wp/dtime
+!    alpha_evp=500            ! Parameters  of modified EVP formulation in Bouillon (2013)
+!    beta_evp=1000
+    ice_advection=1           ! 1 switches on FCT advection, and
+                                  ! 0 switches on Backward Euler advection
+    theta_io=0._wp    !0.436
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
