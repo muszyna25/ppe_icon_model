@@ -511,6 +511,9 @@ CONTAINS
       p_sfc_flx%HeatFlux_Sensible      = atmos_fluxes%HeatFlux_Sensible
       p_sfc_flx%HeatFlux_Latent        = atmos_fluxes%HeatFlux_Latent
 
+      ! copy flux for use in TotalOcean, since analytical/omip use p_as:
+      p_as%FrshFlux_Precipitation      = atmos_fluxes%FrshFlux_Precipitation
+
     ENDIF  ! iforc_oce
 
     ! evaporation and runoff not used in sea ice but in VolumeTotal, evaporation used for TotalOcean only
