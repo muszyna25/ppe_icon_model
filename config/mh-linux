@@ -661,7 +661,7 @@ case "$ac_sitename" in
                            case "$fortran_compiler" in
                                default|gcc)
                                    MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
-                                   MPI_LIB     = -I$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil
+                                   MPI_LIB     = -I$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil -lpthread
                                    load_modules="gcc/5.1.0" "${load_modules}"
                                    ;;
                                nag)
