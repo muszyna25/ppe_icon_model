@@ -1125,7 +1125,7 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%vol (:,:,:))
-!   CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%conc(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hs  (:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hi  (:,:,:))
@@ -1246,7 +1246,7 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%vol (:,:,:))
-!   CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%conc(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hs  (:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hi  (:,:,:))
