@@ -92,11 +92,6 @@ MODULE mo_read_interface
   PUBLIC :: var_data_2d_int, var_data_2d_wp, var_data_3d_int, var_data_3d_wp
 
   PUBLIC :: on_cells, on_vertices, on_edges
-  ! the following are used by jsbach, they will be removed when jsbach is updated
-  PUBLIC :: onCells, onVertices, onEdges
-  INTEGER, PARAMETER :: onCells    = on_cells
-  INTEGER, PARAMETER :: onEdges    = on_edges
-  INTEGER, PARAMETER :: onVertices = on_vertices
 
   !--------------------------------------------------------
 
