@@ -22,6 +22,7 @@
 !!
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_definitions.inc"
 !----------------------------
 MODULE mo_ocean_math_operators
   !-------------------------------------------------------------------------
@@ -745,19 +746,17 @@ CONTAINS
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
+    start_detail_timer(timer_div,5)
     IF (PRESENT(subset_range)) THEN
       all_cells => subset_range
     ELSE
       all_cells => patch_2D%cells%ALL
     ENDIF
     
-    IF (ltimer) CALL timer_start(timer_div)
-    ! !$OMP PARALLEL
-    
     iidx => patch_2D%cells%edge_idx
     iblk => patch_2D%cells%edge_blk
     
-    ! !$OMP DO PRIVATE(blockNo,start_index,end_index,jc)
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index,jc) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
       DO jc = start_index, end_index
@@ -768,10 +767,9 @@ CONTAINS
           & vec_e(iidx(jc,blockNo,3),iblk(jc,blockNo,3)) * div_coeff(jc,blockNo,3)
       END DO
     END DO
-    ! !$OMP END DO
-    
-    ! !$OMP END PARALLEL
-    IF (ltimer) CALL timer_stop(timer_div)
+!ICON_OMP_END_PARALLEL_DO
+
+    stop_detail_timer(timer_div,5)
   END SUBROUTINE div_oce_2D_sp
   !-------------------------------------------------------------------------
   

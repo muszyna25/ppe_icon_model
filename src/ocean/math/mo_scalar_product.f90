@@ -23,6 +23,7 @@
 !!
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_definitions.inc"
 !----------------------------
 MODULE mo_scalar_product
   !-------------------------------------------------------------------------
@@ -122,25 +123,25 @@ CONTAINS
     startLevel = 1
     endLevel = n_zlev
 
-    IF (timers_level > 2)  CALL timer_start(timer_extra25)
+    start_detail_timer(timer_extra25,5)
     CALL map_edges2vert_3d(patch_3d%p_patch_2d(1), vn_e, operators_coefficients%edge2vert_coeff_cc, &
       & p_diag%p_vn_dual)
-    IF (timers_level > 2)  CALL timer_stop(timer_extra25)
+    stop_detail_timer(timer_extra25,5)
 
-    IF (timers_level > 2)  CALL timer_start(timer_extra26)
+    start_detail_timer(timer_extra26,5)
     !Step 1: Calculation of Pv in cartesian coordinates and of kinetic energy
     CALL map_edges2cell_3d(patch_3d, vn_e, operators_coefficients, p_diag%p_vn) !, subset_range=cells_in_domain)
-    IF (timers_level > 2)  CALL timer_stop(timer_extra26)
+    stop_detail_timer(timer_extra26,5)
 
-    IF (timers_level > 2)  CALL timer_start(timer_extra27)
+    start_detail_timer(timer_extra27,5)
     CALL map_edges2edges_viacell_3d_const_z( patch_3D,       &
                                     & vn_e,                  &
                                     & operators_coefficients,&
                                     & p_diag%ptp_vn)    
-    IF (timers_level > 2)  CALL timer_stop(timer_extra27)
+    stop_detail_timer(timer_extra27,5)
     ! CALL sync_patch_array(sync_e, patch_2d, p_diag%ptp_vn)
    
-    IF (timers_level > 2)  CALL timer_start(timer_extra28)
+    start_detail_timer(timer_extra28,5)
     !--------------------------------------------------------------
     !calculate kinetic energy
     ! First option is our default configuration
@@ -205,19 +206,19 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
       
     ENDIF            
-    IF (timers_level > 2)  CALL timer_stop(timer_extra28)
+    stop_detail_timer(timer_extra28,5)
 !       CALL sync_patch_array(sync_c, patch_2d,p_diag%kin)
       
       !convert cartesian velocity vector p_diag%p_vn(cell_index,level,blockNo)%x to geographical coordinate system
       !for output, sea-ice and coupling
-    IF (timers_level > 2)  CALL timer_start(timer_extra29)
+    start_detail_timer(timer_extra29,5)
     CALL Get3DVectorTo2DLocal_array3D(vector=p_diag%p_vn, &
       & position_local=patch_2d%cells%center, &
       & levels=patch_3d%p_patch_1d(1)%dolic_c, &
       & subset=all_cells,                      &
       & geometry_info=patch_2d%geometry_info, &
       & x=p_diag%u, y=p_diag%v)
-    IF (timers_level > 2)  CALL timer_stop(timer_extra29)
+    stop_detail_timer(timer_extra29,5)
  
 !       DO cell_index =  start_cell_index, end_cell_index
 !         DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)

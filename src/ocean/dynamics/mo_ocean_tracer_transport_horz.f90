@@ -17,13 +17,9 @@
 !!
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_definitions.inc"
 !----------------------------
 MODULE mo_ocean_tracer_transport_horz
-  !-------------------------------------------------------------------------
-  !
-  !    ProTeX FORTRAN source: Style 2
-  !    modified for ICON project, DWD/MPI-M 2006
-  !
   !-------------------------------------------------------------------------
   USE mo_kind,                      ONLY: wp
   USE mo_math_utilities,            ONLY: t_cartesian_coordinates
@@ -38,7 +34,7 @@ MODULE mo_ocean_tracer_transport_horz
   USE mo_parallel_config,           ONLY: nproma, p_test_run
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_run_config,                ONLY: dtime, ltimer
-  USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_horz, timer_hflx_lim, &
+  USE mo_timer,                     ONLY: timer_start, timer_stop, timers_level, timer_adv_horz, timer_hflx_lim, &
     & timer_dif_horz, timer_extra10, timer_extra11, timer_extra12, timer_extra13, timer_extra15
   USE mo_ocean_types,                 ONLY: t_hydro_ocean_state, t_ocean_tracer  
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
@@ -51,9 +47,7 @@ MODULE mo_ocean_tracer_transport_horz
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff, no_primal_edges
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_c, sync_c1, sync_e, sync_patch_array, sync_patch_array_mult
-  USE mo_mpi,                       ONLY: my_process_is_mpi_parallel
-  
-  
+  USE mo_mpi,                       ONLY: my_process_is_mpi_parallel  
   
   IMPLICIT NONE
   
@@ -118,6 +112,7 @@ CONTAINS
     REAL(wp), INTENT(inout), OPTIONAL      :: horizontally_diffused_tracer(:,:,:)
     !
     !-------------------------------------------------------------------------------    
+    start_timer(timer_adv_horz,2)
     
     IF(l_edge_based)THEN
       CALL advect_edge_based( patch_3d, &
@@ -141,6 +136,8 @@ CONTAINS
       ! & horizontally_diffused_tracer)
     
     ENDIF
+
+    stop_timer(timer_adv_horz,2)
      
   END SUBROUTINE advect_horz
   !-------------------------------------------------------------------------------
@@ -167,6 +164,7 @@ CONTAINS
     REAL(wp), INTENT(inout), OPTIONAL      :: horizontally_diffused_tracer(:,:,:)
     !
     !-------------------------------------------------------------------------------    
+    start_timer(timer_dif_horz,3)
     
     IF(l_edge_based)THEN
       CALL diffuse_edge_based( patch_3d, &
@@ -190,6 +188,8 @@ CONTAINS
       ! & horizontally_diffused_tracer)
     
     ENDIF
+
+    stop_timer(timer_dif_horz,3)
      
   END SUBROUTINE diffuse_horz
   !-------------------------------------------------------------------------------
@@ -234,7 +234,6 @@ CONTAINS
     IF ( l_with_horz_tracer_advection ) THEN
       
       ! Initialize timer for horizontal advection
-      IF (ltimer) CALL timer_start(timer_adv_horz)
       
       SELECT CASE(flux_calculation_horz)
       
@@ -282,10 +281,7 @@ CONTAINS
       !---------------------------------------------------------------------
       
       !Calculate divergence of advective fluxes
-      IF (ltimer) CALL timer_start(timer_extra15)
       CALL div_oce_3d( z_adv_flux_h, patch_3D, p_op_coeff%div_coeff, div_advflux_horz, subset_range=cells_in_domain )
-      IF (ltimer) CALL timer_stop(timer_extra15)
-      IF (ltimer) CALL timer_stop(timer_adv_horz)
 ! DO level = 1, n_zlev
 !  write(*,*)'tracer flux',maxval(z_adv_flux_h(:,level,:)),&
 !  &minval(z_adv_flux_h(:,level,:))
@@ -348,9 +344,8 @@ CONTAINS
     !-------------------------------------------------------------------------------
     
     !The diffusion part: calculate horizontal diffusive flux
+
     IF ( l_with_horz_tracer_diffusion) THEN
-      IF (ltimer) CALL timer_start(timer_dif_horz)
-      ! z_diff_flux_h = 0.0_wp
       
       IF(diff_option==diff_option_standard)THEN
         CALL tracer_diffusion_horz( patch_3d,     &
@@ -367,15 +362,13 @@ CONTAINS
         & k_h,z_diff_flux_h)
       
       ENDIF
-      IF (ltimer) CALL timer_stop(timer_dif_horz)
       
     ELSE
       div_diff_flux_horz(:,:,:) = 0.0_wp
     ENDIF
     
-       !Calculate divergence of diffusive fluxes
-       CALL div_oce_3d( z_diff_flux_h, patch_3D, p_op_coeff%div_coeff, div_diff_flux_horz )
-
+    !Calculate divergence of diffusive fluxes
+    CALL div_oce_3d( z_diff_flux_h, patch_3D, p_op_coeff%div_coeff, div_diff_flux_horz )
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -471,8 +464,6 @@ CONTAINS
 
 
 
-
-
   !-----------------------------------------------------------------------
   SUBROUTINE advect_edge_based( patch_3d,          &
     & trac_old,            &
@@ -515,9 +506,6 @@ CONTAINS
     !This step takes already the edge length into account
     !but not the edge height
     IF ( l_with_horz_tracer_advection ) THEN
-
-      ! Initialize timer for horizontal advection
-      IF (ltimer) CALL timer_start(timer_adv_horz)
       
       SELECT CASE(flux_calculation_horz)
       
@@ -573,9 +561,6 @@ CONTAINS
       END SELECT     
       CALL sync_patch_array(sync_e, patch_2d, z_adv_flux_h)      
       
-      !---------------------------------------------------------------------       
-      ! Stop timer for horizontal advection
-      IF (ltimer) CALL timer_stop(timer_adv_horz)      
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=5  ! output print level (1-5, fix)
       CALL dbg_print('aft. AdvHorz: adv_flux_h',z_adv_flux_h,str_module,idt_src,patch_2d%edges%owned)
@@ -639,7 +624,6 @@ CONTAINS
     !The diffusion part: calculate horizontal diffusive flux
     IF ( l_with_horz_tracer_diffusion)THEN 
 
-      IF (ltimer) CALL timer_start(timer_dif_horz)
       CALL tracer_diffusion_horz( patch_3d,     &
         & trac_old,     &
         & p_os,         &
@@ -649,7 +633,6 @@ CONTAINS
       
       !Calculate divergence of diffusive fluxes
       CALL div_oce_3d( z_diff_flux_h, patch_3D, p_op_coeff%div_coeff, div_diffflux_horz)
-      IF (ltimer) CALL timer_stop(timer_dif_horz)
       
     ELSE
       div_diffflux_horz(:,:,:) = 0.0_wp
@@ -784,7 +767,6 @@ CONTAINS
     CASE DEFAULT
       CALL finish('TRIM(flux_corr_transport_edge)',"This limiter_type option is not supported")
     END SELECT
-
     
   END SUBROUTINE flux_corr_transport_edge
   !-------------------------------------------------------------------------------
@@ -820,7 +802,6 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: p_vn_c(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  
     REAL(wp) :: grad_C_horz(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)       
     !-------------------------------------------------------------------------------
-!     CALL timer_start(timer_extra10)
     
     patch_2d        => patch_3d%p_patch_2d(1)
     edges_in_domain => patch_2d%edges%in_domain
@@ -839,12 +820,12 @@ CONTAINS
     
     CASE(upwind)
       !upwind serves as low order flux
-      CALL timer_start(timer_extra11)
+      start_detail_timer(timer_extra11,5)
       CALL upwind_hflux_oce( patch_3d,  &
         & trac_old,                       &
         & p_os%p_diag%mass_flx_e,         &
         & z_adv_flux_low )
-      CALL timer_stop(timer_extra11)
+      stop_detail_timer(timer_extra11,5)
         
     CASE(miura_order1)
       CALL miura_order1_hflux_oce( patch_3d,   &
@@ -864,12 +845,12 @@ CONTAINS
     CASE(central)
     
       !central as high order flux
-      CALL timer_start(timer_extra12)
+      start_detail_timer(timer_extra12,5)
       CALL central_hflux_oce( patch_3d,   &
         & trac_old,                       &
         & p_os%p_diag%mass_flx_e,         &
         & z_adv_flux_high)    
-      CALL timer_stop(timer_extra12)
+      stop_detail_timer(timer_extra12,5)
  
     CASE(fct_horz)
       !mimetic fluc calculation high order flux
@@ -957,7 +938,7 @@ CONTAINS
     CASE(fct_limiter_horz_zalesak)
       ! inUse
      ! adv_flux_h=z_adv_flux_high
-      CALL timer_start(timer_extra13)
+      start_detail_timer(timer_extra13,4)
       CALL hflx_limiter_oce_zalesak( patch_3d, &
         & trac_old,                              &
         & p_os%p_diag%mass_flx_e,                &
@@ -967,7 +948,7 @@ CONTAINS
         & p_op_coeff,                            &
         & h_old,                                 &
         & h_new              )
-      CALL timer_stop(timer_extra13)
+      stop_detail_timer(timer_extra13,4)
       
     CASE(fct_limiter_horz_posdef)  
       CALL hflx_limiter_oce_posdef( patch_3d,    &
@@ -979,8 +960,6 @@ CONTAINS
     CASE DEFAULT
      CALL finish('TRIM(flux_corr_transport_h)',"This limiter_type option is not supported")
     END SELECT
-    
-!     CALL timer_stop(timer_extra10)
     
   END SUBROUTINE flux_corr_transport_cell
   !-------------------------------------------------------------------------------
