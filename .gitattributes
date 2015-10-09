@@ -78,7 +78,6 @@ config/missing -text
 config/pvcs.pl -text
 /configure -text
 /configure.ac -text
-/create_builds -text
 data/ECHAM6_CldOptProps.nc -text
 data/README -text
 data/dmin_wetgrowth_lookup.dat -text
@@ -1045,6 +1044,7 @@ scripts/building/build_all -text
 scripts/building/compile_for_dev.mpi.ksh -text
 scripts/building/compile_for_developers.ksh -text
 scripts/building/cp_ocean -text
+scripts/building/create_builds -text
 scripts/building/get_atmo -text
 scripts/building/get_icon -text
 scripts/building/get_ocean -text
