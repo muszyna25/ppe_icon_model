@@ -881,12 +881,12 @@ CONTAINS
     ! 2D variables
 
     cf_desc    = t_cf_var('cosmu0'    , '', 'cosine of the zenith angle for rad. heating' , DATATYPE_FLT32)
-    grib2_desc = grib2_var(192,214,1, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(192,214,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'cosmu0'    , field%cosmu0,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('cosmu0_rad', '', 'cosine of the zenith angle for rad. transfer', DATATYPE_FLT32)
-    grib2_desc = grib2_var(192,214,1, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(192,214,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'cosmu0_rad', field%cosmu0_rad,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
@@ -904,7 +904,7 @@ CONTAINS
     cf_desc    = t_cf_var('flxdwswtoa', 'W m-2',                                  &
                 &         'downward shortwave flux at the top of the atmosphere', &
                 &         DATATYPE_FLT32)
-    grib2_desc = grib2_var(0,4,7, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0,4,7, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'rsdt', field%flxdwswtoa,                   &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
@@ -1432,7 +1432,7 @@ CONTAINS
        CALL add_var( field_list, prefix//'ch_concloud', field%ch_concloud,       &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
        cf_desc    = t_cf_var('cw_concloud','J/m^2/s', '', DATATYPE_FLT32)
-       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+       grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
        CALL add_var( field_list, prefix//'cw_concloud', field%cw_concloud,       &
                    & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
        cf_desc    = t_cf_var('con_dtrl','?', '', DATATYPE_FLT32)
@@ -2483,7 +2483,7 @@ CONTAINS
                 & t_cf_var('tend_tracer', 'kg kg-1 s-1',                       &
                 &          'tendency of mass mixing ratio of tracers',         &
                 &          DATATYPE_FLT32),                                    &
-                & grib2_var(0,20,2, ibits, GRID_REFERENCE, GRID_CELL),       &
+                & grib2_var(0,20,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
                 & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.         )
 
@@ -2625,7 +2625,7 @@ CONTAINS
                   &          TRIM(ctracer(jtrc))//                                        &
                   &          ' due to vertical diffusion',                                &
                   &          DATATYPE_FLT32),                                             &
-                  & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),         &
+                  & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
                   & ldims=(/kproma,klev,kblks/),                                          &
                   & vert_interp=create_vert_interp_metadata(                              &
                   &             vert_intp_type=vintp_types("P","Z","I"),                  &
