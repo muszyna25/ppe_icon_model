@@ -761,12 +761,12 @@ CONTAINS
           p_oce_sfc%SSS(jc,jb)   = sss_inter(jc,jb) * zUnderIceOld(jc,jb) / p_ice%zUnderIce(jc,jb)
 
           !******  (Thermodynamic Eq. 5)  ******
-          !! Finally, let sea-level rise from rain plus snow fall on ice
+          !! Finally, let sea-level change from P-E+RO plus snow fall on ice, net total volume forcing to ocean surface
           p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)               &
             &                           + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb)*dtime &
             &                           + p_ice%totalsnowfall(jc,jb)
          
-          !! #slo# 2015-01: test update zunderice
+          !! update zunderice
           p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb) &
             &                    - p_ice%draftave(jc,jb)
 
@@ -774,7 +774,7 @@ CONTAINS
       END DO
     END DO
          
-    !! #slo# 2015-06: set correct cell thickness under ice
+    !! set correct cell thickness under ice
     p_oce_sfc%cellThicknessUnderIce   (:,:) = p_ice%zUnderIce(:,:)
     atmos_fluxes%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)  ! for diagnosis only
       
