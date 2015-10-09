@@ -312,7 +312,7 @@ CONTAINS
       !-- asynchronous I/O PEs (receiver):
       DO i = 1, SIZE(output_file)
 #ifndef NOMPI
-        IF(use_async_name_list_io) THEN
+        IF(use_async_name_list_io .AND. .NOT. my_process_is_mpi_test()) THEN
           CALL mpi_win_free(output_file(i)%mem_win%mpi_win, ierror)
           IF (use_dp_mpi2io) THEN
             CALL mpi_free_mem(output_file(i)%mem_win%mem_ptr_dp, ierror)
