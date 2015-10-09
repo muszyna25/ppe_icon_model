@@ -74,8 +74,9 @@ MODULE mo_ocean_model
   USE mo_operator_ocean_coeff_3d,ONLY: construct_operators_coefficients, &
     & destruct_operators_coefficients
 
-  USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping,&
-    & prepare_ho_stepping, write_initial_ocean_timestep
+  USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping, &
+    & prepare_ho_stepping, write_initial_ocean_timestep, &
+    & end_ho_stepping
   USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
     & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
   USE mo_sea_ice,             ONLY: ice_init, &
@@ -102,6 +103,7 @@ MODULE mo_ocean_model
   USE mo_ocean_testbed,       ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
   USE mo_io_config,           ONLY: write_initial_state
+  USE mo_coupling_config,    ONLY: is_coupled_run
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -214,7 +216,6 @@ MODULE mo_ocean_model
       CASE (0)  !  ocean model
         CALL perform_ho_stepping( ocean_patch_3d, ocean_state, &
           & ext_data, start_datetime,                     &
-          & (nsteps == INT(time_config%dt_restart/dtime)),&
           & v_sfc_flx, v_oce_sfc,                         &
           & v_params, p_as, atmos_fluxes,v_sea_ice,            &
           & operators_coefficients,                       &
@@ -267,6 +268,7 @@ MODULE mo_ocean_model
 
     !------------------------------------------------------------------
     !  cleaning up process
+    CALL end_ho_stepping()
     CALL destruct_ocean_model()
 
   END SUBROUTINE ocean_model
@@ -461,7 +463,7 @@ MODULE mo_ocean_model
     ! initialize ocean indices for debug output (including 3-dim lsm)
     CALL init_oce_index(ocean_patch_3d%p_patch_2d,ocean_patch_3d, ocean_state, ext_data )
 
-    CALL init_ho_params(ocean_patch_3d, v_params)
+    CALL init_ho_params(ocean_patch_3d, v_params, p_as%fu10)
 
 !    IF (.not. isRestart()) &
     CALL apply_initial_conditions(ocean_patch_3d, ocean_state(1), ext_data(1), operators_coefficients)
@@ -533,7 +535,7 @@ MODULE mo_ocean_model
 
     CALL construct_hydro_ocean_base(patch_3d%p_patch_2d(1), v_base)
     CALL init_ho_base (patch_3d%p_patch_2d(1), external_data(1), v_base)
-    IF (use_omip_forcing .OR. is_coupled_run()) CALL init_ho_basins(patch_3d%p_patch_2d(1), v_base)
+    IF (use_omip_forcing .or. is_coupled_run()) CALL init_ho_basins(patch_3d%p_patch_2d(1), v_base)
     CALL init_coriolis_oce(patch_3d%p_patch_2d(1) )
     CALL init_patch_3d    (patch_3d,                external_data(1), v_base)
     !CALL init_patch_3D(patch_3D, v_base)

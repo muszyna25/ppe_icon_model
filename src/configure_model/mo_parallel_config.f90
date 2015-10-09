@@ -14,7 +14,7 @@
 !!
 MODULE mo_parallel_config
 
-  USE mo_exception,          ONLY: message, finish
+  USE mo_exception,          ONLY: message, finish, warning
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, MAX_NUM_IO_PROCS
   USE mo_util_string,        ONLY: int2string
@@ -175,7 +175,7 @@ CONTAINS
 #ifndef __SX__
     ! migration helper: catch nproma's that were obviously intended
     !                   for a vector machine.
-    IF (nproma>256) CALL finish(TRIM(method_name),'The value of "nproma" seems to be set for a vector machine!')
+    IF (nproma>256) CALL warning(TRIM(method_name),'The value of "nproma" seems to be set for a vector machine!')
 #endif
 
     icon_comm_openmp = .false.

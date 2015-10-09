@@ -50,8 +50,8 @@ MODULE mo_sync_latbc
   USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, convert_thdvars
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: nf, openInputFile, closeFile, read_3D, read_3D_1time,&
-                                    read_2D_1lev_1time, read_2D_1time, t_stream_id, onCells, &
-                                    onEdges
+                                    read_2D_1lev_1time, read_2D_1time, t_stream_id, on_cells, &
+                                    on_edges
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array
   USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -370,25 +370,25 @@ MODULE mo_sync_latbc
     !
     ! read prognostic 3d fields
     !
-    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='temp', fill_array=p_latbc_data(tlev)%atm%temp)
-    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='u', fill_array=p_latbc_data(tlev)%atm_in%u)
-    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='v', fill_array=p_latbc_data(tlev)%atm_in%v)
-    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='w', fill_array=p_latbc_data(tlev)%atm%w)
-    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='pres', fill_array=p_latbc_data(tlev)%atm%pres)
-    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='qv', fill_array=p_latbc_data(tlev)%atm%qv)
-    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='qc', fill_array=p_latbc_data(tlev)%atm%qc)
-    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='qi', fill_array=p_latbc_data(tlev)%atm%qi)
-    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='qr', fill_array=p_latbc_data(tlev)%atm%qr)
-    CALL read_3D(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='qs', fill_array=p_latbc_data(tlev)%atm%qs)
     !
     ! Convert u and v on cell points to vn at edge points
@@ -575,31 +575,31 @@ MODULE mo_sync_latbc
     !
     ! read IFS data
     !
-    CALL read_3D_1time(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='T', fill_array=p_latbc_data(tlev)%atm_in%temp)
 
     IF (lread_vn) THEN
-      CALL read_3D_1time(stream_id=latbc_stream_id, location=onEdges, &
+      CALL read_3D_1time(stream_id=latbc_stream_id, location=on_edges, &
         &          variable_name='VN', fill_array= p_latbc_data(tlev)%atm_in%vn)
     ELSE
-      CALL read_3D_1time(stream_id=latbc_stream_id, location=onCells, &
+      CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &          variable_name='U', fill_array=p_latbc_data(tlev)%atm_in%u)
-      CALL read_3D_1time(stream_id=latbc_stream_id, location=onCells, &
+      CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &          variable_name='V', fill_array=p_latbc_data(tlev)%atm_in%v)
     ENDIF
 
     IF (init_mode /= MODE_COSMODE) THEN
       lconvert_omega2w = .TRUE.
-      CALL read_3D_1time(stream_id=latbc_stream_id, location=onCells, &
+      CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &          variable_name='W', fill_array=p_latbc_data(tlev)%atm_in%omega)
     ELSE
       lconvert_omega2w = .FALSE.
-      CALL read_3D_1time(stream_id=latbc_stream_id, location=onCells, &
+      CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &          variable_name='W', fill_array=p_latbc_data(tlev)%atm_in%w_ifc)
     ENDIF
 
     IF (init_mode == MODE_COSMODE) THEN
-      CALL read_3D_1time(stream_id=latbc_stream_id, location=onCells, &
+      CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &          variable_name='HHL', fill_array=p_latbc_data(tlev)%atm_in%z3d_ifc)
 
       ! Interpolate input 'z3d' and 'w' from the interface levels to the main levels
@@ -632,44 +632,44 @@ MODULE mo_sync_latbc
 
     ENDIF
 
-    CALL read_3D_1time(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='QV', fill_array=p_latbc_data(tlev)%atm_in%qv)
-    CALL read_3D_1time(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='QC', fill_array=p_latbc_data(tlev)%atm_in%qc)
-    CALL read_3D_1time(stream_id=latbc_stream_id, location=onCells, &
+    CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
       &          variable_name='QI', fill_array=p_latbc_data(tlev)%atm_in%qi)
     IF (lread_qr) THEN
-      CALL read_3D_1time(stream_id=latbc_stream_id, location=onCells, &
+      CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &          variable_name='QR', fill_array=p_latbc_data(tlev)%atm_in%qr)
     ELSE
       p_latbc_data(tlev)%atm_in%qr(:,:,:)=0._wp
     ENDIF
 
     IF (lread_qs) THEN
-      CALL read_3D_1time(stream_id=latbc_stream_id, location=onCells, &
+      CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &          variable_name='QS', fill_array=p_latbc_data(tlev)%atm_in%qs)
     ELSE
       p_latbc_data(tlev)%atm_in%qs(:,:,:)=0._wp
     ENDIF
 
     IF (init_mode == MODE_COSMODE) THEN
-      CALL read_2D_1time(stream_id=latbc_stream_id, location=onCells, &
+      CALL read_2D_1time(stream_id=latbc_stream_id, location=on_cells, &
        &                     variable_name=TRIM(psvar), &
        &                     fill_array=p_latbc_data(tlev)%atm_in%psfc)
-      CALL read_2D_1time(stream_id=latbc_stream_id, location=onCells, &
+      CALL read_2D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &                     variable_name=TRIM(geop_ml_var), &
         &                     fill_array=p_latbc_data(tlev)%atm_in%phi_sfc)
     ELSE
-      CALL read_2D_1lev_1time(stream_id=latbc_stream_id, location=onCells, &
+      CALL read_2D_1lev_1time(stream_id=latbc_stream_id, location=on_cells, &
         &                     variable_name=TRIM(psvar), &
         &                     fill_array=p_latbc_data(tlev)%atm_in%psfc)
-      CALL read_2D_1lev_1time(stream_id=latbc_stream_id, location=onCells, &
+      CALL read_2D_1lev_1time(stream_id=latbc_stream_id, location=on_cells, &
         &                     variable_name=TRIM(geop_ml_var), &
         &                     fill_array=p_latbc_data(tlev)%atm_in%phi_sfc)
     END IF
 
     IF (init_mode == MODE_COSMODE) THEN
-      CALL read_3D_1time(stream_id=latbc_stream_id, location=onCells, &
+      CALL read_3D_1time(stream_id=latbc_stream_id, location=on_cells, &
         &          variable_name='P', fill_array=p_latbc_data(tlev)%atm_in%pres)
     ENDIF
 

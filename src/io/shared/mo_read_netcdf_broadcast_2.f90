@@ -68,6 +68,7 @@ MODULE mo_read_netcdf_broadcast_2
   PUBLIC :: netcdf_read_2D_extdim
   PUBLIC :: netcdf_read_2D_extdim_int
   PUBLIC :: netcdf_read_3D_extdim
+  PUBLIC :: netcdf_get_missValue
   PUBLIC :: t_p_scatterPattern
 
   TYPE t_p_scatterPattern
@@ -1441,6 +1442,52 @@ CONTAINS
   END SUBROUTINE netcdf_inq_var
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  SUBROUTINE netcdf_get_missValue(file_id, variable_name, has_missValue, missValue)
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    LOGICAL                      :: has_missValue
+    REAL(wp)                     :: missValue
+
+    REAL(dp) :: readMissValue
+    REAL(wp) :: broadcastValue(2)    
+    INTEGER :: varid, return_status
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+ 
+      ! write(0,*) "netcdf_get_missValue...", TRIM(variable_name) 
+      CALL nf(nf_inq_varid(file_id, variable_name, varid), variable_name)
+      ! write(0,*) TRIM(variable_name), " id=", varid
+  
+      return_status = nf_get_att_double(file_id, varid, "missing_value", readMissValue)
+      IF (return_status == nf_noerr) THEN
+        has_missValue = .true.
+        broadcastValue(1) = 1.0_wp
+      ELSE
+        has_missValue = .false.
+        readMissValue = 0.0_wp
+        broadcastValue(1) = 0.0_wp
+      ENDIF
+      broadcastValue(2) = readMissValue
+      write(0,*)  TRIM(variable_name), "read miss=", has_missValue, readMissValue
+
+    ENDIF
+
+    CALL broadcast_array(broadcastValue)
+    
+    IF (broadcastValue(1) == 0.0_wp) THEN
+      has_missValue = .false.
+    ELSE
+      has_missValue = .true.
+    ENDIF
+    missValue = broadcastValue(2)
+
+    ! write(0,*)  TRIM(variable_name), " miss=", has_missValue, missValue
+     
+  END SUBROUTINE netcdf_get_missValue
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
   SUBROUTINE nf(STATUS, routine, warnonly, silent)
 
     INTEGER, INTENT(in)           :: STATUS

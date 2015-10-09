@@ -36,6 +36,22 @@ dnl ######################################################################
 AC_ARG_ENABLE([mtime-loop],
               AS_HELP_STRING([--enable-mtime-loop],[Use mtime based time loop in nh stepping.]))
 
+AC_ARG_ENABLE([atmo],
+              AS_HELP_STRING([--enable-atmo],[Use atmosphere model component.]),
+              [],[enable_atmo=yes])
+
+AC_ARG_ENABLE([jsbach],
+              AS_HELP_STRING([--enable-jsbach],[Use jsbach model component.]),
+              [],[enable_jsbach=yes])
+
+AC_ARG_ENABLE([ocean],
+              AS_HELP_STRING([--enable-ocean],[Use ocean model component.]),
+              [],[enable_ocean=yes])
+
+AC_ARG_ENABLE([testbed],
+              AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
+              [],[enable_testbed=no])
+
 AC_ARG_WITH([fortran],
   [AS_HELP_STRING([--with-fortran=COMPILER],
     [select_available compiler (see README.compiler)])],
@@ -119,6 +135,8 @@ esac
 
 dnl ######################################################################
 
+AC_PROG_AWK
+
 AS_CASE([$ac_hostname],
         [plogin*],
         [ac_sitename=dkrz.de
@@ -148,7 +166,7 @@ AS_IF([ test -n "$fqdn" ],
              [ac_sitename=local.net],
              [])],
       [AS_IF([ test -n "$PE_ENV" ],
-             [fqdn=$(echo ${PE_ENV} | awk '{print tolower($0)}')
+             [fqdn=$(echo ${PE_ENV} | $AWK '{print tolower($0)}')
               AC_MSG_CHECKING([for Cray environment])
               AC_MSG_RESULT([$[fqdn]])],
              [fqdn=${HOSTNAME}])
@@ -248,31 +266,29 @@ if test "x$load_modules" != x ;  then
 fi
   
 dnl ######################################################################
-dnl define the packages
+dnl define the package
 
-use_components_file=config/icon_components
-
-AC_ARG_WITH([ocean],
-            [AC_HELP_STRING([--with-ocean=no],
-                            [compile without ocean])],,
-                            with_ocean=yes)
-
-if [[ $with_ocean = no ]]; then
-  use_components_file=config/icon_components_no_ocean
-  echo "icon_components=NO_ICON_OCEAN" > $use_components_file
-fi
-
-if test -f $use_components_file ; then
-  AC_GET_MH($use_components_file)
-fi
 FFLAGS="${FFLAGS} ${DEFOPT}__${package}__"
 CFLAGS="${CFLAGS} ${DEFCOPT}__${package}__"
 
-for other_package in $icon_components ; do
-  FFLAGS="${FFLAGS} ${DEFOPT}__${other_package}__"
-  CFLAGS="${CFLAGS} ${DEFCOPT}__${other_package}__"
+dnl #####################################################################
+dnl add defines for model components
 
-done
+AS_IF([test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"],
+      [AC_MSG_ERROR([currently, enable-atmo=yes needs enable-ocean=yes (because of sea-ice)])])
+
+AS_IF([test "x$enable_atmo" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_ATMO__"])
+
+AS_IF([test "x$enable_jsbach" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_JSBACH__"])
+
+AS_IF([test "x$enable_ocean" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_OCEAN__"])
+
+AS_IF([test "x$enable_testbed" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"])
+
 dnl ######################################################################
 dnl add defines for transitional features (eg. mtime based time loop)
 
@@ -713,8 +729,8 @@ case $host in
   powerpc-ibm-aix*)
     q64_result="no"
     mt_result="no"
-    q64_result=$(echo $FFLAGS | awk -v b="-q64" '$0 ~ b { print "yes" }')
-    mt_result=$(echo $FC | awk -v b="_r" '$0 ~ b { print "yes" } ')
+    q64_result=$(echo $FFLAGS | $AWK -v b="-q64" '$0 ~ b { print "yes" }')
+    mt_result=$(echo $FC | $AWK -v b="_r" '$0 ~ b { print "yes" } ')
     if [[ x$mt_result != xyes ]]; then
       echo "error: IBM MPI requires thread safe compiler versions."
       echo "       add _r to compiler selected by FC."
@@ -763,7 +779,7 @@ AS_IF([test x"$with_mpi" = xno],
     [AC_CHECK_FILE([$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h],,[AC_MSG_ERROR([MPIROOT not properly defined])])
     case $host in
     *-*-darwin*)
-      MPI_LIB="$(mpif90 -show | awk '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
+      MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
       ;;
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
@@ -781,7 +797,7 @@ AS_IF([test x"$with_mpi" = xno],
       ;;
     *-*-darwin*)
       real_path=$(cd $MPIROOT; pwd -P)
-      mod_file=$(find $real_path/include $real_path/lib -name mpi.mod -print | awk 'NR==1')
+      mod_file=$(find $real_path/include $real_path/lib -name mpi.mod -print | $AWK 'NR==1')
       ;;
     *)
       real_path=$(cd $MPIROOT; pwd -P)
@@ -790,12 +806,12 @@ AS_IF([test x"$with_mpi" = xno],
       *impi*)
         AS_CASE([$FC],
                 [gfortran],
-                [vers=$(gfortran --version | awk 'NR==1{print $4}')
-                 mod_file=$(find $real_path/include/gfortran/$vers -name mpi.mod -print | awk 'NR==1')],
-                [mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | awk 'NR==1')])
+                [vers=$(gfortran --version | $AWK 'NR==1{print $4}')
+                 mod_file=$(find $real_path/include/gfortran/$vers -name mpi.mod -print | $AWK 'NR==1')],
+                [mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | $AWK 'NR==1')])
         ;;      
       *)
-        mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+        mod_file=$(find $real_path -name mpi.mod -print | $AWK 'NR==1')
         ;;
       esac
       ;;
@@ -934,7 +950,7 @@ FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
 if [[ "x$LDFLAGS" = "x" ]] ; then
-  if [[ $(echo $FC | awk '{print index($0, "gfortran")}') -ne 0 ]] ; then  
+  if [[ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ]] ; then  
     LDFLAGS=${FFLAGS//-xf95-cpp-input/}
   else
     LDFLAGS=$FFLAGS
@@ -1079,21 +1095,21 @@ if test -n "$CROSS" ; then
    cp $cross_config config/config.h
 fi
 
-config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --with_ocean="${with_ocean}"
+config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --enable_ocean="${enable_ocean}" --enable_atmo="${enable_atmo}" --enable_jsbach="${enable_jsbach}" --enable_testbed="${enable_testbed}"
 
 #-----------------------------------------------------------------------------
 case $host in
   xt?-cray-*)
-    f90version=$($(echo $FC -V) 2>&1 | awk 'NR==2')
-    ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
+    ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
     ;;
   *-*-solaris*)
-    f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1' | cut -f2- -d" ")
-    ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
+    ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
     ;;
   sx*-*-*)
-    f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1;NR==5' | tr -d "\n")
-    ccversion=$($(echo sxc++ -V) 2>&1 | sed -e 's/.c.*$//' | sed -e 's/C++\/SX Compiler //' | sed -e 's/C\/C++ Compiler //' | awk 'NR==1;NR==3' | tr -d "\n")
+    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1;NR==5' | tr -d "\n")
+    ccversion=$($(echo sxc++ -V) 2>&1 | sed -e 's/.c.*$//' | sed -e 's/C++\/SX Compiler //' | sed -e 's/C\/C++ Compiler //' | $AWK 'NR==1;NR==3' | tr -d "\n")
     ;;
   *-ibm-aix*)
     f90version=$($(echo $FC -qversion) 2>&1 | tr -d "\n" | sed 's/Version: / \(/' | sed 's/$/\)/')
@@ -1102,34 +1118,34 @@ case $host in
   *-*-linux-*)
     case $fortran_compiler in
     default|gcc)
-      f90version=$($(echo $FC --version) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC --version) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     nag)
-      f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     intel)
-      f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     path)
-      f90version=$($(echo $FC -v) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -v) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     pgi)
-      f90version=$($(echo $FC -V) 2>&1 | awk 'NR==2')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     sun)
-      f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1' | cut -f2- -d" ")
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     esac
     ;;
   *-*-darwin*)
-      f90version=$($(echo $FC --version) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC --version) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
   *)
     f90version="unknown"
@@ -1150,12 +1166,12 @@ if test x$MPIROOT = x || test x$CROSS = xyes; then
 case $host in
 powerpc-ibm-aix*)
   if test "$use_mpcc_r" = yes ; then
-    mpi_version_number=$(lslpp -l ppe.poe | grep ppe.poe | uniq | awk '{print $2}')
+    mpi_version_number=$(lslpp -l ppe.poe | grep ppe.poe | uniq | $AWK '{print $2}')
     MPI_VERSION="IBM MPI ${mpi_version_number}"
   fi
   ;;
 sx?-nec-superux)
-  mpi_version_number=$(strings $MPIROOT/lib/libmpi.a | grep "MPI/SX: library Version" | awk '{print $4}')
+  mpi_version_number=$(strings $MPIROOT/lib/libmpi.a | grep "MPI/SX: library Version" | $AWK '{print $4}')
   MPI_VERSION="SX MPI ${mpi_version_number}"
   ;;
 *)
@@ -1165,7 +1181,7 @@ esac
 else
 case $host in
 *-*-darwin*)
-  mpi_version_number=$(mpiexec --version | awk 'NR==2{print $2}')
+  mpi_version_number=$(mpiexec --version | $AWK 'NR==2{print $2}')
   MPI_VERSION="mpich ${mpi_version_number} (MacPorts)"
   ;;		       
 *)
@@ -1280,7 +1296,6 @@ use_make_command="$make_command"
 use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
-use_icon_components="$icon_components"
 use_flags_group="$use_flags_group"
 #############################
 EOF
