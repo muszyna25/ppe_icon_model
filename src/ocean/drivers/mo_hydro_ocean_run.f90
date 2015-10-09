@@ -19,6 +19,9 @@
 !! headers of the routines.
 !!
 !!
+!----------------------------
+#include "icon_definitions.inc"
+!----------------------------
 MODULE mo_hydro_ocean_run
   !-------------------------------------------------------------------------
   USE mo_kind,                   ONLY: wp
@@ -202,7 +205,6 @@ CONTAINS
     !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
     !------------------------------------------------------------------
-    ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
 
     time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
@@ -217,20 +219,21 @@ CONTAINS
       CALL add_time(dtime,0,0,0,datetime)
       ! Not nice, but the name list output requires this - needed?
       time_config%sim_time(1) = time_config%sim_time(1) + dtime
-      
-      IF (timers_level > 2)  CALL timer_start(timer_extra22)
+
+      start_detail_timer(timer_extra22,6)
       CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
-      IF (timers_level > 2)  CALL timer_stop(timer_extra22)
+      stop_detail_timer(timer_extra22,6)
       
-      IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
+      start_timer(timer_scalar_prod_veloc,2)
       CALL calc_scalar_product_veloc_3d( patch_3d,  &
         & ocean_state(jg)%p_prog(nold(1))%vn,         &
         & ocean_state(jg)%p_diag,                     &
         & operators_coefficients)
-      IF (timers_level > 2) CALL timer_stop(timer_scalar_prod_veloc)
+      stop_timer(timer_scalar_prod_veloc,2)
       
       !In case of a time-varying forcing:
       ! update_surface_flux or update_ocean_surface has changed p_prog(nold(1))%h, SST and SSS
+      start_timer(timer_upd_flx,3)
       IF (ltimer) CALL timer_start(timer_upd_flx)
       IF (surface_module == 1) THEN
         CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, surface_fluxes, &
@@ -239,11 +242,11 @@ CONTAINS
         CALL update_ocean_surface( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, surface_fluxes, p_sfc, &
           & jstep, datetime, operators_coefficients)
       ENDIF
-      IF (ltimer) CALL timer_stop(timer_upd_flx)
+      stop_timer(timer_upd_flx,3)
 
-      IF (timers_level > 2)  CALL timer_start(timer_extra22)
+      start_detail_timer(timer_extra22,4)
       CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
-      IF (timers_level > 2)  CALL timer_stop(timer_extra22)
+      stop_detail_timer(timer_extra22,4)
 
 !       IF (timers_level > 2) CALL timer_start(timer_scalar_prod_veloc)
 !       CALL calc_scalar_product_veloc_3d( patch_3d,  &
@@ -333,12 +336,12 @@ CONTAINS
       !------------------------------------------------------------------------
       ! Step 6: transport tracers and diffuse them
       IF (no_tracer>=1) THEN
-        IF (ltimer) CALL timer_start(timer_tracer_ab)
+        start_timer(timer_tracer_ab,1)
         CALL advect_tracer_ab( patch_3d, ocean_state(jg), p_phys_param,&
           & surface_fluxes,&
           & operators_coefficients,&
           & jstep)
-        IF (ltimer) CALL timer_stop(timer_tracer_ab)
+        stop_timer(timer_tracer_ab,1)
       ENDIF
 
 !       ! One integration cycle finished. Set model time.
@@ -348,7 +351,7 @@ CONTAINS
 !       time_config%sim_time(1) = time_config%sim_time(1) + dtime
 
       ! perform accumulation for special variables
-      IF (timers_level > 2)  CALL timer_start(timer_extra20)
+      start_detail_timer(timer_extra20,5)
       
       IF (no_tracer>=1) THEN
         CALL calc_potential_density( patch_3d,                            &
@@ -387,7 +390,7 @@ CONTAINS
         & patch_3d%p_patch_1d(1)%zlev_m, &
         & ocean_state(jg)%p_diag)
 
-      IF (timers_level > 2)  CALL timer_stop(timer_extra20)
+      stop_detail_timer(timer_extra20,5)
       
       CALL output_ocean( patch_3d, ocean_state, &
         &                datetime,              &
@@ -399,6 +402,7 @@ CONTAINS
       IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
         &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, datetime)
 
+      start_detail_timer(timer_extra21,5)
       IF (timers_level > 2)  CALL timer_start(timer_extra21)
       ! Shift time indices for the next loop
       ! this HAS to ge into the restart files, because the start with the following loop
@@ -439,7 +443,7 @@ CONTAINS
           & cfl_write)
       END IF
       
-     IF (timers_level > 2)  CALL timer_stop(timer_extra21)
+      stop_detail_timer(timer_extra21,5)
 
     ENDDO time_loop
 

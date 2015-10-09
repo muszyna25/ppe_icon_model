@@ -16,6 +16,7 @@
 !!
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_definitions.inc"
 !----------------------------
 MODULE mo_ocean_tracer
   !-------------------------------------------------------------------------
@@ -39,10 +40,10 @@ MODULE mo_ocean_tracer
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
-  USE mo_ocean_types,                 ONLY: t_hydro_ocean_state, t_ocean_tracer !, v_base
+  USE mo_ocean_types,               ONLY: t_hydro_ocean_state, t_ocean_tracer !, v_base
   USE mo_model_domain,              ONLY: t_patch, t_patch_3d
   USE mo_exception,                 ONLY: finish !, message_text, message
-  USE mo_ocean_boundcond,             ONLY: top_bound_cond_tracer
+  USE mo_ocean_boundcond,           ONLY: top_bound_cond_tracer
   USE mo_ocean_physics
   USE mo_sea_ice_types,             ONLY: t_sfc_flx
   USE mo_ocean_diffusion,             ONLY: tracer_diffusion_vertical_implicit, tracer_diffusion_vert_explicit,tracer_diffusion_horz
@@ -51,7 +52,7 @@ MODULE mo_ocean_tracer
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_c, sync_e, sync_patch_array
-  USE mo_timer,                     ONLY: timer_start, timer_stop, timer_dif_vert, timer_extra30
+  USE mo_timer,                     ONLY: timer_start, timer_stop, timers_level, timer_dif_vert, timer_extra30
   USE mo_statistics,                ONLY: global_minmaxmean, print_value_location
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
   USE mo_ocean_GM_Redi,             ONLY: calc_ocean_physics, prepare_ocean_physics
@@ -98,7 +99,7 @@ CONTAINS
     patch_2D => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
 
-    CALL timer_start(timer_extra30)
+    start_detail_timer(timer_extra30,6)
 
     !alculate some information that is used for all tracers
     CALL prepare_tracer_transport( patch_3d, &
@@ -125,7 +126,7 @@ CONTAINS
       ENDDO
     ENDIF
 
-    CALL timer_stop(timer_extra30)
+    stop_detail_timer(timer_extra30,6)
 
     DO tracer_index = 1, no_tracer
 
@@ -272,8 +273,6 @@ CONTAINS
     patch_2D => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
     delta_t = dtime
-
-
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
@@ -514,7 +513,7 @@ CONTAINS
     !Case: Implicit Vertical diffusion
     IF ( vertical_tracer_diffusion_type == implicit_diffusion ) THEN
 
-      IF (ltimer) CALL timer_start(timer_dif_vert)
+      start_timer(timer_dif_vert,4)
 
       !Calculate preliminary tracer value out of horizontal advective and
       !diffusive fluxes and vertical advective fluxes, plus surface forcing.
@@ -615,7 +614,7 @@ CONTAINS
 
       CALL sync_patch_array(sync_c, patch_2D, new_ocean_tracer%concentration)
 
-      IF (ltimer) CALL timer_stop(timer_dif_vert)
+      stop_timer(timer_dif_vert,4)
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
@@ -692,7 +691,7 @@ CONTAINS
 
     ENDIF ! implicit or explicit
 
-    IF (debug_check_level > 1) &
+    IF (debug_check_level > 2) &
       CALL check_min_max_tracer(info_text="After advect_individual_tracer", tracer=new_ocean_tracer%concentration,     &
         & min_tracer=tracer_threshold_min(tracer_index), max_tracer=tracer_threshold_max(tracer_index), &
         & tracer_name=namelist_tracer_name(tracer_index), in_subset=cells_in_domain)
@@ -900,7 +899,7 @@ CONTAINS
 
       !Case: Implicit Vertical diffusion
       IF(vertical_tracer_diffusion_type == implicit_diffusion)THEN
-        IF (ltimer) CALL timer_start(timer_dif_vert)
+        start_timer(timer_dif_vert,4)
 
         !Calculate preliminary tracer value out of horizontal advective and
         !diffusive fluxes and vertical advective fluxes, plus surface forcing.
@@ -967,7 +966,7 @@ CONTAINS
 
         CALL sync_patch_array(sync_c, patch_2D, new_ocean_tracer%concentration)
 
-        IF (ltimer) CALL timer_stop(timer_dif_vert)
+        stop_timer(timer_dif_vert,4)
 
         !---------DEBUG DIAGNOSTICS-------------------------------------------
         idt_src=3  ! output print level (1-5, fix)

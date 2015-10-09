@@ -21,3 +21,10 @@
 #endif
 
 
+#if defined(_SYNC_TIMERS__) || defined(__ALL_TIMERS__)
+#define start_sync_timer(timer) IF (activate_sync_timers) CALL timer_start(timer)
+#define stop_sync_timer(timer)  IF (activate_sync_timers) CALL timer_stop(timer)
+#else
+#define start_sync_timer(timer) ! no timer
+#define stop_sync_timer(timer)  ! no timer
+#endif

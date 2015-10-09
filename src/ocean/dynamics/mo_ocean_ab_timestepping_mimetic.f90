@@ -235,9 +235,9 @@ CONTAINS
     IF(.NOT.l_rigid_lid)THEN
       
       ! Calculate RHS of surface equation
-      start_timer(timer_ab_rhs4sfc,4)
+      start_detail_timer(timer_ab_rhs4sfc,5)
       CALL fill_rhs4surface_eq_ab(patch_3d, ocean_state, p_sfc_flx, op_coeffs)
-      stop_timer(timer_ab_rhs4sfc,4)
+      stop_detail_timer(timer_ab_rhs4sfc,5)
       
       
       ! Solve surface equation with ocean_gmres solver
@@ -1438,7 +1438,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain
     TYPE(t_patch), POINTER :: patch_2D     ! patch_2D on which computation is performed
     !-----------------------------------------------------------------------
-    start_timer(timer_lhs,2)
+    start_detail_timer(timer_lhs,3)
     !-----------------------------------------------------------------------
     patch_2D           => patch_3d%p_patch_2d(1)
     cells_in_domain    => patch_2D%cells%in_domain
@@ -1542,7 +1542,7 @@ CONTAINS
       END DO
     ENDIF
    
-    stop_timer(timer_lhs,2)
+    stop_detail_timer(timer_lhs,3)
     
   END FUNCTION lhs_surface_height_ab_mim
   !-------------------------------------------------------------------------
