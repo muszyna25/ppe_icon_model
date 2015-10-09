@@ -112,6 +112,7 @@ MODULE mo_atmo_model
   USE mo_io_restart_async,        ONLY: restart_main_proc                                       ! main procedure for Restart PEs
   USE mo_name_list_output,        ONLY: name_list_io_main_proc
   USE mo_name_list_output_config, ONLY: use_async_name_list_io
+  USE mo_derived_variable_handling, ONLY: collect_meanstream_variables, init_mean_stream, finish_mean_stream
   USE mo_io_restart_namelist,     ONLY: delete_restart_namelists
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_mtime_extensions,        ONLY: get_datetime_string
@@ -378,6 +379,12 @@ CONTAINS
             CALL get_restart_attribute("jstep", jstep0)
           END IF
           sim_step_info%jstep0    = jstep0
+!TODO         CALL init_mean_stream(ocean_patch_3d%p_patch_2d(1))
+!TODO         CALL collect_meanstream_variables( &
+!TODO           &    sim_step_info, &
+!TODO           &    ocean_default_list, &
+!TODO           &    ocean_restart_list, &
+!TODO           &    ocean_patch_3d%p_patch_2d(1))
           CALL name_list_io_main_proc(sim_step_info)
         END IF
       ELSE IF (my_process_is_io() .AND. (.NOT. my_process_is_mpi_test())) THEN

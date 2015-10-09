@@ -200,8 +200,8 @@ MODULE mo_ocean_model
       CALL init_mean_stream(ocean_patch_3d%p_patch_2d(1))
       CALL collect_meanstream_variables( &
         &    sim_step_info, &
-        &    ocean_default_list, &
-        &    ocean_restart_list, &
+        &    (/ocean_default_list, &
+        &    ocean_restart_list/), &
         &    ocean_patch_3d%p_patch_2d(1))
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
     ENDIF
