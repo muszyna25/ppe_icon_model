@@ -654,7 +654,7 @@ CONTAINS
         & ocean_state%p_diag,op_coeffs,     &
         & ocean_state%p_diag%veloc_adv_vert )
           
-      start_detail_timer(timer_extra2,4)
+      stop_detail_timer(timer_extra2,4)
       
       ! calculate vertical velocity diffusion
       !   For the alternative choice "expl_vertical_velocity_diff==1" see couples of

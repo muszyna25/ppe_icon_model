@@ -234,7 +234,6 @@ CONTAINS
       !In case of a time-varying forcing:
       ! update_surface_flux or update_ocean_surface has changed p_prog(nold(1))%h, SST and SSS
       start_timer(timer_upd_flx,3)
-      IF (ltimer) CALL timer_start(timer_upd_flx)
       IF (surface_module == 1) THEN
         CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, surface_fluxes, &
           & jstep, datetime, operators_coefficients)
@@ -276,7 +275,7 @@ CONTAINS
       END IF
       !------------------------------------------------------------------------
       ! solve for new free surface
-      IF (ltimer) CALL timer_start(timer_solve_ab)
+      start_timer(timer_solve_ab,1)
       CALL solve_free_surface_eq_ab (patch_3d, ocean_state(jg), p_ext_data(jg), &
         & surface_fluxes, p_phys_param, jstep, operators_coefficients, solvercoeff_sp, return_status)!, p_int(jg))
       IF (return_status /= 0) THEN
@@ -290,24 +289,23 @@ CONTAINS
          & force_output=.true.)
         CALL finish(TRIM(routine), 'solve_free_surface_eq_ab  returned error')
       ENDIF
-      
-      IF (ltimer) CALL timer_stop(timer_solve_ab)
+      stop_timer(timer_solve_ab,1)
 
       !------------------------------------------------------------------------
       ! Step 4: calculate final normal velocity from predicted horizontal
       ! velocity vn_pred and updated surface height
-      IF (ltimer) CALL timer_start(timer_normal_veloc)
+      start_timer(timer_normal_veloc,4)
       CALL calc_normal_velocity_ab(patch_3d, ocean_state(jg),&
         & operators_coefficients, solvercoeff_sp,  p_ext_data(jg), p_phys_param)
-      IF (ltimer) CALL timer_stop(timer_normal_veloc)
+      stop_timer(timer_normal_veloc,4)
 
       !------------------------------------------------------------------------
       ! Step 5: calculate vertical velocity from continuity equation under
       ! incompressiblity condition in the non-shallow-water case
       IF ( iswm_oce /= 1 ) THEN
-        IF (ltimer) CALL timer_start(timer_vert_veloc)
+        start_timer(timer_vert_veloc,4)
         CALL calc_vert_velocity( patch_3d, ocean_state(jg),operators_coefficients)
-        IF (ltimer) CALL timer_stop(timer_vert_veloc)
+        stop_timer(timer_vert_veloc,4)
       ENDIF
       !------------------------------------------------------------------------
 
@@ -351,8 +349,7 @@ CONTAINS
 !       time_config%sim_time(1) = time_config%sim_time(1) + dtime
 
       ! perform accumulation for special variables
-      start_detail_timer(timer_extra20,5)
-      
+      start_detail_timer(timer_extra20,5)     
       IF (no_tracer>=1) THEN
         CALL calc_potential_density( patch_3d,                            &
           & ocean_state(jg)%p_prog(nold(1))%tracer,                       &
@@ -403,7 +400,6 @@ CONTAINS
         &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, datetime)
 
       start_detail_timer(timer_extra21,5)
-      IF (timers_level > 2)  CALL timer_start(timer_extra21)
       ! Shift time indices for the next loop
       ! this HAS to ge into the restart files, because the start with the following loop
       CALL update_time_indices(jg)
