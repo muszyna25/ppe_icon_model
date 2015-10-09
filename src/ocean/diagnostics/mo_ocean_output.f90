@@ -117,12 +117,12 @@ CONTAINS
 
     !------------------------------------------------------------------
         IF (istime4name_list_output(jstep))THEN!.OR.jstep>0) THEN
-	  CALL calc_slow_oce_diagnostics( patch_3d       , &
-	    &                             ocean_state(jg), &
-	    &                             p_sfc_flx      , &
-	    &                             p_ice          , &
-	    &                             jstep-jstep0   , &
-	    &                             datetime) !    , &
+          CALL calc_slow_oce_diagnostics( patch_3d       , &
+            &                             ocean_state(jg), &
+            &                             p_sfc_flx      , &
+            &                             p_ice          , &
+            &                             jstep-jstep0   , &
+            &                             datetime) !    , &
             ! &                             oce_ts)
           IF (diagnostics_level > 0 ) THEN
             IF (no_tracer>=2) THEN
