@@ -18,7 +18,7 @@
 !! headers of the routines.
 !!
 !----------------------------
-#include "ocean_dsl_definitions.inc"
+#include "iconfor_dsl_definitions.inc"
 #include "omp_definitions.inc"
 #include "icon_definitions.inc"
 !----------------------------
@@ -199,7 +199,7 @@ CONTAINS
 !       CALL dbg_print('on entry: w'                  ,ocean_state%p_diag%w,str_module, idt_src,  in_subset=owned_cells)
 !       idbg_mxmn=1
 !    ELSE
-    idt_src=1
+    idt_src=2
        CALL dbg_print('on entry: vn-new'               ,ocean_state%p_prog(nnew(1))%vn,str_module, idt_src, in_subset=owned_edges)
 !    ENDIF
     !---------------------------------------------------------------------
@@ -227,17 +227,17 @@ CONTAINS
     !---------------------------------------------------------------------
 
     
-    IF (ltimer) CALL timer_start(timer_ab_expl)
+    start_timer(timer_ab_expl,3)
     CALL calculate_explicit_term_ab(patch_3d, ocean_state, p_phys_param, &
       & is_initial_timestep(timestep), op_coeffs)
-    IF (ltimer) CALL timer_stop(timer_ab_expl)
+    stop_timer(timer_ab_expl,3)
     
     IF(.NOT.l_rigid_lid)THEN
       
       ! Calculate RHS of surface equation
-      IF (ltimer) CALL timer_start(timer_ab_rhs4sfc)
+      start_timer(timer_ab_rhs4sfc,4)
       CALL fill_rhs4surface_eq_ab(patch_3d, ocean_state, p_sfc_flx, op_coeffs)
-      IF (ltimer) CALL timer_stop(timer_ab_rhs4sfc)
+      stop_timer(timer_ab_rhs4sfc,4)
       
       
       ! Solve surface equation with ocean_gmres solver
@@ -586,7 +586,7 @@ CONTAINS
     !---------------------------------------------------------------------
     ! STEP 1: horizontal advection
     !---------------------------------------------------------------------
-    CALL timer_start(timer_extra1)
+    start_detail_timer(timer_extra1,4)
     
     IF(is_first_timestep)THEN
       CALL veloc_adv_horz_mimetic( patch_3d,         &
@@ -603,7 +603,7 @@ CONTAINS
         & ocean_state%p_diag%veloc_adv_horz, &
         & op_coeffs)
     ENDIF
-    CALL timer_stop(timer_extra1)
+    stop_detail_timer(timer_extra1,4)
     
     !---------------------------------------------------------------------
     ! STEP 2: compute 3D contributions: gradient of hydrostatic pressure and vertical velocity advection
@@ -611,7 +611,7 @@ CONTAINS
     
     IF ( iswm_oce /= 1 ) THEN
       ! calculate density from EOS using temperature and salinity at timelevel n
-      CALL timer_start(timer_extra2)
+      start_detail_timer(timer_extra2,4)
       CALL calculate_density( patch_3d,                         &
        & ocean_state%p_prog(nold(1))%tracer(:,:,:,1:no_tracer),&
        & ocean_state%p_diag%rho(:,:,:) )
@@ -654,7 +654,7 @@ CONTAINS
         & ocean_state%p_diag,op_coeffs,     &
         & ocean_state%p_diag%veloc_adv_vert )
           
-      CALL timer_stop(timer_extra2)
+      start_detail_timer(timer_extra2,4)
       
       ! calculate vertical velocity diffusion
       !   For the alternative choice "expl_vertical_velocity_diff==1" see couples of
@@ -695,19 +695,19 @@ CONTAINS
     !         are determined in mo_oce_diffusion according to namelist settings
     !---------------------------------------------------------------------
     
-    CALL timer_start(timer_extra3)
+    start_detail_timer(timer_extra3,5)
     CALL velocity_diffusion(patch_3d,              &
       & ocean_state%p_prog(nold(1))%vn, &
       & p_phys_param,            &
       & ocean_state%p_diag,op_coeffs,  &
       & ocean_state%p_diag%laplacian_horz)
-    CALL timer_stop(timer_extra3)
+    stop_detail_timer(timer_extra3,5)
  
     ! CALL dbg_print('bc_top_vn'   ,ocean_state%p_aux%bc_top_vn       ,str_module,idt_src, in_subset=owned_edges)
     ! write(0,*) "MASS_MATRIX_INVERSION_TYPE=", MASS_MATRIX_INVERSION_TYPE
     ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%laplacian_horz)
     !---------------------------------------------------------------------
-    CALL timer_start(timer_extra4)
+    start_detail_timer(timer_extra4,4)
     IF (   MASS_MATRIX_INVERSION_TYPE == MASS_MATRIX_INVERSION_ALLTERMS&
       &.OR.MASS_MATRIX_INVERSION_TYPE == MASS_MATRIX_INVERSION_ADVECTION) THEN
     
@@ -718,7 +718,7 @@ CONTAINS
       CALL explicit_vn_pred( patch_3d, ocean_state, op_coeffs, p_phys_param, is_first_timestep)
       
     ENDIF!
-    CALL timer_stop(timer_extra4)
+    stop_detail_timer(timer_extra4,4)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
 

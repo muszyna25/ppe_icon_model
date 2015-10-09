@@ -233,7 +233,7 @@ CONTAINS
     !    sum_w    = SUM(w(:,:))
     !    write(0,*) "gmres sum x(0:1), w:", sum_x(0:1), sum_w
     
-    start_timer(timer_gmres,1)
+    start_timer(timer_gmres,2)
     
     mythreadno = 0
 ! !ICON_OMP_PARALLEL PRIVATE(rrn2, myThreadNo)
@@ -291,7 +291,7 @@ CONTAINS
       niter = 0
       res(1) = ABS(rn2(1))
 
-      stop_timer(timer_gmres,1)
+      stop_timer(timer_gmres,2)
 
       RETURN
     ENDIF
@@ -340,9 +340,9 @@ CONTAINS
         
         IF (mythreadno == 0) THEN
           h_aux = SUM(sum_aux(1:no_of_blocks))
-          IF (activate_sync_timers) CALL timer_start(timer_gmres_p_sum)
+          start_detail_timer(timer_gmres_p_sum,5)
           h_aux = p_sum(h_aux, my_mpi_work_communicator)
-          IF (activate_sync_timers) CALL timer_stop(timer_gmres_p_sum)
+          stop_detail_timer(timer_gmres_p_sum,5)
           h(k,i) = h_aux
 !ICON_OMP FLUSH(h_aux)
         ENDIF
@@ -464,7 +464,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL    
     res(1:niter) = ABS(rn2(1:niter))
 
-    stop_timer(timer_gmres,1)
+    stop_timer(timer_gmres,2)
     
   END SUBROUTINE ocean_restart_gmres
   !-------------------------------------------------------------------------
@@ -590,7 +590,7 @@ CONTAINS
     !    sum_w    = SUM(w(:,:))
     !    write(0,*) "gmres sum x(0:1), w:", sum_x(0:1), sum_w
 
-    start_timer(timer_gmres,1)
+    start_timer(timer_gmres,2)
 
     mythreadno = 0
 ! !ICON_OMP_PARALLEL PRIVATE(rrn2, myThreadNo)
@@ -819,7 +819,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
     res(1:niter) = ABS(rn2(1:niter))
 
-    stop_timer(timer_gmres,1)
+    stop_timer(timer_gmres,2)
 
   END SUBROUTINE ocean_restart_gmres_singlePrecesicion
   !-------------------------------------------------------------------------
