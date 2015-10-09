@@ -128,9 +128,10 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE collect_meanstream_variables(sim_step_info, src_varlists, patch)
+  SUBROUTINE collect_meanstream_variables(sim_step_info, src_varlist1, src_varlist2,patch)
     TYPE(t_sim_step_info) :: sim_step_info
-    TYPE(t_var_list)      :: src_varlists(:)
+    TYPE(t_var_list)      :: src_varlist1
+    TYPE(t_var_list)      :: src_varlist2
     type(t_patch)         :: patch
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::collect_meanStream_variables"
@@ -141,7 +142,7 @@ CONTAINS
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     TYPE(t_list_element), POINTER :: src_element, dest_element
     TYPE(vector) :: keys 
-    integer :: inml,varlist_id
+    integer :: inml
     type(vector) :: vector_buffer, value_buffer
     class(*), pointer :: buf
     CHARACTER(LEN=1000) :: eventKey
@@ -204,11 +205,13 @@ CONTAINS
               IF ( INDEX(varlist(i),':') < 1 ) THEN
      
                 ! find existing variable
-                DO varlist_id=1,SIZE(src_varlists)
-                  src_element => find_list_element (src_varlists(varlist_id), TRIM(varlist(i)))
-                  IF (ASSOCIATED (src_element)) EXIT
-                  ! add new variable, copy the meta-data from the existing variable
-                END DO
+                src_element => find_list_element (src_varlist1, TRIM(varlist(i)))
+                IF (.NOT. ASSOCIATED (src_element)) src_element => &
+                     find_list_element (src_varlist2, TRIM(varlist(i)))
+                IF (.NOT. ASSOCIATED (src_element)) CALL finish( "collect_meanStream_variables",&
+                  & "Variable '"//TRIM(varlist(i))//"' not found!")
+                ! add new variable, copy the meta-data from the existing variable
+
               ! copy the source variable to destination pointer
               dest_element => copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element)
 
