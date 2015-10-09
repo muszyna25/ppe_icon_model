@@ -60,18 +60,18 @@ MODULE mo_ocean_output
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print
   USE mo_ocean_statistics
-  
+
   IMPLICIT NONE
-  
+
   PRIVATE
   PUBLIC :: output_ocean
-  
+
   INTEGER :: nsteps_since_last_output = 0
-  
+
   !-------------------------------------------------------------------------
-  
+
 CONTAINS
-  
+
   !-------------------------------------------------------------------------
   !>
   !! @par Revision History
@@ -92,7 +92,7 @@ CONTAINS
     TYPE (t_sea_ice),         INTENT(inout)          :: p_ice
     INTEGER,   INTENT(in)                            :: jstep, jstep0
 
-    
+
 
     ! local variables
     INTEGER :: jg, jtrc
@@ -103,12 +103,12 @@ CONTAINS
     TYPE(t_patch_vert), POINTER :: patch_1d
     INTEGER, POINTER :: dolic(:,:)
     REAL(wp), POINTER :: prism_thickness(:,:,:)
-    
+
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_ocean_output:output_ocean'
     !------------------------------------------------------------------
-    
+
     patch_2D      => patch_3d%p_patch_2d(1)
     jg = 1
     nsteps_since_last_output = nsteps_since_last_output + 1
@@ -133,66 +133,66 @@ CONTAINS
           !TODO [ram] src/io/shared/mo_output_event_types.f90 for types to use
           !TODO [ram] nsteps_since_last_output =
           !TODO [ram] output_event%event_step(output_event%i_event_step)%i_sim_step - output_event%event_step(output_event%i_event_step-1)%i_sim_step
-        
+
           CALL compute_mean_ocean_statistics(ocean_state(1)%p_acc,p_sfc_flx,nsteps_since_last_output)
           CALL compute_mean_ice_statistics(p_ice%acc,nsteps_since_last_output)
-        
+
           ! set the output variable pointer to the correct timelevel
           CALL set_output_pointers(nnew(1), ocean_state(jg)%p_diag, ocean_state(jg)%p_prog(nnew(1)))
-        
+
           IF (output_mode%l_nml) THEN
             CALL write_name_list_output(jstep)
           ENDIF
-        
+
           CALL message (TRIM(routine),'Write output at:')
           CALL print_datetime(datetime)
-        
+
           ! reset accumulation vars
           CALL reset_ocean_statistics(ocean_state(1)%p_acc,ocean_state(1)%p_diag,p_sfc_flx,nsteps_since_last_output)
           IF (i_sea_ice >= 1) CALL reset_ice_statistics(p_ice%acc)
-        
+
         END IF
 
   END SUBROUTINE output_ocean
   !-------------------------------------------------------------------------
-    
+
   !-------------------------------------------------------------------------
   SUBROUTINE set_output_pointers(timelevel,p_diag,p_prog)
     INTEGER, INTENT(in) :: timelevel
     TYPE(t_hydro_ocean_diag) :: p_diag
     TYPE(t_hydro_ocean_prog) :: p_prog
-    
+
     TYPE(t_list_element), POINTER :: output_var => NULL()
     TYPE(t_list_element), POINTER :: prog_var   => NULL()
     CHARACTER(LEN=max_char_length) :: timelevel_str
     !-------------------------------------------------------------------------
     WRITE(timelevel_str,'(a,i2.2)') '_TL',timelevel
     !write(0,*)'>>>>>>>>>>>>>>>> T timelevel_str:',TRIM(timelevel_str)
-    
+
     !CALL print_var_list(ocean_restart_list)
     !prog_var               => find_list_element(ocean_restart_list,'h'//TRIM(timelevel_str))
     !output_var             => find_list_element(ocean_restart_list,'h')
     !output_var%field%r_ptr => prog_var%field%r_ptr
     !p_diag%h               => prog_var%field%r_ptr(:,:,1,1,1)
     p_diag%h               =  p_prog%h
-    
+
     !output_var             => find_list_element(ocean_restart_list,'vn')
     !prog_var               => find_list_element(ocean_restart_list,'vn'//TRIM(timelevel_str))
     !output_var%field%r_ptr => prog_var%field%r_ptr
     !p_diag%vn              => prog_var%field%r_ptr(:,:,:,1,1)
     p_diag%vn(:,:,:)       =  p_prog%vn
-    
+
     !output_var             => find_list_element(ocean_restart_list,'t')
     !prog_var               => find_list_element(ocean_restart_list,'t'//TRIM(timelevel_str))
     !output_var%field%r_ptr => prog_var%field%r_ptr
     !p_diag%t               => prog_var%field%r_ptr(:,:,:,1,1)
     IF(no_tracer>0)p_diag%t(:,:,:)        =  p_prog%tracer(:,:,:,1)
-    
+
     !output_var             => find_list_element(ocean_restart_list,'s')
     !prog_var               => find_list_element(ocean_restart_list,'s'//TRIM(timelevel_str))
     !output_var%field%r_ptr => prog_var%field%r_ptr
     !p_diag%s               => prog_var%field%r_ptr(:,:,:,1,1)
      IF(no_tracer>1)p_diag%s(:,:,:)        =  p_prog%tracer(:,:,:,2)
   END SUBROUTINE set_output_pointers
-  
+
 END MODULE mo_ocean_output
