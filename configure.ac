@@ -15,7 +15,6 @@ AC_PREREQ(2.59)
 
 dnl ######################################################################
 dnl basic package definitions (by default ICON)
-package="ICON"
 if test -r "./config/set-up" ; then
 . ./config/set-up
 fi
@@ -249,8 +248,11 @@ fi
   
 dnl ######################################################################
 dnl define the packages
+package="ICON"
+FFLAGS="${FFLAGS} ${DEFOPT}__${package}__"
+CFLAGS="${CFLAGS} ${DEFCOPT}__${package}__"
 
-use_components_file=config/icon_components
+use_local_flags_file=config/local_flags
 
 AC_ARG_WITH([ocean],
             [AC_HELP_STRING([--with-ocean=no],
@@ -258,21 +260,18 @@ AC_ARG_WITH([ocean],
                             with_ocean=yes)
 
 if [[ $with_ocean = no ]]; then
-  use_components_file=config/icon_components_no_ocean
-  echo "icon_components=NO_ICON_OCEAN" > $use_components_file
+  FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_OCEAN__"
 fi
 
-if test -f $use_components_file ; then
-  AC_GET_MH($use_components_file)
+if test -f $use_local_flags_file ; then
+  AC_GET_MH($use_local_flags_file)
 fi
-FFLAGS="${FFLAGS} ${DEFOPT}__${package}__"
-CFLAGS="${CFLAGS} ${DEFCOPT}__${package}__"
 
-for other_package in $icon_components ; do
-  FFLAGS="${FFLAGS} ${DEFOPT}__${other_package}__"
-  CFLAGS="${CFLAGS} ${DEFCOPT}__${other_package}__"
-
+for other_flags in $icon_flags ; do
+  FFLAGS="${FFLAGS} ${DEFOPT}__${other_flags}__"
+  CFLAGS="${CFLAGS} ${DEFCOPT}__${other_flags}__"
 done
+
 dnl ######################################################################
 dnl add defines for transitional features (eg. mtime based time loop)
 

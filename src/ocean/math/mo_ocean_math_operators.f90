@@ -60,7 +60,7 @@ MODULE mo_ocean_math_operators
   PUBLIC :: grad_fd_norm_oce_3D_onblock
   PUBLIC :: div_oce_3D, div_oce_2D_sp
   PUBLIC :: div_oce_2D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp, div_oce_3D_onTriangles_onBlock
-  PUBLIC :: div_oce_2D_onQuads_onBlock, div_oce_2D_onQuads_onBlock_sp, div_oce_3D_onQuads_onBlock
+  PUBLIC :: div_oce_2D_general_onBlock, div_oce_2D_general_onBlock_sp, div_oce_3D_general_onBlock
   PUBLIC :: rot_vertex_ocean_3D
   PUBLIC :: grad_fd_norm_oce_2D_3D, grad_fd_norm_oce_2D_3D_sp
   PUBLIC :: grad_fd_norm_oce_2D_onBlock
@@ -346,7 +346,7 @@ CONTAINS
   ! compute the discrete divergence for cell jc by finite volume
   ! As sbr above but on quads
 !<Optimize:inUse>
-  SUBROUTINE div_oce_3D_onQuads_onBlock( vec_e, patch_3D, div_coeff, div_vec_c, &
+  SUBROUTINE div_oce_3D_general_onBlock( vec_e, patch_3D, div_coeff, div_vec_c, &
     & blockNo, start_index, end_index, start_level, end_level)
 
     TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
@@ -356,29 +356,28 @@ CONTAINS
     INTEGER, INTENT(in)           :: blockNo, start_index, end_index
     INTEGER, INTENT(in) :: start_level, end_level     ! vertical start and end level
 
-    INTEGER :: jc, level
+    INTEGER :: jc, level, max_connectivity, c
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     TYPE(t_subset_range), POINTER :: cells_subset
     !-----------------------------------------------------------------------
 
     iidx => patch_3D%p_patch_2D(1)%cells%edge_idx
     iblk => patch_3D%p_patch_2D(1)%cells%edge_blk
+    max_connectivity = patch_3D%p_patch_2D(1)%cells%max_connectivity
 
     div_vec_c(:,:) = 0.0_wp
     DO jc = start_index, end_index
       DO level = start_level, MIN(end_level, patch_3D%p_patch_1d(1)%dolic_c(jc, blockNo))
-        div_vec_c(jc,level) =  &
-          & vec_e(iidx(jc,blockNo,1),level,iblk(jc,blockNo,1)) * div_coeff(jc,level,blockNo,1) + &
-          & vec_e(iidx(jc,blockNo,2),level,iblk(jc,blockNo,2)) * div_coeff(jc,level,blockNo,2) + &
-          & vec_e(iidx(jc,blockNo,3),level,iblk(jc,blockNo,3)) * div_coeff(jc,level,blockNo,3) + &
-          & vec_e(iidx(jc,blockNo,4),level,iblk(jc,blockNo,4)) * div_coeff(jc,level,blockNo,4)		  
+        div_vec_c(jc,level) =  0.0_wp
+        DO c=1,max_connectivity
+          div_vec_c(jc,level) =  div_vec_c(jc,level) + &
+            & vec_e(iidx(jc,blockNo,1),level,iblk(jc,blockNo,c)) * div_coeff(jc,level,blockNo,c) 
+        END DO
       END DO
     END DO
 
-  END SUBROUTINE div_oce_3D_onQuads_onBlock
+  END SUBROUTINE div_oce_3D_general_onBlock
   !-------------------------------------------------------------------------
-
-
 
  
   !-------------------------------------------------------------------------
@@ -546,14 +545,24 @@ CONTAINS
     ELSE
       all_cells => patch_2D%cells%ALL
     ENDIF
-    
+
+    IF (patch_2d%cells%max_connectivity == 3) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, blockNo, start_index, end_index)
-      CALL div_oce_2D_onTriangles_onBlock( vec_e, patch_2D, div_coeff, div_vec_c(:,blockNo),  &
-         & level, blockNo, start_index, end_index)
-    END DO
+      DO blockNo = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, blockNo, start_index, end_index)
+        CALL div_oce_2D_onTriangles_onBlock( vec_e, patch_2D, div_coeff, div_vec_c(:,blockNo),  &
+          & level, blockNo, start_index, end_index)
+      END DO
 !ICON_OMP_END_PARALLEL_DO
+    ELSE
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = all_cells%start_block, all_cells%end_block
+        CALL get_index_range(all_cells, blockNo, start_index, end_index)
+        CALL div_oce_2D_general_onBlock( vec_e, patch_2D, div_coeff, div_vec_c(:,blockNo),  &
+          & level, blockNo, start_index, end_index)
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+    ENDIF
 
   END SUBROUTINE div_oce_3D_1level
   !-------------------------------------------------------------------------
@@ -615,7 +624,7 @@ CONTAINS
   ! compute the discrete divergence for cell jc by finite volume
   ! approximation. As subroutine above, but on quadrilaterals
 !<Optimize:inUse>
-  SUBROUTINE div_oce_2D_onQuads_onBlock( vec_e, patch_2D, div_coeff, div_vec_c,  &
+  SUBROUTINE div_oce_2D_general_onBlock( vec_e, patch_2D, div_coeff, div_vec_c,  &
     & level, blockNo, start_index, end_index)
 
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
@@ -629,7 +638,7 @@ CONTAINS
     INTEGER,  INTENT(in)          :: level
     INTEGER,  INTENT(in) :: blockNo, start_index, end_index
 
-    INTEGER :: jc
+    INTEGER :: jc,c
     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
     !-----------------------------------------------------------------------
 
@@ -637,15 +646,14 @@ CONTAINS
     iblk => patch_2D%cells%edge_blk
 
     DO jc = start_index, end_index
-
-      div_vec_c(jc) =  &
-        & vec_e(iidx(jc,blockNo,1),iblk(jc,blockNo,1)) * div_coeff(jc,level,blockNo,1) + &
-        & vec_e(iidx(jc,blockNo,2),iblk(jc,blockNo,2)) * div_coeff(jc,level,blockNo,2) + &
-        & vec_e(iidx(jc,blockNo,3),iblk(jc,blockNo,3)) * div_coeff(jc,level,blockNo,3) + &
-        & vec_e(iidx(jc,blockNo,4),iblk(jc,blockNo,4)) * div_coeff(jc,level,blockNo,4)
+      div_vec_c(jc) = 0.0_wp
+      DO c=1,patch_2d%cells%max_connectivity
+        div_vec_c(jc) =  div_vec_c(jc) + &
+          & vec_e(iidx(jc,blockNo,1),iblk(jc,blockNo,c)) * div_coeff(jc,level,blockNo,c)
+      END DO
     END DO
     
-  END SUBROUTINE div_oce_2D_onQuads_onBlock
+  END SUBROUTINE div_oce_2D_general_onBlock
   !-------------------------------------------------------------------------
 
   
@@ -684,7 +692,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE div_oce_2D_onQuads_onBlock_sp( vec_e, patch_2D, div_coeff, div_vec_c,  &
+  SUBROUTINE div_oce_2D_general_onBlock_sp( vec_e, patch_2D, div_coeff, div_vec_c,  &
     &  blockNo, start_index, end_index)
 
     TYPE(t_patch), TARGET, INTENT(in) :: patch_2D
@@ -714,7 +722,7 @@ CONTAINS
 		
     END DO
 
-  END SUBROUTINE div_oce_2D_onQuads_onBlock_sp
+  END SUBROUTINE div_oce_2D_general_onBlock_sp
   !-------------------------------------------------------------------------
 
 
