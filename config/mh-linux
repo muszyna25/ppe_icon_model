@@ -143,7 +143,7 @@ case "$fortran_compiler" in
         STD_FLAGS   = -Wc,-O3 -Wc,-march=native
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all 
-        MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_alltoall,mpi_alltoallv,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_scatter,mpi_scatterv,mpi_allgather,mpi_allgatherv,mpi_pack,mpi_unpack,mpi_type_extent,mpi_type_struct,mpi_type_commit,mpi_op_create,mpi_get_address,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
+        MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_sendrecv,mpi_free_mem,mpi_win_free,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_alltoall,mpi_alltoallv,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_scatter,mpi_scatterv,mpi_allgather,mpi_allgatherv,mpi_pack,mpi_unpack,mpi_type_extent,mpi_type_struct,mpi_type_commit,mpi_op_create,mpi_get_address,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
         FFLAGS      = "$GEN_FLAGS" -f2003 "$FDEBUG" "$MISMATCHS" "$INCLUDES"
         F77         = nagfor
         F77FLAGS    = "$GEN_FLAGS" "$FDEBUG" -w=obs -O -dcfuns -mismatch_all
@@ -403,7 +403,7 @@ case "$ac_sitename" in
                 load_profile  = "." "/client/etc/profile.wizard"
                 software_tree = /sw/centos58-x64
                 config_target = wizard
-                make_command  = make -j4
+                make_command  = make -j 4
                 submit        = sbatch
 
                 case "$fortran_compiler" in
@@ -435,7 +435,7 @@ case "$ac_sitename" in
                 load_modules  = ncl cdo ${load_modules}
                 software_tree = /sw/rhel6-x64
                 config_target = bullx
-                make_command  = make -j4
+                make_command  = make -j 12
                 submit        = sbatch
                 sync_submit   = srunjob
                 queue         = compute
@@ -467,32 +467,6 @@ case "$ac_sitename" in
                         ZLIBROOT    = /usr
 
                         case "$with_mpi" in
-                            "$software_tree/intel/impi/5.0.3.048"|"$software_tree/intel/impi/5.0.3.048/intel64")
-                                load_modules = ${load_modules} intelmpi/5.0.3.048
-                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
-                                MPIROOT      = $software_tree/intel/impi/5.0.3.048/intel64
-                                SYS_LIBS     = -ldl -lrt -lpthread
-                                MPI_LIB      = $WLFLAG,-rpath,$MPIROOT/lib -lmpigf -lmpi -lmpigi $SYS_LIBS
-
-                                case "${with_openmp}" in
-                                    yes)
-                                        MPI_LIB="${MPI_LIB/ -lmpi / -lmpi_mt }"
-                                        ;;
-                                esac
-                                ;;
-                            "$software_tree/intel/impi/4.1.3.049"|"$software_tree/intel/impi/4.1.3.049/intel64")
-                                load_modules = ${load_modules} intelmpi/4.1.3.049
-                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
-                                MPIROOT      = $software_tree/intel/impi/4.1.3.049/intel64
-                                SYS_LIBS     = -ldl -lrt -lpthread
-                                MPI_LIB      = $WLFLAG,-rpath,$MPIROOT/lib -lmpigf -lmpi -lmpigi $SYS_LIBS
-
-                                case "${with_openmp}" in
-                                    yes)
-                                        MPI_LIB="${MPI_LIB/ -lmpi / -lmpi_mt }"
-                                        ;;
-                                esac
-                                ;;
                             /opt/mpi/bullxmpi_mlx/1.2.8.3|*)
                                 load_modules = ${load_modules} fca mxm bullxmpi_mlx/bullxmpi_mlx-1.2.8.3
                                 FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
