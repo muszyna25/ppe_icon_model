@@ -29,6 +29,8 @@ AC_CONFIG_AUX_DIR(config)
 
 AC_CANONICAL_SYSTEM
 
+AC_PROG_AWK
+
 dnl ######################################################################
 
 AC_ARG_ENABLE([mtime-loop],
@@ -136,16 +138,10 @@ dnl ######################################################################
 AC_PROG_AWK
 
 AS_CASE([$ac_hostname],
-        [plogin*],
-        [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],  
         [wizard*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],  
-        [btc*],
-        [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],       
-        [mlogin*],
+        [mlogin*|btc*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
         [ic2*],      
@@ -246,12 +242,7 @@ if test "x$load_modules" != x ;  then
     echo module purge >> conf_load_module.tmp
     echo module load "$load_modules" >> conf_load_module.tmp
     echo module list >> conf_load_module.tmp
-    if test "x$config_target" = xblizzard ;  then
-      # change configure to bash
-      echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
-    else
-      cp configure conf__.tmp 
-    fi
+    cp configure conf__.tmp 
     echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
     echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
     echo "rm conf__.tmp" >> conf_load_module.tmp
@@ -459,13 +450,13 @@ if test -n "$SZIPROOT" ; then
      echo "cannot find $SZIPROOT/include"  
      exit 1    
   fi
-  case $(hostname) in
-  btc*|mlogin*)  
+  case $ac_hostname in
+  mlogin*|btc*)
     case $FC in
     nagfor)
-      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
-    *)  
+    *)
       SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
       ;;
     esac
@@ -508,11 +499,11 @@ if test -n "$HDF5ROOT" ; then
      echo "cannot find $HDF5ROOT/include"  
      exit 1    
   fi
-  case $(hostname) in
-  btc*|mlogin*)  
+  case $ac_hostname in
+  mlogin*|btc*)  
     case $FC in
     nagfor)
-      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
     *)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -566,11 +557,11 @@ if test -n "$NETCDFROOT" ; then
   if test x$gcc_lib != x ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
-  case $(hostname) in
-  btc*|mlogin*)    
+  case $ac_hostname in
+  mlogin*|btc*)
     case $FC in
     nagfor)
-      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
     *)
       NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -592,24 +583,24 @@ if test -n "$NETCDFROOT" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
-         NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff' 
-         case $(hostname) in
-         btc*|mlogin*)    
+         NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
+         case $ac_hostname in
+         mlogin*|btc*)
            case $FC in
            nagfor)
-             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
-             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
              ;;
-           *)                      
+           *)
              NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
              NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
              ;;
-           esac         
+           esac
            ;;
          *)
            ;;
          esac
-         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"	
+         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
@@ -759,40 +750,30 @@ esac
 
 MPI_INCLUDE=""
 
-withval=no
 AC_ARG_WITH([mpi],
             [AC_HELP_STRING([--with-mpi=DIR],
                             [MPI library])],,)
 
 
-#default is with mpi
-if test x$with_mpi != xno ; then
-  withval=yes
-fi
-
-if test x$withval = xno ; then
-  FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
-  CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
-  MPI_LIB=""
-  MPI_VERSION=none
-  MPIROOT=""
-  use_mpcc_r=no
-else
-  if test x$with_mpi != x ; then
-    if test $with_mpi != yes && $with_mpi != no  ; then
-      MPIROOT=$with_mpi
-    fi
-  fi
-  if test -n "$MPIROOT" ; then    
-    AC_CHECK_FILE($MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h,[],AC_MSG_ERROR([MPIROOT not properly defined]))
+AS_IF([test x"$with_mpi" = xno],
+  [FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
+   CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
+   MPI_LIB=""
+   MPI_VERSION=none
+   MPIROOT=""
+   use_mpcc_r=no],
+  [AS_IF([test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno],
+    [MPIROOT=$with_mpi])
+   AS_IF([test x"$MPIROOT" != x],
+    [AC_CHECK_FILE([$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h],,[AC_MSG_ERROR([MPIROOT not properly defined])])
     case $host in
     *-*-darwin*)
       MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
-      ;;    
+      ;;
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
-      ;;   
-    esac 
+      ;;
+    esac
     MPI_I_INCLUDE="-I\$(MPIROOT)/include/${MPI_INCLUDE_THREAD}"
     case $host in
     powerpc-ibm-aix*)
@@ -837,12 +818,9 @@ else
       MPI_INCLUDE="$MPI_M_INCLUDE"
     else
       MPI_INCLUDE="$MPI_M_INCLUDE $MPI_I_INCLUDE"
-    fi  
-  else
-    MPI="${DEFOPT}NOMPI"
-    MPI_LIB=""
-  fi
-fi
+    fi],
+   [MPI="${DEFOPT}NOMPI"
+    MPI_LIB=""])])
 
 
 dnl ######################################################################
@@ -969,8 +947,10 @@ if [[ "x$LDFLAGS" = "x" ]] ; then
 fi
 
 if [[ "x$use_openmp" = xyes ]] ; then
-   FFLAGS="${FFLAGS} ${OMPFLAG}"   
+   FFLAGS="${FFLAGS} ${OMPFLAG}"
+   F77FLAGS="${F77FLAGS} ${OMPFLAG}"
    LDFLAGS="${LDFLAGS} ${OMPFLAG}"
+   CFLAGS="${CFLAGS} ${CC_OMPFLAG}"
 fi
 
 #------------------------
@@ -1056,8 +1036,6 @@ AC_SUBST(MPI_INCLUDE,$MPI_INCLUDE)
 AC_SUBST(LAPACKROOT,$LAPACKROOT)
 AC_SUBST(LAPACK_LIB_PATH,$LAPACK_LIB_PATH)
 AC_SUBST(LAPACK_LIB,$LAPACK_LIB)
-
-AC_SUBST(METIS_LIB,$METIS_LIB)
 
 AC_SUBST(PROFILE_LIB,$PROFILE_LIB)
 AC_SUBST(PROFILE_INCLUDE,$PROFILE_INCLUDE)
@@ -1307,6 +1285,7 @@ use_make_command="$make_command"
 use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
+use_flags_group="$use_flags_group"
 #############################
 EOF
 

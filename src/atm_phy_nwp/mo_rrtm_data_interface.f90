@@ -21,28 +21,27 @@
 
 MODULE mo_rrtm_data_interface
 
-  USE mo_exception,           ONLY: message, get_filename_noext, finish !message_tex
+  USE mo_exception,           ONLY: get_filename_noext, finish
   USE mo_kind,                ONLY: wp
-  USE mo_io_units,            ONLY: find_next_free_unit, filename_max
   
   USE mo_model_domain,        ONLY: t_patch, p_patch
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start
+  USE mo_grid_config,         ONLY: n_dom
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nonhydro_types,      ONLY: t_nh_diag
   
   USE mo_parallel_config,     ONLY: parallel_radiation_mode, radiation_division_file_name, &
-    & nproma, division_method, ext_div_medial_redrad, ext_div_medial_redrad_cluster,       &
-    & div_from_file, use_icon_comm
-  USE mo_mpi,                 ONLY: my_process_is_mpi_seq, get_my_mpi_work_communicator,       &
-    & num_work_procs, get_my_mpi_work_id, get_my_mpi_work_comm_size, get_mpi_all_workroot_id,  &
-    & p_bcast
+    & nproma, division_method, use_icon_comm, ext_div_from_file
+  USE mo_mpi,                 ONLY: my_process_is_mpi_seq, &
+    & get_my_mpi_work_communicator, get_my_mpi_work_id, &
+    & get_my_mpi_work_comm_size, get_mpi_all_workroot_id, p_bcast
    
   USE mo_icon_comm_lib,       ONLY: new_icon_comm_pattern, inverse_of_icon_comm_pattern,   &
     & print_grid_comm_pattern, new_icon_comm_variable, is_ready, until_sync, icon_comm_sync_all, &
     & print_grid_comm_stats
   USE mo_dist_dir,            ONLY: dist_dir_get_owners
+  USE mo_decomposition_tools, ONLY: read_ascii_decomposition
  
 
 
@@ -184,9 +183,9 @@ CONTAINS
     TYPE(t_rrtm_data), POINTER :: rrtm_model_data
     
     INTEGER :: my_mpi_work_id, my_mpi_work_comm_size, workroot_mpi_id, my_mpi_work_communicator    
-    INTEGER :: return_status, file_id, i, j
-    INTEGER, ALLOCATABLE, TARGET :: radiation_owner(:), radiation_cells_(:)
-    INTEGER, POINTER :: radiation_cells(:)
+    INTEGER :: return_status, i, j
+    INTEGER, POINTER :: radiation_owner(:)
+    INTEGER, ALLOCATABLE :: radiation_cells(:)
     
     CHARACTER(*), PARAMETER :: method_name = "construct_rrtm_model_repart"
 
@@ -205,7 +204,7 @@ CONTAINS
     my_mpi_work_communicator = get_my_mpi_work_communicator()
 
     SELECT CASE (division_method(patch_no))
-    CASE(div_from_file) 
+    CASE(ext_div_from_file) 
       ! read the radiation re-distribution from file
       
       ! NOTE: this global array should be eventully replaced by local arrays
@@ -217,28 +216,13 @@ CONTAINS
       IF (my_mpi_work_id == workroot_mpi_id) THEN
 
         ! read all the radiation owners and sent the info to each procs
-          
         IF (radiation_division_file_name(patch_no) == "") THEN
           radiation_division_file_name(patch_no) = &
             & TRIM(get_filename_noext(patch%grid_filename))//'.radiation_cell_domain_ids'
         ENDIF
-          
-        WRITE(0,*) "Read radiation redistribution from file: ", &
-          & TRIM(radiation_division_file_name(patch_no)), &
-          & " total cells=", patch%n_patch_cells_g
-        file_id = find_next_free_unit(10,900)
-        OPEN(file_id,FILE=TRIM(radiation_division_file_name(patch_no)), &
-          & STATUS='OLD', IOSTAT=return_status)
-        IF(return_status /= 0) CALL finish(method_name,&
-          & 'Unable to open input file: '//TRIM(radiation_division_file_name(patch_no)))
-          
-        DO j = 1, patch%n_patch_cells_g
-          READ(file_id,*,IOSTAT=return_status) radiation_owner(j)
-          IF(return_status /= 0) CALL finish(method_name,&
-            & 'Error reading: '//TRIM(radiation_division_file_name(patch_no)))
-        ENDDO        
-        CLOSE(file_id)
-        
+
+        CALL read_ascii_decomposition(radiation_division_file_name(patch_no), &
+          &                           radiation_owner, patch%n_patch_cells_g)
       ENDIF
 
       !-------------------------------
@@ -253,7 +237,7 @@ CONTAINS
 
       CALL p_bcast(radiation_owner, workroot_mpi_id, comm=my_mpi_work_communicator)
 
-      ALLOCATE(radiation_cells_(COUNT(radiation_owner(:) == my_mpi_work_id)))
+      ALLOCATE(radiation_cells(COUNT(radiation_owner(:) == my_mpi_work_id)))
 
       i = 1
 
@@ -261,18 +245,13 @@ CONTAINS
 
         IF (radiation_owner(j) == my_mpi_work_id) THEN
 
-          radiation_cells_(i) = j
+          radiation_cells(i) = j
           i = i + 1
         END IF
       END DO
 
       DEALLOCATE(radiation_owner)
 
-      radiation_cells => radiation_cells_
-    
-    CASE(ext_div_medial_redrad, ext_div_medial_redrad_cluster)
-      radiation_cells => patch%radiation_cells
-       !  radiation_owner should be already filled   
     CASE DEFAULT
       CALL finish(method_name, &
         & 'value of division_method not compatible with redistributed radiation')
@@ -307,8 +286,6 @@ CONTAINS
       & full_levels = patch%nlev,                  &
       & half_levels = patch%nlevp1,                &
       & block_size  = nproma)
-
-    IF (ALLOCATED(radiation_cells_)) DEALLOCATE(radiation_cells_)
 
   END SUBROUTINE construct_rrtm_model_repart
   !-----------------------------------------

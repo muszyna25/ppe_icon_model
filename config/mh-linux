@@ -86,6 +86,7 @@ case "$fortran_compiler" in
         LDFLAGS     = "$FOTPTIM"
         OMPFLAG     = -fopenmp
         ART_FFLAGS  = -D__ICON_ART -fall-intrinsics
+        CC_OMPFLAGS = -fopenmp
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -104,6 +105,7 @@ case "$fortran_compiler" in
 
         FC       = mpixlf2003_r
 
+        CHECK_FLAGS = -g -qcheck -qstackprotect=all
         #DEBUG_FLAGS = -g -qcheck=all -qstackprotect=all
         DEBUG_FLAGS = -OO -qnoopt -g -qfullpath -WF,-DNOXLFPROCESS
         BASIC_OPT_FLAGS = -qalias_size -q64 -qmaxmem=-1 -qarch=auto -qtune=auto -qcache=auto -qfloat=fltint -WF,-D__LOOP_EXCHANGE
@@ -119,9 +121,11 @@ case "$fortran_compiler" in
           debug)
             OMPFLAG = -qsmp=omp:noopt
             F77FLAGS = $GENFLAGS $FMISMATCH -O0 -g
+            CC_OMPFLAG  = -qsmp=omp:noopt
             ;;
           *)
             OMPFLAG = -qsmp=omp
+            CC_OMPFLAG  = -qsmp=om
             ;;
         esac
         DEFOPT   = -WF,-D
@@ -139,7 +143,7 @@ case "$fortran_compiler" in
         STD_FLAGS   = -Wc,-O3 -Wc,-march=native
         FDEBUG      =  -gline -g -C=all -mtrace=all
         FDEBUG      =  -gline -g -C=all 
-        MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_alltoall,mpi_alltoallv,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_scatter,mpi_scatterv,mpi_allgather,mpi_allgatherv,mpi_pack,mpi_unpack,mpi_type_extent,mpi_type_struct,mpi_type_commit,mpi_op_create,mpi_get_address,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
+        MISMATCHS   = -wmismatch=mpi_get,mpi_win_create,mpi_send,mpi_sendrecv,mpi_free_mem,mpi_win_free,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_alltoall,mpi_alltoallv,mpi_allreduce,mpi_reduce,mpi_gather,mpi_gatherv,mpi_scatter,mpi_scatterv,mpi_allgather,mpi_allgatherv,mpi_pack,mpi_unpack,mpi_type_extent,mpi_type_struct,mpi_type_commit,mpi_op_create,mpi_get_address,nf_get_att_double,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int,nf_put_vara_int,nf_get_vara_int,nf_put_vara_double,psmile_bsend -w=uep
         FFLAGS      = "$GEN_FLAGS" -f2003 "$FDEBUG" "$MISMATCHS" "$INCLUDES"
         F77         = nagfor
         F77FLAGS    = "$GEN_FLAGS" "$FDEBUG" -w=obs -O -dcfuns -mismatch_all
@@ -204,12 +208,13 @@ case "$fortran_compiler" in
         MODOPT      = -I
         MODDIR      = -J
         ;; 
-    intel)
+    intel|intel16|intel15|intel14)
         config_compiler=intel
         compiler_version = $(ifort -V 2>&1 | awk -F "," 'NR==1{split($2,v," "); printf("intel%d",v[2])}')
         #  CC     = icc
         # CFLAGS      = -fpe0 -msse2 -pc64  -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
         CFLAGS      = "$CFLAGS" -DpgiFortran
+        AR          = xiar
         FC          = ifort
         DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -O0 -g
         STD_FLAGS   = -O2 -msse2 -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
@@ -218,6 +223,7 @@ case "$fortran_compiler" in
         F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
         OMPFLAG     = -openmp
         ART_FFLAGS  = -D__ICON_ART
+        CC_OMPFLAG  = -openmp
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -397,7 +403,7 @@ case "$ac_sitename" in
                 load_profile  = "." "/client/etc/profile.wizard"
                 software_tree = /sw/centos58-x64
                 config_target = wizard
-                make_command  = make -j4
+                make_command  = make -j 4
                 submit        = sbatch
 
                 case "$fortran_compiler" in
@@ -424,12 +430,12 @@ case "$ac_sitename" in
                       ;;
                 esac
                 ;;
-            btc*|mlogin*)
+            mlogin*|btc*)
                 load_profile  = "." "/etc/profile"
                 load_modules  = ncl cdo ${load_modules}
                 software_tree = /sw/rhel6-x64
                 config_target = bullx
-                make_command  = make -j4
+                make_command  = make -j 12
                 submit        = sbatch
                 sync_submit   = srunjob
                 queue         = compute
@@ -461,32 +467,6 @@ case "$ac_sitename" in
                         ZLIBROOT    = /usr
 
                         case "$with_mpi" in
-                            "$software_tree/intel/impi/5.0.3.048"|"$software_tree/intel/impi/5.0.3.048/intel64")
-                                load_modules = ${load_modules} intelmpi/5.0.3.048
-                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
-                                MPIROOT      = $software_tree/intel/impi/5.0.3.048/intel64
-                                SYS_LIBS     = -ldl -lrt -lpthread
-                                MPI_LIB      = $WLFLAG,-rpath,$MPIROOT/lib -lmpigf -lmpi -lmpigi $SYS_LIBS
-
-                                case "${with_openmp}" in
-                                    yes)
-                                        MPI_LIB="${MPI_LIB/ -lmpi / -lmpi_mt }"
-                                        ;;
-                                esac
-                                ;;
-                            "$software_tree/intel/impi/4.1.3.049"|"$software_tree/intel/impi/4.1.3.049/intel64")
-                                load_modules = ${load_modules} intelmpi/4.1.3.049
-                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
-                                MPIROOT      = $software_tree/intel/impi/4.1.3.049/intel64
-                                SYS_LIBS     = -ldl -lrt -lpthread
-                                MPI_LIB      = $WLFLAG,-rpath,$MPIROOT/lib -lmpigf -lmpi -lmpigi $SYS_LIBS
-
-                                case "${with_openmp}" in
-                                    yes)
-                                        MPI_LIB="${MPI_LIB/ -lmpi / -lmpi_mt }"
-                                        ;;
-                                esac
-                                ;;
                             /opt/mpi/bullxmpi_mlx/1.2.8.3|*)
                                 load_modules = ${load_modules} fca mxm bullxmpi_mlx/bullxmpi_mlx-1.2.8.3
                                 FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
@@ -542,8 +522,7 @@ case "$ac_sitename" in
                     *)
                         echo
                         echo
-                        echo $fortran_compiler Fortran compiler not supported yet!
-                        echo Select intel ...
+                        echo "No supported Fortran compiler selected."
                         echo
                         exit
                         ;;

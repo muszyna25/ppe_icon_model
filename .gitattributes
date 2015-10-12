@@ -55,7 +55,6 @@ blas/sswap.f -text
 blas/ssyrk.f -text
 blas/strsm.f -text
 blas/xerbla.f -text
-/build_command.ecmwf -text
 /cmake.configure -text
 cmake/FindGRIB_API.cmake -text
 cmake/FindHDF5.cmake -text
@@ -810,6 +809,7 @@ run/component.xsd -text
 run/coupling.xsd -text
 run/dict.echam.mpim -text
 run/dict.extpar -text
+run/dict.hdcp2_final -text
 run/dict.icoham.mpim -text
 run/dict.iconam.mpim -text
 run/dict.latbc -text
@@ -842,6 +842,8 @@ run/exp.hat_icoham_ape -text
 run/exp.hat_icoham_apei -text
 run/exp.hat_jww -text
 run/exp.hat_rce_120km -text
+run/exp.hdcp2_final -text
+run/exp.hdcp2_final_3dom -text
 run/exp.hdcp2_germany_776km-diam_1250m_test -text
 run/exp.icon-testbed_read-netcdf -text
 run/exp.mtest_nat_rce_cbl_120km_nwp_test -text
@@ -1476,6 +1478,7 @@ src/atm_phy_schemes/gscp_kessler.f90 -text
 src/atm_phy_schemes/mo_2mom_mcrph_driver.f90 -text
 src/atm_phy_schemes/mo_2mom_mcrph_main.f90 -text
 src/atm_phy_schemes/mo_2mom_mcrph_util.f90 -text
+src/atm_phy_schemes/mo_2mom_prepare.f90 -text
 src/atm_phy_schemes/mo_adjust.f90 -text
 src/atm_phy_schemes/mo_aerosol_util.f90 -text
 src/atm_phy_schemes/mo_albedo.f90 -text
@@ -1606,7 +1609,7 @@ src/grid_generator/mo_optimize.f90 -text
 src/grid_generator/mo_small_circle_c.f90 -text
 src/grid_generator/mo_spring_dynamics.f90 -text
 src/grid_generator/mo_topology.f90 -text
-src/grid_generator/partitioner.f90 -text
+src/include/fsel.inc -text
 src/include/omp_definitions.inc -text
 src/include/phillips_nucleation_2010.incf -text
 src/io/atmo/mo_async_latbc.f90 -text
