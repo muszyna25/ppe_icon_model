@@ -141,7 +141,7 @@ AS_CASE([$ac_hostname],
         [wizard*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],  
-        [mlogin*],
+        [mlogin*|btc*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
         [ic2*],      
@@ -451,7 +451,7 @@ if test -n "$SZIPROOT" ; then
      exit 1    
   fi
   case $ac_hostname in
-  mlogin*)
+  mlogin*|btc*)
     case $FC in
     nagfor)
       SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -500,7 +500,7 @@ if test -n "$HDF5ROOT" ; then
      exit 1    
   fi
   case $ac_hostname in
-  mlogin*)  
+  mlogin*|btc*)  
     case $FC in
     nagfor)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -558,7 +558,7 @@ if test -n "$NETCDFROOT" ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
   case $ac_hostname in
-  mlogin*)
+  mlogin*|btc*)
     case $FC in
     nagfor)
       NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -585,7 +585,7 @@ if test -n "$NETCDFROOT" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
          case $ac_hostname in
-         mlogin*)
+         mlogin*|btc*)
            case $FC in
            nagfor)
              NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
