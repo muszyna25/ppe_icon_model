@@ -430,7 +430,7 @@ case "$ac_sitename" in
                       ;;
                 esac
                 ;;
-            mlogin*)
+            mlogin*|btc*)
                 load_profile  = "." "/etc/profile"
                 load_modules  = ncl cdo ${load_modules}
                 software_tree = /sw/rhel6-x64
