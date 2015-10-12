@@ -1052,7 +1052,7 @@ CONTAINS
     cf_desc    = t_cf_var('slope_of_terrain', '-',                 &
                 &         'Slope of sub-gridscale orography', DATATYPE_FLT32)
     grib2_desc = grib2_var(0,3,22, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    add_var( field_list, prefix//'orosig', field%orosig,      &
+    CALL add_var( field_list, prefix//'orosig', field%orosig,      &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     cf_desc    = t_cf_var('anisotropy_factor', '-',                &
