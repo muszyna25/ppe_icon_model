@@ -430,7 +430,7 @@ case "$ac_sitename" in
                       ;;
                 esac
                 ;;
-            btc*|mlogin*)
+            mlogin*)
                 load_profile  = "." "/etc/profile"
                 load_modules  = ncl cdo ${load_modules}
                 software_tree = /sw/rhel6-x64
@@ -522,8 +522,7 @@ case "$ac_sitename" in
                     *)
                         echo
                         echo
-                        echo $fortran_compiler Fortran compiler not supported yet!
-                        echo Select intel ...
+                        echo "No supported Fortran compiler selected."
                         echo
                         exit
                         ;;

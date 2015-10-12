@@ -138,15 +138,9 @@ dnl ######################################################################
 AC_PROG_AWK
 
 AS_CASE([$ac_hostname],
-        [plogin*],
-        [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],  
         [wizard*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],  
-        [btc*],
-        [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],       
         [mlogin*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
@@ -248,12 +242,7 @@ if test "x$load_modules" != x ;  then
     echo module purge >> conf_load_module.tmp
     echo module load "$load_modules" >> conf_load_module.tmp
     echo module list >> conf_load_module.tmp
-    if test "x$config_target" = xblizzard ;  then
-      # change configure to bash
-      echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
-    else
-      cp configure conf__.tmp 
-    fi
+    cp configure conf__.tmp 
     echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
     echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
     echo "rm conf__.tmp" >> conf_load_module.tmp
@@ -462,7 +451,7 @@ if test -n "$SZIPROOT" ; then
      exit 1    
   fi
   case $ac_hostname in
-  btc*|mlogin*)
+  mlogin*)
     case $FC in
     nagfor)
       SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -511,7 +500,7 @@ if test -n "$HDF5ROOT" ; then
      exit 1    
   fi
   case $ac_hostname in
-  btc*|mlogin*)  
+  mlogin*)  
     case $FC in
     nagfor)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -569,7 +558,7 @@ if test -n "$NETCDFROOT" ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
   case $ac_hostname in
-  btc*|mlogin*)
+  mlogin*)
     case $FC in
     nagfor)
       NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
@@ -596,7 +585,7 @@ if test -n "$NETCDFROOT" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
          case $ac_hostname in
-         btc*|mlogin*)
+         mlogin*)
            case $FC in
            nagfor)
              NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
