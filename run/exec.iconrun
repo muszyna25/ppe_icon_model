@@ -191,7 +191,7 @@ add_component_to_master_namelist()
 cat >> $master_namelist << EOF
 &master_model_nml
   modelName="$model_name"
-  modelNamelistFilename="$model_namelist_filename"
+  model_namelist_filename="$model_namelist_filename"
   modelType=$model_type
   modelMinRank=$model_min_rank
   modelMaxRank=$model_max_rank
