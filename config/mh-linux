@@ -477,9 +477,9 @@ case "$ac_sitename" in
                         F77FLAGS    = $FFLAGS $STD_FLAGS
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-intel14
-                        NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-intel14
-                        HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-intel14
-                        SZIPROOT    = $software_tree/sys/libaec-0.3.2-intel14
+                        NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-gcc48
+                        HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-gcc48
+                        SZIPROOT    = $software_tree/sys/libaec-0.3.2-gcc48
                         XML2ROOT    = /usr
                         ZLIBROOT    = /usr
 
