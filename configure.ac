@@ -938,14 +938,6 @@ fi
 FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
-if [[ "x$LDFLAGS" = "x" ]] ; then
-  if [[ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ]] ; then  
-    LDFLAGS=${FFLAGS//-xf95-cpp-input/}
-  else
-    LDFLAGS=$FFLAGS
-  fi
-fi
-
 if [[ "x$use_openmp" = xyes ]] ; then
    FFLAGS="${FFLAGS} ${OMPFLAG}"
    F77FLAGS="${F77FLAGS} ${OMPFLAG}"
@@ -971,6 +963,15 @@ AS_IF([eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset]
    eval F77FLAGS=\"\${F77FLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"],
   [AS_IF([test x"$use_flags_group" != xstd],
      [AC_MSG_FAILURE([unknown with_flags parameter: $with_flags])])])
+
+if [[ "x$LDFLAGS" = "x" ]] ; then
+  if [[ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ]] ; then
+    LDFLAGS=${FFLAGS//-xf95-cpp-input/}
+  else
+    LDFLAGS=$FFLAGS
+  fi
+fi
+
 
 
 #------------------------
