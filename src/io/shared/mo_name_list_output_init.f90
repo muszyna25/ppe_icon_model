@@ -2712,6 +2712,12 @@ CONTAINS
         ! these settings are performed prior to "productDefinitionTemplateNumber"  
 
         DO i=1,info%grib2%additional_keys%nint_keys
+! JF:           WRITE(message_text,'(a,i4,a,i4,a,a,a,i2,a,a,a,i4)')        &
+! JF:             &  'vlistID = ', vlistID, '  varID = ', varID,           &
+! JF:             &  '  tracer_class = ', TRIM(info%tracer%tracer_class),  &
+! JF:             &  '  key(', i, ') : ', info%grib2%additional_keys%int_key(i)%key, ' = ',  &
+! JF:             &  info%grib2%additional_keys%int_key(i)%val
+! JF:           CALL message(' ==> add_variables_to_vlist :',TRIM(message_text),0,5,.TRUE.)
           CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
             &                    info%grib2%additional_keys%int_key(i)%val)
         END DO
@@ -2728,14 +2734,14 @@ CONTAINS
         ! Set local use SECTION 2
         CALL set_GRIB2_local_keys(vlistID, varID, gribout_config(of%phys_patch_id))
 
-#ifdef __ICON_ART
-        ! Set ART-specific GRIB2 keys (if applicable)
-        CALL set_GRIB2_art_keys(vlistID, varID, info)
-#endif
-
 #ifndef __NO_ICON_ATMO__
         ! Set tile-specific GRIB2 keys (if applicable)
         CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype(of%phys_patch_id))
+#endif
+
+#ifdef __ICON_ART
+        ! Set ART-specific GRIB2 keys (if applicable)
+        CALL set_GRIB2_art_keys(vlistID, varID, info)
 #endif
 
       ELSE ! NetCDF

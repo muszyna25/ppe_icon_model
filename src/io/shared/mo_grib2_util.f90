@@ -358,8 +358,8 @@ CONTAINS
 
   !----------------------------------------------------------------
     WRITE(message_text,'(a,i4,a,i4)') 'vlistID = ', vlistID, '  varID = ', varID
-    CALL message(' ==> set_GRIB2_art_keys :',TRIM(message_text),0,5,.TRUE.)
-    CALL message(' ==> set_GRIB2_art_keys :','tracer_class = '//TRIM(info%tracer%tracer_class),0,5,.TRUE.)
+! JF:     CALL message(' ==> set_GRIB2_art_keys :',TRIM(message_text),0,5,.TRUE.)
+! JF:     CALL message(' ==> set_GRIB2_art_keys :','tracer_class = '//TRIM(info%tracer%tracer_class),0,5,.TRUE.)
 
     tracer_class = info%tracer%tracer_class
     scale_factor = 0
@@ -403,23 +403,23 @@ CONTAINS
     ! change product definition template
     SELECT CASE(TRIM(tracer_class))
     CASE ('volcash')
-      CALL message(' ==> set_GRIB2_art_keys :','volcash --> PDT=57',0,5,.TRUE.)
+! JF:       CALL message(' ==> set_GRIB2_art_keys :','volcash --> PDT=57',0,5,.TRUE.)
       productDefinitionTemplate = 57
       numberOfDistributionFunctionParameter = 1
     CASE ('volcash_diag', 'radioact')
-      CALL message(' ==> set_GRIB2_art_keys :','volcash_diag|radioact --> PDT=40',0,5,.TRUE.)
+! JF:       CALL message(' ==> set_GRIB2_art_keys :','volcash_diag|radioact --> PDT=40',0,5,.TRUE.)
       productDefinitionTemplate = 40
       numberOfDistributionFunctionParameter = 0
     CASE ('aerosol', 'aerosol_number')
-      CALL message(' ==> set_GRIB2_art_keys :','aerosol[_number] --> PDT=57',0,5,.TRUE.)
+! JF:       CALL message(' ==> set_GRIB2_art_keys :','aerosol[_number] --> PDT=57',0,5,.TRUE.)
       productDefinitionTemplate = 57
       numberOfDistributionFunctionParameter = 2
     CASE ('aerosol_diag_tau')
-      CALL message(' ==> set_GRIB2_art_keys :','aerosol_diag_tau --> PDT=48',0,5,.TRUE.)
+! JF:       CALL message(' ==> set_GRIB2_art_keys :','aerosol_diag_tau --> PDT=48',0,5,.TRUE.)
       productDefinitionTemplate = 48
       numberOfDistributionFunctionParameter = 0
     CASE ('radioact_diag')
-      CALL message(' ==> set_GRIB2_art_keys :','radioact_diag --> PDT=42',0,5,.TRUE.)
+! JF:       CALL message(' ==> set_GRIB2_art_keys :','radioact_diag --> PDT=42',0,5,.TRUE.)
       productDefinitionTemplate = 42
       numberOfDistributionFunctionParameter = 0
     CASE DEFAULT
