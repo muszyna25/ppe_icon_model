@@ -568,7 +568,7 @@ case "$ac_sitename" in
                         echo
                         echo "No supported Fortran compiler selected."
                         echo
-                        exit
+                        exit 1
                         ;;
                 esac
                 ;;
