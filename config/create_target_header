@@ -578,13 +578,7 @@ set_run_target_bullx()
       use_mpi_startrun="${use_mpi_startrun},CORE"
       ;;
   esac
-  
-  case " $use_load_modules " in
-  *\ mxm\ *)
-    use_mpi_startrun+=" --export=LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
-    ;;
-  esac
-  
+
   case _$use_compiler in
     "_intel" )
         add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
@@ -673,12 +667,13 @@ $(case $use_flags_group in
       printf 'ulimit -c unlimited'
       ;;
   esac)
-# already done in use_mpi_startrun
-# case " \$loadmodule " in
-#   *\ mxm\ *)
-#     START+=" --export=LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
-#     ;;
-# esac
+# this can not be done in use_mpi_startrun since it depends on the
+# environment at time of script execution
+case " \$loadmodule " in
+  *\ mxm\ *)
+    START+=" --export=\$(env | sed '/()=/d;/=/{;s/=.*//;b;};d' | tr '\n' ',')LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
+    ;;
+esac
 EOF
 }
 
