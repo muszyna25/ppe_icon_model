@@ -31,7 +31,7 @@
 
 !----------------------------
 #ifdef __GMRES_OPENMP__
-#include "omp_definitions.inc"
+! #include "omp_definitions.inc"
 #endif
 #include "icon_definitions.inc"
 !----------------------------
