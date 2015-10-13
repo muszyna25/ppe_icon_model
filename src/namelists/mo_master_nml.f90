@@ -64,7 +64,7 @@ CONTAINS
     CHARACTER(len=filename_max) :: modelBaseDir = ''
     
     CHARACTER(len=132)          :: modelName = ''
-    CHARACTER(len=filename_max) :: modelNamelistFilename = ''
+    CHARACTER(len=filename_max) :: model_namelist_filename = ''
     
     INTEGER :: modelType 
     INTEGER :: modelMinRank
@@ -95,7 +95,7 @@ CONTAINS
     
     NAMELIST /master_model_nml/        &
          &    modelName,               &
-         &    modelNamelistFilename,   &
+         &    model_namelist_filename, &
          &    modelType,               &
          &    modelMinRank,            &
          &    modelMaxRank,            &
@@ -261,12 +261,12 @@ CONTAINS
       
       ! default values
 
-      modelName             = ''
-      modelNamelistFilename = ''
-      modelType             = -1
-      modelMinRank          = 0
-      modelMaxRank          = -1 
-      modelIncRank          = 1
+      modelName               = ''
+      model_namelist_filename = ''
+      modelType               = -1
+      modelMinRank            = 0
+      modelMaxRank            = -1 
+      modelIncRank            = 1
       
       IF (my_process_is_stdio()) THEN
         iunit = temp_defaults()
@@ -285,7 +285,7 @@ CONTAINS
 
       CALL associate_keyword("<path>", TRIM(modelBaseDir), keywords)
 
-      master_component_models(noOfModels())%model_namelist_filename = TRIM(with_keywords(keywords, modelNamelistFilename))
+      master_component_models(noOfModels())%model_namelist_filename = TRIM(with_keywords(keywords, model_namelist_filename))
 
       master_component_models(noOfModels())%model_type = modelType
       master_component_models(noOfModels())%model_min_rank = modelMinRank
