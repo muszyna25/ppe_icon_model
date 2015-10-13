@@ -623,6 +623,7 @@ case "$ac_sitename" in
         case $ac_hostname in
             thunder*)
                 config_target=thunder
+                NETCDFROOT  = $software_tree/netcdf-4.3.3.1-static
                 HDF5ROOT    = $software_tree/hdf5-1.8.12-static
                 SZIPROOT    = $software_tree/szip-2.1-static
                 ZLIBROOT    = /usr
@@ -640,7 +641,6 @@ case "$ac_sitename" in
                 case "$fortran_compiler" in
                     default|gcc)
                       NETCDFFROOT = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
-                      NETCDFROOT  = $software_tree/netcdf-4.3.3.1-static
                       MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
                       MPI_LIB     = -L$MPIROOT/lib -Wl,-rpath -Wl,$MPIROOT/lib -Wl,--disable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -lpthread -libverbs -lrdmacm -lutil
                       load_modules=gcc/5.1.0 ${load_modules}
@@ -652,7 +652,7 @@ case "$ac_sitename" in
                       load_modules=gcc/4.8.2 pgi/14.7 ${load_modules}
                       ;;
                     intel)
-                      NETCDFROOT  = $software_tree/netcdf-4.1.3-static-intel14
+                      NETCDFFROOT = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
                       MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-intel14
                       MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
                       # HIOPT_FLAGS = -O3 -mkl -static -xHost -xAVX -no-prec-div -vec-report2 -diag-file -traceback -g
@@ -662,7 +662,6 @@ case "$ac_sitename" in
                       ;;
                     nag)
                       NETCDFFROOT  = $software_tree/netcdf_fortran-4.4.2-static-nag60
-                      NETCDFROOT  = $software_tree/netcdf-4.3.3.1-static
                       MPIROOT     = $software_tree/mpilib/openmpi-1.8.1-static-${compiler_version}
                       MPI_LIB = -I$MPIROOT/lib $WLFLAG,-rpath,,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempi -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil -lpthread
                       load_modules=gcc/4.8.2 nag/6.0.1064 ${load_modules}
