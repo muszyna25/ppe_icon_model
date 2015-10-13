@@ -539,10 +539,10 @@ case "$ac_sitename" in
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
                                 ;;
 			esac
-                        mpi_startrun = srun               
+                        mpi_startrun = srun
                         ;;
                     nag*)
-                        load_modules    = gcc/4.8.2 nag/6.0.1038 mvapich2/1.9b-static-nag60 ${load_modules}
+                        load_modules    = gcc/4.8.2 nag/6.0.1064 mvapich2/1.9b-static-nag60 ${load_modules}
                         config_compiler = gcc
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
@@ -561,7 +561,7 @@ case "$ac_sitename" in
                         SYS_LIBS    = -lhwloc -lxml2 -lnuma -lrt -lutil -lpthread -lm -ldl
                         MPI_LIB     = -lmpichf90 -lmpich -lopa $IB_LIBS $SYS_LIBS
                         XML2ROOT    = /usr
-                        mpi_startrun = srun               
+                        mpi_startrun = srun
                         ;;
                     *)
                         echo
