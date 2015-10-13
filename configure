@@ -6228,14 +6228,6 @@ fi
 FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
-if [ "x$LDFLAGS" = "x" ] ; then
-  if [ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ] ; then
-    LDFLAGS=${FFLAGS//-xf95-cpp-input/}
-  else
-    LDFLAGS=$FFLAGS
-  fi
-fi
-
 if [ "x$use_openmp" = xyes ] ; then
    FFLAGS="${FFLAGS} ${OMPFLAG}"
    F77FLAGS="${F77FLAGS} ${OMPFLAG}"
@@ -6265,6 +6257,15 @@ as_fn_error $? "unknown with_flags parameter: $with_flags
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 fi
+
+if [ "x$LDFLAGS" = "x" ] ; then
+  if [ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ] ; then
+    LDFLAGS=${FFLAGS//-xf95-cpp-input/}
+  else
+    LDFLAGS=$FFLAGS
+  fi
+fi
+
 
 
 #------------------------
