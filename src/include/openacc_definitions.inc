@@ -1,12 +1,12 @@
 #if defined( _OPENACC) && defined(ACC_LOCAL_FLAG)
 
 #define OPENACC_MODE
-#define ACC_PREFIX !$ACC
+#define ACC_PREFIX $ACC
 
 #else 
 
 #undef  OPENACC_MODE
-#define ACC_PREFIX !NOACC
+#define ACC_PREFIX NOACC
 
 #endif
 

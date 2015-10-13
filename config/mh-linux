@@ -157,7 +157,7 @@ case "$fortran_compiler" in
     pgi)
         config_compiler=pgi
         compiler_version = $(pgfortran -V | awk 'NR==2{split($2,v,"."); printf("pgi%1d", v[1])}')
-        CFLAGS      = "$CFLAGS" -DpgiFortran
+        CFLAGS      = -DpgiFortran
         FC          = pgfortran
        # FC          = pgfortran
         FDEBUG      = -g -gopt -Mbounds -Mchkptr -Mchkstk  -Mdclchk
@@ -254,12 +254,16 @@ case "$ac_sitename" in
                     default|gcc)
                         config_target=daint_cpu
                         load_modules ="PrgEnv-gnu" "cray-netcdf" "${load_modules}"
-        		CFLAGS      = "$CFLAGS" -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
+        		CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
                     ;;
                     intel)
                         config_target=daint_cpu
                         load_modules = "PrgEnv-intel" "cray-netcdf" "${load_modules}"
-        		CFLAGS      = "$CFLAGS" -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
+        		CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
+        		STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+        		FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
+		        F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
+			MODDIR      = -I
                     ;;
                     pgi)
                         config_target=daint_cpu
