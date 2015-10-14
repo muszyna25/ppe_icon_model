@@ -32,6 +32,7 @@ MODULE mo_art_config
   PRIVATE
 
   PUBLIC :: nart_tendphy
+  PUBLIC :: npreslay
   PUBLIC :: t_art_config
   PUBLIC :: art_config
   PUBLIC :: configure_art
