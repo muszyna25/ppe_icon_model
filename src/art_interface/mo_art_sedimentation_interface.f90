@@ -214,18 +214,18 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               nflx_contra_vsed => fields%flx_contra_vsed0
               
             CLASS IS (t_fields_volc)
-              CALL art_sedi_volc( p_patch,p_metrics,p_prog,           &
-                &              rho, p_diag,                           & 
-                &              fields%diam,fields%rho,                &
-                &              fields%flx_contra_vsed3,               &
-                &              fields%itracer) 
+              CALL art_sedi_volc( p_patch,p_metrics,p_prog,    &
+                &                 rho, p_diag,                 & 
+                &                 fields%diam,fields%rho,      &
+                &                 fields%flx_contra_vsed3,     &
+                &                 fields%itracer )
               mflx_contra_vsed => fields%flx_contra_vsed3
             CLASS IS (t_fields_radio)
               ! Sedimentation velocity is zero for radioact. tracers
               fields%flx_contra_vsed3(:,:,:) = 0.0_wp
               mflx_contra_vsed => fields%flx_contra_vsed3
               ! However, a deposition velocity is required
-              CALL art_drydepo_radioact( p_patch,p_prog,fields%itracer) 
+              CALL art_drydepo_radioact( p_patch,p_prog,fields%itracer ) 
             CLASS DEFAULT
               CALL finish('mo_art_sedimentation_interface:art_sedimentation_interface', &
                 &         'ART: Unknown mode field type')
