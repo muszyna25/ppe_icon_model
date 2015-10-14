@@ -49,6 +49,7 @@ MODULE mo_fortran_tools
   PUBLIC :: t_ptr_i2d3d
   PUBLIC :: t_ptr_tracer
   PUBLIC :: copy, init, swap, var_scale, negative2zero
+  PUBLIC :: init_zero_contiguous_dp, init_zero_contiguous_sp
   PUBLIC :: resize_arr_c1d
 
   INTERFACE assign_if_present
@@ -697,6 +698,30 @@ CONTAINS
     END DO
 !$omp end do nowait
   END SUBROUTINE negative2zero_4d_dp
+
+  SUBROUTINE init_zero_contiguous_dp(var, n)
+    INTEGER, INTENT(in) :: n
+    REAL(dp), INTENT(out) :: var(n)
+
+    INTEGER :: i
+!$omp do
+    DO i = 1, n
+      var(i) = 0.0_dp
+    END DO
+!$omp end do nowait
+  END SUBROUTINE init_zero_contiguous_dp
+
+  SUBROUTINE init_zero_contiguous_sp(var, n)
+    INTEGER, INTENT(in) :: n
+    REAL(sp), INTENT(out) :: var(n)
+
+    INTEGER :: i
+!$omp do
+    DO i = 1, n
+      var(i) = 0.0_sp
+    END DO
+!$omp end do nowait
+  END SUBROUTINE init_zero_contiguous_sp
 
 
 END MODULE mo_fortran_tools
