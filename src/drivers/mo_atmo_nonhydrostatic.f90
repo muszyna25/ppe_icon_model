@@ -94,6 +94,7 @@ USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
 
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
+USE mo_derived_variable_handling, ONLY: collect_meanstream_variables, init_mean_stream, finish_mean_stream
 !-------------------------------------------------------------------------
 
 IMPLICIT NONE
@@ -373,6 +374,10 @@ CONTAINS
     ! ATTENTION: all add_vars must be finished before calling this routine.
     IF (output_mode%l_nml) THEN
       CALL parse_variable_groups()
+      CALL init_mean_stream(p_patch(1))
+     !CALL collect_meanstream_variables( &
+     !  &    sim_step_info, &
+     !  &    p_patch(1))
     END IF
 
     ! if output on z and/or p-levels is required do some config

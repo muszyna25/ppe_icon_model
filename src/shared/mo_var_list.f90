@@ -43,7 +43,6 @@ MODULE mo_var_list
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
        &                         append_list_element,               &
-       &                         find_list_element,                 &
        &                         delete_list_element
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
@@ -91,6 +90,14 @@ MODULE mo_var_list
   PUBLIC :: fget_var_list_element_r1d
   PUBLIC :: fget_var_list_element_r2d
   PUBLIC :: fget_var_list_element_r3d
+
+  PUBLIC :: find_list_element   ! find an element in the list
+  PUBLIC :: find_element   ! find an element in the list
+
+  INTERFACE find_element
+    MODULE PROCEDURE find_list_element
+    MODULE PROCEDURE find_element_from_all
+  END INTERFACE find_element
 
  INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_5d
@@ -3135,4 +3142,47 @@ CONTAINS
     y = x
   END SUBROUTINE assign_if_present_action_list
   !------------------------------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  !
+  ! Should be overloaded to be able to search for the different information 
+  ! In the proposed structure for the linked list, in the example only
+  ! A character string is used so it is straight forward only one find
+  !
+  FUNCTION find_list_element (this_list, name) RESULT(this_list_element)
+    !
+    TYPE(t_var_list),   INTENT(in) :: this_list
+    CHARACTER(len=*),   INTENT(in) :: name
+    !
+    TYPE(t_list_element), POINTER :: this_list_element
+    INTEGER :: key
+    !
+    key = util_hashword(name, LEN_TRIM(name), 0)
+    !
+    this_list_element => this_list%p%first_list_element
+    DO WHILE (ASSOCIATED(this_list_element))
+      IF (key == this_list_element%field%info%key) THEN
+        RETURN
+      ENDIF
+      this_list_element => this_list_element%next_list_element
+    ENDDO
+    !
+    NULLIFY (this_list_element)
+    !
+  END FUNCTION find_list_element
+  
+  !-----------------------------------------------------------------------------
+  !
+  ! Find named list element accross all knows variable lists
+  !
+  FUNCTION find_element_from_all (name) RESULT(this_list_element)
+    CHARACTER(len=*),   INTENT(in) :: name
+
+    TYPE(t_list_element), POINTER :: this_list_element
+    INTEGER :: i
+
+    DO i=1,nvar_lists
+      this_list_element => find_list_element(var_lists(i),name)
+      IF (ASSOCIATED (this_list_element)) RETURN
+    END DO
+  END FUNCTION! find_element_from_all_lists
 END MODULE mo_var_list

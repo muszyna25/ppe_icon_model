@@ -19,8 +19,8 @@ MODULE mo_derived_variable_handling
   USE mo_name_list_output_config, ONLY: first_output_name_list
   USE mo_var_list, ONLY: nvar_lists, max_var_lists, var_lists, new_var_list,&
        total_number_of_variables, collect_group, get_var_timelevel,&
-       get_var_name, default_var_list_settings, add_var, REAL_T
-  USE mo_linked_list, ONLY: find_list_element, t_var_list, t_list_element
+       get_var_name, default_var_list_settings, add_var, REAL_T, find_element
+  USE mo_linked_list, ONLY: t_var_list, t_list_element
   USE mo_util_string, ONLY: tolower
   USE mo_exception, ONLY: finish, message, message_text
   USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent, event, isCurrentEventActive, newDatetime, datetime, eventToString
@@ -128,10 +128,9 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE collect_meanstream_variables(sim_step_info, src_varlist1, src_varlist2,patch)
+  SUBROUTINE collect_meanstream_variables(sim_step_info, src_varlists, patch)
     TYPE(t_sim_step_info) :: sim_step_info
-    TYPE(t_var_list)      :: src_varlist1
-    TYPE(t_var_list)      :: src_varlist2
+    TYPE(t_var_list)      :: src_varlists(:)
     type(t_patch)         :: patch
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::collect_meanStream_variables"
@@ -142,7 +141,7 @@ CONTAINS
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     TYPE(t_list_element), POINTER :: src_element, dest_element
     TYPE(vector) :: keys 
-    integer :: inml
+    integer :: inml,varlist_id
     type(vector) :: vector_buffer, value_buffer
     class(*), pointer :: buf
     CHARACTER(LEN=1000) :: eventKey
@@ -205,13 +204,9 @@ CONTAINS
               IF ( INDEX(varlist(i),':') < 1 ) THEN
      
                 ! find existing variable
-                src_element => find_list_element (src_varlist1, TRIM(varlist(i)))
-                IF (.NOT. ASSOCIATED (src_element)) src_element => &
-                     find_list_element (src_varlist2, TRIM(varlist(i)))
-                IF (.NOT. ASSOCIATED (src_element)) CALL finish( "collect_meanStream_variables",&
-                  & "Variable '"//TRIM(varlist(i))//"' not found!")
-                ! add new variable, copy the meta-data from the existing variable
-
+                  src_element => find_element ( TRIM(varlist(i)))
+                  IF (ASSOCIATED (src_element)) EXIT
+                  ! add new variable, copy the meta-data from the existing variable
               ! copy the source variable to destination pointer
               dest_element => copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element)
 

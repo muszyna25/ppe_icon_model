@@ -51,8 +51,8 @@ MODULE mo_ocean_output
     & destruct_oce_diagnostics, t_oce_timeseries, &
     & calc_moc, calc_psi
   USE mo_ocean_ab_timestepping_mimetic, ONLY: init_ho_lhs_fields_mimetic
-  USE mo_linked_list,            ONLY: t_list_element, find_list_element
-  USE mo_var_list,               ONLY: print_var_list
+  USE mo_linked_list,            ONLY: t_list_element
+  USE mo_var_list,               ONLY: print_var_list, find_list_element
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_mpi,                    ONLY: my_process_is_stdio
   USE mo_time_config,            ONLY: time_config

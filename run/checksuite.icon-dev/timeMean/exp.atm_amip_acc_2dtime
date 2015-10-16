@@ -38,11 +38,11 @@ atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="1979-01-01T00:50:00Z"        # ISO-format date+time
+  end_date="1979-01-01T00:40:00Z"        # ISO-format date+time
 
 # restart interval
-checkpoint_interval="P1Y"
-restart_interval="P1Y"
+checkpoint_interval="PT40M"
+restart_interval="PT40M"
 
 output_interval="PT20M"
 file_interval="P01D"
