@@ -4936,7 +4936,12 @@ L& .FALSE.& & Time splitting method & \tabularnewline
 
 %\hline
 ctracer\_list&
-C& ''& & list of tracer names & ltestcase=.TRUE.
+C& ''& & Two purposes: & \tabularnewline
+ & &   &  & 
+ - used for selecting those tracers which should be initialized for idealized testcases. & [nh/ha]\_test\_name=\\'jabw','PA','DF'
+\tabularnewline
+ & &   &  & 
+ - used for tracer output names. In some idealized cases tracers are named 'Q\emph{x}', with \emph{x} being a 1-digit integer taken from \texttt{ctracer\_list}. & iforcing$\ne$ inwp, iecham
 \tabularnewline
 
 %\hline
