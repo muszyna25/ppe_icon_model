@@ -173,7 +173,7 @@ Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
 -D__ICON__ <object files> -L/usr/local/pkg/grib_api/1.11.0/CRAY/lib  
 -L../lib -lsupport -lgrib_api_f90 -lgrib_api -lmtime $(LAPACK_LIB) 
 $(NETCDF_LIB) $(HDF5_LIB) $(SZIP_LIB) $(ZLIB_LIB) $(MPI_LIB) 
-$(METIS_LIB) $(PROFILE_LIB) $(SCT_LIB)
+$(PROFILE_LIB) $(SCT_LIB)
 \end{Verbatim}
 
 ICON is parallelized using MPI and OpenMP. You can control the parallelization to be used by giving:

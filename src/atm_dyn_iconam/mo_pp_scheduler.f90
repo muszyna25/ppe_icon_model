@@ -1699,7 +1699,7 @@ CONTAINS
       &  i_timelevel
 
     ! set default values
-    activity_status%status_flags(:) = (/ .FALSE., .FALSE., .FALSE. /)
+    activity_status%status_flags(:) = (/ .FALSE., .FALSE., .FALSE., .FALSE. /)
 
     ! supersede with user definitions
     CALL assign_if_present(activity_status%status_flags(1), l_output_step)

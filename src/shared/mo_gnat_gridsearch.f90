@@ -15,8 +15,8 @@
 !! Brin, Sergey: "Near Neighbor Search in Large Metric Spaces"
 !! VLDB '95 : Proceedings of the 21st International Conference on
 !!            Very Large Data Bases,
-!! Zurich Switzerland, Sept. 11--15, 1995, pp. 574-584, 
-!! Morgan Kaufmann Publishers, 1995. 
+!! Zurich Switzerland, Sept. 11--15, 1995, pp. 574-584,
+!! Morgan Kaufmann Publishers, 1995.
 !!
 !! @author F. Prill, DWD
 !!
@@ -24,11 +24,11 @@
 !!
 !!    ! data structure
 !!    type(t_gnat) :: gnat
-!!    
+!!
 !!    ! build fast search tree for proximity queries in unstructured triangular grid
 !!    ! (at the beginning of the program)
 !!    CALL gnat_init_grid(gnat, p_patch, .TRUE., 1, nblks_c)
-!!    
+!!
 !!    ! perform a search of a single point
 !!    min_node_idx(1:2) = 0
 !!    vmin_dist         = MAX_RANGE
@@ -37,7 +37,7 @@
 !!    CALL gnat_query(gnat, v, r, vmin_dist, min_node_idx)
 !!    jc = min_node_idx(1)
 !!    jb = min_node_idx(2)
-!!    
+!!
 !!    ! finish (at the end of the program)
 !!    CALL gnat_destroy(grid%gnat)
 !!
@@ -146,7 +146,7 @@ MODULE mo_gnat_gridsearch
     REAL(gk)                    :: p (icoord_dim)
     REAL(gk)                    :: sin_p, cos_p  ! precomputed sin/cos of latitude
     INTEGER                     :: idx(3)        ! dimensions: (idx,blk,glb_idx)
-    ! (where global index is required for "equal distance decisions") 
+    ! (where global index is required for "equal distance decisions")
   END TYPE t_coord
 
   !> tree node
@@ -282,7 +282,7 @@ CONTAINS
     REAL(gk),           INTENT(IN)    :: r
     REAL(gk),           INTENT(INOUT) :: min_dist
     INTEGER,            INTENT(INOUT) :: min_node_idx(3)
-    ! local variables   
+    ! local variables
     LOGICAL                           :: pflag(gnat_k)
     INTEGER                           :: ip, isplit_pts
     REAL(gk)                          :: dist_vp
@@ -290,7 +290,7 @@ CONTAINS
 #ifdef __SX__
     REAL(gk)                          :: pdist(gnat_k)
 #endif
-    
+
     tree => gnat%node_storage(tree_idx)
     isplit_pts = tree%isplit_pts
     IF (isplit_pts == 0) RETURN
@@ -305,7 +305,7 @@ CONTAINS
 !CDIR IEXPAND
     CALL dist_vect(tree%p, v, isplit_pts, pdist)
 #endif
-    
+
     ! remove some elements from P
     P : DO ip=1,isplit_pts
       IF (pflag(ip)) THEN
@@ -361,7 +361,7 @@ CONTAINS
 #ifdef __SX__
     REAL(gk)                          :: pdist(gnat_k)
 #endif
-    
+
     tree => gnat%node_storage(tree_idx)
     isplit_pts = tree%isplit_pts
     IF (isplit_pts == 0) RETURN
@@ -376,7 +376,7 @@ CONTAINS
 !CDIR IEXPAND
     CALL dist_vect(tree%p, v, isplit_pts, pdist)
 #endif
-    
+
     ! remove some elements from P
     P : DO ip=1,isplit_pts
       IF (pflag(ip)) THEN
@@ -427,9 +427,9 @@ CONTAINS
       &                                  ip, isplit_pts, ntraversal0,  &
       &                                  i, ti, ntraversal, ihead
     TYPE(t_coord)                     :: p_v, p_ip
-#ifdef __SX__           
+#ifdef __SX__
     REAL(gk)                          :: dist_v(gnat_k)
-#endif                  
+#endif
     REAL(gk)                          :: dist_vp, r0
 
     ! initialization
@@ -447,7 +447,7 @@ CONTAINS
       ! remove some elements from P
       DO i=1,ntraversal
         ti         = traversal_list(i)
-        isplit_pts = gnat%node_storage(ti)%isplit_pts          
+        isplit_pts = gnat%node_storage(ti)%isplit_pts
 
 #ifdef __SX__
         CALL dist_vect(gnat%node_storage(ti)%p, v, isplit_pts, dist_v)
@@ -635,7 +635,7 @@ CONTAINS
           ! compute a true upper bound for search radius
           ! ("1.05" is just for safety)
           r = MINVAL((/ rr, 1.05_gk*(r2 + min_dist_old) /))
-          
+
         END IF
 
         ! traverse tree
@@ -655,7 +655,7 @@ CONTAINS
 
 
   !> Multi-threaded query for a sequence of points
-  !  @note: 
+  !  @note:
   !  - the search radius parameter is optional
   !  - search radius is adapted in case of algorithm failure
   !
@@ -859,7 +859,7 @@ CONTAINS
         ! if patch of triangular grid does intersect circle:
         ! recursion and further subdivision:
         CALL flag_ll_points(gnat, rotated_pts, s_lon2(icirc), e_lon2(icirc), s_lat2(icirc), e_lat2(icirc), &
-          &                 pts_flags, (recursion_depth+1), max_recursion)          
+          &                 pts_flags, (recursion_depth+1), max_recursion)
       END IF
     END DO
   END SUBROUTINE flag_ll_points
@@ -887,7 +887,7 @@ CONTAINS
     INTEGER                           :: ip, isplit_pts, jc, jb, ilevel, imax_level
     REAL(gk)                          :: dist_vp, distv(gnat_k)
     TYPE(t_gnat_node), POINTER        :: tree
-   
+
     ilevel     = 0
     imax_level = 1
     IF (PRESENT(opt_imax_level)) THEN
@@ -915,7 +915,7 @@ CONTAINS
       ELSE
         flag_field_c(jc,jb) = 0
       END IF
-      
+
       WHERE (pflag(1:isplit_pts))
         pflag(1:isplit_pts) = (tree%drange(1:isplit_pts,ip,1) <= (dist_vp+r)) .AND. &
           &                   (tree%drange(1:isplit_pts,ip,2) >= (dist_vp-r))
@@ -957,7 +957,7 @@ CONTAINS
     INTEGER                           :: ip, isplit_pts, jc, jb, ilevel, imax_level
     REAL(gk)                          :: dist_vp, distv(gnat_k)
     TYPE(t_gnat_node), POINTER        :: tree
-    
+
     ilevel     = 0
     imax_level = 1
     IF (PRESENT(opt_imax_level)) THEN
@@ -984,7 +984,7 @@ CONTAINS
         nflag_field_c = nflag_field_c + 1
         flag_field_c(:, nflag_field_c) = (/ jc, jb /)
       END IF
-      
+
       WHERE (pflag(1:isplit_pts))
         pflag(1:isplit_pts) = (tree%drange(1:isplit_pts,ip,1) <= (dist_vp+r)) .AND. &
           &                   (tree%drange(1:isplit_pts,ip,2) >= (dist_vp-r))
@@ -1015,7 +1015,7 @@ CONTAINS
     TYPE (t_gnat_tree), INTENT(INOUT), TARGET :: gnat
     INTEGER,            INTENT(IN)    :: root_node, root_idx  !< root node, split point idx of current subtree
     INTEGER,            INTENT(INOUT) :: flag_field_c(:,:)    !< field (nproma,nblks_c) where flags are set
-    
+
     ! local variables
     INTEGER                     :: ip, isplit_pts, idx(2), child
     TYPE(t_gnat_node), POINTER  :: tree
@@ -1176,7 +1176,7 @@ CONTAINS
   !> uses precomputed sine, cosine.
   !
   PURE SUBROUTINE dist_vect(p1, p2, n, pdist)
-    INTEGER       , INTENT(IN)     :: n 
+    INTEGER       , INTENT(IN)     :: n
     TYPE (t_coord), INTENT(IN)     :: p1(n)
     REAL(gk)      , INTENT(IN)     :: p2(icoord_dim)
     REAL(gk)      , INTENT(INOUT)  :: pdist(n)
@@ -1214,7 +1214,7 @@ CONTAINS
     INTEGER,            INTENT(IN)    :: idx(3)
     INTEGER,            INTENT(INOUT) :: free_node
     LOGICAL,            INTENT(OUT)   :: lcomplete
-                        
+
     INTEGER                           :: i, j, imin(1)
     REAL(gk)                          :: pdist(gnat_k)
     TYPE (t_gnat_node), POINTER       :: node
@@ -1292,7 +1292,7 @@ CONTAINS
 
     ! reordering parameter (for permuting points before insertion):
     INTEGER                    :: nstrides
-    INTEGER                    :: root ! index pointer 
+    INTEGER                    :: root ! index pointer
     INTEGER                    :: idx(3,nproc), work(nproc), depth(nproc)
     INTEGER                    :: node_proc(nproc) ! index pointer
     INTEGER                    :: free_node(nproc) ! short list of available nodes
@@ -1320,14 +1320,14 @@ CONTAINS
     ! values for the blocking
     rl_start = 2
     rl_end = min_rlcell_int
-    
+
     IF (PRESENT(opt_startblk) .AND. PRESENT(opt_endblk)) THEN
       i_startblk = opt_startblk
       i_endblk   = opt_endblk
     ELSE
       i_nchdom   = MAX(1,p_patch%n_childdom)
       i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)    
+      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     END IF
 
     ! create a 1D list of cell indices:
@@ -1365,7 +1365,7 @@ CONTAINS
     END IF
     icount = 0
 
-    ! set a (somewhat empirical) value to improve 
+    ! set a (somewhat empirical) value to improve
     ! the distribution of split points:
     nstrides = NINT(SQRT(REAL(ntotal,wp)))
 
@@ -1392,8 +1392,8 @@ CONTAINS
     tree_depth   =  0  ! maximum tree depth
     free_node(:) = UNASSOCIATED
     icount       =  0
-    new_idx(:)   = cell_indices(:,permutation(1))    
-    
+    new_idx(:)   = cell_indices(:,permutation(1))
+
     ! Short description of parallel processing:
 
     ! 0 mark all processes as "idle" (idx == -1)
@@ -1412,7 +1412,7 @@ CONTAINS
 
     l_loop_end = .FALSE.
 
-!$OMP PARALLEL num_threads(nproc),                    &
+!$OMP PARALLEL num_threads(nproc)                    &
 !$OMP          private(lcomplete,iproc)
 
       iproc = 1
@@ -1439,7 +1439,7 @@ CONTAINS
       !-- assign new work to one of the PEs
       ! find first non-associated PE in node_proc
       j = 1
-      FINDFIRST : DO 
+      FINDFIRST : DO
         IF (j > nproc)      EXIT FINDFIRST
         IF (idx(1,j) == -1) EXIT FINDFIRST
         j = j + 1
@@ -1448,7 +1448,7 @@ CONTAINS
       IF (j<=nproc) THEN
         ! insert next point for this proc
         icount = icount + 1
-        IF (icount <= ntotal) THEN 
+        IF (icount <= ntotal) THEN
           new_idx(:)   = cell_indices(:,permutation(icount))
           pcoord       = p_patch%cells%center(new_idx(1), new_idx(2))
           p(1,j)       = REAL( pcoord%lon, gk)
@@ -1564,7 +1564,7 @@ CONTAINS
     CALL gnat_query_nnb(gnat, v, iv_nproma, iv_nblks,   &
       &                 iv_npromz, radius, tri_idx, min_dist)
 
-  END SUBROUTINE gnat_query_containing_triangles 
+  END SUBROUTINE gnat_query_containing_triangles
 
 
   !> Merge the results of distributed proximity queries.
@@ -1633,9 +1633,9 @@ CONTAINS
         jc = i - (jb-1)*iv_nproma
 
         IF (tri_idx(1,jc,jb) /= INVALID_NODE) THEN
-          j = j + 1 
+          j = j + 1
           global_idx(j)            = i
-          new_tri_idx(1:2,j)       = tri_idx(1:2,jc,jb)          
+          new_tri_idx(1:2,j)       = tri_idx(1:2,jc,jb)
           new_lonlat_points(j,1:2) = lonlat_points(jc,jb,1:2)
         END IF
       END IF
@@ -1649,7 +1649,7 @@ CONTAINS
     tri_idx(1,:,:) = RESHAPE( new_tri_idx(1,:), array_shape(:), (/ 0 /) )
     tri_idx(2,:,:) = RESHAPE( new_tri_idx(2,:), array_shape(:), (/ 0 /) )
     lonlat_points(:,:,1) = RESHAPE( new_lonlat_points(:,1), array_shape(:), (/ 0._gk /) )
-    lonlat_points(:,:,2) = RESHAPE( new_lonlat_points(:,2), array_shape(:), (/ 0._gk /) )  
+    lonlat_points(:,:,2) = RESHAPE( new_lonlat_points(:,2), array_shape(:), (/ 0._gk /) )
   END SUBROUTINE gnat_merge_distributed_queries
 
 #endif

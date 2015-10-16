@@ -57,6 +57,7 @@ PUBLIC :: p_nf_get_var_int
 PUBLIC :: p_nf_get_vara_int
 PUBLIC :: p_nf_get_var_double
 PUBLIC :: p_nf_get_vara_double
+PUBLIC :: p_nf_get_vara_double_
 PUBLIC :: p_nf_inq_attid
 
 ! constants
@@ -94,19 +95,10 @@ INTEGER FUNCTION p_nf_open(path, omode, ncid)
    INTEGER, INTENT(in) :: omode
    INTEGER, INTENT(out) :: ncid
 
-   INTEGER :: res
-
 
 !-----------------------------------------------------------------------
 
-   IF (p_pe == p_io) THEN
-      res = nf_open(path, omode, ncid)
-   ELSE
-      ncid = -1 ! set it to an invalid value
-   ENDIF
-
-   CALL p_bcast(res, p_io, p_comm_input_bcast)
-   p_nf_open = res
+   p_nf_open = nf_open(path, omode, ncid)
 
 END FUNCTION p_nf_open
 
@@ -124,14 +116,7 @@ INTEGER FUNCTION p_nf_close(ncid)
 !
    INTEGER, INTENT(in) :: ncid
 
-   INTEGER :: res
-
-   IF (p_pe == p_io) THEN
-      res = nf_close(ncid)
-   ENDIF
-
-   CALL p_bcast(res, p_io, p_comm_input_bcast)
-   p_nf_close = res
+   p_nf_close = nf_close(ncid)
 
 END FUNCTION p_nf_close
 
@@ -535,42 +520,28 @@ INTEGER FUNCTION p_nf_get_vara_int(ncid, varid, start, count, ivals)
    INTEGER, INTENT(in)  :: ncid, varid, start(*), count(*)
    INTEGER, INTENT(out) :: ivals(*)
 
-   INTEGER :: res, len, ndims, dimids(NF_MAX_VAR_DIMS), i
-
-
-   IF (p_pe == p_io) THEN
-
-      ! First get the length of the array
-
-      res = nf_inq_varndims(ncid, varid, ndims)
-      IF(res /= nf_noerr) GOTO 9999
-      res = nf_inq_vardimid(ncid, varid, dimids)
-      IF(res /= nf_noerr) GOTO 9999
-
-      len = 1
-      DO i = 1, ndims
-         len = len * count(i)
-      ENDDO
-
-      res = nf_get_vara_int(ncid, varid, start, count, ivals)
-
-   ENDIF
-
-9999 CONTINUE
-
-   CALL p_bcast(res, p_io, p_comm_input_bcast)
-   p_nf_get_vara_int = res
-
-   ! If there was an error, don't try to broadcast the values
-
-   IF(res /= nf_noerr) return
-
-   ! Broadcast number of values and values themselves
-
-   CALL p_bcast(len, p_io, p_comm_input_bcast)
-   CALL p_bcast(ivals(1:len), p_io, p_comm_input_bcast)
+   p_nf_get_vara_int = nf_get_vara_int(ncid, varid, start, count, ivals)
 
 END FUNCTION p_nf_get_vara_int
+
+!-------------------------------------------------------------------------
+!>
+!!               Wrapper for nf_get_vara_double.
+!!
+!!
+!! @par Revision History
+!! Initial version by Marco Giorgetta, Sept 2010
+!! Added p_comm_input_bcast by Rainer Johanni, Oct 2010
+!!
+INTEGER FUNCTION p_nf_get_vara_double_(ncid, varid, start, count, dvals)
+
+!
+   INTEGER, INTENT(in)  :: ncid, varid, start(*), count(*)
+   REAL(dp), INTENT(out) :: dvals(*)
+
+   p_nf_get_vara_double_ = nf_get_vara_double(ncid, varid, start, count, dvals)
+
+END FUNCTION p_nf_get_vara_double_
 
 !-------------------------------------------------------------------------
 !>

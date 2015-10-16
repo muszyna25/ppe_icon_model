@@ -761,7 +761,7 @@ CONTAINS
     CALL add_var(ocean_default_list, 'florida_strait', ocean_state_diag%monitor%florida_strait , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('florida_strait', 'Sv', 'florida_strait', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_lonlat),&
       & in_group=groups("ocean_monitor"),ldims=(/1/))
 
     CALL add_var(ocean_default_list, 't_mean_na_200m', ocean_state_diag%monitor%t_mean_na_200m , &
@@ -1442,7 +1442,7 @@ CONTAINS
     CALL add_var(ocean_default_list, 'h_sqr', ocean_state_acc%h_sqr , &
       & grid_unstructured_cell, za_surface, &
       & t_cf_var('h_acc', 'm', 'surface elevation squared at cell center', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_default"))
     CALL add_var(ocean_default_list, 'u_acc', ocean_state_acc%u, grid_unstructured_cell, &
       & za_depth_below_sea, &

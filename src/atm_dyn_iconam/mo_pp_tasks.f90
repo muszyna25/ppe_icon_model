@@ -175,7 +175,7 @@ MODULE mo_pp_tasks
   !> Definition of task activity, i.e. settings when a task should be
   !> triggered.
   TYPE t_activity_status
-    LOGICAL :: status_flags(3)           !< l_output_step, l_first_step, l_last_step
+    LOGICAL :: status_flags(4)           !< l_output_step, l_first_step, l_last_step
     LOGICAL :: check_dom_active          !< check if this task's domain is active
     INTEGER :: i_timelevel               !< time level for this task
   END TYPE t_activity_status
