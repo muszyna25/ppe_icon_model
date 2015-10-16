@@ -43,7 +43,7 @@
 MODULE mo_nwp_lnd_state
 
   USE mo_kind,                 ONLY: wp
-  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, HINTP_TYPE_LONLAT_NNB, TLEV_NNOW_RCF
+  USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH, HINTP_TYPE_LONLAT_NNB
   USE mo_parallel_config,      ONLY: nproma
   USE mo_nwp_lnd_types,        ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_exception,            ONLY: message, finish
@@ -336,29 +336,6 @@ MODULE mo_nwp_lnd_state
 
     WRITE(suffix,'(".TL",i1)') timelev
 
-
-    !------------------------------
-    ! Ensure that all pointers have a defined association status.
-    !------------------------------
-    NULLIFY(p_prog_lnd%t_s_t, &
-    &       p_prog_lnd%t_g, &
-    &       p_prog_lnd%t_g_t, &
-    &       p_prog_lnd%w_i_t, &
-    &       p_prog_lnd%w_p_t, &
-    &       p_prog_lnd%w_s_t, &
-    &       p_prog_lnd%t_so_t, &
-    &       p_prog_lnd%w_so_t, &
-    &       p_prog_lnd%w_so_ice_t, &
-    &       p_prog_lnd%t_snow_t, &
-    &       p_prog_lnd%w_snow_t, &
-    &       p_prog_lnd%rho_snow_t, &
-    &       p_prog_lnd%t_snow_mult_t, &
-    &       p_prog_lnd%wtot_snow_t, &
-    &       p_prog_lnd%wliq_snow_t, &
-    &       p_prog_lnd%rho_snow_mult_t, &
-    &       p_prog_lnd%dzh_snow_t)
-
-
     !
     ! Register a field list and apply default settings
     !
@@ -374,7 +351,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( prog_list, vname_prefix//'t_g'//suffix, p_prog_lnd%t_g,      &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
          & ldims=shape2d,                                                      &
-         & tlev_source=TLEV_NNOW_RCF,                      &! for output take field from nnow_rcf slice
+         & tlev_source=1,                      &! for output take field from nnow_rcf slice
          & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_dwd_fg_in",     &
          &                 "mode_iau_fg_in","mode_iau_old_fg_in",              &
          &                 "mode_combined_in","mode_cosmode_in") ) 
@@ -391,7 +368,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container t_gt
     ALLOCATE(p_prog_lnd%t_gt_ptr(ntiles_total+ntiles_water))
       DO jsfc = 1,ntiles_total+ntiles_water
-        NULLIFY(p_prog_lnd%t_gt_ptr(jsfc)%p_2d, p_prog_lnd%t_gt_ptr(jsfc)%p_3d)
         WRITE(csfc,'(i2)') jsfc 
         CALL add_ref( prog_list, vname_prefix//'t_g_t'//suffix,                &
                & vname_prefix//'t_g_t_'//TRIM(ADJUSTL(csfc))//suffix,          &
@@ -401,7 +377,7 @@ MODULE mo_nwp_lnd_state
                & grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL),       &
                & ldims=shape2d,                                                &
                & var_class=CLASS_TILE,                                         &
-               & tlev_source=TLEV_NNOW_RCF,                                    & ! for output take field from nnow_rcf slice
+               & tlev_source=1,                                                & ! for output take field from nnow_rcf slice
                & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
       ENDDO
 
@@ -417,7 +393,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container t_s
     ALLOCATE(p_prog_lnd%t_s_ptr(ntiles_total+ntiles_water))
     DO jsfc = 1,ntiles_total+ntiles_water
-      NULLIFY(p_prog_lnd%t_s_ptr(jsfc)%p_2d, p_prog_lnd%t_s_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc  
       CALL add_ref( prog_list, vname_prefix//'t_s_t'//suffix,              &
            & vname_prefix//'t_s_t_'//TRIM(ADJUSTL(csfc))//suffix,          &
@@ -427,7 +402,7 @@ MODULE mo_nwp_lnd_state
            & grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL),      &
            & ldims=shape2d,                                                &
            & var_class=CLASS_TILE,                                         &
-           & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
+           & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
     ENDDO
 
 
@@ -445,7 +420,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container w_i
     ALLOCATE(p_prog_lnd%w_i_ptr(ntiles_total))
     DO jsfc = 1,ntiles_total
-      NULLIFY(p_prog_lnd%w_i_ptr(jsfc)%p_2d, p_prog_lnd%w_i_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc  
       CALL add_ref( prog_list, vname_prefix//'w_i_t'//suffix,                &
            & vname_prefix//'w_i_t_'//TRIM(ADJUSTL(csfc))//suffix,            &
@@ -455,7 +429,7 @@ MODULE mo_nwp_lnd_state
            & grib2_var(2, 0, 13, ibits, GRID_REFERENCE, GRID_CELL),        &
            & ldims=shape2d,                                                  &
            & var_class=CLASS_TILE_LAND,                                      &
-           & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
+           & tlev_source=1,                                                  & ! for output take field from nnow_rcf slice
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t"),          &
            & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
     ENDDO
@@ -473,7 +447,6 @@ MODULE mo_nwp_lnd_state
       ! fill the separate variables belonging to the container w_p
       ALLOCATE(p_prog_lnd%w_p_ptr(ntiles_total))
       DO jsfc = 1,ntiles_total
-        NULLIFY(p_prog_lnd%w_p_ptr(jsfc)%p_2d, p_prog_lnd%w_p_ptr(jsfc)%p_3d)
         WRITE(csfc,'(i2)') jsfc  
         CALL add_ref( prog_list, vname_prefix//'w_p_t'//suffix,                &
              & vname_prefix//'w_p_t_'//TRIM(ADJUSTL(csfc))//suffix,            &
@@ -483,7 +456,7 @@ MODULE mo_nwp_lnd_state
              & grib2_var(2, 0, 14, ibits, GRID_REFERENCE, GRID_CELL),        &
              & ldims=shape2d,                                                  &
              & var_class=CLASS_TILE_LAND,                                      &
-             & tlev_source=TLEV_NNOW_RCF,                                      &
+             & tlev_source=1,                                                  &
              & in_group=groups("land_tile_vars")) ! for output take field from nnow_rcf slice
       ENDDO
 
@@ -497,7 +470,6 @@ MODULE mo_nwp_lnd_state
       ! fill the separate variables belonging to the container w_s
       ALLOCATE(p_prog_lnd%w_s_ptr(ntiles_total))
       DO jsfc = 1,ntiles_total
-        NULLIFY(p_prog_lnd%w_s_ptr(jsfc)%p_2d, p_prog_lnd%w_s_ptr(jsfc)%p_3d)
         WRITE(csfc,'(i2)') jsfc  
         CALL add_ref( prog_list, vname_prefix//'w_s_t'//suffix,                &
              & vname_prefix//'w_s_t_'//TRIM(ADJUSTL(csfc))//suffix,            &
@@ -507,7 +479,7 @@ MODULE mo_nwp_lnd_state
              & grib2_var(2, 0, 15, ibits, GRID_REFERENCE, GRID_CELL),        &
              & ldims=shape2d,                                                  &
              & var_class=CLASS_TILE_LAND,                                      &
-             & tlev_source=TLEV_NNOW_RCF,                                      &
+             & tlev_source=1,                                                  &
              & in_group=groups("land_tile_vars")) ! for output take field from nnow_rcf slice
       ENDDO
     END IF  ! itype_interception == 2
@@ -525,7 +497,6 @@ MODULE mo_nwp_lnd_state
     !
     ALLOCATE(p_prog_lnd%t_so_ptr(ntiles_total))
     DO jsfc = 1,ntiles_total
-      NULLIFY(p_prog_lnd%t_so_ptr(jsfc)%p_2d, p_prog_lnd%t_so_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc  
       CALL add_ref( prog_list, vname_prefix//'t_so_t'//suffix,               &
            & vname_prefix//'t_so_t_'//TRIM(ADJUSTL(csfc))//suffix,           &
@@ -535,7 +506,7 @@ MODULE mo_nwp_lnd_state
            & grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL),        &
            & ldims=(/nproma,nlev_soil+1,kblks/),                             &
            & var_class=CLASS_TILE_LAND,                                      &
-           & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
+           & tlev_source=1,                                                  & ! for output take field from nnow_rcf slice
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
     ENDDO
 
@@ -555,7 +526,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container w_so
     ALLOCATE(p_prog_lnd%w_so_ptr(ntiles_total))
     DO jsfc = 1,ntiles_total
-      NULLIFY(p_prog_lnd%w_so_ptr(jsfc)%p_2d, p_prog_lnd%w_so_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc  
       CALL add_ref( prog_list, vname_prefix//'w_so_t'//suffix,               &
            & vname_prefix//'w_so_t_'//TRIM(ADJUSTL(csfc))//suffix,           &
@@ -565,7 +535,7 @@ MODULE mo_nwp_lnd_state
            & grib2_var(2, 3, 20, ibits, GRID_REFERENCE, GRID_CELL),        &
            & ldims=(/nproma,nlev_soil,kblks/),                               &
            & var_class=CLASS_TILE_LAND,                                      &
-           & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
+           & tlev_source=1,                                                  & ! for output take field from nnow_rcf slice
            & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), & 
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t"),          &
            & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
@@ -585,7 +555,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container w_so_ice
     ALLOCATE(p_prog_lnd%w_so_ice_ptr(ntiles_total))
     DO jsfc = 1,ntiles_total
-      NULLIFY(p_prog_lnd%w_so_ice_ptr(jsfc)%p_2d, p_prog_lnd%w_so_ice_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc  
       CALL add_ref( prog_list, vname_prefix//'w_so_ice_t'//suffix,           &
            & vname_prefix//'w_so_ice_t_'//TRIM(ADJUSTL(csfc))//suffix,       &
@@ -596,7 +565,7 @@ MODULE mo_nwp_lnd_state
            & ldims=(/nproma,nlev_soil,kblks/),                               &
            & var_class=CLASS_TILE_LAND,                                      &
            & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), &
-           & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
+           & tlev_source=1,                                                  & ! for output take field from nnow_rcf slice
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t"),          &
            & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
     ENDDO
@@ -615,7 +584,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container t_snow
     ALLOCATE(p_prog_lnd%t_snow_ptr(ntiles_total))
     DO jsfc = 1,ntiles_total
-      NULLIFY(p_prog_lnd%t_snow_ptr(jsfc)%p_2d, p_prog_lnd%t_snow_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc  
       CALL add_ref( prog_list, vname_prefix//'t_snow_t'//suffix,             &
              & vname_prefix//'t_snow_t_'//TRIM(ADJUSTL(csfc))//suffix,       &
@@ -625,7 +593,7 @@ MODULE mo_nwp_lnd_state
              & grib2_var(0, 0, 18, ibits, GRID_REFERENCE, GRID_CELL),      &
              & ldims=shape2d,                                                &
              & var_class=CLASS_TILE_LAND,                                    &
-             & tlev_source=TLEV_NNOW_RCF,                                    & ! for output take field from nnow_rcf slice
+             & tlev_source=1,                                                & ! for output take field from nnow_rcf slice
              & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
     ENDDO
 
@@ -641,7 +609,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container w_snow
     ALLOCATE(p_prog_lnd%w_snow_ptr(ntiles_total))
     DO jsfc = 1,ntiles_total
-      NULLIFY(p_prog_lnd%w_snow_ptr(jsfc)%p_2d, p_prog_lnd%w_snow_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc  
       CALL add_ref( prog_list, vname_prefix//'w_snow_t'//suffix,           &
            & vname_prefix//'w_snow_t_'//TRIM(ADJUSTL(csfc))//suffix,       &
@@ -651,7 +618,7 @@ MODULE mo_nwp_lnd_state
            & grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL),      &
            & ldims=shape2d,                                                &
            & var_class=CLASS_TILE_LAND,                                    &
-           & tlev_source=TLEV_NNOW_RCF,                                    & ! for output take field from nnow_rcf slice
+           & tlev_source=1,                                                & ! for output take field from nnow_rcf slice
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t"),        &
            & post_op=post_op(POST_OP_SCALE, arg1=1000._wp, new_cf=new_cf_desc) )
     ENDDO
@@ -668,7 +635,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container rho_snow
     ALLOCATE(p_prog_lnd%rho_snow_ptr(ntiles_total))
     DO jsfc = 1,ntiles_total
-      NULLIFY(p_prog_lnd%rho_snow_ptr(jsfc)%p_2d, p_prog_lnd%rho_snow_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc 
       CALL add_ref( prog_list, vname_prefix//'rho_snow_t'//suffix,           &
            & vname_prefix//'rho_snow_t_'//TRIM(ADJUSTL(csfc))//suffix,       &
@@ -678,7 +644,7 @@ MODULE mo_nwp_lnd_state
            & grib2_var(0, 1, 61, ibits, GRID_REFERENCE, GRID_CELL),          &
            & ldims=shape2d,                                                  &
            & var_class=CLASS_TILE_LAND,                                      &
-           & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
+           & tlev_source=1,                                                  & ! for output take field from nnow_rcf slice
            & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
     END DO
 
@@ -699,7 +665,6 @@ MODULE mo_nwp_lnd_state
       !
       ALLOCATE(p_prog_lnd%t_snow_mult_ptr(ntiles_total))
       DO jsfc = 1,ntiles_total
-        NULLIFY(p_prog_lnd%t_snow_mult_ptr(jsfc)%p_2d, p_prog_lnd%t_snow_mult_ptr(jsfc)%p_3d)
         WRITE(csfc,'(i2)') jsfc  
         CALL add_ref( prog_list, vname_prefix//'t_snow_mult_t'//suffix,      &
              & vname_prefix//'t_snow_mult_t_'//TRIM(ADJUSTL(csfc))//suffix,  &
@@ -710,7 +675,7 @@ MODULE mo_nwp_lnd_state
              & ldims=(/nproma,nlev_snow+1,kblks/),                           &
              & var_class=CLASS_TILE_LAND,                                    &
              & lrestart=.TRUE.,                                              &
-             & tlev_source=TLEV_NNOW_RCF,                                    &
+             & tlev_source=1,                                                &
              & in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice 
       ENDDO
 
@@ -728,7 +693,6 @@ MODULE mo_nwp_lnd_state
       !
       ALLOCATE(p_prog_lnd%wtot_snow_ptr(ntiles_total))
       DO jsfc = 1,ntiles_total
-        NULLIFY(p_prog_lnd%wtot_snow_ptr(jsfc)%p_2d, p_prog_lnd%wtot_snow_ptr(jsfc)%p_3d)
         WRITE(csfc,'(i2)') jsfc 
         CALL add_ref( prog_list, vname_prefix//'wtot_snow_t'//suffix,          &
              & vname_prefix//'wtot_snow_t_'//TRIM(ADJUSTL(csfc))//suffix,      &
@@ -738,7 +702,7 @@ MODULE mo_nwp_lnd_state
              & grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL),        &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
              & var_class=CLASS_TILE_LAND,                                      &
-             & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
+             & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -755,7 +719,6 @@ MODULE mo_nwp_lnd_state
       !
       ALLOCATE(p_prog_lnd%wliq_snow_ptr(ntiles_total))
       DO jsfc = 1,ntiles_total
-        NULLIFY(p_prog_lnd%wliq_snow_ptr(jsfc)%p_2d, p_prog_lnd%wliq_snow_ptr(jsfc)%p_3d)
         WRITE(csfc,'(i2)') jsfc 
         CALL add_ref( prog_list, vname_prefix//'wliq_snow_t'//suffix,          &
              & vname_prefix//'wliq_snow_t_'//TRIM(ADJUSTL(csfc))//suffix,      &
@@ -765,7 +728,7 @@ MODULE mo_nwp_lnd_state
              & grib2_var(0, 1, 210, ibits, GRID_REFERENCE, GRID_CELL),         &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
              & var_class=CLASS_TILE_LAND,                                      &
-             & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
+             & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
       ENDDO
 
 
@@ -782,7 +745,6 @@ MODULE mo_nwp_lnd_state
       !
       ALLOCATE(p_prog_lnd%rho_snow_mult_ptr(ntiles_total))
       DO jsfc = 1,ntiles_total
-        NULLIFY(p_prog_lnd%rho_snow_mult_ptr(jsfc)%p_2d, p_prog_lnd%rho_snow_mult_ptr(jsfc)%p_3d)
         WRITE(csfc,'(i2)') jsfc 
         CALL add_ref( prog_list, vname_prefix//'rho_snow_mult_t'//suffix,       &
              & vname_prefix//'rho_snow_mult_t_'//TRIM(ADJUSTL(csfc))//suffix,   &
@@ -792,7 +754,7 @@ MODULE mo_nwp_lnd_state
              & grib2_var(0, 1, 61, ibits, GRID_REFERENCE, GRID_CELL),         &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,               &
              & var_class=CLASS_TILE_LAND,                                       &
-             & tlev_source=TLEV_NNOW_RCF,                                       &
+             & tlev_source=1,                                                   &
              & in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice 
       ENDDO
 
@@ -811,7 +773,6 @@ MODULE mo_nwp_lnd_state
       !
       ALLOCATE(p_prog_lnd%dzh_snow_ptr(ntiles_total))
       DO jsfc = 1,ntiles_total
-        NULLIFY(p_prog_lnd%dzh_snow_ptr(jsfc)%p_2d, p_prog_lnd%dzh_snow_ptr(jsfc)%p_3d)
         WRITE(csfc,'(i2)') jsfc  
         CALL add_ref( prog_list, vname_prefix//'dzh_snow_t'//suffix,             &
                & vname_prefix//'dzh_snow_t_'//TRIM(ADJUSTL(csfc))//suffix,       &
@@ -821,7 +782,7 @@ MODULE mo_nwp_lnd_state
                & grib2_var(0, 1, 11, ibits, GRID_REFERENCE, GRID_CELL),        &
                & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
                & var_class=CLASS_TILE_LAND,                                      &
-               & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
+               & tlev_source=1, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
       ENDDO
 
     ENDIF  ! lmulti_snow
@@ -895,25 +856,6 @@ MODULE mo_nwp_lnd_state
     ! Suffix (mandatory for time level dependent variables)
 
     WRITE(suffix,'(".TL",i1)') timelev
-
-
-    !------------------------------
-    ! Ensure that all pointers have a defined association status.
-    !------------------------------
-    NULLIFY(p_prog_wtr%t_ice, &
-    &       p_prog_wtr%h_ice, &
-    &       p_prog_wtr%t_snow_si, &
-    &       p_prog_wtr%h_snow_si, &
-    &       p_prog_wtr%t_snow_lk, &
-    &       p_prog_wtr%h_snow_lk, &
-    &       p_prog_wtr%t_mnw_lk, &
-    &       p_prog_wtr%t_wml_lk, &
-    &       p_prog_wtr%h_ml_lk, &
-    &       p_prog_wtr%t_bot_lk, &
-    &       p_prog_wtr%c_t_lk, &
-    &       p_prog_wtr%t_b1_lk, &
-    &       p_prog_wtr%h_b1_lk)
-
 
     !
     ! Register a field list and apply default settings
@@ -1114,44 +1056,6 @@ MODULE mo_nwp_lnd_state
     shape3d_subs  = (/nproma, kblks, ntiles_total /)
     shape3d_subsw = (/nproma, kblks, ntiles_total+ntiles_water /)
 
-
-    !------------------------------
-    ! Ensure that all pointers have a defined association status.
-    !------------------------------
-    NULLIFY(p_diag_lnd%qv_s, &
-    &       p_diag_lnd%t_s, &
-    &       p_diag_lnd%t_seasfc, &
-    &       p_diag_lnd%w_i, &
-    &       p_diag_lnd%w_p, &
-    &       p_diag_lnd%w_s, &
-    &       p_diag_lnd%t_so, &
-    &       p_diag_lnd%w_so, &
-    &       p_diag_lnd%w_so_ice, &
-    &       p_diag_lnd%runoff_s, &
-    &       p_diag_lnd%runoff_g, &
-    &       p_diag_lnd%fr_seaice, &
-    &       p_diag_lnd%qv_s_t, &
-    &       p_diag_lnd%runoff_s_t, &
-    &       p_diag_lnd%runoff_g_t, &
-    &       p_diag_lnd%rstom, &
-    &       p_diag_lnd%rstom_t, &
-    &       p_diag_lnd%t_snow, &
-    &       p_diag_lnd%rho_snow, &
-    &       p_diag_lnd%w_snow, &
-    &       p_diag_lnd%h_snow, &
-    &       p_diag_lnd%h_snow_t, &
-    &       p_diag_lnd%freshsnow, &
-    &       p_diag_lnd%freshsnow_t, &
-    &       p_diag_lnd%snowfrac, &
-    &       p_diag_lnd%snowfrac_t, &
-    &       p_diag_lnd%snowfrac_lc_t, &
-    &       p_diag_lnd%t_snow_mult, &
-    &       p_diag_lnd%rho_snow_mult, &
-    &       p_diag_lnd%wliq_snow, &
-    &       p_diag_lnd%wtot_snow, &
-    &       p_diag_lnd%dzh_snow)
-
-
     !
     ! Register a field list and apply default settings
     !
@@ -1199,7 +1103,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container qv_s_t
     ALLOCATE(p_diag_lnd%qv_st_ptr(ntiles_total+ntiles_water))
     DO jsfc = 1,ntiles_total+ntiles_water
-      NULLIFY(p_diag_lnd%qv_st_ptr(jsfc)%p_2d, p_diag_lnd%qv_st_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc 
       CALL add_ref( diag_list, vname_prefix//'qv_s_t',                       &
              & vname_prefix//'qv_s_t_'//ADJUSTL(TRIM(csfc)),                 &
@@ -1347,7 +1250,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container runoff_s
     ALLOCATE(p_diag_lnd%runoff_s_ptr(ntiles_total))
     DO jsfc = 1,ntiles_total
-      NULLIFY(p_diag_lnd%runoff_s_ptr(jsfc)%p_2d, p_diag_lnd%runoff_s_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc 
       CALL add_ref( diag_list, vname_prefix//'runoff_s_t',                       &
                & vname_prefix//'runoff_s_t_'//ADJUSTL(TRIM(csfc)),               &
@@ -1371,7 +1273,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container runoff_g
     ALLOCATE(p_diag_lnd%runoff_g_ptr(ntiles_total))
     DO jsfc = 1,ntiles_total
-      NULLIFY(p_diag_lnd%runoff_g_ptr(jsfc)%p_2d, p_diag_lnd%runoff_g_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc 
       CALL add_ref( diag_list, vname_prefix//'runoff_g_t',                       &
                & vname_prefix//'runoff_g_t_'//ADJUSTL(TRIM(csfc)),               &
@@ -1464,7 +1365,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container h_snow
     ALLOCATE(p_diag_lnd%h_snow_ptr(ntiles_total))
       DO jsfc = 1,ntiles_total
-        NULLIFY(p_diag_lnd%h_snow_ptr(jsfc)%p_2d, p_diag_lnd%h_snow_ptr(jsfc)%p_3d)
         WRITE(csfc,'(i2)') jsfc 
         CALL add_ref( diag_list, vname_prefix//'h_snow_t',                     &
                & vname_prefix//'h_snow_t_'//ADJUSTL(TRIM(csfc)),               &
@@ -1501,7 +1401,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container freshsnow
     ALLOCATE(p_diag_lnd%freshsnow_ptr(ntiles_total))
     DO jsfc = 1,ntiles_total
-      NULLIFY(p_diag_lnd%freshsnow_ptr(jsfc)%p_2d, p_diag_lnd%freshsnow_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc 
       CALL add_ref( diag_list, vname_prefix//'freshsnow_t',                   &
                & vname_prefix//'freshsnow_t_'//ADJUSTL(TRIM(csfc)),           &
@@ -1534,7 +1433,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container snowfrac
     ALLOCATE(p_diag_lnd%snowfrac_ptr(ntiles_total))
     DO jsfc = 1,ntiles_total
-      NULLIFY(p_diag_lnd%snowfrac_ptr(jsfc)%p_2d, p_diag_lnd%snowfrac_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc 
       CALL add_ref( diag_list, vname_prefix//'snowfrac_t',                     &
                & vname_prefix//'snowfrac_t_'//ADJUSTL(TRIM(csfc)),             &
@@ -1558,7 +1456,6 @@ MODULE mo_nwp_lnd_state
     ! fill the separate variables belonging to the container snowfrac
     ALLOCATE(p_diag_lnd%snowfrac_lc_ptr(ntiles_total))
     DO jsfc = 1,ntiles_total
-      NULLIFY(p_diag_lnd%snowfrac_lc_ptr(jsfc)%p_2d, p_diag_lnd%snowfrac_lc_ptr(jsfc)%p_3d)
       WRITE(csfc,'(i2)') jsfc 
       CALL add_ref( diag_list, vname_prefix//'snowfrac_lc_t',                  &
                & vname_prefix//'snowfrac_lc_t_'//ADJUSTL(TRIM(csfc)),          &

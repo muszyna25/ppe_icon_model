@@ -94,27 +94,19 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
     &  opt_sv(:,:,:)                     !< surface value according to transfer coeff.
   LOGICAL, INTENT(in), OPTIONAL             :: &
     &  opt_fc
-
-  REAL(wp), POINTER                         :: &
-    &  sv(:,:,:),                      & !< surface value of tracer
-    &  vdep(:,:,:)                       !< deposition velocity of tracer
-    
-  !Local variables
-  ! ---------------------------------------
-
-  TYPE(t_art_diag), POINTER                 :: &
-    &  art_diag                          !< Pointer to ART diagnostic fields
-
-  INTEGER  :: jg, idx_trac, jk, jc       !< loop indices
-  INTEGER  :: nblks, istat, nlev, i_startidx, i_endidx
-  INTEGER  :: idx_tot                    !< counter for total number of fields 
-                                         !< (additional cloud vars + tracer vars) 
-                                         !< to be diffused
-
-  !-----------------------------------------------------------------------
-
 #ifdef __ICON_ART
-
+!Local variables
+  REAL(wp), POINTER         :: &
+    &  sv(:,:,:),              & !< surface value of tracer
+    &  vdep(:,:,:)               !< deposition velocity of tracer
+  TYPE(t_art_diag), POINTER :: &
+    &  art_diag                  !< Pointer to ART diagnostic fields
+  INTEGER                   :: &
+    &  jg, idx_trac, jk, jc,   & !< loop indices
+    &  nblks, istat, nlev,     & !<
+    &  i_startidx, i_endidx,   & !<
+    &  idx_tot                   !< counter for total number of fields (add. cloud vars + tracer vars) to be diffused
+  
   jg  = p_patch%id
   IF ( lart ) THEN
     SELECT CASE(TRIM(defcase))
