@@ -61,10 +61,7 @@ MODULE mo_name_list_output_init
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
     &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
-    &                                             set_GRIB2_synsat_keys
-#ifdef __ICON_ART
-  USE mo_grib2_util,                        ONLY: set_GRIB2_art_keys
-#endif
+    &                                             set_GRIB2_synsat_keys, set_GRIB2_art_keys
   USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
@@ -2739,10 +2736,8 @@ CONTAINS
         CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype(of%phys_patch_id))
 #endif
 
-#ifdef __ICON_ART
         ! Set ART-specific GRIB2 keys (if applicable)
         CALL set_GRIB2_art_keys(vlistID, varID, info)
-#endif
 
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)

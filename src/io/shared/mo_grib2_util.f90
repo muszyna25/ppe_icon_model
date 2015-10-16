@@ -345,8 +345,6 @@ CONTAINS
     INTEGER,                INTENT(IN) :: vlistID, varID
     TYPE (t_var_metadata),  INTENT(IN) :: info
 
-#ifdef __ICON_ART
-
     ! local
     CHARACTER(LEN=VARNAME_LEN) :: tracer_class
     INTEGER                    :: scale_factor, first_factor, second_param
@@ -490,9 +488,8 @@ CONTAINS
         &         scaleFactorOfDistributionFunctionParameter )
     END IF
     
-#endif
 
-  END SUBROUTINE set_GRIB2_art_keys
+    END SUBROUTINE set_GRIB2_art_keys
 
 
   !------------------------------------------------------------------------------------------------
