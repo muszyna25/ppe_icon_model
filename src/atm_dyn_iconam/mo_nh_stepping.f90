@@ -80,7 +80,7 @@ MODULE mo_nh_stepping
                                          complete_nesting_setup, prep_bdy_nudging,      &
                                          outer_boundary_nudging, nest_boundary_nudging, &
                                          prep_rho_bdy_nudging, density_boundary_nudging,&
-                                         prep_outer_bdy_nudging
+                                         prep_outer_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
   USE mo_datetime,                 ONLY: t_datetime, add_time, check_newday, iso8601
   USE mo_io_restart,               ONLY: create_restart_file
@@ -758,17 +758,16 @@ MODULE mo_nh_stepping
 !LK--
       CALL message('','')
       IF (iforcing == inwp) THEN
-        WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3,a,a)') 'Time step: ', jstep, ' model time ',            &
+        WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3,a,a)') 'Time step: ', jstep, ', model time: ',            &
              &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ',     &
              &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second, '.', &
-             &             mtime_date%time%ms, ' forecast time ', TRIM(forecast_delta_str)
+             &             mtime_date%time%ms, ', forecast time: ', TRIM(forecast_delta_str)
       ELSE
         WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') 'Time step: ', jstep, ' model time ',             &
              &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ', &
              &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second
       ENDIF
       CALL message('',message_text)
-      CALL message('','')
 !LK++
       CALL deallocateDatetime(mtime_date)
       CALL deallocateDatetime(mtime_begin)
@@ -1260,17 +1259,7 @@ MODULE mo_nh_stepping
         ! interpolation tendencies
         n_now  = nnow(jg)
         n_save = nsav1(jg)
-!$OMP PARALLEL
-        CALL copy(p_nh_state(jg)%prog(n_now)%vn, &
-             p_nh_state(jg)%prog(n_save)%vn)
-        CALL copy(p_nh_state(jg)%prog(n_now)%w, &
-             p_nh_state(jg)%prog(n_save)%w)
-        CALL copy(p_nh_state(jg)%prog(n_now)%rho, &
-             p_nh_state(jg)%prog(n_save)%rho)
-        CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, &
-             p_nh_state(jg)%prog(n_save)%theta_v)
-!$OMP END PARALLEL
-
+        CALL save_progvars(jg,p_nh_state(jg)%prog(n_now),p_nh_state(jg)%prog(n_save))
       ENDIF
 
 

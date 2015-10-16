@@ -395,9 +395,7 @@ MODULE mo_solve_nonhydro
 
     ! initialize nest boundary points of z_rth_pr with zero
     IF (istep == 1 .AND. (jg > 1 .OR. l_limited_area)) THEN
-      CALL init_zero_contiguous_vp(&
-           z_rth_pr(1,1,1,1), &
-           2 * nproma * nlev * i_startblk)
+      CALL init_zero_contiguous_vp(z_rth_pr(1,1,1,1), 2*nproma*nlev*i_startblk)
 !$OMP BARRIER
     ENDIF
 
@@ -731,14 +729,14 @@ MODULE mo_solve_nonhydro
 
         ! Initialize halo edges with zero in order to avoid access of uninitialized array elements
         i_startblk = p_patch%edges%start_block(min_rledge_int-2)
-        i_endblk   = p_patch%edges%end_block  (min_rledge_int-3)
+        IF (idiv_method == 1) THEN
+          i_endblk = p_patch%edges%end_block(min_rledge_int-2)
+        ELSE
+          i_endblk = p_patch%edges%end_block(min_rledge_int-3)
+        ENDIF
 
-        CALL init_zero_contiguous_dp(&
-             z_rho_e(1,1,i_startblk), &
-             nproma * nlev * (i_endblk - i_startblk + 1))
-        CALL init_zero_contiguous_dp(&
-             z_theta_v_e(1,1,i_startblk), &
-             nproma * nlev * (i_endblk - i_startblk + 1))
+        CALL init_zero_contiguous_dp(z_rho_e    (1,1,i_startblk), nproma*nlev*(i_endblk-i_startblk+1))
+        CALL init_zero_contiguous_dp(z_theta_v_e(1,1,i_startblk), nproma*nlev*(i_endblk-i_startblk+1))
 !$OMP BARRIER
 
         rl_start = 7
@@ -749,12 +747,8 @@ MODULE mo_solve_nonhydro
 
         ! initialize also nest boundary points with zero
         IF (jg > 1 .OR. l_limited_area) THEN
-          CALL init_zero_contiguous_dp(&
-               z_rho_e(1,1,1), &
-               nproma * nlev * i_startblk)
-          CALL init_zero_contiguous_dp(&
-               z_theta_v_e(1,1,1), &
-               nproma * nlev * i_startblk)
+          CALL init_zero_contiguous_dp(z_rho_e    (1,1,1), nproma*nlev*i_startblk)
+          CALL init_zero_contiguous_dp(z_theta_v_e(1,1,1), nproma*nlev*i_startblk)
 !$OMP BARRIER
         ENDIF
 

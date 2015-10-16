@@ -27,7 +27,7 @@ MODULE mo_io_restart_async
   USE mo_util_file,               ONLY: util_symlink, util_unlink, util_islink
   USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
   USE mo_kind,                    ONLY: wp, i8, dp
-  USE mo_datetime,                ONLY: t_datetime, iso8601
+  USE mo_datetime,                ONLY: t_datetime, iso8601, iso8601extended
   USE mo_io_units,                ONLY: nerr, filename_max, find_next_free_unit
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
@@ -2358,6 +2358,8 @@ CONTAINS
     CALL set_restart_attribute ('current_caltime', p_ra%datetime%caltime)
     CALL set_restart_attribute ('current_calday' , p_ra%datetime%calday)
     CALL set_restart_attribute ('current_daysec' , p_ra%datetime%daysec)
+
+    CALL set_restart_attribute('tc_startdate', iso8601extended(p_ra%datetime))
 
     ! set no. of domains
     IF (p_pd%l_opt_ndom) THEN

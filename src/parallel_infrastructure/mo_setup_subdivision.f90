@@ -685,9 +685,11 @@ CONTAINS
              divide_for_radiation = divide_for_radiation)
       ENDIF
 
-      ! Set processor offset
-      CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
-      local_owner_ptr = local_owner_ptr + proc0
+      IF (.NOT. ASSOCIATED(wrk_p_parent_patch_pre)) THEN
+        ! Set processor offset
+        CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
+        local_owner_ptr = local_owner_ptr + proc0
+      ENDIF
       CALL dist_mult_array_expose(dist_cell_owner)
 
       IF (write_div_to_file) THEN
