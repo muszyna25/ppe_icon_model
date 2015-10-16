@@ -61,7 +61,7 @@ MODULE mo_name_list_output_init
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
     &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
-    &                                             set_GRIB2_synsat_keys
+    &                                             set_GRIB2_synsat_keys, set_GRIB2_art_keys
   USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
@@ -93,7 +93,7 @@ MODULE mo_name_list_output_init
 #ifndef __NO_ICON_ATMO__
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
   USE mo_extpar_config,                     ONLY: i_lctype
-  USE mo_lnd_nwp_config,                    ONLY: ntiles_water, tiles
+  USE mo_lnd_nwp_config,                    ONLY: ntiles_water, ntiles_total, tiles
 #endif
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
@@ -2709,6 +2709,12 @@ CONTAINS
         ! these settings are performed prior to "productDefinitionTemplateNumber"  
 
         DO i=1,info%grib2%additional_keys%nint_keys
+! JF:           WRITE(message_text,'(a,i4,a,i4,a,a,a,i2,a,a,a,i4)')        &
+! JF:             &  'vlistID = ', vlistID, '  varID = ', varID,           &
+! JF:             &  '  tracer_class = ', TRIM(info%tracer%tracer_class),  &
+! JF:             &  '  key(', i, ') : ', info%grib2%additional_keys%int_key(i)%key, ' = ',  &
+! JF:             &  info%grib2%additional_keys%int_key(i)%val
+! JF:           CALL message(' ==> add_variables_to_vlist :',TRIM(message_text),0,5,.TRUE.)
           CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
             &                    info%grib2%additional_keys%int_key(i)%val)
         END DO
@@ -2729,6 +2735,10 @@ CONTAINS
         ! Set tile-specific GRIB2 keys (if applicable)
         CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype(of%phys_patch_id))
 #endif
+
+        ! Set ART-specific GRIB2 keys (if applicable)
+        CALL set_GRIB2_art_keys(vlistID, varID, info)
+
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
       ENDIF
@@ -2960,6 +2970,7 @@ CONTAINS
     ENDDO
     ! from nwp land config state
     CALL p_bcast(ntiles_water                              , bcast_root, p_comm_work_2_io)
+    CALL p_bcast(ntiles_total                              , bcast_root, p_comm_work_2_io)
     size_tiles = 0
     if (allocated(tiles)) then
        size_tiles = SIZE(tiles)

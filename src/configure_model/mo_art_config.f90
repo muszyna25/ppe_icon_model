@@ -32,6 +32,7 @@ MODULE mo_art_config
   PRIVATE
 
   PUBLIC :: nart_tendphy
+  PUBLIC :: npreslay
   PUBLIC :: t_art_config
   PUBLIC :: art_config
   PUBLIC :: configure_art
@@ -72,7 +73,9 @@ MODULE mo_art_config
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ICON-ART
   !!--------------------------------------------------------------------------
-  INTEGER             :: nart_tendphy  = 0    !Maximum number of tracers that are effected by deep convective transport 
+  INTEGER, PARAMETER  :: npreslay      = 7  !Number of pressure layers for diagnostic output of maximum concentration
+
+  INTEGER             :: nart_tendphy  = 0  !Maximum number of tracers that are effected by deep convective transport 
   
   
   TYPE t_art_config ! Namelist variables for ART
