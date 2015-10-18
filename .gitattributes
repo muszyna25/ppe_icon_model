@@ -67,7 +67,6 @@ config/config.h.in -text
 config/config.sub -text
 config/createMakefiles.pl -text
 config/create_target_header -text
-config/icon_components -text
 config/install-sh -text
 config/make_target_runscript -text
 config/mh-aix -text
@@ -147,13 +146,20 @@ doc/science/dynamics/vortex_bracket_ICONAM.tex -text
 doc/science/physics/ICON_COSMO_micro_scheme_changes.tex -text
 doc/science/physics/IFS_gw_param.pdf -text
 doc/science/physics/Microphys.tar -text
-doc/science/physics/albnirdif_20120104_00UTC.png -text
-doc/science/physics/albnirdir_20120104_00UTC.png -text
-doc/science/physics/albvisdif_20120104_00UTC.png -text
-doc/science/physics/albvisdir_20120104_00UTC.png -text
+doc/science/physics/albnirdif_20120601_tuned-untuned.png -text svneol=unset#image/png
+doc/science/physics/albnirdif_20120601_tuned.png -text svneol=unset#image/png
+doc/science/physics/albnirdif_20120601_untuned.png -text svneol=unset#image/png
+doc/science/physics/albnirdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
+doc/science/physics/albvisdif_20120601_tuned-untuned.png -text svneol=unset#image/png
+doc/science/physics/albvisdif_20120601_tuned.png -text svneol=unset#image/png
+doc/science/physics/albvisdif_20120601_untuned.png -text svneol=unset#image/png
+doc/science/physics/albvisdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
 doc/science/physics/cloud_cover_docu.tex -text
 doc/science/physics/detrainment_anvil.pdf -text
 doc/science/physics/detrainment_anvil.ppt -text
+doc/science/physics/direct_albedo_Briegleb.png -text svneol=unset#image/png
+doc/science/physics/direct_albedo_Ritter.png -text svneol=unset#image/png
+doc/science/physics/direct_albedo_Zaengl.png -text svneol=unset#image/png
 doc/science/physics/graupelscheme.eps -text
 doc/science/physics/icon-docu-cloud.pdf -text
 doc/science/physics/icon-docu-cloud.tex -text
@@ -194,6 +200,7 @@ doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
 doc/technical/dwd_database/grid_geometry.tex -text
 doc/technical/dwd_database/icon_in_sky.tex -text
+doc/technical/dwd_database/iglo_namelst_output.pl -text
 doc/technical/dwd_database/input.tex -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_maxheight_i.txt -text
@@ -205,6 +212,7 @@ doc/technical/dwd_database/output_GRIB2_forecast.tex -text
 doc/technical/dwd_database/output_GRIB2_forecast_singlelvl.tex -text
 doc/technical/dwd_database/output_GRIB2_global.tex -text
 doc/technical/dwd_database/output_GRIB2_nest.tex -text
+doc/technical/dwd_database/output_GRIB2_sma.tex -text
 doc/technical/dwd_database/output_GRIB2_vv0.tex -text
 doc/technical/dwd_database/output_description.tex -text
 doc/technical/dwd_database/output_statproc.tex -text
@@ -768,6 +776,7 @@ run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp7_BaroclinicInstabilityC
 run/checksuite.ocean_internal/paper_dycore/exp.ocean_exp8_OMIP -text
 run/checksuite.ocean_internal/paper_dycore/make_runs_GeostrophicBalance_TestCase2 -text
 run/checksuite.ocean_internal/paper_dycore/post.ocean_exp1_GeostrophicBalance -text
+run/checksuite.ocean_internal/quads/exp.testbed_quads -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_melting -text
 run/checksuite.ocean_internal/sea-ice/exp.ice_testbed -text
 run/checksuite.ocean_internal/technical/exp.check_restart_1x2days -text
@@ -1236,6 +1245,7 @@ scripts/preprocessing/README_MARS4ICON.TXT -text
 scripts/preprocessing/estimate.py -text
 scripts/preprocessing/gauss_to_icon.ksh -text
 scripts/preprocessing/icon_pre_lnd_atm.ksh -text
+scripts/preprocessing/ifs2icon -text
 scripts/preprocessing/mars4icon.all -text
 scripts/preprocessing/mars4icon_e4_sst -text
 scripts/preprocessing/mars4icon_monmean -text
@@ -1254,6 +1264,7 @@ scripts/run_scripts/experiments.rb -text
 scripts/run_scripts/luis.iconrun -text
 scripts/run_scripts/make_my_runscript -text
 scripts/run_scripts/make_nat-ape-dec_runs -text
+scripts/run_scripts/make_ocean_reference_data -text
 scripts/run_scripts/make_performance_runscripts -text
 scripts/run_scripts/run.rb -text
 scripts/run_scripts/sed_change_namelist -text
@@ -1493,6 +1504,7 @@ src/atm_phy_schemes/mo_lrtm_setup.f90 -text
 src/atm_phy_schemes/mo_lrtm_taumol.f90 -text
 src/atm_phy_schemes/mo_newcld_optics.f90 -text
 src/atm_phy_schemes/mo_o3_gems_data.f90 -text
+src/atm_phy_schemes/mo_o3_macc_data.f90 -text
 src/atm_phy_schemes/mo_o3_util.f90 -text
 src/atm_phy_schemes/mo_rad_diag.f90 -text
 src/atm_phy_schemes/mo_radiation.f90 -text
@@ -1710,6 +1722,7 @@ src/ocean/config/mo_ocean_nml_crosscheck.f90 -text
 src/ocean/config/mo_ocean_read_namelists.f90 -text
 src/ocean/diagnostics/mo_ocean_check_tools.f90 -text
 src/ocean/diagnostics/mo_ocean_diagnostics.f90 -text
+src/ocean/diagnostics/mo_ocean_diagnostics_types.f90 -text
 src/ocean/diagnostics/mo_ocean_output.f90 -text
 src/ocean/diagnostics/mo_ocean_postprocessing.f90 -text
 src/ocean/diagnostics/mo_ocean_statistics.f90 -text
@@ -1726,6 +1739,7 @@ src/ocean/dynamics/mo_ocean_tracer_transport_horz.f90 -text
 src/ocean/dynamics/mo_ocean_tracer_transport_vert.f90 -text
 src/ocean/dynamics/mo_ocean_types.f90 -text
 src/ocean/dynamics/mo_ocean_veloc_advection.f90 -text
+src/ocean/include/ocean_dsl_definitions.inc -text
 src/ocean/math/mo_ocean_gmres.f90 -text
 src/ocean/math/mo_ocean_math_operators.f90 -text
 src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text
@@ -1737,6 +1751,7 @@ src/ocean/testbed/mo_ocean_testbed.f90 -text
 src/ocean/testbed/mo_ocean_testbed_modules.f90 -text
 src/ocean/testbed/mo_ocean_testbed_operators.f90 -text
 src/ocean/testbed/mo_ocean_testbed_performance.f90 -text
+src/ocean/testbed/mo_ocean_testbed_quads.f90 -text
 src/ocean/testbed/mo_ocean_testbed_read.f90 -text
 src/ocean/testbed/mo_ocean_testbed_vertical_diffusion.f90 -text
 src/parallel_infrastructure/mo_build_decomposition.f90 -text
@@ -1773,6 +1788,7 @@ src/sea_ice/dynamics_fem/mo_ice_param.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_parsup.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_therm_parms.f90 -text
 src/sea_ice/dynamics_fem/mo_icon_iceparam.f90 -text
+src/sea_ice/dynamics_fem/mo_icon_to_fem_interpolation.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_refactor.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_shared_sr.f90 -text
@@ -1839,6 +1855,7 @@ src/shr_horizontal/intp_functions.inc -text
 src/shr_horizontal/mo_alloc_patches.f90 -text
 src/shr_horizontal/mo_delaunay.f90 -text
 src/shr_horizontal/mo_delaunay_types.f90 -text
+src/shr_horizontal/mo_ext_data_init.f90 -text
 src/shr_horizontal/mo_ext_data_state.f90 -text
 src/shr_horizontal/mo_ext_data_types.f90 -text
 src/shr_horizontal/mo_grf_bdyintp.f90 -text
@@ -1856,6 +1873,7 @@ src/shr_horizontal/mo_intp_coeffs.f90 -text
 src/shr_horizontal/mo_intp_coeffs_lsq_bln.f90 -text
 src/shr_horizontal/mo_intp_data_strc.f90 -text
 src/shr_horizontal/mo_intp_lonlat.f90 -text
+src/shr_horizontal/mo_intp_lonlat_baryctr.f90 -text
 src/shr_horizontal/mo_intp_rbf.f90 -text
 src/shr_horizontal/mo_intp_rbf_coeffs.f90 -text
 src/shr_horizontal/mo_intp_state.f90 -text
@@ -1918,6 +1936,7 @@ support/CMakeLists.txt -text
 support/cdi_int.h -text
 support/cdilib.c -text
 support/cfortran.h -text
+support/mo_cdi.f90 -text
 support/nml_annotate.c -text
 support/nml_annotate.rl -text
 support/rtc_sx.s -text

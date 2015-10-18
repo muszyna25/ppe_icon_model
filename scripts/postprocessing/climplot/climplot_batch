@@ -101,8 +101,8 @@ fi
 # --- metview troubleshooting
 
 #metview=metview4_old
-metview=metview4_dev
-#metview=metview4_new
+#metview=metview4_dev
+metview=metview4_new
 #metview=/usr/local/apps/Metview/4.5.0/bin/metview     # 4.4.8-4.4.10 not working with zonal shades
 
 #deia_grib_api=/home/ms/de/deia/grib_api # inlcudes fix add back in the MARS definitions for level reading
@@ -110,9 +110,9 @@ metview=metview4_dev
 dwd_grib_api=/home/ms/de/dwd/grib_api
 
 if [[ $TASK = "plot_2d" || $TASK = "plot_zon" || $TASK = "plot_obs_1" || $TASK = "plot_obs_3" || $TASK = "plot_obs_4" || $TASK = "plot_obs_5" ||  $TASK = "plot_obs_7" ||  $TASK = "plot_obs_10" ]] ; then
-  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=${dwd_grib_api}/definitions.edzw-1.12.3-1:/usr/local/apps/grib_api/1.12.3/share/grib_api/definitions
+  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=${dwd_grib_api}/definitions.edzw-1.13.0-4:/usr/local/apps/grib_api/1.13.0/share/grib_api/definitions
 else
-  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/usr/local/apps/grib_api/1.12.3/share/grib_api/definitions
+  export METVIEW_EXTRA_GRIB_DEFINITION_PATH=/usr/local/apps/grib_api/1.15.0/share/grib_api/definitions
 fi
 
 #pgi_path="/usr/local/apps/nag/22/LP64"

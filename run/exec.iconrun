@@ -233,7 +233,7 @@ if [ x$lnd_namelist != x ]; then
 /
 &jsb_model_nml
  model_name = 'JSBACHlite'
- model_shortname = 'lite'
+ model_shortname = 'jsblite'
  model_description = 'JSBACH-lite model'
  model_namelist_filename = "${lnd_namelist}"
 /

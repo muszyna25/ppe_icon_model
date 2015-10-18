@@ -61,7 +61,8 @@ USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
 USE mo_initicon,            ONLY: init_icon
 USE mo_initicon_config,     ONLY: timeshift
-USE mo_ext_data_state,      ONLY: ext_data, init_index_lists
+USE mo_ext_data_state,      ONLY: ext_data
+USE mo_ext_data_init,       ONLY: init_index_lists
 ! meteogram output
 USE mo_meteogram_output,    ONLY: meteogram_init, meteogram_finalize
 USE mo_meteogram_config,    ONLY: meteogram_output_config
@@ -86,10 +87,13 @@ USE mo_master_config,       ONLY: tc_exp_startdate, tc_exp_stopdate, tc_startdat
 USE mtime,                  ONLY: datetimeToString
 USE mo_mtime_extensions,    ONLY: get_datetime_string
 USE mo_output_event_types,  ONLY: t_sim_step_info
-USE mo_action,              ONLY: ACTION_RESET, action_init  !reset_act
+USE mo_action,              ONLY: ACTION_RESET, reset_act
 USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
 USE mo_limarea_config,      ONLY: latbc_config
 USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
+
+USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
+USE mo_synsat_config,       ONLY: lsynsat
 !-------------------------------------------------------------------------
 
 IMPLICIT NONE
@@ -248,6 +252,7 @@ CONTAINS
        &                      p_nh_state_lists(jg)%tracer_list(:)  ) 
     ENDDO
 
+
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
     !---------------------------------------------------------------------
@@ -266,6 +271,10 @@ CONTAINS
       CALL init_echam_phy( p_patch(1:), nh_test_name, &
         & nlev, vct_a, vct_b, time_config%cur_datetime )
       !! many of the initial conditions for the echam 'field' are set here
+      !! Note: it is not certain that p_nh_state(jg)%diag%temp has been initialized at this point in time.
+      !!       initcond_echam_phy should therefore not rely on the fact that this has been properly set.
+      !!       It is the case for some testcases, but not e.g. for coupled or AMIP runs if the atmosphere
+      !!       is initialized with IFS analyses.
       DO jg = 1,n_dom
         CALL initcond_echam_phy( jg                                               ,&
           &                      p_patch(jg)                                      ,&
@@ -383,6 +392,9 @@ CONTAINS
     ! diagnostic quantities like pz-level interpolation
     CALL pp_scheduler_init( (iforcing == inwp) )
 
+    ! setup of RTTOV interface (assumes expanded variable groups)
+    IF (ANY(lsynsat(:)))  CALL rttov_initialize()
+
     ! If async IO is in effect, init_name_list_output is a collective call
     ! with the IO procs and effectively starts async IO
     IF (output_mode%l_nml) THEN
@@ -466,9 +478,8 @@ CONTAINS
     !
 
     ! Initialize reset-Action, i.e. assign variables to action object
-!DR    CALL reset_act%initialize(ACTION_RESET)
-!DR Workaround for gfortran 4.5 (and potentially others)
-    CALL action_init(ACTION_RESET)
+    CALL reset_act%initialize(ACTION_RESET)
+
 
     !Anurag Dipankar, MPIM (2014-01-14)
     !Special 1D and 0D output for LES runs till we get add_var/nml_out working
@@ -509,6 +520,9 @@ CONTAINS
 
     ! Destruction of post-processing job queue
     CALL pp_scheduler_finalize()
+
+    ! Destruction of some RTTOV data structures  (if enabled)
+    IF (ANY(lsynsat(:)))  CALL rttov_finalize()
 
     ! Delete optional diagnostics
     CALL destruct_opt_diag()

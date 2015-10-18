@@ -87,7 +87,8 @@ cat > ${atmo_namelist} << EOF
 / 
 &run_nml
  num_lev     = ${nlev},      ! number of full levels of vertical grid
- dtime       = ${dtime}     ! [s] timestep in seconds
+ dtime       = ${dtime}     ! [s] timestep in seconds !! MUST BE EQUAL TO "modelTimeStep" !!
+ modelTimeStep    = "PT2M"  ! preliminary fix
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics   = .TRUE.       ! dynamics
  ltransport  = .TRUE.       ! transport

@@ -39,7 +39,7 @@ MODULE mo_nh_vert_interp
   USE mo_impl_constants,      ONLY: inwp, iecham, PRES_MSL_METHOD_GME, PRES_MSL_METHOD_IFS, &
     &                               PRES_MSL_METHOD_IFS_CORR, MODE_IFSANA, MODE_COMBINED, MODE_ICONVREMAP
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode, lread_vn
+  USE mo_initicon_config,     ONLY: zpbl1, zpbl2, l_coarse2fine_mode, init_mode, lread_vn, lvert_remap_fg
   USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_ifs_coord,           ONLY: half_level_pressure, full_level_pressure, &
                                     auxhyb, geopot
@@ -98,14 +98,14 @@ CONTAINS
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE vert_interp_atm(p_patch, p_nh_state, p_int, p_grf, nlev_in, &
+  SUBROUTINE vert_interp_atm(p_patch, p_nh_state, p_int, p_grf, nlevels_in, &
     &                        initicon, opt_convert_omega2w)
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
     TYPE(t_nh_state),       INTENT(IN)       :: p_nh_state(:)
     TYPE(t_int_state),      INTENT(IN)       :: p_int(:)
     TYPE(t_gridref_state),  INTENT(IN)       :: p_grf(:)
-    INTEGER,                INTENT(IN)       :: nlev_in
+    INTEGER,                INTENT(IN)       :: nlevels_in(:)
     TYPE(t_initicon_state), INTENT(INOUT)    :: initicon(:)
     LOGICAL,   OPTIONAL,    INTENT(IN)       :: opt_convert_omega2w
 
@@ -123,7 +123,7 @@ CONTAINS
 
       IF (p_patch(jg)%n_patch_cells==0) CYCLE ! skip empty patches
 
-      CALL vert_interp(p_patch(jg), p_int(jg), p_nh_state(jg)%metrics, nlev_in, &
+      CALL vert_interp(p_patch(jg), p_int(jg), p_nh_state(jg)%metrics, nlevels_in(jg), &
                        initicon(jg), opt_convert_omega2w)
 
       ! Apply boundary interpolation for u and v because the outer nest boundary
@@ -530,7 +530,7 @@ CONTAINS
     CALL sync_patch_array(SYNC_C,p_patch,initicon%atm%w)
 
 
-    IF (init_mode == MODE_ICONVREMAP) THEN
+    IF (init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
       CALL lin_intp(initicon%atm_in%tke, initicon%atm%tke,                 &
                     p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlevp1,    &
                     wfac_lin_w, idx0_lin_w, bot_idx_lin_w, wfacpbl1, kpbl1,&
@@ -977,7 +977,7 @@ CONTAINS
   !!
   SUBROUTINE prepare_lin_intp(z3d_in, z3d_out,                    &
                               nblks, npromz, nlevs_in, nlevs_out, &
-                              wfac, idx0, bot_idx                 )
+                              wfac, idx0, bot_idx, lextrap        )
 
     ! Input fields
     REAL(wp), INTENT(IN) :: z3d_in(:,:,:) ! height coordinate field of input data (m)
@@ -989,6 +989,9 @@ CONTAINS
     INTEGER , INTENT(IN) :: nlevs_in   ! Number of input levels
     INTEGER , INTENT(IN) :: nlevs_out  ! Number of output levels
 
+    ! Switch for extrapolation beyond top of input data
+    LOGICAL, INTENT(IN), OPTIONAL :: lextrap ! if true, apply linear extrapolation
+
     ! Output fields
     REAL(wp), INTENT(OUT) :: wfac(:,:,:)       ! weighting factor of upper level
     INTEGER , INTENT(OUT) :: idx0(:,:,:)       ! index of upper level
@@ -998,9 +1001,15 @@ CONTAINS
 
     INTEGER :: jb, jk, jc, jk1, jk_start
     INTEGER :: nlen, ierror(nblks), nerror
-    LOGICAL :: l_found(nproma),lfound_all
+    LOGICAL :: l_found(nproma), lfound_all, l_extrap
 
 !-------------------------------------------------------------------------
+
+    IF (PRESENT(lextrap)) THEN
+      l_extrap = lextrap
+    ELSE
+      l_extrap = .TRUE.
+    ENDIF
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jc,jk1,jk_start,l_found,lfound_all) ICON_OMP_DEFAULT_SCHEDULE
@@ -1034,8 +1043,12 @@ CONTAINS
               idx0(jc,jk,jb) = nlevs_in
             ELSE IF (z3d_out(jc,jk,jb) > z3d_in(jc,1,jb)) THEN ! linear extrapolation
               idx0(jc,jk,jb) = 1
-              wfac(jc,jk,jb) = (z3d_out(jc,jk,jb)-z3d_in(jc,2,jb))/&
-                               (z3d_in(jc,1,jb)-z3d_in(jc,2,jb))
+              IF (l_extrap) THEN
+                wfac(jc,jk,jb) = (z3d_out(jc,jk,jb)-z3d_in(jc,2,jb))/&
+                                 (z3d_in(jc,1,jb)-z3d_in(jc,2,jb))
+              ELSE
+                wfac(jc,jk,jb) = 1._wp ! use constant values above top of input data
+              ENDIF
               bot_idx(jc,jb) = jk
               l_found(jc) = .TRUE.
             ENDIF

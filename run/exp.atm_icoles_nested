@@ -37,7 +37,11 @@ dtime=10
 #
 #restart interval
 dt_checkpoint=60 #1 min
+dt_restart=86400 #1 day
 #
+# restart intervals
+checkpoint_interval="PT1M"
+restart_interval="P1D"
 #-----------------------------------------------------------------------------
 # model parameters
 atmo_model_equations=3 # NH equation system
@@ -110,7 +114,8 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev     = 50,50        ! number of full levels of vertical grid
- dtime       = ${dtime}     ! [s] timestep in seconds
+ dtime       = ${dtime}     ! [s] timestep in seconds!! MUST BE EQUAL TO "modelTimeStep" !!
+ modelTimeStep    = "PT10S" ! preliminary fix
  ldynamics   = .TRUE.       ! dynamics
  ltestcase   = .FALSE.      ! testcase
  ltransport  = .TRUE.       ! transport
@@ -146,7 +151,7 @@ cat > ${atmo_namelist} << EOF
  hdiff_tv_ratio   = 1.0
 /
 &nwp_phy_nml
-inwp_gscp       = 1,1 !temporary switched off:two moment microphysics
+inwp_gscp       = 1,1 !temporarily switched off:two moment microphysics
 inwp_convection = 0,0
 inwp_radiation  = 1,1
 inwp_cldcover   = 5,5

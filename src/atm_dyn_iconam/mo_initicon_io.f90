@@ -33,14 +33,15 @@ MODULE mo_initicon_io
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var, &
                                     ana_varnames_dict, inventory_list_fg, inventory_list_ana
-  USE mo_initicon_config,     ONLY: init_mode, nlev_in,  l_sst_in, generate_filename,   &
+  USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, l_sst_in, generate_filename, &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lread_ana, lread_vn,      &
-    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
+    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
+    &                               lvert_remap_fg
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom,                  &
-    &                               MODE_DWDANA_INC, MODE_IAU, MODE_IAU_OLD,            &
-    &                               MODE_IFSANA, MODE_COMBINED, MODE_COSMODE
+    &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
+    &                               MODE_COSMODE
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work,    &
@@ -48,7 +49,7 @@ MODULE mo_initicon_io
   USE mo_io_config,           ONLY: default_read_method
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
-    &                               read_3d_1time, onCells, onEdges
+    &                               read_3d_1time, on_cells, on_edges
   USE mo_util_cdi,            ONLY: read_cdi_2d, read_cdi_3d, t_inputParameters,        &
     &                               makeInputParameters, deleteInputParameters,         &
     &                               get_cdi_NlevRef, t_tileinfo_elt, trivial_tileinfo
@@ -60,8 +61,8 @@ MODULE mo_initicon_io
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
-  USE mo_cdi_constants,       ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, &
-    &                               streamInqVlist, streamOpenRead, cdiGetStringError
+  USE mo_cdi,                 ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, &
+    &                               streamInqVlist, streamOpenRead, cdiGetStringError, streamClose, cdiDefMissval
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_util_cdi_table,      ONLY: print_cdi_summary, &
     &                               new_inventory_list, delete_inventory_list, complete_inventory_list
@@ -473,7 +474,7 @@ MODULE mo_initicon_io
     INTEGER :: jg, jlev, jc, jk, jb, i_endidx
     LOGICAL :: l_exist
 
-    INTEGER :: no_cells, no_levels
+    INTEGER :: no_cells, no_levels, nlev_in
     INTEGER :: ncid, dimid, varid, mpi_comm
     TYPE(t_stream_id) :: stream_id
     INTEGER :: psvar_ndims, geopvar_ndims
@@ -491,11 +492,11 @@ MODULE mo_initicon_io
 
     ! flag. if true, then this PE reads data from file and broadcasts
     lread_process = my_process_is_mpi_workroot()
+    nlev_in = 0
 
     DO jg = 1, n_dom
 
       jlev = p_patch(jg)%level
-
 
       ! Skip reading the atmospheric input data if a model domain
       ! is not active at initial time
@@ -638,6 +639,8 @@ MODULE mo_initicon_io
       CALL p_bcast(psvar_ndims,   p_io, mpi_comm)
       CALL p_bcast(geopvar_ndims, p_io, mpi_comm)
 
+      nlevatm_in(:) = nlev_in
+
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
         CALL message(TRIM(routine), TRIM(message_text))
@@ -657,55 +660,55 @@ MODULE mo_initicon_io
 
       ! start reading atmospheric fields
       !
-      CALL read_3d_1time(stream_id, onCells, 'T', fill_array=initicon(jg)%atm_in%temp)
+      CALL read_3d_1time(stream_id, on_cells, 'T', fill_array=initicon(jg)%atm_in%temp)
 
       IF (lread_vn) THEN
-        CALL read_3d_1time(stream_id, onEdges, 'VN', fill_array=initicon(jg)%atm_in%vn)
+        CALL read_3d_1time(stream_id, on_edges, 'VN', fill_array=initicon(jg)%atm_in%vn)
       ELSE
-        CALL read_3d_1time(stream_id, onCells, 'U', fill_array=initicon(jg)%atm_in%u)
+        CALL read_3d_1time(stream_id, on_cells, 'U', fill_array=initicon(jg)%atm_in%u)
 
-        CALL read_3d_1time(stream_id, onCells, 'V', fill_array=initicon(jg)%atm_in%v)
+        CALL read_3d_1time(stream_id, on_cells, 'V', fill_array=initicon(jg)%atm_in%v)
       ENDIF
 
 
       IF (init_mode == MODE_COSMODE) THEN
-        CALL read_3d_1time(stream_id, onCells, 'W', fill_array=initicon(jg)%atm_in%w_ifc)
+        CALL read_3d_1time(stream_id, on_cells, 'W', fill_array=initicon(jg)%atm_in%w_ifc)
       ELSE
         ! Note: in this case, input vertical velocity is in fact omega (Pa/s)
-        CALL read_3d_1time(stream_id, onCells, 'W', fill_array=initicon(jg)%atm_in%omega)
+        CALL read_3d_1time(stream_id, on_cells, 'W', fill_array=initicon(jg)%atm_in%omega)
       ENDIF
 
-      CALL read_3d_1time(stream_id, onCells, 'QV', fill_array=initicon(jg)%atm_in%qv)
-      CALL read_3d_1time(stream_id, onCells, 'QC', fill_array=initicon(jg)%atm_in%qc)
-      CALL read_3d_1time(stream_id, onCells, 'QI', fill_array=initicon(jg)%atm_in%qi)
+      CALL read_3d_1time(stream_id, on_cells, 'QV', fill_array=initicon(jg)%atm_in%qv)
+      CALL read_3d_1time(stream_id, on_cells, 'QC', fill_array=initicon(jg)%atm_in%qc)
+      CALL read_3d_1time(stream_id, on_cells, 'QI', fill_array=initicon(jg)%atm_in%qi)
 
       IF (lread_qr) THEN
-        CALL read_3d_1time(stream_id, onCells, 'QR', fill_array=initicon(jg)%atm_in%qr)
+        CALL read_3d_1time(stream_id, on_cells, 'QR', fill_array=initicon(jg)%atm_in%qr)
       ELSE
         initicon(jg)%atm_in%qr(:,:,:)=0._wp
       ENDIF
 
       IF (lread_qs) THEN
-        CALL read_3d_1time(stream_id, onCells, 'QS', fill_array=initicon(jg)%atm_in%qs)
+        CALL read_3d_1time(stream_id, on_cells, 'QS', fill_array=initicon(jg)%atm_in%qs)
       ELSE
         initicon(jg)%atm_in%qs(:,:,:)=0._wp
       ENDIF
 
       IF (psvar_ndims==2)THEN
-        CALL read_2d_1time(stream_id, onCells, TRIM(psvar), &
+        CALL read_2d_1time(stream_id, on_cells, TRIM(psvar), &
           &                     fill_array=initicon(jg)%atm_in%psfc)
       ELSEIF(psvar_ndims==3)THEN
-        CALL read_2d_1lev_1time(stream_id, onCells, TRIM(psvar), &
+        CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(psvar), &
           &                     fill_array=initicon(jg)%atm_in%psfc)
       ELSE
         CALL finish(TRIM(routine),'surface pressure var '//TRIM(psvar)//' dimension mismatch')
       END IF
 
       IF (geopvar_ndims==2)THEN
-        CALL read_2d_1time(stream_id, onCells, TRIM(geop_ml_var), &
+        CALL read_2d_1time(stream_id, on_cells, TRIM(geop_ml_var), &
           &                     fill_array=initicon(jg)%atm_in%phi_sfc)
       ELSEIF(geopvar_ndims==3)THEN
-        CALL read_2d_1lev_1time(stream_id, onCells, TRIM(geop_ml_var), &
+        CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(geop_ml_var), &
           &                     fill_array=initicon(jg)%atm_in%phi_sfc)
       ELSE
         CALL finish(TRIM(routine),'surface geopotential var '//TRIM(geop_ml_var)//' dimension mismatch')
@@ -751,8 +754,8 @@ MODULE mo_initicon_io
 
       ELSE IF (init_mode == MODE_COSMODE) THEN ! in case of COSMO-DE initial data
 
-        CALL read_3d_1time(stream_id, onCells, 'HHL', fill_array=initicon(jg)%atm_in%z3d_ifc)
-        CALL read_3d_1time(stream_id, onCells, 'P', fill_array=initicon(jg)%atm_in%pres)
+        CALL read_3d_1time(stream_id, on_cells, 'HHL', fill_array=initicon(jg)%atm_in%z3d_ifc)
+        CALL read_3d_1time(stream_id, on_cells, 'P', fill_array=initicon(jg)%atm_in%pres)
 
         ! Interpolate input 'z3d' and 'w' from interface levels to main levels
 !$OMP PARALLEL
@@ -959,54 +962,54 @@ MODULE mo_initicon_io
       ! start reading surface fields
       !
       IF (geop_sfc_var_ndims == 3) THEN
-        CALL read_2d_1lev_1time(stream_id, onCells, TRIM(geop_sfc_var), &
+        CALL read_2d_1lev_1time(stream_id, on_cells, TRIM(geop_sfc_var), &
           &                     fill_array=initicon(jg)%sfc_in%phi)
       ELSE IF (geop_sfc_var_ndims == 2) THEN
-        CALL read_2d_1time(stream_id, onCells, TRIM(geop_sfc_var), &
+        CALL read_2d_1time(stream_id, on_cells, TRIM(geop_sfc_var), &
           &                     fill_array=initicon(jg)%sfc_in%phi)
       ELSE
         CALL finish(TRIM(routine),"geop_sfc_var: Dimension mismatch")
       ENDIF
 
-      CALL read_2d_1time(stream_id, onCells, 'SKT', &
+      CALL read_2d_1time(stream_id, on_cells, 'SKT', &
         &                fill_array=initicon(jg)%sfc_in%tskin)
 
       IF ( l_sst_in) THEN
-        CALL read_2d_1time(stream_id, onCells, 'SST', &
+        CALL read_2d_1time(stream_id, on_cells, 'SST', &
           &                fill_array=initicon(jg)%sfc_in%sst)
       ELSE
        initicon(jg)%sfc_in%sst(:,:)=0.0_wp
       END IF
 
-      CALL read_2d_1time(stream_id, onCells, 'T_SNOW', &
+      CALL read_2d_1time(stream_id, on_cells, 'T_SNOW', &
         &                fill_array=initicon(jg)%sfc_in%tsnow)
-      CALL read_2d_1time(stream_id, onCells, TRIM(alb_snow_var), &
+      CALL read_2d_1time(stream_id, on_cells, TRIM(alb_snow_var), &
         &                fill_array=initicon(jg)%sfc_in%snowalb)
-      CALL read_2d_1time(stream_id, onCells, 'W_SNOW', &
+      CALL read_2d_1time(stream_id, on_cells, 'W_SNOW', &
         &                fill_array=initicon(jg)%sfc_in%snowweq)
-      CALL read_2d_1time(stream_id, onCells, 'RHO_SNOW', &
+      CALL read_2d_1time(stream_id, on_cells, 'RHO_SNOW', &
         &                fill_array=initicon(jg)%sfc_in%snowdens)
-      CALL read_2d_1time(stream_id, onCells, 'W_I', &
+      CALL read_2d_1time(stream_id, on_cells, 'W_I', &
         &                fill_array=initicon(jg)%sfc_in%skinres)
-      CALL read_2d_1time(stream_id, onCells, 'LSM', &
+      CALL read_2d_1time(stream_id, on_cells, 'LSM', &
         &                fill_array=initicon(jg)%sfc_in%ls_mask)
-      CALL read_2d_1time(stream_id, onCells, 'CI', &
+      CALL read_2d_1time(stream_id, on_cells, 'CI', &
         &                fill_array=initicon(jg)%sfc_in%seaice)
-      CALL read_2d_1lev_1time(stream_id, onCells, 'STL1', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'STL1', &
         &                     fill_array=initicon(jg)%sfc_in%tsoil(:,:,1))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'STL2', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'STL2', &
         &                     fill_array=initicon(jg)%sfc_in%tsoil(:,:,2))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'STL3', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'STL3', &
         &                     fill_array=initicon(jg)%sfc_in%tsoil(:,:,3))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'STL4', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'STL4', &
         &                     fill_array=initicon(jg)%sfc_in%tsoil(:,:,4))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'SMIL1', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'SMIL1', &
         &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,1))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'SMIL2', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'SMIL2', &
         &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,2))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'SMIL3', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'SMIL3', &
         &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,3))
-      CALL read_2d_1lev_1time(stream_id, onCells, 'SMIL4', &
+      CALL read_2d_1lev_1time(stream_id, on_cells, 'SMIL4', &
         &                     fill_array=initicon(jg)%sfc_in%wsoil(:,:,4))
 
       ! close file
@@ -1115,6 +1118,14 @@ MODULE mo_initicon_io
         CALL read_data_3d (parameters, filetype, 'qs', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp)
       END IF
 
+      IF (lvert_remap_fg) THEN
+        ! allocate required data structure
+        nlevatm_in(jg) = nlev
+        CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
+
+        CALL read_data_3d (parameters, filetype, 'z_ifc', nlevp1, initicon(jg)%atm_in%z3d_ifc, tileinfo)
+      ENDIF
+
       CALL deleteInputParameters(parameters)
 
       !This call needs its own input parameter object because it's edge based.
@@ -1150,7 +1161,7 @@ MODULE mo_initicon_io
 
     INTEGER :: jg, jk, jc, jb, i_endidx
     INTEGER :: mpi_comm
-    INTEGER :: ngrp_vars_fg, filetype
+    INTEGER :: ngrp_vars_fg, filetype, nlev_in
 
     REAL(wp) :: tempv, exner
     TYPE(t_inputParameters) :: parameters
@@ -1193,6 +1204,7 @@ MODULE mo_initicon_io
         mpi_comm = p_comm_work
       ENDIF
       CALL p_bcast(nlev_in, p_io, mpi_comm)
+      nlevatm_in(jg) = nlev_in
 
       ! allocate data structure for reading input data
       CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
@@ -1297,12 +1309,12 @@ MODULE mo_initicon_io
   !>
   !! Read DA-analysis fields (atmosphere only)
   !!
-  !! Depending on the initialization mode, either ful fields or increments
+  !! Depending on the initialization mode, either full fields or increments
   !! are read (atmosphere only):
   !! MODE_DWDANA: The following full fields are read, if available
   !!              u, v, t, p, qv
-  !! MODE_DWDANA_INC: The following increments are read, if available
-  !!              u, v, t, p, qv
+  !! MODE_IAO_OLD: 
+  !! MODE_IAU:
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
@@ -1355,7 +1367,7 @@ MODULE mo_initicon_io
 
       ! Depending on the initialization mode chosen (incremental vs. non-incremental)
       ! input fields are stored in different locations.
-      IF ( ANY((/MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
+      IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
         IF (lp2cintp_incr(jg)) THEN
           ! Perform parent-to-child interpolation of atmospheric DA increments
           jgp = p_patch(jg)%parent_id
@@ -1394,7 +1406,7 @@ MODULE mo_initicon_io
       my_ptr3d => my_ptr%v
       CALL read_data_3d (parameters, filetype, 'v', nlev, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
-      IF ( ANY((/MODE_DWDANA_INC,MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
+      IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
         my_ptr3d => my_ptr%qv
       ELSE
         my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
@@ -1563,6 +1575,9 @@ MODULE mo_initicon_io
         my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'freshsnow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
+        my_ptr2d => lnd_diag%snowfrac_lc_t(:,:,jt)
+        CALL read_data_2d(parameters, filetype, 'snowfrac', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
+
         my_ptr2d => lnd_prog%w_snow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'w_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
@@ -1573,7 +1588,7 @@ MODULE mo_initicon_io
         CALL read_data_2d(parameters, filetype, 'h_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_prog%t_snow_t(:,:,jt)
-        CALL read_data_2d(parameters, filetype,'t_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
+        CALL read_data_2d(parameters, filetype, 't_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_prog%rho_snow_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'rho_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )

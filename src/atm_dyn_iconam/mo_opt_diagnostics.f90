@@ -44,11 +44,12 @@ MODULE mo_opt_diagnostics
   USE mo_grid_config,          ONLY: n_dom
   USE mo_run_config,           ONLY: ntracer,iqv,iqc,iqi
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
-  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,         &
-    &                                GRID_CELL, ZA_HYBRID, ZA_HYBRID_HALF, ZA_SURFACE, &
-    &                                ZA_MEANSEA, DATATYPE_FLT32, DATATYPE_PACK16,    &
+  USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_PACK16,                &
     &                                DATATYPE_PACK24, TSTEP_INSTANT,                 &
     &                                DATATYPE_FLT64
+  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,          &
+    &                                GRID_CELL, ZA_HYBRID, ZA_HYBRID_HALF, ZA_SURFACE, &
+    &                                ZA_MEANSEA
   USE mo_var_list,             ONLY: default_var_list_settings,     &
     &                                new_var_list, delete_var_list, add_var, add_ref
   USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,  &
@@ -1279,7 +1280,7 @@ CONTAINS
     acc%pres     = acc%pres     *xfactor
     acc%pres_ifc = acc%pres_ifc *xfactor
     acc%pres_sfc = acc%pres_sfc *xfactor
-    IF (acc%l_pres_msl) acc%pres_msl = acc%pres_msl *xfactor
+    !IF (acc%l_pres_msl) acc%pres_msl = acc%pres_msl *xfactor
     IF (acc%l_omega   ) acc%omega    = acc%omega    *xfactor
     acc%rho      = acc%rho      *xfactor
     !WRITE(message_text,'(a,i2)') '(    ): numberOfAccumulations:',acc%numberOfAccumulations

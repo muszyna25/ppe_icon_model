@@ -27,7 +27,7 @@ MODULE mo_io_config
   USE mo_kind,           ONLY: wp
   USE mo_run_config,     ONLY: dtime
   USE mo_io_units,       ONLY: filename_max
-  USE mo_cdi_constants,  ONLY: FILETYPE_NC2
+  USE mo_cdi,            ONLY: FILETYPE_NC2
 
   IMPLICIT NONE
   PUBLIC
@@ -68,6 +68,8 @@ MODULE mo_io_config
   INTEGER :: restart_file_type = FILETYPE_NC2
 
   LOGICAL :: write_initial_state = .true.
+  LOGICAL :: write_last_restart  = .false.
+  INTEGER :: timeSteps_per_outputStep    = 0
 
   INTEGER :: n_chkpt           ! number of timesteps between successive checkpoint events
   INTEGER :: n_diag            ! number of timesteps between successive tot_int diag events
