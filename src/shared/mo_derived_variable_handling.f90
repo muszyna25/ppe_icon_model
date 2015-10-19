@@ -230,7 +230,7 @@ CONTAINS
       END IF
       p_onl => p_onl%next
     END DO
-    IF ( my_process_is_stdio() .and. false) THEN
+    IF ( my_process_is_stdio() .and. .false.) THEN
       call print_aqua('collected map {{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{')
       keys = meanMap%get_keys()
       call keys%print()
