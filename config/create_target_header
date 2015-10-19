@@ -533,6 +533,8 @@ EOF
   
 }
 
+
+
 set_run_target_bullx()
 {
   icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
@@ -574,6 +576,7 @@ set_run_target_bullx()
       use_mpi_startrun="${use_mpi_startrun},CORE"
       ;;
   esac
+
   case _$use_compiler in
     "_intel" )
         add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
@@ -662,6 +665,8 @@ $(case $use_flags_group in
       printf 'ulimit -c unlimited'
       ;;
   esac)
+# this can not be done in use_mpi_startrun since it depends on the
+# environment at time of script execution
 case " \$loadmodule " in
   *\ mxm\ *)
     START+=" --export=\$(env | sed '/()=/d;/=/{;s/=.*//;b;};d' | tr '\n' ',')LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"

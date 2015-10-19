@@ -18,6 +18,7 @@
 !! headers of the routines.
 !!
 !----------------------------
+#include "ocean_dsl_definitions.inc"
 #include "omp_definitions.inc"
 !----------------------------
 MODULE mo_ocean_ab_timestepping_mimetic
@@ -47,7 +48,8 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & MASS_MATRIX_INVERSION_ADVECTION,                    &
     & MASS_MATRIX_INVERSION_ALLTERMS,                     &
     & physics_parameters_type,                            &
-    & physics_parameters_ICON_PP_Edge_vnPredict_type
+    & physics_parameters_ICON_PP_Edge_vnPredict_type,     &
+    & solver_FirstGuess
     
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer  
@@ -59,7 +61,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_ext_data_types,            ONLY: t_external_data
   USE mo_ocean_gmres,               ONLY: ocean_restart_gmres, gmres_oce_old, gmres_oce_e2e, &
     & ocean_restart_gmres_singlePrecesicion,ocean_restart_gmres_e2e
-  USE mo_exception,                 ONLY: message, finish, message_text
+  USE mo_exception,                 ONLY: message, finish, warning, message_text
   USE mo_util_dbg_prnt,             ONLY: dbg_print, debug_print_MaxMinMean
   USE mo_ocean_boundcond,           ONLY: VelocityBottomBoundaryCondition_onBlock, top_bound_cond_horz_veloc
   USE mo_ocean_thermodyn,           ONLY: calculate_density, calc_internal_press, calc_internal_press_grad
@@ -70,10 +72,12 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & map_edges2edges_viacell_3d_const_z,   &
     & map_edges2edges_viacell_2D_constZ_sp, &
     & map_edges2edges_viacell_2D_per_level
-  USE mo_ocean_math_operators,      ONLY: div_oce_3d, grad_fd_norm_oce_3d,&
-    & grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp, &
+  USE mo_ocean_math_operators,      ONLY: div_oce_3d, grad_fd_norm_oce_3d,        &
+    & grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp,                          &
     & div_oce_2d_sp, grad_fd_norm_oce_2d_onBlock, div_oce_2D_onTriangles_onBlock, &
-    & div_oce_3D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp
+    & div_oce_3D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp,          &
+    & smooth_onCells, div_oce_2D_onQuads_onBlock, div_oce_2D_onQuads_onBlock_sp,  &
+	& div_oce_3D_onQuads_onBlock
   USE mo_ocean_veloc_advection,     ONLY: veloc_adv_horz_mimetic, veloc_adv_vert_mimetic
   
   USE mo_ocean_diffusion,           ONLY: velocity_diffusion,&
@@ -82,8 +86,8 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_grid_config,               ONLY: n_dom
   USE mo_parallel_config,           ONLY: p_test_run
-  USE mo_mpi,                       ONLY: my_process_is_stdio, get_my_global_mpi_id ! my_process_is_mpi_parallel
-  USE mo_statistics,                ONLY: global_minmaxmean
+  USE mo_mpi,                       ONLY: my_process_is_stdio, get_my_global_mpi_id, work_mpi_barrier ! my_process_is_mpi_parallel
+  USE mo_statistics,                ONLY: global_minmaxmean, print_value_location
   IMPLICIT NONE
   
   PRIVATE  
@@ -91,7 +95,8 @@ MODULE mo_ocean_ab_timestepping_mimetic
   PUBLIC :: solve_free_sfc_ab_mimetic
   PUBLIC :: calc_normal_velocity_ab_mimetic
   PUBLIC :: calc_vert_velocity_mim_bottomup
-  PUBLIC :: init_ho_lhs_fields_mimetic
+  PUBLIC :: construct_ho_lhs_fields_mimetic, destruct_ho_lhs_fields_mimetic
+  PUBLIC :: invert_mass_matrix
   !
   
   INTEGER, PARAMETER :: topLevel=1
@@ -99,13 +104,20 @@ MODULE mo_ocean_ab_timestepping_mimetic
   INTEGER :: idt_src    = 1               ! Level of detail for 1 line debug
   
   ! these are allocated once for efficiency and used only by the lhs for the solver
-  REAL(wp), ALLOCATABLE, TARGET :: lhs_result(:,:)  ! (nproma,patch%alloc_cell_blocks)
-  REAL(wp), ALLOCATABLE :: lhs_z_grad_h(:,:)
-  REAL(wp), ALLOCATABLE :: lhs_z_e     (:,:)
+  onCells_2D :: lhs_result
+  onEdges_2D :: lhs_z_grad_h, lhs_z_e
+  onCells_2D_RealPrecision(sp) :: lhs_result_sp
+  onEdges_2D_RealPrecision(sp) :: lhs_z_grad_h_sp, lhs_z_e_sp
+  onCells_2D :: z_h_c
+
   ! the same as above in single precision
-  REAL(sp), ALLOCATABLE, TARGET :: lhs_result_sp(:,:)  ! (nproma,patch%alloc_cell_blocks)
-  REAL(sp), ALLOCATABLE :: lhs_z_grad_h_sp(:,:)
-  REAL(sp), ALLOCATABLE :: lhs_z_e_sp     (:,:)
+!   REAL(wp), ALLOCATABLE, TARGET :: lhs_result(:,:)  ! (nproma,patch%alloc_cell_blocks)
+!   REAL(wp), ALLOCATABLE :: lhs_z_grad_h(:,:)
+!   REAL(wp), ALLOCATABLE :: lhs_z_e     (:,:)
+!   ! the same as above in single precision
+!   REAL(sp), ALLOCATABLE, TARGET :: lhs_result_sp(:,:)  ! (nproma,patch%alloc_cell_blocks)
+!   REAL(sp), ALLOCATABLE :: lhs_z_grad_h_sp(:,:)
+!   REAL(sp), ALLOCATABLE :: lhs_z_e_sp     (:,:)
 
 
   ! TYPE(t_cartesian_coordinates), ALLOCATABLE :: lhs_z_grad_h_cc(:,:)
@@ -123,7 +135,7 @@ CONTAINS
   !!
 !<Optimize:inUse>
   SUBROUTINE solve_free_sfc_ab_mimetic(patch_3d, ocean_state, p_ext_data, p_sfc_flx, &
-    & p_phys_param, timestep, op_coeffs, solverCoeff_sp)
+    & p_phys_param, timestep, op_coeffs, solverCoeff_sp, return_status)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)       :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET             :: ocean_state
@@ -133,6 +145,7 @@ CONTAINS
     INTEGER, INTENT(in)                           :: timestep
     TYPE(t_operator_coeff)                        :: op_coeffs
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
+    INTEGER :: return_status
     !
     !Local variables
     !
@@ -142,7 +155,6 @@ CONTAINS
     INTEGER :: jc,blockNo,je   ! ,jk,il_v1,il_v2,ib_v1,ib_v2
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: start_edge_index, end_edge_index
-    REAL(wp) :: z_h_c(nproma,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     ! REAL(wp) :: z_h_e(nproma,patch_3d%p_patch_2d(1)%nblks_e)
     LOGICAL :: lprecon         = .FALSE.
     ! REAL(wp) :: z_implcoeff
@@ -170,6 +182,7 @@ CONTAINS
     all_edges    => patch_2D%edges%ALL
     owned_cells  => patch_2D%cells%owned
     owned_edges  => patch_2D%edges%owned
+    return_status = 0
     !-------------------------------------------------------------------------------
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -227,77 +240,91 @@ CONTAINS
       
       
       ! Solve surface equation with ocean_gmres solver
-      z_h_c =0.0_wp!ocean_state%p_prog(nold(1))%h! 0.0_wp !potentially better choice: ocean_state%p_prog(nold(1))%h
-      
+!       z_h_c = 0.0_wp
+      SELECT CASE (solver_FirstGuess)
+      CASE (1)
+        CALL smooth_onCells(patch_3D=patch_3d,      &
+          & in_value=ocean_state%p_prog(nold(1))%h, & 
+          & out_value=z_h_c,                        &
+          & smooth_weights=(/ 0.5_wp, 0.5_wp /),    &
+          & has_missValue=.false., missValue=-999999.0_wp)
+        CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), z_h_c)
+
+      CASE default
+        z_h_c = 0.0_wp
+      END SELECT
+
       CALL dbg_print('bef ocean_gmres: h-old',ocean_state%p_prog(nold(1))%h(:,:) ,str_module,idt_src, in_subset=owned_cells)
 
       SELECT CASE (select_solver)
 
       !-----------------------------------------------------------------------------------------
       CASE (select_gmres)
-          IF(lprecon)THEN
-            !ocean_state%p_aux%p_rhs_sfc_eq = ocean_state%p_aux%p_rhs_sfc_eq *patch%cells%area
+        IF(lprecon)THEN
+          !ocean_state%p_aux%p_rhs_sfc_eq = ocean_state%p_aux%p_rhs_sfc_eq *patch%cells%area
 
-            CALL gmres_oce_old( z_h_c(:,:),       &  ! arg 1 of lhs. x input is the first guess.
-              & lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
-              & ocean_state%p_diag%thick_e,       &  ! edge thickness for LHS
-              & ocean_state%p_diag%thick_c,       &  ! ocean_state%p_diag%thick_c, &
-            ! arg 6 of lhs ocean_state%p_prog(nold(1))%h,
-            ! ocean_state%p_diag%cons_thick_c(:,1,:),&
-              & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
-              & patch_3d,                &  ! arg 3 of lhs
-              ! & z_implcoeff,               &  ! arg 4 of lhs
-              & op_coeffs,                &
-              & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
-              & solver_tolerance,                 &  ! relative tolerance
-              & use_absolute_solver_tolerance,     &  ! NOT absolute tolerance
-              & nmax_iter,                 &  ! max. # of iterations to do
-              & maxIterations_isReached,                 &  ! out: .true. = not converged
-              & n_iter,                    &  ! out: # of iterations done
-              & zresidual,                 &  ! inout: the residual (array)
-              & jacobi_precon )
+          CALL gmres_oce_old( z_h_c(:,:),       &  ! arg 1 of lhs. x input is the first guess.
+            & lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
+            & ocean_state%p_diag%thick_e,       &  ! edge thickness for LHS
+            & ocean_state%p_diag%thick_c,       &  ! ocean_state%p_diag%thick_c, &
+          ! arg 6 of lhs ocean_state%p_prog(nold(1))%h,
+          ! ocean_state%p_diag%cons_thick_c(:,1,:),&
+            & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
+            & patch_3d,                &  ! arg 3 of lhs
+            ! & z_implcoeff,               &  ! arg 4 of lhs
+            & op_coeffs,                &
+            & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
+            & solver_tolerance,                 &  ! relative tolerance
+            & use_absolute_solver_tolerance,     &  ! NOT absolute tolerance
+            & nmax_iter,                 &  ! max. # of iterations to do
+            & maxIterations_isReached,                 &  ! out: .true. = not converged
+            & n_iter,                    &  ! out: # of iterations done
+            & zresidual,                 &  ! inout: the residual (array)
+            & jacobi_precon )
 
-          ELSEIF(.NOT.lprecon)THEN
-            CALL gmres_oce_old( z_h_c(:,:),       &  ! arg 1 of lhs. x input is the first guess.
-              & lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
-              & ocean_state%p_diag%thick_e,       &  ! edge thickness for LHS
-              & ocean_state%p_diag%thick_c,       &  ! ocean_state%p_diag%thick_c, &
-            ! arg 6 of lhs ocean_state%p_prog(nold(1))%h,
-            ! ocean_state%p_diag%cons_thick_c(:,1,:),&
-              & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
-              & patch_3d,                &  ! arg 3 of lhs
-              ! & z_implcoeff,               &  ! arg 4 of lhs
-              & op_coeffs,                &
-              & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
-              & solver_tolerance,                 &  ! relative tolerance
-              & use_absolute_solver_tolerance,                 &  ! NOT absolute tolerance
+        ELSEIF(.NOT.lprecon)THEN
+          CALL gmres_oce_old( z_h_c(:,:),       &  ! arg 1 of lhs. x input is the first guess.
+            & lhs_surface_height_ab_mim, &  ! function calculating l.h.s.
+            & ocean_state%p_diag%thick_e,       &  ! edge thickness for LHS
+            & ocean_state%p_diag%thick_c,       &  ! ocean_state%p_diag%thick_c, &
+          ! arg 6 of lhs ocean_state%p_prog(nold(1))%h,
+          ! ocean_state%p_diag%cons_thick_c(:,1,:),&
+            & ocean_state%p_prog(nold(1))%h,    &  ! arg 2 of lhs !not used
+            & patch_3d,                &  ! arg 3 of lhs
+            ! & z_implcoeff,               &  ! arg 4 of lhs
+            & op_coeffs,                &
+            & ocean_state%p_aux%p_rhs_sfc_eq,   &  ! right hand side as input
+            & solver_tolerance,                 &  ! relative tolerance
+            & use_absolute_solver_tolerance,                 &  ! NOT absolute tolerance
 !              & .FALSE.,                   &  ! NOT absolute tolerance
-              & nmax_iter,                 &  ! max. # of iterations to do
-              & maxIterations_isReached,                 &  ! out: .true. = not converged
-              & n_iter,                    &  ! out: # of iterations done
-              & zresidual )
-          ENDIF
-          
-          IF (maxIterations_isReached) THEN
-            CALL finish('GMRES_oce_old: solver surface equation: ','NOT YET CONVERGED !!')
-          ELSE
-            ! output print level idt_src used for ocean gmres output with call message:
-            IF(n_iter==0)n_iter=1
-            idt_src=1
-            IF (idbg_mxmn >= idt_src) THEN
-              WRITE(string,'(a,i4,a,e28.20)') &
-                & 'iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
-              CALL message('GMRES_oce_old: surface height',TRIM(string))
-            ENDIF
-          ENDIF
-          
-          IF(lprecon)THEN
-            ocean_state%p_prog(nnew(1))%h = z_h_c!*patch_2D%cells%area
-          ELSEIF(.NOT.lprecon)THEN
-            ocean_state%p_prog(nnew(1))%h = z_h_c
-          ENDIF
+            & nmax_iter,                 &  ! max. # of iterations to do
+            & maxIterations_isReached,                 &  ! out: .true. = not converged
+            & n_iter,                    &  ! out: # of iterations done
+            & zresidual )
+        ENDIF
 
-          iter_sum = n_iter*n_iter
+        IF (maxIterations_isReached) THEN
+          return_status = 2
+          CALL warning('GMRES_oce_old:', "NOT YET CONVERGED !!")
+          RETURN
+        ENDIF
+
+        ! output print level idt_src used for ocean gmres output with call message:
+        IF(n_iter==0)n_iter=1
+        idt_src=1
+        IF (idbg_mxmn >= idt_src) THEN
+          WRITE(string,'(a,i4,a,e28.20)') &
+            & 'iteration =', n_iter,', residual =', ABS(zresidual(n_iter))
+          CALL message('GMRES_oce_old: surface height',TRIM(string))
+        ENDIF
+
+        IF(lprecon)THEN
+          ocean_state%p_prog(nnew(1))%h = z_h_c!*patch_2D%cells%area
+        ELSEIF(.NOT.lprecon)THEN
+          ocean_state%p_prog(nnew(1))%h = z_h_c
+        ENDIF
+
+        iter_sum = n_iter*n_iter
         
       !-----------------------------------------------------------------------------------------
       CASE (select_restart_gmres)
@@ -360,8 +387,11 @@ CONTAINS
           CALL message('ocean_restart_gmres: surface height',TRIM(string))
         ENDIF
         
-        IF (residual_norm > solver_tolerance) &
-          & CALL finish(method_name,'NOT YET CONVERGED !!')
+        IF (residual_norm > solver_tolerance) THEN
+          return_status = 2
+          CALL warning(method_name, "NOT YET CONVERGED !!")
+          RETURN
+        ENDIF
         
         ocean_state%p_prog(nnew(1))%h = z_h_c
         
@@ -471,9 +501,12 @@ CONTAINS
           CALL message('mixed ocean_restart_gmres: surface height',TRIM(string))
         ENDIF
 
-        IF (residual_norm > solver_tolerance) &
-          & CALL finish(method_name,'NOT YET CONVERGED !!')
-
+        IF (residual_norm > solver_tolerance) THEN
+          return_status = 2
+          CALL warning(method_name, "NOT YET CONVERGED !!")
+          RETURN
+        ENDIF
+        
         ocean_state%p_prog(nnew(1))%h = z_h_c
 
       !-----------------------------------------------------------------------------------------
@@ -502,9 +535,14 @@ CONTAINS
       minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=owned_cells)
       idt_src=1  ! output print level (1-5, fix)
       CALL debug_print_MaxMinMean('after ocean_gmres: h-new', minmaxmean, str_module, idt_src)
-      IF (my_process_is_stdio()) THEN
-        IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) &
-          CALL finish(method_name, "height below min_top_height")
+      IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) THEN
+!          CALL finish(method_name, "height below min_top_height")
+        CALL warning(method_name, "height below min_top_height")
+        CALL print_value_location(ocean_state%p_prog(nnew(1))%h(:,:), minmaxmean(1), owned_cells)
+        CALL print_value_location(ocean_state%p_prog(nnew(2))%h(:,:), minmaxmean(1), owned_cells)
+        CALL work_mpi_barrier()
+        return_status = 1
+        RETURN
       ENDIF
       !---------------------------------------------------------------------
       
@@ -606,7 +644,8 @@ CONTAINS
          &                          ocean_state%p_diag%press_grad)     
       
       
-       CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%press_grad)
+      ! this is not needed
+      ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%press_grad)
 
       ! calculate vertical velocity advection
       CALL veloc_adv_vert_mimetic(          &
@@ -664,8 +703,7 @@ CONTAINS
     CALL timer_stop(timer_extra3)
  
     ! CALL dbg_print('bc_top_vn'   ,ocean_state%p_aux%bc_top_vn       ,str_module,idt_src, in_subset=owned_edges)
-!     write(0,*) "is_first_timestep=", is_first_timestep
-!     write(0,*) "MASS_MATRIX_INVERSION_TYPE=", MASS_MATRIX_INVERSION_TYPE
+    ! write(0,*) "MASS_MATRIX_INVERSION_TYPE=", MASS_MATRIX_INVERSION_TYPE
     ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%laplacian_horz)
     !---------------------------------------------------------------------
     CALL timer_start(timer_extra4)
@@ -807,17 +845,17 @@ CONTAINS
     IF(MASS_MATRIX_INVERSION_TYPE== MASS_MATRIX_INVERSION_ADVECTION)THEN
        !Here the inversion of the mass matrix is already carried out        
        
-       z_e=ocean_state%p_diag%veloc_adv_horz+ocean_state%p_diag%veloc_adv_vert
-!        Write(0,*)'Horiz ADV before:',&
-!        &maxval(z_e(:,1,:)),minval(z_e(:,1,:))
+       z_e=ocean_state%p_diag%veloc_adv_horz + ocean_state%p_diag%veloc_adv_vert
+        Write(0,*)'ADV before:',&
+        &maxval(z_e(:,1,:)),minval(z_e(:,1,:))
             
        ocean_state%p_diag%veloc_adv_horz = invert_mass_matrix(patch_3d, ocean_state, op_coeffs, z_e)
 
        CALL sync_patch_array(sync_e, patch_2D, z_e)
        
-!        Write(0,*)'Horiz ADV after:',&
-!        &maxval(ocean_state%p_diag%veloc_adv_horz(:,1,:)),& 
-!        &minval(ocean_state%p_diag%veloc_adv_horz(:,1,:))
+        Write(0,*)'ADV after:',&
+        &maxval(ocean_state%p_diag%veloc_adv_horz(:,1,:)),& 
+        &minval(ocean_state%p_diag%veloc_adv_horz(:,1,:))
      
     ENDIF
     
@@ -1211,31 +1249,64 @@ CONTAINS
     ! note: these two operators can be combined
     ! div_z_c(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)  = 0.0_wp
     
+!	z_e=10.0_wp
+!	!z_e(4,1,4)=10.0_wp
+
+    IF( patch_2d%cells%max_connectivity == 3 )THEN
+
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, jc, jk, div_z_depth_int_c, div_z_c) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       
-      CALL div_oce_3D_onTriangles_onBlock( z_e, patch_3D, op_coeffs%div_coeff, div_z_c, &
-        & blockNo=blockNo, start_index=start_cell_index, end_index=end_cell_index,      &
-        & start_level=1, end_level=n_zlev)
-      ! integrate div on columns
-      div_z_depth_int_c(:) = 0.0_wp
-      DO jc = start_cell_index, end_cell_index
-        div_z_depth_int_c(jc) = SUM(div_z_c(jc, 1:patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)))
+        CALL div_oce_3D_onTriangles_onBlock( z_e, patch_3D, op_coeffs%div_coeff, div_z_c, &
+          & blockNo=blockNo, start_index=start_cell_index, end_index=end_cell_index,      &
+          & start_level=1, end_level=n_zlev)
+        ! integrate div on columns
+        div_z_depth_int_c(:) = 0.0_wp
+        DO jc = start_cell_index, end_cell_index
+          div_z_depth_int_c(jc) = SUM(div_z_c(jc, 1:patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)))
+! write(123,*)'div',jc, div_z_c(jc, 1:1)		   		  
+        END DO
+      
+        ocean_state%p_aux%p_rhs_sfc_eq(:,blockNo) = 0.0_wp
+        DO jc = start_cell_index, end_cell_index
+          IF (patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) > 0) THEN
+            ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = ((ocean_state%p_prog(nold(1))%h(jc,blockNo) &
+              & - dtime * div_z_depth_int_c(jc)) * inv_gdt2)
+          ENDIF
+        END DO
+      
       END DO
-      
-      ocean_state%p_aux%p_rhs_sfc_eq(:,blockNo) = 0.0_wp
-      DO jc = start_cell_index, end_cell_index
-        IF (patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) > 0) THEN
-          ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = ((ocean_state%p_prog(nold(1))%h(jc,blockNo) &
-            & - dtime * div_z_depth_int_c(jc)) * inv_gdt2)
-        ENDIF
-      END DO
-      
-    END DO
 !ICON_OMP_END_PARALLEL_DO
-    
-    ! CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_aux%p_rhs_sfc_eq )
+
+    ELSEIF( patch_2d%cells%max_connectivity == 4 )THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, jc, jk, div_z_depth_int_c, div_z_c) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+	    CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+      
+		CALL div_oce_3D_onQuads_onBlock( z_e, patch_3D, op_coeffs%div_coeff, div_z_c, &
+		  & blockNo=blockNo, start_index=start_cell_index, end_index=end_cell_index,      &
+		  & start_level=1, end_level=n_zlev)
+		! integrate div on columns
+		div_z_depth_int_c(:) = 0.0_wp
+		 DO jc = start_cell_index, end_cell_index
+	       div_z_depth_int_c(jc) = SUM(div_z_c(jc, 1:patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)))
+! write(456,*)'div',jc, div_z_c(jc, 1:1)		   
+		 END DO
+      
+		 ocean_state%p_aux%p_rhs_sfc_eq(:,blockNo) = 0.0_wp
+		 DO jc = start_cell_index, end_cell_index
+		   IF (patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) > 0) THEN
+		     ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = ((ocean_state%p_prog(nold(1))%h(jc,blockNo) &
+		     & - dtime * div_z_depth_int_c(jc)) * inv_gdt2)
+			 
+		   ENDIF
+		 END DO
+      
+	   END DO
+!ICON_OMP_END_PARALLEL_DO    
+	ENDIF!patch_2d%cells%max_connectivity
+	
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
@@ -1261,7 +1332,7 @@ CONTAINS
   
   !-------------------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE init_ho_lhs_fields_mimetic(patch_3d)
+  SUBROUTINE construct_ho_lhs_fields_mimetic(patch_3d)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     
@@ -1270,9 +1341,11 @@ CONTAINS
     
     patch         => patch_3d%p_patch_2d(1)
     
-    ALLOCATE(lhs_result(nproma,patch%alloc_cell_blocks), &
+    ALLOCATE( &
+      & lhs_result(nproma,patch%alloc_cell_blocks), &
       & lhs_z_grad_h(nproma,patch%nblks_e),     &
       & lhs_z_e     (nproma,patch%nblks_e),     &
+      & z_h_c(nproma,patch%alloc_cell_blocks), &
 !      & lhs_z_e_top (nproma,patch%nblks_e),     &
 !      & lhs_z_grad_h_cc(nproma,patch%alloc_cell_blocks),  &
       & stat = return_status)
@@ -1290,6 +1363,7 @@ CONTAINS
     lhs_result(:,:)   = 0.0_wp
     lhs_z_grad_h(:,:) = 0.0_wp
     lhs_z_e     (:,:) = 0.0_wp
+    z_h_c       (:,:) = 0.0_wp
 !    lhs_z_e_top (:,:) = 0.0_wp
 
     lhs_result_sp(:,:)   = 0.0_wp
@@ -1301,9 +1375,34 @@ CONTAINS
 !    lhs_z_grad_h_cc(:,:)%x(2) = 0.0_wp
 !    lhs_z_grad_h_cc(:,:)%x(3) = 0.0_wp
 
-  END SUBROUTINE init_ho_lhs_fields_mimetic
+  END SUBROUTINE construct_ho_lhs_fields_mimetic
   !-------------------------------------------------------------------------------------
   
+  !-------------------------------------------------------------------------------------
+!<Optimize:inUse>
+  SUBROUTINE destruct_ho_lhs_fields_mimetic()
+
+    DEALLOCATE(         &
+      & lhs_result,     &
+      & lhs_z_grad_h,   &
+      & lhs_z_e     ,   &
+      & z_h_c)
+
+    DEALLOCATE(lhs_result_sp, &
+      & lhs_z_grad_h_sp,     &
+      & lhs_z_e_sp)
+
+    NULLIFY (lhs_result)
+    NULLIFY (lhs_z_grad_h)
+    NULLIFY (lhs_z_e)
+    NULLIFY (z_h_c)
+    NULLIFY (lhs_result_sp)
+    NULLIFY (lhs_z_grad_h_sp)
+    NULLIFY (lhs_z_e_sp)
+
+  END SUBROUTINE destruct_ho_lhs_fields_mimetic
+  !-------------------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------------------
   !>
   !! Computation of left-hand side of the surface height equation
@@ -1382,12 +1481,10 @@ CONTAINS
         & op_coeffs%grad_coeff(:,1,:),    &
         & lhs_z_grad_h(:,:),              &
         & subset_range=patch_2D%edges%gradIsCalculable)
-! 
-!       CALL sync_patch_array(sync_e, patch_2D, lhs_z_grad_h(:,:) )
-! 
+
+
       CALL map_edges2edges_viacell_3d_const_z( patch_3d, lhs_z_grad_h(:,:), op_coeffs, lhs_z_e(:,:))
 
-!       CALL map_grad2edges_viacell_2d_constZ( patch_3d,x(:,:), op_coeffs, lhs_z_e(:,:))
       
     ENDIF ! l_edge_based
     !---------------------------------------
@@ -1396,20 +1493,39 @@ CONTAINS
     CALL timer_start(timer_extra32)
     !Step 3) Calculate divergence
     ! store the div in lhs for reducing memory and improving performance
+
+    IF( patch_2d%cells%max_connectivity == 3 )THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-      CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
       
-      CALL div_oce_2D_onTriangles_onBlock(lhs_z_e, patch_2D, op_coeffs%div_coeff, lhs(:,blockNo), &
-        & level=topLevel, blockNo=blockNo, start_index=start_index, end_index=end_index)
+        CALL div_oce_2D_onTriangles_onBlock(lhs_z_e, patch_2D, op_coeffs%div_coeff, lhs(:,blockNo), &
+          & level=topLevel, blockNo=blockNo, start_index=start_index, end_index=end_index)
     
-      !Step 4) Finalize LHS calculations
-      DO jc = start_index, end_index        
-        !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
-        lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)        
-      END DO
-    END DO ! blockNo
+        !Step 4) Finalize LHS calculations
+        DO jc = start_index, end_index        
+          !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
+          lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)        
+        END DO
+      END DO ! blockNo
 !ICON_OMP_END_PARALLEL_DO
+    ELSEIF( patch_2d%cells%max_connectivity == 4 )THEN
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+        CALL div_oce_2D_onQuads_onBlock( lhs_z_e, patch_2D, op_coeffs%div_coeff, lhs(:,blockNo),&
+                & level=topLevel,blockNo=blockNo, start_index=start_index, end_index=end_index)        
+        !Step 4) Finalize LHS calculations
+        DO jc = start_index, end_index
+          !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
+          lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
+        END DO
+      END DO ! blockNo
+!ICON_OMP_END_PARALLEL_DO
+
+    ENDIF
+
     !---------------------------------------
     CALL timer_stop(timer_extra32)
 
@@ -1501,10 +1617,13 @@ CONTAINS
 
     !Step 3) Calculate divergence
     ! store the div in lhs for reducing memory and improving performance
+
+
+  IF( patch_2d%cells%max_connectivity == 3 )THEN
+
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
-
       CALL div_oce_2D_onTriangles_onBlock_sp(lhs_z_e_sp, patch_2D, solverCoeffs%div_coeff, lhs(:,blockNo), &
         & blockNo=blockNo, start_index=start_index, end_index=end_index)
         
@@ -1514,7 +1633,26 @@ CONTAINS
         lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
       END DO
     END DO ! blockNo
+
+   ELSEIF( patch_2d%cells%max_connectivity == 4 )THEN
+
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
+     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+       CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+       CALL div_oce_2D_onQuads_onBlock_sp( lhs_z_e_sp, patch_2D, solverCoeffs%div_coeff, lhs(:,blockNo),&
+         & blockNo=blockNo, start_index=start_index, end_index=end_index)
+        
+       !Step 4) Finalize LHS calculations
+       DO jc = start_index, end_index
+         !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
+         lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
+       END DO
+     END DO ! blockNo
 !ICON_OMP_END_PARALLEL_DO
+	   
+   ENDIF	   	
+	
     !---------------------------------------
 
     IF (ltimer) CALL timer_stop(timer_lhs_sp)
@@ -1574,7 +1712,6 @@ CONTAINS
 !          CALL map_edges2edges_viacell_2D_per_level( patch_3D, z_grad_h, op_coeffs, z_grad_h,1 )
 !        write(0,*)'New height grad after',&
 !         &maxval(z_grad_h),minval(z_grad_h)
-
 
         
         ! Step 2) Calculate the new velocity from the predicted one and the new surface height
@@ -1770,30 +1907,63 @@ CONTAINS
       
       CALL map_edges2edges_viacell_3d_const_z( patch_3d, ocean_state%p_diag%vn_time_weighted, op_coeffs, &
         & ocean_state%p_diag%mass_flx_e)!, patch_3D%p_patch_1D(1)%prism_thick_c)
-      
+
+        IF( patch_2d%cells%max_connectivity == 3 )THEN
+
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-        CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+          DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+            CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
         
-        CALL div_oce_3D_onTriangles_onBlock(                 &
-          & ocean_state%p_diag%mass_flx_e,                   &
-          & patch_3D,op_coeffs%div_coeff,                    &
-          & ocean_state%p_diag%div_mass_flx_c(:,:,blockNo),  &
-          & blockNo=blockNo, start_index=start_index, end_index=end_index,      &
-          & start_level=1, end_level=n_zlev)
+            CALL div_oce_3D_onTriangles_onBlock(                 &
+              & ocean_state%p_diag%mass_flx_e,                   &
+              & patch_3D,op_coeffs%div_coeff,                    &
+              & ocean_state%p_diag%div_mass_flx_c(:,:,blockNo),  &
+              & blockNo=blockNo, start_index=start_index, end_index=end_index,      &
+              & start_level=1, end_level=n_zlev)
         
-        DO jc = start_index, end_index
+            DO jc = start_index, end_index
           
-          !use bottom boundary condition for vertical velocity at bottom of prism
-          ! this should be awlays zero
-          ! vertical_velocity(jc,z_dolic+1,blockNo)=0.0_wp
-          DO jk = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), 1, -1
-            vertical_velocity(jc,jk,blockNo) = vertical_velocity(jc,jk+1,blockNo) - ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo)
-          END DO
-        END DO
+              !use bottom boundary condition for vertical velocity at bottom of prism
+              ! this should be awlays zero
+              ! vertical_velocity(jc,z_dolic+1,blockNo)=0.0_wp
+              DO jk = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), 1, -1
+                vertical_velocity(jc,jk,blockNo) &
+				&= vertical_velocity(jc,jk+1,blockNo) - ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo)
+              END DO
+            END DO
         
-      END DO ! blockNo
+          END DO ! blockNo
 !ICON_OMP_END_PARALLEL_DO 
+
+
+      ELSEIF( patch_2d%cells%max_connectivity == 4 )THEN
+		  
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+		  CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+        
+		  CALL div_oce_3D_onQuads_onBlock(                     &
+		    & ocean_state%p_diag%mass_flx_e,                   &
+		    & patch_3D,op_coeffs%div_coeff,                    &
+		    & ocean_state%p_diag%div_mass_flx_c(:,:,blockNo),  &
+		    & blockNo=blockNo, start_index=start_index, end_index=end_index,      &
+		    & start_level=1, end_level=n_zlev)
+        
+		  DO jc = start_index, end_index
+          
+		    !use bottom boundary condition for vertical velocity at bottom of prism
+		    ! this should be awlays zero
+		    ! vertical_velocity(jc,z_dolic+1,blockNo)=0.0_wp
+		    DO jk = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), 1, -1
+		      vertical_velocity(jc,jk,blockNo) &
+		  	  &= vertical_velocity(jc,jk+1,blockNo) - ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo)
+		    END DO
+		  END DO
+        
+		END DO ! blockNo
+!ICON_OMP_END_PARALLEL_DO 
+		  		  
+	  ENDIF	!patch_2d%cells%max_connectivity  
 
     ENDIF  !  (l_EDGE_BASED)
     
@@ -1937,9 +2107,11 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     
-    tolerance                = 1.0e-6_wp  ! solver_tolerance
+    tolerance                = 1.0e-7_wp  ! solver_tolerance
     inv_flip_flop_e(:,:,:)   = 0.0_wp
     use_absolute_solver_tolerance=.true.
+	
+	
     DO jk=1, n_zlev
     
         iter_sum=0
