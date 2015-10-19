@@ -207,7 +207,7 @@ MODULE mo_ocean_types
     
     onEdges :: &
       & mass_flx_e     ,& ! individual fluid column thickness at cells. Unit [m].
-      & ptp_vn         ,& ! normal velocity after mapping P^T P
+      & ptp_vn         ,& ! normal velocity after mapping P^T P, not used currently
       & vn_pred        ,& ! predicted normal velocity vector at edges.
       & vn_pred_ptp    ,& ! predicted normal velocity vector at edges.
       & vn_time_weighted,&  ! predicted normal velocity vector at edges.
