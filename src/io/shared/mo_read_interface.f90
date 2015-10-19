@@ -55,10 +55,11 @@ MODULE mo_read_interface
     &                                   distrib_inq_var_dims, idx_lvl_blk, &
     &                                   idx_blk_time
   USE mo_model_domain, ONLY: t_patch
-  USE mo_parallel_config, ONLY: nproma
+  USE mo_parallel_config, ONLY: nproma, p_test_run
   USE mo_model_domain, ONLY: t_patch
   USE mo_communication, ONLY: t_scatterPattern
-  USE mo_mpi, ONLY: p_comm_work, p_io, my_process_is_mpi_workroot, p_bcast
+  USE mo_mpi, ONLY: p_comm_work_test, p_comm_work, p_io, &
+       &            my_process_is_mpi_workroot, p_bcast
   USE mo_impl_constants, ONLY: on_cells, on_vertices, on_edges
 
   !-------------------------------------------------------------------------
@@ -92,11 +93,6 @@ MODULE mo_read_interface
   PUBLIC :: var_data_2d_int, var_data_2d_wp, var_data_3d_int, var_data_3d_wp
 
   PUBLIC :: on_cells, on_vertices, on_edges
-  ! the following are used by jsbach, they will be removed when jsbach is updated
-  PUBLIC :: onCells, onVertices, onEdges
-  INTEGER, PARAMETER :: onCells    = on_cells
-  INTEGER, PARAMETER :: onEdges    = on_edges
-  INTEGER, PARAMETER :: onVertices = on_vertices
 
   !--------------------------------------------------------
 
@@ -380,7 +376,7 @@ CONTAINS
           &                           fill_array, n_g, scatter_patterns)
       IF (PRESENT(return_pointer)) return_pointer(1:n_var) = tmp_return
     CASE (read_netcdf_distribute_method)
-    
+
       ALLOCATE(var_data_2d(n_var))
 
       ! gather pointers of all output fields
@@ -506,7 +502,7 @@ CONTAINS
             &                     fill_array, n_g, scatter_patterns)
       IF (PRESENT(return_pointer)) return_pointer(1:n_var) = tmp_return
     CASE (read_netcdf_distribute_method)
-    
+
       ALLOCATE(var_data_2d(n_var))
 
       ! gather pointers of all output fields
@@ -987,7 +983,7 @@ CONTAINS
           return_pointer(i)%data => var_data_3d(i)%data
         END DO
       END IF
-    
+
       CALL distrib_read(stream_id%file_id, variable_name_, var_data_3d, &
         &               var_dimlen(2), idx_blk_time, &
         &               (/(stream_id%read_info(location, i)%dist_read_info, &
@@ -1082,7 +1078,7 @@ CONTAINS
         tmp_pointer(:,:,:) = 0
       ENDIF
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-    
+
       CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
         &               var_dimlen(2), idx_blk_time, &
         &               stream_id%read_info(location, 1)%dist_read_info, &
@@ -1275,7 +1271,7 @@ CONTAINS
       ENDIF
 
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-    
+
       CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
         &               var_dimlen(2), idx_lvl_blk, &
         &               stream_id%read_info(location, 1)%dist_read_info)
@@ -1520,7 +1516,7 @@ CONTAINS
       ENDIF
 
       IF (PRESENT(return_pointer)) return_pointer => tmp_pointer
-    
+
       IF (PRESENT(start_extdim)) THEN
         CALL distrib_read(stream_id%file_id, variable_name_, tmp_pointer, &
           &               var_dimlen(2:3), &
@@ -1831,7 +1827,8 @@ CONTAINS
       string_out = string_in
     END IF
 
-    CALL p_bcast(string_out, p_io,  p_comm_work)
+    CALL p_bcast(string_out, p_io, &
+      &          MERGE(p_comm_work_test, p_comm_work, p_test_run))
   END SUBROUTINE bcast_varname
 
   !-------------------------------------------------------------------------
