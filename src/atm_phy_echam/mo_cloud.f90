@@ -1,10 +1,7 @@
 #if defined __xlC__ && !defined NOXLFPROCESS
 @PROCESS STRICT
 #endif
-#if !(defined __xlC__ && defined _ARCH_PWR6)
-#define SWDIV_NOCHK(a,b) ((a)/(b))
-#define FSEL(a,b,c) MERGE(b,c,(a).GE.0._wp)
-#endif
+#include "fsel.inc"
 
 !>
 !! @par Copyright
@@ -29,8 +26,8 @@
 !!          The cloud parameters (cloud cover, cloud liquid water and
 !!          cloud ice are used for the calculation of radiation at the
 !!          next timestep.
-!!          Attention: 
-!!          In the current version the advective tendencies of skewness 
+!!          Attention:
+!!          In the current version the advective tendencies of skewness
 !!          and variance are set to zero.
 !!
 !! @references.
@@ -75,10 +72,10 @@ MODULE mo_cloud
 #ifndef __ICON__
   USE mo_submodel_interface,   ONLY : cloud_subm
   USE mo_submodel,             ONLY : lanysubmodel
-  USE mo_vphysc,               ONLY : set_vphysc_var              
+  USE mo_vphysc,               ONLY : set_vphysc_var
   USE mo_cosp_offline,         ONLY : locospoffl, cospoffl_lsrain, cospoffl_lssnow
   USE mo_memory_g3b,           ONLY : aclcov_na, aprl_na, aprs_na, xivi_na,          &
-                                      xlvi_na, qvi_na 
+                                      xlvi_na, qvi_na
 #endif
 
 #ifdef _PROFILE
@@ -204,13 +201,13 @@ CONTAINS
       & pqvi     (kbdim)          ,&!< vertically integrated spec. humidity, acc
       & pxlvi    (kbdim)          ,&!< vertically integrated cloud liquid water, acc
       & pxivi    (kbdim)          ,&!< vertically integrated cloud ice, accumulated
-      & pch_concloud(kbdim)       ,&!< checking the global heat budget and 
-      & pcw_concloud(kbdim)         !< checking the local water budget 
+      & pch_concloud(kbdim)       ,&!< checking the global heat budget and
+      & pcw_concloud(kbdim)         !< checking the local water budget
                                     !< due to convection + cloud processes
     REAL(wp), INTENT(INOUT) ::     &
       & pxtecl   (kbdim,klev)     ,&!< detrained convective cloud liquid water   (n)
       & pxteci   (kbdim,klev)     ,&!< detrained convective cloud ice            (n)
-      & pqtec    (kbdim,klev)     ,&!< 
+      & pqtec    (kbdim,klev)     ,&!<
       & pqte     (kbdim,klev)     ,&!< tendency of specific humidity
       & ptte     (kbdim,klev)     ,&!< tendency of temperature
       & pxlte    (kbdim,klev)     ,&!< tendency of cloud liquid water
@@ -264,7 +261,7 @@ CONTAINS
       &      , ub(kbdim)            ,ua(kbdim)            ,dua(kbdim)                &
       &      , uaw(kbdim)           ,duaw(kbdim)          ,zclten(kbdim)             &
       &      , zcpten(kbdim,klev)   ,zqviten(kbdim)       ,zqten(kbdim,klev)
-                      
+
     REAL(wp):: zrho(kbdim,klev)
     !
     INTEGER:: loidx(kbdim), nloidx(kbdim), jjclcpre(kbdim)
@@ -274,7 +271,7 @@ CONTAINS
     INTEGER:: jb, nclcpre
     INTEGER:: jl, jk, nl, locnt, nlocnt, nphase, i1 , i2, klevtop
     LOGICAL   lo, lo1
-    !!$ used in Revised Bergeron-Findeisen process only  
+    !!$ used in Revised Bergeron-Findeisen process only
     !!$  LOGICAL   locc
 
 #ifndef __ICON__
@@ -292,7 +289,7 @@ CONTAINS
       &      , zxlold, zxiold, zdxicor, zdxlcor, zptm1_inv, zxlp1_d, zxip1_d         &
       &      , zupdate, zlo, zcnt, zclcpre1, zval, zua, zdua, zxitop, zxibot         &
       &      , zqvte, zxlte, zxite, ztte
-    !!$ used in Revised Bergeron-Findeisen process only  
+    !!$ used in Revised Bergeron-Findeisen process only
     !!$  REAL(wp):: zzevp, zeps
     !!$  REAL(wp):: zsupsatw(kbdim)
     !
@@ -306,7 +303,7 @@ CONTAINS
       &        zfsubls(kbdim,klev),  & ! Sublimation of snow [kg/m2/s]
       &        zmlwc(kbdim,klev),    & ! In-cloud liquid water mass mixing ratio before rain formation [kg/kg]
       &        zmiwc(kbdim,klev),    & ! In-cloud ice mass mixing ratio before snow formation [kg/kg]
-      &        zmsnowacl(kbdim,klev)   ! Accretion rate of snow with cloud droplets 
+      &        zmsnowacl(kbdim,klev)   ! Accretion rate of snow with cloud droplets
                                        ! in cloudy part of the grid box  [kg/kg]
 #ifndef __ICON__
     REAL(wp):: pclcpre(kbdim,klev)
@@ -435,7 +432,7 @@ CONTAINS
 
       zqrho_sqrt(1:kproma) = SQRT(zqrho(1:kproma))
       zpapm1_inv(1:kproma) = 1._wp/papm1(1:kproma,jk)
-  
+
       CALL prepare_ua_index_spline('cloud (1)',kproma,ptm1(1,jk),loidx(1),za(1))
       CALL lookup_ua_spline(kproma,loidx(1),za(1),ua(1),dua(1))
       CALL lookup_uaw_spline(kproma,loidx(1),za(1),uaw(1),duaw(1))
@@ -455,7 +452,7 @@ CONTAINS
 
          zdp(jl)        = paphm1(jl,jk+1)-paphm1(jl,jk)
          zdz(jl)        = (zgeoh(jl,jk)-zgeoh(jl,jk+1))/grav
-  
+
          zrc            = 1._wp/pcair(jl,jk)
          zlvdcp(jl)     = alv*zrc
          zlsdcp(jl)     = als*zrc
@@ -581,7 +578,7 @@ CONTAINS
             ztmp2(1:i2) = ztmp2(1:i2)**0.61_wp
 !IBM* ASSERT(NODEPS)
             DO nl = 1,i2
-               jl = idx2(nl)                    
+               jl = idx2(nl)
                zdpg     = zdp(jl)/grav
                zqsw     = ztmp3(nl)
                zsusatw  = ztmp4(nl)
@@ -623,7 +620,7 @@ CONTAINS
       !             precipitation at the surface (through 'zzdrs', see 7.3).
       !             Finally: In-cloud cloud water/ice.
       !
-     
+
       DO 401 jl = 1,kproma
         zxip1         = pxim1(jl,jk)+(pxite(jl,jk)+pxteci(jl,jk))*ztmst-zimlt(jl)
       !  zxip1         = pxim1(jl,jk)+pxite(jl,jk)*ztmst-zimlt(jl)
@@ -633,7 +630,7 @@ CONTAINS
 401   END DO
 
       ztmp2(1:kproma) = ztmp2(1:kproma)**0.16_wp
-     
+
 !IBM* NOVECTOR
       DO 402 jl = 1,kproma
         zxifall       = cvtfall*ztmp2(jl)
@@ -687,10 +684,10 @@ CONTAINS
       !         (ptm1(jl,jk).LT.tmelt.AND.zxised(jl).GT.csecfrli                     &
       !                                         .AND.zsupsatw(jl).LT.zeps)) THEN
       !         cond1(jl) = 1
-      !       ELSE 
+      !       ELSE
       !         cond1(jl) = 0
       !       END IF
- 
+
         zlo2(jl)  = FSEL(ptm1(jl,jk)+ptte(jl,jk)*ztmst-tmelt, 0._wp, 1._wp)
         zlo2(jl)  = FSEL(csecfrl-zxised(jl), 0._wp, zlo2(jl))
       !!$  zlo2(jl)  = FSEL(zsupsatw(jl)-zeps, 0._wp, zlo2(jl))
@@ -805,7 +802,7 @@ CONTAINS
                       +zqsed(jl)-zimlt(jl)-zxievap(jl)+zgenti(jl)+zdep(jl),0.0_wp)
         ztmp1(jl)   = zxip1
       END DO
-     
+
       CALL lookup_ubc(kproma,ztp1tmp(1),ub(1))
       CALL prepare_ua_index_spline('cloud (2)',kproma,ztp1tmp(1),idx1(1),za(1)       &
                                                ,ztmp1(1),nphase,zlo2(1),cond1(1))
@@ -831,7 +828,7 @@ CONTAINS
 540   END DO
 
       ! mpuetz: ztmp2 holds inverse of zqsp1tmp
-      ztmp2(1:kproma) = 1._wp/ztmp2(1:kproma)  
+      ztmp2(1:kproma) = 1._wp/ztmp2(1:kproma)
       !
       !       5.5 Change of in-cloud water due to deposition/sublimation and
       !           condensation/evaporation (input for cloud microphysics)
@@ -912,7 +909,7 @@ CONTAINS
 #endif
         ztmp1(nl)= 0.75_wp*zxlb(jl)*zfrho/pi
 622   END DO
-     
+
       ztmp1(1:locnt) = ztmp1(1:locnt)**(1._wp/3._wp)
 
 !IBM* ASSERT(NODEPS)
@@ -1058,8 +1055,8 @@ CONTAINS
          zrac2    = zxlb(jl)*(1._wp-ztmp2(nl))
          zxlb(jl) = zxlb(jl)-zrac2
          zclcstar = MIN(zclcaux(jl),zclcpre(jl))
-         zrpr(jl) = zclcaux(jl)*(zraut+zrac2)+zclcstar*zrac1 
-         ! zrpr is initialized to zero 
+         zrpr(jl) = zclcaux(jl)*(zraut+zrac2)+zclcstar*zrac1
+         ! zrpr is initialized to zero
          zmratepr(jl,jk)=zraut+zrac1+zrac2
       END DO
       !
@@ -1084,7 +1081,7 @@ CONTAINS
       ztmp1(1:locnt) = LOG10(ztmp1(1:locnt))
       ztmp2(1:locnt) = ztmp2(1:locnt)**0.33_wp
       ztmp3(1:locnt) = EXP(ztmp3(1:locnt))
-        
+
 !IBM* NOVECTOR
 !IBM* ASSERT(NODEPS)
       DO 721 nl = 1,locnt
@@ -1129,7 +1126,7 @@ CONTAINS
            zxib(jl)  = zxib(jl)-zsaci2
          END IF
          zsacl(jl)    = zsacl1+zsacl2
-         zspr(jl)     = zclcaux(jl)*(zsaut+zsaci2) + zclcstar*zsaci1 
+         zspr(jl)     = zclcaux(jl)*(zsaut+zsaci2) + zclcstar*zsaci1
          ! zspr is initialized to zero
 
          IF(zclcstar>zepsec .AND. zclcaux(jl)>zepsec) THEN
@@ -1158,7 +1155,7 @@ CONTAINS
     !
     zcnt = 0._wp
     nclcpre = 0
-     
+
     IF (jk.EQ.klev) THEN
 
 !IBM* NOVECTOR
@@ -1208,7 +1205,7 @@ CONTAINS
             zfevapr(jl,jk)=0.0_wp
             zfsubls(jl,jk)=0.0_wp
          ENDIF
-           
+
          zrfl(jl)    = zrfl(jl)+zzdrr-zcons2*zdp(jl)*zevp(jl)
          zsfl(jl)    = zsfl(jl)+zzdrs-zcons2*zdp(jl)*zsub(jl)
       END DO
@@ -1223,7 +1220,7 @@ CONTAINS
          zpredel        = zzdrr+zzdrs
          zclcpre(jl)    = FSEL(zpredel-zpretot,zclcaux(jl),zclcpre(jl))
          zpresum        = zpretot+zpredel
-           
+
 #ifdef FAST_AND_DIRTY
          ! This may trigger a divide by zero. It doesn't harm, because the
          ! result is adjusted in the next following FSEL/MERGE command.
@@ -1258,7 +1255,7 @@ CONTAINS
          zrfl(jl)       = zrfl(jl)+zzdrr-zcons2*zdp(jl)*zevp(jl)
          zsfl(jl)       = zsfl(jl)+zzdrs-zcons2*zdp(jl)*zsub(jl)
       END DO
-        
+
     END IF
 
     IF (zcnt > 0._wp) THEN
@@ -1322,7 +1319,7 @@ CONTAINS
        zxip1          = FSEL(-zxip1_d,zxip1,0._wp)
        zdxlcor        = (zxlp1 - zxlold)/ztmst
        zdxicor        = (zxip1 - zxiold)/ztmst
-        
+
        zxlp1_d        = MAX(zxlp1_d,0.0_wp)
        paclc(jl,jk)   = FSEL(-(zxlp1_d*zxip1_d),paclc(jl,jk),0._wp)
 
@@ -1338,13 +1335,13 @@ CONTAINS
        ! of zlvdcp and zlsdcp ( =Lv/(cp or cv) and Ls/(cp or cv) ) in order
        ! to obtain the specific heating by cloud processes in [W/kg].
        zcpten(jl,jk)  = pcair(jl,jk)                                                 &
-                              *(zcpten(jl,jk)+zlvdcp(jl)*zdxlcor+zlsdcp(jl)*zdxicor) 
+                              *(zcpten(jl,jk)+zlvdcp(jl)*zdxlcor+zlsdcp(jl)*zdxicor)
        !
 821 END DO
 
 #ifndef __ICON__
-    IF ( locospoffl ) THEN 
-      DO jl = 1,kproma    
+    IF ( locospoffl ) THEN
+      DO jl = 1,kproma
          cospoffl_lsrain(jl,jk,krow) = zrfl(jl)
          cospoffl_lssnow(jl,jk,krow) = zsfl(jl)
       END DO
@@ -1483,7 +1480,7 @@ CONTAINS
     END DO
 #endif
 
-    ! compare liquid water path below and above convective cloud top 
+    ! compare liquid water path below and above convective cloud top
     DO 938 jl = 1,kproma
        zxlvitop(jl) = 0.0_wp
        klevtop = kctop(jl) - 1
@@ -1497,9 +1494,9 @@ CONTAINS
     DO 940 jl = 1,kproma
        zxlvibot(jl) = zxlvi(jl) - zxlvitop(jl)
        IF (ktype(jl) .EQ. 2 .AND. zxlvibot(jl) .GT. clwprat * zxlvitop(jl)) THEN
-          ktype(jl) = 4 
-       END IF  
-940 END DO  
+          ktype(jl) = 4
+       END IF
+940 END DO
 
 #ifdef _PROFILE
     CALL trace_stop ('cloud_loop_9', 19)

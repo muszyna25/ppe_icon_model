@@ -18,9 +18,7 @@ MODULE mo_reorder_patches
   USE mo_kind,            ONLY: wp
   USE mo_exception,       ONLY: finish
   USE mo_parallel_config, ONLY: nproma
-  USE mo_communication,   ONLY: reorder_comm_pattern,                                &
-    &                           reorder_comm_pattern_snd, reorder_comm_pattern_rcv,  &
-    &                           idx_no, blk_no, idx_1d
+  USE mo_communication,   ONLY: idx_no, blk_no, idx_1d
   USE mo_model_domain,    ONLY: t_patch, t_tangent_vectors
   USE mo_math_utilities,  ONLY: t_geographical_coordinates, t_cartesian_coordinates
   USE mo_decomposition_tools, ONLY: t_grid_domain_decomp_info, &
@@ -81,6 +79,8 @@ CONTAINS
     ! ----------------------------------------
 
     CALL reorder_array_pos(pp%cells%num_edges,       idx_old2new,      pp%nblks_c, pp%npromz_c)
+    CALL reorder_array_pos(pp%cells%parent_glb_idx,  idx_old2new,      pp%nblks_c, pp%npromz_c)
+    CALL reorder_array_pos(pp%cells%parent_glb_blk,  idx_old2new,      pp%nblks_c, pp%npromz_c)
     CALL reorder_array_pos(pp%cells%child_idx,       idx_old2new,      pp%nblks_c, pp%npromz_c, 1, 2)
     CALL reorder_array_pos(pp%cells%child_blk,       idx_old2new,      pp%nblks_c, pp%npromz_c, 1, 2)
     CALL reorder_array_pos(pp%cells%child_id,        idx_old2new,      pp%nblks_c, pp%npromz_c)
@@ -133,23 +133,11 @@ CONTAINS
     ! ----------------------------------
 
     IF (PRESENT(opt_child_pp)) THEN
-      CALL reorder_array_content(opt_child_pp%cells%parent_idx, opt_child_pp%cells%parent_blk, &
-        &                        idx_old2new, opt_child_pp%nblks_c, opt_child_pp%npromz_c)
+      CALL reorder_array_content(opt_child_pp%cells%parent_loc_idx, &
+        &                        opt_child_pp%cells%parent_loc_blk, &
+        &                        idx_old2new, opt_child_pp%nblks_c, &
+        &                        opt_child_pp%npromz_c)
     END IF
-
-    ! -------------------------------------------------------------------------
-    ! reorder communication patterns in this patch
-    ! -------------------------------------------------------------------------
-
-    CALL reorder_comm_pattern(pp%comm_pat_c                      , idx_old2new)
-    CALL reorder_comm_pattern(pp%comm_pat_c1                     , idx_old2new)
-    CALL reorder_comm_pattern(pp%comm_pat_interpolation_c        , idx_old2new)
-    CALL reorder_comm_pattern(pp%comm_pat_interpol_vec_grf(4)    , idx_old2new)
-    CALL reorder_comm_pattern(pp%comm_pat_interpol_scal_grf(4)   , idx_old2new)
-    CALL reorder_comm_pattern(pp%comm_pat_interpol_vec_ubc(4)    , idx_old2new)
-    CALL reorder_comm_pattern(pp%comm_pat_interpol_scal_ubc(4)   , idx_old2new)
-    CALL reorder_comm_pattern_rcv(pp%comm_pat_glb_to_loc_c       , idx_old2new)
-    CALL reorder_comm_pattern_snd(pp%comm_pat_loc_to_glb_c_fbk   , idx_old2new)
 
   END SUBROUTINE reorder_cells
 
@@ -170,6 +158,8 @@ CONTAINS
     ! in this patch: translate array positions
     ! ----------------------------------------
 
+    CALL reorder_array_pos(pp%edges%parent_glb_idx,         idx_old2new,      pp%nblks_e, pp%npromz_e)
+    CALL reorder_array_pos(pp%edges%parent_glb_blk,         idx_old2new,      pp%nblks_e, pp%npromz_e)
     CALL reorder_array_pos(pp%edges%child_idx,              idx_old2new,      pp%nblks_e, pp%npromz_e, 1,2)
     CALL reorder_array_pos(pp%edges%child_blk,              idx_old2new,      pp%nblks_e, pp%npromz_e, 1,2)
     CALL reorder_array_pos(pp%edges%child_id,               idx_old2new,      pp%nblks_e, pp%npromz_e)
@@ -236,17 +226,11 @@ CONTAINS
     ! ----------------------------------
 
     IF (PRESENT(opt_child_pp)) THEN
-      CALL reorder_array_content(opt_child_pp%edges%parent_idx, opt_child_pp%edges%parent_blk, &
-        &                        idx_old2new, opt_child_pp%nblks_e, opt_child_pp%npromz_e)
+      CALL reorder_array_content(opt_child_pp%edges%parent_loc_idx, &
+        &                        opt_child_pp%edges%parent_loc_blk, &
+        &                        idx_old2new, opt_child_pp%nblks_e, &
+        &                        opt_child_pp%npromz_e)
     END IF
-
-    ! -------------------------------------------------------------------------
-    ! reorder communication patterns
-    ! -------------------------------------------------------------------------
-
-    CALL reorder_comm_pattern(pp%comm_pat_e                          , idx_old2new)
-    CALL reorder_comm_pattern_rcv(pp%comm_pat_glb_to_loc_e           , idx_old2new)
-    CALL reorder_comm_pattern_snd(pp%comm_pat_loc_to_glb_e_fbk       , idx_old2new)
 
   END SUBROUTINE reorder_edges
 
@@ -292,12 +276,6 @@ CONTAINS
     ! in this patch: translate contents of edges data structure
     CALL reorder_array_content(pp%edges%vertex_idx, pp%edges%vertex_blk, idx_old2new,     &
       &                        pp%nblks_e, pp%npromz_e, 1, 2, opt_lcatch_zeros=.TRUE.)
-
-    ! -------------------------------------------------------------------------
-    ! reorder communication patterns
-    ! -------------------------------------------------------------------------
-
-    CALL reorder_comm_pattern(pp%comm_pat_v                          , idx_old2new)
 
   END SUBROUTINE reorder_verts
 

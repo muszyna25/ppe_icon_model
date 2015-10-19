@@ -56,11 +56,11 @@ MODULE mo_nh_torus_exp
   USE mo_les_utilities,       ONLY: vert_intp_linear_1d
 
   IMPLICIT NONE
-  
+
   PRIVATE
 
   PUBLIC :: init_nh_state_cbl, cbl_stevens_fluxes, init_nh_state_rico, &
-            & init_nh_state_rce, init_nh_state_rce_cbl, sfcflx_uniform 
+            & init_nh_state_rce, init_nh_state_rce_cbl, sfcflx_uniform
   PUBLIC :: init_nh_state_gate
 
   !DEFINED PARAMETERS (Stevens 2007 JAS) for init_nh_state_cbl:
@@ -92,7 +92,7 @@ MODULE mo_nh_torus_exp
 !
 !
   !>
-  !! Initialization of prognostic state vector for the nh CBL test case 
+  !! Initialization of prognostic state vector for the nh CBL test case
   !!  without moisture
   !!
   !! @par Revision History
@@ -115,7 +115,7 @@ MODULE mo_nh_torus_exp
     TYPE(t_nh_ref),        INTENT(INOUT):: &  !< reference state vector
       &  ptr_nh_ref
 
-    REAL(wp) :: z_exner_h(1:nproma,ptr_patch%nlev+1), z_help(1:nproma) 
+    REAL(wp) :: z_exner_h(1:nproma,ptr_patch%nlev+1), z_help(1:nproma)
     REAL(wp) :: zvn1, zvn2, zu, zv, zt00, zh00, ex_sfc
     INTEGER  :: jc,jk,jb,i_startblk,i_startidx,i_endidx   !< loop indices
     INTEGER  :: nblks_c,npromz_c,nblks_e,npromz_e
@@ -178,19 +178,19 @@ MODULE mo_nh_torus_exp
 
          ! virtual potential temperature
          ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
-           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) )
       END DO
 
-      !Get hydrostatic exner at the surface using surface pressure 
+      !Get hydrostatic exner at the surface using surface pressure
       z_exner_h(1:nlen,nlevp1) = ex_sfc
- 
+
       !Get exner at full levels starting from exner at surface
       DO jk = nlev, 1, -1
          !exner at next half level after surface
          z_exner_h(1:nlen,jk) = z_exner_h(1:nlen,jk+1) - grav/cpd *     &
                                 ptr_metrics%ddqz_z_full(1:nlen,jk,jb)/ &
                                 ptr_nh_prog%theta_v(1:nlen,jk,jb)
-        
+
          !exner at main levels
          ptr_nh_prog%exner(1:nlen,jk,jb) = 0.5_wp * &
                                      (z_exner_h(1:nlen,jk)+z_exner_h(1:nlen,jk+1))
@@ -208,18 +208,18 @@ MODULE mo_nh_torus_exp
 
       DO jk = 1 , nlev
          ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
-                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)
       END DO !jk
 
     ENDDO !jb
 
 !--------------------------------------------------------------------------------
-    !Mean wind 
+    !Mean wind
 !--------------------------------------------------------------------------------
     i_startblk = ptr_patch%edges%start_blk(2,1)
     DO jb = i_startblk , nblks_e
      CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, i_startidx, i_endidx, 2)
-     DO jk = 1 , nlev 
+     DO jk = 1 , nlev
       DO jc = i_startidx, i_endidx
 
         !Torus geometry is flat so zu is only function of height which is same for all cells
@@ -230,15 +230,15 @@ MODULE mo_nh_torus_exp
         zv   =   v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
 
         zvn1 =  zu * ptr_patch%edges%primal_normal_cell(jc,jb,1)%v1 + &
-                zv * ptr_patch%edges%primal_normal_cell(jc,jb,1)%v2      
- 
+                zv * ptr_patch%edges%primal_normal_cell(jc,jb,1)%v2
+
         jcn  =   ptr_patch%edges%cell_idx(jc,jb,2)
         jbn  =   ptr_patch%edges%cell_blk(jc,jb,2)
         zu   =   u_cbl(1) + u_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
         zv   =   v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-      
+
         zvn2 =  zu * ptr_patch%edges%primal_normal_cell(jc,jb,2)%v1 + &
-                zv * ptr_patch%edges%primal_normal_cell(jc,jb,2)%v2      
+                zv * ptr_patch%edges%primal_normal_cell(jc,jb,2)%v2
 
         ptr_nh_prog%vn(jc,jk,jb) = ptr_int%c_lin_e(jc,1,jb)*zvn1 + &
                                    ptr_int%c_lin_e(jc,2,jb)*zvn2
@@ -246,8 +246,8 @@ MODULE mo_nh_torus_exp
         ptr_nh_ref%vn_ref(jc,jk,jb) = ptr_nh_prog%vn(jc,jk,jb)
       END DO
      END DO
-    END DO     
-    
+    END DO
+
     !W wind and reference
     CALL init_w(ptr_patch, ptr_int, ptr_nh_prog%vn, ptr_metrics%z_ifc, ptr_nh_prog%w)
     CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
@@ -257,7 +257,7 @@ MODULE mo_nh_torus_exp
   END SUBROUTINE init_nh_state_cbl
 
   !>
-  !! Initialization of prognostic state vector for the nh GATE test case 
+  !! Initialization of prognostic state vector for the nh GATE test case
   !!  with moisture
   !!
   !! @par Revision History
@@ -297,7 +297,7 @@ MODULE mo_nh_torus_exp
     CHARACTER(len=max_char_length), PARAMETER :: &
        &  routine = 'mo_nh_torus_exp:init_nh_state_gate'
   !-------------------------------------------------------------------------
-    
+
     !Open formatted file to read ls forcing data
     iunit = find_next_free_unit(10,20)
     OPEN (unit=iunit,file='ini_profils.dat',access='SEQUENTIAL', &
@@ -305,18 +305,18 @@ MODULE mo_nh_torus_exp
 
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), 'open init_profils.dat failed')
-    ENDIF  
+    ENDIF
 
     !Read the input file till end. The order of file assumed is:
-    !Z(m) - w_ls - u_geo - v_geo - ddt_temp_hadv_ls - ddt_temp_rad_ls - ddt_qv_hadv_ls    
-    
+    !Z(m) - w_ls - u_geo - v_geo - ddt_temp_hadv_ls - ddt_temp_rad_ls - ddt_qv_hadv_ls
+
     !Read first line
     READ(iunit,*,IOSTAT=ist)
     IF(ist/=success)CALL finish(TRIM(routine), 'problem reading first line in ls_forcing.dat')
 
     READ(iunit,*,IOSTAT=ist)nk
     IF(ist/=success)CALL finish(TRIM(routine), 'problem reading second line in ls_forcing.dat')
-   
+
     ALLOCATE( zz(nk), z_tp(nk), z_qv(nk), z_u(nk), z_v(nk))
 
     DO jk = nk , 1, -1
@@ -336,7 +336,7 @@ MODULE mo_nh_torus_exp
 
     !Now perform interpolation to grid levels assuming:
     !a) linear interpolation
-    !b) Beyond the last Z level the values are linearly extrapolated 
+    !b) Beyond the last Z level the values are linearly extrapolated
     !c) Assuming model grid is flat-NOT on sphere
 
     CALL vert_intp_linear_1d(zz,z_tp,ptr_metrics%z_mc(2,:,2),tp_gate)
@@ -362,7 +362,7 @@ MODULE mo_nh_torus_exp
     i_rcstartlev = 2
     i_startblk   = ptr_patch%cells%start_blk(i_rcstartlev,1)
 
-    !Set some reference density    
+    !Set some reference density
     rho_sfc = zp_sfc / (rd * les_config(jg)%sst)
 
     ! init surface pressure
@@ -396,26 +396,26 @@ MODULE mo_nh_torus_exp
             z_help(1:nlen) = zt00 + (ptr_metrics%z_mc(1:nlen,jk,jb)-zh00) * dtdz_st
          endif
          ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
-           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) )
       END DO
 
 
       !Get hydrostatic pressure and exner at lowest level
       ptr_nh_diag%pres(1:nlen,nlev,jb) = zp_sfc - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
-      ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+      ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd
 
       !Get exner at other levels
       DO jk = nlev-1, 1, -1
          z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
                                      ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
-   
+
          ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
             &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
       END DO
 
       DO jk = 1 , nlev
         ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
-                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)
       END DO !jk
 
 
@@ -437,10 +437,10 @@ MODULE mo_nh_torus_exp
 
     ENDDO !jb
 
-    !Mean wind 
+    !Mean wind
     DO jb = 1 , nblks_e
      CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
-     DO jk = 1 , nlev 
+     DO jk = 1 , nlev
       DO je = i_startidx, i_endidx
 
         !Torus geometry is flat so zu is only function of height which is same for all cells
@@ -451,15 +451,15 @@ MODULE mo_nh_torus_exp
         zv   =   v_gate(jk)
 
         zvn1 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
-                zv * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2      
- 
+                zv * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2
+
         jcn  =   ptr_patch%edges%cell_idx(je,jb,2)
         jbn  =   ptr_patch%edges%cell_blk(je,jb,2)
         zu   =   u_gate(jk)
         zv   =   v_gate(jk)
-      
+
         zvn2 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
-                zv * ptr_patch%edges%primal_normal_cell(je,jb,2)%v2      
+                zv * ptr_patch%edges%primal_normal_cell(je,jb,2)%v2
 
         ptr_nh_prog%vn(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
                                    ptr_int%c_lin_e(je,2,jb)*zvn2
@@ -467,8 +467,8 @@ MODULE mo_nh_torus_exp
         ptr_nh_ref%vn_ref(je,jk,jb) = ptr_nh_prog%vn(je,jk,jb)
       END DO
      END DO
-    END DO     
-    
+    END DO
+
     !W wind and reference
     ptr_nh_prog%w  = 0._wp; ptr_nh_ref%w_ref  = ptr_nh_prog%w
 
@@ -476,9 +476,9 @@ MODULE mo_nh_torus_exp
 
   END SUBROUTINE init_nh_state_gate
 
-  
+
   !>
-  !! Initialization of prognostic state vector for the nh RICO test case 
+  !! Initialization of prognostic state vector for the nh RICO test case
   !!  with moisture
   !!
   !! @par Revision History
@@ -526,7 +526,7 @@ MODULE mo_nh_torus_exp
     i_rcstartlev = 2
     i_startblk   = ptr_patch%cells%start_blk(i_rcstartlev,1)
 
-    !Set some reference density    
+    !Set some reference density
     rho_sfc = zpsfc / (rd * les_config(jg)%sst)
 
     ! init surface pressure
@@ -549,7 +549,7 @@ MODULE mo_nh_torus_exp
                                               (0.0138_wp - 0.0114_wp * (ptr_metrics%z_mc(1:nlen,jk,jb)-zh1)/(zh2 - zh1)))
         ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = max(ptr_nh_prog%tracer(1:nlen,jk,jb,iqv),             &
                                               (0.0024_wp - 0.0006_wp * (ptr_metrics%z_mc(1:nlen,jk,jb) - zh2)/(4000._wp - zh2)))
-        ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = max(ptr_nh_prog%tracer(1:nlen,jk,jb,iqv), 3e-6_wp)                            
+        ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = max(ptr_nh_prog%tracer(1:nlen,jk,jb,iqv), 3e-6_wp)
       END DO
 
       DO jk = 1, nlev
@@ -560,25 +560,25 @@ MODULE mo_nh_torus_exp
 
        ! virtual potential temperature
        ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
-           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) )
       END DO
 
       !Get hydrostatic pressure and exner at lowest level
       ptr_nh_diag%pres(1:nlen,nlev,jb) = zpsfc - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
-      ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+      ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd
 
       !Get exner at other levels
       DO jk = nlev-1, 1, -1
          z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
                                      ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
-   
+
          ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
             &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
       END DO
 
       DO jk = 1 , nlev
         ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
-                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)
       END DO !jk
 
     ENDDO !jb
@@ -594,10 +594,10 @@ MODULE mo_nh_torus_exp
       ENDDO
     ENDIF
 
-    !Mean wind 
+    !Mean wind
     DO jb = 1 , nblks_e
      CALL get_indices_e( ptr_patch, jb, 1, nblks_e, i_startidx, i_endidx, grf_bdywidth_e+1)
-     DO jk = 1 , nlev 
+     DO jk = 1 , nlev
       DO je = i_startidx, i_endidx
 
         !Torus geometry is flat so zu is only function of height which is same for all cells
@@ -609,16 +609,16 @@ MODULE mo_nh_torus_exp
         zv   =   v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
 
         zvn1 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,1)%v1 + &
-                zv * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2      
- 
+                zv * ptr_patch%edges%primal_normal_cell(je,jb,1)%v2
+
         jcn  =   ptr_patch%edges%cell_idx(je,jb,2)
         jbn  =   ptr_patch%edges%cell_blk(je,jb,2)
         zu   =   u_cbl(1) + u_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
         zu   =   min(zu, -2._wp)
         zv   =   v_cbl(1) + v_cbl(2) * ptr_metrics%z_mc(jcn,jk,jbn)
-      
+
         zvn2 =  zu * ptr_patch%edges%primal_normal_cell(je,jb,2)%v1 + &
-                zv * ptr_patch%edges%primal_normal_cell(je,jb,2)%v2      
+                zv * ptr_patch%edges%primal_normal_cell(je,jb,2)%v2
 
         ptr_nh_prog%vn(je,jk,jb) = ptr_int%c_lin_e(je,1,jb)*zvn1 + &
                                    ptr_int%c_lin_e(je,2,jb)*zvn2
@@ -626,23 +626,23 @@ MODULE mo_nh_torus_exp
         ptr_nh_ref%vn_ref(je,jk,jb) = ptr_nh_prog%vn(je,jk,jb)
       END DO
      END DO
-    END DO     
-    
+    END DO
+
     !W wind and reference
     CALL init_w(ptr_patch, ptr_int, ptr_nh_prog%vn, ptr_metrics%z_ifc, ptr_nh_prog%w)
     CALL sync_patch_array(SYNC_C, ptr_patch, ptr_nh_prog%w)
     ptr_nh_ref%w_ref = ptr_nh_prog%w
-    
+
   END SUBROUTINE init_nh_state_rico
-  
+
 !-------------------------------------------------------------------------
 
 
   SUBROUTINE cbl_stevens_fluxes( t_l, qv_l, p_l, rho_l, tsk, shfx, lhfx )
 
   !-------------------------------------------------------------------------
-  ! Calculate sensible and latent heat fluxes from buoyancy flux for Stevens 
-  ! (2007) case. (code from Wayne Angevine 2013) 
+  ! Calculate sensible and latent heat fluxes from buoyancy flux for Stevens
+  ! (2007) case. (code from Wayne Angevine 2013)
   !
   ! Variable explanations
   ! tsk  = skin temperature
@@ -683,13 +683,13 @@ MODULE mo_nh_torus_exp
 
   ! Calculate saturation mixing ratio at SST (from previous timestep)
   ! The rest of the buoyancy flux goes to sensible heat
-  ! Calculate surface saturated q and q in air at surface 
-   !e1=svp1*exp(svp2*(tsk-tmelt)/(tsk-svp3))                       
+  ! Calculate surface saturated q and q in air at surface
+   !e1=svp1*exp(svp2*(tsk-tmelt)/(tsk-svp3))
    !qsfc=rd/rv*e1/((zp0/1000.)-e1)
     qsfc     = spec_humi(sat_pres_water(tsk),zp0)
     qsfc_air = qsfc * mav
 
-    th_l =  t_l * (p0ref/p_l)**rd_o_cpd 
+    th_l =  t_l * (p0ref/p_l)**rd_o_cpd
 
     ! Calculate hfx,qfx, and SST to keep buoyancy flux constant
     ! Could calculate moisture flux first, but should be OK either way
@@ -705,7 +705,7 @@ MODULE mo_nh_torus_exp
 
 !-------------------------------------------------------------------------
   !>
-  !! Initialization of prognostic state vector for RCE case on torus  
+  !! Initialization of prognostic state vector for RCE case on torus
   !!
   SUBROUTINE init_nh_state_rce( ptr_patch, ptr_nh_prog,  ptr_nh_ref, ptr_nh_diag,  &
     &                           ptr_int, ptr_metrics, lprofile)
@@ -782,7 +782,7 @@ MODULE mo_nh_torus_exp
 
     ! surface density
     rho_sfc = zp0/( rd *  &
-       (th_cbl(1)*ex_sfc*(1._wp+vtmpc1*rh_sfc*spec_humi(sat_pres_water(th_cbl(1)),zp0))) ) 
+       (th_cbl(1)*ex_sfc*(1._wp+vtmpc1*rh_sfc*spec_humi(sat_pres_water(th_cbl(1)),zp0))) )
 
 
     IF (lprofile) THEN ! use an LES-baed initial profile: DEFAULT
@@ -809,7 +809,7 @@ MODULE mo_nh_torus_exp
             & EXP(-ptr_metrics%z_mc(1:nlen,jk,jb)/1500.0_wp)
           END DO
         ELSE ! get iqv from external file
-          ! qsat = incomping specific humidity 
+          ! qsat = incomping specific humidity
           DO jk = 1, nlev
             ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) = zq_sat(jk)
           END DO
@@ -823,11 +823,11 @@ MODULE mo_nh_torus_exp
               z_help(1:nlen) = th_cbl(1) + (4.8_wp/1000._wp)*ptr_metrics%z_mc(1:nlen,jk,jb)
             ELSE ! (ptr_metrics%z_mc(1,jk,jb) < z_tropo) then
               z_help(1:nlen) = thth + (22._wp/1000._wp)*(ptr_metrics%z_mc(1:nlen,jk,jb)-topo_height)
-            END IF 
+            END IF
           ELSE ! get init pot temp from external file
             ! the sound_landseabr profile contains temp, not pot_temp, so in that case
             ! we must convert to pot_temp
-            ! if sound in contains temperature: 
+            ! if sound in contains temperature:
             !z_help(1:nlen) = zpot_temp(jk)/ptr_metrics%exner_ref_mc(1:nlen,jk,jb)
             ! if sound in contains theta:
             z_help(1:nlen) = zpot_temp(jk)
@@ -835,19 +835,19 @@ MODULE mo_nh_torus_exp
 
           ! virtual potential temperature
           ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
-            vtmpc1*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+            vtmpc1*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) )
         END DO
 
-        !Get hydrostatic exner at the surface using surface pressure 
+        !Get hydrostatic exner at the surface using surface pressure
         z_exner_h(1:nlen,nlev+1) = ex_sfc
- 
+
         !Get exner at full levels starting from exner at surface
         DO jk = nlev, 1, -1
           !exner at next half level after surface
           z_exner_h(1:nlen,jk) = z_exner_h(1:nlen,jk+1) - grav/cpd *    &
                                  ptr_metrics%ddqz_z_full(1:nlen,jk,jb)/ &
                                  ptr_nh_prog%theta_v(1:nlen,jk,jb)
-        
+
           !exner at main levels
           ptr_nh_prog%exner(1:nlen,jk,jb) = 0.5_wp * &
                                       (z_exner_h(1:nlen,jk)+z_exner_h(1:nlen,jk+1))
@@ -865,7 +865,7 @@ MODULE mo_nh_torus_exp
 
         DO jk = 1 , nlev
           ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
-                                           ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+                                           ptr_nh_prog%theta_v(1:nlen,jk,jb)
         END DO !jk
 
       ENDDO !jb
@@ -895,18 +895,18 @@ MODULE mo_nh_torus_exp
 
            ! virtual potential temperature
            ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
-             0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+             0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) )
         END DO
 
         !Get hydrostatic pressure and exner at lowest level
         ptr_nh_diag%pres(1:nlen,nlev,jb)  = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
-        ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+        ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd
 
         !Get exner at other levels
         DO jk = nlev-1, 1, -1
            z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
                                        ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
-   
+
            ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
               &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
         END DO
@@ -923,37 +923,37 @@ MODULE mo_nh_torus_exp
 
         DO jk = 1 , nlev
           ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
-                                           ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+                                           ptr_nh_prog%theta_v(1:nlen,jk,jb)
         END DO !jk
 
       ENDDO !jb
     ENDIF ! lprofile
-    
+
   !--------------------------------------------------------------------------------
-    !Mean wind 
+    !Mean wind
   !--------------------------------------------------------------------------------
     i_startblk = ptr_patch%edges%start_blk(2,1)
     DO jb = i_startblk , nblks_e
      CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, i_startidx, i_endidx, 2)
-     DO jk = 1 , nlev 
+     DO jk = 1 , nlev
       DO jc = i_startidx, i_endidx
 
         !Torus geometry is flat so zu is only function of height which is same for all cells
         jcn  =   ptr_patch%edges%cell_idx(jc,jb,1)
         jbn  =   ptr_patch%edges%cell_blk(jc,jb,1)
         zu   =   u_cbl(1)*EXP(-ptr_metrics%z_mc(jcn,jk,jbn)/500._wp)
-        zv   =   0._wp 
+        zv   =   0._wp
 
         zvn1 =  zu * ptr_patch%edges%primal_normal_cell(jc,jb,1)%v1 + &
-                zv * ptr_patch%edges%primal_normal_cell(jc,jb,1)%v2      
- 
+                zv * ptr_patch%edges%primal_normal_cell(jc,jb,1)%v2
+
         jcn  =   ptr_patch%edges%cell_idx(jc,jb,2)
         jbn  =   ptr_patch%edges%cell_blk(jc,jb,2)
         zu   =   u_cbl(1)*EXP(-ptr_metrics%z_mc(jcn,jk,jbn)/500._wp)
-        zv   =   0._wp 
-      
+        zv   =   0._wp
+
         zvn2 =  zu * ptr_patch%edges%primal_normal_cell(jc,jb,2)%v1 + &
-                zv * ptr_patch%edges%primal_normal_cell(jc,jb,2)%v2      
+                zv * ptr_patch%edges%primal_normal_cell(jc,jb,2)%v2
 
         ptr_nh_prog%vn(jc,jk,jb) = ptr_int%c_lin_e(jc,1,jb)*zvn1 + &
                                    ptr_int%c_lin_e(jc,2,jb)*zvn2
@@ -961,7 +961,7 @@ MODULE mo_nh_torus_exp
         ptr_nh_ref%vn_ref(jc,jk,jb) = ptr_nh_prog%vn(jc,jk,jb)
       END DO
      END DO
-    END DO     
+    END DO
 
 
     !W wind and reference
@@ -973,7 +973,7 @@ MODULE mo_nh_torus_exp
   END SUBROUTINE init_nh_state_rce
 
   !>
-  !! Initialization of prognostic state vector for the nh CBL test case 
+  !! Initialization of prognostic state vector for the nh CBL test case
   !!  with moisture for the radiative convective equilibrium testcase
   !!
   !! @par Revision History
@@ -1063,18 +1063,18 @@ MODULE mo_nh_torus_exp
 
          ! virtual potential temperature
          ptr_nh_prog%theta_v(1:nlen,jk,jb) = z_help(1:nlen) * ( 1._wp + &
-           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) ) 
+           0.61_wp*ptr_nh_prog%tracer(1:nlen,jk,jb,iqv) - ptr_nh_prog%tracer(1:nlen,jk,jb,iqc) )
       END DO
 
       !Get hydrostatic pressure and exner at lowest level
       ptr_nh_diag%pres(1:nlen,nlev,jb)  = zp0 - rho_sfc * ptr_metrics%geopot(1:nlen,nlev,jb)
-      ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd 
+      ptr_nh_prog%exner(1:nlen,nlev,jb) = (ptr_nh_diag%pres(1:nlen,nlev,jb)/p0ref)**rd_o_cpd
 
       !Get exner at other levels
       DO jk = nlev-1, 1, -1
          z_help(1:nlen) = 0.5_wp * ( ptr_nh_prog%theta_v(1:nlen,jk,jb) +  &
                                      ptr_nh_prog%theta_v(1:nlen,jk+1,jb) )
-   
+
          ptr_nh_prog%exner(1:nlen,jk,jb) = ptr_nh_prog%exner(1:nlen,jk+1,jb) &
             &  -grav/cpd*ptr_metrics%ddqz_z_half(1:nlen,jk+1,jb)/z_help(1:nlen)
       END DO
@@ -1091,7 +1091,7 @@ MODULE mo_nh_torus_exp
 
       DO jk = 1 , nlev
         ptr_nh_prog%rho(1:nlen,jk,jb) = (ptr_nh_prog%exner(1:nlen,jk,jb)**cvd_o_rd)*p0ref/rd / &
-                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)     
+                                         ptr_nh_prog%theta_v(1:nlen,jk,jb)
       END DO !jk
 
     ENDDO !jb
@@ -1102,12 +1102,12 @@ MODULE mo_nh_torus_exp
     ptr_nh_prog%w     = 0._wp
     ptr_nh_ref%w_ref  = ptr_nh_prog%w
 
-  END SUBROUTINE init_nh_state_rce_cbl 
+  END SUBROUTINE init_nh_state_rce_cbl
 !-------------------------------------------------------------------------
 !
 ! This subroutine creates a simple two valued field for the sensible heat flux
-! and the water vapor flux.  The domain is simply divided in two with the 
-! division determined by the longitude value given.  on each side of the 
+! and the water vapor flux.  The domain is simply divided in two with the
+! division determined by the longitude value given.  on each side of the
 ! division the sensible and latent heat fluxes have different values.
 !
   SUBROUTINE sfcflx_uniform(ptr_patch, shflux_sfc, sh_high, sh_low, qvflux_sfc,   &
@@ -1157,7 +1157,7 @@ MODULE mo_nh_torus_exp
 !>
 !  theta & qv are read from vprof_in file
 !
-!  both of these are then interpolated to model levels 
+!  both of these are then interpolated to model levels
 !
 !!
 SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
@@ -1186,7 +1186,7 @@ SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
        &   'mo_nh_torus_exp:read_ext_profile'
 
   INTEGER :: ist, iunit, iunit2
-  INTEGER :: jk, klev 
+  INTEGER :: jk, klev
 
   !-------------------------------------------------------------------------
 
@@ -1243,7 +1243,7 @@ SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
 
   write(*,*) 'incoming data fields from file ',file1
   write(*,*) 'height, temp, q_sat_mn, wind_u, wind_v'
-  DO jk=klev,1,-1 
+  DO jk=klev,1,-1
     READ (iunit,*,IOSTAT=ist) height(jk), temp(jk), q_sat_mn(jk), wind_u(jk), wind_v(jk)
   !  write(*,*) 'VALUES FROM PROFILE ARE: ',height(jk),temp(jk),q_sat_mn(jk)
     IF(ist/=success)THEN
@@ -1252,7 +1252,7 @@ SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
   END DO
   !Now perform interpolation to grid levels assuming:
   !a) linear interpolation
-  !b) Beyond the last Z level the values are linearly extrapolated 
+  !b) Beyond the last Z level the values are linearly extrapolated
   !c) Assuming model grid is flat-NOT on sphere
 
   CALL vert_intp_linear_1d(height,temp,ptr_metrics%z_mc(2,:,2),z_temp)
@@ -1261,7 +1261,7 @@ SUBROUTINE  read_ext_profile(nlev,ptr_metrics,pot_temp,q_sat)
 
   q_sat = z_qsat*0.001_wp
   pot_temp = z_temp
-  
+
   DEALLOCATE(height)
   DEALLOCATE(temp)
   DEALLOCATE(wind_u)

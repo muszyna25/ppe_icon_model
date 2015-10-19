@@ -87,7 +87,7 @@ create_dec()
   if [ "x$use_icon_comm" != "x.true." ]; then
     comm_method=0
   fi
-  exp_name=${outname}_${atmo_dyn_gridname}_${nlevels}levels.${division_method}decm_${comm_method}-comm.${nodes}nodes.${redrad_split_factor}radsplit.${nproma}nproma.${dec_size}procs
+  exp_name=${outname}_${atmo_dyn_gridname}_${nlevels}levels.${division_method}decm_${comm_method}-comm.${nodes}nodes.${nproma}nproma.${dec_size}procs
   runname=exp.${exp_name}.run
 
 #   node_ratio=$(echo "scale=9; ${nodes} / ${reference_nodes} " | bc)
@@ -110,7 +110,7 @@ create_dec()
     advection_substepping=$advection_substepping  vwind_implicitness=${vwind_implicitness} max_send_recv_buffer_size=${max_send_recv_buffer_size} \
     msg_level=${msg_level} top_of_atmo=${top_of_atmo} damp_height=${damp_height} ntasks_per_node=${ntasks_per_node} use_physics_barrier=$use_physics_barrier \
     restart_atmo_from="$restart_atmo_from" division_file_name="$division_file_name" radiation_decomposition_file="$radiation_decomposition_file" \
-    cpcommand="$cpcommand" redrad_split_factor=$redrad_split_factor
+    cpcommand="$cpcommand"
 # 
 #   # queue="express"
 # 
@@ -190,7 +190,6 @@ set_default_parameters()
   icon_comm_method=1
   iorder_sendrecv=1
   radiation_decomposition_file=""
-  redrad_split_factor=0
   division_keyword=""
   ndays=10
   msg_level=0
@@ -346,7 +345,7 @@ create_seq_on_blizzard()
   iorder_sendrecv=1
 
   grids_folder=/work/mh0287/leonidas.public/grids/grids.new
-  division_method=0
+  division_method=201
   parallel_radiation_mode=0
   setup_name='nat_ape_24cells'
   #---------------------------------
@@ -390,7 +389,7 @@ create_comm_test_on_blizzard()
    run="true"
   #==============================================================================
   setup_name="comm-test"
-  division_method=0
+  division_method=201
   create_weak_scaling "${setup_name}" 96 "642"
   division_method=1
   create_weak_scaling "${setup_name}" 96 "642"
@@ -403,7 +402,7 @@ create_comm_test_on_blizzard()
   exit
   #==============================================================================
   ndays=60
-  division_method=0
+  division_method=201
   create_weak_scaling "comm-weaktest_hexdec" 24
   create_weak_scaling "comm-weaktest_hexdec" 96
   create_weak_scaling "comm-weaktest_hexdec" 384 
@@ -433,7 +432,7 @@ create_weak_scaling_on_blizzard()
   icon_comm_method=103
   iorder_sendrecv=1
 
-  division_method=0
+  division_method=201
   parallel_radiation_mode=0
   setup_name='nat_ape_24cells'
   #---------------------------------
@@ -728,12 +727,10 @@ if [ $run_160km = yes ] ; then
 #   nproma_list=(16 16 20  10  8)
   nodes_list=(  1  4  8  16 )
   nproma_list=(16 16 20  10 )
-  redrad_split_factor=8
   create_strong_scaling "$setup_grid" "${setup_name}"
 
   nodes_list=(  27)
   nproma_list=( 12)
-  redrad_split_factor=6
   create_strong_scaling "$setup_grid" "${setup_name}"
 fi
 
@@ -746,7 +743,6 @@ if [ $run_140km = yes ] ; then
   oneday_time=1.8
   print_grid_info
 
-  redrad_split_factor=8 
   nodes_list=( 1  5 12 23)
   nproma_list=(9  9  9  9)
   create_strong_scaling "$setup_grid" "$setup_name"
@@ -755,7 +751,7 @@ if [ $run_140km = yes ] ; then
   #division_method=1
   #create_weak_scaling "${setup_name}" 24 "$setup_hexdec" "12"
 
-  division_method=0
+  division_method=201
   #create_weak_scaling "${setup_name}_pairop" 48 "$setup_hexdec" "12"
   create_weak_scaling "${setup_name}" 24 "$setup_hexdec" "12"
 
@@ -770,17 +766,15 @@ if [ $run_120km = yes ] ; then
   oneday_time=1.25
   print_grid_info
 
-  redrad_split_factor=8 
   nodes_list=( 2 6 27)
   nproma_list=(9 9 10)
   create_strong_scaling "$setup_grid" "$setup_name"
-  redrad_split_factor=6
   nodes_list=( 45)
   nproma_list=(12)
   create_strong_scaling "$setup_grid" "$setup_name"
 
   # hex decomposition
-  division_method=0
+  division_method=201
   create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
 
 fi
@@ -796,7 +790,6 @@ if [ $run_105km = yes ] ; then
   oneday_time=1.5
   print_grid_info
  
-  redrad_split_factor=8 
 #   nodes_list=(  2  6 12 24)
 #   nproma_list=(12 12 10 10)
   nodes_list=(  6 12 24)
@@ -804,7 +797,7 @@ if [ $run_105km = yes ] ; then
   create_strong_scaling "$setup_grid" "$setup_name"
 
   # hex decomposition
-  division_method=0
+  division_method=201
   create_weak_scaling "${setup_name}" 24 "$setup_hexdec" "12"
 
 fi
@@ -845,14 +838,13 @@ create_nat_ape_75-100km()
   oneday_time=1.3
   print_grid_info
 
-  redrad_split_factor=8 
 #   nodes_list=(  4 12 21 42)
 #   nproma_list=(12 11 11 11)
   nodes_list=(  4 12 42)
   nproma_list=(12 11 11)
   create_strong_scaling "$setup_grid" "$setup_name"
 
-  division_method=0
+  division_method=201
   create_weak_scaling "${setup_name}" 24 "$setup_hexdec" "12"
 
  
@@ -866,17 +858,15 @@ create_nat_ape_75-100km()
 #   oneday_time=15
 #   print_grid_info
 # 
-#   redrad_split_factor=8 
 #   nodes_list=(  4 12 40 )
 #   nproma_list=(12 10 12 )
 #   create_strong_scaling "$setup_grid" "$setup_name"
-#   redrad_split_factor=6 
 #   nodes_list=( 80 )
 #   nproma_list=(12 )
 #   create_strong_scaling "$setup_grid" "$setup_name"
 # 
 #   # hex decomposition
-#   division_method=0
+#   division_method=201
 #   create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
   #---------------------------------
 
@@ -889,14 +879,12 @@ create_nat_ape_75-100km()
   oneday_time=1.8
   print_grid_info
 
-  redrad_split_factor=8
 #   nodes_list=(  4 10 20 40 80)
 #   nproma_list=(16 16 16 16  8)
   nodes_list=( 10 20 40 80)
   nproma_list=(16 16 16  8)
   create_strong_scaling "$setup_grid" "${setup_name}"
 
-  redrad_split_factor=6
   nodes_list=(  107)
   nproma_list=( 12)
   create_strong_scaling "$setup_grid" "${setup_name}"
@@ -940,16 +928,14 @@ create_nat_ape_35-70km()
 
 #   nodes_list=( 8  20   90   180)
 #   nproma_list=(9  12   12    12)
-  redrad_split_factor=8
   nodes_list=( 20   90)
   nproma_list=(12   12)
   create_strong_scaling "$setup_grid" "$setup_name"
-  redrad_split_factor=6
   nodes_list=( 180)
   nproma_list=( 12)
   create_strong_scaling "$setup_grid" "$setup_name"
 
-  division_method=0
+  division_method=201
   create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
   
   #---------------------------------
@@ -965,16 +951,14 @@ create_nat_ape_35-70km()
 
 #   nodes_list=( 19  38  152  228)
 #   nproma_list=(12  12   12   16)
-  redrad_split_factor=8
   nodes_list=( 38  152)
   nproma_list=(12   12)
   create_strong_scaling "$setup_grid" "$setup_name"
-  redrad_split_factor=6
   nodes_list=( 228)
   nproma_list=( 16)
   create_strong_scaling "$setup_grid" "$setup_name"
 
-  division_method=0
+  division_method=201
   create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
 
   #---------------------------------
@@ -987,13 +971,11 @@ create_nat_ape_35-70km()
   oneday_time=1.8
   print_grid_info
 
-  redrad_split_factor=8
 #   nodes_list=( 32 64 128 214 234)
 #   nproma_list=(16 10  10  12  11)
   nodes_list=( 32 64 128)
   nproma_list=(16 10  10)
   create_strong_scaling "$setup_grid" "$setup_name"
-  redrad_split_factor=6
   nodes_list=( 244)
   nproma_list=( 11)
   create_strong_scaling "$setup_grid" "$setup_name"
@@ -1009,16 +991,14 @@ create_nat_ape_35-70km()
   oneday_time=2.6
   print_grid_info
 
-  redrad_split_factor=8
   nodes_list=( 34  70)
   nproma_list=(12  12)
   create_strong_scaling "$setup_grid" "$setup_name"
-  redrad_split_factor=6
   nodes_list=( 240)
   nproma_list=(  9)
   create_strong_scaling "$setup_grid" "$setup_name"
 
-  division_method=0
+  division_method=201
   create_weak_scaling "${setup_name}" 96 "$setup_hexdec" "12"
 
 }
@@ -1048,7 +1028,6 @@ create_blizzard_test_01_03_2013()
   iorder_sendrecv=1
   icon_comm_method=0
   parallel_radiation_mode=0
-  redrad_split_factor=0
   division_method=1
 
   #---------------------------------
@@ -1094,7 +1073,6 @@ create_blizzard_test_01_03_2013()
   # now try new setups with re-distribued radiation
   use_icon_comm=".true."
   parallel_radiation_mode=1
-  division_method=104
   
   #---------------------------------
   dt_rad=1800
@@ -1104,7 +1082,6 @@ create_blizzard_test_01_03_2013()
   setup_grid="iconR2B06-grid"
   dtime=72
   vwind_implicitness=0.4  
-  redrad_split_factor=6
   nproma_list=( 21 )
   
   icon_comm_method=1
@@ -1118,7 +1095,6 @@ create_blizzard_test_01_03_2013()
   setup_grid="iconR2B07-grid"
   dtime=36
   vwind_implicitness=0.35
-  redrad_split_factor=8  
   nproma_list=( 21 )
   
   icon_comm_method=1
@@ -1129,7 +1105,7 @@ create_blizzard_test_01_03_2013()
 
   #---------------------------------
   # the hex decompositions
-  division_method=0
+  division_method=201
 
   #---------------------------------
   setup_grid="ico_0026km_hdec07682_dcells096"
@@ -1147,7 +1123,6 @@ create_blizzard_test_01_03_2013()
   dtime=96
   dt_rad=1920
   vwind_implicitness=0.4
-  redrad_split_factor=4 
   
   icon_comm_method=1
   create_dec_run  "$setup_grid" "$setup_name" 7682 12
@@ -1192,7 +1167,6 @@ create_thunder_test_01_03_2013()
   iorder_sendrecv=1
   icon_comm_method=0
   parallel_radiation_mode=0
-  redrad_split_factor=0
   division_method=1
 
   #---------------------------------
@@ -1251,7 +1225,6 @@ create_thunder_test()
   iorder_sendrecv=1
   icon_comm_method=0
   parallel_radiation_mode=0
-  redrad_split_factor=0
   division_method=1
 
   #---------------------------------
@@ -1259,8 +1232,6 @@ create_thunder_test()
   use_icon_comm=".true."
   icon_comm_method=1
   parallel_radiation_mode=1
-  division_method=104
-  redrad_split_factor=8
   #---------------------------------
   setup_grid="iconR2B04-grid"
   dtime=200
@@ -1315,7 +1286,7 @@ exit
 # use_barrier=".false."
 # testbed_mode=0
 # 
-# division_method=0
+# division_method=201
 # outname=icon-testbed_communication-hexdec
 # create_scaling_dec_lowres
 # 

@@ -3,14 +3,12 @@ file (GLOB_RECURSE C_sourcefiles "*.c")
 
 file (GLOB_RECURSE icon_source "icon.f90") 
 file (GLOB_RECURSE grid_command_source "grid_command.f90") 
-file (GLOB_RECURSE partitioner_source "partitioner.f90") 
 
 message (STATUS "icon         : ${icon_source}")
 message (STATUS "grid_command : ${grid_command_source}")
-message (STATUS "partitioner  : ${partitioner_source}")
 
 list (REMOVE_ITEM Fortran_sourcefiles 
-  ${icon_source} ${grid_command_source} ${partitioner_source})
+  ${icon_source} ${grid_command_source})
 
 add_executable (icon ${icon_source} 
   ${Fortran_sourcefiles} 
@@ -29,15 +27,6 @@ add_executable (grid_command ${grid_command_source}
   ${Fortran_sourcefiles} 
   ${C_sourcefiles})
 target_link_libraries (grid_command
-  ${MPI_Fortran_LIBRARIES} 
-  ${NETCDF_LIBRARIES} 
-  ${HDF5_LIBRARIES} 
-  mtime support lapack blas)
-
-add_executable (partitioner ${partitioner_source} 
-  ${Fortran_sourcefiles} 
-  ${C_sourcefiles})
-target_link_libraries (partitioner
   ${MPI_Fortran_LIBRARIES} 
   ${NETCDF_LIBRARIES} 
   ${HDF5_LIBRARIES} 
