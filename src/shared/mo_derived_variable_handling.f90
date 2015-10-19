@@ -38,7 +38,7 @@ MODULE mo_derived_variable_handling
   TYPE(vector)    , SAVE :: meanVariables(10)
   TYPE(event)     , SAVE, TARGET :: meanEvents(10)
   TYPE(t_var_list)   :: mean_stream_list
-  INTEGER, PARAMETER :: ntotal = 1024
+  INTEGER, PARAMETER :: ntotal = 10
 
   PUBLIC :: init_mean_stream
   PUBLIC :: finish_mean_stream
@@ -98,7 +98,7 @@ CONTAINS
     
     meanMap = map()
     do i=1,size(meanVariables,1)
-    meanVariables(i)= vector(debug=.true.)
+    meanVariables(i)= vector(debug=.false.)
     enddo
 
     WRITE(listname,'(a)')  'mean_stream_list'
@@ -110,6 +110,7 @@ CONTAINS
   !!
   !!
   SUBROUTINE finish_mean_stream()
+    IF (my_process_is_stdio()) THEN
     CALL print_green(&
          '===================================================================')
     CALL print_green('FINISH MAP:')
@@ -123,14 +124,14 @@ CONTAINS
 !!!    PRINT *,periods_buffer
 !!!    CALL print_green(&
 !!!         '===================================================================')
+    END IF
   END SUBROUTINE finish_mean_stream
 
   !>
   !!
   !!
-  SUBROUTINE collect_meanstream_variables(sim_step_info, src_varlists, patch)
+  SUBROUTINE collect_meanstream_variables(sim_step_info, patch)
     TYPE(t_sim_step_info) :: sim_step_info
-    TYPE(t_var_list)      :: src_varlists(:)
     type(t_patch)         :: patch
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::collect_meanStream_variables"
@@ -229,7 +230,7 @@ CONTAINS
       END IF
       p_onl => p_onl%next
     END DO
-    IF ( my_process_is_stdio() ) THEN
+    IF ( my_process_is_stdio() .and. false) THEN
       call print_aqua('collected map {{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{')
       keys = meanMap%get_keys()
       call keys%print()
