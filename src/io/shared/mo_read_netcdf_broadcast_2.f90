@@ -54,7 +54,9 @@ MODULE mo_read_netcdf_broadcast_2
   PUBLIC :: nf
   PUBLIC :: netcdf_open_input, netcdf_close
 
+  PUBLIC :: netcdf_read_att_int
   PUBLIC :: netcdf_read_0D_real
+  PUBLIC :: netcdf_read_0D_int
   PUBLIC :: netcdf_read_1D
   PUBLIC :: netcdf_read_1D_extdim_time
   PUBLIC :: netcdf_read_1D_extdim_extdim_time
@@ -73,9 +75,17 @@ MODULE mo_read_netcdf_broadcast_2
     CLASS(t_scatterPattern), POINTER :: p
   END TYPE t_p_scatterPattern
 
+  INTERFACE netcdf_read_att_int
+    MODULE PROCEDURE netcdf_read_ATT_INT
+  END INTERFACE netcdf_read_att_int
+
   INTERFACE netcdf_read_0D_real
     MODULE PROCEDURE netcdf_read_REAL_0D
   END INTERFACE netcdf_read_0D_real
+
+  INTERFACE netcdf_read_0D_int
+    MODULE PROCEDURE netcdf_read_INT_0D
+  END INTERFACE netcdf_read_0D_int
 
   INTERFACE netcdf_read_1D
     MODULE PROCEDURE netcdf_read_REAL_1D
@@ -131,6 +141,41 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
+  FUNCTION netcdf_read_ATT_INT(file_id, variable_name, attribute_name) result(res)
+
+    INTEGER                      :: res
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+    CHARACTER(LEN=*), INTENT(IN) :: attribute_name
+
+    INTEGER :: varid, var_type, var_dims
+    INTEGER :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+    INTEGER :: zlocal(1)
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_netcdf_broadcast_2:netcdf_read_ATT_INT'
+
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
+        &                 var_size, var_dim_name)
+
+      CALL nf(nf_get_att_int(file_id, varid, attribute_name, zlocal(:)), &
+              attribute_name)
+    ENDIF
+
+    ! broadcast...
+    CALL broadcast_array(zlocal)
+
+    res=zlocal(1)
+
+  END FUNCTION netcdf_read_ATT_INT
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
   FUNCTION netcdf_read_REAL_0D(file_id, variable_name) result(res)
 
     REAL(wp)            :: res
@@ -160,6 +205,39 @@ CONTAINS
     res=zlocal(1)
 
   END FUNCTION netcdf_read_REAL_0D
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  FUNCTION netcdf_read_INT_0D(file_id, variable_name) result(res)
+
+    INTEGER                      :: res
+
+    INTEGER, INTENT(IN)          :: file_id
+    CHARACTER(LEN=*), INTENT(IN) :: variable_name
+
+    INTEGER :: varid, var_type, var_dims
+    INTEGER :: var_size(MAX_VAR_DIMS)
+    CHARACTER(LEN=filename_max) :: var_dim_name(MAX_VAR_DIMS)
+    INTEGER :: zlocal(1)
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = &
+      'mo_read_netcdf_broadcast_2:netcdf_read_INT_0D'
+
+
+    IF( my_process_is_mpi_workroot()  ) THEN
+      CALL netcdf_inq_var(file_id, variable_name, varid, var_type, var_dims, &
+        &                 var_size, var_dim_name)
+
+      CALL nf(nf_get_var_int(file_id, varid, zlocal(:)), variable_name)
+    ENDIF
+
+    ! broadcast...
+    CALL broadcast_array(zlocal)
+
+    res=zlocal(1)
+
+  END FUNCTION netcdf_read_INT_0D
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

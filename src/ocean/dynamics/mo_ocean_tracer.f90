@@ -1060,7 +1060,7 @@ CONTAINS
     TYPE(t_operator_coeff),INTENT(inout) :: p_op_coeff
     !
     !Local variables
-    INTEGER :: startLevel, endLevel
+    INTEGER :: startLevel, fin_level
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: start_edge_index, end_edge_index
     INTEGER :: je, level, jb,jc         !< index of edge, vert level, block
@@ -1106,7 +1106,7 @@ CONTAINS
     ! default is flux_calculation_horz = fct_horz
  !   IF( flux_calculation_horz == miura_order1 ) THEN
 !ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, je, edge_cell_index, edge_cell_block, &
-!ICON_OMP endLevel, level, upwind_index) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP fin_level, level, upwind_index) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, jb, start_edge_index, end_edge_index)
       DO je = start_edge_index, end_edge_index
@@ -1120,9 +1120,9 @@ CONTAINS
 !         edge_vert_index(2) = patch_2d%edges%vertex_idx(je,jb,2)
 !         edge_vert_block(2) = patch_2d%edges%vertex_blk(je,jb,2)
 
-        endLevel  = patch_3d%p_patch_1d(1)%dolic_e(je,jb)
+        fin_level  = patch_3d%p_patch_1d(1)%dolic_e(je,jb)
 
-        DO level = startLevel, endLevel
+        DO level = startLevel, fin_level
                         p_os%p_diag%p_vn_mean(je,level,jb)%x = 0.5_wp *                          &
                           & (p_os%p_diag%p_vn(edge_cell_index(1), level, edge_cell_block(1))%x + &
                           &  p_os%p_diag%p_vn(edge_cell_index(2), level, edge_cell_block(2))%x)
@@ -1137,7 +1137,7 @@ CONTAINS
 
         END DO
 
-        DO level = startLevel, endLevel
+        DO level = startLevel, fin_level
           upwind_index = MERGE(1, 2, p_os%p_diag%vn_time_weighted(je,level,jb) > 0.0_wp)
 
           p_op_coeff%upwind_cell_idx(je,level,jb) = edge_cell_index(upwind_index)

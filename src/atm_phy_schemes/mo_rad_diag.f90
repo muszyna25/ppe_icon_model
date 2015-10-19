@@ -5,14 +5,14 @@
 !! @remarks
 !!   collect routines here that write variables of the radiation part onto
 !!   output variables contained in mo_echam_phy_memory.f90
-!!   
+!!
 !!
 !! @author Sebastian Rast, MPI-M, Hamburg (2015-06-19): Original source
 !!
 !! $ID: n/a$
 !!
 !! @par Origin
-!! Old rad_aero_diag of mo_radiation relocated here because it is needed in 
+!! Old rad_aero_diag of mo_radiation relocated here because it is needed in
 !! in the psrad radiation also.
 !!
 !! @par Copyright and License
@@ -50,7 +50,7 @@ SUBROUTINE rad_aero_diag (                                  &
       & kbdim           ,klev            ,kpband          , &
       & kpsw            ,paer_tau_lw_vr  ,paer_tau_sw_vr  , &
       & paer_piz_sw_vr  ,paer_cg_sw_vr                      )
-      
+
       INTEGER, INTENT(in)    :: kg      ! domain index
       INTEGER, INTENT(in)    :: kb      ! block index
       INTEGER, INTENT(in)    :: kce     ! actual block length

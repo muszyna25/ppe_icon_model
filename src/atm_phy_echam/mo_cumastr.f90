@@ -1,10 +1,7 @@
 #ifdef __xlC__
 @PROCESS STRICT
 #endif
-#ifndef __xlC__
-#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
-#define SWDIV_NOCHK(a,b) ((a)/(b))
-#endif
+#include "fsel.inc"
 
 !>
 !! @brief Master routine - provides interface for cumulus parameterization
@@ -33,7 +30,7 @@
 !!        (5) Do downdraft calculations:
 !!              (A) Determine values at lfs in 'cudlfs'
 !!              (B) Determine moist descent in 'cuddraf'
-!!              (C) Recalculate cloud base massflux considering the 
+!!              (C) Recalculate cloud base massflux considering the
 !!                  effect of cumulus-downdrafts
 !!        (6) Do final cloud ascent in 'cuasc'
 !!        (7) Do final adjustments to convective fluxes in 'cuflx',
@@ -86,7 +83,7 @@ MODULE mo_cumastr
 #endif
 
 
-CONTAINS 
+CONTAINS
   !>
   !!
   SUBROUTINE cucall(   kproma, kbdim, klev, klevp1, klevm1,            &! in
@@ -173,14 +170,14 @@ CONTAINS
     REAL(wp)::  ztopmax(kbdim)
     LOGICAL ::  locum(kbdim),             ldland(kbdim)
     !
-    !  Local scalars: 
+    !  Local scalars:
     REAL(wp):: ztmst, zxlp1, zxip1
     INTEGER :: ilevmin, jk, jl, jt
 #ifdef __ICON__
     REAL(wp)::  zqte_dyn_phy(kbdim,klev)
 #endif
     !
-    !  Executable statements 
+    !  Executable statements
     !
     !-----------------------------------------------------------------------
     !*    1.           Calculate t,q and qs at main levels
@@ -359,7 +356,7 @@ CONTAINS
       &        puen(kbdim,klev),        pven(kbdim,klev),                  &
       &        pqsen(kbdim,klev),       pgeo(kbdim,klev),                  &
       &        paphp1(kbdim,klevp1),                                       &
-      &        pverv(kbdim,klev)                                            
+      &        pverv(kbdim,klev)
     REAL(wp):: ptu(kbdim,klev),         pqu(kbdim,klev),                   &
       &        plu(kbdim,klev),         plude(kbdim,klev),                 &
       &        pmfu(kbdim,klev),        pmfd(kbdim,klev),                  &
@@ -502,7 +499,7 @@ CONTAINS
       END DO
     END DO
     !
-    !*             (C) Determine moisture supply for boundary layer and determine 
+    !*             (C) Determine moisture supply for boundary layer and determine
     !*                 cloud base massflux ignoring the effects of downdrafts
     !*                 at this stage
     !                  ---------------------------------------------------------------
