@@ -329,7 +329,7 @@ MODULE mo_les_utilities
     TYPE(t_patch),     INTENT(in), TARGET :: p_patch
     TYPE(t_nh_metrics),INTENT(in), TARGET :: p_metrics 
     REAL(wp), DIMENSION(:,:,:), INTENT(in):: thetav
-    REAL(wp), INTENT(OUT)                 :: bru_vais(:,:,:)
+    REAL(wp), INTENT(INOUT)               :: bru_vais(:,:,:)
 
     REAL(wp) :: thetav_ic(nproma,p_patch%nlev+1,p_patch%nblks_c)
     REAL(wp) :: term1, qs, temp_ic
