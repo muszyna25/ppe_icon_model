@@ -44,8 +44,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_name_list_output,     ONLY:  write_name_list_output, &
        &                              close_name_list_output
   USE mo_output_event_types,   ONLY: t_sim_step_info
-  USE mtime,                   ONLY: setCalendar, PROLEPTIC_GREGORIAN, &
-    &                                datetimeToString
+  USE mtime,                   ONLY: datetimeToString
 
 
   IMPLICIT NONE
@@ -159,7 +158,6 @@ CONTAINS
     !------------------------------------------------------------------
 
     IF (output_mode%l_nml) THEN
-      CALL setCalendar(PROLEPTIC_GREGORIAN)
       ! compute sim_start, sim_end
       CALL datetimeToString(tc_exp_startdate, sim_step_info%sim_start)
       CALL datetimeToString(tc_exp_stopdate, sim_step_info%sim_end)

@@ -159,7 +159,6 @@ MODULE mo_nh_stepping
   USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap
   USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, &
-       &                                 PROLEPTIC_GREGORIAN, setCalendar,                            &
        &                                 timedelta, newTimedelta, deallocateTimedelta,                &
        &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,                 &
        &                                 MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
@@ -600,11 +599,6 @@ MODULE mo_nh_stepping
     lcfl_watch_mode = .FALSE.
   ENDIF
   
-  ! "setCalendar" should only be called once! Seems to be used more
-  ! than once and deleted inbetween, so it is necessary to call here,
-  ! needs to be tracked back
-  CALL setCalendar(PROLEPTIC_GREGORIAN)
-
   ! set events, group and the events
 
   CALL message('','')

@@ -95,8 +95,9 @@ MODULE mo_io_restart
     &                                 restart_attributes_count_bool,                &
     &                                 read_and_bcast_attributes
   USE mo_scatter,               ONLY: scatter_array
-  USE mtime,                    ONLY: datetime, datetimeToString,                   &
-    &                                 MAX_DATETIME_STR_LEN
+  USE mtime,                    ONLY: datetime, newDatetime, deallocateDatetime,    &
+    &                                 MAX_DATETIME_STR_LEN,                         &
+    &                                 datetimeToPosixString, datetimeToString
   USE mo_datetime,              ONLY: t_datetime,iso8601,iso8601extended
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
@@ -1126,11 +1127,12 @@ CONTAINS
     INTEGER :: inlev_soil, inlev_snow, i, nice_class
     INTEGER :: ndepth    ! depth of n
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
-    CHARACTER(len=MAX_CHAR_LENGTH)  :: string
+    CHARACTER(len=MAX_CHAR_LENGTH)      :: string
 
-    CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
+    CHARACTER(len=MAX_CHAR_LENGTH)      :: attname   ! attribute name
     INTEGER :: jp, jp_end   ! loop index and array size
-    CHARACTER(len=MAX_DATETIME_STR_LEN) :: dstring
+    TYPE(datetime), POINTER             :: restart_date => NULL()
+    CHARACTER(len=MAX_DATETIME_STR_LEN) :: dstring, fmtstring
 
     TYPE (t_keyword_list), POINTER :: keywords => NULL()
 
@@ -1299,10 +1301,15 @@ CONTAINS
                      & inlev_snow,        &! total # of vertical snow layers (TERRA)
                      & nice_class         )! total # of ice classes (sea ice)
 
+    restart_date => newDatetime(private_restart_time)
+    fmtstring = '%Y%m%dT%H%M%SZ'
+    CALL datetimeToPosixString(restart_date, dstring, fmtstring)
+    CALL deallocateDatetime(restart_date)
+
     ! Open new file, write data, close and then clean-up.
     CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(patch%grid_filename)),  keywords)
     CALL associate_keyword("<idom>",       TRIM(int2string(jg, "(i2.2)")),                 keywords)
-    CALL associate_keyword("<rsttime>",    TRIM(private_restart_time),                     keywords)
+    CALL associate_keyword("<rsttime>",    TRIM(dstring),                                  keywords)
     CALL associate_keyword("<mtype>",      TRIM(model_type),                               keywords)
     ! replace keywords in file name
     string = TRIM(with_keywords(keywords, TRIM(restart_filename)))
@@ -1472,32 +1479,26 @@ CONTAINS
   SUBROUTINE write_time_to_restart (this_list)
     TYPE (t_var_list), INTENT(inout) :: this_list
     !
+    TYPE(datetime), POINTER :: my_restart_time => NULL()
+    CHARACTER(len=MAX_DATETIME_STR_LEN) :: dstring, fmtstring
     INTEGER :: fileID, idate, itime, iret
     !
     fileID = this_list%p%cdiFileID_restart
     !
-    CALL get_date_components(private_restart_time, idate, itime)
+    my_restart_time => newDatetime(private_restart_time)
+    fmtstring = '%Y%m%d'
+    CALL datetimeToPosixString(my_restart_time, dstring, fmtstring)
+    READ(dstring, '(i10)') idate
+    fmtstring = '%H%M%S'
+    CALL datetimeToPosixString(my_restart_time, dstring, fmtstring)
+    READ(dstring, '(i10)') itime
+    CALL deallocateDatetime(my_restart_time)
     !
     CALL taxisDefVdate(this_list%p%cdiTaxisID, idate)
     CALL taxisDefVtime(this_list%p%cdiTaxisID, itime)
     !
     iret = streamDefTimestep(fileID, this_list%p%cdiTimeIndex)
     this_list%p%cdiTimeIndex = this_list%p%cdiTimeIndex + 1
-    !
-  CONTAINS
-    !
-    SUBROUTINE get_date_components(iso8601, idate, itime)
-      CHARACTER(len=*), INTENT(in)  :: iso8601
-      INTEGER,          INTENT(out) :: idate, itime
-      !
-      INTEGER :: it, iz
-      !
-      it = INDEX(iso8601, 'T')
-      iz = INDEX(iso8601, 'Z')
-      READ(iso8601(1:it-1), '(i10)') idate
-      READ(iso8601(it+1:iz-1), '(i10)') itime
-      !
-    END SUBROUTINE get_date_components
     !
   END SUBROUTINE write_time_to_restart
 

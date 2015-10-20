@@ -123,8 +123,7 @@ MODULE mo_name_list_output
     &                                     process_mpi_all_test_id, process_mpi_all_workroot_id,     &
     &                                     num_work_procs, p_pe, p_pe_work, p_work_pe0, p_io_pe0
   ! calendar operations
-  USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime,                &
-    &                                     PROLEPTIC_GREGORIAN, setCalendar, resetCalendar, OPERATOR(-),            &
+  USE mtime,                        ONLY: datetime, newDatetime, deallocateDatetime, OPERATOR(-),   &
     &                                     timedelta, newTimedelta, deallocateTimedelta
   ! output scheduling
   USE mo_output_event_handler,      ONLY: is_output_step, check_open_file, check_close_file,        &
@@ -399,7 +398,6 @@ CONTAINS
       END IF
 
       IF (output_file(i)%io_proc_id == p_pe) THEN
-        CALL setCalendar(PROLEPTIC_GREGORIAN)
         ! convert time stamp string into
         ! year/month/day/hour/minute/second values using the mtime
         ! library:
@@ -415,7 +413,6 @@ CONTAINS
         CALL taxisDefVtime(output_file(i)%cdiTaxisID, itime)
         iret = streamDefTimestep(output_file(i)%cdiFileId, output_file(i)%cdiTimeIndex)
         output_file(i)%cdiTimeIndex = output_file(i)%cdiTimeIndex + 1
-        !rr CALL resetCalendar()
       END IF
 
       IF(my_process_is_io()) THEN
@@ -524,8 +521,6 @@ CONTAINS
     TYPE(timedelta), POINTER            :: forecast_delta
     INTEGER                             :: iunit
     TYPE (t_keyword_list), POINTER      :: keywords     => NULL()
-
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
 
     ! compute current forecast time (delta):
     mtime_date     => newDatetime(TRIM(get_current_date(ev)))

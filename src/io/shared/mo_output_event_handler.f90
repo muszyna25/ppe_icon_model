@@ -129,10 +129,8 @@ MODULE mo_output_event_handler
     &                                  p_wait, p_bcast, get_my_global_mpi_id,               &
     &                                  my_process_is_mpi_test, p_pe,                        &
     &                                  my_process_is_mpi_workroot
-  USE mtime,                     ONLY: MAX_DATETIME_STR_LEN,                                &
-    &                                  MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
-    &                                  datetime, timedelta,                                 &
-    &                                  setCalendar, resetCalendar, newTimedelta,            &
+  USE mtime,                     ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,         &
+    &                                  datetime, timedelta,  newTimedelta,                  &
     &                                  deallocateDatetime, datetimeToString,                &
     &                                  newDatetime, OPERATOR(>=),                           &
     &                                  OPERATOR(>), OPERATOR(+), OPERATOR(/=),              &
@@ -626,9 +624,6 @@ CONTAINS
     p_event%event_data%name          = TRIM(name)
     p_event%event_data%sim_start     = TRIM(sim_step_info%sim_start)
 
-    ! initialize event with the "mtime" library:
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
-
     ! count the number of different time intervals for this event (usually 1)
     nintvls = 0
     DO
@@ -820,7 +815,7 @@ CONTAINS
     CALL deallocateDatetime(sim_end)
     CALL deallocateDatetime(run_start)
     CALL deallocateTimedelta(delta)
-    !rr CALL resetCalendar()
+
     DEALLOCATE(mtime_date_string, mtime_sim_steps, &
       &        mtime_exactdate, filename_metadata, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')

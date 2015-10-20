@@ -453,10 +453,6 @@ CONTAINS
       mtime_calendar  = mtime_proleptic_gregorian
       CALL message('','No calendar selected! Use default proleptic Gregorian.')
     END SELECT
-    ! setting the calendar for mtime library is needed for subsequent
-    ! calculations:
-    CALL setCalendar(mtime_calendar) 
-
 
     ! --- Now, we merge ISO time stamp strings from the namelists
     !     "time_nml" and "master_time_control_nml". If both namelist

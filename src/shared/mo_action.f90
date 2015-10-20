@@ -49,10 +49,10 @@ MODULE mo_action
   USE mo_impl_constants,     ONLY: vname_len, MAX_CHAR_LENGTH
   USE mtime,                 ONLY: event, newEvent, datetime, newDatetime,           &
     &                              isCurrentEventActive, deallocateDatetime,         &
-    &                              MAX_DATETIME_STR_LEN, PROLEPTIC_GREGORIAN,        &
+    &                              MAX_DATETIME_STR_LEN,                             &
     &                              MAX_EVENTNAME_STR_LEN, timedelta,                 &
     &                              newTimedelta, deallocateTimedelta,                &
-    &                              setCalendar, getTriggeredPreviousEventAtDateTime, &
+    &                              getTriggeredPreviousEventAtDateTime,              &
     &                              getPTStringFromMS, OPERATOR(>=), OPERATOR(<=)
   USE mo_mtime_extensions,   ONLY: get_datetime_string
   USE mo_util_string,        ONLY: remove_duplicates
@@ -183,9 +183,6 @@ CONTAINS
 
     ! init nvars
     nvars = 0
-
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
-
 
     ! store actionTyp
     act_obj%actionTyp = actionTyp

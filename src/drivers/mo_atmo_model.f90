@@ -115,7 +115,7 @@ MODULE mo_atmo_model
   USE mo_io_restart_namelist,     ONLY: delete_restart_namelists
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_output_event_types,      ONLY: t_sim_step_info
-  USE mtime,                      ONLY: setCalendar, MAX_DATETIME_STR_LEN,         &
+  USE mtime,                      ONLY: MAX_DATETIME_STR_LEN,                      &
        &                                datetime, newDatetime, deallocateDatetime, &
        &                                datetimeToString, OPERATOR(<), OPERATOR(+)
   ! Prefetching  

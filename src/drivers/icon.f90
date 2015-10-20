@@ -59,10 +59,10 @@ PROGRAM icon
   USE mo_kind, ONLY: wp
   USE mtime,   ONLY: timedelta, newTimedelta, deallocateTimedelta,  &
     &                timedeltaToString, ASSIGNMENT(=), OPERATOR(*), &
-    &                MAX_TIMEDELTA_STR_LEN, setCalendar,            &
-    &                PROLEPTIC_GREGORIAN, datetime,                 &
+    &                MAX_TIMEDELTA_STR_LEN, datetime,               &
     &                datetimetostring, newDatetime, OPERATOR(+),    &
-    &                deallocateDatetime, MAX_DATETIME_STR_LEN
+    &                deallocateDatetime, MAX_DATETIME_STR_LEN,      &
+    &                setCalendar, resetCalendar, PROLEPTIC_GREGORIAN
 #endif
   
   IMPLICIT NONE
@@ -317,6 +317,7 @@ PROGRAM icon
     CALL deallocateDatetime(mtime_date)
     CALL deallocateTimedelta(mtime_td)
   END IF
+  CALL resetCalendar()
 #endif
 
   !-------------------------------------------------------------------

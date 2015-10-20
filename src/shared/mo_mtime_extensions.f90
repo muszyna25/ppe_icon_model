@@ -22,7 +22,7 @@ MODULE mo_mtime_extensions
   USE mtime,       ONLY: datetime, event, MAX_TIMEDELTA_STR_LEN, MAX_DATETIME_STR_LEN, &
     &                    newDatetime, deallocateDatetime, datetimeToString, timedelta, &
     &                    newTimedelta, deallocateTimedelta, OPERATOR(+), OPERATOR(-),  &
-    &                    setCalendar, PROLEPTIC_GREGORIAN, getPTStringFromMS,          &
+    &                    getPTStringFromMS,                                            &
     &                    divisionquotienttimespan, OPERATOR(==),                       &
     &                    divideTimeDeltaInSeconds, OPERATOR(<)
   USE mo_datetime, ONLY: t_datetime
@@ -236,7 +236,7 @@ CONTAINS
     ! (stop date - start date)/dtime:
     mtime_start => newDatetime(start_datetime_string)
     mtime_stop  => newDatetime(stop_datetime_string)
-    mtime_td    => newTimedelta("PT0D")
+    mtime_td    => newTimedelta("PT0S")
     mtime_td    =  mtime_stop - mtime_start
     CALL getPTStringFromMS(INT(dtime*1000._wp,i8), td_string)
     mtime_dtime => newTimedelta(td_string)
@@ -278,8 +278,6 @@ CONTAINS
 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: result_string
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_string
-
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
 
     IF (NINT(timestamp%second) >= 60) THEN
       timestamp%second = 0
@@ -371,7 +369,6 @@ CONTAINS
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: result_string
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_string
 
-    CALL setCalendar(PROLEPTIC_GREGORIAN)
     mtime_datetime => newDatetime(timestamp)
     IF (PRESENT(opt_add_seconds)) THEN
       IF (opt_add_seconds>0) THEN
