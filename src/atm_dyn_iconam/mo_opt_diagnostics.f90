@@ -37,9 +37,7 @@ MODULE mo_opt_diagnostics
     &                                VINTP_METHOD_QV,                    &
     &                                VINTP_METHOD_PRES,                  & 
     &                                VINTP_METHOD_LIN,                   &
-    &                                VINTP_METHOD_LIN_NLEVP1,            &
-    &                                TASK_INTP_MSL,                      &
-    &                                TASK_COMPUTE_OMEGA
+    &                                VINTP_METHOD_LIN_NLEVP1
   USE mo_exception,            ONLY: finish!!$, message, message_text
   USE mo_grid_config,          ONLY: n_dom
   USE mo_run_config,           ONLY: ntracer,iqv,iqc,iqi
@@ -216,52 +214,90 @@ MODULE mo_opt_diagnostics
 
     ! logicals for presence of time mean output variables in the output name lists
     !
+    !  inidcate if any time averaged variable is requested for the output
+    LOGICAL :: l_any_m
+    !
     !  dynamics
-    LOGICAL :: l_pres_msl
-    LOGICAL :: l_omega
+    LOGICAL :: l_ua_m
+    LOGICAL :: l_va_m
+    LOGICAL :: l_wa_m
+    LOGICAL :: l_rho_m
+    LOGICAL :: l_ta_m
+    LOGICAL :: l_ps_m
+    LOGICAL :: l_psl_m
+    LOGICAL :: l_pfull_m
+    LOGICAL :: l_phalf_m
+    LOGICAL :: l_wap_m
     !
-    !  temperature:
-    LOGICAL :: l_tend_ta
-    LOGICAL :: l_tend_ta_dyn
-    LOGICAL :: l_tend_ta_phy
-    LOGICAL :: l_tend_ta_rlw
-    LOGICAL :: l_tend_ta_rlw_impl
-    LOGICAL :: l_tend_ta_rsw
-    LOGICAL :: l_tend_ta_cld
-    LOGICAL :: l_tend_ta_cnv
-    LOGICAL :: l_tend_ta_vdf
-    LOGICAL :: l_tend_ta_gwh
-    LOGICAL :: l_tend_ta_sso
+    !  tracers
+    LOGICAL :: l_tracer_m
     !
-    !  u-wind:
-    LOGICAL :: l_tend_ua
-    LOGICAL :: l_tend_ua_dyn
-    LOGICAL :: l_tend_ua_phy
-    LOGICAL :: l_tend_ua_cnv
-    LOGICAL :: l_tend_ua_vdf
-    LOGICAL :: l_tend_ua_gwh
-    LOGICAL :: l_tend_ua_sso
+    !  physics
+    LOGICAL :: l_cosmu0_m
+    LOGICAL :: l_rsdt_m
+    LOGICAL :: l_clt_m
+    LOGICAL :: l_prlr_m
+    LOGICAL :: l_prls_m
+    LOGICAL :: l_prcr_m
+    LOGICAL :: l_prcs_m
+    LOGICAL :: l_pr_m
+    LOGICAL :: l_prw_m
+    LOGICAL :: l_cllvi_m
+    LOGICAL :: l_clivi_m
+    LOGICAL :: l_rsns_m
+    LOGICAL :: l_rsnt_m
+    LOGICAL :: l_rlns_m
+    LOGICAL :: l_rlnt_m
+    LOGICAL :: l_ts_m
+    LOGICAL :: l_evspsbl_m
+    LOGICAL :: l_hfls_m
+    LOGICAL :: l_hfss_m
+    LOGICAL :: l_tauu_m
+    LOGICAL :: l_tauv_m
     !
-    !  v-wind:
-    LOGICAL :: l_tend_va
-    LOGICAL :: l_tend_va_dyn
-    LOGICAL :: l_tend_va_phy
-    LOGICAL :: l_tend_va_cnv
-    LOGICAL :: l_tend_va_vdf
-    LOGICAL :: l_tend_va_gwh
-    LOGICAL :: l_tend_va_sso
+    !  tendencies
+    !  of temperature:
+    LOGICAL :: l_tend_ta_m
+    LOGICAL :: l_tend_ta_dyn_m
+    LOGICAL :: l_tend_ta_phy_m
+    LOGICAL :: l_tend_ta_rsw_m
+    LOGICAL :: l_tend_ta_rlw_m
+    LOGICAL :: l_tend_ta_rlw_impl_m
+    LOGICAL :: l_tend_ta_cld_m
+    LOGICAL :: l_tend_ta_cnv_m
+    LOGICAL :: l_tend_ta_vdf_m
+    LOGICAL :: l_tend_ta_gwh_m
+    LOGICAL :: l_tend_ta_sso_m
     !
-!!$    !  specific humidity
-!!$    LOGICAL :: l_tend_hus
-!!$    LOGICAL :: l_tend_hus_dyn
-!!$    LOGICAL :: l_tend_hus_phy
-!!$    LOGICAL :: l_tend_hus_cld
-!!$    LOGICAL :: l_tend_hus_cnv
-!!$    LOGICAL :: l_tend_hus_vdf
+    !  of u-wind:
+    LOGICAL :: l_tend_ua_m
+    LOGICAL :: l_tend_ua_dyn_m
+    LOGICAL :: l_tend_ua_phy_m
+    LOGICAL :: l_tend_ua_cnv_m
+    LOGICAL :: l_tend_ua_vdf_m
+    LOGICAL :: l_tend_ua_gwh_m
+    LOGICAL :: l_tend_ua_sso_m
+    !
+    !  of v-wind:
+    LOGICAL :: l_tend_va_m
+    LOGICAL :: l_tend_va_dyn_m
+    LOGICAL :: l_tend_va_phy_m
+    LOGICAL :: l_tend_va_cnv_m
+    LOGICAL :: l_tend_va_vdf_m
+    LOGICAL :: l_tend_va_gwh_m
+    LOGICAL :: l_tend_va_sso_m
+    !
+!!$    !  of specific humidity
+!!$    LOGICAL :: l_tend_hus_m
+!!$    LOGICAL :: l_tend_hus_dyn_m
+!!$    LOGICAL :: l_tend_hus_phy_m
+!!$    LOGICAL :: l_tend_hus_cld_m
+!!$    LOGICAL :: l_tend_hus_cnv_m
+!!$    LOGICAL :: l_tend_hus_vdf_m
 !!$    !
-!!$    !  xl and xi
-!!$    LOGICAL :: l_tend_clw_dtr
-!!$    LOGICAL :: l_tend_cli_dtr
+!!$    !  of xl and xi
+!!$    LOGICAL :: l_tend_clw_dtr_m
+!!$    LOGICAL :: l_tend_cli_dtr_m
 
   END TYPE t_nh_acc
 
@@ -323,12 +359,10 @@ MODULE mo_opt_diagnostics
 CONTAINS
 
   ! setup of accumulation variables
-  SUBROUTINE construct_opt_acc(p_patch,list,p_acc,echam_forcing_active, l_pres_msl, l_omega)
+  SUBROUTINE construct_opt_acc(p_patch,list,p_acc)
     TYPE(t_patch),        INTENT(IN) :: p_patch
     TYPE(t_var_list)                 :: list
     TYPE(t_nh_acc)                   :: p_acc
-    LOGICAL , INTENT(IN)             :: echam_forcing_active
-    LOGICAL , INTENT(IN)             :: l_pres_msl, l_omega
 
     ! LOCAL ===================================================================
     INTEGER :: nblks_c       !< number of cell blocks to allocate
@@ -392,366 +426,498 @@ CONTAINS
       dataType = DATATYPE_FLT32
     ENDIF
 
+    p_acc%l_any_m = .FALSE.
+
     ! PROGS {{{
-    cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'Zonal wind (time mean)', dataType)
-    grib2_desc = grib2_var(0, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'ua_m', p_acc%u,                                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c,                                              &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I") ),                  &
-                & in_group=groups("prog_timemean","atmo_timemean") )
-
-    cf_desc    = t_cf_var('northward_wind', 'm s-1', 'Meridional wind (time mean)', dataType)
-    grib2_desc = grib2_var(0, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'va_m', p_acc%v,                                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c,                                              &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I") ),                  &
-                & in_group=groups("prog_timemean","atmo_timemean") )
-
-    cf_desc    = t_cf_var('upward_air_velocity', 'm s-1', 'Vertical velocity (time mean)', dataType)
-    grib2_desc = grib2_var(0, 2, 9, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'wa_m', p_acc%w,                                        &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_chalf,                                          &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I"),                    &
-                &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                 &
-                & in_group=groups("prog_timemean","atmo_timemean") )
-
-    cf_desc    = t_cf_var('air_density', 'kg m-3', 'density (time mean)', dataType)
-    grib2_desc = grib2_var(0, 3, 10, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'rho_m', p_acc%rho,                                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c,                                              &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &   vert_intp_type=vintp_types("P","Z","I"),                    &
-                &   vert_intp_method=VINTP_METHOD_LIN ),                        &
-                & in_group=groups("prog_timemean","atmo_timemean") )
-
-    cf_desc    = t_cf_var('air temperature', 'K', 'Temperature', dataType)
-    grib2_desc = grib2_var(0, 0, 0, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'ta_m', p_acc%temp,                                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c,                                              &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &             vert_intp_type=vintp_types("P","Z","I"),          &
-                &             vert_intp_method=VINTP_METHOD_LIN ),              &
-                & in_group=groups("prog_timemean","atmo_timemean"))
-
-    cf_desc    = t_cf_var('surface_air_pressure', 'Pa', 'surface pressure (time mean)', dataType)
-    grib2_desc = grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'ps_m', p_acc%pres_sfc,                                 &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
-                & ldims=shape2d_c,                                              &
-                & in_group=groups("prog_timemean","atmo_timemean") )
-
-    p_acc%l_pres_msl = l_pres_msl
-    IF (l_pres_msl) THEN
-      cf_desc    = t_cf_var('mean sea level pressure', 'Pa',                    &
-        &                   'mean sea level pressure (time mean)', dataType)
-      grib2_desc = grib2_var(0, 3, 1, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( list, 'psl_m', p_acc%pres_msl,                              &
-                  & GRID_UNSTRUCTURED_CELL, ZA_MEANSEA, cf_desc, grib2_desc,    &
-                  & ldims=shape2d_c, lrestart=.FALSE.,                          &
-                  & l_pp_scheduler_task=TASK_INTP_MSL,                          &
-                  & in_group=groups("prog_timemean","atmo_timemean") )
+    p_acc%l_ua_m  = is_variable_in_output(first_output_name_list, var_name="ua_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ua_m
+    IF (p_acc%l_ua_m) THEN
+       cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'Zonal wind (time mean)', dataType)
+       grib2_desc = grib2_var(0, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'ua_m', p_acc%u,                                        &
+                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & ldims=shape3d_c,                                              &
+                   & vert_interp=create_vert_interp_metadata(                      &
+                   &   vert_intp_type=vintp_types("P","Z","I") ),                  &
+                   & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-    cf_desc    = t_cf_var('air_pressure', 'Pa', 'pressure at full level (time mean)', dataType)
-    grib2_desc = grib2_var(0, 3, 0, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'pfull_m', p_acc%pres,                                  &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
-                & ldims=shape3d_c, lrestart=.FALSE. ,                           &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &             vert_intp_type=vintp_types("P","Z","I"),          &
-                &             vert_intp_method=VINTP_METHOD_PRES ),             &
-                & in_group=groups("prog_timemean","atmo_timemean") )
-
-    cf_desc    = t_cf_var('air_pressure', 'Pa', 'pressure at half level (time mean)', dataType)
-    grib2_desc = grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'phalf_m', p_acc%pres_ifc,                              &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
-                & ldims=shape3d_chalf, lrestart=.FALSE.,                        &
-                & vert_interp=create_vert_interp_metadata(                      &
-                &             vert_intp_type=vintp_types("P","Z","I"),          &
-                &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),       &
-                & in_group=groups("prog_timemean","atmo_timemean") )
-
-    p_acc%l_omega = l_omega
-    IF (l_omega) THEN
-      cf_desc    = t_cf_var('omega', 'Pa/s', 'vertical velocity (time mean)', DATATYPE_FLT32)
-      grib2_desc = grib2_var(0, 2, 8, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( list,"wap_m", p_acc%omega,                                  &
-                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                          &
-                  & cf_desc, grib2_desc,                                        &
-                  & ldims=shape3d_c,                                            &
-                  & vert_interp=create_vert_interp_metadata(                    &
-                  &             vert_intp_type=vintp_types("P","Z","I"),        &
-                  &             vert_intp_method=VINTP_METHOD_LIN,              &
-                  &             l_loglin=.FALSE., l_extrapol=.FALSE.),          &
-                  & in_group=groups("prog_timemean","atmo_timemean"),           &
-                  & l_pp_scheduler_task=TASK_COMPUTE_OMEGA, lrestart=.FALSE. )
+    p_acc%l_va_m  = is_variable_in_output(first_output_name_list, var_name="va_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_va_m
+    IF (p_acc%l_va_m) THEN
+       cf_desc    = t_cf_var('northward_wind', 'm s-1', 'Meridional wind (time mean)', dataType)
+       grib2_desc = grib2_var(0, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'va_m', p_acc%v,                                        &
+                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & ldims=shape3d_c,                                              &
+                   & vert_interp=create_vert_interp_metadata(                      &
+                   &   vert_intp_type=vintp_types("P","Z","I") ),                  &
+                   & in_group=groups("prog_timemean","atmo_timemean") )
     END IF
 
-! }}}
+    p_acc%l_wa_m  = is_variable_in_output(first_output_name_list, var_name="wa_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_wa_m
+    IF (p_acc%l_wa_m) THEN
+       cf_desc    = t_cf_var('upward_air_velocity', 'm s-1', 'Vertical velocity (time mean)', dataType)
+       grib2_desc = grib2_var(0, 2, 9, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'wa_m', p_acc%w,                                        &
+                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                   & ldims=shape3d_chalf,                                          &
+                   & vert_interp=create_vert_interp_metadata(                      &
+                   &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                   &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                 &
+                   & in_group=groups("prog_timemean","atmo_timemean") )
+    END IF
+
+    p_acc%l_rho_m = is_variable_in_output(first_output_name_list, var_name="rho_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rho_m
+    IF (p_acc%l_rho_m) THEN
+       cf_desc    = t_cf_var('air_density', 'kg m-3', 'density (time mean)', dataType)
+       grib2_desc = grib2_var(0, 3, 10, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'rho_m', p_acc%rho,                                     &
+                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & ldims=shape3d_c,                                              &
+                   & vert_interp=create_vert_interp_metadata(                      &
+                   &   vert_intp_type=vintp_types("P","Z","I"),                    &
+                   &   vert_intp_method=VINTP_METHOD_LIN ),                        &
+                   & in_group=groups("prog_timemean","atmo_timemean") )
+    END IF
+
+    p_acc%l_ta_m  = is_variable_in_output(first_output_name_list, var_name="ta_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ta_m
+    IF (p_acc%l_ta_m) THEN
+       cf_desc    = t_cf_var('air temperature', 'K', 'Temperature', dataType)
+       grib2_desc = grib2_var(0, 0, 0, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'ta_m', p_acc%temp,                                     &
+                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & ldims=shape3d_c,                                              &
+                   & vert_interp=create_vert_interp_metadata(                      &
+                   &             vert_intp_type=vintp_types("P","Z","I"),          &
+                   &             vert_intp_method=VINTP_METHOD_LIN ),              &
+                   & in_group=groups("prog_timemean","atmo_timemean"))
+    END IF
+
+    p_acc%l_ps_m  = is_variable_in_output(first_output_name_list, var_name="ps_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ps_m
+    IF (p_acc%l_ps_m) THEN
+       cf_desc    = t_cf_var('surface_air_pressure', 'Pa', 'surface pressure (time mean)', dataType)
+       grib2_desc = grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'ps_m', p_acc%pres_sfc,                                 &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,      &
+                   & ldims=shape2d_c,                                              &
+                   & in_group=groups("prog_timemean","atmo_timemean") )
+    END IF
+
+    p_acc%l_psl_m = is_variable_in_output(first_output_name_list, var_name="psl_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_psl_m
+    IF (p_acc%l_psl_m) THEN
+       cf_desc    = t_cf_var('mean sea level pressure', 'Pa',                      &
+         &                   'mean sea level pressure (time mean)', dataType)
+       grib2_desc = grib2_var(0, 3, 1, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'psl_m', p_acc%pres_msl,                                &
+                   & GRID_UNSTRUCTURED_CELL, ZA_MEANSEA, cf_desc, grib2_desc,      &
+                   & ldims=shape2d_c,                                              &
+                   & in_group=groups("prog_timemean","atmo_timemean") )
+    END IF
+
+    p_acc%l_pfull_m = is_variable_in_output(first_output_name_list, var_name="pfull_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_pfull_m
+    IF (p_acc%l_pfull_m) THEN
+       cf_desc    = t_cf_var('air_pressure', 'Pa', 'pressure at full level (time mean)', dataType)
+       grib2_desc = grib2_var(0, 3, 0, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'pfull_m', p_acc%pres,                                  &
+                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,       &
+                   & ldims=shape3d_c, lrestart=.FALSE. ,                           &
+                   & vert_interp=create_vert_interp_metadata(                      &
+                   &             vert_intp_type=vintp_types("P","Z","I"),          &
+                   &             vert_intp_method=VINTP_METHOD_PRES ),             &
+                   & in_group=groups("prog_timemean","atmo_timemean") )
+    END IF
+
+    p_acc%l_phalf_m = is_variable_in_output(first_output_name_list, var_name="phalf_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_phalf_m
+    IF (p_acc%l_phalf_m) THEN
+       cf_desc    = t_cf_var('air_pressure', 'Pa', 'pressure at half level (time mean)', dataType)
+       grib2_desc = grib2_var(0, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'phalf_m', p_acc%pres_ifc,                              &
+                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,  &
+                   & ldims=shape3d_chalf, lrestart=.FALSE.,                        &
+                   & vert_interp=create_vert_interp_metadata(                      &
+                   &             vert_intp_type=vintp_types("P","Z","I"),          &
+                   &             vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),       &
+                   & in_group=groups("prog_timemean","atmo_timemean") )
+    END IF
+
+    p_acc%l_wap_m = is_variable_in_output(first_output_name_list, var_name="wap_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_wap_m
+    IF (p_acc%l_wap_m) THEN
+       cf_desc    = t_cf_var('omega', 'Pa/s', 'vertical velocity (time mean)', DATATYPE_FLT32)
+       grib2_desc = grib2_var(0, 2, 8, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list,"wap_m", p_acc%omega,                                    &
+                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                            &
+                   & cf_desc, grib2_desc,                                          &
+                   & ldims=shape3d_c,                                              &
+                   & vert_interp=create_vert_interp_metadata(                      &
+                   &             vert_intp_type=vintp_types("P","Z","I"),          &
+                   &             vert_intp_method=VINTP_METHOD_LIN,                &
+                   &             l_loglin=.FALSE., l_extrapol=.FALSE.),            &
+                   & in_group=groups("prog_timemean","atmo_timemean") )
+    END IF
+    ! }}}
+
     ! TRACERS {{{
-    ! support qv,qc,qi because they area always there
+    ! support qv,qc,qi because they are always there
     IF (ntracer > 0) THEN
-      cf_desc    = t_cf_var('tracer', 'kg kg-1', 'air tracer (time mean)', DATATYPE_FLT32)
-      grib2_desc = grib2_var(0,20,2, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( list, 'tracer', p_acc%tracer,                           &
-        &           GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
-        &           ldims=shape4d_c ,                                       &
-        &           lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+       p_acc%l_tracer_m = is_variable_in_output(first_output_name_list, var_name="hus_m") .OR. &
+                        & is_variable_in_output(first_output_name_list, var_name="clw_m") .OR. &
+                        & is_variable_in_output(first_output_name_list, var_name="cli_m")
+       p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tracer_m
+       IF (p_acc%l_tracer_m) THEN
+          cf_desc    = t_cf_var('tracer', 'kg kg-1', 'air tracer (time mean)', DATATYPE_FLT32)
+          grib2_desc = grib2_var(0,20,2, ibits, GRID_REFERENCE, GRID_CELL)
+          CALL add_var( list, 'tracer_m', p_acc%tracer,                         &
+                      & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, &
+                      & ldims=shape4d_c ,                                       &
+                      & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
-      ALLOCATE(p_acc%tracer_ptr(ntracer))
-      DO jt=1,ntracer
-        IF (jt == iqv ) CALL add_ref( &
-          &  list, 'tracer', 'hus_m', p_acc%tracer_ptr(jt)%p,               &
-          &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
-          &  t_cf_var('specific_humidity', 'kg kg-1',                       &
-          &           'specific_humidity (time mean)', dataType),           &
-          &  grib2_var( 0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL),         &
-          &  ldims=shape3d_c,                                               &
-          &  tlev_source=1,                                                 &
-          &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-          &              ihadv_tracer=advconf%ihadv_tracer(iqv),            &
-          &              ivadv_tracer=advconf%ivadv_tracer(iqv)),           & 
-          &  vert_interp=create_vert_interp_metadata(                       &
-          &              vert_intp_type=vintp_types("P","Z","I"),           &
-          &              vert_intp_method=VINTP_METHOD_QV,                  &
-          &              l_satlimit=.FALSE.,                                &
-          &              lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE. ), &
-          &  in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-          &                  "tracer_timemean","atmo_timemean"))
+          ALLOCATE(p_acc%tracer_ptr(ntracer))
+          DO jt=1,ntracer
+             IF (jt == iqv ) CALL add_ref(                                          &
+                  &  list, 'tracer_m', 'hus_m', p_acc%tracer_ptr(jt)%p,             &
+                  &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                  &  t_cf_var('specific_humidity', 'kg kg-1',                       &
+                  &           'specific_humidity (time mean)', dataType),           &
+                  &  grib2_var( 0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL),         &
+                  &  ldims=shape3d_c,                                               &
+                  &  tlev_source=1,                                                 &
+                  &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                  &              ihadv_tracer=advconf%ihadv_tracer(iqv),            &
+                  &              ivadv_tracer=advconf%ivadv_tracer(iqv)),           &
+                  &  vert_interp=create_vert_interp_metadata(                       &
+                  &              vert_intp_type=vintp_types("P","Z","I"),           &
+                  &              vert_intp_method=VINTP_METHOD_QV,                  &
+                  &              l_satlimit=.FALSE.,                                &
+                  &              lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE. ), &
+                  &  in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                  &                  "tracer_timemean","atmo_timemean"))
 
-        IF ( jt == iqc )  CALL add_ref(                                     &
-          &  list, 'tracer', 'clw_m', p_acc%tracer_ptr(jt)%p,               &
-          &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
-          &  t_cf_var('specific_cloud_water_content', 'kg kg-1',            &
-          &           'specific_cloud_water_content (time mean)', dataType),&
-          &  grib2_var(0, 1, 22, ibits, GRID_REFERENCE, GRID_CELL),         &
-          &  ldims=shape3d_c,                                               &
-          &  tlev_source=1,                                                 &
-          &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-          &              ihadv_tracer=advconf%ihadv_tracer(iqc),            &
-          &              ivadv_tracer=advconf%ivadv_tracer(iqc)),           &
-          &  vert_interp=create_vert_interp_metadata(                       &
-          &              vert_intp_type=vintp_types("P","Z","I"),           &
-          &              vert_intp_method=VINTP_METHOD_LIN,                 &
-          &              l_loglin=.FALSE.,                                  &
-          &              l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
-          &              lower_limit=0._wp  ),                              & 
-          &  in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-          &                  "tracer_timemean","atmo_timemean"))
+             IF ( jt == iqc )  CALL add_ref(                                        &
+                  &  list, 'tracer_m', 'clw_m', p_acc%tracer_ptr(jt)%p,             &
+                  &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                  &  t_cf_var('specific_cloud_water_content', 'kg kg-1',            &
+                  &           'specific_cloud_water_content (time mean)', dataType),&
+                  &  grib2_var(0, 1, 22, ibits, GRID_REFERENCE, GRID_CELL),         &
+                  &  ldims=shape3d_c,                                               &
+                  &  tlev_source=1,                                                 &
+                  &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                  &              ihadv_tracer=advconf%ihadv_tracer(iqc),            &
+                  &              ivadv_tracer=advconf%ivadv_tracer(iqc)),           &
+                  &  vert_interp=create_vert_interp_metadata(                       &
+                  &              vert_intp_type=vintp_types("P","Z","I"),           &
+                  &              vert_intp_method=VINTP_METHOD_LIN,                 &
+                  &              l_loglin=.FALSE.,                                  &
+                  &              l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
+                  &              lower_limit=0._wp  ),                              &
+                  &  in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                  &                  "tracer_timemean","atmo_timemean"))
 
-        IF ( jt == iqi ) CALL add_ref(                                      &
-          &  list, 'tracer', 'cli_m', p_acc%tracer_ptr(jt)%p,               &
-          &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
-          &  t_cf_var('specific_cloud_ice_content', 'kg kg-1',              &
-          &           'specific_cloud_ice_content (time mean)', dataType),  &
-          &  grib2_var(0, 1, 82, ibits, GRID_REFERENCE, GRID_CELL),         &
-          &  ldims=shape3d_c,                                               &
-          &  tlev_source=1,                                                 &
-          &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
-          &              ihadv_tracer=advconf%ihadv_tracer(iqi),            &
-          &              ivadv_tracer=advconf%ivadv_tracer(iqi)),           &
-          &  vert_interp=create_vert_interp_metadata(                       &
-          &              vert_intp_type=vintp_types("P","Z","I"),           &
-          &              vert_intp_method=VINTP_METHOD_LIN,                 &
-          &              l_loglin=.FALSE.,                                  &
-          &              l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
-          &              lower_limit=0._wp  ),                              & 
-          &  in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
-          &                  "tracer_timemean","atmo_timemean"))
-      END DO
+             IF ( jt == iqi ) CALL add_ref(                                         &
+                  &  list, 'tracer_m', 'cli_m', p_acc%tracer_ptr(jt)%p,             &
+                  &  GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                  &  t_cf_var('specific_cloud_ice_content', 'kg kg-1',              &
+                  &           'specific_cloud_ice_content (time mean)', dataType),  &
+                  &  grib2_var(0, 1, 82, ibits, GRID_REFERENCE, GRID_CELL),         &
+                  &  ldims=shape3d_c,                                               &
+                  &  tlev_source=1,                                                 &
+                  &  tracer_info=create_tracer_metadata(lis_tracer=.TRUE.,          &
+                  &              ihadv_tracer=advconf%ihadv_tracer(iqi),            &
+                  &              ivadv_tracer=advconf%ivadv_tracer(iqi)),           &
+                  &  vert_interp=create_vert_interp_metadata(                       &
+                  &              vert_intp_type=vintp_types("P","Z","I"),           &
+                  &              vert_intp_method=VINTP_METHOD_LIN,                 &
+                  &              l_loglin=.FALSE.,                                  &
+                  &              l_extrapol=.FALSE., l_pd_limit=.FALSE.,            &
+                  &              lower_limit=0._wp  ),                              &
+                  &  in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars",  &
+                  &                  "tracer_timemean","atmo_timemean"))
+          END DO
+       END IF
     END IF
     ! }}}
 
     ! ECHAM {{{
-    IF (echam_forcing_active) THEN
-    cf_desc    = t_cf_var('cosmu0', '', 'cosine of the zenith angle (time mean)', dataType)
-    grib2_desc = grib2_var(192,214,1, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'cosmu0_m', p_acc%cosmu0,                                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d, &
-                & in_group=groups("echam_timemean","atmo_timemean"))
+    p_acc%l_cosmu0_m = is_variable_in_output(first_output_name_list, var_name="cosmu0_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_cosmu0_m
+    IF (p_acc%l_cosmu0_m) THEN
+       cf_desc    = t_cf_var('cosmu0', '', 'cosine of the zenith angle (time mean)', dataType)
+       grib2_desc = grib2_var(192,214,1, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'cosmu0_m', p_acc%cosmu0,                                  &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"))
+    END IF
 
-    cf_desc    = t_cf_var('rsdt', 'W m-2',                                                    &
-                &         'downward shortwave flux at the top of the atmosphere (time mean)', &
-                &         dataType)
-    grib2_desc = grib2_var(0,4,7, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'rsdt_m', p_acc%flxdwswtoa,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,&
-                & in_group=groups("echam_timemean","atmo_timemean"), ldims=shape2d )
+    p_acc%l_rsdt_m = is_variable_in_output(first_output_name_list, var_name="rsdt_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rsdt_m
+    IF (p_acc%l_rsdt_m) THEN
+       cf_desc    = t_cf_var('rsdt', 'W m-2',                                                    &
+                   &         'downward shortwave flux at the top of the atmosphere (time mean)', &
+                   &         dataType)
+       grib2_desc = grib2_var(0,4,7, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'rsdt_m', p_acc%flxdwswtoa,                                &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean") )
+    END IF
 
-    cf_desc    = t_cf_var('clt', 'm2 m-2', &
-               & 'total cloud cover (time mean)', dataType)
-    grib2_desc = grib2_var(0,6,1, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'clt_m', p_acc%aclcov,                   &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d, in_group=groups("echam_timemean","atmo_timemean"),&
-         &        isteptype=TSTEP_INSTANT )
+    p_acc%l_clt_m = is_variable_in_output(first_output_name_list, var_name="clt_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_clt_m
+    IF (p_acc%l_clt_m) THEN
+       cf_desc    = t_cf_var('clt', 'm2 m-2',                 &
+                   &         'total cloud cover (time mean)', &
+                   &         dataType)
+       grib2_desc = grib2_var(0,6,1, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'clt_m', p_acc%aclcov,                                     &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    cf_desc    = t_cf_var('prlr', 'kg m-2 s-1',    &
-               & 'large-scale precipitation flux (water) (time mean)', dataType)
-    grib2_desc = grib2_var(0,1,77, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'prlr_m', p_acc%rsfl,                    &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
-         &        isteptype=TSTEP_INSTANT )
+    p_acc%l_prlr_m = is_variable_in_output(first_output_name_list, var_name="prlr_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_prlr_m
+    IF (p_acc%l_prlr_m) THEN
+       cf_desc    = t_cf_var('prlr', 'kg m-2 s-1',                                 &
+                   &         'large-scale precipitation flux (water) (time mean)', &
+                   &         dataType)
+       grib2_desc = grib2_var(0,1,77, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'prlr_m', p_acc%rsfl,                                      &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    cf_desc    = t_cf_var('prcr', 'kg m-2 s-1',    &
-               & 'convective precipitation flux (water) (time mean)', dataType)
-    grib2_desc = grib2_var(0,1,76, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'prcr_m', p_acc%rsfc,                    &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-         &        isteptype=TSTEP_INSTANT )
+    p_acc%l_prls_m = is_variable_in_output(first_output_name_list, var_name="prls_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_prls_m
+    IF (p_acc%l_prls_m) THEN
+       cf_desc    = t_cf_var('prls', 'kg m-2 s-1',                                &
+                   &         'large-scale precipitation flux (snow) (time mean)', &
+                   &         dataType)
+       grib2_desc = grib2_var(0,1,59, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'prls_m', p_acc%ssfl,                                      &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    cf_desc    = t_cf_var('prls', 'kg m-2 s-1',    &
-               & 'large-scale precipitation flux (snow) (time mean)', dataType)
-    grib2_desc = grib2_var(0,1,59, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'prls_m', p_acc%ssfl,                    &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d, in_group=groups("echam_timemean","atmo_timemean"),&
-         &        isteptype=TSTEP_INSTANT )
+    p_acc%l_prcr_m = is_variable_in_output(first_output_name_list, var_name="prcr_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_prcr_m
+    IF (p_acc%l_prcr_m) THEN
+       cf_desc    = t_cf_var('prcr', 'kg m-2 s-1',                                &
+                   &         'convective precipitation flux (water) (time mean)', &
+                   &         dataType)
+       grib2_desc = grib2_var(0,1,76, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'prcr_m', p_acc%rsfc,                                      &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    cf_desc    = t_cf_var('prcs', 'kg m-2 s-1',    &
-               & 'convective precipitation flux (snow) (time mean)', dataType)
-    grib2_desc = grib2_var(0,1,58, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'prcs_m', p_acc%ssfc,                    &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d, in_group=groups("echam_timemean","atmo_timemean"),&
-         &        isteptype=TSTEP_INSTANT )
+    p_acc%l_prcs_m = is_variable_in_output(first_output_name_list, var_name="prcs_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_prcs_m
+    IF (p_acc%l_prcs_m) THEN
+       cf_desc    = t_cf_var('prcs', 'kg m-2 s-1',                               &
+                   &         'convective precipitation flux (snow) (time mean)', &
+                   &         dataType)
+       grib2_desc = grib2_var(0,1,58, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'prcs_m', p_acc%ssfc,                                      &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    cf_desc    = t_cf_var('pr', 'kg m-2 s-1',               &
-         &                'precipitation flux (time mean)', &
-         &                dataType)
-    grib2_desc = grib2_var(0, 1, 52, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'pr_m', p_acc%totprec,                   &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d, in_group=groups("echam_timemean","atmo_timemean"),&
-         &        isteptype=TSTEP_INSTANT )
+    p_acc%l_pr_m = is_variable_in_output(first_output_name_list, var_name="pr_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_pr_m
+    IF (p_acc%l_pr_m) THEN
+       cf_desc    = t_cf_var('pr', 'kg m-2 s-1',               &
+                   &         'precipitation flux (time mean)', &
+                   &         dataType)
+       grib2_desc = grib2_var(0, 1, 52, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'pr_m', p_acc%totprec,                                     &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    cf_desc    = t_cf_var('total_vapour', 'kg m-2', 'vertically integrated water vapour (time mean)', &
-         &                dataType)
-    grib2_desc = grib2_var(0,1,64, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'prw_m', p_acc%qvi,                      &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-         &        isteptype=TSTEP_INSTANT )
+    p_acc%l_prw_m = is_variable_in_output(first_output_name_list, var_name="prw_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_prw_m
+    IF (p_acc%l_prw_m) THEN
+       cf_desc    = t_cf_var('total_vapour', 'kg m-2',                         &
+                   &         'vertically integrated water vapour (time mean)', &
+                   &         dataType)
+       grib2_desc = grib2_var(0,1,64, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'prw_m', p_acc%qvi,                                        &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    cf_desc    = t_cf_var('total_cloud_water', 'kg m-2',&
-               & 'vertically integrated cloud water (time mean)', dataType)
-    grib2_desc = grib2_var(0,1,69, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'cllvi_m', p_acc%xlvi,                   &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-         &        isteptype=TSTEP_INSTANT )
+    p_acc%l_cllvi_m = is_variable_in_output(first_output_name_list, var_name="cllvi_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_cllvi_m
+    IF (p_acc%l_cllvi_m) THEN
+       cf_desc    = t_cf_var('total_cloud_water', 'kg m-2', &
+                   & 'vertically integrated cloud water (time mean)', dataType)
+       grib2_desc = grib2_var(0,1,69, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'cllvi_m', p_acc%xlvi,                                     &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    cf_desc    = t_cf_var('total_cloud_ice', 'kg m-2',&
-               & 'vertically integrated cloud ice (time mean)', dataType)
-    grib2_desc = grib2_var(0,1,70, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'clivi_m', p_acc%xivi,                   &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-         &        isteptype=TSTEP_INSTANT )
+    p_acc%l_clivi_m = is_variable_in_output(first_output_name_list, var_name="clivi_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_clivi_m
+    IF (p_acc%l_clivi_m) THEN
+       cf_desc    = t_cf_var('total_cloud_ice', 'kg m-2', &
+                   & 'vertically integrated cloud ice (time mean)', dataType)
+       grib2_desc = grib2_var(0,1,70, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'clivi_m', p_acc%xivi,                                     &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    cf_desc    = t_cf_var('rsns', 'W m-2', ' shortwave net flux at surface (time mean)', dataType)
-    grib2_desc = grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'rsns_m', p_acc%swflxsfc,                &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-         &        isteptype=TSTEP_INSTANT )
-        
-    cf_desc    = t_cf_var('rsnt', 'W m-2', ' shortwave net flux at TOA (time mean)', dataType)
-    grib2_desc = grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'rsnt_m', p_acc%swflxtoa,                &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-         &        isteptype=TSTEP_INSTANT )
-        
-    cf_desc    = t_cf_var('rlns', 'W m-2', 'longwave net flux at surface (time mean)', dataType)
-    grib2_desc = grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'rlns_m', p_acc%lwflxsfc,                &
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-         &        isteptype=TSTEP_INSTANT )
+    p_acc%l_rsns_m = is_variable_in_output(first_output_name_list, var_name="rsns_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rsns_m
+    IF (p_acc%l_rsns_m) THEN
+       cf_desc    = t_cf_var('rsns', 'W m-2', ' shortwave net flux at surface (time mean)', dataType)
+       grib2_desc = grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'rsns_m', p_acc%swflxsfc,                                  &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    cf_desc    = t_cf_var('rlnt', 'W m-2', 'longwave net flux at TOA (time mean)', dataType)
-    grib2_desc = grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'rlnt_m', p_acc%lwflxtoa,&
-         &        GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-         &        cf_desc, grib2_desc,                           &
-         &        ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-         &        isteptype=TSTEP_INSTANT )
+    p_acc%l_rsnt_m = is_variable_in_output(first_output_name_list, var_name="rsnt_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rsnt_m
+    IF (p_acc%l_rsnt_m) THEN
+       cf_desc    = t_cf_var('rsnt', 'W m-2', ' shortwave net flux at TOA (time mean)', dataType)
+       grib2_desc = grib2_var(0, 4, 9, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'rsnt_m', p_acc%swflxtoa,                                  &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    cf_desc    = t_cf_var('surface_temperature', '', 'surface temperature (time mean)', dataType)
-    grib2_desc = grib2_var(0,0,0, ibits, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( list, 'ts_m', p_acc%tsfc,                      &
-              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, &
-              & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"))
+    p_acc%l_rlns_m = is_variable_in_output(first_output_name_list, var_name="rlns_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rlns_m
+    IF (p_acc%l_rlns_m) THEN
+       cf_desc    = t_cf_var('rlns', 'W m-2', 'longwave net flux at surface (time mean)', dataType)
+       grib2_desc = grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'rlns_m', p_acc%lwflxsfc,                                  &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    CALL add_var( list, 'evspsbl_m', p_acc%evap,                 &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,            &
-                & t_cf_var('evap', 'kg m-2 s-1', 'evaporation (time mean)', &
-                & dataType),                                     &
-                & grib2_var(0,1,6,iextbits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-                & isteptype=TSTEP_INSTANT                                 )
+    p_acc%l_rlnt_m = is_variable_in_output(first_output_name_list, var_name="rlnt_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_rlnt_m
+    IF (p_acc%l_rlnt_m) THEN
+       cf_desc    = t_cf_var('rlnt', 'W m-2', 'longwave net flux at TOA (time mean)', dataType)
+       grib2_desc = grib2_var(0, 5, 5, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'rlnt_m', p_acc%lwflxtoa,&
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
-    CALL add_var( list, 'hfls_m', p_acc%lhflx,                            &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
-                & t_cf_var('hfls', 'W m-2 ', 'latent heat flux (time mean)', &
-                & dataType),                                        &
-                & grib2_var(0,0,10, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-                & isteptype=TSTEP_INSTANT                                 )
+    p_acc%l_ts_m = is_variable_in_output(first_output_name_list, var_name="ts_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ts_m
+    IF (p_acc%l_ts_m) THEN
+       cf_desc    = t_cf_var('surface_temperature', '', 'surface temperature (time mean)', dataType)
+       grib2_desc = grib2_var(0,0,0, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'ts_m', p_acc%tsfc,                                        &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,         &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"))
+    END IF
 
-    CALL add_var( list, 'hfss_m', p_acc%shflx,                            &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                     &
-                & t_cf_var('hfss', 'W m-2 ', 'sensible heat flux (time mean)', &
-                & dataType),                                        &
-                & grib2_var(0,0,11, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-                & isteptype=TSTEP_INSTANT                                 )
+    p_acc%l_evspsbl_m = is_variable_in_output(first_output_name_list, var_name="evspsbl_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_evspsbl_m
+    IF (p_acc%l_evspsbl_m) THEN
+       CALL add_var( list, 'evspsbl_m', p_acc%evap,                                   &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & t_cf_var('evap', 'kg m-2 s-1', 'evaporation (time mean)',        &
+                   & dataType),                                                       &
+                   & grib2_var(0,1,6,iextbits, GRID_REFERENCE, GRID_CELL),            &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT                                 )
+    END IF
 
-    CALL add_var( list, 'tauu_m', p_acc%u_stress        ,       &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                & t_cf_var('u_stress', 'N m-2', 'u-momentum flux at the surface (time mean)',          &
-                &          dataType),                                     &
-                & grib2_var(0,2,17, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-                & isteptype=TSTEP_INSTANT )
+    p_acc%l_hfls_m = is_variable_in_output(first_output_name_list, var_name="hfls_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_hfls_m
+    IF (p_acc%l_hfls_m) THEN
+       CALL add_var( list, 'hfls_m', p_acc%lhflx,                                     &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & t_cf_var('hfls', 'W m-2 ', 'latent heat flux (time mean)',       &
+                   & dataType),                                                       &
+                   & grib2_var(0,0,10, ibits, GRID_REFERENCE, GRID_CELL),             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT                                 )
+    END IF
 
-    CALL add_var( list, 'tauv_m', p_acc%v_stress,               &
-                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
-                & t_cf_var('v_stress', 'N m-2', 'v-momentum flux at the surface (time mean)',          &
-                &          dataType),                                     &
-                & grib2_var(0,2,18, ibits, GRID_REFERENCE, GRID_CELL), &
-                & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),&
-                & isteptype=TSTEP_INSTANT )
+    p_acc%l_hfss_m = is_variable_in_output(first_output_name_list, var_name="hfss_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_hfss_m
+    IF (p_acc%l_hfss_m) THEN
+       CALL add_var( list, 'hfss_m', p_acc%shflx,                                     &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                              &
+                   & t_cf_var('hfss', 'W m-2 ', 'sensible heat flux (time mean)',     &
+                   & dataType),                                                       &
+                   & grib2_var(0,0,11, ibits, GRID_REFERENCE, GRID_CELL),             &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT                                 )
+    END IF
+
+    p_acc%l_tauu_m = is_variable_in_output(first_output_name_list, var_name="tauu_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tauu_m
+    IF (p_acc%l_tauu_m) THEN
+       CALL add_var( list, 'tauu_m', p_acc%u_stress,                                             &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('u_stress', 'N m-2', 'u-momentum flux at the surface (time mean)', &
+                   &          dataType),                                                         &
+                   & grib2_var(0,2,17, ibits, GRID_REFERENCE, GRID_CELL),                        &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
+    p_acc%l_tauv_m = is_variable_in_output(first_output_name_list, var_name="tauv_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tauv_m
+    IF (p_acc%l_tauv_m) THEN
+       CALL add_var( list, 'tauv_m', p_acc%v_stress,                                             &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('v_stress', 'N m-2', 'v-momentum flux at the surface (time mean)', &
+                   &          dataType),                                                         &
+                   & grib2_var(0,2,18, ibits, GRID_REFERENCE, GRID_CELL),                        &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
 
     !------------------------------
     ! Temperature tendencies
     !------------------------------
-    p_acc%l_tend_ta     = is_variable_in_output(first_output_name_list, var_name="tend_ta_m")
-    IF (p_acc%l_tend_ta) THEN
+    p_acc%l_tend_ta_m     = is_variable_in_output(first_output_name_list, var_name="tend_ta_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ta_m
+    IF (p_acc%l_tend_ta_m) THEN
        cf_desc = t_cf_var('temperature_tendency', 'K s-1',                                    &
             &             'temperature tendency (time mean)',                                 &
             &             DATATYPE_FLT32)
@@ -764,8 +930,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ta_dyn = is_variable_in_output(first_output_name_list, var_name="tend_ta_dyn_m")
-    IF (p_acc%l_tend_ta_dyn) THEN
+    p_acc%l_tend_ta_dyn_m = is_variable_in_output(first_output_name_list, var_name="tend_ta_dyn_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ta_dyn_m
+    IF (p_acc%l_tend_ta_dyn_m) THEN
        cf_desc = t_cf_var('temperature_tendency_dyn', 'K s-1',                                &
             &             'temperature tendency due to resolved dynamics (time mean)',        &
             &             DATATYPE_FLT32)
@@ -778,8 +945,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ta_phy = is_variable_in_output(first_output_name_list, var_name="tend_ta_phy_m")
-    IF (p_acc%l_tend_ta_phy) THEN
+    p_acc%l_tend_ta_phy_m = is_variable_in_output(first_output_name_list, var_name="tend_ta_phy_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ta_phy_m
+    IF (p_acc%l_tend_ta_phy_m) THEN
        cf_desc = t_cf_var('temperature_tendency_phy', 'K s-1',                                &
             &             'temperature tendency due to param. processes (time mean)',         &
             &             DATATYPE_FLT32)
@@ -792,8 +960,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ta_rsw = is_variable_in_output(first_output_name_list, var_name="tend_ta_rsw_m")
-    IF (p_acc%l_tend_ta_rsw) THEN
+    p_acc%l_tend_ta_rsw_m = is_variable_in_output(first_output_name_list, var_name="tend_ta_rsw_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ta_rsw_m
+    IF (p_acc%l_tend_ta_rsw_m) THEN
        cf_desc = t_cf_var('temperature_tendency_rsw', 'K s-1',                                &
             &             'temperature tendency due to shortwave radiation (time mean)',      &
             &             DATATYPE_FLT32)
@@ -806,8 +975,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ta_rlw = is_variable_in_output(first_output_name_list, var_name="tend_ta_rlw_m")
-    IF (p_acc%l_tend_ta_rlw) THEN
+    p_acc%l_tend_ta_rlw_m = is_variable_in_output(first_output_name_list, var_name="tend_ta_rlw_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ta_rlw_m
+    IF (p_acc%l_tend_ta_rlw_m) THEN
        cf_desc = t_cf_var('temperature_tendency_rlw', 'K s-1',                                &
             &             'temperature tendency due to longwave radiation (time mean)',       &
             &             DATATYPE_FLT32)
@@ -820,8 +990,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ta_rlw_impl = is_variable_in_output(first_output_name_list, var_name="tend_ta_rlw_impl_m")
-    IF (p_acc%l_tend_ta_rlw_impl) THEN
+    p_acc%l_tend_ta_rlw_impl_m = is_variable_in_output(first_output_name_list, var_name="tend_ta_rlw_impl_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ta_rlw_impl_m
+    IF (p_acc%l_tend_ta_rlw_impl_m) THEN
        cf_desc = t_cf_var('temperature_tendency_rlw_impl', 'K s-1',                           &
             &             'temperature tendency due to LW rad. due to implicit land surface temperature change (time mean)', &
             &             DATATYPE_FLT32)
@@ -830,8 +1001,9 @@ CONTAINS
             &        GRID_UNSTRUCTURED_CELL, ZA_surface, cf_desc, grib2_desc, ldims=shape2d )
     END IF
 
-    p_acc%l_tend_ta_cld = is_variable_in_output(first_output_name_list, var_name="tend_ta_cld_m")
-    IF (p_acc%l_tend_ta_cld) THEN
+    p_acc%l_tend_ta_cld_m = is_variable_in_output(first_output_name_list, var_name="tend_ta_cld_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ta_cld_m
+    IF (p_acc%l_tend_ta_cld_m) THEN
        cf_desc = t_cf_var('temperature_tendency_cld', 'K s-1',                                &
             &             'temperature tendency due large scale cloud processes (time mean)', &
             &             DATATYPE_FLT32)
@@ -844,8 +1016,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ta_cnv = is_variable_in_output(first_output_name_list, var_name="tend_ta_cnv_m")
-    IF (p_acc%l_tend_ta_cnv) THEN
+    p_acc%l_tend_ta_cnv_m = is_variable_in_output(first_output_name_list, var_name="tend_ta_cnv_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ta_cnv_m
+    IF (p_acc%l_tend_ta_cnv_m) THEN
        cf_desc = t_cf_var('temperature_tendency_cnv', 'K s-1',                                &
             &             'temperature tendency due convective cloud processes (time mean)',  &
             &             DATATYPE_FLT32)
@@ -858,8 +1031,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ta_vdf = is_variable_in_output(first_output_name_list, var_name="tend_ta_vdf_m")
-    IF (p_acc%l_tend_ta_vdf) THEN
+    p_acc%l_tend_ta_vdf_m = is_variable_in_output(first_output_name_list, var_name="tend_ta_vdf_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ta_vdf_m
+    IF (p_acc%l_tend_ta_vdf_m) THEN
        cf_desc = t_cf_var('temperature_tendency_vdf', 'K s-1',                                &
             &             'temperature tendency due vertical diffusion (time mean)',          &
             &             DATATYPE_FLT32)
@@ -872,8 +1046,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ta_gwh = is_variable_in_output(first_output_name_list, var_name="tend_ta_gwh_m")
-    IF (p_acc%l_tend_ta_gwh) THEN
+    p_acc%l_tend_ta_gwh_m = is_variable_in_output(first_output_name_list, var_name="tend_ta_gwh_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ta_gwh_m
+    IF (p_acc%l_tend_ta_gwh_m) THEN
        cf_desc = t_cf_var('temperature_tendency_gwh', 'K s-1',                                &
             &             'temperature tendency due non-orographic gravity waves (time mean)',&
             &             DATATYPE_FLT32)
@@ -886,8 +1061,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ta_sso = is_variable_in_output(first_output_name_list, var_name="tend_ta_sso_m")
-    IF (p_acc%l_tend_ta_sso) THEN
+    p_acc%l_tend_ta_sso_m = is_variable_in_output(first_output_name_list, var_name="tend_ta_sso_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ta_sso_m
+    IF (p_acc%l_tend_ta_sso_m) THEN
        cf_desc = t_cf_var('temperature_tendency_sso', 'K s-1',                                &
             &             'temperature tendency due sub grid scale orography (time mean)',    &
             &             DATATYPE_FLT32)
@@ -903,8 +1079,9 @@ CONTAINS
     !------------------------------
     ! U-wind tendencies
     !------------------------------
-    p_acc%l_tend_ua     = is_variable_in_output(first_output_name_list, var_name="tend_ua_m")
-    IF (p_acc%l_tend_ua) THEN
+    p_acc%l_tend_ua_m     = is_variable_in_output(first_output_name_list, var_name="tend_ua_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ua_m
+    IF (p_acc%l_tend_ua_m) THEN
        cf_desc = t_cf_var('u_wind_tendency', 'm s-2',                                         &
             &             'u-wind tendency (time mean)',                                      &
             &             DATATYPE_FLT32)
@@ -917,8 +1094,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ua_dyn = is_variable_in_output(first_output_name_list, var_name="tend_ua_dyn_m")
-    IF (p_acc%l_tend_ua_dyn) THEN
+    p_acc%l_tend_ua_dyn_m = is_variable_in_output(first_output_name_list, var_name="tend_ua_dyn_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ua_dyn_m
+    IF (p_acc%l_tend_ua_dyn_m) THEN
        cf_desc = t_cf_var('u_wind_tendency_dyn', 'm s-2',                                     &
             &             'u-wind tendency due to resolved dynamics (time mean)',             &
             &             DATATYPE_FLT32)
@@ -931,8 +1109,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ua_phy = is_variable_in_output(first_output_name_list, var_name="tend_ua_phy_m")
-    IF (p_acc%l_tend_ua_phy) THEN
+    p_acc%l_tend_ua_phy_m = is_variable_in_output(first_output_name_list, var_name="tend_ua_phy_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ua_phy_m
+    IF (p_acc%l_tend_ua_phy_m) THEN
        cf_desc = t_cf_var('u_wind_tendency_phy', 'm s-2',                                     &
             &             'u-wind tendency due to param. processes (time mean)',              &
             &             DATATYPE_FLT32)
@@ -945,8 +1124,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ua_cnv = is_variable_in_output(first_output_name_list, var_name="tend_ua_cnv_m")
-    IF (p_acc%l_tend_ua_cnv) THEN
+    p_acc%l_tend_ua_cnv_m = is_variable_in_output(first_output_name_list, var_name="tend_ua_cnv_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ua_cnv_m
+    IF (p_acc%l_tend_ua_cnv_m) THEN
        cf_desc = t_cf_var('u_wind_tendency_cnv', 'm s-2',                                     &
             &             'u-wind tendency due to convective cloud precesses (time mean)',    &
             &             DATATYPE_FLT32)
@@ -959,8 +1139,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ua_vdf = is_variable_in_output(first_output_name_list, var_name="tend_ua_vdf_m")
-    IF (p_acc%l_tend_ua_vdf) THEN
+    p_acc%l_tend_ua_vdf_m = is_variable_in_output(first_output_name_list, var_name="tend_ua_vdf_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ua_vdf_m
+    IF (p_acc%l_tend_ua_vdf_m) THEN
        cf_desc = t_cf_var('u_wind_tendency_vdf', 'm s-2',                                     &
             &             'u-wind tendency due to vertical diffusion (time mean)',            &
             &             DATATYPE_FLT32)
@@ -973,8 +1154,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ua_gwh = is_variable_in_output(first_output_name_list, var_name="tend_ua_gwh_m")
-    IF (p_acc%l_tend_ua_gwh) THEN
+    p_acc%l_tend_ua_gwh_m = is_variable_in_output(first_output_name_list, var_name="tend_ua_gwh_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ua_gwh_m
+    IF (p_acc%l_tend_ua_gwh_m) THEN
        cf_desc = t_cf_var('u_wind_tendency_gwh', 'm s-2',                                     &
             &             'u-wind tendency due to non-orographic gravity waves (time mean)',  &
             &             DATATYPE_FLT32)
@@ -987,8 +1169,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_ua_sso = is_variable_in_output(first_output_name_list, var_name="tend_ua_sso_m")
-    IF (p_acc%l_tend_ua_sso) THEN
+    p_acc%l_tend_ua_sso_m = is_variable_in_output(first_output_name_list, var_name="tend_ua_sso_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_ua_sso_m
+    IF (p_acc%l_tend_ua_sso_m) THEN
        cf_desc = t_cf_var('u_wind_tendency_sso', 'm s-2',                                     &
             &             'u-wind tendency due to sub grid scale orography (time mean)',      &
             &             DATATYPE_FLT32)
@@ -1004,8 +1187,9 @@ CONTAINS
     !------------------------------
     ! V-wind tendencies
     !------------------------------
-    p_acc%l_tend_va     = is_variable_in_output(first_output_name_list, var_name="tend_va_m")
-    IF (p_acc%l_tend_va) THEN
+    p_acc%l_tend_va_m     = is_variable_in_output(first_output_name_list, var_name="tend_va_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_va_m
+    IF (p_acc%l_tend_va_m) THEN
        cf_desc = t_cf_var('v_wind_tendency', 'm s-2',                                         &
             &             'v-wind tendency (time mean)',                                      &
             &             DATATYPE_FLT32)
@@ -1018,8 +1202,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_va_dyn = is_variable_in_output(first_output_name_list, var_name="tend_va_dyn_m")
-    IF (p_acc%l_tend_va_dyn) THEN
+    p_acc%l_tend_va_dyn_m = is_variable_in_output(first_output_name_list, var_name="tend_va_dyn_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_va_dyn_m
+    IF (p_acc%l_tend_va_dyn_m) THEN
        cf_desc = t_cf_var('v_wind_tendency_dyn', 'm s-2',                                     &
             &             'v-wind tendency due to resolved dynamics (time mean)',             &
             &             DATATYPE_FLT32)
@@ -1032,8 +1217,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_va_phy = is_variable_in_output(first_output_name_list, var_name="tend_va_phy_m")
-    IF (p_acc%l_tend_va_phy) THEN
+    p_acc%l_tend_va_phy_m = is_variable_in_output(first_output_name_list, var_name="tend_va_phy_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_va_phy_m
+    IF (p_acc%l_tend_va_phy_m) THEN
        cf_desc = t_cf_var('v_wind_tendency_phy', 'm s-2',                                     &
             &             'v-wind tendency due to param. processes (time mean)',              &
             &             DATATYPE_FLT32)
@@ -1046,8 +1232,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_va_cnv = is_variable_in_output(first_output_name_list, var_name="tend_va_cnv_m")
-    IF (p_acc%l_tend_va_cnv) THEN
+    p_acc%l_tend_va_cnv_m = is_variable_in_output(first_output_name_list, var_name="tend_va_cnv_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_va_cnv_m
+    IF (p_acc%l_tend_va_cnv_m) THEN
        cf_desc = t_cf_var('v_wind_tendency_cnv', 'm s-2',                                     &
             &             'v-wind tendency due to convective cloud precesses (time mean)',    &
             &             DATATYPE_FLT32)
@@ -1060,8 +1247,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_va_vdf = is_variable_in_output(first_output_name_list, var_name="tend_va_vdf_m")
-    IF (p_acc%l_tend_va_vdf) THEN
+    p_acc%l_tend_va_vdf_m = is_variable_in_output(first_output_name_list, var_name="tend_va_vdf_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_va_vdf_m
+    IF (p_acc%l_tend_va_vdf_m) THEN
        cf_desc = t_cf_var('v_wind_tendency_vdf', 'm s-2',                                     &
             &             'v-wind tendency due to vertical diffusion (time mean)',            &
             &             DATATYPE_FLT32)
@@ -1074,8 +1262,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_va_gwh = is_variable_in_output(first_output_name_list, var_name="tend_va_gwh_m")
-    IF (p_acc%l_tend_va_gwh) THEN
+    p_acc%l_tend_va_gwh_m = is_variable_in_output(first_output_name_list, var_name="tend_va_gwh_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_va_gwh_m
+    IF (p_acc%l_tend_va_gwh_m) THEN
        cf_desc = t_cf_var('v_wind_tendency_gwh', 'm s-2',                                     &
             &             'v-wind tendency due to non-orographic gravity waves (time mean)',  &
             &             DATATYPE_FLT32)
@@ -1088,8 +1277,9 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    p_acc%l_tend_va_sso = is_variable_in_output(first_output_name_list, var_name="tend_va_sso_m")
-    IF (p_acc%l_tend_va_sso) THEN
+    p_acc%l_tend_va_sso_m = is_variable_in_output(first_output_name_list, var_name="tend_va_sso_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_va_sso_m
+    IF (p_acc%l_tend_va_sso_m) THEN
        cf_desc = t_cf_var('v_wind_tendency_sso', 'm s-2',                                     &
             &             'v-wind tendency due to sub grid scale orography (time mean)',      &
             &             DATATYPE_FLT32)
@@ -1103,314 +1293,312 @@ CONTAINS
     END IF
 
     
-!!$    p_acc%l_tend_hus     = is_variable_in_output(first_output_name_list, var_name="tend_hus_m")
-!!$    IF (p_acc%l_tend_hus) THEN
+!!$    p_acc%l_tend_hus_m     = is_variable_in_output(first_output_name_list, var_name="tend_hus_m")
+!!$    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_hus_m
+!!$    IF (p_acc%l_tend_hus_m) THEN
 !!$    END IF
 !!$
-!!$    p_acc%l_tend_hus_dyn = is_variable_in_output(first_output_name_list, var_name="tend_hus_dyn_m")
-!!$    IF (p_acc%l_tend_hus_dyn) THEN
+!!$    p_acc%l_tend_hus_dyn_m = is_variable_in_output(first_output_name_list, var_name="tend_hus_dyn_m")
+!!$    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_hus_dyn_m
+!!$    IF (p_acc%l_tend_hus_dyn_m) THEN
 !!$    END IF
 !!$
-!!$    p_acc%l_tend_hus_phy = is_variable_in_output(first_output_name_list, var_name="tend_hus_phy_m")
-!!$    IF (p_acc%l_tend_hus_phy) THEN
+!!$    p_acc%l_tend_hus_phy_m = is_variable_in_output(first_output_name_list, var_name="tend_hus_phy_m")
+!!$    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_hus_phy_m
+!!$    IF (p_acc%l_tend_hus_phy_m) THEN
 !!$    END IF
 !!$
-!!$    p_acc%l_tend_hus_cld = is_variable_in_output(first_output_name_list, var_name="tend_hus_cld_m")
-!!$    IF (p_acc%l_tend_hus_cld) THEN
+!!$    p_acc%l_tend_hus_cld_m = is_variable_in_output(first_output_name_list, var_name="tend_hus_cld_m")
+!!$    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_hus_cld_m
+!!$    IF (p_acc%l_tend_hus_cld_m) THEN
 !!$    END IF
 !!$
-!!$    p_acc%l_tend_hus_cnv = is_variable_in_output(first_output_name_list, var_name="tend_hus_cnv_m")
-!!$    IF (p_acc%l_tend_hus_cnv) THEN
+!!$    p_acc%l_tend_hus_cnv_m = is_variable_in_output(first_output_name_list, var_name="tend_hus_cnv_m")
+!!$    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_hus_cnv_m
+!!$    IF (p_acc%l_tend_hus_cnv_m) THEN
 !!$    END IF
 !!$
-!!$    p_acc%l_tend_hus_vdf = is_variable_in_output(first_output_name_list, var_name="tend_hus_vdf_m")
-!!$    IF (p_acc%l_tend_hus_vdf) THEN
+!!$    p_acc%l_tend_hus_vdf_m = is_variable_in_output(first_output_name_list, var_name="tend_hus_vdf_m")
+!!$    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_hus_vdf_m
+!!$    IF (p_acc%l_tend_hus_vdf_m) THEN
 !!$    END IF
 !!$
 !!$
-!!$    p_acc%l_tend_clw_dtr = is_variable_in_output(first_output_name_list, var_name="tend_clw_dtr_m")
-!!$    IF (p_acc%l_tend_clw_dtr) THEN
+!!$    p_acc%l_tend_clw_dtr_m = is_variable_in_output(first_output_name_list, var_name="tend_clw_dtr_m")
+!!$    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_clw_dtr_m
+!!$    IF (p_acc%l_tend_clw_dtr_m) THEN
 !!$    END IF
 !!$
-!!$    p_acc%l_tend_cli_dtr = is_variable_in_output(first_output_name_list, var_name="tend_cli_dtr_m")
-!!$    IF (p_acc%l_tend_cli_dtr) THEN
+!!$    p_acc%l_tend_cli_dtr_m = is_variable_in_output(first_output_name_list, var_name="tend_cli_dtr_m")
+!!$    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_cli_dtr_m
+!!$    IF (p_acc%l_tend_cli_dtr_m) THEN
 !!$    END IF
-
-
-    END IF ! echam_forcing_active
     ! }}}
 
     p_acc%numberOfAccumulations = 0
   END SUBROUTINE construct_opt_acc
 
 
-  SUBROUTINE update_opt_acc(acc, nh_prog, rho, nh_diag, subset, levels, echam_forcing_active)
+  SUBROUTINE update_opt_acc(acc, nh_prog, rho, nh_diag, subset, levels)
     TYPE(t_nh_acc),  INTENT(INOUT)   :: acc
-    TYPE(t_nh_prog), INTENT(IN)      :: nh_prog
+    TYPE(t_nh_prog), INTENT(IN)      :: nh_prog     ! for jg=1
     REAL(wp), INTENT(IN)             :: rho(:,:,:)
-    TYPE(t_nh_diag), INTENT(IN)      :: nh_diag
+    TYPE(t_nh_diag), INTENT(IN)      :: nh_diag     ! for jg=1
     TYPE(t_subset_range), INTENT(IN) :: subset
     INTEGER , INTENT(IN)             :: levels
-    LOGICAL , INTENT(IN)             :: echam_forcing_active
 
     INTEGER :: jt
 
+    INTEGER, PARAMETER :: jg = 1 ! used for prm_field(jg)%...
+
     !WRITE(message_text,'(a,i2)') '(pre ): numberOfAccumulations:',acc%numberOfAccumulations
     !CALL message('update_opt_nh_acc', TRIM(message_text))
-    CALL add_fields(acc%u       , nh_diag%u       , subset, levels=levels)
-    CALL add_fields(acc%v       , nh_diag%v       , subset, levels=levels)
-    CALL add_fields(acc%w       , nh_prog%w       , subset, levels=levels+1)
-    CALL add_fields(acc%temp    , nh_diag%temp    , subset, levels=levels)
-    CALL add_fields(acc%pres    , nh_diag%pres    , subset, levels=levels)
-    CALL add_fields(acc%pres_ifc, nh_diag%pres_ifc, subset, levels=levels+1)
-    CALL add_fields(acc%pres_sfc, nh_diag%pres_sfc, subset)
-    IF (acc%l_pres_msl)  CALL add_fields(acc%pres_msl, nh_diag%pres_msl, subset)
-    IF (acc%l_omega)     CALL add_fields(acc%omega   , nh_diag%omega   , subset, levels=levels)
-    CALL add_fields(acc%rho     , rho             , subset, levels=levels)
+    IF (acc%l_ua_m)    CALL add_fields(acc%u       , nh_diag%u       , subset, levels=levels)
+    IF (acc%l_va_m)    CALL add_fields(acc%v       , nh_diag%v       , subset, levels=levels)
+    IF (acc%l_wa_m)    CALL add_fields(acc%w       , nh_prog%w       , subset, levels=levels+1)
+    IF (acc%l_rho_m)   CALL add_fields(acc%rho     , rho             , subset, levels=levels)
     CALL dbg_print('RHO Update FROM',nh_prog%rho  ,'opt_diag',5, in_subset=subset)
     CALL dbg_print('RHO Update TO  ',acc%rho      ,'opt_diag',5, in_subset=subset)
-    IF (ntracer > 0) THEN
-      DO jt=1,ntracer
-        CALL add_fields(acc%tracer(:,:,:,jt) ,nh_prog%tracer(:,:,:,jt),subset,levels=levels)
-        CALL dbg_print('Tracer Update FROM',nh_prog%tracer(:,:,:,jt),'opt_diag',5, in_subset=subset)
-        CALL dbg_print('Tracer Update TO  ',acc%tracer(:,:,:,jt),    'opt_diag',5, in_subset=subset)
-      END DO
-    ENDIF
+    IF (acc%l_ta_m)    CALL add_fields(acc%temp    , nh_diag%temp    , subset, levels=levels)
+    IF (acc%l_ps_m)    CALL add_fields(acc%pres_sfc, nh_diag%pres_sfc, subset)
+    IF (acc%l_psl_m)   CALL add_fields(acc%pres_msl, nh_diag%pres_msl, subset)
+    IF (acc%l_pfull_m) CALL add_fields(acc%pres    , nh_diag%pres    , subset, levels=levels)
+    IF (acc%l_phalf_m) CALL add_fields(acc%pres_ifc, nh_diag%pres_ifc, subset, levels=levels+1)
+    IF (acc%l_wap_m)   CALL add_fields(acc%omega   , nh_diag%omega   , subset, levels=levels)
 
-    IF (echam_forcing_active) CALL update_opt_acc_echam(acc, 1, subset, levels)
+    IF (ntracer > 0) THEN
+       IF (acc%l_tracer_m) THEN
+          DO jt=1,ntracer
+             CALL add_fields(acc%tracer(:,:,:,jt) ,nh_prog%tracer(:,:,:,jt),subset,levels=levels)
+             CALL dbg_print('Tracer Update FROM',nh_prog%tracer(:,:,:,jt),'opt_diag',5, in_subset=subset)
+             CALL dbg_print('Tracer Update TO  ',acc%tracer(:,:,:,jt),    'opt_diag',5, in_subset=subset)
+          END DO
+       END IF
+    END IF
+
+    IF (acc%l_cosmu0_m)  CALL add_fields(acc%cosmu0    , prm_field(jg)%cosmu0    , subset)
+    IF (acc%l_rsdt_m)    CALL add_fields(acc%flxdwswtoa, prm_field(jg)%flxdwswtoa, subset)
+    IF (acc%l_clt_m)     CALL add_fields(acc%aclcov    , prm_field(jg)%aclcov    , subset)
+    IF (acc%l_prlr_m)    CALL add_fields(acc%rsfl      , prm_field(jg)%rsfl      , subset)
+    IF (acc%l_prcr_m)    CALL add_fields(acc%rsfc      , prm_field(jg)%rsfc      , subset)
+    IF (acc%l_prls_m)    CALL add_fields(acc%ssfl      , prm_field(jg)%ssfl      , subset)
+    IF (acc%l_prcs_m)    CALL add_fields(acc%ssfc      , prm_field(jg)%ssfc      , subset)
+    IF (acc%l_pr_m)      CALL add_fields(acc%totprec   , prm_field(jg)%totprec   , subset)
+    IF (acc%l_prw_m)     CALL add_fields(acc%qvi       , prm_field(jg)%qvi       , subset)
+    IF (acc%l_cllvi_m)   CALL add_fields(acc%xlvi      , prm_field(jg)%xlvi      , subset)
+    IF (acc%l_clivi_m)   CALL add_fields(acc%xivi      , prm_field(jg)%xivi      , subset)
+    IF (acc%l_rsns_m)    CALL add_fields(acc%swflxsfc  , prm_field(jg)%swflxsfc  , subset)
+    IF (acc%l_rsnt_m)    CALL add_fields(acc%swflxtoa  , prm_field(jg)%swflxtoa  , subset)
+    IF (acc%l_rlns_m)    CALL add_fields(acc%lwflxsfc  , prm_field(jg)%lwflxsfc  , subset)
+    IF (acc%l_rlnt_m)    CALL add_fields(acc%lwflxtoa  , prm_field(jg)%lwflxtoa  , subset)
+    IF (acc%l_ts_m)      CALL add_fields(acc%tsfc      , prm_field(jg)%tsfc      , subset)
+    IF (acc%l_evspsbl_m) CALL add_fields(acc%evap      , prm_field(jg)%evap      , subset)
+    IF (acc%l_hfls_m)    CALL add_fields(acc%lhflx     , prm_field(jg)%lhflx     , subset)
+    IF (acc%l_hfss_m)    CALL add_fields(acc%shflx     , prm_field(jg)%shflx     , subset)
+    IF (acc%l_tauu_m)    CALL add_fields(acc%u_stress  , prm_field(jg)%u_stress  , subset)
+    IF (acc%l_tauv_m)    CALL add_fields(acc%v_stress  , prm_field(jg)%v_stress  , subset)
+
+    IF (acc%l_tend_ta_m    ) CALL add_fields(acc%tend_ta    , prm_tend(jg)%temp    , subset, levels=levels)
+    IF (acc%l_tend_ta_dyn_m) CALL add_fields(acc%tend_ta_dyn, prm_tend(jg)%temp_dyn, subset, levels=levels)
+    IF (acc%l_tend_ta_phy_m) CALL add_fields(acc%tend_ta_phy, prm_tend(jg)%temp_phy, subset, levels=levels)
+    IF (acc%l_tend_ta_rsw_m) CALL add_fields(acc%tend_ta_rsw, prm_tend(jg)%temp_rsw, subset, levels=levels)
+    IF (acc%l_tend_ta_rlw_m) CALL add_fields(acc%tend_ta_rlw, prm_tend(jg)%temp_rlw, subset, levels=levels)
+    IF (acc%l_tend_ta_rlw_impl_m) CALL add_fields(acc%tend_ta_rlw_impl, prm_tend(jg)%temp_rlw_impl, subset)
+    IF (acc%l_tend_ta_cld_m) CALL add_fields(acc%tend_ta_cld, prm_tend(jg)%temp_cld, subset, levels=levels)
+    IF (acc%l_tend_ta_cnv_m) CALL add_fields(acc%tend_ta_cnv, prm_tend(jg)%temp_cnv, subset, levels=levels)
+    IF (acc%l_tend_ta_vdf_m) CALL add_fields(acc%tend_ta_vdf, prm_tend(jg)%temp_vdf, subset, levels=levels)
+    IF (acc%l_tend_ta_gwh_m) CALL add_fields(acc%tend_ta_gwh, prm_tend(jg)%temp_gwh, subset, levels=levels)
+    IF (acc%l_tend_ta_sso_m) CALL add_fields(acc%tend_ta_sso, prm_tend(jg)%temp_sso, subset, levels=levels)
+
+    IF (acc%l_tend_ua_m    ) CALL add_fields(acc%tend_ua    , prm_tend(jg)%u    , subset, levels=levels)
+    IF (acc%l_tend_ua_dyn_m) CALL add_fields(acc%tend_ua_dyn, prm_tend(jg)%u_dyn, subset, levels=levels)
+    IF (acc%l_tend_ua_phy_m) CALL add_fields(acc%tend_ua_phy, prm_tend(jg)%u_phy, subset, levels=levels)
+    IF (acc%l_tend_ua_cnv_m) CALL add_fields(acc%tend_ua_cnv, prm_tend(jg)%u_cnv, subset, levels=levels)
+    IF (acc%l_tend_ua_vdf_m) CALL add_fields(acc%tend_ua_vdf, prm_tend(jg)%u_vdf, subset, levels=levels)
+    IF (acc%l_tend_ua_gwh_m) CALL add_fields(acc%tend_ua_gwh, prm_tend(jg)%u_gwh, subset, levels=levels)
+    IF (acc%l_tend_ua_sso_m) CALL add_fields(acc%tend_ua_sso, prm_tend(jg)%u_sso, subset, levels=levels)
+
+    IF (acc%l_tend_va_m    ) CALL add_fields(acc%tend_va    , prm_tend(jg)%v    , subset, levels=levels)
+    IF (acc%l_tend_va_dyn_m) CALL add_fields(acc%tend_va_dyn, prm_tend(jg)%v_dyn, subset, levels=levels)
+    IF (acc%l_tend_va_phy_m) CALL add_fields(acc%tend_va_phy, prm_tend(jg)%v_phy, subset, levels=levels)
+    IF (acc%l_tend_va_cnv_m) CALL add_fields(acc%tend_va_cnv, prm_tend(jg)%v_cnv, subset, levels=levels)
+    IF (acc%l_tend_va_vdf_m) CALL add_fields(acc%tend_va_vdf, prm_tend(jg)%v_vdf, subset, levels=levels)
+    IF (acc%l_tend_va_gwh_m) CALL add_fields(acc%tend_va_gwh, prm_tend(jg)%v_gwh, subset, levels=levels)
+    IF (acc%l_tend_va_sso_m) CALL add_fields(acc%tend_va_sso, prm_tend(jg)%v_sso, subset, levels=levels)
 
     acc%numberOfAccumulations = acc%numberOfAccumulations + 1
     !WRITE(message_text,'(a,i2)') '(post): numberOfAccumulations:',acc%numberOfAccumulations
     !CALL message('update_opt_nh_acc', TRIM(message_text))
+
   END SUBROUTINE update_opt_acc
 
 
-  SUBROUTINE reset_opt_acc(acc,echam_forcing_active)
+  SUBROUTINE reset_opt_acc(acc)
     TYPE(t_nh_acc) :: acc!(n_dom)
-    LOGICAL , INTENT(IN)             :: echam_forcing_active
 
     INTEGER :: jt
 
-    acc%u                            = 0.0_wp
-    acc%v                            = 0.0_wp
-    acc%w                            = 0.0_wp
-    acc%temp                         = 0.0_wp
-    acc%pres                         = 0.0_wp
-    acc%pres_ifc                     = 0.0_wp
-    acc%pres_sfc                     = 0.0_wp
-    IF (acc%l_pres_msl) acc%pres_msl = 0.0_wp
-    IF (acc%l_omega   ) acc%omega    = 0.0_wp
-    acc%rho                          = 0.0_wp
-    !WRITE(message_text,'(a,i2)') '(    ): numberOfAccumulations:',acc%numberOfAccumulations
-    !CALL message('reset_opt_nh_acc', TRIM(message_text))
-    IF (ntracer > 0) THEN
-      DO jt=1,ntracer
-        acc%tracer(:,:,:,jt) = 0.0_wp
-      END DO
-    ENDIF
-    IF (echam_forcing_active) THEN
-      acc%cosmu0     = 0.0_wp
-      acc%flxdwswtoa = 0.0_wp
-      acc%aclcov     = 0.0_wp
-      acc%rsfl       = 0.0_wp
-      acc%rsfc       = 0.0_wp
-      acc%ssfl       = 0.0_wp
-      acc%ssfc       = 0.0_wp
-      acc%totprec    = 0.0_wp
-      acc%qvi        = 0.0_wp
-      acc%xlvi       = 0.0_wp
-      acc%xivi       = 0.0_wp
-      acc%swflxsfc   = 0.0_wp
-      acc%swflxtoa   = 0.0_wp
-      acc%lwflxsfc   = 0.0_wp
-      acc%lwflxtoa   = 0.0_wp
-      acc%tsfc       = 0.0_wp
-      acc%evap       = 0.0_wp
-      acc%lhflx      = 0.0_wp
-      acc%shflx      = 0.0_wp
-      acc%u_stress   = 0.0_wp
-      acc%v_stress   = 0.0_wp
+    IF (acc%l_ua_m)    acc%u        = 0.0_wp
+    IF (acc%l_va_m)    acc%v        = 0.0_wp
+    IF (acc%l_wa_m)    acc%w        = 0.0_wp
+    IF (acc%l_rho_m)   acc%rho      = 0.0_wp
+    IF (acc%l_ta_m)    acc%temp     = 0.0_wp
+    IF (acc%l_ps_m)    acc%pres_sfc = 0.0_wp
+    IF (acc%l_psl_m)   acc%pres_msl = 0.0_wp
+    IF (acc%l_pfull_m) acc%pres     = 0.0_wp
+    IF (acc%l_phalf_m) acc%pres_ifc = 0.0_wp
+    IF (acc%l_wap_m)   acc%omega    = 0.0_wp
 
-      IF (acc%l_tend_ta    ) acc%tend_ta    = 0.0_wp
-      IF (acc%l_tend_ta_dyn) acc%tend_ta_dyn= 0.0_wp
-      IF (acc%l_tend_ta_phy) acc%tend_ta_phy= 0.0_wp
-      IF (acc%l_tend_ta_rsw) acc%tend_ta_rsw= 0.0_wp
-      IF (acc%l_tend_ta_rlw) acc%tend_ta_rlw= 0.0_wp
-      IF (acc%l_tend_ta_rlw_impl) acc%tend_ta_rlw_impl= 0.0_wp
-      IF (acc%l_tend_ta_cld) acc%tend_ta_cld= 0.0_wp
-      IF (acc%l_tend_ta_cnv) acc%tend_ta_cnv= 0.0_wp
-      IF (acc%l_tend_ta_vdf) acc%tend_ta_vdf= 0.0_wp
-      IF (acc%l_tend_ta_gwh) acc%tend_ta_gwh= 0.0_wp
-      IF (acc%l_tend_ta_sso) acc%tend_ta_sso= 0.0_wp
-      
-      IF (acc%l_tend_ua    ) acc%tend_ua    = 0.0_wp
-      IF (acc%l_tend_ua_dyn) acc%tend_ua_dyn= 0.0_wp
-      IF (acc%l_tend_ua_phy) acc%tend_ua_phy= 0.0_wp
-      IF (acc%l_tend_ua_cnv) acc%tend_ua_cnv= 0.0_wp
-      IF (acc%l_tend_ua_vdf) acc%tend_ua_vdf= 0.0_wp
-      IF (acc%l_tend_ua_gwh) acc%tend_ua_gwh= 0.0_wp
-      IF (acc%l_tend_ua_sso) acc%tend_ua_sso= 0.0_wp
-      
-      IF (acc%l_tend_va    ) acc%tend_va    = 0.0_wp
-      IF (acc%l_tend_va_dyn) acc%tend_va_dyn= 0.0_wp
-      IF (acc%l_tend_va_phy) acc%tend_va_phy= 0.0_wp
-      IF (acc%l_tend_va_cnv) acc%tend_va_cnv= 0.0_wp
-      IF (acc%l_tend_va_vdf) acc%tend_va_vdf= 0.0_wp
-      IF (acc%l_tend_va_gwh) acc%tend_va_gwh= 0.0_wp
-      IF (acc%l_tend_va_sso) acc%tend_va_sso= 0.0_wp
-      
-    ENDIF
+    IF (ntracer > 0) THEN
+       IF (acc%l_tracer_m) THEN
+          DO jt=1,ntracer
+             acc%tracer(:,:,:,jt) = 0.0_wp
+          END DO
+       END IF
+    END IF
+
+    IF (acc%l_cosmu0_m)  acc%cosmu0     = 0.0_wp
+    IF (acc%l_rsdt_m)    acc%flxdwswtoa = 0.0_wp
+    IF (acc%l_clt_m)     acc%aclcov     = 0.0_wp
+    IF (acc%l_prlr_m)    acc%rsfl       = 0.0_wp
+    IF (acc%l_prls_m)    acc%ssfl       = 0.0_wp
+    IF (acc%l_prcr_m)    acc%rsfc       = 0.0_wp
+    IF (acc%l_prcs_m)    acc%ssfc       = 0.0_wp
+    IF (acc%l_pr_m)      acc%totprec    = 0.0_wp
+    IF (acc%l_prw_m)     acc%qvi        = 0.0_wp
+    IF (acc%l_cllvi_m)   acc%xlvi       = 0.0_wp
+    IF (acc%l_clivi_m)   acc%xivi       = 0.0_wp
+    IF (acc%l_rsns_m)    acc%swflxsfc   = 0.0_wp
+    IF (acc%l_rsnt_m)    acc%swflxtoa   = 0.0_wp
+    IF (acc%l_rlns_m)    acc%lwflxsfc   = 0.0_wp
+    IF (acc%l_rlnt_m)    acc%lwflxtoa   = 0.0_wp
+    IF (acc%l_ts_m)      acc%tsfc       = 0.0_wp
+    IF (acc%l_evspsbl_m) acc%evap       = 0.0_wp
+    IF (acc%l_hfls_m)    acc%lhflx      = 0.0_wp
+    IF (acc%l_hfss_m)    acc%shflx      = 0.0_wp
+    IF (acc%l_tauu_m)    acc%u_stress   = 0.0_wp
+    IF (acc%l_tauv_m)    acc%v_stress   = 0.0_wp
+
+    IF (acc%l_tend_ta_m    )      acc%tend_ta          = 0.0_wp
+    IF (acc%l_tend_ta_dyn_m)      acc%tend_ta_dyn      = 0.0_wp
+    IF (acc%l_tend_ta_phy_m)      acc%tend_ta_phy      = 0.0_wp
+    IF (acc%l_tend_ta_rsw_m)      acc%tend_ta_rsw      = 0.0_wp
+    IF (acc%l_tend_ta_rlw_m)      acc%tend_ta_rlw      = 0.0_wp
+    IF (acc%l_tend_ta_rlw_impl_m) acc%tend_ta_rlw_impl = 0.0_wp
+    IF (acc%l_tend_ta_cld_m)      acc%tend_ta_cld      = 0.0_wp
+    IF (acc%l_tend_ta_cnv_m)      acc%tend_ta_cnv      = 0.0_wp
+    IF (acc%l_tend_ta_vdf_m)      acc%tend_ta_vdf      = 0.0_wp
+    IF (acc%l_tend_ta_gwh_m)      acc%tend_ta_gwh      = 0.0_wp
+    IF (acc%l_tend_ta_sso_m)      acc%tend_ta_sso      = 0.0_wp
+
+    IF (acc%l_tend_ua_m    ) acc%tend_ua    = 0.0_wp
+    IF (acc%l_tend_ua_dyn_m) acc%tend_ua_dyn= 0.0_wp
+    IF (acc%l_tend_ua_phy_m) acc%tend_ua_phy= 0.0_wp
+    IF (acc%l_tend_ua_cnv_m) acc%tend_ua_cnv= 0.0_wp
+    IF (acc%l_tend_ua_vdf_m) acc%tend_ua_vdf= 0.0_wp
+    IF (acc%l_tend_ua_gwh_m) acc%tend_ua_gwh= 0.0_wp
+    IF (acc%l_tend_ua_sso_m) acc%tend_ua_sso= 0.0_wp
+
+    IF (acc%l_tend_va_m    ) acc%tend_va    = 0.0_wp
+    IF (acc%l_tend_va_dyn_m) acc%tend_va_dyn= 0.0_wp
+    IF (acc%l_tend_va_phy_m) acc%tend_va_phy= 0.0_wp
+    IF (acc%l_tend_va_cnv_m) acc%tend_va_cnv= 0.0_wp
+    IF (acc%l_tend_va_vdf_m) acc%tend_va_vdf= 0.0_wp
+    IF (acc%l_tend_va_gwh_m) acc%tend_va_gwh= 0.0_wp
+    IF (acc%l_tend_va_sso_m) acc%tend_va_sso= 0.0_wp
+
     acc%numberOfAccumulations = 0
+
   END SUBROUTINE reset_opt_acc
 
 
-  SUBROUTINE calc_mean_opt_acc(acc,echam_forcing_active)
+  SUBROUTINE calc_mean_opt_acc(acc)
     TYPE(t_nh_acc) :: acc!(n_dom)
-    LOGICAL , INTENT(IN)             :: echam_forcing_active
 
     INTEGER  :: jt
     REAL(wp) :: xfactor
 
     xfactor = 1._wp/REAL(acc%numberOfAccumulations,wp)
     
-    acc%u        = acc%u        *xfactor
-    acc%v        = acc%v        *xfactor
-    acc%w        = acc%w        *xfactor
-    acc%temp     = acc%temp     *xfactor
-    acc%pres     = acc%pres     *xfactor
-    acc%pres_ifc = acc%pres_ifc *xfactor
-    acc%pres_sfc = acc%pres_sfc *xfactor
-    IF (acc%l_pres_msl) acc%pres_msl = acc%pres_msl *xfactor
-    IF (acc%l_omega   ) acc%omega    = acc%omega    *xfactor
-    acc%rho      = acc%rho      *xfactor
-    !WRITE(message_text,'(a,i2)') '(    ): numberOfAccumulations:',acc%numberOfAccumulations
-    !CALL message('calc_mean_opt_nh_acc', TRIM(message_text))
+    IF (acc%l_ua_m)    acc%u        = acc%u        *xfactor
+    IF (acc%l_va_m)    acc%v        = acc%v        *xfactor
+    IF (acc%l_wa_m)    acc%w        = acc%w        *xfactor
+    IF (acc%l_rho_m)   acc%rho      = acc%rho      *xfactor
+    IF (acc%l_ta_m)    acc%temp     = acc%temp     *xfactor
+    IF (acc%l_ps_m)    acc%pres_sfc = acc%pres_sfc *xfactor
+    IF (acc%l_psl_m)   acc%pres_msl = acc%pres_msl *xfactor
+    IF (acc%l_pfull_m) acc%pres     = acc%pres     *xfactor
+    IF (acc%l_phalf_m) acc%pres_ifc = acc%pres_ifc *xfactor
+    IF (acc%l_wap_m)   acc%omega    = acc%omega    *xfactor
+
     IF (ntracer > 0) THEN
-      DO jt=1,ntracer
-        acc%tracer(:,:,:,jt) = acc%tracer(:,:,:,jt) *xfactor
-      END DO
-    ENDIF
-    IF (echam_forcing_active) THEN
-      acc%cosmu0     = acc%cosmu0     *xfactor
-      acc%flxdwswtoa = acc%flxdwswtoa *xfactor
-      acc%aclcov     = acc%aclcov     *xfactor
-      acc%rsfl       = acc%rsfl       *xfactor
-      acc%rsfc       = acc%rsfc       *xfactor
-      acc%ssfl       = acc%ssfl       *xfactor
-      acc%ssfc       = acc%ssfc       *xfactor
-      acc%totprec    = acc%totprec    *xfactor
-      acc%qvi        = acc%qvi        *xfactor
-      acc%xlvi       = acc%xlvi       *xfactor
-      acc%xivi       = acc%xivi       *xfactor
-      acc%swflxsfc   = acc%swflxsfc   *xfactor
-      acc%swflxtoa   = acc%swflxtoa   *xfactor
-      acc%lwflxsfc   = acc%lwflxsfc   *xfactor
-      acc%lwflxtoa   = acc%lwflxtoa   *xfactor
-      acc%tsfc       = acc%tsfc       *xfactor
-      acc%evap       = acc%evap       *xfactor
-      acc%lhflx      = acc%lhflx      *xfactor
-      acc%shflx      = acc%shflx      *xfactor
-      acc%u_stress   = acc%u_stress   *xfactor
-      acc%v_stress   = acc%v_stress   *xfactor
+       IF (acc%l_tracer_m) THEN
+          DO jt=1,ntracer
+             acc%tracer(:,:,:,jt) = acc%tracer(:,:,:,jt) *xfactor
+          END DO
+       END IF
+    END IF
 
-      IF (acc%l_tend_ta    ) acc%tend_ta    = acc%tend_ta     *xfactor
-      IF (acc%l_tend_ta_dyn) acc%tend_ta_dyn= acc%tend_ta_dyn *xfactor
-      IF (acc%l_tend_ta_phy) acc%tend_ta_phy= acc%tend_ta_phy *xfactor
-      IF (acc%l_tend_ta_rsw) acc%tend_ta_rsw= acc%tend_ta_rsw *xfactor
-      IF (acc%l_tend_ta_rlw) acc%tend_ta_rlw= acc%tend_ta_rlw *xfactor
-      IF (acc%l_tend_ta_rlw_impl) acc%tend_ta_rlw_impl= acc%tend_ta_rlw_impl *xfactor
-      IF (acc%l_tend_ta_cld) acc%tend_ta_cld= acc%tend_ta_cld *xfactor
-      IF (acc%l_tend_ta_cnv) acc%tend_ta_cnv= acc%tend_ta_cnv *xfactor
-      IF (acc%l_tend_ta_vdf) acc%tend_ta_vdf= acc%tend_ta_vdf *xfactor
-      IF (acc%l_tend_ta_gwh) acc%tend_ta_gwh= acc%tend_ta_gwh *xfactor
-      IF (acc%l_tend_ta_sso) acc%tend_ta_sso= acc%tend_ta_sso *xfactor
+    IF (acc%l_cosmu0_m)  acc%cosmu0     = acc%cosmu0     *xfactor
+    IF (acc%l_rsdt_m)    acc%flxdwswtoa = acc%flxdwswtoa *xfactor
+    IF (acc%l_clt_m)     acc%aclcov     = acc%aclcov     *xfactor
+    IF (acc%l_prlr_m)    acc%rsfl       = acc%rsfl       *xfactor
+    IF (acc%l_prcr_m)    acc%rsfc       = acc%rsfc       *xfactor
+    IF (acc%l_prls_m)    acc%ssfl       = acc%ssfl       *xfactor
+    IF (acc%l_prcs_m)    acc%ssfc       = acc%ssfc       *xfactor
+    IF (acc%l_pr_m)      acc%totprec    = acc%totprec    *xfactor
+    IF (acc%l_prw_m)     acc%qvi        = acc%qvi        *xfactor
+    IF (acc%l_cllvi_m)   acc%xlvi       = acc%xlvi       *xfactor
+    IF (acc%l_clivi_m)   acc%xivi       = acc%xivi       *xfactor
+    IF (acc%l_rsns_m)    acc%swflxsfc   = acc%swflxsfc   *xfactor
+    IF (acc%l_rsnt_m)    acc%swflxtoa   = acc%swflxtoa   *xfactor
+    IF (acc%l_rlns_m)    acc%lwflxsfc   = acc%lwflxsfc   *xfactor
+    IF (acc%l_rlnt_m)    acc%lwflxtoa   = acc%lwflxtoa   *xfactor
+    IF (acc%l_ts_m)      acc%tsfc       = acc%tsfc       *xfactor
+    IF (acc%l_evspsbl_m) acc%evap       = acc%evap       *xfactor
+    IF (acc%l_hfls_m)    acc%lhflx      = acc%lhflx      *xfactor
+    IF (acc%l_hfss_m)    acc%shflx      = acc%shflx      *xfactor
+    IF (acc%l_tauu_m)    acc%u_stress   = acc%u_stress   *xfactor
+    IF (acc%l_tauv_m)    acc%v_stress   = acc%v_stress   *xfactor
 
-      IF (acc%l_tend_ua    ) acc%tend_ua    = acc%tend_ua     *xfactor
-      IF (acc%l_tend_ua_dyn) acc%tend_ua_dyn= acc%tend_ua_dyn *xfactor
-      IF (acc%l_tend_ua_phy) acc%tend_ua_phy= acc%tend_ua_phy *xfactor
-      IF (acc%l_tend_ua_cnv) acc%tend_ua_cnv= acc%tend_ua_cnv *xfactor
-      IF (acc%l_tend_ua_vdf) acc%tend_ua_vdf= acc%tend_ua_vdf *xfactor
-      IF (acc%l_tend_ua_gwh) acc%tend_ua_gwh= acc%tend_ua_gwh *xfactor
-      IF (acc%l_tend_ua_sso) acc%tend_ua_sso= acc%tend_ua_sso *xfactor
+    IF (acc%l_tend_ta_m    )      acc%tend_ta          = acc%tend_ta          *xfactor
+    IF (acc%l_tend_ta_dyn_m)      acc%tend_ta_dyn      = acc%tend_ta_dyn      *xfactor
+    IF (acc%l_tend_ta_phy_m)      acc%tend_ta_phy      = acc%tend_ta_phy      *xfactor
+    IF (acc%l_tend_ta_rsw_m)      acc%tend_ta_rsw      = acc%tend_ta_rsw      *xfactor
+    IF (acc%l_tend_ta_rlw_m)      acc%tend_ta_rlw      = acc%tend_ta_rlw      *xfactor
+    IF (acc%l_tend_ta_rlw_impl_m) acc%tend_ta_rlw_impl = acc%tend_ta_rlw_impl *xfactor
+    IF (acc%l_tend_ta_cld_m)      acc%tend_ta_cld      = acc%tend_ta_cld      *xfactor
+    IF (acc%l_tend_ta_cnv_m)      acc%tend_ta_cnv      = acc%tend_ta_cnv      *xfactor
+    IF (acc%l_tend_ta_vdf_m)      acc%tend_ta_vdf      = acc%tend_ta_vdf      *xfactor
+    IF (acc%l_tend_ta_gwh_m)      acc%tend_ta_gwh      = acc%tend_ta_gwh      *xfactor
+    IF (acc%l_tend_ta_sso_m)      acc%tend_ta_sso      = acc%tend_ta_sso      *xfactor
 
-      IF (acc%l_tend_va    ) acc%tend_va    = acc%tend_va     *xfactor
-      IF (acc%l_tend_va_dyn) acc%tend_va_dyn= acc%tend_va_dyn *xfactor
-      IF (acc%l_tend_va_phy) acc%tend_va_phy= acc%tend_va_phy *xfactor
-      IF (acc%l_tend_va_cnv) acc%tend_va_cnv= acc%tend_va_cnv *xfactor
-      IF (acc%l_tend_va_vdf) acc%tend_va_vdf= acc%tend_va_vdf *xfactor
-      IF (acc%l_tend_va_gwh) acc%tend_va_gwh= acc%tend_va_gwh *xfactor
-      IF (acc%l_tend_va_sso) acc%tend_va_sso= acc%tend_va_sso *xfactor
+    IF (acc%l_tend_ua_m    ) acc%tend_ua     = acc%tend_ua     *xfactor
+    IF (acc%l_tend_ua_dyn_m) acc%tend_ua_dyn = acc%tend_ua_dyn *xfactor
+    IF (acc%l_tend_ua_phy_m) acc%tend_ua_phy = acc%tend_ua_phy *xfactor
+    IF (acc%l_tend_ua_cnv_m) acc%tend_ua_cnv = acc%tend_ua_cnv *xfactor
+    IF (acc%l_tend_ua_vdf_m) acc%tend_ua_vdf = acc%tend_ua_vdf *xfactor
+    IF (acc%l_tend_ua_gwh_m) acc%tend_ua_gwh = acc%tend_ua_gwh *xfactor
+    IF (acc%l_tend_ua_sso_m) acc%tend_ua_sso = acc%tend_ua_sso *xfactor
 
-    ENDIF
+    IF (acc%l_tend_va_m    ) acc%tend_va     = acc%tend_va     *xfactor
+    IF (acc%l_tend_va_dyn_m) acc%tend_va_dyn = acc%tend_va_dyn *xfactor
+    IF (acc%l_tend_va_phy_m) acc%tend_va_phy = acc%tend_va_phy *xfactor
+    IF (acc%l_tend_va_cnv_m) acc%tend_va_cnv = acc%tend_va_cnv *xfactor
+    IF (acc%l_tend_va_vdf_m) acc%tend_va_vdf = acc%tend_va_vdf *xfactor
+    IF (acc%l_tend_va_gwh_m) acc%tend_va_gwh = acc%tend_va_gwh *xfactor
+    IF (acc%l_tend_va_sso_m) acc%tend_va_sso = acc%tend_va_sso *xfactor
+
   END SUBROUTINE calc_mean_opt_acc
-
-  SUBROUTINE update_opt_acc_echam(acc,jg,subset,levels)
-    TYPE(t_nh_acc) :: acc
-    INTEGER :: jg
-    TYPE(t_subset_range) , INTENT(IN):: subset
-    INTEGER , INTENT(IN)             :: levels
-
-    CALL add_fields(acc%cosmu0          , prm_field(jg)%cosmu0    , subset)
-    CALL add_fields(acc%flxdwswtoa      , prm_field(jg)%flxdwswtoa, subset)
-    CALL add_fields(acc%aclcov          , prm_field(jg)%aclcov    , subset)
-    CALL add_fields(acc%rsfl            , prm_field(jg)%rsfl      , subset)
-    CALL add_fields(acc%rsfc            , prm_field(jg)%rsfc      , subset)
-    CALL add_fields(acc%ssfl            , prm_field(jg)%ssfl      , subset)
-    CALL add_fields(acc%ssfc            , prm_field(jg)%ssfc      , subset)
-    CALL add_fields(acc%totprec         , prm_field(jg)%totprec   , subset)
-    CALL add_fields(acc%qvi             , prm_field(jg)%qvi       , subset)
-    CALL add_fields(acc%xlvi            , prm_field(jg)%xlvi      , subset)
-    CALL add_fields(acc%xivi            , prm_field(jg)%xivi      , subset)
-    CALL add_fields(acc%swflxsfc        , prm_field(jg)%swflxsfc  , subset)
-    CALL add_fields(acc%swflxtoa        , prm_field(jg)%swflxtoa  , subset)
-    CALL add_fields(acc%lwflxsfc        , prm_field(jg)%lwflxsfc  , subset)
-    CALL add_fields(acc%lwflxtoa        , prm_field(jg)%lwflxtoa  , subset)
-    CALL add_fields(acc%tsfc            , prm_field(jg)%tsfc      , subset)
-    CALL add_fields(acc%evap            , prm_field(jg)%evap      , subset)
-    CALL add_fields(acc%lhflx           , prm_field(jg)%lhflx     , subset)
-    CALL add_fields(acc%shflx           , prm_field(jg)%shflx     , subset)
-    CALL add_fields(acc%u_stress        , prm_field(jg)%u_stress  , subset)
-    CALL add_fields(acc%v_stress        , prm_field(jg)%v_stress  , subset)
-
-    IF (acc%l_tend_ta    ) CALL add_fields(acc%tend_ta    , prm_tend(jg)%temp    , subset, levels=levels)
-    IF (acc%l_tend_ta_dyn) CALL add_fields(acc%tend_ta_dyn, prm_tend(jg)%temp_dyn, subset, levels=levels)
-    IF (acc%l_tend_ta_phy) CALL add_fields(acc%tend_ta_phy, prm_tend(jg)%temp_phy, subset, levels=levels)
-    IF (acc%l_tend_ta_rsw) CALL add_fields(acc%tend_ta_rsw, prm_tend(jg)%temp_rsw, subset, levels=levels)
-    IF (acc%l_tend_ta_rlw) CALL add_fields(acc%tend_ta_rlw, prm_tend(jg)%temp_rlw, subset, levels=levels)
-    IF (acc%l_tend_ta_rlw_impl) CALL add_fields(acc%tend_ta_rlw_impl, prm_tend(jg)%temp_rlw_impl, subset)
-    IF (acc%l_tend_ta_cld) CALL add_fields(acc%tend_ta_cld, prm_tend(jg)%temp_cld, subset, levels=levels)
-    IF (acc%l_tend_ta_cnv) CALL add_fields(acc%tend_ta_cnv, prm_tend(jg)%temp_cnv, subset, levels=levels)
-    IF (acc%l_tend_ta_vdf) CALL add_fields(acc%tend_ta_vdf, prm_tend(jg)%temp_vdf, subset, levels=levels)
-    IF (acc%l_tend_ta_gwh) CALL add_fields(acc%tend_ta_gwh, prm_tend(jg)%temp_gwh, subset, levels=levels)
-    IF (acc%l_tend_ta_sso) CALL add_fields(acc%tend_ta_sso, prm_tend(jg)%temp_sso, subset, levels=levels)
-
-    IF (acc%l_tend_ua    ) CALL add_fields(acc%tend_ua    , prm_tend(jg)%u    , subset, levels=levels)
-    IF (acc%l_tend_ua_dyn) CALL add_fields(acc%tend_ua_dyn, prm_tend(jg)%u_dyn, subset, levels=levels)
-    IF (acc%l_tend_ua_phy) CALL add_fields(acc%tend_ua_phy, prm_tend(jg)%u_phy, subset, levels=levels)
-    IF (acc%l_tend_ua_cnv) CALL add_fields(acc%tend_ua_cnv, prm_tend(jg)%u_cnv, subset, levels=levels)
-    IF (acc%l_tend_ua_vdf) CALL add_fields(acc%tend_ua_vdf, prm_tend(jg)%u_vdf, subset, levels=levels)
-    IF (acc%l_tend_ua_gwh) CALL add_fields(acc%tend_ua_gwh, prm_tend(jg)%u_gwh, subset, levels=levels)
-    IF (acc%l_tend_ua_sso) CALL add_fields(acc%tend_ua_sso, prm_tend(jg)%u_sso, subset, levels=levels)
-
-    IF (acc%l_tend_va    ) CALL add_fields(acc%tend_va    , prm_tend(jg)%v    , subset, levels=levels)
-    IF (acc%l_tend_va_dyn) CALL add_fields(acc%tend_va_dyn, prm_tend(jg)%v_dyn, subset, levels=levels)
-    IF (acc%l_tend_va_phy) CALL add_fields(acc%tend_va_phy, prm_tend(jg)%v_phy, subset, levels=levels)
-    IF (acc%l_tend_va_cnv) CALL add_fields(acc%tend_va_cnv, prm_tend(jg)%v_cnv, subset, levels=levels)
-    IF (acc%l_tend_va_vdf) CALL add_fields(acc%tend_va_vdf, prm_tend(jg)%v_vdf, subset, levels=levels)
-    IF (acc%l_tend_va_gwh) CALL add_fields(acc%tend_va_gwh, prm_tend(jg)%v_gwh, subset, levels=levels)
-    IF (acc%l_tend_va_sso) CALL add_fields(acc%tend_va_sso, prm_tend(jg)%v_sso, subset, levels=levels)
-
-  END SUBROUTINE update_opt_acc_echam
 
   !-------------
   !
   !> Add optional diagnostic variable lists (might remain empty)
   !
-  SUBROUTINE construct_opt_diag(p_patch, l_init_pz, echam_forcing_active,l_pres_msl,l_omega)
+  SUBROUTINE construct_opt_diag(p_patch, l_init_pz)
     TYPE(t_patch),        INTENT(IN)   :: p_patch(n_dom)
     LOGICAL,              INTENT(IN)   :: l_init_pz
-    LOGICAL, INTENT(IN)                :: echam_forcing_active
-    LOGICAL, INTENT(IN)                :: l_pres_msl, l_omega
+
     ! local variables
     CHARACTER(*), PARAMETER :: routine =  &
       &  TRIM("mo_opt_diagnostics:construct_opt_diag")
@@ -1429,6 +1617,7 @@ CONTAINS
         & patch_id=p_patch(jg)%id, vlevel_type=level_type_ml )
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_diag_list,    &
         & lrestart=.FALSE. )
+
       IF (.NOT. l_init_pz) CYCLE
 
       WRITE(listname,'(a,i2.2)') 'nh_state_opt_diag_z_of_domain_',jg
@@ -1455,10 +1644,12 @@ CONTAINS
       CALL default_var_list_settings( p_nh_opt_diag(jg)%opt_acc_list,    &
         & lrestart=.FALSE.,loutput=.TRUE. )
     ENDDO ! jg
-    CALL construct_opt_acc(p_patch(1), &
-      &                    p_nh_opt_diag(1)%opt_acc_list, &
-      &                    p_nh_opt_diag(1)%acc,echam_forcing_active, &
-      &                    l_pres_msl,l_omega)
+
+    ! provisional construction of memory for a hardwired set of variables on domain 1
+    CALL construct_opt_acc( p_patch(1),                    &
+                          & p_nh_opt_diag(1)%opt_acc_list, &
+                          & p_nh_opt_diag(1)%acc           )
+
   END SUBROUTINE construct_opt_diag
 
 

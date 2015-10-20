@@ -404,19 +404,21 @@ MODULE mo_nh_stepping
       &                                       i_timelevel    = nnow)
     CALL pp_scheduler_process(simulation_status)
 
-    IF (iforcing==iecham) THEN
+    IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
         &                 p_nh_state(1)%prog(nnow(1))%rho, &
         &                 p_nh_state(1)%diag,              &
         &                 p_patch(1)%cells%owned,          &
-        &                 p_patch(1)%nlev,iforcing==iecham)
+        &                 p_patch(1)%nlev                  )
     END IF
+
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output(jstep=0)
     END IF
-    IF (iforcing==iecham) THEN
-      CALL reset_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
+
+    IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
+      CALL reset_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
 
     ! sample meteogram output
@@ -939,14 +941,14 @@ MODULE mo_nh_stepping
 #endif
 
     ! update accumlated values
-    IF (iforcing==iecham) THEN
+    IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
         &                 p_nh_state(1)%prog(nnow(1))%rho, &
         &                 p_nh_state(1)%diag,              &
         &                 p_patch(1)%cells%owned,          &
-        &                 p_patch(1)%nlev,iforcing==iecham)
-    IF (l_nml_output) CALL calc_mean_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
+        &                 p_patch(1)%nlev)
+    IF (l_nml_output) CALL calc_mean_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
 
     ! output of results
@@ -993,7 +995,7 @@ MODULE mo_nh_stepping
     !
     CALL reset_act%execute(slack=dtime)
 
-    IF ( l_nml_output .AND. iforcing==iecham) CALL reset_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
+    IF ( l_nml_output .AND. p_nh_opt_diag(1)%acc%l_any_m) CALL reset_opt_acc(p_nh_opt_diag(1)%acc)
     ! re-initialization for FG-averaging. Ensures that average is centered in time.
     IF (is_avgFG_time(datetime_current)) THEN
       IF (p_nh_state(1)%diag%nsteps_avg(1) == 0) THEN
