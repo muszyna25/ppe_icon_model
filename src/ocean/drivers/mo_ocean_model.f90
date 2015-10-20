@@ -97,7 +97,6 @@ MODULE mo_ocean_model
   USE mo_time_config,         ONLY: time_config
   USE mo_icon_comm_interface, ONLY: construct_icon_communication, destruct_icon_communication
   USE mo_output_event_types,  ONLY: t_sim_step_info
-  USE mtime,                  ONLY: setcalendar, proleptic_gregorian
   USE mo_grid_tools,          ONLY: create_dummy_cell_closure
   USE mo_ocean_diagnostics,     ONLY: construct_oce_diagnostics, destruct_oce_diagnostics
   USE mo_ocean_testbed,       ONLY: ocean_testbed
@@ -182,7 +181,6 @@ MODULE mo_ocean_model
 !       WRITE(0,*)'process_mpi_io_size:',process_mpi_io_size
 !       IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
       CALL parse_variable_groups()
-      CALL setcalendar(proleptic_gregorian)
       ! compute sim_start, sim_end
       CALL datetimeToString(tc_exp_startdate, sim_step_info%sim_start)
       CALL datetimeToString(tc_exp_stopdate, sim_step_info%sim_end)

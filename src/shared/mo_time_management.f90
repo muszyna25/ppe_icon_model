@@ -34,7 +34,7 @@ MODULE mo_time_management
     &                                    deallocateTimedelta, OPERATOR(+), OPERATOR(==),   &
     &                                    timedeltatostring, datetimetostring,              &
     &                                    OPERATOR(*), OPERATOR(<), OPERATOR(<=),           &
-    &                                    setcalendar, calendarToString,                    &
+    &                                    calendarToString,                                 &
     &                                    mtime_proleptic_gregorian => proleptic_gregorian, &
     &                                    mtime_year_of_365_days => year_of_365_days,       &
     &                                    mtime_year_of_360_days => year_of_360_days,       &
