@@ -1472,7 +1472,7 @@ CONTAINS
                 & t_cf_var('u_stress_sso', 'N m-2',                               &
                 &          'zonal stress from subgrid scale orographic drag',     &
                 &          DATATYPE_FLT32),                                       &
-                & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
+                & grib2_var(0,2,255, ibits, GRID_REFERENCE, GRID_CELL),           &
                 & ldims=shape2d,                                                  &
                 & lrestart = .FALSE.,                                             &
                 & isteptype=TSTEP_INSTANT                                         )
@@ -1482,7 +1482,7 @@ CONTAINS
                 & t_cf_var('v_stress_sso', 'N m-2',                               &
                 &          'meridional stress from subgrid scale orographic drag',&
                 &          DATATYPE_FLT32),                                       &
-                & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
+                & grib2_var(0,2,255, ibits, GRID_REFERENCE, GRID_CELL),           &
                 & ldims=shape2d,                                                  &
                 & lrestart = .FALSE.,                                             &
                 & isteptype=TSTEP_INSTANT                                         )
@@ -1492,7 +1492,7 @@ CONTAINS
                 & t_cf_var('dissipation_sso', '',                                 &
                 &          'dissipation of orographic waves',                     &
                 &          DATATYPE_FLT32),                                       &
-                & grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL),   &
+                & grib2_var(0,0,255, ibits, GRID_REFERENCE, GRID_CELL),           &
                 & ldims=shape2d,                                                  &
                 & lrestart = .FALSE.,                                             &
                 & isteptype=TSTEP_INSTANT                                         )
