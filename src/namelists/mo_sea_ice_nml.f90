@@ -68,6 +68,7 @@ MODULE mo_sea_ice_nml
   REAL(wp),PUBLIC :: leadclose_2n       !< MPIOM's leadclose parameters par_3/par_2 to push new ice together
 
   ! some analytic initialization parameters
+  REAL(wp),PUBLIC :: init_analytic_temp_under_ice= -1.6_wp
   REAL(wp),PUBLIC :: init_analytic_conc_param    = 0.9_wp
   REAL(wp),PUBLIC :: init_analytic_hi_param      = 2.0_wp
   REAL(wp),PUBLIC :: init_analytic_hs_param      = 0.2_wp
@@ -117,6 +118,7 @@ MODULE mo_sea_ice_nml
     &  stress_ice_zero,    &
     &  use_calculated_ocean_stress, &
     &  use_no_flux_gradients, &
+    &  init_analytic_temp_under_ice, &
     &  init_analytic_conc_param , &
     &  init_analytic_hi_param, &
     &  init_analytic_hs_param, &

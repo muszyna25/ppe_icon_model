@@ -47,7 +47,7 @@ MODULE mo_sea_ice
     &                               i_ice_albedo, leadclose_1, leadclose_2n, use_IceInitialization_fromTemperature, &
     &                               use_constant_tfreez, use_calculated_ocean_stress, use_no_flux_gradients, t_heat_base, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
-    &                               init_analytic_hs_param
+    &                               init_analytic_hs_param, init_analytic_temp_under_ice
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
   USE mo_ocean_state,           ONLY: v_base, ocean_restart_list, ocean_default_list
   USE mo_var_list,            ONLY: add_var
@@ -1120,7 +1120,7 @@ CONTAINS
 
     ! Stupid initialisation trick for Levitus initialisation
     IF (use_IceInitialization_fromTemperature) THEN
-      WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.6_wp .and. v_base%lsm_c(:,1,:) <= sea_boundary )
+      WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= init_analytic_temp_under_ice .and. v_base%lsm_c(:,1,:) <= sea_boundary )
         ice%hi(:,1,:)   = init_analytic_hi_param
         ice%hs(:,1,:)   = init_analytic_hs_param
         ice%conc(:,1,:) = init_analytic_conc_param
