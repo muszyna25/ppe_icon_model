@@ -49,7 +49,7 @@ MODULE mo_initicon
   USE mo_grid_config,         ONLY: n_dom
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
-  USE mo_satad,               ONLY: sat_pres_ice, spec_humi 
+  USE mo_satad,               ONLY: sat_pres_ice, spec_humi
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
     &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, frlake_thrhld
   USE mo_phyparam_soil,       ONLY: cporv, crhosmaxf, crhosmin_ml, crhosmax_ml
@@ -81,7 +81,7 @@ MODULE mo_initicon
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_initicon'
 
-  TYPE(t_initicon_state), ALLOCATABLE, TARGET :: initicon(:) 
+  TYPE(t_initicon_state), ALLOCATABLE, TARGET :: initicon(:)
 
   ! NetCDF file IDs / CDI stream IDs for first guess and analysis file
   INTEGER, ALLOCATABLE :: fileID_fg(:),   fileID_ana(:)
@@ -200,7 +200,7 @@ MODULE mo_initicon
       ! process DWD land/surface analysis data
       CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
 
-    CASE(MODE_ICONVREMAP)   ! read in ICON prognostic variables (DWD first-guess fields) and 
+    CASE(MODE_ICONVREMAP)   ! read in ICON prognostic variables (DWD first-guess fields) and
                             ! perform vertical remapping
 
       CALL message(TRIM(routine),'MODE_VREMAP: read ICON data and perform vertical remapping')
@@ -279,7 +279,7 @@ MODULE mo_initicon
               &   nflkgb      = ext_data(jg)%atm%fp_count    (jb),    &  ! in
               &   idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb),    &  ! in
               &   depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb),    &  ! in
-              ! here, a proper estimate of the lake surface temperature is required; 
+              ! here, a proper estimate of the lake surface temperature is required;
               ! as neither GME nor COSMO-DE data have tiles, T_SO(0) is the best estimate
               &   tskin       = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,jb,1),&  ! in
               &   t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
@@ -287,7 +287,7 @@ MODULE mo_initicon
               &   t_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
               &   h_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (:,jb), &
               &   t_mnw_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_mnw_lk (:,jb), &
-              &   t_wml_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk (:,jb), & 
+              &   t_wml_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk (:,jb), &
               &   t_bot_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk (:,jb), &
               &   c_t_lk_p    = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk   (:,jb), &
               &   h_ml_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk  (:,jb), &
@@ -314,7 +314,7 @@ MODULE mo_initicon
     CALL deallocate_extana_sfc (initicon)
 
     ! close first guess and analysis files and corresponding inventory lists
-    ! 
+    !
     IF (ANY((/MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
       CALL close_init_files(fileID_fg, fileID_ana)
     END IF
@@ -322,10 +322,10 @@ MODULE mo_initicon
     DEALLOCATE (initicon, filetype_fg, filetype_ana, fileID_fg, fileID_ana, stat=ist)
     IF (ist /= success) CALL finish(TRIM(routine),'deallocation for initicon failed')
 
-    ! splitting of sea-points list into open water and sea-ice points could be placed 
+    ! splitting of sea-points list into open water and sea-ice points could be placed
     ! here, instead of nwp_phy_init/init_nwp_phy
     ! however, one needs to make sure that it is called for both restart and non-restart
-    ! runs. Could not be included into mo_ext_data_state/init_index_lists due to its 
+    ! runs. Could not be included into mo_ext_data_state/init_index_lists due to its
     ! dependence on p_diag_lnd.
 !DR    CALL init_sea_lists(p_patch, ext_data, p_diag_lnd, lseaice)
 
@@ -979,9 +979,9 @@ MODULE mo_initicon
   !! SUBROUTINE process_dwdana_atm
   !! Initialization routine of icon:
   !! - Reads DWD first guess and analysis (atmosphere only).
-  !! - First guess is converted to T, p, qx, u, v in order to compute DA 
-  !!   increments. These increments are then used to compute the analysis 
-  !!   fields in terms of the NH set of prognostic variables 
+  !! - First guess is converted to T, p, qx, u, v in order to compute DA
+  !!   increments. These increments are then used to compute the analysis
+  !!   fields in terms of the NH set of prognostic variables
   !!   (i.e. vn, rho, exner, theta_v )
   !!
   !! @par Revision History
@@ -1020,7 +1020,7 @@ MODULE mo_initicon
       IF(lread_ana) &   ! read DWD analysis from DA for atmosphere
         CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
 
-      ! merge first guess with DA analysis and 
+      ! merge first guess with DA analysis and
       ! convert variables to the NH set of prognostic variables
       CALL create_dwdana_atm(p_patch, p_nh_state, p_int_state)
 
@@ -1035,9 +1035,9 @@ MODULE mo_initicon
   !! SUBROUTINE process_dwdanainc_atm
   !! Initialization routine of icon:
   !! - Reads DWD first guess for t=T-dt_ass/2 (atmosphere only).
-  !! - Reads analysis incerements for t=T (atmosphere only) in terms of 
+  !! - Reads analysis incerements for t=T (atmosphere only) in terms of
   !!   \Delta T, \Delta u, \Delta v, \Delta p, \Delta qx
-  !! - Compute analysis increments in terms of the NH set of prognostic 
+  !! - Compute analysis increments in terms of the NH set of prognostic
   !!   variables
   !!
   !! @par Revision History
@@ -1055,7 +1055,7 @@ MODULE mo_initicon
 
 
     ! read DWD first guess and analysis from DA for atmosphere
-    ! 
+    !
     CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
     IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
@@ -1069,11 +1069,11 @@ MODULE mo_initicon
       CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
     ENDIF
 
-    IF(lread_ana) &   
+    IF(lread_ana) &
      CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
 
 
-    ! Compute DA increments in terms of the NH set 
+    ! Compute DA increments in terms of the NH set
     ! of prognostic variables
     CALL create_dwdanainc_atm(p_patch, p_nh_state, p_int_state)
 
@@ -1087,9 +1087,9 @@ MODULE mo_initicon
   !! Initialization routine of icon:
   !! - Reads DWD first guess (land/surface only). Data are directly
   !!   written to the prognostic model variables
-  !! - reads DWD analysis (land/surface only). Data are written 
+  !! - reads DWD analysis (land/surface only). Data are written
   !!   to intermediate initicon variables
-  !! - first guess and increments are added and resulting fields are 
+  !! - first guess and increments are added and resulting fields are
   !!   converted to the NH set of prognostic variables
   !!
   !! @par Revision History
@@ -1111,12 +1111,12 @@ MODULE mo_initicon
 
 
     ! read DWD first guess and analysis for surface/land
-    ! 
+    !
     CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
- 
-    IF(lread_ana) &   
+
+    IF(lread_ana) &
      CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-   
+
     ! get SST from first soil level t_so (for sea and lake points)
     ! perform consistency checks
     CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
@@ -1131,8 +1131,8 @@ MODULE mo_initicon
   !! Initialization routine of icon:
   !! - Reads DWD first guess (land/surface only). Data are directly
   !!   written to the prognostic model variables
-  !! - reads DWD analysis fields and analysis increments (land/surface only). 
-  !!   Increments are written to intermediate initicon variables and 
+  !! - reads DWD analysis fields and analysis increments (land/surface only).
+  !!   Increments are written to intermediate initicon variables and
   !!   lateron (create_iau_sfc) added in one go.
   !!
   !! @par Revision History
@@ -1153,7 +1153,7 @@ MODULE mo_initicon
 
 
     ! read DWD first guess and analysis for surface/land
-    ! 
+    !
     CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
     ! In case of tile coldstart, fill sub-grid scale land and water points with reasonable data
@@ -1165,7 +1165,7 @@ MODULE mo_initicon
       CALL init_snowtiles(p_patch, p_lnd_state, ext_data)
     ENDIF
 
-    IF(lread_ana) &   
+    IF(lread_ana) &
       CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
 
 
@@ -1191,7 +1191,7 @@ MODULE mo_initicon
   !! SUBROUTINE process_extana_atm
   !! Initialization routine of icon:
   !! - Reads external analysis data (IFS or COSMO; atmosphere only)
-  !! - performs vertical interpolation from intermediate IFS2ICON grid to ICON 
+  !! - performs vertical interpolation from intermediate IFS2ICON grid to ICON
   !!   grid and converts variables to the NH set of prognostic variables
   !! - finally copies the results to the prognostic model variables
   !!
@@ -1219,7 +1219,7 @@ MODULE mo_initicon
 
 
     ! read horizontally interpolated external analysis for atmosphere
-    ! 
+    !
     CALL read_extana_atm(p_patch, initicon)
 
     IF (init_mode == MODE_COSMODE) THEN
@@ -1234,7 +1234,7 @@ MODULE mo_initicon
     CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
                          opt_convert_omega2w=lomega_in)
 
-    
+
     ! Finally copy the results to the prognostic model variables
     !
     CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
@@ -1250,7 +1250,7 @@ MODULE mo_initicon
   !! SUBROUTINE process_extana_sfc
   !! Initialization routine of icon:
   !! - Reads external analysis data (surface/land only)
-  !! - performs vertical interpolation from intermediate IFS2ICON grid to ICON 
+  !! - performs vertical interpolation from intermediate IFS2ICON grid to ICON
   !!   grid and converts variables to the NH set of prognostic variables
   !! - finally copies the results to the prognostic model variables
   !!
@@ -1274,7 +1274,7 @@ MODULE mo_initicon
 
 
     ! read horizontally interpolated external (currently IFS) analysis for surface/land
-    ! 
+    !
     CALL read_extana_sfc(p_patch, initicon)
 
 
@@ -1283,7 +1283,7 @@ MODULE mo_initicon
     !
     CALL vert_interp_sfc(p_patch, initicon)
 
-    
+
     ! Finally copy the results to the prognostic model variables
     !
     CALL copy_initicon2prog_sfc(p_patch, initicon, p_lnd_state, ext_data)
@@ -1294,25 +1294,25 @@ MODULE mo_initicon
 
 
   !>
-  !! Analysis is created by merging the first guess with the DA output 
+  !! Analysis is created by merging the first guess with the DA output
   !!
   !!
-  !! Analysis is created by merging the first guess with the DA output 
+  !! Analysis is created by merging the first guess with the DA output
   !! (atmosphere only).
   !! First the FG in terms of the NH prognostic set of variables
   !! is converted into p, T, u and v.
   !! Then, increments are computed as the difference between the DA output and
-  !! the converted dynamical variables, and then are transformed 
+  !! the converted dynamical variables, and then are transformed
   !! back to the NH prognostic set of variables and are added to the first guess.
   !!
-  !! Sanity check with FG only. If the analysis is set equal to the FG, the 
-  !! increments should be exactly 0. It was verified, that the nonzero values 
-  !! in the increment fields are due to the GRIB packing and not due to a 
-  !! coding error. I.e. ibits was increased from DATATYPE_PACK16 to 
-  !! DATATYPE_PACK32 and the errors in u_incr, v_incr went down from O(10E-3) 
-  !! to O(10E-7). Similarly the error in pres_incr went down from O(1) to 
+  !! Sanity check with FG only. If the analysis is set equal to the FG, the
+  !! increments should be exactly 0. It was verified, that the nonzero values
+  !! in the increment fields are due to the GRIB packing and not due to a
+  !! coding error. I.e. ibits was increased from DATATYPE_PACK16 to
+  !! DATATYPE_PACK32 and the errors in u_incr, v_incr went down from O(10E-3)
+  !! to O(10E-7). Similarly the error in pres_incr went down from O(1) to
   !! O(1E-1).
-  !! 
+  !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
   !!
@@ -1327,10 +1327,10 @@ MODULE mo_initicon
     INTEGER :: nlev, nlevp1               ! number of vertical levels
     INTEGER :: nblks_c, nblks_e           ! number of blocks
     INTEGER :: i_nchdom
-    INTEGER :: rl_start, rl_end 
+    INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk
     INTEGER :: i_startidx, i_endidx
-    TYPE(t_nh_prog), POINTER :: p_prog_now, p_prog_now_rcf   
+    TYPE(t_nh_prog), POINTER :: p_prog_now, p_prog_now_rcf
     TYPE(t_nh_diag), POINTER :: p_diag
     INTEGER,         POINTER :: iidx(:,:,:), iblk(:,:,:)
 
@@ -1353,7 +1353,7 @@ MODULE mo_initicon
 
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
-      ! number of vertical levels 
+      ! number of vertical levels
       nlev      = p_patch(jg)%nlev
       nlevp1    = p_patch(jg)%nlevp1
 
@@ -1362,7 +1362,7 @@ MODULE mo_initicon
       i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
 
-      ! allocate temporary arrays for nonhydrostatic pressure, DA increments and a 
+      ! allocate temporary arrays for nonhydrostatic pressure, DA increments and a
       ! filtering term for vn
       ! note that an explicit temperature increment is not required (see below)
       ALLOCATE(zpres_nh (nproma,nlev,nblks_c),  &
@@ -1391,7 +1391,7 @@ MODULE mo_initicon
       ! coming from the data assimilation
       CALL rbf_vec_interpol_cell(p_prog_now%vn, p_patch(jg), p_int_state(jg), p_diag%u, p_diag%v)
 
-      ! 1) first guess in terms of rho, theta_v, qx is converted to 
+      ! 1) first guess in terms of rho, theta_v, qx is converted to
       ! T, p, qx. Note, that zpres_nh is the full (nonhydrostatic) pressure field, whereas
       ! p_diag%pres is the hydrostatically integrated pressure field
       !
@@ -1428,13 +1428,13 @@ MODULE mo_initicon
           DO jc = i_startidx, i_endidx
 
             !******** CONSISTENCY CHECK ************
-            ! 
-            ! make sure, that due to GRIB2 roundoff errors, qv does not drop 
+            !
+            ! make sure, that due to GRIB2 roundoff errors, qv does not drop
             ! below threshhold (currently 5E-7 kg/kg)
             ! Alternative would be to increase writing precision for qv (DATATYPE_PACK24)
-            ! Note: So far we are not fully convinced that the observed 'zeros' are 
-            ! soleyly a result of GRIB2 roundoff errors. They might also result from some 
-            ! numerical artifacts. 
+            ! Note: So far we are not fully convinced that the observed 'zeros' are
+            ! soleyly a result of GRIB2 roundoff errors. They might also result from some
+            ! numerical artifacts.
             p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,                          &
              &                                       p_prog_now_rcf%tracer(jc,jk,jb,iqv))
             !******** END CONSISTENCY CHECK ********
@@ -1490,7 +1490,7 @@ MODULE mo_initicon
           DO jk = 1, nlev
             DO jc = i_startidx, i_endidx
 
-              ! pressure increment - should we verify that it is in hydrostatic balance with 
+              ! pressure increment - should we verify that it is in hydrostatic balance with
               ! the temperature increment?
               pres_incr(jc,jk,jb) = initicon(jg)%atm%pres(jc,jk,jb) - p_diag%pres(jc,jk,jb)
 
@@ -1501,9 +1501,9 @@ MODULE mo_initicon
               ! add pressure increment to the nonhydrostatic pressure
               zpres_nh(jc,jk,jb) = zpres_nh(jc,jk,jb) + pres_incr(jc,jk,jb)
 
-              ! temperature increment is not needed explicitly. Note that lateron the analysed 
-              ! temperature field initicon(jg)%atm%temp, instead of the first guess 
-              ! temperature field p_diag%temp is used to compute the virtual temperature 
+              ! temperature increment is not needed explicitly. Note that lateron the analysed
+              ! temperature field initicon(jg)%atm%temp, instead of the first guess
+              ! temperature field p_diag%temp is used to compute the virtual temperature
               ! and lateron the virtual potential temperature.
 
             ENDDO  ! jc
@@ -1513,7 +1513,7 @@ MODULE mo_initicon
 !$OMP END DO
 
 
-        ! include boundary interpolation zone of nested domains and the halo edges 
+        ! include boundary interpolation zone of nested domains and the halo edges
         ! as far as possible
         rl_start = 2
         rl_end   = min_rledge_int - 2
@@ -1529,8 +1529,8 @@ MODULE mo_initicon
 
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
-              ! at cell centers the increment \vec(v_inc) is projected into the 
-              ! direction of vn and then linearly interpolated to the edge midpoint 
+              ! at cell centers the increment \vec(v_inc) is projected into the
+              ! direction of vn and then linearly interpolated to the edge midpoint
               !
               ! should we check if the vn increments are geostrophically balanced at higher levels?
               vn_incr(je,jk,jb) = p_int_state(jg)%c_lin_e(je,1,jb)                  &
@@ -1539,7 +1539,7 @@ MODULE mo_initicon
                 &               + v_incr(iidx(je,jb,1),jk,iblk(je,jb,1))            &
                 &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2) &
                 &               + p_int_state(jg)%c_lin_e(je,2,jb)                  &
-                &               *(u_incr(iidx(je,jb,2),jk,iblk(je,jb,2))            & 
+                &               *(u_incr(iidx(je,jb,2),jk,iblk(je,jb,2))            &
                 &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1  &
                 &               + v_incr(iidx(je,jb,2),jk,iblk(je,jb,2))            &
                 &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2  )
@@ -1554,11 +1554,11 @@ MODULE mo_initicon
         ! required to avoid crash in nabla4_vec
         CALL sync_patch_array(SYNC_E,p_patch(jg),vn_incr)
 
-        ! Compute diffusion term 
+        ! Compute diffusion term
         CALL nabla4_vec(vn_incr, p_patch(jg), p_int_state(jg), nabla4_vn_incr, opt_rlstart=5)
 
         ! Compute vertical wind increment consistent with the vn increment
-        ! (strictly spoken, this should be done after the filtering step, 
+        ! (strictly spoken, this should be done after the filtering step,
         ! but the difference is negligible)
         CALL init_w(p_patch(jg), p_int_state(jg), vn_incr, p_nh_state(jg)%metrics%z_ifc, w_incr)
 
@@ -1579,7 +1579,7 @@ MODULE mo_initicon
 
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
-              ! computed filtered velocity increment 
+              ! computed filtered velocity increment
               vn_incr_smt = vn_incr(je,jk,jb)   &
                 &         - smtfac*nabla4_vn_incr(je,jk,jb)*p_patch(jg)%edges%area_edge(je,jb)**2
 
@@ -1592,7 +1592,7 @@ MODULE mo_initicon
         ENDDO  ! jb
 !$OMP ENDDO
 
-        ! include boundary interpolation zone of nested domains but no halo points 
+        ! include boundary interpolation zone of nested domains but no halo points
         ! (sync follows below)
         rl_start = 2
         rl_end   = min_rlcell_int
@@ -1610,7 +1610,7 @@ MODULE mo_initicon
             DO jc = i_startidx, i_endidx
 
               ! add w_incr to first guess
-              p_prog_now%w(jc,jk,jb) = p_prog_now%w(jc,jk,jb) + w_incr(jc,jk,jb) 
+              p_prog_now%w(jc,jk,jb) = p_prog_now%w(jc,jk,jb) + w_incr(jc,jk,jb)
 
             ENDDO  ! jc
           ENDDO  ! jk
@@ -1678,12 +1678,12 @@ MODULE mo_initicon
 
 
   !>
-  !! Compute analysis increments in terms of the NH prognostic set of variables. 
+  !! Compute analysis increments in terms of the NH prognostic set of variables.
   !!
   !!
-  !! Compute analysis increments in terms of the NH prognostic set of variables 
+  !! Compute analysis increments in terms of the NH prognostic set of variables
   !! (atmosphere only).
-  !! 
+  !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2014-01-28)
   !!
@@ -1698,10 +1698,10 @@ MODULE mo_initicon
     INTEGER :: nlev, nlevp1               ! number of vertical levels
     INTEGER :: nblks_c, nblks_e           ! number of blocks
     INTEGER :: i_nchdom
-    INTEGER :: rl_start, rl_end 
+    INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk
     INTEGER :: i_startidx, i_endidx
-    TYPE(t_nh_prog), POINTER :: p_prog_now, p_prog_now_rcf   
+    TYPE(t_nh_prog), POINTER :: p_prog_now, p_prog_now_rcf
     TYPE(t_nh_diag), POINTER :: p_diag
     TYPE(t_nh_metrics), POINTER :: p_metrics
     INTEGER,         POINTER :: iidx(:,:,:), iblk(:,:,:)
@@ -1727,7 +1727,7 @@ MODULE mo_initicon
 
       IF (.NOT. p_patch(jg)%ldom_active) CYCLE
 
-      ! number of vertical levels 
+      ! number of vertical levels
       nlev      = p_patch(jg)%nlev
       nlevp1    = p_patch(jg)%nlevp1
 
@@ -1756,7 +1756,7 @@ MODULE mo_initicon
 
 
       ! 1) Compute analysis increments in terms of the NH prognostic set of variables.
-      !    Increments are computed for vn, w, exner, rho, qv. Note that a theta_v 
+      !    Increments are computed for vn, w, exner, rho, qv. Note that a theta_v
       !    increment is not necessary.
       !    The prognostic state variables are initialized with the first guess
       !
@@ -1848,11 +1848,11 @@ MODULE mo_initicon
         ENDDO
         DO jc = i_startidx, i_endidx
           rho_incr_smt(jc,1) = (1._wp-rho_incr_filter_wgt)*p_diag%rho_incr(jc,1,jb) &
-            + rho_incr_filter_wgt*p_diag%rho_incr(jc,2,jb) 
+            + rho_incr_filter_wgt*p_diag%rho_incr(jc,2,jb)
           rho_incr_smt(jc,nlev) = (1._wp-rho_incr_filter_wgt)*p_diag%rho_incr(jc,nlev,jb) &
             + rho_incr_filter_wgt*p_diag%rho_incr(jc,nlev-1,jb)
           ! correction increment for Exner pressure (zero at surface)
-          exner_ifc_incr(jc,nlevp1) = 0._wp 
+          exner_ifc_incr(jc,nlevp1) = 0._wp
         ENDDO
 
         DO jk = 1, nlev
@@ -1919,8 +1919,8 @@ MODULE mo_initicon
 
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
-              ! at cell centers the increment \vec(v_inc) is projected into the 
-              ! direction of vn and then linearly interpolated to the edge midpoint 
+              ! at cell centers the increment \vec(v_inc) is projected into the
+              ! direction of vn and then linearly interpolated to the edge midpoint
               !
               ! should we check if the vn increments are geostrophically balanced at higher levels?
               initicon(jg)%atm_inc%vn(je,jk,jb) = p_int_state(jg)%c_lin_e(je,1,jb)       &
@@ -1929,11 +1929,11 @@ MODULE mo_initicon
                 &               + initicon(jg)%atm_inc%v(iidx(je,jb,1),jk,iblk(je,jb,1)) &
                 &               * p_patch(jg)%edges%primal_normal_cell(je,jb,1)%v2)      &
                 &               + p_int_state(jg)%c_lin_e(je,2,jb)                       &
-                &               *(initicon(jg)%atm_inc%u(iidx(je,jb,2),jk,iblk(je,jb,2)) & 
+                &               *(initicon(jg)%atm_inc%u(iidx(je,jb,2),jk,iblk(je,jb,2)) &
                 &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v1       &
                 &               + initicon(jg)%atm_inc%v(iidx(je,jb,2),jk,iblk(je,jb,2)) &
                 &               * p_patch(jg)%edges%primal_normal_cell(je,jb,2)%v2  )
-  
+
             ENDDO  ! je
           ENDDO  ! jk
 
@@ -1948,7 +1948,7 @@ MODULE mo_initicon
         CALL sync_patch_array(SYNC_E,p_patch(jg),initicon(jg)%atm_inc%vn)
       ENDIF
 
-      ! Compute diffusion term 
+      ! Compute diffusion term
       CALL nabla4_vec(initicon(jg)%atm_inc%vn, p_patch(jg), p_int_state(jg), nabla4_vn_incr, opt_rlstart=5)
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
@@ -1968,7 +1968,7 @@ MODULE mo_initicon
 
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
-            ! computed filtered velocity increment 
+            ! computed filtered velocity increment
             p_diag%vn_incr(je,jk,jb) = initicon(jg)%atm_inc%vn(je,jk,jb) &
               &               - smtfac*nabla4_vn_incr(je,jk,jb)*p_patch(jg)%edges%area_edge(je,jb)**2
 
@@ -1991,7 +1991,7 @@ MODULE mo_initicon
       !
       IF (dt_iau == 0._wp) THEN
 
-        ! For the special case that increments are added in one go,  
+        ! For the special case that increments are added in one go,
         ! compute vertical wind increment consistent with the vn increment
         ! Note that here the filtered velocity increment is used.
         ALLOCATE(w_incr(nproma,nlevp1,nblks_c), STAT=ist)
@@ -2020,10 +2020,10 @@ MODULE mo_initicon
             DO jc = i_startidx, i_endidx
 
               p_prog_now%exner(jc,jk,jb) = p_prog_now%exner(jc,jk,jb) + p_diag%exner_incr(jc,jk,jb)
- 
+
               p_prog_now%rho(jc,jk,jb) = p_prog_now%rho(jc,jk,jb) + p_diag%rho_incr(jc,jk,jb)
 
-              ! make sure, that due to GRIB2 roundoff errors, qv does not drop 
+              ! make sure, that due to GRIB2 roundoff errors, qv does not drop
               ! below threshhold (currently 5E-7 kg/kg)
               p_prog_now_rcf%tracer(jc,jk,jb,iqv) = MAX(5.E-7_wp,p_prog_now_rcf%tracer(jc,jk,jb,iqv)  &
                 &                                 + p_diag%qv_incr(jc,jk,jb) )
@@ -2060,7 +2060,7 @@ MODULE mo_initicon
 !$OMP ENDDO NOWAIT
 
 
-        ! include boundary interpolation zone of nested domains but no halo points 
+        ! include boundary interpolation zone of nested domains but no halo points
         ! (sync follows below)
         rl_start = 2
         rl_end   = min_rlcell_int
@@ -2078,7 +2078,7 @@ MODULE mo_initicon
             DO jc = i_startidx, i_endidx
 
               ! add w_incr to first guess
-              p_prog_now%w(jc,jk,jb) = p_prog_now%w(jc,jk,jb) + w_incr(jc,jk,jb) 
+              p_prog_now%w(jc,jk,jb) = p_prog_now%w(jc,jk,jb) + w_incr(jc,jk,jb)
 
             ENDDO  ! jc
           ENDDO  ! jk
@@ -2109,14 +2109,14 @@ MODULE mo_initicon
 
   !-------------------------------------------------------------------------
   !>
-  !! SUBROUTINE create_iau_sfc 
+  !! SUBROUTINE create_iau_sfc
   !!
   !! Add increments to time-shifted first guess in one go.
-  !! Increments are added for: 
+  !! Increments are added for:
   !! W_SO, H_SNOW, FRESHSNW
   !!
-  !! Additioanl sanity checks are performed for 
-  !! W_SO, H_SNOW, FRESHSNW, RHO_SNOW 
+  !! Additioanl sanity checks are performed for
+  !! W_SO, H_SNOW, FRESHSNW, RHO_SNOW
   !!
   !! @par Revision History
   !! Initial version by D. Reinert, DWD (2014-07-17)
@@ -2145,7 +2145,7 @@ MODULE mo_initicon
     REAL(wp) :: h_snow_t_fg(nproma,ntiles_total)   ! intermediate storage of h_snow first guess
     REAL(wp) :: snowfrac_lim
 
-    REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value) 
+    REAL(wp), PARAMETER :: min_hsnow_inc=0.001_wp  ! minimum hsnow increment (1mm absolute value)
                                                    ! in order to avoid grib precision problems
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -2175,9 +2175,9 @@ MODULE mo_initicon
         CALL get_indices_c(p_patch(jg), jb, 1, nblks_c, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-        ! add W_SO increment to first guess and perform some sanity checks in terms of realistic 
+        ! add W_SO increment to first guess and perform some sanity checks in terms of realistic
         ! maximum/minimum values
-        ! 
+        !
         DO jt = 1, ntiles_total
 
           DO jk = 1, nlev_soil
@@ -2186,7 +2186,7 @@ MODULE mo_initicon
 
               IF (lnd_prog_now%w_so_t(jc,jk,jb,jt) <= 1.e-10_wp .AND.  &
                   cporv(ext_data(jg)%atm%soiltyp(jc,jb)) > 1.e-9_wp) THEN
-                ! This should only happen for a tile coldstart; in this case, 
+                ! This should only happen for a tile coldstart; in this case,
                 ! set soil water content to 50% of pore volume on newly appeared (non-dominant) land points
                 lnd_prog_now%w_so_t(jc,jk,jb,jt) = 0.5_wp*cporv(ext_data(jg)%atm%soiltyp(jc,jb))*dzsoil_icon(jk)
               ELSE ! add w_so increment from SMA
@@ -2225,7 +2225,7 @@ MODULE mo_initicon
           ! add h_snow and freshsnow increments onto respective first guess fields
           DO jt = 1, ntiles_total
 
-            IF (ltile_coldstart .OR. .NOT. lsnowtile) THEN 
+            IF (ltile_coldstart .OR. .NOT. lsnowtile) THEN
               ! Initialize snowfrac with 1 for the time being (the proper initialization follows in nwp_surface_init)
               ! This is actually needed for lsnowtile=.TRUE. because the snow cover fraction is used below in this case
               lnd_diag%snowfrac_lc_t(:,jb,jt) = 1._wp
@@ -2239,7 +2239,7 @@ MODULE mo_initicon
                 ! h_snow increment is neglected in order to avoid artefacts due to GRIB2 precision limitation
                 ! minimum height: 0m; maximum height: 40m
                 lnd_diag%h_snow_t   (jc,jb,jt) = MIN(40._wp,MAX(0._wp,lnd_diag%h_snow_t(jc,jb,jt)))
-              ELSE 
+              ELSE
                 IF (lsnowtile .AND. (jt > ntiles_lnd .OR. ltile_coldstart) ) THEN
                   ! in case of tile warmstart, add increment to snow-covered tiles only, rescaled with the snow-cover fraction
                   ! for tile coldstart, the snow increment is added in the same way as without snow tiles
@@ -2277,7 +2277,7 @@ MODULE mo_initicon
               lnd_diag%freshsnow_t(jc,jb,jt) = MAX(0._wp,lnd_diag%freshsnow_t(jc,jb,jt))
 
 
-              ! adjust t_g and qv_s to new snow coming from the analysis, 
+              ! adjust t_g and qv_s to new snow coming from the analysis,
               ! i.e. at new snow points, where h_snow increment > 0, but h_snow from first guess = 0
               !
               IF ( (initicon(jg)%sfc_inc%h_snow(jc,jb) >= min_hsnow_inc) .AND. (h_snow_t_fg(jc,jt) == 0._wp)) THEN
@@ -2321,7 +2321,7 @@ MODULE mo_initicon
 
 
             ! Re-diagnose w_snow
-            ! This is done in terra_multlay_init anyway, however it is safer to have consistent fields right 
+            ! This is done in terra_multlay_init anyway, however it is safer to have consistent fields right
             ! from the beginning.
             lnd_prog_now%w_snow_t(i_startidx:i_endidx,jb,jt) = 0._wp
 
@@ -2349,7 +2349,7 @@ MODULE mo_initicon
 
   !-------------------------------------------------------------------------
   !>
-  !! SUBROUTINE create_dwdana_sfc 
+  !! SUBROUTINE create_dwdana_sfc
   !!
   !! Required input: patch, lnd_state
   !! Output is written on fields of NH state
@@ -2371,7 +2371,7 @@ MODULE mo_initicon
     INTEGER :: ntlr
     INTEGER :: nblks_c
     REAL(wp):: missval
-    INTEGER :: rl_start, rl_end 
+    INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx, i_endblk
     LOGICAL :: lanaread_tso                    ! .TRUE. T_SO(0) was read from analysis
     LOGICAL :: lp_mask(nproma)
@@ -2399,7 +2399,7 @@ MODULE mo_initicon
       ENDIF
       lanaread_tso = ( one_of('t_so', initicon(jgch)%grp_vars_ana(1:initicon(jgch)%ngrp_vars_ana)) /= -1)
 
-!$OMP PARALLEL 
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
@@ -2500,13 +2500,13 @@ MODULE mo_initicon
                IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) <= 0._wp)) THEN
                   ! set to first layer value
                   p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,jk,jb,jt) = &
-                    & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt) 
+                    & p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt)
                ENDIF
             ENDDO  ! ic
 
-            ! w_so_t, t_so_t: 
+            ! w_so_t, t_so_t:
             ! Search for CDI missval and replace it by meaningful value
-            ! Reason: GRIB2-output fails otherwise (cumbersome values), probably due to 
+            ! Reason: GRIB2-output fails otherwise (cumbersome values), probably due to
             ! the huge value range.
             DO jc = i_startidx, i_endidx
                IF ((p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) == missval)) THEN
@@ -2524,9 +2524,9 @@ MODULE mo_initicon
         ENDDO  ! jt
 
 
-        ! fr_seaice, h_ice, t_ice: 
+        ! fr_seaice, h_ice, t_ice:
         ! Search for CDI missval and replace it by meaningful value
-        ! Reason: GRIB2-output fails otherwise (cumbersome values), probably due to 
+        ! Reason: GRIB2-output fails otherwise (cumbersome values), probably due to
         ! the huge value range.
         DO jc = i_startidx, i_endidx
           IF (p_lnd_state(jg)%diag_lnd%fr_seaice(jc,jb) == missval) THEN
@@ -2576,7 +2576,7 @@ MODULE mo_initicon
       ! This sync is needed because of the subsequent neighbor point filling
       CALL sync_patch_array(SYNC_C,p_patch(jg),p_lnd_state(jg)%diag_lnd%t_seasfc)
 
-    ! Initialization of t_g_t(:,:,isub_water) and t_s_t(:,:,isub_water/isub_lake) 
+    ! Initialization of t_g_t(:,:,isub_water) and t_s_t(:,:,isub_water/isub_lake)
     ! with t_seasfc is performed in mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
 
     ENDDO  ! jg domain loop

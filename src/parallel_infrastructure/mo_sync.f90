@@ -46,7 +46,8 @@ USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
 USE mo_communication,      ONLY: exchange_data, exchange_data_4de1,            &
                                  exchange_data_mult, t_comm_pattern,           &
-                                 blk_no, idx_no, idx_1d
+                                 blk_no, idx_no, idx_1d, get_np_recv,          &
+                                 get_np_send, get_pelist_recv
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
@@ -277,7 +278,7 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    INTEGER,     INTENT(IN)         :: nfields
 
    REAL(wp), OPTIONAL, INTENT(INOUT) ::  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), &
-                                         f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
+      &                                  f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
 
    REAL(wp), ALLOCATABLE :: arr3(:,:,:)
    TYPE(t_comm_pattern), POINTER :: p_pat
@@ -2025,6 +2026,8 @@ SUBROUTINE decomposition_statistics(p_patch)
    INTEGER  :: i_nchdom, i, i_pe, max_nprecv, i1, i2, i1m, i2m
    INTEGER,  ALLOCATABLE :: nprecv_buf(:),displs(:),recvlist_buf(:)
    REAL(wp), ALLOCATABLE :: avglat_buf(:),avglon_buf(:)
+   INTEGER :: np_recv
+   INTEGER, ALLOCATABLE :: pelist_recv(:)
 
 !-----------------------------------------------------------------------
 
@@ -2038,8 +2041,8 @@ SUBROUTINE decomposition_statistics(p_patch)
                       p_patch%cells%end_idx(min_rlcell_int-1,i_nchdom),wp) - cellstat(0)
    cellstat(3) = REAL(nproma*(p_patch%cells%end_blk(min_rlcell_int-2,i_nchdom)-1) + &
                       p_patch%cells%end_idx(min_rlcell_int-2,i_nchdom),wp) - cellstat(0)
-   cellstat(4) = REAL(p_patch%comm_pat_c%np_send,wp)
-   cellstat(5) = REAL(p_patch%comm_pat_c%np_recv,wp)
+   cellstat(4) = REAL(get_np_send(p_patch%comm_pat_c),wp)
+   cellstat(5) = REAL(get_np_recv(p_patch%comm_pat_c),wp)
 
    ! The purpose of this is to compute average quantities only over those PEs
    ! that actually contain grid points of a given model domain (relevant in the case
@@ -2060,8 +2063,8 @@ SUBROUTINE decomposition_statistics(p_patch)
                       p_patch%edges%end_idx(min_rledge_int-2,i_nchdom),wp) - edgestat(0)
    edgestat(4) = REAL(nproma*(p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)-1) + &
                       p_patch%edges%end_idx(min_rledge_int-3,i_nchdom),wp) - edgestat(0)
-   edgestat(5) = REAL(p_patch%comm_pat_e%np_send,wp)
-   edgestat(6) = REAL(p_patch%comm_pat_e%np_recv,wp)
+   edgestat(5) = REAL(get_np_send(p_patch%comm_pat_e),wp)
+   edgestat(6) = REAL(get_np_recv(p_patch%comm_pat_e),wp)
 
    vertstat(0) = REAL(nproma*(p_patch%verts%end_blk(grf_bdywidth_c,1)-1) + &
                       p_patch%verts%end_idx(grf_bdywidth_c,1),wp)
@@ -2071,8 +2074,8 @@ SUBROUTINE decomposition_statistics(p_patch)
                       p_patch%verts%end_idx(min_rlvert_int-1,i_nchdom),wp) - vertstat(0)
    vertstat(3) = REAL(nproma*(p_patch%verts%end_blk(min_rlvert_int-2,i_nchdom)-1) + &
                       p_patch%verts%end_idx(min_rlvert_int-2,i_nchdom),wp) - vertstat(0)
-   vertstat(4) = REAL(p_patch%comm_pat_v%np_send,wp)
-   vertstat(5) = REAL(p_patch%comm_pat_v%np_recv,wp)
+   vertstat(4) = REAL(get_np_send(p_patch%comm_pat_v),wp)
+   vertstat(5) = REAL(get_np_recv(p_patch%comm_pat_v),wp)
 
    ! Question: how can I exclude PEs containing zero grid points of a model domain
    ! from global minimum computation?
@@ -2180,13 +2183,18 @@ SUBROUTINE decomposition_statistics(p_patch)
      ENDIF
 
      ALLOCATE(nprecv_buf(p_n_work),displs(p_n_work),recvlist_buf(max_nprecv*p_n_work), &
-              avglat_buf(p_n_work),avglon_buf(p_n_work))
+              avglat_buf(p_n_work),avglon_buf(p_n_work), &
+              pelist_recv(get_np_recv(p_patch%comm_pat_c)))
 
-     CALL p_gather(p_patch%comm_pat_c%np_recv, nprecv_buf, 0, p_comm_work)
+     np_recv = get_np_recv(p_patch%comm_pat_c)
+
+     CALL p_gather(np_recv, nprecv_buf, 0, p_comm_work)
 
      displs(:) = (/ ( (i_pe-1)*max_nprecv, i_pe=1, p_n_work) /)
 
-     CALL p_gatherv(p_patch%comm_pat_c%pelist_recv, p_patch%comm_pat_c%np_recv,  &
+     CALL get_pelist_recv(p_patch%comm_pat_c, pelist_recv)
+
+     CALL p_gatherv(pelist_recv, get_np_recv(p_patch%comm_pat_c), &
                     recvlist_buf, nprecv_buf, displs, 0, p_comm_work)
 
      CALL p_gather(avglat, avglat_buf, 0, p_comm_work)
@@ -2202,7 +2210,7 @@ SUBROUTINE decomposition_statistics(p_patch)
        ENDDO
      ENDIF
 
-     DEALLOCATE(nprecv_buf,displs,recvlist_buf,avglat_buf,avglon_buf)
+     DEALLOCATE(nprecv_buf,displs,recvlist_buf,avglat_buf,avglon_buf, pelist_recv)
 
    ENDIF
 

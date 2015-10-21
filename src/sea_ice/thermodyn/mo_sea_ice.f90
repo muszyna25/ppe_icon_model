@@ -45,7 +45,7 @@ MODULE mo_sea_ice
   USE mo_ocean_nml,           ONLY: no_tracer, limit_seaice, seaice_limit
   USE mo_sea_ice_nml,         ONLY: i_ice_therm, i_ice_dyn, hnull, hmin, hci_layer, &
     &                               i_ice_albedo, leadclose_1, leadclose_2n, use_IceInitialization_fromTemperature, &
-    &                               use_constant_tfreez, use_calculated_ocean_stress, t_heat_base, &
+    &                               use_constant_tfreez, use_calculated_ocean_stress, use_no_flux_gradients, t_heat_base, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
     &                               init_analytic_hs_param
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
@@ -63,7 +63,7 @@ MODULE mo_sea_ice
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, &
     &                               t_atmos_for_ocean, t_sea_ice_acc, t_sea_ice_budgets
   USE mo_sea_ice_winton,      ONLY: ice_growth_winton, set_ice_temp_winton
-  USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer
+  USE mo_sea_ice_zerolayer,   ONLY: ice_growth_zerolayer, set_ice_temp_zerolayer, set_ice_temp_zero_nogradients
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
@@ -403,18 +403,33 @@ CONTAINS
       &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
       &          ldims=(/nproma,i_no_ice_thick_class,alloc_cell_blocks/),in_group=groups("ice_default"),&
       &          lrestart_cont=.TRUE.)
-    CALL add_var(ocean_default_list, 'ice_u_acc', p_ice%acc%u ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('ice_u_acc', 'm/s', 'zonal velocity', DATATYPE_FLT32),&
-      &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_default"),&
-      &          lrestart_cont=.FALSE.)
-    CALL add_var(ocean_default_list, 'ice_v_acc', p_ice%acc%v ,&
-      &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
-      &          t_cf_var('ice_v_acc', 'm/s', 'meridional velocity', DATATYPE_FLT32),&
-      &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
-      &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_default"),&
-      &          lrestart_cont=.FALSE.)
+    IF ( i_ice_dyn == 1 ) THEN ! AWI dynamics
+      CALL add_var(ocean_default_list, 'ice_u_acc', p_ice%acc%u ,&
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('ice_u_acc', 'm/s', 'zonal velocity', DATATYPE_FLT32),&
+        &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+        &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_default"),&
+        &          lrestart_cont=.FALSE.)
+      CALL add_var(ocean_default_list, 'ice_v_acc', p_ice%acc%v ,&
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('ice_v_acc', 'm/s', 'meridional velocity', DATATYPE_FLT32),&
+        &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+        &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_default"),&
+        &          lrestart_cont=.FALSE.)
+    ELSE  !  do not write into ice_default
+      CALL add_var(ocean_default_list, 'ice_u_acc', p_ice%acc%u ,&
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('ice_u_acc', 'm/s', 'zonal velocity', DATATYPE_FLT32),&
+        &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+        &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_diag"),&
+        &          lrestart_cont=.FALSE.)
+      CALL add_var(ocean_default_list, 'ice_v_acc', p_ice%acc%v ,&
+        &          GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
+        &          t_cf_var('ice_v_acc', 'm/s', 'meridional velocity', DATATYPE_FLT32),&
+        &          grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
+        &          ldims=(/nproma,alloc_cell_blocks/), in_group=groups("ice_diag"),&
+        &          lrestart_cont=.FALSE.)
+    ENDIF
 
     CALL message(TRIM(routine), 'end' )
 
@@ -1213,16 +1228,29 @@ CONTAINS
     ! #achim
     SELECT CASE (i_ice_therm)
     CASE (1)
-      CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
-            &   Tsurf,          &
-            &   hi,             &
-            &   hs,             &
-            &   Qtop,           &
-            &   Qbot,           &
-            &   SWnet,          &
-            &   nonsolar,       &
-            &   dnonsolardT,    &
-            &   Tfw)
+      IF (use_no_flux_gradients) THEN
+        CALL set_ice_temp_zero_nogradients(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
+              &   Tsurf,          &
+              &   hi,             &
+              &   hs,             &
+              &   Qtop,           &
+              &   Qbot,           &
+              &   SWnet,          &
+              &   nonsolar,       &
+              &   dnonsolardT,    &
+              &   Tfw)
+      ELSE
+        CALL set_ice_temp_zerolayer(i_startidx_c, i_endidx_c, nbdim, kice, i_ice_therm, pdtime, &
+              &   Tsurf,          &
+              &   hi,             &
+              &   hs,             &
+              &   Qtop,           &
+              &   Qbot,           &
+              &   SWnet,          &
+              &   nonsolar,       &
+              &   dnonsolardT,    &
+              &   Tfw)
+      ENDIF
     CASE (2)
       CALL set_ice_temp_winton(i_startidx_c, i_endidx_c, nbdim, kice, pdtime, &
             &   Tsurf,          &
@@ -1530,13 +1558,21 @@ CONTAINS
     ! subset range pointer
     p_patch      => p_patch_3D%p_patch_2D(1)
 
-    ! Fix over shoots - ONLY for the one-ice-class case
+    ! Fix overshoots - ONLY for the one-ice-class case
     WHERE ( p_ice%conc(:,1,:) > 1._wp )
       p_ice%conc(:,1,:) = 1._wp
 
       ! New ice and snow thickness
       p_ice%hi   (:,1,:) = p_ice%vol (:,1,:)/( p_ice%conc(:,1,:)*p_patch%cells%area(:,:) )
       p_ice%hs   (:,1,:) = p_ice%vols(:,1,:)/( p_ice%conc(:,1,:)*p_patch%cells%area(:,:) )
+    ENDWHERE
+
+    ! Fix undershoots - ONLY for the one-ice-class case
+    ! Quick fix, should be reformulated to occur at the advection stage
+    WHERE ( ( p_ice%conc(:,1,:) < 0._wp ) .OR. ( p_ice%hi(:,1,:) < 0._wp ) )
+      p_ice%conc(:,1,:) = 0._wp
+      p_ice%hi(:,1,:)   = 0._wp
+      p_ice%hs(:,1,:)   = 0._wp
     ENDWHERE
 
     p_ice%concSum                           = SUM(p_ice%conc, 2)

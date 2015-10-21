@@ -78,6 +78,7 @@ MODULE mo_initicon_utils
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
   USE mo_statistics,          ONLY: time_avg
   USE mo_dictionary,          ONLY: t_dictionary
+  USE mo_fortran_tools,       ONLY: init
 
   IMPLICIT NONE
 
@@ -2042,28 +2043,28 @@ MODULE mo_initicon_utils
             &        atm%qi     (nproma,nlev  ,nblks_c), &
             &        atm%qr     (nproma,nlev  ,nblks_c), &
             &        atm%qs     (nproma,nlev  ,nblks_c)  )
-!$OMP PARALLEL WORKSHARE
-            atm%vn(:,:,:) = 0._wp
-            atm%u(:,:,:) = 0._wp
-            atm%v(:,:,:) = 0._wp
-            atm%w(:,:,:) = 0._wp
-            atm%temp(:,:,:) = 0._wp
-            atm%exner(:,:,:) = 0._wp
-            atm%pres(:,:,:) = 0._wp
-            atm%rho(:,:,:) = 0._wp
-            atm%theta_v(:,:,:) = 0._wp
-            atm%qv(:,:,:) = 0._wp
-            atm%qc(:,:,:) = 0._wp
-            atm%qi(:,:,:) = 0._wp
-            atm%qr(:,:,:) = 0._wp
-            atm%qs(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL 
+            CALL init(atm%vn(:,:,:))
+            CALL init(atm%u(:,:,:))
+            CALL init(atm%v(:,:,:))
+            CALL init(atm%w(:,:,:))
+            CALL init(atm%temp(:,:,:))
+            CALL init(atm%exner(:,:,:))
+            CALL init(atm%pres(:,:,:))
+            CALL init(atm%rho(:,:,:))
+            CALL init(atm%theta_v(:,:,:))
+            CALL init(atm%qv(:,:,:))
+            CALL init(atm%qc(:,:,:))
+            CALL init(atm%qi(:,:,:))
+            CALL init(atm%qr(:,:,:))
+            CALL init(atm%qs(:,:,:))
+!$OMP END PARALLEL
 
             IF(lvert_remap_fg .OR. init_mode == MODE_ICONVREMAP) THEN
                 ALLOCATE(initicon%atm%tke(nproma,nlevp1,nblks_c))
-!$OMP PARALLEL WORKSHARE
-                atm%tke(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL 
+                CALL init(atm%tke(:,:,:))
+!$OMP END PARALLEL
             END IF
 
             atm%linitialized = .TRUE.
@@ -2083,14 +2084,14 @@ MODULE mo_initicon_utils
             &        atm_inc%v   (nproma,nlev,nblks_c), &
             &        atm_inc%vn  (nproma,nlev,nblks_e), &
             &        atm_inc%qv  (nproma,nlev,nblks_c)  )
-!$OMP PARALLEL WORKSHARE
-            atm_inc%temp(:,:,:) = 0._wp
-            atm_inc%pres(:,:,:) = 0._wp
-            atm_inc%u(:,:,:) = 0._wp
-            atm_inc%v(:,:,:) = 0._wp
-            atm_inc%vn(:,:,:) = 0._wp
-            atm_inc%qv(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL 
+            CALL init(atm_inc%temp(:,:,:))
+            CALL init(atm_inc%pres(:,:,:))
+            CALL init(atm_inc%u(:,:,:))
+            CALL init(atm_inc%v(:,:,:))
+            CALL init(atm_inc%vn(:,:,:))
+            CALL init(atm_inc%qv(:,:,:))
+!$OMP END PARALLEL 
 
             atm_inc%linitialized = .TRUE.
         ELSE
@@ -2104,9 +2105,9 @@ MODULE mo_initicon_utils
 
         ! always allocate sst (to be on the safe side)
         ALLOCATE(sfc%sst(nproma,nblks_c))
-!$OMP PARALLEL WORKSHARE
-        sfc%sst(:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL 
+        CALL init(sfc%sst(:,:))
+!$OMP END PARALLEL
 
         IF(init_mode == MODE_IFSANA) THEN
             ALLOCATE(sfc%tskin   (nproma,nblks_c            ), &
@@ -2119,18 +2120,18 @@ MODULE mo_initicon_utils
             &        sfc%seaice  (nproma,nblks_c            ), &
             &        sfc%tsoil   (nproma,0:nlev_soil,nblks_c), &
             &        sfc%wsoil   (nproma,  nlev_soil,nblks_c)  )
-!$OMP PARALLEL WORKSHARE
-            sfc%tskin(:,:) = 0._wp
-            sfc%tsnow(:,:) = 0._wp
-            sfc%snowalb(:,:) = 0._wp
-            sfc%snowweq(:,:) = 0._wp
-            sfc%snowdens(:,:) = 0._wp
-            sfc%skinres(:,:) = 0._wp
-            sfc%ls_mask(:,:) = 0._wp
-            sfc%seaice(:,:) = 0._wp
-            sfc%tsoil(:,:,:) = 0._wp
-            sfc%wsoil(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL 
+            CALL init(sfc%tskin(:,:))
+            CALL init(sfc%tsnow(:,:))
+            CALL init(sfc%snowalb(:,:))
+            CALL init(sfc%snowweq(:,:))
+            CALL init(sfc%snowdens(:,:))
+            CALL init(sfc%skinres(:,:))
+            CALL init(sfc%ls_mask(:,:))
+            CALL init(sfc%seaice(:,:))
+            CALL init(sfc%tsoil(:,:,:))
+            CALL init(sfc%wsoil(:,:,:))
+!$OMP END PARALLEL 
             ! note the flipped dimensions with respect to sfc_in!
 
             sfc%linitialized = .TRUE.
@@ -2145,9 +2146,9 @@ MODULE mo_initicon_utils
 
         IF ( (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
             ALLOCATE(sfc_inc%w_so (nproma,nlev_soil,nblks_c ) )
-!$OMP PARALLEL WORKSHARE
-            sfc_inc%w_so(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL 
+            CALL init(sfc_inc%w_so(:,:,:))
+!$OMP END PARALLEL
 
             ! allocate additional fields for MODE_IAU
             IF (init_mode == MODE_IAU) THEN
@@ -2156,10 +2157,10 @@ MODULE mo_initicon_utils
 
                 ! initialize with 0, since some increments are only read
                 ! for specific times
-!$OMP PARALLEL WORKSHARE
-                sfc_inc%h_snow   (:,:) = 0._wp
-                sfc_inc%freshsnow(:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL 
+                CALL init(sfc_inc%h_snow   (:,:))
+                CALL init(sfc_inc%freshsnow(:,:))
+!$OMP END PARALLEL
             ENDIF  ! MODE_IAU
 
             sfc_inc%linitialized = .TRUE.
@@ -2238,32 +2239,32 @@ MODULE mo_initicon_utils
       initicon(jg)%atm_in%qi      (nproma,nlev_in,nblks_c),   &
       initicon(jg)%atm_in%qr      (nproma,nlev_in,nblks_c),   &
       initicon(jg)%atm_in%qs      (nproma,nlev_in,nblks_c)    )
-!$OMP PARALLEL WORKSHARE
-    initicon(jg)%atm_in%psfc(:,:) = 0._wp
-    initicon(jg)%atm_in%phi_sfc(:,:) = 0._wp
-    initicon(jg)%atm_in%pres(:,:,:) = 0._wp
-    initicon(jg)%atm_in%z3d(:,:,:) = 0._wp
-    initicon(jg)%atm_in%temp(:,:,:) = 0._wp
-    initicon(jg)%atm_in%u(:,:,:) = 0._wp
-    initicon(jg)%atm_in%v(:,:,:) = 0._wp
-    initicon(jg)%atm_in%vn(:,:,:) = 0._wp
-    initicon(jg)%atm_in%w(:,:,:) = 0._wp
-    initicon(jg)%atm_in%omega(:,:,:) = 0._wp
-    initicon(jg)%atm_in%qv(:,:,:) = 0._wp
-    initicon(jg)%atm_in%qc(:,:,:) = 0._wp
-    initicon(jg)%atm_in%qi(:,:,:) = 0._wp
-    initicon(jg)%atm_in%qr(:,:,:) = 0._wp
-    initicon(jg)%atm_in%qs(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL 
+    CALL init(initicon(jg)%atm_in%psfc(:,:))
+    CALL init(initicon(jg)%atm_in%phi_sfc(:,:))
+    CALL init(initicon(jg)%atm_in%pres(:,:,:))
+    CALL init(initicon(jg)%atm_in%z3d(:,:,:))
+    CALL init(initicon(jg)%atm_in%temp(:,:,:))
+    CALL init(initicon(jg)%atm_in%u(:,:,:))
+    CALL init(initicon(jg)%atm_in%v(:,:,:))
+    CALL init(initicon(jg)%atm_in%vn(:,:,:))
+    CALL init(initicon(jg)%atm_in%w(:,:,:))
+    CALL init(initicon(jg)%atm_in%omega(:,:,:))
+    CALL init(initicon(jg)%atm_in%qv(:,:,:))
+    CALL init(initicon(jg)%atm_in%qc(:,:,:))
+    CALL init(initicon(jg)%atm_in%qi(:,:,:))
+    CALL init(initicon(jg)%atm_in%qr(:,:,:))
+    CALL init(initicon(jg)%atm_in%qs(:,:,:))
+!$OMP END PARALLEL
 
     IF (init_mode == MODE_COSMODE .OR. init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
       ALLOCATE( &
         initicon(jg)%atm_in%z3d_ifc (nproma,nlev_in+1,nblks_c), &
         initicon(jg)%atm_in%w_ifc   (nproma,nlev_in+1,nblks_c)  )
-!$OMP PARALLEL WORKSHARE
-      initicon(jg)%atm_in%z3d_ifc(:,:,:) = 0._wp
-      initicon(jg)%atm_in%w_ifc(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+      CALL init(initicon(jg)%atm_in%z3d_ifc(:,:,:))
+      CALL init(initicon(jg)%atm_in%w_ifc(:,:,:))
+!$OMP END PARALLEL
     ENDIF
 
     IF (init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
@@ -2272,12 +2273,12 @@ MODULE mo_initicon_utils
         initicon(jg)%atm_in%theta_v (nproma,nlev_in  ,nblks_c), &
         initicon(jg)%atm_in%tke     (nproma,nlev_in  ,nblks_c), &
         initicon(jg)%atm_in%tke_ifc (nproma,nlev_in+1,nblks_c)  )
-!$OMP PARALLEL WORKSHARE
-      initicon(jg)%atm_in%rho(:,:,:) = 0._wp
-      initicon(jg)%atm_in%theta_v(:,:,:) = 0._wp
-      initicon(jg)%atm_in%tke(:,:,:) = 0._wp
-      initicon(jg)%atm_in%tke_ifc(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL
+      CALL init(initicon(jg)%atm_in%rho(:,:,:))
+      CALL init(initicon(jg)%atm_in%theta_v(:,:,:))
+      CALL init(initicon(jg)%atm_in%tke(:,:,:))
+      CALL init(initicon(jg)%atm_in%tke_ifc(:,:,:))
+!$OMP END PARALLEL
     ENDIF
 
     initicon(jg)%atm_in%linitialized = .TRUE.
@@ -2307,20 +2308,20 @@ MODULE mo_initicon_utils
       initicon(jg)%sfc_in%seaice   (nproma,nblks_c                ), &
       initicon(jg)%sfc_in%tsoil    (nproma,nblks_c,0:nlevsoil_in+1), &
       initicon(jg)%sfc_in%wsoil    (nproma,nblks_c,0:nlevsoil_in+1)  )
-!$OMP PARALLEL WORKSHARE
-    initicon(jg)%sfc_in%phi(:,:) = 0._wp
-    initicon(jg)%sfc_in%tskin(:,:) = 0._wp
-    initicon(jg)%sfc_in%sst(:,:) = 0._wp
-    initicon(jg)%sfc_in%tsnow(:,:) = 0._wp
-    initicon(jg)%sfc_in%snowalb(:,:) = 0._wp
-    initicon(jg)%sfc_in%snowweq(:,:) = 0._wp
-    initicon(jg)%sfc_in%snowdens(:,:) = 0._wp
-    initicon(jg)%sfc_in%skinres(:,:) = 0._wp
-    initicon(jg)%sfc_in%ls_mask(:,:) = 0._wp
-    initicon(jg)%sfc_in%seaice(:,:) = 0._wp
-    initicon(jg)%sfc_in%tsoil(:,:,:) = 0._wp
-    initicon(jg)%sfc_in%wsoil(:,:,:) = 0._wp
-!$OMP END PARALLEL WORKSHARE
+!$OMP PARALLEL 
+    CALL init(initicon(jg)%sfc_in%phi(:,:))
+    CALL init(initicon(jg)%sfc_in%tskin(:,:))
+    CALL init(initicon(jg)%sfc_in%sst(:,:))
+    CALL init(initicon(jg)%sfc_in%tsnow(:,:))
+    CALL init(initicon(jg)%sfc_in%snowalb(:,:))
+    CALL init(initicon(jg)%sfc_in%snowweq(:,:))
+    CALL init(initicon(jg)%sfc_in%snowdens(:,:))
+    CALL init(initicon(jg)%sfc_in%skinres(:,:))
+    CALL init(initicon(jg)%sfc_in%ls_mask(:,:))
+    CALL init(initicon(jg)%sfc_in%seaice(:,:))
+    CALL init(initicon(jg)%sfc_in%tsoil(:,:,:))
+    CALL init(initicon(jg)%sfc_in%wsoil(:,:,:))
+!$OMP END PARALLEL
 
     initicon(jg)%sfc_in%linitialized = .TRUE.
   END SUBROUTINE allocate_extana_sfc

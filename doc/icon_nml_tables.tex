@@ -2312,6 +2312,11 @@ Minimum turbulent viscosity &
 \tabularnewline
 
 %\hline
+max\_turb\_scale & R & 300.0 &  &
+Asymtotic maximum turblence length scale (useful for coarse grid LES and when grid is vertically stretched) &
+\tabularnewline
+
+%\hline
 turb\_prandtl & R & 0.333333 &  &
 turbulent Prandtl number &
 \tabularnewline
@@ -4067,6 +4072,10 @@ sets of common variables can be added to the output:
 \texttt{group:ART\_AERO\_RADIO}        \>     ART radioactive tracer fields                                         \\
 \texttt{group:ART\_AERO\_DUST}         \>     ART mineral dust aerosol fields                                       \\
 \texttt{group:ART\_AERO\_SEAS}         \>     ART sea salt aerosol fields                                           \\
+\texttt{group:prog\_timemean}          \>     time mean output: temp, u, v, rho                                     \\
+\texttt{group:tracer\_timemean}        \>     time mean output: qv, qc, qi                                          \\
+\texttt{group:echam\_timemean}         \>     time mean output: most echam surface variables                        \\
+\texttt{group:atmo\_timemean}          \>     time mean variables from \texttt{prog\_timemean},\texttt{tracer\_timemean}, \texttt{echam\_timemean}\\                                                  \\
 \end{tabbing}
 
 \paragraph{Keyword \texttt{"tiles:"}:}
@@ -4130,8 +4139,7 @@ division\_method &
 I & 1& &
 method of domain decomposition\\
 0: read in from file \\
-1: use built-in geometric subdivision \\
-2: use METIS&
+1: use built-in geometric subdivision&
 \tabularnewline
 
 
@@ -4289,7 +4297,91 @@ more than one 2D slice at once. &
 
 Defined and used in: \verb+src/namelists/mo_parallel_nml.f90+
 
+%------------------------------------------------------------------------------
+% psrad_nml:
+%------------------------------------------------------------------------------
+\subsection{psrad\_nml}
 
+\begin{longtab}
+
+%\hline
+lradforcing &
+L(2)&
+.FALSE.&
+&
+switch for diagnostics of aerosol forcing in the solar spectral range
+(lradforcing(1)) and the thermal spectral range (lradforcing(2)). 
+\tabularnewline
+
+%hline
+lw\_gpts\_ts &
+I&
+1&
+&
+number of g--points in Monte--Carlo
+   spectral integration for thermal radiation, see lw\_spec\_samp
+\tabularnewline
+
+%hline
+lw\_spec\_samp &
+I&
+1&
+&
+sampling of spectral bands in radiation
+calculation for thermal radiation\newline
+lw\_spec\_samp = 1: standard broad
+band sampling\newline
+lw\_spec\_samp = 2: Monte--Carlo spec-
+ tral integration (MSCI); lw\_gpts\_ts
+randomly chosen g--points per column
+ and radiation call\newline
+lw\_spec\_samp = 3: choose g--points not
+ completely randomly in order to reduce
+errors in the surface radiative fluxes
+\tabularnewline
+
+%hline
+rad\_perm &
+I&
+0&
+&
+integer number that influences the perturba- 
+  tion of the random seed from column 
+  to column
+\tabularnewline
+
+%hline
+sw\_gpts\_ts &
+I&
+1&
+&
+number of g--points in Monte--Carlo 
+    spectral integration for solar radiation, 
+    see sw\_spec\_samp 
+\tabularnewline
+
+
+%hline
+sw\_spec\_samp&
+I&
+1&
+&
+sampling of spectral bands in radiation 
+calculation for solar radiation \newline
+sw\_spec\_samp = 1: standard broad 
+band sampling\newline 
+sw\_spec\_samp = 2: Monte--Carlo spectral integration (MSCI); lw\_gpts\_ts 
+  randomly chosen g--points per column 
+    and radiation call\newline 
+    sw\_spec\_samp = 3: choose g--points not 
+      completely randomly in order to reduce 
+      errors in the surface radiative fluxes 
+\tabularnewline
+
+%hline
+\end{longtab}
+
+Defined and used in: \verb+src/echam_phy_psrad/mo_psrad_radiation.f90+
 %------------------------------------------------------------------------------
 % radiation_nml:
 %------------------------------------------------------------------------------

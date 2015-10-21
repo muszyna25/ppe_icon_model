@@ -1,8 +1,4 @@
-#ifdef __xlC__
-@PROCESS HOT
-#else
-#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
-#endif
+#include "fsel.inc"
 !>
 !! @brief Subroutines for computing turbulent exchange coefficients.
 !!
@@ -48,9 +44,9 @@ CONTAINS
   !! Compute various thermodynamic variables for all (full) vertical levels;
   !! Diagnose PBL extension;
   !! Diagnose wind shear, buoyancy, Ri-number, mixing length, then compute
-  !! the turbulent exchange coefficients of momentum, dry static energy, 
+  !! the turbulent exchange coefficients of momentum, dry static energy,
   !! tracers, TKE, variance of virtual optential temperation at half levels
-  !! [1+1/2, klev-1/2].        
+  !! [1+1/2, klev-1/2].
   !! Note that
   !! - for all coeffcient arrays, vertical index k in this subroutine
   !!   correspond to interface (half level) k+1/2;
@@ -191,7 +187,7 @@ CONTAINS
     DO 212 jk=1,klev
       CALL prepare_ua_index_spline('vdiff (1)',kproma,ptm1(1,jk),idx(1),za(1))
       CALL lookup_ua_spline(kproma,idx(1),za(1),zua(1))
- 
+
       zpapm1i(1:kproma) = 1._wp/papm1(1:kproma,jk)
       ztheta(1:kproma,jk) = (p0ref*zpapm1i(1:kproma))**rd_o_cpd
 
@@ -449,7 +445,7 @@ CONTAINS
                                & pch_sfc,                                &! out
                                & paz0lh,                                 &! in, optional
                                & pcsat, pcair                            &! in, optional
-                               & )  
+                               & )
 !                               & pch_sfc, pchn_sfc, pcdn_sfc, pcfnc_sfc, &! out
 !                               & pbn_sfc, pbhn_sfc, pbm_sfc, pbh_sfc     )! out
 
@@ -457,7 +453,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
 
     LOGICAL, INTENT(IN) :: lsfc_mom_flux   !< switch on/off surface momentum flux
-    LOGICAL, INTENT(IN) :: lsfc_heat_flux  !< switch on/off surface fluxes of 
+    LOGICAL, INTENT(IN) :: lsfc_heat_flux  !< switch on/off surface fluxes of
                                            !< sensible and latent heat
 
     REAL(wp),INTENT(IN) :: pz0m     (kbdim,ksfc_type) !< aerodynamic roughness length
@@ -487,7 +483,7 @@ CONTAINS
     ! For the variance of theta_v, "_b" denotes the lowest computational level
     ! above surface, i.e., the interface between full levels klev-1 and klev.
 
-    REAL(wp),INTENT(IN) :: pthvvar_b (kbdim)  !< variance of theta_v 
+    REAL(wp),INTENT(IN) :: pthvvar_b (kbdim)  !< variance of theta_v
 
     ! "_sfc" denotes value at surface
 
@@ -497,18 +493,18 @@ CONTAINS
     REAL(wp)             :: pri_sfc   (kbdim,ksfc_type) !< moist Richardson number
 
     REAL(wp),INTENT(OUT) :: pcfm_gbm  (kbdim)           !< exchange coeff. of momentum
-    REAL(wp),INTENT(OUT) :: pcfm_sfc  (kbdim,ksfc_type) !< exchange coeff. of momentum, 
+    REAL(wp),INTENT(OUT) :: pcfm_sfc  (kbdim,ksfc_type) !< exchange coeff. of momentum,
                                                         !< for each type of surface
-    REAL(wp),INTENT(OUT) :: pcfh_gbm  (kbdim)           !< exchange coeff. of heat and vapor 
+    REAL(wp),INTENT(OUT) :: pcfh_gbm  (kbdim)           !< exchange coeff. of heat and vapor
     REAL(wp),INTENT(OUT) :: pcfh_sfc  (kbdim,ksfc_type) !< exchange coeff. of heat and vapour
                                                         !< for each type of surface
-    REAL(wp),INTENT(OUT) :: pcfv_sfc   (kbdim)  !< exchange coeff. of total water variance 
+    REAL(wp),INTENT(OUT) :: pcfv_sfc   (kbdim)  !< exchange coeff. of total water variance
     REAL(wp),INTENT(OUT) :: pcftke_sfc (kbdim)  !< exchange coeff. of TKE
-    REAL(wp),INTENT(OUT) :: pcfthv_sfc (kbdim)  !< exchange coeff. of the variance of theta_v 
+    REAL(wp),INTENT(OUT) :: pcfthv_sfc (kbdim)  !< exchange coeff. of the variance of theta_v
     REAL(wp),INTENT(OUT) :: pprfac_sfc (kbdim)  !< prefactor for exchange coefficients
     REAL(wp),INTENT(OUT) :: prho_sfc   (kbdim)  !< air density
     REAL(wp),INTENT(OUT) :: ptkevn_sfc (kbdim)  !< boundary condition (sfc value) of TKE
-    REAL(wp),INTENT(OUT) :: pthvvar_sfc(kbdim)  !< boundary condition (sfc value) 
+    REAL(wp),INTENT(OUT) :: pthvvar_sfc(kbdim)  !< boundary condition (sfc value)
                                                 !< of the variance of theta_v
     REAL(wp),INTENT(OUT) :: pqshear_sfc(kbdim)  !< vertical shear of total water concentration
     REAL(wp),INTENT(OUT) :: pustarm    (kbdim)  !< friction velocity, grid-box mean
@@ -668,7 +664,7 @@ CONTAINS
         pcfnc_sfc(js,jsfc)= SQRT(zdu2(js,jsfc))*pcdn_sfc(js,jsfc)
  !  REMARK:
  !  compared to the original (precalc_land,ocean,ice) the factor zcons is missing
- !  this factor is included as "prefactor for the exchange coefficients" in 
+ !  this factor is included as "prefactor for the exchange coefficients" in
  !  subroutine matrix_setup_elim
 
         zdthv         = MAX(0._wp,(zthetav-pthetav_b(js)))
@@ -680,7 +676,7 @@ CONTAINS
           pchn_sfc  (js,jsfc)=ckap**2/(zalo*zaloh)
           zcfnch(js,jsfc)=SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc)
           zcr   (js)=(cfreec/(pchn_sfc(js,jsfc)*SQRT(zdu2(js,jsfc))))*ABS(zbuoy)**zonethird
-        ELSE IF ( jsfc == idx_ice ) THEN    ! over ice 
+        ELSE IF ( jsfc == idx_ice ) THEN    ! over ice
           pchn_sfc  (js,jsfc) = pcdn_sfc (js,jsfc)
           zcfnch(js,jsfc) = pcfnc_sfc(js,jsfc)  ! coeff. for scalar is the same as for momentum
         ELSE IF ( jsfc == idx_lnd ) THEN    ! over  land
@@ -695,14 +691,14 @@ CONTAINS
     ! for each type of surface
     !-------------------------------------------------------------------------
 
-    IF (lsfc_mom_flux.OR.lsfc_heat_flux) THEN  ! Surface flux is considered 
+    IF (lsfc_mom_flux.OR.lsfc_heat_flux) THEN  ! Surface flux is considered
 
 !TODO:    preset values to zero
      pcfh_sfc(1:kproma,1:ksfc_type) = 0._wp
      pcfm_sfc(1:kproma,1:ksfc_type) = 0._wp
 
       ! stable case              pri_sfc(js,jsfc) > 0.
-  
+
       DO jsfc = 1,ksfc_type
         DO jls = 1,is(jsfc)
           ! set index
@@ -715,9 +711,9 @@ CONTAINS
           ENDIF
         ENDDO
       ENDDO
-  
+
       ! unstable case           pri_sfc(js,jsfc) <= 0.
-  
+
       IF (idx_wtr<=ksfc_type) THEN
         jsfc = idx_wtr  ! water
         DO jls = 1,is(jsfc)
@@ -733,7 +729,7 @@ CONTAINS
           ENDIF
         ENDDO
       ENDIF
-  
+
       IF (idx_ice<=ksfc_type) THEN
         jsfc = idx_ice  ! ice
         DO jls = 1,is(jsfc)
@@ -749,7 +745,7 @@ CONTAINS
           ENDIF
         ENDDO
       ENDIF
-     
+
       IF (idx_lnd<=ksfc_type) THEN
         jsfc = idx_lnd  ! land
         DO jls = 1,is(jsfc)
@@ -768,14 +764,14 @@ CONTAINS
           ENDIF
         ENDDO
       ENDIF
-     
+
     END IF  ! lsfc_mom_flux.OR.lsfc_heat_flux
 
-    IF (.NOT.lsfc_mom_flux) THEN  ! Surface momentum flux is switched off 
+    IF (.NOT.lsfc_mom_flux) THEN  ! Surface momentum flux is switched off
       pcfm_sfc(1:kproma,1:ksfc_type) = 0._wp
     END IF
 
-    IF (.NOT.lsfc_heat_flux) THEN  ! Surface heat flux is switched off 
+    IF (.NOT.lsfc_heat_flux) THEN  ! Surface heat flux is switched off
       pcfh_sfc(1:kproma,1:ksfc_type) = 0._wp
       zwst    (1:kproma,1:ksfc_type) = 0._wp   ! affects TKE at surface
     END IF
@@ -790,35 +786,35 @@ CONTAINS
     ! They are used later for solving the discretized vertical diffusion
     ! equation at the lowest grid level (klev) for each surface type
     ! separately. Then the solutions are aggregated using
-    ! (fraction of type)*(cfh_sfc of type) as the weighting factor, which 
+    ! (fraction of type)*(cfh_sfc of type) as the weighting factor, which
     ! ensures conservation of the area-weighted total flux.
     !   Here we compute the aggregated exchange coefficient for output
-    ! and for solving the vertical diffusion equation of the variance of 
+    ! and for solving the vertical diffusion equation of the variance of
     ! virtual potential temperature (theta_v).
     !-------------------------------------------------------------------------
     ! Add aggregated Richardson number for the surface
     !-------------------------------------------------------------------------
 
     pcfm_gbm(1:kproma) = 0._wp
-    pcfh_gbm(1:kproma) = 0._wp 
+    pcfh_gbm(1:kproma) = 0._wp
     pri_gbm (1:kproma) = 0._wp
     DO jsfc = 1,ksfc_type
-      DO jls = 1,is(jsfc) 
+      DO jls = 1,is(jsfc)
 ! set index
       js=loidx(jls,jsfc)
         pcfm_gbm(js) = pcfm_gbm(js) + pfrc(js,jsfc)*pcfm_sfc(js,jsfc)
         pcfh_gbm(js) = pcfh_gbm(js) + pfrc(js,jsfc)*pcfh_sfc(js,jsfc)
         pri_gbm (js) = pri_gbm (js) + pfrc(js,jsfc)*pri_sfc (js,jsfc)
       ENDDO
-    ENDDO     
+    ENDDO
 
     !-------------------------------------------------------------------------
-    ! Hydrometeors and the other tracers share the same exchange coefficient 
+    ! Hydrometeors and the other tracers share the same exchange coefficient
     ! with heat and moisture, but have no turbulence-induced surface flux.
     ! These are taken care of in subroutine matrix_setup.
-    !   The total water variance has a different exchange coefficient 
+    !   The total water variance has a different exchange coefficient
     ! (variable cfv), and no surface flux. Set the surface exchange coefficient
-    ! to zero. 
+    ! to zero.
     !-------------------------------------------------------------------------
     pcfv_sfc(1:kproma) = 0._wp
 
@@ -861,7 +857,7 @@ CONTAINS
           zcdn2m = MERGE((ckap/LOG(1._wp+pgeom1_b(js)/(grav*z2m)))**2, &
                  &        pcdn_sfc(js,jsfc),lhighz0 )
           zcdnr  = zcdn2m/pcdn_sfc(js,jsfc)
-  
+
           zucf   = SQRT( ABS(pri_sfc(js,jsfc))*(1._wp+pgeom1_b(js)/(grav*z2m)) )  ! sqrt in (5.4)
           zucf  = 1._wp + z3bc*zcdn2m*zucf                              ! denomenator in (5.4)
           zucf = 1._wp - z2b*pri_sfc(js,jsfc)/zucf                      ! (5.4)
@@ -873,7 +869,7 @@ CONTAINS
       END DO
  !  REMARK:
  !  compared to the original (precalc_land,ocean,ice) the factor 1/zcons is missing
- !  this factor is included as "prefactor for the exchange coefficients" in 
+ !  this factor is included as "prefactor for the exchange coefficients" in
  !  subroutine matrix_setup_elim
 
       pustarm(1:kproma) = 0._wp
@@ -919,11 +915,11 @@ CONTAINS
     !----------------------------------------------------------------
     ! Surface value and exchange coefficient of theta_v variance
     !----------------------------------------------------------------
-    ! The exchange coefficient is set to the aggregated coefficient 
+    ! The exchange coefficient is set to the aggregated coefficient
     ! of heat and moisture.
     pcfthv_sfc(1:kproma) = pcfh_gbm(1:kproma)
 
-    ! thvvar at the surface 
+    ! thvvar at the surface
     pthvvar_sfc(1:kproma) = pthvvar_b(1:kproma)
 
     !------------------------------------------------------------------------------
@@ -943,15 +939,15 @@ CONTAINS
     END DO
 
     !------------------------------------------------------------------------------
-    ! Store values 
+    ! Store values
     ! to be used in subroutine "vdiff_tendencies" to compute
     ! new t2m, t2m_max t2m_min, 2m dew point, 10m wind components
     !------------------------------------------------------------------------------
 
-    pbn_sfc (1:kproma,1:ksfc_type) = 0._wp  ! 
-    pbhn_sfc(1:kproma,1:ksfc_type) = 0._wp  ! 
-    pbm_sfc (1:kproma,1:ksfc_type) = 0._wp  ! 
-    pbh_sfc (1:kproma,1:ksfc_type) = 0._wp  ! 
+    pbn_sfc (1:kproma,1:ksfc_type) = 0._wp  !
+    pbhn_sfc(1:kproma,1:ksfc_type) = 0._wp  !
+    pbm_sfc (1:kproma,1:ksfc_type) = 0._wp  !
+    pbh_sfc (1:kproma,1:ksfc_type) = 0._wp  !
     DO jsfc = 1,ksfc_type
       DO jls = 1,is(jsfc)
 ! set index

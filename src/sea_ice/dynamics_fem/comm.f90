@@ -277,10 +277,7 @@ subroutine set_par_support
      if (n==npes-1) nend=nod2D
      part(nini:nend)=n
   end do
-  ! This is METIS-based partitioning
-   !call partit(icestiff%dim,icestiff%rowptr,icestiff%colind,npes, part)
-   
-  
+
   call communication_nod
   call mymesh
 

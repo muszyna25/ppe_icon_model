@@ -48,7 +48,7 @@ MODULE mo_radiation
 
   USE mo_model_domain,         ONLY: t_patch
 
-  USE mo_math_constants,       ONLY: pi
+  USE mo_math_constants,       ONLY: pi, rpi
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
     &                                amco2, amch4, amn2o, amo3, amo2, &
     &                                stbo,  vpp_ch4, vpp_n2o
@@ -82,8 +82,8 @@ MODULE mo_radiation
     &                                timer_rrtm_prep, timer_rrtm_post, &
     &                                timer_lrtm, timer_srtm
 
-  USE mo_echam_phy_memory,     ONLY: prm_field
   USE mo_nh_testcases_nml,     ONLY: zenithang
+  USE mo_rad_diag,             ONLY: rad_aero_diag
 
   IMPLICIT NONE
 
@@ -118,8 +118,8 @@ CONTAINS
     REAL(wp) ::                    &
       & p_sim_time_rad,            &
       & zstunde,                   & ! output from routine get_utc_date_tr
-      & ztwo, ztho  ,              & 
-      & zdek,                      & 
+      & ztwo, ztho  ,              &
+      & zdek,                      &
       & zsocof, zeit0,             &
       & zsct_h
 
@@ -148,7 +148,7 @@ CONTAINS
     ! local insolation = constant = global mean insolation (ca. 340 W/m2)
     ! zenith angle = 0,
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = 1._wp ! sun in zenith everywhere
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt/4._wp ! scale ztsi to get the correct global mean insolation
@@ -159,10 +159,10 @@ CONTAINS
     ! local time always 12:00
     ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
       ENDDO
-      IF (PRESENT(zsct)) zsct = tsi_radt/pi ! because sun is always in local noon, the TSI needs to be
+      IF (PRESENT(zsct)) zsct = tsi_radt * rpi ! because sun is always in local noon, the TSI needs to be
       ! scaled by 1/pi to get the correct global mean insolation
     ELSEIF (izenith == 2) THEN
     ! circular non-seasonal orbit,
@@ -171,8 +171,8 @@ CONTAINS
     ! local time always  07:14:15 or 16:45:45
     ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
-        zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )/pi
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
+        zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat ) * rpi
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
     ELSEIF (izenith == 3) THEN  !Second: case izenith==3 (time (but no date) needed)
@@ -197,8 +197,7 @@ CONTAINS
 
         ie = kbdim
         DO jb = 1, pt_patch%nblks_c
-
-          IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+          ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
           z_cosmu0(1:ie,jb) = -COS( pt_patch%cells%center(1:ie,jb)%lat ) &
             & *COS( pt_patch%cells%center(1:ie,jb)%lon                &
@@ -311,7 +310,7 @@ CONTAINS
 
         DO jc = 1,ie
           IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
-            ! The averaged cosine of zenith angle is limited to 0.05 in order to avoid 
+            ! The averaged cosine of zenith angle is limited to 0.05 in order to avoid
             ! numerical trouble along the day-night boundary near the model top
             zsmu0(jc,jb) = MAX(0.05_wp,SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp)))
           ELSE
@@ -395,7 +394,7 @@ CONTAINS
       ! circular non-seasonal orbit, zenith angle dependent on latitude only,
       ! no diurnal cycle (always at 12:00 local time --> sin(time of day)=1 )
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
+        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt/pi ! because sun is always in local noon, the TSI needs to be
@@ -405,8 +404,8 @@ CONTAINS
       ! circular non-seasonal orbit, no diurnal cycle
       ! at 07:14:15 or 16:45:45 local time (--> sin(time of day)=1/pi )
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c      
-        zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )/pi
+        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat ) * rpi
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
       RETURN
@@ -423,18 +422,18 @@ CONTAINS
 
     !Second case izenith==3 (time (but no date) needed)
     IF (izenith == 3) THEN
-      
+
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = -COS( pt_patch%cells%center(1:ie,jb)%lat ) &
           & *COS( pt_patch%cells%center(1:ie,jb)%lon                &
-          &      +zstunde/24._wp* 2._wp*pi )
+          &      +zstunde * (1._wp/24._wp) * 2._wp * pi )
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
 
     !Third: case izenith=4 (time and date needed)
     ELSEIF (izenith == 4) THEN
-    
+
       ztwo    = 0.681_wp + 0.2422_wp*REAL(jj-1949,wp)-REAL((jj-1949)/4,wp)
       ztho    = 2._wp*pi*( REAL(itaja, wp) -1.0_wp + ztwo )/365.2422_wp
       zdtzgl  = 0.000075_wp + 0.001868_wp*COS(      ztho) - 0.032077_wp*SIN(      ztho) &
@@ -458,7 +457,7 @@ CONTAINS
       ENDIF
 
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsinphi(1:ie,jb)      = SIN (pt_patch%cells%center(1:ie,jb)%lat)
         zcosphi(1:ie,jb)      = SQRT(1.0_wp - zsinphi(1:ie,jb)**2)
         zeitrad(1:ie,jb)      = zeit0 + pt_patch%cells%center(1:ie,jb)%lon
@@ -466,7 +465,7 @@ CONTAINS
           COS(zeitrad(1:ie,jb))
 
       ENDDO
-      
+
     ELSEIF (izenith == 5) THEN
      ! Radiative convective equilibrium
      ! circular non-seasonal orbit,
@@ -475,7 +474,7 @@ CONTAINS
      ! the product tsi*cos(zenith angle) should equal 340 W/m2
      ! see Popke et al. 2013 and Cronin 2013
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS(zenithang*pi/180._wp)
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
@@ -490,8 +489,8 @@ CONTAINS
   !!
   !! @remarks This routine organises the input/output for the radiation
   !! computation.  The state of radiatively active constituents is set as the
-  !! input. Output are flux transmissivities (ratio solar flux/solar input) 
-  !! and thermal fluxes at all the half levels of the grid. This output will be 
+  !! input. Output are flux transmissivities (ratio solar flux/solar input)
+  !! and thermal fluxes at all the half levels of the grid. This output will be
   !! used in radheat at all time steps until the next full radiation time step.
   !
   SUBROUTINE radiation(                                                    &
@@ -552,8 +551,8 @@ CONTAINS
       &  zaeq4(kbdim,klev) , & !< aerosol volcano ashes
       &  zaeq5(kbdim,klev) , & !< aerosol stratospheric background
       &  dt_rad                !< radiation time step
-    
-    LOGICAL, INTENT(in), OPTIONAL :: opt_halo_cosmu0    
+
+    LOGICAL, INTENT(in), OPTIONAL :: opt_halo_cosmu0
 
     ! output
     ! ------
@@ -637,7 +636,7 @@ CONTAINS
     ELSE
       cos_mu0_mod(1:jce) = cos_mu0(1:jce)
     ENDIF !l_halo_cosmu0
-    
+
     !
     ! 1.1 p, T, q(vap,liq,ice) and clouds
     ! -----------------------------------
@@ -882,7 +881,7 @@ CONTAINS
 
 
     IF (ltimer) CALL timer_start(timer_radiation)
-    
+
     !
     ! 1.1 p, T, q(vap,liq,ice) and clouds
     ! -----------------------------------
@@ -1216,7 +1215,7 @@ CONTAINS
       &  zscratch                           !< scratch array
 
     REAL(wp) :: z_sum_aea, z_sum_aes !help variables for aerosol
-    
+
     !
     ! --- vertically reversed _vr variables
     !
@@ -1286,33 +1285,19 @@ CONTAINS
       jkb = klev+1-jk
       cld_frc_vr(1:jce,jk)  = cld_frc(1:jce,jkb)
 
-! LL: Apparently xlf gets confused with this where, replace it by IFs
-#ifdef __xlC__
-      icldlyr  (:,jk) = 0
-      ziwgkg_vr(:,jk) = 0.0_wp
-      zlwgkg_vr(:,jk) = 0.0_wp
-
       DO jl=1,jce
         IF (cld_frc_vr(jl,jk) > 2.0_wp*EPSILON(1.0_wp)) THEN
+          ! only clouds > 2 epsilon are made visible to radiation
           icldlyr  (jl,jk) = 1
           ziwgkg_vr(jl,jk) = xm_ice(jl,jkb)*1000.0_wp/cld_frc_vr(jl,jk)
           zlwgkg_vr(jl,jk) = xm_liq(jl,jkb)*1000.0_wp/cld_frc_vr(jl,jk)
+        ELSE
+          ! clouds <= 2 epsilon are ade invisble to radiation
+          icldlyr  (jl,jk) = 0
+          ziwgkg_vr(jl,jk) = 0.0_wp
+          zlwgkg_vr(jl,jk) = 0.0_wp
         ENDIF
       END DO
-#else
-      !
-      WHERE (cld_frc_vr(1:jce,jk) > 2.0_wp*EPSILON(1.0_wp))
-        ! only clouds > 2 epsilon are made visible to radiation
-        icldlyr  (1:jce,jk) = 1
-        ziwgkg_vr(1:jce,jk) = xm_ice(1:jce,jkb)*1000.0_wp/cld_frc_vr(1:jce,jk)
-        zlwgkg_vr(1:jce,jk) = xm_liq(1:jce,jkb)*1000.0_wp/cld_frc_vr(1:jce,jk)
-      ELSEWHERE
-        ! clouds <= 2 epsilon are ade invisble to radiation
-        icldlyr  (1:jce,jk) = 0
-        ziwgkg_vr(1:jce,jk) = 0.0_wp
-        zlwgkg_vr(1:jce,jk) = 0.0_wp
-      END WHERE
-#endif
     END DO
     !
     ! --- main constituent reordering
@@ -1417,7 +1402,7 @@ CONTAINS
             aer_tau_sw_vr(jl,jk,jspec-jpband) = z_sum_aea + z_sum_aes
 
             ! sw aerosol single scattering albedo
-            aer_piz_sw_vr(jl,jk,jspec-jpband) = z_sum_aes / ( z_sum_aea + z_sum_aes ) 
+            aer_piz_sw_vr(jl,jk,jspec-jpband) = z_sum_aes / ( z_sum_aea + z_sum_aes )
 
             ! sw aerosol asymmetry factor
             aer_cg_sw_vr(jl,jk,jspec-jpband) =                                  &
@@ -1664,9 +1649,9 @@ CONTAINS
     REAL(wp), INTENT(inout), OPTIONAL :: &
       &     pflxsfcsw (kbdim), &       ! shortwave surface net flux [W/m2]
       &     pflxsfclw (kbdim), &       ! longwave  surface net flux [W/m2]
-      &     pflxsfcsw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific shortwave 
+      &     pflxsfcsw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific shortwave
                                                     ! surface net flux [W/m2]
-      &     pflxsfclw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific longwave 
+      &     pflxsfclw_t(kbdim,ntiles+ntiles_wtr), & ! tile-specific longwave
                                                     ! surface net flux [W/m2]
       &     pflxtoasw (kbdim), &       ! shortwave toa net flux [W/m2]
       &     pflxtoalw (kbdim), &       ! longwave  toa net flux [W/m2]
@@ -1786,7 +1771,7 @@ CONTAINS
       ! Disaggregation of longwave and shortwave fluxes for tile approach
       IF (ntiles > 1) THEN
         IF (lcalc_trsolclr) THEN ! (relevant for Ritter-Geleyn radiation scheme only)
-          ! parameterization of clear-air solar transmissivity in order to use the same 
+          ! parameterization of clear-air solar transmissivity in order to use the same
           ! formulation as in mo_phys_nest_utilities:downscale_rad_output
           DO jc = jcs, jce
             trsolclr(jc) = MAX(0.02_wp,0.8_wp*cosmu0(jc)/(0.25_wp*tqv(jc))**0.15)**0.333_wp*&
@@ -1847,7 +1832,7 @@ CONTAINS
         DO ic = 1, lp_count
           jc = idx_lst_lp(ic)
           pflxsfcsw_t(jc,1) = zflxsw(jc,klevp1)
-          pflxsfclw_t(jc,1) = zflxlw(jc,klevp1) 
+          pflxsfclw_t(jc,1) = zflxlw(jc,klevp1)
         ENDDO
 
 !CDIR NODEP,VOVERTAKE,VOB
@@ -1879,7 +1864,7 @@ CONTAINS
       zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
       ! - Atmosphere
       zflxlw(jcs:jce,2:klev) = pflxlw(jcs:jce,2:klev)
-      
+
       ! - Surface
       !   Adjust net sfc longwave radiation for changed surface temperature (ptsfc) with respect to the
       !   surface temperature used for the longwave flux computation (ptsfctrad).
@@ -1898,7 +1883,7 @@ CONTAINS
 
 
     ENDIF
-    
+
     !
     !
     !     4.2  Fluxes and heating rates except for lowest layer
@@ -1920,49 +1905,7 @@ CONTAINS
     IF ( PRESENT(pflxtoasw) ) pflxtoasw(jcs:jce) = zflxsw(jcs:jce,1)
     IF ( PRESENT(pflxtoalw) ) pflxtoalw(jcs:jce) = zflxlw(jcs:jce,1)
 
-    
+
   END SUBROUTINE radheat
 
-!>
-!! SUBROUTINE rad_aero_diag writes actual aerosol optical properties to output stream
-!!
-!! @author J.S.Rast, MPI-Met Hamburg
-!!
-!! @par Revision History
-!! Origianl Source by J.S.Rast, MPI-Met Hamburg, (2013-08-30)
-!!
-!!
-SUBROUTINE rad_aero_diag (                                  &
-      & kg              ,kb              ,kce             , &
-      & kbdim           ,klev            ,kpband          , &
-      & kpsw            ,paer_tau_lw_vr  ,paer_tau_sw_vr  , &
-      & paer_piz_sw_vr  ,paer_cg_sw_vr                      )
-      
-      INTEGER, INTENT(in)    :: kg      ! domain index
-      INTEGER, INTENT(in)    :: kb      ! block index
-      INTEGER, INTENT(in)    :: kce     ! actual block length
-      INTEGER, INTENT(in)    :: kbdim   ! declaration block length
-      INTEGER, INTENT(in)    :: klev    ! levels
-      INTEGER, INTENT(in)    :: kpband  ! number of lw bands
-      INTEGER, INTENT(in)    :: kpsw    ! number of sw bands
-      REAL(wp), INTENT(in)   :: paer_tau_lw_vr(kbdim,klev,kpband) ! aod thermal wavelengths
-      REAL(wp), INTENT(in)   :: paer_tau_sw_vr(kbdim,klev,kpsw)   ! aod solar wavelengths
-      REAL(wp), INTENT(in)   :: paer_piz_sw_vr(kbdim,klev,kpsw)   ! ssa solar wavelengths
-      REAL(wp), INTENT(in)   :: paer_cg_sw_vr(kbdim,klev,kpsw)    ! asy solar wavelengths
-
-      prm_field(kg)%aer_aod_9731(1:kce,1:klev,kb) = &
-                   paer_tau_lw_vr(1:kce,klev:1:-1,7)
-      prm_field(kg)%aer_aod_533 (1:kce,1:klev,kb) = &
-                   paer_tau_sw_vr(1:kce,klev:1:-1,10)
-      prm_field(kg)%aer_ssa_533 (1:kce,1:klev,kb) = &
-                   paer_piz_sw_vr(1:kce,klev:1:-1,10)
-      prm_field(kg)%aer_asy_533 (1:kce,1:klev,kb) = &
-                   paer_cg_sw_vr(1:kce,klev:1:-1,10)
-      prm_field(kg)%aer_aod_2325(1:kce,1:klev,kb) = &
-                   paer_tau_sw_vr(1:kce,klev:1:-1,3)
-      prm_field(kg)%aer_ssa_2325(1:kce,1:klev,kb) = &
-                   paer_piz_sw_vr(1:kce,klev:1:-1,3)
-      prm_field(kg)%aer_asy_2325(1:kce,1:klev,kb) = &
-                   paer_cg_sw_vr(1:kce,klev:1:-1,3)
-END SUBROUTINE rad_aero_diag
 END MODULE mo_radiation

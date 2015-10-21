@@ -17,8 +17,9 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!!
-
+!! MH/TJ 2015-06-17
+!! For an explanation of HAVE_SLOW_PASSIVE_TARGET_ONESIDED,
+!! see mo_setup_subdivision.f90
 
 MODULE mo_alloc_patches
   !-------------------------------------------------------------------------
@@ -28,22 +29,34 @@ MODULE mo_alloc_patches
     & max_char_length,  &
     & min_rlcell, max_rlcell, &
     & min_rledge, max_rledge, &
-    & min_rlvert, max_rlvert, &
-    & max_dom
-  USE mo_exception,          ONLY: message_text, message, finish
-  USE mo_model_domain,       ONLY: t_patch, t_pre_patch
+    & min_rlvert, max_rlvert
+  USE mo_exception,          ONLY: message, finish
+  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, c_num_edges, &
+       c_parent, c_child, c_phys_id, c_neighbor, c_edge, c_vertex, c_center, &
+       c_refin_ctrl, e_parent, e_child, e_cell, e_refin_ctrl, &
+       v_cell, v_num_edges, v_vertex, v_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              init_glb2loc_index_lookup, &
-    &                              t_glb2loc_index_lookup, &
-    &                              deallocate_glb2loc_index_lookup
-  USE mo_parallel_config,    ONLY: nproma
-  USE mo_grid_config,        ONLY: n_dom, n_dom_start, max_childdom, &
-    & dynamics_grid_filename,   dynamics_parent_grid_id,  &
-    & radiation_grid_filename, lplane
+    &                              deallocate_glb2loc_index_lookup, &
+    &                              uniform_partition, &
+    &                              partidx_of_elem_uniform_deco
+  USE mo_parallel_config,    ONLY: nproma, num_dist_array_replicas
+  USE mo_grid_config,        ONLY: n_dom, n_dom_start, &
+    & dynamics_grid_filename,  &
+    & radiation_grid_filename
   USE mo_util_string,        ONLY: t_keyword_list, associate_keyword, with_keywords
-  USE mo_master_nml,         ONLY: model_base_dir
-  USE mo_mpi,                ONLY: my_process_is_mpi_seq
+  USE mo_master_config,      ONLY: getModelBaseDir
+  USE mo_mpi,                ONLY: p_pe_work, &
+    &                              p_comm_work, p_n_work
   USE mo_read_netcdf_distributed, ONLY: delete_distrib_read
+  USE ppm_distributed_array, ONLY: global_array_desc, &
+    &                              dist_mult_array_new, &
+    &                              dist_mult_array_delete, &
+    &                              ppm_int, ppm_real_dp
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+  USE ppm_distributed_array, ONLY: sync_mode_active_target
+#endif
+  USE ppm_extents,           ONLY: extent, extent_start, extent_size
 
   IMPLICIT NONE
 
@@ -75,7 +88,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     DO jg = n_dom_start, n_dom
 
-      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+      CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       IF (jg==0) THEN
         p_patch_pre(jg)%grid_filename = TRIM(with_keywords(keywords, radiation_grid_filename(1)))
       ELSE
@@ -298,12 +311,6 @@ CONTAINS
 
     CALL deallocate_patch_cartesian( p_patch )
 
-    IF (ASSOCIATED(p_patch%radiation_cells)) THEN
-      DEALLOCATE( p_patch%radiation_cells, stat=ist )
-      IF(ist/=success) &
-        CALL finish  (routine,  'deallocate for patch vertex f_v failed')
-    END IF
-
   CONTAINS
 
     SUBROUTINE deallocate_decomp_info( decomp_info )
@@ -468,8 +475,10 @@ CONTAINS
     p_patch%cells%dummy_cell_block = 0
     p_patch%cells%dummy_cell_index = 0
     ALLOCATE( p_patch%cells%num_edges(nproma,p_patch%alloc_cell_blocks) )
-    ALLOCATE( p_patch%cells%parent_idx(nproma,p_patch%alloc_cell_blocks) )
-    ALLOCATE( p_patch%cells%parent_blk(nproma,p_patch%alloc_cell_blocks) )
+    ALLOCATE( p_patch%cells%parent_loc_idx(nproma,p_patch%alloc_cell_blocks) )
+    ALLOCATE( p_patch%cells%parent_loc_blk(nproma,p_patch%alloc_cell_blocks) )
+    ALLOCATE( p_patch%cells%parent_glb_idx(nproma,p_patch%alloc_cell_blocks) )
+    ALLOCATE( p_patch%cells%parent_glb_blk(nproma,p_patch%alloc_cell_blocks) )
     ALLOCATE( p_patch%cells%pc_idx(nproma,p_patch%alloc_cell_blocks) )
     ALLOCATE( p_patch%cells%child_idx(nproma,p_patch%alloc_cell_blocks,4) )
     ALLOCATE( p_patch%cells%child_blk(nproma,p_patch%alloc_cell_blocks,4) )
@@ -495,8 +504,10 @@ CONTAINS
     !
     ! !grid edges
     !
-    ALLOCATE( p_patch%edges%parent_idx(nproma,p_patch%nblks_e) )
-    ALLOCATE( p_patch%edges%parent_blk(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%parent_loc_idx(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%parent_loc_blk(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%parent_glb_idx(nproma,p_patch%nblks_e) )
+    ALLOCATE( p_patch%edges%parent_glb_blk(nproma,p_patch%nblks_e) )
     ALLOCATE( p_patch%edges%pc_idx(nproma,p_patch%nblks_e) )
     ALLOCATE( p_patch%edges%child_idx(nproma,p_patch%nblks_e,4) )
     ALLOCATE( p_patch%edges%child_blk(nproma,p_patch%nblks_e,4) )
@@ -534,8 +545,10 @@ CONTAINS
     ! Set all newly allocated arrays to 0
 
     p_patch%cells%num_edges = 0
-    p_patch%cells%parent_idx = 0
-    p_patch%cells%parent_blk = 0
+    p_patch%cells%parent_loc_idx = 0
+    p_patch%cells%parent_loc_blk = 0
+    p_patch%cells%parent_glb_idx = 0
+    p_patch%cells%parent_glb_blk = 0
     p_patch%cells%pc_idx = 0
     p_patch%cells%child_idx = 0
     p_patch%cells%child_blk = 0
@@ -559,8 +572,10 @@ CONTAINS
     p_patch%cells%start_block = 0
     p_patch%cells%end_block = 0
 
-    p_patch%edges%parent_idx = 0
-    p_patch%edges%parent_blk = 0
+    p_patch%edges%parent_loc_idx = 0
+    p_patch%edges%parent_loc_blk = 0
+    p_patch%edges%parent_glb_idx = 0
+    p_patch%edges%parent_glb_blk = 0
     p_patch%edges%pc_idx = 0
     p_patch%edges%child_idx = 0
     p_patch%edges%child_blk = 0
@@ -591,7 +606,7 @@ CONTAINS
     p_patch%verts%end_block = 0
 
   END SUBROUTINE allocate_basic_patch
-  
+
   !-------------------------------------------------------------------------
   !> Allocates all arrays in a basic patch
   !! These are the arrays which have to be read in full size on every PE
@@ -606,6 +621,16 @@ CONTAINS
     TYPE(t_pre_patch), INTENT(inout) :: p_patch_pre
 
     INTEGER :: max_childdom
+    TYPE(global_array_desc) :: dist_cell_desc(9), dist_edge_desc(4), &
+         dist_vert_desc(4)
+
+    TYPE(extent) :: &
+      &             local_cell_chunks(2, 9), &
+      &             local_edge_chunks(2, 4), &
+      &             local_vert_chunks(2, 4), &
+      &             process_space
+    INTEGER :: num_replicas, replica_idx, mpierr, dist_array_comm, &
+      &        dist_array_pes_start, dist_array_pes_size
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -615,70 +640,181 @@ CONTAINS
     ! - n_patch_edges_g
     ! - n_patch_verts_g
     ! - max_childdom
-
     p_patch_pre%cell_type = p_patch_pre%cells%max_connectivity
     max_childdom = p_patch_pre%max_childdom
+
+    ! some preliminary computation for the distributed data
+
+    dist_cell_desc(c_num_edges)%a_rank = 1
+    dist_cell_desc(c_num_edges)%rect(1)%first = 1
+    dist_cell_desc(c_num_edges)%rect(1)%size = p_patch_pre%n_patch_cells_g
+    dist_cell_desc(c_num_edges)%element_dt = ppm_int
+
+    dist_cell_desc(c_parent)%a_rank = 1
+    dist_cell_desc(c_parent)%rect(1)%first = 1
+    dist_cell_desc(c_parent)%rect(1)%size = p_patch_pre%n_patch_cells_g
+    dist_cell_desc(c_parent)%element_dt = ppm_int
+
+    dist_cell_desc(c_child) = dist_cell_desc(c_num_edges)
+    dist_cell_desc(c_child)%a_rank = 2
+    dist_cell_desc(c_child)%rect(2) = extent(first=1, size = 4)
+
+    dist_cell_desc(c_phys_id) = dist_cell_desc(c_num_edges)
+
+    dist_cell_desc(c_neighbor) = dist_cell_desc(c_num_edges)
+    dist_cell_desc(c_neighbor)%a_rank = 2
+    dist_cell_desc(c_neighbor)%rect(2) &
+         = extent(first=1, size = p_patch_pre%cell_type)
+
+    dist_cell_desc(c_edge) = dist_cell_desc(c_neighbor)
+
+    dist_cell_desc(c_vertex) = dist_cell_desc(c_neighbor)
+
+    dist_cell_desc(c_center)%a_rank = 2
+    dist_cell_desc(c_center)%rect(1) &
+         = extent(first = 1, size = p_patch_pre%n_patch_cells_g)
+    dist_cell_desc(c_center)%rect(2) &
+         = extent(first = 1, size = 2)
+    dist_cell_desc(c_center)%element_dt = ppm_real_dp
+
+    dist_cell_desc(c_refin_ctrl) = dist_cell_desc(c_num_edges)
+
+    dist_edge_desc(e_parent)%a_rank = 1
+    dist_edge_desc(e_parent)%rect(1)%first = 1
+    dist_edge_desc(e_parent)%rect(1)%size = p_patch_pre%n_patch_edges_g
+    dist_edge_desc(e_parent)%element_dt = ppm_int
+
+    dist_edge_desc(e_child) = dist_edge_desc(e_parent)
+    dist_edge_desc(e_child)%a_rank = 2
+    dist_edge_desc(e_child)%rect(2) = extent(first = 1, size = 4)
+
+    dist_edge_desc(e_cell) = dist_edge_desc(e_parent)
+    dist_edge_desc(e_cell)%a_rank = 2
+    dist_edge_desc(e_cell)%rect(2)%first = 1
+    dist_edge_desc(e_cell)%rect(2)%size = 2
+
+    dist_edge_desc(e_refin_ctrl) = dist_edge_desc(e_parent)
+
+    dist_vert_desc(v_cell)%a_rank = 2
+    dist_vert_desc(v_cell)%rect(1) &
+         = extent(first = 1, size = p_patch_pre%n_patch_verts_g)
+    dist_vert_desc(v_cell)%rect(2) = extent(first = 1, size = 6)
+    dist_vert_desc(v_cell)%element_dt = ppm_int
+
+    dist_vert_desc(v_num_edges)%a_rank = 1
+    dist_vert_desc(v_num_edges)%rect(1)%first = 1
+    dist_vert_desc(v_num_edges)%rect(1)%size = p_patch_pre%n_patch_verts_g
+    dist_vert_desc(v_num_edges)%element_dt = ppm_int
+
+    dist_vert_desc(v_vertex)%a_rank = 2
+    dist_vert_desc(v_vertex)%rect(1) &
+         = extent(first = 1, size = p_patch_pre%n_patch_verts_g)
+    dist_vert_desc(v_vertex)%rect(2) &
+         = extent(first = 1, size = 2)
+    dist_vert_desc(v_vertex)%element_dt = ppm_real_dp
+
+    dist_vert_desc(v_refin_ctrl) = dist_vert_desc(v_num_edges)
+
+    process_space = extent(1, p_n_work)
+    num_replicas = MAX(1, MIN(num_dist_array_replicas, p_n_work))
+    replica_idx = partidx_of_elem_uniform_deco(process_space, num_replicas, &
+      &                                        p_pe_work+1)
+#ifndef NOMPI
+    CALL MPI_Comm_split(p_comm_work, replica_idx, p_pe_work, dist_array_comm, &
+      &                 mpierr)
+#else
+    dist_array_comm = p_comm_work
+#endif
+    p_patch_pre%dist_array_pes = &
+      uniform_partition(process_space, num_replicas, replica_idx)
+    p_patch_pre%dist_array_comm = dist_array_comm
+
+    dist_array_pes_start = extent_start(p_patch_pre%dist_array_pes) - 1
+    dist_array_pes_size = extent_size(p_patch_pre%dist_array_pes)
+
+    p_patch_pre%cells%local_chunk(1,1) = &
+      uniform_partition(dist_cell_desc(c_num_edges)%rect(1), &
+        &               dist_array_pes_size, &
+        &               p_pe_work + 1 - dist_array_pes_start)
+    p_patch_pre%edges%local_chunk(1,1) = &
+      uniform_partition(dist_edge_desc(e_parent)%rect(1), &
+        &               dist_array_pes_size, &
+        &               p_pe_work + 1 - dist_array_pes_start)
+    p_patch_pre%verts%local_chunk(1,1) = &
+      uniform_partition(dist_vert_desc(v_cell)%rect(1), &
+        &               dist_array_pes_size, &
+        &               p_pe_work + 1 - dist_array_pes_start)
+
     !
     ! !grid cells
     !
-    ALLOCATE( p_patch_pre%cells%num_edges(p_patch_pre%n_patch_cells_g) )
-    ALLOCATE( p_patch_pre%cells%parent(p_patch_pre%n_patch_cells_g) )
-    ALLOCATE( p_patch_pre%cells%child(p_patch_pre%n_patch_cells_g,4) )
-    ALLOCATE( p_patch_pre%cells%phys_id(p_patch_pre%n_patch_cells_g) )
-    ALLOCATE( p_patch_pre%cells%neighbor(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
-    ALLOCATE( p_patch_pre%cells%edge(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
-    ALLOCATE( p_patch_pre%cells%vertex(p_patch_pre%n_patch_cells_g,p_patch_pre%cell_type) )
-    ALLOCATE( p_patch_pre%cells%center(p_patch_pre%n_patch_cells_g) )
-    ALLOCATE( p_patch_pre%cells%refin_ctrl(p_patch_pre%n_patch_cells_g) )
+    local_cell_chunks(1, :) = p_patch_pre%cells%local_chunk(1, 1)
+    local_cell_chunks(2, c_child) = extent(first=1, size=4)
+    local_cell_chunks(2, c_neighbor:c_vertex) &
+         = extent(first=1, size=p_patch_pre%cell_type)
+    local_cell_chunks(1, c_center) = p_patch_pre%cells%local_chunk(1,1)
+    local_cell_chunks(2, c_center) = extent(first = 1, size = 2)
+
+    p_patch_pre%cells%dist = dist_mult_array_new( &
+         dist_cell_desc, local_cell_chunks, dist_array_comm, &
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+         sync_mode=sync_mode_active_target &
+#else
+         cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))) &
+#endif
+         )
     ALLOCATE( p_patch_pre%cells%start(min_rlcell:max_rlcell) )
     ALLOCATE( p_patch_pre%cells%end(min_rlcell:max_rlcell) )
 
     !
     ! !grid edges
     !
-    ALLOCATE( p_patch_pre%edges%parent(p_patch_pre%n_patch_edges_g) )
-    ALLOCATE( p_patch_pre%edges%child(p_patch_pre%n_patch_edges_g,4) )
-    ALLOCATE( p_patch_pre%edges%refin_ctrl(p_patch_pre%n_patch_edges_g) )
-    ALLOCATE( p_patch_pre%edges%cell(p_patch_pre%n_patch_edges_g,2) )
+    local_edge_chunks(1, e_parent) = p_patch_pre%edges%local_chunk(1, 1)
+    local_edge_chunks(1, e_child) = p_patch_pre%edges%local_chunk(1, 1)
+    local_edge_chunks(2, e_child) = extent(first = 1, size = 4)
+    local_edge_chunks(1, e_cell) = p_patch_pre%edges%local_chunk(1, 1)
+    local_edge_chunks(2, e_cell) = extent(first = 1, size = 2)
+    local_edge_chunks(1, e_refin_ctrl) = p_patch_pre%edges%local_chunk(1, 1)
+
+    p_patch_pre%edges%dist = dist_mult_array_new( &
+      dist_edge_desc, local_edge_chunks, dist_array_comm, &
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+         sync_mode=sync_mode_active_target &
+#else
+         cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))) &
+#endif
+         )
     ALLOCATE( p_patch_pre%edges%start(min_rledge:max_rledge) )
     ALLOCATE( p_patch_pre%edges%end(min_rledge:max_rledge) )
 
     !
     ! !grid verts
     !
-    ALLOCATE( p_patch_pre%verts%vertex(p_patch_pre%n_patch_verts_g) )
-    ALLOCATE( p_patch_pre%verts%refin_ctrl(p_patch_pre%n_patch_verts_g) )
-    ALLOCATE( p_patch_pre%verts%cell(p_patch_pre%n_patch_verts_g,6) )
-    ALLOCATE( p_patch_pre%verts%num_edges(p_patch_pre%n_patch_verts_g) )
+    local_vert_chunks(1, v_cell) = p_patch_pre%verts%local_chunk(1,1)
+    local_vert_chunks(2, v_cell) = extent(first = 1, size = 6)
+    local_vert_chunks(1, v_num_edges) = p_patch_pre%verts%local_chunk(1,1)
+    local_vert_chunks(1, v_vertex) = p_patch_pre%verts%local_chunk(1,1)
+    local_vert_chunks(2, v_vertex) = extent(first = 1, size = 2)
+    local_vert_chunks(1, v_refin_ctrl) = p_patch_pre%verts%local_chunk(1,1)
+
+    p_patch_pre%verts%dist = dist_mult_array_new( &
+      dist_vert_desc, local_vert_chunks, dist_array_comm, &
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+         sync_mode=sync_mode_active_target &
+#else
+         cache_size=MIN(10, CEILING(SQRT(REAL(p_n_work)))) &
+#endif
+         )
     ALLOCATE( p_patch_pre%verts%start(min_rlvert:max_rlvert) )
     ALLOCATE( p_patch_pre%verts%end(min_rlvert:max_rlvert) )
     ! Set all newly allocated arrays to 0
 
-    p_patch_pre%cells%num_edges = 0
-    p_patch_pre%cells%parent = 0
-    p_patch_pre%cells%child = 0
-    p_patch_pre%cells%phys_id = 0
-    p_patch_pre%cells%neighbor = 0
-    p_patch_pre%cells%edge = 0
-    p_patch_pre%cells%vertex = 0
-    p_patch_pre%cells%center(:)%lon = 0._wp
-    p_patch_pre%cells%center(:)%lat = 0._wp
-    p_patch_pre%cells%refin_ctrl = 0
     p_patch_pre%cells%start = 0
     p_patch_pre%cells%end = 0
 
-    p_patch_pre%edges%parent = 0
-    p_patch_pre%edges%child = 0
-    p_patch_pre%edges%cell = 0
-    p_patch_pre%edges%refin_ctrl = 0
     p_patch_pre%edges%start = 0
     p_patch_pre%edges%end = 0
 
-    p_patch_pre%verts%vertex(:)%lon = 0._wp
-    p_patch_pre%verts%vertex(:)%lat = 0._wp
-    p_patch_pre%verts%refin_ctrl = 0
-    p_patch_pre%verts%cell = 0
-    p_patch_pre%verts%num_edges = 0
     p_patch_pre%verts%start = 0
     p_patch_pre%verts%end = 0
 
@@ -698,8 +834,10 @@ CONTAINS
     ! !grid cells
     !
     DEALLOCATE( p_patch%cells%num_edges )
-    DEALLOCATE( p_patch%cells%parent_idx )
-    DEALLOCATE( p_patch%cells%parent_blk )
+    DEALLOCATE( p_patch%cells%parent_loc_idx )
+    DEALLOCATE( p_patch%cells%parent_loc_blk )
+    DEALLOCATE( p_patch%cells%parent_glb_idx )
+    DEALLOCATE( p_patch%cells%parent_glb_blk )
     DEALLOCATE( p_patch%cells%pc_idx )
     DEALLOCATE( p_patch%cells%child_idx )
     DEALLOCATE( p_patch%cells%child_blk )
@@ -723,8 +861,10 @@ CONTAINS
     !
     ! !grid edges
     !
-    DEALLOCATE( p_patch%edges%parent_idx )
-    DEALLOCATE( p_patch%edges%parent_blk )
+    DEALLOCATE( p_patch%edges%parent_loc_idx )
+    DEALLOCATE( p_patch%edges%parent_loc_blk )
+    DEALLOCATE( p_patch%edges%parent_glb_idx )
+    DEALLOCATE( p_patch%edges%parent_glb_blk )
     DEALLOCATE( p_patch%edges%pc_idx )
     DEALLOCATE( p_patch%edges%child_idx )
     DEALLOCATE( p_patch%edges%child_blk )
@@ -770,38 +910,28 @@ CONTAINS
   SUBROUTINE deallocate_pre_patch(p_patch_pre)
 
     TYPE(t_pre_patch), INTENT(inout) :: p_patch_pre
+    INTEGER :: mpierr
     !
     ! !grid cells
     !
-    DEALLOCATE( p_patch_pre%cells%num_edges )
-    DEALLOCATE( p_patch_pre%cells%parent )
-    DEALLOCATE( p_patch_pre%cells%child )
-    DEALLOCATE( p_patch_pre%cells%neighbor )
-    DEALLOCATE( p_patch_pre%cells%edge )
-    DEALLOCATE( p_patch_pre%cells%vertex )
-    DEALLOCATE( p_patch_pre%cells%center )
-    DEALLOCATE( p_patch_pre%cells%refin_ctrl )
+    CALL dist_mult_array_delete(p_patch_pre%cells%dist)
     DEALLOCATE( p_patch_pre%cells%start )
     DEALLOCATE( p_patch_pre%cells%end )
     !
     ! !grid edges
     !
-    DEALLOCATE( p_patch_pre%edges%parent )
-    DEALLOCATE( p_patch_pre%edges%child )
-    DEALLOCATE( p_patch_pre%edges%cell )
-    DEALLOCATE( p_patch_pre%edges%refin_ctrl )
+    CALL dist_mult_array_delete(p_patch_pre%edges%dist)
     DEALLOCATE( p_patch_pre%edges%start )
     DEALLOCATE( p_patch_pre%edges%end )
     !
     ! !grid verts
     !
-    DEALLOCATE( p_patch_pre%verts%vertex )
-    DEALLOCATE( p_patch_pre%verts%cell )
-    DEALLOCATE( p_patch_pre%verts%num_edges )
-    DEALLOCATE( p_patch_pre%verts%refin_ctrl )
+    CALL dist_mult_array_delete(p_patch_pre%verts%dist)
     DEALLOCATE( p_patch_pre%verts%start )
     DEALLOCATE( p_patch_pre%verts%end )
-
+#ifndef NOMPI
+    CALL MPI_Comm_free(p_patch_pre%dist_array_comm, mpierr)
+#endif
   END SUBROUTINE deallocate_pre_patch
   !-------------------------------------------------------------------------
 
@@ -909,15 +1039,15 @@ CONTAINS
     IF (iopmode /= 3) THEN
 
       CALL allocate_decomp_info(p_patch%cells%decomp_info, &
-        &                  p_patch%n_patch_cells, p_patch%n_patch_cells_g, &
+        &                  p_patch%n_patch_cells, &
         &                  p_patch%nblks_c)  ! this size is used for broadcasting,
                                              ! should not include the local ghost cell
        !  &                  p_patch%alloc_cell_blocks)
       CALL allocate_decomp_info(p_patch%edges%decomp_info, &
-        &                  p_patch%n_patch_edges, p_patch%n_patch_edges_g, &
+        &                  p_patch%n_patch_edges, &
         &                  p_patch%nblks_e)
       CALL allocate_decomp_info(p_patch%verts%decomp_info, &
-        &                  p_patch%n_patch_verts, p_patch%n_patch_verts_g, &
+        &                  p_patch%n_patch_verts, &
         &                  p_patch%nblks_v)
 
       CALL init_decomp_info(p_patch%cells%decomp_info, p_patch%npromz_c, &
@@ -989,9 +1119,9 @@ CONTAINS
 
   CONTAINS
 
-    SUBROUTINE allocate_decomp_info(decomp_info, n, n_g, n_blk)
+    SUBROUTINE allocate_decomp_info(decomp_info, n, n_blk)
       TYPE(t_grid_domain_decomp_info), INTENT(OUT) :: decomp_info
-      INTEGER, INTENT(IN) :: n, n_g, n_blk
+      INTEGER, INTENT(IN) :: n, n_blk
 
       ALLOCATE( decomp_info%decomp_domain(nproma,n_blk) )
       ! aliasing the halo_level to decomp_domain

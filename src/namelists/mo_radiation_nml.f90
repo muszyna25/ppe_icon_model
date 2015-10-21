@@ -58,7 +58,7 @@ MODULE mo_radiation_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2
-  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_master_config,      ONLY: isRestart
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
@@ -238,7 +238,7 @@ CONTAINS
     !    by values used in the previous integration.
     !------------------------------------------------------------------
 
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       funit = open_and_restore_namelist('radiation_nml')
       READ(funit,NML=radiation_nml)
       CALL close_tmpfile(funit)

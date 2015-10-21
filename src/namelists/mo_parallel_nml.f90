@@ -18,7 +18,7 @@ MODULE mo_parallel_nml
 
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_master_config,       ONLY: isRestart
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     & open_and_restore_namelist, close_tmpfile
@@ -30,6 +30,8 @@ MODULE mo_parallel_nml
     & config_n_ghost_rows        => n_ghost_rows,        &
     & config_division_method     => division_method,     &
     & config_division_file_name  => division_file_name,  &
+    & config_write_div_to_file   => write_div_to_file,   &
+    & config_use_div_from_file   => use_div_from_file,   &
     & config_ldiv_phys_dom       => ldiv_phys_dom,       &
     & config_rad_division_file_name  => radiation_division_file_name,  &
     & config_l_log_checks        => l_log_checks,        &
@@ -63,8 +65,9 @@ MODULE mo_parallel_nml
     & config_sync_barrier_mode   => sync_barrier_mode,        &
     & config_max_mpi_message_size => max_mpi_message_size,    &
     & config_use_physics_barrier  => use_physics_barrier,     &
-    & config_redrad_split_factor => redrad_split_factor,      &
-    & config_restart_chunk_size => restart_chunk_size
+    & config_restart_chunk_size => restart_chunk_size,        &
+    & config_io_proc_chunk_size => io_proc_chunk_size,        &
+    & config_num_dist_array_replicas => num_dist_array_replicas
 
   IMPLICIT NONE
   PRIVATE
@@ -88,18 +91,14 @@ MODULE mo_parallel_nml
     INTEGER :: n_ghost_rows
 
     INTEGER :: division_method(0:max_dom)
-!                      div_from_file = 0  ! Read from file
 !                      div_geometric = 1  ! Geometric subdivision
-!                      div_metis     = 2  ! Use Metis
-!                      ext_div_medial = 101
-!                      ext_div_medial_cluster = 102
-!                      ext_div_medial_redrad = 103
-!                      ext_div_medial_redrad_cluster = 104
-!                      ext_div_from_file = 201
+!                      ext_div_from_file = 201 ! Read from file
 
-    CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom) ! if div_from_file
-    CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom) ! if div_from_file
-    INTEGER :: redrad_split_factor
+    CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom) ! if ext_div_from_file
+    CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom) ! if ext_div_from_file
+
+    LOGICAL :: write_div_to_file
+    LOGICAL :: use_div_from_file
 
     ! Flag if (in case of merged domains) physical domains shall be considered for
     ! computing the domain decomposition
@@ -179,6 +178,14 @@ MODULE mo_parallel_nml
     ! more than one 2D slice at once
     INTEGER :: restart_chunk_size
 
+    ! The (asynchronous) name list output is capable of writing and communicating
+    ! more than one 2D slice at once
+    INTEGER :: io_proc_chunk_size
+
+    ! number of replications being stored in the distributed arrays of the
+    ! t_patch_pre
+    INTEGER :: num_dist_array_replicas
+
     NAMELIST /parallel_nml/ n_ghost_rows,  division_method, ldiv_phys_dom, &
       & l_log_checks,      l_fast_sum,          &
       & p_test_run,        l_test_openmp,       &
@@ -191,11 +198,13 @@ MODULE mo_parallel_nml
       & test_parallel_radiation, openmp_threads, &
       & icon_comm_debug, max_send_recv_buffer_size, &
       & division_file_name, radiation_division_file_name, use_dycore_barrier, &
+      & write_div_to_file, use_div_from_file, &
       & use_dp_mpi2io, itype_exch_barrier,                &
       & icon_comm_method, max_no_of_comm_variables,       &
       & max_no_of_comm_processes, max_no_of_comm_patterns, &
       & sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-      & redrad_split_factor, restart_chunk_size, num_prefetch_proc !parallel_radiation_omp
+      & restart_chunk_size, io_proc_chunk_size, num_prefetch_proc, &
+      & num_dist_array_replicas !parallel_radiation_omp
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -212,7 +221,8 @@ MODULE mo_parallel_nml
     division_method(:) = div_geometric
     division_file_name(:) = ""
     radiation_division_file_name(:) = ""
-    redrad_split_factor = config_redrad_split_factor
+    write_div_to_file = .FALSE.
+    use_div_from_file = .FALSE.
 
     ! Flag if (in case of merged domains) physical domains shall be considered for
     ! computing the domain decomposition
@@ -287,11 +297,15 @@ MODULE mo_parallel_nml
 
     restart_chunk_size = 1
 
+    io_proc_chunk_size = -1
+
+    num_dist_array_replicas = 1
+
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
     !----------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       funit = open_and_restore_namelist('parallel_nml')
       READ(funit,NML=parallel_nml)
       CALL close_tmpfile(funit)
@@ -333,9 +347,10 @@ MODULE mo_parallel_nml
     config_n_ghost_rows        = n_ghost_rows
     config_division_method(:)  = division_method(:)
     config_division_file_name(:) = division_file_name(:)
+    config_write_div_to_file   = write_div_to_file
+    config_use_div_from_file   = use_div_from_file
     config_ldiv_phys_dom       = ldiv_phys_dom
     config_rad_division_file_name(:)  = radiation_division_file_name(:)
-    config_redrad_split_factor = redrad_split_factor
     config_l_log_checks        = l_log_checks
     config_l_fast_sum          = l_fast_sum
     config_p_test_run          = p_test_run
@@ -368,6 +383,8 @@ MODULE mo_parallel_nml
     config_itype_exch_barrier   = itype_exch_barrier
     config_use_dp_mpi2io        = use_dp_mpi2io
     config_restart_chunk_size   = restart_chunk_size
+    config_io_proc_chunk_size   = io_proc_chunk_size
+    config_num_dist_array_replicas   = num_dist_array_replicas
     !-----------------------------------------------------
     CALL check_parallel_configuration()
 

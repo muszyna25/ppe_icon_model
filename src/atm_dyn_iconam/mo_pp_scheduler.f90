@@ -1564,6 +1564,9 @@ CONTAINS
     IF (ANY(ptr_task%activity%status_flags(:)  .AND.  &
       &     sim_status%status_flags(:))) pp_task_is_active = .TRUE.
 
+    IF ( ptr_task%job_type  == TASK_INTP_MSL .AND. &
+      &  sim_status%status_flags(4))  pp_task_is_active = .TRUE.
+
     ! check, if current task applies only to domains which are
     ! "active":
     IF (ptr_task%activity%check_dom_active) THEN
@@ -1638,13 +1641,13 @@ CONTAINS
   ! Quasi-constructor for "t_simulation_status" variables
   ! 
   ! Fills data structure with default values (unless set otherwise).
-  FUNCTION new_simulation_status(l_output_step, l_first_step, l_last_step,        &
+  FUNCTION new_simulation_status(l_output_step, l_first_step, l_last_step, l_accumulation_step,        &
     &                            l_dom_active, i_timelevel_dyn, i_timelevel_phy)  &
     RESULT(sim_status)
 
     TYPE(t_simulation_status) :: sim_status
     LOGICAL, INTENT(IN), OPTIONAL      :: &
-      &  l_output_step, l_first_step, l_last_step
+      &  l_output_step, l_first_step, l_last_step, l_accumulation_step
     LOGICAL, INTENT(IN), OPTIONAL      :: &
       &  l_dom_active(:)
     INTEGER, INTENT(IN), OPTIONAL      :: &
@@ -1653,12 +1656,13 @@ CONTAINS
     INTEGER :: ndom
 
     ! set default values
-    sim_status%status_flags(:) = (/ .FALSE., .FALSE., .FALSE. /)
+    sim_status%status_flags(:) = (/ .FALSE., .FALSE., .FALSE. , .FALSE./)
 
     ! supersede with user definitions
     CALL assign_if_present(sim_status%status_flags(1), l_output_step)
     CALL assign_if_present(sim_status%status_flags(2), l_first_step)
     CALL assign_if_present(sim_status%status_flags(3), l_last_step)
+    CALL assign_if_present(sim_status%status_flags(4), l_accumulation_step)
 
     ! as a default, all domains are "inactive", i.e. the activity
     ! flags are not considered:
@@ -1695,7 +1699,7 @@ CONTAINS
       &  i_timelevel
 
     ! set default values
-    activity_status%status_flags(:) = (/ .FALSE., .FALSE., .FALSE. /)
+    activity_status%status_flags(:) = (/ .FALSE., .FALSE., .FALSE., .FALSE. /)
 
     ! supersede with user definitions
     CALL assign_if_present(activity_status%status_flags(1), l_output_step)

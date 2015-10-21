@@ -27,7 +27,6 @@ MODULE mo_loopindices
 !
 !
 
-USE mo_kind,            ONLY: wp
 USE mo_model_domain,    ONLY: t_patch
 USE mo_impl_constants,  ONLY: min_rlcell, min_rledge, min_rlvert
 USE mo_parallel_config,  ONLY: nproma

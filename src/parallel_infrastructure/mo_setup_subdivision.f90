@@ -18,18 +18,28 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!!
+!! MH/TJ 2015-06-17
+!! Much of the code in this module is duplicated due to different
+!! synchronization MPI RMA methods, which perform differently on
+!! different platforms,
+!!   if your system has slow passive target synchronization
+!!   (mpi_win_lock/mpi_win_unlock), set the HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+!!   preprocessor macro, e.g. by adding -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED to
+!!   the ICON FFLAGS
+!!   otherwise (fast passive target one-sided communication), no action is
+!!   required
+!! Defining this macro results in global arrays to be constructed with
+!! active target synchronization and extra dist_mult_array_rma_sync
+!! calls need to be executed before requested remote data can be
+!! accessed.
 MODULE mo_setup_subdivision
-  ! If METIS is installed, uncomment the following line
-  ! (or better adjust configure to recognize that)
-  !#define HAVE_METIS
   !
   !-------------------------------------------------------------------------
   !    ProTeX FORTRAN source: Style 2
   !    modified for ICON project, DWD/MPI-M 2006
   !-------------------------------------------------------------------------
   !
-  USE mo_kind,               ONLY: wp, i8
+  USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: min_rlcell, max_rlcell,  &
     & min_rledge, max_rledge, min_rlvert, max_rlvert, max_phys_dom,  &
     & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw
@@ -37,36 +47,34 @@ MODULE mo_setup_subdivision
   USE mo_exception,          ONLY: finish, message, get_filename_noext
 
   USE mo_run_config,         ONLY: msg_level
-  USE mo_io_units,           ONLY: find_next_free_unit, filename_max
-  USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch
+  USE mo_io_units,           ONLY: filename_max
+  USE mo_model_domain,       ONLY: t_patch, p_patch_local_parent, t_pre_patch, &
+       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
+       c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
+       e_refin_ctrl, v_cell, v_num_edges, v_vertex, v_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_grid_domain_decomp_info, &
     &                              get_local_index, get_valid_local_index, &
-    &                              set_inner_glb_index, set_outer_glb_index
-  USE mo_mpi,                ONLY: p_bcast, proc_split
+    &                              set_inner_glb_index, set_outer_glb_index, &
+    &                              uniform_partition
+  USE mo_mpi,                ONLY: proc_split, p_max
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, p_int, &
        mpi_in_place, mpi_success, mpi_sum, mpi_lor, p_bool
 #endif
-  USE mo_mpi,                ONLY: p_comm_work, &
-    & p_pe_work, p_n_work, my_process_is_mpi_parallel
+  USE mo_mpi,                ONLY: p_comm_work, p_int, &
+    & p_pe_work, p_n_work, my_process_is_mpi_parallel, p_alltoall, p_alltoallv
 
   USE mo_parallel_config,       ONLY:  nproma, ldiv_phys_dom, &
-    & division_method, division_file_name, n_ghost_rows, div_from_file,   &
-    & div_geometric, ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
-    & ext_div_medial_redrad_cluster, ext_div_from_file, redrad_split_factor
+    & division_method, division_file_name, n_ghost_rows, &
+    & div_geometric, ext_div_from_file, write_div_to_file, use_div_from_file
 
-#ifdef HAVE_METIS
-  USE mo_parallel_config,    ONLY: div_metis
-#endif
   USE mo_communication,      ONLY: blk_no, idx_no, idx_1d
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_alloc_patches,ONLY: allocate_basic_patch, allocate_remaining_patch, &
                              deallocate_pre_patch
-  USE mo_decomposition_tools, ONLY: t_decomposition_structure, &
-    & divide_geometric_medial, divide_cells_by_location, &
-    & t_cell_info, sort_cell_info_by_cell_number, &
-    & read_ascii_decomposition
-  USE mo_math_utilities,      ONLY: geographical_to_cartesian, fxp_lat, fxp_lon
+  USE mo_decomposition_tools, ONLY: divide_cells_by_location, t_cell_info, &
+    & sort_cell_info_by_cell_number, partidx_of_elem_uniform_deco
+  USE mo_math_utilities,      ONLY: fxp_lat, fxp_lon
   USE mo_master_control,      ONLY: get_my_process_type, ocean_process, &
                                     testbed_process
 #ifndef NOMPI
@@ -76,10 +84,31 @@ MODULE mo_setup_subdivision
   USE mo_grid_config,         ONLY: use_dummy_cell_closure
   USE mo_util_sort,           ONLY: quicksort, insertion_sort
   USE mo_dist_dir,            ONLY: dist_dir_setup
+  USE ppm_distributed_array,  ONLY: dist_mult_array, global_array_desc, &
+    &                               dist_mult_array_new, &
+    &                               dist_mult_array_local_ptr, &
+    &                               dist_mult_array_expose, &
+    &                               dist_mult_array_delete, &
+    &                               dist_mult_array_get, &
+    &                               ppm_int
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+  USE ppm_distributed_array,  ONLY: sync_mode_active_target, &
+    &                               dist_mult_array_rma_sync
+#endif
+  USE ppm_extents,            ONLY: extent, extent_start, extent_end, extent_size
+  USE mo_read_netcdf_distributed, ONLY: t_distrib_read_data, distrib_nf_open, &
+    &                                   distrib_nf_close, distrib_read, nf, &
+    &                                   delete_distrib_read, setup_distrib_read
+  USE ppm_distributed_array,  ONLY: dist_mult_array, global_array_desc
+  USE mo_util_uuid, ONLY: uuid_string_length, uuid_unparse
+  USE mo_read_netcdf_broadcast_2, ONLY: netcdf_open_input, netcdf_close, &
+    &                                   netcdf_read_att_int
 
   IMPLICIT NONE
 
   PRIVATE
+
+  INCLUDE 'netcdf.inc'
 
   !modules interface-------------------------------------------
   !subroutines
@@ -113,18 +142,23 @@ CONTAINS
     INTEGER :: jg, jgp, jc, jgc, n, &
       &        n_procs_decomp
     INTEGER :: nprocs(p_patch_pre(1)%n_childdom)
-    INTEGER, POINTER :: cell_owner(:)
-    INTEGER, POINTER :: cell_owner_p(:)
     REAL(wp) :: weight(p_patch_pre(1)%n_childdom)
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
     ! LOGICAL :: l_compute_grid
     INTEGER :: my_process_type, order_type_of_halos
-    INTEGER, POINTER :: radiation_owner(:)
+    INTEGER, POINTER :: local_ptr(:)
+    TYPE(dist_mult_array) :: dist_cell_owner, dist_cell_owner_p
 
     CALL message(routine, 'start of domain decomposition')
-
-    NULLIFY(radiation_owner)
-
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+    CALL message(routine, 'Is this taking a long time?&
+         & Consider removing macro defintion HAVE_SLOW_PASSIVE_TARGET_ONESIDED&
+         & from compile time settings.')
+#else
+    CALL message(routine, 'Is this taking a long time?&
+         & Consider adding macro definition HAVE_SLOW_PASSIVE_TARGET_ONESIDED&
+         & to compile time settings.')
+#endif
     ! This subroutine has 2 different operating modes:
     !
     !
@@ -217,7 +251,7 @@ CONTAINS
         n = n + nprocs(jc)
       ENDDO
 
-      ! ... for deeper level descandants
+      ! ... for deeper level descendants
 
       DO jg = 2, n_dom
 
@@ -267,28 +301,23 @@ CONTAINS
       ! Here comes the actual domain decomposition:
       ! Every cells gets assigned an owner.
 
-      ALLOCATE(cell_owner(p_patch_pre(jg)%n_patch_cells_g))
-      IF(jg > n_dom_start) THEN
-        ALLOCATE(cell_owner_p(p_patch_pre(jgp)%n_patch_cells_g))
-      END IF
-
       IF (my_process_is_mpi_parallel()) THEN
         ! Set division method, divide_for_radiation is only used for patch 0
         CALL divide_patch_cells(p_patch_pre(jg), jg, p_patch(jg)%n_proc, &
-             p_patch(jg)%proc0, cell_owner, wrk_p_parent_patch_pre, &
-             radiation_owner, &
-             divide_for_radiation = (jg == 0))
+             p_patch(jg)%proc0, dist_cell_owner, dist_cell_owner_p, &
+             wrk_p_parent_patch_pre, divide_for_radiation = (jg == 0))
       ELSE
-        cell_owner(:) = 0 ! trivial "decomposition"
+        ! trivial "decomposition"
+        CALL create_dist_cell_owner(dist_cell_owner, &
+          &                         p_patch_pre(jg)%n_patch_cells_g, &
+          &                         p_patch_pre(jg)%dist_array_comm, &
+          &                         p_patch_pre(jg)%dist_array_pes)
+        CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
+        local_ptr = 0
+        IF (jg > n_dom_start) &
+          CALL divide_parent_cells(p_patch_pre(jg), p_patch_pre(jgp), &
+            &                      dist_cell_owner, dist_cell_owner_p)
       END IF
-
-      IF(jg > n_dom_start) THEN
-        ! Assign the cell owners of the current patch to the parent cells
-        ! for the construction of the local parent, set "-1" elsewhere.
-        CALL divide_parent_cells(p_patch_pre(jg),cell_owner,cell_owner_p)
-      END IF
-
-      DEALLOCATE(p_patch_pre(jg)%cells%phys_id)
 
       ! Please note: Previously, for jg==0 no ghost rows were set.
       ! Currently, we need ghost rows for jg==0 also for dividing the int state and grf state
@@ -307,21 +336,17 @@ CONTAINS
         order_type_of_halos = 1
       END SELECT
 
-      ! CALL divide_patch(p_patch(jg), p_patch_pre(jg), cell_owner, n_ghost_rows, l_compute_grid, p_pe_work)
-      CALL divide_patch(p_patch(jg), p_patch_pre(jg), cell_owner, &
-        &               radiation_owner, n_ghost_rows, order_type_of_halos, &
-        &               p_pe_work)
-
-      IF (ASSOCIATED(radiation_owner)) THEN
-        DEALLOCATE(radiation_owner)
-        NULLIFY(radiation_owner)
-      END IF
+      CALL divide_patch(p_patch(jg), p_patch_pre(jg), dist_cell_owner, &
+        &               n_ghost_rows, order_type_of_halos, p_pe_work)
 
       IF(jg > n_dom_start) THEN
+
         order_type_of_halos = 0
+
         CALL divide_patch(p_patch_local_parent(jg), p_patch_pre(jgp), &
-          &               cell_owner_p, radiation_owner, 1, &
-          &               order_type_of_halos,  p_pe_work)
+          &               dist_cell_owner_p, 1, order_type_of_halos,  p_pe_work)
+
+        CALL dist_mult_array_delete(dist_cell_owner_p)
 
         CALL set_pc_idx(p_patch(jg), p_patch_pre(jgp))
         IF (jgp > n_dom_start) THEN
@@ -331,8 +356,7 @@ CONTAINS
         END IF
       ENDIF
 
-      DEALLOCATE(cell_owner)
-      IF(jg > n_dom_start) DEALLOCATE(cell_owner_p)
+      CALL dist_mult_array_delete(dist_cell_owner)
 
     ENDDO
 
@@ -356,64 +380,153 @@ CONTAINS
 
     ! local variables
 
-    INTEGER :: jg, jb, jl, nlen, ip
-
+    INTEGER :: jg, jb, jl, ip, i, j
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+    INTEGER, ALLOCATABLE :: cell_child_idx(:,:), edge_child_idx(:,:)
     !-----------------------------------------------------------------------
+
+    ALLOCATE(cell_child_idx(patch%n_patch_cells,4), &
+      &      edge_child_idx(patch%n_patch_edges,4))
+#else
+    INTEGER :: cell_child_idx, edge_child_idx
+#endif
 
     patch%cells%pc_idx(:,:) = 0
     patch%edges%pc_idx(:,:) = 0
 
-    DO jb = 1, patch%nblks_c
 
-      IF (jb /= patch%nblks_c) THEN
-        nlen = nproma
-      ELSE
-        nlen = patch%npromz_c
-      ENDIF
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+    DO j = 1, patch%n_patch_cells
+        jl = idx_no(j)
+        jb = blk_no(j)
+        ip = idx_1d(patch%cells%parent_glb_idx(jl,jb), &
+                    patch%cells%parent_glb_blk(jl,jb))
+        DO i = 1, 4
+          CALL dist_mult_array_get(parent_patch_pre%cells%dist, c_child, &
+            &                      (/ip, i/), cell_child_idx(j,i))
+        END DO
+    END DO
 
-      DO jl = 1, nlen
+    DO j = 1, patch%n_patch_edges
+        jl = idx_no(j)
+        jb = blk_no(j)
+        ip = idx_1d(patch%edges%parent_glb_idx(jl,jb), &
+                    patch%edges%parent_glb_blk(jl,jb))
+        DO i = 1, 4
+          CALL dist_mult_array_get(parent_patch_pre%edges%dist, e_child, &
+            &                      (/ip, i/), edge_child_idx(j,i))
+        END DO
+    END DO
 
-        ip = idx_1d(patch%cells%parent_idx(jl,jb), &
-                    patch%cells%parent_blk(jl,jb))
-        jg = patch%cells%decomp_info%glb_index(idx_1d(jl, jb))
+    CALL dist_mult_array_rma_sync(parent_patch_pre%cells%dist)
+    CALL dist_mult_array_rma_sync(parent_patch_pre%edges%dist)
 
-        IF(parent_patch_pre%cells%child(ip,1) == jg ) patch%cells%pc_idx(jl,jb) = 1
-        IF(parent_patch_pre%cells%child(ip,2) == jg ) patch%cells%pc_idx(jl,jb) = 2
-        IF(parent_patch_pre%cells%child(ip,3) == jg ) patch%cells%pc_idx(jl,jb) = 3
-        IF(parent_patch_pre%cells%child(ip,4) == jg ) patch%cells%pc_idx(jl,jb) = 4
-!          IF(patch%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
+    DO j = 1, patch%n_patch_cells
+      jl = idx_no(j)
+      jb = blk_no(j)
+      jg = patch%cells%decomp_info%glb_index(j)
+      DO i = 1, 4
+        IF (cell_child_idx(j,i) == jg) patch%cells%pc_idx(jl,jb) = i
+      END DO
+      !          IF(patch%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
+    END DO
 
-      ENDDO
+    DO j = 1, patch%n_patch_edges
+      jl = idx_no(j)
+      jb = blk_no(j)
+      jg = patch%edges%decomp_info%glb_index(j)
+      DO i = 1, 4
+        IF (edge_child_idx(j,i) == jg) patch%edges%pc_idx(jl,jb) = i
+      END DO
+      !          IF(patch%edge%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edge%pc_idx')
+    END DO
 
-    ENDDO
+    DEALLOCATE(cell_child_idx, edge_child_idx)
 
-    DO jb = 1, patch%nblks_e
+#else
+    DO j = 1, patch%n_patch_cells
+      jl = idx_no(j)
+      jb = blk_no(j)
+      ip = idx_1d(patch%cells%parent_glb_idx(jl,jb), &
+           patch%cells%parent_glb_blk(jl,jb))
+      jg = patch%cells%decomp_info%glb_index(j)
+      DO i = 1, 4
+        CALL dist_mult_array_get(parent_patch_pre%cells%dist, c_child, &
+             &                      (/ip, i/), cell_child_idx)
+        IF (cell_child_idx == jg) patch%cells%pc_idx(jl,jb) = i
+      END DO
+      !          IF(patch%cells%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','cells%pc_idx')
+    END DO
+    DO j = 1, patch%n_patch_edges
+      jl = idx_no(j)
+      jb = blk_no(j)
 
-      IF (jb /= patch%nblks_e) THEN
-        nlen = nproma
-      ELSE
-        nlen = patch%npromz_e
-      ENDIF
+      ip = idx_1d(patch%edges%parent_glb_idx(jl,jb), &
+           patch%edges%parent_glb_blk(jl,jb))
+      jg = patch%edges%decomp_info%glb_index(j)
+      DO i = 1, 4
+        CALL dist_mult_array_get(parent_patch_pre%edges%dist, e_child, &
+             &                      (/ip, i/), edge_child_idx)
+        IF (edge_child_idx == jg) patch%edges%pc_idx(jl,jb) = i
+      END DO
+      !          IF(patch%edge%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edge%pc_idx')
 
-      DO jl = 1, nlen
-
-        ip = idx_1d(patch%edges%parent_idx(jl,jb), &
-                    patch%edges%parent_blk(jl,jb))
-        jg = patch%edges%decomp_info%glb_index(idx_1d(jl, jb))
-
-        IF(parent_patch_pre%edges%child(ip,1) == jg ) patch%edges%pc_idx(jl,jb) = 1
-        IF(parent_patch_pre%edges%child(ip,2) == jg ) patch%edges%pc_idx(jl,jb) = 2
-        IF(parent_patch_pre%edges%child(ip,3) == jg ) patch%edges%pc_idx(jl,jb) = 3
-        IF(parent_patch_pre%edges%child(ip,4) == jg ) patch%edges%pc_idx(jl,jb) = 4
-!          IF(patch%edges%pc_idx(jl,jb) == 0) CALL finish('set_pc_idx','edges%pc_idx')
-
-      ENDDO
-
-    ENDDO
-
+    END DO
+#endif
   END SUBROUTINE set_pc_idx
 
   END SUBROUTINE decompose_domain
+
+  SUBROUTINE init_dist_cell_owner(dist_cell_owner, cell_owner)
+    TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner
+    INTEGER, OPTIONAL, INTENT(IN) :: cell_owner(:)
+
+    INTEGER, POINTER :: local_ptr(:)
+
+    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
+    IF (PRESENT(cell_owner)) THEN
+      local_ptr(:) = cell_owner(LBOUND(local_ptr,1):UBOUND(local_ptr,1))
+    ELSE
+      local_ptr(:) = 0
+    END IF
+
+    CALL dist_mult_array_expose(dist_cell_owner)
+
+  END SUBROUTINE init_dist_cell_owner
+
+  SUBROUTINE create_dist_cell_owner(dist_cell_owner, n_cells_g, &
+    &                               dist_array_comm, dist_array_pes)
+
+    TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
+    INTEGER, INTENT(IN) :: n_cells_g, dist_array_comm
+    TYPE(extent), INTENT(IN) :: dist_array_pes
+
+    TYPE(global_array_desc) :: dist_cell_owner_desc(1)
+    TYPE(extent) :: local_chunk(1,1)
+    INTEGER :: dist_array_pes_start, dist_array_pes_size
+
+    dist_cell_owner_desc(1)%a_rank = 1
+    dist_cell_owner_desc(1)%rect(1)%first = 1
+    dist_cell_owner_desc(1)%rect(1)%size = n_cells_g
+    dist_cell_owner_desc(1)%element_dt = ppm_int
+
+    dist_array_pes_start = extent_start(dist_array_pes) - 1
+    dist_array_pes_size = extent_size(dist_array_pes)
+
+    ! compute uniform partition
+    local_chunk(1,1) = uniform_partition(dist_cell_owner_desc(1)%rect(1), &
+        &                                dist_array_pes_size, &
+        &                                p_pe_work + 1 - dist_array_pes_start)
+
+    dist_cell_owner = dist_mult_array_new(dist_cell_owner_desc, local_chunk, &
+      &                                   dist_array_comm, &
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      &          sync_mode=sync_mode_active_target &
+#else
+      &          cache_size=MIN(10, CEILING(SQRT(REAL(dist_array_pes_size)))) &
+#endif
+      )
+  END SUBROUTINE create_dist_cell_owner
 
   !-----------------------------------------------------------------------------
   !>
@@ -431,155 +544,108 @@ CONTAINS
   !! Split out as a separate routine, Rainer Johanni, Oct 2010
 
   SUBROUTINE divide_patch_cells(wrk_p_patch_pre, patch_no, n_proc, proc0, &
-       &                        cell_owner, wrk_p_parent_patch_pre, &
-       &                        radiation_owner, divide_for_radiation)
+       &                        dist_cell_owner, dist_cell_owner_p, &
+       &                        wrk_p_parent_patch_pre, divide_for_radiation)
 
     TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre
     INTEGER, INTENT(IN)  :: patch_no !> The patch number,
                                      ! used to identify patch specific decomposition
     INTEGER, INTENT(IN)  :: n_proc !> Number of processors for split
     INTEGER, INTENT(IN)  :: proc0  !> First processor of patch
-    INTEGER, POINTER :: cell_owner(:) !> Cell division
+    TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner !> Cell division
+    !> Cell division for parent (only computed when wrk_p_parent_patch_pre
+    !! associated)
+    TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner_p
     TYPE(t_pre_patch), POINTER :: wrk_p_parent_patch_pre
-    INTEGER, POINTER :: radiation_owner(:)
     ! Private flag if patch should be divided for radiation calculation
     LOGICAL, INTENT(in) :: divide_for_radiation
 
-    TYPE(t_decomposition_structure)  :: decomposition_struct
+    INTEGER, POINTER :: local_owner_ptr(:)
+    INTEGER, ALLOCATABLE :: flag_c(:)
+    CHARACTER(LEN=uuid_string_length) :: p_grid_uuid, grid_uuid
+    CHARACTER(LEN=filename_max) :: use_division_file_name ! if ext_div_from_file
+    LOGICAL :: div_from_file, div_file_exists
+    INTEGER :: num_proc_in_div_file, ncid, ret
 
-    INTEGER :: n, i, j
-    INTEGER, ALLOCATABLE :: flag_c(:), tmp(:)
-    CHARACTER(LEN=filename_max) :: use_division_file_name ! if div_from_file
+    div_from_file = .FALSE.
 
-    ! Please note: Unfortunatly we cannot use p_io for doing I/O,
-    ! since this might be the test PE which is never calling this routine
-    ! (this is the case in the actual setup).
-    ! Thus we use the worker PE 0 for I/O and don't use message() for output.
+    IF (use_div_from_file .OR. &
+        (division_method(patch_no) == ext_div_from_file)) THEN
 
-    IF (division_method(patch_no) == div_from_file     .OR. &
-        division_method(patch_no) == ext_div_from_file .OR. &
-        division_method(patch_no) > 100) THEN
+      ! Please note: Unfortunately we cannot use p_io for doing I/O,
+      ! since this might be the test PE which is never calling this routine
+      ! (this is the case in the actual setup).
 
-      ! only procs 0 will decompose and then broadcast
-      IF (p_pe_work == 0) THEN
-
-        IF (division_method(patch_no) == div_from_file) THEN
-
-          ! Area subdivision is read from file
-
-          IF (division_file_name(patch_no) == "") THEN
-            use_division_file_name = &
-              & TRIM(get_filename_noext(wrk_p_patch_pre%grid_filename))//'.cell_domain_ids'
-          ELSE
-            use_division_file_name = division_file_name(patch_no)
-          ENDIF
-
-          WRITE(0,*) "Read decomposition from file: ", TRIM(use_division_file_name)
-          n = find_next_free_unit(10,99)
-
-          OPEN(n,FILE=TRIM(use_division_file_name),STATUS='OLD',IOSTAT=i)
-          IF(i /= 0) CALL finish('divide_patch',&
-            & 'Unable to open input file: '//TRIM(use_division_file_name))
-
-          DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-            READ(n,*,IOSTAT=i) cell_owner(j)
-            IF(i /= 0) CALL finish('divide_patch','Error reading: '//TRIM(use_division_file_name))
-          ENDDO
-          CLOSE(n)
-
-        ELSEIF (division_method(patch_no) == ext_div_from_file) THEN
-
-          IF (division_file_name(patch_no) == "") THEN
-            use_division_file_name = &
-              & TRIM(get_filename_noext(wrk_p_patch_pre%grid_filename))//'.cell_domain_ids'
-          ELSE
-            use_division_file_name = division_file_name(patch_no)
-          ENDIF
-
-          CALL read_ascii_decomposition(use_division_file_name, cell_owner, &
-            &                           wrk_p_patch_pre%n_patch_cells_g)
-
+      IF (division_file_name(patch_no) == "") THEN
+        IF (ASSOCIATED(wrk_p_parent_patch_pre)) THEN
+          CALL uuid_unparse(wrk_p_parent_patch_pre%grid_uuid, p_grid_uuid)
         ELSE
-
-          !----------------------------------------------------------
-          ! external decompositions
-          ! just to make sure that the radiation onwer is not acitve
-
-          ! fill decomposition_structure
-          CALL fill_wrk_decomposition_struct(decomposition_struct, &
-            &                                wrk_p_patch_pre)
-
-          SELECT CASE (division_method(patch_no))
-
-          CASE (ext_div_medial)
-            CALL divide_geometric_medial(decomposition_struct, &
-              & decomposition_size = n_proc, &
-              & cluster = .false.,           &
-              & cells_owner = cell_owner)
-
-          CASE (ext_div_medial_cluster)
-            CALL divide_geometric_medial(decomposition_struct, &
-              & decomposition_size = n_proc, &
-              & cluster = .true.,            &
-              & cells_owner = cell_owner)
-
-          CASE (ext_div_medial_redrad)
-            CALL divide_geometric_medial(decomposition_struct, &
-              & decomposition_size = n_proc, &
-              & cluster = .false.,           &
-              & cells_owner = cell_owner,    &
-              & radiation_onwer = radiation_owner,      &
-              & radiation_split_factor = redrad_split_factor)
-
-          CASE (ext_div_medial_redrad_cluster)
-            CALL divide_geometric_medial(decomposition_struct, &
-              & decomposition_size = n_proc, &
-              & cluster = .true.,            &
-              & cells_owner = cell_owner,    &
-              & radiation_onwer = radiation_owner,      &
-              & radiation_split_factor = redrad_split_factor)
-
-
-          CASE DEFAULT
-            CALL finish('divide_patch_cells', 'Unkown division_method')
-
-          END SELECT
-
-          ! clean decomposition_struct
-          CALL clean_wrk_decomposition_struct(decomposition_struct)
-
-        ENDIF ! subddivision_method(patch_no)
-
-        ! Quick check for correct values
-        IF(MINVAL(cell_owner(:)) < 0 .or. &
-           MAXVAL(cell_owner(:)) >= n_proc) THEN
-          WRITE(0,*) "n_porc=",n_proc, " MINAVAL=", MINVAL(cell_owner(:)), &
-            " MAXVAL=", MAXVAL(cell_owner(:))
-          CALL finish('divide_patch','Illegal subdivision in input file')
-        ENDIF
-
-      ENDIF ! IF (p_pe_work == 0)
-
-      ! broadcast cell_owner array to other processes
-      CALL p_bcast(cell_owner, 0, comm=p_comm_work)
-
-      IF (division_method(patch_no) == ext_div_medial_redrad_cluster .OR. &
-        & division_method(patch_no) == ext_div_medial_redrad) THEN
-        ! distribute the radiation owner
-        IF (p_pe_work /= 0) &
-            ALLOCATE(radiation_owner(wrk_p_patch_pre%n_patch_cells_g))
-
-        CALL p_bcast(radiation_owner, 0, comm=p_comm_work)
-
+          p_grid_uuid = "-";
+        END IF
+        CALL uuid_unparse(wrk_p_patch_pre%grid_uuid, grid_uuid)
+        use_division_file_name = &
+          & TRIM(get_filename_noext(wrk_p_patch_pre%grid_filename)) // "_" //&
+          & TRIM(p_grid_uuid) // "_" // TRIM(grid_uuid) // '_cell_owner.nc'
+      ELSE
+        use_division_file_name = division_file_name(patch_no)
       ENDIF
 
-    ELSE ! IF (division_method(patch_no) == div_from_file     .OR. &
-         !     division_method(patch_no) == ext_div_from_file .OR. &
-         !     division_method(patch_no) > 100)
+      ! check whether file is available
+      INQUIRE(FILE=use_division_file_name, EXIST=div_file_exists)
 
+      ! check whether number of procs matches
+      IF (div_file_exists) THEN
+
+        ncid = netcdf_open_input(use_division_file_name)
+
+        num_proc_in_div_file = netcdf_read_att_int(ncid, "cell_owner", "nprocs")
+
+        ret = netcdf_close(ncid)
+      ELSE
+        num_proc_in_div_file = 0
+      END IF
+
+      IF (division_method(patch_no) == ext_div_from_file) THEN
+        IF (.NOT. div_file_exists) &
+          CALL finish('divide_patch','decomposition file not found')
+        IF (num_proc_in_div_file /= p_n_work) &
+          CALL finish('divide_patch','wrong number of procs in decomposition file')
+      END IF
+
+      div_from_file = num_proc_in_div_file == p_n_work
+
+      IF (div_from_file) THEN
+        CALL read_netcdf_decomposition(use_division_file_name, dist_cell_owner, &
+          &                            wrk_p_patch_pre%n_patch_cells_g, &
+          &                            wrk_p_patch_pre%dist_array_comm, &
+          &                            wrk_p_patch_pre%dist_array_pes)
+
+        ! Assign the cell owners of the current patch to the parent cells
+        ! for the construction of the local parent, set "-1" elsewhere.
+        IF (ASSOCIATED(wrk_p_parent_patch_pre)) &
+          CALL divide_parent_cells(wrk_p_patch_pre, wrk_p_parent_patch_pre, &
+            &                      dist_cell_owner, dist_cell_owner_p)
+      END IF
+
+    END IF
+
+    IF (.NOT. div_from_file) THEN
+
+      IF(division_method(patch_no) == div_geometric) THEN
+        IF(ASSOCIATED(wrk_p_parent_patch_pre)) THEN
+          ALLOCATE(flag_c(wrk_p_parent_patch_pre%cells%local_chunk(1,1)%first:&
+                          wrk_p_parent_patch_pre%cells%local_chunk(1,1)%first+&
+        &                 wrk_p_parent_patch_pre%cells%local_chunk(1,1)%size-1))
+        ELSE
+          ALLOCATE(flag_c(wrk_p_patch_pre%cells%local_chunk(1,1)%first: &
+                          wrk_p_patch_pre%cells%local_chunk(1,1)%first + &
+        &                 wrk_p_patch_pre%cells%local_chunk(1,1)%size - 1))
+        END IF
+      ELSE IF(division_method(patch_no) == ext_div_from_file) THEN
+        CALL finish('divide_patch','invalid division method')
+      END IF
 
       ! Built-in subdivison methods
-
       IF(ASSOCIATED(wrk_p_parent_patch_pre)) THEN
 
         ! Cells with the same parent must not go to different PEs.
@@ -589,118 +655,339 @@ CONTAINS
 
         ! Determine the subset of the parent patch covering the actual patch
         ! by flagging the according cells
-
-        ALLOCATE(flag_c(wrk_p_parent_patch_pre%n_patch_cells_g))
-        flag_c(:) = 0
-
-        DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-          flag_c(wrk_p_patch_pre%cells%parent(j)) = &
-            MAX(1,wrk_p_patch_pre%cells%phys_id(j))
-        ENDDO
+        CALL compute_flag_c(flag_c, wrk_p_patch_pre, wrk_p_parent_patch_pre)
 
         ! Divide subset of patch
         ! Receives the PE  numbers for every cell
-        ALLOCATE(tmp(wrk_p_parent_patch_pre%n_patch_cells_g))
+        CALL divide_subset_geometric(flag_c, n_proc, wrk_p_parent_patch_pre, &
+             dist_cell_owner_p, ASSOCIATED(wrk_p_parent_patch_pre), &
+             divide_for_radiation = divide_for_radiation)
 
-        IF(division_method(patch_no) == div_geometric) THEN
-          CALL divide_subset_geometric(flag_c, n_proc, wrk_p_parent_patch_pre, &
-               tmp, .TRUE., divide_for_radiation = divide_for_radiation)
-#ifdef HAVE_METIS
-        ELSE IF(division_method(patch_no) == div_metis) THEN
-          CALL divide_subset_metis( flag_c, n_proc, wrk_p_parent_patch_pre, tmp)
-#endif
-        ELSE
-          CALL finish('divide_patch','Illegal division_method setting')
-        ENDIF
+        CALL dist_mult_array_expose(dist_cell_owner_p)
 
-        ! Owners of the cells of the parent patch are now in tmp.
+        ! Owners of the cells of the parent patch are now in dist_cell_owner_p.
         ! Set owners in current patch from this
 
-        cell_owner(1:wrk_p_patch_pre%n_patch_cells_g) = &
-          tmp(wrk_p_patch_pre%cells%parent(1:wrk_p_patch_pre%n_patch_cells_g))
-
-        DEALLOCATE(flag_c, tmp)
+        CALL compute_dist_owner_from_dist_owner_p( &
+          dist_cell_owner, wrk_p_patch_pre, wrk_p_parent_patch_pre, &
+          dist_cell_owner_p)
 
       ELSE
 
+        ! Set subset flags where the "subset" is the whole patch
+        flag_c = 1
+
         ! No parent patch, simply divide current patch
 
-        ! Set subset flags where the "subset" is the whole patch
-
-        ALLOCATE(flag_c(wrk_p_patch_pre%n_patch_cells_g))
-        flag_c(:) = 1
-
         ! Divide complete patch
-
-        IF(division_method(patch_no) == div_geometric) THEN
-          CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_pre, &
-               cell_owner, .FALSE., divide_for_radiation = divide_for_radiation)
-#ifdef HAVE_METIS
-        ELSE IF(division_method(patch_no) == div_metis) THEN
-          CALL divide_subset_metis(flag_c, n_proc, wrk_p_patch_pre, cell_owner)
-#endif
-        ELSE
-          CALL finish('divide_patch','Illegal division_method setting')
-        ENDIF
-
-        DEALLOCATE(flag_c)
-
+        CALL divide_subset_geometric(flag_c, n_proc, wrk_p_patch_pre, &
+             dist_cell_owner, ASSOCIATED(wrk_p_parent_patch_pre), &
+             divide_for_radiation = divide_for_radiation)
       ENDIF
 
+      IF (.NOT. ASSOCIATED(wrk_p_parent_patch_pre)) THEN
+        ! Set processor offset
+        CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
+        local_owner_ptr = local_owner_ptr + proc0
+      ENDIF
+      CALL dist_mult_array_expose(dist_cell_owner)
+
+      IF (write_div_to_file) THEN
+
+        IF (division_file_name(patch_no) == "") THEN
+          IF (ASSOCIATED(wrk_p_parent_patch_pre)) THEN
+            CALL uuid_unparse(wrk_p_parent_patch_pre%grid_uuid, p_grid_uuid)
+          ELSE
+            p_grid_uuid = "-";
+          END IF
+          CALL uuid_unparse(wrk_p_patch_pre%grid_uuid, grid_uuid)
+          use_division_file_name = &
+            & TRIM(get_filename_noext(wrk_p_patch_pre%grid_filename)) // "_" // &
+            & TRIM(p_grid_uuid) // "_" // TRIM(grid_uuid) // '_cell_owner.nc'
+        ELSE
+          use_division_file_name = division_file_name(patch_no)
+        ENDIF
+
+        CALL write_netcdf_decomposition(use_division_file_name, dist_cell_owner, &
+          &                             wrk_p_patch_pre%n_patch_cells_g)
+      END IF
     ENDIF ! division_method
 
-    ! Set processor offset
-    cell_owner(:) = cell_owner(:) + proc0
+  CONTAINS
 
-    ! Output how many cells go to every PE
+    SUBROUTINE compute_flag_c(flag_c, wrk_p_patch_pre, wrk_p_parent_patch_pre)
 
-  !  IF(p_pe_work==0) THEN
-  !    PRINT '(a,i0,a,i0)','Patch: ',wrk_p_patch_pre%id,&
-  !      & ' Total number of cells: ',wrk_p_patch_pre%n_patch_cells_g
-  !    DO n = 0, p_n_work-1
-  !      PRINT '(a,i5,a,i8)','PE',n,' # cells: ',COUNT(cell_owner(:) == n)
-  !    ENDDO
-  !  ENDIF
+      INTEGER, ALLOCATABLE :: flag_c(:)
+      TYPE(t_pre_patch), INTENT(IN) :: wrk_p_patch_pre
+      TYPE(t_pre_patch), INTENT(IN) :: wrk_p_parent_patch_pre
+
+      INTEGER, POINTER :: local_parent_ptr(:), local_phys_id_ptr(:)
+      INTEGER, ALLOCATABLE :: parent_phys_id_map(:,:), num_send(:), num_recv(:), &
+        &                     send_displs(:), recv_displs(:), flag_c_prep(:,:)
+      INTEGER :: parent_part_rank, i, dist_array_pes_size
+      TYPE(extent) :: global_extent
+
+      flag_c = 0
+
+      CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_phys_id, &
+        &                            local_phys_id_ptr)
+      CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_parent, &
+        &                            local_parent_ptr)
+
+      ALLOCATE(parent_phys_id_map(2,LBOUND(local_parent_ptr,1):&
+        &                           UBOUND(local_parent_ptr,1)))
+
+      parent_phys_id_map(1, :) = local_parent_ptr
+      parent_phys_id_map(2, :) = local_phys_id_ptr
+
+      CALL quicksort(parent_phys_id_map(1, :), parent_phys_id_map(2, :))
+
+      global_extent%first = 1
+      global_extent%size = wrk_p_parent_patch_pre%n_patch_cells_g
+
+      dist_array_pes_size = extent_size(wrk_p_patch_pre%dist_array_pes)
+
+      ALLOCATE(num_send(dist_array_pes_size), &
+        &      num_recv(dist_array_pes_size), &
+        &      send_displs(dist_array_pes_size), &
+        &      recv_displs(dist_array_pes_size))
+
+      num_send = 0
+      DO i = LBOUND(local_parent_ptr, 1), UBOUND(local_parent_ptr, 1)
+        parent_part_rank = &
+          partidx_of_elem_uniform_deco(global_extent, dist_array_pes_size, &
+          &                            local_parent_ptr(i))
+        num_send(parent_part_rank) = num_send(parent_part_rank) + 1
+      END DO
+
+      CALL p_alltoall(num_send, num_recv, &
+        &             wrk_p_parent_patch_pre%dist_array_comm)
+
+      send_displs(1) = 0
+      recv_displs(1) = 0
+      DO i = 2, dist_array_pes_size
+        send_displs(i) = send_displs(i-1) + num_send(i-1)
+        recv_displs(i) = recv_displs(i-1) + num_recv(i-1)
+      END DO
+      ALLOCATE(flag_c_prep(2,recv_displs(dist_array_pes_size) + &
+        &                    num_recv(dist_array_pes_size)))
+      CALL p_alltoallv(parent_phys_id_map, num_send, send_displs, &
+        &              flag_c_prep, num_recv, recv_displs, &
+        &              wrk_p_parent_patch_pre%dist_array_comm)
+
+      DO i = 1, SIZE(flag_c_prep, 2)
+        flag_c(flag_c_prep(1,i)) = MAX(1, flag_c_prep(2,i))
+      END DO
+    END SUBROUTINE compute_flag_c
+
+    SUBROUTINE compute_dist_owner_from_dist_owner_p(dist_cell_owner, &
+      wrk_p_patch_pre, wrk_p_parent_patch_pre, dist_cell_owner_p)
+
+      TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
+      TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre
+      TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_parent_patch_pre
+      TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner_p
+
+      INTEGER, POINTER :: local_parent_ptr(:), local_owner_p_ptr(:), &
+        &                 local_owner_ptr(:)
+      INTEGER :: i, parent_part_rank, dist_array_pes_size
+      INTEGER, ALLOCATABLE :: parent_cell_idx(:), parent_cell_idx_permutation(:), &
+        &                     num_send(:), num_recv(:), send_displs(:), &
+        &                     recv_displs(:), inquired_parent_cell_idx(:)
+      TYPE(extent) :: global_extent
+
+      CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_parent, &
+        &                            local_parent_ptr)
+      ALLOCATE(parent_cell_idx(LBOUND(local_parent_ptr,1): &
+        &                      UBOUND(local_parent_ptr,1)), &
+        &      parent_cell_idx_permutation(LBOUND(local_parent_ptr,1): &
+        &                                  UBOUND(local_parent_ptr,1)))
+      parent_cell_idx = local_parent_ptr
+      parent_cell_idx_permutation = &
+        (/(i,i=LBOUND(parent_cell_idx,1),UBOUND(parent_cell_idx,1))/)
+
+      CALL quicksort(parent_cell_idx, parent_cell_idx_permutation)
+
+      dist_array_pes_size = extent_size(wrk_p_patch_pre%dist_array_pes)
+
+      global_extent%first = 1
+      global_extent%size = wrk_p_parent_patch_pre%n_patch_cells_g
+
+      ALLOCATE(num_send(dist_array_pes_size), &
+        &      num_recv(dist_array_pes_size), &
+        &      send_displs(dist_array_pes_size), &
+        &      recv_displs(dist_array_pes_size))
+      num_send = 0
+      DO i = LBOUND(parent_cell_idx,1), UBOUND(parent_cell_idx,1)
+        parent_part_rank = &
+          partidx_of_elem_uniform_deco(global_extent, &
+          &                            dist_array_pes_size, &
+          &                            parent_cell_idx(i))
+        num_send(parent_part_rank) = num_send(parent_part_rank) + 1
+      END DO
+
+      CALL p_alltoall(num_send, num_recv, &
+        &             wrk_p_parent_patch_pre%dist_array_comm)
+
+      send_displs(1) = 0
+      recv_displs(1) = 0
+      DO i = 2, dist_array_pes_size
+        send_displs(i) = send_displs(i-1) + num_send(i-1)
+        recv_displs(i) = recv_displs(i-1) + num_recv(i-1)
+      END DO
+      ALLOCATE( &
+        &  inquired_parent_cell_idx(recv_displs(dist_array_pes_size) + &
+        &  num_recv(dist_array_pes_size)))
+      CALL p_alltoallv(parent_cell_idx, num_send, send_displs, &
+        &              inquired_parent_cell_idx, num_recv, recv_displs, &
+        &              wrk_p_parent_patch_pre%dist_array_comm)
+
+      CALL dist_mult_array_local_ptr(dist_cell_owner_p, 1, local_owner_p_ptr)
+
+      inquired_parent_cell_idx = local_owner_p_ptr(inquired_parent_cell_idx)
+
+      CALL p_alltoallv(inquired_parent_cell_idx, num_recv, recv_displs, &
+        &              parent_cell_idx, num_send, send_displs, &
+        &              wrk_p_parent_patch_pre%dist_array_comm)
+
+      CALL create_dist_cell_owner(dist_cell_owner, &
+        &                         wrk_p_patch_pre%n_patch_cells_g, &
+        &                         wrk_p_patch_pre%dist_array_comm, &
+        &                         wrk_p_patch_pre%dist_array_pes)
+      CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
+
+      local_owner_ptr(parent_cell_idx_permutation) = parent_cell_idx
+
+    END SUBROUTINE compute_dist_owner_from_dist_owner_p
 
   END SUBROUTINE divide_patch_cells
-
 
   !-------------------------------------------------------------------------------------------------
   !>
   !! Sets the owner for the division of the cells of the parent patch
   !! with the same subdivision as the child
 
-  SUBROUTINE divide_parent_cells(p_patch_pre, cell_owner, cell_owner_p)
+  SUBROUTINE divide_parent_cells(p_patch_pre, p_parent_patch_pre, &
+    &                            dist_cell_owner, dist_cell_owner_p)
 
-    TYPE(t_pre_patch), INTENT(IN) :: p_patch_pre  !> Patch for which the parent should be divided
-    INTEGER, POINTER  :: cell_owner(:)   !> Ownership of cells in p_patch_pre
-    INTEGER, INTENT(OUT) :: cell_owner_p(:) !> Output: Cell division for parent.
-                                            !> Must be allocated to n_patch_cells of the global parent
+    !> Patch for which the parent should be divided
+    TYPE(t_pre_patch), INTENT(INOUT) :: p_patch_pre
+    !> Parent patch
+    TYPE(t_pre_patch), INTENT(INOUT) :: p_parent_patch_pre
+    !> Ownership of cells in p_patch_pre
+    TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner
+    !> Output: Cell division for parent. Must be allocated to n_patch_cells of!
+    !! the global parent
+    TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner_p
 
-    INTEGER :: j, jp
-    INTEGER :: cnt(SIZE(cell_owner_p))
+    INTEGER :: child_chunk_first, child_chunk_last, child_chunk_size, i
+    INTEGER :: n_cells_parent_g, parent_part_rank, dist_array_pes_size
+    TYPE(global_array_desc) :: dist_cell_owner_p_desc(1)
+    TYPE(extent) :: parent_chunk(1,1)
+    INTEGER, POINTER :: parent_chunk_ptr(:), child_chunk_ptr(:), &
+      &                 child_chunk_parent_ptr(:)
+    INTEGER, ALLOCATABLE :: num_parent_owner_send(:), num_parent_owner_recv(:),&
+      &                     parent_owner_send_displ(:), &
+      &                     parent_owner_recv_displ(:), &
+      &                     parent_cell_owner_map(:,:), parent_chunk_prep(:,:)
 
-    cell_owner_p(:) = -1
-    cnt(:) = 0
+    ! get local chunk
+    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, child_chunk_ptr)
+    child_chunk_first = LBOUND(child_chunk_ptr, 1)
+    child_chunk_size = SIZE(child_chunk_ptr)
+    child_chunk_last = child_chunk_first + child_chunk_size - 1
+    CALL dist_mult_array_local_ptr(p_patch_pre%cells%dist, c_parent, &
+      &                            child_chunk_parent_ptr)
 
-    DO j = 1, p_patch_pre%n_patch_cells_g
+    n_cells_parent_g = p_parent_patch_pre%n_patch_cells_g
 
-      jp = p_patch_pre%cells%parent(j)
+    dist_cell_owner_p_desc(1)%a_rank = 1
+    dist_cell_owner_p_desc(1)%rect(1)%first = 1
+    dist_cell_owner_p_desc(1)%rect(1)%size = n_cells_parent_g
+    dist_cell_owner_p_desc(1)%element_dt = ppm_int
 
-      IF(cell_owner_p(jp) < 0) THEN
-        cell_owner_p(jp) = cell_owner(j)
-      ELSEIF(cell_owner_p(jp) /= cell_owner(j)) THEN
-        CALL finish('divide_parent_cells','Divided parent cell encountered')
-      ENDIF
-      cnt(jp) = cnt(jp) + 1 ! Only for safety check below
-    ENDDO
+    ! get parent cells global index for all child cells of child chunk and their
+    ! respective owners (parent cells can occur more than once)
+    ALLOCATE(parent_cell_owner_map(2, child_chunk_first:child_chunk_last))
+    parent_cell_owner_map(1,:) = child_chunk_ptr
+    parent_cell_owner_map(2,:) = child_chunk_parent_ptr
 
-    ! Safety check
-    IF(ANY(cnt(:)/=0 .AND. cnt(:)/=4)) &
-      & CALL finish('divide_parent_cells','Incomplete parent cell encountered')
+    ! sort both arrays according to parent cell global index
+    CALL quicksort(parent_cell_owner_map(2,:), parent_cell_owner_map(1,:))
+
+    dist_array_pes_size = extent_size(p_patch_pre%dist_array_pes)
+
+    ! compute number of parent cells per process
+    ALLOCATE(num_parent_owner_send(0:dist_array_pes_size-1), &
+      &      num_parent_owner_recv(0:dist_array_pes_size-1), &
+      &      parent_owner_send_displ(0:dist_array_pes_size-1), &
+      &      parent_owner_recv_displ(0:dist_array_pes_size-1))
+    num_parent_owner_send = 0
+    DO i = child_chunk_first, child_chunk_last
+      ! compute for each parent cell global index the respective process
+      parent_part_rank = &
+        partidx_of_elem_uniform_deco(dist_cell_owner_p_desc(1)%rect(1), &
+        &                            dist_array_pes_size, &
+        &                            parent_cell_owner_map(2,i))-1
+      num_parent_owner_send(parent_part_rank) = &
+        num_parent_owner_send(parent_part_rank) + 1
+    END DO
+
+    ! alltoall number of parent cells per process
+    CALL p_alltoall(num_parent_owner_send, num_parent_owner_recv, &
+      &             p_parent_patch_pre%dist_array_comm)
+
+    ! alltoallv parent cell global index and owners
+    parent_owner_send_displ(0) = 0
+    parent_owner_recv_displ(0) = 0
+    DO i = 1, dist_array_pes_size-1
+      parent_owner_send_displ(i) = parent_owner_send_displ(i-1) + &
+        &                          num_parent_owner_send(i-1)
+      parent_owner_recv_displ(i) = parent_owner_recv_displ(i-1) + &
+        &                          num_parent_owner_recv(i-1)
+    END DO
+    ALLOCATE( &
+      parent_chunk_prep( &
+      & 2, parent_owner_recv_displ(dist_array_pes_size-1) + &
+      &    num_parent_owner_recv(dist_array_pes_size-1)))
+    CALL p_alltoallv(parent_cell_owner_map, num_parent_owner_send, &
+      &              parent_owner_send_displ, &
+      &              parent_chunk_prep, num_parent_owner_recv, &
+      &              parent_owner_recv_displ, &
+      &              p_parent_patch_pre%dist_array_comm)
+
+    ! sort according to parent cell global index
+    CALL quicksort(parent_chunk_prep(2,:), parent_chunk_prep(1,:))
+
+    ! check that each parent cell global index occurs either 0 or 4 times
+    IF (MOD(SIZE(parent_chunk_prep, 2), 4) /= 0) &
+      CALL finish('divide_parent_cells','Incomplete parent cell encountered')
+    DO i = 1, SIZE(parent_chunk_prep, 2), 4
+      IF (ANY((parent_chunk_prep(1,i) /= parent_chunk_prep(1,i+1:i+3)) .OR. &
+        &     (parent_chunk_prep(2,i) /= parent_chunk_prep(2,i+1:i+3)))) &
+        CALL finish('divide_parent_cells','Incomplete parent cell encountered')
+    END DO
+
+    ! set up dist_array
+    parent_chunk = p_parent_patch_pre%cells%local_chunk
+    dist_cell_owner_p = dist_mult_array_new(dist_cell_owner_p_desc, &
+      &                                     parent_chunk, &
+      &                                     p_parent_patch_pre%dist_array_comm, &
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      &          sync_mode=sync_mode_active_target &
+#else
+      &          cache_size=MIN(10, CEILING(SQRT(REAL(dist_array_pes_size)))) &
+#endif
+      )
+    CALL dist_mult_array_local_ptr(dist_cell_owner_p, 1, parent_chunk_ptr)
+    parent_chunk_ptr = -1
+    DO i = 1, SIZE(parent_chunk_prep, 2), 4
+      parent_chunk_ptr(parent_chunk_prep(2,i)) = parent_chunk_prep(1,i)
+    END DO
+
+    CALL dist_mult_array_expose(dist_cell_owner_p)
 
   END SUBROUTINE divide_parent_cells
-
 
   !-------------------------------------------------------------------------------------------------
   !>
@@ -714,8 +1001,6 @@ CONTAINS
   !!                       in the first case, a finer distinction between different halo
   !!                       cell/edge/vertex levels is made to optimize communication
   !!                     2=move all halos to the end (for ocean)
-
-
   !!
   !! On exit, the entries of wrk_p_patch are set.
   !!
@@ -724,23 +1009,22 @@ CONTAINS
   !! Changed for usage for parent patch division, Rainer Johanni, Oct 2010
   !! Major rewrite to reduce memory consumption, Thomas Jahns and Moritz Hanke, Sep 2013
 
-  SUBROUTINE divide_patch(wrk_p_patch, wrk_p_patch_pre, cell_owner, &
-    &                     radiation_owner, n_boundary_rows, &
-    &                     order_type_of_halos, my_proc)
+  SUBROUTINE divide_patch(wrk_p_patch, wrk_p_patch_pre, dist_cell_owner, &
+    &                     n_boundary_rows, order_type_of_halos, my_proc)
 
     TYPE(t_patch), INTENT(INOUT) :: wrk_p_patch ! output patch, designated as INOUT because
                                                 ! a few attributes are already set
-    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
+    TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre ! out is required for
+                                                        ! the distributed arrays
 
-    INTEGER, POINTER :: cell_owner(:)
-    INTEGER, POINTER :: radiation_owner(:)
+    TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner
     INTEGER, INTENT(IN) :: n_boundary_rows
     INTEGER, INTENT(IN) :: order_type_of_halos
     INTEGER, INTENT(IN) :: my_proc
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::divide_patch'
-    INTEGER :: i, j, jl, jb, je, jv, jg, jc, jc_p, jpg, jcg(4)
+    INTEGER :: i, j, jl, jb, je, jv, jg, jc
 
 #ifdef __PGIC__
     TYPE(nb_flag_list_elem), ALLOCATABLE :: flag2_c_list(:), &
@@ -752,9 +1036,22 @@ CONTAINS
     INTEGER :: n2_ilev_c(0:2*n_boundary_rows), n2_ilev_v(0:n_boundary_rows+1), &
          n2_ilev_e(0:2*n_boundary_rows+1)
 #endif
-    INTEGER, ALLOCATABLE :: owned_edges(:), owned_verts(:)
+    INTEGER, ALLOCATABLE :: owned_cells(:), owned_edges(:), owned_verts(:)
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+    INTEGER, ALLOCATABLE :: glb_cell_neighbor(:,:), glb_cell_edge(:,:), &
+      &                     glb_cell_vertex(:,:), cell_parent_idx(:), &
+      &                     cell_child_idx(:,:), edge_parent_idx(:), &
+      &                     edge_child_idx(:,:)
+#else
+    INTEGER :: glb_cell_neighbor, glb_cell_edge, &
+      &        glb_cell_vertex, cell_parent_idx, &
+      &        cell_child_idx, edge_parent_idx, &
+      &        edge_child_idx
+#endif
 
     IF (msg_level >= 10)  CALL message(routine, 'dividing patch')
+
+    CALL compute_owned_cells()
 
 #ifdef __PGIC__
     ALLOCATE(flag2_c_list(0:2*n_boundary_rows), &
@@ -788,8 +1085,8 @@ CONTAINS
     !-----------------------------------------------------------------------------------------------
     CALL dist_dir_setup(wrk_p_patch%cells%decomp_info%owner_dist_dir, &
       &                 flag2_c_list(0)%idx(1:n2_ilev_c(0)), &
-      &                 wrk_p_patch%n_patch_cells_g, p_comm_work, &
-      &                 p_pe_work, p_n_work)
+      &                 wrk_p_patch%n_patch_cells_g, &
+      &                 p_comm_work, p_pe_work, p_n_work)
     CALL dist_dir_setup(wrk_p_patch%verts%decomp_info%owner_dist_dir, &
       &                 owned_verts, wrk_p_patch%n_patch_verts_g, &
       &                 p_comm_work, p_pe_work, p_n_work)
@@ -823,7 +1120,8 @@ CONTAINS
          end_g = wrk_p_patch_pre%cells%end, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .TRUE., &
-         refin_ctrl = wrk_p_patch_pre%cells%refin_ctrl, &
+         refin_ctrl = wrk_p_patch_pre%cells%dist, &
+         refin_ctrl_aidx = c_refin_ctrl, &
          refinement_predicate = refine_cells)
     !---------------------------------------------------------------------------------------
     CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_edges, &
@@ -848,7 +1146,8 @@ CONTAINS
          end_g = wrk_p_patch_pre%edges%end, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .FALSE., &
-         refin_ctrl = wrk_p_patch_pre%edges%refin_ctrl, &
+         refin_ctrl = wrk_p_patch_pre%edges%dist, &
+         refin_ctrl_aidx = e_refin_ctrl, &
          refinement_predicate = refine_edges)
     !---------------------------------------------------------------------------------------
     CALL build_patch_start_end(n_patch_cve = wrk_p_patch%n_patch_verts, &
@@ -873,7 +1172,8 @@ CONTAINS
          end_g = wrk_p_patch_pre%verts%end, &
          order_type_of_halos = order_type_of_halos, &
          l_cell_correction = .FALSE., &
-         refin_ctrl = wrk_p_patch_pre%verts%refin_ctrl, &
+         refin_ctrl = wrk_p_patch_pre%verts%dist, &
+         refin_ctrl_aidx = v_refin_ctrl, &
          refinement_predicate = refine_verts)
 
     ! Sanity checks: are there still elements of the index lists filled with dummy values?
@@ -939,6 +1239,29 @@ CONTAINS
 
     !---------------------------------------------------------------------------------------
 
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+    ALLOCATE(glb_cell_neighbor(wrk_p_patch%n_patch_cells, &
+      &                        wrk_p_patch%cells%max_connectivity), &
+      &      glb_cell_edge(wrk_p_patch%n_patch_cells, &
+      &                    wrk_p_patch%cells%max_connectivity), &
+      &      glb_cell_vertex(wrk_p_patch%n_patch_cells, &
+      &                      wrk_p_patch%cells%max_connectivity))
+
+    DO j = 1, wrk_p_patch%n_patch_cells
+      jg = wrk_p_patch%cells%decomp_info%glb_index(j)
+
+      DO i=1,wrk_p_patch%geometry_info%cell_type
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_neighbor, &
+          &                      (/jg,i/), glb_cell_neighbor(j,i))
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_edge, &
+          &                      (/jg,i/), glb_cell_edge(j,i))
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+          &                      (/jg,i/), glb_cell_vertex(j,i))
+      END DO
+    END DO
+
+    CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
+
     DO j = 1, wrk_p_patch%n_patch_cells
 
       jb = blk_no(j) ! Block index in distributed patch
@@ -949,27 +1272,74 @@ CONTAINS
       DO i=1,wrk_p_patch%geometry_info%cell_type
 !CDIR IEXPAND
         CALL get_local_idx(wrk_p_patch%cells%decomp_info, &
-          & wrk_p_patch_pre%cells%neighbor(jg,i), jc)
+          &                glb_cell_neighbor(j,i), jc)
 
         wrk_p_patch%cells%neighbor_idx(jl,jb,i) = idx_no(jc)
         wrk_p_patch%cells%neighbor_blk(jl,jb,i) = blk_no(jc)
 
 !CDIR IEXPAND
-        CALL get_local_idx(wrk_p_patch%edges%decomp_info, &
-          & wrk_p_patch_pre%cells%edge(jg,i), je)
+        CALL get_local_idx(wrk_p_patch%edges%decomp_info, glb_cell_edge(j,i), je)
 
         wrk_p_patch%cells%edge_idx(jl,jb,i) = idx_no(je)
         wrk_p_patch%cells%edge_blk(jl,jb,i) = blk_no(je)
 
 !CDIR IEXPAND
         CALL get_local_idx(wrk_p_patch%verts%decomp_info, &
-          & wrk_p_patch_pre%cells%vertex(jg,i), jv)
+          &                glb_cell_vertex(j, i), jv)
 
         wrk_p_patch%cells%vertex_idx(jl,jb,i) = idx_no(jv)
         wrk_p_patch%cells%vertex_blk(jl,jb,i) = blk_no(jv)
 
       ENDDO
     ENDDO
+
+    DEALLOCATE(glb_cell_neighbor, glb_cell_edge, glb_cell_vertex)
+#else
+
+    DO j = 1, wrk_p_patch%n_patch_cells
+      jg = wrk_p_patch%cells%decomp_info%glb_index(j)
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      DO i=1,wrk_p_patch%geometry_info%cell_type
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_neighbor, &
+          &                      (/jg,i/), glb_cell_neighbor)
+!CDIR IEXPAND
+        CALL get_local_idx(wrk_p_patch%cells%decomp_info, &
+          &                glb_cell_neighbor, jc)
+
+        wrk_p_patch%cells%neighbor_idx(jl,jb,i) = idx_no(jc)
+        wrk_p_patch%cells%neighbor_blk(jl,jb,i) = blk_no(jc)
+
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_edge, &
+          &                      (/jg,i/), glb_cell_edge)
+!CDIR IEXPAND
+        CALL get_local_idx(wrk_p_patch%edges%decomp_info, &
+             glb_cell_edge, je)
+
+        wrk_p_patch%cells%edge_idx(jl,jb,i) = idx_no(je)
+        wrk_p_patch%cells%edge_blk(jl,jb,i) = blk_no(je)
+
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+          &                      (/jg,i/), glb_cell_vertex)
+!CDIR IEXPAND
+        CALL get_local_idx(wrk_p_patch%verts%decomp_info, &
+          &                glb_cell_vertex, jv)
+
+        wrk_p_patch%cells%vertex_idx(jl,jb,i) = idx_no(jv)
+        wrk_p_patch%cells%vertex_blk(jl,jb,i) = blk_no(jv)
+
+      ENDDO
+    ENDDO
+
+#endif
+
+
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+
+    ALLOCATE(cell_parent_idx(wrk_p_patch%n_patch_cells), &
+      &      cell_child_idx(wrk_p_patch%n_patch_cells, 4))
 
     DO j = 1, wrk_p_patch%n_patch_cells
 
@@ -981,21 +1351,73 @@ CONTAINS
       ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
-      jc_p = wrk_p_patch_pre%cells%parent(jg)
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_parent, (/jg/), &
+        &                      cell_parent_idx(j))
+      DO i = 1, 4
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_child, &
+          &                      (/jg, i/), cell_child_idx(j,i))
+      END DO
 
-      wrk_p_patch%cells%parent_idx(jl,jb)  = idx_no(jc_p)
-      wrk_p_patch%cells%parent_blk(jl,jb)  = blk_no(jc_p)
-      wrk_p_patch%cells%child_idx(jl,jb,1:4) = &
-        idx_no(wrk_p_patch_pre%cells%child(jg,1:4))
-      wrk_p_patch%cells%child_blk(jl,jb,1:4) = &
-        blk_no(wrk_p_patch_pre%cells%child(jg,1:4))
-
-      wrk_p_patch%cells%num_edges(jl,jb)          = wrk_p_patch_pre%cells%num_edges( &
-        wrk_p_patch%cells%decomp_info%glb_index(j))
-      wrk_p_patch%cells%center(jl,jb)%lat         = wrk_p_patch_pre%cells%center(jg)%lat
-      wrk_p_patch%cells%center(jl,jb)%lon         = wrk_p_patch_pre%cells%center(jg)%lon
-      wrk_p_patch%cells%refin_ctrl(jl,jb)         = wrk_p_patch_pre%cells%refin_ctrl(jg)
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, (/jg/), &
+        &                      wrk_p_patch%cells%num_edges(jl,jb))
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, (/jg, 1/), &
+        &                      wrk_p_patch%cells%center(jl,jb)%lat)
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, (/jg, 2/), &
+        &                      wrk_p_patch%cells%center(jl,jb)%lon)
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_refin_ctrl, &
+           (/jg/), wrk_p_patch%cells%refin_ctrl(jl,jb))
     ENDDO
+
+    CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
+
+    DO j = 1, wrk_p_patch%n_patch_cells
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+      wrk_p_patch%cells%parent_glb_idx(jl,jb)  = idx_no(cell_parent_idx(j))
+      wrk_p_patch%cells%parent_glb_blk(jl,jb)  = blk_no(cell_parent_idx(j))
+      DO i = 1, 4
+        wrk_p_patch%cells%child_idx(jl,jb,i) = idx_no(cell_child_idx(j,i))
+        wrk_p_patch%cells%child_blk(jl,jb,i) = blk_no(cell_child_idx(j,i))
+      END DO
+    END DO
+
+    DEALLOCATE(cell_parent_idx, cell_child_idx)
+
+#else
+
+    DO j = 1, wrk_p_patch%n_patch_cells
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      jg = wrk_p_patch%cells%decomp_info%glb_index(j)
+
+      ! parent and child_idx/child_blk still point to the global values.
+      ! This will be changed in set_parent_child_relations.
+
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_parent, (/jg/), &
+        &                      cell_parent_idx)
+      wrk_p_patch%cells%parent_glb_idx(jl,jb)  = idx_no(cell_parent_idx)
+      wrk_p_patch%cells%parent_glb_blk(jl,jb)  = blk_no(cell_parent_idx)
+
+      DO i = 1, 4
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_child, &
+          &                      (/jg, i/), cell_child_idx)
+        wrk_p_patch%cells%child_idx(jl,jb,i) = idx_no(cell_child_idx)
+        wrk_p_patch%cells%child_blk(jl,jb,i) = blk_no(cell_child_idx)
+      END DO
+
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, (/jg/), &
+        &                      wrk_p_patch%cells%num_edges(jl,jb))
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, (/jg, 1/), &
+        &                      wrk_p_patch%cells%center(jl,jb)%lat)
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, (/jg, 2/), &
+        &                      wrk_p_patch%cells%center(jl,jb)%lon)
+      CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_refin_ctrl, &
+           (/jg/), wrk_p_patch%cells%refin_ctrl(jl,jb))
+    ENDDO
+
+#endif
 
     DO j = 0, 2 * n_boundary_rows
       DO i = 1, n2_ilev_c(j)
@@ -1009,6 +1431,11 @@ CONTAINS
 
     !---------------------------------------------------------------------------------------
 
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+
+    ALLOCATE(edge_parent_idx(wrk_p_patch%n_patch_edges), &
+      &      edge_child_idx(wrk_p_patch%n_patch_edges,4))
+
     DO j = 1,wrk_p_patch%n_patch_edges
 
       jb = blk_no(j) ! Block index in distributed patch
@@ -1016,19 +1443,62 @@ CONTAINS
 
       jg = wrk_p_patch%edges%decomp_info%glb_index(j)
 
+      CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_parent, &
+        &                      (/jg/), edge_parent_idx(j))
+      DO i = 1, 4
+        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_child, &
+             (/jg, i/), edge_child_idx(j,i))
+      END DO
+
+      CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_refin_ctrl, &
+           (/jg/), wrk_p_patch%edges%refin_ctrl(jl,jb))
+    END DO
+
+    CALL dist_mult_array_rma_sync(wrk_p_patch_pre%edges%dist)
+
+    DO j = 1,wrk_p_patch%n_patch_edges
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
       ! parent and child_idx/child_blk still point to the global values.
       ! This will be changed in set_parent_child_relations.
 
-      jpg = wrk_p_patch_pre%edges%parent(jg)
-      jcg = wrk_p_patch_pre%edges%child(jg,1:4)
-
-      wrk_p_patch%edges%parent_idx(jl,jb)    = idx_no(jpg)
-      wrk_p_patch%edges%parent_blk(jl,jb)    = blk_no(jpg)
-      wrk_p_patch%edges%child_idx(jl,jb,1:4) = idx_no(jcg)
-      wrk_p_patch%edges%child_blk(jl,jb,1:4) = blk_no(jcg)
-
-      wrk_p_patch%edges%refin_ctrl(jl,jb)    = wrk_p_patch_pre%edges%refin_ctrl(jg)
+      wrk_p_patch%edges%parent_glb_idx(jl,jb)    = idx_no(edge_parent_idx(j))
+      wrk_p_patch%edges%parent_glb_blk(jl,jb)    = blk_no(edge_parent_idx(j))
+      wrk_p_patch%edges%child_idx(jl,jb,1:4) = idx_no(edge_child_idx(j,:))
+      wrk_p_patch%edges%child_blk(jl,jb,1:4) = blk_no(edge_child_idx(j,:))
     ENDDO
+
+    DEALLOCATE(edge_parent_idx, edge_child_idx)
+
+#else
+
+    DO j = 1,wrk_p_patch%n_patch_edges
+
+      jb = blk_no(j) ! Block index in distributed patch
+      jl = idx_no(j) ! Line  index in distributed patch
+
+      jg = wrk_p_patch%edges%decomp_info%glb_index(j)
+
+      CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_parent, &
+        &                      (/jg/), edge_parent_idx)
+      wrk_p_patch%edges%parent_glb_idx(jl,jb)    = idx_no(edge_parent_idx)
+      wrk_p_patch%edges%parent_glb_blk(jl,jb)    = blk_no(edge_parent_idx)
+      DO i = 1, 4
+        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_child, &
+             (/jg, i/), edge_child_idx)
+        wrk_p_patch%edges%child_idx(jl,jb,i) = idx_no(edge_child_idx)
+        wrk_p_patch%edges%child_blk(jl,jb,i) = blk_no(edge_child_idx)
+      END DO
+
+      ! parent and child_idx/child_blk still point to the global values.
+      ! This will be changed in set_parent_child_relations.
+      CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_refin_ctrl, &
+           (/jg/), wrk_p_patch%edges%refin_ctrl(jl,jb))
+    END DO
+
+#endif
 
     DO j = 0, 2 * n_boundary_rows + 1
       DO i = 1, n2_ilev_e(j)
@@ -1049,9 +1519,17 @@ CONTAINS
 
       jg = wrk_p_patch%verts%decomp_info%glb_index(j)
 
-      wrk_p_patch%verts%vertex(jl,jb)     = wrk_p_patch_pre%verts%vertex(jg)
-      wrk_p_patch%verts%refin_ctrl(jl,jb) = wrk_p_patch_pre%verts%refin_ctrl(jg)
+      CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+           (/jg, 1/), wrk_p_patch%verts%vertex(jl,jb)%lat)
+      CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+           (/jg, 2/), wrk_p_patch%verts%vertex(jl,jb)%lon)
+      CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_refin_ctrl, &
+           (/jg/), wrk_p_patch%verts%refin_ctrl(jl,jb))
     ENDDO
+
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+    CALL dist_mult_array_rma_sync(wrk_p_patch_pre%verts%dist)
+#endif
 
     DO j = 0, n_boundary_rows + 1
       DO i = 1, n2_ilev_v(j)
@@ -1063,24 +1541,84 @@ CONTAINS
       END DO
     END DO
 
-    IF (ASSOCIATED(radiation_owner)) THEN
-
-      ALLOCATE(wrk_p_patch%radiation_cells( &
-        COUNT(radiation_owner(:) == p_pe_work)))
-
-      i = 1
-
-      DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-
-        IF (radiation_owner(j) == p_pe_work) THEN
-
-          wrk_p_patch%radiation_cells(i) = j
-          i = i + 1
-        END IF
-      END DO
-    END IF
+    DEALLOCATE(owned_cells)
 
   CONTAINS
+
+    SUBROUTINE compute_owned_cells()
+
+      INTEGER, POINTER :: local_chunk(:)
+      INTEGER :: local_chunk_first, local_chunk_last, local_chunk_size, i
+      INTEGER, ALLOCATABLE :: n_cells_owned_per_proc(:)
+      ! n_cells_from_proc(i) = number of cell ownerships transferred
+      ! from process i
+      INTEGER, ALLOCATABLE :: n_cells_from_proc(:)
+      INTEGER, ALLOCATABLE :: glb_index_per_proc(:)
+      INTEGER, ALLOCATABLE :: sorted_local_chunk(:)
+      INTEGER, ALLOCATABLE :: send_displs(:)
+      INTEGER, ALLOCATABLE :: recv_displs(:)
+      INTEGER :: dist_array_pes_start, dist_array_pes_end, dist_array_pes_size
+
+      dist_array_pes_start = extent_start(wrk_p_patch_pre%dist_array_pes) - 1
+      dist_array_pes_end = extent_end(wrk_p_patch_pre%dist_array_pes) - 1
+      dist_array_pes_size = extent_size(wrk_p_patch_pre%dist_array_pes)
+
+      ! get local chunk
+      CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_chunk)
+      local_chunk_first = LBOUND(local_chunk, 1)
+      local_chunk_size = SIZE(local_chunk)
+      local_chunk_last = local_chunk_first + local_chunk_size - 1
+
+      ! for parent patches most of the entries are -1
+      ALLOCATE(n_cells_owned_per_proc(-1:p_n_work-1), &
+        &      n_cells_from_proc(dist_array_pes_start:dist_array_pes_end), &
+        &      glb_index_per_proc(local_chunk_first:local_chunk_last), &
+        &      sorted_local_chunk(local_chunk_first:local_chunk_last))
+
+      ! compute n_cells_owned_per_proc
+      n_cells_owned_per_proc = 0
+      DO i = local_chunk_first, local_chunk_last
+        n_cells_owned_per_proc(local_chunk(i)) = &
+          n_cells_owned_per_proc(local_chunk(i)) + 1
+
+        ! initialise glb_index_per_proc
+        glb_index_per_proc(i) = i
+      END DO
+
+      ! mpi_alltoall n_cells_owned_per_proc
+      CALL p_alltoall(n_cells_owned_per_proc(dist_array_pes_start: &
+        &                                    dist_array_pes_size-1), &
+        &             n_cells_from_proc, &
+        &             wrk_p_patch_pre%dist_array_comm)
+
+      ! compute glb_index_per_proc sort by owner (see SUBROUTINE quicksort)
+      sorted_local_chunk = local_chunk
+      CALL quicksort(sorted_local_chunk, glb_index_per_proc)
+
+      ! mpi_alltoallv glb_index_per_proc -> owned_cells
+      ALLOCATE(send_displs(0:p_n_work-1), &
+        &      recv_displs(dist_array_pes_start:dist_array_pes_end))
+      send_displs(0) = n_cells_owned_per_proc(-1)
+      recv_displs(dist_array_pes_start) = 0
+      DO i = 1, p_n_work-1
+        send_displs(i) = send_displs(i-1) + n_cells_owned_per_proc(i-1)
+      END DO
+      DO i = dist_array_pes_start + 1, dist_array_pes_end
+        recv_displs(i) = recv_displs(i-1) + n_cells_from_proc(i-1)
+      END DO
+      ALLOCATE(owned_cells(SUM(n_cells_from_proc)))
+      CALL p_alltoallv(glb_index_per_proc, &
+        &              n_cells_owned_per_proc(dist_array_pes_start: &
+        &                                     dist_array_pes_size-1), &
+        &              send_displs(dist_array_pes_start: &
+        &                          dist_array_pes_size-1), &
+        &              owned_cells, n_cells_from_proc, &
+        &              recv_displs, wrk_p_patch_pre%dist_array_comm)
+
+      ! sort owned_cells
+      CALL quicksort(owned_cells)
+
+    END SUBROUTINE compute_owned_cells
 
     SUBROUTINE prepare_patch(wrk_p_patch_pre, wrk_p_patch, &
          n_patch_cells, n_patch_edges, n_patch_verts)
@@ -1143,8 +1681,6 @@ CONTAINS
       wrk_p_patch%nshift_total       = wrk_p_patch_pre%nshift_total
       wrk_p_patch%nshift_child       = wrk_p_patch_pre%nshift_child
       wrk_p_patch%grid_uuid          = wrk_p_patch_pre%grid_uuid
-
-      NULLIFY(wrk_p_patch%radiation_cells)
 
       !-----------------------------------------------------------------------------------------------
       ! Allocate the required data arrays in patch
@@ -1239,14 +1775,22 @@ CONTAINS
       ! INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
       INTEGER, INTENT(IN) :: order_type_of_halos
 
-      INTEGER :: n, i, ic, j, jv, jv_, je, ilev, jc, jc_, k
+      INTEGER :: n, i, ic, jv, jv_, je, ilev, jc, k
       LOGICAL, ALLOCATABLE :: pack_mask(:)
       INTEGER, ALLOCATABLE :: temp_cells(:), temp_vertices(:), &
                               temp_vertices_owner(:), temp_edges(:), &
                               temp_edges_owner(:), inner_edges(:), &
                               edge_cells(:)
       INTEGER :: n_inner_edges, n_temp_edges, n_temp_cells, n_temp_vertices
-
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      INTEGER, ALLOCATABLE :: temp_num_edges(:), cell_edge(:,:), &
+        &                     edge_cell(:,:,:), edge_cell_owner(:,:,:), &
+        &                     cell_vertex(:,:), vert_cell(:,:)
+#else
+      INTEGER :: temp_num_edges, cell_edge, &
+        & edge_cell, edge_cell_, edge_cell_owner, edge_cell_owner_, &
+        &                     cell_vertex, vert_cell
+#endif
       !---------------------------------------------------------------------
       ! flag_c_list(-1)%idx empty dummy list
       ! flag_c_list(0)%idx  all cells jg where cell_owner(jg) == my_proc
@@ -1298,7 +1842,7 @@ CONTAINS
       ALLOCATE(pack_mask(0))
 
       ! collect cells of level 0
-      n2_ilev_c(0) = COUNT(cell_owner(:)==my_proc)
+      n2_ilev_c(0) = SIZE(owned_cells(:))
 
       IF (n2_ilev_c(0) == wrk_p_patch_pre%n_patch_cells_g) THEN
 
@@ -1315,13 +1859,7 @@ CONTAINS
       ALLOCATE(flag2_c_list(0)%idx(n2_ilev_c(0)), &
         &      flag2_c_list(0)%owner(n2_ilev_c(0)))
 
-      j = 0
-      DO i = 1, wrk_p_patch_pre%n_patch_cells_g
-        IF (cell_owner(i) == my_proc) THEN
-          j = j + 1
-          flag2_c_list(0)%idx(j) = i
-        END IF
-      END DO
+      flag2_c_list(0)%idx(:) = owned_cells(:)
       flag2_c_list(0)%owner(:) = my_proc
 
       n_inner_edges = 0
@@ -1336,33 +1874,143 @@ CONTAINS
                temp_vertices(n2_ilev_c(0) * &
                              wrk_p_patch_pre%cells%max_connectivity))
 
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+
+      ALLOCATE(temp_num_edges(n2_ilev_c(0)), &
+        &      cell_edge(n2_ilev_c(0), wrk_p_patch_pre%cells%max_connectivity), &
+        &      edge_cell(n2_ilev_c(0), wrk_p_patch_pre%cells%max_connectivity, 2), &
+        &      edge_cell_owner(n2_ilev_c(0), wrk_p_patch_pre%cells%max_connectivity, 2))
+
+      DO ic = 1, n2_ilev_c(0)
+
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, &
+          &                      (/flag2_c_list(0)%idx(ic)/), &
+          &                      temp_num_edges(ic))
+      END DO
+
+      CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
+
+      DO ic = 1, n2_ilev_c(0)
+
+        DO i = 1, temp_num_edges(ic)
+
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_edge, &
+            &                      (/flag2_c_list(0)%idx(ic),i/), &
+            &                      cell_edge(ic, i))
+        END DO
+      END DO
+
+      CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
+
+      DO ic = 1, n2_ilev_c(0)
+
+        DO i = 1, temp_num_edges(ic)
+
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+               (/cell_edge(ic,i),1/), edge_cell(ic, i, 1))
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+               (/cell_edge(ic,i),2/), edge_cell(ic, i, 2))
+        END DO
+      END DO
+
+      CALL dist_mult_array_rma_sync(wrk_p_patch_pre%edges%dist)
+
       ! collect inner and outer edges and vertices adjacent to cells of level 0
       DO ic = 1, n2_ilev_c(0)
 
-        DO i = 1, wrk_p_patch_pre%cells%num_edges(flag2_c_list(0)%idx(ic))
+        DO i = 1, temp_num_edges(ic)
 
-          je = wrk_p_patch_pre%cells%edge(flag2_c_list(0)%idx(ic),i)
+          IF (.NOT.(edge_cell(ic, i, 1) <= 0 .OR. &
+            & edge_cell(ic, i, 2) <= 0 .OR. &
+            & edge_cell(ic, i, 1) == edge_cell(ic, i, 2))) THEN
 
-          jc = wrk_p_patch_pre%edges%cell(je, 1)
-          jc_ = wrk_p_patch_pre%edges%cell(je, 2)
+            CALL dist_mult_array_get(dist_cell_owner, 1, &
+              &                      (/edge_cell(ic, i, 1)/), &
+              &                      edge_cell_owner(ic, i, 1))
+            CALL dist_mult_array_get(dist_cell_owner, 1, &
+              &                      (/edge_cell(ic, i, 2)/), &
+              &                      edge_cell_owner(ic, i, 2))
+          END IF
+        END DO
+      END DO
+      CALL dist_mult_array_rma_sync(dist_cell_owner)
+      DO ic = 1, n2_ilev_c(0)
 
-          IF (jc <= 0 .OR. jc_ <= 0 .OR. jc == jc_) THEN
+        DO i = 1, temp_num_edges(ic)
+
+          IF (edge_cell(ic, i, 1) <= 0 .OR. &
+            & edge_cell(ic, i, 2) <= 0 .OR. &
+            & edge_cell(ic, i, 1) == edge_cell(ic, i, 2)) THEN
             n_inner_edges = n_inner_edges + 1
-            inner_edges(n_inner_edges) = je
-          ELSE IF (cell_owner(jc) == cell_owner(jc_)) THEN
-            n_inner_edges = n_inner_edges + 1
-            inner_edges(n_inner_edges) = je
+            inner_edges(n_inner_edges) = cell_edge(ic,i)
           ELSE
-            n_temp_edges = n_temp_edges + 1
-            temp_edges(n_temp_edges) = je
-            edge_cells(n_temp_edges) = flag2_c_list(0)%idx(ic)
+            IF (edge_cell_owner(ic,i,1) == edge_cell_owner(ic,i,2)) THEN
+              n_inner_edges = n_inner_edges + 1
+              inner_edges(n_inner_edges) = cell_edge(ic,i)
+            ELSE
+              n_temp_edges = n_temp_edges + 1
+              temp_edges(n_temp_edges) = cell_edge(ic,i)
+              edge_cells(n_temp_edges) = flag2_c_list(0)%idx(ic)
+            END IF
           END IF
 
           n_temp_vertices = n_temp_vertices + 1
-          temp_vertices(n_temp_vertices) = &
-            wrk_p_patch_pre%cells%vertex(flag2_c_list(0)%idx(ic), i)
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+            &                      (/flag2_c_list(0)%idx(ic),i/), &
+            &                      temp_vertices(n_temp_vertices))
         END DO
       END DO
+
+      CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
+
+      DEALLOCATE(temp_num_edges, cell_edge, edge_cell, edge_cell_owner)
+
+#else
+      ! collect inner and outer edges and vertices adjacent to cells of level 0
+      DO ic = 1, n2_ilev_c(0)
+
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, &
+          &                      (/flag2_c_list(0)%idx(ic)/), temp_num_edges)
+        DO i = 1, temp_num_edges
+
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_edge, &
+            &                      (/flag2_c_list(0)%idx(ic),i/), cell_edge)
+
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+               (/cell_edge,1/), edge_cell)
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+               (/cell_edge,2/), edge_cell_)
+
+          IF (      edge_cell  <= 0 &
+               .OR. edge_cell_ <= 0 &
+               .OR. edge_cell  == edge_cell_) THEN
+            n_inner_edges = n_inner_edges + 1
+            inner_edges(n_inner_edges) = cell_edge
+          ELSE
+
+            CALL dist_mult_array_get(dist_cell_owner, 1, (/edge_cell/), &
+                 edge_cell_owner)
+            CALL dist_mult_array_get(dist_cell_owner, 1, (/edge_cell_/), &
+                 edge_cell_owner_)
+
+            IF (edge_cell_owner == edge_cell_owner_) THEN
+              n_inner_edges = n_inner_edges + 1
+              inner_edges(n_inner_edges) = cell_edge
+            ELSE
+              n_temp_edges = n_temp_edges + 1
+              temp_edges(n_temp_edges) = cell_edge
+              edge_cells(n_temp_edges) = flag2_c_list(0)%idx(ic)
+            END IF
+          END IF
+
+          n_temp_vertices = n_temp_vertices + 1
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+            &                      (/flag2_c_list(0)%idx(ic),i/), &
+            &                      temp_vertices(n_temp_vertices))
+        END DO
+      END DO
+
+#endif
 
       ! remove duplicated inner edges
       CALL insertion_sort(inner_edges(1:n_inner_edges))
@@ -1477,13 +2125,24 @@ CONTAINS
           DEALLOCATE(temp_cells)
           ALLOCATE(temp_cells(n_temp_edges))
         END IF
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+
+        ALLOCATE(edge_cell(n_temp_edges, 1, 2))
+        DO i = 1, n_temp_edges
+          je = temp_edges(i)
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+               (/je,1/), edge_cell(i,1,1))
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+               (/je,2/), edge_cell(i,1,2))
+        ENDDO
+
+        CALL dist_mult_array_rma_sync(wrk_p_patch_pre%edges%dist)
+
         DO i = 1, n_temp_edges
 
-          je = temp_edges(i)
-          jc = wrk_p_patch_pre%edges%cell(je, 1)
-
+          jc = edge_cell(i,1,1)
           IF (jc == edge_cells(i)) THEN
-            jc = wrk_p_patch_pre%edges%cell(je, 2)
+            jc = edge_cell(i,1,2)
           END IF
 
           IF (jc > 0 .AND. jc /= edge_cells(i)) THEN
@@ -1491,6 +2150,28 @@ CONTAINS
             temp_cells(n_temp_cells) = jc
           END IF
         END DO
+        DEALLOCATE(edge_cell)
+
+#else
+
+        DO i = 1, n_temp_edges
+
+          je = temp_edges(i)
+          CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+               (/je,1/), edge_cell)
+
+          IF (edge_cell == edge_cells(i)) THEN
+            CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+                 (/je,2/),edge_cell)
+          END IF
+
+          IF (edge_cell > 0 .AND. edge_cell /= edge_cells(i)) THEN
+            n_temp_cells = n_temp_cells + 1
+            temp_cells(n_temp_cells) = edge_cell
+          END IF
+        END DO
+
+#endif
         !remove duplicated entries
         CALL insertion_sort(temp_cells(1:n_temp_cells))
         CALL remove_duplicated_entries(temp_cells(1:n_temp_cells), n_temp_cells)
@@ -1500,7 +2181,13 @@ CONTAINS
         ALLOCATE(flag2_c_list(2*ilev-1)%idx(n_temp_cells), &
           &      flag2_c_list(2*ilev-1)%owner(n_temp_cells))
         flag2_c_list(2*ilev-1)%idx(:) = temp_cells(1:n_temp_cells)
-        flag2_c_list(2*ilev-1)%owner(:) = cell_owner(temp_cells(1:n_temp_cells))
+        DO i = 1, n_temp_cells
+          CALL dist_mult_array_get(dist_cell_owner, 1, (/temp_cells(i)/), &
+            &                      flag2_c_list(2*ilev-1)%owner(i))
+        END DO
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+        CALL dist_mult_array_rma_sync(dist_cell_owner)
+#endif
 
         ! collect all cells adjacent to the outer vertices
         IF (SIZE(temp_cells(:)) < n_temp_vertices * &
@@ -1511,16 +2198,53 @@ CONTAINS
             &      wrk_p_patch_pre%verts%max_connectivity))
         END IF
         n_temp_cells = 0
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+        ALLOCATE(temp_num_edges(n_temp_vertices), &
+          &      vert_cell(n_temp_vertices, &
+          &                wrk_p_patch_pre%verts%max_connectivity))
         DO jv = 1, n_temp_vertices
           jv_ = temp_vertices(jv)
-          DO i = 1, wrk_p_patch_pre%verts%num_edges(jv_)
-            jc = wrk_p_patch_pre%verts%cell(jv_, i)
-            IF (jc > 0) THEN
+          CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_num_edges, &
+            &                      (/jv_/), temp_num_edges(jv))
+        END DO
+        CALL dist_mult_array_rma_sync(wrk_p_patch_pre%verts%dist)
+        DO jv = 1, n_temp_vertices
+          jv_ = temp_vertices(jv)
+          DO i = 1, temp_num_edges(jv)
+            CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_cell, &
+                 (/jv_,i/), vert_cell(jv,i))
+          END DO
+        END DO
+        CALL dist_mult_array_rma_sync(wrk_p_patch_pre%verts%dist)
+        DO jv = 1, n_temp_vertices
+          jv_ = temp_vertices(jv)
+          DO i = 1, temp_num_edges(jv)
+            IF (vert_cell(jv,i) > 0) THEN
               n_temp_cells = n_temp_cells + 1
-              temp_cells(n_temp_cells) = jc
+              temp_cells(n_temp_cells) = vert_cell(jv,i)
             END IF
           END DO
         END DO
+        DEALLOCATE(temp_num_edges, vert_cell)
+
+#else
+
+        DO jv = 1, n_temp_vertices
+          jv_ = temp_vertices(jv)
+          CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_num_edges, &
+            &                      (/jv_/), temp_num_edges)
+          DO i = 1, temp_num_edges
+            CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_cell, &
+                 (/jv_,i/), vert_cell)
+            IF (vert_cell > 0) THEN
+              n_temp_cells = n_temp_cells + 1
+              temp_cells(n_temp_cells) = vert_cell
+            END IF
+          END DO
+        END DO
+
+#endif
+
         CALL insertion_sort(temp_cells(1:n_temp_cells))
         CALL remove_duplicated_entries(temp_cells(1:n_temp_cells), n_temp_cells)
         ! remove cells that are on level 2*ilev-2 and level 2*ilev-1
@@ -1534,7 +2258,14 @@ CONTAINS
         ALLOCATE(flag2_c_list(2*ilev)%idx(n_temp_cells), &
           &      flag2_c_list(2*ilev)%owner(n_temp_cells))
         flag2_c_list(2*ilev)%idx(:) = temp_cells(1:n_temp_cells)
-        flag2_c_list(2*ilev)%owner(:) = cell_owner(temp_cells(1:n_temp_cells))
+        DO i = 1, n_temp_cells
+          CALL dist_mult_array_get(dist_cell_owner, 1, (/temp_cells(i)/), &
+            &                      flag2_c_list(2*ilev)%owner(i))
+        END DO
+
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+        CALL dist_mult_array_rma_sync(dist_cell_owner)
+#endif
 
         ! get all edges of cells of level 2*ilev and level 2*ilev-1
         IF (SIZE(temp_edges(:)) < (n2_ilev_c(2*ilev) + &
@@ -1557,16 +2288,41 @@ CONTAINS
         END IF
         n_temp_edges = 0
         DO k = -1, 0
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+          ALLOCATE(temp_num_edges(n2_ilev_c(2*ilev+k)))
           DO ic = 1, n2_ilev_c(2*ilev+k)
             jc = flag2_c_list(2*ilev+k)%idx(ic)
-            DO i = 1, wrk_p_patch_pre%cells%num_edges(jc)
-              je = wrk_p_patch_pre%cells%edge(jc, i)
+            CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, &
+              &                      (/jc/), temp_num_edges(ic))
+          END DO
+          CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
+          DO ic = 1, n2_ilev_c(2*ilev+k)
+            jc = flag2_c_list(2*ilev+k)%idx(ic)
+            DO i = 1, temp_num_edges(ic)
               n_temp_edges = n_temp_edges + 1
-              temp_edges(n_temp_edges) = je
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_edge, &
+                   (/jc,i/), temp_edges(n_temp_edges))
+              edge_cells(n_temp_edges) = jc
+            END DO
+          END  DO
+          DEALLOCATE(temp_num_edges)
+#else
+          DO ic = 1, n2_ilev_c(2*ilev+k)
+            jc = flag2_c_list(2*ilev+k)%idx(ic)
+            CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, &
+              &                      (/jc/), temp_num_edges)
+            DO i = 1, temp_num_edges
+              n_temp_edges = n_temp_edges + 1
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_edge, &
+                   (/jc,i/), temp_edges(n_temp_edges))
               edge_cells(n_temp_edges) = jc
             END DO
           END DO
+#endif
         END DO
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+        CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
+#endif
         CALL quicksort(temp_edges(1:n_temp_edges), edge_cells(1:n_temp_edges))
         ! remove all edges of level 2*ilev-2 and 2*ilev-1
         DO k = -2, -1
@@ -1629,20 +2385,63 @@ CONTAINS
         ! collect all vertices of level ilev + 1
         n_temp_vertices = 0
         DO k = -1, 0
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+
+          ALLOCATE(temp_num_edges(n2_ilev_c(2*ilev+k)), &
+            &      cell_vertex(n2_ilev_c(2*ilev+k), &
+            &                  wrk_p_patch_pre%cells%max_connectivity))
           DO ic = 1, n2_ilev_c(2*ilev+k)
 
             jc = flag2_c_list(2*ilev+k)%idx(ic)
 
-            DO i = 1, wrk_p_patch_pre%cells%num_edges(jc)
+            CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, &
+              &                      (/jc/), temp_num_edges(ic))
+          END DO
+          CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
+          DO ic = 1, n2_ilev_c(2*ilev+k)
 
-              jv = wrk_p_patch_pre%cells%vertex(jc, i)
+            jc = flag2_c_list(2*ilev+k)%idx(ic)
 
-              IF (jv > 0) THEN
+            DO i = 1, temp_num_edges(ic)
+
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+                   (/jc,i/), cell_vertex(ic, i))
+            END DO
+          END DO
+          CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
+          DO ic = 1, n2_ilev_c(2*ilev+k)
+            DO i = 1, temp_num_edges(ic)
+              IF (cell_vertex(ic,i) > 0) THEN
                 n_temp_vertices = n_temp_vertices + 1
-                temp_vertices(n_temp_vertices) = jv
+                temp_vertices(n_temp_vertices) = cell_vertex(ic, i)
               END IF
             END DO
           END DO
+          DEALLOCATE(temp_num_edges, cell_vertex)
+
+#else
+
+          DO ic = 1, n2_ilev_c(2*ilev+k)
+
+            jc = flag2_c_list(2*ilev+k)%idx(ic)
+
+            CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_num_edges, &
+              &                      (/jc/), temp_num_edges)
+
+            DO i = 1, temp_num_edges
+
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+                   (/jc,i/),cell_vertex)
+
+              IF (cell_vertex > 0) THEN
+                n_temp_vertices = n_temp_vertices + 1
+                temp_vertices(n_temp_vertices) = cell_vertex
+              END IF
+            END DO
+          END DO
+
+#endif
+
         END DO
 
         CALL insertion_sort(temp_vertices(1:n_temp_vertices))
@@ -1687,6 +2486,7 @@ CONTAINS
       ! INTEGER, ALLOCATABLE, INTENT(OUT) :: owned_edges(:), owned_verts(:)
 
       INTEGER :: i
+      LOGICAL :: position_error
 
       !---------------------------------------------------------------------
       ! flag_c_list(-1)%idx empty dummy list
@@ -1736,9 +2536,13 @@ CONTAINS
       ! compute flag2 arrays
       !--------------------------------------------------------------------------
 
-      IF (COUNT(cell_owner(:)==my_proc) /= wrk_p_patch_pre%n_patch_cells_g) &
+      position_error = .FALSE.
+      DO i = 1, wrk_p_patch_pre%n_patch_cells_g
+        position_error = (owned_cells(i) /= i) .OR. position_error
+      END DO
+      IF (position_error) &
         CALL finish("compute_flag_lists_short", &
-          &         "cell_owner content does not fit for this routine")
+          &         "owned_cells content is inconsistent")
 
       ! set n2_ilev_cve arrays
       n2_ilev_c(:) = 0
@@ -1795,25 +2599,84 @@ CONTAINS
       INTEGER, INTENT(IN) :: vertices(:)
       INTEGER, INTENT(OUT) :: owner(:)
 
-      INTEGER :: i, jv, n, j, jc, &
-        &        t_cells(wrk_p_patch_pre%verts%max_connectivity), &
-        &        t_cell_owner(wrk_p_patch_pre%verts%max_connectivity), &
+      INTEGER :: i, jv, j, temp_num_owners, &
         &        a_iown(2), a_mod_iown(2)
       LOGICAL :: swap
-
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      INTEGER, ALLOCATABLE :: temp_num_edges(:), t_cells(:,:), t_cell_owner(:,:)
+#else
+      INTEGER :: t_cells(wrk_p_patch_pre%verts%max_connectivity), &
+        &        t_cell_owner(wrk_p_patch_pre%verts%max_connectivity), &
+        &        temp_num_edges
+#endif
       ! compute ownership of vertices
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+
+      ALLOCATE(temp_num_edges(SIZE(vertices)), &
+        &      t_cells(SIZE(vertices),wrk_p_patch_pre%verts%max_connectivity), &
+        &      t_cell_owner(SIZE(vertices),wrk_p_patch_pre%verts%max_connectivity))
       DO i = 1, SIZE(vertices)
         jv = vertices(i)
-        n = wrk_p_patch_pre%verts%num_edges(jv)
-        t_cells(1:n) = wrk_p_patch_pre%verts%cell(jv, 1:n)
-        CALL insertion_sort(t_cells(1:n))
-        t_cell_owner(1:n) = cell_owner(t_cells(1:n))
-        jc = COUNT(t_cell_owner(1:n) >= 0)
-        t_cell_owner(1:jc) = PACK(t_cell_owner(1:n), t_cell_owner(1:n) >= 0)
-        n = jc
+        CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_num_edges, &
+             (/jv/), temp_num_edges(i))
+      END DO
+      CALL dist_mult_array_rma_sync(wrk_p_patch_pre%verts%dist)
+      DO i = 1, SIZE(vertices)
+        jv = vertices(i)
+        DO j = 1, temp_num_edges(i)
+          CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_cell, &
+               (/jv, j/), t_cells(i,j))
+        END DO
+      END DO
+      CALL dist_mult_array_rma_sync(wrk_p_patch_pre%verts%dist)
+      DO i = 1, SIZE(vertices)
+        CALL insertion_sort(t_cells(i,1:temp_num_edges(i)))
+        DO j = 1, temp_num_edges(i)
+          CALL dist_mult_array_get(dist_cell_owner, 1, (/t_cells(i,j)/), &
+            &                      t_cell_owner(i,j))
+        END DO
+      END DO
+      CALL dist_mult_array_rma_sync(dist_cell_owner)
+      DO i = 1, SIZE(vertices)
+        temp_num_owners = COUNT(t_cell_owner(i,1:temp_num_edges(i)) >= 0)
+        t_cell_owner(i,1:temp_num_owners) = PACK(t_cell_owner(i,1:temp_num_edges(i)), &
+          &                         t_cell_owner(i,1:temp_num_edges(i)) >= 0)
+        a_iown(1) = t_cell_owner(i,1)
+        a_mod_iown(1) = MOD(a_iown(1), 2)
+        DO j = 2, temp_num_owners
+          a_iown(2) = t_cell_owner(i,j)
+          a_mod_iown(2) = MOD(a_iown(2), 2)
+          ! 50% chance of acquiring a vertex
+          swap = a_iown(1) > a_iown(2) &
+               .NEQV. a_mod_iown(1) == a_mod_iown(2)
+          a_iown(1) = MERGE(a_iown(2), a_iown(1), swap)
+          a_mod_iown(1) = MERGE(a_mod_iown(2), a_mod_iown(1), swap)
+        END DO
+        owner(i) = a_iown(1)
+      END DO
+      DEALLOCATE(temp_num_edges, t_cells, t_cell_owner)
+
+#else
+
+      DO i = 1, SIZE(vertices)
+        jv = vertices(i)
+        CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_num_edges, &
+             (/jv/), temp_num_edges)
+        DO j = 1, temp_num_edges
+          CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_cell, &
+               (/jv, j/), t_cells(j))
+        END DO
+        CALL insertion_sort(t_cells(1:temp_num_edges))
+        DO j = 1, temp_num_edges
+          CALL dist_mult_array_get(dist_cell_owner, 1, (/t_cells(j)/), &
+            &                      t_cell_owner(j))
+        END DO
+        temp_num_owners = COUNT(t_cell_owner(1:temp_num_edges) >= 0)
+        t_cell_owner(1:temp_num_owners) = PACK(t_cell_owner(1:temp_num_edges), &
+             t_cell_owner(1:temp_num_edges) >= 0)
         a_iown(1) = t_cell_owner(1)
         a_mod_iown(1) = MOD(a_iown(1), 2)
-        DO j = 2, n
+        DO j = 2, temp_num_owners
           a_iown(2) = t_cell_owner(j)
           a_mod_iown(2) = MOD(a_iown(2), 2)
           ! 50% chance of acquiring a vertex
@@ -1824,21 +2687,66 @@ CONTAINS
         END DO
         owner(i) = a_iown(1)
       END DO
+
+#endif
+
     END SUBROUTINE compute_vertex_owner
 
     SUBROUTINE compute_edge_owner(edges, owner)
       INTEGER, INTENT(IN) :: edges(:)
       INTEGER, INTENT(OUT) :: owner(:)
 
-      INTEGER :: i, je, a_idx(2), a_iown(2), a_mod_iown(2)
+      INTEGER :: i, je, a_mod_iown(2)
+
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      INTEGER, ALLOCATABLE :: a_idx(:,:), a_iown(:,:)
+#else
+      INTEGER :: a_idx(2), a_iown(2)
+#endif
+
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      ALLOCATE(a_idx(SIZE(edges), 2), a_iown(SIZE(edges), 2))
+      DO i = 1, SIZE(edges)
+
+        je = edges(i)
+        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+             (/je,1/), a_idx(i, 1))
+        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+             (/je,2/),a_idx(i, 2))
+      END DO
+      CALL dist_mult_array_rma_sync(wrk_p_patch_pre%edges%dist)
+      DO i = 1, SIZE(edges)
+
+        ! outer boundary edges always belong to single adjacent cell owner
+        a_idx(i,:) = MERGE(a_idx(i,:), MAXVAL(a_idx(i,:)), a_idx(i,:) > 0)
+        CALL dist_mult_array_get(dist_cell_owner, 1, (/a_idx(i,1)/), a_iown(i,1))
+        CALL dist_mult_array_get(dist_cell_owner, 1, (/a_idx(i,2)/), a_iown(i,2))
+      END DO
+      CALL dist_mult_array_rma_sync(dist_cell_owner)
+      DO i = 1, SIZE(edges)
+
+        a_iown(i,:) = MERGE(a_iown(i,:), MAXVAL(a_iown(i,:)), a_iown(i,:) >= 0)
+        a_mod_iown(1:2) = MOD(a_iown(i,1:2), 2)
+        ! 50% chance of acquiring an edge
+        owner(i) = MERGE(a_iown(i,1), a_iown(i,2), &
+          &              (a_iown(i,1) > a_iown(i,2)) .EQV. &
+          &              (a_mod_iown(1) == a_mod_iown(2)))
+      END DO
+      DEALLOCATE(a_idx, a_iown)
+
+#else
 
       DO i = 1, SIZE(edges)
 
         je = edges(i)
-        a_idx(:) = wrk_p_patch_pre%edges%cell(je, 1:2)
+        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+             (/je,1/), a_idx(1))
+        CALL dist_mult_array_get(wrk_p_patch_pre%edges%dist, e_cell, &
+             (/je,2/), a_idx(2))
         ! outer boundary edges always belong to single adjacent cell owner
         a_idx(:) = MERGE(a_idx(:), MAXVAL(a_idx(:)), a_idx(:) > 0)
-        a_iown(:) = cell_owner(a_idx(:))
+        CALL dist_mult_array_get(dist_cell_owner, 1, (/a_idx(1)/), a_iown(1))
+        CALL dist_mult_array_get(dist_cell_owner, 1, (/a_idx(2)/), a_iown(2))
         a_iown(:) = MERGE(a_iown(:), MAXVAL(a_iown(:)), a_iown(:) >= 0)
         a_mod_iown(1:2) = MOD(a_iown(1:2), 2)
         ! 50% chance of acquiring an edge
@@ -1846,6 +2754,9 @@ CONTAINS
           &              (a_iown(1) > a_iown(2)) .EQV. &
           &              (a_mod_iown(1) == a_mod_iown(2)))
       END DO
+
+#endif
+
     END SUBROUTINE compute_edge_owner
 
   END SUBROUTINE divide_patch
@@ -1884,13 +2795,14 @@ CONTAINS
        flag2_list, n2_ilev, decomp_info, &
        start_index, start_block, end_index, end_block, &
        start_g, end_g, order_type_of_halos, l_cell_correction, refin_ctrl, &
-       refinement_predicate)
+       refin_ctrl_aidx, refinement_predicate)
     INTEGER, INTENT(in) :: n_patch_cve, n_patch_cve_g, &
          patch_id, nblks, npromz, cell_type, &
          min_rlcve, min_rlcve_int, max_rlcve, max_ilev, max_hw_cve
-    INTEGER, INTENT(in) :: order_type_of_halos
+    INTEGER, INTENT(in) :: order_type_of_halos, refin_ctrl_aidx
     LOGICAL, INTENT(in) :: l_cell_correction
-    INTEGER, INTENT(in) :: refin_ctrl(:), n2_ilev(0:)
+    TYPE(dist_mult_array) :: refin_ctrl
+    INTEGER, INTENT(in) :: n2_ilev(0:)
     TYPE(nb_flag_list_elem), INTENT(in) :: flag2_list(0:)
     TYPE(t_grid_domain_decomp_info), INTENT(inout) :: decomp_info
     INTEGER, DIMENSION(min_rlcve:), INTENT(inout) :: &
@@ -1905,9 +2817,13 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: routine = 'mo_setup_subdivision::build_patch_start_end'
 
-    INTEGER :: i, ilev, ilev1, ilev_st, irl0, irlev, j, jb, jf, jl, &
+    INTEGER :: i, ilev, ilev1, ilev_st, irlev, j, jb, jf, jl, &
          exec_sequence, ref_flag, k, k_start, n_inner, temp
-
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+    INTEGER, ALLOCATABLE, DIMENSION(:) :: irl0
+#else
+    INTEGER :: irl0
+#endif
     INTEGER, ALLOCATABLE :: temp_glb_index(:), permutation(:), temp_ilev(:), &
       &                     temp_owner(:)
 
@@ -1948,9 +2864,26 @@ CONTAINS
       k = 1
       jf = 1
       j = 0
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      ALLOCATE(irl0(n_patch_cve))
       DO WHILE (j < n_patch_cve_g .AND. jf <= n_patch_cve)
         j = temp_glb_index(jf)
-        irl0 = refin_ctrl(j)
+        CALL dist_mult_array_get(refin_ctrl, refin_ctrl_aidx, (/j/), irl0(jf))
+        jf = jf + 1
+      END DO
+      CALL dist_mult_array_rma_sync(refin_ctrl)
+      DO i = 1, jf - 1
+        IF (refinement_predicate(temp_ilev(i), irl0(i))) THEN
+          decomp_info%glb_index(k) = temp_glb_index(i)
+          decomp_info%owner_local(k) = temp_owner(i)
+          k = k + 1
+        END IF
+      END DO
+      DEALLOCATE(irl0)
+#else
+      DO WHILE (j < n_patch_cve_g .AND. jf <= n_patch_cve)
+        j = temp_glb_index(jf)
+        CALL dist_mult_array_get(refin_ctrl, refin_ctrl_aidx, (/j/), irl0)
         IF (refinement_predicate(temp_ilev(jf), irl0)) THEN
           decomp_info%glb_index(k) = j
           decomp_info%owner_local(k) = temp_owner(jf)
@@ -1958,6 +2891,7 @@ CONTAINS
         END IF
         jf = jf + 1
       END DO
+#endif
       n_inner = k - 1
       DEALLOCATE(temp_ilev, temp_glb_index, temp_owner)
 
@@ -2037,9 +2971,35 @@ CONTAINS
       ! cannot be used here
       DO ilev = 1, max_ilev
         irlev = MAX(min_rlcve, min_rlcve_int - ilev)  ! index section into which the halo points are put
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+        ALLOCATE(irl0(n2_ilev(ilev)))
         DO j = 1, n2_ilev(ilev)
           jf = flag2_list(ilev)%idx(j)
-          irl0 = refin_ctrl(jf)
+          CALL dist_mult_array_get(refin_ctrl, refin_ctrl_aidx, (/jf/), irl0(j))
+        END DO
+        CALL dist_mult_array_rma_sync(refin_ctrl)
+        DO j = 1, n2_ilev(ilev)
+          jf = flag2_list(ilev)%idx(j)
+          IF (.NOT. refinement_predicate(ilev, irl0(j))) THEN
+            k = k + 1
+            decomp_info%glb_index(k) = jf
+            decomp_info%owner_local(k) = flag2_list(ilev)%owner(j)
+            jb = blk_no(k) ! block index
+            jl = idx_no(k) ! line index
+            ! This ensures that just the first point found at this irlev is saved as start point
+            IF (start_index(irlev)==-9999) THEN
+              start_index(irlev) = jl
+              start_block(irlev) = jb
+            ENDIF
+            end_index(irlev) = jl
+            end_block(irlev) = jb
+          END IF
+        END DO
+        DEALLOCATE(irl0)
+#else
+        DO j = 1, n2_ilev(ilev)
+          jf = flag2_list(ilev)%idx(j)
+          CALL dist_mult_array_get(refin_ctrl, refin_ctrl_aidx, (/jf/), irl0)
           IF (.NOT. refinement_predicate(ilev, irl0)) THEN
             k = k + 1
             decomp_info%glb_index(k) = jf
@@ -2055,6 +3015,7 @@ CONTAINS
             end_block(irlev) = jb
           END IF
         END DO
+#endif
 
         ! Just in case that no grid point is found (may happen for ilev=1)
         IF (.NOT. l_cell_correction .AND. start_index(irlev)==-9999) THEN
@@ -2409,27 +3370,29 @@ CONTAINS
   !! Initial version by Rainer Johanni, Nov 2009
   !!
   SUBROUTINE divide_subset_geometric(subset_flag, n_proc, wrk_p_patch_pre, &
-                                     owner, lparent_level, divide_for_radiation)
+                                     dist_cell_owner, lparent_level, &
+                                     divide_for_radiation)
 
-    INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
+    INTEGER, ALLOCATABLE   :: subset_flag(:) ! if > 0 a cell belongs to the subset
     INTEGER, INTENT(in)    :: n_proc   ! Number of processors
-    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
-    INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
+    TYPE(t_pre_patch), INTENT(INOUT) :: wrk_p_patch_pre ! out is required for
+                                                        ! the distributed arrays
+    TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner ! receives the owner PE for every cell
     ! (-1 for cells not in subset)
     LOGICAL, INTENT(IN)    :: lparent_level ! indicates if domain decomposition is executed for
                               ! the parent grid level (true) or for the target grid level (false)
     ! Private flag if patch should be divided for radiation calculation
     LOGICAL, INTENT(in) :: divide_for_radiation
 
-    INTEGER :: i, j, nc, nc_g, ncs, nce, n_onb_points, jm(1)
+    INTEGER :: j, nc, nc_g, ncs, nce, n_onb_points, jm(1)
     INTEGER :: count_physdom(0:max_phys_dom), count_total, id_physdom(max_phys_dom), &
                num_physdom, proc_count(max_phys_dom), proc_offset(max_phys_dom), checksum, &
                ncell_offset(0:max_phys_dom), ncell_offset_g(0:max_phys_dom)
     TYPE(t_cell_info), ALLOCATABLE :: cell_desc(:)
-    INTEGER, ALLOCATABLE :: owner_gather(:,:)
     REAL(wp) :: corr_ratio(max_phys_dom)
     LOGICAL  :: lsplit_merged_domains, locean
-    INTEGER :: my_cell_start, my_cell_end, current_end, last_end
+    INTEGER :: my_cell_start, my_cell_end
+    INTEGER, POINTER :: owner_chunk_ptr(:)
     INTEGER :: ierror
     CHARACTER(*), PARAMETER :: routine = 'divide_subset_geometric'
 
@@ -2449,26 +3412,16 @@ CONTAINS
       locean = .FALSE.
     ENDIF
 
-    ! Initialization of cell owner field
-    owner(:) = -1
-
     lsplit_merged_domains = .FALSE.
 
+    my_cell_start = LBOUND(subset_flag, 1)
+    my_cell_end = UBOUND(subset_flag, 1)
     IF (p_n_work > 1) THEN
-      my_cell_start = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
-           &               * INT(p_pe_work, i8)) &
-           &              / INT(p_n_work, i8) + 1)
-      my_cell_end = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
-           &             * INT(p_pe_work + 1, i8)) &
-           &            / INT(p_n_work, i8))
 #ifndef NOMPI
       CALL init_divide_cells_by_location_mpi
 #else
       CALL finish("number of processors > 1 but MPI unavailable!")
 #endif
-    ELSE
-      my_cell_start = 1
-      my_cell_end = wrk_p_patch_pre%n_patch_cells_g
     END IF
 
     ! Check if domain merging has been applied; for large PE numbers, calculating the DD
@@ -2554,7 +3507,11 @@ CONTAINS
       num_physdom       = 1
       proc_count(1)     = n_proc
       proc_offset(1)    = 0
-      id_physdom(1)     = MAXVAL(subset_flag)
+      IF (SIZE(subset_flag) > 0) THEN
+        id_physdom(1) = p_max(MAXVAL(subset_flag), p_comm_work)
+      ELSE
+        id_physdom(1) = p_max(0, p_comm_work)
+      END IF
     ENDIF
 
 
@@ -2567,13 +3524,12 @@ CONTAINS
 
     CALL build_cell_info(my_cell_start, my_cell_end, cell_desc, &
          wrk_p_patch_pre, divide_for_radiation, num_physdom, &
-         subset_flag(my_cell_start:my_cell_end), &
-         lsplit_merged_domains, lparent_level, locean, &
+         subset_flag, lsplit_merged_domains, lparent_level, locean, &
          id_physdom, ncell_offset, n_onb_points)
     IF (p_n_work > 1) THEN
 #ifndef NOMPI
       CALL mpi_allreduce(ncell_offset, ncell_offset_g, SIZE(ncell_offset), &
-           p_int, mpi_sum, p_comm_work, ierror)
+           p_int, mpi_sum, wrk_p_patch_pre%dist_array_comm, ierror)
       IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
 #endif
     END IF
@@ -2589,7 +3545,7 @@ CONTAINS
 #ifndef NOMPI
         nc_g = ncell_offset_g(j) - ncell_offset_g(j-1)
         CALL divide_cells_by_location_mpi(nc_g, nc, cell_desc(ncs:nce), &
-             proc_count(j), p_comm_work)
+             proc_count(j), wrk_p_patch_pre%dist_array_comm)
 #endif
       ELSE
         CALL divide_cells_by_location(nc, cell_desc(ncs:nce), &
@@ -2606,30 +3562,24 @@ CONTAINS
 
     ENDDO
 
+    ! set up distributed owner array
+    CALL create_dist_cell_owner(dist_cell_owner, &
+      &                         wrk_p_patch_pre%n_patch_cells_g, &
+      &                         wrk_p_patch_pre%dist_array_comm, &
+      &                         wrk_p_patch_pre%dist_array_pes)
+
+    ! Initialization of cell owner field
+    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, owner_chunk_ptr)
+    owner_chunk_ptr = -1
+
     IF (p_n_work > 1) THEN
 #ifndef NOMPI
-      CALL set_owners_mpi(1, wrk_p_patch_pre%n_patch_cells_g, &
-           my_cell_start, my_cell_end, &
-           owner(my_cell_start:my_cell_end), wrk_p_patch_pre, &
-           cell_desc, ncell_offset, num_physdom, n_onb_points)
-      ALLOCATE(owner_gather(0:p_n_work-1, 2))
-      last_end = 0
-      DO i = 0, p_n_work - 1
-        current_end = INT((INT(wrk_p_patch_pre%n_patch_cells_g, i8) &
-             &             * INT(i + 1, i8)) / INT(p_n_work, i8))
-        owner_gather(i, 1) = current_end - last_end
-        owner_gather(i, 2) = last_end
-        last_end = current_end
-      END DO
-      CALL mpi_allgatherv(mpi_in_place, owner_gather(p_pe_work, 1), p_int, &
-           owner, owner_gather(:, 1), owner_gather(:, 2), p_int, &
-           p_comm_work, ierror)
-      IF (ierror /= mpi_success) CALL finish(routine, 'error in allgatherv')
-      DEALLOCATE(owner_gather)
+      CALL set_owners_mpi(my_cell_start, my_cell_end, dist_cell_owner, &
+           wrk_p_patch_pre, cell_desc, ncell_offset, num_physdom, n_onb_points)
 #endif
     ELSE
       CALL set_owners(1, wrk_p_patch_pre%n_patch_cells_g, &
-           owner, wrk_p_patch_pre, cell_desc, ncell_offset, &
+           owner_chunk_ptr, wrk_p_patch_pre, cell_desc, ncell_offset, &
            num_physdom, n_onb_points)
     END IF
 
@@ -2642,7 +3592,7 @@ CONTAINS
        id_physdom, ncell_offset, n_onb_points)
     INTEGER, INTENT(in) :: range_start, range_end
     TYPE(t_cell_info), INTENT(out) :: cell_desc(range_start:range_end)
-    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
+    TYPE(t_pre_patch), INTENT(inout) :: wrk_p_patch_pre
     LOGICAL, INTENT(in) :: divide_for_radiation, lsplit_merged_domains, &
          lparent_level, locean
     INTEGER, INTENT(in) :: num_physdom
@@ -2652,14 +3602,38 @@ CONTAINS
     INTEGER, INTENT(out) :: n_onb_points
     INTEGER, INTENT(in) :: id_physdom(max_phys_dom)
 
-    INTEGER :: i, j, nc, jd, idp, jv
+    INTEGER :: i, j, nc, jd, idp
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+    INTEGER, ALLOCATABLE :: refin_ctrl(:), cell_vertex(:,:)
+    REAL(wp), ALLOCATABLE :: temp_lat(:,:), temp_lon(:,:)
+    REAL(wp), ALLOCATABLE :: cclat(:), cclon(:)
+#else
+    INTEGER :: refin_ctrl, cell_vertex
+    REAL(wp) :: temp_lat, temp_lon
     REAL(wp) :: cclat, cclon
+#endif
 
     nc = 0
     n_onb_points = 0
 
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+    ALLOCATE(cclat(range_start:range_end), cclon(range_start:range_end), &
+      &      cell_vertex(range_start:range_end,3), &
+      &      temp_lat(range_start:range_end,3), &
+      &      temp_lon(range_start:range_end,3))
+#endif
+
     IF(divide_for_radiation) THEN
 
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      DO j = range_start, range_end
+        IF (subset_flag(j)<=0) CYCLE ! Cell not in subset
+        CALL dist_mult_array_get( &
+          wrk_p_patch_pre%cells%dist, c_center, (/j, 1/), cclat(j))
+        CALL dist_mult_array_get(&
+          wrk_p_patch_pre%cells%dist, c_center, (/j, 2/), cclon(j))
+      END DO
+      CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
       DO j = range_start, range_end
         cell_desc(j)%lat = HUGE(cell_desc(j)%lat)! for finding min lat/lon
         cell_desc(j)%lon = HUGE(cell_desc(j)%lon) ! for finding min lat/lon
@@ -2671,8 +3645,68 @@ CONTAINS
         ! This is accomplished by mapping all cells to one section
         ! lying in the NH and having a width of 0.4*pi (72 deg)
 
-        cclat = wrk_p_patch_pre%cells%center(j)%lat
-        cclon = wrk_p_patch_pre%cells%center(j)%lon
+        IF (cclat(j)>=0._wp .AND. cclon(j)>=-0.2_wp*pi .AND. cclon(j)<=0.2_wp*pi) THEN
+        ELSE IF (cclat(j)>=0._wp .AND. cclon(j)>=0.2_wp*pi .AND. cclon(j)<=0.6_wp*pi) THEN
+          cclon(j) = cclon(j) - 0.4_wp*pi
+        ELSE IF (cclat(j)>=0._wp .AND. cclon(j)>=0.6_wp*pi) THEN
+          cclon(j) = cclon(j) - 0.8_wp*pi
+        ELSE IF (cclat(j)>=0._wp .AND. cclon(j)<=-0.6_wp*pi) THEN
+          cclon(j) = cclon(j) + 0.8_wp*pi
+        ELSE IF (cclat(j)>=0._wp .AND. cclon(j)>=-0.6_wp*pi .AND. &
+          &      cclon(j)<=-0.2_wp*pi) THEN
+          cclon(j) = cclon(j) + 0.4_wp*pi
+        ELSE IF (cclat(j)<0._wp .AND. &
+          &      (cclon(j)<=-0.8_wp*pi .OR. cclon(j)>=0.8_wp*pi)) THEN
+          cclat(j) = -cclat(j)
+          cclon(j) = cclon(j) + pi
+        ELSE IF (cclat(j)<0._wp .AND. cclon(j)>=-0.8_wp*pi .AND. &
+          &      cclon(j)<=-0.4_wp*pi) THEN
+          cclat(j) = -cclat(j)
+          cclon(j) = cclon(j) + 0.6_wp*pi
+        ELSE IF (cclat(j)<0._wp .AND. cclon(j)>=-0.4_wp*pi .AND. &
+          &      cclon(j)<=0.0_wp*pi) THEN
+          cclat(j) = -cclat(j)
+          cclon(j) = cclon(j) + 0.2_wp*pi
+        ELSE IF (cclat(j)<0._wp .AND. cclon(j)>=0.0_wp*pi .AND. &
+          &      cclon(j)<=0.4_wp*pi) THEN
+          cclat(j) = -cclat(j)
+          cclon(j) = cclon(j) - 0.2_wp*pi
+        ELSE IF (cclat(j)<0._wp .AND. cclon(j)>=0.4_wp*pi .AND. &
+          &      cclon(j)<=0.8_wp*pi) THEN
+          cclat(j) = -cclat(j)
+          cclon(j) = cclon(j) - 0.6_wp*pi
+        ENDIF
+
+        IF (cclon(j) > pi) THEN
+          cclon(j) = cclon(j) - 2._wp*pi
+          cclon(j) = cclon(j) + 2._wp*pi
+        ELSE IF (cclon(j) < -pi) THEN
+        ENDIF
+
+        cell_desc(range_start + nc)%lat = fxp_lat(cclat(j))
+        cell_desc(range_start + nc)%lon = fxp_lon(cclon(j))
+        cell_desc(range_start + nc)%cell_number = j
+        cell_desc(range_start + nc)%owner = 0
+
+        nc = nc+1 ! Cell counter
+
+      ENDDO
+#else
+      DO j = range_start, range_end
+        cell_desc(j)%lat = HUGE(cell_desc(j)%lat)! for finding min lat/lon
+        cell_desc(j)%lon = HUGE(cell_desc(j)%lon) ! for finding min lat/lon
+        IF (subset_flag(j)<=0) CYCLE ! Cell not in subset
+
+        ! Patch division for radiation calculations:
+        ! To minimize load imbalance, every patch contains 10 areas
+        ! distributed in a way similar as the "diamonds" in GME
+        ! This is accomplished by mapping all cells to one section
+        ! lying in the NH and having a width of 0.4*pi (72 deg)
+
+        CALL dist_mult_array_get( &
+          wrk_p_patch_pre%cells%dist, c_center, (/j, 1/), cclat)
+        CALL dist_mult_array_get(&
+          wrk_p_patch_pre%cells%dist, c_center, (/j, 2/), cclon)
 
         IF (cclat>=0._wp .AND. cclon>=-0.2_wp*pi .AND. cclon<=0.2_wp*pi) THEN
         ELSE IF (cclat>=0._wp .AND. cclon>=0.2_wp*pi .AND. cclon<=0.6_wp*pi) THEN
@@ -2702,8 +3736,8 @@ CONTAINS
 
         IF (cclon > pi) THEN
           cclon = cclon - 2._wp*pi
-        ELSE IF (cclon < -pi) THEN
           cclon = cclon + 2._wp*pi
+        ELSE IF (cclon < -pi) THEN
         ENDIF
 
         cell_desc(range_start + nc)%lat = fxp_lat(cclat)
@@ -2714,32 +3748,112 @@ CONTAINS
         nc = nc+1 ! Cell counter
 
       ENDDO
+#endif
 
       ncell_offset(0) = 0
       ncell_offset(1) = nc
 
     ELSE IF (wrk_p_patch_pre%cell_type == 6) THEN
 
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
       DO j = range_start, range_end
 
         IF (subset_flag(j) <= 0) CYCLE
 
-        cell_desc(range_start + nc)%lat = fxp_lat(wrk_p_patch_pre%cells%center(j)%lat)
-        cell_desc(range_start + nc)%lon = fxp_lon(wrk_p_patch_pre%cells%center(j)%lon)
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, &
+             (/j, 1/), cclat(j))
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, &
+             (/j, 2/), cclon(j))
+      END DO
+      CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
+      DO j = range_start, range_end
+
+        IF (subset_flag(j) <= 0) CYCLE
+        cell_desc(range_start + nc)%lat = fxp_lat(cclat(j))
+        cell_desc(range_start + nc)%lon = fxp_lon(cclon(j))
         cell_desc(range_start + nc)%cell_number = j
         cell_desc(range_start + nc)%owner = 0
 
         nc = nc + 1 ! Cell counter
-
       ENDDO
+#else
+      DO j = range_start, range_end
+
+        IF (subset_flag(j) <= 0) CYCLE
+
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, &
+             (/j, 1/), cclat)
+        CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, &
+             (/j, 2/), cclon)
+        cell_desc(range_start + nc)%lat = fxp_lat(cclat)
+        cell_desc(range_start + nc)%lon = fxp_lon(cclon)
+        cell_desc(range_start + nc)%cell_number = j
+        cell_desc(range_start + nc)%owner = 0
+
+        nc = nc + 1 ! Cell counter
+      ENDDO
+#endif
 
       ncell_offset(1) = nc
 
     ELSE ! domain decomposition for triangular cells with optional splitting into physical domains
 
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      ALLOCATE(refin_ctrl(range_start:range_end))
+#endif
+
       DO jd = 1, num_physdom
 
         idp = id_physdom(jd)
+
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+        DO j = range_start, range_end
+
+          ! Skip cell if it is not in subset or does not belong to current physical domain
+          IF (subset_flag(j) /= idp .AND. lsplit_merged_domains .OR. subset_flag(j) <= 0) CYCLE
+
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_refin_ctrl, &
+               (/j/), refin_ctrl(j))
+
+        END DO
+        CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
+        DO j = range_start, range_end
+
+          ! Skip cell if it is not in subset or does not belong to current physical domain
+          IF (subset_flag(j) /= idp .AND. lsplit_merged_domains .OR. subset_flag(j) <= 0) CYCLE
+
+          IF (lparent_level .AND. refin_ctrl(j) == -1 .OR. .NOT. lparent_level &
+            & .AND. refin_ctrl(j) >= 1 .AND. refin_ctrl(j) <= 3 .AND. .NOT. locean) &
+            CYCLE
+
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, &
+               (/j, 1/), cclat(j))
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, &
+               (/j, 2/), cclon(j))
+
+          DO i = 1, 3
+            CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+                 (/j,i/), cell_vertex(j,i))
+          ENDDO
+        END DO
+        CALL dist_mult_array_rma_sync(wrk_p_patch_pre%cells%dist)
+        DO j = range_start, range_end
+
+          ! Skip cell if it is not in subset or does not belong to current physical domain
+          IF (subset_flag(j) /= idp .AND. lsplit_merged_domains .OR. subset_flag(j) <= 0) CYCLE
+
+          IF (lparent_level .AND. refin_ctrl(j) == -1 .OR. .NOT. lparent_level &
+            & .AND. refin_ctrl(j) >= 1 .AND. refin_ctrl(j) <= 3 .AND. .NOT. locean) &
+            CYCLE
+
+          DO i = 1, 3
+            CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+                 (/cell_vertex(j,i), 1/), temp_lat(j,i))
+            CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+                 (/cell_vertex(j,i), 2/), temp_lon(j,i))
+          ENDDO
+        END DO
+        CALL dist_mult_array_rma_sync(wrk_p_patch_pre%verts%dist)
 
 !CDIR NODEP
         DO j = range_start, range_end
@@ -2749,16 +3863,61 @@ CONTAINS
 
           ! Disregard outer nest boundary points for the time being. They do very little
           ! computational work, so they can be added to the closest PEs afterwards
-          IF (lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) == -1   .OR.     &
-              .NOT. lparent_level .AND. wrk_p_patch_pre%cells%refin_ctrl(j) >= 1 .AND. &
-               wrk_p_patch_pre%cells%refin_ctrl(j) <= 3 .AND. .NOT. locean) THEN
+          IF (lparent_level .AND. refin_ctrl(j) == -1 .OR. .NOT. lparent_level &
+            & .AND. refin_ctrl(j) >= 1 .AND. refin_ctrl(j) <= 3 .AND. .NOT. locean) THEN
             cell_desc(range_end-n_onb_points)%cell_number = j
             n_onb_points = n_onb_points + 1
             CYCLE
           ENDIF
 
-          cclat = wrk_p_patch_pre%cells%center(j)%lat
-          cclon = wrk_p_patch_pre%cells%center(j)%lon
+          ! Using the center of the cells for geometric subdivision leads
+          ! to "toothed" edges of the subdivision area
+          ! Thus we use the minimum lat/lon as subdivision criterion.
+
+          IF (cclat(j) >= 0._wp) THEN
+            DO i = 1, 3
+              cclat(j) = MAX(cclat(j), temp_lat(j,i))
+              cclon(j) = MAX(cclon(j), temp_lon(j,i))
+            ENDDO
+          ELSE
+            DO i = 1, 3
+              cclat(j) = MIN(cclat(j), temp_lat(j,i))
+              cclon(j) = MAX(cclon(j), temp_lon(j,i))
+            ENDDO
+          ENDIF
+
+          cell_desc(range_start + nc)%lat = fxp_lat(cclat(j))
+          cell_desc(range_start + nc)%lon = fxp_lon(cclon(j))
+          cell_desc(range_start + nc)%cell_number = j
+          cell_desc(range_start + nc)%owner = 0
+
+          nc = nc+1 ! Cell counter
+
+        ENDDO
+#else
+
+!CDIR NODEP
+        DO j = range_start, range_end
+
+          ! Skip cell if it is not in subset or does not belong to current physical domain
+          IF (subset_flag(j) /= idp .AND. lsplit_merged_domains .OR. subset_flag(j) <= 0) CYCLE
+
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_refin_ctrl, &
+               (/j/), refin_ctrl)
+
+          ! Disregard outer nest boundary points for the time being. They do very little
+          ! computational work, so they can be added to the closest PEs afterwards
+          IF (lparent_level .AND. refin_ctrl == -1 .OR. .NOT. lparent_level &
+            & .AND. refin_ctrl >= 1 .AND. refin_ctrl <= 3 .AND. .NOT. locean) THEN
+            cell_desc(range_end-n_onb_points)%cell_number = j
+            n_onb_points = n_onb_points + 1
+            CYCLE
+          ENDIF
+
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, &
+               (/j, 1/), cclat)
+          CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_center, &
+               (/j, 2/), cclon)
 
           ! Using the center of the cells for geometric subdivision leads
           ! to "toothed" edges of the subdivision area
@@ -2766,15 +3925,25 @@ CONTAINS
 
           IF (cclat >= 0._wp) THEN
             DO i = 1, 3
-              jv = wrk_p_patch_pre%cells%vertex(j,i)
-              cclat = MAX(cclat, wrk_p_patch_pre%verts%vertex(jv)%lat)
-              cclon = MAX(cclon, wrk_p_patch_pre%verts%vertex(jv)%lon)
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+                   (/j,i/), cell_vertex)
+              CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+                   (/cell_vertex, 1/), temp_lat)
+              CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+                   (/cell_vertex, 2/), temp_lon)
+              cclat = MAX(cclat, temp_lat)
+              cclon = MAX(cclon, temp_lon)
             ENDDO
           ELSE
             DO i = 1, 3
-              jv = wrk_p_patch_pre%cells%vertex(j,i)
-              cclat = MIN(cclat, wrk_p_patch_pre%verts%vertex(jv)%lat)
-              cclon = MAX(cclon, wrk_p_patch_pre%verts%vertex(jv)%lon)
+              CALL dist_mult_array_get(wrk_p_patch_pre%cells%dist, c_vertex, &
+                   (/j,i/), cell_vertex)
+              CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+                   (/cell_vertex, 1/), temp_lat)
+              CALL dist_mult_array_get(wrk_p_patch_pre%verts%dist, v_vertex, &
+                   (/cell_vertex, 2/), temp_lon)
+              cclat = MIN(cclat, temp_lat)
+              cclon = MAX(cclon, temp_lon)
             ENDDO
           ENDIF
 
@@ -2787,12 +3956,21 @@ CONTAINS
 
         ENDDO
 
+#endif
+
         ncell_offset(jd) = nc
 
       ENDDO
 
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      DEALLOCATE(refin_ctrl)
+#endif
 
     ENDIF
+
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+    DEALLOCATE(cclat, cclon, cell_vertex, temp_lat, temp_lon)
+#endif
 
   END SUBROUTINE build_cell_info
 
@@ -2803,7 +3981,7 @@ CONTAINS
     INTEGER, INTENT(in) :: range_start, range_end
      !> receives the owner PE for every cell
     INTEGER, INTENT(out) :: owner(range_start:range_end)
-    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
+    TYPE(t_pre_patch), INTENT(inout) :: wrk_p_patch_pre
     TYPE(t_cell_info), INTENT(inout) :: cell_desc(range_start:range_end)
     !> if > 0 a cell belongs to the subset
     INTEGER, INTENT(in) :: ncell_offset(0:max_phys_dom)
@@ -2813,7 +3991,14 @@ CONTAINS
          first_unassigned_onb, last_unassigned_onb, &
          ncs, nce, num_set_on_this_pass
     TYPE(t_cell_info) :: temp
+    INTEGER, POINTER :: cells_num_edges_local_ptr(:), &
+      &                 cells_neighbor_local_ptr(:,:)
     INTEGER, ALLOCATABLE :: set_on_this_pass(:)
+
+    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_num_edges, &
+      &                            cells_num_edges_local_ptr)
+    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_neighbor, &
+      &                            cells_neighbor_local_ptr)
 
     DO jd = 1, num_physdom
       ncs = ncell_offset(jd-1)+1
@@ -2834,8 +4019,8 @@ CONTAINS
         num_set_on_this_pass = 0
         DO i = last_unassigned_onb, first_unassigned_onb, -1
           j = cell_desc(i)%cell_number
-          DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
-            jn = wrk_p_patch_pre%cells%neighbor(j,ii)
+          DO ii = 1, cells_num_edges_local_ptr(j)
+            jn = cells_neighbor_local_ptr(j, ii)
             IF (jn > 0) THEN
               IF (owner(jn) >= 0) THEN
                 ! move found cells to end of onb area
@@ -2864,76 +4049,127 @@ CONTAINS
 
 #ifndef NOMPI
   ! Set owner list (of complete patch)
-  SUBROUTINE set_owners_mpi(global_range_start, global_range_end, &
-       range_start, range_end, &
-       owner, wrk_p_patch_pre, cell_desc, ncell_offset, &
-       num_physdom, n_onb_points)
+  SUBROUTINE set_owners_mpi(range_start, range_end, dist_cell_owner, &
+       wrk_p_patch_pre, cell_desc, ncell_offset, num_physdom, n_onb_points)
     USE mpi
     USE ppm_extents
     USE ppm_distributed_array
-    INTEGER, INTENT(in) :: global_range_start, global_range_end, &
-         range_start, range_end
+    INTEGER, INTENT(in) :: range_start, range_end
      !> receives the owner PE for every cell
-    INTEGER, INTENT(out) :: owner(range_start:range_end)
-    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
+    TYPE(dist_mult_array), INTENT(inout) :: dist_cell_owner
+    TYPE(t_pre_patch), INTENT(inout) :: wrk_p_patch_pre
     TYPE(t_cell_info), INTENT(inout) :: cell_desc(range_start:range_end)
     !> if > 0 a cell belongs to the subset
     INTEGER, INTENT(in) :: ncell_offset(0:max_phys_dom)
     INTEGER, INTENT(in) :: num_physdom, n_onb_points
 
-    INTEGER :: i, ii, j, jd, jj, jn, &
-         first_unassigned_onb, last_unassigned_onb, &
-         ncs, nce, owner_value, owner_idx(1), ierror
+    INTEGER :: i, ii, j, jd, jj, jn, first_unassigned_onb, &
+      &        last_unassigned_onb, ncs, nce, owner_idx(1), ierror
     TYPE(t_cell_info) :: temp
-    TYPE(dist_mult_array) :: owners_ga
-    TYPE(global_array_desc) :: owners_ga_desc(1)
-    TYPE(extent) :: local_owners_desc(1, 1)
-    INTEGER, POINTER :: owners_ga_local(:)
+    INTEGER, POINTER :: owners_local_ptr(:), cells_num_edges_local_ptr(:), &
+      &                 cells_neighbor_local_ptr(:,:)
+    INTEGER, ALLOCATABLE :: tmp_owners_local(:)
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+    INTEGER, ALLOCATABLE :: owner_value(:,:)
+#else
+    INTEGER :: owner_value
+#endif
     LOGICAL :: owner_missing, any_onb_points
     CHARACTER(14), PARAMETER :: routine = 'set_owners_mpi'
+
+    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, owners_local_ptr)
+    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_num_edges, &
+      &                            cells_num_edges_local_ptr)
+    CALL dist_mult_array_local_ptr(wrk_p_patch_pre%cells%dist, c_neighbor, &
+      &                            cells_neighbor_local_ptr)
 
     DO jd = 1, num_physdom
       ncs = ncell_offset(jd-1) + range_start
       nce = ncell_offset(jd) + range_start - 1
       DO j = ncs, nce
-        owner(cell_desc(j)%cell_number) = cell_desc(j)%owner
+        owners_local_ptr(cell_desc(j)%cell_number) = cell_desc(j)%owner
       END DO
     END DO
+
+    ALLOCATE(tmp_owners_local(range_start:range_end))
+    tmp_owners_local = owners_local_ptr
 
     ! Add outer nest boundary points that have been disregarded so far
     any_onb_points = n_onb_points > 0
     CALL mpi_allreduce(mpi_in_place, any_onb_points, 1, p_bool, &
-         mpi_lor, p_comm_work, ierror)
+         mpi_lor, wrk_p_patch_pre%dist_array_comm, ierror)
     IF (any_onb_points) THEN
-      local_owners_desc(1, 1) = extent(range_start, range_end - range_start + 1)
-      owners_ga_desc(1)%a_rank = 1
-      owners_ga_desc(1)%rect(1) = extent(global_range_start, &
-           global_range_end - global_range_start + 1)
-      owners_ga_desc(1)%element_dt = p_int
-      owners_ga = dist_mult_array_new(owners_ga_desc, local_owners_desc, &
-           p_comm_work)
-      CALL dist_mult_array_local_ptr(owners_ga, 1, owners_ga_local)
 
       first_unassigned_onb = range_end - n_onb_points + 1
       last_unassigned_onb = range_end
+
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      ALLOCATE(owner_value(first_unassigned_onb:last_unassigned_onb, &
+        &                  wrk_p_patch_pre%cells%max_connectivity))
       ! Iterations are needed because outer nest boundary row contains
       ! indirect neighbors
       owner_missing = first_unassigned_onb <= last_unassigned_onb
       CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
-           mpi_lor, p_comm_work, ierror)
+           mpi_lor, wrk_p_patch_pre%dist_array_comm, ierror)
       DO WHILE (owner_missing)
         IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
-        owners_ga_local(:) = owner(:)
-        CALL dist_mult_array_expose(owners_ga)
-
+        CALL dist_mult_array_expose(dist_cell_owner)
         DO i = last_unassigned_onb, first_unassigned_onb, -1
           j = cell_desc(i)%cell_number
-          DO ii = 1, wrk_p_patch_pre%cells%num_edges(j)
-            ! todo: use local patch information here
-            jn = wrk_p_patch_pre%cells%neighbor(j,ii)
+          DO ii = 1, cells_num_edges_local_ptr(j)
+            jn = cells_neighbor_local_ptr(j, ii)
             IF (jn > 0) THEN
               owner_idx(1) = jn
-              CALL dist_mult_array_get(owners_ga, 1, owner_idx, owner_value)
+              CALL dist_mult_array_get(dist_cell_owner, 1, owner_idx, &
+                &                      owner_value(i,ii))
+            ENDIF
+          ENDDO
+        ENDDO
+        CALL dist_mult_array_rma_sync(dist_cell_owner)
+        DO i = last_unassigned_onb, first_unassigned_onb, -1
+          j = cell_desc(i)%cell_number
+          DO ii = 1, cells_num_edges_local_ptr(j)
+            jn = cells_neighbor_local_ptr(j, ii)
+            IF (jn > 0) THEN
+              IF (owner_value(i,ii) >= 0) THEN
+                ! move found cells to end of onb area
+                temp = cell_desc(i)
+                DO jj = i, last_unassigned_onb - 1
+                  cell_desc(jj) = cell_desc(jj + 1)
+                END DO
+                cell_desc(last_unassigned_onb) = temp
+                tmp_owners_local(j) = owner_value(i,ii)
+                last_unassigned_onb = last_unassigned_onb - 1
+                EXIT
+              ENDIF
+            ENDIF
+          ENDDO
+        ENDDO
+        CALL dist_mult_array_unexpose(dist_cell_owner)
+        owners_local_ptr = tmp_owners_local
+        owner_missing = first_unassigned_onb <= last_unassigned_onb
+        CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
+             mpi_lor, wrk_p_patch_pre%dist_array_comm, ierror)
+      ENDDO
+      DEALLOCATE(owner_value)
+#else
+
+      ! Iterations are needed because outer nest boundary row contains
+      ! indirect neighbours
+      owner_missing = first_unassigned_onb <= last_unassigned_onb
+      CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
+           mpi_lor, wrk_p_patch_pre%dist_array_comm, ierror)
+      DO WHILE (owner_missing)
+        IF (ierror /= mpi_success) CALL finish(routine, 'error in allreduce')
+        CALL dist_mult_array_expose(dist_cell_owner)
+        DO i = last_unassigned_onb, first_unassigned_onb, -1
+          j = cell_desc(i)%cell_number
+          DO ii = 1, cells_num_edges_local_ptr(j)
+            jn = cells_neighbor_local_ptr(j, ii)
+            IF (jn > 0) THEN
+              owner_idx(1) = jn
+              CALL dist_mult_array_get(dist_cell_owner, 1, owner_idx, &
+                &                      owner_value)
               IF (owner_value >= 0) THEN
                 ! move found cells to end of onb area
                 temp = cell_desc(i)
@@ -2941,186 +4177,173 @@ CONTAINS
                   cell_desc(jj) = cell_desc(jj + 1)
                 END DO
                 cell_desc(last_unassigned_onb) = temp
-                owner(j) = owner_value
+                tmp_owners_local(j) = owner_value
                 last_unassigned_onb = last_unassigned_onb - 1
                 EXIT
               ENDIF
             ENDIF
           ENDDO
         ENDDO
-        CALL dist_mult_array_unexpose(owners_ga)
+        CALL dist_mult_array_unexpose(dist_cell_owner)
+        owners_local_ptr = tmp_owners_local
         owner_missing = first_unassigned_onb <= last_unassigned_onb
         CALL mpi_allreduce(mpi_in_place, owner_missing, 1, p_bool, &
-             mpi_lor, p_comm_work, ierror)
+             mpi_lor, wrk_p_patch_pre%dist_array_comm, ierror)
       ENDDO
-      CALL dist_mult_array_delete(owners_ga)
+
+#endif
+
     ENDIF
 
   END SUBROUTINE set_owners_mpi
 #endif
+  !-------------------------------------------------------------------------
 
-
-#ifdef HAVE_METIS
   !-------------------------------------------------------------------------
   !>
-  !! Makes a area subdivision for a subset of wrk_p_patch.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial version by Rainer Johanni, Nov 2009
-  !!
-  SUBROUTINE divide_subset_metis(subset_flag, n_proc, wrk_p_patch_pre, &
-                                 owner)
+  SUBROUTINE read_netcdf_decomposition(netcdf_file_name, dist_cell_owner, &
+    &                                  no_of_cells, dist_array_comm, &
+    &                                  dist_array_pes)
+    CHARACTER(LEN=*) :: netcdf_file_name
+    TYPE(dist_mult_array), INTENT(OUT) :: dist_cell_owner
+    INTEGER, INTENT(IN) :: no_of_cells, dist_array_comm
+    TYPE(extent), INTENT(IN) :: dist_array_pes
 
-    INTEGER, INTENT(in)    :: subset_flag(:) ! if > 0 a cell belongs to the subset
-    INTEGER, INTENT(in)    :: n_proc   ! Number of processors
-    TYPE(t_pre_patch), INTENT(in) :: wrk_p_patch_pre
-    INTEGER, INTENT(out)   :: owner(:) ! receives the owner PE for every cell
-    ! (-1 for cells not in subset)
+    TYPE(global_array_desc) :: dist_cell_owner_desc(1)
+    TYPE(extent) :: local_chunk(1,1)
+    INTEGER, POINTER :: local_ptr(:)
+    INTEGER, ALLOCATABLE :: buffer(:,:)
+    INTEGER :: i, ncid
+    TYPE(t_grid_domain_decomp_info) :: decomp_info
+    TYPE(t_distrib_read_data) :: io_data
+    INTEGER :: dist_array_pes_start, dist_array_pes_size
+    CHARACTER(*), PARAMETER :: method_name = "read_netcdf_decomposition"
 
+    dist_cell_owner_desc(1)%a_rank = 1
+    dist_cell_owner_desc(1)%rect(1)%first = 1
+    dist_cell_owner_desc(1)%rect(1)%size = no_of_cells
+    dist_cell_owner_desc(1)%element_dt = ppm_int
 
-    INTEGER :: i, j, jl, jb, jl_n, jb_n, na, nc
-    INTEGER, ALLOCATABLE :: local_index(:), tmp(:)
-    INTEGER, ALLOCATABLE :: metis_xadj(:), metis_adjncy(:)
-    INTEGER :: metis_options(5), metis_edgecut
+    dist_array_pes_start = extent_start(dist_array_pes) - 1
+    dist_array_pes_size = extent_size(dist_array_pes)
 
-    !-----------------------------------------------------------------------
+    ! compute uniform partition
+    local_chunk(1,1) = uniform_partition(dist_cell_owner_desc(1)%rect(1), &
+        &                                dist_array_pes_size, &
+        &                                p_pe_work + 1 - dist_array_pes_start)
 
-    IF(p_pe_work==0) WRITE(0,*) 'divide_patch: Using METIS for area subdivision'
+    ! generate distributed array cell_owner array
+    dist_cell_owner = dist_mult_array_new(dist_cell_owner_desc, local_chunk, &
+      &          dist_array_comm, &
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+      &          sync_mode=sync_mode_active_target &
+#else
+      &          cache_size=MIN(10, CEILING(SQRT(REAL(dist_array_pes_size)))) &
+#endif
+    )
 
-    ! Get the local index (i.e. contiguous numbers) of the cells in the subset.
-    ! Since the METIS rountine is called with the option for C-Style numbering,
-    ! we let local_index start with 0 here!
+    ! get pointer to local chunk of cell_owner array
+    CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_ptr)
 
-    ALLOCATE(local_index(wrk_p_patch_pre%n_patch_cells_g))
-    local_index(:) = -1
+    ! allocate temporary buffer (read method only outputs nproma-blocked data)
+    ALLOCATE(buffer(nproma, (SIZE(local_ptr) + nproma - 1)/nproma))
 
-    nc = 0
-    DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-      jb = blk_no(j) ! block index
-      jl = idx_no(j) ! line index
-      IF(subset_flag(j)>0) THEN
-        local_index(j) = nc
-        nc = nc+1
-      ENDIF
-    ENDDO
+    ! setup io data
+    ALLOCATE(decomp_info%glb_index(SIZE(local_ptr)))
+    decomp_info%glb_index = (/(i, i=LBOUND(local_ptr,1), UBOUND(local_ptr,1))/)
+    CALL setup_distrib_read(no_of_cells, decomp_info, io_data)
 
-    ! Construct adjacency structure of graph
-    ! Please note that the Metis vertices are our grid cells!
+    ! read cell owner
+    IF (p_pe_work == 0) &
+      WRITE(0,*) "Read decomposition from file: ", TRIM(netcdf_file_name)
+    ncid = distrib_nf_open(netcdf_file_name)
+    CALL distrib_read(ncid, "cell_owner", buffer, io_data)
+    CALL distrib_nf_close(ncid)
 
-    ALLOCATE(metis_xadj(0:wrk_p_patch_pre%n_patch_cells_g))
-    ALLOCATE(metis_adjncy(wrk_p_patch_pre%n_patch_cells_g * &
-      &                   wrk_p_patch_pre%cell_type))
-    metis_options(:) = 0
+    DO i = 0, SIZE(local_ptr) - 1
+      local_ptr(i + LBOUND(local_ptr, 1)) = &
+        buffer(MOD(i, nproma) + 1, i / nproma + 1)
+    END DO
 
-    metis_xadj(0) = 0
-    na = 0 ! Counts adjacency entries
-    nc = 0 ! Counts cells in subset
+    CALL dist_mult_array_expose(dist_cell_owner)
 
-    DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-      jb = blk_no(j) ! block index
-      jl = idx_no(j) ! line index
+    ! clean-up
+    DEALLOCATE(decomp_info%glb_index)
+    CALL delete_distrib_read(io_data)
 
-      IF(subset_flag(j)<=0) CYCLE ! Cell not in subset
+  END SUBROUTINE read_netcdf_decomposition
+  !-------------------------------------------------------------------------
 
-      ! Loop over all neighbors of the cell and include neighbors
-      ! which are also in the subset in the adjacency list
+  !-------------------------------------------------------------------------
+  SUBROUTINE write_netcdf_decomposition(netcdf_file_name, dist_cell_owner, &
+    &                                   no_of_cells)
+    CHARACTER(LEN=*) :: netcdf_file_name
+    TYPE(dist_mult_array), INTENT(INOUT) :: dist_cell_owner
+    INTEGER, INTENT(IN) :: no_of_cells
 
-      nc = nc+1
+    INTEGER :: i, j, ncid, dimid, varid
+    INTEGER, ALLOCATABLE :: cell_owner_buffer(:)
+    INTEGER :: part_size, num_parts, curr_part_size
+    INTEGER :: start_value(1), value_count(1)
 
-      DO i = 1,wrk_p_patch_pre%cells%num_edges(j)
-        jn = wrk_p_patch_pre%cells%neighbor(j,i)
+    IF (p_pe_work == 0) THEN
 
-        ! Neighbor not existing
-        IF(jn > wrk_p_patch_pre%n_patch_cells_g .OR. jn < 1) CYCLE
+      WRITE(0,*) "Write decomposition to file: ", TRIM(netcdf_file_name)
 
-        ! Neighbor not in subset
-        IF(subset_flag(jn)<0) CYCLE
+      ! generate decomposition file
+      CALL nf(nf_create(TRIM(netcdf_file_name), NF_CLOBBER, ncid))
 
-        na = na+1
-        metis_adjncy(na) = local_index(jn)
-      ENDDO
-      metis_xadj(nc) = na
-    ENDDO
+      ! define dimension
+      CALL nf(nf_def_dim(ncid, "ncells", no_of_cells, dimid))
 
-    ! Divide graph with Metis - currently no weights are assigned to vertices/edges
+      ! define variable
+      CALL nf(nf_def_var(ncid, "cell_owner", NF_INT, 1, (/dimid/), varid))
 
-    ALLOCATE(tmp(nc))
-    CALL metis_partgraphrecursive(nc, metis_xadj, metis_adjncy, 0, 0, 0, 0, &
-      & n_proc, metis_options, metis_edgecut, tmp)
+      ! put the number of processes
+      CALL nf(nf_put_att_int(ncid, varid, "nprocs", NF_INT, 1, (/p_n_work/)))
 
-    ! The owner list delivered by mets (in tmp) contains only owners for
-    ! cells in subset, scatter it into the global owner list
+      CALL nf(nf_enddef(ncid))
 
-    owner(:) = -1
-    nc = 0 ! Counts cells in subset
-
-    DO j = 1, wrk_p_patch_pre%n_patch_cells_g
-      IF(subset_flag(j)>0) THEN
-        nc = nc+1
-        owner(j) = tmp(nc)
-      ENDIF
-    ENDDO
-
-    DEALLOCATE(metis_xadj, metis_adjncy, local_index, tmp)
-
-  END SUBROUTINE divide_subset_metis
+      ! write cell owner to file
+      part_size = MIN(1024 * 1024 / 8, no_of_cells);
+      num_parts = (no_of_cells + part_size - 1) / part_size
+      ALLOCATE(cell_owner_buffer(part_size))
+      DO i = 1, num_parts
+        curr_part_size = MIN(part_size, no_of_cells - part_size * (i - 1))
+        DO j = 1, curr_part_size
+          CALL dist_mult_array_get(dist_cell_owner, 1, &
+            &                      (/j + part_size * (i - 1)/), &
+            &                      cell_owner_buffer(j))
+        END DO
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+        CALL dist_mult_array_rma_sync(dist_cell_owner)
 #endif
 
-  !-------------------------------------------------------------------------
-  !>
-  SUBROUTINE fill_wrk_decomposition_struct(decomposition_struct, patch_pre)
-    TYPE(t_decomposition_structure) :: decomposition_struct
-    TYPE(t_pre_patch) :: patch_pre
+        start_value(1) = part_size * (i - 1) + 1
+        value_count(1) = curr_part_size
 
-    INTEGER :: no_of_cells, no_of_verts, cell
-    INTEGER :: return_status
+        CALL nf(nf_put_vara_int(ncid, varid, start_value, value_count, &
+          &     cell_owner_buffer))
 
-    CHARACTER(*), PARAMETER :: method_name = "fill_wrk_decomposition_struct"
+      END DO
 
-    decomposition_struct%no_of_cells = patch_pre%n_patch_cells_g
-    decomposition_struct%no_of_edges = patch_pre%n_patch_edges_g
-    decomposition_struct%no_of_verts = patch_pre%n_patch_verts_g
-    no_of_cells = decomposition_struct%no_of_cells
-    no_of_verts = decomposition_struct%no_of_verts
+      DEALLOCATE(cell_owner_buffer)
 
-    ALLOCATE( decomposition_struct%cell_geo_center(no_of_cells), &
-      &  decomposition_struct%cells_vertex(3,no_of_cells), &
-      &  decomposition_struct%vertex_geo_coord(no_of_verts),  &
-      &  stat=return_status)
-    IF (return_status > 0) &
-      & CALL finish (method_name, "ALLOCATE(decomposition_struct")
+      CALL nf(nf_close(ncid))
 
-    DO cell = 1, no_of_cells
-      decomposition_struct%cell_geo_center(cell)%lat = &
-        patch_pre%cells%center(cell)%lat
-      decomposition_struct%cell_geo_center(cell)%lon = &
-        patch_pre%cells%center(cell)%lon
-      decomposition_struct%cells_vertex(1:3, cell) = &
-        patch_pre%cells%vertex(cell,1:3)
-    ENDDO
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+    ELSE
+      part_size = MIN(1024 * 1024 / 8, no_of_cells);
+      num_parts = (no_of_cells + part_size - 1) / part_size
 
-    decomposition_struct%vertex_geo_coord(1:no_of_verts) = &
-      patch_pre%verts%vertex(1:no_of_verts)
+      DO i = 1, num_parts
+        CALL dist_mult_array_rma_sync(dist_cell_owner)
+      END DO
+#endif
 
-    NULLIFY(decomposition_struct%cell_cartesian_center)
-    CALL geographical_to_cartesian(decomposition_struct%cell_geo_center, no_of_cells, &
-      & decomposition_struct%cell_cartesian_center)
+    END IF
 
-  END SUBROUTINE fill_wrk_decomposition_struct
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !>
-  SUBROUTINE clean_wrk_decomposition_struct(decomposition_struct)
-    TYPE(t_decomposition_structure) :: decomposition_struct
-
-    DEALLOCATE( decomposition_struct%cell_geo_center, &
-      &  decomposition_struct%cells_vertex,           &
-      &  decomposition_struct%vertex_geo_coord,       &
-      &  decomposition_struct%cell_cartesian_center)
-
-  END SUBROUTINE clean_wrk_decomposition_struct
+  END SUBROUTINE write_netcdf_decomposition
   !-------------------------------------------------------------------------
 
 END MODULE mo_setup_subdivision

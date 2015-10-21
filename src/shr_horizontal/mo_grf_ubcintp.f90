@@ -80,8 +80,6 @@ SUBROUTINE interpol_vec_ubc(p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
   INTEGER :: jb, je                    ! loop indices
   INTEGER :: nproma_ubcintp, nblks_ubcintp, npromz_ubcintp, nlen, nshift
 
-  INTEGER :: nsendtot, nrecvtot        ! for MPI communication call
-
   REAL(wp) :: vn_aux(1,p_grf%npoints_ubcintp_e,4)
 
   ! Pointers to index fields/lists
@@ -180,9 +178,7 @@ SUBROUTINE interpol_vec_ubc(p_pp, p_pc, p_grf, p_vn_in, p_vn_out)
 
   ! Store results in p_vn_out
 
-  nsendtot = SUM(p_pc%comm_pat_interpol_vec_ubc(1:4)%n_send)
-  nrecvtot = SUM(p_pc%comm_pat_interpol_vec_ubc(1:4)%n_recv)
-  CALL exchange_data_grf(p_pc%comm_pat_interpol_vec_ubc,1,1,nsendtot,nrecvtot, &
+  CALL exchange_data_grf(p_pc%comm_pat_interpol_vec_ubc(1:4),1,1, &
     &                    RECV1=p_vn_out,SEND1=vn_aux)
 
 END SUBROUTINE interpol_vec_ubc
@@ -220,7 +216,6 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
 
   INTEGER :: jb, jc, jn        ! loop indices
   INTEGER :: nproma_ubcintp, nblks_ubcintp, npromz_ubcintp, nlen, nshift
-  INTEGER :: nsendtot, nrecvtot ! for MPI communication call
 
   LOGICAL :: l_limit_nneg     ! local variable corresponding to llimit_nneg
 
@@ -449,11 +444,8 @@ SUBROUTINE interpol_scal_ubc(p_pp, p_pc, p_grf, nfields, f3din, f3dout, llimit_n
 
   ! Store results in p_out
 
-  nsendtot = SUM(p_pc%comm_pat_interpol_scal_ubc(1:4)%n_send)
-  nrecvtot = SUM(p_pc%comm_pat_interpol_scal_ubc(1:4)%n_recv)
-
-  CALL exchange_data_grf(p_pc%comm_pat_interpol_scal_ubc,1,nfields,nsendtot, &
-    &                    nrecvtot,RECV1=f3dout,SEND1=h_aux)
+  CALL exchange_data_grf(p_pc%comm_pat_interpol_scal_ubc(1:4),1,nfields, &
+    &                    RECV1=f3dout,SEND1=h_aux)
 
 END SUBROUTINE interpol_scal_ubc
 
