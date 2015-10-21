@@ -46,6 +46,7 @@ MODULE mo_read_netcdf_distributed
   PUBLIC :: var_data_4d_int, var_data_4d_wp
   PUBLIC :: distrib_inq_var_dims
   PUBLIC :: idx_lvl_blk, idx_blk_time
+  PUBLIC :: nf
 
   INCLUDE 'netcdf.inc'
 

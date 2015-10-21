@@ -1,9 +1,7 @@
 #if defined __xlC__ && !defined NOXLFPROCESS
 @PROCESS HOT
 #endif
-#if !(defined __xlC__ && defined _ARCH_PWR6)
-#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
-#endif
+#include "fsel.inc"
 !>
 !! Hines parameterization for the vertical transport and dissipation
 !! of unresolved gravity wave spectra originating from the troposphere.

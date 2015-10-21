@@ -342,7 +342,7 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE read_ext_data_oce (p_patch, ext_data)
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
     CHARACTER(len=max_char_length), PARAMETER :: &

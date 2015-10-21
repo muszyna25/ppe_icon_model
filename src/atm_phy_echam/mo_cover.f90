@@ -1,10 +1,8 @@
 #ifdef __xlC__
 @PROCESS HOT
 @PROCESS XLF90(NOSIGNEDZERO)
-#else
-#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
-#define SWDIV_NOCHK(a,b) ((a)/(b))
 #endif
+#include "fsel.inc"
 
 !>
 !! @par Copyright
@@ -94,7 +92,7 @@ MODULE mo_cover
 #ifdef _PROFILE
   USE mo_profile,              ONLY : trace_start, trace_stop
 #endif
-  
+
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cover
@@ -146,7 +144,7 @@ CONTAINS
     !
     !   Temporary arrays
     !
-    REAL(wp)   ::  zdtmin(kbdim), za(kbdim) 
+    REAL(wp)   ::  zdtmin(kbdim), za(kbdim)
     !
     !   Pointers and counters for iteration and diagnostic loop:
     !
@@ -198,7 +196,7 @@ CONTAINS
     !
     !       1.3   Checking occurrence of low-level inversion
     !             (below 2000 m, sea points only, no convection)
-    !  
+    !
     locnt = 0
     DO jl = 1,kproma
       IF (pfrw(jl).GT.0.5_wp.AND.pfri(jl).LT.1.e-12_wp.AND.ktype(jl).EQ.0) THEN

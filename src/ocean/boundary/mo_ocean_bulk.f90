@@ -2245,7 +2245,7 @@ CONTAINS
   !!
   SUBROUTINE read_forc_data_oce (p_patch, ext_data, no_set)
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch
+    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
     INTEGER,       INTENT(IN)            :: no_set          !  no of set in file to be read
 

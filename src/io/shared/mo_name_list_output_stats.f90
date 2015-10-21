@@ -503,6 +503,11 @@ CONTAINS
       ! allocate array is "t_global_list" data structure
       ALLOCATE(tot_list%start_idx(np), tot_list%pe_names(np), STAT=ierrstat)
       IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    ELSE
+      ! MoHa: tot_list%pe_names needs to be allocated, otherwise it cannot be
+      !       passed to p_gather
+      ALLOCATE(tot_list%pe_names(1), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     END IF
     ! allocate temporary arrays:
     ALLOCATE(real_buf(max_size(1)), char_buf(max_size(1)), STAT=ierrstat)
@@ -511,6 +516,11 @@ CONTAINS
     CALL p_gather(this_pe_name, tot_list%pe_names, iroot, mpi_comm)
     ! loop over all processes
     iend = 0
+
+    IF (this_pe /= iroot) THEN
+      DEALLOCATE(tot_list%pe_names, STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
+    END IF
 
     IF (this_pe == iroot) THEN
       DO pe=0,(np-1)
