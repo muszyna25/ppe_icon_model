@@ -449,7 +449,7 @@ CONTAINS
 
       ENDIF  !  sea ice
 
-    ENDIF  !  analytical & OMIP
+    ENDIF  !  iforc_oce = analytical or OMIP, 11 or 12
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('aft.fast: Tsurf  ',p_ice%tsurf    ,str_module,3, in_subset=p_patch%cells%owned)
@@ -463,7 +463,7 @@ CONTAINS
     !  (4a) Provide fluxes for slow sea ice thermodynamics
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
-    IF (iforc_oce == OMIP_FluxFromFile) THEN
+    IF (iforc_oce == Analytical_Forcing .OR. iforc_oce == OMIP_FluxFromFile)  THEN  !  11 or 12
 
       ! provide evaporation from latent heat flux for OMIP case
       ! under sea ice evaporation is neglected, atmos_fluxes%latw is flux in the absence of sea ice
