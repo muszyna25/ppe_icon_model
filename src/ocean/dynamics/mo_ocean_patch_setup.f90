@@ -110,17 +110,17 @@ MODULE mo_ocean_patch_setup
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
 
   IMPLICIT NONE
-  
+
   PRIVATE
-  
+
   PUBLIC :: complete_ocean_patch
-  
- 
-  
+
+
+
   !-------------------------------------------------------------------------
-  
+
 CONTAINS
-    
+
   !----------------------------------------------------------------------------
   !>
 !<Optimize:inUse>
@@ -334,9 +334,9 @@ CONTAINS
     !!$OMP END PARALLEL
 
     CALL calculate_edge_area(patch_2D)
-    
+
   END SUBROUTINE complete_ocean_patch_geometry
   !-------------------------------------------------------------------------
-    
-    
+
+
 END MODULE mo_ocean_patch_setup

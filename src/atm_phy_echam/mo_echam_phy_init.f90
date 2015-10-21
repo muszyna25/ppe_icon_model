@@ -113,7 +113,7 @@ CONTAINS
   SUBROUTINE init_echam_phy( p_patch, ctest_name, &
                                 nlev, vct_a, vct_b, current_date)
 
-    TYPE(t_patch),   INTENT(in) :: p_patch(:)
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch(:)
     CHARACTER(LEN=*),INTENT(in) :: ctest_name
     INTEGER,         INTENT(in) :: nlev
     REAL(wp),        INTENT(in) :: vct_a(:), vct_b(:)

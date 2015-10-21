@@ -163,6 +163,7 @@ USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, sync
 USE mo_grid_config,         ONLY: grid_sphere_radius
 USE mo_grid_geometry_info,  ONLY: planar_torus_geometry, sphere_geometry
 USE mo_intp_data_strc,      ONLY: t_lsq, t_int_state
+USE mo_fortran_tools,       ONLY: copy
 
 IMPLICIT NONE
 
@@ -199,7 +200,7 @@ TYPE(t_patch), INTENT(IN) :: ptr_patch
 
 TYPE(t_lsq), INTENT(INOUT) :: ptr_int_lsq
 
-INTEGER, INTENT(IN)  ::  &  ! parameter determining the size of the lsq stencil 
+INTEGER, INTENT(IN)  ::  &  ! parameter determining the size of the lsq stencil
   &  lsq_dim_c
 
 INTEGER :: ilc, ibc                 ! line and block index
@@ -241,11 +242,13 @@ REAL(wp) :: z_stencil(UBOUND(ptr_int_lsq%lsq_dim_stencil,1),UBOUND(ptr_int_lsq%l
 
     ! the cell and block indices are just copied from ptr_patch%cells%neighbor_idx
     ! and ptr_patch%cells%neighbor_blk
-!$OMP WORKSHARE
-    ptr_int_lsq%lsq_idx_c(:,:,:) = ptr_patch%cells%neighbor_idx(:,:,:)
-    ptr_int_lsq%lsq_blk_c(:,:,:) = ptr_patch%cells%neighbor_blk(:,:,:)
-    ptr_int_lsq%lsq_dim_stencil(:,:) = ptr_patch%cells%num_edges(:,:)
-!$OMP END WORKSHARE
+    CALL copy(ptr_patch%cells%neighbor_idx(:,:,:), &
+         ptr_int_lsq%lsq_idx_c(:,:,:))
+    CALL copy(ptr_patch%cells%neighbor_blk(:,:,:), &
+         ptr_int_lsq%lsq_blk_c(:,:,:))
+    CALL copy(ptr_patch%cells%num_edges(:,:), &
+         ptr_int_lsq%lsq_dim_stencil(:,:))
+!$OMP BARRIER
 
   ELSE IF (lsq_dim_c == 9) THEN
 
@@ -393,7 +396,7 @@ END SUBROUTINE lsq_stencil_create
 !
 !>
 !! This routine bifurcates into lsq_compute_coeff_cell based on geometry type
-!! 
+!!
 !! Anurag Dipankar, MPIM (2013-04)
 !!
 SUBROUTINE lsq_compute_coeff_cell( ptr_patch, ptr_int_lsq, llsq_rec_consv, &
@@ -405,24 +408,24 @@ TYPE(t_patch), INTENT(IN) ::  ptr_patch
 
 TYPE(t_lsq), TARGET, INTENT(INOUT) ::  ptr_int_lsq
 
-LOGICAL, INTENT(IN) ::   &  ! flag determining whether the least 
+LOGICAL, INTENT(IN) ::   &  ! flag determining whether the least
   &  llsq_rec_consv         ! squares reconstruction should be conservative
 
-INTEGER, INTENT(IN)  ::  &  ! parameter determining the size of the lsq stencil 
+INTEGER, INTENT(IN)  ::  &  ! parameter determining the size of the lsq stencil
   &  lsq_dim_c
 
-INTEGER, INTENT(IN)  ::  &  ! parameter determining the dimension of the solution 
+INTEGER, INTENT(IN)  ::  &  ! parameter determining the dimension of the solution
   &  lsq_dim_unk
 
-INTEGER, INTENT(IN)  ::  &  ! least squares weighting exponent 
+INTEGER, INTENT(IN)  ::  &  ! least squares weighting exponent
   &  lsq_wgt_exp
 
  !Local variable
  CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_intp_coeffs_lsq_bln:lsq_compute_coeff_cell'
-     
+
     !
     SELECT CASE(ptr_patch%geometry_info%geometry_type)
-    
+
     CASE (planar_torus_geometry)
 
      CALL lsq_compute_coeff_cell_torus( ptr_patch, ptr_int_lsq, llsq_rec_consv, &
@@ -433,7 +436,7 @@ INTEGER, INTENT(IN)  ::  &  ! least squares weighting exponent
      CALL lsq_compute_coeff_cell_sphere( ptr_patch, ptr_int_lsq, llsq_rec_consv, &
                                          lsq_dim_c, lsq_dim_unk, lsq_wgt_exp )
 
-    CASE DEFAULT    
+    CASE DEFAULT
 
       CALL finish(method_name, "Undefined geometry type")
 
@@ -474,16 +477,16 @@ TYPE(t_patch), INTENT(IN) ::  ptr_patch
 
 TYPE(t_lsq), TARGET, INTENT(INOUT) ::  ptr_int_lsq
 
-LOGICAL, INTENT(IN) ::   &  ! flag determining whether the least 
+LOGICAL, INTENT(IN) ::   &  ! flag determining whether the least
   &  llsq_rec_consv         ! squares reconstruction should be conservative
 
-INTEGER, INTENT(IN)  ::  &  ! parameter determining the size of the lsq stencil 
+INTEGER, INTENT(IN)  ::  &  ! parameter determining the size of the lsq stencil
   &  lsq_dim_c
 
-INTEGER, INTENT(IN)  ::  &  ! parameter determining the dimension of the solution 
+INTEGER, INTENT(IN)  ::  &  ! parameter determining the dimension of the solution
   &  lsq_dim_unk
 
-INTEGER, INTENT(IN)  ::  &  ! least squares weighting exponent 
+INTEGER, INTENT(IN)  ::  &  ! least squares weighting exponent
   &  lsq_wgt_exp
 
 REAL(wp), DIMENSION(lsq_dim_c,2) ::  &      ! geographical coordinates of all cell centers
@@ -555,12 +558,12 @@ REAL(wp) ::   &                        ! singular values of lsq design matrix A
 REAL(wp) ::   &                        ! U matrix of SVD. Columns of U are the left
   &  zu  (lsq_dim_c,lsq_dim_c,nproma)  ! singular vectors of A
 
-REAL(wp) ::   &                        ! TRANSPOSE of V matrix of SVD. Columns of V are 
+REAL(wp) ::   &                        ! TRANSPOSE of V matrix of SVD. Columns of V are
   &  zv_t(lsq_dim_unk,lsq_dim_unk,nproma) ! the right singular vectors of A.
 
 
 INTEGER, PARAMETER  :: &     ! size of work array for SVD lapack routine
-  &  lwork=10000 
+  &  lwork=10000
 REAL(wp) ::   &              ! work array for SVD lapack routine
   &  zwork(lwork)
 INTEGER  ::   &              ! work array for SVD lapack routine
@@ -568,7 +571,7 @@ INTEGER  ::   &              ! work array for SVD lapack routine
 
 
 !DR for DEBUG purposes
-! #ifdef DEBUG_COEFF LL it's used in openmp directives, 
+! #ifdef DEBUG_COEFF LL it's used in openmp directives,
 REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 ! #endif
 !--------------------------------------------------------------------
@@ -683,7 +686,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
     !
     ! b: compute normalized weights for weighted least squares system
-    !    The closest cell circumcenter is assigned weight of w=1. 
+    !    The closest cell circumcenter is assigned weight of w=1.
     !
       DO js = 1, ptr_ncells(jc,jb)
         z_norm = SQRT(DOT_PRODUCT(z_dist_g(jc,jb,js,1:2),z_dist_g(jc,jb,js,1:2)))
@@ -727,11 +730,11 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
       !    (calculated analytically; see Lauritzen CSLAM 09 for first 5 moments)
       !
       ! !DR: Those moments have been re-rechecked, using an alternative,
-      !      quadrature-based formulation. Results have been identical up to 
-      !      roundoff-errors. Similarly the hat-moments have been checked. The 
-      !      inconsistency caused by the different projections involved do not 
+      !      quadrature-based formulation. Results have been identical up to
+      !      roundoff-errors. Similarly the hat-moments have been checked. The
+      !      inconsistency caused by the different projections involved do not
       !      seem to negatively effect the results.
- 
+
       ! Storage docu for x^ny^m:
       ! lsq_moments(:,:,1) : x^1y^0
       ! lsq_moments(:,:,2) : x^0y^1
@@ -1048,7 +1051,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
     !
     ! compute QR decomposition and Singular Value Decomposition (SVD)
-    ! of least squares design matrix A. For the time being both methods are 
+    ! of least squares design matrix A. For the time being both methods are
     ! retained.
 
     !
@@ -1120,7 +1123,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
       ! zs          : min(M,N) Singular values of A                  (OUT)
       ! zwork       : workspace(1,LWORK)                             (OUT)
       ! lwork       : 3*min(M,N)                                     (IN)
-      !              + max(max(M,N),4*min(M,N)*min(M,N)+4*min(M,N))  (IN) 
+      !              + max(max(M,N),4*min(M,N)*min(M,N)+4*min(M,N))  (IN)
       ! iwork       : workspace(8*min(M,N))                          (IN)
 
       CALL DGESDD('A',                 & !in
@@ -1136,7 +1139,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
         &         zwork,               & !out
         &         lwork,               & !in
         &         ziwork,              & !inout
-        &         icheck               ) !out                     
+        &         icheck               ) !out
       ist = ist + icheck
     ENDDO
     IF (ist /= SUCCESS) THEN
@@ -1146,10 +1149,10 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
     ! compute Moore-Penrose inverse
     ! INVERSE(A):: V * INVERSE(SIGMA) * TRANSPOSE(U) and store
-    ! note that the ith column is multiplied with the ith weight 
+    ! note that the ith column is multiplied with the ith weight
     ! in order to avoid the weighting of the r.h.s. during runtime.
     DO jja = 1, lsq_dim_unk
-      DO jjb = 1, lsq_dim_c 
+      DO jjb = 1, lsq_dim_c
         DO jjk = 1, lsq_dim_unk
           DO jc = i_startidx, i_endidx
             IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -1236,16 +1239,16 @@ TYPE(t_patch), INTENT(IN) ::  ptr_patch
 
 TYPE(t_lsq), TARGET, INTENT(INOUT) ::  ptr_int_lsq
 
-LOGICAL, INTENT(IN) ::   &  ! flag determining whether the least 
+LOGICAL, INTENT(IN) ::   &  ! flag determining whether the least
   &  llsq_rec_consv         ! squares reconstruction should be conservative
 
-INTEGER, INTENT(IN)  ::  &  ! parameter determining the size of the lsq stencil 
+INTEGER, INTENT(IN)  ::  &  ! parameter determining the size of the lsq stencil
   &  lsq_dim_c
 
-INTEGER, INTENT(IN)  ::  &  ! parameter determining the dimension of the solution 
+INTEGER, INTENT(IN)  ::  &  ! parameter determining the dimension of the solution
   &  lsq_dim_unk
 
-INTEGER, INTENT(IN)  ::  &  ! least squares weighting exponent 
+INTEGER, INTENT(IN)  ::  &  ! least squares weighting exponent
   &  lsq_wgt_exp
 
 
@@ -1312,12 +1315,12 @@ REAL(wp) ::   &                        ! singular values of lsq design matrix A
 REAL(wp) ::   &                        ! U matrix of SVD. Columns of U are the left
   &  zu  (lsq_dim_c,lsq_dim_c,nproma)  ! singular vectors of A
 
-REAL(wp) ::   &                        ! TRANSPOSE of V matrix of SVD. Columns of V are 
+REAL(wp) ::   &                        ! TRANSPOSE of V matrix of SVD. Columns of V are
   &  zv_t(lsq_dim_unk,lsq_dim_unk,nproma) ! the right singular vectors of A.
 
 
 INTEGER, PARAMETER  :: &     ! size of work array for SVD lapack routine
-  &  lwork=10000 
+  &  lwork=10000
 REAL(wp) ::   &              ! work array for SVD lapack routine
   &  zwork(lwork)
 INTEGER  ::   &              ! work array for SVD lapack routine
@@ -1325,7 +1328,7 @@ INTEGER  ::   &              ! work array for SVD lapack routine
 
 
 !DR for DEBUG purposes
-! #ifdef DEBUG_COEFF LL it's used in openmp directives, 
+! #ifdef DEBUG_COEFF LL it's used in openmp directives,
 REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 ! #endif
 !--------------------------------------------------------------------
@@ -1393,7 +1396,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
 
     !
-    ! 1. Get CC of the control volume center and all cell centers in the stencil. 
+    ! 1. Get CC of the control volume center and all cell centers in the stencil.
     !    In addition, get cartesian coordinates of the vertices of the control volume.
     !
 
@@ -1419,13 +1422,13 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     !    From these the lsq weights can be deduced.
 
     !
-    ! a: Calculate distance vectors between control volume center and all cell 
-    !    centers in the stencil. 
+    ! a: Calculate distance vectors between control volume center and all cell
+    !    centers in the stencil.
       DO js = 1, ptr_ncells(jc,jb)
         !Get the actual location of the cell w.r.t the cc_cv
         cc_cell(js) = plane_torus_closest_coordinates(cc_cv%x, cc_cell(js)%x, &
                                                       ptr_patch%geometry_info)
-        
+
         !the distance vector: z coord is 0
         z_dist_g(jc,jb,js,1) = cc_cell(js)%x(1) - cc_cv%x(1)
         z_dist_g(jc,jb,js,2) = cc_cell(js)%x(2) - cc_cv%x(2)
@@ -1434,7 +1437,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
     !
     ! b: compute normalized weights for weighted least squares system
-    !    The closest cell circumcenter is assigned weight of w=1. 
+    !    The closest cell circumcenter is assigned weight of w=1.
     !
       DO js = 1, ptr_ncells(jc,jb)
         z_norm = SQRT(DOT_PRODUCT(z_dist_g(jc,jb,js,1:2),z_dist_g(jc,jb,js,1:2)))
@@ -1465,7 +1468,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
       !    between cell center and vertices
       !
         DO jec=1,nverts
-      
+
           !Get the actual location of the cell w.r.t the cc_cv
           cc_vert(jec) = plane_torus_closest_coordinates(cc_cv%x, cc_vert(jec)%x, &
                                                          ptr_patch%geometry_info)
@@ -1483,11 +1486,11 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
       !    (calculated analytically; see Lauritzen CSLAM 09 for first 5 moments)
       !
       ! !DR: Those moments have been re-rechecked, using an alternative,
-      !      quadrature-based formulation. Results have been identical up to 
-      !      roundoff-errors. Similarly the hat-moments have been checked. The 
-      !      inconsistency caused by the different projections involved do not 
+      !      quadrature-based formulation. Results have been identical up to
+      !      roundoff-errors. Similarly the hat-moments have been checked. The
+      !      inconsistency caused by the different projections involved do not
       !      seem to negatively effect the results.
- 
+
       ! Storage docu for x^ny^m:
       ! lsq_moments(:,:,1) : x^1y^0
       ! lsq_moments(:,:,2) : x^0y^1
@@ -1804,7 +1807,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
     !
     ! compute QR decomposition and Singular Value Decomposition (SVD)
-    ! of least squares design matrix A. For the time being both methods are 
+    ! of least squares design matrix A. For the time being both methods are
     ! retained.
 
     !
@@ -1876,7 +1879,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
       ! zs          : min(M,N) Singular values of A                  (OUT)
       ! zwork       : workspace(1,LWORK)                             (OUT)
       ! lwork       : 3*min(M,N)                                     (IN)
-      !              + max(max(M,N),4*min(M,N)*min(M,N)+4*min(M,N))  (IN) 
+      !              + max(max(M,N),4*min(M,N)*min(M,N)+4*min(M,N))  (IN)
       ! iwork       : workspace(8*min(M,N))                          (IN)
 
       CALL DGESDD('A',                 & !in
@@ -1892,7 +1895,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
         &         zwork,               & !out
         &         lwork,               & !in
         &         ziwork,              & !inout
-        &         icheck               ) !out                     
+        &         icheck               ) !out
       ist = ist + icheck
     ENDDO
     IF (ist /= SUCCESS) THEN
@@ -1902,10 +1905,10 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
     ! compute Moore-Penrose inverse
     ! INVERSE(A):: V * INVERSE(SIGMA) * TRANSPOSE(U) and store
-    ! note that the ith column is multiplied with the ith weight 
+    ! note that the ith column is multiplied with the ith weight
     ! in order to avoid the weighting of the r.h.s. during runtime.
     DO jja = 1, lsq_dim_unk
-      DO jjb = 1, lsq_dim_c 
+      DO jjb = 1, lsq_dim_c
         DO jjk = 1, lsq_dim_unk
           DO jc = i_startidx, i_endidx
             IF(.NOT. ptr_patch%cells%decomp_info%owner_mask(jc,jb)) CYCLE
@@ -1991,18 +1994,18 @@ END SUBROUTINE lsq_compute_coeff_cell_torus
 !!  - use of different edge-midpoint to cell distances
 !!  - implement area weightings
 !!  Modification by Daniel Reinert, DWD (2013-07-19)
-!!  - added coefficients for pseudo-Laplacian weighted averaging (PLWA) 
-!!    from cells to verts. This type of averaging is second order accurate 
+!!  - added coefficients for pseudo-Laplacian weighted averaging (PLWA)
+!!    from cells to verts. This type of averaging is second order accurate
 !!    on general grids.
 !!
 !!  Literature for PLWA:
-!!  - Holmes and Connel (1993): Solution of the 2D Navier-Stokes equations on 
-!!    unstructured adaptive grids. AIAA Paper 89-1932, AIAA 9th Computational 
+!!  - Holmes and Connel (1993): Solution of the 2D Navier-Stokes equations on
+!!    unstructured adaptive grids. AIAA Paper 89-1932, AIAA 9th Computational
 !!    Fluid Dynamics Conference
-!!  - Kim et al (2003) : A multi-dimensional linear reconstruction scheme for 
-!!    arbitrary unstructured grids. AIAA Paper 2003-3990, 16th AIAA Computational 
+!!  - Kim et al (2003) : A multi-dimensional linear reconstruction scheme for
+!!    arbitrary unstructured grids. AIAA Paper 2003-3990, 16th AIAA Computational
 !!    Fluid Dynamics Conference.
-!!  - Miura, H. (2013) : An Upwind-Biased Conservative Transport Scheme for Multi-Stage 
+!!  - Miura, H. (2013) : An Upwind-Biased Conservative Transport Scheme for Multi-Stage
 !!                       Temporal Integrations on Spherical Icosahedral Grids.
 !!                       Monthly Weather Review, in press
 !!
@@ -2343,22 +2346,22 @@ REAL(wp) :: wgt_sum                    ! sum of weights
 
 !DR could be replaced by rotation to equator as done at various other places
 !DR (not tested yet)
-        ! project cell center onto local 2D cartesian system 
+        ! project cell center onto local 2D cartesian system
         ! tangent to the vertex
         CALL gnomonic_proj( vlon, vlat, clon, clat,  &! in
           &                 delx(jc), dely(jc))       ! out
 
 
         ! compute distance to vertex
-        dist(jc) = SQRT(delx(jc)**2 + dely(jc)**2) 
+        dist(jc) = SQRT(delx(jc)**2 + dely(jc)**2)
 
 
         ! sum up moments
         r_x  = r_x  + delx(jc)
         r_y  = r_y  + dely(jc)
         i_xx = i_xx + delx(jc)*delx(jc)/dist(jc)**2
-        i_yy = i_yy + dely(jc)*dely(jc)/dist(jc)**2 
-        i_xy = i_xy + delx(jc)*dely(jc)/dist(jc)**2   
+        i_yy = i_yy + dely(jc)*dely(jc)/dist(jc)**2
+        i_xy = i_xy + delx(jc)*dely(jc)/dist(jc)**2
       ENDDO  ! jc
 
 
@@ -2420,18 +2423,18 @@ END SUBROUTINE scalar_int_coeff
 
 !-------------------------------------------------------------------------
 !>
-!! Calls routines to calculate the weighting coefficients for bilinear 
+!! Calls routines to calculate the weighting coefficients for bilinear
 !! edge-to-cell interpolation depending on grid geometry.
 !!
 SUBROUTINE bln_int_coeff_e2c( ptr_patch, ptr_int_state )
   TYPE(t_patch),     INTENT(inout) :: ptr_patch
   TYPE(t_int_state), INTENT(inout) :: ptr_int_state
-    
+
   CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_intp_coeffs_lsq_bln:bln_int_coeff_e2c'
-     
+
   !
   SELECT CASE(ptr_patch%geometry_info%geometry_type)
-   
+
   CASE (planar_torus_geometry)
     CALL flat_scalar_coeffs( ptr_patch, ptr_int_state )
     CALL vector_coeffs(ptr_patch, ptr_int_state)
@@ -2439,10 +2442,10 @@ SUBROUTINE bln_int_coeff_e2c( ptr_patch, ptr_int_state )
   CASE (sphere_geometry)
     CALL spherical_scalar_coeffs( ptr_patch, ptr_int_state )
     CALL vector_coeffs(ptr_patch, ptr_int_state)
-    
-  CASE DEFAULT    
+
+  CASE DEFAULT
     CALL finish(method_name, "Undefined geometry type")
-      
+
   END SELECT
 
 END SUBROUTINE bln_int_coeff_e2c
@@ -2787,7 +2790,7 @@ wgt = 1._wp/3._wp
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
   DO jb = i_startblk, i_endblk
-  
+
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
     DO jc = i_startidx, i_endidx
