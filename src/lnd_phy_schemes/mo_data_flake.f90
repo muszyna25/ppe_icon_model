@@ -62,6 +62,8 @@
 !! Modification by Dmitrii Mironov, DWD (2013-05-29)
 !! - minimum lake fraction fr_lake_min is added
 !!
+!! Modification by Dmitrii Mironov, DWD (2015-10-16)
+!! - parameter fr_lake_min is removed  
 !!
 !! @par Copyright and License
 !!
@@ -266,10 +268,14 @@ MODULE mo_data_flake
     c_small_flk    = 1.0E-10_ireals    , & ! A small number
     c_maxearg_flk  = 1.0E+02_ireals        ! Maximum value of the EXP function argument [-]
 
-  ! Parameter(s) required to use FLake as a lake parameterization scheme in atmospheric models
-  REAL (KIND = ireals), PARAMETER ::     &
-    fr_lake_min    = 3.0E-02_ireals        ! Minimum lake fraction within a host 
-                                           ! atmospheric model grid box [-]
+!_cdm>
+! Parameter "fr_lake_min" is no longer used. 
+! ICON namelist parameter "frlake_thrhld" is used to set the minimum lake fraction.
+!_cdm<
+!_nu  ! Parameter(s) required to use FLake as a lake parameterization scheme in atmospheric models
+!_nu  REAL (KIND = ireals), PARAMETER ::     &
+!_nu    fr_lake_min    = 3.0E-02_ireals        ! Minimum lake fraction within a host 
+!_nu                                           ! atmospheric model grid box [-]
 
   ! Thermodynamic parameters
   REAL (KIND = ireals), PARAMETER ::        &

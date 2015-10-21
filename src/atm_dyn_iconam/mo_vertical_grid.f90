@@ -568,8 +568,8 @@ MODULE mo_vertical_grid
           zn_sq  = zn_sq/9._wp
           zn_rms = SQRT(MAX(0._wp,zn_sq - zn_avg**2))
           IF (p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_min > 200._wp .AND. p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb) > zn_avg) THEN
-            p_nh(jg)%metrics%mask_mtnpoints(jc,jb) = MIN(1._wp,20._wp*MAX(0._wp,MAX(zn_rms,                             &
-              p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg)-200._wp)/p_patch(jg)%geometry_info%mean_characteristic_length)
+            p_nh(jg)%metrics%mask_mtnpoints(jc,jb) = MIN(1._wp,1.e5_wp*MAX(0._wp,MAX(zn_rms,                               &
+              p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg)-200._wp)/p_patch(jg)%geometry_info%mean_characteristic_length**2)
           ELSE
             p_nh(jg)%metrics%mask_mtnpoints(jc,jb) = 0._wp
           ENDIF
@@ -583,6 +583,7 @@ MODULE mo_vertical_grid
       DEALLOCATE(z_ddxn_z_half_e,z_ddxt_z_half_e)
 
       ALLOCATE(z_aux_c(nproma,1,nblks_c),z_aux_e(nproma,1,nblks_c))
+      z_aux_e(:,1,:) = 0._wp
 
       CALL sync_patch_array(SYNC_C, p_patch(jg), p_nh(jg)%metrics%mask_mtnpoints)
       z_aux_c(:,1,:) = p_nh(jg)%metrics%mask_mtnpoints(:,:)
