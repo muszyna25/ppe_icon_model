@@ -735,8 +735,10 @@ MODULE mo_solve_nonhydro
           i_endblk = p_patch%edges%end_block(min_rledge_int-3)
         ENDIF
 
-        CALL init_zero_contiguous_dp(z_rho_e    (1,1,i_startblk), nproma*nlev*(i_endblk-i_startblk+1))
-        CALL init_zero_contiguous_dp(z_theta_v_e(1,1,i_startblk), nproma*nlev*(i_endblk-i_startblk+1))
+        IF (i_endblk >= i_startblk) THEN
+          CALL init_zero_contiguous_dp(z_rho_e    (1,1,i_startblk), nproma*nlev*(i_endblk-i_startblk+1))
+          CALL init_zero_contiguous_dp(z_theta_v_e(1,1,i_startblk), nproma*nlev*(i_endblk-i_startblk+1))
+        ENDIF
 !$OMP BARRIER
 
         rl_start = 7
