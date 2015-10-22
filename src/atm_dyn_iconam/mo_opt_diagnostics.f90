@@ -128,6 +128,8 @@ MODULE mo_opt_diagnostics
     , CONTIGUOUS        &
 #endif
     &  ::               &
+    !
+    ! dynamics
     &  rho(:,:,:),      &
     &  qv(:,:,:),       &
     &  qc(:,:,:),       &
@@ -141,8 +143,16 @@ MODULE mo_opt_diagnostics
     &  v(:,:,:),        &
     &  w(:,:,:),        &
     &  omega(:,:,:),    &
+    !
+    ! tracers container
+    &  tracer(:,:,:,:), &
+
+    !
+    ! echam physics
     &  cosmu0(:,:),     &
     &  flxdwswtoa(:,:), &
+    &  relhum(:,:,:),   &
+    &  aclc(:,:,:),     &
     &  aclcov(:,:),     &
     &  rsfl(:,:),       &
     &  rsfc(:,:),       &
@@ -162,9 +172,15 @@ MODULE mo_opt_diagnostics
     &  shflx(:,:),      &
     &  u_stress(:,:),   &
     &  v_stress(:,:),   &
-    &  tracer(:,:,:,:), &
+    &  u_stress_sso(:,:),    &
+    &  v_stress_sso(:,:),    &
+    &  dissipation_sso(:,:), &
+    &  seaice(:,:),     &
+    &  siced(:,:),      &
+    &  albedo(:,:),     &
     !
-    !  temperature:
+    ! tendencies
+    ! - temperature:
     &  tend_ta(:,:,:)     ,&
     &  tend_ta_dyn(:,:,:) ,&
     &  tend_ta_phy(:,:,:) ,&
@@ -177,7 +193,7 @@ MODULE mo_opt_diagnostics
     &  tend_ta_gwh(:,:,:) ,&
     &  tend_ta_sso(:,:,:) ,&
     !
-    !  u-wind:
+    !  - u-wind:
     &  tend_ua(:,:,:)     ,&
     &  tend_ua_dyn(:,:,:) ,&
     &  tend_ua_phy(:,:,:) ,&
@@ -186,7 +202,7 @@ MODULE mo_opt_diagnostics
     &  tend_ua_gwh(:,:,:) ,&
     &  tend_ua_sso(:,:,:) ,&
     !
-    !  v-wind:
+    !  - v-wind:
     &  tend_va(:,:,:)     ,&
     &  tend_va_dyn(:,:,:) ,&
     &  tend_va_phy(:,:,:) ,&
@@ -195,7 +211,7 @@ MODULE mo_opt_diagnostics
     &  tend_va_gwh(:,:,:) ,&
     &  tend_va_sso(:,:,:) !!$,&
 !!$    !
-!!$    !  specific humidity
+!!$    !  - specific humidity
 !!$    &  tend_hus(:,:,:)    ,&
 !!$    &  tend_hus_dyn(:,:,:),&
 !!$    &  tend_hus_phy(:,:,:),&
@@ -203,7 +219,7 @@ MODULE mo_opt_diagnostics
 !!$    &  tend_hus_cnv(:,:,:),&
 !!$    &  tend_hus_vdf(:,:,:),&
 !!$    !
-!!$    !  xl and xi
+!!$    !  - xl and xi
 !!$    &  tend_clw_dtr(:,:,:),&
 !!$    &  tend_cli_dtr(:,:,:)
     
@@ -235,6 +251,8 @@ MODULE mo_opt_diagnostics
     !  physics
     LOGICAL :: l_cosmu0_m
     LOGICAL :: l_rsdt_m
+    LOGICAL :: l_hur_m
+    LOGICAL :: l_cl_m
     LOGICAL :: l_clt_m
     LOGICAL :: l_prlr_m
     LOGICAL :: l_prls_m
@@ -254,6 +272,12 @@ MODULE mo_opt_diagnostics
     LOGICAL :: l_hfss_m
     LOGICAL :: l_tauu_m
     LOGICAL :: l_tauv_m
+    LOGICAL :: l_tauu_sso_m
+    LOGICAL :: l_tauv_sso_m
+    LOGICAL :: l_diss_sso_m
+    LOGICAL :: l_sic_m
+    LOGICAL :: l_sit_m
+    LOGICAL :: l_albedo_m
     !
     !  tendencies
     !  of temperature:
@@ -670,6 +694,34 @@ CONTAINS
                    & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean") )
     END IF
 
+    p_acc%l_hur_m = is_variable_in_output(first_output_name_list, var_name="hur_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_hur_m
+    IF (p_acc%l_hur_m) THEN
+       cf_desc    = t_cf_var('hur', '',                       &
+                   &         'relative humidity (time mean)', &
+                   &         dataType)
+       grib2_desc = grib2_var(0,1,1, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'hur_m', p_acc%relhum,                                     &
+                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                               &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape3d_c,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
+    p_acc%l_cl_m  = is_variable_in_output(first_output_name_list, var_name="cl_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_cl_m
+    IF (p_acc%l_cl_m) THEN
+       cf_desc    = t_cf_var('cl', 'm2 m-2',                    &
+                   &         'cloud area fraction (time mean)', &
+                   &         dataType)
+       grib2_desc = grib2_var(0,6,22, ibits, GRID_REFERENCE, GRID_CELL)
+       CALL add_var( list, 'cl_m', p_acc%aclc,                                        &
+                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                               &
+                   & cf_desc, grib2_desc,                                             &
+                   & ldims=shape3d_c,in_group=groups("echam_timemean","atmo_timemean"), &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
     p_acc%l_clt_m = is_variable_in_output(first_output_name_list, var_name="clt_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_clt_m
     IF (p_acc%l_clt_m) THEN
@@ -908,6 +960,84 @@ CONTAINS
                    & t_cf_var('v_stress', 'N m-2', 'v-momentum flux at the surface (time mean)', &
                    &          dataType),                                                         &
                    & grib2_var(0,2,18, ibits, GRID_REFERENCE, GRID_CELL),                        &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
+    p_acc%l_tauu_sso_m = is_variable_in_output(first_output_name_list, var_name="tauu_sso_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tauu_sso_m
+    IF (p_acc%l_tauu_sso_m) THEN
+       CALL add_var( list, 'tauu_sso_m', p_acc%u_stress_sso,                                     &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('u_stress', 'N m-2',                                               &
+                   &          'zonal stress from subgrid scale orographic drag (time mean)',     &
+                   &          dataType),                                                         &
+                   & grib2_var(0,2,17, ibits, GRID_REFERENCE, GRID_CELL),                        &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
+    p_acc%l_tauv_sso_m = is_variable_in_output(first_output_name_list, var_name="tauv_sso_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tauv_sso_m
+    IF (p_acc%l_tauv_sso_m) THEN
+       CALL add_var( list, 'tauv_sso_m', p_acc%v_stress_sso,                                     &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('v_stress', 'N m-2',                                               &
+                   &          'meridional stress from subgrid scale orographic drag (time mean)',&
+                   &          dataType),                                                         &
+                   & grib2_var(0,2,18, ibits, GRID_REFERENCE, GRID_CELL),                        &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
+    p_acc%l_diss_sso_m = is_variable_in_output(first_output_name_list, var_name="diss_sso_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_diss_sso_m
+    IF (p_acc%l_diss_sso_m) THEN
+       CALL add_var( list, 'diss_sso_m', p_acc%dissipation_sso,                                  &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('dissipation_sso', '',                                             &
+                   &          'dissipation of orographic waves (time mean)',                     &
+                   &          dataType),                                                         &
+                   & grib2_var(0,0,255, ibits, GRID_REFERENCE, GRID_CELL),                       &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
+    p_acc%l_sic_m = is_variable_in_output(first_output_name_list, var_name="sic_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_sic_m
+    IF (p_acc%l_sic_m) THEN
+       CALL add_var( list, 'sic_m', p_acc%seaice,                                                &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('sea_ice_cover', '',                                               &
+                   &          'fraction of ocean covered by sea ice (time mean)',                &
+                   &          dataType),                                                         &
+                   & grib2_var(10,2,0, ibits, GRID_REFERENCE, GRID_CELL),                        &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
+    p_acc%l_sit_m = is_variable_in_output(first_output_name_list, var_name="sit_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_sit_m
+    IF (p_acc%l_sit_m) THEN
+       CALL add_var( list, 'sit_m', p_acc%siced,                                                 &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('sea_ice_thickness', 'm',                                          &
+                   &          'sea ice thickness (time mean)',                                   &
+                   &          dataType),                                                         &
+                   & grib2_var(10,2,1, ibits, GRID_REFERENCE, GRID_CELL),                        &
+                   & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
+                   & isteptype=TSTEP_INSTANT )
+    END IF
+
+    p_acc%l_albedo_m = is_variable_in_output(first_output_name_list, var_name="albedo_m")
+    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_albedo_m
+    IF (p_acc%l_albedo_m) THEN
+       CALL add_var( list, 'albedo_m', p_acc%albedo,                                             &
+                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                                         &
+                   & t_cf_var('albedo', '',                                                      &
+                   &          'surface albedo (time mean)',                                      &
+                   &          dataType),                                                         &
+                   & grib2_var(0,19,1, ibits, GRID_REFERENCE, GRID_CELL),                        &
                    & ldims=shape2d,in_group=groups("echam_timemean","atmo_timemean"),            &
                    & isteptype=TSTEP_INSTANT )
     END IF
@@ -1376,39 +1506,47 @@ CONTAINS
        END IF
     END IF
 
-    IF (acc%l_cosmu0_m)  CALL add_fields(acc%cosmu0    , prm_field(jg)%cosmu0    , subset)
-    IF (acc%l_rsdt_m)    CALL add_fields(acc%flxdwswtoa, prm_field(jg)%flxdwswtoa, subset)
-    IF (acc%l_clt_m)     CALL add_fields(acc%aclcov    , prm_field(jg)%aclcov    , subset)
-    IF (acc%l_prlr_m)    CALL add_fields(acc%rsfl      , prm_field(jg)%rsfl      , subset)
-    IF (acc%l_prcr_m)    CALL add_fields(acc%rsfc      , prm_field(jg)%rsfc      , subset)
-    IF (acc%l_prls_m)    CALL add_fields(acc%ssfl      , prm_field(jg)%ssfl      , subset)
-    IF (acc%l_prcs_m)    CALL add_fields(acc%ssfc      , prm_field(jg)%ssfc      , subset)
-    IF (acc%l_pr_m)      CALL add_fields(acc%totprec   , prm_field(jg)%totprec   , subset)
-    IF (acc%l_prw_m)     CALL add_fields(acc%qvi       , prm_field(jg)%qvi       , subset)
-    IF (acc%l_cllvi_m)   CALL add_fields(acc%xlvi      , prm_field(jg)%xlvi      , subset)
-    IF (acc%l_clivi_m)   CALL add_fields(acc%xivi      , prm_field(jg)%xivi      , subset)
-    IF (acc%l_rsns_m)    CALL add_fields(acc%swflxsfc  , prm_field(jg)%swflxsfc  , subset)
-    IF (acc%l_rsnt_m)    CALL add_fields(acc%swflxtoa  , prm_field(jg)%swflxtoa  , subset)
-    IF (acc%l_rlns_m)    CALL add_fields(acc%lwflxsfc  , prm_field(jg)%lwflxsfc  , subset)
-    IF (acc%l_rlnt_m)    CALL add_fields(acc%lwflxtoa  , prm_field(jg)%lwflxtoa  , subset)
-    IF (acc%l_ts_m)      CALL add_fields(acc%tsfc      , prm_field(jg)%tsfc      , subset)
-    IF (acc%l_evspsbl_m) CALL add_fields(acc%evap      , prm_field(jg)%evap      , subset)
-    IF (acc%l_hfls_m)    CALL add_fields(acc%lhflx     , prm_field(jg)%lhflx     , subset)
-    IF (acc%l_hfss_m)    CALL add_fields(acc%shflx     , prm_field(jg)%shflx     , subset)
-    IF (acc%l_tauu_m)    CALL add_fields(acc%u_stress  , prm_field(jg)%u_stress  , subset)
-    IF (acc%l_tauv_m)    CALL add_fields(acc%v_stress  , prm_field(jg)%v_stress  , subset)
+    IF (acc%l_cosmu0_m)   CALL add_fields(acc%cosmu0         , prm_field(jg)%cosmu0         , subset)
+    IF (acc%l_rsdt_m)     CALL add_fields(acc%flxdwswtoa     , prm_field(jg)%flxdwswtoa     , subset)
+    IF (acc%l_hur_m)      CALL add_fields(acc%relhum         , prm_field(jg)%relhum         , subset, levels=levels)
+    IF (acc%l_cl_m)       CALL add_fields(acc%aclc           , prm_field(jg)%aclc           , subset, levels=levels)
+    IF (acc%l_clt_m)      CALL add_fields(acc%aclcov         , prm_field(jg)%aclcov         , subset)
+    IF (acc%l_prlr_m)     CALL add_fields(acc%rsfl           , prm_field(jg)%rsfl           , subset)
+    IF (acc%l_prcr_m)     CALL add_fields(acc%rsfc           , prm_field(jg)%rsfc           , subset)
+    IF (acc%l_prls_m)     CALL add_fields(acc%ssfl           , prm_field(jg)%ssfl           , subset)
+    IF (acc%l_prcs_m)     CALL add_fields(acc%ssfc           , prm_field(jg)%ssfc           , subset)
+    IF (acc%l_pr_m)       CALL add_fields(acc%totprec        , prm_field(jg)%totprec        , subset)
+    IF (acc%l_prw_m)      CALL add_fields(acc%qvi            , prm_field(jg)%qvi            , subset)
+    IF (acc%l_cllvi_m)    CALL add_fields(acc%xlvi           , prm_field(jg)%xlvi           , subset)
+    IF (acc%l_clivi_m)    CALL add_fields(acc%xivi           , prm_field(jg)%xivi           , subset)
+    IF (acc%l_rsns_m)     CALL add_fields(acc%swflxsfc       , prm_field(jg)%swflxsfc       , subset)
+    IF (acc%l_rsnt_m)     CALL add_fields(acc%swflxtoa       , prm_field(jg)%swflxtoa       , subset)
+    IF (acc%l_rlns_m)     CALL add_fields(acc%lwflxsfc       , prm_field(jg)%lwflxsfc       , subset)
+    IF (acc%l_rlnt_m)     CALL add_fields(acc%lwflxtoa       , prm_field(jg)%lwflxtoa       , subset)
+    IF (acc%l_ts_m)       CALL add_fields(acc%tsfc           , prm_field(jg)%tsfc           , subset)
+    IF (acc%l_evspsbl_m)  CALL add_fields(acc%evap           , prm_field(jg)%evap           , subset)
+    IF (acc%l_hfls_m)     CALL add_fields(acc%lhflx          , prm_field(jg)%lhflx          , subset)
+    IF (acc%l_hfss_m)     CALL add_fields(acc%shflx          , prm_field(jg)%shflx          , subset)
+    IF (acc%l_tauu_m)     CALL add_fields(acc%u_stress       , prm_field(jg)%u_stress       , subset)
+    IF (acc%l_tauv_m)     CALL add_fields(acc%v_stress       , prm_field(jg)%v_stress       , subset)
+    IF (acc%l_tauu_sso_m) CALL add_fields(acc%u_stress_sso   , prm_field(jg)%u_stress_sso   , subset)
+    IF (acc%l_tauv_sso_m) CALL add_fields(acc%v_stress_sso   , prm_field(jg)%v_stress_sso   , subset)
+    IF (acc%l_diss_sso_m) CALL add_fields(acc%dissipation_sso, prm_field(jg)%dissipation_sso, subset)
+    IF (acc%l_sic_m)      CALL add_fields(acc%seaice         , prm_field(jg)%seaice         , subset)
+    IF (acc%l_sit_m)      CALL add_fields(acc%siced          , prm_field(jg)%siced          , subset)
+    IF (acc%l_albedo_m)   CALL add_fields(acc%albedo         , prm_field(jg)%albedo         , subset)
 
-    IF (acc%l_tend_ta_m    ) CALL add_fields(acc%tend_ta    , prm_tend(jg)%temp    , subset, levels=levels)
-    IF (acc%l_tend_ta_dyn_m) CALL add_fields(acc%tend_ta_dyn, prm_tend(jg)%temp_dyn, subset, levels=levels)
-    IF (acc%l_tend_ta_phy_m) CALL add_fields(acc%tend_ta_phy, prm_tend(jg)%temp_phy, subset, levels=levels)
-    IF (acc%l_tend_ta_rsw_m) CALL add_fields(acc%tend_ta_rsw, prm_tend(jg)%temp_rsw, subset, levels=levels)
-    IF (acc%l_tend_ta_rlw_m) CALL add_fields(acc%tend_ta_rlw, prm_tend(jg)%temp_rlw, subset, levels=levels)
+    IF (acc%l_tend_ta_m    )      CALL add_fields(acc%tend_ta         , prm_tend(jg)%temp         , subset, levels=levels)
+    IF (acc%l_tend_ta_dyn_m)      CALL add_fields(acc%tend_ta_dyn     , prm_tend(jg)%temp_dyn     , subset, levels=levels)
+    IF (acc%l_tend_ta_phy_m)      CALL add_fields(acc%tend_ta_phy     , prm_tend(jg)%temp_phy     , subset, levels=levels)
+    IF (acc%l_tend_ta_rsw_m)      CALL add_fields(acc%tend_ta_rsw     , prm_tend(jg)%temp_rsw     , subset, levels=levels)
+    IF (acc%l_tend_ta_rlw_m)      CALL add_fields(acc%tend_ta_rlw     , prm_tend(jg)%temp_rlw     , subset, levels=levels)
     IF (acc%l_tend_ta_rlw_impl_m) CALL add_fields(acc%tend_ta_rlw_impl, prm_tend(jg)%temp_rlw_impl, subset)
-    IF (acc%l_tend_ta_cld_m) CALL add_fields(acc%tend_ta_cld, prm_tend(jg)%temp_cld, subset, levels=levels)
-    IF (acc%l_tend_ta_cnv_m) CALL add_fields(acc%tend_ta_cnv, prm_tend(jg)%temp_cnv, subset, levels=levels)
-    IF (acc%l_tend_ta_vdf_m) CALL add_fields(acc%tend_ta_vdf, prm_tend(jg)%temp_vdf, subset, levels=levels)
-    IF (acc%l_tend_ta_gwh_m) CALL add_fields(acc%tend_ta_gwh, prm_tend(jg)%temp_gwh, subset, levels=levels)
-    IF (acc%l_tend_ta_sso_m) CALL add_fields(acc%tend_ta_sso, prm_tend(jg)%temp_sso, subset, levels=levels)
+    IF (acc%l_tend_ta_cld_m)      CALL add_fields(acc%tend_ta_cld     , prm_tend(jg)%temp_cld     , subset, levels=levels)
+    IF (acc%l_tend_ta_cnv_m)      CALL add_fields(acc%tend_ta_cnv     , prm_tend(jg)%temp_cnv     , subset, levels=levels)
+    IF (acc%l_tend_ta_vdf_m)      CALL add_fields(acc%tend_ta_vdf     , prm_tend(jg)%temp_vdf     , subset, levels=levels)
+    IF (acc%l_tend_ta_gwh_m)      CALL add_fields(acc%tend_ta_gwh     , prm_tend(jg)%temp_gwh     , subset, levels=levels)
+    IF (acc%l_tend_ta_sso_m)      CALL add_fields(acc%tend_ta_sso     , prm_tend(jg)%temp_sso     , subset, levels=levels)
 
     IF (acc%l_tend_ua_m    ) CALL add_fields(acc%tend_ua    , prm_tend(jg)%u    , subset, levels=levels)
     IF (acc%l_tend_ua_dyn_m) CALL add_fields(acc%tend_ua_dyn, prm_tend(jg)%u_dyn, subset, levels=levels)
@@ -1457,27 +1595,35 @@ CONTAINS
        END IF
     END IF
 
-    IF (acc%l_cosmu0_m)  acc%cosmu0     = 0.0_wp
-    IF (acc%l_rsdt_m)    acc%flxdwswtoa = 0.0_wp
-    IF (acc%l_clt_m)     acc%aclcov     = 0.0_wp
-    IF (acc%l_prlr_m)    acc%rsfl       = 0.0_wp
-    IF (acc%l_prls_m)    acc%ssfl       = 0.0_wp
-    IF (acc%l_prcr_m)    acc%rsfc       = 0.0_wp
-    IF (acc%l_prcs_m)    acc%ssfc       = 0.0_wp
-    IF (acc%l_pr_m)      acc%totprec    = 0.0_wp
-    IF (acc%l_prw_m)     acc%qvi        = 0.0_wp
-    IF (acc%l_cllvi_m)   acc%xlvi       = 0.0_wp
-    IF (acc%l_clivi_m)   acc%xivi       = 0.0_wp
-    IF (acc%l_rsns_m)    acc%swflxsfc   = 0.0_wp
-    IF (acc%l_rsnt_m)    acc%swflxtoa   = 0.0_wp
-    IF (acc%l_rlns_m)    acc%lwflxsfc   = 0.0_wp
-    IF (acc%l_rlnt_m)    acc%lwflxtoa   = 0.0_wp
-    IF (acc%l_ts_m)      acc%tsfc       = 0.0_wp
-    IF (acc%l_evspsbl_m) acc%evap       = 0.0_wp
-    IF (acc%l_hfls_m)    acc%lhflx      = 0.0_wp
-    IF (acc%l_hfss_m)    acc%shflx      = 0.0_wp
-    IF (acc%l_tauu_m)    acc%u_stress   = 0.0_wp
-    IF (acc%l_tauv_m)    acc%v_stress   = 0.0_wp
+    IF (acc%l_cosmu0_m)   acc%cosmu0          = 0.0_wp
+    IF (acc%l_rsdt_m)     acc%flxdwswtoa      = 0.0_wp
+    IF (acc%l_hur_m)      acc%relhum          = 0.0_wp
+    IF (acc%l_cl_m)       acc%aclc            = 0.0_wp
+    IF (acc%l_clt_m)      acc%aclcov          = 0.0_wp
+    IF (acc%l_prlr_m)     acc%rsfl            = 0.0_wp
+    IF (acc%l_prls_m)     acc%ssfl            = 0.0_wp
+    IF (acc%l_prcr_m)     acc%rsfc            = 0.0_wp
+    IF (acc%l_prcs_m)     acc%ssfc            = 0.0_wp
+    IF (acc%l_pr_m)       acc%totprec         = 0.0_wp
+    IF (acc%l_prw_m)      acc%qvi             = 0.0_wp
+    IF (acc%l_cllvi_m)    acc%xlvi            = 0.0_wp
+    IF (acc%l_clivi_m)    acc%xivi            = 0.0_wp
+    IF (acc%l_rsns_m)     acc%swflxsfc        = 0.0_wp
+    IF (acc%l_rsnt_m)     acc%swflxtoa        = 0.0_wp
+    IF (acc%l_rlns_m)     acc%lwflxsfc        = 0.0_wp
+    IF (acc%l_rlnt_m)     acc%lwflxtoa        = 0.0_wp
+    IF (acc%l_ts_m)       acc%tsfc            = 0.0_wp
+    IF (acc%l_evspsbl_m)  acc%evap            = 0.0_wp
+    IF (acc%l_hfls_m)     acc%lhflx           = 0.0_wp
+    IF (acc%l_hfss_m)     acc%shflx           = 0.0_wp
+    IF (acc%l_tauu_m)     acc%u_stress        = 0.0_wp
+    IF (acc%l_tauv_m)     acc%v_stress        = 0.0_wp
+    IF (acc%l_tauu_sso_m) acc%u_stress_sso    = 0.0_wp
+    IF (acc%l_tauv_sso_m) acc%v_stress_sso    = 0.0_wp
+    IF (acc%l_diss_sso_m) acc%dissipation_sso = 0.0_wp
+    IF (acc%l_sic_m)      acc%seaice          = 0.0_wp
+    IF (acc%l_sit_m)      acc%siced           = 0.0_wp
+    IF (acc%l_albedo_m)   acc%albedo          = 0.0_wp
 
     IF (acc%l_tend_ta_m    )      acc%tend_ta          = 0.0_wp
     IF (acc%l_tend_ta_dyn_m)      acc%tend_ta_dyn      = 0.0_wp
@@ -1491,21 +1637,21 @@ CONTAINS
     IF (acc%l_tend_ta_gwh_m)      acc%tend_ta_gwh      = 0.0_wp
     IF (acc%l_tend_ta_sso_m)      acc%tend_ta_sso      = 0.0_wp
 
-    IF (acc%l_tend_ua_m    ) acc%tend_ua    = 0.0_wp
-    IF (acc%l_tend_ua_dyn_m) acc%tend_ua_dyn= 0.0_wp
-    IF (acc%l_tend_ua_phy_m) acc%tend_ua_phy= 0.0_wp
-    IF (acc%l_tend_ua_cnv_m) acc%tend_ua_cnv= 0.0_wp
-    IF (acc%l_tend_ua_vdf_m) acc%tend_ua_vdf= 0.0_wp
-    IF (acc%l_tend_ua_gwh_m) acc%tend_ua_gwh= 0.0_wp
-    IF (acc%l_tend_ua_sso_m) acc%tend_ua_sso= 0.0_wp
+    IF (acc%l_tend_ua_m    ) acc%tend_ua     = 0.0_wp
+    IF (acc%l_tend_ua_dyn_m) acc%tend_ua_dyn = 0.0_wp
+    IF (acc%l_tend_ua_phy_m) acc%tend_ua_phy = 0.0_wp
+    IF (acc%l_tend_ua_cnv_m) acc%tend_ua_cnv = 0.0_wp
+    IF (acc%l_tend_ua_vdf_m) acc%tend_ua_vdf = 0.0_wp
+    IF (acc%l_tend_ua_gwh_m) acc%tend_ua_gwh = 0.0_wp
+    IF (acc%l_tend_ua_sso_m) acc%tend_ua_sso = 0.0_wp
 
-    IF (acc%l_tend_va_m    ) acc%tend_va    = 0.0_wp
-    IF (acc%l_tend_va_dyn_m) acc%tend_va_dyn= 0.0_wp
-    IF (acc%l_tend_va_phy_m) acc%tend_va_phy= 0.0_wp
-    IF (acc%l_tend_va_cnv_m) acc%tend_va_cnv= 0.0_wp
-    IF (acc%l_tend_va_vdf_m) acc%tend_va_vdf= 0.0_wp
-    IF (acc%l_tend_va_gwh_m) acc%tend_va_gwh= 0.0_wp
-    IF (acc%l_tend_va_sso_m) acc%tend_va_sso= 0.0_wp
+    IF (acc%l_tend_va_m    ) acc%tend_va     = 0.0_wp
+    IF (acc%l_tend_va_dyn_m) acc%tend_va_dyn = 0.0_wp
+    IF (acc%l_tend_va_phy_m) acc%tend_va_phy = 0.0_wp
+    IF (acc%l_tend_va_cnv_m) acc%tend_va_cnv = 0.0_wp
+    IF (acc%l_tend_va_vdf_m) acc%tend_va_vdf = 0.0_wp
+    IF (acc%l_tend_va_gwh_m) acc%tend_va_gwh = 0.0_wp
+    IF (acc%l_tend_va_sso_m) acc%tend_va_sso = 0.0_wp
 
     acc%numberOfAccumulations = 0
 
@@ -1539,27 +1685,35 @@ CONTAINS
        END IF
     END IF
 
-    IF (acc%l_cosmu0_m)  acc%cosmu0     = acc%cosmu0     *xfactor
-    IF (acc%l_rsdt_m)    acc%flxdwswtoa = acc%flxdwswtoa *xfactor
-    IF (acc%l_clt_m)     acc%aclcov     = acc%aclcov     *xfactor
-    IF (acc%l_prlr_m)    acc%rsfl       = acc%rsfl       *xfactor
-    IF (acc%l_prcr_m)    acc%rsfc       = acc%rsfc       *xfactor
-    IF (acc%l_prls_m)    acc%ssfl       = acc%ssfl       *xfactor
-    IF (acc%l_prcs_m)    acc%ssfc       = acc%ssfc       *xfactor
-    IF (acc%l_pr_m)      acc%totprec    = acc%totprec    *xfactor
-    IF (acc%l_prw_m)     acc%qvi        = acc%qvi        *xfactor
-    IF (acc%l_cllvi_m)   acc%xlvi       = acc%xlvi       *xfactor
-    IF (acc%l_clivi_m)   acc%xivi       = acc%xivi       *xfactor
-    IF (acc%l_rsns_m)    acc%swflxsfc   = acc%swflxsfc   *xfactor
-    IF (acc%l_rsnt_m)    acc%swflxtoa   = acc%swflxtoa   *xfactor
-    IF (acc%l_rlns_m)    acc%lwflxsfc   = acc%lwflxsfc   *xfactor
-    IF (acc%l_rlnt_m)    acc%lwflxtoa   = acc%lwflxtoa   *xfactor
-    IF (acc%l_ts_m)      acc%tsfc       = acc%tsfc       *xfactor
-    IF (acc%l_evspsbl_m) acc%evap       = acc%evap       *xfactor
-    IF (acc%l_hfls_m)    acc%lhflx      = acc%lhflx      *xfactor
-    IF (acc%l_hfss_m)    acc%shflx      = acc%shflx      *xfactor
-    IF (acc%l_tauu_m)    acc%u_stress   = acc%u_stress   *xfactor
-    IF (acc%l_tauv_m)    acc%v_stress   = acc%v_stress   *xfactor
+    IF (acc%l_cosmu0_m)   acc%cosmu0          = acc%cosmu0          *xfactor
+    IF (acc%l_rsdt_m)     acc%flxdwswtoa      = acc%flxdwswtoa      *xfactor
+    IF (acc%l_hur_m)      acc%relhum          = acc%relhum          *xfactor
+    IF (acc%l_cl_m)       acc%aclc            = acc%aclc            *xfactor
+    IF (acc%l_clt_m)      acc%aclcov          = acc%aclcov          *xfactor
+    IF (acc%l_prlr_m)     acc%rsfl            = acc%rsfl            *xfactor
+    IF (acc%l_prcr_m)     acc%rsfc            = acc%rsfc            *xfactor
+    IF (acc%l_prls_m)     acc%ssfl            = acc%ssfl            *xfactor
+    IF (acc%l_prcs_m)     acc%ssfc            = acc%ssfc            *xfactor
+    IF (acc%l_pr_m)       acc%totprec         = acc%totprec         *xfactor
+    IF (acc%l_prw_m)      acc%qvi             = acc%qvi             *xfactor
+    IF (acc%l_cllvi_m)    acc%xlvi            = acc%xlvi            *xfactor
+    IF (acc%l_clivi_m)    acc%xivi            = acc%xivi            *xfactor
+    IF (acc%l_rsns_m)     acc%swflxsfc        = acc%swflxsfc        *xfactor
+    IF (acc%l_rsnt_m)     acc%swflxtoa        = acc%swflxtoa        *xfactor
+    IF (acc%l_rlns_m)     acc%lwflxsfc        = acc%lwflxsfc        *xfactor
+    IF (acc%l_rlnt_m)     acc%lwflxtoa        = acc%lwflxtoa        *xfactor
+    IF (acc%l_ts_m)       acc%tsfc            = acc%tsfc            *xfactor
+    IF (acc%l_evspsbl_m)  acc%evap            = acc%evap            *xfactor
+    IF (acc%l_hfls_m)     acc%lhflx           = acc%lhflx           *xfactor
+    IF (acc%l_hfss_m)     acc%shflx           = acc%shflx           *xfactor
+    IF (acc%l_tauu_m)     acc%u_stress        = acc%u_stress        *xfactor
+    IF (acc%l_tauv_m)     acc%v_stress        = acc%v_stress        *xfactor
+    IF (acc%l_tauu_sso_m) acc%u_stress_sso    = acc%u_stress_sso    *xfactor
+    IF (acc%l_tauv_sso_m) acc%v_stress_sso    = acc%v_stress_sso    *xfactor
+    IF (acc%l_diss_sso_m) acc%dissipation_sso = acc%dissipation_sso *xfactor
+    IF (acc%l_sic_m)      acc%seaice          = acc%seaice          *xfactor
+    IF (acc%l_sit_m)      acc%siced           = acc%siced           *xfactor
+    IF (acc%l_albedo_m)   acc%albedo          = acc%albedo          *xfactor
 
     IF (acc%l_tend_ta_m    )      acc%tend_ta          = acc%tend_ta          *xfactor
     IF (acc%l_tend_ta_dyn_m)      acc%tend_ta_dyn      = acc%tend_ta_dyn      *xfactor
@@ -1758,7 +1912,7 @@ CONTAINS
     INTEGER,                           INTENT(IN)    :: nlev
     TYPE(t_vcoeff),                    INTENT(INOUT) :: vcoeff
 
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_opt_diagnostics:vcoeff_allocate")
+!!$    CHARACTER(*), PARAMETER :: routine = TRIM("mo_opt_diagnostics:vcoeff_allocate")
 
     IF (.NOT. vcoeff%l_allocated) THEN
       CALL vcoeff_lin_allocate(nblks_c, nlev, vcoeff%lin_cell)
