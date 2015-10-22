@@ -62,6 +62,7 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma           = ${nproma}
+ use_dp_mpi2io    = .TRUE.
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grids}",
