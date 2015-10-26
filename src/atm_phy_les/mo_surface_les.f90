@@ -138,7 +138,7 @@ MODULE mo_surface_les
     ! number of vertical levels
     nlev = p_patch%nlev
     jk   = nlev
-    jkp1 =  jk+1
+    jkp1 = jk+1
 
     i_nchdom   = MAX(1,p_patch%n_childdom)
  

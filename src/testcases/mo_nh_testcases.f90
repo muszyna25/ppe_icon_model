@@ -385,7 +385,7 @@ MODULE mo_nh_testcases
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running Rain in the Culumus Over the Ocean LES Experiment')
 
-  CASE ('SOUND')
+  CASE ('RCE','GATE')
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
         CALL finish(TRIM(routine),'To initialize with sounding is only for torus!')
@@ -1084,7 +1084,7 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup RICO test')
 
-  CASE ('SOUND') !to initialize with sounding
+  CASE ('RCE','GATE') !to initialize with sounding
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
         CALL finish(TRIM(routine),'To initizialize with sounding is only for torus!')
@@ -1122,7 +1122,7 @@ MODULE mo_nh_testcases
 
       CALL init_warm_bubble ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                  p_nh_state(jg)%ref, p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
- 
+
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
 
@@ -1131,7 +1131,7 @@ MODULE mo_nh_testcases
 
 
   IF ( ANY( (/icosmo,iedmf/)==atm_phy_nwp_config(1)%inwp_turb ) .AND. &
-     (nh_test_name=='APE_nwp' .OR. nh_test_name=='CBL' .OR. nh_test_name=='init_sound' &
+     (nh_test_name=='APE_nwp' .OR. nh_test_name=='CBL' .OR. nh_test_name=='GATE' &
      .OR. nh_test_name=='RICO') ) THEN
     DO jg = 1, n_dom
       p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g                    = th_cbl(1)

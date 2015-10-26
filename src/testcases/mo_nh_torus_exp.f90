@@ -318,11 +318,10 @@ MODULE mo_nh_torus_exp
                                          ptr_nh_prog%theta_v(1:nlen,jk,jb)     
       END DO !jk
 
-
-      CALL diagnose_pres_temp (ptr_metrics, ptr_nh_prog,ptr_nh_prog, ptr_nh_diag,     &
-                               ptr_patch, opt_calc_pres=.TRUE., opt_calc_temp=.TRUE.)
-
     ENDDO !jb
+
+    !CALL diagnose_pres_temp (ptr_metrics, ptr_nh_prog,ptr_nh_prog, ptr_nh_diag,     &
+    !                         ptr_patch, opt_calc_pres=.TRUE., opt_calc_temp=.TRUE.)
 
     !Mean wind 
     DO jb = 1 , nblks_e
@@ -769,7 +768,6 @@ MODULE mo_nh_torus_exp
     ! init surface pressure
     ptr_nh_diag%pres_sfc(:,:) = psfc_in
     ex_sfc   = (psfc_in/p0ref)**rd_o_cpd
-
     les_config(jg)%psfc = psfc_in
 
     ! Tracers: all zero by default

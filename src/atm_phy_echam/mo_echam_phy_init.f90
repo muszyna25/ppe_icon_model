@@ -161,7 +161,7 @@ CONTAINS
              'isolrad = ', isolrad, ' in radiation_nml namelist is not supported'
         CALL message('init_echam_phy', message_text)
       END SELECT
-      IF ( ctest_name == 'RCE' .OR. ctest_name == 'RCE_CBL' ) THEN
+      IF ( ctest_name == 'RCE' ) THEN
         tsi_radt = 0._wp
         ! solar flux (W/m2) in 14 SW bands
         ssi_radt(:) = ssi_rce(:)
@@ -632,7 +632,7 @@ CONTAINS
 
         IF ( is_coupled_run() ) CALL finish('ERROR: Use testcase APEc or APEc_nh for a coupled run')
 
-      CASE('RCE','RCE_glb','RCE_CBL') !Note that there is only one surface type in this case
+      CASE('RCE','RCE_glb') !Note that there is only one surface type in this case
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jcs,jce,zlat) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = jbs,nblks_c
