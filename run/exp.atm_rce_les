@@ -103,10 +103,10 @@ cat >> ${atmo_namelist} << EOF
  check_uuid_gracefully = .TRUE.
 /
 &nwp_phy_nml
- inwp_gscp       = 0
+ inwp_gscp       = 1
  inwp_convection = 0 ! 1:Tiedtke/Bechtold
- inwp_radiation  = 0 ! 1:RRTM radiation
- inwp_cldcover   = 0 ! 3: clouds from COSMO SGS cloud scheme
+ inwp_radiation  = 1 ! 1:RRTM radiation
+ inwp_cldcover   = 5 ! 3: clouds from COSMO SGS cloud scheme
  inwp_turb       = 5 ! 1: COSMO diffusion and transfer
  inwp_satad      = 1
  inwp_surface    = 0 ! 0: none; 1: TERRA
@@ -115,13 +115,12 @@ cat >> ${atmo_namelist} << EOF
 /
 &les_nml
  sst               = 301
- isrfc_type        = 0     !2=Fixed flux, 5=fixed SST, 3=fixed bflux
+ isrfc_type        = 5     !2=Fixed flux, 5=fixed SST, 3=fixed bflux
  expname           = '${EXPNAME}'
  avg_interval_sec = 900.
  sampl_freq_sec   = 120.
  ldiag_les_out    = .TRUE.
  km_min           = 0.0
- psfc             = 101540.0
 /
 &turbdiff_nml
 lconst_z0 = .TRUE.
@@ -134,7 +133,7 @@ const_z0  = 0.0001
  hdiff_order  = 4
 /
 &radiation_nml
- irad_o3 = 0 !should be the ozone clim for APE  
+ irad_o3 = 4 !should be the ozone clim for APE  
  izenith    = 5 ! zenith = 38 deg
  vmr_co2    = 278.e-06 ! values representative for pre ind rev 
  irad_aero  = 0 ! switch off aerosols
