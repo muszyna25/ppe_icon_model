@@ -824,10 +824,13 @@ run/exp.atm_amip_hs -text
 run/exp.atm_amip_hs_test -text
 run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
-run/exp.atm_amip_test_inst_1dt -text
+run/exp.atm_amip_test_inst_1dt_FALSE -text
+run/exp.atm_amip_test_inst_1dt_TRUE -text
 run/exp.atm_amip_test_inst_2dt -text
 run/exp.atm_amip_test_mean_1dt -text
-run/exp.atm_amip_test_mean_2dt -text
+run/exp.atm_amip_test_mean_1dt_FALSE -text
+run/exp.atm_amip_test_mean_1dt_TRUE -text
+run/exp.atm_amip_test_mean_2dt_TRUE -text
 run/exp.atm_icoles_nested -text
 run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text
