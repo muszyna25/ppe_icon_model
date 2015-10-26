@@ -38,10 +38,11 @@ MODULE mo_ice_fem_utils
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec, rotate_latlon,&
-    &                               rotate_latlon_vec, cc_norm!, disp_new_vect
+    &                               rotate_latlon_vec!, disp_new_vect
   USE mo_exception,           ONLY: message
 !  USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar
-  USE mo_icon_to_fem_interpolation, ONLY: cells2verts_scalar_seaice
+  USE mo_icon_to_fem_interpolation, ONLY: map_edges2verts, map_verts2edges_einar, map_verts2edges, &
+                                    cells2verts_scalar_seaice
   USE mo_run_config,          ONLY: dtime, ltimer
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_impl_constants,      ONLY: sea_boundary, sea
@@ -71,8 +72,6 @@ MODULE mo_ice_fem_utils
   PUBLIC  :: ice_advection, ice_advection_vla
   PUBLIC  :: ice_ocean_stress
 
-  PRIVATE :: map_edges2verts
-  PRIVATE :: map_verts2edges
   PRIVATE :: upwind_hflux_ice
   PRIVATE :: intrp_to_fem_grid_vec
   PRIVATE :: intrp_from_fem_grid_vec
@@ -492,182 +491,7 @@ CONTAINS
 
   END SUBROUTINE upwind_hflux_ice
 
-  !-------------------------------------------------------------------------
-  !
-  !> Map vectors from edges to vertices
-  !! Based on map_edges2vert_3d in oce_dyn_icohom/mo_oce/math_operators.f90
-  !!
-  !! @par Revision History
-  !! Developed by Einar Olason, MPI-M (2013-08-05)
-  !
-  SUBROUTINE map_edges2verts(p_patch, vn, edge2vert_coeff_cc, p_vn_dual)
-    
-    TYPE(t_patch), TARGET, INTENT(in)      :: p_patch
-    REAL(wp), INTENT(in)           :: vn(:,:)
-    TYPE(t_cartesian_coordinates),INTENT(in)  :: edge2vert_coeff_cc(:,:,:,:)
-    TYPE(t_cartesian_coordinates),INTENT(out) :: p_vn_dual(:,:)
 
-    ! Local variables
-
-    ! Sub-set
-    TYPE(t_subset_range), POINTER :: verts_in_domain
-
-    ! Indexing
-    INTEGER :: jv, jb,jev
-    INTEGER :: ile, ibe
-    INTEGER :: i_startidx_v, i_endidx_v
-
-    !-----------------------------------------------------------------------
-
-    verts_in_domain => p_patch%verts%in_domain
-    ! Set to zero for nag compiler
-    p_vn_dual(:,:)%x(1) = 0._wp
-    p_vn_dual(:,:)%x(2) = 0._wp
-    p_vn_dual(:,:)%x(3) = 0._wp
-
-    DO jb = verts_in_domain%start_block, verts_in_domain%end_block
-      CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
-        DO jv = i_startidx_v, i_endidx_v
-
-          p_vn_dual(jv,jb)%x = 0.0_wp
-          DO jev = 1, p_patch%verts%num_edges(jv,jb)
-
-            ! get line and block indices of edge jev around vertex jv
-            ile = p_patch%verts%edge_idx(jv,jb,jev)
-            ibe = p_patch%verts%edge_blk(jv,jb,jev)
-
-            p_vn_dual(jv,jb)%x = p_vn_dual(jv,jb)%x        &
-            & +edge2vert_coeff_cc(jv,1,jb,jev)%x &
-            & *vn(ile,ibe)
-          END DO
-        END DO ! jv = i_startidx_v, i_endidx_v
-    END DO ! jb = verts_in_domain%start_block, verts_in_domain%end_block
-
-  END SUBROUTINE map_edges2verts
-
-!--------------------------------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  !
-  !> Map vectors from vertices to edges
-  !! Based on ideas from rot_vertex_ocean_3d in oce_dyn_icohom/mo_ocean_math_operators.f90
-  !!
-  !! @par Revision History
-  !! Developed by Einar Olason, MPI-M (2013-08-05)
-  !
-  SUBROUTINE map_verts2edges(p_patch_3D, p_vn_dual, edge2cell_coeff_cc_t, vn)
-
-    TYPE(t_patch_3D), TARGET, INTENT(in)      :: p_patch_3D
-    TYPE(t_cartesian_coordinates),INTENT(IN) :: p_vn_dual(:,:)
-    TYPE(t_cartesian_coordinates),INTENT(in):: edge2cell_coeff_cc_t(:,:,:,:)
-    REAL(wp), INTENT(inOUT)           :: vn(:,:)
-
-    ! Local variables
-
-    ! Patch and sub-set
-    TYPE(t_subset_range), POINTER :: verts_in_domain
-    TYPE(t_patch), POINTER        :: p_patch 
-
-    ! Indexing
-    INTEGER :: jb, jv, jev
-    INTEGER :: ile, ibe
-    INTEGER :: il_v1, il_v2,ib_v1, ib_v2
-    INTEGER :: i_startidx_v, i_endidx_v
-
-    !-----------------------------------------------------------------------
-
-    p_patch         => p_patch_3D%p_patch_2D(1)
-    verts_in_domain => p_patch%verts%in_domain
-
-
-    ! Copied from oce_dyn_icohom/mo_ocean_math_operators.f90:rot_vertex_ocean_3d
-    ! Replaced the coefficient and sign to get normal velocity instead of tangental
-    DO jb = verts_in_domain%start_block, verts_in_domain%end_block
-      CALL get_index_range(verts_in_domain, jb, i_startidx_v, i_endidx_v)
-        DO jv = i_startidx_v, i_endidx_v
-
-          DO jev = 1, p_patch%verts%num_edges(jv,jb)
-
-            ! get line and block indices of edge jev around vertex jv
-            ile = p_patch%verts%edge_idx(jv,jb,jev)
-            ibe = p_patch%verts%edge_blk(jv,jb,jev)
-
-            IF(p_patch_3D%lsm_e(ile,1,ibe) <= sea_boundary)THEN
-              !calculate normal velocity
-              il_v1 = p_patch%edges%vertex_idx(ile,ibe,1)
-              ib_v1 = p_patch%edges%vertex_blk(ile,ibe,1)
-              il_v2 = p_patch%edges%vertex_idx(ile,ibe,2)
-              ib_v2 = p_patch%edges%vertex_blk(ile,ibe,2)
-
-              vn(ile,ibe) = &
-                &   DOT_PRODUCT(p_vn_dual(il_v1,ib_v1)%x,edge2cell_coeff_cc_t(ile,1,ibe,1)%x) &
-                & + DOT_PRODUCT(p_vn_dual(il_v2,ib_v2)%x,edge2cell_coeff_cc_t(ile,1,ibe,2)%x)
-            ELSE
-              vn(ile,ibe) = 0._wp
-            ENDIF
-          END DO
-      END DO
-    END DO
-  
-  END SUBROUTINE map_verts2edges
-
-  !-------------------------------------------------------------------------
-  !
-  !> Map vectors from vertices to edges
-  !!
-  !! @par Revision History
-  !! Developed by Vladimir Lapin, MPI-M (2015-08-13)
-  !
-  SUBROUTINE map_verts2edges_vla(p_patch_3D, p_vn_dual, edge2vert_coeff_cc_t, vn)
-
-    TYPE(t_patch_3D), TARGET, INTENT(in)      :: p_patch_3D
-    TYPE(t_cartesian_coordinates),INTENT(IN) :: p_vn_dual(:,:)
-    TYPE(t_cartesian_coordinates),INTENT(in):: edge2vert_coeff_cc_t(:,:,:,:)
-    REAL(wp), INTENT(inOUT)           :: vn(:,:)
-
-    ! Local variables
-
-    ! Patch and sub-set
-    TYPE(t_subset_range), POINTER :: edges_in_domain
-    TYPE(t_patch), POINTER        :: p_patch 
-
-    ! Indexing
-    INTEGER :: je, jb
-    INTEGER :: il_v1, il_v2,ib_v1, ib_v2
-    INTEGER :: i_startidx, i_endidx
-
-    TYPE(t_cartesian_coordinates)   :: p_vn_dual_e
-
-    !-----------------------------------------------------------------------
-
-    p_patch         => p_patch_3D%p_patch_2D(1)
-    edges_in_domain => p_patch%edges%in_domain
-
-    ! loop through all patch edges (and blocks)
-    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
-        DO je = i_startidx, i_endidx
-
-            IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
-              !calculate normal velocity
-              il_v1 = p_patch%edges%vertex_idx(je,jb,1)
-              ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
-              il_v2 = p_patch%edges%vertex_idx(je,jb,2)
-              ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
-
-              p_vn_dual_e%x = cc_norm(edge2vert_coeff_cc_t(je,1,jb,1))*p_vn_dual(il_v1,ib_v1)%x &
-		          & + cc_norm(edge2vert_coeff_cc_t(je,1,jb,2))*p_vn_dual(il_v2,ib_v2)%x
-
-              vn(je,jb) = DOT_PRODUCT(p_vn_dual_e%x, p_patch%edges%primal_cart_normal(je,jb)%x)
-            ELSE
-              vn(je,jb) = 0._wp
-            ENDIF
-        END DO
-    END DO
-
-
-  
-  END SUBROUTINE map_verts2edges_vla
 
   !-------------------------------------------------------------------------
   !
@@ -1612,7 +1436,7 @@ CONTAINS
     ! (2) Interpolate ice velocities to edges for advection
     !**************************************************************
 
-    CALL map_verts2edges( p_patch_3D, p_vn_dual, p_op_coeff%edge2cell_coeff_cc_t, p_ice%vn_e )
+    CALL map_verts2edges_einar( p_patch_3D, p_vn_dual, p_op_coeff%edge2cell_coeff_cc_t, p_ice%vn_e )
     CALL sync_patch_array(SYNC_E, p_patch, p_ice%vn_e)
 
     !**************************************************************
@@ -1914,8 +1738,8 @@ CONTAINS
     ! (2) Interpolate ice velocities to edges for advection
     !**************************************************************
 
-!    CALL map_verts2edges( p_patch_3D, p_vn_dual, p_op_coeff%edge2cell_coeff_cc_t, p_ice%vn_e )
-    CALL map_verts2edges_vla(p_patch_3D, p_vn_dual, p_op_coeff%edge2vert_coeff_cc_t, p_ice%vn_e)
+!    CALL map_verts2edges_einar( p_patch_3D, p_vn_dual, p_op_coeff%edge2cell_coeff_cc_t, p_ice%vn_e )
+    CALL map_verts2edges(p_patch_3D, p_vn_dual, p_op_coeff%edge2vert_coeff_cc_t, p_ice%vn_e)
     CALL sync_patch_array(SYNC_E, p_patch, p_ice%vn_e)
 
     !**************************************************************
