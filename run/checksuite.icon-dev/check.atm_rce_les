@@ -14,7 +14,7 @@ export EXPERIMENT='atm_rce_les'
 # TYPES is a list of names identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
 #
-export TYPES='prog_vars_DOM01_ML rad_vars_DOM01_ML pbl_vars_DOM01_ML cloud_diag_DOM01_ML '
+export TYPES='prog_vars_DOM01_ML rad_vars_DOM01_ML pbl_vars_DOM01_ML cloud_diag_DOM01_ML tend_vars_DOM01_ML'
 
 # DATES is a list of dates identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.

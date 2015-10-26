@@ -38,7 +38,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=12
+dtime=20
 dt_checkpoint=1200 
 #
 #-----------------------------------------------------------------------------
@@ -49,13 +49,13 @@ atmo_model_equations=3 # equation system
 #                     3=non-hydrost. atm.,
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=64           # nlev = number of full levels
+nlev=50           # nlev = number of full levels
 iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
 grids_folder="/pool/data/ICON/buildbot_data/aes/rce_les/"
-atmo_dyn_grids='torus_grid_r2km_s64.nc'
+atmo_dyn_grids='torus_grid_r4km_s50.nc'
 #
 #-----------------------------------------------------------------------------
 #
@@ -79,10 +79,10 @@ cat >> ${atmo_namelist} << EOF
  corio_lat = 0.0
 /
 &nh_testcase_nml
- nh_test_name   = 'SOUND'     ! test case identifier
- ape_sst_case   = 'sst_const'
+ nh_test_name   = 'RCE'     ! test case identifier
  sol_const      = 685
  zenithang      = 51.7
+ !th_cbl        = 301,0.006
 /
 &io_nml
  dt_checkpoint  = ${dt_checkpoint}
@@ -91,50 +91,50 @@ cat >> ${atmo_namelist} << EOF
 &run_nml
  num_lev        = ${nlev},        ! number of full levels of vertical grid
  dtime          = ${dtime}     ! timestep in seconds
+ modelTimeStep  = "PT20S"      ! preliminary fix
  ltransport     = .FALSE.
  ntracer        = 5            ! default: 0
  iforcing       = ${iforcing}  ! 3: NWP forcing; 6:inhecham forcing
  ltestcase      = .TRUE.       ! run testcase
  ltimer         = .true.       ! 
- msg_level      = 12          ! detailed report during integration
+ msg_level      = 10          ! detailed report during integration
  output         = 'nml'
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
  check_uuid_gracefully = .TRUE.
 /
 &nwp_phy_nml
- inwp_gscp       = 1
+ inwp_gscp       = 0
  inwp_convection = 0 ! 1:Tiedtke/Bechtold
- inwp_radiation  = 1 ! 1:RRTM radiation
- inwp_cldcover   = 5 ! 3: clouds from COSMO SGS cloud scheme
+ inwp_radiation  = 0 ! 1:RRTM radiation
+ inwp_cldcover   = 0 ! 3: clouds from COSMO SGS cloud scheme
  inwp_turb       = 5 ! 1: COSMO diffusion and transfer
  inwp_satad      = 1
  inwp_surface    = 0 ! 0: none; 1: TERRA
  latm_above_top  = .true.
- dt_rad          = 900.
+ dt_rad          = 600.
 /
 &les_nml
- is_dry_cbl        = .TRUE. 
  sst               = 301
- isrfc_type        = 5     !2=Fixed flux, 5=fixed SST, 3=fixed bflux
+ isrfc_type        = 0     !2=Fixed flux, 5=fixed SST, 3=fixed bflux
  expname           = '${EXPNAME}'
  avg_interval_sec = 900.
- sampl_freq_sec   = 60.
+ sampl_freq_sec   = 120.
  ldiag_les_out    = .TRUE.
  km_min           = 0.0
+ psfc             = 101540.0
 /
 &turbdiff_nml
 lconst_z0 = .TRUE.
 const_z0  = 0.0001
 /
 &diffusion_nml
- lhdiff_temp  = .TRUE.
+ lhdiff_temp  = .FALSE.
  lhdiff_vn    = .TRUE.
- lhdiff_w     = .TRUE.
+ lhdiff_w     = .FALSE.
  hdiff_order  = 4
 /
 &radiation_nml
-! ldiur = .FALSE. ! is this necessary or is izenith=0 suff.?
- irad_o3 = 4 !should be the ozone clim for APE  
+ irad_o3 = 0 !should be the ozone clim for APE  
  izenith    = 5 ! zenith = 38 deg
  vmr_co2    = 278.e-06 ! values representative for pre ind rev 
  irad_aero  = 0 ! switch off aerosols
@@ -152,7 +152,7 @@ const_z0  = 0.0001
  lextra_diffu    = .FALSE.
 /
 &sleve_nml
- top_height = 25000
+ top_height = 23000
  min_lay_thckn = 20. ! thickness of lowest model layer
  stretch_fac  = 0.9
 /
@@ -184,7 +184,7 @@ const_z0  = 0.0001
  include_last     = .TRUE.
  output_filename  = '${EXPNAME}_pbl_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'tch','tcm','z_pbl','rh_2m','umfl_s','vmfl_s','lhfl_s','shfl_s','t_g','qv_s'
+ ml_varlist       = 'tch','tcm','htop_dc','rh_2m','umfl_s','vmfl_s','lhfl_s','shfl_s','t_g','qv_s'
  output_grid      = .TRUE.
 /
 &output_nml
@@ -195,7 +195,19 @@ const_z0  = 0.0001
  include_last     = .TRUE.
  output_filename  = '${EXPNAME}_prog_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'qv','qc','qi','qs','qr','rh','u','v','w','temp','pres','rho','theta_v','ddt_temp_turb','div','ddt_temp_gscp'
+ !ml_varlist       = 'qv','qc','qi','qs','qr','rh','u','v','w','temp','pres','rho','theta_v','div'
+ ml_varlist       = 'u','v','w','temp','pres','rho','theta_v','div'
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT10M"
+ file_interval    = "PT10M"
+ include_last     = .TRUE.
+ output_filename  = '${EXPNAME}_tend_vars'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'group:phys_tendencies'
  output_grid      = .TRUE.
 /
 &output_nml
@@ -218,6 +230,6 @@ add_link_file ${DATADIR}/rrtmg_lw.nc                 rrtmg_lw.nc
 add_link_file ${DATADIR}/ECHAM6_CldOptProps.nc       ECHAM6_CldOptProps.nc
 add_link_file ${DATADIR}/dmin_wetgrowth_lookup.dat   dmin_wetgrowth_lookup.dat  #for inwp_gscp==4
 pooldir=/pool/data/ICON/buildbot_data/aes/rce_les
-add_link_file ${pooldir}/torus_r2km_s64_o3_CMIP5_ape_1870_march.nc  o3_icon_DOM01.nc
+add_link_file ${pooldir}/torus_grid_r4km_s50_o3_CMIP5_ape_1870_march.nc  o3_icon_DOM01.nc
 add_link_file ${pooldir}/sound_in              sound_in
 #----------------------------------------------------------------------------------
