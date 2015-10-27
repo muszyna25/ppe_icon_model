@@ -826,8 +826,6 @@ run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
 run/exp.atm_amip_test_inst_1dt_FALSE -text
 run/exp.atm_amip_test_inst_1dt_TRUE -text
-run/exp.atm_amip_test_inst_2dt -text
-run/exp.atm_amip_test_mean_1dt -text
 run/exp.atm_amip_test_mean_1dt_FALSE -text
 run/exp.atm_amip_test_mean_1dt_TRUE -text
 run/exp.atm_amip_test_mean_2dt_TRUE -text
