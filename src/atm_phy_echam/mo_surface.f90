@@ -218,7 +218,7 @@ CONTAINS
 
     REAL(wp) :: zgrnd_hflx(kbdim,ksfc_type), zgrnd_hcap(kbdim,ksfc_type), ztsfc(kbdim)
 
-    REAL(wp) :: zt2s_conv(kbdim,ksfc_type)
+    !REAL(wp) :: zt2s_conv(kbdim,ksfc_type)
 
     ! Sea ice
     REAL(wp) :: Tfw(kbdim)
@@ -237,9 +237,9 @@ CONTAINS
     ENDDO
 
     ! Compute factor for conversion temperature to dry static energy
-    DO jsfc=1,ksfc_type
-      zt2s_conv(1:kproma,jsfc) = pcpt_tile(1:kproma,jsfc) / ptsfc_tile(1:kproma,jsfc)
-    END DO
+    !DO jsfc=1,ksfc_type
+    !  zt2s_conv(1:kproma,jsfc) = pcpt_tile(1:kproma,jsfc) / ptsfc_tile(1:kproma,jsfc)
+    !END DO
 
     !===================================================================
     ! BEFORE CALLING land/ocean/ice model
@@ -420,7 +420,7 @@ CONTAINS
         dnonsolardT(1:kproma,k) = -4._wp * zemiss_def * stbo * (Tsurf(1:kproma,k)+tmelt)**3
 
       ENDDO
-
+   
       CALL ice_fast(1, kproma, kbdim, kice, pdtime, &
         &   Tsurf,              &
         &   T1,                 &
@@ -454,15 +454,15 @@ CONTAINS
       IF ( phy_config%lamip ) THEN
         DO k=1,kice
           ! Snowfall on ice - no ice => no snow
-          WHERE ( hi(:,k) > 0._wp )
+          WHERE ( hi(1:kproma,k) > 0._wp )
             ! Snow only falls when it's below freezing
-            WHERE ( Tsurf(:,k) < 0._wp )
-              hs(:,k) = hs(:,k) + (pssfl + pssfc)*pdtime/rhos 
+            WHERE ( Tsurf(1:kproma,k) < 0._wp )
+              hs(1:kproma,k) = hs(1:kproma,k) + (pssfl(1:kproma) + pssfc(1:kproma))*pdtime/rhos 
             ENDWHERE
             ! Snow melt
-            hs(:,k) = hs(:,k) - MIN( Qtop(:,k)*pdtime/( alf*rhos ), hs(:,k) )
+            hs(1:kproma,k) = hs(1:kproma,k) - MIN( Qtop(1:kproma,k)*pdtime/( alf*rhos ), hs(1:kproma,k) )
           ELSEWHERE
-            hs(:,k) = 0._wp
+            hs(1:kproma,k) = 0._wp
           ENDWHERE
         ENDDO
       ENDIF

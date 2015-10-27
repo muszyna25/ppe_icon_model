@@ -133,6 +133,7 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
           CALL art_loss_chemtracer(ext_data, p_patch,           &
                  & datetime,                          &
                  & p_dtime,                           &
+                 & p_prog,                            &
                  & p_prog_list,                       &
                  & p_diag,                            &
                  & p_metrics,                         &
@@ -149,9 +150,10 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                  & p_metrics,                         &
                  & prm_diag,                          &
                  & p_tracer_now)
-          CALL art_loss_chemtracer(ext_data, p_patch,           &
+          CALL art_loss_chemtracer(ext_data, p_patch, &
                  & datetime,                          &
                  & p_dtime,                           &
+                 & p_prog,                            &
                  & p_prog_list,                       &
                  & p_diag,                            &
                  & p_metrics,                         &

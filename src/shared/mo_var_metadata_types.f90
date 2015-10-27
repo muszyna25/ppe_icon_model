@@ -41,7 +41,7 @@ MODULE mo_var_metadata_types
   ! New groups can be added by extending the VAR_GROUPS list.
   !
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(48) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(52) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -53,6 +53,10 @@ MODULE mo_var_metadata_types
     &  "CLOUD_DIAG            ",  &
     &  "PBL_VARS              ",  &
     &  "PHYS_TENDENCIES       ",  &
+    &  "PROG_TIMEMEAN         ",  &
+    &  "ECHAM_TIMEMEAN        ",  &
+    &  "TRACER_TIMEMEAN       ",  &
+    &  "ATMO_TIMEMEAN         ",  &
     &  "LAND_VARS             ",  &
     &  "LAND_TILE_VARS        ",  &
     &  "MULTISNOW_VARS        ",  &
@@ -156,6 +160,12 @@ MODULE mo_var_metadata_types
     REAL(wp) :: halflife_tracer   ! radioactive half-life in s^-1
     INTEGER  :: imis_tracer       ! IMIS number
     REAL(wp) :: lifetime_tracer   ! lifetime of a chemical tracer
+    !
+    INTEGER :: mode_number        ! number of mode                   for GRIB2 output
+    INTEGER :: diameter           ! diameter of ash particle         for GRIB2 output
+    INTEGER :: variance           ! variance of aerosol mode         for GRIB2 output
+    INTEGER :: constituent        ! constituent type of tracer       for GRIB2 output
+    INTEGER :: tau_wavelength     ! wavelength of diagnostic AOD     for GRIB2 output
     !
   END TYPE t_tracer_meta
 

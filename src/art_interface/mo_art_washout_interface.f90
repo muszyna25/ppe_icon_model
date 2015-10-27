@@ -48,6 +48,7 @@ MODULE mo_art_washout_interface
   USE mo_art_washout_volc,              ONLY: art_washout_volc
   USE mo_art_radioactive,               ONLY: art_washout_radioact
   USE mo_art_washout_aerosol,           ONLY: art_aerosol_washout
+  USE omp_lib
 #endif
 
   IMPLICIT NONE
@@ -121,6 +122,8 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
         ! Select type of mode
         SELECT TYPE (fields=>this_mode%fields)
           CLASS IS (t_fields_2mom)
+
+!$omp parallel do default(shared) private(jb, istart, iend, wash_rate_m0, wash_rate_m3)            
             ! This DO loop will be outside the DO WHILE ASSOCIATED loop as soon as modal_param is rewritten for single blocks
             DO jb = i_startblk, i_endblk
               CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -155,14 +158,15 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
               CALL art_integrate_explicit(tracer(:,:,jb,fields%info%i_number_conc), wash_rate_m0(:,:), dtime,         &
                 &                         istart,iend, nlev, opt_rho = rho(:,:,jb))
             ENDDO
+!$omp end parallel do
               
           CLASS IS (t_fields_volc)
             CALL art_washout_volc(p_patch,dtime,prm_diag,   &
-                           &      tracer,rho,fields%itracer)
+              &                   tracer,rho,fields%itracer)
                            
           CLASS IS (t_fields_radio)
             CALL art_washout_radioact(fields,p_patch,dtime,prm_diag,  &
-                               &      tracer,rho,p_art_data(jg))
+              &                       tracer,rho,p_art_data(jg))
                                
           CLASS DEFAULT
             CALL finish('mo_art_washout_interface:art_washout_interface', &
