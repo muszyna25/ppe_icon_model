@@ -41,8 +41,8 @@ MODULE mo_ice_fem_utils
     &                               rotate_latlon_vec!, disp_new_vect
   USE mo_exception,           ONLY: message
 !  USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar
-  USE mo_icon_to_fem_interpolation, ONLY: map_edges2verts, map_verts2edges_einar, map_verts2edges, &
-                                    cells2verts_scalar_seaice
+  USE mo_icon_to_fem_interpolation, ONLY: map_edges2verts, map_verts2edges, map_verts2edges_einar, &
+                                          map_edges2verts_einar, cells2verts_scalar_seaice
   USE mo_run_config,          ONLY: dtime, ltimer
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_impl_constants,      ONLY: sea_boundary, sea
@@ -1268,10 +1268,10 @@ CONTAINS
     CALL sync_patch_array(SYNC_E, p_patch, tau_n)
 
     !**************************************************************
-    ! (3) Interpolate 3D wind stress from cell centers to vertices
+    ! (3) Interpolate 3D wind stress from edges to vertices
     !**************************************************************
 
-    CALL map_edges2verts( p_patch, tau_n, p_op_coeff%edge2vert_coeff_cc, p_tau_n_dual)
+    CALL map_edges2verts_einar( p_patch, tau_n, p_op_coeff%edge2vert_coeff_cc, p_tau_n_dual)
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(1))
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(2))
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(3))
@@ -1557,10 +1557,10 @@ CONTAINS
     CALL sync_patch_array(SYNC_E, p_patch, tau_n)
 
     !**************************************************************
-    ! (3) Interpolate 3D wind stress from cell centers to vertices
+    ! (3) Interpolate 3D wind stress from edges to vertices
     !**************************************************************
 
-    CALL map_edges2verts( p_patch, tau_n, p_op_coeff%edge2vert_coeff_cc, p_tau_n_dual)
+    CALL map_edges2verts( p_patch_3D, tau_n, p_op_coeff%edge2vert_coeff_cc, p_tau_n_dual)
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(1))
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(2))
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(3))
