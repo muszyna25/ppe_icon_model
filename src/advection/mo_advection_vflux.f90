@@ -1165,7 +1165,7 @@ CONTAINS
     REAL(wp) :: &                 !< monotonized slope
       &  z_slope(nproma,p_patch%nlev)
 
-    REAL(wp) :: z_slope_u, z_slope_l     !< one-sided slopes
+    REAL(wp) :: p_cc_min, p_cc_max       !< 3-point max/min values
 
     REAL(wp) :: z_delta_p, z_delta_m     !< difference between upper and lower face value
                                          !< for w>0 and w<0
@@ -1364,7 +1364,7 @@ CONTAINS
 
 !$OMP DO PRIVATE(jb,jk,jc,ik,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m,        &
 !$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,                 &
-!$OMP            z_aux_p,z_aux_m,ikp1_ic,ikp1,z_slope_u,z_slope_l,ikp2,nlist,ji_p,    &
+!$OMP            z_aux_p,z_aux_m,ikp1_ic,ikp1,p_cc_min,p_cc_max,ikp2,nlist,ji_p,      &
 !$OMP            ji_m,jk_shift,z_iflx_m,z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12,     &
 !$OMP            zfac, zfac_n, zden1, zden2, zden3, zden4,                            &
 !$OMP            z_lext_1,z_lext_2,z_slope,z_face,z_face_up,z_face_low,z_flx_frac_high) ICON_OMP_GUIDED_SCHEDULE
@@ -1589,9 +1589,6 @@ CONTAINS
           zfac = 1._wp / (p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb)) &
             &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))
 
-          z_slope_u = 2._wp * (p_cc(jc,jk,jb) - p_cc(jc,ikm1,jb))
-          z_slope_l = 2._wp * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))
-
           z_slope(jc,jk) = ( p_cellhgt_mc_now(jc,jk,jb)                                          &
             &  / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)                      &
             &  + p_cellhgt_mc_now(jc,ikp1,jb)) )                                                 &
@@ -1600,11 +1597,14 @@ CONTAINS
 
           zfac_n(jc) = zfac
 
+          ! equivalent formulation of Colella and Woodward (1984) slope limiter 
+          ! following Lin et al (1994).
+          p_cc_min = MIN(p_cc(jc,ikm1,jb),p_cc(jc,jk,jb),p_cc(jc,ikp1,jb))
+          p_cc_max = MAX(p_cc(jc,ikm1,jb),p_cc(jc,jk,jb),p_cc(jc,ikp1,jb))
           z_slope(jc,jk) = SIGN(                                            &
-            &  MIN( ABS(z_slope(jc,jk)), ABS(z_slope_u), ABS(z_slope_l) ),  &
+            &  MIN( ABS(z_slope(jc,jk)), 2._wp*(p_cc(jc,jk,jb)-p_cc_min),   &
+            &                            2._wp*(p_cc_max-p_cc(jc,jk,jb)) ), &
             &    z_slope(jc,jk))
-
-          IF ((z_slope_u * z_slope_l) <= 0._wp)  z_slope(jc,jk) = 0._wp
            
         END DO
 
