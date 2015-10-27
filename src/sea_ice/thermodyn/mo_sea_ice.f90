@@ -71,7 +71,7 @@ MODULE mo_sea_ice
     &                               ice_fem_grid_init, ice_fem_grid_post, ice_advection,        &
     &                               ice_advection_vla, ice_ocean_stress
   USE mo_ice_init,            ONLY: ice_init_fem
-  USE mo_grid_config,         ONLY: n_dom
+!  USE mo_grid_config,         ONLY: n_dom   ! restrict sea-ice model to the global domain for the time being
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_fast, timer_ice_slow
   USE mo_datetime,            ONLY: t_datetime
@@ -1075,11 +1075,11 @@ CONTAINS
     TYPE(t_patch_3D), TARGET, INTENT(in)  :: p_patch_3D
     TYPE(t_hydro_ocean_state)             :: p_os
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
-    REAL(wp), DIMENSION(nproma,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks), &
+    REAL(wp), DIMENSION(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks), &
       & INTENT(OUT)                       :: cellThicknessUnderIce
 
     !local variables
-    REAL(wp), DIMENSION(nproma,ice%kice, p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks) :: &
+    REAL(wp), DIMENSION(nproma,ice%kice, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: &
       & Tinterface, & ! temperature at snow-ice interface
       & Tfw           ! Ocean freezing temperature [C]
 
@@ -1092,8 +1092,8 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    p_patch => p_patch_3D%p_patch_2D(n_dom)
-    p_patch_vert => p_patch_3D%p_patch_1D(n_dom)
+    p_patch => p_patch_3D%p_patch_2D(1)
+    p_patch_vert => p_patch_3D%p_patch_1D(1)
 
     !Constructor basic init already done at this point
     !   CALL alloc_mem_commo_ice (ice, atmos_fluxes, atmos_fluxesAve)
@@ -1327,8 +1327,8 @@ CONTAINS
 
     IF (ltimer) CALL timer_start(timer_ice_slow)
 
-    p_patch      => p_patch_3D%p_patch_2D(n_dom)
-    p_patch_vert => p_patch_3D%p_patch_1D(n_dom)
+    p_patch      => p_patch_3D%p_patch_2D(1)
+    p_patch_vert => p_patch_3D%p_patch_1D(1)
     ! subset range pointer
     all_cells => p_patch%cells%all 
     flat      => p_patch_vert%prism_thick_flat_sfc_c(:,1,:)

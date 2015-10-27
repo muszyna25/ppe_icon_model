@@ -104,11 +104,14 @@ CONTAINS
           edgeOfVertex_block = p_patch%verts%edge_blk(vertexIndex,blockNo,vertexConnect)
 
         ! check that current edge is in the domain and vn is defined there
-          IF(patch_3d%lsm_e(edgeOfVertex_index,1,edgeOfVertex_block) <= sea_boundary) THEN
+        ! Sea-land boundary is taken into account by coeffcients.
+!          IF(patch_3d%lsm_e(edgeOfVertex_index,1,edgeOfVertex_block) <= sea_boundary) THEN
+
             p_vn_dual(vertexIndex,blockNo)%x = p_vn_dual(vertexIndex,blockNo)%x        &
               & + edge2vert_coeff_cc(vertexIndex,1,blockNo,vertexConnect)%x & ! level = 1
               & * vn(edgeOfVertex_index,edgeOfVertex_block)
-          ENDIF
+
+!          ENDIF
 
         END DO
       END DO

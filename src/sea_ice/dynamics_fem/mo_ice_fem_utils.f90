@@ -32,7 +32,7 @@ MODULE mo_ice_fem_utils
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_momentum
 !    &                               timer_ice_advection, timer_ice_interp
-  USE mo_grid_config,         ONLY: n_dom
+!  USE mo_grid_config,         ONLY: n_dom   ! restrict sea-ice model to the global domain for the time being
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
@@ -137,11 +137,11 @@ CONTAINS
     INTEGER  :: i_startidx_v, i_endidx_v
 
     ! Temporary variables/buffers
-    REAL(wp) :: buffy(nproma*p_patch_3D%p_patch_2D(n_dom)%nblks_v)
-    REAL(wp) :: buffy_array(nproma,p_ice%kice,p_patch_3D%p_patch_2D(n_dom)%nblks_v) 
+    REAL(wp) :: buffy(nproma*p_patch_3D%p_patch_2D(1)%nblks_v)
+    REAL(wp) :: buffy_array(nproma,p_ice%kice,p_patch_3D%p_patch_2D(1)%nblks_v)
     REAL(wp) :: tmp2(2)!, tmp_x, tmp_y, delu, u_change
 
-    REAL(wp), DIMENSION (nproma,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks) :: &
+    REAL(wp), DIMENSION (nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: &
 			& atm_u, atm_v, oce_u, oce_v
 
     ! TODO: There are too many calls to cvec2gvec and gvec2cvec ... but premature optimisation is the
@@ -155,7 +155,7 @@ CONTAINS
 ! Set up patch and ranges
 !--------------------------------------------------------------------------------------------------
 
-    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    p_patch => p_patch_3D%p_patch_2D(1)
     all_cells => p_patch%cells%all
     all_verts => p_patch%verts%all
 
@@ -277,7 +277,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    p_patch => p_patch_3D%p_patch_2D(1)
     nblks_v = p_patch%nblks_v
 
     ALLOCATE(c2v_wgt(nproma,6,nblks_v),STAT=ist)
@@ -525,15 +525,15 @@ CONTAINS
 
     ! Temporary variables/buffers and flags
     INTEGER :: verts(nproma,p_patch_3D%p_patch_2D(1)%nblks_v)
-    INTEGER :: buffy(nproma*p_patch_3D%p_patch_2D(n_dom)%nblks_v)
+    INTEGER :: buffy(nproma*p_patch_3D%p_patch_2D(1)%nblks_v)
     INTEGER :: ist
     REAL(wp) :: lat, lon, cos_d, sin_d
     REAL(wp) :: cos_lonp, sin_lonp, cos_latp, sin_latp
 
     ! Masking for the halo-points
-    INTEGER :: halo_mask(nproma, p_patch_3D%p_patch_2D(n_dom)%nblks_v)
+    INTEGER :: halo_mask(nproma, p_patch_3D%p_patch_2D(1)%nblks_v)
 
-   ! REAL(wp) :: test(nproma, p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks, 3)
+   ! REAL(wp) :: test(nproma, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks, 3)
    ! INTEGER :: my_mpi_id
 
 !--------------------------------------------------------------------------------------------------
@@ -897,7 +897,7 @@ CONTAINS
 
 !    IF (ltimer) CALL timer_start(timer_ice_advection)
 
-    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    p_patch => p_patch_3D%p_patch_2D(1)
     cells_in_domain => p_patch%cells%in_domain
 
 !--------------------------------------------------------------------------------------------------
@@ -1000,7 +1000,7 @@ CONTAINS
 
 !    IF (ltimer) CALL timer_start(timer_ice_advection)
 
-    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    p_patch => p_patch_3D%p_patch_2D(1)
     cells_in_domain => p_patch%cells%in_domain
 
 !--------------------------------------------------------------------------------------------------
@@ -1222,16 +1222,16 @@ CONTAINS
 
     ! Temporary variables/buffers
     TYPE(t_cartesian_coordinates) :: &
-      & p_tau_n_c(nproma,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates) :: p_tau_n_dual(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_v)
-    REAL(wp) :: tau_n(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_e)
+      & p_tau_n_c(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: p_tau_n_dual(nproma,p_patch_3D%p_patch_2D(1)%nblks_v)
+    REAL(wp) :: tau_n(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: tmp_x, tmp_y, tmp2(2), delu, u_change
 
 !--------------------------------------------------------------------------------------------------
 ! Set up patch and ranges
 !--------------------------------------------------------------------------------------------------
 
-    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    p_patch => p_patch_3D%p_patch_2D(1)
     all_cells => p_patch%cells%all
     all_verts => p_patch%verts%all
 
@@ -1389,16 +1389,16 @@ CONTAINS
     INTEGER  :: i_startidx_v, i_endidx_v
 
     ! Temporary variables/buffers
-    TYPE(t_cartesian_coordinates) :: p_vn_dual(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_v)
+    TYPE(t_cartesian_coordinates) :: p_vn_dual(nproma,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_cartesian_coordinates) :: &
-      & p_vn_c_3D(nproma,1,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks)
+      & p_vn_c_3D(nproma,1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: tmp2(2)
 
 !--------------------------------------------------------------------------------------------------
 ! Set up patch and ranges
 !--------------------------------------------------------------------------------------------------
 
-    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    p_patch => p_patch_3D%p_patch_2D(1)
     all_cells => p_patch%cells%all
     all_verts => p_patch%verts%all
 
@@ -1510,9 +1510,9 @@ CONTAINS
 
     ! Temporary variables/buffers
     TYPE(t_cartesian_coordinates) :: &
-      & p_tau_n_c(nproma,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates) :: p_tau_n_dual(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_v)
-    REAL(wp) :: tau_n(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_e)
+      & p_tau_n_c(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: p_tau_n_dual(nproma,p_patch_3D%p_patch_2D(1)%nblks_v)
+    REAL(wp) :: tau_n(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     REAL(wp) :: tmp3(3)!, delu, u_change
     REAL(wp) :: lat, lon!, lat1, lon1
 
@@ -1520,7 +1520,7 @@ CONTAINS
 ! Set up patch and ranges
 !--------------------------------------------------------------------------------------------------
 
-    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    p_patch => p_patch_3D%p_patch_2D(1)
     all_cells => p_patch%cells%all
     all_verts => p_patch%verts%all
 
@@ -1559,7 +1559,12 @@ CONTAINS
     !**************************************************************
     ! (3) Interpolate 3D wind stress from edges to vertices
     !**************************************************************
-
+#ifdef NAGFOR
+    ! only for parallel testing with nag
+    p_tau_n_dual(:,:)%x(1) = 0.0_wp
+    p_tau_n_dual(:,:)%x(2) = 0.0_wp
+    p_tau_n_dual(:,:)%x(3) = 0.0_wp
+#endif
     CALL map_edges2verts( p_patch_3D, tau_n, p_op_coeff%edge2vert_coeff_cc, p_tau_n_dual)
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(1))
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(2))
@@ -1678,9 +1683,9 @@ CONTAINS
     INTEGER  :: i_startidx_v, i_endidx_v
 
     ! Temporary variables/buffers
-    TYPE(t_cartesian_coordinates) :: p_vn_dual(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_v)
+    TYPE(t_cartesian_coordinates) :: p_vn_dual(nproma,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_cartesian_coordinates) :: &
-      & p_vn_c_3D(nproma,1,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks)
+      & p_vn_c_3D(nproma,1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp) :: tmp3(3)
     REAL(wp) :: lat, lon
 
@@ -1688,7 +1693,7 @@ CONTAINS
 ! Set up patch and ranges
 !--------------------------------------------------------------------------------------------------
 
-    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    p_patch => p_patch_3D%p_patch_2D(1)
     all_cells => p_patch%cells%all
     all_verts => p_patch%verts%all
 

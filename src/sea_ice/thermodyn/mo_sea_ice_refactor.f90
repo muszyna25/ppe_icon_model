@@ -46,7 +46,8 @@ MODULE mo_sea_ice_refactor
   USE mo_util_dbg_prnt,       ONLY: dbg_print
 ! USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
 ! USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection, ice_ocean_stress
-  USE mo_grid_config,         ONLY: n_dom
+
+!  USE mo_grid_config,         ONLY: n_dom   ! restrict sea-ice model to the global domain for the time being
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_slow2
   USE mo_time_config,         ONLY: time_config
@@ -93,8 +94,8 @@ CONTAINS
 
     IF (ltimer) CALL timer_start(timer_ice_slow2)
 
-    p_patch      => p_patch_3D%p_patch_2D(n_dom)
-    p_patch_vert => p_patch_3D%p_patch_1D(n_dom)
+    p_patch      => p_patch_3D%p_patch_2D(1)
+    p_patch_vert => p_patch_3D%p_patch_1D(1)
     ! subset range pointer
     all_cells => p_patch%cells%all 
     flat      => p_patch_vert%prism_thick_flat_sfc_c(:,1,:)
