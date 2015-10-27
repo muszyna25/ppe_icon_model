@@ -33,14 +33,16 @@ MODULE mo_icon_to_fem_interpolation
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_intp
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, cc_norm
+  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, cc_norm, gvec2cvec
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_impl_constants,      ONLY: sea_boundary
+
 
   IMPLICIT NONE
 
   PRIVATE
 
+  PUBLIC :: gvec2cvec_c_2d
   PUBLIC :: map_edges2verts
   PUBLIC :: map_verts2edges
   PUBLIC :: map_edges2verts_einar
@@ -55,6 +57,49 @@ CONTAINS
 !  ! routines needed to compute the coefficients therein
 !
 !-----------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !
+  !>
+  !!
+  !! @par Revision History
+  !! Developed by Vladimir Lapin, MPI-M (2015-10-13)
+  !
+  SUBROUTINE gvec2cvec_c_2d(patch_3d, gvec_u, gvec_v, cvec)
+
+    TYPE(t_patch_3d),TARGET, INTENT(in)       :: patch_3d
+    REAL(wp), INTENT(in)                      :: gvec_u(:,:), gvec_v(:,:)
+    TYPE(t_cartesian_coordinates),INTENT(out) :: cvec(nproma,patch_3d%p_patch_2D(1)%alloc_cell_blocks)
+
+   ! Local variables
+    ! Patch and ranges
+    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    ! Indexing
+    INTEGER  :: i_startidx_c, i_endidx_c, jc, jb!, jk
+    !-----------------------------------------------------------------------
+
+    p_patch   => patch_3d%p_patch_2d(1)
+    all_cells => p_patch%cells%all
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c,i_endidx_c, jc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF(patch_3d%lsm_c(jc,1,jb) <= sea_boundary)THEN
+          CALL gvec2cvec(  gvec_u(jc,jb), gvec_v(jc,jb), &
+                         & p_patch%cells%center(jc,jb)%lon,     &
+                         & p_patch%cells%center(jc,jb)%lat,     &
+                         & cvec(jc,jb)%x(1),cvec(jc,jb)%x(2),cvec(jc,jb)%x(3))
+        ELSE
+          cvec(jc,jb)%x    = 0.0_wp
+        ENDIF
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE gvec2cvec_c_2d
 
   !-------------------------------------------------------------------------
   !
