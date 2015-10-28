@@ -810,8 +810,8 @@ run/component.xsd -text
 run/coupling.xsd -text
 run/dict.echam.mpim -text
 run/dict.extpar -text
-run/dict.hdcp2_final -text
 run/dict.icoham.mpim -text
+run/dict.icon.hdcp2 -text
 run/dict.iconam.mpim -text
 run/dict.latbc -text
 run/dict.output.dwd -text
