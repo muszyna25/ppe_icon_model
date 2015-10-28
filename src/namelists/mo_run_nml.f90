@@ -38,7 +38,7 @@ MODULE mo_run_nml
                          & config_check_uuid_gracefully => check_uuid_gracefully, &
                          & config_irad_type         => irad_type, &
                          & setModelTimeStep, tc_dt_model
-  USE mo_kind,           ONLY: wp
+  USE mo_kind,           ONLY: wp, i8
   USE mo_exception,      ONLY: finish, message, message_text, &
     &                      config_msg_timestamp   => msg_timestamp
   USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ,     &
@@ -53,7 +53,8 @@ MODULE mo_run_nml
 
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,   &
        &                            open_and_restore_namelist, close_tmpfile
-  USE mtime,                  ONLY: max_timedelta_str_len, timedeltaToString
+  USE mtime,                  ONLY: max_timedelta_str_len, timedeltaToString, &
+       &                            getPTStringFromMS
   
   IMPLICIT NONE
   PRIVATE
@@ -165,7 +166,7 @@ CONTAINS
 
     nsteps = -999
     dtime  = 600._wp     ! [s] for R2B04 + semi-implicit time steppping
-    modelTimeStep = 'PT10M'
+    modelTimeStep = ''
     
     ltimer               = .TRUE.
     timers_level         = 1
@@ -240,6 +241,10 @@ CONTAINS
     IF (dtime <= 0._wp) CALL finish(TRIM(routine),'"dtime" must be positive')
     IF (irad_type > 2 .OR. irad_type < 1 ) CALL finish(TRIM(routine),'"irad_type" must be 1 or 2')
 
+    IF (modelTimeStep == '') THEN
+      CALL getPTStringFromMS(NINT(1000*dtime, i8), modelTimeStep)
+    ENDIF
+    
     CALL setModelTimeStep(modelTimeStep)
 
     IF (ASSOCIATED(tc_dt_model)) THEN

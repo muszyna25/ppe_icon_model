@@ -20,7 +20,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 #if defined __xlC__
-@PROCESS SPILL(1024)
+@PROCESS SPILL(1058)
 #endif
 MODULE mo_nwp_rrtm_interface
 
@@ -566,7 +566,7 @@ CONTAINS
 
 
     ! Local scalars:
-    INTEGER:: jc,jb
+    INTEGER:: jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
 
@@ -597,8 +597,8 @@ CONTAINS
     IF (msg_level >= 12) &
       &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
+!$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx)
+!$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -760,7 +760,7 @@ CONTAINS
 
     REAL(wp), DIMENSION(:), ALLOCATABLE :: max_pres_ifc, max_pres, max_temp, max_acdnc, &
         max_qv, max_qc, max_qi, max_cc, min_pres_ifc, min_pres, min_temp, min_acdnc, &
-        min_qv, min_qc, min_qi, min_cc 
+        min_qv, min_qc, min_qi, min_cc
 
     REAL(wp), DIMENSION(pt_patch%nlevp1) :: max_lwflx, min_lwflx, max_swtrans, min_swtrans
 
@@ -1416,8 +1416,8 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx) ICON_OMP_GUIDED_SCHEDULE
     DO jb = 1, rrtm_data%no_of_blocks
 
-      i_endidx = rrtm_data%block_size
-      IF (jb == rrtm_data%no_of_blocks) i_endidx = rrtm_data%end_index
+      i_endidx = MERGE(rrtm_data%block_size, rrtm_data%end_index, &
+           jb /= rrtm_data%no_of_blocks)
 
       !Calculate direct albedo from diffuse albedo and solar zenith angle
       !formula as in Ritter-Geleyn's fesft

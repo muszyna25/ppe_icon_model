@@ -44,6 +44,8 @@ MODULE mo_ocean_ext_data
     & forcing_fluxes_type,       &
     & OMIP_FluxFromFile,         &
     & use_omip_windstress, use_omip_fluxes, use_omip_forcing
+  USE mo_sea_ice_nml,        ONLY: i_ice_dyn
+   
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
@@ -61,9 +63,9 @@ MODULE mo_ocean_ext_data
   USE mo_master_config,      ONLY: getModelBaseDir
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var
-  USE mo_read_interface,     ONLY: openInputFile, closeFile, onCells, &
+  USE mo_read_interface,     ONLY: openInputFile, closeFile, on_cells, &
     &                              t_stream_id, nf, read_2D, read_2D_int, &
-    &                              read_3D, onEdges
+    &                              read_3D, on_edges
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
   USE mo_datetime,           ONLY: t_datetime, month2hour
@@ -293,7 +295,6 @@ CONTAINS
     END IF
 
   END SUBROUTINE new_ext_data_oce_list
-
   !-------------------------------------------------------------------------
 
 
@@ -326,7 +327,7 @@ CONTAINS
       &                          'external data finished')
 
   END SUBROUTINE destruct_ocean_ext_data
-
+  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
@@ -341,7 +342,7 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE read_ext_data_oce (p_patch, ext_data)
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
     CHARACTER(len=max_char_length), PARAMETER :: &
@@ -437,18 +438,18 @@ CONTAINS
     ext_data(jg)%oce%lsm_ctr_c(:,:)    = LAND
     ext_data(jg)%oce%lsm_ctr_e(:,:)    = LAND
      
-    CALL read_2D(stream_id, onCells, 'cell_elevation', &
+    CALL read_2D(stream_id, on_cells, 'cell_elevation', &
       &          ext_data(jg)%oce%bathymetry_c)
 
-    CALL read_2D(stream_id, onEdges, 'edge_elevation', &
+    CALL read_2D(stream_id, on_edges, 'edge_elevation', &
       &          ext_data(jg)%oce%bathymetry_e)
 
     ! get land-sea-mask on cells, integer marks are:
     ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
     ! boundary land (1, cells and vertices), inner land (2)
-    CALL read_2D_int(stream_id, onCells, 'cell_sea_land_mask', &
+    CALL read_2D_int(stream_id, on_cells, 'cell_sea_land_mask', &
       &              ext_data(jg)%oce%lsm_ctr_c)
-    CALL read_2D_int(stream_id, onEdges, 'edge_sea_land_mask', &
+    CALL read_2D_int(stream_id, on_edges, 'edge_sea_land_mask', &
       &              ext_data(jg)%oce%lsm_ctr_e)
 
     !
@@ -547,15 +548,15 @@ CONTAINS
       ! 3:  'SST"     : sea surface temperature [K]
 !     IF ( use_omip_windstress ) THEN
       ! zonal wind stress
-      CALL read_3D(stream_id, onCells, 'stress_x', z_flux(:,:,:))
+      CALL read_3D(stream_id, on_cells, 'stress_x', z_flux(:,:,:))
       ext_data(jg)%oce%flux_forc_mon_c(:,:,:,1) = z_flux(:,:,:)
 
       ! meridional wind stress
-      CALL read_3D(stream_id, onCells, 'stress_y', z_flux)
+      CALL read_3D(stream_id, on_cells, 'stress_y', z_flux)
       ext_data(jg)%oce%flux_forc_mon_c(:,:,:,2) = z_flux(:,:,:)
 
       ! SST
-      CALL read_3D(stream_id, onCells, 'SST', z_flux)
+      CALL read_3D(stream_id, on_cells, 'SST', z_flux)
       ext_data(jg)%oce%flux_forc_mon_c(:,:,:,3) = z_flux(:,:,:)
 !     ENDIF
       IF ( use_omip_fluxes ) THEN
@@ -575,48 +576,52 @@ CONTAINS
       ! 14:  v_wind_10m   &  ! meridional wind speed                            [m/s]
 
         ! 2m-temperature
-        CALL read_3D(stream_id, onCells, 'temp_2m', z_flux)
+        CALL read_3D(stream_id, on_cells, 'temp_2m', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
      
         ! 2m dewpoint temperature
-        CALL read_3D(stream_id, onCells, 'dpt_temp_2m', z_flux)
+        CALL read_3D(stream_id, on_cells, 'dpt_temp_2m', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
      
         ! Scalar wind
-        CALL read_3D(stream_id, onCells, 'scalar_wind', z_flux)
+        CALL read_3D(stream_id, on_cells, 'scalar_wind', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,6) = z_flux(:,:,:)
      
         ! cloud cover
-        CALL read_3D(stream_id, onCells, 'cloud', z_flux)
+        CALL read_3D(stream_id, on_cells, 'cloud', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
      
         ! sea level pressure
-        CALL read_3D(stream_id, onCells, 'pressure', z_flux)
+        CALL read_3D(stream_id, on_cells, 'pressure', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
      
         ! total solar radiation
-        CALL read_3D(stream_id, onCells, 'tot_solar', z_flux)
+        CALL read_3D(stream_id, on_cells, 'tot_solar', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
      
         ! precipitation
-        CALL read_3D(stream_id, onCells, 'precip', z_flux)
+        CALL read_3D(stream_id, on_cells, 'precip', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,10) = z_flux(:,:,:)
      
         ! evaporation
-        CALL read_3D(stream_id, onCells, 'evap', z_flux)
+        CALL read_3D(stream_id, on_cells, 'evap', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,11) = z_flux(:,:,:)
      
         ! runoff
-        CALL read_3D(stream_id, onCells, 'runoff', z_flux)
+        CALL read_3D(stream_id, on_cells, 'runoff', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
 
-        ! zonal wind speed
-        CALL read_3D(stream_id, onCells, 'u_wind_10m', z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
+        IF (i_ice_dyn==1) THEN
+          ! zonal wind speed
+          CALL read_3D(stream_id, on_cells, 'u_wind_10m', z_flux)
+          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
 
-        ! meridional wind speed
-        CALL read_3D(stream_id, onCells, 'v_wind_10m', z_flux)
-        ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)
+          ! meridional wind speed
+          CALL read_3D(stream_id, on_cells, 'v_wind_10m', z_flux)
+          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)          
+        ENDIF
+        
+        
 
       END IF
 
@@ -625,11 +630,11 @@ CONTAINS
     ! IF (iforc_type == 3) THEN
 
     !   ! net surface heat flux
-    !   CALL read_3D(stream_id, onCells, 'net_hflx', z_flux)
+    !   CALL read_3D(stream_id, on_cells, 'net_hflx', z_flux)
     !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
     !
     !   ! surface freshwater flux
-    !   CALL read_3D(stream_id, onCells, 'net_fflx', z_flux)
+    !   CALL read_3D(stream_id, on_cells, 'net_fflx', z_flux)
     !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
 
     ! END IF
@@ -638,27 +643,27 @@ CONTAINS
     ! IF (iforc_type == 4) THEN
 
     !   ! surface short wave heat flux
-    !   CALL read_3D(stream_id, onCells, 'swflxsfc_avg', z_flux)
+    !   CALL read_3D(stream_id, on_cells, 'swflxsfc_avg', z_flux)
     !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,4) = z_flux(:,:,:)
     !
     !   ! surface long wave heat flux
-    !   CALL read_3D(stream_id, onCells, 'lwflxsfc_avg', z_flux)
+    !   CALL read_3D(stream_id, on_cells, 'lwflxsfc_avg', z_flux)
     !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,5) = z_flux(:,:,:)
     !
     !   ! surface sensible heat flux
-    !   CALL read_3D(stream_id, onCells, 'shflx_avg', z_flux)
+    !   CALL read_3D(stream_id, on_cells, 'shflx_avg', z_flux)
     !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,6) = z_flux(:,:,:)
     !
     !   ! surface latent heat flux
-    !   CALL read_3D(stream_id, onCells, 'lhflx_avg', z_flux)
+    !   CALL read_3D(stream_id, on_cells, 'lhflx_avg', z_flux)
     !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,7) = z_flux(:,:,:)
     !
     !   ! total precipiation
-    !   CALL read_3D(stream_id, onCells, 'precip', z_flux)
+    !   CALL read_3D(stream_id, on_cells, 'precip', z_flux)
     !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,8) = z_flux(:,:,:)
     !
     !   ! evaporation
-    !   CALL read_3D(stream_id, onCells, 'evap', z_flux)
+    !   CALL read_3D(stream_id, on_cells, 'evap', z_flux)
     !   ext_data(jg)%oce%flux_forc_mon_c(:,:,:,9) = z_flux(:,:,:)
 
     ! END IF

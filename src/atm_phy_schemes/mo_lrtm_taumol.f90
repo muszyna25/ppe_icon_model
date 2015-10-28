@@ -645,7 +645,7 @@ contains
       real(wp) :: speccomb, specparm, specmult, fs
       real(wp) :: speccomb1, specparm1, specmult1, fs1
       real(wp) :: speccomb_mn2o, specparm_mn2o, specmult_mn2o, &
-           fmn2o, fmn2omf, chi_n2o, ratn2o, adjfac, adjcoln2o
+           fmn2o, chi_n2o, ratn2o, adjfac, adjcoln2o
       real(wp) :: speccomb_planck, specparm_planck, specmult_planck, fpl
       real(wp) :: p, p4, fk0, fk1, fk2
       real(wp) :: fac000, fac100, fac200
@@ -699,7 +699,6 @@ contains
           specmult_mn2o = 8._wp*specparm_mn2o
           jmn2o = 1 + int(specmult_mn2o)
           fmn2o = mod(specmult_mn2o,1.0_wp)
-          fmn2omf = minorfrac(jl,lay)*fmn2o
           !  In atmospheres where the amount of N2O is too great to be considered
           !  a minor species, adjust the column amount of N2O by an empirical factor
           !  to obtain the proper contribution.
@@ -896,7 +895,6 @@ contains
           specmult_mn2o = 4._wp*specparm_mn2o
           jmn2o = 1 + int(specmult_mn2o)
           fmn2o = mod(specmult_mn2o,1.0_wp)
-          fmn2omf = minorfrac(jl,lay)*fmn2o
           !  In atmospheres where the amount of N2O is too great to be considered
           !  a minor species, adjust the column amount of N2O by an empirical factor
           !  to obtain the proper contribution.
@@ -975,7 +973,6 @@ contains
           specmult_mn2o = 8._wp*specparm_mn2o
           jmn2o = 1 + int(specmult_mn2o)
           fmn2o = mod(specmult_mn2o,1.0_wp)
-          fmn2omf = minorfrac(jl,lay)*fmn2o
           !  In atmospheres where the amount of N2O is too great to be considered
           !  a minor species, adjust the column amount of N2O by an empirical factor
           !  to obtain the proper contribution.
@@ -1172,7 +1169,6 @@ contains
           specmult_mn2o = 4._wp*specparm_mn2o
           jmn2o = 1 + int(specmult_mn2o)
           fmn2o = mod(specmult_mn2o,1.0_wp)
-          fmn2omf = minorfrac(jl,lay)*fmn2o
           !  In atmospheres where the amount of N2O is too great to be considered
           !  a minor species, adjust the column amount of N2O by an empirical factor
           !  to obtain the proper contribution.

@@ -40,7 +40,7 @@ MODULE mo_nh_held_suarez_interface
 !!$  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
   USE mo_nh_testcases_nml,      ONLY: lhs_fric_heat
   USE mo_timer,                 ONLY: ltimer, timer_start, timer_stop, timer_held_suarez_intr
-
+  USE mo_fortran_tools,         ONLY: init
 
   IMPLICIT NONE
 
@@ -126,10 +126,8 @@ CONTAINS
 
     jbs = p_patch%cells%start_blk( grf_bdywidth_c+1,1 )
 !$OMP PARALLEL
-!$OMP WORKSHARE
-    ddt_temp(:,:,:)=0.0_wp
-!$OMP END WORKSHARE
-
+    CALL init(ddt_temp(:,:,:))
+!$OMP BARRIER
 !$OMP DO PRIVATE(jb,is,ie,jk,zlat) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_c
        CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1 )

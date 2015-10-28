@@ -124,14 +124,13 @@ void util_node_name(char *name, int *actual_len)
 
 /* Get the maximum resident set size used, in kilobytes. That is, the maximum
  * number of kilobytes of physical memory that processes used
- * simultaneously. Not yet implemented for target architectures other than
- * SX. 
+ * simultaneously.
  *
  * 11/2011 : F. Prill, DWD
  */
 void util_get_maxrss(int* maxrss)
 {
-#if defined (_SX)    
+#if defined HAVE_GETRUSAGE
     struct rusage usage;
 
     /* get resource usage */

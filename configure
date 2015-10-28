@@ -639,7 +639,6 @@ AR
 OTHER_LIBS
 PROFILE_INCLUDE
 PROFILE_LIB
-METIS_LIB
 LAPACK_LIB
 LAPACK_LIB_PATH
 LAPACKROOT
@@ -744,6 +743,10 @@ ac_subst_files=''
 ac_user_opts='
 enable_option_checking
 enable_mtime_loop
+enable_atmo
+enable_jsbach
+enable_ocean
+enable_testbed
 with_fortran
 with_openmp
 with_setup
@@ -751,7 +754,6 @@ with_yac
 with_messy
 with_flags
 with_art
-with_ocean
 with_xml2
 with_lapack
 with_zlib
@@ -1390,6 +1392,10 @@ Optional Features:
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-mtime-loop     Use mtime based time loop in nh stepping.
+  --enable-atmo           Use atmosphere model component.
+  --enable-jsbach         Use jsbach model component.
+  --enable-ocean          Use ocean model component.
+  --enable-testbed        Use testbed component.
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -1403,7 +1409,6 @@ Optional Packages:
   --with-flags=<name>     use specified group od flags (std, hiopt, noopt, etc
   --with-art              enable ART modules via precprocessing directive, if
                           available for selected compiler
-  --with-ocean=no         compile without ocean
   --with-xml2=DIR         Required libxml2
   --with-lapack=DIR       Alternative vendor optimized LAPACK and BLAS library
   --with-zlib=DIR         Required I/O package
@@ -2323,10 +2328,85 @@ test -n "$target_alias" &&
   program_prefix=${target_alias}-
 
 
+for ac_prog in gawk mawk nawk awk
+do
+  # Extract the first word of "$ac_prog", so it can be a program name with args.
+set dummy $ac_prog; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_AWK+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$AWK"; then
+  ac_cv_prog_AWK="$AWK" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_AWK="$ac_prog"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+fi
+fi
+AWK=$ac_cv_prog_AWK
+if test -n "$AWK"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $AWK" >&5
+$as_echo "$AWK" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+  test -n "$AWK" && break
+done
+
+
 
 # Check whether --enable-mtime-loop was given.
 if test "${enable_mtime_loop+set}" = set; then :
   enableval=$enable_mtime_loop;
+fi
+
+
+# Check whether --enable-atmo was given.
+if test "${enable_atmo+set}" = set; then :
+  enableval=$enable_atmo;
+else
+  enable_atmo=yes
+fi
+
+
+# Check whether --enable-jsbach was given.
+if test "${enable_jsbach+set}" = set; then :
+  enableval=$enable_jsbach;
+else
+  enable_jsbach=yes
+fi
+
+
+# Check whether --enable-ocean was given.
+if test "${enable_ocean+set}" = set; then :
+  enableval=$enable_ocean;
+else
+  enable_ocean=yes
+fi
+
+
+# Check whether --enable-testbed was given.
+if test "${enable_testbed+set}" = set; then :
+  enableval=$enable_testbed;
+else
+  enable_testbed=no
 fi
 
 
@@ -2469,16 +2549,10 @@ done
 
 
 case $ac_hostname in #(
-  plogin*) :
-    ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename ;; #(
   wizard*) :
     ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename ;; #(
-  btc*) :
-    ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename ;; #(
-  mlogin*) :
+  mlogin*|btc*) :
     ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename ;; #(
   ic2*) :
@@ -2652,12 +2726,7 @@ if test "x$load_modules" != x ;  then
     echo module purge >> conf_load_module.tmp
     echo module load "$load_modules" >> conf_load_module.tmp
     echo module list >> conf_load_module.tmp
-    if test "x$config_target" = xblizzard ;  then
-      # change configure to bash
-      echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
-    else
-      cp configure conf__.tmp
-    fi
+    cp configure conf__.tmp
     echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
     echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
     echo "rm conf__.tmp" >> conf_load_module.tmp
@@ -2670,90 +2739,30 @@ if test "x$load_modules" != x ;  then
 fi
 
 
-use_components_file=config/icon_components
-
-
-# Check whether --with-ocean was given.
-if test "${with_ocean+set}" = set; then :
-  withval=$with_ocean;
-else
-  with_ocean=yes
-fi
-
-
-if [ $with_ocean = no ]; then
-  use_components_file=config/icon_components_no_ocean
-  echo "icon_components=NO_ICON_OCEAN" > $use_components_file
-fi
-
-if test -f $use_components_file ; then
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for machine dependent configuration" >&5
-$as_echo_n "checking for machine dependent configuration... " >&6; }
-
-cat > confsed <<EOF
-s/ *= */="/
-/="/s/$/"/
-/^#/{
-    d
-}
-/[^LIBS].*=/{
-    p
-    s/=.*$//
-    s/^/export /
-    p
-    d
-}
-/LIBS.*\\\/ {
-    s/\\\/ /g
-    s/"$//
-    h
-    D
-    bnext
-}
-/^ *\-L.*\\\/{
-    s/\\\/ /g
-    s/^ *//g
-    s/"$//
-    H
-    D
-    bnext
-}
-/^ *\-L/{
-    s/^ *//g
-    s/"$//
-    H
-    x
-    s/\n//g
-    s/$/"/
-    p
-    a\\
-export LIBS
-    d
-}
-
-:next
-EOF
-
-sed -f confsed $use_components_file > conftest
-. ./conftest
-/bin/rm -f confsed conftest
-if test "$use_components_file" != 0 ; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $use_components_file" >&5
-$as_echo "$use_components_file" >&6; }
-else
-    { $as_echo "$as_me:${as_lineno-$LINENO}: result: unavailable" >&5
-$as_echo "unavailable" >&6; }
-fi
-
-fi
 FFLAGS="${FFLAGS} ${DEFOPT}__${package}__"
 CFLAGS="${CFLAGS} ${DEFCOPT}__${package}__"
 
-for other_package in $icon_components ; do
-  FFLAGS="${FFLAGS} ${DEFOPT}__${other_package}__"
-  CFLAGS="${CFLAGS} ${DEFCOPT}__${other_package}__"
 
-done
+if test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"; then :
+  as_fn_error $? "currently, enable-atmo=yes needs enable-ocean=yes (because of sea-ice)" "$LINENO" 5
+fi
+
+if test "x$enable_atmo" = "xno"; then :
+  FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_ATMO__"
+fi
+
+if test "x$enable_jsbach" = "xno"; then :
+  FFLAGS="${FFLAGS} ${DEFOPT}__NO_JSBACH__"
+fi
+
+if test "x$enable_ocean" = "xno"; then :
+  FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_OCEAN__"
+fi
+
+if test "x$enable_testbed" = "xno"; then :
+  FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"
+fi
+
 
 if test "x$enable_mtime_loop" = "xyes"; then :
   FFLAGS="${FFLAGS} ${DEFOPT}USE_MTIME_LOOP"
@@ -3808,11 +3817,11 @@ if test -n "$SZIPROOT" ; then
      echo "cannot find $SZIPROOT/include"
      exit 1
   fi
-  case $(hostname) in
-  btc*|mlogin*)
+  case $ac_hostname in
+  mlogin*|btc*)
     case $FC in
     nagfor)
-      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
     *)
       SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -3859,11 +3868,11 @@ if test -n "$HDF5ROOT" ; then
      echo "cannot find $HDF5ROOT/include"
      exit 1
   fi
-  case $(hostname) in
-  btc*|mlogin*)
+  case $ac_hostname in
+  mlogin*|btc*)
     case $FC in
     nagfor)
-      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
     *)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -3970,11 +3979,11 @@ if test -n "$NETCDFROOT" ; then
   if test x$gcc_lib != x ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
-  case $(hostname) in
-  btc*|mlogin*)
+  case $ac_hostname in
+  mlogin*|btc*)
     case $FC in
     nagfor)
-      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
     *)
       NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -3997,12 +4006,12 @@ if test -n "$NETCDFROOT" ; then
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
          NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
-         case $(hostname) in
-         btc*|mlogin*)
+         case $ac_hostname in
+         mlogin*|btc*)
            case $FC in
            nagfor)
-             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
-             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
              ;;
            *)
              NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -4320,7 +4329,6 @@ esac
 
 MPI_INCLUDE=""
 
-withval=no
 
 # Check whether --with-mpi was given.
 if test "${with_mpi+set}" = set; then :
@@ -4329,26 +4337,19 @@ fi
 
 
 
-#default is with mpi
-if test x$with_mpi != xno ; then
-  withval=yes
-fi
-
-if test x$withval = xno ; then
+if test x"$with_mpi" = xno; then :
   FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
-  CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
-  MPI_LIB=""
-  MPI_VERSION=none
-  MPIROOT=""
-  use_mpcc_r=no
+   CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
+   MPI_LIB=""
+   MPI_VERSION=none
+   MPIROOT=""
+   use_mpcc_r=no
 else
-  if test x$with_mpi != x ; then
-    if test $with_mpi != yes && $with_mpi != no  ; then
-      MPIROOT=$with_mpi
-    fi
-  fi
-  if test -n "$MPIROOT" ; then
-    as_ac_File=`$as_echo "ac_cv_file_$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" | $as_tr_sh`
+  if test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno; then :
+  MPIROOT=$with_mpi
+fi
+   if test x"$MPIROOT" != x; then :
+  as_ac_File=`$as_echo "ac_cv_file_$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" | $as_tr_sh`
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h" >&5
 $as_echo_n "checking for $MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h... " >&6; }
 if eval \${$as_ac_File+:} false; then :
@@ -4426,10 +4427,10 @@ esac
     else
       MPI_INCLUDE="$MPI_M_INCLUDE $MPI_I_INCLUDE"
     fi
-  else
-    MPI="${DEFOPT}NOMPI"
+else
+  MPI="${DEFOPT}NOMPI"
     MPI_LIB=""
-  fi
+fi
 fi
 
 
@@ -6227,17 +6228,11 @@ fi
 FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
-if [ "x$LDFLAGS" = "x" ] ; then
-  if [ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ] ; then
-    LDFLAGS=${FFLAGS//-xf95-cpp-input/}
-  else
-    LDFLAGS=$FFLAGS
-  fi
-fi
-
 if [ "x$use_openmp" = xyes ] ; then
    FFLAGS="${FFLAGS} ${OMPFLAG}"
+   F77FLAGS="${F77FLAGS} ${OMPFLAG}"
    LDFLAGS="${LDFLAGS} ${OMPFLAG}"
+   CFLAGS="${CFLAGS} ${CC_OMPFLAG}"
 fi
 
 #------------------------
@@ -6262,6 +6257,15 @@ as_fn_error $? "unknown with_flags parameter: $with_flags
 See \`config.log' for more details" "$LINENO" 5; }
 fi
 fi
+
+if [ "x$LDFLAGS" = "x" ] ; then
+  if [ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ] ; then
+    LDFLAGS=${FFLAGS//-xf95-cpp-input/}
+  else
+    LDFLAGS=$FFLAGS
+  fi
+fi
+
 
 
 #------------------------
@@ -6360,9 +6364,6 @@ LAPACKROOT=$LAPACKROOT
 LAPACK_LIB_PATH=$LAPACK_LIB_PATH
 
 LAPACK_LIB=$LAPACK_LIB
-
-
-METIS_LIB=$METIS_LIB
 
 
 PROFILE_LIB=$PROFILE_LIB
@@ -7705,7 +7706,7 @@ if test -n "$CROSS" ; then
    cp $cross_config config/config.h
 fi
 
-config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --with_ocean="${with_ocean}"
+config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --enable_ocean="${enable_ocean}" --enable_atmo="${enable_atmo}" --enable_jsbach="${enable_jsbach}" --enable_testbed="${enable_testbed}"
 
 #-----------------------------------------------------------------------------
 case $host in
@@ -7906,7 +7907,7 @@ use_make_command="$make_command"
 use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
-use_icon_components="$icon_components"
+use_flags_group="$use_flags_group"
 #############################
 EOF
 

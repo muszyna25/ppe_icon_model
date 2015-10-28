@@ -271,7 +271,7 @@ MODULE mo_surface_les
       
       diff = 1._wp
       itr = 0 
-      DO WHILE (diff > 1.e-6 .AND. itr < 10)
+      DO WHILE (diff > 1.e-6_wp .AND. itr < 10)
          bflx1 = les_config(jg)%tran_coeff*( (theta_sfc-theta_nlev)+vtmpc1* &
                  theta_nlev*(spec_humi(sat_pres_water(t_sfc),pres_sfc(isidx,isblk))- &
                  qv_nlev) )*grav/theta_nlev

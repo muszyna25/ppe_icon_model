@@ -115,7 +115,7 @@
 !!  - generalize p_int%primal_normal_ec and p_int%edge_cell_length to hexagons
 !!  Modification by Constantin Junk, MPI-M (2011-05-05)
 !!  - moved interpol_ctl namelist variables to namelists/mo_interpol_ctl
-!!  
+!!
 !!
 !! @par Copyright and License
 !!
@@ -191,9 +191,9 @@ TYPE t_lsq
                                                  ! elements of R-matrix (starting from the bottom
                                                  ! right)
                                                  ! (nproma,(lsq_dim_unk^2-lsq_dim_unk)/2,nblks_c)
-  REAL(wp), ALLOCATABLE :: lsq_pseudoinv(:,:,:,:)! pseudo (or Moore-Penrose) inverse of lsq 
+  REAL(wp), ALLOCATABLE :: lsq_pseudoinv(:,:,:,:)! pseudo (or Moore-Penrose) inverse of lsq
                                                  ! design matrix A
-                                                 ! (nproma,lsq_dim_unk,lsq_dim_c,nblks_c) 
+                                                 ! (nproma,lsq_dim_unk,lsq_dim_c,nblks_c)
   REAL(wp), ALLOCATABLE :: lsq_moments(:,:,:)      ! Moments (x^ny^m)_{i} for control volume
                                                    ! (nproma,nblks_c,lsq_dim_unk)
   REAL(wp), ALLOCATABLE :: lsq_moments_hat(:,:,:,:)! Moments (\hat{x^ny^m}_{ij}) for control volume
@@ -204,13 +204,13 @@ END TYPE t_lsq
 TYPE t_gauss_quad
   !
   ! quadrature points for intergration over triangular element
-  ! 
-  TYPE(t_geographical_coordinates), ALLOCATABLE :: & !< linear (nproma, nblks_c)  
-    &  qpts_tri_l(:,:)     
+  !
+  TYPE(t_geographical_coordinates), ALLOCATABLE :: & !< linear (nproma, nblks_c)
+    &  qpts_tri_l(:,:)
   TYPE(t_geographical_coordinates), ALLOCATABLE :: & !< quadratic (nproma, nblks_c,3)
-    &  qpts_tri_q(:,:,:)     
+    &  qpts_tri_q(:,:,:)
   TYPE(t_geographical_coordinates), ALLOCATABLE :: & !< cubic (nproma, nblks_c,4)
-    &  qpts_tri_c(:,:,:)     
+    &  qpts_tri_c(:,:,:)
   REAL(wp), ALLOCATABLE :: weights_tri_q(:)      !< quadratic weight (3)
   REAL(wp), ALLOCATABLE :: weights_tri_c(:)      !< cubic weights (4)
 END TYPE t_gauss_quad
@@ -252,7 +252,7 @@ TYPE t_int_state
                                             ! weighted averaging (PLWA)
   REAL(wp), ALLOCATABLE :: gradc_bmat(:,:,:,:) ! Bmatrix for cell centered shape function based
                                             ! gradient (nproma,2,3,nblks_c)
-                                            
+
 
   ! b) weights which are consistent with the Hamiltonian viewpoint
   !---------------------------------------------------------------
@@ -387,7 +387,7 @@ TYPE t_int_state
   REAL(wp), ALLOCATABLE :: geofac_grg(:,:,:,:)  ! factor for Green-Gauss gradient (nproma,4,nblks_c,2)
 
   ! f) precomputed Cartesian orientation and location vectors of edge midpoints
-  !    and location of cell centers(for efficiency) : it is now computed in grid genrator stored 
+  !    and location of cell centers(for efficiency) : it is now computed in grid genrator stored
   !    in p_patch
   !------------------------------------------------------------------------------
 
@@ -414,11 +414,11 @@ TYPE t_int_state
                                                      ! corresponding quadrilateral cell.
                                                      ! (nproma,nblks_e,4,4)
   TYPE(t_geographical_coordinates), ALLOCATABLE ::  &! positions of vertices and butterfly
-    &  pos_on_tplane_c_edge(:,:,:,:)                 ! neighbors on local plane tangential to the 
+    &  pos_on_tplane_c_edge(:,:,:,:)                 ! neighbors on local plane tangential to the
                                                      ! cell circumcenter.
                                                      ! stored in an edge-based data structure
                                                      ! (nproma,nblks_e,2,5)
-                                                     
+
 
   ! i) fields related to weighted least squares polynomial reconstruction
   !------------------------------------------------------------------------------
@@ -430,7 +430,7 @@ TYPE t_int_state
   ! directional laplacian ( as du/dx > ux, dv/dy > vy, du/dx=dv/dy > xy )
   !----------------------------------------------------------------------
   INTEGER , ALLOCATABLE :: &
-    & dir_gradh_i1(  :,:,:) ! index array for edges of neighbor hexagon cell 1 of considered 
+    & dir_gradh_i1(  :,:,:) ! index array for edges of neighbor hexagon cell 1 of considered
                             ! edge (6  , nproma, nblks_e)
   INTEGER , ALLOCATABLE :: &
     & dir_gradh_b1(  :,:,:) ! block array for edges of neighbor hexagon cell 1 of considered
@@ -442,7 +442,7 @@ TYPE t_int_state
     & strain_def_c1( :,:,:) ! coeff array for edges of neighbor hexagon cell 1 of considered
                             ! edge (6  , nproma, nblks_e)
   INTEGER , ALLOCATABLE :: &
-    & dir_gradh_i2(  :,:,:) ! index array for edges of neighbor hexagon cell 2 of considered 
+    & dir_gradh_i2(  :,:,:) ! index array for edges of neighbor hexagon cell 2 of considered
                             ! edge (6  , nproma, nblks_e)
   INTEGER , ALLOCATABLE :: &
     & dir_gradh_b2(  :,:,:) ! block array for edges of neighbor hexagon cell 2 of considered
@@ -617,7 +617,7 @@ TYPE t_lon_lat_intp
 
   ! data fields for distributed computations (available on all PEs)
   INTEGER               :: nthis_local_pts  ! number of points local to this PE
-  INTEGER, ALLOCATABLE  :: global_idx(:)    ! for each lon-lat point on this PE: global idx 
+  INTEGER, ALLOCATABLE  :: global_idx(:)    ! for each lon-lat point on this PE: global idx
 
 END TYPE t_lon_lat_intp
 
@@ -665,13 +665,13 @@ INTERFACE OPERATOR (==)
 END INTERFACE OPERATOR (==)
 
 CONTAINS
-  
+
   !---------------------------------------------------------------
   !> @return index with "free" lon-lat grid data
   !
   FUNCTION get_free_lonlat_grid()
     INTEGER :: get_free_lonlat_grid
-    CHARACTER(*), PARAMETER :: routine = modname//"::get_free_lonlat_grid"    
+    CHARACTER(*), PARAMETER :: routine = modname//"::get_free_lonlat_grid"
 
     IF (n_lonlat_grids == MAX_LONLAT_GRIDS) THEN
       CALL finish(routine, "Maximum number of lon-lat grids exceeded!")
@@ -682,14 +682,14 @@ CONTAINS
 
 
   !---------------------------------------------------------------
-  ! @return index in lon-lat grid list for a given grid, -1 if 
+  ! @return index in lon-lat grid list for a given grid, -1 if
   !         not in list.
   !
   FUNCTION get_lonlat_grid_ID(grid)
     INTEGER :: get_lonlat_grid_ID
     TYPE(t_lon_lat_grid), INTENT(IN) :: grid
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = modname//"::get_lonlat_grid_ID"    
+    CHARACTER(*), PARAMETER :: routine = modname//"::get_lonlat_grid_ID"
     INTEGER :: i
 
     ! default value: "not found"
