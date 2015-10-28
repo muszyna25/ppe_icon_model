@@ -29,6 +29,7 @@
 # NPROMA  = array blocking length / inner loop length
 #-----------------------------------------------------------------------------
 
+set -x
 if [[ "x$compiler" = "xnag" ]]; then
   echo "Disabled for ${compiler}."
   check_error 0 "create_nested_grids"
@@ -53,9 +54,7 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2011-01-01T00:00:00Z"
-end_date="2012-01-01T00:00:00Z"
-ndays_restart=1
-dt_restart=`expr ${ndays_restart} \* 86400`
+end_date="2011-01-02T00:00:00Z"
 #
 #-----------------------------------------------------------------------------
 
@@ -75,7 +74,7 @@ done
 # If the model runs with mpi_procs=1, then this script exits without error:
 if [[ ${mpi_total_procs} = 1 ]]; then
   echo "This test must not be started if mpi_procs=1 --> exit test without error"
-  check_error 0 "exp.nat_jww_nwp_mpiomp"
+  check_error 0 "exp.nwp_R02B04N06multi2"
   exit 0
 fi
 
@@ -118,7 +117,6 @@ cat > ${atmo_namelist} << EOF
  ltestcase                   =                      .TRUE.        ! idealized testcase runs
  num_lev                     =         90, 60, 54, 60, 54         ! number of full levels (atm.) for each domain
  lvert_nest                  =                      .TRUE.        ! vertical nesting
- nsteps                      =                          1         ! number of time steps of this run
  dtime                       =                       1440         ! timestep in seconds
  ldynamics                   =                      .TRUE.        ! compute adiabatic dynamic tendencies
  ltransport                  =                      .TRUE.        ! compute large-scale tracer transport
@@ -127,7 +125,8 @@ cat > ${atmo_namelist} << EOF
  msg_level                   =                          7         ! controls how much printout is written during runtime
  ltimer                      =                     .FALSE.        ! timer for monitoring the runtime of specific routines
  timers_level                =                         10         ! performance timer granularity
- output                      =                       "nml"        ! main switch for enabling/disabling components of the model output
+ output                      =           "nml", "maxwinds"        ! main switch for enabling/disabling components of the model output
+ restart_filename            = "${EXPNAME}_restart_atm_DOM<idom>_<rsttime>.nc"
 /
 
 ! diffusion_nml: horizontal (numerical) diffusion ----------------------------
@@ -163,7 +162,7 @@ cat > ${atmo_namelist} << EOF
  lredgrid_phys               = .TRUE.,.TRUE.,.TRUE.,.TRUE.,.TRUE. ! .true.=radiation is calculated on a reduced grid
  lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
  ifeedback_type              =                          2         ! feedback type (incremental/relaxation-based)
- patch_weight                =      0., 0.33, 0., 0.67, 0.        ! perform processor splitting
+!patch_weight                =      0., 0.33, 0., 0.67, 0.        ! perform processor splitting
 /
 
 ! gridref_nml: grid refinement and nesting -----------------------------------
@@ -177,7 +176,7 @@ cat > ${atmo_namelist} << EOF
 ! io_nml: general switches for model I/O -------------------------------------
 &io_nml
  dt_diag                     =                      21600.0       ! diagnostic integral output interval
- dt_checkpoint               =                    5760000.0       ! time interval for writing restart files.
+ dt_checkpoint               =                      43200.0       ! time interval for writing restart files.
  itype_pres_msl              =                          2         ! method for computation of mean sea level pressure
 /
 
@@ -279,9 +278,26 @@ cat > ${atmo_namelist} << EOF
  rat_sea                     =                         10         !
 /
 EOF
+
+
+# Define the input
+
+# model files
+#
+add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
+add_link_file ${basedir}/data/rrtmg_sw.nc                               ./
+add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
+
+# namelist files
+#
+add_required_file ${basedir}/run/${atmo_namelist}                       ./
+
 #-----------------------------------------------------------------------------
 cat ${atmo_namelist}
 #-----------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
 . ${thisdir}/add_required_atmo_non-hydrostatic_files
 #-----------------------------------------------------------------------------
+
+
+

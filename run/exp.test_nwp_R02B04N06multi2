@@ -14,16 +14,16 @@ export EXPERIMENT='nwp_R02B04N06multi2'
 # TYPES is a list of names identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
 #
-#export TYPES=''
+export TYPES='maxwinds.log'
 
 # DATES is a list of dates identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
 #
-#export DATES=''
+export DATES=' '
 
 # RESTART_DATE defines the date and time from which restarts should be performed.
 # 
-export RESTART_DATE='20130424T000100Z'
+export RESTART_DATE='20110101T120000Z'
 
 #--------------------------------------------------------------------------------
 # 
@@ -37,7 +37,7 @@ export RESTART_DATE='20130424T000100Z'
 #
 # default: MD='rnmo'
 #
-export MD='rnmo'
+export MD='r'
 
 #--------------------------------------------------------------------------------
 # 
