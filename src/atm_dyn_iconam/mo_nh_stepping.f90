@@ -69,7 +69,8 @@ MODULE mo_nh_stepping
   USE mo_nh_pa_test,               ONLY: set_nh_w_rho
   USE mo_nh_df_test,               ONLY: get_nh_df_velocity
   USE mo_nh_dcmip_hadley,          ONLY: set_nh_velocity_hadley
-  USE mo_nh_supervise,             ONLY: supervise_total_integrals_nh, print_maxwinds
+  USE mo_nh_supervise,             ONLY: supervise_total_integrals_nh, print_maxwinds,  &
+    &                                    init_supervise_nh, finalize_supervise_nh
   USE mo_intp_data_strc,           ONLY: p_int_state, t_int_state
   USE mo_intp_rbf,                 ONLY: rbf_vec_interpol_cell
   USE mo_intp,                     ONLY: verts2cells_scalar
@@ -621,6 +622,9 @@ MODULE mo_nh_stepping
     lcfl_watch_mode = .FALSE.
   ENDIF
 
+  ! init routine for mo_nh_supervise module (eg. opening of files)
+  CALL init_supervise_nh()
+
 #ifdef USE_MTIME_LOOP
 !LK++
   ! Should only be called once! Seems to be used more than once and
@@ -1124,6 +1128,9 @@ MODULE mo_nh_stepping
     jstep = jstep + 1
 #endif
   ENDDO TIME_LOOP
+
+  ! clean-up routine for mo_nh_supervise module (eg. closing of files)
+  CALL finalize_supervise_nh()
 
   IF (use_async_restart_output) CALL close_async_restart
 
