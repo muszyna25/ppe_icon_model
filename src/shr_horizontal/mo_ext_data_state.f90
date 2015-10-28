@@ -47,7 +47,7 @@ MODULE mo_ext_data_state
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_metadata_types, ONLY: POST_OP_SCALE, POST_OP_LUC, CLASS_TILE
   USE mo_var_metadata,       ONLY: groups, post_op, create_hor_interp_metadata
-  USE mo_var_list,           ONLY: new_var_list, delete_var_list, add_var, add_ref, & 
+  USE mo_var_list,           ONLY: new_var_list, delete_var_list, add_var, add_ref, &
     &                              default_var_list_settings
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var, t_grib2_int_key, &
@@ -59,7 +59,7 @@ MODULE mo_ext_data_state
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_water, llake, &
     &                              sstice_mode
   USE mo_radiation_config,   ONLY: irad_o3, albedo_type
-  USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext 
+  USE mo_extpar_config,      ONLY: i_lctype, nclass_lu, nmonths_ext
   USE mo_cdi,                ONLY: DATATYPE_PACK16, DATATYPE_FLT32,                 &
     &                              TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG,            &
     &                              streamClose, gridInqUUID
@@ -77,7 +77,7 @@ MODULE mo_ext_data_state
   CHARACTER(len=6)  :: levelname
   CHARACTER(len=6)  :: cellname
   CHARACTER(len=5)  :: o3name
-  CHARACTER(len=20) :: o3unit 
+  CHARACTER(len=20) :: o3unit
   !
   INTEGER :: nlev_o3
   INTEGER :: nmonths
@@ -159,7 +159,7 @@ CONTAINS
   !>
   !! Allocation of atmospheric external data structure
   !!
-  !! Allocation of atmospheric external data structure (constant in time 
+  !! Allocation of atmospheric external data structure (constant in time
   !! elements).
   !!
   !! Initialization of elements with zero.
@@ -175,7 +175,7 @@ CONTAINS
       &  p_patch
 
     TYPE(t_external_atmos), INTENT(INOUT):: & !< current external data structure
-      &  p_ext_atm 
+      &  p_ext_atm
 
     TYPE(t_var_list)      , INTENT(INOUT):: p_ext_atm_list !< current external data list
 
@@ -216,9 +216,9 @@ CONTAINS
     ! predefined array shapes
     shape2d_c  = (/ nproma, nblks_c /)
     shape3d_c  = (/ nproma, nlev, nblks_c       /)
-    shape3d_sfc= (/ nproma, nblks_c, nclass_lu(jg) /) 
-    shape3d_nt = (/ nproma, nblks_c, ntiles_total     /) 
-    shape3d_ntw = (/ nproma, nblks_c, ntiles_total + ntiles_water /) 
+    shape3d_sfc= (/ nproma, nblks_c, nclass_lu(jg) /)
+    shape3d_nt = (/ nproma, nblks_c, ntiles_total     /)
+    shape3d_ntw = (/ nproma, nblks_c, ntiles_total + ntiles_water /)
 
 
     !
@@ -542,7 +542,7 @@ CONTAINS
 
       ALLOCATE(p_ext_atm%plcov_t_ptr(ntiles_total))
       DO jsfc = 1,ntiles_total
-        WRITE(csfc,'(i2)') jsfc 
+        WRITE(csfc,'(i2)') jsfc
         CALL add_ref( p_ext_atm_list, 'plcov_t',                         &
                & 'plcov_t_'//ADJUSTL(TRIM(csfc)),                        &
                & p_ext_atm%plcov_t_ptr(jsfc)%p_2d,                       &
@@ -663,7 +663,7 @@ CONTAINS
       CALL add_var( p_ext_atm_list, 'for_e', p_ext_atm%for_e,       &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,    &
         &           grib2_desc, ldims=shape2d_c, loutput=.FALSE. )
- 
+
 
 
       ! deciduous forest
@@ -791,7 +791,7 @@ CONTAINS
                p_ext_atm%lp_count_t(nblks_c,ntiles_total) )
       ALLOCATE(p_ext_atm%sp_count (nblks_c),p_ext_atm%fp_count (nblks_c))
 
-      ! allocate grid point counts per block for dynamic ocean ice/water point 
+      ! allocate grid point counts per block for dynamic ocean ice/water point
       ! index lists
       ALLOCATE(p_ext_atm%spw_count(nblks_c),p_ext_atm%spi_count(nblks_c))
 
@@ -898,7 +898,7 @@ CONTAINS
 
 
       ! Climat. temperature
-      ! Climat. temperature 2m above ground. However, this temperature is used 
+      ! Climat. temperature 2m above ground. However, this temperature is used
       ! to initialize the climatological layer of the soil model (lowermost layer)
       !
       ! t_cl         p_ext_atm%t_cl(nproma,nblks_c)
@@ -1012,7 +1012,7 @@ CONTAINS
   !>
   !! Allocation of atmospheric external data structure (time dependent)
   !!
-  !! Allocation of atmospheric external data structure (time dependent  
+  !! Allocation of atmospheric external data structure (time dependent
   !! elements).
   !!
   !! Initialization of elements with zero.
@@ -1027,7 +1027,7 @@ CONTAINS
       &  p_patch
 
     TYPE(t_external_atmos_td), INTENT(INOUT):: & !< current external data structure
-      &  p_ext_atm_td 
+      &  p_ext_atm_td
 
     TYPE(t_var_list)         , INTENT(INOUT):: & !< current external data list
       &  p_ext_atm_td_list
@@ -1061,14 +1061,14 @@ CONTAINS
 
     ! predefined array shapes
     shape3d_c   = (/ nproma, nblks_c, nmonths_ext(jg)  /)
-    shape4d_c   = (/ nproma, nlev_o3, nblks_c, nmonths /) 
+    shape4d_c   = (/ nproma, nlev_o3, nblks_c, nmonths /)
 
     IF ( sstice_mode > 1 ) THEN
      SELECT CASE (sstice_mode)
      CASE(2)
-      shape3d_sstice = (/ nproma, nblks_c, 12 /)  
+      shape3d_sstice = (/ nproma, nblks_c, 12 /)
      CASE(3)
-      shape3d_sstice = (/ nproma, nblks_c,  2 /)  
+      shape3d_sstice = (/ nproma, nblks_c,  2 /)
      CASE(4)
       CALL finish (TRIM(routine), 'sstice_mode=4  not implemented!')
      CASE DEFAULT
@@ -1085,16 +1085,16 @@ CONTAINS
                                   & loutput=.TRUE.  )
 
 
-    !-------------------------------- 
+    !--------------------------------
     ! radiation parameters
     !--------------------------------
 
 
     ! ozone on pressure levels
-    ! ATTENTION: a GRIB2 number will go to 
+    ! ATTENTION: a GRIB2 number will go to
     ! the ozone mass mixing ratio...
     !
-    IF(irad_o3 == io3_clim .OR. irad_o3 == io3_ape) THEN 
+    IF(irad_o3 == io3_clim .OR. irad_o3 == io3_ape) THEN
 
       WRITE(0,*) 'generate ext ozone field'
 
@@ -1327,4 +1327,3 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 END MODULE mo_ext_data_state
-

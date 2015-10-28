@@ -254,7 +254,7 @@ EOF
 
 cat > ${lnd_namelist} <<EOF
 &jsb_model_nml
-  usecase         = 'jsbach_lite'
+  usecase         = 'jsbach_lite_with_hd'
 /
 &jsb_srf_nml
   bc_filename     = 'bc_land_phys.nc'
