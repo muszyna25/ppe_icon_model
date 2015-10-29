@@ -1100,13 +1100,13 @@ MODULE mo_nonhydro_state
         
       ELSE
 
-        ! add refs to tracers with generic name Q1 ... Qn
+        ! add refs to tracers with generic name q1 ... qn
         ! (used for example with test cases)
         ALLOCATE( p_prog%tracer_ptr(ntracer) )
 
         DO jt = 1, ntracer
           ctracer = advconf%ctracer_list(jt:jt)
-          WRITE(name,'(A1,A1)') "Q", ctracer
+          WRITE(name,'(A1,A1)') "q", ctracer
           CALL add_ref( p_prog_list, 'tracer',                                  &
             & TRIM(name)//suffix, p_prog%tracer_ptr(jt)%p_3d,                   &
             & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                                &
