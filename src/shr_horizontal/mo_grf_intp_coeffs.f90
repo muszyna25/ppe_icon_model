@@ -457,7 +457,7 @@ DO jg = n_dom_start+1, n_dom
   ierrcount(:) = 0
 
   ! If the nested domain is barely larger than the boundary interpolation zone,
-  ! the setting of the start and end indices may fail in the presence of 
+  ! the setting of the start and end indices may fail in the presence of
   ! multiple nests per nesting level. As such small nests do not make sense anyway,
   ! we just stop here in such pathological cases.
   ierror = 0
@@ -596,7 +596,7 @@ DO jg = n_dom_start+1, n_dom
         ENDIF
 
         IF (MINVAL(wgt(1:4)) < 0.0_wp) ierrcount(jb) = ierrcount(jb) + 1
-          
+
         ! Save the weighting factors in fbk_wgt_bln
         p_grfp%fbk_wgt_bln(jc,jb,1:4) = wgt(1:4)
       ENDDO
@@ -883,8 +883,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
           iicc = ptr_ec%cell_idx(iice,ibce,2)
           ibcc = ptr_ec%cell_blk(iice,ibce,2)
         ENDIF
-        iipc = ptr_cc%parent_idx(iicc,ibcc)
-        ibpc = ptr_cc%parent_blk(iicc,ibcc)
+        iipc = ptr_cc%parent_loc_idx(iicc,ibcc)
+        ibpc = ptr_cc%parent_loc_blk(iicc,ibcc)
 
         ! Determine stencil points 2 and 3 (remaining edges of the parent cell)
         IF (ptr_cp%edge_idx(iipc,ibpc,1) == je .AND. ptr_cp%edge_blk(iipc,ibpc,1) == jb ) THEN
@@ -987,8 +987,8 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
           iicc = ptr_ec%cell_idx(iice,ibce,2)
           ibcc = ptr_ec%cell_blk(iice,ibce,2)
         ENDIF
-        iipc = ptr_cc%parent_idx(iicc,ibcc)
-        ibpc = ptr_cc%parent_blk(iicc,ibcc)
+        iipc = ptr_cc%parent_loc_idx(iicc,ibcc)
+        ibpc = ptr_cc%parent_loc_blk(iicc,ibcc)
 
         ! Determine stencil points 2 and 3 (remaining edges of the parent cell)
         IF (ptr_cp%edge_idx(iipc,ibpc,1) == je .AND. ptr_cp%edge_blk(iipc,ibpc,1) == jb ) THEN
@@ -1457,7 +1457,7 @@ REAL(wp)           :: z_nxprod              ! scalar product of normal
                                             ! velocity vectors
 REAL(wp)           :: z_wgtsum              ! sum of weighting factors (for normalization)
 
-REAL(wp), ALLOCATABLE :: z_idwwgt(:)      ! IDW weighting factors
+REAL(wp) :: z_idwwgt(6)      ! IDW weighting factors
 
 ! Index variables
 INTEGER :: jg, jb, je, jcd, jgc, &
@@ -1491,13 +1491,7 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
   i_startblk = p_pp%edges%start_blk(grf_bdyintp_start_e,jcd)
   i_endblk   = p_pp%edges%end_blk(min_rledge_int,jcd)
 
-!$OMP PARALLEL PRIVATE (z_idwwgt,istencil,ist,jb)
-  ALLOCATE( z_idwwgt(6),  STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:idw_compute_coeff_grf',      &
-      &             'allocation for z_idwwgt failed')
-  ENDIF
-
+!$OMP PARALLEL PRIVATE (z_idwwgt,istencil,ist,jb, i_startidx, i_endidx)
   DO jb =  i_startblk, i_endblk
 
     CALL get_indices_e(p_pp, jb, i_startblk, i_endblk, &
@@ -1752,13 +1746,6 @@ LEV_LOOP: DO jg = n_dom_start, n_dom-1
     ENDDO
 !$OMP END DO NOWAIT
   ENDDO ! blocks
-
-  ! deallocate temporary array
-  DEALLOCATE( z_idwwgt, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ('mo_grf_interpolation:idw_compute_coeff_grf',      &
-      &             'deallocation for z_idwwgt failed')
-  ENDIF
 
 !$OMP END PARALLEL
 

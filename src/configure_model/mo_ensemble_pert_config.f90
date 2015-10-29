@@ -131,9 +131,9 @@ MODULE mo_ensemble_pert_config
       tune_gfluxlaun = tune_gfluxlaun + 2._wp*(rnd_num-0.5_wp)*range_gfluxlaun
 
       CALL RANDOM_NUMBER(rnd_num)
-      ! Perturbation for CAPE diurnal cycle must be one-sided and is chosen to be zero for half of the
-      ! ensemble members because applying this perturbation degrades scores in some cases
-      tune_capdcfac_et = tune_capdcfac_et + MAX(0._wp,2._wp*(rnd_num-0.5_wp))*range_capdcfac_et
+      ! Scale factor for CAPE diurnal cycle correction must be non-negative; for the current default
+      ! of tune_capdcfac_et=0, the perturbation is zero for half of the ensemble members
+      tune_capdcfac_et = MAX(0._wp, tune_capdcfac_et + 2._wp*(rnd_num-0.5_wp)*range_capdcfac_et)
 
       CALL RANDOM_NUMBER(rnd_num)
       tune_box_liq = tune_box_liq + 2._wp*(rnd_num-0.5_wp)*range_box_liq

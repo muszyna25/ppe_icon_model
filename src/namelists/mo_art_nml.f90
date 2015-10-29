@@ -23,7 +23,7 @@ MODULE mo_art_nml
   USE mo_kind                ,ONLY: wp
   USE mo_parallel_config     ,ONLY: nproma
   USE mo_io_units            ,ONLY: nnml, nnml_output
-  USE mo_master_control      ,ONLY: is_restart_run
+  USE mo_master_config       ,ONLY: isRestart
   USE mo_impl_constants      ,ONLY: max_dom
   USE mo_namelist            ,ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi                 ,ONLY: my_process_is_stdio
@@ -152,7 +152,7 @@ CONTAINS
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       funit = open_and_restore_namelist('art_nml')
       READ(funit,NML=art_nml)
       CALL close_tmpfile(funit)

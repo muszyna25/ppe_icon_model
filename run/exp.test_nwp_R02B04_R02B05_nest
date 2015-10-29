@@ -122,6 +122,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks            = .false.
  num_io_procs            = 1
  num_restart_procs       = 0
+ num_dist_array_replicas = ${replicate_grid-1} ! can be 1 iff passive or active (see HAVE_SLOW_PASSIVE_TARGET_ONESIDED) target RMA works well
 /
 &grid_nml
  dynamics_grid_filename  = ${dynamics_grid_filename}

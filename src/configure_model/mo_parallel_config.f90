@@ -14,7 +14,7 @@
 !!
 MODULE mo_parallel_config
 
-  USE mo_exception,          ONLY: message, finish
+  USE mo_exception,          ONLY: message, finish, warning
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, MAX_NUM_IO_PROCS
   USE mo_util_string,        ONLY: int2string
@@ -28,20 +28,19 @@ MODULE mo_parallel_config
   PUBLIC :: parallel_radiation_mode, test_parallel_radiation
 
   PUBLIC :: n_ghost_rows,                                     &
-       &  div_from_file, div_geometric, div_metis, division_method, &
-       &  division_file_name, radiation_division_file_name, &
-       &  l_log_checks, l_fast_sum, ldiv_phys_dom,                  &
-       &  p_test_run, l_test_openmp,                                &
+       &  div_geometric, division_method, division_file_name,       &
+       &  radiation_division_file_name, l_log_checks, l_fast_sum,   &
+       &  ldiv_phys_dom, p_test_run, l_test_openmp,                 &
        &  pio_type, itype_comm, iorder_sendrecv, num_io_procs,      &
-       &  num_restart_procs, num_prefetch_proc,                                       &
+       &  num_restart_procs, num_prefetch_proc,                     &
        &  use_icon_comm, icon_comm_debug, max_send_recv_buffer_size,&
        &  use_dycore_barrier, itype_exch_barrier, use_dp_mpi2io,    &
        &  icon_comm_method, icon_comm_openmp, max_no_of_comm_variables, &
        &  max_no_of_comm_processes, max_no_of_comm_patterns,        &
        &  sync_barrier_mode, max_mpi_message_size, use_physics_barrier, &
-       &  redrad_split_factor, restart_chunk_size
-  PUBLIC :: ext_div_medial, ext_div_medial_cluster, ext_div_medial_redrad, &
-       & ext_div_medial_redrad_cluster, ext_div_from_file
+       &  restart_chunk_size, ext_div_from_file, write_div_to_file, &
+       &  use_div_from_file, io_proc_chunk_size,                    &
+       &  num_dist_array_replicas
 
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration, use_async_restart_output, blk_no, idx_no, idx_1d
 
@@ -56,19 +55,16 @@ MODULE mo_parallel_config
                                  ! instead the system's value will be used
 
   ! Division method for area subdivision
-  INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
-  INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
-  INTEGER, PARAMETER :: ext_div_medial = 101
-  INTEGER, PARAMETER :: ext_div_medial_cluster = 102
-  INTEGER, PARAMETER :: ext_div_medial_redrad = 103
-  INTEGER, PARAMETER :: ext_div_medial_redrad_cluster = 104
-  INTEGER, PARAMETER :: ext_div_from_file = 201
+  INTEGER, PARAMETER :: ext_div_from_file = 201 ! Read from file
 
   INTEGER :: division_method(0:max_dom) = 1
-  CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom)! if div_from_file
+  CHARACTER(LEN=filename_max) :: division_file_name(0:max_dom)! if ext_div_from_file
   CHARACTER(LEN=filename_max) :: radiation_division_file_name(max_dom)! if parallel_radiation_mode = 1
-  INTEGER :: redrad_split_factor = 6
+  LOGICAL :: use_div_from_file = .FALSE. ! check for domain decomposition from file
+                                         ! if file is not available use division_method
+                                         ! to generate decomposition online
+  LOGICAL :: write_div_to_file = .FALSE. ! write result of domain decomposition to file
 
   ! Flag if (in case of merged domains) physical domains shall be considered for
   ! computing the domain decomposition
@@ -155,6 +151,14 @@ MODULE mo_parallel_config
   ! more than one 2D slice at once
   INTEGER :: restart_chunk_size
 
+  ! The (asynchronous) name list output is capable of writing and communicating
+  ! more than one 2D slice at once
+  INTEGER :: io_proc_chunk_size
+
+  ! number of replications being stored in the distributed arrays of the
+  ! t_patch_pre
+  INTEGER :: num_dist_array_replicas
+
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -171,7 +175,7 @@ CONTAINS
 #ifndef __SX__
     ! migration helper: catch nproma's that were obviously intended
     !                   for a vector machine.
-    IF (nproma>256) CALL finish(TRIM(method_name),'The value of "nproma" seems to be set for a vector machine!')
+    IF (nproma>256) CALL warning(TRIM(method_name),'The value of "nproma" seems to be set for a vector machine!')
 #endif
 
     icon_comm_openmp = .false.
@@ -231,23 +235,6 @@ CONTAINS
           & 'n_ghost_rows<1 in parallel_nml namelist is not allowed')
     END IF
 
-    ! check division_method
-    ! this will be checked during the decomposition
-!     SELECT CASE (division_method)
-!     CASE(div_from_file, div_geometric, ext_div_medial, ext_div_medial_cluster, &
-!       & ext_div_medial_redrad, ext_div_medial_redrad_cluster)
-!       ! ok
-!     CASE(div_metis)
-! #ifdef HAVE_METIS
-!     ! ok
-! #else
-!       CALL finish(method_name, &
-!         & 'division_method=div_metis=2 in parallel_nml namelist is not allowed')
-! #endif
-!     CASE DEFAULT
-!       CALL finish(method_name, &
-!         & 'value of division_method in parallel_nml namelist is not allowed')
-!     END SELECT
     ! for safety only
     IF (num_io_procs < 0)      num_io_procs = 0
     IF (num_restart_procs < 0) num_restart_procs = 0

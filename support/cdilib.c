@@ -34294,9 +34294,7 @@ int srvCheckFiletype(int fileID, int *swap)
 
 int srvInqHeader(srvrec_t *srvp, int *header)
 {
-  size_t i;
-
-  for ( i = 0; i < SRV_HEADER_LEN; i++ )
+  for (size_t i = 0; i < SRV_HEADER_LEN; ++i)
     header[i] = srvp->header[i];
   
   if ( SRV_Debug )

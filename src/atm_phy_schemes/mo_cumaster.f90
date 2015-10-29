@@ -867,11 +867,11 @@ DO jl = kidia, kfdia
     ztau(jl) = (pgeoh(jl,ik)-pgeoh(jl,ikb))/((2.0_jprb+MIN(15.0_jprb,pwmean(jl)))*rg)*phy_params%tau
     llo1 = (paph(jl,klev+1)-paph(jl,ikd)) < 50.e2_jprb
     IF (llo1 .AND. ldland(jl)) THEN
-      zcapdcycl(jl) = MAX(tune_capdcfac_et,capdcfac(jl))*zcappbl(jl)*ztau(jl)*phy_params%tau0
+      ! Use PBL CAPE for diurnal cycle correction in the tropics and a fraction of it 
+      ! to reduce excessive precipitation maxima over small-scale mountain peaks
+      zcapdcycl(jl) = (capdcfac(jl)*zcappbl(jl) + MAX(0._jprb,tune_capdcfac_et+mtnmask(jl)-capdcfac(jl)) * &
+        MAX(0._jprb,zcappbl(jl)) ) * ztau(jl)*phy_params%tau0
     ENDIF
-    ! Use (part of the) PBL CAPE to reduce excessive precipitation maxima over small-scale mountain peaks
-    zcapdcycl(jl) = zcapdcycl(jl) + MAX(0._jprb,mtnmask(jl)-capdcfac(jl))* &
-                    MAX(0._jprb,zcappbl(jl))*ztau(jl)*phy_params%tau0
     ! Reduce adjustment time scale for extreme CAPE values
     IF (pcape(jl) > zcapethresh) ztau(jl) = ztau(jl)/phy_params%tau
   ELSE IF (ldcum(jl) .AND. ktype(jl) == 1) THEN

@@ -282,7 +282,7 @@ CONTAINS
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Determine the datatype of the given variable in the input file
   !---------------------------------------------------------------------------------------------------------------------------------
-  SUBROUTINE inputParametersFindVarId(me, name, tileinfo, varID, tile_index) 
+  SUBROUTINE inputParametersFindVarId(me, name, tileinfo, varID, tile_index)
     IMPLICIT NONE
     CLASS(t_inputParameters), INTENT(IN)  :: me
     CHARACTER(len=*),         INTENT(IN)  :: name
@@ -396,7 +396,7 @@ CONTAINS
   !
   FUNCTION test_cdi_varID(streamID, name, opt_dict) RESULT(result_varID)
     INTEGER                                 :: result_varID
-    INTEGER,           INTENT(IN)           :: streamID            !< link to file 
+    INTEGER,           INTENT(IN)           :: streamID            !< link to file
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
@@ -438,7 +438,7 @@ CONTAINS
   !
   FUNCTION get_cdi_varID(streamID, name, opt_dict) RESULT(result_varID)
     INTEGER                                 :: result_varID
-    INTEGER,           INTENT(IN)           :: streamID            !< link to file 
+    INTEGER,           INTENT(IN)           :: streamID            !< link to file
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
@@ -460,13 +460,13 @@ CONTAINS
   !
   FUNCTION get_cdi_NlevRef(streamID, name, opt_dict) RESULT(result_NlevRef)
     INTEGER                                 :: result_NlevRef
-    INTEGER,           INTENT(IN)           :: streamID            !< link to file 
+    INTEGER,           INTENT(IN)           :: streamID            !< link to file
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
     INTEGER :: varID                                              ! variable ID
     INTEGER :: vlistID
-    INTEGER :: zaxisID 
+    INTEGER :: zaxisID
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::get_cdi_NlevRef'
 
     varID = test_cdi_varID(streamID, name, opt_dict)
@@ -662,12 +662,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Read 3D dataset from file.
-  ! 
+  !
   !  Note: This implementation uses a 2D buffer.
-  ! 
+  !
   !  @par Revision History
   !  Initial revision by F. Prill, DWD (2013-02-19)
-  ! 
+  !
   SUBROUTINE read_cdi_3d_real_tiles(parameters, varname, nlevs, var_out, tileinfo, opt_lvalue_add, opt_lev_dim)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
@@ -730,12 +730,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Read 3D dataset from file.
-  ! 
+  !
   !  Note: This implementation uses a 2D buffer.
-  ! 
+  !
   !  @par Revision History
   !  Initial revision by F. Prill, DWD (2013-02-19)
-  ! 
+  !
   SUBROUTINE read_cdi_3d_real(parameters, varname, nlevs, var_out, opt_lvalue_add, opt_lev_dim)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
@@ -811,7 +811,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
   SUBROUTINE read_cdi_2d_real_tiles (parameters, varname, var_out, tileinfo)
@@ -862,7 +862,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
   SUBROUTINE read_cdi_2d_real (parameters, varname, var_out)
@@ -878,7 +878,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for INTEGER fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
 
@@ -912,7 +912,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for INTEGER fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
 
@@ -929,7 +929,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
   SUBROUTINE read_cdi_2d_time_tiles (parameters, ntime, varname, var_out, tileinfo)
@@ -980,7 +980,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
   SUBROUTINE read_cdi_2d_time (parameters, ntime, varname, var_out)

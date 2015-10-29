@@ -24,10 +24,11 @@ MODULE mo_bc_ozone
   USE mo_parallel_config,          ONLY: p_test_run
   USE mo_io_config,                ONLY: default_read_method
   USE mo_read_interface,           ONLY: nf, openInputFile, closeFile, &
-  &                                      read_3D_time, t_stream_id, onCells
+  &                                      read_3D_time, t_stream_id, on_cells
   USE mo_mpi,                      ONLY: my_process_is_stdio, p_bcast, &
                                   &      p_comm_work_test, p_comm_work, p_io
   USE mo_physical_constants,       ONLY: amo3, amd
+  USE mo_echam_phy_config,         ONLY: echam_phy_config
 
   IMPLICIT NONE
   PRIVATE
@@ -37,7 +38,7 @@ MODULE mo_bc_ozone
   PUBLIC                            :: o3_plev, plev_half_o3, plev_full_o3, nplev_o3
   PUBLIC                            :: read_bc_ozone
 
-  REAL(wp), ALLOCATABLE             :: o3_plev(:,:,:,:)                  ! Ozone at pressure levels
+  REAL(wp), ALLOCATABLE             :: o3_plev(:,:,:,:)                  ! Ozonemass mixing ratio at pressure levels
   REAL(wp), ALLOCATABLE             :: plev_half_o3(:), plev_full_o3(:)  ! Pressure levels in ozone file
   INTEGER                           :: nplev_o3
 
@@ -48,7 +49,7 @@ CONTAINS
   SUBROUTINE read_bc_ozone(year, p_patch)
 
     INTEGER      , INTENT(in)         :: year
-    TYPE(t_patch), INTENT(in)         :: p_patch
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 
     CHARACTER(len=16)                 :: fname
     TYPE(t_stream_id)                 :: stream_id
@@ -62,44 +63,74 @@ CONTAINS
       IF (ALLOCATED(o3_plev)) THEN
         o3_plev(:,:,:,0:1)=o3_plev(:,:,:,12:13)
         write(cyear,'(i4)') year
-        fname='bc_ozone_'//TRIM(cyear)//'.nc'
+
+        IF ( echam_phy_config%lamip ) THEN
+          fname='bc_ozone_'//TRIM(cyear)//'.nc'
+        ELSE
+          fname='bc_ozone'//'.nc'
+        ENDIF
+
         write(0,*) 'Read ozone from file: ',fname 
         stream_id = openInputFile(fname, p_patch, default_read_method)
-        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+        CALL read_3D_time(stream_id=stream_id, location=on_cells, &
           &               variable_name='O3', return_pointer=zo3_plev, &
           &               start_timestep=2,end_timestep=12)
         CALL closeFile(stream_id)
         o3_plev(:,:,:,2:12)=vmr2mmr_o3*zo3_plev(:,:,:,1:11)
         write(cyear,'(i4)') year+1
-        fname='bc_ozone_'//TRIM(cyear)//'.nc'
+
+        IF ( echam_phy_config%lamip ) THEN
+          fname='bc_ozone_'//TRIM(cyear)//'.nc'
+        ELSE
+          fname='bc_ozone'//'.nc'
+        ENDIF
+
         stream_id = openInputFile(fname, p_patch, default_read_method)
-        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+        CALL read_3D_time(stream_id=stream_id, location=on_cells, &
           &               variable_name='O3', return_pointer=zo3_plev, &
           &               start_timestep=1,end_timestep=1)
         CALL closeFile(stream_id)
         o3_plev(:,:,:,13)=vmr2mmr_o3*zo3_plev(:,:,:,1)
       ELSE
         write(cyear,'(i4)') year
-        fname='bc_ozone_'//TRIM(cyear)//'.nc'
+
+        IF ( echam_phy_config%lamip ) THEN
+          fname='bc_ozone_'//TRIM(cyear)//'.nc'
+        ELSE
+          fname='bc_ozone'//'.nc'
+        ENDIF
+
         write(0,*) 'Read ozone from file: ',fname 
         stream_id = openInputFile(fname, p_patch, default_read_method)
-        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+        CALL read_3D_time(stream_id=stream_id, location=on_cells, &
           &               variable_name='O3', return_pointer=zo3_plev)
         CALL closeFile(stream_id)
         ALLOCATE(o3_plev(SIZE(zo3_plev,1),SIZE(zo3_plev,2),SIZE(zo3_plev,3),0:13))
         o3_plev(:,:,:,1:12)=vmr2mmr_o3*zo3_plev
         write(cyear,'(i4)') year-1
-        fname='bc_ozone_'//TRIM(cyear)//'.nc'
+
+        IF ( echam_phy_config%lamip ) THEN
+          fname='bc_ozone_'//TRIM(cyear)//'.nc'
+        ELSE
+          fname='bc_ozone'//'.nc'
+        ENDIF
+
         stream_id = openInputFile(fname, p_patch, default_read_method)
-        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+        CALL read_3D_time(stream_id=stream_id, location=on_cells, &
           &               variable_name='O3', return_pointer=zo3_plev, &
           &               start_timestep=12,end_timestep=12)
         CALL closeFile(stream_id)
         o3_plev(:,:,:,0)=vmr2mmr_o3*zo3_plev(:,:,:,1)
         write(cyear,'(i4)') year+1
-        fname='bc_ozone_'//TRIM(cyear)//'.nc'
+
+        IF ( echam_phy_config%lamip ) THEN
+          fname='bc_ozone_'//TRIM(cyear)//'.nc'
+        ELSE
+          fname='bc_ozone'//'.nc'
+        ENDIF
+
         stream_id = openInputFile(fname, p_patch, default_read_method)
-        CALL read_3D_time(stream_id=stream_id, location=onCells, &
+        CALL read_3D_time(stream_id=stream_id, location=on_cells, &
           &               variable_name='O3', return_pointer=zo3_plev, &
           &               start_timestep=1,end_timestep=1)
         CALL closeFile(stream_id)

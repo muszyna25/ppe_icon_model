@@ -25,13 +25,13 @@ MODULE mo_nwp_parameters
 
 
   TYPE t_phy_params
+    !
+    ! Parameters which are only computed if convection is switched on
+    !
     ! Level parameters for convection scheme
     INTEGER  :: kcon1, kcon2
     ! resolution-dependent parameters for convection scheme
     REAL(wp) :: tau, mfcfl, tau0
-    ! characteristic horizontal length scale (grid-scale) for 
-    ! turbulence scheme and convection scheme
-    REAL(wp) :: mean_charlen
     ! relative humidity below which sub-cloud evaporation of rain starts over land and water, respectively
     REAL(wp) :: rhebc_land, rhebc_ocean
     ! 'excess values' of temperature and QV used for convection triggering (test parcel ascent)
@@ -40,8 +40,19 @@ MODULE mo_nwp_parameters
     REAL(wp) :: rcucov
     ! tuning coefficient for organized entrainment of deep convection
     REAL(wp) :: entrorg
+    !
+    ! Parameters which are only computed if Gravity wave drag scheme is switched on
+    !
     ! launch level for GWD scheme
     INTEGER  :: klaunch
+    !
+    ! Parameters which are always computed
+    !
+    ! characteristic horizontal length scale (grid-scale) for 
+    ! turbulence scheme and convection scheme
+    REAL(wp) :: mean_charlen
+    ! level index corresponding to the HAG of the 60hPa level (identical to kcon2, if computed)
+    INTEGER :: k060
   END TYPE t_phy_params
 
 
