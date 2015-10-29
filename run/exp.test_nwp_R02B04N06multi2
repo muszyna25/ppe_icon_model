@@ -5,8 +5,8 @@
 #    No run script is generated out of this file, if the exclude
 #    keyword matches.
 #
-#    __exclude_compiler=nag
-#    __exclude_target=thunder
+#    __exclude_target_compiler=thunder,nag
+#    __exclude_target_compiler=thunder,intel
 #
 
 #--------------------------------------------------------------------------------
