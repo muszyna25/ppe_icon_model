@@ -714,6 +714,7 @@ run/checksuite.coupled/exp.couple_atmo-ocean -text
 run/checksuite.coupled/exp.couple_atmo-ocean-prod -text
 run/checksuite.coupled/exp.coupled_r2b3 -text
 run/checksuite.icon-dev/check.atm_amip -text
+run/checksuite.icon-dev/check.atm_amip_noforcing -text
 run/checksuite.icon-dev/check.atm_amip_noparams -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
@@ -822,6 +823,7 @@ run/exp.aloy_r2b4 -text
 run/exp.atm_amip -text
 run/exp.atm_amip_hs -text
 run/exp.atm_amip_hs_test -text
+run/exp.atm_amip_noforcing_test -text
 run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
 run/exp.atm_amip_test_inst_1dt_FALSE -text
@@ -886,6 +888,7 @@ run/exp.ocean_omip_technical -text
 run/exp.ozon -text
 run/exp.pure_adv -text
 run/exp.test_atm_amip -text
+run/exp.test_atm_amip_noforcing -text
 run/exp.test_atm_amip_noparams -text
 run/exp.test_atm_icoles_nested -text
 run/exp.test_couple_atmo-ocean -text
