@@ -84,7 +84,12 @@ MODULE mo_name_list_output
   USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
     &                                     ihs_ocean
   USE mo_dynamics_config,           ONLY: iequations
-  USE mo_cdi_constants              ! We need all
+  USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
+      &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
+      &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
+      &                                   cdiGetStringError, streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT
+  USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, &
+      &                                   GRID_UNSTRUCTURED_EDGE
   ! utility functions
   USE mo_io_units,                  ONLY: FILENAME_MAX, find_next_free_unit
   USE mo_exception,                 ONLY: finish, message, message_text
@@ -95,7 +100,7 @@ MODULE mo_name_list_output
     &                                     print_timer
   USE mo_name_list_output_gridinfo, ONLY: write_grid_info_grb2, GRID_INFO_NONE
   ! config
-  USE mo_master_nml,                ONLY: model_base_dir
+  USE mo_master_config,             ONLY: getModelBaseDir
   USE mo_grid_config,               ONLY: n_dom
   USE mo_run_config,                ONLY: msg_level
   USE mo_io_config,                 ONLY: lkeep_in_sync
@@ -534,7 +539,7 @@ CONTAINS
     CALL deallocateTimedelta(forecast_delta)
 
     ! substitute tokens in ready file name
-    CALL associate_keyword("<path>",            TRIM(model_base_dir),            keywords)
+    CALL associate_keyword("<path>",            TRIM(getModelBaseDir()),         keywords)
     CALL associate_keyword("<datetime>",        TRIM(get_current_date(ev)),      keywords)
     CALL associate_keyword("<ddhhmmss>",        TRIM(forecast_delta_str),        keywords)
     rdy_filename = TRIM(with_keywords(keywords, ev%output_event%event_data%name))

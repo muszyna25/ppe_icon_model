@@ -161,7 +161,7 @@ MODULE mo_pp_tasks
   !  @note There might be better places in the code for such a
   !  variable!
   TYPE t_simulation_status
-    LOGICAL :: status_flags(3)         !< l_output_step, l_first_step, l_last_step
+    LOGICAL :: status_flags(4)         !< l_output_step, l_first_step, l_last_step, l_accumulation_step
     LOGICAL :: ldom_active(max_dom)    !< active domains
     INTEGER :: i_timelevel(max_dom)    !< active time level (for output variables)
   END TYPE t_simulation_status
@@ -703,12 +703,9 @@ CONTAINS
       &  l_hires_intp, l_restore_fricred, l_loglin, &
       &  l_extrapol, l_satlimit, l_restore_pbldev,  &
       &  l_pd_limit
-    REAL(wp)                           :: &
-      &  lower_limit, extrapol_dist
-    TYPE (t_vcoeff_lin), POINTER       :: &
-      &  vcoeff_lin, vcoeff_lin_nlevp1
-    TYPE (t_vcoeff_cub), POINTER       :: &
-      &  vcoeff_cub
+    REAL(wp)                           :: lower_limit
+    TYPE (t_vcoeff_lin), POINTER       :: vcoeff_lin, vcoeff_lin_nlevp1
+    TYPE (t_vcoeff_cub), POINTER       :: vcoeff_cub
 
     REAL(wp), POINTER :: in_ptr(:,:,:), out_ptr(:,:,:)
 
@@ -787,7 +784,6 @@ CONTAINS
     l_restore_pbldev  = pzlev_flags%l_restore_pbldev  
     l_pd_limit        = pzlev_flags%l_pd_limit
     lower_limit       = pzlev_flags%lower_limit       
-    extrapol_dist     = pzlev_flags%extrapol_dist    
 
     !-- perform some consistency checks
     IF (p_info%ndims /= 3) &

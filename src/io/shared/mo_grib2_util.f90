@@ -17,15 +17,18 @@
 MODULE mo_grib2_util
 
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
-  USE mo_exception,          ONLY: finish
-  USE mo_cdi_constants,      ONLY: streamInqVlist,                           &
-    &                              vlistInqVarTypeOfGeneratingProcess,       &
-    &                              vlistInqVarTsteptype, TSTEP_CONSTANT,     &
-    &                              TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX,        &
-    &                              TSTEP_MIN, vlistInqTaxis, taxisInqTunit,  &
-    &                              TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR 
+  USE mo_exception,          ONLY: finish, message, message_text
+  USE mo_cdi,                ONLY: streamInqVlist, vlistInqVarTypeOfGeneratingProcess,  &
+                                 & vlistInqVarTsteptype, vlistInqTaxis, taxisInqTunit,  &
+                                 & TSTEP_CONSTANT, TSTEP_AVG, TSTEP_ACCUM, TSTEP_MAX,   &
+                                 & TSTEP_MIN, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR,   &
+                                 & vlistDefVarProductDefinitionTemplate,                &
+                                 & vlistDefVarTypeOfGeneratingProcess,                  &
+                                 & vlistDefVarIntKey
+! JF:                                  & vlistDefVarIntKey, vlistDefVarIntArrayKey
   USE mo_gribout_config,     ONLY: t_gribout_config
-  USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_TILE_LAND
+  USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_SYNSAT, &
+    &                              CLASS_TILE_LAND, VARNAME_LEN
   USE mo_action,             ONLY: ACTION_RESET, getActiveAction
   USE mo_util_string,        ONLY: one_of
 #ifndef __NO_ICON_ATMO__
@@ -47,8 +50,10 @@ MODULE mo_grib2_util
   ! Subroutines/Functions
   PUBLIC :: set_GRIB2_additional_keys
   PUBLIC :: set_GRIB2_ensemble_keys
+  PUBLIC :: set_GRIB2_synsat_keys
   PUBLIC :: set_GRIB2_local_keys
   PUBLIC :: set_GRIB2_tile_keys
+  PUBLIC :: set_GRIB2_art_keys
   PUBLIC :: set_GRIB2_timedep_keys
   PUBLIC :: set_GRIB2_timedep_local_keys
 
@@ -77,8 +82,8 @@ CONTAINS
     !
     ! Load correct tables
     !
-    ! set tablesVersion=11
-    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 11)
+    ! set tablesVersion=14
+    CALL vlistDefVarIntKey(vlistID, varID, "tablesVersion", 14)
     !
     CALL vlistDefVarIntKey(vlistID, varID, "significanceOfReferenceTime",     &
       &                    grib_conf%significanceOfReferenceTime)
@@ -145,10 +150,6 @@ CONTAINS
     INTEGER,                INTENT(IN) :: vlistID, varID
     TYPE(t_gribout_config), INTENT(IN) :: grib_conf
 
-    ! Local
-    CHARACTER(len=MAX_CHAR_LENGTH)     :: ydate, ytime
-    INTEGER :: cent, year, month, day    ! date
-    INTEGER :: hour, minute, second      ! time
   !----------------------------------------------------------------
 
     ! SECTION 2: Initialize local use section
@@ -239,6 +240,28 @@ CONTAINS
   END SUBROUTINE set_GRIB2_ensemble_keys
 
 
+  !>
+  !! Set synsat-specific keys
+  !!
+  !! Set GRIB2 keys which are specific to synthetic satellite products.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-06-10)
+  !!
+  SUBROUTINE set_GRIB2_synsat_keys (vlistID, varID, info)
+    
+    INTEGER,                INTENT(IN) :: vlistID, varID
+    TYPE (t_var_metadata),  INTENT(IN) :: info
+    
+    ! ----------------------------------------------------------------
+    
+    ! Skip inapplicable fields
+    IF ( info%var_class /= CLASS_SYNSAT ) RETURN
+    
+    ! change product definition template
+    CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, 32)
+    
+  END SUBROUTINE set_GRIB2_synsat_keys
 
 
   !>
@@ -307,6 +330,166 @@ CONTAINS
 #endif
 
   END SUBROUTINE set_GRIB2_tile_keys
+
+
+  !>
+  !! Set ART-specific keys
+  !!
+  !! Set GRIB2 keys which are specific to ART-variables.
+  !!
+  !! @par Revision History
+  !! Initial revision by Jochen Foerstner, DWD (2015-09-07)
+  !!
+  SUBROUTINE set_GRIB2_art_keys(vlistID, varID, info)
+
+    INTEGER,                INTENT(IN) :: vlistID, varID
+    TYPE (t_var_metadata),  INTENT(IN) :: info
+
+    ! local
+    CHARACTER(LEN=VARNAME_LEN) :: tracer_class
+    INTEGER                    :: scale_factor, first_factor, second_param
+    INTEGER      :: productDefinitionTemplate
+    INTEGER      :: numberOfDistributionFunctionParameter
+    INTEGER, ALLOCATABLE ::  &
+      &  scaledValueOfDistributionFunctionParameter(:),  &
+      &  scaleFactorOfDistributionFunctionParameter(:)
+
+  !----------------------------------------------------------------
+    WRITE(message_text,'(a,i4,a,i4)') 'vlistID = ', vlistID, '  varID = ', varID
+! JF:     CALL message(' ==> set_GRIB2_art_keys :',TRIM(message_text),0,5,.TRUE.)
+! JF:     CALL message(' ==> set_GRIB2_art_keys :','tracer_class = '//TRIM(info%tracer%tracer_class),0,5,.TRUE.)
+
+    tracer_class = info%tracer%tracer_class
+    scale_factor = 0
+    first_factor = 3
+
+    ! set a generic tracer_class to simplify differentation of cases
+    SELECT CASE(TRIM(info%tracer%tracer_class))
+    CASE ('volcash_diag_mc', 'volcash_diag_mc_max')
+      tracer_class = 'volcash_diag'
+      scale_factor = 9
+    CASE ('volcash_diag_mc_vi')
+      tracer_class = 'volcash_diag'
+      scale_factor = 3
+    CASE ('volcash_diag_hml')
+      tracer_class = 'volcash_diag'
+    CASE ('asha', 'ashb', 'ashc')
+      tracer_class = 'aerosol'
+      second_param = 2600
+      scale_factor = 9
+    CASE ('asha_number', 'ashb_number', 'ashc_number')
+      tracer_class = 'aerosol_number'
+      second_param = 2600
+    CASE ('dusta', 'dustb', 'dustc')
+      tracer_class = 'aerosol'
+      second_param = 2650
+      scale_factor = 9
+    CASE ('dusta_number', 'dustb_number', 'dustc_number')
+      tracer_class = 'aerosol_number'
+      second_param = 2650
+    CASE ('seasa', 'seasb', 'seasc')
+      tracer_class = 'aerosol'
+      second_param = 2200
+      scale_factor = 9
+    CASE ('seasa_number', 'seasb_number', 'seasc_number')
+      tracer_class = 'aerosol_number'
+      second_param = 2200
+    CASE ('dust_diag_tau', 'seas_diag_tau')
+      tracer_class = 'aerosol_diag_tau'
+    END SELECT
+    
+    ! change product definition template
+    SELECT CASE(TRIM(tracer_class))
+    CASE ('volcash')
+! JF:       CALL message(' ==> set_GRIB2_art_keys :','volcash --> PDT=57',0,5,.TRUE.)
+      productDefinitionTemplate = 57
+      numberOfDistributionFunctionParameter = 1
+    CASE ('volcash_diag', 'radioact')
+! JF:       CALL message(' ==> set_GRIB2_art_keys :','volcash_diag|radioact --> PDT=40',0,5,.TRUE.)
+      productDefinitionTemplate = 40
+      numberOfDistributionFunctionParameter = 0
+    CASE ('aerosol', 'aerosol_number')
+! JF:       CALL message(' ==> set_GRIB2_art_keys :','aerosol[_number] --> PDT=57',0,5,.TRUE.)
+      productDefinitionTemplate = 57
+      numberOfDistributionFunctionParameter = 2
+    CASE ('aerosol_diag_tau')
+! JF:       CALL message(' ==> set_GRIB2_art_keys :','aerosol_diag_tau --> PDT=48',0,5,.TRUE.)
+      productDefinitionTemplate = 48
+      numberOfDistributionFunctionParameter = 0
+    CASE ('radioact_diag')
+! JF:       CALL message(' ==> set_GRIB2_art_keys :','radioact_diag --> PDT=42',0,5,.TRUE.)
+      productDefinitionTemplate = 42
+      numberOfDistributionFunctionParameter = 0
+    CASE DEFAULT
+      ! skip inapplicable fields
+      RETURN
+    END SELECT
+
+    ! set product definition template
+    CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, productDefinitionTemplate)
+
+    IF ( numberOfDistributionFunctionParameter /= 0 ) THEN
+      ALLOCATE( scaledValueOfDistributionFunctionParameter(numberOfDistributionFunctionParameter),    &
+        &       scaleFactorOfDistributionFunctionParameter(numberOfDistributionFunctionParameter) )
+    END IF
+    
+    SELECT CASE(TRIM(tracer_class))
+
+    CASE ('volcash')
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 1)
+      CALL vlistDefVarIntKey(vlistID, varID, "numberOfModeOfDistribution", 6)
+      CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter",  &
+        &                    numberOfDistributionFunctionParameter)
+      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
+      CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
+      scaledValueOfDistributionFunctionParameter(1) = info%tracer%diameter
+      scaleFactorOfDistributionFunctionParameter(1) = 6
+! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",     &
+! JF:         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter)
+! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
+! JF:         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter)
+      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", 9)
+
+    CASE ('volcash_diag')
+      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", 62025)
+      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", scale_factor)
+      
+    CASE ('aerosol', 'aerosol_number')
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfDistributionFunction", 7)
+      CALL vlistDefVarIntKey(vlistID, varID, "numberOfModeOfDistribution", 3)
+      CALL vlistDefVarIntKey(vlistID, varID, "numberOfDistributionFunctionParameter",  &
+        &                    numberOfDistributionFunctionParameter)
+      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", info%tracer%constituent)
+      CALL vlistDefVarIntKey(vlistID, varID, "modeNumber", info%tracer%mode_number)
+      scaledValueOfDistributionFunctionParameter(1) = info%tracer%variance
+      scaleFactorOfDistributionFunctionParameter(1) = first_factor
+      scaledValueOfDistributionFunctionParameter(2) = second_param
+      scaleFactorOfDistributionFunctionParameter(2) = 0
+! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaledValueOfDistributionFunctionParameter",    &
+! JF:         &   numberOfDistributionFunctionParameter, scaledValueOfDistributionFunctionParameter)
+! JF:       CALL vlistDefVarIntArrayKey(vlistID, varID, "scaleFactorOfDistributionFunctionParameter",    &
+! JF:         &   numberOfDistributionFunctionParameter, scaleFactorOfDistributionFunctionParameter)
+      CALL vlistDefVarIntKey(vlistID, varID, "decimalScaleFactor", scale_factor)
+      
+    CASE ('aerosol_diag_tau')
+      CALL vlistDefVarIntKey(vlistID, varID, "aerosolType", info%tracer%constituent)
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfSizeInterval", 192)
+      CALL vlistDefVarIntKey(vlistID, varID, "typeOfWavelengthInterval", 11)
+      CALL vlistDefVarIntKey(vlistID, varID, "scaledValueOfFirstWavelength", info%tracer%tau_wavelength)
+      CALL vlistDefVarIntKey(vlistID, varID, "scaleFactorOfFirstWavelength", 9)
+      
+    CASE ('radioact', 'radioact_diag')
+      CALL vlistDefVarIntKey(vlistID, varID, "constituentType", info%tracer%constituent)
+
+    END SELECT
+
+    IF ( numberOfDistributionFunctionParameter /= 0 ) THEN
+      DEALLOCATE( scaledValueOfDistributionFunctionParameter,    &
+        &         scaleFactorOfDistributionFunctionParameter )
+    END IF
+    
+
+    END SUBROUTINE set_GRIB2_art_keys
 
 
   !------------------------------------------------------------------------------------------------

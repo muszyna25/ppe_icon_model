@@ -175,7 +175,7 @@ cat > ${atmo_namelist} << EOF
  icpl_aero_gscp   = 1
  ! resolution-dependent settings - please choose the appropriate one
  ! dt_rad    = 2160. (R2B6) / 1440. (R3B7) ** should be an integer multiple of dt_conv **
- ! dt_conv   = 720. (R2B6) / 360. (R3B7)
+ ! dt_conv   = 720. (R2B6) / 360. (R3B7) / 180. (R3B8 - EU-nest)
  ! dt_sso    = 1440. (R2B6) / 720. (R3B7)
  ! dt_gwd    = 1440. (R2B6) / 720. (R3B7)
 /
@@ -196,6 +196,7 @@ cat > ${atmo_namelist} << EOF
  itype_sher = 3    
  ltkeshs    = .true.
  a_hshr     = 2.0
+ alpha0_max = 0.0335  ! to activate wind-speed dependent Charnock parameter
 /
 &lnd_nml
  ntiles         = 3      !!! 1 for assimilation cycle and forecast
@@ -278,6 +279,7 @@ cat > ${atmo_namelist} << EOF
  lsq_high_ord      = 3
  l_intp_c2l        = .true.
  l_mono_c2l        = .true.
+ support_baryctr_intp = .true.
 /
 &extpar_nml
  itopo          = 1

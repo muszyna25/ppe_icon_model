@@ -26,9 +26,10 @@ MODULE mo_bc_aeropt_kinne
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, onCells, &
     &                                t_stream_id, read_0D_real, read_3D_time
-  USE mo_time_interpolation_weights, ONLY: wi=>wi_limm_radt
+  USE mo_time_interpolation_weights, ONLY: wi=>wi_limm
   USE mo_physical_constants,   ONLY: grav, rgrav, rd
   USE mo_echam_phy_memory,     ONLY: prm_field
+  USE mo_echam_phy_config,     ONLY: echam_phy_config
 
   IMPLICIT NONE
 
@@ -322,7 +323,7 @@ END SUBROUTINE set_bc_aeropt_kinne
 !! thickness in meters), lev_clim (number of levels), and (optional) surface 
 !! altitude in meters.
 !!
-SUBROUTINE read_months_bc_aeropt_kinne ( &
+SUBROUTINE read_months_bc_aeropt_kinne (                                   &
   caod,             cssa,             casy,               caer_ex,         &
   cdz_clim,         cwldim,           clevdim,            imnthb,          &
   imnthe,           iyear,            cfname,             p_patch          )
@@ -376,7 +377,13 @@ SUBROUTINE read_months_bc_aeropt_kinne ( &
   END IF
   IF (imnthb == 0) THEN
     WRITE(cyear,*) iyear-1
-    cfnameyear=cfname//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+
+    IF ( echam_phy_config%lamip ) THEN
+      cfnameyear=cfname//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+    ELSE
+      cfnameyear=cfname//'.nc'
+    ENDIF
+
     stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
 !    IF (ALLOCATED(zvar)) DEALLOCATE(zvar)
     CALL read_3D_time(stream_id=stream_id, location=onCells, variable_name=caod, &
@@ -414,7 +421,13 @@ SUBROUTINE read_months_bc_aeropt_kinne ( &
   END IF
   IF (imnthe > 0) THEN
     WRITE(cyear,*) iyear
-    cfnameyear=cfname//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+
+    IF ( echam_phy_config%lamip ) THEN
+      cfnameyear=cfname//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+    ELSE
+      cfnameyear=cfname//'.nc'
+    ENDIF
+
     stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
     kmonthb=MAX(1,imnthb)
     kmonthe=MIN(12,imnthe)
@@ -455,7 +468,13 @@ SUBROUTINE read_months_bc_aeropt_kinne ( &
   END IF
   IF (imnthe == 13) THEN
     WRITE(cyear,*) iyear+1
-    cfnameyear=cfname//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+
+    IF ( echam_phy_config%lamip ) THEN
+      cfnameyear=cfname//'_'//TRIM(ADJUSTL(cyear))//'.nc'
+    ELSE
+      cfnameyear=cfname//'.nc'
+    ENDIF
+
     stream_id=openInputFile(cfnameyear, p_patch, default_read_method)
 !    IF (ALLOCATED(zvar)) DEALLOCATE(zvar)
 

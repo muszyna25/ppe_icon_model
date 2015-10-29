@@ -39,8 +39,8 @@ MODULE mo_nonhydro_state
     &                                VINTP_METHOD_LIN,                     &
     &                                VINTP_METHOD_LIN_NLEVP1,              &
     &                                TASK_INTP_MSL, HINTP_TYPE_NONE,       &
-    &                                iedmf, MODE_DWDANA_INC, MODE_IAU,     &
-    &                                MODE_IAU_OLD, TASK_COMPUTE_OMEGA
+    &                                iedmf, MODE_IAU, MODE_IAU_OLD,        &
+    &                                TASK_COMPUTE_OMEGA
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_state_lists,       &
@@ -80,9 +80,8 @@ MODULE mo_nonhydro_state
     &                                GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
     &                                GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_HYBRID,   &
     &                                ZA_HYBRID_HALF, ZA_HYBRID_HALF_HHL, ZA_SURFACE, &
-    &                                ZA_MEANSEA, DATATYPE_FLT32, DATATYPE_PACK16,    &
-    &                                DATATYPE_PACK24, DATATYPE_INT, TSTEP_CONSTANT,  &
-    &                                TSTEP_AVG
+    &                                ZA_MEANSEA
+  USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_PACK16, DATATYPE_PACK24, DATATYPE_INT, TSTEP_CONSTANT, TSTEP_AVG
   USE mo_action,               ONLY: ACTION_RESET
   USE mo_util_vgrid_types,     ONLY: vgrid_buffer
 
@@ -432,7 +431,7 @@ MODULE mo_nonhydro_state
     INTEGER :: nlev, nlevp1, ktracer
 
     INTEGER :: shape3d_c(3), shape3d_e(3), shape3d_chalf(3), &
-      &        shape3d_ehalf(3), shape4d_c(4)
+      &        shape4d_c(4)
 
     INTEGER :: ibits         !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
@@ -478,7 +477,6 @@ MODULE mo_nonhydro_state
     shape3d_e     = (/nproma, nlev,   nblks_e  /)
     shape3d_c     = (/nproma, nlev,   nblks_c  /)
     shape3d_chalf = (/nproma, nlevp1, nblks_c  /)
-    shape3d_ehalf = (/nproma, nlevp1, nblks_e /)
     shape4d_c     = (/nproma, nlev,   nblks_c, ntracer /)
 
     ! Suffix (mandatory for time level dependent variables)
@@ -605,6 +603,7 @@ MODULE mo_nonhydro_state
             &                           "dwd_fg_atm_vars","mode_dwd_ana_in",           &
             &                           "LATBC_PREFETCH_VARS","mode_iau_fg_in",        &
             &                           "mode_iau_old_fg_in","mode_iau_ana_in",        &
+            &                           "mode_iau_anaatm_in",                          &
             &                           "mode_iau_old_ana_in" ) )
         END IF ! iqv 
 
@@ -944,7 +943,8 @@ MODULE mo_nonhydro_state
         END IF ! inwp_gscp==5 .or. inwp_gscp==6
 
         IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==4 &
-             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==5) THEN            
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==5 &
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==6) THEN            
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(vname_prefix)//'ninact'//suffix, p_prog%tracer_ptr(ininact)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
@@ -1326,7 +1326,7 @@ MODULE mo_nonhydro_state
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
                 &                 "mode_iau_ana_in","mode_iau_old_ana_in",      &
-                &                 "LATBC_PREFETCH_VARS") )  
+                &                 "mode_iau_anaatm_in","LATBC_PREFETCH_VARS") )  
 
     ! v           p_diag%v(nproma,nlev,nblks_c)
     !
@@ -1342,7 +1342,7 @@ MODULE mo_nonhydro_state
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
                 &                 "mode_iau_ana_in","mode_iau_old_ana_in",      &
-                &                 "LATBC_PREFETCH_VARS") )
+                &                 "mode_iau_anaatm_in","LATBC_PREFETCH_VARS") )
 
     ! vt           p_diag%vt(nproma,nlev,nblks_e)
     ! *** needs to be saved for restart ***
@@ -1459,7 +1459,7 @@ MODULE mo_nonhydro_state
                 & in_group=groups("atmo_ml_vars","atmo_pl_vars","atmo_zl_vars", &
                 &                 "dwd_fg_atm_vars","mode_dwd_ana_in",          &
                 &                 "mode_iau_ana_in","mode_iau_old_ana_in",      &
-                &                 "LATBC_PREFETCH_VARS") )
+                &                 "mode_iau_anaatm_in","LATBC_PREFETCH_VARS") )
 
     ! tempv        p_diag%tempv(nproma,nlev,nblks_c)
     !
@@ -1497,7 +1497,8 @@ MODULE mo_nonhydro_state
                 &             vert_intp_method=VINTP_METHOD_PRES ),             &
                 & in_group=groups("atmo_ml_vars","atmo_zl_vars",                &
                 & "dwd_fg_atm_vars","mode_dwd_ana_in",                          &
-                & "mode_iau_ana_in","mode_iau_old_ana_in","LATBC_PREFETCH_VARS") )
+                & "mode_iau_ana_in","mode_iau_old_ana_in",                      &
+                & "mode_iau_anaatm_in","LATBC_PREFETCH_VARS") )
 
     ! pres_ifc     p_diag%pres_ifc(nproma,nlevp1,nblks_c)
     !
@@ -2127,7 +2128,7 @@ MODULE mo_nonhydro_state
     p_diag%exner_incr => NULL()
     p_diag%rho_incr   => NULL()
     p_diag%qv_incr    => NULL()
-    IF ( ANY((/MODE_IAU,MODE_IAU_OLD,MODE_DWDANA_INC/) == init_mode) ) THEN
+    IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
       ! vn_incr   p_diag%vn_incr(nproma,nlev,nblks_e)
       !
       cf_desc    = t_cf_var('vn_incr', ' ',                   &
@@ -2171,7 +2172,7 @@ MODULE mo_nonhydro_state
                   & ldims=shape3d_c, &
                   & lrestart=.FALSE., loutput=.TRUE.)
 
-    ENDIF  ! init_mode = MODE_IAU, MODE_IAU_OLD, MODE_DWDANA_INC
+    ENDIF  ! init_mode = MODE_IAU, MODE_IAU_OLD
 
     IF (p_patch%id == 1 .AND. lcalc_avg_fg) THEN
       ! NOTE: the following time-averaged fields are not written into the restart file, 

@@ -84,6 +84,7 @@ data/README -text
 data/dmin_wetgrowth_lookup.dat -text
 data/external/etopo40.cdf -text
 data/rrtmg_lw.nc -text
+data/rrtmg_sw.nc -text
 data/sound_landseabr -text
 data/sound_rce -text
 doc/Namelist_overview.pdf -text
@@ -146,13 +147,20 @@ doc/science/dynamics/vortex_bracket_ICONAM.tex -text
 doc/science/physics/ICON_COSMO_micro_scheme_changes.tex -text
 doc/science/physics/IFS_gw_param.pdf -text
 doc/science/physics/Microphys.tar -text
-doc/science/physics/albnirdif_20120104_00UTC.png -text
-doc/science/physics/albnirdir_20120104_00UTC.png -text
-doc/science/physics/albvisdif_20120104_00UTC.png -text
-doc/science/physics/albvisdir_20120104_00UTC.png -text
+doc/science/physics/albnirdif_20120601_tuned-untuned.png -text svneol=unset#image/png
+doc/science/physics/albnirdif_20120601_tuned.png -text svneol=unset#image/png
+doc/science/physics/albnirdif_20120601_untuned.png -text svneol=unset#image/png
+doc/science/physics/albnirdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
+doc/science/physics/albvisdif_20120601_tuned-untuned.png -text svneol=unset#image/png
+doc/science/physics/albvisdif_20120601_tuned.png -text svneol=unset#image/png
+doc/science/physics/albvisdif_20120601_untuned.png -text svneol=unset#image/png
+doc/science/physics/albvisdir_20120601_blacksky_ritter.png -text svneol=unset#image/png
 doc/science/physics/cloud_cover_docu.tex -text
 doc/science/physics/detrainment_anvil.pdf -text
 doc/science/physics/detrainment_anvil.ppt -text
+doc/science/physics/direct_albedo_Briegleb.png -text svneol=unset#image/png
+doc/science/physics/direct_albedo_Ritter.png -text svneol=unset#image/png
+doc/science/physics/direct_albedo_Zaengl.png -text svneol=unset#image/png
 doc/science/physics/graupelscheme.eps -text
 doc/science/physics/icon-docu-cloud.pdf -text
 doc/science/physics/icon-docu-cloud.tex -text
@@ -193,6 +201,7 @@ doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
 doc/technical/dwd_database/grid_geometry.tex -text
 doc/technical/dwd_database/icon_in_sky.tex -text
+doc/technical/dwd_database/iglo_namelst_output.pl -text
 doc/technical/dwd_database/input.tex -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_full_levels_maxheight_i.txt -text
@@ -204,6 +213,7 @@ doc/technical/dwd_database/output_GRIB2_forecast.tex -text
 doc/technical/dwd_database/output_GRIB2_forecast_singlelvl.tex -text
 doc/technical/dwd_database/output_GRIB2_global.tex -text
 doc/technical/dwd_database/output_GRIB2_nest.tex -text
+doc/technical/dwd_database/output_GRIB2_sma.tex -text
 doc/technical/dwd_database/output_GRIB2_vv0.tex -text
 doc/technical/dwd_database/output_description.tex -text
 doc/technical/dwd_database/output_statproc.tex -text
@@ -255,7 +265,7 @@ doc/userguide/content/output.tex -text
 doc/userguide/content/preface.tex -text
 doc/userguide/content/title.tex -text
 doc/userguide/content/visualization.tex -text
-doc/userguide/icon_user_guide.pdf -text
+doc/userguide/icon_user_guide.pdf -text svneol=unset#unset
 doc/userguide/icon_user_guide.tex -text
 doc/userguide/icon_user_guide_bib.bib -text
 doc/userguide/pictures/contour_plot.png -text
@@ -710,6 +720,11 @@ run/checksuite.icon-dev/check.atm_amip_noparams -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
 run/checksuite.icon-dev/icon-dev.checksuite -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_2dtime -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_dtime -text
+run/checksuite.icon-dev/timeMean/exp.atm_amip_acc_dtime_sp -text
+run/checksuite.icon-dev/timeMean/exp.check_timemean_01 -text
+run/checksuite.icon-dev/timeMean/exp.check_timemean_02 -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_communication -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_grid -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_jitter -text
@@ -808,6 +823,8 @@ run/exp.atm_amip_hs -text
 run/exp.atm_amip_hs_test -text
 run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
+run/exp.atm_amip_withTimeMeanOutput -text
+run/exp.atm_amip_withTimeMeanOutput_only -text
 run/exp.atm_icoles_nested -text
 run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text
@@ -881,6 +898,7 @@ run/exp.yac_nh_r2b3 -text
 run/exp.yac_r2b3 -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
+run/post.atm_amip_tune -text
 run/post.hat_jww -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
@@ -1227,6 +1245,7 @@ scripts/preprocessing/README_MARS4ICON.TXT -text
 scripts/preprocessing/estimate.py -text
 scripts/preprocessing/gauss_to_icon.ksh -text
 scripts/preprocessing/icon_pre_lnd_atm.ksh -text
+scripts/preprocessing/ifs2icon -text
 scripts/preprocessing/mars4icon.all -text
 scripts/preprocessing/mars4icon_e4_sst -text
 scripts/preprocessing/mars4icon_monmean -text
@@ -1242,6 +1261,7 @@ scripts/prototypes/findPath.rb -text
 scripts/prototypes/mo_statistics.rb -text
 scripts/prototypes/test/mo_statistics.rb -text
 scripts/run_scripts/experiments.rb -text
+scripts/run_scripts/luis.iconrun -text
 scripts/run_scripts/make_my_runscript -text
 scripts/run_scripts/make_nat-ape-dec_runs -text
 scripts/run_scripts/make_performance_runscripts -text
@@ -1260,6 +1280,7 @@ src/advection/mo_advection_vflux.f90 -text
 src/advection/mo_integrate_density_pa.f90 -text
 src/art_interface/mo_add_tracer_ref.f90 -text
 src/art_interface/mo_art_clouds_interface.f90 -text
+src/art_interface/mo_art_diagnostics_interface.f90 -text
 src/art_interface/mo_art_emission_interface.f90 -text
 src/art_interface/mo_art_init_interface.f90 -text
 src/art_interface/mo_art_reaction_interface.f90 -text
@@ -1336,7 +1357,6 @@ src/atm_phy_echam/mo_cufluxdts.f90 -text
 src/atm_phy_echam/mo_cuinitialize.f90 -text
 src/atm_phy_echam/mo_cumastr.f90 -text
 src/atm_phy_echam/mo_echam_cloud_params.f90 -text
-src/atm_phy_echam/mo_echam_conv_constants.f90 -text
 src/atm_phy_echam/mo_echam_convect_tables.f90 -text
 src/atm_phy_echam/mo_echam_phy_bcs.f90 -text
 src/atm_phy_echam/mo_echam_phy_cleanup.f90 -text
@@ -1422,6 +1442,29 @@ src/atm_phy_nwp/mo_phys_nest_utilities.f90 -text
 src/atm_phy_nwp/mo_rrtm_data_interface.f90 -text
 src/atm_phy_nwp/mo_rttov_interface.f90 -text
 src/atm_phy_nwp/mo_util_phys.f90 -text
+src/atm_phy_psrad/mo_psrad_cld_sampling.f90 -text
+src/atm_phy_psrad/mo_psrad_cloud_optics.f90 -text
+src/atm_phy_psrad/mo_psrad_fastmath.f90 -text
+src/atm_phy_psrad/mo_psrad_interface.f90 -text
+src/atm_phy_psrad/mo_psrad_lrtm_driver.f90 -text
+src/atm_phy_psrad/mo_psrad_lrtm_gas_optics.f90 -text
+src/atm_phy_psrad/mo_psrad_lrtm_kgs.f90 -text
+src/atm_phy_psrad/mo_psrad_lrtm_netcdf.f90 -text
+src/atm_phy_psrad/mo_psrad_lrtm_setup.f90 -text
+src/atm_phy_psrad/mo_psrad_lrtm_solver.f90 -text
+src/atm_phy_psrad/mo_psrad_orbit.f90 -text
+src/atm_phy_psrad/mo_psrad_radiation.f90 -text
+src/atm_phy_psrad/mo_psrad_radiation_parameters.f90 -text
+src/atm_phy_psrad/mo_psrad_rrtm_coeffs.f90 -text
+src/atm_phy_psrad/mo_psrad_spec_sampling.f90 -text
+src/atm_phy_psrad/mo_psrad_srtm_driver.f90 -text
+src/atm_phy_psrad/mo_psrad_srtm_gas_optics.f90 -text
+src/atm_phy_psrad/mo_psrad_srtm_kgs.f90 -text
+src/atm_phy_psrad/mo_psrad_srtm_netcdf.f90 -text
+src/atm_phy_psrad/mo_psrad_srtm_setup.f90 -text
+src/atm_phy_psrad/mo_psrad_srtm_solver.f90 -text
+src/atm_phy_psrad/mo_random_numbers.f90 -text
+src/atm_phy_psrad/mo_rrtm_params.f90 -text
 src/atm_phy_schemes/data_gwd.f90 -text
 src/atm_phy_schemes/data_hydci_pp_ice.f90 -text
 src/atm_phy_schemes/data_turbulence.f90 -text
@@ -1461,7 +1504,9 @@ src/atm_phy_schemes/mo_lrtm_setup.f90 -text
 src/atm_phy_schemes/mo_lrtm_taumol.f90 -text
 src/atm_phy_schemes/mo_newcld_optics.f90 -text
 src/atm_phy_schemes/mo_o3_gems_data.f90 -text
+src/atm_phy_schemes/mo_o3_macc_data.f90 -text
 src/atm_phy_schemes/mo_o3_util.f90 -text
+src/atm_phy_schemes/mo_rad_diag.f90 -text
 src/atm_phy_schemes/mo_radiation.f90 -text
 src/atm_phy_schemes/mo_radiation_rg.f90 -text
 src/atm_phy_schemes/mo_radiation_rg_par.f90 -text
@@ -1493,6 +1538,7 @@ src/configure_model/mo_atm_phy_nwp_config.f90 -text
 src/configure_model/mo_coupling_config.f90 -text
 src/configure_model/mo_diffusion_config.f90 -text
 src/configure_model/mo_dynamics_config.f90 -text
+src/configure_model/mo_echam_cloud_config.f90 -text
 src/configure_model/mo_echam_conv_config.f90 -text
 src/configure_model/mo_echam_phy_config.f90 -text
 src/configure_model/mo_ensemble_pert_config.f90 -text
@@ -1508,6 +1554,7 @@ src/configure_model/mo_io_config.f90 -text
 src/configure_model/mo_les_config.f90 -text
 src/configure_model/mo_limarea_config.f90 -text
 src/configure_model/mo_lnd_nwp_config.f90 -text
+src/configure_model/mo_master_config.f90 -text
 src/configure_model/mo_mtgrm_config.f90 -text
 src/configure_model/mo_name_list_output_config.f90 -text
 src/configure_model/mo_nh_pzlev_config.f90 -text
@@ -1522,10 +1569,10 @@ src/configure_model/mo_synsat_config.f90 -text
 src/configure_model/mo_time_config.f90 -text
 src/configure_model/mo_turbdiff_config.f90 -text
 src/configure_model/mo_vdiff_config.f90 -text
-src/coupler/mo_event_manager.f90 -text
 src/coupler/mo_icon_cpl.f90 -text
 src/coupler/mo_icon_cpl_def_field.f90 -text
 src/coupler/mo_icon_cpl_def_grid.f90 -text
+src/coupler/mo_icon_cpl_event_manager.f90 -text
 src/coupler/mo_icon_cpl_exchg.f90 -text
 src/coupler/mo_icon_cpl_finalize.f90 -text
 src/coupler/mo_icon_cpl_init.f90 -text
@@ -1622,6 +1669,7 @@ src/namelists/mo_coupling_nml.f90 -text
 src/namelists/mo_dbg_nml.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
+src/namelists/mo_echam_cloud_nml.f90 -text
 src/namelists/mo_echam_conv_nml.f90 -text
 src/namelists/mo_echam_phy_nml.f90 -text
 src/namelists/mo_ensemble_pert_nml.f90 -text
@@ -1748,6 +1796,7 @@ src/shared/mo_action_types.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_datetime.f90 -text
 src/shared/mo_dictionary.f90 -text
+src/shared/mo_event_manager.f90 -text
 src/shared/mo_exception.f90 -text
 src/shared/mo_expression.f90 -text
 src/shared/mo_fast_math_lib.f90 svneol=native#text/plain
@@ -1802,6 +1851,7 @@ src/shr_horizontal/intp_functions.inc -text
 src/shr_horizontal/mo_alloc_patches.f90 -text
 src/shr_horizontal/mo_delaunay.f90 -text
 src/shr_horizontal/mo_delaunay_types.f90 -text
+src/shr_horizontal/mo_ext_data_init.f90 -text
 src/shr_horizontal/mo_ext_data_state.f90 -text
 src/shr_horizontal/mo_ext_data_types.f90 -text
 src/shr_horizontal/mo_grf_bdyintp.f90 -text
@@ -1819,6 +1869,7 @@ src/shr_horizontal/mo_intp_coeffs.f90 -text
 src/shr_horizontal/mo_intp_coeffs_lsq_bln.f90 -text
 src/shr_horizontal/mo_intp_data_strc.f90 -text
 src/shr_horizontal/mo_intp_lonlat.f90 -text
+src/shr_horizontal/mo_intp_lonlat_baryctr.f90 -text
 src/shr_horizontal/mo_intp_rbf.f90 -text
 src/shr_horizontal/mo_intp_rbf_coeffs.f90 -text
 src/shr_horizontal/mo_intp_state.f90 -text
@@ -1881,6 +1932,7 @@ support/CMakeLists.txt -text
 support/cdi_int.h -text
 support/cdilib.c -text
 support/cfortran.h -text
+support/mo_cdi.f90 -text
 support/nml_annotate.c -text
 support/nml_annotate.rl -text
 support/rtc_sx.s -text

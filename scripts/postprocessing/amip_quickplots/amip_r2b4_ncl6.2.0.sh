@@ -87,8 +87,10 @@ pwd
 
  . /sw/share/Modules/init/ksh 
  module unload ncl
-  module load ncl/6.2.0-precompiled 
- 
+ module load ncl/6.2.0-precompiled 
+ module unload cdo
+ module load cdo/1.6.8
+which cdo  
 which ncl
 
 

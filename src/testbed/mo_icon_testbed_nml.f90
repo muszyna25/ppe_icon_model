@@ -14,7 +14,6 @@ MODULE mo_icon_testbed_nml
 
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_master_control,      ONLY: is_restart_run
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: filename_max
   USE mo_icon_testbed_config, ONLY: &

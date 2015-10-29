@@ -14,24 +14,20 @@
 !!
 MODULE mo_add_tracer_ref
 
-  USE mo_kind,             ONLY: wp, i8
-  USE mo_exception,        ONLY: message, message_text, finish
+  USE mo_kind,             ONLY: wp
+  USE mo_exception,        ONLY: message, message_text
   USE mo_fortran_tools,    ONLY: t_ptr_2d3d
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
   USE mo_var_list,         ONLY: add_ref
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
-       &                         new_list, delete_list,             &
-       &                         append_list_element,               &
-       &                         find_list_element,                 &
-       &                         delete_list_element
-  USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
+       &                         find_list_element
+  USE mo_var_metadata_types,ONLY: t_var_metadata,                   &
     &                            t_tracer_meta,                     &
     &                            t_vert_interp_meta,                &
     &                            t_hor_interp_meta,                 &
-    &                            VARNAME_LEN, MAX_GROUPS,           &
-    &                            VINTP_TYPE_LIST,                   &
-    &                            t_post_op_meta, POST_OP_NONE
+    &                            MAX_GROUPS,                        &
+    &                            t_post_op_meta
   USE mo_var_metadata,     ONLY: create_tracer_metadata
   
   USE mo_advection_config, ONLY: t_advection_config
@@ -67,41 +63,45 @@ CONTAINS
     &        lis_tracer,tracer_class,                                              &
     &        ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,                &
     &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,            &
-    &        rrho_tracer, halflife_tracer, imis_tracer, post_op,lifetime_tracer)
+    &        rrho_tracer, halflife_tracer, imis_tracer, post_op,lifetime_tracer,   &
+    &        mode_number, diameter, variance, constituent)
 
     TYPE(t_var_list)    , INTENT(inout)        :: this_list
     CHARACTER(len=*)    , INTENT(in)           :: target_name
     CHARACTER(len=*)    , INTENT(in)           :: tracer_name
-    INTEGER             , INTENT(inout)        :: tracer_idx     ! index in 4D tracer container
+    INTEGER             , INTENT(inout)        :: tracer_idx       ! index in 4D tracer container
     TYPE(t_ptr_2d3d)    , INTENT(inout)        :: ptr_arr(:)
-    TYPE(t_cf_var)      , INTENT(in)           :: cf             ! CF related metadata
-    TYPE(t_grib2_var)   , INTENT(in)           :: grib2          ! GRIB2 related metadata
-    TYPE(t_advection_config), INTENT(inout)    :: advconf        ! adv configure state
-    INTEGER             , INTENT(in), OPTIONAL :: jg             ! patch id
-    INTEGER             , INTENT(in), OPTIONAL :: ldims(3)       ! local dimensions, for checking
-    LOGICAL             , INTENT(in), OPTIONAL :: loutput        ! output flag
-    LOGICAL             , INTENT(in), OPTIONAL :: lrestart       ! restart flag
-    INTEGER,              INTENT(in), OPTIONAL :: isteptype      ! type of statistical processing
-    INTEGER             , INTENT(in), OPTIONAL :: tlev_source    ! actual TL for TL dependent vars
-    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp ! vertical interpolation metadata
-    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp  ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(MAX_GROUPS)        ! groups to which a variable belongs
-    LOGICAL             , INTENT(in), OPTIONAL :: lis_tracer     ! this is a tracer field (TRUE/FALSE)
-    CHARACTER(len=*)    , INTENT(in), OPTIONAL :: tracer_class   ! type of tracer (cloud, volcash, radioact,...)
-    INTEGER             , INTENT(in), OPTIONAL :: ihadv_tracer   ! method for hor. transport
-    INTEGER             , INTENT(in), OPTIONAL :: ivadv_tracer   ! method for vert. transport
-    LOGICAL             , INTENT(in), OPTIONAL :: lturb_tracer   ! turbulent transport (TRUE/FALSE)
-    LOGICAL             , INTENT(in), OPTIONAL :: lsed_tracer    ! sedimentation (TRUE/FALSE)
-    LOGICAL             , INTENT(in), OPTIONAL :: ldep_tracer    ! dry deposition (TRUE/FALSE)
-    LOGICAL             , INTENT(in), OPTIONAL :: lconv_tracer   ! convection  (TRUE/FALSE)
-    LOGICAL             , INTENT(in), OPTIONAL :: lwash_tracer   ! washout (TRUE/FALSE)
+    TYPE(t_cf_var)      , INTENT(in)           :: cf               ! CF related metadata
+    TYPE(t_grib2_var)   , INTENT(in)           :: grib2            ! GRIB2 related metadata
+    TYPE(t_advection_config), INTENT(inout)    :: advconf          ! adv configure state
+    INTEGER             , INTENT(in), OPTIONAL :: jg               ! patch id
+    INTEGER             , INTENT(in), OPTIONAL :: ldims(3)         ! local dimensions, for checking
+    LOGICAL             , INTENT(in), OPTIONAL :: loutput          ! output flag
+    LOGICAL             , INTENT(in), OPTIONAL :: lrestart         ! restart flag
+    INTEGER,              INTENT(in), OPTIONAL :: isteptype        ! type of statistical processing
+    INTEGER             , INTENT(in), OPTIONAL :: tlev_source      ! actual TL for TL dependent vars
+    TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp   ! vertical interpolation metadata
+    TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp    ! horizontal interpolation metadata
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(MAX_GROUPS)          ! groups to which a variable belongs
+    LOGICAL             , INTENT(in), OPTIONAL :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
+    CHARACTER(len=*)    , INTENT(in), OPTIONAL :: tracer_class     ! type of tracer (cloud, volcash, radioact,...)
+    INTEGER             , INTENT(in), OPTIONAL :: ihadv_tracer     ! method for hor. transport
+    INTEGER             , INTENT(in), OPTIONAL :: ivadv_tracer     ! method for vert. transport
+    LOGICAL             , INTENT(in), OPTIONAL :: lturb_tracer     ! turbulent transport (TRUE/FALSE)
+    LOGICAL             , INTENT(in), OPTIONAL :: lsed_tracer      ! sedimentation (TRUE/FALSE)
+    LOGICAL             , INTENT(in), OPTIONAL :: ldep_tracer      ! dry deposition (TRUE/FALSE)
+    LOGICAL             , INTENT(in), OPTIONAL :: lconv_tracer     ! convection  (TRUE/FALSE)
+    LOGICAL             , INTENT(in), OPTIONAL :: lwash_tracer     ! washout (TRUE/FALSE)
     REAL(wp)            , INTENT(in), OPTIONAL :: rdiameter_tracer ! particle diameter in m
-    REAL(wp)            , INTENT(in), OPTIONAL :: rrho_tracer    ! particle density in kg m^-3
-    REAL(wp)            , INTENT(in), OPTIONAL :: halflife_tracer! radioactive half-life in s^-1
-    INTEGER             , INTENT(in), OPTIONAL :: imis_tracer    ! IMIS number
-    TYPE(t_post_op_meta), INTENT(in), OPTIONAL :: post_op        ! post operation (e.g. scale with const. factor or rho)
-    REAL(wp)            , INTENT(in), OPTIONAL :: lifetime_tracer! lifetime of a chemical tracer
-
+    REAL(wp)            , INTENT(in), OPTIONAL :: rrho_tracer      ! particle density in kg m^-3
+    REAL(wp)            , INTENT(in), OPTIONAL :: halflife_tracer  ! radioactive half-life in s^-1
+    INTEGER             , INTENT(in), OPTIONAL :: imis_tracer      ! IMIS number
+    TYPE(t_post_op_meta), INTENT(in), OPTIONAL :: post_op          ! post operation (e.g. scale with const. factor or rho)
+    REAL(wp)            , INTENT(in), OPTIONAL :: lifetime_tracer  ! lifetime of a chemical tracer
+    INTEGER             , INTENT(IN), OPTIONAL :: mode_number      ! number of mode              for GRIB2 output
+    INTEGER             , INTENT(IN), OPTIONAL :: diameter         ! diameter of ash particle    for GRIB2 output
+    INTEGER             , INTENT(IN), OPTIONAL :: variance         ! variance of aerosol mode    for GRIB2 output
+    INTEGER             , INTENT(IN), OPTIONAL :: constituent      ! constituent type of tracer  for GRIB2 output
 
     ! Local variables:
     TYPE(t_list_element), POINTER :: target_element
@@ -172,8 +172,11 @@ CONTAINS
       &                                  rrho_tracer      = rrho_tracer,      &
       &                                  halflife_tracer  = halflife_tracer,  &
       &                                  imis_tracer      = imis_tracer,      &
-      &                                  lifetime_tracer  = lifetime_tracer)
-
+      &                                  lifetime_tracer  = lifetime_tracer,  &
+      &                                  mode_number      = mode_number,      &
+      &                                  diameter         = diameter,         &
+      &                                  variance         = variance,         &
+      &                                  constituent      = constituent )
 
 
     ! create new table entry reference including additional tracer metadata

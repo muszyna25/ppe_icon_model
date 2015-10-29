@@ -25,7 +25,7 @@ MODULE mo_nwp_sfc_interp
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma 
-  USE mo_initicon_config,     ONLY: nlevsoil_in, nlev_in
+  USE mo_initicon_config,     ONLY: nlevsoil_in, nlevatm_in
   USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ibot_w_so
   USE mo_impl_constants,      ONLY: zml_soil, dzsoil_icon => dzsoil
@@ -71,7 +71,7 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER       :: routine = 'process_sfcfields'
 
     INTEGER  :: jg, jb, jk, jc, jk1, idx0(nlev_soil-1)
-    INTEGER  :: nlen, nlev
+    INTEGER  :: nlen, nlev, nlev_in
 
     REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil-1),wfac_snow,snowdep
 
@@ -80,13 +80,14 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 
-    IF (nlev_in == 0) THEN
-      CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
-    END IF
-
     jg   = p_patch%id
     nlev = p_patch%nlev
 
+    nlev_in = nlevatm_in(jg)
+
+    IF (nlev_in == 0) THEN
+      CALL finish(routine, "Number of input levels <nlev_in> not yet initialized.")
+    END IF
 
     ! Vertical interpolation indices and weights
     DO jk = 1, nlev_soil-1

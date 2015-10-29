@@ -97,7 +97,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_nh_testcases_nml,    ONLY: nh_test_name, ape_sst_case, th_cbl, sol_const
   USE mo_ape_params,          ONLY: ape_sst
-  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
   USE mo_datetime,            ONLY: iso8601, t_datetime,  month2hour
@@ -208,7 +208,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     linit_mode = lnest_start
     lturb_init = .TRUE.
   ELSE
-    linit_mode = .NOT. is_restart_run()
+    linit_mode = .NOT. isRestart()
   ENDIF
 
   i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -481,7 +481,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &  i_startidx, i_endidx, rl_start, rl_end)
 
-      IF (ltestcase .AND. nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN 
+      IF (ltestcase .AND. (nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL') ) THEN 
         DO jc = i_startidx, i_endidx
           p_prog_lnd_now%t_g (jc,jb) = th_cbl(1) 
           p_prog_lnd_new%t_g (jc,jb) = p_prog_lnd_now%t_g (jc,jb) 

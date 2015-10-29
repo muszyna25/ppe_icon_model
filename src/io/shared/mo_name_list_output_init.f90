@@ -29,7 +29,21 @@ MODULE mo_name_list_output_init
 ! USE_CRAY_POINTER
 
   ! constants and global settings
-  USE mo_cdi_constants          ! We need all
+  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate, &
+                                                & cdiEncodeTime, institutInq, vlistCreate, cdiEncodeParam, vlistDefVar, &
+                                                & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE, &
+                                                & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName, &
+                                                & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
+                                                & gridDefYsize, gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID, &
+                                                & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname, &
+                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals, &
+                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit, &
+                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,   &
+                                                & vlistDefAttTxt, CDI_GLOBAL
+  USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
+                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_REFERENCE, GRID_EDGE, GRID_CELL, &
+                                                & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
+                                                & ZA_hybrid_half, ZA_hybrid
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                 &
     &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
@@ -38,15 +52,16 @@ MODULE mo_name_list_output_init
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,      &
     &                                             MAX_NZLEVS, MAX_NILEVS
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
-  USE mo_master_nml,                        ONLY: model_base_dir
-  USE mo_master_control,                    ONLY: is_restart_run, my_process_is_ocean
+  USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
+  USE mo_master_control,                    ONLY: my_process_is_ocean
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
   USE mo_dictionary,                        ONLY: t_dictionary, dict_init,                        &
     &                                             dict_loadfile, dict_get, DICT_MAX_STRLEN
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
-    &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys
+    &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
+    &                                             set_GRIB2_synsat_keys, set_GRIB2_art_keys
   USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
@@ -54,7 +69,7 @@ MODULE mo_name_list_output_init
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list, one_of
   USE mo_datetime,                          ONLY: t_datetime
-  USE mo_cf_convention,                     ONLY: t_cf_var
+  USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
   USE mo_mtime_extensions,                  ONLY: get_datetime_string, get_duration_string, &
@@ -78,7 +93,7 @@ MODULE mo_name_list_output_init
 #ifndef __NO_ICON_ATMO__
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
   USE mo_extpar_config,                     ONLY: i_lctype
-  USE mo_lnd_nwp_config,                    ONLY: ntiles_water, tiles
+  USE mo_lnd_nwp_config,                    ONLY: ntiles_water, ntiles_total, tiles
 #endif
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
@@ -450,7 +465,7 @@ CONTAINS
       CALL dict_init(varnames_dict,     lcase_sensitive=.FALSE.)
       CALL dict_init(out_varnames_dict, lcase_sensitive=.FALSE.)
 
-      CALL associate_keyword("<path>", TRIM(model_base_dir), keywords)
+      CALL associate_keyword("<path>", TRIM(getModelBaseDir()), keywords)
       IF(output_nml_dict     /= ' ') THEN
         cfilename = TRIM(with_keywords(keywords, output_nml_dict))
         CALL message(routine, "load dictionary file.")
@@ -949,14 +964,8 @@ CONTAINS
     &                              opt_lprintlist, opt_l_is_ocean)
 
 #ifndef NOMPI
-#ifdef  __SUNPRO_F95
-    INCLUDE "mpif.h"
-#else
     USE mpi, ONLY: MPI_ROOT, MPI_PROC_NULL
 #endif
-! __SUNPRO_F95
-#endif
-! NOMPI
 
     !> Data structure containing all necessary data for mapping an
     !  output time stamp onto a corresponding simulation step index.
@@ -1607,7 +1616,7 @@ CONTAINS
         fname_metadata%extn                     = TRIM(p_onl%filename_extn)
       END IF
 
-      IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
         ! Restart case: Get starting index of ouput from restart file
         !               (if there is such an attribute available).
         WRITE(attname,'(a,i2.2)') 'output_jfile_',i
@@ -1629,7 +1638,7 @@ CONTAINS
       ! special treatment of ocean model: model_date/run_start is the time at
       ! the beginning of the timestep. Output is written at the end of the
       ! timestep
-      IF (is_restart_run() .AND. my_process_is_ocean()) THEN
+      IF (isRestart() .AND. my_process_is_ocean()) THEN
         IF (TRIM(p_onl%output_start(2)) /= '') &
           CALL finish(routine, "Not implemented for ocean model with restart!")
         CALL get_datetime_string(p_onl%output_start(1), &
@@ -1698,7 +1707,7 @@ CONTAINS
       ! ------------------------------------------------------------------------------------------
       IF (dom_sim_step_info%jstep0 > 0) &
         &  CALL set_event_to_simstep(p_of%out_event, dom_sim_step_info%jstep0 + 1, &
-        &                            is_restart_run(), lrecover_open_file=.TRUE.)
+        &                            isRestart(), lrecover_open_file=.TRUE.)
     END DO
 
     ! tell the root I/O process that all output event data structures
@@ -1714,7 +1723,7 @@ CONTAINS
 
     IF (dom_sim_step_info%jstep0 > 0) &
       &  CALL set_event_to_simstep(all_events, dom_sim_step_info%jstep0 + 1, &
-      &                            is_restart_run(), lrecover_open_file=.TRUE.)
+      &                            isRestart(), lrecover_open_file=.TRUE.)
     ! print a table with all output events
     IF (.NOT. my_process_is_mpi_test()) THEN
        IF ((      use_async_name_list_io .AND. my_process_is_mpi_ioroot()) .OR.  &
@@ -1942,7 +1951,8 @@ CONTAINS
           ENDIF
         ENDDO
 
-        CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar)))
+        CALL finish(routine,'Output name list variable not found: '//TRIM(varlist(ivar))//&
+          &", patch "//int2string(p_of%log_patch_id,'(i0)'))
       ENDIF
 
       ! append variable descriptor to list
@@ -2296,7 +2306,7 @@ CONTAINS
     TYPE(t_output_file), INTENT(INOUT) :: of
     ! local variables
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::setup_output_vlist"
-    INTEGER                         :: k, i_dom, ll_dim(2), gridtype, idate, itime
+    INTEGER                         :: k, i_dom, ll_dim(2), gridtype, idate, itime, iret
     TYPE(t_lon_lat_data), POINTER   :: lonlat
     TYPE(t_datetime)                :: ini_datetime
     CHARACTER(len=1)                :: uuid_string(16)
@@ -2337,7 +2347,18 @@ CONTAINS
     ! define Institute
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
 
-
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'title',       &
+         &                LEN_TRIM(cf_global_info%title),       TRIM(cf_global_info%title))       
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'institution', &
+         &                LEN_TRIM(cf_global_info%institution), TRIM(cf_global_info%institution)) 
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'source',      &
+         &                LEN_TRIM(cf_global_info%source),      TRIM(cf_global_info%source))      
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'history',     &
+         &                LEN_TRIM(cf_global_info%history),     TRIM(cf_global_info%history))     
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'references',  &
+         &                LEN_TRIM(cf_global_info%references),  TRIM(cf_global_info%references))  
+    iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'comment',     &
+         &                LEN_TRIM(cf_global_info%comment),     TRIM(cf_global_info%comment))     
 
     ! 3. add horizontal grid descriptions
 
@@ -2651,9 +2672,9 @@ CONTAINS
         this_cf => info%cf
       END IF
 
-      IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, this_cf%long_name)
-      IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, this_cf%standard_name)
-      IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, this_cf%units)
+      IF (this_cf%long_name /= '')     CALL vlistDefVarLongname(vlistID, varID, TRIM(this_cf%long_name))
+      IF (this_cf%standard_name /= '') CALL vlistDefVarStdname(vlistID, varID, TRIM(this_cf%standard_name))
+      IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
 
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
       IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
@@ -2688,6 +2709,12 @@ CONTAINS
         ! these settings are performed prior to "productDefinitionTemplateNumber"  
 
         DO i=1,info%grib2%additional_keys%nint_keys
+! JF:           WRITE(message_text,'(a,i4,a,i4,a,a,a,i2,a,a,a,i4)')        &
+! JF:             &  'vlistID = ', vlistID, '  varID = ', varID,           &
+! JF:             &  '  tracer_class = ', TRIM(info%tracer%tracer_class),  &
+! JF:             &  '  key(', i, ') : ', info%grib2%additional_keys%int_key(i)%key, ' = ',  &
+! JF:             &  info%grib2%additional_keys%int_key(i)%val
+! JF:           CALL message(' ==> add_variables_to_vlist :',TRIM(message_text),0,5,.TRUE.)
           CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
             &                    info%grib2%additional_keys%int_key(i)%val)
         END DO
@@ -2698,6 +2725,9 @@ CONTAINS
         ! Set ensemble keys in SECTION 4 (if applicable)
         CALL set_GRIB2_ensemble_keys(vlistID, varID, gribout_config(of%phys_patch_id))
 
+        ! Set synsat keys (if applicable)
+        CALL set_GRIB2_synsat_keys(vlistID, varID, info)
+
         ! Set local use SECTION 2
         CALL set_GRIB2_local_keys(vlistID, varID, gribout_config(of%phys_patch_id))
 
@@ -2705,6 +2735,10 @@ CONTAINS
         ! Set tile-specific GRIB2 keys (if applicable)
         CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype(of%phys_patch_id))
 #endif
+
+        ! Set ART-specific GRIB2 keys (if applicable)
+        CALL set_GRIB2_art_keys(vlistID, varID, info)
+
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
       ENDIF
@@ -2936,6 +2970,7 @@ CONTAINS
     ENDDO
     ! from nwp land config state
     CALL p_bcast(ntiles_water                              , bcast_root, p_comm_work_2_io)
+    CALL p_bcast(ntiles_total                              , bcast_root, p_comm_work_2_io)
     size_tiles = 0
     if (allocated(tiles)) then
        size_tiles = SIZE(tiles)

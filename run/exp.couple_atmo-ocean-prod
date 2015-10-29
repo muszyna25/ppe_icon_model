@@ -118,7 +118,6 @@ dt_file=$dt_restart
 #
 dict_file="dict.${EXPNAME}"
 cat dict.icoham.mpim > ${dict_file}
-cat dict.echam.mpim >> ${dict_file}
 #
 #-----------------------------------------------------------------------------
 #
@@ -310,8 +309,7 @@ cat > $atmo_namelist << EOF
  ml_varlist       = 'ps'    , 'ta'     ,
                     'hus'   , 'clw'    , 'cli' ,
                     'ua'    , 'va'     , 'wap' ,
-                    'pfull' , 'gpfull' ,
-                    'ha_diag_rel_vort_c' , 'ha_diag_div' , 'prm_omega' , 'prm_vo' 
+                    'pfull' , 'gpfull'
 /
 &output_nml
 ! output_bounds    = 0, ${outputLength}, ${dt_data_atm_phy}   ! start, end, increment
@@ -323,9 +321,9 @@ cat > $atmo_namelist << EOF
  output_grid      = .TRUE.
  output_filename  = "${EXPNAME}_atm_phy"
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<ddhhmmss>"
- ml_varlist       = 'cosmu0' , 'rsdt' , 'prm_t' ,
+ ml_varlist       = 'cosmu0' , 'rsdt' ,
                     'rsns'   , 'rlns' , 'rsnt'  , 'rlnt'    ,
-                    'ts'     , 'sic'  , 'tro3'  , 'prm_ghm' , 'prm_ghi' ,
+                    'ts'     , 'sic'  , 'tro3'  , 'gpsm' , 'gpsi' ,
                     'clt'    , 'cl'   , 
                     'prlr'   , 'prls' , 'prcr'  , 'prcs'    ,
                     'pr'     , 'prw'  , 'cllvi' , 'clivi'   ,

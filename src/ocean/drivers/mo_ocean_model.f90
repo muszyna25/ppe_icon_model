@@ -14,7 +14,7 @@
 MODULE mo_ocean_model
 
   USE mo_exception,           ONLY: message, finish
-  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_master_config,       ONLY: isRestart
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
     & stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
@@ -106,6 +106,7 @@ MODULE mo_ocean_model
   !-------------------------------------------------------------
   ! For the coupling
   USE mo_ocean_coupling,      ONLY: construct_ocean_coupling, destruct_ocean_coupling
+  USE mo_coupling_config,     ONLY: is_coupled_run
 
   IMPLICIT NONE
 
@@ -143,7 +144,7 @@ MODULE mo_ocean_model
       INTEGER :: jstep0
 
       !-------------------------------------------------------------------
-      IF (is_restart_run()) THEN
+      IF (isRestart()) THEN
         CALL read_restart_header("oce")
       END IF
 
@@ -151,7 +152,7 @@ MODULE mo_ocean_model
       CALL construct_ocean_model(oce_namelist_filename,shr_namelist_filename)
 
     !-------------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       jg = 1 !no nesting
       ! This is an resumed integration. Read model state from restart file(s).
 #ifdef NOMPI
@@ -165,7 +166,7 @@ MODULE mo_ocean_model
       !ELSE
       !  Prepare the initial conditions:
       !  forcing is part of the restart file
-    END IF ! is_restart_run()
+    END IF ! isRestart()
     !------------------------------------------------------------------
     ! Now start the time stepping:
     ! The special initial time step for the three time level schemes
@@ -190,7 +191,7 @@ MODULE mo_ocean_model
       CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
       sim_step_info%dtime      = dtime
       jstep0 = 0
-      IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+      IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
         ! get start counter for time loop from restart file:
         CALL get_restart_attribute("jstep", jstep0)
       END IF
@@ -199,7 +200,7 @@ MODULE mo_ocean_model
     ENDIF
 
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
-      & ocean_state(1), ext_data(1), is_restart_run(), solverCoefficients_sp)
+      & ocean_state(1), ext_data(1), isRestart(), solverCoefficients_sp)
     !------------------------------------------------------------------
     ! write initial state
     !------------------------------------------------------------------
@@ -462,7 +463,7 @@ MODULE mo_ocean_model
 
     CALL init_ho_params(ocean_patch_3d, v_params)
 
-!    IF (.not. is_restart_run()) &
+!    IF (.not. isRestart()) &
     CALL apply_initial_conditions(ocean_patch_3d, ocean_state(1), ext_data(1), operators_coefficients)
       
     ! initialize forcing after the initial conditions, since it may require knowledge
@@ -532,7 +533,7 @@ MODULE mo_ocean_model
 
     CALL construct_hydro_ocean_base(patch_3d%p_patch_2d(1), v_base)
     CALL init_ho_base (patch_3d%p_patch_2d(1), external_data(1), v_base)
-    IF (use_omip_forcing) CALL init_ho_basins(patch_3d%p_patch_2d(1),  v_base)
+    IF (use_omip_forcing .OR. is_coupled_run()) CALL init_ho_basins(patch_3d%p_patch_2d(1), v_base)
     CALL init_coriolis_oce(patch_3d%p_patch_2d(1) )
     CALL init_patch_3d    (patch_3d,                external_data(1), v_base)
     !CALL init_patch_3D(patch_3D, v_base)
@@ -613,7 +614,7 @@ MODULE mo_ocean_model
         CALL get_datetime_string(sim_step_info%run_start, time_config%cur_datetime)
         sim_step_info%dtime      = dtime
         jstep0 = 0
-        IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+        IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
           ! get start counter for time loop from restart file:
           CALL get_restart_attribute("jstep", jstep0)
         END IF
