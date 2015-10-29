@@ -66,6 +66,7 @@ MODULE mo_ice_fem_utils
   IMPLICIT NONE
 
   PUBLIC  :: fem_ice_wrap
+  PUBLIC  :: ice_fem_init_vel
   PUBLIC  :: init_fem_wgts
   PUBLIC  :: destruct_fem_wgts
   PUBLIC  :: ice_fem_grid_init

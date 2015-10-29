@@ -188,8 +188,8 @@ CONTAINS
 !                       &    cvec(jv,jb)%x(2),               &
 !                       &    cvec(jv,jb)%x(3) /) )
         cvec_out(jv,jb)%x(1) = DOT_PRODUCT(rot_mat_3D(1,:),cvec_in(jv,jb)%x(:))
-        cvec_out(jv,jb)%x(1) = DOT_PRODUCT(rot_mat_3D(2,:),cvec_in(jv,jb)%x(:))
-        cvec_out(jv,jb)%x(1) = DOT_PRODUCT(rot_mat_3D(3,:),cvec_in(jv,jb)%x(:))
+        cvec_out(jv,jb)%x(2) = DOT_PRODUCT(rot_mat_3D(2,:),cvec_in(jv,jb)%x(:))
+        cvec_out(jv,jb)%x(3) = DOT_PRODUCT(rot_mat_3D(3,:),cvec_in(jv,jb)%x(:))
 !        ELSE
 !          tmp3(:) = 0._wp2)
 !        ENDIF
