@@ -30,11 +30,6 @@
 #-----------------------------------------------------------------------------
 
 set -x
-if [[ "x$compiler" = "xnag" ]]; then
-  echo "Disabled for ${compiler}."
-  check_error 0 "create_nested_grids"
-  exit 0    
-fi
 
 #
 #-----------------------------------------------------------------------------
@@ -70,6 +65,12 @@ for gridfile in ${atmo_rad_grids}; do
 done
 #-----------------------------------------------------------------------------
 
+# We do not use this test with the NAG compiler, which is too slow
+if [[ "x$compiler" = "xnag" ]]; then
+  echo "Disabled for ${compiler} --> exit test without error"
+  check_error 0 "exp.nwp_R02B04N06multi2"
+  exit 0
+fi
 
 # If the model runs with mpi_procs=1, then this script exits without error:
 if [[ ${mpi_total_procs} = 1 ]]; then
@@ -78,12 +79,12 @@ if [[ ${mpi_total_procs} = 1 ]]; then
   exit 0
 fi
 
-# If running in parallel, mpi_procs*no_of_nodes must be bigger than 2:
+# If running in parallel, mpi_procs*no_of_nodes must be bigger than 4:
 n_procs=`expr ${mpi_procs_pernode} \* ${no_of_nodes}`
-if [[ ${n_procs} = 2 ]]; then
-  echo "This test needs at least 3 MPI processes --> increase mpi_procs from 2 to 3"
-  mpi_procs=3
-  START=${START%2}3
+if [[ ${n_procs} < 5 ]]; then
+  echo "This test needs at least 5 MPI processes --> exit test without error"
+  check_error 0 "exp.nwp_R02B04N06multi2"
+  exit 0
 fi
 
 # reconstruct the grid parameters in namelist form
