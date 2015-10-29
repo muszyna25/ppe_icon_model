@@ -162,7 +162,7 @@ cat > ${atmo_namelist} << EOF
  lredgrid_phys               = .TRUE.,.TRUE.,.TRUE.,.TRUE.,.TRUE. ! .true.=radiation is calculated on a reduced grid
  lfeedback                   =                      .TRUE.        ! specifies if feedback to parent grid is performed
  ifeedback_type              =                          2         ! feedback type (incremental/relaxation-based)
-!patch_weight                =      0., 0.33, 0., 0.67, 0.        ! perform processor splitting
+ patch_weight                =      0., 0.33, 0., 0.67, 0.        ! perform processor splitting
 /
 
 ! gridref_nml: grid refinement and nesting -----------------------------------
