@@ -345,11 +345,11 @@ CONTAINS
 
     ! consistency checks:
     !
-    IF (.NOT. (om%l_nml .OR. om%l_totint)) THEN
+    IF (.NOT. (om%l_nml .OR. om%l_totint .OR. om%l_maxwinds)) THEN
       om%l_none = .TRUE.
     END IF
     ! error: "none" has been chosen in combination with others:
-    IF (om%l_none .AND. (om%l_nml .OR. om%l_totint)) THEN
+    IF (om%l_none .AND. (om%l_nml .OR. om%l_totint .OR. om%l_maxwinds)) THEN
       CALL finish(routine, "Syntax error when setting output to 'none'.")
     END IF
     
