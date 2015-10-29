@@ -83,7 +83,7 @@ MODULE mo_ocean_model
   USE mo_sea_ice,             ONLY: ice_init, &
     & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice, &
     & destruct_atmos_for_ocean, destruct_sea_ice
-  USE mo_ice_fem_utils,       ONLY: ice_fem_init_ice_vel_in_fem
+  USE mo_ice_fem_utils,       ONLY: ice_fem_init_vel
   USE mo_ocean_surface_types, ONLY: t_ocean_surface, v_oce_sfc
   USE mo_ocean_surface,       ONLY: construct_ocean_surface
 
@@ -205,7 +205,10 @@ MODULE mo_ocean_model
 
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
       & ocean_state(1), ext_data(1), isRestart(), solverCoefficients_sp)
-    CALL ice_fem_init_ice_vel_in_fem(ocean_patch_3d%p_patch_2D(1), v_sea_ice)
+    IF (isRestart() .AND. (i_ice_dyn == 1)) THEN
+        ! Initialize u_ice, v_ice with p_ice vals read from the restart file
+        CALL ice_fem_init_vel(ocean_patch_3d%p_patch_2D(1), v_sea_ice)
+    END IF
     !------------------------------------------------------------------
     ! write initial state
     !------------------------------------------------------------------

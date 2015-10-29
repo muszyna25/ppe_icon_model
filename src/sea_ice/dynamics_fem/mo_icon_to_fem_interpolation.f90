@@ -43,8 +43,10 @@ MODULE mo_icon_to_fem_interpolation
   PRIVATE
 
   PUBLIC :: gvec2cvec_c_2d
+  PUBLIC :: cvec2gvec_c_2d
   PUBLIC :: rotate_cvec_v
   PUBLIC :: cvec2gvec_v_fem
+  PUBLIC :: gvec2cvec_v_fem
   PUBLIC :: map_edges2verts
   PUBLIC :: map_verts2edges
   PUBLIC :: map_edges2verts_einar
@@ -102,6 +104,51 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
   END SUBROUTINE gvec2cvec_c_2d
+
+  !-------------------------------------------------------------------------
+  !
+  !> Inverse of gvec2cvec_c_2d. Convert cc vector on cell centers to lat-lon
+  !!
+  !! @par Revision History
+  !! Developed by Vladimir Lapin, MPI-M (2015-10-13)
+  !
+  SUBROUTINE cvec2gvec_c_2d(patch_3d, cvec, gvec_u, gvec_v)
+
+    TYPE(t_patch_3d),TARGET, INTENT(in)       :: patch_3d
+    TYPE(t_cartesian_coordinates),INTENT(in)  :: cvec(nproma,patch_3d%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(out)                     :: gvec_u(nproma,patch_3d%p_patch_2D(1)%alloc_cell_blocks), &
+                                               & gvec_v(nproma,patch_3d%p_patch_2D(1)%alloc_cell_blocks)
+
+   ! Local variables
+    ! Patch and ranges
+    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_subset_range), POINTER :: all_cells
+
+    ! Indexing
+    INTEGER  :: i_startidx_c, i_endidx_c, jc, jb!, jk
+    !-----------------------------------------------------------------------
+
+    p_patch   => patch_3d%p_patch_2d(1)
+    all_cells => p_patch%cells%all
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_c,i_endidx_c, jc) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF(patch_3d%lsm_c(jc,1,jb) <= sea_boundary)THEN
+          CALL cvec2gvec(  cvec(jc,jb)%x(1),cvec(jc,jb)%x(2),cvec(jc,jb)%x(3), &
+                         & p_patch%cells%center(jc,jb)%lon,     &
+                         & p_patch%cells%center(jc,jb)%lat,     &
+                         & gvec_u(jc,jb), gvec_v(jc,jb))
+        ELSE
+          gvec_u(jc,jb) = 0._wp
+          gvec_v(jc,jb) = 0._wp
+        ENDIF
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE cvec2gvec_c_2d
 
   !-------------------------------------------------------------------------
   !
@@ -189,12 +236,57 @@ CONTAINS
                        & coord_nod2D(1,jk), coord_nod2D(2,jk), & ! lon, lat
                        & gvec_u(jk), gvec_v(jk))
 !        ELSE
-!          tmp3(:) = 0._wp
+!          gvec_u(:) = 0._wp
+!          gvec_v(:) = 0._wp
 !        ENDIF
       END DO
     END DO
 
   END SUBROUTINE cvec2gvec_v_fem
+
+  !-------------------------------------------------------------------------
+  !
+  !> Inverse of cvec2gvec_v_fem. Convert lat-lon vector to cartesian (on the FEM grid)
+  !!
+  !! @par Revision History
+  !! Developed by Vladimir Lapin, MPI-M (2015-10-25)
+  !
+  SUBROUTINE gvec2cvec_v_fem(patch_3d, gvec_u, gvec_v, cvec)
+
+    USE mo_ice_mesh,           ONLY: coord_nod2D
+
+    TYPE(t_patch_3d),TARGET, INTENT(in)      :: patch_3d
+    REAL(wp), INTENT(in)                     :: gvec_u(:), gvec_v(:)
+    TYPE(t_cartesian_coordinates),INTENT(out):: cvec(nproma,patch_3d%p_patch_2D(1)%nblks_v)
+
+   ! Local variables
+    ! Patch and ranges
+    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_subset_range), POINTER :: all_verts
+
+    ! Indexing
+    INTEGER  :: i_startidx_v, i_endidx_v, jv, jb, jk
+    !-----------------------------------------------------------------------
+
+    p_patch   => patch_3d%p_patch_2d(1)
+    all_verts => p_patch%verts%all
+
+    jk=0
+    DO jb = all_verts%start_block, all_verts%end_block
+      CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
+      DO jv = i_startidx_v, i_endidx_v
+        jk=jk+1
+!        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb)<=sea_boundary)THEN
+          CALL gvec2cvec(  gvec_u(jk), gvec_v(jk),                   &
+                         & coord_nod2D(1,jk), coord_nod2D(2,jk), & ! lon, lat
+                         & cvec(jv,jb)%x(1), cvec(jv,jb)%x(2), cvec(jv,jb)%x(3) )
+!        ELSE
+!          cvec(:) = 0._wp
+!        ENDIF
+      END DO
+    END DO
+
+  END SUBROUTINE gvec2cvec_v_fem
 
   !-------------------------------------------------------------------------
   !

@@ -1474,8 +1474,8 @@ CONTAINS
 
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
-      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff )
-
+      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff, 1) ! not 1 but jstep should be passed to fem_ice_wrap as the last argument
+                                                                              ! but it does not matter, usage is depreciated
       ! #vla# 2015-05 - debugging ice_advection routine
 !      CALL dbg_print('IceSlow: p_ice%u'           ,ice%u_prog,             str_module, 3, in_subset=p_patch%verts%owned)
 !      CALL dbg_print('IceSlow: p_ice%v'           ,ice%v_prog,             str_module, 3, in_subset=p_patch%verts%owned)
