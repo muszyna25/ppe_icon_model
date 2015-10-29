@@ -107,7 +107,7 @@ cat > ${atmo_namelist} << EOF
  nproma                      =                          8         ! loop chunk length
  p_test_run                  =                     .FALSE.        ! .TRUE. means verification run for MPI parallelization
  num_io_procs                =                          1         ! number of I/O processors
- num_restart_procs           =                          0         ! number of restart processors
+ num_restart_procs           =                          1         ! number of restart processors
  iorder_sendrecv             =                          3         ! sequence of MPI send/receive calls
  num_dist_array_replicas     = ${replicate_grid-1} ! can be 1 iff passive or active (see HAVE_SLOW_PASSIVE_TARGET_ONESIDED) target RMA works well
 /
