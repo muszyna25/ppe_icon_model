@@ -33,7 +33,7 @@ MODULE mo_icon_to_fem_interpolation
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_intp
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, cc_norm, gvec2cvec
+  USE mo_math_utilities,      ONLY: t_cartesian_coordinates, cc_norm, gvec2cvec, cvec2gvec
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_impl_constants,      ONLY: sea_boundary
 
@@ -43,6 +43,8 @@ MODULE mo_icon_to_fem_interpolation
   PRIVATE
 
   PUBLIC :: gvec2cvec_c_2d
+  PUBLIC :: rotate_cvec_v
+  PUBLIC :: cvec2gvec_v_fem
   PUBLIC :: map_edges2verts
   PUBLIC :: map_verts2edges
   PUBLIC :: map_edges2verts_einar
@@ -60,7 +62,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !
-  !>
+  !> Convert to cartesian coordinates lat-lon velocity vector on cells centers
   !!
   !! @par Revision History
   !! Developed by Vladimir Lapin, MPI-M (2015-10-13)
@@ -100,6 +102,99 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
   END SUBROUTINE gvec2cvec_c_2d
+
+  !-------------------------------------------------------------------------
+  !
+  !> Rotate cartesian velocity vector on verts to the rotated FEM grid
+  !!
+  !! @par Revision History
+  !! Developed by Vladimir Lapin, MPI-M (2015-10-25)
+  !
+  SUBROUTINE rotate_cvec_v(patch_3d, cvec_in, rot_mat_3D, cvec_out)
+
+    TYPE(t_patch_3d),TARGET, INTENT(in)       :: patch_3d
+    TYPE(t_cartesian_coordinates),INTENT(in)  :: cvec_in (nproma,patch_3d%p_patch_2D(1)%nblks_v)
+    REAL(wp)                                  :: rot_mat_3D(3,3)
+    TYPE(t_cartesian_coordinates),INTENT(out) :: cvec_out(nproma,patch_3d%p_patch_2D(1)%nblks_v)
+
+   ! Local variables
+    ! Patch and ranges
+    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_subset_range), POINTER :: all_verts
+
+    ! Indexing
+    INTEGER  :: i_startidx_v, i_endidx_v, jv, jb
+    !-----------------------------------------------------------------------
+
+    p_patch   => patch_3d%p_patch_2d(1)
+    all_verts => p_patch%verts%all
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i_startidx_v,i_endidx_v, jv) ICON_OMP_DEFAULT_SCHEDULE
+    DO jb = all_verts%start_block, all_verts%end_block
+      CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
+      DO jv = i_startidx_v, i_endidx_v
+!        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb)<=sea_boundary)THEN
+        ! Intrinsic function matmul not applied, due to poor performance.
+        ! Instead the intrinsic dot product function is applied
+!          tmp3 = MATMUL( rot_mat_3D(:,:), &
+!                       & (/ cvec(jv,jb)%x(1),               &
+!                       &    cvec(jv,jb)%x(2),               &
+!                       &    cvec(jv,jb)%x(3) /) )
+        cvec_out(jv,jb)%x(1) = DOT_PRODUCT(rot_mat_3D(1,:),cvec_in(jv,jb)%x(:))
+        cvec_out(jv,jb)%x(1) = DOT_PRODUCT(rot_mat_3D(2,:),cvec_in(jv,jb)%x(:))
+        cvec_out(jv,jb)%x(1) = DOT_PRODUCT(rot_mat_3D(3,:),cvec_in(jv,jb)%x(:))
+!        ELSE
+!          tmp3(:) = 0._wp2)
+!        ENDIF
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE rotate_cvec_v
+
+  !-------------------------------------------------------------------------
+  !
+  !> Convert cartesian velocity vector to lat-lon vector (on the FEM grid)
+  !!
+  !! @par Revision History
+  !! Developed by Vladimir Lapin, MPI-M (2015-10-25)
+  !
+  SUBROUTINE cvec2gvec_v_fem(patch_3d, cvec, gvec_u, gvec_v)
+
+    USE mo_ice_mesh,           ONLY: coord_nod2D
+
+    TYPE(t_patch_3d),TARGET, INTENT(in)     :: patch_3d
+    TYPE(t_cartesian_coordinates),INTENT(in):: cvec(nproma,patch_3d%p_patch_2D(1)%nblks_v)
+    REAL(wp), INTENT(out)                   :: gvec_u(:), gvec_v(:)
+
+   ! Local variables
+    ! Patch and ranges
+    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_subset_range), POINTER :: all_verts
+
+    ! Indexing
+    INTEGER  :: i_startidx_v, i_endidx_v, jv, jb, jk
+    !-----------------------------------------------------------------------
+
+    p_patch   => patch_3d%p_patch_2d(1)
+    all_verts => p_patch%verts%all
+
+    jk=0
+    DO jb = all_verts%start_block, all_verts%end_block
+      CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
+      DO jv = i_startidx_v, i_endidx_v
+        jk=jk+1
+!        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb)<=sea_boundary)THEN
+          CALL cvec2gvec(cvec(jv,jb)%x(1), cvec(jv,jb)%x(2), cvec(jv,jb)%x(3), &
+                       & coord_nod2D(1,jk), coord_nod2D(2,jk), & ! lon, lat
+                       & gvec_u(jk), gvec_v(jk))
+!        ELSE
+!          tmp3(:) = 0._wp
+!        ENDIF
+      END DO
+    END DO
+
+  END SUBROUTINE cvec2gvec_v_fem
 
   !-------------------------------------------------------------------------
   !
