@@ -262,6 +262,14 @@ check_accept_script()
    then
           accepted_script="false"  ;
    fi
+echo ${use_target},${use_compiler},mpi=${use_mpi} 
+   exclude_target_compiler_mode=$(grep "__exclude_target_compiler_mode=${use_target},${use_compiler},mpi=${use_mpi}" $input_folder/${check_accepted_filename}|wc -l)
+echo ${exclude_target_compiler_mode}
+   if [ "$exclude_target_compiler_mode" -ne "0" ]
+   then
+          accepted_script="false"  ;
+   fi
+
 
 
    if [[ $accepted_script != "true" ]] ; then
