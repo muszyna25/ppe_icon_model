@@ -220,7 +220,7 @@ case "$fortran_compiler" in
         F77         = "$FC"
         F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
         OMPFLAG     = -openmp
-        ART_FFLAGS  = -D__ICON_ART
+        ART_FFLAGS  = -D__ICON_ART -D__XML4ART
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -576,13 +576,14 @@ case "$ac_sitename" in
     kit.edu)
         case $ac_hostname in
             ic2*)
-		NETCDFROOT  = /pfs/imk/ICON
-                NETCDFFROOT = /pfs/imk/ICON
-		HDF5ROOT    = /pfs/imk/ICON
-		SZIPROOT    = /pfs/imk/ICON
+		NETCDFROOT  = /pfs/imk/ICON/LIBRARIES
+                NETCDFFROOT = /pfs/imk/ICON/LIBRARIES
+		HDF5ROOT    = /pfs/imk/ICON/LIBRARIES
+		SZIPROOT    = /pfs/imk/ICON/LIBRARIES
 		ZLIBROOT    = /usr
-		MPIROOT     = /pfs/imk/ICON
+		MPIROOT     = /pfs/imk/ICON/LIBRARIES
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
+                OTHER_LIBS  = -lTIXIf -lTIXI
                 CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
                 config_target=ic2
                 make_command="make" "-j8"
