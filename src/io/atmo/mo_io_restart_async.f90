@@ -86,7 +86,7 @@ MODULE mo_io_restart_async
     &                                   p_send_packed, p_recv_packed, p_bcast_packed,     &
     &                                   p_pack_int, p_pack_bool, p_pack_real,             &
     &                                   p_unpack_int, p_unpack_bool, p_unpack_real,       &
-    &                                   p_int_byte
+    &                                   p_int_byte, get_my_mpi_work_id
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -1725,6 +1725,7 @@ CONTAINS
 
     ! get the number of name lists
     IF(.NOT. my_process_is_restart()) nv = nmls
+    CALL p_bcast(nv, 0, p_comm_work) ! intracommunicator
     CALL p_bcast(nv, bcast_root, p_comm_work_2_restart)
 
 #ifdef HAVE_F2003
@@ -1751,12 +1752,12 @@ CONTAINS
     DO iv = 1, nv
       ! send name of the name list
       list_name = ''
-      IF (my_process_is_work()) CALL get_restart_namelist(iv, list_name)
+      IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) CALL get_restart_namelist(iv, list_name)
       CALL p_bcast(list_name, bcast_root, p_comm_work_2_restart)
 
       ! send text of the name list
       list_text = ''
-      IF (my_process_is_work()) list_text = TRIM(restart_namelist(iv)%text)
+      IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) list_text = TRIM(restart_namelist(iv)%text)
       CALL p_bcast(list_text, bcast_root, p_comm_work_2_restart)
 
       ! store name list parameters
