@@ -1,5 +1,15 @@
 #!/bin/ksh
 #--------------------------------------------------------------------------------
+# 0. Keywords to exlude certain compilers or builders:
+#
+#    No run script is generated out of this file, if the exclude
+#    keyword matches.
+#
+#    __exclude_compiler=nag
+#    __exclude_target=thunder
+#
+
+#--------------------------------------------------------------------------------
 # 
 # 1. Define the experiment and the files to be checked
 
