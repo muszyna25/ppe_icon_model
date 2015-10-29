@@ -81,7 +81,7 @@ fi
 
 # If running in parallel, mpi_procs*no_of_nodes must be bigger than 4:
 n_procs=`expr ${mpi_procs_pernode} \* ${no_of_nodes}`
-if [[ ${n_procs} < 5 ]]; then
+if [[ ${n_procs} -lt 5 ]]; then
   echo "This test needs at least 5 MPI processes --> exit test without error"
   check_error 0 "exp.nwp_R02B04N06multi2"
   exit 0

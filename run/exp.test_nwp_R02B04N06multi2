@@ -7,6 +7,7 @@
 #
 #    __exclude_target_compiler=thunder,nag
 #    __exclude_target_compiler=thunder,intel
+#    __exclude_target_compiler=thunder,gcc
 #
 
 #--------------------------------------------------------------------------------
