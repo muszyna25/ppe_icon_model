@@ -51,7 +51,7 @@
     USE mo_physical_constants,  ONLY: earth_radius
     USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, latlon_compute_area_weights
-    USE mo_parallel_config,     ONLY: nproma, p_test_run
+    USE mo_parallel_config,     ONLY: nproma, p_test_run, use_dp_mpi2io
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, n_lonlat_grids,            &
       &                               lonlat_grid_list, n_lonlat_grids, MAX_LONLAT_GRIDS
@@ -72,7 +72,7 @@
     USE mo_lonlat_grid,         ONLY: rotate_latlon_grid
     USE mo_cf_convention,       ONLY: t_cf_var
     USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-    USE mo_cdi,                 ONLY: TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32
+    USE mo_cdi,                 ONLY: TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64
     USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE, GRID_CELL, ZA_SURFACE
     USE mo_nonhydro_state,      ONLY: p_nh_state_lists
     USE mo_var_list,            ONLY: add_var
@@ -330,7 +330,7 @@
       TYPE(t_cf_var)       :: cf_desc
       TYPE(t_grib2_var)    :: grib2_desc
       INTEGER              :: var_shape(3), nblks_lonlat, i, jg, ierrstat, &
-        &                     i_lat, idx_glb, jc, jb, j
+        &                     i_lat, idx_glb, jc, jb, j, datatype_flt
       TYPE (t_lon_lat_grid), POINTER :: grid
       TYPE (t_lon_lat_intp), POINTER :: ptr_int_lonlat
 !DR      REAL(wp),              POINTER :: area_weights(:), p_dummy(:,:,:)
@@ -340,6 +340,13 @@
       REAL(wp), ALLOCATABLE          :: area_weights(:)
       REAL(wp),              POINTER :: p_dummy(:,:,:)
       TYPE(t_list_element),  POINTER :: new_element
+
+      ! define NetCDF output precision
+      IF ( use_dp_mpi2io ) THEN
+        datatype_flt = DATATYPE_FLT64
+      ELSE
+        datatype_flt = DATATYPE_FLT32
+      ENDIF
 
       ! Add area weights
       DO i=1, n_lonlat_grids
@@ -351,7 +358,7 @@
 
             nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
             var_shape = (/ nproma, 1, nblks_lonlat /)
-            cf_desc    = t_cf_var('aw', '1', 'area weights for regular lat-lon grid', DATATYPE_FLT32)
+            cf_desc    = t_cf_var('aw', '1', 'area weights for regular lat-lon grid', datatype_flt)
             grib2_desc = grib2_var(0, 191, 193, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL)
 
             ALLOCATE(area_weights(grid%lat_dim), STAT=ierrstat)
