@@ -60,6 +60,13 @@ MODULE mo_nwp_phy_init
     &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg,             &
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
+  USE mo_psrad_lrtm_setup,    ONLY: setup_lrtm
+  USE mo_psrad_srtm_setup,    ONLY: setup_srtm_psrad => setup_srtm
+  USE mo_psrad_spec_sampling, ONLY: set_spec_sampling_lw, set_spec_sampling_sw
+  USE mo_psrad_cloud_optics,  ONLY: setup_cloud_optics  
+  USE mo_psrad_interface,     ONLY: setup_psrad, lw_strat, sw_strat
+  USE mo_rrtm_params,         ONLY: nbndsw
+  USE mo_psrad_radiation_parameters, ONLY: nb_sw 
 
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
@@ -665,7 +672,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   !------------------------------------------
   !< radiation
   !------------------------------------------
-  IF ( atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
+  SELECT CASE ( atm_phy_nwp_config(jg)%inwp_radiation )
+  CASE (1, 3)
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init RRTM')
 
@@ -703,12 +711,20 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
       tsi_radt    = SUM(ssi_radt(:))
     ENDIF
 
-
-    CALL setup_srtm
-
-    CALL lrtm_setup(lrtm_filename)
-
-    CALL setup_newcld_optics(cldopt_filename)
+    IF (atm_phy_nwp_config(jg)%inwp_radiation == 1) THEN ! RRTM init
+      CALL setup_srtm
+      CALL lrtm_setup(lrtm_filename)
+      CALL setup_newcld_optics(cldopt_filename)
+    ELSE   ! PSRAD init
+      CALL setup_psrad
+      nb_sw = nbndsw
+      lw_strat = set_spec_sampling_lw(1, 1) 
+      sw_strat = set_spec_sampling_sw(1, 1)
+      CALL setup_cloud_optics
+      CALL setup_lrtm
+      CALL lrtm_setup(lrtm_filename) ! ** necessary because of incorrect USE statements in mo_psrad_lrtm_gas_optics **
+      CALL setup_srtm_psrad
+    ENDIF
 
     rl_start = 1  ! Initialization should be done for all points
     rl_end   = min_rlcell
@@ -851,7 +867,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
     ENDDO
 
-  ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 ) THEN
+  CASE (2)
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Ritter Geleyn')
 
@@ -953,7 +969,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
     ENDDO
 
-  ENDIF !inwp_radiation
+  END SELECT !inwp_radiation
 
   IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
     DEALLOCATE (zrefpres)
