@@ -119,7 +119,6 @@ cat > ${atmo_namelist} << EOF
 &diffusion_nml
 /
 &transport_nml
- ctracer_list     = 'vwi'       ! water vapour, cloud water, cloud ice
  ivadv_tracer     = 3,3,3
  itype_hlimit     = 3,4,4
  ihadv_tracer     = 52,2,2
@@ -154,7 +153,6 @@ cat > ${atmo_namelist} << EOF
                                 !   +Stenchikov aerosol optics for stratosphere
  lrad_aero_diag   = .FALSE.     ! switch for diagnostics of the aerosol optical properties
  ighg             = 1           ! 1: transient well mixed greenhouse gas concentrations
- izenith          = 4           ! 4: seasonal and diurnal cycle
  isolrad          = 1           ! 1: transient solar irradiance (at 1 AE)
 /
 &psrad_nml
@@ -409,62 +407,6 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
                     'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,
                     'pfull','ps'
-/
-EOF
-fi
-
-
-output_aer_3d=no # "yes" needs lrad_aero_diag=.TRUE. in radiation_nml
-#
-if [[ "$output_aer_3d" == "yes" ]]; then
-  #
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_aer_3d"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 0
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'aer_aod_533',  'aer_ssa_533',  'aer_asy_533' , 
-                    'aer_aod_2325', 'aer_ssa_2325', 'aer_asy_2325', 
-                    'aer_aod_9731',
-                    'pfull','ps'
-/
-EOF
-fi
-
-
-output_lnd=no
-#
-if [[ "$output_lnd" == "yes" ]]; then
-  #
-  cat >> ${atmo_namelist} << EOF
-&output_nml
- output_filename  = "${EXPNAME}_lnd"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
- remap            = 0
- output_grid      = .TRUE.
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "${output_interval_2d}"
- file_interval    = "${file_interval}"
- include_last     = .FALSE.
- ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
-                    'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
-                    'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
-                    'albedo_srf', 't_air', 'q_air',
-                    'lw_srf_down', 'swnir_srf_down', 'swpar_srf_down', 'swvis_srf_down',
-                    'root_depth', 'root_depth_l', 'soil_depth', 'soil_depth_l'
-                    'evapotrans', 'sensible_hflx', 'latent_hflx' 
-                    'fact_qsat_srf', 'fact_qsat_trans_srf', 'fact_q_air', 'fract_fpc_max', 'fract_fpc'
-                    't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
-                    't_soil', 'wsn_srf', 'wsr_srf', 't_eff_srf', 'grnd_hflx'
-                    'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
-                    'tte_corr', 'rough_m_srf', 'rough_h_srf'
 /
 EOF
 fi
