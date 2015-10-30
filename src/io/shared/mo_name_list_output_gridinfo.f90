@@ -42,7 +42,7 @@ MODULE mo_name_list_output_gridinfo
     &                                             min_rlvert, vname_len
   USE mo_mpi,                               ONLY: p_comm_work_2_io,                         &
     &                                             my_process_is_mpi_test, my_process_is_io, &
-    &                                             my_process_is_mpi_workroot, p_bcast
+    &                                             my_process_is_mpi_workroot
   USE mo_master_control,                    ONLY: my_process_is_ocean
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
