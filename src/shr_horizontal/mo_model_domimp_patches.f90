@@ -449,6 +449,11 @@ CONTAINS
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
 
+INTEGER :: jv, jk, jb, ji
+    INTEGER  :: i_startidx_v, i_endidx_v, jv, jb
+    TYPE(t_subset_range), POINTER :: all_verts
+INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+
 
     DO jg = n_dom_start, n_dom
 
@@ -520,6 +525,28 @@ CONTAINS
 
       ! Get all patch information not read by read_pre_patch
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo )
+
+
+iidx => patch(jg)%verts%cell_idx
+iblk => patch(jg)%verts%cell_blk
+    all_verts => patch(jg)%verts%cells%all
+
+    DO jb = all_verts%start_block, all_verts%end_block
+      CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
+      DO jv = i_startidx_v, i_endidx_v
+
+    if ( (patch(jg)%verts%cell_idx(jv,jb,6)==0) .or. (patch(jg)%verts%cell_idx(jv,jb,6)==0) ) then
+        print *, 'lat, lon =', patch(jg)%verts%vertex(jv,jb)
+    !    print *, '6 interp coeff =', c_int(jv,1:6,jb)
+        print *, 'iidx(jv,jb,:)', iidx(jv,jb,:)
+        print *, 'iblk(jv,jb,:)', iblk(jv,jb,:)
+        print *, 'max_connectivity', patch(jg)%verts%max_connectivity
+        print *, 'patch(jg)%verts%num_edges(jv,jb)', patch(jg)%verts%num_edges(jv,jb)
+    endif
+
+      ENDDO
+  ENDDO
+
     ENDDO
 
     ! set parent-child relationships
