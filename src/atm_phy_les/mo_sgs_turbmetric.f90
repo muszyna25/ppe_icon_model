@@ -2170,42 +2170,6 @@ MODULE mo_sgs_turbmetric
     END IF ! var == theta
 
 
-    rl_start = grf_bdywidth_e
-    rl_end   = min_rledge_int-1
-
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(je,jb,jk,i_startidx,i_endidx)
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
-#ifdef __LOOP_EXCHANGE
-      DO je = i_startidx, i_endidx
-        DO jk = 2, nlev
-#else
-      DO jk = 2, nlev
-        DO je = i_startidx, i_endidx
-#endif
-          exner_ie(je,jk,jb) = ( p_nh_metrics%wgtfac_e(je,jk,jb)*exner_me(je,jk,jb) + &
-                               (1._wp-p_nh_metrics%wgtfac_e(je,jk,jb))*exner_me(je,jk-1,jb) )
-        END DO
-      END DO
-
-      DO je = i_startidx, i_endidx
-        exner_ie(je,nlev+1,jb) =                                &
-          p_nh_metrics%wgtfacq_e(je,1,jb)*exner_me(je,nlev  ,jb) + &
-          p_nh_metrics%wgtfacq_e(je,2,jb)*exner_me(je,nlev-1,jb) + &
-          p_nh_metrics%wgtfacq_e(je,3,jb)*exner_me(je,nlev-2,jb)
-        exner_ie(je,1,jb) =                                &
-          p_nh_metrics%wgtfacq1_e(je,1,jb)*exner_me(je,1,jb) + &
-          p_nh_metrics%wgtfacq1_e(je,2,jb)*exner_me(je,2,jb) + &
-          p_nh_metrics%wgtfacq1_e(je,3,jb)*exner_me(je,3,jb)
-      END DO
-    END DO
-!$OMP END DO
-
-
     !4) Calculate var at interface for vertical diffusion
 
     rl_start = grf_bdywidth_c+1
