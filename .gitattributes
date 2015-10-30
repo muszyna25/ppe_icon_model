@@ -876,6 +876,7 @@ run/exp.nh_rce -text
 run/exp.nh_rico -text
 run/exp.nh_rico_edmf -text
 run/exp.nh_weisman_klemp -text
+run/exp.nwp_R02B04N06multi2 -text
 run/exp.ocean_omip_long -text
 run/exp.ocean_omip_technical -text
 run/exp.ozon -text
@@ -889,6 +890,7 @@ run/exp.test_nat_rce_cbl_120km_nwp -text
 run/exp.test_nh_hdcp2_lam_r15000_modified -text
 run/exp.test_nh_moist_cbl -text
 run/exp.test_nwp_R02B04N06multi -text
+run/exp.test_nwp_R02B04N06multi2 -text
 run/exp.test_nwp_R02B04_R02B05_nest -text
 run/exp.test_oce_testbed_read -text
 run/exp.test_ocean_omip_10days -text

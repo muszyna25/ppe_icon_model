@@ -44,7 +44,7 @@ MODULE mo_vertical_grid
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, RAYLEIGH_CLASSIC, &
     &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell, min_rledge_int
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
-                                      grf_nudge_start_e, grf_nudge_end_e, grf_nudgezone_width
+                                      grf_nudge_start_e, grf_nudgezone_width
   USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg, rgrav
   USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
   USE mo_intp_data_strc,        ONLY: t_int_state
@@ -59,7 +59,7 @@ MODULE mo_vertical_grid
   USE mo_les_config,           ONLY: les_config
   USE mo_impl_constants,       ONLY: min_rlvert_int
   USE mo_data_turbdiff,        ONLY: akt
-  USE mo_fortran_tools,        ONLY: copy, init
+  USE mo_fortran_tools,        ONLY: init
 
   IMPLICIT NONE
 
@@ -102,7 +102,7 @@ MODULE mo_vertical_grid
     TYPE(t_external_data),     INTENT(INOUT) :: ext_data(n_dom)
 
     INTEGER :: jg, jk, jk1, jk_start, jb, jc, je, jn, jgc, nlen, &
-               nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, npromz_v, ic
+               nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, ic
     INTEGER :: nlev, nlevp1              !< number of full levels
 
     ! Note: the present way of setting up coordinate surfaces will not work for vertical refinement
@@ -133,7 +133,6 @@ MODULE mo_vertical_grid
       nblks_e   = p_patch(jg)%nblks_e
       npromz_e  = p_patch(jg)%npromz_e
       nblks_v   = p_patch(jg)%nblks_v
-      npromz_v  = p_patch(jg)%npromz_v
 
       ! number of vertical levels
       nlev   = p_patch(jg)%nlev
@@ -1967,7 +1966,7 @@ MODULE mo_vertical_grid
 
     REAL(wp)  :: les_filter, z_mc, z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c)
 
-    INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c, npromz_e
+    INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c
     INTEGER :: nlev, nlevp1, i_startblk
 
     nlev = p_patch%nlev
@@ -1975,7 +1974,6 @@ MODULE mo_vertical_grid
     nblks_c   = p_patch%nblks_c
     npromz_c  = p_patch%npromz_c
     nblks_e   = p_patch%nblks_e
-    npromz_e  = p_patch%npromz_e
 
     i_startblk = p_patch%edges%start_block(2)
 !$OMP PARALLEL

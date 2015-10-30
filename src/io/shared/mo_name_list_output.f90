@@ -282,7 +282,6 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::close_output_file"
     LOGICAL :: is_output_process
-    INTEGER :: ierror
 
     ! GRB2 format: define geographical longitude, latitude as special
     ! variables "RLON", "RLAT"
