@@ -555,15 +555,13 @@ CONTAINS
 !! Computes  average of scalar fields from centers of cells to vertices.
 !! Based on edges2verts_scalar in shr_horizontal/mo_icon_interpolation_scalar.f90
 !!
-!! Sea-ice module used calls this funciton to interpolate from ICON grid to FEM P1P1 grid
-!! Includes an ad-hoc fix that checks for pentagons (very slow!).
-!! Without it an indexing error used to occur because of zeros in iidx(jv,jb,:)
+!! Sea-ice module used to call this funciton instead of the standard cells2verts_scalar
+!! because in mo_ocean_nml_crosscheck <use_duplicated_connectivity> was set to .FALSE.
+!! The modified version includes an ad-hoc (slow!) fix that checks for zero indices in ptr_patch%verts%cell_idx.
+!! By default empty indices (e.g. 6th vertex in pentagons) are replaced by last non-zero values when
+!! use_duplicated_connectivity = .TRUE. See CALL move_dummies_to_end_idxblk in subroutine complete_patches
 !!
-!! Usage is depriciated. Now is treated by filling indices with dummy vals at the initialization step
-!! CALL move_dummies_to_end_idxblk( &
-!!        ptr_patch%verts%cell_idx(:,:,1:max_verts_connectivity), &
-!!        ptr_patch%n_patch_verts, max_verts_connectivity, &
-!!        use_duplicated_connectivity)
+!! Usage is depriciated.
 !!
 !! @par Revision History
 !! Added by Vladimir Lapin, MPI-M (2015-08-13)

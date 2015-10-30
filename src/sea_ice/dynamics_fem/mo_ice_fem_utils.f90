@@ -41,12 +41,12 @@ MODULE mo_ice_fem_utils
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec, rotate_latlon,&
     &                               rotate_latlon_vec!, disp_new_vect
   USE mo_exception,           ONLY: message
-!  USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar
+  USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar
   USE mo_icon_to_fem_interpolation, ONLY: map_edges2verts, map_verts2edges,                 &
                                           gvec2cvec_c_2d, cvec2gvec_c_2d,                   &
                                           rotate_cvec_v, gvec2cvec_v_fem, cvec2gvec_v_fem,  &
-                                          map_verts2edges_einar, map_edges2verts_einar,     &
-                                          cells2verts_scalar_seaice
+                                          map_verts2edges_einar, map_edges2verts_einar!,     &
+!                                          cells2verts_scalar_seaice
   USE mo_run_config,          ONLY: dtime, ltimer
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_impl_constants,      ONLY: sea_boundary, sea
@@ -179,25 +179,24 @@ CONTAINS
     ! Interpolate tracers to vertices
     buffy_array = 0._wp
     ! TODO: Replace hi/conc to himean
-!    CALL cells2verts_scalar( p_ice%hi/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
-    CALL cells2verts_scalar_seaice( p_ice%hi*MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+    CALL cells2verts_scalar( p_ice%hi/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+    ! call cells2verts_scalar_seaice can also be used (if use_duplicated_connectivity=.FALSE.)
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     m_ice = buffy(1:SIZE(m_ice) )
 
-    CALL cells2verts_scalar_seaice( p_ice%conc, p_patch, c2v_wgt, buffy_array )
+    CALL cells2verts_scalar( p_ice%conc, p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     a_ice = buffy(1:SIZE(a_ice) )
 
-!    CALL cells2verts_scalar( p_ice%hs/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
-    CALL cells2verts_scalar_seaice( p_ice%hs*MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+    CALL cells2verts_scalar( p_ice%hs/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     m_snow= buffy(1:SIZE(m_snow))
 
     ! Interpolate SSH to vertices
-    CALL cells2verts_scalar_seaice( RESHAPE(p_os%p_prog(nold(1))%h(:,:), &
+    CALL cells2verts_scalar( RESHAPE(p_os%p_prog(nold(1))%h(:,:), &
       & (/ nproma, 1, p_patch%alloc_cell_blocks /)), p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
@@ -307,6 +306,7 @@ CONTAINS
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating c2v_wgt failed')
     ENDIF
+    ! Note, however, that related multiplication factors must be zero
     c2v_wgt=0.0_wp
 
     ! Weights for the cells2verts_scalar call

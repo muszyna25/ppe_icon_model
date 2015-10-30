@@ -208,10 +208,20 @@ CONTAINS
       CALL finish(method_name, "l_rigid_lid .AND. iswm_oce /= 1")
     ENDIF
 
-    IF (use_duplicated_connectivity) THEN
-      use_duplicated_connectivity = .FALSE.
-      CALL message(method_name, "Set use_duplicated_connectivity to FALSE")
+
+    ! #vla# 2015-10:
+    ! Sea-ice dynamics relies on using highly optimized interp routines (e.g. cells2verts_scalar),
+    ! which use simplified do loops that assume finding non-zero vals in indices.
+    ! Empty indices (e.g. 6th vertex in pentagons) are replaced by last non-zero values when
+    ! use_duplicated_connectivity = .TRUE. See CALL move_dummies_to_end_idxblk in subroutine complete_patches
+    IF (.NOT. use_duplicated_connectivity) THEN
+      use_duplicated_connectivity = .TRUE.
+      CALL message(method_name, "Set use_duplicated_connectivity to TRUE")
     ENDIF
+!    IF (use_duplicated_connectivity) THEN
+!      use_duplicated_connectivity = .FALSE.
+!      CALL message(method_name, "Set use_duplicated_connectivity to FALSE")
+!    ENDIF
     
     IF (isRestart() .AND. write_initial_state) THEN
       CALL warning(method_name, "write_initial_state is disbaled for restarts")
