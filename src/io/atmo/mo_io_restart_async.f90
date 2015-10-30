@@ -19,7 +19,7 @@
 !!
 !!
 
-#if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
+#if ! (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR))
 #define HAVE_F2003
 #endif
 MODULE mo_io_restart_async
@@ -28,7 +28,7 @@ MODULE mo_io_restart_async
   USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
   USE mo_kind,                    ONLY: wp, i8, dp
   USE mo_datetime,                ONLY: t_datetime, iso8601, iso8601extended
-  USE mo_io_units,                ONLY: nerr, filename_max, find_next_free_unit
+  USE mo_io_units,                ONLY: nerr, filename_max
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
   USE mo_io_restart_attributes,   ONLY: set_restart_attribute, delete_attributes, get_restart_attribute, &
