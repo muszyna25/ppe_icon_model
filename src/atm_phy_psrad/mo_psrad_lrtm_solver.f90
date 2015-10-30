@@ -116,7 +116,7 @@ CONTAINS
     
 !IBM* ASSERT(NODEPS)
     DO jk = 1, klev
-      odepth(1:kproma,jk) = max(0._wp, secdiff(1:kproma) * tau(1:kproma,jk))
+      odepth(1:kproma,jk) = max(1.e-9_wp, secdiff(1:kproma) * tau(1:kproma,jk))
     END DO 
     !
     ! 2.0 Radiative transfer
