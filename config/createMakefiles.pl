@@ -199,10 +199,15 @@ foreach my $dir ( @directories ) {
 	print MAKEFILE "\n";
 	print MAKEFILE "%.o: %.f90\n";
 	print MAKEFILE "\t\$(FC) \$(FlibFLAGS) -c \$<\n";
+	print MAKEFILE "\n";
+	print MAKEFILE "%.o: %.F90\n";
+	print MAKEFILE "\t\$(FC) \$(FlibFLAGS) -c \$<\n";
     } else {	
 	print MAKEFILE "%.o: %.f90\n";
 	print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
 	print MAKEFILE "\n";
+	print MAKEFILE "%.o: %.F90\n";
+	print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
     }
     
 #     print MAKEFILE "%.obj: %.f90\n";
