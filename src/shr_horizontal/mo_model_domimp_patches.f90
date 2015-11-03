@@ -519,7 +519,7 @@ CONTAINS
       ENDDO
 
       ! Get all patch information not read by read_pre_patch
-      CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo )
+      CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo, is_ocean_decomposition )
     ENDDO
 
     ! set parent-child relationships
@@ -1003,7 +1003,7 @@ CONTAINS
   !!   for subdivision into the fully allocated patch and read_remaining_patch
   !!   for reading the remaining information
   !!
-  SUBROUTINE read_pre_patch( ig, patch_pre, uuid_grid, uuid_par, uuid_chi, lsep_grfinfo )
+  SUBROUTINE read_pre_patch( ig, patch_pre, uuid_grid, uuid_par, uuid_chi, lsep_grfinfo, is_ocean_decomposition )
 
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:read_pre_patch'
     INTEGER,                           INTENT(in)    ::  ig                  ! domain ID
@@ -1011,6 +1011,7 @@ CONTAINS
     CHARACTER(LEN=uuid_string_length), INTENT(inout) :: uuid_grid, uuid_par, uuid_chi(5)
     !> If .true., read fields related to grid refinement from separate  grid files:
     LOGICAL,                           INTENT(OUT)   :: lsep_grfinfo
+    LOGICAL,                           INTENT(IN)    :: is_ocean_decomposition
 
     ! local variables
     INTEGER, ALLOCATABLE :: &
@@ -1985,6 +1986,15 @@ CONTAINS
 
     ! p_p%verts%cell_idx(:,:,:)
     ! p_p%verts%cell_blk(:,:,:)
+
+    IF (is_ocean_decomposition) THEN
+    ! #vla# 2015-10:
+    ! Sea-ice dynamics relies on using highly optimized interp routines (e.g. cells2verts_scalar),
+    ! which use simplified do loops that assume finding non-zero vals in indices.
+    ! Empty indices (e.g. 6th vertex in pentagons) are replaced by last non-zero values
+      use_duplicated_connectivity = .TRUE.
+    ENDIF
+
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_3d_data_int(ip+1)%data => &
@@ -2011,6 +2021,11 @@ CONTAINS
       p_p%verts%cell_idx(:,:,1:max_verts_connectivity) = &
         idx_no(p_p%verts%cell_idx(:,:,1:max_verts_connectivity))
     END DO
+
+    IF (is_ocean_decomposition) THEN
+    ! switch back to .false. for ocean diagnostics to work properly
+      use_duplicated_connectivity = .FALSE.
+    ENDIF
 
     ! p_p%verts%edge_idx(:,:,:)
     ! p_p%verts%edge_blk(:,:,:)
