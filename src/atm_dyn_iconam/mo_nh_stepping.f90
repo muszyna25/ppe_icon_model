@@ -41,7 +41,7 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
                                          num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
-    &                                    ntracer, lforcing, iforcing, msg_level, test_mode, &
+    &                                    ntracer, iforcing, msg_level, test_mode,           &
     &                                    output_mode, lart
   USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_advection_config,         ONLY: advection_config
@@ -87,7 +87,8 @@ MODULE mo_nh_stepping
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
-    &                                    inwp, iecham, itturb, itgscp, itsfc,                      &
+    &                                    inoforcing, iheldsuarez, inwp, iecham,                    &
+    &                                    itturb, itgscp, itsfc,                                    &
     &                                    MODE_IAU, MODE_IAU_OLD, MODIS
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
@@ -884,7 +885,7 @@ MODULE mo_nh_stepping
 
 
     ! Compute diagnostics for output if necessary
-    IF (l_compute_diagnostic_quants .OR. iforcing==iecham) THEN
+    IF (l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing) THEN
       CALL diag_for_output_dyn ()
 
       IF (iforcing == inwp) THEN
@@ -1418,7 +1419,7 @@ MODULE mo_nh_stepping
         !!!!!!!!
         ! re-check: iadv_rcf -> ndynsubsteps
         !!!!!!!!
-        IF ( lforcing .AND. iforcing == 1) THEN
+        IF ( iforcing == iheldsuarez) THEN
           CALL held_suarez_nh_interface (p_nh_state(jg)%prog(nnow(jg)), p_patch(jg), &
                                          p_int_state(jg),p_nh_state(jg)%metrics,  &
                                          p_nh_state(jg)%diag)
