@@ -438,6 +438,7 @@ INTEGER :: &
      ltmpcor      = turbdiff_config(jg)%ltmpcor
      lprfcor      = turbdiff_config(jg)%lprfcor
      lnonloc      = turbdiff_config(jg)%lnonloc
+     lfreeslip    = turbdiff_config(jg)%lfreeslip
      lcpfluc      = turbdiff_config(jg)%lcpfluc
      lsflcnd      = turbdiff_config(jg)%lsflcnd
 
@@ -446,13 +447,16 @@ INTEGER :: &
      tur_len      = turbdiff_config(jg)%tur_len
      pat_len      = turbdiff_config(jg)%pat_len
      a_stab       = turbdiff_config(jg)%a_stab
+     tkhmin       = turbdiff_config(jg)%tkhmin
+     tkmmin       = turbdiff_config(jg)%tkmmin
 !neu: <
+     tkhmin_strat = turbdiff_config(jg)%tkhmin_strat
+     tkmmin_strat = turbdiff_config(jg)%tkmmin_strat
+
      alpha0       = turbdiff_config(jg)%alpha0
      alpha0_max   = turbdiff_config(jg)%alpha0_max
 !>
 
-     tkhmin       = turbdiff_config(jg)%tkhmin
-     tkmmin       = turbdiff_config(jg)%tkmmin
      c_diff       = turbdiff_config(jg)%c_diff
      rlam_heat    = turbdiff_config(jg)%rlam_heat
      rlam_mom     = turbdiff_config(jg)%rlam_mom
