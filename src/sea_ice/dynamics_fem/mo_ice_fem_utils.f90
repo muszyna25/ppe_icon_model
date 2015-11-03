@@ -31,8 +31,8 @@ MODULE mo_ice_fem_utils
 !  USE mo_run_config,          ONLY: ltimer
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_momentum
-!    &                               timer_ice_advection, timer_ice_interp
+  USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_momentum,                  &
+    &                               timer_ice_interp, timer_ice_advection
 !  USE mo_grid_config,         ONLY: n_dom   ! restrict sea-ice model to the global domain for the time being
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_impl_constants,      ONLY: max_char_length
@@ -155,7 +155,6 @@ CONTAINS
 
 !--------------------------------------------------------------------------------------------------
 
-    IF (ltimer) CALL timer_start(timer_ice_momentum)
 
 !--------------------------------------------------------------------------------------------------
 ! Set up patch and ranges
@@ -170,11 +169,12 @@ CONTAINS
     ! No need to do this every timestep; only after a restart file is read in.
     ! So, was moved to after <prepare_ho_stepping> in <ocean_model>
 
+    IF (ltimer) CALL timer_start(timer_ice_momentum)
+
 !--------------------------------------------------------------------------------------------------
 ! Interpolate and/or copy ICON variables to FEM variables
 !--------------------------------------------------------------------------------------------------
-
-!    IF (ltimer) CALL timer_start(timer_ice_interp)
+    IF (ltimer) CALL timer_start(timer_ice_interp)
 
     ! Interpolate tracers to vertices
     buffy_array = 0._wp
@@ -228,7 +228,7 @@ CONTAINS
 !    CALL intrp_to_fem_grid_vec_old( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff )
     CALL intrp_to_fem_grid_vec( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff )
 
-!    IF (ltimer) CALL timer_stop(timer_ice_interp)
+    IF (ltimer) CALL timer_stop(timer_ice_interp)
 
 !--------------------------------------------------------------------------------------------------
 ! Call FEM EVP
@@ -241,7 +241,7 @@ CONTAINS
 ! Post-processing: Copy FEM variables back to ICON variables
 !--------------------------------------------------------------------------------------------------
 
-!    IF (ltimer) CALL timer_start(timer_ice_interp)
+    IF (ltimer) CALL timer_start(timer_ice_interp)
 
     ! Rotate and interpolate ice velocities back to the original ICON grid
 !    CALL intrp_from_fem_grid_vec_old( p_patch_3D, p_ice, p_op_coeff )
@@ -259,7 +259,7 @@ CONTAINS
         CALL ice_fem_update_vel_for_restart(p_patch, p_ice)
       END IF
 
-!    IF (ltimer) CALL timer_stop(timer_ice_interp)
+    IF (ltimer) CALL timer_stop(timer_ice_interp)
     IF (ltimer) CALL timer_stop(timer_ice_momentum)
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -1119,7 +1119,7 @@ CONTAINS
 
 !--------------------------------------------------------------------------------------------------
 
-!    IF (ltimer) CALL timer_start(timer_ice_advection)
+    IF (ltimer) CALL timer_start(timer_ice_advection)
 
     p_patch => p_patch_3D%p_patch_2D(1)
     cells_in_domain => p_patch%cells%in_domain
@@ -1204,7 +1204,7 @@ CONTAINS
     CALL dbg_print('ice_adv: conc'     , p_ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
-!    IF (ltimer) CALL timer_stop(timer_ice_advection)
+    IF (ltimer) CALL timer_stop(timer_ice_advection)
 
   END SUBROUTINE ice_advection_vla
 
