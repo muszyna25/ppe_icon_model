@@ -1003,7 +1003,7 @@ CONTAINS
   !!   for subdivision into the fully allocated patch and read_remaining_patch
   !!   for reading the remaining information
   !!
-  SUBROUTINE read_pre_patch( ig, patch_pre, uuid_grid, uuid_par, uuid_chi, lsep_grfinfo, is_ocean_decomposition )
+  SUBROUTINE read_pre_patch( ig, patch_pre, uuid_grid, uuid_par, uuid_chi, lsep_grfinfo )
 
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:read_pre_patch'
     INTEGER,                           INTENT(in)    ::  ig                  ! domain ID
@@ -1011,7 +1011,6 @@ CONTAINS
     CHARACTER(LEN=uuid_string_length), INTENT(inout) :: uuid_grid, uuid_par, uuid_chi(5)
     !> If .true., read fields related to grid refinement from separate  grid files:
     LOGICAL,                           INTENT(OUT)   :: lsep_grfinfo
-    LOGICAL,                           INTENT(IN)    :: is_ocean_decomposition
 
     ! local variables
     INTEGER, ALLOCATABLE :: &
@@ -1591,7 +1590,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Reads the remaining patch information into the divided patch
-  SUBROUTINE read_remaining_patch( ig, patch, n_lp, id_lp, lsep_grfinfo )
+  SUBROUTINE read_remaining_patch( ig, patch, n_lp, id_lp, lsep_grfinfo, is_ocean_decomposition )
 
     INTEGER,       INTENT(in)    ::  ig       ! domain ID
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
@@ -1599,6 +1598,7 @@ CONTAINS
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
     !> If .true., read fields related to grid refinement from separate  grid files
     LOGICAL,       INTENT(IN)    :: lsep_grfinfo
+    LOGICAL,       INTENT(IN)    :: is_ocean_decomposition
 
     INTEGER :: ncid, varid, ncid_grf
     TYPE(t_stream_id) :: stream_id, stream_id_grf
