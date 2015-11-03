@@ -1573,7 +1573,7 @@ CONTAINS
     ! Convert the lat-lon vectors to 3d cartesian
     CALL gvec2cvec_v_fem(p_patch_3D, u_ice, v_ice, p_vn_dual_fem)
     ! Rotate the vectors back onto the ICON grid
-    CALL rotate_cvec_v(p_patch_3D, p_vn_dual_fem, rot_mat_3D, p_vn_dual)
+    CALL rotate_cvec_v(p_patch_3D, p_vn_dual_fem, TRANSPOSE(rot_mat_3D(:,:)), p_vn_dual)
 
 !    jk=0
 !    DO jb = all_verts%start_block, all_verts%end_block
