@@ -391,7 +391,7 @@ CONTAINS
     ! loop through all edges and add contribution from neighboring vertices
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index_e,end_index_e,edge_index, &
-!ICON_OMP  il_v1,ib_v1,il_v2,ib_v2,p_vn_dual_e,vn) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP  il_v1,ib_v1,il_v2,ib_v2,p_vn_dual_e) ICON_OMP_DEFAULT_SCHEDULE
     DO edge_block = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, edge_block, start_index_e, end_index_e)
         DO edge_index = start_index_e, end_index_e
