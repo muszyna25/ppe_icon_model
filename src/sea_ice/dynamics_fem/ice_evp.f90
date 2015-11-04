@@ -264,7 +264,7 @@ do shortstep=1, steps
   !if(shortstep<3)  write(*,*) mype, 'rhs  ', &
   !   maxval(rhs_u(myList_nod2D(1:myDim_nod2D)))
 
-!ICON_OMP_PARALLEL_DO PRIVATE(j,i,elem,inv_mass,umod,drag,rhsu,rhsv,det) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(j,i,inv_mass,umod,drag,rhsu,rhsv,det) ICON_OMP_DEFAULT_SCHEDULE
  do j=1,myDim_nod2D 
     i=myList_nod2D(j)
   if (index_nod2D(i)>0) CYCLE          ! Skip boundary nodes
