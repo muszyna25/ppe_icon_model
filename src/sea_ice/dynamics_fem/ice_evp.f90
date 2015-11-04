@@ -9,6 +9,11 @@
 ! Contains: Three routines of EVP dynamics. The driving routine is EVPdynamics.
 ! 2D indices are used to distinguish between boundary and internal nodes.
 !
+
+!----------------------------
+#include "omp_definitions.inc"
+!----------------------------
+
 !============================================================================
 subroutine stress_tensor
 ! EVP rheology implementation. Computes stress tensor components based on ice 
