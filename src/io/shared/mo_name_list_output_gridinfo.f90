@@ -225,13 +225,8 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ! allocate temporary fields:
-    IF ( my_process_is_mpi_workroot()) THEN
-      ALLOCATE(r_tmp_lon (nproma, nblks_glb), r_tmp_lat (nproma, nblks_glb), &
-        &      STAT=ierrstat)
-    ELSE
-      ALLOCATE(r_tmp_lon (nproma, nblks_loc), r_tmp_lat (nproma, nblks_loc), &
-        &      STAT=ierrstat)
-    ENDIF
+    ALLOCATE(r_tmp_lon (nproma, nblks_loc), r_tmp_lat (nproma, nblks_loc), &
+      &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     !-- part 1: exchange lon/lat coordinates:
