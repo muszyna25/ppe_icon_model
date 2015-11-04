@@ -45,6 +45,7 @@ MODULE mo_name_list_output_types
   PUBLIC :: REMAP_NONE
   PUBLIC :: REMAP_REGULAR_LATLON
   PUBLIC :: msg_io_start
+  PUBLIC :: msg_io_meteogram_flush
   PUBLIC :: msg_io_done
   PUBLIC :: msg_io_shutdown
   PUBLIC :: IRLON, IRLAT, ILATLON
@@ -83,6 +84,7 @@ MODULE mo_name_list_output_types
 
   ! Tags for communication between compute PEs and I/O PEs
   INTEGER, PARAMETER :: msg_io_start    = 12345
+  INTEGER, PARAMETER :: msg_io_meteogram_flush = 23451
   INTEGER, PARAMETER :: msg_io_done     = 54321
   INTEGER, PARAMETER :: msg_io_shutdown = 99999
 
@@ -315,17 +317,24 @@ MODULE mo_name_list_output_types
 
 
   TYPE t_var_desc
-    REAL(wp), POINTER                     :: r_ptr(:,:,:,:,:)                 !< Pointer to time level independent REAL data (or NULL)
-    REAL(sp), POINTER                     :: s_ptr(:,:,:,:,:)                 !< Pointer to time level independent REAL(sp) data (or NULL)
-    INTEGER,  POINTER                     :: i_ptr(:,:,:,:,:)                 !< Pointer to time level independent INTEGER data (or NULL)
-    TYPE(t_rptr_5d)                       :: tlev_rptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent REAL data
-    TYPE(t_sptr_5d)                       :: tlev_sptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent REAL(sp) data
-    TYPE(t_iptr_5d)                       :: tlev_iptr(MAX_TIME_LEVELS)       !< Pointers to time level dependent INTEGER data
-    TYPE(t_var_metadata), POINTER         :: info_ptr                         !< Pointer to the info structure of the variable
+    !> Pointer to time level independent REAL data (or NULL)
+    REAL(wp), POINTER                     :: r_ptr(:,:,:,:,:)
+    !> Pointer to time level independent REAL(sp) data (or NULL)
+    REAL(sp), POINTER                     :: s_ptr(:,:,:,:,:)
+    !> Pointer to time level independent INTEGER data (or NULL)
+    INTEGER,  POINTER                     :: i_ptr(:,:,:,:,:)
+    !> Pointers to time level dependent REAL data
+    TYPE(t_rptr_5d)                       :: tlev_rptr(MAX_TIME_LEVELS)
+    !> Pointers to time level dependent REAL(sp) data
+    TYPE(t_sptr_5d)                       :: tlev_sptr(MAX_TIME_LEVELS)
+    !> Pointers to time level dependent INTEGER data
+    TYPE(t_iptr_5d)                       :: tlev_iptr(MAX_TIME_LEVELS)
+    !> Pointer to the info structure of the variable
+    TYPE(t_var_metadata), POINTER         :: info_ptr
 
     !> Info structure for variable: this is a modified copy of the
-    !> variable's "info" data object!
-    TYPE(t_var_metadata)                  :: info                             
+    !! variable's "info" data object!
+    TYPE(t_var_metadata)                  :: info
   END TYPE t_var_desc
 
 
@@ -389,7 +398,8 @@ MODULE mo_name_list_output_types
     INTEGER                               :: output_type                      !< CDI format
     INTEGER                               :: phys_patch_id                    !< ID of physical output patch
     INTEGER                               :: log_patch_id                     !< ID of logical output patch
-    INTEGER                               :: ilev_type                        !< level type: level_type_ml/level_type_pl/level_type_hl/level_type_il
+    !> level type: level_type_ml/level_type_pl/level_type_hl/level_type_il
+    INTEGER                               :: ilev_type
     INTEGER                               :: max_vars                         !< maximum number of variables allocated
     INTEGER                               :: num_vars                         !< number of variables in use
     TYPE(t_var_desc),ALLOCATABLE          :: var_desc(:)
@@ -408,8 +418,11 @@ MODULE mo_name_list_output_types
     !> MPI rank which were explicitly specified by the user:
     INTEGER                               :: pe_placement
 
+#ifndef NOMPI
     ! Used for async IO only
-    TYPE(t_mem_win)                       :: mem_win                          !< data structure containing variables for MPI memory window
+    !> data structure containing variables for MPI memory window
+    TYPE(t_mem_win)                       :: mem_win
+#endif
 
     ! Selection of vertical levels (not necessarily present)
     TYPE (t_level_selection), POINTER     :: level_selection => NULL()        !< selection of vertical levels

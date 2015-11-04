@@ -238,6 +238,47 @@ lsq_high_ord      = 2
  n_iter_smooth_topo = 0
  heightdiff_threshold = 3000.
 /
+&meteogram_output_nml
+ stationlist_tot   =  50.91,   6.41, 'JOYCE',
+                      50.90,   6.41, 'JOYCE01S',
+                      50.89,   6.41, 'JOYCE02S',
+                      50.88,   6.41, 'JOYCE03S',
+                      50.87,   6.41, 'JOYCE04S',
+                      50.92,   6.41, 'JOYCE01N',
+                      50.93,   6.41, 'JOYCE02N',
+                      50.94,   6.41, 'JOYCE03N',
+                      50.95,   6.41, 'JOYCE04N',
+                      50.91,   6.42, 'JOYCE01E',
+                      50.91,   6.43, 'JOYCE02E',
+                      50.91,   6.44, 'JOYCE03E',
+                      50.91,   6.45, 'JOYCE04E',
+                      50.91,   6.40, 'JOYCE01W',
+                      50.91,   6.39, 'JOYCE02W',
+                      50.91,   6.38, 'JOYCE03W',
+                      50.91,   6.37, 'JOYCE04W',
+                      50.92,   6.42, 'JOYCE01NE',
+                      50.93,   6.43, 'JOYCE02NE',
+                      50.94,   6.44, 'JOYCE03NE',
+                      50.95,   6.45, 'JOYCE04NE',
+                      50.90,   6.42, 'JOYCE01SE',
+                      50.89,   6.43, 'JOYCE02SE',
+                      50.88,   6.44, 'JOYCE03SE',
+                      50.87,   6.45, 'JOYCE04SE',
+                      50.92,   6.40, 'JOYCE01NW',
+                      50.93,   6.39, 'JOYCE02NW',
+                      50.94,   6.38, 'JOYCE03NW',
+                      50.95,   6.37, 'JOYCE04NW',
+                      50.90,   6.40, 'JOYCE01SW',
+                      50.89,   6.39, 'JOYCE02SW',
+                      50.88,   6.38, 'JOYCE03SW',
+                      50.87,   6.37, 'JOYCE04SW',
+                      51.66,   12.94,'Melpitz_c',
+                      52.17,  14.12, 'Lindenberg'
+ lmeteogram_enabled= .TRUE.
+ n0_mtgrm          = 0             ! meteogram initial time step (0 is first step!)
+ ninc_mtgrm        = 5            ! meteogram output interval (steps)
+ ldistributed      = .false.
+/
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"

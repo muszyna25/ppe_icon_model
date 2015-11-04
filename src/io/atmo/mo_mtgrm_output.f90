@@ -105,6 +105,7 @@ MODULE mo_meteogram_output
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_mpi,                   ONLY: p_n_work, p_max,                    &
     &                                 get_my_mpi_all_id, p_wait,          &
+    &                                 p_send, p_pe_work,                  &
     &                                 p_send_packed, p_irecv_packed,      &
     &                                 p_pack_int,    p_pack_real,         &
     &                                 p_pack_int_1d, p_pack_real_1d,      &
@@ -148,10 +149,11 @@ MODULE mo_meteogram_output
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase,    &
     &                                 iqm_max, iqni,                         &
     &                                 iqns, iqng, iqnh, iqnr, iqnc, ininact, &
-                                      iqg, iqh  
+                                      iqg, iqh
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &
     &                                 FTYPE_NETCDF, MAX_NAME_LENGTH, MAX_NUM_STATIONS
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
+  USE mo_name_list_output_types,ONLY: msg_io_meteogram_flush
   USE mo_util_phys,             ONLY: rel_hum, swdir_s
   USE mo_grid_config,           ONLY: grid_sphere_radius, is_plane_torus
   USE mo_les_config,            ONLY: les_config
@@ -171,8 +173,8 @@ MODULE mo_meteogram_output
   PUBLIC ::  meteogram_is_sample_step
   PUBLIC ::  meteogram_sample_vars
   PUBLIC ::  meteogram_finalize
+  PUBLIC ::  meteogram_flush_file
 
-  INTEGER, PARAMETER :: MAX_TIME_STAMPS      =10000  !< max. number of time stamps
   INTEGER, PARAMETER :: MAX_NVARS            =  150  !< max. number of sampled 3d vars
   INTEGER, PARAMETER :: MAX_NSFCVARS         =  150  !< max. number of sampled surface vars
   INTEGER, PARAMETER :: MAX_DESCR_LENGTH     =  128  !< length of info strings (see cf_convention)
@@ -364,6 +366,12 @@ MODULE mo_meteogram_output
     CHARACTER, ALLOCATABLE  :: msg_varlist_buffer(:)            !< MPI buffer for variable info
     INTEGER                 :: max_varlist_buf_size             !< max buffer size for var list
     INTEGER                 :: vbuf_pos
+
+    !> maximum number of time stamps stored before flush
+    INTEGER :: max_time_stamps
+    !> flush silently when time stamp buffer is exhausted or warn user?
+    LOGICAL :: silent_flush
+
     ! different roles in communication:
     LOGICAL                 :: l_is_sender, l_is_writer,         &
       &                        l_pure_io_pe, l_is_collecting_pe, &
@@ -803,6 +811,7 @@ CONTAINS
     TYPE(t_meteogram_station), POINTER :: p_station
     TYPE(t_cf_global)        , POINTER :: cf  !< meta info
     TYPE(t_gnat_tree)                  :: gnat
+    INTEGER                            :: max_time_stamps
     INTEGER                            :: io_collector_rank
 
     !-- define the different roles in the MPI communication inside
@@ -876,6 +885,10 @@ CONTAINS
 
     mtgrm(jg)%var_list%no_atmo_vars = 0
     mtgrm(jg)%var_list%no_sfc_vars  = 0
+
+    max_time_stamps = meteogram_output_config%max_time_stamps
+    mtgrm(jg)%max_time_stamps = max_time_stamps
+    mtgrm(jg)%silent_flush = meteogram_output_config%silent_flush
 
     ! set meta data (appears in NetCDF output file)
     cf => mtgrm(jg)%meteogram_file_info%cf
@@ -992,7 +1005,8 @@ CONTAINS
 
     meteogram_data%icurrent  = 0 ! reset current sample index
     meteogram_data%max_nlevs = 1
-    ALLOCATE(meteogram_data%time_stamp(MAX_TIME_STAMPS), &
+
+    ALLOCATE(meteogram_data%time_stamp(max_time_stamps), &
       &      meteogram_data%sfc_var_info(MAX_NSFCVARS),  &
       &      meteogram_data%var_info(MAX_NVARS),         &
       &      stat=ierrstat)
@@ -1120,7 +1134,7 @@ CONTAINS
           DO ivar=1,meteogram_data%nvars
             nlevs = meteogram_data%var_info(ivar)%nlevs
 
-            ALLOCATE(meteogram_data%station(jc,jb)%var(ivar)%values(nlevs, MAX_TIME_STAMPS), &
+            ALLOCATE(meteogram_data%station(jc,jb)%var(ivar)%values(nlevs, max_time_stamps), &
               &      meteogram_data%station(jc,jb)%var(ivar)%heights(nlevs),                 &
               &      stat=ierrstat)
             IF (ierrstat /= SUCCESS) &
@@ -1159,7 +1173,7 @@ CONTAINS
           IF (ierrstat /= SUCCESS) &
             CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 6)')
           DO ivar=1,meteogram_data%nsfcvars
-            ALLOCATE(meteogram_data%station(jc,jb)%sfc_var(ivar)%values(MAX_TIME_STAMPS), &
+            ALLOCATE(meteogram_data%station(jc,jb)%sfc_var(ivar)%values(max_time_stamps), &
               &      stat=ierrstat)
             IF (ierrstat /= SUCCESS) &
               CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 7)')
@@ -1213,7 +1227,7 @@ CONTAINS
 
           DO ivar=1,mtgrm(jg)%meteogram_global_data%nvars
             nlevs = meteogram_data%var_info(ivar)%nlevs
-            ALLOCATE(p_station%var(ivar)%values(nlevs, MAX_TIME_STAMPS), &
+            ALLOCATE(p_station%var(ivar)%values(nlevs, max_time_stamps), &
               &      p_station%var(ivar)%heights(nlevs),                 &
               &      stat=ierrstat)
             IF (ierrstat /= SUCCESS) &
@@ -1223,7 +1237,7 @@ CONTAINS
           IF (ierrstat /= SUCCESS) &
             CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 11)')
           DO ivar=1,mtgrm(jg)%meteogram_global_data%nsfcvars
-            ALLOCATE(p_station%sfc_var(ivar)%values(MAX_TIME_STAMPS), stat=ierrstat)
+            ALLOCATE(p_station%sfc_var(ivar)%values(max_time_stamps), stat=ierrstat)
             IF (ierrstat /= SUCCESS) &
               CALL finish (routine, 'ALLOCATE of meteogram data structures failed (part 12)')
           END DO
@@ -1250,10 +1264,10 @@ CONTAINS
     IF (.NOT. meteogram_output_config%ldistributed) THEN
       ! compute maximum buffer size for MPI messages:
       ! (max_var_size: contains also height levels)
-      max_var_size    = (MAX_TIME_STAMPS+1)*p_real_dp_byte*meteogram_data%max_nlevs
-      max_sfcvar_size = MAX_TIME_STAMPS*p_real_dp_byte
+      max_var_size    = (max_time_stamps+1)*p_real_dp_byte*meteogram_data%max_nlevs
+      max_sfcvar_size = max_time_stamps*p_real_dp_byte
       mtgrm(jg)%max_buf_size    = MAX_HEADER_SIZE*p_real_dp_byte            & ! header size
-        &               + MAX_TIME_STAMPS*(MAX_DATE_LEN+4)        & ! time stamp info
+        &               + max_time_stamps*(MAX_DATE_LEN+4)        & ! time stamp info
         &               + meteogram_data%nvars*max_var_size       &
         &               + meteogram_data%nsfcvars*max_sfcvar_size
 
@@ -1265,7 +1279,7 @@ CONTAINS
             & mtgrm(jg)%max_buf_size, "; MAX_NUM_STATIONS = ", MAX_NUM_STATIONS
           WRITE (0,*) "MAX_HEADER_SIZE         = ", MAX_HEADER_SIZE
           WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte
-          WRITE (0,*) "MAX_TIME_STAMPS         = ", MAX_TIME_STAMPS
+          WRITE (0,*) "max_time_stamps         = ", max_time_stamps
           WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
           WRITE (0,*) "meteogram_data%nvars    = ", meteogram_data%nvars
           WRITE (0,*) "max_var_size            = ", max_var_size
@@ -1280,7 +1294,7 @@ CONTAINS
           WRITE (0,*) "jg = ", jg, " : message buffer: mtgrm(jg)%max_buf_size = ", mtgrm(jg)%max_buf_size
           WRITE (0,*) "MAX_HEADER_SIZE         = ", MAX_HEADER_SIZE
           WRITE (0,*) "p_real_dp_byte          = ", p_real_dp_byte
-          WRITE (0,*) "MAX_TIME_STAMPS         = ", MAX_TIME_STAMPS
+          WRITE (0,*) "max_time_stamps         = ", max_time_stamps
           WRITE (0,*) "MAX_DATE_LEN            = ", MAX_DATE_LEN
           WRITE (0,*) "meteogram_data%nvars    = ", meteogram_data%nvars
           WRITE (0,*) "max_var_size            = ", max_var_size
@@ -1329,20 +1343,20 @@ CONTAINS
   !! @par Revision History
   !! Initial implementation  by  F. Prill, DWD (2011-08-22)
   !!
-  SUBROUTINE meteogram_sample_vars(jg, cur_step, cur_datetime, ierr)
+  SUBROUTINE meteogram_sample_vars(jg, cur_step, cur_datetime)
     INTEGER,          INTENT(IN)  :: jg           !< patch index
     INTEGER,          INTENT(IN)  :: cur_step     !< current model iteration step
     TYPE(datetime),   INTENT(IN), POINTER :: cur_datetime !< date and time of point sample
-    INTEGER,          INTENT(OUT) :: ierr         !< error code (e.g. buffer overflow)
+
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//":meteogram_sample_vars"
     INTEGER :: jb, jc, i_startidx, i_endidx, ilev, ivar,  &
-         &        i_tstep, iidx, iblk
+      &        i_tstep, iidx, iblk, max_time_stamps
     CHARACTER(len=MAX_DATETIME_STR_LEN) :: zdate
     TYPE(t_meteogram_data), POINTER :: meteogram_data
+    INTEGER :: msg(2)
 
     meteogram_data => mtgrm(jg)%meteogram_local_data
-    ierr = 0
 
     IF (dbg_level > 0) THEN
       WRITE(message_text,*) "Sampling at step=", cur_step
@@ -1350,14 +1364,26 @@ CONTAINS
     END IF
 
     ! increase time step counter
-    meteogram_data%icurrent = meteogram_data%icurrent + 1
-    i_tstep = meteogram_data%icurrent
-    IF (i_tstep > MAX_TIME_STAMPS) THEN
+    i_tstep = meteogram_data%icurrent + 1
+    max_time_stamps = mtgrm(jg)%max_time_stamps
+    IF (i_tstep > max_time_stamps) THEN
       ! buffer full
-      ierr = -1
-      RETURN
+      IF (.NOT. mtgrm(jg)%silent_flush) THEN
+        CALL message(routine, 'WARNING: Intermediate meteogram flush. &
+             &Is the sampling buffer too small?')
+      ENDIF
+      IF (.NOT. mtgrm(jg)%meteogram_file_info%ldistributed &
+           .AND. p_pe_work==0) THEN
+        msg(1) = msg_io_meteogram_flush
+        msg(2) = jg
+        CALL p_send(msg, mtgrm(jg)%process_mpi_all_collector_id, 0)
+      END IF
+
+      CALL meteogram_flush_file(jg)
+      i_tstep = meteogram_data%icurrent + 1
     END IF
 
+    meteogram_data%icurrent = i_tstep
     meteogram_data%time_stamp(i_tstep)%istep = cur_step
     CALL datetimeToPosixString(cur_datetime, zdate, "%Y%m%dT%H%M%SZ")
     meteogram_data%time_stamp(i_tstep)%zdate = TRIM(zdate)
@@ -1564,7 +1590,7 @@ CONTAINS
       &            jb, jc, i_startidx, i_endidx,         &
       &            istation, ivar, nlevs, icurrent_recv, &
       &            itime, iowner
-    INTEGER     :: istep_sndrcv(MAX_TIME_STAMPS)
+    INTEGER     :: istep_sndrcv(mtgrm(jg)%max_time_stamps)
     CHARACTER(LEN=MAX_DATE_LEN) :: zdate_sndrcv
     TYPE(t_meteogram_data),    POINTER :: meteogram_data
     TYPE(t_meteogram_station), POINTER :: p_station
@@ -1695,7 +1721,7 @@ CONTAINS
 
       ! reset buffer on sender side
       mtgrm(jg)%meteogram_local_data%icurrent  = 0
-      mtgrm(jg)%meteogram_global_data%icurrent = icurrent
+      mtgrm(jg)%meteogram_global_data%icurrent = 0
 
     END IF RECEIVER
 
@@ -1704,8 +1730,8 @@ CONTAINS
       ! pack station into buffer; send it
       DO jb=1,meteogram_data%nblks
         i_startidx = 1
-        i_endidx   = nproma
-        IF (jb == meteogram_data%nblks) i_endidx = meteogram_data%npromz
+        i_endidx   = MERGE(nproma, meteogram_data%npromz, &
+             jb /= meteogram_data%nblks)
         DO jc=i_startidx,i_endidx
 
           p_station => meteogram_data%station(jc,jb)
@@ -2125,73 +2151,76 @@ CONTAINS
       meteogram_data => mtgrm(jg)%meteogram_local_data
     ELSE
       CALL meteogram_collect_buffers(jg)
+    END IF
+
+    IF (mtgrm(jg)%l_is_writer) THEN
+
       meteogram_data => mtgrm(jg)%meteogram_global_data
-    END IF
+      nvars    = meteogram_data%nvars
+      nsfcvars = meteogram_data%nsfcvars
 
-    ! skip routine, if this PE has nothing to do...
-    IF  (.NOT. mtgrm(jg)%l_is_writer) RETURN
+      IF (dbg_level > 0) THEN
+        WRITE(message_text,*) "Meteogram"
+        CALL message(routine, TRIM(message_text))
+      END IF
 
-    nvars    = meteogram_data%nvars
-    nsfcvars = meteogram_data%nsfcvars
+      ! inquire about current number of records in file:
+      CALL nf(nf_inq_dimlen(ncfile, ncid%timeid, totaltime), modname)
 
-    IF (dbg_level > 0) THEN
-      WRITE(message_text,*) "Meteogram"
-      CALL message(routine, TRIM(message_text))
-    END IF
+      IF (dbg_level > 0) &
+           WRITE (*,*) "Writing ", meteogram_data%icurrent, " time slices to disk."
 
-    ! inquire about current number of records in file:
-    CALL nf(nf_inq_dimlen(ncfile, ncid%timeid, totaltime), modname)
+      ! write time stamp info:
+      DO itime=1,meteogram_data%icurrent
 
-    IF (dbg_level > 0) &
-      WRITE (*,*) "Writing ", meteogram_data%icurrent, " time slices to disk."
+        CALL nf(nf_put_vara_text(ncfile, ncid%dateid, (/ 1, totaltime+itime /), &
+             &                      (/ LEN(TRIM(meteogram_data%time_stamp(itime)%zdate)), 1 /), &
+             &                      TRIM(meteogram_data%time_stamp(itime)%zdate)), &
+             &                      modname)
+        CALL nf(nf_put_vara_int(ncfile, ncid%time_step, totaltime+itime, 1, &
+             &                     meteogram_data%time_stamp(itime)%istep),    &
+             &                     modname)
 
-    ! write time stamp info:
-    DO itime=1,meteogram_data%icurrent
+        ! write meteogram buffer:
+        istation = 1
+        DO jb=1,meteogram_data%nblks
+          i_startidx = 1
+          i_endidx   = nproma
+          IF (jb == meteogram_data%nblks)  &
+               &  i_endidx = meteogram_data%npromz
 
-      CALL nf(nf_put_vara_text(ncfile, ncid%dateid, (/ 1, totaltime+itime /), &
-        &                      (/ LEN(TRIM(meteogram_data%time_stamp(itime)%zdate)), 1 /), &
-        &                      TRIM(meteogram_data%time_stamp(itime)%zdate)), &
-        &                      modname)
-      CALL nf(nf_put_vara_int(ncfile, ncid%time_step, totaltime+itime, 1, &
-        &                     meteogram_data%time_stamp(itime)%istep),    &
-        &                     modname)
+          DO jc=i_startidx,i_endidx
 
-      ! write meteogram buffer:
-      istation = 1
-      DO jb=1,meteogram_data%nblks
-        i_startidx = 1
-        i_endidx   = nproma
-        IF (jb == meteogram_data%nblks)  &
-          &  i_endidx = meteogram_data%npromz
+            ! volume variables:
+            DO ivar=1,nvars
+              nlevs = meteogram_data%var_info(ivar)%nlevs
+              istart4 = (/ istation, ivar, 1, totaltime+itime /)
+              icount4 = (/ 1, 1, nlevs, 1 /)
+              CALL nf(nf_put_vara_double(ncfile, ncid%var_values,             &
+                   &     istart4, icount4,                                       &
+                   &     meteogram_data%station(jc,jb)%var(ivar)%values(1:nlevs, &
+                   &     itime)), modname )
+            END DO
+            ! surface variables:
+            DO ivar=1,nsfcvars
+              CALL nf(nf_put_vara_double(ncfile, ncid%sfcvar_values,              &
+                   &     (/ istation, ivar, totaltime+itime /),                      &
+                   &     (/ 1, 1, 1 /),                                              &
+                   &     meteogram_data%station(jc,jb)%sfc_var(ivar)%values(itime)), &
+                   &     modname)
+            END DO
 
-        DO jc=i_startidx,i_endidx
-
-          ! volume variables:
-          DO ivar=1,nvars
-            nlevs = meteogram_data%var_info(ivar)%nlevs
-            istart4 = (/ istation, ivar, 1, totaltime+itime /)
-            icount4 = (/ 1, 1, nlevs, 1 /)
-            CALL nf(nf_put_vara_double(ncfile, ncid%var_values,             &
-              &     istart4, icount4,                                       &
-              &     meteogram_data%station(jc,jb)%var(ivar)%values(1:nlevs, &
-              &     itime)), modname )
+            istation = istation + 1
           END DO
-          ! surface variables:
-          DO ivar=1,nsfcvars
-            CALL nf(nf_put_vara_double(ncfile, ncid%sfcvar_values,              &
-              &     (/ istation, ivar, totaltime+itime /),                      &
-              &     (/ 1, 1, 1 /),                                              &
-              &     meteogram_data%station(jc,jb)%sfc_var(ivar)%values(itime)), &
-              &     modname)
-          END DO
-
-          istation = istation + 1
         END DO
       END DO
-    END DO
+      CALL nf(nf_sync(ncfile), modname)
+      meteogram_data%icurrent = 0
+    END IF
+
 
     ! finally, reset buffer counter for new data
-    meteogram_data%icurrent = 0
+    mtgrm(jg)%meteogram_local_data%icurrent = 0
 
     IF (dbg_level > 5)  WRITE (*,*) routine, " Leave"
 

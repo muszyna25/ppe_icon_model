@@ -495,10 +495,7 @@ MODULE mo_nh_stepping
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
         & p_patch(jg)%ldom_active  .AND. &
         & meteogram_is_sample_step( meteogram_output_config(jg), 0 ) ) THEN
-        CALL meteogram_sample_vars(jg, 0, time_config%tc_startdate, ierr)
-        IF (ierr /= SUCCESS) THEN
-          CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
-        ENDIF
+        CALL meteogram_sample_vars(jg, 0, time_config%tc_startdate)
       END IF
     END DO
 
@@ -1130,10 +1127,7 @@ MODULE mo_nh_stepping
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
         & p_patch(jg)%ldom_active  .AND. .NOT. (jstep == 0 .AND. iau_iter == 2) .AND. &
         & meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
-        CALL meteogram_sample_vars(jg, jstep, mtime_current, ierr)
-        IF (ierr /= SUCCESS) THEN
-          CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
-        ENDIF
+        CALL meteogram_sample_vars(jg, jstep, mtime_current)
       END IF
     END DO
 

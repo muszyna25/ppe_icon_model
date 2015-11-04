@@ -23,14 +23,14 @@ MODULE mo_meteogram_config
   INTEGER, PARAMETER :: MAX_NAME_LENGTH      =   48  !<  max. name string length   
   INTEGER, PARAMETER :: MAX_NUM_STATIONS     =   60  !<  max. number of meteogram locations (global)
                                                      ! NOTE: MAX_NUM_STATIONS=80 did not work with Intel and GCC.
-                                                     ! Reading the meteogram namelist from the restart file 
+                                                     ! Reading the meteogram namelist from the restart file
                                                      ! resulted in END OF FILE error in mo_mtgrm_nml.
   INTEGER, PARAMETER :: FTYPE_NETCDF         =    1
   INTEGER, PARAMETER :: MAX_NVARS            =  120  ! max. no. of meteogram variables
 
 
   !--------------------------------------------------------------------------
-  ! Derived type 
+  ! Derived type
   !--------------------------------------------------------------------------
 
   !>
@@ -46,7 +46,7 @@ MODULE mo_meteogram_config
   !!
   TYPE t_meteogram_output_config
     LOGICAL                        :: lenabled     !< Flag. True for output.
-    CHARACTER(len=MAX_NAME_LENGTH) :: zprefix      !< file prefix string    
+    CHARACTER(len=MAX_NAME_LENGTH) :: zprefix      !< file prefix string
     INTEGER                        :: ftype        !< file type (NetCDF, ...)
     LOGICAL                        :: ldistributed !< Flag. Separate files for each PE
 
@@ -56,6 +56,11 @@ MODULE mo_meteogram_config
     ! activate output of some selected tile specific fields
     LOGICAL                        :: loutput_tiles
   
+    !> maximal number of steps retained until flush
+    INTEGER                        :: max_time_stamps
+    !> warn user about (synchronizing) flush?
+    LOGICAL                        :: silent_flush
+
     ! Specification of meteogram stations.
     ! Note: This info is the same for all patches.
     INTEGER                           :: nstations

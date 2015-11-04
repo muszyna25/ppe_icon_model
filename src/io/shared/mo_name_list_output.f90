@@ -110,8 +110,9 @@ MODULE mo_name_list_output
   USE mo_name_list_output_config,   ONLY: use_async_name_list_io
   ! data types
   USE mo_var_metadata_types,        ONLY: t_var_metadata, POST_OP_SCALE, POST_OP_LUC
-  USE mo_name_list_output_types,    ONLY: t_output_file, t_reorder_info,                            &
-  &                                       msg_io_start, msg_io_done, msg_io_shutdown, all_events
+  USE mo_name_list_output_types,    ONLY: t_output_file, t_reorder_info, &
+       msg_io_start, msg_io_done, msg_io_meteogram_flush, msg_io_shutdown, &
+       all_events
   USE mo_output_event_types,        ONLY: t_sim_step_info, t_par_output_event
   ! parallelization
   USE mo_communication,             ONLY: exchange_data, t_comm_gather_pattern, idx_no, blk_no,     &
@@ -152,7 +153,8 @@ MODULE mo_name_list_output
 
 #ifndef __NO_ICON_ATMO__
   USE mo_post_op,                   ONLY: perform_post_op
-  USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize
+  USE mo_meteogram_output,          ONLY: meteogram_init, meteogram_finalize, &
+       meteogram_flush_file
   USE mo_meteogram_config,          ONLY: meteogram_output_config
   USE mo_intp_data_strc,            ONLY: lonlat_grid_list
 #endif
@@ -541,8 +543,8 @@ CONTAINS
       IF (list_idx == -1) THEN
         noutput_pe_list = noutput_pe_list + 1
         list_idx   = noutput_pe_list
+        output_pe_list(list_idx) = output_file(i)%io_proc_id
       END IF
-      output_pe_list(list_idx) = output_file(i)%io_proc_id
 
       ! -------------------------------------------------
       ! hand-shake protocol: step finished!
@@ -706,7 +708,6 @@ CONTAINS
       &       my_process_is_mpi_workroot()) THEN
       CALL MPI_Win_lock(MPI_LOCK_EXCLUSIVE, p_pe_work, MPI_MODE_NOCHECK, of%mem_win%mpi_win_metainfo, mpierr)
     END IF
-#endif
 
     DO iv = 1, of%num_vars
       ! Note that we provide the pointer "info_ptr" to the variable's
@@ -715,7 +716,6 @@ CONTAINS
       CALL metainfo_write_to_memwin(of%mem_win, iv, info)
     END DO
 
-#ifndef NOMPI
     ! In case of async IO: Done writing to memory window, unlock it
     IF (      use_async_name_list_io   .AND.  &
       & .NOT. my_process_is_mpi_test() .AND.  &
@@ -1330,6 +1330,8 @@ CONTAINS
         IF (ALLOCATED(r_out_dp))  DEALLOCATE(r_out_dp)
         IF (ALLOCATED(r_out_recv)) DEALLOCATE(r_out_recv)
 
+#ifndef NOMPI
+
       ELSE
 
         ! ------------------------
@@ -1452,6 +1454,8 @@ CONTAINS
           ioff = ioff + INT(p_ri%n_own,i8)
         END DO ! nlevs
 
+#endif
+
       END IF
 
       ! clean up
@@ -1525,9 +1529,9 @@ CONTAINS
     ! local variables:
 
 #ifndef __NO_ICON_ATMO__
-    LOGICAL             :: done, l_complete, lhas_output, &
+    LOGICAL             :: l_complete, lhas_output, &
       &                    lset_timers_for_idle_pe
-    INTEGER             :: jg, jstep, i
+    INTEGER             :: jg, jstep, i, action
     TYPE(t_par_output_event), POINTER :: ev
 
     ! define initial time stamp used as reference for output statistics
@@ -1568,52 +1572,57 @@ CONTAINS
       IF (ALL(output_file(:)%io_proc_id /= p_pe)) EXIT
 
       ! Wait for a message from the compute PEs to start
-      CALL async_io_wait_for_start(done, jstep)
-      IF(done) EXIT ! leave loop, we are done
+      CALL async_io_wait_for_start(action, jstep)
 
-      ! perform I/O
-      CALL write_name_list_output(jstep, opt_lhas_output=lhas_output)
+      IF(action == msg_io_shutdown) EXIT ! leave loop, we are done
 
-      ! Inform compute PEs that we are done, if this I/O PE has
-      ! written output:
-      IF (lhas_output)  CALL async_io_send_handshake(jstep)
+      IF (action == msg_io_start) THEN
+        ! perform I/O
+        CALL write_name_list_output(jstep, opt_lhas_output=lhas_output)
 
-      ! Handle final pending "output step completed" messages: After
-      ! all participating I/O PE's have acknowledged the completion of
-      ! their write processes, we trigger a "ready file" on the first
-      ! I/O PE.
-      IF (.NOT.my_process_is_mpi_test()  .AND.  &
-        & use_async_name_list_io .AND. my_process_is_mpi_ioroot()) THEN
+        ! Inform compute PEs that we are done, if this I/O PE has
+        ! written output:
+        IF (lhas_output)  CALL async_io_send_handshake(jstep)
 
-        ! Go over all output files
-        l_complete = .TRUE.
-        OUTFILE_LOOP : DO i=1,SIZE(output_file)
-          l_complete = l_complete .AND. is_output_event_finished(output_file(i)%out_event)
-        END DO OUTFILE_LOOP
+        ! Handle final pending "output step completed" messages: After
+        ! all participating I/O PE's have acknowledged the completion of
+        ! their write processes, we trigger a "ready file" on the first
+        ! I/O PE.
+        IF (.NOT.my_process_is_mpi_test()  .AND.  &
+             & use_async_name_list_io .AND. my_process_is_mpi_ioroot()) THEN
 
-        IF (l_complete) THEN
-          IF (ldebug)   WRITE (0,*) p_pe, ": wait for fellow I/O PEs..."
-          WAIT_FINAL : DO
-            CALL blocking_wait_for_irecvs(all_events)
-            ev => all_events
-            l_complete = .TRUE.
-            HANDLE_COMPLETE_STEPS : DO
-              IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+          ! Go over all output files
+          l_complete = .TRUE.
+          OUTFILE_LOOP : DO i=1,SIZE(output_file)
+            l_complete = l_complete .AND. is_output_event_finished(output_file(i)%out_event)
+          END DO OUTFILE_LOOP
 
-              !--- write ready file
-              IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
-              IF (.NOT. is_output_event_finished(ev)) THEN
-                l_complete = .FALSE.
-                IF (is_output_step_complete(ev)) THEN
-                  CALL trigger_output_step_irecv(ev)
+          IF (l_complete) THEN
+            IF (ldebug)   WRITE (0,*) p_pe, ": wait for fellow I/O PEs..."
+            WAIT_FINAL : DO
+              CALL blocking_wait_for_irecvs(all_events)
+              ev => all_events
+              l_complete = .TRUE.
+              HANDLE_COMPLETE_STEPS : DO
+                IF (.NOT. ASSOCIATED(ev)) EXIT HANDLE_COMPLETE_STEPS
+
+                !--- write ready file
+                IF (check_write_readyfile(ev%output_event))  CALL write_ready_file(ev)
+                IF (.NOT. is_output_event_finished(ev)) THEN
+                  l_complete = .FALSE.
+                  IF (is_output_step_complete(ev)) THEN
+                    CALL trigger_output_step_irecv(ev)
+                  END IF
                 END IF
-              END IF
-              ev => ev%next
-            END DO HANDLE_COMPLETE_STEPS
-            IF (l_complete) EXIT WAIT_FINAL
-          END DO WAIT_FINAL
-          IF (ldebug)  WRITE (0,*) p_pe, ": Finalization sequence"
+                ev => ev%next
+              END DO HANDLE_COMPLETE_STEPS
+              IF (l_complete) EXIT WAIT_FINAL
+            END DO WAIT_FINAL
+            IF (ldebug)  WRITE (0,*) p_pe, ": Finalization sequence"
+          END IF
         END IF
+      ELSE IF (action == msg_io_meteogram_flush) THEN
+        CALL meteogram_flush_file(jstep)
       END IF
 
     ENDDO
@@ -2099,15 +2108,14 @@ CONTAINS
   !  compute_start_async_io/compute_shutdown_async_io
   !
 #ifndef NOMPI
-  SUBROUTINE async_io_wait_for_start(done, jstep)
-    LOGICAL, INTENT(OUT)          :: done ! flag if we should shut down
+  SUBROUTINE async_io_wait_for_start(action, jstep)
+    INTEGER, INTENT(OUT)          :: action ! pass on what to do
     INTEGER, INTENT(OUT)          :: jstep
     ! local variables
-    REAL(wp) :: msg(2)
+    INTEGER :: msg(2)
     TYPE(t_par_output_event), POINTER :: ev
 
     ! Set output parameters to default values
-    done  = .FALSE.
     jstep = -1
 
     ! Receive message that we may start I/O (or should finish)
@@ -2145,15 +2153,17 @@ CONTAINS
 
     CALL p_wait()
 
-    SELECT CASE(INT(msg(1)))
+    SELECT CASE(msg(1))
     CASE(msg_io_start)
-      jstep = INT(msg(2))
+      jstep = msg(2)
+    CASE(msg_io_meteogram_flush)
+      jstep = msg(2)
     CASE(msg_io_shutdown)
-      done = .TRUE.
     CASE DEFAULT
       ! Anything else is an error
       CALL finish(modname, 'I/O PE: Got illegal I/O tag')
     END SELECT
+    action = msg(1)
   END SUBROUTINE async_io_wait_for_start
 #endif
 
@@ -2228,13 +2238,13 @@ CONTAINS
     INTEGER, INTENT(IN)          :: jstep
     INTEGER, INTENT(IN)          :: output_pe_list(:), noutput_pe_list
     ! local variables
-    REAL(wp) :: msg(2)
+    INTEGER :: msg(2)
     INTEGER  :: i
 
     IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": compute_start_async_io, jstep = ",jstep
     CALL p_barrier(comm=p_comm_work) ! make sure all are here
-    msg(1) = REAL(msg_io_start,    wp)
-    msg(2) = REAL(jstep,           wp)
+    msg(1) = msg_io_start
+    msg(2) = jstep
 
     IF(p_pe_work==0) THEN
 
@@ -2258,14 +2268,14 @@ CONTAINS
   !
 #ifndef NOMPI
   SUBROUTINE compute_shutdown_async_io
-    REAL(wp) :: msg(2)
+    INTEGER :: msg(2)
     INTEGER  :: pe, i, ierror
 
     IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": compute_shutdown_async_io."
     CALL p_barrier(comm=p_comm_work) ! make sure all are here
     IF (ldebug)  WRITE (0,*) "pe ", p_pe, ": compute_shutdown_async_io barrier done."
-    msg(1) = REAL(msg_io_shutdown, wp)
-    msg(2:) = 0._wp
+    msg(1) = msg_io_shutdown
+    msg(2) = 0
     ! tell all I/O PEs about the shutdown
     IF(p_pe_work==0) THEN
       DO pe = p_io_pe0, (p_io_pe0+num_io_procs-1)

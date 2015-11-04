@@ -42,28 +42,6 @@ MODULE mo_meteogram_nml
     CHARACTER (LEN=48)    :: zname
   END TYPE t_list_of_stations
 
-  LOGICAL                         :: lmeteogram_enabled(max_dom)  !> Flag. True, if meteogram output is enabled
-  CHARACTER (len=MAX_NAME_LENGTH) :: zprefix(max_dom)         !> string with file name prefix for output file
-  INTEGER                         :: ftype(max_dom)           !< file type (NetCDF, ...)
-  LOGICAL                         :: ldistributed(max_dom)    !< Flag. Separate files for each PE
-  INTEGER                         :: n0_mtgrm(max_dom)        !> intitial time step for meteogram output
-  INTEGER                         :: ninc_mtgrm(max_dom)      !> output interval (in time steps)
-  LOGICAL                         :: loutput_tiles            !> activate tile specific output
-
-  ! same for all patches:
-  TYPE(t_list_of_stations) :: stationlist_tot(MAX_NUM_STATIONS)   !> list of meteogram stations
-
-  ! Positive-list of variables (optional). Only variables contained in
-  ! this list are included in this meteogram. If the default list is
-  ! not changed by user input, then all available variables are added
-  ! to the meteogram
-  CHARACTER(len=MAX_NAME_LENGTH)    :: var_list(MAX_NVARS)
-
-  !> Namelist for meteogram output
-  NAMELIST/meteogram_output_nml/ lmeteogram_enabled, zprefix, ldistributed,            &
-    &                            loutput_tiles, n0_mtgrm, ninc_mtgrm, stationlist_tot, &
-    &                            var_list
-
 CONTAINS
   !>
   !! Read Namelist for meteogram output.
@@ -91,6 +69,34 @@ CONTAINS
       &                               jb, jc, nblks, npromz, nstations, idx
     INTEGER                        :: iunit
 
+    LOGICAL                         :: lmeteogram_enabled(max_dom)  !> Flag. True, if meteogram output is enabled
+    CHARACTER (len=MAX_NAME_LENGTH) :: zprefix(max_dom)         !> string with file name prefix for output file
+    INTEGER                         :: ftype(max_dom)           !< file type (NetCDF, ...)
+    LOGICAL                         :: ldistributed(max_dom)    !< Flag. Separate files for each PE
+    INTEGER                         :: n0_mtgrm(max_dom)        !> intitial time step for meteogram output
+    INTEGER                         :: ninc_mtgrm(max_dom)      !> output interval (in time steps)
+    LOGICAL                         :: loutput_tiles            !> activate tile specific output
+
+    ! same for all patches:
+    !> list of meteogram stations
+    TYPE(t_list_of_stations) :: stationlist_tot(MAX_NUM_STATIONS)
+
+    ! Positive-list of variables (optional). Only variables contained in
+    ! this list are included in this meteogram. If the default list is
+    ! not changed by user input, then all available variables are added
+    ! to the meteogram
+    CHARACTER(len=MAX_NAME_LENGTH)    :: var_list(MAX_NVARS)
+
+    !> maximum number of time stamps stored before flush
+    INTEGER :: max_time_stamps(max_dom)
+    !> flush silently when time stamp buffer is exhausted or warn user?
+    LOGICAL :: silent_flush(max_dom)
+
+    !> Namelist for meteogram output
+    NAMELIST/meteogram_output_nml/ lmeteogram_enabled, zprefix, ldistributed,            &
+         &                         loutput_tiles, n0_mtgrm, ninc_mtgrm, stationlist_tot, &
+         &                         var_list, max_time_stamps, silent_flush
+
     !-----------------------
     ! 1. default settings
     !-----------------------
@@ -112,6 +118,9 @@ CONTAINS
     stationlist_tot(1)%zname = "Hamburg"
     stationlist_tot(1)%lon   = 53.633_wp
     stationlist_tot(1)%lat   =  9.983_wp
+
+    max_time_stamps          = 10000
+    silent_flush             = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
@@ -171,10 +180,13 @@ CONTAINS
       meteogram_output_config(idom)%nstations    = nstations
       meteogram_output_config(idom)%var_list     = var_list
 
+      meteogram_output_config(idom)%max_time_stamps = max_time_stamps(idom)
+      meteogram_output_config(idom)%silent_flush = silent_flush(idom)
+
       nblks   = nstations/nproma + 1
       npromz  = nstations - nproma*(nblks-1)
       meteogram_output_config(idom)%nblks   = nblks
-      meteogram_output_config(idom)%npromz  = npromz 
+      meteogram_output_config(idom)%npromz  = npromz
 
       ALLOCATE(meteogram_output_config(idom)%station_list(nproma,nblks))
 
@@ -199,7 +211,7 @@ CONTAINS
     ! consistency check
     idx = 0
     DO idom=1,max_dom
-      IF (meteogram_output_config(idom)%lenabled) THEN 
+      IF (meteogram_output_config(idom)%lenabled) THEN
         idx = idom
         EXIT
       END IF
