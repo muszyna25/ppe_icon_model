@@ -14,7 +14,7 @@
 !!
 !!
 !----------------------------
-!#include "omp_definitions.inc"
+#include "omp_definitions.inc"
 !----------------------------
 
 MODULE mo_ice_fem_utils
@@ -459,29 +459,37 @@ CONTAINS
     iibc => p_patch%edges%cell_blk
 
     ! loop through all patch edges (and blocks)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,je,jk,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+
       CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
 
-#ifdef __SX__
+#ifdef __LOOP_EXCHANGE
+      DO je = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
 !CDIR UNROLL=6
-#endif
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
+#endif
           !
           ! compute the first order upwind flux; notice
           ! that multiplication by edge length is avoided to
           ! compute final conservative update using the discrete
           ! div operator
-          IF ( p_patch_3D%lsm_e(je,1,jb) <= sea_boundary ) THEN
+!          IF ( p_patch_3D%lsm_e(je,1,jb) <= sea_boundary ) THEN
             pupflux_e(je,jk,jb) =  &
             &  laxfr_upflux( pvn_e(je,jb), pvar_c(iilc(je,jb,1),jk,iibc(je,jb,1)), &
             &                                 pvar_c(iilc(je,jb,2),jk,iibc(je,jb,2)) )
-          ELSE
-            pupflux_e(je,jk,jb) = 0.0_wp
-          ENDIF
+!          ELSE
+!            pupflux_e(je,jk,jb) = 0.0_wp
+!          ENDIF
         END DO  ! end loop over edges
       END DO  ! end loop over levels
     END DO  ! end loop over blocks
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
   END SUBROUTINE upwind_hflux_ice
 
