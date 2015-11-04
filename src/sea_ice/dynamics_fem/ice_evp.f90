@@ -147,6 +147,7 @@ REAL(wp) :: cluster_area,elevation_elem(3)
 REAL(wp) :: dx(3), dy(3), meancos, val3
 
 val3=1._wp/3.0_wp
+!ICON_OMP_PARALLEL_DO PRIVATE(i,row) ICON_OMP_DEFAULT_SCHEDULE
  DO i=1, myDim_nod2D
      row=myList_nod2D(i) 
      rhs_u(row)=0.0_wp
@@ -154,7 +155,10 @@ val3=1._wp/3.0_wp
      rhs_a(row)=0.0_wp    ! these are used as temporal storage here
      rhs_m(row)=0.0_wp    ! for the contribution due to ssh
  END DO
- 
+!ICON_OMP_END_PARALLEL_DO
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy,meancos,elevation_elem,&
+!ICON_OMP       k,row) ICON_OMP_DEFAULT_SCHEDULE
  do i=1,myDim_elem2D
      elem=myList_elem2D(i)    
      elnodes=elem2D_nodes(:,elem)
@@ -185,7 +189,9 @@ val3=1._wp/3.0_wp
         rhs_m(row)=rhs_m(row)-aa*sum(dy*elevation_elem)
      END DO     
  end do 
+!ICON_OMP_END_PARALLEL_DO
 
+!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
   DO i=1, myDim_nod2D
      row=myList_nod2D(i)             
      cluster_area=lmass_matrix(row)
@@ -198,7 +204,8 @@ val3=1._wp/3.0_wp
      rhs_u(row)=0._wp
      rhs_v(row)=0._wp
      end if
-  END DO 
+  END DO
+!ICON_OMP_END_PARALLEL_DO
   
 end subroutine stress2rhs
 !===================================================================
