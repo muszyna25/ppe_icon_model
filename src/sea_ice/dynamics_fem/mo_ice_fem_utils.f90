@@ -277,6 +277,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed by Einar Olason, MPI-M (2013-06-05)
+  !! Modified by Vladimir Lapin, MPI-M (2015-11-04)
   !
   SUBROUTINE init_fem_wgts(p_patch_3D)
     TYPE(t_patch_3D), TARGET, INTENT(IN)    :: p_patch_3D
@@ -318,50 +319,19 @@ CONTAINS
     !
     ! loop through all patch edges
     !
-    BLK_LOOP: DO jb =  p_patch%verts%in_domain%start_block, p_patch%verts%in_domain%end_block
- 
-      CALL get_index_range(p_patch%verts%in_domain, jb, i_startidx_v, i_endidx_v)
- 
-      IDX_LOOP: DO jv =  i_startidx_v, i_endidx_v
- 
-!        rdeno =  1._wp/MAX( TINY(rdeno),                                &
-!          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
-!          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) +     &
-!          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
-!          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) +     &
-!          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
-!          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) +     &
-!          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
-!          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) +     &
-!          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
-!          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) +     &
-!          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
-!          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) )
-!
-!        c2v_wgt(jv,1,jb) =                              &
-!          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
-!          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) * rdeno
-!        c2v_wgt(jv,2,jb) =                              &
-!          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
-!          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) * rdeno
-!        c2v_wgt(jv,3,jb) =                              &
-!          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
-!          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) * rdeno
-!        c2v_wgt(jv,4,jb) =                              &
-!          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
-!          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) * rdeno
-!        c2v_wgt(jv,5,jb) =                              &
-!          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
-!          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) * rdeno
-!        c2v_wgt(jv,6,jb) =                              &
-!          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
-!          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) * rdeno
+!ICON_OMP_PARALLEL_DO PRIVATE(jb,i_startidx_v,i_endidx_v,jv,ji,rsum,     &
+!ICON_OMP        rdeno,cell_index,cell_block) ICON_OMP_DEFAULT_SCHEDULE
+  DO jb =  p_patch%verts%in_domain%start_block, p_patch%verts%in_domain%end_block
+    CALL get_index_range(p_patch%verts%in_domain, jb, i_startidx_v, i_endidx_v)
 
-   !    first test of bugfix when finding pentagon - cell_index or cell_block returns 0
-   !     -> this code leads to other error in CELLS2VERTS_SCALAR
+    DO jv =  i_startidx_v, i_endidx_v
+
         rsum = 0.0_wp
 
         DO ji = 1, 6
+    !    in case of pentagons and boundary nodes:
+    !    cell_index = 0 when use_duplicated_connectivity = .false. (always the case for the ocean)
+    !    cell_index = dummy values (duplicates) when use_duplicated_connectivity = .true.
           cell_index = iidx(jv,jb,ji)
           cell_block = iblk(jv,jb,ji)
           IF (cell_index > 0)                                      &
@@ -383,9 +353,10 @@ CONTAINS
 
         ENDDO
 
-      ENDDO  IDX_LOOP
+      ENDDO
  
-    ENDDO BLK_LOOP
+    ENDDO
+!ICON_OMP_END_PARALLEL_DO
 
     CALL message (TRIM(routine), 'end')        
 
