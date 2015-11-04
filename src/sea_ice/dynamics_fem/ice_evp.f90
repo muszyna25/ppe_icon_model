@@ -28,7 +28,7 @@ subroutine stress_tensor
 
 implicit none
 
-REAL(wp)   :: eps11, eps12, eps22, eta, xi, pressure, delta, aa
+REAL(wp)   :: eps11, eps12, eps22, pressure, delta, aa
 integer        :: elem, elnodes(3),i
 REAL(wp)   :: val3, asum, msum, vale, dx(3), dy(3)
 REAL(wp)   :: det1, det2, r1, r2, r3, si1, si2, dte 
@@ -48,6 +48,9 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
   det1=1.0_wp/det1
   det2=1.0_wp/det2
   
+!ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy,meancos, usum, vsum,  &
+!ICON_OMP       eps11,eps12,eps22,delta,msum,asum,pressure,delta_inv,zeta,  &
+!ICON_OMP       r1, r2, r3, si1, si2) ICON_OMP_DEFAULT_SCHEDULE
   do i=1,myDim_elem2D
      elem=myList_elem2D(i)     
      elnodes=elem2D_nodes(:,elem)
@@ -117,6 +120,7 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
      sigma11(elem)=0.5_wp*(si1+si2)
      sigma22(elem)=0.5_wp*(si1-si2)
     end do
+!ICON_OMP_END_PARALLEL_DO
    
 end subroutine stress_tensor
 
