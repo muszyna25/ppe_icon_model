@@ -335,7 +335,7 @@ CONTAINS
           &             p_lnd_state(1:) )
         IF (timers_level > 5) CALL timer_stop(timer_init_icon)
 
-      ELSE IF (iforcing == iecham) THEN
+      ELSE
 
         ! Initialize the atmosphere only
 
