@@ -35,7 +35,7 @@ MODULE mo_icon_to_fem_interpolation
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, cc_norm, gvec2cvec, cvec2gvec
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
-  USE mo_impl_constants,      ONLY: sea_boundary
+  USE mo_impl_constants,      ONLY: sea_boundary, boundary
 
 
   IMPLICIT NONE
@@ -180,7 +180,7 @@ CONTAINS
     DO jb = all_verts%start_block, all_verts%end_block
       CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
       DO jv = i_startidx_v, i_endidx_v
-!        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb)<=sea_boundary)THEN
+!        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb)<=boundary)THEN
         ! Intrinsic function matmul not applied, due to poor performance.
         ! Instead the intrinsic dot product function is applied
 !          tmp3 = MATMUL( rot_mat_3D(:,:), &
@@ -231,7 +231,7 @@ CONTAINS
       CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
       DO jv = i_startidx_v, i_endidx_v
         jk=jk+1
-!        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb)<=sea_boundary)THEN
+!        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb)<=boundary)THEN
           CALL cvec2gvec(cvec(jv,jb)%x(1), cvec(jv,jb)%x(2), cvec(jv,jb)%x(3), &
                        & coord_nod2D(1,jk), coord_nod2D(2,jk), & ! lon, lat
                        & gvec_u(jk), gvec_v(jk))
@@ -276,7 +276,7 @@ CONTAINS
       CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
       DO jv = i_startidx_v, i_endidx_v
         jk=jk+1
-!        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb)<=sea_boundary)THEN
+!        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb)<=boundary)THEN
           CALL gvec2cvec(  gvec_u(jk), gvec_v(jk),                   &
                          & coord_nod2D(1,jk), coord_nod2D(2,jk), & ! lon, lat
                          & cvec(jv,jb)%x(1), cvec(jv,jb)%x(2), cvec(jv,jb)%x(3) )

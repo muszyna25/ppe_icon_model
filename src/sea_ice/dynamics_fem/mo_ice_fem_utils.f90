@@ -1544,7 +1544,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: p_vn_dual(nproma,p_patch_3D%p_patch_2D(1)%nblks_v)
     TYPE(t_cartesian_coordinates) :: &
       & p_vn_c_3D(nproma,1,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp) :: tmp3(3)
+!    REAL(wp) :: tmp3(3)
     REAL(wp) :: lat, lon
 
 !--------------------------------------------------------------------------------------------------
@@ -1600,10 +1600,10 @@ CONTAINS
 !                         & lon, lat,                              &
 !                         & tmp3(1), tmp3(2), tmp3(3) )
 !          ! Rotate the vectors onto the rotated grid
-!          p_vn_dual_fem(jv,jb)%x = MATMUL( TRANSPOSE(rot_mat_3D(:,:)), &
+!          p_vn_dual(jv,jb)%x = MATMUL( TRANSPOSE(rot_mat_3D(:,:)), &
 !                                    & (/ tmp3(1), tmp3(2), tmp3(3) /) )
 !        ELSE
-!          p_vn_dual_fem(jv,jb)%x(:) = 0.0_wp
+!          p_vn_dual(jv,jb)%x(:) = 0.0_wp
 !        ENDIF
 !      END DO
 !    END DO
