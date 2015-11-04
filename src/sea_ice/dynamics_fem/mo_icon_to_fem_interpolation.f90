@@ -68,7 +68,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed by Vladimir Lapin, MPI-M (2015-10-13)
-  !
+  !<Optimize:inUse>
   SUBROUTINE gvec2cvec_c_2d(patch_3d, gvec_u, gvec_v, cvec)
 
     TYPE(t_patch_3d),TARGET, INTENT(in)       :: patch_3d
@@ -104,6 +104,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
   END SUBROUTINE gvec2cvec_c_2d
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !
@@ -111,7 +112,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed by Vladimir Lapin, MPI-M (2015-10-13)
-  !
+  !<Optimize:inUse>
   SUBROUTINE cvec2gvec_c_2d(patch_3d, cvec, gvec_u, gvec_v)
 
     TYPE(t_patch_3d),TARGET, INTENT(in)       :: patch_3d
@@ -149,6 +150,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
   END SUBROUTINE cvec2gvec_c_2d
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !
@@ -156,7 +158,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed by Vladimir Lapin, MPI-M (2015-10-25)
-  !
+  !<Optimize:inUse>
   SUBROUTINE rotate_cvec_v(patch_3d, cvec_in, rot_mat_3D, cvec_out)
 
     TYPE(t_patch_3d),TARGET, INTENT(in)       :: patch_3d
@@ -198,6 +200,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
   END SUBROUTINE rotate_cvec_v
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !
@@ -243,6 +246,7 @@ CONTAINS
     END DO
 
   END SUBROUTINE cvec2gvec_v_fem
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !
@@ -287,6 +291,7 @@ CONTAINS
     END DO
 
   END SUBROUTINE gvec2cvec_v_fem
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !
@@ -297,7 +302,7 @@ CONTAINS
   !! @par Revision History
   !! Developed by Einar Olason, MPI-M (2013-08-05)
   !! Modified by Vladimir Lapin, MPI-M (2015-10-13)
-  !
+  !<Optimize:inUse>
   SUBROUTINE map_edges2verts(patch_3d, vn, edge2vert_coeff_cc, p_vn_dual)
 
     TYPE(t_patch_3d),TARGET, INTENT(in)       :: patch_3d
@@ -351,8 +356,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
   END SUBROUTINE map_edges2verts
-
-!--------------------------------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !
@@ -361,7 +365,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed by Vladimir Lapin, MPI-M (2015-08-13)
-  !
+  !<Optimize:inUse>
   SUBROUTINE map_verts2edges(p_patch_3D, p_vn_dual, edge2vert_coeff_cc_t, vn)
 
     TYPE(t_patch_3D), TARGET, INTENT(in)     :: p_patch_3D
@@ -420,6 +424,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
   END SUBROUTINE map_verts2edges
+  !-------------------------------------------------------------------------
 
 !------------------------------------------------------------------------
 !------------------------------------------------------------------------

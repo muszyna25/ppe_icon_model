@@ -278,7 +278,7 @@ CONTAINS
   !! @par Revision History
   !! Developed by Einar Olason, MPI-M (2013-06-05)
   !! Modified by Vladimir Lapin, MPI-M (2015-11-04)
-  !
+  !<Optimize:inUse>
   SUBROUTINE init_fem_wgts(p_patch_3D)
     TYPE(t_patch_3D), TARGET, INTENT(IN)    :: p_patch_3D
 
@@ -361,6 +361,7 @@ CONTAINS
     CALL message (TRIM(routine), 'end')        
 
   END SUBROUTINE init_fem_wgts
+  !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !
@@ -1195,7 +1196,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Developed by Einar Olason, MPI-M (2013-06-05)
-  !
+  !<Optimize:inUse>
   SUBROUTINE ice_ocean_stress( p_patch, atmos_fluxes, p_ice, p_os )
     use mo_physical_constants,  ONLY:  rho_ref, Cd_io
     TYPE(t_patch), TARGET,    INTENT(IN)    :: p_patch
