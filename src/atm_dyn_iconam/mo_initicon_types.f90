@@ -121,10 +121,9 @@ MODULE mo_initicon_types
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: z_ifc, z_mc
 
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE, DIMENSION(:)    :: grp_vars_fg, grp_vars_ana
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE, DIMENSION(:)    :: grp_vars_fg_default, grp_vars_ana_default
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE, DIMENSION(:)    :: grp_vars_fg, grp_vars_ana, grp_vars_ana_mandatory
 
-    INTEGER :: ngrp_vars_fg, ngrp_vars_ana, ngrp_vars_fg_default, ngrp_vars_ana_default
+    INTEGER :: ngrp_vars_fg, ngrp_vars_ana, ngrp_vars_ana_mandatory
 
     TYPE (t_pi_atm_in)     :: atm_in
     TYPE (t_pi_sfc_in)     :: sfc_in

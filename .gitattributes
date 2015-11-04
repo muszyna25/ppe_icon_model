@@ -285,7 +285,6 @@ doc/userguide/pictures/vorticity_16-o.png -text
 doc/userguide/style/chicago_lmdocu.bst -text
 doc/userguide/style/icon_docu_style.cls -text
 doc/userguide/style/pageformatting_toc.tex -text
-include/cdi.inc -text
 lapack/CMakeLists.txt -text
 lapack/dbbcsd.f -text
 lapack/dbdsdc.f -text
@@ -877,6 +876,7 @@ run/exp.nh_rce -text
 run/exp.nh_rico -text
 run/exp.nh_rico_edmf -text
 run/exp.nh_weisman_klemp -text
+run/exp.nwp_R02B04N06multi2 -text
 run/exp.ocean_omip_long -text
 run/exp.ocean_omip_technical -text
 run/exp.ozon -text
@@ -890,6 +890,7 @@ run/exp.test_nat_rce_cbl_120km_nwp -text
 run/exp.test_nh_hdcp2_lam_r15000_modified -text
 run/exp.test_nh_moist_cbl -text
 run/exp.test_nwp_R02B04N06multi -text
+run/exp.test_nwp_R02B04N06multi2 -text
 run/exp.test_nwp_R02B04_R02B05_nest -text
 run/exp.test_oce_testbed_read -text
 run/exp.test_ocean_omip_10days -text
@@ -1801,6 +1802,7 @@ src/sea_ice/thermodyn/mo_sea_ice_zerolayer.f90 -text
 src/shared/mo_action.f90 -text
 src/shared/mo_action_types.f90 -text
 src/shared/mo_cdi_constants.f90 -text
+src/shared/mo_checksum.f90 -text
 src/shared/mo_datetime.f90 -text
 src/shared/mo_dictionary.f90 -text
 src/shared/mo_event_manager.f90 -text
