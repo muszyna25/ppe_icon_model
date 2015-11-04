@@ -239,6 +239,7 @@ REAL(wp)    :: ax, ay
     ay=sin(theta_io)
 do shortstep=1, steps 
  ! ===== Boundary conditions
+!ICON_OMP_PARALLEL_DO PRIVATE(j,i) ICON_OMP_DEFAULT_SCHEDULE
  do j=1, myDim_nod2D+eDim_nod2D   
     i=myList_nod2D(j) 
     if(index_nod2D(i)==1) then
@@ -246,6 +247,7 @@ do shortstep=1, steps
     v_ice(i)=0.0_wp
     end if
  end do  
+!ICON_OMP_END_PARALLEL_DO
  
  call stress_tensor
  !write(*,*) 'stress', maxval(sigma11), minval(sigma11)
@@ -256,6 +258,8 @@ do shortstep=1, steps
   !write(*,*) 'rhs', maxval(rhs_u), minval(rhs_v)
   !if(shortstep<3)  write(*,*) mype, 'rhs  ', &
   !   maxval(rhs_u(myList_nod2D(1:myDim_nod2D)))
+
+!ICON_OMP_PARALLEL_DO PRIVATE(j,i,elem,inv_mass,umod,drag,rhsu,rhsv,det) ICON_OMP_DEFAULT_SCHEDULE
  do j=1,myDim_nod2D 
     i=myList_nod2D(j)
   if (index_nod2D(i)>0) CYCLE          ! Skip boundary nodes
@@ -280,6 +284,8 @@ do shortstep=1, steps
   ! v_ice(i)=v_w(i)
    end if
  end do
+ !ICON_OMP_END_PARALLEL_DO
+
  call exchange_nod2D(u_ice)
  call exchange_nod2D(v_ice)    
  END DO
