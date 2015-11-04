@@ -519,7 +519,7 @@ CONTAINS
       ENDDO
 
       ! Get all patch information not read by read_pre_patch
-      CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo, is_ocean_decomposition )
+      CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo )
     ENDDO
 
     ! set parent-child relationships
@@ -1590,7 +1590,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Reads the remaining patch information into the divided patch
-  SUBROUTINE read_remaining_patch( ig, patch, n_lp, id_lp, lsep_grfinfo, is_ocean_decomposition )
+  SUBROUTINE read_remaining_patch( ig, patch, n_lp, id_lp, lsep_grfinfo )
 
     INTEGER,       INTENT(in)    ::  ig       ! domain ID
     TYPE(t_patch), INTENT(inout), TARGET ::  patch  ! patch data structure
@@ -1598,7 +1598,6 @@ CONTAINS
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
     !> If .true., read fields related to grid refinement from separate  grid files
     LOGICAL,       INTENT(IN)    :: lsep_grfinfo
-    LOGICAL,       INTENT(IN)    :: is_ocean_decomposition
 
     INTEGER :: ncid, varid, ncid_grf
     TYPE(t_stream_id) :: stream_id, stream_id_grf
@@ -1986,15 +1985,6 @@ CONTAINS
 
     ! p_p%verts%cell_idx(:,:,:)
     ! p_p%verts%cell_blk(:,:,:)
-
-    IF (is_ocean_decomposition) THEN
-    ! #vla# 2015-10:
-    ! Sea-ice dynamics relies on using highly optimized interp routines (e.g. cells2verts_scalar),
-    ! which use simplified do loops that assume finding non-zero vals in indices.
-    ! Empty indices (e.g. 6th vertex in pentagons) are replaced by last non-zero values
-      use_duplicated_connectivity = .TRUE.
-    ENDIF
-
     DO ip = 0, n_lp
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_3d_data_int(ip+1)%data => &
@@ -2021,11 +2011,6 @@ CONTAINS
       p_p%verts%cell_idx(:,:,1:max_verts_connectivity) = &
         idx_no(p_p%verts%cell_idx(:,:,1:max_verts_connectivity))
     END DO
-
-    IF (is_ocean_decomposition) THEN
-    ! switch back to .false. for ocean diagnostics to work properly
-      use_duplicated_connectivity = .FALSE.
-    ENDIF
 
     ! p_p%verts%edge_idx(:,:,:)
     ! p_p%verts%edge_blk(:,:,:)

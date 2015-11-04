@@ -35,7 +35,6 @@
 # 2013-03-25, Bastian Kern,    DLR  : gfortran and ifort at DLR Linux cluster
 # 2014-02-03, Rene Redler,     MPI-M: sun compiler removed.
 # 2014-03-27, Will Sawyer,     CSCS : additions for CSCS Cray platforms
-# 2015-09-25, Will Sawyer,     CSCS : refinements for CSCS platforms
 #
 #-----------------------------------------------------------------------------
 
@@ -248,85 +247,109 @@ esac
 # Define site dependent library paths
 #
 case "$ac_sitename" in
-   cscs.ch)
+   cscs.ch|cm.cluster)
         echo The host is:  $HOST
         case "$HOST" in
             *daint*)
-                make_command="make" "-j" "8"
-                load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit="sbatch"
-                sync_submit="sbatch"
+                config_target=daint_cpu
+                make_command=make -j 8
+#                use_shell=/bin/sh
+                load_profile=. /opt/modules/default/etc/modules.sh
+                submit=sbatch
+                sync_submit=sbatch
                 CC = cc
                 FC = ftn
                 F77= ftn
 
                 case "$fortran_compiler" in
                     default|gcc)
-                        config_target=daint_cpu
-                        load_modules ="PrgEnv-gnu" "cray-netcdf" "${load_modules}"
-        		CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-			NETCDFROOT  = /opt/cray/netcdf/default/GNU/4.8
+                        load_modules =PrgEnv-gnu cray-netcdf cray-hdf5 ${load_modules}
+                        NETCDFROOT = /opt/cray/netcdf/4.2.0/gnu/47
                     ;;
                     intel)
-                        config_target=daint_cpu
-                        load_modules = "PrgEnv-intel" "cray-netcdf" "${load_modules}"
-        		CFLAGS      = -std=gnu99 -march=native -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-        		STD_FLAGS   = -O2 -mavx -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
-        		FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
-			NETCDFROOT  = /opt/cray/netcdf/default/INTEL/14.0
-		        F77FLAGS    = "$FFLAGS" "$STD_FLAGS"
-			MODDIR      = -I
-                    ;;
-                    pgi)
-                        config_target=daint_cpu
-                        load_modules = "PrgEnv-cray" "cray-netcdf" "${load_modules}"
-        		CFLAGS      = -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-			NETCDFROOT  = /opt/cray/netcdf/default/PGI/15.3
-                    ;;
+                        load_modules = PrgEnv-intel cray-netcdf cray-hdf5 ${load_modules}
+                        NETCDFROOT = /opt/cray/netcdf/4.2.0/intel/120
+                        ;;
                     cray)
-                        config_target=daint_cpu
-                        load_modules = "PrgEnv-cray" "cray-netcdf" "${load_modules}"
-        		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-			NETCDFROOT  = /opt/cray/netcdf/default/CRAY/83
-                    ;;
+                        load_modules = PrgEnv-cray cray-netcdf cray-hdf5 ${load_modules}
+                        OMPFLAG     = -h omp
+                        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3
+                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf
+                        NETCDFROOT = /opt/cray/netcdf/4.3.3.1/cray/83
+                        ;;
                     cray_gpu)
-                        config_target=daint_gpu
-                        load_modules = "PrgEnv-cray" "cray-netcdf" "craype-accel-nvidia35" "${load_modules}"
-        		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-			NETCDFROOT  = /opt/cray/netcdf/default/CRAY/83
-                    ;;
+                        load_modules = PrgEnv-cray cray-netcdf cray-hdf5 ${load_modules}
+                        OMPFLAG     = -h omp
+                        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3
+                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -h acc -h acc_model=deep_copy
+                        NETCDFROOT = /opt/cray/netcdf/default/cray/83
+                        ;;
                 esac
-                mpi_startrun="aprun" "-N" "\\\$mpi_procs_pernode" "-n" "\\\$mpi_total_procs" "-d" "\\\$OMP_NUM_THREADS"
+                mpi_startrun=aprun -N \\\$mpi_procs_pernode -n \\\$mpi_total_procs -d \\\$OMP_NUM_THREADS
                 ;;
             *dora*)
                 config_target=dora
-                make_command="make" "-j" "8"
-                load_profile="." "/opt/modules/default/etc/modules.sh"
-                submit="sbatch"
-                sync_submit="sbatch"
+                make_command=make -j 8
+#                use_shell=/bin/sh
+                load_profile=. /opt/modules/default/etc/modules.sh
+                submit=sbatch
+                sync_submit=sbatch
                 CC = cc
                 FC = ftn
                 F77= ftn
 
                 case "$fortran_compiler" in
                     default|gcc)
-                        load_modules ="PrgEnv-gnu" "cray-netcdf" "${load_modules}"
-        		CFLAGS       = "$CFLAGS" -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-			NETCDFROOT  = /opt/cray/netcdf/default/GNU/4.9
+                        load_modules = PrgEnv-gnu cray-netcdf ${load_modules}
+                        NETCDFROOT = /opt/cray/netcdf/4.2.0/gnu/47
                     ;;
                     intel)
-                        load_modules = "PrgEnv-intel" "cray-netcdf" "${load_modules}"
-        		CFLAGS      = "$CFLAGS" -DpgiFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -D__SVN_VERSION="${SVNVERSION}"
-			NETCDFROOT  = /opt/cray/netcdf/default/INTEL/14.0
-                    ;;
+                        load_modules      = PrgEnv-intel cray-netcdf ${load_modules}
+                        NETCDFROOT = /opt/cray/netcdf/4.2.0/intel/120
+                        ;;
                     cray)
-                        load_modules = "PrgEnv-cray" "cray-netcdf" "${load_modules}"
-        		CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3  -D__SVN_VERSION="${SVNVERSION}"
-			NETCDFROOT  = /opt/cray/netcdf/default/CRAY/83
-                     ;;
+                        OMPFLAG     = -h omp
+                        CFLAGS      = -Df2cFortran -DHAVE_CF_INTERFACE -DHAVE_LIBNETCDF -O3
+                        FFLAGS      = -D__LOOP_EXCHANGE -D__MIXED_PRECISION -D__NO_JSBACH__ -Df2cFortran -e Z -em -hflex_mp=conservative -hfp1 -hadd_paren -r am -Ktrap=divz,ovf -h acc -h acc_model=deep_copy
+                        load_modules      = cray-netcdf ${load_modules}
+                        NETCDFROOT = /opt/cray/netcdf/default/cray/81
+                        load_modules      = PrgEnv-cray netcdf hdf5 ${load_modules}
+                        ;;
                 esac
-                mpi_startrun="aprun" "-N" "\\\$mpi_procs_pernode" "-n" "\\\$mpi_total_procs" "-d" "\\\$OMP_NUM_THREADS"
+                mpi_startrun=aprun -N \\\$mpi_procs_pernode -n \\\$mpi_total_procs -d \\\$OMP_NUM_THREADS
                 ;;
+            *castor*)
+                echo "Chose target CASTOR"
+                config_target=castor
+                make_command=make -j 8
+                submit=srun
+                sync_submit=sbatch
+                case "$fortran_compiler" in
+                    default|gcc)
+                        load_modules=gcc/4.6.3 ${load_modules}
+                        NETCDFROOT = /apps/castor/netcdf/4.1.3/gnu_463
+                        MPIROOT=/apps/castor/mvapich2/1.8/mvapich2-gnu
+                        MPI_LIB  = -lfmpich -lmpichf90 -lmpich -lmpl
+                        MPI_INCLUDE=${MPIROOT}/include
+                        ;;
+                    pgi)
+                        CC=pgcc
+                        load_modules=pgi mvapich2/1.8-pgi ${load_modules}
+                        NETCDFROOT = /apps/castor/netcdf/4.1.3/gnu_463
+                        MPIROOT=/apps/castor/mvapich2/1.8/mvapich2-pgi
+                        MPI_LIB  = -lfmpich -lmpichf90 -lmpich -lmpl
+                        MPI_INCLUDE=${MPIROOT}/include
+                        ;;
+                    intel)
+                        load_modules      = intel mvapich2/1.8-intel ${load_modules}
+                        NETCDFROOT = /apps/castor/netcdf/4.1.3/gnu_463
+                        MPIROOT=/apps/castor/mvapich2/1.8/mvapich2-intel
+                        MPI_LIB  = -lfmpich -lmpichf90 -lmpich -lmpl
+                        MPI_INCLUDE=${MPIROOT}/include
+                        ;;
+                esac
+            ;;
+
         esac
         ;;
 #===============================================
