@@ -654,7 +654,7 @@ cat > ${oce_namelist} << EOF
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'wet_c','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
                       'topBoundCond_windStress_u_acc','t_acc','s_acc','u_acc',
-                      'HeatFlux_Total_acc','FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc','FrshFlux_Evaporation_acc'
+                      'HeatFlux_Total_acc','FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc','FrshFlux_Evaporation_acc',
                       'FrshFlux_TotalIce_acc', 'FrshFlux_TotalSalt_acc', 'FrshFlux_TotalOcean_acc', 'FrshFlux_VolumeTotal_acc'
 /
 &output_nml
