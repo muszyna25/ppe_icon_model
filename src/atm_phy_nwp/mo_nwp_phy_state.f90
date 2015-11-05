@@ -1311,7 +1311,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'trsol_dn_sfc_diff', diag%trsol_dn_sfc_diff,   &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-      & ldims=shape2d, lrestart=.FALSE., loutput=.FALSE.                    )
+      & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.                    )
 
     ! &      diag%swflx_up_toa(nproma,nblks_c)
     cf_desc    = t_cf_var('sou_t', 'W m-2', 'shortwave upward flux at TOA', DATATYPE_FLT32)
@@ -1356,7 +1356,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'lwflx_up_sfc_rs', diag%lwflx_up_sfc_rs,       &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-      & ldims=shape2d,  lrestart=.FALSE., loutput=.FALSE.                   )
+      & ldims=shape2d,  lrestart=.TRUE., loutput=.FALSE.                   )
 
     ! &      diag%lwflx_up_sfc(nproma,nblks_c)
     cf_desc    = t_cf_var('thu_s', 'W m-2', 'longwave upward flux at surface', DATATYPE_FLT32)

@@ -82,7 +82,7 @@ MODULE mo_interface_les
                                      is_sampling_time, is_writing_time
   USE mo_les_utilities,       ONLY: init_vertical_grid_for_les
   USE mo_fortran_tools,       ONLY: copy
-
+  USE mo_util_dbg_prnt,      ONLY: dbg_print
   IMPLICIT NONE
 
   PRIVATE
@@ -93,6 +93,9 @@ MODULE mo_interface_les
   INTEGER             :: ncount = 0
 
   PUBLIC :: les_phy_interface, init_les_phy_interface
+
+  CHARACTER(len=12)  :: str_module = 'les_interface'  ! Output of module for 1 line debug
+  INTEGER            :: idt_src    = 1           ! Determines level of detail for 1 line debug
 
 CONTAINS
   !
@@ -277,7 +280,8 @@ CONTAINS
 
     !add all tracers that are used in satad and turbulence
     IF(ltransport) &
-      CALL sync_patch_array_mult(SYNC_C, pt_patch, iqm_max, f4din=pt_prog_rcf%tracer) 
+      CALL sync_patch_array_mult(SYNC_C, pt_patch, iqm_max, &
+           f4din=pt_prog_rcf%tracer(:,:,:,1:iqm_max)) 
 
     !-------------------------------------------------------------------------
     !>  Update the tracer for every advective timestep,
