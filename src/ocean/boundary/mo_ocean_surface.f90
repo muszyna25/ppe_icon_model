@@ -475,13 +475,18 @@ CONTAINS
       ! Precipitation on ice is snow when tsurf is below the freezing point
       !  - no snowfall from OMIP data
       !  - rprecw, rpreci are water equivalent over whole grid-area
-      WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
+      WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )  !  Tsurf is -1.8 over open water, incorrect specification
         atmos_fluxes%rpreci(:,:) = p_as%FrshFlux_Precipitation(:,:)
         atmos_fluxes%rprecw(:,:) = 0._wp
       ELSEWHERE
+        ! not considered in ice_growth_zero
         atmos_fluxes%rpreci(:,:) = 0._wp
         atmos_fluxes%rprecw(:,:) = p_as%FrshFlux_Precipitation(:,:)
       ENDWHERE
+
+      ! evaporation and runoff not used in sea ice but in VolumeTotal, evaporation used for TotalOcean only
+      atmos_fluxes%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
+        &  (p_as%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:))
 
     ELSEIF (iforc_oce == Coupled_FluxFromAtmo)  THEN
 
@@ -491,24 +496,26 @@ CONTAINS
       atmos_fluxes%sensw  (:,:)   = atmos_fluxes%HeatFlux_Sensible (:,:)
       atmos_fluxes%latw   (:,:)   = atmos_fluxes%HeatFlux_Latent   (:,:)
      
-      ! Precipitation on ice is snow when we're below the freezing point
-      WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )
+      WHERE ( p_ice%concSum(:,:) > 0._wp) !  corresponding to 1-concSum in TotalOcean
+   !  WHERE ( ALL( p_ice%hi   (:,:,:) > 0._wp, 2 ) )  !  corresponding to hi>0 in ice_growth_zero
+   !  WHERE ( ALL( p_ice%Tsurf(:,:,:) < 0._wp, 2 ) )  !  Tsurf is -1.8 over open water, incorrect specification
+        ! SnowFall and liquid rain over ice-covered part of ocean are taken from the atmosphere model
         atmos_fluxes%rpreci(:,:) = atmos_fluxes%FrshFlux_SnowFall(:,:)
-        atmos_fluxes%rprecw(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:)
+        atmos_fluxes%rprecw(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:) - atmos_fluxes%FrshFlux_SnowFall(:,:)
       ELSEWHERE
+        ! not considered in ice_growth_zero
         atmos_fluxes%rpreci(:,:) = 0._wp
-        atmos_fluxes%rprecw(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_SnowFall(:,:)
+        atmos_fluxes%rprecw(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:)
       ENDWHERE
 
       ! copy flux for use in TotalOcean, since analytical/omip use p_as:
-      p_as%FrshFlux_Precipitation      = atmos_fluxes%FrshFlux_Precipitation
+      !p_as%FrshFlux_Precipitation      = atmos_fluxes%FrshFlux_Precipitation
+
+      ! total water flux (runoff added elsewhere) on ice-free ocean water, snowfall is included as water
+      atmos_fluxes%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
+        &  (atmos_fluxes%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:))
 
     ENDIF  ! iforc_oce
-
-    ! evaporation and runoff not used in sea ice but in VolumeTotal, evaporation used for TotalOcean only
-    !  - does it need old concSum before ice_slow?
-    atmos_fluxes%FrshFlux_TotalOcean(:,:) = p_patch_3d%wet_c(:,1,:)*( 1.0_wp-p_ice%concSum(:,:) ) * &
-      &                                    (p_as%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_Evaporation(:,:))
 
     IF (zero_freshwater_flux) THEN
       ! since latw<>0. we must set evap and TotalOcean again to zero:
