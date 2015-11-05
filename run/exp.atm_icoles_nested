@@ -278,7 +278,7 @@ lsq_high_ord      = 2
  include_last     = .TRUE.
  output_filename  = '${EXPNAME}_rad_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'group:rad_vars','lwflxall','trsolall'
+ ml_varlist       = 'group:rad_vars'
  output_grid      = .TRUE.
 /
 EOF

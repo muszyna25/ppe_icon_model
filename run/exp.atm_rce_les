@@ -92,7 +92,7 @@ cat >> ${atmo_namelist} << EOF
  num_lev        = ${nlev},        ! number of full levels of vertical grid
  dtime          = ${dtime}     ! timestep in seconds
  modelTimeStep  = "PT20S"      ! preliminary fix
- ltransport     = .FALSE.
+ ltransport     = .TRUE.
  ntracer        = 5            ! default: 0
  iforcing       = ${iforcing}  ! 3: NWP forcing; 6:inhecham forcing
  ltestcase      = .TRUE.       ! run testcase
@@ -194,8 +194,7 @@ const_z0  = 0.0001
  include_last     = .TRUE.
  output_filename  = '${EXPNAME}_prog_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- !ml_varlist       = 'qv','qc','qi','qs','qr','rh','u','v','w','temp','pres','rho','theta_v','div'
- ml_varlist       = 'u','v','w','temp','pres','rho','theta_v','div'
+ ml_varlist       = 'qv','qc','qi','qs','qr','rh','u','v','w','temp','pres','rho','theta_v','div'
  output_grid      = .TRUE.
 /
 &output_nml
@@ -217,7 +216,7 @@ const_z0  = 0.0001
  include_last     = .TRUE.
  output_filename  = '${EXPNAME}_rad_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'group:rad_vars','lwflxall','trsolall'
+ ml_varlist       = 'group:rad_vars'
  output_grid      = .TRUE.
 /
 EOF
