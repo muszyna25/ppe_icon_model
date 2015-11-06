@@ -187,7 +187,7 @@ CONTAINS
   !  Prepare the output of grid information: For each physical/logical
   !  patch we must collect the geographical locations of cells, edges,
   !  and vertices first on working PE 0 - from where it will be
-  !  broadcasted to the pure I/O PEs.
+  !  broadcast to the pure I/O PEs.
   !
   SUBROUTINE collect_grid_info(nblks_glb, nblks_loc, in_lonlat, lonv, latv, out_lonlat, &
     &                          dim3, p_pat)
@@ -943,8 +943,8 @@ CONTAINS
     IF(my_process_is_io()) THEN
       ALLOCATE(grid_info%lon(nproma*nblks_glb),                &
         &      grid_info%lat(nproma*nblks_glb),                &
-        &      grid_info%lonv(nproma*nblks_glb, connectivity), &
-        &      grid_info%latv(nproma*nblks_glb, connectivity), &
+        &      grid_info%lonv(connectivity, nproma*nblks_glb), &
+        &      grid_info%latv(connectivity, nproma*nblks_glb), &
         &      lonv(0,0,1), latv(0,0,1))
       grid_info%lon = 0._wp
       grid_info%lat = 0._wp
@@ -969,11 +969,11 @@ CONTAINS
     CALL exchange_data(in_array=coordinates(:,:)%lat, out_array=r1d, &
       &                allgather_pattern=allgather_pattern)
     DO i = 1, connectivity
-      IF (my_process_is_io()) r1d => grid_info%lonv(:,i)
-      CALL exchange_data(in_array=lonv(:,:,1), out_array=r1d, &
+      IF (my_process_is_io()) r1d => grid_info%lonv(i,:)
+      CALL exchange_data(in_array=lonv(:,:,i), out_array=r1d, &
         &                allgather_pattern=allgather_pattern)
-      IF (my_process_is_io()) r1d => grid_info%latv(:,i)
-      CALL exchange_data(in_array=latv(:,:,1), out_array=r1d, &
+      IF (my_process_is_io()) r1d => grid_info%latv(i,:)
+      CALL exchange_data(in_array=latv(:,:,i), out_array=r1d, &
         &                allgather_pattern=allgather_pattern)
     END DO
 
