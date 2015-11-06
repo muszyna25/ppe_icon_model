@@ -3,7 +3,10 @@
 !!
 MODULE mo_derived_variable_handling
 
+  USE self_object
+  USE self_vector_ref
   USE self_vector
+  USE self_map_ref
   USE self_map
   USE self_assert
 
@@ -34,9 +37,7 @@ MODULE mo_derived_variable_handling
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_derived_variable_handling'
 
-  TYPE(map)       , SAVE :: meanMap
-  TYPE(vector)    , SAVE :: meanVariables(10)
-  TYPE(event)     , SAVE, TARGET :: meanEvents(10)
+  TYPE(map)       , SAVE :: meanMap, meanEvents
   TYPE(t_var_list)   :: mean_stream_list
   INTEGER, PARAMETER :: ntotal = 10
 
@@ -62,7 +63,7 @@ CONTAINS
   !! Optional label is printed first, on a line by its own
   !!
   SUBROUTINE var_print(this, label)
-    TYPE(vector) , INTENT(in) :: this
+    TYPE(vector_ref) , INTENT(in) :: this
     CHARACTER(*), INTENT(in), OPTIONAL :: label
     
     TYPE(vector_iterator) :: my_iter
@@ -71,7 +72,7 @@ CONTAINS
 
     IF (PRESENT(label)) PRINT *, label
 
-    my_iter = this%each()
+    my_iter = this%iter()
     DO WHILE(my_iter%next(my_buffer))
       SELECT TYPE(my_buffer)
       TYPE is (t_list_element)
@@ -81,7 +82,7 @@ CONTAINS
         PRINT *,'t_accumulation_pair:destination:',trim(my_buffer%destination%field%info%name)
       CLASS default
         PRINT *,' default class print  :'
-        CALL class_print(my_buffer)
+        print *,object_string (my_buffer)
       END SELECT
     END DO
   END SUBROUTINE var_print
@@ -97,9 +98,6 @@ CONTAINS
     integer :: i
     
     meanMap = map()
-    do i=1,size(meanVariables,1)
-    meanVariables(i)= vector(debug=.false.)
-    enddo
 
     WRITE(listname,'(a)')  'mean_stream_list'
     CALL new_var_list(mean_stream_list, listname, patch_id=patch_2d%id)
@@ -111,13 +109,12 @@ CONTAINS
   !!
   SUBROUTINE finish_mean_stream()
     IF (my_process_is_stdio()) THEN
-    CALL print_green(&
-         '===================================================================')
-    CALL print_green('FINISH MAP:')
-    CALL meanMap%PRINT()
+    CALL print_summary(&
+         '==== FINISH MAP ===================================================')
+    print *,meanMap%to_string()
 !!!    CALL print_green('FINISH VECTOR:')
 !!!    CALL meanVariables%PRINT()
-    CALL print_green(&
+    CALL print_summary(&
          '===================================================================')
 !!!    CALL print_green('FINISH BUFFERS:')
 !!!    PRINT *,varlist_buffer
@@ -142,14 +139,14 @@ CONTAINS
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     TYPE(t_list_element), POINTER :: src_element, dest_element
     TYPE(vector) :: keys 
-    integer :: inml,varlist_id
-    type(vector) :: vector_buffer, value_buffer
-    class(*), pointer :: buf
+    integer :: varlist_id
+
+    class(*), pointer :: myBuffer
+    type(vector_ref) :: meanVariables
     CHARACTER(LEN=1000) :: eventKey
     type(vector_iterator) :: iter
-    type(t_accumulation_pair) :: accumulation_pair
+
     character(len=132) :: msg
-    type(event),pointer :: e
 
     ntotal_vars = total_number_of_variables()
     ! temporary variables needed for variable group parsing
@@ -158,7 +155,6 @@ CONTAINS
 
     ! -- loop over all output namelists
     p_onl => first_output_name_list
-    inml = 1
     
     DO
       IF (.NOT.ASSOCIATED(p_onl)) EXIT
@@ -183,27 +179,28 @@ CONTAINS
           varlist((nvars+1):ntotal_vars) = " "
           
           IF (i_typ == level_type_ml) THEN
-            write (0,*)'INML:',inml
             eventKey = get_event_key(p_onl)
             write (0,*)'eventKey:',trim(eventKey)
             IF ( meanMap%has_key(eventKey) ) THEN
-              CALL meanMap%get(eventKey,vector_buffer)
-              call meanVariables(inml)%add(vector_buffer)
+              myBuffer => meanMap%get(eventKey)
+              select type (myBuffer)
+              type is (vector_ref)
+                meanVariables = myBuffer
+              end select
             ELSE
-              meanEvents(inml) = newEvent(eventKey, &
-              &             sim_step_info%sim_start, &
-              &             p_onl%output_start(1), &
-              &             p_onl%output_end(1), &
-              &             p_onl%output_interval(1) &
-              &            )
-              e => meanEvents(inml)
-              call eventToString(e, msg)
+              meanVariables = vector_ref()
+              call meanEvents%add(eventKey,newEvent(eventKey, &
+                &                 sim_step_info%sim_start, &
+                &                 p_onl%output_start(1), &
+                &                 p_onl%output_end(1), &
+                &                 p_onl%output_interval(1) &
+                &                ))
             END IF
-            DO i=1,nvars
+            DO i=1, nvars
               ! collect data variables only, there variables names like
               ! 'grid:clon' which should be excluded
               IF ( INDEX(varlist(i),':') < 1 ) THEN
-     
+       
                 ! find existing variable
                   src_element => find_element ( TRIM(varlist(i)))
                   IF (ASSOCIATED (src_element)) EXIT
@@ -213,40 +210,43 @@ CONTAINS
 
               !update the nc-shortname to internal name of the source variable
               dest_element%field%info%cf%short_name = src_element%field%info%name
-              CALL print_green('var:'//TRIM(src_element%field%info%name)//'---')
-              CALL meanVariables(inml)%add(src_element) ! source element comes first
-              CALL meanVariables(inml)%add(dest_element)
+                                  CALL print_summary('var:'//TRIM(src_element%field%info%name)//'---')
+              CALL meanVariables%add(src_element) ! source element comes first
+              CALL meanVariables%add(dest_element)
               ! replace existince varname in output_nml with the meanStream Variable
               in_varlist(i) = trim(dest_element%field%info%name)
-              CALL print_green('in_varlist  :|'//trim(in_varlist(i))//'|')
-              CALL print_green('dest_element:|'//trim(dest_element%field%info%name)//'|')
+                                  CALL print_summary('in_varlist  :|'//trim(in_varlist(i))//'|')
+                                  CALL print_summary('dest_element:|'//trim(dest_element%field%info%name)//'|')
               end if
             end do
 
-            call meanMap%add(eventKey,meanVariables(inml),copy=.true.)
+            call meanMap%add(eventKey,meanVariables)
           END IF
         END DO
-      inml = inml + 1
       END IF
       p_onl => p_onl%next
     END DO
-    IF ( my_process_is_stdio() .and. .false.) THEN
-      call print_aqua('collected map {{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{')
-      keys = meanMap%get_keys()
-      call keys%print()
-      value_buffer = meanMap%get_values()
-      iter = value_buffer%each()
+    BLOCK 
+      class(*), pointer :: buf
+      type(vector), pointer :: value_buffer
+      IF ( my_process_is_stdio() .and. .false.) THEN
+        call print_aqua('collected map {{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{')
+        keys = meanMap%keys()
+        print *,keys%to_string()
+        value_buffer = meanMap%values()
+        iter = value_buffer%iter()
 
-        DO WHILE(iter%next(buf))
-          SELECT TYPE(buf)
-          type is (vector)
-            call var_print(buf)
-          CLASS default
-          call class_print(buf)
-        end select
-        end do
-      call print_aqua('}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}')
-    END IF
+          DO WHILE(iter%next(buf))
+            SELECT TYPE(buf)
+            type is (vector_ref)
+              call var_print(buf)
+            CLASS default
+            print *,object_string(buf)
+          end select
+          end do
+        call print_aqua('}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}')
+      END IF
+    END BLOCK
     !
     !1. Collect variables uniq by the output interval
     !   this will allow collective events for all variables in this group
@@ -313,64 +313,64 @@ CONTAINS
     type(event),pointer :: e
     logical :: isactive
     
-    values = meanMap%get_values()
-    keys   = meanMap%get_keys()
+    values = meanMap%values()
+    keys   = meanMap%keys()
 
-    do i=1, values%length()
-      elements => values%get_item(i)
-      select type(elements)
-      type is (vector)
-        do element_counter=1,elements%length(),2 !start at 2 because the event is at index 1
-          check_src => elements%get_item(element_counter)
-          check_dest => elements%get_item(element_counter+1)
+!   do i=1, values%length()
+!     elements => values%at(i)
+!     select type(elements)
+!     type is (vector)
+!       do element_counter=1,elements%length(),2 !start at 2 because the event is at index 1
+!         check_src => elements%at(element_counter)
+!         check_dest => elements%at(element_counter+1)
 !         if (associated(check_src)) then
-            select type (check_src)
-            type is (t_list_element)
-              source      => check_src
-            end select
+!           select type (check_src)
+!           type is (t_list_element)
+!             source      => check_src
+!           end select
 !         end if
 !         if (associated(check_dest)) then
-            select type (check_dest)
-            type is (t_list_element)
-              destination => check_dest
-            end select
+!           select type (check_dest)
+!           type is (t_list_element)
+!             destination => check_dest
+!           end select
 !         end if
-
+!
 !         if (associated(check_src)) then
-            select type (check_src)
-            type is (t_list_element)
-              !if (associated(check_dest)) then
-              select type (check_dest)
-              type is (t_list_element)
-                IF ( my_process_is_stdio() ) write(0,*)'sourceName:',trim(source%field%info%name)
-                IF ( my_process_is_stdio() ) write(0,*)'destName:',trim(destination%field%info%name)
-          !     CALL accumulation_add(source, destination)
-              end select
-              !end if
-            end select
+!           select type (check_src)
+!           type is (t_list_element)
+!             !if (associated(check_dest)) then
+!             select type (check_dest)
+!             type is (t_list_element)
+!               IF ( my_process_is_stdio() ) write(0,*)'sourceName:',trim(source%field%info%name)
+!               IF ( my_process_is_stdio() ) write(0,*)'destName:',trim(destination%field%info%name)
+!         !     CALL accumulation_add(source, destination)
+!             end select
+!             !end if
+!           end select
 !         end if
-        end do
-        call keys%get(i,eventKey)
-        do k=1,3
-          e => meanEvents(k)
-          call eventToString(e, msg)
-          IF ( my_process_is_stdio() ) THEN
-            write (0,*)' k  :', k  
-            call print_blue(msg,stderr=.true.)
-            if (msg == eventKey) then
-              ! found the correnspondin even
-              call print_aqua("key found !!!",stderr=.true.)
-              ! now check for activity
-              CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
-              call print_aqua(trim(mtime_cur_datetime))
-              mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
-              isactive = LOGICAL(isCurrentEventActive(e,mtime_date))
-              write (0,*)'---- isactive ----- ',isactive
-            end if
-          end if
-        end do
-      end select 
-    end do
+!       end do
+!       eventKey => keys%at(i)
+!       do k=1,3
+!         e => meanEvents(k)
+!         call eventToString(e, msg)
+!         IF ( my_process_is_stdio() ) THEN
+!           write (0,*)' k  :', k  
+!           call print_summary(msg,stderr=.true.)
+!           if (msg == eventKey) then
+!             ! found the correnspondin even
+!             call print_summary("key found !!!",stderr=.true.)
+!             ! now check for activity
+!             CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
+!             call print_summary(trim(mtime_cur_datetime))
+!             mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
+!             isactive = LOGICAL(isCurrentEventActive(e,mtime_date))
+!             write (0,*)'---- isactive ----- ',isactive
+!           end if
+!         end if
+!       end do
+!     end select 
+!   end do
 
   END SUBROUTINE perform_accumulation
   FUNCTION get_event_key(output_name_list) RESULT(event_key)
