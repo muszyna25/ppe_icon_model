@@ -47,7 +47,7 @@ MODULE mo_hdiff
   USE mo_model_domain,        ONLY: t_patch
   USE mo_grid_config,         ONLY: nroot, grid_sphere_radius
 !  USE mo_diffusion_nml,       ONLY: k2, k4
-  USE mo_diffusion_config,    ONLY: diffusion_config  
+  USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
@@ -68,7 +68,7 @@ MODULE mo_hdiff
   USE mo_physical_constants,  ONLY: cpd
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop, timer_hdiff_expl
 
-  
+
 
   IMPLICIT NONE
 
@@ -228,7 +228,7 @@ MODULE mo_hdiff
 #endif
 #ifdef __LOOP_EXCHANGE
            DO je = i_startidx, i_endidx
-             DO jk = 1, nlev           
+             DO jk = 1, nlev
 #else
            DO jk = 1, nlev
              DO je = i_startidx, i_endidx
@@ -617,7 +617,7 @@ MODULE mo_hdiff
 
 #ifdef __LOOP_EXCHANGE
            DO je = i_startidx, i_endidx
-             DO jk = 1, nlev           
+             DO jk = 1, nlev
 #else
            DO jk = 1, nlev
              DO je = i_startidx, i_endidx
@@ -683,10 +683,10 @@ MODULE mo_hdiff
          DO jb = i_startblk,i_endblk
            CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
            &                  i_startidx, i_endidx, 3, min_rledge)
-           
+
 #ifdef __LOOP_EXCHANGE
            DO je = i_startidx, i_endidx
-             DO jk = 1, nlev           
+             DO jk = 1, nlev
 #else
            DO jk = 1, nlev
              DO je = i_startidx, i_endidx
@@ -1199,7 +1199,7 @@ MODULE mo_hdiff
      ELSE
         CALL sync_patch_array(SYNC_C, pt_patch, pt_new%temp)
      ENDIF
-    
+
     IF (ltimer) CALL timer_stop(timer_hdiff_expl)
 
   END SUBROUTINE hdiff_expl

@@ -64,7 +64,6 @@ msg_level=${msg_level:=0}
 division_method=${division_method:=1}
 division_file_name=${division_file_name:=""}
 parallel_radiation_mode=${parallel_radiation_mode:=0}
-redrad_split_factor=${redrad_split_factor:=6}
 iorder_sendrecv=${iorder_sendrecv:=1}
 ltimer=${ltimer:=".true."}
 timers_level=${timers_level:=100}
@@ -142,7 +141,6 @@ cat >> ${atmo_namelist} << EOF
  division_method=${division_method}
  division_file_name="$division_file_name"
  parallel_radiation_mode=$parallel_radiation_mode
- redrad_split_factor = $redrad_split_factor
  use_dycore_barrier = ${use_dycore_barrier}
  use_physics_barrier = ${use_physics_barrier}
  ! ntasks_per_node=${ntasks_per_node}

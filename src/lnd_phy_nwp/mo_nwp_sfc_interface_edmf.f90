@@ -22,7 +22,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 #if defined __xlC__
-@PROCESS SPILL(2134)
+@PROCESS SPILL(2160)
 #endif
 MODULE mo_nwp_sfc_interface_edmf
 

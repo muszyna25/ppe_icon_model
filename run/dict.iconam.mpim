@@ -6,36 +6,56 @@
 # This file contains a dictionary for the mapping between "add_var"
 # names and names used at MPI-M for postprocessing.
 #
-# ===========================================================
+# ======================================================================
 #
-# atmosphere
-# ==========
+# Available translations for output of constant fields
+# ----------------------------------------------------
 #
-# variables from the dynamical core (no prefix)
-# ---------------------------------------------
+# use name          "add_var" name
+# --------------------------------
 #
-# dict names         "add_var" name
-# ---------------------------------
+  zg                 z_mc
+  zghalf             z_ifc
+  gpfull             geopot
+  orog               topography_c
 #
-  ps                 pres_sfc
-  psl                pres_msl
-  ta                 temp
-  hus                qv
-  clw                qc
-  cli                qi
+# Available translations for instantaneous output of variable fields
+# ------------------------------------------------------------------
+#
+# use name          "add_var" name
+# --------------------------------
 #
   ua                 u
   va                 v
   wa                 w
+# rho                rho          <-- no tranlation needed
   wap                omega
-#
-  zg                 z_mc
-  zghalf             z_ifc
+  ta                 temp
+  ps                 pres_sfc
+  psl                pres_msl
+  hus                qv
+  clw                qc
+  cli                qi
   pfull              pres
   phalf              pres_ifc
-  gpfull             geopot
-
-# variables from the external data (no prefix)
-# --------------------------------------------
-  orog               topography_c
+#
+# Available translations for time averaged output of variable fields
+# ------------------------------------------------------------------
+#
+# use name          "add_var" name
+# --------------------------------
+#
+##  ua                 ua_m
+##  va                 va_m
+##  wa                 wa_m
+##  rho                rho_m
+##  wap                wap_m
+##  ta                 ta_m
+##  ps                 ps_m
+##  psl                psl_m
+##  hus                hus_m
+##  clw                clw_m
+##  cli                cli_m
+##  pfull              pfull_m
+##  phalf              phalf_m
 #

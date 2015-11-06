@@ -46,7 +46,8 @@ USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
 USE mo_communication,      ONLY: exchange_data, exchange_data_4de1,            &
                                  exchange_data_mult, t_comm_pattern,           &
-                                 blk_no, idx_no, idx_1d
+                                 blk_no, idx_no, idx_1d, get_np_recv,          &
+                                 get_np_send, get_pelist_recv
 
 USE mo_timer,           ONLY: timer_start, timer_stop, activate_sync_timers, &
   & timer_global_sum, timer_omp_global_sum, timer_ordglb_sum, timer_omp_ordglb_sum
@@ -73,6 +74,12 @@ INTEGER, PARAMETER, PUBLIC :: SYNC_C = 1
 INTEGER, PARAMETER, PUBLIC :: SYNC_E = 2
 INTEGER, PARAMETER, PUBLIC :: SYNC_V = 3
 INTEGER, PARAMETER, PUBLIC :: SYNC_C1 = 4
+
+#if defined( __ROUNDOFF_CHECK )
+REAL(wp), PARAMETER :: ABS_TOL  = 1.0D-09
+REAL(wp), PARAMETER :: REL_TOL  = 1.0D-09
+REAL(wp), PARAMETER :: MACH_TOL = 3.0D-14
+#endif
 
 INTERFACE sync_patch_array
   MODULE PROCEDURE sync_patch_array_r2
@@ -160,13 +167,20 @@ END SUBROUTINE disable_sync_checks
 !  @par Revision History
 !  Initial version by Rainer Johanni, Nov 2009
 !
-SUBROUTINE sync_patch_array_r3(typ, p_patch, arr)
+SUBROUTINE sync_patch_array_r3(typ, p_patch, arr, opt_varname)
    INTEGER,       INTENT(IN)    :: typ
    TYPE(t_patch), INTENT(IN)    :: p_patch
    REAL(wp),      INTENT(INOUT) :: arr(:,:,:)
+   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
 
    ! If this is a verification run, check consistency before doing boundary exchange
-   IF (p_test_run .AND. do_sync_checks) CALL check_patch_array_3(typ, p_patch, arr, 'sync')
+   IF (p_test_run .AND. do_sync_checks) THEN
+     IF(PRESENT(opt_varname)) THEN
+       CALL check_patch_array_3(typ, p_patch, arr, opt_varname)
+     ELSE
+       CALL check_patch_array_3(typ, p_patch, arr, 'sync')
+     ENDIF
+   ENDIF
 
    ! Boundary exchange for work PEs
    IF(my_process_is_mpi_parallel()) THEN
@@ -222,16 +236,17 @@ END SUBROUTINE sync_patch_array_i3
 !  @par Revision History
 !  Initial version by Rainer Johanni, Nov 2009
 !
-SUBROUTINE sync_patch_array_r2(typ, p_patch, arr)
+SUBROUTINE sync_patch_array_r2(typ, p_patch, arr, opt_varname)
    INTEGER,       INTENT(IN)    :: typ
    TYPE(t_patch), INTENT(IN)    :: p_patch
    REAL(wp),      INTENT(INOUT) :: arr(:,:)
+   CHARACTER*(*), INTENT(IN), OPTIONAL :: opt_varname
    ! local variable
    REAL(wp), ALLOCATABLE :: arr3(:,:,:)
 
    ALLOCATE(arr3(UBOUND(arr,1), 1, UBOUND(arr,2)))
    arr3(:,1,:) = arr(:,:)
-   CALL sync_patch_array_r3(typ, p_patch, arr3)
+   CALL sync_patch_array_r3(typ, p_patch, arr3, opt_varname)
    arr(:,:) = arr3(:,1,:)
    DEALLOCATE(arr3)
 END SUBROUTINE sync_patch_array_r2
@@ -277,7 +292,7 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    INTEGER,     INTENT(IN)         :: nfields
 
    REAL(wp), OPTIONAL, INTENT(INOUT) ::  f3din1(:,:,:), f3din2(:,:,:), f3din3(:,:,:), &
-                                         f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
+      &                                  f3din4(:,:,:), f3din5(:,:,:), f4din(:,:,:,:)
 
    REAL(wp), ALLOCATABLE :: arr3(:,:,:)
    TYPE(t_comm_pattern), POINTER :: p_pat
@@ -422,7 +437,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
    CHARACTER(len=256) :: varname, cfmt
 
    CHARACTER(filename_max) :: log_file
-   REAL(wp) :: absmax
+   REAL(wp) :: absmax, relmax
    LOGICAL :: sync_error
 
    ityp   = -1
@@ -536,6 +551,7 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
       nerr(:) = 0
       absmax = 0.0_wp
+      relmax = 0.0_wp
       sync_error = .FALSE.
 
       DO j = 1, ndim
@@ -553,16 +569,31 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
          flag = MIN(flag,UBOUND(nerr,1))
 
          DO n=1,ndim2
+#if defined( __ROUNDOFF_CHECK )
+            IF( ( ( ABS(arr(jl,n,jb)- arr_g(jl_g,n,jb_g)) > ABS_TOL ) ) .AND.     &
+                ( ( ABS(arr(jl,n,jb)- arr_g(jl_g,n,jb_g) ) ) / (ABS(arr(jl,n,jb))+MACH_TOL) ) > REL_TOL ) THEN
+#else
             IF(arr(jl,n,jb) /= arr_g(jl_g,n,jb_g)) THEN
+#endif
                nerr(flag) = nerr(flag)+1
                IF(flag==0) THEN
                   ! Real sync error detected
                   sync_error = .TRUE.
                   absmax = MAX(absmax,ABS(arr(jl,n,jb) - arr_g(jl_g,n,jb_g)))
+#if defined( __ROUNDOFF_CHECK )
+                  relmax = MAX(relmax,(ABS(arr(jl,n,jb) - arr_g(jl_g,n,jb_g))) / (ABS(arr(jl,n,jb))+MACH_TOL) )
+#endif
                   IF (l_log_checks) &
+#if defined( __ROUNDOFF_CHECK )
+                     PRINT *, TRIM(varname), ' sync error location:',&
+                        jb,jl,jb_g,jl_g,n,arr(jl,n,jb),arr_g(jl_g,n,jb_g),    &
+                       ABS(arr(jl,n,jb)-arr_g(jl_g,n,jb_g)),  &
+                       ( ABS(arr(jl,n,jb)- arr_g(jl_g,n,jb_g) ) ) / (ABS(arr(jl,n,jb))+MACH_TOL)
+#else
                      WRITE(log_unit,'(a,5i7,3e18.10)') 'sync error location:',&
                        jb,jl,jb_g,jl_g,n,arr(jl,n,jb),arr_g(jl_g,n,jb_g),    &
                        ABS(arr(jl,n,jb)-arr_g(jl_g,n,jb_g))
+#endif
                ENDIF
             ENDIF
          ENDDO
@@ -584,16 +615,29 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
          ELSE
             WRITE(log_unit,cfmt) nerr(0:n),TRIM(varname)
          ENDIF
+#if defined( __ROUNDOFF_CHECK )
+         IF(absmax > 0.0_wp) WRITE(log_unit,*) 'Max abs inner err:',absmax, ' max rel error ', relmax
+#else
          IF(absmax > 0.0_wp) WRITE(log_unit,*) 'Max abs inner err:',absmax
+#endif
       ENDIF
 
       ! Terminate the programm if the array is out of sync
 
       IF(sync_error) THEN
+#if defined( __ROUNDOFF_CHECK )
+        PRINT *, TRIM(varname), ' synch error detected '
+        IF(l_log_checks) THEN
+          WRITE(log_file,'(''log'',i4.4,''.txt'')') p_pe
+          OPEN(log_unit, FILE=log_file, STATUS="OLD", POSITION="APPEND", ACTION="WRITE")   ! Reopen file for subsequent output
+          PRINT *, 'OPEN_ACC version: ', TRIM(varname), ' max abs error ', absmax, ' rel error ', relmax
+        ENDIF
+#else
         IF(l_log_checks) THEN
           CLOSE (log_unit)
         ENDIF
         CALL finish('sync_patch_array','Out of sync detected!')
+#endif
       ENDIF
 
       DEALLOCATE(arr_g)
@@ -1621,7 +1665,15 @@ SUBROUTINE check_result(res, routine, res_on_testpe)
       res_on_testpe(k) = aux(k)
     ELSE
       ! Check if result is identical
+#if defined( __ROUNDOFF_CHECK )
+      IF ( ( ( ABS(aux(k)- res(k)) > ABS_TOL ) ) .AND.     &
+                ( ( ABS(aux(k)- res(k) ) ) / (ABS(res(k))+MACH_TOL)  > REL_TOL ) ) THEN
+        out_of_sync = .FALSE.
+        PRINT *, 'Abs. error ', ABS(aux(k)- res(k)), ' rel. error ', ( ABS(aux(k)- res(k) ) ) / (ABS(res(k))+MACH_TOL)
+      ENDIF
+#else
       IF(aux(k)/=res(k)) out_of_sync = .TRUE.
+#endif
     ENDIF
   ENDDO
 
@@ -2025,6 +2077,8 @@ SUBROUTINE decomposition_statistics(p_patch)
    INTEGER  :: i_nchdom, i, i_pe, max_nprecv, i1, i2, i1m, i2m
    INTEGER,  ALLOCATABLE :: nprecv_buf(:),displs(:),recvlist_buf(:)
    REAL(wp), ALLOCATABLE :: avglat_buf(:),avglon_buf(:)
+   INTEGER :: np_recv
+   INTEGER, ALLOCATABLE :: pelist_recv(:)
 
 !-----------------------------------------------------------------------
 
@@ -2038,8 +2092,8 @@ SUBROUTINE decomposition_statistics(p_patch)
                       p_patch%cells%end_idx(min_rlcell_int-1,i_nchdom),wp) - cellstat(0)
    cellstat(3) = REAL(nproma*(p_patch%cells%end_blk(min_rlcell_int-2,i_nchdom)-1) + &
                       p_patch%cells%end_idx(min_rlcell_int-2,i_nchdom),wp) - cellstat(0)
-   cellstat(4) = REAL(p_patch%comm_pat_c%np_send,wp)
-   cellstat(5) = REAL(p_patch%comm_pat_c%np_recv,wp)
+   cellstat(4) = REAL(get_np_send(p_patch%comm_pat_c),wp)
+   cellstat(5) = REAL(get_np_recv(p_patch%comm_pat_c),wp)
 
    ! The purpose of this is to compute average quantities only over those PEs
    ! that actually contain grid points of a given model domain (relevant in the case
@@ -2060,8 +2114,8 @@ SUBROUTINE decomposition_statistics(p_patch)
                       p_patch%edges%end_idx(min_rledge_int-2,i_nchdom),wp) - edgestat(0)
    edgestat(4) = REAL(nproma*(p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)-1) + &
                       p_patch%edges%end_idx(min_rledge_int-3,i_nchdom),wp) - edgestat(0)
-   edgestat(5) = REAL(p_patch%comm_pat_e%np_send,wp)
-   edgestat(6) = REAL(p_patch%comm_pat_e%np_recv,wp)
+   edgestat(5) = REAL(get_np_send(p_patch%comm_pat_e),wp)
+   edgestat(6) = REAL(get_np_recv(p_patch%comm_pat_e),wp)
 
    vertstat(0) = REAL(nproma*(p_patch%verts%end_blk(grf_bdywidth_c,1)-1) + &
                       p_patch%verts%end_idx(grf_bdywidth_c,1),wp)
@@ -2071,8 +2125,8 @@ SUBROUTINE decomposition_statistics(p_patch)
                       p_patch%verts%end_idx(min_rlvert_int-1,i_nchdom),wp) - vertstat(0)
    vertstat(3) = REAL(nproma*(p_patch%verts%end_blk(min_rlvert_int-2,i_nchdom)-1) + &
                       p_patch%verts%end_idx(min_rlvert_int-2,i_nchdom),wp) - vertstat(0)
-   vertstat(4) = REAL(p_patch%comm_pat_v%np_send,wp)
-   vertstat(5) = REAL(p_patch%comm_pat_v%np_recv,wp)
+   vertstat(4) = REAL(get_np_send(p_patch%comm_pat_v),wp)
+   vertstat(5) = REAL(get_np_recv(p_patch%comm_pat_v),wp)
 
    ! Question: how can I exclude PEs containing zero grid points of a model domain
    ! from global minimum computation?
@@ -2180,13 +2234,18 @@ SUBROUTINE decomposition_statistics(p_patch)
      ENDIF
 
      ALLOCATE(nprecv_buf(p_n_work),displs(p_n_work),recvlist_buf(max_nprecv*p_n_work), &
-              avglat_buf(p_n_work),avglon_buf(p_n_work))
+              avglat_buf(p_n_work),avglon_buf(p_n_work), &
+              pelist_recv(get_np_recv(p_patch%comm_pat_c)))
 
-     CALL p_gather(p_patch%comm_pat_c%np_recv, nprecv_buf, 0, p_comm_work)
+     np_recv = get_np_recv(p_patch%comm_pat_c)
+
+     CALL p_gather(np_recv, nprecv_buf, 0, p_comm_work)
 
      displs(:) = (/ ( (i_pe-1)*max_nprecv, i_pe=1, p_n_work) /)
 
-     CALL p_gatherv(p_patch%comm_pat_c%pelist_recv, p_patch%comm_pat_c%np_recv,  &
+     CALL get_pelist_recv(p_patch%comm_pat_c, pelist_recv)
+
+     CALL p_gatherv(pelist_recv, get_np_recv(p_patch%comm_pat_c), &
                     recvlist_buf, nprecv_buf, displs, 0, p_comm_work)
 
      CALL p_gather(avglat, avglat_buf, 0, p_comm_work)
@@ -2202,7 +2261,7 @@ SUBROUTINE decomposition_statistics(p_patch)
        ENDDO
      ENDIF
 
-     DEALLOCATE(nprecv_buf,displs,recvlist_buf,avglat_buf,avglon_buf)
+     DEALLOCATE(nprecv_buf,displs,recvlist_buf,avglat_buf,avglon_buf, pelist_recv)
 
    ENDIF
 

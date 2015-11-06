@@ -8,9 +8,7 @@
 #if defined __xlC__ && !defined NOXLFPROCESS
 @PROCESS HOT
 #endif
-#if !(defined __xlC__ && defined _ARCH_PWR6)
-#define FSEL(a,b,c) MERGE(b,c,(a).GE.0._wp)
-#endif
+#include "fsel.inc"
 
 MODULE mo_echam_convect_tables
 
@@ -28,7 +26,11 @@ MODULE mo_echam_convect_tables
   USE mo_kind,      ONLY: wp
   USE mo_exception, ONLY: message_text, message, finish
   USE mo_physical_constants, ONLY: alv, als, rd, rv, tmelt, cpd
-  USE mo_echam_cloud_params,     ONLY: csecfrl, cthomi
+#ifndef __ICON__
+  USE mo_echam_cloud_params, ONLY: csecfrl, cthomi
+#else
+  USE mo_echam_cloud_config, ONLY: echam_cloud_config
+#endif
 
   IMPLICIT NONE
 
@@ -194,6 +196,11 @@ MODULE mo_echam_convect_tables
   REAL(wp) :: tlucu(1:2,lucupmin-2:lucupmax+1)     ! fused table
   REAL(wp) :: tlucuw(1:2,lucupmin-2:lucupmax+1)    ! fused table
 
+#ifdef __ICON__
+  ! to simplify access to components of echam_cloud_config
+  REAL(wp), POINTER :: csecfrl, cthomi
+#endif
+
   !----------------------------------------------------------------------------
 CONTAINS
   !----------------------------------------------------------------------------
@@ -333,8 +340,7 @@ CONTAINS
 
   END SUBROUTINE init_convect_tables
   !----------------------------------------------------------------------------
-  SUBROUTINE lookup_ubc(name, size, temp, ub, uc)
-    CHARACTER(len=*),   INTENT(in)  :: name
+  SUBROUTINE lookup_ubc(size, temp, ub, uc)
     INTEGER,            INTENT(in)  :: size
     REAL(wp),           INTENT(in)  :: temp(size)
     REAL(wp),           INTENT(out) :: ub(size)
@@ -371,8 +377,7 @@ CONTAINS
 
   END SUBROUTINE lookup_ubc
   !----------------------------------------------------------------------------
-  SUBROUTINE lookup_ubc_list(name, size, kidx, list, temp, ub, uc)
-    CHARACTER(len=*),   INTENT(in)  :: name
+  SUBROUTINE lookup_ubc_list(size, kidx, list, temp, ub, uc)
     INTEGER,            INTENT(in)  :: size, kidx
     INTEGER,            INTENT(in)  :: list(kidx)
     REAL(wp),           INTENT(in)  :: temp(size)
@@ -671,6 +676,12 @@ CONTAINS
     REAL(wp) :: ztt, ztshft, zinbounds, ztmin,ztmax,znphase,ztest
     INTEGER :: jl
 
+#ifdef __ICON__
+    ! to simplify access to components of echam_cloud_config
+    csecfrl  => echam_cloud_config% csecfrl
+    cthomi   => echam_cloud_config% cthomi
+#endif
+
     zinbounds = 1._wp
     ztmin = flucupmin
     ztmax = flucupmax
@@ -721,6 +732,12 @@ CONTAINS
 
     REAL(wp) :: ztt, zinbounds, ztmin,ztmax,znphase,ztest
     INTEGER :: jl
+
+#ifdef __ICON__
+    ! to simplify access to components of echam_cloud_config
+    csecfrl  => echam_cloud_config% csecfrl
+    cthomi   => echam_cloud_config% cthomi
+#endif
 
     ! first compute all lookup indices and check if they are all within allowed bounds
 

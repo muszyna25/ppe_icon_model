@@ -324,9 +324,14 @@ MODULE mo_nwp_phy_types
       , CONTIGUOUS         &
 #endif
       ::                   &
-      z_pbl(:,:)          ,& !> Boundary layer height  (m)
-      bruvais(:,:,:),&       !> Brunt Vaisala Frequency
-      mech_prod(:,:,:)       !> Mechanical production/loss term in TKE equation
+      z_pbl(:,:)     ,     & !> Boundary layer height  (m)
+      bruvais(:,:,:) ,     & !> Brunt Vaisala Frequency
+      mech_prod(:,:,:),    & !> Mechanical production/loss term in TKE equation
+      t_cbase(:,:),        & !>cloud base temperature
+      p_cbase(:,:),        & !>cloud base pressure
+      t_ctop(:,:),         & !>cloud top temperature
+      p_ctop(:,:) !         & !>cloud top pressure
+      !cld_opt_thck(
 
     ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)
     REAL(wp), POINTER       &

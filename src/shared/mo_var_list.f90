@@ -44,7 +44,7 @@ MODULE mo_var_list
        &                         new_list, delete_list,             &
        &                         append_list_element,               &
        &                         find_list_element,                 &
-       &                         delete_list_element 
+       &                         delete_list_element
   USE mo_exception,        ONLY: message, message_text, finish
   USE mo_util_hash,        ONLY: util_hashword
   USE mo_util_string,      ONLY: remove_duplicates, toupper
@@ -52,7 +52,7 @@ MODULE mo_var_list
     &                            STR_HINTP_TYPE, MAX_TIME_LEVELS,   &
     &                            TLEV_NNOW
   USE mo_fortran_tools,    ONLY: assign_if_present
-  USE mo_action_types,     ONLY: t_var_action 
+  USE mo_action_types,     ONLY: t_var_action
   USE mo_io_config,        ONLY: restart_file_type
 
   IMPLICIT NONE
@@ -96,17 +96,17 @@ MODULE mo_var_list
  INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_5d
     MODULE PROCEDURE add_var_list_element_r4d
-    MODULE PROCEDURE add_var_list_element_r3d 
-    MODULE PROCEDURE add_var_list_element_r2d 
-    MODULE PROCEDURE add_var_list_element_r1d 
+    MODULE PROCEDURE add_var_list_element_r3d
+    MODULE PROCEDURE add_var_list_element_r2d
+    MODULE PROCEDURE add_var_list_element_r1d
     MODULE PROCEDURE add_var_list_element_i4d
-    MODULE PROCEDURE add_var_list_element_i3d 
-    MODULE PROCEDURE add_var_list_element_i2d 
-    MODULE PROCEDURE add_var_list_element_i1d 
+    MODULE PROCEDURE add_var_list_element_i3d
+    MODULE PROCEDURE add_var_list_element_i2d
+    MODULE PROCEDURE add_var_list_element_i1d
     MODULE PROCEDURE add_var_list_element_l4d
-    MODULE PROCEDURE add_var_list_element_l3d 
-    MODULE PROCEDURE add_var_list_element_l2d 
-    MODULE PROCEDURE add_var_list_element_l1d 
+    MODULE PROCEDURE add_var_list_element_l3d
+    MODULE PROCEDURE add_var_list_element_l2d
+    MODULE PROCEDURE add_var_list_element_l1d
   END INTERFACE add_var
 
   INTERFACE add_ref
@@ -132,7 +132,7 @@ MODULE mo_var_list
     MODULE PROCEDURE get_var_list_element_l2d
     MODULE PROCEDURE get_var_list_element_l1d
   END INTERFACE get_var
-  
+
   INTERFACE struct_assign_if_present  ! purely internal
     MODULE PROCEDURE assign_if_present_cf
     MODULE PROCEDURE assign_if_present_grib2
@@ -148,7 +148,7 @@ MODULE mo_var_list
   ENUM, BIND(C)
     ENUMERATOR :: REAL_T, BOOL_T, INT_T
   END ENUM
-  
+
   INTEGER,                  SAVE :: nvar_lists     =   0      ! var_lists allocated so far
   !
   TYPE(t_var_list), TARGET, SAVE :: var_lists(max_var_lists)  ! memory buffer array
@@ -180,7 +180,7 @@ CONTAINS
     !
     ! look, if name exists already in list
     !
-    DO i = 1, nvar_lists    
+    DO i = 1, nvar_lists
       IF (var_lists(i)%p%name == name) THEN
         CALL finish('new_list', 'output var_list '//TRIM(name)//' already used.')
       ENDIF
@@ -190,7 +190,7 @@ CONTAINS
     !
     ! - check, if there is an entry without name in the existing vector
     !
-    DO i = 1, nvar_lists    
+    DO i = 1, nvar_lists
       IF (var_lists(i)%p%name == '') THEN
         this_list%p => var_lists(i)%p
         EXIT
@@ -224,12 +224,12 @@ CONTAINS
     ! set non-default list characteristics
     !
     this_list%p%restart_type = restart_file_type
-    
+
     CALL assign_if_present(this_list%p%output_type,  output_type)
     CALL assign_if_present(this_list%p%restart_type, restart_type)
-    CALL assign_if_present(this_list%p%post_suf,     post_suf) 
-    CALL assign_if_present(this_list%p%rest_suf,     rest_suf) 
-    CALL assign_if_present(this_list%p%init_suf,     init_suf) 
+    CALL assign_if_present(this_list%p%post_suf,     post_suf)
+    CALL assign_if_present(this_list%p%rest_suf,     rest_suf)
+    CALL assign_if_present(this_list%p%init_suf,     init_suf)
     CALL assign_if_present(this_list%p%loutput,      loutput)
     CALL assign_if_present(this_list%p%lrestart,     lrestart)
     CALL assign_if_present(this_list%p%linitial,     linitial)
@@ -271,7 +271,7 @@ CONTAINS
     ! local variables
     INTEGER :: i
     TYPE(t_list_element), POINTER :: element
-    
+
     total_number_of_variables = 0
     !- loop over variables
 
@@ -288,7 +288,7 @@ CONTAINS
         IF(.NOT.ASSOCIATED(element)) EXIT LOOPVAR
         ! Do not inspect element if it is a container
         IF (element%field%info%lcontainer) CYCLE LOOPVAR
-        
+
         total_number_of_variables = total_number_of_variables + 1
       ENDDO LOOPVAR ! loop over vlist "i"
     ENDDO ! i = 1,nvar_lists
@@ -468,9 +468,9 @@ CONTAINS
 
     CALL assign_if_present(this_list%p%output_type,  output_type)
     CALL assign_if_present(this_list%p%restart_type, restart_type)
-    CALL assign_if_present(this_list%p%post_suf,     post_suf) 
-    CALL assign_if_present(this_list%p%rest_suf,     rest_suf) 
-    CALL assign_if_present(this_list%p%init_suf,     init_suf) 
+    CALL assign_if_present(this_list%p%post_suf,     post_suf)
+    CALL assign_if_present(this_list%p%rest_suf,     rest_suf)
+    CALL assign_if_present(this_list%p%init_suf,     init_suf)
     CALL assign_if_present(this_list%p%loutput,      loutput)
     CALL assign_if_present(this_list%p%lrestart,     lrestart)
     CALL assign_if_present(this_list%p%linitial,     linitial)
@@ -494,7 +494,7 @@ CONTAINS
   END SUBROUTINE delete_var_list
   !------------------------------------------------------------------------------------------------
   !
-  ! Delete all output var_lists 
+  ! Delete all output var_lists
   !
   SUBROUTINE delete_var_lists
     !
@@ -519,7 +519,7 @@ CONTAINS
     TYPE(t_var_metadata), INTENT(out) :: info         ! variable meta data
     !
     TYPE(t_list_element), POINTER :: element
-    ! 
+    !
     element => find_list_element (this_list, name)
     IF (ASSOCIATED (element)) THEN
       info = element%field%info
@@ -535,18 +535,18 @@ CONTAINS
        &                                loutput, lrestart, linitial,                 &
        &                                post_suf, rest_suf, init_suf,                &
        &                                output_type, restart_type, compression_type, &
-       &                                model_type) 
+       &                                model_type)
     !
     TYPE(t_var_list),   INTENT(inout)        :: this_list        ! output var_list
-    LOGICAL,            INTENT(in), OPTIONAL :: loutput          ! to output 
+    LOGICAL,            INTENT(in), OPTIONAL :: loutput          ! to output
     LOGICAL,            INTENT(in), OPTIONAL :: lrestart         ! from/to restart
     LOGICAL,            INTENT(in), OPTIONAL :: linitial         ! from initial
     CHARACTER(len=*),   INTENT(in), OPTIONAL :: filename         ! name of output file
-    CHARACTER(len=*),   INTENT(in), OPTIONAL :: post_suf         ! suffix of output  file         
+    CHARACTER(len=*),   INTENT(in), OPTIONAL :: post_suf         ! suffix of output  file
     CHARACTER(len=*),   INTENT(in), OPTIONAL :: rest_suf         ! suffix of restart file
     CHARACTER(len=*),   INTENT(in), OPTIONAL :: init_suf         ! suffix of initial file
     INTEGER,            INTENT(in), OPTIONAL :: output_type      ! output file type
-    INTEGER,            INTENT(in), OPTIONAL :: restart_type     ! restart file type 
+    INTEGER,            INTENT(in), OPTIONAL :: restart_type     ! restart file type
     INTEGER,            INTENT(in), OPTIONAL :: compression_type ! compression type
     CHARACTER(len=*),   INTENT(in), OPTIONAL :: model_type       ! output file associated
     !
@@ -570,9 +570,9 @@ CONTAINS
     !
     TYPE(t_var_metadata)         :: this_info        ! memory info structure
     !
-    TYPE(t_var_list), INTENT(in) :: this_list        ! output var_list    
+    TYPE(t_var_list), INTENT(in) :: this_list        ! output var_list
     !
-    this_info%key                 = 0    
+    this_info%key                 = 0
     this_info%name                = ''
     this_info%var_class           = CLASS_DEFAULT
     !
@@ -609,7 +609,7 @@ CONTAINS
     this_info%cdiVarID_2          = CDI_UNDEFID
     this_info%cdiGridID           = CDI_UNDEFID
     this_info%cdiZaxisID          = CDI_UNDEFID
-    this_info%cdiDataType         = CDI_UNDEFID 
+    this_info%cdiDataType         = CDI_UNDEFID
     !
     this_info%tracer              = create_tracer_metadata()
     this_info%vert_interp         = create_vert_interp_metadata()
@@ -624,7 +624,7 @@ CONTAINS
     this_info%l_pp_scheduler_task = 0
 
   END FUNCTION default_var_list_metadata
-  
+
 
 
   !------------------------------------------------------------------------------------------------
@@ -632,7 +632,7 @@ CONTAINS
   ! Set parameters of list element already created
   ! (private routine within this module)
   !
-  ! Set each parameter in data type var_metadata if the respective 
+  ! Set each parameter in data type var_metadata if the respective
   ! optional parameter is present.
   !
   SUBROUTINE set_var_metadata (info,                                           &
@@ -646,11 +646,11 @@ CONTAINS
     !
     TYPE(t_var_metadata),    INTENT(inout)        :: info          ! memory info struct.
     CHARACTER(len=*),        INTENT(in), OPTIONAL :: name          ! variable name
-    INTEGER,                 INTENT(in), OPTIONAL :: hgrid         ! horizontal grid type used 
+    INTEGER,                 INTENT(in), OPTIONAL :: hgrid         ! horizontal grid type used
     INTEGER,                 INTENT(in), OPTIONAL :: vgrid         ! vertical grid type used
     TYPE(t_cf_var),          INTENT(in), OPTIONAL :: cf            ! CF convention
     TYPE(t_grib2_var),       INTENT(in), OPTIONAL :: grib2         ! GRIB2
-    INTEGER,                 INTENT(in)           :: ldims(:)      ! used dimensions 
+    INTEGER,                 INTENT(in)           :: ldims(:)      ! used dimensions
     LOGICAL,                 INTENT(in), OPTIONAL :: loutput       ! into output var_list
     LOGICAL,                 INTENT(in), OPTIONAL :: lcontainer    ! true if container
     LOGICAL,                 INTENT(in), OPTIONAL :: lrestart      ! restart file flag
@@ -669,13 +669,13 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta),    INTENT(in), OPTIONAL :: post_op       !< "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(in), OPTIONAL :: action_list   !< regularly triggered events
-    INTEGER,                 INTENT(in), OPTIONAL :: var_class     ! variable class/species 
+    INTEGER,                 INTENT(in), OPTIONAL :: var_class     ! variable class/species
     !
     LOGICAL :: lverbose
     !
     ! set flags from optional parameters
     !
-    lverbose = .FALSE. 
+    lverbose = .FALSE.
     CALL assign_if_present (lverbose, verbose)
     !
     ! set components describing the 'Content of the field'
@@ -733,8 +733,8 @@ CONTAINS
 
     CALL struct_assign_if_present (info%post_op, post_op)
 
-    CALL struct_assign_if_present (info%action_list, action_list) 
-    
+    CALL struct_assign_if_present (info%action_list, action_list)
+
     !
     ! printout (optional)
     !
@@ -744,7 +744,7 @@ CONTAINS
   END SUBROUTINE set_var_metadata
 
 
-  ! Auxiliary routine: initialize array, REAL(wp) variant 
+  ! Auxiliary routine: initialize array, REAL(wp) variant
   SUBROUTINE init_array_r5d(ptr, linit, initval, lmiss, missval)
     REAL(wp),           POINTER     :: ptr(:,:,:,:,:)      ! pointer to field
     LOGICAL,            INTENT(IN)  :: linit, lmiss
@@ -805,7 +805,7 @@ CONTAINS
   !
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 5d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_5d(ndims, data_type, this_list, name,        &
     &   hgrid, vgrid, cf, grib2, ldims, new_list_element, loutput, lcontainer, &
@@ -946,7 +946,8 @@ CONTAINS
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       this_list%p%memory_used = this_list%p%memory_used &
-        +INT(new_list_element%field%var_base_size*PRODUCT(idims(1:5)),i8)
+           + INT(new_list_element%field%var_base_size, i8) &
+           & * INT(PRODUCT(idims(1:5)),i8)
     ELSE
       SELECT CASE(data_type)
       CASE (REAL_T)
@@ -978,7 +979,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 4d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_r4d(this_list, name, ptr,       &
     &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
@@ -1037,7 +1038,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 3d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_r3d(this_list, name, ptr,       &
     &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
@@ -1096,7 +1097,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 2d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,       &
     &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
@@ -1155,7 +1156,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 1d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_r1d(this_list, name, ptr,       &
     &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
@@ -1214,7 +1215,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 4d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_i4d(this_list, name, ptr,       &
     &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
@@ -1273,7 +1274,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 3d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_i3d(this_list, name, ptr,       &
     &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
@@ -1332,7 +1333,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 2d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_i2d(this_list, name, ptr,       &
     &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
@@ -1391,7 +1392,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 1d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_i1d(this_list, name, ptr,       &
     &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
@@ -1449,7 +1450,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 4d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_l4d(this_list, name, ptr,       &
     &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
@@ -1508,7 +1509,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 3d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_l3d(this_list, name, ptr,       &
     &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
@@ -1567,7 +1568,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 2d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_l2d(this_list, name, ptr,       &
     &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
@@ -1626,7 +1627,7 @@ CONTAINS
   !------------------------------------------------------------------------------------------------
   ! create (allocate) a new table entry
   ! optionally obtain pointer to 1d-field
-  ! optionally overwrite default meta data 
+  ! optionally overwrite default meta data
   !
   SUBROUTINE add_var_list_element_l1d(this_list, name, ptr,       &
     &   hgrid, vgrid, cf, grib2, ldims, loutput, lcontainer,      &
@@ -1689,7 +1690,7 @@ CONTAINS
   !
   ! Specific routines for pointers of different rank
   !
-  !================================================================================================ 
+  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   ! obtain pointer to 4d-field
@@ -1771,7 +1772,7 @@ CONTAINS
 
 
   ! Obtain pointer to 2D REAL field
-  ! 
+  !
   FUNCTION fget_var_list_element_r1d (this_list, name) RESULT(ptr)
     TYPE(t_var_list), INTENT(in) :: this_list   ! list
     CHARACTER(len=*), INTENT(in) :: name        ! name of variable
@@ -1790,7 +1791,7 @@ CONTAINS
 
 
   ! Obtain pointer to 2D REAL field
-  ! 
+  !
   FUNCTION fget_var_list_element_r2d (this_list, name) RESULT(ptr)
     TYPE(t_var_list), INTENT(in) :: this_list   ! list
     CHARACTER(len=*), INTENT(in) :: name        ! name of variable
@@ -1809,7 +1810,7 @@ CONTAINS
 
 
   ! Obtain pointer to 3D REAL field
-  ! 
+  !
   FUNCTION fget_var_list_element_r3d (this_list, name) RESULT(ptr)
     TYPE(t_var_list), INTENT(in) :: this_list    ! list
     CHARACTER(len=*), INTENT(in) :: name         ! name of variable
@@ -1826,7 +1827,7 @@ CONTAINS
     !
   END FUNCTION fget_var_list_element_r3d
 
-  !================================================================================================ 
+  !================================================================================================
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
   ! obtain pointer to 5d-field
@@ -1905,7 +1906,7 @@ CONTAINS
     IF (ASSOCIATED (element)) ptr => element%field%i_ptr(:,1,1,1,1)
     !
   END SUBROUTINE get_var_list_element_i1d
-  !================================================================================================ 
+  !================================================================================================
   ! LOGICAL SECTION -------------------------------------------------------------------------------
   !
   ! obtain pointer to 5d-field
@@ -1991,12 +1992,12 @@ CONTAINS
   !
   ! Specific routines for pointers of different rank
   !
-  !================================================================================================ 
+  !================================================================================================
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   ! create (allocate) a new table entry
   ! reference to an existing pointer to 3d-field
-  ! optionally overwrite some default meta data 
+  ! optionally overwrite some default meta data
   !
   SUBROUTINE add_var_list_reference_r3d (this_list, target_name, name, ptr,                      &
        &                                 hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput,       &
@@ -2040,12 +2041,12 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_r3d"
     !
-    TYPE(t_list_element), POINTER :: target_element    
+    TYPE(t_list_element), POINTER :: target_element
     TYPE(t_var_metadata), POINTER :: target_info, ref_info
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals)            :: missvalt, initvalt, resetvalt
     INTEGER                       :: ndims, var_ref_pos, dim_indices(5), index
-    LOGICAL :: in_group_new(MAX_GROUPS)             ! groups to which a variable belongs 
+    LOGICAL :: in_group_new(MAX_GROUPS)             ! groups to which a variable belongs
                                                     ! (for taking into account tile groups)
     !
     ndims = 3
@@ -2083,14 +2084,14 @@ CONTAINS
     END SELECT
 
     IF (target_info%lcontainer) THEN
-      ! Counting the number of existing references is deactivated, if the slice index 
+      ! Counting the number of existing references is deactivated, if the slice index
       ! to be referenced is given explicitly.
       IF ( PRESENT(ref_idx) ) THEN
         ! only check validity of given slice index
         IF ( (ref_idx > SIZE(target_element%field%r_ptr, var_ref_pos)) .OR. (ref_idx < 1)) THEN
           WRITE (message_text, *) &
             &  'Slice idx ', ref_idx, ' for ', TRIM(name), &
-            &  ' out of allowable range [1,',SIZE(target_element%field%r_ptr, var_ref_pos),']'      
+            &  ' out of allowable range [1,',SIZE(target_element%field%r_ptr, var_ref_pos),']'
           CALL finish(routine, message_text)
         ENDIF
       ELSE
@@ -2098,12 +2099,12 @@ CONTAINS
         IF (SIZE(target_element%field%r_ptr, var_ref_pos) < target_info%ncontained) THEN
           WRITE (message_text, *) &
             &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-            &  SIZE(target_element%field%r_ptr, var_ref_pos)      
+            &  SIZE(target_element%field%r_ptr, var_ref_pos)
           CALL finish(routine, message_text)
         ENDIF
       ENDIF
       IF ( ANY(ldims(1:ndims) /=  target_info%used_dimensions(dim_indices(1:ndims))) ) THEN
-        CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')      
+        CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')
       ENDIF
     ENDIF
     !
@@ -2113,7 +2114,7 @@ CONTAINS
     IF (PRESENT(new_element)) new_element=>new_list_element
     ref_info => new_list_element%field%info
     ref_info =  default_var_list_metadata(this_list)
- 
+
     !
     ! init local fields
     !
@@ -2126,7 +2127,7 @@ CONTAINS
     CALL assign_if_present(resetvalt%rval, resetval)
     !
     CALL set_var_metadata (new_list_element%field%info,                      &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                & 
+         name=name, hgrid=hgrid, vgrid=vgrid,                                &
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                   &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initvalt,   &
          isteptype=isteptype, resetval=resetvalt, lmiss=lmiss,               &
@@ -2168,13 +2169,13 @@ CONTAINS
     ENDIF
     SELECT CASE(var_ref_pos)
     CASE(1)
-      ptr => target_element%field%r_ptr(index,:,:,:,1)      
+      ptr => target_element%field%r_ptr(index,:,:,:,1)
     CASE(2)
-      ptr => target_element%field%r_ptr(:,index,:,:,1)      
+      ptr => target_element%field%r_ptr(:,index,:,:,1)
     CASE(3)
-      ptr => target_element%field%r_ptr(:,:,index,:,1)      
+      ptr => target_element%field%r_ptr(:,:,index,:,1)
     CASE(4)
-      ptr => target_element%field%r_ptr(:,:,:,index,1)      
+      ptr => target_element%field%r_ptr(:,:,:,index,1)
     CASE default
       CALL finish(routine, "internal error!")
     END SELECT
@@ -2199,7 +2200,7 @@ CONTAINS
   !
   ! create (allocate) a new table entry
   ! reference to an existing pointer to 2d-field
-  ! optionally overwrite some default meta data 
+  ! optionally overwrite some default meta data
   !
   SUBROUTINE add_var_list_reference_r2d (this_list, target_name, name, ptr,                      &
        &                                 hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput,       &
@@ -2243,12 +2244,12 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_r2d"
     !
-    TYPE(t_list_element), POINTER :: target_element    
+    TYPE(t_list_element), POINTER :: target_element
     TYPE(t_var_metadata), POINTER :: target_info, ref_info
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals)            :: missvalt, initvalt, resetvalt
     INTEGER                       :: ndims, var_ref_pos, dim_indices(5), index
-    LOGICAL :: in_group_new(MAX_GROUPS)             ! groups to which a variable belongs 
+    LOGICAL :: in_group_new(MAX_GROUPS)             ! groups to which a variable belongs
                                                     ! (for taking into account tile groups)
     !
     ndims = 2
@@ -2284,14 +2285,14 @@ CONTAINS
     END SELECT
 
     IF (target_info%lcontainer) THEN
-      ! Counting the number of existing references is deactivated, if the slice index 
+      ! Counting the number of existing references is deactivated, if the slice index
       ! to be referenced is given explicitly.
       IF ( PRESENT(ref_idx) ) THEN
         ! only check validity of given slice index
         IF ( (ref_idx > SIZE(target_element%field%r_ptr, var_ref_pos)) .OR. (ref_idx < 1)) THEN
           WRITE (message_text, *) &
             &  'Slice idx ', ref_idx, ' for ', TRIM(name), &
-            &  ' out of allowable range [1,',SIZE(target_element%field%r_ptr, var_ref_pos),']'      
+            &  ' out of allowable range [1,',SIZE(target_element%field%r_ptr, var_ref_pos),']'
           CALL finish(routine, message_text)
         ENDIF
       ELSE
@@ -2304,7 +2305,7 @@ CONTAINS
         ENDIF
       ENDIF
       IF (ANY(ldims(1:ndims) /=  target_info%used_dimensions(dim_indices(1:ndims)))) THEN
-        CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')      
+        CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')
       ENDIF
     ENDIF
     !
@@ -2326,7 +2327,7 @@ CONTAINS
     CALL assign_if_present(resetvalt%rval, resetval)
     !
     CALL set_var_metadata (new_list_element%field%info,                      &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                & 
+         name=name, hgrid=hgrid, vgrid=vgrid,                                &
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                   &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initvalt,   &
          isteptype=isteptype, resetval=resetvalt, lmiss=lmiss,               &
@@ -2368,11 +2369,11 @@ CONTAINS
     ENDIF
     SELECT CASE(var_ref_pos)
     CASE(1)
-      ptr => target_element%field%r_ptr(index,:,:,1,1)      
+      ptr => target_element%field%r_ptr(index,:,:,1,1)
     CASE(2)
-      ptr => target_element%field%r_ptr(:,index,:,1,1)      
+      ptr => target_element%field%r_ptr(:,index,:,1,1)
     CASE(3)
-      ptr => target_element%field%r_ptr(:,:,index,1,1)      
+      ptr => target_element%field%r_ptr(:,:,index,1,1)
     CASE default
       CALL finish(routine, "internal error!")
     END SELECT
@@ -2398,7 +2399,7 @@ CONTAINS
   !
   ! create (allocate) a new table entry
   ! reference to an existing pointer to 3d-field
-  ! optionally overwrite some default meta data 
+  ! optionally overwrite some default meta data
   !
   SUBROUTINE add_var_list_reference_i2d (this_list, target_name, name, ptr,                      &
        &                                 hgrid, vgrid, cf, grib2, ref_idx, ldims, loutput,       &
@@ -2442,12 +2443,12 @@ CONTAINS
     ! local variables
     CHARACTER(*), PARAMETER :: routine = modname//"::add_var_list_reference_i2d"
     !
-    TYPE(t_list_element), POINTER :: target_element    
+    TYPE(t_list_element), POINTER :: target_element
     TYPE(t_var_metadata), POINTER :: target_info, ref_info
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals)            :: missvalt, initvalt, resetvalt
     INTEGER                       :: ndims, var_ref_pos, dim_indices(5), index
-    LOGICAL :: in_group_new(MAX_GROUPS)             ! groups to which a variable belongs 
+    LOGICAL :: in_group_new(MAX_GROUPS)             ! groups to which a variable belongs
                                                     ! (for taking into account tile groups)
     !
     ndims = 2
@@ -2483,14 +2484,14 @@ CONTAINS
     END SELECT
 
     IF (target_info%lcontainer) THEN
-      ! Counting the number of existing references is deactivated, if the slice index 
+      ! Counting the number of existing references is deactivated, if the slice index
       ! to be referenced is given explicitly.
       IF ( PRESENT(ref_idx) ) THEN
         ! only check validity of given slice index
         IF ( (ref_idx > SIZE(target_element%field%i_ptr, var_ref_pos)) .OR. (ref_idx < 1)) THEN
           WRITE (message_text, *) &
             &  'Slice idx ', ref_idx, ' for ', TRIM(name), &
-            &  ' out of allowable range [1,',SIZE(target_element%field%i_ptr, var_ref_pos),']'      
+            &  ' out of allowable range [1,',SIZE(target_element%field%i_ptr, var_ref_pos),']'
           CALL finish(routine, message_text)
         ENDIF
       ELSE
@@ -2498,12 +2499,12 @@ CONTAINS
         IF (SIZE(target_element%field%i_ptr, var_ref_pos) < target_info%ncontained) THEN
           WRITE (message_text, *) &
             &  TRIM(name), ' exceeds the number of predefined entries in container:', &
-            &  SIZE(target_element%field%i_ptr, var_ref_pos)      
+            &  SIZE(target_element%field%i_ptr, var_ref_pos)
           CALL finish(routine, message_text)
         ENDIF
       ENDIF
       IF (any(ldims(1:ndims) /=  target_info%used_dimensions(dim_indices(1:ndims)))) THEN
-        CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')      
+        CALL finish(routine, TRIM(name)//' dimensions requested and available differ.')
       ENDIF
     ENDIF
     !
@@ -2525,7 +2526,7 @@ CONTAINS
     CALL assign_if_present(resetvalt%ival, resetval)
     !
     CALL set_var_metadata (new_list_element%field%info,                      &
-         name=name, hgrid=hgrid, vgrid=vgrid,                                & 
+         name=name, hgrid=hgrid, vgrid=vgrid,                                &
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                   &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initvalt,   &
          isteptype=isteptype, resetval=resetvalt, lmiss=lmiss,               &
@@ -2538,7 +2539,7 @@ CONTAINS
     ref_info%ndims = ndims
     ref_info%used_dimensions(:)       = 0
     ref_info%used_dimensions(1:ndims) = target_element%field%info%used_dimensions(dim_indices(1:ndims))
-    
+
     IF (PRESENT(var_class)) THEN
       IF ( ANY((/CLASS_TILE, CLASS_TILE_LAND/) == var_class)) THEN
         ! automatically add tile to its variable specific tile-group
@@ -2566,11 +2567,11 @@ CONTAINS
     ENDIF
     SELECT CASE(var_ref_pos)
     CASE(1)
-      ptr => target_element%field%i_ptr(index,:,:,1,1)      
+      ptr => target_element%field%i_ptr(index,:,:,1,1)
     CASE(2)
-      ptr => target_element%field%i_ptr(:,index,:,1,1)      
+      ptr => target_element%field%i_ptr(:,index,:,1,1)
     CASE(3)
-      ptr => target_element%field%i_ptr(:,:,index,1,1)      
+      ptr => target_element%field%i_ptr(:,:,index,1,1)
     CASE default
       CALL finish(routine, "internal error!")
     END SELECT
@@ -2656,7 +2657,7 @@ CONTAINS
   !
   SUBROUTINE delete_var_list_element (this_list, name)
     TYPE(t_var_list), INTENT(inout) :: this_list
-    CHARACTER(len=*), INTENT(in)    :: name   
+    CHARACTER(len=*), INTENT(in)    :: name
     !
     TYPE(t_list_element), POINTER :: ptr
     !
@@ -2700,7 +2701,7 @@ CONTAINS
   END SUBROUTINE print_memory_use
   !------------------------------------------------------------------------------------------------
   !
-  ! print current memory table 
+  ! print current memory table
   !
   SUBROUTINE print_var_list (this_list, lshort)
     TYPE(t_var_list),  INTENT(in) :: this_list ! list
@@ -2709,23 +2710,23 @@ CONTAINS
     TYPE(t_list_element), POINTER :: this_list_element
     CHARACTER(len=32) :: dimension_text, dtext
     INTEGER :: i, igrp, ivintp_type
-    CHARACTER(len=4) :: localMode = '----'    
+    CHARACTER(len=4) :: localMode = '----'
 
     CALL message('','')
     CALL message('','')
-    CALL message('','Status of variable list '//TRIM(this_list%p%name)//':')    
+    CALL message('','Status of variable list '//TRIM(this_list%p%name)//':')
     CALL message('','')
     !
     this_list_element => this_list%p%first_list_element
     !
     DO WHILE (ASSOCIATED(this_list_element))
-      ! 
+      !
       IF (lshort) THEN
 
         IF (this_list_element%field%info%name /= '' .AND. &
              .NOT. this_list_element%field%info%lcontainer) THEN
           IF (this_list_element%field%info%lrestart) localMode(1:1) = 'r'
-          IF (this_list_element%field%info%lcontained) localMode(2:2) = 't'         
+          IF (this_list_element%field%info%lcontained) localMode(2:2) = 't'
           SELECT CASE (this_list_element%field%info%isteptype)
           CASE (1)
             localMode(3:3) = 'i'
@@ -2742,7 +2743,7 @@ CONTAINS
           CASE (3)
             localMode(4:4) = 'e'
           END SELECT
-          
+
           WRITE(message_text, '(a4,3i4,a16,a48)') localMode,                                 &
                &                              this_list_element%field%info%grib2%discipline, &
                &                              this_list_element%field%info%grib2%category,   &
@@ -2750,7 +2751,7 @@ CONTAINS
                &                              TRIM(this_list_element%field%info%name),       &
                &                              TRIM(this_list_element%field%info%cf%standard_name)
           CALL message('', message_text)
-          
+
           localMode = '----'
         ENDIF
 
@@ -2783,7 +2784,7 @@ CONTAINS
         ELSE
           CALL message('', 'Pointer status                              : not in use.')
         ENDIF
-        !        
+        !
         WRITE (message_text,'(a,3i4)') &
              'Assigned GRIB discipline/category/parameter : ', &
              this_list_element%field%info%grib2%discipline,    &
@@ -2935,7 +2936,7 @@ CONTAINS
              this_list_element%field%info%var_class
         CALL message('', message_text)
 
-        ! 
+        !
         ! print groups, to which this variable belongs:
         IF (ANY(this_list_element%field%info%in_group(:))) THEN
           WRITE (message_text,'(a)')  'Variable group(s)                           :'
@@ -2971,23 +2972,23 @@ CONTAINS
 
       ENDIF
       !
-      ! select next element in linked list 
+      ! select next element in linked list
       !
       this_list_element => this_list_element%next_list_element
     ENDDO
 
-    !    
+    !
   END SUBROUTINE print_var_list
   !------------------------------------------------------------------------------------------------
   !
-  ! print current stat table 
+  ! print current stat table
   !
   SUBROUTINE print_sinfo (this_list)
     TYPE(t_var_list),  INTENT(in) :: this_list
     !
     WRITE (message_text,'(a16,a)') TRIM(this_list%p%name), '-buffer: '
     CALL message('',message_text)
-    CALL message('','')    
+    CALL message('','')
     CALL message('','')
     CALL message('','Statistic of base memory:')
     CALL message('','')
@@ -3022,7 +3023,7 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element
     TYPE(t_var_metadata), POINTER :: info
     CHARACTER(LEN=VARNAME_LEN)    :: name
-    
+
     nvars  = 0
     grp_id = group_id(grp_name)
 
@@ -3044,7 +3045,7 @@ CONTAINS
         info => element%field%info
         ! Do not inspect element if it is a container
         IF (info%lcontainer) CYCLE LOOPVAR
-        
+
         IF (info%in_group(grp_id)) THEN
           name = TRIM(get_var_name(element%field))
 
@@ -3061,7 +3062,7 @@ CONTAINS
               CYCLE LOOPVAR
             ENDIF
           ELSE IF (.NOT. lremap_lonlat) THEN
-            ! If no lon-lat interpolation is requested for this output file, 
+            ! If no lon-lat interpolation is requested for this output file,
             ! skip all variables of this kind:
             IF (info%hgrid == GRID_REGULAR_LONLAT) THEN
               CALL message(routine, "Skipping variable "//TRIM(name)//" for output.")

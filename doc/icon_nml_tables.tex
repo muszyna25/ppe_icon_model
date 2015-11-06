@@ -2245,12 +2245,6 @@ Type of restart file. One of CDI's FILETYPE\_XXX. So far, only 4 (=FILETYPE\_NC2
 \tabularnewline
 
 %\hline
-use\_set\_event\_to\_simstep&
-L&  & &
-Currently inactive&
-\tabularnewline
-
-%\hline
 \end{longtab}
 
 Defined and used in: \verb+src/namelists/mo_io_nml.f90+
@@ -2315,6 +2309,11 @@ Smagorinsky constant &
 %\hline
 km\_min & R & 0.01 &  &
 Minimum turbulent viscosity &
+\tabularnewline
+
+%\hline
+max\_turb\_scale & R & 300.0 &  &
+Asymtotic maximum turblence length scale (useful for coarse grid LES and when grid is vertically stretched) &
 \tabularnewline
 
 %\hline
@@ -3221,7 +3220,8 @@ I (max\_ dom)&
 radiation\\
 0: none\\
 1: RRTM radiation\\
-2: Ritter-Geleyn radiation
+2: Ritter-Geleyn radiation\\
+3: PSRAD radiation
 &run\_nml:iforcing = inwp
 \tabularnewline
 
@@ -3468,6 +3468,15 @@ R&
 1/m&
 Entrainment parameter valid for dx=20 km&
 run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+tune\_capdcfac\_et&
+R&
+0&
+&
+Fraction of CAPE diurnal cycle correction applied in the extratropics&
+icapdcycl = 3
 \tabularnewline
 
 \hline
@@ -4064,6 +4073,10 @@ sets of common variables can be added to the output:
 \texttt{group:ART\_AERO\_RADIO}        \>     ART radioactive tracer fields                                         \\
 \texttt{group:ART\_AERO\_DUST}         \>     ART mineral dust aerosol fields                                       \\
 \texttt{group:ART\_AERO\_SEAS}         \>     ART sea salt aerosol fields                                           \\
+\texttt{group:prog\_timemean}          \>     time mean output: temp, u, v, rho                                     \\
+\texttt{group:tracer\_timemean}        \>     time mean output: qv, qc, qi                                          \\
+\texttt{group:echam\_timemean}         \>     time mean output: most echam surface variables                        \\
+\texttt{group:atmo\_timemean}          \>     time mean variables from \texttt{prog\_timemean},\texttt{tracer\_timemean}, \texttt{echam\_timemean}\\                                                  \\
 \end{tabbing}
 
 \paragraph{Keyword \texttt{"tiles:"}:}
@@ -4127,8 +4140,7 @@ division\_method &
 I & 1& &
 method of domain decomposition\\
 0: read in from file \\
-1: use built-in geometric subdivision \\
-2: use METIS&
+1: use built-in geometric subdivision&
 \tabularnewline
 
 
@@ -4286,7 +4298,91 @@ more than one 2D slice at once. &
 
 Defined and used in: \verb+src/namelists/mo_parallel_nml.f90+
 
+%------------------------------------------------------------------------------
+% psrad_nml:
+%------------------------------------------------------------------------------
+\subsection{psrad\_nml}
 
+\begin{longtab}
+
+%\hline
+lradforcing &
+L(2)&
+.FALSE.&
+&
+switch for diagnostics of aerosol forcing in the solar spectral range
+(lradforcing(1)) and the thermal spectral range (lradforcing(2)). 
+\tabularnewline
+
+%hline
+lw\_gpts\_ts &
+I&
+1&
+&
+number of g--points in Monte--Carlo
+   spectral integration for thermal radiation, see lw\_spec\_samp
+\tabularnewline
+
+%hline
+lw\_spec\_samp &
+I&
+1&
+&
+sampling of spectral bands in radiation
+calculation for thermal radiation\newline
+lw\_spec\_samp = 1: standard broad
+band sampling\newline
+lw\_spec\_samp = 2: Monte--Carlo spec-
+ tral integration (MSCI); lw\_gpts\_ts
+randomly chosen g--points per column
+ and radiation call\newline
+lw\_spec\_samp = 3: choose g--points not
+ completely randomly in order to reduce
+errors in the surface radiative fluxes
+\tabularnewline
+
+%hline
+rad\_perm &
+I&
+0&
+&
+integer number that influences the perturba- 
+  tion of the random seed from column 
+  to column
+\tabularnewline
+
+%hline
+sw\_gpts\_ts &
+I&
+1&
+&
+number of g--points in Monte--Carlo 
+    spectral integration for solar radiation, 
+    see sw\_spec\_samp 
+\tabularnewline
+
+
+%hline
+sw\_spec\_samp&
+I&
+1&
+&
+sampling of spectral bands in radiation 
+calculation for solar radiation \newline
+sw\_spec\_samp = 1: standard broad 
+band sampling\newline 
+sw\_spec\_samp = 2: Monte--Carlo spectral integration (MSCI); lw\_gpts\_ts 
+  randomly chosen g--points per column 
+    and radiation call\newline 
+    sw\_spec\_samp = 3: choose g--points not 
+      completely randomly in order to reduce 
+      errors in the surface radiative fluxes 
+\tabularnewline
+
+%hline
+\end{longtab}
+
+Defined and used in: \verb+src/echam_phy_psrad/mo_psrad_radiation.f90+
 %------------------------------------------------------------------------------
 % radiation_nml:
 %------------------------------------------------------------------------------
@@ -4622,6 +4718,7 @@ Main switch for enabling/disabling components of the model output. One or more c
 \item ``none'': switch off all output;
 \item``nml'': new output mode (cf.\ \texttt{output\_nml});
 \item``totint'': computation of total integrals.
+\item``maxwinds'': write max. winds to separate ASCII file ''maxwinds.log''.
 \end{itemize}
 If the \texttt{output} namelist parameter is not set explicitly, the default setting ``nml'',''totint'' is assumed.
  &
@@ -4942,7 +5039,12 @@ L& .FALSE.& & Time splitting method & \tabularnewline
 
 %\hline
 ctracer\_list&
-C& ''& & list of tracer names & ltestcase=.TRUE.
+C& ''& & Two purposes: & \tabularnewline
+ & &   &  & 
+ - used for selecting those tracers which should be initialized for idealized testcases. & [nh/ha]\_test\_name=\\'jabw','PA','DF'
+\tabularnewline
+ & &   &  & 
+ - used for tracer output names. In some idealized cases tracers are named 'Q\emph{x}', with \emph{x} being a 1-digit integer taken from \texttt{ctracer\_list}. & iforcing$\ne$ inwp, iecham
 \tabularnewline
 
 %\hline

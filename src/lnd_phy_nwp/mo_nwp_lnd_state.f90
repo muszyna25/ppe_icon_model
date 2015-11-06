@@ -64,11 +64,12 @@ MODULE mo_nwp_lnd_state
     &                                groups, post_op
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var, t_grib2_int_key, OPERATOR(+)
-  USE mo_cdi,                  ONLY: DATATYPE_PACK16, DATATYPE_PACK24, DATATYPE_FLT32, TSTEP_ACCUM
-  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,     & 
+  USE mo_cdi,                  ONLY: DATATYPE_PACK16, DATATYPE_PACK24, DATATYPE_FLT32, &
+    &                                TSTEP_ACCUM, GRID_UNSTRUCTURED
+  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL,                     & 
     &                                GRID_CELL, ZA_SURFACE, ZA_SNOW,             &
     &                                ZA_SNOW_HALF, ZA_DEPTH_BELOW_LAND,          &
-    &                                ZA_DEPTH_BELOW_LAND_P1,     &
+    &                                ZA_DEPTH_BELOW_LAND_P1,                     &
     &                                ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G,       &
     &                                ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_LAKE_BOTTOM, &
     &                                ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER
@@ -370,7 +371,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_lnd%t_g(nproma,nblks_c), STAT = ist)
     cf_desc    = t_cf_var('t_g', 'K', 'weighted surface temperature', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_g'//suffix, p_prog_lnd%t_g,      &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
          & ldims=shape2d,                                                      &
@@ -382,7 +383,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_lnd%t_g_t(nproma,nblks_c,ntiles_total+ntiles_water), STAT = ist)
     cf_desc    = t_cf_var('t_g_t', 'K', 'weighted surface temperature', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_g_t'//suffix, p_prog_lnd%t_g_t,  &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,  cf_desc, grib2_desc,           &
          & ldims=shape3d_subsw, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
@@ -398,7 +399,7 @@ MODULE mo_nwp_lnd_state
                & p_prog_lnd%t_gt_ptr(jsfc)%p_2d,                               &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('t_g_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),       &
-               & grib2_var(0, 0, 0, ibits, GRID_REFERENCE, GRID_CELL),       &
+               & grib2_var(0, 0, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
                & ldims=shape2d,                                                &
                & var_class=CLASS_TILE,                                         &
                & tlev_source=TLEV_NNOW_RCF,                                    & ! for output take field from nnow_rcf slice
@@ -409,7 +410,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_lnd%t_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('t_s_t', 'K', 'temperature of ground surface', DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_s_t'//suffix, p_prog_lnd%t_s_t,  &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
          & ldims=shape3d_subsw, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
@@ -424,7 +425,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%t_s_ptr(jsfc)%p_2d,                                &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
            & t_cf_var('t_s_t_'//csfc, '', '', DATATYPE_FLT32),             &
-           & grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL),      &
+           & grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
            & ldims=shape2d,                                                &
            & var_class=CLASS_TILE,                                         &
            & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
@@ -437,7 +438,7 @@ MODULE mo_nwp_lnd_state
     cf_desc     = t_cf_var('w_i_t', 'm H2O', 'water content of interception water', DATATYPE_FLT32)
     new_cf_desc = t_cf_var('w_i_t', 'kg/m**2', 'weighted water content of interception water', &
          &                DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 0, 13, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 0, 13, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_i_t'//suffix, p_prog_lnd%w_i_t,     &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,               &
          & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
@@ -452,7 +453,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%w_i_ptr(jsfc)%p_2d,                                  &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
            & t_cf_var('w_i_t_'//csfc, '', '', DATATYPE_FLT32),               &
-           & grib2_var(2, 0, 13, ibits, GRID_REFERENCE, GRID_CELL),        &
+           & grib2_var(2, 0, 13, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
            & ldims=shape2d,                                                  &
            & var_class=CLASS_TILE_LAND,                                      &
            & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
@@ -465,8 +466,8 @@ MODULE mo_nwp_lnd_state
 
       ! & p_prog_lnd%w_p_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('w_p_t', 'm H2O', 'water content of interception water', DATATYPE_FLT32)
-      grib2_desc = grib2_var(2, 0, 14, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( prog_list, vname_prefix//'w_p_t'//suffix, p_prog_lnd%w_p_t,     &
+      grib2_desc = grib2_var(2, 0, 14, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'w_p_t'//suffix, p_prog_lnd%w_p_t,    &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
 
@@ -480,7 +481,7 @@ MODULE mo_nwp_lnd_state
              & p_prog_lnd%w_p_ptr(jsfc)%p_2d,                                  &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
              & t_cf_var('w_p_t_'//csfc, '', '', DATATYPE_FLT32),               &
-             & grib2_var(2, 0, 14, ibits, GRID_REFERENCE, GRID_CELL),        &
+             & grib2_var(2, 0, 14, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
              & ldims=shape2d,                                                  &
              & var_class=CLASS_TILE_LAND,                                      &
              & tlev_source=TLEV_NNOW_RCF,                                      &
@@ -489,7 +490,7 @@ MODULE mo_nwp_lnd_state
 
       ! & p_prog_lnd%w_s_t(nproma,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('w_s_t', 'm H2O', 'water content of interception water', DATATYPE_FLT32)
-      grib2_desc = grib2_var(2, 0, 15, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(2, 0, 15, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'w_s_t'//suffix, p_prog_lnd%w_s_t,     &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,grib2_desc,                 &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
@@ -504,7 +505,7 @@ MODULE mo_nwp_lnd_state
              & p_prog_lnd%w_s_ptr(jsfc)%p_2d,                                  &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
              & t_cf_var('w_s_t_'//csfc, '', '', DATATYPE_FLT32),               &
-             & grib2_var(2, 0, 15, ibits, GRID_REFERENCE, GRID_CELL),        &
+             & grib2_var(2, 0, 15, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
              & ldims=shape2d,                                                  &
              & var_class=CLASS_TILE_LAND,                                      &
              & tlev_source=TLEV_NNOW_RCF,                                      &
@@ -515,7 +516,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_lnd%t_so_t(nproma,nlev_soil+1,nblks_c,ntiles_total) 
     cf_desc    = t_cf_var('t_so_t', 'K', 'soil temperature (main level)', DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_so_t'//suffix, p_prog_lnd%t_so_t,  &
          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND_P1, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+1,kblks,ntiles_total/),                      &
@@ -532,7 +533,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%t_so_ptr(jsfc)%p_3d,                                 &
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND_P1,                 &
            & t_cf_var('t_so_t_'//csfc, '', '', DATATYPE_FLT32),              &
-           & grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL),        &
+           & grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
            & ldims=(/nproma,nlev_soil+1,kblks/),                             &
            & var_class=CLASS_TILE_LAND,                                      &
            & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
@@ -546,7 +547,7 @@ MODULE mo_nwp_lnd_state
          &                DATATYPE_FLT32)
 
     new_cf_desc = t_cf_var('w_so_t', 'kg/m**2', 'total water content (ice + liquid water)', DATATYPE_FLT32)
-    grib2_desc  = grib2_var(2, 3, 20, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc  = grib2_var(2, 3, 20, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_so_t'//suffix, p_prog_lnd%w_so_t,  &
          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc,     &
          & ldims=(/nproma,nlev_soil,kblks,ntiles_total/),                        &
@@ -562,7 +563,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%w_so_ptr(jsfc)%p_3d,                                 &
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,                    &
            & t_cf_var('w_so_t_'//csfc, '', '', DATATYPE_FLT32),              &
-           & grib2_var(2, 3, 20, ibits, GRID_REFERENCE, GRID_CELL),        &
+           & grib2_var(2, 3, 20, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
            & ldims=(/nproma,nlev_soil,kblks/),                               &
            & var_class=CLASS_TILE_LAND,                                      &
            & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
@@ -576,7 +577,7 @@ MODULE mo_nwp_lnd_state
     ! & p_prog_lnd%w_so_ice_t(nproma,nlev_soil,nblks_c,ntiles_total)
     cf_desc     = t_cf_var('w_so_ice_t', 'm H20', 'ice content', DATATYPE_FLT32)
     new_cf_desc = t_cf_var('w_so_ice_t', 'kg/m**2', 'ice content', DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 3, 22, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 3, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_so_ice_t'//suffix,                 &
          & p_prog_lnd%w_so_ice_t, GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,   &
          & cf_desc, grib2_desc, ldims=(/nproma,nlev_soil,kblks,ntiles_total/),   &
@@ -592,7 +593,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%w_so_ice_ptr(jsfc)%p_3d,                             &
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,                    &
            & t_cf_var('w_so_ice_t_'//csfc, '', '', DATATYPE_FLT32),          &
-           & grib2_var(2, 3, 22, ibits, GRID_REFERENCE, GRID_CELL),        &
+           & grib2_var(2, 3, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
            & ldims=(/nproma,nlev_soil,kblks/),                               &
            & var_class=CLASS_TILE_LAND,                                      &
            & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB ), &
@@ -607,7 +608,7 @@ MODULE mo_nwp_lnd_state
     ! & p_prog_lnd%t_snow_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('t_snow_t', 'K', 'temperature of the snow-surface', &
          &                DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 0, 18, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 0, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_snow_t'//suffix, p_prog_lnd%t_snow_t,&
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,  cf_desc, grib2_desc,               &
          & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. ) 
@@ -622,7 +623,7 @@ MODULE mo_nwp_lnd_state
              & p_prog_lnd%t_snow_ptr(jsfc)%p_2d,                             &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
              & t_cf_var('t_snow_t_'//csfc, '', '', DATATYPE_FLT32),          &
-             & grib2_var(0, 0, 18, ibits, GRID_REFERENCE, GRID_CELL),      &
+             & grib2_var(0, 0, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
              & ldims=shape2d,                                                &
              & var_class=CLASS_TILE_LAND,                                    &
              & tlev_source=TLEV_NNOW_RCF,                                    & ! for output take field from nnow_rcf slice
@@ -633,7 +634,7 @@ MODULE mo_nwp_lnd_state
     ! & p_prog_lnd%w_snow_t(nproma,nblks_c,ntiles_total)
     cf_desc     = t_cf_var('w_snow_t', 'm H2O', 'water equivalent of snow', DATATYPE_FLT32)
     new_cf_desc = t_cf_var('w_snow_t', 'kg/m**2', 'water eqivalent of snow', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 1, 60, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_snow_t'//suffix, p_prog_lnd%w_snow_t,&
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,  cf_desc, grib2_desc,               &
          & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
@@ -648,7 +649,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%w_snow_ptr(jsfc)%p_2d,                             &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
            & t_cf_var('w_snow_t_'//csfc, '', '', DATATYPE_FLT32),          &
-           & grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL),      &
+           & grib2_var(0, 1, 60, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
            & ldims=shape2d,                                                &
            & var_class=CLASS_TILE_LAND,                                    &
            & tlev_source=TLEV_NNOW_RCF,                                    & ! for output take field from nnow_rcf slice
@@ -659,7 +660,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_lnd%rho_snow_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('rho_snow_t', 'kg/m**3', 'snow density', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 61, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 1, 61, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'rho_snow_t'//suffix, p_prog_lnd%rho_snow_t, &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,  cf_desc, grib2_desc,                    &
          & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
@@ -675,7 +676,7 @@ MODULE mo_nwp_lnd_state
            & p_prog_lnd%rho_snow_ptr(jsfc)%p_2d,                             &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                             &
            & t_cf_var('rho_snow_t_'//csfc, '', '', DATATYPE_FLT32),          &
-           & grib2_var(0, 1, 61, ibits, GRID_REFERENCE, GRID_CELL),          &
+           & grib2_var(0, 1, 61, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
            & ldims=shape2d,                                                  &
            & var_class=CLASS_TILE_LAND,                                      &
            & tlev_source=TLEV_NNOW_RCF,                                      & ! for output take field from nnow_rcf slice
@@ -689,7 +690,7 @@ MODULE mo_nwp_lnd_state
       ! & p_prog_lnd%t_snow_mult_t(nproma,nlev_snow+1,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('t_snow_mult_t', 'K', 'temperature of the snow-surface', &
            & DATATYPE_FLT32)
-      grib2_desc = grib2_var(0, 0, 18, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(0, 0, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'t_snow_mult_t'//suffix, p_prog_lnd%t_snow_mult_t, &
        & GRID_UNSTRUCTURED_CELL, ZA_SNOW_HALF, cf_desc, grib2_desc,               &
        & ldims=(/nproma,nlev_snow+1,kblks,ntiles_total/),                         &
@@ -706,7 +707,7 @@ MODULE mo_nwp_lnd_state
              & p_prog_lnd%t_snow_mult_ptr(jsfc)%p_3d,                        &
              & GRID_UNSTRUCTURED_CELL, ZA_SNOW_HALF,                         &
              & t_cf_var('t_snow_mult_t_'//csfc, '', '', DATATYPE_FLT32),     &
-             & grib2_var(0, 0, 18, ibits, GRID_REFERENCE, GRID_CELL),      &
+             & grib2_var(0, 0, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
              & ldims=(/nproma,nlev_snow+1,kblks/),                           &
              & var_class=CLASS_TILE_LAND,                                    &
              & lrestart=.TRUE.,                                              &
@@ -718,7 +719,7 @@ MODULE mo_nwp_lnd_state
 
       ! & p_prog_lnd%wtot_snow_t(nproma,nlev_snow,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('wtot_snow_t', 'm H2O', 'total water content in snow', DATATYPE_FLT32)
-      grib2_desc = grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 60, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'wtot_snow_t'//suffix,                &
            & p_prog_lnd%wtot_snow_t, GRID_UNSTRUCTURED_CELL, ZA_SNOW,              &
            & cf_desc, grib2_desc, ldims=shape4d_snow_subs,                         &
@@ -735,7 +736,7 @@ MODULE mo_nwp_lnd_state
              & p_prog_lnd%wtot_snow_ptr(jsfc)%p_3d,                            &
              & GRID_UNSTRUCTURED_CELL, ZA_SNOW,                                &
              & t_cf_var('wtot_snow_t_'//csfc, '', '', DATATYPE_FLT32),         &
-             & grib2_var(0, 1, 60, ibits, GRID_REFERENCE, GRID_CELL),        &
+             & grib2_var(0, 1, 60, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
              & var_class=CLASS_TILE_LAND,                                      &
              & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
@@ -745,7 +746,7 @@ MODULE mo_nwp_lnd_state
 
       ! & p_prog_lnd%wliq_snow_t(nproma,nlev_snow,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('wliq_snow_t', 'm H2O', 'liquid water content in snow', DATATYPE_FLT32)
-      grib2_desc = grib2_var(0, 1, 210, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 210, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'wliq_snow_t'//suffix,                &
            & p_prog_lnd%wliq_snow_t, GRID_UNSTRUCTURED_CELL, ZA_SNOW,              & 
            & cf_desc, grib2_desc, ldims=shape4d_snow_subs,                         &
@@ -762,7 +763,7 @@ MODULE mo_nwp_lnd_state
              & p_prog_lnd%wliq_snow_ptr(jsfc)%p_3d,                            &
              & GRID_UNSTRUCTURED_CELL, ZA_SNOW,                                &
              & t_cf_var('wliq_snow_t_'//csfc, '', '', DATATYPE_FLT32),         &
-             & grib2_var(0, 1, 210, ibits, GRID_REFERENCE, GRID_CELL),         &
+             & grib2_var(0, 1, 210, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
              & var_class=CLASS_TILE_LAND,                                      &
              & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
@@ -772,7 +773,7 @@ MODULE mo_nwp_lnd_state
 
       ! & p_prog_lnd%rho_snow_mult_t(nproma,nlev_snow,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('rho_snow_mult_t', 'kg/m**3', 'snow density', DATATYPE_FLT32)
-      grib2_desc = grib2_var(0, 1, 61, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 61, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'rho_snow_mult_t'//suffix,              &
            & p_prog_lnd%rho_snow_mult_t, GRID_UNSTRUCTURED_CELL, ZA_SNOW,            &
            & cf_desc, grib2_desc, ldims=shape4d_snow_subs,                           &
@@ -789,7 +790,7 @@ MODULE mo_nwp_lnd_state
              & p_prog_lnd%rho_snow_mult_ptr(jsfc)%p_3d,                         &
              & GRID_UNSTRUCTURED_CELL, ZA_SNOW,                                 &
              & t_cf_var('rho_snow_mult_t_'//csfc, '', '', DATATYPE_FLT32),      &
-             & grib2_var(0, 1, 61, ibits, GRID_REFERENCE, GRID_CELL),         &
+             & grib2_var(0, 1, 61, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
              & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,               &
              & var_class=CLASS_TILE_LAND,                                       &
              & tlev_source=TLEV_NNOW_RCF,                                       &
@@ -801,7 +802,7 @@ MODULE mo_nwp_lnd_state
       ! & p_prog_lnd%dzh_snow_t(nproma,nlev_snow,nblks_c,ntiles_total)
       cf_desc    = t_cf_var('dzh_snow_t', 'm', 'layer thickness between half levels in snow', &
            &                DATATYPE_FLT32)
-      grib2_desc = grib2_var(0, 1, 11, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'dzh_snow_t'//suffix,                 &
            & p_prog_lnd%dzh_snow_t, GRID_UNSTRUCTURED_CELL, ZA_SNOW,               &
            & cf_desc, grib2_desc, ldims=shape4d_snow_subs,                         &
@@ -818,7 +819,7 @@ MODULE mo_nwp_lnd_state
                & p_prog_lnd%dzh_snow_ptr(jsfc)%p_3d,                             &
                & GRID_UNSTRUCTURED_CELL, ZA_SNOW,                                &
                & t_cf_var('dzh_snow_t_'//csfc, '', '', DATATYPE_FLT32),          &
-               & grib2_var(0, 1, 11, ibits, GRID_REFERENCE, GRID_CELL),        &
+               & grib2_var(0, 1, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL),       &
                & ldims=(/nproma,nlev_snow,kblks/), lrestart=.TRUE.,              &
                & var_class=CLASS_TILE_LAND,                                      &
                & tlev_source=TLEV_NNOW_RCF, in_group=groups("land_tile_vars") ) ! for output take field from nnow_rcf slice
@@ -935,10 +936,10 @@ MODULE mo_nwp_lnd_state
     ! the COSMO implementation 
     ! & p_prog_wtr%t_ice(nproma,nblks_c)
     cf_desc    = t_cf_var('t_ice', 'K', 'sea/lake-ice temperature', DATATYPE_FLT32)
-    grib2_desc = grib2_var(10, 2, 8, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(10, 2, 8, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_ice'//suffix, p_prog_wtr%t_ice,  &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-         & ldims=shape2d,                                                      &
+         & ldims=shape2d, tlev_source=TLEV_NNOW_RCF,                           &
          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_fg_in", &
          &                 "mode_iau_old_fg_in","mode_combined_in","mode_cosmode_in") )   
 
@@ -948,10 +949,10 @@ MODULE mo_nwp_lnd_state
     ! the COSMO implementation 
     ! & p_prog_wtr%h_ice(nproma,nblks_c)
     cf_desc    = t_cf_var('h_ice', 'm', 'sea/lake-ice depth', DATATYPE_FLT32)
-    grib2_desc = grib2_var(10, 2, 1, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(10, 2, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'h_ice'//suffix, p_prog_wtr%h_ice,  &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-         & ldims=shape2d,                                                      &
+         & ldims=shape2d, tlev_source=TLEV_NNOW_RCF,                           &
          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in","mode_iau_fg_in", &
          &                 "mode_iau_old_fg_in","mode_combined_in","mode_cosmode_in") )   
 
@@ -962,17 +963,18 @@ MODULE mo_nwp_lnd_state
 
     ! & p_prog_wtr%t_snow_si(nproma,nblks_c)
     cf_desc    = t_cf_var('t_snow_si', 'K', 'temperature of snow on sea ice', DATATYPE_FLT32)
-    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_snow_si'//suffix, p_prog_wtr%t_snow_si,  &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,     &
+         & tlev_source=TLEV_NNOW_RCF)
 
 
     ! & p_prog_wtr%h_snow_si(nproma,nblks_c)
     cf_desc    = t_cf_var('h_snow_si', 'm', 'depth of snow on sea ice', DATATYPE_FLT32)
-    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'h_snow_si'//suffix, p_prog_wtr%h_snow_si,  &
-         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
-
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,     &
+         & tlev_source=TLEV_NNOW_RCF)
 
     !
     !FLAKE
@@ -982,61 +984,63 @@ MODULE mo_nwp_lnd_state
 
       ! p_prog_wtr%t_snow_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('t_snow_lk', 'K', 'temperature of snow on lake ice', DATATYPE_FLT32)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'t_snow_lk'//suffix, p_prog_wtr%t_snow_lk,  &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,     &
+           & tlev_source=TLEV_NNOW_RCF)
 
 
       ! p_prog_wtr%h_snow_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('h_snow_lk', 'm', 'depth of snow on lake ice', DATATYPE_FLT32)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'h_snow_lk'//suffix, p_prog_wtr%h_snow_lk,  &
-           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d,     &
+           & tlev_source=TLEV_NNOW_RCF)
 
 
       ! p_prog_wtr%t_mnw_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('t_mnw_lk', 'K', 'mean temperature of the water column', DATATYPE_FLT32)
-      grib2_desc = grib2_var(1, 2, 1, ibits, GRID_REFERENCE, GRID_CELL)  &
+      grib2_desc = grib2_var(1, 2, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
       &           + t_grib2_int_key("typeOfFirstFixedSurface", 1)
-      CALL add_var( prog_list, vname_prefix//'t_mnw_lk'//suffix, p_prog_wtr%t_mnw_lk,    &
-           & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM, cf_desc, grib2_desc, ldims=shape2d, &
+      CALL add_var( prog_list, vname_prefix//'t_mnw_lk'//suffix, p_prog_wtr%t_mnw_lk,                               &
+           & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
            & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in") )
 
 
       ! p_prog_wtr%t_wml_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('t_wml_lk', 'K', 'mixed-layer temperature', DATATYPE_FLT32)
-      grib2_desc = grib2_var(1, 2, 1, ibits, GRID_REFERENCE, GRID_CELL)  &
+      grib2_desc = grib2_var(1, 2, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
         &           + t_grib2_int_key("typeOfFirstFixedSurface", 1)
-      CALL add_var( prog_list, vname_prefix//'t_wml_lk'//suffix, p_prog_wtr%t_wml_lk,  &
-           & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, &
+      CALL add_var( prog_list, vname_prefix//'t_wml_lk'//suffix, p_prog_wtr%t_wml_lk,                             &
+           & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
            & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in") )
 
 
       ! p_prog_wtr%h_ml_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('h_ml_lk', 'm', 'mixed-layer thickness', DATATYPE_FLT32)
-      grib2_desc = grib2_var(1, 2, 0, ibits, GRID_REFERENCE, GRID_CELL)  &
+      grib2_desc = grib2_var(1, 2, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
         &           + t_grib2_int_key("typeOfFirstFixedSurface", 1)
-      CALL add_var( prog_list, vname_prefix//'h_ml_lk'//suffix, p_prog_wtr%h_ml_lk,    &
-           & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, &
+      CALL add_var( prog_list, vname_prefix//'h_ml_lk'//suffix, p_prog_wtr%h_ml_lk,                               &
+           & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
            & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in") )
 
 
       ! p_prog_wtr%t_bot_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('t_bot_lk', 'K', 'temperature at the water-bottom sediment interface', &
         &          DATATYPE_FLT32)
-      grib2_desc = grib2_var(1, 2, 1, ibits, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( prog_list, vname_prefix//'t_bot_lk'//suffix, p_prog_wtr%t_bot_lk,         &
-           & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM_HALF, cf_desc, grib2_desc, ldims=shape2d, &
+      grib2_desc = grib2_var(1, 2, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( prog_list, vname_prefix//'t_bot_lk'//suffix, p_prog_wtr%t_bot_lk,                                    &
+           & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM_HALF, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
            & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in") )
 
 
       ! p_prog_wtr%c_t_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('c_t_lk', '-', 'shape factor (temp. profile in lake thermocline)', &
         &          DATATYPE_FLT32)
-      grib2_desc = grib2_var(1, 2, 10, ibits, GRID_REFERENCE, GRID_CELL)  &
+      grib2_desc = grib2_var(1, 2, 10, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
         &           + t_grib2_int_key("typeOfSecondFixedSurface", 162)
-      CALL add_var( prog_list, vname_prefix//'c_t_lk'//suffix, p_prog_wtr%c_t_lk,  &
-           & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, &
+      CALL add_var( prog_list, vname_prefix//'c_t_lk'//suffix, p_prog_wtr%c_t_lk,                                 &
+           & GRID_UNSTRUCTURED_CELL, ZA_MIX_LAYER, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
            & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in") )
 
 
@@ -1044,20 +1048,20 @@ MODULE mo_nwp_lnd_state
       cf_desc    = t_cf_var('t_b1_lk', 'K',                                         &
         &          'temperature at the bottom of the upper layer of the sediments', &
         &          DATATYPE_FLT32)
-      grib2_desc = grib2_var(1, 2, 4, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(1, 2, 4, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( prog_list, vname_prefix//'t_b1_lk'//suffix, p_prog_wtr%t_b1_lk, &
            & GRID_UNSTRUCTURED_CELL, ZA_SEDIMENT_BOTTOM_TW_HALF, cf_desc,           &
-           & grib2_desc, ldims=shape2d,                                             &
+           & grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF,                  &
            & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in") )
 
 
       ! p_prog_wtr%h_b1_lk(nproma,nblks_c)
       cf_desc    = t_cf_var('h_b1_lk', 'm',                                         &
         &          'thickness of the upper layer of the sediments', DATATYPE_FLT32)
-      grib2_desc = grib2_var(1, 2, 3, ibits, GRID_REFERENCE, GRID_CELL)  &
+      grib2_desc = grib2_var(1, 2, 3, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
       &           + t_grib2_int_key("typeOfSecondFixedSurface", 165)
-      CALL add_var( prog_list, vname_prefix//'h_b1_lk'//suffix, p_prog_wtr%h_b1_lk,      &
-           & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM, cf_desc, grib2_desc, ldims=shape2d, &
+      CALL add_var( prog_list, vname_prefix//'h_b1_lk'//suffix, p_prog_wtr%h_b1_lk,                                 &
+           & GRID_UNSTRUCTURED_CELL, ZA_LAKE_BOTTOM, cf_desc, grib2_desc, ldims=shape2d, tlev_source=TLEV_NNOW_RCF, &
            & in_group=groups("dwd_fg_sfc_vars","mode_dwd_fg_in","mode_iau_fg_in","mode_iau_old_fg_in") )
 
     ENDIF  ! llake
@@ -1163,7 +1167,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%qv_s(nproma,nblks_c)
     cf_desc    = t_cf_var('qv_s', 'kg/kg', 'specific humidity at the surface', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL)  &
+    grib2_desc = grib2_var(0, 1, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)  &
       ! Quick hack: shortName.def should be revised, instead
       &           + t_grib2_int_key("scaleFactorOfFirstFixedSurface", 0)
     CALL add_var( diag_list, vname_prefix//'qv_s', p_diag_lnd%qv_s,          &
@@ -1177,7 +1181,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
     cf_desc    = t_cf_var('fr_seaice', '-', 'fraction of sea ice', DATATYPE_FLT32)
-    grib2_desc = grib2_var(10, 2, 0, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(10, 2, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'fr_seaice', p_diag_lnd%fr_seaice,  &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
            & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,                   &
@@ -1189,7 +1193,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%qv_s_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('qv_s_t', 'kg/kg', 'specific humidity at the surface', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 1, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'qv_s_t', p_diag_lnd%qv_s_t,        &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
            & ldims=shape3d_subsw, lcontainer=.TRUE., lrestart=.FALSE.,         &
@@ -1206,7 +1210,7 @@ MODULE mo_nwp_lnd_state
              & p_diag_lnd%qv_st_ptr(jsfc)%p_2d,                              &
              & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
              & t_cf_var('qv_s_t_'//csfc, '', '', DATATYPE_FLT32),            &
-             & grib2_var(0, 1, 0, ibits, GRID_REFERENCE, GRID_CELL),       &
+             & grib2_var(0, 1, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),      &
              & var_class=CLASS_TILE,                                         &
              & ldims=shape2d,                                                &
              & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
@@ -1216,7 +1220,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%t_s(nproma,nblks_c)
     cf_desc    = t_cf_var('t_s', 'K', 'weighted temperature of ground surface', DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_s', p_diag_lnd%t_s,                &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE. )
@@ -1224,7 +1228,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%t_seasfc(nproma,nblks_c)
     cf_desc    = t_cf_var('t_seasfc', 'K', 'sea surface temperature', DATATYPE_FLT32)
-    grib2_desc = grib2_var(10, 3, 0, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(10, 3, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_seasfc', p_diag_lnd%t_seasfc,      &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
          & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE. )
@@ -1235,7 +1239,7 @@ MODULE mo_nwp_lnd_state
          &                DATATYPE_FLT32)
     new_cf_desc = t_cf_var('w_i', 'kg/m**2', 'weighted water content of interception water', &
          &                DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 0, 13, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 0, 13, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'w_i', p_diag_lnd%w_i,                &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
@@ -1251,7 +1255,7 @@ MODULE mo_nwp_lnd_state
            &                DATATYPE_FLT32)
       new_cf_desc = t_cf_var('w_p', 'kg/m**2', 'water content of pond interception water', &
            &                DATATYPE_FLT32)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, vname_prefix//'w_p', p_diag_lnd%w_p,                &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc,  grib2_desc,             &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
@@ -1263,7 +1267,7 @@ MODULE mo_nwp_lnd_state
            &                DATATYPE_FLT32)
       new_cf_desc = t_cf_var('w_s', 'kg/m**2', 'water content of interception snow', &
            &                DATATYPE_FLT32)
-      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, vname_prefix//'w_s', p_diag_lnd%w_s,                &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
@@ -1277,7 +1281,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%t_so(nproma,nlev_soil+1,nblks_c)
     cf_desc    = t_cf_var('t_so', 'K', 'weighted soil temperature (main level)', &
          &                DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 3, 18, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 3, 18, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_so', p_diag_lnd%t_so,              &
          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND_P1, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+1,kblks/),                                   &
@@ -1291,7 +1295,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%w_so(nproma,nlev_soil,nblks_c)
     cf_desc     = t_cf_var('w_so', 'm H20', 'total water content (ice + liquid water)', DATATYPE_FLT32)
     new_cf_desc = t_cf_var('w_so', 'kg/m**2', 'total water content (ice + liquid water)', DATATYPE_FLT32)
-    grib2_desc  = grib2_var(2, 3, 20, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc  = grib2_var(2, 3, 20, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'w_so', p_diag_lnd%w_so,              &
          & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND, cf_desc, grib2_desc,     &
          & ldims=(/nproma,nlev_soil,kblks/),                                     &
@@ -1305,7 +1309,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%w_so_ice(nproma,nlev_soil,nblks_c)
     cf_desc      = t_cf_var('w_so_ice', 'm H20',   'ice content', DATATYPE_FLT32)
     new_cf_desc  = t_cf_var('w_so_ice', 'kg/m**2', 'ice content', DATATYPE_FLT32)
-    grib2_desc   = grib2_var(2, 3, 22, ibits, GRID_REFERENCE, GRID_CELL)      
+    grib2_desc   = grib2_var(2, 3, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL)      
     CALL add_var( diag_list, vname_prefix//'w_so_ice',                           &
          & p_diag_lnd%w_so_ice, GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_LAND,     &
          & cf_desc, grib2_desc, ldims=(/nproma,nlev_soil,kblks/),                &
@@ -1319,7 +1323,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%runoff_s(nproma,nblks_c)
     cf_desc    = t_cf_var('runoff_s', 'kg/m2', &
          &                'weighted surface water runoff; sum over forecast', DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'runoff_s', p_diag_lnd%runoff_s,        &
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_S, cf_desc, grib2_desc,       &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
@@ -1329,7 +1333,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%runoff_g(nproma,nblks_c)
     cf_desc    = t_cf_var('runoff_g', 'kg/m2', &
          &                'weighted soil water runoff; sum over forecast', DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'runoff_g', p_diag_lnd%runoff_g,        &
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
@@ -1339,7 +1343,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%runoff_s_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('runoff_s_t', 'kg/m2', &
          &                'surface water runoff; sum over forecast', DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'runoff_s_t', p_diag_lnd%runoff_s_t,    &
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_S, cf_desc, grib2_desc,       &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
@@ -1354,7 +1358,7 @@ MODULE mo_nwp_lnd_state
                & p_diag_lnd%runoff_s_ptr(jsfc)%p_2d,                             &
                & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_S,                      &
                & t_cf_var('runoff_s_t_'//csfc, '', '', DATATYPE_FLT32),          &
-               & grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL),         &
+               & grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                & var_class=CLASS_TILE_LAND,                                      &
                & ldims=shape2d )
     END DO
@@ -1363,7 +1367,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%runoff_g_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('runoff_g_t', 'kg/m2', &
          &                'soil water runoff; sum over forecast', DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'runoff_g_t', p_diag_lnd%runoff_g_t,    &
            & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G, cf_desc, grib2_desc,       &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
@@ -1378,7 +1382,7 @@ MODULE mo_nwp_lnd_state
                & p_diag_lnd%runoff_g_ptr(jsfc)%p_2d,                             &
                & GRID_UNSTRUCTURED_CELL, ZA_DEPTH_RUNOFF_G,                      &
                & t_cf_var('runoff_g_t_'//csfc, '', '', DATATYPE_FLT32),          &
-               & grib2_var(2, 0, 5, ibits, GRID_REFERENCE, GRID_CELL),         &
+               & grib2_var(2, 0, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
                & var_class=CLASS_TILE_LAND,                                      &
                & ldims=shape2d )
     END DO
@@ -1387,7 +1391,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%rstom(nproma,nblks_c)
     cf_desc    = t_cf_var('rstom', 's/m','stomatal resistance', DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 0, 195, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 0, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'rstom', p_diag_lnd%rstom,             &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape2d, lrestart=.FALSE.,                                     &
@@ -1397,7 +1401,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%rstom_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('rstom_t', 's/m','tile based stomatal resistance', &
       &          DATATYPE_FLT32)
-    grib2_desc = grib2_var(2, 0, 195, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(2, 0, 195, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'rstom_t', p_diag_lnd%rstom_t,    &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,        &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE.,        &
@@ -1408,7 +1412,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%t_snow(nproma,nblks_c)
     cf_desc    = t_cf_var('t_snow', 'K', 'weighted temperature of the snow-surface', &
          &                DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 0, 18, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 0, 18, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'t_snow', p_diag_lnd%t_snow,        &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,  cf_desc, grib2_desc,           &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                    &
@@ -1421,7 +1425,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%w_snow(nproma,nblks_c)
     cf_desc     = t_cf_var('w_snow', 'm H2O',   'weighted water eqivalent of snow', DATATYPE_FLT32)
     new_cf_desc = t_cf_var('w_snow', 'kg/m**2', 'weighted water eqivalent of snow', DATATYPE_FLT32)
-    grib2_desc  = grib2_var(0, 1, 60, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+    grib2_desc  = grib2_var(0, 1, 60, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'w_snow', p_diag_lnd%w_snow,        &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,  cf_desc, grib2_desc,           &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                    &
@@ -1433,7 +1437,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%rho_snow(nproma,nblks_c)
     cf_desc    = t_cf_var('rho_snow', 'kg/m**3', 'weighted snow density', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 61, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 1, 61, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'rho_snow', p_diag_lnd%rho_snow,      &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,  cf_desc, grib2_desc,             &
          & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                      &
@@ -1445,7 +1449,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%h_snow(nproma,nblks_c)
     cf_desc    = t_cf_var('h_snow', 'm', 'weighted snow depth', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 11, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 1, 11, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'h_snow', p_diag_lnd%h_snow,        &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                  &
@@ -1456,7 +1460,7 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%h_snow_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('h_snow_t', 'm', 'snow height', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 11, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 1, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'h_snow_t', p_diag_lnd%h_snow_t,    &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )  
@@ -1471,7 +1475,7 @@ MODULE mo_nwp_lnd_state
                & p_diag_lnd%h_snow_ptr(jsfc)%p_2d,                             &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('h_snow_t_'//csfc, '', '', DATATYPE_FLT32),          &
-               & grib2_var(0, 1, 11, ibits, GRID_REFERENCE, GRID_CELL),      &
+               & grib2_var(0, 1, 11, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
                & var_class=CLASS_TILE_LAND,                                    &
                & ldims=shape2d,                                                &
                & in_group=groups("land_tile_vars","dwd_fg_sfc_vars_t") )
@@ -1481,7 +1485,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%freshsnow(nproma,nblks_c)
     cf_desc    = t_cf_var('freshsnow', '- ', &
            & 'weighted indicator for age of snow in top of snow layer', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 203, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 1, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'freshsnow', p_diag_lnd%freshsnow,     &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                     &
@@ -1493,7 +1497,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%freshsnow_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('freshsnow_t', '- ', &
          &                'indicator for age of snow in top of snow layer', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 203, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var(0, 1, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'freshsnow_t', p_diag_lnd%freshsnow_t, &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
@@ -1508,7 +1512,7 @@ MODULE mo_nwp_lnd_state
                & p_diag_lnd%freshsnow_ptr(jsfc)%p_2d,                         &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                          &
                & t_cf_var('freshsnow_t_'//csfc, '', '', DATATYPE_FLT32),      &
-               & grib2_var(0, 1, 203, ibits, GRID_REFERENCE, GRID_CELL),    &
+               & grib2_var(0, 1, 203, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
                & var_class=CLASS_TILE_LAND,                                   &
                & ldims=shape2d,                                               &
                & in_group=groups("dwd_fg_sfc_vars_t") )
@@ -1517,16 +1521,19 @@ MODULE mo_nwp_lnd_state
 
     ! & p_diag_lnd%snowfrac(nproma,nblks_c)
     cf_desc    = t_cf_var('snowfrac', '- ', 'snow-cover fraction', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 42, ibits, GRID_REFERENCE, GRID_CELL)
+    new_cf_desc= t_cf_var('snowfrac', '% ', 'snow-cover fraction', DATATYPE_FLT32)
+    grib2_desc = grib2_var(0, 1, 42, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'snowfrac', p_diag_lnd%snowfrac,       &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                     &
-           & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_iau_fg_in") )
+           & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_iau_fg_in"),     &
+           & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc) )
 
 
     ! & p_diag_lnd%snowfrac_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('snowfrac_t', '- ', 'local tile-based snow-cover fraction', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 42, ibits, GRID_REFERENCE, GRID_CELL)
+    new_cf_desc= t_cf_var('snowfrac_t', '% ', 'local tile-based snow-cover fraction', DATATYPE_FLT32)
+    grib2_desc = grib2_var(0, 1, 42, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'snowfrac_t', p_diag_lnd%snowfrac_t, &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,           &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
@@ -1541,16 +1548,18 @@ MODULE mo_nwp_lnd_state
                & p_diag_lnd%snowfrac_ptr(jsfc)%p_2d,                           &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('snowfrac_t_'//csfc, '', '', DATATYPE_FLT32),        &
-               & grib2_var(0, 1, 42, ibits, GRID_REFERENCE, GRID_CELL),        &
+               & grib2_var(0, 1, 42, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
                & var_class=CLASS_TILE_LAND,                                    &
                & ldims=shape2d,                                                &
-               & in_group=groups("land_tile_vars") )
+               & in_group=groups("land_tile_vars"),                            &
+               & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc) )
     END DO
 
 
     ! & p_diag_lnd%snowfrac_lc_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('snowfrac_lc_t', '- ', 'tile-based snow-cover fraction', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 42, ibits, GRID_REFERENCE, GRID_CELL)
+    new_cf_desc= t_cf_var('snowfrac_lc_t', '% ', 'tile-based snow-cover fraction', DATATYPE_FLT32)
+    grib2_desc = grib2_var(0, 1, 42, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'snowfrac_lc_t', p_diag_lnd%snowfrac_lc_t, &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
@@ -1565,9 +1574,10 @@ MODULE mo_nwp_lnd_state
                & p_diag_lnd%snowfrac_lc_ptr(jsfc)%p_2d,                        &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('snowfrac_lc_t_'//csfc, '', '', DATATYPE_FLT32),     &
-               & grib2_var(0, 1, 42, ibits, GRID_REFERENCE, GRID_CELL),        &
+               & grib2_var(0, 1, 42, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
                & var_class=CLASS_TILE_LAND, ldims=shape2d,                     &
-               & in_group=groups("land_tile_vars", "dwd_fg_sfc_vars_t") )
+               & in_group=groups("land_tile_vars", "dwd_fg_sfc_vars_t"),       &
+               & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc) )
     END DO
 
 
@@ -1576,7 +1586,7 @@ MODULE mo_nwp_lnd_state
 
       ! & p_diag_lnd%t_snow_mult(nproma,nlev_snow+1,nblks_c)
       cf_desc    = t_cf_var('t_snow_mult', 'K', 'weighted temperature of the snow', DATATYPE_FLT32)
-      grib2_desc = grib2_var(0, 0, 18, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(0, 0, 18, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, vname_prefix//'t_snow_mult', p_diag_lnd%t_snow_mult, &
        & GRID_UNSTRUCTURED_CELL, ZA_SNOW_HALF, cf_desc, grib2_desc,                 &
        & ldims=(/nproma,nlev_snow+1,kblks/),                                        &
@@ -1587,7 +1597,7 @@ MODULE mo_nwp_lnd_state
 
       ! & p_diag_lnd%rho_snow_mult(nproma,nlev_snow,nblks_c)
       cf_desc    = t_cf_var('rho_snow_mult', 'kg/m**3', 'weighted snow density', DATATYPE_FLT32)
-      grib2_desc = grib2_var(0, 1, 61, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 61, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, vname_prefix//'rho_snow_mult',                      &
            & p_diag_lnd%rho_snow_mult, GRID_UNSTRUCTURED_CELL, ZA_SNOW,            &
            & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &
@@ -1601,7 +1611,7 @@ MODULE mo_nwp_lnd_state
         &                   DATATYPE_FLT32)
       new_cf_desc= t_cf_var('wliq_snow', 'kg/m**2', 'weighted liquid water content in snow', &
         &                   DATATYPE_FLT32)
-      grib2_desc = grib2_var(0, 1, 210, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 210, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, vname_prefix//'wliq_snow',                          &
            & p_diag_lnd%wliq_snow, GRID_UNSTRUCTURED_CELL, ZA_SNOW,                & 
            & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &
@@ -1616,7 +1626,7 @@ MODULE mo_nwp_lnd_state
            &                DATATYPE_FLT32)
       new_cf_desc= t_cf_var('wtot_snow', 'kg/m**2', 'weighted total water content in snow', &
         &                   DATATYPE_FLT32)
-      grib2_desc = grib2_var(0, 1, 60, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 60, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, vname_prefix//'wtot_snow',                          &
            & p_diag_lnd%wtot_snow, GRID_UNSTRUCTURED_CELL, ZA_SNOW,                &
            & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &
@@ -1630,7 +1640,7 @@ MODULE mo_nwp_lnd_state
       cf_desc    = t_cf_var('dzh_snow', 'm', &
            &                'weighted layer thickness between half levels in snow', &
            &                DATATYPE_FLT32)
-      grib2_desc = grib2_var(0, 1, 11, DATATYPE_PACK_VAR, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var(0, 1, 11, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( diag_list, vname_prefix//'dzh_snow',                           &
            & p_diag_lnd%dzh_snow, GRID_UNSTRUCTURED_CELL, ZA_SNOW,                 &
            & cf_desc, grib2_desc, ldims=(/nproma, nlev_snow, kblks/),              &

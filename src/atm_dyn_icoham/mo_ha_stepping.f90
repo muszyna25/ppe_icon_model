@@ -40,7 +40,7 @@ MODULE mo_ha_stepping
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
                                   & ldynamics, ltransport, msg_level,   &
                                   & ltestcase, output_mode
-  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_master_config,       ONLY: isRestart
   USE mo_ha_testcases,        ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta
@@ -238,7 +238,7 @@ CONTAINS
   ENDIF
 
   jstep0 = 0
-  IF (is_restart_run() .AND. .NOT. time_config%is_relative_time) THEN
+  IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
     ! get start counter for time loop from restart file:
     CALL get_restart_attribute("jstep", jstep0)
   END IF
@@ -276,7 +276,7 @@ CONTAINS
     ! 3-time-level schemes. In case of a restart run, the treatment is
     ! not necessary, thus the variable is set to .TRUE.
 
-    l_3tl_init(1:n_dom) = (.NOT.ltwotime).AND.(.NOT.is_restart_run()).AND.((jstep+jstep0)==1)
+    l_3tl_init(1:n_dom) = (.NOT.ltwotime).AND.(.NOT.isRestart()).AND.((jstep+jstep0)==1)
 
     ! Call recursive subroutine 'process_grid_level', which executes
     ! one timestep for the global domain and calls itself in the presence

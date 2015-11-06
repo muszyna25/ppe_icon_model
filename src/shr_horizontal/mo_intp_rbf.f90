@@ -113,6 +113,8 @@
 !!    reconstruction.
 !!  Modification by Almut Gassmann, MPI-M (2010-01-12)
 !!  - generalize p_int%primal_normal_ec and p_int%edge_cell_length to hexagons
+!!  Modification by William Sawyer, CSCS (2015-01-27)
+!!  - OpenACC implementation
 !!
 !! @par Copyright and License
 !!
@@ -123,6 +125,16 @@
 !! headers of the routines.
 !!
 !!
+
+!----------------------------
+#if defined(__INTP_RBF_NOACC)
+#undef ACC_LOCAL_FLAG
+#else
+#define ACC_LOCAL_FLAG
+#endif
+#define ACC_DEBUG !$ACC
+#undef DEBUG_INTP_RBF
+!----------------------------
 
 !----------------------------
 #include "omp_definitions.inc"
@@ -143,6 +155,10 @@ USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int
 USE mo_model_domain,        ONLY: t_patch
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc,      ONLY: t_int_state
+USE mo_fortran_tools,       ONLY: init
+#ifdef _OPENACC
+USE mo_mpi,                 ONLY: i_am_accel_node
+#endif
 
 IMPLICIT NONE
 
@@ -151,6 +167,16 @@ PRIVATE
 
 PUBLIC :: rbf_vec_interpol_cell, rbf_interpol_c2grad,     &
         & rbf_vec_interpol_vertex, rbf_vec_interpol_edge
+
+#if defined( _OPENACC )
+#define ACC_DEBUG $ACC
+#if defined(__INTP_RBF_NOACC)
+  LOGICAL, PARAMETER ::  acc_on = .FALSE.
+#else
+  LOGICAL, PARAMETER ::  acc_on = .TRUE.
+#endif
+#endif
+
 
 CONTAINS
 
@@ -268,14 +294,25 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( p_vn_in ), PCOPY( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_vn_in, p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, p_vn_in, p_u_out, p_v_out ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
+#endif
 
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
   DO jc = i_startidx, i_endidx
     DO jk = slev, elev
@@ -310,8 +347,14 @@ DO jb = i_startblk, i_endblk
   ENDDO
 
 ENDDO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST(p_u_out,p_v_out), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 END SUBROUTINE rbf_vec_interpol_cell
 !====================================================================================
@@ -402,22 +445,41 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%cells%start_blk(rl_start,1)
 i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
+#ifndef _OPENACC
 !$OMP PARALLEL
+#endif
 
 IF (ptr_patch%id > 1) THEN
-!$OMP WORKSHARE
+#ifdef _OPENACC
+!$ACC KERNELS IF ( i_am_accel_node .AND. acc_on )
   grad_x(:,:,1:i_startblk) = 0._wp
   grad_y(:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+!$ACC END KERNELS
+#else
+  CALL init(grad_x(:,:,1:i_startblk))
+  CALL init(grad_y(:,:,1:i_startblk))
+!$OMP BARRIER
+#endif
 ENDIF
 
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( p_cell_in ), PCOPY( grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_cell_in, grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, p_cell_in, grad_x, grad_y ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc), ICON_OMP_RUNTIME_SCHEDULE
+#endif
 
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
   DO jc = i_startidx, i_endidx
     DO jk = slev, elev
@@ -454,8 +516,14 @@ DO jb = i_startblk, i_endblk
   ENDDO
 
 ENDDO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( grad_x, grad_y ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 END SUBROUTINE rbf_interpol_c2grad
 
@@ -557,13 +625,24 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%verts%start_blk(rl_start,1)
 i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( p_e_in ), PCOPY( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_e_in, p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, p_e_in, p_u_out, p_v_out ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jv), ICON_OMP_RUNTIME_SCHEDULE
+#endif
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
   DO jv = i_startidx, i_endidx
     DO jk = slev, elev
@@ -592,8 +671,15 @@ DO jb = i_startblk, i_endblk
     ENDDO
 
 ENDDO
+
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( p_u_out, p_v_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 END SUBROUTINE rbf_vec_interpol_vertex
 
@@ -601,7 +687,7 @@ END SUBROUTINE rbf_vec_interpol_vertex
 !
 !
 !>
-!! Performs vector RBF reconstruction at edge midpionts.
+!! Performs vector RBF reconstruction at edge midpoints.
 !!
 !! Theory described in Narcowich and Ward (Math Comp. 1994) and
 !! Bonaventura and Baudisch (Mox Report n. 75).
@@ -687,13 +773,24 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 i_startblk = ptr_patch%edges%start_blk(rl_start,1)
 i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
 
+#ifdef _OPENACC
+!$ACC DATA PCOPYIN( p_vn_in ), PCOPY( p_vt_out ), IF( i_am_accel_node .AND. acc_on )
+!ACC_DEBUG UPDATE DEVICE( p_vn_in, p_vt_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC PARALLEL &
+!$ACC PRESENT( ptr_patch, ptr_int, p_vn_in, p_vt_out ), &
+!$ACC IF( i_am_accel_node .AND. acc_on )
+
+!$ACC LOOP GANG
+#else
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je) ICON_OMP_DEFAULT_SCHEDULE
+#endif
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
+!$ACC LOOP VECTOR COLLAPSE(2)
 #ifdef __LOOP_EXCHANGE
     DO je = i_startidx, i_endidx
       DO jk = slev, elev
@@ -712,8 +809,14 @@ i_endblk   = ptr_patch%edges%end_blk(rl_end,i_nchdom)
       ENDDO
     ENDDO
   ENDDO
+#ifdef _OPENACC
+!$ACC END PARALLEL
+!ACC_DEBUG UPDATE HOST( p_vt_out ), IF( i_am_accel_node .AND. acc_on )
+!$ACC END DATA
+#else
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+#endif
 
 END SUBROUTINE rbf_vec_interpol_edge
 

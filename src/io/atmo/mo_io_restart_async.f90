@@ -19,7 +19,7 @@
 !!
 !!
 
-#if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
+#if ! (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR))
 #define HAVE_F2003
 #endif
 MODULE mo_io_restart_async
@@ -27,8 +27,8 @@ MODULE mo_io_restart_async
   USE mo_util_file,               ONLY: util_symlink, util_unlink, util_islink
   USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
   USE mo_kind,                    ONLY: wp, i8, dp
-  USE mo_datetime,                ONLY: t_datetime, iso8601
-  USE mo_io_units,                ONLY: nerr, filename_max, find_next_free_unit
+  USE mo_datetime,                ONLY: t_datetime, iso8601, iso8601extended
+  USE mo_io_units,                ONLY: nerr, filename_max
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
   USE mo_io_restart_attributes,   ONLY: set_restart_attribute, delete_attributes, get_restart_attribute, &
@@ -55,7 +55,6 @@ MODULE mo_io_restart_async
   USE mo_run_config,              ONLY: msg_level, restart_filename
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch
-  USE mo_util_sysinfo,            ONLY: util_user_name, util_os_system, util_node_name
   USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, CDI_GLOBAL, DATATYPE_FLT64, DATATYPE_INT32, &
                                       & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
                                       & ZAXIS_HYBRID_HALF, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, ZAXIS_SEDIMENT_BOTTOM_TW, &
@@ -72,6 +71,7 @@ MODULE mo_io_restart_async
                                       & ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_DEPTH_BELOW_SEA, &
                                       & ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G, &
                                       & GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
+  USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string
 
@@ -86,7 +86,7 @@ MODULE mo_io_restart_async
     &                                   p_send_packed, p_recv_packed, p_bcast_packed,     &
     &                                   p_pack_int, p_pack_bool, p_pack_real,             &
     &                                   p_unpack_int, p_unpack_bool, p_unpack_real,       &
-    &                                   p_int_byte
+    &                                   p_int_byte, get_my_mpi_work_id
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -141,11 +141,6 @@ MODULE mo_io_restart_async
 
   ! common constant strings
   CHARACTER(LEN=*), PARAMETER :: MODUL_NAME               = 'shared/mo_io_restart_async/'
-  CHARACTER(LEN=*), PARAMETER :: MODEL_TITLE              = 'ICON simulation'
-  CHARACTER(LEN=*), PARAMETER :: MODEL_INSTITUTION        = &
-    &                            'Max Planck Institute for Meteorology/Deutscher Wetterdienst'
-  CHARACTER(LEN=*), PARAMETER :: MODEL_VERSION            = '1.2.2'
-  CHARACTER(LEN=*), PARAMETER :: MODEL_REFERENCES         = 'see MPIM/DWD publications'
   CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED          = 'ALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: DEALLOCATE_FAILED        = 'DEALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: UNKNOWN_GRID_TYPE        = 'Unknown grid type!'
@@ -1730,6 +1725,7 @@ CONTAINS
 
     ! get the number of name lists
     IF(.NOT. my_process_is_restart()) nv = nmls
+    CALL p_bcast(nv, 0, p_comm_work) ! intracommunicator
     CALL p_bcast(nv, bcast_root, p_comm_work_2_restart)
 
 #ifdef HAVE_F2003
@@ -1756,12 +1752,12 @@ CONTAINS
     DO iv = 1, nv
       ! send name of the name list
       list_name = ''
-      IF (my_process_is_work()) CALL get_restart_namelist(iv, list_name)
+      IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) CALL get_restart_namelist(iv, list_name)
       CALL p_bcast(list_name, bcast_root, p_comm_work_2_restart)
 
       ! send text of the name list
       list_text = ''
-      IF (my_process_is_work()) list_text = TRIM(restart_namelist(iv)%text)
+      IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) list_text = TRIM(restart_namelist(iv)%text)
       CALL p_bcast(list_text, bcast_root, p_comm_work_2_restart)
 
       ! store name list parameters
@@ -2334,16 +2330,12 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
     INTEGER                        :: jp, jp_end, jg, nlev_soil, &
       &                               nlev_snow, nlev_ocean, nice_class, ierrstat, &
-      &                               nlena, nlenb, nlenc, nlend, i,current_jfile
+      &                               i,current_jfile
 
     CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'set_restart_attributes'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int  = '(a,i2.2)'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int2 = '(a,i2.2,a,i2.2)'
 
-    CHARACTER(LEN=256)             :: executable, user_name, os_name, host_name, &
-      &                               tmp_string
-    CHARACTER(LEN=  8)             :: date_string
-    CHARACTER(LEN= 10)             :: time_string
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
 
 #ifdef DEBUG
@@ -2353,41 +2345,22 @@ CONTAINS
     ! delete old attributes
     CALL delete_attributes()
 
-    ! get environment attributes
-    CALL get_command_argument(0, executable, nlend)
-    CALL date_and_time(date_string, time_string)
-
-    tmp_string = ''
-    CALL util_os_system (tmp_string, nlena)
-    os_name = tmp_string(1:nlena)
-
-    tmp_string = ''
-    CALL util_user_name (tmp_string, nlenb)
-    user_name = tmp_string(1:nlenb)
-
-    tmp_string = ''
-    CALL util_node_name (tmp_string, nlenc)
-    host_name = tmp_string(1:nlenc)
-
-    ! set CD-Convention required restart attributes
-    CALL set_restart_attribute('title',       &
-         MODEL_TITLE)
-    CALL set_restart_attribute('institution', &
-         MODEL_INSTITUTION)
-    CALL set_restart_attribute('source',      &
-         'ICON'//'-'//MODEL_VERSION)
-    CALL set_restart_attribute('history',     &
-         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
-    CALL set_restart_attribute('references',  &
-         MODEL_REFERENCES)
-    CALL set_restart_attribute('comment',     &
-         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
+    ! set CF-Convention required restart attributes
+    !
+    CALL set_restart_attribute('title',       TRIM(cf_global_info%title))
+    CALL set_restart_attribute('institution', TRIM(cf_global_info%institution))
+    CALL set_restart_attribute('source',      TRIM(cf_global_info%source))
+    CALL set_restart_attribute('history',     TRIM(cf_global_info%history))
+    CALL set_restart_attribute('references',  TRIM(cf_global_info%references))
+    CALL set_restart_attribute('comment',     TRIM(cf_global_info%comment))
 
     ! set restart time
     p_ra => restart_args
     CALL set_restart_attribute ('current_caltime', p_ra%datetime%caltime)
     CALL set_restart_attribute ('current_calday' , p_ra%datetime%calday)
     CALL set_restart_attribute ('current_daysec' , p_ra%datetime%daysec)
+
+    CALL set_restart_attribute('tc_startdate', iso8601extended(p_ra%datetime))
 
     ! set no. of domains
     IF (p_pd%l_opt_ndom) THEN

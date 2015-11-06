@@ -50,18 +50,22 @@ MODULE mo_ocean_physics
     & k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
     & GMRedi_configuration,GMRedi_combined,                   &
     & GM_only,Redi_only,                                      &
-    &leith_closure, leith_closure_gamma,                      & 
-    &veloc_diffusion_form, biharmonic_const,                  &
+    & leith_closure, leith_closure_gamma,                     & 
+    & veloc_diffusion_form, biharmonic_const,                 &
     & HorizontalViscosity_SpatialSmoothFactor,                &
-    & VerticalViscosity_TimeWeight, OceanReferenceDensity
+    & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
+    & HorizontalViscosity_ScaleWeight,                        &
+    & tracer_TopWindMixing, WindMixingDecayDepth,             &
+    & velocity_TopWindMixing
+    
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
   USE mo_impl_constants,      ONLY: success, max_char_length, min_dolic, sea
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_util_dbg_prnt,       ONLY: dbg_print, debug_print_MaxMinMean
-  USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_pointer_3d_wp, t_operator_coeff
-  USE mo_ocean_state,           ONLY: oce_config
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_onEdges_Pointer_3d_wp, t_onCells_HalfLevels_Pointer_wp, t_operator_coeff
+  USE mo_ocean_state,         ONLY: oce_config
   USE mo_physical_constants,  ONLY: grav, sitodbar,sal_ref
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_dynamics_config,     ONLY: nold!, nnew
@@ -76,8 +80,9 @@ MODULE mo_ocean_physics
   USE mo_var_metadata,        ONLY: groups
   USE mo_cf_convention
   USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-  USE mo_cdi,                 ONLY: datatype_pack16, datatype_flt32, filetype_nc2
-  USE mo_cdi_constants,       ONLY: grid_cell, grid_edge, grid_reference,           &
+  USE mo_cdi,                 ONLY: datatype_pack16, datatype_flt32, filetype_nc2, &
+    &                               GRID_UNSTRUCTURED
+  USE mo_cdi_constants,       ONLY: grid_cell, grid_edge,            &
     & grid_unstructured_edge, grid_unstructured_cell, &
     & za_depth_below_sea, za_depth_below_sea_half
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
@@ -118,13 +123,13 @@ MODULE mo_ocean_physics
     REAL(wp),POINTER ::     &
       & k_veloc_h(:,:,:),  & ! coefficient of horizontal velocity diffusion
       & k_tracer_h(:,:,:,:)  ! coefficient of horizontal tracer diffusion
-    TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_h_ptr(:)
+    TYPE(t_onEdges_Pointer_3d_wp),ALLOCATABLE :: tracer_h_ptr(:)
 
     ! diffusion coefficients for vertical velocity, temp. and salinity, dim=(nproma,n_zlev+1,nblks_e)
     REAL(wp),POINTER ::     &
       & a_veloc_v(:,:,:),  & ! coefficient of vertical velocity diffusion
       & a_tracer_v(:,:,:,:)  ! coefficient of vertical tracer diffusion
-    TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_v_ptr(:)
+    TYPE(t_onCells_HalfLevels_Pointer_wp), ALLOCATABLE :: tracer_v_ptr(:)
 
     !constant background values of coefficients above
     REAL(wp) :: k_veloc_h_back, &! coefficient of horizontal velocity diffusion
@@ -144,6 +149,11 @@ MODULE mo_ocean_physics
   END TYPE t_ho_params
 
   TYPE(t_ho_params),PUBLIC,TARGET :: v_params
+  
+  REAL(wp), POINTER :: WindAmplitude_at10m(:,:)  ! can be single precision
+  REAL(wp), POINTER :: SeaIceConcentration(:,:)
+  REAL(wp), POINTER :: WindMixingDecay(:), WindMixingLevel(:)
+
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -153,10 +163,11 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2010-07)
 !<Optimize:inUse:initOnly>
-  SUBROUTINE init_ho_params(  patch_3d, p_phys_param )
+  SUBROUTINE init_ho_params(  patch_3d, p_phys_param, fu10 )
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE (t_ho_params)                          :: p_phys_param
-
+    REAL(wp), TARGET                     :: fu10   (:,:) ! t_atmos_for_ocean%fu10
+ 
     ! Local variables
     INTEGER :: i, i_no_trac
     INTEGER :: je, jb, jk
@@ -164,7 +175,10 @@ CONTAINS
     REAL(wp) :: z_lower_bound_diff, C_MPIOM
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
     REAL(wp) :: points_in_munk_layer
-    REAL(wp) :: minmaxmean_length(3), minDualEdgeLength, minEdgeLength, k_veloc_factor
+    REAL(wp) :: minmaxmean_length(3), reference_scale
+    REAL(wp) :: minDualEdgeLength, minEdgeLength, meanDualEdgeLength, meanEdgeLength
+    REAL(wp) :: maxDualEdgeLength, maxEdgeLength
+    REAL(wp) :: minCellArea, meanCellArea, maxCellArea
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp):: length_scale, dual_length_scale
@@ -173,6 +187,8 @@ CONTAINS
     !-------------------------------------------------------------------------
     all_edges => patch_2D%edges%ALL
     owned_edges => patch_2D%edges%owned
+    !-------------------------------------------------------------------------
+    WindAmplitude_at10m => fu10
     !-------------------------------------------------------------------------
     points_in_munk_layer = REAL(n_points_in_munk_layer,wp)
     !Init from namelist
@@ -193,8 +209,16 @@ CONTAINS
     z_largest_edge_length = global_max(MAXVAL(patch_2D%edges%primal_edge_length))
     minmaxmean_length = global_minmaxmean(patch_2D%edges%dual_edge_length, owned_edges)
     minDualEdgeLength = minmaxmean_length(1)
+    meanDualEdgeLength = minmaxmean_length(3)
+    maxDualEdgeLength = minmaxmean_length(2)
     minmaxmean_length = global_minmaxmean(patch_2D%edges%primal_edge_length, owned_edges)
     minEdgeLength = minmaxmean_length(1)
+    meanEdgeLength = minmaxmean_length(3)
+    maxEdgeLength = minmaxmean_length(2)
+    minmaxmean_length = global_minmaxmean(patch_2D%cells%area, patch_2D%cells%owned)
+    minCellArea = minmaxmean_length(1)
+    meanCellArea = minmaxmean_length(3)
+    maxCellArea = minmaxmean_length(2)
 
     !Distinghuish between harmonic and biharmonic laplacian
     !Harmonic laplacian
@@ -300,20 +324,48 @@ CONTAINS
           
       CASE(5)
         ! Simple scaling of the constant diffusion
-        ! by the ratio of the dual_edge_length / mein_dual_edge_length
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, start_index, end_index)
           p_phys_param%k_veloc_h(:,:,jb) = 0.0_wp
           DO je = start_index, end_index
             
-            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / minDualEdgeLength 
-            length_scale = patch_2D%edges%primal_edge_length(je,jb) / minEdgeLength 
+            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength 
+            length_scale = patch_2D%edges%primal_edge_length(je,jb) / maxEdgeLength 
                         
 !             length_scale = 0.5_wp * (length_scale**2 + length_scale**3)
-            length_scale = SQRT(length_scale * dual_length_scale) * dual_length_scale**2
+!            length_scale = SQRT(length_scale * dual_length_scale) * dual_length_scale
+!            length_scale = length_scale**2
+!            length_scale = length_scale**2 * (1.0_wp + length_scale) * 0.5_wp
+            length_scale = length_scale**3
             
             DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
-              p_phys_param%k_veloc_h(je,jk,jb) = p_phys_param%k_veloc_h_back * length_scale
+              p_phys_param%k_veloc_h(je,jk,jb) = &
+                & p_phys_param%k_veloc_h_back * &
+                & (1.0_wp - HorizontalViscosity_ScaleWeight &
+                &  +  HorizontalViscosity_ScaleWeight * length_scale)
+            END DO
+              
+          END DO
+        END DO
+        
+      CASE(6)
+        ! Simple scaling of the constant diffusion
+        reference_scale = 4.0_wp / (3.0_wp * maxEdgeLength * maxCellArea)
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, start_index, end_index)
+          p_phys_param%k_veloc_h(:,:,jb) = 0.0_wp
+          DO je = start_index, end_index
+            
+            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength 
+            length_scale = &
+              & patch_2D%edges%primal_edge_length(je,jb)**2 * patch_2D%edges%dual_edge_length(je,jb) &
+              & * reference_scale
+                                   
+            DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
+              p_phys_param%k_veloc_h(je,jk,jb) = &
+                & p_phys_param%k_veloc_h_back * &
+                & (1.0_wp - HorizontalViscosity_ScaleWeight &
+                &  +  HorizontalViscosity_ScaleWeight * length_scale)
             END DO
               
           END DO
@@ -357,6 +409,12 @@ CONTAINS
       CALL sync_patch_array(sync_c,patch_2D,p_phys_param%k_tracer_h(:,:,:,i_no_trac))
     END DO
     CALL sync_patch_array(sync_e,patch_2D,p_phys_param%k_veloc_h(:,:,:))
+    
+    ! precalculate exponential wind mixing decay with depth
+    DO jk=2,n_zlev
+      WindMixingDecay(jk) = EXP(-patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)/WindMixingDecayDepth)
+      WindMixingLevel(jk) = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk-1)
+    ENDDO 
 
   END SUBROUTINE init_ho_params
   !-------------------------------------------------------------------------
@@ -514,14 +572,14 @@ CONTAINS
     CALL add_var(ocean_params_list, 'K_veloc_h', params_oce%k_veloc_h , grid_unstructured_edge,&
       & za_depth_below_sea, &
       & t_cf_var('K_veloc_h', 'kg/kg', 'horizontal velocity diffusion', datatype_flt32),&
-      & grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_edge),&
+      & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
 
     CALL add_var(ocean_params_list, 'A_veloc_v', params_oce%a_veloc_v , grid_unstructured_edge,&
       & za_depth_below_sea_half, &
       & t_cf_var('A_veloc_v', 'kg/kg', 'vertical velocity diffusion', datatype_flt32),&
-      & grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_edge),&
-      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_essentials","oce_default"))
+      & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
+      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_default"))
 
 
     !! Tracers
@@ -529,13 +587,13 @@ CONTAINS
       CALL add_var(ocean_params_list, 'K_tracer_h', params_oce%k_tracer_h , &
         & grid_unstructured_edge, za_depth_below_sea, &
         & t_cf_var('K_tracer_h', '', '1:temperature 2:salinity', datatype_flt32),&
-        & grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_edge),&
+        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e,no_tracer/), &
         & lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.)
       CALL add_var(ocean_params_list, 'A_tracer_v', params_oce%a_tracer_v , &
         & grid_unstructured_cell, za_depth_below_sea_half, &
         & t_cf_var('A_tracer_v', '', '1:temperature 2:salinity', datatype_flt32),&
-        & grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
+        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev+1,alloc_cell_blocks,no_tracer/), &
         & lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.)
 
@@ -552,7 +610,7 @@ CONTAINS
           & 'kg/kg', &
           & TRIM(oce_config%tracer_longnames(jtrc))//'(K_tracer_h_)', &
           & datatype_flt32), &
-          & grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_edge),&
+          & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
           & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
         CALL add_ref( ocean_params_list, 'A_tracer_v',&
           & 'A_tracer_v_'//TRIM(oce_config%tracer_names(jtrc)),     &
@@ -562,7 +620,7 @@ CONTAINS
           & 'kg/kg', &
           & TRIM(oce_config%tracer_longnames(jtrc))//'(A_tracer_v)', &
           & datatype_flt32), &
-          & grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
+          & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
           & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/),in_group=groups("oce_physics"))
 
       END DO
@@ -570,12 +628,12 @@ CONTAINS
       !TODO     CALL add_var(ocean_params_list, 'K_tracer_h_back', params_oce%K_tracer_h_back , &
       !TODO     &            GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, &
       !TODO     &            t_cf_var('K_tracer_h_back', '', '1:temperature 2:salinity', DATATYPE_FLT32),&
-      !TODO     &            grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_EDGE),&
+      !TODO     &            grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_EDGE),&
       !TODO     &            ldims=(/ no_tracer /))
       !TODO     CALL add_var(ocean_params_list, 'A_tracer_v_back', params_oce%A_tracer_v_back , &
       !TODO     &            GRID_UNSTRUCTURED_CELL, ZA_SURFACE, &
       !TODO     &            t_cf_var('A_tracer_v_back', '', '1:temperature 2:salinity', DATATYPE_FLT32),&
-      !TODO     &            grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL),&
+      !TODO     &            grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL),&
       !TODO     &            ldims=(/no_tracer/))
     ENDIF ! no_tracer > 0
 
@@ -597,7 +655,7 @@ CONTAINS
      CALL add_var(ocean_params_list, 'k_tracer_isoneutral', params_oce%k_tracer_isoneutral, &
         & grid_unstructured_cell, za_depth_below_sea, &
         & t_cf_var('k_tracer_isoneutral at edges', '', '1:temperature 2:salinity', datatype_flt32),&
-        & grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
+        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/), &
         & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
@@ -605,7 +663,7 @@ CONTAINS
       CALL add_var(ocean_params_list, 'k_tracer_dianeutral', params_oce%k_tracer_dianeutral, &
         & grid_unstructured_cell, za_depth_below_sea_half, &
         & t_cf_var('A_tracer_v', '', '1:temperature 2:salinity', datatype_flt32),&
-        & grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
+        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/), &
         & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
@@ -613,7 +671,7 @@ CONTAINS
      CALL add_var(ocean_params_list, 'k_tracer_GM_kappa', params_oce%k_tracer_GM_kappa, &
         & grid_unstructured_cell, za_depth_below_sea, &
         & t_cf_var('k_tracer_GM_kappa at cells', '', '1:temperature 2:salinity', datatype_flt32),&
-        & grib2_var(255, 255, 255, datatype_pack16, grid_reference, grid_cell),&
+        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/), &
         & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
 
@@ -624,6 +682,9 @@ CONTAINS
       params_oce%k_tracer_h_back(i)  = 0.0_wp
       params_oce%a_tracer_v_back(i)  = 0.0_wp
     END DO
+
+    ALLOCATE(WindMixingDecay(1:n_zlev+1), WindMixingLevel(1:n_zlev+1))
+    
   END SUBROUTINE construct_ho_params
   !-------------------------------------------------------------------------
 
@@ -659,6 +720,9 @@ CONTAINS
       CALL finish(TRIM(routine), 'deallocation for vertical background &
         & temperaure diffusion failed')
     END IF
+    
+    DEALLOCATE(WindMixingDecay, WindMixingLevel)
+    
   END SUBROUTINE destruct_ho_params
   !-------------------------------------------------------------------------
 
@@ -684,14 +748,17 @@ CONTAINS
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
-    REAL(wp),          INTENT(in)        :: fu10   (nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) ! t_atmos_for_ocean%fu10
-    REAL(wp),          INTENT(in)        :: concsum(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks) ! t_sea_ice%concsum
+    REAL(wp), TARGET                     :: fu10   (:,:) ! t_atmos_for_ocean%fu10
+    REAL(wp), TARGET                     :: concsum(:,:) ! t_sea_ice%concsum
     TYPE(t_ho_params), INTENT(inout)     :: params_oce
     TYPE(t_operator_coeff),INTENT(in)    :: op_coeffs
 
     INTEGER :: tracer_index
     !-------------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_upd_phys)
+!     WindAmplitude_at10m => fu10
+    SeaIceConcentration => concsum
+    
     SELECT CASE (physics_parameters_type)
     CASE (physics_parameters_Constant_type)
       !nothing to do!In sbr init_ho_params (see above)
@@ -1145,8 +1212,8 @@ CONTAINS
         DO jk = 2, levels
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
-          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1))! *  &
-            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
+            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           z_ri_cell(jc, jk, jb) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * z_grav_rho * &
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
@@ -1325,8 +1392,8 @@ CONTAINS
         DO jk = 2, levels
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
-          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) ! *  &
-            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
+            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           z_ri_cell(jc, jk) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * z_grav_rho * &
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
                                                                      ! this is canceled out in this formula
@@ -1444,6 +1511,8 @@ CONTAINS
     REAL(wp) :: density_differ_edge, dz, richardson_edge, z_shear_edge, vn_diff, new_velocity_friction
     !-------------------------------------------------------------------------
     REAL(wp), POINTER :: z_vert_density_grad_c(:,:,:)
+    REAL(wp) :: wind_mixing(1:n_zlev+1)
+    REAL(wp) :: z_vert_density_grad_e(1:n_zlev+1)
     TYPE(t_patch), POINTER :: patch_2D
     TYPE(t_ho_params), POINTER :: params_oce
 
@@ -1464,15 +1533,42 @@ CONTAINS
       cell_1_block = patch_2D%edges%cell_blk(je,blockNo,1)
       cell_2_idx = patch_2D%edges%cell_idx(je,blockNo,2)
       cell_2_block = patch_2D%edges%cell_blk(je,blockNo,2)
+      
+      DO jk = 2, patch_3d%p_patch_1d(1)%dolic_e(je, blockNo)
+        z_vert_density_grad_e(jk) =  0.5_wp * &
+          & (z_vert_density_grad_c(cell_1_idx,jk,cell_1_block) +   &
+          &  z_vert_density_grad_c(cell_2_idx,jk,cell_2_block))
+      ENDDO
+      
+      wind_mixing(:) = 0.0_wp
+      IF (use_wind_mixing .AND. patch_3d%p_patch_1d(1)%dolic_e(je, blockNo) > 0) THEN
+!         IF (cell_1_idx < 1 .or. cell_1_block < 1 .or. &
+!           & cell_2_idx < 1 .or. cell_2_block < 1)     &
+!           & CALL finish("ICON_PP_Edge_vnPredict wind mixing", "invalid cell pointers")
+        ! wind-mixing: Marsland et al., 2003
+        ! wind-mixing at surface, eq. (15) of Marsland et al., 2003
+        wind_mixing(1) =           &
+          & velocity_TopWindMixing &
+          & *  (0.5_wp * &
+          &    (WindAmplitude_at10m(cell_1_idx,cell_1_block) + WindAmplitude_at10m(cell_2_idx,cell_2_block)))**3 &
+          & * (1.0_wp - 0.5_wp *       &
+          &    (SeaIceConcentration(cell_1_idx,cell_1_block) + SeaIceConcentration(cell_2_idx,cell_2_block))) 
+
+        ! exponential decay of wind-mixing, eq. (16) of Marsland et al., 2003
+        DO jk = 2, patch_3d%p_patch_1d(1)%dolic_e(je, blockNo)
+          wind_mixing(jk) =  wind_mixing(jk-1) * WindMixingDecay(jk) * &
+            & WindMixingLevel(jk) / (WindMixingLevel(jk) + MAX(z_vert_density_grad_e(jk),0.0_wp)) 
+          ! write(0,*) jk, wind_mixing(jk)
+        END DO! levels
+
+      END IF  ! use_wind_mixing
 
       DO jk = 2, patch_3d%p_patch_1d(1)%dolic_e(je, blockNo)
         ! TODO: the following expect equally sized cells
         ! compute density gradient at edges
         dz = 0.5_wp * (patch_3d%p_patch_1d(1)%prism_thick_e(je,jk-1,blockNo) + &
           &            patch_3d%p_patch_1d(1)%prism_thick_e(je,jk,blockNo))
-        density_differ_edge = 0.5_wp * &
-          & (z_vert_density_grad_c(cell_1_idx,jk,cell_1_block) +   &
-          &  z_vert_density_grad_c(cell_2_idx,jk,cell_2_block))  * dz
+        density_differ_edge = z_vert_density_grad_e(jk) * dz
         vn_diff = MAX( &
           & ABS(ocean_state%p_prog(nold(1))%vn(je,jk,  blockNo) - &
           &      ocean_state%p_prog(nold(1))%vn(je,jk-1,blockNo)), &
@@ -1482,15 +1578,16 @@ CONTAINS
         z_shear_edge = dbl_eps + vn_diff**2
 
         richardson_edge = MAX(dz * z_grav_rho * density_differ_edge / z_shear_edge, 0.0_wp)
-
-        new_velocity_friction = & 
+        
+        new_velocity_friction = &
           & params_oce%a_veloc_v_back * dz +  &
           & richardson_veloc /                      &
           & ((1.0_wp + z_c1_v * richardson_edge)**2)
           
         params_oce%a_veloc_v(je,jk,blockNo) = &
           & VerticalViscosity_TimeWeight * MAX(params_oce%a_veloc_v(je,jk,blockNo), new_velocity_friction) + &
-          & (1.0_wp - VerticalViscosity_TimeWeight) * new_velocity_friction
+          & (1.0_wp - VerticalViscosity_TimeWeight) * new_velocity_friction + &
+          & wind_mixing(jk)
 
       END DO ! jk = 2, levels
     ENDDO ! je = start_index, end_index
@@ -1498,9 +1595,10 @@ CONTAINS
   END SUBROUTINE update_physics_parameters_ICON_PP_Edge_vnPredict_scheme
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
   !>
   !! As in the update_physics_parameters_ICON_PP_scheme, but
-  !! velocity gradients for the vertical viscocity are clculated on edges
+  !! velocity gradients for the vertical viscocity are calculated on edges
   !!
   !! @par Revision History
   !! Initial release by Leonidas Linardakis, MPI-M (2011-02)
@@ -1520,7 +1618,8 @@ CONTAINS
     REAL(wp) :: z_rho_up(n_zlev), z_rho_down(n_zlev), density(n_zlev)
     REAL(wp) :: pressure(n_zlev), salinity(n_zlev)
     REAL(wp) :: z_shear_cell
-    REAL(wp) :: z_ri_cell               (nproma, n_zlev)
+    REAL(wp) :: z_ri_cell(nproma, n_zlev+1)
+    REAL(wp) :: wind_mixing(nproma, n_zlev+1)
     REAL(wp), POINTER :: z_vert_density_grad_c(:,:,:)
 
     !Below is a set of variables and parameters for tracer and velocity
@@ -1554,7 +1653,7 @@ CONTAINS
 !ICON_OMP_PARALLEL PRIVATE(salinity)
     salinity(1:levels) = sal_ref
 !ICON_OMP_DO PRIVATE(start_index, end_index, jc, levels, jk, pressure, z_rho_up, z_rho_down, &
-!ICON_OMP z_shear_cell, z_ri_cell, tracer_index, diffusion_weight) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP z_shear_cell, z_ri_cell, tracer_index, diffusion_weight, wind_mixing) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, start_index, end_index)
       z_ri_cell(:,:) = 0.0_wp
@@ -1578,22 +1677,46 @@ CONTAINS
         DO jk = 2, levels
           z_shear_cell = dbl_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
-          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1))! *  &
-            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          z_vert_density_grad_c(jc,jk,jb) = (z_rho_down(jk) - z_rho_up(jk-1)) *  &
+            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           z_ri_cell(jc, jk) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * z_grav_rho * &
             & (z_rho_down(jk) - z_rho_up(jk-1)) / z_shear_cell, 0.0_wp) ! do not use z_vert_density_grad_c,
-                                                                     ! this is canceled out in this formula
+                                                                        ! this is canceled out in this formula
         END DO ! levels
 
       END DO ! index
+      !-----------------------------------------------------------
+      wind_mixing(:,:) = 0.0_wp
+      IF (use_wind_mixing) THEN
+        DO jc = start_index, end_index
+
+          levels = patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
+          ! wind-mixing: Marsland et al., 2003
+          ! wind-mixing at surface, eq. (15) of Marsland et al., 2003
+          wind_mixing(jc,1) = tracer_TopWindMixing  * WindAmplitude_at10m(jc,jb)**3 * &
+            & (1.0_wp - SeaIceConcentration(jc,jb))
+
+          ! exponential decay of wind-mixing, eq. (16) of Marsland et al., 2003
+          DO jk = 2, levels
+           wind_mixing(jc,jk) =  wind_mixing(jc,jk-1) * WindMixingDecay(jk) * &
+             & WindMixingLevel(jk) / (WindMixingLevel(jk) + MAX(z_vert_density_grad_c(jc,jk,jb),0.0_wp))
+
+          END DO! levels
+          
+        END DO ! index
+
+      END IF  ! use_wind_mixing
+      !-----------------------------------------------------------
 
       DO tracer_index = 1, no_tracer
 
         params_oce%a_tracer_v(start_index:end_index, 2:n_zlev, jb, tracer_index) =   &
-          & MERGE(max_vert_diff_trac,                    & ! activate convection
+          & MERGE(                                       &
+          & max_vert_diff_trac,                          & ! activate convection
           & params_oce%a_tracer_v_back(tracer_index) +   & ! calculate the richardson diffusion
           &   richardson_tracer / ((1.0_wp + z_c1_t *    &
-          &   z_ri_cell(start_index:end_index, 2:n_zlev))**3), &
+          &   z_ri_cell(start_index:end_index, 2:n_zlev))**3) + &
+          &   wind_mixing(start_index:end_index, 2:n_zlev), &
           & z_vert_density_grad_c(start_index:end_index, 2:n_zlev,jb) <= convection_InstabilityThreshold)
 
         DO jc = start_index, end_index
@@ -1688,7 +1811,7 @@ CONTAINS
     REAL(wp) :: diffusion_weight, loc_eps
     REAL(wp) :: dv_old, dv_back, dv_rich
     REAL(wp) :: av_old, av_back, av_rich
-    REAL(wp) :: lambda_d_m1, lambda_v_m1
+    REAL(wp) :: onem1_lambda_d, onem1_lambda_v
     REAL(wp) :: grav_rho
     REAL(wp) :: mean_density_differ_edge, mean_richardson_e, fu10_e, conc_e
     REAL(wp) :: vdgfac_bot(n_zlev)
@@ -1713,8 +1836,8 @@ CONTAINS
 
     grav_rho          = grav/OceanReferenceDensity
 
-    lambda_d_m1       = 1.0_wp-lambda_diff
-    lambda_v_m1       = 1.0_wp-lambda_visc
+    onem1_lambda_d    = 1.0_wp-lambda_diff
+    onem1_lambda_v    = 1.0_wp-lambda_visc
     dv_rich           = richardson_tracer
     av_rich           = richardson_veloc
     v10mexp_3         = 1.0_wp/v10m_ref**3
@@ -1745,26 +1868,12 @@ CONTAINS
         ENDIF
 
         !--------------------------------------------------------
-        ! calculate here the density to be used in the dynamics
-        !
-          !  - midth of layer without using elevation h - gradient of height is added separately
-          pressure(1:levels) = patch_3d%p_patch_1d(1)%zlev_m(1:levels) * OceanReferenceDensity * sitodbar
-          !  - #slo# to include partial cells we need another 3-dim variable here: depth_CellMiddle_flat[_sfc]:
-          !pressure(1:levels) = patch_3d%p_patch_1d(1)%depth_CellMiddle_flat(jc,1:levels,jb) * OceanReferenceDensity * sitodbar
-
-        ocean_state%p_diag%rho(jc,1:levels,jb) = &
-            & calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels,jb,1), &
-            & salinity(1:levels), pressure(1:levels), levels)
-        !--------------------------------------------------------
-
-        !--------------------------------------------------------
-        ! calculate here the density for stability-detection for convection parameterization:
+        ! calculate density gradient for stability detection for PP-scheme and convection parameterization:
         !  - pressure at interface between upper and lower layer
         !  - S and T taken from upper and lower level, i.e. 2 times calculation of density per layer
-        !
-          !  - old formulation without including z in reference interface level
-          pressure(2:levels) = patch_3d%p_patch_1d(1)%zlev_i(2:levels) * OceanReferenceDensity * sitodbar
 
+        !  - old formulation without including z in reference interface level
+        pressure(2:levels) = patch_3d%p_patch_1d(1)%zlev_i(2:levels) * OceanReferenceDensity * sitodbar
         rho_up(1:levels-1)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,1:levels-1,jb,1), &
           & salinity(1:levels-1), pressure(2:levels), levels-1)
         rho_down(2:levels)  = calculate_density_onColumn(ocean_state%p_prog(nold(1))%tracer(jc,2:levels,jb,1), &
@@ -1774,9 +1883,9 @@ CONTAINS
           ! division by dz**2 is omitted in this calculation of velocity shear: shear = (d_vn)**2
           vert_velocity_shear = loc_eps + &
             & SUM((ocean_state%p_diag%p_vn(jc,jk-1,jb)%x - ocean_state%p_diag%p_vn(jc,jk,jb)%x)**2)
-          ! d_rho/dz
-          vert_density_grad(jc,jk,jb) = (rho_down(jk) - rho_up(jk-1)) !*  &
-            ! & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+          ! d_rho/dz - full density gradient necessary for wind mixing, stability formula, mixed layer depth calculation
+          vert_density_grad(jc,jk,jb) = (rho_down(jk) - rho_up(jk-1)) *  &
+            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
           ! Ri = g/OceanReferenceDensity * dz * d_rho/(d_vn)**2
           richardson_no(jc,jk,jb) = MAX(patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb) * grav_rho * &
             &                           (rho_down(jk) - rho_up(jk-1)) / vert_velocity_shear, 0.0_wp)
@@ -1788,11 +1897,8 @@ CONTAINS
 
           ! reduced wind-mixing under sea ice, following MPIOM
           IF (use_reduced_mixing_under_ice) THEN
-            ! check wind-mixing with constant 10m/s - use apply_initial_conditions for this before using wind mixing!
-            !dv_wind(jc,1,jb) = wma_pv * (1.0_wp - concsum(jc,jb)) * 10.0_wp**3
             dv_wind(jc,1,jb) = wma_pv * (1.0_wp - concsum(jc,jb)) * fu10(jc,jb)**3
           ELSE
-            !dv_wind(jc,1,jb) = wma_pv * (1.0_wp - concsum(jc,jb))**2 * 10.0_wp**3
             dv_wind(jc,1,jb) = wma_pv * (1.0_wp - concsum(jc,jb))**2 * fu10(jc,jb)**3
           ENDIF
 
@@ -1800,7 +1906,11 @@ CONTAINS
           DO jk = 2, levels
 
             decay_wind_depth   = EXP(-patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)/z0_wind)
-            wind_param         = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk-1)  ! #slo# check
+
+            ! lambda_wind: default changed to 0.05, with 0.03 omip-r2b4 aborted
+            !   - in MPIOM it is 0.05, in Marsland et al. it was 0.03,
+            !   - for strong winds it might be necessary to increase it
+            wind_param         = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk)
 
             ! vertical interpolation of density gradient
             !  - at mid-depth jk the density gradients at interfaces from above (jk) and below (jk+1) are used
@@ -1811,6 +1921,12 @@ CONTAINS
             vdensgrad_inter  = 0.5_wp*(vert_density_grad(jc,jk,jb)+vdgfac_bot(jk)*vert_density_grad(jc,jk_max,jb))
 
             dv_wind(jc,jk,jb) =  dv_wind(jc,jk-1,jb)*decay_wind_depth*wind_param / (wind_param + vdensgrad_inter)
+
+            ! cut unphysically negative wind induced mixing
+            dv_wind(jc,jk,jb) =  MAX(dv_wind(jc,jk,jb),0.0_wp)
+            ! cut overshoots more than convection maximum - must not be set to low values
+          ! IF (max_vert_diff_trac .GT. params_oce%a_tracer_v_back(1)) &
+          !   &  dv_wind(jc,jk,jb) =  MIN(dv_wind(jc,jk,jb),0.0_wp)
 
           END DO
 
@@ -1830,7 +1946,7 @@ CONTAINS
               dv_old  = params_oce%a_tracer_v(jc,jk,jb,tracer_index)
               dv_back = params_oce%a_tracer_v_back(tracer_index)
               params_oce%a_tracer_v(jc,jk,jb,tracer_index) = &
-                &    lambda_d_m1*MIN(dv_old, dv_rich + dv_wind(jc,jk,jb)) &
+                &    onem1_lambda_d*MIN(dv_old, dv_rich + dv_wind(jc,jk,jb)) &
                 &  + lambda_diff*(dv_rich/((1.0_wp + crd*richardson_no(jc,jk,jb))**3) + dv_back + dv_wind(jc,jk,jb))
 
 
@@ -1895,7 +2011,7 @@ CONTAINS
           ! exponential decay of wind-mixing, eq. (16) of Marsland et al., 2003, edges
           DO jk = 2, levels
             decay_wind_depth = EXP(-patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)/z0_wind)
-            wind_param       = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk-1)
+            wind_param       = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk)
 
             ! vertical interpolation of density gradient
             !  - at mid-depth jk the density gradients at interfaces from above (jk) and below (jk+1) are used
@@ -1911,6 +2027,12 @@ CONTAINS
             vdensgrad_inter  = 0.5_wp*(densgrad_k + densgrad_kp1)
 
             av_wind(je,jk,jb) =  av_wind(je,jk-1,jb)*decay_wind_depth*wind_param / (wind_param + vdensgrad_inter)
+
+            ! cut unphysically negative wind induced mixing
+            av_wind(je,jk,jb) =  MAX(av_wind(je,jk,jb),0.0_wp)
+            ! cut overshoots more than convection maximum - must not be set to low values
+    !       IF (max_vert_diff_veloc .GT. params_oce%a_veloc_v_back) &
+    !         &  av_wind(je,jk,jb) =  MIN(av_wind(je,jk,jb),max_vert_diff_veloc)
           END DO
 
         END IF  ! use_wind_mixing
@@ -1936,11 +2058,11 @@ CONTAINS
             av_old  = params_oce%a_veloc_v(je,jk,jb)
             av_back = params_oce%a_veloc_v_back
             params_oce%a_veloc_v(je,jk,jb) = &
-              &    lambda_v_m1*MIN(av_old, av_rich + av_wind(je,jk,jb)) &
+              &    onem1_lambda_v*MIN(av_old, av_rich + av_wind(je,jk,jb)) &
               &  + lambda_visc*(av_rich/((1.0_wp + crv*mean_richardson_e)**2) + av_back + av_wind(je,jk,jb))
 !           ENDIF
 
-          ! turn on convection
+          ! turn on convection - no convection for velocity as in mpiom
 !           IF (use_convection) THEN
 ! 
 !             ! MPIOM style of convection in PP-scheme: viscosity
@@ -1997,7 +2119,8 @@ CONTAINS
     CALL dbg_print('UpdPar: windMix Visc ',av_wind                     ,str_module,idt_src,in_subset=p_patch%edges%owned)
     CALL dbg_print('UpdPar: VertDensGrad ',vert_density_grad           ,str_module,idt_src,in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdPar: Richardson No',richardson_no               ,str_module,idt_src,in_subset=p_patch%cells%owned)
-    idt_src=2  ! output print levels (1-5, fix)
+    CALL dbg_print('UpdPar: windsp. fu10 ',fu10                        ,str_module,idt_src,in_subset=p_patch%cells%owned)
+    idt_src=5  ! output print levels (1-5, fix)
     DO tracer_index = 1, no_tracer
       CALL dbg_print('UpdPar FinalTracerMixing'  ,params_oce%a_tracer_v(:,:,:,tracer_index), str_module,idt_src, &
         & in_subset=p_patch%cells%owned)
@@ -2005,6 +2128,7 @@ CONTAINS
     CALL dbg_print('UpdPar FinalVelocMixing'   ,params_oce%a_veloc_v     ,str_module,idt_src, &
       & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
+
   END SUBROUTINE update_physics_parameters_MPIOM_PP_scheme
   !-------------------------------------------------------------------------
 
