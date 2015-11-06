@@ -140,13 +140,16 @@ CONTAINS
     TYPE(t_list_element), POINTER :: src_element, dest_element
     TYPE(vector) :: keys 
     integer :: varlist_id
+    type(event), pointer :: e
 
     class(*), pointer :: myBuffer
     type(vector_ref) :: meanVariables
-    CHARACTER(LEN=1000) :: eventKey
+    CHARACTER(LEN=100) :: eventKey
     type(vector_iterator) :: iter
 
     character(len=132) :: msg
+
+    CALL message(TRIM(routine), 'START')
 
     ntotal_vars = total_number_of_variables()
     ! temporary variables needed for variable group parsing
@@ -188,13 +191,20 @@ CONTAINS
                 meanVariables = myBuffer
               end select
             ELSE
-              meanVariables = vector_ref()
-              call meanEvents%add(eventKey,newEvent(eventKey, &
+              meanVariables = vector_ref(verbose=.true.)
+              e => newEvent( &
                 &                 sim_step_info%sim_start, &
                 &                 p_onl%output_start(1), &
                 &                 p_onl%output_end(1), &
                 &                 p_onl%output_interval(1) &
-                &                ))
+                &                )
+
+        !     call meanEvents%add(eventKey,newEvent(eventKey, &
+        !       &                 sim_step_info%sim_start, &
+        !       &                 p_onl%output_start(1), &
+        !       &                 p_onl%output_end(1), &
+        !       &                 p_onl%output_interval(1) &
+        !       &                ))
             END IF
             DO i=1, nvars
               ! collect data variables only, there variables names like
