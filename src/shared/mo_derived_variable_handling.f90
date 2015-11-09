@@ -63,7 +63,7 @@ CONTAINS
   !! Optional label is printed first, on a line by its own
   !!
   SUBROUTINE var_print(this, label)
-    TYPE(vector_ref) , INTENT(in) :: this
+    class(vector_ref) , INTENT(in) :: this
     CHARACTER(*), INTENT(in), OPTIONAL :: label
     
     TYPE(vector_iterator) :: my_iter
@@ -138,7 +138,7 @@ CONTAINS
     TYPE (t_output_name_list), POINTER :: p_onl
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     TYPE(t_list_element), POINTER :: src_element, dest_element
-    TYPE(vector) :: keys 
+    TYPE(vector) :: keys, values 
     integer :: varlist_id
     type(event), pointer :: e
 
@@ -148,6 +148,8 @@ CONTAINS
     type(vector_iterator) :: iter
 
     character(len=132) :: msg
+      class(*), pointer :: buf
+      type(vector), pointer :: value_buffer
 
     CALL message(TRIM(routine), 'START')
 
@@ -159,19 +161,24 @@ CONTAINS
     ! -- loop over all output namelists
     p_onl => first_output_name_list
     
-    DO
+    NML_LOOP: DO
       IF (.NOT.ASSOCIATED(p_onl)) EXIT
       IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
 
+call print_summary(p_onl%output_filename)
+call print_summary(TRIM(p_onl%operation))
         DO i_typ = 1, 4
-   
+ 
+          ! secect varlist type {{{
           IF (i_typ == level_type_ml) in_varlist => p_onl%ml_varlist
           IF (i_typ == level_type_pl) in_varlist => p_onl%pl_varlist
           IF (i_typ == level_type_hl) in_varlist => p_onl%hl_varlist
           IF (i_typ == level_type_il) in_varlist => p_onl%il_varlist
+          ! }}}
    
           varlist_length = SIZE(in_varlist)
 
+          ! count variables {{{
           nvars = 0
           DO
             IF (in_varlist(nvars+1) == ' ') EXIT
@@ -180,6 +187,7 @@ CONTAINS
 
           IF (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
           varlist((nvars+1):ntotal_vars) = " "
+          ! }}}
           
           IF (i_typ == level_type_ml) THEN
             eventKey = get_event_key(p_onl)
@@ -191,13 +199,13 @@ CONTAINS
                 meanVariables = myBuffer
               end select
             ELSE
-              meanVariables = vector_ref(verbose=.true.)
-              e => newEvent( &
-                &                 sim_step_info%sim_start, &
-                &                 p_onl%output_start(1), &
-                &                 p_onl%output_end(1), &
-                &                 p_onl%output_interval(1) &
-                &                )
+              meanVariables = vector_ref()
+        !     e => newEvent( &
+        !       &                 sim_step_info%sim_start, &
+        !       &                 p_onl%output_start(1), &
+        !       &                 p_onl%output_end(1), &
+        !       &                 p_onl%output_interval(1) &
+        !       &                )
 
         !     call meanEvents%add(eventKey,newEvent(eventKey, &
         !       &                 sim_step_info%sim_start, &
@@ -206,57 +214,51 @@ CONTAINS
         !       &                 p_onl%output_interval(1) &
         !       &                ))
             END IF
+
+            ! create adhoc copies of all variables for later accumulation
             DO i=1, nvars
               ! collect data variables only, there variables names like
               ! 'grid:clon' which should be excluded
-              IF ( INDEX(varlist(i),':') < 1 ) THEN
+!TODO print *,varlist(i)
+              IF ( INDEX(varlist(i),':') > 0) CYCLE
+!TODO print *,varlist(i)
        
-                ! find existing variable
-                  src_element => find_element ( TRIM(varlist(i)))
-                  IF (ASSOCIATED (src_element)) EXIT
-                  ! add new variable, copy the meta-data from the existing variable
-              ! copy the source variable to destination pointer
+              ! find existing variable
+              src_element => find_element ( TRIM(varlist(i)))
+              IF (.not. ASSOCIATED (src_element)) THEN
+                call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
+              end if
+              ! add new variable, copy the meta-data from the existing variable
+              ! 1. copy the source variable to destination pointer
               dest_element => copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element)
 
-              !update the nc-shortname to internal name of the source variable
+              ! 2. update the nc-shortname to internal name of the source variable
               dest_element%field%info%cf%short_name = src_element%field%info%name
                                   CALL print_summary('var:'//TRIM(src_element%field%info%name)//'---')
               CALL meanVariables%add(src_element) ! source element comes first
+!TODO print *,'src added'
               CALL meanVariables%add(dest_element)
+!TODO print *,'dst added'
               ! replace existince varname in output_nml with the meanStream Variable
               in_varlist(i) = trim(dest_element%field%info%name)
-                                  CALL print_summary('in_varlist  :|'//trim(in_varlist(i))//'|')
-                                  CALL print_summary('dest_element:|'//trim(dest_element%field%info%name)//'|')
-              end if
-            end do
-
+                                  CALL print_summary('src:|'//trim(src_element%field%info%name)//'|')
+                                  CALL print_summary('dst:|'//trim(dest_element%field%info%name)//'|')
+            END DO
+!TODO print *,'meanVariables num:',meanVariables%length()
             call meanMap%add(eventKey,meanVariables)
           END IF
         END DO
       END IF
       p_onl => p_onl%next
-    END DO
-    BLOCK 
-      class(*), pointer :: buf
-      type(vector), pointer :: value_buffer
-      IF ( my_process_is_stdio() .and. .false.) THEN
-        call print_aqua('collected map {{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{')
+    END DO NML_LOOP
+      IF ( my_process_is_stdio() ) THEN
+        call print_summary('collected map {{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{')
         keys = meanMap%keys()
-        print *,keys%to_string()
-        value_buffer = meanMap%values()
-        iter = value_buffer%iter()
-
-          DO WHILE(iter%next(buf))
-            SELECT TYPE(buf)
-            type is (vector_ref)
-              call var_print(buf)
-            CLASS default
-            print *,object_string(buf)
-          end select
-          end do
-        call print_aqua('}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}')
+        call print_summary(keys%to_string())
+        values = meanMap%values()
+        call var_print(values)
+        call print_summary('}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}')
       END IF
-    END BLOCK
     !
     !1. Collect variables uniq by the output interval
     !   this will allow collective events for all variables in this group

@@ -973,6 +973,7 @@ MODULE mo_nh_stepping
 #endif
 
     ! update accumlated values
+    CALL perform_accumulation
     IF (iforcing==iecham) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &

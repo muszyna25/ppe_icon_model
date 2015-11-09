@@ -369,7 +369,7 @@ EOF
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  operation        = "mean"
- ml_varlist       = 'tauu','ps','rsns'
+ ml_varlist       = 'u','v','cllvi','prcs','ps','pr'
 /
 EOF
 fi
