@@ -387,6 +387,7 @@ CONTAINS
       h_levels(:)              = -1._wp
       i_levels(:)              = -1._wp
       remap                    = REMAP_NONE
+      operation                = ''
       reg_lon_def(:)           = 0._wp
       reg_lat_def(:)           = 0._wp
       reg_def_mode             = 0
