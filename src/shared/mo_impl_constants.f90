@@ -332,6 +332,13 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: iedmf   =  3
   INTEGER, PARAMETER :: ismag   =  5
 
+  ! identifiers for aerosol classes of Tegen climatology 
+  INTEGER, PARAMETER :: iss   =  1
+  INTEGER, PARAMETER :: iorg  =  2
+  INTEGER, PARAMETER :: ibc   =  3
+  INTEGER, PARAMETER :: iso4  =  4
+  INTEGER, PARAMETER :: idu   =  5
+  INTEGER, PARAMETER :: nclass_aero = 5
 
   ! external parameter for radiation
 

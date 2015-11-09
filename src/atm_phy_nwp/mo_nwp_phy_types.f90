@@ -100,6 +100,7 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: qhfl_s_t_ptr(:) !< pointer array: surface moisture flux
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_pl_t_ptr(:)!< pointer array: lhf from plants
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: aerosol_ptr(:)  !< pointer array: prognostic vertically integrated aerosol optical depth
 
     REAL(wp), POINTER          &
 #ifdef _CRAYFTN
@@ -335,11 +336,12 @@ MODULE mo_nwp_phy_types
       , CONTIGUOUS          &
 #endif
       & ::                  &
-      & aer_ss  (:,:),      &
-      & aer_or  (:,:),      &
-      & aer_bc  (:,:),      &
-      & aer_su  (:,:),      &
-      & aer_du  (:,:)
+      & aercl_ss  (:,:),    &
+      & aercl_or  (:,:),    &
+      & aercl_bc  (:,:),    &
+      & aercl_su  (:,:),    &
+      & aercl_du  (:,:),    &
+      & aerosol   (:,:,:)
 
     INTEGER, POINTER        &
 #ifdef _CRAYFTN

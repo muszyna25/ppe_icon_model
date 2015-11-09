@@ -37,11 +37,11 @@ MODULE mo_initicon_io
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lread_ana, lread_vn,      &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
-    &                               lvert_remap_fg
+    &                               lvert_remap_fg ! , aerosol_fg_present
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom,                           &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
-    &                               MODE_COSMODE
+    &                               MODE_COSMODE, iss, iorg, ibc, iso4, idu
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work,    &
@@ -58,6 +58,7 @@ MODULE mo_initicon_io
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, &
     &                               ntiles_water, lmulti_snow, tiles, get_tile_suffix
+  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
@@ -1488,10 +1489,10 @@ MODULE mo_initicon_io
   !!
   SUBROUTINE read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
-    TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
-    TYPE(t_nwp_phy_diag),      INTENT(INOUT) :: prm_diag(:)
-    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
-    INTEGER,                   INTENT(IN)    :: fileID_fg(:), filetype_fg(:)
+    TYPE(t_patch),                INTENT(IN)    :: p_patch(:)
+    TYPE(t_nwp_phy_diag), TARGET, INTENT(INOUT) :: prm_diag(:)
+    TYPE(t_lnd_state), TARGET,    INTENT(INOUT) :: p_lnd_state(:)
+    INTEGER,                      INTENT(IN)    :: fileID_fg(:), filetype_fg(:)
 
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
     CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdfg_file(:)
@@ -1660,6 +1661,20 @@ MODULE mo_initicon_io
       CALL read_data_2d(parameters, filetype, 'c_t_lk', wtr_prog%c_t_lk, tileinfo, opt_checkgroup=checkgrp)
       CALL read_data_2d(parameters, filetype, 't_b1_lk', wtr_prog%t_b1_lk, tileinfo, opt_checkgroup=checkgrp)
       CALL read_data_2d(parameters, filetype, 'h_b1_lk', wtr_prog%h_b1_lk, tileinfo, opt_checkgroup=checkgrp)
+
+      IF (iprog_aero == 1) THEN
+        my_ptr2d => prm_diag(jg)%aerosol(:,iss,:)
+        CALL read_data_2d(parameters, filetype, 'aer_ss', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
+        my_ptr2d => prm_diag(jg)%aerosol(:,iorg,:)
+        CALL read_data_2d(parameters, filetype, 'aer_or', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
+        my_ptr2d => prm_diag(jg)%aerosol(:,ibc,:)
+        CALL read_data_2d(parameters, filetype, 'aer_bc', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
+        my_ptr2d => prm_diag(jg)%aerosol(:,iso4,:)
+        CALL read_data_2d(parameters, filetype, 'aer_su', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
+        my_ptr2d => prm_diag(jg)%aerosol(:,idu,:)
+        CALL read_data_2d(parameters, filetype, 'aer_du', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
+    !    aerosol_fg_present(jg) = .TRUE. ! here it needs to be determined if the fields were actually read
+      ENDIF
 
       CALL deleteInputParameters(parameters)
 

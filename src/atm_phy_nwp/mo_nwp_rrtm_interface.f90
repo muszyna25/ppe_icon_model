@@ -24,13 +24,14 @@
 #endif
 MODULE mo_nwp_rrtm_interface
 
-  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero
   USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_exception,            ONLY: message,  finish, message_text
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest
+  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest, &
+                                     iss, iorg, ibc, iso4, idu
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -248,21 +249,35 @@ CONTAINS
 
       ELSE IF (irad_aero == 6 ) THEN ! Tegen aerosol climatology
 
+        IF (iprog_aero == 0) THEN ! purely climatological aerosol
 !DIR$ IVDEP
-        DO jc = 1,i_endidx
-
-          prm_diag%aer_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
-          prm_diag%aer_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * zw
-          prm_diag%aer_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * zw
-          prm_diag%aer_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * zw
-          prm_diag%aer_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
-            & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
-
-        ENDDO
+          DO jc = 1,i_endidx
+            prm_diag%aerosol(jc,iss,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
+            prm_diag%aerosol(jc,iorg,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * zw
+            prm_diag%aerosol(jc,ibc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * zw
+            prm_diag%aerosol(jc,iso4,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * zw
+            prm_diag%aerosol(jc,idu,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
+          ENDDO
+        ELSE ! simple prognostic aerosol; fill extra variables for climatology needed for relaxation equation
+!DIR$ IVDEP
+          DO jc = 1,i_endidx
+            prm_diag%aercl_ss(jc,jb) = ext_data%atm_td%aer_ss(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_ss(jc,jb,imo2)   - ext_data%atm_td%aer_ss(jc,jb,imo1)   ) * zw
+            prm_diag%aercl_or(jc,jb) = ext_data%atm_td%aer_org(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_org(jc,jb,imo2)  - ext_data%atm_td%aer_org(jc,jb,imo1)  ) * zw
+            prm_diag%aercl_bc(jc,jb) = ext_data%atm_td%aer_bc(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_bc(jc,jb,imo2)   - ext_data%atm_td%aer_bc(jc,jb,imo1)   ) * zw
+            prm_diag%aercl_su(jc,jb) = ext_data%atm_td%aer_so4(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_so4(jc,jb,imo2)  - ext_data%atm_td%aer_so4(jc,jb,imo1)  ) * zw
+            prm_diag%aercl_du(jc,jb) = ext_data%atm_td%aer_dust(jc,jb,imo1) + &
+              & ( ext_data%atm_td%aer_dust(jc,jb,imo2) - ext_data%atm_td%aer_dust(jc,jb,imo1) ) * zw
+          ENDDO
+        ENDIF
 
         DO jk = 2, nlevp1
           DO jc = 1,i_endidx
@@ -285,20 +300,20 @@ CONTAINS
 
         ! top level
         DO jc = 1,i_endidx
-          zaeqso   (jc,jb) = prm_diag%aer_ss(jc,jb)                           *zvdaes(jc,1)
-          zaeqlo   (jc,jb) = ( prm_diag%aer_or(jc,jb)+prm_diag%aer_su(jc,jb) )*zvdael(jc,1)
-          zaequo   (jc,jb) =  prm_diag%aer_bc(jc,jb)                          *zvdaeu(jc,1)
-          zaeqdo   (jc,jb) =  prm_diag%aer_du(jc,jb)                          *zvdaed(jc,1)
+          zaeqso   (jc,jb) = prm_diag%aerosol(jc,iss,jb)                                  *zvdaes(jc,1)
+          zaeqlo   (jc,jb) = ( prm_diag%aerosol(jc,iorg,jb)+prm_diag%aerosol(jc,iso4,jb) )*zvdael(jc,1)
+          zaequo   (jc,jb) =  prm_diag%aerosol(jc,ibc,jb)                                 *zvdaeu(jc,1)
+          zaeqdo   (jc,jb) =  prm_diag%aerosol(jc,idu,jb)                                 *zvdaed(jc,1)
           zaetr_top(jc,jb) = 1.0_wp
         ENDDO
 
         ! loop over layers
         DO jk = 1,nlev
           DO jc = 1,i_endidx
-            zaeqsn         =  prm_diag%aer_ss(jc,jb)                          * zvdaes(jc,jk+1)
-            zaeqln         =  (prm_diag%aer_or(jc,jb)+prm_diag%aer_su(jc,jb)) * zvdael(jc,jk+1)
-            zaequn         =  prm_diag%aer_bc(jc,jb)                          * zvdaeu(jc,jk+1)
-            zaeqdn         =  prm_diag%aer_du(jc,jb)                          * zvdaed(jc,jk+1)
+            zaeqsn         =  prm_diag%aerosol(jc,iss,jb)                                 * zvdaes(jc,jk+1)
+            zaeqln         =  (prm_diag%aerosol(jc,iorg,jb)+prm_diag%aerosol(jc,iso4,jb)) * zvdael(jc,jk+1)
+            zaequn         =  prm_diag%aerosol(jc,ibc,jb)                                 * zvdaeu(jc,jk+1)
+            zaeqdn         =  prm_diag%aerosol(jc,idu,jb)                                 * zvdaed(jc,jk+1)
             zaetr_bot      = zaetr_top(jc,jb) &
               & * ( MIN (1.0_wp, pt_diag%temp_ifc(jc,jk,jb)/pt_diag%temp_ifc(jc,jk+1,jb)) )**ztrpt
 
