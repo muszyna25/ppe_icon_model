@@ -1,0 +1,4 @@
+#enable_atmo=no
+#enable_jsbach=no
+#enable_ocean=no
+enable_testbed=no
