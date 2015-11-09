@@ -318,7 +318,7 @@ call print_summary(TRIM(p_onl%operation))
     TYPE(datetime), POINTER :: mtime_date 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
     character(len=132) :: eventKey
-    character(len=132), pointer :: eventString
+    class(*), pointer :: eventString
     type(event),pointer :: event_pointer
     type(event) :: event_from_nml
     character(len=132) :: msg
@@ -328,61 +328,61 @@ call print_summary(TRIM(p_onl%operation))
     values = meanMap%values()
     keys   = meanMap%keys()
 
-!   do i=1, values%length()
-!     elements => values%at(i)
-!     select type(elements)
-!     type is (vector)
-!       do element_counter=1,elements%length(),2 !start at 2 because the event is at index 1
-!         check_src => elements%at(element_counter)
-!         check_dest => elements%at(element_counter+1)
-!         if (associated(check_src)) then
-!           select type (check_src)
-!           type is (t_list_element)
-!             source      => check_src
-!           end select
-!         end if
-!         if (associated(check_dest)) then
-!           select type (check_dest)
-!           type is (t_list_element)
-!             destination => check_dest
-!           end select
-!         end if
-!
-!         if (associated(check_src)) then
-!           select type (check_src)
-!           type is (t_list_element)
-!             !if (associated(check_dest)) then
-!             select type (check_dest)
-!             type is (t_list_element)
-!               IF ( my_process_is_stdio() ) write(0,*)'sourceName:',trim(source%field%info%name)
-!               IF ( my_process_is_stdio() ) write(0,*)'destName:',trim(destination%field%info%name)
-!         !     CALL accumulation_add(source, destination)
-!             end select
-!             !end if
-!           end select
-!         end if
-!       end do
-!       eventKey => keys%at(i)
-!       do k=1,3
-!         e => meanEvents(k)
-!         call eventToString(e, msg)
-!         IF ( my_process_is_stdio() ) THEN
-!           write (0,*)' k  :', k  
-!           call print_summary(msg,stderr=.true.)
-!           if (msg == eventKey) then
-!             ! found the correnspondin even
-!             call print_summary("key found !!!",stderr=.true.)
-!             ! now check for activity
-!             CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
-!             call print_summary(trim(mtime_cur_datetime))
-!             mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
-!             isactive = LOGICAL(isCurrentEventActive(e,mtime_date))
-!             write (0,*)'---- isactive ----- ',isactive
-!           end if
-!         end if
-!       end do
-!     end select 
-!   end do
+    do i=1, values%length()
+      elements => values%at(i)
+      select type(elements)
+      type is (vector)
+        do element_counter=1,elements%length(),2 !start at 2 because the event is at index 1
+          check_src => elements%at(element_counter)
+          check_dest => elements%at(element_counter+1)
+          if (associated(check_src)) then
+            select type (check_src)
+            type is (t_list_element)
+              source      => check_src
+            end select
+          end if
+          if (associated(check_dest)) then
+            select type (check_dest)
+            type is (t_list_element)
+              destination => check_dest
+            end select
+          end if
+ 
+          if (associated(check_src)) then
+            select type (check_src)
+            type is (t_list_element)
+              !if (associated(check_dest)) then
+              select type (check_dest)
+              type is (t_list_element)
+                IF ( my_process_is_stdio() ) write(0,*)'sourceName:',trim(source%field%info%name)
+                IF ( my_process_is_stdio() ) write(0,*)'destName:',trim(destination%field%info%name)
+                CALL accumulation_add(source, destination)
+              end select
+              !end if
+            end select
+          end if
+        end do
+        eventString => keys%at(i)
+       !do k=1,3
+       !  e => meanEvents(k)
+       !  call eventToString(e, msg)
+       !  IF ( my_process_is_stdio() ) THEN
+       !    write (0,*)' k  :', k  
+       !    call print_summary(msg,stderr=.true.)
+       !    if (msg == eventKey) then
+       !      ! found the correnspondin even
+       !      call print_summary("key found !!!",stderr=.true.)
+       !      ! now check for activity
+       !      CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
+       !      call print_summary(trim(mtime_cur_datetime))
+       !      mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
+       !      isactive = LOGICAL(isCurrentEventActive(e,mtime_date))
+       !      write (0,*)'---- isactive ----- ',isactive
+       !    end if
+       !  end if
+       !end do
+      end select 
+    end do
 
   END SUBROUTINE perform_accumulation
   FUNCTION get_event_key(output_name_list) RESULT(event_key)

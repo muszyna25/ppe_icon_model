@@ -168,6 +168,7 @@ MODULE mo_nh_stepping
        &                                 addEventToEventGroup, isCurrentEventActive, getEventInterval
   USE mo_mtime_extensions,         ONLY: get_datetime_string
   USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
+  USE mo_derived_variable_handling, ONLY: perform_accumulation
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
