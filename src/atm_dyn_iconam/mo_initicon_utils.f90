@@ -881,7 +881,9 @@ MODULE mo_initicon_utils
         idx = one_of(TRIM(grp_vars_fg(ivar)),grp_vars_fgfile(:))
 
         IF ( idx == -1) THEN   ! variable not found
-          IF (.NOT. lmiss_fg) THEN ! add missing field to buffer
+          IF (INDEX(grp_vars_fg(ivar),'aer_') > 0) THEN
+            ! aerosol variables allowed to be missing; they are initialized from the climatology in this case
+          ELSE IF (.NOT. lmiss_fg) THEN ! add missing field to buffer
             buffer_miss_fg = TRIM(grp_vars_fg(ivar))//', '
             lmiss_fg = .TRUE.
           ELSE
