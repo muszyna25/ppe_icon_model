@@ -29,20 +29,20 @@ MODULE mo_name_list_output_init
 ! USE_CRAY_POINTER
 
   ! constants and global settings
-  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate, &
-                                                & cdiEncodeTime, institutInq, vlistCreate, cdiEncodeParam, vlistDefVar, &
-                                                & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE, &
-                                                & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName, &
+  USE mo_cdi,                               ONLY: FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, gridCreate, cdiEncodeDate,          &
+                                                & cdiEncodeTime, institutInq, vlistCreate, cdiEncodeParam, vlistDefVar,          &
+                                                & TUNIT_MINUTE, CDI_UNDEFID, TAXIS_RELATIVE, taxisCreate, TAXIS_ABSOLUTE,        &
+                                                & GRID_UNSTRUCTURED, GRID_LONLAT, vlistDefVarDatatype, vlistDefVarName,          &
                                                 & gridDefPosition, vlistDefVarIntKey, gridDefXsize, gridDefXname, gridDefXunits, &
-                                                & gridDefYsize, gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID, &
-                                                & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname, &
-                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals, &
-                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit, &
-                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,   &
+                                                & gridDefYsize, gridDefYname, gridDefYunits, gridDefNumber, gridDefUUID,         &
+                                                & gridDefNvertex, vlistDefInstitut, vlistDefVarParam, vlistDefVarLongname,       &
+                                                & vlistDefVarStdname, vlistDefVarUnits, vlistDefVarMissval, gridDefXvals,        &
+                                                & gridDefYvals, gridDefXlongname, gridDefYlongname, taxisDefTunit,               &
+                                                & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,                 &
                                                 & vlistDefAttTxt, CDI_GLOBAL
-  USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
-                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_REFERENCE, GRID_EDGE, GRID_CELL, &
-                                                & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
+  USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE,        &
+                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_REFERENCE, GRID_EDGE, GRID_CELL,        &
+                                                & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl,    &
                                                 & ZA_hybrid_half, ZA_hybrid
   USE mo_kind,                              ONLY: wp, i8, dp, sp
   USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                 &
@@ -67,7 +67,7 @@ MODULE mo_name_list_output_init
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
-    &                                             sort_and_compress_list, one_of, real2string
+    &                                             sort_and_compress_list, real2string
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
@@ -140,7 +140,7 @@ MODULE mo_name_list_output_init
   USE mo_output_event_handler,              ONLY: new_parallel_output_event,                      &
     &                                             complete_event_setup, union_of_all_events,      &
     &                                             print_output_event, trigger_output_step_irecv,  &
-    &                                             set_event_to_simstep
+    &                                             set_event_to_simstep, strip_from_modifiers
   ! name list output
   USE mo_name_list_output_types,            ONLY: l_output_phys_patch, t_output_name_list,        &
     &                                             t_output_file, t_var_desc,                      &
@@ -148,8 +148,7 @@ MODULE mo_name_list_output_init
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,               &
     &                                             GRP_PREFIX, TILE_PREFIX,                        &
     &                                             t_fname_metadata, all_events, t_patch_info_ll,  &
-    &                                             GRB2_GRID_INFO, is_grid_info_var,               &
-    &                                             GRB2_GRID_INFO_NAME
+    &                                             is_grid_info_var, GRB2_GRID_INFO_NAME
   USE mo_name_list_output_gridinfo,         ONLY: set_grid_info_grb2, set_grid_info_netcdf,       &
     &                                             collect_all_grid_info, copy_grid_info,          &
     &                                             allgather_grid_info, deallocate_all_grid_info,  &
@@ -264,9 +263,9 @@ CONTAINS
 
     REAL(wp)                              :: output_bounds(3*MAX_TIME_INTERVALS)
     INTEGER                               :: output_time_unit
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_start(MAX_TIME_INTERVALS), &
-      &                                      output_end(MAX_TIME_INTERVALS),   &
-      &                                      output_interval(MAX_TIME_INTERVALS)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN+1) :: output_start(MAX_TIME_INTERVALS), &
+      &                                      output_end(MAX_TIME_INTERVALS)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)   :: output_interval(MAX_TIME_INTERVALS)
     CHARACTER(LEN=MAX_EVENT_NAME_STR_LEN) :: ready_file  !< ready filename prefix (=output event name)
 
     TYPE(t_lon_lat_data),  POINTER        :: lonlat
@@ -999,8 +998,8 @@ CONTAINS
     INTEGER                              :: nremaining_io_procs            !< no. of non-placed I/O ranks
     INTEGER                              :: remaining_io_procs(MAX_NUM_IO_PROCS) !< non-placed I/O ranks
 
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_start(MAX_TIME_INTERVALS),     &
-      &                                     output_interval(MAX_TIME_INTERVALS)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN+1):: output_start(MAX_TIME_INTERVALS)    !< time stamps + modifier
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: output_interval(MAX_TIME_INTERVALS) !< time stamps + modifier
     INTEGER                              :: idx, istart, iintvl,  nintvls
     INTEGER(c_int64_t)                   :: total_ms
     LOGICAL                              :: include_last
@@ -1291,8 +1290,10 @@ CONTAINS
         
         ! compare start date and end date: if these are equal, then
         ! the interval does not matter and must not be checked.
-        mtime_datetime_start => newDatetime(p_onl%output_start(idx))
-        mtime_datetime_end   => newDatetime(p_onl%output_end(idx))
+        !
+        mtime_datetime_start => newDatetime(TRIM(strip_from_modifiers(p_onl%output_start(idx))))
+        mtime_datetime_end   => newDatetime(TRIM(strip_from_modifiers(p_onl%output_end(idx))))
+
         IF (mtime_datetime_end > mtime_datetime_start) THEN
           mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)))
           
@@ -1336,10 +1337,10 @@ CONTAINS
           SELECT CASE(i_typ)
           CASE (level_type_ml)
             IF (p_onl%ml_varlist(1) == ' ') CYCLE
-          nfiles = nfiles + p_onl%stream_partitions_ml
+            nfiles = nfiles + p_onl%stream_partitions_ml
           CASE (level_type_pl)
             IF (p_onl%pl_varlist(1) == ' ') CYCLE
-          nfiles = nfiles + p_onl%stream_partitions_pl
+            nfiles = nfiles + p_onl%stream_partitions_pl
           CASE (level_type_hl)
             IF (p_onl%hl_varlist(1) == ' ') CYCLE
             nfiles = nfiles + p_onl%stream_partitions_hl
@@ -1662,7 +1663,7 @@ CONTAINS
       output_start    = p_onl%output_start
 
       ! Handle the case that one namelist has been split into
-      ! concurrent, alternating files:
+      ! concurrent, alternating files ("streams"):
       !
       IF (p_of%npartitions > 1) THEN
         ! count the number of different time intervals for this event (usually 1)
@@ -1675,7 +1676,7 @@ CONTAINS
 
         DO iintvl=1,nintvls
           mtime_interval => newTimedelta(output_interval(iintvl))
-          mtime_datetime => newDatetime(output_start(iintvl))
+          mtime_datetime => newDatetime(TRIM(strip_from_modifiers(output_start(iintvl))))
           !
           ! - The start_date gets an offset of
           !         "(ifile_partition - 1) * output_interval"
@@ -1747,14 +1748,17 @@ CONTAINS
                comp_name = TRIM(get_my_process_name())
                CALL print_output_event(all_events, &
                  ! ASCII file output:
-      & opt_filename="output_schedule_"//TRIM(comp_name)//"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt")
+                 & opt_filename="output_schedule_"//TRIM(comp_name)//&
+                 &"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt")
              ELSE
                CALL print_output_event(all_events, &
-      & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
+                 & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//&
+                 &"+.txt") ! ASCII file output
              ENDIF
 #else
              CALL print_output_event(all_events, &
-      &        opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
+               & opt_filename="output_schedule_steps_"//&
+               &TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
 #endif
           ELSE
 #if !defined (__NO_ICON_ATMO__) && !defined (__NO_ICON_OCEAN__)
