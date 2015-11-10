@@ -163,6 +163,10 @@ function diff_results
     echo "- ${MODEL_DIR2}/experiments/${DEXP2}"
     echo " "
 
+    # Wait for some seconds so that the file system has a better
+    # chance to deliver the correct files
+    sleep 30s
+
     for DATE in $DIFF_DATES; do
 
         echo "----------------------------------------------------------------"
@@ -190,7 +194,6 @@ function diff_results
                 echo " - file 2: ${FILE2}"
                 if [ "$CAT_CDO_DIFFN" == 'yes' ]; then
                     cat cdo_diffn.out
-                    rm  cdo_diffn.out
                 fi
                 IS_DIFFERENT='yes'
                 DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
@@ -201,6 +204,7 @@ function diff_results
                     cdo sub ${FILE2} ${FILE1} ${WDIR}/diff_${BFILE2%.nc}-${BFILE1}
                 fi
             fi
+            rm cdo_diffn.out
 
         done
 
