@@ -367,11 +367,11 @@ SUBROUTINE upscale_rad_input(jg, jgp, nlev_rg, fr_land, fr_glac, emis_rad, &
         albdif(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         albdif(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-      p_tsfc(jc,jb) =                                         &
-        tsfc(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-        tsfc(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-        tsfc(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        tsfc(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
+      p_tsfc(jc,jb) = SQRT(SQRT(                                 &
+        tsfc(iidx(jc,jb,1),iblk(jc,jb,1))**4*p_fbkwgt(jc,jb,1) + &
+        tsfc(iidx(jc,jb,2),iblk(jc,jb,2))**4*p_fbkwgt(jc,jb,2) + &
+        tsfc(iidx(jc,jb,3),iblk(jc,jb,3))**4*p_fbkwgt(jc,jb,3) + &
+        tsfc(iidx(jc,jb,4),iblk(jc,jb,4))**4*p_fbkwgt(jc,jb,4) ) )
 
       p_rtype(jc,jb) =                                        &
         REAL(ktype(iidx(jc,jb,1),iblk(jc,jb,1)),wp)*p_fbkwgt(jc,jb,1) + &
@@ -1338,11 +1338,11 @@ SUBROUTINE upscale_rad_input_rg(jg, jgp, nlev_rg, nlevp1_rg,         &
         pres_sfc(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         pres_sfc(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
 
-      p_temp_ifc(jc,nlevp1_rg,jb) =                                      &
-        temp_ifc(iidx(jc,jb,1),nlevp1,iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
-        temp_ifc(iidx(jc,jb,2),nlevp1,iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
-        temp_ifc(iidx(jc,jb,3),nlevp1,iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
-        temp_ifc(iidx(jc,jb,4),nlevp1,iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
+      p_temp_ifc(jc,nlevp1_rg,jb) = SQRT(SQRT(                              &
+        temp_ifc(iidx(jc,jb,1),nlevp1,iblk(jc,jb,1))**4*p_fbkwgt(jc,jb,1) + &
+        temp_ifc(iidx(jc,jb,2),nlevp1,iblk(jc,jb,2))**4*p_fbkwgt(jc,jb,2) + &
+        temp_ifc(iidx(jc,jb,3),nlevp1,iblk(jc,jb,3))**4*p_fbkwgt(jc,jb,3) + &
+        temp_ifc(iidx(jc,jb,4),nlevp1,iblk(jc,jb,4))**4*p_fbkwgt(jc,jb,4) ) )
 
     ENDDO
 

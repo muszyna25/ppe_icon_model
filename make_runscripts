@@ -244,6 +244,36 @@ check_accept_script()
    
    esac       
 
+   #---------------------------------------------------------------
+   # Search the script's contents for "EXCLUDE" keyword.
+   #
+   exclude_compiler=$(grep "__exclude_compiler=${use_compiler};" $input_folder/${check_accepted_filename}|wc -l)
+   if [ "$exclude_compiler" -ne "0" ]
+   then
+          accepted_script="false"  ;
+   fi
+   exclude_target=$(grep "__exclude_target=${use_target};" $input_folder/${check_accepted_filename}|wc -l)
+   if [ "$exclude_target" -ne "0" ]
+   then
+          accepted_script="false"  ;
+   fi
+   exclude_target_compiler=$(grep "__exclude_target_compiler=${use_target},${use_compiler};" $input_folder/${check_accepted_filename}|wc -l)
+   if [ "$exclude_target_compiler" -ne "0" ]
+   then
+          accepted_script="false"  ;
+   fi
+   exclude_target_compiler_mode=$(grep "__exclude_target_compiler_mode=${use_target},${use_compiler},mpi=${use_mpi};" $input_folder/${check_accepted_filename}|wc -l)
+   if [ "$exclude_target_compiler_mode" -ne "0" ]
+   then
+          accepted_script="false"  ;
+   fi
+   exclude_bbsystem_bbslave=$(grep "__exclude_bbsystem_bbslave=${BB_SYSTEM},${BB_SLAVE};" $input_folder/${check_accepted_filename}|wc -l)
+   if [ "$exclude_bbsystem_bbslave" -ne "0" ]
+   then
+          accepted_script="false"  ;
+   fi
+
+
 
    if [[ $accepted_script != "true" ]] ; then
      return 1

@@ -1960,14 +1960,6 @@ MODULE mo_sgs_turbmetric
          END DO
 
          !CALL TDMA
-  !       DO jc = i_startidx, i_endidx
- !          CALL tdma_solver(a(jc,2:nlev),b(jc,2:nlev),c(jc,2:nlev), &
- !                           rhs(jc,2:nlev),nlev-1,var_new(2:nlev))
-!!
-         !  tot_tend(jc,2:nlev,jb) = tot_tend(jc,2:nlev,jb) +  &
-         !                           ( var_new(2:nlev)-p_nh_prog%w(jc,2:nlev,jb) ) * inv_dt
-         !END DO
-
          DO jc = i_startidx, i_endidx
            CALL tdma_solver(a(jc,2:nlev),b(jc,2:nlev),c(jc,2:nlev),rhs(jc,2:nlev),nlev-1,var_new(2:nlev))
            tot_tend(jc,2:nlev,jb) = tot_tend(jc,2:nlev,jb) + (var_new(2:nlev) - p_nh_prog%w(jc,2:nlev,jb)) * inv_dt
@@ -2091,9 +2083,9 @@ MODULE mo_sgs_turbmetric
     !1) First set exner local vars to 1 for other scalars
     !   Soon get different routines for different scalars
 !$OMP PARALLEL
-    CALL init(exner_me(:,:,:))
-    CALL init(exner_ie(:,:,:))
-    CALL init(exner_ic(:,:,:))
+    CALL init(exner_me(:,:,:),1._wp)
+    CALL init(exner_ie(:,:,:),1._wp)
+    CALL init(exner_ic(:,:,:),1._wp)
     CALL init(a(:,:))
     CALL init(c(:,:))
     CALL init(var_ic(:,:,:))
@@ -2176,42 +2168,6 @@ MODULE mo_sgs_turbmetric
 !$OMP END DO
 
     END IF ! var == theta
-
-
-    rl_start = grf_bdywidth_e
-    rl_end   = min_rledge_int-1
-
-    i_startblk = p_patch%edges%start_blk(rl_start,1)
-    i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(je,jb,jk,i_startidx,i_endidx)
-    DO jb = i_startblk,i_endblk
-      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
-#ifdef __LOOP_EXCHANGE
-      DO je = i_startidx, i_endidx
-        DO jk = 2, nlev
-#else
-      DO jk = 2, nlev
-        DO je = i_startidx, i_endidx
-#endif
-          exner_ie(je,jk,jb) = ( p_nh_metrics%wgtfac_e(je,jk,jb)*exner_me(je,jk,jb) + &
-                               (1._wp-p_nh_metrics%wgtfac_e(je,jk,jb))*exner_me(je,jk-1,jb) )
-        END DO
-      END DO
-
-      DO je = i_startidx, i_endidx
-        exner_ie(je,nlev+1,jb) =                                &
-          p_nh_metrics%wgtfacq_e(je,1,jb)*exner_me(je,nlev  ,jb) + &
-          p_nh_metrics%wgtfacq_e(je,2,jb)*exner_me(je,nlev-1,jb) + &
-          p_nh_metrics%wgtfacq_e(je,3,jb)*exner_me(je,nlev-2,jb)
-        exner_ie(je,1,jb) =                                &
-          p_nh_metrics%wgtfacq1_e(je,1,jb)*exner_me(je,1,jb) + &
-          p_nh_metrics%wgtfacq1_e(je,2,jb)*exner_me(je,2,jb) + &
-          p_nh_metrics%wgtfacq1_e(je,3,jb)*exner_me(je,3,jb)
-      END DO
-    END DO
-!$OMP END DO
 
 
     !4) Calculate var at interface for vertical diffusion
@@ -2374,7 +2330,7 @@ MODULE mo_sgs_turbmetric
                          (var_iv(jvn,jk+1,jbn) - var_iv(ievidx(je,jb,1),jk+1,ievblk(je,jb,1))) * &
                          exner_ie(je,jk+1,jb) )
 
-             metric_tend_e(je,jk,jb) = (norm_metr*p_nh_metrics%ddxn_z_full(je,jk,jb) - &
+             metric_tend_e(je,jk,jb) = (norm_metr*p_nh_metrics%ddxn_z_full(je,jk,jb) + &
                          tang_metr*p_nh_metrics%ddxt_z_full(je,jk,jb)) * p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)
 
             ENDDO

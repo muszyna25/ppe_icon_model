@@ -41,7 +41,7 @@ MODULE mo_name_list_output_init
                                                 & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,   &
                                                 & vlistDefAttTxt, CDI_GLOBAL
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
-                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_REFERENCE, GRID_EDGE, GRID_CELL, &
+                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL, &
                                                 & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
                                                 & ZA_hybrid_half, ZA_hybrid
   USE mo_kind,                              ONLY: wp, i8, dp, sp
@@ -67,7 +67,7 @@ MODULE mo_name_list_output_init
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
-    &                                             sort_and_compress_list, one_of
+    &                                             sort_and_compress_list
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
@@ -93,7 +93,7 @@ MODULE mo_name_list_output_init
 #ifndef __NO_ICON_ATMO__
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
   USE mo_extpar_config,                     ONLY: i_lctype
-  USE mo_lnd_nwp_config,                    ONLY: ntiles_water, tiles
+  USE mo_lnd_nwp_config,                    ONLY: ntiles_water, ntiles_total, tiles
 #endif
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
@@ -150,8 +150,7 @@ MODULE mo_name_list_output_init
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,               &
     &                                             GRP_PREFIX, TILE_PREFIX,                        &
     &                                             t_fname_metadata, all_events, t_patch_info_ll,  &
-    &                                             GRB2_GRID_INFO, is_grid_info_var,               &
-    &                                             GRB2_GRID_INFO_NAME
+    &                                             is_grid_info_var, GRB2_GRID_INFO_NAME
   USE mo_name_list_output_gridinfo,         ONLY: set_grid_info_grb2, set_grid_info_netcdf,       &
     &                                             collect_all_grid_info, copy_grid_info,          &
     &                                             allgather_grid_info, deallocate_all_grid_info,  &
@@ -861,6 +860,10 @@ CONTAINS
           IF (INDEX(vname, TILE_PREFIX) > 0) THEN
             ! this is a tile group identifier
             grp_name = vname((LEN(TRIM(TILE_PREFIX))+1) : LEN(vname))
+
+            ! translate group name from GRIB2 to internal nomenclature, if necessary
+            grp_name = dict_get(varnames_dict, grp_name, grp_name)
+
             grp_name(len_trim(grp_name)+1:len_trim(grp_name)+3) ="_t"
             ! loop over all variables and collects the variables names
             ! corresponding to the group "grp_name"
@@ -2315,13 +2318,7 @@ CONTAINS
 
     pi_180 = ATAN(1._wp)/45._wp
 
-    IF (of%output_type == FILETYPE_GRB2) THEN
-      ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the
-      ! grid type is changed to "GRID_REFERENCE".
-      gridtype = GRID_REFERENCE
-    ELSE
-      gridtype = GRID_UNSTRUCTURED
-    ENDIF
+    gridtype = GRID_UNSTRUCTURED
 
     i_dom = of%phys_patch_id
     max_cell_connectivity = patch_info(i_dom)%max_cell_connectivity
@@ -2959,6 +2956,7 @@ CONTAINS
     ENDDO
     ! from nwp land config state
     CALL p_bcast(ntiles_water                              , bcast_root, p_comm_work_2_io)
+    CALL p_bcast(ntiles_total                              , bcast_root, p_comm_work_2_io)
     size_tiles = 0
     if (allocated(tiles)) then
        size_tiles = SIZE(tiles)

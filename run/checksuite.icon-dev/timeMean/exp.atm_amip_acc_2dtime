@@ -295,7 +295,6 @@ cat >> ${atmo_namelist} << EOF
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
- lzaxis_reference = .FALSE. 
 /
 EOF
 
