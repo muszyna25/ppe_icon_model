@@ -56,7 +56,7 @@ MODULE mo_io_restart
   USE mo_kind,                  ONLY: wp
   USE mo_mpi,                   ONLY: p_barrier,p_comm_work,p_bcast
   USE mo_exception,             ONLY: finish, message, message_text, get_filename_noext
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
   USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
@@ -957,11 +957,11 @@ CONTAINS
       ENDIF
 
       ! get information about timelevel to be skipped for current field
-      IF (element%field%info%tlev_source == 0 ) THEN
+      IF (element%field%info%tlev_source == TLEV_NNOW ) THEN
         IF (time_level == nnew(jg))                    lskip_timelev = .TRUE.
         ! this is needed to skip the extra time levels allocated for nesting
         IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
-      ELSE IF (element%field%info%tlev_source == 1) THEN
+      ELSE IF (element%field%info%tlev_source == TLEV_NNOW_RCF) THEN
         IF (time_level == nnew_rcf(jg))  lskip_timelev = .TRUE.
       ENDIF
 
@@ -1561,11 +1561,11 @@ CONTAINS
       ENDIF
 
       ! get information about timelevel to be skipped for current field
-      IF (element%field%info%tlev_source == 0 ) THEN
+      IF (element%field%info%tlev_source == TLEV_NNOW ) THEN
         IF (time_level == nnew(jg))                    lskip_timelev = .TRUE.
         ! this is needed to skip the extra time levels allocated for nesting
         IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
-      ELSE IF (element%field%info%tlev_source == 1) THEN
+      ELSE IF (element%field%info%tlev_source == TLEV_NNOW_RCF) THEN
         IF (time_level == nnew_rcf(jg))  lskip_timelev = .TRUE.
       ENDIF
 

@@ -76,7 +76,18 @@ The average cell area $\overline{\Delta A}$ can be computed from
 \begin{align*}
  \overline{\Delta A} = \frac{4\pi\,r_{e}^{2}}{n_{c}}\,,
 \end{align*}
-with the earth radius $r_{e}$, and $n_{c}$ the total number of cells. Based on $\overline{\Delta A}$ one can derive an estimate of the average grid resolution 
+with the earth radius $r_{e}$, and $n_{c}$ the total number of cells. 
+%
+ICON uses an earth radius of
+\begin{align*}
+ r_{e} =  6.371229 \cdot 10^6 \, \m.
+\end{align*}
+% \footnote{This number seems to be based on Hayford's 1910 estimate
+%  of the Earth. It is used in ICON as well as MPAS and was almost
+%  certainly taken from the Jablonowski and Williamson test case
+%  (QJRMS, 2006).}
+%
+Based on $\overline{\Delta A}$ one can derive an estimate of the average grid resolution 
 $\overline{\Delta x}$:
 \begin{align*}
  \overline{\Delta x} = \sqrt{\overline{\Delta A}} = \sqrt{\frac{\pi}{5}} \frac{r_{e}}{n\,2^{k}}

@@ -29,6 +29,7 @@ RADDIR=${basedir}/icon_input/radiation
 # absolute path to files needed to update SST and CI
 SSTICEDIR=${sstice_dir}
 
+
 # --------------------------------------------------------------------
 
 
