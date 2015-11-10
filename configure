@@ -2372,7 +2372,8 @@ done
 
 
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for machine dependent configuration" >&5
+if test -f "config/config-options" ; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for machine dependent configuration" >&5
 $as_echo_n "checking for machine dependent configuration... " >&6; }
 
 cat > confsed <<EOF
@@ -2430,6 +2431,7 @@ else
 $as_echo "unavailable" >&6; }
 fi
 
+fi
 
 
 # Check whether --enable-mtime-loop was given.

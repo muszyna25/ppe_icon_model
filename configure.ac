@@ -34,7 +34,9 @@ AC_PROG_AWK
 dnl Load pre-set configure options from config/config-options
 dnl ######################################################################
 
-AC_GET_MH(config/config-options)
+if test -f "config/config-options" ; then
+  AC_GET_MH(config/config-options)
+fi
 
 dnl ######################################################################
 
