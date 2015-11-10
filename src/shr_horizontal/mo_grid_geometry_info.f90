@@ -48,7 +48,7 @@ MODULE mo_grid_geometry_info
 
 
   ! public parameters
-  PUBLIC :: sphere_geometry, planar_torus_geometry, planar_channel_geometry
+  PUBLIC :: sphere_geometry, planar_torus_geometry, planar_channel_geometry, planar_geometry
   PUBLIC :: triangular_cell, hexagonal_cell
   PUBLIC :: cut_off_grid, refined_bisection_grid, dualy_refined_grid
 
@@ -66,6 +66,7 @@ MODULE mo_grid_geometry_info
   INTEGER, PARAMETER ::  sphere_geometry         = 1
   INTEGER, PARAMETER ::  planar_torus_geometry   = 2
   INTEGER, PARAMETER ::  planar_channel_geometry = 3
+  INTEGER, PARAMETER ::  planar_geometry         = 4
   
   ! -----------------------------
   ! types of grids

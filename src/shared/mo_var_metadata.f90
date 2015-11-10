@@ -615,14 +615,6 @@ CONTAINS
       CALL deallocateTimeDelta(ref_offset)
     ENDIF
 
-
-    !---------------------------------------------------------------------------------
-
-#ifdef _MTIME_DEBUG
-
-    ! CONSISTENCY CHECK: compares the implementation above with an
-    ! mtime-based implementation
-
     ! default start time = model initialization time
     start = TRIM(iso8601_ini_datetime)
     ! default end time = model end time
@@ -630,6 +622,12 @@ CONTAINS
     ! default reference time = model initialization time
     ref = TRIM(iso8601_ini_datetime)
 
+    !---------------------------------------------------------------------------------
+
+#ifdef _MTIME_DEBUG
+
+    ! CONSISTENCY CHECK: compares the implementation above with an
+    ! mtime-based implementation
 
     ! assign modified start time if offset opt_start is present
     IF (PRESENT(opt_start)) THEN
@@ -698,6 +696,9 @@ CONTAINS
     !
     ! convert start datetime from ISO_8601 format to type datetime
     dummy_ptr => newDatetime(TRIM(start))
+    IF (.NOT. ASSOCIATED(dummy_ptr)) THEN
+      CALL finish(routine, "date/time conversion error: "//TRIM(start))
+    END IF
     var_Action%EventLastTriggerDate = dummy_ptr    ! arbitrary init
 
     ! cleanup

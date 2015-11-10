@@ -17,7 +17,7 @@
 !!
 MODULE mo_nml_crosscheck
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, i8
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: ildf_echam, inwp, iheldsuarez,                    &
     &                              ildf_dry, inoforcing, ihs_atm_temp,               &
@@ -89,7 +89,8 @@ CONTAINS
     INTEGER :: i_listlen
     INTEGER :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
-
+    INTEGER(i8)                           :: dtime_ms
+    
     !--------------------------------------------------------------------
     ! Compute date/time/time step settings
     !--------------------------------------------------------------------
@@ -137,6 +138,15 @@ CONTAINS
                  (ha_dyn_config%itime_scheme/=LEAPFROG_SI)
 
     END SELECT
+
+    !--------------------------------------------------------------------
+    ! If ltestcase is set to .FALSE. in run_nml set testcase name to empty
+    ! (in case it is still set in the run script)
+    IF (.NOT. ltestcase) THEN
+      ctest_name = ''
+      nh_test_name = ''
+    END IF
+    !--------------------------------------------------------------------
 
     !--------------------------------------------------------------------
     ! Testcases (hydrostatic)
@@ -777,7 +787,7 @@ CONTAINS
     CALL check_meteogram_configuration(num_io_procs)
 
     CALL land_crosscheck()
-  
+
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------
 

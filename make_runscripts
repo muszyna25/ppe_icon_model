@@ -138,13 +138,13 @@ check_accept_script()
 
    #--------------------------
    # check which scripts run with openmp
-   if [[ $use_openmp = "yes" ]] ; then
-     case $check_accepted_filename in
-     *test_atm_icoles_nested*)
-        accepted_script="false"   #  ocean does not run with openmp
-        ;;
-     esac
-   fi
+   # if [[ $use_openmp = "yes" ]] ; then
+   #   case $check_accepted_filename in
+   #   *test_atm_icoles_nested*)
+   #      accepted_script="false"   #  ocean does not run with openmp
+   #      ;;
+   #   esac
+   # fi
 
    #--------------------------
    # check which scripts run without mpi

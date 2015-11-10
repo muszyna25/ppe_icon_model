@@ -1,8 +1,4 @@
-#ifndef __xlC__
-#define SWDIV_NOCHK(a,b) (a)/(b)
-#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
-#endif
-
+#include "fsel.inc"
 !>
 !! @brief Module produces t, q and l values for cloud ascent
 !!
@@ -36,7 +32,7 @@ MODULE mo_cuadjust
 #ifdef _PROFILE
   USE mo_profile,        ONLY: trace_start, trace_stop
 #endif
-                 
+
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: cuadjtq

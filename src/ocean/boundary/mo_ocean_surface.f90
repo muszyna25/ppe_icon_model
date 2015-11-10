@@ -34,7 +34,7 @@ MODULE mo_ocean_surface
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_parallel_config,     ONLY: p_test_run
   USE mo_read_interface,      ONLY: openInputFile, closeFile, t_stream_id, &
-    &                               onCells, read_2D_time  !, read_3D
+    &                               on_cells, read_2D_time  !, read_3D
   USE mo_var_list,            ONLY: add_var
   USE mo_ocean_state,         ONLY: ocean_default_list
   USE mo_cf_convention
@@ -45,19 +45,21 @@ MODULE mo_ocean_surface
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_ocean_ext_data,      ONLY: ext_data
   USE mo_ocean_nml,           ONLY: iforc_oce, forcing_timescale, relax_analytical_type,  &
-    &                               no_tracer, n_zlev, basin_center_lat,                  &
-    &                               basin_center_lon, basin_width_deg, basin_height_deg,  &
-    &                               para_surfRelax_Temp, type_surfRelax_Temp,             &
-    &                               para_surfRelax_Salt, type_surfRelax_Salt,             &
-    &                               No_Forcing, Analytical_Forcing, OMIP_FluxFromFile,    &
-    &                               Coupled_FluxFromAtmo,                                 &
-    &                               i_sea_ice, forcing_enable_freshwater, zero_freshwater_flux,    &
-    &                               forcing_set_runoff_to_zero,           &
-    &                               atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
-    &                               atmos_SWnet_const, atmos_LWnet_const, atmos_lat_const, atmos_sens_const, &
-    &                               atmos_SWnetw_const, atmos_LWnetw_const, atmos_latw_const, atmos_sensw_const, &
-    &                               limit_elevation, l_relaxsal_ice, &
-    &                               relax_width, forcing_HeatFlux_amplitude, forcing_HeatFlux_base, OceanReferenceDensity
+    &  no_tracer, n_zlev, basin_center_lat,                  &
+    &  basin_center_lon, basin_width_deg, basin_height_deg,  &
+    &  para_surfRelax_Temp, type_surfRelax_Temp,             &
+    &  para_surfRelax_Salt, type_surfRelax_Salt,             &
+    &  No_Forcing, Analytical_Forcing, OMIP_FluxFromFile,    &
+    &  Coupled_FluxFromAtmo,                                 &
+    &  i_sea_ice, forcing_enable_freshwater, zero_freshwater_flux,    &
+    &  forcing_set_runoff_to_zero,           &
+    &  atmos_flux_analytical_type, atmos_precip_const, &  ! atmos_evap_constant
+    &  atmos_SWnet_const, atmos_LWnet_const, atmos_lat_const, atmos_sens_const, &
+    &  atmos_SWnetw_const, atmos_LWnetw_const, atmos_latw_const, atmos_sensw_const, &
+    &  limit_elevation, l_relaxsal_ice, &
+    &  relax_width, forcing_HeatFlux_amplitude, forcing_HeatFlux_base, &
+    &  OceanReferenceDensity, &
+    &  use_wind_mixing
   USE mo_dynamics_config,     ONLY: nold
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -77,7 +79,7 @@ MODULE mo_ocean_surface
   USE mo_sea_ice_refactor,    ONLY: ice_slow_slo
   USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection_vla, ice_ocean_stress !ice_advection
   USE mo_sea_ice_nml,         ONLY: use_calculated_ocean_stress, i_ice_dyn
-  USE mo_ocean_coupling,      ONLY: couple_ocean_toatmo_fluxes
+  USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_extra40
 
   IMPLICIT NONE
   
@@ -265,6 +267,7 @@ CONTAINS
     CALL dbg_print('on entry: hs     ',p_ice%hs       ,str_module,3, in_subset=p_patch%cells%owned)
     CALL dbg_print('on entry: concSum',p_ice%concSum  ,str_module,3, in_subset=p_patch%cells%owned)
     CALL dbg_print('on entry: SST    ',p_oce_sfc%sst  ,str_module,3, in_subset=p_patch%cells%owned)
+    CALL dbg_print('on entry: TotalHeat', atmos_fluxes%HeatFlux_Total,     str_module,4,in_subset=p_patch%cells%owned)
     CALL dbg_print('ocesfc%windStr-u ',p_oce_sfc%topBC_windStress_u,       str_module,3,in_subset=p_patch%cells%owned)
     CALL dbg_print('sfcflx%windStr-u ',p_sfc_flx%topBoundCond_windStress_u,str_module,3,in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
@@ -293,7 +296,7 @@ CONTAINS
 
     ! assign freeboard before sea ice model
     IF (i_sea_ice==0) THEN
-      p_ice%zUnderIce(:,:) = (p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:)+p_os%p_prog(nold(1))%h(:,:))
+      p_ice%zUnderIce(:,:) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,1,:) + p_os%p_prog(nold(1))%h(:,:)
       p_oce_sfc%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)
     ENDIF
 
@@ -366,9 +369,10 @@ CONTAINS
     CASE (Coupled_FluxFromAtmo)                                       !  14
 
       !  Driving the ocean in a coupled mode:
+      !  nothing to be done, atmospheric fluxes are provided at the end of time stepping
       !  atmospheric fluxes drive the ocean; fluxes are calculated by atmospheric model
-      !  use atmospheric fluxes directly, i.e. no bulk formula as for OMIP are applied
-      CALL couple_ocean_toatmo_fluxes(p_patch_3D, p_os, p_ice, atmos_fluxes, datetime)
+      !  use atmospheric fluxes directly, i.e. no bulk formula as for OMIP is applied
+      CONTINUE
 
     CASE DEFAULT
 
@@ -387,6 +391,7 @@ CONTAINS
     CALL dbg_print('bef.fast:atmflx%dlatdT'   ,atmos_fluxes%dlatdT  ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('bef.fast:atmflx%dLWdT'    ,atmos_fluxes%dLWdt   ,str_module,idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('bef.fast:stress_x'        ,atmos_fluxes%stress_x,str_module,idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('bef.fast:TotalHeat', atmos_fluxes%HeatFlux_Total,str_module,idt_src, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
 
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
@@ -535,6 +540,7 @@ CONTAINS
 
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
+      IF (timers_level > 1) CALL timer_start(timer_extra40)
       CALL fem_ice_wrap ( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff )
 !      CALL ice_advection( p_patch_3D, p_op_coeff, p_ice ) ! messy advection routine, bugs fixed; renamed as ice_advection_vla
       CALL ice_advection_vla( p_patch_3D, p_op_coeff, p_ice )
@@ -542,6 +548,7 @@ CONTAINS
       ! the original clean up routine has been split into two: ice_clean_up_dyn, ice_clean_up_thd
       ! here we fix possible overshoots in conc afther the advection step
       CALL ice_clean_up_dyn( p_patch_3D, p_ice )
+      IF (timers_level > 1) CALL timer_stop(timer_extra40)
 
     ELSE
       p_ice%u = 0._wp
@@ -788,10 +795,11 @@ CONTAINS
     !  - correction applied daily
     !  calculate time
     dsec  = datetime%daysec        ! real seconds since begin of day
-    IF (limit_elevation .AND. dsec < dtime) THEN
+    ! event at end of first timestep of day - tbd: use mtime
+    IF (limit_elevation .AND. (dsec-dtime)<0.1 ) THEN
       CALL balance_elevation(p_patch_3D, p_os%p_prog(nold(1))%h)
       !---------DEBUG DIAGNOSTICS-------------------------------------------
-      CALL dbg_print('UpdSfc: h-old+BalElev',p_os%p_prog(nold(1))%h  ,str_module, 1, in_subset=p_patch%cells%owned)
+      CALL dbg_print('UpdSfc: h-old+BalElev',p_os%p_prog(nold(1))%h  ,str_module, 2, in_subset=p_patch%cells%owned)
       !---------------------------------------------------------------------
     END IF
 
@@ -947,6 +955,7 @@ CONTAINS
     !p_as%pao(:,:)   = p_as%pao(:,:) !* 0.01
     p_as%fswr(:,:)  = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,9) + &
       &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,9)
+      
     p_as%u(:,:)     = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,13) + &
       &               rday2*ext_data(1)%oce%flux_forc_mon_c(:,jmon2,:,13)
     p_as%v(:,:)     = rday1*ext_data(1)%oce%flux_forc_mon_c(:,jmon1,:,14) + &
@@ -1723,12 +1732,12 @@ CONTAINS
  !  atmos_fluxes%albvisdirw, albvisdifw, albnirdirw, albnirdifw
  !
  !  OUTPUT variables:  atmos_fluxes - heat fluxes and wind stress over open ocean
- !  atmos_fluxes%LWnetw  : long wave
- !  atmos_fluxes%SWnetw  : long wave
- !  atmos_fluxes%sensw   : sensible
- !  atmos_fluxes%latw    : latent
- !  atmos_fluxes%stress_xw
- !  atmos_fluxes%stress_yw
+ !  atmos_fluxes%LWnetw   : long wave
+ !  atmos_fluxes%SWnetw   : short wave
+ !  atmos_fluxes%sensw    : sensible
+ !  atmos_fluxes%latw     : latent
+ !  atmos_fluxes%stress_xw: zonal stress
+ !  atmos_fluxes%stress_yw: meridional stress
 
  !  Local variables
     REAL(wp), DIMENSION (nproma,p_patch%alloc_cell_blocks) ::           &
@@ -1903,6 +1912,7 @@ CONTAINS
     CALL dbg_print('omipBudOce:p_as%windStr-u',p_as%topBoundCond_windStress_u,str_module,idt_src, in_subset=p_patch%cells%owned)
     idt_src=3  ! output print level (1-5          , fix)
     CALL dbg_print('omipBudOce:Tsurf ocean'        , Tsurf                 , str_module, idt_src, in_subset=p_patch%cells%owned)
+    CALL dbg_print('omipBudOce:atmflx%SWnetw'      , atmos_fluxes%SWnetw   , str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('omipBudOce:atmflx%LWnetw'      , atmos_fluxes%LWnetw   , str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('omipBudOce:atmflx%sensw'       , atmos_fluxes%sensw    , str_module, idt_src, in_subset=p_patch%cells%owned)
     CALL dbg_print('omipBudOce:atmflx%latw'        , atmos_fluxes%latw     , str_module, idt_src, in_subset=p_patch%cells%owned)
@@ -2074,7 +2084,7 @@ CONTAINS
       ! zonal wind stress
       !write(0,*) ' ncep set 1: dimensions:',p_patch%n_patch_cells_g, p_patch%n_patch_cells, &
       ! &  forcing_timescale, nproma, p_patch%nblks_c
-      !CALL read_3D(stream_id, onCells, 'stress_x', z_flx2(:,:,:))
+      !CALL read_3D(stream_id, on_cells, 'stress_x', z_flx2(:,:,:))
       !write(0,*) ' READ_FORC, READ 1: first data sets: stress-x, block=5, index=1,5:'
       !do jt=1,jtime
       !  write(0,*) 'jt=',jt,' val:',(z_flx2(jc,jt,5),jc=1,5)
@@ -2099,7 +2109,7 @@ CONTAINS
         CALL message( TRIM(routine), TRIM(message_text) )
       END IF
 
-      CALL read_2D_time(stream_id, onCells, 'stress_x', &
+      CALL read_2D_time(stream_id, on_cells, 'stress_x', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2107,7 +2117,7 @@ CONTAINS
       END DO
 
       ! meridional wind stress
-      CALL read_2D_time(stream_id, onCells, 'stress_y', &
+      CALL read_2D_time(stream_id, on_cells, 'stress_y', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2115,7 +2125,7 @@ CONTAINS
       END DO
 
       ! SST
-      CALL read_2D_time(stream_id, onCells, 'SST', &
+      CALL read_2D_time(stream_id, on_cells, 'SST', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2131,7 +2141,7 @@ CONTAINS
  !    ! 9:  fswr(:,:),   &  ! Incoming surface solar radiation                 [W/m]
 
       ! 2m-temperature
-      CALL read_2D_time(stream_id, onCells, 'temp_2m', &
+      CALL read_2D_time(stream_id, on_cells, 'temp_2m', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2139,7 +2149,7 @@ CONTAINS
       END DO
 
       ! 2m dewpoint temperature
-      CALL read_2D_time(stream_id, onCells, 'dpt_temp_2m', &
+      CALL read_2D_time(stream_id, on_cells, 'dpt_temp_2m', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2147,7 +2157,7 @@ CONTAINS
       END DO
 
       ! Scalar wind
-      CALL read_2D_time(stream_id, onCells, 'scalar_wind', &
+      CALL read_2D_time(stream_id, on_cells, 'scalar_wind', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2155,7 +2165,7 @@ CONTAINS
       END DO
 
       ! cloud cover
-      CALL read_2D_time(stream_id, onCells, 'cloud', &
+      CALL read_2D_time(stream_id, on_cells, 'cloud', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2163,7 +2173,7 @@ CONTAINS
       END DO
 
       ! sea level pressure
-      CALL read_2D_time(stream_id, onCells, 'pressure', &
+      CALL read_2D_time(stream_id, on_cells, 'pressure', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2171,7 +2181,7 @@ CONTAINS
       END DO
 
       ! total solar radiation
-      CALL read_2D_time(stream_id, onCells, 'tot_solar', &
+      CALL read_2D_time(stream_id, on_cells, 'tot_solar', &
         &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
         &               end_timestep=i_count(2) + i_start(2))
       DO jt = 1, jtime
@@ -2179,7 +2189,7 @@ CONTAINS
       END DO
 
       ! precipitation
-  !   CALL read_2D_time(stream_id, onCells, 'precip', &
+  !   CALL read_2D_time(stream_id, on_cells, 'precip', &
   !     &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
   !     &               end_timestep=i_count(2) + i_start(2))
   !   DO jt = 1, jtime
@@ -2187,13 +2197,13 @@ CONTAINS
   !   END DO
 
       ! evaporation or downward surface LW flux
-  !   CALL read_2D_time(stream_id, onCells, 'evap', &
+  !   CALL read_2D_time(stream_id, on_cells, 'evap', &
   !     &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
   !     &               end_timestep=i_count(2) + i_start(2))
   !   DO jt = 1, jtime
   !     ext_data(jg)%oce%flux_forc_mon_c(:,jt,:,11) = z_flux(:,:,jt)
   !   END DO
-  !   CALL read_2D_time(stream_id, onCells, 'dlwrf', &
+  !   CALL read_2D_time(stream_id, on_cells, 'dlwrf', &
   !     &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
   !     &               end_timestep=i_count(2) + i_start(2))
   !   DO jt = 1, jtime
@@ -2201,7 +2211,7 @@ CONTAINS
   !   END DO
 
       ! runoff
-  !   CALL read_2D_time(stream_id, onCells, 'runoff', &
+  !   CALL read_2D_time(stream_id, on_cells, 'runoff', &
   !     &               fill_array=z_flux(:,:,:), start_timestep=i_start(2), &
   !     &               end_timestep=i_count(2) + i_start(2))
   !   DO jt = 1, jtime

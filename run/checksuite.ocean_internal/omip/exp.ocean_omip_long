@@ -71,7 +71,9 @@ cat > ${ocean_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:oce_essentials','group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
+  ml_varlist       = 'group:oce_essentials', 'A_tracer_v_T_acc', 'group:ice_default'
+! ml_varlist       = 'group:oce_essentials', 'group:oce_diag', 'group:oce_physics', 'group:oce_prog',
+!                    'group:ice_default',    'group:ice_diag'
 /
 &output_nml
   output_start     = "${start_date}"
@@ -84,7 +86,7 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'group:ocean_monitor'
 /
 &dbg_index_nml
-  idbg_mxmn=0                     ! initialize MIN/MAX  debug output
+  idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
   idbg_slev=1                     ! initialize start level for debug output
   idbg_elev=5                     ! initialize end level for debug output
@@ -134,7 +136,7 @@ cat > ${ocean_namelist} << EOF
   k_veloc_h                       =   3.0E+4  ! [m2/s] constant horizontal viscosity coefficient for velocity
   biharmonic_const                =   0.01    ! used with veloc_diffusion_form=2 only
   k_veloc_v                       =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
-  MAX_VERT_DIFF_VELOC             =   0.0     ! max vertical viscosity for convection used in case of instability
+! MAX_VERT_DIFF_VELOC             =   0.0     ! max vertical viscosity for convection used in case of instability
   k_pot_temp_h                    = 600.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v                    =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
   k_sal_h                         = 600.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
@@ -151,17 +153,17 @@ cat > ${ocean_namelist} << EOF
   richardson_tracer               =   2.0E-3  ! factor for vertical diffusion coefficient in PP scheme
   richardson_veloc                =   2.0E-3  ! factor for vertical viscosity coefficient in PP scheme
   bottom_drag_coeff               =   1.0E-3  ! default=2.5E-3
-  physics_parameters_type         =   1       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
-  use_wind_mixing                 = .FALSE.   ! true: use wind mixing scheme in MPIOM-type pp-scheme
+  physics_parameters_type         =   2       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
+  use_wind_mixing                 = .TRUE.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   GMRedi_configuration            =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
 /                                           
 &sea_ice_nml
 ! i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
-! i_ice_dyn                       =   0       ! 1/0=switch on/off AWI ice dynamics
+  i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! use_constant_tfreez             = .TRUE.    ! default: true
-  leadclose_1                     =   0.25    ! default: 0.5 - value of MPIOM: 0.25
-  leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
+! leadclose_1                     =   0.25    ! default: 0.5 - value of MPIOM: 0.25
+! leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
 
 /
 &ocean_forcing_nml

@@ -98,6 +98,17 @@ CONTAINS
       ! igbm      = 0
       ! iwtr      = 999
 
+    CASE('TPEo','TPEc')
+      ! Terra-planet simulation, no ocean, no ice;
+      ! No need to distinguish the aggregated grid-box mean
+      ! and the value on different types of surface
+
+      nsfc_type = 1
+      ilnd      = 1
+      iice      = 999
+      iwtr      = 999
+      igbm      = 0
+
     CASE DEFAULT
       ! Standard setup for real-world climate simulation.
       ! Three surface types are considered.

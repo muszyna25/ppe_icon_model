@@ -15,7 +15,9 @@ dataPath="${baseBath}../experiments/${EXPNAME}/"
 scriptPath="${icon_data_poolFolder}/tools"
 nclCaller="nclsh"
 plotCmd="${scriptPath}/icon_plot.ncl"
-source postFunx.sh
+. ${thisdir}/postFunx.sh
+# source postFunx.sh
+
 # ================================================================================
 # plotting
 # find the last input file
@@ -51,7 +53,7 @@ done
 check_error $? "oce_numeric: $nclCaller"
 
 # check for identical results compared to the reference
-slave=${BB_SLAVE:-thunder_gcc}
+slave=${BB_SYSTEM:-thunder}_${BB_SLAVE:-gcc}
 refDir=${ocean_data_MainFolder}/reference/${slave}/${EXPNAME}
 #case ${slave} in  
 #  thunder*)

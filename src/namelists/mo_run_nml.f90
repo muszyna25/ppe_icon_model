@@ -38,7 +38,7 @@ MODULE mo_run_nml
                          & config_check_uuid_gracefully => check_uuid_gracefully, &
                          & config_irad_type         => irad_type, &
                          & cfg_modelTimeStep => modelTimeStep
-  USE mo_kind,           ONLY: wp
+  USE mo_kind,           ONLY: wp, i8
   USE mo_exception,      ONLY: finish, message, message_text, &
     &                      config_msg_timestamp   => msg_timestamp
   USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ,     &
@@ -174,8 +174,8 @@ CONTAINS
     activate_sync_timers = .FALSE.
     msg_level            = 10
     msg_timestamp        = .FALSE.
-    test_mode         = 0
-    debug_check_level = 0
+    test_mode            = 0
+    debug_check_level    = 0
 
     output(:) = " "
     output(1) = "default"

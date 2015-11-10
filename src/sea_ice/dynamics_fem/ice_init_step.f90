@@ -41,8 +41,12 @@ USE mo_kind,  ONLY: wp
 implicit none
 integer   :: k
 
- allocate(coriolis_nod2D(nod2D))
- coriolis_nod2D=2._wp*omega*sin(coord_nod2D(2,:))
+!---------------------------------------------------------------------------------------------------
+! The Coriolis term is now calculated in ice_fem_grid_init (modified by Vladimir Lapin 11/08/2015)
+!---------------------------------------------------------------------------------------------------
+! allocate(coriolis_nod2D(nod2D))
+! coriolis_nod2D=2._wp*omega*sin(coord_nod2D(2,:))
+
  allocate(col_pos(nod2d))
 
 
