@@ -213,6 +213,7 @@ CONTAINS
         end if
 CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
 CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
+CALL print_summary('new name      :|'//trim(get_accumulation_varname(varlist(i),p_onl))//'|')
         ! add new variable, copy the meta-data from the existing variable
         ! 1. copy the source variable to destination pointer
         dest_element => copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element)
@@ -386,7 +387,7 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     TYPE(t_list_element), POINTER :: dest_element
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::copy_var_to_list"
 
-    CALL message(routine,'START')
+!   CALL message(routine,'START')
     CALL add_var(source_element%field%info%ndims, REAL_T, &
       & list, name, &
       & source_element%field%info%hgrid, source_element%field%info%vgrid, &
@@ -396,7 +397,7 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
       & post_op=source_element%field%info%post_op, &
       & loutput=.TRUE., lrestart=.FALSE., &
       & var_class=source_element%field%info%var_class )
-    CALL message(routine,'FINISH')
+!   CALL message(routine,'FINISH')
   END FUNCTION copy_var_to_list
   FUNCTION get_accumulation_varname(varname,output_setup)
     CHARACTER(LEN=VARNAME_LEN)  :: varname
