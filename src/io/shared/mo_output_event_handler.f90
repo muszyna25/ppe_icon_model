@@ -132,7 +132,7 @@ MODULE mo_output_event_handler
   USE mtime,                     ONLY: MAX_DATETIME_STR_LEN,                                &
     &                                  MAX_TIMEDELTA_STR_LEN, PROLEPTIC_GREGORIAN,          &
     &                                  datetime, timedelta,                                 &
-    &                                  setCalendar, resetCalendar, newTimedelta,            &
+    &                                  setCalendar, newTimedelta,                           &
     &                                  deallocateDatetime, datetimeToString,                &
     &                                  newDatetime, OPERATOR(>=),                           &
     &                                  OPERATOR(>), OPERATOR(+), OPERATOR(/=),              &
@@ -827,7 +827,7 @@ CONTAINS
     CALL deallocateDatetime(run_start)
     CALL deallocateTimedelta(delta)
     CALL deallocateTimedelta(delta_1day)
-    !rr CALL resetCalendar()
+
     DEALLOCATE(mtime_date_string, mtime_sim_steps, &
       &        mtime_exactdate, filename_metadata, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
