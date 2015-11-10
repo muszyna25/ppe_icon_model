@@ -419,10 +419,7 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     type(t_list_element) , INTENT(IN)    :: source
     type(t_list_element) , INTENT(INOUT) :: destination
 
-    destination%field%r_ptr = destination%field%r_ptr + source%field%r_ptr + 100.0_wp
-IF ( my_process_is_stdio() ) write(0,*)'dest%VAL:',MAXVAL(destination%field%r_ptr)
-IF ( my_process_is_stdio() ) write(0,*)' src%VAL:',MAXVAL(source%field%r_ptr)
-
+    destination%field%r_ptr = destination%field%r_ptr + source%field%r_ptr
   END SUBROUTINE accumulation_add
 
   SUBROUTINE perform_accumulation
