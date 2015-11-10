@@ -421,7 +421,7 @@ CONTAINS
       sim_step_info%jstep0    = jstep0
       CALL init_name_list_output(sim_step_info)
       CALL init_mean_stream(p_patch(1))
-      CALL collect_meanstream_variables( sim_step_info, p_patch(1))
+!     CALL collect_meanstream_variables( sim_step_info, p_patch(1))
 
       !---------------------------------------------------------------------
       !     Setup of meteogram output

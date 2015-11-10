@@ -211,6 +211,8 @@ CONTAINS
         IF (.not. ASSOCIATED (src_element)) THEN
           call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
         end if
+CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
+CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
         ! add new variable, copy the meta-data from the existing variable
         ! 1. copy the source variable to destination pointer
         dest_element => copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element)
@@ -225,8 +227,6 @@ CONTAINS
 !TODO print *,'dst added'
         ! replace existince varname in output_nml with the meanStream Variable
         in_varlist(i) = trim(dest_element%field%info%name)
-CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
-CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
 CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
 CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|')
       END DO
