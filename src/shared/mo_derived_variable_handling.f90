@@ -47,6 +47,7 @@ MODULE mo_derived_variable_handling
   PUBLIC :: mean_stream_list
   PUBLIC :: copy_var_to_list
   PUBLIC :: perform_accumulation
+  PUBLIC :: process_mean_stream
 
   TYPE :: t_accumulation_pair
     TYPE(t_list_element), POINTER :: source, destination
@@ -124,6 +125,117 @@ CONTAINS
     END IF
   END SUBROUTINE finish_mean_stream
 
+  integer function output_varlist_length(in_varlist)
+    CHARACTER(LEN=vname_len), intent(in) :: in_varlist(:)
+
+    output_varlist_length = 0
+    DO
+      IF (in_varlist(output_varlist_length+1) == ' ') EXIT
+      output_varlist_length = output_varlist_length + 1
+    END DO
+  end function output_varlist_length
+
+  SUBROUTINE process_mean_stream(p_onl,i_typ)
+    TYPE (t_output_name_list), target :: p_onl
+    INTEGER :: i_typ
+
+    CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
+    INTEGER :: ntotal_vars, output_variables,i,ierrstat
+    type(vector_ref) :: meanVariables
+    CHARACTER(LEN=100) :: eventKey
+    class(*), pointer :: myBuffer
+    TYPE(t_list_element), POINTER :: src_element, dest_element
+    TYPE(vector) :: keys, values 
+    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mean_stream"
+
+    IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
+
+      ntotal_vars = total_number_of_variables()
+      ! temporary variables needed for variable group parsing
+      ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
+      IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+
+      IF (i_typ == level_type_ml) in_varlist => p_onl%ml_varlist
+      IF (i_typ == level_type_pl) in_varlist => p_onl%pl_varlist
+      IF (i_typ == level_type_hl) in_varlist => p_onl%hl_varlist
+      IF (i_typ == level_type_il) in_varlist => p_onl%il_varlist
+
+      ! count variables {{{
+      output_variables = 0
+      DO
+        IF (in_varlist(output_variables+1) == ' ') EXIT
+        output_variables = output_variables + 1
+      END DO
+
+      IF (output_variables > 0)  varlist(1:output_variables) = in_varlist(1:output_variables)
+      varlist((output_variables+1):ntotal_vars) = " "
+      ! }}}
+
+      ! collect mean variables {{{
+      eventKey = get_event_key(p_onl)
+      write (0,*)'eventKey:',trim(eventKey)
+      IF ( meanMap%has_key(eventKey) ) THEN
+        myBuffer => meanMap%get(eventKey)
+        select type (myBuffer)
+        type is (vector_ref)
+          meanVariables = myBuffer
+        end select
+      ELSE
+        meanVariables = vector_ref()
+  !     e => newEvent( &
+  !       &                 sim_step_info%sim_start, &
+  !       &                 p_onl%output_start(1), &
+  !       &                 p_onl%output_end(1), &
+  !       &                 p_onl%output_interval(1) &
+  !       &                )
+
+  !     call meanEvents%add(eventKey,newEvent(eventKey, &
+  !       &                 sim_step_info%sim_start, &
+  !       &                 p_onl%output_start(1), &
+  !       &                 p_onl%output_end(1), &
+  !       &                 p_onl%output_interval(1) &
+  !       &                ))
+      END IF
+
+      ! create adhoc copies of all variables for later accumulation
+      DO i=1, output_variables
+        ! collect data variables only, there variables names like
+        ! 'grid:clon' which should be excluded
+!TODO print *,varlist(i)
+        IF ( INDEX(varlist(i),':') > 0) CYCLE
+!TODO print *,varlist(i)
+ 
+        ! find existing variable
+        src_element => find_element ( TRIM(varlist(i)))
+        IF (.not. ASSOCIATED (src_element)) THEN
+          call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
+        end if
+        ! add new variable, copy the meta-data from the existing variable
+        ! 1. copy the source variable to destination pointer
+        dest_element => copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element)
+        if ( my_process_is_stdio()) then
+          print *,'copy_var to list CALLED'
+        endif
+        ! 2. update the nc-shortname to internal name of the source variable
+        dest_element%field%info%cf%short_name = src_element%field%info%name
+        CALL meanVariables%add(src_element) ! source element comes first
+!TODO print *,'src added'
+        CALL meanVariables%add(dest_element)
+!TODO print *,'dst added'
+        ! replace existince varname in output_nml with the meanStream Variable
+        in_varlist(i) = trim(dest_element%field%info%name)
+CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
+CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
+CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
+CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|')
+      END DO
+!TODO print *,'meanVariables num:',meanVariables%length()
+          call meanMap%add(eventKey,meanVariables)
+    ELSE
+      RETURN
+    END IF
+  END SUBROUTINE process_mean_stream
   !>
   !!
   !!
@@ -132,38 +244,38 @@ CONTAINS
     type(t_patch)         :: patch
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::collect_meanStream_variables"
-    CHARACTER(LEN=VARNAME_LEN) :: varname, mean_varname, message_text
-    INTEGER :: nvars, i_typ, ierrstat, i, ntotal_vars, j, varlist_length
-    CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
-    TYPE (t_output_name_list), POINTER :: p_onl
-    CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
-    TYPE(t_list_element), POINTER :: src_element, dest_element
-    TYPE(vector) :: keys, values 
-    integer :: varlist_id
-    type(event), pointer :: e
+  CHARACTER(LEN=VARNAME_LEN) :: varname, mean_varname, message_text
+  INTEGER :: nvars, i_typ, ierrstat, i, ntotal_vars, j
+  CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
+  TYPE (t_output_name_list), POINTER :: p_onl
+  CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
+  TYPE(t_list_element), POINTER :: src_element, dest_element
+  TYPE(vector) :: keys, values 
+  integer :: varlist_id
+  type(event), pointer :: e
 
-    class(*), pointer :: myBuffer
-    type(vector_ref) :: meanVariables
-    CHARACTER(LEN=100) :: eventKey
-    type(vector_iterator) :: iter
+  class(*), pointer :: myBuffer
+  type(vector_ref) :: meanVariables
+  CHARACTER(LEN=100) :: eventKey
+  type(vector_iterator) :: iter
 
-    character(len=132) :: msg
-      class(*), pointer :: buf
-      type(vector), pointer :: value_buffer
+  character(len=132) :: msg
+    class(*), pointer :: buf
+    type(vector), pointer :: value_buffer
 
-    CALL message(TRIM(routine), 'START')
+  CALL message(TRIM(routine), 'START')
 
-    ntotal_vars = total_number_of_variables()
-    ! temporary variables needed for variable group parsing
-    ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
-    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+  ntotal_vars = total_number_of_variables()
+  ! temporary variables needed for variable group parsing
+  ALLOCATE(varlist(ntotal_vars), STAT=ierrstat)
+  IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
-    ! -- loop over all output namelists
-    p_onl => first_output_name_list
-    
-    NML_LOOP: DO
-      IF (.NOT.ASSOCIATED(p_onl)) EXIT
-      IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
+  ! -- loop over all output namelists
+  p_onl => first_output_name_list
+  
+  NML_LOOP: DO
+    IF (.NOT.ASSOCIATED(p_onl)) EXIT
+    IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
 
 call print_summary(p_onl%output_filename)
 call print_summary(TRIM(p_onl%operation))
@@ -176,14 +288,8 @@ call print_summary(TRIM(p_onl%operation))
           IF (i_typ == level_type_il) in_varlist => p_onl%il_varlist
           ! }}}
    
-          varlist_length = SIZE(in_varlist)
-
           ! count variables {{{
-          nvars = 0
-          DO
-            IF (in_varlist(nvars+1) == ' ') EXIT
-            nvars = nvars + 1
-          END DO
+          nvars = output_varlist_length(in_varlist)
 
           IF (nvars > 0)  varlist(1:nvars) = in_varlist(1:nvars)
           varlist((nvars+1):ntotal_vars) = " "
@@ -231,7 +337,9 @@ call print_summary(TRIM(p_onl%operation))
               ! add new variable, copy the meta-data from the existing variable
               ! 1. copy the source variable to destination pointer
               dest_element => copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element)
-
+              if ( my_process_is_stdio()) then
+                print *,'copy_var to list CALLED'
+              endif
               ! 2. update the nc-shortname to internal name of the source variable
               dest_element%field%info%cf%short_name = src_element%field%info%name
               CALL meanVariables%add(src_element) ! source element comes first
@@ -276,6 +384,9 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     TYPE(t_list_element),POINTER :: source_element
 
     TYPE(t_list_element), POINTER :: dest_element
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::copy_var_to_list"
+
+    CALL message(routine,'START')
     CALL add_var(source_element%field%info%ndims, REAL_T, &
       & list, name, &
       & source_element%field%info%hgrid, source_element%field%info%vgrid, &
@@ -285,6 +396,7 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
       & post_op=source_element%field%info%post_op, &
       & loutput=.TRUE., lrestart=.FALSE., &
       & var_class=source_element%field%info%var_class )
+    CALL message(routine,'FINISH')
   END FUNCTION copy_var_to_list
   FUNCTION get_accumulation_varname(varname,output_setup)
     CHARACTER(LEN=VARNAME_LEN)  :: varname

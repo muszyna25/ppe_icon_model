@@ -161,6 +161,7 @@ MODULE mo_name_list_output_init
     &                                             setup_hl_axis_atmo, setup_il_axis_atmo,         &
     &                                             setup_zaxes_oce
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
+  USE mo_derived_variable_handling,         ONLY: process_mean_stream
   USE self_vector
   USE self_map
   USE self_assert
@@ -1463,7 +1464,9 @@ CONTAINS
                 vl_list(nvl) = j
 
               ENDDO
-
+!TODO {{{
+CALL process_mean_stream(p_onl,i_typ)
+!process mean stream variables
               SELECT CASE(i_typ)
               CASE(level_type_ml)
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
