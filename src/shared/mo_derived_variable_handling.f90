@@ -234,15 +234,16 @@ call print_summary(TRIM(p_onl%operation))
 
               ! 2. update the nc-shortname to internal name of the source variable
               dest_element%field%info%cf%short_name = src_element%field%info%name
-                                  CALL print_summary('var:'//TRIM(src_element%field%info%name)//'---')
               CALL meanVariables%add(src_element) ! source element comes first
 !TODO print *,'src added'
               CALL meanVariables%add(dest_element)
 !TODO print *,'dst added'
               ! replace existince varname in output_nml with the meanStream Variable
               in_varlist(i) = trim(dest_element%field%info%name)
-                                  CALL print_summary('src:|'//trim(src_element%field%info%name)//'|')
-                                  CALL print_summary('dst:|'//trim(dest_element%field%info%name)//'|')
+CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
+CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
+CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
+CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|')
             END DO
 !TODO print *,'meanVariables num:',meanVariables%length()
             call meanMap%add(eventKey,meanVariables)
@@ -305,7 +306,10 @@ call print_summary(TRIM(p_onl%operation))
     type(t_list_element) , INTENT(IN)    :: source
     type(t_list_element) , INTENT(INOUT) :: destination
 
-    destination%field%r_ptr = destination%field%r_ptr + source%field%r_ptr
+    destination%field%r_ptr = destination%field%r_ptr + source%field%r_ptr + 100.0_wp
+IF ( my_process_is_stdio() ) write(0,*)'dest%VAL:',MAXVAL(destination%field%r_ptr)
+IF ( my_process_is_stdio() ) write(0,*)' src%VAL:',MAXVAL(source%field%r_ptr)
+
   END SUBROUTINE accumulation_add
 
   SUBROUTINE perform_accumulation
@@ -328,10 +332,13 @@ call print_summary(TRIM(p_onl%operation))
     values = meanMap%values()
     keys   = meanMap%keys()
 
+IF ( my_process_is_stdio() ) write(0,*)'values%length = ',values%length() !TODO
     do i=1, values%length()
+IF ( my_process_is_stdio() ) write(0,*)'perform_accumulation: i=',i !TODO
       elements => values%at(i)
       select type(elements)
-      type is (vector)
+      class is (vector_ref)
+IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
         do element_counter=1,elements%length(),2 !start at 2 because the event is at index 1
           check_src => elements%at(element_counter)
           check_dest => elements%at(element_counter+1)
@@ -357,8 +364,12 @@ call print_summary(TRIM(p_onl%operation))
                 IF ( my_process_is_stdio() ) write(0,*)'sourceName:',trim(source%field%info%name)
                 IF ( my_process_is_stdio() ) write(0,*)'destName:',trim(destination%field%info%name)
                 CALL accumulation_add(source, destination)
+              class default
+                call finish('perform_accumulation','Found unknown destination variable type')
               end select
               !end if
+            class default
+              call finish('perform_accumulation','Found unknown source variable type')
             end select
           end if
         end do

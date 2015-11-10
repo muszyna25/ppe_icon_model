@@ -2663,7 +2663,9 @@ CONTAINS
       ENDIF
 
       ! Search name mapping for name in NetCDF file
+      IF ( my_process_is_stdio() ) print *,'output init:', info%name
       IF (info%cf%short_name /= '') THEN
+      IF ( my_process_is_stdio() ) print *,'SHORTNAME gefunden!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
         mapped_name = dict_get(out_varnames_dict, info%cf%short_name, default=info%cf%short_name)
       ELSE
         mapped_name = dict_get(out_varnames_dict, info%name, default=info%name)

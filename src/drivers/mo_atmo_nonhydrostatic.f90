@@ -374,6 +374,7 @@ CONTAINS
     ! ATTENTION: all add_vars must be finished before calling this routine.
     IF (output_mode%l_nml) THEN
       CALL parse_variable_groups()
+      CALL collect_meanstream_variables( sim_step_info, p_patch(1))
     END IF
 
     ! if output on z and/or p-levels is required do some config
@@ -421,7 +422,6 @@ CONTAINS
       sim_step_info%jstep0    = jstep0
       CALL init_name_list_output(sim_step_info)
       CALL init_mean_stream(p_patch(1))
-      CALL collect_meanstream_variables( sim_step_info, p_patch(1))
 
       !---------------------------------------------------------------------
       !     Setup of meteogram output
