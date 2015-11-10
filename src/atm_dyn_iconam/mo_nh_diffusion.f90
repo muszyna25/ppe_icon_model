@@ -954,7 +954,7 @@ MODULE mo_nh_diffusion
           ENDDO
         ENDDO
 
-        IF (turbdiff_config(jg)%itype_sher >= 2) THEN ! compute horizontal gradients of w
+        IF (turbdiff_config(jg)%itype_sher == 2) THEN ! compute horizontal gradients of w
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
 !DIR$ IVDEP

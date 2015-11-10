@@ -33,7 +33,7 @@ MODULE mo_turbdiff_nml
 
   USE mo_data_turbdiff,       ONLY: &
 !MR:<
-    & itype_sher, itype_wcld, &
+    & itype_sher, imode_shshear, itype_wcld, &
 !MR:>
     & imode_tran, imode_turb, icldm_tran, icldm_turb, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
@@ -62,7 +62,7 @@ MODULE mo_turbdiff_nml
 
   NAMELIST/turbdiff_nml/ &
 !MR:<
-    & itype_sher, itype_wcld, &
+    & itype_sher, imode_shshear, itype_wcld, &
 !MR:>
     & imode_tran, imode_turb, icldm_tran, icldm_turb, &
     & ltkesso, ltkecon, lexpcor, ltmpcor, lprfcor, lnonloc, lcpfluc, lsflcnd, &
@@ -166,6 +166,9 @@ CONTAINS
       turbdiff_config(jg)%imode_turb   = imode_turb
       turbdiff_config(jg)%icldm_turb   = icldm_turb
       turbdiff_config(jg)%itype_sher   = itype_sher
+!MR:<
+      turbdiff_config(jg)%imode_shshear= imode_shshear
+!MR>
       turbdiff_config(jg)%imode_frcsmot= imode_frcsmot
       turbdiff_config(jg)%ltkesso      = ltkesso
       turbdiff_config(jg)%ltkeshs      = ltkeshs

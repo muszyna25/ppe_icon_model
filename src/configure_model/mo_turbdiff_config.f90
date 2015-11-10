@@ -55,6 +55,8 @@ MODULE mo_turbdiff_config
       &  itype_sher
     INTEGER :: &   ! mode of vertical smoothing of TKE source terms
       &  imode_frcsmot
+    INTEGER :: &   ! mode of the separated horizontal shear mode 
+      &  imode_shshear
 
     LOGICAL :: &   ! calculation SSO-wake turbulence production for TKE
       &  ltkesso

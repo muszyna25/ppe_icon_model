@@ -485,7 +485,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             &  tfm=tfm_t(:,jt), tfh=tfh_t(:,jt), tfv=tfv_t(:,jt),           & !inout
             &  tke=tvs_t(:,:,:,jt),                                         & !inout
             &  tkvm=tkvm_t(:,:,jt), tkvh=tkvh_t(:,:,jt),                    & !inout
-            &  rcld=rcld_t(:,:),                                            & !inout
+            &  rcld=rcld_t(:,:,jt),                                         & !inout
             &  t_2m=t_2m_t(:,jt), qv_2m=qv_2m_t(:,jt),                      & !out
             &  td_2m=td_2m_t(:,jt), rh_2m=rh_2m_t(:,jt),                    & !out
             &  u_10m=u_10m_t(:,jt), v_10m=v_10m_t(:,jt),                    & !out
