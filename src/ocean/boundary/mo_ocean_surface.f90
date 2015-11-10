@@ -449,7 +449,7 @@ CONTAINS
 
       ENDIF  !  sea ice
 
-    ENDIF  !  analytical & OMIP
+    ENDIF  !  iforc_oce = analytical or OMIP, 11 or 12
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     CALL dbg_print('aft.fast: Tsurf  ',p_ice%tsurf    ,str_module,3, in_subset=p_patch%cells%owned)
@@ -463,7 +463,7 @@ CONTAINS
     !  (4a) Provide fluxes for slow sea ice thermodynamics
     !  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****  *****
 
-    IF (iforc_oce == OMIP_FluxFromFile) THEN
+    IF (iforc_oce == Analytical_Forcing .OR. iforc_oce == OMIP_FluxFromFile)  THEN  !  11 or 12
 
       ! provide evaporation from latent heat flux for OMIP case
       ! under sea ice evaporation is neglected, atmos_fluxes%latw is flux in the absence of sea ice
@@ -499,6 +499,9 @@ CONTAINS
         atmos_fluxes%rpreci(:,:) = 0._wp
         atmos_fluxes%rprecw(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_SnowFall(:,:)
       ENDWHERE
+
+      ! copy flux for use in TotalOcean, since analytical/omip use p_as:
+      p_as%FrshFlux_Precipitation      = atmos_fluxes%FrshFlux_Precipitation
 
     ENDIF  ! iforc_oce
 
@@ -758,12 +761,12 @@ CONTAINS
           p_oce_sfc%SSS(jc,jb)   = sss_inter(jc,jb) * zUnderIceOld(jc,jb) / p_ice%zUnderIce(jc,jb)
 
           !******  (Thermodynamic Eq. 5)  ******
-          !! Finally, let sea-level rise from rain plus snow fall on ice
+          !! Finally, let sea-level change from P-E+RO plus snow fall on ice, net total volume forcing to ocean surface
           p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)               &
             &                           + p_oce_sfc%FrshFlux_VolumeTotal(jc,jb)*dtime &
             &                           + p_ice%totalsnowfall(jc,jb)
          
-          !! #slo# 2015-01: test update zunderice
+          !! update zunderice
           p_ice%zUnderIce(jc,jb) = p_patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,1,jb) + p_os%p_prog(nold(1))%h(jc,jb) &
             &                    - p_ice%draftave(jc,jb)
 
@@ -771,7 +774,7 @@ CONTAINS
       END DO
     END DO
          
-    !! #slo# 2015-06: set correct cell thickness under ice
+    !! set correct cell thickness under ice
     p_oce_sfc%cellThicknessUnderIce   (:,:) = p_ice%zUnderIce(:,:)
     atmos_fluxes%cellThicknessUnderIce(:,:) = p_ice%zUnderIce(:,:)  ! for diagnosis only
       
@@ -788,6 +791,22 @@ CONTAINS
     CALL dbg_print('UpdSfcEND: oce_sfc%SSS ',p_oce_sfc%SSS,                  str_module, 2, in_subset=p_patch%cells%owned)
     CALL dbg_print('UpdSfcEnd: h-old+fwfVol',p_os%p_prog(nold(1))%h,         str_module, 2, in_subset=p_patch%cells%owned)
     !---------------------------------------------------------------------
+
+    ! copy fluxes to bulk-type variables for output and average statistic purposes only:
+    p_sfc_flx%FrshFlux_Precipitation = atmos_fluxes%FrshFlux_Precipitation
+    p_sfc_flx%FrshFlux_Evaporation   = atmos_fluxes%FrshFlux_Evaporation
+    p_sfc_flx%FrshFlux_SnowFall      = atmos_fluxes%FrshFlux_SnowFall
+    p_sfc_flx%FrshFlux_Runoff        = atmos_fluxes%FrshFlux_Runoff
+    p_sfc_flx%HeatFlux_Total         = atmos_fluxes%HeatFlux_Total
+    p_sfc_flx%HeatFlux_ShortWave     = atmos_fluxes%HeatFlux_ShortWave
+    p_sfc_flx%HeatFlux_Longwave      = atmos_fluxes%HeatFlux_Longwave
+    p_sfc_flx%HeatFlux_Sensible      = atmos_fluxes%HeatFlux_Sensible
+    p_sfc_flx%HeatFlux_Latent        = atmos_fluxes%HeatFlux_Latent
+
+    p_sfc_flx%FrshFlux_TotalOcean    = atmos_fluxes%FrshFlux_TotalOcean
+    p_sfc_flx%FrshFlux_TotalSalt     = atmos_fluxes%FrshFlux_TotalSalt  
+    p_sfc_flx%FrshFlux_TotalIce      = p_oce_sfc%FrshFlux_TotalIce   
+    p_sfc_flx%FrshFlux_VolumeTotal   = p_oce_sfc%FrshFlux_VolumeTotal
 
     
     ! apply volume flux correction: 
