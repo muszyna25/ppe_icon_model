@@ -875,17 +875,13 @@ MODULE mo_initicon_utils
 
       ! Check, whether the FG-file inventory group contains all fields which are needed for a 
       ! successful model start. If not, then stop the model and issue an error.
-      IF (iprog_aero == 1) aerosol_fg_present(jg) = .TRUE.
       ivar = 0
       DO ivar1=1,ngrp_vars_fg
         ivar = ivar + 1
         idx = one_of(TRIM(grp_vars_fg(ivar)),grp_vars_fgfile(:))
 
         IF ( idx == -1) THEN   ! variable not found
-          IF (INDEX(grp_vars_fg(ivar),'aer_') > 0) THEN
-            ! special case: set flag that aerosol fields need to be initialized from climatology
-            aerosol_fg_present(jg) = .FALSE.
-          ELSE IF (.NOT. lmiss_fg) THEN ! add missing field to buffer
+          IF (.NOT. lmiss_fg) THEN ! add missing field to buffer
             buffer_miss_fg = TRIM(grp_vars_fg(ivar))//', '
             lmiss_fg = .TRUE.
           ELSE
@@ -990,8 +986,6 @@ MODULE mo_initicon_utils
     CALL p_bcast(ngrp_vars_fg, p_io, mpi_comm)
     CALL p_bcast(grp_vars_ana, p_io, mpi_comm)
     CALL p_bcast(ngrp_vars_ana,p_io, mpi_comm)
-
-    CALL p_bcast(aerosol_fg_present,p_io, mpi_comm)
 
   END SUBROUTINE create_input_groups
 
