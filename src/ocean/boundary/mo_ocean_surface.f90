@@ -500,17 +500,6 @@ CONTAINS
         atmos_fluxes%rprecw(:,:) = atmos_fluxes%FrshFlux_Precipitation(:,:) + atmos_fluxes%FrshFlux_SnowFall(:,:)
       ENDWHERE
 
-      ! copy fluxes to allocated variables for output and statistic purposes only:
-      p_sfc_flx%FrshFlux_Precipitation = atmos_fluxes%FrshFlux_Precipitation
-      p_sfc_flx%FrshFlux_Evaporation   = atmos_fluxes%FrshFlux_Evaporation
-      p_sfc_flx%FrshFlux_SnowFall      = atmos_fluxes%FrshFlux_SnowFall
-      p_sfc_flx%FrshFlux_Runoff        = atmos_fluxes%FrshFlux_Runoff
-      p_sfc_flx%HeatFlux_Total         = atmos_fluxes%HeatFlux_Total
-      p_sfc_flx%HeatFlux_ShortWave     = atmos_fluxes%HeatFlux_ShortWave
-      p_sfc_flx%HeatFlux_Longwave      = atmos_fluxes%HeatFlux_Longwave
-      p_sfc_flx%HeatFlux_Sensible      = atmos_fluxes%HeatFlux_Sensible
-      p_sfc_flx%HeatFlux_Latent        = atmos_fluxes%HeatFlux_Latent
-
     ENDIF  ! iforc_oce
 
     ! evaporation and runoff not used in sea ice but in VolumeTotal, evaporation used for TotalOcean only
