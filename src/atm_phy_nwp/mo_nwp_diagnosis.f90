@@ -986,9 +986,14 @@ CONTAINS
         ! height of convection base and top, hbas_con, htop_con
         ! 
         DO jc = i_startidx, i_endidx
-          IF ( prm_diag%locum(jc,jb)) THEN
+          IF ( prm_diag%locum(jc,jb) ) THEN
             prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
             prm_diag%htop_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mtop_con(jc,jb), jb)
+!           Do not allow diagnostic depth of convection to be thinner than 100m or one model layer
+            IF ( prm_diag%htop_con(jc,jb) - prm_diag%hbas_con(jc,jb) < 100._wp ) THEN
+              prm_diag%hbas_con(jc,jb) = -500._wp
+              prm_diag%htop_con(jc,jb) = -500._wp
+            END IF
           ELSE
             prm_diag%hbas_con(jc,jb) = -500._wp
             prm_diag%htop_con(jc,jb) = -500._wp
