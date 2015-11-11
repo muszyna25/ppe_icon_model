@@ -22,7 +22,7 @@ MODULE mo_derived_variable_handling
   USE mo_name_list_output_config, ONLY: first_output_name_list
   USE mo_var_list, ONLY: nvar_lists, max_var_lists, var_lists, new_var_list,&
        total_number_of_variables, collect_group, get_var_timelevel,&
-       get_var_name, default_var_list_settings, add_var, REAL_T, find_element
+       get_var_name, default_var_list_settings, add_var, REAL_T, find_element, find_list_element
   USE mo_linked_list, ONLY: t_var_list, t_list_element
   USE mo_util_string, ONLY: tolower
   USE mo_exception, ONLY: finish, message, message_text
@@ -136,6 +136,7 @@ CONTAINS
     TYPE(t_list_element), POINTER :: src_element, dest_element
     TYPE(vector) :: keys, values 
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
+    CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mean_stream"
 
     IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
@@ -195,33 +196,39 @@ CONTAINS
         IF ( INDEX(varlist(i),':') > 0) CYCLE
 !TODO print *,varlist(i)
  
-        ! find existing variable
-        src_element => find_element ( TRIM(varlist(i)))
-        IF (.not. ASSOCIATED (src_element)) THEN
-          call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
-        end if
+        ! check for already create meanStream variable (maybe from another output_nml with the same output_interval)
+        dest_element_name = get_accumulation_varname(varlist(i),p_onl)
+        call print_summary('CHECK NAME:'//TRIM(dest_element_name))
+        dest_element => find_list_element(mean_stream_list, trim(dest_element_name))
+        IF (.not. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
+          ! find existing source variable
+          src_element => find_element ( TRIM(varlist(i)))
+          IF (.not. ASSOCIATED (src_element)) THEN
+            call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
+          end if
 CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
 CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
-CALL print_summary('new name      :|'//trim(get_accumulation_varname(varlist(i),p_onl))//'|')
-        ! add new variable, copy the meta-data from the existing variable
-        ! 1. copy the source variable to destination pointer
-        dest_element => copy_var_to_list(mean_stream_list,get_accumulation_varname(varlist(i),p_onl),src_element)
-        if ( my_process_is_stdio()) then
-          print *,'copy_var to list CALLED'
-        endif
-        ! 2. update the nc-shortname to internal name of the source variable
-        dest_element%field%info%cf%short_name = src_element%field%info%name
-        CALL meanVariables%add(src_element) ! source element comes first
+CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
+          ! add new variable, copy the meta-data from the existing variable
+          ! 1. copy the source variable to destination pointer
+          dest_element => copy_var_to_list(mean_stream_list,dest_element_name,src_element)
+          if ( my_process_is_stdio()) then
+            print *,'copy_var to list CALLED'
+          endif
+          ! 2. update the nc-shortname to internal name of the source variable
+          dest_element%field%info%cf%short_name = src_element%field%info%name
+          CALL meanVariables%add(src_element) ! source element comes first
 !TODO print *,'src added'
-        CALL meanVariables%add(dest_element)
+          CALL meanVariables%add(dest_element)
 !TODO print *,'dst added'
         ! replace existince varname in output_nml with the meanStream Variable
-        in_varlist(i) = trim(dest_element%field%info%name)
 CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
 CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|')
+        END IF
+        in_varlist(i) = trim(dest_element%field%info%name)
       END DO
 !TODO print *,'meanVariables num:',meanVariables%length()
-          call meanMap%add(eventKey,meanVariables)
+      call meanMap%add(eventKey,meanVariables)
     ELSE
       RETURN
     END IF
