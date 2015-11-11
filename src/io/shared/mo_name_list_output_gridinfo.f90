@@ -945,7 +945,7 @@ CONTAINS
         &      grid_info%lat(nproma*nblks_glb),                &
         &      grid_info%lonv(connectivity, nproma*nblks_glb), &
         &      grid_info%latv(connectivity, nproma*nblks_glb), &
-        &      lonv(0,0,1), latv(0,0,1))
+        &      lonv(1,1,connectivity), latv(1,1,connectivity))
       grid_info%lon = 0._wp
       grid_info%lat = 0._wp
       grid_info%lonv = 0._wp
