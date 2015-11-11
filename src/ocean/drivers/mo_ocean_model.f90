@@ -22,7 +22,7 @@ MODULE mo_ocean_model
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
   USE mo_datetime,            ONLY: t_datetime, datetime_to_string
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups
-  USE mo_derived_variable_handling, ONLY: collect_meanstream_variables, init_mean_stream, finish_mean_stream
+  USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
   USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
   USE mo_dynamics_config,     ONLY: configure_dynamics
@@ -200,9 +200,6 @@ MODULE mo_ocean_model
       END IF
       sim_step_info%jstep0    = jstep0
       CALL init_mean_stream(ocean_patch_3d%p_patch_2d(1))
-      CALL collect_meanstream_variables( &
-        &    sim_step_info, &
-        &    ocean_patch_3d%p_patch_2d(1))
       CALL init_name_list_output(sim_step_info, opt_lprintlist=.TRUE.,opt_l_is_ocean=.TRUE.)
     ENDIF
 

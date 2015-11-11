@@ -94,7 +94,7 @@ USE mo_async_latbc,         ONLY: init_prefetch, close_prefetch
 
 USE mo_rttov_interface,     ONLY: rttov_finalize, rttov_initialize
 USE mo_synsat_config,       ONLY: lsynsat
-USE mo_derived_variable_handling, ONLY: collect_meanstream_variables, init_mean_stream, finish_mean_stream
+USE mo_derived_variable_handling, ONLY: init_mean_stream, finish_mean_stream
 !-------------------------------------------------------------------------
 
 IMPLICIT NONE

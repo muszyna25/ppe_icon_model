@@ -381,7 +381,7 @@ EOF
  output_interval  = "PT08M"
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
-!operation        = "mean"
+ operation        = "mean"
  pl_varlist       = 'u','v'
  p_levels     = 20000,30000,50000,70000,85000
 /
@@ -409,7 +409,7 @@ EOF
  output_interval  = "PT08M"
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
-!operation        = "mean"
+ operation        = "mean"
  pl_varlist       = 'u','v'
  p_levels     = 20000,30000,50000,70000,85000
 /

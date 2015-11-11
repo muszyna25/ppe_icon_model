@@ -43,7 +43,6 @@ MODULE mo_derived_variable_handling
 
   PUBLIC :: init_mean_stream
   PUBLIC :: finish_mean_stream
-  PUBLIC :: collect_meanstream_variables
   PUBLIC :: mean_stream_list
   PUBLIC :: copy_var_to_list
   PUBLIC :: perform_accumulation
@@ -53,9 +52,6 @@ MODULE mo_derived_variable_handling
     TYPE(t_list_element), POINTER :: source, destination
   END TYPE t_accumulation_pair
 
-!!!  SUBROUTINE collect_target_variables()
-!!!  END SUBROUTINE collect_target_variables
-  
 CONTAINS
 
   !>
@@ -246,6 +242,11 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
       & source_element%field%info%used_dimensions, &
       & dest_element, &
       & post_op=source_element%field%info%post_op, &
+      & action_list=source_element%field%info%action_list, &
+      & vert_interp=source_element%field%info%vert_interp, &
+      & hor_interp=source_element%field%info%hor_interp, &
+      & in_group=source_element%field%info%in_group, &
+      & l_pp_scheduler_task=source_element%field%info%l_pp_scheduler_task, &
       & loutput=.TRUE., lrestart=.FALSE., &
       & var_class=source_element%field%info%var_class )
 !   CALL message(routine,'FINISH')
