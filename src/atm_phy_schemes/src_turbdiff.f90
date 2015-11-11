@@ -45,7 +45,12 @@
 !  fax:    +49  69  8062 3721
 !  email:  matthias.raschendorfer@dwd.de
 !
-! History:
+!--------------------------------------------------------------------------
+! History of module 'src_turbdiff' in COSMO:
+! (during this time the subroutines 'turbtran' and turbdiff' had been located
+!  in separate indluce-files with their own histories):
+!--------------------------------------------------------------------------
+
 ! Version    Date       Name
 ! ---------- ---------- ----
 ! 1.30       1999/06/24 Matthias Raschendorfer
@@ -118,8 +123,19 @@
 !  Renamed t0 to t0_melt because of conflicting names
 ! V4_13        2010/05/11 Michael Gertz
 !  Adaptions to SVN
+ 
+!--------------------------------------------------------------------------
+! History of module 'src_turbdiff' in ICON (for all including subroutines) 
+!  of some major changes by Matthias Raschendorfer:
+!--------------------------------------------------------------------------
+
 !              2010/09/30 Matthias Raschendorfer
-!  Substituting control parameter 'itype_diag_t2m' by the already present parameter 'itype_synd'.
+!  Substitution of 'itype_diag_t2m' by 'itype_synd' being already used for that purpose
+!   "1": alternative SYNOP-digansostics related to previous Lewis scheme (not included here)
+!   "2": SYNOP-diagnostics according to current transfer scheme using SYNOP-z0 'z0d'
+!   "3": like "2" but using 'z0d' only for 10m-wind and a specific roughness layer profile for
+!        2m-temperature and -humidity.
+!  Including the adiabatic lapse rate correction for 't_2m' for "itype_synd.EQ.3" as well.
 !              2010/12/17 Matthias Raschendorfer
 !  Introduction of a TKE-source term due to scale interaction with sub grid scale convection
 !   using 'ltkecon' and the convective buoyant heat flux density in 'tket_conv'.
@@ -204,7 +220,6 @@
 !  Introducing the flags 'lturatm', 'ltursrf', 'lmomdif', 'lscadif' arranging what tasks of 
 !  'organize_turbdiff' are required.
 !  Introduction of 'ltkeshs' and removing the case "itype_sher.EQ.3".
-!
 !              2014/07/28 Matthias Raschendorfer
 !  Introduction of precalculated 'hdef2', 'hdiv', 'dwdx', 'dwdy' used for calculation of horizontal shear
 !   including the scale separated non-turbulent part controlled by 'itype_sher'.
@@ -219,6 +234,33 @@
 !  Numerically more efficient formulation of Blackadar 'len_scale'
 !   -> only numerical differences
 !  Eliminating array 'wind', as 'u' and 'v' are already defined at mass positions.
+ 
+!--------------------------------------------------------------------------
+! History of the common module 'turbulence_turbdiff' in COSMO and ICON:
+!--------------------------------------------------------------------------
+
+! @VERSION@    @DATE@     Matthias Raschendorfer
+! Blocked and further developed version of the turbulence model (including the calculation of transfer
+!  resistances) and a new more general formulation of turbulent vertical diffusion using all turbulence data 
+!  from module 'turbulence_data' including various switches and selectors in order to configure the turbulence model
+!  either as currently used in ICON or COSMO: 
+! Adopting other development within the ICON-version (namely by Guenther Zaengl) as switchable options
+!  related to the following new selectors and switches:
+!   imode_pat_len, imode_frcsmot, imode_shshear, imode_tkvmini, imode_rat_sea, imode_vel_min, imode_charpar,
+!   lfreeslip.
+! Rearranging the development by Matthias Raschendorfer that had not yet been transferred to COSMO as switchable
+!  options related to the following switches:
+!   lsflcnd, ldynimp, lprecnd, ltkeshs, loutshs
+!  and selectors:
+!   imode_stbcorr, itype_diag_t2m, imode_syndiag, imode_qvsatur, imode_stadlim, imode_trancnf,
+!   imode_tkediff, imode_adshear, imode_tkemini, imode_lamdiff
+!  and a partly new (more consistent) interpretation of:
+!   imode_tran, imode_turb, icldm_tran, icldm_turb, itype_sher, and itype_diag_t2m
+! Controlling numerical restrictions gradually namely by the parameters:
+!  ditsmot, tndsmot, frcsmot, tkesmot, stbsmot, frcsecu, tkesecu, stbsecu
+! Adopting the 3D-options from the COSMO-Version and correcting the horizontal limit of the turbulent length scale.
+! Correction of some bugs (of the latest ICON-version) in particular related to the optional lower concentration condition.
+! Using the arrays 'tvm', 'tvh' and 'tkm', allowing an easier formulation of transfer-resistances.
 !
 ! Code Description:
 ! Language: Fortran 90
@@ -664,12 +706,6 @@ SUBROUTINE init_canopy ( ie, ke, ke1, kcm, &
 !  fax:    +49  69  8236 1493
 !  email:  mraschendorfer@dwd.d400.de
 !
-! SHistory:
-! Version    Date       Name
-! ---------- ---------- ----
-! 1.30       1999/06/24 Matthias Raschendorfer
-!  Initial release
-!
 ! Code Description:
 ! Language: Fortran 90.
 ! Software Standards: "European Standards for Writing and
@@ -797,7 +833,9 @@ REAL (KIND=ireals), DIMENSION(:,kcm-1:), OPTIONAL, INTENT(INOUT) :: &
         IF (fr_land(i) < z1d2) THEN
            l_pat(i)=z0
         ELSE
-           IF (PRESENT(d_pat) .AND. imode_pat_len.EQ.2) THEN
+           IF (lsso .AND. PRESENT(d_pat) .AND. imode_pat_len.EQ.2) THEN
+              !Restriction of 'pat_len' by 'd_pat', which is assumed to be not allocated
+              !in case of ".NOT.lsso":
               l_pat(i)=MIN( pat_len, d_pat(i) )
            ELSE
               l_pat(i)=pat_len !should be a 2D external parameter field
@@ -1491,12 +1529,6 @@ SUBROUTINE canopy_source
 !  fax:    +49  69  8236 1493
 !  email:  matthias.raschendorfer@dwd.de
 !
-! SHistory:
-! Version    Date       Name
-! ---------- ---------- ----
-! 1.30       1999/06/24
-!  Initial release
-!
 ! Code Description:
 ! Language: Fortran 90.
 ! Software Standards: "European Standards for Writing and
@@ -1689,7 +1721,8 @@ SUBROUTINE turbtran
 !  fax:    +49  69  8062 3721
 !  email:  matthias.raschendorfer@dwd.de
 !
-! History:
+! History of include-file 'turbtran.incf':
+
 ! Version    Date       Name
 ! ---------- ---------- ----
 ! 1.30       1999/06/24 Matthias Raschendorfer
@@ -1794,13 +1827,8 @@ SUBROUTINE turbtran
 !  Renamed t0 to t0_melt because of conflicting names
 ! V4_13        2010/05/11 Michael Gertz
 !  Adaptions to SVN
-!              2010/09/30 Matthias Raschendorfer
-!  Substitution of 'itype_diag_t2m' by 'itype_synd' being already used for that purpose
-!   "1": alternative SYNOP-digansostics related to previous Lewis scheme (not included here)
-!   "2": SYNOP-diagnostics according to current transfer scheme using SYNOP-z0 'z0d'
-!   "3": like "2" but using 'z0d' only for 10m-wind and a specific roughness layer profile for
-!        2m-temperature and -humidity.
-!  Including the adiabatic lapse rate correction for 't_2m' for "itype_synd.EQ.3" as well.
+
+!Note: The History of specific ICON-development
 !
 ! Code Description:
 ! Language: Fortran 90
