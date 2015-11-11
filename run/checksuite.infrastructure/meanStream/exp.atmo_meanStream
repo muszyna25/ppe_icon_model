@@ -359,13 +359,27 @@ EOF
                     'tauu','tauv','rho'
 /
 &output_nml
- output_filename  = "${EXPNAME}_mean"
+ output_filename  = "${EXPNAME}_mean_04M"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>_mean"
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "${output_interval}"                          ! ISO-format interval
+ output_interval  = "PT04M"
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ operation        = "mean"
+ ml_varlist       = 'u','v','cllvi','prcs','ps','pr'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_mean_08M"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>_mean"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ output_interval  = "PT08M"
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  operation        = "mean"

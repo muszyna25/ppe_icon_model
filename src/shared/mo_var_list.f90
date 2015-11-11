@@ -2748,7 +2748,7 @@ CONTAINS
             localMode(4:4) = 'e'
           END SELECT
 
-          WRITE(message_text, '(a4,3i4,a16,a48)') localMode,                                 &
+          WRITE(message_text, '(a4,3i4,a24,a40)') localMode,                                 &
                &                              this_list_element%field%info%grib2%discipline, &
                &                              this_list_element%field%info%grib2%category,   &
                &                              this_list_element%field%info%grib2%number,     &

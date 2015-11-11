@@ -113,15 +113,8 @@ CONTAINS
     CALL print_summary(&
          '==== FINISH MAP ===================================================')
     print *,meanMap%to_string()
-!!!    CALL print_green('FINISH VECTOR:')
-!!!    CALL meanVariables%PRINT()
     CALL print_summary(&
          '===================================================================')
-!!!    CALL print_green('FINISH BUFFERS:')
-!!!    PRINT *,varlist_buffer
-!!!    PRINT *,periods_buffer
-!!!    CALL print_green(&
-!!!         '===================================================================')
     END IF
   END SUBROUTINE finish_mean_stream
 
