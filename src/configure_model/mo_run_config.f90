@@ -140,9 +140,9 @@ MODULE mo_run_config
     LOGICAL :: lforcing           !< diabatic forcing TRUE/FALSE
 
     !> output mode (logicals)
-    !  one or multiple of "none", "nml", "totint"
+    !  one or multiple of "none", "nml", "totint", "maxwinds"
     TYPE t_output_mode
-      LOGICAL :: l_none, l_nml, l_totint
+      LOGICAL :: l_none, l_nml, l_totint, l_maxwinds
     END TYPE t_output_mode
 
     TYPE (t_output_mode) output_mode

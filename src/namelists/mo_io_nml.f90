@@ -19,10 +19,6 @@ MODULE mo_io_nml
 !    modified for ICON project, DWD/MPI-M 2006
 !
 !-------------------------------------------------------------------------
-!
-!
-!
-!
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_char_length, max_ntracer, max_dom, &
     &                              PRES_MSL_METHOD_GME, RH_METHOD_WMO
@@ -44,10 +40,12 @@ MODULE mo_io_nml
                                  & config_netcdf_dict             => netcdf_dict            , &
                                  & config_itype_rh                => itype_rh               , &
                                  & config_restart_file_type       => restart_file_type      , &
-                                 & config_write_initial_state     => write_initial_state
+                                 & config_write_initial_state     => write_initial_state    , &
+                                 & config_write_last_restart      => write_last_restart     , &
+                                 & config_timeSteps_per_outputStep        => timeSteps_per_outputStep
 
   USE mo_exception,        ONLY: finish
-  USE mo_parallel_config,  ONLY: nproma
+
 
   IMPLICIT NONE
   PUBLIC :: read_io_namelist
@@ -99,26 +97,26 @@ CONTAINS
                                           ! 1: WMO: water only (e_s=e_s_water)
                                           ! 2: IFS: mixed phases (e_s=a*e_s_water + b*e_s_ice)
 
-    LOGICAL :: lzaxis_reference           ! use ZAXIS_REFERENCE instead of ZAXIS_HYBRID for atmospheric
-                                          ! output fields
-
 
     CHARACTER(LEN=filename_max) :: &
       &        output_nml_dict,    &     !< maps variable names onto the internal ICON names.
       &        netcdf_dict               !< maps internal variable names onto names in output file (NetCDF only).
 
-    LOGICAL ::  use_set_event_to_simstep
 
     INTEGER :: restart_file_type
 
     LOGICAL :: write_initial_state
+
+    LOGICAL :: write_last_restart
+
+    INTEGER :: timeSteps_per_outputStep
     
     NAMELIST/io_nml/ lkeep_in_sync, dt_diag, dt_checkpoint,  &
       &              inextra_2d, inextra_3d,                 &
       &              lflux_avg, itype_pres_msl, itype_rh,    &
       &              output_nml_dict, netcdf_dict,           &
-      &              lzaxis_reference, use_set_event_to_simstep, &
-      &              restart_file_type, write_initial_state
+      &              restart_file_type, write_initial_state, &
+      &              write_last_restart, timeSteps_per_outputStep
 
     !-----------------------
     ! 1. default settings
@@ -136,9 +134,10 @@ CONTAINS
     output_nml_dict         = ' '
     netcdf_dict             = ' '
 
-    lzaxis_reference        = .TRUE. ! use ZAXIS_REFERENCE (generalVertical)
     restart_file_type       = config_restart_file_type
     write_initial_state     = config_write_initial_state
+    write_last_restart      = config_write_last_restart
+    timeSteps_per_outputStep        = config_timeSteps_per_outputStep
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
     !    by values used in the previous integration.
@@ -184,6 +183,8 @@ CONTAINS
     config_netcdf_dict             = netcdf_dict
     config_restart_file_type       = restart_file_type
     config_write_initial_state     = write_initial_state
+    config_timeSteps_per_outputStep= timeSteps_per_outputStep
+    config_write_last_restart      = write_last_restart
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
@@ -199,14 +200,6 @@ CONTAINS
       WRITE(nnml_output,nml=io_nml)
     END IF
 
-
-    ! Throw a warning for deprecated parameters: ---------
-    IF (lzaxis_reference .EQV. .FALSE.) THEN
-      ! default value has been modified; inform the user that this
-      ! switch has no effect:
-      IF (my_process_is_stdio()) &
-        WRITE (0,*) "WARNING: Namelist switch 'lzaxis_reference' has no effect any more and will soon be removed!"
-    END IF
 
   END SUBROUTINE read_io_namelist
 

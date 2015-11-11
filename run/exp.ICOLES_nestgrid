@@ -104,6 +104,7 @@ cat > ${atmo_namelist} << EOF
  l_test_openmp  = .false.
  l_log_checks   = .false.
  num_io_procs   = 0
+ io_proc_chunk_size = -1
  num_prefetch_proc = 0
 /
 &grid_nml
@@ -176,6 +177,7 @@ dt_rad           = 900.,900.,900.
  isrfc_type        = 1  !1=TERRA,2=Fixed flux, 5=fixed SST, 3=fixed bflux
  vert_scheme_type  = 2
  ldiag_les_out     = .FALSE.
+ les_metric        = .TRUE.
 /
 &lnd_nml
 ntiles   = 1
@@ -206,6 +208,7 @@ lsq_high_ord      = 2
  denom_diffu_v    = 150.
  l_mass_consvcorr = .true. 
  l_density_nudging = .true.
+ rbf_scale_grf_e = 0.5, 0.41318359375, 0.35, 0.3
 /
 &nonhydrostatic_nml
  iadv_rhotheta    =  2

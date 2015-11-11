@@ -922,10 +922,12 @@ CONTAINS
         END IF
         DO n = 1, nlen
           prm_field(jg)%seaice(n,i_blk) = prm_field(jg)%conc(n,1,i_blk)
+          prm_field(jg)%siced(n,i_blk)  = prm_field(jg)%hi(n,1,i_blk)
+!!$          prm_field(jg)%...(n,i_blk)    = prm_field(jg)%hs(n,1,i_blk)
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
-
+      
     END IF
 
   END SUBROUTINE interface_echam_ocean

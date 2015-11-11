@@ -1,11 +1,10 @@
 #ifdef __xlC__
 @PROCESS STRICT
-#else
-#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
 #endif
+#include "fsel.inc"
 
 !>
-!! @brief 
+!! @brief
 !!       *cuasc*
 !!        Routine produces cloud ascents for cumulus-parameterization
 !!        (vertical profiles of t,q,l,u and v and corresponding fluxes
@@ -80,7 +79,7 @@ MODULE mo_cuascent
 
 CONTAINS
   !>
-  !! 
+  !!
   SUBROUTINE cuasc(    kproma, kbdim, klev, klevp1, klevm1,                          &
     &        ptenh,    pqenh,    puen,     pven,                                     &
     &        ktrac,                                                                  &
@@ -363,8 +362,8 @@ CONTAINS
         &   khmin,    pgeoh,                                                          &
         &   zdmfen,   zdmfde)
       !
-      !     Do adiabatic ascent for entraining/detraining plume 
-      !     The cloud ensemble entrains environmental values 
+      !     Do adiabatic ascent for entraining/detraining plume
+      !     The cloud ensemble entrains environmental values
       !     In turbulent detrainment cloud ensemble values are detrained
       !     In organized detrainment the dry static energy and moisture
       !     that are neutral compared to the environmental air are detrained

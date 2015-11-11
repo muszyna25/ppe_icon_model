@@ -3,8 +3,8 @@
 !!
 !!
 !! @par Revision History
-!!   
-!! 
+!!
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -53,7 +53,7 @@ PROGRAM icon
 #endif
 
   USE mo_cdi,                 ONLY: gribapiLibraryVersion
-  USE mo_cf_convention          ! We need all ? 
+  USE mo_cf_convention          ! We need all ?
 
   IMPLICIT NONE
 
@@ -116,11 +116,11 @@ PROGRAM icon
   !-------------------------------------------------------------------
   ! Initialize MPI, this should always be the first call
   CALL start_mpi('ICON')
-  
+
   !-------------------------------------------------------------------
   !set up signal trapping on IBM: export USE_SIGNAL_HANDLING=yes
 
-#if defined (__xlC__) 
+#if defined (__xlC__)
   core_dump_flag = 0
   signals(1)     = 0
 
@@ -173,7 +173,7 @@ PROGRAM icon
   call util_branch_name(branch, nlen)
   nlen = 256
   call util_revision_key(revision, nlen)
-  
+
   CALL get_command_argument(0, executable, nlend)
   CALL date_and_time(date_string, time_string)
 
@@ -195,7 +195,7 @@ PROGRAM icon
        &             history     = executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6), &
        &             references  = 'see MPIM/DWD publications',                                          &
        &             comment     = TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
- 
+
   !-------------------------------------------------------------------
   IF (my_process_is_global_root()) THEN
 
@@ -231,7 +231,7 @@ PROGRAM icon
   ! Initialize the master control
 
   master_control_status = init_master_control(TRIM(master_namelist_filename))
-  
+
   my_namelist_filename = get_my_namelist_filename()
   my_process_component = get_my_process_type()
 
@@ -254,9 +254,9 @@ PROGRAM icon
 
   CASE default
     CALL finish("icon","my_process_component is unkown")
-    
+
   END SELECT
-      
+
   ! write the control.status file
   IF (my_process_is_global_root()) THEN
     OPEN (500, FILE="finish.status")
@@ -265,7 +265,7 @@ PROGRAM icon
     ELSE
       WRITE(500,*) "OK"
     ENDIF
-    CLOSE(500)    
+    CLOSE(500)
   END IF
 
   ! Shut down MPI

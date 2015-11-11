@@ -173,7 +173,7 @@ CONTAINS
       &                         prm_field(jg)%u       ,&! out
       &                         prm_field(jg)%v       ,&! out
       &                         opt_rlstart=rl_start  ,&! in
-      &                         opt_rlend=rl_end      ) ! in    
+      &                         opt_rlend=rl_end      ) ! in
 
 !$OMP PARALLEL WORKSHARE
 
@@ -257,7 +257,7 @@ CONTAINS
     !=====================================================================================
     !
     ! (3) Prepare boundary conditions for ECHAM physics
-    !     
+    !
     CALL echam_phy_bcs_global( datetime     ,&! in
       &                        jg           ,&! in
       &                        patch        ,&! in
@@ -312,7 +312,7 @@ CONTAINS
     !=====================================================================================
     !
     ! (5) Couple to ocean surface if an ocean is present and this is a coupling time step.
-    !     
+    !
     !
     IF ( is_coupled_run() ) THEN
       IF (ltimer) CALL timer_start(timer_coupling)
@@ -329,7 +329,7 @@ CONTAINS
     !=====================================================================================
     !
     !     Copy  physics tandencies in temp. and tracers from the physics to the dynamics
-    !     
+    !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk
