@@ -1646,6 +1646,8 @@ CONTAINS
           ELSE
             icurrent = icurrent_recv
           END IF
+          meteogram_data%icurrent = icurrent
+          mtgrm(jg)%meteogram_global_data%icurrent = icurrent
           IF (dbg_level > 0) &
             WRITE (*,'(3(a,i0))') "Receiving ", icurrent, " time slices from station ", istation, "/", &
             &           mtgrm(jg)%meteogram_global_data%nstations
@@ -1717,10 +1719,7 @@ CONTAINS
           END DO
         END IF
       END DO
-
-      ! reset buffer on sender side
-      mtgrm(jg)%meteogram_local_data%icurrent  = 0
-      mtgrm(jg)%meteogram_global_data%icurrent = 0
+      mtgrm(jg)%meteogram_global_data%icurrent = icurrent
 
     END IF RECEIVER
 
