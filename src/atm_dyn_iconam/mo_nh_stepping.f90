@@ -1431,7 +1431,7 @@ MODULE mo_nh_stepping
         !
         ! For the time being, we hand over the dynamics time step and replace iadv_rcf by
         ! ndyn_substeps (for bit-reproducibility).
-        IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
+        IF (ldynamics .AND. .NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
             init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
           CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
             p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
@@ -1454,9 +1454,8 @@ MODULE mo_nh_stepping
                 &            dt_loc/ndyn_substeps, .FALSE.)
             ENDIF
 
-          ELSE
-            CALL add_slowphys(p_nh_state(jg), p_patch(jg), p_int_state(jg), &
-              nnow(jg), nnew(jg), dt_loc, n_now_rcf, n_new_rcf)
+          ELSE IF (iforcing == inwp .OR. iforcing == iecham) THEN
+            CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
           ENDIF
         ELSE
           CALL finish (routine, 'itype_comm /= 1 currently not implemented')
