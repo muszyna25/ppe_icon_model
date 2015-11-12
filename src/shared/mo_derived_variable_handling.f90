@@ -356,6 +356,7 @@ IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
                   end select
                   ! }}}
                 class default
+                  call print_error(object_pointer_string(eventString))
                   if ( associated(eventString) ) then
                     call print_summary("eventString Pointer found")
                   else
