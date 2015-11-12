@@ -1451,8 +1451,8 @@ MODULE mo_nh_stepping
 
             ! dynamics integration with substepping
             !
-            CALL perform_dyn_substepping (p_patch(jg), p_nh_state(jg), p_int_state(jg), &
-              &                           prep_adv(jg), jstep, dt_loc)
+!!$            CALL perform_dyn_substepping (p_patch(jg), p_nh_state(jg), p_int_state(jg), &
+!!$              &                           prep_adv(jg), jstep, dt_loc)
 
             ! diffusion at physics time steps
             !
