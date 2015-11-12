@@ -293,7 +293,6 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     TYPE(datetime), POINTER :: mtime_date 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
     character(len=132) :: eventKey
-    class(*), pointer :: eventString
     type(event),pointer :: event_pointer
     type(event) :: event_from_nml
     character(len=132) :: msg
@@ -338,8 +337,7 @@ IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
                 CALL accumulation_add(source, destination)
 
                 ! check if the field will be written to disk this timestep {{{
-                eventString => keys%at(i)
-                select type (eventString)
+                select type (eventString => keys%at(i))
                 type is (character(*))
                   if (my_process_is_stdio()) call print_summary(eventString)
                   ! check if the event is active wrt the current datatime {{{
@@ -375,7 +373,6 @@ IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
             end select
           end if
         end do
-        eventString => keys%at(i)
        !do k=1,3
        !  e => meanEvents(k)
        !  call eventToString(e, msg)
