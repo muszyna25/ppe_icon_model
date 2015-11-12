@@ -18,8 +18,7 @@ MODULE mo_atmo_model
   ! basic modules
   USE mo_exception,               ONLY: message, finish, message_text
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
-    &                                   set_mpi_work_communicators,                           &
-    &                                   p_pe_work, process_mpi_io_size,                       &
+    &                                   set_mpi_work_communicators, process_mpi_io_size,      &
     &                                   my_process_is_restart, process_mpi_restart_size,      &
     &                                   my_process_is_pref, process_mpi_pref_size  
   USE mo_timer,                   ONLY: init_timer, timer_start, timer_stop,                  &
@@ -39,7 +38,7 @@ MODULE mo_atmo_model
   USE mo_util_sysinfo,            ONLY: util_get_maxrss
 #endif
 #endif
-  USE mo_impl_constants,          ONLY: SUCCESS, MAX_CHAR_LENGTH,                             &
+  USE mo_impl_constants,          ONLY: SUCCESS,                                              &
     &                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere,          &
     &                                   ishallow_water, inwp
   USE mo_io_restart,              ONLY: read_restart_header

@@ -82,7 +82,7 @@ MODULE mo_name_list_output
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
   USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
-    &                                     ihs_ocean
+    &                                     ihs_ocean, TLEV_NNOW, TLEV_NNOW_RCF, TLEV_NNEW, TLEV_NNEW_RCF
   USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
@@ -346,7 +346,6 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::close_output_file"
     LOGICAL :: is_output_process
-    INTEGER :: ierror
 
     ! GRB2 format: define geographical longitude, latitude as special
     ! variables "RLON", "RLAT"
@@ -745,10 +744,10 @@ CONTAINS
       IF (.NOT. ASSOCIATED(of%var_desc(iv)%r_ptr)  .AND.    &
         & .NOT. ASSOCIATED(of%var_desc(iv)%i_ptr)) THEN
         SELECT CASE (info%tlev_source)
-          CASE(0); tl = nnow(i_log_dom)
-          CASE(1); tl = nnow_rcf(i_log_dom)
-          CASE(2); tl = nnew(i_log_dom)
-          CASE(3); tl = nnew_rcf(i_log_dom)
+          CASE(TLEV_NNOW);     tl = nnow(i_log_dom)
+          CASE(TLEV_NNOW_RCF); tl = nnow_rcf(i_log_dom)
+          CASE(TLEV_NNEW);     tl = nnew(i_log_dom)
+          CASE(TLEV_NNEW_RCF); tl = nnew_rcf(i_log_dom)
           CASE DEFAULT
             CALL finish(routine,'Unsupported tlev_source')
         END SELECT

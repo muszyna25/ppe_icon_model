@@ -61,6 +61,7 @@ MODULE mo_nwp_diagnosis
   USE mo_math_constants,     ONLY: pi
   USE mo_statistics,         ONLY: time_avg
   USE mo_ext_data_types,     ONLY: t_external_data
+  USE mo_nwp_parameters,     ONLY: t_phy_params
 
   IMPLICIT NONE
 
@@ -892,6 +893,7 @@ CONTAINS
   !!
   SUBROUTINE nwp_diag_for_output(kstart_moist,            & !in
                             & ih_clch, ih_clcm,           & !in
+                            & phy_params,                 & !in
                             & pt_patch, p_metrics,        & !in
                             & pt_prog, pt_prog_rcf,       & !in
                             & pt_diag,                    & !in
@@ -904,6 +906,7 @@ CONTAINS
     INTEGER,         INTENT(IN)   :: kstart_moist
     INTEGER,         INTENT(IN)   :: ih_clch, ih_clcm
 
+    TYPE(t_phy_params),INTENT(IN) :: phy_params
     TYPE(t_patch),   INTENT(IN)   :: pt_patch    !<grid/patch info.
     TYPE(t_nh_prog), INTENT(IN)   :: pt_prog     !<the prognostic variables 
     TYPE(t_nh_prog), INTENT(IN)   :: pt_prog_rcf !<the prognostic variables (with
@@ -1144,8 +1147,11 @@ CONTAINS
       !
       !  CAPE and CIN of mean surface layer parcel
       !
+      !  start level (kmoist) is limited to pressure heights above p=60hPa, 
+      !  in order to avoid unphysically low test parcel temperature.
+      !  Otherwise computation crashes in sat_pres_water  
       CALL cal_cape_cin( i_startidx, i_endidx,                     &
-        &                kmoist  = kstart_moist,                   & !in
+        &                kmoist  = MAX(kstart_moist,phy_params%k060), & !in
         &                te      = pt_diag%temp(:,:,jb)          , & !in
         &                qve     = pt_prog_rcf%tracer(:,:,jb,iqv), & !in
         &                prs     = pt_diag%pres(:,:,jb)          , & !in
