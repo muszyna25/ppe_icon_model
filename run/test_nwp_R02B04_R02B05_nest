@@ -257,7 +257,7 @@ cat > ${atmo_namelist} << EOF
  msg_level               = 12                   ! detailed report during integration
  output                  = 'nml'
  check_uuid_gracefully   = .true.
- nsteps                  = 5
+! nsteps                  = 5
 /
 &dynamics_nml
  iequations              = ${atmo_model_equations}
@@ -328,10 +328,10 @@ cat > ${atmo_namelist} << EOF
 &output_nml
  filetype                = 4                   ! output format: 2=GRIB2, 4=NETCDFv2
  dom                     = -1
- output_bounds           = 0., 10000000., 800. ! output: start, end, increment
+! output_bounds           = 0., 10000000., 800. ! output: start, end, increment
  steps_per_file          = 1                   ! number of output steps in one output file
  mode                    = 1                   ! 1: forecast mode (relative t-axis)
- include_last            = .TRUE.              ! flag whether to include the last time step
+ include_last            = .false.              ! flag whether to include the last time step
  output_filename         = 'nwp_test'          ! file name base
  output_grid             = .TRUE.              ! flag whether grid information is added to output.
  remap                   =  1                  ! reg. lat-lon
@@ -341,6 +341,9 @@ cat > ${atmo_namelist} << EOF
  hl_varlist              = 'temp'
  h_levels                = 200, 500, 2000 
  m_levels                = "5...(nlev+1)"
+ output_start            = ">2014-06-01T00:00:00.000"
+ output_end              = "<2014-06-01T00:24:00Z"
+ output_interval         = "PT12M00.000S"
 /
 &extpar_nml
  itopo                   = 1
