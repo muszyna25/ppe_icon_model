@@ -1439,11 +1439,11 @@ MODULE mo_nh_stepping
         !
         ! For the time being, we hand over the dynamics time step and replace iadv_rcf by
         ! ndyn_substeps (for bit-reproducibility).
-        IF (ldynamics .AND. .NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
-            init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
-          CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
-            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
-        ENDIF
+!!$        IF (ldynamics .AND. .NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
+!!$            init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
+!!$          CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
+!!$            p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
+!!$        ENDIF
 
         IF (itype_comm == 1) THEN
 
