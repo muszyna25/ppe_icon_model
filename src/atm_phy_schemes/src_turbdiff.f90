@@ -833,9 +833,8 @@ REAL (KIND=ireals), DIMENSION(:,kcm-1:), OPTIONAL, INTENT(INOUT) :: &
         IF (fr_land(i) < z1d2) THEN
            l_pat(i)=z0
         ELSE
-           IF (lsso .AND. PRESENT(d_pat) .AND. imode_pat_len.EQ.2) THEN
-              !Restriction of 'pat_len' by 'd_pat', which is assumed to be not allocated
-              !in case of ".NOT.lsso":
+           IF (PRESENT(d_pat) .AND. imode_pat_len.EQ.2) THEN
+              !Restriction of 'pat_len' by 'd_pat':
               l_pat(i)=MIN( pat_len, d_pat(i) )
            ELSE
               l_pat(i)=pat_len !should be a 2D external parameter field
@@ -7776,7 +7775,7 @@ REAL (KIND=ireals), INTENT(IN) :: &
 !
    vertsmot         !vertical smoothing factor
 
-REAL (KIND=ireals), INTENT(IN), OPTIONAL ::smotfac(:)
+REAL (KIND=ireals), INTENT(IN), OPTIONAL :: smotfac(:)
 
 REAL (KIND=ireals), INTENT(INOUT) :: &
 !
