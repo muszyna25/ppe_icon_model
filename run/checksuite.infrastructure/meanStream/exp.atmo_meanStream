@@ -372,20 +372,6 @@ EOF
  ml_varlist       = 'u','v','cllvi','prcs','ps','pr'
 /
 &output_nml
- output_filename  = "${EXPNAME}_mean_04M"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>_mean"
- remap            = 0
- output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT08M"
- file_interval    = "${file_interval}"               ! ISO-format interval
- include_last     = .FALSE.
- operation        = "mean"
- pl_varlist       = 'u','v'
- p_levels     = 20000,30000,50000,70000,85000
-/
-&output_nml
  output_filename  = "${EXPNAME}_mean_08M"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>_mean"
  remap            = 0
@@ -399,24 +385,9 @@ EOF
  operation        = "mean"
  ml_varlist       = 'u','v','cllvi','prcs','ps','pr'
 /
-&output_nml
- output_filename  = "${EXPNAME}_mean_08M"
- filename_format  = "<output_filename>_<levtype_l>_<datetime2>_mean"
- remap            = 0
- output_grid      = .TRUE.
- output_start     = "${start_date}"                  ! ISO-format date+time
- output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT08M"
- file_interval    = "${file_interval}"               ! ISO-format interval
- include_last     = .FALSE.
- operation        = "mean"
- pl_varlist       = 'u','v'
- p_levels     = 20000,30000,50000,70000,85000
-/
-EOF
 fi
 
-output_atm_2d=yes
+output_atm_2d=no
 #
 if [[ "$output_atm_2d" == "yes" ]]; then
   #
@@ -461,7 +432,7 @@ EOF
 fi
 
 
-output_phy_3d=yes
+output_phy_3d=no
 #
 if [[ "$output_phy_3d" == "yes" ]]; then
   #
@@ -518,7 +489,7 @@ EOF
 fi
 
 
-output_lnd=yes
+output_lnd=no
 #
 if [[ "$output_lnd" == "yes" ]]; then
   #
