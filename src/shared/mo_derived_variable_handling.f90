@@ -290,6 +290,7 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     type(t_list_element), pointer :: source, destination
     type(vector_iterator) :: value_iterator
     type(vector) :: values, keys
+    type(map) :: meanEventsActivity
     TYPE(datetime), POINTER :: mtime_date 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
     character(len=132) :: eventKey
@@ -298,10 +299,33 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     character(len=132) :: msg
     type(event),pointer :: e
     logical :: isactive
+    class(*), pointer :: eventActive
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::perform_accumulation"
     
     values = meanMap%values()
     keys   = meanMap%keys()
+
+    ! check events first {{{
+    CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
+    mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
+    if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
+    meanEventsActivity = map()
+    do i=1,keys%length()
+      select type (eventString => keys%at(i))
+      type is (character(*))
+        if (my_process_is_stdio()) call print_summary(eventString)
+        meanEvent => meanEvents%get(eventString)
+        select type (meanEvent)
+        type is (t_event_wrapper)
+          isactive = LOGICAL(isCurrentEventActive(meanEvent%this,mtime_date))
+          if (my_process_is_stdio()) call print_summary('------------ isactive ----------- '//&
+            & trim(object_string(isactive)))
+          call meanEventsActivity%add(eventString,isactive)
+        end select
+      end select
+    end do
+    call print_error(meanEventsActivity%to_string())
+    ! }}}
 
 IF ( my_process_is_stdio() ) write(0,*)'values%length = ',values%length() !TODO
     do i=1, values%length()
@@ -341,33 +365,17 @@ IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
                 type is (character(*))
                   if (my_process_is_stdio()) call print_summary(eventString)
                   ! check if the event is active wrt the current datatime {{{
-                  CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
-                  if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
-                  mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
-                  meanEvent => meanEvents%get(eventString)
-                  select type (meanEvent)
-                  type is (t_event_wrapper)
-                    isactive = LOGICAL(isCurrentEventActive(meanEvent%this,mtime_date))
-                    if (my_process_is_stdio()) call print_summary('------------ isactive ----------- '//&
+!                 eventActive => meanEventsActivity%get(eventString)
+                  select type (eventActive => meanEventsActivity%get(eventString))
+                  type is (logical)
+                    isactive = eventActive
+                    if (my_process_is_stdio()) call print_summary('------------ eventActive -------- '//&
                       & trim(object_string(isactive)))
-                  class default
-                    if (my_process_is_stdio()) call print_error("Wrong meanEvents element found")
-                    call finish(routine,'Error in meanValue handling')
                   end select
-                  ! }}}
-                class default
-                  call print_error(object_pointer_string(eventString))
-                  if ( associated(eventString) ) then
-                    call print_summary("eventString Pointer found")
-                  else
-                    call print_error("eventString is not referenced")
-                    call finish(routine,'Error in meanValue handling')
-                  endif
                 end select
-                ! ! }}}
-              class default
-                call finish('perform_accumulation','Found unknown destination variable type')
+                  ! }}}
               end select
+                ! ! }}}
               !end if
             class default
               call finish('perform_accumulation','Found unknown source variable type')
