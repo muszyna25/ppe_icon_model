@@ -37,7 +37,7 @@ MODULE mo_derived_variable_handling
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_derived_variable_handling'
 
-  TYPE(map)       , SAVE :: meanMap, meanEvents
+  TYPE(map), SAVE    :: meanMap, meanEvents
   TYPE(t_var_list)   :: mean_stream_list
   INTEGER, PARAMETER :: ntotal = 10
 
@@ -51,6 +51,9 @@ MODULE mo_derived_variable_handling
   TYPE :: t_accumulation_pair
     TYPE(t_list_element), POINTER :: source, destination
   END TYPE t_accumulation_pair
+  type :: t_event_wrapper
+    type(event), pointer :: this
+  end type
 
 CONTAINS
 
@@ -94,7 +97,8 @@ CONTAINS
     
     integer :: i
     
-    meanMap = map()
+    meanMap    = map()
+    meanEvents = map()
 
     WRITE(listname,'(a)')  'mean_stream_list'
     CALL new_var_list(mean_stream_list, listname, patch_id=patch_2d%id)
@@ -124,14 +128,16 @@ CONTAINS
     END DO
   end function output_varlist_length
 
-  SUBROUTINE process_mean_stream(p_onl,i_typ)
+  SUBROUTINE process_mean_stream(p_onl,i_typ, sim_step_info)
     TYPE (t_output_name_list), target :: p_onl
     INTEGER :: i_typ
+    TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
 
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     INTEGER :: ntotal_vars, output_variables,i,ierrstat
     type(vector_ref) :: meanVariables
     CHARACTER(LEN=100) :: eventKey
+    type(t_event_wrapper) :: event_wrapper
     class(*), pointer :: myBuffer
     TYPE(t_list_element), POINTER :: src_element, dest_element
     TYPE(vector) :: keys, values 
@@ -162,7 +168,6 @@ CONTAINS
       varlist((output_variables+1):ntotal_vars) = " "
       ! }}}
 
-      ! collect mean variables {{{
       eventKey = get_event_key(p_onl)
       write (0,*)'eventKey:',trim(eventKey)
       IF ( meanMap%has_key(eventKey) ) THEN
@@ -173,19 +178,16 @@ CONTAINS
         end select
       ELSE
         meanVariables = vector_ref()
-  !     e => newEvent( &
-  !       &                 sim_step_info%sim_start, &
-  !       &                 p_onl%output_start(1), &
-  !       &                 p_onl%output_end(1), &
-  !       &                 p_onl%output_interval(1) &
-  !       &                )
 
-  !     call meanEvents%add(eventKey,newEvent(eventKey, &
-  !       &                 sim_step_info%sim_start, &
-  !       &                 p_onl%output_start(1), &
-  !       &                 p_onl%output_end(1), &
-  !       &                 p_onl%output_interval(1) &
-  !       &                ))
+        event_wrapper = t_event_wrapper(this=newEvent(eventKey, &
+          &                 sim_step_info%sim_start, &
+          &                 p_onl%output_start(1), &
+          &                 p_onl%output_end(1), &
+          &                 p_onl%output_interval(1) &
+          &                ))
+
+
+        call meanEvents%add(eventKey,event_wrapper)
       END IF
 
       ! create adhoc copies of all variables for later accumulation
@@ -297,6 +299,7 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     character(len=132) :: msg
     type(event),pointer :: e
     logical :: isactive
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::perform_accumulation"
     
     values = meanMap%values()
     keys   = meanMap%keys()
@@ -330,9 +333,39 @@ IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
               !if (associated(check_dest)) then
               select type (check_dest)
               type is (t_list_element)
-                IF ( my_process_is_stdio() ) write(0,*)'sourceName:',trim(source%field%info%name)
-                IF ( my_process_is_stdio() ) write(0,*)'destName:',trim(destination%field%info%name)
+                IF ( my_process_is_stdio() ) call print_summary('sourceName: '//trim(source%field%info%name))
+                IF ( my_process_is_stdio() ) call print_summary('destName: '//trim(destination%field%info%name))
                 CALL accumulation_add(source, destination)
+
+                ! check if the field will be written to disk this timestep {{{
+                eventString => keys%at(i)
+                select type (eventString)
+                type is (character(*))
+                  if (my_process_is_stdio()) call print_summary(eventString)
+                  ! check if the event is active wrt the current datatime {{{
+                  CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
+                  if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
+                  mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
+                  meanEvent => meanEvents%get(eventString)
+                  select type (meanEvent)
+                  type is (t_event_wrapper)
+                    isactive = LOGICAL(isCurrentEventActive(meanEvent%this,mtime_date))
+                    if (my_process_is_stdio()) call print_summary('------------ isactive ----------- '//&
+                      & trim(object_string(isactive)))
+                  class default
+                    if (my_process_is_stdio()) call print_error("Wrong meanEvents element found")
+                    call finish(routine,'Error in meanValue handling')
+                  end select
+                  ! }}}
+                class default
+                  if ( associated(eventString) ) then
+                    call print_summary("eventString Pointer found")
+                  else
+                    call print_error("eventString is not referenced")
+                    call finish(routine,'Error in meanValue handling')
+                  endif
+                end select
+                ! ! }}}
               class default
                 call finish('perform_accumulation','Found unknown destination variable type')
               end select

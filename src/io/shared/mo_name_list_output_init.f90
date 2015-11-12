@@ -1465,7 +1465,7 @@ CONTAINS
 
               ENDDO
 
-              CALL process_mean_stream(p_onl,i_typ)
+              CALL process_mean_stream(p_onl,i_typ,sim_step_info)
 
               SELECT CASE(i_typ)
               CASE(level_type_ml)
