@@ -170,7 +170,6 @@ CONTAINS
     REAL(wp) :: t_scf_lk_now  (nproma) ! lake surface temperature
 
     LOGICAL  :: lake_mask(nproma)      ! auxiliary field for re-initialization of non-lake points
-    LOGICAL  :: land_mask(nproma)      ! auxiliary field for re-initialization of non-land points
 
     ! local fields for sea ice model
     !
@@ -219,7 +218,7 @@ CONTAINS
 !$OMP            depth_lk,fetch_lk,dp_bs_lk,t_bs_lk,gamso_lk,t_snow_lk_now,          &
 !$OMP            h_snow_lk_now,t_ice_now,h_ice_now,t_mnw_lk_now,t_wml_lk_now,        &
 !$OMP            t_bot_lk_now,c_t_lk_now,h_ml_lk_now,t_b1_lk_now,h_b1_lk_now,        &
-!$OMP            t_scf_lk_now,zfrice_thrhld,lake_mask,land_mask), SCHEDULE(guided)
+!$OMP            t_scf_lk_now,zfrice_thrhld,lake_mask), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -957,23 +956,6 @@ CONTAINS
         ENDDO
       END DO
 
-      ! Reset snow cover fractions to 0 over water-only grid points
-      !
-      ! create mask array
-      land_mask(i_startidx:i_endidx) = .FALSE.
-      DO ic = 1, ext_data%atm%lp_count(jb)
-        jc = ext_data%atm%idx_lst_lp(ic,jb)
-        land_mask(jc) = .TRUE.
-      ENDDO
-
-      DO isubs = 1, ntiles_total
-        DO jc = i_startidx, i_endidx
-          IF (.NOT. land_mask(jc)) THEN
-            p_lnd_diag%snowfrac_t(jc,jb,isubs)    = 0._wp
-            p_lnd_diag%snowfrac_lc_t(jc,jb,isubs) = 0._wp
-          ENDIF
-        ENDDO
-      END DO
 
     ENDDO  ! jb loop
 !$OMP END DO
