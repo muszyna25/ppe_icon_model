@@ -1522,8 +1522,19 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%snowfrac(nproma,nblks_c)
     cf_desc    = t_cf_var('snowfrac', '- ', 'snow-cover fraction', DATATYPE_FLT32)
     new_cf_desc= t_cf_var('snowfrac', '% ', 'snow-cover fraction', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 42, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'snowfrac', p_diag_lnd%snowfrac,       &
+           & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
+           & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                     &
+           & in_group=groups("land_vars"),                                        &
+           & post_op=post_op(POST_OP_SCALE, arg1=100._wp, new_cf=new_cf_desc) )
+
+
+    ! & p_diag_lnd%snowfrac_lc(nproma,nblks_c)
+    cf_desc    = t_cf_var('snowfrac_lc', '- ', 'snow-cover fraction', DATATYPE_FLT32)
+    new_cf_desc= t_cf_var('snowfrac_lc', '% ', 'snow-cover fraction', DATATYPE_FLT32)
+    grib2_desc = grib2_var(0, 1, 42, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, vname_prefix//'snowfrac_lc', p_diag_lnd%snowfrac_lc, &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,             &
            & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.,                     &
            & in_group=groups("land_vars","dwd_fg_sfc_vars","mode_iau_fg_in"),     &
@@ -1533,7 +1544,7 @@ MODULE mo_nwp_lnd_state
     ! & p_diag_lnd%snowfrac_t(nproma,nblks_c,ntiles_total)
     cf_desc    = t_cf_var('snowfrac_t', '- ', 'local tile-based snow-cover fraction', DATATYPE_FLT32)
     new_cf_desc= t_cf_var('snowfrac_t', '% ', 'local tile-based snow-cover fraction', DATATYPE_FLT32)
-    grib2_desc = grib2_var(0, 1, 42, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, vname_prefix//'snowfrac_t', p_diag_lnd%snowfrac_t, &
            & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,           &
            & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE. )
@@ -1548,7 +1559,7 @@ MODULE mo_nwp_lnd_state
                & p_diag_lnd%snowfrac_ptr(jsfc)%p_2d,                           &
                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                           &
                & t_cf_var('snowfrac_t_'//csfc, '', '', DATATYPE_FLT32),        &
-               & grib2_var(0, 1, 42, ibits, GRID_UNSTRUCTURED, GRID_CELL),     &
+               & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),&
                & var_class=CLASS_TILE_LAND,                                    &
                & ldims=shape2d,                                                &
                & in_group=groups("land_tile_vars"),                            &
