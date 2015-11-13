@@ -37,7 +37,7 @@ MODULE mo_derived_variable_handling
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_derived_variable_handling'
 
-  TYPE(map), SAVE    :: meanMap, meanEvents
+  TYPE(map), SAVE    :: meanMap, meanEvents, meanEventsActivity
   TYPE(t_var_list)   :: mean_stream_list
   INTEGER, PARAMETER :: ntotal = 10
 
@@ -99,6 +99,7 @@ CONTAINS
     
     meanMap    = map()
     meanEvents = map()
+    meanEventsActivity = map()
 
     WRITE(listname,'(a)')  'mean_stream_list'
     CALL new_var_list(mean_stream_list, listname, patch_id=patch_2d%id)
@@ -290,7 +291,6 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     type(t_list_element), pointer :: source, destination
     type(vector_iterator) :: value_iterator
     type(vector) :: values, keys
-    type(map) :: meanEventsActivity
     TYPE(datetime), POINTER :: mtime_date 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
     character(len=132) :: eventKey
@@ -309,7 +309,7 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
     mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
     if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
-    meanEventsActivity = map()
+
     do i=1,keys%length()
       select type (eventString => keys%at(i))
       type is (character(*))
