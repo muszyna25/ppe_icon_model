@@ -561,6 +561,8 @@ MODULE mo_mpi
      MODULE PROCEDURE p_bcast_int_4d
      MODULE PROCEDURE p_bcast_bool_4d
      MODULE PROCEDURE p_bcast_real_5d
+     MODULE PROCEDURE p_bcast_int_7d
+     MODULE PROCEDURE p_bcast_real_7d
      MODULE PROCEDURE p_bcast_char
      MODULE PROCEDURE p_bcast_cchar
      MODULE PROCEDURE p_bcast_char_1d
@@ -5707,6 +5709,47 @@ CONTAINS
 
   END SUBROUTINE p_bcast_real_5d
 
+  SUBROUTINE p_bcast_real_7d (t_buffer, p_source, comm)
+
+    REAL (dp), INTENT(inout) :: t_buffer(:,:,:,:,:,:,:)
+    INTEGER,   INTENT(in)    :: p_source
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef DEBUG
+    nbcast = nbcast+1
+#endif
+
+    IF (process_mpi_all_size == 1) THEN
+       RETURN
+    ELSE
+       CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
+            p_comm, p_error)
+    ENDIF
+
+#ifdef DEBUG
+    WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' with broadcast number ', nbcast, ' successful.'
+
+     IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_bcast_real_7d
+
   SUBROUTINE p_bcast_int_i4 (t_buffer, p_source, comm)
 
     INTEGER (i4), INTENT(inout) :: t_buffer
@@ -5994,6 +6037,46 @@ CONTAINS
 
   END SUBROUTINE p_bcast_int_4d
 
+  SUBROUTINE p_bcast_int_7d (t_buffer, p_source, comm)
+
+    INTEGER, INTENT(inout) :: t_buffer(:,:,:,:,:,:,:)
+    INTEGER, INTENT(in)    :: p_source
+    INTEGER, OPTIONAL, INTENT(in) :: comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = process_mpi_all_comm
+    ENDIF
+
+#ifdef DEBUG
+    nbcast = nbcast+1
+#endif
+
+    IF (process_mpi_all_size == 1) THEN
+       RETURN
+    ELSE
+       CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
+            p_comm, p_error)
+    ENDIF
+
+#ifdef DEBUG
+    WRITE (nerr,'(a,i4,a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' with broadcast number ', nbcast, ' successful.'
+
+     IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a)') ' MPI_BCAST from ', p_source, &
+            ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL abort_mpi
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_bcast_int_7d
 
   SUBROUTINE p_bcast_bool (t_buffer, p_source, comm)
 
