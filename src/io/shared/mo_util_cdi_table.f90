@@ -25,8 +25,7 @@ MODULE mo_util_cdi_table
   USE mo_util_hash,        ONLY : util_hashword
   USE mtime,               ONLY : newDatetime, newTimedelta, datetime, timedelta, &
     &                             timedeltaToString, max_timedelta_str_len,       &
-    &                             max_datetime_str_len, deallocateDatetime,       &
-    &                             deallocateTimedelta, OPERATOR(-)
+    &                             deallocateDatetime, deallocateTimedelta, OPERATOR(-)
   USE mo_dictionary,       ONLY : t_dictionary, dict_get
   USE mo_cdi,              ONLY : vlistInqVarParam, vlistInqTaxis, taxisInqVdate, taxisInqVtime, vlistInqVarIntKey, &
                                 & vlistInqVarTypeOfGeneratingProcess, taxisInqRdate, taxisInqRtime, vlistInqVarZaxis, &

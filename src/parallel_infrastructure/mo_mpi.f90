@@ -436,6 +436,10 @@ MODULE mo_mpi
 
   ! Flag if processor splitting is active
   LOGICAL, PUBLIC :: proc_split = .FALSE.
+#ifdef _OPENACC
+  LOGICAL, PUBLIC :: i_am_accel_node = .FALSE.
+#endif
+
 
   ! communicator stack for global sums
   INTEGER, PARAMETER :: max_lev = 10 ! 2 is sufficient

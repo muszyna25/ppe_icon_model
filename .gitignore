@@ -83,10 +83,6 @@ externals/.cproject
 externals/.project
 externals/icon-dev
 /icon-dev
-include/*.settings
-include/.cproject
-include/.project
-include/icon-dev
 lapack/*.settings
 lapack/.cproject
 lapack/.project

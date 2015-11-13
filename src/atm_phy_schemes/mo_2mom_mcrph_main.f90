@@ -5129,7 +5129,7 @@ CONTAINS
           rime_n = pi4 * e_coll * n_a * n_b * dt &
                & *     (  params%delta_n_aa * D_a**2 &
                &        + params%delta_n_ab * D_a*D_b &
-               &        + scr_params%delta_n_bb * D_b**2) &
+               &        + params%delta_n_bb * D_b**2) &
                & * SQRT(  params%theta_n_aa * v_a**2 &
                &        - params%theta_n_ab * v_a*v_b &
                &        + params%theta_n_bb * v_b**2 &

@@ -392,6 +392,7 @@ CONTAINS
       dataType = DATATYPE_FLT32
     ENDIF
 
+    IF (echam_forcing_active) THEN
     ! PROGS {{{
     cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'Zonal wind (time mean)', dataType)
     grib2_desc = grib2_var(0, 2, 2, ibits, GRID_REFERENCE, GRID_CELL)
@@ -572,7 +573,6 @@ CONTAINS
     ! }}}
 
     ! ECHAM {{{
-    IF (echam_forcing_active) THEN
     cf_desc    = t_cf_var('cosmu0', '', 'cosine of the zenith angle (time mean)', dataType)
     grib2_desc = grib2_var(192,214,1, ibits, GRID_REFERENCE, GRID_CELL)
     CALL add_var( list, 'cosmu0_m', p_acc%cosmu0,                                         &

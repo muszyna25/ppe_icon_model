@@ -1340,13 +1340,6 @@ CONTAINS
 
        i_nchdom  = MAX(1,p_patch(jg)%n_childdom)
 
-       ! exclude the boundary interpolation zone of nested domains
-       rl_start = grf_bdywidth_c+1
-       rl_end   = min_rlcell_int
-
-       i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
-       i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
-
        i_lc_water = ext_data(jg)%atm%i_lc_water
 
        ! Initialization of index list counts - moved here in order to avoid uninitialized elements
@@ -1362,7 +1355,15 @@ CONTAINS
        ext_data(jg)%atm%lp_count_t(:,:) = 0
 
 
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+       !
+       ! exclude the boundary interpolation zone of nested domains
+       rl_start = grf_bdywidth_c+1
+       rl_end   = min_rlcell_int
+
+       i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+       i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
 !$OMP DO PRIVATE(jb,jc,i_lu,i_startidx,i_endidx,i_count,i_count_sea,i_count_flk,tile_frac,&
 !$OMP            tile_mask,lu_subs,sum_frac,scalfac,zfr_land,it_count,ic,jt,jt_in ) ICON_OMP_DEFAULT_SCHEDULE
        DO jb=i_startblk, i_endblk
@@ -1762,19 +1763,15 @@ CONTAINS
            !
            ! If tiles are active, ensure consistency between fr_lake and the rescaled tile fraction
            IF (ntiles_lnd > 1) ext_data(jg)%atm%fr_lake(jc,jb) = ext_data(jg)%atm%frac_t(jc,jb,isub_lake)
-           !
-           ! For consistency: remove depth_lk information, where fr_lake=0
-           ext_data(jg)%atm%depth_lk(jc,jb) = MERGE(ext_data(jg)%atm%depth_lk(jc,jb), &
-             &                                      -1._wp,                           &
-             &                                      ext_data(jg)%atm%fr_lake(jc,jb)>0._wp)
          ENDDO
          ! frac_t(jc,jb,isub_seaice) is set in init_sea_lists
 
        END DO !jb
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
+!$OMP END DO
 
-         ! Some useful diagnostics
+
+!$OMP SINGLE
+       ! Some useful diagnostics
        npoints = SUM(ext_data(jg)%atm%lp_count(i_startblk:i_endblk))
        npoints = global_sum_array(npoints)
        WRITE(message_text,'(a,i3,a,i10)') 'Number of land points in domain',jg,':', npoints
@@ -1787,14 +1784,48 @@ CONTAINS
        npoints_lake = global_sum_array(npoints_lake)
        WRITE(message_text,'(a,i3,a,i10)') 'Number of lake points in domain',jg,':', npoints_lake
        CALL message('', TRIM(message_text))
-
-
+       !
+       !
        DO i_lu = 1, ntiles_lnd
          npoints = SUM(ext_data(jg)%atm%gp_count_t(i_startblk:i_endblk,i_lu))
          npoints = global_sum_array(npoints)
          WRITE(message_text,'(a,i2,a,i10)') 'Number of points in tile',i_lu,':',npoints
          CALL message('', TRIM(message_text))
        ENDDO
+!$OMP END SINGLE NOWAIT
+
+
+       !
+       ! For consistency: remove depth_lk information, where fr_lake < frlake_thrhld.
+       ! Boundary interpolation zone of nested domains is explicitly included.
+       !
+       ! In case of ntiles_lnd > 1, fr_lake ranges from 0<=fr_lake<=1 at nest 
+       ! boundaries, whereas at prognostic points fr_lake ranges from 
+       ! frlake_thrhld<=fr_lake<=1. I.e. fr_lake consistency adjustment 
+       ! was not performed for nest boundary.
+       rl_start = 1
+       rl_end   = min_rlcell_int
+
+       i_startblk = p_patch(jg)%cells%start_blk(rl_start,1)
+       i_endblk   = p_patch(jg)%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+       DO jb=i_startblk, i_endblk
+
+         CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, &
+            & i_startidx, i_endidx, rl_start, rl_end)
+
+         DO jc = i_startidx, i_endidx
+           !
+           ! For consistency: remove depth_lk information, where fr_lake=0
+           ext_data(jg)%atm%depth_lk(jc,jb) = MERGE(ext_data(jg)%atm%depth_lk(jc,jb), &
+             &                                      -1._wp,                           &
+             &                                      ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld)
+         ENDDO
+
+       ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
     END DO  !jg
 
@@ -1816,7 +1847,9 @@ CONTAINS
   !!
   !! Aggregated external fields are diagnosed based on tile based external
   !! fields. In addition, fr_land, fr_lake and depth_lk are re-diagnosed,
-  !! in order to be consistent with tile-information.
+  !! in order to be consistent with tile-information. Note that the latter 
+  !! re-diagnosis has been moved to init_index_lists in order not to 
+  !! compromise restart reproducibility.
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2013-01-23)

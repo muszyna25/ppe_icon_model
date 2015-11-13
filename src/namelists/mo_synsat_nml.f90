@@ -76,7 +76,6 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg          !< patch loop index
     INTEGER :: iunit
 
     CHARACTER(len=*), PARAMETER ::  &

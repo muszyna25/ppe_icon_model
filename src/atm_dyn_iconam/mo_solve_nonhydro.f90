@@ -64,7 +64,13 @@ MODULE mo_solve_nonhydro
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_nh_prepadv_types,  ONLY: t_prepare_adv
   USE mo_initicon_config,   ONLY: is_iau_active, iau_wgt_dyn
-  USE mo_fortran_tools,     ONLY: init
+  USE mo_fortran_tools,     ONLY: init_zero_contiguous_dp, &
+       init_zero_contiguous_vp => &
+#ifndef __MIXED_PRECISION
+       init_zero_contiguous_dp
+#else
+       init_zero_contiguous_sp
+#endif
   IMPLICIT NONE
 
   PRIVATE
@@ -389,7 +395,7 @@ MODULE mo_solve_nonhydro
 
     ! initialize nest boundary points of z_rth_pr with zero
     IF (istep == 1 .AND. (jg > 1 .OR. l_limited_area)) THEN
-      CALL init(z_rth_pr(:,:,:,1:i_startblk))
+      CALL init_zero_contiguous_vp(z_rth_pr(1,1,1,1), 2*nproma*nlev*i_startblk)
 !$OMP BARRIER
     ENDIF
 
@@ -723,10 +729,16 @@ MODULE mo_solve_nonhydro
 
         ! Initialize halo edges with zero in order to avoid access of uninitialized array elements
         i_startblk = p_patch%edges%start_block(min_rledge_int-2)
-        i_endblk   = p_patch%edges%end_block  (min_rledge_int-3)
+        IF (idiv_method == 1) THEN
+          i_endblk = p_patch%edges%end_block(min_rledge_int-2)
+        ELSE
+          i_endblk = p_patch%edges%end_block(min_rledge_int-3)
+        ENDIF
 
-        CALL init(z_rho_e    (:,:,i_startblk:i_endblk))
-        CALL init(z_theta_v_e(:,:,i_startblk:i_endblk))
+        IF (i_endblk >= i_startblk) THEN
+          CALL init_zero_contiguous_dp(z_rho_e    (1,1,i_startblk), nproma*nlev*(i_endblk-i_startblk+1))
+          CALL init_zero_contiguous_dp(z_theta_v_e(1,1,i_startblk), nproma*nlev*(i_endblk-i_startblk+1))
+        ENDIF
 !$OMP BARRIER
 
         rl_start = 7
@@ -737,8 +749,8 @@ MODULE mo_solve_nonhydro
 
         ! initialize also nest boundary points with zero
         IF (jg > 1 .OR. l_limited_area) THEN
-          CALL init(z_rho_e    (:,:,1:i_startblk))
-          CALL init(z_theta_v_e(:,:,1:i_startblk))
+          CALL init_zero_contiguous_dp(z_rho_e    (1,1,1), nproma*nlev*i_startblk)
+          CALL init_zero_contiguous_dp(z_theta_v_e(1,1,1), nproma*nlev*i_startblk)
 !$OMP BARRIER
         ENDIF
 
@@ -889,13 +901,13 @@ MODULE mo_solve_nonhydro
         DO je = i_startidx, i_endidx
 !DIR$ IVDEP, PREFERVECTOR
           DO jk = kstart_dd3d(jg), nlev
-            z_graddiv_vn(jk,je,jb) = z_graddiv_vn(jk,je,jb) +                                             &
+            z_graddiv_vn(jk,je,jb) = z_graddiv_vn(jk,je,jb) +  p_nh%metrics%hmask_dd3d(je,jb)*            &
               p_nh%metrics%scalfac_dd3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)*                  &
               ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
 #else
         DO jk = kstart_dd3d(jg), nlev
           DO je = i_startidx, i_endidx
-            z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) +                                             &
+            z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) +  p_nh%metrics%hmask_dd3d(je,jb)*            &
               p_nh%metrics%scalfac_dd3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)*                  &
               ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
 #endif
@@ -1675,7 +1687,9 @@ MODULE mo_solve_nonhydro
       i_endblk   = p_patch%edges%end_block(rl_end)
 
       IF (jg > 1 .OR. l_limited_area) THEN
-        CALL init(z_theta_v_fl_e(:,:,p_patch%edges%start_block(5):i_startblk))
+        CALL init_zero_contiguous_dp(&
+             z_theta_v_fl_e(1,1,p_patch%edges%start_block(5)), &
+             nproma * nlev * (i_startblk - p_patch%edges%start_block(5) + 1))
 !$OMP BARRIER
       ENDIF
 
