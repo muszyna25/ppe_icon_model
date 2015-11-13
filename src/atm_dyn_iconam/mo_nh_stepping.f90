@@ -1454,6 +1454,9 @@ MODULE mo_nh_stepping
 !!$            CALL perform_dyn_substepping (p_patch(jg), p_nh_state(jg), p_int_state(jg), &
 !!$              &                           prep_adv(jg), jstep, dt_loc)
 
+            ! now reset linit_dyn to .FALSE.
+            linit_dyn(jg) = .FALSE.
+
             ! diffusion at physics time steps
             !
             IF (diffusion_config(jg)%lhdiff_vn .AND. lhdiff_rcf) THEN
