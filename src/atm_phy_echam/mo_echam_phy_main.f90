@@ -1129,7 +1129,7 @@ CONTAINS
         &          tend% xl_dtr(:,:,jb),      &! inout  xtecl
         &          tend% xi_dtr(:,:,jb),      &! inout  xteci
         &          itype,                     &! inout
-        &          ictop,                     &! inout
+        &          ictop,                     &! out
         &          ilab,                      &! out
         &          field% topmax(:,jb),       &! inout
         &          echam_conv_config%cevapcu, &! in
@@ -1160,6 +1160,7 @@ CONTAINS
     ELSE ! NECESSARY COMPUTATIONS IF MASSFLUX IS BY-PASSED
 
       ilab(jcs:jce,1:nlev) = 0
+      ictop(jcs:jce)       = nlev-1
 
       tend%    u_cnv(jcs:jce,:,jb)      = 0._wp
       tend%    v_cnv(jcs:jce,:,jb)      = 0._wp

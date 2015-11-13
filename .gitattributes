@@ -1378,7 +1378,6 @@ src/atm_phy_echam/mo_ml_ocean.f90 -text
 src/atm_phy_echam/mo_ssodrag.f90 -text
 src/atm_phy_echam/mo_ssortns.f90 -text
 src/atm_phy_echam/mo_surface.f90 -text
-src/atm_phy_echam/mo_surface.f90_off -text
 src/atm_phy_echam/mo_surface_diag.f90 -text
 src/atm_phy_echam/mo_turbulence_diag.f90 -text
 src/atm_phy_echam/mo_vdiff_downward_sweep.f90 -text
