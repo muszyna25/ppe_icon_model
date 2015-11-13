@@ -99,23 +99,23 @@ restart_interval="P1Y"
 # NEEDED TO KEEP THIS EXPERIMENT WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
 # TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
 
-# begin/end of simulation: high frequency output
-(( dt_checkpoint = 365 * day))
-(( dt_restart    = 365 * day))
-atm_output_interval_2d="PT6H"
-atm_output_interval_3d="PT6H"
-lnd_output_interval_2d="PT6H"
-lnd_output_interval_3d="PT6H"
-oce_output_interval="PT6H"
+# high frequency output and restart intervals
+#(( dt_checkpoint = 365 * day))
+#(( dt_restart    = 365 * day))
+#atm_output_interval_2d="PT6H"
+#atm_output_interval_3d="PT6H"
+#lnd_output_interval_2d="PT6H"
+#lnd_output_interval_3d="PT6H"
+#oce_output_interval="PT6H"
 
-# long-term output and restart intervals
-#(( dt_checkpoint = 1825 * day))  #  5y
-#(( dt_restart    = 1825 * day))  #  5y
-#atm_output_interval_2d="P5DT6H"
-#atm_output_interval_3d="P5DT6H"
-#lnd_output_interval_2d="P5DT6H"
-#lnd_output_interval_3d="P5DT6H"
-#oce_output_interval="P30D"
+# long-term low frequency output and restart intervals
+(( dt_checkpoint = 1825 * day))  #  5y
+(( dt_restart    = 1825 * day))  #  5y
+atm_output_interval_2d="P5DT6H"
+atm_output_interval_3d="P5DT6H"
+lnd_output_interval_2d="P5DT6H"
+lnd_output_interval_3d="P5DT6H"
+oce_output_interval="P30D"
 
 atm_file_interval="P6Y"
 lnd_file_interval="P6Y"
@@ -826,7 +826,7 @@ cat > coupling.xml << EOF
 <coupling xmlns="http://www.w3schools.com"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://www.w3schools.com coupling.xsd">
-   <redirect redirect_of_root="false" redirect_stdout="true"/>
+   <redirect redirect_of_root="false" redirect_stdout="false"/>
    <components>
       <component id="1">
          <name>atmo</name>
