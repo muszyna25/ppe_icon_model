@@ -243,7 +243,7 @@ CONTAINS
 
         ! Account for vertical fluxes across top and bottom levels
         DO jc = i_startidx, i_endidx
-          rhodz_new_int(jc,jt,jb) = rhodz_new_int(jc,jt,jb) - dtime * &
+          rhodz_now_int(jc,jt,jb) = rhodz_now_int(jc,jt,jb) + dtime * &
             (mflx_v(jc,kend+1,jb) - mflx_v(jc,kst,jb))
         ENDDO
 
