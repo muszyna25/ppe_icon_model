@@ -948,6 +948,10 @@ CONTAINS
           IF (ext_data%atm%frac_t(jc,jb,isubs) < 1.e-10_wp) THEN
             p_lnd_diag%h_snow_t(jc,jb,isubs)     = 0._wp
             p_prog_lnd_now%w_snow_t(jc,jb,isubs) = 0._wp
+            p_lnd_diag%snowfrac_t(jc,jb,isubs)   = 0._wp
+          ENDIF
+          IF (ext_data%atm%lc_frac_t(jc,jb,isubs) < 1.e-10_wp) THEN
+            p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)   = 0._wp
           ENDIF
         ENDDO
       END DO
@@ -1283,6 +1287,9 @@ CONTAINS
 
 
       ENDIF  ! ntiles_total == 1
+
+      ! copy aggregated snowfrac field to snowfrac_lc
+      lnd_diag%snowfrac_lc(i_startidx:i_endidx,jb) = lnd_diag%snowfrac(i_startidx:i_endidx,jb)
 
       ! fill t_so(1) with t_s
       lnd_diag%t_so(i_startidx:i_endidx,1,jb) = lnd_diag%t_s(i_startidx:i_endidx,jb)
