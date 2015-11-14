@@ -95,10 +95,18 @@ INTEGER FUNCTION p_nf_open(path, omode, ncid)
    INTEGER, INTENT(in) :: omode
    INTEGER, INTENT(out) :: ncid
 
+   INTEGER :: res
 
 !-----------------------------------------------------------------------
 
-   p_nf_open = nf_open(path, omode, ncid)
+   IF (p_pe == p_io) THEN
+      res = nf_open(path, omode, ncid)
+   ELSE
+      ncid = -1 ! set it to an invalid value
+   ENDIF
+
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
+   p_nf_open = res
 
 END FUNCTION p_nf_open
 
@@ -116,7 +124,14 @@ INTEGER FUNCTION p_nf_close(ncid)
 !
    INTEGER, INTENT(in) :: ncid
 
-   p_nf_close = nf_close(ncid)
+   INTEGER :: res
+
+   IF (p_pe == p_io) THEN
+      res = nf_close(ncid)
+   ENDIF
+
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
+   p_nf_close = res
 
 END FUNCTION p_nf_close
 
@@ -520,9 +535,79 @@ INTEGER FUNCTION p_nf_get_vara_int(ncid, varid, start, count, ivals)
    INTEGER, INTENT(in)  :: ncid, varid, start(*), count(*)
    INTEGER, INTENT(out) :: ivals(*)
 
-   p_nf_get_vara_int = nf_get_vara_int(ncid, varid, start, count, ivals)
+   INTEGER :: i, res, ndims, dimids(NF_MAX_VAR_DIMS), &
+              start_(7), count_(7), dimlen(7), len
+   INTEGER, ALLOCATABLE :: t_ivals(:,:,:,:,:,:,:)
+
+   IF (p_pe == p_io) THEN
+
+      ! First get the length of the array
+
+      res = nf_inq_varndims(ncid, varid, ndims)
+      IF(res /= nf_noerr) GOTO 9999
+      res = nf_inq_vardimid(ncid, varid, dimids)
+      IF(res /= nf_noerr) GOTO 9999
+
+      dimlen = 1
+      DO i = 1, ndims
+         res = nf_inq_dimlen(ncid, dimids(i), dimlen(i))
+         IF(res /= nf_noerr) GOTO 9999
+      ENDDO
+
+      ALLOCATE(t_ivals(dimlen(1), dimlen(2), dimlen(3), dimlen(4), &
+                       dimlen(5), dimlen(6), dimlen(7)))
+
+      res = nf_get_var_int(ncid, varid, t_ivals)
+
+   ENDIF
+
+9999 CONTINUE
+
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
+   p_nf_get_vara_int = res
+
+   ! If there was an error, don't try to broadcast the values
+
+   IF(res /= nf_noerr) THEN
+      IF ((p_pe == p_io) .AND. (ALLOCATED(t_ivals))) THEN
+         DEALLOCATE(t_ivals)
+      END IF
+      return
+   END IF
+
+   ! Broadcast number of values and values themselves
+
+   CALL p_bcast(dimlen, p_io, p_comm_input_bcast)
+   CALL p_bcast(ndims, p_io, p_comm_input_bcast)
+
+   IF (p_pe /= p_io) &
+      ALLOCATE(t_ivals(dimlen(1), dimlen(2), dimlen(3), dimlen(4), &
+                       dimlen(5), dimlen(6), dimlen(7)))
+
+   CALL p_bcast(t_ivals, p_io, p_comm_input_bcast)
+
+   start_ = 1
+   count_ = 1
+   start_(1:ndims) = start(1:ndims)
+   count_(1:ndims) = count(1:ndims)
+
+   len = 1
+   DO i = 1, ndims
+      len = len * count(i)
+   END DO
+
+   ivals(1:len) = RESHAPE(t_ivals(start_(1):start_(1)+count_(1) - 1, &
+                                  start_(2):start_(2)+count_(2) - 1, &
+                                  start_(3):start_(3)+count_(3) - 1, &
+                                  start_(4):start_(4)+count_(4) - 1, &
+                                  start_(5):start_(5)+count_(5) - 1, &
+                                  start_(6):start_(6)+count_(6) - 1, &
+                                  start_(7):start_(7)+count_(7) - 1), (/len/))
+
+   DEALLOCATE(t_ivals)
 
 END FUNCTION p_nf_get_vara_int
+
 
 !-------------------------------------------------------------------------
 !>
@@ -539,7 +624,76 @@ INTEGER FUNCTION p_nf_get_vara_double_(ncid, varid, start, count, dvals)
    INTEGER, INTENT(in)  :: ncid, varid, start(*), count(*)
    REAL(dp), INTENT(out) :: dvals(*)
 
-   p_nf_get_vara_double_ = nf_get_vara_double(ncid, varid, start, count, dvals)
+   INTEGER :: i, res, ndims, dimids(NF_MAX_VAR_DIMS), &
+              start_(7), count_(7), dimlen(7), len
+   REAL(dp), ALLOCATABLE :: t_dvals(:,:,:,:,:,:,:)
+
+   IF (p_pe == p_io) THEN
+
+      ! First get the length of the array
+
+      res = nf_inq_varndims(ncid, varid, ndims)
+      IF(res /= nf_noerr) GOTO 9999
+      res = nf_inq_vardimid(ncid, varid, dimids)
+      IF(res /= nf_noerr) GOTO 9999
+
+      dimlen = 1
+      DO i = 1, ndims
+         res = nf_inq_dimlen(ncid, dimids(i), dimlen(i))
+         IF(res /= nf_noerr) GOTO 9999
+      ENDDO
+
+      ALLOCATE(t_dvals(dimlen(1), dimlen(2), dimlen(3), dimlen(4), &
+                       dimlen(5), dimlen(6), dimlen(7)))
+
+      res = nf_get_var_double(ncid, varid, t_dvals)
+
+   ENDIF
+
+9999 CONTINUE
+
+   CALL p_bcast(res, p_io, p_comm_input_bcast)
+   p_nf_get_vara_double_ = res
+
+   ! If there was an error, don't try to broadcast the values
+
+   IF(res /= nf_noerr) THEN
+      IF ((p_pe == p_io) .AND. (ALLOCATED(t_dvals))) THEN
+         DEALLOCATE(t_dvals)
+      END IF
+      return
+   END IF
+
+   ! Broadcast number of values and values themselves
+
+   CALL p_bcast(dimlen, p_io, p_comm_input_bcast)
+   CALL p_bcast(ndims, p_io, p_comm_input_bcast)
+
+   IF (p_pe /= p_io) &
+      ALLOCATE(t_dvals(dimlen(1), dimlen(2), dimlen(3), dimlen(4), &
+                       dimlen(5), dimlen(6), dimlen(7)))
+
+   CALL p_bcast(t_dvals, p_io, p_comm_input_bcast)
+
+   start_ = 1
+   count_ = 1
+   start_(1:ndims) = start(1:ndims)
+   count_(1:ndims) = count(1:ndims)
+
+   len = 1
+   DO i = 1, ndims
+      len = len * count(i)
+   END DO
+
+   dvals(1:len) = RESHAPE(t_dvals(start_(1):start_(1)+count_(1) - 1, &
+                                  start_(2):start_(2)+count_(2) - 1, &
+                                  start_(3):start_(3)+count_(3) - 1, &
+                                  start_(4):start_(4)+count_(4) - 1, &
+                                  start_(5):start_(5)+count_(5) - 1, &
+                                  start_(6):start_(6)+count_(6) - 1, &
+                                  start_(7):start_(7)+count_(7) - 1), (/len/))
+
+   DEALLOCATE(t_dvals)
 
 END FUNCTION p_nf_get_vara_double_
 
