@@ -1153,17 +1153,32 @@ MODULE mo_solve_nonhydro
             & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
           ENDDO
         ENDDO
-!! DOES THIS ELSE BLOCK BREAKS THE RESTART TEST?
+!! THIS ELSE BLOCK BREAKS THE RESTART TEST
 !! vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-!!$      ELSE
-!!$        DO jk = 1, nlev
-!!$!DIR$ IVDEP
-!!$          DO je = i_startidx, i_endidx
+      ELSE
+        DO jk = 1, nlev
+!DIR$ IVDEP
+          DO je = i_startidx, i_endidx
 !!$            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime     &
 !!$            & *(p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
 !!$            & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
-!!$          ENDDO
-!!$        ENDDO
+            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime     &
+            & *(p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
+            & -cpd*z_theta_v_e(je,jk,jb))
+!! CHECK p_nh%diag%ddt_vn_adv: OK
+!!$            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime     &
+!!$            & *(p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1))
+!! CHECK p_nh%diag%ddt_vn_phy: OK
+!!$            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime     &
+!!$            & *(p_nh%diag%ddt_vn_phy(je,jk,jb))
+!! CHECK z_theta_v_e(je,jk,jb): OK
+!!$            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime     &
+!!$            & *(-cpd*z_theta_v_e(je,jk,jb))
+!! CHECK z_gradh_exner(je,jk,jb): NOT OK
+!!$            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime     &
+!!$            & *(-cpd*z_gradh_exner(je,jk,jb))
+          ENDDO
+        ENDDO
 !! =============================================
       ENDIF
 
