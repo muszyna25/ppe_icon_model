@@ -366,11 +366,11 @@ MODULE mo_solve_nonhydro
                                    z_kin_hor_e,z_vt_ie,ntl1,istep,lvn_only,dtime)
         ENDIF
         nvar = nnow
-!!$      ELSE                 ! corrector step
-!!$        lvn_only = .FALSE.
-!!$        CALL velocity_tendencies(p_nh%prog(nnew),p_patch,p_int,p_nh%metrics,p_nh%diag,z_w_concorr_me, &
-!!$                                 z_kin_hor_e,z_vt_ie,ntl2,istep,lvn_only,dtime)
-!!$        nvar = nnew
+      ELSE                 ! corrector step
+        lvn_only = .FALSE.
+        CALL velocity_tendencies(p_nh%prog(nnew),p_patch,p_int,p_nh%metrics,p_nh%diag,z_w_concorr_me, &
+                                 z_kin_hor_e,z_vt_ie,ntl2,istep,lvn_only,dtime)
+        nvar = nnew
       ENDIF
       CALL print_value('mo_solve_nonhydro/solve_nh: lvn_only      = ',lvn_only     )
 
@@ -403,8 +403,8 @@ MODULE mo_solve_nonhydro
     rl_start = 3
     IF (istep == 1) THEN
       rl_end = min_rlcell_int - 1
-!!$    ELSE ! halo points are not needed in step 2
-!!$      rl_end = min_rlcell_int
+    ELSE ! halo points are not needed in step 2
+      rl_end = min_rlcell_int
     ENDIF
 
     i_startblk = p_patch%cells%start_block(rl_start)
@@ -543,54 +543,54 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDDO
 
-!!$      ELSE  ! istep = 2 - in this step, an upwind-biased discretization is used for rho_ic and theta_v_ic
-!!$            ! in order to reduce the numerical dispersion errors
-!!$
-!!$        DO jk = 2, nlev
-!!$!DIR$ IVDEP
-!!$          DO jc = i_startidx, i_endidx
-!!$            ! backward trajectory - use w(nnew) in order to be at the same time level as w_concorr
-!!$            z_w_backtraj = - (p_nh%prog(nnew)%w(jc,jk,jb) - p_nh%diag%w_concorr_c(jc,jk,jb)) * &
-!!$              dtime*0.5_wp/p_nh%metrics%ddqz_z_half(jc,jk,jb)
-!!$
-!!$            ! temporally averaged density and virtual potential temperature depending on rhotheta_offctr
-!!$            ! (see pre-computation above)
-!!$            z_rho_tavg_m1 = wgt_nnow_rth*p_nh%prog(nnow)%rho(jc,jk-1,jb) + &
-!!$              wgt_nnew_rth*p_nh%prog(nvar)%rho(jc,jk-1,jb)
-!!$            z_theta_tavg_m1 = wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,jk-1,jb) + &
-!!$              wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,jk-1,jb)
-!!$
-!!$            z_rho_tavg = wgt_nnow_rth*p_nh%prog(nnow)%rho(jc,jk,jb) + &
-!!$              wgt_nnew_rth*p_nh%prog(nvar)%rho(jc,jk,jb)
-!!$            z_theta_tavg = wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,jk,jb) + &
-!!$              wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,jk,jb)
-!!$
-!!$            ! density at interface levels for vertical flux divergence computation
-!!$            p_nh%diag%rho_ic(jc,jk,jb) = p_nh%metrics%wgtfac_c(jc,jk,jb)*z_rho_tavg + &
-!!$              (1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_rho_tavg_m1 + &
-!!$              z_w_backtraj*(z_rho_tavg_m1-z_rho_tavg)
-!!$
-!!$            ! perturbation virtual potential temperature at main levels
-!!$            z_theta_v_pr_mc_m1   = z_theta_tavg_m1 - p_nh%metrics%theta_ref_mc(jc,jk-1,jb)
-!!$            z_theta_v_pr_mc     = z_theta_tavg   - p_nh%metrics%theta_ref_mc(jc,jk,jb)
-!!$
-!!$            ! perturbation virtual potential temperature at interface levels
-!!$            z_theta_v_pr_ic(jc,jk) = &
-!!$              p_nh%metrics%wgtfac_c(jc,jk,jb)*z_theta_v_pr_mc +       &
-!!$              (1._vp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_theta_v_pr_mc_m1
-!!$
-!!$            ! virtual potential temperature at interface levels
-!!$            p_nh%diag%theta_v_ic(jc,jk,jb) = p_nh%metrics%wgtfac_c(jc,jk,jb)*z_theta_tavg + &
-!!$              (1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_theta_tavg_m1 +                      &
-!!$              z_w_backtraj*(z_theta_tavg_m1-z_theta_tavg)
-!!$
-!!$            ! vertical pressure gradient * theta_v
-!!$            z_th_ddz_exner_c(jc,jk,jb) = p_nh%metrics%vwind_expl_wgt(jc,jb)* &
-!!$              p_nh%diag%theta_v_ic(jc,jk,jb) * (z_exner_pr(jc,jk-1,jb)-      &
-!!$              z_exner_pr(jc,jk,jb)) / p_nh%metrics%ddqz_z_half(jc,jk,jb) +   &
-!!$              z_theta_v_pr_ic(jc,jk)*p_nh%metrics%d_exner_dz_ref_ic(jc,jk,jb)
-!!$          ENDDO
-!!$        ENDDO
+      ELSE  ! istep = 2 - in this step, an upwind-biased discretization is used for rho_ic and theta_v_ic
+            ! in order to reduce the numerical dispersion errors
+
+        DO jk = 2, nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            ! backward trajectory - use w(nnew) in order to be at the same time level as w_concorr
+            z_w_backtraj = - (p_nh%prog(nnew)%w(jc,jk,jb) - p_nh%diag%w_concorr_c(jc,jk,jb)) * &
+              dtime*0.5_wp/p_nh%metrics%ddqz_z_half(jc,jk,jb)
+
+            ! temporally averaged density and virtual potential temperature depending on rhotheta_offctr
+            ! (see pre-computation above)
+            z_rho_tavg_m1 = wgt_nnow_rth*p_nh%prog(nnow)%rho(jc,jk-1,jb) + &
+              wgt_nnew_rth*p_nh%prog(nvar)%rho(jc,jk-1,jb)
+            z_theta_tavg_m1 = wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,jk-1,jb) + &
+              wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,jk-1,jb)
+
+            z_rho_tavg = wgt_nnow_rth*p_nh%prog(nnow)%rho(jc,jk,jb) + &
+              wgt_nnew_rth*p_nh%prog(nvar)%rho(jc,jk,jb)
+            z_theta_tavg = wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,jk,jb) + &
+              wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,jk,jb)
+
+            ! density at interface levels for vertical flux divergence computation
+            p_nh%diag%rho_ic(jc,jk,jb) = p_nh%metrics%wgtfac_c(jc,jk,jb)*z_rho_tavg + &
+              (1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_rho_tavg_m1 + &
+              z_w_backtraj*(z_rho_tavg_m1-z_rho_tavg)
+
+            ! perturbation virtual potential temperature at main levels
+            z_theta_v_pr_mc_m1   = z_theta_tavg_m1 - p_nh%metrics%theta_ref_mc(jc,jk-1,jb)
+            z_theta_v_pr_mc     = z_theta_tavg   - p_nh%metrics%theta_ref_mc(jc,jk,jb)
+
+            ! perturbation virtual potential temperature at interface levels
+            z_theta_v_pr_ic(jc,jk) = &
+              p_nh%metrics%wgtfac_c(jc,jk,jb)*z_theta_v_pr_mc +       &
+              (1._vp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_theta_v_pr_mc_m1
+
+            ! virtual potential temperature at interface levels
+            p_nh%diag%theta_v_ic(jc,jk,jb) = p_nh%metrics%wgtfac_c(jc,jk,jb)*z_theta_tavg + &
+              (1._wp-p_nh%metrics%wgtfac_c(jc,jk,jb))*z_theta_tavg_m1 +                      &
+              z_w_backtraj*(z_theta_tavg_m1-z_theta_tavg)
+
+            ! vertical pressure gradient * theta_v
+            z_th_ddz_exner_c(jc,jk,jb) = p_nh%metrics%vwind_expl_wgt(jc,jb)* &
+              p_nh%diag%theta_v_ic(jc,jk,jb) * (z_exner_pr(jc,jk-1,jb)-      &
+              z_exner_pr(jc,jk,jb)) / p_nh%metrics%ddqz_z_half(jc,jk,jb) +   &
+              z_theta_v_pr_ic(jc,jk)*p_nh%metrics%d_exner_dz_ref_ic(jc,jk,jb)
+          ENDDO
+        ENDDO
 
       ENDIF ! istep = 1/2
 
@@ -605,17 +605,17 @@ MODULE mo_solve_nonhydro
               p_nh%metrics%wgtfacq1_c(jc,2,jb)*z_rth_pr(2,jc,2,jb) +           &
               p_nh%metrics%wgtfacq1_c(jc,3,jb)*z_rth_pr(2,jc,3,jb)
           ENDDO
-!!$        ELSE ! ISTEP == 2
-!!$!DIR$ IVDEP
-!!$          DO jc = i_startidx, i_endidx
-!!$            p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%metrics%theta_ref_ic(jc,1,jb) + &
-!!$              p_nh%metrics%wgtfacq1_c(jc,1,jb)* ( wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,1,jb) +     &
-!!$              wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,1,jb) - p_nh%metrics%theta_ref_mc(jc,1,jb) ) + &
-!!$              p_nh%metrics%wgtfacq1_c(jc,2,jb)*( wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,2,jb) +      &
-!!$              wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,2,jb) - p_nh%metrics%theta_ref_mc(jc,2,jb) ) + &
-!!$              p_nh%metrics%wgtfacq1_c(jc,3,jb)*( wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,3,jb) +      &
-!!$              wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,3,jb) - p_nh%metrics%theta_ref_mc(jc,3,jb) )
-!!$          ENDDO
+        ELSE ! ISTEP == 2
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            p_nh%diag%theta_v_ic(jc,1,jb) = p_nh%metrics%theta_ref_ic(jc,1,jb) + &
+              p_nh%metrics%wgtfacq1_c(jc,1,jb)* ( wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,1,jb) +     &
+              wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,1,jb) - p_nh%metrics%theta_ref_mc(jc,1,jb) ) + &
+              p_nh%metrics%wgtfacq1_c(jc,2,jb)*( wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,2,jb) +      &
+              wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,2,jb) - p_nh%metrics%theta_ref_mc(jc,2,jb) ) + &
+              p_nh%metrics%wgtfacq1_c(jc,3,jb)*( wgt_nnow_rth*p_nh%prog(nnow)%theta_v(jc,3,jb) +      &
+              wgt_nnew_rth*p_nh%prog(nvar)%theta_v(jc,3,jb) - p_nh%metrics%theta_ref_mc(jc,3,jb) )
+          ENDDO
         ENDIF
 !DIR$ IVDEP
         DO jc = i_startidx, i_endidx
@@ -904,40 +904,40 @@ MODULE mo_solve_nonhydro
 
       ENDIF
 
-!!$    ELSE IF (istep == 2 .AND. lhdiff_rcf .AND. divdamp_type >= 3) THEN ! apply div damping on 3D divergence
-!!$
-!!$      ! add dw/dz contribution to divergence damping term
-!!$
-!!$      rl_start = 7
-!!$      rl_end   = min_rledge_int-2
-!!$
-!!$      i_startblk = p_patch%edges%start_block(rl_start)
-!!$      i_endblk   = p_patch%edges%end_block  (rl_end)
-!!$
-!!$!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
-!!$      DO jb = i_startblk, i_endblk
-!!$
-!!$        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-!!$                           i_startidx, i_endidx, rl_start, rl_end)
-!!$
-!!$#ifdef __LOOP_EXCHANGE
-!!$        DO je = i_startidx, i_endidx
-!!$!DIR$ IVDEP, PREFERVECTOR
-!!$          DO jk = kstart_dd3d(jg), nlev
-!!$            z_graddiv_vn(jk,je,jb) = z_graddiv_vn(jk,je,jb) +                                             &
-!!$              p_nh%metrics%scalfac_dd3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)*                  &
-!!$              ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
-!!$#else
-!!$        DO jk = kstart_dd3d(jg), nlev
-!!$          DO je = i_startidx, i_endidx
-!!$            z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) +                                             &
-!!$              p_nh%metrics%scalfac_dd3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)*                  &
-!!$              ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
-!!$#endif
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDDO
-!!$!$OMP END DO
+    ELSE IF (istep == 2 .AND. lhdiff_rcf .AND. divdamp_type >= 3) THEN ! apply div damping on 3D divergence
+
+      ! add dw/dz contribution to divergence damping term
+
+      rl_start = 7
+      rl_end   = min_rledge_int-2
+
+      i_startblk = p_patch%edges%start_block(rl_start)
+      i_endblk   = p_patch%edges%end_block  (rl_end)
+
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+!DIR$ IVDEP, PREFERVECTOR
+          DO jk = kstart_dd3d(jg), nlev
+            z_graddiv_vn(jk,je,jb) = z_graddiv_vn(jk,je,jb) +                                             &
+              p_nh%metrics%scalfac_dd3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)*                  &
+              ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
+#else
+        DO jk = kstart_dd3d(jg), nlev
+          DO je = i_startidx, i_endidx
+            z_graddiv_vn(je,jk,jb) = z_graddiv_vn(je,jk,jb) +                                             &
+              p_nh%metrics%scalfac_dd3d(jk) * p_patch%edges%inv_dual_edge_length(je,jb)*                  &
+              ( z_dwdz_dd(icidx(je,jb,2),jk,icblk(je,jb,2)) - z_dwdz_dd(icidx(je,jb,1),jk,icblk(je,jb,1)) )
+#endif
+          ENDDO
+        ENDDO
+      ENDDO
+!$OMP END DO
 
     ENDIF ! istep = 1/2
 
@@ -1143,16 +1143,18 @@ MODULE mo_solve_nonhydro
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-!!$      IF ((itime_scheme >= 4) .AND. istep == 2) THEN ! use temporally averaged velocity advection terms
-!!$        DO jk = 1, nlev
-!!$!DIR$ IVDEP
-!!$          DO je = i_startidx, i_endidx
-!!$            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime                  &
-!!$            & *(wgt_nnow_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)                                &
-!!$            & + wgt_nnew_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl2)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
-!!$            & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
-!!$          ENDDO
-!!$        ENDDO
+      IF ((itime_scheme >= 4) .AND. istep == 2) THEN ! use temporally averaged velocity advection terms
+        DO jk = 1, nlev
+!DIR$ IVDEP
+          DO je = i_startidx, i_endidx
+            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnow)%vn(je,jk,jb)+ dtime                  &
+            & *(wgt_nnow_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl1)                                &
+            & + wgt_nnew_vel*p_nh%diag%ddt_vn_adv(je,jk,jb,ntl2)+p_nh%diag%ddt_vn_phy(je,jk,jb) &
+            & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
+          ENDDO
+        ENDDO
+!! DOES THIS ELSE BLOCK BREAKS THE RESTART TEST?
+!! vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 !!$      ELSE
 !!$        DO jk = 1, nlev
 !!$!DIR$ IVDEP
@@ -1162,73 +1164,74 @@ MODULE mo_solve_nonhydro
 !!$            & -cpd*z_theta_v_e(je,jk,jb)*z_gradh_exner(je,jk,jb))
 !!$          ENDDO
 !!$        ENDDO
-!!$      ENDIF
-!!$
-!!$      IF (lhdiff_rcf .AND. istep == 2 .AND. ANY( (/24,4/) == divdamp_order)) THEN ! fourth-order divergence damping
-!!$
-!!$        ! Compute gradient of divergence of gradient of divergence for fourth-order divergence damping
-!!$#ifdef __LOOP_EXCHANGE
-!!$        DO je = i_startidx, i_endidx
-!!$!DIR$ IVDEP
-!!$          DO jk = 1, nlev
-!!$            z_graddiv2_vn(je,jk) = p_int%geofac_grdiv(je,1,jb)*z_graddiv_vn(jk,je,jb)      &
-!!$              + p_int%geofac_grdiv(je,2,jb)*z_graddiv_vn(jk,iqidx(je,jb,1),iqblk(je,jb,1)) &
-!!$              + p_int%geofac_grdiv(je,3,jb)*z_graddiv_vn(jk,iqidx(je,jb,2),iqblk(je,jb,2)) &
-!!$              + p_int%geofac_grdiv(je,4,jb)*z_graddiv_vn(jk,iqidx(je,jb,3),iqblk(je,jb,3)) &
-!!$              + p_int%geofac_grdiv(je,5,jb)*z_graddiv_vn(jk,iqidx(je,jb,4),iqblk(je,jb,4))
-!!$#else
-!!$        DO jk = 1, nlev
-!!$          DO je = i_startidx, i_endidx
-!!$            z_graddiv2_vn(je,jk) = p_int%geofac_grdiv(je,1,jb)*z_graddiv_vn(je,jk,jb)      &
-!!$              + p_int%geofac_grdiv(je,2,jb)*z_graddiv_vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
-!!$              + p_int%geofac_grdiv(je,3,jb)*z_graddiv_vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
-!!$              + p_int%geofac_grdiv(je,4,jb)*z_graddiv_vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
-!!$              + p_int%geofac_grdiv(je,5,jb)*z_graddiv_vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
-!!$#endif
-!!$
-!!$           ENDDO
-!!$        ENDDO
-!!$      ENDIF
-!!$
-!!$      IF (lhdiff_rcf .AND. istep == 2) THEN
-!!$        ! apply divergence damping if diffusion is not called every sound-wave time step
-!!$        IF (divdamp_order == 2 .OR. (divdamp_order == 24 .AND. scal_divdamp_o2 > 1.e-6_wp) ) THEN ! second-order divergence damping
-!!$          DO jk = 1, nlev
-!!$!DIR$ IVDEP
-!!$            DO je = i_startidx, i_endidx
-!!$              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb) + scal_divdamp_o2* &
-!!$#ifdef __LOOP_EXCHANGE
-!!$                z_graddiv_vn(jk,je,jb)
-!!$#else
-!!$                z_graddiv_vn(je,jk,jb)
-!!$#endif
-!!$            ENDDO
-!!$          ENDDO
-!!$        ENDIF
-!!$        IF (divdamp_order == 4 .OR. (divdamp_order == 24 .AND. divdamp_fac_o2 <= 4._wp*divdamp_fac) ) THEN
-!!$          IF (l_limited_area .OR. jg > 1) THEN
-!!$            ! fourth-order divergence damping with reduced damping coefficient along nest boundary
-!!$            ! (scal_divdamp is negative whereas bdy_divdamp is positive; decreasing the divergence
-!!$            ! damping along nest boundaries is beneficial because this reduces the interference
-!!$            ! with the increased diffusion applied in nh_diffusion)
-!!$            DO jk = 1, nlev
-!!$!DIR$ IVDEP
-!!$              DO je = i_startidx, i_endidx
-!!$                p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)                         &
-!!$                  + (scal_divdamp(jk)+bdy_divdamp(jk)*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk)
-!!$              ENDDO
-!!$            ENDDO
-!!$          ELSE ! fourth-order divergence damping
-!!$            DO jk = 1, nlev
-!!$!DIR$ IVDEP
-!!$              DO je = i_startidx, i_endidx
-!!$                p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
-!!$                  + scal_divdamp(jk)*z_graddiv2_vn(je,jk)
-!!$              ENDDO
-!!$            ENDDO
-!!$          ENDIF
-!!$        ENDIF
-!!$      ENDIF
+!! =============================================
+      ENDIF
+
+      IF (lhdiff_rcf .AND. istep == 2 .AND. ANY( (/24,4/) == divdamp_order)) THEN ! fourth-order divergence damping
+
+        ! Compute gradient of divergence of gradient of divergence for fourth-order divergence damping
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+!DIR$ IVDEP
+          DO jk = 1, nlev
+            z_graddiv2_vn(je,jk) = p_int%geofac_grdiv(je,1,jb)*z_graddiv_vn(jk,je,jb)      &
+              + p_int%geofac_grdiv(je,2,jb)*z_graddiv_vn(jk,iqidx(je,jb,1),iqblk(je,jb,1)) &
+              + p_int%geofac_grdiv(je,3,jb)*z_graddiv_vn(jk,iqidx(je,jb,2),iqblk(je,jb,2)) &
+              + p_int%geofac_grdiv(je,4,jb)*z_graddiv_vn(jk,iqidx(je,jb,3),iqblk(je,jb,3)) &
+              + p_int%geofac_grdiv(je,5,jb)*z_graddiv_vn(jk,iqidx(je,jb,4),iqblk(je,jb,4))
+#else
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+            z_graddiv2_vn(je,jk) = p_int%geofac_grdiv(je,1,jb)*z_graddiv_vn(je,jk,jb)      &
+              + p_int%geofac_grdiv(je,2,jb)*z_graddiv_vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%geofac_grdiv(je,3,jb)*z_graddiv_vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%geofac_grdiv(je,4,jb)*z_graddiv_vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%geofac_grdiv(je,5,jb)*z_graddiv_vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+#endif
+
+           ENDDO
+        ENDDO
+      ENDIF
+
+      IF (lhdiff_rcf .AND. istep == 2) THEN
+        ! apply divergence damping if diffusion is not called every sound-wave time step
+        IF (divdamp_order == 2 .OR. (divdamp_order == 24 .AND. scal_divdamp_o2 > 1.e-6_wp) ) THEN ! second-order divergence damping
+          DO jk = 1, nlev
+!DIR$ IVDEP
+            DO je = i_startidx, i_endidx
+              p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb) + scal_divdamp_o2* &
+#ifdef __LOOP_EXCHANGE
+                z_graddiv_vn(jk,je,jb)
+#else
+                z_graddiv_vn(je,jk,jb)
+#endif
+            ENDDO
+          ENDDO
+        ENDIF
+        IF (divdamp_order == 4 .OR. (divdamp_order == 24 .AND. divdamp_fac_o2 <= 4._wp*divdamp_fac) ) THEN
+          IF (l_limited_area .OR. jg > 1) THEN
+            ! fourth-order divergence damping with reduced damping coefficient along nest boundary
+            ! (scal_divdamp is negative whereas bdy_divdamp is positive; decreasing the divergence
+            ! damping along nest boundaries is beneficial because this reduces the interference
+            ! with the increased diffusion applied in nh_diffusion)
+            DO jk = 1, nlev
+!DIR$ IVDEP
+              DO je = i_startidx, i_endidx
+                p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)                         &
+                  + (scal_divdamp(jk)+bdy_divdamp(jk)*p_int%nudgecoeff_e(je,jb))*z_graddiv2_vn(je,jk)
+              ENDDO
+            ENDDO
+          ELSE ! fourth-order divergence damping
+            DO jk = 1, nlev
+!DIR$ IVDEP
+              DO je = i_startidx, i_endidx
+                p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
+                  + scal_divdamp(jk)*z_graddiv2_vn(je,jk)
+              ENDDO
+            ENDDO
+          ENDIF
+        ENDIF
+      ENDIF
 
       IF (is_iau_active) THEN ! add analysis increment from data assimilation
         DO jk = 1, nlev
@@ -1256,19 +1259,19 @@ MODULE mo_solve_nonhydro
     ENDDO
 !$OMP END DO
 
-!!$    IF (istep == 2 .AND. l_bdy_nudge) THEN ! apply boundary nudging if requested
-!!$!$OMP DO PRIVATE(jb,jk,je,ic) ICON_OMP_DEFAULT_SCHEDULE
-!!$      DO ic = 1, p_nh%metrics%nudge_e_dim
-!!$        je = p_nh%metrics%nudge_e_idx(ic)
-!!$        jb = p_nh%metrics%nudge_e_blk(ic)
-!!$!DIR$ IVDEP
-!!$        DO jk = 1, nlev
-!!$          p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
-!!$            + p_int%nudgecoeff_e(je,jb)*p_nh%diag%grf_tend_vn(je,jk,jb)
-!!$        ENDDO
-!!$      ENDDO
-!!$!$OMP END DO
-!!$    ENDIF
+    IF (istep == 2 .AND. l_bdy_nudge) THEN ! apply boundary nudging if requested
+!$OMP DO PRIVATE(jb,jk,je,ic) ICON_OMP_DEFAULT_SCHEDULE
+      DO ic = 1, p_nh%metrics%nudge_e_dim
+        je = p_nh%metrics%nudge_e_idx(ic)
+        jb = p_nh%metrics%nudge_e_blk(ic)
+!DIR$ IVDEP
+        DO jk = 1, nlev
+          p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  &
+            + p_int%nudgecoeff_e(je,jb)*p_nh%diag%grf_tend_vn(je,jk,jb)
+        ENDDO
+      ENDDO
+!$OMP END DO
+    ENDIF
 
 
     ! Boundary update of horizontal velocity
@@ -1468,27 +1471,27 @@ MODULE mo_solve_nonhydro
           ENDDO
         ENDDO
 
-!!$        IF (lsave_mflx .AND. istep == 2) THEN ! store mass flux for nest boundary interpolation
-!!$          DO je = i_startidx, i_endidx
-!!$            IF (p_patch%edges%refin_ctrl(je,jb) <= -4 .AND. p_patch%edges%refin_ctrl(je,jb) >= -6) THEN
-!!$!DIR$ IVDEP
-!!$              p_nh%diag%mass_fl_e_sv(je,:,jb) = p_nh%diag%mass_fl_e(je,:,jb)
-!!$            ENDIF
-!!$          ENDDO
-!!$        ENDIF
-!!$
-!!$        IF (lprep_adv .AND. istep == 2) THEN ! Preprations for tracer advection
-!!$          IF (lclean_mflx) THEN
-!!$            prep_adv%mass_flx_me(:,:,jb) = 0._wp
-!!$            prep_adv%vn_traj    (:,:,jb) = 0._wp
-!!$          ENDIF
-!!$          DO jk = 1, nlev
-!!$            DO je = i_startidx, i_endidx
-!!$              prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb)     + r_nsubsteps*z_vn_avg(je,jk)
-!!$              prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
-!!$            ENDDO
-!!$          ENDDO
-!!$        ENDIF
+        IF (lsave_mflx .AND. istep == 2) THEN ! store mass flux for nest boundary interpolation
+          DO je = i_startidx, i_endidx
+            IF (p_patch%edges%refin_ctrl(je,jb) <= -4 .AND. p_patch%edges%refin_ctrl(je,jb) >= -6) THEN
+!DIR$ IVDEP
+              p_nh%diag%mass_fl_e_sv(je,:,jb) = p_nh%diag%mass_fl_e(je,:,jb)
+            ENDIF
+          ENDDO
+        ENDIF
+
+        IF (lprep_adv .AND. istep == 2) THEN ! Preprations for tracer advection
+          IF (lclean_mflx) THEN
+            prep_adv%mass_flx_me(:,:,jb) = 0._wp
+            prep_adv%vn_traj    (:,:,jb) = 0._wp
+          ENDIF
+          DO jk = 1, nlev
+            DO je = i_startidx, i_endidx
+              prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb)     + r_nsubsteps*z_vn_avg(je,jk)
+              prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
+            ENDDO
+          ENDDO
+        ENDIF
 
       ENDIF
 
@@ -1563,14 +1566,14 @@ MODULE mo_solve_nonhydro
         je = p_nh%metrics%bdy_mflx_e_idx(ic)
         jb = p_nh%metrics%bdy_mflx_e_blk(ic)
 
-!!$        ! This is needed for tracer mass consistency along the lateral boundaries
-!!$        IF (lprep_adv .AND. istep == 2) THEN ! subtract mass flux added previously...
-!!$          DO jk = 1, nlev
-!!$            prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) - r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
-!!$            prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) - r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb) / &
-!!$                                             (z_rho_e(je,jk,jb) * p_nh%metrics%ddqz_z_full_e(je,jk,jb))
-!!$          ENDDO
-!!$        ENDIF
+        ! This is needed for tracer mass consistency along the lateral boundaries
+        IF (lprep_adv .AND. istep == 2) THEN ! subtract mass flux added previously...
+          DO jk = 1, nlev
+            prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) - r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
+            prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) - r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb) / &
+                                             (z_rho_e(je,jk,jb) * p_nh%metrics%ddqz_z_full_e(je,jk,jb))
+          ENDDO
+        ENDIF
 
 !DIR$ IVDEP
         DO jk = 1, nlev
@@ -1579,13 +1582,13 @@ MODULE mo_solve_nonhydro
           z_theta_v_fl_e(je,jk,jb) = p_nh%diag%mass_fl_e(je,jk,jb) * z_theta_v_e(je,jk,jb)
         ENDDO
 
-!!$        IF (lprep_adv .AND. istep == 2) THEN ! ... and add the corrected one again
-!!$          DO jk = 1, nlev
-!!$            prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
-!!$            prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb) / &
-!!$                                             (z_rho_e(je,jk,jb) * p_nh%metrics%ddqz_z_full_e(je,jk,jb))
-!!$          ENDDO
-!!$        ENDIF
+        IF (lprep_adv .AND. istep == 2) THEN ! ... and add the corrected one again
+          DO jk = 1, nlev
+            prep_adv%mass_flx_me(je,jk,jb) = prep_adv%mass_flx_me(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb)
+            prep_adv%vn_traj(je,jk,jb)     = prep_adv%vn_traj(je,jk,jb) + r_nsubsteps*p_nh%diag%mass_fl_e(je,jk,jb) / &
+                                             (z_rho_e(je,jk,jb) * p_nh%metrics%ddqz_z_full_e(je,jk,jb))
+          ENDDO
+        ENDIF
 
       ENDDO
 !$OMP END DO
@@ -2079,21 +2082,21 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDIF
 
-!!$      IF (istep == 2 .AND. l_vert_nested) THEN
-!!$        ! Diagnose rho_ic(jk=1) for tracer transport, and rediagnose appropriate w(jk=1)
-!!$!DIR$ IVDEP
-!!$        DO jc = i_startidx, i_endidx
-!!$          p_nh%diag%rho_ic(jc,1,jb) =  wgt_nnow_rth*(                        &
-!!$            p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nnow)%rho(jc,1,jb) +  &
-!!$            p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nnow)%rho(jc,2,jb) +  &
-!!$            p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nnow)%rho(jc,3,jb))+  &
-!!$            wgt_nnew_rth * (                                                 &
-!!$            p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nvar)%rho(jc,1,jb) +  &
-!!$            p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nvar)%rho(jc,2,jb) +  &
-!!$            p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nvar)%rho(jc,3,jb) )
-!!$          p_nh%prog(nnew)%w(jc,1,jb) = z_mflx_top(jc,jb)/p_nh%diag%rho_ic(jc,1,jb)
-!!$        ENDDO
-!!$      ENDIF
+      IF (istep == 2 .AND. l_vert_nested) THEN
+        ! Diagnose rho_ic(jk=1) for tracer transport, and rediagnose appropriate w(jk=1)
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+          p_nh%diag%rho_ic(jc,1,jb) =  wgt_nnow_rth*(                        &
+            p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nnow)%rho(jc,1,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nnow)%rho(jc,2,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nnow)%rho(jc,3,jb))+  &
+            wgt_nnew_rth * (                                                 &
+            p_nh%metrics%wgtfacq1_c(jc,1,jb)*p_nh%prog(nvar)%rho(jc,1,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,2,jb)*p_nh%prog(nvar)%rho(jc,2,jb) +  &
+            p_nh%metrics%wgtfacq1_c(jc,3,jb)*p_nh%prog(nvar)%rho(jc,3,jb) )
+          p_nh%prog(nnew)%w(jc,1,jb) = z_mflx_top(jc,jb)/p_nh%diag%rho_ic(jc,1,jb)
+        ENDDO
+      ENDIF
 
       ! compute dw/dz for divergence damping term
       IF (lhdiff_rcf .AND. istep == 1 .AND. divdamp_type >= 3) THEN
@@ -2107,47 +2110,47 @@ MODULE mo_solve_nonhydro
         ENDDO
       ENDIF
 
-!!$      ! Preparations for tracer advection
-!!$      IF (lprep_adv .AND. istep == 2) THEN
-!!$        IF (lclean_mflx) prep_adv%mass_flx_ic(:,:,jb) = 0._wp
-!!$        DO jk = 1, nlev
-!!$          DO jc = i_startidx, i_endidx
-!!$            prep_adv%mass_flx_ic(jc,jk,jb) = prep_adv%mass_flx_ic(jc,jk,jb) + r_nsubsteps * ( z_contr_w_fl_l(jc,jk) + &
-!!$              p_nh%diag%rho_ic(jc,jk,jb) * p_nh%metrics%vwind_impl_wgt(jc,jb) * p_nh%prog(nnew)%w(jc,jk,jb) )
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDIF
-!!$
-!!$      IF (istep == 2) THEN
-!!$        ! store dynamical part of exner time increment in exner_dyn_incr
-!!$        ! the conversion into a temperature tendency is done in the NWP interface
-!!$        DO jk = kstart_moist(jg), nlev
-!!$!DIR$ IVDEP
-!!$          DO jc = i_startidx, i_endidx
-!!$            p_nh%diag%exner_dyn_incr(jc,jk,jb) = p_nh%diag%exner_dyn_incr(jc,jk,jb) + &
-!!$              p_nh%prog(nnew)%exner(jc,jk,jb) - p_nh%prog(nnow)%exner(jc,jk,jb) -     &
-!!$              dtime*p_nh%diag%ddt_exner_phy(jc,jk,jb)
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDIF
-!!$
-!!$      IF (istep == 2 .AND. l_child_vertnest) THEN
-!!$        ! Store values at nest interface levels
-!!$!DIR$ IVDEP
-!!$        DO jc = i_startidx, i_endidx
-!!$
-!!$          p_nh%diag%dw_int(jc,jb,idyn_timestep) =                                         &
-!!$            0.5_wp*(p_nh%prog(nnow)%w(jc,nshift,jb)   + p_nh%prog(nnew)%w(jc,nshift,jb) - &
-!!$                   (p_nh%prog(nnow)%w(jc,nshift+1,jb) + p_nh%prog(nnew)%w(jc,nshift+1,jb)))
-!!$
-!!$          p_nh%diag%mflx_ic_int(jc,jb,idyn_timestep) = p_nh%diag%rho_ic(jc,nshift,jb) * &
-!!$            (p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,nshift,jb) + &
-!!$             p_nh%metrics%vwind_impl_wgt(jc,jb)*p_nh%prog(nnew)%w(jc,nshift,jb))
-!!$
-!!$          p_nh%diag%dtheta_v_ic_int(jc,jb,idyn_timestep) = p_nh%diag%theta_v_ic(jc,nshift,jb) - &
-!!$            p_nh%diag%theta_v_ic(jc,nshift+1,jb)
-!!$        ENDDO
-!!$      ENDIF
+      ! Preparations for tracer advection
+      IF (lprep_adv .AND. istep == 2) THEN
+        IF (lclean_mflx) prep_adv%mass_flx_ic(:,:,jb) = 0._wp
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            prep_adv%mass_flx_ic(jc,jk,jb) = prep_adv%mass_flx_ic(jc,jk,jb) + r_nsubsteps * ( z_contr_w_fl_l(jc,jk) + &
+              p_nh%diag%rho_ic(jc,jk,jb) * p_nh%metrics%vwind_impl_wgt(jc,jb) * p_nh%prog(nnew)%w(jc,jk,jb) )
+          ENDDO
+        ENDDO
+      ENDIF
+
+      IF (istep == 2) THEN
+        ! store dynamical part of exner time increment in exner_dyn_incr
+        ! the conversion into a temperature tendency is done in the NWP interface
+        DO jk = kstart_moist(jg), nlev
+!DIR$ IVDEP
+          DO jc = i_startidx, i_endidx
+            p_nh%diag%exner_dyn_incr(jc,jk,jb) = p_nh%diag%exner_dyn_incr(jc,jk,jb) + &
+              p_nh%prog(nnew)%exner(jc,jk,jb) - p_nh%prog(nnow)%exner(jc,jk,jb) -     &
+              dtime*p_nh%diag%ddt_exner_phy(jc,jk,jb)
+          ENDDO
+        ENDDO
+      ENDIF
+
+      IF (istep == 2 .AND. l_child_vertnest) THEN
+        ! Store values at nest interface levels
+!DIR$ IVDEP
+        DO jc = i_startidx, i_endidx
+
+          p_nh%diag%dw_int(jc,jb,idyn_timestep) =                                         &
+            0.5_wp*(p_nh%prog(nnow)%w(jc,nshift,jb)   + p_nh%prog(nnew)%w(jc,nshift,jb) - &
+                   (p_nh%prog(nnow)%w(jc,nshift+1,jb) + p_nh%prog(nnew)%w(jc,nshift+1,jb)))
+
+          p_nh%diag%mflx_ic_int(jc,jb,idyn_timestep) = p_nh%diag%rho_ic(jc,nshift,jb) * &
+            (p_nh%metrics%vwind_expl_wgt(jc,jb)*p_nh%prog(nnow)%w(jc,nshift,jb) + &
+             p_nh%metrics%vwind_impl_wgt(jc,jb)*p_nh%prog(nnew)%w(jc,nshift,jb))
+
+          p_nh%diag%dtheta_v_ic_int(jc,jb,idyn_timestep) = p_nh%diag%theta_v_ic(jc,nshift,jb) - &
+            p_nh%diag%theta_v_ic(jc,nshift+1,jb)
+        ENDDO
+      ENDIF
 
     ENDDO
 !$OMP END DO
