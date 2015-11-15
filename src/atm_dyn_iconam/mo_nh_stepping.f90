@@ -2058,10 +2058,10 @@ MODULE mo_nh_stepping
       ENDIF
 
       ! integrate dynamical core
-!!$      CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
-!!$        &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
-!!$        &           lsave_mflx, lprep_adv, lclean_mflx,             &
-!!$        &           nstep, ndyn_substeps_tot-1, l_bdy_nudge, dt_dyn)
+      CALL solve_nh(p_nh_state, p_patch, p_int_state, prep_adv,     &
+        &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
+        &           lsave_mflx, lprep_adv, lclean_mflx,             &
+        &           nstep, ndyn_substeps_tot-1, l_bdy_nudge, dt_dyn)
 
       ! compute diffusion at every dynamics substep (.NOT. lhdiff_rcf)
       IF (diffusion_config(jg)%lhdiff_vn .AND. .NOT. lhdiff_rcf)   &
