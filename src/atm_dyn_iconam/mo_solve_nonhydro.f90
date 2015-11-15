@@ -353,7 +353,7 @@ MODULE mo_solve_nonhydro
     wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.1
     wgt_nnow_rth = 1._wp - wgt_nnew_rth
 
-    DO istep = 1, 2
+    DO istep = 1, 0
 
       IF (istep == 1) THEN ! predictor step
         IF (itime_scheme >= 6 .OR. l_init .OR. l_recompute) THEN
@@ -2304,6 +2304,9 @@ MODULE mo_solve_nonhydro
 
     ENDDO ! istep-loop
 
+    CALL sync_patch_array     (SYNC_E,p_patch,  p_nh%prog(nnew)%vn)
+    CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho, p_nh%prog(nnew)%exner, p_nh%prog(nnew)%w)
+
     ! The remaining computations are needed for MPI-parallelized applications only
     IF (my_process_is_mpi_all_seq() ) THEN
       IF (ltimer) CALL timer_stop(timer_solve_nh)
@@ -2413,6 +2416,8 @@ MODULE mo_solve_nonhydro
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 #endif
+
+   CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho, p_nh%prog(nnew)%exner, p_nh%prog(nnew)%theta_v)
 
    IF (ltimer) CALL timer_stop(timer_solve_nh)
 
