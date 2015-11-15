@@ -353,7 +353,7 @@ MODULE mo_solve_nonhydro
     wgt_nnew_rth = 0.5_wp + rhotheta_offctr ! default value for rhotheta_offctr is -0.1
     wgt_nnow_rth = 1._wp - wgt_nnew_rth
 
-    DO istep = 1, 0
+    DO istep = 1, 1
 
       IF (istep == 1) THEN ! predictor step
         IF (itime_scheme >= 6 .OR. l_init .OR. l_recompute) THEN
