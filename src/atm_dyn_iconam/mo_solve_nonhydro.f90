@@ -71,6 +71,7 @@ MODULE mo_solve_nonhydro
 #else
        init_zero_contiguous_sp
 #endif
+  USE mo_exception,         ONLY: print_value
   IMPLICIT NONE
 
   PRIVATE
@@ -227,6 +228,15 @@ MODULE mo_solve_nonhydro
       ! for igradp_method = 3
       iplev(:), ipeidx(:), ipeblk(:)
 
+    CALL print_value('mo_solve_nonhydro/solve_nh: l_init        = ',l_init       )
+    CALL print_value('mo_solve_nonhydro/solve_nh: l_recompute   = ',l_recompute  )
+    CALL print_value('mo_solve_nonhydro/solve_nh: lsave_mflx    = ',lsave_mflx   )
+    CALL print_value('mo_solve_nonhydro/solve_nh: lprep_adv     = ',lprep_adv    )
+    CALL print_value('mo_solve_nonhydro/solve_nh: lclean_mflx   = ',lclean_mflx  )
+    CALL print_value('mo_solve_nonhydro/solve_nh: idyn_timestep = ',idyn_timestep)
+    CALL print_value('mo_solve_nonhydro/solve_nh: jstep         = ',jstep        )
+    CALL print_value('mo_solve_nonhydro/solve_nh: l_bdy_nudge   = ',l_bdy_nudge  )
+    CALL print_value('mo_solve_nonhydro/solve_nh: dtime         = ',dtime        )
 
      !-------------------------------------------------------------------
     IF (use_dycore_barrier) THEN
@@ -240,6 +250,7 @@ MODULE mo_solve_nonhydro
 
     jg = p_patch%id
 
+    CALL print_value('mo_solve_nonhydro/solve_nh: lvert_nest    = ',lvert_nest   )
     IF (lvert_nest .AND. (p_patch%nshift_total > 0)) THEN
       l_vert_nested = .TRUE.
       nshift_total  = p_patch%nshift_total
@@ -256,6 +267,7 @@ MODULE mo_solve_nonhydro
       nshift = 0
     ENDIF
     dthalf  = 0.5_wp*dtime
+    CALL print_value('mo_solve_nonhydro/solve_nh: l_child_vertnest  = ',l_child_vertnest )
 
     ! Inverse value of ndyn_substeps for tracer advection precomputations
     r_nsubsteps = 1._wp/REAL(ndyn_substeps_var(jg),wp)
@@ -291,6 +303,7 @@ MODULE mo_solve_nonhydro
     !
     ! Impose a minimum value to divergence damping factor that, starting at 20 km, increases linearly
     ! with height to a value of 0.004 (= the namelist default) at 40 km
+    CALL print_value('mo_solve_nonhydro/solve_nh: divdamp_order = ',divdamp_order)
     DO jk = 1, nlev
       jks = jk + nshift_total
       zf = 0.5_wp*(vct_a(jks)+vct_a(jks+1))
@@ -311,6 +324,7 @@ MODULE mo_solve_nonhydro
     bdy_divdamp(:) = 0.75_wp/(nudge_max_coeff + dbl_eps)*ABS(scal_divdamp(:))
 
 
+    CALL print_value('mo_solve_nonhydro/solve_nh: p_test_run    = ',p_test_run   )
     IF (p_test_run) THEN
       z_rho_e     = 0._wp
       z_theta_v_e = 0._wp
@@ -318,6 +332,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
     ! Set time levels of ddt_adv fields for call to velocity_tendencies
+    CALL print_value('mo_solve_nonhydro/solve_nh: itime_scheme  = ',itime_scheme )
     IF (itime_scheme >= 4) THEN ! Velocity advection averaging nnow and nnew tendencies
       ntl1 = nnow
       ntl2 = nnew
@@ -357,10 +372,12 @@ MODULE mo_solve_nonhydro
                                  z_kin_hor_e,z_vt_ie,ntl2,istep,lvn_only,dtime)
         nvar = nnew
       ENDIF
+      CALL print_value('mo_solve_nonhydro/solve_nh: lvn_only      = ',lvn_only     )
 
       l_init = .FALSE. ! should be .TRUE. only at initial predictor step
 
     ! Preparations for igradp_method = 3/5 (reformulated extrapolation below the ground)
+    CALL print_value('mo_solve_nonhydro/solve_nh: igradp_method = ',igradp_method)
     IF (istep == 1 .AND. (igradp_method == 3 .OR. igradp_method == 5)) THEN
 
       iplev  => p_nh%metrics%pg_vertidx
