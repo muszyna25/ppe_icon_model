@@ -84,7 +84,7 @@ MODULE mo_nh_stepping
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
   USE mo_datetime,                 ONLY: t_datetime, add_time, check_newday, iso8601
   USE mo_io_restart,               ONLY: create_restart_file
-  USE mo_exception,                ONLY: message, message_text, finish, print_value
+  USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
     &                                    inoforcing, iheldsuarez, inwp, iecham,                    &
@@ -1425,15 +1425,7 @@ MODULE mo_nh_stepping
                                          p_nh_state(jg)%diag)
         ENDIF
 
-        CALL print_value('integrate_nh: jg                             = ',jg)
-        CALL print_value('integrate_nh: ldynamics                      = ',ldynamics)
-        CALL print_value('integrate_nh: ltestcase                      = ',ltestcase)
-        CALL print_value('integrate_nh: linit_dyn(jg)                  = ',linit_dyn(jg))
-        CALL print_value('integrate_nh: diffusion_config(jg)%lhdiff_vn = ',diffusion_config(jg)%lhdiff_vn)
-        CALL print_value('integrate_nh: (init_mode /= MODE_IAU)        = ',init_mode /= MODE_IAU)
-        CALL print_value('integrate_nh: (init_mode /= MODE_IAU_OLD)    = ',init_mode /= MODE_IAU_OLD)
-        CALL print_value('integrate_nh: (AND of all)                   = ',(ldynamics .AND. .NOT.ltestcase .AND. linit_dyn(jg) &
-             & .AND. diffusion_config(jg)%lhdiff_vn .AND. init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) )
+
         ! For real-data runs, perform an extra diffusion call before the first time
         ! step because no other filtering of the interpolated velocity field is done
         !
@@ -1453,9 +1445,6 @@ MODULE mo_nh_stepping
             !
             CALL perform_dyn_substepping (p_patch(jg), p_nh_state(jg), p_int_state(jg), &
               &                           prep_adv(jg), jstep, dt_loc)
-
-            ! now reset linit_dyn to .FALSE.
-            linit_dyn(jg) = .FALSE.
 
             ! diffusion at physics time steps
             !
@@ -2062,6 +2051,9 @@ MODULE mo_nh_stepping
         &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
         &           lsave_mflx, lprep_adv, lclean_mflx,             &
         &           nstep, ndyn_substeps_tot-1, l_bdy_nudge, dt_dyn)
+
+      ! now reset linit_dyn to .FALSE.
+      linit_dyn(jg) = .FALSE.
 
       ! compute diffusion at every dynamics substep (.NOT. lhdiff_rcf)
       IF (diffusion_config(jg)%lhdiff_vn .AND. .NOT. lhdiff_rcf)   &
