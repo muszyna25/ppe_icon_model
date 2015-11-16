@@ -2171,7 +2171,7 @@ END SUBROUTINE message
 
 
   !----------------------------------------------------------------------------
-  ! Section I.4.2b: Bare soil evaporation, Noilhan and Platon, 1989
+  ! Section I.4.2b: Bare soil evaporation, Noilhan and Planton, 1989
   !----------------------------------------------------------------------------
 
   IF (itype_evsl.EQ.3) THEN
@@ -2190,7 +2190,7 @@ END SUBROUTINE message
                IF (zw_fr(i,1)> zfcap(i,1)) THEN
                   zalpha = 1.0_ireals
                ELSE
-                  zalpha = 0.5_ireals * (1.0_ireals - COS ( 0.5_ireals * pi * &
+                  zalpha = 0.5_ireals * (1.0_ireals - COS ( pi *                  &
                            (zw_fr(i,1) - zadp(i,1)) / ( zfcap(i,1) - zadp(i,1)) ) )
                ENDIF
                z2iw   = ztsnow_pm(i)*b2w + (1._ireals - ztsnow_pm(i))*b2i

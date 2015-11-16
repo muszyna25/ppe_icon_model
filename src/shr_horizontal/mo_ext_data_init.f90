@@ -47,7 +47,7 @@ MODULE mo_ext_data_init
   USE mo_lnd_nwp_config,     ONLY: ntiles_total, ntiles_lnd, ntiles_water, lsnowtile, frlnd_thrhld, &
                                    frlndtile_thrhld, frlake_thrhld, frsea_thrhld, isub_water,       &
                                    isub_seaice, isub_lake, sstice_mode, sst_td_filename,            &
-                                   ci_td_filename, itype_lndtbl, itype_evsl
+                                   ci_td_filename, itype_lndtbl
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, &
     &                              generate_td_filename, extpar_varnames_map_file, &
@@ -1409,15 +1409,7 @@ CONTAINS
                ! surface area index
                ext_data(jg)%atm%sai_t    (jc,jb,1)  = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,1)
                ! evaporative soil area index
-               IF (itype_evsl == 2) THEN ! BATS scheme (default)
-                 ext_data(jg)%atm%eai_t (jc,jb,1)  = c_soil
-               ELSE ! ISBA bare soil evaporation scheme
-                 IF (ext_data(jg)%atm%lc_class_t(jc,jb,1) == ext_data(jg)%atm%i_lc_urban) THEN
-                   ext_data(jg)%atm%eai_t(jc,jb,1)  = 0.25_wp*c_lnd
-                 ELSE
-                   ext_data(jg)%atm%eai_t(jc,jb,1)  = 0.95_wp*c_lnd
-                 ENDIF
-               ENDIF
+               ext_data(jg)%atm%eai_t (jc,jb,1)  = c_soil
                ! minimal stomata resistance
                ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
                ! soil type
@@ -1559,15 +1551,7 @@ CONTAINS
                  ext_data(jg)%atm%sai_t    (jc,jb,i_lu)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,i_lu)
 
                  ! evaporative soil area index
-                 IF (itype_evsl == 2) THEN ! BATS scheme (default)
-                   ext_data(jg)%atm%eai_t (jc,jb,i_lu)  = c_soil
-                 ELSE  ! ISBA bare soil evaporation scheme
-                   IF (lu_subs == ext_data(jg)%atm%i_lc_urban) THEN
-                     ext_data(jg)%atm%eai_t(jc,jb,i_lu)  = 0.25_wp*c_lnd
-                   ELSE
-                     ext_data(jg)%atm%eai_t(jc,jb,i_lu)  = 0.95_wp*c_lnd
-                   ENDIF
-                 ENDIF
+                 ext_data(jg)%atm%eai_t (jc,jb,i_lu)  = c_soil
 
                  ! minimal stomata resistance
                  ext_data(jg)%atm%rsmin2d_t(jc,jb,i_lu)  = ext_data(jg)%atm%stomresmin_lcc(lu_subs)
