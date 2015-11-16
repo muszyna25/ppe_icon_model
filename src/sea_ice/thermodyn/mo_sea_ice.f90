@@ -73,7 +73,6 @@ MODULE mo_sea_ice
   USE mo_grid_config,         ONLY: n_dom
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_fast, timer_ice_slow
-  USE mo_time_config,         ONLY: time_config
   USE mo_fortran_tools,       ONLY: assign_if_present
 
   IMPLICIT NONE
