@@ -167,6 +167,7 @@ foreach my $dir ( @directories ) {
 	    print MAKEFILE "SHELL = /bin/bash\n\n";
 	    print MAKEFILE "LIB  = $subdirs[1]\n\n";
 	    $add_vpath_level = 2;
+
 	} else {
 	    print MAKEFILE "LIB  = $dir\n\n";
 	}
@@ -299,6 +300,9 @@ foreach my $dir ( @directories ) {
 		print MAKEFILE "CFLAGS += -I../../../../../$include_dir/xml\n";
 	    }
             print MAKEFILE "FFLAGS := \$(subst ../module,../../../module, \$(FFLAGS))\n";	    
+            if ( $dir =~ m/self/) {
+              print MAKEFILE 'FFLAGS := $(subst -C=all,,$(FFLAGS))';print MAKEFILE "\n";
+            }
             print MAKEFILE "\n\n";
 	} else {
 	    print MAKEFILE "../lib/lib\$(LIB).a: \$(OBJS)\n";
