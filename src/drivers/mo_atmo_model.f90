@@ -263,7 +263,7 @@ CONTAINS
       CALL message('use_mtime_loop','Cannot calculate this runs stop date.')
 #endif
     ENDIF
-
+#ifdef USE_MTIME_LOOP
     IF (ASSOCIATED(tc_startdate)) THEN
       CALL datetimeToString(tc_startdate, dstring)
       WRITE(message_text,'(a,a)') 'Start date of this run   : ', dstring
@@ -277,6 +277,7 @@ CONTAINS
     ENDIF
 
     CALL message('','')
+#endif
 
     !---------------------------------------------------------------------
     ! 1.1 Read namelists (newly) specified by the user; fill the

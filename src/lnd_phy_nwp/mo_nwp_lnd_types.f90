@@ -157,6 +157,7 @@ MODULE mo_nwp_lnd_types
     &  freshsnow    (:,:)   , & ! indicator for age of snow in top of snow layer(  -  )
     &  freshsnow_t  (:,:,:) , & ! indicator for age of snow in top of snow layer(  -  )
     &  snowfrac     (:,:)   , & ! snow-cover fraction                           (  -  )
+    &  snowfrac_lc  (:,:)   , & ! snow-cover fraction                           (  -  )
     &  snowfrac_t   (:,:,:) , & ! snow-cover fraction                           (  -  )
     &  snowfrac_lc_t(:,:,:) , & ! snow-cover fraction per land-cover class      (  -  )
     &  t_snow_mult  (:,:,:) , & ! temperature of snow                           (  K  )

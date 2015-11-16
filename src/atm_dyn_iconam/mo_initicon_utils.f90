@@ -594,9 +594,9 @@ MODULE mo_initicon_utils
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
           ! in case of tile coldstart, we can omit snowfrac
-          ! Remove field 'snowfrac' from FG list
+          ! Remove field 'snowfrac_lc' from FG list
           IF (ltile_coldstart .OR. .NOT. lsnowtile) THEN
-            CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac'/), 1)
+            CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac_lc'/), 1)
           ENDIF
 
           ! Collect group 'grp_vars_ana_default' from mode_dwd_ana_in
@@ -663,9 +663,9 @@ MODULE mo_initicon_utils
             &                loutputvars_only=.FALSE.,lremap_lonlat=.FALSE.)
 
           ! in case of tile coldstart, we can omit snowfrac
-          ! Remove field 'snowfrac' from FG list
+          ! Remove field 'snowfrac_lc' from FG list
           IF (ltile_coldstart) THEN
-            CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac'/), 1)
+            CALL difference(grp_vars_fg_default, ngrp_vars_fg_default, (/'snowfrac_lc'/), 1)
           ENDIF
 
           ! Collect group 'grp_vars_ana_default' from mode_iau_old_ana_in
@@ -3233,6 +3233,8 @@ MODULE mo_initicon_utils
             & p_lnd_state(jg)%diag_lnd%freshsnow_t)
             IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%snowfrac)) CALL printChecksum(TRIM(prefix)//"snowfrac: ", &
             & p_lnd_state(jg)%diag_lnd%snowfrac)
+            IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%snowfrac_lc)) CALL printChecksum(TRIM(prefix)//"snowfrac_lc: ", &
+            & p_lnd_state(jg)%diag_lnd%snowfrac_lc)
             IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%snowfrac_t)) CALL printChecksum(TRIM(prefix)//"snowfrac_t: ", &
             & p_lnd_state(jg)%diag_lnd%snowfrac_t)
             IF(ASSOCIATED(p_lnd_state(jg)%diag_lnd%snowfrac_lc_t)) CALL printChecksum(TRIM(prefix)//"snowfrac_lc_t: ", &

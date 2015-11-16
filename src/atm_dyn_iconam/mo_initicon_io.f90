@@ -1578,7 +1578,7 @@ MODULE mo_initicon_io
         ret = read_data_2d(parameters, filetype, 'freshsnow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_diag%snowfrac_lc_t(:,:,jt)
-        ret = read_data_2d(parameters, filetype, 'snowfrac', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
+        ret = read_data_2d(parameters, filetype, 'snowfrac_lc', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )
 
         my_ptr2d => lnd_prog%w_snow_t(:,:,jt)
         ret = read_data_2d(parameters, filetype, 'w_snow', my_ptr2d, tileinfo, opt_checkgroup=checkgrp )

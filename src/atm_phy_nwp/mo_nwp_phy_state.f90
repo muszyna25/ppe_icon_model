@@ -1823,6 +1823,33 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
       & ldims=shape2d )
 
+    ! &      diag%tvm(nproma,nblks_c)
+    cf_desc    = t_cf_var('tvm', 'm s-1','turbulent transfer velocity for momentum', &
+         &                DATATYPE_FLT32)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'tvm', diag%tvm,                             &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+      & ldims=shape2d,                                                    &
+      & in_group=groups("pbl_vars") )
+
+    ! &      diag%tvh(nproma,nblks_c)
+    cf_desc    = t_cf_var('tvh', 'm s-1 ','turbulent transfer velocity for heat', &
+         &                DATATYPE_FLT32)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'tvh', diag%tvh,                             &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+      & ldims=shape2d,                                                    &
+      & in_group=groups("pbl_vars") )
+
+    ! &      diag%tkr(nproma,nblks_c)
+    cf_desc    = t_cf_var('tkr', 'm2 s-1 ','turbulent reference surface diffusion coefficient', &
+         &                DATATYPE_FLT32)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'tkr', diag%tkr,                             &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
+      & ldims=shape2d,                                                    &
+      & in_group=groups("pbl_vars") )
+
     ! &      diag%gz0(nproma,nblks_c)
     cf_desc     = t_cf_var('gz0', 'm2 s-2 ','roughness length times gravity', DATATYPE_FLT32)
     new_cf_desc = t_cf_var( 'z0',       'm','roughness length',               DATATYPE_FLT32)
@@ -2080,6 +2107,74 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
          & grib2_var(0, 4, 0, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
          & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)
     ENDDO
+
+    ! &      diag%tvm_t(nproma,nblks_c,ntiles_total+ntiles_water)
+    cf_desc    = t_cf_var('tvm_t', 'm s-1', &
+      & 'tile-based turbulent transfer velocity for momentum', DATATYPE_FLT32)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'tvm_t', diag%tvm_t,                                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,&
+      & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+    ! fill the separate variables belonging to the container tvm_t
+    ALLOCATE(diag%tvm_t_ptr(ntiles_total+ntiles_water))
+    DO jsfc = 1,ntiles_total+ntiles_water
+      WRITE(csfc,'(i1)') jsfc
+      CALL add_ref( diag_list, 'tvm_t',                               &
+         & 'tvm_t_'//TRIM(ADJUSTL(csfc)),                             &
+         & diag%tvm_t_ptr(jsfc)%p_2d,                                 &
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
+         & t_cf_var('tvm_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
+         & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
+!        & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.)  !nec. for rest. only if 'tvm' substitutes 'tcm'
+         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
+    ENDDO
+
+    ! &      diag%tvh_t(nproma,nblks_c,ntiles_total+ntiles_water)
+    cf_desc    = t_cf_var('tvh_t', 'm s-1', &
+         &                'tile-based turbulent transfer velocity for heat', &
+         &                DATATYPE_FLT32)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'tvh_t', diag%tvh_t,                                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,&
+      & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+    ! fill the separate variables belonging to the container tvh_t
+    ALLOCATE(diag%tvh_t_ptr(ntiles_total+ntiles_water))
+    DO jsfc = 1,ntiles_total+ntiles_water
+      WRITE(csfc,'(i1)') jsfc
+      CALL add_ref( diag_list, 'tvh_t',                               &
+         & 'tvh_t_'//TRIM(ADJUSTL(csfc)),                             &
+         & diag%tvh_t_ptr(jsfc)%p_2d,                                 &
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
+         & t_cf_var('tvh_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
+         & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
+!        & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.) !nec. for rest. only if 'tvm' substitutes 'tcm'
+         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
+    ENDDO
+
+    ! &      diag%tkr_t(nproma,nblks_c,ntiles_total+ntiles_water)
+    cf_desc    = t_cf_var('tkr_t', 'm2 s-1', &
+      & 'tile-based turbulent reference surface diffusion coefficient', DATATYPE_FLT32)
+    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    CALL add_var( diag_list, 'tkr_t', diag%tkr_t,                                   &
+      & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape3dsubsw,&
+      & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
+
+    ! fill the separate variables belonging to the container tkr_t
+    ALLOCATE(diag%tkr_t_ptr(ntiles_total+ntiles_water))
+    DO jsfc = 1,ntiles_total+ntiles_water
+      WRITE(csfc,'(i1)') jsfc
+      CALL add_ref( diag_list, 'tkr_t',                               &
+         & 'tkr_t_'//TRIM(ADJUSTL(csfc)),                             &
+         & diag%tkr_t_ptr(jsfc)%p_2d,                                 &
+         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
+         & t_cf_var('tkr_t_'//TRIM(csfc), '', '', DATATYPE_FLT32),    &
+         & grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL),   &
+!        & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.) !nec. for rest. only if 'imode_trancnf>=4'
+         & ldims=shape2d, lrestart=.FALSE., loutput=.TRUE.)
+    ENDDO
+
 
     ! &      diag%gz0_t(nproma,nblks_c,ntiles_total+ntiles_water)
     cf_desc    = t_cf_var('gz0_t', 'm2 s-2 ', 'tile-based roughness length times gravity', &

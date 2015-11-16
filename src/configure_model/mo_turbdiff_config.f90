@@ -42,8 +42,6 @@ MODULE mo_turbdiff_config
     REAL(wp), DIMENSION(:), POINTER :: &
       &  impl_weight    ! implicit weights for tridiagonal solver
 
-    INTEGER :: &   ! type of surface-atmosphere transfer
-      &  itype_tran
     INTEGER :: &   ! mode of surface-atmosphere transfer
       &  imode_tran 
     INTEGER :: &   ! mode of cloud representation in transfer parametr.
@@ -56,6 +54,8 @@ MODULE mo_turbdiff_config
       &  itype_sher
     INTEGER :: &   ! mode of vertical smoothing of TKE source terms
       &  imode_frcsmot
+    INTEGER :: &   ! mode of the separated horizontal shear mode 
+      &  imode_shshear
 
     LOGICAL :: &   ! calculation SSO-wake turbulence production for TKE
       &  ltkesso
@@ -130,9 +130,6 @@ MODULE mo_turbdiff_config
     !
     INTEGER :: &  ! type of water cloud diagnosis
       &  itype_wcld
-    INTEGER :: &  ! type of diagnostics of synoptical near surface variables
-      &  itype_synd
-
 
     !
     ! derived variables

@@ -49588,7 +49588,7 @@ int vlistInsertTrivialTileSubtype(int vlistID);
 extern int cdiInventoryMode;
 
 #if  defined  (HAVE_LIBGRIB_API)
-static var_tile_t dummy_tiles = { -1, -1, -1, -1, -1, -1 };
+static var_tile_t dummy_tiles = { 0, -1, -1, -1, -1, -1 };
 #endif
 
 typedef struct {
@@ -50146,7 +50146,7 @@ void gribapiAddRecord(stream_t * streamptr, int param, grib_handle *gh,
   // fprintf(stderr, "param %d name %s %s %s\n", param, name, longname, units);
 
   /* add the previously read record data to the (intermediate) list of records */
-  int tile_index = -1;
+  int tile_index = 0;
   varAddRecord(recID, param, gridID, zaxistype, lbounds, level1, level2, level_sf, level_unit,
 	       datatype, &varID, &levelID, tsteptype, numavg, leveltype1, leveltype2,
 	       varname, stdname, longname, units, tiles, &tile_index);
@@ -61530,7 +61530,7 @@ int varInsertTileSubtype(vartable_t *vptr, const var_tile_t *tiles)
   int tileClassification = -1;
   int numberOfTiles = -1;
   int numberOfAttributes = -1;
-  int tileindex = -1;
+  int tileindex =  0;
   int attribute = -1;
 
   if ( tiles )
