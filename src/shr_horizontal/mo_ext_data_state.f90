@@ -1097,7 +1097,7 @@ CONTAINS
     !
     IF(irad_o3 == io3_clim .OR. irad_o3 == io3_ape) THEN
 
-      WRITE(0,*) 'generate ext ozone field'
+      CALL message(routine, 'generate ext ozone field')
 
       ! o3  main height level from read-in file
       cf_desc    = t_cf_var('O3_zf', 'm',   &
