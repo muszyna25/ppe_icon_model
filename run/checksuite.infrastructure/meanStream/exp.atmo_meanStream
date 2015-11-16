@@ -38,18 +38,18 @@ atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"
-  end_date="1979-01-01T00:08:00Z"
+  end_date="1979-01-01T00:20:00Z"
 
 # restart intervals
-checkpoint_interval="PT16M"
-restart_interval="PT16M"
+checkpoint_interval="PT40M"
+restart_interval="PT40M"
 #
 # NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
 # TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
 (( dt_checkpoint = 16 * minute))    # !! MUST BE EQUAL TO "checkpoint_interval"  !!
 (( dt_restart    = 16 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
 
-output_interval="PT04M"
+output_interval="PT10M"
 file_interval="P01D"
 
 # namelist files
@@ -73,8 +73,7 @@ cat > ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev          = 47          ! number of full levels
- dtime            = 240         ! [s] time step   !! MUST BE EQUAL TO "modelTimeStep" !!
- modelTimeStep    = "PT4M"
+ modelTimeStep    = "PT10M"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
@@ -102,7 +101,7 @@ cat > ${atmo_namelist} << EOF
  iequations       = 3           ! 3: ICONAM dynamics
 /
 &nonhydrostatic_nml
- ndyn_substeps    = 2           ! dtime/dt_dyn
+ ndyn_substeps    = 5           ! dtime/dt_dyn
  damp_height      = 50000.      ! [m]
  rayleigh_coeff   = 0.10
  vwind_offctr     = 0.2
@@ -129,7 +128,7 @@ cat > ${atmo_namelist} << EOF
  ihadv_tracer     = 52,2,2
 /
 &echam_phy_nml
- dt_rad           =  480.       ! [s] radiation time step
+ dt_rad           =  7200.      ! [s] radiation time step
  lrad             = .TRUE.
  lvdiff           = .TRUE.
  lconv            = .TRUE.
@@ -306,7 +305,6 @@ add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_lan
 # -------------------------------
 cat >> ${atmo_namelist} << EOF
 &io_nml
- dt_checkpoint    = ${dt_checkpoint}  !  NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
@@ -359,27 +357,27 @@ EOF
                     'tauu','tauv','rho'
 /
 &output_nml
- output_filename  = "${EXPNAME}_mean_04M"
+ output_filename  = "${EXPNAME}_mean_10M"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>_mean"
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
- output_interval  = "PT04M"
+ output_interval  = "PT10M"
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  operation        = "mean"
  ml_varlist       = 'u','v','cllvi','prcs','ps','pr'
 /
 &output_nml
- output_filename  = "${EXPNAME}_mean_08M"
+ output_filename  = "${EXPNAME}_mean_20M"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>_mean"
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"                  ! ISO-format date+time
  output_end       = "${end_date}"                    ! ISO-format date+time
  file_interval    = "${file_interval}"               ! ISO-format interval
- output_interval  = "PT08M"
+ output_interval  = "PT20M"
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  operation        = "mean"
