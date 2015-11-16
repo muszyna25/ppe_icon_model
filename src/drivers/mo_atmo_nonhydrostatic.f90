@@ -144,13 +144,13 @@ CONTAINS
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
     IF(iforcing == inwp) THEN
-      !
+
+      CALL configure_ensemble_pert(ext_data)
+
       ! - generate index lists for tiles (land, ocean, lake)
       ! index lists for ice-covered and non-ice covered ocean points
       ! are initialized in init_nwp_phy
       CALL init_index_lists (p_patch(1:), ext_data)
-
-      CALL configure_ensemble_pert()
 
       CALL configure_atm_phy_nwp(n_dom, p_patch(1:), dtime)
 
