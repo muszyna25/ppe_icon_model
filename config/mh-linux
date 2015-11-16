@@ -488,9 +488,12 @@ case "$ac_sitename" in
                         case "$with_mpi" in
                             "$software_tree/intel/impi/5.1.0.038_dapl2.1.6")
                                 load_modules = ${load_modules} intelmpi/5.1.0.038_dapl2.1.6
-                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = $with_mpi/compilers_and_libraries_2016.0.079/linux/mpi/intel64
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-impi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-ixmpi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
                                 ;;
                             "$software_tree/intel/impi/4.1.3.049"|"$software_tree/intel/impi/4.1.3.049/intel64")
                                 FFLAGS = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
@@ -520,7 +523,7 @@ case "$ac_sitename" in
                                 NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-bullxmpi-intel14
                                 NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-bullxmpi-intel14
                                 HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-bullxmpi-intel14
-                                ;;
+                                ;;                              
                         esac
                         mpi_startrun = srun
                         ;;

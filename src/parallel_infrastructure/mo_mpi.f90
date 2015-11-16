@@ -440,7 +440,6 @@ MODULE mo_mpi
   LOGICAL, PUBLIC :: i_am_accel_node = .FALSE.
 #endif
 
-
   ! communicator stack for global sums
   INTEGER, PARAMETER :: max_lev = 10 ! 2 is sufficient
   INTEGER, PUBLIC :: comm_lev = 0, glob_comm(0:max_lev), comm_proc0(0:max_lev)
