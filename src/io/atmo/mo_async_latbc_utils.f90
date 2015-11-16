@@ -79,7 +79,6 @@
          &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>),      &
          &                            datetimeToString, OPERATOR(*),               &
          &                            newTimedelta, deallocateTimedelta
-    USE mo_time_config,         ONLY: time_config
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime
     USE mo_ext_data_types,      ONLY: t_external_data
     USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime,  &

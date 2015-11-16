@@ -93,7 +93,6 @@ MODULE mo_async_latbc
          &                                  dict_finalize
     USE mo_util_string,               ONLY: add_to_list
     USE mo_initicon_config,           ONLY: latbc_varnames_map_file
-    USE mo_time_config,               ONLY: time_config
     USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  vlistInqVarGrid, streamClose, streamInqFiletype,   &

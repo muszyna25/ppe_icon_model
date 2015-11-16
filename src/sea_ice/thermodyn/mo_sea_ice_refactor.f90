@@ -49,7 +49,6 @@ MODULE mo_sea_ice_refactor
   USE mo_grid_config,         ONLY: n_dom
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_slow2
-  USE mo_time_config,         ONLY: time_config
 
   IMPLICIT NONE
 

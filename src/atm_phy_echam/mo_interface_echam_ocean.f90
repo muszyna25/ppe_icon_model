@@ -36,8 +36,6 @@ MODULE mo_interface_echam_ocean
   USE mo_impl_constants      ,ONLY: MAX_CHAR_LENGTH
 
 #ifdef YAC_coupling
-  USE mo_time_config         ,ONLY: time_config
-
   USE mo_ext_data_state      ,ONLY: ext_data
   USE mo_master_config,       ONLY: tc_startdate, tc_stopdate
   USE mtime,                  ONLY: datetimeToString
