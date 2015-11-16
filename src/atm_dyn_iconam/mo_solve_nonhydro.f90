@@ -71,7 +71,6 @@ MODULE mo_solve_nonhydro
 #else
        init_zero_contiguous_sp
 #endif
-  USE mo_exception,         ONLY: print_value
   IMPLICIT NONE
 
   PRIVATE
@@ -228,6 +227,7 @@ MODULE mo_solve_nonhydro
       ! for igradp_method = 3
       iplev(:), ipeidx(:), ipeblk(:)
 
+
      !-------------------------------------------------------------------
     IF (use_dycore_barrier) THEN
       CALL timer_start(timer_barrier)
@@ -239,10 +239,6 @@ MODULE mo_solve_nonhydro
     IF (ltimer) CALL timer_start(timer_solve_nh)
 
     jg = p_patch%id
-
-    CALL print_value('mo_solve_nonhydro/solve_nh: jg              = ',jg              )
-    CALL print_value('mo_solve_nonhydro/solve_nh: nflatlev(jg)    = ',nflatlev(jg)    )
-    CALL print_value('mo_solve_nonhydro/solve_nh: nflat_gradp(jg) = ',nflat_gradp(jg) )
 
     IF (lvert_nest .AND. (p_patch%nshift_total > 0)) THEN
       l_vert_nested = .TRUE.
@@ -968,8 +964,6 @@ MODULE mo_solve_nonhydro
         ENDDO
 
         IF (igradp_method <= 3) THEN
-!! exp.atm_amip..._test: jg=1, nflatlev(jg)=24, nflat_gradp(jg=47)
-!! --> this vertical loop is for jk=24,47
 #ifdef __LOOP_EXCHANGE
           DO je = i_startidx, i_endidx
 !DIR$ IVDEP
@@ -2295,9 +2289,6 @@ MODULE mo_solve_nonhydro
 
     ENDDO ! istep-loop
 
-    CALL sync_patch_array     (SYNC_E,p_patch,  p_nh%prog(nnew)%vn)
-    CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho, p_nh%prog(nnew)%exner, p_nh%prog(nnew)%w)
-
     ! The remaining computations are needed for MPI-parallelized applications only
     IF (my_process_is_mpi_all_seq() ) THEN
       IF (ltimer) CALL timer_stop(timer_solve_nh)
@@ -2407,8 +2398,6 @@ MODULE mo_solve_nonhydro
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 #endif
-
-   CALL sync_patch_array_mult(SYNC_C,p_patch,3,p_nh%prog(nnew)%rho, p_nh%prog(nnew)%exner, p_nh%prog(nnew)%theta_v)
 
    IF (ltimer) CALL timer_stop(timer_solve_nh)
 
