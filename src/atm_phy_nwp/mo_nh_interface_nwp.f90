@@ -327,7 +327,7 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk,  &
                              i_startidx, i_endidx, rl_start, rl_end)
 
-        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag, p_metrics,          &
+        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag,          &
                         jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
         CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
@@ -369,7 +369,7 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
       IF (l_any_fastphys .OR. linit) THEN  ! diagnose temperature
-        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag, p_metrics,          &
+        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag,       &
                         jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
       ENDIF
 
@@ -560,7 +560,7 @@ CONTAINS
     ENDIF
 
     IF (lart) THEN
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
 
       CALL art_reaction_interface(ext_data,                    & !> in
                 &          pt_patch,                           & !> in
@@ -661,7 +661,7 @@ CONTAINS
         ! compute dynamical temperature tendency from increments of Exner function and density
         ! the virtual increment is neglected here because this tendency is used only as
         ! input for the convection scheme, which is rather insensitive against this quantity
-        IF ( lcall_phy_jg(itconv)  ) THEN
+        IF ( lcall_phy_jg(itconv) ) THEN
           DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
             DO jc =  i_startidx, i_endidx
@@ -671,16 +671,13 @@ CONTAINS
                 ( pt_diag%airmass_new(jc,jk,jb)-pt_diag%airmass_now(jc,jk,jb) ) /            &
                 pt_diag%airmass_new(jc,jk,jb) )
 
-              ! reset dynamical exner increment to zero
-              ! (it is accumulated over one advective time step in solve_nh)
-              pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
-
             ENDDO
           ENDDO
-        ELSE
-          ! reset only the dynamical exner increment
-          pt_diag%exner_dyn_incr(:,kstart_moist(jg):nlev,jb) = 0._wp
         ENDIF
+
+        ! reset dynamical exner increment to zero
+        ! (it is accumulated over one advective time step in solve_nh)
+        pt_diag%exner_dyn_incr(:,kstart_moist(jg):nlev,jb) = 0._wp
 
       ENDIF ! recalculation
 
@@ -885,8 +882,7 @@ CONTAINS
            &              pt_diag,               & ! inout
            &              prm_diag,              & ! inout
            &              lnd_prog_new,          & ! in
-           &              wtr_prog_new,          & ! in
-           &              p_metrics              ) ! in
+           &              wtr_prog_new           ) ! in
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
 
     ENDIF
@@ -1128,7 +1124,7 @@ CONTAINS
 
     IF (timers_level > 2) CALL timer_start(timer_phys_acc)
     !-------------------------------------------------------------------------
-    !>  accumulate tendencies of slow_physics: Not called when LS focing is ON
+    !>  accumulate tendencies of slow_physics
     !-------------------------------------------------------------------------
     IF( (l_any_slowphys .OR. lcall_phy_jg(itradheat)) .OR. is_ls_forcing) THEN
 
@@ -1262,6 +1258,9 @@ CONTAINS
    &        + zddt_v_raylfric            (i_startidx:i_endidx,:)    &
    &        + prm_nwp_tend%ddt_v_sso     (i_startidx:i_endidx,:,jb) &
    &        + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb)
+        ELSE IF (is_ls_forcing) THEN
+          z_ddt_u_tot(i_startidx:i_endidx,:,jb) = 0._wp
+          z_ddt_v_tot(i_startidx:i_endidx,:,jb) = 0._wp
         ENDIF
 
 

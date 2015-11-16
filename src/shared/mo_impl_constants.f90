@@ -566,6 +566,15 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_DETAILED    = 2
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_WRITE_FILES = 3
 
+  !-------------------------------------------------!
+  !  TIME LEVEL SOURCE (WHICH "NNOW"/"NNEW" TO USE) !
+  !-------------------------------------------------!
+
+  INTEGER, PARAMETER, PUBLIC :: TLEV_NNOW     = 0
+  INTEGER, PARAMETER, PUBLIC :: TLEV_NNOW_RCF = 1
+  INTEGER, PARAMETER, PUBLIC :: TLEV_NNEW     = 2
+  INTEGER, PARAMETER, PUBLIC :: TLEV_NNEW_RCF = 3
+
   !-------------------------!
   !  RTTOV FIELD CATEGORIES !
   !-------------------------!

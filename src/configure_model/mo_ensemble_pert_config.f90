@@ -21,8 +21,10 @@ MODULE mo_ensemble_pert_config
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_dom
-  USE mo_nwp_tuning_config,  ONLY: tune_gkwake, tune_gkdrag, tune_gfluxlaun, tune_zvz0i,  &
-    &                        tune_entrorg, tune_capdcfac_et, tune_box_liq
+  USE mo_nwp_tuning_config,  ONLY: tune_gkwake, tune_gkdrag, tune_gfluxlaun, tune_zvz0i,    &
+    &                        tune_entrorg, tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
+    &                        tune_rhebc_ocean, tune_rcucov, tune_texc, tune_qexc,           &
+    &                        tune_minsnowfrac
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_gribout_config,     ONLY: gribout_config
   USE mo_exception,          ONLY: message_text, message
@@ -33,7 +35,8 @@ MODULE mo_ensemble_pert_config
 
   PUBLIC :: use_ensemble_pert, configure_ensemble_pert
   PUBLIC :: range_gkwake, range_gkdrag, range_gfluxlaun, range_zvz0i, range_entrorg, range_capdcfac_et, &
-            range_box_liq, range_tkhmin, range_tkmmin, range_rlam_heat
+            range_box_liq, range_tkhmin, range_tkmmin, range_rlam_heat, range_rhebc, range_texc,        &
+            range_minsnowfrac
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ensemble perturbations
@@ -58,6 +61,15 @@ MODULE mo_ensemble_pert_config
 
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  range_capdcfac_et            ! (relevant only if icapdcycl = 3)
+
+  REAL(wp) :: &                    !< RH thresholds for evaporation below cloud base
+    &  range_rhebc
+
+  REAL(wp) :: &                    !< Excess value for temperature used in test parcel ascent
+    &  range_texc
+
+  REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
+    &  range_minsnowfrac           !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
 
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  range_box_liq                ! (in case of inwp_cldcover = 1)
@@ -119,9 +131,9 @@ MODULE mo_ensemble_pert_config
       tune_gfluxlaun = tune_gfluxlaun + 2._wp*(rnd_num-0.5_wp)*range_gfluxlaun
 
       CALL RANDOM_NUMBER(rnd_num)
-      ! Perturbation for CAPE diurnal cycle must be one-sided and is chosen to be zero for half of the
-      ! ensemble members because applying this perturbation degrades scores in some cases
-      tune_capdcfac_et = tune_capdcfac_et + MAX(0._wp,2._wp*(rnd_num-0.5_wp))*range_capdcfac_et
+      ! Scale factor for CAPE diurnal cycle correction must be non-negative; for the current default
+      ! of tune_capdcfac_et=0, the perturbation is zero for half of the ensemble members
+      tune_capdcfac_et = MAX(0._wp, tune_capdcfac_et + 2._wp*(rnd_num-0.5_wp)*range_capdcfac_et)
 
       CALL RANDOM_NUMBER(rnd_num)
       tune_box_liq = tune_box_liq + 2._wp*(rnd_num-0.5_wp)*range_box_liq
@@ -138,6 +150,21 @@ MODULE mo_ensemble_pert_config
       turbdiff_config(1:max_dom)%rlam_heat = turbdiff_config(1:max_dom)%rlam_heat * rnd_fac
       turbdiff_config(1:max_dom)%rat_sea   = turbdiff_config(1:max_dom)%rat_sea   / rnd_fac
 
+      CALL RANDOM_NUMBER(rnd_num)
+      ! Perturbations for RH thresholds for the onset of evaporation below cloud base and the
+      ! convective area fraction must be anticorrelated, i.e. the convective area fraction is reduced
+      ! when the RH thresholds are increased
+      tune_rhebc_land  = tune_rhebc_land  + 2._wp*(rnd_num-0.5_wp)*range_rhebc
+      tune_rhebc_ocean = tune_rhebc_ocean + 2._wp*(rnd_num-0.5_wp)*range_rhebc
+      tune_rcucov      = tune_rcucov / (1._wp + 15._wp*range_rhebc*(rnd_num-0.5_wp))
+
+      CALL RANDOM_NUMBER(rnd_num)
+      ! Perturbations for temperature / QV excess values in test parcel ascent must be anticorrelated
+      tune_texc = tune_texc + 2._wp*(rnd_num-0.5_wp)*range_texc
+      tune_qexc = tune_qexc - 2._wp*(rnd_num-0.5_wp)*range_texc/10._wp
+
+      CALL RANDOM_NUMBER(rnd_num)
+      tune_minsnowfrac = tune_minsnowfrac + 2._wp*(rnd_num-0.5_wp)*range_minsnowfrac
 
       ! control output
       WRITE(message_text,'(2f8.4,e11.4)') tune_gkwake, tune_gkdrag, tune_gfluxlaun
@@ -146,9 +173,12 @@ MODULE mo_ensemble_pert_config
       WRITE(message_text,'(3f8.4,e11.4)') tune_box_liq, tune_zvz0i, tune_capdcfac_et, tune_entrorg
       CALL message('Perturbed values, box_liq, zvz0i, capdcfac_et, entrorg', TRIM(message_text))
 
-      WRITE(message_text,'(3f8.4,f8.3)') turbdiff_config(1)%tkhmin, turbdiff_config(1)%tkmmin, &
-        turbdiff_config(1)%rlam_heat , turbdiff_config(1)%rat_sea
-      CALL message('Perturbed values, tkhmin, tkmmin, rlam_heat, rat_sea', TRIM(message_text))
+      WRITE(message_text,'(4f8.4,f8.5)') tune_rhebc_land, tune_rhebc_ocean, tune_rcucov, tune_texc, tune_qexc
+      CALL message('Perturbed values, rhebc_land, rhebc_ocean, rcucov, texc, qexc', TRIM(message_text))
+
+      WRITE(message_text,'(3f8.4,f8.3,f8.4)') turbdiff_config(1)%tkhmin, turbdiff_config(1)%tkmmin, &
+        turbdiff_config(1)%rlam_heat , turbdiff_config(1)%rat_sea, tune_minsnowfrac
+      CALL message('Perturbed values, tkhmin, tkmmin, rlam_heat, rat_sea, minsnowfrac', TRIM(message_text))
 
       DEALLOCATE(rnd_seed)
     ENDIF

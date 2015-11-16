@@ -1965,14 +1965,6 @@ MODULE mo_sgs_turbmetric
          END DO
 
          !CALL TDMA
-  !       DO jc = i_startidx, i_endidx
- !          CALL tdma_solver(a(jc,2:nlev),b(jc,2:nlev),c(jc,2:nlev), &
- !                           rhs(jc,2:nlev),nlev-1,var_new(2:nlev))
-!!
-         !  tot_tend(jc,2:nlev,jb) = tot_tend(jc,2:nlev,jb) +  &
-         !                           ( var_new(2:nlev)-p_nh_prog%w(jc,2:nlev,jb) ) * inv_dt
-         !END DO
-
          DO jc = i_startidx, i_endidx
            CALL tdma_solver(a(jc,2:nlev),b(jc,2:nlev),c(jc,2:nlev),rhs(jc,2:nlev),nlev-1,var_new(2:nlev))
            tot_tend(jc,2:nlev,jb) = tot_tend(jc,2:nlev,jb) + (var_new(2:nlev) - p_nh_prog%w(jc,2:nlev,jb)) * inv_dt
@@ -2343,7 +2335,7 @@ MODULE mo_sgs_turbmetric
                          (var_iv(jvn,jk+1,jbn) - var_iv(ievidx(je,jb,1),jk+1,ievblk(je,jb,1))) * &
                          exner_ie(je,jk+1,jb) )
 
-             metric_tend_e(je,jk,jb) = (norm_metr*p_nh_metrics%ddxn_z_full(je,jk,jb) - &
+             metric_tend_e(je,jk,jb) = (norm_metr*p_nh_metrics%ddxn_z_full(je,jk,jb) + &
                          tang_metr*p_nh_metrics%ddxt_z_full(je,jk,jb)) * p_nh_metrics%inv_ddqz_z_full_e(je,jk,jb)
 
             ENDDO

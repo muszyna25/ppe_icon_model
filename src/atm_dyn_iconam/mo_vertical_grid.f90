@@ -43,22 +43,23 @@ MODULE mo_vertical_grid
   USE mo_vertical_coord_table,  ONLY: vct_a
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, RAYLEIGH_CLASSIC, &
     &                                 RAYLEIGH_KLEMP, min_rlcell_int, min_rlcell, min_rledge_int
-  USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c
+  USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c, &
+                                      grf_nudge_start_e, grf_nudgezone_width
   USE mo_physical_constants,    ONLY: grav, p0ref, rd, rd_o_cpd, cpd, p0sl_bg, rgrav
   USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
   USE mo_intp_data_strc,        ONLY: t_int_state
-  USE mo_intp,                  ONLY: cells2edges_scalar, cells2verts_scalar
+  USE mo_intp,                  ONLY: cells2edges_scalar, cells2verts_scalar, cell_avg
   USE mo_math_constants,        ONLY: pi_2
   USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
   USE mo_nonhydro_types,        ONLY: t_nh_state
   USE mo_nh_init_utils,         ONLY: nflatlev
-  USE mo_sync,                  ONLY: SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
+  USE mo_sync,                  ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array, global_sum_array, &
                                       sync_patch_array_mult, global_min, global_max
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_les_config,           ONLY: les_config
   USE mo_impl_constants,       ONLY: min_rlvert_int
   USE mo_data_turbdiff,        ONLY: akt
-  USE mo_fortran_tools,        ONLY: copy, init
+  USE mo_fortran_tools,        ONLY: init
 
   IMPLICIT NONE
 
@@ -95,23 +96,24 @@ MODULE mo_vertical_grid
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_vertical_grid:set_nh_metrics'
 
-    TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch(n_dom)  !< patch
-    TYPE(t_nh_state),      INTENT(INOUT) :: p_nh(n_dom)
-    TYPE(t_int_state),     INTENT(   IN) :: p_int(n_dom)
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(n_dom)
+    TYPE(t_patch),     TARGET, INTENT(INOUT) :: p_patch(n_dom)  !< patch
+    TYPE(t_nh_state),          INTENT(INOUT) :: p_nh(n_dom)
+    TYPE(t_int_state), TARGET, INTENT(   IN) :: p_int(n_dom)
+    TYPE(t_external_data),     INTENT(INOUT) :: ext_data(n_dom)
 
     INTEGER :: jg, jk, jk1, jk_start, jb, jc, je, jn, jgc, nlen, &
-               nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, npromz_v, ic
+               nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, ic
     INTEGER :: nlev, nlevp1              !< number of full levels
 
     ! Note: the present way of setting up coordinate surfaces will not work for vertical refinement
     INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk, icount_total
     INTEGER :: ica(max_dom)
 
-    REAL(wp) :: z_diff, z_sin_diff, z_sin_diff_full, z_tanh_diff,    &
-      &         z1, z2, z3, zf, z_help(nproma),                      &
-      &         z_temp(nproma), z_aux1(nproma), z_aux2(nproma),      &
-      &         z0, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6
+    REAL(wp) :: z_diff, z_sin_diff, z_sin_diff_full, z_tanh_diff,      &
+      &         z1, z2, z3, zf, z_help(nproma),                        &
+      &         z_temp(nproma), z_aux1(nproma), z_aux2(nproma),        &
+      &         z0, coef1, coef2, coef3, dn1, dn2, dn3, dn4, dn5, dn6, &
+      &         zn_min, zn_avg, zn_sq, zn_rms
     REAL(wp) :: z_maxslope, z_maxhdiff, z_offctr
     REAL(wp), ALLOCATABLE :: z_ifv(:,:,:)
     REAL(wp), ALLOCATABLE :: z_me(:,:,:),z_maxslp(:,:,:),z_maxhgtd(:,:,:),z_shift(:,:,:), &
@@ -119,7 +121,7 @@ MODULE mo_vertical_grid
     REAL(wp), ALLOCATABLE :: z_aux_c(:,:,:), z_aux_e(:,:,:)
     REAL(wp) :: extrapol_dist
     INTEGER,  ALLOCATABLE :: flat_idx(:,:), imask(:,:,:),icount(:)
-    INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk, inidx, inblk
     LOGICAL :: l_found(nproma), lfound_all
 
     !------------------------------------------------------------------------
@@ -131,7 +133,6 @@ MODULE mo_vertical_grid
       nblks_e   = p_patch(jg)%nblks_e
       npromz_e  = p_patch(jg)%npromz_e
       nblks_v   = p_patch(jg)%nblks_v
-      npromz_v  = p_patch(jg)%npromz_v
 
       ! number of vertical levels
       nlev   = p_patch(jg)%nlev
@@ -435,11 +436,32 @@ MODULE mo_vertical_grid
         kstart_dd3d(jg) = kstart_dd3d(jg) + 1
       ENDIF
 
+      ! Horizontal mask field for 3D divergence damping term; 2D div damping is generally applied in the 
+      ! immediate vicinity of nest boundaries
+      DO jb = i_startblk,nblks_e
+
+        CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
+                           i_startidx, i_endidx, 1)
+
+        DO je = i_startidx, i_endidx
+          IF (p_patch(jg)%edges%refin_ctrl(je,jb) <= 0 .OR.                                           &
+              p_patch(jg)%edges%refin_ctrl(je,jb) >= grf_nudge_start_e+2*(grf_nudgezone_width-1) ) THEN
+            p_nh(jg)%metrics%hmask_dd3d(je,jb) = 1._wp
+          ELSE IF (p_patch(jg)%edges%refin_ctrl(je,jb) <= grf_nudge_start_e+grf_nudgezone_width-1) THEN
+            p_nh(jg)%metrics%hmask_dd3d(je,jb) = 0._wp
+          ELSE
+            p_nh(jg)%metrics%hmask_dd3d(je,jb) = 1._wp/REAL(grf_nudgezone_width-1,wp) *              &
+              REAL(p_patch(jg)%edges%refin_ctrl(je,jb) - (grf_nudge_start_e+grf_nudgezone_width-1), wp)
+          ENDIF
+        ENDDO
+      ENDDO
 
       ! Compute variable Exner extrapolation factors and offcentering coefficients for the
       ! vertical wind solver to optimize numerical stability over steep orography
-      iidx => p_patch(jg)%cells%edge_idx
-      iblk => p_patch(jg)%cells%edge_blk
+      iidx  => p_patch(jg)%cells%edge_idx
+      iblk  => p_patch(jg)%cells%edge_blk
+      inidx => p_int(jg)%rbf_c2grad_idx
+      inblk => p_int(jg)%rbf_c2grad_blk
 
       i_startblk = p_patch(jg)%cells%start_block(2)
 
@@ -453,7 +475,8 @@ MODULE mo_vertical_grid
       CALL init(z_maxhgtd(:,:,:))
 !$OMP BARRIER
 
-!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jc, z_maxslope, z_offctr, z_diff) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb, i_startidx, i_endidx, jk, jk1, jc, z_maxslope, z_offctr, z_diff, &
+!$OMP            zn_min, zn_avg, zn_sq, zn_rms) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = i_startblk,nblks_c
 
         CALL get_indices_c(p_patch(jg), jb, i_startblk, nblks_c, &
@@ -530,6 +553,27 @@ MODULE mo_vertical_grid
           ENDDO
         ENDDO
 
+        ! Compute mask field for mountain or upper slope grid points
+        DO jc = i_startidx,i_endidx
+          zn_avg = 0._wp
+          zn_sq  = 0._wp
+          zn_min = p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)
+          DO ic = 2, 10
+            zn_avg = zn_avg + p_nh(jg)%metrics%z_ifc(inidx(ic,jc,jb),nlevp1,inblk(ic,jc,jb))
+            zn_sq  = zn_sq  + p_nh(jg)%metrics%z_ifc(inidx(ic,jc,jb),nlevp1,inblk(ic,jc,jb))**2
+            zn_min = MIN(zn_min,p_nh(jg)%metrics%z_ifc(inidx(ic,jc,jb),nlevp1,inblk(ic,jc,jb)))
+          ENDDO
+          zn_avg = zn_avg/9._wp
+          zn_sq  = zn_sq/9._wp
+          zn_rms = SQRT(MAX(0._wp,zn_sq - zn_avg**2))
+          IF (p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_min > 200._wp .AND. p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb) > zn_avg) THEN
+            p_nh(jg)%metrics%mask_mtnpoints(jc,jb) = MIN(1._wp,1.e5_wp*MAX(0._wp,MAX(zn_rms,                               &
+              p_nh(jg)%metrics%z_ifc(jc,nlevp1,jb)-zn_avg)-200._wp)/p_patch(jg)%geometry_info%mean_characteristic_length**2)
+          ELSE
+            p_nh(jg)%metrics%mask_mtnpoints(jc,jb) = 0._wp
+          ENDIF
+        ENDDO
+
       ENDDO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
@@ -537,6 +581,15 @@ MODULE mo_vertical_grid
 
       DEALLOCATE(z_ddxn_z_half_e,z_ddxt_z_half_e)
 
+      ALLOCATE(z_aux_c(nproma,1,nblks_c),z_aux_e(nproma,1,nblks_c))
+      z_aux_e(:,1,:) = 0._wp
+
+      CALL sync_patch_array(SYNC_C, p_patch(jg), p_nh(jg)%metrics%mask_mtnpoints)
+      z_aux_c(:,1,:) = p_nh(jg)%metrics%mask_mtnpoints(:,:)
+      CALL cell_avg(z_aux_c, p_patch(jg), p_int(jg)%c_bln_avg, z_aux_e)
+      p_nh(jg)%metrics%mask_mtnpoints(:,:) = z_aux_e(:,1,:)
+
+      DEALLOCATE(z_aux_c,z_aux_e)
 
       ! Index lists for boundary nudging (including halo cells so that no
       ! sync is needed afterwards; halo edges are excluded, however, because
@@ -687,6 +740,7 @@ MODULE mo_vertical_grid
       ! Allocate index lists and storage field for boundary mass flux
       ALLOCATE(p_nh(jg)%metrics%bdy_mflx_e_idx(ic),p_nh(jg)%metrics%bdy_mflx_e_blk(ic), &
                p_nh(jg)%diag%grf_bdy_mflx(nlev,ic,2))
+      p_nh(jg)%diag%grf_bdy_mflx(:,:,:) = 0._wp
 
       ! part 3: fill index list with nest boundary points of row 9
       i_startblk = p_patch(jg)%edges%start_block(grf_bdywidth_e)
@@ -1912,7 +1966,7 @@ MODULE mo_vertical_grid
 
     REAL(wp)  :: les_filter, z_mc, z_aux(nproma,p_patch%nlevp1,p_patch%nblks_c)
 
-    INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c, npromz_e
+    INTEGER :: jk, jb, jc, je, nblks_c, nblks_e, nlen, i_startidx, i_endidx, npromz_c
     INTEGER :: nlev, nlevp1, i_startblk
 
     nlev = p_patch%nlev
@@ -1920,7 +1974,6 @@ MODULE mo_vertical_grid
     nblks_c   = p_patch%nblks_c
     npromz_c  = p_patch%npromz_c
     nblks_e   = p_patch%nblks_e
-    npromz_e  = p_patch%npromz_e
 
     i_startblk = p_patch%edges%start_block(2)
 !$OMP PARALLEL
