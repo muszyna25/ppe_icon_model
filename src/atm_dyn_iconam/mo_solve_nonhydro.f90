@@ -954,8 +954,7 @@ MODULE mo_solve_nonhydro
           DO je = i_startidx, i_endidx
 #endif
             ! horizontal gradient of Exner pressure where coordinate surfaces are flat
-!!$            z_gradh_exner(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb)* &
-            z_gradh_exner(je,jk,jb) =                                            &
+            z_gradh_exner(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb)* &
              (z_exner_ex_pr(icidx(je,jb,2),jk,icblk(je,jb,2)) -                  &
               z_exner_ex_pr(icidx(je,jb,1),jk,icblk(je,jb,1)) )
           ENDDO
@@ -971,8 +970,7 @@ MODULE mo_solve_nonhydro
             DO je = i_startidx, i_endidx
 #endif
               ! horizontal gradient of Exner pressure, including metric correction
-!!$              z_gradh_exner(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb)*         &
-              z_gradh_exner(je,jk,jb) =                                                    &
+              z_gradh_exner(je,jk,jb) = p_patch%edges%inv_dual_edge_length(je,jb)*         &
                (z_exner_ex_pr(icidx(je,jb,2),jk,icblk(je,jb,2)) -                          &
                 z_exner_ex_pr(icidx(je,jb,1),jk,icblk(je,jb,1)) ) -                        &
                 p_nh%metrics%ddxn_z_full(je,jk,jb) *                                       &
