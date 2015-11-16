@@ -2705,7 +2705,7 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
      ! &      phy_tend%ddt_temp_gscp(nproma,nlev,nblks)
      cf_desc    = t_cf_var('ddt_temp_gscp', 'K s-1', &
           &                            'microphysical temperature tendency', DATATYPE_FLT32)
-     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_REFERENCE, GRID_CELL)
+     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
      CALL add_var( phy_tend_list, 'ddt_temp_gscp', phy_tend%ddt_temp_gscp,        &
                  & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,        &
                  & ldims=shape3d, lrestart=.FALSE., in_group=groups("phys_tendencies") )
