@@ -68,14 +68,19 @@ MODULE mo_radiation
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
 
   USE mo_newcld_optics,        ONLY: newcld_optics
+  USE mo_psrad_cloud_optics,   ONLY: psrad_cloud_optics => cloud_optics
   USE mo_bc_aeropt_kinne,      ONLY: set_bc_aeropt_kinne
   USE mo_bc_aeropt_stenchikov, ONLY: add_bc_aeropt_stenchikov
 
   USE mo_lrtm_par,             ONLY: jpband => nbndlw, jpxsec => maxxsec
   USE mo_lrtm,                 ONLY: lrtm
-
+  USE mo_psrad_lrtm_driver,    ONLY: psrad_lrtm => lrtm
   USE mo_srtm_config,          ONLY: jpsw, jpinpx
   USE mo_srtm,                 ONLY: srtm_srtm_224gp
+  USE mo_psrad_srtm_driver,    ONLY: psrad_srtm => srtm
+  USE mo_psrad_spec_sampling,  ONLY: get_num_gpoints
+  USE mo_psrad_interface,      ONLY: lw_strat, sw_strat
+  USE mo_psrad_radiation_parameters, ONLY: psctm
   USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
   USE mo_timer,                ONLY: ltimer, timer_start, timer_stop,  &
     &                                timer_radiation,                  &
@@ -341,6 +346,12 @@ CONTAINS
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
 
+    ENDIF
+
+    IF (PRESENT(zsct)) THEN
+      psctm = zsct
+    ELSE
+      psctm = tsi_radt
     ENDIF
 
   END SUBROUTINE pre_radiation_nwp_steps
@@ -728,7 +739,7 @@ CONTAINS
     !
     CALL rrtm_interface(                                                    &
                                 ! input
-      & jg              ,jb                                                ,&
+      & jg              ,jb              ,1                                ,&
       & jce             ,kbdim           ,klev                             ,&
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0_mod                                                        ,&
@@ -775,7 +786,7 @@ CONTAINS
 
   !-----------------------------------------------------------------------------
   !>
-  !! @brief Organizes the calls to the ratiation solver
+  !! @brief Organizes the calls to the radiation solver
   !!
   !! @remarks This routine organises the input/output for the radiation
   !! computation.  The state of radiatively active constituents is set as the
@@ -786,7 +797,7 @@ CONTAINS
   !
   SUBROUTINE radiation_nwp(                                                &
     ! input
-    &  jg, jb                                                              &
+    &  jg, jb, irad                                                        &
     & ,jce               ,kbdim           ,klev             ,klevp1        &
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
@@ -806,6 +817,7 @@ CONTAINS
     INTEGER, INTENT(in)   :: &
       &  jg,                 & !< domain index
       &  jb,                 & !< block index
+      &  irad,               & !< option for radiation scheme (RRTM/PSRAD)
       &  jce,                & !< end   index for loop over block
       &  kbdim,              & !< dimension of block over cells
       &  klev,               & !< number of full levels = number of layers
@@ -972,7 +984,7 @@ CONTAINS
     !
     CALL rrtm_interface(                                                    &
       ! input
-      & jg              ,jb                                                ,&
+      & jg              ,jb              ,irad                             ,&
       & jce             ,kbdim           ,klev                             ,&
       & ktype           ,zland           ,zglac                            ,&
       & cos_mu0                                                            ,&
@@ -1119,7 +1131,7 @@ CONTAINS
 
   SUBROUTINE rrtm_interface(                                              &
     ! input
-    & jg              ,jb                                                ,&
+    & jg              ,jb              ,irad                             ,&
     & jce             ,kbdim           ,klev                             ,&
     & ktype           ,zland           ,zglac                            ,&
     & pmu0                                                               ,&
@@ -1143,6 +1155,8 @@ CONTAINS
     INTEGER,INTENT(in)  ::                &
       &  jg,                              & !< domain index
       &  jb,                              & !< block index
+      &  irad,                            & !< option for radiation scheme (RRTM/PSRAD); active in NWP mode only, 
+      !                                        ECHAM mode uses a completely different interface
       &  jce,                             & !< number of columns
       &  kbdim,                           & !< first dimension of 2-d arrays
       &  klev                               !< number of levels
@@ -1253,6 +1267,21 @@ CONTAINS
       &  flx_dnsw_clr(kbdim,klev+1)         !< downward flux clear sky
 
     CHARACTER(LEN=3)     :: c_irad_aero
+
+    ! Additional fields needed for PSRAD call
+    LOGICAL ::                         &
+         laland(kbdim),                & !< land sea mask, land=.true.
+         laglac(kbdim)                   !< glacier mask, glacier=.true.
+
+    REAL(wp) ::                        &
+         re_drop   (kbdim,klev),       & !< effective radius of liquid
+         re_cryst  (kbdim,klev),       & !< effective radius of ice
+         aux_out   (kbdim,5),          &
+         zmu0      (kbdim)
+
+    INTEGER, PARAMETER    :: rng_seed_size = 4
+    INTEGER :: rnseeds(kbdim,rng_seed_size)
+    INTEGER :: n_gpts_ts
 
     ! Initialize output variables
     flx_lw_net(:,:)     = 0._wp
@@ -1459,12 +1488,32 @@ CONTAINS
       & aer_piz_sw_vr   ,aer_cg_sw_vr                       )
     END IF
 
-
-    CALL newcld_optics(                                                       &
-      & jce          ,kbdim        ,klev         ,jpband       ,jpsw         ,&
-      & zglac        ,zland        ,ktype        ,icldlyr      ,tk_fl_vr     ,&
-      & zlwp_vr      ,ziwp_vr      ,zlwc_vr      ,ziwc_vr      ,cdnc_vr      ,&
-      & cld_tau_lw_vr,cld_tau_sw_vr,cld_piz_sw_vr,cld_cg_sw_vr                )
+    IF (irad == 1) THEN
+      CALL newcld_optics(                                                       &
+        & jce          ,kbdim        ,klev         ,jpband       ,jpsw         ,&
+        & zglac        ,zland        ,ktype        ,icldlyr      ,tk_fl_vr     ,&
+        & zlwp_vr      ,ziwp_vr      ,zlwc_vr      ,ziwc_vr      ,cdnc_vr      ,&
+        & cld_tau_lw_vr,cld_tau_sw_vr,cld_piz_sw_vr,cld_cg_sw_vr                )
+    ELSE
+      DO jl = 1,jce
+        IF (zland(jl) >= 0.5_wp) THEN
+          laland(jl) = .TRUE.
+        ELSE
+          laland(jl) = .FALSE.
+        ENDIF
+        IF (zglac(jl) >= 0.5_wp) THEN
+          laglac(jl) = .TRUE.
+        ELSE
+          laglac(jl) = .FALSE.
+        ENDIF
+      ENDDO
+      CALL psrad_cloud_optics(                                          &
+         & laglac        ,laland        ,jce           ,kbdim          ,& 
+         & klev          , ktype        ,jpband        ,jpsw           ,&
+         & icldlyr       ,zlwp_vr       ,ziwp_vr       ,zlwc_vr        ,&
+         & ziwc_vr       ,cdnc_vr       ,cld_tau_lw_vr ,cld_tau_sw_vr  ,&
+         & cld_piz_sw_vr ,cld_cg_sw_vr  ,re_drop       ,re_cryst    )  
+    ENDIF
 
 
     IF (ltimer) CALL timer_stop(timer_rrtm_prep)
@@ -1473,36 +1522,78 @@ CONTAINS
     ! 4.0 Radiative Transfer Routines
     ! --------------------------------
     IF (ltimer) CALL timer_start(timer_lrtm)
-    CALL lrtm(                                                                &
-      !    input
-      &    jce             ,klev                                             ,&
-      &    pm_fl_vr        ,pm_sfc          ,tk_fl_vr        ,tk_hl_vr       ,&
-      &    tk_sfc          ,wkl_vr          ,wx_vr           ,col_dry_vr     ,&
-      &    zsemiss         ,cld_frc_vr      ,cld_tau_lw_vr   ,aer_tau_lw_vr  ,&
-      !    output
-      &    flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr,flx_dnlw_clr_vr )
+    IF (irad == 1) THEN
+      CALL lrtm(                                                                &
+        !    input
+        &    jce             ,klev                                             ,&
+        &    pm_fl_vr        ,pm_sfc          ,tk_fl_vr        ,tk_hl_vr       ,&
+        &    tk_sfc          ,wkl_vr          ,wx_vr           ,col_dry_vr     ,&
+        &    zsemiss         ,cld_frc_vr      ,cld_tau_lw_vr   ,aer_tau_lw_vr  ,&
+        !    output
+        &    flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr,flx_dnlw_clr_vr )
+    ELSE
+      ! Seeds for random numbers come from least significant digits of pressure field 
+      !
+      rnseeds(1:jce,1:rng_seed_size) = (pm_fl_vr(1:jce,1:rng_seed_size) -  &
+         int(pm_fl_vr(1:jce,1:rng_seed_size)))* 1E9
+      n_gpts_ts = get_num_gpoints(lw_strat)
+      !
+      CALL psrad_lrtm(jce                                                       ,&
+           & kbdim           ,klev            ,pm_fl_vr        ,pm_sfc          ,&
+           & tk_fl_vr        ,tk_hl_vr        ,tk_sfc          ,wkl_vr          ,&
+           & wx_vr           ,col_dry_vr      ,zsemiss         ,cld_frc_vr      ,&
+           & cld_tau_lw_vr   ,aer_tau_lw_vr   ,rnseeds         ,lw_strat        ,&
+           & n_gpts_ts       ,flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr ,&
+           & flx_dnlw_clr_vr )
+    ENDIF
     IF (ltimer) CALL timer_stop(timer_lrtm)
 
 
     IF (ltimer) CALL timer_start(timer_srtm)
-    CALL srtm_srtm_224gp(                                                     &
-      !    input
-      &    jce             ,kbdim           ,klev            ,jpsw           ,&
-      &    alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif    ,&
-      &    pm_fl_vr        ,tk_fl_vr        ,pmu0                            ,&
-      &    col_dry_vr      ,wkl_vr                                           ,&
-      &    cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    ,cld_piz_sw_vr  ,&
-      &    aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr                   ,&
-      &    ssi_radt                                                          ,&
-      !    output
-      &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr,   &
-      !    optional output
-      &    flxd_dff_sfc=flx_dnsw_diff_sfc ,                                   &
-      &    flxd_par_sfc    = flx_dnpar_sfc,                                   &
-      &    vis_frc_sfc     = vis_frc_sfc,                                     &
-      &    nir_dff_frc_sfc = nir_dff_frc_sfc,                                 &
-      &    vis_dff_frc_sfc = vis_dff_frc_sfc,                                 &
-      &    par_dff_frc_sfc = par_dff_frc_sfc                                  )
+    IF (irad == 1) THEN
+      CALL srtm_srtm_224gp(                                                     &
+        !    input
+        &    jce             ,kbdim           ,klev            ,jpsw           ,&
+        &    alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif    ,&
+        &    pm_fl_vr        ,tk_fl_vr        ,pmu0                            ,&
+        &    col_dry_vr      ,wkl_vr                                           ,&
+        &    cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    ,cld_piz_sw_vr  ,&
+        &    aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr                   ,&
+        &    ssi_radt                                                          ,&
+        !    output
+        &    flx_dnsw        ,flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr,   &
+        !    optional output
+        &    flxd_dff_sfc=flx_dnsw_diff_sfc ,                                   &
+        &    flxd_par_sfc    = flx_dnpar_sfc,                                   &
+        &    vis_frc_sfc     = vis_frc_sfc,                                     &
+        &    nir_dff_frc_sfc = nir_dff_frc_sfc,                                 &
+        &    vis_dff_frc_sfc = vis_dff_frc_sfc,                                 &
+        &    par_dff_frc_sfc = par_dff_frc_sfc                                  )
+    ELSE
+      ! Reset random seeds so SW doesn't depend on what's happened in LW but is also independent
+      !
+      rnseeds(1:jce,1:rng_seed_size) = (pm_fl_vr(1:jce,rng_seed_size:1:-1) - &
+         int(pm_fl_vr(1:jce,rng_seed_size:1:-1)))* 1E9
+      n_gpts_ts = get_num_gpoints(sw_strat)
+      zmu0(1:jce) = MAX(pmu0(1:jce),0.05_wp)
+      !
+      CALL psrad_srtm(jce                                                      , & 
+         &  kbdim           ,klev            ,pm_fl_vr        ,tk_fl_vr        , &
+         &  wkl_vr          ,col_dry_vr      ,alb_vis_dir     ,alb_vis_dif     , &
+         &  alb_nir_dir     ,alb_nir_dif     ,zmu0            ,ssi_radt/psctm  , &
+         &  psctm           ,cld_frc_vr      ,cld_tau_sw_vr   ,cld_cg_sw_vr    , &
+         &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
+         &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
+         &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr    ,aux_out(:,1)    , &
+         &  aux_out(:,2)    ,aux_out(:,3)    ,aux_out(:,4)    ,aux_out(:,5)      )
+      ! Reset solar fluxes to zero at dark points
+      DO jl = 1, jce
+        IF (pmu0(jl) <= 0._wp) THEN
+          flx_dnsw(jl,:) = 0._wp
+          flx_upsw(jl,:) = 0._wp
+        ENDIF
+      ENDDO
+    ENDIF
     IF (ltimer) CALL timer_stop(timer_srtm)
 
 
