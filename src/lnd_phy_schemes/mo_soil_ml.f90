@@ -311,7 +311,6 @@ USE data_runcontrol , ONLY :   &
 ! --------------------------
     itype_trvg,   & ! type of vegetation transpiration parameterization
     itype_evsl,   & ! type of parameterization of bare soil evaporation
-    itype_tran,   & ! type of surface to atmospher transfer
     itype_root,   & ! type of root density distribution
     itype_heatcond,&! type of soil heat conductivity
     itype_hydbound,&! type of hydraulic lower boundary condition
@@ -384,7 +383,6 @@ USE mo_lnd_nwp_config,     ONLY: lmulti_snow,                     &
 USE mo_exception,          ONLY: message, finish, message_text
 USE mo_run_config,         ONLY: msg_level
 USE mo_impl_constants,     ONLY: iedmf
-USE mo_data_turbdiff,      ONLY: itype_tran
 #endif
 
 
@@ -457,6 +455,7 @@ END SUBROUTINE message
 
 
   SUBROUTINE terra_multlay (         &
+                  icant            , & ! canopy type
                   ie               , & ! array dimensions
                   istartpar        , & ! start index for computations in the parallel program
                   iendpar          , & ! end index for computations in the parallel program
@@ -568,9 +567,7 @@ END SUBROUTINE message
                   rstom            , & ! stomatal resistance                           ( s/m )
                   zshfl_sfc        , & ! sensible heat flux surface interface          (W/m2)
                   zlhfl_sfc        , & ! latent   heat flux surface interface          (W/m2)
-!DR start
                   zqhfl_sfc          & ! moisture      flux surface interface          (kg/m2/s)
-!DR end
                                      )
 
 !-------------------------------------------------------------------------------
@@ -579,6 +576,7 @@ END SUBROUTINE message
 
 
   INTEGER (KIND=iintegers), INTENT(IN)  ::  &
+                  icant,             & ! canopy type
                   ie,                & ! array dimensions
                   istartpar,         & ! start index for computations in the parallel program
                   iendpar,           & ! end index for computations in the parallel program
@@ -2310,10 +2308,10 @@ END SUBROUTINE message
               zuv        = SQRT (u_10m(i) **2 + v_10m(i)**2 )
               zcatm      = tch(i)*zuv           ! Function CA
 
-              IF(itype_tran == 1) THEN
+              IF(icant == 1) THEN !additional laminar canopy resistance in case of Louis-transfer-scheme
                 zustar     = zuv*SQRT(tcm(i))
                 zrla       = 1.0_ireals/MAX(cdash*SQRT(zustar),zepsi)
-              ELSE
+              ELSE !in case of Raschendorfer-transfer-scheme a laminar canopy resistance is already considered
                 zrla       = 0._ireals
               ENDIF
 
@@ -2336,7 +2334,7 @@ END SUBROUTINE message
               ENDIF
 
               ! Temperature function
-!              IF (ntstep .EQ. 0 .AND. itype_tran .NE. 2) THEN
+!              IF (ntstep .EQ. 0 .AND. icant .NE. 2) THEN
 !                t_2m(i)=t(i)
 !              ENDIF
 !             zf_tem     = MAX(0.0_ireals,MIN(1.0_ireals,4.0_ireals*     &
