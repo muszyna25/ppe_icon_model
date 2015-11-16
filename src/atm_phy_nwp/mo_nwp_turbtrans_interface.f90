@@ -293,14 +293,14 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
       z_tvs(i_startidx:i_endidx,nlev-1:nlevp1,1) =  &
         &           SQRT(2._wp * p_prog_rcf%tke(i_startidx:i_endidx,nlev-1:nlevp1,jb))
 
-      !should be dependent on location in future!
-      l_hori(i_startidx:i_endidx)=phy_params(jg)%mean_charlen
-
       ! First call of turbtran for all grid points (water points with > 50% water
       ! fraction and tile 1 of the land points)
       IF (ntiles_total == 1) THEN ! tile approach not used; use tile-averaged fields from extpar
 
         nlevcm = nlevp1
+
+        !should be dependent on location in future!
+        l_hori(i_startidx:i_endidx)=phy_params(jg)%mean_charlen
 
         ! turbtran
         CALL organize_turbdiff( &
@@ -440,6 +440,10 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             tkvm_t (ic,3,jt)    = prm_diag%tkvm_s_t (jc,jb,jt)     ! tile-specific for lowest level
             tkvh_t (ic,1:2,jt)  = prm_diag%tkvh     (jc,nlev-1:nlev,jb)
             tkvh_t (ic,3,jt)    = prm_diag%tkvh_s_t (jc,jb,jt)     ! tile-specific for lowest level
+            tkr_t  (ic,jt)      = prm_diag%tkr_t    (jc,jb,jt)
+
+            !should be dependent on location in future!
+            l_hori(ic)=phy_params(jg)%mean_charlen
           ENDDO
 
           nlevcm = 3
