@@ -655,6 +655,7 @@ case "$ac_sitename" in
                       NETCDFFROOT = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
                       MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
                       MPI_LIB     = -L$MPIROOT/lib -Wl,-rpath -Wl,$MPIROOT/lib -Wl,--disable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -lpthread -libverbs -lrdmacm -lutil
+                      HDF5_LIB    = -I/sw/squeeze-x64/szip-2.1-static/include -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_BSD_SOURCE -O2 -L/sw/squeeze-x64/hdf5-1.8.12-static/lib /sw/squeeze-x64/hdf5-1.8.12-static/lib/libhdf5_hl.a /sw/squeeze-x64/hdf5-1.8.12-static/lib/libhdf5.a -L/sw/squeeze-x64/szip-2.1-static/lib -lsz -lz -lrt -ldl -lm -Wl,-rpath -Wl,/sw/squeeze-x64/hdf5-1.8.12-static/lib
                       load_modules=gcc/5.1.0 ${load_modules}
                       ;;
                     pgi)
