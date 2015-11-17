@@ -24,7 +24,7 @@ MODULE mo_grib2_util
                                  & vlistDefVarTypeOfGeneratingProcess
   USE mo_gribout_config,     ONLY: t_gribout_config
   USE mo_var_metadata_types, ONLY: t_var_metadata, CLASS_TILE, CLASS_SYNSAT, &
-    &                              CLASS_TILE_LAND
+    &                              CLASS_CHEM, CLASS_TILE_LAND
   USE mo_action,             ONLY: ACTION_RESET, getActiveAction
   USE mo_util_string,        ONLY: one_of
 #ifndef __NO_ICON_ATMO__
@@ -49,6 +49,7 @@ MODULE mo_grib2_util
   PUBLIC :: set_GRIB2_synsat_keys
   PUBLIC :: set_GRIB2_local_keys
   PUBLIC :: set_GRIB2_tile_keys
+  PUBLIC :: set_GRIB2_chem_keys
   PUBLIC :: set_GRIB2_timedep_keys
   PUBLIC :: set_GRIB2_timedep_local_keys
 
@@ -257,6 +258,47 @@ CONTAINS
     CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, 32)
     
   END SUBROUTINE set_GRIB2_synsat_keys
+
+
+  !>
+  !! Set keys specific to atmospheric chemical species
+  !!
+  !! Set GRIB2 keys which are specific to atmospheric chemical species.
+  !! Here, only the PDT will be changed. Additional Template-specific 
+  !! keys will be set at the end of 
+  !! mo_name_list_output_init:add_variables_to_vlist
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2015-11-16)
+  !!
+  SUBROUTINE set_GRIB2_chem_keys (vlistID, varID, info)
+    
+    INTEGER,                INTENT(IN) :: vlistID, varID
+    TYPE (t_var_metadata),  INTENT(IN) :: info
+
+    ! local
+    INTEGER :: typeOfGeneratingProcess
+    INTEGER :: productDefinitionTemplate        ! template number 
+    ! ----------------------------------------------------------------
+    
+    ! Skip inapplicable fields
+    IF ( info%var_class /= CLASS_CHEM ) RETURN
+    
+    typeOfGeneratingProcess = vlistInqVarTypeOfGeneratingProcess(vlistID, varID)
+
+    ! change product definition template
+    !
+    IF (typeOfGeneratingProcess == 4) THEN
+      ! ensemble
+      productDefinitionTemplate = 41
+    ELSE
+      ! deterministic
+      productDefinitionTemplate = 40
+    ENDIF
+    CALL vlistDefVarProductDefinitionTemplate(vlistID, varID, productDefinitionTemplate)
+    
+  END SUBROUTINE set_GRIB2_chem_keys
+
 
 
   !>

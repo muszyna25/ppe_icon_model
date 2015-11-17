@@ -70,7 +70,7 @@ USE mo_radiation_config,    ONLY: irad_aero
 USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water, nlev_soil
 USE mo_var_list,            ONLY: default_var_list_settings, &
   &                               add_var, add_ref, new_var_list, delete_var_list
-USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, CLASS_SYNSAT,  VARNAME_LEN
+USE mo_var_metadata_types,  ONLY: POST_OP_SCALE, CLASS_SYNSAT, CLASS_CHEM, VARNAME_LEN
 USE mo_var_metadata,        ONLY: create_vert_interp_metadata,  &
   &                               create_hor_interp_metadata,   &
   &                               groups, vintp_types, post_op, &
@@ -286,7 +286,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
       &        wave_no, wave_no_scalfac, iimage, isens, k
     CHARACTER(LEN=VARNAME_LEN) :: shortname
     CHARACTER(LEN=128)         :: longname, unit
-
+    !
+    INTEGER :: constituentType                        ! for variable of class 'chem'
 
     ibits = DATATYPE_PACK16 ! bits "entropy" of horizontal slice
 
@@ -1623,32 +1624,42 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         SELECT CASE (k)
         CASE (iss)
           caer='ss'
+          constituentType = 62008
         CASE (iorg)
           caer='or'
+          constituentType = 62010
         CASE (ibc)
           caer='bc'
+          constituentType = 62009
         CASE (iso4)
           caer='su'
+          constituentType = 62006
         CASE (idu)
           caer='du'
+          constituentType = 62001
         END SELECT
 
+        cf_desc    = t_cf_var('aer_'//TRIM(caer), '', '', DATATYPE_FLT32)
+        grib2_desc = grib2_var(0, 20, 102, ibits, GRID_UNSTRUCTURED, GRID_CELL)   &
+          &           + t_grib2_int_key("constituentType", constituentType)
         IF (iprog_aero == 1) THEN
           CALL add_ref( diag_list, 'aerosol',                                    &
                 & 'aer_'//TRIM(caer), diag%aerosol_ptr(k)%p_2d,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
-                & t_cf_var('aer_'//TRIM(caer), '', '', DATATYPE_FLT32),          &
-                & grib2_var(0, 20, 108+k, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
+                & cf_desc,                                                       &
+                & grib2_desc,                                                    &
                 & ldims=shape2d, lrestart=lrestart, opt_var_ref_pos = 2,         &
+                & var_class=CLASS_CHEM,                                          &
                 & in_group=groups("dwd_fg_sfc_vars","mode_iau_fg_in",            &
                 & "mode_iau_old_fg_in","mode_dwd_fg_in")                         )
         ELSE
           CALL add_ref( diag_list, 'aerosol',                                    &
                 & 'aer_'//TRIM(caer), diag%aerosol_ptr(k)%p_2d,                  &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                            &
-                & t_cf_var('aer_'//TRIM(caer), '', '', DATATYPE_FLT32),          &
-                & grib2_var(0, 20, 108+k, ibits, GRID_UNSTRUCTURED, GRID_CELL),  &
-                & ldims=shape2d, lrestart=lrestart, opt_var_ref_pos = 2          )
+                & cf_desc,                                                       &
+                & grib2_desc,                                                    &
+                & ldims=shape2d, lrestart=lrestart, opt_var_ref_pos = 2,         &
+                & var_class=CLASS_CHEM                                           )
         ENDIF
       ENDDO
 
