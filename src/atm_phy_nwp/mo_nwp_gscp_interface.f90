@@ -48,7 +48,7 @@ MODULE mo_nwp_gscp_interface
   USE mo_parallel_config,      ONLY: nproma
 
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_impl_constants,       ONLY: min_rlcell_int
+  USE mo_impl_constants,       ONLY: min_rlcell_int, iss, iorg, ibc, iso4, idu
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
 
@@ -57,8 +57,8 @@ MODULE mo_nwp_gscp_interface
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,       &
                                      iqni, iqni_nuc, iqg, iqh, iqnr, iqns,     &
-                                     iqng, iqnh, iqnc, inccn, ininpot, ininact    
-  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
+                                     iqng, iqnh, iqnc, inccn, ininpot, ininact
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero
   USE gscp_kessler,            ONLY: kessler
   USE gscp_cloudice,           ONLY: cloudice
   USE gscp_graupel,            ONLY: graupel
@@ -69,7 +69,8 @@ MODULE mo_nwp_gscp_interface
   USE mo_art_clouds_interface, ONLY: art_clouds_interface_twomom
   USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
   USE gscp_data,               ONLY: cloud_num
-  USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst
+  USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst, &
+                                     specccn_segalkhain_simple
   USE mo_grid_config,          ONLY: l_limited_area
   USE mo_turbulent_diagnostic, ONLY: is_sampling_time, idx_dt_t_gsp
   USE mo_statistics,           ONLY: levels_horizontal_mean
@@ -212,15 +213,26 @@ CONTAINS
           ! Preparation for coupling of more advanced microphysics schemes (inwp_gscp>=2) with aerosol climatology
           ! Not yet implemented
           CALL ncn_from_tau_aerosol_speccnconst (nproma, nlev, i_startidx, i_endidx, kstart_moist(jg), nlev, &
-            p_metrics%z_ifc(:,:,jb), prm_diag%aer_ss(:,jb), prm_diag%aer_su(:,jb), prm_diag%aer_or(:,jb),    &
-            prm_diag%aer_du(:,jb), zncn)
+            p_metrics%z_ifc(:,:,jb), prm_diag%aerosol(:,iss,jb), prm_diag%aerosol(:,iso4,jb),                &
+            prm_diag%aerosol(:,iorg,jb), prm_diag%aerosol(:,idu,jb), zncn)
 
           CALL specccn_segalkhain (nproma, nlev, i_startidx, i_endidx, kstart_moist(jg), nlev, zncn,         &
             p_prog%w(:,:,jb), p_prog_rcf%tracer(:,:,jb,iqc), p_prog%rho(:,:,jb), p_metrics%z_ifc(:,:,jb), qnc)
 
         ELSE IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 1) THEN
 
-          qnc_s(i_startidx:i_endidx) = prm_diag%cloud_num(i_startidx:i_endidx,jb)
+          IF (iprog_aero == 0) THEN
+            qnc_s(i_startidx:i_endidx) = prm_diag%cloud_num(i_startidx:i_endidx,jb)
+          ELSE
+
+            CALL ncn_from_tau_aerosol_speccnconst (nproma, nlev, i_startidx, i_endidx, nlev, nlev, &
+              p_metrics%z_ifc(:,:,jb), prm_diag%aerosol(:,iss,jb), prm_diag%aerosol(:,iso4,jb),    &
+              prm_diag%aerosol(:,iorg,jb), prm_diag%aerosol(:,idu,jb), zncn)
+
+            CALL specccn_segalkhain_simple (nproma, i_startidx, i_endidx, zncn(:,nlev), prm_diag%cloud_num(:,jb))
+            qnc_s(i_startidx:i_endidx) = prm_diag%cloud_num(i_startidx:i_endidx,jb)
+
+          ENDIF
 
         ELSE
 

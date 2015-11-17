@@ -37,11 +37,12 @@ MODULE mo_initicon_utils
     &                               timeshift, initicon_config, ltile_coldstart,        &
     &                               ana_varnames_map_file, lread_ana, lread_vn,         &
     &                               lconsistency_checks, lp2cintp_incr, lp2cintp_sfcana,&
-    &                               lvert_remap_fg
+    &                               lvert_remap_fg, aerosol_fg_present
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, MODE_DWDANA, MODE_IAU,             &
                                     MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED,           &
     &                               MODE_COSMODE, MODE_ICONVREMAP, MODIS,               &
-    &                               min_rlcell_int, grf_bdywidth_c
+    &                               min_rlcell_int, grf_bdywidth_c, min_rlcell,         &
+    &                               iss, iorg, ibc, iso4, idu
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_radiation_config,    ONLY: albedo_type
   USE mo_physical_constants,  ONLY: tf_salt, tmelt
@@ -53,7 +54,8 @@ MODULE mo_initicon_utils
     &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld,         &
     &                               nlev_snow, ntiles_lnd, lsnowtile
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, iprog_aero
+  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_phyparam_soil,       ONLY: csalb_snow_min, csalb_snow_max, csalb_snow, crhosmin_ml, crhosmax_ml
   USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
   USE mo_nh_init_utils,       ONLY: hydro_adjust
@@ -80,6 +82,7 @@ MODULE mo_initicon_utils
   USE mo_dictionary,          ONLY: t_dictionary
   USE mo_checksum,            ONLY: printChecksum
   USE mo_fortran_tools,       ONLY: init
+  USE mo_datetime,            ONLY: month2hour
 
   IMPLICIT NONE
 
@@ -107,6 +110,7 @@ MODULE mo_initicon_utils
   PUBLIC :: fill_tile_points
   PUBLIC :: init_snowtiles
   PUBLIC :: printChecksums
+  PUBLIC :: init_aerosol
 
   CONTAINS
 
@@ -494,8 +498,8 @@ MODULE mo_initicon_utils
     INTEGER                    :: jg                                       ! patch id
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_anafile(200)                    ! ana-file inventory group
     CHARACTER(LEN=VARNAME_LEN) :: grp_vars_fgfile(200)                     ! fg-file inventory group
-    INTEGER :: ivar, mpi_comm
-    INTEGER :: index, is_one_of
+    INTEGER :: ivar, ivar1, mpi_comm
+    INTEGER :: idx, is_one_of
 
     CHARACTER(LEN=*), PARAMETER :: routine = modname//':create_input_groups'
     TYPE(t_bool_table) :: bool_table
@@ -828,9 +832,9 @@ MODULE mo_initicon_utils
       !
       IF (lread_ana .AND. .NOT. (lp2cintp_incr(jg) .AND. lp2cintp_sfcana(jg)) ) THEN
         DO ivar=1,ngrp_vars_ana_default
-          index = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_anafile(:))
+          idx = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_anafile(:))
 
-          IF ( index == -1) THEN  ! variable not found
+          IF ( idx == -1) THEN  ! variable not found
             ! Check whether this field is mandatory, or whether we may fall back to 
             ! the first guess
             is_one_of = one_of(TRIM(grp_vars_ana_default(ivar)),grp_vars_ana_mandatory(1:ngrp_vars_ana_mandatory))
@@ -869,16 +873,17 @@ MODULE mo_initicon_utils
       ENDIF  ! lread_ana  
 
 
-
       ! Check, whether the FG-file inventory group contains all fields which are needed for a 
-      ! successfull model start. If not, then stop the model and issue an error. 
-      DO ivar=1,ngrp_vars_fg
-        index = one_of(TRIM(grp_vars_fg(ivar)),grp_vars_fgfile(:))
+      ! successful model start. If not, then stop the model and issue an error.
+      ivar = 0
+      DO ivar1=1,ngrp_vars_fg
+        ivar = ivar + 1
+        idx = one_of(TRIM(grp_vars_fg(ivar)),grp_vars_fgfile(:))
 
-        IF ( index == -1) THEN   ! variable not found
-
-          ! add missing field to buffer
-          IF (.NOT. lmiss_fg) THEN
+        IF ( idx == -1) THEN   ! variable not found
+          IF (INDEX(grp_vars_fg(ivar),'aer_') > 0) THEN
+            ! aerosol variables allowed to be missing; they are initialized from the climatology in this case
+          ELSE IF (.NOT. lmiss_fg) THEN ! add missing field to buffer
             buffer_miss_fg = TRIM(grp_vars_fg(ivar))//', '
             lmiss_fg = .TRUE.
           ELSE
@@ -891,6 +896,7 @@ MODULE mo_initicon_utils
 
           ! remove missing field from first guess input-group grp_vars_fg
           CALL difference(grp_vars_fg, ngrp_vars_fg, grp_vars_fg(ivar:ivar), 1)
+          ivar = ivar - 1
         ENDIF
       ENDDO
 
@@ -985,6 +991,69 @@ MODULE mo_initicon_utils
 
   END SUBROUTINE create_input_groups
 
+
+  !>
+  !! SUBROUTINE init_aersosol
+  !! Initializes the aerosol field from the climatology if no first-guess data are available
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD (2015-11-06)
+  !!
+  SUBROUTINE init_aerosol(p_patch, ext_data, prm_diag)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_external_data),  INTENT(IN)    :: ext_data(:)
+    TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
+
+    INTEGER  :: imo1, imo2
+    INTEGER  :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER  :: jb, jc, jg
+
+    REAL(wp) :: wgt
+
+    CALL month2hour (time_config%cur_datetime, imo1, imo2, wgt)
+
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+    DO jg = 1, n_dom
+
+      IF (aerosol_fg_present(jg)) CYCLE
+
+      rl_start = 1
+      rl_end   = min_rlcell
+
+      i_startblk = p_patch(jg)%cells%start_block(rl_start)
+      i_endblk   = p_patch(jg)%cells%end_block(rl_end)
+
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx)
+      DO jb = i_startblk, i_endblk
+
+        CALL get_indices_c(p_patch(jg), jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
+
+        DO jc = i_startidx, i_endidx
+
+          prm_diag(jg)%aerosol(jc,iss,jb) = ext_data(jg)%atm_td%aer_ss(jc,jb,imo1) + &
+            ( ext_data(jg)%atm_td%aer_ss(jc,jb,imo2)   - ext_data(jg)%atm_td%aer_ss(jc,jb,imo1)   ) * wgt
+          prm_diag(jg)%aerosol(jc,iorg,jb) = ext_data(jg)%atm_td%aer_org(jc,jb,imo1) + &
+            ( ext_data(jg)%atm_td%aer_org(jc,jb,imo2)  - ext_data(jg)%atm_td%aer_org(jc,jb,imo1)  ) * wgt
+          prm_diag(jg)%aerosol(jc,ibc,jb) = ext_data(jg)%atm_td%aer_bc(jc,jb,imo1) + &
+            ( ext_data(jg)%atm_td%aer_bc(jc,jb,imo2)   - ext_data(jg)%atm_td%aer_bc(jc,jb,imo1)   ) * wgt
+          prm_diag(jg)%aerosol(jc,iso4,jb) = ext_data(jg)%atm_td%aer_so4(jc,jb,imo1) + &
+            ( ext_data(jg)%atm_td%aer_so4(jc,jb,imo2)  - ext_data(jg)%atm_td%aer_so4(jc,jb,imo1)  ) * wgt
+          prm_diag(jg)%aerosol(jc,idu,jb) = ext_data(jg)%atm_td%aer_dust(jc,jb,imo1) + &
+            ( ext_data(jg)%atm_td%aer_dust(jc,jb,imo2) - ext_data(jg)%atm_td%aer_dust(jc,jb,imo1) ) * wgt
+
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+!$OMP MASTER
+      WRITE(message_text,'(a,i3)') 'Aerosol initialized from climatology, domain ',jg
+      CALL message('init_aerosol', TRIM(message_text))
+!$OMP END MASTER
+    ENDDO
+!$OMP END PARALLEL
+
+  END SUBROUTINE init_aerosol
 
 
   !>

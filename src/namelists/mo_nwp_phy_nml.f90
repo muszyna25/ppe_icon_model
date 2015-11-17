@@ -38,6 +38,7 @@ MODULE mo_nwp_phy_nml
     &                               config_lrtm_filename   => lrtm_filename,   &
     &                               config_cldopt_filename => cldopt_filename, &
     &                               config_icpl_aero_conv  => icpl_aero_conv,  &
+    &                               config_iprog_aero      => iprog_aero,      &
     &                               config_icpl_o3_tp      => icpl_o3_tp
 
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
@@ -69,6 +70,7 @@ MODULE mo_nwp_phy_nml
   INTEGER  :: itype_z0           !! type of roughness length data
   INTEGER  :: icpl_aero_gscp     !! type of aerosol-microphysics coupling
   INTEGER  :: icpl_aero_conv     !! type of coupling between aerosols and convection scheme
+  INTEGER  :: iprog_aero         !! type of prognostic aerosol
   INTEGER  :: icpl_o3_tp         !! type of ozone-tropopause coupling
   REAL(wp) :: qi0, qc0           !! variables for hydci_pp
   REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
@@ -85,17 +87,17 @@ MODULE mo_nwp_phy_nml
   !> NetCDF file with RRTM Cloud Optical Properties for ECHAM6
   CHARACTER(LEN=filename_max) :: cldopt_filename
 
-  NAMELIST /nwp_phy_nml/ inwp_convection, inwp_cldcover,           &
-    &                    inwp_radiation, inwp_sso, inwp_gwd,       &
-    &                    inwp_gscp, inwp_satad,                    &
-    &                    inwp_turb, inwp_surface,                  &
-    &                    dt_conv, dt_rad, dt_sso, dt_gwd,          &
-    &                    qi0, qc0, icpl_aero_gscp,                 &
-    &                    ustart_raylfric, efdt_min_raylfric,       &
-    &                    latm_above_top, itype_z0, mu_rain,        &
-    &                    mu_snow, icapdcycl, icpl_aero_conv,       &
-    &                    lrtm_filename, cldopt_filename, icpl_o3_tp
-
+  NAMELIST /nwp_phy_nml/ inwp_convection, inwp_cldcover,             &
+    &                    inwp_radiation, inwp_sso, inwp_gwd,         &
+    &                    inwp_gscp, inwp_satad,                      &
+    &                    inwp_turb, inwp_surface,                    &
+    &                    dt_conv, dt_rad, dt_sso, dt_gwd,            &
+    &                    qi0, qc0, icpl_aero_gscp,                   &
+    &                    ustart_raylfric, efdt_min_raylfric,         &
+    &                    latm_above_top, itype_z0, mu_rain,          &
+    &                    mu_snow, icapdcycl, icpl_aero_conv,         &
+    &                    lrtm_filename, cldopt_filename, icpl_o3_tp, &
+    &                    iprog_aero
 
 
 CONTAINS
@@ -181,6 +183,10 @@ CONTAINS
     ! coupling between aersols and convection scheme
     icpl_aero_conv = 0  ! 0 = none
                         ! 1 = specify thresholds (QC and cloud thickness) for precip initiation depending on aerosol climatology instead of land-sea mask
+
+    ! type of prognostic aerosol
+    iprog_aero = 0  ! 0 = pure climatology
+                    ! 1 = very simple prognostic scheme based on advection of and relaxation towards climatology
 
     ! coupling between ozone and the tropopause
     icpl_o3_tp = 1      ! 0 = none
@@ -356,6 +362,7 @@ CONTAINS
     config_lrtm_filename   = TRIM(lrtm_filename)
     config_cldopt_filename = TRIM(cldopt_filename)
     config_icpl_aero_conv  = icpl_aero_conv
+    config_iprog_aero      = iprog_aero
     config_icpl_o3_tp      = icpl_o3_tp
 
     !-----------------------------------------------------

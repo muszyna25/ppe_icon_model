@@ -74,6 +74,7 @@ MODULE mo_initicon_config
   PUBLIC :: t_timeshift
   PUBLIC :: timeshift
   PUBLIC :: initicon_config
+  PUBLIC :: aerosol_fg_present
 
   ! Subroutines
   PUBLIC :: configure_initicon
@@ -185,6 +186,7 @@ MODULE mo_initicon_config
   REAL(wp):: iau_wgt_dyn = 0._wp    !< IAU weight for dynamics fields 
   REAL(wp):: iau_wgt_adv = 0._wp    !< IAU weight for tracer fields
 
+  LOGICAL :: aerosol_fg_present(max_dom) = .FALSE. !< registers if aerosol fields have been read from the first-guess data
 
   TYPE(t_initicon_config), TARGET :: initicon_config(0:max_dom)
 

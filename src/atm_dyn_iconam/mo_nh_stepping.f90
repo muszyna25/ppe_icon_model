@@ -51,7 +51,7 @@ MODULE mo_nh_stepping
     &                                    timer_bdy_interp, timer_feedback, timer_nesting, &
     &                                    timer_integrate_nh, timer_nh_diagnostics,        &
     &                                    timer_iconam_echam
-  USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config, iprog_aero
   USE mo_nwp_phy_init,             ONLY: init_nwp_phy, init_cloud_aero_cpl
   USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode
@@ -94,6 +94,7 @@ MODULE mo_nh_stepping
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
   USE mo_advection_stepping,       ONLY: step_advection
+  USE mo_advection_aerosols,       ONLY: aerosol_2D_advection, setup_aerosol_advection
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
@@ -347,6 +348,8 @@ MODULE mo_nh_stepping
       IF (.NOT.isRestart()) THEN
         CALL init_cloud_aero_cpl (datetime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
       ENDIF
+
+      IF (iprog_aero == 1) CALL setup_aerosol_advection(p_patch(jg))
 
     ENDDO
     IF (.NOT.isRestart()) THEN
@@ -1500,6 +1503,16 @@ MODULE mo_nh_stepping
             &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
             &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
+          IF (iprog_aero == 1) THEN
+
+            CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), dt_loc, & !in
+            &          prm_diag(jg)%aerosol, prep_adv(jg)%vn_traj,           & !inout, in
+            &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,   & !in
+            &          p_nh_state(jg)%metrics%ddqz_z_full_e,                 & !in
+            &          p_nh_state(jg)%diag%airmass_now,                      & !in
+            &          p_nh_state(jg)%diag%airmass_new                       ) !in
+
+          ENDIF
 
         ! ART tracer sedimentation:
         !     Internal substepping with ndyn_substeps_var(jg)
@@ -1801,9 +1814,9 @@ MODULE mo_nh_stepping
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
                 &           jgc, jg)
             ELSE
-              CALL relax_feedback(  p_patch(n_dom_start:n_dom),                 &
-                & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),          &
-                & p_grf_state(n_dom_start:n_dom), jgc, jg, dt_loc)
+              CALL relax_feedback(  p_patch(n_dom_start:n_dom),            &
+                & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),     &
+                & p_grf_state(n_dom_start:n_dom), prm_diag, jgc, jg, dt_loc)
             ENDIF
             ! Note: the last argument of "feedback" ensures that tracer feedback is
             ! only done for those time steps in which transport and microphysics are called
@@ -1887,6 +1900,8 @@ MODULE mo_nh_stepping
 
               CALL init_cloud_aero_cpl (datetime_current, p_patch(jgc), p_nh_state(jgc)%metrics, &
                 &                       ext_data(jgc), prm_diag(jgc))
+
+              IF (iprog_aero == 1) CALL setup_aerosol_advection(p_patch(jgc))
             ENDIF
 
             CALL compute_airmass(p_patch(jgc),                   &
