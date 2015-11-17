@@ -1912,7 +1912,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   TYPE(t_wtr_prog),             POINTER :: ptr_wprogc ! child level water prog state
 
   ! Local fields
-  INTEGER, PARAMETER  :: nfields_p1=59   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
+  INTEGER, PARAMETER  :: nfields_p1=62   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_p2=18   ! Number of remaining 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_l2=18   ! Number of 2D land state fields
 
@@ -2034,6 +2034,9 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         z_aux3dp1_p(jc,58,jb) = 0._wp
         z_aux3dp1_p(jc,59,jb) = 0._wp
       ENDIF
+      z_aux3dp1_p(jc,60,jb) = prm_diag(jg)%tvm(jc,jb)
+      z_aux3dp1_p(jc,61,jb) = prm_diag(jg)%tvh(jc,jb)
+      z_aux3dp1_p(jc,62,jb) = prm_diag(jg)%tkr(jc,jb)
 
       z_aux3dp2_p(jc,1,jb) = prm_diag(jg)%u_10m(jc,jb)
       z_aux3dp2_p(jc,2,jb) = prm_diag(jg)%v_10m(jc,jb)
@@ -2228,6 +2231,9 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         prm_diag(jgc)%graupel_gsp(jc,jb)      = MAX(z_aux3dp1_c(jc,58,jb),prm_diag(jgc)%graupel_gsp(jc,jb))
         prm_diag(jgc)%graupel_gsp_rate(jc,jb) = z_aux3dp1_c(jc,59,jb)
       ENDIF
+      prm_diag(jgc)%tvm(jc,jb)            = z_aux3dp1_c(jc,60,jb)
+      prm_diag(jgc)%tvh(jc,jb)            = z_aux3dp1_c(jc,61,jb)
+      prm_diag(jgc)%tkr(jc,jb)            = z_aux3dp1_c(jc,62,jb)
 
       prm_diag(jgc)%u_10m(jc,jb)          = z_aux3dp2_c(jc,1,jb)
       prm_diag(jgc)%v_10m(jc,jb)          = z_aux3dp2_c(jc,2,jb)
