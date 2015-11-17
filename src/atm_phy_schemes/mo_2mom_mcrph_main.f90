@@ -124,7 +124,7 @@ MODULE mo_2mom_mcrph_main
        &  prtcl_cloud_riming, prtcl_rain_riming, graupel_melting,            &
        &  hail_melting, graupel_hail_conv_wet_gamlook, ice_riming,           &
        &  snow_riming, ccn_activation_sk, ccn_activation_hdcp2
-  ! And some parameters defined in the process routine that are required here. 
+  ! And some parameters declared in the process module that are required here. 
   !! Comment D. Rieger: Probably these parameters are not necessarily needed here as   !!
   !!                    most of them are only used to be passed to process routines.   !!
   USE mo_2mom_mcrph_processes, ONLY:                                         &
@@ -216,8 +216,6 @@ MODULE mo_2mom_mcrph_main
   !> run-time- and location-invariant graupel snow collection parameters
   TYPE(sym_riming_params), SAVE :: gsc_params
 
-
-
   !> run-time- and location-invariant vapor ice deposition parameters
   TYPE(evaporation_deposition_params), SAVE :: vid_params
   !> run-time- and location-invariant vapor graupel deposition parameters
@@ -233,8 +231,6 @@ MODULE mo_2mom_mcrph_main
   TYPE(evaporation_deposition_params), SAVE :: he_params
   !> run-time- and location-invariant snow evaporation parameters
   TYPE(evaporation_deposition_params), SAVE :: se_params
-
-
 
   !> run-time- and location-invariant graupel melting parameters
   TYPE(melt_params), SAVE :: gm_params
@@ -1141,9 +1137,9 @@ CONTAINS
       WRITE(txt,'(A,D10.3)') "    b_vent = ",sm_params%b_vent ; CALL message(routine,TRIM(txt))
     ENDIF
 
-    CALL setup_graupel_selfcollection(graupel)
-    CALL setup_snow_selfcollection(snow)
-    CALL setup_ice_selfcollection(ice)
+    CALL setup_graupel_selfcollection(graupel,graupel_sc_coll_n)
+    CALL setup_snow_selfcollection(snow, snow_sc_delta_n, snow_sc_theta_n)
+    CALL setup_ice_selfcollection(ice, ice_sc_delta_n, ice_sc_delta_q, ice_sc_theta_n, ice_sc_theta_q)
 
     ! setup coefficient for cloud_freeze
     cloud_freeze_coeff_z = moment_gamma(cloud,2)
@@ -1236,7 +1232,7 @@ CONTAINS
        IF (isdebug) CALL message(TRIM(routine), &
             & '  ... CCN activation using look-up tables according to Segal& Khain')
        IF (PRESENT(n_cn)) THEN
-          CALL ccn_activation_sk(ik_slice, atmo, cloud, n_cn)
+          CALL ccn_activation_sk(ik_slice, ccn_coeffs, atmo, cloud, n_cn)
        ELSE
           CALL finish(TRIM(routine),&
                & 'Error in two_moment_mcrph: Segal and Khain activation only supported for progn. aerosol')
@@ -1260,7 +1256,7 @@ CONTAINS
       CALL ice_nucleation_homhet(ik_slice, use_prog_in, atmo, cloud, ice, snow, n_inact, n_inpot)
 
        ! homogeneous freezing of cloud droplets
-       CALL cloud_freeze(ik_slice, dt, atmo, cloud, ice)
+       CALL cloud_freeze(ik_slice, dt, cloud_freeze_coeff_z, atmo, cloud, ice)
        IF (ischeck) CALL check(ik_slice, 'cloud_freeze', cloud, rain, ice, snow, graupel,hail)
 
        DO k=kstart,kend
@@ -1274,42 +1270,45 @@ CONTAINS
        ! depositional growth of all ice particles
        ! ( store deposition rate of ice and snow for conversion calculation in
        !   ice_riming and snow_riming )
-       CALL vapor_dep_relaxation(ik_slice, dt,atmo,ice,snow,graupel,hail,dep_rate_ice,dep_rate_snow)
+       CALL vapor_dep_relaxation(ik_slice, vid_params, vgd_params, vhd_params, vsd_params, dt, &
+         &                       atmo,ice,snow,graupel,hail,dep_rate_ice,dep_rate_snow)
        IF (ischeck) CALL check(ik_slice, 'vapor_dep_relaxation',cloud,rain,ice,snow,graupel,hail)
 
        if (.true.) then
 
        ! ice-ice collisions
-       CALL ice_selfcollection(ik_slice, dt, atmo, ice, snow)
-       CALL snow_selfcollection(ik_slice, dt, atmo, snow)
-       CALL snow_ice_collection(ik_slice, dt, atmo, ice, snow)
+       CALL ice_selfcollection(ik_slice, dt, ice_sc_delta_n, ice_sc_delta_q, &
+         &                     ice_sc_theta_n, ice_sc_theta_q, atmo, ice, snow)
+       CALL snow_selfcollection(ik_slice, dt, snow_sc_delta_n, snow_sc_theta_n, atmo, snow)
+       CALL snow_ice_collection(ik_slice, dt, sic_params, atmo, ice, snow)
        IF (ischeck) CALL check(ik_slice, 'ice and snow collection',cloud,rain,ice,snow,graupel,hail)
 
-       CALL graupel_selfcollection(ik_slice, dt, atmo, graupel)
-       CALL graupel_ice_collection(ik_slice, dt, atmo, ice, graupel)
-       CALL graupel_snow_collection(ik_slice, dt, atmo, snow, graupel)
+       CALL graupel_selfcollection(ik_slice, dt, graupel_sc_coll_n, atmo, graupel)
+       CALL graupel_ice_collection(ik_slice, gic_params, dt, atmo, ice, graupel)
+       CALL graupel_snow_collection(ik_slice, dt, gsc_params, atmo, snow, graupel)
        IF (ischeck) CALL check(ik_slice, 'graupel collection',cloud,rain,ice,snow,graupel,hail)
 
        IF (ice_typ > 1) THEN
 
           ! conversion of graupel to hail in wet growth regime
-          CALL graupel_hail_conv_wet_gamlook(ik_slice, atmo, graupel, cloud, &
-               rain, ice, snow, hail)
+          CALL graupel_hail_conv_wet_gamlook(ik_slice, graupel_ltable1, graupel_ltable2,       &
+                                             graupel_nm1, graupel_nm2, graupel_g1, graupel_g2, &
+                                             atmo, graupel, cloud, rain, ice, snow, hail)
           IF (ischeck) CALL check(ik_slice, 'graupel_hail_conv_wet_gamlook',cloud,rain,ice,snow,graupel,hail)
 
           ! hail collisions
-          CALL hail_ice_collection(ik_slice, dt, atmo, ice, hail)    ! Important?
-          CALL hail_snow_collection(ik_slice, dt, atmo, snow, hail)
+          CALL hail_ice_collection(ik_slice, dt, hic_params, atmo, ice, hail)    ! Important?
+          CALL hail_snow_collection(ik_slice, dt, hsc_params, atmo, snow, hail)
           IF (ischeck) CALL check(ik_slice, 'hail collection',cloud,rain,ice,snow,graupel,hail)
        END IF
 
        ! riming of ice with cloud droplets and rain drops, and conversion to graupel
-       CALL ice_riming(ik_slice, dt, atmo, ice, cloud, rain, graupel, &
+       CALL ice_riming(ik_slice, dt, icr_params, irr_params, atmo, ice, cloud, rain, graupel, &
             dep_rate_ice)
        IF (ischeck) CALL check(ik_slice, 'ice_riming',cloud,rain,ice,snow,graupel,hail)
 
        ! riming of snow with cloud droplets and rain drops, and conversion to graupel
-       CALL snow_riming(ik_slice, dt, atmo, &
+       CALL snow_riming(ik_slice, dt, scr_params, srr_params, atmo, &
             snow, cloud, rain, ice, graupel, dep_rate_snow)
        IF (ischeck) CALL check(ik_slice, 'snow_riming',cloud,rain,ice,snow,graupel,hail)
 
@@ -1332,14 +1331,16 @@ CONTAINS
       IF (ischeck) CALL check(ik_slice, 'graupel riming',cloud,rain,ice,snow,graupel,hail)
 
        ! freezing of rain and conversion to ice/graupel/hail
-       CALL rain_freeze_gamlook(ik_slice, dt, atmo,rain,ice,snow,graupel,hail)
+       CALL rain_freeze_gamlook(ik_slice, dt, rain_ltable1, rain_ltable2, rain_ltable3, &
+                                rain_nm1, rain_nm2, rain_nm3, rain_g1, rain_g2,         &
+                                rain_freeze_coeff_z, atmo,rain,ice,snow,graupel,hail)
        IF (ischeck) CALL check(ik_slice, 'rain_freeze_gamlook',cloud,rain,ice,snow,graupel,hail)
 
        ! melting
        CALL ice_melting(ik_slice, atmo, ice, cloud, rain)
-       CALL snow_melting(ik_slice, dt, atmo,snow,rain)
-       CALL graupel_melting(ik_slice, dt, atmo, graupel, rain)
-       IF (ice_typ > 1) CALL hail_melting(ik_slice, dt, atmo, hail, rain)
+       CALL snow_melting(ik_slice, dt, sm_params, atmo,snow,rain)
+       CALL graupel_melting(ik_slice, dt, gm_params, atmo, graupel, rain)
+       IF (ice_typ > 1) CALL hail_melting(ik_slice, dt, hm_params, atmo, hail, rain)
        IF (ischeck) CALL check(ik_slice, 'melting',cloud,rain,ice,snow,graupel,hail)
 
        ! evaporation from melting ice particles
@@ -1364,14 +1365,15 @@ CONTAINS
        CALL accretionKK(ik_slice, dt, cloud, rain)
        CALL rain_selfcollectionSB(ik_slice, dt, rain)
     ELSE IF (auto_typ == 3) THEN
-       CALL autoconversionSB(ik_slice, dt, cloud, rain)  ! Seifert and Beheng (2001)
+       CALL autoconversionSB(ik_slice, dt, autoconversion_sb_k_au, autoconversion_sb_k_sc, &
+         &                   cloud, rain)  ! Seifert and Beheng (2001)
        CALL accretionSB(ik_slice, dt, cloud, rain)
        CALL rain_selfcollectionSB(ik_slice, dt, rain)
     ENDIF
     IF (ischeck) CALL check(ik_slice, 'warm rain',cloud,rain,ice,snow,graupel,hail)
 
     ! evaporation of rain following Seifert (2008)
-    CALL rain_evaporation(ik_slice, dt, atmo, cloud, rain)
+    CALL rain_evaporation(ik_slice, dt, rain_coeffs, rain_gfak, atmo, cloud, rain)
 
     ! size limits for all hydrometeors
     IF (nuc_c_typ > 0) THEN
