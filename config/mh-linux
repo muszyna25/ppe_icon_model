@@ -652,9 +652,9 @@ case "$ac_sitename" in
                 sync_submit=srunjob --account=mpi
                 case "$fortran_compiler" in
                     default|gcc)
-                      NETCDFROOT  = $software_tree/netcdf-4.1.3-static-gcc51
-                      MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-gcc51
-                      MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal  $IB_LIBS $SYS_LIBS 
+                      NETCDFFROOT = $software_tree/netcdf_fortran-4.4.2-static-${compiler_version}
+                      MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
+                      MPI_LIB     = -L$MPIROOT/lib -Wl,-rpath -Wl,$MPIROOT/lib -Wl,--disable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -lpthread -libverbs -lrdmacm -lutil
                       load_modules=gcc/5.1.0 ${load_modules}
                       ;;
                     pgi)
@@ -677,10 +677,10 @@ case "$ac_sitename" in
                       MPIROOT     = $software_tree/mpilib/openmpi-1.8.1-static-${compiler_version}
                       MPI_LIB = -I$MPIROOT/lib $WLFLAG,-rpath,,$MPIROOT/lib $WLFLAG,--disable-new-dtags -L$MPIROOT/lib -lmpi_usempi -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -libverbs -lrdmacm -lutil -lpthread
                       load_modules=gcc/4.8.2 nag/6.0.1064 ${load_modules}
-                      NETCDFROOT  = $software_tree/netcdf-4.1.3-static-nag60
-                      MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-nag60
-                      MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
-                      load_modules="gcc/4.8.2" "nag/6.0.1038" "${load_modules}"
+                #      NETCDFROOT  = $software_tree/netcdf-4.1.3-static-nag60
+                #      MPIROOT     = $software_tree/mpilib/openmpi-1.6.5-static-nag60
+                #      MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi $IB_LIBS $SYS_LIBS
+                #      load_modules="gcc/4.8.2" "nag/6.0.1038" "${load_modules}"
                       ;;
                 esac
                 ;;
