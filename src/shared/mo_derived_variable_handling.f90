@@ -95,11 +95,9 @@ CONTAINS
     
     CHARACTER(LEN=max_char_length) :: listname
     
-    integer :: i
-    
-    meanMap    = map()
-    meanEvents = map()
-    meanEventsActivity = map()
+    meanMap    = map(verbose=.false.)
+    meanEvents = map(verbose=.false.)
+    meanEventsActivity = map(verbose=.false.)
 
     WRITE(listname,'(a)')  'mean_stream_list'
     CALL new_var_list(mean_stream_list, listname, patch_id=patch_2d%id)
@@ -170,7 +168,7 @@ CONTAINS
       ! }}}
 
       eventKey = get_event_key(p_onl)
-      write (0,*)'eventKey:',trim(eventKey)
+if (my_process_is_stdio()) write (0,*)'eventKey:',trim(eventKey)
       IF ( meanMap%has_key(eventKey) ) THEN
         myBuffer => meanMap%get(eventKey)
         select type (myBuffer)
@@ -313,18 +311,18 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     do i=1,keys%length()
       select type (eventString => keys%at(i))
       type is (character(*))
-        if (my_process_is_stdio()) call print_summary(eventString)
+if (my_process_is_stdio()) call print_summary(eventString)
         meanEvent => meanEvents%get(eventString)
         select type (meanEvent)
         type is (t_event_wrapper)
           isactive = LOGICAL(isCurrentEventActive(meanEvent%this,mtime_date))
-          if (my_process_is_stdio()) call print_summary('------------ isactive ----------- '//&
-            & trim(object_string(isactive)))
+if (my_process_is_stdio()) call print_summary('------------ isactive ----------- '//&
+  & trim(object_string(isactive)))
           call meanEventsActivity%add(eventString,isactive)
         end select
       end select
     end do
-    call print_error(meanEventsActivity%to_string())
+if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string())
     ! }}}
 
 IF ( my_process_is_stdio() ) write(0,*)'values%length = ',values%length() !TODO
@@ -356,8 +354,8 @@ IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
               !if (associated(check_dest)) then
               select type (check_dest)
               type is (t_list_element)
-                IF ( my_process_is_stdio() ) call print_summary('sourceName: '//trim(source%field%info%name))
-                IF ( my_process_is_stdio() ) call print_summary('destName: '//trim(destination%field%info%name))
+IF ( my_process_is_stdio() ) call print_summary('sourceName: '//trim(source%field%info%name))
+IF ( my_process_is_stdio() ) call print_summary('destName: '//trim(destination%field%info%name))
                 CALL accumulation_add(source, destination)
 
                 ! check if the field will be written to disk this timestep {{{
@@ -369,8 +367,8 @@ IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
                   select type (eventActive => meanEventsActivity%get(eventString))
                   type is (logical)
                     isactive = eventActive
-                    if (my_process_is_stdio()) call print_summary('------------ eventActive -------- '//&
-                      & trim(object_string(isactive)))
+if (my_process_is_stdio()) call print_summary('------------ eventActive -------- '//&
+  & trim(object_string(isactive)))
                   end select
                 end select
                   ! }}}
@@ -382,24 +380,6 @@ IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
             end select
           end if
         end do
-       !do k=1,3
-       !  e => meanEvents(k)
-       !  call eventToString(e, msg)
-       !  IF ( my_process_is_stdio() ) THEN
-       !    write (0,*)' k  :', k  
-       !    call print_summary(msg,stderr=.true.)
-       !    if (msg == eventKey) then
-       !      ! found the correnspondin even
-       !      call print_summary("key found !!!",stderr=.true.)
-       !      ! now check for activity
-       !      CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
-       !      call print_summary(trim(mtime_cur_datetime))
-       !      mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
-       !      isactive = LOGICAL(isCurrentEventActive(e,mtime_date))
-       !      write (0,*)'---- isactive ----- ',isactive
-       !    end if
-       !  end if
-       !end do
       end select 
     end do
 
