@@ -58,7 +58,6 @@ MODULE mo_initicon_io
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, nlev_snow, &
     &                               ntiles_water, lmulti_snow, tiles, get_tile_suffix
-  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_dictionary,          ONLY: dict_get, DICT_MAX_STRLEN
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
@@ -1656,19 +1655,19 @@ MODULE mo_initicon_io
       ret = read_data_2d(parameters, filetype, 't_b1_lk', wtr_prog%t_b1_lk, tileinfo, opt_checkgroup=checkgrp)
       ret = read_data_2d(parameters, filetype, 'h_b1_lk', wtr_prog%h_b1_lk, tileinfo, opt_checkgroup=checkgrp)
 
-      IF (iprog_aero == 1) THEN
-        my_ptr2d => prm_diag(jg)%aerosol(:,iss,:)
-        ret =           read_data_2d(parameters, filetype, 'aer_ss', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
-        my_ptr2d => prm_diag(jg)%aerosol(:,iorg,:)
-        ret = ret .AND. read_data_2d(parameters, filetype, 'aer_or', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
-        my_ptr2d => prm_diag(jg)%aerosol(:,ibc,:)
-        ret = ret .AND. read_data_2d(parameters, filetype, 'aer_bc', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
-        my_ptr2d => prm_diag(jg)%aerosol(:,iso4,:)
-        ret = ret .AND. read_data_2d(parameters, filetype, 'aer_su', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
-        my_ptr2d => prm_diag(jg)%aerosol(:,idu,:)
-        ret = ret .AND. read_data_2d(parameters, filetype, 'aer_du', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
-        aerosol_fg_present(jg) = ret
-      ENDIF
+      ! read prognostic aerosol fields, if necessary (iprog_aero=1)
+      my_ptr2d => prm_diag(jg)%aerosol(:,iss,:)
+      ret =           read_data_2d(parameters, filetype, 'aer_ss', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
+      my_ptr2d => prm_diag(jg)%aerosol(:,iorg,:)
+      ret = ret .AND. read_data_2d(parameters, filetype, 'aer_or', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
+      my_ptr2d => prm_diag(jg)%aerosol(:,ibc,:)
+      ret = ret .AND. read_data_2d(parameters, filetype, 'aer_bc', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
+      my_ptr2d => prm_diag(jg)%aerosol(:,iso4,:)
+      ret = ret .AND. read_data_2d(parameters, filetype, 'aer_su', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
+      my_ptr2d => prm_diag(jg)%aerosol(:,idu,:)
+      ret = ret .AND. read_data_2d(parameters, filetype, 'aer_du', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
+      aerosol_fg_present(jg) = ret
+
 
       CALL deleteInputParameters(parameters)
 
