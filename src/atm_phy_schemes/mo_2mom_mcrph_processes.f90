@@ -120,12 +120,13 @@ MODULE mo_2mom_mcrph_processes
        & dmin_wg_gr_ltab_equi,       &  ! For look-up table of wet growth diameter
        & ltabdminwgg
 
-  USE mo_2mom_mcrph_types,     ONLY:
+  USE mo_2mom_mcrph_types,     ONLY:             &
        &  ATMOSPHERE, PARTICLE, particle_sphere, &
+       &  particle_rain_coeffs,                  &
        &  aerosol_ccn, aerosol_in,               &
        &  sym_riming_params, asym_riming_params, &
        &  evaporation_deposition_params,         &
-       &  melt_params
+       &  melt_params, dep_imm_params
 
   IMPLICIT NONE
 
@@ -257,16 +258,17 @@ MODULE mo_2mom_mcrph_processes
   REAL(wp), PARAMETER :: snow_cmu4 = 5.5_wp      ! a
   INTEGER,  PARAMETER :: snow_cmu5 = 1           ! exponent
 
-    TYPE(particle_rain), PARAMETER :: rainSBBcoeffs = particle_rain( &
-         &     9.292000,  & !..alfa
-         &     9.623000,  & !..beta
-         &     6.222d+2,  & !..gama
-         &     6.000000,  & !..cmu0
-         &     3.000d+1,  & !..cmu1
-         &     1.000d+3,  & !..cmu2
-         &     1.100d-3,  & !..cmu3 = D_br
-         &     1.000000,  & !..cmu4
-         &     2 )          !..cmu5
+    TYPE(particle_rain_coeffs), PARAMETER :: rainSBBcoeffs = particle_rain_coeffs( &
+         &     0.0,0.0,0.0, & !..a_f,b_f,c_i from type particle_params
+         &     9.292000,    & !..alfa
+         &     9.623000,    & !..beta
+         &     6.222d+2,    & !..gama
+         &     6.000000,    & !..cmu0
+         &     3.000d+1,    & !..cmu1
+         &     1.000d+3,    & !..cmu2
+         &     1.100d-3,    & !..cmu3 = D_br
+         &     1.000000,    & !..cmu4
+         &     2 )            !..cmu5
 
 
 
@@ -280,12 +282,16 @@ MODULE mo_2mom_mcrph_processes
   PUBLIC :: N_sc, n_f, ecoll_gc, ecoll_hc
   PUBLIC :: q_crit_gc, D_crit_gc, q_crit_hc, D_crit_hc
   PUBLIC :: D_shed_g, D_shed_h, D_crit_c, D_coll_c
+  PUBLIC :: q_crit
   PUBLIC :: rainSBBcoeffs
   ! Switches
   PUBLIC :: ice_typ, nuc_i_typ, nuc_c_typ, auto_typ
   PUBLIC :: isdebug, ischeck
   ! Functions
   PUBLIC :: particle_meanmass
+  PUBLIC :: coll_delta_11, coll_delta_12, coll_delta_22
+  PUBLIC :: coll_theta_11, coll_theta_12, coll_theta_22
+  PUBLIC :: vent_coeff_a, vent_coeff_b, moment_gamma
   ! Process Routines
   PUBLIC :: sedi_vel_rain, sedi_vel_sphere, init_sedi_vel
   PUBLIC :: autoconversionSB, accretionSB, rain_selfcollectionSB
@@ -347,7 +353,7 @@ CONTAINS
 
   ! mue-Dm relation of raindrops
   PURE FUNCTION rain_mue_dm_relation(this,D_m) result(mue)
-    CLASS(particle_rain), intent(in) :: this
+    CLASS(particle_rain_coeffs), intent(in) :: this
     real(wp),             intent(in) :: D_m
     real(wp)                         :: mue, delta
 
@@ -515,7 +521,7 @@ CONTAINS
   ! bulk sedimentation velocities
   subroutine sedi_vel_rain(this,thisCoeffs,q,x,vn,vq,its,ite,qc)
     TYPE(particle), intent(in)      :: this
-    TYPE(particle_rain), intent(in) :: thisCoeffs
+    TYPE(particle_rain_coeffs), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
     real(wp), intent(in)  :: q(:),x(:)
     real(wp), intent(in), optional  :: qc(:)
@@ -992,7 +998,7 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(particle_rain), INTENT(in) :: &
+    TYPE(particle_rain_coeffs), INTENT(in) :: &
       &  rain_coeffs
     REAL(wp), INTENT(in) :: rain_gfak   ! this is set in init_twomoment depending on mu_Dm_rain_typ
     TYPE(atmosphere), INTENT(inout) :: atmo
@@ -1154,7 +1160,7 @@ CONTAINS
 
   END SUBROUTINE evaporation
 
-  SUBROUTINE cloud_freeze(ik_slice, dt, cloud_freeze_coeff_z, atmo, cloud, ice)
+  SUBROUTINE cloud_freeze(ik_slice, dt, cloud_freeze_coeff_z, qnc_const, atmo, cloud, ice)
     !*******************************************************************************
     ! This is only the homogeneous freezing of liquid water droplets.              *
     ! Immersion freezing and homogeneous freezing of liquid aerosols are           *
@@ -1166,6 +1172,7 @@ CONTAINS
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
     REAL(wp), INTENT(in) :: cloud_freeze_coeff_z
+    real(wp), INTENT(in) :: qnc_const
     TYPE(atmosphere), INTENT(inout) :: atmo
     TYPE(particle), INTENT(inout)  :: cloud, ice
     ! start and end indices for 2D slices
@@ -4408,7 +4415,7 @@ CONTAINS
       &                  its,ite,kts,kte,cmax) !
 
     TYPE(particle), INTENT(in)             :: rain
-    TYPE(particle_rain), INTENT(in)        :: rain_coeffs
+    TYPE(particle_rain_coeffs), INTENT(in)        :: rain_coeffs
     INTEGER,  INTENT(IN)                   :: its,ite,kts,kte
     REAL(wp), DIMENSION(:,:), INTENT(INOUT):: qp,np
     REAL(wp), DIMENSION(:,:), INTENT(IN)   :: adz,qc,rhocorr

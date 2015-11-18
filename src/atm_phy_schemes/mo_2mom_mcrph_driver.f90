@@ -57,16 +57,20 @@ USE mo_physical_constants,   ONLY: &
 
 USE mo_exception,      ONLY: finish, message, message_text
 
+USE mo_2mom_mcrph_types,    ONLY:                              &
+     &                       atmosphere, particle
+
 USE mo_2mom_mcrph_main,     ONLY:                              &
      &                       clouds_twomoment,                 &
-     &                       sedi_vel_rain, sedi_vel_sphere,   &
-     &                       sedi_icon_rain,sedi_icon_sphere,  &
-     &                       atmosphere, particle,             &
-     &                       particle_meanmass, &
      &                       rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
      &                       ccn_coeffs, in_coeffs,                     &
      &                       init_2mom_scheme, init_2mom_scheme_once,   &
-     &                       qnc_const, q_crit
+     &                       qnc_const
+USE mo_2mom_mcrph_processes,ONLY:                              &
+     &                       sedi_vel_rain, sedi_vel_sphere,   &
+     &                       sedi_icon_rain,sedi_icon_sphere,  &
+     &                       particle_meanmass, q_crit
+
 
 USE mo_2mom_mcrph_util, ONLY:                            &
      &                       gfct,                       &  ! Gamma function (becomes intrinsic in Fortran2008)
@@ -796,7 +800,7 @@ CONTAINS
 
      cmax = 0.0_wp
 
-     CALL sedi_icon_rain (rain,qr,qnr,prec_r,qc,rhocorr,rdz,dt,its,ite,kts,kte,cmax)
+     CALL sedi_icon_rain (rain,rain_coeffs,qr,qnr,prec_r,qc,rhocorr,rdz,dt,its,ite,kts,kte,cmax)
 
       IF (cloud_type.ge.1000) THEN
          prec_i(:) = 0._wp

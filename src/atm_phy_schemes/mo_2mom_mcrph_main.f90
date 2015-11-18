@@ -111,6 +111,9 @@ MODULE mo_2mom_mcrph_main
        & ltabdminwgg
   ! The process routines
   USE mo_2mom_mcrph_processes, ONLY:                                         &
+       &  coll_delta_11, coll_delta_12, coll_delta_22,                       &
+       &  coll_theta_11, coll_theta_12, coll_theta_22,                       &
+       &  vent_coeff_a, vent_coeff_b, moment_gamma,                          &
        &  sedi_vel_rain, init_sedi_vel, autoconversionSB,                    &
        &  accretionSB, rain_selfcollectionSB, autoconversionKB, accretionKB, &
        &  autoconversionKK, accretionKK, rain_evaporation, evaporation,      &
@@ -133,10 +136,11 @@ MODULE mo_2mom_mcrph_main
        &  D_shed_g, D_shed_h, D_crit_c, D_coll_c, rainSBBcoeffs
   ! And switches...
   USE mo_2mom_mcrph_processes, ONLY:                                         &
-       &  ice_typ, nuc_i_typ, nuc_c_typ, auto_typ isdebug, ischeck
+       &  ice_typ, nuc_i_typ, nuc_c_typ, auto_typ, isdebug, ischeck
 
-  USE mo_2mom_mcrph_types,     ONLY:
+  USE mo_2mom_mcrph_types,     ONLY:             &
        &  ATMOSPHERE, PARTICLE, particle_sphere, &
+       &  particle_rain_coeffs,                  &
        &  aerosol_ccn, aerosol_in,               &
        &  sym_riming_params, asym_riming_params, &
        &  evaporation_deposition_params,         &
@@ -154,7 +158,7 @@ MODULE mo_2mom_mcrph_main
   ! These are the fundamental particle variables for the two-moment scheme
   ! These pointers will be specified from the list of pre-defined particles
   TYPE(particle_sphere)          :: ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs
-  TYPE(particle_rain)            :: rain_coeffs
+  TYPE(particle_rain_coeffs)     :: rain_coeffs
   TYPE(aerosol_ccn)              :: ccn_coeffs
   TYPE(aerosol_in)               :: in_coeffs
 
@@ -181,8 +185,6 @@ MODULE mo_2mom_mcrph_main
 
   PUBLIC :: init_2mom_scheme, init_2mom_scheme_once, clouds_twomoment
 
-  PUBLIC :: q_crit
-  
   ! these should be fixed to private for reasons of encapsulation
   PUBLIC :: rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
        ccn_coeffs, in_coeffs
@@ -1256,7 +1258,7 @@ CONTAINS
       CALL ice_nucleation_homhet(ik_slice, use_prog_in, atmo, cloud, ice, snow, n_inact, n_inpot)
 
        ! homogeneous freezing of cloud droplets
-       CALL cloud_freeze(ik_slice, dt, cloud_freeze_coeff_z, atmo, cloud, ice)
+       CALL cloud_freeze(ik_slice, dt, cloud_freeze_coeff_z, qnc_const, atmo, cloud, ice)
        IF (ischeck) CALL check(ik_slice, 'cloud_freeze', cloud, rain, ice, snow, graupel,hail)
 
        DO k=kstart,kend
@@ -1284,7 +1286,7 @@ CONTAINS
        IF (ischeck) CALL check(ik_slice, 'ice and snow collection',cloud,rain,ice,snow,graupel,hail)
 
        CALL graupel_selfcollection(ik_slice, dt, graupel_sc_coll_n, atmo, graupel)
-       CALL graupel_ice_collection(ik_slice, gic_params, dt, atmo, ice, graupel)
+       CALL graupel_ice_collection(ik_slice, dt, gic_params, atmo, ice, graupel)
        CALL graupel_snow_collection(ik_slice, dt, gsc_params, atmo, snow, graupel)
        IF (ischeck) CALL check(ik_slice, 'graupel collection',cloud,rain,ice,snow,graupel,hail)
 
