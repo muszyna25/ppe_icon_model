@@ -53,6 +53,12 @@
 ! - gscp=4 has now prognostic QNC and IN depletion (n_inact)
 ! - gscp=5 has additional budget equations for IN and CCN
 !===============================================================================!
+! Version of November, 2015, by Daniel Rieger:
+! - Created an own module for process subroutines (mo_2mom_mcrph_processes)
+! - Extended the argument lists of several process subroutines as the declaration
+!   of the according variables happens still in mo_2mom_mcrph_main
+! - Usage of a separate routine for type declaration as developed by AS
+!===============================================================================!
 ! To Do:
 ! - Check conservation of water mass
 ! - Further optimization might be possible in rain_freeze.
@@ -269,14 +275,6 @@ MODULE mo_2mom_mcrph_processes
          &     1.100d-3,    & !..cmu3 = D_br
          &     1.000000,    & !..cmu4
          &     2 )            !..cmu5
-
-
-
-
-
-
-
-
 
   ! Parameters
   PUBLIC :: N_sc, n_f, ecoll_gc, ecoll_hc

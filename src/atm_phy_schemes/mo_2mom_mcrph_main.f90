@@ -53,6 +53,12 @@
 ! - gscp=4 has now prognostic QNC and IN depletion (n_inact)
 ! - gscp=5 has additional budget equations for IN and CCN
 !===============================================================================!
+! Version of November, 2015, by Daniel Rieger:
+! - Created an own module for process subroutines (mo_2mom_mcrph_processes)
+! - Extended the argument lists of several process subroutines as the declaration
+!   of the according variables happens still in mo_2mom_mcrph_main
+! - Usage of a separate routine for type declaration as developed by AS
+!===============================================================================!
 ! To Do:
 ! - Check conservation of water mass
 ! - Further optimization might be possible in rain_freeze.
@@ -92,24 +98,25 @@ MODULE mo_2mom_mcrph_main
   USE mo_kind,               ONLY: sp, wp
   USE mo_exception,          ONLY: finish, message, txt => message_text
   USE mo_math_constants,     ONLY: pi
-  USE mo_physical_constants, ONLY: &
-       & R_l   => rd,     & ! gas constant of dry air (luft)
-       & R_d   => rv,     & ! gas constant of water vapor (dampf)
-       & nu_l  => con_m     ! kinematic viscosity of air
-  USE mo_satad, ONLY:     &
-       & e_ws  => sat_pres_water,  & ! saturation pressure over liquid water
-       & e_es  => sat_pres_ice       ! saturation pressure over ice
+  USE mo_physical_constants, ONLY:    &
+       & R_l   => rd,                 & ! gas constant of dry air (luft)
+       & R_d   => rv,                 & ! gas constant of water vapor (dampf)
+       & nu_l  => con_m                 ! kinematic viscosity of air
+
+  USE mo_satad, ONLY:                 &
+       & e_ws  => sat_pres_water,     & ! saturation pressure over liquid water
+       & e_es  => sat_pres_ice          ! saturation pressure over ice
 
   USE mo_2mom_mcrph_util, ONLY: &
-       & gfct,                       &  ! Gamma function (becomes intrinsic in Fortran2008)
-       & gamlookuptable,             &  ! For look-up table of incomplete Gamma function
-       & nlookup, nlookuphr_dummy,   &  !   array size of table
-       & incgfct_lower_lookupcreate, &  !   create table
-       & incgfct_lower_lookup,       &  !   interpolation in table, lower incomplete Gamma function
-       & incgfct_upper_lookup,       &  !   interpolation in talbe, upper incomplete Gamma function
-       & dmin_wg_gr_ltab_equi,       &  ! For look-up table of wet growth diameter
+       & gfct,                        & ! Gamma function (becomes intrinsic in Fortran2008)
+       & gamlookuptable,              & ! For look-up table of incomplete Gamma function
+       & nlookup, nlookuphr_dummy,    & !   array size of table
+       & incgfct_lower_lookupcreate,  & !   create table
+       & incgfct_lower_lookup,        & !   interpolation in table, lower incomplete Gamma function
+       & incgfct_upper_lookup,        & !   interpolation in talbe, upper incomplete Gamma function
+       & dmin_wg_gr_ltab_equi,        & ! For look-up table of wet growth diameter
        & ltabdminwgg
-  ! The process routines
+
   USE mo_2mom_mcrph_processes, ONLY:                                         &
        &  coll_delta_11, coll_delta_12, coll_delta_22,                       &
        &  coll_theta_11, coll_theta_12, coll_theta_22,                       &
@@ -128,8 +135,6 @@ MODULE mo_2mom_mcrph_main
        &  hail_melting, graupel_hail_conv_wet_gamlook, ice_riming,           &
        &  snow_riming, ccn_activation_sk, ccn_activation_hdcp2
   ! And some parameters declared in the process module that are required here. 
-  !! Comment D. Rieger: Probably these parameters are not necessarily needed here as   !!
-  !!                    most of them are only used to be passed to process routines.   !!
   USE mo_2mom_mcrph_processes, ONLY:                                         &
        &  N_sc, n_f, ecoll_gc, ecoll_hc,                                     &
        &  q_crit_gc, D_crit_gc, q_crit_hc, D_crit_hc,                        &
