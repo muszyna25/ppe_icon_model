@@ -73,7 +73,6 @@ MODULE mo_async_latbc
     ! Processor numbers
     USE mo_mpi,                       ONLY: p_pe_work, p_work_pe0, p_comm_work_pref_compute_pe0
     USE mo_time_config,               ONLY: time_config
-    USE mo_datetime,                  ONLY: t_datetime
     USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, latbc_buffer
     USE mo_grid_config,               ONLY: nroot
     USE mo_async_latbc_utils,         ONLY: pref_latbc_data, prepare_pref_latbc_data, &
@@ -127,9 +126,6 @@ MODULE mo_async_latbc
 
     ! maximum text lengths in this module
     INTEGER, PARAMETER :: MAX_ERROR_LENGTH  = 256
-
-    ! NetCDF file IDs / CDI stream IDs for first guess and analysis file
-    INTEGER, ALLOCATABLE :: fileID_fg(:)
 
     !> constant for better readability
     INTEGER, PARAMETER :: WAIT_UNTIL_FINISHED = -1
@@ -420,7 +416,7 @@ MODULE mo_async_latbc
       CHARACTER(*), PARAMETER :: routine = "mo_async_latbc::read_init_files"
       CHARACTER (len=MAX_CHAR_LENGTH) :: name
       CHARACTER(len=132) :: message_text
-      INTEGER :: jlev, ierrstat, vlistID, nvars, varID, zaxisID, gridID, &
+      INTEGER :: jlev, ierrstat, vlistID, nvars, varID, zaxisID, &
            &       jp, fileID_latbc, counter, filetype, ngrp_prefetch_vars
       INTEGER(KIND=i8) :: flen_latbc
       LOGICAL :: l_exist
@@ -544,8 +540,6 @@ MODULE mo_async_latbc
                IF(name == latbc_buffer%grp_vars(jp)) THEN
                   ! get the vertical axis ID
                   zaxisID = vlistInqVarZaxis(vlistID, varID)
-                  ! get the grid ID using vlistID and varID
-                  gridID = vlistInqVarGrid(vlistID, varID)
                   counter = counter + 1
                   ! get the respective vertical levels for
                   ! the respective variable

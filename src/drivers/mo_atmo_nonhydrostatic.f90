@@ -83,7 +83,8 @@ USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 USE mo_vertical_coord_table,ONLY: vct_a, vct_b
 USE mo_nh_testcases_nml,    ONLY: nh_test_name
 
-USE mo_master_config,       ONLY: tc_exp_startdate, tc_exp_stopdate, tc_startdate, tc_stopdate
+USE mo_master_config,       ONLY: tc_exp_startdate, tc_exp_stopdate, tc_startdate, &
+  &                               tc_stopdate, tc_current_date
 USE mtime,                  ONLY: datetimeToString
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: ACTION_RESET, reset_act
@@ -117,7 +118,7 @@ CONTAINS
     ! is executed within process_grid_level
     !------------------------------------------------------------------
 
-    CALL perform_nh_stepping( time_config%cur_datetime )
+    CALL perform_nh_stepping( time_config%cur_datetime, tc_current_date )
 
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.

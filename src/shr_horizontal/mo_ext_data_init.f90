@@ -75,7 +75,8 @@ MODULE mo_ext_data_init
     &                              t_stream_id, read_2D, read_2D_int, &
     &                              read_3D_extdim
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
-  USE mo_datetime,           ONLY: t_datetime, month2hour, add_time
+  USE mo_datetime,           ONLY: t_datetime, month2hour, add_time, iso8601,      &
+    &                              string_to_datetime
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
     &                              read_cdi_3d, t_inputParameters,                 &
     &                              makeInputParameters, deleteInputParameters,     &
@@ -94,6 +95,8 @@ MODULE mo_ext_data_init
     &                              streamClose, cdiStringError
   USE mo_math_gradients,     ONLY: grad_fe_cell
   USE mo_fortran_tools,      ONLY: var_scale
+  USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,        &
+    &                              MAX_DATETIME_STR_LEN, datetimetostring
 
   IMPLICIT NONE
 
@@ -148,7 +151,8 @@ CONTAINS
     ! GRIB2 shortnames or NetCDF var names.
     TYPE (t_dictionary) :: extpar_varnames_dict
 
-    TYPE(t_datetime) :: datetime
+    TYPE(t_datetime)        :: this_datetime
+    TYPE(datetime), POINTER :: mtime_date
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':init_ext_data'
 
@@ -274,35 +278,47 @@ CONTAINS
         ! midnight.
         !
         IF (.NOT. isRestart()) THEN
-          datetime     = time_config%ini_datetime
-          IF (timeshift%dt_shift < 0._wp) CALL add_time(timeshift%dt_shift,0,0,0,datetime)
+          this_datetime     = time_config%ini_datetime
+          IF (timeshift%dt_shift < 0._wp) CALL add_time(timeshift%dt_shift,0,0,0,this_datetime)
         ELSE
-          datetime     = time_config%cur_datetime
+          this_datetime     = time_config%cur_datetime
         END IF  ! isRestart
         !
-        datetime%hour= 0   ! always assume midnight
+        this_datetime%hour= 0   ! always assume midnight
+
+        !---------------------------------------------------------------
+        ! conversion of subroutine arguments to new mtime "datetime"
+        ! data structure
+        !
+        ! TODO: remove this after transition to mtime library!!!
+        
+        mtime_date => newDatetime(iso8601(this_datetime))
+        !---------------------------------------------------------------
 
         DO jg = 1, n_dom
-          CALL interpol_monthly_mean(p_patch(jg), datetime,              &! in
+          CALL interpol_monthly_mean(p_patch(jg), mtime_date,            &! in
             &                        ext_data(jg)%atm_td%ndvi_mrat,      &! in
             &                        ext_data(jg)%atm%ndviratio          )! out
         ENDDO
 
         IF ( albedo_type == MODIS) THEN
           DO jg = 1, n_dom
-            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+            CALL interpol_monthly_mean(p_patch(jg), mtime_date,          &! in
               &                        ext_data(jg)%atm_td%alb_dif,      &! in
               &                        ext_data(jg)%atm%alb_dif          )! out
 
-            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+            CALL interpol_monthly_mean(p_patch(jg), mtime_date,          &! in
               &                        ext_data(jg)%atm_td%albuv_dif,    &! in
               &                        ext_data(jg)%atm%albuv_dif        )! out
 
-            CALL interpol_monthly_mean(p_patch(jg), datetime,            &! in
+            CALL interpol_monthly_mean(p_patch(jg), mtime_date,          &! in
               &                        ext_data(jg)%atm_td%albni_dif,    &! in
               &                        ext_data(jg)%atm%albni_dif        )! out
           ENDDO
         ENDIF  ! albedo_type
+
+        ! clean up
+        CALL deallocateDatetime(mtime_date)
 
       END IF
 
@@ -1981,29 +1997,40 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2013-05-03)
   !! Generalization to arbitrary monthly mean climatologies
   !!
-  SUBROUTINE interpol_monthly_mean(p_patch, datetime, monthly_means, out_field)
+  SUBROUTINE interpol_monthly_mean(p_patch, mtime_date, monthly_means, out_field)
 
+    TYPE(datetime),   POINTER      :: mtime_date
     TYPE(t_patch),     INTENT(IN)  :: p_patch
-    TYPE(t_datetime),  INTENT(IN)  :: datetime              ! actual date
     REAL(wp),          INTENT(IN)  :: monthly_means(:,:,:)  ! monthly mean climatology
     REAL(wp),          INTENT(OUT) :: out_field(:,:)        ! interpolated output field
 
-
-    INTEGER :: jc, jb               !< loop index
-    INTEGER :: i_startblk, i_endblk, i_nchdom
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startidx, i_endidx
-    INTEGER :: mo1, mo2             !< nearest months
-    REAL(wp):: zw1, zw2
+    TYPE(t_datetime)                    :: this_datetime        ! actual date
+    INTEGER                             :: jc, jb               !< loop index
+    INTEGER                             :: i_startblk, i_endblk, i_nchdom
+    INTEGER                             :: rl_start, rl_end
+    INTEGER                             :: i_startidx, i_endidx
+    INTEGER                             :: mo1, mo2             !< nearest months
+    REAL(wp)                            :: zw1, zw2
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
 
 !!$    CHARACTER(len=max_char_length), PARAMETER :: &
 !!$      routine = modname//': interpol_monthly_mean'
 
     !---------------------------------------------------------------
+    ! conversion of subroutine arguments to old "t_datetime" data
+    ! structure
+    !
+    ! TODO: remove this after transition to mtime library!!!
+
+    CALL datetimeToString(mtime_date, datetime_string        )
+    CALL string_to_datetime( datetime_string,  this_datetime )
+    !---------------------------------------------------------------
+
+    !---------------------------------------------------------------
 
     ! Find the 2 nearest months mo1, mo2 and the weights zw1, zw2
     ! to the actual date and time
-    CALL month2hour( datetime, mo1, mo2, zw2 )
+    CALL month2hour( this_datetime, mo1, mo2, zw2 )
 
     zw1 = 1._wp - zw2
 

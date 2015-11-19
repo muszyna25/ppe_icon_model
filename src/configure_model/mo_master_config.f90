@@ -32,12 +32,14 @@ MODULE mo_master_config
   PUBLIC :: setStartdate, setStopdate
   PUBLIC :: setCheckpointTimeInterval
   PUBLIC :: setRestartTimeInterval
+  PUBLIC :: setCurrentdate
   PUBLIC :: master_component_models
   PUBLIC :: tc_exp_refdate
   PUBLIC :: tc_exp_startdate
   PUBLIC :: tc_exp_stopdate
   PUBLIC :: tc_startdate
   PUBLIC :: tc_stopdate
+  PUBLIC :: tc_current_date
   PUBLIC :: tc_dt_checkpoint
   PUBLIC :: tc_dt_restart
   PUBLIC :: lrestart_write_last
@@ -81,6 +83,10 @@ MODULE mo_master_config
   
   TYPE(datetime), POINTER, PROTECTED :: tc_startdate => NULL()
   TYPE(datetime), POINTER, PROTECTED :: tc_stopdate => NULL()
+
+  ! current model date
+
+  TYPE(datetime), POINTER, PROTECTED :: tc_current_date => NULL()
   
   ! checkpoint and restart time interval (needs to be equal for all component models) 
   
@@ -179,5 +185,11 @@ CONTAINS
     CHARACTER(len=*), INTENT(in) :: restartTimeIntval   
     tc_dt_restart => newTimedelta(restartTimeIntval)
   END SUBROUTINE setRestartTimeInterval
+
+  SUBROUTINE setCurrentdate(current_date)
+    CHARACTER(len=*), INTENT(in) :: current_date
+    tc_current_date => newDatetime(current_date)
+  END SUBROUTINE setCurrentdate
+
 
 END MODULE mo_master_config

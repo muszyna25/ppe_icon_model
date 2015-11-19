@@ -31,7 +31,6 @@ MODULE mo_atmo_model
   USE mo_master_config,           ONLY: isRestart, setStartdate, setStopdate, setExpStopdate, &
        &                                tc_startdate, tc_stopdate, tc_dt_restart,             &
        &                                tc_exp_stopdate, tc_exp_startdate
-  USE mo_master_control,          ONLY: get_my_process_name, get_my_model_no
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
   USE mo_mpi,                     ONLY: get_my_mpi_all_id
@@ -59,7 +58,7 @@ MODULE mo_atmo_model
     &                                   dtime, output_mode,                                   &
     &                                   grid_generatingCenter,                                & ! grid generating center
     &                                   grid_generatingSubcenter,                             & ! grid generating subcenter
-    &                                   iforcing, nsteps
+    &                                   iforcing
   USE mo_gribout_config,          ONLY: configure_gribout
 
   ! time stepping

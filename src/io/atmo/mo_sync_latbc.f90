@@ -92,6 +92,9 @@ MODULE mo_sync_latbc
     &       p_latbc_data, latbc_fileid, read_latbc_tlev, last_latbc_tlev, &
     &       last_latbc_datetime, update_lin_interc
 
+  !> module name
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_sync_latbc'
+
   CONTAINS
 
   !-------------------------------------------------------------------------
@@ -111,7 +114,7 @@ MODULE mo_sync_latbc
     REAL(wp)      :: tdiff
     INTEGER       :: nlev, nlevp1, nblks_c, nblks_e
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
-      "mo_sync_latbc::allocate_latbc_data"
+      modname//"::allocate_latbc_data"
 
     nlev_in = latbc_config%nlev_in
     IF (nlev_in == 0) THEN
@@ -232,7 +235,7 @@ MODULE mo_sync_latbc
     LOGICAL                               :: lcheck_read
     LOGICAL                               :: ltime_incr
     REAL                                  :: tdiff
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_latbc::read_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::read_latbc_data"
 
     IF (PRESENT(lopt_check_read)) THEN
       lcheck_read = lopt_check_read
@@ -300,24 +303,18 @@ MODULE mo_sync_latbc
     TYPE(t_int_state),      INTENT(IN)  :: p_int
 
     ! local variables
-    INTEGER                             :: mpi_comm, dimid, no_cells, &
+    INTEGER                             :: dimid, no_cells, &
                                            latbc_ncid, no_levels
     TYPE(t_stream_id)                   :: latbc_stream_id
     LOGICAL                             :: l_exist
     REAL(wp)                            :: temp_v(nproma,p_patch%nlev,p_patch%nblks_c)
     INTEGER                             :: tlev
 
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_latbc::read_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::read_latbc_icon_data"
     CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
 
     nlev_in = latbc_config%nlev_in
     tlev = read_latbc_tlev
-
-    IF(p_test_run) THEN
-      mpi_comm = p_comm_work_test
-    ELSE
-      mpi_comm = p_comm_work
-    ENDIF
 
     latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_datetime)
 
@@ -456,7 +453,7 @@ MODULE mo_sync_latbc
     LOGICAL                             :: l_exist, lconvert_omega2w
     INTEGER                             :: jc, jk, jb, i_endidx
 
-    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_sync_latbc::read_latbc_data"
+    CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = modname//"::read_latbc_ifs_data"
     CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
     INTEGER                             :: tlev
 
@@ -701,7 +698,7 @@ MODULE mo_sync_latbc
   SUBROUTINE deallocate_latbc_data()
     INTEGER             :: tlev
     CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
-      "mo_sync_latbc::deallocate_latbc_data"
+      modname//"::deallocate_latbc_data"
 
     WRITE(message_text,'(a,a)') 'deallocating latbc data'
     CALL message(TRIM(routine), message_text)

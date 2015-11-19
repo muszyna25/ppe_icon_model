@@ -107,7 +107,7 @@ MODULE mo_nwp_phy_init
   USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  USE mo_datetime,            ONLY: iso8601, t_datetime,  month2hour
+  USE mo_datetime,            ONLY: iso8601, t_datetime,  month2hour, string_to_datetime
   USE mo_time_config,         ONLY: time_config
   USE mo_initicon_config,     ONLY: init_mode
 
@@ -116,6 +116,8 @@ MODULE mo_nwp_phy_init
     &                               tune_v0snow, tune_zvz0i
   USE mo_sso_cosmo,           ONLY: sso_cosmo_init_param
   USE mo_fortran_tools,       ONLY: init
+  USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, &
+    &                               datetimeToString
 
   IMPLICIT NONE
 
@@ -1428,22 +1430,32 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 END SUBROUTINE init_nwp_phy
 
 
-  SUBROUTINE init_cloud_aero_cpl ( datetime, p_patch, p_metrics, ext_data, prm_diag)
+  SUBROUTINE init_cloud_aero_cpl ( mtime_date, p_patch, p_metrics, ext_data, prm_diag)
 
-
-    TYPE(t_datetime),            INTENT(in) :: datetime
+    TYPE(datetime),   POINTER               :: mtime_date
     TYPE(t_patch),               INTENT(in) :: p_patch
     TYPE(t_nh_metrics),          INTENT(in) :: p_metrics
     TYPE(t_external_data),       INTENT(in) :: ext_data
 
     TYPE(t_nwp_phy_diag),        INTENT(inout) :: prm_diag
 
-
-    INTEGER  :: imo1, imo2
-    INTEGER  :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER  :: jb, jc, jg, nlev
+    INTEGER          :: imo1, imo2
+    INTEGER          :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER          :: jb, jc, jg, nlev
 
     REAL(wp) :: wgt, zncn(nproma, p_patch%nlev)
+    TYPE(t_datetime)                    :: this_datetime
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+
+    !---------------------------------------------------------------
+    ! conversion of subroutine arguments to old "t_datetime" data
+    ! structure
+    !
+    ! TODO: remove this after transition to mtime library!!!
+
+    CALL datetimeToString(mtime_date, datetime_string        )
+    CALL string_to_datetime( datetime_string,  this_datetime )
+    !---------------------------------------------------------------
 
     jg = p_patch%id
     nlev = p_patch%nlev
@@ -1451,7 +1463,7 @@ END SUBROUTINE init_nwp_phy
     IF (irad_aero /= 6) RETURN
     IF (atm_phy_nwp_config(jg)%icpl_aero_gscp /= 1 .AND. icpl_aero_conv /= 1) RETURN
 
-    CALL month2hour (datetime, imo1, imo2, wgt)
+    CALL month2hour (this_datetime, imo1, imo2, wgt)
 
     rl_start = 1
     rl_end   = min_rlcell_int

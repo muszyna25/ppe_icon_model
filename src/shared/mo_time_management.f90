@@ -70,7 +70,8 @@ MODULE mo_time_management
     &                                    setExpStopdate, setStartdate, setStopdate,        &
     &                                    master_nml_calendar => calendar,                  &
     &                                    checkpointTimeIntval, restartTimeIntval,          &
-    &                                    setrestarttimeinterval, setcheckpointtimeinterval
+    &                                    setrestarttimeinterval, setcheckpointtimeinterval,&
+    &                                    setCurrentdate
   USE mo_time_config,              ONLY: end_datetime_string
   USE mo_io_restart_attributes,    ONLY: get_restart_attribute
   USE mo_io_restart,               ONLY: read_restart_header
@@ -509,7 +510,7 @@ CONTAINS
 
     ! --- --- EXPERIMENT STOP DATE:
     !
-    !         This is when the whole experiment ends; not that the
+    !         This is when the whole experiment ends; note that the
     !         current run may stop before this end date has been
     !         reached (and be restarted later).
     !
@@ -694,7 +695,7 @@ CONTAINS
     CALL setExpStartdate( exp_start_datetime_string )
     CALL setExpStopdate ( exp_stop_datetime_string  )
     CALL setExpRefdate  ( exp_ref_datetime_string   )
-    ! TODO: initialize current date also for mtime here!!!
+    CALL setCurrentdate ( cur_datetime_string       )
 
     ! --- Finally, store the same information in a "t_datetime" data
     !     structure

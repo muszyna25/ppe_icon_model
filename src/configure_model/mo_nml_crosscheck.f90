@@ -89,7 +89,6 @@ CONTAINS
     INTEGER :: i_listlen
     INTEGER :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
-    INTEGER(i8)                           :: dtime_ms
     
     !--------------------------------------------------------------------
     ! Compute date/time/time step settings

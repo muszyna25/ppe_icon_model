@@ -67,6 +67,7 @@ MODULE mo_datetime
 
   USE mo_kind,      ONLY: wp, i8
   USE mo_exception, ONLY: finish, message, message_text
+  USE mtime,        ONLY: datetime
 
   IMPLICIT NONE
 
@@ -111,6 +112,11 @@ MODULE mo_datetime
   INTERFACE OPERATOR(==)
     MODULE PROCEDURE l_comp_date_eq
   END INTERFACE 
+
+  INTERFACE check_newday
+    MODULE PROCEDURE check_newday_datetime
+    MODULE PROCEDURE check_newday_mtime
+  END INTERFACE
 
   ! Calendar types
   !
@@ -826,7 +832,7 @@ CONTAINS
   !! @par Revision History
   !! First version by P. Ripodas, DWD (2012-11-22)
   !!
-  FUNCTION check_newday(datetime_old, datetime)
+  FUNCTION check_newday_datetime(datetime_old, datetime) RESULT(check_newday)
 
     LOGICAL                          :: check_newday
     TYPE (t_datetime), INTENT(inout) :: datetime_old
@@ -838,8 +844,23 @@ CONTAINS
      check_newday=.FALSE.
     END IF
 
-  END FUNCTION check_newday
+  END FUNCTION check_newday_datetime
   !----------------------------------------------------------------------------
+
+
+  !>
+  !! Subroutine to check if %day is different in the two given datetime arguments
+  !!
+  FUNCTION check_newday_mtime(mtime_old, mtime_date) RESULT(check_newday)
+
+    LOGICAL                        :: check_newday
+    TYPE (datetime), INTENT(inout) :: mtime_old
+    TYPE (datetime), INTENT(inout) :: mtime_date
+
+    check_newday =  (mtime_date%date%day /= mtime_old%date%day)
+  END FUNCTION check_newday_mtime
+  !----------------------------------------------------------------------------
+
 
   !>
   !! Subroutine to print information on the calendar and time base.
