@@ -3,7 +3,7 @@
 #
 # Atmosphere-Land-Ocean YAC Coupled Experiment
 #
-author_list="Marco Giorgetta, Rene Redler, Reiner Schnur"
+author_list="Marco Giorgetta, Rene Redler, Reiner Schnur, Stephan Lorenz"
 #
 #--------------------------------------------------------------------------------------------------
 #
@@ -89,7 +89,7 @@ dtime_cpl=$dtime_oce
 # -----------------------
 
 start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
-  end_date="2009-01-01T00:00:00Z"        # ISO-format date+time
+  end_date="1980-01-01T00:00:00Z"        # ISO-format date+time
 
 # restart interval
 # ----------------
@@ -98,18 +98,28 @@ checkpoint_interval="P1Y"
 restart_interval="P1Y"
 # NEEDED TO KEEP THIS EXPERIMENT WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
 # TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
-(( dt_checkpoint = 300 * day))
-(( dt_restart    = 300 * day))
 
-atm_output_interval_2d="PT2H"
-atm_output_interval_3d="PT6H"
-lnd_output_interval_2d="PT2H"
-lnd_output_interval_3d="PT6H"
-oce_output_interval="P1D"
+# high frequency output and restart intervals
+#(( dt_checkpoint = 365 * day))
+#(( dt_restart    = 365 * day))
+#atm_output_interval_2d="PT6H"
+#atm_output_interval_3d="PT6H"
+#lnd_output_interval_2d="PT6H"
+#lnd_output_interval_3d="PT6H"
+#oce_output_interval="PT6H"
 
-atm_file_interval="P300D"
-lnd_file_interval="P300D"
-oce_file_interval="P300D"
+# long-term low frequency output and restart intervals
+(( dt_checkpoint = 1825 * day))  #  5y
+(( dt_restart    = 1825 * day))  #  5y
+atm_output_interval_2d="P5DT6H"
+atm_output_interval_3d="P5DT6H"
+lnd_output_interval_2d="P5DT6H"
+lnd_output_interval_3d="P5DT6H"
+oce_output_interval="P30D"
+
+atm_file_interval="P6Y"
+lnd_file_interval="P6Y"
+oce_file_interval="P6Y"
 
 # namelist files
 # --------------
@@ -152,6 +162,7 @@ cat > ${atm_namelist} << EOF
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
  irad_type        = 2
  activate_sync_timers = .TRUE.
+ profiling_output     = 3
 
 /
 &time_nml
@@ -407,6 +418,7 @@ cat >> ${atm_namelist} << EOF
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
  itype_pres_msl   = 4
+ lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF
 
@@ -625,8 +637,7 @@ cat > ${oce_namelist} << EOF
  modelTimeStep    = "PT1H"
  output      = 'nml'                                  ! output mechanism via namelist
  activate_sync_timers = .TRUE.
- profiling_output     = 2
- msg_timestamp        = .FALSE.
+ profiling_output     = 3
  timers_level         = 10
  debug_check_level    = 1
 /
@@ -644,9 +655,10 @@ cat > ${oce_namelist} << EOF
   include_last     = .false.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-! ml_varlist       =  'group:oce_essentials', 'group:ice_default', 'topBoundCond_windStress_u', 'A_tracer_v_T'
-  ml_varlist       =  'wet_c','wet_e','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
-                      'topBoundCond_windStress_u_acc','t_acc','s_acc','u_acc'
+  ml_varlist       =  'wet_c','basin_c','regio_c','mld','condep','h_acc','u_vint_acc','hi_acc','hs_acc','conc_acc',
+                      'topBoundCond_windStress_u_acc','t_acc','s_acc','u_acc',
+                      'HeatFlux_Total_acc','FrshFlux_Runoff_acc','FrshFlux_Precipitation_acc','FrshFlux_Evaporation_acc',
+                      'FrshFlux_TotalIce_acc', 'FrshFlux_TotalSalt_acc', 'FrshFlux_TotalOcean_acc', 'FrshFlux_VolumeTotal_acc'
 /
 &output_nml
   output_start     = "${start_date}"                  ! start date in ISO-format
@@ -659,7 +671,7 @@ cat > ${oce_namelist} << EOF
   ml_varlist       =  'group:ocean_monitor'
 /
 &dbg_index_nml
-  idbg_mxmn        = 0                        ! initialize MIN/MAX  debug output
+  idbg_mxmn        = 1                        ! initialize MIN/MAX  debug output
   idbg_val         = 0                        ! initialize one cell debug output
   idbg_slev        = 1                        ! initialize start level for debug output
   idbg_elev        = 5                        ! initialize end level for debug output
@@ -720,11 +732,11 @@ cat > ${oce_namelist} << EOF
   bottom_drag_coeff               =   1.0E-3  ! default=2.5E-3
   physics_parameters_type         =   1       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
   use_wind_mixing                 = .FALSE.   ! true: use wind mixing scheme in MPIOM-type pp-scheme
-  GMRedi_configuration            =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
+  GMRedi_configuration            =   1       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
 /                                           
 &sea_ice_nml
   i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
-  i_ice_dyn                       =   0       ! 1/0=switch on/off AWI ice dynamics; TODO: ice dynamics not yet ready for coupling
+  i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics; TODO: ice dynamics not yet ready for coupling
 /
 &ocean_forcing_nml
   iforc_oce              = 14                 ! ocean forcing:
@@ -736,6 +748,8 @@ cat > ${oce_namelist} << EOF
   forcing_enable_freshwater = TRUE            ! enable freshwater flux
   forcing_windstress_u_type       =  22       ! 0: wind-stress set to zero (default) 1: read from (OMIP-) file; 2-100: untouched wind stress
   forcing_windstress_v_type       =  22
+  limit_seaice                    =  .TRUE.   ! true: mass and energy conserving maximum of sea ice
+  seaice_limit                    =  0.7      ! 12m surface layer: 8.4m sea-ice limit
 /
 &ocean_initialConditions_nml
   initial_salinity_type           = 1         ! read S from initial_state.nc
@@ -812,7 +826,7 @@ cat > coupling.xml << EOF
 <coupling xmlns="http://www.w3schools.com"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://www.w3schools.com coupling.xsd">
-   <redirect redirect_of_root="false" redirect_stdout="true"/>
+   <redirect redirect_of_root="false" redirect_stdout="false"/>
    <components>
       <component id="1">
          <name>atmo</name>
