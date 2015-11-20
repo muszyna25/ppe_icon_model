@@ -404,6 +404,9 @@ IF ( my_process_is_stdio() ) call print_summary('destName: '//trim(destination%f
                   type is (integer)
                     isactive = eventActive
 if (my_process_is_stdio()) write (0,*)' isactive (accloop):',isactive
+                    if (0 .lt. isactive ) then
+                      destination%field%r_ptr = destination%field%r_ptr / (REAL(isactive))
+                    end if
                   end select
                 end select
                   ! }}}
