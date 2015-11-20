@@ -350,13 +350,36 @@ case "$ac_sitename" in
                     cray)
                       RTTOV_LIBS      = -L/usr/local/pkg/for0adm/lib -L/usr/local/pkg/for0adm/lib/unsupported -lradiance -lrttov10.2 -lhrit_tools
                       OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $RTTOV_LIBS $OTHER_LIBS
-                      STD_FLAGS       = -D__USE_RTTOV
+                      STD_FLAGS       = -D__USE_RTTOV -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
                       FFLAGS          = ${FFLAGS} -I/usr/local/pkg/for0adm/include/radiance
                       ;;
                     default|gcc)
                       load_modules    = PrgEnv-gnu netcdf grib_api cray-mpich ${load_modules}
                       FFLAGS          = ${FFLAGS}
                       OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
+                      ;;
+                esac
+                ;;
+            lc*)
+                NETCDFROOT  =${NETCDF_DIR}
+                make_command="make" "-j" "8"
+                case "$fortran_compiler" in
+                    intel*)
+                      load_modules    = "netcdf" "${load_modules}"
+                      CFLAGS          = -DHAVE_LIBNETCDF ${CFLAGS}
+                      STD_FLAGS       = -O2 -xAVX -fltconsistency -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+                      FFLAGS          = ${FFLAGS}
+                      F77FLAGS        = "$FFLAGS" "$STD_FLAGS"
+                      LIBS            = ${LIBS}
+                      FC              = ifort
+                      CC              = icc
+                      ;;
+                    default|gcc)
+                      load_modules    = "netcdf" "${load_modules}"
+                      FFLAGS          = ${FFLAGS}
+                      LIBS            = -L${GRIB_API}/lib ${LIBS} -lgrib_api_f90 -lgrib_api
+                      FC              = gfortran
+                      CC              = gcc
                       ;;
                 esac
                 ;;
@@ -457,6 +480,7 @@ case "$ac_sitename" in
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-intel14
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-gcc48
                         HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-gcc48
+
                         SZIPROOT    = $software_tree/sys/libaec-0.3.2-gcc48
                         XML2ROOT    = /usr
                         ZLIBROOT    = /usr
@@ -464,17 +488,23 @@ case "$ac_sitename" in
                         case "$with_mpi" in
                             "$software_tree/intel/impi/5.1.0.038_dapl2.1.6")
                                 load_modules = ${load_modules} intelmpi/5.1.0.038_dapl2.1.6
-                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = $with_mpi/compilers_and_libraries_2016.0.079/linux/mpi/intel64
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-impi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-ixmpi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
                                 ;;
                             "$software_tree/intel/impi/4.1.3.049"|"$software_tree/intel/impi/4.1.3.049/intel64")
-                                FFLAGS = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+                                FFLAGS = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
                                 load_modules=${load_modules} intelmpi/4.1.3.049
 
                                 MPIROOT     = $software_tree/intel/impi/4.1.3.049/intel64
                                 SYS_LIBS    = -ldl -lrt -lpthread
                                 MPI_LIB     = $WLFLAG,-rpath,$MPIROOT/lib -lmpigf -lmpi -lmpigi $SYS_LIBS
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-impi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-ixmpi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
                                 case "${with_openmp}" in
                                   yes)
                                     MPI_LIB=${MPI_LIB/ -lmpi / -lmpi_mt }
@@ -485,11 +515,14 @@ case "$ac_sitename" in
                                 ;;
                             /opt/mpi/bullxmpi_mlx/1.2.8.3|*)
                                 load_modules = ${load_modules} fca mxm bullxmpi_mlx/bullxmpi_mlx-1.2.8.3
-                                FFLAGS       = $FFLAGS
+                                FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = /opt/mpi/bullxmpi_mlx/1.2.8.3
                                 SYS_LIBS     = -ldl -lm -lnuma -Wl,--export-dynamic -lrt -lnsl -lutil -lm -ldl
                                 MPI_LIB      = $WLFLAG,-rpath,/opt/mpi/bullxmpi_mlx/1.2.8.3/lib -lmpi_f90 -lmpi_f77 $SYS_LIBS
-                                ;;
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-bullxmpi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-bullxmpi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-bullxmpi-intel14
+                                ;;                              
                         esac
                         mpi_startrun = srun
                         ;;

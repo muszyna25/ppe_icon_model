@@ -992,10 +992,11 @@ MODULE mo_ocean_nml
     IF ( is_coupled_run() ) THEN
       iforc_oce = Coupled_FluxFromAtmo
       CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
-      limit_elevation = .FALSE.
-      CALL message(TRIM(routine),'WARNING, limit_elevation set to .FALSE. for coupled experiment')
-      limit_seaice = .FALSE.
-      CALL message(TRIM(routine),'WARNING, limit_seaice set to .FALSE. - no limit for coupled experiment')
+ !!!  limiters can now be set by namelist
+ !!!  limit_elevation = .FALSE.
+ !!!  CALL message(TRIM(routine),'WARNING, limit_elevation set to .FALSE. for coupled experiment')
+ !!!  limit_seaice = .FALSE.
+ !!!  CALL message(TRIM(routine),'WARNING, limit_seaice set to .FALSE. - no limit for coupled experiment')
     END IF
 #endif
 

@@ -32,7 +32,8 @@ MODULE mo_pp_tasks
     & PRES_MSL_METHOD_SAI, PRES_MSL_METHOD_GME, max_dom,              &
     & ALL_TIMELEVELS, PRES_MSL_METHOD_IFS,                            &
     & PRES_MSL_METHOD_IFS_CORR, RH_METHOD_WMO, RH_METHOD_IFS,         &
-    & RH_METHOD_IFS_CLIP, TASK_COMPUTE_OMEGA, HINTP_TYPE_LONLAT_BCTR
+    & RH_METHOD_IFS_CLIP, TASK_COMPUTE_OMEGA, HINTP_TYPE_LONLAT_BCTR, &
+    & TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_model_domain,            ONLY: t_patch
   USE mo_var_list_element,        ONLY: t_var_list_element
   USE mo_var_metadata_types,      ONLY: t_var_metadata, t_vert_interp_meta
@@ -76,6 +77,8 @@ MODULE mo_pp_tasks
   ! interface definition
   PRIVATE
 
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_pp_tasks'
 
   ! max. name string length
   INTEGER, PARAMETER, PUBLIC :: MAX_NAME_LENGTH   =   64
@@ -106,6 +109,7 @@ MODULE mo_pp_tasks
   PUBLIC :: t_data_input
   PUBLIC :: t_data_output
   PUBLIC :: t_simulation_status
+  PUBLIC :: t_activity_status
   PUBLIC :: t_job_queue
 
   !--- JOB QUEUE DEFINITION ----------------------------------------------------------
@@ -160,11 +164,21 @@ MODULE mo_pp_tasks
   !
   !  @note There might be better places in the code for such a
   !  variable!
-  TYPE t_simulation_status
-    LOGICAL :: status_flags(4)         !< l_output_step, l_first_step, l_last_step, l_accumulation_step
-    LOGICAL :: ldom_active(max_dom)    !< active domains
-    INTEGER :: i_timelevel(max_dom)    !< active time level (for output variables)
+   TYPE t_simulation_status
+    LOGICAL :: status_flags(4)           !< l_output_step, l_first_step, l_last_step, l_accumulation_step
+    LOGICAL :: ldom_active(max_dom)      !< active domains
+    INTEGER :: i_timelevel_dyn(max_dom)  !< active time level (for dynamics output variables related to nnow)
+    INTEGER :: i_timelevel_phy(max_dom)  !< active time level (for physics output variables related to nnow_rcf)
   END TYPE t_simulation_status
+
+
+  !> Definition of task activity, i.e. settings when a task should be
+  !> triggered.
+  TYPE t_activity_status
+    LOGICAL :: status_flags(4)           !< l_output_step, l_first_step, l_last_step
+    LOGICAL :: check_dom_active          !< check if this task's domain is active
+    INTEGER :: i_timelevel               !< time level for this task
+  END TYPE t_activity_status
 
 
   !> A variable of type @p t_job_queue defines a single post-processing task.
@@ -175,7 +189,7 @@ MODULE mo_pp_tasks
     INTEGER                         :: job_priority   !< Task priority.
     CHARACTER(len=MAX_NAME_LENGTH)  :: job_name       !< job name string (for status output)
     INTEGER                         :: job_type       !< task type (quasi function pointer)
-    TYPE(t_simulation_status)       :: activity       !< "under which conditions does this task run?"
+    TYPE(t_activity_status)         :: activity       !< "under which conditions does this task run?"
 
     TYPE(t_data_input)              :: data_input     !< input of post-processing task
     TYPE(t_data_output)             :: data_output    !< result of post-processing task
@@ -201,7 +215,7 @@ CONTAINS
   SUBROUTINE pp_task_lonlat(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_lonlat")
+    CHARACTER(*), PARAMETER :: routine = modname//"p_task_lonlat"
     INTEGER                            ::        &
       &  nblks_ll, npromz_ll, lonlat_id, jg,     &
       &  in_var_idx, out_var_idx, out_var_idx_2, &
@@ -486,13 +500,14 @@ CONTAINS
   SUBROUTINE pp_task_sync(sim_status)
     TYPE(t_simulation_status),  INTENT(IN) :: sim_status
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_sync")
+    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_sync"
     TYPE(t_job_queue),         POINTER :: ptr_task
     INTEGER                            :: in_var_idx, jg, sync_mode, &
       &                                   var_ref_pos
     TYPE (t_var_list_element), POINTER :: in_var
     TYPE (t_var_metadata),     POINTER :: p_info
     TYPE(t_patch),             POINTER :: p_patch
+    INTEGER                            :: timelevel
 
     ptr_task => job_queue
     ! loop over job queue
@@ -501,11 +516,17 @@ CONTAINS
 
       IF (ptr_task%job_type == TASK_INTP_HOR_LONLAT) THEN
         p_patch     => ptr_task%data_input%p_patch
+        p_info      => ptr_task%data_input%var%info
         jg          =  p_patch%id
+        SELECT CASE (p_info%tlev_source)
+        CASE(TLEV_NNOW);     timelevel = sim_status%i_timelevel_dyn(jg)
+        CASE(TLEV_NNOW_RCF); timelevel = sim_status%i_timelevel_phy(jg)
+        CASE DEFAULT
+          CALL finish(routine, 'Unsupported tlev_source')
+        END SELECT
         
-        IF ((ptr_task%activity%i_timelevel(jg) == sim_status%i_timelevel(jg)) .OR.  &
-          & (ptr_task%activity%i_timelevel(jg) == ALL_TIMELEVELS))  THEN
-          p_info      => ptr_task%data_input%var%info
+        IF ((ptr_task%activity%i_timelevel == timelevel) .OR.  &
+          & (ptr_task%activity%i_timelevel == ALL_TIMELEVELS))  THEN
           in_var      => ptr_task%data_input%var
           in_var_idx  =  1
           IF (in_var%info%lcontained) in_var_idx = in_var%info%ncontained
@@ -604,7 +625,7 @@ CONTAINS
   SUBROUTINE pp_task_ipzlev_setup(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_ipzlev_setup")
+    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_ipzlev_setup"
     INTEGER                            :: jg, nzlev, nplev, nilev
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_metrics),        POINTER :: p_metrics    
@@ -676,7 +697,7 @@ CONTAINS
   SUBROUTINE pp_task_ipzlev(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_ipzlev")
+    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_ipzlev"
     INTEGER                            :: &
       &  vert_intp_method, jg,                    &
       &  in_var_idx, out_var_idx, nlev, nlevp1,   &
@@ -949,13 +970,13 @@ CONTAINS
   SUBROUTINE pp_task_intp_msl(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables    
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_intp_msl")
+    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_intp_msl"
     INTEGER,  PARAMETER :: nzlev         =        1     ! just a single z-level... 
     REAL(wp), PARAMETER :: ZERO_HEIGHT   =    0._wp, &
       &                    EXTRAPOL_DIST = -500._wp
 
     INTEGER                            :: nblks_c, npromz_c, nblks_e, jg,          &
-      &                                   in_var_idx, out_var_idx, nlev, i_endblk
+      &                                   out_var_idx, nlev, i_endblk
     TYPE(t_vcoeff)                     :: vcoeff
     TYPE (t_var_list_element), POINTER :: in_var, out_var
     TYPE(t_var_metadata),      POINTER :: p_info
@@ -986,8 +1007,6 @@ CONTAINS
     npromz_c = p_patch%npromz_c
     nblks_e  = p_patch%nblks_e
     
-    in_var_idx  = 1
-    IF (in_var%info%lcontained)  in_var_idx  = in_var%info%ncontained
     out_var_idx = 1
     IF (out_var%info%lcontained) out_var_idx = out_var%info%ncontained
 
@@ -1073,7 +1092,7 @@ CONTAINS
     TYPE(t_patch),             POINTER :: p_patch
     TYPE(t_nh_prog),           POINTER :: p_prog
     TYPE(t_nh_diag),           POINTER :: p_diag
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_compute_field")
+    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_compute_field"
     LOGICAL :: lclip                   ! limit rh to MAX(rh,100._wp)
     
     ! output field for this task
@@ -1129,7 +1148,7 @@ CONTAINS
   SUBROUTINE pp_task_edge2cell(ptr_task)
     TYPE(t_job_queue), POINTER :: ptr_task
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = TRIM("mo_pp_tasks:pp_task_edge2cell")
+    CHARACTER(*), PARAMETER :: routine = modname//"pp_task_edge2cell"
     INTEGER :: &
       &  in_var_idx, out_var_idx_1, out_var_idx_2, &
       &  in_var_ref_pos, out_var_ref_pos_1,        &
