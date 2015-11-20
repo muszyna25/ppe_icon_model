@@ -11,7 +11,7 @@
 !
 
 !----------------------------
-#include "omp_definitions.inc"
+! #include "omp_definitions.inc"
 !----------------------------
 
 !============================================================================
@@ -142,8 +142,7 @@ subroutine stress2rhs
 
 
   use mo_physical_constants,  ONLY: rhoi, rhos, earth_radius
-  USE mo_kind,    ONLY: wp
-
+  USE mo_kind,                ONLY: wp
 
 IMPLICIT NONE
 INTEGER      :: row, elem, elnodes(3), k, i  

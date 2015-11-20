@@ -28,6 +28,7 @@ MODULE mo_ice_fem_utils
   USE mo_grid_config,         ONLY: l_limited_area
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_parallel_config,     ONLY: nproma
+  USE mo_mpi,                 ONLY: get_my_global_mpi_id
 !  USE mo_run_config,          ONLY: ltimer
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_intp_data_strc,      ONLY: t_int_state
@@ -789,7 +790,7 @@ CONTAINS
     USE mo_ice_parsup,          ONLY: myList_nod2D, myList_elem2D
     USE mo_ice,                 ONLY: lmass_matrix
     USE mo_ice_elements,        ONLY: voltriangle
-    USE mo_ice_mesh,            ONLY: cos_elem2D, sin_elem2D, coriolis_nod2D
+    USE mo_ice_mesh,            ONLY: cos_elem2D, sin_elem2D, coriolis_nod2D!, nod2D, elem2D
 
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
 
@@ -810,6 +811,9 @@ CONTAINS
     REAL(wp) :: buffy_c(nproma*p_patch%alloc_cell_blocks), buffy_c2(nproma*p_patch%alloc_cell_blocks)
 
   !-------------------------------------------------------------------------
+
+!  write(0,*) "max(myList_nod2D - 1:nod2D)", maxval(myList_nod2D - (/(k, k=1, nod2D)/) ), minval(myList_nod2D - (/(k, k=1, nod2D)/) )
+!  write(0,*) "max(myList_elem2D - 1:elem2D)", maxval(myList_elem2D - (/(k, k=1, elem2D)/) ), minval(myList_elem2D - (/(k, k=1, elem2D)/) )
 
     all_verts => p_patch%verts%all
     
@@ -836,6 +840,17 @@ CONTAINS
     ENDDO
 
     CALL quicksort(globList_elem2D,myList_elem2D)
+
+!    k=0
+!    DO jb = p_patch%cells%all%start_block, p_patch%cells%all%end_block
+!      CALL get_index_range(p_patch%cells%all, jb, i_startidx_c, i_endidx_c)
+!      DO jc = i_startidx_c,i_endidx_c
+!        k=k+1
+!        write(0,*) get_my_global_mpi_id(), ":: myList_elem2D(k)=", myList_elem2D(k), " globList_elem2D(k)=", globList_elem2D(k),  " vs k=",  k
+!      ENDDO
+!    ENDDO
+!   CALL finish ('check finished')
+!
 
     ! Re-create lmass_matrix as one third of the sum of areas of triangles that share vertex n
     ! Or in ICON-terms as the dual area

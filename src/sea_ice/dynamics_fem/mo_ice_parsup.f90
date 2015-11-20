@@ -350,6 +350,12 @@ subroutine mymesh
   end do
 
 
+!  write(0,*) "max,min of part", maxval(part), minval(part)
+!  write(0,*) mype, ":: elem2D=", elem2D, " myDim_elem2D=", myDim_elem2D
+!  write(0,*) mype, ":: nod2D=", nod2D, " myDim_nod2D=", myDim_nod2D
+!  write(0,*) "max(myList_nod2D)", maxval(myList_nod2D)
+!  write(0,*) "max(myList_elem2D)", maxval(myList_elem2D)
+
 end subroutine mymesh
 
 !=======================================================================
