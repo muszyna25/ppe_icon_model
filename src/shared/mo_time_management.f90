@@ -600,17 +600,23 @@ CONTAINS
     !         b) start date + dt_restart
     !         c) start date + nsteps*dtime
     !
-    mtime_dt_restart   => newTimedelta("PT"//TRIM(int2string(INT(dt_restart),'(i0)'))//"S", errno)
-    IF (errno /= 0)  CALL finish(routine, "Error in conversion of dt_restart!")
     mtime_dtime        => getTimedeltaFromMS(INT(dtime,i8)*1000)
     IF (.NOT. ASSOCIATED(mtime_dtime))  CALL finish(routine, "Error in conversion of dtime to mtime!")
     mtime_start        => newDatetime(start_datetime_string, errno)
     IF (errno /= 0)  CALL finish(routine, "Error in conversion of start date")
     mtime_exp_stop     => newDatetime(exp_stop_datetime_string, errno)
     IF (errno /= 0)  CALL finish(routine, "Error in conversion of exp stop date")
-    mtime_restart_stop => newDatetime(mtime_start, errno)
-    IF (errno /= 0)  CALL finish(routine, "Error in initialization of restart date")
-    mtime_restart_stop =  mtime_restart_stop + mtime_dt_restart
+
+    IF (INT(dt_restart) > 0) THEN
+      mtime_dt_restart   => newTimedelta("PT"//TRIM(int2string(INT(dt_restart),'(i0)'))//"S", errno)
+      IF (errno /= 0)  CALL finish(routine, "Error in conversion of dt_restart!")
+      mtime_restart_stop => newDatetime(mtime_start, errno)
+      IF (errno /= 0)  CALL finish(routine, "Error in initialization of restart date")
+      mtime_restart_stop =  mtime_restart_stop + mtime_dt_restart
+    ELSE
+      mtime_restart_stop => newDatetime(exp_stop_datetime_string, errno)
+      IF (errno /= 0)  CALL finish(routine, "Error in initialization of restart date")
+    END IF
     IF (nsteps >= 0) THEN   
 
       ! Special treatment for the hydro atm model
@@ -661,7 +667,7 @@ CONTAINS
     CALL deallocateDatetime(mtime_restart_stop)
     CALL deallocateDatetime(mtime_nsteps_stop)
     CALL deallocateDatetime(mtime_stop)
-    CALL deallocateTimedelta(mtime_dt_restart)
+    IF (INT(dt_restart) > 0)  CALL deallocateTimedelta(mtime_dt_restart)
     CALL deallocateTimedelta(mtime_dtime)
 
     ! --- --- NSTEPS
