@@ -422,6 +422,65 @@ if (my_process_is_stdio()) write (0,*)' isactive (accloop):',isactive
     end do
 
   END SUBROUTINE perform_accumulation
+  SUBROUTINE reset_accumulation
+    INTEGER :: k,i
+    INTEGER :: element_counter
+    class(*),pointer :: elements,check_src, check_pair, check_dest, meanEvent
+    type(t_list_element), pointer :: source, destination
+    type(vector_iterator) :: value_iterator
+    type(vector) :: values, keys
+    TYPE(datetime), POINTER :: mtime_date 
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
+    character(len=132) :: eventKey
+    type(event),pointer :: event_pointer
+    type(event) :: event_from_nml
+    character(len=132) :: msg
+    type(event),pointer :: e
+    integer :: isactive
+
+    class(*), pointer :: eventActive
+    TYPE(divisionquotienttimespan) :: quot
+!   integer, pointer :: counter
+    TYPE(t_accumulation_pair), POINTER :: accumulation_pair
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::perform_accumulation"
+    
+    values = meanMap%values()
+    keys   = meanMap%keys()
+
+    ! check events first {{{
+    isactive = -1
+
+    do i=1, values%length()
+      elements => values%at(i)
+      select type(elements)
+      class is (vector_ref)
+        do element_counter=1,elements%length(),2 !start at 2 because the event is at index 1
+          check_dest => elements%at(element_counter+1)
+          if (associated(check_dest)) then
+            select type (check_dest)
+            type is (t_list_element)
+              destination => check_dest
+              select type (eventString => keys%at(i))
+              type is (character(*))
+                if (my_process_is_stdio()) call print_summary(eventString)
+                ! check if the event is active wrt the current datatime {{{
+!                 eventActive => meanEventsActivity%get(eventString)
+                select type (eventActive => meanEventsActivity%get(eventString))
+                type is (integer)
+                  isactive = eventActive
+if (my_process_is_stdio()) write (0,*)' isactive (resetloop):',isactive
+                  if ( 0 .lt. isactive ) then
+                  destination%field%r_ptr = 0.0_wp
+                  end if
+                end select
+              end select
+            end select
+          end if
+        end do
+      end select 
+    end do
+
+  END SUBROUTINE reset_accumulation
   FUNCTION get_event_key(output_name_list) RESULT(event_key)
     TYPE(t_output_name_list) :: output_name_list
     CHARACTER(LEN=1000) :: event_key
