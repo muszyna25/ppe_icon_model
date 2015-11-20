@@ -159,7 +159,7 @@ MODULE mo_nh_stepping
   USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap, copy, init
   USE mtime,                       ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, &
-       &                                 PROLEPTIC_GREGORIAN, setCalendar,                            &
+       &                                 PROLEPTIC_GREGORIAN, setCalendar,  timedeltaToString,        &
        &                                 timedelta, newTimedelta, deallocateTimedelta,                &
        &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN,                 &
        &                                 MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
@@ -658,6 +658,18 @@ MODULE mo_nh_stepping
 
   eventInterval  => tc_dt_restart
   restartEvent => newEvent('restart', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
+  CALL datetimeToString( eventRefDate,dstring)
+  WRITE(message_text,'(a,a)') 'eventRefDate:  ', dstring
+  CALL message('',message_text)
+   CALL datetimeToString( eventStartDate,dstring)
+  WRITE(message_text,'(a,a)') 'eventStartDate:  ', dstring
+  CALL message('',message_text)
+   CALL datetimeToString( eventEndDate,dstring)
+  WRITE(message_text,'(a,a)') 'eventEndDate:  ', dstring
+  CALL message('',message_text)
+   CALL timedeltaToString( eventInterval,dstring)
+  WRITE(message_text,'(a,a)') 'eventInterval:  ', dstring
+  CALL message('',message_text)
   IF (ierr /= no_Error) THEN
     CALL mtime_strerror(ierr, errstring)
     CALL finish('perform_nh_timeloop', errstring)
@@ -672,6 +684,15 @@ MODULE mo_nh_stepping
   model_time_step => newTimedelta(dtime_str)
   current_date => newDatetime(tc_startdate)
   end_date => newDatetime(current_date)
+  CALL datetimeToString(end_date, dstring)
+  WRITE(message_text,'(a,a)') 'Stop date WITHOUT RESTART INTERVALL:  ', dstring
+  CALL message('',message_text)
+   CALL timedeltaToString( getEventInterval(restartEvent),dstring, errno=ierr)
+  IF (ierr /= no_Error) THEN
+    CALL mtime_strerror(ierr, errstring)
+  ENDIF
+  WRITE(message_text,'(a,a)') 'getEventInterval:  ', dstring
+  CALL message('',message_text)
   end_date = end_date + getEventInterval(restartEvent)
 
   CALL message('','')

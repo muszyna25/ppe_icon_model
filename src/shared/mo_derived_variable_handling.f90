@@ -10,9 +10,11 @@ MODULE mo_derived_variable_handling
   USE self_map
   USE self_assert
 
-  USE mo_kind, ONLY: wp
+  USE mo_kind, ONLY: wp,i8
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma
+  USE mo_run_config, ONLY: tc_dt_model
+  USE mo_master_config, ONLY: tc_startdate
   USE mo_ocean_nml,           ONLY: n_zlev
   USE mo_var_metadata_types, ONLY: varname_len
   USE mo_impl_constants, ONLY: vname_len, success, max_char_length
@@ -26,7 +28,9 @@ MODULE mo_derived_variable_handling
   USE mo_linked_list, ONLY: t_var_list, t_list_element
   USE mo_util_string, ONLY: tolower
   USE mo_exception, ONLY: finish, message, message_text
-  USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent, event, isCurrentEventActive, newDatetime, datetime, eventToString
+  USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent, event, isCurrentEventActive,&
+    & newDatetime, datetime, eventToString, divideDatetimeDifferenceInSeconds, &
+    & divisionquotientTimespan
   USE mo_mtime_extensions,                  ONLY: get_datetime_string
   USE mo_output_event_types, ONLY: t_sim_step_info
   USE mo_time_config,         ONLY: time_config
@@ -49,8 +53,11 @@ MODULE mo_derived_variable_handling
   PUBLIC :: process_mean_stream
 
   TYPE :: t_accumulation_pair
-    TYPE(t_list_element), POINTER :: source, destination
+    TYPE(t_list_element), POINTER :: source
+    TYPE(t_list_element), POINTER :: destination
+    INTEGER                       :: counter = 0
   END TYPE t_accumulation_pair
+
   type :: t_event_wrapper
     type(event), pointer :: this
   end type
@@ -95,8 +102,8 @@ CONTAINS
     
     CHARACTER(LEN=max_char_length) :: listname
     
-    meanMap    = map(verbose=.false.)
-    meanEvents = map(verbose=.false.)
+    meanMap            = map(verbose=.false.)
+    meanEvents         = map(verbose=.false.)
     meanEventsActivity = map(verbose=.false.)
 
     WRITE(listname,'(a)')  'mean_stream_list'
@@ -142,6 +149,7 @@ CONTAINS
     TYPE(vector) :: keys, values 
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
+    TYPE(t_accumulation_pair) :: pair
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mean_stream"
 
     IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
@@ -221,6 +229,8 @@ CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
           CALL meanVariables%add(src_element) ! source element comes first
 !TODO print *,'src added'
           CALL meanVariables%add(dest_element)
+!         pair = t_accumulation_pair(source=src_element, destination=dest_element, counter=0)
+!         CALL meanVariables%add(t_accumulation_pair(source=src_element, destination=dest_element, counter=0))
 !TODO print *,'dst added'
         ! replace existince varname in output_nml with the meanStream Variable
 CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
@@ -275,17 +285,19 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
 
   END FUNCTION get_accumulation_varname
 
-  SUBROUTINE accumulation_add(source, destination)
+  SUBROUTINE accumulation_add(source, destination)!, counter)
     type(t_list_element) , INTENT(IN)    :: source
     type(t_list_element) , INTENT(INOUT) :: destination
+!   integer, intent(inout)               :: counter
 
-    destination%field%r_ptr = destination%field%r_ptr + source%field%r_ptr
+    destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:)+ source%field%r_ptr(:,:,:,:,:)
+!   counter                 = counter + 1
   END SUBROUTINE accumulation_add
 
   SUBROUTINE perform_accumulation
     INTEGER :: k,i
     INTEGER :: element_counter
-    class(*),pointer :: elements,check_src, check_dest, meanEvent
+    class(*),pointer :: elements,check_src, check_pair, check_dest, meanEvent
     type(t_list_element), pointer :: source, destination
     type(vector_iterator) :: value_iterator
     type(vector) :: values, keys
@@ -296,14 +308,19 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     type(event) :: event_from_nml
     character(len=132) :: msg
     type(event),pointer :: e
-    logical :: isactive
+    integer :: isactive
+
     class(*), pointer :: eventActive
+    TYPE(divisionquotienttimespan) :: quot
+!   integer, pointer :: counter
+    TYPE(t_accumulation_pair), POINTER :: accumulation_pair
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::perform_accumulation"
     
     values = meanMap%values()
     keys   = meanMap%keys()
 
     ! check events first {{{
+    isactive = -1
     CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
     mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
     if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
@@ -315,9 +332,15 @@ if (my_process_is_stdio()) call print_summary(eventString)
         meanEvent => meanEvents%get(eventString)
         select type (meanEvent)
         type is (t_event_wrapper)
-          isactive = LOGICAL(isCurrentEventActive(meanEvent%this,mtime_date))
-if (my_process_is_stdio()) call print_summary('------------ isactive ----------- '//&
-  & trim(object_string(isactive)))
+          if (LOGICAL(isCurrentEventActive(meanEvent%this,mtime_date))) then
+            call divideDatetimeDifferenceInSeconds(mtime_date, tc_startdate, tc_dt_model, quot)
+            isactive = INT(quot%quotient)
+
+
+if (my_process_is_stdio()) write (0,*)' isactive COMPUTE:',isactive
+          else
+            isactive = 0
+          end if
           call meanEventsActivity%add(eventString,isactive)
         end select
       end select
@@ -335,12 +358,21 @@ IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
         do element_counter=1,elements%length(),2 !start at 2 because the event is at index 1
           check_src => elements%at(element_counter)
           check_dest => elements%at(element_counter+1)
+!         check_pair => elements%at(element_counter)
           if (associated(check_src)) then
             select type (check_src)
             type is (t_list_element)
               source      => check_src
             end select
           end if
+!         if (associated(check_pair)) then
+!           select type (check_pair)
+!           type is (t_accumulation_pair)
+!             source      => check_pair%source
+!             destination => check_pair%destination
+!             counter     => check_pair%counter
+!           end select
+!         end if
           if (associated(check_dest)) then
             select type (check_dest)
             type is (t_list_element)
@@ -348,15 +380,19 @@ IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
             end select
           end if
  
+!         if (associated(check_pair)) then
+!           select type (check_pair)
+!           type is (t_accumulation_pair)
           if (associated(check_src)) then
             select type (check_src)
             type is (t_list_element)
-              !if (associated(check_dest)) then
+              if (associated(check_dest)) then
               select type (check_dest)
               type is (t_list_element)
 IF ( my_process_is_stdio() ) call print_summary('sourceName: '//trim(source%field%info%name))
 IF ( my_process_is_stdio() ) call print_summary('destName: '//trim(destination%field%info%name))
-                CALL accumulation_add(source, destination)
+!counter = 0
+                CALL accumulation_add(source, destination)!, counter)
 
                 ! check if the field will be written to disk this timestep {{{
                 select type (eventString => keys%at(i))
@@ -365,16 +401,15 @@ IF ( my_process_is_stdio() ) call print_summary('destName: '//trim(destination%f
                   ! check if the event is active wrt the current datatime {{{
 !                 eventActive => meanEventsActivity%get(eventString)
                   select type (eventActive => meanEventsActivity%get(eventString))
-                  type is (logical)
+                  type is (integer)
                     isactive = eventActive
-if (my_process_is_stdio()) call print_summary('------------ eventActive -------- '//&
-  & trim(object_string(isactive)))
+if (my_process_is_stdio()) write (0,*)' isactive (accloop):',isactive
                   end select
                 end select
                   ! }}}
               end select
                 ! ! }}}
-              !end if
+              end if
             class default
               call finish('perform_accumulation','Found unknown source variable type')
             end select
