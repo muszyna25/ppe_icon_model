@@ -591,7 +591,7 @@ MODULE mo_nh_stepping
     jstep_shift = 0
   ENDIF
 
-  mtime_old    => newDatetime(mtime_current)
+  mtime_old => newDatetime(mtime_current)
 
   IF (use_async_restart_output) THEN
     CALL prepare_async_restart(opt_t_elapsed_phy_size = SIZE(t_elapsed_phy, 2), &
@@ -703,7 +703,7 @@ MODULE mo_nh_stepping
 
     ! read boundary data if necessary
     IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (num_prefetch_proc /= 1)) &
-      CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), datetime_current)
+      CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), mtime_current)
 
     IF (msg_level > 2) THEN
       lprint_timestep = .TRUE.
@@ -1677,7 +1677,7 @@ MODULE mo_nh_stepping
             ELSE
 
                ! update the coefficients for the linear interpolation
-               CALL update_lin_interc(datetime_current)
+               CALL update_lin_interc(mtime_current)
                CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
                     p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=p_latbc_data(last_latbc_tlev)%atm,        &
                     p_latbc_new=p_latbc_data(read_latbc_tlev)%atm)

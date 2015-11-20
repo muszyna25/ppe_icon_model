@@ -26,7 +26,8 @@ MODULE mo_limarea_config
                                    int2string
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_datetime,           ONLY: t_datetime
-  USE mtime,                 ONLY: MAX_DATETIME_STR_LEN, datetime
+  USE mtime,                 ONLY: MAX_TIMEDELTA_STR_LEN, datetime,  &
+    &                              timedelta
 
   IMPLICIT NONE
 
@@ -42,14 +43,15 @@ MODULE mo_limarea_config
   TYPE t_latbc_config
 
     ! variables from namelist
-    INTEGER                         :: itype_latbc      ! type of limited area boundary nudging
-    REAL(wp)                        :: dtime_latbc      ! dt between two consequtive external latbc files
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dt_latbc         ! dt between two consequtive external latbc files
-    INTEGER                         :: nlev_in
-    CHARACTER(LEN=filename_max)     :: latbc_filename   ! prefix of latbc files
-    CHARACTER(LEN=MAX_CHAR_LENGTH)  :: latbc_path       ! directory containing external latbc files
-    REAL(wp)                        :: lc1, lc2         ! linear interpolation coefficients
-
+    INTEGER                              :: itype_latbc       ! type of limited area boundary nudging
+    INTEGER                              :: nlev_in           
+    CHARACTER(LEN=filename_max)          :: latbc_filename    ! prefix of latbc files
+    CHARACTER(LEN=MAX_CHAR_LENGTH)       :: latbc_path        ! directory containing external latbc files
+    REAL(wp)                             :: lc1, lc2          ! linear interpolation coefficients
+                                                             
+    REAL(wp)                             :: dtime_latbc       ! dt between two consequtive external latbc files
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: dt_latbc          ! ISO string (dt_latbc)
+    TYPE(timedelta), POINTER             :: dtime_latbc_mtime ! dt between two consequtive external latbc files
   END TYPE t_latbc_config
   !------------------------------------------------------------------------
 
