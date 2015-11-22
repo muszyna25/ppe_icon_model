@@ -565,7 +565,7 @@ CONTAINS
     CHARACTER(LEN=uuid_string_length) :: p_grid_uuid, grid_uuid
     CHARACTER(LEN=filename_max) :: use_division_file_name ! if ext_div_from_file
     LOGICAL :: div_from_file, div_file_exists
-    INTEGER :: num_proc_in_div_file, ncid, ret
+    INTEGER :: num_proc_in_div_file, ncid, ret, i
 
     div_from_file = .FALSE.
 
@@ -663,6 +663,11 @@ CONTAINS
              dist_cell_owner_p, ASSOCIATED(wrk_p_parent_patch_pre), &
              divide_for_radiation = divide_for_radiation)
 
+        CALL dist_mult_array_local_ptr(dist_cell_owner_p, 1, local_owner_ptr)
+        DO i = LBOUND(local_owner_ptr, 1), UBOUND(local_owner_ptr, 1)
+          local_owner_ptr(i) = MERGE(local_owner_ptr(i) + proc0, -1, &
+               local_owner_ptr(i) >= 0)
+        END DO
         CALL dist_mult_array_expose(dist_cell_owner_p)
 
         ! Owners of the cells of the parent patch are now in dist_cell_owner_p.
@@ -685,9 +690,6 @@ CONTAINS
              divide_for_radiation = divide_for_radiation)
       ENDIF
 
-      ! Set processor offset
-      CALL dist_mult_array_local_ptr(dist_cell_owner, 1, local_owner_ptr)
-      local_owner_ptr = local_owner_ptr + proc0
       CALL dist_mult_array_expose(dist_cell_owner)
 
       IF (write_div_to_file) THEN
@@ -2349,6 +2351,11 @@ CONTAINS
           ALLOCATE(flag2_e_list(2*ilev)%idx(0), flag2_e_list(2*ilev)%owner(0))
           n2_ilev_e(2*ilev) = 0
           pack_mask(1:n_temp_edges) = .FALSE.
+#ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
+          ! this call is needed for synchronization purposes
+          CALL compute_edge_owner(flag2_e_list(2*ilev)%idx, &
+            &                     flag2_e_list(2*ilev)%owner)
+#endif
         END IF
         ! collect outer edges
         IF (n_temp_edges > 0) THEN

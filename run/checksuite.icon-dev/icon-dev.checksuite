@@ -147,86 +147,108 @@ function diff_results
         DIFF_DATES=$DATES
     fi
 
-    if [ "x$DIFF_DATES" == "x" ]; then
-        echo "There are no dates to compare"
-        exit 1
-    fi
-
     if [ "x$TYPES" == "x" ]; then
         echo "There are no file types to compare"
         exit 1
     fi
 
-    echo "=================================================================="
-    echo "Compare these experiments:"
-    echo "- ${MODEL_DIR1}/experiments/${DEXP1}"
-    echo "- ${MODEL_DIR2}/experiments/${DEXP2}"
-    echo " "
+    if [ "x$TYPES" == "xmaxwinds.log" ]; then
 
-    # Wait for some seconds so that the file system has a better
-    # chance to deliver the correct files
-    sleep 30s
-
-    for DATE in $DIFF_DATES; do
-
-        echo "----------------------------------------------------------------"
-        echo "Compare for DATE=$DATE"
-        DIFFERENT_TYPES=''
-
-        for TYPE in $TYPES; do
-
-            FILE1="${MODEL_DIR1}/experiments/${DEXP1}/${DEXP1}_${TYPE}_${DATE}.nc"
-            FILE2="${MODEL_DIR2}/experiments/${DEXP2}/${DEXP2}_${TYPE}_${DATE}.nc"
-
-            echo "Compare for TYPE=$TYPE"
-            cdo diffn ${FILE1} ${FILE2} > cdo_diffn.out
-
-            STATUS=`echo $?`
-            if [ "$STATUS" -ne 0 ]; then
-                echo " File 1 and file 2 cannot be compared"
-                echo " - file 1: ${FILE1}"
-                echo " - file 2: ${FILE2}"
-                DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
-            fi
-            if [ -s cdo_diffn.out ]; then
-                echo " File 1 and file 2 differ"
-                echo " - file 1: ${FILE1}"
-                echo " - file 2: ${FILE2}"
-                if [ "$CAT_CDO_DIFFN" == 'yes' ]; then
-                    cat cdo_diffn.out
-                fi
-                IS_DIFFERENT='yes'
-                DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
-                if [ "$SUB_FILES" == 'yes' ]; then
-                    BFILE1=`basename $FILE1`
-                    BFILE2=`basename $FILE2`
-                    WDIR=`dirname $FILE2`
-                    cdo sub ${FILE2} ${FILE1} ${WDIR}/diff_${BFILE2%.nc}-${BFILE1}
-                fi
-            fi
-            rm cdo_diffn.out
-
-        done
-
-        if [ "x$DIFFERENT_TYPES" != 'x' -a $CAT_CDO_DIFFN == 'yes' ]; then
+        echo "=================================================================="
+        echo "Comparing maxwinds.log files"
+        echo " "
+        FILE1="${MODEL_DIR1}/experiments/${DEXP1}/maxwinds.log"
+        FILE2="${MODEL_DIR2}/experiments/${DEXP2}/maxwinds.log"
+	# test if the maxwinds.log file of the restarted run is a
+	# subset of the non-restarted run:
+	subset_cmp=$(diff --unchanged-line-format= --old-line-format= --new-line-format='%L' ${FILE1} ${FILE2} | wc -l)
+        echo " "
+	if [ "$subset_cmp" -eq "0" ]
+	then
+	    echo "File maxwinds.log of the second run is a subset of the first run."
+            DIFF_STATUS=0
+            STATUS=0
+	else
+	    echo "File maxwinds.log of the second run is NOT a subset of the first run."
             DIFF_STATUS=1
-            DIFF_DATE=$DATE
-            DIFF_TYPES=$DIFFERENT_TYPES
-            CAT_CDO_DIFFN='no'
-        fi
-
-    done
-
-    if [ $DIFF_STATUS == 0 ]; then
+            STATUS=1
+	fi
         echo " "
-        echo "The experiments are equal"
-        echo " "
+
     else
+
+        if [ "x$DIFF_DATES" == "x" ]; then
+            echo "There are no dates to compare"
+            exit 1
+        fi
+    
+        echo "=================================================================="
+        echo "Compare these experiments:"
+        echo "- ${MODEL_DIR1}/experiments/${DEXP1}"
+        echo "- ${MODEL_DIR2}/experiments/${DEXP2}"
         echo " "
-        echo "The experiments differ:"
-        echo "- first at date/time $DIFF_DATE"
-        echo "- for the file types $DIFF_TYPES"
-        echo " "
+    
+        for DATE in $DIFF_DATES; do
+    
+            echo "----------------------------------------------------------------"
+            echo "Compare for DATE=$DATE"
+            DIFFERENT_TYPES=''
+    
+            for TYPE in $TYPES; do
+    
+                FILE1="${MODEL_DIR1}/experiments/${DEXP1}/${DEXP1}_${TYPE}_${DATE}.nc"
+                FILE2="${MODEL_DIR2}/experiments/${DEXP2}/${DEXP2}_${TYPE}_${DATE}.nc"
+    
+                echo "Compare for TYPE=$TYPE"
+                cdo diffn ${FILE1} ${FILE2} > cdo_diffn.out
+    
+                STATUS=`echo $?`
+                if [ "$STATUS" -ne 0 ]; then
+                    echo " File 1 and file 2 cannot be compared"
+                    echo " - file 1: ${FILE1}"
+                    echo " - file 2: ${FILE2}"
+                    DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
+                fi
+                if [ -s cdo_diffn.out ]; then
+                    echo " File 1 and file 2 differ"
+                    echo " - file 1: ${FILE1}"
+                    echo " - file 2: ${FILE2}"
+                    if [ "$CAT_CDO_DIFFN" == 'yes' ]; then
+                        cat cdo_diffn.out
+                        rm  cdo_diffn.out
+                    fi
+                    IS_DIFFERENT='yes'
+                    DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
+                    if [ "$SUB_FILES" == 'yes' ]; then
+                        BFILE1=`basename $FILE1`
+                        BFILE2=`basename $FILE2`
+                        WDIR=`dirname $FILE2`
+                        cdo sub ${FILE2} ${FILE1} ${WDIR}/diff_${BFILE2%.nc}-${BFILE1}
+                    fi
+                fi
+    
+            done
+    
+            if [ "x$DIFFERENT_TYPES" != 'x' -a $CAT_CDO_DIFFN == 'yes' ]; then
+                DIFF_STATUS=1
+                DIFF_DATE=$DATE
+                DIFF_TYPES=$DIFFERENT_TYPES
+                CAT_CDO_DIFFN='no'
+            fi
+    
+        done
+    
+        if [ $DIFF_STATUS == 0 ]; then
+            echo " "
+            echo "The experiments are equal"
+            echo " "
+        else
+            echo " "
+            echo "The experiments differ:"
+            echo "- first at date/time $DIFF_DATE"
+            echo "- for the file types $DIFF_TYPES"
+            echo " "
+        fi
     fi
 }
 #------------------------------------------------------------------------

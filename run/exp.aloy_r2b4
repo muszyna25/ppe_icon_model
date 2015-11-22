@@ -264,7 +264,9 @@ cat > ${lnd_namelist} <<EOF
 /
 &jsb_hd_nml
   active          = .TRUE.
-  routing_scheme  = 'weighted_to_coast'
+  routing_scheme  = 'full'
+  bc_filename     = 'bc_land_hd.nc'
+  diag_water_budget = .TRUE.
 /
 EOF
 
@@ -389,6 +391,7 @@ add_link_file $datadir/bc_land_frac_1976.nc                             ./bc_lan
 add_link_file $datadir/bc_land_phys_1976.nc                             ./bc_land_phys.nc
 add_link_file $datadir/bc_land_soil_1976.nc                             ./bc_land_soil.nc
 add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_land_sso.nc
+add_link_file $datadir/bc_land_hd.nc                                    ./bc_land_hd.nc
 
 #--------------------------------------------------------------------------------------------------
 

@@ -301,8 +301,8 @@ CONTAINS
 
 SUBROUTINE cubasen &
  & ( kidia,    kfdia,  klon,  ktdia, klev, njkt1, njkt2,  &
- & entrorg,  texc,  qexc,  ptenh,  pqenh,  pgeoh,  paph,  &
- & pqhfl,    pahfs,                                       &
+ & entrorg,  texc,  qexc, mtnmask, ptenh,  pqenh,  pgeoh, &
+ & paph,  pqhfl,    pahfs,                                &
 !& PSSTRU,   PSSTRV,                                      &
  & pten,     pqen,     pqsen, pgeo,                       &
  & puen,     pven,                                        &
@@ -457,6 +457,7 @@ INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 INTEGER(KIND=jpim),INTENT(in)    :: njkt1, njkt2
 REAL(KIND=jprb)   ,INTENT(in)    :: entrorg
 REAL(KIND=jprb)   ,INTENT(in)    :: texc, qexc
+REAL(KIND=jprb)   ,INTENT(in)    :: mtnmask(klon)
 REAL(KIND=jprb)   ,INTENT(in)    :: ptenh(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pqenh(klon,klev)
 REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
@@ -529,7 +530,7 @@ REAL(KIND=jprb) :: zqsu, zcor, zdq, zalfaw, zfacw, zfaci, zfac,&
 REAL(KIND=jprb) :: ztven1(klon,klev),ztven2(klon,klev),ztvu1(klon,klev),ztvu2(klon,klev)
 REAL(KIND=jprb) :: zdtvtrig(klon) ! virtual temperatures
 REAL(KIND=jprb) :: zwork1, zwork2! work arrays for T and w perturbations
-REAL(KIND=jprb) :: zrcpd, zrg, ztmp
+REAL(KIND=jprb) :: zrcpd, zrg, ztmp, zredfac
 REAL(KIND=jprb) :: zhook_handle
 
 !#include "cuadjtq.intfb.h"
@@ -660,8 +661,9 @@ DO jkk=klev,MAX(ktdia,jkt1),-1 ! Big external loop for level testing:
       DO jl=kidia,kfdia
         IF (llgo_on(jl)) THEN
           ilab(jl,jkk)= 1
-          ztexc=texc
-          zqexc=qexc*pqenh(jl,jkk)
+          zredfac = 1._jprb/(1._jprb+mtnmask(jl))
+          ztexc=texc*zredfac
+          zqexc=qexc*pqenh(jl,jkk)*zredfac
           zqu (jl,jkk) = zqenh(jl,jkk) + zqexc
           zsuh (jl,jkk) = zsenh(jl,jkk) + rcpd*ztexc
           ztu (jl,jkk) = (zsenh(jl,jkk)-pgeoh(jl,jkk))*zrcpd + ztexc

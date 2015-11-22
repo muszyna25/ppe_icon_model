@@ -25,6 +25,7 @@ MODULE mo_mtime_extensions
     &                    setCalendar, PROLEPTIC_GREGORIAN, getPTStringFromMS
   USE mo_datetime, ONLY: t_datetime
   USE mo_exception,ONLY: message,finish
+  
   IMPLICIT NONE
   
   PRIVATE
@@ -137,13 +138,14 @@ CONTAINS
 
     CALL setCalendar(PROLEPTIC_GREGORIAN)
 
-    IF (NINT(timestamp%second) >= 60) THEN
-      timestamp%second = 0
+    IF (timestamp%second >= 60.0_wp) THEN
+      timestamp%second = MODULO(timestamp%second, 1.0_wp)
       timestamp%minute = timestamp%minute + 1
     ENDIF
-
+    
     mtime_datetime => newDatetime(timestamp%year, timestamp%month, timestamp%day, &
-      &                           timestamp%hour, timestamp%minute, NINT(timestamp%second), 0)
+         &                        timestamp%hour, timestamp%minute, INT(timestamp%second), &
+         &                        NINT(1000*MODULO(timestamp%second, 1.0_wp)))
 
     IF (PRESENT(opt_add_seconds)) THEN
       IF (opt_add_seconds>0) THEN

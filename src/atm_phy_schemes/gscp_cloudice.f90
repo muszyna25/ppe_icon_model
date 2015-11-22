@@ -1217,13 +1217,13 @@ SUBROUTINE cloudice (             &
       ENDIF
       
 !FR>>> Calculation of reduction of depositional growth at cloud top (Forbes 2012)
-      IF( k>1 .AND. k<ke .AND. lsuper_coolw .AND. .NOT. lorig_icon ) THEN
+      IF( k>1 .AND. k<ke .AND. lsuper_coolw ) THEN
         znin  = MIN( fxna_cooper(tg), znimax )
         fnuc = MIN(znin/znimix, 1.0_wp)
         
         !! distance from cloud top
-        IF( qc(iv,k-1) .LT. zqmin ) THEN      ! upper cloud layer
-          dist_cldtop(iv) = 0.0_wp    ! reset distance to upper cloud layer
+        IF( qc(iv,k-1) + qi(iv,k-1) + qs(iv,k-1) .LT. zqmin ) THEN      ! cloud top layer
+          dist_cldtop(iv) = 0.0_wp    ! reset distance to cloud top layer
         ELSE
           dist_cldtop(iv) = dist_cldtop(iv) + dz(iv,k)
         END IF
@@ -1289,7 +1289,7 @@ SUBROUTINE cloudice (             &
         zsvisub   = 0.0_wp
         zsimax    = qig*zdtr 
         IF( zsidep > 0.0_wp ) THEN
-          IF (lsuper_coolw .AND. .NOT. lorig_icon ) THEN
+          IF (lsuper_coolw ) THEN
             zsidep = zsidep * reduce_dep(iv)  !FR new: SLW reduction
           END IF
           zsvidep = MIN( zsidep, zsvmax )
@@ -1311,7 +1311,7 @@ SUBROUTINE cloudice (             &
 
         ! Check for maximal depletion of vapor by sdep
         IF (zssdep > 0.0_wp) THEN
-          IF (lsuper_coolw .AND. .NOT. lorig_icon) THEN
+          IF (lsuper_coolw ) THEN
             zssdep = zssdep*reduce_dep(iv)!FR new: SLW reduction
           END IF
           zssdep = MIN(zssdep, zsvmax-zsvidep)

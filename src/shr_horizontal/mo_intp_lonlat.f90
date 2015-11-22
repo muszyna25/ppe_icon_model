@@ -72,8 +72,9 @@
     USE mo_lonlat_grid,         ONLY: rotate_latlon_grid
     USE mo_cf_convention,       ONLY: t_cf_var
     USE mo_grib2,               ONLY: t_grib2_var, grib2_var
-    USE mo_cdi,                 ONLY: TSTEP_CONSTANT, DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64
-    USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_REFERENCE, GRID_CELL, ZA_SURFACE
+    USE mo_cdi,                 ONLY: TSTEP_CONSTANT, GRID_UNSTRUCTURED,                      &
+      &                               DATATYPE_PACK16, DATATYPE_FLT32, DATATYPE_FLT64
+    USE mo_cdi_constants,       ONLY: GRID_REGULAR_LONLAT, GRID_CELL, ZA_SURFACE
     USE mo_nonhydro_state,      ONLY: p_nh_state_lists
     USE mo_var_list,            ONLY: add_var
     USE mo_var_metadata,        ONLY: create_hor_interp_metadata
@@ -359,7 +360,7 @@
             nblks_lonlat   =  (ptr_int_lonlat%nthis_local_pts - 1)/nproma + 1
             var_shape = (/ nproma, 1, nblks_lonlat /)
             cf_desc    = t_cf_var('aw', '1', 'area weights for regular lat-lon grid', datatype_flt)
-            grib2_desc = grib2_var(0, 191, 193, DATATYPE_PACK16, GRID_REFERENCE, GRID_CELL)
+            grib2_desc = grib2_var(0, 191, 193, DATATYPE_PACK16, GRID_UNSTRUCTURED, GRID_CELL)
 
             ALLOCATE(area_weights(grid%lat_dim), STAT=ierrstat)
             IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
