@@ -25,7 +25,7 @@ MODULE mo_initicon
   USE mo_kind,                ONLY: wp
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, msg_level
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
@@ -34,7 +34,7 @@ MODULE mo_initicon
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
-  USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict
+  USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlevatm_in, lvert_remap_fg, &
     &                               rho_incr_filter_wgt, lread_ana, ltile_init,    &
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
@@ -64,13 +64,12 @@ MODULE mo_initicon
   USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points, init_snowtiles,             &
-                                  & copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
-                                  & deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
-                                  & copy_fg2initicon, initVarnamesDict, printChecksums
-  USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, read_dwdfg_atm, &
-                                  & read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc, read_dwdfg_atm_ii, &
-                                  & process_input_dwdana_sfc, process_input_dwdfg_atm_ii, process_input_dwdana_atm, &
-                                  & process_input_dwdfg_sfc
+                                    copy_initicon2prog_atm, copy_initicon2prog_sfc, allocate_initicon, &
+                                    deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
+                                    copy_fg2initicon
+  USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, &
+                                    read_dwdfg_atm, read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc,    &
+                                    read_dwdfg_atm_ii
   USE mo_util_string,         ONLY: one_of
   USE mo_phyparam_soil,       ONLY: cporv, cadp
 
@@ -121,9 +120,15 @@ MODULE mo_initicon
     TYPE(t_lnd_state),      INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
     TYPE(t_external_data),  INTENT(INOUT), OPTIONAL :: ext_data(:)
 
-    CHARACTER(LEN = *), PARAMETER :: routine = modname//':init_icon'
     INTEGER :: jg, ist
     INTEGER :: jb              ! block loop index
+    INTEGER :: i_startblk, i_endblk
+    INTEGER :: i_rlstart, i_rlend, i_nchdom
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+      routine = modname//':init_icon'
+
+
 
     ! Allocate initicon data type
     ALLOCATE (initicon(n_dom),                         &
@@ -132,12 +137,26 @@ MODULE mo_initicon
       &       stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'allocation for initicon failed')
 
-    DO jg = 1, n_dom
-      CALL construct_initicon(initicon(jg), p_patch(jg), ext_data(jg)%atm%topography_c, p_nh_state(jg)%metrics)
-    END DO
+    initicon(:)%atm_in%linitialized  = .FALSE.
+    initicon(:)%sfc_in%linitialized  = .FALSE.
+    initicon(:)%atm%linitialized     = .FALSE.
+    initicon(:)%sfc%linitialized     = .FALSE.
+    initicon(:)%atm_inc%linitialized = .FALSE.
+    initicon(:)%sfc_inc%linitialized = .FALSE.
 
-    ! Read IN the dictionary for the variable names (IF we need it)
-    CALL initVarnamesDict(ana_varnames_dict)
+    ! Allocate memory for init_icon state
+    CALL allocate_initicon (p_patch, initicon)
+
+
+    ! Copy the topography fields and coordinate surfaces to initicon
+    !
+    DO jg = 1, n_dom
+      initicon(jg)%topography_c(:,:) = ext_data(jg)%atm%topography_c(:,:)
+
+      initicon(jg)%z_ifc(:,:,:) = p_nh_state(jg)%metrics%z_ifc(:,:,:)
+      initicon(jg)%z_mc (:,:,:) = p_nh_state(jg)%metrics%z_mc (:,:,:)
+    ENDDO
+
 
 
     ! -----------------------------------------------
@@ -171,18 +190,134 @@ MODULE mo_initicon
         CALL create_input_groups(p_patch(jg),                        &
           &   initicon(jg)%grp_vars_fg,  initicon(jg)%ngrp_vars_fg,  &
           &   initicon(jg)%grp_vars_ana, initicon(jg)%ngrp_vars_ana, &
-          &   initicon(jg)%grp_vars_ana_mandatory, initicon(jg)%ngrp_vars_ana_mandatory, &
+          &   initicon(jg)%grp_vars_fg_default , initicon(jg)%ngrp_vars_fg_default,  &
+          &   initicon(jg)%grp_vars_ana_default, initicon(jg)%ngrp_vars_ana_default, &
           &   init_mode)
       ENDDO
 
     END IF
 
-    CALL print_init_mode()
-    ! read and initialize ICON prognostic fields
-    !
-    CALL process_input_data(p_patch, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
 
-    CALL printChecksums(initicon, p_nh_state, p_lnd_state)
+
+
+    ! init ICON prognostic fields
+    !
+    SELECT CASE(init_mode)
+    CASE(MODE_DWDANA)   ! read in DWD analysis
+
+      CALL message(TRIM(routine),'MODE_DWD: perform initialization with DWD analysis')
+
+      ! process DWD atmosphere analysis data
+      CALL process_dwdana_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
+
+      ! process DWD land/surface analysis data
+      CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+
+    CASE(MODE_ICONVREMAP)   ! read in ICON prognostic variables (DWD first-guess fields) and
+                            ! perform vertical remapping
+
+      CALL message(TRIM(routine),'MODE_VREMAP: read ICON data and perform vertical remapping')
+
+      ! process ICON (DWD) atmosphere first-guess data (having different vertical levels than the current grid)
+      CALL process_dwdana_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
+
+      ! process DWD land/surface analysis data
+      CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+
+    CASE (MODE_IAU)
+
+      CALL message(TRIM(routine),'MODE_IAU: perform initialization with '// &
+        &                        'incremental analysis update, including snow increments')
+
+      ! process DWD atmosphere analysis increments
+      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
+
+      ! process DWD land/surface analysis (increments)
+      CALL process_dwdanainc_sfc (p_patch, p_nh_state, prm_diag, p_lnd_state, ext_data)
+
+    CASE (MODE_IAU_OLD)
+
+      CALL message(TRIM(routine),'MODE_IAU_OLD: perform initialization with '// &
+        &                        'incremental analysis update (retained for backward compat.)')
+
+      ! process DWD atmosphere analysis increments
+      CALL process_dwdanainc_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
+
+      ! process DWD land/surface analysis (increments)
+      CALL process_dwdanainc_sfc (p_patch, p_nh_state, prm_diag, p_lnd_state, ext_data)
+
+    CASE(MODE_IFSANA)   ! read in IFS analysis
+
+      CALL message(TRIM(routine),'MODE_IFS: perform initialization with IFS analysis')
+
+      ! process IFS atmosphere analysis data
+      CALL process_extana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
+
+      IF (iforcing == inwp) THEN
+        ! process IFS land/surface analysis data
+        CALL process_extana_sfc (p_patch, p_lnd_state, initicon, ext_data)
+      END IF
+
+    CASE(MODE_COMBINED,MODE_COSMODE)
+
+      IF (init_mode == MODE_COMBINED) THEN
+        CALL message(TRIM(routine),'MODE_COMBINED: IFS-atm + GME-soil')
+      ELSE
+        CALL message(TRIM(routine),'MODE_COSMODE: COSMO-atm + COSMO-soil')
+      ENDIF
+
+      ! process IFS atmosphere analysis data
+      CALL process_extana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, initicon)
+
+      ! process DWD land/surface analysis
+      CALL process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+
+      ! Cold-start initialization of the fresh-water lake model FLake.
+      ! The procedure is the same as in "int2lm".
+      ! Note that no lake ice is assumed at the cold start.
+      !
+      IF (llake) THEN
+        DO jg = 1, n_dom
+          IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+          i_rlstart  = 1
+          i_rlend    = min_rlcell
+          i_nchdom   =  MAX(1,p_patch(jg)%n_childdom)
+          i_startblk = p_patch(jg)%cells%start_blk(i_rlstart,1)
+          i_endblk   = p_patch(jg)%cells%end_blk(i_rlend,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb)
+          DO jb = i_startblk, i_endblk
+            CALL flake_coldinit(                                        &
+              &   nflkgb      = ext_data(jg)%atm%fp_count    (jb),    &  ! in
+              &   idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb),    &  ! in
+              &   depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb),    &  ! in
+              ! here, a proper estimate of the lake surface temperature is required;
+              ! as neither GME nor COSMO-DE data have tiles, T_SO(0) is the best estimate
+              &   tskin       = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,jb,1),&  ! in
+              &   t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
+              &   h_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_lk(:,jb), &
+              &   t_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
+              &   h_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (:,jb), &
+              &   t_mnw_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_mnw_lk (:,jb), &
+              &   t_wml_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk (:,jb), &
+              &   t_bot_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk (:,jb), &
+              &   c_t_lk_p    = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk   (:,jb), &
+              &   h_ml_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk  (:,jb), &
+              &   t_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_b1_lk  (:,jb), &
+              &   h_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_b1_lk  (:,jb), &
+              &   t_g_lk_p    = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t    (:,jb,isub_lake) )
+          ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL
+        ENDDO  ! jg
+      ENDIF
+
+    CASE DEFAULT
+
+      CALL finish(TRIM(routine), "Invalid operation mode!")
+    END SELECT
+
 
     ! Deallocate initicon data type
     !
@@ -208,244 +343,325 @@ MODULE mo_initicon
 
   END SUBROUTINE init_icon
 
-  ! Write an output line that informs the user of the init_mode we are using (failing the program if init_mode is invalid).
-  SUBROUTINE print_init_mode()
-    SELECT CASE(init_mode)
-        CASE(MODE_DWDANA)   
-            CALL message(modname,'MODE_DWD: perform initialization with DWD analysis')
-        CASE(MODE_ICONVREMAP)   
-            CALL message(modname,'MODE_VREMAP: read ICON data and perform vertical remapping')
-        CASE (MODE_IAU_OLD)
-            CALL message(modname,'MODE_IAU_OLD: perform initialization with incremental analysis update &
-                                 &(retained for backward compatibility)')
-        CASE (MODE_IAU)
-            CALL message(modname,'MODE_IAU: perform initialization with incremental analysis update, including snow increments')
-        CASE(MODE_IFSANA)   
-            CALL message(modname,'MODE_IFS: perform initialization with IFS analysis')
-        CASE(MODE_COMBINED)
-            CALL message(modname,'MODE_COMBINED: IFS-atm + GME-soil')
-        CASE(MODE_COSMODE)
-            CALL message(modname,'MODE_COSMODE: COSMO-atm + COSMO-soil')
-        CASE DEFAULT
-            CALL finish(modname, "Invalid operation mode!")
-    END SELECT
-  END SUBROUTINE print_init_mode
 
-  ! Read the data from the first-guess file.
-  SUBROUTINE read_dwdfg(p_patch, p_nh_state, prm_diag, p_lnd_state)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
-    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
-    TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
+  !-------------
+  !>
+  !! SUBROUTINE process_dwdana_atm
+  !! Initialization routine of icon:
+  !! - Reads DWD first guess and analysis (atmosphere only).
+  !! - First guess is converted to T, p, qx, u, v in order to compute DA
+  !!   increments. These increments are then used to compute the analysis
+  !!   fields in terms of the NH set of prognostic variables
+  !!   (i.e. vn, rho, exner, theta_v )
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2012-12-20)
+  !!
+  !!
+  SUBROUTINE process_dwdana_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
 
-    SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
-            CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-            CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-        CASE(MODE_ICONVREMAP)
-            ! read DWD first guess for atmosphere and store to
-            ! initicon input state variables (input data are allowed
-            ! to have a different number of model levels than the
-            ! current model grid)
-            CALL read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
-            CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-        CASE(MODE_COMBINED, MODE_COSMODE)
-            CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-    END SELECT
-  END SUBROUTINE read_dwdfg
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
+    TYPE(t_gridref_state),  INTENT(IN)    :: p_grf_state(:)
 
-  ! Do postprocessing of data from first-guess file.
-  SUBROUTINE process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
-    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
-    TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
-    TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
-    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
+!-------------------------------------------------------------------------
 
-    SELECT CASE(init_mode)
-        CASE(MODE_ICONVREMAP)
-            CALL process_input_dwdfg_atm_ii (p_patch, initicon)
-            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
-        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMODE)
-            IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
-                                     ! does not change; otherwise, init_mode = 7 must be used based on a full analysis)
-                CALL copy_fg2initicon(p_patch, initicon, p_nh_state)
-                CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, p_patch(:)%nlev, initicon, &
-                &                    opt_convert_omega2w=.FALSE.)
-                CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
-            END IF
-            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
-            IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
-                ! In case of tile coldstart, fill sub-grid scale land
-                ! and water points with reasonable data from
-                ! neighboring grid points where possible; In case of
-                ! snowtile warmstart, the index lists for snow-covered
-                ! / snow-free points need to be initialized
-                IF (ntiles_total > 1 .AND. ltile_init) THEN
-                    CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.FALSE.)
-                ELSE IF (ntiles_total > 1 .AND. lsnowtile .AND. .NOT. ltile_coldstart) THEN
-                    CALL init_snowtiles(p_patch, p_lnd_state, ext_data)
-                END IF
-            END IF
-    END SELECT
-  END SUBROUTINE process_dwdfg
+    IF (init_mode == MODE_ICONVREMAP) THEN
 
-  ! Read data from analysis files.
-  SUBROUTINE read_dwdana(p_patch, p_nh_state, p_lnd_state)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
-    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
+      ! read DWD first guess for atmosphere and store to initicon input state variables
+      ! (input data are allowed to have a different number of model levels than the current model grid)
+      CALL read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
-    SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
-            IF(lread_ana) CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-            IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-        CASE(MODE_IFSANA)
-            CALL read_extana_atm(p_patch, initicon)
-            ! Perform vertical interpolation from intermediate
-            ! IFS2ICON grid to ICON grid and convert variables to the
-            ! NH set of prognostic variables
-            IF (iforcing == inwp) CALL read_extana_sfc(p_patch, initicon)
-        CASE(MODE_COMBINED, MODE_COSMODE)
-            CALL read_extana_atm(p_patch, initicon)
-            IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-        CASE(MODE_ICONVREMAP)
-            IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-    END SELECT
-  END SUBROUTINE read_dwdana
+      ! Perform vertical interpolation from input ICON grid to output ICON grid
+      !
+      CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
+                           opt_convert_omega2w=.FALSE.)
 
-  ! Do postprocessing of data from analysis files.
-  SUBROUTINE process_dwdana(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
-    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
-    TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
-    TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
-    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
+      ! Finally copy the results to the prognostic model variables
+      !
+      CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
 
-    INTEGER :: jg, jb
-    INTEGER :: i_rlstart, i_rlend, i_nchdom
-    INTEGER :: i_startblk, i_endblk
+    ELSE
 
-    SELECT CASE(init_mode)
-        CASE(MODE_DWDANA)
-            ! process DWD atmosphere analysis data
-            IF(lread_ana) CALL process_input_dwdana_atm(p_patch, initicon)
-            ! merge first guess with DA analysis and 
-            ! convert variables to the NH set of prognostic variables
-            CALL create_dwdana_atm(p_patch, p_nh_state, p_int_state)
-        CASE(MODE_IAU_OLD, MODE_IAU)
-            ! process DWD atmosphere analysis increments
-            IF(lread_ana) CALL process_input_dwdana_atm(p_patch, initicon)
-            ! Compute DA increments in terms of the NH set of
-            ! prognostic variables
-            CALL create_dwdanainc_atm(p_patch, p_nh_state, p_int_state)
-        CASE(MODE_COMBINED, MODE_IFSANA)
-            ! process IFS atmosphere analysis data
-            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
-            &                    opt_convert_omega2w = .TRUE.)
-            ! Finally copy the results to the prognostic model
-            ! variables
-            CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
-        CASE(MODE_ICONVREMAP, MODE_COSMODE)
-            ! process ICON (DWD) atmosphere first-guess data (having
-            ! different vertical levels than the current grid)
-            CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
-            &                    opt_convert_omega2w = .FALSE.)
-            ! Finally copy the results to the prognostic model
-            ! variables
-            CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
-    END SELECT
+      ! read DWD first guess for atmosphere
+      CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
 
-    SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMODE)
-            ! process DWD land/surface analysis data / increments
-            IF(lread_ana) CALL process_input_dwdana_sfc(p_patch, p_lnd_state, initicon)
-            ! Add increments to time-shifted first guess in one go.
-            ! The following CALL must not be moved after create_dwdana_sfc()!
-            IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
-              CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
-            END IF
-            ! get SST from first soil level t_so (for sea and lake points)
-            ! perform consistency checks
-            CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
-            IF (ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode) .AND. ntiles_total > 1) THEN
-                ! Call neighbor-filling routine for a second time in
-                ! order to ensure that fr_seaice is filled with
-                ! meaningful data near coastlines if this field is
-                ! read from the analysis
-                CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.TRUE.)
-            END IF
-        CASE(MODE_IFSANA)
-            IF (iforcing == inwp) THEN
-                ! Perform vertical interpolation from intermediate
-                ! IFS2ICON grid to ICON grid and convert variables to
-                ! the NH set of prognostic variables
-                CALL vert_interp_sfc(p_patch, initicon)
-                ! Finally copy the results to the prognostic model variables
-                CALL copy_initicon2prog_sfc(p_patch, initicon, p_lnd_state, ext_data)
-            END IF
-    END SELECT
+      IF(lread_ana) &   ! read DWD analysis from DA for atmosphere
+        CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
 
-    SELECT CASE(init_mode)
-        CASE(MODE_COMBINED,MODE_COSMODE)
-            ! Cold-start initialization of the fresh-water lake model
-            ! FLake. The procedure is the same as in "int2lm". Note
-            ! that no lake ice is assumed at the cold start.
-            IF (llake) THEN
-                DO jg = 1, n_dom
-                    IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-                    i_rlstart  = 1
-                    i_rlend    = min_rlcell
-                    i_nchdom   =  MAX(1,p_patch(jg)%n_childdom)
-                    i_startblk = p_patch(jg)%cells%start_blk(i_rlstart,1)
-                    i_endblk   = p_patch(jg)%cells%end_blk(i_rlend,i_nchdom)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb)
-                    DO jb = i_startblk, i_endblk
-                        CALL flake_coldinit(                                        &
-                            &   nflkgb      = ext_data(jg)%atm%fp_count    (jb),    &
-                            &   idx_lst_fp  = ext_data(jg)%atm%idx_lst_fp(:,jb),    &
-                            &   depth_lk    = ext_data(jg)%atm%depth_lk  (:,jb),    &
-                            &   tskin       = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(:,1,jb,1),&
-                            &   t_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_snow_lk(:,jb), &
-                            &   h_snow_lk_p = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_snow_lk(:,jb), &
-                            &   t_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_ice    (:,jb), &
-                            &   h_ice_p     = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ice    (:,jb), &
-                            &   t_mnw_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_mnw_lk (:,jb), &
-                            &   t_wml_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk (:,jb), &
-                            &   t_bot_lk_p  = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_bot_lk (:,jb), &
-                            &   c_t_lk_p    = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%c_t_lk   (:,jb), &
-                            &   h_ml_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_ml_lk  (:,jb), &
-                            &   t_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_b1_lk  (:,jb), &
-                            &   h_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_b1_lk  (:,jb), &
-                            &   t_g_lk_p    = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t    (:,jb,isub_lake) )
-                    ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-                ENDDO
-            ENDIF
-    END SELECT
-  END SUBROUTINE process_dwdana
+      ! merge first guess with DA analysis and
+      ! convert variables to the NH set of prognostic variables
+      CALL create_dwdana_atm(p_patch, p_nh_state, p_int_state)
 
-  ! Reads the data from the first-guess and analysis files, and does any required processing of that input data.
-  SUBROUTINE process_input_data(p_patch, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
-    TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
-    TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
-    TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
-    TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
-    TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
-    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
+    ENDIF
 
-    CALL read_dwdfg(p_patch, p_nh_state, prm_diag, p_lnd_state)
-    CALL process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
+  END SUBROUTINE process_dwdana_atm
 
-    CALL read_dwdana(p_patch, p_nh_state, p_lnd_state)
-    ! process DWD analysis data
-    CALL process_dwdana(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
-  END SUBROUTINE process_input_data
+
+
+  !-------------
+  !>
+  !! SUBROUTINE process_dwdanainc_atm
+  !! Initialization routine of icon:
+  !! - Reads DWD first guess for t=T-dt_ass/2 (atmosphere only).
+  !! - Reads analysis incerements for t=T (atmosphere only) in terms of
+  !!   \Delta T, \Delta u, \Delta v, \Delta p, \Delta qx
+  !! - Compute analysis increments in terms of the NH set of prognostic
+  !!   variables
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2014-01-28)
+  !!
+  !!
+  SUBROUTINE process_dwdanainc_atm (p_patch, p_nh_state, p_int_state, p_grf_state)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
+    TYPE(t_gridref_state),  INTENT(IN)    :: p_grf_state(:)
+
+!-------------------------------------------------------------------------
+
+
+    ! read DWD first guess and analysis from DA for atmosphere
+    !
+    CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+
+    IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
+                             ! does not change; otherwise, init_mode = 7 must be used based on a full analysis)
+
+      CALL copy_fg2initicon(p_patch, initicon, p_nh_state)
+
+      CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, p_patch(:)%nlev, initicon, &
+                           opt_convert_omega2w=.FALSE.)
+
+      CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
+    ENDIF
+
+    IF(lread_ana) &
+     CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+
+
+    ! Compute DA increments in terms of the NH set
+    ! of prognostic variables
+    CALL create_dwdanainc_atm(p_patch, p_nh_state, p_int_state)
+
+  END SUBROUTINE process_dwdanainc_atm
+
+
+
+  !-------------
+  !>
+  !! SUBROUTINE process_dwdana_sfc
+  !! Initialization routine of icon:
+  !! - Reads DWD first guess (land/surface only). Data are directly
+  !!   written to the prognostic model variables
+  !! - reads DWD analysis (land/surface only). Data are written
+  !!   to intermediate initicon variables
+  !! - first guess and increments are added and resulting fields are
+  !!   converted to the NH set of prognostic variables
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2012-12-20)
+  !!
+  !!
+  SUBROUTINE process_dwdana_sfc (p_patch, prm_diag, p_lnd_state, ext_data)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
+    TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
+
+
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+!!$      routine = modname//':process_dwdana_sfc'
+
+!-------------------------------------------------------------------------
+
+
+    ! read DWD first guess and analysis for surface/land
+    !
+    CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+
+    IF(lread_ana) &
+     CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+
+    ! get SST from first soil level t_so (for sea and lake points)
+    ! perform consistency checks
+    CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
+
+  END SUBROUTINE process_dwdana_sfc
+
+
+
+  !-------------
+  !>
+  !! SUBROUTINE process_dwdanainc_sfc
+  !! Initialization routine of icon:
+  !! - Reads DWD first guess (land/surface only). Data are directly
+  !!   written to the prognostic model variables
+  !! - reads DWD analysis fields and analysis increments (land/surface only).
+  !!   Increments are written to intermediate initicon variables and
+  !!   lateron (create_iau_sfc) added in one go.
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2014-07-18)
+  !!
+  !!
+  SUBROUTINE process_dwdanainc_sfc (p_patch, p_nh_state, prm_diag, p_lnd_state, ext_data)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(IN)    :: p_nh_state(:)
+    TYPE(t_nwp_phy_diag),   INTENT(INOUT) :: prm_diag(:)
+    TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
+
+
+
+!-------------------------------------------------------------------------
+
+
+    ! read DWD first guess and analysis for surface/land
+    !
+    CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+
+    ! In case of tile coldstart, fill sub-grid scale land and water points with reasonable data
+    ! from neighboring grid points where possible;
+    ! In case of snowtile warmstart, the index lists for snow-covered / snow-free points need to be initialized
+    IF (ntiles_total > 1 .AND. ltile_init) THEN
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.FALSE.)
+    ELSE IF (ntiles_total > 1 .AND. lsnowtile .AND. .NOT. ltile_coldstart) THEN
+      CALL init_snowtiles(p_patch, p_lnd_state, ext_data)
+    ENDIF
+
+    IF(lread_ana) &
+      CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+
+
+    ! Add increments to time-shifted first guess in one go.
+    CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
+
+    ! get SST from first soil level t_so (for sea and lake points)
+    ! perform consistency checks
+    CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
+
+    ! Call neighbor-filling routine for a second time in order to ensure that fr_seaice is filled
+    ! with meaningful data near coastlines if this field is read from the analysis
+    IF (ntiles_total > 1) THEN
+      CALL fill_tile_points(p_patch, p_lnd_state, ext_data, process_ana_vars=.TRUE.)
+    END IF
+
+  END SUBROUTINE process_dwdanainc_sfc
+
+
+
+  !-------------
+  !>
+  !! SUBROUTINE process_extana_atm
+  !! Initialization routine of icon:
+  !! - Reads external analysis data (IFS or COSMO; atmosphere only)
+  !! - performs vertical interpolation from intermediate IFS2ICON grid to ICON
+  !!   grid and converts variables to the NH set of prognostic variables
+  !! - finally copies the results to the prognostic model variables
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2012-12-19)
+  !!
+  !!
+  SUBROUTINE process_extana_atm (p_patch, p_nh_state, p_int_state, p_grf_state, &
+    &                            initicon)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_nh_state),       INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_int_state),      INTENT(IN)    :: p_int_state(:)
+    TYPE(t_gridref_state),  INTENT(IN)    :: p_grf_state(:)
+
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
+
+
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+!!$      routine = 'mo_nh_initicons:process_extana_atm'
+
+    LOGICAL :: lomega_in
+
+!-------------------------------------------------------------------------
+
+
+    ! read horizontally interpolated external analysis for atmosphere
+    !
+    CALL read_extana_atm(p_patch, initicon)
+
+    IF (init_mode == MODE_COSMODE) THEN
+      lomega_in = .FALSE. ! in this case, w is provided as input
+    ELSE
+      lomega_in = .TRUE.  ! from hydrostatic models, omega is provided instead of w
+    ENDIF
+
+    ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
+    ! and convert variables to the NH set of prognostic variables
+    !
+    CALL vert_interp_atm(p_patch, p_nh_state, p_int_state, p_grf_state, nlevatm_in, initicon, &
+                         opt_convert_omega2w=lomega_in)
+
+
+    ! Finally copy the results to the prognostic model variables
+    !
+    CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
+
+
+  END SUBROUTINE process_extana_atm
+
+
+
+
+  !-------------
+  !>
+  !! SUBROUTINE process_extana_sfc
+  !! Initialization routine of icon:
+  !! - Reads external analysis data (surface/land only)
+  !! - performs vertical interpolation from intermediate IFS2ICON grid to ICON
+  !!   grid and converts variables to the NH set of prognostic variables
+  !! - finally copies the results to the prognostic model variables
+  !!
+  !! @par Revision History
+  !! Initial version by Daniel Reinert, DWD(2012-12-19)
+  !!
+  !!
+  SUBROUTINE process_extana_sfc (p_patch, p_lnd_state, initicon, ext_data)
+
+    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
+    TYPE(t_lnd_state),      INTENT(INOUT) :: p_lnd_state(:)
+
+    TYPE(t_initicon_state), INTENT(INOUT) :: initicon(:)
+    TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
+
+
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+!!$      routine = modname//':process_extana_sfc'
+
+!-------------------------------------------------------------------------
+
+
+    ! read horizontally interpolated external (currently IFS) analysis for surface/land
+    !
+    CALL read_extana_sfc(p_patch, initicon)
+
+
+    ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
+    ! and convert variables to the NH set of prognostic variables
+    !
+    CALL vert_interp_sfc(p_patch, initicon)
+
+
+    ! Finally copy the results to the prognostic model variables
+    !
+    CALL copy_initicon2prog_sfc(p_patch, initicon, p_lnd_state, ext_data)
+
+
+  END SUBROUTINE process_extana_sfc
+
+
 
   !>
   !! Analysis is created by merging the first guess with the DA output
@@ -1730,8 +1946,8 @@ MODULE mo_initicon
       ! This sync is needed because of the subsequent neighbor point filling
       CALL sync_patch_array(SYNC_C,p_patch(jg),p_lnd_state(jg)%diag_lnd%t_seasfc)
 
-      ! Initialization of t_g_t(:,:,isub_water) and t_s_t(:,:,isub_water/isub_lake)
-      ! with t_seasfc is performed in mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
+    ! Initialization of t_g_t(:,:,isub_water) and t_s_t(:,:,isub_water/isub_lake)
+    ! with t_seasfc is performed in mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
 
     ENDDO  ! jg domain loop
 

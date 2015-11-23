@@ -61,18 +61,12 @@ my $build_path = &BuildSetup ($prefix, $target, \@directories);
 
 copy ("config/config.h", "${build_path}/include/config.h");
 
-my @incs = "";
-
-# as only cdi.inc is left and that has been replaced by the
-# iso-c-binding module file it is not required anymore.
-#
-#opendir(DIR, "include") or die "Unable to open include:$!\n";
-#my @incs = grep /\.(inc|h)/, readdir(DIR);
-#closedir(DIR);
-#foreach my $inc ( @incs ) {
-#    copy ( "include/${inc}", "${build_path}/include/${inc}" );
-#}
-
+opendir(DIR, "include") or die "Unable to open include:$!\n";
+my @incs = grep /\.(inc|h)/, readdir(DIR);
+closedir(DIR);
+foreach my $inc ( @incs ) {
+    copy ( "include/${inc}", "${build_path}/include/${inc}" );
+}
 
 if ( -d "externals/mtime/include" ) {
     opendir(DIR, "externals/mtime/include");

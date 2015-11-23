@@ -74,6 +74,7 @@ MODULE mo_io_config
   INTEGER :: n_chkpt           ! number of timesteps between successive checkpoint events
   INTEGER :: n_diag            ! number of timesteps between successive tot_int diag events
 
+!  LOGICAL ::  use_set_event_to_simstep = .true.       ! if .true., the set_event_to_simstep routine is activated
 
   ! currently used by hydrostatic model only
   LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.

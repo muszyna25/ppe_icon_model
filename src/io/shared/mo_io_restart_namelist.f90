@@ -5,10 +5,10 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
-#if ! (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
+#if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
 #define HAVE_F2003
 #endif
-#if (defined (__GNUC__) || defined(__SUNPRO_F95))
+#if (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95))
 #define HAVE_F95
 #endif
 MODULE mo_io_restart_namelist
@@ -39,10 +39,11 @@ MODULE mo_io_restart_namelist
   PUBLIC :: t_att_namelist
 #endif
   !
-
+#ifndef HAVE_F2003
   PUBLIC :: nmllen_max
 !   INTEGER, PARAMETER :: nmllen_max = 4096
   INTEGER, PARAMETER :: nmllen_max = 65536
+#endif
   !
   TYPE t_att_namelist
     CHARACTER(len=64) :: name

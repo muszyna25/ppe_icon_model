@@ -36,12 +36,6 @@ MODULE mo_nwp_tuning_nml
     &                               config_tune_zvz0i     => tune_zvz0i,     &  
     &                               config_tune_entrorg   => tune_entrorg,   &  
     &                               config_tune_capdcfac_et => tune_capdcfac_et, &  
-    &                               config_tune_rhebc_land  => tune_rhebc_land,  &  
-    &                               config_tune_rhebc_ocean => tune_rhebc_ocean, &  
-    &                               config_tune_rcucov      => tune_rcucov,      &  
-    &                               config_tune_texc        => tune_texc,        &  
-    &                               config_tune_qexc        => tune_qexc,        &  
-    &                               config_tune_minsnowfrac => tune_minsnowfrac, &  
     &                               config_tune_box_liq   => tune_box_liq,   &  
     &                               config_itune_albedo   => itune_albedo,   &
     &                               config_max_freshsnow_inc => max_freshsnow_inc 
@@ -80,24 +74,6 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  tune_capdcfac_et            ! (relevant only if icapdcycl = 3)
 
-  REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over land
-    &  tune_rhebc_land
-
-  REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over sea
-    &  tune_rhebc_ocean
-
-  REAL(wp) :: &                    !< Convective area fraction
-    &  tune_rcucov
-
-  REAL(wp) :: &                    !< Excess value for temperature used in test parcel ascent
-    &  tune_texc
-
-  REAL(wp) :: &                    !< Excess fraction of grid-scale QV used in test parcel ascent
-    &  tune_qexc
-
-  REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
-    &  tune_minsnowfrac            !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
-
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  tune_box_liq                ! (in case of inwp_cldcover = 1)
 
@@ -109,12 +85,10 @@ MODULE mo_nwp_tuning_nml
   REAL(wp) :: &                    !< maximum allowed positive freshsnow increment
     &  max_freshsnow_inc
 
-  NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun,        &
-    &                      tune_zceff_min, tune_v0snow, tune_zvz0i,         &
-    &                      tune_entrorg, itune_albedo, max_freshsnow_inc,   &
-    &                      tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
-    &                      tune_rhebc_ocean, tune_rcucov, tune_texc,        &
-    &                      tune_qexc, tune_minsnowfrac
+  NAMELIST/nwp_tuning_nml/ tune_gkwake, tune_gkdrag, tune_gfluxlaun,      &
+    &                      tune_zceff_min, tune_v0snow, tune_zvz0i,       &
+    &                      tune_entrorg, itune_albedo, max_freshsnow_inc, &
+    &                      tune_capdcfac_et, tune_box_liq
 
 CONTAINS
 
@@ -167,18 +141,8 @@ CONTAINS
     tune_zvz0i      = 1.25_wp      ! original value of Heymsfield+Donner 1990: 3.29
     !
     ! convection
-    tune_entrorg     = 1.825e-3_wp  ! entrainment parameter for deep convection valid at dx=20 km
-    tune_capdcfac_et = 0.0_wp       ! fraction of CAPE diurnal cycle correction applied in the extratropics
-    tune_rhebc_land  = 0.75_wp      ! RH threshold for onset of evaporation below cloud base over land (original IFS value 0.7)
-    tune_rhebc_ocean = 0.85_wp      ! RH threshold for onset of evaporation below cloud base over sea (original IFS value 0.9)
-    tune_rcucov      = 0.05_wp      ! Convective area fraction used for computing evaporation below cloud base (original IFS value 0.05)
-    tune_texc        = 0.125_wp     ! Excess value for temperature used in test parcel ascent (K) (original IFS value 0.2 K)
-    tune_qexc        = 1.25e-2_wp   ! Excess fraction of grid-scale QV used in test parcel ascent (original IFS value 0.1 g/kg 
-                                    ! independent of grid-scale QV))
-    !
-    ! snow cover diagnosis
-    tune_minsnowfrac = 0.125_wp     ! Minimum value to which the snow cover fraction is artificially reduced
-                                    ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
+    tune_entrorg    = 1.825e-3_wp  ! entrainment parameter for deep convection valid at dx=20 km
+    tune_capdcfac_et = 0._wp       ! fraction of CAPE diurnal cycle correction applied in the extratropics
     !
     ! cloud cover
     tune_box_liq    = 0.05_wp      ! box width scale of liquid clouds
@@ -238,12 +202,6 @@ CONTAINS
     config_tune_zvz0i        = tune_zvz0i
     config_tune_entrorg      = tune_entrorg
     config_tune_capdcfac_et  = tune_capdcfac_et
-    config_tune_rhebc_land   = tune_rhebc_land
-    config_tune_rhebc_ocean  = tune_rhebc_ocean
-    config_tune_rcucov       = tune_rcucov
-    config_tune_texc         = tune_texc
-    config_tune_qexc         = tune_qexc
-    config_tune_minsnowfrac  = tune_minsnowfrac
     config_tune_box_liq      = tune_box_liq
     config_itune_albedo      = itune_albedo
     config_max_freshsnow_inc = max_freshsnow_inc

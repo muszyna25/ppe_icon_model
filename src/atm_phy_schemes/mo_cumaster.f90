@@ -86,7 +86,7 @@ MODULE mo_cumaster
     & rtwat                                                     ,&
     & lmfdd    ,lmfdudv                                         ,&
     & rdepths ,lmfscv  ,lmfpen   ,lmfit                         ,&
-    & rmflic  ,rmflia  ,rmflmax, rmfsoluv                       ,&
+    & rmflic  ,rmflia  ,rmfsoluv                                ,&
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&
     & lmftrac   ,   LMFUVDIS                                    ,&
     & rg       ,rd      ,rcpd  ,retv , rlvtt                    ,&
@@ -116,7 +116,7 @@ CONTAINS
 SUBROUTINE cumastrn &
  & (  kidia,    kfdia,    klon,   ktdia,   klev, &
  & ldland, ldlake, ptsphy, phy_params, k950,     &
- & capdcfac, mtnmask,  paer_ss,                  &
+ & capdcfac,  paer_ss,                           &
  & pten,     pqen,     puen,     pven, plitot,   &
  & pvervel,  pqhfl,    pahfs,                    &
  & pap,      paph,     pgeo,     pgeoh,          &
@@ -324,7 +324,6 @@ LOGICAL           ,INTENT(in)    :: ldlake(klon)
 REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
 TYPE(t_phy_params),INTENT(in)    :: phy_params
 REAL(KIND=jprb)   ,INTENT(in)    :: capdcfac(klon)
-REAL(KIND=jprb)   ,INTENT(in)    :: mtnmask(klon)
 !KF
 REAL(KIND=jprb)   ,INTENT(in),OPTIONAL :: paer_ss(klon)
 !KF
@@ -573,7 +572,7 @@ CALL cuinin &
 CALL cubasen &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, &
   & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
-  & phy_params%texc, phy_params%qexc, mtnmask, &
+  & phy_params%texc, phy_params%qexc,  &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
   & pten,     pqen,     pqsen,    pgeo,&
@@ -867,10 +866,7 @@ DO jl = kidia, kfdia
     ztau(jl) = (pgeoh(jl,ik)-pgeoh(jl,ikb))/((2.0_jprb+MIN(15.0_jprb,pwmean(jl)))*rg)*phy_params%tau
     llo1 = (paph(jl,klev+1)-paph(jl,ikd)) < 50.e2_jprb
     IF (llo1 .AND. ldland(jl)) THEN
-      ! Use PBL CAPE for diurnal cycle correction in the tropics and a fraction of it 
-      ! to reduce excessive precipitation maxima over small-scale mountain peaks
-      zcapdcycl(jl) = (capdcfac(jl)*zcappbl(jl) + MAX(0._jprb,tune_capdcfac_et+mtnmask(jl)-capdcfac(jl)) * &
-        MAX(0._jprb,zcappbl(jl)) ) * ztau(jl)*phy_params%tau0
+      zcapdcycl(jl) = MAX(tune_capdcfac_et,capdcfac(jl))*zcappbl(jl)*ztau(jl)*phy_params%tau0
     ENDIF
     ! Reduce adjustment time scale for extreme CAPE values
     IF (pcape(jl) > zcapethresh) ztau(jl) = ztau(jl)/phy_params%tau
@@ -1044,7 +1040,7 @@ ELSE
           zdz=((paph(jl,klev+1)-paph(jl,jk))/(paph(jl,klev+1)-paph(jl,ikb)))
           pmfu(jl,jk)=pmfu(jl,ikb)*zdz
         ENDIF
-        zmfmax=MIN(rmflmax,(paph(jl,jk)-paph(jl,jk-1))*zcons2*rmflic+rmflia)
+        zmfmax=(paph(jl,jk)-paph(jl,jk-1))*zcons2*rmflic+rmflia
         IF(pmfu(jl,jk)*zmfs(jl)>zmfmax) &
           & zmfs(jl)=MIN(zmfs(jl),zmfmax/pmfu(jl,jk))
       ENDIF

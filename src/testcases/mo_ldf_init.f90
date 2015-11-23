@@ -31,6 +31,7 @@ MODULE mo_ldf_init
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, ildf_echam
   USE mo_math_constants,      ONLY: pi, pi_2
   USE mo_physical_constants,  ONLY: rgrav, rd, tmelt,vtmpc1 !!new vtmpc1
+  USE mo_advection_config,    ONLY: advection_config
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
@@ -104,6 +105,10 @@ CONTAINS
 
   !local variables
 
+  CHARACTER(LEN=1) :: ctracer
+  CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
+    &  ctracer_list
+
   REAL(wp) :: lon,lat,tmp0,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6, rot_lon, rot_lat
   REAL(wp) :: zeta,zcos12z,zcos32z,zsinz,zcosysq,zsin2ysq,zsiny,zcosy,ztemp
   REAL(wp) :: zrotate_axis_rad, zu, zv
@@ -123,6 +128,7 @@ CONTAINS
   INTEGER  :: nblks_c, nblks_e, nblks_v, npromz_e, npromz_c, npromz_v, &
              nlen, jt, jb, je, jc, jk, jv
   INTEGER  :: nlev, icount !!new icount
+  INTEGER :: pid         !< patch ID
 
   LOGICAL  :: lrh_linear_pres, lgetbalance
   REAL(wp) :: rh_at_1000hpa
@@ -147,6 +153,12 @@ CONTAINS
   ENDIF
 
 !-----------------------
+
+  ! get patch ID
+  pid = pt_patch%id
+
+  ! get ctracer_list
+  ctracer_list = advection_config(pid)%ctracer_list
 
   ! number of vertical levels
   nlev = pt_patch%nlev
@@ -353,7 +365,7 @@ CONTAINS
         niter       = 0
         ztemp_cor   = 0._wp
 
-!$OMP DO PRIVATE(jb,jk,jt,jc,nlen,zeta,lon,lat,zrhf,zsqv, &
+!$OMP DO PRIVATE(jb,jk,jt,jc,nlen,zeta,ctracer,lon,lat,zrhf,zsqv, &
 !$OMP            zpres,ztempv,ztemp0,ztemp,ztol)
         DO jb = 1, nblks_c
            IF (jb /= nblks_c) THEN
@@ -375,6 +387,8 @@ CONTAINS
               zeta = ceta(jk)
 
               DO jt = 1, ntracer
+
+                 ctracer = ctracer_list(jt:jt)
 
                  IF (iforcing==ildf_echam) THEN
                    IF(jt == iqv ) THEN

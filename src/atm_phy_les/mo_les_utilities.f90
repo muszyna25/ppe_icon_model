@@ -33,7 +33,6 @@ MODULE mo_les_utilities
   USE mo_sync,                ONLY: global_sum_array, SYNC_C, SYNC_E, SYNC_V, &
                                     sync_patch_array, sync_patch_array_mult
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
-  USE mo_impl_constants,      ONLY: SUCCESS
   USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell_int
   USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, rcpd, alv, alvdcp, &
@@ -42,7 +41,6 @@ MODULE mo_les_utilities
   USE mo_vertical_coord_table,ONLY: vct_a
   USE mo_grid_config,         ONLY: n_dom
   USE mo_les_config,          ONLY: les_config
-  USE mo_exception,           ONLY: finish
   IMPLICIT NONE
 
   PRIVATE
@@ -65,11 +63,10 @@ MODULE mo_les_utilities
     TYPE(t_nh_metrics),        INTENT(inout)  :: p_metrics
 
     ! local variables
-    CHARACTER(*), PARAMETER :: routine = &
-        TRIM("mo_les_utilities:init_vertical_grid_for_les")
-    INTEGER :: i_startblk, i_endblk, ist
+    INTEGER :: i_startblk, i_endblk
     INTEGER :: nlevp1, i_nchdom, nlev, nlen
     INTEGER :: jk, je, jc, jb, jkm1
+
     ! helper for syncing single-precision array
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: ddx_arg, ddx
 
@@ -91,10 +88,8 @@ MODULE mo_les_utilities
     END IF
 
     ! half_c sync
-    ALLOCATE(ddx_arg(nproma,p_patch%nlevp1,p_patch%nblks_e), &
-             ddx(nproma,p_patch%nlevp1,p_patch%nblks_c), STAT=ist)
-    IF (ist /= SUCCESS) &
-      CALL finish(TRIM(routine),'allocation of ddx_arg, ddx for ddxn_z_half_e failed')
+    ALLOCATE(ddx_arg(nproma,p_patch%nlevp1,p_patch%nblks_e))
+    ALLOCATE(ddx(nproma,p_patch%nlevp1,p_patch%nblks_c))
     ddx_arg(:,:,:) = p_metrics%ddxn_z_half_e(:,:,:)
     CALL edges2cells_scalar(ddx_arg, p_patch, p_int%e_bln_c_s, ddx)
     CALL sync_patch_array(SYNC_C, p_patch, ddx)
@@ -104,13 +99,12 @@ MODULE mo_les_utilities
     CALL edges2cells_scalar(ddx_arg, p_patch, p_int%e_bln_c_s, ddx)
     CALL sync_patch_array(SYNC_C, p_patch, ddx)
     p_metrics%ddxt_z_half_c(:,:,:) = ddx(:,:,:)
-    DEALLOCATE(ddx_arg, ddx)
+    DEALLOCATE(ddx_arg)
+    DEALLOCATE(ddx)
 
     ! full_c sync
-    ALLOCATE(ddx_arg(nproma,p_patch%nlev,p_patch%nblks_e), &
-             ddx(nproma,p_patch%nlev,p_patch%nblks_c), STAT=ist)
-    IF (ist /= SUCCESS) &
-      CALL finish(TRIM(routine),'allocation of ddx_arg, ddx for ddxn_z_full failed')
+    ALLOCATE(ddx_arg(nproma,p_patch%nlev,p_patch%nblks_e))
+    ALLOCATE(ddx(nproma,p_patch%nlev,p_patch%nblks_c))
     ddx_arg(:,:,:) = p_metrics%ddxn_z_full(:,:,:)
     CALL edges2cells_scalar(ddx_arg, p_patch, p_int%e_bln_c_s, ddx)
     CALL sync_patch_array(SYNC_C, p_patch, ddx)
@@ -120,13 +114,12 @@ MODULE mo_les_utilities
     CALL edges2cells_scalar(ddx_arg, p_patch, p_int%e_bln_c_s, ddx)
     CALL sync_patch_array(SYNC_C, p_patch, ddx)
     p_metrics%ddxt_z_full_c(:,:,:) = ddx(:,:,:)
-    DEALLOCATE(ddx_arg, ddx)
+    DEALLOCATE(ddx_arg)
+    DEALLOCATE(ddx)
 
     ! full_v sync
-    ALLOCATE(ddx_arg(nproma,p_patch%nlev,p_patch%nblks_c), &
-             ddx(nproma,p_patch%nlev,p_patch%nblks_v), STAT=ist)
-    IF (ist /= SUCCESS) &
-      CALL finish(TRIM(routine),'allocation of ddx_arg, ddx for ddxn_z_full_c failed')
+    ALLOCATE(ddx_arg(nproma,p_patch%nlev,p_patch%nblks_c))
+    ALLOCATE(ddx(nproma,p_patch%nlev,p_patch%nblks_v))
     ddx_arg(:,:,:) = p_metrics%ddxn_z_full_c(:,:,:)
     CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
     CALL sync_patch_array(SYNC_V, p_patch, ddx)
@@ -141,18 +134,18 @@ MODULE mo_les_utilities
     CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
     CALL sync_patch_array(SYNC_V, p_patch, ddx)
     p_metrics%inv_ddqz_z_full_v(:,:,:) = ddx(:,:,:)
-    DEALLOCATE(ddx_arg, ddx)
+    DEALLOCATE(ddx_arg)
+    DEALLOCATE(ddx)
 
     ! half_v sync
-    ALLOCATE(ddx_arg(nproma,p_patch%nlevp1,p_patch%nblks_c), &
-             ddx(nproma,p_patch%nlevp1,p_patch%nblks_v), STAT=ist)
-    IF (ist /= SUCCESS) &
-      CALL finish(TRIM(routine),'allocation of ddx_arg, ddx for ddxt_z_half_c failed')
+    ALLOCATE(ddx_arg(nproma,p_patch%nlevp1,p_patch%nblks_c))
+    ALLOCATE(ddx(nproma,p_patch%nlevp1,p_patch%nblks_v))
     ddx_arg(:,:,:) = p_metrics%ddxt_z_half_c(:,:,:)
     CALL cells2verts_scalar(ddx_arg, p_patch, p_int%cells_aw_verts, ddx)
     CALL sync_patch_array(SYNC_V, p_patch, ddx)
     p_metrics%ddxt_z_half_v(:,:,:) = ddx(:,:,:)
-    DEALLOCATE(ddx_arg, ddx)
+    DEALLOCATE(ddx_arg)
+    DEALLOCATE(ddx)
 
   END SUBROUTINE init_vertical_grid_for_les
 

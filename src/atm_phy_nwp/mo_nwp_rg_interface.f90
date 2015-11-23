@@ -697,9 +697,9 @@ MODULE mo_nwp_rg_interface
         & zvio3      = prm_diag%vio3,                &
         & zhmo3      = prm_diag%hmo3  )
     CASE (7)
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
     CASE (9)
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
     END SELECT
 
     IF ( irad_aero == 6 ) CALL month2hour (datetime, imo1, imo2, zw )

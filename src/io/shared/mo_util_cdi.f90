@@ -35,7 +35,7 @@ MODULE mo_util_cdi
                                  & taxisInqTunit, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR, vlistDefVarIntKey, &
                                  & vlistDefVarTypeOfGeneratingProcess, streamReadVarSliceF, streamReadVarSlice, vlistInqVarName, &
                                  & TSTEP_AVG,TSTEP_ACCUM,TSTEP_MAX,TSTEP_MIN, vlistInqVarSubtype, subtypeInqSize, &
-                                 & subtypeDefActiveIndex, DATATYPE_PACK23, DATATYPE_PACK32
+                                 & subtypeDefActiveIndex
 
   IMPLICIT NONE
   PRIVATE
@@ -711,13 +711,10 @@ CONTAINS
     END IF
 
     SELECT CASE(parameters%lookupDatatype(varId))
-        CASE(DATATYPE_PACK23:DATATYPE_PACK32, DATATYPE_FLT64, DATATYPE_INT32)
+        CASE(DATATYPE_FLT64, DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_3d_wp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
         CASE DEFAULT
-            ! XXX: Broadcasting DATATYPE_PACK1..DATATYPE_PACK22 DATA as single precision may actually change their values, but this
-            !      error will always be smaller than the error made by storing the DATA as DATATYPE_PACK1..DATATYPE_PACK22 IN the
-            !      first place.
             CALL read_cdi_3d_sp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
     END SELECT
 
@@ -841,13 +838,10 @@ CONTAINS
       & " Grid size = "//trim(int2string(gridInqSize(gridId)))//" (expected "//trim(int2string(parameters%glb_arr_len))//")")
     END IF
     SELECT CASE(parameters%lookupDatatype(varId))
-        CASE(DATATYPE_PACK23:DATATYPE_PACK32, DATATYPE_FLT64, DATATYPE_INT32)
+        CASE(DATATYPE_FLT64, DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_2d_wp(parameters, varId, var_out)
         CASE DEFAULT
-            ! XXX: Broadcasting DATATYPE_PACK1..DATATYPE_PACK22 DATA as single precision may actually change their values, but this
-            !      error will always be smaller than the error made by storing the DATA as DATATYPE_PACK1..DATATYPE_PACK22 IN the
-            !      first place.
             CALL read_cdi_2d_sp(parameters, varId, var_out)
     END SELECT
 
@@ -959,13 +953,10 @@ CONTAINS
         nrecs = streamInqTimestep(parameters%streamId, (jt-1))
       END IF
       SELECT CASE(parameters%lookupDatatype(varId))
-        CASE(DATATYPE_PACK23:DATATYPE_PACK32, DATATYPE_FLT64, DATATYPE_INT32)
+        CASE(DATATYPE_FLT64, DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_2d_wp(parameters, varId, var_out(:,:,jt))
         CASE DEFAULT
-            ! XXX: Broadcasting DATATYPE_PACK1..DATATYPE_PACK22 DATA as single precision may actually change their values, but this
-            !      error will always be smaller than the error made by storing the DATA as DATATYPE_PACK1..DATATYPE_PACK22 IN the
-            !      first place.
             CALL read_cdi_2d_sp(parameters, varId, var_out(:,:,jt))
       END SELECT
     END DO

@@ -111,6 +111,7 @@ cat >> ${atmo_namelist} << EOF
  dt_diag          = ${dt_diag}        ! [s] diagnostics file interval
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
+ lzaxis_reference = .FALSE.
 /
 EOF
 

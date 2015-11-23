@@ -455,7 +455,7 @@ CONTAINS
 
 #ifndef __NO_JSBACH__
     IF (echam_phy_config%ljsbach) THEN
-      CALL jsbach_finish_timestep(jg, dtadv_loc)
+      CALL jsbach_finish_timestep(jg)
     END IF
 #endif
     !=====================================================================================

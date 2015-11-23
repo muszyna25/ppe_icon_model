@@ -39,7 +39,7 @@ MODULE mo_initicon_io
     &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart,    &
     &                               lvert_remap_fg
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom,                           &
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom,                  &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
     &                               MODE_COSMODE
   USE mo_exception,           ONLY: message, finish, message_text
@@ -101,18 +101,11 @@ MODULE mo_initicon_io
   PUBLIC :: read_data_2d, read_data_3d
   PUBLIC :: read_extana_atm
   PUBLIC :: read_extana_sfc
-
   PUBLIC :: read_dwdfg_atm
   PUBLIC :: read_dwdfg_sfc
   PUBLIC :: read_dwdana_atm
   PUBLIC :: read_dwdana_sfc
   PUBLIC :: read_dwdfg_atm_ii
-
-! PUBLIC :: process_input_dwdfg_atm     !This is currently not required.
-  PUBLIC :: process_input_dwdfg_sfc
-  PUBLIC :: process_input_dwdana_atm
-  PUBLIC :: process_input_dwdana_sfc
-  PUBLIC :: process_input_dwdfg_atm_ii
 
 
 
@@ -629,7 +622,7 @@ MODULE mo_initicon_io
       ENDIF ! pe_io
 
       !
-      ! open file (NetCDF file!)
+      ! open file
       !
       stream_id = openInputFile(ifs2icon_file(jg), p_patch(jg), &
         &                       default_read_method)
@@ -1167,10 +1160,11 @@ MODULE mo_initicon_io
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
     CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdfg_file(:)
 
-    INTEGER :: jg
+    INTEGER :: jg, jk, jc, jb, i_endidx
     INTEGER :: mpi_comm
     INTEGER :: ngrp_vars_fg, filetype, nlev_in
 
+    REAL(wp) :: tempv, exner
     TYPE(t_inputParameters) :: parameters
     CHARACTER(LEN=VARNAME_LEN), POINTER :: checkgrp(:)
 
@@ -1266,59 +1260,50 @@ MODULE mo_initicon_io
       parameters = makeInputParameters(fileID_fg(jg), p_patch(jg)%n_patch_edges_g, p_patch(jg)%comm_pat_scatter_e)
       CALL read_data_3d (parameters, filetype, 'vn', nlev_in, initicon(jg)%atm_in%vn, tileinfo)
       CALL deleteInputParameters(parameters)
+
+      ! Interpolate half level variables from interface levels to main levels, and convert thermodynamic variables
+      ! into temperature and pressure as expected by the vertical interpolation routine
+!$OMP PARALLEL
+!$OMP DO PRIVATE (jk,jc,jb,i_endidx,tempv,exner) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = 1,p_patch(jg)%nblks_c
+
+        IF (jb /= p_patch(jg)%nblks_c) THEN
+          i_endidx = nproma
+        ELSE
+          i_endidx = p_patch(jg)%npromz_c
+        ENDIF
+
+        DO jk = 1, nlev_in
+          DO jc = 1, i_endidx
+
+            initicon(jg)%atm_in%z3d(jc,jk,jb) = (initicon(jg)%atm_in%z3d_ifc(jc,jk,jb) + &
+              &   initicon(jg)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
+            initicon(jg)%atm_in%w(jc,jk,jb) = (initicon(jg)%atm_in%w_ifc(jc,jk,jb) +     &
+              &   initicon(jg)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
+            initicon(jg)%atm_in%tke(jc,jk,jb) = (initicon(jg)%atm_in%tke_ifc(jc,jk,jb) + &
+              &   initicon(jg)%atm_in%tke_ifc(jc,jk+1,jb)) * 0.5_wp
+
+            exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
+            tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
+
+            initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
+            initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
+              (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                        &
+               initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb)) )
+
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
     ENDDO ! loop over model domains
 
     ! Tell the vertical interpolation routine that vn needs to be processed
     lread_vn = .TRUE.
+
   END SUBROUTINE read_dwdfg_atm_ii
-
-  ! Interpolate half level variables from interface levels to main levels, and convert thermodynamic variables
-  ! into temperature and pressure as expected by the vertical interpolation routine
-  SUBROUTINE process_input_dwdfg_atm_ii(p_patch, initicon)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
-    TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
-
-    INTEGER :: jg, jb, jk, jc, i_endidx
-    REAL(wp) :: tempv, exner
-
-    DO jg = 1, n_dom
-      IF(p_patch(jg)%ldom_active) THEN
-!$OMP PARALLEL
-!$OMP DO PRIVATE (jk,jc,jb,i_endidx,tempv,exner) ICON_OMP_DEFAULT_SCHEDULE
-        DO jb = 1,p_patch(jg)%nblks_c
-
-          IF (jb /= p_patch(jg)%nblks_c) THEN
-            i_endidx = nproma
-          ELSE
-            i_endidx = p_patch(jg)%npromz_c
-          END IF
-
-          DO jk = 1, nlevatm_in(jg)
-            DO jc = 1, i_endidx
-
-              initicon(jg)%atm_in%z3d(jc,jk,jb) = (initicon(jg)%atm_in%z3d_ifc(jc,jk,jb) + &
-                &   initicon(jg)%atm_in%z3d_ifc(jc,jk+1,jb)) * 0.5_wp
-              initicon(jg)%atm_in%w(jc,jk,jb) = (initicon(jg)%atm_in%w_ifc(jc,jk,jb) +     &
-                &   initicon(jg)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
-              initicon(jg)%atm_in%tke(jc,jk,jb) = (initicon(jg)%atm_in%tke_ifc(jc,jk,jb) + &
-                &   initicon(jg)%atm_in%tke_ifc(jc,jk+1,jb)) * 0.5_wp
-
-              exner = (initicon(jg)%atm_in%rho(jc,jk,jb)*initicon(jg)%atm_in%theta_v(jc,jk,jb)*rd/p0ref)**(1._wp/cvd_o_rd)
-              tempv = initicon(jg)%atm_in%theta_v(jc,jk,jb)*exner
-
-              initicon(jg)%atm_in%pres(jc,jk,jb) = exner**(cpd/rd)*p0ref
-              initicon(jg)%atm_in%temp(jc,jk,jb) = tempv / (1._wp + vtmpc1*initicon(jg)%atm_in%qv(jc,jk,jb) - &
-                (initicon(jg)%atm_in%qc(jc,jk,jb) + initicon(jg)%atm_in%qi(jc,jk,jb) +                        &
-                 initicon(jg)%atm_in%qr(jc,jk,jb) + initicon(jg)%atm_in%qs(jc,jk,jb)) )
-
-            END DO
-          END DO
-        END DO
-!$OMP END DO
-!$OMP END PARALLEL
-      END IF
-    END DO ! loop over model domains
-  END SUBROUTINE process_input_dwdfg_atm_ii
 
 
 
@@ -1347,7 +1332,7 @@ MODULE mo_initicon_io
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
     CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdana_file(:)
 
-    INTEGER :: jg
+    INTEGER :: jg, jgp
     INTEGER :: nlev
 
     INTEGER :: ngrp_vars_ana, filetype
@@ -1384,9 +1369,14 @@ MODULE mo_initicon_io
       ! Depending on the initialization mode chosen (incremental vs. non-incremental)
       ! input fields are stored in different locations.
       IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
-        ! Skip this domain if its interpolated from its parent in process_input_dwdana_atm()
-        IF (lp2cintp_incr(jg)) CYCLE
-        my_ptr => initicon(jg)%atm_inc
+        IF (lp2cintp_incr(jg)) THEN
+          ! Perform parent-to-child interpolation of atmospheric DA increments
+          jgp = p_patch(jg)%parent_id
+          CALL interpolate_increments(initicon, jgp, jg)
+          CYCLE
+        ELSE
+          my_ptr => initicon(jg)%atm_inc
+        ENDIF
       ELSE
         my_ptr => initicon(jg)%atm
       ENDIF
@@ -1452,25 +1442,6 @@ MODULE mo_initicon_io
   END SUBROUTINE read_dwdana_atm
 
 
-  SUBROUTINE process_input_dwdana_atm (p_patch, initicon)
-    TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
-    TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
-
-    INTEGER :: jg
-
-    DO jg = 1, n_dom
-      IF(p_patch(jg)%ldom_active) THEN
-        IF (ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode)) THEN
-          IF (lp2cintp_incr(jg)) THEN
-            ! Perform parent-to-child interpolation of atmospheric DA increments
-            CALL interpolate_increments(initicon, p_patch(jg)%parent_id, jg)
-          END IF
-        END IF
-      END IF
-    END DO
-  END SUBROUTINE process_input_dwdana_atm
-
-
 
   !>
   !! Read DWD first guess (land/surface only)
@@ -1496,7 +1467,7 @@ MODULE mo_initicon_io
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
     CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdfg_file(:)
 
-    INTEGER :: jg, jt, i_endidx, filetype
+    INTEGER :: jg, jt, jb, jc, i_endidx, filetype
 
     INTEGER :: ngrp_vars_fg
     REAL(wp), POINTER :: my_ptr2d(:,:)
@@ -1533,9 +1504,11 @@ MODULE mo_initicon_io
       ! save some paperwork
       ngrp_vars_fg  = initicon(jg)%ngrp_vars_fg
 
+
       IF(my_process_is_stdio() ) THEN
         CALL message (TRIM(routine), 'read sfc_FG fields from '//TRIM(dwdfg_file(jg)))
       ENDIF  ! p_io
+
 
       parameters = makeInputParameters(fileID_fg(jg), p_patch(jg)%n_patch_cells_g, p_patch(jg)%comm_pat_scatter_c)
       filetype = filetype_fg(jg)
@@ -1568,6 +1541,24 @@ MODULE mo_initicon_io
 
         my_ptr2d =>lnd_diag%qv_s_t(:,:,jt)
         CALL read_data_2d(parameters, filetype, 'qv_s', my_ptr2d, tileinfo, opt_checkgroup=checkgrp)
+
+        ! Copy t_g_t and qv_s_t to t_g and qv_s, respectively, on limited-area domains.
+        ! This is needed to avoid invalid operations in the initialization of the turbulence scheme
+        IF (jt == 1 .AND. (jg > 1 .OR. l_limited_area) ) THEN
+!$OMP PARALLEL DO PRIVATE(jb,jc,i_endidx)
+        ! include boundary interpolation zone of nested domains and halo points
+          DO jb = 1, p_patch(jg)%nblks_c
+            i_endidx = MERGE(nproma, p_patch(jg)%npromz_c, &
+                 jb /= p_patch(jg)%nblks_c)
+
+            DO jc = 1, i_endidx
+              lnd_prog%t_g(jc,jb)  = lnd_prog%t_g_t(jc,jb,1)
+              lnd_diag%qv_s(jc,jb) = lnd_diag%qv_s_t(jc,jb,1)
+            ENDDO  ! jc
+
+          ENDDO  ! jb
+!$OMP END PARALLEL DO
+        ENDIF
 
       END DO
 
@@ -1663,53 +1654,18 @@ MODULE mo_initicon_io
 
       CALL deleteInputParameters(parameters)
 
+      ! Only required, when starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
+      ! SMI stored in w_so_t must be converted to w_so
+      IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
+        DO jt=1, ntiles_total
+          CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
+        ENDDO
+      END IF
+
     ENDDO ! loop over model domains
 
   END SUBROUTINE read_dwdfg_sfc
 
-  SUBROUTINE process_input_dwdfg_sfc(p_patch, p_lnd_state)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
-    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
-
-    INTEGER :: jg, jt, jb, jc, i_endidx
-    TYPE(t_lnd_prog), POINTER :: lnd_prog
-    TYPE(t_lnd_diag), POINTER :: lnd_diag
-
-    DO jg = 1, n_dom
-      IF(p_patch(jg)%ldom_active) THEN
-        lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
-        lnd_diag => p_lnd_state(jg)%diag_lnd
-        DO jt=1, ntiles_total + ntiles_water
-          ! Copy t_g_t and qv_s_t to t_g and qv_s, respectively, on limited-area domains.
-          ! This is needed to avoid invalid operations in the initialization of the turbulence scheme
-          IF (jt == 1 .AND. (jg > 1 .OR. l_limited_area) ) THEN
-!$OMP PARALLEL DO PRIVATE(jb,jc,i_endidx)
-          ! include boundary interpolation zone of nested domains and halo points
-            DO jb = 1, p_patch(jg)%nblks_c
-              IF (jb == p_patch(jg)%nblks_c) THEN
-                i_endidx = p_patch(jg)%npromz_c
-              ELSE
-                i_endidx = nproma
-              END IF
-
-              DO jc = 1, i_endidx
-                lnd_prog%t_g(jc,jb)  = lnd_prog%t_g_t(jc,jb,1)
-                lnd_diag%qv_s(jc,jb) = lnd_diag%qv_s_t(jc,jb,1)
-              END DO  ! jc
-            END DO  ! jb
-!$OMP END PARALLEL DO
-          END IF
-        END DO
-        ! Only required, when starting from GME or COSMO soil (i.e. MODE_COMBINED or MODE_COSMODE).
-        ! SMI stored in w_so_t must be converted to w_so
-        IF (ANY((/MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
-          DO jt=1, ntiles_total
-            CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
-          END DO
-        END IF
-      END IF
-    END DO
-  END SUBROUTINE process_input_dwdfg_sfc
 
 
   !>
@@ -1735,7 +1691,7 @@ MODULE mo_initicon_io
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
     CHARACTER(LEN=filename_max), INTENT(IN)       :: dwdana_file(:)
 
-    INTEGER :: jg, jt
+    INTEGER :: jg, jgp, jt, jb, jc, i_endidx
     INTEGER :: ngrp_vars_ana, filetype
 
     REAL(wp), POINTER :: my_ptr2d(:,:)
@@ -1771,12 +1727,16 @@ MODULE mo_initicon_io
       ! save some paperwork
       ngrp_vars_ana = initicon(jg)%ngrp_vars_ana
 
-      ! Skip this domain if it will be interpolated from its parent domain in process_input_dwdana_sfc()
-      IF (ANY((/MODE_IAU, MODE_IAU_OLD /) == init_mode) .AND. lp2cintp_sfcana(jg)) CYCLE
+      IF (ANY((/MODE_IAU, MODE_IAU_OLD /) == init_mode) .AND. lp2cintp_sfcana(jg)) THEN
+        ! Perform parent-to-child interpolation of surface fields read from the analysis
+        jgp = p_patch(jg)%parent_id
+        CALL interpolate_sfcana(initicon, jgp, jg)
+        CYCLE
+      ENDIF
 
       IF(my_process_is_stdio()) THEN
         CALL message (TRIM(routine), 'read sfc_ANA fields from '//TRIM(dwdana_file(jg)))
-      END IF   ! p_io
+      ENDIF   ! p_io
 
 
       ! set tile-index explicitly
@@ -1833,63 +1793,43 @@ MODULE mo_initicon_io
         my_ptr3d => initicon(jg)%sfc_inc%w_so(:,:,:)
       ELSE
         my_ptr3d => lnd_prog%w_so_t(:,:,:,jt)
-      END IF
+      ENDIF
       CALL read_data_3d (parameters, filetype, 'w_so', nlev_soil, my_ptr3d, tileinfo, opt_checkgroup=checkgrp )
 
       CALL deleteInputParameters(parameters)
 
-    END DO ! loop over model domains
-  END SUBROUTINE read_dwdana_sfc
-
-
-  ! Fill remaining tiles for snow variables if tile approach is used
-  ! Only fields that are actually read from the snow analysis are copied; note that MODE_IAU is mandatory when using tiles
-  SUBROUTINE process_input_dwdana_sfc (p_patch, p_lnd_state, initicon)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
-    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
-    TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
-
-    INTEGER :: jg, jt, jb, jc, i_endidx
-    TYPE(t_lnd_prog), POINTER :: lnd_prog
-    TYPE(t_lnd_diag), POINTER :: lnd_diag
-
-    jt = 1
-    DO jg = 1, n_dom
-      IF(p_patch(jg)%ldom_active .AND. ANY((/MODE_IAU, MODE_IAU_OLD /) == init_mode)) THEN
-        IF (lp2cintp_sfcana(jg)) THEN
-          ! Perform parent-to-child interpolation of surface fields read from the analysis
-          CALL interpolate_sfcana(initicon, p_patch(jg)%parent_id, jg)
-
-        ELSE IF (ntiles_total>1 .AND. init_mode == MODE_IAU_OLD) THEN
-          ! MODE_IAU_OLD: H_SNOW, FRESHSNOW, W_SNOW and RHO_SNOW are read from analysis (full fields)
-          ! Since only the first tile index is filled (see above), we fill (here) the remaining tiles
-          ! if tile approach is used. Note that for MODE_IAU this copy is skipped on purpose,
-          ! since for ltile_coldstart=.FALSE. tile information would be overwritten.
-          lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
-          lnd_diag => p_lnd_state(jg)%diag_lnd
+      ! MODE_IAU_OLD: H_SNOW, FRESHSNOW, W_SNOW and RHO_SNOW are read from analysis (full fields)
+      ! Since only the first tile index is filled (see above), we fill (here) the remaining tiles
+      ! if tile approach is used. Note that for MODE_IAU this copy is skipped on purpose,
+      ! since for ltile_coldstart=.FALSE. tile information would be overwritten.
+      !
+      IF (ANY((/ MODE_IAU_OLD /) == init_mode) .AND. ntiles_total>1) THEN
 
 !$OMP PARALLEL DO PRIVATE(jb,jc,jt,i_endidx)
-          DO jb = 1, p_patch(jg)%nblks_c
-            IF (jb == p_patch(jg)%nblks_c) THEN
-              i_endidx = p_patch(jg)%npromz_c
-            ELSE
-              i_endidx = nproma
-            END IF
+        DO jb = 1, p_patch(jg)%nblks_c
+          IF (jb == p_patch(jg)%nblks_c) THEN
+            i_endidx = p_patch(jg)%npromz_c
+          ELSE
+            i_endidx = nproma
+          ENDIF
 
-            DO jt = 2, ntiles_total
-              DO jc = 1, i_endidx
-                lnd_diag%freshsnow_t(jc,jb,jt) = lnd_diag%freshsnow_t(jc,jb,1)
-                lnd_diag%h_snow_t(jc,jb,jt)    = lnd_diag%h_snow_t(jc,jb,1)
-                lnd_prog%w_snow_t(jc,jb,jt)    = lnd_prog%w_snow_t(jc,jb,1)
-                lnd_prog%rho_snow_t(jc,jb,jt)  = lnd_prog%rho_snow_t(jc,jb,1)
-              END DO
-            END DO
-          END DO
+          DO jt = 2, ntiles_total
+            DO jc = 1, i_endidx
+              lnd_diag%freshsnow_t(jc,jb,jt) = lnd_diag%freshsnow_t(jc,jb,1)
+              lnd_diag%h_snow_t(jc,jb,jt)    = lnd_diag%h_snow_t(jc,jb,1)
+              lnd_prog%w_snow_t(jc,jb,jt)    = lnd_prog%w_snow_t(jc,jb,1)
+              lnd_prog%rho_snow_t(jc,jb,jt)  = lnd_prog%rho_snow_t(jc,jb,1)
+            ENDDO
+          ENDDO
+
+        ENDDO
 !$OMP END PARALLEL DO
-        END IF
-      END IF
-    END DO ! loop over model domains
-  END SUBROUTINE process_input_dwdana_sfc
+      ENDIF
+
+    ENDDO ! loop over model domains
+
+
+  END SUBROUTINE read_dwdana_sfc
 
 
 END MODULE mo_initicon_io

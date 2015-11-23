@@ -69,8 +69,7 @@ MODULE mo_nh_stepping
   USE mo_nh_pa_test,               ONLY: set_nh_w_rho
   USE mo_nh_df_test,               ONLY: get_nh_df_velocity
   USE mo_nh_dcmip_hadley,          ONLY: set_nh_velocity_hadley
-  USE mo_nh_supervise,             ONLY: supervise_total_integrals_nh, print_maxwinds,  &
-    &                                    init_supervise_nh, finalize_supervise_nh
+  USE mo_nh_supervise,             ONLY: supervise_total_integrals_nh, print_maxwinds
   USE mo_intp_data_strc,           ONLY: p_int_state, t_int_state
   USE mo_intp_rbf,                 ONLY: rbf_vec_interpol_cell
   USE mo_intp,                     ONLY: verts2cells_scalar
@@ -81,7 +80,7 @@ MODULE mo_nh_stepping
                                          complete_nesting_setup, prep_bdy_nudging,      &
                                          outer_boundary_nudging, nest_boundary_nudging, &
                                          prep_rho_bdy_nudging, density_boundary_nudging,&
-                                         prep_outer_bdy_nudging, save_progvars
+                                         prep_outer_bdy_nudging
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
   USE mo_datetime,                 ONLY: t_datetime, add_time, check_newday, iso8601
   USE mo_io_restart,               ONLY: create_restart_file
@@ -131,7 +130,7 @@ MODULE mo_nh_stepping
   USE mo_td_ext_data,              ONLY: set_actual_td_ext_data
   USE mo_initicon_config,          ONLY: init_mode, timeshift, init_mode_soil, is_avgFG_time
   USE mo_initicon_utils,           ONLY: average_first_guess, reinit_average_first_guess
-  USE mo_synsat_config,            ONLY: lsynsat
+  USE mo_synsat_config,            ONLY: lsynsat, num_images
   USE mo_rttov_interface,          ONLY: rttov_driver, copy_rttov_ubc
   USE mo_ls_forcing_nml,           ONLY: is_ls_forcing
   USE mo_ls_forcing,               ONLY: init_ls_forcing
@@ -364,7 +363,6 @@ MODULE mo_nh_stepping
           ! diagnostics which are only required for output
           CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
                &                      ih_clch(jg), ih_clcm(jg),               & !in
-               &                      phy_params(jg),                         & !in
                &                      p_patch(jg),                            & !in
                &                      p_nh_state(jg)%metrics,                 & !in
                &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
@@ -422,7 +420,7 @@ MODULE mo_nh_stepping
     simulation_status = new_simulation_status(l_first_step   = .TRUE.,                  &
       &                                       l_output_step  = .TRUE.,                  &
       &                                       l_dom_active   = p_patch(1:)%ldom_active, &
-      &                                       i_timelevel_dyn= nnow, i_timelevel_phy= nnow_rcf)
+      &                                       i_timelevel    = nnow)
     CALL pp_scheduler_process(simulation_status)
 
     IF (iforcing==iecham) THEN
@@ -443,7 +441,6 @@ MODULE mo_nh_stepping
     ! sample meteogram output
     DO jg = 1, n_dom
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
-        & p_patch(jg)%ldom_active  .AND. &
         & meteogram_is_sample_step( meteogram_output_config(jg), 0 ) ) THEN
         CALL meteogram_sample_vars(jg, 0, datetime_current, ierr)
         IF (ierr /= SUCCESS) THEN
@@ -623,9 +620,6 @@ MODULE mo_nh_stepping
     lcfl_watch_mode = .FALSE.
   ENDIF
 
-  ! init routine for mo_nh_supervise module (eg. opening of files)
-  CALL init_supervise_nh()
-
 #ifdef USE_MTIME_LOOP
 !LK++
   ! Should only be called once! Seems to be used more than once and
@@ -763,16 +757,17 @@ MODULE mo_nh_stepping
 !LK--
       CALL message('','')
       IF (iforcing == inwp) THEN
-        WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3,a,a)') 'Time step: ', jstep, ', model time: ',            &
+        WRITE(message_text,'(a,i8,a,i0,a,5(i2.2,a),i3.3,a,a)') 'Time step: ', jstep, ' model time ',            &
              &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ',     &
              &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second, '.', &
-             &             mtime_date%time%ms, ', forecast time: ', TRIM(forecast_delta_str)
+             &             mtime_date%time%ms, ' forecast time ', TRIM(forecast_delta_str)
       ELSE
         WRITE(message_text,'(a,i8,a,i0,a,4(i2.2,a),i2.2)') 'Time step: ', jstep, ' model time ',             &
              &             mtime_date%date%year, '-', mtime_date%date%month, '-', mtime_date%date%day, ' ', &
              &             mtime_date%time%hour, ':', mtime_date%time%minute, ':', mtime_date%time%second
       ENDIF
       CALL message('',message_text)
+      CALL message('','')
 !LK++
       CALL deallocateDatetime(mtime_date)
       CALL deallocateDatetime(mtime_begin)
@@ -897,7 +892,6 @@ MODULE mo_nh_stepping
             ! diagnostics which are only required for output
             CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
                  &                      ih_clch(jg), ih_clcm(jg),               & !in
-                 &                      phy_params(jg),                         & !in
                  &                      p_patch(jg),                            & !in
                  &                      p_nh_state(jg)%metrics,                 & !in
                  &                      p_nh_state(jg)%prog(nnow(jg)),          & !in  !nnow or nnew?
@@ -965,11 +959,11 @@ MODULE mo_nh_stepping
     !
     ! Mean sea level pressure needs to be computed also at
     ! no-output-steps for accumulation purposes; set by l_accumulation_step
-    simulation_status = new_simulation_status(l_output_step  = l_nml_output,             &
-      &                                       l_last_step    = (jstep==(nsteps+jstep0)), &
+    simulation_status = new_simulation_status(l_output_step       = l_nml_output,             &
+      &                                       l_last_step         = (jstep==(nsteps+jstep0)), &
       &                                       l_accumulation_step = (iforcing == iecham),&
-      &                                       l_dom_active   = p_patch(1:)%ldom_active,  &
-      &                                       i_timelevel_dyn= nnow, i_timelevel_phy= nnow_rcf)
+      &                                       l_dom_active        = p_patch(1:)%ldom_active,  &
+      &                                       i_timelevel         = nnow)
     CALL pp_scheduler_process(simulation_status)
 
 #ifdef MESSY
@@ -999,7 +993,6 @@ MODULE mo_nh_stepping
     ! sample meteogram output
     DO jg = 1, n_dom
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
-        & p_patch(jg)%ldom_active  .AND. &
         & meteogram_is_sample_step(meteogram_output_config(jg), jstep)) THEN
         CALL meteogram_sample_vars(jg, jstep, datetime_current, ierr)
         IF (ierr /= SUCCESS) THEN
@@ -1130,9 +1123,6 @@ MODULE mo_nh_stepping
     jstep = jstep + 1
 #endif
   ENDDO TIME_LOOP
-
-  ! clean-up routine for mo_nh_supervise module (eg. closing of files)
-  CALL finalize_supervise_nh()
 
   IF (use_async_restart_output) CALL close_async_restart
 
@@ -1268,7 +1258,17 @@ MODULE mo_nh_stepping
         ! interpolation tendencies
         n_now  = nnow(jg)
         n_save = nsav1(jg)
-        CALL save_progvars(jg,p_nh_state(jg)%prog(n_now),p_nh_state(jg)%prog(n_save))
+!$OMP PARALLEL
+        CALL copy(p_nh_state(jg)%prog(n_now)%vn, &
+             p_nh_state(jg)%prog(n_save)%vn)
+        CALL copy(p_nh_state(jg)%prog(n_now)%w, &
+             p_nh_state(jg)%prog(n_save)%w)
+        CALL copy(p_nh_state(jg)%prog(n_now)%rho, &
+             p_nh_state(jg)%prog(n_save)%rho)
+        CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, &
+             p_nh_state(jg)%prog(n_save)%theta_v)
+!$OMP END PARALLEL
+
       ENDIF
 
 
@@ -1850,7 +1850,6 @@ MODULE mo_nh_stepping
             time_config%sim_time(jgc)    = time_config%sim_time(jg)
             t_elapsed_phy(jgc,:)         = 0._wp
             linit_dyn(jgc)               = .TRUE.
-            dt_sub                       = dt_loc/2._wp
 
             IF (  atm_phy_nwp_config(jgc)%inwp_surface == 1 ) THEN
               CALL aggregate_landvars(p_patch(jg), ext_data(jg),                &
@@ -1901,7 +1900,7 @@ MODULE mo_nh_stepping
               ENDIF
             ENDIF
 
-            CALL init_slowphysics (datetime_current, jgc, dt_sub, time_config%sim_time)
+            CALL init_slowphysics (datetime_current, jgc, dt_loc, time_config%sim_time)
 
             WRITE(message_text,'(a,i2,a,f12.2)') 'domain ',jgc,' started at time ',time_config%sim_time(jg)
             CALL message('integrate_nh', TRIM(message_text))
@@ -2202,10 +2201,6 @@ MODULE mo_nh_stepping
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
           &                  p_lnd_state(jg)%prog_wtr(n_now_rcf),& !inout
           &                  p_nh_state_lists(jg)%prog_list(n_now_rcf) ) !in
-
-      ! This is to enforce another slow physics call at the end of the first time step
-      lcall_phy(jg,:)     = .FALSE.
-      t_elapsed_phy(jg,:) = dt_phy(jg,:) - dt_loc
 
       CASE (iecham) ! iforcing
 

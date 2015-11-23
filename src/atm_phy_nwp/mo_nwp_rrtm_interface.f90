@@ -37,7 +37,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_nwp_lnd_types,        ONLY: t_lnd_prog
   USE mo_model_domain,         ONLY: t_patch, p_patch_local_parent
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output
-  USE mo_nonhydro_types,       ONLY: t_nh_diag
+  USE mo_nonhydro_types,       ONLY: t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_o3_util,              ONLY: calc_o3_clim, calc_o3_gems
   USE mo_radiation,            ONLY: radiation, radiation_nwp
@@ -165,9 +165,9 @@ CONTAINS
         & zvio3      = prm_diag%vio3,                & !inout
         & zhmo3      = prm_diag%hmo3  )                !inout
     CASE (7)
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
     CASE (9)
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
     END SELECT
 
     IF ( irad_aero == 6 ) CALL month2hour (datetime, imo1, imo2, zw )
@@ -542,8 +542,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation ( pt_patch, ext_data,                       &
-    &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog, irad )
+  SUBROUTINE nwp_rrtm_radiation ( pt_patch, ext_data,                 &
+    &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog, p_metrics )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -561,9 +561,7 @@ CONTAINS
     TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
-
-    INTEGER, INTENT(IN) :: irad ! To distinguish between RRTM (1) and PSRAD (3)
-
+    TYPE(t_nh_metrics),         INTENT(in)   :: p_metrics
     REAL(wp):: aclcov(nproma,pt_patch%nblks_c)
 
 
@@ -623,7 +621,6 @@ CONTAINS
                               ! indices and dimensions
         & jg         =jg                   ,&!< in domain index
         & jb         =jb                   ,&!< in block index
-        & irad       =irad                 ,&!< in option for radiation scheme (RRTM/PSRAD)
         & jce        =i_endidx             ,&!< in  end   index for loop over block
         & kbdim      =nproma               ,&!< in  dimension of block over cells
         & klev       =nlev                 ,&!< in  number of full levels = number of layers
@@ -689,7 +686,7 @@ CONTAINS
   !!
   SUBROUTINE nwp_rrtm_radiation_reduced ( pt_patch, pt_par_patch, ext_data, &
     &                                     zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
-    &                                     pt_diag,prm_diag,lnd_prog,irad    )
+    &                                     pt_diag,prm_diag,lnd_prog,p_metrics )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -708,10 +705,7 @@ CONTAINS
     TYPE(t_nh_diag), TARGET,    INTENT(inout):: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog
-
-    INTEGER, INTENT(IN) :: irad ! To distinguish between RRTM (1) and PSRAD (3)
-
-
+    TYPE(t_nh_metrics),         INTENT(in)   :: p_metrics
     REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
@@ -1096,7 +1090,6 @@ CONTAINS
                                 ! indices and dimensions
           & jg          =jg                  ,&!< in domain index
           & jb          =jb                  ,&!< in block index
-          & irad        =irad                ,&!< in option for radiation scheme (RRTM/PSRAD)
           & jce         =i_endidx            ,&!< in  end   index for loop over block
           & kbdim       =nproma              ,&!< in  dimension of block over cells
           & klev        =nlev_rg             ,&!< in  number of full levels = number of layers
@@ -1219,7 +1212,7 @@ CONTAINS
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rrtm_radiation_repartition ( pt_patch, ext_data, &
-    &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog )
+    &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog, p_metrics )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
@@ -1238,6 +1231,7 @@ CONTAINS
     TYPE(t_nh_diag), TARGET, INTENT(in)   :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),    INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),        INTENT(inout):: lnd_prog
+    TYPE(t_nh_metrics),      INTENT(in)   :: p_metrics
 
     ! Local scalars:
     INTEGER:: jc,jb

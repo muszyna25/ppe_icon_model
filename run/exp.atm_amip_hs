@@ -163,6 +163,7 @@ cat > ${atmo_namelist} << EOF
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
  output_nml_dict  = '${dict_file}'
  netcdf_dict      = '${dict_file}'
+ lzaxis_reference = .FALSE. 
 /
 EOF
 

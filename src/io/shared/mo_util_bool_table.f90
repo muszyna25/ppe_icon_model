@@ -41,7 +41,7 @@
 !!
 MODULE mo_util_bool_table
 
-  USE mo_impl_constants,      ONLY : SUCCESS
+  USE mo_impl_constants,      ONLY : MAX_CHAR_LENGTH, SUCCESS
   USE mo_var_metadata_types,  ONLY : VARNAME_LEN
   USE mo_exception,           ONLY : finish
   USE mo_util_string,         ONLY : remove_duplicates, tolower, int2string

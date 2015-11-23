@@ -130,9 +130,6 @@ MODULE mo_model_domimp_patches
     &                              reorder_verts
   USE mo_mpi,                ONLY: p_pe_work, my_process_is_mpi_parallel, &
     &                              p_comm_work_test, p_comm_work
-#ifdef HAVE_PARALLEL_NETCDF
-  USE mo_mpi,                ONLY: p_comm_input_bcast
-#endif
   USE mo_complete_subdivision, ONLY: generate_comm_pat_cvec1
   USE mo_read_netcdf_distributed, ONLY: setup_distrib_read
   USE mo_read_interface, ONLY: t_stream_id, p_t_patch, openInputFile, &
@@ -151,7 +148,7 @@ MODULE mo_model_domimp_patches
   ! The USE statement below lets this module use the routines from
   ! mo_netcdf_parallel where only 1 processor is reading and
   ! broadcasting the results
-#ifndef HAVE_PARALLEL_NETCDF
+
   USE mo_netcdf_parallel, ONLY:                      &
     & nf_nowrite, nf_global, nf_noerr, nf_strerror,  &
     & nf_inq_attid        => p_nf_inq_attid,          &
@@ -167,21 +164,12 @@ MODULE mo_model_domimp_patches
     & nf_get_var_double   => p_nf_get_var_double,     &
     & nf_get_vara_double  => p_nf_get_vara_double_
 #endif
-#endif
-#ifndef NOMPI
-#ifdef __SUNPRO_F95
-    INCLUDE "mpif.h"
-#else
-    USE mpi, ONLY: MPI_INFO_NULL
-#endif
-#endif
-
 
   IMPLICIT NONE
 
   PRIVATE
 
-#if defined(NOMPI) || defined(HAVE_PARALLEL_NETCDF)
+#ifdef NOMPI
   INCLUDE 'netcdf.inc'
 #endif
 
@@ -1068,13 +1056,7 @@ CONTAINS
     WRITE(message_text,'(a,a)') 'Read grid file ', TRIM(patch_pre%grid_filename)
     CALL message ('', TRIM(message_text))
 
-#if HAVE_PARALLEL_NETCDF
-    CALL nf(nf_open_par(TRIM(patch_pre%grid_filename), &
-       &                IOR(nf_nowrite, nf_mpiio), &
-       &                p_comm_input_bcast, MPI_INFO_NULL, ncid))
-#else
     CALL nf(nf_open(TRIM(patch_pre%grid_filename), nf_nowrite, ncid))
-#endif
 
     ! Test, if grid refinement information is available in the NetCDF
     ! file. If not, try to open "patch_pre%grid_filename_grfinfo":
@@ -1082,13 +1064,7 @@ CONTAINS
     IF (lsep_grfinfo) THEN
       WRITE(message_text,'(a,a)') 'Read gridref info from file ', TRIM(patch_pre%grid_filename_grfinfo)
       CALL message ('', TRIM(message_text))
-#if HAVE_PARALLEL_NETCDF
-      CALL nf(nf_open_par(TRIM(patch_pre%grid_filename_grfinfo), &
-         &                IOR(nf_nowrite, nf_mpiio), p_comm_input_bcast, &
-         &                MPI_INFO_NULL, ncid_grf))
-#else
       CALL nf(nf_open(TRIM(patch_pre%grid_filename_grfinfo), nf_nowrite, ncid_grf))
-#endif
     ELSE
       ncid_grf = ncid
     END IF

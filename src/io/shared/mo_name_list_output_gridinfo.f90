@@ -16,8 +16,8 @@ MODULE mo_name_list_output_gridinfo
 
   USE mo_cdi,                               ONLY: DATATYPE_PACK16, TSTEP_CONSTANT, vlistDefVar, cdiEncodeParam, streamWriteVar, &
                                                 & vlistDefVarDatatype, vlistDefVarName, vlistDefVarTsteptype, vlistDefVarParam, &
-                                                & gridDefXvals, gridDefYvals, gridDefXbounds, gridDefYbounds, GRID_UNSTRUCTURED
-  USE mo_cdi_constants,                     ONLY: GRID_CELL, ZA_surface
+                                                & gridDefXvals, gridDefYvals, gridDefXbounds, gridDefYbounds
+  USE mo_cdi_constants,                     ONLY: GRID_REFERENCE, GRID_CELL, ZA_surface
   USE mo_kind,                              ONLY: wp
   USE mo_parallel_config,                   ONLY: nproma
   USE mo_exception,                         ONLY: finish
@@ -42,7 +42,7 @@ MODULE mo_name_list_output_gridinfo
     &                                             min_rlvert, vname_len
   USE mo_mpi,                               ONLY: p_comm_work_2_io,                         &
     &                                             my_process_is_mpi_test, my_process_is_io, &
-    &                                             my_process_is_mpi_workroot
+    &                                             my_process_is_mpi_workroot, p_bcast
   USE mo_master_control,                    ONLY: my_process_is_ocean
   USE mo_gribout_config,                    ONLY: gribout_config
   USE mo_loopindices,                       ONLY: get_indices_c, get_indices_e, get_indices_v
@@ -569,13 +569,14 @@ CONTAINS
     CHARACTER(LEN=4), PARAMETER :: grid_coord_name(2) = (/ "RLON", "RLAT" /)
     TYPE (t_grib2_var) :: grid_coord_grib2(2)
     INTEGER :: igrid,i,vlistID,idx(3),gridID(3),zaxisID
+    CHARACTER(LEN=vname_len), POINTER :: p_varlist(:)
 
     ! geographical longitude RLON
     grid_coord_grib2(1) = grib2_var(               0,   &  ! discipline
       &                                          191,   &  ! category
       &                                            2,   &  ! number
       &                              DATATYPE_PACK16,   &  ! bits
-      &                            GRID_UNSTRUCTURED,   &  ! gridtype
+      &                               GRID_REFERENCE,   &  ! gridtype
       &                                    GRID_CELL )     ! subgridtype
 
     ! geographical latitude RLAT
@@ -583,7 +584,7 @@ CONTAINS
       &                                          191,   &  ! category
       &                                            1,   &  ! number
       &                              DATATYPE_PACK16,   &  ! bits
-      &                            GRID_UNSTRUCTURED,   &  ! gridtype
+      &                               GRID_REFERENCE,   &  ! gridtype
       &                                    GRID_CELL )     ! subgridtype
 
     vlistID = of%cdiVlistID

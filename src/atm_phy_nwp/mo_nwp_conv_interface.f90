@@ -101,6 +101,7 @@ CONTAINS
     INTEGER  :: jk,jc,jb,jg                !< block indeces
     INTEGER  :: zk850, zk950               !< level indices
     REAL(wp) :: u850, u950, v850, v950     !< zonal and meridional velocity at specific heights
+    REAL(wp) :: zdt_conv
 
 
     ! local variables related to the blocking
@@ -117,7 +118,8 @@ CONTAINS
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
+ 
+    zdt_conv = MAX(600._wp,tcall_conv_jg)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
@@ -216,10 +218,10 @@ CONTAINS
           CALL cumastrn &
 &           (kidia  = i_startidx            , kfdia  = i_endidx               ,& !> IN
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
-&            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
+&            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = zdt_conv        ,& !! IN
 &            ldlake = ext_data%atm%llake_c(:,jb), k950 = prm_diag%k950(:,jb)  ,& !! IN
 &            phy_params = phy_params(jg), capdcfac=prm_diag%tropics_mask(:,jb),& !! IN
-&            mtnmask=p_metrics%mask_mtnpoints(:,jb), pten=p_diag%temp(:,:,jb) ,& !! IN
+&            pten   = p_diag%temp(:,:,jb)                                     ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                           ,& !! IN
 &            puen   = p_diag%u   (:,:,jb)   , pven   = p_diag%v( :,:,jb)      ,& !! IN
 &            plitot = z_plitot              , pvervel= z_omega_p              ,& !! IN
@@ -263,10 +265,10 @@ CONTAINS
           CALL cumastrn &
 &           (kidia  = i_startidx            , kfdia  = i_endidx               ,& !> IN
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
-&            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = tcall_conv_jg   ,& !! IN
+&            ldland = ext_data%atm%llsm_atm_c(:,jb), ptsphy = zdt_conv        ,& !! IN
 &            ldlake = ext_data%atm%llake_c(:,jb), k950 = prm_diag%k950(:,jb)  ,& !! IN
 &            phy_params = phy_params(jg), capdcfac=prm_diag%tropics_mask(:,jb),& !! IN
-&            mtnmask=p_metrics%mask_mtnpoints(:,jb), pten=p_diag%temp(:,:,jb) ,& !! IN
+&            pten   = p_diag%temp(:,:,jb)                                     ,& !! IN
 &            pqen   = p_prog_rcf%tracer(:,:,jb,iqv)                           ,& !! IN
 &            puen   = p_diag%u   (:,:,jb)   , pven   = p_diag%v( :,:,jb)      ,& !! IN
 &            plitot = z_plitot              , pvervel= z_omega_p              ,& !! IN

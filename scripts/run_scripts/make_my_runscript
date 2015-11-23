@@ -3,7 +3,7 @@
 # Creates the ICON run scripts
 # Leonidas Linardakis, MPI-M, 2011-25-1
 #==============================================================================
-set +x
+set -x
 base_folder=$(pwd)
 . $base_folder/config/set-up.info
 input_folder=run

@@ -364,7 +364,6 @@ CONTAINS
             ! #slo# 2015-01: bugfix: rpreci is rate of snowfall over ice covered area
             ice%hs(jc,k,jb) = ice%hs(jc,k,jb) + rpreci(jc,jb)*dtime*rho_ref/rhos
             ! #slo# 2015-01: bugfix: rpreci is over whole grid-area
-            !  this is incorrect, because hs is thickness over ice-covered area only and rpreci is a snowfall rate
             !ice%hs(jc,k,jb) = ice%hs(jc,k,jb) + rpreci(jc,jb)*ice%conc(jc,k,jb)*dtime*rho_ref/rhos
       
             ! for energy flux surplus

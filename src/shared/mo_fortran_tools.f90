@@ -256,11 +256,7 @@ CONTAINS
     m1 = SIZE(dest, 1)
     m2 = SIZE(dest, 2)
     m3 = SIZE(dest, 3)
-#ifdef _CRAYFTN
-!$omp do
-#else
 !$omp do collapse(3)
-#endif
     DO i3 = 1, m3
       DO i2 = 1, m2
         DO i1 = 1, m1
@@ -414,11 +410,7 @@ CONTAINS
     m1 = SIZE(init_var, 1)
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
-#ifdef _CRAYFTN
-!$omp do
-#else
 !$omp do collapse(3)
-#endif
     DO i3 = 1, m3
       DO i2 = 1, m2
         DO i1 = 1, m1
@@ -437,11 +429,7 @@ CONTAINS
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
     m4 = SIZE(init_var, 4)
-#ifdef _CRAYFTN
-!$omp do
-#else
 !$omp do collapse(4)
-#endif
     DO i4 = 1, m4
       DO i3 = 1, m3
         DO i2 = 1, m2
@@ -462,11 +450,7 @@ CONTAINS
     m2 = SIZE(init_var, 2)
     m3 = SIZE(init_var, 3)
     m4 = SIZE(init_var, 4)
-#ifdef _CRAYFTN
-!$omp do
-#else
 !$omp do collapse(4)
-#endif
     DO i4 = 1, m4
       DO i3 = 1, m3
         DO i2 = 1, m2

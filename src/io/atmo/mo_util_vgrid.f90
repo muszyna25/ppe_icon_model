@@ -23,8 +23,8 @@ MODULE mo_util_vgrid
                                                 & streamWriteVarSlice, streamWriteVar, streamDefVlist, cdiGetStringError, &
                                                 & vlistDefVarDatatype, vlistDefVarName, zaxisDefNumber, zaxisDefUUID, &
                                                 & gridDefPosition, gridInqUUID, gridDefNumber, gridDefUUID, zaxisDefLevels, &
-                                                & gridDefNvertex, vlistDefInstitut, zaxisInqUUID, streamReadVar, &
-                                                & GRID_UNSTRUCTURED
+                                                & gridDefNvertex, vlistDefInstitut, zaxisInqUUID, streamReadVar
+  USE mo_cdi_constants,                     ONLY: GRID_REFERENCE
   USE mo_kind,                              ONLY: wp, dp
   USE mo_exception,                         ONLY: finish, message, message_text, warning
   !
@@ -261,7 +261,7 @@ CONTAINS
 
     nlevp1 = p_patch%nlevp1
     IF (my_process_is_mpi_workroot()) THEN
-      gridtype    = GRID_UNSTRUCTURED
+      gridtype    = GRID_REFERENCE
       output_type = FILETYPE_NC2
 
       !--- create meta-data
@@ -292,7 +292,7 @@ CONTAINS
       ! cells
       CALL uuid2char(p_patch%grid_uuid, uuid_string)
       CALL gridDefUUID(cdiCellGridID, uuid_string)
-      CALL gridDefNumber(cdiCellGridID, number_of_grid_used(p_patch%id))
+      CALL gridDefNumber(cdiCellGridID, number_of_grid_used(1)) !XXX: It might be a bug that only the first element IN number_of_grid_used is used. It may not be a bug. I don't know. Someone ELSE who knows?
       CALL gridDefPosition(cdiCellGridID, 1)
 
       !--- set UUID for vertical grid

@@ -40,7 +40,6 @@ MODULE mo_o3_util
   USE mo_nh_vert_interp,       ONLY: prepare_lin_intp, lin_intp
   USE mo_nonhydro_types,       ONLY: t_nh_diag
   USE mo_ext_data_types,       ONLY: t_external_data
-  USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag
   USE mo_o3_gems_data,         ONLY: rghg7
   USE mo_o3_macc_data,         ONLY: rghg7_macc
   USE mo_radiation_config,     ONLY: irad_o3
@@ -868,7 +867,7 @@ CONTAINS
   !! @par Revision History
   !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-10-18)
   !!
-  SUBROUTINE calc_o3_gems(pt_patch,datetime,p_diag,prm_diag,ext_data)
+  SUBROUTINE calc_o3_gems(pt_patch,datetime,p_diag,ext_data)
 
     CHARACTER(len=*), PARAMETER :: routine =  'calc_o3_gems'
 
@@ -913,7 +912,6 @@ CONTAINS
     TYPE(t_patch),      INTENT(in) :: pt_patch    ! Patch
     TYPE(t_datetime),   INTENT(in) :: datetime
     TYPE(t_nh_diag),    INTENT(in) :: p_diag  !!the diagostic variables
-    TYPE(t_nwp_phy_diag),INTENT(in):: prm_diag
 
     TYPE(t_external_data), INTENT(inout) :: ext_data  !!the external data state
 
@@ -926,15 +924,15 @@ CONTAINS
     REAL(wp) :: zo3(nproma,1:nlev_gems,pt_patch%nblks_c)
     REAL(wp) :: zviozo(nproma,0:pt_patch%nlev)
     REAL(wp) :: zozovi(nproma,0:nlev_gems,pt_patch%nblks_c)
-    REAL(wp) :: deltaz(nproma,pt_patch%nlev),dtdz(nproma,pt_patch%nlev),o3_clim(pt_patch%nlev)
+    REAL(wp) :: deltaz(nproma,pt_patch%nlev),dtdz(nproma,pt_patch%nlev)
     LOGICAL  :: l_found(nproma)
 
     ! local scalars
     INTEGER  :: jk,jkk,jk1,jl,jc,jb !loop indices
     INTEGER  :: idy,im,imn,im1,im2,jk_start,i_startidx,i_endidx,i_nchdom,i_startblk,i_endblk
-    INTEGER  :: rl_start,rl_end,k375,k100,ktp
+    INTEGER  :: rl_start,rl_end,k350,k100,ktp
     REAL(wp) :: ztimi,zxtime,zjl,zlatint,zint,zadd_o3
-    REAL(wp) :: dzsum,dtdzavg,tpshp,wfac
+    REAL(wp) :: dzsum,dtdzavg,o3_350,o3_100,tpshp,wfac
     LOGICAL  :: lfound_all
 
 
@@ -1034,7 +1032,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,jkk,jk1,i_startidx,i_endidx,zjl,jk_start,l_found,lfound_all,&
-!$OMP zint,zviozo,zadd_o3,deltaz,dtdz,dzsum,dtdzavg,ktp,tpshp,wfac,k375,k100,o3_clim) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP zint,zviozo,zadd_o3,deltaz,dtdz,dzsum,dtdzavg,ktp,tpshp,wfac,k350,k100,o3_350,o3_100) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -1125,7 +1123,7 @@ CONTAINS
       ! Ozone adaptation around the extratropical tropopause
       ! The procedure starts with diagnosing the thermal tropopause including its sharpness (dTdz_up - dTdz_down),
       ! the latter is used to compute a weighting factor. Afterwards, climatological O3 mixing ratios are modified
-      ! in order to get a sharp jump at the tropopause, using the climatological values at 100 hPa (375 hPa) as
+      ! in order to get a sharp jump at the tropopause, using the climatological values at 100 hPa (350 hPa) as
       ! proxies for the lower stratospheric (tropospheric) ozone values
       IF (icpl_o3_tp == 1) THEN
         DO jk = 1,pt_patch%nlev-1
@@ -1140,8 +1138,8 @@ CONTAINS
           l_found(jc) = .FALSE.
           IF (ABS(pt_patch%cells%center(jc,jb)%lat)*rad2deg > 30._wp) THEN
             ! Determine thermal tropopause according to WMO definition
-            DO jk = prm_diag%k850(jc,jb), 3, -1
-              IF (p_diag%pres(jc,jk,jb) < 37500._wp .AND. p_diag%pres(jc,jk,jb) > 10000._wp) THEN
+            DO jk = pt_patch%nlev-2, 3, -1
+              IF (p_diag%pres(jc,jk,jb) < 35000._wp .AND. p_diag%pres(jc,jk,jb) > 10000._wp) THEN
                 IF (dtdz(jc,jk) < -2.e-3_wp .AND. dtdz(jc,jk-1) > -2.e-3_wp) THEN
                   l_found(jc) = .TRUE.
                   DO jk1 = jk-2, 2, -1
@@ -1164,32 +1162,20 @@ CONTAINS
             ENDDO
           ENDIF
           IF (l_found(jc)) THEN
-            ! Determine level indices right below 100 and 375 hPa
-            k375 = prm_diag%k850(jc,jb)  ! to be safe over very high mountains
-            DO jk = prm_diag%k850(jc,jb), 3, -1
-              IF (p_diag%pres(jc,jk,jb) > 37500._wp .AND. p_diag%pres(jc,jk-1,jb) <= 37500._wp) k375 = jk
+            ! Determine level indices closest to 100 and 350 hPa
+            DO jk = pt_patch%nlev-2, 3, -1
+              IF (p_diag%pres(jc,jk,jb) > 35000._wp .AND. p_diag%pres(jc,jk-1,jb) <= 35000._wp) k350 = jk
               IF (p_diag%pres(jc,jk,jb) > 10000._wp .AND. p_diag%pres(jc,jk-1,jb) <= 10000._wp) k100 = jk
               IF (p_diag%pres(jc,jk,jb) < 10000._wp) EXIT
             ENDDO
-            o3_clim(k100:k375) = ext_data%atm%o3(jc,k100:k375,jb)
-            jkk = k100+1
-            DO jk = k100, k375
-              ! Modify ozone profiles; the climatological profile is shifted down by at most 125 hPa
-              IF (jk < ktp) THEN ! levels above the tropopause
-                IF (p_diag%pres(jc,jk,jb) - p_diag%pres(jc,k100,jb) < 12500._wp) THEN
-                  ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + wfac*o3_clim(k100)
-                ELSE
-                  DO jk1 = jkk, k375
-                    IF (p_diag%pres(jc,jk,jb) - p_diag%pres(jc,jk1-1,jb) >= 12500._wp .AND. &
-                        p_diag%pres(jc,jk,jb) - p_diag%pres(jc,jk1,jb)   < 12500._wp ) THEN
-                      ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + wfac*o3_clim(jk1)
-                      jkk = jk1
-                      EXIT
-                    ENDIF
-                  ENDDO
-                ENDIF
-              ELSE IF (jk > ktp) THEN ! levels below the tropopause
-                ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + wfac*o3_clim(k375)
+            o3_350 = ext_data%atm%o3(jc,k350,jb)
+            o3_100 = ext_data%atm%o3(jc,k100,jb)
+            DO jk = k100, k350
+              ! Modify ozone profiles
+              IF (jk < ktp) THEN
+                ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + wfac*o3_100
+              ELSE IF (jk > ktp) THEN
+                ext_data%atm%o3(jc,jk,jb) = (1._wp-wfac)*ext_data%atm%o3(jc,jk,jb) + wfac*o3_350
               ENDIF
             ENDDO
           ENDIF

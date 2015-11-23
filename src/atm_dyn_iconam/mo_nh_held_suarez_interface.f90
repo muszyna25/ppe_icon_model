@@ -128,7 +128,7 @@ CONTAINS
 !$OMP PARALLEL
     CALL init(ddt_temp(:,:,:))
 !$OMP BARRIER
-!$OMP DO PRIVATE(jb,is,ie,jk,z_ekin,zlat) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,is,ie,jk,zlat) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = jbs,nblks_c
        CALL get_indices_c( p_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1 )
 

@@ -61,8 +61,8 @@ MODULE mo_nh_nest_utilities
   PRIVATE
 
 
-  PUBLIC :: compute_tendencies, boundary_interpolation, complete_nesting_setup,     &
-    prep_bdy_nudging, outer_boundary_nudging, nest_boundary_nudging, save_progvars, &
+  PUBLIC :: compute_tendencies, boundary_interpolation, complete_nesting_setup, &
+    prep_bdy_nudging, outer_boundary_nudging, nest_boundary_nudging,    &
     prep_rho_bdy_nudging, density_boundary_nudging, prep_outer_bdy_nudging
 
 CONTAINS
@@ -203,138 +203,6 @@ CONTAINS
 
   END SUBROUTINE complete_nesting_setup
 
-
-  !-------------------------------------------------------------------------
-  !
-  !>
-  !! Saves the dynamic prognostic variables needed afterwards for computing
-  !! the lateral boundary tendencies for nested domains
-  !!
-  !! @par Revision History
-  !! Developed by Guenther Zaengl, DWD, 2015-10-08
-  !!
-  SUBROUTINE save_progvars (jg,p_nh_prog,p_nh_save)
-
-    INTEGER,         INTENT(IN)    :: jg
-    TYPE(t_nh_prog), INTENT(IN)    :: p_nh_prog
-    TYPE(t_nh_prog), INTENT(INOUT) :: p_nh_save
-
-    ! local variables
-    !
-    INTEGER :: ib, jb, ic, jc, ie, je, jk, jshift
-    INTEGER :: nlev, nlevp1
-    INTEGER :: nproma_bdyintp, nblks_bdyintp, npromz_bdyintp, nlen
-
-    TYPE(t_gridref_state), POINTER :: p_grf
-
-    !-----------------------------------------------------------------------
-
-
-    p_grf  => p_grf_state(jg)
-
-    ! number of vertical levels
-    nlev   = p_patch(jg)%nlev
-    nlevp1 = p_patch(jg)%nlevp1
-
-    ! for dynamic nproma blocking
-    nproma_bdyintp = MIN(nproma,256)
-
-!$OMP PARALLEL PRIVATE(nblks_bdyintp,npromz_bdyintp)
-
-    ! cell-based variables
-
-    ! parameters for dynamic nproma blocking
-    nblks_bdyintp  = INT(p_grf%npoints_bdyintp_src_c/nproma_bdyintp)
-    npromz_bdyintp = MOD(p_grf%npoints_bdyintp_src_c,nproma_bdyintp)
-    IF (npromz_bdyintp > 0) THEN
-      nblks_bdyintp = nblks_bdyintp + 1
-    ELSE
-      npromz_bdyintp = nproma_bdyintp
-    ENDIF
-
-!$OMP DO PRIVATE(ib,jb,nlen,ic,jc,jk,jshift) ICON_OMP_DEFAULT_SCHEDULE
-    DO ib = 1, nblks_bdyintp
-      IF (ib == nblks_bdyintp) THEN
-        nlen = npromz_bdyintp
-      ELSE
-        nlen = nproma_bdyintp
-      ENDIF
-      jshift = (ib-1)*nproma_bdyintp
-
-#ifdef __LOOP_EXCHANGE
-      DO ic = jshift+1, jshift+nlen
-        jc = p_grf%idxlist_bdyintp_src_c(ic)
-        jb = p_grf%blklist_bdyintp_src_c(ic)
-!DIR$ IVDEP
-        DO jk = 1, nlev
-#else
-      DO jk = 1, nlev
-!CDIR NODEP
-        DO ic = jshift+1, jshift+nlen
-          jc = p_grf%idxlist_bdyintp_src_c(ic)
-          jb = p_grf%blklist_bdyintp_src_c(ic)
-#endif
-
-          p_nh_save%w(jc,jk,jb)       = p_nh_prog%w(jc,jk,jb)
-          p_nh_save%rho(jc,jk,jb)     = p_nh_prog%rho(jc,jk,jb)
-          p_nh_save%theta_v(jc,jk,jb) = p_nh_prog%theta_v(jc,jk,jb)
-
-        ENDDO
-      ENDDO
-
-      DO ic = jshift+1, jshift+nlen
-        jc = p_grf%idxlist_bdyintp_src_c(ic)
-        jb = p_grf%blklist_bdyintp_src_c(ic)
-        p_nh_save%w(jc,nlevp1,jb)  = p_nh_prog%w(jc,nlevp1,jb)
-      ENDDO
-
-    ENDDO
-!$OMP END DO
-
-    ! edge-based variables
-
-    ! parameters for dynamic nproma blocking
-    nblks_bdyintp  = INT(p_grf%npoints_bdyintp_src_e/nproma_bdyintp)
-    npromz_bdyintp = MOD(p_grf%npoints_bdyintp_src_e,nproma_bdyintp)
-    IF (npromz_bdyintp > 0) THEN
-      nblks_bdyintp = nblks_bdyintp + 1
-    ELSE
-      npromz_bdyintp = nproma_bdyintp
-    ENDIF
-
-!$OMP DO PRIVATE(ib,jb,nlen,ie,je,jk,jshift) ICON_OMP_DEFAULT_SCHEDULE
-    DO ib = 1, nblks_bdyintp
-      IF (ib == nblks_bdyintp) THEN
-        nlen = npromz_bdyintp
-      ELSE
-        nlen = nproma_bdyintp
-      ENDIF
-      jshift = (ib-1)*nproma_bdyintp
-
-#ifdef __LOOP_EXCHANGE
-      DO ie = jshift+1, jshift+nlen
-        je = p_grf%idxlist_bdyintp_src_e(ie)
-        jb = p_grf%blklist_bdyintp_src_e(ie)
-!DIR$ IVDEP
-        DO jk = 1, nlev
-#else
-      DO jk = 1, nlev
-!CDIR NODEP
-        DO ie = jshift+1, jshift+nlen
-          je = p_grf%idxlist_bdyintp_src_e(ie)
-          jb = p_grf%blklist_bdyintp_src_e(ie)
-#endif
-
-          p_nh_save%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)
-
-        ENDDO
-      ENDDO
-
-    ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-
-  END SUBROUTINE save_progvars
 
   !-------------------------------------------------------------------------
   !

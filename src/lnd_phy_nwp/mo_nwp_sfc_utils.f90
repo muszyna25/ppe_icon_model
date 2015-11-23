@@ -37,7 +37,6 @@ MODULE mo_nwp_sfc_utils
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
     &                               itype_interception
-  USE mo_nwp_tuning_config,   ONLY: tune_minsnowfrac
   USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode
   USE mo_nwp_soil_init,       ONLY: terra_multlay_init
   USE mo_flake,               ONLY: flake_init
@@ -1741,7 +1740,7 @@ CONTAINS
       ! cold bias in such situations
       IF (PRESENT(meltrate)) THEN
         DO ic = istart, iend
-          snowfrac(ic) = MIN(snowfrac(ic),MAX(tune_minsnowfrac,1._wp-9000._wp*tai_mod(ic)*meltrate(ic)))
+          snowfrac(ic) = MIN(snowfrac(ic),MAX(0.125_wp,1._wp-9000._wp*tai_mod(ic)*meltrate(ic)))
         ENDDO
       ENDIF
     END SELECT

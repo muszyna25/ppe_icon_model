@@ -54,7 +54,7 @@ MODULE mo_async_latbc
     ! basic modules
     USE mo_kind,                      ONLY: i8, sp
     USE mo_io_units,                  ONLY: nerr
-    USE mo_exception,                 ONLY: finish, message
+    USE mo_exception,                 ONLY: finish, message, message_text
     USE mo_mpi,                       ONLY: stop_mpi, my_process_is_io,  my_process_is_pref, &
          &                                  my_process_is_mpi_test, p_int, p_real_sp
     USE mo_parallel_config,           ONLY: nproma
@@ -75,7 +75,7 @@ MODULE mo_async_latbc
     USE mo_time_config,               ONLY: time_config
     USE mo_datetime,                  ONLY: t_datetime
     USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, latbc_buffer
-    USE mo_grid_config,               ONLY: nroot
+    USE mo_grid_config,               ONLY: n_dom, nroot
     USE mo_async_latbc_utils,         ONLY: pref_latbc_data, prepare_pref_latbc_data, &
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
          &                                  async_pref_send_handshake,  async_pref_wait_for_start

@@ -31,13 +31,6 @@ AC_CANONICAL_SYSTEM
 
 AC_PROG_AWK
 
-dnl Load pre-set configure options from config/config-options
-dnl ######################################################################
-
-if test -f "config/config-options" ; then
-  AC_GET_MH(config/config-options)
-fi
-
 dnl ######################################################################
 
 AC_ARG_ENABLE([mtime-loop],
@@ -269,6 +262,9 @@ CFLAGS="${CFLAGS} ${DEFCOPT}__${package}__"
 
 dnl #####################################################################
 dnl add defines for model components
+
+AS_IF([test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"],
+      [AC_MSG_ERROR([currently, enable-atmo=yes needs enable-ocean=yes (because of sea-ice)])])
 
 AS_IF([test "x$enable_atmo" = "xno"],
       [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_ATMO__"])
@@ -1322,8 +1318,4 @@ echo ""
 echo "Configuration done. Run GNU make to build ICON."
 echo ""
 echo "build directory: build/${build_host}"
-echo ""
-AS_IF([test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"],
-[AC_MSG_WARN([In order to use ECHAM physics, you need to enable ocean!])])
-
 echo ""

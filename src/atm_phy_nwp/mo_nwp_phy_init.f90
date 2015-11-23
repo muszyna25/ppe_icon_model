@@ -60,13 +60,6 @@ MODULE mo_nwp_phy_init
     &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg,             &
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
   USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
-  USE mo_psrad_lrtm_setup,    ONLY: setup_lrtm
-  USE mo_psrad_srtm_setup,    ONLY: setup_srtm_psrad => setup_srtm
-  USE mo_psrad_spec_sampling, ONLY: set_spec_sampling_lw, set_spec_sampling_sw
-  USE mo_psrad_cloud_optics,  ONLY: setup_cloud_optics  
-  USE mo_psrad_interface,     ONLY: setup_psrad, lw_strat, sw_strat
-  USE mo_rrtm_params,         ONLY: nbndsw
-  USE mo_psrad_radiation_parameters, ONLY: nb_sw 
 
   ! microphysics
   USE gscp_data,              ONLY: gscp_set_coefficients
@@ -502,6 +495,17 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   END IF
 
 
+  !--------------------------------------------------------------
+  !< characteristic gridlength needed by convection and turbulence
+  !--------------------------------------------------------------
+!   CALL sphere_cell_mean_char_length (p_patch%n_patch_cells_g, phy_params%mean_charlen)
+  ! read it directly from the patch%geometry_info
+  phy_params%mean_charlen = p_patch%geometry_info%mean_characteristic_length
+!   write(0,*) "=============================================="
+!   write(0,*) "mean_charlen=", phy_params%mean_charlen, &
+!     & p_patch%geometry_info%mean_characteristic_length
+!   write(0,*) "=============================================="
+
 
   ! index of first half level with height >= 1500 m (above boundary layer)
   k1500m = 1
@@ -526,27 +530,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     ELSE
       pref(jk) = ptropo*EXP(-grav*(zfull-htropo)/(rd*ttropo))
     ENDIF
-  ENDDO
-
-
-  ! start filling phy_params
-  !
-  !--------------------------------------------------------------
-  !< characteristic gridlength needed by convection and turbulence
-  !--------------------------------------------------------------
-!   CALL sphere_cell_mean_char_length (p_patch%n_patch_cells_g, phy_params%mean_charlen)
-  ! read it directly from the patch%geometry_info
-  phy_params%mean_charlen = p_patch%geometry_info%mean_characteristic_length
-!   write(0,*) "=============================================="
-!   write(0,*) "mean_charlen=", phy_params%mean_charlen, &
-!     & p_patch%geometry_info%mean_characteristic_length
-!   write(0,*) "=============================================="
-
-  ! compute level index corresponding to the HAG of the 60hPa level 
-  ! (currently only needed by mo_nwp_diagnosis:cal_cape_cin) 
-  phy_params%k060=1
-  DO jk=nlev,1,-1
-    IF(pref(jk) >  60.e2_wp) phy_params%k060=jk
   ENDDO
 
 
@@ -672,8 +655,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   !------------------------------------------
   !< radiation
   !------------------------------------------
-  SELECT CASE ( atm_phy_nwp_config(jg)%inwp_radiation )
-  CASE (1, 3)
+  IF ( atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init RRTM')
 
@@ -711,20 +693,12 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
       tsi_radt    = SUM(ssi_radt(:))
     ENDIF
 
-    IF (atm_phy_nwp_config(jg)%inwp_radiation == 1) THEN ! RRTM init
-      CALL setup_srtm
-      CALL lrtm_setup(lrtm_filename)
-      CALL setup_newcld_optics(cldopt_filename)
-    ELSE   ! PSRAD init
-      CALL setup_psrad
-      nb_sw = nbndsw
-      lw_strat = set_spec_sampling_lw(1, 1) 
-      sw_strat = set_spec_sampling_sw(1, 1)
-      CALL setup_cloud_optics
-      CALL setup_lrtm
-      CALL lrtm_setup(lrtm_filename) ! ** necessary because of incorrect USE statements in mo_psrad_lrtm_gas_optics **
-      CALL setup_srtm_psrad
-    ENDIF
+
+    CALL setup_srtm
+
+    CALL lrtm_setup(lrtm_filename)
+
+    CALL setup_newcld_optics(cldopt_filename)
 
     rl_start = 1  ! Initialization should be done for all points
     rl_end   = min_rlcell
@@ -867,7 +841,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
     ENDDO
 
-  CASE (2)
+  ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Ritter Geleyn')
 
@@ -969,7 +943,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
       rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
     ENDDO
 
-  END SELECT !inwp_radiation
+  ENDIF !inwp_radiation
 
   IF ( nh_test_name == 'RCE' .OR. nh_test_name == 'RCE_CBL' ) THEN
     DEALLOCATE (zrefpres)

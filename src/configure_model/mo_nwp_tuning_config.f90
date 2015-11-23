@@ -33,12 +33,6 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_zvz0i
   PUBLIC :: tune_entrorg
   PUBLIC :: tune_capdcfac_et
-  PUBLIC :: tune_rhebc_land
-  PUBLIC :: tune_rhebc_ocean
-  PUBLIC :: tune_rcucov
-  PUBLIC :: tune_texc
-  PUBLIC :: tune_qexc
-  PUBLIC :: tune_minsnowfrac
   PUBLIC :: tune_box_liq
   PUBLIC :: itune_albedo
   PUBLIC :: max_freshsnow_inc
@@ -74,24 +68,6 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< Fraction of CAPE diurnal cycle correction applied in the extratropics
     &  tune_capdcfac_et            ! (relevant only if icapdcycl = 3)
-
-  REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over land
-    &  tune_rhebc_land
-
-  REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over sea
-    &  tune_rhebc_ocean
-
-  REAL(wp) :: &                    !< Convective area fraction
-    &  tune_rcucov
-
-  REAL(wp) :: &                    !< Excess value for temperature used in test parcel ascent
-    &  tune_texc
-
-  REAL(wp) :: &                    !< Excess fraction of grid-scale QV used in test parcel ascent
-    &  tune_qexc
-
-  REAL(wp) :: &                    !< Minimum value to which the snow cover fraction is artificially reduced
-    &  tune_minsnowfrac            !  in case of melting show (in case of idiag_snowfrac = 20/30/40)
 
   REAL(wp) :: &                    !< Box width for liquid clouds assumed in the cloud cover scheme
     &  tune_box_liq                ! (in case of inwp_cldcover = 1)
