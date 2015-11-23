@@ -51,7 +51,8 @@
     USE mo_physical_constants,  ONLY: earth_radius
     USE mo_math_utility_solvers, ONLY: solve_chol_v, choldec_v
     USE mo_lonlat_grid,         ONLY: t_lon_lat_grid, latlon_compute_area_weights
-    USE mo_parallel_config,     ONLY: nproma, p_test_run, use_dp_mpi2io
+    USE mo_parallel_config,     ONLY: nproma, p_test_run
+    USE mo_io_config,           ONLY: lnetcdf_flt64_output
     USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
     USE mo_intp_data_strc,      ONLY: t_int_state, t_lon_lat_intp, n_lonlat_grids,            &
       &                               lonlat_grid_list, n_lonlat_grids, MAX_LONLAT_GRIDS
@@ -343,7 +344,7 @@
       TYPE(t_list_element),  POINTER :: new_element
 
       ! define NetCDF output precision
-      IF ( use_dp_mpi2io ) THEN
+      IF ( lnetcdf_flt64_output ) THEN
         datatype_flt = DATATYPE_FLT64
       ELSE
         datatype_flt = DATATYPE_FLT32

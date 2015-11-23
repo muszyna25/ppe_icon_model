@@ -52,7 +52,8 @@ MODULE mo_ext_data_state
   USE mo_cf_convention,      ONLY: t_cf_var
   USE mo_grib2,              ONLY: t_grib2_var, grib2_var, t_grib2_int_key, &
     &                              OPERATOR(+)
-  USE mo_parallel_config,    ONLY: nproma, use_dp_mpi2io
+  USE mo_parallel_config,    ONLY: nproma
+  USE mo_io_config,          ONLY: lnetcdf_flt64_output
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: iforcing
   USE mo_dynamics_config,    ONLY: iequations
@@ -213,7 +214,7 @@ CONTAINS
     ! number of vertical levels
     nlev = p_patch%nlev
 
-    IF ( use_dp_mpi2io ) THEN
+    IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
     ELSE
       datatype_flt = DATATYPE_FLT32
@@ -1067,7 +1068,7 @@ CONTAINS
 
     ibits  = 16   ! "entropy" of horizontal slice
 
-    IF ( use_dp_mpi2io ) THEN
+    IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
     ELSE
       datatype_flt = DATATYPE_FLT32

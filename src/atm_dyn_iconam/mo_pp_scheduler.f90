@@ -177,7 +177,8 @@ MODULE mo_pp_scheduler
   USE mo_nh_pzlev_config,         ONLY: nh_pzlev_config
   USE mo_name_list_output_config, ONLY: first_output_name_list
   USE mo_name_list_output_types,  ONLY: t_output_name_list, is_grid_info_var
-  USE mo_parallel_config,         ONLY: nproma, use_dp_mpi2io
+  USE mo_parallel_config,         ONLY: nproma
+  USE mo_io_config,               ONLY: lnetcdf_flt64_output
   USE mo_cf_convention,           ONLY: t_cf_var
   USE mo_grib2,                   ONLY: t_grib2_var, grib2_var
   USE mo_util_string,             ONLY: int2string, remove_duplicates,                      &
@@ -1073,7 +1074,7 @@ CONTAINS
     TYPE(t_grib2_var)                  :: grib2_desc
 
     ! define NetCDF output precision
-    IF ( use_dp_mpi2io ) THEN
+    IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
     ELSE
       datatype_flt = DATATYPE_FLT32

@@ -66,7 +66,6 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma           = ${nproma}
- use_dp_mpi2io    = .TRUE.
 /
 &grid_nml
  dynamics_grid_filename = "${atmo_dyn_grids}",
@@ -164,6 +163,7 @@ cat >> ${atmo_namelist} << EOF
  dt_checkpoint    = ${dt_checkpoint}  !  NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
  output_nml_dict  = "${dict_file}"
  netcdf_dict      = "${dict_file}"
+ lnetcdf_flt64_output = .TRUE.
 /
 EOF
 

@@ -28,7 +28,7 @@
 MODULE mo_opt_diagnostics
 
   USE mo_kind,                 ONLY: wp
-  USE mo_parallel_config,      ONLY: nproma, use_dp_mpi2io
+  USE mo_parallel_config,      ONLY: nproma
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_model_domain,         ONLY: t_patch, t_subset_range
   USE mo_nonhydro_types,       ONLY: t_nh_diag,t_nh_prog
@@ -53,6 +53,7 @@ MODULE mo_opt_diagnostics
   USE mo_var_list_element,     ONLY: level_type_ml, level_type_pl,  &
     &                                level_type_hl, level_type_il
   USE mo_name_list_output_config,ONLY: first_output_name_list, is_variable_in_output
+  USE mo_io_config,            ONLY: lnetcdf_flt64_output
   USE mo_gribout_config,       ONLY: gribout_config
   USE mo_cf_convention,        ONLY: t_cf_var
   USE mo_grib2,                ONLY: t_grib2_var, grib2_var
@@ -432,7 +433,7 @@ CONTAINS
       DATATYPE_PACK_VAR = DATATYPE_PACK16
     ENDIF
 
-    IF ( use_dp_mpi2io ) THEN
+    IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
     ELSE
       datatype_flt = DATATYPE_FLT32

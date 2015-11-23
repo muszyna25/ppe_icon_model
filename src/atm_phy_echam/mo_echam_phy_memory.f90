@@ -40,7 +40,8 @@ MODULE mo_echam_phy_memory
     &                               VINTP_METHOD_LIN,          &
     &                               VINTP_METHOD_LIN_NLEVP1
   USE mo_exception,           ONLY: message, finish
-  USE mo_parallel_config,     ONLY: nproma, use_dp_mpi2io
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_io_config,           ONLY: lnetcdf_flt64_output
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, csfc
   USE mo_model_domain,        ONLY: t_patch
 
@@ -624,7 +625,7 @@ CONTAINS
     ibits = DATATYPE_PACK16
     iextbits = DATATYPE_PACK24
 
-    IF ( use_dp_mpi2io ) THEN
+    IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
     ELSE
       datatype_flt = DATATYPE_FLT32
@@ -2144,7 +2145,7 @@ CONTAINS
 
     ibits = DATATYPE_PACK16 ! "entropy" of horizontal slice
 
-    IF ( use_dp_mpi2io ) THEN
+    IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
     ELSE
       datatype_flt = DATATYPE_FLT32

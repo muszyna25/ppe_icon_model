@@ -49,13 +49,13 @@ MODULE mo_nonhydro_state
   USE mo_grid_config,          ONLY: n_dom, l_limited_area, ifeedback_type
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, igradp_method, ndyn_substeps_max
   USE mo_dynamics_config,      ONLY: nsav1, nsav2
-  USE mo_parallel_config,      ONLY: nproma, use_dp_mpi2io
+  USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, ntracer, iqm_max,                &
     &                                iqv, iqc, iqi, iqr, iqs, iqtvar,           &
     &                                iqni, iqni_nuc, iqg, iqh, iqnr, iqns,      & 
     &                                iqng, iqnh, iqnc, inccn, ininpot, ininact, &
     &                                iqtke, nqtendphy, ltestcase, lart 
-  USE mo_io_config,            ONLY: inextra_2d, inextra_3d
+  USE mo_io_config,            ONLY: inextra_2d, inextra_3d, lnetcdf_flt64_output
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_turbdiff_config,      ONLY: turbdiff_config
   USE mo_initicon_config,      ONLY: init_mode, lcalc_avg_fg, iso8601_start_timedelta_avg_fg, &
@@ -474,7 +474,7 @@ MODULE mo_nonhydro_state
       DATATYPE_PACK_VAR = DATATYPE_PACK16
     ENDIF
 
-    IF ( use_dp_mpi2io ) THEN
+    IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
     ELSE
       datatype_flt = DATATYPE_FLT32
@@ -1290,7 +1290,7 @@ MODULE mo_nonhydro_state
       DATATYPE_PACK_VAR = DATATYPE_PACK16
     ENDIF
 
-    IF ( use_dp_mpi2io ) THEN
+    IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
     ELSE
       datatype_flt = DATATYPE_FLT32
@@ -2486,7 +2486,7 @@ MODULE mo_nonhydro_state
 
     ibits = DATATYPE_PACK16   ! "entropy" of horizontal slice
 
-    IF ( use_dp_mpi2io ) THEN
+    IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
     ELSE
       datatype_flt = DATATYPE_FLT32
@@ -2589,7 +2589,7 @@ MODULE mo_nonhydro_state
       DATATYPE_PACK_VAR = DATATYPE_PACK16
     ENDIF
 
-    IF ( use_dp_mpi2io ) THEN
+    IF ( lnetcdf_flt64_output ) THEN
       datatype_flt = DATATYPE_FLT64
     ELSE
       datatype_flt = DATATYPE_FLT32
