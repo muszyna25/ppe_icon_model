@@ -534,6 +534,7 @@ CONTAINS
 
     INTEGER :: info, ierror   !< return values from cpl_put/get calls
 
+    REAL(wp) :: total_rain
     REAL(wp), PARAMETER :: dummy = 0.0_wp
 
     IF (.NOT. is_coupled_run() ) RETURN
@@ -782,9 +783,10 @@ CONTAINS
     ENDIF
     !
     !
-    ! Apply freshwater flux - 2 parts, precipitation and evaporation - record 3
+    ! Apply freshwater flux - 3 parts, liquid rain, snowfall, evaporation - record 3
     !
     ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
+    ! Note: precipitation is the sum of rain and snowfall
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
@@ -800,7 +802,7 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen, total_rain) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
         IF (i_blk /= patch_horz%nblks_c) THEN
@@ -810,13 +812,16 @@ CONTAINS
         END IF
         DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
-            atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = dummy
+            total_rain                                   = dummy
             atmos_fluxes%FrshFlux_SnowFall     (n,i_blk) = dummy
             atmos_fluxes%FrshFlux_Evaporation  (n,i_blk) = dummy
+            atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = dummy
           ELSE
-            atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = buffer(nn+n,1) / rhoh2o
+            total_rain                                   = buffer(nn+n,1) / rhoh2o
             atmos_fluxes%FrshFlux_SnowFall     (n,i_blk) = buffer(nn+n,2) / rhoh2o
             atmos_fluxes%FrshFlux_Evaporation  (n,i_blk) = buffer(nn+n,3) / rhoh2o
+            atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = total_rain + &
+              &  atmos_fluxes%FrshFlux_SnowFall(n,i_blk)
           ENDIF
         ENDDO
       ENDDO
