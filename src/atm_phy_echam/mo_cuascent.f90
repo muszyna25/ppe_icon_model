@@ -1,11 +1,10 @@
 #ifdef __xlC__
 @PROCESS STRICT
-#else
-#define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
 #endif
+#include "fsel.inc"
 
 !>
-!! @brief 
+!! @brief
 !!       *cuasc*
 !!        Routine produces cloud ascents for cumulus-parameterization
 !!        (vertical profiles of t,q,l,u and v and corresponding fluxes
@@ -54,11 +53,11 @@ MODULE mo_cuascent
   USE mo_physical_constants,   ONLY : grav, tmelt, vtmpc1, rv, rd, alv, als
 #ifndef __ICON__
   USE mo_echam_conv_constants, ONLY : lmfdudv, lmfmid, nmctop, cmfcmin, cmfcmax,     &
-#else
-  USE mo_echam_conv_constants, ONLY : lmfdudv, lmfmid,         cmfcmin, cmfcmax,     &
-#endif
     &                                 cprcon, entrmid, cmfctop, centrmax, cbfac,     &
     &                                 cminbuoy, cmaxbuoy
+#else
+  USE mo_echam_conv_config,    ONLY : echam_conv_config
+#endif
   USE mo_cuadjust,             ONLY : cuadjtq
 
 #ifdef _PROFILE
@@ -69,9 +68,18 @@ MODULE mo_cuascent
   PRIVATE
   PUBLIC :: cuasc, cubasmc, cuentr
 
+#ifdef __ICON__
+  ! to simplify access to components of echam_conv_config
+  LOGICAL , POINTER :: lmfmid, lmfdudv
+  INTEGER , POINTER :: nmctop
+  REAL(wp), POINTER :: entrmid, cprcon, cmfctop, cmfcmin, cmfcmax, cminbuoy, cmaxbuoy, cbfac, centrmax
+  REAL(wp), POINTER :: dlev_land, dlev_ocean
+#endif
+
+
 CONTAINS
   !>
-  !! 
+  !!
   SUBROUTINE cuasc(    kproma, kbdim, klev, klevp1, klevm1,                          &
     &        ptenh,    pqenh,    puen,     pven,                                     &
     &        ktrac,                                                                  &
@@ -87,20 +95,15 @@ CONTAINS
     &        pmful,    plude,    pqude,    pdmfup,                                   &
     &        khmin,    phhatt,   phcbase,  pqsenh,                                   &
     &        pcpen,    pcpcu,                                                        &
-    &        kcbot,    kctop,    kctop0,                                             &
+    &        kcbot,    kctop,    kctop0                                              &
 #ifndef __ICON__
-    &        pmwc,     pmrateprecip                                     )
-#else
-    &        nmctop )
+    &      , pmwc,     pmrateprecip                                                  )
 #endif
-    !
+    &        )
 
     INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
     INTEGER :: jl, jk, jt, ik, icall, ikb, ikt, n, locnt
     REAL(wp),INTENT (IN) :: ptime_step_len
-#ifdef __ICON__
-    INTEGER, INTENT(IN)  :: nmctop
-#endif
     REAL(wp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                          &
       &         puen(kbdim,klev),        pven(kbdim,klev),                           &
       &         pten(kbdim,klev),        pqen(kbdim,klev),                           &
@@ -158,6 +161,23 @@ CONTAINS
     pmwc(1:kproma,:)=0._wp
     pmrateprecip(1:kproma,:)=0._wp
 #endif
+
+#ifdef __ICON__
+    ! to simplify access to components of echam_conv_config
+    lmfmid   => echam_conv_config% lmfmid
+    lmfdudv  => echam_conv_config% lmfdudv
+    nmctop   => echam_conv_config% nmctop
+    cprcon   => echam_conv_config% cprcon
+    cmfctop  => echam_conv_config% cmfctop
+    cmfcmin  => echam_conv_config% cmfcmin
+    cminbuoy => echam_conv_config% cminbuoy
+    cmaxbuoy => echam_conv_config% cmaxbuoy
+    cbfac    => echam_conv_config% cbfac
+    centrmax => echam_conv_config% centrmax
+    dlev_land => echam_conv_config% dlev_land
+    dlev_ocean=> echam_conv_config% dlev_ocean
+#endif
+
     !---------------------------------------------------------------------------------
     !
     !*    1.           Specify parameters
@@ -342,8 +362,8 @@ CONTAINS
         &   khmin,    pgeoh,                                                          &
         &   zdmfen,   zdmfde)
       !
-      !     Do adiabatic ascent for entraining/detraining plume 
-      !     The cloud ensemble entrains environmental values 
+      !     Do adiabatic ascent for entraining/detraining plume
+      !     The cloud ensemble entrains environmental values
       !     In turbulent detrainment cloud ensemble values are detrained
       !     In organized detrainment the dry static energy and moisture
       !     that are neutral compared to the environmental air are detrained
@@ -451,7 +471,7 @@ CONTAINS
             &          jk.GE.kctop0(jl)) THEN
             kctop(jl)=jk
             ldcum(jl)=.TRUE.
-            zdnoprc=MERGE(zdlev,1.5e4_wp,ldland(jl))
+            zdnoprc=MERGE(dlev_land,dlev_ocean,ldland(jl))
             zprcon=MERGE(0._wp,cprcon,zpbase(jl)-paphp1(jl,jk).LT.zdnoprc)
             zlnew=plu(jl,jk)/(1._wp+zprcon*(pgeoh(jl,jk)-pgeoh(jl,jk+1)))
             pdmfup(jl,jk)=MAX(0._wp,(plu(jl,jk)-zlnew)*pmfu(jl,jk))
@@ -624,6 +644,15 @@ CONTAINS
     LOGICAL  :: llo3(kbdim)
     INTEGER  :: jl, jt
     REAL(wp) :: zzzmb
+
+#ifdef __ICON__
+    ! to simplify access to components of echam_conv_config
+    lmfdudv  => echam_conv_config% lmfdudv
+    entrmid  => echam_conv_config% entrmid
+    cmfcmin  => echam_conv_config% cmfcmin
+    cmfcmax  => echam_conv_config% cmfcmax
+#endif
+
     !---------------------------------------------------------------------------------
     !
     !*    1.    Calculate entrainment and detrainment rates
@@ -704,6 +733,13 @@ CONTAINS
     REAL(wp) :: zrg, zpmid, zentr, zentest, zzmzk, ztmzk, zorgde, zarg
     REAL(wp) :: zrrho(kbdim),zdprho(kbdim)
     INTEGER  :: icond1(kbdim),icond2(kbdim),icond3(kbdim),idx(kbdim)
+
+#ifdef __ICON__
+    ! to simplify access to components of echam_conv_config
+    cmfcmin  => echam_conv_config% cmfcmin
+    centrmax => echam_conv_config% centrmax
+#endif
+
     !
     !---------------------------------------------------------------------------------
     !

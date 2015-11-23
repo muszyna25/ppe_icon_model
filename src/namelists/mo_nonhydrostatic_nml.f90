@@ -20,7 +20,7 @@ MODULE mo_nonhydrostatic_nml
   USE mo_impl_constants,        ONLY: max_dom, TRACER_ONLY
   USE mo_io_units,              ONLY: nnml, nnml_output
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_master_control,        ONLY: is_restart_run
+  USE mo_master_config,         ONLY: isRestart
   USE mo_mpi,                   ONLY: my_process_is_stdio
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
                                     & open_and_restore_namelist, close_tmpfile
@@ -36,6 +36,8 @@ MODULE mo_nonhydrostatic_nml
                                     & config_divdamp_fac_o2   => divdamp_fac_o2   , &
                                     & config_divdamp_order    => divdamp_order    , &
                                     & config_divdamp_type     => divdamp_type     , &
+                                    & config_divdamp_trans_start => divdamp_trans_start, &
+                                    & config_divdamp_trans_end => divdamp_trans_end, &
                                     & config_ivctype          => ivctype          , &
                                     & config_htop_moist_proc  => htop_moist_proc  , &
                                     & config_hbot_qvsubstep   => hbot_qvsubstep   , &
@@ -81,6 +83,8 @@ MODULE mo_nonhydrostatic_nml
   REAL(wp):: divdamp_fac             ! Scaling factor for divergence damping (if lhdiff_rcf = true)
   INTEGER :: divdamp_order           ! Order of divergence damping
   INTEGER :: divdamp_type            ! Type of divergence damping (2D or 3D divergence)
+  REAL(wp):: divdamp_trans_start     ! Lower bound of transition zone between 2D and 3D div damping in case of divdamp_type = 32
+  REAL(wp):: divdamp_trans_end       ! Upper bound of transition zone between 2D and 3D div damping in case of divdamp_type = 32
   INTEGER :: ivctype                 ! Type of vertical coordinate (Gal-Chen / SLEVE)
   REAL(wp):: htop_moist_proc         ! Top height (in m) of the part of the model domain
                                      ! where processes related to moist physics are computed
@@ -116,7 +120,8 @@ MODULE mo_nonhydrostatic_nml
                               & divdamp_fac, igradp_method, exner_expol, l_open_ubc,      &
                               & nest_substeps, l_masscorr_nest, l_zdiffu_t,               &
                               & thslp_zdiffu, thhgtd_zdiffu, divdamp_order, divdamp_type, &
-                              & rhotheta_offctr, lextra_diffu, veladv_offctr
+                              & rhotheta_offctr, lextra_diffu, veladv_offctr,             &
+                              & divdamp_trans_start, divdamp_trans_end
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -171,6 +176,10 @@ CONTAINS
 
     ! Type of divergence damping
     divdamp_type = 3
+
+    ! Lower and upper bound of transition zone between 2D and 3D divergence damping in case of divdamp_type = 32
+    divdamp_trans_start = 12500._wp   ! 12.5 km
+    divdamp_trans_end   = 17500._wp   ! 17.5 km
 
     ! Type of vertical coordinate (1: Gal-Chen, 2: SLEVE)
     ivctype  = 2
@@ -230,7 +239,7 @@ CONTAINS
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       funit = open_and_restore_namelist('nonhydrostatic_nml')
       READ(funit,NML=nonhydrostatic_nml)
       CALL close_tmpfile(funit)
@@ -314,6 +323,8 @@ CONTAINS
        config_divdamp_fac_o2    = divdamp_fac ! initialization - divdamp_fac_o2 is a derived variable that may change during runtime
        config_divdamp_order     = divdamp_order
        config_divdamp_type      = divdamp_type
+       config_divdamp_trans_start = divdamp_trans_start
+       config_divdamp_trans_end   = divdamp_trans_end
        config_itime_scheme      = itime_scheme
        config_ivctype           = ivctype
        config_l_open_ubc        = l_open_ubc

@@ -54,7 +54,7 @@ MODULE mo_async_latbc
     ! basic modules
     USE mo_kind,                      ONLY: i8, sp
     USE mo_io_units,                  ONLY: nerr
-    USE mo_exception,                 ONLY: finish, message, message_text
+    USE mo_exception,                 ONLY: finish, message
     USE mo_mpi,                       ONLY: stop_mpi, my_process_is_io,  my_process_is_pref, &
          &                                  my_process_is_mpi_test, p_int, p_real_sp
     USE mo_parallel_config,           ONLY: nproma
@@ -75,7 +75,7 @@ MODULE mo_async_latbc
     USE mo_time_config,               ONLY: time_config
     USE mo_datetime,                  ONLY: t_datetime
     USE mo_async_latbc_types,         ONLY: t_patch_data, t_reorder_data, latbc_buffer
-    USE mo_grid_config,               ONLY: n_dom, nroot
+    USE mo_grid_config,               ONLY: nroot
     USE mo_async_latbc_utils,         ONLY: pref_latbc_data, prepare_pref_latbc_data, &
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
          &                                  async_pref_send_handshake,  async_pref_wait_for_start
@@ -94,12 +94,12 @@ MODULE mo_async_latbc
     USE mo_util_string,               ONLY: add_to_list
     USE mo_initicon_config,           ONLY: latbc_varnames_map_file
     USE mo_time_config,               ONLY: time_config
-    USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,    &
-         &                                  vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
+    USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  vlistInqVarGrid, streamClose, streamInqFiletype,   &
          &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2,         &
          &                                  cdiGetStringError
+    USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_io_units,                  ONLY: filename_max
 !    USE mo_util_cdi_table,            ONLY: print_cdi_summary
     USE mo_util_file,                 ONLY: util_filesize

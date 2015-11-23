@@ -7,6 +7,7 @@ postProcPath="${basePath}/scripts/postprocessing/tools"
       plotTS="${postProcPath}/ocean/plot_timeser"
  convert2png="${postProcPath}/ocean/create_plot_browser"
 convert2html="${postProcPath}/ocean/mk_index_html"
+  iceplotter="${postProcPath}/plotSeaIce_nclsh.bash"
 # ================================================================================
 # plotting
 ## find the last input file
@@ -46,15 +47,21 @@ else
   [[ -f ${oceanMonitorComplete} ]] && rm -f ${oceanMonitorComplete}
   cdo -r -cat ${EXPNAME}*oceanMonitor*.nc* ${oceanMonitorComplete}
   cd plots;
-  cdo -r -yearmean -delete,timestep=1 ../${oceanMonitorComplete} relativeTimeAxis_${oceanMonitorComplete}
-  ${plotTS} -mode=monitoring -manifest=MANIFEST -with1=relativeTimeAxis_${oceanMonitorComplete};
+  # selection of plot-variables:
+  selectvar="drake_passage,kin_energy_Global,absolute_vertical_velocity_Globa,HeatFlux_Total_Global,HeatFlux_ShortWave_Global,HeatFlux_LongWave_Global,HeatFlux_Sensible_Global,HeatFlux_Latent_Global,FrshFlux_Precipitation_Global,FrshFlux_Evaporation_Global,FrshFlux_Runoff_Global,FrshFlux_Relax_Global,ice_volume_nh,ice_volume_sh,ice_extent_nh,ice_extent_sh,gibraltar,indonesian_throughflow,scotland_iceland,mozambique,framStrait,beringStrait,barentsOpening,agulhas"
+  cdo -r -yearmean -delete,timestep=1 -selvar,$selectvar ../${oceanMonitorComplete} relativeTimeAxis_${oceanMonitorComplete}
+  ${plotTS} -manifest=MANIFEST -with1=relativeTimeAxis_${oceanMonitorComplete} -output=timeser_${EXPNAME}
+  # indexing of png files into index.html should be done for all png-plots
   ${convert2png} MANIFEST > index.html;
   cd -;
 fi
 
+$archiver FILEPATTERN="${EXPNAME}_[0-9]*.nc*" DEBUG=1 EXP=${EXPNAME} JOBISRUNNING=true ACTIONS='archive,preproc,procMoc,plotMoc,plotX,procTSR,plotTSR,plotPsi,procIce,plotIce'
 
+last30YearsMonMeanFile=$($archiver LOG='last30YearsMonMean' | cut -d ':' -f 2)
 
-$archiver FILEPATTERN="${EXPNAME}_[0-9]*.nc*" DEBUG=1 EXP=${EXPNAME} JOBISRUNNING=false  FORCE=1
+#$iceplotter $last30YearsMonMeanFile nh 2199 ${EXPNAME}_nh.nc
+#$iceplotter $last30YearsMonMeanFile sh 2199 ${EXPNAME}_sh.nc
 
 check_error $? "${EXPNAME}"
 

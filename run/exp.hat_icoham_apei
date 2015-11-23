@@ -67,7 +67,6 @@ atmo_dyn_grids='iconR2B04-grid.nc'
 #
 dict_file="dict.${EXPNAME}"
 cat dict.icoham.mpim > ${dict_file}
-cat dict.echam.mpim >> ${dict_file}
 #
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters

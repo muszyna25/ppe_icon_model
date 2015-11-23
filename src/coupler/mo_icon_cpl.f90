@@ -111,7 +111,6 @@ MODULE mo_icon_cpl
   INTEGER, PARAMETER        :: cpl_field_avg  = 2
 
   INTEGER, PARAMETER        :: NOTHING = 0
-  INTEGER, PARAMETER        :: INITIAL = 1
   INTEGER, PARAMETER        :: RESTART = 2
   INTEGER, PARAMETER        :: XCHANGE = 4
 
@@ -193,7 +192,6 @@ MODULE mo_icon_cpl
      INTEGER                :: dt_model
      LOGICAL                :: l_diagnostic
      LOGICAL                :: l_activated
-     LOGICAL                :: restart_flag    ! flag to indicate that its time for writing a restart
      INTEGER                :: cdi_varID       ! cdi ID for restart field
      INTEGER                :: cdi_gridID      ! cdi ID for restart grid
   END TYPE t_coupling
@@ -237,7 +235,6 @@ MODULE mo_icon_cpl
   TYPE (t_cpl_field), POINTER :: cpl_fields(:) => NULL()
 
   TYPE(t_julian_date)       :: initial_date
-  TYPE(t_julian_date)       :: final_date
 
   ! Number of active components and grids
 
@@ -251,7 +248,6 @@ MODULE mo_icon_cpl
 
   INTEGER                   :: nbr_ICON_grids
   INTEGER                   :: nbr_ICON_fields
-  INTEGER                   :: nbr_ICON_couplings
 
   ! Marker for the physical component on a process
 
@@ -361,7 +357,7 @@ MODULE mo_icon_cpl
    &        PRISM_DOUBLE_PRECISION,             &
    &        PRISM_COMPLEX, PRISM_DOUBLE_COMPLEX
 
-  PUBLIC :: NOTHING, INITIAL, RESTART, XCHANGE
+  PUBLIC :: NOTHING, RESTART, XCHANGE
 
   PUBLIC :: initial_date
   PUBLIC :: grids, t_grid

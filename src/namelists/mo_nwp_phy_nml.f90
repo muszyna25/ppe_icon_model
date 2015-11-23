@@ -24,12 +24,12 @@ MODULE mo_nwp_phy_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_impl_constants,      ONLY: max_dom, icosmo, ismag
+  USE mo_impl_constants,      ONLY: max_dom, icosmo
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
-  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_master_config,       ONLY: isRestart
 
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,    &
     &                               open_and_restore_namelist, close_tmpfile
@@ -37,7 +37,8 @@ MODULE mo_nwp_phy_nml
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config,                        &
     &                               config_lrtm_filename   => lrtm_filename,   &
     &                               config_cldopt_filename => cldopt_filename, &
-    &                               config_icpl_aero_conv  => icpl_aero_conv
+    &                               config_icpl_aero_conv  => icpl_aero_conv,  &
+    &                               config_icpl_o3_tp      => icpl_o3_tp
 
   USE mo_nml_annotate,        ONLY: temp_defaults, temp_settings
   USE mo_cuparameters,        ONLY: icapdcycl
@@ -68,6 +69,7 @@ MODULE mo_nwp_phy_nml
   INTEGER  :: itype_z0           !! type of roughness length data
   INTEGER  :: icpl_aero_gscp     !! type of aerosol-microphysics coupling
   INTEGER  :: icpl_aero_conv     !! type of coupling between aerosols and convection scheme
+  INTEGER  :: icpl_o3_tp         !! type of ozone-tropopause coupling
   REAL(wp) :: qi0, qc0           !! variables for hydci_pp
   REAL(wp) :: ustart_raylfric    !! velocity at which extra Rayleigh friction starts
   REAL(wp) :: efdt_min_raylfric  !! e-folding time corresponding to maximum relaxation coefficient
@@ -92,37 +94,11 @@ MODULE mo_nwp_phy_nml
     &                    ustart_raylfric, efdt_min_raylfric,       &
     &                    latm_above_top, itype_z0, mu_rain,        &
     &                    mu_snow, icapdcycl, icpl_aero_conv,       &
-    &                    lrtm_filename, cldopt_filename
+    &                    lrtm_filename, cldopt_filename, icpl_o3_tp
 
 
 
 CONTAINS
-  !-------------------------------------------------------------------------
-  !>
-  !! Read physics Namelist
-  !!
-  !! @par Revision History
-  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-  !!
- SUBROUTINE read_inwp_nml
-
-  INTEGER :: i_status
-
-  !0!CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-  !0!  &  routine = 'mo_atm_phy_nwp_nml:read_inwp_nml'
-
-    CALL position_nml ('nwp_phy_nml', status=i_status)
-    !
-    SELECT CASE (i_status)
-    CASE (POSITIONED)
-      READ (nnml, nwp_phy_nml)
-    END SELECT
-  !  write the contents of the namelist to an ASCII file
-    IF(my_process_is_stdio()) WRITE(nnml_output,nml=nwp_phy_nml)
-
- END SUBROUTINE read_inwp_nml
-
-
 
   !-------------------------------------------------------------------------
   !
@@ -206,11 +182,15 @@ CONTAINS
     icpl_aero_conv = 0  ! 0 = none
                         ! 1 = specify thresholds (QC and cloud thickness) for precip initiation depending on aerosol climatology instead of land-sea mask
 
+    ! coupling between ozone and the tropopause
+    icpl_o3_tp = 1      ! 0 = none
+                        ! 1 = take climatological values from 100/350 hPa above/below the tropopause in the extratropics
+
     !------------------------------------------------------------------
     ! 1. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       funit = open_and_restore_namelist('nwp_phy_nml')
       READ(funit,NML=nwp_phy_nml)
       CALL close_tmpfile(funit)
@@ -239,7 +219,7 @@ CONTAINS
     ! 3. apply default settings where nothing is specified explicitly (except for restart)
     !-----------------------
 
-    IF (.NOT. is_restart_run()) THEN
+    IF (.NOT. isRestart()) THEN
 
       ! 3a. Set default values for global domain where nothing at all has been specified
 
@@ -376,6 +356,7 @@ CONTAINS
     config_lrtm_filename   = TRIM(lrtm_filename)
     config_cldopt_filename = TRIM(cldopt_filename)
     config_icpl_aero_conv  = icpl_aero_conv
+    config_icpl_o3_tp      = icpl_o3_tp
 
     !-----------------------------------------------------
     ! 6. Store the namelist for restart

@@ -93,7 +93,9 @@ MODULE mo_interface_iconam_echam
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
   USE mo_interface_echam_ocean ,ONLY: interface_echam_ocean
-
+#ifndef __NO_JSBACH__
+  USE mo_jsb_interface         ,ONLY: jsbach_start_timestep, jsbach_finish_timestep
+#endif
   USE mo_timer                 ,ONLY: ltimer, timer_start, timer_stop,           &
     &                                 timer_dyn2phy, timer_d2p_prep, timer_d2p_sync, timer_d2p_couple, &
     &                                 timer_echam_bcs, timer_echam_phy, timer_coupling,                &
@@ -115,7 +117,7 @@ CONTAINS
   !-----------------------------------------------------------------------
   !
   !  This subroutine works as interface between dynamics+transport and
-  !  echam physics. 
+  !  echam physics.
   !
   !  Marco Giorgetta, MPI-M, 2014
   !
@@ -164,7 +166,7 @@ CONTAINS
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
     LOGICAL  :: ltrig_rad
-    REAL(wp) :: time_radtran
+    TYPE(t_datetime)   :: datetime_radtran !< date and time for radiative transfer calculation
 
     INTEGER  :: return_status
 
@@ -385,7 +387,7 @@ CONTAINS
     !=====================================================================================
     !
     ! (3) Prepare boundary conditions for ECHAM physics
-    !     
+    !
     IF (ltimer) CALL timer_start(timer_echam_bcs)
 
     CALL echam_phy_bcs_global( datetime     ,&! in
@@ -393,7 +395,7 @@ CONTAINS
       &                        patch        ,&! in
       &                        dtadv_loc    ,&! in
       &                        ltrig_rad    ,&! out
-      &                        time_radtran ) ! out
+      &                        datetime_radtran) ! out
 
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !
@@ -407,6 +409,12 @@ CONTAINS
     !     to the parameterization of vertical turbulent fluxes.
     !
     IF (ltimer) CALL timer_start(timer_echam_phy)
+
+#ifndef __NO_JSBACH__
+    IF (echam_phy_config%ljsbach) THEN
+      CALL jsbach_start_timestep(jg)
+    END IF
+#endif
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce),  ICON_OMP_GUIDED_SCHEDULE
@@ -435,7 +443,7 @@ CONTAINS
         &                  dtadv_loc    ,&! in
         &                  dtadv_loc    ,&! in
         &                  ltrig_rad    ,&! in
-        &                  time_radtran ) ! in
+        &                  datetime_radtran) ! in
 
     END DO
 !$OMP END DO NOWAIT
@@ -445,10 +453,15 @@ CONTAINS
     !
     !=====================================================================================
 
+#ifndef __NO_JSBACH__
+    IF (echam_phy_config%ljsbach) THEN
+      CALL jsbach_finish_timestep(jg, dtadv_loc)
+    END IF
+#endif
     !=====================================================================================
     !
     ! (5) Couple to ocean surface if an ocean is present and this is a coupling time step.
-    !     
+    !
     !
     IF ( is_coupled_run() ) THEN
       IF (ltimer) CALL timer_start(timer_coupling)
@@ -481,7 +494,7 @@ CONTAINS
         DO jc = jcs, jce
 
           z_qsum     = pt_prog_new_rcf%tracer(jc,jk,jb,iqc) + pt_prog_new_rcf%tracer(jc,jk,jb,iqi)
-          z_ddt_qsum = prm_tend(jg)%q_phy(jc,jk,jb,iqc)     + prm_tend(jg)%q_phy(jc,jk,jb,iqi) 
+          z_ddt_qsum = prm_tend(jg)%q_phy(jc,jk,jb,iqc)     + prm_tend(jg)%q_phy(jc,jk,jb,iqi)
           !
           pt_diag%ddt_exner_phy(jc,jk,jb) =                                               &
             &  rd_o_cpd / pt_prog_new%theta_v(jc,jk,jb)                                   &
@@ -576,9 +589,9 @@ CONTAINS
     !=====================================================================================
     !
     ! (7) Couple dynamics+transport and physics
-      
+
     IF (ltimer) CALL timer_start(timer_p2d_couple)
-    !     
+    !
     SELECT CASE (echam_phy_config%idcphycpl)
 
     CASE (1) ! idcphycpl
@@ -744,8 +757,8 @@ CONTAINS
 
     !=====================================================================================
     !
-    ! Now the final new state (pt_prog_new/pt_prog_new_rcf) and 
-    ! the slow-physics forcing based on this new state are ready. 
+    ! Now the final new state (pt_prog_new/pt_prog_new_rcf) and
+    ! the slow-physics forcing based on this new state are ready.
     ! The latter is zero if echam_phy_config%idcphycpl=1.
     !
     !=====================================================================================

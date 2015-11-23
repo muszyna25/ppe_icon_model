@@ -38,9 +38,10 @@ MODULE mo_ice_fem_utils
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec, rotate_latlon,&
-    &                               rotate_latlon_vec
+    &                               rotate_latlon_vec, cc_norm!, disp_new_vect
   USE mo_exception,           ONLY: message
-  USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar
+!  USE mo_icon_interpolation_scalar, ONLY: cells2verts_scalar
+  USE mo_icon_to_fem_interpolation, ONLY: cells2verts_scalar_seaice
   USE mo_run_config,          ONLY: dtime, ltimer
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_impl_constants,      ONLY: sea_boundary, sea
@@ -67,19 +68,26 @@ MODULE mo_ice_fem_utils
   PUBLIC  :: exchange_nod2Di
   PUBLIC  :: exchange_elem2D
   PUBLIC  :: ice_fem_grid_post
-  PUBLIC  :: ice_advection
+  PUBLIC  :: ice_advection, ice_advection_vla
   PUBLIC  :: ice_ocean_stress
 
   PRIVATE :: map_edges2verts
   PRIVATE :: map_verts2edges
   PRIVATE :: upwind_hflux_ice
+  PRIVATE :: intrp_to_fem_grid_vec
+  PRIVATE :: intrp_from_fem_grid_vec
+!  PRIVATE :: intrp_to_fem_grid_vec_old
+!  PRIVATE :: intrp_from_fem_grid_vec_old
 
-  REAL(wp), ALLOCATABLE, PRIVATE  :: c2v_wgt(:,:,:), rot_mat(:,:,:,:)
+  REAL(wp), ALLOCATABLE, PRIVATE  :: c2v_wgt(:,:,:), rot_mat(:,:,:,:), rot_mat_3D(:,:)
   TYPE(t_patch), POINTER, PRIVATE :: fem_patch
   ! Longitude and latitude of the north pole of the rotated grid
   ! These values put the north pole on the Indonesian/Malasian island Kalimantan and the south pole
   ! in north-west Brazil, near the border to Venezuela and Colombia.
-  REAL(wp), PARAMETER, PRIVATE :: pollon = 114._wp*deg2rad, pollat = 0._wp
+  REAL(wp), PARAMETER, PRIVATE :: pollon = 114._wp*deg2rad, pollat = 0._wp  
+  !  the North pole is centered on Greenland (40◦W, 75◦N) and the South pole on Antarctica
+  !  was used to test consistency of the results with respect to the change in the rotated grid
+  !  REAL(wp), PARAMETER, PRIVATE :: pollon = -40._wp*deg2rad, pollat = 75._wp*deg2rad
 
   CHARACTER(len=12)           :: str_module    = 'IceFem'  ! Output of module for 1 line debug
   INTEGER                     :: idt_src       = 1         ! Level of detail for 1 line debug
@@ -112,8 +120,7 @@ CONTAINS
   SUBROUTINE fem_ice_wrap( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff )
 
     USE mo_ice,      ONLY: u_ice, v_ice, m_ice, a_ice, m_snow, u_w, v_w, &
-      &   stress_atmice_x, stress_atmice_y, elevation, sigma11, sigma12, sigma22
-    USE mo_ice_iceparam, ONLY: C_d_io
+      &   elevation, sigma11, sigma12, sigma22
 
     TYPE(t_patch_3D), TARGET, INTENT(IN)     :: p_patch_3D
     TYPE(t_sea_ice),          INTENT(INOUT)  :: p_ice
@@ -125,27 +132,18 @@ CONTAINS
     ! Patch and ranges
     TYPE(t_patch), POINTER :: p_patch
     TYPE(t_subset_range), POINTER :: all_cells, all_verts
-    INTEGER  :: i
 
     ! Indexing
     INTEGER  :: i_startidx_c, i_endidx_c, jc, jv, jb, jk
     INTEGER  :: i_startidx_v, i_endidx_v
 
     ! Temporary variables/buffers
-    TYPE(t_cartesian_coordinates) :: &
-      & p_tau_n_c(nproma,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates) :: &
-      & p_ws_n_c(nproma,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates) :: &
-      & p_vn_c_3D(nproma,1,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates) :: p_vn_dual(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_v)
-    TYPE(t_cartesian_coordinates) :: p_tau_n_dual(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_v)
-    TYPE(t_cartesian_coordinates) :: p_ws_n_dual(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_v)
     REAL(wp) :: buffy(nproma*p_patch_3D%p_patch_2D(n_dom)%nblks_v)
     REAL(wp) :: buffy_array(nproma,p_ice%kice,p_patch_3D%p_patch_2D(n_dom)%nblks_v) 
-    REAL(wp) :: ws_n(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_e)
-    REAL(wp) :: tau_n(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_e)
-    REAL(wp) :: tmp_x, tmp_y, tmp2(2), delu, u_change
+    REAL(wp) :: tmp2(2)!, tmp_x, tmp_y, delu, u_change
+
+    REAL(wp), DIMENSION (nproma,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks) :: &
+			& atm_u, atm_v, oce_u, oce_v
 
     ! TODO: There are too many calls to cvec2gvec and gvec2cvec ... but premature optimisation is the
     ! root of all evil ...
@@ -171,118 +169,55 @@ CONTAINS
     ! Interpolate tracers to vertices
     buffy_array = 0._wp
     ! TODO: Replace hi/conc to himean
-    CALL cells2verts_scalar( p_ice%hi/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+!    CALL cells2verts_scalar( p_ice%hi/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+    CALL cells2verts_scalar_seaice( p_ice%hi*MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     m_ice = buffy(1:SIZE(m_ice) )
 
-    CALL cells2verts_scalar( p_ice%conc, p_patch, c2v_wgt, buffy_array )
+    CALL cells2verts_scalar_seaice( p_ice%conc, p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     a_ice = buffy(1:SIZE(a_ice) )
 
-    CALL cells2verts_scalar( p_ice%hs/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+!    CALL cells2verts_scalar( p_ice%hs/MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
+    CALL cells2verts_scalar_seaice( p_ice%hs*MAX(TINY(1._wp),p_ice%conc), p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     m_snow= buffy(1:SIZE(m_snow))
 
     ! Interpolate SSH to vertices
-    CALL cells2verts_scalar( RESHAPE(p_os%p_prog(nold(1))%h(:,:), &
+    CALL cells2verts_scalar_seaice( RESHAPE(p_os%p_prog(nold(1))%h(:,:), &
       & (/ nproma, 1, p_patch%alloc_cell_blocks /)), p_patch, c2v_wgt, buffy_array )
     CALL sync_patch_array(SYNC_V, p_patch, buffy_array )
     buffy = RESHAPE(buffy_array, SHAPE(buffy))
     elevation = buffy(1:SIZE(elevation) )
+
+!	atm_u=-10._wp
+!	atm_v=0._wp
+!	atm_u=0._wp
+!	atm_v=-10._wp
+
+!    DO jb = all_cells%start_block, all_cells%end_block
+!      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+!      DO jc = i_startidx_c, i_endidx_c
+!        tmp2(1) = p_patch%cells%center(jc,jb)%lon
+!        tmp2(2) = p_patch%cells%center(jc,jb)%lat
+!	atmos_fluxes%stress_x(jc,jb) = -SIN(tmp2(1)) / ( SIN(tmp2(1))**2 + (cos(tmp2(1))*sin(tmp2(2)))**2 )**0.5
+!	atmos_fluxes%stress_y(jc,jb) =  cos(tmp2(1))*sin(tmp2(2)) / ( SIN(tmp2(1))**2 + (cos(tmp2(1))*sin(tmp2(2)))**2 )**0.5
+
+!    atmos_fluxes%stress_x(jc,jb) = cos(pollat)*sin(tmp2(1)-pollon)
+!    atmos_fluxes%stress_y(jc,jb) = cos(tmp2(2))*sin(pollat) - sin(tmp2(2))*cos(pollat)*cos(tmp2(1)-pollon)
+!      ENDDO
+!    ENDDO
+
+!	p_os%p_diag%p_vn_dual(:,1,:)%x(1)=0._wp
+!	p_os%p_diag%p_vn_dual(:,1,:)%x(2)=0._wp
+!	p_os%p_diag%p_vn_dual(:,1,:)%x(3)=0._wp
     
-    ! Interpolate wind forcing on vertices (wind speed - ws and wind stress - tau)
-    ! First we convert to cartesian coordinates
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
-          CALL gvec2cvec(  atmos_fluxes%stress_x(jc,jb),                &
-                         & atmos_fluxes%stress_y(jc,jb),                &
-                         & p_patch%cells%center(jc,jb)%lon,     &
-                         & p_patch%cells%center(jc,jb)%lat,     &
-                         & p_tau_n_c(jc,jb)%x(1),               &
-                         & p_tau_n_c(jc,jb)%x(2),               &
-                         & p_tau_n_c(jc,jb)%x(3))
-        ELSE
-          p_tau_n_c(jc,jb)%x    = 0.0_wp
-        ENDIF
-      END DO
-    END DO
-
-    ! Then we map to edges
-#ifdef NAGFOR
-    ! only for parallel testing with nag
-    tau_n = 0.0_wp
-#endif
-    CALL map_cell2edges_3D( p_patch_3D, p_tau_n_c, tau_n ,p_op_coeff, 1)
-    CALL sync_patch_array(SYNC_E, p_patch, tau_n)
-
-    ! Then we map to verts
-    CALL map_edges2verts( p_patch, tau_n, p_op_coeff%edge2vert_coeff_cc, p_tau_n_dual)
-    CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(1))
-    CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(2))
-    CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(3))
-
-    ! Now we convert back to geographic coordinates, rotate to the rotated grid and copy to FEM
-    ! model variables.
-    ! We also convert ocean forcing to geographic coordinates, rotate and copy to FEM model variables.
-    ! We set the ice speed to ocean speed where concentration is low.
-    jk=0
-    DO jb = all_verts%start_block, all_verts%end_block
-      CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
-      DO jv = i_startidx_v, i_endidx_v
-        jk=jk+1
-        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb)<=sea_boundary)THEN
-          CALL cvec2gvec(p_tau_n_dual(jv,jb)%x(1),               &
-                       & p_tau_n_dual(jv,jb)%x(2),               &
-                       & p_tau_n_dual(jv,jb)%x(3),               &
-                       & p_patch%verts%vertex(jv,jb)%lon,        &
-                       & p_patch%verts%vertex(jv,jb)%lat,        &
-                       & tmp_x, tmp_y)
-          ! Rotate the vectors onto the rotated grid
-          tmp2 = MATMUL( rot_mat(jv,jb,:,:), (/ tmp_x, tmp_y /) )
-          stress_atmice_x(jk) = tmp2(1)
-          stress_atmice_y(jk) = tmp2(2)
-          ! TODO: Is p_vn_dual updated?
-          CALL cvec2gvec(p_os%p_diag%p_vn_dual(jv,1,jb)%x(1),    &
-                       & p_os%p_diag%p_vn_dual(jv,1,jb)%x(2),    &
-                       & p_os%p_diag%p_vn_dual(jv,1,jb)%x(3),    &
-                       & p_patch%verts%vertex(jv,jb)%lon,        &
-                       & p_patch%verts%vertex(jv,jb)%lat,        &
-                       & tmp_x, tmp_y)
-          ! Rotate the vectors onto the rotated grid
-          tmp2 = MATMUL( rot_mat(jv,jb,:,:), (/ tmp_x, tmp_y /) )
-          u_w(jk) = tmp2(1)
-          v_w(jk) = tmp2(2)
-          ! Set the ice speed to free drift speed where concentration is less than 0.01
-          IF ( a_ice(jk) <= 0.01_wp ) THEN
-            u_ice(jk) = 0._wp; v_ice(jk) = 0._wp; u_change = 0._wp
-            ! TODO: Change u_change to speed_change
-            DO WHILE ( u_change > 1e-6_wp )
-              u_change = SQRT(u_ice(jk)**2+v_ice(jk)**2)
-              delu = SQRT( (u_w(jk)-u_ice(jk))**2 + (v_w(jk)-v_ice(jk))**2 )
-              u_ice(jk) = stress_atmice_x(jk)/( C_d_io*rho_ref*delu )
-              v_ice(jk) = stress_atmice_y(jk)/( C_d_io*rho_ref*delu )
-              u_change = ABS(u_change-SQRT(u_ice(jk)**2+v_ice(jk)**2))
-            ENDDO
-          ELSE
-            ! Strictly speaking p_ice%u_prog and p_ice%v_prog are only used by the restart files
-            ! now, so this does not need to be done every timestep, only after restart file is
-            ! read.
-            u_ice(jk) = p_ice%u_prog(jv,jb)
-            v_ice(jk) = p_ice%v_prog(jv,jb)
-          ENDIF
-        ELSE
-          stress_atmice_x(jk) = 0._wp
-          stress_atmice_y(jk) = 0._wp
-          u_w(jk)             = 0._wp
-          v_w(jk)             = 0._wp
-        ENDIF 
-      END DO
-    END DO
+    ! Interpolate wind stress to vertices and  onto the rotated-pole lat-lon grid
+!    CALL intrp_to_fem_grid_vec_old( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff )
+    CALL intrp_to_fem_grid_vec( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff )
 
 !    IF (ltimer) CALL timer_stop(timer_ice_interp)
 
@@ -299,61 +234,9 @@ CONTAINS
 
 !    IF (ltimer) CALL timer_start(timer_ice_interp)
 
-    ! Rotate, reshape and copy ice velocities to ICON variables and convert to cartesian
-    ! coordinates
-    jk=0
-    DO jb = all_verts%start_block, all_verts%end_block
-      CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
-      DO jv = i_startidx_v, i_endidx_v
-        jk=jk+1
-        ! Strictly speaking p_ice%u_prog and p_ice%v_prog are only used by the restart files now,
-        ! so this does not need to be done every timestep, only before restart file is written.
-        p_ice%u_prog(jv,jb) = u_ice(jk)
-        p_ice%v_prog(jv,jb) = v_ice(jk)
-        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb) <= sea_boundary)THEN
-          ! Rotate the vectors back to geographic grid
-          tmp2 = MATMUL( TRANSPOSE(rot_mat(jv,jb,:,:)),(/ u_ice(jk), v_ice(jk) /) )
-          CALL gvec2cvec(  tmp2(1),                               &
-                         & tmp2(2),                               &
-                         & p_patch%verts%vertex(jv,jb)%lon,       &
-                         & p_patch%verts%vertex(jv,jb)%lat,       &
-                         & p_vn_dual(jv,jb)%x(1),                 &
-                         & p_vn_dual(jv,jb)%x(2),                 &
-                         & p_vn_dual(jv,jb)%x(3))
-        ELSE
-          p_vn_dual(jv,jb)%x(:) = 0.0_wp
-        ENDIF
-      END DO
-    END DO
-
-    ! Interpolate ice velocities to edges for advection
-    CALL map_verts2edges( p_patch_3D, p_vn_dual, p_op_coeff%edge2cell_coeff_cc_t, p_ice%vn_e )
-    CALL sync_patch_array(SYNC_E, p_patch, p_ice%vn_e)
-
-    ! ... and cells for drag calculation and output
-    CALL map_edges2cell_3D( p_patch_3D, RESHAPE(p_ice%vn_e, (/ nproma, 1, p_patch%nblks_e /)), &
-      &   p_op_coeff, p_vn_c_3D, 1, 1)
-
-    ! Convert back to geographic coordinates
-    DO jb = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
-      DO jc = i_startidx_c, i_endidx_c
-        IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
-          CALL cvec2gvec(p_vn_c_3D(jc,1,jb)%x(1),                &
-                       & p_vn_c_3D(jc,1,jb)%x(2),                &
-                       & p_vn_c_3D(jc,1,jb)%x(3),                &
-                       & p_patch%cells%center(jc,jb)%lon,        &
-                       & p_patch%cells%center(jc,jb)%lat,        &
-                       & p_ice%u(jc,jb),                         &
-                       & p_ice%v(jc,jb))
-        ELSE
-          p_ice%u(jc,jb) = 0._wp
-          p_ice%v(jc,jb) = 0._wp
-        ENDIF 
-      END DO
-    END DO
-    CALL sync_patch_array(SYNC_C, p_patch, p_ice%u)
-    CALL sync_patch_array(SYNC_C, p_patch, p_ice%v)
+    ! Rotate and interpolate ice velocities back to the original ICON grid
+!    CALL intrp_from_fem_grid_vec_old( p_patch_3D, p_ice, p_op_coeff )
+    CALL intrp_from_fem_grid_vec( p_patch_3D, p_ice, p_op_coeff )
 
 !    IF (ltimer) CALL timer_stop(timer_ice_interp)
     IF (ltimer) CALL timer_stop(timer_ice_momentum)
@@ -385,11 +268,12 @@ CONTAINS
 
     ! Indexing
     INTEGER :: ist, nblks_v
-    INTEGER :: jb, jv
+    INTEGER :: jb, jv, ji
     INTEGER :: i_startidx_v, i_endidx_v
+    INTEGER :: cell_index, cell_block
 
     ! The denominator
-    REAL(wp) :: rdeno
+    REAL(wp) :: rdeno, rsum
 
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
@@ -401,6 +285,7 @@ CONTAINS
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating c2v_wgt failed')
     ENDIF
+    c2v_wgt=0.0_wp
 
     ! Weights for the cells2verts_scalar call
 !     i_startblk = p_patch%verts%all%start_block
@@ -417,38 +302,64 @@ CONTAINS
  
       IDX_LOOP: DO jv =  i_startidx_v, i_endidx_v
  
-        rdeno =  1._wp/MAX( TINY(rdeno),                                &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) +     &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) )
+!        rdeno =  1._wp/MAX( TINY(rdeno),                                &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) +     &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) )
+!
+!        c2v_wgt(jv,1,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) * rdeno
+!        c2v_wgt(jv,2,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) * rdeno
+!        c2v_wgt(jv,3,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) * rdeno
+!        c2v_wgt(jv,4,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) * rdeno
+!        c2v_wgt(jv,5,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) * rdeno
+!        c2v_wgt(jv,6,jb) =                              &
+!          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
+!          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) * rdeno
 
-        c2v_wgt(jv,1,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,1),1,iblk(jv,jb,1)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,1),  iblk(jv,jb,1)) * rdeno 
-        c2v_wgt(jv,2,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,2),1,iblk(jv,jb,2)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,2),  iblk(jv,jb,2)) * rdeno 
-        c2v_wgt(jv,3,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,3),1,iblk(jv,jb,3)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,3),  iblk(jv,jb,3)) * rdeno 
-        c2v_wgt(jv,4,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,4),1,iblk(jv,jb,4)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,4),  iblk(jv,jb,4)) * rdeno 
-        c2v_wgt(jv,5,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,5),1,iblk(jv,jb,5)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,5),  iblk(jv,jb,5)) * rdeno 
-        c2v_wgt(jv,6,jb) =                              &
-          &     p_patch_3D%wet_c  (iidx(jv,jb,6),1,iblk(jv,jb,6)) *     &
-          &     p_patch%cells%area(iidx(jv,jb,6),  iblk(jv,jb,6)) * rdeno 
+   !    first test of bugfix when finding pentagon - cell_index or cell_block returns 0
+   !     -> this code leads to other error in CELLS2VERTS_SCALAR
+        rsum = 0.0_wp
+
+        DO ji = 1, 6
+          cell_index = iidx(jv,jb,ji)
+          cell_block = iblk(jv,jb,ji)
+          IF (cell_index > 0)                                      &
+            & rsum = rsum +                                        &
+            &      p_patch_3D%wet_c  (cell_index,1,cell_block) *   &
+            &      p_patch%cells%area(cell_index,  cell_block)
+
+        ENDDO
+
+        rdeno =  1._wp/MAX( TINY(rdeno), rsum )
+
+        DO ji = 1, 6
+          cell_index = iidx(jv,jb,ji)
+          cell_block = iblk(jv,jb,ji)
+          IF (cell_index > 0)                                 &
+            & c2v_wgt(jv,ji,jb) =                             &
+            &   p_patch_3D%wet_c  (cell_index,1,cell_block) * &
+            &   p_patch%cells%area(cell_index,  cell_block) * rdeno
+
+        ENDDO
 
       ENDDO  IDX_LOOP
  
@@ -481,6 +392,11 @@ CONTAINS
     DEALLOCATE(rot_mat,STAT=ist)
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'deallocating rot_mat failed')
+    ENDIF
+
+    DEALLOCATE(rot_mat_3D,STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'deallocating rot_mat_3D failed')
     ENDIF
 
     CALL message (TRIM(routine), 'end')        
@@ -697,6 +613,64 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !
+  !> Map vectors from vertices to edges
+  !!
+  !! @par Revision History
+  !! Developed by Vladimir Lapin, MPI-M (2015-08-13)
+  !
+  SUBROUTINE map_verts2edges_vla(p_patch_3D, p_vn_dual, edge2vert_coeff_cc_t, vn)
+
+    TYPE(t_patch_3D), TARGET, INTENT(in)      :: p_patch_3D
+    TYPE(t_cartesian_coordinates),INTENT(IN) :: p_vn_dual(:,:)
+    TYPE(t_cartesian_coordinates),INTENT(in):: edge2vert_coeff_cc_t(:,:,:,:)
+    REAL(wp), INTENT(inOUT)           :: vn(:,:)
+
+    ! Local variables
+
+    ! Patch and sub-set
+    TYPE(t_subset_range), POINTER :: edges_in_domain
+    TYPE(t_patch), POINTER        :: p_patch 
+
+    ! Indexing
+    INTEGER :: je, jb
+    INTEGER :: il_v1, il_v2,ib_v1, ib_v2
+    INTEGER :: i_startidx, i_endidx
+
+    TYPE(t_cartesian_coordinates)	    :: p_vn_dual_e
+
+    !-----------------------------------------------------------------------
+
+    p_patch         => p_patch_3D%p_patch_2D(1)
+    edges_in_domain => p_patch%edges%in_domain
+
+    ! loop through all patch edges (and blocks)
+    DO jb = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, jb, i_startidx, i_endidx)
+        DO je = i_startidx, i_endidx
+
+            IF(p_patch_3D%lsm_e(je,1,jb) <= sea_boundary)THEN
+              !calculate normal velocity
+              il_v1 = p_patch%edges%vertex_idx(je,jb,1)
+              ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
+              il_v2 = p_patch%edges%vertex_idx(je,jb,2)
+              ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
+
+              p_vn_dual_e%x = cc_norm(edge2vert_coeff_cc_t(je,1,jb,1))*p_vn_dual(il_v1,ib_v1)%x &
+		          & + cc_norm(edge2vert_coeff_cc_t(je,1,jb,2))*p_vn_dual(il_v2,ib_v2)%x
+
+              vn(je,jb) = DOT_PRODUCT(p_vn_dual_e%x, p_patch%edges%primal_cart_normal(je,jb)%x)
+            ELSE
+              vn(je,jb) = 0._wp
+            ENDIF
+      	END DO
+    END DO
+
+
+  
+  END SUBROUTINE map_verts2edges_vla
+
+  !-------------------------------------------------------------------------
+  !
   !> Initialise the FEM grid
   !! This replaces the routine Sergey used to read the grid from file. We give values to
   !! coord_nod2D, nod2D, index_nod2D, elem2D_nodes and elem2D from the ICON grid.
@@ -708,6 +682,8 @@ CONTAINS
     ! For the AWI FEM
     USE mo_ice_mesh,           ONLY: coord_nod2D, nod2D, index_nod2D
     USE mo_ice_elements,       ONLY: elem2D_nodes, elem2D
+    USE mo_physical_constants, ONLY: earth_angular_velocity
+    USE mo_ice_iceparam,       ONLY: coriolis_nod2D
    ! USE mo_mpi
 
     TYPE(t_patch_3D), TARGET, INTENT(in) :: p_patch_3D
@@ -728,6 +704,7 @@ CONTAINS
     INTEGER :: buffy(nproma*p_patch_3D%p_patch_2D(n_dom)%nblks_v)
     INTEGER :: ist
     REAL(wp) :: lat, lon, cos_d, sin_d
+    REAL(wp) :: cos_lonp, sin_lonp, cos_latp, sin_latp
 
     ! Masking for the halo-points
     INTEGER :: halo_mask(nproma, p_patch_3D%p_patch_2D(n_dom)%nblks_v)
@@ -747,9 +724,17 @@ CONTAINS
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating coord_nod2D failed')
     ENDIF
+    ALLOCATE(coriolis_nod2D(nod2D),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating coriolis_nod2D failed')
+    ENDIF
     ALLOCATE(rot_mat(nproma,p_patch%nblks_v,2,2),STAT=ist)
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating rot_mat failed')
+    ENDIF
+    ALLOCATE(rot_mat_3D(3,3),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating rot_mat_3D failed')
     ENDIF
 
 
@@ -765,14 +750,16 @@ CONTAINS
         lon = p_patch%verts%vertex(jv,jb)%lon
 
         ! Calculate the rotation matrix once
+        ! see p.27 at http://www.cosmo-model.org/content/model/documentation/core/cosmoDyncsNumcs.pdf
         CALL rotate_latlon_vec( lon, lat, pollon, pollat, sin_d, cos_d )
-        rot_mat(jv,jb,1,1) =  cos_d
-        rot_mat(jv,jb,1,2) =  sin_d
-        rot_mat(jv,jb,2,1) = -sin_d
-        rot_mat(jv,jb,2,2) =  cos_d
+        rot_mat(jv,jb,1,:) = (/ cos_d, sin_d /)
+        rot_mat(jv,jb,2,:) = (/-sin_d, cos_d /)
 
         ! Use a rotated grid with the north pole at (pollon,pollat)
-        CALL rotate_latlon(lat, lon, pollon, pollat)
+        CALL rotate_latlon(lat, lon, pollat, pollon)
+
+!==========================================================================
+	coriolis_nod2D(k) = calc_f_rot(lat,lon,pollat,earth_angular_velocity)
 
         ! x-coords in degrees
         coord_nod2D(1,k) = lon*rad2deg
@@ -782,6 +769,16 @@ CONTAINS
         index_nod2D(k)   =  MIN(1, MAX(0, 1+p_patch_3D%surface_vertex_sea_land_mask(jv,jb)))
       ENDDO
     ENDDO
+
+    ! the rotation matrix is a modified version of r2*r1 from disp_new_vect
+    cos_lonp=COS(pollon)
+    sin_lonp=SIN(pollon)
+    cos_latp=COS(pollat)
+    sin_latp=SIN(pollat)
+
+    rot_mat_3D(1,:) =  (/  cos_lonp*sin_latp,  sin_lonp*sin_latp, -cos_latp /)
+    rot_mat_3D(2,:) =  (/ -sin_lonp ,      cos_lonp,       0.0_wp /)
+    rot_mat_3D(3,:) =  (/  cos_lonp*cos_latp,  sin_lonp*cos_latp,  sin_latp /)
 
     ! elem2D is the number of elements = number of cells
    ! test(:,:,:) = 0.0_wp
@@ -982,7 +979,7 @@ CONTAINS
 
     ! Temporary variables/buffers
     REAL(wp) :: buffy_v(nproma*p_patch%nblks_v)
-    REAL(wp) :: buffy_c(nproma*p_patch%alloc_cell_blocks)
+    REAL(wp) :: buffy_c(nproma*p_patch%alloc_cell_blocks), buffy_c2(nproma*p_patch%alloc_cell_blocks)
 
   !-------------------------------------------------------------------------
     
@@ -1022,14 +1019,25 @@ CONTAINS
 
     ! coriolis_nod2D, cos_elem2D, sin_elem2D need to be reset because of grid rotation
 
+    ! IS NOT NECESSARY, already handled by the previously called intitialization routines
+    ! But for later restructuring -- keep this way, instead of recalculating
     buffy_v = RESHAPE(p_patch%verts%f_v(:,:), SHAPE(buffy_v))
     coriolis_nod2D = buffy_v(1:SIZE(coriolis_nod2D))
 
-    buffy_c = RESHAPE(p_patch%cells%center(:,:)%lat, SHAPE(buffy_c))
-    cos_elem2D = COS(buffy_c(1:SIZE(cos_elem2D)))
+    ! Calc cos&sin for metrics terms were previously incorrectly calculated on the original grid
+    !    buffy_c = RESHAPE(p_patch%cells%center(:,:)%lat, SHAPE(buffy_c))
+    !    cos_elem2D = COS(buffy_c(1:SIZE(cos_elem2D)))
+    !    buffy_c = RESHAPE(p_patch%cells%center(:,:)%lat, SHAPE(buffy_c))
+    !    sin_elem2D = SIN(buffy_c(1:SIZE(sin_elem2D)))
 
-    buffy_c = RESHAPE(p_patch%cells%center(:,:)%lat, SHAPE(buffy_c))
-    sin_elem2D = SIN(buffy_c(1:SIZE(sin_elem2D)))
+    ! Insted, one can either use the formulas below
+    ! buffy_c = RESHAPE(p_patch%cells%center(:,:)%lat, SHAPE(buffy_c))
+    ! buffy_c2 = RESHAPE(p_patch%cells%center(:,:)%lon, SHAPE(buffy_c))
+
+    ! sin_elem2D = SIN(buffy_c(1:SIZE(sin_elem2D)))*SIN(pollat) + COS(buffy_c(1:SIZE(sin_elem2D)))*COS(pollat)*COS(buffy_c2(1:SIZE(sin_elem2D))-pollon)
+    ! cos_elem2D = COS(ASIN( SIN(buffy_c(1:SIZE(sin_elem2D)))*SIN(pollat) + COS(buffy_c(1:SIZE(sin_elem2D)))*COS(pollat)*COS(buffy_c2(1:SIZE(sin_elem2D))-pollon) ))
+
+    ! or simply let the fem init routines to handle this (how it is currently done)
 
   END SUBROUTINE ice_fem_grid_post
 
@@ -1118,13 +1126,143 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%vol (:,:,:))
+!   CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%conc(:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hs  (:,:,:))
     CALL sync_patch_array(SYNC_C, p_patch, p_ice%hi  (:,:,:))
 
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('ice_adv: vol ice'  , p_ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: vol snow' , p_ice%vols, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: hi'       , p_ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: hs'       , p_ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: conc'     , p_ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
 !    IF (ltimer) CALL timer_stop(timer_ice_advection)
 
   END SUBROUTINE ice_advection
+
+  !-------------------------------------------------------------------------
+  !
+  !> Advection of sea ice and snow on ice.
+  !> Modified to advect ice%hi*ice%conc and conc instead of ice%vol.
+  !! This uses the upwind_hflux_ice routine and the ocean's div_oce_3D routine to do upwind
+  !! advection of the relevant variables.
+  !!
+  !! @par Revision History
+  !! Developed by Vladimir Lapin, MPI-M (2015-06-04)
+  !
+  SUBROUTINE ice_advection_vla( p_patch_3D, p_op_coeff, p_ice )
+    TYPE(t_patch_3D), TARGET, INTENT(IN)    :: p_patch_3D
+    TYPE(t_operator_coeff),   INTENT(IN)    :: p_op_coeff
+    TYPE(t_sea_ice),          INTENT(INOUT) :: p_ice
+
+    ! Local variables
+    ! Patch and range
+    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_subset_range), POINTER :: cells_in_domain
+
+    ! Indexing
+    INTEGER  :: jk, jb, jc
+    INTEGER  :: i_startidx_c, i_endidx_c
+
+    ! Temporary variables/buffers
+    REAL(wp) :: z_adv_flux_h (nproma,p_ice%kice,p_patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp) :: flux_hi  (nproma,p_ice%kice, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: flux_conc(nproma,p_ice%kice, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: flux_hs  (nproma,p_ice%kice, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+
+!--------------------------------------------------------------------------------------------------
+
+!    IF (ltimer) CALL timer_start(timer_ice_advection)
+
+    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    cells_in_domain => p_patch%cells%in_domain
+
+!--------------------------------------------------------------------------------------------------
+! Do advection
+!--------------------------------------------------------------------------------------------------
+
+    !upwind estimate of tracer flux
+    !CALL upwind_hflux_ice( p_patch_3D, p_ice%vol,  p_ice%vn_e, z_adv_flux_h )
+    CALL upwind_hflux_ice( p_patch_3D, p_ice%hi*p_ice%conc,  p_ice%vn_e, z_adv_flux_h )
+    DO jk=1,p_ice%kice
+      CALL div_oce_3D( z_adv_flux_h(:,jk,:), p_patch, p_op_coeff%div_coeff, flux_hi  (:,jk,:),&
+        & 1, cells_in_domain)
+    ENDDO
+
+    CALL upwind_hflux_ice( p_patch_3D, p_ice%conc, p_ice%vn_e, z_adv_flux_h )
+    DO jk=1,p_ice%kice
+      CALL div_oce_3D( z_adv_flux_h(:,jk,:), p_patch, p_op_coeff%div_coeff, flux_conc(:,jk,:),&
+        & 1, cells_in_domain)
+    ENDDO
+
+    !CALL upwind_hflux_ice( p_patch_3D, p_ice%vols, p_ice%vn_e, z_adv_flux_h )
+    CALL upwind_hflux_ice( p_patch_3D, p_ice%hs*p_ice%conc, p_ice%vn_e, z_adv_flux_h )
+    DO jk=1,p_ice%kice
+      CALL div_oce_3D( z_adv_flux_h(:,jk,:), p_patch, p_op_coeff%div_coeff, flux_hs  (:,jk,:),&
+        & 1, cells_in_domain)
+    ENDDO
+
+    DO jk = 1,p_ice%kice
+      DO jb = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, jb, i_startidx_c, i_endidx_c)
+        DO jc = i_startidx_c, i_endidx_c
+          IF ( p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary ) THEN
+
+            ! will be divided by p_ice%conc(jc,jk,jb) after the -dtime*flux_conc is added
+            p_ice%hi(jc,jk,jb)=p_ice%hi(jc,jk,jb)*p_ice%conc(jc,jk,jb)
+            p_ice%hs(jc,jk,jb)=p_ice%hs(jc,jk,jb)*p_ice%conc(jc,jk,jb)
+
+            p_ice%conc(jc,jk,jb)= p_ice%conc(jc,jk,jb)-dtime*flux_conc(jc,jk,jb)
+            !p_ice%vol (jc,jk,jb)= p_ice%vol (jc,jk,jb)-dtime*flux_hi  (jc,jk,jb)
+            !p_ice%vols(jc,jk,jb)= p_ice%vols(jc,jk,jb)-dtime*flux_hs  (jc,jk,jb)
+
+            IF ( p_ice%conc(jc,jk,jb) > 0.0_wp) THEN
+              p_ice%hi(jc,jk,jb)= (p_ice%hi(jc,jk,jb)-dtime*flux_hi(jc,jk,jb))/p_ice%conc(jc,jk,jb)
+              p_ice%hs(jc,jk,jb)= (p_ice%hs(jc,jk,jb)-dtime*flux_hs(jc,jk,jb))/p_ice%conc(jc,jk,jb)
+            ENDIF
+          ENDIF
+          ! TODO ram - remove p_patch%cells%area(jc,jb) and test
+          ! See also thermodyn/mo_sea_ice.f90
+          IF ( p_ice%conc(jc,jk,jb) > 0.0_wp) THEN
+            p_ice%vol(jc,jk,jb) = p_ice%hi (jc,jk,jb)   &
+              &         *( p_ice%conc(jc,jk,jb)*p_patch%cells%area(jc,jb) )
+            p_ice%vols(jc,jk,jb) = p_ice%hs(jc,jk,jb)   &
+              &         *( p_ice%conc(jc,jk,jb)*p_patch%cells%area(jc,jb) )
+          ENDIF
+!          IF ( p_ice%conc(jc,jk,jb) > 0.0_wp) THEN
+!            p_ice%hi(jc,jk,jb) = p_ice%vol (jc,jk,jb)   &
+!              &         /( p_ice%conc(jc,jk,jb)*p_patch%cells%area(jc,jb) )
+!            p_ice%hs(jc,jk,jb) = p_ice%vols(jc,jk,jb)   &
+!              &         /( p_ice%conc(jc,jk,jb)*p_patch%cells%area(jc,jb) )
+!          ENDIF
+        END DO
+      END DO
+    END DO
+
+!--------------------------------------------------------------------------------------------------
+! Sync results
+!--------------------------------------------------------------------------------------------------
+
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%vol (:,:,:))
+!   CALL sync_patch_array(SYNC_C, p_patch, p_ice%vols(:,:,:))
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%conc(:,:,:))
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%hs  (:,:,:))
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%hi  (:,:,:))
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('ice_adv: vol ice'  , p_ice%vol , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: vol snow' , p_ice%vols, str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: hi'       , p_ice%hi  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: hs'       , p_ice%hs  , str_module, 4, in_subset=p_patch%cells%owned)
+    CALL dbg_print('ice_adv: conc'     , p_ice%conc, str_module, 4, in_subset=p_patch%cells%owned)
+    !---------------------------------------------------------------------
+
+!    IF (ltimer) CALL timer_stop(timer_ice_advection)
+
+  END SUBROUTINE ice_advection_vla
 
   !-------------------------------------------------------------------------
   !
@@ -1181,7 +1319,7 @@ CONTAINS
       ! #slo# - to avoid stress proportional to concSum**2 it is omitted here
       tau = density_0*C_d_io*SQRT( delu**2 + delv**2 )
       ! set ocean stress below sea ice to zero wrt concentration for forced runs without ice dynamics;
-      ! then ocean gets no stress (no decelleration) below sea ice
+      ! then ocean gets no stress (no deceleration) below sea ice
       IF (stress_ice_zero) tau = 0.0_wp
       atmos_fluxes%topBoundCond_windStress_u(jc,jb) = atmos_fluxes%stress_xw(jc,jb)*( 1._wp - p_ice%concSum(jc,jb) )   &
         &               + p_ice%concSum(jc,jb)*tau*delu
@@ -1206,5 +1344,614 @@ CONTAINS
     !---------------------------------------------------------------------
 
   END SUBROUTINE ice_ocean_stress
+
+  !-------------------------------------------------------------------------
+  !> Calculates the Coriolis parameters at a point on the rotated grid with
+  !> the new pole at (pollon, pollat).
+  !-------------------------------------------------------------------------
+  !!
+  !! @par Revision History
+  !! Developed by Vladimir Lapin, MPI-M (2015-08-11)
+  !
+  function calc_f_rot(lat, lon, pollat, omega)
+
+  implicit none
+
+  real(wp), intent(in)           :: lat, lon, pollat, omega
+  real(wp)			 :: calc_f_rot
+
+  calc_f_rot = 2._wp*omega*(-cos(lon)*cos(lat)*cos(pollat)+sin(lat)*sin(pollat))
+
+  end function calc_f_rot
+
+  !-------------------------------------------------------------------------
+  !> 1) Interpolate wind stress from cell centers to vertices
+  !> 2) Rotate ocean velocities (available on the dual grid, i.e. vertices)
+  !-------------------------------------------------------------------------
+  ! IMPORTANT: SHOULD NOT BE USED DUE TO THE POLE SINGULARITY
+  ! the problem occurs when a cartesian-coords vector on ICON vertices
+  ! is converted onto geogr-coords, i.e. (zonal,meridional) form.
+  !-------------------------------------------------------------------------
+  !!
+  !! @par Revision History
+  !! Developed by Einar Olason, MPI-M (2013-06-05)
+  !! Moved to a separate subroutine by Vladimir Lapin, MPI-M (2015-07-17)
+  !
+  SUBROUTINE intrp_to_fem_grid_vec_old( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff ) ! TODO: replace oce_vel by oce_stress in the future.
+
+    USE mo_ice,          ONLY: a_ice, u_ice, v_ice, u_w, v_w, stress_atmice_x, stress_atmice_y
+    USE mo_ice_iceparam, ONLY: C_d_io
+    USE mo_ice_mesh,     ONLY: coord_nod2D		
+
+    TYPE(t_patch_3D), TARGET, INTENT(IN)     :: p_patch_3D
+    TYPE(t_sea_ice),          INTENT(INOUT)  :: p_ice
+    TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
+    TYPE (t_atmos_fluxes),    INTENT(IN)     :: atmos_fluxes
+    TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
+
+    ! Local variables
+    ! Patch and ranges
+    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_subset_range), POINTER :: all_cells, all_verts
+
+    ! Indexing
+    INTEGER  :: i_startidx_c, i_endidx_c, jc, jb, jk, jv
+    INTEGER  :: i_startidx_v, i_endidx_v
+
+    ! Temporary variables/buffers
+    TYPE(t_cartesian_coordinates) :: &
+      & p_tau_n_c(nproma,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: p_tau_n_dual(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_v)
+    REAL(wp) :: tau_n(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_e)
+    REAL(wp) :: tmp_x, tmp_y, tmp2(2), delu, u_change
+
+!--------------------------------------------------------------------------------------------------
+! Set up patch and ranges
+!--------------------------------------------------------------------------------------------------
+
+    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    all_cells => p_patch%cells%all
+    all_verts => p_patch%verts%all
+
+    !**************************************************************
+    ! (1) Convert lat-lon wind stress to cartesian coordinates
+    !**************************************************************
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
+          CALL gvec2cvec(  atmos_fluxes%stress_x(jc,jb), &
+                         & atmos_fluxes%stress_y(jc,jb), &
+                         & p_patch%cells%center(jc,jb)%lon,     &
+                         & p_patch%cells%center(jc,jb)%lat,     &
+                         & p_tau_n_c(jc,jb)%x(1),               &
+                         & p_tau_n_c(jc,jb)%x(2),               &
+                         & p_tau_n_c(jc,jb)%x(3))
+        ELSE
+          p_tau_n_c(jc,jb)%x    = 0.0_wp
+        ENDIF
+      END DO
+    END DO
+
+    !**************************************************************
+    ! (2) Interpolate 3D wind stress from cell centers to edges
+    !**************************************************************
+
+#ifdef NAGFOR
+    ! only for parallel testing with nag
+    tau_n = 0.0_wp
+#endif
+    CALL map_cell2edges_3D( p_patch_3D, p_tau_n_c, tau_n ,p_op_coeff, 1)
+    CALL sync_patch_array(SYNC_E, p_patch, tau_n)
+
+    !**************************************************************
+    ! (3) Interpolate 3D wind stress from cell centers to vertices
+    !**************************************************************
+
+    CALL map_edges2verts( p_patch, tau_n, p_op_coeff%edge2vert_coeff_cc, p_tau_n_dual)
+    CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(1))
+    CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(2))
+    CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(3))
+
+    !**************************************************************
+    ! (4) Convert back to geographic coordinates;
+    !     rotate to the rotated grid and copy to FEM model variables.
+    ! We also convert ocean forcing to geographic coordinates, rotate and copy to FEM model variables.
+    ! We set the ice speed to ocean speed where concentration is low.
+    !**************************************************************
+
+    jk=0
+    DO jb = all_verts%start_block, all_verts%end_block
+      CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
+      DO jv = i_startidx_v, i_endidx_v
+        jk=jk+1
+        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb)<=sea_boundary)THEN
+          CALL cvec2gvec(p_tau_n_dual(jv,jb)%x(1),               &
+                       & p_tau_n_dual(jv,jb)%x(2),               &
+                       & p_tau_n_dual(jv,jb)%x(3),               &
+                       & p_patch%verts%vertex(jv,jb)%lon,        &
+                       & p_patch%verts%vertex(jv,jb)%lat,        &
+                       & tmp_x, tmp_y)
+          ! Rotate the vectors onto the rotated grid
+          tmp2 = MATMUL( rot_mat(jv,jb,:,:), (/ tmp_x, tmp_y /) )
+          stress_atmice_x(jk) = tmp2(1)
+          stress_atmice_y(jk) = tmp2(2)
+
+!!!!!!!!!!!!!!!!!! check !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!          CALL disp_new_vect(tmp_x, tmp_y,			 &
+!			& p_patch%verts%vertex(jv,jb)%lon,       &
+!                        & p_patch%verts%vertex(jv,jb)%lat,       &
+!			& pollon, (pollat-90*deg2rad), 			&
+!		        & coord_nod2D(1,jk), coord_nod2D(2,jk), &
+!			& tmp2(1), tmp2(2))
+!	if (abs(p_patch%verts%vertex(jv,jb)%lat*rad2deg) < 1) then
+!	  if ( abs(stress_atmice_x(jk)-tmp2(1)) + abs(stress_atmice_y(jk)-tmp2(2)) > 1e-12) then
+!		write(0,*) 'lon, lat: ', p_patch%verts%vertex(jv,jb)%lon*rad2deg, p_patch%verts%vertex(jv,jb)%lat*rad2deg
+!		write(0,*) 'lon_r, lat_r: ', coord_nod2D(1,jk)*rad2deg, coord_nod2D(2,jk)*rad2deg
+!
+!		write(0,*) 'strx, stry: ', stress_atmice_x(jk), stress_atmice_y(jk)
+!		write(0,*) 'strx_new, stry_new: ', tmp2(1), tmp2(2)
+!	  endif
+!	endif
+!!!!!!!!!!!!!!!!!! check !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+          ! TODO: Is p_vn_dual updated?
+          CALL cvec2gvec(p_os%p_diag%p_vn_dual(jv,1,jb)%x(1),    &
+                       & p_os%p_diag%p_vn_dual(jv,1,jb)%x(2),    &
+                       & p_os%p_diag%p_vn_dual(jv,1,jb)%x(3),    &
+                       & p_patch%verts%vertex(jv,jb)%lon,        &
+                       & p_patch%verts%vertex(jv,jb)%lat,        &
+                       & tmp_x, tmp_y)
+          ! Rotate the vectors onto the rotated grid
+          tmp2 = MATMUL( rot_mat(jv,jb,:,:), (/ tmp_x, tmp_y /) )
+          u_w(jk) = tmp2(1)
+          v_w(jk) = tmp2(2)
+          ! Set the ice speed to free drift speed where concentration is less than 0.01
+          IF ( a_ice(jk) <= 0.01_wp ) THEN
+            u_ice(jk) = 0._wp; v_ice(jk) = 0._wp; u_change = 0._wp
+            ! TODO: Change u_change to speed_change
+            DO WHILE ( u_change > 1e-6_wp )
+              u_change = SQRT(u_ice(jk)**2+v_ice(jk)**2)
+              delu = SQRT( (u_w(jk)-u_ice(jk))**2 + (v_w(jk)-v_ice(jk))**2 )
+              u_ice(jk) = stress_atmice_x(jk)/( C_d_io*rho_ref*delu )
+              v_ice(jk) = stress_atmice_y(jk)/( C_d_io*rho_ref*delu )
+              u_change = ABS(u_change-SQRT(u_ice(jk)**2+v_ice(jk)**2))
+            ENDDO
+          ELSE
+            ! Strictly speaking p_ice%u_prog and p_ice%v_prog are only used by the restart files
+            ! now, so this does not need to be done every timestep, only after restart file is
+            ! read.
+            u_ice(jk) = p_ice%u_prog(jv,jb)
+            v_ice(jk) = p_ice%v_prog(jv,jb)
+          ENDIF
+        ELSE
+          stress_atmice_x(jk) = 0._wp
+          stress_atmice_y(jk) = 0._wp
+          u_w(jk)             = 0._wp
+          v_w(jk)             = 0._wp
+        ENDIF
+      END DO
+    END DO
+
+  END SUBROUTINE intrp_to_fem_grid_vec_old
+
+  !-------------------------------------------------------------------------
+  !> 1) Rotate back ice velocities (available on the FEM grid, i.e. vertices)
+  !> 2) Interpolate to cell centers and convert back to geographic coordinates
+  !-------------------------------------------------------------------------
+  ! IMPORTANT: SHOULD NOT BE USED DUE TO THE POLE SINGULARITY
+  ! the problem occurs at a pole verteces when the lat-lon velocities
+  ! are rotated back to the ICON grid.
+  !-------------------------------------------------------------------------
+  !!
+  !! @par Revision History
+  !! Developed by Einar Olason, MPI-M (2013-06-05)
+  !! Moved to a separate subroutine by Vladimir Lapin, MPI-M (2015-07-17)
+  !
+  SUBROUTINE intrp_from_fem_grid_vec_old( p_patch_3D, p_ice, p_op_coeff ) ! TODO: replace oce_vel by oce_stress in the future.
+
+    USE mo_ice,          ONLY: u_ice, v_ice
+
+    TYPE(t_patch_3D), TARGET, INTENT(IN)     :: p_patch_3D
+    TYPE(t_sea_ice),          INTENT(INOUT)  :: p_ice
+    TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
+
+    ! Local variables
+    ! Patch and ranges
+    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_subset_range), POINTER :: all_cells, all_verts
+
+    ! Indexing
+    INTEGER  :: i_startidx_c, i_endidx_c, jc, jb, jk, jv
+    INTEGER  :: i_startidx_v, i_endidx_v
+
+    ! Temporary variables/buffers
+    TYPE(t_cartesian_coordinates) :: p_vn_dual(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_v)
+    TYPE(t_cartesian_coordinates) :: &
+      & p_vn_c_3D(nproma,1,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks)
+    REAL(wp) :: tmp2(2)
+
+!--------------------------------------------------------------------------------------------------
+! Set up patch and ranges
+!--------------------------------------------------------------------------------------------------
+
+    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    all_cells => p_patch%cells%all
+    all_verts => p_patch%verts%all
+
+    !**************************************************************
+    ! (1) Rotate, reshape and copy ice velocities to ICON variables
+    !     and convert to cartesian coordinates
+    !**************************************************************
+    jk=0
+    DO jb = all_verts%start_block, all_verts%end_block
+      CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
+      DO jv = i_startidx_v, i_endidx_v
+        jk=jk+1
+        ! Strictly speaking p_ice%u_prog and p_ice%v_prog are only used by the restart files now,
+        ! so this does not need to be done every timestep, only before restart file is written.
+        p_ice%u_prog(jv,jb) = u_ice(jk)
+        p_ice%v_prog(jv,jb) = v_ice(jk)
+        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb) <= sea_boundary)THEN
+          ! Rotate the vectors back to geographic grid
+          tmp2 = MATMUL( TRANSPOSE(rot_mat(jv,jb,:,:)),(/ u_ice(jk), v_ice(jk) /) )
+          CALL gvec2cvec(  tmp2(1),                               &
+                         & tmp2(2),                               &
+                         & p_patch%verts%vertex(jv,jb)%lon,       &
+                         & p_patch%verts%vertex(jv,jb)%lat,       &
+                         & p_vn_dual(jv,jb)%x(1),                 &
+                         & p_vn_dual(jv,jb)%x(2),                 &
+                         & p_vn_dual(jv,jb)%x(3))
+        ELSE
+          p_vn_dual(jv,jb)%x(:) = 0.0_wp
+        ENDIF
+      END DO
+    END DO
+
+
+    !**************************************************************
+    ! (2) Interpolate ice velocities to edges for advection
+    !**************************************************************
+
+    CALL map_verts2edges( p_patch_3D, p_vn_dual, p_op_coeff%edge2cell_coeff_cc_t, p_ice%vn_e )
+    CALL sync_patch_array(SYNC_E, p_patch, p_ice%vn_e)
+
+    !**************************************************************
+    ! (3) ... and cells for drag calculation and output
+    !**************************************************************
+    CALL map_edges2cell_3D( p_patch_3D, RESHAPE(p_ice%vn_e, (/ nproma, 1, p_patch%nblks_e /)), &
+      &   p_op_coeff, p_vn_c_3D, 1, 1)
+
+    !**************************************************************
+    ! (4) Convert back to geographic coordinates
+    !**************************************************************
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
+          CALL cvec2gvec(p_vn_c_3D(jc,1,jb)%x(1),                &
+                       & p_vn_c_3D(jc,1,jb)%x(2),                &
+                       & p_vn_c_3D(jc,1,jb)%x(3),                &
+                       & p_patch%cells%center(jc,jb)%lon,        &
+                       & p_patch%cells%center(jc,jb)%lat,        &
+                       & p_ice%u(jc,jb),                         &
+                       & p_ice%v(jc,jb))
+        ELSE
+          p_ice%u(jc,jb) = 0._wp
+          p_ice%v(jc,jb) = 0._wp
+        ENDIF
+      END DO
+    END DO
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%u)
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%v)
+
+
+  END SUBROUTINE intrp_from_fem_grid_vec_old
+
+  !-------------------------------------------------------------------------
+  !> 1) Interpolate wind stress from cell centers to vertices
+  !> 2) Rotate ocean velocities (available on the dual grid, i.e. vertices)
+  !-------------------------------------------------------------------------
+  ! This is a CORRECTED VERSION OF intrp_to_fem_grid_vec_old
+  ! in which a problem occured when a cartesian-coords vector on ICON vertices
+  ! was converted onto geogr-coords, i.e. (zonal,meridional) form.
+  ! FIX: rotate the cartesian-coords vector to the rotated pole lat-lon coord
+  ! and only then convert to geographic form.
+  !-------------------------------------------------------------------------
+  !!
+  !! @par Revision History
+  !! Developed by Einar Olason, MPI-M (2013-06-05)
+  !! Modified by Vladimir Lapin, MPI-M (2015-07-17)
+  !
+  SUBROUTINE intrp_to_fem_grid_vec( p_patch_3D, p_ice, p_os, atmos_fluxes, p_op_coeff ) ! TODO: replace oce_vel by oce_stress in the future.
+
+    USE mo_ice,          ONLY: u_w, v_w, stress_atmice_x, stress_atmice_y !, a_ice, u_ice, v_ice
+    USE mo_ice_mesh,     ONLY: coord_nod2D
+!    USE mo_ice_iceparam, ONLY: C_d_io
+
+    TYPE(t_patch_3D), TARGET, INTENT(IN)     :: p_patch_3D
+    TYPE(t_sea_ice),          INTENT(INOUT)  :: p_ice
+    TYPE(t_hydro_ocean_state),INTENT(IN)     :: p_os
+    TYPE (t_atmos_fluxes),    INTENT(IN)     :: atmos_fluxes
+    TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
+
+    ! Local variables
+    ! Patch and ranges
+    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_subset_range), POINTER :: all_cells, all_verts
+
+    ! Indexing
+    INTEGER  :: i_startidx_c, i_endidx_c, jc, jb, jk, jv
+    INTEGER  :: i_startidx_v, i_endidx_v
+
+    ! Temporary variables/buffers
+    TYPE(t_cartesian_coordinates) :: &
+      & p_tau_n_c(nproma,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: p_tau_n_dual(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_v)
+    REAL(wp) :: tau_n(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_e)
+    REAL(wp) :: tmp3(3)!, delu, u_change
+    REAL(wp) :: lat, lon!, lat1, lon1
+
+!--------------------------------------------------------------------------------------------------
+! Set up patch and ranges
+!--------------------------------------------------------------------------------------------------
+
+    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    all_cells => p_patch%cells%all
+    all_verts => p_patch%verts%all
+
+    !**************************************************************
+    ! (1) Convert lat-lon wind stress to cartesian coordinates
+    !**************************************************************
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+        IF(p_patch_3D%lsm_c(jc,1,jb) <= sea_boundary)THEN
+          CALL gvec2cvec(  atmos_fluxes%stress_x(jc,jb), &
+                         & atmos_fluxes%stress_y(jc,jb), &
+                         & p_patch%cells%center(jc,jb)%lon,     &
+                         & p_patch%cells%center(jc,jb)%lat,     &
+                         & p_tau_n_c(jc,jb)%x(1),               &
+                         & p_tau_n_c(jc,jb)%x(2),               &
+                         & p_tau_n_c(jc,jb)%x(3))
+        ELSE
+          p_tau_n_c(jc,jb)%x    = 0.0_wp
+        ENDIF
+      END DO
+    END DO
+
+    !**************************************************************
+    ! (2) Interpolate 3D wind stress from cell centers to edges
+    !**************************************************************
+
+#ifdef NAGFOR
+    ! only for parallel testing with nag
+    tau_n = 0.0_wp
+#endif
+    CALL map_cell2edges_3D( p_patch_3D, p_tau_n_c, tau_n ,p_op_coeff, 1)
+    CALL sync_patch_array(SYNC_E, p_patch, tau_n)
+
+    !**************************************************************
+    ! (3) Interpolate 3D wind stress from cell centers to vertices
+    !**************************************************************
+
+    CALL map_edges2verts( p_patch, tau_n, p_op_coeff%edge2vert_coeff_cc, p_tau_n_dual)
+    CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(1))
+    CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(2))
+    CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(3))
+
+    !**************************************************************
+    ! (4) Rotate to the rotated grid
+    !**************************************************************
+    jk=0
+    DO jb = all_verts%start_block, all_verts%end_block
+      CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
+      DO jv = i_startidx_v, i_endidx_v
+        jk=jk+1
+!        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb)<=sea_boundary)THEN
+          !*************************
+          ! (4a) atmospheric stress
+          !*************************
+          ! Rotate the vectors onto the rotated grid
+          tmp3 = MATMUL( rot_mat_3D(:,:), &
+                       & (/ p_tau_n_dual(jv,jb)%x(1),               &
+                       &    p_tau_n_dual(jv,jb)%x(2),               &
+                       &    p_tau_n_dual(jv,jb)%x(3) /) )
+          ! Convert back to geographic coordinates
+          ! NOTE: this is ridiculous, but FEM mesh-coords 
+	  ! are first converted to degrees and then back to radians. 
+          ! lon = coord_nod2D(1,jk)*deg2rad ! FEM x-coords in degrees -- NOOOOOOOOOO
+          ! lat = coord_nod2D(2,jk)*deg2rad ! FEM x-coords in degrees -- NOOOOOOOOOO
+	  lon = coord_nod2D(1,jk)
+	  lat = coord_nod2D(2,jk)
+!          lat1 = p_patch%verts%vertex(jv,jb)%lat
+!          lon1 = p_patch%verts%vertex(jv,jb)%lon
+!          CALL rotate_latlon(lat1, lon1, pollat, pollon)
+!	  if ( abs(lon-lon1) + abs(lat-lat1) > 1e-12) then
+!		write(0,*) 'lon, lat: ', lon, lat, 'lon1, lat1: ', lon1, lat1
+!	  endif
+
+          CALL cvec2gvec(tmp3(1), tmp3(2), tmp3(3), lon, lat,       &
+                       & stress_atmice_x(jk), stress_atmice_y(jk))
+
+          !*************************
+          ! (4b) ocean velocities
+          !*************************
+          ! TODO: Is p_vn_dual updated?
+
+          ! Rotate the vectors onto the rotated grid
+          tmp3 = MATMUL( rot_mat_3D(:,:), &
+                       & (/ p_os%p_diag%p_vn_dual(jv,1,jb)%x(1),    &
+                       &    p_os%p_diag%p_vn_dual(jv,1,jb)%x(2),    &
+                       &    p_os%p_diag%p_vn_dual(jv,1,jb)%x(3) /) )
+          ! Convert back to geographic coordinates
+          CALL cvec2gvec(tmp3(1), tmp3(2), tmp3(3), lon, lat,       &
+                       & u_w(jk), v_w(jk))
+
+          !*************************
+          ! (4c) ice free drift
+          !*************************
+!          ! Set the ice speed to free drift speed where concentration is less than 0.01
+!          IF ( a_ice(jk) <= 0.01_wp ) THEN
+!            u_ice(jk) = 0._wp; v_ice(jk) = 0._wp; u_change = 0._wp
+!            ! TODO: Change u_change to speed_change
+!            DO WHILE ( u_change > 1e-6_wp )
+!              u_change = SQRT(u_ice(jk)**2+v_ice(jk)**2)
+!              delu = SQRT( (u_w(jk)-u_ice(jk))**2 + (v_w(jk)-v_ice(jk))**2 )
+!              u_ice(jk) = stress_atmice_x(jk)/( C_d_io*rho_ref*delu )
+!              v_ice(jk) = stress_atmice_y(jk)/( C_d_io*rho_ref*delu )
+!              u_change = ABS(u_change-SQRT(u_ice(jk)**2+v_ice(jk)**2))
+!            ENDDO
+!          ELSE
+!            ! Strictly speaking p_ice%u_prog and p_ice%v_prog are only used by the restart files
+!            ! now, so this does not need to be done every timestep, only after restart file is
+!            ! read.
+!            u_ice(jk) = p_ice%u_prog(jv,jb)
+!            v_ice(jk) = p_ice%v_prog(jv,jb)
+!          ENDIF
+!        ELSE
+!          stress_atmice_x(jk) = 0._wp
+!          stress_atmice_y(jk) = 0._wp
+!          u_w(jk)             = 0._wp
+!          v_w(jk)             = 0._wp
+!        ENDIF
+      END DO
+    END DO
+
+  END SUBROUTINE intrp_to_fem_grid_vec
+
+    !-------------------------------------------------------------------------
+  !> 1) Rotate back ice velocities (available on the FEM grid, i.e. vertices)
+  !> 2) Interpolate to cell centers and convert back to geographic coordinates
+  !-------------------------------------------------------------------------
+  ! This is a CORRECTED VERSION OF intrp_from_fem_grid_vec_old
+  ! the problem occurs at a pole verteces when the lat-lon velocities
+  ! are rotated back to the ICON grid.
+  ! FIX: first convert to the cartesian-coords vector and only then rotate
+  !-------------------------------------------------------------------------
+  !!
+  !! @par Revision History
+  !! Developed by Einar Olason, MPI-M (2013-06-05)
+  !! Modified by Vladimir Lapin, MPI-M (2015-07-17)
+  !
+  SUBROUTINE intrp_from_fem_grid_vec( p_patch_3D, p_ice, p_op_coeff ) ! TODO: replace oce_vel by oce_stress in the future.
+
+    USE mo_ice,          ONLY: u_ice, v_ice
+    USE mo_ice_mesh,     ONLY: coord_nod2D
+
+    TYPE(t_patch_3D), TARGET, INTENT(IN)     :: p_patch_3D
+    TYPE(t_sea_ice),          INTENT(INOUT)  :: p_ice
+    TYPE(t_operator_coeff),   INTENT(IN)     :: p_op_coeff
+
+    ! Local variables
+    ! Patch and ranges
+    TYPE(t_patch), POINTER :: p_patch
+    TYPE(t_subset_range), POINTER :: all_cells, all_verts
+
+    ! Indexing
+    INTEGER  :: i_startidx_c, i_endidx_c, jc, jb, jk, jv
+    INTEGER  :: i_startidx_v, i_endidx_v
+
+    ! Temporary variables/buffers
+    TYPE(t_cartesian_coordinates) :: p_vn_dual(nproma,p_patch_3D%p_patch_2D(n_dom)%nblks_v)
+    TYPE(t_cartesian_coordinates) :: &
+      & p_vn_c_3D(nproma,1,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks)
+    REAL(wp) :: tmp3(3)
+    REAL(wp) :: lat, lon
+
+!--------------------------------------------------------------------------------------------------
+! Set up patch and ranges
+!--------------------------------------------------------------------------------------------------
+
+    p_patch => p_patch_3D%p_patch_2D(n_dom)
+    all_cells => p_patch%cells%all
+    all_verts => p_patch%verts%all
+
+    p_vn_c_3D(:,:,:)%x(1) = 0.0_wp
+    p_vn_c_3D(:,:,:)%x(2) = 0.0_wp
+    p_vn_c_3D(:,:,:)%x(3) = 0.0_wp
+
+    !**************************************************************
+    ! (1) Rotate, reshape and copy ice velocities to ICON variables
+    !     and convert to cartesian coordinates
+    !**************************************************************
+    jk=0
+    DO jb = all_verts%start_block, all_verts%end_block
+      CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
+      DO jv = i_startidx_v, i_endidx_v
+        jk=jk+1
+        ! Strictly speaking p_ice%u_prog and p_ice%v_prog are only used by the restart files now,
+        ! so this does not need to be done every timestep, only before restart file is written.
+        p_ice%u_prog(jv,jb) = u_ice(jk)
+        p_ice%v_prog(jv,jb) = v_ice(jk)
+        IF(p_patch_3D%surface_vertex_sea_land_mask(jv,jb) <= sea_boundary)THEN
+          ! Rotate the vectors back to geographic grid
+          ! Convert back to geographic coordinates
+          ! NOTE: this is ridiculous, but FEM mesh-coords 
+	  ! are first converted to degrees and then back to radians. 
+          ! lon = coord_nod2D(1,jk)*deg2rad ! FEM x-coords in degrees -- NOOOOOOOOOO
+          ! lat = coord_nod2D(2,jk)*deg2rad ! FEM x-coords in degrees -- NOOOOOOOOOO
+          lon = coord_nod2D(1,jk)
+          lat = coord_nod2D(2,jk)
+!          lat1 = p_patch%verts%vertex(jv,jb)%lat
+!          lon1 = p_patch%verts%vertex(jv,jb)%lon
+!          CALL rotate_latlon(lat1, lon1, pollat, pollon)
+          CALL gvec2cvec(  u_ice(jk), v_ice(jk),                   &
+                         & lon, lat,                              &
+                         & tmp3(1), tmp3(2), tmp3(3) )
+          ! Rotate the vectors onto the rotated grid
+          p_vn_dual(jv,jb)%x = MATMUL( TRANSPOSE(rot_mat_3D(:,:)), &
+                                    & (/ tmp3(1), tmp3(2), tmp3(3) /) )
+        ELSE
+          p_vn_dual(jv,jb)%x(:) = 0.0_wp
+        ENDIF
+      END DO
+    END DO
+
+
+    !**************************************************************
+    ! (2) Interpolate ice velocities to edges for advection
+    !**************************************************************
+
+!    CALL map_verts2edges( p_patch_3D, p_vn_dual, p_op_coeff%edge2cell_coeff_cc_t, p_ice%vn_e )
+    CALL map_verts2edges_vla(p_patch_3D, p_vn_dual, p_op_coeff%edge2vert_coeff_cc_t, p_ice%vn_e)
+    CALL sync_patch_array(SYNC_E, p_patch, p_ice%vn_e)
+
+    !**************************************************************
+    ! (3) ... and cells for drag calculation and output
+    !**************************************************************
+
+    CALL map_edges2cell_3D( p_patch_3D, RESHAPE(p_ice%vn_e, (/ nproma, 1, p_patch%nblks_e /)), &
+      &   p_op_coeff, p_vn_c_3D, 1, 1)
+
+    !**************************************************************
+    ! (4) Convert back to geographic coordinates
+    !**************************************************************
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c, i_endidx_c
+!        IF(p_patch_3D%lsm_c(jc,1,jb)<=sea_boundary)THEN
+          CALL cvec2gvec(p_vn_c_3D(jc,1,jb)%x(1),                &
+                       & p_vn_c_3D(jc,1,jb)%x(2),                &
+                       & p_vn_c_3D(jc,1,jb)%x(3),                &
+                       & p_patch%cells%center(jc,jb)%lon,        &
+                       & p_patch%cells%center(jc,jb)%lat,        &
+                       & p_ice%u(jc,jb),                         &
+                       & p_ice%v(jc,jb))
+!        ELSE
+!          p_ice%u(jc,jb) = 0._wp
+!          p_ice%v(jc,jb) = 0._wp
+!        ENDIF
+      END DO
+    END DO
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%u)
+    CALL sync_patch_array(SYNC_C, p_patch, p_ice%v)
+
+
+  END SUBROUTINE intrp_from_fem_grid_vec
 
 END MODULE mo_ice_fem_utils

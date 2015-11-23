@@ -113,7 +113,8 @@ cat >> ${atmo_namelist} << EOF
 /
 &run_nml
  num_lev        = ${nlev},     ! number of full levels of vertical grid
- dtime          = ${dt_dyn}    ! timestep in seconds
+ dtime          = ${dt_dyn}    ! timestep in seconds !! MUST BE EQUAL TO "modelTimeStep" !!
+ modelTimeStep  = "PT2M"       !preliminary fix
  ltransport     = .TRUE.
  ntracer        = 5            ! default: 0
  iforcing       = 3            ! 3: NWP forcing; 6:inhecham forcing
@@ -138,6 +139,9 @@ cat >> ${atmo_namelist} << EOF
  irad_aero  = 0 ! switch off aerosols
  irad_cfc11 = 0 
  irad_cfc12 = 0
+/
+&psrad_nml
+rad_perm=1
 /
 &dynamics_nml
  iequations     = ${atmo_model_equations}       ! equation system

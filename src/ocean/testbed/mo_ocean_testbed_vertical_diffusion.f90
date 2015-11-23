@@ -44,7 +44,7 @@ MODULE mo_ocean_testbed_vertical_diffusion
     & update_time_indices
   USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog, t_ocean_tracer
-  USE mo_ocean_math_operators,     ONLY: calculate_thickness
+  !USE mo_ocean_math_operators,     ONLY: calculate_thickness
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices
   USE mo_ocean_tracer,             ONLY: advect_tracer_ab
   USE mo_ocean_forcing,            ONLY: destruct_ocean_forcing
@@ -52,14 +52,13 @@ MODULE mo_ocean_testbed_vertical_diffusion
     & update_ice_statistic, compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
-  USE mo_physical_constants,     ONLY: rhoi, rhos, rho_ref
+  USE mo_physical_constants,     ONLY: rhoi, rhos
   USE mo_ocean_physics,            ONLY: t_ho_params
   USE mo_name_list_output,       ONLY: write_name_list_output, istime4name_list_output
   USE mo_var_list,               ONLY: print_var_list
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_mpi,                    ONLY: my_process_is_stdio
   USE mo_time_config,            ONLY: time_config
-  USE mo_master_control,         ONLY: is_restart_run
   USE mo_statistics
   USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print

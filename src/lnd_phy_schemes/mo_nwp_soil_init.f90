@@ -44,6 +44,7 @@ MODULE mo_nwp_soil_init
     &                              csandf, cclayf, csnow_tmin,   &
    &                               crhosmax_tmin, crhosmax_ml
 
+
   IMPLICIT NONE
 
   PRIVATE
@@ -902,8 +903,8 @@ CONTAINS
     ! calculate water equivalent from snow depth
     !
     DO jc = istart, iend
+      IF (rho_snow(jc) < 1._ireals) rho_snow(jc)=rho_snw_default      ! average initial density
       IF (h_snow(jc) > 0._ireals) THEN
-        IF (rho_snow(jc) < 1._ireals) rho_snow(jc)=rho_snw_default      ! average initial density
         ! multiply analysed snow depth [m] by (first-guess) density 
         ! to get water equivalent in [m H2O]
         IF (soiltyp(jc) /= 1) THEN       ! 1=ice

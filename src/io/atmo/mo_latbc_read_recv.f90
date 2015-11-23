@@ -51,9 +51,9 @@ MODULE mo_latbc_read_recv
     &                              num_work_procs, p_real_sp               
   USE mo_util_cdi,           ONLY: get_cdi_varID
   USE mo_async_latbc_types,  ONLY: t_patch_data, t_reorder_data
-  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE,    &
-    &                              streamInqVlist, vlistInqVarZaxis, vlistInqVarGrid, &
-    &                              gridInqSize, zaxisInqSize
+  USE mo_cdi,                ONLY: streamInqVlist, vlistInqVarZaxis, vlistInqVarGrid, gridInqSize, zaxisInqSize, &
+                                 & streamReadVarSliceF
+  USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
   
   IMPLICIT NONE
 

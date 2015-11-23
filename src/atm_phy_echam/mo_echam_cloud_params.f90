@@ -66,7 +66,6 @@ MODULE mo_echam_cloud_params
   REAL(wp),    PARAMETER :: ccraut  = 15.0_wp
   REAL(wp),    PARAMETER :: ceffmin = 10.0_wp    ! min eff.radius for ice cloud
   REAL(wp),    PARAMETER :: ccwmin  = 1.e-7_wp   ! cloud water limit for cover>0
-  REAL(wp),    PARAMETER :: csatsc  = 0.7_wp
   REAL(wp),    PARAMETER :: cinv    = 0.25_wp    ! fraction of dry adiabatic lapse rate
   REAL(wp),    PARAMETER :: cauloc  = 0.0_wp
   REAL(wp),    PARAMETER :: cqtmin = 1.e-12_wp   ! total water minimum
@@ -78,6 +77,7 @@ MODULE mo_echam_cloud_params
   REAL(wp) ::    crt            ! Critical relative humidity aloft
   REAL(wp) ::    cvtfall
   REAL(wp) ::    clwprat
+  REAL(wp) ::    csatsc
   INTEGER  ::    nex            ! Transition parameter for critical relative humidity profile
   INTEGER  ::    nadd
 
@@ -188,16 +188,18 @@ CONTAINS
     cvtfall = 2.5_wp
     csecfrl = 5.e-6_wp
     clwprat = 4.0_wp
+    csatsc  = 0.7_wp
     nex     = 2
     nadd    = 0
 #else
     IF (nn == 31) THEN
-      crs     = 0.955_wp
-      crt     = 0.75_wp
-      cvtfall = 2.5_wp
+      crs     = 0.945_wp
+      crt     = 0.85_wp
+      cvtfall = 3.5_wp
       csecfrl = 5.E-7_wp
       clwprat = 0.0_wp
-      nex     = 2
+      csatsc  = 0.1_wp
+      nex     = 1
       nadd    = 1
     ELSE IF (nn == 63) THEN
       crs     = 0.975_wp
@@ -205,6 +207,7 @@ CONTAINS
       cvtfall = 2.5_wp
       csecfrl = 5.E-6_wp
       clwprat = 4.0_wp
+      csatsc  = 0.7_wp
       nex     = 2
       nadd    = 0
     ELSE IF (nn==127) THEN
@@ -213,6 +216,7 @@ CONTAINS
       cvtfall = 2.5_wp
       csecfrl = 1.E-5_wp
       clwprat = 4.0_wp
+      csatsc  = 0.7_wp
       nex     = 2
       nadd    = 0
     ELSE IF (nn==255) THEN
@@ -221,6 +225,7 @@ CONTAINS
       cvtfall = 2.5_wp
       csecfrl = 5.E-6_wp
       clwprat = 4.0_wp
+      csatsc  = 0.7_wp
       nex     = 2
       nadd    = 0
     ELSE

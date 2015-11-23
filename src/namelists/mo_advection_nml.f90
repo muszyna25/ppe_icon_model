@@ -26,7 +26,7 @@ MODULE mo_advection_nml
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: nnml, nnml_output
-  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_master_config,       ONLY: isRestart
   USE mo_run_config,          ONLY: ntracer
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
     &                               MIURA, FFSL_HYB_MCYCL, ippm_vcfl, ippm_v,   &
@@ -116,11 +116,18 @@ MODULE mo_advection_nml
                                    !< ppm-scheme (approximate allowable maximum 
                                    !< CFL-number)
 
+  INTEGER :: npassive_tracer       !< number of additional passive tracers, in addition to
+                                   !< microphysical- and ART tracers. 
+
+  CHARACTER(len=MAX_CHAR_LENGTH) :: &!< Comma separated list of initialization formulae 
+    &  init_formula                  !< for passive tracers.
+
   NAMELIST/transport_nml/ ihadv_tracer, ivadv_tracer, lvadv_tracer,       &
     &                     itype_vlimit, ivcfl_max, itype_hlimit,          &
     &                     iadv_tke, niter_fct, beta_fct, iord_backtraj,   &
     &                     lclip_tracer, ctracer_list, igrad_c_miura,      &
-    &                     lstrang, llsq_svd
+    &                     lstrang, llsq_svd, npassive_tracer,             &
+    &                     init_formula
 
 
 CONTAINS
@@ -174,14 +181,15 @@ CONTAINS
     igrad_c_miura   = 1         ! MIURA linear least squares reconstruction
 
     llsq_svd        = .TRUE.    ! apply singular-value-decomposition (FALSE: use QR-decomposition)
-
+    npassive_tracer = 0         ! no additional passive tracers
+    init_formula    = ''        ! no explizit initialization of passive tracers
 
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       funit = open_and_restore_namelist('transport_nml')
       READ(funit,NML=transport_nml)
       CALL close_tmpfile(funit)
@@ -284,6 +292,8 @@ CONTAINS
       advection_config(jg)%igrad_c_miura  = igrad_c_miura
       advection_config(jg)%iadv_tke       = iadv_tke
       advection_config(jg)%ivcfl_max      = ivcfl_max
+      advection_config(jg)%npassive_tracer= npassive_tracer 
+      advection_config(jg)%init_formula   = init_formula 
     ENDDO
 
 

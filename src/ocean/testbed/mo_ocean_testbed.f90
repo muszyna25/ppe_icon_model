@@ -28,9 +28,10 @@ MODULE mo_ocean_testbed
   USE mo_model_domain,        ONLY: t_patch_3d
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision, t_operator_coeff
-  USE mo_ocean_physics,         ONLY: t_ho_params
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_solverCoeff_singlePrecision, t_operator_coeff
+  USE mo_ocean_physics,       ONLY: t_ho_params
   USE mo_sea_ice_types,       ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, t_sea_ice
+  USE mo_ocean_surface_types, ONLY: t_ocean_surface
 
   USE mo_run_config,          ONLY: test_mode
   USE mo_grid_config,         ONLY: n_dom
@@ -39,7 +40,8 @@ MODULE mo_ocean_testbed
   USE mo_testbed_ocean_performance, ONLY: ocean_test_performance
   USE mo_ocean_testbed_operators,   ONLY: ocean_test_operators
   USE mo_ocean_testbed_read,        ONLY: ocean_test_read
-  USE mo_ocean_math_operators,     ONLY: calculate_thickness
+  USE mo_ocean_testbed_quads,       ONLY: ocean_test_quads
+  USE mo_ocean_math_operators,      ONLY: update_height_depdendent_variables
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -54,7 +56,7 @@ CONTAINS
   !>
   SUBROUTINE ocean_testbed( namelist_filename, shr_namelist_filename, &
     & patch_3d, ocean_state, external_data,          &
-    & datetime, surface_fluxes, physics_parameters,             &
+    & datetime, surface_fluxes, ocean_surface, physics_parameters,             &
     & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice, operators_coefficients, &
     & solverCoeff_sp)
 
@@ -66,6 +68,7 @@ CONTAINS
     TYPE(t_external_data), TARGET, INTENT(in)        :: external_data(n_dom)
     TYPE(t_datetime), INTENT(inout)                  :: datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
+    TYPE (t_ocean_surface)                           :: ocean_surface
     TYPE (t_ho_params)                               :: physics_parameters
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: oceans_atmosphere
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: oceans_atmosphere_fluxes
@@ -75,12 +78,12 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER ::  method_name = "ocean_testbed"
 
-    CALL calculate_thickness( patch_3D, ocean_state(1), external_data(1), operators_coefficients, solverCoeff_sp)
-
+    CALL update_height_depdendent_variables( patch_3D, ocean_state(1), external_data(1), operators_coefficients, solverCoeff_sp)
+	
     SELECT CASE (test_mode)
       CASE (1 : 99)  !  1 - 99 test ocean modules
         CALL ocean_test_modules( patch_3d, ocean_state,  &
-          & datetime, surface_fluxes, physics_parameters,             &
+          & datetime, surface_fluxes, ocean_surface, physics_parameters,             &
           & oceans_atmosphere, oceans_atmosphere_fluxes, ocean_ice,operators_coefficients)
 
       CASE (100 : 999) ! 100 - 999 test ocean operators
@@ -99,7 +102,9 @@ CONTAINS
         CALL ocean_test_read( namelist_filename, shr_namelist_filename, &
           & patch_3d)
 
-
+      CASE (1102) ! 1101 -  other tests
+        CALL ocean_test_quads( namelist_filename, shr_namelist_filename, &
+          & patch_3d)
 
       CASE DEFAULT
         CALL finish(method_name, "Unknown test_mode")

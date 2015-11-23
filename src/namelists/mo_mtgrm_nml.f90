@@ -22,11 +22,11 @@ MODULE mo_meteogram_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
-  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_master_config,      ONLY: isRestart
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_meteogram_config,   ONLY: t_station_list, t_meteogram_output_config, &
-    &                              meteogram_output_config, &
+    &                              meteogram_output_config, MAX_NVARS, &
     &                              MAX_NAME_LENGTH, MAX_NUM_STATIONS, FTYPE_NETCDF
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
 
@@ -48,13 +48,21 @@ MODULE mo_meteogram_nml
   LOGICAL                         :: ldistributed(max_dom)    !< Flag. Separate files for each PE
   INTEGER                         :: n0_mtgrm(max_dom)        !> intitial time step for meteogram output
   INTEGER                         :: ninc_mtgrm(max_dom)      !> output interval (in time steps)
+  LOGICAL                         :: loutput_tiles            !> activate tile specific output
 
   ! same for all patches:
   TYPE(t_list_of_stations) :: stationlist_tot(MAX_NUM_STATIONS)   !> list of meteogram stations
 
+  ! Positive-list of variables (optional). Only variables contained in
+  ! this list are included in this meteogram. If the default list is
+  ! not changed by user input, then all available variables are added
+  ! to the meteogram
+  CHARACTER(len=MAX_NAME_LENGTH)    :: var_list(MAX_NVARS)
+
   !> Namelist for meteogram output
-  NAMELIST/meteogram_output_nml/ lmeteogram_enabled, zprefix, ldistributed, &
-    &                            n0_mtgrm, ninc_mtgrm, stationlist_tot
+  NAMELIST/meteogram_output_nml/ lmeteogram_enabled, zprefix, ldistributed,            &
+    &                            loutput_tiles, n0_mtgrm, ninc_mtgrm, stationlist_tot, &
+    &                            var_list
 
 CONTAINS
   !>
@@ -91,8 +99,10 @@ CONTAINS
     zprefix(:)               =     "METEOGRAM_"
     ftype(:)                 =     FTYPE_NETCDF
     ldistributed(:)          =           .TRUE.
+    loutput_tiles            =          .FALSE.
     n0_mtgrm(:)              =               0
     ninc_mtgrm(:)            =               1
+    var_list(:)              =             " "
     stationlist_tot(:)%lon   = 0._wp
     stationlist_tot(:)%lat   = 0._wp
     stationlist_tot(:)%zname = ""
@@ -107,7 +117,7 @@ CONTAINS
     ! 2. If this is a resumed integration, overwrite the defaults above
     !    by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       funit = open_and_restore_namelist('meteogram_output_nml')
       READ(funit,NML=meteogram_output_nml)
       CALL close_tmpfile(funit)
@@ -155,9 +165,11 @@ CONTAINS
 #else
       meteogram_output_config(idom)%ldistributed = ldistributed(idom)
 #endif
+      meteogram_output_config(idom)%loutput_tiles= loutput_tiles
       meteogram_output_config(idom)%n0_mtgrm     = n0_mtgrm(idom)
       meteogram_output_config(idom)%ninc_mtgrm   = ninc_mtgrm(idom)
       meteogram_output_config(idom)%nstations    = nstations
+      meteogram_output_config(idom)%var_list     = var_list
 
       nblks   = nstations/nproma + 1
       npromz  = nstations - nproma*(nblks-1)

@@ -107,6 +107,7 @@ USE mo_grid_config,         ONLY: l_limited_area
 USE mo_parallel_config,     ONLY: nproma
 USE mo_exception,           ONLY: finish
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+USE mo_fortran_tools,       ONLY: init, copy
 ! USE mo_timer,              ONLY: timer_start, timer_stop, timer_div
 
 IMPLICIT NONE
@@ -173,7 +174,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   &                           opt_slev, opt_elev, opt_rlstart,      &
   &                           opt_rlend, opt_lconsv )
 
-  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
+  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation
     &  ptr_patch                          !<is performed
 
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
@@ -344,7 +345,7 @@ END SUBROUTINE recon_lsq_cell_l
 !! cell : solution coefficients defined at cell center
 !! l    : linear reconstruction
 !!
-!! The least squares approach is used. Solves Ax = b via Singular 
+!! The least squares approach is used. Solves Ax = b via Singular
 !! Value Decomposition (SVD)
 !! x = PINV(A) * b
 !!
@@ -360,7 +361,7 @@ END SUBROUTINE recon_lsq_cell_l
 SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   &                           opt_slev, opt_elev, opt_rlstart, opt_rlend )
 
-  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
+  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation
     &  ptr_patch                          !< is performed
 
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
@@ -447,7 +448,7 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 #endif
 
         ! note that the multiplication with lsq_weights_c(jc,js,jb) at
-        ! runtime is now avoided. Instead, the weights have been shifted 
+        ! runtime is now avoided. Instead, the weights have been shifted
         ! into the pseudoinverse.
         z_b(1,jc,jk) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
         z_b(2,jc,jk) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
@@ -498,7 +499,7 @@ END SUBROUTINE recon_lsq_cell_l_svd
 !! cell : solution coefficients defined at cell center
 !! l    : linear reconstruction
 !!
-!! The least squares approach is used. Solves Ax = b via Singular 
+!! The least squares approach is used. Solves Ax = b via Singular
 !! Value Decomposition (SVD)
 !! x = PINV(A) * b
 !!
@@ -515,7 +516,7 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   &                                    opt_slev, opt_elev, opt_rlstart,      &
   &                                    opt_rlend, opt_lconsv )
 
-  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
+  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation
     &  ptr_patch                          !< is performed
 
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
@@ -611,7 +612,7 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 #endif
 
         ! note that the multiplication with lsq_weights_c(jc,js,jb) at
-        ! runtime is now avoided. Instead, the weights have been shifted 
+        ! runtime is now avoided. Instead, the weights have been shifted
         ! into the pseudoinverse.
         z_b(1,jc,jk) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
         z_b(2,jc,jk) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
@@ -647,7 +648,7 @@ SUBROUTINE recon_lsq_cell_l_consv_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 
-          ! In the case of a conservative reconstruction, 
+          ! In the case of a conservative reconstruction,
           ! the coefficient c0 is derived from the linear constraint
           !
           p_coeff(1,jc,jk,jb) = p_coeff(1,jc,jk,jb)                                    &
@@ -716,7 +717,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) ::   & !< patch on which computation
     &  ptr_patch                   !< is performed
-                                        
+
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -751,7 +752,6 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
-  INTEGER :: js                   !< loop index for cells in stencil
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -800,12 +800,11 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-    p_coeff(:,:,1:6,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_coeff(:,:,1:6,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -910,7 +909,7 @@ END SUBROUTINE recon_lsq_cell_q
 !! q    : quadratic reconstruction
 !!
 !! Computes unknown coefficients (derivatives) of a quadratic polynomial,
-!! using the least-squares method. The coefficients are provided at cell 
+!! using the least-squares method. The coefficients are provided at cell
 !! centers in a local 2D cartesian system (tangential plane).
 !!
 !! Mathematically we solve Ax = b via Singular Value Decomposition (SVD)
@@ -944,7 +943,7 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) ::   & !< patch on which computation
     &  ptr_patch                   !< is performed
-                                        
+
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -972,7 +971,6 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
-  INTEGER :: js                   !< loop index for cells in stencil
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -1015,12 +1013,11 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-    p_coeff(:,:,1:6,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_coeff(:,:,1:6,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1146,7 +1143,7 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
     &  ptr_patch                 !< is performed
-                                        
+
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1182,7 +1179,6 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
-  INTEGER :: js                   !< loop index for cells in stencil
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -1231,12 +1227,11 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-    p_coeff(:,:,1:8,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_coeff(:,:,1:8,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1358,8 +1353,8 @@ END SUBROUTINE recon_lsq_cell_cpoor
 !! c    : cubic reconstruction
 !!
 !! Computes unknown coefficients (derivatives) of a cubic polynomial,
-!! without cross derivatives, using the least-squares method. The 
-!! coefficients are provided at cell centers in a local 2D cartesian 
+!! without cross derivatives, using the least-squares method. The
+!! coefficients are provided at cell centers in a local 2D cartesian
 !! system (tangential plane).
 !!
 !! Mathematically we solve Ax = b via Singular Value Decomposition (SVD)
@@ -1395,7 +1390,7 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
     &  ptr_patch                 !< is performed
-                                        
+
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1424,7 +1419,6 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
-  INTEGER :: js                   !< loop index for cells in stencil
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -1466,12 +1460,11 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-    p_coeff(:,:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_coeff(:,:,:,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1600,7 +1593,7 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
     &  ptr_patch                 !< is performed
-                                        
+
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1636,7 +1629,6 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
-  INTEGER :: js                   !< loop index for cells in stencil
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -1685,12 +1677,11 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-    p_coeff(:,:,1:10,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_coeff(:,:,1:10,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_d,z_qt_times_d), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -1834,7 +1825,7 @@ END SUBROUTINE recon_lsq_cell_c
 !! c    : cubic reconstruction
 !!
 !! Computes unknown coefficients (derivatives) of a cubic polynomial,
-!! using the least-squares method. The coefficients are provided at 
+!! using the least-squares method. The coefficients are provided at
 !! cell centers in a local 2D cartesian system (tangential plane).
 !!
 !! Mathematically we solve Ax = b via Singular Value Decomposition (SVD)
@@ -1873,7 +1864,7 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
   TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
     &  ptr_patch                 !< is performed
-                                        
+
   TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
     &  ptr_int_lsq
 
@@ -1902,7 +1893,6 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
   INTEGER :: slev, elev           !< vertical start and end level
   INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
-  INTEGER :: js                   !< loop index for cells in stencil
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -1945,12 +1935,11 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP PARALLEL
 
   IF (ptr_patch%id > 1 .OR. l_limited_area) THEN
-!$OMP WORKSHARE
-    p_coeff(:,:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(p_coeff(:,:,:,1:i_startblk))
+!$OMP BARRIER
   ENDIF
 
-!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), ICON_OMP_RUNTIME_SCHEDULE
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
@@ -2532,16 +2521,12 @@ IF (l_limited_area .OR. ptr_patch%id > 1) THEN
   i_startblk = ptr_patch%cells%start_blk(rl_start,1)
   i_endblk   = ptr_patch%cells%end_blk(rl_start_l2,1)
 !
-  IF (l2fields) THEN
-!$OMP WORKSHARE
-     div_vec_c(:,:,i_startblk:i_endblk) =  aux_c (:,:,i_startblk:i_endblk)
-     opt_out2 (:,:,i_startblk:i_endblk) =  aux_c2(:,:,i_startblk:i_endblk)
-!$OMP END WORKSHARE
-  ELSE
-!$OMP WORKSHARE
-     div_vec_c(:,:,i_startblk:i_endblk) =  aux_c(:,:,i_startblk:i_endblk)
-!$OMP END WORKSHARE
-  ENDIF
+  CALL copy(aux_c (:,:,i_startblk:i_endblk), &
+       div_vec_c(:,:,i_startblk:i_endblk))
+  IF (l2fields) &
+       CALL copy(aux_c2(:,:,i_startblk:i_endblk), &
+       &         opt_out2 (:,:,i_startblk:i_endblk))
+!$OMP BARRIER
 ENDIF
 
 !
@@ -2901,7 +2886,7 @@ END SUBROUTINE rot_vertex_atmos
 
 !>
 !! Same as above routine, but expects reversed index order (vertical first)
-!! of the output field if __LOOP_EXCHANGE is specified. In addition, the 
+!! of the output field if __LOOP_EXCHANGE is specified. In addition, the
 !! output field (vorticity) has single precision if __MIXED_PRECISION is specified
 !!
 !!

@@ -101,7 +101,7 @@ cat > ${atmo_namelist} << EOF
  ltestcase        = .TRUE.       ! run testcase                 --> testcase_nml
  ldynamics        = .TRUE.       ! dynamics                     --> dynamics_nml, diffusion_nml
  ltransport       = .TRUE.       ! switch on tracer transport   --> transport_nml
- ntracer          = 5            ! number of tracers
+ ntracer          = 3            ! number of tracers
  iforcing         = 2            ! ICOHAM+ECHAM physics         --> echam_phy_nml
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
@@ -123,10 +123,10 @@ cat > ${atmo_namelist} << EOF
  k2_klev_max      = 8            ! the 3 highest model levels use 2nd order diffusion
 /
 &transport_nml
- ctracer_list     = 'vwi45'      ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
- ivadv_tracer     = 3,3,3,3,3
- itype_hlimit     = 3,4,4,4,4
- ihadv_tracer     = 52,2,2,2,2
+ ctracer_list     = 'vwi'        ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+ ivadv_tracer     = 3,3,3
+ itype_hlimit     = 3,4,4
+ ihadv_tracer     = 52,2,2
 /
 &echam_phy_nml
  lrad             = .TRUE.
@@ -164,7 +164,6 @@ cat > ${atmo_namelist} << EOF
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
  output_nml_dict  = '${dict_file}'
  netcdf_dict      = '${dict_file}'
- lzaxis_reference = .FALSE. 
 /
 EOF
 
@@ -192,10 +191,6 @@ EOF
 fi
 
 if [[ "$output_atm_phy" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" != "yes" ]]; then
-    cat dict.echam.mpim >> ${dict_file}
-    dict_echam_mpim="yes"
-  fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy"
@@ -212,7 +207,7 @@ if [[ "$output_atm_phy" == "yes" ]]; then
                     'rlns_wtr', 'rlns_ice', 'rlns_lnd',
                     'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      ,
                     'sic'     , 'sit'     ,
-                    'swvis', 'swnir',
+                    'vissfc'  , 'nirsfc'  ,
                     'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
                     'clt'     ,
                     'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
@@ -252,7 +247,7 @@ if [[ "$output_lnd_phy" == "yes" ]]; then
                     'evapotrans', 'sensible_hflx', 'latent_hflx' 
                     'fact_qsat_srf', 'fact_qsat_trans_srf', 'fact_q_air', 'fract_fpc_max', 'fract_fpc'
                     't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
-                    't_soil', 'wsn_srf', 'wsr_srf', 't_rad_srf', 'grnd_hflx'
+                    't_soil', 'wsn_srf', 'wsr_srf', 'grnd_hflx'
                     'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
                     'tte_corr', 'rough_m_srf', 'rough_h_srf'
 /
@@ -260,10 +255,6 @@ EOF
 fi
 
 if [[ "$output_atm_phy_tend_temp" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" != "yes" ]]; then
-    cat dict.echam.mpim >> ${dict_file}
-    dict_echam_mpim="yes"
-  fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy_tend_ta"
@@ -281,10 +272,6 @@ EOF
 fi
 
 if [[ "$output_atm_phy_tend_wind" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" != "yes" ]]; then
-    cat dict.echam.mpim >> ${dict_file}
-    dict_echam_mpim="yes"
-  fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy_tend_wind"
@@ -302,10 +289,6 @@ EOF
 fi
 
 if [[ "$output_atm_phy_tend_trac" == "yes" ]]; then
-  if [[ "$dict_echam_mpim" != "yes" ]]; then
-    cat dict.echam.mpim >> ${dict_file}
-    dict_echam_mpim="yes"
-  fi
   cat >> ${atmo_namelist} << EOF
 &output_nml
  output_filename  = "${EXPNAME}_atm_phy_tend_trac"

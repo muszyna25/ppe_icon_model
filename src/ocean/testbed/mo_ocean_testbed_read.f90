@@ -76,11 +76,11 @@ CONTAINS
     stream_id = openInputFile(dynamics_grid_filename(1), patch_2d, &
       &                       read_netcdf_broadcast_method)
 
-    CALL read_2D(stream_id=stream_id, location=onCells, &
+    CALL read_2D(stream_id=stream_id, location=on_cells, &
       &          variable_name="cell_area", return_pointer=cell_data_broadcast)
-    CALL read_2D(stream_id=stream_id, location=onVertices, &
+    CALL read_2D(stream_id=stream_id, location=on_vertices, &
       &          variable_name="dual_area", return_pointer=vertex_data_broadcast)
-    CALL read_2D(stream_id=stream_id, location=onEdges, &
+    CALL read_2D(stream_id=stream_id, location=on_edges, &
       &          variable_name="phys_edge_id", return_pointer=edge_data_broadcast)
 
     CALL closeFile(stream_id)
@@ -88,11 +88,11 @@ CONTAINS
     stream_id = openInputFile(dynamics_grid_filename(1), patch_2d, &
       &                       read_netcdf_distribute_method)
 
-    CALL read_2D(stream_id=stream_id, location=onCells, &
+    CALL read_2D(stream_id=stream_id, location=on_cells, &
       &          variable_name="cell_area", return_pointer=cell_data_distribute)
-    CALL read_2D(stream_id=stream_id, location=onVertices, &
+    CALL read_2D(stream_id=stream_id, location=on_vertices, &
       &          variable_name="dual_area", return_pointer=vertex_data_distribute)
-    CALL read_2D(stream_id=stream_id, location=onEdges, &
+    CALL read_2D(stream_id=stream_id, location=on_edges, &
       &          variable_name="phys_edge_id", return_pointer=edge_data_distribute)
 
     CALL closeFile(stream_id)
@@ -115,7 +115,7 @@ CONTAINS
     stream_id = openInputFile(initialState_InputFileName, patch_2d, &
       &                       read_netcdf_broadcast_method)
 
-    CALL read_3D_time( stream_id=stream_id, location=onCells, &
+    CALL read_3D_time( stream_id=stream_id, location=on_cells, &
       &                variable_name="T", return_pointer=T )
 
     CALL closeFile(stream_id)
@@ -133,7 +133,7 @@ CONTAINS
 !     stream_id = openInputFile(OutputFileName, patch_2d, &
 !       &                       read_netcdf_broadcast_method)
 !
-!     CALL read_3D_time( stream_id=stream_id, location=onCells, &
+!     CALL read_3D_time( stream_id=stream_id, location=on_cells, &
 !       &                variable_name="T", return_pointer=T_check )
 !     IF ( MAXVAL(ABS(T - T_check )) > 0.0_wp ) &
 !       CALL finish(method_name, "Check failed")
@@ -215,7 +215,7 @@ CONTAINS
       stream_id = openInputFile("testfile.nc", dummy_patch, &
         &                       read_method)
 
-      CALL read_2D(stream_id, onCells, 'cell_2d_real', return_pointer=real_2d)
+      CALL read_2D(stream_id, on_cells, 'cell_2d_real', return_pointer=real_2d)
       IF (SIZE(real_2d) /= 2 * nproma) &
         CALL finish(method_name, "cell 2d real return_pointer size test failed")
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -223,7 +223,7 @@ CONTAINS
         &        i=p_pe_work+1, p_n_work * 2 * nproma, p_n_work)/))) &
         CALL finish(method_name, "cell 2d real return_point test failed")
       real_2d = 0
-      CALL read_2D(stream_id, onCells, 'cell_2d_real', fill_array=real_2d)
+      CALL read_2D(stream_id, on_cells, 'cell_2d_real', fill_array=real_2d)
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
@@ -231,7 +231,7 @@ CONTAINS
       DEALLOCATE(real_2d)
 
       ! test vertex 2d real
-      CALL read_2D(stream_id, onVertices, 'vertex_2d_real', return_pointer=real_2d)
+      CALL read_2D(stream_id, on_vertices, 'vertex_2d_real', return_pointer=real_2d)
       IF (SIZE(real_2d) /= 2*nproma) &
         CALL finish(method_name, "vertex 2d real return_pointer size test failed")
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -239,7 +239,7 @@ CONTAINS
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
         CALL finish(method_name, "vertex 2d real return_point test failed")
       real_2d = 0
-      CALL read_2D(stream_id, onVertices, 'vertex_2d_real', fill_array=real_2d)
+      CALL read_2D(stream_id, on_vertices, 'vertex_2d_real', fill_array=real_2d)
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
@@ -247,7 +247,7 @@ CONTAINS
       DEALLOCATE(real_2d)
 
       ! test edge 2d real
-      CALL read_2D(stream_id, onEdges, 'edge_2d_real', return_pointer=real_2d)
+      CALL read_2D(stream_id, on_edges, 'edge_2d_real', return_pointer=real_2d)
       IF (SIZE(real_2d) /= 2*nproma) &
         CALL finish(method_name, "edge 2d real return_pointer size test failed")
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -255,7 +255,7 @@ CONTAINS
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
         CALL finish(method_name, "edge 2d real return_point test failed")
       real_2d = 0
-      CALL read_2D(stream_id, onEdges, 'edge_2d_real', fill_array=real_2d)
+      CALL read_2D(stream_id, on_edges, 'edge_2d_real', fill_array=real_2d)
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
@@ -263,7 +263,7 @@ CONTAINS
       DEALLOCATE(real_2d)
 
       ! test cell 2d int
-      CALL read_2D_int(stream_id, onCells, 'cell_2d_int', return_pointer=int_2d)
+      CALL read_2D_int(stream_id, on_cells, 'cell_2d_int', return_pointer=int_2d)
       IF (SIZE(int_2d) /= 2*nproma) &
         CALL finish(method_name, "cell 2d int return_pointer size test failed")
       IF (ANY((/(int_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -271,7 +271,7 @@ CONTAINS
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
         CALL finish(method_name, "cell 2d int return_point test failed")
       int_2d = 0
-      CALL read_2D_int(stream_id, onCells, 'cell_2d_int', fill_array=int_2d)
+      CALL read_2D_int(stream_id, on_cells, 'cell_2d_int', fill_array=int_2d)
       IF (ANY((/(int_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &               blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
@@ -279,7 +279,7 @@ CONTAINS
       DEALLOCATE(int_2d)
 
       ! test vertex 2d int
-      CALL read_2D_int(stream_id, onVertices, 'vertex_2d_int', return_pointer=int_2d)
+      CALL read_2D_int(stream_id, on_vertices, 'vertex_2d_int', return_pointer=int_2d)
       IF (SIZE(int_2d) /= 2*nproma) &
         CALL finish(method_name, "vertex 2d int return_pointer size test failed")
       IF (ANY((/(int_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -287,7 +287,7 @@ CONTAINS
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
         CALL finish(method_name, "vertex 2d int return_point test failed")
       int_2d = 0
-      CALL read_2D_int(stream_id, onVertices, 'vertex_2d_int', fill_array=int_2d)
+      CALL read_2D_int(stream_id, on_vertices, 'vertex_2d_int', fill_array=int_2d)
       IF (ANY((/(int_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &               blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
@@ -295,7 +295,7 @@ CONTAINS
       DEALLOCATE(int_2d)
 
       ! test edge 2d int
-      CALL read_2D_int(stream_id, onEdges, 'edge_2d_int', return_pointer=int_2d)
+      CALL read_2D_int(stream_id, on_edges, 'edge_2d_int', return_pointer=int_2d)
       IF (SIZE(int_2d) /= 2*nproma) &
         CALL finish(method_name, "edge 2d int return_pointer size test failed")
       IF (ANY((/(int_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -303,7 +303,7 @@ CONTAINS
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
         CALL finish(method_name, "edge 2d int return_point test failed")
       int_2d = 0
-      CALL read_2D_int(stream_id, onEdges, 'edge_2d_int', fill_array=int_2d)
+      CALL read_2D_int(stream_id, on_edges, 'edge_2d_int', fill_array=int_2d)
       IF (ANY((/(int_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &               blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
@@ -311,7 +311,7 @@ CONTAINS
       DEALLOCATE(int_2d)
 
       ! test cell 3d real
-      CALL read_3d(stream_id, onCells, 'cell_3d_real', return_pointer=real_3d)
+      CALL read_3d(stream_id, on_cells, 'cell_3d_real', return_pointer=real_3d)
       IF (SIZE(real_3d) /= 2*nproma * 10) &
         CALL finish(method_name, "cell 3d real return_pointer size test failed")
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -320,7 +320,7 @@ CONTAINS
         &        i=p_pe_work+1, p_n_work * 2*nproma * 10, p_n_work)/))) &
         CALL finish(method_name, "cell 3d real return_point test failed")
       real_3d = 0
-      CALL read_3d(stream_id, onCells, 'cell_3d_real', fill_array=real_3d)
+      CALL read_3d(stream_id, on_cells, 'cell_3d_real', fill_array=real_3d)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                (i-1)/(p_n_work*2*nproma)+1, &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
@@ -329,7 +329,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test vertex 3d real
-      CALL read_3d(stream_id, onVertices, 'vertex_3d_real', return_pointer=real_3d)
+      CALL read_3d(stream_id, on_vertices, 'vertex_3d_real', return_pointer=real_3d)
       IF (SIZE(real_3d) /= 2*nproma * 10) &
         CALL finish(method_name, "vertex 3d real return_pointer size test failed")
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -338,7 +338,7 @@ CONTAINS
         &        i=p_pe_work+1, p_n_work * 2*nproma * 10, p_n_work)/))) &
         CALL finish(method_name, "vertex 3d real return_point test failed")
       real_3d = 0
-      CALL read_3d(stream_id, onVertices, 'vertex_3d_real', fill_array=real_3d)
+      CALL read_3d(stream_id, on_vertices, 'vertex_3d_real', fill_array=real_3d)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                (i-1)/(p_n_work*2*nproma)+1, &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
@@ -347,7 +347,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test edge 3d real
-      CALL read_3d(stream_id, onEdges, 'edge_3d_real', return_pointer=real_3d)
+      CALL read_3d(stream_id, on_edges, 'edge_3d_real', return_pointer=real_3d)
       IF (SIZE(real_3d) /= 2*nproma * 10) &
         CALL finish(method_name, "edge 3d real return_pointer size test failed")
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -356,7 +356,7 @@ CONTAINS
         &        i=p_pe_work+1, p_n_work * 2*nproma * 10, p_n_work)/))) &
         CALL finish(method_name, "edge 3d real return_point test failed")
       real_3d = 0
-      CALL read_3d(stream_id, onEdges, 'edge_3d_real', fill_array=real_3d)
+      CALL read_3d(stream_id, on_edges, 'edge_3d_real', fill_array=real_3d)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                (i-1)/(p_n_work*2*nproma)+1, &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
@@ -365,7 +365,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test cell 2d time real
-      CALL read_2d_time(stream_id, onCells, 'cell_2d_time_real', &
+      CALL read_2d_time(stream_id, on_cells, 'cell_2d_time_real', &
         &               return_pointer=real_3d)
       IF (SIZE(real_3d) /= 2*nproma * 5) &
         CALL finish(method_name, &
@@ -376,7 +376,7 @@ CONTAINS
         &        p_n_work * 2*nproma * 5, p_n_work)/))) &
         CALL finish(method_name, "cell 2d time real return_point test failed")
       real_3d = 0
-      CALL read_2d_time(stream_id, onCells, 'cell_2d_time_real', &
+      CALL read_2d_time(stream_id, on_cells, 'cell_2d_time_real', &
         &               fill_array=real_3d)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -386,7 +386,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test vertex 2d time real
-      CALL read_2d_time(stream_id, onVertices, 'vertex_2d_time_real', &
+      CALL read_2d_time(stream_id, on_vertices, 'vertex_2d_time_real', &
         &               return_pointer=real_3d)
       IF (SIZE(real_3d) /= 2*nproma * 5) &
         CALL finish(method_name, &
@@ -397,7 +397,7 @@ CONTAINS
         &        p_n_work * 2*nproma * 5, p_n_work)/))) &
         CALL finish(method_name, "vertex 2d time real return_point test failed")
       real_3d = 0
-      CALL read_2d_time(stream_id, onVertices, 'vertex_2d_time_real', &
+      CALL read_2d_time(stream_id, on_vertices, 'vertex_2d_time_real', &
         &               fill_array=real_3d)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -407,7 +407,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test edge 2d time real
-      CALL read_2d_time(stream_id, onEdges, 'edge_2d_time_real', &
+      CALL read_2d_time(stream_id, on_edges, 'edge_2d_time_real', &
         &               return_pointer=real_3d)
       IF (SIZE(real_3d) /= 2*nproma * 5) &
         CALL finish(method_name, &
@@ -418,7 +418,7 @@ CONTAINS
         &        p_n_work * 2*nproma * 5, p_n_work)/))) &
         CALL finish(method_name, "edge 2d time real return_point test failed")
       real_3d = 0
-      CALL read_2d_time(stream_id, onEdges, 'edge_2d_time_real', &
+      CALL read_2d_time(stream_id, on_edges, 'edge_2d_time_real', &
         &               fill_array=real_3d)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -428,7 +428,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test cell 2d time real (section)
-      CALL read_2d_time(stream_id, onCells, 'cell_2d_time_real', &
+      CALL read_2d_time(stream_id, on_cells, 'cell_2d_time_real', &
         &               return_pointer=real_3d, start_timestep=2, end_timestep=4)
       IF (SIZE(real_3d) /= 2*nproma * 3) &
         CALL finish(method_name, &
@@ -440,7 +440,7 @@ CONTAINS
         CALL finish(method_name, &
           &         "cell 2d time real (section) return_point test failed")
       real_3d = 0
-      CALL read_2d_time(stream_id, onCells, 'cell_2d_time_real', &
+      CALL read_2d_time(stream_id, on_cells, 'cell_2d_time_real', &
         &               fill_array=real_3d, start_timestep=2, end_timestep=4)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -451,7 +451,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test vertex 2d time real (section)
-      CALL read_2d_time(stream_id, onVertices, 'vertex_2d_time_real', &
+      CALL read_2d_time(stream_id, on_vertices, 'vertex_2d_time_real', &
         &               return_pointer=real_3d, start_timestep=2, end_timestep=4)
       IF (SIZE(real_3d) /= 2*nproma * 3) &
         CALL finish(method_name, &
@@ -463,7 +463,7 @@ CONTAINS
         CALL finish(method_name, &
           &         "vertex 2d time real (section) return_point test failed")
       real_3d = 0
-      CALL read_2d_time(stream_id, onVertices, 'vertex_2d_time_real', &
+      CALL read_2d_time(stream_id, on_vertices, 'vertex_2d_time_real', &
         &               fill_array=real_3d, start_timestep=2, end_timestep=4)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -474,7 +474,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test edge 2d time real (section)
-      CALL read_2d_time(stream_id, onEdges, 'edge_2d_time_real', &
+      CALL read_2d_time(stream_id, on_edges, 'edge_2d_time_real', &
         &               return_pointer=real_3d, start_timestep=2, end_timestep=4)
       IF (SIZE(real_3d) /= 2*nproma * 3) &
         CALL finish(method_name, &
@@ -486,7 +486,7 @@ CONTAINS
         CALL finish(method_name, &
           &         "edge 2d time real (section) return_point test failed")
       real_3d = 0
-      CALL read_2d_time(stream_id, onEdges, 'edge_2d_time_real', &
+      CALL read_2d_time(stream_id, on_edges, 'edge_2d_time_real', &
         &               fill_array=real_3d, start_timestep=2, end_timestep=4)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -497,7 +497,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test cell 2d extdim real
-      CALL read_2d_extdim(stream_id, onCells, 'cell_2d_time_real', &
+      CALL read_2d_extdim(stream_id, on_cells, 'cell_2d_time_real', &
         &                 return_pointer=real_3d)
       IF (SIZE(real_3d) /= 2*nproma * 5) &
         CALL finish(method_name, &
@@ -508,7 +508,7 @@ CONTAINS
         &        p_n_work * 2*nproma * 5, p_n_work)/))) &
         CALL finish(method_name, "cell 2d extdim real return_point test failed")
       real_3d = 0
-      CALL read_2d_extdim(stream_id, onCells, 'cell_2d_time_real', &
+      CALL read_2d_extdim(stream_id, on_cells, 'cell_2d_time_real', &
         &                 fill_array=real_3d)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -518,7 +518,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test vertex 2d extdim real
-      CALL read_2d_extdim(stream_id, onVertices, 'vertex_2d_time_real', &
+      CALL read_2d_extdim(stream_id, on_vertices, 'vertex_2d_time_real', &
         &                 return_pointer=real_3d)
       IF (SIZE(real_3d) /= 2*nproma * 5) &
         CALL finish(method_name, &
@@ -529,7 +529,7 @@ CONTAINS
         &        p_n_work * 2*nproma * 5, p_n_work)/))) &
         CALL finish(method_name, "vertex 2d extdim real return_point test failed")
       real_3d = 0
-      CALL read_2d_extdim(stream_id, onVertices, 'vertex_2d_time_real', &
+      CALL read_2d_extdim(stream_id, on_vertices, 'vertex_2d_time_real', &
         &                 fill_array=real_3d)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -539,7 +539,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test edge 2d extdim real
-      CALL read_2d_extdim(stream_id, onEdges, 'edge_2d_time_real', &
+      CALL read_2d_extdim(stream_id, on_edges, 'edge_2d_time_real', &
         &                 return_pointer=real_3d)
       IF (SIZE(real_3d) /= 2*nproma * 5) &
         CALL finish(method_name, &
@@ -550,7 +550,7 @@ CONTAINS
         &        p_n_work * 2*nproma * 5, p_n_work)/))) &
         CALL finish(method_name, "edge 2d extdim real return_point test failed")
       real_3d = 0
-      CALL read_2d_extdim(stream_id, onEdges, 'edge_2d_time_real', &
+      CALL read_2d_extdim(stream_id, on_edges, 'edge_2d_time_real', &
         &                 fill_array=real_3d)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -560,7 +560,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test cell 2d extdim real (section)
-      CALL read_2d_extdim(stream_id, onCells, 'cell_2d_time_real', &
+      CALL read_2d_extdim(stream_id, on_cells, 'cell_2d_time_real', &
         &                 return_pointer=real_3d, start_extdim=2, &
         &                 end_extdim=4, extdim_name='time')
       IF (SIZE(real_3d) /= 2*nproma * 3) &
@@ -573,7 +573,7 @@ CONTAINS
         CALL finish(method_name, &
           &         "cell 2d time real (section) return_point test failed")
       real_3d = 0
-      CALL read_2d_extdim(stream_id, onCells, 'cell_2d_time_real', &
+      CALL read_2d_extdim(stream_id, on_cells, 'cell_2d_time_real', &
         &                 fill_array=real_3d, start_extdim=2, end_extdim=4, &
         &                 extdim_name='time')
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -585,7 +585,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test vertex 2d extdim real (section)
-      CALL read_2d_extdim(stream_id, onVertices, 'vertex_2d_time_real', &
+      CALL read_2d_extdim(stream_id, on_vertices, 'vertex_2d_time_real', &
         &                 return_pointer=real_3d, start_extdim=2, &
         &                 end_extdim=4, extdim_name='time')
       IF (SIZE(real_3d) /= 2*nproma * 3) &
@@ -598,7 +598,7 @@ CONTAINS
         CALL finish(method_name, &
           &         "vertex 2d time real (section) return_point test failed")
       real_3d = 0
-      CALL read_2d_extdim(stream_id, onVertices, 'vertex_2d_time_real', &
+      CALL read_2d_extdim(stream_id, on_vertices, 'vertex_2d_time_real', &
         &                 fill_array=real_3d, start_extdim=2, end_extdim=4, &
         &                 extdim_name='time')
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -610,7 +610,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test edge 2d extdim real (section)
-      CALL read_2d_extdim(stream_id, onEdges, 'edge_2d_time_real', &
+      CALL read_2d_extdim(stream_id, on_edges, 'edge_2d_time_real', &
         &                 return_pointer=real_3d, start_extdim=2, &
         &                 end_extdim=4, extdim_name='time')
       IF (SIZE(real_3d) /= 2*nproma * 3) &
@@ -623,7 +623,7 @@ CONTAINS
         CALL finish(method_name, &
           &         "edge 2d time real (section) return_point test failed")
       real_3d = 0
-      CALL read_2d_extdim(stream_id, onEdges, 'edge_2d_time_real', &
+      CALL read_2d_extdim(stream_id, on_edges, 'edge_2d_time_real', &
         &                 fill_array=real_3d, start_extdim=2, end_extdim=4, &
         &                 extdim_name='time')
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -635,7 +635,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test cell 2d extdim int
-      CALL read_2d_extdim_int(stream_id, onCells, 'cell_2d_time_int', &
+      CALL read_2d_extdim_int(stream_id, on_cells, 'cell_2d_time_int', &
         &                     return_pointer=int_3d)
       IF (SIZE(int_3d) /= 2*nproma * 5) &
         CALL finish(method_name, &
@@ -646,7 +646,7 @@ CONTAINS
         &        p_n_work * 2*nproma * 5, p_n_work)/))) &
         CALL finish(method_name, "cell 2d extdim int return_point test failed")
       int_3d = 0
-      CALL read_2d_extdim_int(stream_id, onCells, 'cell_2d_time_int', &
+      CALL read_2d_extdim_int(stream_id, on_cells, 'cell_2d_time_int', &
         &                     fill_array=int_3d)
       IF (ANY((/(int_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &               blk_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -656,7 +656,7 @@ CONTAINS
       DEALLOCATE(int_3d)
 
       ! test vertex 2d extdim int
-      CALL read_2d_extdim_int(stream_id, onVertices, 'vertex_2d_time_int', &
+      CALL read_2d_extdim_int(stream_id, on_vertices, 'vertex_2d_time_int', &
         &                     return_pointer=int_3d)
       IF (SIZE(int_3d) /= 2*nproma * 5) &
         CALL finish(method_name, &
@@ -667,7 +667,7 @@ CONTAINS
         &        p_n_work * 2*nproma * 5, p_n_work)/))) &
         CALL finish(method_name, "vertex 2d extdim int return_point test failed")
       int_3d = 0
-      CALL read_2d_extdim_int(stream_id, onVertices, 'vertex_2d_time_int', &
+      CALL read_2d_extdim_int(stream_id, on_vertices, 'vertex_2d_time_int', &
         &                     fill_array=int_3d)
       IF (ANY((/(int_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &               blk_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -677,7 +677,7 @@ CONTAINS
       DEALLOCATE(int_3d)
 
       ! test edge 2d extdim int
-      CALL read_2d_extdim_int(stream_id, onEdges, 'edge_2d_time_int', &
+      CALL read_2d_extdim_int(stream_id, on_edges, 'edge_2d_time_int', &
         &                     return_pointer=int_3d)
       IF (SIZE(int_3d) /= 2*nproma * 5) &
         CALL finish(method_name, &
@@ -688,7 +688,7 @@ CONTAINS
         &        p_n_work * 2*nproma * 5, p_n_work)/))) &
         CALL finish(method_name, "edge 2d extdim int return_point test failed")
       int_3d = 0
-      CALL read_2d_extdim_int(stream_id, onEdges, 'edge_2d_time_int', &
+      CALL read_2d_extdim_int(stream_id, on_edges, 'edge_2d_time_int', &
         &                     fill_array=int_3d)
       IF (ANY((/(int_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &               blk_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -698,7 +698,7 @@ CONTAINS
       DEALLOCATE(int_3d)
 
       ! test cell 2d extdim int (section)
-      CALL read_2d_extdim_int(stream_id, onCells, 'cell_2d_time_int', &
+      CALL read_2d_extdim_int(stream_id, on_cells, 'cell_2d_time_int', &
         &                     return_pointer=int_3d, start_extdim=2, &
         &                 end_extdim=4, extdim_name='time')
       IF (SIZE(int_3d) /= 2*nproma * 3) &
@@ -711,7 +711,7 @@ CONTAINS
         CALL finish(method_name, &
           &         "cell 2d time int (section) return_point test failed")
       int_3d = 0
-      CALL read_2d_extdim_int(stream_id, onCells, 'cell_2d_time_int', &
+      CALL read_2d_extdim_int(stream_id, on_cells, 'cell_2d_time_int', &
         &                     fill_array=int_3d, start_extdim=2, end_extdim=4, &
         &                     extdim_name='time')
       IF (ANY((/(int_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -723,7 +723,7 @@ CONTAINS
       DEALLOCATE(int_3d)
 
       ! test vertex 2d extdim int (section)
-      CALL read_2d_extdim_int(stream_id, onVertices, 'vertex_2d_time_int', &
+      CALL read_2d_extdim_int(stream_id, on_vertices, 'vertex_2d_time_int', &
         &                     return_pointer=int_3d, start_extdim=2, &
         &                     end_extdim=4, extdim_name='time')
       IF (SIZE(int_3d) /= 2*nproma * 3) &
@@ -736,7 +736,7 @@ CONTAINS
         CALL finish(method_name, &
           &         "vertex 2d time int (section) return_point test failed")
       int_3d = 0
-      CALL read_2d_extdim_int(stream_id, onVertices, 'vertex_2d_time_int', &
+      CALL read_2d_extdim_int(stream_id, on_vertices, 'vertex_2d_time_int', &
         &                     fill_array=int_3d, start_extdim=2, end_extdim=4, &
         &                     extdim_name='time')
       IF (ANY((/(int_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -748,7 +748,7 @@ CONTAINS
       DEALLOCATE(int_3d)
 
       ! test edge 2d extdim int (section)
-      CALL read_2d_extdim_int(stream_id, onEdges, 'edge_2d_time_int', &
+      CALL read_2d_extdim_int(stream_id, on_edges, 'edge_2d_time_int', &
         &                     return_pointer=int_3d, start_extdim=2, &
         &                     end_extdim=4, extdim_name='time')
       IF (SIZE(int_3d) /= 2*nproma * 3) &
@@ -761,7 +761,7 @@ CONTAINS
         CALL finish(method_name, &
           &         "edge 2d time int (section) return_point test failed")
       int_3d = 0
-      CALL read_2d_extdim_int(stream_id, onEdges, 'edge_2d_time_int', &
+      CALL read_2d_extdim_int(stream_id, on_edges, 'edge_2d_time_int', &
         &                     fill_array=int_3d, start_extdim=2, end_extdim=4, &
         &                     extdim_name='time')
       IF (ANY((/(int_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -773,7 +773,7 @@ CONTAINS
       DEALLOCATE(int_3d)
 
       ! test cell 3d time real
-      CALL read_3d_time(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_3d_time(stream_id, on_cells, 'cell_3d_time_real', &
         &               return_pointer=real_4d)
       IF (SIZE(real_4d) /= 2*nproma * 10 * 5) &
         CALL finish(method_name, &
@@ -785,7 +785,7 @@ CONTAINS
         &                i=p_pe_work+1, p_n_work * 2*nproma * 10 * 5, p_n_work)/))) &
         CALL finish(method_name, "cell 3d time real return_point test failed")
       real_4d = 0
-      CALL read_3d_time(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_3d_time(stream_id, on_cells, 'cell_3d_time_real', &
         &               fill_array=real_4d)
       IF (ANY((/(real_4d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                MOD((i-1)/(p_n_work*2*nproma),10)+1, &
@@ -796,7 +796,7 @@ CONTAINS
       DEALLOCATE(real_4d)
 
       ! test vertex 3d time real
-      CALL read_3d_time(stream_id, onVertices, 'vertex_3d_time_real', &
+      CALL read_3d_time(stream_id, on_vertices, 'vertex_3d_time_real', &
         &               return_pointer=real_4d)
       IF (SIZE(real_4d) /= 2*nproma * 10 * 5) &
         CALL finish(method_name, &
@@ -808,7 +808,7 @@ CONTAINS
         &                i=p_pe_work+1, p_n_work * 2*nproma * 10 * 5, p_n_work)/))) &
         CALL finish(method_name, "vertex 3d time real return_point test failed")
       real_4d = 0
-      CALL read_3d_time(stream_id, onVertices, 'vertex_3d_time_real', &
+      CALL read_3d_time(stream_id, on_vertices, 'vertex_3d_time_real', &
         &               fill_array=real_4d)
       IF (ANY((/(real_4d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                MOD((i-1)/(p_n_work*2*nproma),10)+1, &
@@ -819,7 +819,7 @@ CONTAINS
       DEALLOCATE(real_4d)
 
       ! test edge 3d time real
-      CALL read_3d_time(stream_id, onEdges, 'edge_3d_time_real', &
+      CALL read_3d_time(stream_id, on_edges, 'edge_3d_time_real', &
         &               return_pointer=real_4d)
       IF (SIZE(real_4d) /= 2*nproma * 10 * 5) &
         CALL finish(method_name, &
@@ -831,7 +831,7 @@ CONTAINS
         &                i=p_pe_work+1, p_n_work * 2*nproma * 10 * 5, p_n_work)/))) &
         CALL finish(method_name, "edge 3d time real return_point test failed")
       real_4d = 0
-      CALL read_3d_time(stream_id, onEdges, 'edge_3d_time_real', &
+      CALL read_3d_time(stream_id, on_edges, 'edge_3d_time_real', &
         &               fill_array=real_4d)
       IF (ANY((/(real_4d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                MOD((i-1)/(p_n_work*2*nproma),10)+1, &
@@ -842,7 +842,7 @@ CONTAINS
       DEALLOCATE(real_4d)
 
       ! test cell 3d time real (section)
-      CALL read_3d_time(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_3d_time(stream_id, on_cells, 'cell_3d_time_real', &
         &               return_pointer=real_4d, start_timestep=2, end_timestep=4)
       IF (SIZE(real_4d) /= 2*nproma * 10 * 3) &
         CALL finish(method_name, &
@@ -856,7 +856,7 @@ CONTAINS
           &         "cell 3d time real (section) return_point test failed")
       END IF
       real_4d = 0
-      CALL read_3d_time(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_3d_time(stream_id, on_cells, 'cell_3d_time_real', &
         &               fill_array=real_4d, start_timestep=2, end_timestep=4)
       IF (ANY((/(real_4d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                MOD((i-1)/(p_n_work*2*nproma),10)+1, &
@@ -868,7 +868,7 @@ CONTAINS
       DEALLOCATE(real_4d)
 
       ! test vertex 3d time real (section)
-      CALL read_3d_time(stream_id, onVertices, 'vertex_3d_time_real', &
+      CALL read_3d_time(stream_id, on_vertices, 'vertex_3d_time_real', &
         &               return_pointer=real_4d, start_timestep=2, end_timestep=4)
       IF (SIZE(real_4d) /= 2*nproma * 10 * 3) &
         CALL finish(method_name, &
@@ -882,7 +882,7 @@ CONTAINS
           &         "vertex 3d time real (section) return_point test failed")
       END IF
       real_4d = 0
-      CALL read_3d_time(stream_id, onVertices, 'vertex_3d_time_real', &
+      CALL read_3d_time(stream_id, on_vertices, 'vertex_3d_time_real', &
         &               fill_array=real_4d, start_timestep=2, end_timestep=4)
       IF (ANY((/(real_4d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                MOD((i-1)/(p_n_work*2*nproma),10)+1, &
@@ -894,7 +894,7 @@ CONTAINS
       DEALLOCATE(real_4d)
 
       ! test edge 3d time real (section)
-      CALL read_3d_time(stream_id, onEdges, 'edge_3d_time_real', &
+      CALL read_3d_time(stream_id, on_edges, 'edge_3d_time_real', &
         &               return_pointer=real_4d, start_timestep=2, end_timestep=4)
       IF (SIZE(real_4d) /= 2*nproma * 10 * 3) &
         CALL finish(method_name, &
@@ -908,7 +908,7 @@ CONTAINS
           &         "edge 3d time real (section) return_point test failed")
       END IF
       real_4d = 0
-      CALL read_3d_time(stream_id, onEdges, 'edge_3d_time_real', &
+      CALL read_3d_time(stream_id, on_edges, 'edge_3d_time_real', &
         &               fill_array=real_4d, start_timestep=2, end_timestep=4)
       IF (ANY((/(real_4d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                MOD((i-1)/(p_n_work*2*nproma),10)+1, &
@@ -920,7 +920,7 @@ CONTAINS
       DEALLOCATE(real_4d)
 
       ! test cell 3d extdim real
-      CALL read_3d_extdim(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_cells, 'cell_3d_time_real', &
         &                 return_pointer=real_4d)
       IF (SIZE(real_4d) /= 2*nproma * 10 * 5) &
         CALL finish(method_name, &
@@ -932,7 +932,7 @@ CONTAINS
         &                i=p_pe_work+1, p_n_work * 2*nproma * 10 * 5, p_n_work)/))) &
         CALL finish(method_name, "cell 3d extdim real return_point test failed")
       real_4d = 0
-      CALL read_3d_extdim(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_cells, 'cell_3d_time_real', &
         &                 fill_array=real_4d)
       IF (ANY((/(real_4d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                MOD((i-1)/(p_n_work*2*nproma),10)+1, &
@@ -943,7 +943,7 @@ CONTAINS
       DEALLOCATE(real_4d)
 
       ! test vertex 3d extdim real
-      CALL read_3d_extdim(stream_id, onVertices, 'vertex_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_vertices, 'vertex_3d_time_real', &
         &                 return_pointer=real_4d)
       IF (SIZE(real_4d) /= 2*nproma * 10 * 5) &
         CALL finish(method_name, &
@@ -955,7 +955,7 @@ CONTAINS
         &                i=p_pe_work+1, p_n_work * 2*nproma * 10 * 5, p_n_work)/))) &
         CALL finish(method_name, "vertex 3d extdim real return_point test failed")
       real_4d = 0
-      CALL read_3d_extdim(stream_id, onVertices, 'vertex_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_vertices, 'vertex_3d_time_real', &
         &                 fill_array=real_4d)
       IF (ANY((/(real_4d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                MOD((i-1)/(p_n_work*2*nproma),10)+1, &
@@ -966,7 +966,7 @@ CONTAINS
       DEALLOCATE(real_4d)
 
       ! test edge 3d extdim real
-      CALL read_3d_extdim(stream_id, onEdges, 'edge_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_edges, 'edge_3d_time_real', &
         &                 return_pointer=real_4d)
       IF (SIZE(real_4d) /= 2*nproma * 10 * 5) &
         CALL finish(method_name, &
@@ -978,7 +978,7 @@ CONTAINS
         &                i=p_pe_work+1, p_n_work * 2*nproma * 10 * 5, p_n_work)/))) &
         CALL finish(method_name, "edge 3d extdim real return_point test failed")
       real_4d = 0
-      CALL read_3d_extdim(stream_id, onEdges, 'edge_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_edges, 'edge_3d_time_real', &
         &                 fill_array=real_4d)
       IF (ANY((/(real_4d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                MOD((i-1)/(p_n_work*2*nproma),10)+1, &
@@ -989,7 +989,7 @@ CONTAINS
       DEALLOCATE(real_4d)
 
       ! test cell 3d extdim real (section)
-      CALL read_3d_extdim(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_cells, 'cell_3d_time_real', &
         &               return_pointer=real_4d, start_extdim=2, end_extdim=4)
       IF (SIZE(real_4d) /= 2*nproma * 10 * 3) &
         CALL finish(method_name, &
@@ -1003,7 +1003,7 @@ CONTAINS
           &         "cell 3d extdim real (section) return_point test failed")
       END IF
       real_4d = 0
-      CALL read_3d_extdim(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_cells, 'cell_3d_time_real', &
         &               fill_array=real_4d, start_extdim=2, end_extdim=4)
       IF (ANY((/(real_4d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                MOD((i-1)/(p_n_work*2*nproma),10)+1, &
@@ -1015,7 +1015,7 @@ CONTAINS
       DEALLOCATE(real_4d)
 
       ! test vertex 3d extdim real (section)
-      CALL read_3d_extdim(stream_id, onVertices, 'vertex_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_vertices, 'vertex_3d_time_real', &
         &               return_pointer=real_4d, start_extdim=2, end_extdim=4)
       IF (SIZE(real_4d) /= 2*nproma * 10 * 3) &
         CALL finish(method_name, &
@@ -1029,7 +1029,7 @@ CONTAINS
           &         "vertex 3d extdim real (section) return_point test failed")
       END IF
       real_4d = 0
-      CALL read_3d_extdim(stream_id, onVertices, 'vertex_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_vertices, 'vertex_3d_time_real', &
         &               fill_array=real_4d, start_extdim=2, end_extdim=4)
       IF (ANY((/(real_4d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                MOD((i-1)/(p_n_work*2*nproma),10)+1, &
@@ -1041,7 +1041,7 @@ CONTAINS
       DEALLOCATE(real_4d)
 
       ! test edge 3d extdim real (section)
-      CALL read_3d_extdim(stream_id, onEdges, 'edge_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_edges, 'edge_3d_time_real', &
         &               return_pointer=real_4d, start_extdim=2, end_extdim=4)
       IF (SIZE(real_4d) /= 2*nproma * 10 * 3) &
         CALL finish(method_name, &
@@ -1055,7 +1055,7 @@ CONTAINS
           &         "edge 3d extdim real (section) return_point test failed")
       END IF
       real_4d = 0
-      CALL read_3d_extdim(stream_id, onEdges, 'edge_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_edges, 'edge_3d_time_real', &
         &               fill_array=real_4d, start_extdim=2, end_extdim=4)
       IF (ANY((/(real_4d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                MOD((i-1)/(p_n_work*2*nproma),10)+1, &
@@ -1067,7 +1067,7 @@ CONTAINS
       DEALLOCATE(real_4d)
 
       ! test cell 3d extdim real with dimension names
-      CALL read_3d_extdim(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_3d_extdim(stream_id, on_cells, 'cell_3d_time_real', &
         &                 return_pointer=real_4d, levelsDimName='levels', &
         &                 extdim_name='time')
       IF (SIZE(real_4d) /= 2*nproma * 10 * 5) &
@@ -1091,7 +1091,7 @@ CONTAINS
       stream_id = openInputFile("testfile.nc", dummy_patch, read_method)
 
       ! test cell 2d 1time real
-      CALL read_2D_1time(stream_id, onCells, 'cell_2d_time_real', return_pointer=real_2d)
+      CALL read_2D_1time(stream_id, on_cells, 'cell_2d_time_real', return_pointer=real_2d)
       IF (SIZE(real_2d) /= 2*nproma) &
         CALL finish(method_name, "cell 2d 1time real return_pointer size test failed")
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
@@ -1099,7 +1099,7 @@ CONTAINS
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
         CALL finish(method_name, "cell 2d real 1time return_point test failed")
       real_2d = 0
-      CALL read_2D_1time(stream_id, onCells, 'cell_2d_time_real', fill_array=real_2d)
+      CALL read_2D_1time(stream_id, on_cells, 'cell_2d_time_real', fill_array=real_2d)
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
@@ -1107,7 +1107,7 @@ CONTAINS
       DEALLOCATE(real_2d)
 
       ! test vertex 2d 1time real
-      CALL read_2D_1time(stream_id, onVertices, 'vertex_2d_time_real', &
+      CALL read_2D_1time(stream_id, on_vertices, 'vertex_2d_time_real', &
         &                return_pointer=real_2d)
       IF (SIZE(real_2d) /= 2*nproma) &
         CALL finish(method_name, "vertex 2d 1time real return_pointer size test failed")
@@ -1116,7 +1116,7 @@ CONTAINS
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
         CALL finish(method_name, "vertex 2d 1time real return_point test failed")
       real_2d = 0
-      CALL read_2D_1time(stream_id, onVertices, 'vertex_2d_time_real', &
+      CALL read_2D_1time(stream_id, on_vertices, 'vertex_2d_time_real', &
         &                fill_array=real_2d)
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
@@ -1125,7 +1125,7 @@ CONTAINS
       DEALLOCATE(real_2d)
 
       ! test edge 2d 1time real
-      CALL read_2D_1time(stream_id, onEdges, 'edge_2d_time_real', &
+      CALL read_2D_1time(stream_id, on_edges, 'edge_2d_time_real', &
         &                return_pointer=real_2d)
       IF (SIZE(real_2d) /= 2*nproma) &
         CALL finish(method_name, "edge 2d 1time real return_pointer size test failed")
@@ -1134,7 +1134,7 @@ CONTAINS
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
         CALL finish(method_name, "edge 2d 1time real return_point test failed")
       real_2d = 0
-      CALL read_2D_1time(stream_id, onEdges, 'edge_2d_time_real', fill_array=real_2d)
+      CALL read_2D_1time(stream_id, on_edges, 'edge_2d_time_real', fill_array=real_2d)
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
         &        i=p_pe_work+1, p_n_work * 2*nproma, p_n_work)/))) &
@@ -1142,7 +1142,7 @@ CONTAINS
       DEALLOCATE(real_2d)
 
       ! test cell 2d 1lev 1time real
-      CALL read_2D_1lev_1time(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_2D_1lev_1time(stream_id, on_cells, 'cell_3d_time_real', &
         &                     return_pointer=real_2d)
       IF (SIZE(real_2d) /= 2*nproma) &
         CALL finish(method_name, &
@@ -1153,7 +1153,7 @@ CONTAINS
         CALL finish(method_name, &
           &         "cell 2d 1lev 1time real return_point test failed")
       real_2d = 0
-      CALL read_2D_1lev_1time(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_2D_1lev_1time(stream_id, on_cells, 'cell_3d_time_real', &
         &                     fill_array=real_2d)
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
@@ -1162,7 +1162,7 @@ CONTAINS
       DEALLOCATE(real_2d)
 
       ! test vertex 2d 1lev 1time real
-      CALL read_2D_1lev_1time(stream_id, onVertices, 'vertex_3d_time_real', &
+      CALL read_2D_1lev_1time(stream_id, on_vertices, 'vertex_3d_time_real', &
         &                     return_pointer=real_2d)
       IF (SIZE(real_2d) /= 2*nproma) &
         CALL finish(method_name, &
@@ -1173,7 +1173,7 @@ CONTAINS
         CALL finish(method_name, &
           &         "vertex 2d 1lev 1time real return_point test failed")
       real_2d = 0
-      CALL read_2D_1lev_1time(stream_id, onVertices, 'vertex_3d_time_real', &
+      CALL read_2D_1lev_1time(stream_id, on_vertices, 'vertex_3d_time_real', &
         &                     fill_array=real_2d)
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
@@ -1182,7 +1182,7 @@ CONTAINS
       DEALLOCATE(real_2d)
 
       ! test edge 2d 1lev 1time real
-      CALL read_2D_1lev_1time(stream_id, onEdges, 'edge_3d_time_real', &
+      CALL read_2D_1lev_1time(stream_id, on_edges, 'edge_3d_time_real', &
         &                     return_pointer=real_2d)
       IF (SIZE(real_2d) /= 2*nproma) &
         CALL finish(method_name, &
@@ -1193,7 +1193,7 @@ CONTAINS
         CALL finish(method_name, &
           &         "edge 2d 1lev 1time real return_point test failed")
       real_2d = 0
-      CALL read_2D_1lev_1time(stream_id, onEdges, 'edge_3d_time_real', &
+      CALL read_2D_1lev_1time(stream_id, on_edges, 'edge_3d_time_real', &
         &                     fill_array=real_2d)
       IF (ANY((/(real_2d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, &
@@ -1202,7 +1202,7 @@ CONTAINS
       DEALLOCATE(real_2d)
 
       ! test cell 3d 1time real
-      CALL read_3d_1time(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_3d_1time(stream_id, on_cells, 'cell_3d_time_real', &
         &                return_pointer=real_3d)
       IF (SIZE(real_3d) /= 2*nproma * 1) &
         CALL finish(method_name, &
@@ -1212,7 +1212,7 @@ CONTAINS
         &        p_n_work * 2*nproma * 1, p_n_work)/))) &
         CALL finish(method_name, "cell 3d 1time real return_point test failed")
       real_3d = 0
-      CALL read_3d_1time(stream_id, onCells, 'cell_3d_time_real', &
+      CALL read_3d_1time(stream_id, on_cells, 'cell_3d_time_real', &
         &                fill_array=real_3d)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), (i-1)/(p_n_work*2*nproma)+1, &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, i=p_pe_work+1, &
@@ -1221,7 +1221,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test vertex 3d 1time real
-      CALL read_3d_1time(stream_id, onVertices, 'vertex_3d_time_real', &
+      CALL read_3d_1time(stream_id, on_vertices, 'vertex_3d_time_real', &
         &                return_pointer=real_3d)
       IF (SIZE(real_3d) /= 2*nproma * 1) &
         CALL finish(method_name, &
@@ -1231,7 +1231,7 @@ CONTAINS
         &        p_n_work * 2*nproma * 1, p_n_work)/))) &
         CALL finish(method_name, "vertex 3d 1time real return_point test failed")
       real_3d = 0
-      CALL read_3d_1time(stream_id, onVertices, 'vertex_3d_time_real', &
+      CALL read_3d_1time(stream_id, on_vertices, 'vertex_3d_time_real', &
         &                fill_array=real_3d)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), (i-1)/(p_n_work*2*nproma)+1, &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, i=p_pe_work+1, &
@@ -1240,7 +1240,7 @@ CONTAINS
       DEALLOCATE(real_3d)
 
       ! test edge 3d 1time real
-      CALL read_3d_1time(stream_id, onEdges, 'edge_3d_time_real', &
+      CALL read_3d_1time(stream_id, on_edges, 'edge_3d_time_real', &
         &                return_pointer=real_3d)
       IF (SIZE(real_3d) /= 2*nproma * 1) &
         CALL finish(method_name, &
@@ -1250,7 +1250,7 @@ CONTAINS
         &        p_n_work * 2*nproma * 1, p_n_work)/))) &
         CALL finish(method_name, "edge 3d 1time real return_point test failed")
       real_3d = 0
-      CALL read_3d_1time(stream_id, onEdges, 'edge_3d_time_real', &
+      CALL read_3d_1time(stream_id, on_edges, 'edge_3d_time_real', &
         &                fill_array=real_3d)
       IF (ANY((/(real_3d(idx_no(MOD((i-1)/p_n_work,2*nproma)+1), (i-1)/(p_n_work*2*nproma)+1, &
         &                blk_no(MOD((i-1)/p_n_work,2*nproma)+1)) /= i, i=p_pe_work+1, &

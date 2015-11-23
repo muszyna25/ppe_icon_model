@@ -148,10 +148,10 @@ The quantities
 \end{tabbing}
 \end{note}
 represent extreme values, which are collected over certain time intervals $\chi$, starting from the beginning of the forecast.
-The interval $\chi$ differs for the different model domains and is set to 
+The interval $\chi$ differs temperatures and gusts:
 \begin{itemize}
-  \item $\chi=3\,\mathrm{h}$ on the global domain 
-  \item $\chi=1\,\mathrm{h}$ on the nested EU domain until $vv=78\,\mathrm{h}$ and $\chi=3\,\mathrm{h}$ afterwards.
+  \item $\chi=6\,\mathrm{h}$ for temperatures, TMAX\_2M and TMIN\_2M,
+  \item $\chi=1\,\mathrm{h}$ for gusts, VMAX\_10M.
 \end{itemize}
 After $\chi$ hours of forecast the fields are re-initialized with $0$ for the first time and the next $\chi$-hourly collection 
 phase is started. This procedure is repeated till the end of the forecast.
@@ -164,11 +164,11 @@ database is given as
 Here, $t_{i}$ indicates the time when $\Psi_{max}$ was (re)-initialized the last time. For $t=0$, the extreme value $\Psi_{max}$ 
 is equal to the instantaneous value $\Psi$. 
 
-\paragraph{Please note:} Even though a 3 hour time window is used, the database contains hourly, 2-hourly and 3-hourly 
-extreme value fields. This is because the extreme value fields are written to the database hourly, irrespective of the 
-start/end of the 3-hourly time windows. Example: Extreme value fields which are written into the database after a 
-forecast time of $5$ hours, contain extreme values collected over the last $2$ hours. On the other hand, extreme value fields 
-written into the database after $6$ hours contain values collected over the last $3$ hours.
+\paragraph{Please note:} Even though a 6 hour time window is used for temperatures, the database contains hourly, 2-hourly, etc.        
+extreme temperatures. This is because the extreme temperatures are written to the database hourly, irrespective of the 
+start/end of the 6-hourly time windows. Example: Extreme temperatures which are written into the database after a 
+forecast time of $8$ hours, contain extreme values collected over the last $2$ hours. On the other hand, extreme temperatures
+written into the database after $12$ hours contain values collected over the last $6$ hours.
 Thus, when dealing with those fields it is very important to check the GRIB2 keys listed in Table \ref{tab_GRIB2extreme}.
 
 \texttt{productDefinitionTemplateNumber=8} indicates that the field in question is statistically processed. The statistical process itself 
@@ -197,7 +197,6 @@ Since the collection process is restarted every $\chi$ hours, the key \texttt{fo
 
 
 
-
 % --------------------------------------------------------------------------------
 \section{Technical Details of the Horizontal Interpolation}
 \label{section:technical_details_of_the_horizontal_interpolation}
@@ -213,22 +212,27 @@ Note that RBF-based interpolation is \emph{not conservative}.\\
 
 A small number of output fields is treated differently, with a nearest-neighbor interpolation:
 \begin{tabbing}
-  \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \kill
+  \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \kill
+  CAPE\_CON                  \>
+  HBAS\_CON\footnotemark[6]  \>
+  HTOP\_CON\footnotemark[6]  \>
+  HTOP\_DC\footnotemark[6]   \\  
+  HZEROCL\footnotemark[6]    \>
   RAIN\_CON  \>
   RAIN\_GSP  \>   
   SNOW\_CON  \\
   SNOW\_GSP  \>
+  SNOWLMT    \>
   SOILTYP    \>
   TOT\_PREC  \\
   W\_SO\_ICE \>
-  WW         \>
-  SNOWLMT
+  WW   
 \end{tabbing}
 The nearest neighbor algorithm selects the value of the nearest point and does
 not consider the values of neighboring points at all, yielding a piecewise-constant interpolant. 
 
 
-
+\footnotetext[6]{Nearest neighbor interpolation mode starting from 2015-05-19 (previously RBF).}
 
 
 %  The following variables are marked as HINTP_TYPE_LONLAT_NNB in the ICON code:

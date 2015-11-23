@@ -53,7 +53,7 @@ MODULE mo_icon_cpl_init
    &                      initial_date
 
   USE mo_time_base,     ONLY : set_julian_day
-  USE mo_event_manager, ONLY : event_init
+  USE mo_icon_cpl_event_manager, ONLY : event_init
 
   IMPLICIT NONE
 

@@ -13,6 +13,9 @@
 !! headers of the routines.
 !!
 !!
+!=============================================================================================
+#include "ocean_dsl_definitions.inc"
+!=============================================================================================
 MODULE mo_ocean_types
 
   USE mo_kind,                ONLY: wp, sp
@@ -20,8 +23,9 @@ MODULE mo_ocean_types
     & success, max_char_length, min_dolic,               &
     & full_coriolis, beta_plane_coriolis,                &
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
-  USE mo_math_utilities,      ONLY: t_cartesian_coordinates,cvec2gvec,      &
+  USE mo_math_utilities,      ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
+  USE mo_ocean_diagnostics_types, ONLY: t_ocean_monitor
   
   PUBLIC :: t_hydro_ocean_base
   PUBLIC :: t_hydro_ocean_state
@@ -29,27 +33,31 @@ MODULE mo_ocean_types
   PUBLIC :: t_hydro_ocean_diag
   PUBLIC :: t_hydro_ocean_aux
   PUBLIC :: t_hydro_ocean_acc
-  PUBLIC :: t_ocean_monitor
-  PUBLIC :: t_pointer_3d_wp
+  PUBLIC :: t_onCells_Pointer_3d_wp, t_onCells_HalfLevels_Pointer_wp, t_onEdges_Pointer_3d_wp
   PUBLIC :: t_oce_config
   PUBLIC :: t_ocean_tracer
   
-  PUBLIC :: t_ocean_regions
-  PUBLIC :: t_ocean_region_volumes
-  PUBLIC :: t_ocean_region_areas
-  PUBLIC :: t_ocean_basins
 
   PUBLIC :: t_verticalAdvection_ppm_coefficients
   PUBLIC :: t_operator_coeff
   PUBLIC :: t_solverCoeff_singlePrecision
 
-
-  TYPE t_pointer_3d_wp
-    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D array
-  END TYPE t_pointer_3d_wp
-  TYPE t_pointer_2d_wp
-    REAL(wp),POINTER :: p(:,:)   ! pointer to 2D array
-  END TYPE t_pointer_2d_wp
+  TYPE t_onCells_Pointer_3d_wp
+    onCells :: p  ! pointer to 3D array
+  END TYPE t_onCells_Pointer_3d_wp
+  TYPE t_onCells_HalfLevels_Pointer_wp
+    onCells_HalfLevels :: p  ! pointer to 3D array
+  END TYPE t_onCells_HalfLevels_Pointer_wp
+  TYPE t_onEdges_Pointer_3d_wp
+    onCells :: p  ! pointer to 3D array
+  END TYPE t_onEdges_Pointer_3d_wp
+  TYPE t_onEdges_HalfLevels_Pointer_wp
+    onEdges_HalfLevels :: p  ! pointer to 3D array
+  END TYPE t_onEdges_HalfLevels_Pointer_wp
+  
+!   TYPE t_pointer_2d_wp
+!     REAL(wp),POINTER :: p(:,:)   ! pointer to 2D array
+!   END TYPE t_pointer_2d_wp
   !
   !! basis types for constructing 3-dim ocean state
   !
@@ -70,14 +78,14 @@ MODULE mo_ocean_types
     !!             vertical information is calculated from this array of
     !!             thicknesses.
     !!             Dimension: n_zlev
-    REAL(wp), ALLOCATABLE :: del_zlev_m(:)
+    onGrid_1D :: del_zlev_m
     
     !! zlev_m    : position of the vertical cell centers, i.e. below zero surface;
     !!             Numbering starts from surface and increases downwards to bottom.
     !!             Dimension: n_zlev
     !!             At these surfaces the horizontal velocities, vorticity, divergence
     !!             and scalar variables are evaluated.
-    REAL(wp), ALLOCATABLE :: zlev_m(:)
+    onGrid_1D :: zlev_m
     
     
     !! zlev_i    : vertical position of the UPPER BORDER of the vertical cell
@@ -85,12 +93,12 @@ MODULE mo_ocean_types
     !!             Position of first surface is 0.
     !!             Dimension: n_zlvp = n_zlev + 1
     !!             The vertical velocities are evaluated at such surfaces.
-    REAL(wp), ALLOCATABLE :: zlev_i(:)
+    onGrid_HalfLevels1D :: zlev_i
     
     !! del_zlev_i: distance between two z-coordinate surfaces. The first is
     !!             the distance from the ocean surface = zlev_m(1)
     !!             Dimension: n_zlev
-    REAL(wp), ALLOCATABLE :: del_zlev_i(:)
+    onGrid_1D :: del_zlev_i
     
     
     ! land-sea-mask for ocean has 3 dimensions (the 2nd is the number of
@@ -99,10 +107,10 @@ MODULE mo_ocean_types
     !
     ! land-sea-mask for cell centers
     ! index1=1,nproma, index2=1,n_zlev, index3=1,alloc_cell_blocks
-    INTEGER, ALLOCATABLE :: lsm_c(:,:,:)
+    onCells_3D_Int :: lsm_c
     ! land-sea-mask for cell edges
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_e
-    INTEGER, ALLOCATABLE :: lsm_e(:,:,:)
+    onEdges_3D_Int :: lsm_e
     ! land-sea-mask for cell vertices
     ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_v
     ! INTEGER, ALLOCATABLE :: lsm_v(:,:,:)
@@ -116,352 +124,254 @@ MODULE mo_ocean_types
     ! to the number of z-coodinate surfaces.
     
     ! index1=1,nproma, index2=1,alloc_cell_blocks
-    INTEGER, ALLOCATABLE :: dolic_c(:,:)
+    onCells_2D_Int :: dolic_c
     ! index1=1,nproma, index2=1,nblks_e
-    INTEGER, ALLOCATABLE :: dolic_e(:,:)
+    onEdges_2D_Int :: dolic_e
     
     ! For diagnosis like stream functions and area calculations we add surface arrays
     ! index1=1,nproma, index2=1,alloc_cell_blocks
-    INTEGER,  ALLOCATABLE :: basin_c(:,:)  ! basin information Atlantic/Indian/Pacific
-    INTEGER,  ALLOCATABLE :: regio_c(:,:)  ! area information like tropical Atlantic etc.
+    onCells_2D_Int :: basin_c  ! basin information Atlantic/Indian/Pacific
+    onCells_2D_Int :: regio_c  ! area information like tropical Atlantic etc.
     
     ! To simply set land points to zero we store additional 3-dim wet points
     ! dimensions as in lsm_oce:
-    REAL(wp), ALLOCATABLE :: wet_c(:,:,:)  ! cell centers
-    REAL(wp), ALLOCATABLE :: wet_e(:,:,:)  ! cell edges
-    !REAL(wp), ALLOCATABLE :: wet_i(:,:,:)  ! vertical velocity points
-    !                                       ! on intermediate levels
+    onCells :: wet_c  ! cell centers
+    onEdges :: wet_e  ! cell edges
     
-    
-    !!$    ! Arrays that describe vertical connectivity of the triangles.
-    !!$    ! The indices of triangles are stored in a whole vertical column.
-    !!$    ! index1=1,nproma, index2=1,alloc_cell_blocks, index3=1,n_zlev
-    !!$    INTEGER, ALLOCATABLE :: neighbor_c(:,:,:)
-    !!$    ! index1=1,nproma, index2=1,nblks_e, index3=1,n_zlev
-    !!$    INTEGER, ALLOCATABLE :: neighbor_e(:,:,:)
   END TYPE t_hydro_ocean_base
   
   TYPE t_ocean_tracer
-    REAL(wp),POINTER :: concentration(:,:,:)
+    onCells :: concentration
 !     REAL(wp),POINTER :: concentration_x_height(:,:,:) not used any more 
   END TYPE t_ocean_tracer
-  !
-!   TYPE t_ocean_physic_fluxes
-!     REAL(wp),POINTER :: Redi_flux_horz(:,:,:)
-!     REAL(wp),POINTER :: Redi_flux_vert(:,:,:)    
-!     REAL(wp),POINTER :: GM_flux_horz(:,:,:)
-!     REAL(wp),POINTER :: GM_flux_vert(:,:,:)    
-!     REAL(wp),POINTER :: GMRedi_flux_horz(:,:,:)
-!     REAL(wp),POINTER :: GMRedi_flux_vert(:,:,:)    
-!    
-!   END TYPE t_ocean_physic_fluxes  
-  !! prognostic variables
-  !
+
+  !----------------------------------------------
+  ! prognostic variables
   TYPE t_hydro_ocean_prog
-    
-    REAL(wp), POINTER ::    &
-      & h(:,:)                ,& ! height of the free surface. Unit: [m]
-    ! dimension:(nproma, alloc_cell_blocks)
-      & vn(:,:,:)             ,& ! velocity component normal to cell edge. Unit [m/s]
-    ! dimension: (nproma, n_zlev, nblks_e)
-      & tracer(:,:,:,:)          ! tracer concentration.
-    ! dimension: (nproma, n_zlev, alloc_cell_blocks, no_tracer)
-    ! Ordering of tracers:
-    !   1) pot_temp:= potential temperature, Unit: [deg C]
-    !   2) salinity:= salinity, Unit [psu]
+
+    onCells_2D :: h
+    onEdges :: vn
+    onCells_tracers :: tracer
+     ! Ordering of tracers:
+     !   1) pot_temp:= potential temperature, Unit: [deg C]
+     !   2) salinity:= salinity, Unit [psu]
     
     TYPE(t_ocean_tracer), ALLOCATABLE :: ocean_tracers(:)
     
-    TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
   END TYPE t_hydro_ocean_prog
   
-  !
-  !! diagnostic variables
-  !
-  
-  TYPE t_ocean_monitor
-    REAL(wp), POINTER :: volume(:)
-    REAL(wp), POINTER :: kin_energy(:)
-    REAL(wp), POINTER :: pot_energy(:)
-    REAL(wp), POINTER :: total_energy(:)
-    REAL(wp), POINTER :: total_salt(:)
-    REAL(wp), POINTER :: vorticity(:)
-    REAL(wp), POINTER :: enstrophy(:)
-    REAL(wp), POINTER :: potential_enstrophy(:)
-    REAL(wp), POINTER :: absolute_vertical_velocity(:)
-    REAL(wp), POINTER :: HeatFlux_ShortWave(:)
-    REAL(wp), POINTER :: HeatFlux_LongWave(:)
-    REAL(wp), POINTER :: HeatFlux_Sensible(:)
-    REAL(wp), POINTER :: HeatFlux_Latent(:)
-    REAL(wp), POINTER :: HeatFlux_Total(:)
-    REAL(wp), POINTER :: FrshFlux_Precipitation(:)
-    REAL(wp), POINTER :: FrshFlux_SnowFall(:)
-    REAL(wp), POINTER :: FrshFlux_Evaporation(:)
-    REAL(wp), POINTER :: FrshFlux_Runoff(:)
-    REAL(wp), POINTER :: FrshFlux_TotalSalt(:)
-    REAL(wp), POINTER :: FrshFlux_TotalOcean(:)
-    REAL(wp), POINTER :: FrshFlux_TotalIce(:)
-    REAL(wp), POINTER :: FrshFlux_VolumeIce(:)
-    REAL(wp), POINTER :: FrshFlux_VolumeTotal(:)
-    REAL(wp), POINTER :: HeatFlux_Relax(:)
-    REAL(wp), POINTER :: FrshFlux_Relax(:)
-    REAL(wp), POINTER :: TempFlux_Relax(:)
-    REAL(wp), POINTER :: SaltFlux_Relax(:)
-    
-    REAL(wp), POINTER :: ice_volume_nh(:)!                                                           [km3]
-    REAL(wp), POINTER :: ice_volume_sh(:)!                                                           [km3]
-    REAL(wp), POINTER :: ice_extent_nh(:)!                                                           [km2]
-    REAL(wp), POINTER :: ice_extent_sh(:)!                                                           [km2]
-    ! throug, POINTER  flows {{{
-    REAL(wp), POINTER :: gibraltar(:)     ! though flow                                               [Sv]
-    REAL(wp), POINTER :: denmark_strait(:)! though flow                                               [Sv]
-    REAL(wp), POINTER :: drake_passage(:) ! though flow                                               [Sv]
-    REAL(wp), POINTER :: indonesian_throughflow(:) !                                                  [Sv]
-    REAL(wp), POINTER :: scotland_iceland(:) !                                                        [Sv]
-    REAL(wp), POINTER :: mozambique(:)
-    REAL(wp), POINTER :: framStrait(:)
-    REAL(wp), POINTER :: beringStrait(:)
-    REAL(wp), POINTER :: barentsOpening(:)
-    REAL(wp), POINTER :: agulhas(:)
-    REAL(wp), POINTER :: agulhas_long(:)
-    REAL(wp), POINTER :: agulhas_longer(:)
-    ! }}}
-    REAL(wp), POINTER :: t_mean_na_200m(:) !                                                        [degC]
-    REAL(wp), POINTER :: t_mean_na_800m(:) !                                                        [degC]
-    REAL(wp), POINTER :: ice_ocean_heat_budget(:)
-    REAL(wp), POINTER :: ice_ocean_salinity_budget(:)
-    REAL(wp), POINTER :: ice_ocean_volume_budget(:)
-    REAL(wp), ALLOCATABLE :: tracer_content(:)
-  END TYPE t_ocean_monitor
 
   TYPE t_hydro_ocean_diag
-    
-    REAL(wp), POINTER ::        &
-    ! & vt(:,:,:)             ,& ! tangential velocity component at edges. Unit [m/s].
-    ! dimension: (nproma,n_zlev, nblks_e)
-      & rho(:,:,:)            ,& ! density. Unit: [kg/m^3]
-    ! dimension: (nproma,n_zlev, alloc_cell_blocks)
-      & rhopot(:,:,:)         ,& ! potential density. Unit: [kg/m^3]
-    ! dimension: (nproma,n_zlev, alloc_cell_blocks)
-      & zgrad_rho(:,:,:)      ,& ! vertical density gradient. Unit: [kg/m^2]
-    ! dimension: (nproma,n_zlev, alloc_cell_blocks)
-      & h_e(:,:)              ,& ! surface height at cell edges. Unit [m].
-    ! dimension: (nproma, nblks_e)
-      & thick_c(:,:)          ,& ! individual fluid column thickness at cells. Unit [m].
-    ! dimension: (nproma, alloc_cell_blocks)
-      & thick_e(:,:)          ,& ! individual fluid column thickness at edges. Unit [m].
-    ! dimension: (nproma, nblks_e)
-      & mass_flx_e(:,:,:)     ,& ! individual fluid column thickness at cells. Unit [m].
-    ! dimension: (nproma,n_zlev, nblks_e)
-      & div_mass_flx_c(:,:,:) ,& ! individual fluid column thickness at cells. Unit [m].
-    ! dimension: (nproma,n_zlev, alloc_cell_blocks)
-      & w(:,:,:)              ,& ! vertical velocity. Unit [m/s].
-    ! dimension: (nproma, n_zlev+1, alloc_cell_blocks)
-      & w_old(:,:,:)          ,& ! vertical velocity from previous timestep. Unit [m/s].
-    ! dimension: (nproma, n_zlev+1, alloc_cell_blocks)
-      & w_e(:,:,:)            ,& ! vertical velocity at edges. Unit [m/s]
-    ! dimension: (nproma, n_zlev+1, nblks_e)
-      & w_prev(:,:,:)         ,& ! vertical velocity at cells, from previous timestep. Unit [m/s]
-    ! dimension: (nproma, n_zlev+1, alloc_cell_blocks)
-      & u(:,:,:)              ,& ! reconstructed zonal velocity component. Unit [m/s]
-    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
-      & v(:,:,:)              ,& ! reconstructed meridional velocity component. Unit [m/s]
-    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
-      & u_vint(:,:)           ,& ! barotropic zonal velocity. Unit [m*m/s]
-    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
-      & v_vint(:,:)           ,& ! barotropic meridional velocity. Unit [m*m/s]
-    ! dimension: (nproma, alloc_cell_blocks)
-      & ptp_vn(:,:,:)         ,& ! normal velocity after mapping P^T P
-    ! dimension: (nproma, n_zlev, nblks_e)
-      & vn_pred(:,:,:)        ,& ! predicted normal velocity vector at edges.
-    ! dimension: (nproma, n_zlev, nblks_e)
-      & vn_pred_ptp(:,:,:)        ,& ! predicted normal velocity vector at edges.
-    ! dimension: (nproma, n_zlev, nblks_e)    
-    !  & vn_impl_vert_diff(:,:,:),& ! predicted normal velocity vector at edges.
-    ! dimension: (nproma, n_zlev, nblks_e)
-      & vn_time_weighted(:,:,:),&  ! predicted normal velocity vector at edges.
-    ! dimension: (nproma, n_zlev, nblks_e)
-      & w_time_weighted(:,:,:),& ! predicted normal velocity vector at cells
-    ! dimension: (nproma, n_zlev, nblks_c)
-      & vort(:,:,:)           ,& ! vorticity at triangle vertices. Unit [1/s]
-    ! dimension: (nproma, n_zlev, nblks_v)
-      & vort_e(:,:,:)         ,& ! vorticity interpolated to triangle edges. Unit [1/s]
-    ! dimension: (nproma, n_zlev, nblks_e)
-      & kin(:,:,:)            ,& ! kinetic energy. Unit [m/s].
-    ! (nproma, n_zlev, alloc_cell_blocks)
-      & mld(:,:)              ,& ! mixed layer depth [m].
-    ! (nproma,  alloc_cell_blocks)
-      & veloc_adv_horz(:,:,:) ,& ! horizontal velocity advection
-    ! dimension: (nproma,n_zlev, nblks_e)
-      & veloc_adv_vert(:,:,:) ,& ! vertical velocity advection
-    ! dimension: (nproma,n_zlev, nblks_e)
-      & laplacian_horz(:,:,:) ,& ! horizontal diffusion of horizontal velocity
-    ! dimension: (nproma,n_zlev, nblks_e)
-      & laplacian_vert(:,:,:) ,& ! vertical diffusion of horizontal velocity
-    ! dimension: (nproma,n_zlev, nblks_e)
-      & grad(:,:,:)           ,& ! gradient of kinetic energy. Unit [m/s]
-    ! dimension: (nproma,n_zlev, nblks_e)
-      & div(:,:,:)            ,& ! divergence. Unit [m/s]
-    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
-      & press_hyd(:,:,:)      ,& ! hydrostatic pressure. Unit [m]
-    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
-      & press_grad(:,:,:)     ,& ! hydrostatic pressure gradient term. Unit [m/s]
-    ! dimension: (nproma, n_zlev, nblks_e)
-      & temp_insitu(:,:,:)    ,&
-      & temp_horizontally_diffused(:,:,:)    ,&
-      
-      & cfl_vert(:,:,:), cfl_horz(:,:,:),& ! vertical and horizontal cfl values    
-      & GMRedi_flux_horz(:,:,:,:),& ! dimension: (nproma,n_zlev, nblks_e)
-      & GMRedi_flux_vert(:,:,:,:)   ! dimension: (nproma,n_zlev+1, nblks_c)
 
-!     TYPE(t_ocean_physic_fluxes), ALLOCATABLE :: ocean_physics_fluxes(:)    
-!     TYPE(t_pointer_3d_wp),ALLOCATABLE :: ocean_physics_flux_ptr(:)
-    INTEGER, POINTER :: &
-      & condep(:,:)     ! convection depth index
-    ! (nproma,  alloc_cell_blocks)
+    onCells ::                 &
+      & rho            ,& ! density. Unit: [kg/m^3]
+      & rhopot         ,& ! potential density. Unit: [kg/m^3]
+      & div_mass_flx_c ,& !
+      & u              ,& ! reconstructed zonal velocity component. Unit [m/s]
+      & v              ,& ! reconstructed meridional velocity component. Unit [m/s]
+!       & potential_vort_c ,& ! potential vorticity averaged to triangle cells. Unit [1/s]
+      & kin            ,& ! kinetic energy. Unit [m/s].
+      & div            ,& ! divergence. Unit [m/s]
+      & press_hyd      ,& ! hydrostatic pressure. Unit [m]
+      & temp_insitu    ,&
+      & t,s ! dummy pointer for output variabless
+
+    onCells_2D :: &
+      & thick_c          ,& ! individual fluid column thickness at cells. Unit [m].
+      & u_vint           ,& ! barotropic zonal velocity. Unit [m*m/s]
+      & v_vint           ,& ! barotropic meridional velocity. Unit [m*m/s]
+      & mld              ,& ! mixed layer depth [m].
+      & condep           ,&! convection depth index
+      & h  ! dummy pointer for output variables
+      
+    onCells_Type(t_cartesian_coordinates) :: &
+      & p_vn              ! reconstructed velocity at cell center in cartesian coordinates
+      
+    onCells_2D_Type(t_cartesian_coordinates) :: &
+      & p_mass_flux_sfc_cc  ! mass flux at surface in cartesian coordinates
+      
+    onCells_HalfLevels_tracers ::        &
+      & GMRedi_flux_vert
+
+    onCells_HalfLevels ::        &
+      & zgrad_rho      ,& ! vertical density gradient. Unit: [kg/m^2] this is allocated on n_zlev
+      & w              ,& ! vertical velocity. Unit [m/s].
+      & w_old          ,& ! vertical velocity from previous timestep. Unit [m/s].
+!       & w_prev         ,& ! vertical velocity at cells, from previous timestep. Unit [m/s]
+      & w_time_weighted,& ! predicted normal velocity vector at cells
+      & cfl_vert          ! vertical cfl values
+
+    onEdges_tracers :: &
+      & GMRedi_flux_horz 
     
-    TYPE(t_cartesian_coordinates), POINTER :: &
-      & p_vn(:,:,:)              ! reconstructed velocity at cell center in cartesian coordinates
-    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates), POINTER :: &
-      & p_vn_dual(:,:,:)         ! reconstructed velocity at vertex in cartesian coordinates
-    ! dimension: (nproma, n_zlev, nblks_v)
-    TYPE(t_cartesian_coordinates), POINTER :: &
-      & p_vn_mean(:,:,:)         ! reconstructed velocity at vertex in cartesian coordinates
-    ! dimension: (nproma, n_zlev, nblks_v). For mimetic miura scheme
+    onEdges :: &
+      & mass_flx_e     ,& ! individual fluid column thickness at cells. Unit [m].
+      & ptp_vn         ,& ! normal velocity after mapping P^T P
+      & vn_pred        ,& ! predicted normal velocity vector at edges.
+      & vn_pred_ptp    ,& ! predicted normal velocity vector at edges.
+      & vn_time_weighted,&  ! predicted normal velocity vector at edges.
+      & vort_e          ,& ! vorticity interpolated to triangle edges. Unit [1/s]
+!       & potential_vort_e,& ! potential vorticity at triangle edges. Unit [1/s]
+      & veloc_adv_horz ,& ! horizontal velocity advection
+      & veloc_adv_vert ,& ! vertical velocity advection
+      & laplacian_horz ,& ! horizontal diffusion of horizontal velocity
+      & laplacian_vert ,& ! vertical diffusion of horizontal velocity
+      & grad           ,& ! gradient of kinetic energy. Unit [m/s]
+      & press_grad     ,& ! hydrostatic pressure gradient term. Unit [m/s]
+      & cfl_horz,       & ! horizontal cfl values
+      & vn  
+      
+    onEdges_HalfLevels :: &
+      & w_e            ! vertical velocity at edges. Unit [m/s]
+
+    onVertices :: &
+      & vort            ! vorticity at triangle vertices. Unit [1/s]
+      
+    onVertices_Type(t_cartesian_coordinates) :: &
+      & p_vn_dual,   &    ! reconstructed velocity at vertex in cartesian coordinates
+      & p_vn_mean         ! reconstructed velocity at vertex in cartesian coordinates
     
-    TYPE(t_cartesian_coordinates), POINTER :: &
-      & p_mass_flux_sfc_cc(:,:)  ! mass flux at surface in cartesian coordinates
-    ! dimension: (nproma, alloc_cell_blocks).
-    !-----------------------------------------------------------------------------------
-    ! dummy pointers for prognostic variables:
-    REAL(wp), POINTER :: h(:,:),vn(:,:,:),t(:,:,:),s(:,:,:) ! dummy pointer for output variabless
-    !-----------------------------------------------------------------------------------
+    onEdges_2D :: &
+      & h_e              ,& ! surface height at cell edges. Unit [m].
+      & thick_e          ! individual fluid column thickness at edges. Unit [m].
+    
     TYPE(t_ocean_monitor) :: monitor
+    
   END TYPE t_hydro_ocean_diag
+  !-------------------------------------------------------------------------
+    
+  !-------------------------------------------------------------------------
   !
   !! auxiliary data
   !
   TYPE t_hydro_ocean_aux
+
+    onEdges :: &
+      & g_n           ,& ! explicit velocity term in Adams-Bashford time marching routines,
+                                ! at timelevel n
+      & g_nm1         ,& ! explicit velocity term in Adams-Bashford time marching routines,
+                                ! at timelevel n-1
+      & g_nimd           ! explicit velocity term in Adams-Bashford time marching routines,
+                                ! located at intermediate timelevel
+
+    onEdges_2D :: &
+      & bc_bot_vn       ,& ! normal velocity boundary condition at bottom
+      & bc_top_vn       ,& ! normal velocity boundary condition at top
+      & bc_top_WindStress ! normal velocity boundary condition at surface
+
+    onCells_2D :: &
+      & bc_top_u        ,& ! zonal velocity boundary condition at surface
+      & bc_top_v        ,& ! meridional velocity boundary condition at surface
+      & bc_top_w        ,& ! vertical velocity boundary condition at surface
+      & bc_bot_w           ! vertical velocity boundary condition at bottom
+      
+    onCells_2D_tracers :: &
+      & bc_top_tracer,    &
+      & bc_bot_tracer 
+      
+    onCells_2D ::       &
+      & p_rhs_sfc_eq     ! right hand side of surface equation
+      
+    onCells_2D_Type(t_cartesian_coordinates) :: bc_top_veloc_cc
     
-    REAL(wp), POINTER ::       &
-      & g_n(:,:,:)           ,& ! explicit velocity term in Adams-Bashford time marching routines,
-    ! at timelevel n
-    ! dimension: (nproma, n_zlev, nblks_e)
-      & g_nm1(:,:,:)         ,& ! explicit velocity term in Adams-Bashford time marching routines,
-    ! at timelevel n-1
-    ! dimension: (nproma, n_zlev, nblks_e)
-      & g_nimd(:,:,:)           ! explicit velocity term in Adams-Bashford time marching routines,
-    ! located at intermediate timelevel
-    REAL(wp), POINTER ::       &
-      & bc_top_vn(:,:)       ,& ! normal velocity boundary condition at surface
-    ! dimension: (nproma,nblks_e)
-      & bc_bot_vn(:,:)       ,& ! normal velocity boundary condition at bottom
-    ! dimension: (nproma,alloc_cell_blocks)
-      & bc_top_u(:,:)        ,& ! zonal velocity boundary condition at surface
-    ! dimension: (nproma,alloc_cell_blocks)
-      & bc_top_v(:,:)        ,& ! meridional velocity boundary condition at surface
-    ! dimension: (nproma,alloc_cell_blocks)
-      & bc_bot_u(:,:)        ,& ! zonal velocity boundary condition at bottom
-    ! dimension: (nproma,alloc_cell_blocks)
-      & bc_bot_v(:,:)        ,& ! meridional velocity boundary condition at bottom
-    ! dimension: (nproma,alloc_cell_blocks)
-      & bc_top_w(:,:)        ,& ! vertical velocity boundary condition at surface
-    ! dimension: (nproma,alloc_cell_blocks)
-      & bc_bot_w(:,:)        ,& ! vertical velocity boundary condition at bottom
-      & bc_top_tracer(:,:,:) ,& ! vertical velocity boundary condition at surface
-    ! dimension: (nproma,alloc_cell_blocks)
-      & bc_bot_tracer(:,:,:) ,& ! vertical velocity boundary condition at bottom
-      & p_rhs_sfc_eq(:,:)!,   & ! right hand side of surface equation
-    ! dimension: (nproma,alloc_cell_blocks)
-    TYPE(t_cartesian_coordinates), POINTER :: bc_top_veloc_cc(:,:), &
-      & bc_bot_veloc_cc(:,:)
-    TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)     !< pointer array: one pointer for each tracer
+    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)     !< pointer array: one pointer for each tracer
 !     TYPE(t_pointer_2d_wp), ALLOCATABLE :: bc_top_tracer(:) !< pointer array: one pointer for each tracer boundary condition
     
     ! Variables for 3-dim tracer relaxation:
-    REAL(wp), POINTER ::         &
-      & data_3dimRelax_Temp(:,:,:), & ! 3-dim temperature relaxation data (T*)
-    ! dimension: (nproma,n_zlev,alloc_cell_blocks)
-      & forc_3dimRelax_Temp(:,:,:), & ! 3-dim temperature relaxation forcing (1/tau*(T-T*))
-    ! dimension: (nproma,n_zlev,alloc_cell_blocks)
-      & data_3dimRelax_Salt(:,:,:), & ! 3-dim salinity relaxation data (T*)
-    ! dimension: (nproma,n_zlev,alloc_cell_blocks)
-      & forc_3dimRelax_Salt(:,:,:)    ! 3-dim salinity relaxation forcing (1/tau*(T-T*))
-    ! dimension: (nproma,n_zlev,alloc_cell_blocks)
+    onCells :: &
+      & data_3dimRelax_Temp, & ! 3-dim temperature relaxation data (T*)
+      & forc_3dimRelax_Temp, & ! 3-dim temperature relaxation forcing (1/tau*(T-T*))
+      & data_3dimRelax_Salt, & ! 3-dim salinity relaxation data (T*)
+      & forc_3dimRelax_Salt, &    ! 3-dim salinity relaxation forcing (1/tau*(T-T*))
+      & relax_3dim_coefficient ! 3-dim relaxation coefficient when the relaxation varies
 
-    TYPE(t_cartesian_coordinates), POINTER :: &
-      & slopes(:,:,:)              ! neutral slopes at cell center in cartesian coordinates
-    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
+    onCells_Type(t_cartesian_coordinates) :: &
+      & slopes              ! neutral slopes at cell center in cartesian coordinates
 
-   REAL(wp), POINTER :: slopes_squared(:,:,:) 
-   REAL(wp), POINTER :: taper_function_1(:,:,:) 
-   REAL(wp), POINTER :: taper_function_2(:,:,:) 
+    onCells :: &
+      & slopes_squared,   &
+      & taper_function_1, &
+      & taper_function_2
 
-    TYPE(t_cartesian_coordinates), POINTER :: &
-      & PgradTemperature_horz_center(:,:,:)              ! reconstructed temperature gradient at cell center in cartesian coordinates
-    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
+    onCells_Type(t_cartesian_coordinates) :: &
+      & PgradTemperature_horz_center,        & ! reconstructed temperature gradient at cell center in cartesian coordinates
+      & PgradSalinity_horz_center              ! reconstructed salinity gradient at cell center in cartesian coordinates
 
-    TYPE(t_cartesian_coordinates), POINTER :: &
-      & PgradSalinity_horz_center(:,:,:)              ! reconstructed salinity gradient at cell center in cartesian coordinates
-    ! dimension: (nproma, n_zlev, alloc_cell_blocks)
-
-   REAL(wp), POINTER ::         &
-      & DerivTemperature_vert_center(:,:,:), & ! 
-      & DerivSalinity_vert_center(:,:,:) 
+   onCells ::         &
+      & DerivTemperature_vert_center, &  
+      & DerivSalinity_vert_center 
 
   END TYPE t_hydro_ocean_aux
-  
+
+  !-------------------------------
   ! variables to be accumulated
   TYPE t_hydro_ocean_acc
-    REAL(wp), POINTER :: &
-      & h(:,:)                  ,&
-      & u(:,:,:)                ,&
-      & v(:,:,:)                ,&
-      & w(:,:,:)                ,& ! vertical velocity. Unit [m/s].
-      & rho(:,:,:)              ,& ! density. Unit: [kg/m^3]
-      & rhopot(:,:,:)           ,& ! potential density. Unit: [kg/m^3]
-      & mass_flx_e(:,:,:)       ,& ! mass flux at edges. Unit [?].
-      & div_mass_flx_c(:,:,:)   ,& ! divergence of mass flux at cells. Unit [?].
-      & u_vint(:,:)             ,& ! barotropic zonal velocity. Unit [m*m/s]
-      & v_vint(:,:)             ,& ! barotropic meridional velocity. Unit [m*m/s]
-      & ptp_vn(:,:,:)           ,& ! normal velocity after mapping P^T P
-      & vn_pred(:,:,:)          ,& ! predicted normal velocity vector at edges.
-      ! & vn_impl_vert_diff(:,:,:),& ! predicted normal velocity vector at edges.
-      & vn_time_weighted(:,:,:) ,&  ! predicted normal velocity vector at edges.
-      & w_time_weighted(:,:,:)  ,& ! predicted normal velocity vector at cells.
-      & vort(:,:,:)             ,& ! vorticity at triangle vertices. Unit [1/s]
-      & kin(:,:,:)              ,& ! kinetic energy. Unit [m/s].
-      & veloc_adv_horz(:,:,:)   ,& ! horizontal velocity advection
-      & veloc_adv_vert(:,:,:)   ,& ! vertical velocity advection
-      & laplacian_horz(:,:,:)   ,& ! horizontal diffusion of horizontal velocity
-      & laplacian_vert(:,:,:)   ,& ! vertical diffusion of horizontal velocity
-      & grad(:,:,:)             ,& ! gradient of kinetic energy. Unit [m/s]
-      & div(:,:,:)              ,& ! divergence. Unit [m/s]
-      & press_hyd(:,:,:)        ,& ! hydrostatic pressure. Unit [m]
-      & press_grad(:,:,:)       ,& ! hydrostatic pressure gradient term. Unit [m/s]
-      & temp_insitu(:,:,:)      ,&
-      & tracer(:,:,:,:)
-    TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
+
+    onCells ::            &
+      & u                ,& ! reconstructed zonal velocity component. Unit [m/s]
+      & v                ,& ! reconstructed meridional velocity component. Unit [m/s]
+      & rho              ,& ! density. Unit: [kg/m^3]
+      & rhopot           ,& ! potential density. Unit: [kg/m^3]
+      & div_mass_flx_c   ,& ! divergence of mass flux at cells. Unit [?].
+      & kin                 ! kinetic energy. Unit [m/s].
+
+    onCells_HalfLevels :: &
+      & w                ,& ! vertical velocity. Unit [m/s].
+      & w_time_weighted  ,& ! weighted vertical velocity
+      & press_hyd           ! hydrostatic pressure. Unit [m]
+
+    onCells_2D ::         &
+      & h                ,&
+      & h_sqr            ,&
+      & u_vint           ,& ! barotropic zonal velocity. Unit [m*m/s]
+      & v_vint           ,& ! barotropic meridional velocity. Unit [m*m/s]
+      & div              ,& ! divergence. Unit [m/s]
+      & temp_insitu       
+    
+    onEdges :: &
+      & mass_flx_e       ,& ! mass flux at edges. Unit [?].
+      & ptp_vn           ,& ! normal velocity after mapping P^T P
+      & vn_pred          ,& ! predicted normal velocity vector at edges.
+      & vn_time_weighted ,&  ! predicted normal velocity vector at edges.
+      & veloc_adv_horz   ,& ! horizontal velocity advection
+      & laplacian_horz   ,& ! horizontal diffusion of horizontal velocity
+      & laplacian_vert   ,& ! vertical diffusion of horizontal velocity
+      & grad             ,& ! gradient of kinetic energy. Unit [m/s]
+      & press_grad          ! hydrostatic pressure gradient term. Unit [m/s]
+
+    onVertices ::         &
+      & vort                ! vorticity at triangle vertices. Unit [1/s]
+      
+    onCells_tracers :: tracer
+    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
 
     ! physics
-    ! diffusion coefficients for horizontal/vertical velocity, 
+    ! diffusion coefficients for horizontal/vertical velocity,
     !  temp. and salinity, dim=(nproma,n_zlev,nblks_ec)/(nproma,n_zlev+1,nblks_e)
-    REAL(wp),POINTER ::      &
-      & k_tracer_h(:,:,:,:), & ! coefficient of horizontal tracer diffusion
-      & a_tracer_v(:,:,:,:), & ! coefficient of vertical tracer diffusion
-      & k_veloc_h(:,:,:),    & ! coefficient of horizontal velocity diffusion
-      & a_veloc_v(:,:,:)       ! coefficient of vertical velocity diffusion
-    TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_horz_physics_ptr(:)
-    TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_vert_physics_ptr(:)
+    onEdges_tracers ::       &
+      & k_tracer_h            ! coefficient of horizontal tracer diffusion
+
+    onEdges :: &
+      & k_veloc_h             ! coefficient of horizontal velocity diffusion
+
+    onCells_HalfLevels_tracers ::    &
+      & a_tracer_v            ! coefficient of vertical tracer diffusion
     
-    REAL(wp),POINTER ::              &
-      & k_tracer_isoneutral(:,:,:),  & ! coefficient of isoneutral tracer diffusion diffusion at cells
-      & k_tracer_dianeutral(:,:,:),  & ! coefficient of dianeutral tracer diffusion
-      & k_tracer_GM_kappa(:,:,:)       ! coefficient of Gent-McWilliams mesoscale eddyparametrizations
+    onEdges_HalfLevels ::    &
+      & a_veloc_v             ! coefficient of vertical velocity diffusion
+      
+    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_horz_physics_ptr(:)
+    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: tracer_vert_physics_ptr(:)
+
+    onCells ::   &
+      & k_tracer_isoneutral,  & ! coefficient of isoneutral tracer diffusion diffusion at cells
+      & k_tracer_dianeutral,  & ! coefficient of dianeutral tracer diffusion
+      & k_tracer_GM_kappa       ! coefficient of Gent-McWilliams mesoscale eddyparametrizations
 
   END TYPE t_hydro_ocean_acc
   
+  !-------------------------------
   INTEGER, PARAMETER :: max_tracers = 2
   TYPE t_oce_config
     CHARACTER(LEN=max_char_length) :: tracer_names(max_tracers)
@@ -471,93 +381,23 @@ MODULE mo_ocean_types
     INTEGER :: tracer_codes(max_tracers)
   END TYPE t_oce_config
   
-  !----------------------------------------------------------------------------
-  !
-  ! Ocean areas/regions:
-  !  0 = land point
-  !  1 = Greenland-Iceland-Norwegian Sea
-  !  2 = Arctic Ocean
-  !  3 = Labrador Sea
-  !  4 = North Atlantic Ocean
-  !  5 = Tropical Atlantic Ocean
-  !  6 = Southern Ocean
-  !  7 = Indian Ocean
-  !  8 = Tropical Pacific Ocean
-  !  9 = North Pacific Ocean
-  !
-  !-----------------------------
-  TYPE t_ocean_regions
-    INTEGER :: &
-      & land                            = 0,&
-      & greenland_iceland_norwegian_sea = 1,&
-      & arctic_ocean                    = 2,&
-      & labrador_sea                    = 3,&
-      & north_atlantic                  = 4,&
-      & tropical_atlantic               = 5,&
-      & southern_ocean                  = 6,&
-      & indian_ocean                    = 7,&
-      & tropical_pacific                = 8,&
-      & north_pacific                   = 9,&
-      & caribbean                       = -33
-  END TYPE t_ocean_regions
-  TYPE t_ocean_region_volumes
-    REAL(wp)            :: &
-      & land                            = 0.0_wp,&
-      & greenland_iceland_norwegian_sea = 0.0_wp,&
-      & arctic_ocean                    = 0.0_wp,&
-      & labrador_sea                    = 0.0_wp,&
-      & north_atlantic                  = 0.0_wp,&
-      & tropical_atlantic               = 0.0_wp,&
-      & southern_ocean                  = 0.0_wp,&
-      & indian_ocean                    = 0.0_wp,&
-      & tropical_pacific                = 0.0_wp,&
-      & north_pacific                   = 0.0_wp,&
-      & caribbean                       = 0.0_wp,&
-      & total                           = 0.0_wp
-  END TYPE t_ocean_region_volumes
-  TYPE t_ocean_region_areas
-    REAL(wp)            :: &
-      & land                            = 0.0_wp,&
-      & greenland_iceland_norwegian_sea = 0.0_wp,&
-      & arctic_ocean                    = 0.0_wp,&
-      & labrador_sea                    = 0.0_wp,&
-      & north_atlantic                  = 0.0_wp,&
-      & tropical_atlantic               = 0.0_wp,&
-      & southern_ocean                  = 0.0_wp,&
-      & indian_ocean                    = 0.0_wp,&
-      & tropical_pacific                = 0.0_wp,&
-      & north_pacific                   = 0.0_wp,&
-      & caribbean                       = 0.0_wp,&
-      & total                           = 0.0_wp
-  END TYPE t_ocean_region_areas
-  !-----------------------------
-  !
-  ! Ocean basins:
-  !  1: Atlantic; 3: Pacific, for Indean and pacific the area values ara used
-  !
-  !-----------------------------
-  TYPE t_ocean_basins
-    INTEGER :: &
-      & atlantic = 1, pacific = 3
-  END TYPE t_ocean_basins
-  !-----------------------------
 
 
   !-------------------------------------------------------------------------------
   TYPE t_verticalAdvection_ppm_coefficients
     !  coefficients for the upwind_vflux_ppm vertical advection
-    !  these are allocated in a block mode (ie each block allocates its own coefeicients)
-    ! all dimensions are (nproma, levels),
+    !  these are allocated in a block mode (ie each block allocates its own coefficients)
+    !  all dimensions are (nproma, levels),
     !  although not all the levels are actually used
-    REAL(wp), POINTER ::  cellHeightRatio_This_toBelow(:,:)
-    REAL(wp), POINTER ::  cellHeightRatio_This_toThisBelow(:,:)
-    REAL(wp), POINTER ::  cellHeight_2xBelow_x_RatioThis_toThisBelow(:,:)
-    REAL(wp), POINTER ::  cellHeightRatio_This_toThisAboveBelow(:,:)
-    REAL(wp), POINTER ::  cellHeightRatio_2xAboveplusThis_toThisBelow(:,:)
-    REAL(wp), POINTER ::  cellHeightRatio_2xBelowplusThis_toThisAbove(:,:)
-    REAL(wp), POINTER ::  cellHeightRatio_ThisAbove_to2xThisplusBelow(:,:)
-    REAL(wp), POINTER ::  cellHeightRatio_ThisBelow_to2xThisplusAbove(:,:)
-    REAL(wp), POINTER ::  cellHeight_inv_ThisAboveBelow2Below(:,:)
+    onCellsBlock ::  cellHeightRatio_This_toBelow
+    onCellsBlock ::  cellHeightRatio_This_toThisBelow
+    onCellsBlock ::  cellHeight_2xBelow_x_RatioThis_toThisBelow
+    onCellsBlock ::  cellHeightRatio_This_toThisAboveBelow
+    onCellsBlock ::  cellHeightRatio_2xAboveplusThis_toThisBelow
+    onCellsBlock ::  cellHeightRatio_2xBelowplusThis_toThisAbove
+    onCellsBlock ::  cellHeightRatio_ThisAbove_to2xThisplusBelow
+    onCellsBlock ::  cellHeightRatio_ThisBelow_to2xThisplusAbove
+    onCellsBlock ::  cellHeight_inv_ThisAboveBelow2Below
 
   END TYPE t_verticalAdvection_ppm_coefficients
 
@@ -565,23 +405,26 @@ MODULE mo_ocean_types
 
     ! 1) precomputed 3D-factors for mathematical operators (for efficiency).
     !------------------------------------------------------------------------------
-    REAL(wp), ALLOCATABLE :: div_coeff(:,:,:,:)    ! factor for divergence (nproma,nlev,nblks_c,no_primal_edges)
-    REAL(wp), ALLOCATABLE :: rot_coeff(:,:,:,:)    ! factor for divergence (nproma,nlev,nblks_v,no_dual_edges)
-    REAL(wp), ALLOCATABLE :: grad_coeff(:,:,:)     ! factor for nabla2-scalar (nproma,nlev,nblks_e)
-    REAL(wp), ALLOCATABLE :: n2s_coeff(:,:,:,:)    ! factor for nabla2-scalar (nproma,nlev,nblks_c)
-    REAL(wp), ALLOCATABLE :: n2v_coeff(:,:,:)      ! factor for nabla2-vector (nproma,nlev,nblks_e)
+    mapEdgesToCells    :: div_coeff
+    mapEdgesToVertices :: rot_coeff  
+    mapCellsToEdges    :: grad_coeff ! this should be revised 
+    
+!     REAL(wp), ALLOCATABLE :: n2s_coeff(:,:,:,:)    ! factor for nabla2-scalar (nproma,nlev,nblks_c)
+!     REAL(wp), ALLOCATABLE :: n2v_coeff(:,:,:)      ! factor for nabla2-vector (nproma,nlev,nblks_e)
 
 
     !2) Required for description of boundary around a vertex
     !------------------------------------------------------------------------------
-    INTEGER, ALLOCATABLE :: bnd_edges_per_vertex(:,:,:)
-    INTEGER, POINTER :: bnd_edge_idx(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
-    INTEGER, POINTER :: bnd_edge_blk(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
-    INTEGER, POINTER :: edge_idx(:,:,:,:)   !(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
-    REAL(wp),POINTER :: orientation(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
+    onVertices_3D_Int :: bnd_edges_per_vertex
+    onVertices_3D_Connectivity :: vertex_bnd_edge_idx  !(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
+    onVertices_3D_Connectivity :: vertex_bnd_edge_blk  !(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
+    onVertices_3D_Connectivity :: boundaryEdge_Coefficient_Index   ! this is an index to the rot_coeff  (nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
+!     REAL(wp),POINTER :: orientation(:,:,:,:)!(nproma,nlev,nblks_v,1:NO_DUAL_EDGES-2)
 
-    INTEGER, ALLOCATABLE :: upwind_cell_idx(:,:,:)
-    INTEGER, ALLOCATABLE :: upwind_cell_blk(:,:,:)
+    ! this is a edge-to-one-cell pointer, needs to be rethinked
+    onEdges_3D_Int :: upwind_cell_idx
+    onEdges_3D_Int :: upwind_cell_blk
+
     !3) Scalarproduct: The following arrays are required for the reconstruction process.
     !------------------------------------------------------------------------------
     !
@@ -603,56 +446,55 @@ MODULE mo_ocean_types
     ! other choice index2=1,nblks_e, index3=1,2
     ! Eventually switch to other second indexing if this is more appropriate
     ! new constructs for mimetic core:
-    TYPE(t_cartesian_coordinates), POINTER     :: edge2cell_coeff_cc(:,:,:,:)
-    TYPE(t_cartesian_coordinates), POINTER     :: edge2cell_coeff_cc_t(:,:,:,:)
-    REAL(wp), POINTER                          :: edge2edge_viacell_coeff(:,:,:,:)
-    REAL(wp), POINTER                          :: edge2edge_viacell_coeff_top(:,:,:)       ! the same as the top edge2edge_viacell_coeff
-    REAL(wp), POINTER                          :: edge2edge_viacell_coeff_integrated(:,:,:)! the other levels integrated
-    REAL(wp), POINTER                          :: edge2edge_viacell_coeff_all(:,:,:)       ! all the levels integrated
+    mapEdgesToEdges_3D                         :: edge2edge_viacell_coeff
+    mapEdgesToEdges_2D                         :: edge2edge_viacell_coeff_top       ! the same as the top edge2edge_viacell_coeff
+    mapEdgesToEdges_2D                         :: edge2edge_viacell_coeff_integrated! the other levels integrated
+    mapEdgesToEdges_2D                         :: edge2edge_viacell_coeff_all       ! all the levels integrated
+
+    mapEdgesToEdges                            :: edge2edge_viavert_coeff
 
     !coefficient for surface layer, changes in time, in contrast to other coefficients
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_dyn(:,:,:,:)
+!     TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_dyn(:,:,:,:)
     !TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc_dyn(:,:,:,:)
 
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc(:,:,:,:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc_t(:,:,:,:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_vector_cc(:,:,:,:)
-    REAL(wp), ALLOCATABLE                      :: edge2edge_viavert_coeff(:,:,:,:)
+    mapEdgesToCells_3D_Type(t_cartesian_coordinates)    :: edge2cell_coeff_cc
+    mapEdgesToCells_3D_Type(t_cartesian_coordinates)    :: edge2cell_coeff_cc_t
+    mapEdgesToVertices_3D_Type(t_cartesian_coordinates) :: edge2vert_coeff_cc
+    mapEdgesToVertices_3D_Type(t_cartesian_coordinates) :: edge2vert_coeff_cc_t
+    mapEdgesToVertices_3D_Type(t_cartesian_coordinates) :: edge2vert_vector_cc
 
-    REAL(wp), ALLOCATABLE :: fixed_vol_norm(:,:,:)
-    REAL(wp), ALLOCATABLE :: variable_vol_norm(:,:,:,:)
-    REAL(wp), ALLOCATABLE :: variable_dual_vol_norm(:,:,:,:)
+    onCells :: fixed_vol_norm
+!     REAL(wp), ALLOCATABLE :: variable_vol_norm(:,:,:,:)
+!     REAL(wp), ALLOCATABLE :: variable_dual_vol_norm(:,:,:,:)
 
     !!$    TYPE(t_geographical_coordinates), ALLOCATABLE :: mid_dual_edge(:,:)
     ! Cartesian distance from vertex1 to vertex2 via dual edge midpoint
-    REAL(wp), ALLOCATABLE :: dist_cell2edge(:,:,:,:)
+!     REAL(wp), ALLOCATABLE :: dist_cell2edge(:,:,:,:)
     ! TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_position_cc(:,:,:)  ! this is redundant, should be replaced by the 2D cartesian center
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge_position_cc(:,:,:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: moved_edge_position_cc(:,:,:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: upwind_cell_position_cc(:,:,:)
+    onEdges_3D_Type(t_cartesian_coordinates) :: edge_position_cc
+    onEdges_3D_Type(t_cartesian_coordinates) :: moved_edge_position_cc
+    onEdges_3D_Type(t_cartesian_coordinates) :: upwind_cell_position_cc
 
-    TYPE(t_verticalAdvection_ppm_coefficients), POINTER :: verticalAdvectionPPMcoeffs(:)
+    blockList_Type(t_verticalAdvection_ppm_coefficients) :: verticalAdvectionPPMcoeffs
 
 !    REAL(wp), POINTER         :: matrix_vert_diff_c(:,:,:,:)
 !    REAL(wp), POINTER         :: matrix_vert_diff_e(:,:,:,:)
-!    TYPE(t_pointer_3d_wp),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
-!    TYPE(t_pointer_3d_wp),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
+!    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
+!    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
 
   END TYPE t_operator_coeff
-
     
   TYPE t_solverCoeff_singlePrecision
     ! the same as in t_operator_coeff in single precision for using in the solver
-    REAL(sp), POINTER :: grad_coeff(:,:)                     ! as in t_operator_coeff for the 1st level
-    REAL(sp), ALLOCATABLE :: div_coeff(:,:,:)                    ! as in t_operator_coeff for the 1st level
+    mapCellsToEdges_2D_RealPrecision(sp) :: grad_coeff                    ! as in t_operator_coeff for the 1st level
+    mapEdgesToCells_2D_RealPrecision(sp) :: div_coeff                   ! as in t_operator_coeff for the 1st level
 
-    REAL(sp), POINTER :: edge2edge_viacell_coeff_all(:,:,:)  ! as in t_operator_coeff
+    mapEdgesToEdges_2D_RealPrecision(sp) :: edge2edge_viacell_coeff_all  ! as in t_operator_coeff
 
-    REAL(sp), ALLOCATABLE :: edge_thickness(:,:)                ! as t_hydro_ocean_diag thick_e
-    REAL(sp), ALLOCATABLE :: cell_thickness(:,:)                ! as t_hydro_ocean_diag thick_c
+    onEdges_2D_RealPrecision(sp) :: edge_thickness                ! as t_hydro_ocean_diag thick_e
+    onCells_2D_RealPrecision(sp) :: cell_thickness                ! as t_hydro_ocean_diag thick_c
 
   END TYPE t_solverCoeff_singlePrecision
-
 
   !-----------------------------------------------------------
   ! array of states
@@ -665,7 +507,6 @@ MODULE mo_ocean_types
     TYPE(t_operator_coeff), POINTER :: operator_coeff
 
   END TYPE t_hydro_ocean_state
-
   
 END MODULE mo_ocean_types
 

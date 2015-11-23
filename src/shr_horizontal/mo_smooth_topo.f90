@@ -32,12 +32,11 @@ MODULE mo_smooth_topo
   USE mo_model_domain,       ONLY: t_patch
   USE mo_parallel_config,    ONLY: nproma
   USE mo_loopindices,        ONLY: get_indices_c
-  USE mo_sync,               ONLY: SYNC_C, SYNC_V, sync_patch_array
+  USE mo_sync,               ONLY: SYNC_C, sync_patch_array
   USE mo_intp_data_strc,     ONLY: t_int_state
-  USE mo_extpar_config,      ONLY: fac_smooth_topo, n_iter_smooth_topo,  &
-    &                              heightdiff_threshold
+  USE mo_extpar_config,      ONLY: fac_smooth_topo, n_iter_smooth_topo,        &
+    &                              heightdiff_threshold, hgtdiff_max_smooth_topo
   USE mo_math_laplace,       ONLY: nabla2_scalar, nabla4_scalar
-  USE mo_intp,               ONLY: cells2verts_scalar
 
   IMPLICIT NONE
 
@@ -63,7 +62,7 @@ CONTAINS
     REAL(wp) :: z_topo(nproma,1,p_patch%nblks_c),z_nabla4_topo(nproma,1,p_patch%nblks_c),    &
       &         z_topo_old(nproma,1,p_patch%nblks_c),z_nabla2_topo(nproma,1,p_patch%nblks_c),&
       &         z_topo_c_sv(nproma,p_patch%nblks_c),z_hdiffmax(nproma,p_patch%nblks_c)
-    REAL(wp) :: zmaxtop,zmintop,z_topo_new,zdcoeff,z_heightdiff_threshold,zhdiff
+    REAL(wp) :: zmaxtop,zmintop,z_topo_new,zdcoeff,z_heightdiff_threshold,zhdiff,rms_hdiff,smooth_fac
     LOGICAL  :: lnabla2_mask(nproma,p_patch%nblks_c)
 
 
@@ -183,6 +182,8 @@ CONTAINS
           zmaxtop = z_topo(p_patch%cells%neighbor_idx(jc,jb,1),1, &
               &          p_patch%cells%neighbor_blk(jc,jb,1))
           zmintop = zmaxtop
+          rms_hdiff = (z_topo(jc,1,jb)-z_topo(p_patch%cells%neighbor_idx(jc,jb,1),1, &
+                      p_patch%cells%neighbor_blk(jc,jb,1)))**2
           DO il=2,p_patch%geometry_info%cell_type
 
             IF ( z_topo(p_patch%cells%neighbor_idx(jc,jb,il),1, &
@@ -197,11 +198,22 @@ CONTAINS
               zmintop = z_topo(p_patch%cells%neighbor_idx(jc,jb,il),1, &
                 &          p_patch%cells%neighbor_blk(jc,jb,il) )
             ENDIF
-           !zmaxtop and zmintop are now max resp min of all neighbors
+            !zmaxtop and zmintop are now max resp min of all neighbors
+
+            rms_hdiff = rms_hdiff + (z_topo(jc,1,jb)-z_topo(p_patch%cells%neighbor_idx(jc,jb,il),1, &
+                      p_patch%cells%neighbor_blk(jc,jb,il)))**2
           ENDDO
 
+          rms_hdiff = SQRT(rms_hdiff/REAL(p_patch%geometry_info%cell_type,wp))
+
+          IF (hgtdiff_max_smooth_topo(jg) < 1._wp) THEN
+            smooth_fac = fac_smooth_topo
+          ELSE
+            smooth_fac = fac_smooth_topo * MIN(1._wp,rms_hdiff/hgtdiff_max_smooth_topo(jg))
+          ENDIF
+
           z_topo_new = z_topo (jc,1,jb) -  &
-              fac_smooth_topo * z_nabla4_topo(jc,1,jb) * &
+              smooth_fac * z_nabla4_topo(jc,1,jb) * &
               p_patch%cells%area(jc,jb)*p_patch%cells%area(jc,jb)
 
           !If it was a local maximum in the old field, dont make it higher

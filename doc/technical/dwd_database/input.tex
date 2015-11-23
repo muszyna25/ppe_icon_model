@@ -1,10 +1,10 @@
 \chapter{Mandatory input fields}
 
-Several input files are needed to perform runs of the ICON Model. 
+Several input files are needed to perform runs of the ICON model. 
 %
 These can be divided into three classes:
 %
-Grid files, external parameters, and initialization (analysis). The latter 
+Grid files, external parameters, and initialization (analysis) files. The latter 
 will be described in Chapter \ref{sec_analysis}.
 
 
@@ -48,6 +48,13 @@ important data entries are
        to the triangle~\texttt{i}.
 \end{itemize}
 
+%For fixed domain sizes and resolutions a list of grid files has been pre-built for the ICON model.
+%These are publically available via the download server
+%{\normalsize%
+%\begin{verbatim}
+%   http://icon-downloads.zmaw.de
+%\end{verbatim}
+%}%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -120,18 +127,18 @@ raw dataset. Note that these are mandatory input fields for assimilation- and fo
   ALB\_NI12                             & Near infrared ($0.7 - 5.0\, \mathrm{\mu m}$) albedo for diffuse radiation (monthly fields)& MODIS     \\
   DEPTH\_LK                             & Lake depth                                      &        GLDB               \\
   EMIS\_RAD                             & Surface longwave (thermal) emissivity           &        GlobCover 2009     \\               
-  FOR\_D                                & Fraction of deciduous forest                    &        GlobCover 2009     \\
-  FOR\_E                                & Fraction of evergreen forest                    &        GlobCover 2009     \\
+  FOR\_D  (*)                           & Fraction of deciduous forest                    &        GlobCover 2009     \\
+  FOR\_E  (*)                           & Fraction of evergreen forest                    &        GlobCover 2009     \\
   FR\_LAKE                              & Lake fraction (fresh water)                     &        GLDB               \\                     
   FR\_LAND                              & Land fraction (excluding lake fraction but including glacier fraction) & GlobCover2009   \\
   FR\_LUC                               & Landuse class fraction                          &                           \\
   HSURF                                 & Orography height at cell centres                &        GLOBE              \\
-  LAI\_MX                               & Leaf area index in the vegetation phase         &        GlobCover 2009     \\
+  LAI\_MX  (*)                          & Leaf area index in the vegetation phase         &        GlobCover 2009     \\
   NDVI\_MAX                             & Normalized differential vegetation index        &        SeaWiFS            \\
   NDVI\_MRAT                            & proportion of monthly mean NDVI to yearly maximum (monthly fields)&  SeaWiFS \\
-  PLCOV\_MX                             & Plant covering degree in the vegetation phase   &        GlobCover 2009     \\
-  ROOTDP                                & Root depth                                      &        GlobCover 2009     \\
-  RSMIN                                 & Minimum stomatal resistance                     &        GlobCover 2009     \\
+  PLCOV\_MX  (*)                        & Plant covering degree in the vegetation phase   &        GlobCover 2009     \\
+  ROOTDP (*)                            & Root depth                                      &        GlobCover 2009     \\
+  RSMIN  (*)                            & Minimum stomatal resistance                     &        GlobCover 2009     \\
   SOILTYP                               & Soil type                                       &        HWSD               \\
   SSO\_STDH                             & Standard deviation of sub-grid scale orographic height  &   GLOBE           \\
   SSO\_THETA                            & Principal axis-angle of sub-grid scale orography &          GLOBE           \\
@@ -147,12 +154,11 @@ Note that fields marked with (*) are not required in operational model runs. I.e
 if the additional contribution from sub-grid scale orography is taken into account (i.e.\ for \nml{itype\_z0=1}). In operational runs, land-cover 
 class specific roughness lengths are taken from a GlobCover-based lookup table. \texttt{FOR\_D}, \texttt{FOR\_E}, \texttt{LAI\_MX}, \texttt{PLCOV\_MX}, 
 \texttt{RSMIN}, and \texttt{ROOTDP} became obsolete with the activation of the surface tile approach (2015-03-04). The latter $4$ fields 
-are replaced by land-cover class specific values taken from lookup tables. However, due to technical reasons, all the above fields must be 
-provided as input, irrespective of the options chosen.
+are replaced by land-cover class specific values taken from lookup tables.
 
 
 
 \subsubsection*{Remarks on post-processing}
-Some of the external parameter fields produced by ExtPar are modified by ICON. The following fields are affected: \texttt{HSURF}, 
-\texttt{FR\_LAND}, \texttt{FR\_LAKE}, \texttt{Z0}. Thus, for consistency reasons, the modified fields should be used for post-processing tasks 
-rather than the original external parameter fields.
+Some of the external parameter fields produced by ExtPar are modified by ICON. The following fields are affected: \texttt{DEPTH\_LK}, 
+\texttt{HSURF}, \texttt{FR\_LAND}, \texttt{FR\_LAKE}, \texttt{Z0}. Thus, for consistency reasons, the modified fields should be used 
+for post-processing tasks rather than the original external parameter fields.

@@ -62,6 +62,16 @@ MODULE mo_radiation_config
                            !    (see )
                            ! 2: Modis albedo
 
+    INTEGER :: direct_albedo   ! 1: SZA dependence according to Ritter-Geleyn implementation
+                               ! 2: limitation to diffuse albedo according to Zaengl 
+                               !    applied to all land points
+                               !    Ritter-Geleyn implementation for remaining points (water,ice) 
+                               ! 3: Parameterization after Yang (2008) for snow-free land points.
+                               !    limitation after Zaengl for snow-coverer points
+                               !    Ritter-Geleyn implementation for remaining points (water,ice)
+                               ! 4: Parameterization after Briegleb (1992) for snow-free land points
+                               !    limitation after Zaengl for snow-coverer points
+
     ! --- Switches for radiative agents
     !     irad_x=0 : radiation uses tracer x = 0
     !     irad_x=1 : radiation uses tracer x from a tracer variable
@@ -149,6 +159,10 @@ MODULE mo_radiation_config
     ! --------------------------------
     !
     REAL(wp) :: mmr_co2, mmr_ch4, mmr_n2o, mmr_o2                ! setup_radiation
+
+  REAL(wp), PARAMETER :: ch4_v(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp  /)
+  REAL(wp), PARAMETER :: n2o_v(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
+
   
   !END TYPE t_radiation_config
   !>

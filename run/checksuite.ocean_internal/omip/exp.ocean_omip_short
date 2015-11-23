@@ -132,7 +132,7 @@ cat > ${ocean_namelist} << EOF
   threshold_min_T       = -4.0   ! to avoid abort
 /
 &ocean_diffusion_nml
-  HORZ_VELOC_DIFF_TYPE            =   1       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
+  HorizontalViscosity_type            =   1       ! 3: calculate varying horizontal viscosity coefficient according to Munk criterion
   k_veloc_h                       =   3.0E+4  ! [m2/s] constant horizontal viscosity coefficient for velocity
   biharmonic_const                =   0.01    ! used with veloc_diffusion_form=2 only
   k_veloc_v                       =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
@@ -158,10 +158,11 @@ cat > ${ocean_namelist} << EOF
   GMRedi_configuration            =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
 /                                           
 &sea_ice_nml
-! i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
-! i_ice_dyn                       =   0       ! 1/0=switch on/off AWI ice dynamics
+  i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
+  i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics
 ! i_Qio_type                      =   3       ! 3 (default): energy of whole grid-area used for melting (MPIOM-type)
 ! use_constant_tfreez             = .TRUE.    ! default: true
+! use_no_flux_gradients           = .FALSE.   ! default: true
 /
 &ocean_forcing_nml
   iforc_oce                       =  12       ! OMIP-type forcing

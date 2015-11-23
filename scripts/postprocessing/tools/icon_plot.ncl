@@ -25,19 +25,38 @@
   else
   ; --- Use the configuration file from the commandline option
     if ( isvar("configFile") ) then
-      if (isfilepresent(configFile)) then
-        print("Found configfile:"+configFile)
-        loadscript(configFile)
+      print(configFile)
+      print(""+configFile)
+      if("6.2.1" .eq. get_ncl_version()) then
+        if (fileexists(configFile)) then
+          print("Found configfile:"+configFile)
+          loadscript(configFile)
+        else
+          print("Could NOT find configfile:"+configFile)
+          exit()
+        end if
       else
-        print("Could NOT find configfile:"+configFile)
-        exit()
+        if (isfilepresent(configFile)) then
+          print("Found configfile:"+configFile)
+          loadscript(configFile)
+        else
+          print("Could NOT find configfile:"+configFile)
+          exit()
+        end if
       end if
     else
   ; --- Use the default config file
       CONFIGFILE = getenv("HOME")+"/.icon_plot.rc"
-      if (isfilepresent(CONFIGFILE)) then
-        print("Found configfile:"+CONFIGFILE)
-        loadscript(CONFIGFILE)
+      if("6.2.1" .eq. get_ncl_version()) then
+        if (fileexists(CONFIGFILE)) then
+          print("Found configfile:"+CONFIGFILE)
+          loadscript(CONFIGFILE)
+        end if
+      else
+        if (isfilepresent(CONFIGFILE)) then
+          print("Found configfile:"+CONFIGFILE)
+          loadscript(CONFIGFILE)
+        end if
       end if
     end if
   end if
@@ -697,8 +716,8 @@
         ;plotGrid(wks,plot,var,coords(1,:),bounds,File,ResC,DEBUG)
         boundslon = bounds(0,:,:)
         boundslat = bounds(1,:,:)
-        pres = plotGrid_62(wks,plot,var,boundslon,boundslat)
-        gsid = gsn_add_polygon(wks,plot,ndtooned(boundslon),ndtooned(boundslat),pres)
+        presGrid = plotGrid_62(wks,plot,var,boundslon,boundslat)
+        gsid = gsn_add_polygon(wks,plot,ndtooned(boundslon),ndtooned(boundslat),presGrid)
         ; }}}
         ;=======================================================================================
       end if

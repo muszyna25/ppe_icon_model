@@ -159,6 +159,13 @@ cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
 /
+&master_time_control_nml
+ calendar             = "proleptic gregorian" 
+ checkpointTimeIntval = "$checkpoint_interval" 
+ restartTimeIntval    = "$restart_interval" 
+ experimentStartDate  = "$start_date" 
+ experimentStopDate   = "$end_date" 
+/
 &time_nml
  ini_datetime_string = "$start_date"
  end_datetime_string = "$end_date"
@@ -226,7 +233,7 @@ if [ x$lnd_namelist != x ]; then
 /
 &jsb_model_nml
  model_name = 'JSBACHlite'
- model_shortname = 'lite'
+ model_shortname = 'jsblite'
  model_description = 'JSBACH-lite model'
  model_namelist_filename = "${lnd_namelist}"
 /

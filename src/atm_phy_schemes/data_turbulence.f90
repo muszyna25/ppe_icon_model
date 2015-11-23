@@ -106,6 +106,7 @@ REAL (KIND=ireals) ::          &
   z0m_dia    =  0.2_ireals,    & ! roughness length of a typical synoptic station [m]
 !
   alpha0     =  0.0123_ireals, & ! lower limit of velocity-dependent Charnock-parameter
+  alpha0_max =  0.0335_ireals, & ! upper limit of velocity-dependent Charnock-parameter
 ! alpha1     =  0.0000_ireals    ! parameter scaling the molek. roughness of water waves
   alpha1     =  1.0000_ireals    ! parameter scaling the molek. roughness of water waves
 
@@ -170,7 +171,9 @@ REAL (KIND=ireals) ::         &
 ! tkhmin     =  1.0_ireals,   & ! scalar (heat) transport
 ! tkmmin     =  1.0_ireals      ! momentum transport
   tkhmin     =  0.75_ireals,   & ! scalar (heat) transport
-  tkmmin     =  0.75_ireals      ! momentum transport
+  tkmmin     =  0.75_ireals,   & ! momentum transport
+  tkhmin_strat = 5.0_ireals,   & ! scalar (heat) transport, enhanced value for stratosphere
+  tkmmin_strat = 5.0_ireals      ! momentum transport, enhanced value for stratosphere
 
 ! 5. Numerical parameters:
 !-------------------------
