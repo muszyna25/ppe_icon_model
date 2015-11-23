@@ -26,10 +26,12 @@
 
 MODULE mo_interface_les
 
-  USE mo_datetime,           ONLY: t_datetime
+  USE mo_datetime,           ONLY: t_datetime, string_to_datetime
+  USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, &
+    &                              datetimeToString
   USE mo_kind,               ONLY: wp
   USE mo_timer
-  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_exception,          ONLY: message, message_text
   USE mo_impl_constants,     ONLY: itccov, itrad, itgscp,         &
     &                              itsatad, itturb, itsfc, itradheat, &
     &                              itfastphy, max_char_length,    &
@@ -37,11 +39,10 @@ MODULE mo_interface_les
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_intp_rbf,           ONLY: rbf_vec_interpol_cell
-  USE mo_intp,               ONLY: edges2cells_scalar
   USE mo_model_domain,       ONLY: t_patch
   USE mo_intp_data_strc,     ONLY: t_int_state
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc, lhdiff_rcf, ih_clch, ih_clcm
+  USE mo_nonhydrostatic_config, ONLY: kstart_moist, lhdiff_rcf, ih_clch, ih_clcm
   USE mo_nwp_lnd_types,      ONLY: t_lnd_prog, t_wtr_prog, t_lnd_diag
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
@@ -50,7 +51,7 @@ MODULE mo_interface_les
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqm_max,   &
     &                              msg_level, ltimer, timers_level, nqtendphy,  &
     &                              ltransport, lart, iqni, iqnc
-  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, rcvd, cpd, cvd, cvv
+  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cpd, cvd, cvv
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
@@ -65,11 +66,11 @@ MODULE mo_interface_les
   USE mo_nwp_sfc_interface,  ONLY: nwp_surface
   USE mo_nwp_rad_interface,  ONLY: nwp_radiation
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, SYNC_E, &
-                                   SYNC_C, SYNC_C1, global_max, global_min, global_sum_array
+                                   SYNC_C, SYNC_C1, global_sum_array
   USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, work_mpi_barrier
   USE mo_nwp_diagnosis,      ONLY: nwp_statistics, nwp_diag_output_1, nwp_diag_output_2
-  USE mo_icon_comm_lib,      ONLY: new_icon_comm_variable, delete_icon_comm_variable, &
-     & icon_comm_var_is_ready, icon_comm_sync, icon_comm_sync_all, is_ready, until_sync
+  USE mo_icon_comm_lib,      ONLY: new_icon_comm_variable, &
+     & icon_comm_sync_all, is_ready, until_sync
   USE mo_art_washout_interface,  ONLY:art_washout_interface
   USE mo_art_reaction_interface, ONLY:art_reaction_interface
   USE mo_linked_list,         ONLY: t_var_list
@@ -114,7 +115,7 @@ CONTAINS
   !
   SUBROUTINE les_phy_interface(lcall_phy_jg, linit, lredgrid,      & !input
                             & dt_loc, dt_phy_jg,                   & !input
-                            & p_sim_time, nstep, datetime,         & !input
+                            & p_sim_time, nstep, mtime_current,    & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch,                        & !input
                             & ext_data,                            & !input
@@ -138,7 +139,7 @@ CONTAINS
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics on jg
     REAL(wp),INTENT(in)          :: p_sim_time
     INTEGER, INTENT(in)          :: nstep           !time step counter
-    TYPE(t_datetime),            INTENT(in):: datetime
+    TYPE(datetime), POINTER      :: mtime_current
     TYPE(t_patch),        TARGET,INTENT(in):: pt_patch         !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch     !<grid/patch info (parent grid)
     TYPE(t_int_state),    TARGET,INTENT(in)   :: pt_int_state  !< interpolation state
@@ -177,15 +178,13 @@ CONTAINS
     REAL(wp), TARGET :: &                                     !> temporal arrays for
       & z_ddt_temp  (nproma,pt_patch%nlev,pt_patch%nblks_c)   !< Temperature tendency
 
-    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv
+    REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
     !< vertical interfaces
 
     REAL(wp) :: z_airmass (nproma,pt_patch%nlev) !< needed for radheat
     REAL(wp) :: zsct ! solar constant (at time of year)
     REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c)
-
-    REAL(wp) :: r_sim_time
 
     REAL(wp) :: z_qsum(nproma,pt_patch%nlev)  !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum                    !< summand of tendency of virtual increment
@@ -202,6 +201,19 @@ CONTAINS
     INTEGER :: ddt_u_tot_comm, ddt_v_tot_comm, tracers_comm, tempv_comm, exner_old_comm
 
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_interface_les:les_phy_interface:'
+
+    TYPE(t_datetime)                    :: this_datetime
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+
+    !---------------------------------------------------------------
+    ! conversion of subroutine arguments to old "t_datetime" data
+    ! structure
+    !
+    ! TODO: remove this after transition to mtime library!!!
+
+    CALL datetimeToString(mtime_current, datetime_string     )
+    CALL string_to_datetime( datetime_string,  this_datetime )
+    !---------------------------------------------------------------
 
 
     IF (ltimer) CALL timer_start(timer_physics)
@@ -221,9 +233,6 @@ CONTAINS
     ieidx => pt_patch%cells%edge_idx
     ieblk => pt_patch%cells%edge_blk
 
-
-    ! Inverse of simulation time
-    r_sim_time = 1._wp/MAX(1.e-6_wp, p_sim_time)
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. &
         lcall_phy_jg(itturb)  .OR. lcall_phy_jg(itsfc)) THEN
@@ -811,7 +820,7 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
       CALL nwp_radiation (lredgrid,              & ! in
            &              p_sim_time,            & ! in
-           &              datetime,              & ! in
+           &              this_datetime,         & ! in
            &              pt_patch,              & ! in
            &              pt_par_patch,          & ! in
            &              ext_data,              & ! in

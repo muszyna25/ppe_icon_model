@@ -1554,7 +1554,7 @@ MODULE mo_nh_stepping
               &                  t_elapsed_phy(jg,:),                & !in
               &                  time_config%sim_time(jg),           & !in
               &                  nstep_global,                       & !in
-              &                  datetime_current,                   & !in
+              &                  mtime_current,                      & !in
               &                  p_patch(jg)  ,                      & !in
               &                  p_int_state(jg),                    & !in
               &                  p_nh_state(jg)%metrics ,            & !in
@@ -2149,7 +2149,7 @@ MODULE mo_nh_stepping
         &                  dt_phy(jg,:),                       & !in
         &                  time_config%sim_time(jg),           & !in
         &                  nstep,                              & !in
-        &                  datetime_current,                   & !in
+        &                  mtime_current,                      & !in
         &                  p_patch(jg)  ,                      & !in
         &                  p_int_state(jg),                    & !in
         &                  p_nh_state(jg)%metrics ,            & !in
