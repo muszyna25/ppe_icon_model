@@ -34,7 +34,9 @@
 
 MODULE mo_nh_interface_nwp
 
-  USE mo_datetime,                ONLY: t_datetime
+  USE mo_datetime,                ONLY: t_datetime, string_to_datetime
+  USE mtime,                      ONLY: datetime, MAX_DATETIME_STR_LEN, &
+    &                                   datetimeToString
   USE mo_kind,                    ONLY: wp
 
   USE mo_timer
@@ -109,7 +111,7 @@ CONTAINS
   !
   SUBROUTINE nwp_nh_interface(lcall_phy_jg, linit, lredgrid,       & !input
                             & dt_loc, dt_phy_jg,                   & !input
-                            & p_sim_time, datetime,                & !input
+                            & p_sim_time, mtime_datetime,          & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch,                        & !input
                             & ext_data,                            & !input
@@ -134,7 +136,7 @@ CONTAINS
                                                     !< packages on domain jg
     REAL(wp),INTENT(in)          :: p_sim_time
 
-    TYPE(t_datetime),            INTENT(in):: datetime
+    TYPE(datetime),       POINTER :: mtime_datetime !< date/time information (in)
     TYPE(t_patch),        TARGET,INTENT(in):: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch !<grid/patch info (parent grid)
 
@@ -206,6 +208,19 @@ CONTAINS
       & tracers_comm, tempv_comm, exner_old_comm, w_comm
 
     INTEGER :: ntracer_sync
+
+    TYPE(t_datetime)                    :: this_datetime
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+
+    !---------------------------------------------------------------
+    ! conversion of subroutine arguments to old "t_datetime" data
+    ! structure
+    !
+    ! TODO: remove this after transition to mtime library!!!
+
+    CALL datetimeToString(mtime_datetime, datetime_string )
+    CALL string_to_datetime( datetime_string,  this_datetime )
+    !---------------------------------------------------------------
 
     IF (ltimer) CALL timer_start(timer_physics)
 
@@ -560,11 +575,11 @@ CONTAINS
     ENDIF
 
     IF (lart) THEN
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
+      CALL calc_o3_gems(pt_patch,this_datetime,pt_diag,prm_diag,ext_data)
 
       CALL art_reaction_interface(ext_data,                    & !> in
                 &          pt_patch,                           & !> in
-                &          datetime,                           & !> in
+                &          this_datetime,                      & !> in
                 &          dt_phy_jg(itfastphy),               & !> in
                 &          p_prog_list,                        & !> in
                 &          pt_prog,                            & !> in
@@ -873,7 +888,7 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
       CALL nwp_radiation (lredgrid,              & ! in
            &              p_sim_time,            & ! in
-           &              datetime,              & ! in
+           &              this_datetime,         & ! in
            &              pt_patch,              & ! in
            &              pt_par_patch,          & ! in
            &              ext_data,              & ! in
