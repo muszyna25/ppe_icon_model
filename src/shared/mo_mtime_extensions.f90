@@ -136,13 +136,22 @@ CONTAINS
     CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: result_string
     CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN) :: td_string
 
+    INTEGER :: ms
+    
     CALL setCalendar(PROLEPTIC_GREGORIAN)
 
+    ms     = NINT(1000*MODULO(timestamp%second, 1.0_wp))    
+    
+    IF (ms >= 1000) THEN
+      timestamp%second = NINT(timestamp%second + 1.0_wp)
+      timestamp%second = timestamp%second + 0.001_wp * MODULO(ms, 1000)
+    ENDIF
+    
     IF (timestamp%second >= 60.0_wp) THEN
       timestamp%second = MODULO(timestamp%second, 1.0_wp)
       timestamp%minute = timestamp%minute + 1
     ENDIF
-    
+
     mtime_datetime => newDatetime(timestamp%year, timestamp%month, timestamp%day, &
          &                        timestamp%hour, timestamp%minute, INT(timestamp%second), &
          &                        NINT(1000*MODULO(timestamp%second, 1.0_wp)))
@@ -174,7 +183,9 @@ CONTAINS
 
     CALL datetimeToString(mtime_datetime, result_string)
     CALL deallocateDatetime(mtime_datetime)
+
     datetime_string = result_string
+    
   END SUBROUTINE get_datetime_string
 
 
