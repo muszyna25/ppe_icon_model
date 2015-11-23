@@ -325,8 +325,8 @@ CONTAINS
     p_patch   => patch_3d%p_patch_2d(1)
     verts_in_domain => p_patch%verts%in_domain
 
-!! !ICON_OMP_PARALLEL_DO PRIVATE(start_index_v,end_index_v, vertexIndex, vertexConnect, &
-!! !ICON_OMP edgeOfVertex_index, edgeOfVertex_block) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index_v,end_index_v, vertexIndex, vertexConnect, &
+!ICON_OMP edgeOfVertex_index, edgeOfVertex_block) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = verts_in_domain%start_block, verts_in_domain%end_block
       CALL get_index_range(verts_in_domain, blockNo, start_index_v, end_index_v)
 
@@ -353,7 +353,7 @@ CONTAINS
         END DO
       END DO
     END DO
-!! !ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_PARALLEL_DO
 
   END SUBROUTINE map_edges2verts
   !-------------------------------------------------------------------------

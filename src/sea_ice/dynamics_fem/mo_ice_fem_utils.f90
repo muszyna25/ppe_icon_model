@@ -1401,7 +1401,7 @@ CONTAINS
     p_tau_n_dual(:,:)%x(2) = 0.0_wp
     p_tau_n_dual(:,:)%x(3) = 0.0_wp
 #endif
-    CALL map_edges2verts( p_patch_3D, tau_n, p_op_coeff%edge2vert_coeff_cc, p_tau_n_dual)
+    CALL map_edges2verts_einar( p_patch_3D, tau_n, p_op_coeff%edge2vert_coeff_cc, p_tau_n_dual)
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(1))
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(2))
     CALL sync_patch_array(SYNC_V, p_patch, p_tau_n_dual%x(3))
