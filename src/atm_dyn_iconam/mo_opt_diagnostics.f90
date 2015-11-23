@@ -453,7 +453,6 @@ CONTAINS
 
     p_acc%l_any_m = .FALSE.
 
-    IF (echam_forcing_active) THEN
     ! PROGS {{{
     p_acc%l_ua_m  = is_variable_in_output(first_output_name_list, var_name="ua_m")
     p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_ua_m
