@@ -83,7 +83,7 @@ MODULE mo_nh_stepping
                                          prep_rho_bdy_nudging, density_boundary_nudging,&
                                          prep_outer_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
-  USE mo_datetime,                 ONLY: t_datetime, add_time, check_newday, string_to_datetime
+  USE mo_datetime,                 ONLY: check_newday
   USE mo_io_restart,               ONLY: create_restart_file
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
@@ -276,9 +276,8 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_stepping (datetime_current, mtime_current)
+  SUBROUTINE perform_nh_stepping (mtime_current)
 !
-  TYPE(t_datetime), INTENT(INOUT)      :: datetime_current  ! current datetime
   TYPE(datetime),   POINTER            :: mtime_current     ! current datetime (mtime)
   TYPE(t_simulation_status)            :: simulation_status
 
@@ -303,7 +302,6 @@ MODULE mo_nh_stepping
   IF (.NOT. isRestart()) THEN
     IF (timeshift%dt_shift < 0._wp) THEN
       time_config%sim_time(:) = timeshift%dt_shift
-      CALL add_time(timeshift%dt_shift,0,0,0,datetime_current)
       ! add IAU time shift interval to current date (mtime):
       mtime_current = mtime_current + timeshift%mtime_shift
     ENDIF
@@ -348,7 +346,7 @@ MODULE mo_nh_stepping
            & p_lnd_state(jg)%prog_wtr(nnew_rcf(jg)),&
            & p_lnd_state(jg)%diag_lnd              ,&
            & ext_data(jg)                          ,&
-           & phy_params(jg)                         )
+           & phy_params(jg), mtime_current )
 
       IF (.NOT.isRestart()) THEN
         CALL init_cloud_aero_cpl (mtime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
@@ -368,7 +366,7 @@ MODULE mo_nh_stepping
         IF(.NOT.atm_phy_nwp_config(jg)%is_les_phy) THEN
 
           ! diagnostics which are only required for output
-          CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
+          CALL nwp_diag_for_output(mtime_current, kstart_moist(jg),           & !in
                &                      ih_clch(jg), ih_clcm(jg),               & !in
                &                      phy_params(jg),                         & !in
                &                      p_patch(jg),                            & !in
@@ -513,7 +511,7 @@ MODULE mo_nh_stepping
 !   ELSE
     !---------------------------------------
 
-    CALL perform_nh_timeloop (datetime_current, mtime_current)
+    CALL perform_nh_timeloop (mtime_current)
 !   ENDIF
 
   CALL deallocate_nh_stepping ()
@@ -530,12 +528,11 @@ MODULE mo_nh_stepping
   !! @par Revision History
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
-  SUBROUTINE perform_nh_timeloop (datetime_current, mtime_current)
+  SUBROUTINE perform_nh_timeloop (mtime_current)
 !
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = modname//':perform_nh_timeloop'
 
-  TYPE(t_datetime), INTENT(INOUT)      :: datetime_current  ! current datetime 
   TYPE(datetime),   POINTER            :: mtime_current     ! current datetime (mtime)
 
   INTEGER                              :: jg, jn, jgc
@@ -570,6 +567,7 @@ MODULE mo_nh_stepping
   LOGICAL                              :: lret
 
 !!$  INTEGER omp_get_num_threads
+
 !-----------------------------------------------------------------------
 
   IF (ltimer) CALL timer_start(timer_total)
@@ -685,8 +683,6 @@ MODULE mo_nh_stepping
         CALL message('perform_nh_timeloop', TRIM(message_text))
       ENDIF
     ENDDO
-
-    CALL add_time(dtime,0,0,0,datetime_current)
 
     ! update model date and time mtime based
     mtime_current = mtime_current + model_time_step
@@ -851,7 +847,7 @@ MODULE mo_nh_stepping
     !
     ! dynamics stepping
     !
-    CALL integrate_nh(datetime_current, mtime_current, 1, jstep-jstep_shift, dtime, 1)
+    CALL integrate_nh(mtime_current, 1, jstep-jstep_shift, dtime, 1)
 
 
     ! Compute diagnostics for output if necessary
@@ -866,7 +862,7 @@ MODULE mo_nh_stepping
 
           IF(.NOT.atm_phy_nwp_config(jg)%is_les_phy) THEN
             ! diagnostics which are only required for output
-            CALL nwp_diag_for_output(kstart_moist(jg),                       & !in
+            CALL nwp_diag_for_output(mtime_current, kstart_moist(jg),           & !in
                  &                      ih_clch(jg), ih_clcm(jg),               & !in
                  &                      phy_params(jg),                         & !in
                  &                      p_patch(jg),                            & !in
@@ -1150,13 +1146,12 @@ MODULE mo_nh_stepping
   !! Modification by Daniel Reinert, DWD (2010-07-23)
   !!  - optional reduced calling frequency for transport and physics
   !!
-  RECURSIVE SUBROUTINE integrate_nh (datetime_current, mtime_current, jg, nstep_global,   &
+  RECURSIVE SUBROUTINE integrate_nh (mtime_current, jg, nstep_global,   &
     &                                dt_loc, num_steps )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = modname//':integrate_nh'
 
-    TYPE(t_datetime), INTENT(INOUT)         :: datetime_current
     TYPE(datetime),   POINTER               :: mtime_current     !< current datetime in mtime format
 
     INTEGER , INTENT(IN)    :: jg           !< current grid level
@@ -1609,7 +1604,7 @@ MODULE mo_nh_stepping
               ! echam physics
               IF (ltimer) CALL timer_start(timer_iconam_echam)
               CALL interface_iconam_echam( dt_loc                         ,& !in
-                &                          datetime_current               ,& !in
+                &                          mtime_current                  ,& !in
                 &                          p_patch(jg)                    ,& !in
                 &                          p_int_state(jg)                ,& !in
                 &                          p_nh_state(jg)%metrics         ,& !in
@@ -1769,7 +1764,7 @@ MODULE mo_nh_stepping
           IF(p_patch(jgc)%n_patch_cells > 0) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
-            CALL integrate_nh( datetime_current, mtime_current, jgc, nstep_global, dt_sub, nsteps_nest )
+            CALL integrate_nh( mtime_current, jgc, nstep_global, dt_sub, nsteps_nest )
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 
@@ -1871,7 +1866,8 @@ MODULE mo_nh_stepping
                 & p_lnd_state(jgc)%prog_wtr(nnew_rcf(jgc)),&
                 & p_lnd_state(jgc)%diag_lnd               ,&
                 & ext_data(jgc)                           ,&
-                & phy_params(jgc), lnest_start=.TRUE.      )
+                & phy_params(jgc), mtime_current          ,&
+                & lnest_start=.TRUE. )
 
               CALL init_cloud_aero_cpl (mtime_current, p_patch(jgc), p_nh_state(jgc)%metrics, &
                 &                       ext_data(jgc), prm_diag(jgc))
@@ -2097,22 +2093,11 @@ MODULE mo_nh_stepping
                                                !< grid level
 
     ! Local variables
-    TYPE(t_datetime)                    :: datetime_current
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+
     ! Time levels
     INTEGER                             :: n_now_rcf, nstep
     INTEGER                             :: jgp, jgc, jn
     REAL(wp)                            :: dt_sub ! (advective) timestep for next finer grid level
-
-    !---------------------------------------------------------------
-    ! conversion of subroutine arguments to old "t_datetime" data
-    ! structure
-    !
-    ! TODO: remove this after transition to mtime library!!!
-
-    CALL datetimeToString(mtime_current, datetime_string        )
-    CALL string_to_datetime( datetime_string,  datetime_current )
-    !---------------------------------------------------------------
 
     ! Determine parent domain ID
     IF ( jg > 1) THEN
@@ -2220,7 +2205,7 @@ MODULE mo_nh_stepping
           ! echam physics, slow physics coupling
           IF (ltimer) CALL timer_start(timer_iconam_echam)
           CALL interface_iconam_echam( dt_loc                         ,& !in
-            &                          datetime_current               ,& !in
+            &                          mtime_current                  ,& !in
             &                          p_patch(jg)                    ,& !in
             &                          p_int_state(jg)                ,& !in
             &                          p_nh_state(jg)%metrics         ,& !in

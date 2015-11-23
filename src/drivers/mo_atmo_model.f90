@@ -534,7 +534,7 @@ CONTAINS
         CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
           &                            p_patch(jg)%nshift_total  )
         IF ( iforcing == inwp) THEN
-          CALL configure_ww( jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total)
+          CALL configure_ww( tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total)
         END IF
       ENDDO
     ENDIF

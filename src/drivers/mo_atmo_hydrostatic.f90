@@ -16,7 +16,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_exception,         ONLY: message
   USE mo_impl_constants,    ONLY: iecham, ildf_echam
 
-  USE mo_master_config,     ONLY: isRestart
+  USE mo_master_config,     ONLY: isRestart, tc_current_date
   USE mo_time_config,       ONLY: time_config
   USE mo_run_config,        ONLY: dtime, iforcing, nlev, &
     &                             msg_level, output_mode, ntracer, iqv, iqc, iqt
@@ -121,7 +121,7 @@ CONTAINS
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
       CALL init_echam_phy( p_patch(1:), ctest_name, &
-                            & nlev, vct_a, vct_b, time_config%cur_datetime )
+                            & nlev, vct_a, vct_b, tc_current_date )
     END IF
 
     !------------------------------------------------------------------

@@ -88,7 +88,9 @@ MODULE mo_interface_iconam_echam
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
   USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav
 
-  USE mo_datetime              ,ONLY: t_datetime
+  USE mo_datetime              ,ONLY: t_datetime, string_to_datetime
+  USE mtime                    ,ONLY: datetime, MAX_DATETIME_STR_LEN, &
+    &                                 datetimeToString
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
@@ -122,7 +124,7 @@ CONTAINS
   !  Marco Giorgetta, MPI-M, 2014
   !
   SUBROUTINE interface_iconam_echam( dtadv_loc        ,& !in
-    &                                datetime         ,& !in
+    &                                mtime_current    ,& !in
     &                                patch            ,& !in
     &                                pt_int_state     ,& !in
     &                                p_metrics        ,& !in
@@ -134,7 +136,7 @@ CONTAINS
     !> Arguments:
     !
     REAL(wp)              , INTENT(in)            :: dtadv_loc       !< advective time step
-    TYPE(t_datetime)      , INTENT(in)            :: datetime
+    TYPE(datetime),          POINTER              :: mtime_current
 
     TYPE(t_patch)         , INTENT(in)   , TARGET :: patch           !< grid/patch info
     TYPE(t_int_state)     , INTENT(in)   , TARGET :: pt_int_state    !< interpolation state
@@ -173,6 +175,19 @@ CONTAINS
     ! Local parameters
 
     CHARACTER(*), PARAMETER :: method_name = "interface_iconam_echam"
+
+    TYPE(t_datetime)                    :: this_datetime
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+
+    !---------------------------------------------------------------
+    ! conversion of subroutine arguments to old "t_datetime" data
+    ! structure
+    !
+    ! TODO: remove this after transition to mtime library!!!
+
+    CALL datetimeToString(mtime_current, datetime_string     )
+    CALL string_to_datetime( datetime_string,  this_datetime )
+    !---------------------------------------------------------------
 
     !-------------------------------------------------------------------------------------
 
@@ -390,7 +405,7 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_echam_bcs)
 
-    CALL echam_phy_bcs_global( datetime     ,&! in
+    CALL echam_phy_bcs_global( this_datetime,&! in
       &                        jg           ,&! in
       &                        patch        ,&! in
       &                        dtadv_loc    ,&! in
@@ -439,7 +454,7 @@ CONTAINS
         &                  jcs          ,&! in
         &                  jce          ,&! in
         &                  nproma       ,&! in
-        &                  datetime     ,&! in
+        &                  this_datetime,&! in
         &                  dtadv_loc    ,&! in
         &                  dtadv_loc    ,&! in
         &                  ltrig_rad    ,&! in
