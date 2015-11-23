@@ -47,7 +47,7 @@ MODULE mo_sea_ice
     &                               i_ice_albedo, leadclose_1, leadclose_2n, use_IceInitialization_fromTemperature, &
     &                               use_constant_tfreez, use_calculated_ocean_stress, use_no_flux_gradients, t_heat_base, &
     &                               init_analytic_conc_param, init_analytic_hi_param, &
-    &                               init_analytic_hs_param
+    &                               init_analytic_hs_param, init_analytic_temp_under_ice
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state
   USE mo_ocean_state,           ONLY: v_base, ocean_restart_list, ocean_default_list
   USE mo_var_list,            ONLY: add_var
@@ -70,7 +70,8 @@ MODULE mo_sea_ice
   USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, init_fem_wgts, destruct_fem_wgts,             &
     &                               ice_fem_grid_init, ice_fem_grid_post, ice_advection,        &
     &                               ice_advection_vla, ice_ocean_stress
-  USE mo_grid_config,         ONLY: n_dom
+  USE mo_ice_init,            ONLY: ice_init_fem
+!  USE mo_grid_config,         ONLY: n_dom   ! restrict sea-ice model to the global domain for the time being
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_ice_fast, timer_ice_slow
   USE mo_datetime,            ONLY: t_datetime
@@ -880,7 +881,7 @@ CONTAINS
       &          lrestart_cont=.TRUE.)
 
     ! Initialize with zero
-    atmos_fluxes%counter = 0.0_wp
+    atmos_fluxes%counter = 0
 
     ! Initialise the albedos sensibly
     atmos_fluxes%albvisdir (:,:,:) = albi
@@ -1074,11 +1075,11 @@ CONTAINS
     TYPE(t_patch_3D), TARGET, INTENT(in)  :: p_patch_3D
     TYPE(t_hydro_ocean_state)             :: p_os
     TYPE (t_sea_ice),      INTENT (INOUT) :: ice
-    REAL(wp), DIMENSION(nproma,p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks), &
+    REAL(wp), DIMENSION(nproma,p_patch_3D%p_patch_2D(1)%alloc_cell_blocks), &
       & INTENT(OUT)                       :: cellThicknessUnderIce
 
     !local variables
-    REAL(wp), DIMENSION(nproma,ice%kice, p_patch_3D%p_patch_2D(n_dom)%alloc_cell_blocks) :: &
+    REAL(wp), DIMENSION(nproma,ice%kice, p_patch_3D%p_patch_2D(1)%alloc_cell_blocks) :: &
       & Tinterface, & ! temperature at snow-ice interface
       & Tfw           ! Ocean freezing temperature [C]
 
@@ -1091,8 +1092,8 @@ CONTAINS
     !-------------------------------------------------------------------------
     CALL message(TRIM(routine), 'start' )
 
-    p_patch => p_patch_3D%p_patch_2D(n_dom)
-    p_patch_vert => p_patch_3D%p_patch_1D(n_dom)
+    p_patch => p_patch_3D%p_patch_2D(1)
+    p_patch_vert => p_patch_3D%p_patch_1D(1)
 
     !Constructor basic init already done at this point
     !   CALL alloc_mem_commo_ice (ice, atmos_fluxes, atmos_fluxesAve)
@@ -1119,7 +1120,7 @@ CONTAINS
 
     ! Stupid initialisation trick for Levitus initialisation
     IF (use_IceInitialization_fromTemperature) THEN
-      WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= -1.6_wp .and. v_base%lsm_c(:,1,:) <= sea_boundary )
+      WHERE (p_os%p_prog(nold(1))%tracer(:,1,:,1) <= init_analytic_temp_under_ice .and. v_base%lsm_c(:,1,:) <= sea_boundary )
         ice%hi(:,1,:)   = init_analytic_hi_param
         ice%hs(:,1,:)   = init_analytic_hs_param
         ice%conc(:,1,:) = init_analytic_conc_param
@@ -1326,8 +1327,8 @@ CONTAINS
 
     IF (ltimer) CALL timer_start(timer_ice_slow)
 
-    p_patch      => p_patch_3D%p_patch_2D(n_dom)
-    p_patch_vert => p_patch_3D%p_patch_1D(n_dom)
+    p_patch      => p_patch_3D%p_patch_2D(1)
+    p_patch_vert => p_patch_3D%p_patch_1D(1)
     ! subset range pointer
     all_cells => p_patch%cells%all 
     flat      => p_patch_vert%prism_thick_flat_sfc_c(:,1,:)
@@ -1473,8 +1474,8 @@ CONTAINS
 
     IF ( i_ice_dyn >= 1 ) THEN
       ! AWI FEM model wrapper
-      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff )
-
+      CALL fem_ice_wrap ( p_patch_3D, ice, p_os, atmos_fluxes, p_op_coeff, 1) ! not 1 but jstep should be passed to fem_ice_wrap as the last argument
+                                                                              ! but it does not matter, usage is depreciated
       ! #vla# 2015-05 - debugging ice_advection routine
 !      CALL dbg_print('IceSlow: p_ice%u'           ,ice%u_prog,             str_module, 3, in_subset=p_patch%verts%owned)
 !      CALL dbg_print('IceSlow: p_ice%v'           ,ice%v_prog,             str_module, 3, in_subset=p_patch%verts%owned)
