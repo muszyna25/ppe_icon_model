@@ -386,7 +386,7 @@ CONTAINS
         ENDDO
 
         ! call asynchronous restart
-        CALL write_async_restart (this_datetime, jstep)
+        CALL write_async_restart (current_date, jstep)
 
       ELSE
 #ifdef _MTIME_DEBUG

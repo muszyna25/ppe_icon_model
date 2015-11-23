@@ -27,7 +27,8 @@ MODULE mo_io_restart_async
   USE mo_util_file,               ONLY: util_symlink, util_unlink, util_islink
   USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
   USE mo_kind,                    ONLY: wp, i8, dp
-  USE mo_datetime,                ONLY: t_datetime, iso8601, iso8601extended
+  USE mtime,                      ONLY: datetime, MAX_DATETIME_STR_LEN, &
+    &                                   datetimeToString, newDatetime
   USE mo_io_units,                ONLY: nerr, filename_max
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
@@ -86,7 +87,8 @@ MODULE mo_io_restart_async
     &                                   p_send_packed, p_recv_packed, p_bcast_packed,     &
     &                                   p_pack_int, p_pack_bool, p_pack_real,             &
     &                                   p_unpack_int, p_unpack_bool, p_unpack_real,       &
-    &                                   p_int_byte, get_my_mpi_work_id
+    &                                   p_int_byte, get_my_mpi_work_id, p_pack_string,    &
+    &                                   p_unpack_string
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -307,7 +309,7 @@ MODULE mo_io_restart_async
   ! patch independent arguments
   !
   TYPE t_restart_args
-    TYPE(t_datetime)  :: datetime
+    TYPE(datetime), POINTER :: this_datetime
     INTEGER           :: jstep
 #ifdef HAVE_F2003
     INTEGER           :: n_max_attrib_tlen
@@ -582,15 +584,14 @@ CONTAINS
   !
   !> Writes all restart data into one or more files (one file per patch, collective call).
   !
-  SUBROUTINE write_async_restart (datetime, jstep)
+  SUBROUTINE write_async_restart (mtime_current, jstep)
 
-    TYPE(t_datetime), INTENT(IN)    :: datetime
+    TYPE(datetime),   POINTER       :: mtime_current !< Date and time information
     INTEGER,          INTENT(IN)    :: jstep
-
-    TYPE(t_patch_data), POINTER     :: p_pd
-    INTEGER                         :: idx
-
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'write_async_restart'
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER         :: subname = MODUL_NAME//'write_async_restart'
+    TYPE(t_patch_data), POINTER         :: p_pd
+    INTEGER                             :: idx
 
 #ifdef NOMPI
     CALL finish (subname, ASYNC_RESTART_REQ_MPI)
@@ -599,13 +600,13 @@ CONTAINS
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
 #endif
-
+    
     ! check kind of process
     IF (.NOT. my_process_is_work() .AND. .NOT. my_process_is_restart()) RETURN
 
     IF (my_process_is_work()) THEN
       CALL compute_wait_for_restart
-      CALL compute_start_restart (datetime, jstep)
+      CALL compute_start_restart (mtime_current, jstep)
     END IF
 
     ! do the restart output
@@ -715,8 +716,7 @@ CONTAINS
       IF(done) EXIT ! leave loop, we are done
 
       ! read and write restart variable lists (collective call)
-      CALL write_async_restart (p_ra%datetime,    &
-                              & p_ra%jstep)
+      CALL write_async_restart (p_ra%this_datetime, p_ra%jstep)
 
       ! inform compute PEs that the restart is done
       CALL restart_send_ready
@@ -786,14 +786,15 @@ CONTAINS
   !
   SUBROUTINE restart_wait_for_start(done)
 
-    LOGICAL, INTENT(OUT)           :: done ! flag if we should shut down
+    LOGICAL, INTENT(OUT)                :: done ! flag if we should shut down
 
-    TYPE(t_patch_data), POINTER    :: p_pd
-    TYPE(t_restart_args), POINTER  :: p_ra
-    INTEGER                        :: i, j, k, ierrstat, position, MAX_BUF_SIZE, &
-      &                               iheader, this_patch, calday
-    CHARACTER, POINTER             :: p_msg(:)
-    CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'restart_wait_for_start'
+    TYPE(t_patch_data), POINTER         :: p_pd
+    TYPE(t_restart_args), POINTER       :: p_ra
+    INTEGER                             :: i, j, k, ierrstat, position, MAX_BUF_SIZE, &
+      &                                    iheader, this_patch
+    CHARACTER, POINTER                  :: p_msg(:)
+    CHARACTER(LEN=*), PARAMETER         :: subname = MODUL_NAME//'restart_wait_for_start'
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: this_datetime_str
 
     ! set output parameter to default value
     done = .FALSE.
@@ -827,16 +828,8 @@ CONTAINS
 
         ! get patch independent arguments
         p_ra => restart_args
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%year,    p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%month,   p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%day,     p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%hour,    p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%datetime%minute,  p_comm_work)
-        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%second,  p_comm_work)
-        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%caltime, p_comm_work)
-        CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, calday,                p_comm_work)
-        p_ra%datetime%calday = INT(calday,i8)
-        CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_ra%datetime%daysec,  p_comm_work)
+        CALL p_unpack_string( p_msg, MAX_BUF_SIZE, position, this_datetime_str,  p_comm_work)
+        p_ra%this_datetime => newDatetime(this_datetime_str)
         CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%jstep,            p_comm_work)
 
         CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_ra%n_opt_output_file, p_comm_work)
@@ -977,16 +970,17 @@ CONTAINS
   !! compute_start_restart: Send a message to restart PEs that they should start restart.
   !! The counterpart on the restart side is restart_wait_for_start.
   !
-  SUBROUTINE compute_start_restart(datetime, jstep)
+  SUBROUTINE compute_start_restart(this_datetime, jstep)
 
-    TYPE(t_datetime), INTENT(IN)  :: datetime
-    INTEGER,          INTENT(IN)  :: jstep
-
-    TYPE(t_patch_data),   POINTER  :: p_pd
-    TYPE(t_restart_args), POINTER  :: p_ra
-    CHARACTER, POINTER             :: p_msg(:)
-    INTEGER                        :: i, j, k, position, MAX_BUF_SIZE
-    CHARACTER(LEN=*), PARAMETER :: subname = MODUL_NAME//'compute_start_restart'
+    TYPE(datetime),   POINTER           :: this_datetime
+    INTEGER,          INTENT(IN)        :: jstep
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER         :: subname = MODUL_NAME//'compute_start_restart'
+    TYPE(t_patch_data),   POINTER       :: p_pd
+    TYPE(t_restart_args), POINTER       :: p_ra
+    CHARACTER, POINTER                  :: p_msg(:)
+    INTEGER                             :: i, j, k, position, MAX_BUF_SIZE
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: this_datetime_str
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS5)subname,' p_pe=',p_pe, &
@@ -1051,16 +1045,9 @@ CONTAINS
       CALL p_pack_int(MSG_RESTART_START,         p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
       ! set patch independent arguments
-      CALL p_pack_int( datetime%year,            p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( datetime%month,           p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( datetime%day,             p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( datetime%hour,            p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( datetime%minute,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_real(datetime%second,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_real(datetime%caltime,         p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( INT(datetime%calday),     p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_real(datetime%daysec,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
-      CALL p_pack_int( jstep,                    p_msg, MAX_BUF_SIZE, position, p_comm_work)
+      CALL datetimeToString(this_datetime, this_datetime_str)
+      CALL p_pack_string( this_datetime_str, p_msg, MAX_BUF_SIZE, position,  p_comm_work)
+      CALL p_pack_int( jstep, p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
       CALL p_pack_int( p_ra%n_opt_output_file,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
       IF (p_ra%n_opt_output_file > 0) THEN
@@ -1414,16 +1401,16 @@ CONTAINS
   SUBROUTINE print_restart_arguments
 
 #ifdef DEBUG
-    CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'print_restart_arguments'
-    TYPE(t_restart_args), POINTER :: p_ra
-    TYPE(t_patch_data), POINTER   :: p_pd
+    CHARACTER(LEN=*), PARAMETER         :: subname = MODUL_NAME//'print_restart_arguments'
+    TYPE(t_restart_args), POINTER       :: p_ra
+    TYPE(t_patch_data), POINTER         :: p_pd
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: this_datetime_string
 
     WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
 
     p_ra => restart_args
-    PRINT *,subname, ' current_caltime=', p_ra%datetime%caltime
-    PRINT *,subname, ' current_calday=',  p_ra%datetime%calday
-    PRINT *,subname, ' current_daysec=',  p_ra%datetime%daysec
+    CALL datetimeToString(p_ra%this_datetime, this_datetime_str)
+    PRINT *,subname, ' current_date=', TRIM(this_datetime_str)
 
 #ifdef HAVE_F2003
     PRINT *,subname, ' max. attr. text length=', p_ra%n_max_attrib_tlen
@@ -2323,20 +2310,18 @@ CONTAINS
   !  Set global restart attributes.
   !
   SUBROUTINE set_restart_attributes (p_pd)
-
     TYPE(t_patch_data), POINTER, INTENT(INOUT) :: p_pd
-
-    TYPE(t_restart_args),  POINTER :: p_ra
-    CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
-    INTEGER                        :: jp, jp_end, jg, nlev_soil, &
-      &                               nlev_snow, nlev_ocean, nice_class, ierrstat, &
-      &                               i,current_jfile
-
-    CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'set_restart_attributes'
-    CHARACTER(LEN=*), PARAMETER    :: attrib_format_int  = '(a,i2.2)'
-    CHARACTER(LEN=*), PARAMETER    :: attrib_format_int2 = '(a,i2.2,a,i2.2)'
-
-    CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
+    ! local variables
+    TYPE(t_restart_args),  POINTER             :: p_ra
+    CHARACTER(LEN=MAX_NAME_LENGTH)             :: attrib_name
+    INTEGER                                    :: jp, jp_end, jg, nlev_soil,                   &
+      &                                           nlev_snow, nlev_ocean, nice_class, ierrstat, &
+      &                                           i,current_jfile
+    CHARACTER(LEN=*), PARAMETER                :: subname = MODUL_NAME//'set_restart_attributes'
+    CHARACTER(LEN=*), PARAMETER                :: attrib_format_int  = '(a,i2.2)'
+    CHARACTER(LEN=*), PARAMETER                :: attrib_format_int2 = '(a,i2.2,a,i2.2)'
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)        :: datetime_string
+    CHARACTER(len=MAX_CHAR_LENGTH)             :: attname   ! attribute name
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' is called for p_pe=',p_pe
@@ -2356,11 +2341,8 @@ CONTAINS
 
     ! set restart time
     p_ra => restart_args
-    CALL set_restart_attribute ('current_caltime', p_ra%datetime%caltime)
-    CALL set_restart_attribute ('current_calday' , p_ra%datetime%calday)
-    CALL set_restart_attribute ('current_daysec' , p_ra%datetime%daysec)
-
-    CALL set_restart_attribute('tc_startdate', iso8601extended(p_ra%datetime))
+    CALL datetimeToString(p_ra%this_datetime, datetime_string)
+    CALL set_restart_attribute('tc_startdate', datetime_string)
 
     ! set no. of domains
     IF (p_pd%l_opt_ndom) THEN
@@ -2606,23 +2588,23 @@ CONTAINS
   SUBROUTINE restart_write_var_list(p_pd)
 
     TYPE(t_patch_data), POINTER, INTENT(IN) :: p_pd
+    ! local variables
+    CHARACTER(LEN=*), PARAMETER             :: subname = MODUL_NAME//'restart_write_var_list'
+    TYPE(t_restart_file), POINTER           :: p_rf
+    TYPE(t_var_metadata), POINTER           :: p_info
+    TYPE(t_reorder_data), POINTER           :: p_ri
+    TYPE(datetime),   POINTER               :: dt
+    TYPE(t_var_data), POINTER               :: p_vars(:)
 
-    TYPE(t_restart_file), POINTER   :: p_rf
-    TYPE(t_var_metadata), POINTER   :: p_info
-    TYPE(t_reorder_data), POINTER   :: p_ri
-    TYPE(t_datetime), POINTER       :: dt
-    TYPE(t_var_data), POINTER       :: p_vars(:)
+    INTEGER                                 :: iv, nval, ierrstat, nlevs, nv_off, &
+      &                                        np, mpi_error, i, idate, itime, status, ilev
+    INTEGER(KIND=MPI_ADDRESS_KIND)          :: ioff(0:num_work_procs-1)
+    REAL(dp), ALLOCATABLE                   :: var1_dp(:), var2_dp(:,:), var3_dp(:)
+    INTEGER                                 :: ichunk, nchunks, chunk_start, chunk_end,     &
+      &                                        this_chunk_nlevs, ioff2
 
-    INTEGER                         :: iv, nval, ierrstat, nlevs, nv_off, &
-      &                                np, mpi_error, i, idate, itime, status, ilev
-    INTEGER(KIND=MPI_ADDRESS_KIND)  :: ioff(0:num_work_procs-1)
-    REAL(dp), ALLOCATABLE           :: var1_dp(:), var2_dp(:,:), var3_dp(:)
-    INTEGER                         :: ichunk, nchunks, chunk_start, chunk_end,     &
-      &                                this_chunk_nlevs, ioff2
-
-    CHARACTER(LEN=*), PARAMETER     :: subname = MODUL_NAME//'restart_write_var_list'
     ! For timing
-    REAL(dp)                        :: t_get, t_write, t_0, mb_get, mb_wr
+    REAL(dp)                                :: t_get, t_write, t_0, mb_get, mb_wr
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
@@ -2637,9 +2619,9 @@ CONTAINS
     mb_wr   = 0.d0
 
     ! write restart time
-    dt => restart_args%datetime
-    idate = cdiEncodeDate(dt%year, dt%month, dt%day)
-    itime = cdiEncodeTime(dt%hour, dt%minute, NINT(dt%second))
+    dt => restart_args%this_datetime
+    idate = cdiEncodeDate(INT(dt%date%year), dt%date%month, dt%date%day)
+    itime = cdiEncodeTime(dt%time%hour, dt%time%minute, dt%time%second)
 
     p_rf => p_pd%restart_file
     CALL taxisDefVdate(p_rf%cdiTaxisID, idate)
@@ -3314,14 +3296,14 @@ CONTAINS
   SUBROUTINE open_restart_file(p_pd)
 
     TYPE(t_patch_data), POINTER, INTENT(IN) :: p_pd
-
-    TYPE(t_restart_file), POINTER :: p_rf
-    TYPE(t_var_list), POINTER     :: p_re_list
-    CHARACTER(LEN=32)             :: datetime
-    INTEGER                       :: restart_type, i
-    CHARACTER(LEN=*), PARAMETER   :: subname = MODUL_NAME//'open_restart_file'
-    TYPE (t_keyword_list), POINTER :: keywords => NULL()
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+    ! local variables
+    TYPE(t_restart_file), POINTER           :: p_rf
+    TYPE(t_var_list), POINTER               :: p_re_list
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)     :: datetime_str
+    INTEGER                                 :: restart_type, i
+    CHARACTER(LEN=*), PARAMETER             :: subname = MODUL_NAME//'open_restart_file'
+    TYPE (t_keyword_list), POINTER          :: keywords => NULL()
+    CHARACTER(LEN=MAX_CHAR_LENGTH)          :: cdiErrorText
 
 #ifdef DEBUG
     WRITE (nerr,FORMAT_VALS3)subname,' p_pe=',p_pe
@@ -3356,12 +3338,12 @@ CONTAINS
         CALL finish(subname, UNKNOWN_FILE_FORMAT)
     END SELECT
 
-    datetime = iso8601(restart_args%datetime)
+    CALL datetimeToString(restart_args%this_datetime, datetime_str)
 
     ! build the file name
     CALL associate_keyword("<gridfile>",   TRIM(get_filename_noext(p_pd%base_filename)),   keywords)
     CALL associate_keyword("<idom>",       TRIM(int2string(p_pd%id, "(i2.2)")),            keywords)
-    CALL associate_keyword("<rsttime>",    TRIM(datetime),                                 keywords)
+    CALL associate_keyword("<rsttime>",    TRIM(datetime_str),                             keywords)
     CALL associate_keyword("<mtype>",      TRIM(p_rf%model_type),                          keywords)
     ! replace keywords in file name
     p_rf%filename = TRIM(with_keywords(keywords, TRIM(restart_filename)))

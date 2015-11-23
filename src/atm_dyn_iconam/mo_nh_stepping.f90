@@ -1067,7 +1067,7 @@ MODULE mo_nh_stepping
             & opt_ndom                   = n_dom,                      &
             & opt_output_jfile           = output_jfile )
         ENDDO
-        CALL write_async_restart(datetime_current, jstep)
+        CALL write_async_restart(mtime_current, jstep)
       ELSE
         DO jg = 1, n_dom
           IF (.NOT. p_patch(jg)%ldom_active) CYCLE
@@ -1462,7 +1462,7 @@ MODULE mo_nh_stepping
               &      prm_diag(jg),                             &!in
               &      p_lnd_state(jg)%diag_lnd,                 &!in
               &      p_nh_state(jg)%prog(nnew(jg))%rho,        &!in
-              &      datetime_current,                         &!in
+              &      mtime_current,                            &!in
               &      p_nh_state(jg)%prog(n_now_rcf)%tracer)     !inout
           ENDIF
 
