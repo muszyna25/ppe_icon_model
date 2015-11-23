@@ -30,7 +30,8 @@ MODULE mo_nwp_rrtm_interface
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest
+  USE mo_impl_constants,       ONLY: min_rlcell_int, io3_ape, nexlevs_rrg_vnest, &
+    &                                MAX_CHAR_LENGTH
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -54,7 +55,8 @@ MODULE mo_nwp_rrtm_interface
 
   PRIVATE
 
-
+  !> module name string
+  CHARACTER(LEN=*), PARAMETER :: modname = 'mo_nwp_rrtm_interface'
 
 
   PUBLIC :: nwp_rrtm_ozon_aerosol
@@ -545,8 +547,8 @@ CONTAINS
   SUBROUTINE nwp_rrtm_radiation ( pt_patch, ext_data,                       &
     &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog, irad )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
-!      &  routine = 'mo_nwp_rad_interface:'
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+      &  routine = modname//'::nwp_rrtm_radiation'
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in):: ext_data
@@ -597,7 +599,7 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
     IF (msg_level >= 12) &
-      &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
+      &           CALL message(routine, 'RRTM radiation on full grid')
 
 !$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx)
 !$OMP DO ICON_OMP_GUIDED_SCHEDULE
@@ -691,8 +693,8 @@ CONTAINS
     &                                     zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,    &
     &                                     pt_diag,prm_diag,lnd_prog,irad    )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
-!      &  routine = 'mo_nwp_rad_interface:'
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+      &  routine = modname//'::nwp_rrtm_radiation_reduced'
 
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
@@ -804,7 +806,7 @@ CONTAINS
       ENDIF
 
       IF (msg_level >= 12) &
-        &       CALL message('mo_nwp_rad_interface', 'RRTM radiation on reduced grid')
+        &       CALL message(routine, 'RRTM radiation on reduced grid')
 
       i_chidx     =  pt_patch%parent_child_index
 
@@ -1009,28 +1011,28 @@ CONTAINS
 
         WRITE(message_text,'(a,4f12.8)') 'max/min alb = ', max_albvisdir, min_albvisdir, &
           max_albvisdif, min_albvisdif
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
+        CALL message(routine, TRIM(message_text))
 
         WRITE(message_text,'(a,2f10.3,2f10.2)') 'max/min sfc temp/pres = ', max_tsfc, min_tsfc, &
           max_psfc, min_psfc
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
+        CALL message(routine, TRIM(message_text))
 
         WRITE(message_text,'(a)') 'max/min pres_ifc, pres, temp, acdnc'
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
+        CALL message(routine, TRIM(message_text))
 
         DO jk = 1, nlev_rg
           WRITE(message_text,'(i4,4f10.2,2f10.3,2f12.1)') jk,max_pres_ifc(jk), min_pres_ifc(jk), &
             max_pres(jk), min_pres(jk), max_temp(jk), min_temp(jk), max_acdnc(jk), min_acdnc(jk)
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
+          CALL message(routine, TRIM(message_text))
         ENDDO
 
         WRITE(message_text,'(a)') 'max/min QV, QC, QI, CC'
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
+        CALL message(routine, TRIM(message_text))
 
         DO jk = 1, nlev_rg
           WRITE(message_text,'(i4,8e13.5)') jk,max_qv(jk), min_qv(jk), max_qc(jk), min_qc(jk), &
              max_qi(jk), min_qi(jk), max_cc(jk), min_cc(jk)
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
+          CALL message(routine, TRIM(message_text))
         ENDDO
 
         DEALLOCATE(max_pres_ifc, max_pres, max_temp, max_acdnc, max_qv, max_qc, max_qi, max_cc, &
@@ -1193,12 +1195,12 @@ CONTAINS
 
 
         WRITE(message_text,'(a)') 'max/min LW flux, SW transmissivity'
-        CALL message('nwp_nh_interface: ', TRIM(message_text))
+        CALL message(routine, TRIM(message_text))
 
         DO jk = 1, nlevp1
           WRITE(message_text,'(i4,2f10.3,2f10.7)') jk,max_lwflx(jk), min_lwflx(jk), &
             max_swtrans(jk), min_swtrans(jk)
-          CALL message('nwp_nh_interface: ', TRIM(message_text))
+          CALL message(routine, TRIM(message_text))
         ENDDO
 
       ENDIF ! msg_level >= 16
@@ -1221,8 +1223,8 @@ CONTAINS
   SUBROUTINE nwp_rrtm_radiation_repartition ( pt_patch, ext_data, &
     &  zaeq1, zaeq2, zaeq3, zaeq4, zaeq5, pt_diag, prm_diag, lnd_prog )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
-!      &  routine = 'mo_nwp_rad_interface:'
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+      &  routine = modname//'::nwp_rrtm_radiation_repartition'
 
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
@@ -1264,8 +1266,7 @@ CONTAINS
     IF (timers_level > 3) CALL timer_start(timer_preradiaton)
     !-------------------------------------------------------------------------
     IF (msg_level >= 12) &
-      &  CALL message('mo_nwp_rad_interface',   &
-      &  'RRTM radiation on redistributed grid')
+      &  CALL message(routine, 'RRTM radiation on redistributed grid')
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
