@@ -12,7 +12,7 @@ MODULE mo_derived_variable_handling
 
   USE mo_kind, ONLY: wp,i8
   USE mo_model_domain, ONLY: t_patch
-  USE mo_parallel_config,     ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma, use_dp_mpi2io
   USE mo_run_config, ONLY: tc_dt_model
   USE mo_master_config, ONLY: tc_startdate
   USE mo_ocean_nml,           ONLY: n_zlev
@@ -34,6 +34,7 @@ MODULE mo_derived_variable_handling
   USE mo_mtime_extensions,                  ONLY: get_datetime_string
   USE mo_output_event_types, ONLY: t_sim_step_info
   USE mo_time_config,         ONLY: time_config
+  USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_FLT64
 
   IMPLICIT NONE
 
@@ -41,7 +42,7 @@ MODULE mo_derived_variable_handling
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_derived_variable_handling'
 
-  TYPE(map), SAVE    :: meanMap, meanEvents, meanEventsActivity
+  TYPE(map), SAVE    :: meanMap, meanEvents, meanEventsActivity, meanVarCounter
   TYPE(t_var_list)   :: mean_stream_list
   INTEGER, PARAMETER :: ntotal = 10
 
@@ -50,6 +51,7 @@ MODULE mo_derived_variable_handling
   PUBLIC :: mean_stream_list
   PUBLIC :: copy_var_to_list
   PUBLIC :: perform_accumulation
+  PUBLIC :: reset_accumulation
   PUBLIC :: process_mean_stream
 
   TYPE :: t_accumulation_pair
@@ -105,6 +107,7 @@ CONTAINS
     meanMap            = map(verbose=.false.)
     meanEvents         = map(verbose=.false.)
     meanEventsActivity = map(verbose=.false.)
+    meanVarCounter     = map(verbose=.false.)
 
     WRITE(listname,'(a)')  'mean_stream_list'
     CALL new_var_list(mean_stream_list, listname, patch_id=patch_2d%id)
@@ -140,7 +143,7 @@ CONTAINS
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
 
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
-    INTEGER :: ntotal_vars, output_variables,i,ierrstat
+    INTEGER :: ntotal_vars, output_variables,i,ierrstat, dataType
     type(vector_ref) :: meanVariables
     CHARACTER(LEN=100) :: eventKey
     type(t_event_wrapper) :: event_wrapper
@@ -221,6 +224,14 @@ CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
           ! add new variable, copy the meta-data from the existing variable
           ! 1. copy the source variable to destination pointer
           dest_element => copy_var_to_list(mean_stream_list,dest_element_name,src_element)
+
+          ! set output to double precission if necessary
+          IF ( use_dp_mpi2io ) THEN                                                                                                                                                                                                                  
+            dataType = DATATYPE_FLT64
+          ELSE
+            dataType = DATATYPE_FLT32
+          ENDIF
+          dest_element%field%info%cf%datatype = dataType
           if ( my_process_is_stdio()) then
             print *,'copy_var to list CALLED'
           endif
@@ -229,6 +240,7 @@ CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
           CALL meanVariables%add(src_element) ! source element comes first
 !TODO print *,'src added'
           CALL meanVariables%add(dest_element)
+          CALL meanVarCounter%add(dest_element%field%info%name,0)
 !         pair = t_accumulation_pair(source=src_element, destination=dest_element, counter=0)
 !         CALL meanVariables%add(t_accumulation_pair(source=src_element, destination=dest_element, counter=0))
 !TODO print *,'dst added'
@@ -243,6 +255,7 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     ELSE
       RETURN
     END IF
+    CALL print_error(meanVarCounter%to_string())
   END SUBROUTINE process_mean_stream
   FUNCTION copy_var_to_list(list,name,source_element) RESULT(dest_element)
     TYPE(t_var_list) :: list
@@ -250,6 +263,7 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     TYPE(t_list_element),POINTER :: source_element
 
     TYPE(t_list_element), POINTER :: dest_element
+    integer :: dataType = -1
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::copy_var_to_list"
 
 !   CALL message(routine,'START')
@@ -285,19 +299,19 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
 
   END FUNCTION get_accumulation_varname
 
-  SUBROUTINE accumulation_add(source, destination)!, counter)
+  SUBROUTINE accumulation_add(source, destination, counter)
     type(t_list_element) , INTENT(IN)    :: source
     type(t_list_element) , INTENT(INOUT) :: destination
-!   integer, intent(inout)               :: counter
+    integer, intent(inout)               :: counter
 
     destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:)+ source%field%r_ptr(:,:,:,:,:)
-!   counter                 = counter + 1
+    counter                 = counter + 1
   END SUBROUTINE accumulation_add
 
   SUBROUTINE perform_accumulation
     INTEGER :: k,i
     INTEGER :: element_counter
-    class(*),pointer :: elements,check_src, check_pair, check_dest, meanEvent
+    class(*),pointer :: elements,check_src, check_pair, check_dest, meanEvent,counter
     type(t_list_element), pointer :: source, destination
     type(vector_iterator) :: value_iterator
     type(vector) :: values, keys
@@ -308,7 +322,8 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     type(event) :: event_from_nml
     character(len=132) :: msg
     type(event),pointer :: e
-    integer :: isactive
+    logical :: isactive
+    integer :: varcounter
 
     class(*), pointer :: eventActive
     TYPE(divisionquotienttimespan) :: quot
@@ -320,7 +335,7 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     keys   = meanMap%keys()
 
     ! check events first {{{
-    isactive = -1
+    isactive = .false.
     CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
     mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
     if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
@@ -332,17 +347,9 @@ if (my_process_is_stdio()) call print_summary(eventString)
         meanEvent => meanEvents%get(eventString)
         select type (meanEvent)
         type is (t_event_wrapper)
-          if (LOGICAL(isCurrentEventActive(meanEvent%this,mtime_date))) then
-            call divideDatetimeDifferenceInSeconds(mtime_date, tc_startdate, tc_dt_model, quot)
-            isactive = INT(quot%quotient)
-
-
-if (my_process_is_stdio()) write (0,*)' isactive COMPUTE:',isactive
-          else
-            isactive = 0
-          end if
-          call meanEventsActivity%add(eventString,isactive)
+          isactive = LOGICAL(isCurrentEventActive(meanEvent%this,mtime_date))
         end select
+        call meanEventsActivity%add(eventString,isactive)
       end select
     end do
 if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string())
@@ -389,10 +396,17 @@ IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
               if (associated(check_dest)) then
               select type (check_dest)
               type is (t_list_element)
+                counter => meanVarCounter%get(destination%field%info%name)
+                select type(counter)
+                type is (integer)
 IF ( my_process_is_stdio() ) call print_summary('sourceName: '//trim(source%field%info%name))
 IF ( my_process_is_stdio() ) call print_summary('destName: '//trim(destination%field%info%name))
-!counter = 0
-                CALL accumulation_add(source, destination)!, counter)
+IF ( my_process_is_stdio() )  write (0,*)'counter: ',counter
+                varcounter = counter
+                CALL accumulation_add(source, destination, varcounter)
+                counter = varcounter
+IF ( my_process_is_stdio() )  write (0,*)'counter: ',counter
+                end select
 
                 ! check if the field will be written to disk this timestep {{{
                 select type (eventString => keys%at(i))
@@ -401,11 +415,17 @@ IF ( my_process_is_stdio() ) call print_summary('destName: '//trim(destination%f
                   ! check if the event is active wrt the current datatime {{{
 !                 eventActive => meanEventsActivity%get(eventString)
                   select type (eventActive => meanEventsActivity%get(eventString))
-                  type is (integer)
+                  type is (logical)
                     isactive = eventActive
-if (my_process_is_stdio()) write (0,*)' isactive (accloop):',isactive
-                    if (0 .lt. isactive ) then
-                      destination%field%r_ptr = destination%field%r_ptr / (REAL(isactive))
+                    if ( isactive ) then
+if (my_process_is_stdio()) CALL print_summary(" --------------->>>>  PERFORM MEAN VALUE COMP!!!!")
+
+                counter => meanVarCounter%get(destination%field%info%name)
+                      select type(counter)
+                      type is (integer)
+                        destination%field%r_ptr = destination%field%r_ptr / (REAL(counter))
+                        counter = 0
+                      end select
                     end if
                   end select
                 end select
@@ -442,13 +462,10 @@ if (my_process_is_stdio()) write (0,*)' isactive (accloop):',isactive
     TYPE(divisionquotienttimespan) :: quot
 !   integer, pointer :: counter
     TYPE(t_accumulation_pair), POINTER :: accumulation_pair
-    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::perform_accumulation"
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::reset_accumulation"
     
     values = meanMap%values()
     keys   = meanMap%keys()
-
-    ! check events first {{{
-    isactive = -1
 
     do i=1, values%length()
       elements => values%at(i)
@@ -466,10 +483,9 @@ if (my_process_is_stdio()) write (0,*)' isactive (accloop):',isactive
                 ! check if the event is active wrt the current datatime {{{
 !                 eventActive => meanEventsActivity%get(eventString)
                 select type (eventActive => meanEventsActivity%get(eventString))
-                type is (integer)
-                  isactive = eventActive
-if (my_process_is_stdio()) write (0,*)' isactive (resetloop):',isactive
-                  if ( 0 .lt. isactive ) then
+                type is (logical)
+                  if ( eventActive ) then
+if (my_process_is_stdio()) call print_error(eventString//' : ------------ >>>> PERFORM RESET')
                   destination%field%r_ptr = 0.0_wp
                   end if
                 end select

@@ -169,7 +169,7 @@ MODULE mo_nh_stepping
        &                                 addEventToEventGroup, isCurrentEventActive, getEventInterval
   USE mo_mtime_extensions,         ONLY: get_datetime_string
   USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
-  USE mo_derived_variable_handling, ONLY: perform_accumulation
+  USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -1017,6 +1017,8 @@ MODULE mo_nh_stepping
     IF (l_nml_output) THEN
       CALL write_name_list_output(jstep)
     ENDIF
+
+    CALL reset_accumulation
 
 
     ! sample meteogram output
