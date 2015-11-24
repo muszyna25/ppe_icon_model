@@ -14,13 +14,14 @@
 MODULE mo_ocean_model
 
   USE mo_exception,           ONLY: message, finish
-  USE mo_master_config,       ONLY: isRestart
+  USE mo_master_config,       ONLY: isRestart, tc_current_date
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
     & stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
     & set_mpi_work_communicators, process_mpi_io_size
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
-  USE mo_datetime,            ONLY: t_datetime, datetime_to_string
+  USE mo_datetime,            ONLY: t_datetime, datetime_to_string, string_to_datetime
+  USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, datetimeToString
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups
   USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
@@ -140,9 +141,10 @@ MODULE mo_ocean_model
 
       CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:ocean_model"
 
-      INTEGER :: jg
-      TYPE(t_sim_step_info) :: sim_step_info
-      INTEGER :: jstep0
+      INTEGER                             :: jg
+      TYPE(t_sim_step_info)               :: sim_step_info
+      INTEGER                             :: jstep0
+
 
       !-------------------------------------------------------------------
       IF (isRestart()) THEN
@@ -350,8 +352,10 @@ MODULE mo_ocean_model
     CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
 
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:construct_ocean_model"
-    INTEGER :: ist
-    INTEGER :: error_status
+    INTEGER                             :: ist
+    INTEGER                             :: error_status
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+
     !-------------------------------------------------------------------
 
     !---------------------------------------------------------------------
@@ -389,7 +393,15 @@ MODULE mo_ocean_model
     !-------------------------------------------------------------------
     ! Initialize date and time
     !-------------------------------------------------------------------
-    start_datetime = time_config%cur_datetime
+
+    !---------------------------------------------------------------
+    ! conversion of mtime data type to old "t_datetime" data structure
+    !
+    ! TODO: remove this after transition to mtime library!!!
+
+    CALL datetimeToString(tc_current_date, datetime_string    )
+    CALL string_to_datetime( datetime_string,  start_datetime )
+    !---------------------------------------------------------------  
 
     !-------------------------------------------------------------------
     ! 4. Setup IO procs

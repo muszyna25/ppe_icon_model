@@ -23,8 +23,7 @@ MODULE mo_ocean_coupling
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_physical_constants,  ONLY: tmelt, rhoh2o
   USE mo_mpi,                 ONLY: p_pe_work
-  USE mo_datetime,            ONLY: t_datetime
-  USE mo_time_config,         ONLY: time_config
+  USE mo_datetime,            ONLY: t_datetime, datetime_to_string
   USE mo_run_config,          ONLY: ltimer
   USE mo_dynamics_config,     ONLY: nold
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling, &
@@ -36,8 +35,9 @@ MODULE mo_ocean_coupling
 
   USE mo_ocean_types
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
-  USE mo_master_config,       ONLY: tc_startdate, tc_stopdate
-  USE mtime,                  ONLY: datetimeToString
+  USE mo_master_config,       ONLY: setCurrentDate
+  USE mtime,                  ONLY: datetime, datetimeToString, &
+    &                               MAX_DATETIME_STR_LEN
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -506,13 +506,13 @@ CONTAINS
   !--------------------------------------------------------------------------
 
   !--------------------------------------------------------------------------
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, datetime)
+  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, this_datetime)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes !atmos_fluxes
-    TYPE(t_datetime), INTENT(inout)             :: datetime
+    TYPE(t_datetime), INTENT(inout)             :: this_datetime
     !
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'couple_ocean_toatmo_fluxes'
@@ -529,16 +529,18 @@ CONTAINS
     INTEGER :: field_shape(3)
 #endif
 
-    INTEGER :: info, ierror   !< return values from cpl_put/get calls
-
-    REAL(wp), PARAMETER :: dummy = 0.0_wp
+    INTEGER                             :: info, ierror   !< return values from cpl_put/get calls
+    REAL(wp), PARAMETER                 :: dummy = 0.0_wp
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datestring
 
     IF (.NOT. is_coupled_run() ) RETURN
 
     IF (ltimer) CALL timer_start(timer_coupling)
 
     patch_horz   => patch_3D%p_patch_2D(1)
-    time_config%cur_datetime = datetime
+
+    CALL datetime_to_string(datestring, this_datetime)
+    CALL setCurrentdate(TRIM(datestring))
 
     nbr_hor_cells = patch_horz%n_patch_cells
 

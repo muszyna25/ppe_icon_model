@@ -16,7 +16,7 @@ MODULE mo_master_config
 
   USE mtime,       ONLY: datetime, timedelta, newDatetime, newTimedelta, &
     &                    MAX_DATETIME_STR_LEN, MAX_CALENDAR_STR_LEN,     &
-    &                    MAX_TIMEDELTA_STR_LEN
+    &                    MAX_TIMEDELTA_STR_LEN, deallocateDatetime
   USE mo_io_units, ONLY: filename_max
   
   IMPLICIT NONE
@@ -188,6 +188,9 @@ CONTAINS
 
   SUBROUTINE setCurrentdate(current_date)
     CHARACTER(len=*), INTENT(in) :: current_date
+    IF (ASSOCIATED(tc_current_date)) THEN
+      CALL deallocateDatetime(tc_current_date)
+    END IF
     tc_current_date => newDatetime(current_date)
   END SUBROUTINE setCurrentdate
 
