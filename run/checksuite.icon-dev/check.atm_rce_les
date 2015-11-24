@@ -9,21 +9,21 @@
 # - the output  file names: <EXPNAME>_<TYPE>_<DATE>.nc
 # - the restart file names: 
 #
-export EXPERIMENT='atm_icoles_nested'
+export EXPERIMENT='atm_rce_les'
 
 # TYPES is a list of names identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
 #
-export TYPES='prog_vars_DOM01_ML prog_vars_DOM02_ML pbl_vars_DOM01_ML pbl_vars_DOM02_ML cloud_diag_DOM01_ML cloud_diag_DOM02_ML rad_vars_DOM01_ML rad_vars_DOM02_ML' 
+export TYPES='prog_vars_DOM01_ML rad_vars_DOM01_ML pbl_vars_DOM01_ML cloud_diag_DOM01_ML tend_vars_DOM01_ML'
 
 # DATES is a list of dates identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
 #
-export DATES='20130424T000030Z 20130424T000100Z 20130424T000130Z 20130424T000200Z'
+export DATES='20080801T001000Z 20080801T002000Z 20080801T003000Z 20080801T004000Z'
 
 # RESTART_DATE defines the date and time from which restarts should be performed.
 # 
-export RESTART_DATE='20130424T000100Z'
+export RESTART_DATE='20080801T002000Z'
 
 #--------------------------------------------------------------------------------
 # 
@@ -37,7 +37,7 @@ export RESTART_DATE='20130424T000100Z'
 #
 # default: MD='rnmo'
 #
-export MD='rnm'
+export MD='rnmo'
 
 #--------------------------------------------------------------------------------
 # 

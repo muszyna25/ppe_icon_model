@@ -1313,7 +1313,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'trsol_dn_sfc_diff', diag%trsol_dn_sfc_diff,   &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-      & ldims=shape2d, lrestart=.FALSE., loutput=.FALSE.                    )
+      & ldims=shape2d, lrestart=.TRUE., loutput=.FALSE.                    )
 
     ! &      diag%swflx_up_toa(nproma,nblks_c)
     cf_desc    = t_cf_var('sou_t', 'W m-2', 'shortwave upward flux at TOA', DATATYPE_FLT32)
@@ -1358,7 +1358,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( diag_list, 'lwflx_up_sfc_rs', diag%lwflx_up_sfc_rs,       &
       & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,            &
-      & ldims=shape2d,  lrestart=.FALSE., loutput=.FALSE.                   )
+      & ldims=shape2d,  lrestart=.TRUE., loutput=.FALSE.                   )
 
     ! &      diag%lwflx_up_sfc(nproma,nblks_c)
     cf_desc    = t_cf_var('thu_s', 'W m-2', 'longwave upward flux at surface', DATATYPE_FLT32)
@@ -2699,6 +2699,16 @@ SUBROUTINE new_nwp_phy_tend_list( k_jg, klev,  kblks,   &
       grib2_desc = grib2_var(0, 0, 192, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( phy_tend_list, 'ddt_temp_pconv', phy_tend%ddt_temp_pconv,        &
                   & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+    END IF
+
+    IF(atm_phy_nwp_config(k_jg)%is_les_phy)THEN
+     ! &      phy_tend%ddt_temp_gscp(nproma,nlev,nblks)
+     cf_desc    = t_cf_var('ddt_temp_gscp', 'K s-1', &
+          &                            'microphysical temperature tendency', DATATYPE_FLT32)
+     grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+     CALL add_var( phy_tend_list, 'ddt_temp_gscp', phy_tend%ddt_temp_gscp,        &
+                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc,        &
+                 & ldims=shape3d, lrestart=.FALSE., in_group=groups("phys_tendencies") )
     END IF
 
     !------------------------------

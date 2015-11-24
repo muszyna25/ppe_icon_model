@@ -403,6 +403,7 @@ MODULE mo_nwp_phy_types
       ddt_temp_turb   (:,:,:)  ,& !! Temp-tendency from turbulence
       ddt_temp_drag   (:,:,:)  ,& !! Temp-tendency from sso + gravity-wave drag + Rayleigh friction
       ddt_temp_pconv  (:,:,:)  ,& !! Temp-tendency from convective prec
+      ddt_temp_gscp   (:,:,:)  ,& !! Temp-tendency from microphysics (only for LES)
       ddt_u_turb      (:,:,:)  ,& !! ZonalW-tendency from turbulence
       ddt_u_gwd       (:,:,:)  ,& !! ZonalW-tendency from gravity wave drag
       ddt_u_sso       (:,:,:)  ,& !! ZonalW-tendency from sso drag

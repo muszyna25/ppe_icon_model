@@ -32,14 +32,14 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-08-01T00:00:00Z"
-end_date="2008-08-31T00:00:00Z"
+end_date="2008-08-01T00:40:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=12.5
-dt_checkpoint=`expr 10 \* 86400 `  # write restart file every 10 days
+dtime=20
+dt_checkpoint=1200 
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -49,13 +49,13 @@ atmo_model_equations=3 # equation system
 #                     3=non-hydrost. atm.,
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=64           # nlev = number of full levels
+nlev=50           # nlev = number of full levels
 iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-grid_name=torus_grid_r2km_s64
-atmo_dyn_grids=${grid_name}.nc
+grids_folder="/pool/data/ICON/buildbot_data/aes/rce_les/"
+atmo_dyn_grids='torus_grid_r4km_s50.nc'
 #
 #-----------------------------------------------------------------------------
 #
@@ -80,20 +80,18 @@ cat >> ${atmo_namelist} << EOF
 /
 &nh_testcase_nml
  nh_test_name   = 'RCE'     ! test case identifier
- ape_sst_case   = 'sst_const'
- u_cbl          = 0.0, 0.0  !u_cbl(1)=constant, u_cbl(2)=gradient, default=0
- v_cbl          = 0.0, 0.0  !v_cbl(1)=constant, v_cbl(2)=gradient, default=0
- th_cbl         = 301.0 0.003
- sol_const      = 650.83
- zenithang      = 28.19
+ sol_const      = 685
+ zenithang      = 51.7
+ !th_cbl        = 301,0.006
 /
 &io_nml
  dt_checkpoint  = ${dt_checkpoint}
- lkeep_in_sync    = .true.
+ lkeep_in_sync  = .true.
 /
 &run_nml
  num_lev        = ${nlev},        ! number of full levels of vertical grid
  dtime          = ${dtime}     ! timestep in seconds
+ modelTimeStep  = "PT20S"      ! preliminary fix
  ltransport     = .TRUE.
  ntracer        = 5            ! default: 0
  iforcing       = ${iforcing}  ! 3: NWP forcing; 6:inhecham forcing
@@ -101,6 +99,8 @@ cat >> ${atmo_namelist} << EOF
  ltimer         = .true.       ! 
  msg_level      = 10          ! detailed report during integration
  output         = 'nml'
+ restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
+ check_uuid_gracefully = .TRUE.
 /
 &nwp_phy_nml
  inwp_gscp       = 1
@@ -111,14 +111,14 @@ cat >> ${atmo_namelist} << EOF
  inwp_satad      = 1
  inwp_surface    = 0 ! 0: none; 1: TERRA
  latm_above_top  = .true.
- dt_rad          = 1500.
+ dt_rad          = 600.
 /
 &les_nml
  sst               = 301
  isrfc_type        = 5     !2=Fixed flux, 5=fixed SST, 3=fixed bflux
  expname           = '${EXPNAME}'
- avg_interval_sec = 3600.
- sampl_freq_sec   = 300.
+ avg_interval_sec = 900.
+ sampl_freq_sec   = 120.
  ldiag_les_out    = .TRUE.
  km_min           = 0.0
 /
@@ -127,13 +127,12 @@ lconst_z0 = .TRUE.
 const_z0  = 0.0001
 /
 &diffusion_nml
- lhdiff_temp  = .TRUE.
+ lhdiff_temp  = .FALSE.
  lhdiff_vn    = .TRUE.
  lhdiff_w     = .FALSE.
  hdiff_order  = 4
 /
 &radiation_nml
-! ldiur = .FALSE. ! is this necessary or is izenith=0 suff.?
  irad_o3 = 4 !should be the ozone clim for APE  
  izenith    = 5 ! zenith = 38 deg
  vmr_co2    = 278.e-06 ! values representative for pre ind rev 
@@ -143,11 +142,18 @@ const_z0  = 0.0001
 /
 &nonhydrostatic_nml
  ivctype        = 2       ! sleve vertical coordinate
- damp_height    = 21000.  ! top_height-damp_height should be about 15km
+! rayleigh_tyoe  = 1
+ damp_height    = 15000.  ! top_height-damp_height should be about 15km
+ rayleigh_coeff =  0.1
+ l_open_ubc     = .false.
+ htop_moist_proc = 30000. !keep it higher than model top
+ hbot_qvsubstep  = 30000.
+ lextra_diffu    = .FALSE.
 /
 &sleve_nml
- top_height = 27000
+ top_height = 23000
  min_lay_thckn = 20. ! thickness of lowest model layer
+ stretch_fac  = 0.9
 /
 &extpar_nml
  itopo          = 0 ! 0: analytical topo; 1: topography/ext. data read from file
@@ -161,10 +167,10 @@ const_z0  = 0.0001
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT12H"
- file_interval    = "P01M"
+ output_interval  = "PT10M"
+ file_interval    = "PT10M"
  include_last     = .TRUE.
- output_filename  = 'cloud_diag'
+ output_filename  = '${EXPNAME}_cloud_diag'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
  ml_varlist       = 'group:cloud_diag','group:additional_precip_vars','group:precip_vars'
  output_grid      = .TRUE.
@@ -172,10 +178,10 @@ const_z0  = 0.0001
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT12H"
- file_interval    = "P01M"
+ output_interval  = "PT10M"
+ file_interval    = "PT10M"
  include_last     = .TRUE.
- output_filename  = 'pbl_vars'
+ output_filename  = '${EXPNAME}_pbl_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
  ml_varlist       = 'tch','tcm','htop_dc','rh_2m','umfl_s','vmfl_s','lhfl_s','shfl_s','t_g','qv_s'
  output_grid      = .TRUE.
@@ -183,34 +189,45 @@ const_z0  = 0.0001
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "P01D"
- file_interval    = "P01M"
+ output_interval  = "PT10M"
+ file_interval    = "PT10M"
  include_last     = .TRUE.
- output_filename  = 'prog_vars'
+ output_filename  = '${EXPNAME}_prog_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'qv','qc','qi','qs','qr','qh','qni','qnh','rh','u','v','w','temp','pres','rho','theta_v','pres_sfc','div'
+ ml_varlist       = 'qv','qc','qi','qs','qr','rh','u','v','w','temp','pres','rho','theta_v','div'
  output_grid      = .TRUE.
 /
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "P01D"
- file_interval    = "P01M"
+ output_interval  = "PT10M"
+ file_interval    = "PT10M"
  include_last     = .TRUE.
- output_filename  = 'rad_vars'
+ output_filename  = '${EXPNAME}_tend_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'group:rad_vars','lwflxall','trsolall'
+ ml_varlist       = 'group:phys_tendencies'
+ output_grid      = .TRUE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT10M"
+ file_interval    = "PT10M"
+ include_last     = .TRUE.
+ output_filename  = '${EXPNAME}_rad_vars'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'group:rad_vars'
  output_grid      = .TRUE.
 /
 EOF
 #
 #----------------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
-DATADIR=${basedir}/data
+DATADIR=${ICON_BASE_PATH}/data
 add_link_file ${DATADIR}/rrtmg_lw.nc                 rrtmg_lw.nc 
 add_link_file ${DATADIR}/ECHAM6_CldOptProps.nc       ECHAM6_CldOptProps.nc
-add_link_file ${DATADIR}/dmin_wetgrowth_lookup.dat   dmin_wetgrowth_lookup.dat   #for inwp_gscp==4
-add_link_file ${DATADIR}/sound_rce_new               sound_in
-OZONEDIR=${basedir}/data/external/ape_ozone
-add_link_file ${OZONEDIR}/${grid_name}_o3_CMIP5_ape_1870_march.nc  o3_icon_DOM01.nc
+add_link_file ${DATADIR}/dmin_wetgrowth_lookup.dat   dmin_wetgrowth_lookup.dat  #for inwp_gscp==4
+pooldir=/pool/data/ICON/buildbot_data/aes/rce_les
+add_link_file ${pooldir}/torus_grid_r4km_s50_o3_CMIP5_ape_1870_march.nc  o3_icon_DOM01.nc
+add_link_file ${pooldir}/sound_in              sound_in
 #----------------------------------------------------------------------------------
