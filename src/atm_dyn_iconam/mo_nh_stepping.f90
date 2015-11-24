@@ -166,8 +166,7 @@ MODULE mo_nh_stepping
        &                                 OPERATOR(-), OPERATOR(+), OPERATOR(>),                       &
        &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
        &                                 event, eventGroup, newEvent,                                 &
-       &                                 addEventToEventGroup, isCurrentEventActive,                  &
-       &                                 min
+       &                                 addEventToEventGroup, isCurrentEventActive
   USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &

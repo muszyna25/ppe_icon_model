@@ -28,7 +28,6 @@ MODULE mo_ha_stepping
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm
   USE mo_icoham_dyn_memory,   ONLY: construct_icoham_dyn_state
   USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
   USE mo_exception,           ONLY: message, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_state,      ONLY: ext_data
@@ -37,9 +36,9 @@ MODULE mo_ha_stepping
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config, configure_ha_dyn
   USE mo_io_config,           ONLY: l_diagtime, l_outputtime, is_checkpoint_time, &
     &                               n_chkpt, n_diag
-  USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
+  USE mo_run_config,          ONLY: nsteps, dtime, ntracer,             &
                                   & ldynamics, ltransport, msg_level,   &
-                                  & ltestcase, output_mode
+                                  & ltestcase, output_mode, tc_dt_model
   USE mo_master_config,       ONLY: isRestart
   USE mo_ha_testcases,        ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
@@ -65,7 +64,8 @@ MODULE mo_ha_stepping
       &                             close_async_restart, set_data_async_restart
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_time_config,         ONLY: time_config
-  USE mtime,                  ONLY: datetime, newDatetime, deallocateDatetime
+  USE mtime,                  ONLY: datetime, datetimeToString, MAX_DATETIME_STR_LEN,    &
+    &                               OPERATOR(+)
 
   IMPLICIT NONE
 
@@ -202,7 +202,8 @@ CONTAINS
   !!
   SUBROUTINE perform_ha_stepping( p_patch, p_int_state,               &
                                 & p_grf_state,                        &
-                                & p_hydro_state, this_datetime             )
+                                & p_hydro_state,                      &
+                                & mtime_current )
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_ha_stepping:perform_ha_stepping'
@@ -211,7 +212,7 @@ CONTAINS
   TYPE(t_int_state),     TARGET, INTENT(IN)    :: p_int_state(n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
 
-  TYPE(t_datetime), INTENT(INOUT)              :: this_datetime
+  TYPE(datetime),   POINTER                    :: mtime_current     ! current datetime (mtime)
   TYPE(t_hydro_atm), TARGET, INTENT(INOUT)     :: p_hydro_state(n_dom)
 
   REAL(wp), DIMENSION(:,:,:), POINTER          :: p_vn  => NULL()
@@ -220,7 +221,7 @@ CONTAINS
   LOGICAL                                      :: l_nml_output
   LOGICAL                                      :: l_3tl_init(n_dom)
   INTEGER                                      :: jstep0 ! start counter for time loop
-  TYPE(datetime), POINTER                      :: current_date
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN)          :: dstring
 
 #ifdef _OPENMP
   INTEGER  :: jb
@@ -284,18 +285,20 @@ CONTAINS
     ! one timestep for the global domain and calls itself in the presence
     ! of nested domains with recursively halved time steps
 
-    CALL process_grid( p_patch, p_hydro_state, p_int_state, p_grf_state,    &
-      &                ext_data, 1, jstep, l_3tl_init, dtime, sim_time,     &
-      &                1, this_datetime )
+    CALL process_grid( p_patch, p_hydro_state, p_int_state, p_grf_state,       &
+      &                ext_data, 1, jstep, l_3tl_init, dtime, tc_dt_model,     &
+      &                sim_time, 1, mtime_current )
 
     !--------------------------------------------------------------------------
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
     !--------------------------------------------------------------------------
-    CALL add_time(dtime,0,0,0,this_datetime)
+
 !!$    ! Not nice, but the name list output requires this
 !!$    sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp)
     sim_time(1) = sim_time(1) + dtime   ! RS: is this correct? process_grid already advances sim_time by dtime !
+    ! update model date and time (mtime)
+    mtime_current = mtime_current + tc_dt_model
 
     !--------------------------------------------------------------------------
     ! Set output flags
@@ -358,8 +361,8 @@ CONTAINS
       ENDIF
 
       IF (l_nml_output) THEN
-        CALL message(TRIM(routine),'Output (name_list) at:')
-        CALL print_datetime(this_datetime)
+        CALL datetimeToString(mtime_current, dstring)
+        CALL message(TRIM(routine),'Output (name_list) at: '//dstring)
         CALL write_name_list_output(jstep)
       ENDIF
 
@@ -386,20 +389,14 @@ CONTAINS
         ENDDO
 
         ! call asynchronous restart
-        CALL write_async_restart (current_date, jstep)
+        CALL write_async_restart (mtime_current, jstep)
 
       ELSE
-#ifdef _MTIME_DEBUG
-        ! *** TO BE DEFINED: current_date ***
-        current_date => newDatetime("1970-01-01T00:00:00")
-#endif
+
         DO jg = 1, n_dom
-          CALL create_restart_file( p_patch(jg), current_date, &
+          CALL create_restart_file( p_patch(jg), mtime_current, &
                                   & jstep, "atm", vct )
         END DO
-#ifdef _MTIME_DEBUG
-        CALL deallocateDatetime(current_date)
-#endif
       END IF
     END IF
 

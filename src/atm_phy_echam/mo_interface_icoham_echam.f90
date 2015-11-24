@@ -43,7 +43,7 @@ MODULE mo_interface_icoham_echam
   USE mo_icoham_dyn_types      ,ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_eta_coord_diag        ,ONLY: half_level_pressure, full_level_pressure
 
-  USE mo_datetime              ,ONLY: t_datetime
+  USE mo_datetime              ,ONLY: t_datetime, string_to_datetime
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
@@ -52,6 +52,9 @@ MODULE mo_interface_icoham_echam
   USE mo_timer                 ,ONLY: timer_start, timer_stop,        &
     &                                 timer_dyn2phy, timer_phy2dyn,   &
     &                                 timer_echam_phy, timer_coupling
+
+  USE mtime                    ,ONLY: datetime, MAX_DATETIME_STR_LEN, &
+    &                                 datetimeToString
 
   IMPLICIT NONE
 
@@ -83,7 +86,7 @@ CONTAINS
   !! rather than the entire grid tree.
 
   SUBROUTINE interface_icoham_echam( pdtime, psteplen ,& !in
-    &                                datetime         ,& !in
+    &                                mtime_current    ,& !in
     &                                patch            ,& !in
     &                                pt_int_state     ,& !in
     &                                dyn_prog_old     ,& !in
@@ -96,7 +99,8 @@ CONTAINS
     !
     REAL(wp)              , INTENT(in)            :: pdtime          !< time step
     REAL(wp)              , INTENT(in)            :: psteplen        !< 2*time step in case of leapfrog
-    TYPE(t_datetime)      , INTENT(in)            :: datetime
+
+    TYPE(datetime)        , POINTER               :: mtime_current   !< current datetime (mtime)
 
     TYPE(t_patch)         , INTENT(in)   , TARGET :: patch           !< grid/patch info
     TYPE(t_int_state)     , INTENT(in)   , TARGET :: pt_int_state    !< interpolation state
@@ -130,9 +134,22 @@ CONTAINS
 
     INTEGER  :: return_status
 
+    TYPE(t_datetime)                    :: this_datetime   !< copy of date/time ("old" data structure)
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+
     ! Local parameters
 
     CHARACTER(*), PARAMETER :: method_name = "interface_icoham_echam"
+
+    !---------------------------------------------------------------
+    ! conversion of subroutine arguments to old "t_datetime" data
+    ! structure
+    !
+    ! TODO: remove this after transition to mtime library!!!
+    
+    CALL datetimeToString( mtime_current, datetime_string   )
+    CALL string_to_datetime( datetime_string, this_datetime )
+    !---------------------------------------------------------------  
 
     !-------------------------------------------------------------------------------------
 
@@ -258,7 +275,7 @@ CONTAINS
     !
     ! (3) Prepare boundary conditions for ECHAM physics
     !
-    CALL echam_phy_bcs_global( datetime     ,&! in
+    CALL echam_phy_bcs_global( this_datetime,&! in
       &                        jg           ,&! in
       &                        patch        ,&! in
       &                        pdtime       ,&! in
@@ -295,7 +312,7 @@ CONTAINS
         &                  jcs          ,&! in
         &                  jce          ,&! in
         &                  nproma       ,&! in
-        &                  datetime     ,&! in
+        &                  this_datetime,&! in
         &                  pdtime       ,&! in
         &                  psteplen     ,&! in
         &                  ltrig_rad    ,&! in

@@ -76,7 +76,7 @@ CONTAINS
 
     CALL perform_ha_stepping( p_patch(1:), p_int_state(1:),                  &
                             & p_grf_state(1:),                               &
-                            & p_hydro_state, time_config%cur_datetime )
+                            & p_hydro_state, tc_current_date )
 
     !---------------------------------------------------------------------
     ! Integration finished. Start to clean up.

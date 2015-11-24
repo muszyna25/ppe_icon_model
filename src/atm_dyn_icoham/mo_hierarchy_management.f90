@@ -44,7 +44,6 @@ MODULE mo_hierarchy_management
 
   USE mo_kind,                ONLY: wp, dp
   USE mo_exception,           ONLY: message_text, message, finish
-  USE mo_datetime,            ONLY: t_datetime, add_time, print_datetime
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_grid_config,         ONLY: n_dom, lfeedback, l_limited_area
@@ -93,6 +92,10 @@ MODULE mo_hierarchy_management
   USE mo_hierarchy_management_intp
   USE mo_mpi,                 ONLY: push_glob_comm, pop_glob_comm, proc_split
   USE mo_ldf_test,            ONLY: ldf_temp
+  USE mtime,                  ONLY: datetime, timeDelta, MAX_DATETIME_STR_LEN, &
+    &                               newTimeDelta, newDatetime, OPERATOR(*),    &
+    &                               OPERATOR(+), deallocateDatetime,           &
+    &                               deallocateTimedelta, datetimeToString
 
   IMPLICIT NONE
   PRIVATE
@@ -129,11 +132,13 @@ CONTAINS
   !! Revised 2008-10-24 for use in hydrostatic model by ??
   !! Revised for physics-dynamics coupling by Hui Wan, MPI-M (2009-02-15)
   !!
-  RECURSIVE SUBROUTINE process_grid( p_patch, p_hydro_state,       &
-                                   & p_int_state, p_grf_state,     &
-                                   & ext_data, jg, nstep_global,   &
-                                   & l_3tl_init, dt_loc, sim_time, &
-                                   & nsteps, datetime )
+  RECURSIVE SUBROUTINE process_grid( p_patch, p_hydro_state,         &
+                                   & p_int_state, p_grf_state,       &
+                                   & ext_data, jg, nstep_global,     &
+                                   & l_3tl_init, dt_loc, mtime_step, &
+                                   & sim_time,                       &
+                                   & nsteps,                         &
+                                   & mtime_current )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_hierarchy_management:process_grid'
@@ -148,18 +153,22 @@ CONTAINS
     INTEGER, INTENT(IN)    :: nstep_global ! number of global time step
     INTEGER, INTENT(IN)    :: nsteps       ! number of time steps to be executed
 
-    REAL(wp),INTENT(IN)    :: dt_loc           ! time step applicable to local grid level
+    REAL(wp),        INTENT(IN) :: dt_loc          ! time step applicable to local grid level
+    TYPE(timeDelta), POINTER    :: mtime_step      ! time step (mtime object)
+
     REAL(wp),INTENT(INOUT) :: sim_time(n_dom)  ! elapsed simulation time on each grid level
     LOGICAL, INTENT(INOUT) :: l_3tl_init(n_dom)
 
-    TYPE(t_datetime),INTENT(IN) :: datetime
+    TYPE(datetime),   POINTER    :: mtime_current     ! current datetime (mtime)
 
-    TYPE(t_datetime) :: grid_datetime
+    TYPE(datetime),   POINTER    :: grid_datetime
 
     INTEGER  :: ns, jb, jstep, jn, jgc
     INTEGER  :: n_old, n_now, n_new, n_sav1, n_sav2, n_temp
     INTEGER  :: nlen
     REAL(wp) :: dt_sub, zdtime, rdt_loc
+
+    TYPE(timeDelta), POINTER :: mtime_step_sub
 
     REAL(wp),DIMENSION ( nproma, nlev, p_patch(jg)%nblks_c ) :: temp_save
     REAL(wp), ALLOCATABLE :: z_pres_sfc(:,:,:)
@@ -181,13 +190,15 @@ CONTAINS
     INTEGER :: nblks_e, nblks_c
     INTEGER :: ist
     INTEGER, EXTERNAL :: util_cputime
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dstring
+
     !---------------
 
     nblks_c = p_patch(jg)%nblks_c
     nblks_e = p_patch(jg)%nblks_e
 
     ! set up datetime variable valid within process_grid.
-    grid_datetime = datetime
+    grid_datetime => newDatetime(mtime_current)
 
     DO ns = 1, nsteps
 
@@ -195,7 +206,8 @@ CONTAINS
       WRITE (message_text,'(a,i6,a,i2,a,i2)')                  &
         & '.        step :',nstep_global,'  grid :',jg,' substep :',ns
       CALL message(TRIM(routine),message_text)
-      CALL print_datetime(datetime)
+      CALL datetimeToString(mtime_current, dstring)
+      CALL message(TRIM(routine),TRIM(dstring))
 
       iret = util_cputime(tu, ts)
       t_0 = tu+ts
@@ -973,8 +985,10 @@ CONTAINS
       !==========================================================================
       IF (p_patch(jg)%n_childdom > 0) THEN
 
-        dt_sub = dt_loc/2._wp
-        rdt_loc = 1._wp/dt_loc
+        dt_sub         =  dt_loc/2._wp
+        rdt_loc        =  1._wp/dt_loc
+        mtime_step_sub => newTimedelta(mtime_step)
+        mtime_step_sub =  mtime_step_sub * 0.5_wp
 
         ! Compute time tendencies for interpolation to refined mesh boundaries
         CALL compute_tendencies( ha_dyn_config%ltheta_dyn, p_patch(jg), &
@@ -1031,11 +1045,11 @@ CONTAINS
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
 
             ! Recursive call to process_grid_level for child grid level
-            CALL process_grid( p_patch, p_hydro_state,        &
-              &                p_int_state, p_grf_state,      &
-              &                ext_data, jgc, nstep_global,   &
-              &                l_3tl_init, dt_sub, sim_time,  &
-              &                2, grid_datetime)
+            CALL process_grid( p_patch, p_hydro_state,             &
+              &                p_int_state, p_grf_state,           &
+              &                ext_data, jgc, nstep_global,        &
+              &                l_3tl_init, dt_sub, mtime_step_sub, &
+              &                sim_time,  2, grid_datetime)
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 
@@ -1057,8 +1071,10 @@ CONTAINS
 
         ENDDO
 
-      ENDIF
+        CALL deallocateTimedelta(mtime_step_sub)
 
+      ENDIF
+      
       !==========================================================================
       ! Interaction with parent and child domains done. Finish this time step
       ! and prepare for the next
@@ -1130,9 +1146,12 @@ CONTAINS
       CALL message(TRIM(routine),message_text)
 
       ! update here "grid_datetime" for next time step in this loop
-      CALL add_time(zdtime,0,0,0,grid_datetime)
+      grid_datetime = grid_datetime + mtime_step
 
     ENDDO !Loop over all substeps on the current grid level
+
+    CALL deallocateDatetime(grid_datetime)
+    
     !---------------
   END SUBROUTINE process_grid
 
