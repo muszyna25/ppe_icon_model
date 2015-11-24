@@ -58,7 +58,6 @@ MODULE mo_nwp_diagnosis
   USE mtime,                 ONLY: datetime, timeDelta, getTimeDeltaFromDateTime,  &
     &                              deallocateTimedelta, newTimeDelta, newDatetime, &
     &                              deallocateDatetime
-  USE mo_time_config,        ONLY: time_config
   USE mo_exception,          ONLY: finish
   USE mo_math_constants,     ONLY: pi
   USE mo_statistics,         ONLY: time_avg

@@ -716,10 +716,6 @@ CONTAINS
     time_config%end_datetime%calendar = dtime_calendar
     CALL date_to_time( time_config%end_datetime )
 
-    CALL string_to_datetime( cur_datetime_string, time_config%cur_datetime )
-    time_config%cur_datetime%calendar = dtime_calendar
-    CALL date_to_time( time_config%cur_datetime )
-
     ! --------------------------------------------------------------
     ! PART III: Print all date and time components
     ! --------------------------------------------------------------
