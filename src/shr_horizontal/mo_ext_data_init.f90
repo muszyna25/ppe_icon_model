@@ -52,7 +52,6 @@ MODULE mo_ext_data_init
   USE mo_extpar_config,      ONLY: itopo, l_emiss, extpar_filename, generate_filename, &
     &                              generate_td_filename, extpar_varnames_map_file, &
     &                              i_lctype, nclass_lu, nmonths_ext
-  USE mo_time_config,        ONLY: time_config
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3, irad_aero, albedo_type
   USE mo_echam_phy_config,   ONLY: echam_phy_config
@@ -69,14 +68,13 @@ MODULE mo_ext_data_init
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_ext_data_state,     ONLY: construct_ext_data, levelname, cellname, o3name, o3unit, &
     &                              nlev_o3, nmonths
-  USE mo_master_config,      ONLY: getModelBaseDir
+  USE mo_master_config,      ONLY: getModelBaseDir, tc_current_date, tc_startdate
   USE mo_io_config,          ONLY: default_read_method
   USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, on_cells, &
     &                              t_stream_id, read_2D, read_2D_int, &
     &                              read_3D_extdim
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
-  USE mo_datetime,           ONLY: t_datetime, month2hour, add_time, iso8601,      &
-    &                              string_to_datetime
+  USE mo_datetime,           ONLY: t_datetime, month2hour, string_to_datetime
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
     &                              read_cdi_3d, t_inputParameters,                 &
     &                              makeInputParameters, deleteInputParameters,     &
@@ -96,7 +94,8 @@ MODULE mo_ext_data_init
   USE mo_math_gradients,     ONLY: grad_fe_cell
   USE mo_fortran_tools,      ONLY: var_scale
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,        &
-    &                              MAX_DATETIME_STR_LEN, datetimetostring
+    &                              MAX_DATETIME_STR_LEN, datetimetostring,           &
+    &                              OPERATOR(+)
 
   IMPLICIT NONE
 
@@ -151,8 +150,7 @@ CONTAINS
     ! GRIB2 shortnames or NetCDF var names.
     TYPE (t_dictionary) :: extpar_varnames_dict
 
-    TYPE(t_datetime)        :: this_datetime
-    TYPE(datetime), POINTER :: mtime_date
+    TYPE(datetime), POINTER :: this_datetime
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = modname//':init_ext_data'
 
@@ -278,47 +276,40 @@ CONTAINS
         ! midnight.
         !
         IF (.NOT. isRestart()) THEN
-          this_datetime     = time_config%ini_datetime
-          IF (timeshift%dt_shift < 0._wp) CALL add_time(timeshift%dt_shift,0,0,0,this_datetime)
+          this_datetime => newDatetime(tc_startdate)
+          IF (timeshift%dt_shift < 0._wp) THEN
+            this_datetime = this_datetime + timeshift%mtime_shift
+          END IF
         ELSE
-          this_datetime     = time_config%cur_datetime
+          this_datetime => newDatetime(tc_current_date)
         END IF  ! isRestart
         !
-        this_datetime%hour= 0   ! always assume midnight
-
-        !---------------------------------------------------------------
-        ! conversion of subroutine arguments to new mtime "datetime"
-        ! data structure
-        !
-        ! TODO: remove this after transition to mtime library!!!
-        
-        mtime_date => newDatetime(iso8601(this_datetime))
-        !---------------------------------------------------------------
+        this_datetime%time%hour= 0   ! always assume midnight
 
         DO jg = 1, n_dom
-          CALL interpol_monthly_mean(p_patch(jg), mtime_date,            &! in
+          CALL interpol_monthly_mean(p_patch(jg), this_datetime,         &! in
             &                        ext_data(jg)%atm_td%ndvi_mrat,      &! in
             &                        ext_data(jg)%atm%ndviratio          )! out
         ENDDO
 
         IF ( albedo_type == MODIS) THEN
           DO jg = 1, n_dom
-            CALL interpol_monthly_mean(p_patch(jg), mtime_date,          &! in
+            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
               &                        ext_data(jg)%atm_td%alb_dif,      &! in
               &                        ext_data(jg)%atm%alb_dif          )! out
 
-            CALL interpol_monthly_mean(p_patch(jg), mtime_date,          &! in
+            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
               &                        ext_data(jg)%atm_td%albuv_dif,    &! in
               &                        ext_data(jg)%atm%albuv_dif        )! out
 
-            CALL interpol_monthly_mean(p_patch(jg), mtime_date,          &! in
+            CALL interpol_monthly_mean(p_patch(jg), this_datetime,       &! in
               &                        ext_data(jg)%atm_td%albni_dif,    &! in
               &                        ext_data(jg)%atm%albni_dif        )! out
           ENDDO
         ENDIF  ! albedo_type
 
         ! clean up
-        CALL deallocateDatetime(mtime_date)
+        CALL deallocateDatetime(this_datetime)
 
       END IF
 
