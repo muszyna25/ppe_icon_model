@@ -206,7 +206,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
      routine = 'mo_nwp_phy_init:init_nwp_phy'
 
-  CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string, yyyymmdd
 
   ! Local control variable for extended turbulence initializations
   IF (ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
@@ -997,8 +997,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,                  &
 
     ! get current date in iso-format "yyyymmddThhmmssZ" (String)
     CALL datetimeToString(ini_date, datetime_string)
-    ! convert first 8 characters to integer (yyyymmdd)
-    READ(datetime_string(1:8),'(i8)') icur_date
+    ! convert first 8 characters to integer (yyyy-mm-dd)
+    WRITE (yyyymmdd, '(a,a,a)')  datetime_string(1:4), datetime_string(6:7), datetime_string(9:10)
+    READ  (yyyymmdd,'(i8)') icur_date
 
     CALL sucst(54,icur_date,0,0)
     CALL su_yoethf

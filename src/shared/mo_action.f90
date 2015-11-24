@@ -407,8 +407,6 @@ CONTAINS
       ! triggers in interval [trigger_date + slack]
       isactive = LOGICAL(isCurrentEventActive(this_event,mtime_date, plus_slack=p_slack))
 
-
-
       ! Check wheter the action should be triggered for variable
       ! under consideration
       IF (isactive) THEN
@@ -440,7 +438,6 @@ CONTAINS
 
     ! cleanup
     !
-    CALL deallocateDatetime(mtime_date)
     CALL deallocateTimedelta(p_slack)
 
   END SUBROUTINE action_execute
