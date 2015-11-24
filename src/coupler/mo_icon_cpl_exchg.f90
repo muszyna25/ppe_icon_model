@@ -50,10 +50,9 @@ MODULE mo_icon_cpl_exchg
    &                      RESTART,          &
    &                      XCHANGE
 
-  USE mo_master_config,  ONLY   : isRestart
+  USE mo_master_config,  ONLY   : tc_current_date
   USE mo_io_config, ONLY        : dt_checkpoint
-  USE mo_time_config, ONLY      : time_config
-  USE mo_datetime, ONLY         : iso8601
+  USE mtime, ONLY               : MAX_DATETIME_STR_LEN, datetimeToString
 
   IMPLICIT NONE
 
@@ -130,13 +129,14 @@ CONTAINS
 
     ! Local variables and fields
 
-    REAL(wp)               :: recv_buf(field_shape(3))
-    REAL(wp)               :: recv_min(field_shape(3))
-    REAL(wp)               :: recv_max(field_shape(3))
-    REAL(wp)               :: recv_avg(field_shape(3))
+    REAL(wp)                            :: recv_buf(field_shape(3))
+    REAL(wp)                            :: recv_min(field_shape(3))
+    REAL(wp)                            :: recv_max(field_shape(3))
+    REAL(wp)                            :: recv_avg(field_shape(3))
 
-    INTEGER                :: nsum
-    LOGICAL                :: l_restart = .FALSE.
+    INTEGER                             :: nsum
+    LOGICAL                             :: l_restart = .FALSE.
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
 
     ! -------------------------------------------------------------------
     ! Initialisation
@@ -189,9 +189,10 @@ CONTAINS
     IF ( .NOT. l_action ) RETURN
 
     IF ( debug_coupler_level > 1 ) THEN
-       WRITE ( cplout , '(A10,A8,A10,A16,L1)' ) 'Receiving ', &
+      CALL datetimeToString(tc_current_date, datetime_string)
+       WRITE ( cplout , '(A10,A8,A10,a,L1)' ) 'Receiving ', &
             TRIM(cpl_fields(field_id)%field_name), ' for date ', &
-            iso8601(time_config%cur_datetime), l_restart
+            datetime_string, l_restart
     ENDIF
 
     IF ( l_restart ) info = RESTART
@@ -284,9 +285,10 @@ CONTAINS
           ENDIF
 
           IF ( debug_coupler_level > 1 ) THEN
-             WRITE ( cplout , '(A10,A8,A10,A16)' ) 'Receiving ', &
+            CALL datetimeToString(tc_current_date, datetime_string)
+             WRITE ( cplout , '(A10,A8,A10,A)' ) 'Receiving ', &
                   TRIM(cpl_fields(field_id)%field_name), ' for date ', &
-                  iso8601(time_config%cur_datetime)
+                  datetime_string
           ENDIF
           
           CALL MPI_Recv ( recv_buffer, len*nbr_bundles, datatype, &
@@ -484,17 +486,18 @@ CONTAINS
 
     ! Local variables
 
-    LOGICAL                :: l_restart    = .FALSE.
-    LOGICAL                :: l_checkpoint = .FALSE.
-    REAL (wp)              :: weight
+    LOGICAL                             :: l_restart    = .FALSE.
+    LOGICAL                             :: l_checkpoint = .FALSE.
+    REAL (wp)                           :: weight
     !
     ! for coupling diagnostic
     !
-    REAL(wp)               :: send_buf(field_shape(3))
-    REAL(wp)               :: send_min(field_shape(3))
-    REAL(wp)               :: send_max(field_shape(3))
-    REAL(wp)               :: send_avg(field_shape(3))
-    INTEGER                :: j, nsum
+    REAL(wp)                            :: send_buf(field_shape(3))
+    REAL(wp)                            :: send_min(field_shape(3))
+    REAL(wp)                            :: send_max(field_shape(3))
+    REAL(wp)                            :: send_avg(field_shape(3))
+    INTEGER                             :: j, nsum
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
 
     ierror = 0
     info   = NOTHING
@@ -518,9 +521,10 @@ CONTAINS
     ENDIF
 
     IF ( debug_coupler_level > 1 ) THEN
-       WRITE ( cplout , '(A10,A8,A10,A16)' ) 'Sending   ', &
+      CALL datetimeToString(tc_current_date, datetime_string)
+       WRITE ( cplout , '(A10,A8,A10,A)' ) 'Sending   ', &
             TRIM(cpl_fields(field_id)%field_name), ' for date ', &
-            iso8601(time_config%cur_datetime)
+            datetime_string
     ENDIF
 
     ! -------------------------------------------------------------------
@@ -685,9 +689,10 @@ CONTAINS
           msgtag = msgtag + 1
 
           IF ( debug_coupler_level > 1 ) THEN
-             WRITE ( cplout , '(A10,A8,A10,A16)' ) 'Sending   ', &
+            CALL datetimeToString(tc_current_date, datetime_string)
+             WRITE ( cplout , '(A10,A8,A10,A)' ) 'Sending   ', &
                   TRIM(cpl_fields(field_id)%field_name), ' for date ', &
-                  iso8601(time_config%cur_datetime)
+                  datetime_string
           ENDIF
 
           CALL psmile_bsend ( send_buffer, len*nbr_bundles, &
