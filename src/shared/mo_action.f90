@@ -53,15 +53,14 @@ MODULE mo_action
     &                              MAX_EVENTNAME_STR_LEN, timedelta,                 &
     &                              newTimedelta, deallocateTimedelta,                &
     &                              getTriggeredPreviousEventAtDateTime,              &
-    &                              getPTStringFromMS, OPERATOR(>=), OPERATOR(<=)
-  USE mo_mtime_extensions,   ONLY: get_datetime_string
+    &                              getPTStringFromMS, OPERATOR(>=), OPERATOR(<=),    &
+    &                              datetimetostring
   USE mo_util_string,        ONLY: remove_duplicates
   USE mo_util_table,         ONLY: initialize_table, finalize_table, add_table_column, &
     &                              set_table_entry, print_table, t_table
   USE mo_action_types,       ONLY: t_var_action
   USE mo_grid_config,        ONLY: n_dom
   USE mo_run_config,         ONLY: msg_level
-  USE mo_time_config,        ONLY: time_config
   USE mo_var_list,           ONLY: nvar_lists, var_lists
   USE mo_linked_list,        ONLY: t_list_element
   USE mo_var_list_element,   ONLY: t_var_list_element
@@ -342,7 +341,7 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2014-09-11)
   !!
-  SUBROUTINE action_execute(act_obj, slack)
+  SUBROUTINE action_execute(act_obj, slack, mtime_date)
     !
     CLASS(t_action_obj)       :: act_obj
     REAL(wp), INTENT(IN)      :: slack     !< allowed slack for event triggering  [s]
@@ -370,10 +369,6 @@ CONTAINS
     TYPE(datetime) :: lastTrigger_datetime  ! latest intended triggering date
 
   !-------------------------------------------------------------------------
-
-    ! compute current datetime in a format appropriate for mtime
-    CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
-    mtime_date  => newDatetime(TRIM(mtime_cur_datetime))
 
     ! compute allowed slack in PT-Format
     ! Use factor 999 instead of 1000, since no open interval is available
@@ -419,6 +414,7 @@ CONTAINS
       IF (isactive) THEN
 
         ! store latest true triggering date
+        CALL datetimeToString(mtime_date, mtime_cur_datetime)
         field%info%action_list%action(var_action_idx)%lastActive = TRIM(mtime_cur_datetime)
         ! store latest intended triggering date
         CALL getTriggeredPreviousEventAtDateTime(this_event, lastTrigger_datetime)

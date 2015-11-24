@@ -998,14 +998,7 @@ MODULE mo_nh_stepping
     ! re-initialize MAX/MIN fields with 'resetval'
     ! must be done AFTER output
 
-    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    ! NOTE for transition to mtime: The type-bound procedure
-    ! reset_act%execute needs "current_date" as an additional
-    ! argument, st. we can get rid of time_config%cur_datetime there.
-    ! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-    !
-    CALL reset_act%execute(slack=dtime)
+    CALL reset_act%execute(slack=dtime, mtime_date=mtime_current)
 
     IF ( l_nml_output .AND. iforcing==iecham) CALL reset_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
     ! re-initialization for FG-averaging. Ensures that average is centered in time.

@@ -18,7 +18,7 @@ MODULE mo_ocean_model
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
     & stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
-    & set_mpi_work_communicators, p_pe_work, process_mpi_io_size
+    & set_mpi_work_communicators, process_mpi_io_size
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
   USE mo_datetime,            ONLY: t_datetime, datetime_to_string
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups
@@ -35,7 +35,6 @@ MODULE mo_ocean_model
   USE mo_run_config,          ONLY: &
     & test_mode,              &
     & dtime,                  & !    :
-    & nsteps,                 & !    :
     & ltimer,                 & !    :
     & num_lev,     &
     & nshift,                 &
@@ -88,7 +87,7 @@ MODULE mo_ocean_model
   USE mo_ocean_surface,       ONLY: construct_ocean_surface
 
   USE mo_ocean_forcing,         ONLY: construct_ocean_forcing, init_ocean_forcing, destruct_ocean_forcing
-  USE mo_impl_constants,      ONLY: max_char_length, success
+  USE mo_impl_constants,      ONLY: success
 
   USE mo_alloc_patches,       ONLY: destruct_patches
   USE mo_ocean_read_namelists, ONLY: read_ocean_namelists
