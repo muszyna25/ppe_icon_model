@@ -708,10 +708,6 @@ CONTAINS
     time_config%calendar         = dtime_calendar
     time_config%is_relative_time = is_relative_time
 
-    CALL string_to_datetime( end_datetime_string, time_config%end_datetime ) 
-    time_config%end_datetime%calendar = dtime_calendar
-    CALL date_to_time( time_config%end_datetime )
-
     ! --------------------------------------------------------------
     ! PART III: Print all date and time components
     ! --------------------------------------------------------------

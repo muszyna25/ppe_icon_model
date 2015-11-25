@@ -25,7 +25,6 @@
 MODULE mo_time_config
 
   USE mo_kind,                  ONLY: wp
-  USE mo_datetime,              ONLY: t_datetime
   USE mo_impl_constants,        ONLY: max_dom
   USE mtime,                    ONLY: max_calendar_str_len
  
@@ -62,8 +61,6 @@ MODULE mo_time_config
     INTEGER          :: calendar           !< calendar type
 
     ! not directly from namelist  
-
-    TYPE(t_datetime) :: end_datetime       !< Ending   time of model integration
 
     REAL(wp)         :: sim_time(max_dom)  !< elapsed simulation time (may locally differ between domains!)
 
