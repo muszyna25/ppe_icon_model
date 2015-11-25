@@ -80,7 +80,7 @@ MODULE mo_nonhydro_state
     &                                GRID_UNSTRUCTURED_VERT, GRID_CELL, GRID_EDGE,   &
     &                                GRID_VERTEX, ZA_HYBRID, ZA_HYBRID_HALF,         &
     &                                ZA_HYBRID_HALF_HHL, ZA_SURFACE, ZA_MEANSEA
-  USE mo_cdi,                  ONLY: DATATYPE_FLT32,  DATATYPE_FLT64,                &
+  USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_FLT64,                 &
     &                                DATATYPE_PACK16, DATATYPE_PACK24,               &
     &                                DATATYPE_INT, TSTEP_CONSTANT, TSTEP_AVG,        &
     &                                GRID_UNSTRUCTURED
@@ -3029,7 +3029,7 @@ MODULE mo_nonhydro_state
     ! hmask_dd3d   p_metrics%hmask_dd3d(nproma,nblks_e)
     !
     cf_desc    = t_cf_var('Mask field for 3D divergence damping term', '-',       &
-      &                   'Mask field for 3D divergence damping term', DATATYPE_FLT32)
+      &                   'Mask field for 3D divergence damping term', datatype_flt)
     grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
     CALL add_var( p_metrics_list, 'hmask_dd3d', p_metrics%hmask_dd3d,      &
                 & GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, &
@@ -3418,7 +3418,7 @@ MODULE mo_nonhydro_state
       ! p_metrics%mask_mtnpoints(nproma,nblks_c)
       !
       cf_desc    = t_cf_var('Mask field for mountain points', '-',               &
-      &                     'Mask field for mountain points', DATATYPE_FLT32)
+      &                     'Mask field for mountain points', datatype_flt)
       grib2_desc = grib2_var( 255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_metrics_list, 'mask_mtnpoints', p_metrics%mask_mtnpoints, &
                   & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
