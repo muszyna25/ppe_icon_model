@@ -127,7 +127,6 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state(n_dom)
     
     ! local variables
-    INTEGER :: jg
     TYPE(t_patch), POINTER :: patch_2d
    
     INTEGER :: i_status, jp, prlength ! local prognostic array length
@@ -141,17 +140,17 @@ CONTAINS
     prlength = 3
     
     !create state array for each domain     
-    ALLOCATE(ocean_state(jg)%p_prog(1:prlength), stat=i_status)
+    ALLOCATE(ocean_state(1)%p_prog(1:prlength), stat=i_status)
     IF (i_status/=success) THEN
       CALL finish(TRIM(routine), 'allocation of progn. state array failed')
     END IF
     DO jp = 1, prlength
-      CALL construct_hydro_ocean_prog(patch_2d, ocean_state(jg)%p_prog(jp),jp)
+      CALL construct_hydro_ocean_prog(patch_2d, ocean_state(1)%p_prog(jp),jp)
     END DO
     
-    CALL construct_hydro_ocean_diag(patch_2d, ocean_state(jg)%p_diag)
-    CALL construct_hydro_ocean_aux(patch_2d,  ocean_state(jg)%p_aux)
-    CALL construct_hydro_ocean_acc(patch_2d,  ocean_state(jg)%p_acc)
+    CALL construct_hydro_ocean_diag(patch_2d, ocean_state(1)%p_diag)
+    CALL construct_hydro_ocean_aux(patch_2d,  ocean_state(1)%p_aux)
+    CALL construct_hydro_ocean_acc(patch_2d,  ocean_state(1)%p_acc)
     
     CALL message(TRIM(routine),'construction of hydrostatic ocean state finished')      
     
