@@ -48,6 +48,7 @@ MODULE mo_nh_init_utils
     &                                 iau_wgt_dyn, iau_wgt_adv
 !!$  USE mo_util_uuid,             ONLY: t_uuid,  uuid_generate, uuid_parse, &
 !!$       &                              uuid_unparse, uuid_string_length
+  USE mo_fortran_tools,         ONLY: init
 
   IMPLICIT NONE
 
@@ -539,9 +540,8 @@ CONTAINS
 
 !$OMP PARALLEL
     ! First, initialize w with zero in order to avoid undefined nest boundary points
-!$OMP WORKSHARE
-    w(:,:,:) = 0._wp
-!$OMP END WORKSHARE
+    CALL init(w(:,:,:))
+!$OMP BARRIER
 
     ! specify a reasonable initial vertical wind speed
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk) ICON_OMP_DEFAULT_SCHEDULE

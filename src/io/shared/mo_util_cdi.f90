@@ -35,7 +35,7 @@ MODULE mo_util_cdi
                                  & taxisInqTunit, TUNIT_SECOND, TUNIT_MINUTE, TUNIT_HOUR, vlistDefVarIntKey, &
                                  & vlistDefVarTypeOfGeneratingProcess, streamReadVarSliceF, streamReadVarSlice, vlistInqVarName, &
                                  & TSTEP_AVG,TSTEP_ACCUM,TSTEP_MAX,TSTEP_MIN, vlistInqVarSubtype, subtypeInqSize, &
-                                 & subtypeDefActiveIndex
+                                 & subtypeDefActiveIndex, DATATYPE_PACK23, DATATYPE_PACK32
 
   IMPLICIT NONE
   PRIVATE
@@ -282,7 +282,7 @@ CONTAINS
   !---------------------------------------------------------------------------------------------------------------------------------
   !> Determine the datatype of the given variable in the input file
   !---------------------------------------------------------------------------------------------------------------------------------
-  SUBROUTINE inputParametersFindVarId(me, name, tileinfo, varID, tile_index) 
+  SUBROUTINE inputParametersFindVarId(me, name, tileinfo, varID, tile_index)
     IMPLICIT NONE
     CLASS(t_inputParameters), INTENT(IN)  :: me
     CHARACTER(len=*),         INTENT(IN)  :: name
@@ -396,7 +396,7 @@ CONTAINS
   !
   FUNCTION test_cdi_varID(streamID, name, opt_dict) RESULT(result_varID)
     INTEGER                                 :: result_varID
-    INTEGER,           INTENT(IN)           :: streamID            !< link to file 
+    INTEGER,           INTENT(IN)           :: streamID            !< link to file
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
@@ -438,7 +438,7 @@ CONTAINS
   !
   FUNCTION get_cdi_varID(streamID, name, opt_dict) RESULT(result_varID)
     INTEGER                                 :: result_varID
-    INTEGER,           INTENT(IN)           :: streamID            !< link to file 
+    INTEGER,           INTENT(IN)           :: streamID            !< link to file
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
@@ -460,13 +460,13 @@ CONTAINS
   !
   FUNCTION get_cdi_NlevRef(streamID, name, opt_dict) RESULT(result_NlevRef)
     INTEGER                                 :: result_NlevRef
-    INTEGER,           INTENT(IN)           :: streamID            !< link to file 
+    INTEGER,           INTENT(IN)           :: streamID            !< link to file
     CHARACTER (LEN=*), INTENT(IN)           :: name                !< variable name
     TYPE (t_dictionary), INTENT(IN), OPTIONAL :: opt_dict          !< optional: variable name dictionary
     ! local variables
     INTEGER :: varID                                              ! variable ID
     INTEGER :: vlistID
-    INTEGER :: zaxisID 
+    INTEGER :: zaxisID
     CHARACTER(LEN=*), PARAMETER :: routine = modname//'::get_cdi_NlevRef'
 
     varID = test_cdi_varID(streamID, name, opt_dict)
@@ -662,12 +662,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Read 3D dataset from file.
-  ! 
+  !
   !  Note: This implementation uses a 2D buffer.
-  ! 
+  !
   !  @par Revision History
   !  Initial revision by F. Prill, DWD (2013-02-19)
-  ! 
+  !
   SUBROUTINE read_cdi_3d_real_tiles(parameters, varname, nlevs, var_out, tileinfo, opt_lvalue_add, opt_lev_dim)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
@@ -711,10 +711,13 @@ CONTAINS
     END IF
 
     SELECT CASE(parameters%lookupDatatype(varId))
-        CASE(DATATYPE_FLT64, DATATYPE_INT32)
+        CASE(DATATYPE_PACK23:DATATYPE_PACK32, DATATYPE_FLT64, DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_3d_wp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
         CASE DEFAULT
+            ! XXX: Broadcasting DATATYPE_PACK1..DATATYPE_PACK22 DATA as single precision may actually change their values, but this
+            !      error will always be smaller than the error made by storing the DATA as DATATYPE_PACK1..DATATYPE_PACK22 IN the
+            !      first place.
             CALL read_cdi_3d_sp(parameters, varId, nlevs, levelDimension, var_out, lvalue_add)
     END SELECT
 
@@ -727,12 +730,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !> Read 3D dataset from file.
-  ! 
+  !
   !  Note: This implementation uses a 2D buffer.
-  ! 
+  !
   !  @par Revision History
   !  Initial revision by F. Prill, DWD (2013-02-19)
-  ! 
+  !
   SUBROUTINE read_cdi_3d_real(parameters, varname, nlevs, var_out, opt_lvalue_add, opt_lev_dim)
     TYPE(t_inputParameters), INTENT(INOUT) :: parameters
     CHARACTER(len=*),        INTENT(IN)    :: varname        !< Var name of field to be read
@@ -808,7 +811,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
   SUBROUTINE read_cdi_2d_real_tiles (parameters, varname, var_out, tileinfo)
@@ -838,10 +841,13 @@ CONTAINS
       & " Grid size = "//trim(int2string(gridInqSize(gridId)))//" (expected "//trim(int2string(parameters%glb_arr_len))//")")
     END IF
     SELECT CASE(parameters%lookupDatatype(varId))
-        CASE(DATATYPE_FLT64, DATATYPE_INT32)
+        CASE(DATATYPE_PACK23:DATATYPE_PACK32, DATATYPE_FLT64, DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_2d_wp(parameters, varId, var_out)
         CASE DEFAULT
+            ! XXX: Broadcasting DATATYPE_PACK1..DATATYPE_PACK22 DATA as single precision may actually change their values, but this
+            !      error will always be smaller than the error made by storing the DATA as DATATYPE_PACK1..DATATYPE_PACK22 IN the
+            !      first place.
             CALL read_cdi_2d_sp(parameters, varId, var_out)
     END SELECT
 
@@ -856,7 +862,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
   SUBROUTINE read_cdi_2d_real (parameters, varname, var_out)
@@ -872,7 +878,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for INTEGER fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
 
@@ -906,7 +912,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for INTEGER fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
 
@@ -923,7 +929,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
   SUBROUTINE read_cdi_2d_time_tiles (parameters, ntime, varname, var_out, tileinfo)
@@ -953,10 +959,13 @@ CONTAINS
         nrecs = streamInqTimestep(parameters%streamId, (jt-1))
       END IF
       SELECT CASE(parameters%lookupDatatype(varId))
-        CASE(DATATYPE_FLT64, DATATYPE_INT32)
+        CASE(DATATYPE_PACK23:DATATYPE_PACK32, DATATYPE_FLT64, DATATYPE_INT32)
             ! int32 is treated as double precision because single precision floats would cut off up to seven bits from the integer
             CALL read_cdi_2d_wp(parameters, varId, var_out(:,:,jt))
         CASE DEFAULT
+            ! XXX: Broadcasting DATATYPE_PACK1..DATATYPE_PACK22 DATA as single precision may actually change their values, but this
+            !      error will always be smaller than the error made by storing the DATA as DATATYPE_PACK1..DATATYPE_PACK22 IN the
+            !      first place.
             CALL read_cdi_2d_sp(parameters, varId, var_out(:,:,jt))
       END SELECT
     END DO
@@ -971,7 +980,7 @@ CONTAINS
   !> Read 2D dataset from file, implementation for REAL fields
   !
   !  @par Revision History
-  ! 
+  !
   !  Initial revision by F. Prill, DWD (2013-02-19)
   !
   SUBROUTINE read_cdi_2d_time (parameters, ntime, varname, var_out)

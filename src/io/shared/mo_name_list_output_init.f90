@@ -41,7 +41,7 @@ MODULE mo_name_list_output_init
                                                 & taxisDefCalendar, taxisDefRdate, taxisDefRtime, vlistDefTaxis,   &
                                                 & vlistDefAttTxt, CDI_GLOBAL
   USE mo_cdi_constants,                     ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_EDGE, &
-                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_REFERENCE, GRID_EDGE, GRID_CELL, &
+                                                & GRID_REGULAR_LONLAT, GRID_VERTEX, GRID_EDGE, GRID_CELL, &
                                                 & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
                                                 & ZA_hybrid_half, ZA_hybrid
   USE mo_kind,                              ONLY: wp, i8, dp, sp
@@ -67,7 +67,7 @@ MODULE mo_name_list_output_init
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
-    &                                             sort_and_compress_list, one_of
+    &                                             sort_and_compress_list
   USE mo_datetime,                          ONLY: t_datetime
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
@@ -93,7 +93,7 @@ MODULE mo_name_list_output_init
 #ifndef __NO_ICON_ATMO__
   USE mo_nh_pzlev_config,                   ONLY: nh_pzlev_config
   USE mo_extpar_config,                     ONLY: i_lctype
-  USE mo_lnd_nwp_config,                    ONLY: ntiles_water, tiles
+  USE mo_lnd_nwp_config,                    ONLY: ntiles_water, ntiles_total, tiles
 #endif
   ! MPI Communication routines
   USE mo_mpi,                               ONLY: p_bcast, get_my_mpi_work_id, p_max,             &
@@ -150,12 +150,10 @@ MODULE mo_name_list_output_init
     &                                             REMAP_NONE, REMAP_REGULAR_LATLON,               &
     &                                             GRP_PREFIX, TILE_PREFIX,                        &
     &                                             t_fname_metadata, all_events, t_patch_info_ll,  &
-    &                                             GRB2_GRID_INFO, is_grid_info_var,               &
-    &                                             GRB2_GRID_INFO_NAME
-  USE mo_name_list_output_gridinfo,         ONLY: set_grid_info_grb2,                             &
-    &                                             set_grid_info_netcdf, collect_all_grid_info,    &
-    &                                             copy_grid_info, bcast_grid_info,                &
-    &                                             deallocate_all_grid_info,                       &
+    &                                             is_grid_info_var, GRB2_GRID_INFO_NAME
+  USE mo_name_list_output_gridinfo,         ONLY: set_grid_info_grb2, set_grid_info_netcdf,       &
+    &                                             collect_all_grid_info, copy_grid_info,          &
+    &                                             allgather_grid_info, deallocate_all_grid_info,  &
     &                                             GRID_INFO_NONE, GRID_INFO_FILE, GRID_INFO_BCAST
   USE mo_name_list_output_metadata,         ONLY: metainfo_allocate_memory_window
   USE mo_name_list_output_zaxes,            ONLY: setup_ml_axes_atmo, setup_pl_axis_atmo,         &
@@ -613,7 +611,7 @@ CONTAINS
       DO i=1,max_var_il
         p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
       END DO
-      
+
       p_onl%next => NULL()
 
       ! -- if the namelist switch "output_grid" has been enabled: add
@@ -806,8 +804,8 @@ CONTAINS
   !         have been registered through "add_vars".
   !
   !  @note In more detail, this subroutine looks for variable groups
-  !        ("group:xyz","tiles:xyz") and replaces them by all variables 
-  !        belonging to the group. Afterwards, variables can be REMOVED 
+  !        ("group:xyz","tiles:xyz") and replaces them by all variables
+  !        belonging to the group. Afterwards, variables can be REMOVED
   !        from this union set with the syntax "-varname". Note that typos
   !        are not detected but that the corresponding variable is
   !        simply not removed!
@@ -862,6 +860,10 @@ CONTAINS
           IF (INDEX(vname, TILE_PREFIX) > 0) THEN
             ! this is a tile group identifier
             grp_name = vname((LEN(TRIM(TILE_PREFIX))+1) : LEN(vname))
+
+            ! translate group name from GRIB2 to internal nomenclature, if necessary
+            grp_name = dict_get(varnames_dict, grp_name, grp_name)
+
             grp_name(len_trim(grp_name)+1:len_trim(grp_name)+3) ="_t"
             ! loop over all variables and collects the variables names
             ! corresponding to the group "grp_name"
@@ -1027,7 +1029,7 @@ CONTAINS
           element => var_lists(i)%p%first_list_element
           DO
             IF(.NOT. ASSOCIATED(element)) EXIT
-            
+
             IF (element%field%info%post_op%lnew_cf) THEN
               this_cf => element%field%info%post_op%new_cf
             ELSE
@@ -1158,14 +1160,14 @@ CONTAINS
     ! Loop over all "output_nml" namelists:
     DO
       IF(.NOT.ASSOCIATED(p_onl)) EXIT
-      
+
       ! Loop over all domains for which this name list should be used
       DO i = 1, SIZE(p_onl%dom)
         IF(p_onl%dom(i) <= 0) EXIT ! Last one was reached
         idom = p_onl%dom(i)
         ! non-existent domains are simply ignored:
         IF(p_onl%dom(i) > n_dom_out)  CYCLE
-        
+
         IF (p_onl%output_grid) THEN
           grid_info_mode = GRID_INFO_BCAST
           ! For hexagons, we still copy grid info from file; for
@@ -1204,8 +1206,8 @@ CONTAINS
     ! physical/logical patch we must collect the geographical
     ! locations of cells, edges, and vertices
 
-    ! Pure I/O PEs may skip this...
-    IF (.NOT. (use_async_name_list_io .AND. my_process_is_io())) THEN
+    ! Only needed if no async name list io is used
+    IF (.NOT. use_async_name_list_io) THEN
       ! Go over all output domains
       DO idom = 1, n_dom_out
         IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
@@ -1256,11 +1258,11 @@ CONTAINS
     DO
       IF(.NOT.ASSOCIATED(p_onl))  EXIT
 
-      ! there may be multiple "output_bounds" intervals, consider all:        
+      ! there may be multiple "output_bounds" intervals, consider all:
       DO idx=1,MAX_TIME_INTERVALS
         istart = (idx-1)*3
         IF (p_onl%output_bounds(istart+1) == -1._wp) CYCLE
-        
+
         CALL get_datetime_string(p_onl%output_start(idx), &
           &                      sim_step_info%sim_start, INT(p_onl%output_bounds(istart+1)))
         CALL get_datetime_string(p_onl%output_end(idx),   &
@@ -1283,7 +1285,7 @@ CONTAINS
 
       !--- consistency check: do not allow output intervals < dtime:
 
-      ! there may be multiple "output_bounds" intervals, consider all:        
+      ! there may be multiple "output_bounds" intervals, consider all:
       INTVL_LOOP : DO idx=1,MAX_TIME_INTERVALS
         IF (p_onl%additional_days(idx) == 0) THEN
           IF (TRIM(p_onl%output_start(idx)) == '') CYCLE INTVL_LOOP
@@ -1294,13 +1296,13 @@ CONTAINS
           mtime_datetime_end   => newDatetime(p_onl%output_end(idx))
           IF (mtime_datetime_end > mtime_datetime_start) THEN
             mtime_output_interval => newTimedelta(TRIM(p_onl%output_interval(idx)))
-            
+
             !Special case for very small time steps
             IF(sim_step_info%dtime .LT. 1._wp)THEN
               CALL get_duration_string_real(sim_step_info%dtime, &
                 &                           lower_bound_str)
               idummy = 0
-            ELSE  
+            ELSE
               CALL get_duration_string(INT(sim_step_info%dtime), &
                 &                      lower_bound_str, idummy)
             END IF
@@ -1344,7 +1346,7 @@ CONTAINS
           CASE (level_type_pl)
             IF (p_onl%pl_varlist(1) == ' ') CYCLE
           nfiles = nfiles + p_onl%stream_partitions_pl
-          CASE (level_type_hl) 
+          CASE (level_type_hl)
             IF (p_onl%hl_varlist(1) == ' ') CYCLE
             nfiles = nfiles + p_onl%stream_partitions_hl
           CASE (level_type_il)
@@ -1400,7 +1402,7 @@ CONTAINS
             IF (p_onl%pl_varlist(1) == ' ') CYCLE
             npartitions     = p_onl%stream_partitions_pl
             pe_placement(:) = p_onl%pe_placement_pl(:)
-          CASE (level_type_hl) 
+          CASE (level_type_hl)
             IF (p_onl%hl_varlist(1) == ' ') CYCLE
             npartitions     = p_onl%stream_partitions_hl
             pe_placement(:) = p_onl%pe_placement_hl(:)
@@ -1439,7 +1441,7 @@ CONTAINS
 
               p_of%npartitions     = npartitions
               p_of%ifile_partition = ifile_partition
-              
+
               ! (optional:) explicitly specified I/O rank
               p_of%io_proc_id      = -1 ! undefined MPI rank
               p_of%pe_placement    = pe_placement(ifile_partition)
@@ -1447,16 +1449,16 @@ CONTAINS
               ! Select all var_lists which belong to current logical domain and i_typ
               nvl = 0
               DO j = 1, nvar_lists
-                
+
                 IF(.NOT. var_lists(j)%p%loutput) CYCLE
                 ! patch_id in var_lists always corresponds to the LOGICAL domain
                 IF(var_lists(j)%p%patch_id /= patch_info(idom)%log_patch_id) CYCLE
-                
+
                 IF(i_typ /= var_lists(j)%p%vlevel_type) CYCLE
-                
+
                 nvl = nvl + 1
                 vl_list(nvl) = j
-                
+
               ENDDO
 
               SELECT CASE(i_typ)
@@ -1469,15 +1471,15 @@ CONTAINS
               CASE(level_type_il)
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%il_varlist)
               END SELECT
-        
+
           END DO ! ifile_partition
-            
+
         ENDDO ! i_typ
-          
+
       ENDDO LOOP_DOM ! i=1,ndom
 
       p_onl => p_onl%next
-      
+
     ENDDO LOOP_NML
 
     ! ------------------------------------------------------
@@ -1577,7 +1579,7 @@ CONTAINS
     ! ------------------------------------------------------
     ! Create I/O event data structures:
     ! ------------------------------------------------------
-    ! 
+    !
     !  Regular output is triggered at
     ! so-called "output event steps". The completion of an output
     ! event step is communicated via non-blocking MPI messages to the
@@ -1662,7 +1664,7 @@ CONTAINS
           nintvls = nintvls + 1
           IF (nintvls == MAX_TIME_INTERVALS) EXIT
         END DO
-    
+
         DO iintvl=1,nintvls
           mtime_interval => newTimedelta(output_interval(iintvl))
           mtime_datetime => newDatetime(output_start(iintvl))
@@ -1687,7 +1689,7 @@ CONTAINS
           ! - The "include_last" flag is set to .FALSE.
           include_last                  = .FALSE.
           ! - The "steps_per_file" counter is set to 1
-          fname_metadata%steps_per_file = 1        
+          fname_metadata%steps_per_file = 1
           ! - The "steps_per_file_inclfirst" flag is set to .FALSE.
           fname_metadata%steps_per_file_inclfirst = .FALSE.
           !
@@ -1735,7 +1737,7 @@ CONTAINS
                comp_name = TRIM(get_my_process_name())
                CALL print_output_event(all_events, &
                  ! ASCII file output:
-      & opt_filename="output_schedule_"//TRIM(comp_name)//"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") 
+      & opt_filename="output_schedule_"//TRIM(comp_name)//"_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt")
              ELSE
                CALL print_output_event(all_events, &
       & opt_filename="output_schedule_steps_"//TRIM(int2string(dom_sim_step_info%jstep0))//"+.txt") ! ASCII file output
@@ -1764,7 +1766,7 @@ CONTAINS
     IF(use_async_name_list_io) CALL init_memory_window
 #endif
 ! NOMPI
-    
+
     ! Initial launch of non-blocking requests to all participating PEs
     ! to acknowledge the completion of the next output event
     IF (.NOT. my_process_is_mpi_test()) THEN
@@ -1983,7 +1985,7 @@ CONTAINS
         CALL set_reorder_info(jp, p_patch(jl)%n_patch_edges_g, p_patch(jl)%n_patch_edges,             &
           &                   p_patch(jl)%edges%decomp_info%owner_mask, p_patch(jl)%edges%phys_id,    &
           &                   p_patch(jl)%edges%decomp_info%glb_index, patch_info(jp)%edges )
-        
+
         CALL set_reorder_info(jp, p_patch(jl)%n_patch_verts_g, p_patch(jl)%n_patch_verts,             &
           &                   p_patch(jl)%verts%decomp_info%owner_mask, p_patch(jl)%verts%phys_id,    &
           &                   p_patch(jl)%verts%decomp_info%glb_index, patch_info(jp)%verts )
@@ -2316,13 +2318,7 @@ CONTAINS
 
     pi_180 = ATAN(1._wp)/45._wp
 
-    IF (of%output_type == FILETYPE_GRB2) THEN
-      ! since the current CDI-version does not fully support "GRID_UNSTRUCTURED", the
-      ! grid type is changed to "GRID_REFERENCE".
-      gridtype = GRID_REFERENCE
-    ELSE
-      gridtype = GRID_UNSTRUCTURED
-    ENDIF
+    gridtype = GRID_UNSTRUCTURED
 
     i_dom = of%phys_patch_id
     max_cell_connectivity = patch_info(i_dom)%max_cell_connectivity
@@ -2348,17 +2344,17 @@ CONTAINS
     CALL vlistDefInstitut(of%cdiVlistID,of%cdiInstID)
 
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'title',       &
-         &                LEN_TRIM(cf_global_info%title),       TRIM(cf_global_info%title))       
+         &                LEN_TRIM(cf_global_info%title),       TRIM(cf_global_info%title))
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'institution', &
-         &                LEN_TRIM(cf_global_info%institution), TRIM(cf_global_info%institution)) 
+         &                LEN_TRIM(cf_global_info%institution), TRIM(cf_global_info%institution))
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'source',      &
-         &                LEN_TRIM(cf_global_info%source),      TRIM(cf_global_info%source))      
+         &                LEN_TRIM(cf_global_info%source),      TRIM(cf_global_info%source))
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'history',     &
-         &                LEN_TRIM(cf_global_info%history),     TRIM(cf_global_info%history))     
+         &                LEN_TRIM(cf_global_info%history),     TRIM(cf_global_info%history))
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'references',  &
-         &                LEN_TRIM(cf_global_info%references),  TRIM(cf_global_info%references))  
+         &                LEN_TRIM(cf_global_info%references),  TRIM(cf_global_info%references))
     iret = vlistDefAttTxt(of%cdiVlistID, CDI_GLOBAL, 'comment',     &
-         &                LEN_TRIM(cf_global_info%comment),     TRIM(cf_global_info%comment))     
+         &                LEN_TRIM(cf_global_info%comment),     TRIM(cf_global_info%comment))
 
     ! 3. add horizontal grid descriptions
 
@@ -2439,7 +2435,7 @@ CONTAINS
       ! Single point grid for monitoring
       of%cdiSingleGridID = gridCreate(GRID_LONLAT, 1)
       !
-      CALL griddefxsize(of%cdiSingleGridID, 1)                                                                         
+      CALL griddefxsize(of%cdiSingleGridID, 1)
       CALL griddefysize(of%cdiSingleGridID, 1)
       CALL griddefxvals(of%cdiSingleGridID, (/0.0_wp/))
       CALL griddefyvals(of%cdiSingleGridID, (/0.0_wp/))
@@ -2499,7 +2495,7 @@ CONTAINS
           SELECT CASE(patch_info(of%phys_patch_id)%grid_info_mode)
           CASE (GRID_INFO_FILE)
             CALL copy_grid_info(of, patch_info)
-          CASE (GRID_INFO_BCAST) 
+          CASE (GRID_INFO_BCAST)
             IF (.NOT. my_process_is_mpi_test()) THEN
               CALL set_grid_info_netcdf(of%cdiCellGridID, patch_info(of%phys_patch_id)%cells%grid_info)
               CALL set_grid_info_netcdf(of%cdiEdgeGridID, patch_info(of%phys_patch_id)%edges%grid_info)
@@ -2520,13 +2516,13 @@ CONTAINS
 
     IF (iequations/=ihs_ocean) THEN ! atm
       SELECT CASE(of%ilev_type)
-      CASE (level_type_ml) 
+      CASE (level_type_ml)
         CALL setup_ml_axes_atmo(of)
-      CASE (level_type_pl) 
+      CASE (level_type_pl)
         CALL setup_pl_axis_atmo(of)
-      CASE (level_type_hl) 
+      CASE (level_type_hl)
         CALL setup_hl_axis_atmo(of)
-      CASE (level_type_il) 
+      CASE (level_type_il)
         CALL setup_il_axis_atmo(of)
       CASE DEFAULT
         CALL finish(routine, "Internal error!")
@@ -2639,7 +2635,7 @@ CONTAINS
         ! ZA_HYBRID       -> ZA_REFERENCE
         ! ZA_HYBRID_HALF  -> ZA_REFERENCE_HALF
         ! as long as ZA_hybrid/ZA_hybrid_half is used throughout the code.
-        ! Should be replaced by ZA_reference/ZA_reference_half for the 
+        ! Should be replaced by ZA_reference/ZA_reference_half for the
         ! nonhydrostatic model.
         IF (zaxisID == of%cdiZaxisID(ZA_hybrid)) THEN
           zaxisID = of%cdiZaxisID(ZA_reference)
@@ -2704,9 +2700,9 @@ CONTAINS
         !!!          ATTENTION                    !!!
         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         ! Note that re-setting of the surface types must come AFTER (re)setting
-        ! "productDefinitionTemplateNumber" in set_additional_GRIB2_keys. It was observed 
-        ! (i.e. for Ensemble output), that the surface-type information is lost again, if 
-        ! these settings are performed prior to "productDefinitionTemplateNumber"  
+        ! "productDefinitionTemplateNumber" in set_additional_GRIB2_keys. It was observed
+        ! (i.e. for Ensemble output), that the surface-type information is lost again, if
+        ! these settings are performed prior to "productDefinitionTemplateNumber"
 
         DO i=1,info%grib2%additional_keys%nint_keys
           CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
@@ -2803,6 +2799,7 @@ CONTAINS
     INTEGER :: nvgrid, ivgrid
     INTEGER :: size_tiles
     INTEGER :: size_var_groups_dyn
+    INTEGER :: idom_log
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
@@ -2842,8 +2839,7 @@ CONTAINS
         ! Count the number of variable entries
         element => var_lists(iv)%p%first_list_element
         nelems = 0
-        DO
-          IF(.NOT.ASSOCIATED(element)) EXIT
+        DO WHILE (ASSOCIATED(element))
           nelems = nelems+1
           element => element%next_list_element
         ENDDO
@@ -2931,7 +2927,7 @@ CONTAINS
 
     ENDDO
 
-    ! var_groups_dyn is required in function 'group_id', which is called in 
+    ! var_groups_dyn is required in function 'group_id', which is called in
     ! parse_variable_groups. Thus, a broadcast of var_groups_dyn is required.
     size_var_groups_dyn = 0
     if (allocated(var_groups_dyn)) then
@@ -2960,6 +2956,7 @@ CONTAINS
     ENDDO
     ! from nwp land config state
     CALL p_bcast(ntiles_water                              , bcast_root, p_comm_work_2_io)
+    CALL p_bcast(ntiles_total                              , bcast_root, p_comm_work_2_io)
     size_tiles = 0
     if (allocated(tiles)) then
        size_tiles = SIZE(tiles)
@@ -2974,7 +2971,7 @@ CONTAINS
        CALL p_bcast(tiles(:)%GRIB2_att%tileAttribute           , bcast_root, p_comm_work_2_io)
     end if
 #endif
-    ! allocate vgrid_buffer on asynchronous output PEs, for storing 
+    ! allocate vgrid_buffer on asynchronous output PEs, for storing
     ! the vertical grid UUID
     !
     ! get buffer size and broadcast
@@ -2990,7 +2987,7 @@ CONTAINS
       ALLOCATE(vgrid_buffer(nvgrid))
     ENDIF
     ! broadcast
-    DO ivgrid = 1,nvgrid 
+    DO ivgrid = 1,nvgrid
       CALL p_bcast(vgrid_buffer(ivgrid)%uuid, bcast_root, p_comm_work_2_io)
     ENDDO
 
@@ -3005,7 +3002,9 @@ CONTAINS
       CALL p_bcast(patch_info(idom)%max_cell_connectivity, bcast_root, p_comm_work_2_io)
 
       IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
-        CALL bcast_grid_info(patch_info(idom), bcast_root)
+        ! logical domain ID
+        idom_log = patch_info(idom)%log_patch_id
+        CALL allgather_grid_info(patch_info(idom), idom_log)
       END IF
     END DO
 
@@ -3028,7 +3027,7 @@ CONTAINS
 
     ! local variables
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::init_async_name_list_output"
-    
+
     INTEGER                         :: jp, i, iv, nlevs, i_log_dom, &
       &                                n_own, lonlat_id
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size
@@ -3039,10 +3038,10 @@ CONTAINS
 
     ! Go over all output files
     OUT_FILE_LOOP : DO i = 1, SIZE(output_file)
-      
+
       ! Get size of the data for every output file
       mem_size = 0_i8
-      
+
       ! Go over all name list variables for this output file
       DO iv = 1, output_file(i)%num_vars
 
@@ -3082,7 +3081,7 @@ CONTAINS
         END SELECT
 
       ENDDO ! vars
-     
+
       ! allocate amount of memory needed with MPI_Alloc_mem
 #ifdef USE_CRAY_POINTER
       CALL allocate_mem_cray(mem_size, output_file(i))
@@ -3096,9 +3095,9 @@ CONTAINS
       CALL metainfo_allocate_memory_window(output_file(i)%mem_win, output_file(i)%num_vars)
 
     ENDDO OUT_FILE_LOOP
-    
+
   END SUBROUTINE init_memory_window
-  
+
 
 #ifdef USE_CRAY_POINTER
   !------------------------------------------------------------------------------------------------

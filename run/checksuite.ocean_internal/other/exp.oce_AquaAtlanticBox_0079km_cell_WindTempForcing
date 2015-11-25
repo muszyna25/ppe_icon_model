@@ -50,7 +50,6 @@ cat > ${ocean_namelist} << EOF
  nproma       = ${nproma}
  l_fast_sum   = .true.
  p_test_run   = .false.
- division_method = 102
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",

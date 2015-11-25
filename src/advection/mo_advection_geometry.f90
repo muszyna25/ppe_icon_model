@@ -1,7 +1,7 @@
 !>
 !! Geometric computations which are specific to the transport algorithm.
 !!
-!! Module contains procedures for geometric computations which are 
+!! Module contains procedures for geometric computations which are
 !! specific to the horizontal transport schemes.
 !!
 !! @author Daniel Reinert, DWD
@@ -34,9 +34,10 @@ MODULE mo_advection_geometry
   USE mo_impl_constants,      ONLY: min_rledge_int, max_char_length
   USE mo_math_constants,      ONLY: rad2deg
   USE mo_math_utilities,      ONLY: lintersect, line_intersect, t_line, &
-    &                               t_geographical_coordinates 
+    &                               t_geographical_coordinates
   USE mo_advection_utils,     ONLY: t_list2D
   USE mo_run_config,          ONLY: msg_level
+  USE mo_fortran_tools,       ONLY: copy
 
 
   IMPLICIT NONE
@@ -54,7 +55,7 @@ CONTAINS
   !>
   !! Divide flux area
   !!
-  !! Flux area (aka. departure region) is subdivided according to its overlap 
+  !! Flux area (aka. departure region) is subdivided according to its overlap
   !! with the underlying grid.
   !!
   !! @par Revision History
@@ -106,7 +107,7 @@ CONTAINS
       &  opt_elev
 
     REAL(wp) ::       &   !< coordinates of arrival points. The origin
-      &  arrival_pts(nproma,2,2,p_patch%nlev,p_patch%nblks_e)    
+      &  arrival_pts(nproma,2,2,p_patch%nlev,p_patch%nblks_e)
                           !< of the coordinate system is at the circumcenter of
                           !< the upwind cell. Unit vectors point to local East
                           !< and North. (geographical coordinates)
@@ -130,14 +131,14 @@ CONTAINS
 
     TYPE(t_geographical_coordinates), POINTER :: & !< pointer to coordinates of vertex3
       &  ptr_v3(:,:,:)
-    TYPE(t_geographical_coordinates), POINTER :: & !< pointer to coordinates of 
+    TYPE(t_geographical_coordinates), POINTER :: & !< pointer to coordinates of
       &  ptr_bfcc(:,:,:,:)                         !< of butterfly cell centers
 
 
-    REAL(wp) :: ps1(2),              & !< coordinates of intersection 
+    REAL(wp) :: ps1(2),              & !< coordinates of intersection
       &         ps2(2)                 !< points S1, S2
 
-    REAL(wp) :: pi1(2),              & !< coordinates of intersection 
+    REAL(wp) :: pi1(2),              & !< coordinates of intersection
       &         pi2(2)                 !< points I1, I2
 
     REAL(wp) :: bf_cc(2,2)             !< coordinates of butterfly cell centers
@@ -150,7 +151,7 @@ CONTAINS
     LOGICAL :: lintersect_line1, lintersect_line2
     LOGICAL :: lintersect_e2_line1, lintersect_e1_line2
     LOGICAL :: lvn_pos, lvn_sys_pos
-    INTEGER :: icnt_c1, icnt_c2p, icnt_c3p, icnt_c2m, icnt_c3m 
+    INTEGER :: icnt_c1, icnt_c2p, icnt_c3p, icnt_c2m, icnt_c3m
     INTEGER :: icnt_rem, icnt_err, icnt_vn0
 
     INTEGER ::           &         !< je index list
@@ -213,7 +214,7 @@ CONTAINS
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
 
-    ! pointer to coordinates of vertex3 (i.e. vertex which belongs to 
+    ! pointer to coordinates of vertex3 (i.e. vertex which belongs to
     ! the upwind cell but does not belong to the current edge.)
     !
     ptr_v3   => p_int%pos_on_tplane_c_edge(:,:,:,3)
@@ -223,13 +224,12 @@ CONTAINS
     ptr_bfcc => p_int%pos_on_tplane_c_edge(:,:,:,4:5)
 
 !$OMP PARALLEL
-    ! get arrival and departure points. Note that the indices of the departure 
-    ! points have to be switched so that departure point 1 belongs to arrival 
+    ! get arrival and departure points. Note that the indices of the departure
+    ! points have to be switched so that departure point 1 belongs to arrival
     ! point one and departure point 2 to arrival point 2.
-!$OMP WORKSHARE
-    arrival_pts(:,1:2,1:2,:,:) = dreg_patch0(:,1:2,1:2,:,:)
-    depart_pts (:,1:2,1:2,:,:) = dreg_patch0(:,4:3:-1,1:2,:,:)
-!$OMP END WORKSHARE
+    CALL copy(dreg_patch0(:,1:2,1:2,:,:),    arrival_pts(:,1:2,1:2,:,:))
+    CALL copy(dreg_patch0(:,4:3:-1,1:2,:,:), depart_pts (:,1:2,1:2,:,:))
+!$OMP BARRIER
 
 !$OMP DO PRIVATE(jb,jk,je,jl,i_startidx,i_endidx,lvn_pos,fl_line,tri_line1, &
 !$OMP            tri_line2,fl_e1,fl_e2,lintersect_line1,lintersect_line2,   &
@@ -278,7 +278,7 @@ CONTAINS
           tri_line2(je,jk)%p2%lon = MERGE(ptr_v3(je,jb,1)%lon,ptr_v3(je,jb,2)%lon,lvn_pos)
           tri_line2(je,jk)%p2%lat = MERGE(ptr_v3(je,jb,1)%lat,ptr_v3(je,jb,2)%lat,lvn_pos)
 
- 
+
 
           !
           ! Compute index lists
@@ -396,7 +396,7 @@ CONTAINS
           idxlist_err(icnt_err,jb) = je
           levlist_err(icnt_err,jb) = jk
 
-          ! adding the error points to the weak-vn list is done in order to ensure 
+          ! adding the error points to the weak-vn list is done in order to ensure
           ! reproducible (though bad) results in cases of too high wind speed
           icnt_vn0 = icnt_vn0 + 1
           idxlist_vn0(icnt_vn0,jb) = je
@@ -406,7 +406,7 @@ CONTAINS
       ENDDO  !jl
 
 
-      IF ( icnt_err>0 ) THEN 
+      IF ( icnt_err>0 ) THEN
         ! Check for unassigned grid points (i.e. collected in list_Err) because of CFL violation
         DO jl = 1, icnt_err
 
@@ -638,7 +638,7 @@ CONTAINS
         dreg_patch0(je,3,1,jk,jb)   = MERGE(pi1(1),                    &
           &                           arrival_pts(je,2,1,jk,jb),lvn_sys_pos)
         dreg_patch0(je,3,2,jk,jb)   = MERGE(pi1(2),                    &
-          &                           arrival_pts(je,2,2,jk,jb),lvn_sys_pos) 
+          &                           arrival_pts(je,2,2,jk,jb),lvn_sys_pos)
 
 
         ! patch 1
@@ -667,7 +667,7 @@ CONTAINS
       ENDDO  ! jl
 
 
-      ! 
+      !
       ! CASE 3b
       !
 !CDIR NODEP,VOVERTAKE,VOB
@@ -694,7 +694,7 @@ CONTAINS
         dreg_patch0(je,3,1,jk,jb)   = MERGE(pi2(1),                    &
           &                           arrival_pts(je,2,1,jk,jb),lvn_sys_pos)
         dreg_patch0(je,3,2,jk,jb)   = MERGE(pi2(2),                    &
-          &                           arrival_pts(je,2,2,jk,jb),lvn_sys_pos) 
+          &                           arrival_pts(je,2,2,jk,jb),lvn_sys_pos)
 
 
         ! patch 1 (non-existing)
@@ -724,7 +724,7 @@ CONTAINS
 
 
 
-      ! 
+      !
       ! CASE 4  (very small normal velocity)
       !
 !CDIR NODEP,VOVERTAKE,VOB
@@ -780,13 +780,13 @@ CONTAINS
 
            ! get coordinates of butterfly cell centers (from upwind cell)
            bf_cc(1,1) = MERGE(ptr_bfcc(je,jb,1,1)%lon,         &
-             &                ptr_bfcc(je,jb,2,1)%lon, lvn_pos ) 
+             &                ptr_bfcc(je,jb,2,1)%lon, lvn_pos )
            bf_cc(1,2) = MERGE(ptr_bfcc(je,jb,1,1)%lat,         &
              &                ptr_bfcc(je,jb,2,1)%lat, lvn_pos )
            bf_cc(2,1) = MERGE(ptr_bfcc(je,jb,1,2)%lon,         &
-             &                ptr_bfcc(je,jb,2,2)%lon, lvn_pos ) 
+             &                ptr_bfcc(je,jb,2,2)%lon, lvn_pos )
            bf_cc(2,2) = MERGE(ptr_bfcc(je,jb,1,2)%lat,         &
-             &                ptr_bfcc(je,jb,2,2)%lat, lvn_pos ) 
+             &                ptr_bfcc(je,jb,2,2)%lat, lvn_pos )
 
 
            ! patch 1 in translated system
@@ -810,7 +810,7 @@ CONTAINS
            !
            patch1_cell_idx(je,jk,jb) = MERGE(p_patch%edges%butterfly_idx(je,jb,1,1), &
              &                               p_patch%edges%butterfly_idx(je,jb,2,1), &
-             &                               lvn_pos) 
+             &                               lvn_pos)
            patch2_cell_idx(je,jk,jb) = MERGE(p_patch%edges%butterfly_idx(je,jb,1,2), &
              &                               p_patch%edges%butterfly_idx(je,jb,2,2), &
              &                               lvn_pos)
@@ -840,7 +840,7 @@ CONTAINS
   !>
   !! List based version of divide_flux_area
   !!
-  !! Flux area (aka. departure region) is subdivided according to its overlap 
+  !! Flux area (aka. departure region) is subdivided according to its overlap
   !! with the underlying grid.
   !!
   !! @par Revision History
@@ -865,8 +865,8 @@ CONTAINS
     REAL(wp), INTENT(IN)    ::  &  !< tangential component of velocity vector at
       &  p_vt(:,:,:)               !< edge midpoints
 
-    TYPE(t_list2D), INTENT(IN) :: & !< index list with points for which the standard 
-      &  falist                     !< Miura-type treatment of flux areas is 
+    TYPE(t_list2D), INTENT(IN) :: & !< index list with points for which the standard
+      &  falist                     !< Miura-type treatment of flux areas is
                                     !< insufficient
 
     REAL(vp), INTENT(INOUT) ::    &  !< patch 0 of subdivided departure region
@@ -896,7 +896,7 @@ CONTAINS
       &  opt_elev
 
     REAL(wp) ::       &   !< coordinates of arrival points. The origin
-      &  arrival_pts(falist%npoints,2,2)    
+      &  arrival_pts(falist%npoints,2,2)
                           !< of the coordinate system is at the circumcenter of
                           !< the upwind cell. Unit vectors point to local East
                           !< and North. (geographical coordinates)
@@ -920,14 +920,14 @@ CONTAINS
 
     TYPE(t_geographical_coordinates), POINTER :: & !< pointer to coordinates of vertex3
       &  ptr_v3(:,:,:)
-    TYPE(t_geographical_coordinates), POINTER :: & !< pointer to coordinates of 
+    TYPE(t_geographical_coordinates), POINTER :: & !< pointer to coordinates of
       &  ptr_bfcc(:,:,:,:)                         !< of butterfly cell centers
 
 
-    REAL(wp) :: ps1(2),              & !< coordinates of intersection 
+    REAL(wp) :: ps1(2),              & !< coordinates of intersection
       &         ps2(2)                 !< points S1, S2
 
-    REAL(wp) :: pi1(2),              & !< coordinates of intersection 
+    REAL(wp) :: pi1(2),              & !< coordinates of intersection
       &         pi2(2)                 !< points I1, I2
 
     REAL(wp) :: bf_cc(2,2)             !< coordinates of butterfly cell centers
@@ -941,7 +941,7 @@ CONTAINS
     LOGICAL :: lintersect_line1, lintersect_line2
     LOGICAL :: lintersect_e2_line1, lintersect_e1_line2
     LOGICAL :: lvn_pos, lvn_sys_pos
-    INTEGER :: icnt_c1, icnt_c2p, icnt_c3p, icnt_c2m, icnt_c3m 
+    INTEGER :: icnt_c1, icnt_c2p, icnt_c3p, icnt_c2m, icnt_c3m
     INTEGER :: icnt_rem, icnt_err, icnt_vn0
 
     INTEGER ::           &         !< ie index list
@@ -1014,7 +1014,7 @@ CONTAINS
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
 
-    ! pointer to coordinates of vertex3 (i.e. vertex which belongs to 
+    ! pointer to coordinates of vertex3 (i.e. vertex which belongs to
     ! the upwind cell but does not belong to the current edge.)
     !
     ptr_v3   => p_int%pos_on_tplane_c_edge(:,:,:,3)
@@ -1039,8 +1039,8 @@ CONTAINS
     DO jb = i_startblk, i_endblk
 
 
-      ! get arrival and departure points. Note that the indices of the departure 
-      ! points have to be switched so that departure point 1 belongs to arrival 
+      ! get arrival and departure points. Note that the indices of the departure
+      ! points have to be switched so that departure point 1 belongs to arrival
       ! point one and departure point 2 to arrival point 2.
       DO ie = 1, falist%len(jb)
 
@@ -1093,7 +1093,7 @@ CONTAINS
         tri_line2(ie)%p2%lon = MERGE(ptr_v3(je,jb,1)%lon,ptr_v3(je,jb,2)%lon,lvn_pos)
         tri_line2(ie)%p2%lat = MERGE(ptr_v3(je,jb,1)%lat,ptr_v3(je,jb,2)%lat,lvn_pos)
 
- 
+
 
         !
         ! Compute index lists
@@ -1218,7 +1218,7 @@ CONTAINS
           idxlist_err(icnt_err) = je
           levlist_err(icnt_err) = jk
 
-          ! adding the error points to the weak-vn list is done in order to ensure 
+          ! adding the error points to the weak-vn list is done in order to ensure
           ! reproducible (though bad) results in cases of too high wind speed
           icnt_vn0 = icnt_vn0 + 1
           ielist_vn0(icnt_vn0)  = ie
@@ -1229,7 +1229,7 @@ CONTAINS
       ENDDO  !jl
 
 
-      IF ( icnt_err>0 ) THEN 
+      IF ( icnt_err>0 ) THEN
         ! Check for unassigned grid points (i.e. collected in list_Err) because of CFL violation
         DO jl = 1, icnt_err
 
@@ -1445,7 +1445,7 @@ CONTAINS
         dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(ie,2,1),pi1(1),lvn_sys_pos)
         dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(ie,2,2),pi1(2),lvn_sys_pos)
         dreg_patch0(je,3,1,jk,jb)   = MERGE(pi1(1),arrival_pts(ie,2,1),lvn_sys_pos)
-        dreg_patch0(je,3,2,jk,jb)   = MERGE(pi1(2),arrival_pts(ie,2,2),lvn_sys_pos) 
+        dreg_patch0(je,3,2,jk,jb)   = MERGE(pi1(2),arrival_pts(ie,2,2),lvn_sys_pos)
 
 
         ! patch 1
@@ -1470,7 +1470,7 @@ CONTAINS
       ENDDO  ! jl
 
 
-      ! 
+      !
       ! CASE 3b
       !
 !CDIR NODEP,VOVERTAKE,VOB
@@ -1494,7 +1494,7 @@ CONTAINS
         dreg_patch0(je,2,1,jk,jb)   = MERGE(arrival_pts(ie,2,1),pi2(1),lvn_sys_pos)
         dreg_patch0(je,2,2,jk,jb)   = MERGE(arrival_pts(ie,2,2),pi2(2),lvn_sys_pos)
         dreg_patch0(je,3,1,jk,jb)   = MERGE(pi2(1),arrival_pts(ie,2,1),lvn_sys_pos)
-        dreg_patch0(je,3,2,jk,jb)   = MERGE(pi2(2),arrival_pts(ie,2,2),lvn_sys_pos) 
+        dreg_patch0(je,3,2,jk,jb)   = MERGE(pi2(2),arrival_pts(ie,2,2),lvn_sys_pos)
 
 
         ! patch 1 (non-existing)
@@ -1520,7 +1520,7 @@ CONTAINS
 
 
 
-      ! 
+      !
       ! CASE 4  (very small normal velocity)
       !
 !CDIR NODEP,VOVERTAKE,VOB
@@ -1556,13 +1556,13 @@ CONTAINS
 
         ! get coordinates of butterfly cell centers (from upwind cell)
         bf_cc(1,1) = MERGE(ptr_bfcc(je,jb,1,1)%lon,         &
-          &                ptr_bfcc(je,jb,2,1)%lon, lvn_pos ) 
+          &                ptr_bfcc(je,jb,2,1)%lon, lvn_pos )
         bf_cc(1,2) = MERGE(ptr_bfcc(je,jb,1,1)%lat,         &
           &                ptr_bfcc(je,jb,2,1)%lat, lvn_pos )
         bf_cc(2,1) = MERGE(ptr_bfcc(je,jb,1,2)%lon,         &
-          &                ptr_bfcc(je,jb,2,2)%lon, lvn_pos ) 
+          &                ptr_bfcc(je,jb,2,2)%lon, lvn_pos )
         bf_cc(2,2) = MERGE(ptr_bfcc(je,jb,1,2)%lat,         &
-          &                ptr_bfcc(je,jb,2,2)%lat, lvn_pos ) 
+          &                ptr_bfcc(je,jb,2,2)%lat, lvn_pos )
 
 
         ! patch 1 in translated system
@@ -1586,7 +1586,7 @@ CONTAINS
         !
         patch1_cell_idx(ie,jb) = MERGE(p_patch%edges%butterfly_idx(je,jb,1,1), &
           &                            p_patch%edges%butterfly_idx(je,jb,2,1), &
-          &                            lvn_pos) 
+          &                            lvn_pos)
         patch2_cell_idx(ie,jb) = MERGE(p_patch%edges%butterfly_idx(je,jb,1,2), &
           &                            p_patch%edges%butterfly_idx(je,jb,2,2), &
           &                            lvn_pos)

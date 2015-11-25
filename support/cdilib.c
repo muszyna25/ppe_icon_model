@@ -31861,6 +31861,7 @@ int cdiGribIterator_levelType(CdiIterator* super, int levelSelector, char** outN
 static double logicalLevelValue2(long gribType, long storedValue, long power)
 {
   double factor = 1;
+  assert(power >= 0);
   while(power--) factor *= 10;      //this is precise up to factor == 22.
   switch(gribType)
     {
@@ -31906,7 +31907,7 @@ static int readLevel2(grib_handle* gribHandle, const char* levelTypeKey, const c
 
       default:
         {
-          long power = gribGetLongDefault(gribHandle, powerKey, 0);  //1 byte
+          long power = 255 & gribGetLongDefault(gribHandle, powerKey, 0);  //1 byte
           if(power == 255) power = 0;
           long value = gribGetLongDefault(gribHandle, valueKey, 0);   //4 bytes
           *outValue1 = logicalLevelValue2(levelType, value, power);
@@ -34293,9 +34294,7 @@ int srvCheckFiletype(int fileID, int *swap)
 
 int srvInqHeader(srvrec_t *srvp, int *header)
 {
-  size_t i;
-
-  for ( i = 0; i < SRV_HEADER_LEN; i++ )
+  for (size_t i = 0; i < SRV_HEADER_LEN; ++i)
     header[i] = srvp->header[i];
   
   if ( SRV_Debug )

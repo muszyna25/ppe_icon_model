@@ -69,9 +69,10 @@ MODULE mo_ocean_ext_data
   USE mo_util_string,        ONLY: t_keyword_list,  &
     &                              associate_keyword, with_keywords
   USE mo_datetime,           ONLY: t_datetime, month2hour
-  USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_PACK16, TSTEP_CONSTANT, TSTEP_MAX, TSTEP_AVG
+  USE mo_cdi,                ONLY: DATATYPE_FLT32, DATATYPE_PACK16, TSTEP_CONSTANT, &
+    &                              TSTEP_MAX, TSTEP_AVG, GRID_UNSTRUCTURED
   USE mo_cdi_constants,      ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, &
-    &                              GRID_UNSTRUCTURED_VERT, GRID_REFERENCE,         &
+    &                              GRID_UNSTRUCTURED_VERT,                         &
     &                              GRID_CELL, GRID_EDGE, GRID_VERTEX, ZA_SURFACE,  &
     &                              ZA_HYBRID, ZA_PRESSURE, ZA_HEIGHT_2M
 
@@ -252,7 +253,7 @@ CONTAINS
     ! bathymetry_c  p_ext_oce%bathymetry_c(nproma,nblks_c)
     cf_desc    = t_cf_var('Model bathymetry at cell center', 'm', &
       &                   'Model bathymetry', DATATYPE_FLT32)
-    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( p_ext_oce_list, 'bathymetry_c', p_ext_oce%bathymetry_c,      &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
@@ -262,7 +263,7 @@ CONTAINS
     ! bathymetry_e  p_ext_oce%bathymetry_e(nproma,nblks_e)
     cf_desc    = t_cf_var('Model bathymetry at edge', 'm', &
       &                   'Model bathymetry', DATATYPE_FLT32)
-    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
     CALL add_var( p_ext_oce_list, 'bathymetry_e', p_ext_oce%bathymetry_e,      &
       &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
 
@@ -271,7 +272,7 @@ CONTAINS
     ! lsm_ctr_c  p_ext_oce%lsm_ctr_c(nproma,nblks_c)
     cf_desc    = t_cf_var('Ocean model land-sea-mask at cell center', '-2/-1/1/2', &
       &                   'Ocean model land-sea-mask', DATATYPE_FLT32)
-    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     !#slo-2011-08-08# does not compile yet?
     CALL add_var( p_ext_oce_list, 'lsm_ctr_c', p_ext_oce%lsm_ctr_c, &
       &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
@@ -280,7 +281,7 @@ CONTAINS
     !
     cf_desc    = t_cf_var('Ocean model land-sea-mask at cell edge', '-2/0/2', &
       &                   'Ocean model land-sea-mask', DATATYPE_FLT32)
-    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_EDGE)
+    grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_EDGE)
     CALL add_var( p_ext_oce_list, 'lsm_ctr_e', p_ext_oce%lsm_ctr_e,      &
       &           GRID_UNSTRUCTURED_EDGE, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
 
@@ -289,7 +290,7 @@ CONTAINS
     IF (iforc_oce == OMIP_FluxFromFile) THEN
       cf_desc    = t_cf_var('Ocean model OMIP forcing data at cell edge', 'Pa, K', &
         &                   'OMIP forcing data', DATATYPE_FLT32)
-      grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_REFERENCE, GRID_CELL)
+      grib2_desc = grib2_var( 192, 140, 219, ibits, GRID_UNSTRUCTURED, GRID_CELL)
       CALL add_var( p_ext_oce_list, 'flux_forc_mon_c', p_ext_oce%flux_forc_mon_c,  &
         &           GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape4d_c )
     END IF
@@ -342,7 +343,7 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE read_ext_data_oce (p_patch, ext_data)
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
     CHARACTER(len=max_char_length), PARAMETER :: &
@@ -611,17 +612,16 @@ CONTAINS
         CALL read_3D(stream_id, on_cells, 'runoff', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
 
-        IF (i_ice_dyn==1) THEN
-          ! zonal wind speed
-          CALL read_3D(stream_id, on_cells, 'u_wind_10m', z_flux)
-          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
+!        IF (i_ice_dyn==1) THEN
+!          ! zonal wind speed
+!          CALL read_3D(stream_id, on_cells, 'u_wind_10m', z_flux)
+!          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
+!
+!          ! meridional wind speed
+!          CALL read_3D(stream_id, on_cells, 'v_wind_10m', z_flux)
+!          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)
+!        ENDIF
 
-          ! meridional wind speed
-          CALL read_3D(stream_id, on_cells, 'v_wind_10m', z_flux)
-          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)          
-        ENDIF
-        
-        
 
       END IF
 

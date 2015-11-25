@@ -68,7 +68,7 @@ MODULE mo_hydro_ocean_run
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_time_config,            ONLY: time_config
   USE mo_master_config,          ONLY: isRestart
-  USE mo_sea_ice_nml,            ONLY: i_ice_dyn
+!  USE mo_sea_ice_nml,            ONLY: i_ice_dyn
   USE mo_util_dbg_prnt,          ONLY: dbg_print, debug_printValue
   USE mo_dbg_nml,                ONLY: idbg_mxmn
   USE mo_statistics
