@@ -97,7 +97,6 @@ MODULE mo_io_restart
   USE mtime,                    ONLY: datetime, newDatetime, deallocateDatetime,    &
     &                                 MAX_DATETIME_STR_LEN,                         &
     &                                 datetimeToPosixString, datetimeToString
-  USE mo_datetime,              ONLY: t_datetime,iso8601,iso8601extended
   USE mo_run_config,            ONLY: ltimer, restart_filename
   USE mo_timer,                 ONLY: timer_start, timer_stop,                      &
     &                                 timer_write_restart_file
