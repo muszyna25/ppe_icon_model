@@ -96,7 +96,10 @@ MODULE mo_model_domimp_patches
     &                              min_rledge_int,         &
     &                              min_rlvert_int
   USE mo_exception,          ONLY: message_text, message, warning, finish, em_warn
-  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent
+  USE mo_model_domain,       ONLY: t_patch, t_pre_patch, p_patch_local_parent, &
+       c_num_edges, c_parent, c_child, c_phys_id, c_neighbor, c_edge, &
+       c_vertex, c_center, c_refin_ctrl, e_parent, e_child, e_cell, &
+       e_refin_ctrl, v_cell, v_num_edges, v_vertex, v_refin_ctrl
   USE mo_decomposition_tools,ONLY: t_glb2loc_index_lookup, &
     &                              get_valid_local_index, &
     &                              t_grid_domain_decomp_info, get_local_index
@@ -113,8 +116,7 @@ MODULE mo_model_domimp_patches
     &                              number_of_grid_used, msg_level, check_uuid_gracefully
   USE mo_master_control,     ONLY: my_process_is_ocean
   USE mo_sync,               ONLY: disable_sync_checks, enable_sync_checks
-  USE mo_communication,      ONLY: idx_no, blk_no, idx_1d, t_scatterPattern, &
-    &                              makeScatterPattern
+  USE mo_communication,      ONLY: idx_no, blk_no, idx_1d, makeScatterPattern
   USE mo_util_uuid,          ONLY: uuid_string_length, uuid_parse, clear_uuid
   USE mo_name_list_output_config, ONLY: is_grib_output
 
@@ -128,10 +130,10 @@ MODULE mo_model_domimp_patches
     &                              reorder_verts
   USE mo_mpi,                ONLY: p_pe_work, my_process_is_mpi_parallel, &
     &                              p_comm_work_test, p_comm_work
-  USE mo_complete_subdivision, ONLY: complete_parallel_setup
+  USE mo_complete_subdivision, ONLY: generate_comm_pat_cvec1
   USE mo_read_netcdf_distributed, ONLY: setup_distrib_read
   USE mo_read_interface, ONLY: t_stream_id, p_t_patch, openInputFile, &
-    &                          closeFile, onCells, onEdges, onVertices, &
+    &                          closeFile, on_cells, on_edges, on_vertices, &
     &                          var_data_2d_int, var_data_2d_wp, &
     &                          var_data_3d_int, var_data_3d_wp, &
     &                          read_2D, read_2D_int, read_2D_extdim, &
@@ -139,6 +141,8 @@ MODULE mo_model_domimp_patches
 #ifndef __NO_ICON_ATMO__
   USE mo_interpol_config,    ONLY: nudge_zone_width
 #endif
+  USE ppm_distributed_array,  ONLY: dist_mult_array_local_ptr, &
+    &                               dist_mult_array_expose
 
 #ifndef NOMPI
   ! The USE statement below lets this module use the routines from
@@ -147,18 +151,18 @@ MODULE mo_model_domimp_patches
 
   USE mo_netcdf_parallel, ONLY:                      &
     & nf_nowrite, nf_global, nf_noerr, nf_strerror,  &
-    & nf_inq_attid       => p_nf_inq_attid,          &
-    & nf_open            => p_nf_open,               &
-    & nf_close           => p_nf_close,              &
-    & nf_inq_dimid       => p_nf_inq_dimid,          &
-    & nf_inq_dimlen      => p_nf_inq_dimlen,         &
-    & nf_inq_varid       => p_nf_inq_varid,          &
-    & nf_get_att_text    => p_nf_get_att_text,       &
-    & nf_get_att_int     => p_nf_get_att_int,        &
-    & nf_get_var_int     => p_nf_get_var_int,        &
-    & nf_get_vara_int    => p_nf_get_vara_int,       &
-    & nf_get_var_double  => p_nf_get_var_double,     &
-    & nf_get_vara_double => p_nf_get_vara_double
+    & nf_inq_attid        => p_nf_inq_attid,          &
+    & nf_open             => p_nf_open,               &
+    & nf_close            => p_nf_close,              &
+    & nf_inq_dimid        => p_nf_inq_dimid,          &
+    & nf_inq_dimlen       => p_nf_inq_dimlen,         &
+    & nf_inq_varid        => p_nf_inq_varid,          &
+    & nf_get_att_text     => p_nf_get_att_text,       &
+    & nf_get_att_int      => p_nf_get_att_int,        &
+    & nf_get_var_int      => p_nf_get_var_int,        &
+    & nf_get_vara_int     => p_nf_get_vara_int,       &
+    & nf_get_var_double   => p_nf_get_var_double,     &
+    & nf_get_vara_double  => p_nf_get_vara_double_
 #endif
 
   IMPLICIT NONE
@@ -215,7 +219,7 @@ CONTAINS
     INTEGER,                   INTENT(in)    :: num_lev(:), nshift(:)
     TYPE(t_pre_patch), TARGET, INTENT(inout) :: patch_pre(n_dom_start:)
     !> If .true., read fields related to grid refinement from separate  grid files
-    LOGICAL,                   INTENT(OUT)   :: lsep_grfinfo       
+    LOGICAL,                   INTENT(OUT)   :: lsep_grfinfo
     ! local variables:
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches/import_basic_patch'
     INTEGER                           :: jg, jg1, n_chd, n_chdc
@@ -440,7 +444,7 @@ CONTAINS
     TYPE(t_patch), TARGET,     INTENT(inout) :: patch(n_dom_start:)
     LOGICAL,                   INTENT(IN)    :: is_ocean_decomposition
     !> If .true., read fields related to grid refinement from separate  grid files
-    LOGICAL,                   INTENT(IN)    :: lsep_grfinfo       
+    LOGICAL,                   INTENT(IN)    :: lsep_grfinfo
 
     INTEGER :: jg, jgp, n_lp, id_lp(max_dom)
     CHARACTER(LEN=*), PARAMETER :: method_name = 'mo_model_domimp_patches:complete_patches'
@@ -518,22 +522,20 @@ CONTAINS
       CALL read_remaining_patch( jg, patch(jg), n_lp, id_lp, lsep_grfinfo )
     ENDDO
 
-    ! setup communication patterns (also done in sequential runs)
-    ! (the communication patterns have to be generated before parent_idx/blk and
-    !  child_idx/blk are transformed from global to local indices (in
-    !  set_parent_child_relations))
-    CALL complete_parallel_setup(patch, is_ocean_decomposition)
-
     ! set parent-child relationships
     DO jg = n_dom_start, n_dom
 
       IF(jg == n_dom_start) THEN
 
-        ! parent_idx/blk is set to 0 since it just doesn't exist,
-        patch(jg)%cells%parent_idx = 0
-        patch(jg)%cells%parent_blk = 0
-        patch(jg)%edges%parent_idx = 0
-        patch(jg)%edges%parent_blk = 0
+        ! parent_loc/glb_idx/blk is set to 0 since it just doesn't exist,
+        patch(jg)%cells%parent_glb_idx = 0
+        patch(jg)%cells%parent_glb_blk = 0
+        patch(jg)%edges%parent_glb_idx = 0
+        patch(jg)%edges%parent_glb_blk = 0
+        patch(jg)%cells%parent_loc_idx = 0
+        patch(jg)%cells%parent_loc_blk = 0
+        patch(jg)%edges%parent_loc_idx = 0
+        patch(jg)%edges%parent_loc_blk = 0
 
         ! For parallel runs, child_idx/blk is set to 0 since it makes
         ! sense only on the local parent
@@ -572,6 +574,11 @@ CONTAINS
     DO jg = n_dom_start, n_dom
       CALL set_verts_phys_id( patch(jg) )
     ENDDO
+
+    ! generates comm_pat_c/v/e/c1 required by the following initialization
+    ! routines (these patterns will be rebuild after the reordering by routine
+    ! complete_parallel_setup)
+    CALL generate_comm_pat_cvec1(patch, is_ocean_decomposition)
 
     IF (.not. my_process_is_ocean()) THEN
       DO jg = n_dom_start, n_dom
@@ -638,7 +645,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------------------------------
   !
-  !> Sets parent_idx/blk in child and child_idx/blk in parent patches.
+  !> Sets parent_loc_idx/blk in child and child_idx/blk in parent patches.
 
   SUBROUTINE set_parent_child_relations(p_pp, p_pc)
 
@@ -647,7 +654,7 @@ CONTAINS
 
     INTEGER :: i, j, jl, jb, jc, jc_g, jp, jp_g
 
-    ! Before this call, parent_idx/parent_blk and child_idx/child_blk still point to the global values.
+    ! Before this call, child_idx/child_blk still point to the global values.
     ! This is changed here.
 
     ! Attention:
@@ -729,17 +736,18 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jp_g = idx_1d(p_pc%cells%parent_idx(jl,jb),p_pc%cells%parent_blk(jl,jb))
+      jp_g = idx_1d(p_pc%cells%parent_glb_idx(jl,jb), &
+        &           p_pc%cells%parent_glb_blk(jl,jb))
       IF(jp_g<1 .OR. jp_g>p_pp%n_patch_cells_g) &
         & CALL finish('set_parent_child_relations','Inv. cell parent index in global child')
 
       jp = get_local_index(p_pp%cells%decomp_info%glb2loc_index, jp_g)
       IF(jp <= 0) THEN
-        p_pc%cells%parent_blk(jl,jb) = 0
-        p_pc%cells%parent_idx(jl,jb) = 0
+        p_pc%cells%parent_loc_blk(jl,jb) = 0
+        p_pc%cells%parent_loc_idx(jl,jb) = 0
       ELSE
-        p_pc%cells%parent_blk(jl,jb) = blk_no(jp)
-        p_pc%cells%parent_idx(jl,jb) = idx_no(jp)
+        p_pc%cells%parent_loc_blk(jl,jb) = blk_no(jp)
+        p_pc%cells%parent_loc_idx(jl,jb) = idx_no(jp)
       ENDIF
 
     ENDDO
@@ -751,17 +759,18 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      jp_g = idx_1d(p_pc%edges%parent_idx(jl,jb),p_pc%edges%parent_blk(jl,jb))
+      jp_g = idx_1d(p_pc%edges%parent_glb_idx(jl,jb), &
+        &           p_pc%edges%parent_glb_blk(jl,jb))
       IF(jp_g<1 .OR. jp_g>p_pp%n_patch_edges_g) &
         & CALL finish('set_parent_child_relations','Inv. edge parent index in global child')
 
       jp = get_local_index(p_pp%edges%decomp_info%glb2loc_index, jp_g)
       IF(jp <= 0) THEN
-        p_pc%edges%parent_blk(jl,jb) = 0
-        p_pc%edges%parent_idx(jl,jb) = 0
+        p_pc%edges%parent_loc_blk(jl,jb) = 0
+        p_pc%edges%parent_loc_idx(jl,jb) = 0
       ELSE
-        p_pc%edges%parent_blk(jl,jb) = blk_no(jp)
-        p_pc%edges%parent_idx(jl,jb) = idx_no(jp)
+        p_pc%edges%parent_loc_blk(jl,jb) = blk_no(jp)
+        p_pc%edges%parent_loc_idx(jl,jb) = idx_no(jp)
       ENDIF
 
     ENDDO
@@ -773,13 +782,17 @@ CONTAINS
     IF (my_process_is_mpi_parallel()) THEN
       p_pc%cells%child_idx  = 0
       p_pc%cells%child_blk  = 0
-      p_pp%cells%parent_idx = 0
-      p_pp%cells%parent_blk = 0
+      p_pp%cells%parent_glb_idx = 0
+      p_pp%cells%parent_glb_blk = 0
+      p_pp%cells%parent_loc_idx = 0
+      p_pp%cells%parent_loc_blk = 0
 
       p_pc%edges%child_idx  = 0
       p_pc%edges%child_blk  = 0
-      p_pp%edges%parent_idx = 0
-      p_pp%edges%parent_blk = 0
+      p_pp%edges%parent_glb_idx = 0
+      p_pp%edges%parent_glb_blk = 0
+      p_pp%edges%parent_loc_idx = 0
+      p_pp%edges%parent_loc_blk = 0
     END IF
 
   END SUBROUTINE set_parent_child_relations
@@ -997,7 +1010,7 @@ CONTAINS
     TYPE(t_pre_patch), TARGET,         INTENT(inout) ::  patch_pre           ! patch data structure
     CHARACTER(LEN=uuid_string_length), INTENT(inout) :: uuid_grid, uuid_par, uuid_chi(5)
     !> If .true., read fields related to grid refinement from separate  grid files:
-    LOGICAL,                           INTENT(OUT)   :: lsep_grfinfo 
+    LOGICAL,                           INTENT(OUT)   :: lsep_grfinfo
 
     ! local variables
     INTEGER, ALLOCATABLE :: &
@@ -1025,6 +1038,8 @@ CONTAINS
     INTEGER :: ji
     INTEGER :: jc, ic
     INTEGER :: icheck, ilev, igrid_level, igrid_id, iparent_id, i_max_childdom, ipar_id, dim_idxlist
+    INTEGER, POINTER :: local_ptr(:), local_ptr_2d(:,:)
+    REAL(wp), POINTER :: local_ptr_wp(:), local_ptr_wp_2d(:, :)
     !-----------------------------------------------------------------------
 
     ! set dummy values to zero
@@ -1295,106 +1310,261 @@ CONTAINS
 
     ! patch_pre%cells%phys_id(:)
     CALL nf(nf_inq_varid(ncid_grf, 'phys_cell_id', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%cells%phys_id(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_phys_id, local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
+      &                     local_ptr(:)))
 
-    ! patch_pre%cells%neighbor(:,:)
+    ! patch_pre%cells%neighbor
     CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
-    CALL nf(nf_get_var_int(ncid, varid, &
-      &                    patch_pre%cells%neighbor(:,1:max_cell_connectivity)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_neighbor, local_ptr_2d)
+    local_ptr_2d(:,:) = 0
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size, &
+      &                       max_cell_connectivity/), &
+      &                     local_ptr_2d(:,1:max_cell_connectivity)))
 
-    ! patch_pre%cells%edge(:,:)
+    IF (max_cell_connectivity == 6 .AND. use_duplicated_connectivity) THEN
+      DO ic = patch_pre%cells%local_chunk(1,1)%first, &
+        patch_pre%cells%local_chunk(1,1)%first + &
+        patch_pre%cells%local_chunk(1,1)%size - 1
+
+        DO ji = 1, 6
+
+          ! account for dummy cells arising in case of a pentagon
+          IF (local_ptr_2d(ic,ji) == 0) THEN
+            IF ( ji /= 6 ) THEN
+              local_ptr_2d(ic,ji) = local_ptr_2d(ic,6)
+              ! this should not happen
+              ! CALL finish(method_name, "cells%neighbor_idx=0 not at the end")
+            END IF
+            ! Fill dummy neighbor with an existing index to simplify do loops
+            ! Note, however, that related multiplication factors must be zero
+            local_ptr_2d(ic,6) = local_ptr_2d(ic,5)
+          END IF
+        END DO  ! ji = 1, 6
+      END DO ! cells
+    END IF
+
+    ! patch_pre%cells%edge
     CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
-    CALL nf(nf_get_var_int(ncid, varid, &
-      &     patch_pre%cells%edge(:,1:max_cell_connectivity)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_edge, local_ptr_2d)
+    local_ptr_2d(:,:) = 0
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size, &
+      &                       max_cell_connectivity/), &
+      &                     local_ptr_2d(:,1:max_cell_connectivity)))
 
-    ! patch_pre%cells%vertex(:,:)
+    IF (max_cell_connectivity == 6 .AND. use_duplicated_connectivity) THEN
+
+      DO ic = patch_pre%cells%local_chunk(1,1)%first, &
+        patch_pre%cells%local_chunk(1,1)%first + &
+        patch_pre%cells%local_chunk(1,1)%size - 1
+
+        DO ji = 1, 6
+
+          ! account for dummy edges arising in case of a pentagon
+          IF ( local_ptr_2d(ic,ji) == 0 ) THEN
+            IF ( ji /= 6 ) local_ptr_2d(ic,ji) = local_ptr_2d(ic,6)
+            ! Fill dummy edge with existing index to simplify do loops
+            ! Note, however, that related multiplication factors must be zero
+            local_ptr_2d(ic,6) = local_ptr_2d(ic,5)
+          END IF
+
+        END DO  ! ji = 1, 6
+
+      END DO ! cells
+    ENDIF
+
+    !----------------------------------------------------------------------------------
+    ! compute cells%num_edges
+    ! works for general unstructured grid
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_num_edges, local_ptr)
+    DO jc = patch_pre%cells%local_chunk(1,1)%first, &
+      patch_pre%cells%local_chunk(1,1)%first + &
+      patch_pre%cells%local_chunk(1,1)%size - 1
+      local_ptr(jc) = COUNT(local_ptr_2d(jc, 1:max_cell_connectivity) > 0)
+    END DO
+
+    ! patch_pre%cells%vertex
     CALL nf(nf_inq_varid(ncid, 'vertex_of_cell', varid))
-    CALL nf(nf_get_var_int(ncid, varid, &
-      &                    patch_pre%cells%vertex(:,1:max_cell_connectivity)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_vertex, local_ptr_2d)
+    local_ptr_2d(:,:) = 0
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size, &
+      &                       max_cell_connectivity/), &
+      &                     local_ptr_2d(:,1:max_cell_connectivity)))
 
-    ! patch_pre%cells%center(:)%lon
-    CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
-    CALL nf(nf_get_var_double(ncid, varid, patch_pre%cells%center(:)%lon))
+    IF (max_cell_connectivity == 6 .AND. use_duplicated_connectivity) THEN
 
-    ! patch_pre%cells%center(:)%lat
+      DO ic = patch_pre%cells%local_chunk(1,1)%first, &
+        patch_pre%cells%local_chunk(1,1)%first + &
+        patch_pre%cells%local_chunk(1,1)%size - 1
+
+        DO ji = 1, 6
+
+          ! account for dummy verts arising in case of a pentagon
+          IF ( local_ptr_2d(ic,ji) == 0 ) THEN
+            IF ( ji /= 6 ) local_ptr_2d(ic,ji) = local_ptr_2d(ic,6)
+            ! Fill dummy edge with existing index to simplify do loops
+            ! Note, however, that related multiplication factors must be zero
+            local_ptr_2d(ic,6) = local_ptr_2d(ic,5)
+          END IF
+
+        END DO  ! ji = 1, 6
+
+      END DO ! cells
+    ENDIF
+
+    ! patch_pre%cells%center latitude
     CALL nf(nf_inq_varid(ncid, 'lat_cell_centre', varid))
-    CALL nf(nf_get_var_double(ncid, varid, patch_pre%cells%center(:)%lat))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_center, local_ptr_wp_2d)
+    CALL nf(nf_get_vara_double(ncid, varid, &
+      &                        (/patch_pre%cells%local_chunk(1,1)%first/), &
+      &                        (/patch_pre%cells%local_chunk(1,1)%size/), &
+      &                        local_ptr_wp_2d(:, 1)))
 
-    ! patch_pre%verts%vertex(:)%lon
-    CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, patch_pre%verts%vertex(:)%lon))
+    ! patch_pre%cells%center longitude
+    CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
+    CALL nf(nf_get_vara_double(ncid, varid, &
+      &                        (/patch_pre%cells%local_chunk(1,1)%first/), &
+      &                        (/patch_pre%cells%local_chunk(1,1)%size/), &
+      &                        local_ptr_wp_2d(:, 2)))
 
     ! patch_pre%verts%vertex(:)%lat
     CALL nf(nf_inq_varid(ncid, 'latitude_vertices', varid))
-    CALL nf(nf_get_var_double(ncid, varid, patch_pre%verts%vertex(:)%lat))
+    CALL dist_mult_array_local_ptr(patch_pre%verts%dist, v_vertex, &
+         local_ptr_wp_2d)
+    CALL nf(nf_get_vara_double(ncid, varid, &
+      &                        (/patch_pre%verts%local_chunk(1,1)%first/), &
+      &                        (/patch_pre%verts%local_chunk(1,1)%size/), &
+      &                        local_ptr_wp_2d(:, 1)))
+
+    ! patch_pre%verts%vertex(:)%lon
+    CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))
+    CALL nf(nf_get_vara_double(ncid, varid, &
+      &                        (/patch_pre%verts%local_chunk(1,1)%first/), &
+      &                        (/patch_pre%verts%local_chunk(1,1)%size/), &
+      &                        local_ptr_wp_2d(:, 2)))
 
     !------------------------------------------
     ! nesting/lateral boundary indexes
     IF (max_cell_connectivity == 3) THEN ! triangular grid
 
+      ! patch_pre%cells%parent
       CALL nf(nf_inq_varid(ncid_grf, 'parent_cell_index', varid))
-      ! patch_pre%cells%parent(:)
-      CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%cells%parent(:)))
+      CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_parent, local_ptr)
+      CALL nf(nf_get_vara_int(ncid_grf, varid, &
+        &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
+        &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
+        &                     local_ptr))
       ! patch_pre%cells%child(:,:)
       CALL nf(nf_inq_varid(ncid_grf, 'child_cell_index', varid))
-      CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%cells%child(:,:)))
+      CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_child, local_ptr_2d)
+      CALL nf(nf_get_vara_int(ncid_grf, varid, &
+        &                     (/patch_pre%cells%local_chunk(1,1)%first, 1/), &
+        &                     (/patch_pre%cells%local_chunk(1,1)%size, 4/), &
+        &                     local_ptr_2d))
 
     ELSE
       CALL message ('read_patch',&
         & 'nesting incompatible with non-triangular grid')
     ENDIF
 
-    ! patch_pre%cells%refin_ctrl(:)
+    CALL dist_mult_array_expose(patch_pre%cells%dist)
+
+    ! patch_pre%cells%refin_ctrl
     CALL nf(nf_inq_varid(ncid_grf, 'refin_c_ctrl', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%cells%refin_ctrl(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_refin_ctrl, &
+         local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%cells%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%cells%local_chunk(1,1)%size/), &
+      &                     local_ptr))
 
-    ! patch_pre%edges%parent(:)
+    ! patch_pre%edges%parent
     CALL nf(nf_inq_varid(ncid_grf, 'parent_edge_index', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%edges%parent(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_parent, local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
+      &                     local_ptr))
 
-    ! patch_pre%edges%child(:,:)
+    ! patch_pre%edges%child
     CALL nf(nf_inq_varid(ncid_grf, 'child_edge_index', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%edges%child(:,:)))
+    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_child, local_ptr_2d)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%edges%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%edges%local_chunk(1,1)%size, 4/), &
+      &                     local_ptr_2d))
 
     ! First ensure that child edge indices are all positive;
     ! if there are negative values, grid files are too old
-    IF(ANY(patch_pre%edges%child(:,1:4)<0)) THEN
+    IF(ANY(local_ptr_2d(:,1:4)<0)) THEN
       CALL finish (TRIM(method_name), &
         & 'negative child edge indices detected - patch files are too old')
     ENDIF
 
-    ! patch_pre%edges%refin_ctrl(:)
+    ! patch_pre%edges%refin_ctrl
     CALL nf(nf_inq_varid(ncid_grf, 'refin_e_ctrl', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%edges%refin_ctrl(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_refin_ctrl, &
+         local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%edges%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%edges%local_chunk(1,1)%size/), &
+      &                     local_ptr))
 
-    ! patch_pre%verts%refin_ctrl(:)
+    ! patch_pre%verts%refin_ctrl
     CALL nf(nf_inq_varid(ncid_grf, 'refin_v_ctrl', varid))
-    CALL nf(nf_get_var_int(ncid_grf, varid, patch_pre%verts%refin_ctrl(:)))
+    CALL dist_mult_array_local_ptr(patch_pre%verts%dist, v_refin_ctrl, &
+         local_ptr)
+    CALL nf(nf_get_vara_int(ncid_grf, varid, &
+      &                     (/patch_pre%verts%local_chunk(1,1)%first/), &
+      &                     (/patch_pre%verts%local_chunk(1,1)%size/), &
+      &                     local_ptr))
 
     ! BEGIN NEW SUBDIV
     CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
-    CALL nf(nf_get_var_int(ncid, varid, patch_pre%verts%cell(:,1:max_verts_connectivity)))
+    CALL dist_mult_array_local_ptr(patch_pre%verts%dist, v_cell, local_ptr_2d)
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%verts%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%verts%local_chunk(1,1)%size, &
+      &                       max_verts_connectivity/), &
+      &                     local_ptr_2d))
     ! eliminate indices < 0, this should not happen but some older grid files
     ! seem to contain such indices
-    WHERE(patch_pre%verts%cell(:,1:max_verts_connectivity) < 0) &
-      patch_pre%verts%cell(:,1:max_verts_connectivity) = 0
+    WHERE(local_ptr_2d(:, :) < 0) local_ptr_2d(:, :) = 0
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
-    CALL move_dummies_to_end(patch_pre%verts%cell(:,1:max_verts_connectivity), &
-      patch_pre%n_patch_verts_g, max_verts_connectivity, &
+    CALL move_dummies_to_end(local_ptr_2d, &
+      patch_pre%verts%local_chunk(1,1)%size, max_verts_connectivity, &
       use_duplicated_connectivity)
+
     !
     ! Set verts%num_edges
-    DO ji = 1, patch_pre%n_patch_verts_g
-      patch_pre%verts%num_edges(ji) = &
-        COUNT(patch_pre%verts%cell(ji,1:max_verts_connectivity) /= 0)
+    CALL dist_mult_array_local_ptr(patch_pre%verts%dist, v_num_edges, local_ptr)
+    DO ji = patch_pre%verts%local_chunk(1,1)%first, &
+      patch_pre%verts%local_chunk(1,1)%first + &
+      patch_pre%verts%local_chunk(1,1)%size - 1
+      local_ptr(ji) = COUNT(local_ptr_2d(ji, 1:max_verts_connectivity) > 0)
     END DO
 
     ! patch_pre%edges%cell(:,:)
     CALL nf(nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid))
-    CALL nf(nf_get_var_int(ncid, varid, patch_pre%edges%cell(:,:)))
-    WHERE(patch_pre%edges%cell(:, :) < 0) patch_pre%edges%cell(:, :) = 0
+    CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_cell, local_ptr_2d)
+    CALL nf(nf_get_vara_int(ncid, varid, &
+      &                     (/patch_pre%edges%local_chunk(1,1)%first, 1/), &
+      &                     (/patch_pre%edges%local_chunk(1,1)%size, 2/), &
+      &                     local_ptr_2d))
+    WHERE(local_ptr_2d(:, :) < 0) local_ptr_2d(:, :) = 0
+
+    CALL dist_mult_array_expose(patch_pre%verts%dist)
+    CALL dist_mult_array_expose(patch_pre%edges%dist)
 
     ! END NEW SUBDIV
 
@@ -1412,59 +1582,6 @@ CONTAINS
       CALL finish (TRIM(method_name), 'deallocation for array_[cev]_indlist failed')
     ENDIF
 
-    !----------------------------------------------------------------------------------
-    ! compute cells%num_edges
-    ! works for general unstructured grid
-    DO jc = 1, patch_pre%n_patch_cells_g
-      patch_pre%cells%num_edges(jc) = &
-        COUNT(patch_pre%cells%edge(jc, 1:max_cell_connectivity) > 0)
-    END DO
-
-    !----------------------------------------------------------------------------------
-    ! account for pentagons in the hex gird,
-    ! Note: this needs to be checked
-    IF (max_cell_connectivity == 6 .AND. use_duplicated_connectivity) THEN
-      DO ic = 1, patch_pre%n_patch_cells_g
-
-        DO ji = 1, 6
-
-          ! account for dummy cells arising in case of a pentagon
-          IF ( patch_pre%cells%neighbor(ic,ji) == 0 ) THEN
-            IF ( ji /= 6 ) THEN
-              patch_pre%cells%neighbor(ic,ji) = patch_pre%cells%neighbor(ic,6)
-              ! this should not happen
-              ! CALL finish(method_name, "cells%neighbor_idx=0 not at the end")
-            END IF
-            ! Fill dummy neighbor with an existing index to simplify do loops
-            ! Note, however, that related multiplication factors must be zero
-            patch_pre%cells%neighbor(ic,6) = patch_pre%cells%neighbor(ic,5)
-          END IF
-
-          ! account for dummy verts arising in case of a pentagon
-          IF ( patch_pre%cells%vertex(ic,ji) == 0 ) THEN
-            IF ( ji /= 6 ) THEN
-              patch_pre%cells%vertex(ic,ji) = patch_pre%cells%vertex(ic,6)
-            END IF
-            ! Fill dummy edge with existing index to simplify do loops
-            ! Note, however, that related multiplication factors must be zero
-            patch_pre%cells%vertex(ic,6) = patch_pre%cells%vertex(ic,5)
-          END IF
-
-          ! account for dummy edges arising in case of a pentagon
-          IF ( patch_pre%cells%edge(ic,ji) == 0 ) THEN
-            IF ( ji /= 6 ) THEN
-              patch_pre%cells%edge(ic,ji) = patch_pre%cells%edge(ic,6)
-            END IF
-            ! Fill dummy edge with existing index to simplify do loops
-            ! Note, however, that related multiplication factors must be zero
-            patch_pre%cells%edge(ic,6) = patch_pre%cells%edge(ic,5)
-          END IF
-
-        END DO  ! ji = 1, 6
-
-      END DO ! cells
-    ENDIF
-
     CALL message (TRIM(method_name), 'read_patches finished')
 
   END SUBROUTINE read_pre_patch
@@ -1480,9 +1597,9 @@ CONTAINS
     INTEGER,       INTENT(in)    ::  n_lp     ! Number of local parents on the same level
     INTEGER,       INTENT(in)    ::  id_lp(:) ! IDs of local parents on the same level
     !> If .true., read fields related to grid refinement from separate  grid files
-    LOGICAL,       INTENT(IN)    :: lsep_grfinfo       
+    LOGICAL,       INTENT(IN)    :: lsep_grfinfo
 
-    INTEGER :: ncid, dimid, varid, ncid_grf
+    INTEGER :: ncid, varid, ncid_grf
     TYPE(t_stream_id) :: stream_id, stream_id_grf
     INTEGER :: ip, jv, igrid_id, idx, blk
     INTEGER :: max_cell_connectivity, max_verts_connectivity
@@ -1562,7 +1679,7 @@ CONTAINS
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_int(ip+1)%data => p_p%cells%child_id(:,:)
     END DO
-    CALL read_2D_int(stream_id_grf, onCells, 'child_cell_id', n_lp+1, &
+    CALL read_2D_int(stream_id_grf, on_cells, 'child_cell_id', n_lp+1, &
       &              multivar_2d_data_int(:))
     IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
       DO ip = 0, n_lp
@@ -1583,7 +1700,7 @@ CONTAINS
         p_p => get_patch_ptr(patch, id_lp, ip)
         multivar_2d_data_int(ip+1)%data => p_p%cells%phys_id(:,:)
       END DO
-      CALL read_2D_int(stream_id_grf, onCells, 'phys_cell_id', n_lp+1, &
+      CALL read_2D_int(stream_id_grf, on_cells, 'phys_cell_id', n_lp+1, &
         &              multivar_2d_data_int(:))
       IF(ishift_child_id > 0) THEN
         DO ip = 0, n_lp
@@ -1599,7 +1716,7 @@ CONTAINS
       multivar_3d_data_wp(ip+1)%data => &
         p_p%cells%edge_orientation(:,:,1:max_cell_connectivity)
     END DO
-    CALL read_2D_extdim(stream_id, onCells, 'orientation_of_normal', &
+    CALL read_2D_extdim(stream_id, on_cells, 'orientation_of_normal', &
       &                 n_lp+1, fill_array=multivar_3d_data_wp(:), &
       &                 start_extdim=1, end_extdim=max_cell_connectivity)
 
@@ -1608,7 +1725,7 @@ CONTAINS
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%cells%area(:,:)
     END DO
-    CALL read_2D(stream_id, onCells, 'cell_area_p', n_lp+1, &
+    CALL read_2D(stream_id, on_cells, 'cell_area_p', n_lp+1, &
       &          multivar_2d_data_wp(:))
 
     ! p_p%edges%child_id(:,:)
@@ -1616,7 +1733,7 @@ CONTAINS
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_int(ip+1)%data => p_p%edges%child_id(:,:)
     END DO
-    CALL read_2D_int(stream_id_grf, onEdges, 'child_edge_id', n_lp+1, &
+    CALL read_2D_int(stream_id_grf, on_edges, 'child_edge_id', n_lp+1, &
       &              multivar_2d_data_int(:))
     IF(ishift_child_id /= 0 .AND. patch%n_childdom>0) THEN
       DO ip = 0, n_lp
@@ -1636,7 +1753,7 @@ CONTAINS
         p_p => get_patch_ptr(patch, id_lp, ip)
         multivar_2d_data_int(ip+1)%data => p_p%edges%phys_id(:,:)
       END DO
-      CALL read_2D_int(stream_id_grf, onEdges, 'phys_edge_id', n_lp+1, &
+      CALL read_2D_int(stream_id_grf, on_edges, 'phys_edge_id', n_lp+1, &
         &              multivar_2d_data_int(:))
       IF(ishift_child_id > 0) THEN
         DO ip = 0, n_lp
@@ -1652,7 +1769,7 @@ CONTAINS
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_3d_data_int(ip+1)%data => p_p%edges%cell_idx(:,:,1:2)
     END DO
-    CALL read_2D_extdim_int(stream_id, onEdges, 'adjacent_cell_of_edge', &
+    CALL read_2D_extdim_int(stream_id, on_edges, 'adjacent_cell_of_edge', &
       &                     n_lp+1, fill_array=multivar_3d_data_int(:), &
       &                     start_extdim=1, end_extdim=2)
     DO ip = 0, n_lp
@@ -1673,7 +1790,7 @@ CONTAINS
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_3d_data_int(ip+1)%data => p_p%edges%vertex_idx(:,:,1:2)
     END DO
-    CALL read_2D_extdim_int(stream_id, onEdges, 'edge_vertices', &
+    CALL read_2D_extdim_int(stream_id, on_edges, 'edge_vertices', &
       &                     n_lp+1, fill_array=multivar_3d_data_int(:), &
       &                     start_extdim=1, end_extdim=2)
     DO ip = 0, n_lp
@@ -1693,7 +1810,7 @@ CONTAINS
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%tangent_orientation(:,:)
     END DO
-    CALL read_2D(stream_id, onEdges, 'edge_system_orientation', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_system_orientation', n_lp+1, &
       &          multivar_2d_data_wp(:))
 
 #ifdef __GNUC__
@@ -1711,7 +1828,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%center(:,:)%lon
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'lon_edge_centre', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'lon_edge_centre', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -1727,7 +1844,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%center(:,:)%lat
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'lat_edge_centre', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'lat_edge_centre', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -1743,7 +1860,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_normal(:,:)%v1
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'zonal_normal_primal_edge', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'zonal_normal_primal_edge', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -1759,7 +1876,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_normal(:,:)%v2
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'meridional_normal_primal_edge', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'meridional_normal_primal_edge', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -1775,7 +1892,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_normal(:,:)%v1
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'zonal_normal_dual_edge', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'zonal_normal_dual_edge', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -1791,7 +1908,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_normal(:,:)%v2
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'meridional_normal_dual_edge', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'meridional_normal_dual_edge', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -1811,7 +1928,7 @@ CONTAINS
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_edge_length(:,:)
     END DO
-    CALL read_2D(stream_id, onEdges, 'edge_length', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_length', n_lp+1, &
       &          multivar_2d_data_wp(:))
 
     ! p_p%edges%dual_edge_length(:,:)
@@ -1819,7 +1936,7 @@ CONTAINS
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_edge_length(:,:)
     END DO
-    CALL read_2D(stream_id, onEdges, 'dual_edge_length', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'dual_edge_length', n_lp+1, &
       &          multivar_2d_data_wp(:))
 
     ! p_p%edges%edge_vert_length(:,:,1:2)
@@ -1827,7 +1944,7 @@ CONTAINS
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_3d_data_wp(ip+1)%data => p_p%edges%edge_vert_length(:,:,1:2)
     END DO
-    CALL read_2D_extdim(stream_id, onEdges, 'edge_vert_distance', n_lp+1, &
+    CALL read_2D_extdim(stream_id, on_edges, 'edge_vert_distance', n_lp+1, &
       &                 fill_array=multivar_3d_data_wp(:), start_extdim=1, &
       &                 end_extdim=2)
 
@@ -1836,7 +1953,7 @@ CONTAINS
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_3d_data_wp(ip+1)%data => p_p%edges%edge_cell_length(:,:,1:2)
     END DO
-    CALL read_2D_extdim(stream_id, onEdges, 'edge_cell_distance', n_lp+1, &
+    CALL read_2D_extdim(stream_id, on_edges, 'edge_cell_distance', n_lp+1, &
       &                 fill_array=multivar_3d_data_wp(:), start_extdim=1, &
       &                 end_extdim=2)
 
@@ -1847,7 +1964,7 @@ CONTAINS
       multivar_3d_data_int(ip+1)%data => &
         p_p%verts%neighbor_idx(:,:,1:max_verts_connectivity)
     END DO
-    CALL read_2D_extdim_int(stream_id, onVertices, 'vertices_of_vertex', &
+    CALL read_2D_extdim_int(stream_id, on_vertices, 'vertices_of_vertex', &
       &                     n_lp+1, fill_array=multivar_3d_data_int(:), &
       &                     start_extdim=1, end_extdim=max_verts_connectivity)
     DO ip = 0, n_lp
@@ -1873,7 +1990,7 @@ CONTAINS
       multivar_3d_data_int(ip+1)%data => &
         p_p%verts%cell_idx(:,:,1:max_verts_connectivity)
     END DO
-    CALL read_2D_extdim_int(stream_id, onVertices, 'cells_of_vertex', &
+    CALL read_2D_extdim_int(stream_id, on_vertices, 'cells_of_vertex', &
       &                     n_lp+1, fill_array=multivar_3d_data_int(:), &
       &                     start_extdim=1, end_extdim=max_verts_connectivity)
     DO ip = 0, n_lp
@@ -1902,7 +2019,7 @@ CONTAINS
       multivar_3d_data_int(ip+1)%data => &
         p_p%verts%edge_idx(:,:,1:max_verts_connectivity)
     END DO
-    CALL read_2D_extdim_int(stream_id, onVertices, 'edges_of_vertex', &
+    CALL read_2D_extdim_int(stream_id, on_vertices, 'edges_of_vertex', &
       &                     n_lp+1, fill_array=multivar_3d_data_int(:), &
       &                     start_extdim=1, end_extdim=max_verts_connectivity)
     DO ip = 0, n_lp
@@ -1955,7 +2072,7 @@ CONTAINS
         &                               SIZE(p_p%verts%edge_orientation, 2), &
         &                               max_verts_connectivity))
     END DO
-    CALL read_2D_extdim_int(stream_id, onVertices, 'edge_orientation', n_lp+1, &
+    CALL read_2D_extdim_int(stream_id, on_vertices, 'edge_orientation', n_lp+1, &
       &                     fill_array=multivar_3d_data_int(:), start_extdim=1,&
       &                     end_extdim=max_verts_connectivity)
     DO ip = 0, n_lp
@@ -1974,7 +2091,7 @@ CONTAINS
       p_p => get_patch_ptr(patch, id_lp, ip)
       multivar_2d_data_wp(ip+1)%data => p_p%verts%dual_area(:,:)
     END DO
-    CALL read_2D(stream_id, onVertices, 'dual_area_p', n_lp+1, &
+    CALL read_2D(stream_id, on_vertices, 'dual_area_p', n_lp+1, &
       &          fill_array=multivar_2d_data_wp(:))
 
     !-------------------------------------------------
@@ -2158,16 +2275,16 @@ CONTAINS
       nf_inq_varid(ncid, 'cell_circumcenter_cartesian_x', varid) == nf_noerr
 
 !     IF (gridfile_has_cartesian_info) THEN
-! 
+!
 !       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_x', varid))
 !       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(1)))
 !       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_y', varid))
 !       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(2)))
 !       CALL nf(nf_inq_varid(ncid, 'edge_primal_normal_cartesian_z', varid))
 !       CALL nf(nf_get_vara_double(ncid, varid, (/1/), (/1/), x(3)))
-!         
+!
 !       gridfile_has_cartesian_info = ANY(ABS(x(:)) >= 0.001_wp)
-! 
+!
 !     END IF
 
   END FUNCTION gridfile_has_cartesian_info
@@ -2204,7 +2321,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%cells%cartesian_center(:,:)%x(1)
     END DO
 #endif
-    CALL read_2D(stream_id, onCells, 'cell_circumcenter_cartesian_x', n_lp+1, &
+    CALL read_2D(stream_id, on_cells, 'cell_circumcenter_cartesian_x', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2220,7 +2337,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%cells%cartesian_center(:,:)%x(2)
     END DO
 #endif
-    CALL read_2D(stream_id, onCells, 'cell_circumcenter_cartesian_y', n_lp+1, &
+    CALL read_2D(stream_id, on_cells, 'cell_circumcenter_cartesian_y', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2236,7 +2353,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%cells%cartesian_center(:,:)%x(3)
     END DO
 #endif
-    CALL read_2D(stream_id, onCells, 'cell_circumcenter_cartesian_z', n_lp+1, &
+    CALL read_2D(stream_id, on_cells, 'cell_circumcenter_cartesian_z', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2261,7 +2378,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_center(:,:)%x(1)
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'edge_middle_cartesian_x', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_middle_cartesian_x', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2277,7 +2394,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_center(:,:)%x(2)
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'edge_middle_cartesian_y', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_middle_cartesian_y', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2293,7 +2410,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_center(:,:)%x(3)
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'edge_middle_cartesian_z', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_middle_cartesian_z', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2309,7 +2426,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_dual_middle(:,:)%x(1)
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'edge_dual_middle_cartesian_x', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_dual_middle_cartesian_x', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2325,7 +2442,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_dual_middle(:,:)%x(2)
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'edge_dual_middle_cartesian_y', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_dual_middle_cartesian_y', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2341,7 +2458,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%cartesian_dual_middle(:,:)%x(3)
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'edge_dual_middle_cartesian_z', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_dual_middle_cartesian_z', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2357,7 +2474,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_cart_normal(:,:)%x(1)
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'edge_primal_normal_cartesian_x', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_primal_normal_cartesian_x', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2373,7 +2490,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_cart_normal(:,:)%x(2)
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'edge_primal_normal_cartesian_y', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_primal_normal_cartesian_y', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2389,7 +2506,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%primal_cart_normal(:,:)%x(3)
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'edge_primal_normal_cartesian_z', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_primal_normal_cartesian_z', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2405,7 +2522,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_cart_normal(:,:)%x(1)
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'edge_dual_normal_cartesian_x', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_dual_normal_cartesian_x', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2421,7 +2538,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_cart_normal(:,:)%x(2)
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'edge_dual_normal_cartesian_y', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_dual_normal_cartesian_y', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2437,7 +2554,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%edges%dual_cart_normal(:,:)%x(3)
     END DO
 #endif
-    CALL read_2D(stream_id, onEdges, 'edge_dual_normal_cartesian_z', n_lp+1, &
+    CALL read_2D(stream_id, on_edges, 'edge_dual_normal_cartesian_z', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2462,7 +2579,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%verts%cartesian(:,:)%x(1)
     END DO
 #endif
-    CALL read_2D(stream_id, onVertices, 'cartesian_x_vertices', n_lp+1, &
+    CALL read_2D(stream_id, on_vertices, 'cartesian_x_vertices', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2478,7 +2595,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%verts%cartesian(:,:)%x(2)
     END DO
 #endif
-    CALL read_2D(stream_id, onVertices, 'cartesian_y_vertices', n_lp+1, &
+    CALL read_2D(stream_id, on_vertices, 'cartesian_y_vertices', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp
@@ -2494,7 +2611,7 @@ CONTAINS
       multivar_2d_data_wp(ip+1)%data => p_p%verts%cartesian(:,:)%x(3)
     END DO
 #endif
-    CALL read_2D(stream_id, onVertices, 'cartesian_z_vertices', n_lp+1, &
+    CALL read_2D(stream_id, on_vertices, 'cartesian_z_vertices', n_lp+1, &
       &          multivar_2d_data_wp(:))
 #ifdef __GNUC__
     DO ip = 0, n_lp

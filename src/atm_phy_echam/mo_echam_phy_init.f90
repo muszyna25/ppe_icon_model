@@ -29,7 +29,7 @@ MODULE mo_echam_phy_init
 
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, read_2D, &
-    &                                t_stream_id, onCells
+    &                                t_stream_id, on_cells
 
   ! model configuration
   USE mo_parallel_config,      ONLY: nproma
@@ -113,7 +113,7 @@ CONTAINS
   SUBROUTINE init_echam_phy( p_patch, ctest_name, &
                                 nlev, vct_a, vct_b, current_date)
 
-    TYPE(t_patch),   INTENT(in) :: p_patch(:)
+    TYPE(t_patch), TARGET, INTENT(in) :: p_patch(:)
     CHARACTER(LEN=*),INTENT(in) :: ctest_name
     INTEGER,         INTENT(in) :: nlev
     REAL(wp),        INTENT(in) :: vct_a(:), vct_b(:)
@@ -241,17 +241,17 @@ CONTAINS
 
       IF (ilnd <= nsfc_type) THEN
 
-        ! read time-constant boundary conditions from files
-
-        ! land, glacier and lake masks
-        stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
-        CALL read_2D(stream_id=stream_id, location=onCells, &
+         ! read time-constant boundary conditions from files
+      
+         ! land, glacier and lake masks
+         stream_id = openInputFile(land_frac_fn, p_patch(jg), default_read_method)
+        CALL read_2D(stream_id=stream_id, location=on_cells,&
              &          variable_name='land',               &
              &          fill_array=prm_field(jg)%lsmask(:,:))
-        CALL read_2D(stream_id=stream_id, location=onCells, &
+        CALL read_2D(stream_id=stream_id, location=on_cells, &
              &          variable_name='glac',               &
              &          fill_array=prm_field(jg)% glac(:,:))
-        CALL read_2D(stream_id=stream_id, location=onCells, &
+        CALL read_2D(stream_id=stream_id, location=on_cells, &
              &          variable_name='lake',               &
              &          fill_array=prm_field(jg)% alake(:,:))
         CALL closeFile(stream_id)
@@ -263,39 +263,39 @@ CONTAINS
         stream_id = openInputFile(land_phys_fn, p_patch(jg), default_read_method)
 
         IF (phy_config%lvdiff) THEN
-          CALL read_2D(stream_id=stream_id, location=onCells, &
+          CALL read_2D(stream_id=stream_id, location=on_cells, &
                 &       variable_name='z0',                    &
                 &       fill_array=prm_field(jg)% z0m(:,:))
         END IF
 
-        CALL read_2D(stream_id=stream_id, location=onCells, &
+        CALL read_2D(stream_id=stream_id, location=on_cells, &
              &       variable_name='albedo',                &
              &       fill_array=prm_field(jg)% alb(:,:))
 
         CALL closeFile(stream_id)
-
+         
         ! orography
         IF (phy_config%lssodrag) THEN
           stream_id = openInputFile(land_sso_fn, p_patch(jg), default_read_method)
-          CALL read_2D(stream_id=stream_id, location=onCells, &
+          CALL read_2D(stream_id=stream_id, location=on_cells, &
                &       variable_name='oromea',                &
                &       fill_array=prm_field(jg)% oromea(:,:))
-          CALL read_2D(stream_id=stream_id, location=onCells, &
+          CALL read_2D(stream_id=stream_id, location=on_cells, &
              &         variable_name='orostd',                &
              &         fill_array=prm_field(jg)% orostd(:,:))
-          CALL read_2D(stream_id=stream_id, location=onCells, &
+          CALL read_2D(stream_id=stream_id, location=on_cells, &
              &         variable_name='orosig',                &
              &         fill_array=prm_field(jg)% orosig(:,:))
-          CALL read_2D(stream_id=stream_id, location=onCells, &
+          CALL read_2D(stream_id=stream_id, location=on_cells, &
              &         variable_name='orogam',                &
              &         fill_array=prm_field(jg)% orogam(:,:))
-          CALL read_2D(stream_id=stream_id, location=onCells, &
+          CALL read_2D(stream_id=stream_id, location=on_cells, &
              &         variable_name='orothe',                &
              &         fill_array=prm_field(jg)% orothe(:,:))
-          CALL read_2D(stream_id=stream_id, location=onCells, &
+          CALL read_2D(stream_id=stream_id, location=on_cells, &
              &         variable_name='oropic',                &
              &         fill_array=prm_field(jg)% oropic(:,:))
-          CALL read_2D(stream_id=stream_id, location=onCells, &
+          CALL read_2D(stream_id=stream_id, location=on_cells, &
              &         variable_name='oroval',                &
              &         fill_array=prm_field(jg)% oroval(:,:))
           CALL closeFile(stream_id)

@@ -133,6 +133,10 @@ generate_random_bytes(void *buf, int nbytes)
   jrand_seed[2] = jrand_seed[2] ^ syscall(SYS_gettid);
 #endif
 
+  // till I'm able to resolve the link problem with intel icc/ifort 16.0  
+#ifdef __INTEL_COMPILER
+#pragma novector
+#endif
   for (cp = buf, i = 0; i < nbytes; i++)
     *cp++ ^= (jrand48(tmp_seed) >> 7) & 0xFF;
 

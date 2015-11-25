@@ -123,6 +123,9 @@
 !! Modification by <name>, <organization> (YYYY-MM-DD)
 !! - <brief description of modification>
 !! 
+!! Modification by Dmitrii Mironov, DWD (2015-10-16)
+!! - Parameter fr_lake_min is no longer used,
+!! - namelist parameter frlake_thrhld is used to specify minimum lake fraction.
 !! 
 !! @par Copyright and License
 !!
@@ -169,6 +172,8 @@ MODULE mo_flake
   USE mo_kind, ONLY:                   &
                    & ireals    => wp , &  !< KIND-type parameter for real variables
                    & iintegers => i4      !< KIND-type parameter for standard integer variables
+  USE mo_lnd_nwp_config, ONLY:                   &
+                   & frlake_thrhld        !< fraction threshold for creating a lake grid point
 #endif
 
 !===================================================================================================
@@ -226,8 +231,7 @@ MODULE mo_flake
     &  H_B1_min_flk      , & !< Minimum thickness of the upper layer of bottom sediments [m]
     &  u_star_min_flk    , & !< Minimum value of the surface friction velocity [m s^{-1}]
     &  c_small_flk       , & !< A small number
-    &  c_maxearg_flk     , & !< Maximum value of the EXP function argument [-]
-    &  fr_lake_min           !< Minimum lake fraction within a host atmospheric model grid box [-]
+    &  c_maxearg_flk         !< Maximum value of the EXP function argument [-]
 
 !_cdm>
 ! Note that most physical constants are taken from the ICON module 
@@ -455,7 +459,7 @@ CONTAINS
     ! Loop over grid boxes where lakes are (should be) present
     CheckFLakeExtPar: DO iflk=1, nflkgb
       ! Check lake-fraction and lake-depth fields
-      IF( (fr_lake(iflk) < fr_lake_min) .OR. (depth_lk(iflk) < 0._ireals) ) THEN
+      IF( (fr_lake(iflk) < frlake_thrhld) .OR. (depth_lk(iflk) < 0._ireals) ) THEN
         ! Lake fraction less than a minimum threshold value or negative lake depth is found
         ! Set logical switch
         lcallabort = .TRUE.
@@ -470,7 +474,7 @@ CONTAINS
       ! Send an error message
       WRITE(nameerr,*) "MODULE mo_flake, SUBROUTINE flake_init"
       WRITE(texterr,*) "Lake fraction ", fr_lake(iflk),                          &
-                    &  " is less than a minimum threshold value ", fr_lake_min
+                    &  " is less than a minimum threshold value ", frlake_thrhld
       CALL message(TRIM(nameerr), TRIM(texterr))
       WRITE(texterr,*) " or negative lake depth ", depth_lk(iflk),               &
                     &  " Call model abort."

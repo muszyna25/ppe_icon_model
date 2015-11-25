@@ -454,9 +454,7 @@ MODULE mo_impl_constants
   !---------------------!
 
   ! Division method for area subdivision
-  INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
-  INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
 
   !-----  horizontal interpolation: type of interpolation
   CHARACTER(len=32), PARAMETER :: STR_HINTP_TYPE(4) = &
@@ -567,6 +565,15 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_AGGREGATED  = 1
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_DETAILED    = 2
   INTEGER, PARAMETER, PUBLIC :: TIMER_MODE_WRITE_FILES = 3
+
+  !-------------------------------------------------!
+  !  TIME LEVEL SOURCE (WHICH "NNOW"/"NNEW" TO USE) !
+  !-------------------------------------------------!
+
+  INTEGER, PARAMETER, PUBLIC :: TLEV_NNOW     = 0
+  INTEGER, PARAMETER, PUBLIC :: TLEV_NNOW_RCF = 1
+  INTEGER, PARAMETER, PUBLIC :: TLEV_NNEW     = 2
+  INTEGER, PARAMETER, PUBLIC :: TLEV_NNEW_RCF = 3
 
   !-------------------------!
   !  RTTOV FIELD CATEGORIES !
