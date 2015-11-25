@@ -311,7 +311,7 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
   SUBROUTINE perform_accumulation
     INTEGER :: k,i
     INTEGER :: element_counter
-    class(*),pointer :: elements,check_src, check_pair, check_dest, meanEvent,counter
+    class(*),pointer :: elements,check_src, check_pair, check_dest, counter ! meanEvent,counter
     type(t_list_element), pointer :: source, destination
     type(vector_iterator) :: value_iterator
     type(vector) :: values, keys
@@ -344,8 +344,8 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
       select type (eventString => keys%at(i))
       type is (character(*))
 if (my_process_is_stdio()) call print_summary(eventString)
-        meanEvent => meanEvents%get(eventString)
-        select type (meanEvent)
+!       meanEvent => meanEvents%get(eventString)
+        select type (meanEvent =>meanEvents%get(eventString) )
         type is (t_event_wrapper)
           isactive = LOGICAL(isCurrentEventActive(meanEvent%this,mtime_date))
         end select
