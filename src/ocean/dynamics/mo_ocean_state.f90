@@ -121,41 +121,39 @@ CONTAINS
   !
   !
 !<Optimize:inUse>
-  SUBROUTINE construct_hydro_ocean_state( patch_2d, ocean_state )
+  SUBROUTINE construct_hydro_ocean_state( patch_3d, ocean_state )
     
-    TYPE(t_patch), TARGET, INTENT(in) :: patch_2d(n_dom)
+    TYPE(t_patch_3D), TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state(n_dom)
     
     ! local variables
     INTEGER :: jg
-    
+    TYPE(t_patch), POINTER :: patch_2d
+   
     INTEGER :: i_status, jp, prlength ! local prognostic array length
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_hydro_ocean_state'
-    
+
+    patch_2d => patch_3d%p_patch_2d(1)
     CALL message(TRIM(routine), 'start to construct hydro_ocean state' )
     
     ! Using Adams-Bashforth semi-implicit timestepping with 3 prognostic time levels:
     prlength = 3
     
-    !create state array for each domain
-    DO jg = 1, n_dom
-      
-      ALLOCATE(ocean_state(jg)%p_prog(1:prlength), stat=i_status)
-      IF (i_status/=success) THEN
-        CALL finish(TRIM(routine), 'allocation of progn. state array failed')
-      END IF
-      DO jp = 1, prlength
-        CALL construct_hydro_ocean_prog(patch_2d(jg), ocean_state(jg)%p_prog(jp),jp)
-      END DO
-      
-      CALL construct_hydro_ocean_diag(patch_2d(jg), ocean_state(jg)%p_diag)
-      CALL construct_hydro_ocean_aux(patch_2d(jg),  ocean_state(jg)%p_aux)
-      CALL construct_hydro_ocean_acc(patch_2d(jg),  ocean_state(jg)%p_acc)
-      
-      CALL message(TRIM(routine),'construction of hydrostatic ocean state finished')
-      
+    !create state array for each domain     
+    ALLOCATE(ocean_state(jg)%p_prog(1:prlength), stat=i_status)
+    IF (i_status/=success) THEN
+      CALL finish(TRIM(routine), 'allocation of progn. state array failed')
+    END IF
+    DO jp = 1, prlength
+      CALL construct_hydro_ocean_prog(patch_2d, ocean_state(jg)%p_prog(jp),jp)
     END DO
+    
+    CALL construct_hydro_ocean_diag(patch_2d, ocean_state(jg)%p_diag)
+    CALL construct_hydro_ocean_aux(patch_2d,  ocean_state(jg)%p_aux)
+    CALL construct_hydro_ocean_acc(patch_2d,  ocean_state(jg)%p_acc)
+    
+    CALL message(TRIM(routine),'construction of hydrostatic ocean state finished')      
     
   END SUBROUTINE construct_hydro_ocean_state
   
@@ -1108,12 +1106,12 @@ CONTAINS
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_prog"),&
       & loutput=.TRUE., lrestart=.FALSE.)
-    CALL add_var(ocean_default_list,'vn',ocean_state_diag%vn, &
-      & grid_unstructured_edge, za_depth_below_sea, &
-      & t_cf_var('vn', 'm/s', 'normal velocity on edge', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_prog"), &
-      & loutput=.TRUE.,lrestart=.FALSE.)
+!     CALL add_var(ocean_default_list,'vn',ocean_state_diag%vn, &
+!       & grid_unstructured_edge, za_depth_below_sea, &
+!       & t_cf_var('vn', 'm/s', 'normal velocity on edge', DATATYPE_FLT32),&
+!       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
+!       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_prog"), &
+!       & loutput=.TRUE.,lrestart=.FALSE.)
     CALL add_var(ocean_default_list, 't',ocean_state_diag%t,    &
       & grid_unstructured_cell, za_depth_below_sea,&
       & t_cf_var('t','degC','potential temperature', DATATYPE_FLT32), &

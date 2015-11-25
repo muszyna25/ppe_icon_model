@@ -26,6 +26,7 @@ MODULE mo_ocean_types
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
   USE mo_ocean_diagnostics_types, ONLY: t_ocean_monitor
+  USE mo_model_domain,        ONLY: t_patch_3d
   
   PUBLIC :: t_hydro_ocean_base
   PUBLIC :: t_hydro_ocean_state
@@ -219,8 +220,8 @@ MODULE mo_ocean_types
       & laplacian_vert ,& ! vertical diffusion of horizontal velocity
       & grad           ,& ! gradient of kinetic energy. Unit [m/s]
       & press_grad     ,& ! hydrostatic pressure gradient term. Unit [m/s]
-      & cfl_horz,       & ! horizontal cfl values
-      & vn  
+      & cfl_horz! ,       & ! horizontal cfl values
+      ! & vn  
       
     onEdges_HalfLevels :: &
       & w_e            ! vertical velocity at edges. Unit [m/s]
@@ -504,6 +505,7 @@ MODULE mo_ocean_types
   ! array of states
   TYPE t_hydro_ocean_state
 
+    TYPE(t_patch_3d), POINTER :: patch_3D
     TYPE(t_hydro_ocean_prog), POINTER :: p_prog(:)    ! time array of prognostic states at different time levels
     TYPE(t_hydro_ocean_diag) :: p_diag
     TYPE(t_hydro_ocean_aux)  :: p_aux

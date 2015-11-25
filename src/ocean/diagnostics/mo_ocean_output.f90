@@ -188,7 +188,7 @@ CONTAINS
     !prog_var               => find_list_element(ocean_restart_list,'vn'//TRIM(timelevel_str))
     !output_var%field%r_ptr => prog_var%field%r_ptr
     !p_diag%vn              => prog_var%field%r_ptr(:,:,:,1,1)
-    p_diag%vn(:,:,:)       =  p_prog%vn
+!     p_diag%vn(:,:,:)       =  p_prog%vn
     
     !output_var             => find_list_element(ocean_restart_list,'t')
     !prog_var               => find_list_element(ocean_restart_list,'t'//TRIM(timelevel_str))
