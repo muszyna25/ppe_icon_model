@@ -17,8 +17,8 @@
 !!
 MODULE mo_get_utc_date_tr
 
-  USE mo_kind,        ONLY: wp, i8
-  USE mo_time_config, ONLY: time_config 
+  USE mo_kind,            ONLY: wp, i8
+  USE mo_master_config,   ONLY: tc_exp_startdate
   
   IMPLICIT NONE
 
@@ -93,14 +93,14 @@ CONTAINS
     ileap (iy) = IABS( MOD(iy,4) - 4) / 4
 
     ! year, month, day, hours of initial date
-    iyy = time_config%ini_datetime%year
-    imm = time_config%ini_datetime%month
-    idd = time_config%ini_datetime%day 
-    ihh = time_config%ini_datetime%hour
+    iyy = tc_exp_startdate%date%year
+    imm = tc_exp_startdate%date%month
+    idd = tc_exp_startdate%date%day 
+    ihh = tc_exp_startdate%time%hour
     
     ! to add minutes and seconds of start date
-    zim = REAL(time_config%ini_datetime%minute,wp)
-    zis = time_config%ini_datetime%second
+    zim = REAL(tc_exp_startdate%time%minute,wp)
+    zis = tc_exp_startdate%time%second + 1.e-3_wp*tc_exp_startdate%time%ms
 
     IF     (itype_calendar == 0) THEN
       month (2)    = 28 + ileap (iyy)

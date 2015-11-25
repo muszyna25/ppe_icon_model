@@ -71,7 +71,6 @@ MODULE mo_initicon_utils
     &                               t_bool_table
   USE mo_util_uuid,           ONLY: OPERATOR(==)
   USE mo_flake,               ONLY: flake_coldinit
-  USE mo_time_config,         ONLY: time_config
   USE mtime,                  ONLY: newDatetime, datetime, OPERATOR(==), OPERATOR(+), &
     &                               deallocateDatetime
   USE mo_intp_data_strc,      ONLY: t_int_state, p_int_state
@@ -80,6 +79,7 @@ MODULE mo_initicon_utils
   USE mo_dictionary,          ONLY: t_dictionary
   USE mo_checksum,            ONLY: printChecksum
   USE mo_fortran_tools,       ONLY: init
+  USE mo_master_config,       ONLY: tc_exp_startdate
 
   IMPLICIT NONE
 
@@ -238,8 +238,7 @@ MODULE mo_initicon_utils
     LOGICAL :: lmatch_uuid
     LOGICAL :: lmatch_vtime
 
-    TYPE(datetime),  POINTER :: mtime_inidatetime  ! INI-datetime in mtime format
-    TYPE(datetime)           :: start_datetime     ! true start date (includes timeshift)
+    TYPE(datetime), POINTER  :: start_datetime     ! true start date (includes timeshift)
     !
     INTEGER :: index_inc, index_ful
     CHARACTER(LEN=VARNAME_LEN), TARGET :: mode_iau_grp_inc(20)
@@ -287,17 +286,10 @@ MODULE mo_initicon_utils
     lmatch_uuid  = .FALSE. 
     lmatch_vtime = .FALSE.
 
-    ! get ini-datetime in mtime-format
-    mtime_inidatetime => newDatetime(time_config%ini_datetime%year,       &
-      &                              time_config%ini_datetime%month,      &
-      &                              time_config%ini_datetime%day,        &
-      &                              time_config%ini_datetime%hour,       &
-      &                              time_config%ini_datetime%minute,     &
-      &                              INT(time_config%ini_datetime%second),&
-      &                              ms=0)
 
     ! add timeshift to INI-datetime to get true starting time
-    start_datetime = mtime_inidatetime + timeshift%mtime_shift
+    start_datetime => newDatetime(tc_exp_startdate)
+    start_datetime =  start_datetime + timeshift%mtime_shift
 
 
 
@@ -378,7 +370,7 @@ MODULE mo_initicon_utils
       !
       ! analysis field's validity time must match the model's initialization time
       !
-      lmatch_vtime = (this_list_element%field%vdatetime == mtime_inidatetime)
+      lmatch_vtime = (this_list_element%field%vdatetime == tc_exp_startdate)
 
       ! write(0,*) "vname: ", TRIM(grp_vars_ana(ivar))
       ! write(0,*) "vdatetime, inidatetime: ", this_list_element%field%vdatetime, mtime_inidatetime
@@ -437,9 +429,8 @@ MODULE mo_initicon_utils
 
     ENDDO
 
-
     ! cleanup
-    CALL deallocateDatetime(mtime_inidatetime)
+    CALL deallocateDatetime(start_datetime)
 
   END SUBROUTINE validate_input
 

@@ -63,7 +63,6 @@ MODULE mo_time_config
 
     ! not directly from namelist  
 
-    TYPE(t_datetime) :: ini_datetime       !< Starting time of model integration
     TYPE(t_datetime) :: end_datetime       !< Ending   time of model integration
 
     REAL(wp)         :: sim_time(max_dom)  !< elapsed simulation time (may locally differ between domains!)

@@ -52,7 +52,8 @@ MODULE mo_name_list_output_init
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,      &
     &                                             MAX_NZLEVS, MAX_NILEVS
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
-  USE mo_master_config,                     ONLY: getModelBaseDir, isRestart, tc_startdate
+  USE mo_master_config,                     ONLY: getModelBaseDir, isRestart, tc_startdate,       &
+    &                                             tc_exp_startdate
   USE mo_master_control,                    ONLY: my_process_is_ocean
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
@@ -68,7 +69,8 @@ MODULE mo_name_list_output_init
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list, real2string
-  USE mo_datetime,                          ONLY: t_datetime
+  USE mo_datetime,                          ONLY: dtime_proleptic_gregorian => proleptic_gregorian, &
+    &                                             dtime_cly360              => cly360
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch
@@ -132,7 +134,9 @@ MODULE mo_name_list_output_init
     &                                             OPERATOR(<), newDatetime, deallocateDatetime,   &
     &                                             getTotalMilliSecondsTimeDelta, datetime,        &
     &                                             OPERATOR(+), datetimeToString, OPERATOR(>),     &
-    &                                             timedeltaToString
+    &                                             timedeltaToString, calendarType,                &
+    &                                             mtime_proleptic_gregorian => proleptic_gregorian, &
+    &                                             mtime_year_of_360_days => year_of_360_days
   USE mo_output_event_types,                ONLY: t_sim_step_info, MAX_EVENT_NAME_STR_LEN,        &
     &                                             DEFAULT_EVENT_NAME, t_par_output_event
   USE mo_output_event_control,              ONLY: compute_matching_sim_steps,                     &
@@ -2328,7 +2332,6 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER     :: routine = modname//"::setup_output_vlist"
     INTEGER                         :: k, i_dom, ll_dim(2), gridtype, idate, itime, iret
     TYPE(t_lon_lat_data), POINTER   :: lonlat
-    TYPE(t_datetime)                :: ini_datetime
     CHARACTER(len=1)                :: uuid_string(16)
     REAL(wp)                        :: pi_180
     INTEGER                         :: max_cell_connectivity
@@ -2561,13 +2564,21 @@ CONTAINS
        CALL message('','invalid taxis_tunit, reset to TUNIT_MINUTE')
      END IF
      CALL taxisDefTunit (of%cdiTaxisID, of%name_list%taxis_tunit)
-     ini_datetime = time_config%ini_datetime
-     CALL taxisDefCalendar (of%cdiTaxisID, time_config%calendar)
-     idate = cdiEncodeDate(ini_datetime%year, ini_datetime%month, ini_datetime%day)
-     itime = cdiEncodeTime(ini_datetime%hour, ini_datetime%minute, &
-                           NINT(ini_datetime%second))
-     !WRITE(6,'(a,i,a)')'calendar ', time_config%calendar, &
-     !                & 'julian_gregorian 0 -  proleptic_gregorian 1 -  cly360 2'
+
+     SELECT CASE(calendarType())
+     CASE (mtime_proleptic_gregorian)
+       CALL taxisDefCalendar (of%cdiTaxisID, dtime_proleptic_gregorian)
+     CASE (mtime_year_of_360_days)
+       CALL taxisDefCalendar (of%cdiTaxisID, dtime_cly360)
+     CASE default
+       CALL finish(routine, "Unsupported calendar!")
+     END SELECT
+     idate = cdiEncodeDate(INT(tc_exp_startdate%date%year),  &
+       &                   INT(tc_exp_startdate%date%month), &
+       &                   INT(tc_exp_startdate%date%day))
+     itime = cdiEncodeTime(tc_exp_startdate%time%hour, tc_exp_startdate%time%minute, &
+                           INT(tc_exp_startdate%time%second))
+
      CALL taxisDefRdate (of%cdiTaxisID, idate )
      CALL taxisDefRtime (of%cdiTaxisID, itime )
 

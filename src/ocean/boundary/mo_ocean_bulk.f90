@@ -41,7 +41,6 @@ USE mo_parallel_config,     ONLY: p_test_run
 USE mo_read_interface,      ONLY: openInputFile, closeFile, t_stream_id, &
   &                               on_cells, read_2D_time, read_3D
 USE mo_datetime,            ONLY: t_datetime
-USE mo_time_config,         ONLY: time_config
 USE mo_ext_data_types,      ONLY: t_external_data
 USE mo_ocean_ext_data,      ONLY: ext_data
 USE mo_grid_config,         ONLY: nroot
@@ -79,6 +78,7 @@ USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce, ice_slow, ice_fast
 USE mo_sea_ice_refactor,    ONLY: ice_slow_slo
 USE mo_sea_ice_nml,         ONLY: use_constant_tfreez, i_therm_slo
+USE mo_master_config,       ONLY: tc_exp_startdate
 
 IMPLICIT NONE
 
@@ -1090,7 +1090,7 @@ CONTAINS
 
         ! use initial date to define correct set (year) of reading NCEP data
         !  - with offset=0 always the first year of NCEP data is used
-        iniyear = time_config%ini_datetime%year
+        iniyear = tc_exp_startdate%date%year
         !curyear = time_config%cur_datetime%year  ! not updated each timestep
         curyear = datetime%year
         offset = 0
