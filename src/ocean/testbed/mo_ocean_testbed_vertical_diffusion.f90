@@ -42,7 +42,7 @@ MODULE mo_ocean_testbed_vertical_diffusion
     & calc_normal_velocity_ab,  &
     & calc_vert_velocity,       &
     & update_time_indices
-  USE mo_ocean_types,            ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
+  USE mo_ocean_types,            ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog, t_ocean_tracer
   !USE mo_ocean_math_operators,     ONLY: calculate_thickness
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff! , update_diffusion_matrices

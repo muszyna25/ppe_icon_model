@@ -104,7 +104,9 @@ CONTAINS
       CALL add_fields(ocean_state%p_acc%k_veloc_h(:,:,:),p_phys_param%k_veloc_h(:,:,:),edges)
       CALL add_fields(ocean_state%p_acc%a_veloc_v(:,:,:),p_phys_param%a_veloc_v(:,:,:),edges)
     END IF
-    
+
+
+
     IF (iforc_oce > No_Forcing) THEN
       ! update forcing accumulated values
       CALL add_fields(p_sfc_flx%topBoundCond_windStress_u_acc   , p_sfc_flx%topBoundCond_windStress_u   , cells)

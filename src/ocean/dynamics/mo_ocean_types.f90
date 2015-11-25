@@ -340,6 +340,10 @@ MODULE mo_ocean_types
       & grad             ,& ! gradient of kinetic energy. Unit [m/s]
       & press_grad          ! hydrostatic pressure gradient term. Unit [m/s]
 
+    onEdges_2D :: &
+      vn_vint            ! vertically integrated normal velocity weighted by edge height
+
+
     onVertices ::         &
       & vort                ! vorticity at triangle vertices. Unit [1/s]
       
