@@ -105,7 +105,7 @@ cat >> ${atmo_namelist} << EOF
  l_log_checks   = ${l_log_checks}
 /
 &nh_testcase_nml
- nh_test_name   = 'RCE_CBL'
+ nh_test_name   = 'RCE'
  ape_sst_case   = 'sst_const'
 /
 &io_nml
@@ -178,4 +178,6 @@ EOF
 # add standard atmo_non-hydrostatic_files
 . ${thisdir}/add_required_atmo_non-hydrostatic_files
 . ${thisdir}/add_required_atmo_hydrostatic_files
+pooldir=/pool/data/ICON/buildbot_data/aes/rce_les
+add_link_file ${pooldir}/sound_in              sound_in
 #-----------------------------------------------------------------------------

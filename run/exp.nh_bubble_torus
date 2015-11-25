@@ -32,14 +32,14 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-08-01T00:00:00Z"
-end_date="2008-08-31T00:00:00Z"
+end_date="2008-08-01T00:20:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=12.5
-dt_checkpoint=`expr 10 \* 86400 `  # write restart file every 10 days
+dtime=0.5
+dt_checkpoint=`expr 10 \* 86400 `  # write restart file every 1 hours
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -49,13 +49,12 @@ atmo_model_equations=3 # equation system
 #                     3=non-hydrost. atm.,
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=64           # nlev = number of full levels
+nlev=101           # nlev = number of full levels
 iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-grid_name=torus_grid_r2km_s64
-atmo_dyn_grids=${grid_name}.nc
+atmo_dyn_grids='torus_grid_r4_c200_elen100.nc'
 #
 #-----------------------------------------------------------------------------
 #
@@ -79,13 +78,13 @@ cat >> ${atmo_namelist} << EOF
  corio_lat = 0.0
 /
 &nh_testcase_nml
- nh_test_name   = 'RCE'     ! test case identifier
- ape_sst_case   = 'sst_const'
- u_cbl          = 0.0, 0.0  !u_cbl(1)=constant, u_cbl(2)=gradient, default=0
- v_cbl          = 0.0, 0.0  !v_cbl(1)=constant, v_cbl(2)=gradient, default=0
- th_cbl         = 301.0 0.003
- sol_const      = 650.83
- zenithang      = 28.19
+ nh_test_name   = '2D_BUBBLE'     ! test case identifier
+ bub_amp        = 2.0
+ bubctr_z       = 2000.0
+ bubctr_x       = 0.0
+ bubctr_y       = 0.0
+ bub_hor_width  = 2000.0
+ bub_ver_width  = 2000.0
 /
 &io_nml
  dt_checkpoint  = ${dt_checkpoint}
@@ -96,29 +95,27 @@ cat >> ${atmo_namelist} << EOF
  dtime          = ${dtime}     ! timestep in seconds
  ltransport     = .TRUE.
  ntracer        = 5            ! default: 0
- iforcing       = ${iforcing}  ! 3: NWP forcing; 6:inhecham forcing
+ iforcing       = 3            ! 3: NWP forcing; 6:inhecham forcing
  ltestcase      = .TRUE.       ! run testcase
  ltimer         = .true.       ! 
  msg_level      = 10          ! detailed report during integration
  output         = 'nml'
 /
 &nwp_phy_nml
- inwp_gscp       = 1
+ inwp_gscp       = 0
  inwp_convection = 0 ! 1:Tiedtke/Bechtold
- inwp_radiation  = 1 ! 1:RRTM radiation
+ inwp_radiation  = 0 ! 1:RRTM radiation
  inwp_cldcover   = 5 ! 3: clouds from COSMO SGS cloud scheme
  inwp_turb       = 5 ! 1: COSMO diffusion and transfer
  inwp_satad      = 1
  inwp_surface    = 0 ! 0: none; 1: TERRA
- latm_above_top  = .true.
- dt_rad          = 1500.
+ latm_above_top  = .false.
 /
 &les_nml
- sst               = 301
- isrfc_type        = 5     !2=Fixed flux, 5=fixed SST, 3=fixed bflux
+ isrfc_type        = 0   !0 = no fluxes; 2=Fixed flux, 5=fixed SST, 3=fixed bflux
  expname           = '${EXPNAME}'
- avg_interval_sec = 3600.
- sampl_freq_sec   = 300.
+ avg_interval_sec = 60.
+ sampl_freq_sec   = 10.
  ldiag_les_out    = .TRUE.
  km_min           = 0.0
 /
@@ -132,22 +129,17 @@ const_z0  = 0.0001
  lhdiff_w     = .FALSE.
  hdiff_order  = 4
 /
-&radiation_nml
-! ldiur = .FALSE. ! is this necessary or is izenith=0 suff.?
- irad_o3 = 4 !should be the ozone clim for APE  
- izenith    = 5 ! zenith = 38 deg
- vmr_co2    = 278.e-06 ! values representative for pre ind rev 
- irad_aero  = 0 ! switch off aerosols
- irad_cfc11 = 0 
- irad_cfc12 = 0
+&transport_nml
+ ihadv_tracer = 2,2,0,0,0,0,0
+ ivadv_tracer = 3,3,0,0,0,0,0  !1=1st order upwind,3=ppm-highCFL,30-ppm
 /
 &nonhydrostatic_nml
  ivctype        = 2       ! sleve vertical coordinate
- damp_height    = 21000.  ! top_height-damp_height should be about 15km
+ damp_height    = 8000.  ! top_height-damp_height should be about 15km
 /
 &sleve_nml
- top_height = 27000
- min_lay_thckn = 20. ! thickness of lowest model layer
+ top_height = 10000
+ min_lay_thckn = 0. ! thickness of lowest model layer
 /
 &extpar_nml
  itopo          = 0 ! 0: analytical topo; 1: topography/ext. data read from file
@@ -155,62 +147,22 @@ const_z0  = 0.0001
 &dynamics_nml
  iequations     = ${atmo_model_equations}       ! equation system
  idiv_method    = 1
-! divavg_cntrwgt = 0.50
  lcoriolis      = .FALSE.
 /
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT12H"
- file_interval    = "P01M"
- include_last     = .TRUE.
- output_filename  = 'cloud_diag'
- filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'group:cloud_diag','group:additional_precip_vars','group:precip_vars'
- output_grid      = .TRUE.
-/
-&output_nml
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "PT12H"
- file_interval    = "P01M"
- include_last     = .TRUE.
- output_filename  = 'pbl_vars'
- filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'tch','tcm','htop_dc','rh_2m','umfl_s','vmfl_s','lhfl_s','shfl_s','t_g','qv_s'
- output_grid      = .TRUE.
-/
-&output_nml
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "P01D"
- file_interval    = "P01M"
+ output_interval  = "PT05M"
+ file_interval    = "P01D"
  include_last     = .TRUE.
  output_filename  = 'prog_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'qv','qc','qi','qs','qr','qh','qni','qnh','rh','u','v','w','temp','pres','rho','theta_v','pres_sfc','div'
- output_grid      = .TRUE.
-/
-&output_nml
- output_start     = "${start_date}"
- output_end       = "${end_date}"
- output_interval  = "P01D"
- file_interval    = "P01M"
- include_last     = .TRUE.
- output_filename  = 'rad_vars'
- filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
- ml_varlist       = 'group:rad_vars','lwflxall','trsolall'
+ ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc','clc'
  output_grid      = .TRUE.
 /
 EOF
 #
 #----------------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
-DATADIR=${basedir}/data
-add_link_file ${DATADIR}/rrtmg_lw.nc                 rrtmg_lw.nc 
-add_link_file ${DATADIR}/ECHAM6_CldOptProps.nc       ECHAM6_CldOptProps.nc
-add_link_file ${DATADIR}/dmin_wetgrowth_lookup.dat   dmin_wetgrowth_lookup.dat   #for inwp_gscp==4
-add_link_file ${DATADIR}/sound_rce_new               sound_in
-OZONEDIR=${basedir}/data/external/ape_ozone
-add_link_file ${OZONEDIR}/${grid_name}_o3_CMIP5_ape_1870_march.nc  o3_icon_DOM01.nc
+add_link_file ${basedir}/data/sound_WarmBubble_the_320_rt_0.02          sound_in
 #----------------------------------------------------------------------------------
