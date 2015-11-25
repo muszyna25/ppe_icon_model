@@ -135,7 +135,7 @@ CONTAINS
 
     patch_2d => patch_3d%p_patch_2d(1)
     CALL message(TRIM(routine), 'start to construct hydro_ocean state' )
-    
+    ocean_state(1)%patch_3d => patch_3d
     ! Using Adams-Bashforth semi-implicit timestepping with 3 prognostic time levels:
     prlength = 3
     
