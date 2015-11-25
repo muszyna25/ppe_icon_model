@@ -15,6 +15,7 @@ AC_PREREQ(2.59)
 
 dnl ######################################################################
 dnl basic package definitions (by default ICON)
+package="ICON"
 if test -r "./config/set-up" ; then
 . ./config/set-up
 fi
@@ -28,10 +29,35 @@ AC_CONFIG_AUX_DIR(config)
 
 AC_CANONICAL_SYSTEM
 
+AC_PROG_AWK
+
+dnl Load pre-set configure options from config/config-options
+dnl ######################################################################
+
+if test -f "config/config-options" ; then
+  AC_GET_MH(config/config-options)
+fi
+
 dnl ######################################################################
 
 AC_ARG_ENABLE([mtime-loop],
               AS_HELP_STRING([--enable-mtime-loop],[Use mtime based time loop in nh stepping.]))
+
+AC_ARG_ENABLE([atmo],
+              AS_HELP_STRING([--enable-atmo],[Use atmosphere model component.]),
+              [],[enable_atmo=yes])
+
+AC_ARG_ENABLE([jsbach],
+              AS_HELP_STRING([--enable-jsbach],[Use jsbach model component.]),
+              [],[enable_jsbach=yes])
+
+AC_ARG_ENABLE([ocean],
+              AS_HELP_STRING([--enable-ocean],[Use ocean model component.]),
+              [],[enable_ocean=yes])
+
+AC_ARG_ENABLE([testbed],
+              AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
+              [],[enable_testbed=no])
 
 AC_ARG_WITH([fortran],
   [AS_HELP_STRING([--with-fortran=COMPILER],
@@ -119,16 +145,10 @@ dnl ######################################################################
 AC_PROG_AWK
 
 AS_CASE([$ac_hostname],
-        [plogin*],
-        [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],  
         [wizard*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],  
-        [btc*],
-        [ac_sitename=dkrz.de
-         fqdn=$ac_hostname.$ac_sitename],       
-        [mlogin*],
+        [mlogin*|btc*],
         [ac_sitename=dkrz.de
          fqdn=$ac_hostname.$ac_sitename],
         [ic2*],      
@@ -229,12 +249,7 @@ if test "x$load_modules" != x ;  then
     echo module purge >> conf_load_module.tmp
     echo module load "$load_modules" >> conf_load_module.tmp
     echo module list >> conf_load_module.tmp
-    if test "x$config_target" = xblizzard ;  then
-      # change configure to bash
-      echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
-    else
-      cp configure conf__.tmp 
-    fi
+    cp configure conf__.tmp 
     echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
     echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
     echo "rm conf__.tmp" >> conf_load_module.tmp
@@ -247,30 +262,40 @@ if test "x$load_modules" != x ;  then
 fi
   
 dnl ######################################################################
-dnl define the packages
-package="ICON"
+dnl define the package
+
 FFLAGS="${FFLAGS} ${DEFOPT}__${package}__"
 CFLAGS="${CFLAGS} ${DEFCOPT}__${package}__"
 
+dnl #####################################################################
+dnl add defines for model components
+
+AS_IF([test "x$enable_atmo" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_ATMO__"])
+
+AS_IF([test "x$enable_jsbach" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_JSBACH__"])
+
+AS_IF([test "x$enable_ocean" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_OCEAN__"])
+
+AS_IF([test "x$enable_testbed" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"])
+
+dnl #####################################################################
+dnl add local flags
+
 use_local_flags_file=config/local_flags
-
-AC_ARG_WITH([ocean],
-            [AC_HELP_STRING([--with-ocean=no],
-                            [compile without ocean])],,
-                            with_ocean=yes)
-
-if [[ $with_ocean = no ]]; then
-  FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_OCEAN__"
-fi
-
 if test -f $use_local_flags_file ; then
   AC_GET_MH($use_local_flags_file)
 fi
+
 
 for other_flags in $icon_flags ; do
   FFLAGS="${FFLAGS} ${DEFOPT}__${other_flags}__"
   CFLAGS="${CFLAGS} ${DEFCOPT}__${other_flags}__"
 done
+
 
 dnl ######################################################################
 dnl add defines for transitional features (eg. mtime based time loop)
@@ -444,13 +469,13 @@ if test -n "$SZIPROOT" ; then
      echo "cannot find $SZIPROOT/include"  
      exit 1    
   fi
-  case $(hostname) in
-  btc*|mlogin*)  
+  case $ac_hostname in
+  mlogin*|btc*)
     case $FC in
     nagfor)
-      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
-    *)  
+    *)
       SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
       ;;
     esac
@@ -493,11 +518,11 @@ if test -n "$HDF5ROOT" ; then
      echo "cannot find $HDF5ROOT/include"  
      exit 1    
   fi
-  case $(hostname) in
-  btc*|mlogin*)  
+  case $ac_hostname in
+  mlogin*|btc*)  
     case $FC in
     nagfor)
-      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
     *)
       HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -551,11 +576,11 @@ if test -n "$NETCDFROOT" ; then
   if test x$gcc_lib != x ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
-  case $(hostname) in
-  btc*|mlogin*)    
+  case $ac_hostname in
+  mlogin*|btc*)
     case $FC in
     nagfor)
-      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
       ;;
     *)
       NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
@@ -577,24 +602,24 @@ if test -n "$NETCDFROOT" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
-         NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff' 
-         case $(hostname) in
-         btc*|mlogin*)    
+         NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
+         case $ac_hostname in
+         mlogin*|btc*)
            case $FC in
            nagfor)
-             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
-             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath -Wl,-Wl,,\2!g')
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
              ;;
-           *)                      
+           *)
              NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
              NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
              ;;
-           esac         
+           esac
            ;;
          *)
            ;;
          esac
-         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"	
+         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
@@ -744,40 +769,30 @@ esac
 
 MPI_INCLUDE=""
 
-withval=no
 AC_ARG_WITH([mpi],
             [AC_HELP_STRING([--with-mpi=DIR],
                             [MPI library])],,)
 
 
-#default is with mpi
-if test x$with_mpi != xno ; then
-  withval=yes
-fi
-
-if test x$withval = xno ; then
-  FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
-  CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
-  MPI_LIB=""
-  MPI_VERSION=none
-  MPIROOT=""
-  use_mpcc_r=no
-else
-  if test x$with_mpi != x ; then
-    if test $with_mpi != yes && $with_mpi != no  ; then
-      MPIROOT=$with_mpi
-    fi
-  fi
-  if test -n "$MPIROOT" ; then    
-    AC_CHECK_FILE($MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h,[],AC_MSG_ERROR([MPIROOT not properly defined]))
+AS_IF([test x"$with_mpi" = xno],
+  [FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
+   CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
+   MPI_LIB=""
+   MPI_VERSION=none
+   MPIROOT=""
+   use_mpcc_r=no],
+  [AS_IF([test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno],
+    [MPIROOT=$with_mpi])
+   AS_IF([test x"$MPIROOT" != x],
+    [AC_CHECK_FILE([$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h],,[AC_MSG_ERROR([MPIROOT not properly defined])])
     case $host in
     *-*-darwin*)
       MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
-      ;;    
+      ;;
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
-      ;;   
-    esac 
+      ;;
+    esac
     MPI_I_INCLUDE="-I\$(MPIROOT)/include/${MPI_INCLUDE_THREAD}"
     case $host in
     powerpc-ibm-aix*)
@@ -822,12 +837,9 @@ else
       MPI_INCLUDE="$MPI_M_INCLUDE"
     else
       MPI_INCLUDE="$MPI_M_INCLUDE $MPI_I_INCLUDE"
-    fi  
-  else
-    MPI="${DEFOPT}NOMPI"
-    MPI_LIB=""
-  fi
-fi
+    fi],
+   [MPI="${DEFOPT}NOMPI"
+    MPI_LIB=""])])
 
 
 dnl ######################################################################
@@ -945,17 +957,11 @@ fi
 FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
 
-if [[ "x$LDFLAGS" = "x" ]] ; then
-  if [[ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ]] ; then  
-    LDFLAGS=${FFLAGS//-xf95-cpp-input/}
-  else
-    LDFLAGS=$FFLAGS
-  fi
-fi
-
 if [[ "x$use_openmp" = xyes ]] ; then
-   FFLAGS="${FFLAGS} ${OMPFLAG}"   
+   FFLAGS="${FFLAGS} ${OMPFLAG}"
+   F77FLAGS="${F77FLAGS} ${OMPFLAG}"
    LDFLAGS="${LDFLAGS} ${OMPFLAG}"
+   CFLAGS="${CFLAGS} ${CC_OMPFLAG}"
 fi
 
 #------------------------
@@ -976,6 +982,15 @@ AS_IF([eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset]
    eval F77FLAGS=\"\${F77FLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"],
   [AS_IF([test x"$use_flags_group" != xstd],
      [AC_MSG_FAILURE([unknown with_flags parameter: $with_flags])])])
+
+if [[ "x$LDFLAGS" = "x" ]] ; then
+  if [[ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ]] ; then
+    LDFLAGS=${FFLAGS//-xf95-cpp-input/}
+  else
+    LDFLAGS=$FFLAGS
+  fi
+fi
+
 
 
 #------------------------
@@ -1042,8 +1057,6 @@ AC_SUBST(LAPACKROOT,$LAPACKROOT)
 AC_SUBST(LAPACK_LIB_PATH,$LAPACK_LIB_PATH)
 AC_SUBST(LAPACK_LIB,$LAPACK_LIB)
 
-AC_SUBST(METIS_LIB,$METIS_LIB)
-
 AC_SUBST(PROFILE_LIB,$PROFILE_LIB)
 AC_SUBST(PROFILE_INCLUDE,$PROFILE_INCLUDE)
 
@@ -1091,7 +1104,7 @@ if test -n "$CROSS" ; then
    cp $cross_config config/config.h
 fi
 
-config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --with_ocean="${with_ocean}"
+config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --enable_ocean="${enable_ocean}" --enable_atmo="${enable_atmo}" --enable_jsbach="${enable_jsbach}" --enable_testbed="${enable_testbed}"
 
 #-----------------------------------------------------------------------------
 case $host in
@@ -1292,7 +1305,7 @@ use_make_command="$make_command"
 use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
-use_icon_components="$icon_components"
+use_flags_group="$use_flags_group"
 #############################
 EOF
 
@@ -1324,4 +1337,8 @@ echo ""
 echo "Configuration done. Run GNU make to build ICON."
 echo ""
 echo "build directory: build/${build_host}"
+echo ""
+AS_IF([test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"],
+[AC_MSG_WARN([In order to use ECHAM physics, you need to enable ocean!])])
+
 echo ""
