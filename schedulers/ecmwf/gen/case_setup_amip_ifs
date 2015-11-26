@@ -62,6 +62,7 @@ ln -sf $IFS2ICONDIR/${ifs2icon_filename}    ${ifs2icon_filename}
 
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
 ln -sf ${RADDIR}/rrtmg_lw.nc .
+ln -sf ${RADDIR}/rrtmg_sw.nc .
 
 ln -sf ${SSTICEDIR}/*/*SST**${res}* .
 ln -sf ${SSTICEDIR}/*/*CI**${res}*  .
