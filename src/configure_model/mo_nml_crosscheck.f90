@@ -43,8 +43,9 @@ MODULE mo_nml_crosscheck
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
-    &                              inextra_3d
+    &                              inextra_3d, lnetcdf_flt64_output
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
+    &                              use_dp_mpi2io,                             &
     &                              num_io_procs, itype_comm, num_restart_procs
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
     &                              ltransport, ntracer, nlev, ltestcase,      &
@@ -950,6 +951,17 @@ CONTAINS
     ! checking the meanings of the io settings
     !--------------------------------------------------------------------
 
+
+    IF (lnetcdf_flt64_output) THEN
+       CALL message(TRIM(method_name),'NetCDF output of floating point variables will be in 64-bit accuracy')
+       IF (.NOT. use_dp_mpi2io) THEN
+          use_dp_mpi2io = .TRUE.
+          CALL message(TRIM(method_name),'--> use_dp_mpi2io is changed to .TRUE. to allow 64-bit accuracy in the NetCDF output.')
+       END IF
+    ELSE
+       CALL message(TRIM(method_name),'NetCDF output of floating point variables will be in 32-bit accuracy')
+    END IF
+
     SELECT CASE(iforcing)
     CASE ( iecham, ildf_echam )
       inextra_2d   = 0
@@ -964,14 +976,14 @@ CONTAINS
       WRITE (message_text,*) &
         & "warning: namelist parameter 'activate_sync_timers' has been set to .FALSE., ", &
         & "because global 'ltimer' flag is disabled."
-      CALL message('io_namelist', TRIM(message_text))
+      CALL message(TRIM(method_name), TRIM(message_text))
     END IF
     IF (timers_level > 9 .AND. .NOT. activate_sync_timers) THEN
       activate_sync_timers = .TRUE.
       WRITE (message_text,*) &
         & "warning: namelist parameter 'activate_sync_timers' has been set to .TRUE., ", &
         & "because global 'timers_level' is > 9."
-      CALL message('io_namelist', TRIM(message_text))
+      CALL message(TRIM(method_name), TRIM(message_text))
     END IF
 
 

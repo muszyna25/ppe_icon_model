@@ -25,7 +25,7 @@ MODULE mo_nh_diagnose_pres_temp
   USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqs, iqr, iqm_max, lforcing, iforcing
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqs, iqr, iqm_max, iforcing
   USE mo_impl_constants,      ONLY: min_rlcell, iheldsuarez
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_physical_constants,  ONLY: rd, grav, vtmpc1, p0ref, rd_o_cpd
@@ -147,7 +147,7 @@ MODULE mo_nh_diagnose_pres_temp
         &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
       IF ( l_opt_calc_temp) THEN
-        IF ( lforcing .AND. iforcing /= iheldsuarez  ) THEN
+        IF ( iforcing /= iheldsuarez  ) THEN
 
           DO jk = slev, slev_moist-1
             z_qsum(:,jk) = 0._wp
@@ -195,7 +195,7 @@ MODULE mo_nh_diagnose_pres_temp
             ENDDO
           ENDDO
 
-        ELSE ! .NOT. lforcing or Held-Suarez test forcing
+        ELSE ! .NOT. Held-Suarez test forcing
 
           DO jk = slev, nlev
 !DIR$ IVDEP
