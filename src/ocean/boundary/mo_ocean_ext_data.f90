@@ -620,17 +620,16 @@ CONTAINS
         CALL read_3D(stream_id, on_cells, 'runoff', z_flux)
         ext_data(jg)%oce%flux_forc_mon_c(:,:,:,12) = z_flux(:,:,:)
 
-        IF (i_ice_dyn==1) THEN
-          ! zonal wind speed
-          CALL read_3D(stream_id, on_cells, 'u_wind_10m', z_flux)
-          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
+!        IF (i_ice_dyn==1) THEN
+!          ! zonal wind speed
+!          CALL read_3D(stream_id, on_cells, 'u_wind_10m', z_flux)
+!          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,13) = z_flux(:,:,:)
+!
+!          ! meridional wind speed
+!          CALL read_3D(stream_id, on_cells, 'v_wind_10m', z_flux)
+!          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)
+!        ENDIF
 
-          ! meridional wind speed
-          CALL read_3D(stream_id, on_cells, 'v_wind_10m', z_flux)
-          ext_data(jg)%oce%flux_forc_mon_c(:,:,:,14) = z_flux(:,:,:)          
-        ENDIF
-        
-        
 
       END IF
 
