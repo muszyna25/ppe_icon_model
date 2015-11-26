@@ -103,7 +103,7 @@ MODULE mo_solve_nonhydro
     TYPE(t_prepare_adv),       INTENT(INOUT) :: prep_adv
 
     ! Initialization switch that has to be .TRUE. at the initial time step only (not for restart)
-    LOGICAL,                   INTENT(INOUT) :: l_init
+    LOGICAL,                   INTENT(IN)    :: l_init
     ! Switch to recompute velocity tendencies after a physics call irrespective of the time scheme option
     LOGICAL,                   INTENT(IN)    :: l_recompute
     ! Switch if mass flux needs to be saved for nest boundary interpolation tendency computation
@@ -357,8 +357,6 @@ MODULE mo_solve_nonhydro
                                  z_kin_hor_e,z_vt_ie,ntl2,istep,lvn_only,dtime)
         nvar = nnew
       ENDIF
-
-      l_init = .FALSE. ! should be .TRUE. only at initial predictor step
 
     ! Preparations for igradp_method = 3/5 (reformulated extrapolation below the ground)
     IF (istep == 1 .AND. (igradp_method == 3 .OR. igradp_method == 5)) THEN
