@@ -237,7 +237,8 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 
     sigma11=0._wp; sigma12=0._wp; sigma22=0._wp
-    CALL EVPdynamics
+!    CALL EVPdynamics
+    CALL EVPdynamics_omp
 
 !--------------------------------------------------------------------------------------------------
 ! Post-processing: Copy FEM variables back to ICON variables
@@ -509,7 +510,7 @@ CONTAINS
   SUBROUTINE ice_fem_grid_init(p_patch_3D)
     ! For the AWI FEM
     USE mo_ice_mesh,           ONLY: coord_nod2D, nod2D, index_nod2D
-    USE mo_ice_elements,       ONLY: elem2D_nodes, elem2D
+    USE mo_ice_elements,       ONLY: elem2D_nodes, elem2D, nod2D_elems
     USE mo_physical_constants, ONLY: earth_angular_velocity
     USE mo_ice_mesh,           ONLY: coriolis_nod2D
    ! USE mo_mpi
@@ -526,9 +527,11 @@ CONTAINS
     INTEGER :: k, jb, jc, jv
     INTEGER :: i_startidx_c, i_endidx_c
     INTEGER :: i_startidx_v, i_endidx_v
+    INTEGER :: cell_index, cell_block
 
     ! Temporary variables/buffers and flags
     INTEGER :: verts(nproma,p_patch_3D%p_patch_2D(1)%nblks_v)
+    INTEGER :: elems(nproma,p_patch_3D%p_patch_2D(1)%nblks_e)
     INTEGER :: buffy(nproma*p_patch_3D%p_patch_2D(1)%nblks_v)
     INTEGER :: ist
     REAL(wp) :: lat, lon, cos_d, sin_d
@@ -641,6 +644,40 @@ CONTAINS
 
       ENDDO
     ENDDO
+
+    ! allocate verts->cells connectivity index for the restructured solver loop
+    ALLOCATE(nod2D_elems(6,nod2D),STAT=ist) ! 6 neighbouring cells by default, can be less for pentagons and boundary nodes
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating nod2D_elems failed')
+    ENDIF
+    ! initialize with zeros
+    nod2D_elems = 0
+
+    k=0
+    DO jb = p_patch%cells%all%start_block, p_patch%cells%all%end_block
+      CALL get_index_range(p_patch%cells%all, jb, i_startidx_c, i_endidx_c)
+      DO jc = i_startidx_c,i_endidx_c
+        k=k+1
+        elems(jc,jb) = k
+      ENDDO
+    ENDDO
+    ! Establish the connectivity between elements and nodes.
+    ! Array nod2D_elems lists the elements that share a given node.
+    k=0
+    DO jb = p_patch%verts%all%start_block, p_patch%verts%all%end_block
+      CALL get_index_range(p_patch%verts%all, jb, i_startidx_v, i_endidx_v)
+      DO jv = i_startidx_v, i_endidx_v
+        k=k+1
+        DO jc = 1, 6
+          cell_index = p_patch%verts%cell_idx(jv,jb,jc)
+          cell_block = p_patch%verts%cell_blk(jv,jb,jc)
+
+          IF (cell_index > 0)                                      &
+             nod2D_elems(jc,k) = elems(cell_index,cell_block)
+
+        END DO
+      END DO
+    END DO
 
 !    write(0,*) "sync test(jc, jb, 1)..."
 !    CALL sync_patch_array(SYNC_C, p_patch, test(:, :, 1))
