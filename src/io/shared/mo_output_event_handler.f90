@@ -2435,8 +2435,8 @@ CONTAINS
   !  @author F. Prill, DWD
   !
   FUNCTION strip_from_modifiers(dt_string)
-    CHARACTER(LEN=LEN_TRIM(dt_string)) :: strip_from_modifiers
     CHARACTER(LEN=*), INTENT(IN) :: dt_string
+    CHARACTER(LEN=LEN_TRIM(dt_string)) :: strip_from_modifiers
     ! local variables
     CHARACTER :: char
     CHARACTER(LEN=LEN(dt_string)) :: str

@@ -768,8 +768,8 @@ CONTAINS
   !> Remove all white space from a string (also between "words").
   !
   FUNCTION remove_whitespace(in_str)
-    CHARACTER(len=LEN_TRIM(in_str)) :: remove_whitespace
     CHARACTER(len=*), INTENT(in)    :: in_str
+    CHARACTER(len=LEN_TRIM(in_str)) :: remove_whitespace
     ! local variables
     INTEGER   :: i,j, ichar
 
