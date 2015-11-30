@@ -95,10 +95,9 @@ CONTAINS
     CALL add_fields(ocean_state%p_acc%mass_flx_e    , ocean_state%p_diag%mass_flx_e    , edges)
     CALL add_fields(ocean_state%p_acc%vort          , ocean_state%p_diag%vort          , verts,levels=max_zlev)
     CALL add_fields(ocean_state%p_acc%kin           , ocean_state%p_diag%kin           , cells)
-    CALL add_verticallyIntegrated_field(ocean_state%p_acc%vn_vint, ocean_state%p_prog(nnew(1))%vn, edges, &
-      & ocean_state%patch_3D%p_patch_1D(1)%prism_thick_e)
+    CALL add_verticalSum_field(ocean_state%p_acc%edgeFlux_total, ocean_state%p_prog(nnew(1))%vn, edges)
     ! CALL dbg_print('nnew(1))%vn', ocean_state%p_prog(nnew(1))%vn ,"statistics",1,in_subset=edges)
-    ! CALL dbg_print('vn_vint_acc', ocean_state%p_acc%vn_vint, "statistics",1,in_subset=edges)
+    ! CALL dbg_print('edgeFlux_total_acc', ocean_state%p_acc%edgeFlux_total, "statistics",1,in_subset=edges)
 
 
     IF (PRESENT(p_phys_param)) THEN
@@ -180,7 +179,7 @@ CONTAINS
     p_acc%rhopot                    = p_acc%rhopot                   /REAL(nsteps_since_last_output,wp)
     p_acc%u_vint                    = p_acc%u_vint                   /REAL(nsteps_since_last_output,wp)
     p_acc%v_vint                    = p_acc%v_vint                   /REAL(nsteps_since_last_output,wp)
-    p_acc%vn_vint                   = p_acc%vn_vint                  /REAL(nsteps_since_last_output,wp)
+    p_acc%edgeFlux_total                   = p_acc%edgeFlux_total                  /REAL(nsteps_since_last_output,wp)
     p_acc%w                         = p_acc%w                        /REAL(nsteps_since_last_output,wp)
     p_acc%div_mass_flx_c            = p_acc%div_mass_flx_c           /REAL(nsteps_since_last_output,wp)
     p_acc%rho                       = p_acc%rho                      /REAL(nsteps_since_last_output,wp)
@@ -255,7 +254,7 @@ CONTAINS
     p_acc%rhopot                    = 0.0_wp
     p_acc%u_vint                    = 0.0_wp
     p_acc%v_vint                    = 0.0_wp
-    p_acc%vn_vint                   = 0.0_wp
+    p_acc%edgeFlux_total                   = 0.0_wp
     p_acc%w                         = 0.0_wp
     p_acc%div_mass_flx_c            = 0.0_wp
     p_acc%rho                       = 0.0_wp

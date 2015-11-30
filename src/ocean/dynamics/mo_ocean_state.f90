@@ -1478,9 +1478,9 @@ CONTAINS
       & t_cf_var('div_mass_flx_c_acc','','divergence of mass flux', DATATYPE_FLT32),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("oce_default"))
-    CALL add_var(ocean_default_list, 'vn_vint_acc', ocean_state_acc%vn_vint , &
+    CALL add_var(ocean_default_list, 'edgeFlux_total_acc', ocean_state_acc%edgeFlux_total, &
       & grid_unstructured_edge, za_surface, &
-      & t_cf_var('vn_vint_acc', 'm*m/s', 'vertically integrated normal velocity', DATATYPE_FLT32),&
+      & t_cf_var('edgeFlux_total_acc', 'm*m/s', 'vertically integrated edge flux', DATATYPE_FLT32),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,nblks_e/),in_group=groups("oce_default"))
     CALL add_var(ocean_default_list, 'u_vint_acc', ocean_state_acc%u_vint , &

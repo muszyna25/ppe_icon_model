@@ -342,7 +342,7 @@ MODULE mo_ocean_types
       & press_grad          ! hydrostatic pressure gradient term. Unit [m/s]
 
     onEdges_2D :: &
-      vn_vint            ! vertically integrated normal velocity weighted by edge height
+      edgeFlux_total            ! vertically integrated normal velocity weighted by edge height
 
 
     onVertices ::         &

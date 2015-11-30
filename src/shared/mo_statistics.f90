@@ -49,6 +49,7 @@ MODULE mo_statistics
   PUBLIC :: horizontal_sum
   PUBLIc :: print_value_location
   PUBLIc :: add_verticallyIntegrated_field
+  PUBLIc :: add_verticalSum_field
   
   ! simple min max mean (no weights)
   ! uses the range in_subset
@@ -1761,6 +1762,49 @@ CONTAINS
 
     ENDIF
   END SUBROUTINE add_verticallyIntegrated_field
+  !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  SUBROUTINE add_verticalSum_field(vint_field_acc,field_3D,subset,levels)
+    REAL(wp),INTENT(inout)          :: vint_field_acc(:,:)
+    REAL(wp),INTENT(in)             :: field_3D(:,:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    INTEGER,INTENT(in),OPTIONAL :: levels
+
+    INTEGER :: idx,block,level,start_index,end_index
+
+    INTEGER :: mylevels
+    LOGICAL :: my_force_level
+
+    IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. PRESENT(levels)) THEN
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          DO level = 1, subset%vertical_levels(idx,block)
+            vint_field_acc(idx,block) = vint_field_acc(idx,block) + field_3D(idx,level,block) 
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ELSE
+      ! use constant levels
+      mylevels   = SIZE(field_3D, VerticalDim_Position)
+      IF (PRESENT(levels)) mylevels = levels
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
+      DO block = subset%start_block, subset%end_block
+        CALL get_index_range(subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          DO level = 1, mylevels
+            vint_field_acc(idx,block) = vint_field_acc(idx,block) + field_3D(idx,level,block) 
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ENDIF
+  END SUBROUTINE add_verticalSum_field
   !-----------------------------------------------------------------------
 
 
