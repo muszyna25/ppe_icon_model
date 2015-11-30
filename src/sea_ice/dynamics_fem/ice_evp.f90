@@ -11,7 +11,7 @@
 !
 
 !----------------------------
- #include "omp_definitions.inc"
+#include "omp_definitions.inc"
 !----------------------------
 !
 ! Vladimir: added omp parallelization; rhs_a, rhs_m, rhs_mis are precalculated now
@@ -152,19 +152,23 @@ REAL(wp) :: aa!, mass
 REAL(wp) :: dx(3), dy(3), meancos, val3
 
 val3=1._wp/3.0_wp
-!ICON_OMP_PARALLEL_DO PRIVATE(i,row) ICON_OMP_DEFAULT_SCHEDULE
- DO i=1, myDim_nod2D
-     row=myList_nod2D(i) 
-     rhs_u(row)=0.0_wp
-     rhs_v(row)=0.0_wp
-     ! Vladimir: now done in precalc4rhs_omp
-!     rhs_a(row)=0.0_wp    ! these are used as temporal storage here
-!     rhs_m(row)=0.0_wp    ! for the contribution due to ssh
- END DO
-!ICON_OMP_END_PARALLEL_DO
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy,meancos,elevation_elem,&
-!ICON_OMP       k,row) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL
+!ICON_OMP_WORKSHARE
+     rhs_u=0.0_wp
+     rhs_v=0.0_wp
+!ICON_OMP_END_WORKSHARE
+
+! DO i=1, myDim_nod2D
+!     row=myList_nod2D(i)
+!     rhs_u(row)=0.0_wp
+!     rhs_v(row)=0.0_wp
+!     ! Vladimir: now done in precalc4rhs_omp
+!!     rhs_a(row)=0.0_wp    ! these are used as temporal storage here
+!!     rhs_m(row)=0.0_wp    ! for the contribution due to ssh
+! END DO
+
+!ICON_OMP_DO PRIVATE(i,elem,elnodes,aa,meancos,dx,dy,k,row) ICON_OMP_DEFAULT_SCHEDULE
  do i=1,myDim_elem2D
      elem=myList_elem2D(i)    
      elnodes=elem2D_nodes(:,elem)
@@ -196,11 +200,10 @@ val3=1._wp/3.0_wp
 !        rhs_m(row)=rhs_m(row)-aa*sum(dy*elevation_elem)
 !     END DO
  end do 
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_DO
 
 !  Vladimir: now (partly) done in precalc4rhs_omp
 !
-!!! !ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
 !  DO i=1, myDim_nod2D
 !     row=myList_nod2D(i)
 !     cluster_area=lmass_matrix(row)
@@ -214,7 +217,6 @@ val3=1._wp/3.0_wp
 !     rhs_v(row)=0._wp
 !     end if
 !  END DO
-!!! !ICON_OMP_END_PARALLEL_DO
 
 !ICON_OMP_WORKSHARE
     WHERE (rhs_mis > 0._wp)
@@ -222,7 +224,8 @@ val3=1._wp/3.0_wp
      rhs_v=rhs_v/rhs_mis + rhs_m
     ENDWHERE
 !ICON_OMP_END_WORKSHARE
-  
+!ICON_OMP_END_PARALLEL
+
 end subroutine stress2rhs
 !===================================================================
 subroutine precalc4rhs_omp
@@ -240,43 +243,40 @@ subroutine precalc4rhs_omp
 
 IMPLICIT NONE
 INTEGER      :: row, elem, elnodes(3), nodels(6), k, i
-REAL(wp) :: mass, aa
+REAL(wp) :: mass
 REAL(wp) :: cluster_area,elevation_elem(3)
 REAL(wp) :: dx(3), dy(3)
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i,row) ICON_OMP_DEFAULT_SCHEDULE
- DO i=1, myDim_nod2D
-     row=myList_nod2D(i)
-     rhs_a(row)=0.0_wp    ! these are used as temporal storage here
-     rhs_m(row)=0.0_wp    ! for the contribution due to ssh
-     rhs_mis(row)=0.0_wp
- END DO
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_PARALLEL
+!ICON_OMP_WORKSHARE
+     rhs_a=0.0_wp    ! these are used as temporal storage here
+     rhs_m=0.0_wp    ! for the contribution due to ssh
+     rhs_mis=0.0_wp
+!ICON_OMP_END_WORKSHARE
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy,elevation_elem,&
-!ICON_OMP       k,row) ICON_OMP_DEFAULT_SCHEDULE
+! DO i=1, myDim_nod2D
+!     row=myList_nod2D(i)
+!     rhs_a(row)=0.0_wp    ! these are used as temporal storage here
+!     rhs_m(row)=0.0_wp    ! for the contribution due to ssh
+!     rhs_mis(row)=0.0_wp
+! END DO
+
+!ICON_OMP_DO PRIVATE(i,elem,elnodes,dx,dy) ICON_OMP_DEFAULT_SCHEDULE
  do i=1,myDim_elem2D
      elem=myList_elem2D(i)
      elnodes=elem2D_nodes(:,elem)
-      ! ===== Skip if ice is absent
-     aa=product(m_ice(elnodes))*product(a_ice(elnodes))
-     if (aa==0._wp) CYCLE
-      ! =====
-     dx=bafux(:,elem)
-     dy=bafuy(:,elem)
-     elevation_elem=elevation(elnodes)
 
      ! use rhs_m and rhs_a for storing the contribution from elevation:
      aa=9.81_wp*voltriangle(elem)/3.0_wp
-     DO k=1,3
-        row=elnodes(k)
-        rhs_a(row)=rhs_a(row)-aa*sum(dx*elevation_elem)
-        rhs_m(row)=rhs_m(row)-aa*sum(dy*elevation_elem)
-     END DO
- end do
-!ICON_OMP_END_PARALLEL_DO
+     dx=aa*sum(bafux(:,elem)*elevation(elnodes))
+     dy=aa*sum(bafuy(:,elem)*elevation(elnodes))
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
+     rhs_a(elnodes)=rhs_a(elnodes)-dx
+     rhs_m(elnodes)=rhs_m(elnodes)-dy
+ end do
+!ICON_OMP_END_DO
+
+!ICON_OMP_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
   DO i=1, myDim_nod2D
      row=myList_nod2D(i)
      cluster_area=lmass_matrix(row)
@@ -293,7 +293,8 @@ REAL(wp) :: dx(3), dy(3)
 !     rhs_mis(row)=0._wp
      end if
   END DO
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
 
 end subroutine precalc4rhs_omp
 !===================================================================
