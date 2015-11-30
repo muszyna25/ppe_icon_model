@@ -147,8 +147,8 @@ subroutine stress2rhs
 
 IMPLICIT NONE
 INTEGER      :: row, elem, elnodes(3), k, i  
-REAL(wp) :: mass, aa
-REAL(wp) :: cluster_area,elevation_elem(3)
+REAL(wp) :: aa!, mass
+!REAL(wp) :: cluster_area,elevation_elem(3)
 REAL(wp) :: dx(3), dy(3), meancos, val3
 
 val3=1._wp/3.0_wp
@@ -176,7 +176,7 @@ val3=1._wp/3.0_wp
      meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius         !metrics
      dx=bafux(:,elem)
      dy=bafuy(:,elem)
-     elevation_elem=elevation(elnodes)
+!     elevation_elem=elevation(elnodes)
      
      DO k=1,3
         row=elnodes(k)
