@@ -243,7 +243,7 @@ subroutine precalc4rhs_omp
 
 IMPLICIT NONE
 INTEGER      :: row, elem, elnodes(3), nodels(6), k, i
-REAL(wp) :: mass
+REAL(wp) :: mass, aa
 REAL(wp) :: cluster_area,elevation_elem(3)
 REAL(wp) :: dx(3), dy(3)
 
@@ -261,7 +261,7 @@ REAL(wp) :: dx(3), dy(3)
 !     rhs_mis(row)=0.0_wp
 ! END DO
 
-!ICON_OMP_DO PRIVATE(i,elem,elnodes,dx,dy) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(i,elem,elnodes,aa,dx,dy) ICON_OMP_DEFAULT_SCHEDULE
  do i=1,myDim_elem2D
      elem=myList_elem2D(i)
      elnodes=elem2D_nodes(:,elem)
