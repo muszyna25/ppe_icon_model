@@ -6,7 +6,6 @@ MODULE mo_derived_variable_handling
   USE self_object
   USE self_vector_ref
   USE self_vector
-  USE self_map_ref
   USE self_map
   USE self_assert
 
