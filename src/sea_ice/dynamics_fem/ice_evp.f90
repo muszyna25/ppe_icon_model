@@ -11,9 +11,10 @@
 !
 
 !----------------------------
-! #include "omp_definitions.inc"
+ #include "omp_definitions.inc"
 !----------------------------
-
+!
+! Vladimir: added omp parallelization; rhs_a, rhs_m, rhs_mis are precalculated now
 !============================================================================
 subroutine stress_tensor
 ! EVP rheology implementation. Computes stress tensor components based on ice 
@@ -156,7 +157,7 @@ val3=1._wp/3.0_wp
      row=myList_nod2D(i) 
      rhs_u(row)=0.0_wp
      rhs_v(row)=0.0_wp
-     ! now done in precalc4rhs_omp
+     ! Vladimir: now done in precalc4rhs_omp
 !     rhs_a(row)=0.0_wp    ! these are used as temporal storage here
 !     rhs_m(row)=0.0_wp    ! for the contribution due to ssh
  END DO
@@ -187,7 +188,7 @@ val3=1._wp/3.0_wp
              -sigma11(elem)*val3*meancos)
      END DO
       ! use rhs_m and rhs_a for storing the contribution from elevation:
-      ! now done in precalc4rhs_omp
+      !  Vladimir: now done in precalc4rhs_omp
 !     aa=9.81_wp*voltriangle(elem)/3.0_wp
 !     DO k=1,3
 !        row=elnodes(k)
@@ -197,6 +198,8 @@ val3=1._wp/3.0_wp
  end do 
 !ICON_OMP_END_PARALLEL_DO
 
+!  Vladimir: now (partly) done in precalc4rhs_omp
+!
 !!! !ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
 !  DO i=1, myDim_nod2D
 !     row=myList_nod2D(i)
