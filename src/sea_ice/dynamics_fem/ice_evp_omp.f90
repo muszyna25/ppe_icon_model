@@ -145,10 +145,10 @@ subroutine stress2rhs_omp
   USE mo_kind,                ONLY: wp
 
 IMPLICIT NONE
-INTEGER      :: row, elem, elnodes(3), nodels(6), k, i, j
+INTEGER      :: row, elem, nodels(6), k, i!, j, elnodes(3)
 REAL(wp) :: mass, aa
 REAL(wp) :: cluster_area,elevation_elem(3)
-REAL(wp) :: dx(3), dy(3), meancos, val3
+REAL(wp) :: dx, dy, meancos, val3 ! dx(3), dy(3)
 
 val3=1._wp/3.0_wp
 !ICON_OMP_PARALLEL_DO PRIVATE(i,row) ICON_OMP_DEFAULT_SCHEDULE
@@ -161,7 +161,7 @@ val3=1._wp/3.0_wp
  END DO
 !ICON_OMP_END_PARALLEL_DO
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i,row,nodels,k,elem,dx,dy,meancos,elnodes,j,&
+!ICON_OMP_PARALLEL_DO PRIVATE(i,row,nodels,k,elem,dx,dy,meancos,&  !j,elnodes,&
 !ICON_OMP       aa,elevation_elem) ICON_OMP_DEFAULT_SCHEDULE
 DO i=1, myDim_nod2D
     row=myList_nod2D(i)
@@ -174,23 +174,31 @@ DO i=1, myDim_nod2D
         elem=nodels(k)
         IF (elem > 0) THEN
          meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius         !metrics
-         dx=bafux(:,elem)
-         dy=bafuy(:,elem)
+!         dx=bafux(:,elem)
+!         dy=bafuy(:,elem)
+         dx=bafux_nod(elem,row)
+         dy=bafuy_nod(elem,row)
 
-         elnodes=elem2D_nodes(:,elem)
-         DO j=1,3
-            if (row==elnodes(j)) exit ! find the node for the give element elem, that matches row
-         END DO
+!         elnodes=elem2D_nodes(:,elem)
+!         DO j=1,3
+!            if (row==elnodes(j)) exit ! find the node for the give element elem, that matches row
+!         END DO
 
+!        rhs_u(row)=rhs_u(row) - voltriangle(elem) * &
+!             (sigma11(elem)*dx(j)+sigma12(elem)*(dy(j)) &
+!             +sigma12(elem)*val3*meancos)                          !metrics
+!        rhs_v(row)=rhs_v(row) - voltriangle(elem) * &
+!             (sigma12(elem)*dx(j)+sigma22(elem)*dy(j) &
+!             -sigma11(elem)*val3*meancos)
         rhs_u(row)=rhs_u(row) - voltriangle(elem) * &
-             (sigma11(elem)*dx(j)+sigma12(elem)*(dy(j)) &
+             (sigma11(elem)*dx+sigma12(elem)*dy &
              +sigma12(elem)*val3*meancos)                          !metrics
         rhs_v(row)=rhs_v(row) - voltriangle(elem) * &
-             (sigma12(elem)*dx(j)+sigma22(elem)*dy(j) &
+             (sigma12(elem)*dx+sigma22(elem)*dy &
              -sigma11(elem)*val3*meancos)
 
          ! use rhs_m and rhs_a for storing the contribution from elevation:
-         ! TODO -- do not recalculate at every iteration
+         ! do not recalculate at every iteration
 !         aa=9.81_wp*voltriangle(elem)/3.0_wp
 !         elevation_elem=elevation(elnodes)
 

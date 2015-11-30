@@ -22,5 +22,6 @@ module mo_ice_elements
   REAL(wp)                                 :: Vol2D
   REAL(wp), allocatable, dimension(:,:)    :: derivative_stdbf
   REAL(wp), allocatable, dimension(:,:)    :: bafux, bafuy
+  REAL(wp), allocatable, dimension(:,:)    :: bafux_nod, bafuy_nod
   REAL(wp), allocatable, dimension(:)      :: voltriangle
 end module mo_ice_elements

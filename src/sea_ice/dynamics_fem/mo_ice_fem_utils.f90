@@ -81,6 +81,7 @@ MODULE mo_ice_fem_utils
   PRIVATE :: upwind_hflux_ice
   PRIVATE :: intrp_to_fem_grid_vec
   PRIVATE :: intrp_from_fem_grid_vec
+  PRIVATE :: basisfunctions_nod
 !  PRIVATE :: intrp_to_fem_grid_vec_old
 !  PRIVATE :: intrp_from_fem_grid_vec_old
 
@@ -708,6 +709,70 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !
+  !> Copy basis functions arrays (bafux, bafuy) to (bafux_nod, bafuy_nod)
+  !! which are indexed for each node, rather than for each element
+  !! Those arrays are necessary for the OMP-parallelized version of stress2rhs_omp
+  !! Where we loop over the nodes to update the rhs value in the momentum equatoins.
+  !!
+  !! @par Revision History
+  !! Developed by Vladimir Lapin, MPI-M (2015-11-30)
+  !
+  SUBROUTINE basisfunctions_nod
+
+    USE mo_ice_mesh,           ONLY: nod2D
+    USE mo_ice_elements,       ONLY: bafux, bafuy, bafux_nod, bafuy_nod,    &
+                                   & elem2D_nodes, nod2D_elems
+
+    ! Indexing
+    INTEGER :: je, jn, k
+    INTEGER :: ist
+    ! Temporary var
+    INTEGER ::  elem, elnodes(3)
+    CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_ice_fem_utils:basisfunctions_nod'
+    LOGICAL :: found
+
+    ! allocate bafux_nod, bafuy_nod
+    ALLOCATE(bafux_nod(6,nod2D),bafuy_nod(6,nod2D),STAT=ist) ! 6 neighbouring cells by default, can be less for pentagons and boundary nodes
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating bafux_nod/bafuy_nod failed')
+    ENDIF
+    ! initialize with zeros
+    bafux_nod = 0.0_wp
+    bafuy_nod = 0.0_wp
+
+!ICON_OMP_PARALLEL_DO PRIVATE(jn,je,elem,elnodes,k) ICON_OMP_DEFAULT_SCHEDULE
+    DO jn=1, nod2D
+         DO je=1,6
+            elem=nod2D_elems(je,jn)
+
+            IF (elem > 0) THEN
+              elnodes=elem2D_nodes(:,elem)
+
+              ! find the node for the giveN element elem, that matches jn
+              ! just brute force search
+              found = .false.
+              DO k=1,3
+                IF (jn==elnodes(k)) THEN
+                    found = .true.
+                    exit
+                ENDIF
+              END DO
+
+              IF (found) THEN
+                  bafux_nod(je,jn) = bafux(k,elem)
+                  bafuy_nod(je,jn) = bafuy(k,elem)
+              ELSE
+                CALL finish(routine, "FEM element-vertex connectivity inconsistency")
+              ENDIF
+
+            END IF
+         END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE basisfunctions_nod
+  !-------------------------------------------------------------------------
+  !
   !> Synchronisation routine for the FEM
   !! This replaces the routine Sergey used to synchronize arrays across CPUs. It is just a wrapper
   !! around sync_patch_array using the PRIVATE variable fem_patch as patch and reshaping the
@@ -849,6 +914,12 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
+    ! Copy basis functions arrays (bafux, bafuy) to (bafux_nod, bafuy_nod)
+    ! Used by the OMP-parallelized loop in stress2rhs_omp
+    CALL basisfunctions_nod
+
+!!!! check that input myList_nod2D==(1:nod2D) and myList_elem2D==(1:elem2D)
+!
 !  write(0,*) "max(myList_nod2D - 1:nod2D)", maxval(myList_nod2D - (/(k, k=1, nod2D)/) ), minval(myList_nod2D - (/(k, k=1, nod2D)/) )
 !  write(0,*) "max(myList_elem2D - 1:elem2D)", maxval(myList_elem2D - (/(k, k=1, elem2D)/) ), minval(myList_elem2D - (/(k, k=1, elem2D)/) )
 
