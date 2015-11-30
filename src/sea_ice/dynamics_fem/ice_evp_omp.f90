@@ -13,7 +13,8 @@
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-
+!
+! Vladimir: added omp parallelization; rhs_a, rhs_m, rhs_mis are precalculated now
 !============================================================================
 subroutine stress_tensor_omp
 ! EVP rheology implementation. Computes stress tensor components based on ice 
@@ -156,6 +157,7 @@ val3=1._wp/3.0_wp
      row=myList_nod2D(i) 
      rhs_u(row)=0.0_wp
      rhs_v(row)=0.0_wp
+     ! Vladimir: now done in precalc4rhs_omp
 !     rhs_a(row)=0.0_wp    ! these are used as temporal storage here
 !     rhs_m(row)=0.0_wp    ! for the contribution due to ssh
  END DO
@@ -198,7 +200,7 @@ DO i=1, myDim_nod2D
              -sigma11(elem)*val3*meancos)
 
          ! use rhs_m and rhs_a for storing the contribution from elevation:
-         ! do not recalculate at every iteration
+         !  Vladimir: now done in precalc4rhs_omp
 !         aa=9.81_wp*voltriangle(elem)/3.0_wp
 !         elevation_elem=elevation(elnodes)
 
@@ -210,21 +212,23 @@ DO i=1, myDim_nod2D
 END DO
 !ICON_OMP_END_PARALLEL_DO
 
-!!!  !ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
+!  Vladimir: now (partly) done in precalc4rhs_omp
+!
+!!! !ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
 !  DO i=1, myDim_nod2D
-!     row=myList_nod2D(i)             
+!     row=myList_nod2D(i)
 !     cluster_area=lmass_matrix(row)
 !     mass=cluster_area*(m_ice(row)*rhoi+m_snow(row)*rhos)
-     
+!
 !     if (mass.ne.0._wp) then
-!     rhs_u(row)=rhs_u(row)/mass + rhs_a(row)/cluster_area 
-!     rhs_v(row)=rhs_v(row)/mass + rhs_m(row)/cluster_area 
+!     rhs_u(row)=rhs_u(row)/mass + rhs_a(row)/cluster_area
+!     rhs_v(row)=rhs_v(row)/mass + rhs_m(row)/cluster_area
 !     else
 !     rhs_u(row)=0._wp
 !     rhs_v(row)=0._wp
 !     end if
 !  END DO
-!!!  !ICON_OMP_END_PARALLEL_DO
+!!! !ICON_OMP_END_PARALLEL_DO
 
 !ICON_OMP_WORKSHARE
     WHERE (rhs_mis > 0._wp)
@@ -282,18 +286,18 @@ REAL(wp) :: dx(3), dy(3)
         row=elnodes(k)
         rhs_a(row)=rhs_a(row)-aa*sum(dx*elevation_elem)
         rhs_m(row)=rhs_m(row)-aa*sum(dy*elevation_elem)
-     END DO     
- end do 
+     END DO
+ end do
 !ICON_OMP_END_PARALLEL_DO
 
 !ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
   DO i=1, myDim_nod2D
-     row=myList_nod2D(i)             
+     row=myList_nod2D(i)
      cluster_area=lmass_matrix(row)
      mass=cluster_area*(m_ice(row)*rhoi+m_snow(row)*rhos)
-     
+
      if (mass.ne.0._wp) then
-     rhs_a(row) = rhs_a(row)/cluster_area 
+     rhs_a(row) = rhs_a(row)/cluster_area
      rhs_m(row) = rhs_m(row)/cluster_area
      rhs_mis(row) = mass
 !!    already taken care of at the initialization step
@@ -304,7 +308,7 @@ REAL(wp) :: dx(3), dy(3)
      end if
   END DO
 !ICON_OMP_END_PARALLEL_DO
-  
+
 end subroutine precalc4rhs_omp
 !===================================================================
 subroutine EVPdynamics_omp
