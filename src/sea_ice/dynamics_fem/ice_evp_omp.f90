@@ -235,6 +235,7 @@ subroutine precalc4rhs_omp
   use mo_ice_elements
   use mo_ice_mesh
   use mo_ice
+  use mo_ice_parsup
 
   use mo_physical_constants,  ONLY: rhoi, rhos
   USE mo_kind,                ONLY: wp
@@ -327,7 +328,7 @@ REAL(wp)    :: ax, ay
     ax=cos(theta_io)
     ay=sin(theta_io)
 
-! precalculate severa arrays that do not change during subcycling
+! precalculate several arrays that do not change during subcycling
  call precalc4rhs_omp
 
 do shortstep=1, steps 
