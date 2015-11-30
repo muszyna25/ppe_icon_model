@@ -202,7 +202,7 @@ DO i=1, myDim_nod2D
 END DO
 !ICON_OMP_END_PARALLEL_DO
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
+!!!  !ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
 !  DO i=1, myDim_nod2D
 !     row=myList_nod2D(i)             
 !     cluster_area=lmass_matrix(row)
@@ -216,7 +216,7 @@ END DO
 !     rhs_v(row)=0._wp
 !     end if
 !  END DO
-!ICON_OMP_END_PARALLEL_DO
+!!!  !ICON_OMP_END_PARALLEL_DO
 
 !ICON_OMP_WORKSHARE
     WHERE (rhs_mis > 0._wp)
