@@ -991,7 +991,7 @@ CONTAINS
           & trsol_par_sfc=prm_diag%trsol_par_sfc(:,jb), & ! in photosynthetically active downward transm. at the surface
           & trsol_dn_sfc_diff=prm_diag%trsol_dn_sfc_diff(:,jb),&! in shortwave diffuse downward transm. at the surface
           & trsol_clr_sfc=prm_diag%trsolclr_sfc(:,jb),  & ! in clear-sky net transmissivity at surface
-          & use_trsolclr_sfc=atm_phy_nwp_config(jg)%inwp_radiation==1, &
+          & use_trsolclr_sfc=atm_phy_nwp_config(jg)%inwp_radiation/=2, &
           !
           ! output
           ! ------

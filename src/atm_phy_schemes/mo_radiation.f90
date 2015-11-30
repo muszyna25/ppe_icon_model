@@ -1585,7 +1585,7 @@ CONTAINS
          &  cld_piz_sw_vr   ,aer_tau_sw_vr   ,aer_cg_sw_vr    ,aer_piz_sw_vr   , & 
          &  rnseeds         ,sw_strat        ,n_gpts_ts       ,flx_dnsw        , &
          &  flx_upsw        ,flx_dnsw_clr    ,flx_upsw_clr    ,aux_out(:,1)    , &
-         &  aux_out(:,2)    ,aux_out(:,3)    ,aux_out(:,4)    ,aux_out(:,5)      )
+         &  flx_dnpar_sfc   ,aux_out(:,3)    ,aux_out(:,4)    ,aux_out(:,5)      )
       ! Reset solar fluxes to zero at dark points
       DO jl = 1, jce
         IF (pmu0(jl) <= 0._wp) THEN
@@ -1615,6 +1615,9 @@ CONTAINS
     flx_upsw_sfc(1:jce)     = flx_upsw(1:jce,klev+1)
     flx_upsw_sfc_clr(1:jce) = flx_upsw_clr(1:jce,klev+1)
     IF (PRESENT(flx_upsw_toa)) flx_upsw_toa(1:jce) = flx_upsw(1:jce,1)
+    IF (irad /= 1 .AND. PRESENT(flx_dnsw_diff_sfc))    &  ! approximate calculation!!
+      flx_dnsw_diff_sfc(1:jce) = flx_dnsw(1:jce,klev+1)*                            &
+      (aux_out(1:jce,1)*aux_out(1:jce,4) + (1._wp-aux_out(1:jce,1))*aux_out(1:jce,3))
 !!$    sw_irr_toa(1:jce)       = flx_dnsw(1:jce,1)
     !
     IF (ltimer) CALL timer_stop(timer_rrtm_post)
