@@ -95,7 +95,7 @@ CONTAINS
     CALL add_fields(ocean_state%p_acc%mass_flx_e    , ocean_state%p_diag%mass_flx_e    , edges)
     CALL add_fields(ocean_state%p_acc%vort          , ocean_state%p_diag%vort          , verts,levels=max_zlev)
     CALL add_fields(ocean_state%p_acc%kin           , ocean_state%p_diag%kin           , cells)
-    CALL add_verticalSum_field(ocean_state%p_acc%edgeFlux_total, ocean_state%p_prog(nnew(1))%vn, edges)
+    CALL add_verticalSum_field(ocean_state%p_acc%edgeFlux_total, ocean_state%p_diag%mass_flx_e, edges)
     ! CALL dbg_print('nnew(1))%vn', ocean_state%p_prog(nnew(1))%vn ,"statistics",1,in_subset=edges)
     ! CALL dbg_print('edgeFlux_total_acc', ocean_state%p_acc%edgeFlux_total, "statistics",1,in_subset=edges)
 

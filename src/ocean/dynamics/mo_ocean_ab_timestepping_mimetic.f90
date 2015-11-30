@@ -1935,7 +1935,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO 
 
 
-      ELSE
+        ELSE
 		  
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
         DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
