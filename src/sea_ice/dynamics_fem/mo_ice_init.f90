@@ -152,10 +152,10 @@ integer   :: k
  allocate(m_ice(nod2D), a_ice(nod2D), m_snow(nod2D))
  allocate(sigma11(elem2D), sigma12(elem2D), sigma22(elem2D))
  allocate(rhs_m(nod2D), rhs_a(nod2D), rhs_u(nod2D), rhs_v(nod2D))
- allocate(rhs_ms(nod2D))
+ allocate(rhs_mis(nod2D))
 
  rhs_m=0._wp
- rhs_ms=0._wp
+ rhs_mis=0._wp
  rhs_a=0._wp
  rhs_u=0._wp
  rhs_v=0._wp
