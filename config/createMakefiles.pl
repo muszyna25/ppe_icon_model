@@ -286,7 +286,7 @@ foreach my $dir ( @directories ) {
 
     if ( "$dir" ne "src" ) {
 	if ( $dir =~ m/^externals/) {
-	    print MAKEFILE "../../../lib/lib\$(LIB).a: \$(OBJS)\n";
+            print MAKEFILE "../../../lib/lib\$(LIB).a: \$(OBJS)\n";
 	    print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../../../lib/lib\$(LIB).a \$(OBJS)\n";
             print MAKEFILE "\t\@for modfile in \$(wildcard *.mod); do \\\n";
             print MAKEFILE "\t\tcp \$\$modfile ../../../include; \\\n"; 
@@ -368,6 +368,13 @@ __EOF__
 #	}
 #    }
     
+    if ( $dir =~ m/self/) {
+      my @_myvpath = @vpath;
+      shift @_myvpath; 
+      my $_myvpath = join('',@_myvpath);
+      chop $_myvpath;
+      print MAKEFILE "-include ",$_myvpath,"/../Makefile.depend";print MAKEFILE "\n";
+    } else {
     for my $file ( keys %module_usage ) {
 	next if $file =~ /c$/;
 	my ($object) = $file;
@@ -388,7 +395,7 @@ __EOF__
 	print MAKEFILE "$object: $file ";
 	&PrintWords (length($object)+length($file)+3, 0, \@dependencies);
 	print MAKEFILE "\n\n";
-    }
+    } }
 
     close (MAKEFILE);
     
