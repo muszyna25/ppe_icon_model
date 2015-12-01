@@ -147,8 +147,8 @@ subroutine stress2rhs
 
 IMPLICIT NONE
 INTEGER      :: row, elem, elnodes(3), k, i  
-REAL(wp) :: aa!, mass
-!REAL(wp) :: cluster_area,elevation_elem(3)
+REAL(wp) :: mass, aa
+REAL(wp) :: cluster_area,elevation_elem(3)
 REAL(wp) :: dx(3), dy(3), meancos, val3
 
 val3=1._wp/3.0_wp
@@ -181,7 +181,7 @@ val3=1._wp/3.0_wp
      meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius         !metrics
      dx=bafux(:,elem)
      dy=bafuy(:,elem)
-!     elevation_elem=elevation(elnodes)
+     elevation_elem=elevation(elnodes)
      
      DO k=1,3
         row=elnodes(k)
@@ -244,8 +244,8 @@ subroutine precalc4rhs_omp
 IMPLICIT NONE
 INTEGER      :: row, elem, elnodes(3), nodels(6), k, i
 REAL(wp) :: mass, aa
-REAL(wp) :: cluster_area!,elevation_elem(3)
-REAL(wp) :: dx, dy
+REAL(wp) :: cluster_area,elevation_elem(3)
+REAL(wp) :: dx(3), dy(3), da, dm
 
 !ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE
@@ -263,17 +263,25 @@ REAL(wp) :: dx, dy
      aa=product(m_ice(elnodes))*product(a_ice(elnodes))
      if (aa==0._wp) CYCLE
       ! =====
+     dx=bafux(:,elem)
+     dy=bafuy(:,elem)
+     elevation_elem=elevation(elnodes)
 
      ! use rhs_m and rhs_a for storing the contribution from elevation:
      aa=9.81_wp*voltriangle(elem)/3.0_wp
-     dx=aa*sum(bafux(:,elem)*elevation(elnodes))
-     dy=aa*sum(bafuy(:,elem)*elevation(elnodes))
+     da=-aa*sum(dx*elevation_elem)
+     dm=-aa*sum(dy*elevation_elem)
 
      DO k=1,3
         row=elnodes(k)
-        rhs_a(row)=rhs_a(row)-dx
-        rhs_m(row)=rhs_m(row)-dy
+        rhs_a(row)=rhs_a(row)+da
+        rhs_m(row)=rhs_m(row)+dm
      END DO
+!     DO k=1,3
+!        row=elnodes(k)
+!        rhs_a(row)=rhs_a(row)-aa*sum(dx*elevation_elem)
+!        rhs_m(row)=rhs_m(row)-aa*sum(dy*elevation_elem)
+!     END DO
  end do
 
 !ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE

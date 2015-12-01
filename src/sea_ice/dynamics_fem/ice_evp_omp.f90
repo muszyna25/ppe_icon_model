@@ -231,9 +231,12 @@ END DO
 !!! !ICON_OMP_END_PARALLEL_DO
 
 !ICON_OMP_WORKSHARE
-    WHERE (rhs_mis > 0._wp)
+    WHERE (rhs_mis .ne. 0._wp)
      rhs_u=rhs_u/rhs_mis + rhs_a
      rhs_v=rhs_v/rhs_mis + rhs_m
+     elsewhere
+     rhs_u=0._wp
+     rhs_v=0._wp
     ENDWHERE
 !ICON_OMP_END_WORKSHARE
   
