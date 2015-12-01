@@ -53,7 +53,7 @@
 ! - gscp=4 has now prognostic QNC and IN depletion (n_inact)
 ! - gscp=5 has additional budget equations for IN and CCN
 !===============================================================================!
-! Version of November, 2015, by Daniel Rieger:
+! Version of November, 2015, by D. Rieger:
 ! - Created an own module for process subroutines (mo_2mom_mcrph_processes)
 ! - Extended the argument lists of several process subroutines as the declaration
 !   of the according variables happens still in mo_2mom_mcrph_main

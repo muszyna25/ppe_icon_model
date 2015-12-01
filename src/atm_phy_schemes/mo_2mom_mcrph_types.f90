@@ -3,13 +3,17 @@
 ! Two-moment bulk microphysics by Axel Seifert, Klaus Beheng and Uli Blahak
 !
 ! Description:
-! Provides various modules and subroutines for two-moment bulk microphysics
+! Provides derived types for two-moment bulk microphysics
 !
 ! Current Code Owner: Axel Seifert, DWD
 !                     axel.seifert@dwd.de
 !
 ! Language: Fortran 2003
 !
+!===============================================================================!
+! Version of December 2015 by D. Rieger:
+! - Adaptions that were necessary due to the splitting of mo_2mom_mcrph_main
+!   into mo_2mom_mcrph_main and mo_2mom_mcrph_processes
 !===============================================================================!
 !!
 !! @par Copyright and License
