@@ -238,8 +238,8 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 
     sigma11=0._wp; sigma12=0._wp; sigma22=0._wp
-    CALL EVPdynamics
-!    CALL EVPdynamics_omp
+!    CALL EVPdynamics
+    CALL EVPdynamics_omp
 
 !--------------------------------------------------------------------------------------------------
 ! Post-processing: Copy FEM variables back to ICON variables
