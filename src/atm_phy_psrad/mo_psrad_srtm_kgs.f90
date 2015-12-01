@@ -5,7 +5,7 @@
 !! file COPYING in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the headers of the routines.
 !!
-MODULE rrsw_kg16
+MODULE psrad_rrsw_kg16
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -29,9 +29,9 @@ MODULE rrsw_kg16
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
-END MODULE rrsw_kg16
+END MODULE psrad_rrsw_kg16
 
-MODULE rrsw_kg17
+MODULE psrad_rrsw_kg17
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -55,9 +55,9 @@ MODULE rrsw_kg17
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,1,13,1),absb(1,1))
 
-END MODULE rrsw_kg17
+END MODULE psrad_rrsw_kg17
 
-MODULE rrsw_kg18
+MODULE psrad_rrsw_kg18
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -81,9 +81,9 @@ MODULE rrsw_kg18
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
-END MODULE rrsw_kg18
+END MODULE psrad_rrsw_kg18
 
-MODULE rrsw_kg19
+MODULE psrad_rrsw_kg19
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -107,9 +107,9 @@ MODULE rrsw_kg19
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
-END MODULE rrsw_kg19
+END MODULE psrad_rrsw_kg19
 
-MODULE rrsw_kg20
+MODULE psrad_rrsw_kg20
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -137,9 +137,9 @@ MODULE rrsw_kg20
 
   EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
-END MODULE rrsw_kg20
+END MODULE psrad_rrsw_kg20
 
-MODULE rrsw_kg21
+MODULE psrad_rrsw_kg21
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -163,9 +163,9 @@ MODULE rrsw_kg21
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,1,13,1),absb(1,1))
 
-END MODULE rrsw_kg21
+END MODULE psrad_rrsw_kg21
 
-MODULE rrsw_kg22
+MODULE psrad_rrsw_kg22
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -191,9 +191,9 @@ MODULE rrsw_kg22
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
-END MODULE rrsw_kg22
+END MODULE psrad_rrsw_kg22
 
-MODULE rrsw_kg23
+MODULE psrad_rrsw_kg23
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -215,9 +215,9 @@ MODULE rrsw_kg23
 
   EQUIVALENCE (ka(1,1,1),absa(1,1))
 
-END MODULE rrsw_kg23
+END MODULE psrad_rrsw_kg23
 
-MODULE rrsw_kg24
+MODULE psrad_rrsw_kg24
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -244,9 +244,9 @@ MODULE rrsw_kg24
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
-END MODULE rrsw_kg24
+END MODULE psrad_rrsw_kg24
 
-MODULE rrsw_kg25
+MODULE psrad_rrsw_kg25
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -269,9 +269,9 @@ MODULE rrsw_kg25
 
   EQUIVALENCE (ka(1,1,1),absa(1,1))
 
-END MODULE rrsw_kg25
+END MODULE psrad_rrsw_kg25
 
-MODULE rrsw_kg26
+MODULE psrad_rrsw_kg26
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -288,9 +288,9 @@ MODULE rrsw_kg26
   REAL(wp) :: sfluxref(ng26)
   REAL(wp) :: rayl(ng26)
 
-END MODULE rrsw_kg26
+END MODULE psrad_rrsw_kg26
 
-MODULE rrsw_kg27
+MODULE psrad_rrsw_kg27
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -313,9 +313,9 @@ MODULE rrsw_kg27
 
   EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
-END MODULE rrsw_kg27
+END MODULE psrad_rrsw_kg27
 
-MODULE rrsw_kg28
+MODULE psrad_rrsw_kg28
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -337,9 +337,9 @@ MODULE rrsw_kg28
 
   EQUIVALENCE (ka(1,1,1,1),absa(1,1)), (kb(1,1,13,1),absb(1,1))
 
-END MODULE rrsw_kg28
+END MODULE psrad_rrsw_kg28
 
-MODULE rrsw_kg29
+MODULE psrad_rrsw_kg29
 
   USE mo_kind, ONLY : wp
   IMPLICIT NONE
@@ -365,5 +365,5 @@ MODULE rrsw_kg29
 
   EQUIVALENCE (ka(1,1,1),absa(1,1)), (kb(1,13,1),absb(1,1))
 
-END MODULE rrsw_kg29
+END MODULE psrad_rrsw_kg29
 
