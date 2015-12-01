@@ -158,6 +158,7 @@ val3=1._wp/3.0_wp
      rhs_u=0.0_wp
      rhs_v=0.0_wp
 !ICON_OMP_END_WORKSHARE
+!ICON_OMP_END_PARALLEL
 
 ! DO i=1, myDim_nod2D
 !     row=myList_nod2D(i)
@@ -168,7 +169,7 @@ val3=1._wp/3.0_wp
 !!     rhs_m(row)=0.0_wp    ! for the contribution due to ssh
 ! END DO
 
-!ICON_OMP_DO PRIVATE(i,elem,elnodes,aa,meancos,dx,dy,k,row) ICON_OMP_DEFAULT_SCHEDULE
+! omp parallelization not possible when looping over elements and updating vertices
  do i=1,myDim_elem2D
      elem=myList_elem2D(i)    
      elnodes=elem2D_nodes(:,elem)
@@ -200,10 +201,8 @@ val3=1._wp/3.0_wp
 !        rhs_m(row)=rhs_m(row)-aa*sum(dy*elevation_elem)
 !     END DO
  end do 
-!ICON_OMP_END_DO
 
 !  Vladimir: now (partly) done in precalc4rhs_omp
-!
 !  DO i=1, myDim_nod2D
 !     row=myList_nod2D(i)
 !     cluster_area=lmass_matrix(row)
@@ -218,6 +217,7 @@ val3=1._wp/3.0_wp
 !     end if
 !  END DO
 
+!ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE
     WHERE (rhs_mis > 0._wp)
      rhs_u=rhs_u/rhs_mis + rhs_a
@@ -244,8 +244,8 @@ subroutine precalc4rhs_omp
 IMPLICIT NONE
 INTEGER      :: row, elem, elnodes(3), nodels(6), k, i
 REAL(wp) :: mass, aa
-REAL(wp) :: cluster_area,elevation_elem(3)
-REAL(wp) :: dx(3), dy(3)
+REAL(wp) :: cluster_area!,elevation_elem(3)
+REAL(wp) :: dx, dy
 
 !ICON_OMP_PARALLEL
 !ICON_OMP_WORKSHARE
@@ -253,30 +253,30 @@ REAL(wp) :: dx(3), dy(3)
      rhs_m=0.0_wp    ! for the contribution due to ssh
      rhs_mis=0.0_wp
 !ICON_OMP_END_WORKSHARE
+!ICON_OMP_END_PARALLEL
 
-! DO i=1, myDim_nod2D
-!     row=myList_nod2D(i)
-!     rhs_a(row)=0.0_wp    ! these are used as temporal storage here
-!     rhs_m(row)=0.0_wp    ! for the contribution due to ssh
-!     rhs_mis(row)=0.0_wp
-! END DO
-
-!ICON_OMP_DO PRIVATE(i,elem,elnodes,aa,dx,dy) ICON_OMP_DEFAULT_SCHEDULE
+! omp parallelization not possible when looping over elements and updating vertices
  do i=1,myDim_elem2D
      elem=myList_elem2D(i)
      elnodes=elem2D_nodes(:,elem)
+      ! ===== Skip if ice is absent
+     aa=product(m_ice(elnodes))*product(a_ice(elnodes))
+     if (aa==0._wp) CYCLE
+      ! =====
 
      ! use rhs_m and rhs_a for storing the contribution from elevation:
      aa=9.81_wp*voltriangle(elem)/3.0_wp
      dx=aa*sum(bafux(:,elem)*elevation(elnodes))
      dy=aa*sum(bafuy(:,elem)*elevation(elnodes))
 
-     rhs_a(elnodes)=rhs_a(elnodes)-dx
-     rhs_m(elnodes)=rhs_m(elnodes)-dy
+     DO k=1,3
+        row=elnodes(k)
+        rhs_a(row)=rhs_a(row)-dx
+        rhs_m(row)=rhs_m(row)-dy
+     END DO
  end do
-!ICON_OMP_END_DO
 
-!ICON_OMP_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
   DO i=1, myDim_nod2D
      row=myList_nod2D(i)
      cluster_area=lmass_matrix(row)
@@ -286,15 +286,14 @@ REAL(wp) :: dx(3), dy(3)
      rhs_a(row) = rhs_a(row)/cluster_area
      rhs_m(row) = rhs_m(row)/cluster_area
      rhs_mis(row) = mass
-!!    already taken care of at the initialization step
+!     !Vladimir: already taken care of at the initialization step
 !     else
 !     rhs_u(row)=0._wp
 !     rhs_v(row)=0._wp
 !     rhs_mis(row)=0._wp
      end if
   END DO
-!ICON_OMP_END_DO
-!ICON_OMP_END_PARALLEL
+!ICON_OMP_END_PARALLEL_DO
 
 end subroutine precalc4rhs_omp
 !===================================================================
