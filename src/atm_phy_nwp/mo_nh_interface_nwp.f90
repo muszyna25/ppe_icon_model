@@ -36,8 +36,8 @@ MODULE mo_nh_interface_nwp
 
   USE mo_datetime,                ONLY: t_datetime
   USE mo_kind,                    ONLY: wp
-                                  
-  USE mo_timer                    
+
+  USE mo_timer
   USE mo_exception,               ONLY: message, message_text, finish
   USE mo_impl_constants,          ONLY: itconv, itccov, itrad, itgscp,                        &
     &                                   itsatad, itturb, itsfc, itradheat,                    &
@@ -69,7 +69,7 @@ MODULE mo_nh_interface_nwp
   USE mo_satad,                   ONLY: satad_v_3D
   USE mo_radiation,               ONLY: radheat, pre_radiation_nwp
   USE mo_radiation_config,        ONLY: irad_aero
-  USE mo_nwp_gw_interface,        ONLY: nwp_gwdrag 
+  USE mo_nwp_gw_interface,        ONLY: nwp_gwdrag
   USE mo_nwp_gscp_interface,      ONLY: nwp_microphysics
   USE mo_nwp_turbtrans_interface, ONLY: nwp_turbtrans
   USE mo_nwp_turbdiff_interface,  ONLY: nwp_turbdiff
@@ -119,7 +119,7 @@ CONTAINS
                             & prm_diag, prm_nwp_tend, lnd_diag,    & !inout
                             & lnd_prog_now, lnd_prog_new,          & !inout
                             & wtr_prog_now, wtr_prog_new,          & !inout
-                            & p_prog_list                          ) !in  
+                            & p_prog_list                          ) !in
 
     !>
     ! !INPUT PARAMETERS:
@@ -174,11 +174,11 @@ CONTAINS
 
     INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:)
 
-    REAL(wp), TARGET :: &                                              !> temporal arrays for 
-      & z_ddt_u_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& 
+    REAL(wp), TARGET :: &                                              !> temporal arrays for
+      & z_ddt_u_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),&
       & z_ddt_v_tot (nproma,pt_patch%nlev,pt_patch%nblks_c),& !< hor. wind tendencies
       & z_ddt_temp  (nproma,pt_patch%nlev)   !< Temperature tendency
- 
+
     REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv, &
       zddt_u_raylfric(nproma,pt_patch%nlev), zddt_v_raylfric(nproma,pt_patch%nlev)
 
@@ -254,17 +254,17 @@ CONTAINS
            &                  dt_phy_jg(itfastphy)  ,& !in
            &                  pt_diag               ,& !in
            &                  prm_nwp_tend          ,& !in
-           &                  prm_diag              ,& !inout phyfields 
-           &                  pt_prog_rcf           ,& !inout tracer 
+           &                  prm_diag              ,& !inout phyfields
+           &                  pt_prog_rcf           ,& !inout tracer
            &                  pt_prog                ) !in density
 
       IF (timers_level > 2) CALL timer_stop(timer_update_prog_phy)
-    
+
     ENDIF
 
     IF ( lcall_phy_jg(itturb) .OR. lcall_phy_jg(itconv) .OR.           &
          lcall_phy_jg(itsso)  .OR. lcall_phy_jg(itgwd) .OR. linit ) THEN
-    
+
       !-------------------------------------------------------------------------
       !>
       !!   Interpolation from v_n onto u,v =>  Reconstruct u and v
@@ -276,7 +276,7 @@ CONTAINS
            & CALL message('mo_nh_interface_nwp:', 'reconstruct u/v')
 
       IF (timers_level > 3) CALL timer_start(timer_phys_u_v)
-      
+
       CALL rbf_vec_interpol_cell(pt_prog%vn,            & !< normal wind comp.
         &                        pt_patch,              & !< patch
         &                        pt_int_state,          & !< interpolation state
@@ -288,7 +288,7 @@ CONTAINS
     ENDIF ! diagnose u/v
 
     IF (msg_level >= 18) THEN
-        
+
       ! Diagnose temperature needed for debugging output
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,    &
            &                              pt_diag, pt_patch,       &
@@ -327,7 +327,7 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk,  &
                              i_startidx, i_endidx, rl_start, rl_end)
 
-        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag, p_metrics,          &
+        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag,          &
                         jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
 
         CALL diag_pres (pt_prog, pt_diag, p_metrics,     &
@@ -369,7 +369,7 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
       IF (l_any_fastphys .OR. linit) THEN  ! diagnose temperature
-        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag, p_metrics,          &
+        CALL diag_temp (pt_prog, pt_prog_rcf, pt_diag,       &
                         jb, i_startidx, i_endidx, 1, kstart_moist(jg), nlev)
       ENDIF
 
@@ -464,10 +464,10 @@ CONTAINS
 
     !For turbulence schemes NOT including the call to the surface scheme.
     !nwp_surface must even be called in inwp_surface = 0 because the
-    !the lower boundary conditions for the turbulence scheme 
+    !the lower boundary conditions for the turbulence scheme
     !are not set otherwise
 
-    IF ( l_any_fastphys .AND. ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN 
+    IF ( l_any_fastphys .AND. ANY( (/icosmo,igme/)==atm_phy_nwp_config(jg)%inwp_turb ) ) THEN
       IF (timers_level > 2) CALL timer_start(timer_nwp_surface)
 
        !> as pressure is needed only for an approximate adiabatic extrapolation
@@ -478,13 +478,13 @@ CONTAINS
                              & ext_data,                         & !>input
                              & pt_prog_rcf,                      & !>in/inout rcf=reduced calling freq.
                              & pt_diag ,                         & !>inout
-                             & prm_diag,                         & !>inout 
+                             & prm_diag,                         & !>inout
                              & lnd_prog_now, lnd_prog_new,       & !>inout
                              & wtr_prog_now, wtr_prog_new,       & !>inout
                              & lnd_diag                          ) !>input
 
       IF (timers_level > 2) CALL timer_stop(timer_nwp_surface)
-    END IF   
+    END IF
 
 
     !Call to turbulent parameterization schemes
@@ -493,9 +493,9 @@ CONTAINS
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
 
       SELECT CASE (atm_phy_nwp_config(jg)%inwp_turb)
-       
+
       !Turbulence schemes NOT including the call to the surface scheme
-      CASE(icosmo,igme)  
+      CASE(icosmo,igme)
 
         ! compute turbulent diffusion (atmospheric column)
         CALL nwp_turbdiff   (  dt_phy_jg(itfastphy),              & !>in
@@ -506,7 +506,7 @@ CONTAINS
                               & pt_diag,                          & !>inout
                               & prm_diag, prm_nwp_tend,           & !>inout
                               & wtr_prog_now,                     & !>in
-                              & lnd_prog_now,                     & !>in 
+                              & lnd_prog_now,                     & !>in
                               & lnd_diag                          ) !>in
 
       !Turbulence schemes including the call to the surface scheme
@@ -518,8 +518,8 @@ CONTAINS
                                   & pt_prog,                          & !>inout
                                   & pt_prog_now_rcf, pt_prog_rcf,     & !>in/inout
                                   & pt_diag ,                         & !>inout
-                                  & prm_diag, prm_nwp_tend,           & !>inout 
-                                  & lnd_prog_now, lnd_prog_new,       & !>inout 
+                                  & prm_diag, prm_nwp_tend,           & !>inout
+                                  & lnd_prog_now, lnd_prog_new,       & !>inout
                                   & wtr_prog_now, wtr_prog_new,       & !>inout
                                   & lnd_diag                          ) !>inout
 
@@ -527,7 +527,7 @@ CONTAINS
 
         CALL finish('mo_nh_interface_nwp:','unknown choice of turbulence scheme')
 
-      END SELECT      
+      END SELECT
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
 
@@ -560,7 +560,7 @@ CONTAINS
     ENDIF
 
     IF (lart) THEN
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,ext_data)
+      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
 
       IF (.NOT. linit) THEN
       CALL art_reaction_interface(ext_data,                    & !> in
@@ -663,7 +663,7 @@ CONTAINS
         ! compute dynamical temperature tendency from increments of Exner function and density
         ! the virtual increment is neglected here because this tendency is used only as
         ! input for the convection scheme, which is rather insensitive against this quantity
-        IF ( lcall_phy_jg(itconv)  ) THEN
+        IF ( lcall_phy_jg(itconv) ) THEN
           DO jk = kstart_moist(jg), nlev
 !DIR$ IVDEP
             DO jc =  i_startidx, i_endidx
@@ -673,16 +673,13 @@ CONTAINS
                 ( pt_diag%airmass_new(jc,jk,jb)-pt_diag%airmass_now(jc,jk,jb) ) /            &
                 pt_diag%airmass_new(jc,jk,jb) )
 
-              ! reset dynamical exner increment to zero
-              ! (it is accumulated over one advective time step in solve_nh)
-              pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
-
             ENDDO
           ENDDO
-        ELSE
-          ! reset only the dynamical exner increment
-          pt_diag%exner_dyn_incr(:,kstart_moist(jg):nlev,jb) = 0._wp
         ENDIF
+
+        ! reset dynamical exner increment to zero
+        ! (it is accumulated over one advective time step in solve_nh)
+        pt_diag%exner_dyn_incr(:,kstart_moist(jg):nlev,jb) = 0._wp
 
       ENDIF ! recalculation
 
@@ -710,9 +707,9 @@ CONTAINS
                           & pt_diag,                          & !>inout
                           & prm_diag,                         & !>inout
                           & wtr_prog_new,                     & !>in
-                          & lnd_prog_new,                     & !>inout 
+                          & lnd_prog_new,                     & !>inout
                           & lnd_diag                          ) !>inout
-  
+
       IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
 
@@ -743,7 +740,7 @@ CONTAINS
       ! Temperature at interface levels is needed if irad_aero = 5 or 6
       ! or if Ritter-Geleyn radiation is called
       IF ( lcall_phy_jg(itrad) .AND. ( irad_aero == 5 .OR. irad_aero == 6 &
-           .OR. atm_phy_nwp_config(jg)%inwp_radiation == 2 ) )         THEN 
+           .OR. atm_phy_nwp_config(jg)%inwp_radiation == 2 ) )         THEN
         ltemp_ifc = .TRUE.
       ELSE
         ltemp_ifc = .FALSE.
@@ -777,7 +774,7 @@ CONTAINS
                             & pt_prog,                          & !>input
                             & pt_prog_rcf,                      & !>input
                             & pt_diag,                          & !>inout
-                            & prm_diag, prm_nwp_tend            ) !>inout 
+                            & prm_diag, prm_nwp_tend            ) !>inout
       IF (timers_level > 2) CALL timer_stop(timer_nwp_convection)
 
     ENDIF! convection
@@ -809,7 +806,7 @@ CONTAINS
 
       !-------------------------------------------------------------------------
       !> Cloud water distribution: cloud cover, cloud water, cloud ice
-      !  inwp_cldcover =    
+      !  inwp_cldcover =
       !  (0) no clouds
       !  (1) diagnostic cloud cover
       !  (2) prognostic total water variance (not yet started)
@@ -825,7 +822,7 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
-        IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN 
+        IF ( atm_phy_nwp_config(jg)%inwp_turb == iedmf ) THEN
           qtvar(:,:) = pt_prog_rcf%tracer(:,:,jb,iqtvar)        ! EDMF DUALM
         ELSE
           qtvar(:,:) = 0.0_wp                                   ! other turb schemes
@@ -849,7 +846,7 @@ CONTAINS
 &              kcbot  = prm_diag%mbas_con    (:,jb)       ,       & !! in:  convective cloud base
 &              kctop  = prm_diag%mtop_con    (:,jb)       ,       & !! in:  convective cloud top
 &              pmfude_rate = prm_diag%con_udd(:,:,jb,3)   ,       & !! in:  convective updraft detrainment rate
-&              plu         = prm_diag%con_udd(:,:,jb,7)   ,       & !! in:  updraft condensate 
+&              plu         = prm_diag%con_udd(:,:,jb,7)   ,       & !! in:  updraft condensate
 &              qv     = pt_prog_rcf%tracer   (:,:,jb,iqv) ,       & !! in:  spec. humidity
 &              qc     = pt_prog_rcf%tracer   (:,:,jb,iqc) ,       & !! in:  cloud water
 &              qi     = pt_prog_rcf%tracer   (:,:,jb,iqi) ,       & !! in:  cloud ice
@@ -861,7 +858,7 @@ CONTAINS
 
 
       ENDDO
-  
+
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
 
@@ -887,10 +884,9 @@ CONTAINS
            &              pt_diag,               & ! inout
            &              prm_diag,              & ! inout
            &              lnd_prog_new,          & ! in
-           &              wtr_prog_new,          & ! in
-           &              p_metrics              ) ! in
+           &              wtr_prog_new           ) ! in
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
-     
+
     ENDIF
 
 
@@ -909,7 +905,7 @@ CONTAINS
         & pt_patch   = pt_patch,                    &
         & zsmu0      = zcosmu0,                     &
         & zsct       = zsct )
-      IF (timers_level > 10) CALL timer_stop(timer_pre_radiation_nwp)      
+      IF (timers_level > 10) CALL timer_stop(timer_pre_radiation_nwp)
 
       ! exclude boundary interpolation zone of nested domains
       rl_start = grf_bdywidth_c+1
@@ -1059,7 +1055,7 @@ CONTAINS
 !$OMP END PARALLEL
 
       IF (timers_level > 2) CALL timer_stop(timer_radheat)
-      
+
     ENDIF  ! inwp_radiation
 
 
@@ -1086,14 +1082,14 @@ CONTAINS
       IF (timers_level > 3) CALL timer_stop(timer_sso)
     ENDIF ! inwp_sso
     !-------------------------------------------------------------------------
- 
+
 
     !-------------------------------------------------------------------------
     ! Anurag Dipankar MPIM (2013-May-29)
-    ! Large-scale forcing is to be applied at the end of all physics so that 
-    ! the most updated variable is used. Ideally it should be "next" timestep 
+    ! Large-scale forcing is to be applied at the end of all physics so that
+    ! the most updated variable is used. Ideally it should be "next" timestep
     ! variable. Also note that its not actually a part of physics (sub-grid
-    ! activity). It is called here to take advantage of u,v. 
+    ! activity). It is called here to take advantage of u,v.
     !
     ! These LS forcing act as slow process so the tendencies from them are
     ! accumulated with the slow physics tendencies next
@@ -1125,12 +1121,12 @@ CONTAINS
 
       IF (timers_level > 3) CALL timer_stop(timer_ls_forcing)
 
-    ENDIF 
-    
-    
+    ENDIF
+
+
     IF (timers_level > 2) CALL timer_start(timer_phys_acc)
     !-------------------------------------------------------------------------
-    !>  accumulate tendencies of slow_physics: Not called when LS focing is ON
+    !>  accumulate tendencies of slow_physics
     !-------------------------------------------------------------------------
     IF( (l_any_slowphys .OR. lcall_phy_jg(itradheat)) .OR. is_ls_forcing) THEN
 
@@ -1153,7 +1149,7 @@ CONTAINS
 
       i_startblk = pt_patch%cells%start_blk(rl_start,1)
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-      
+
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,jt,i_startidx,i_endidx,z_qsum,z_ddt_temp,z_ddt_qsum,vabs, &
 !$OMP  rfric_fac,zddt_u_raylfric,zddt_v_raylfric) ICON_OMP_DEFAULT_SCHEDULE
@@ -1191,7 +1187,7 @@ CONTAINS
                                                    (prm_nwp_tend%ddt_u_sso(jc,jk,jb)+      &
                                                     prm_nwp_tend%ddt_u_gwd(jc,jk,jb)+      &
                                                     zddt_u_raylfric(jc,jk))                &
-                                                   +      pt_diag%v(jc,jk,jb)*             & 
+                                                   +      pt_diag%v(jc,jk,jb)*             &
                                                    (prm_nwp_tend%ddt_v_sso(jc,jk,jb)+      &
                                                     prm_nwp_tend%ddt_v_gwd(jc,jk,jb)+      &
                                                     zddt_v_raylfric(jc,jk))                )
@@ -1202,7 +1198,7 @@ CONTAINS
    &                                       prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
    &                                    +  prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) &
    &                                    +  prm_nwp_tend%ddt_temp_drag (i_startidx:i_endidx,:,jb) &
-   &                                    +  prm_nwp_tend%ddt_temp_pconv(i_startidx:i_endidx,:,jb) 
+   &                                    +  prm_nwp_tend%ddt_temp_pconv(i_startidx:i_endidx,:,jb)
 
 
 
@@ -1236,7 +1232,7 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
             z_ddt_qsum =   prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) &
-              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) 
+              &          + prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
 
             pt_diag%ddt_exner_phy(jc,jk,jb) = rd_o_cpd / pt_prog%theta_v(jc,jk,jb)           &
               &                             * (z_ddt_temp(jc,jk)                             &
@@ -1249,7 +1245,7 @@ CONTAINS
 
         ! Accumulate wind tendencies of slow physics
         ! Strictly spoken, this would not be necessary if only radiation was called
-        ! in the current time step, but the radiation time step should be a multiple 
+        ! in the current time step, but the radiation time step should be a multiple
         ! of the convection time step anyway in order to obtain up-to-date cloud cover fields
         IF (l_any_slowphys) THEN
 !DIR$ IVDEP
@@ -1257,13 +1253,16 @@ CONTAINS
    &          prm_nwp_tend%ddt_u_gwd     (i_startidx:i_endidx,:,jb) &
    &        + zddt_u_raylfric            (i_startidx:i_endidx,:)    &
    &        + prm_nwp_tend%ddt_u_sso     (i_startidx:i_endidx,:,jb) &
-   &        + prm_nwp_tend%ddt_u_pconv  ( i_startidx:i_endidx,:,jb) 
+   &        + prm_nwp_tend%ddt_u_pconv  ( i_startidx:i_endidx,:,jb)
 !DIR$ IVDEP
           z_ddt_v_tot(i_startidx:i_endidx,:,jb) =                   &
    &          prm_nwp_tend%ddt_v_gwd     (i_startidx:i_endidx,:,jb) &
    &        + zddt_v_raylfric            (i_startidx:i_endidx,:)    &
    &        + prm_nwp_tend%ddt_v_sso     (i_startidx:i_endidx,:,jb) &
-   &        + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb) 
+   &        + prm_nwp_tend%ddt_v_pconv  ( i_startidx:i_endidx,:,jb)
+        ELSE IF (is_ls_forcing) THEN
+          z_ddt_u_tot(i_startidx:i_endidx,:,jb) = 0._wp
+          z_ddt_v_tot(i_startidx:i_endidx,:,jb) = 0._wp
         ENDIF
 
 
@@ -1329,7 +1328,7 @@ CONTAINS
 !$OMP END PARALLEL
       IF (timers_level > 10) CALL timer_stop(timer_phys_acc_1)
 
-    END IF  !END OF slow physics tendency accumulation 
+    END IF  !END OF slow physics tendency accumulation
 
 
 
@@ -1389,8 +1388,8 @@ CONTAINS
     ELSE IF (linit .AND. advection_config(jg)%iadv_tke == 2) THEN
       CALL sync_patch_array(SYNC_C, pt_patch, pt_prog_rcf%tracer(:,:,:,iqtke))
     ENDIF
-          
-    !------------------------------------------------------------ 
+
+    !------------------------------------------------------------
     ! sync here the slowphys for aggregation
     !-------------------------------------------------------------------
     IF (use_physics_barrier) THEN
@@ -1401,7 +1400,7 @@ CONTAINS
     !-------------------------------------------------------------------
     IF (timers_level > 10) CALL timer_start(timer_phys_sync_ddt_u)
     IF (use_icon_comm) THEN
-    
+
       IF (lcall_phy_jg(itturb) ) THEN
         ddt_u_tot_comm = new_icon_comm_variable(prm_nwp_tend%ddt_u_turb, &
           & pt_patch%sync_cells_one_edge_in_domain, status=is_ready, scope=until_sync, &
@@ -1409,7 +1408,7 @@ CONTAINS
         ddt_v_tot_comm = new_icon_comm_variable(prm_nwp_tend%ddt_v_turb, &
           & pt_patch%sync_cells_one_edge_in_domain, status=is_ready, scope=until_sync, &
           & name="prm_nwp_tend%ddt_v_turb")
-          
+
         IF ( l_any_slowphys .OR. is_ls_forcing ) THEN
           z_ddt_u_tot_comm = new_icon_comm_variable(z_ddt_u_tot, &
             & pt_patch%sync_cells_one_edge_in_domain, &
@@ -1417,16 +1416,16 @@ CONTAINS
           z_ddt_v_tot_comm = new_icon_comm_variable(z_ddt_v_tot, &
             & pt_patch%sync_cells_one_edge_in_domain, &
             & status=is_ready, scope=until_sync, name="z_ddt_v_tot")
-        ENDIF        
+        ENDIF
       ENDIF
-      
+
        ! sync everything here
       CALL icon_comm_sync_all()
 
     ELSE
-          
+
       IF ( (is_ls_forcing .OR. l_any_slowphys) .AND. lcall_phy_jg(itturb) ) THEN
-          
+
         CALL sync_patch_array_mult(SYNC_C1, pt_patch, 4, z_ddt_u_tot, z_ddt_v_tot, &
                                  prm_nwp_tend%ddt_u_turb, prm_nwp_tend%ddt_v_turb)
 
@@ -1436,11 +1435,11 @@ CONTAINS
                                  prm_nwp_tend%ddt_v_turb)
       ENDIF
     ENDIF
-    
+
     IF (timers_level > 10) CALL timer_stop(timer_phys_sync_ddt_u)
     !------------------------------------------------------------
-    
-      
+
+
     !------------------------------------------------------------
     ! compute on the halos
     IF (timers_level > 10) CALL timer_start(timer_phys_acc_par)
@@ -1448,7 +1447,7 @@ CONTAINS
       IF (my_process_is_mpi_all_parallel() ) THEN
 
         rl_start = min_rlcell_int-1
-        rl_end   = min_rlcell 
+        rl_end   = min_rlcell
 
         i_startblk = pt_patch%cells%start_blk(rl_start,1)
         i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
@@ -1501,9 +1500,9 @@ CONTAINS
 !$OMP END PARALLEL
 
       ENDIF ! my_process_is_mpi_all_parallel
-    ENDIF ! fast-physics synchronization    
+    ENDIF ! fast-physics synchronization
     IF (timers_level > 10) CALL timer_stop(timer_phys_acc_par)
-    
+
 
     ! Initialize fields for runtime diagnostics
     ! In case that average ABS(dpsdt) is diagnosed
@@ -1663,7 +1662,7 @@ CONTAINS
     IF (msg_level >= 18) THEN ! extended diagnostic
       CALL nwp_diag_output_2(pt_patch, pt_prog_rcf, prm_nwp_tend, lcall_phy_jg(itturb))
     ENDIF
-   
+
 
     ! time averages, accumulations and vertical integrals
     CALL nwp_statistics(lcall_phy_jg,                    & !in

@@ -23,11 +23,11 @@ MODULE mo_ocean_ab_timestepping
   USE mo_sea_ice_types,                  ONLY: t_sfc_flx
   USE mo_model_domain,                   ONLY: t_patch_3D !, t_patch
   USE mo_ext_data_types,                 ONLY: t_external_data
-  USE mo_ocean_ab_timestepping_mimetic,    ONLY: solve_free_sfc_ab_mimetic,       &
-    &                                          calc_normal_velocity_ab_mimetic, &
-    &                                          calc_vert_velocity_mim_bottomup
-  USE mo_ocean_physics,                    ONLY: t_ho_params
-  USE mo_ocean_types,                      ONLY: t_hydro_ocean_state, t_operator_coeff, t_solverCoeff_singlePrecision
+  USE mo_ocean_ab_timestepping_mimetic,  ONLY: solve_free_sfc_ab_mimetic, &
+    &  calc_normal_velocity_ab_mimetic, &
+    &  calc_vert_velocity_mim_bottomup
+  USE mo_ocean_physics,                  ONLY: t_ho_params
+  USE mo_ocean_types,                    ONLY: t_hydro_ocean_state, t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_exception,                      ONLY: finish!, message_text
   
 IMPLICIT NONE
@@ -53,21 +53,22 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
-  SUBROUTINE solve_free_surface_eq_ab(p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
-    &                                 p_phys_param, timestep, p_op_coeff, solverCoeff_sp)
-    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: p_patch_3D
-    TYPE(t_hydro_ocean_state), TARGET             :: p_os
-    TYPE(t_external_data), TARGET                 :: p_ext_data
-    TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx
-    TYPE (t_ho_params)                            :: p_phys_param
-    INTEGER                                       :: timestep
-    TYPE(t_operator_coeff)                        :: p_op_coeff
+  SUBROUTINE solve_free_surface_eq_ab(patch_3D, ocean_state, external_data, surface_fluxes, &
+    & physics_parameters, timestep, operators_coefficients, solverCoeff_sp, return_status)
+    TYPE(t_patch_3D ),TARGET, INTENT(INOUT)   :: patch_3D
+    TYPE(t_hydro_ocean_state), TARGET         :: ocean_state
+    TYPE(t_external_data), TARGET             :: external_data
+    TYPE(t_sfc_flx), INTENT(INOUT)            :: surface_fluxes
+    TYPE (t_ho_params)                        :: physics_parameters
+    INTEGER                                   :: timestep
+    TYPE(t_operator_coeff)                    :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
-
+    INTEGER :: return_status
+    
     IF(discretization_scheme==MIMETIC_TYPE)THEN
 
-      CALL solve_free_sfc_ab_mimetic( p_patch_3D, p_os, p_ext_data, p_sfc_flx, &
-        &                            p_phys_param, timestep, p_op_coeff, solverCoeff_sp)
+      CALL solve_free_sfc_ab_mimetic( patch_3D, ocean_state, external_data, surface_fluxes, &
+        & physics_parameters, timestep, operators_coefficients, solverCoeff_sp, return_status)
 
     ELSE
       CALL finish ('calc_vert_velocity: ',' Discretization type not supported !!')
@@ -84,17 +85,18 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
-  SUBROUTINE calc_normal_velocity_ab(p_patch_3D, p_os, p_op_coeff, solverCoeff_sp, p_ext_data, p_phys_param)
-    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
-    TYPE(t_hydro_ocean_state), TARGET    :: p_os
-    TYPE(t_operator_coeff)               :: p_op_coeff
+  SUBROUTINE calc_normal_velocity_ab(patch_3D, ocean_state, operators_coefficients, &
+    & solverCoeff_sp, external_data, physics_parameters)
+    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
+    TYPE(t_hydro_ocean_state), TARGET    :: ocean_state
+    TYPE(t_operator_coeff)               :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision), INTENT(inout) :: solverCoeff_sp
-    TYPE(t_external_data), TARGET        :: p_ext_data
-    TYPE (t_ho_params)                   :: p_phys_param
+    TYPE(t_external_data), TARGET        :: external_data
+    TYPE (t_ho_params)                   :: physics_parameters
     !-----------------------------------------------------------------------
     IF(discretization_scheme==MIMETIC_TYPE)THEN
 
-      CALL calc_normal_velocity_ab_mimetic(p_patch_3D, p_os, p_op_coeff)
+      CALL calc_normal_velocity_ab_mimetic(patch_3D, ocean_state, operators_coefficients)
 
     ELSE
       CALL finish ('calc_vert_velocity: ',' Discreization type not supported !!')
@@ -116,20 +118,20 @@ CONTAINS
   !! Developed  by  Peter Korn,   MPI-M (2006).
   !!
 !<Optimize:inUse>
-  SUBROUTINE calc_vert_velocity(p_patch_3D, p_os, p_op_coeff)
-    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: p_patch_3D
-    TYPE(t_hydro_ocean_state)            :: p_os
-    TYPE(t_operator_coeff)               :: p_op_coeff
+  SUBROUTINE calc_vert_velocity(patch_3D, ocean_state, operators_coefficients)
+    TYPE(t_patch_3D ),TARGET, INTENT(IN) :: patch_3D
+    TYPE(t_hydro_ocean_state)            :: ocean_state
+    TYPE(t_operator_coeff)               :: operators_coefficients
      !-----------------------------------------------------------------------
 
     !Store current vertical velocity before the new one is calculated
-    p_os%p_diag%w_old = p_os%p_diag%w
+    ocean_state%p_diag%w_old = ocean_state%p_diag%w
 
     IF(discretization_scheme==MIMETIC_TYPE)THEN
 
-      CALL calc_vert_velocity_mim_bottomup( p_patch_3D,     &
-                                  & p_os,                   &
-                                  & p_op_coeff )
+      CALL calc_vert_velocity_mim_bottomup( patch_3D,     &
+                                  & ocean_state,                   &
+                                  & operators_coefficients )
 
     ELSE
       CALL finish ('calc_vert_velocity: ',' Discretization type not supported !!')
