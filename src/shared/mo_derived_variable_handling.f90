@@ -424,7 +424,6 @@ if (my_process_is_stdio()) CALL print_summary(" --------------->>>>  PERFORM MEA
   SUBROUTINE reset_accumulation
     INTEGER :: element_counter
     type(t_list_element), pointer :: destination
-    integer :: isactive
     class(*),pointer :: varListForMeanEvent, meanEventKey
     class(*),pointer :: destinationVariable
     class(*),pointer :: meanEvent, myItem
@@ -460,7 +459,6 @@ if (my_process_is_stdio()) CALL print_summary(" --------------->>>>  PERFORM MEA
                   eventActive => meanEventsActivity%get(meanEventKey)
                   select type (eventActive)
                   type is (logical)
-                    isactive = eventActive
                     if ( LOGICAL(eventActive) ) then
 if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : ------------ >>>> PERFORM RESET')
                       destination%field%r_ptr = 0.0_wp
