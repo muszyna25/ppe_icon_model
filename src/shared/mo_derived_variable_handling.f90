@@ -148,7 +148,6 @@ CONTAINS
     type(t_event_wrapper) :: event_wrapper
     class(*), pointer :: myBuffer
     TYPE(t_list_element), POINTER :: src_element, dest_element
-    TYPE(vector) :: keys, values 
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
     TYPE(t_accumulation_pair) :: pair
@@ -308,27 +307,24 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
   END SUBROUTINE accumulation_add
 
   SUBROUTINE perform_accumulation
-    INTEGER :: k,i
     INTEGER :: element_counter
     class(*),pointer :: varListForMeanEvent, meanEventKey
     class(*),pointer :: sourceVariable, destinationVariable
     class(*),pointer :: counter, meanEvent, myItem
+    class(*), pointer :: eventActive
     type(t_list_element), pointer :: source, destination
     type(vector_iterator) :: meanMapIterator, meanEventIterator
-    type(vector) :: values, keys
     TYPE(datetime), POINTER :: mtime_date 
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
     logical :: isactive
     integer :: varcounter
 
-    class(*), pointer :: eventActive
     TYPE(divisionquotienttimespan) :: quot
 !   integer, pointer :: counter
     TYPE(t_accumulation_pair), POINTER :: accumulation_pair
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::perform_accumulation"
     
-    values = meanMap%values()
-    keys   = meanMap%keys()
+    call print_routine(routine,'start')
 
     meanMapIterator   = meanMap%iter()
     meanEventIterator = meanEvents%iter()
@@ -354,7 +350,6 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
 if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string()) !TODO
     ! }}}
 !#ifdef T
-!IF ( my_process_is_stdio() ) write(0,*)'values%length = ',values%length() !TODO
     do while (meanMapIterator%next(myItem))
 
       select type (myItem)
@@ -364,7 +359,6 @@ if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string()) !TOD
         varListForMeanEvent => myItem%value
 
 if (my_process_is_stdio()) call print_summary(object_pointer_string(meanEventKey)//"PERFORM ACCu") !TODO
-!IF ( my_process_is_stdio() ) write(0,*)'perform_accumulation: i=',i !TODO
         select type(varListForMeanEvent)
         class is (vector_ref)
 !IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
@@ -425,61 +419,61 @@ if (my_process_is_stdio()) CALL print_summary(" --------------->>>>  PERFORM MEA
       end select 
     end do
 !#endif
+    call print_routine(routine,'finish')
   END SUBROUTINE perform_accumulation
   SUBROUTINE reset_accumulation
-    INTEGER :: k,i
     INTEGER :: element_counter
-    class(*),pointer :: elements,check_src, check_pair, check_dest, meanEvent
-    type(t_list_element), pointer :: source, destination
-    type(vector_iterator) :: value_iterator
-    type(vector) :: values, keys
-    TYPE(datetime), POINTER :: mtime_date 
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
-    character(len=132) :: eventKey
-    type(event),pointer :: event_pointer
-    type(event) :: event_from_nml
-    character(len=132) :: msg
-    type(event),pointer :: e
+    type(t_list_element), pointer :: destination
     integer :: isactive
-
+    class(*),pointer :: varListForMeanEvent, meanEventKey
+    class(*),pointer :: destinationVariable
+    class(*),pointer :: meanEvent, myItem
     class(*), pointer :: eventActive
-    TYPE(divisionquotienttimespan) :: quot
-!   integer, pointer :: counter
-    TYPE(t_accumulation_pair), POINTER :: accumulation_pair
+    type(vector_iterator) :: meanMapIterator
+
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::reset_accumulation"
     
-    values = meanMap%values()
-    keys   = meanMap%keys()
+    call print_routine(routine,'start')
 
-    do i=1, values%length()
-      elements => values%at(i)
-      select type(elements)
-      class is (vector_ref)
-        do element_counter=1,elements%length(),2 !start at 2 because the event is at index 1
-          check_dest => elements%at(element_counter+1)
-          if (associated(check_dest)) then
-            select type (check_dest)
-            type is (t_list_element)
-              destination => check_dest
-              select type (eventString => keys%at(i))
-              type is (character(*))
-                if (my_process_is_stdio()) call print_summary(eventString)
-                ! check if the event is active wrt the current datatime {{{
-!                 eventActive => meanEventsActivity%get(eventString)
-                select type (eventActive => meanEventsActivity%get(eventString))
-                type is (logical)
-                  if ( eventActive ) then
-if (my_process_is_stdio()) call print_error(eventString//' : ------------ >>>> PERFORM RESET')
-                  destination%field%r_ptr = 0.0_wp
-                  end if
-                end select
+    meanMapIterator   = meanMap%iter()
+
+    do while (meanMapIterator%next(myItem))
+
+      select type (myItem)
+      type is (map_item)
+
+        meanEventKey        => myItem%key
+        varListForMeanEvent => myItem%value
+
+        select type(varListForMeanEvent)
+        class is (vector_ref)
+!IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
+          do element_counter=1,varListForMeanEvent%length(),2 !start at 2 because the event is at index 1
+
+            destinationVariable => varListForMeanEvent%at(element_counter+1)
+            if (associated(destinationVariable)) then
+              select type (destinationVariable)
+              type is (t_list_element)
+                  destination => destinationVariable
+
+
+                  eventActive => meanEventsActivity%get(meanEventKey)
+                  select type (eventActive)
+                  type is (logical)
+                    isactive = eventActive
+                    if ( LOGICAL(eventActive) ) then
+if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : ------------ >>>> PERFORM RESET')
+                      destination%field%r_ptr = 0.0_wp
+                    end if
+                  end select
               end select
-            end select
-          end if
-        end do
+            end if
+          end do
+        end select 
       end select 
     end do
 
+    call print_routine(routine,'finish')
   END SUBROUTINE reset_accumulation
   FUNCTION get_event_key(output_name_list) RESULT(event_key)
     TYPE(t_output_name_list) :: output_name_list

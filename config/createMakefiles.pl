@@ -302,10 +302,6 @@ foreach my $dir ( @directories ) {
             print MAKEFILE "FFLAGS := \$(subst ../module,../../../module, \$(FFLAGS))\n";	    
             if ( $dir =~ m/self/) {
               print MAKEFILE 'FFLAGS := $(subst -C=all,,$(FFLAGS))';print MAKEFILE "\n";
-              # switch on intels switch for automatic allocation
-              print MAKEFILE 'ifeq ($(FC),ifort)'; print MAKEFILE "\n";
-              print MAKEFILE "  FFLAGS += -assume realloc_lhs\n";
-              print MAKEFILE "endif\n";
             }
             print MAKEFILE "\n\n";
 	} else {
