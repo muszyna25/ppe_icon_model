@@ -351,7 +351,7 @@ INTEGER :: &
   imode_tkvmini =2, & ! mode of calculating the minimal turbulent diff. coeffecients
                       ! 1: with a constant value
                       ! 2: with a stability dependent correction
-  imode_rat_sea =2, & ! mode of scaling the laminar resistance for heat over sea (related to 'rat_sea')
+  imode_rat_sea =1, & ! mode of scaling the laminar resistance for heat over sea (related to 'rat_sea')
                       ! 1: constant ratio 'rat_sea' to land 
                       ! 2: with a correction for a strongly overheated SST
   imode_vel_min =2, & ! mode of calculating the minimal turbulent velocity scale (in the surface layer only)
