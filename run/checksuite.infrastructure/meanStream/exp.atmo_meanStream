@@ -38,16 +38,16 @@ atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"
-  end_date="1979-01-01T00:50:00Z"
+  end_date="1979-01-01T01:00:00Z"
 
 # restart intervals
-checkpoint_interval="PT50M"
-restart_interval="PT50M"
+checkpoint_interval="PT01H"
+restart_interval="PT01H"
 #
 # NEEDED TO KEEP THIS TEST WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
 # TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
-(( dt_checkpoint = 50 * minute))    # !! MUST BE EQUAL TO "checkpoint_interval"  !!
-(( dt_restart    = 50 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
+(( dt_checkpoint = 60 * minute))    # !! MUST BE EQUAL TO "checkpoint_interval"  !!
+(( dt_restart    = 60 * minute))    # !! MUST BE EQUAL TO "restart_interval"     !!
 
 output_interval="PT10M"
 file_interval="P01D"
@@ -378,6 +378,20 @@ EOF
  output_end       = "${end_date}"                    ! ISO-format date+time
  file_interval    = "${file_interval}"               ! ISO-format interval
  output_interval  = "PT20M"
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ include_last     = .FALSE.
+ operation        = "mean"
+ ml_varlist       = 'u','v','cllvi','prcs','ps','pr'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_mean_30M"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>_mean"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"                  ! ISO-format date+time
+ output_end       = "${end_date}"                    ! ISO-format date+time
+ file_interval    = "${file_interval}"               ! ISO-format interval
+ output_interval  = "PT30M"
  file_interval    = "${file_interval}"               ! ISO-format interval
  include_last     = .FALSE.
  operation        = "mean"
