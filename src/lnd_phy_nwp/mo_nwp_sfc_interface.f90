@@ -309,12 +309,12 @@ CONTAINS
          DO ic=1,ext_data%atm%spw_count(jb)
            jc = ext_data%atm%idx_lst_spw(ic,jb)
  
-           lnd_diag%qv_s_t(jc,jb,isub_water) = &
+           lnd_diag%qv_s_t(jc,jb,isub_water) = 0.981_wp * & ! reduction of saturation pressure due to salt content
              &         spec_humi(sat_pres_water(lnd_prog_now%t_g_t(jc,jb,isub_water)),&
              &                                   p_diag%pres_sfc(jc,jb) )
          ENDDO
       ENDIF
- 
+
 
       IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 .and. &
           & atm_phy_nwp_config(jg)%inwp_turb    /= iedmf ) THEN
