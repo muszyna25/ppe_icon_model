@@ -889,6 +889,7 @@ run/exp.pure_adv -text
 run/exp.test_atm_amip -text
 run/exp.test_atm_amip_noparams -text
 run/exp.test_atm_icoles_nested -text
+run/exp.test_atmo_meanStream -text
 run/exp.test_couple_atmo-ocean -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nat_rce_cbl_120km_nwp -text
