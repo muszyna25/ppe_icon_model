@@ -158,7 +158,7 @@ MODULE mo_2mom_mcrph_main
   CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_main'
 
   ! for constant droplet number runs
-  real(wp) :: qnc_const
+  real(wp) :: qnc_const = 200.0e6_wp
 
   ! These are the fundamental particle variables for the two-moment scheme
   ! These pointers will be specified from the list of pre-defined particles
@@ -265,6 +265,23 @@ MODULE mo_2mom_mcrph_main
   !> run-time- and location invariants for autoconversionSB
   REAL(wp), SAVE :: autoconversion_sb_k_au, autoconversion_sb_k_sc
 
+  
+  ! DR: The following block is necessarily public as these parameters/coefficients
+  !     are required by the ART code
+  PUBLIC :: scr_params, srr_params, irr_params, icr_params
+  PUBLIC :: hrr_params, grr_params, hcr_params, gcr_params
+  PUBLIC :: sic_params, hic_params, gic_params, hsc_params, gsc_params
+  PUBLIC :: vid_params, vgd_params, vhd_params, vsd_params
+  PUBLIC :: ge_params, se_params, gm_params, hm_params, sm_params
+  PUBLIC :: graupel_sc_coll_n, snow_sc_delta_n, snow_sc_theta_n
+  PUBLIC :: cloud_freeze_coeff_z, ice_sc_delta_n, ice_sc_delta_q
+  PUBLIC :: ice_sc_theta_n, ice_sc_theta_q
+  PUBLIC :: rain_freeze_coeff_z, autoconversion_sb_k_au, autoconversion_sb_k_sc
+  PUBLIC :: graupel_ltable1, graupel_ltable2
+  PUBLIC :: rain_ltable1, rain_ltable2, rain_ltable3
+  PUBLIC :: rain_nm1, rain_nm2, rain_nm3, rain_g1, rain_g2
+  PUBLIC :: graupel_nm1, graupel_nm2, graupel_g1, graupel_g2
+  ! END DR
 
 CONTAINS
 
@@ -1327,7 +1344,7 @@ CONTAINS
                cloud, rain, ice)
           CALL prtcl_rain_riming(ik_slice, dt, atmo, hail, hrr_params, &
                d_shed_h, hail_shedding, rain, ice)
-      IF (ischeck) CALL check(ik_slice, 'hail riming',cloud,rain,ice,snow,graupel,hail)
+         IF (ischeck) CALL check(ik_slice, 'hail riming',cloud,rain,ice,snow,graupel,hail)
        END IF
        CALL prtcl_cloud_riming(ik_slice, dt, atmo, graupel, &
             ecoll_gc/(D_coll_c - D_crit_c), ecoll_gc, d_shed_g, &
@@ -1335,7 +1352,7 @@ CONTAINS
             cloud, rain, ice)
        CALL prtcl_rain_riming(ik_slice, dt, atmo, graupel, grr_params, &
             d_shed_g, graupel_shedding, rain, ice)
-      IF (ischeck) CALL check(ik_slice, 'graupel riming',cloud,rain,ice,snow,graupel,hail)
+       IF (ischeck) CALL check(ik_slice, 'graupel riming',cloud,rain,ice,snow,graupel,hail)
 
        ! freezing of rain and conversion to ice/graupel/hail
        CALL rain_freeze_gamlook(ik_slice, dt, rain_ltable1, rain_ltable2, rain_ltable3, &
