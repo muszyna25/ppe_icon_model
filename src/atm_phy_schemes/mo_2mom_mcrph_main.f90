@@ -272,7 +272,7 @@ MODULE mo_2mom_mcrph_main
   PUBLIC :: hrr_params, grr_params, hcr_params, gcr_params
   PUBLIC :: sic_params, hic_params, gic_params, hsc_params, gsc_params
   PUBLIC :: vid_params, vgd_params, vhd_params, vsd_params
-  PUBLIC :: ge_params, se_params, gm_params, hm_params, sm_params
+  PUBLIC :: ge_params, he_params, se_params, gm_params, hm_params, sm_params
   PUBLIC :: graupel_sc_coll_n, snow_sc_delta_n, snow_sc_theta_n
   PUBLIC :: cloud_freeze_coeff_z, ice_sc_delta_n, ice_sc_delta_q
   PUBLIC :: ice_sc_theta_n, ice_sc_theta_q
@@ -281,6 +281,7 @@ MODULE mo_2mom_mcrph_main
   PUBLIC :: rain_ltable1, rain_ltable2, rain_ltable3
   PUBLIC :: rain_nm1, rain_nm2, rain_nm3, rain_g1, rain_g2
   PUBLIC :: graupel_nm1, graupel_nm2, graupel_g1, graupel_g2
+  PUBLIC :: graupel_shedding, hail_shedding, rain_gfak
   ! END DR
 
 CONTAINS

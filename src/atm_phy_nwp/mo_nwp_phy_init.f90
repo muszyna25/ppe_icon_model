@@ -73,7 +73,7 @@ MODULE mo_nwp_phy_init
   USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init,       &
     &                               set_qnc, set_qnr, set_qni,   &
     &                               set_qns, set_qng
-  USE mo_art_clouds_interface,ONLY: art_clouds_interface_twomom_init
+  USE mo_art_clouds_interface,ONLY: art_clouds_interface_2mom_init
   USE mo_cpl_aerosol_microphys, ONLY: lookupcreate_segalkhain, specccn_segalkhain_simple, &
                                       ncn_from_tau_aerosol_speccnconst
 
@@ -643,7 +643,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
            ! and chemical composition taken from the ART extension
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: ART two-moment')
 
-    IF (jg == 1) CALL art_clouds_interface_twomom_init(msg_level=msg_level)
+    IF (jg == 1) CALL art_clouds_interface_2mom_init(msg_level)
 
     IF (linit_mode) THEN ! Initial condition for number densities
 !$OMP PARALLEL
