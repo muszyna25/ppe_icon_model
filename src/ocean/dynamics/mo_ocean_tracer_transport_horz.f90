@@ -24,7 +24,7 @@ MODULE mo_ocean_tracer_transport_horz
   USE mo_kind,                      ONLY: wp
   USE mo_math_utilities,            ONLY: t_cartesian_coordinates
   USE mo_math_constants,            ONLY: dbl_eps
-  USE mo_impl_constants,            ONLY: sea_boundary
+  USE mo_impl_constants,            ONLY: sea_boundary, SEA
   USE mo_ocean_nml,                 ONLY: n_zlev, l_edge_based, ab_gam,                   &
     & upwind, central,lax_friedrichs, fct_horz, miura_order1, flux_calculation_horz,      &
     & fct_high_order_flux,  fct_low_order_flux,FCT_Limiter_horz, fct_limiter_horz_zalesak,&
@@ -1781,6 +1781,9 @@ CONTAINS
   !! The corrected flux is a weighted average of the low order flux and the
   !! given high order flux. The high order flux is used to the greatest extent
   !! possible without introducing overshoots and undershoots.
+  !! In vicinity of a lateral boundary only the low order flux is used: The criterion 
+  !! is that at least one of the edges of the two neighboring cells of
+  !! a central edges is a boundary edge.
   !! Note: This limiter is positive definite and almost monotone (but not strictly).
   !!
   !! @par Literature:
@@ -1791,6 +1794,9 @@ CONTAINS
   !! - Inital revision by Daniel Reinert, DWD (2010-03-10)
   !! Modification by Daniel Reinert, DWD (2010-03-25)
   !! - adapted for MPI parallelization
+  !! - adapted for ocean use by P. Korn (2012)
+  !! - optimized by L. Linardakis (2015)
+  !! - criterion for switch to low order scheme near boundaries added P. Korn (2015)  
   !!
   !!  mpi note: computed on domain edges. Results is not synced.
   !!
@@ -1835,7 +1841,13 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: edge_of_cell_idx, edge_of_cell_blk
     INTEGER :: start_level, end_level            
     INTEGER :: start_index, end_index
-    INTEGER :: edge_index, level, blockNo, jc,  cell_connect
+    INTEGER :: cell_1_idx,cell_2_idx,cell_1_blk,cell_2_blk
+    INTEGER :: cell_1_edge_1_idx,cell_1_edge_2_idx,cell_1_edge_3_idx
+    INTEGER :: cell_2_edge_1_idx,cell_2_edge_2_idx,cell_2_edge_3_idx        
+    INTEGER :: cell_1_edge_1_blk,cell_1_edge_2_blk,cell_1_edge_3_blk
+    INTEGER :: cell_2_edge_1_blk,cell_2_edge_2_blk,cell_2_edge_3_blk      
+    INTEGER :: edge_index, level, blockNo, jc,  cell_connect, sum_lsm_quad_edge
+    INTEGER :: all_water_edges 
     TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d    
     !-------------------------------------------------------------------------
@@ -1852,6 +1864,10 @@ CONTAINS
     neighbor_cell_idx => patch_2d%cells%neighbor_idx
     neighbor_cell_blk => patch_2d%cells%neighbor_blk
     
+    !Integer number that describes that all edges that belong to
+    ! the two neighboring cells of a central triangle are sea (SEA=-2,cf mo_impl_constants)
+    all_water_edges = SEA*2*patch_2d%cells%max_connectivity
+            
     ! 1. Calculate low (first) order fluxes using the standard upwind scheme and the
     !    antidiffusive fluxes
     !    (not allowed to call upwind_hflux_up directly, due to circular dependency)
@@ -2061,9 +2077,56 @@ CONTAINS
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
       flx_tracer_final(:,:,blockNo) = 0.0_wp
       DO edge_index = start_index, end_index
+      
+        !get the two neighboring cells and their respective edges
+        cell_1_idx = cellOfEdge_idx(edge_index,blockNo,1)
+        cell_1_blk = cellOfEdge_blk(edge_index,blockNo,1)
+        
+        cell_2_idx = cellOfEdge_idx(edge_index,blockNo,2)
+        cell_2_blk = cellOfEdge_blk(edge_index,blockNo,2)    
+
+        cell_1_edge_1_idx=edge_of_cell_idx(cell_1_idx,cell_1_blk,1)
+        cell_1_edge_2_idx=edge_of_cell_idx(cell_1_idx,cell_1_blk,2)
+        cell_1_edge_3_idx=edge_of_cell_idx(cell_1_idx,cell_1_blk,3)
+
+        cell_1_edge_1_blk=edge_of_cell_blk(cell_1_idx,cell_1_blk,1)
+        cell_1_edge_2_blk=edge_of_cell_blk(cell_1_idx,cell_1_blk,2)
+        cell_1_edge_3_blk=edge_of_cell_blk(cell_1_idx,cell_1_blk,3)
+
+        cell_2_edge_1_idx=edge_of_cell_idx(cell_2_idx,cell_2_blk,1)
+        cell_2_edge_2_idx=edge_of_cell_idx(cell_2_idx,cell_2_blk,2)
+        cell_2_edge_3_idx=edge_of_cell_idx(cell_2_idx,cell_2_blk,3)        
+             
+        cell_2_edge_1_blk=edge_of_cell_blk(cell_2_idx,cell_2_blk,1)
+        cell_2_edge_2_blk=edge_of_cell_blk(cell_2_idx,cell_2_blk,2)
+        cell_2_edge_3_blk=edge_of_cell_blk(cell_2_idx,cell_2_blk,3)               
+              
         DO level = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_e(edge_index,blockNo), end_level)
+        
+          sum_lsm_quad_edge =  & 
+          &+patch_3D%lsm_e(cell_1_edge_1_idx,level,cell_1_edge_1_blk)&  
+          &+patch_3D%lsm_e(cell_1_edge_2_idx,level,cell_1_edge_2_blk)&  
+          &+patch_3D%lsm_e(cell_1_edge_3_idx,level,cell_1_edge_3_blk)&  
+          &+patch_3D%lsm_e(cell_2_edge_1_idx,level,cell_2_edge_1_blk)&  
+          &+patch_3D%lsm_e(cell_2_edge_2_idx,level,cell_2_edge_2_blk)&  
+          &+patch_3D%lsm_e(cell_2_edge_3_idx,level,cell_2_edge_3_blk)
+          
+ !write(789,*)'details', level,sum_lsm_quad_edge,all_water_edges!&
+! &patch_3D%lsm_e(edge_index,level,blockNo),& 
+! &patch_3D%lsm_e(cell_1_edge_1_idx,level,cell_1_edge_1_blk),&  
+! &patch_3D%lsm_e(cell_1_edge_2_idx,level,cell_1_edge_2_blk),&  
+! &patch_3D%lsm_e(cell_1_edge_3_idx,level,cell_1_edge_3_blk),&  
+! &patch_3D%lsm_e(cell_2_edge_1_idx,level,cell_2_edge_1_blk),&  
+! &patch_3D%lsm_e(cell_2_edge_2_idx,level,cell_2_edge_2_blk),&  
+! &patch_3D%lsm_e(cell_2_edge_3_idx,level,cell_2_edge_3_blk)
+                               
           ! IF( patch_3D%lsm_e(edge_index,level,blockNo) <= sea_boundary ) THEN
-          z_signum = SIGN(1._wp, z_anti(edge_index,level,blockNo))
+          IF(sum_lsm_quad_edge>all_water_edges)THEN
+          
+            flx_tracer_final(edge_index,level,blockNo) = flx_tracer_low(edge_index,level,blockNo)
+            
+          ELSE!IF(sum_lsm_quad_edge==all_water_edges)THEN
+            z_signum = SIGN(1._wp, z_anti(edge_index,level,blockNo))
                     
           ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
           ! but is computationally more efficient
@@ -2083,7 +2146,7 @@ CONTAINS
             & + MIN(1._wp,r_frac) * z_anti(edge_index,level,blockNo)
           ! ELSE
           !   flx_tracer_high(edge_index,level,blockNo)= 0.0_wp
-          ! ENDIF
+           ENDIF
         END DO
       ENDDO
     ENDDO
