@@ -30,7 +30,7 @@ MODULE mo_ocean_coupling
        &                            timer_coupling_put, timer_coupling_get,  &
        &                            timer_coupling_1stget, timer_coupling_init
   USE mo_sync,                ONLY: sync_c, sync_patch_array
-! USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
 
   USE mo_ocean_types
@@ -82,6 +82,9 @@ MODULE mo_ocean_coupling
 
   REAL(wp), ALLOCATABLE :: buffer(:,:)
   INTEGER, SAVE         :: nbr_inner_cells
+
+  CHARACTER(len=12)     :: str_module    = 'oceanCouplng'  ! Output of module for 1 line debug
+  INTEGER               :: idt_src       = 1               ! Level of detail for 1 line debug
 
 CONTAINS
 
@@ -533,6 +536,9 @@ CONTAINS
     REAL(wp), PARAMETER                 :: dummy = 0.0_wp
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datestring
 
+    REAL(wp) :: total_rain
+    REAL(wp), PARAMETER :: dummy = 0.0_wp
+
     IF (.NOT. is_coupled_run() ) RETURN
 
     IF (ltimer) CALL timer_start(timer_coupling)
@@ -781,9 +787,10 @@ CONTAINS
     ENDIF
     !
     !
-    ! Apply freshwater flux - 2 parts, precipitation and evaporation - record 3
+    ! Apply freshwater flux - 3 parts, liquid rain, snowfall, evaporation - record 3
     !
     ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
+    ! Note: precipitation is the sum of rain and snowfall
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
 #ifdef YAC_coupling
@@ -799,7 +806,7 @@ CONTAINS
     !
     IF (info > 0 .AND. info < 7 ) THEN
       !
-!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen, total_rain) ICON_OMP_DEFAULT_SCHEDULE
       DO i_blk = 1, patch_horz%nblks_c
         nn = (i_blk-1)*nproma
         IF (i_blk /= patch_horz%nblks_c) THEN
@@ -809,13 +816,16 @@ CONTAINS
         END IF
         DO n = 1, nlen
           IF ( nn+n > nbr_inner_cells ) THEN
-            atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = dummy
+            total_rain                                   = dummy
             atmos_fluxes%FrshFlux_SnowFall     (n,i_blk) = dummy
             atmos_fluxes%FrshFlux_Evaporation  (n,i_blk) = dummy
+            atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = dummy
           ELSE
-            atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = buffer(nn+n,1) / rhoh2o
+            total_rain                                   = buffer(nn+n,1) / rhoh2o
             atmos_fluxes%FrshFlux_SnowFall     (n,i_blk) = buffer(nn+n,2) / rhoh2o
             atmos_fluxes%FrshFlux_Evaporation  (n,i_blk) = buffer(nn+n,3) / rhoh2o
+            atmos_fluxes%FrshFlux_Precipitation(n,i_blk) = total_rain + &
+              &  atmos_fluxes%FrshFlux_SnowFall(n,i_blk)
           ENDIF
         ENDDO
       ENDDO
@@ -983,6 +993,23 @@ CONTAINS
       !
       CALL sync_patch_array(sync_c, patch_horz, atmos_fluxes%FrshFlux_Runoff(:,:))
     END IF
+
+    !---------DEBUG DIAGNOSTICS-------------------------------------------
+    CALL dbg_print('toatmo: AtmFluxStress_x  ',atmos_fluxes%stress_x             ,str_module,3,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: AtmFluxStress_xw ',atmos_fluxes%stress_xw            ,str_module,4,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: AtmFluxStress_y  ',atmos_fluxes%stress_y             ,str_module,4,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: AtmFluxStress_yw ',atmos_fluxes%stress_yw            ,str_module,3,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: FrshFluxPrecip  ',atmos_fluxes%FrshFlux_Precipitation,str_module,3,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: FrshFluxEvapo    ',atmos_fluxes%FrshFlux_Evaporation ,str_module,3,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: FrshFluxSnowFall ',atmos_fluxes%FrshFlux_SnowFall    ,str_module,3,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: FrshFluxRunoff   ',atmos_fluxes%FrshFlux_Runoff      ,str_module,3,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: HeatFluxTotal    ',atmos_fluxes%HeatFlux_Total       ,str_module,2,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: HeatFluxShortwave',atmos_fluxes%HeatFlux_ShortWave   ,str_module,3,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: HeatFluxLongwave ',atmos_fluxes%HeatFlux_Longwave    ,str_module,4,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: HeatFluxSensible ',atmos_fluxes%HeatFlux_Sensible    ,str_module,4,in_subset=patch_horz%cells%owned)
+    CALL dbg_print('toatmo: HeatFluxLatent   ',atmos_fluxes%HeatFlux_Latent      ,str_module,3,in_subset=patch_horz%cells%owned)
+    ! WRITE (0,*) str_module, ": rhoh2o = ",rhoh2o
+    !---------------------------------------------------------------------
 
     IF (ltimer) CALL timer_stop(timer_coupling)
 
