@@ -188,12 +188,23 @@ val3=1._wp/3.0_wp
         rhs_v(row)=rhs_v(row) - voltriangle(elem) * &
              (sigma12(elem)*dx(k)+sigma22(elem)*dy(k) &   
              -sigma11(elem)*val3*meancos)
-      !  Vladimir: rhs_a and rhs_m are calculated in precalc4rhs_omp
-        rhs_u(row)=rhs_u(row)/rhs_mis(row) + rhs_a(row)
-        rhs_v(row)=rhs_v(row)/rhs_mis(row) + rhs_m(row)
      END DO
-
  END DO
+
+ !ICON_OMP_DO PRIVATE(i,row,cluster_area,mass) SCHEDULE(static)
+  DO i=1,si_nod2D
+     row=si_idx_nodes(i)
+
+!     if (rhs_mis(row).ne.0._wp) then           !Vladimir: already taken care of at the initialization step
+      rhs_u(row)=rhs_u(row)/rhs_mis(row) + rhs_a(row)
+      rhs_v(row)=rhs_v(row)/rhs_mis(row) + rhs_m(row)
+!     else
+!     rhs_u(row)=0._wp
+!     rhs_v(row)=0._wp
+!     rhs_mis(row)=0._wp
+!     end if
+  END DO
+!ICON_OMP_END_DO
 
 end subroutine stress2rhs
 !===================================================================
@@ -349,8 +360,8 @@ REAL(wp)    :: ax, ay
 ! precalculate several arrays that do not change during subcycling
     call precalc4rhs_omp
 
-!ICON_OMP_PARALLEL
  DO shortstep=1, steps
+     !ICON_OMP_PARALLEL
      ! ===== Boundary conditions
      !ICON_OMP_DO PRIVATE(i) ICON_OMP_DEFAULT_SCHEDULE
      do j=1, myDim_nod2D+eDim_nod2D
@@ -398,12 +409,11 @@ REAL(wp)    :: ax, ay
        end if
      end do
      !ICON_OMP_END_DO
+     !ICON_OMP_END_PARALLEL
 
      call exchange_nod2D(u_ice)
      call exchange_nod2D(v_ice)
  END DO
-!ICON_OMP_END_PARALLEL
-
 
 end subroutine EVPdynamics
 !===================================================================

@@ -400,6 +400,7 @@ REAL(wp)    :: ax, ay
 
 !ICON_OMP_PARALLEL
  DO shortstep=1, steps
+     !ICON_OMP_PARALLEL
      ! ===== Boundary conditions
      !ICON_OMP_DO PRIVATE(i) ICON_OMP_DEFAULT_SCHEDULE
      do j=1, myDim_nod2D+eDim_nod2D
@@ -447,12 +448,11 @@ REAL(wp)    :: ax, ay
        end if
      end do
      !ICON_OMP_END_DO
+     !ICON_OMP_END_PARALLEL
 
      call exchange_nod2D(u_ice)
      call exchange_nod2D(v_ice)
  END DO
-!ICON_OMP_END_PARALLEL
-
 
 end subroutine EVPdynamics_omp
 !===================================================================
