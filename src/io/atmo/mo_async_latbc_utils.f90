@@ -79,7 +79,7 @@
          &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>),      &
          &                            datetimeToString, OPERATOR(*),               &
          &                            newTimedelta, deallocateTimedelta
-    USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime
+    USE mo_limarea_config,      ONLY: latbc_config, generate_filename
     USE mo_ext_data_types,      ONLY: t_external_data
     USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime,  &
       &                                tc_dt_model
@@ -526,7 +526,7 @@
       ! proceeding to generate filename and than looking for boundary data file
       IF(mtime_read > mtime_end) &
            RETURN
-      latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
+      latbc_filename = generate_filename(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)
@@ -832,7 +832,7 @@
       ! proceeding to generate filename and than looking for boundary data file
       IF(mtime_read > mtime_end) &
            RETURN
-      latbc_filename = generate_filename_mtime(nroot, patch_data%level, mtime_read)
+      latbc_filename = generate_filename(nroot, patch_data%level, mtime_read)
       latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
       WRITE(0,*) 'reading boundary data: ', TRIM(latbc_filename)
       INQUIRE (FILE=TRIM(ADJUSTL(latbc_full_filename)), EXIST=l_exist)

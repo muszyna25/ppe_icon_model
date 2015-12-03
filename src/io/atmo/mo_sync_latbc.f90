@@ -56,7 +56,7 @@ MODULE mo_sync_latbc
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, sync_patch_array
   USE mo_initicon_types,      ONLY: t_initicon_state
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_limarea_config,      ONLY: latbc_config, generate_filename_mtime
+  USE mo_limarea_config,      ONLY: latbc_config, generate_filename
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport
   USE mo_initicon_config,     ONLY: init_mode
@@ -312,7 +312,7 @@ MODULE mo_sync_latbc
     nlev_in = latbc_config%nlev_in
     tlev = read_latbc_tlev
 
-    latbc_filename = generate_filename_mtime(nroot, p_patch%level, last_latbc_mtime)
+    latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_mtime)
 
     latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
@@ -462,7 +462,7 @@ MODULE mo_sync_latbc
       mpi_comm = p_comm_work
     ENDIF
 
-    latbc_filename = generate_filename_mtime(nroot, p_patch%level, last_latbc_mtime)
+    latbc_filename = generate_filename(nroot, p_patch%level, last_latbc_mtime)
 
     latbc_full_filename = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
 
