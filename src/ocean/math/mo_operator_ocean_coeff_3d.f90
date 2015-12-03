@@ -595,6 +595,13 @@ CONTAINS
 
     ENDIF
 
+    ALLOCATE(operators_coefficients%edges_SeaBoundaryLevel(nproma,n_zlev,nblks_e),&
+      & stat=return_status)
+    IF (return_status /= success) THEN
+      CALL finish ('mo_operator_ocean_coeff_3d',                 &
+        & 'allocation for edges_SeaBoundaryLevel failed')
+    ENDIF
+
     !---------------------------------------------------------------
     !
     ! initialize all components
@@ -715,6 +722,8 @@ CONTAINS
         & solverCoeff_sp%cell_thickness)
 
     ENDIF
+
+    DEALLOCATE(operators_coefficients%edges_SeaBoundaryLevel)
 
   END SUBROUTINE deallocate_operators_coefficients
   !-------------------------------------------------------------------------
@@ -1861,8 +1870,8 @@ CONTAINS
     INTEGER :: ivertex_bnd_edge_idx(4), ivertex_bnd_edge_blk(4)  !maximal 4 boundary edges in a dual loop.
     INTEGER :: i_edge_idx(4)
     REAL(wp) :: zarea_fraction(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_v)
-    INTEGER :: icell_idx_1, icell_blk_1
-    INTEGER :: icell_idx_2, icell_blk_2
+    INTEGER :: cell_idx_1, cell_blk_1
+    INTEGER :: cell_idx_2, cell_blk_2
     INTEGER :: boundary_counter
     INTEGER :: neigbor, k
     INTEGER :: cell_index, cell_block, edge_index_of_cell, edge_block_of_cell, k_coeff
@@ -1890,6 +1899,31 @@ CONTAINS
     zarea_fraction(1:nproma,1:n_zlev,1:patch_2D%nblks_v) = 0.0_wp
     earth_radius_squared = earth_radius * earth_radius
 
+    ! calculate edges_SeaBoundaryLevel
+    DO block = all_edges%start_block, all_edges%end_block
+      CALL get_index_range(all_edges, block, i_startidx_e, i_endidx_e)
+      DO je = i_startidx_e, i_endidx_e
+        cell_idx_1 = patch_2D%edges%cell_idx(je,block,1)
+        cell_blk_1 = patch_2D%edges%cell_blk(je,block,1)
+        cell_idx_2 = patch_2D%edges%cell_idx(je,block,2)
+        cell_blk_2 = patch_2D%edges%cell_blk(je,block,2)
+
+        DO jk = 1, n_zlev
+        
+          IF (patch_3D%lsm_e(je,jk,block) > boundary) THEN
+            operators_coefficients%edges_SeaBoundaryLevel(je,jk,block) = 1 ! land
+          ELSEIF ( patch_3D%lsm_e(je,jk,block) == boundary ) THEN
+            operators_coefficients%edges_SeaBoundaryLevel(je,jk,block) = 0 ! boundary
+          ELSEIF (patch_3D%lsm_c(cell_idx_1, jk, cell_blk_1) == sea_boundary .or. &
+                  patch_3D%lsm_c(cell_idx_2, jk, cell_blk_1) == sea_boundary )   THEN
+            operators_coefficients%edges_SeaBoundaryLevel(je,jk,block) = -1 ! sea next to boundary cell
+          ELSE
+            operators_coefficients%edges_SeaBoundaryLevel(je,jk,block) = -99999 ! inner sea 
+          ENDIF
+        ENDDO
+      END DO
+    END DO
+
     !-------------------------------------------------------------
     !0. check the coefficients for edges, these are:
     !     grad_coeff
@@ -1898,8 +1932,8 @@ CONTAINS
     !
     DO block = all_edges%start_block, all_edges%end_block
       CALL get_index_range(all_edges, block, i_startidx_e, i_endidx_e)
-      DO jk = 1, n_zlev
-        DO je = i_startidx_e, i_endidx_e
+      DO je = i_startidx_e, i_endidx_e
+        DO jk = 1, n_zlev
 
           IF ( patch_3D%lsm_e(je,jk,block) /= sea ) THEN
             operators_coefficients%grad_coeff          (je,jk,block) = 0.0_wp
@@ -1975,19 +2009,19 @@ CONTAINS
       DO jk = 1, n_zlev
         DO je = i_startidx_e, i_endidx_e
           IF ( patch_3D%lsm_e(je,jk,block) == sea ) THEN
-            icell_idx_1 = patch_2D%edges%cell_idx(je,block,1)
-            icell_blk_1 = patch_2D%edges%cell_blk(je,block,1)
+            cell_idx_1 = patch_2D%edges%cell_idx(je,block,1)
+            cell_blk_1 = patch_2D%edges%cell_blk(je,block,1)
 
-            icell_idx_2 = patch_2D%edges%cell_idx(je,block,2)
-            icell_blk_2 = patch_2D%edges%cell_blk(je,block,2)
+            cell_idx_2 = patch_2D%edges%cell_idx(je,block,2)
+            cell_blk_2 = patch_2D%edges%cell_blk(je,block,2)
 
             operators_coefficients%edge2edge_viacell_coeff(je,jk,block,1:no_primal_edges) &
             &= operators_coefficients%edge2edge_viacell_coeff(je,jk,block,1:no_primal_edges)&
-            &/operators_coefficients%fixed_vol_norm(icell_idx_1,jk,icell_blk_1)
+            &/operators_coefficients%fixed_vol_norm(cell_idx_1,jk,cell_blk_1)
 
             operators_coefficients%edge2edge_viacell_coeff(je,jk,block,no_primal_edges+1:2*no_primal_edges) &
             &= operators_coefficients%edge2edge_viacell_coeff(je,jk,block,no_primal_edges+1:2*no_primal_edges)&
-            &/operators_coefficients%fixed_vol_norm(icell_idx_2,jk,icell_blk_2)
+            &/operators_coefficients%fixed_vol_norm(cell_idx_2,jk,cell_blk_2)
           ENDIF
 
         END DO
@@ -2155,14 +2189,14 @@ CONTAINS
             ile = patch_2D%verts%edge_idx(jv,block,jev)
             ibe = patch_2D%verts%edge_blk(jv,block,jev)
             !get neighbor cells
-            icell_idx_1 = patch_2D%edges%cell_idx(ile,ibe,1)
-            icell_idx_2 = patch_2D%edges%cell_idx(ile,ibe,2)
-            icell_blk_1 = patch_2D%edges%cell_blk(ile,ibe,1)
-            icell_blk_2 = patch_2D%edges%cell_blk(ile,ibe,2)
+            cell_idx_1 = patch_2D%edges%cell_idx(ile,ibe,1)
+            cell_idx_2 = patch_2D%edges%cell_idx(ile,ibe,2)
+            cell_blk_1 = patch_2D%edges%cell_blk(ile,ibe,1)
+            cell_blk_2 = patch_2D%edges%cell_blk(ile,ibe,2)
 
 !             IF ( patch_3D%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
-!               cell1_cc%x  = patch_2D%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
-!               cell2_cc%x  = patch_2D%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+!               cell1_cc%x  = patch_2D%cells%cartesian_center(cell_idx_1,cell_blk_1)%x
+!               cell2_cc%x  = patch_2D%cells%cartesian_center(cell_idx_2,cell_blk_2)%x
 ! 
 !               !Check, if edge is sea or boundary edge and take care of dummy edge
 !               !edge with indices ile, ibe is sea edge
@@ -2259,10 +2293,10 @@ CONTAINS
               ile = patch_2D%verts%edge_idx(jv,block,jev)
               ibe = patch_2D%verts%edge_blk(jv,block,jev)
               !get neighbor cells
-              icell_idx_1 = patch_2D%edges%cell_idx(ile,ibe,1)
-              icell_idx_2 = patch_2D%edges%cell_idx(ile,ibe,2)
-              icell_blk_1 = patch_2D%edges%cell_blk(ile,ibe,1)
-              icell_blk_2 = patch_2D%edges%cell_blk(ile,ibe,2)
+              cell_idx_1 = patch_2D%edges%cell_idx(ile,ibe,1)
+              cell_idx_2 = patch_2D%edges%cell_idx(ile,ibe,2)
+              cell_blk_1 = patch_2D%edges%cell_blk(ile,ibe,1)
+              cell_blk_2 = patch_2D%edges%cell_blk(ile,ibe,2)
 
               !Check, if edge is sea or boundary edge and take care of dummy edge
               !edge with indices ile, ibe is sea edge
@@ -2271,21 +2305,21 @@ CONTAINS
               !   sea_boundary means an open boundary
               !   boundary means that only the sea cell are should be added
               IF ( patch_3D%lsm_e(ile,jk,ibe) <= sea_boundary ) THEN
-                cell1_cc%x  = patch_2D%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
-                cell2_cc%x  = patch_2D%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+                cell1_cc%x  = patch_2D%cells%cartesian_center(cell_idx_1,cell_blk_1)%x
+                cell2_cc%x  = patch_2D%cells%cartesian_center(cell_idx_2,cell_blk_2)%x
                 zarea_fraction(jv,jk,block) = zarea_fraction(jv,jk,block)  &
                   & + planar_triangle_area(cell1_cc, vertex_cc, cell2_cc, patch_2D%geometry_info)
                 ! edge with indices ile, ibe is boundary edge                
               ELSE IF ( patch_3D%lsm_e(ile,jk,ibe) == boundary ) THEN
                 ! at least one of the two cells exists and is sea cell
-                IF (icell_idx_2 <= 0) THEN
-                  cell1_cc%x  = patch_2D%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
-                ELSE IF (icell_idx_1 <= 0) THEN
-                  cell1_cc%x  = patch_2D%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
-                ELSE IF (patch_3D%lsm_c(icell_idx_1,jk,icell_blk_1) <= sea_boundary) THEN
-                  cell1_cc%x  = patch_2D%cells%cartesian_center(icell_idx_1,icell_blk_1)%x
+                IF (cell_idx_2 <= 0) THEN
+                  cell1_cc%x  = patch_2D%cells%cartesian_center(cell_idx_1,cell_blk_1)%x
+                ELSE IF (cell_idx_1 <= 0) THEN
+                  cell1_cc%x  = patch_2D%cells%cartesian_center(cell_idx_2,cell_blk_2)%x
+                ELSE IF (patch_3D%lsm_c(cell_idx_1,jk,cell_blk_1) <= sea_boundary) THEN
+                  cell1_cc%x  = patch_2D%cells%cartesian_center(cell_idx_1,cell_blk_1)%x
                 ELSE
-                  cell1_cc%x  = patch_2D%cells%cartesian_center(icell_idx_2,icell_blk_2)%x
+                  cell1_cc%x  = patch_2D%cells%cartesian_center(cell_idx_2,cell_blk_2)%x
                 ENDIF
 !                 zarea_fraction(jv,jk,block) = zarea_fraction(jv,jk,block)  &
 !                   & + 0.5_wp*planar_triangle_area(cell1_cc, vertex_cc, cell2_cc)
