@@ -398,7 +398,6 @@ REAL(wp)    :: ax, ay
 ! precalculate several arrays that do not change during subcycling
     call precalc4rhs_omp
 
-!ICON_OMP_PARALLEL
  DO shortstep=1, steps
      !ICON_OMP_PARALLEL
      ! ===== Boundary conditions
