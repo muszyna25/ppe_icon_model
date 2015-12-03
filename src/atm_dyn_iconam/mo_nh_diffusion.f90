@@ -47,7 +47,7 @@ MODULE mo_nh_diffusion
   USE mo_parallel_config,     ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult
-  USE mo_physical_constants,  ONLY: cvd_o_rd, rd, grav
+  USE mo_physical_constants,  ONLY: cvd_o_rd, grav
   USE mo_timer,               ONLY: timer_nh_hdiffusion, timer_start, timer_stop
   USE mo_vertical_grid,       ONLY: nrdmax
 

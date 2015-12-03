@@ -19,12 +19,12 @@ MODULE mo_nwp_rg_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_datetime,             ONLY: t_datetime,  month2hour
-  USE mo_exception,            ONLY: message,  finish !message_tex
+  USE mo_exception,            ONLY: message
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run
 
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi
-  USE mo_impl_constants,       ONLY: max_char_length, min_rlcell_int  ! io3_ape 
+  USE mo_impl_constants,       ONLY: min_rlcell_int  ! io3_ape 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -96,7 +96,6 @@ MODULE mo_nwp_rg_interface
 
     ! Local scalars:
     INTEGER:: jc,jk,jb
-    INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
 
     INTEGER:: rl_start, rl_end
@@ -105,7 +104,6 @@ MODULE mo_nwp_rg_interface
     INTEGER:: i_nchdom                !< domain index
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
-    jg        = pt_patch%id
 
     ! number of vertical levels
     nlev   = pt_patch%nlev

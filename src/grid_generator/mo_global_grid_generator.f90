@@ -81,7 +81,7 @@ MODULE mo_global_grid_generator
   !            Almut Gassmann
   !
   !-------------------------------------------------------------------------
-  USE mo_exception, ONLY: message, message_text, open_log, finish
+  USE mo_exception, ONLY: message, message_text, open_log
   USE mo_topology,  ONLY: init_topology_graph,  init_topology_grid, &
     & generate_tree,          &
     & generate_graph,         &

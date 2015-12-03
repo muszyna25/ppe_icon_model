@@ -75,7 +75,6 @@
     USE mtime,                  ONLY: event, newEvent, datetime, newDatetime,      &
          &                            isCurrentEventActive, deallocateDatetime,    &
          &                            MAX_DATETIME_STR_LEN, MAX_EVENTNAME_STR_LEN, &
-         &                            MAX_TIMEDELTA_STR_LEN,                       &
          &                            OPERATOR(>=), OPERATOR(-), OPERATOR(>),      &
          &                            datetimeToString, OPERATOR(*),               &
          &                            newTimedelta, deallocateTimedelta
