@@ -310,7 +310,7 @@ subroutine index_si_elements_omp
 
          aa = m_ice(row)*a_ice(row)
 
-         IF (aa==0._wp) THEN
+         IF (aa > 0._wp) THEN
             si_nod2D = si_nod2D + 1
             buffy_array(si_nod2D)=row
          ENDIF
@@ -330,7 +330,7 @@ subroutine index_si_elements_omp
 
          aa=product(m_ice(elnodes))*product(a_ice(elnodes))
 
-         IF (aa==0._wp) THEN
+         IF (aa > 0._wp) THEN
             si_elem2D = si_elem2D + 1
             buffy_array(si_elem2D)=elem
          ENDIF
