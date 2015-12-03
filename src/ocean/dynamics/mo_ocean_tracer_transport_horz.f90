@@ -1847,7 +1847,7 @@ CONTAINS
 !     INTEGER :: cell_1_edge_1_blk,cell_1_edge_2_blk,cell_1_edge_3_blk
 !     INTEGER :: cell_2_edge_1_blk,cell_2_edge_2_blk,cell_2_edge_3_blk      
     INTEGER :: edge_index, level, blockNo, jc,  cell_connect, sum_lsm_quad_edge
-    INTEGER :: all_water_edges 
+!    INTEGER :: all_water_edges 
     TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d    
     !-------------------------------------------------------------------------
@@ -1866,7 +1866,7 @@ CONTAINS
     
     !Integer number that describes that all edges that belong to
     ! the two neighboring cells of a central triangle are sea (SEA=-2,cf mo_impl_constants)
-    all_water_edges = SEA*2*patch_2d%cells%max_connectivity
+!     all_water_edges = SEA*2*patch_2d%cells%max_connectivity
             
     ! 1. Calculate low (first) order fluxes using the standard upwind scheme and the
     !    antidiffusive fluxes
