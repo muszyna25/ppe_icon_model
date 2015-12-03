@@ -24,4 +24,10 @@ module mo_ice_elements
   REAL(wp), allocatable, dimension(:,:)    :: bafux, bafuy
   REAL(wp), allocatable, dimension(:,:)    :: bafux_nod, bafuy_nod
   REAL(wp), allocatable, dimension(:)      :: voltriangle
+
+  ! vladimir: indices for elements/nodes with actual ice
+  ! allocated/deallocated each time-step
+  integer                                      :: si_elem2D, si_nod2D
+  integer(KIND=4), allocatable, dimension(:) :: si_idx_elem, si_idx_nodes
+
 end module mo_ice_elements
