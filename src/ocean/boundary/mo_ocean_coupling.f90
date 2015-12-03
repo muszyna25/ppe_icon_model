@@ -535,9 +535,7 @@ CONTAINS
     INTEGER                             :: info, ierror   !< return values from cpl_put/get calls
     REAL(wp), PARAMETER                 :: dummy = 0.0_wp
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datestring
-
     REAL(wp) :: total_rain
-    REAL(wp), PARAMETER :: dummy = 0.0_wp
 
     IF (.NOT. is_coupled_run() ) RETURN
 
