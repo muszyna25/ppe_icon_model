@@ -1841,11 +1841,11 @@ CONTAINS
     INTEGER, DIMENSION(:,:,:), POINTER :: edge_of_cell_idx, edge_of_cell_blk
     INTEGER :: start_level, end_level            
     INTEGER :: start_index, end_index
-!     INTEGER :: cell_1_idx,cell_2_idx,cell_1_blk,cell_2_blk
-!     INTEGER :: cell_1_edge_1_idx,cell_1_edge_2_idx,cell_1_edge_3_idx
-!     INTEGER :: cell_2_edge_1_idx,cell_2_edge_2_idx,cell_2_edge_3_idx        
-!     INTEGER :: cell_1_edge_1_blk,cell_1_edge_2_blk,cell_1_edge_3_blk
-!     INTEGER :: cell_2_edge_1_blk,cell_2_edge_2_blk,cell_2_edge_3_blk      
+    INTEGER :: cell_1_idx,cell_2_idx,cell_1_blk,cell_2_blk
+    INTEGER :: cell_1_edge_1_idx,cell_1_edge_2_idx,cell_1_edge_3_idx
+    INTEGER :: cell_2_edge_1_idx,cell_2_edge_2_idx,cell_2_edge_3_idx        
+    INTEGER :: cell_1_edge_1_blk,cell_1_edge_2_blk,cell_1_edge_3_blk
+    INTEGER :: cell_2_edge_1_blk,cell_2_edge_2_blk,cell_2_edge_3_blk      
     INTEGER :: edge_index, level, blockNo, jc,  cell_connect, sum_lsm_quad_edge
     INTEGER :: all_water_edges 
     TYPE(t_subset_range), POINTER :: edges_in_domain,  cells_in_domain
@@ -2078,38 +2078,41 @@ CONTAINS
       flx_tracer_final(:,:,blockNo) = 0.0_wp
       DO edge_index = start_index, end_index
       
-!         !get the two neighboring cells and their respective edges
-!         cell_1_idx = cellOfEdge_idx(edge_index,blockNo,1)
-!         cell_1_blk = cellOfEdge_blk(edge_index,blockNo,1)
-!         
-!         cell_2_idx = cellOfEdge_idx(edge_index,blockNo,2)
-!         cell_2_blk = cellOfEdge_blk(edge_index,blockNo,2)    
-! 
-!         cell_1_edge_1_idx=edge_of_cell_idx(cell_1_idx,cell_1_blk,1)
-!         cell_1_edge_2_idx=edge_of_cell_idx(cell_1_idx,cell_1_blk,2)
-!         cell_1_edge_3_idx=edge_of_cell_idx(cell_1_idx,cell_1_blk,3)
-! 
-!         cell_1_edge_1_blk=edge_of_cell_blk(cell_1_idx,cell_1_blk,1)
-!         cell_1_edge_2_blk=edge_of_cell_blk(cell_1_idx,cell_1_blk,2)
-!         cell_1_edge_3_blk=edge_of_cell_blk(cell_1_idx,cell_1_blk,3)
-! 
-!         cell_2_edge_1_idx=edge_of_cell_idx(cell_2_idx,cell_2_blk,1)
-!         cell_2_edge_2_idx=edge_of_cell_idx(cell_2_idx,cell_2_blk,2)
-!         cell_2_edge_3_idx=edge_of_cell_idx(cell_2_idx,cell_2_blk,3)        
-!              
-!         cell_2_edge_1_blk=edge_of_cell_blk(cell_2_idx,cell_2_blk,1)
-!         cell_2_edge_2_blk=edge_of_cell_blk(cell_2_idx,cell_2_blk,2)
-!         cell_2_edge_3_blk=edge_of_cell_blk(cell_2_idx,cell_2_blk,3)               
+        !get the two neighboring cells and their respective edges
+        cell_1_idx = cellOfEdge_idx(edge_index,blockNo,1)
+        cell_1_blk = cellOfEdge_blk(edge_index,blockNo,1)
+        
+        cell_2_idx = cellOfEdge_idx(edge_index,blockNo,2)
+        cell_2_blk = cellOfEdge_blk(edge_index,blockNo,2)    
+
+        cell_1_edge_1_idx=edge_of_cell_idx(cell_1_idx,cell_1_blk,1)
+        cell_1_edge_2_idx=edge_of_cell_idx(cell_1_idx,cell_1_blk,2)
+        cell_1_edge_3_idx=edge_of_cell_idx(cell_1_idx,cell_1_blk,3)
+
+        cell_1_edge_1_blk=edge_of_cell_blk(cell_1_idx,cell_1_blk,1)
+        cell_1_edge_2_blk=edge_of_cell_blk(cell_1_idx,cell_1_blk,2)
+        cell_1_edge_3_blk=edge_of_cell_blk(cell_1_idx,cell_1_blk,3)
+
+        cell_2_edge_1_idx=edge_of_cell_idx(cell_2_idx,cell_2_blk,1)
+        cell_2_edge_2_idx=edge_of_cell_idx(cell_2_idx,cell_2_blk,2)
+        cell_2_edge_3_idx=edge_of_cell_idx(cell_2_idx,cell_2_blk,3)        
+             
+        cell_2_edge_1_blk=edge_of_cell_blk(cell_2_idx,cell_2_blk,1)
+        cell_2_edge_2_blk=edge_of_cell_blk(cell_2_idx,cell_2_blk,2)
+        cell_2_edge_3_blk=edge_of_cell_blk(cell_2_idx,cell_2_blk,3)               
               
         DO level = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_e(edge_index,blockNo), end_level)
         
-!           sum_lsm_quad_edge =  & 
-!           &+patch_3D%lsm_e(cell_1_edge_1_idx,level,cell_1_edge_1_blk)&  
-!           &+patch_3D%lsm_e(cell_1_edge_2_idx,level,cell_1_edge_2_blk)&  
-!           &+patch_3D%lsm_e(cell_1_edge_3_idx,level,cell_1_edge_3_blk)&  
-!           &+patch_3D%lsm_e(cell_2_edge_1_idx,level,cell_2_edge_1_blk)&  
-!           &+patch_3D%lsm_e(cell_2_edge_2_idx,level,cell_2_edge_2_blk)&  
-!           &+patch_3D%lsm_e(cell_2_edge_3_idx,level,cell_2_edge_3_blk)
+          sum_lsm_quad_edge =  & 
+          &+patch_3D%lsm_e(cell_1_edge_1_idx,level,cell_1_edge_1_blk)&  
+          &+patch_3D%lsm_e(cell_1_edge_2_idx,level,cell_1_edge_2_blk)&  
+          &+patch_3D%lsm_e(cell_1_edge_3_idx,level,cell_1_edge_3_blk)&  
+          &+patch_3D%lsm_e(cell_2_edge_1_idx,level,cell_2_edge_1_blk)&  
+          &+patch_3D%lsm_e(cell_2_edge_2_idx,level,cell_2_edge_2_blk)&  
+          &+patch_3D%lsm_e(cell_2_edge_3_idx,level,cell_2_edge_3_blk)
+          
+          write(0,*) "edge sea_boundary:", &
+            & operators_coefficients%edges_SeaBoundaryLevel(edge_index,level,blockNo), sum_lsm_quad_edge
           
           IF(operators_coefficients%edges_SeaBoundaryLevel(edge_index,level,blockNo) >= -2) THEN ! edge < 2nd order boundary
           
@@ -2143,6 +2146,7 @@ CONTAINS
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
     
+    CALL finish("done","")
   END SUBROUTINE hflx_limiter_oce_zalesak
   !-------------------------------------------------------------------------
 
