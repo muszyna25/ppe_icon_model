@@ -43,7 +43,8 @@ MODULE mo_interface_icoham_echam
   USE mo_icoham_dyn_types      ,ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_eta_coord_diag        ,ONLY: half_level_pressure, full_level_pressure
 
-  USE mo_datetime              ,ONLY: t_datetime, string_to_datetime
+  USE mo_datetime              ,ONLY: t_datetime, string_to_datetime, date_len, &
+    &                                 datetime_to_string
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
@@ -54,7 +55,9 @@ MODULE mo_interface_icoham_echam
     &                                 timer_echam_phy, timer_coupling
 
   USE mtime                    ,ONLY: datetime, MAX_DATETIME_STR_LEN, &
-    &                                 datetimeToString
+    &                                 datetimeToString, newDatetime,  &
+    &                                 deallocateDatetime
+  USE mo_mtime_extensions      ,ONLY: convert_datetime_string_old2new
 
   IMPLICIT NONE
 
@@ -136,6 +139,8 @@ CONTAINS
 
     TYPE(t_datetime)                    :: this_datetime   !< copy of date/time ("old" data structure)
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+    TYPE(datetime), POINTER             :: mtime_radtran
+    CHARACTER(len=date_len)             :: datetime_str
 
     ! Local parameters
 
@@ -284,6 +289,9 @@ CONTAINS
     !
     !=====================================================================================
 
+    CALL datetime_to_string(datetime_str, datetime_radtran)
+    mtime_radtran => newDatetime(convert_datetime_string_old2new(datetime_str))
+
     !=====================================================================================
     !
     ! (4) Call echam physics and compute the total physics tendencies.
@@ -312,17 +320,19 @@ CONTAINS
         &                  jcs          ,&! in
         &                  jce          ,&! in
         &                  nproma       ,&! in
-        &                  this_datetime,&! in
+        &                  mtime_current,&! in
         &                  pdtime       ,&! in
         &                  psteplen     ,&! in
         &                  ltrig_rad    ,&! in
-        &                  datetime_radtran ) ! in
+        &                  mtime_radtran ) ! in
 
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
     !
     !=====================================================================================
+
+    CALL deallocateDatetime(mtime_radtran)
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
 

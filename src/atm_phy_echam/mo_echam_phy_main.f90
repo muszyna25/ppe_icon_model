@@ -25,11 +25,12 @@
 
 MODULE mo_echam_phy_main
 
+  USE, INTRINSIC :: iso_c_binding, ONLY: c_int
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
+  USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv, idaylen
   USE mo_impl_constants,      ONLY: inh_atmosphere, io3_clim, io3_ape, io3_amip
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
     &                               iqv, iqc, iqi, iqt, irad_type
@@ -49,7 +50,7 @@ MODULE mo_echam_phy_main
     &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
     &                               timer_gw_hines, timer_ssodrag,                  &
     &                               timer_cucall, timer_cloud
-  USE mo_datetime,            ONLY: t_datetime
+  USE mtime,                  ONLY: datetime, getDayOfYearFromDateTime
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_echam_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
@@ -77,7 +78,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE echam_phy_main( jg,jb,jcs,jce,nbdim,      &
-    &                        datetime,pdtime,psteplen, &
+    &                        this_datetime,pdtime,psteplen, &
     &                        ltrig_rad,                &
     &                        datetime_radtran          )
 
@@ -86,12 +87,12 @@ CONTAINS
     INTEGER         ,INTENT(IN) :: jcs, jce       !< start/end column index within this block
     INTEGER         ,INTENT(IN) :: nbdim          !< size of this block
 
-    TYPE(t_datetime),INTENT(IN) :: datetime       !< time step
+    TYPE(datetime),  INTENT(IN) :: this_datetime  !< time step
     REAL(wp)        ,INTENT(IN) :: pdtime         !< time step
     REAL(wp)        ,INTENT(IN) :: psteplen       !< 2*pdtime in case of leapfrog
 
     LOGICAL         ,INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
-    TYPE(t_datetime),INTENT(IN) :: datetime_radtran !< date and time for radiative transfer calculation
+    TYPE(datetime),  INTENT(IN) :: datetime_radtran !< date and time for radiative transfer calculation
 
     ! Local variables
 
@@ -203,6 +204,10 @@ CONTAINS
 
     CHARACTER(len=12)  :: str_module = 'e_phy_main'        ! Output of module for 1 line debug
     INTEGER            :: idt_src               ! Determines level of detail for 1 line debug
+
+    INTEGER(c_int) :: yeaday
+    INTEGER        :: errno
+
     idt_src=4
 
     ! number of cells/columns from index jcs to jce
@@ -391,9 +396,11 @@ CONTAINS
          ztsi = tsi
        CASE(4)
        ! elliptical seasonal orbit, with diurnal cycle
-         zleapfrac = 0.681_wp + 0.2422_wp * REAL(datetime%year - 1949,wp) - &
-                        REAL((datetime%year - 1949) / 4,wp)
-         zyearfrac = 2._wp * pi * (REAL(datetime%yeaday,wp) - 1.0_wp + zleapfrac) / 365.2422_wp
+         zleapfrac = 0.681_wp + 0.2422_wp * REAL(this_datetime%date%year - 1949,wp) - &
+                        REAL((this_datetime%date%year - 1949) / 4,wp)
+         yeaday = getDayOfYearFromDateTime(this_datetime, errno)
+         IF (errno /= 0)  CALL finish('mo_echam_phy_main','mtime error: getDayOfYearFromDateTime')
+         zyearfrac = 2._wp * pi * (REAL(yeaday,wp) - 1.0_wp + zleapfrac) / 365.2422_wp
          ztsi = (1.000110_wp + 0.034221_wp * COS(zyearfrac) + 0.001280_wp * SIN(zyearfrac) &
             + 0.000719_wp * COS(2._wp * zyearfrac) + 0.000077_wp * SIN(2._wp * zyearfrac)) * tsi
        CASE(5)
@@ -456,19 +463,21 @@ CONTAINS
           ! elliptical seasonal orbit,
           !  with diurnal cycle
 
-            zleapfrac = 0.681_wp + 0.2422_wp * REAL(datetime%year - 1949,wp) - &
-                        REAL((datetime%year - 1949) / 4,wp)
-            zyearfrac = 2._wp * pi * (REAL(datetime%yeaday,wp) - 1.0_wp + zleapfrac) / 365.2422_wp
+            zleapfrac = 0.681_wp + 0.2422_wp * REAL(this_datetime%date%year - 1949,wp) - &
+                        REAL((this_datetime%date%year - 1949) / 4,wp)
+            yeaday = getDayOfYearFromDateTime(this_datetime, errno)
+            IF (errno /= 0)  CALL finish('mo_echam_phy_main','mtime error: getDayOfYearFromDateTime')
+            zyearfrac = 2._wp * pi * (REAL(yeaday,wp) - 1.0_wp + zleapfrac) / 365.2422_wp
             zdeclination_sun = 0.006918_wp - 0.399912_wp * COS(zyearfrac) + &
                                0.070257_wp * SIN(zyearfrac) -               &
                                0.006758_wp * COS(2._wp * zyearfrac) +       &
                                0.000907_wp * SIN(2._wp * zyearfrac) -       &
                                0.002697_wp * COS(3._wp * zyearfrac) +       &
                                0.001480_wp * SIN(3._wp * zyearfrac)
-            ztime_dateline = ((REAL(datetime%hour,wp) * 3600._wp + &
-                              REAL(datetime%minute,wp) * 60._wp +  &
-                              REAL(datetime%second,wp)) /          &
-                              REAL(datetime%daylen,wp)) - 0.5_wp
+            ztime_dateline = ((REAL(this_datetime%time%hour,wp) * 3600._wp + &
+                              REAL(this_datetime%time%minute,wp) * 60._wp +  &
+                              REAL(this_datetime%time%second,wp)) /          &
+                              REAL(idaylen,wp)) - 0.5_wp
             ztime_dateline = ztime_dateline * 2._wp * pi + 0.000075_wp +              &
                0.001868_wp * COS(zyearfrac) - 0.032077_wp * SIN(zyearfrac) -          &
                0.014615_wp * COS(2._wp * zyearfrac) - 0.040849_wp * SIN(2._wp * zyearfrac)

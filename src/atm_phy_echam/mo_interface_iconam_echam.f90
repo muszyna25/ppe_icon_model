@@ -88,9 +88,11 @@ MODULE mo_interface_iconam_echam
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
   USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav
 
-  USE mo_datetime              ,ONLY: t_datetime, string_to_datetime
+  USE mo_datetime              ,ONLY: t_datetime, string_to_datetime, date_len, &
+    &                                 datetime_to_string
   USE mtime                    ,ONLY: datetime, MAX_DATETIME_STR_LEN, &
-    &                                 datetimeToString
+    &                                 datetimeToString, newDatetime, deallocateDatetime
+  USE mo_mtime_extensions      ,ONLY: convert_datetime_string_old2new
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
@@ -178,6 +180,8 @@ CONTAINS
 
     TYPE(t_datetime)                    :: this_datetime
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+    TYPE(datetime), POINTER             :: mtime_radtran
+    CHARACTER(len=date_len)             :: datetime_str
 
     !---------------------------------------------------------------
     ! conversion of subroutine arguments to old "t_datetime" data
@@ -412,6 +416,9 @@ CONTAINS
       &                        ltrig_rad    ,&! out
       &                        datetime_radtran) ! out
 
+    CALL datetime_to_string(datetime_str, datetime_radtran)
+    mtime_radtran => newDatetime(convert_datetime_string_old2new(datetime_str))
+
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !
     !=====================================================================================
@@ -454,15 +461,17 @@ CONTAINS
         &                  jcs          ,&! in
         &                  jce          ,&! in
         &                  nproma       ,&! in
-        &                  this_datetime,&! in
+        &                  mtime_current,&! in
         &                  dtadv_loc    ,&! in
         &                  dtadv_loc    ,&! in
         &                  ltrig_rad    ,&! in
-        &                  datetime_radtran) ! in
+        &                  mtime_radtran) ! in
 
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
+    CALL deallocateDatetime(mtime_radtran)
 
     IF (ltimer) CALL timer_stop(timer_echam_phy)
     !
