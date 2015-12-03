@@ -840,88 +840,88 @@ CONTAINS
     !     - Back substitution to get solution of the tridiagonal system;
     !     - Compute tendencies and additional diagnostics.
 
-      IF (ltimer) CALL timer_start(timer_vdiff_up)
-
-      CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
-                   & ntrac, nsfc_type,                &! in
-                   & iwtr,                            &! in, indices of different sfc types
-                   & pdtime, psteplen,                &! in, time steps
-                   & zfrc(:,:),                       &! in, area fraction of each sfc type
-                   & field% cfm_tile(:,jb,:),         &! in
-                   & zaa,                             &! in, from "vdiff_down"
-                   &   ihpbl(:),                      &! in, from "vdiff_down"
-                   &  zcptgz(:,:),                    &! in, from "vdiff_down"
-                   &   zrhoh(:,:),                    &! in, from "vdiff_down"
-                   & zqshear(:,:),                    &! in, from "vdiff_down"
-                   & field%    u(:,:,jb),             &! in, um1
-                   & field%    v(:,:,jb),             &! in, vm1
-                   & field% temp(:,:,jb),             &! in, tm1
-                   & field%    q(:,:,jb,iqv),         &! in, qm1
-                   & field%    q(:,:,jb,iqc),         &! in, xlm1
-                   & field%    q(:,:,jb,iqi),         &! in, xim1
-                   & field%    q(:,:,jb,iqt:),        &! in, xtm1
-                   & zcd,                             &! in, specific heat of dry air
-                   & zcv,                             &! in, specific heat of water vapor
-                   & zdelp(:,:),                      &! in, layer thickness [Pa]
-                   & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
-                   &      ztkevn(:,:),                &! in, tke at intermediate time step
-                   & field%tkem1(:,:,jb),             &! in, TKE at step t-dt
-                   & ztte_corr(:),                    &! in
-                   & zbb,                             &! inout
-                   & zthvvar(:,:),                    &! inout
-                   & field%   xvar(:,:,jb),           &! inout
-                   & field% z0m_tile(:,jb,:),         &! inout
-                   & field% kedisp(:,  jb),           &! inout, "vdis" in ECHAM
-                   &  tend%    u_vdf(:,:,jb),         &! out
-                   &  tend%    v_vdf(:,:,jb),         &! out
-                   &  tend% temp_vdf(:,:,jb),         &! out
-                   &  tend%    q_vdf(:,:,jb,iqv),     &! out
-                   &  tend%    q_vdf(:,:,jb,iqc),     &! out
-                   &  tend%    q_vdf(:,:,jb,iqi),     &! out
-                   &  tend%    q_vdf(:,:,jb,iqt:),    &! out
-                   &  zqtvar_prod,                    &! out, for "cloud" ("zvdiffp" in echam)
-                   &  zvmixtau,                       &! out, for "cloud"
-                   & field%   z0m   (:,  jb),         &! out, for the next step
-                   & field%   thvvar(:,:,jb),         &! out, for the next step
-                   & field%   thvsig(:,  jb),         &! out, for "cucall"
-                   & field%      tke(:,:,jb),         &! out
-                   & field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
-                   & field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
-
-      IF (ltimer) CALL timer_stop(timer_vdiff_up)
-
-      ! tendencies accumulated
-      tend%    u(jcs:jce,:,jb)      = tend%    u(jcs:jce,:,jb)      + tend%    u_vdf(jcs:jce,:,jb)
-      tend%    v(jcs:jce,:,jb)      = tend%    v(jcs:jce,:,jb)      + tend%    v_vdf(jcs:jce,:,jb)
-      tend% temp(jcs:jce,:,jb)      = tend% temp(jcs:jce,:,jb)      + tend% temp_vdf(jcs:jce,:,jb)
-      tend%    q(jcs:jce,:,jb,iqv)  = tend%    q(jcs:jce,:,jb,iqv)  + tend%    q_vdf(jcs:jce,:,jb,iqv)
-      tend%    q(jcs:jce,:,jb,iqc)  = tend%    q(jcs:jce,:,jb,iqc)  + tend%    q_vdf(jcs:jce,:,jb,iqc)
-      tend%    q(jcs:jce,:,jb,iqi)  = tend%    q(jcs:jce,:,jb,iqi)  + tend%    q_vdf(jcs:jce,:,jb,iqi)
-      tend%    q(jcs:jce,:,jb,iqt:) = tend%    q(jcs:jce,:,jb,iqt:) + tend%    q_vdf(jcs:jce,:,jb,iqt:)
-
-!    ! TIME FILTER FOR TURBULENT KINETIC ENERGY
-!
-!    IF(.NOT.lstart) THEN
-!      zeps=eps
-!    ELSE
-!      zeps=0._wp
-!    END IF
-!    DO 397 jk=ktdia,klev
-!      DO 396 jl=1,kproma
-!        ptkem1(jl,jk)=ptkem(jl,jk)                                    &
-!                  +zeps*(ptkem1(jl,jk)-2._wp*ptkem(jl,jk)+ptke(jl,jk))
-!        ptkem(jl,jk)=ptke(jl,jk)
-!396   END DO
-!397 END DO
-
-      IF (ABS(pdtime*2._wp-psteplen)<1e-6_wp) THEN
-        ! Leapfrog scheme. No Asselin filter. Just swap time steps
-        field% tkem1(jcs:jce,:,jb) = field% tkem0(jcs:jce,:,jb)
-        field% tkem0(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
-      ELSE
-        ! 2-tl-scheme
-        field% tkem1(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
-      ENDIF
+!!$      IF (ltimer) CALL timer_start(timer_vdiff_up)
+!!$
+!!$      CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
+!!$                   & ntrac, nsfc_type,                &! in
+!!$                   & iwtr,                            &! in, indices of different sfc types
+!!$                   & pdtime, psteplen,                &! in, time steps
+!!$                   & zfrc(:,:),                       &! in, area fraction of each sfc type
+!!$                   & field% cfm_tile(:,jb,:),         &! in
+!!$                   & zaa,                             &! in, from "vdiff_down"
+!!$                   &   ihpbl(:),                      &! in, from "vdiff_down"
+!!$                   &  zcptgz(:,:),                    &! in, from "vdiff_down"
+!!$                   &   zrhoh(:,:),                    &! in, from "vdiff_down"
+!!$                   & zqshear(:,:),                    &! in, from "vdiff_down"
+!!$                   & field%    u(:,:,jb),             &! in, um1
+!!$                   & field%    v(:,:,jb),             &! in, vm1
+!!$                   & field% temp(:,:,jb),             &! in, tm1
+!!$                   & field%    q(:,:,jb,iqv),         &! in, qm1
+!!$                   & field%    q(:,:,jb,iqc),         &! in, xlm1
+!!$                   & field%    q(:,:,jb,iqi),         &! in, xim1
+!!$                   & field%    q(:,:,jb,iqt:),        &! in, xtm1
+!!$                   & zcd,                             &! in, specific heat of dry air
+!!$                   & zcv,                             &! in, specific heat of water vapor
+!!$                   & zdelp(:,:),                      &! in, layer thickness [Pa]
+!!$                   & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
+!!$                   &      ztkevn(:,:),                &! in, tke at intermediate time step
+!!$                   & field%tkem1(:,:,jb),             &! in, TKE at step t-dt
+!!$                   & ztte_corr(:),                    &! in
+!!$                   & zbb,                             &! inout
+!!$                   & zthvvar(:,:),                    &! inout
+!!$                   & field%   xvar(:,:,jb),           &! inout
+!!$                   & field% z0m_tile(:,jb,:),         &! inout
+!!$                   & field% kedisp(:,  jb),           &! inout, "vdis" in ECHAM
+!!$                   &  tend%    u_vdf(:,:,jb),         &! out
+!!$                   &  tend%    v_vdf(:,:,jb),         &! out
+!!$                   &  tend% temp_vdf(:,:,jb),         &! out
+!!$                   &  tend%    q_vdf(:,:,jb,iqv),     &! out
+!!$                   &  tend%    q_vdf(:,:,jb,iqc),     &! out
+!!$                   &  tend%    q_vdf(:,:,jb,iqi),     &! out
+!!$                   &  tend%    q_vdf(:,:,jb,iqt:),    &! out
+!!$                   &  zqtvar_prod,                    &! out, for "cloud" ("zvdiffp" in echam)
+!!$                   &  zvmixtau,                       &! out, for "cloud"
+!!$                   & field%   z0m   (:,  jb),         &! out, for the next step
+!!$                   & field%   thvvar(:,:,jb),         &! out, for the next step
+!!$                   & field%   thvsig(:,  jb),         &! out, for "cucall"
+!!$                   & field%      tke(:,:,jb),         &! out
+!!$                   & field%   sh_vdiff(:,  jb),       &! out, for energy diagnostic
+!!$                   & field%   qv_vdiff(:,  jb)        )! out, for energy diagnostic
+!!$
+!!$      IF (ltimer) CALL timer_stop(timer_vdiff_up)
+!!$
+!!$      ! tendencies accumulated
+!!$      tend%    u(jcs:jce,:,jb)      = tend%    u(jcs:jce,:,jb)      + tend%    u_vdf(jcs:jce,:,jb)
+!!$      tend%    v(jcs:jce,:,jb)      = tend%    v(jcs:jce,:,jb)      + tend%    v_vdf(jcs:jce,:,jb)
+!!$      tend% temp(jcs:jce,:,jb)      = tend% temp(jcs:jce,:,jb)      + tend% temp_vdf(jcs:jce,:,jb)
+!!$      tend%    q(jcs:jce,:,jb,iqv)  = tend%    q(jcs:jce,:,jb,iqv)  + tend%    q_vdf(jcs:jce,:,jb,iqv)
+!!$      tend%    q(jcs:jce,:,jb,iqc)  = tend%    q(jcs:jce,:,jb,iqc)  + tend%    q_vdf(jcs:jce,:,jb,iqc)
+!!$      tend%    q(jcs:jce,:,jb,iqi)  = tend%    q(jcs:jce,:,jb,iqi)  + tend%    q_vdf(jcs:jce,:,jb,iqi)
+!!$      tend%    q(jcs:jce,:,jb,iqt:) = tend%    q(jcs:jce,:,jb,iqt:) + tend%    q_vdf(jcs:jce,:,jb,iqt:)
+!!$
+!!$!    ! TIME FILTER FOR TURBULENT KINETIC ENERGY
+!!$!
+!!$!    IF(.NOT.lstart) THEN
+!!$!      zeps=eps
+!!$!    ELSE
+!!$!      zeps=0._wp
+!!$!    END IF
+!!$!    DO 397 jk=ktdia,klev
+!!$!      DO 396 jl=1,kproma
+!!$!        ptkem1(jl,jk)=ptkem(jl,jk)                                    &
+!!$!                  +zeps*(ptkem1(jl,jk)-2._wp*ptkem(jl,jk)+ptke(jl,jk))
+!!$!        ptkem(jl,jk)=ptke(jl,jk)
+!!$!396   END DO
+!!$!397 END DO
+!!$
+!!$      IF (ABS(pdtime*2._wp-psteplen)<1e-6_wp) THEN
+!!$        ! Leapfrog scheme. No Asselin filter. Just swap time steps
+!!$        field% tkem1(jcs:jce,:,jb) = field% tkem0(jcs:jce,:,jb)
+!!$        field% tkem0(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
+!!$      ELSE
+!!$        ! 2-tl-scheme
+!!$        field% tkem1(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
+!!$      ENDIF
 
     ENDIF !lvdiff
 !!$    ELSE
