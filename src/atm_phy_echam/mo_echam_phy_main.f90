@@ -923,7 +923,8 @@ CONTAINS
         field% tkem1(jcs:jce,:,jb) = field% tke  (jcs:jce,:,jb)
       ENDIF
 
-    ELSE
+    ENDIF !lvdiff
+!!$    ELSE
       zvmixtau   (jcs:jce,:) = 0._wp
       field% evap(jcs:jce,jb)= 0._wp
       zqtvar_prod(jcs:jce,:) = 0._wp
@@ -936,7 +937,7 @@ CONTAINS
       tend%    q_vdf(jcs:jce,:,jb,iqi)  = 0._wp
       tend%    q_vdf(jcs:jce,:,jb,iqt:) = 0._wp
 
-    ENDIF !lvdiff
+!!$    ENDIF !lvdiff
 
     IF (phy_config%lrad) THEN
 
