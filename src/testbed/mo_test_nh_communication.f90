@@ -34,7 +34,6 @@ MODULE mo_test_nh_communication
   USE mo_grid_config,         ONLY: n_dom, n_dom_start
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
-  USE mo_datetime,            ONLY: t_datetime
   
   !-------------------------------------------------------------------------
 
@@ -108,11 +107,11 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 #ifdef __NO_NESTING__
-   SUBROUTINE integrate_nh_test_comm (p_nh_state, p_patch, p_int_state, datetime,  &
+   SUBROUTINE integrate_nh_test_comm (p_nh_state, p_patch, p_int_state,  &
   &        p_grf_state, jg, nstep_global, dt_loc, dtadv_loc, sim_time,   &
   &        num_steps, l_compute_diagnostic_quants)
 #else
-  RECURSIVE SUBROUTINE integrate_nh_test_comm (p_nh_state, p_patch, p_int_state, datetime,  &
+  RECURSIVE SUBROUTINE integrate_nh_test_comm (p_nh_state, p_patch, p_int_state,  &
   &        p_grf_state, jg, nstep_global, dt_loc, dtadv_loc, sim_time, &
   &        num_steps, l_compute_diagnostic_quants)
 #endif
@@ -122,7 +121,6 @@ CONTAINS
 
     TYPE(t_patch), TARGET, INTENT(in)    :: p_patch(n_dom_start:n_dom)    !< patch
     TYPE(t_int_state),TARGET,INTENT(in)  :: p_int_state(n_dom_start:n_dom)!< interpolation state
-    TYPE(t_datetime), INTENT(in)         :: datetime
     TYPE(t_nh_state), TARGET, INTENT(inout) :: p_nh_state(n_dom) !< nonhydrostatic state
     TYPE(t_gridref_state), INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)!< gridref state
 
