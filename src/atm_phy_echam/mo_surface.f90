@@ -363,30 +363,30 @@ CONTAINS
     END IF
 
     
-    !===========================================================================
-    ! Ocean model
-    !===========================================================================
-    IF (idx_wtr <= ksfc_type) THEN
-
-#ifndef __NO_ICON_OCEAN__
-      IF (phy_config%lmlo) THEN
-        CALL ml_ocean ( kbdim, 1, kproma, pdtime, &
-          & pahflw=plhflx_tile(:,idx_wtr),        &
-          & pahfsw=pshflx_tile(:,idx_wtr),        &
-          & ptrflw=plw(:),                        &
-          & psoflw=pswvis(:) + pswnir(:),         &
-          & ptsw=ptsfc_tile(:,idx_wtr) )           ! out
-      END IF
-#endif
-
-      ! Albedo model for the ocean
-      albvisdir_tile(1:kproma,idx_wtr) = albedoW
-      albvisdif_tile(1:kproma,idx_wtr) = albedoW
-      albnirdir_tile(1:kproma,idx_wtr) = albedoW
-      albnirdif_tile(1:kproma,idx_wtr) = albedoW
-
-    END IF
-    
+!!$    !===========================================================================
+!!$    ! Ocean model
+!!$    !===========================================================================
+!!$    IF (idx_wtr <= ksfc_type) THEN
+!!$
+!!$#ifndef __NO_ICON_OCEAN__
+!!$      IF (phy_config%lmlo) THEN
+!!$        CALL ml_ocean ( kbdim, 1, kproma, pdtime, &
+!!$          & pahflw=plhflx_tile(:,idx_wtr),        &
+!!$          & pahfsw=pshflx_tile(:,idx_wtr),        &
+!!$          & ptrflw=plw(:),                        &
+!!$          & psoflw=pswvis(:) + pswnir(:),         &
+!!$          & ptsw=ptsfc_tile(:,idx_wtr) )           ! out
+!!$      END IF
+!!$#endif
+!!$
+!!$      ! Albedo model for the ocean
+!!$      albvisdir_tile(1:kproma,idx_wtr) = albedoW
+!!$      albvisdif_tile(1:kproma,idx_wtr) = albedoW
+!!$      albnirdir_tile(1:kproma,idx_wtr) = albedoW
+!!$      albnirdif_tile(1:kproma,idx_wtr) = albedoW
+!!$
+!!$    END IF
+!!$    
 !!$    !===========================================================================
 !!$    ! Sea-ice model (thermodynamic)
 !!$    !===========================================================================
