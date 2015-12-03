@@ -36,7 +36,7 @@ MODULE mo_ocean_output
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
-  USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time, datetime_to_string
+  USE mo_datetime,               ONLY: t_datetime, print_datetime
   USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
   USE mo_ocean_state,              ONLY: ocean_restart_list
