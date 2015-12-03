@@ -1892,7 +1892,7 @@ CONTAINS
     patch_2D    => patch_3D%p_patch_2D(1)
     all_cells   => patch_2D%cells%all
     all_edges   => patch_2D%edges%all
-    owned_cells  => patch_2D%edges%owned
+    owned_cells => patch_2D%cells%owned
     owned_edges => patch_2D%edges%owned
     owned_verts => patch_2D%verts%owned
     !in_domain_verts  => patch_3D%p_patch_2D(1)%verts%in_domain
@@ -1902,7 +1902,7 @@ CONTAINS
     earth_radius_squared = earth_radius * earth_radius
 
     ! calculate cells SeaBoundaryLevel
-    ! first calculate levels 1,-1
+    ! first initialize levels 1,-1
     DO block = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, block, cells_startidx, cells_endidx)
       DO jc = cells_startidx, cells_endidx
@@ -1919,7 +1919,7 @@ CONTAINS
     END DO
 
     ! calclulate the next levels
-    DO boundary_level=1,2 ! max level is -3
+    DO boundary_level=1,2 ! max calculated level is -3
 
       DO block = owned_cells%start_block, owned_cells%end_block
         CALL get_index_range(owned_cells, block, cells_startidx, cells_endidx)
@@ -1936,8 +1936,10 @@ CONTAINS
              
               IF (max_level /= MIN_SEA_BOUNDARYLEVEL) THEN
                 ! if we are in deep sea do nothing, else compute the level
-                IF (max_level /= -i) & ! we have a problem
-                  & CALL finish("calculate cells SeaBoundaryLevel", "level does not match")
+                IF (max_level > -boundary_level) THEN ! we have a problem
+                  write(0,*) -boundary_level,  max_level
+                  CALL finish("calculate cells SeaBoundaryLevel", "max_level > -boundary_level")
+                ENDIF
                 operators_coefficients%cells_SeaBoundaryLevel(jc,jk,block) = max_level - 1
               ENDIF
 
