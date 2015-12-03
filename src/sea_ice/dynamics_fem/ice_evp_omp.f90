@@ -258,7 +258,7 @@ DO i=1,si_elem2D
         END IF
      END DO
 END DO
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_DO
 
 ! the older version (also a good option for precalculation of rhs_a, rhs_m)
 ! omp parallelization not possible when looping over elements and updating vertices
