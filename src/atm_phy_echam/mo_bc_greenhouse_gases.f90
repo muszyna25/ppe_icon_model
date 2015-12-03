@@ -28,8 +28,8 @@ MODULE mo_bc_greenhouse_gases
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish, message, message_text
-  USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o
-  USE mo_datetime,           ONLY: t_datetime, idaylen
+  USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, idaylen
+  USE mo_datetime,           ONLY: t_datetime
   USE mo_netcdf_parallel,    ONLY: p_nf_open, p_nf_inq_dimid, p_nf_inq_dimlen, &
        &                           p_nf_inq_varid, p_nf_get_var_double, p_nf_close, &
        &                           nf_read, nf_noerr, nf_strerror

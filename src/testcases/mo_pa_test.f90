@@ -48,7 +48,7 @@ USE mo_ncar_testcases,      ONLY: init_pure_adv_wind, init_pure_adv_tracers, &
 USE mo_io_units,            ONLY: find_next_free_unit
 USE mo_exception,           ONLY: finish
 USE mo_mpi,                 ONLY: my_process_is_stdio
-USE mo_datetime,            ONLY: rdaylen
+USE mo_physical_constants,  ONLY: rdaylen
 USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
 
 IMPLICIT NONE

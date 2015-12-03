@@ -51,9 +51,7 @@ MODULE mo_radiation
   USE mo_math_constants,       ONLY: pi, rpi
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
     &                                amco2, amch4, amn2o, amo3, amo2, &
-    &                                stbo,  vpp_ch4, vpp_n2o
-
-  USE mo_datetime,             ONLY: rdaylen
+    &                                stbo,  vpp_ch4, vpp_n2o, rdaylen
 
   USE mo_radiation_config,     ONLY: tsi_radt,   ssi_radt,    &
     &                                irad_co2,   mmr_co2,     &
