@@ -68,6 +68,7 @@ MODULE mo_datetime
   USE mo_kind,      ONLY: wp, i8
   USE mo_exception, ONLY: finish, message, message_text
   USE mo_physical_constants, ONLY: rdaylen, idaylen
+  USE mo_impl_constants, ONLY: julian_gregorian, proleptic_gregorian, cly360
   USE mtime,        ONLY: datetime
 
   IMPLICIT NONE
@@ -79,10 +80,6 @@ MODULE mo_datetime
   PUBLIC :: &
     ! types
     &   t_datetime          ,& ! type for date and time information
-    ! parameters
-    &   julian_gregorian    ,& ! historic Julian / Gregorian calendar
-    &   proleptic_gregorian ,& ! proleptic Gregorian calendar
-    &   cly360              ,& ! constant 30 dy/mo and 360 dy/yr calendar
     ! subroutines
     &   aux_datetime        ,& ! compute auxiliary date and time information
     &   check_date          ,& ! check if (yr,mo,dy,hr,mn,s) is valid
@@ -117,12 +114,6 @@ MODULE mo_datetime
     MODULE PROCEDURE check_newday_datetime
     MODULE PROCEDURE check_newday_mtime
   END INTERFACE
-
-  ! Calendar types
-  !
-  INTEGER,  PARAMETER :: julian_gregorian    = 0 !< historic Julian / Gregorian
-  INTEGER,  PARAMETER :: proleptic_gregorian = 1 !< proleptic Gregorian
-  INTEGER,  PARAMETER :: cly360              = 2 !< constant 30 dy/mo and 360 dy/yr
 
 
 

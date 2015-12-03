@@ -16,7 +16,7 @@
 MODULE mo_time_nml
 
   USE mo_kind,                  ONLY: wp
-  USE mo_datetime,              ONLY: proleptic_gregorian,                            &
+  USE mo_impl_constants,        ONLY: proleptic_gregorian,                            &
                                     & julian_gregorian, cly360
   USE mtime,                    ONLY: MAX_CALENDAR_STR_LEN
   USE mo_time_config,           ONLY: cfg_dt_restart          => dt_restart,          &

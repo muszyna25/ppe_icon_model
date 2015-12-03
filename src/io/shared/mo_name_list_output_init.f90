@@ -45,12 +45,14 @@ MODULE mo_name_list_output_init
                                                 & ZA_reference_half_hhl, ZA_reference_half, ZA_reference, ZA_hybrid_half_hhl, &
                                                 & ZA_hybrid_half, ZA_hybrid
   USE mo_kind,                              ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                 &
-    &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il, &
-    &                                             MAX_TIME_LEVELS, vname_len,                     &
-    &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,              &
-    &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,      &
-    &                                             MAX_NZLEVS, MAX_NILEVS
+  USE mo_impl_constants,                    ONLY: max_phys_dom, max_dom, SUCCESS,                   &
+    &                                             max_var_ml, max_var_pl, max_var_hl, max_var_il,   &
+    &                                             MAX_TIME_LEVELS, vname_len,                       &
+    &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,                &
+    &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,        &
+    &                                             MAX_NZLEVS, MAX_NILEVS,                           &
+    &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
+    &                                             dtime_cly360              => cly360
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_config,                     ONLY: getModelBaseDir, isRestart, tc_startdate,       &
     &                                             tc_exp_startdate
@@ -69,8 +71,6 @@ MODULE mo_name_list_output_init
     &                                             with_keywords, insert_group,                    &
     &                                             tolower, int2string, difference,                &
     &                                             sort_and_compress_list, real2string
-  USE mo_datetime,                          ONLY: dtime_proleptic_gregorian => proleptic_gregorian, &
-    &                                             dtime_cly360              => cly360
   USE mo_cf_convention,                     ONLY: t_cf_var, cf_global_info
   USE mo_io_restart_attributes,             ONLY: get_restart_attribute
   USE mo_model_domain,                      ONLY: p_patch, p_phys_patch

@@ -49,12 +49,12 @@ MODULE mo_time_management
   USE mo_run_config,               ONLY: dtime, mtime_modelTimeStep => modelTimeStep,      &
     &                                    setModelTimeStep
   USE mo_master_control,           ONLY: atmo_process, get_my_process_type
-  USE mo_datetime,                 ONLY: dtime_proleptic_gregorian => proleptic_gregorian, &
-    &                                    dtime_cly360              => cly360,              &
-    &                                    dtime_julian_gregorian    => julian_gregorian
   USE mo_impl_constants,           ONLY: max_dom, IHS_ATM_TEMP, IHS_ATM_THETA,             &
     &                                    DEFAULT_RESTART_INTVL, DEFAULT_CHECKPT_INTVL,     &
-    &                                    inh_atmosphere
+    &                                    inh_atmosphere,                                   &
+    &                                    dtime_proleptic_gregorian => proleptic_gregorian, &
+    &                                    dtime_cly360              => cly360,              &
+    &                                    dtime_julian_gregorian    => julian_gregorian
   USE mo_dynamics_config,          ONLY: iequations
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_grid_config,              ONLY: patch_weight, grid_rescale_factor, n_dom,         &
