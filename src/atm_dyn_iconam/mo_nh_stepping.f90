@@ -83,7 +83,6 @@ MODULE mo_nh_stepping
                                          prep_rho_bdy_nudging, density_boundary_nudging,&
                                          prep_outer_bdy_nudging, save_progvars
   USE mo_nh_feedback,              ONLY: feedback, relax_feedback
-  USE mo_datetime,                 ONLY: check_newday
   USE mo_io_restart,               ONLY: create_restart_file
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
@@ -757,7 +756,7 @@ MODULE mo_nh_stepping
     ! - SST, fr_seaice (depending on sstice_mode)
     ! - MODIS albedo fields alb_dif, albuv_dif, albni_dif
     !
-    IF ( check_newday(mtime_old, mtime_current) ) THEN
+    IF (mtime_current%date%day /= mtime_old%date%day) THEN
 
       WRITE(message_text,'(a,i10,a,i10)') 'New day  day_old: ', mtime_old%date%day, &
                 &                 ' ,  day: ', mtime_current%date%day
