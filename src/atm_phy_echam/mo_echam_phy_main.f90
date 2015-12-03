@@ -741,105 +741,105 @@ CONTAINS
 
       IF (ltimer) CALL timer_stop(timer_vdiff_down)
 
-    ! 5.4 Surface processes that provide time-dependent lower boundary
-    !     condition for wind, temperature, tracer concentraion, etc.
-    !KF To avoid
-        field% lhflx_tile(:,jb,:) = 0._wp
-        field% shflx_tile(:,jb,:) = 0._wp
-        field% evap_tile (:,jb,:) = 0._wp
-
-        IF (ltimer) CALL timer_start(timer_surface)
-
-        CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
-          & vdiff_config%lsfc_mom_flux,   &! in
-          & pdtime, psteplen,             &! in, time steps
-          & jg, jce, nbdim, field%kice,   &! in
-          & nlev, nsfc_type,              &! in
-          & iwtr, iice, ilnd,             &! in, indices of surface types
-          & zfrc(:,:),                    &! in, area fraction
-          & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down"
-          & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down"
-          & zfactor_sfc(:),               &! in, from "vdiff_down"
-          & field% ocu (:,jb),            &! in, ocean sfc velocity, u-component
-          & field% ocv (:,jb),            &! in, ocean sfc velocity, v-component
-          & zaa, zaa_btm, zbb, zbb_btm,   &! inout
-          & zcpt_sfc_tile(:,:),           &! inout, from "vdiff_down", for "vdiff_up"
-          & field%qs_sfc_tile(:,jb,:),    &! inout, from "vdiff_down", for "vdiff_up"
-          & field% tsfc_tile(:,jb,:),     &! inout
-          & field%u_stress    (:,  jb),   &! out
-          & field%v_stress    (:,  jb),   &! out
-          & field% lhflx      (:,  jb),   &! out
-          & field% shflx      (:,  jb),   &! out
-          & field%  evap      (:,  jb),   &! out, for "cucall"
-          & field%u_stress_tile  (:,jb,:),   &! out
-          & field%v_stress_tile  (:,jb,:),   &! out
-          & field% lhflx_tile    (:,jb,:),   &! out
-          & field% shflx_tile    (:,jb,:),   &! out
-          & field% dshflx_dT_tile(:,jb,:),   &! out for Sea ice
-          & field%  evap_tile    (:,jb,:),   &! out
-                                !! optional
-          & nblock = jb,                  &! in
-          & lsm = field%lsmask(:,jb), &!< in, land-sea mask
-          & pu = field% u(:,nlev,jb),     &! in, um1
-          & pv = field% v(:,nlev,jb),     &! in, vm1
-          & ptemp = field% temp(:,nlev,jb), &! in, tm1
-          & pq = field% q(:,nlev,jb,iqv),  &! in, qm1
-          & prsfl = field% rsfl(:,jb),    &! in, rain surface large scale (from cloud)
-          & prsfc = field% rsfc(:,jb),    &! in, rain surface concective (from cucall)
-          & pssfl = field% ssfl(:,jb),    &! in, snow surface large scale (from cloud)
-          & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
-          & plw         = field% lwflxsfc (:,jb), &! inout, net surface longwave flux [W/m2]
-          & plw_down    = field% lwflxsfc (:,jb) + field%lwupflxsfc(:,jb),     &! in, downward surface longwave flux [W/m2]
-          & psw         = field% swflxsfc (:,jb), &! inout, net surface shortwave flux [W/m2]
-          & pswvis      = field% vissfc   (:,jb), &! in, net surface shortwave flux in visible range [W/m2]
-          & pswnir      = field% nirsfc   (:,jb), &! in, net surface shortwave flux in NIR range [W/m2]
-          & pswpar_down = field% parsfcdn (:,jb), &! in, downward surface shortwave flux in PAR range [W/m2]
-          & pvisdff     = field% visdffsfc(:,jb), &! in, diffuse fraction in visible shortwave surface flux
-          & pnirdff     = field% nirdffsfc(:,jb), &! in, diffuse fraction in NIR shortwave surface flux
-          & ppardff     = field% pardffsfc(:,jb), &! in, diffuse fraction in PAR shortwave surface flux
-          & presi_old = field% presi_old(:,:,jb),&! in, paphm1, half level pressure
-          & pcosmu0 = field% cosmu0(:,jb),&! in, amu0_x, cos of zenith angle
-          & pch_tile = zch_tile(:,:),     &! in, from "vdiff_down" for JSBACH
-          & pcsat = field%csat(:,jb),      &! inout, area fraction with wet land surface
-          & pcair = field%cair(:,jb),      &! inout, area fraction with wet land surface (air)
-          & tte_corr = ztte_corr(:),       &! out, tte correction for snow melt over land
-          & z0m_tile = field% z0m_tile(:,jb,:), &! inout, roughness length for momentum over tiles
-          & z0h_lnd  = field% z0h_lnd (:,jb),   &! out, roughness length for heat over land
-          & albvisdir      = field% albvisdir     (:,jb)  ,                    &! inout
-          & albnirdir      = field% albnirdir     (:,jb)  ,                    &! inout
-          & albvisdif      = field% albvisdif     (:,jb)  ,                    &! inout
-          & albnirdif      = field% albnirdif     (:,jb)  ,                    &! inout
-          & albvisdir_tile = field% albvisdir_tile(:,jb,:),                    &! inout
-          & albnirdir_tile = field% albnirdir_tile(:,jb,:),                    &! inout
-          & albvisdif_tile = field% albvisdif_tile(:,jb,:),                    &! inout
-          & albnirdif_tile = field% albnirdif_tile(:,jb,:),                    &! inout
-          & albedo         = field% albedo        (:,jb)  ,                    &! inout
-          & albedo_tile    = field% albedo_tile(:,jb,:),                       &! inout
-          & ptsfc     = field%tsfc    (:,jb),                      &! out
-          & ptsfc_rad = field%tsfc_rad(:,jb),                      &! out
-          & plwflx_tile = field%lwflxsfc_tile(:,jb,:),             &! out (for coupling)
-          & pswflx_tile = field%swflxsfc_tile(:,jb,:),             &! out (for coupling)
-          & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
-          & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
-          & T2    = field% T2   (:,:,jb),  &! inout, for sea ice
-          & hi    = field% hi   (:,:,jb),  &! in, for sea ice
-          & hs    = field% hs   (:,:,jb),  &! in, for sea ice
-          & conc  = field% conc (:,:,jb),  &! in, for sea ice
-          & Qtop  = field% Qtop (:,:,jb),  &! out, for sea ice
-          & Qbot  = field% Qbot (:,:,jb),  &! out, for sea ice
-          & albvisdir_ice = field% albvisdir_ice(:,:,jb), &! inout ice albedos
-          & albnirdir_ice = field% albnirdir_ice(:,:,jb), &! inout
-          & albvisdif_ice = field% albvisdif_ice(:,:,jb), &! inout
-          & albnirdif_ice = field% albnirdif_ice(:,:,jb))  ! inout
-
-        IF (ltimer) CALL timer_stop(timer_surface)
-
-    ! 5.5 Turbulent mixing, part II:
-    !     - Elimination for the lowest model level using boundary conditions
-    !       provided by the surface model(s);
-    !     - Back substitution to get solution of the tridiagonal system;
-    !     - Compute tendencies and additional diagnostics.
-
+!!$    ! 5.4 Surface processes that provide time-dependent lower boundary
+!!$    !     condition for wind, temperature, tracer concentraion, etc.
+!!$    !KF To avoid
+!!$        field% lhflx_tile(:,jb,:) = 0._wp
+!!$        field% shflx_tile(:,jb,:) = 0._wp
+!!$        field% evap_tile (:,jb,:) = 0._wp
+!!$
+!!$        IF (ltimer) CALL timer_start(timer_surface)
+!!$
+!!$        CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
+!!$          & vdiff_config%lsfc_mom_flux,   &! in
+!!$          & pdtime, psteplen,             &! in, time steps
+!!$          & jg, jce, nbdim, field%kice,   &! in
+!!$          & nlev, nsfc_type,              &! in
+!!$          & iwtr, iice, ilnd,             &! in, indices of surface types
+!!$          & zfrc(:,:),                    &! in, area fraction
+!!$          & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down"
+!!$          & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down"
+!!$          & zfactor_sfc(:),               &! in, from "vdiff_down"
+!!$          & field% ocu (:,jb),            &! in, ocean sfc velocity, u-component
+!!$          & field% ocv (:,jb),            &! in, ocean sfc velocity, v-component
+!!$          & zaa, zaa_btm, zbb, zbb_btm,   &! inout
+!!$          & zcpt_sfc_tile(:,:),           &! inout, from "vdiff_down", for "vdiff_up"
+!!$          & field%qs_sfc_tile(:,jb,:),    &! inout, from "vdiff_down", for "vdiff_up"
+!!$          & field% tsfc_tile(:,jb,:),     &! inout
+!!$          & field%u_stress    (:,  jb),   &! out
+!!$          & field%v_stress    (:,  jb),   &! out
+!!$          & field% lhflx      (:,  jb),   &! out
+!!$          & field% shflx      (:,  jb),   &! out
+!!$          & field%  evap      (:,  jb),   &! out, for "cucall"
+!!$          & field%u_stress_tile  (:,jb,:),   &! out
+!!$          & field%v_stress_tile  (:,jb,:),   &! out
+!!$          & field% lhflx_tile    (:,jb,:),   &! out
+!!$          & field% shflx_tile    (:,jb,:),   &! out
+!!$          & field% dshflx_dT_tile(:,jb,:),   &! out for Sea ice
+!!$          & field%  evap_tile    (:,jb,:),   &! out
+!!$                                !! optional
+!!$          & nblock = jb,                  &! in
+!!$          & lsm = field%lsmask(:,jb), &!< in, land-sea mask
+!!$          & pu = field% u(:,nlev,jb),     &! in, um1
+!!$          & pv = field% v(:,nlev,jb),     &! in, vm1
+!!$          & ptemp = field% temp(:,nlev,jb), &! in, tm1
+!!$          & pq = field% q(:,nlev,jb,iqv),  &! in, qm1
+!!$          & prsfl = field% rsfl(:,jb),    &! in, rain surface large scale (from cloud)
+!!$          & prsfc = field% rsfc(:,jb),    &! in, rain surface concective (from cucall)
+!!$          & pssfl = field% ssfl(:,jb),    &! in, snow surface large scale (from cloud)
+!!$          & pssfc = field% ssfc(:,jb),    &! in, snow surface concective (from cucall)
+!!$          & plw         = field% lwflxsfc (:,jb), &! inout, net surface longwave flux [W/m2]
+!!$          & plw_down    = field% lwflxsfc (:,jb) + field%lwupflxsfc(:,jb),     &! in, downward surface longwave flux [W/m2]
+!!$          & psw         = field% swflxsfc (:,jb), &! inout, net surface shortwave flux [W/m2]
+!!$          & pswvis      = field% vissfc   (:,jb), &! in, net surface shortwave flux in visible range [W/m2]
+!!$          & pswnir      = field% nirsfc   (:,jb), &! in, net surface shortwave flux in NIR range [W/m2]
+!!$          & pswpar_down = field% parsfcdn (:,jb), &! in, downward surface shortwave flux in PAR range [W/m2]
+!!$          & pvisdff     = field% visdffsfc(:,jb), &! in, diffuse fraction in visible shortwave surface flux
+!!$          & pnirdff     = field% nirdffsfc(:,jb), &! in, diffuse fraction in NIR shortwave surface flux
+!!$          & ppardff     = field% pardffsfc(:,jb), &! in, diffuse fraction in PAR shortwave surface flux
+!!$          & presi_old = field% presi_old(:,:,jb),&! in, paphm1, half level pressure
+!!$          & pcosmu0 = field% cosmu0(:,jb),&! in, amu0_x, cos of zenith angle
+!!$          & pch_tile = zch_tile(:,:),     &! in, from "vdiff_down" for JSBACH
+!!$          & pcsat = field%csat(:,jb),      &! inout, area fraction with wet land surface
+!!$          & pcair = field%cair(:,jb),      &! inout, area fraction with wet land surface (air)
+!!$          & tte_corr = ztte_corr(:),       &! out, tte correction for snow melt over land
+!!$          & z0m_tile = field% z0m_tile(:,jb,:), &! inout, roughness length for momentum over tiles
+!!$          & z0h_lnd  = field% z0h_lnd (:,jb),   &! out, roughness length for heat over land
+!!$          & albvisdir      = field% albvisdir     (:,jb)  ,                    &! inout
+!!$          & albnirdir      = field% albnirdir     (:,jb)  ,                    &! inout
+!!$          & albvisdif      = field% albvisdif     (:,jb)  ,                    &! inout
+!!$          & albnirdif      = field% albnirdif     (:,jb)  ,                    &! inout
+!!$          & albvisdir_tile = field% albvisdir_tile(:,jb,:),                    &! inout
+!!$          & albnirdir_tile = field% albnirdir_tile(:,jb,:),                    &! inout
+!!$          & albvisdif_tile = field% albvisdif_tile(:,jb,:),                    &! inout
+!!$          & albnirdif_tile = field% albnirdif_tile(:,jb,:),                    &! inout
+!!$          & albedo         = field% albedo        (:,jb)  ,                    &! inout
+!!$          & albedo_tile    = field% albedo_tile(:,jb,:),                       &! inout
+!!$          & ptsfc     = field%tsfc    (:,jb),                      &! out
+!!$          & ptsfc_rad = field%tsfc_rad(:,jb),                      &! out
+!!$          & plwflx_tile = field%lwflxsfc_tile(:,jb,:),             &! out (for coupling)
+!!$          & pswflx_tile = field%swflxsfc_tile(:,jb,:),             &! out (for coupling)
+!!$          & Tsurf = field% Tsurf(:,:,jb),  &! inout, for sea ice
+!!$          & T1    = field% T1   (:,:,jb),  &! inout, for sea ice
+!!$          & T2    = field% T2   (:,:,jb),  &! inout, for sea ice
+!!$          & hi    = field% hi   (:,:,jb),  &! in, for sea ice
+!!$          & hs    = field% hs   (:,:,jb),  &! in, for sea ice
+!!$          & conc  = field% conc (:,:,jb),  &! in, for sea ice
+!!$          & Qtop  = field% Qtop (:,:,jb),  &! out, for sea ice
+!!$          & Qbot  = field% Qbot (:,:,jb),  &! out, for sea ice
+!!$          & albvisdir_ice = field% albvisdir_ice(:,:,jb), &! inout ice albedos
+!!$          & albnirdir_ice = field% albnirdir_ice(:,:,jb), &! inout
+!!$          & albvisdif_ice = field% albvisdif_ice(:,:,jb), &! inout
+!!$          & albnirdif_ice = field% albnirdif_ice(:,:,jb))  ! inout
+!!$
+!!$        IF (ltimer) CALL timer_stop(timer_surface)
+!!$
+!!$    ! 5.5 Turbulent mixing, part II:
+!!$    !     - Elimination for the lowest model level using boundary conditions
+!!$    !       provided by the surface model(s);
+!!$    !     - Back substitution to get solution of the tridiagonal system;
+!!$    !     - Compute tendencies and additional diagnostics.
+!!$
 !!$      IF (ltimer) CALL timer_start(timer_vdiff_up)
 !!$
 !!$      CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
