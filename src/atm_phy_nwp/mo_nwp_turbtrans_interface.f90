@@ -31,7 +31,7 @@
 MODULE mo_nwp_turbtrans_interface
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: message, message_text, finish
+  USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_impl_constants,       ONLY: min_rlcell_int, icosmo, igme, ismag
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c

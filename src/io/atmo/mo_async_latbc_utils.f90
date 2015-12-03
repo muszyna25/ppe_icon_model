@@ -1520,7 +1520,6 @@
     SUBROUTINE update_lin_interpolation( current_date )
       TYPE(datetime),   INTENT(IN)     :: current_date !< current time
       TYPE(timedelta),  POINTER        :: delta_tstep
-      CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_step
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = &
            "mo_async_latbc_utils::update_lin_interpolation"
 
