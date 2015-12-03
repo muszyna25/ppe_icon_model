@@ -579,130 +579,130 @@ CONTAINS
                        & -aa(1:kproma,jk,1,im)*bb(1:kproma,jkm1,iv)) &
                        & /aa(1:kproma,jk,2,im)
 
-   !-------------------------------------------------------------------
-   ! Various diagnostics
-   !-------------------------------------------------------------------
-
-   CALL surface_fluxes( lsfc_heat_flux, psteplen,             &! in
-                      & kproma, kbdim, klev, ksfc_type,       &! in
-                      & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
-                      & pfrc, pcfh_tile, pfac_sfc,            &! in
-                      & pcpt_tile, pqsat_tile,                &! in
-                      & zca, zcs, bb_btm(:,:,ih:iqv),         &! in
-                      & plhflx_gbm, pshflx_gbm,               &! out
-                      & pevap_gbm,                            &! out
-                      & plhflx_tile, pshflx_tile,             &! inout
-                      & dshflx_dT_tile,                       &! out
-                      & pevap_tile,                           &! out
-                      & evapotranspiration)                    ! in (optional)
-
-
-    DO jsfc=1,ksfc_type
-      zalbvis(:) = 0._wp
-      WHERE(zswvis_down(1:kproma) > 0._wp)
-        zalbvis(1:kproma) = &
-          & (albvisdir_tile(1:kproma,jsfc) * zswvisdir_down(1:kproma) + albvisdif_tile(1:kproma,jsfc) * zswvisdif_down(1:kproma)) &
-          & / zswvis_down(1:kproma)
-      END WHERE
-      zalbnir(:) = 0._wp
-      WHERE(zswnir_down(1:kproma) > 0._wp)
-        zalbnir(1:kproma) = &
-          & (albnirdir_tile(1:kproma,jsfc) * zswnirdir_down(1:kproma) + albnirdif_tile(1:kproma,jsfc) * zswnirdif_down(1:kproma)) &
-          & / zswnir_down(1:kproma)
-      END WHERE
-      albedo_tile(:,jsfc) = 0._wp
-      WHERE(zsw_down(1:kproma) > 0._wp)
-        albedo_tile(1:kproma,jsfc) = &
-          & (zalbvis(1:kproma) * zswvis_down(1:kproma) + zalbnir(1:kproma) * zswnir_down(1:kproma)) &
-          & / zsw_down(1:kproma)
-      END WHERE
-    END DO
-
-    ! calculate grid box mean surface temperature
-    ptsfc(:) = 0._wp
-    DO jsfc=1,ksfc_type
-      ptsfc(1:kproma) = ptsfc(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)
-    ENDDO
-
-    ! calculate grid box mean radiative temperature for use in radiation
-    ptsfc_rad(:) = 0._wp
-    DO jsfc=1,ksfc_type
-      ptsfc_rad(1:kproma) = ptsfc_rad(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)**4
-    ENDDO
-    ptsfc_rad(1:kproma) = ptsfc_rad(1:kproma)**0.25_wp
-
-    ! Compute lw and sw surface radiation fluxes on tiles
-    DO jsfc=1,ksfc_type
-      IF (jsfc == idx_lnd) THEN
-        plwflx_tile(1:kproma,jsfc) = zemiss_def * (plw_down(1:kproma) - stbo * ztsfc_lnd_eff(1:kproma)**4)
-      ELSE
-        plwflx_tile(1:kproma,jsfc) = zemiss_def * (plw_down(1:kproma) - stbo * ptsfc_tile(1:kproma,jsfc)**4)
-      END IF
-    END DO
-
-    DO jsfc=1,ksfc_type
-      pswflx_tile(1:kproma,jsfc) = &
-        & zswvisdif_down(1:kproma) * (1._wp - albvisdif_tile(1:kproma,jsfc)) + &
-        & zswvisdir_down(1:kproma) * (1._wp - albvisdir_tile(1:kproma,jsfc)) + &
-        & zswnirdif_down(1:kproma) * (1._wp - albnirdif_tile(1:kproma,jsfc)) + &
-        & zswnirdir_down(1:kproma) * (1._wp - albnirdir_tile(1:kproma,jsfc))
-    END DO
-
-    ! Merge sw and lw surface fluxes
-    ! This includes the update of the lw flux on land due to the new surface temperature where only part
-    ! of the net radiation was used (due to the Taylor truncation in the surface energy balance)
-    plw(:) = 0._wp
-    psw(:) = 0._wp
-    DO jsfc=1,ksfc_type
-      plw(1:kproma) = plw(1:kproma) + pfrc(1:kproma,jsfc) * plwflx_tile(1:kproma,jsfc)
-      psw(1:kproma) = psw(1:kproma) + pfrc(1:kproma,jsfc) * pswflx_tile(1:kproma,jsfc)
-    END DO
-
-    ! Merge surface albedos
-    albvisdir(:) = 0._wp
-    albvisdif(:) = 0._wp
-    albnirdir(:) = 0._wp
-    albnirdif(:) = 0._wp
-    albedo   (:) = 0._wp
-    DO jsfc=1,nsfc_type
-      albvisdir(1:kproma) = albvisdir(1:kproma) + pfrc(1:kproma,jsfc) * albvisdir_tile(1:kproma,jsfc)
-      albvisdif(1:kproma) = albvisdif(1:kproma) + pfrc(1:kproma,jsfc) * albvisdif_tile(1:kproma,jsfc)
-      albnirdir(1:kproma) = albnirdir(1:kproma) + pfrc(1:kproma,jsfc) * albnirdir_tile(1:kproma,jsfc)
-      albnirdif(1:kproma) = albnirdif(1:kproma) + pfrc(1:kproma,jsfc) * albnirdif_tile(1:kproma,jsfc)
-      albedo   (1:kproma) = albedo   (1:kproma) + pfrc(1:kproma,jsfc) * albedo_tile   (1:kproma,jsfc)
-    END DO
-
-    ! Mask out tiled variables
-    ! For now, only the land tile ... coupled atmo/ocean runs yield different results if wtr/ice is
-    ! masked out over land.
-    DO jsfc=1,ksfc_type
-      mask(:) = .FALSE.
-      IF (jsfc == idx_lnd) mask(1:kproma) = pfrc(1:kproma,jsfc) == 0._wp
-      !IF (jsfc == idx_wtr .OR. jsfc == idx_ice) mask(1:kproma) = pfrc(1:kproma,idx_wtr) == 0._wp .AND. prfc(1:kproma,idx_ice) == 0._wp
-      WHERE (mask(1:kproma))
-        ptsfc_tile     (1:kproma,jsfc) = cdimissval
-        pqsat_tile     (1:kproma,jsfc) = cdimissval
-        pswflx_tile    (1:kproma,jsfc) = cdimissval
-        plwflx_tile    (1:kproma,jsfc) = cdimissval
-        pevap_tile     (1:kproma,jsfc) = cdimissval
-        pshflx_tile    (1:kproma,jsfc) = cdimissval
-        plhflx_tile    (1:kproma,jsfc) = cdimissval
-        albedo_tile    (1:kproma,jsfc) = cdimissval
-        albvisdir_tile (1:kproma,jsfc) = cdimissval
-        albvisdif_tile (1:kproma,jsfc) = cdimissval
-        albnirdir_tile (1:kproma,jsfc) = cdimissval
-        albnirdif_tile (1:kproma,jsfc) = cdimissval
-        pu_stress_tile (1:kproma,jsfc) = cdimissval
-        pv_stress_tile (1:kproma,jsfc) = cdimissval
-        dshflx_dT_tile (1:kproma,jsfc) = cdimissval
-        z0m_tile       (1:kproma,jsfc) = cdimissval
-      END WHERE
-      IF (jsfc == idx_lnd) THEN
-        WHERE (mask(1:kproma))
-          z0h_lnd(1:kproma) = cdimissval
-        END WHERE
-      END IF
-    END DO
+!!$   !-------------------------------------------------------------------
+!!$   ! Various diagnostics
+!!$   !-------------------------------------------------------------------
+!!$
+!!$   CALL surface_fluxes( lsfc_heat_flux, psteplen,             &! in
+!!$                      & kproma, kbdim, klev, ksfc_type,       &! in
+!!$                      & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
+!!$                      & pfrc, pcfh_tile, pfac_sfc,            &! in
+!!$                      & pcpt_tile, pqsat_tile,                &! in
+!!$                      & zca, zcs, bb_btm(:,:,ih:iqv),         &! in
+!!$                      & plhflx_gbm, pshflx_gbm,               &! out
+!!$                      & pevap_gbm,                            &! out
+!!$                      & plhflx_tile, pshflx_tile,             &! inout
+!!$                      & dshflx_dT_tile,                       &! out
+!!$                      & pevap_tile,                           &! out
+!!$                      & evapotranspiration)                    ! in (optional)
+!!$
+!!$
+!!$    DO jsfc=1,ksfc_type
+!!$      zalbvis(:) = 0._wp
+!!$      WHERE(zswvis_down(1:kproma) > 0._wp)
+!!$        zalbvis(1:kproma) = &
+!!$          & (albvisdir_tile(1:kproma,jsfc) * zswvisdir_down(1:kproma) + albvisdif_tile(1:kproma,jsfc) * zswvisdif_down(1:kproma)) &
+!!$          & / zswvis_down(1:kproma)
+!!$      END WHERE
+!!$      zalbnir(:) = 0._wp
+!!$      WHERE(zswnir_down(1:kproma) > 0._wp)
+!!$        zalbnir(1:kproma) = &
+!!$          & (albnirdir_tile(1:kproma,jsfc) * zswnirdir_down(1:kproma) + albnirdif_tile(1:kproma,jsfc) * zswnirdif_down(1:kproma)) &
+!!$          & / zswnir_down(1:kproma)
+!!$      END WHERE
+!!$      albedo_tile(:,jsfc) = 0._wp
+!!$      WHERE(zsw_down(1:kproma) > 0._wp)
+!!$        albedo_tile(1:kproma,jsfc) = &
+!!$          & (zalbvis(1:kproma) * zswvis_down(1:kproma) + zalbnir(1:kproma) * zswnir_down(1:kproma)) &
+!!$          & / zsw_down(1:kproma)
+!!$      END WHERE
+!!$    END DO
+!!$
+!!$    ! calculate grid box mean surface temperature
+!!$    ptsfc(:) = 0._wp
+!!$    DO jsfc=1,ksfc_type
+!!$      ptsfc(1:kproma) = ptsfc(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)
+!!$    ENDDO
+!!$
+!!$    ! calculate grid box mean radiative temperature for use in radiation
+!!$    ptsfc_rad(:) = 0._wp
+!!$    DO jsfc=1,ksfc_type
+!!$      ptsfc_rad(1:kproma) = ptsfc_rad(1:kproma) + pfrc(1:kproma,jsfc) * ptsfc_tile(1:kproma,jsfc)**4
+!!$    ENDDO
+!!$    ptsfc_rad(1:kproma) = ptsfc_rad(1:kproma)**0.25_wp
+!!$
+!!$    ! Compute lw and sw surface radiation fluxes on tiles
+!!$    DO jsfc=1,ksfc_type
+!!$      IF (jsfc == idx_lnd) THEN
+!!$        plwflx_tile(1:kproma,jsfc) = zemiss_def * (plw_down(1:kproma) - stbo * ztsfc_lnd_eff(1:kproma)**4)
+!!$      ELSE
+!!$        plwflx_tile(1:kproma,jsfc) = zemiss_def * (plw_down(1:kproma) - stbo * ptsfc_tile(1:kproma,jsfc)**4)
+!!$      END IF
+!!$    END DO
+!!$
+!!$    DO jsfc=1,ksfc_type
+!!$      pswflx_tile(1:kproma,jsfc) = &
+!!$        & zswvisdif_down(1:kproma) * (1._wp - albvisdif_tile(1:kproma,jsfc)) + &
+!!$        & zswvisdir_down(1:kproma) * (1._wp - albvisdir_tile(1:kproma,jsfc)) + &
+!!$        & zswnirdif_down(1:kproma) * (1._wp - albnirdif_tile(1:kproma,jsfc)) + &
+!!$        & zswnirdir_down(1:kproma) * (1._wp - albnirdir_tile(1:kproma,jsfc))
+!!$    END DO
+!!$
+!!$    ! Merge sw and lw surface fluxes
+!!$    ! This includes the update of the lw flux on land due to the new surface temperature where only part
+!!$    ! of the net radiation was used (due to the Taylor truncation in the surface energy balance)
+!!$    plw(:) = 0._wp
+!!$    psw(:) = 0._wp
+!!$    DO jsfc=1,ksfc_type
+!!$      plw(1:kproma) = plw(1:kproma) + pfrc(1:kproma,jsfc) * plwflx_tile(1:kproma,jsfc)
+!!$      psw(1:kproma) = psw(1:kproma) + pfrc(1:kproma,jsfc) * pswflx_tile(1:kproma,jsfc)
+!!$    END DO
+!!$
+!!$    ! Merge surface albedos
+!!$    albvisdir(:) = 0._wp
+!!$    albvisdif(:) = 0._wp
+!!$    albnirdir(:) = 0._wp
+!!$    albnirdif(:) = 0._wp
+!!$    albedo   (:) = 0._wp
+!!$    DO jsfc=1,nsfc_type
+!!$      albvisdir(1:kproma) = albvisdir(1:kproma) + pfrc(1:kproma,jsfc) * albvisdir_tile(1:kproma,jsfc)
+!!$      albvisdif(1:kproma) = albvisdif(1:kproma) + pfrc(1:kproma,jsfc) * albvisdif_tile(1:kproma,jsfc)
+!!$      albnirdir(1:kproma) = albnirdir(1:kproma) + pfrc(1:kproma,jsfc) * albnirdir_tile(1:kproma,jsfc)
+!!$      albnirdif(1:kproma) = albnirdif(1:kproma) + pfrc(1:kproma,jsfc) * albnirdif_tile(1:kproma,jsfc)
+!!$      albedo   (1:kproma) = albedo   (1:kproma) + pfrc(1:kproma,jsfc) * albedo_tile   (1:kproma,jsfc)
+!!$    END DO
+!!$
+!!$    ! Mask out tiled variables
+!!$    ! For now, only the land tile ... coupled atmo/ocean runs yield different results if wtr/ice is
+!!$    ! masked out over land.
+!!$    DO jsfc=1,ksfc_type
+!!$      mask(:) = .FALSE.
+!!$      IF (jsfc == idx_lnd) mask(1:kproma) = pfrc(1:kproma,jsfc) == 0._wp
+!!$      !IF (jsfc == idx_wtr .OR. jsfc == idx_ice) mask(1:kproma) = pfrc(1:kproma,idx_wtr) == 0._wp .AND. prfc(1:kproma,idx_ice) == 0._wp
+!!$      WHERE (mask(1:kproma))
+!!$        ptsfc_tile     (1:kproma,jsfc) = cdimissval
+!!$        pqsat_tile     (1:kproma,jsfc) = cdimissval
+!!$        pswflx_tile    (1:kproma,jsfc) = cdimissval
+!!$        plwflx_tile    (1:kproma,jsfc) = cdimissval
+!!$        pevap_tile     (1:kproma,jsfc) = cdimissval
+!!$        pshflx_tile    (1:kproma,jsfc) = cdimissval
+!!$        plhflx_tile    (1:kproma,jsfc) = cdimissval
+!!$        albedo_tile    (1:kproma,jsfc) = cdimissval
+!!$        albvisdir_tile (1:kproma,jsfc) = cdimissval
+!!$        albvisdif_tile (1:kproma,jsfc) = cdimissval
+!!$        albnirdir_tile (1:kproma,jsfc) = cdimissval
+!!$        albnirdif_tile (1:kproma,jsfc) = cdimissval
+!!$        pu_stress_tile (1:kproma,jsfc) = cdimissval
+!!$        pv_stress_tile (1:kproma,jsfc) = cdimissval
+!!$        dshflx_dT_tile (1:kproma,jsfc) = cdimissval
+!!$        z0m_tile       (1:kproma,jsfc) = cdimissval
+!!$      END WHERE
+!!$      IF (jsfc == idx_lnd) THEN
+!!$        WHERE (mask(1:kproma))
+!!$          z0h_lnd(1:kproma) = cdimissval
+!!$        END WHERE
+!!$      END IF
+!!$    END DO
 
 
     END SUBROUTINE update_surface
