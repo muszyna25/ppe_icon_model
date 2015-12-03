@@ -2146,7 +2146,6 @@ CONTAINS
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
     
-    CALL finish("done","")
   END SUBROUTINE hflx_limiter_oce_zalesak
   !-------------------------------------------------------------------------
 
