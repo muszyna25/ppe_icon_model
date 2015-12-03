@@ -55,7 +55,7 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
   det2=1.0_wp/det2
   
   ! omp-initialization (ICON_OMP_PARALLEL) is called in the main routine
-!ICON_OMP_DO PRIVATE(i,elem,elnodes,aa,dx,dy,meancos, usum, vsum,  &
+!ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy,meancos, usum, vsum,  &
 !ICON_OMP       eps11,eps12,eps22,delta,msum,asum,pressure,delta_inv,zeta,  &
 !ICON_OMP       r1, r2, r3, si1, si2) ICON_OMP_DEFAULT_SCHEDULE
  DO i=1,si_elem2D
@@ -128,7 +128,7 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
      sigma11(elem)=0.5_wp*(si1+si2)
      sigma22(elem)=0.5_wp*(si1-si2)
     end do
-!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL_DO
    
 end subroutine stress_tensor
 
@@ -191,7 +191,7 @@ val3=1._wp/3.0_wp
      END DO
  END DO
 
- !ICON_OMP_DO PRIVATE(i,row,cluster_area,mass) SCHEDULE(static)
+!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) SCHEDULE(static)
   DO i=1,si_nod2D
      row=si_idx_nodes(i)
 
@@ -204,7 +204,7 @@ val3=1._wp/3.0_wp
 !     rhs_mis(row)=0._wp
 !     end if
   END DO
-!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLE_DO
 
 end subroutine stress2rhs
 !===================================================================
@@ -265,7 +265,7 @@ REAL(wp) :: dx(3), dy(3), da, dm
 !     END DO
  end do
 
-!ICON_OMP_DO PRIVATE(i,row,cluster_area,mass) SCHEDULE(static)
+!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) SCHEDULE(static)
   DO i=1,si_nod2D
      row=si_idx_nodes(i)
      cluster_area=lmass_matrix(row)
@@ -281,7 +281,7 @@ REAL(wp) :: dx(3), dy(3), da, dm
 !     rhs_mis(row)=0._wp
 !     end if
   END DO
-!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLE_DO
 
 end subroutine precalc4rhs_omp
 !===================================================================
@@ -377,9 +377,7 @@ REAL(wp)    :: ax, ay
     call precalc4rhs_omp
 
  DO shortstep=1, steps
-     !ICON_OMP_PARALLEL
      ! ===== Boundary conditions
-     !ICON_OMP_DO PRIVATE(i) ICON_OMP_DEFAULT_SCHEDULE
      do j=1, myDim_nod2D+eDim_nod2D
         i=myList_nod2D(j)
         if(index_nod2D(i)==1) then
@@ -387,7 +385,6 @@ REAL(wp)    :: ax, ay
         v_ice(i)=0.0_wp
         end if
      end do
-    !ICON_OMP_END_DO
 
      call stress_tensor
      !write(*,*) 'stress', maxval(sigma11), minval(sigma11)
@@ -399,7 +396,7 @@ REAL(wp)    :: ax, ay
       !if(shortstep<3)  write(*,*) mype, 'rhs  ', &
       !   maxval(rhs_u(myList_nod2D(1:myDim_nod2D)))
 
-    !ICON_OMP_DO PRIVATE(i,inv_mass,umod,drag,rhsu,rhsv,det) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(j,i,inv_mass,umod,drag,rhsu,rhsv,det) ICON_OMP_DEFAULT_SCHEDULE
      do j=1,myDim_nod2D
         i=myList_nod2D(j)
       if (index_nod2D(i)>0) CYCLE          ! Skip boundary nodes
@@ -424,8 +421,7 @@ REAL(wp)    :: ax, ay
       ! v_ice(i)=v_w(i)
        end if
      end do
-     !ICON_OMP_END_DO
-     !ICON_OMP_END_PARALLEL
+!ICON_OMP_END_PARALLEL_DO
 
      call exchange_nod2D(u_ice)
      call exchange_nod2D(v_ice)
