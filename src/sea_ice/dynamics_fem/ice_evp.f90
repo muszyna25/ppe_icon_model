@@ -254,7 +254,7 @@ REAL(wp) :: dx(3), dy(3), da, dm
 !     END DO
  end do
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) SCHEDULE(static)
+!ICON_OMP_DO PRIVATE(i,row,cluster_area,mass) SCHEDULE(static)
   DO i=1,si_nod2D
      row=si_idx_nodes(i)
      cluster_area=lmass_matrix(row)
@@ -270,7 +270,7 @@ REAL(wp) :: dx(3), dy(3), da, dm
 !     rhs_mis(row)=0._wp
 !     end if
   END DO
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_DO
 
 end subroutine precalc4rhs_omp
 !===================================================================
