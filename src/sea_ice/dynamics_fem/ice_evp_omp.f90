@@ -57,13 +57,14 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
 !ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy,meancos, usum, vsum,  &
 !ICON_OMP       eps11,eps12,eps22,delta,msum,asum,pressure,delta_inv,zeta,  &
 !ICON_OMP       r1, r2, r3, si1, si2) ICON_OMP_DEFAULT_SCHEDULE
-  do i=1,myDim_elem2D
-     elem=myList_elem2D(i)     
+ DO i=1,si_elem2D
+     elem=si_idx_elem(i)
      elnodes=elem2D_nodes(:,elem)
-      ! ===== Check if there is ice on elem
-        aa=product(m_ice(elnodes))*product(a_ice(elnodes))
-        if (aa==0._wp) CYCLE     ! There is no ice in elem
-      ! =====	
+      ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
+!      ! ===== Check if there is ice on elem
+!        aa=product(m_ice(elnodes))*product(a_ice(elnodes))
+!        if (aa==0._wp) CYCLE     ! There is no ice in elem
+!      ! =====
      dx=bafux(:,elem)
      dy=bafuy(:,elem)
 
@@ -163,12 +164,13 @@ val3=1._wp/3.0_wp
 !ICON_OMP_END_PARALLEL
 
 !ICON_OMP_PARALLEL_DO PRIVATE(i,row,nodels,dx,dy,k,elem,meancos) ICON_OMP_DEFAULT_SCHEDULE
-DO i=1, myDim_nod2D
-    row=myList_nod2D(i)
+ DO i=1,si_nod2D
+     row=si_idx_nodes(i)
     nodels=nod2D_elems(:,row)
-    ! ===== Skip if ice is absent
-     if (m_ice(row)*a_ice(row)==0._wp) CYCLE
-    ! =====
+      ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
+!    ! ===== Skip if ice is absent
+!     if (m_ice(row)*a_ice(row)==0._wp) CYCLE
+!    ! =====
 
      dx=bafux_nod(:,row)
      dy=bafuy_nod(:,row)
@@ -236,13 +238,14 @@ REAL(wp) :: da(elem2D), dm(elem2D) ! temp storage for element-wise contributions
 !ICON_OMP_END_PARALLEL
 
 !ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy,elevation_elem) ICON_OMP_DEFAULT_SCHEDULE
- do i=1,myDim_elem2D
-     elem=myList_elem2D(i)
+DO i=1,si_elem2D
+     elem=si_idx_elem(i)
      elnodes=elem2D_nodes(:,elem)
-      ! ===== Skip if ice is absent
-     aa=product(m_ice(elnodes))*product(a_ice(elnodes))
-     if (aa==0._wp) CYCLE
-      ! =====
+      ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
+!      ! ===== Skip if ice is absent
+!     aa=product(m_ice(elnodes))*product(a_ice(elnodes))
+!     if (aa==0._wp) CYCLE
+!      ! =====
      dx=bafux(:,elem)
      dy=bafuy(:,elem)
      elevation_elem=elevation(elnodes)
@@ -254,9 +257,10 @@ REAL(wp) :: da(elem2D), dm(elem2D) ! temp storage for element-wise contributions
  end do
 !ICON_OMP_END_PARALLEL_DO
 !ICON_OMP_PARALLEL_DO PRIVATE(i,row,nodels,k,elem) ICON_OMP_DEFAULT_SCHEDULE
-DO i=1, myDim_nod2D
-    row=myList_nod2D(i)
+ DO i=1,si_nod2D
+    row=si_idx_nodes(i)
     nodels=nod2D_elems(:,row)
+      ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
     ! ===== Skip if ice is absent
     if (m_ice(row)*a_ice(row)==0._wp) CYCLE
     ! =====
@@ -317,6 +321,63 @@ END DO
 
 end subroutine precalc4rhs_omp
 !===================================================================
+subroutine index_si_elements_omp
+! Replaces ifs checking if sea ice is actually present in a given cell/node
+
+  use mo_ice_elements
+  use mo_ice_mesh
+  use mo_ice
+  use mo_ice_parsup
+
+  USE mo_kind,                ONLY: wp
+
+    IMPLICIT NONE
+    INTEGER :: elem,row, elnodes(3), i
+    REAL(wp):: aa
+    ! Temporary variables/buffers
+    INTEGER :: buffy_array(myDim_elem2D)
+
+!    ! count nodes with ice
+    buffy_array = 0._wp
+    si_nod2D = 0
+
+    DO i=1, myDim_nod2D
+        row=myList_nod2D(i)
+
+         aa = m_ice(row)*a_ice(row)
+
+         IF (aa==0._wp) THEN
+            si_nod2D = si_nod2D + 1
+            buffy_array(si_nod2D)=row
+         ENDIF
+    ENDDO
+
+    if (allocated(si_idx_nodes)) deallocate(si_idx_nodes)
+    allocate(si_idx_nodes(si_nod2D))
+    si_idx_nodes=buffy_array(1:si_nod2D)
+
+    ! count elements with ice
+    buffy_array = 0._wp
+    si_elem2D = 0
+
+    DO i=1,myDim_elem2D
+         elem=myList_elem2D(i)
+         elnodes=elem2D_nodes(:,elem)
+
+         aa=product(m_ice(elnodes))*product(a_ice(elnodes))
+
+         IF (aa==0._wp) THEN
+            si_elem2D = si_elem2D + 1
+            buffy_array(si_elem2D)=elem
+         ENDIF
+    ENDDO
+
+    if (allocated(si_idx_elem)) deallocate(si_idx_elem)
+    allocate(si_idx_elem(si_elem2D))
+    si_idx_elem=buffy_array(1:si_elem2D)
+
+end subroutine index_si_elements_omp
+!===================================================================
 subroutine EVPdynamics_omp
 ! EVP implementation. Does cybcycling and boundary conditions.  
 
@@ -346,6 +407,8 @@ REAL(wp)    :: ax, ay
     ax=cos(theta_io)
     ay=sin(theta_io)
 
+! index elements/nodes where sea ice is present for faster loops
+ call index_si_elements_omp
 ! precalculate several arrays that do not change during subcycling
  call precalc4rhs_omp
 

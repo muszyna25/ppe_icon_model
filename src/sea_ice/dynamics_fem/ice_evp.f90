@@ -325,6 +325,8 @@ subroutine index_si_elements
     ! Temporary variables/buffers
     INTEGER :: buffy_array(myDim_elem2D)
 
+    buffy_array = 0._wp
+
 !    ! count nodes with ice
 !    n_nodes = count( (m_ice==0._wp).OR.(a_ice==0._wp) )
 
@@ -342,6 +344,7 @@ subroutine index_si_elements
          ENDIF
     ENDDO
 
+    if (allocated(si_idx_elem)) deallocate(si_idx_elem)
     allocate(si_idx_elem(si_elem2D))
     si_idx_elem=buffy_array(1:si_elem2D)
 
