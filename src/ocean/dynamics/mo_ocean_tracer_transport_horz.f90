@@ -2113,7 +2113,7 @@ CONTAINS
           
                                
           ! IF( patch_3D%lsm_e(edge_index,level,blockNo) <= sea_boundary ) THEN
-          IF(operators_coefficients%edges_SeaBoundaryLevel(edge_index,level,blockNo) >= -1) THEN ! edge next to boundary cell
+          IF(operators_coefficients%edges_SeaBoundaryLevel(edge_index,level,blockNo) >= -2) THEN ! edge < 2nd order boundary 
           
             flx_tracer_final(edge_index,level,blockNo) = flx_tracer_low(edge_index,level,blockNo)
             

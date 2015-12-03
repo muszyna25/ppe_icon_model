@@ -342,8 +342,8 @@ CONTAINS
 
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, nz_lev
     INTEGER :: return_status,ie,i
-    INTEGER :: i_startidx_c, i_endidx_c
-    INTEGER :: i_startidx_e, i_endidx_e
+    INTEGER :: cells_startidx, cells_endidx
+    INTEGER :: edges_startidx, edges_endidx
     INTEGER :: jc,je,jk,block
     CHARACTER(len=max_char_length) :: var_suffix
 
@@ -596,7 +596,7 @@ CONTAINS
     ENDIF
 
     ALLOCATE(operators_coefficients%edges_SeaBoundaryLevel(nproma,n_zlev,nblks_e),&
-      & stat=return_status)
+      & operators_coefficients%cells_SeaBoundaryLevel(nproma,n_zlev,alloc_cell_blocks), stat=return_status)
     IF (return_status /= success) THEN
       CALL finish ('mo_operator_ocean_coeff_3d',                 &
         & 'allocation for edges_SeaBoundaryLevel failed')
@@ -622,8 +622,8 @@ CONTAINS
 
     DO jk = 1, nz_lev
       DO block = all_edges%start_block, all_edges%end_block
-        CALL get_index_range(all_edges, block, i_startidx_e, i_endidx_e)
-        DO je =  i_startidx_e, i_endidx_e
+        CALL get_index_range(all_edges, block, edges_startidx, edges_endidx)
+        DO je =  edges_startidx, edges_endidx
 !           operators_coefficients%edge_position_cc(je,jk,block)             = gc2cc(patch_2D%edges%center(je,block))
           operators_coefficients%edge_position_cc(je,jk,block)             = patch_2D%edges%cartesian_center(je,block)
           operators_coefficients%moved_edge_position_cc(je,jk,block)%x(:)  = 0._wp
@@ -724,6 +724,7 @@ CONTAINS
     ENDIF
 
     DEALLOCATE(operators_coefficients%edges_SeaBoundaryLevel)
+    DEALLOCATE(operators_coefficients%cells_SeaBoundaryLevel)
 
   END SUBROUTINE deallocate_operators_coefficients
   !-------------------------------------------------------------------------
@@ -1862,8 +1863,8 @@ CONTAINS
     !Local variables
     INTEGER :: jk, jc, block, je, ibe, ile, jev, jv,ie
     INTEGER :: il_e, ib_e, il_c, ib_c, ictr
-    INTEGER :: i_startidx_e, i_endidx_e
-    INTEGER :: i_startidx_c, i_endidx_c
+    INTEGER :: edges_startidx, edges_endidx
+    INTEGER :: cells_startidx, cells_endidx
     INTEGER :: i_startidx_v, i_endidx_v
 
     INTEGER :: sea_edges_per_vertex(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_v)
@@ -1873,15 +1874,15 @@ CONTAINS
     INTEGER :: cell_idx_1, cell_blk_1
     INTEGER :: cell_idx_2, cell_blk_2
     INTEGER :: boundary_counter
-    INTEGER :: neigbor, k
+    INTEGER :: neigbor, k, boundary_level, i, max_level
     INTEGER :: cell_index, cell_block, edge_index_of_cell, edge_block_of_cell, k_coeff
 
     !INTEGER :: vertex_edge
     TYPE(t_cartesian_coordinates) :: cell1_cc, cell2_cc, vertex_cc
     REAL(wp) :: earth_radius_squared
-    
+    INTEGER, PARAMETER :: MIN_SEA_BOUNDARYLEVEL = -99999
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
-    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_subset_range), POINTER :: all_cells, owned_cells
     TYPE(t_subset_range), POINTER :: owned_verts!, in_domain_verts
     TYPE(t_patch), POINTER        :: patch_2D
     CHARACTER(LEN=max_char_length), PARAMETER :: &
@@ -1891,6 +1892,7 @@ CONTAINS
     patch_2D    => patch_3D%p_patch_2D(1)
     all_cells   => patch_2D%cells%all
     all_edges   => patch_2D%edges%all
+    owned_cells  => patch_2D%edges%owned
     owned_edges => patch_2D%edges%owned
     owned_verts => patch_2D%verts%owned
     !in_domain_verts  => patch_3D%p_patch_2D(1)%verts%in_domain
@@ -1899,30 +1901,82 @@ CONTAINS
     zarea_fraction(1:nproma,1:n_zlev,1:patch_2D%nblks_v) = 0.0_wp
     earth_radius_squared = earth_radius * earth_radius
 
-    ! calculate edges_SeaBoundaryLevel
-    DO block = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, block, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
+    ! calculate cells SeaBoundaryLevel
+    ! first calculate levels 1,-1
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, cells_startidx, cells_endidx)
+      DO jc = cells_startidx, cells_endidx
+        DO jk = 1, n_zlev
+          IF (patch_3D%lsm_c(jc,jk,block) > boundary) THEN
+            operators_coefficients%cells_SeaBoundaryLevel(jc,jk,block) = 1 ! land
+          ELSEIF ( patch_3D%lsm_c(jc,jk,block) == sea_boundary ) THEN
+            operators_coefficients%cells_SeaBoundaryLevel(jc,jk,block) = -1 ! sea boundary
+          ELSE
+            operators_coefficients%cells_SeaBoundaryLevel(jc,jk,block) = MIN_SEA_BOUNDARYLEVEL ! inner sea
+          ENDIF
+        ENDDO
+      END DO
+    END DO
+
+    ! calclulate the next levels
+    DO boundary_level=1,2 ! max level is -3
+
+      DO block = owned_cells%start_block, owned_cells%end_block
+        CALL get_index_range(owned_cells, block, cells_startidx, cells_endidx)
+        DO jc = cells_startidx, cells_endidx
+          DO jk = 1, n_zlev
+            IF (operators_coefficients%cells_SeaBoundaryLevel(jc,jk,block) == MIN_SEA_BOUNDARYLEVEL) THEN
+              ! find the max level of the neigbors
+              max_level = MIN_SEA_BOUNDARYLEVEL
+              DO i=1,patch_2D%cells%num_edges(jc,block)
+                cell_idx_1 = patch_2D%cells%neighbor_idx(jc,block,i)
+                cell_blk_1 = patch_2D%cells%neighbor_blk(jc,block,i)
+                max_level = MAX(max_level,operators_coefficients%cells_SeaBoundaryLevel(cell_idx_1,jk,cell_blk_1))
+              ENDDO
+             
+              IF (max_level /= MIN_SEA_BOUNDARYLEVEL) THEN
+                ! if we are in deep sea do nothing, else compute the level
+                IF (max_level /= -i) & ! we have a problem
+                  & CALL finish("calculate cells SeaBoundaryLevel", "level does not match")
+                operators_coefficients%cells_SeaBoundaryLevel(jc,jk,block) = max_level - 1
+              ENDIF
+
+            ENDIF
+
+          ENDDO
+        END DO
+      END DO
+
+      CALL sync_patch_array(SYNC_C, patch_2D, operators_coefficients%cells_SeaBoundaryLevel)
+
+    ENDDO
+
+    ! calculate edges_SeaBoundaryLevel based on cells_SeaBoundaryLevel
+    ! first calculate levels 1,0,-1
+    DO block = owned_edges%start_block, owned_edges%end_block
+      CALL get_index_range(owned_edges, block, edges_startidx, edges_endidx)
+      DO je = edges_startidx, edges_endidx
         cell_idx_1 = patch_2D%edges%cell_idx(je,block,1)
         cell_blk_1 = patch_2D%edges%cell_blk(je,block,1)
         cell_idx_2 = patch_2D%edges%cell_idx(je,block,2)
         cell_blk_2 = patch_2D%edges%cell_blk(je,block,2)
 
         DO jk = 1, n_zlev
-        
           IF (patch_3D%lsm_e(je,jk,block) > boundary) THEN
             operators_coefficients%edges_SeaBoundaryLevel(je,jk,block) = 1 ! land
           ELSEIF ( patch_3D%lsm_e(je,jk,block) == boundary ) THEN
             operators_coefficients%edges_SeaBoundaryLevel(je,jk,block) = 0 ! boundary
-          ELSEIF (patch_3D%lsm_c(cell_idx_1, jk, cell_blk_1) == sea_boundary .or. &
-                  patch_3D%lsm_c(cell_idx_2, jk, cell_blk_1) == sea_boundary )   THEN
-            operators_coefficients%edges_SeaBoundaryLevel(je,jk,block) = -1 ! sea next to boundary cell
           ELSE
-            operators_coefficients%edges_SeaBoundaryLevel(je,jk,block) = -99999 ! inner sea 
+            operators_coefficients%edges_SeaBoundaryLevel(je,jk,block) = &
+              & MAX(operators_coefficients%cells_SeaBoundaryLevel(cell_idx_1, jk, cell_blk_1), &
+              &     operators_coefficients%cells_SeaBoundaryLevel(cell_idx_2, jk, cell_blk_2))
+            IF (operators_coefficients%edges_SeaBoundaryLevel(je,jk,block) > -1) &
+              & CALL finish("edges_SeaBoundaryLevel","edges_SeaBoundaryLevel > -1")
           ENDIF
         ENDDO
       END DO
     END DO
+    CALL sync_patch_array(SYNC_E, patch_2D, operators_coefficients%edges_SeaBoundaryLevel)
 
     !-------------------------------------------------------------
     !0. check the coefficients for edges, these are:
@@ -1931,8 +1985,8 @@ CONTAINS
     !     edge2vert_coeff_cc_t
     !
     DO block = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, block, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
+      CALL get_index_range(all_edges, block, edges_startidx, edges_endidx)
+      DO je = edges_startidx, edges_endidx
         DO jk = 1, n_zlev
 
           IF ( patch_3D%lsm_e(je,jk,block) /= sea ) THEN
@@ -1949,9 +2003,9 @@ CONTAINS
     !All the coefficients "edge2edge_viacell_coeff" are set to zero
     !if the actual edge under consideration is an land edge.
     DO block = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, block, i_startidx_e, i_endidx_e)
+      CALL get_index_range(all_edges, block, edges_startidx, edges_endidx)
       DO jk = 1, n_zlev
-        DO je = i_startidx_e, i_endidx_e
+        DO je = edges_startidx, edges_endidx
           IF ( patch_3D%lsm_e(je,jk,block) /= sea ) THEN
             operators_coefficients%edge2edge_viacell_coeff(je,jk,block,:) = 0.0_wp
             operators_coefficients%edge2edge_viavert_coeff(je,jk,block,:) = 0.0_wp
@@ -1963,9 +2017,9 @@ CONTAINS
     !The coefficients "edge2edge_viacell_coeff" are set to zero
     !for which the stencil contains is an land edge.
     DO block = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, block, i_startidx_e, i_endidx_e)
+      CALL get_index_range(all_edges, block, edges_startidx, edges_endidx)
       DO jk = 1, n_zlev
-        DO je = i_startidx_e, i_endidx_e
+        DO je = edges_startidx, edges_endidx
 
           !Handle neighbour cell 1
           ictr  = 0
@@ -2005,9 +2059,9 @@ CONTAINS
     !-------------------------------------------------------------
     ! Normalize "edge2edge_viacell_coeff" are set to zero
     DO block = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, block, i_startidx_e, i_endidx_e)
+      CALL get_index_range(all_edges, block, edges_startidx, edges_endidx)
       DO jk = 1, n_zlev
-        DO je = i_startidx_e, i_endidx_e
+        DO je = edges_startidx, edges_endidx
           IF ( patch_3D%lsm_e(je,jk,block) == sea ) THEN
             cell_idx_1 = patch_2D%edges%cell_idx(je,block,1)
             cell_blk_1 = patch_2D%edges%cell_blk(je,block,1)
@@ -2033,8 +2087,8 @@ CONTAINS
     !
     ! the top is just the first level rearranged:
     DO block = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, block, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
+      CALL get_index_range(all_edges, block, edges_startidx, edges_endidx)
+      DO je = edges_startidx, edges_endidx
         DO k=1, 2 * no_primal_edges
           operators_coefficients%edge2edge_viacell_coeff_top(k, je, block) = &
              operators_coefficients%edge2edge_viacell_coeff(je, 1, block, k)
@@ -2044,8 +2098,8 @@ CONTAINS
 
     ! the integrated are the rest of levels > 1, weighted by prism_thick_e and integrated:
     DO block = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, block, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
+      CALL get_index_range(all_edges, block, edges_startidx, edges_endidx)
+      DO je = edges_startidx, edges_endidx
 
         ! zero for two cells/ six edges
         DO k_coeff = 1, 2 * no_primal_edges
@@ -2096,8 +2150,8 @@ CONTAINS
 
     ! zeros edge2edge_viacell_coeff_all
 !    DO block = all_edges%start_block, all_edges%end_block
-!      CALL get_index_range(all_edges, block, i_startidx_e, i_endidx_e)
-!      DO je = i_startidx_e, i_endidx_e
+!      CALL get_index_range(all_edges, block, edges_startidx, edges_endidx)
+!      DO je = edges_startidx, edges_endidx
 !        DO k=1, 2 * no_primal_edges
 !          operators_coefficients%edge2edge_viacell_coeff_all(k, je, block) = 0.0_wp
 !        ENDDO
@@ -2108,9 +2162,9 @@ CONTAINS
     !1) Set coefficients for div and grad to zero at boundary edges
     ! Also for operators_coefficients%edge2cell_coeff_cc
     DO block = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, block, i_startidx_c, i_endidx_c)
+      CALL get_index_range(all_cells, block, cells_startidx, cells_endidx)
       DO jk=1,n_zlev
-        DO jc = i_startidx_c, i_endidx_c
+        DO jc = cells_startidx, cells_endidx
           DO je = 1, patch_2D%cells%num_edges(jc,block)!no_primal_edges!
 
             ile = patch_2D%cells%edge_idx(jc,block,je)
@@ -2121,7 +2175,7 @@ CONTAINS
               operators_coefficients%edge2cell_coeff_cc(jc,jk,block,je)%x(1:3) = 0.0_wp
             ENDIF
           ENDDO ! je = 1, patch_2D%cells%num_edges(jc,block)
-        ENDDO ! jc = i_startidx_c, i_endidx_c
+        ENDDO ! jc = cells_startidx, cells_endidx
       END DO ! jk=1,n_zlev
     END DO ! block = all_cells%start_block, all_cells%end_block
     !-------------------------------------------------------------
@@ -2232,14 +2286,14 @@ CONTAINS
     !-------------------------------------------------------------
     !The dynamical changing coefficient for the surface layer
 !     DO block = all_cells%start_block, all_cells%end_block
-!       CALL get_index_range(all_cells, block, i_startidx_c, i_endidx_c)
-!       DO jc = i_startidx_c, i_endidx_c
+!       CALL get_index_range(all_cells, block, cells_startidx, cells_endidx)
+!       DO jc = cells_startidx, cells_endidx
 ! 
 !         DO je = 1, patch_2D%cells%num_edges(jc,block)
 !           operators_coefficients%edge2cell_coeff_cc_dyn(jc,1,block,je)%x = &
 !             operators_coefficients%edge2cell_coeff_cc(jc,1,block,je)%x
 !         ENDDO 
-!       END DO ! jc = i_startidx_c, i_endidx_c
+!       END DO ! jc = cells_startidx, cells_endidx
 !     END DO ! block = all_cells%start_block, all_cells%end_block
     !-------------------------------------------------------------
 
@@ -2387,8 +2441,8 @@ CONTAINS
     ENDDO
     
     DO block = owned_edges%start_block, owned_edges%end_block
-      CALL get_index_range(owned_edges, block, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
+      CALL get_index_range(owned_edges, block, edges_startidx, edges_endidx)
+      DO je = edges_startidx, edges_endidx
         DO jk = 1, n_zlev
           
           IF ( patch_3D%lsm_e(je,jk,block) <= sea_boundary ) THEN

@@ -488,6 +488,7 @@ MODULE mo_ocean_types
 !    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
     onEdges_3D_Int :: edges_SeaBoundaryLevel ! boundary level based on cells:
                                              ! 1=land, 0=boundary between land and sea, -1=between a boundary sea cell and and sea-cell,...,-99999
+    onCells_3D_Int :: cells_SeaBoundaryLevel ! as above
 
   END TYPE t_operator_coeff
     
