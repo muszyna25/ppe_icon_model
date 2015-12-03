@@ -285,7 +285,7 @@ REAL(wp) :: dx(3), dy(3), da, dm
 
 end subroutine precalc4rhs_omp
 !===================================================================
-subroutine index_si_elements
+subroutine index_si_elements_omp
 ! Replaces ifs checking if sea ice is actually present in a given cell/node
 
   use mo_ice_elements
@@ -296,18 +296,34 @@ subroutine index_si_elements
   USE mo_kind,                ONLY: wp
 
     IMPLICIT NONE
-    INTEGER :: elem, elnodes(3), i
+    INTEGER :: elem,row, elnodes(3), i
     REAL(wp):: aa
     ! Temporary variables/buffers
     INTEGER :: buffy_array(myDim_elem2D)
 
-    buffy_array = 0._wp
-
 !    ! count nodes with ice
-!    n_nodes = count( (m_ice==0._wp).OR.(a_ice==0._wp) )
+    buffy_array = 0._wp
+    si_nod2D = 0
+
+    DO i=1, myDim_nod2D
+        row=myList_nod2D(i)
+
+         aa = m_ice(row)*a_ice(row)
+
+         IF (aa==0._wp) THEN
+            si_nod2D = si_nod2D + 1
+            buffy_array(si_nod2D)=row
+         ENDIF
+    ENDDO
+
+    if (allocated(si_idx_nodes)) deallocate(si_idx_nodes)
+    allocate(si_idx_nodes(si_nod2D))
+    si_idx_nodes=buffy_array(1:si_nod2D)
 
     ! count elements with ice
+    buffy_array = 0._wp
     si_elem2D = 0
+
     DO i=1,myDim_elem2D
          elem=myList_elem2D(i)
          elnodes=elem2D_nodes(:,elem)
@@ -324,7 +340,7 @@ subroutine index_si_elements
     allocate(si_idx_elem(si_elem2D))
     si_idx_elem=buffy_array(1:si_elem2D)
 
-end subroutine index_si_elements
+end subroutine index_si_elements_omp
 !===================================================================
 subroutine EVPdynamics
 ! EVP implementation. Does cybcycling and boundary conditions.  
@@ -356,7 +372,7 @@ REAL(wp)    :: ax, ay
     ay=sin(theta_io)
 
 ! index elements/nodes where sea ice is present for faster loops
-    call index_si_elements
+    call index_si_elements_omp
 ! precalculate several arrays that do not change during subcycling
     call precalc4rhs_omp
 
