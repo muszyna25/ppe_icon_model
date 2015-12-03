@@ -54,7 +54,8 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
   det1=1.0_wp/det1
   det2=1.0_wp/det2
   
-!ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy,meancos, usum, vsum,  &
+  ! omp-initialization (ICON_OMP_PARALLEL) is called in the main routine
+!ICON_OMP_DO PRIVATE(i,elem,elnodes,aa,dx,dy,meancos, usum, vsum,  &
 !ICON_OMP       eps11,eps12,eps22,delta,msum,asum,pressure,delta_inv,zeta,  &
 !ICON_OMP       r1, r2, r3, si1, si2) ICON_OMP_DEFAULT_SCHEDULE
  DO i=1,si_elem2D
@@ -127,7 +128,7 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
      sigma11(elem)=0.5_wp*(si1+si2)
      sigma22(elem)=0.5_wp*(si1-si2)
     end do
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_DO
    
 end subroutine stress_tensor_omp
 
@@ -153,17 +154,14 @@ INTEGER      :: row, elem, nodels(6), k, i!, j, elnodes(3)
 REAL(wp) :: dx(6), dy(6), meancos, val3
 
 val3=1._wp/3.0_wp
-!ICON_OMP_PARALLEL
-!ICON_OMP_WORKSHARE
-     rhs_u=0.0_wp
-     rhs_v=0.0_wp
-!     ! Vladimir: now done in precalc4rhs_omp
-!!     rhs_a=0.0_wp    ! these are used as temporal storage here
-!!     rhs_m=0.0_wp    ! for the contribution due to ssh
-!ICON_OMP_END_WORKSHARE
-!ICON_OMP_END_PARALLEL
+! initialize
+ DO i=1, myDim_nod2D
+     row=myList_nod2D(i)
+     rhs_u(row)=0.0_wp
+     rhs_v(row)=0.0_wp
+ END DO
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i,row,nodels,dx,dy,k,elem,meancos) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(i,row,nodels,dx,dy,k,elem,meancos) SCHEDULE(static,4)
  DO i=1,si_nod2D
      row=si_idx_nodes(i)
     nodels=nod2D_elems(:,row)
@@ -186,27 +184,14 @@ val3=1._wp/3.0_wp
         rhs_v(row)=rhs_v(row) - voltriangle(elem) * &
              (sigma12(elem)*dx(k)+sigma22(elem)*dy(k) &
              -sigma11(elem)*val3*meancos)
-
-         ! use rhs_m and rhs_a for storing the contribution from elevation:
-         !  Vladimir: now done in precalc4rhs_omp
-!         aa=9.81_wp*voltriangle(elem)/3.0_wp
-!         elevation_elem=elevation(elnodes)
-
-!         rhs_a(row)=rhs_a(row)-aa*sum(dx*elevation_elem)
-!         rhs_m(row)=rhs_m(row)-aa*sum(dy*elevation_elem)
         END IF
      END DO
-END DO
-!ICON_OMP_END_PARALLEL_DO
 
-!ICON_OMP_PARALLEL
-!ICON_OMP_WORKSHARE
-    WHERE (rhs_mis > 0._wp)
-     rhs_u=rhs_u/rhs_mis + rhs_a
-     rhs_v=rhs_v/rhs_mis + rhs_m
-    ENDWHERE
-!ICON_OMP_END_WORKSHARE
-!ICON_OMP_END_PARALLEL
+     !  Vladimir: rhs_a and rhs_m are calculated in precalc4rhs_omp
+     rhs_u(row)=rhs_u(row)/rhs_mis(row) + rhs_a(row)
+     rhs_v(row)=rhs_v(row)/rhs_mis(row) + rhs_m(row)
+END DO
+!ICON_OMP_END_DO
   
 end subroutine stress2rhs_omp
 !===================================================================
@@ -229,15 +214,14 @@ REAL(wp) :: mass, aa
 REAL(wp) :: cluster_area,elevation_elem(3),dx(3),dy(3)
 REAL(wp) :: da(elem2D), dm(elem2D) ! temp storage for element-wise contributions from SSH
 
-!ICON_OMP_PARALLEL
-!ICON_OMP_WORKSHARE
-     rhs_a=0.0_wp    ! these are used as temporal storage here
-     rhs_m=0.0_wp    ! for the contribution due to ssh
-     rhs_mis=0.0_wp
-!ICON_OMP_END_WORKSHARE
-!ICON_OMP_END_PARALLEL
+ DO i=1, myDim_nod2D
+     row=myList_nod2D(i)
+     rhs_a(row)=0.0_wp    ! these are used as temporal storage here
+     rhs_m(row)=0.0_wp    ! for the contribution due to ssh
+     rhs_mis(row)=0.0_wp
+ END DO
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy,elevation_elem) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(elem,elnodes,aa,dx,dy,elevation_elem) SCHEDULE(static,4)
 DO i=1,si_elem2D
      elem=si_idx_elem(i)
      elnodes=elem2D_nodes(:,elem)
@@ -255,15 +239,16 @@ DO i=1,si_elem2D
      da(elem)=-aa*sum(dx*elevation_elem)
      dm(elem)=-aa*sum(dy*elevation_elem)
  end do
-!ICON_OMP_END_PARALLEL_DO
-!ICON_OMP_PARALLEL_DO PRIVATE(i,row,nodels,k,elem) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_END_DO
+
+!ICON_OMP_DO PRIVATE(row,nodels,k,elem)  SCHEDULE(static,4)
  DO i=1,si_nod2D
     row=si_idx_nodes(i)
     nodels=nod2D_elems(:,row)
       ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
-    ! ===== Skip if ice is absent
-    if (m_ice(row)*a_ice(row)==0._wp) CYCLE
-    ! =====
+!    ! ===== Skip if ice is absent
+!    if (m_ice(row)*a_ice(row)==0._wp) CYCLE
+!    ! =====
      DO k=1,6
         elem=nodels(k)
         IF (elem > 0) THEN
@@ -277,12 +262,14 @@ END DO
 
 ! the older version (also a good option for precalculation of rhs_a, rhs_m)
 ! omp parallelization not possible when looping over elements and updating vertices
-! do i=1,myDim_elem2D
-!     elem=myList_elem2D(i)
+! DO i=1,si_elem2D
+!     elem=si_idx_elem(i)
 !     elnodes=elem2D_nodes(:,elem)
+!
+!      ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
 !      ! ===== Skip if ice is absent
-!     aa=product(m_ice(elnodes))*product(a_ice(elnodes))
-!     if (aa==0._wp) CYCLE
+!!     aa=product(m_ice(elnodes))*product(a_ice(elnodes))
+!!     if (aa==0._wp) CYCLE
 !      ! =====
 !     dx=bafux(:,elem)
 !     dy=bafuy(:,elem)
@@ -300,22 +287,21 @@ END DO
 !     END DO
 ! end do
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) ICON_OMP_DEFAULT_SCHEDULE
-  DO i=1, myDim_nod2D
-     row=myList_nod2D(i)
+!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) SCHEDULE(static)
+  DO i=1,si_nod2D
+     row=si_idx_nodes(i)
      cluster_area=lmass_matrix(row)
      mass=cluster_area*(m_ice(row)*rhoi+m_snow(row)*rhos)
 
-     if (mass.ne.0._wp) then
+!     if (mass.ne.0._wp) then           !Vladimir: already taken care of at the initialization step
      rhs_a(row) = rhs_a(row)/cluster_area
      rhs_m(row) = rhs_m(row)/cluster_area
      rhs_mis(row) = mass
-!     !Vladimir: already taken care of at the initialization step
 !     else
 !     rhs_u(row)=0._wp
 !     rhs_v(row)=0._wp
 !     rhs_mis(row)=0._wp
-     end if
+!     end if
   END DO
 !ICON_OMP_END_PARALLEL_DO
 
@@ -408,63 +394,64 @@ REAL(wp)    :: ax, ay
     ay=sin(theta_io)
 
 ! index elements/nodes where sea ice is present for faster loops
- call index_si_elements_omp
+    call index_si_elements_omp
 ! precalculate several arrays that do not change during subcycling
- call precalc4rhs_omp
+    call precalc4rhs_omp
 
-do shortstep=1, steps 
- ! ===== Boundary conditions
-!ICON_OMP_PARALLEL_DO PRIVATE(j,i) ICON_OMP_DEFAULT_SCHEDULE
- do j=1, myDim_nod2D+eDim_nod2D   
-    i=myList_nod2D(j) 
-    if(index_nod2D(i)==1) then
-    u_ice(i)=0.0_wp
-    v_ice(i)=0.0_wp
-    end if
- end do  
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_PARALLEL
+ DO shortstep=1, steps
+     ! ===== Boundary conditions
+     !ICON_OMP_DO PRIVATE(i) ICON_OMP_DEFAULT_SCHEDULE
+     do j=1, myDim_nod2D+eDim_nod2D
+        i=myList_nod2D(j)
+        if(index_nod2D(i)==1) then
+        u_ice(i)=0.0_wp
+        v_ice(i)=0.0_wp
+        end if
+     end do
+    !ICON_OMP_END_DO
  
- call stress_tensor_omp
- !write(*,*) 'stress', maxval(sigma11), minval(sigma11)
- !if(shortstep<3) write(*,*) mype,'stress ', &
- !minval(sigma11(myList_elem2D(1:myDim_elem2D)))
- 
- call stress2rhs_omp
-  !write(*,*) 'rhs', maxval(rhs_u), minval(rhs_v)
-  !if(shortstep<3)  write(*,*) mype, 'rhs  ', &
-  !   maxval(rhs_u(myList_nod2D(1:myDim_nod2D)))
+     call stress_tensor_omp
+     !write(*,*) 'stress', maxval(sigma11), minval(sigma11)
+     !if(shortstep<3) write(*,*) mype,'stress ', &
+     !minval(sigma11(myList_elem2D(1:myDim_elem2D)))
 
-!ICON_OMP_PARALLEL_DO PRIVATE(j,i,inv_mass,umod,drag,rhsu,rhsv,det) ICON_OMP_DEFAULT_SCHEDULE
- do j=1,myDim_nod2D 
-    i=myList_nod2D(j)
-  if (index_nod2D(i)>0) CYCLE          ! Skip boundary nodes
-  if (a_ice(i) > 0.01_wp) then             ! If ice is present, update velocities
-   inv_mass=(rhoi*m_ice(i)+rhos*m_snow(i))/a_ice(i)
-   inv_mass=max(inv_mass, 9.0_wp)        ! Limit the weighted mass 
-                                       ! if it is too small
-   inv_mass=1.0_wp/inv_mass
+     call stress2rhs_omp
+      !write(*,*) 'rhs', maxval(rhs_u), minval(rhs_v)
+      !if(shortstep<3)  write(*,*) mype, 'rhs  ', &
+      !   maxval(rhs_u(myList_nod2D(1:myDim_nod2D)))
 
-   umod=sqrt((u_ice(i)-u_w(i))**2+(v_ice(i)-v_w(i))**2)
-   drag=Cd_io*umod*rho_ref*inv_mass
-   
-   rhsu=u_ice(i)+rdt*(drag*(ax*u_w(i)-ay*v_w(i))+inv_mass*stress_atmice_x(i)+rhs_u(i))
-   rhsv=v_ice(i)+rdt*(drag*(ax*v_w(i)+ay*u_w(i))+inv_mass*stress_atmice_y(i)+rhs_v(i))
+    !ICON_OMP_DO PRIVATE(i,inv_mass,umod,drag,rhsu,rhsv,det) ICON_OMP_DEFAULT_SCHEDULE
+     do j=1,myDim_nod2D
+        i=myList_nod2D(j)
+      if (index_nod2D(i)>0) CYCLE          ! Skip boundary nodes
+      if (a_ice(i) > 0.01_wp) then             ! If ice is present, update velocities
+       inv_mass=(rhoi*m_ice(i)+rhos*m_snow(i))/a_ice(i)
+       inv_mass=max(inv_mass, 9.0_wp)        ! Limit the weighted mass
+                                           ! if it is too small
+       inv_mass=1.0_wp/inv_mass
 
-   det=(1._wp+ax*drag*rdt)**2+(rdt*coriolis_nod2D(i)+rdt*ay*drag)**2
-   det=1.0_wp/det
-   u_ice(i)=det*((1.0_wp+ax*drag*rdt)*rhsu+rdt*(coriolis_nod2D(i)+ay*drag)*rhsv)
-   v_ice(i)=det*((1.0_wp+ax*drag*rdt)*rhsv-rdt*(coriolis_nod2D(i)+ay*drag)*rhsu)
-  ! else                           ! Set ice velocity equal to water velocity
-  ! u_ice(i)=u_w(i)
-  ! v_ice(i)=v_w(i)
-   end if
- end do
- !ICON_OMP_END_PARALLEL_DO
+       umod=sqrt((u_ice(i)-u_w(i))**2+(v_ice(i)-v_w(i))**2)
+       drag=Cd_io*umod*rho_ref*inv_mass
 
- call exchange_nod2D(u_ice)
- call exchange_nod2D(v_ice)    
+       rhsu=u_ice(i)+rdt*(drag*(ax*u_w(i)-ay*v_w(i))+inv_mass*stress_atmice_x(i)+rhs_u(i))
+       rhsv=v_ice(i)+rdt*(drag*(ax*v_w(i)+ay*u_w(i))+inv_mass*stress_atmice_y(i)+rhs_v(i))
+
+       det=(1._wp+ax*drag*rdt)**2+(rdt*coriolis_nod2D(i)+rdt*ay*drag)**2
+       det=1.0_wp/det
+       u_ice(i)=det*((1.0_wp+ax*drag*rdt)*rhsu+rdt*(coriolis_nod2D(i)+ay*drag)*rhsv)
+       v_ice(i)=det*((1.0_wp+ax*drag*rdt)*rhsv-rdt*(coriolis_nod2D(i)+ay*drag)*rhsu)
+      ! else                           ! Set ice velocity equal to water velocity
+      ! u_ice(i)=u_w(i)
+      ! v_ice(i)=v_w(i)
+       end if
+     end do
+     !ICON_OMP_END_DO
+
+     call exchange_nod2D(u_ice)
+     call exchange_nod2D(v_ice)
  END DO
- 
+!ICON_OMP_END_PARALLEL
 
 
 end subroutine EVPdynamics_omp
