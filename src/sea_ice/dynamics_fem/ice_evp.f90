@@ -38,7 +38,7 @@ REAL(wp)   :: eps11, eps12, eps22, pressure, delta, aa
 integer        :: elem, elnodes(3),i
 REAL(wp)   :: val3, asum, msum, vale, dx(3), dy(3)
 REAL(wp)   :: det1, det2, r1, r2, r3, si1, si2, dte 
-REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
+REAL(wp)   :: zeta, delta_inv, usum, vsum
 
 ! ATTENTION: the rows commented with !metrics contain terms due to 
 ! differentiation of metrics. 
@@ -55,7 +55,7 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
   det2=1.0_wp/det2
   
   ! omp-initialization (ICON_OMP_PARALLEL) is called in the main routine
-!ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy,meancos, usum, vsum,  &
+!ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy, usum, vsum,  &
 !ICON_OMP       eps11,eps12,eps22,delta,msum,asum,pressure,delta_inv,zeta,  &
 !ICON_OMP       r1, r2, r3, si1, si2) ICON_OMP_DEFAULT_SCHEDULE
  DO i=1,si_elem2D
@@ -69,16 +69,17 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
      dx=bafux(:,elem)
      dy=bafuy(:,elem)
 
-     meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius  !metrics
+!    precalculated as metrics_elem2D(elem)
+!     meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius  !metrics
      vsum=sum(v_ice(elnodes))                           !metrics   
      usum=sum(u_ice(elnodes))                           !metrics
 
       ! ===== Deformation rate tensor on element elem:
      eps11=sum(dx*u_ice(elnodes))
-     eps11=eps11-val3*vsum*meancos                !metrics
+     eps11=eps11-val3*vsum*metrics_elem2D(elem)                !metrics
      eps22=sum(dy*v_ice(elnodes))
      eps12=0.5_wp*sum(dy*u_ice(elnodes) + dx*v_ice(elnodes))
-     eps12=eps12+0.5_wp*val3*usum*meancos          !metrics        
+     eps12=eps12+0.5_wp*val3*usum*metrics_elem2D(elem)          !metrics
       ! ===== moduli:
      delta=(eps11**2+eps22**2)*(1.0_wp+vale)+4.0_wp*vale*eps12**2 + &
             2.0_wp*eps11*eps22*(1.0_wp-vale)
@@ -151,7 +152,7 @@ IMPLICIT NONE
 INTEGER      :: row, elem, elnodes(3), k, i  
 REAL(wp) :: mass, aa
 REAL(wp) :: cluster_area,elevation_elem(3)
-REAL(wp) :: dx(3), dy(3), meancos, val3
+REAL(wp) :: dx(3), dy(3), val3
 
 val3=1._wp/3.0_wp
 
@@ -175,7 +176,6 @@ val3=1._wp/3.0_wp
 !     if (aa==0._wp) CYCLE
 !      ! =====
 
-     meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius         !metrics
      dx=bafux(:,elem)
      dy=bafuy(:,elem)
      elevation_elem=elevation(elnodes)
@@ -184,10 +184,10 @@ val3=1._wp/3.0_wp
         row=elnodes(k)
         rhs_u(row)=rhs_u(row) - voltriangle(elem) * &
              (sigma11(elem)*dx(k)+sigma12(elem)*(dy(k)) &
-             +sigma12(elem)*val3*meancos)                          !metrics
+             +sigma12(elem)*val3*metrics_elem2D(elem))                          !metrics
         rhs_v(row)=rhs_v(row) - voltriangle(elem) * &
              (sigma12(elem)*dx(k)+sigma22(elem)*dy(k) &   
-             -sigma11(elem)*val3*meancos)
+             -sigma11(elem)*val3*metrics_elem2D(elem))
      END DO
  END DO
 
@@ -281,7 +281,7 @@ REAL(wp) :: dx(3), dy(3), da, dm
 !     rhs_mis(row)=0._wp
 !     end if
   END DO
-!ICON_OMP_END_PARALLE_DO
+!ICON_OMP_END_PARALLEL_DO
 
 end subroutine precalc4rhs_omp
 !===================================================================

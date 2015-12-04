@@ -38,7 +38,7 @@ REAL(wp)   :: eps11, eps12, eps22, pressure, delta, aa
 integer        :: elem, elnodes(3),i
 REAL(wp)   :: val3, asum, msum, vale, dx(3), dy(3)
 REAL(wp)   :: det1, det2, r1, r2, r3, si1, si2, dte 
-REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
+REAL(wp)   :: zeta, delta_inv, usum, vsum
 
 ! ATTENTION: the rows commented with !metrics contain terms due to 
 ! differentiation of metrics. 
@@ -55,7 +55,7 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
   det2=1.0_wp/det2
   
   ! omp-initialization (ICON_OMP_PARALLEL) is called in the main routine
-!ICON_OMP_DO PRIVATE(i,elem,elnodes,aa,dx,dy,meancos, usum, vsum,  &
+!ICON_OMP_DO PRIVATE(i,elem,elnodes,aa,dx,dy, usum, vsum,  &
 !ICON_OMP       eps11,eps12,eps22,delta,msum,asum,pressure,delta_inv,zeta,  &
 !ICON_OMP       r1, r2, r3, si1, si2) ICON_OMP_DEFAULT_SCHEDULE
  DO i=1,si_elem2D
@@ -69,16 +69,15 @@ REAL(wp)   :: zeta, delta_inv, meancos, usum, vsum
      dx=bafux(:,elem)
      dy=bafuy(:,elem)
 
-     meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius  !metrics
      vsum=sum(v_ice(elnodes))                           !metrics   
      usum=sum(u_ice(elnodes))                           !metrics
 
       ! ===== Deformation rate tensor on element elem:
      eps11=sum(dx*u_ice(elnodes))
-     eps11=eps11-val3*vsum*meancos                !metrics
+     eps11=eps11-val3*vsum*metrics_elem2D(elem)                !metrics
      eps22=sum(dy*v_ice(elnodes))
      eps12=0.5_wp*sum(dy*u_ice(elnodes) + dx*v_ice(elnodes))
-     eps12=eps12+0.5_wp*val3*usum*meancos          !metrics        
+     eps12=eps12+0.5_wp*val3*usum*metrics_elem2D(elem)          !metrics
       ! ===== moduli:
      delta=(eps11**2+eps22**2)*(1.0_wp+vale)+4.0_wp*vale*eps12**2 + &
             2.0_wp*eps11*eps22*(1.0_wp-vale)
@@ -151,7 +150,7 @@ IMPLICIT NONE
 INTEGER      :: row, elem, nodels(6), k, i!, j, elnodes(3)
 !REAL(wp) :: mass, aa
 !REAL(wp) :: cluster_area,elevation_elem(3)
-REAL(wp) :: dx(6), dy(6), meancos, val3
+REAL(wp) :: dx(6), dy(6), val3
 
 val3=1._wp/3.0_wp
 ! initialize
@@ -161,7 +160,7 @@ val3=1._wp/3.0_wp
      rhs_v(row)=0.0_wp
  END DO
 
-!ICON_OMP_DO PRIVATE(i,row,nodels,dx,dy,k,elem,meancos) SCHEDULE(static,4)
+!ICON_OMP_DO PRIVATE(i,row,nodels,dx,dy,k,elem) SCHEDULE(static,4)
  DO i=1,si_nod2D
      row=si_idx_nodes(i)
     nodels=nod2D_elems(:,row)
@@ -176,14 +175,13 @@ val3=1._wp/3.0_wp
      DO k=1,6
         elem=nodels(k)
         IF (elem > 0) THEN
-         meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius         !metrics
 
         rhs_u(row)=rhs_u(row) - voltriangle(elem) * &
              (sigma11(elem)*dx(k)+sigma12(elem)*(dy(k)) &
-             +sigma12(elem)*val3*meancos)                          !metrics
+             +sigma12(elem)*val3*metrics_elem2D(elem))                          !metrics
         rhs_v(row)=rhs_v(row) - voltriangle(elem) * &
              (sigma12(elem)*dx(k)+sigma22(elem)*dy(k) &
-             -sigma11(elem)*val3*meancos)
+             -sigma11(elem)*val3*metrics_elem2D(elem))
         END IF
      END DO
 
@@ -221,7 +219,7 @@ REAL(wp) :: da(elem2D), dm(elem2D) ! temp storage for element-wise contributions
      rhs_mis(row)=0.0_wp
  END DO
 
-!ICON_OMP_DO PRIVATE(elem,elnodes,aa,dx,dy,elevation_elem) SCHEDULE(static,4)
+!ICON_OMP_PARALLEL_DO PRIVATE(elem,elnodes,aa,dx,dy,elevation_elem) SCHEDULE(static,4)
 DO i=1,si_elem2D
      elem=si_idx_elem(i)
      elnodes=elem2D_nodes(:,elem)
@@ -239,9 +237,9 @@ DO i=1,si_elem2D
      da(elem)=-aa*sum(dx*elevation_elem)
      dm(elem)=-aa*sum(dy*elevation_elem)
  end do
-!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL_DO
 
-!ICON_OMP_DO PRIVATE(row,nodels,k,elem)  SCHEDULE(static,4)
+!ICON_OMP_PARALLEL_DO  PRIVATE(row,nodels,k,elem)  SCHEDULE(static,4)
  DO i=1,si_nod2D
     row=si_idx_nodes(i)
     nodels=nod2D_elems(:,row)
@@ -258,7 +256,7 @@ DO i=1,si_elem2D
         END IF
      END DO
 END DO
-!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL_DO
 
 ! the older version (also a good option for precalculation of rhs_a, rhs_m)
 ! omp parallelization not possible when looping over elements and updating vertices
@@ -399,9 +397,10 @@ REAL(wp)    :: ax, ay
     call precalc4rhs_omp
 
  DO shortstep=1, steps
-     !ICON_OMP_PARALLEL
-     ! ===== Boundary conditions
-     !ICON_OMP_DO PRIVATE(i) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL
+
+!ICON_OMP_DO PRIVATE(j,i) ICON_OMP_DEFAULT_SCHEDULE
+    ! ===== Boundary conditions
      do j=1, myDim_nod2D+eDim_nod2D
         i=myList_nod2D(j)
         if(index_nod2D(i)==1) then
@@ -409,7 +408,7 @@ REAL(wp)    :: ax, ay
         v_ice(i)=0.0_wp
         end if
      end do
-    !ICON_OMP_END_DO
+!ICON_OMP_END_DO
  
      call stress_tensor_omp
      !write(*,*) 'stress', maxval(sigma11), minval(sigma11)
@@ -421,7 +420,7 @@ REAL(wp)    :: ax, ay
       !if(shortstep<3)  write(*,*) mype, 'rhs  ', &
       !   maxval(rhs_u(myList_nod2D(1:myDim_nod2D)))
 
-    !ICON_OMP_DO PRIVATE(i,inv_mass,umod,drag,rhsu,rhsv,det) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(j,i,inv_mass,umod,drag,rhsu,rhsv,det) ICON_OMP_DEFAULT_SCHEDULE
      do j=1,myDim_nod2D
         i=myList_nod2D(j)
       if (index_nod2D(i)>0) CYCLE          ! Skip boundary nodes
@@ -446,8 +445,8 @@ REAL(wp)    :: ax, ay
       ! v_ice(i)=v_w(i)
        end if
      end do
-     !ICON_OMP_END_DO
-     !ICON_OMP_END_PARALLEL
+!ICON_OMP_END_DO
+!ICON_OMP_END_PARALLEL
 
      call exchange_nod2D(u_ice)
      call exchange_nod2D(v_ice)
