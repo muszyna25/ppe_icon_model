@@ -103,6 +103,7 @@ CONTAINS
     USE mo_ice,      ONLY: u_ice, v_ice, m_ice, a_ice, m_snow, u_w, v_w, &
       &   elevation, sigma11, sigma12, sigma22
     USE mo_ice_evp,  ONLY: EVPdynamics
+    USE mo_ice_evp_omp,  ONLY: EVPdynamics_omp
 
     TYPE(t_patch_3D), TARGET, INTENT(IN)     :: p_patch_3D
     TYPE(t_sea_ice),          INTENT(INOUT)  :: p_ice
@@ -214,8 +215,8 @@ CONTAINS
 !--------------------------------------------------------------------------------------------------
 
     sigma11=0._wp; sigma12=0._wp; sigma22=0._wp
-    CALL EVPdynamics
-!    CALL EVPdynamics_omp
+!    CALL EVPdynamics
+    CALL EVPdynamics_omp
 
 !--------------------------------------------------------------------------------------------------
 ! Post-processing: Copy FEM variables back to ICON variables
