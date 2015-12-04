@@ -105,7 +105,7 @@ subroutine precalc4rhs_omp
   use mo_physical_constants,  ONLY: rhoi, rhos
 
 IMPLICIT NONE
-INTEGER      :: row, elem, elnodes(3), nodels(6), k, i
+INTEGER      :: row, elem, elnodes(3), k, i!, nodels(6)
 REAL(wp) :: mass, aa
 REAL(wp) :: cluster_area,elevation_elem(3)
 REAL(wp) :: dx(3), dy(3), da, dm
@@ -174,7 +174,7 @@ subroutine init_evp_solver_coeffs
 ! Called once during the initialization step at ice_init_fem
 
   USE mo_run_config,          ONLY: dtime
-  USE mo_sea_ice_nml,         ONLY: delta_min, evp_rheol_steps, Tevp_inv, theta_io
+  USE mo_sea_ice_nml,         ONLY: evp_rheol_steps, Tevp_inv, theta_io
   USE mo_physical_constants,  ONLY: ellipse
 
   val3=1.0_wp/3.0_wp
@@ -207,7 +207,7 @@ implicit none
 
     INTEGER,                  INTENT(IN)     :: elem ! element index for which the stress tensor is calculated
 
-    REAL(wp)   :: eps11, eps12, eps22, pressure, delta, delta_inv, aa
+    REAL(wp)   :: eps11, eps12, eps22, pressure, delta, delta_inv!, aa
     integer    :: elnodes(3)
     REAL(wp)   :: asum, msum, dx(3), dy(3)
     REAL(wp)   :: r1, r2, r3, si1, si2
@@ -295,8 +295,8 @@ subroutine stress2rhs
 
 IMPLICIT NONE
 INTEGER  :: row, elem, elnodes(3), k, i
-REAL(wp) :: mass, aa
-REAL(wp) :: cluster_area,elevation_elem(3)
+!REAL(wp) :: mass, aa
+!REAL(wp) :: cluster_area,elevation_elem(3)
 REAL(wp) :: dx(3), dy(3)
 
 ! initialize
@@ -321,7 +321,7 @@ REAL(wp) :: dx(3), dy(3)
 
      dx=bafux(:,elem)
      dy=bafuy(:,elem)
-     elevation_elem=elevation(elnodes)
+!     elevation_elem=elevation(elnodes)
      
      DO k=1,3
         row=elnodes(k)
@@ -334,7 +334,7 @@ REAL(wp) :: dx(3), dy(3)
      END DO
  END DO
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) SCHEDULE(static)
+!ICON_OMP_PARALLEL_DO PRIVATE(i,row) SCHEDULE(static)
   DO i=1,si_nod2D
      row=si_idx_nodes(i)
 

@@ -222,7 +222,7 @@ subroutine init_evp_solver_coeffs
 ! Called once during the initialization step at ice_init_fem
 
   USE mo_run_config,          ONLY: dtime
-  USE mo_sea_ice_nml,         ONLY: delta_min, evp_rheol_steps, Tevp_inv, theta_io
+  USE mo_sea_ice_nml,         ONLY: evp_rheol_steps, Tevp_inv, theta_io
   USE mo_physical_constants,  ONLY: ellipse
 
   val3=1.0_wp/3.0_wp
@@ -255,7 +255,7 @@ implicit none
 
     INTEGER,                  INTENT(IN)     :: elem ! element index for which the stress tensor is calculated
 
-    REAL(wp)   :: eps11, eps12, eps22, pressure, delta, delta_inv, aa
+    REAL(wp)   :: eps11, eps12, eps22, pressure, delta, delta_inv!, aa
     integer    :: elnodes(3)
     REAL(wp)   :: asum, msum, dx(3), dy(3)
     REAL(wp)   :: r1, r2, r3, si1, si2
