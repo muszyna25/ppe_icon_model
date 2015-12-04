@@ -493,27 +493,27 @@ CONTAINS
 #endif
     ENDIF ! lice
 
-    !===================================================================
-    ! AFTER CALLING land/ocean/ice model
-    !===================================================================
-    ! Turbulent transport of moisture and dry static energy:
-    ! Get solution of the two variables on the lowest model level.
-    !-------------------------------------------------------------------
-    ! - Over individual tiles
-    !   For echam developers: relationship to "update_surface" of echam6:
-    !   bb_btm(:,jsfc,ih) : tpfac2*land%ztklevl, tpfac2*ice%ztklevi, tpfac2*ocean%ztklevw
-    !   bb_btm(:,jsfc,iqv): tpfac2*land%zqklevl, tpfac2*ice%zqklevi, tpfac2*ocean%zqklevw
-
-    DO jsfc = 1,ksfc_type
-       bb_btm(1:kproma,jsfc,ih)  = tpfac2*(    zen_h (1:kproma,jsfc) &
-                                 &         *pcpt_tile(1:kproma,jsfc) &
-                                 &         +   zfn_h (1:kproma,jsfc) )
-
-       bb_btm(1:kproma,jsfc,iqv) = tpfac2*(    zen_qv(1:kproma,jsfc) &
-                                 &        *pqsat_tile(1:kproma,jsfc) &
-                                 &        +    zfn_qv(1:kproma,jsfc) )
-    END DO
-
+!!$    !===================================================================
+!!$    ! AFTER CALLING land/ocean/ice model
+!!$    !===================================================================
+!!$    ! Turbulent transport of moisture and dry static energy:
+!!$    ! Get solution of the two variables on the lowest model level.
+!!$    !-------------------------------------------------------------------
+!!$    ! - Over individual tiles
+!!$    !   For echam developers: relationship to "update_surface" of echam6:
+!!$    !   bb_btm(:,jsfc,ih) : tpfac2*land%ztklevl, tpfac2*ice%ztklevi, tpfac2*ocean%ztklevw
+!!$    !   bb_btm(:,jsfc,iqv): tpfac2*land%zqklevl, tpfac2*ice%zqklevi, tpfac2*ocean%zqklevw
+!!$
+!!$    DO jsfc = 1,ksfc_type
+!!$       bb_btm(1:kproma,jsfc,ih)  = tpfac2*(    zen_h (1:kproma,jsfc) &
+!!$                                 &         *pcpt_tile(1:kproma,jsfc) &
+!!$                                 &         +   zfn_h (1:kproma,jsfc) )
+!!$
+!!$       bb_btm(1:kproma,jsfc,iqv) = tpfac2*(    zen_qv(1:kproma,jsfc) &
+!!$                                 &        *pqsat_tile(1:kproma,jsfc) &
+!!$                                 &        +    zfn_qv(1:kproma,jsfc) )
+!!$    END DO
+!!$
 !!$    ! - Grid box mean
 !!$    !   For echam developers: relationship to "update_surface" of echam6:
 !!$    !   bb(:,klev,ih) : ztdif_new
