@@ -208,7 +208,7 @@ implicit none
     INTEGER,                  INTENT(IN)     :: elem ! element index for which the stress tensor is calculated
 
     REAL(wp)   :: eps11, eps12, eps22, pressure, delta, delta_inv, aa
-    integer    :: elem, elnodes(3),i
+    integer    :: elnodes(3)
     REAL(wp)   :: asum, msum, dx(3), dy(3)
     REAL(wp)   :: r1, r2, r3, si1, si2
     REAL(wp)   :: zeta, usum, vsum
