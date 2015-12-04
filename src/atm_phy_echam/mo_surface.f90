@@ -571,10 +571,10 @@ CONTAINS
                          & -aa(1:kproma,jk,1,im)*aa(1:kproma,jkm1,3,im)
     aa(1:kproma,jk,3,im) =  aa(1:kproma,jk,3,im)/aa(1:kproma,jk,2,im)
 
-!!$    bb(1:kproma,jk,iu) = (bb(1:kproma,jk,iu)                         &
-!!$                       & -aa(1:kproma,jk,1,im)*bb(1:kproma,jkm1,iu)) &
-!!$                       & /aa(1:kproma,jk,2,im)
-!!$
+    bb(1:kproma,jk,iu) = (bb(1:kproma,jk,iu)                         &
+                       & -aa(1:kproma,jk,1,im)*bb(1:kproma,jkm1,iu)) &
+                       & /aa(1:kproma,jk,2,im)
+
 !!$    bb(1:kproma,jk,iv) = (bb(1:kproma,jk,iv)                         &
 !!$                       & -aa(1:kproma,jk,1,im)*bb(1:kproma,jkm1,iv)) &
 !!$                       & /aa(1:kproma,jk,2,im)
