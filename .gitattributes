@@ -851,6 +851,7 @@ run/exp.atm_amip_only_jsb_test -text
 run/exp.atm_amip_only_rad_test -text
 run/exp.atm_amip_only_sso_test -text
 run/exp.atm_amip_only_vdf_test -text
+run/exp.atm_amip_only_vdfjsb_test -text
 run/exp.atm_amip_test -text
 run/exp.atm_amip_without_cld_test -text
 run/exp.atm_amip_without_cnv_test -text
