@@ -539,28 +539,28 @@ CONTAINS
       bb(1:kproma,klev,iqv) = bb_btm(1:kproma,jsfc,iqv)
     END IF
 
-    !-------------------------------------------------------------------
-    ! Turbulent transport of u and v: adjust the right-hand side vector,
-    ! then perform the bottom level elimination to get the solution
-    !-------------------------------------------------------------------
-    ! Add additional terms to the r.h.s. of the velocity equations
-    ! to take into account ocean currents.
-    ! Note that in subroutine rhs_setup the constant tpfac2 has been
-    ! multiplied to the r.h.s. array bb. Thus the additional terms here
-    ! need to be scaled by the same factor.
-
-    IF (idx_wtr.LE.ksfc_type) THEN   ! Open water is considered
-      IF (idx_ice.LE.ksfc_type) THEN ! Sea ice is also considered
-        zfrc_oce(1:kproma) = pfrc(1:kproma,idx_wtr)+pfrc(1:kproma,idx_ice)
-      ELSE ! only open water
-        zfrc_oce(1:kproma) = pfrc(1:kproma,idx_wtr)
-      ENDIF
-      bb(1:kproma,klev,iu) =   bb(1:kproma,klev,iu)                   &
-                           & - pocu(1:kproma)*zfrc_oce(1:kproma)*tpfac2
-      bb(1:kproma,klev,iv) =   bb(1:kproma,klev,iv)                   &
-                           & - pocv(1:kproma)*zfrc_oce(1:kproma)*tpfac2
-    ENDIF
-
+!!$    !-------------------------------------------------------------------
+!!$    ! Turbulent transport of u and v: adjust the right-hand side vector,
+!!$    ! then perform the bottom level elimination to get the solution
+!!$    !-------------------------------------------------------------------
+!!$    ! Add additional terms to the r.h.s. of the velocity equations
+!!$    ! to take into account ocean currents.
+!!$    ! Note that in subroutine rhs_setup the constant tpfac2 has been
+!!$    ! multiplied to the r.h.s. array bb. Thus the additional terms here
+!!$    ! need to be scaled by the same factor.
+!!$
+!!$    IF (idx_wtr.LE.ksfc_type) THEN   ! Open water is considered
+!!$      IF (idx_ice.LE.ksfc_type) THEN ! Sea ice is also considered
+!!$        zfrc_oce(1:kproma) = pfrc(1:kproma,idx_wtr)+pfrc(1:kproma,idx_ice)
+!!$      ELSE ! only open water
+!!$        zfrc_oce(1:kproma) = pfrc(1:kproma,idx_wtr)
+!!$      ENDIF
+!!$      bb(1:kproma,klev,iu) =   bb(1:kproma,klev,iu)                   &
+!!$                           & - pocu(1:kproma)*zfrc_oce(1:kproma)*tpfac2
+!!$      bb(1:kproma,klev,iv) =   bb(1:kproma,klev,iv)                   &
+!!$                           & - pocv(1:kproma)*zfrc_oce(1:kproma)*tpfac2
+!!$    ENDIF
+!!$
 !!$    ! Bottom level elimination
 !!$
 !!$    im   = imuv
