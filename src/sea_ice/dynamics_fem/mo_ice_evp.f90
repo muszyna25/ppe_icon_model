@@ -44,194 +44,59 @@ module mo_ice_evp
 
 CONTAINS
 
-subroutine init_evp_solver_coeffs
-! Calculates coefficients which are used for calculations in stress_tensor
-! Called once during the initialization step at ice_init_fem
-
-  USE mo_run_config,          ONLY: dtime
-  USE mo_sea_ice_nml,         ONLY: delta_min, evp_rheol_steps, Tevp_inv, theta_io
-  USE mo_physical_constants,  ONLY: ellipse
-
-  val3=1.0_wp/3.0_wp
-  vale=1.0_wp/(ellipse**2)
-
-  dte=dtime/(1.0_wp*REAL(evp_rheol_steps,wp))
-  det1=1.0_wp+0.5_wp*Tevp_inv*dte
-  det2=1.0_wp+0.5_wp*Tevp_inv*dte*ellipse**2    !RTSD corrected 8.3.2006
-                                              ! There is error in CICE
-                          ! manual.
-  det1=1.0_wp/det1
-  det2=1.0_wp/det2
-
-  ! theta_io should be zero - set in ice_main.f90
-  ax=cos(theta_io)
-  ay=sin(theta_io)
-
-end subroutine init_evp_solver_coeffs
-
-subroutine stress_tensor
-! EVP rheology implementation. Computes stress tensor components based on ice 
-! velocity field. They are stored as elemental arrays (sigma11, sigma22 and
-! sigma12). 
-
-  USE mo_sea_ice_nml,         ONLY: delta_min, Tevp_inv
-  USE mo_physical_constants,  ONLY: Pstar, c_pressure
-
-implicit none
-
-REAL(wp)   :: eps11, eps12, eps22, pressure, delta, delta_inv, aa
-integer    :: elem, elnodes(3),i
-REAL(wp)   :: asum, msum, dx(3), dy(3)
-REAL(wp)   :: r1, r2, r3, si1, si2
-REAL(wp)   :: zeta, usum, vsum
-
-! ATTENTION: the rows commented with !metrics contain terms due to 
-! differentiation of metrics. 
-
-
-  ! omp-initialization (ICON_OMP_PARALLEL) is called in the main routine
-!ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy, usum, vsum,  &
-!ICON_OMP       eps11,eps12,eps22,delta,msum,asum,pressure,delta_inv, zeta,  &
-!ICON_OMP       r1, r2, r3, si1, si2) ICON_OMP_DEFAULT_SCHEDULE
- DO i=1,si_elem2D
-     elem=si_idx_elem(i)
-     elnodes=elem2D_nodes(:,elem)
-      ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
-!      ! ===== Check if there is ice on elem
-!        aa=product(m_ice(elnodes))*product(a_ice(elnodes))
-!        if (aa==0._wp) CYCLE     ! There is no ice in elem
-!      ! =====
-     dx=bafux(:,elem)
-     dy=bafuy(:,elem)
-
-!    precalculated as metrics_elem2D(elem)
-!     meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius  !metrics
-     vsum=sum(v_ice(elnodes))                           !metrics   
-     usum=sum(u_ice(elnodes))                           !metrics
-
-      ! ===== Deformation rate tensor on element elem:
-     eps11=sum(dx*u_ice(elnodes))
-     eps11=eps11-val3*vsum*metrics_elem2D(elem)                !metrics
-     eps22=sum(dy*v_ice(elnodes))
-     eps12=0.5_wp*sum(dy*u_ice(elnodes) + dx*v_ice(elnodes))
-     eps12=eps12+0.5_wp*val3*usum*metrics_elem2D(elem)          !metrics
-      ! ===== moduli:
-     delta=(eps11**2+eps22**2)*(1.0_wp+vale)+4.0_wp*vale*eps12**2 + &
-            2.0_wp*eps11*eps22*(1.0_wp-vale)
-     delta=sqrt(delta)
-     msum=sum(m_ice(elnodes))*val3
-     asum=sum(a_ice(elnodes))*val3
-     
-      ! ===== Hunke and Dukowicz c*h*p*
-     pressure=pstar*(msum)*exp(-c_pressure*(1.0_wp-asum))
-      ! =======================================
-      ! ===== Here the EVP rheology piece starts
-      ! =======================================
-     pressure=0.5_wp*pressure
-      ! ===== viscosity zeta should exceed zeta_min
-      ! (done via limiting delta from above)
-     !if(delta>pressure/zeta_min) delta=pressure/zeta_min
-      ! ===== if viscosity is too big, it is limited too
-      ! (done via correcting delta_inv)
-     delta_inv=1.0_wp/max(delta,delta_min)
-       
-     !pressure=pressure*delta*delta_inv    ! Limiting pressure --- may not 
-     !                                     ! be needed. Should be tested   
-				     
-      ! ===== Limiting pressure/Delta  (zeta): still it may happen that zeta is too
-      ! large in regions with fine mesh so that CFL criterion is violated.
-        				     
-      zeta=pressure*delta_inv
-      ! This place was introduced by Hunke, but seemingly is not used 
-      ! in the current CICE. We artificially increase Clim_evp so
-      ! that almost no limiting happens here
-      !if (zeta>Clim_evp*voltriangle(elem)) then
-      !zeta=Clim_evp*voltriangle(elem)
-      !end if 
-      
-      pressure=pressure*Tevp_inv
-      zeta=zeta*Tevp_inv
-      				     
-     r1=zeta*(eps11+eps22) - pressure
-     r2=zeta*(eps11-eps22)
-     r3=zeta*eps12
-     si1=sigma11(elem)+sigma22(elem)
-     si2=sigma11(elem)-sigma22(elem)
-     
-     si1=det1*(si1+dte*r1)
-     si2=det2*(si2+dte*r2)
-     sigma12(elem)=det2*(sigma12(elem)+dte*r3)
-     sigma11(elem)=0.5_wp*(si1+si2)
-     sigma22(elem)=0.5_wp*(si1-si2)
-    end do
-!ICON_OMP_END_PARALLEL_DO
-   
-end subroutine stress_tensor
-
 !===================================================================
-subroutine stress2rhs
-! EVP implementation:
-! Computes the divergence of stress tensor and puts the result into the
-! rhs vectors 
 
-IMPLICIT NONE
-INTEGER  :: row, elem, elnodes(3), k, i
-REAL(wp) :: mass, aa
-REAL(wp) :: cluster_area,elevation_elem(3)
-REAL(wp) :: dx(3), dy(3)
+subroutine index_si_elements_omp
+! Replaces ifs checking if sea ice is actually present in a given cell/node
 
-! initialize
- DO i=1, myDim_nod2D
-     row=myList_nod2D(i)
-     rhs_u(row)=0.0_wp
-     rhs_v(row)=0.0_wp
-     ! Vladimir: now done in precalc4rhs_omp
-!     rhs_a(row)=0.0_wp    ! these are used as temporal storage here
-!     rhs_m(row)=0.0_wp    ! for the contribution due to ssh
- END DO
+    IMPLICIT NONE
+    INTEGER :: elem,row, elnodes(3), i
+    REAL(wp):: aa
+    ! Temporary variables/buffers
+    INTEGER :: buffy_array(myDim_elem2D)
 
-! omp parallelization not possible when looping over elements and updating vertices
- DO i=1,si_elem2D
-     elem=si_idx_elem(i)
-     elnodes=elem2D_nodes(:,elem)
-     ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
-!      ! ===== Skip if ice is absent
-!     aa=product(m_ice(elnodes))*product(a_ice(elnodes))
-!     if (aa==0._wp) CYCLE
-!      ! =====
+!    ! count nodes with ice
+    buffy_array = 0._wp
+    si_nod2D = 0
 
-     dx=bafux(:,elem)
-     dy=bafuy(:,elem)
-     elevation_elem=elevation(elnodes)
-     
-     DO k=1,3
-        row=elnodes(k)
-        rhs_u(row)=rhs_u(row) - voltriangle(elem) * &
-             (sigma11(elem)*dx(k)+sigma12(elem)*(dy(k)) &
-             +sigma12(elem)*val3*metrics_elem2D(elem))                          !metrics
-        rhs_v(row)=rhs_v(row) - voltriangle(elem) * &
-             (sigma12(elem)*dx(k)+sigma22(elem)*dy(k) &   
-             -sigma11(elem)*val3*metrics_elem2D(elem))
-     END DO
- END DO
+    DO i=1, myDim_nod2D
+        row=myList_nod2D(i)
 
-!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) SCHEDULE(static)
-  DO i=1,si_nod2D
-     row=si_idx_nodes(i)
+         aa = m_ice(row)*a_ice(row)
 
-!     if (rhs_mis(row).ne.0._wp) then           !Vladimir: already taken care of at the initialization step
-      rhs_u(row)=rhs_u(row)/rhs_mis(row) + rhs_a(row)
-      rhs_v(row)=rhs_v(row)/rhs_mis(row) + rhs_m(row)
-!     else
-!     rhs_u(row)=0._wp
-!     rhs_v(row)=0._wp
-!     rhs_mis(row)=0._wp
-!     end if
-  END DO
-!ICON_OMP_END_PARALLE_DO
+         IF (aa > 0._wp) THEN
+            si_nod2D = si_nod2D + 1
+            buffy_array(si_nod2D)=row
+         ENDIF
+    ENDDO
 
-end subroutine stress2rhs
+    if (allocated(si_idx_nodes)) deallocate(si_idx_nodes)
+    allocate(si_idx_nodes(si_nod2D))
+    si_idx_nodes=buffy_array(1:si_nod2D)
+
+    ! count elements with ice
+    buffy_array = 0._wp
+    si_elem2D = 0
+
+    DO i=1,myDim_elem2D
+         elem=myList_elem2D(i)
+         elnodes=elem2D_nodes(:,elem)
+
+         aa=product(m_ice(elnodes))*product(a_ice(elnodes))
+
+         IF (aa > 0._wp) THEN
+            si_elem2D = si_elem2D + 1
+            buffy_array(si_elem2D)=elem
+         ENDIF
+    ENDDO
+
+    if (allocated(si_idx_elem)) deallocate(si_idx_elem)
+    allocate(si_idx_elem(si_elem2D))
+    si_idx_elem=buffy_array(1:si_elem2D)
+
+end subroutine index_si_elements_omp
 !===================================================================
+
 subroutine precalc4rhs_omp
 ! Some of the quantities used in the solver do not change
 ! with the subcycles. Hence, can be precalculated and stored.
@@ -303,56 +168,190 @@ REAL(wp) :: dx(3), dy(3), da, dm
 
 end subroutine precalc4rhs_omp
 !===================================================================
-subroutine index_si_elements_omp
-! Replaces ifs checking if sea ice is actually present in a given cell/node
 
-    IMPLICIT NONE
-    INTEGER :: elem,row, elnodes(3), i
-    REAL(wp):: aa
-    ! Temporary variables/buffers
-    INTEGER :: buffy_array(myDim_elem2D)
+subroutine init_evp_solver_coeffs
+! Calculates coefficients which are used for calculations in stress_tensor
+! Called once during the initialization step at ice_init_fem
 
-!    ! count nodes with ice
-    buffy_array = 0._wp
-    si_nod2D = 0
+  USE mo_run_config,          ONLY: dtime
+  USE mo_sea_ice_nml,         ONLY: delta_min, evp_rheol_steps, Tevp_inv, theta_io
+  USE mo_physical_constants,  ONLY: ellipse
 
-    DO i=1, myDim_nod2D
-        row=myList_nod2D(i)
+  val3=1.0_wp/3.0_wp
+  vale=1.0_wp/(ellipse**2)
 
-         aa = m_ice(row)*a_ice(row)
+  dte=dtime/(1.0_wp*REAL(evp_rheol_steps,wp))
+  det1=1.0_wp+0.5_wp*Tevp_inv*dte
+  det2=1.0_wp+0.5_wp*Tevp_inv*dte*ellipse**2    !RTSD corrected 8.3.2006
+                                              ! There is error in CICE
+                          ! manual.
+  det1=1.0_wp/det1
+  det2=1.0_wp/det2
 
-         IF (aa > 0._wp) THEN
-            si_nod2D = si_nod2D + 1
-            buffy_array(si_nod2D)=row
-         ENDIF
-    ENDDO
+  ! theta_io should be zero - set in ice_main.f90
+  ax=cos(theta_io)
+  ay=sin(theta_io)
 
-    if (allocated(si_idx_nodes)) deallocate(si_idx_nodes)
-    allocate(si_idx_nodes(si_nod2D))
-    si_idx_nodes=buffy_array(1:si_nod2D)
-
-    ! count elements with ice
-    buffy_array = 0._wp
-    si_elem2D = 0
-
-    DO i=1,myDim_elem2D
-         elem=myList_elem2D(i)
-         elnodes=elem2D_nodes(:,elem)
-
-         aa=product(m_ice(elnodes))*product(a_ice(elnodes))
-
-         IF (aa > 0._wp) THEN
-            si_elem2D = si_elem2D + 1
-            buffy_array(si_elem2D)=elem
-         ENDIF
-    ENDDO
-
-    if (allocated(si_idx_elem)) deallocate(si_idx_elem)
-    allocate(si_idx_elem(si_elem2D))
-    si_idx_elem=buffy_array(1:si_elem2D)
-
-end subroutine index_si_elements_omp
+end subroutine init_evp_solver_coeffs
 !===================================================================
+
+subroutine stress_tensor(elem)
+! EVP rheology implementation. Computes stress tensor components based on ice 
+! velocity field. They are stored as elemental arrays (sigma11, sigma22 and
+! sigma12). 
+
+  USE mo_sea_ice_nml,         ONLY: delta_min, Tevp_inv
+  USE mo_physical_constants,  ONLY: Pstar, c_pressure
+
+implicit none
+
+    INTEGER,                  INTENT(IN)     :: elem ! element index for which the stress tensor is calculated
+
+    REAL(wp)   :: eps11, eps12, eps22, pressure, delta, delta_inv, aa
+    integer    :: elem, elnodes(3),i
+    REAL(wp)   :: asum, msum, dx(3), dy(3)
+    REAL(wp)   :: r1, r2, r3, si1, si2
+    REAL(wp)   :: zeta, usum, vsum
+
+! ATTENTION: the rows commented with !metrics contain terms due to 
+! differentiation of metrics. 
+
+     elnodes=elem2D_nodes(:,elem)
+      ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
+!      ! ===== Check if there is ice on elem
+!        aa=product(m_ice(elnodes))*product(a_ice(elnodes))
+!        if (aa==0._wp) CYCLE     ! There is no ice in elem
+!      ! =====
+     dx=bafux(:,elem)
+     dy=bafuy(:,elem)
+
+!    precalculated as metrics_elem2D(elem)
+!     meancos=sin_elem2D(elem)/cos_elem2D(elem)/earth_radius  !metrics
+     vsum=sum(v_ice(elnodes))                           !metrics   
+     usum=sum(u_ice(elnodes))                           !metrics
+
+      ! ===== Deformation rate tensor on element elem:
+     eps11=sum(dx*u_ice(elnodes))
+     eps11=eps11-val3*vsum*metrics_elem2D(elem)                !metrics
+     eps22=sum(dy*v_ice(elnodes))
+     eps12=0.5_wp*sum(dy*u_ice(elnodes) + dx*v_ice(elnodes))
+     eps12=eps12+0.5_wp*val3*usum*metrics_elem2D(elem)          !metrics
+      ! ===== moduli:
+     delta=(eps11**2+eps22**2)*(1.0_wp+vale)+4.0_wp*vale*eps12**2 + &
+            2.0_wp*eps11*eps22*(1.0_wp-vale)
+     delta=sqrt(delta)
+     msum=sum(m_ice(elnodes))*val3
+     asum=sum(a_ice(elnodes))*val3
+     
+      ! ===== Hunke and Dukowicz c*h*p*
+     pressure=pstar*(msum)*exp(-c_pressure*(1.0_wp-asum))
+      ! =======================================
+      ! ===== Here the EVP rheology piece starts
+      ! =======================================
+     pressure=0.5_wp*pressure
+      ! ===== viscosity zeta should exceed zeta_min
+      ! (done via limiting delta from above)
+     !if(delta>pressure/zeta_min) delta=pressure/zeta_min
+      ! ===== if viscosity is too big, it is limited too
+      ! (done via correcting delta_inv)
+     delta_inv=1.0_wp/max(delta,delta_min)
+       
+     !pressure=pressure*delta*delta_inv    ! Limiting pressure --- may not 
+     !                                     ! be needed. Should be tested   
+				     
+      ! ===== Limiting pressure/Delta  (zeta): still it may happen that zeta is too
+      ! large in regions with fine mesh so that CFL criterion is violated.
+        				     
+      zeta=pressure*delta_inv
+      ! This place was introduced by Hunke, but seemingly is not used 
+      ! in the current CICE. We artificially increase Clim_evp so
+      ! that almost no limiting happens here
+      !if (zeta>Clim_evp*voltriangle(elem)) then
+      !zeta=Clim_evp*voltriangle(elem)
+      !end if 
+      
+      pressure=pressure*Tevp_inv
+      zeta=zeta*Tevp_inv
+      				     
+     r1=zeta*(eps11+eps22) - pressure
+     r2=zeta*(eps11-eps22)
+     r3=zeta*eps12
+     si1=sigma11(elem)+sigma22(elem)
+     si2=sigma11(elem)-sigma22(elem)
+     
+     si1=det1*(si1+dte*r1)
+     si2=det2*(si2+dte*r2)
+     sigma12(elem)=det2*(sigma12(elem)+dte*r3)
+     sigma11(elem)=0.5_wp*(si1+si2)
+     sigma22(elem)=0.5_wp*(si1-si2)
+   
+end subroutine stress_tensor
+
+!===================================================================
+subroutine stress2rhs
+! EVP implementation:
+! Computes the divergence of stress tensor and puts the result into the
+! rhs vectors 
+
+IMPLICIT NONE
+INTEGER  :: row, elem, elnodes(3), k, i
+REAL(wp) :: mass, aa
+REAL(wp) :: cluster_area,elevation_elem(3)
+REAL(wp) :: dx(3), dy(3)
+
+! initialize
+ DO i=1, myDim_nod2D
+     row=myList_nod2D(i)
+     rhs_u(row)=0.0_wp
+     rhs_v(row)=0.0_wp
+     ! Vladimir: now done in precalc4rhs_omp
+!     rhs_a(row)=0.0_wp    ! these are used as temporal storage here
+!     rhs_m(row)=0.0_wp    ! for the contribution due to ssh
+ END DO
+
+! omp parallelization not possible when looping over elements and updating vertices
+ DO i=1,si_elem2D
+     elem=si_idx_elem(i)
+     elnodes=elem2D_nodes(:,elem)
+     ! Vladimir: this check is no longer needed. si_idx_elem contains only indices of elements with ice
+!      ! ===== Skip if ice is absent
+!     aa=product(m_ice(elnodes))*product(a_ice(elnodes))
+!     if (aa==0._wp) CYCLE
+!      ! =====
+
+     dx=bafux(:,elem)
+     dy=bafuy(:,elem)
+     elevation_elem=elevation(elnodes)
+     
+     DO k=1,3
+        row=elnodes(k)
+        rhs_u(row)=rhs_u(row) - voltriangle(elem) * &
+             (sigma11(elem)*dx(k)+sigma12(elem)*(dy(k)) &
+             +sigma12(elem)*val3*metrics_elem2D(elem))                          !metrics
+        rhs_v(row)=rhs_v(row) - voltriangle(elem) * &
+             (sigma12(elem)*dx(k)+sigma22(elem)*dy(k) &   
+             -sigma11(elem)*val3*metrics_elem2D(elem))
+     END DO
+ END DO
+
+!ICON_OMP_PARALLEL_DO PRIVATE(i,row,cluster_area,mass) SCHEDULE(static)
+  DO i=1,si_nod2D
+     row=si_idx_nodes(i)
+
+!     if (rhs_mis(row).ne.0._wp) then           !Vladimir: already taken care of at the initialization step
+      rhs_u(row)=rhs_u(row)/rhs_mis(row) + rhs_a(row)
+      rhs_v(row)=rhs_v(row)/rhs_mis(row) + rhs_m(row)
+!     else
+!     rhs_u(row)=0._wp
+!     rhs_v(row)=0._wp
+!     rhs_mis(row)=0._wp
+!     end if
+  END DO
+!ICON_OMP_END_PARALLE_DO
+
+end subroutine stress2rhs
+!===================================================================
+
 subroutine EVPdynamics
 ! EVP implementation. Does cybcycling and boundary conditions.  
   USE mo_sea_ice_nml,           ONLY: evp_rheol_steps
@@ -380,7 +379,12 @@ integer     ::  i,j
         end if
      end do
 
-     call stress_tensor
+!ICON_OMP_PARALLEL_DO PRIVATE(i) ICON_OMP_DEFAULT_SCHEDULE
+    DO i=1,si_elem2D
+        call stress_tensor(si_idx_elem(i))
+    ENDDO
+!ICON_OMP_END_PARALLEL_DO
+
      !write(*,*) 'stress', maxval(sigma11), minval(sigma11)
      !if(shortstep<3) write(*,*) mype,'stress ', &
      !minval(sigma11(myList_elem2D(1:myDim_elem2D)))
