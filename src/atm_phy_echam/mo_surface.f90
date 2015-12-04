@@ -561,16 +561,16 @@ CONTAINS
                            & - pocv(1:kproma)*zfrc_oce(1:kproma)*tpfac2
     ENDIF
 
-    ! Bottom level elimination
-
-    im   = imuv
-    jk   = klev    ! Bottom level index
-    jkm1 = jk - 1
-
-    aa(1:kproma,jk,2,im) =  aa(1:kproma,jk,2,im)                      &
-                         & -aa(1:kproma,jk,1,im)*aa(1:kproma,jkm1,3,im)
-    aa(1:kproma,jk,3,im) =  aa(1:kproma,jk,3,im)/aa(1:kproma,jk,2,im)
-
+!!$    ! Bottom level elimination
+!!$
+!!$    im   = imuv
+!!$    jk   = klev    ! Bottom level index
+!!$    jkm1 = jk - 1
+!!$
+!!$    aa(1:kproma,jk,2,im) =  aa(1:kproma,jk,2,im)                      &
+!!$                         & -aa(1:kproma,jk,1,im)*aa(1:kproma,jkm1,3,im)
+!!$    aa(1:kproma,jk,3,im) =  aa(1:kproma,jk,3,im)/aa(1:kproma,jk,2,im)
+!!$
 !!$    bb(1:kproma,jk,iu) = (bb(1:kproma,jk,iu)                         &
 !!$                       & -aa(1:kproma,jk,1,im)*bb(1:kproma,jkm1,iu)) &
 !!$                       & /aa(1:kproma,jk,2,im)
