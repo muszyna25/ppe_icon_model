@@ -286,26 +286,26 @@ CONTAINS
     zca(1:kproma,:) = 1._wp
     zcs(1:kproma,:) = 1._wp
 
-!!$    !===========================================================================
-!!$    ! Land surface
-!!$    !===========================================================================
-!!$    
-!!$    z0h_lnd(:)       = 0._wp
-!!$    tte_corr(:)      = 0._wp
-!!$
-!!$    IF (idx_lnd <= ksfc_type) THEN
-!!$
-!!$      ! If land is present, JSBACH is currently the only surface scheme supported by ECHAM physcis package
-!!$#ifndef __NO_JSBACH__
-!!$
-!!$      sat_surface_specific_humidity(:) = 0._wp
-!!$      dry_static_energy(:) = 0._wp
-!!$      evapotranspiration(:) = 0._wp
-!!$
-!!$      ztsfc_lnd(:)        = 0._wp
-!!$      ztsfc_lnd_eff(:)    = 0._wp
-!!$      z0m_tile(:,idx_lnd) = 0._wp
-!!$
+    !===========================================================================
+    ! Land surface
+    !===========================================================================
+    
+    z0h_lnd(:)       = 0._wp
+    tte_corr(:)      = 0._wp
+
+    IF (idx_lnd <= ksfc_type) THEN
+
+      ! If land is present, JSBACH is currently the only surface scheme supported by ECHAM physcis package
+#ifndef __NO_JSBACH__
+
+      sat_surface_specific_humidity(:) = 0._wp
+      dry_static_energy(:) = 0._wp
+      evapotranspiration(:) = 0._wp
+
+      ztsfc_lnd(:)        = 0._wp
+      ztsfc_lnd_eff(:)    = 0._wp
+      z0m_tile(:,idx_lnd) = 0._wp
+
 !!$      CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, psteplen,                  & ! in
 !!$        & t_air            = ptemp(1:kproma),                                           & ! in
 !!$        & q_air            = pq(1:kproma),                                              & ! in
@@ -344,23 +344,27 @@ CONTAINS
 !!$        & alb_vis_dif      = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
 !!$        & alb_nir_dif      = albnirdif_tile(1:kproma, idx_lnd)                          & ! out
 !!$        )
+      ! Add dummy output values
+      ztsfc_lnd(1:kproma)                     = 0.0_wp
+      dry_static_energy(1:kproma)             = 0.0_wp
+      sat_surface_specific_humidity(1:kproma) = 0.0_wp
 !!$
-!!$      ptsfc_tile(1:kproma,idx_lnd) = ztsfc_lnd(1:kproma)
-!!$      pcpt_tile (1:kproma,idx_lnd) = dry_static_energy(1:kproma)
-!!$      pqsat_tile(1:kproma,idx_lnd) = sat_surface_specific_humidity(1:kproma)
-!!$
-!!$      tte_corr(1:kproma) = tte_corr(1:kproma) / (presi_old(1:kproma,klev+1) - presi_old(1:kproma,klev))
-!!$
-!!$      ! Set the evapotranspiration coefficients, to be used later in
-!!$      ! blending and in diagnoising surface fluxes.
-!!$      !
-!!$      zca(1:kproma,idx_lnd) = pcair(1:kproma)
-!!$      zcs(1:kproma,idx_lnd) = pcsat(1:kproma)
-!!$
-!!$#else
-!!$      CALL finish(method_name, "The JSBACH component is not activated")
-!!$#endif
-!!$    END IF
+      ptsfc_tile(1:kproma,idx_lnd) = ztsfc_lnd(1:kproma)
+      pcpt_tile (1:kproma,idx_lnd) = dry_static_energy(1:kproma)
+      pqsat_tile(1:kproma,idx_lnd) = sat_surface_specific_humidity(1:kproma)
+
+      tte_corr(1:kproma) = tte_corr(1:kproma) / (presi_old(1:kproma,klev+1) - presi_old(1:kproma,klev))
+
+      ! Set the evapotranspiration coefficients, to be used later in
+      ! blending and in diagnoising surface fluxes.
+      !
+      zca(1:kproma,idx_lnd) = pcair(1:kproma)
+      zcs(1:kproma,idx_lnd) = pcsat(1:kproma)
+
+#else
+      CALL finish(method_name, "The JSBACH component is not activated")
+#endif
+    END IF
 !!$
 !!$    
 !!$    !===========================================================================
