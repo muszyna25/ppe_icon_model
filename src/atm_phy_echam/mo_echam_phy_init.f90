@@ -86,11 +86,12 @@ MODULE mo_echam_phy_init
     &                                timer_prep_echam_phy
 
   ! for AMIP boundary conditions
-  USE mo_time_interpolation         ,ONLY: time_weights_limm
-  USE mo_time_interpolation_weights ,ONLY: wi_limm
-  USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
-  USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
-    &                                bc_greenhouse_gases_file_read
+!  USE mo_time_interpolation         ,ONLY: time_weights_limm
+!  USE mo_time_interpolation_weights ,ONLY: wi_limm
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights, calculate_time_interpolation_weights
+  USE mo_bc_sst_sic,             ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
+  USE mo_bc_greenhouse_gases,    ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
+       &                               bc_greenhouse_gases_file_read
 
   IMPLICIT NONE
 
@@ -129,6 +130,8 @@ CONTAINS
     TYPE(t_datetime)                    :: datetime_current        !< Date and time information
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
 
+    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
+    
     !---------------------------------------------------------------
     ! conversion of subroutine arguments to old "t_datetime" data
     ! structure
@@ -334,12 +337,13 @@ CONTAINS
       ! interpolate to the current date and time, placing the annual means at
       ! the mid points of the current and preceding or following year, if the
       ! current date is in the 1st or 2nd half of the year, respectively.
-      CALL bc_greenhouse_gases_time_interpolation(datetime_current)
+      CALL bc_greenhouse_gases_time_interpolation(mtime_current)
     ENDIF
 
     ! interpolation weights for linear interpolation
     ! of monthly means onto the actual integration time step
-    CALL time_weights_limm(datetime_current, wi_limm)
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_current)
+!    CALL time_weights_limm(datetime_current, wi_limm)
 
 !    IF (.NOT. ctest_name(1:3) == 'TPE') THEN
 
@@ -358,9 +362,9 @@ CONTAINS
           (is_coupled_run() .AND. .NOT. ltestcase) ) THEN
         !
         ! sea surface temperature, sea ice concentration and depth
-        CALL read_bc_sst_sic(datetime_current%year, p_patch(1))
+        CALL read_bc_sst_sic(mtime_current%date%year, p_patch(1))
         !
-        CALL bc_sst_sic_time_interpolation(wi_limm                           , &
+        CALL bc_sst_sic_time_interpolation(current_time_interpolation_weights, &
              &                             prm_field(jg)%lsmask(:,:)         , &
              &                             prm_field(jg)%tsfc_tile(:,:,iwtr) , &
              &                             prm_field(jg)%seaice(:,:)         , &

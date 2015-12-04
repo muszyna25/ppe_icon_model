@@ -18,22 +18,23 @@
 
 MODULE mo_bc_aeropt_stenchikov
 
-  USE mo_kind,                   ONLY: wp
+  USE mo_kind,                   ONLY: wp, i8
   USE mo_lrtm_par,               ONLY: nbndlw
   USE mo_srtm_config,            ONLY: nbndsw=>jpsw
   USE mo_exception,              ONLY: finish
   USE mo_read_interface,         ONLY: openInputFile, closeFile, read_1D, &
     &                                  read_1D_extdim_time, &
     &                                  read_1D_extdim_extdim_time
-  USE mo_time_interpolation_weights, ONLY: wi=>wi_limm
   USE mo_latitude_interpolation, ONLY: latitude_weights_li
   USE mo_physical_constants,     ONLY: rgrav, rd
   USE mo_math_constants,         ONLY: deg2rad, pi_2
   USE mo_echam_phy_config,       ONLY: echam_phy_config
- 
+  USE mo_bcs_time_interpolation, ONLY: tiw => current_time_interpolation_weights  
+
   IMPLICIT NONE
 
   PRIVATE
+
   PUBLIC                           :: read_bc_aeropt_stenchikov, add_bc_aeropt_stenchikov
 
   INTERFACE reorder_stenchikov
@@ -102,16 +103,16 @@ END SUBROUTINE shift_months_bc_aeropt_stenchikov
   !! of the volcanic (Stratospheric) Stenchikov aerosols
 
 SUBROUTINE read_bc_aeropt_stenchikov(kyear)
-  
-  INTEGER, INTENT(in)           :: kyear
+  INTEGER(i8), INTENT(in)       :: kyear
 
   !LOCAL VARIABLES
-  INTEGER                       :: imonth(2), iyear(2), nmonths, imonths
+  INTEGER(i8) :: iyear(2)
+  INTEGER :: imonth(2), nmonths, imonths
 
-  IF (wi%inm2 == inm2_time_interpolation) RETURN
+  IF (tiw%month2 == inm2_time_interpolation) RETURN
   IF (ALLOCATED(aod_v_s)) THEN
     CALL shift_months_bc_aeropt_stenchikov
-    imonth(1)=wi%inm2
+    imonth(1)=tiw%month2
     iyear(1)=kyear
     IF (imonth(1) == 13 ) THEN
       imonth(1)=1
@@ -122,8 +123,8 @@ SUBROUTINE read_bc_aeropt_stenchikov(kyear)
     nmonths=1
   ELSE
     CALL su_bc_aeropt_stenchikov
-    imonth(1)=wi%inm1
-    imonth(2)=wi%inm2
+    imonth(1)=tiw%month1
+    imonth(2)=tiw%month2
     iyear(1)=kyear
     iyear(2)=kyear
     IF (imonth(1) == 0) THEN
@@ -136,7 +137,7 @@ SUBROUTINE read_bc_aeropt_stenchikov(kyear)
     END IF
     nmonths=2
   ENDIF
-  inm2_time_interpolation=wi%inm2
+  inm2_time_interpolation=tiw%month2
   DO imonths=1,nmonths
   CALL read_months_bc_aeropt_stenchikov (                             &
                      'longitude',       'latitude',         'levels', &
@@ -153,14 +154,14 @@ END SUBROUTINE read_bc_aeropt_stenchikov
 !! !REVISION HISTORY:
 !! original source by J.S. Rast (2010-02-19)
 !! adapted to icon by J.S. Rast (2013-09-18)
-SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       &
+SUBROUTINE add_bc_aeropt_stenchikov(jg,                                   &
           & kproma,                 kbdim,              klev,             &
           & krow,                   nb_lw,              nb_sw,            &
           & paer_tau_lw_vr,         paer_tau_sw_vr,     paer_piz_sw_vr,   &
           & paer_cg_sw_vr,          ppd_hl,             pp_fl,            &
           & tk_fl                                                         )
 
-! !INPUT PARAMETERS
+  ! !INPUT PARAMETERS
   INTEGER,INTENT(in)  :: jg,     &! domain index
                          kproma, &! actual block length
                          kbdim,  &! maximum block length
@@ -230,17 +231,17 @@ SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       
            w1_lat=wgt1_lat(jl)
            w2_lat=wgt2_lat(jl)
            idx_lev=kindex(jl,jk)
-           zext_s(jl,jk,jwl)=wi%wgt1*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
+           zext_s(jl,jk,jwl)=tiw%weight1*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
                                      w2_lat*ext_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             wi%wgt2*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
+                             tiw%weight2*(w1_lat*ext_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
                                      w2_lat*ext_v_s(jwl,idx_lev,idx_lat_2,nm2))
-           zomg_s(jl,jk,jwl)=wi%wgt1*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
+           zomg_s(jl,jk,jwl)=tiw%weight1*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
                                      w2_lat*ssa_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             wi%wgt2*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
+                             tiw%weight2*(w1_lat*ssa_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
                                      w2_lat*ssa_v_s(jwl,idx_lev,idx_lat_2,nm2))
-           zasy_s(jl,jk,jwl)=wi%wgt1*(w1_lat*asy_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
+           zasy_s(jl,jk,jwl)=tiw%weight1*(w1_lat*asy_v_s(jwl,idx_lev,idx_lat_1,nm1)+ &
                                      w2_lat*asy_v_s(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             wi%wgt2*(w1_lat*asy_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
+                             tiw%weight2*(w1_lat*asy_v_s(jwl,idx_lev,idx_lat_1,nm2)+ &
                                      w2_lat*asy_v_s(jwl,idx_lev,idx_lat_2,nm2))
         END DO
      END DO
@@ -251,9 +252,9 @@ SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       
         idx_lat_2=inmw2_lat(jl)
         w1_lat=wgt1_lat(jl)
         w2_lat=wgt2_lat(jl)
-        zaod_s(jl,jwl)=wi%wgt1*(w1_lat*aod_v_s(jwl,idx_lat_1,nm1)+ &
+        zaod_s(jl,jwl)=tiw%weight1*(w1_lat*aod_v_s(jwl,idx_lat_1,nm1)+ &
                                w2_lat*aod_v_s(jwl,idx_lat_2,nm1))+ &
-                       wi%wgt2*(w1_lat*aod_v_s(jwl,idx_lat_1,nm2)+ &
+                       tiw%weight2*(w1_lat*aod_v_s(jwl,idx_lat_1,nm2)+ &
                                w2_lat*aod_v_s(jwl,idx_lat_2,nm2))
      END DO
   END DO
@@ -312,13 +313,13 @@ SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       
            w1_lat=wgt1_lat(jl)
            w2_lat=wgt2_lat(jl)
            idx_lev=kindex(jl,jk)
-           zext_t(jl,jk,jwl)=wi%wgt1*(w1_lat*ext_v_t(jwl,idx_lev,idx_lat_1,nm1)+ &
+           zext_t(jl,jk,jwl)=tiw%weight1*(w1_lat*ext_v_t(jwl,idx_lev,idx_lat_1,nm1)+ &
                                      w2_lat*ext_v_t(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             wi%wgt2*(w1_lat*ext_v_t(jwl,idx_lev,idx_lat_1,nm2)+ &
+                             tiw%weight2*(w1_lat*ext_v_t(jwl,idx_lev,idx_lat_1,nm2)+ &
                                      w2_lat*ext_v_t(jwl,idx_lev,idx_lat_2,nm2))
-           zomg_t(jl,jk,jwl)=wi%wgt1*(w1_lat*ssa_v_t(jwl,idx_lev,idx_lat_1,nm1)+ &
+           zomg_t(jl,jk,jwl)=tiw%weight1*(w1_lat*ssa_v_t(jwl,idx_lev,idx_lat_1,nm1)+ &
                                      w2_lat*ssa_v_t(jwl,idx_lev,idx_lat_2,nm1))+ &
-                             wi%wgt2*(w1_lat*ssa_v_t(jwl,idx_lev,idx_lat_1,nm2)+ &
+                             tiw%weight2*(w1_lat*ssa_v_t(jwl,idx_lev,idx_lat_1,nm2)+ &
                                      w2_lat*ssa_v_t(jwl,idx_lev,idx_lat_2,nm2))
         END DO
      END DO
@@ -329,9 +330,9 @@ SUBROUTINE add_bc_aeropt_stenchikov ( jg,                                       
         idx_lat_2=inmw2_lat(jl)
         w1_lat=wgt1_lat(jl)
         w2_lat=wgt2_lat(jl)
-        zaod_t(jl,jwl)=wi%wgt1*(w1_lat*aod_v_t(jwl,idx_lat_1,nm1)+ &
+        zaod_t(jl,jwl)=tiw%weight1*(w1_lat*aod_v_t(jwl,idx_lat_1,nm1)+ &
                                w2_lat*aod_v_t(jwl,idx_lat_2,nm1))+ &
-                       wi%wgt2*(w1_lat*aod_v_t(jwl,idx_lat_1,nm2)+ &
+                       tiw%weight2*(w1_lat*aod_v_t(jwl,idx_lat_1,nm2)+ &
                                w2_lat*aod_v_t(jwl,idx_lat_2,nm2))
      END DO
   END DO
@@ -440,7 +441,7 @@ END SUBROUTINE pressure_index
                                     clat_dim,   &! name of latitude dimension
                                     clev_dim     ! name of level dimension
   INTEGER, INTENT(in)            :: kmonth       ! number of month to be read
-  INTEGER, INTENT(in)            :: kyear        ! year of month
+  INTEGER(i8), INTENT(in)        :: kyear        ! year of month
   INTEGER, INTENT(in)            :: ktime_step   ! month that has to be set by new data
 
   CHARACTER(len=256)             :: cfname   ! file name containing variables

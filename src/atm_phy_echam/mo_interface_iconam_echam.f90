@@ -409,15 +409,15 @@ CONTAINS
     !
     IF (ltimer) CALL timer_start(timer_echam_bcs)
 
-    CALL echam_phy_bcs_global( this_datetime,&! in
+    CALL echam_phy_bcs_global( mtime_current,&! in   
       &                        jg           ,&! in
       &                        patch        ,&! in
       &                        dtadv_loc    ,&! in
       &                        ltrig_rad    ,&! out
-      &                        datetime_radtran) ! out
+      &                        mtime_radtran) ! out
 
-    CALL datetime_to_string(datetime_str, datetime_radtran)
-    mtime_radtran => newDatetime(convert_datetime_string_old2new(datetime_str))
+!    CALL datetime_to_string(datetime_str, datetime_radtran)
+!    mtime_radtran => newDatetime(convert_datetime_string_old2new(datetime_str))
 
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !

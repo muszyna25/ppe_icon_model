@@ -118,10 +118,11 @@ MODULE mo_output_event_handler
 #endif
 #endif
 
+  USE mo_kind,                   ONLY: i8
   USE mo_impl_constants,         ONLY: SUCCESS, MAX_TIME_INTERVALS
-  USE mo_exception,              ONLY: finish
+  USE mo_exception,              ONLY: finish, message
   USE mo_io_units,               ONLY: FILENAME_MAX, find_next_free_unit
-  USE mo_util_string,            ONLY: int2string, remove_duplicates, remove_whitespace
+  USE mo_util_string,            ONLY: int2string, remove_whitespace
   USE mo_mpi,                    ONLY: p_int,                                               &
     &                                  p_pack_int, p_pack_string, p_pack_bool, p_pack_real, &
     &                                  p_unpack_int, p_unpack_string, p_unpack_bool,        &
@@ -134,7 +135,8 @@ MODULE mo_output_event_handler
     &                                  deallocateDatetime, datetimeToString,                &
     &                                  newDatetime, OPERATOR(>=),                           &
     &                                  OPERATOR(>), OPERATOR(+), OPERATOR(/=),              &
-    &                                  deallocateTimedelta
+    &                                  deallocateTimedelta, newJulianDay, JulianDay,        &
+    &                                  getJulianDayFromDatetime, getDatetimeFromJulianDay
   USE mo_output_event_types,     ONLY: t_sim_step_info, t_event_step_data,                  &
     &                                  t_event_step, t_output_event, t_par_output_event,    &
     &                                  MAX_FILENAME_STR_LEN, MAX_EVENT_NAME_STR_LEN,        &
@@ -379,8 +381,8 @@ CONTAINS
     END IF
 #endif
 
-    ! do not print to screen if the table is excessively long
-    IF ((event%n_event_steps > MAX_PRINTOUT) .AND. (dst == 0)) THEN
+    ! do not print, if the table is excessively long
+    IF (event%n_event_steps > MAX_PRINTOUT) THEN
       WRITE (dst,*) "detailed print-out of output steps has been omitted, cf. 'output_schedule.txt'."
       RETURN
     END IF
@@ -479,6 +481,12 @@ CONTAINS
     ! consistency check:
     IF (PRESENT(opt_dstfile) .AND. PRESENT(opt_filename)) THEN
       CALL finish(routine, "Routine was called with both a file unit and a filename to open!")
+    END IF
+
+    ! do not print, if the table is excessively long
+    IF (event%output_event%n_event_steps > MAX_PRINTOUT) THEN
+      WRITE (dst,*) "detailed print-out of output steps has been omitted, cf. 'output_schedule.txt'."
+      RETURN
     END IF
 
     ! open ASCII output file (if necessary):
@@ -606,7 +614,7 @@ CONTAINS
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::new_output_event"
     !> Max. no. of event steps (used for local array sizes)
-    INTEGER, PARAMETER :: INITIAL_NEVENT_STEPS = 2!10000
+    INTEGER, PARAMETER :: INITIAL_NEVENT_STEPS = 256 ! tested to be a good compromise
 
     TYPE(datetime),  POINTER :: mtime_date, mtime_begin, mtime_end, mtime_restart, &
       &                         sim_end, mtime_dom_start, mtime_dom_end, run_start
@@ -614,7 +622,7 @@ CONTAINS
     INTEGER                  :: ierrstat, i, n_event_steps, &
       &                         nintvls, iintvl, skipped_dates
     LOGICAL                  :: l_active, l_append_step
-    CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_date_string(:), tmp(:)
+    CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_date_string(:), tmp_string(:)
     INTEGER,                             ALLOCATABLE :: mtime_sim_steps(:)
     CHARACTER(len=MAX_DATETIME_STR_LEN), ALLOCATABLE :: mtime_exactdate(:)
     TYPE(t_event_step_data),             ALLOCATABLE :: filename_metadata(:)
@@ -625,7 +633,24 @@ CONTAINS
     LOGICAL                                          :: incl_begin(MAX_TIME_INTERVALS)
     LOGICAL                                          :: incl_end(MAX_TIME_INTERVALS)
     CHARACTER                                        :: char
+    TYPE(julianday), POINTER :: tmp_jd => NULL()
+    TYPE tmp_container
+      INTEGER(i8) :: day
+      INTEGER(i8) :: ms
+    END TYPE tmp_container
 
+    TYPE(tmp_container), ALLOCATABLE, TARGET :: mtime_date_container_a(:)
+    TYPE(tmp_container), ALLOCATABLE, TARGET :: mtime_date_container_b(:)  
+    TYPE(tmp_container), ALLOCATABLE, TARGET :: tmp(:)
+    TYPE(tmp_container), ALLOCATABLE :: mtime_date_uniq(:)
+    
+    TYPE(tmp_container), POINTER :: mtime_date_container(:) => NULL()
+    
+    INTEGER, ALLOCATABLE :: indices_to_use(:)
+    INTEGER :: remaining_intvls, iselected_intvl
+    
+    INTEGER :: n_event_steps_a, n_event_steps_b, remaining_event_steps
+    
     ! allocate event data structure
     ALLOCATE(p_event, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
@@ -675,8 +700,10 @@ CONTAINS
     mtime_restart   => newDatetime(TRIM(sim_step_info%restart_time))
 
     ! loop over the event occurrences
-
-    ALLOCATE(mtime_date_string(INITIAL_NEVENT_STEPS), STAT=ierrstat)
+    
+    ALLOCATE(mtime_date_container_a(256), stat=ierrstat)
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    ALLOCATE(mtime_date_container_b(256), stat=ierrstat)   
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
     ! The begin and end time stamps may contain "modifier symbols",
@@ -709,10 +736,29 @@ CONTAINS
       end_str2(iintvl) = dt_string
     END DO
 
+    do iintvl=1,nintvls
+      call message('lk: ', trim(begin_str2(iintvl)))
+      call message('lk: ', trim(end_str2(iintvl)))
+      call message('lk: ', trim(intvl_str(iintvl)))
+    enddo
+
+    allocate(indices_to_use(nintvls))
+    
+    CALL remove_duplicate_intervals(begin_str2, end_str2, intvl_str, nintvls, &
+         &                          indices_to_use, remaining_intvls)
+    
     ! there may be multiple starts/ends/intervals (usually only one):
+
+    mtime_date_container => mtime_date_container_a
+    
+    tmp_jd => newJulianday(0_i8, 0_i8);
+    
     n_event_steps = 0
     skipped_dates = 0
-    DO iintvl=1,nintvls
+
+    INTERVAL_LOOP: DO iselected_intvl = 1, remaining_intvls    
+      iintvl = indices_to_use(iselected_intvl)
+      
       mtime_begin => newDatetime(TRIM(begin_str2(iintvl)))
       IF (.NOT. ASSOCIATED(mtime_begin))  THEN
         CALL finish(routine, "date-time conversion error: "//TRIM(begin_str2(iintvl)))
@@ -735,24 +781,23 @@ CONTAINS
             IF  (mtime_date >= mtime_dom_start) THEN
 
               n_event_steps = n_event_steps + 1
-              IF (n_event_steps > SIZE(mtime_date_string)) THEN
-                ! resize buffer
-                ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
-                IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-                tmp(:) = mtime_date_string(:)
-                DEALLOCATE(mtime_date_string, STAT=ierrstat)
-                IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
-                ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
-                IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-                mtime_date_string(1:SIZE(tmp)) = tmp(:)
-                DEALLOCATE(tmp, STAT=ierrstat)
-                IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-              END IF
-              CALL datetimeToString(mtime_date, mtime_date_string(n_event_steps))
-              IF (ldebug) THEN
-                WRITE (0,*) "PE ", get_my_global_mpi_id(), ": Adding step ", n_event_steps, ": ", &
-                  &         mtime_date_string(n_event_steps)
-              END IF
+
+              IF (n_event_steps > SIZE(mtime_date_container)) THEN
+                ALLOCATE(tmp(2*SIZE(mtime_date_container)), stat=ierrstat)
+                IF (ierrstat /= 0) STOP 'allocate failed'
+                tmp(1:SIZE(mtime_date_container)) = mtime_date_container(:)
+                IF (ASSOCIATED(mtime_date_container, mtime_date_container_a)) THEN
+                  CALL MOVE_ALLOC(tmp, mtime_date_container_a)
+                  mtime_date_container => mtime_date_container_a
+                ELSE
+                  CALL MOVE_ALLOC(tmp, mtime_date_container_b)
+                  mtime_date_container => mtime_date_container_b
+                ENDIF
+              ENDIF
+
+              CALL getJulianDayFromDatetime(mtime_date, tmp_jd)
+              mtime_date_container(n_event_steps)%day = tmp_jd%day
+              mtime_date_container(n_event_steps)%ms = tmp_jd%ms
 
             ELSE
               ! we skip an output date when the domain is not yet
@@ -770,12 +815,47 @@ CONTAINS
           IF (.NOT. l_active) EXIT EVENT_LOOP
         END DO EVENT_LOOP
       END IF
-      
-      ! If there are multiple intervals, we often have
-      ! "end(i)==start(i+1)". Then, we remove these duplicates.
-      CALL remove_duplicates(mtime_date_string, n_event_steps)
-    END DO
 
+      IF (iintvl == 1) THEN
+        n_event_steps_a = n_event_steps
+        mtime_date_container => mtime_date_container_b
+        n_event_steps = 0
+        CYCLE interval_loop
+      ELSE
+        n_event_steps_b = n_event_steps
+        n_event_steps = 0      
+        
+        CALL merge2SortedAndRemoveDublicates(mtime_date_container_a, n_event_steps_a, &
+             &                               mtime_date_container_b, n_event_steps_b, &
+             &                               mtime_date_uniq, remaining_event_steps)
+      ENDIF
+
+      IF (remaining_event_steps > SIZE(mtime_date_container_a)) THEN
+        ALLOCATE(tmp(SIZE(mtime_date_container_a)), stat=ierrstat)
+        IF (ierrstat /= 0) STOP 'allocate failed'
+        tmp(1:remaining_event_steps) = mtime_date_uniq(1:remaining_event_steps)
+        CALL MOVE_ALLOC(tmp, mtime_date_container_a)
+      ENDIF
+      
+      n_event_steps_a = remaining_event_steps
+      
+      DEALLOCATE(mtime_date_uniq)
+      
+    END DO INTERVAL_LOOP
+
+    ! copy back results into original data structures
+    
+    n_event_steps = n_event_steps_a
+    ! to prevent a potential reallocation in next step add 1 element
+    ALLOCATE(mtime_date_string(n_event_steps+1), STAT=ierrstat)    
+    IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
+    ! copy mtime_date_container_a to mtime_date_string 
+    DO i = 1, n_event_steps
+      tmp_jd => newJulianday(mtime_date_container_a(i)%day, mtime_date_container_a(i)%ms);      
+      CALL getDatetimeFromJulianDay(tmp_jd, mtime_date)
+      CALL datetimeToString(mtime_date, mtime_date_string(i))
+    END DO
+    
     ! Optional: Append the last event time step
     IF (l_output_last .AND. (mtime_date > sim_end)) THEN
       ! check, that we do not duplicate the last time step:
@@ -789,45 +869,45 @@ CONTAINS
         n_event_steps = n_event_steps + 1
         IF (n_event_steps > SIZE(mtime_date_string)) THEN
           ! resize buffer
-          ALLOCATE(tmp(SIZE(mtime_date_string)), STAT=ierrstat)
+          ALLOCATE(tmp_string(SIZE(mtime_date_string)), STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-          tmp(:) = mtime_date_string(:)
+          tmp_string(:) = mtime_date_string(:)
           DEALLOCATE(mtime_date_string, STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
           ALLOCATE(mtime_date_string(SIZE(tmp) + INITIAL_NEVENT_STEPS), STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')          
-          mtime_date_string(1:SIZE(tmp)) = tmp(:)
-          DEALLOCATE(tmp, STAT=ierrstat)
+          mtime_date_string(1:SIZE(tmp)) = tmp_string(:)
+          DEALLOCATE(tmp_string, STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')          
         END IF
         CALL datetimeToString(sim_end, mtime_date_string(n_event_steps))
         IF (ldebug) THEN
           WRITE (0,*) get_my_global_mpi_id(), ": ", &
-            &      n_event_steps, ": output event '", mtime_date_string(n_event_steps), "'"
+               &      n_event_steps, ": output event '", mtime_date_string(n_event_steps), "'"
         END IF
       END IF
     END IF
-
+    
     ALLOCATE(mtime_sim_steps(SIZE(mtime_date_string)),   &
-      &      mtime_exactdate(SIZE(mtime_date_string)),   &
-      &      filename_metadata(SIZE(mtime_date_string)), STAT=ierrstat)
+         &   mtime_exactdate(SIZE(mtime_date_string)),   &
+         &   filename_metadata(SIZE(mtime_date_string)), STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
-
+    
     CALL fct_time2simstep(n_event_steps, mtime_date_string,                            &
-      &                   sim_step_info, mtime_sim_steps, mtime_exactdate)
-
+         &                   sim_step_info, mtime_sim_steps, mtime_exactdate)
+    
     ! remove all those event steps which have no corresponding simulation
     ! step (mtime_sim_steps(i) < 0):
     DO i=1,n_event_steps
       IF (mtime_sim_steps(i) < 0)  EXIT
     END DO
     n_event_steps = (i-1)
-
+    
     IF (n_event_steps > 0) THEN
       filename_metadata = fct_generate_filenames(n_event_steps, mtime_date_string,       &
-        &                   mtime_sim_steps, sim_step_info, fname_metadata, skipped_dates)
+           &              mtime_sim_steps, sim_step_info, fname_metadata, skipped_dates)
     END IF
-
+    
     ! from this list of time stamp strings: generate the event steps
     ! for this event
     p_event%n_event_steps = n_event_steps
@@ -870,6 +950,112 @@ CONTAINS
       &        mtime_exactdate, filename_metadata, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
+  CONTAINS
+
+    SUBROUTINE merge2SortedAndRemoveDublicates(InputArray1, nsize_IA1, &
+         &                                     InputArray2, nsize_IA2, &
+         &                                     OutputArray, nsize_OA)
+      TYPE(tmp_container), INTENT(in) :: InputArray1(:)
+      TYPE(tmp_container), INTENT(in) :: InputArray2(:)
+      TYPE(tmp_container), ALLOCATABLE, INTENT(out) :: OutputArray(:)
+      INTEGER, INTENT(in) :: nsize_IA1
+      INTEGER, INTENT(in) :: nsize_IA2
+      INTEGER, INTENT(out) :: nsize_OA
+      
+      INTEGER(i8) :: diff
+      
+      INTEGER :: n, na, nb
+      INTEGER :: i, j, k
+      
+      na = nsize_IA1
+      nb = nsize_IA2 
+      n = na + nb
+      
+      ALLOCATE(OutputArray(n))
+      
+      i = 1
+      j = 1
+      k = 1
+      
+      DO WHILE(i <= na .AND. j <= nb)
+        diff = 86400000_i8 * (InputArray1(i)%day - InputArray2(j)%day) + InputArray1(i)%ms - InputArray2(j)%ms
+        IF (diff < 0_i8) THEN
+          IF (k == 1 .OR. ((InputArray1(i)%day /= OutputArray(k-1)%day) .OR. (InputArray1(i)%ms /= OutputArray(k-1)%ms))) THEN
+            OutputArray(k) = InputArray1(i)
+            k = k+1
+          ENDIF
+          i=i+1
+        ELSE IF (diff > 0_i8) THEN
+          IF (k == 1 .OR. ((InputArray2(j)%day /= OutputArray(k-1)%day) .OR. (InputArray2(j)%ms /= OutputArray(k-1)%ms))) THEN
+            OutputArray(k) = InputArray2(j)
+            k = k+1
+          ENDIF
+          j = j+1
+        ELSE
+          IF (k == 1 .OR. ((InputArray1(i)%day /= OutputArray(k-1)%day) .OR. (InputArray1(i)%ms /= OutputArray(k-1)%ms))) THEN
+            OutputArray(k) = InputArray1(i)
+            k = k+1
+          ENDIF
+          i = i+1
+          j = j+1
+        ENDIF
+      ENDDO
+      
+      DO WHILE (i <= na)
+        IF ((InputArray1(i)%day /= OutputArray(k-1)%day) .OR. (InputArray1(i)%ms /= OutputArray(k-1)%ms)) THEN
+          OutputArray(k) = InputArray1(i)
+          k = k+1
+          i = i+1
+        ELSE
+          i = i+1
+        ENDIF
+      ENDDO
+      
+      DO WHILE (j <= nb)
+        IF ((InputArray2(j)%day /= OutputArray(k-1)%day) .OR. (InputArray2(j)%ms /= OutputArray(k-1)%ms)) THEN
+          OutputArray(k) = InputArray2(j)
+          k = k+1
+          j = j+1
+        ELSE
+          j = j+1
+        ENDIF
+      ENDDO
+      
+      nsize_OA = k-1
+      
+    END SUBROUTINE merge2SortedAndRemoveDublicates
+
+    SUBROUTINE remove_duplicate_intervals(starts, ends, intvls, n, indices_to_use, remaining)
+      CHARACTER(len=*), INTENT(in) :: starts(:)
+      CHARACTER(len=*), INTENT(in) :: ends(:)
+      CHARACTER(len=*), INTENT(in) :: intvls(:)
+      INTEGER, INTENT(in) :: n         
+      INTEGER, INTENT(out) :: indices_to_use(n)
+      INTEGER, INTENT(out) :: remaining
+      
+      INTEGER :: i, j
+      
+      remaining = 1
+      indices_to_use(1) = 1
+      
+      OUTER_LOOP: DO i = 2, n
+        DO j = 1, remaining
+          IF (TRIM(starts(j)) == TRIM(starts(i))) THEN
+            IF (TRIM(ends(j)) == TRIM(ends(i))) THEN
+              IF (TRIM(intvls(j)) == TRIM(intvls(i))) THEN
+                ! found a match so start looking again
+                CYCLE OUTER_LOOP
+              END IF
+            END IF
+          END IF
+        END DO
+        ! no match found so add it to the output
+        remaining = remaining + 1
+        indices_to_use(remaining) = i
+      END DO OUTER_LOOP
+      
+    END SUBROUTINE remove_duplicate_intervals
+    
   END FUNCTION new_output_event
 
 
@@ -1106,14 +1292,14 @@ CONTAINS
       CALL MPI_COMM_SIZE (icomm, nranks, ierrstat)
       IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_SIZE.')
       IF (ldebug) THEN
-         write (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; icomm has size ", nranks
-         if (lbroadcast) then
+         WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; icomm has size ", nranks
+         IF (lbroadcast) THEN
             CALL MPI_COMM_SIZE (opt_broadcast_comm, nbcast_ranks, ierrstat)
             IF (ierrstat /= 0) CALL finish (routine, 'Error in MPI_COMM_SIZE.')
-            write (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; bcast comm has size ", nbcast_ranks, &
+            WRITE (0,*) "PE ",get_my_global_mpi_id(), ": local rank is ", this_pe, "; bcast comm has size ", nbcast_ranks, &
                  &      ", root is ", opt_broadcast_root
             lbroadcast = (nbcast_ranks > 1)
-         end if
+         END IF
       END IF
     END IF
 #endif
@@ -2371,7 +2557,7 @@ CONTAINS
                 &      TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+",  &
                 &      " after restart."
             END IF
-            CALL modify_filename(event, trim(event_step_data%filename_string), &
+            CALL modify_filename(event, TRIM(event_step_data%filename_string), &
               &       TRIM(event_step_data%filename_string)//"_part_"//TRIM(jpart_str)//"+", &
               &       start_step=istep)
           END IF

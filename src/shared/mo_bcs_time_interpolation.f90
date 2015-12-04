@@ -1,4 +1,4 @@
-MODULE mo_time_interpolation
+MODULE mo_bcs_time_interpolation
 
   USE mo_kind, ONLY: wp
   USE mtime
@@ -9,7 +9,9 @@ MODULE mo_time_interpolation
 
   PUBLIC :: t_time_interpolation_weights
   PUBLIC :: calculate_time_interpolation_weights
-
+  PUBLIC :: store_time_interpolation_weight
+  PUBLIC :: current_time_interpolation_weights
+  
   TYPE t_time_interpolation_weights
     TYPE(datetime) :: reference_date
     REAL(wp)       :: weight1, weight2
@@ -18,7 +20,14 @@ MODULE mo_time_interpolation
     LOGICAL        :: initialized = .FALSE.
   END TYPE t_time_interpolation_weights
 
+  TYPE(t_time_interpolation_weights), SAVE, PROTECTED :: current_time_interpolation_weights
+  
 CONTAINS
+
+  SUBROUTINE store_time_interpolation_weight(time_interpolation_weight)
+    TYPE(t_time_interpolation_weights), INTENT(in) :: time_interpolation_weight
+    current_time_interpolation_weights = time_interpolation_weight
+  END SUBROUTINE store_time_interpolation_weight
 
   FUNCTION calculate_time_interpolation_weights(current_date) RESULT(time_interpolation_weight)
     TYPE(t_time_interpolation_weights) :: time_interpolation_weight
@@ -53,7 +62,7 @@ CONTAINS
 
       time_interpolation_weight%weight1 = REAL(seconds_in_middle_of_month - seconds_in_month,wp) &
            &                             /REAL(seconds_in_middle_of_month + seconds_in_middle_of_previous_month,wp)
-      time_interpolation_weight%weight2 = 1.0_wp - weight1
+      time_interpolation_weight%weight2 = 1.0_wp - time_interpolation_weight%weight1
       time_interpolation_weight%month1 = previous_month%date%month
       time_interpolation_weight%month2 = current_date%date%month
       time_interpolation_weight%year1 = previous_month%date%year
@@ -73,7 +82,7 @@ CONTAINS
 
       time_interpolation_weight%weight2 = REAL(seconds_in_month - seconds_in_middle_of_month,wp) &
            &                             /REAL(seconds_in_middle_of_month + seconds_in_middle_of_next_month,wp)
-      time_interpolation_weight%weight1 = 1.0_wp - weight2
+      time_interpolation_weight%weight1 = 1.0_wp - time_interpolation_weight%weight2
       time_interpolation_weight%year1 = current_date%date%year
       time_interpolation_weight%year2 = next_month%date%year
 
@@ -83,8 +92,8 @@ CONTAINS
     IF (ASSOCIATED(previous_month)) CALL deallocateDatetime(previous_month)
     IF (ASSOCIATED(next_month)) CALL deallocateDatetime(next_month)
 
-    time_interpolation_weights%initialized = .TRUE.
+    time_interpolation_weight%initialized = .TRUE.
     
-  END SUBROUTINE calculate_time_interpolation_weights
+  END FUNCTION calculate_time_interpolation_weights
     
-END MODULE mo_time_interpolation
+END MODULE mo_bcs_time_interpolation

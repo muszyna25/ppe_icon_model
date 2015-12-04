@@ -19,7 +19,7 @@
 !!
 MODULE mo_bc_ozone
 
-  USE mo_kind,                     ONLY: wp
+  USE mo_kind,                     ONLY: wp, i8
   USE mo_model_domain,             ONLY: t_patch
   USE mo_parallel_config,          ONLY: p_test_run
   USE mo_io_config,                ONLY: default_read_method
@@ -33,7 +33,7 @@ MODULE mo_bc_ozone
   IMPLICIT NONE
   PRIVATE
   REAL(wp), PARAMETER               :: vmr2mmr_o3=amo3/amd               ! Volume mixing ratio to mass mixing ratio
-  INTEGER, SAVE                     :: pre_year=-999999                  ! Variable to check if it is time to read
+  INTEGER(i8), SAVE                 :: pre_year=-999999                  ! Variable to check if it is time to read
 
   PUBLIC                            :: o3_plev, plev_half_o3, plev_full_o3, nplev_o3
   PUBLIC                            :: read_bc_ozone
@@ -42,13 +42,13 @@ MODULE mo_bc_ozone
   REAL(wp), ALLOCATABLE             :: plev_half_o3(:), plev_full_o3(:)  ! Pressure levels in ozone file
   INTEGER                           :: nplev_o3
 
-  include 'netcdf.inc'
-
+  INCLUDE 'netcdf.inc'
+  
 CONTAINS
 
   SUBROUTINE read_bc_ozone(year, p_patch)
 
-    INTEGER      , INTENT(in)         :: year
+    INTEGER(i8)  , INTENT(in)         :: year
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 
     CHARACTER(len=16)                 :: fname
@@ -166,7 +166,7 @@ CONTAINS
       plev_half_o3(2:nplev_o3)=0.5_wp*(plev_full_o3(1:nplev_o3-1)+plev_full_o3(2:nplev_o3))
       plev_half_o3(nplev_o3+1)=125000._wp
 
-      pre_year=year
+      pre_year = year
 
     END IF
 

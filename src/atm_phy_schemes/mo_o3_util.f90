@@ -45,8 +45,8 @@ MODULE mo_o3_util
   USE mo_o3_macc_data,         ONLY: rghg7_macc
   USE mo_radiation_config,     ONLY: irad_o3
   USE mo_physical_constants,   ONLY: amd,amo3,rd,grav
-  USE mo_time_interpolation_weights,   ONLY: wi=>wi_limm
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone, icpl_o3_tp
+  USE mo_bcs_time_interpolation, ONLY: tiw => current_time_interpolation_weights
   
   IMPLICIT NONE
 
@@ -74,8 +74,8 @@ CONTAINS
     REAL(wp), INTENT(in) , DIMENSION(kbdim,nlev_pres,0:13) :: ext_o3
     REAL(wp), INTENT(out), DIMENSION(kbdim,nlev_pres)      :: o3_time_int
 
-    o3_time_int(1:kproma,:)=wi%wgt1*ext_o3(1:kproma,:,wi%inm1)+ &
-                            wi%wgt2*ext_o3(1:kproma,:,wi%inm2)
+    o3_time_int(1:kproma,:)=tiw%weight1*ext_o3(1:kproma,:,tiw%month1)+ &
+                            tiw%weight2*ext_o3(1:kproma,:,tiw%month2)
   END SUBROUTINE o3_timeint
 
   SUBROUTINE o3_pl2ml ( kproma,kbdim,nlev_pres,klev,&

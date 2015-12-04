@@ -279,18 +279,18 @@ CONTAINS
     !=====================================================================================
     !
     ! (3) Prepare boundary conditions for ECHAM physics
-    !
-    CALL echam_phy_bcs_global( this_datetime,&! in
-      &                        jg           ,&! in
-      &                        patch        ,&! in
-      &                        pdtime       ,&! in
-      &                        ltrig_rad    ,&! out
-      &                        datetime_radtran ) ! out
+    !    
+    CALL echam_phy_bcs_global( mtime_current, &   
+         &                     jg,            &! in
+         &                     patch,         &! in
+         &                     pdtime,        &! in
+         &                     ltrig_rad,     &! out
+         &                     mtime_radtran ) ! out
     !
     !=====================================================================================
 
-    CALL datetime_to_string(datetime_str, datetime_radtran)
-    mtime_radtran => newDatetime(convert_datetime_string_old2new(datetime_str))
+!    CALL datetime_to_string(datetime_str, datetime_radtran)
+!    mtime_radtran => newDatetime(convert_datetime_string_old2new(datetime_str))
 
     !=====================================================================================
     !

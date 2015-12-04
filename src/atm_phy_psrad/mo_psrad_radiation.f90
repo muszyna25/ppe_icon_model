@@ -54,7 +54,7 @@
 !
 MODULE mo_psrad_radiation
 
-  USE mo_kind,            ONLY: wp
+  USE mo_kind,            ONLY: wp, i8
   USE mo_model_domain,    ONLY: t_patch
   USE mo_physical_constants,       ONLY: vtmpc1, rae,           &
 !!$       &                        amco2, amch4, amn2o,            &
@@ -74,7 +74,7 @@ MODULE mo_psrad_radiation
 !       &                        prev_radiation_date,get_date_components,      &
 !       &                        lresume, lstart, get_month_len
   USE mo_echam_convect_tables,  ONLY : prepare_ua_index_spline, lookup_ua_spline
-  USE mo_datetime,        ONLY: t_datetime
+!  USE mo_datetime,        ONLY: t_datetime
 ! amu0_x must now be taken from prm_field (has to be passed to the respect. routines
 !  USE mo_geoloc,          ONLY: coslon_2d, &
 !       &                        sinlon_2d, sinlat_2d, coslat_2d
@@ -187,6 +187,8 @@ MODULE mo_psrad_radiation
                                 lw_strat, sw_strat
   USE mo_psrad_spec_sampling, ONLY : set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
 
+  USE mtime, ONLY: datetime
+  
   IMPLICIT NONE
   
   PRIVATE
@@ -203,24 +205,25 @@ MODULE mo_psrad_radiation
 
   CONTAINS
 
-  SUBROUTINE pre_psrad_radiation( p_patch,         datetime_radiation,        &
-                                & datetime,        ltrig_rad,                 &
-                                & amu0_x,          rdayl_x,                   &
-                                & amu0m_x,         rdaylm_x                   )
+  SUBROUTINE pre_psrad_radiation( p_patch,          datetime_radiation, &
+                                & current_datetime, ltrig_rad,          &
+                                & amu0_x,           rdayl_x,            &
+                                & amu0m_x,          rdaylm_x            )
   !-----------------------------------------------------------------------------
   !>
   !! @brief Prepares information for radiation call
   !
 
-    TYPE(t_patch), INTENT(IN)        :: p_patch
-    TYPE(t_datetime), INTENT(IN)     :: datetime_radiation, & !< date and time of radiative transfer calculation
-                                      & datetime !< current time step
-    LOGICAL         , INTENT(IN)     :: ltrig_rad !< .true. if radiative transfer calculation has to be done at current time step
-    REAL(wp), INTENT(OUT)            :: amu0_x(:,:), rdayl_x(:,:), &
-                                        amu0m_x(:,:), rdaylm_x(:,:)
+    TYPE(t_patch),           INTENT(in) :: p_patch
+    TYPE(datetime), POINTER, INTENT(in) :: datetime_radiation, & !< date and time of radiative transfer calculation
+         &                                 current_datetime       !< current time step
+    LOGICAL,                 INTENT(in) :: ltrig_rad !< .true. if radiative transfer calculation has to be done at current time step
+    REAL(wp),                INTENT(out) :: amu0_x(:,:), rdayl_x(:,:), &
+         &                                  amu0m_x(:,:), rdaylm_x(:,:)
 
     LOGICAL  :: l_write_solar
-    INTEGER  :: icurrentyear, icurrentmonth, i
+    INTEGER(i8) :: icurrentyear
+    INTEGER  :: icurrentmonth, i
     INTEGER, SAVE :: iprevmonth=-9999
     REAL(wp) :: rasc_sun, decl_sun, dist_sun, time_of_day, zrae
     REAL(wp) :: orbit_date
@@ -229,17 +232,21 @@ MODULE mo_psrad_radiation
 
     l_orbvsop87 = .TRUE.
 
+    CALL message('LK',' ... get orbit times ...')
     !
     ! 1.0 Compute orbital parameters for current time step
     ! --------------------------------
-    CALL get_orbit_times(datetime, time_of_day, &
-         &               orbit_date)
+    CALL get_orbit_times(current_datetime, time_of_day, orbit_date)
 
+    CALL message('LK',' ... calculate orbit ...')
+    
     IF (l_orbvsop87) THEN 
       CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
     ELSE
       CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
     END IF
+
+    CALL message('LK',' ... solar parameters ...')    
 !!$    decl_sun_cur = decl_sun       ! save for aerosol and chemistry submodels
     CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
 !!$         &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
@@ -277,14 +284,19 @@ MODULE mo_psrad_radiation
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
     IF (phy_config%lrad .AND. ltrig_rad) THEN
-      CALL get_orbit_times(datetime_radiation, time_of_day , &
-           &               orbit_date)
+      CALL message('LK',' ... calculate orbit times 2 ...')
+      CALL get_orbit_times(datetime_radiation, time_of_day, orbit_date)
 
+      CALL message('LK',' ... calculate orbit 2 ...')
+      
       IF ( l_orbvsop87 ) THEN 
         CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
       ELSE
         CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
       END IF
+
+      CALL message('LK',' ... solar parameters 2 ...')
+      
       CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
 !!$           &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
            &                p_patch,                         &
@@ -364,10 +376,13 @@ MODULE mo_psrad_radiation
 !!$      CALL get_date_components(current_date, month=icurrentmonth, &
 !!$           year=icurrentyear)
 !!$      CALL get_date_components(previous_date, month=iprevmonth)
-      icurrentmonth=datetime_radiation%month
-      icurrentyear=datetime_radiation%year
+
+      CALL message('LK',' ... output ...')
+      
+      icurrentmonth = datetime_radiation%date%month
+      icurrentyear = datetime_radiation%date%year
       l_write_solar = icurrentmonth/=iprevmonth
-      iprevmonth=icurrentmonth
+      iprevmonth = icurrentmonth
       IF (l_write_solar) THEN
         CALL message('','')
         WRITE (message_text,'(a,i0,a,i2.2,a,f6.1)') &
@@ -389,6 +404,8 @@ MODULE mo_psrad_radiation
 
     END IF ! lrad .AND. l_trigrad
 
+    CALL message('LK',' ... prerad finished ...')    
+    
   END SUBROUTINE pre_psrad_radiation
 
   SUBROUTINE setup_psrad_radiation(file_name)

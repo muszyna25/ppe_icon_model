@@ -702,7 +702,6 @@ lapack/spotf2.f -text
 lapack/spotrf.f -text
 lapack/spotrs.f -text
 /make_runscripts -text
-/mo_time_interpolation.f90_not_used_yet -text
 run/README -text
 run/Rakefile -text
 run/add_required_atmo_hydrostatic_files -text
@@ -1808,6 +1807,7 @@ src/sea_ice/thermodyn/mo_sea_ice_winton.f90 -text
 src/sea_ice/thermodyn/mo_sea_ice_zerolayer.f90 -text
 src/shared/mo_action.f90 -text
 src/shared/mo_action_types.f90 -text
+src/shared/mo_bcs_time_interpolation.f90 -text
 src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_checksum.f90 -text
 src/shared/mo_datetime.f90 -text
@@ -1841,8 +1841,6 @@ src/shared/mo_random_util.f90 -text
 src/shared/mo_real_timer.f90 -text
 src/shared/mo_statistics.f90 -text
 src/shared/mo_time_base.f90 -text
-src/shared/mo_time_interpolation.f90 -text
-src/shared/mo_time_interpolation_weights.f90 -text
 src/shared/mo_time_management.f90 -text
 src/shared/mo_timer.f90 -text
 src/shared/mo_util_backtrace.f90 -text
