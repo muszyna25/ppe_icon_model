@@ -9,54 +9,89 @@
 ! Contains: Three routines of EVP dynamics. The driving routine is EVPdynamics.
 ! 2D indices are used to distinguish between boundary and internal nodes.
 !
-
+!
+! Vladimir: added omp parallelization; rhs_a, rhs_m, rhs_mis are precalculated now
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
-!
-! Vladimir: added omp parallelization; rhs_a, rhs_m, rhs_mis are precalculated now
 !============================================================================
-subroutine stress_tensor
-! EVP rheology implementation. Computes stress tensor components based on ice 
-! velocity field. They are stored as elemental arrays (sigma11, sigma22 and
-! sigma12). 
-
+module mo_ice_evp
+  !
+  ! Arrays defined here are used to keep mesh information
+  !
   use mo_ice_elements
   use mo_ice_mesh
   use mo_ice
   use mo_ice_parsup
 
+  USE mo_kind,    ONLY: wp
+
+  IMPLICIT NONE
+
+  PUBLIC :: init_evp_solver_coeffs
+  PUBLIC :: EVPdynamics
+
+  PRIVATE :: stress_tensor
+  PRIVATE :: stress2rhs
+  PRIVATE :: precalc4rhs_omp
+  PRIVATE :: index_si_elements_omp
+
+  PRIVATE
+  ! some aggregated parameters used in the EVP solver
+  REAL(wp):: val3=1.0_wp/3.0_wp
+  REAL(wp):: vale, dte, det1, det2
+  REAL(wp):: ax, ay
+
+CONTAINS
+
+subroutine init_evp_solver_coeffs
+! Calculates coefficients which are used for calculations in stress_tensor
+! Called once during the initialization step at ice_init_fem
+
   USE mo_run_config,          ONLY: dtime
   USE mo_sea_ice_nml,         ONLY: delta_min, evp_rheol_steps, Tevp_inv, theta_io
-  use mo_physical_constants,  ONLY: Pstar, ellipse, c_pressure, earth_radius
+  USE mo_physical_constants,  ONLY: ellipse
 
-  USE mo_kind,    ONLY: wp
+  val3=1.0_wp/3.0_wp
+  vale=1.0_wp/(ellipse**2)
+
+  dte=dtime/(1.0_wp*REAL(evp_rheol_steps,wp))
+  det1=1.0_wp+0.5_wp*Tevp_inv*dte
+  det2=1.0_wp+0.5_wp*Tevp_inv*dte*ellipse**2    !RTSD corrected 8.3.2006
+                                              ! There is error in CICE
+                          ! manual.
+  det1=1.0_wp/det1
+  det2=1.0_wp/det2
+
+  ! theta_io should be zero - set in ice_main.f90
+  ax=cos(theta_io)
+  ay=sin(theta_io)
+
+end subroutine init_evp_solver_coeffs
+
+subroutine stress_tensor
+! EVP rheology implementation. Computes stress tensor components based on ice 
+! velocity field. They are stored as elemental arrays (sigma11, sigma22 and
+! sigma12). 
+
+  USE mo_sea_ice_nml,         ONLY: delta_min, Tevp_inv
+  USE mo_physical_constants,  ONLY: Pstar, c_pressure
 
 implicit none
 
-REAL(wp)   :: eps11, eps12, eps22, pressure, delta, aa
-integer        :: elem, elnodes(3),i
-REAL(wp)   :: val3, asum, msum, vale, dx(3), dy(3)
-REAL(wp)   :: det1, det2, r1, r2, r3, si1, si2, dte 
-REAL(wp)   :: zeta, delta_inv, usum, vsum
+REAL(wp)   :: eps11, eps12, eps22, pressure, delta, delta_inv, aa
+integer    :: elem, elnodes(3),i
+REAL(wp)   :: asum, msum, dx(3), dy(3)
+REAL(wp)   :: r1, r2, r3, si1, si2
+REAL(wp)   :: zeta, usum, vsum
 
 ! ATTENTION: the rows commented with !metrics contain terms due to 
 ! differentiation of metrics. 
 
-  val3=1.0_wp/3.0_wp
-  vale=1.0_wp/(ellipse**2)
-   
-  dte=dtime/(1.0_wp*REAL(evp_rheol_steps,wp))
-  det1=1.0_wp+0.5_wp*Tevp_inv*dte
-  det2=1.0_wp+0.5_wp*Tevp_inv*dte*ellipse**2    !RTSD corrected 8.3.2006
-                                              ! There is error in CICE 
-					      ! manual. 
-  det1=1.0_wp/det1
-  det2=1.0_wp/det2
-  
+
   ! omp-initialization (ICON_OMP_PARALLEL) is called in the main routine
 !ICON_OMP_PARALLEL_DO PRIVATE(i,elem,elnodes,aa,dx,dy, usum, vsum,  &
-!ICON_OMP       eps11,eps12,eps22,delta,msum,asum,pressure,delta_inv,zeta,  &
+!ICON_OMP       eps11,eps12,eps22,delta,msum,asum,pressure,delta_inv, zeta,  &
 !ICON_OMP       r1, r2, r3, si1, si2) ICON_OMP_DEFAULT_SCHEDULE
  DO i=1,si_elem2D
      elem=si_idx_elem(i)
@@ -98,7 +133,7 @@ REAL(wp)   :: zeta, delta_inv, usum, vsum
      !if(delta>pressure/zeta_min) delta=pressure/zeta_min
       ! ===== if viscosity is too big, it is limited too
       ! (done via correcting delta_inv)
-     delta_inv=1.0_wp/max(delta,delta_min) 
+     delta_inv=1.0_wp/max(delta,delta_min)
        
      !pressure=pressure*delta*delta_inv    ! Limiting pressure --- may not 
      !                                     ! be needed. Should be tested   
@@ -139,22 +174,11 @@ subroutine stress2rhs
 ! Computes the divergence of stress tensor and puts the result into the
 ! rhs vectors 
 
-  use mo_ice_elements
-  use mo_ice_mesh
-  use mo_ice
-  use mo_ice_parsup
-
-
-  use mo_physical_constants,  ONLY: rhoi, rhos, earth_radius
-  USE mo_kind,                ONLY: wp
-
 IMPLICIT NONE
-INTEGER      :: row, elem, elnodes(3), k, i  
+INTEGER  :: row, elem, elnodes(3), k, i
 REAL(wp) :: mass, aa
 REAL(wp) :: cluster_area,elevation_elem(3)
-REAL(wp) :: dx(3), dy(3), val3
-
-val3=1._wp/3.0_wp
+REAL(wp) :: dx(3), dy(3)
 
 ! initialize
  DO i=1, myDim_nod2D
@@ -213,13 +237,7 @@ subroutine precalc4rhs_omp
 ! with the subcycles. Hence, can be precalculated and stored.
 ! Those are rhs_a, rhs_m, mass
 
-  use mo_ice_elements
-  use mo_ice_mesh
-  use mo_ice
-  use mo_ice_parsup
-
   use mo_physical_constants,  ONLY: rhoi, rhos
-  USE mo_kind,                ONLY: wp
 
 IMPLICIT NONE
 INTEGER      :: row, elem, elnodes(3), nodels(6), k, i
@@ -288,13 +306,6 @@ end subroutine precalc4rhs_omp
 subroutine index_si_elements_omp
 ! Replaces ifs checking if sea ice is actually present in a given cell/node
 
-  use mo_ice_elements
-  use mo_ice_mesh
-  use mo_ice
-  use mo_ice_parsup
-
-  USE mo_kind,                ONLY: wp
-
     IMPLICIT NONE
     INTEGER :: elem,row, elnodes(3), i
     REAL(wp):: aa
@@ -342,40 +353,24 @@ subroutine index_si_elements_omp
 
 end subroutine index_si_elements_omp
 !===================================================================
-subroutine  EVPdynamics_awi
+subroutine EVPdynamics
 ! EVP implementation. Does cybcycling and boundary conditions.  
-
-  use mo_ice_elements
-  use mo_ice_mesh
-  use mo_ice
-  use mo_ice_parsup
-
-  USE mo_run_config,            ONLY: dtime
-  USE mo_sea_ice_nml,           ONLY: evp_rheol_steps, theta_io
+  USE mo_sea_ice_nml,           ONLY: evp_rheol_steps
   USE mo_physical_constants,    ONLY: rhoi, rhos, Cd_io, rho_ref
 
-  USE mo_kind,    ONLY: wp
-  USE mo_ice_fem_init,   ONLY: exchange_nod2D
+  USE mo_ice_fem_init,         ONLY: exchange_nod2D
 
 IMPLICIT NONE
-integer      :: steps, shortstep
-REAL(wp) :: rdt
+integer     :: shortstep
 REAL(wp)    ::  drag, inv_mass, det, umod, rhsu, rhsv
-integer         ::  i,j
-REAL(wp)    :: ax, ay
-
-    rdt=dtime/(1.0_wp*REAL(evp_rheol_steps,wp))
-    steps=evp_rheol_steps
-    ! theta_io should be zero - set in ice_main.f90
-    ax=cos(theta_io)
-    ay=sin(theta_io)
+integer     ::  i,j
 
 ! index elements/nodes where sea ice is present for faster loops
     call index_si_elements_omp
 ! precalculate several arrays that do not change during subcycling
     call precalc4rhs_omp
 
- DO shortstep=1, steps
+ DO shortstep=1, evp_rheol_steps
      ! ===== Boundary conditions
      do j=1, myDim_nod2D+eDim_nod2D
         i=myList_nod2D(j)
@@ -408,13 +403,13 @@ REAL(wp)    :: ax, ay
        umod=sqrt((u_ice(i)-u_w(i))**2+(v_ice(i)-v_w(i))**2)
        drag=Cd_io*umod*rho_ref*inv_mass
 
-       rhsu=u_ice(i)+rdt*(drag*(ax*u_w(i)-ay*v_w(i))+inv_mass*stress_atmice_x(i)+rhs_u(i))
-       rhsv=v_ice(i)+rdt*(drag*(ax*v_w(i)+ay*u_w(i))+inv_mass*stress_atmice_y(i)+rhs_v(i))
+       rhsu=u_ice(i)+dte*(drag*(ax*u_w(i)-ay*v_w(i))+inv_mass*stress_atmice_x(i)+rhs_u(i))
+       rhsv=v_ice(i)+dte*(drag*(ax*v_w(i)+ay*u_w(i))+inv_mass*stress_atmice_y(i)+rhs_v(i))
 
-       det=(1._wp+ax*drag*rdt)**2+(rdt*coriolis_nod2D(i)+rdt*ay*drag)**2
+       det=(1._wp+ax*drag*dte)**2+(dte*coriolis_nod2D(i)+dte*ay*drag)**2
        det=1.0_wp/det
-       u_ice(i)=det*((1.0_wp+ax*drag*rdt)*rhsu+rdt*(coriolis_nod2D(i)+ay*drag)*rhsv)
-       v_ice(i)=det*((1.0_wp+ax*drag*rdt)*rhsv-rdt*(coriolis_nod2D(i)+ay*drag)*rhsu)
+       u_ice(i)=det*((1.0_wp+ax*drag*dte)*rhsu+dte*(coriolis_nod2D(i)+ay*drag)*rhsv)
+       v_ice(i)=det*((1.0_wp+ax*drag*dte)*rhsv-dte*(coriolis_nod2D(i)+ay*drag)*rhsu)
       ! else                           ! Set ice velocity equal to water velocity
       ! u_ice(i)=u_w(i)
       ! v_ice(i)=v_w(i)
@@ -426,5 +421,7 @@ REAL(wp)    :: ax, ay
      call exchange_nod2D(v_ice)
  END DO
 
-end subroutine EVPdynamics_awi
+end subroutine EVPdynamics
 !===================================================================
+
+end module mo_ice_evp

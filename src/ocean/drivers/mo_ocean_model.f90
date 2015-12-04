@@ -83,7 +83,7 @@ MODULE mo_ocean_model
   USE mo_sea_ice,             ONLY: ice_init, &
     & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice, &
     & destruct_atmos_for_ocean, destruct_sea_ice
-  USE mo_ice_fem_utils,       ONLY: ice_fem_init_vel
+  USE mo_ice_fem_init,       ONLY: ice_fem_init_vel
   USE mo_ocean_surface_types, ONLY: t_ocean_surface, v_oce_sfc
   USE mo_ocean_surface,       ONLY: construct_ocean_surface
 

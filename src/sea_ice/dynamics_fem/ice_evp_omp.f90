@@ -375,8 +375,7 @@ subroutine EVPdynamics_omp
   USE mo_physical_constants,    ONLY: rhoi, rhos, Cd_io, rho_ref
 
   USE mo_kind,    ONLY: wp
-  USE mo_ice_fem_utils,   ONLY: exchange_nod2D
-  USE mo_kind,            ONLY: wp
+  USE mo_ice_fem_init,   ONLY: exchange_nod2D
 
 IMPLICIT NONE
 integer      :: steps, shortstep
