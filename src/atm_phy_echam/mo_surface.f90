@@ -363,136 +363,136 @@ CONTAINS
     END IF
 
     
-!!$    !===========================================================================
-!!$    ! Ocean model
-!!$    !===========================================================================
-!!$    IF (idx_wtr <= ksfc_type) THEN
-!!$
-!!$#ifndef __NO_ICON_OCEAN__
-!!$      IF (phy_config%lmlo) THEN
-!!$        CALL ml_ocean ( kbdim, 1, kproma, pdtime, &
-!!$          & pahflw=plhflx_tile(:,idx_wtr),        &
-!!$          & pahfsw=pshflx_tile(:,idx_wtr),        &
-!!$          & ptrflw=plw(:),                        &
-!!$          & psoflw=pswvis(:) + pswnir(:),         &
-!!$          & ptsw=ptsfc_tile(:,idx_wtr) )           ! out
-!!$      END IF
-!!$#endif
-!!$
-!!$      ! Albedo model for the ocean
-!!$      albvisdir_tile(1:kproma,idx_wtr) = albedoW
-!!$      albvisdif_tile(1:kproma,idx_wtr) = albedoW
-!!$      albnirdir_tile(1:kproma,idx_wtr) = albedoW
-!!$      albnirdif_tile(1:kproma,idx_wtr) = albedoW
-!!$
-!!$    END IF
-!!$    
-!!$    !===========================================================================
-!!$    ! Sea-ice model (thermodynamic)
-!!$    !===========================================================================
-!!$
-!!$    IF (idx_ice <= ksfc_type .AND. phy_config%lice) THEN
-!!$
-!!$#ifndef __NO_ICON_OCEAN__
-!!$      ! LL This is a temporary solution,
-!!$      ! we should restrcure ice thermodynamics in a more stand-alone way
-!!$
-!!$      ! For explicit coupling to ice:
-!!$
-!!$      ! Freezing point of sea-water
-!!$      Tfw = Tf
-!!$
-!!$      ! ECHAM has no tiles for SW & LW and this is how it's solved there
-!!$      ! Net shortwave on all bands. 
-!!$      ! Net longwave - we don't have tiles yet
-!!$      ! First all ice classes
-!!$      DO k=1,kice
-!!$        swflx_ice(1:kproma,k) = &
-!!$          & zswvisdif_down(1:kproma) * (1._wp - albvisdif_ice(1:kproma,k)) + &
-!!$          & zswvisdir_down(1:kproma) * (1._wp - albvisdir_ice(1:kproma,k)) + &
-!!$          & zswnirdif_down(1:kproma) * (1._wp - albnirdif_ice(1:kproma,k)) + &
-!!$          & zswnirdir_down(1:kproma) * (1._wp - albnirdir_ice(1:kproma,k))
-!!$
-!!$        nonsolar_ice(1:kproma,k) = &
-!!$          zemiss_def * (plw_down(1:kproma) - stbo * (Tsurf(1:kproma,k)+tmelt)**4) &  ! longwave net
-!!$          & + plhflx_tile(1:kproma,idx_ice) + pshflx_tile(1:kproma,idx_ice)
-!!$
-!!$        dnonsolardT(1:kproma,k) = -4._wp * zemiss_def * stbo * (Tsurf(1:kproma,k)+tmelt)**3
-!!$
-!!$      ENDDO
-!!$   
-!!$      CALL ice_fast(1, kproma, kbdim, kice, pdtime, &
-!!$        &   Tsurf,              &
-!!$        &   T1,                 &
-!!$        &   T2,                 &
-!!$        &   hi,                 &
-!!$        &   hs,                 &
-!!$        &   Qtop,               &
-!!$        &   Qbot,               &
-!!$        &   swflx_ice,          &
-!!$        &   nonsolar_ice,       &
-!!$        &   dnonsolardT,        &
-!!$        &   Tfw,                &
-!!$        &   albvisdir_ice,      &
-!!$        &   albvisdif_ice,      &
-!!$        &   albnirdir_ice,      &
-!!$        &   albnirdif_ice )
-!!$
-!!$      ! Let it snow and melt and grow
-!!$      !      DO k=1,kice
-!!$      !        WHERE ( hi(:,1) > 0._wp )
-!!$      !          hs(:,k) = hs(:,k) + (pssfl + pssfc)*pdtime/rhos &
-!!$      !            &   - MIN( Qtop(:,k)*pdtime/( alf*rhos ), hs(:,k) )
-!!$      !        ENDWHERE
-!!$      !        hi(:,k) = hi(:,k) - MIN( Qbot(:,k)*pdtime/( alf*rhoi ), hi(:,k) )
-!!$      !        WHERE ( hs(:,1) <= 0._wp )
-!!$      !          hi(:,k) = hi(:,k) - MIN( Qtop(:,k)*pdtime/( alf*rhoi ), hi(:,k) )
-!!$      !        ENDWHERE
-!!$      !      ENDDO
-!!$      !      hi(:,:) = max( hi(:,:), 0._wp )
-!!$      ! Let it snow in AMIP
-!!$      IF ( phy_config%lamip ) THEN
-!!$        DO k=1,kice
-!!$          ! Snowfall on ice - no ice => no snow
-!!$          WHERE ( hi(1:kproma,k) > 0._wp )
-!!$            ! Snow only falls when it's below freezing
-!!$            WHERE ( Tsurf(1:kproma,k) < 0._wp )
-!!$              hs(1:kproma,k) = hs(1:kproma,k) + (pssfl(1:kproma) + pssfc(1:kproma))*pdtime/rhos 
-!!$            ENDWHERE
-!!$            ! Snow melt
-!!$            hs(1:kproma,k) = hs(1:kproma,k) - MIN( Qtop(1:kproma,k)*pdtime/( alf*rhos ), hs(1:kproma,k) )
-!!$          ELSEWHERE
-!!$            hs(1:kproma,k) = 0._wp
-!!$          ENDWHERE
-!!$        ENDDO
-!!$      ENDIF
-!!$
-!!$      ! Average the albedo.
-!!$      conc_sum(1:kproma) = SUM(conc(1:kproma,:),2)
-!!$      albvisdir_tile(1:kproma,idx_ice) = 0._wp
-!!$      albvisdif_tile(1:kproma,idx_ice) = 0._wp
-!!$      albnirdir_tile(1:kproma,idx_ice) = 0._wp
-!!$      albnirdif_tile(1:kproma,idx_ice) = 0._wp
-!!$      WHERE (conc_sum(1:kproma) > 1.e-6_wp)
-!!$        albvisdir_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albvisdir_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
-!!$        albvisdif_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albvisdif_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
-!!$        albnirdir_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albnirdir_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
-!!$        albnirdif_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albnirdif_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
-!!$      END WHERE
-!!$
-!!$      ! Set the tile temperature
-!!$      ptsfc_tile(1:kproma,idx_ice) = Tsurf(1:kproma,1) + tmelt
-!!$
-!!$      ! Compute new dry static energy
-!!$      ! (Switched off for now, should be used for implicit coupling)
-!!$      !pcpt_tile(1:kproma,idx_ice) = ptsfc_tile(1:kproma,idx_ice) * zt2s_conv(1:kproma,idx_ice)
-!!$
-!!$#else
-!!$    ! __NO_ICON_OCEAN__
-!!$      CALL finish(method_name, "The ice process requires the ICON_OCEAN component")
-!!$#endif
-!!$    ENDIF ! lice
-!!$
+    !===========================================================================
+    ! Ocean model
+    !===========================================================================
+    IF (idx_wtr <= ksfc_type) THEN
+
+#ifndef __NO_ICON_OCEAN__
+      IF (phy_config%lmlo) THEN
+        CALL ml_ocean ( kbdim, 1, kproma, pdtime, &
+          & pahflw=plhflx_tile(:,idx_wtr),        &
+          & pahfsw=pshflx_tile(:,idx_wtr),        &
+          & ptrflw=plw(:),                        &
+          & psoflw=pswvis(:) + pswnir(:),         &
+          & ptsw=ptsfc_tile(:,idx_wtr) )           ! out
+      END IF
+#endif
+
+      ! Albedo model for the ocean
+      albvisdir_tile(1:kproma,idx_wtr) = albedoW
+      albvisdif_tile(1:kproma,idx_wtr) = albedoW
+      albnirdir_tile(1:kproma,idx_wtr) = albedoW
+      albnirdif_tile(1:kproma,idx_wtr) = albedoW
+
+    END IF
+    
+    !===========================================================================
+    ! Sea-ice model (thermodynamic)
+    !===========================================================================
+
+    IF (idx_ice <= ksfc_type .AND. phy_config%lice) THEN
+
+#ifndef __NO_ICON_OCEAN__
+      ! LL This is a temporary solution,
+      ! we should restrcure ice thermodynamics in a more stand-alone way
+
+      ! For explicit coupling to ice:
+
+      ! Freezing point of sea-water
+      Tfw = Tf
+
+      ! ECHAM has no tiles for SW & LW and this is how it's solved there
+      ! Net shortwave on all bands. 
+      ! Net longwave - we don't have tiles yet
+      ! First all ice classes
+      DO k=1,kice
+        swflx_ice(1:kproma,k) = &
+          & zswvisdif_down(1:kproma) * (1._wp - albvisdif_ice(1:kproma,k)) + &
+          & zswvisdir_down(1:kproma) * (1._wp - albvisdir_ice(1:kproma,k)) + &
+          & zswnirdif_down(1:kproma) * (1._wp - albnirdif_ice(1:kproma,k)) + &
+          & zswnirdir_down(1:kproma) * (1._wp - albnirdir_ice(1:kproma,k))
+
+        nonsolar_ice(1:kproma,k) = &
+          zemiss_def * (plw_down(1:kproma) - stbo * (Tsurf(1:kproma,k)+tmelt)**4) &  ! longwave net
+          & + plhflx_tile(1:kproma,idx_ice) + pshflx_tile(1:kproma,idx_ice)
+
+        dnonsolardT(1:kproma,k) = -4._wp * zemiss_def * stbo * (Tsurf(1:kproma,k)+tmelt)**3
+
+      ENDDO
+   
+      CALL ice_fast(1, kproma, kbdim, kice, pdtime, &
+        &   Tsurf,              &
+        &   T1,                 &
+        &   T2,                 &
+        &   hi,                 &
+        &   hs,                 &
+        &   Qtop,               &
+        &   Qbot,               &
+        &   swflx_ice,          &
+        &   nonsolar_ice,       &
+        &   dnonsolardT,        &
+        &   Tfw,                &
+        &   albvisdir_ice,      &
+        &   albvisdif_ice,      &
+        &   albnirdir_ice,      &
+        &   albnirdif_ice )
+
+      ! Let it snow and melt and grow
+      !      DO k=1,kice
+      !        WHERE ( hi(:,1) > 0._wp )
+      !          hs(:,k) = hs(:,k) + (pssfl + pssfc)*pdtime/rhos &
+      !            &   - MIN( Qtop(:,k)*pdtime/( alf*rhos ), hs(:,k) )
+      !        ENDWHERE
+      !        hi(:,k) = hi(:,k) - MIN( Qbot(:,k)*pdtime/( alf*rhoi ), hi(:,k) )
+      !        WHERE ( hs(:,1) <= 0._wp )
+      !          hi(:,k) = hi(:,k) - MIN( Qtop(:,k)*pdtime/( alf*rhoi ), hi(:,k) )
+      !        ENDWHERE
+      !      ENDDO
+      !      hi(:,:) = max( hi(:,:), 0._wp )
+      ! Let it snow in AMIP
+      IF ( phy_config%lamip ) THEN
+        DO k=1,kice
+          ! Snowfall on ice - no ice => no snow
+          WHERE ( hi(1:kproma,k) > 0._wp )
+            ! Snow only falls when it's below freezing
+            WHERE ( Tsurf(1:kproma,k) < 0._wp )
+              hs(1:kproma,k) = hs(1:kproma,k) + (pssfl(1:kproma) + pssfc(1:kproma))*pdtime/rhos 
+            ENDWHERE
+            ! Snow melt
+            hs(1:kproma,k) = hs(1:kproma,k) - MIN( Qtop(1:kproma,k)*pdtime/( alf*rhos ), hs(1:kproma,k) )
+          ELSEWHERE
+            hs(1:kproma,k) = 0._wp
+          ENDWHERE
+        ENDDO
+      ENDIF
+
+      ! Average the albedo.
+      conc_sum(1:kproma) = SUM(conc(1:kproma,:),2)
+      albvisdir_tile(1:kproma,idx_ice) = 0._wp
+      albvisdif_tile(1:kproma,idx_ice) = 0._wp
+      albnirdir_tile(1:kproma,idx_ice) = 0._wp
+      albnirdif_tile(1:kproma,idx_ice) = 0._wp
+      WHERE (conc_sum(1:kproma) > 1.e-6_wp)
+        albvisdir_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albvisdir_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
+        albvisdif_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albvisdif_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
+        albnirdir_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albnirdir_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
+        albnirdif_tile(1:kproma,idx_ice) = SUM( conc(1:kproma,:) * albnirdif_ice(1:kproma,:), 2 ) / conc_sum(1:kproma)
+      END WHERE
+
+      ! Set the tile temperature
+      ptsfc_tile(1:kproma,idx_ice) = Tsurf(1:kproma,1) + tmelt
+
+      ! Compute new dry static energy
+      ! (Switched off for now, should be used for implicit coupling)
+      !pcpt_tile(1:kproma,idx_ice) = ptsfc_tile(1:kproma,idx_ice) * zt2s_conv(1:kproma,idx_ice)
+
+#else
+    ! __NO_ICON_OCEAN__
+      CALL finish(method_name, "The ice process requires the ICON_OCEAN component")
+#endif
+    ENDIF ! lice
+
 !!$    !===================================================================
 !!$    ! AFTER CALLING land/ocean/ice model
 !!$    !===================================================================
