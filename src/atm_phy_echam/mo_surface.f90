@@ -530,15 +530,15 @@ CONTAINS
         qv_sum(1:kproma) = qv_sum(1:kproma) + bb_btm(1:kproma,jsfc,iqv) * wgt(1:kproma)
     ENDDO
 
-    IF (lsfc_heat_flux) THEN
-      bb(1:kproma,klev,ih ) = se_sum(1:kproma)/wgt_sum(1:kproma)
-      bb(1:kproma,klev,iqv) = qv_sum(1:kproma)/wgt_sum(1:kproma)
-    ELSE
-      jsfc = 1
-      bb(1:kproma,klev,ih ) = bb_btm(1:kproma,jsfc,ih )
-      bb(1:kproma,klev,iqv) = bb_btm(1:kproma,jsfc,iqv)
-    END IF
-
+!!$    IF (lsfc_heat_flux) THEN
+!!$      bb(1:kproma,klev,ih ) = se_sum(1:kproma)/wgt_sum(1:kproma)
+!!$      bb(1:kproma,klev,iqv) = qv_sum(1:kproma)/wgt_sum(1:kproma)
+!!$    ELSE
+!!$      jsfc = 1
+!!$      bb(1:kproma,klev,ih ) = bb_btm(1:kproma,jsfc,ih )
+!!$      bb(1:kproma,klev,iqv) = bb_btm(1:kproma,jsfc,iqv)
+!!$    END IF
+!!$
 !!$    !-------------------------------------------------------------------
 !!$    ! Turbulent transport of u and v: adjust the right-hand side vector,
 !!$    ! then perform the bottom level elimination to get the solution
