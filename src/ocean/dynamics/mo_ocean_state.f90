@@ -890,17 +890,17 @@ CONTAINS
       & t_cf_var('u_vint','m*m/s','barotropic zonal velocity', DATATYPE_FLT32),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
-    CALL add_var(ocean_restart_list, 'v_vint', ocean_state_diag%v_vint, grid_unstructured_cell, &
+    CALL add_var(ocean_default_list, 'v_vint', ocean_state_diag%v_vint, grid_unstructured_cell, &
       & za_surface, &
       & t_cf_var('v_vint','m*m/s','barotropic meridional velocity', DATATYPE_FLT32),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/))
-    CALL add_var(ocean_default_list, 'ptp_vn', ocean_state_diag%ptp_vn, &
+    CALL add_var(ocean_restart_list, 'ptp_vn', ocean_state_diag%ptp_vn, &
       & grid_unstructured_cell, za_depth_below_sea, &
       & t_cf_var('ptp_vn','m/s','normal velocity in cartesian coordinates', &
       & DATATYPE_FLT32),&
       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),loutput=.FALSE., lrestart_cont=.FALSE.)
+      & ldims=(/nproma,n_zlev,nblks_e/),loutput=.FALSE., lrestart_cont=.TRUE.)
     ! predicted vn normal velocity component
     CALL add_var(ocean_restart_list, 'vn_pred', ocean_state_diag%vn_pred, &
       & grid_unstructured_edge, za_depth_below_sea, &
