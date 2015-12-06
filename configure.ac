@@ -282,6 +282,21 @@ AS_IF([test "x$enable_ocean" = "xno"],
 AS_IF([test "x$enable_testbed" = "xno"],
       [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"])
 
+dnl #####################################################################
+dnl add local flags
+
+use_local_flags_file=config/local_flags
+if test -f $use_local_flags_file ; then
+  AC_GET_MH($use_local_flags_file)
+fi
+
+
+for other_flags in $icon_flags ; do
+  FFLAGS="${FFLAGS} ${DEFOPT}__${other_flags}__"
+  CFLAGS="${CFLAGS} ${DEFCOPT}__${other_flags}__"
+done
+
+
 dnl ######################################################################
 dnl add defines for transitional features (eg. mtime based time loop)
 
