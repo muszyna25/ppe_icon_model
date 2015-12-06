@@ -71,7 +71,6 @@ MODULE mo_ocean_initialization
     & t_hydro_ocean_prog, &
     & t_hydro_ocean_diag, &
     & t_hydro_ocean_aux, &
-    & t_hydro_ocean_acc, &
     & t_oce_config, &
     & t_ocean_tracer
   USE mo_ocean_diagnostics_types, ONLY: &
@@ -635,11 +634,11 @@ CONTAINS
           ELSE
             
             ! set land/sea for all edges
-            IF ( (v_base%lsm_c(iic1,jk,ibc1) < boundary)  .AND.   &
-              & (v_base%lsm_c(iic2,jk,ibc2) < boundary) ) THEN
+            IF ( (v_base%lsm_c(iic1,jk,ibc1) <= sea_boundary)  .AND.   &
+              & (v_base%lsm_c(iic2,jk,ibc2) <= sea_boundary) ) THEN
               v_base%lsm_e(je,jk,jb) = sea
-            ELSEIF ( (v_base%lsm_c(iic1,jk,ibc1) > boundary)  .AND.   &
-              & (v_base%lsm_c(iic2,jk,ibc2) > boundary) ) THEN
+            ELSEIF ( (v_base%lsm_c(iic1,jk,ibc1) >= LAND_BOUNDARY)  .AND.   &
+              & (v_base%lsm_c(iic2,jk,ibc2) >= LAND_BOUNDARY) ) THEN
               v_base%lsm_e(je,jk,jb) = land
             ELSE
               v_base%lsm_e(je,jk,jb) = boundary

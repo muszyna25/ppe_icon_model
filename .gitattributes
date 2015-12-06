@@ -1612,6 +1612,8 @@ src/grid_generator/mo_small_circle_c.f90 -text
 src/grid_generator/mo_spring_dynamics.f90 -text
 src/grid_generator/mo_topology.f90 -text
 src/include/fsel.inc -text
+src/include/icon_definitions.inc -text
+src/include/iconfor_dsl_definitions.inc -text
 src/include/omp_definitions.inc -text
 src/include/phillips_nucleation_2010.incf -text
 src/io/atmo/mo_async_latbc.f90 -text
@@ -1744,7 +1746,6 @@ src/ocean/dynamics/mo_ocean_tracer_transport_horz.f90 -text
 src/ocean/dynamics/mo_ocean_tracer_transport_vert.f90 -text
 src/ocean/dynamics/mo_ocean_types.f90 -text
 src/ocean/dynamics/mo_ocean_veloc_advection.f90 -text
-src/ocean/include/ocean_dsl_definitions.inc -text
 src/ocean/math/mo_ocean_gmres.f90 -text
 src/ocean/math/mo_ocean_math_operators.f90 -text
 src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text

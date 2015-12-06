@@ -16,6 +16,9 @@
 !! headers of the routines.
 !!
 !!
+!----------------------------
+#include "icon_definitions.inc"
+!----------------------------
 MODULE mo_sync
 !-------------------------------------------------------------------------
 !
@@ -848,7 +851,7 @@ FUNCTION global_sum_array_0di (zfield, opt_iroot) RESULT (global_sum)
   ! local variables
   REAL(wp)                      :: z_aux, z_auxs
   INTEGER                       :: p_comm_glob
-  IF (activate_sync_timers) CALL timer_start(timer_global_sum)
+  start_sync_timer(timer_global_sum)
 
   IF(comm_lev==0) THEN
     p_comm_glob = p_comm_work
@@ -862,7 +865,7 @@ FUNCTION global_sum_array_0di (zfield, opt_iroot) RESULT (global_sum)
 
   global_sum = NINT(z_auxs)
 
-  IF (activate_sync_timers) CALL timer_stop(timer_global_sum)
+  stop_sync_timer(timer_global_sum)
 END FUNCTION global_sum_array_0di
 
 !-------------------------------------------------------------------------
@@ -1723,7 +1726,7 @@ FUNCTION omp_order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_s
 #endif
 
 !-----------------------------------------------------------------------
-!    IF (activate_sync_timers) CALL timer_start(timer_omp_ordglb_sum)
+!    start_sync_timer(timer_omp_ordglb_sum)
 
    ! Set shared variables in a MASTER region
 
@@ -1828,7 +1831,7 @@ FUNCTION omp_order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_s
        global_sum = global_sum - (REAL(ival1,dp)*r_fact) - (REAL(ival2,dp)*r_fact)*r_two_30
     ENDIF
 
-!    IF (activate_sync_timers) CALL timer_stop(timer_omp_ordglb_sum)
+!    stop_sync_timer(timer_omp_ordglb_sum)
 
 END FUNCTION omp_order_insensit_ieee64_sum
 !-------------------------------------------------------------------------------
@@ -1875,7 +1878,7 @@ FUNCTION order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
 #endif
 
 !-----------------------------------------------------------------------
-   IF (activate_sync_timers) CALL timer_start(timer_ordglb_sum)
+   start_sync_timer(timer_ordglb_sum)
 
    ! Set shared variables in a MASTER region
    abs_max = 0._dp
@@ -1890,7 +1893,7 @@ FUNCTION order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
    ! and we are done
    IF(abs_max == 0.0_dp) THEN
       global_sum = 0._dp
-      IF (activate_sync_timers) CALL timer_stop(timer_ordglb_sum)
+      stop_sync_timer(timer_ordglb_sum)
       RETURN
    ENDIF
 
@@ -1903,7 +1906,7 @@ FUNCTION order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
 
    IF(iexp < -980) THEN
       global_sum = 0._dp
-      IF (activate_sync_timers) CALL timer_stop(timer_ordglb_sum)
+      stop_sync_timer(timer_ordglb_sum)
       RETURN
    ENDIF
 
@@ -1961,7 +1964,7 @@ FUNCTION order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
        global_sum = global_sum - (REAL(ival1,dp)*r_fact) - (REAL(ival2,dp)*r_fact)*r_two_30
     ENDIF
 
-    IF (activate_sync_timers) CALL timer_stop(timer_ordglb_sum)
+    stop_sync_timer(timer_ordglb_sum)
 
 END FUNCTION order_insensit_ieee64_sum
 !-------------------------------------------------------------------------------
@@ -1991,7 +1994,7 @@ FUNCTION simple_sum(vals, num_vals, mpi_comm, opt_iroot) RESULT(global_sum)
   REAL(dp), SAVE :: s, res
 
 !-----------------------------------------------------------------------
-   IF (activate_sync_timers) CALL timer_start(timer_global_sum)
+   start_sync_timer(timer_global_sum)
 
    s   = 0._dp
    res = 0._dp
@@ -2004,7 +2007,7 @@ FUNCTION simple_sum(vals, num_vals, mpi_comm, opt_iroot) RESULT(global_sum)
 
    global_sum = res
 
-   IF (activate_sync_timers) CALL timer_stop(timer_global_sum)
+   stop_sync_timer(timer_global_sum)
 
 END FUNCTION simple_sum
 !-------------------------------------------------------------------------
@@ -2031,7 +2034,7 @@ FUNCTION omp_simple_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
    REAL(dp), SAVE :: s, res
 
 !-----------------------------------------------------------------------
-  IF (activate_sync_timers) CALL timer_start(timer_omp_global_sum)
+  start_sync_timer(timer_omp_global_sum)
 
    ! Set shared variables in a MASTER region
 
@@ -2055,7 +2058,7 @@ FUNCTION omp_simple_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
 
    global_sum = res
 
-   IF (activate_sync_timers) CALL timer_stop(timer_omp_global_sum)
+   stop_sync_timer(timer_omp_global_sum)
 
 END FUNCTION omp_simple_sum
 !-------------------------------------------------------------------------
