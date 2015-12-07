@@ -31,7 +31,7 @@ MODULE mo_interface_les
     &                              datetimeToString, timeDelta, newTimedelta,     &
     &                              deallocateTimedelta, getTimedeltaFromDatetime, &
     &                              getTotalMillisecondsTimedelta
-  USE mo_master_config,      ONLY: tc_startdate
+  USE mo_time_config,        ONLY: time_config
   USE mo_kind,               ONLY: wp
   USE mo_timer
   USE mo_exception,          ONLY: message, message_text
@@ -226,7 +226,7 @@ CONTAINS
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
     time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(mtime_current, tc_startdate)
+    time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_startdate)
     p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
     CALL deallocateTimedelta(time_diff)
 

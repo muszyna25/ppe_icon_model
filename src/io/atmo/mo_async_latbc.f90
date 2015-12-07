@@ -101,7 +101,7 @@ MODULE mo_async_latbc
     USE mo_util_file,                 ONLY: util_filesize
     USE mo_util_cdi,                  ONLY: test_cdi_varID
     USE mtime,                        ONLY: datetime
-    USE mo_master_config,             ONLY: tc_exp_startdate
+    USE mo_time_config,               ONLY: time_config
 
 #ifdef USE_CRAY_POINTER
     USE mo_name_list_output_init,     ONLY: set_mem_ptr_sp
@@ -471,7 +471,7 @@ MODULE mo_async_latbc
       IF(my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          jlev = patch_data%level
          ! generate file name
-         latbc_filename = generate_filename(nroot, jlev, tc_exp_startdate)
+         latbc_filename = generate_filename(nroot, jlev, time_config%tc_exp_startdate)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN
@@ -606,7 +606,7 @@ MODULE mo_async_latbc
       IF( my_process_is_work() .AND.  p_pe_work == p_work_pe0) THEN !!!!!!!use prefetch processor here
          jlev = patch_data%level
          ! generate file name
-         latbc_filename = generate_filename(nroot, jlev, tc_exp_startdate)
+         latbc_filename = generate_filename(nroot, jlev, time_config%tc_exp_startdate)
          latbc_file = TRIM(latbc_config%latbc_path)//TRIM(latbc_filename)
          INQUIRE (FILE=latbc_file, EXIST=l_exist)
          IF (.NOT.l_exist) THEN

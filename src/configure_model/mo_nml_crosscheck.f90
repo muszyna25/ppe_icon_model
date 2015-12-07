@@ -101,7 +101,7 @@ CONTAINS
     !
     CALL compute_timestep_settings()
     CALL compute_restart_settings()
-    CALL compute_date_settings("atm", dt_restart, nsteps, time_config)
+    CALL compute_date_settings("atm", dt_restart, nsteps)
 
 
     !--------------------------------------------------------------------

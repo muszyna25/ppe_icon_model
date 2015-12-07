@@ -22,7 +22,7 @@ MODULE mo_initicon_config
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,         &
     &                              MODE_IAU, MODE_IAU_OLD
-  USE mo_master_config,      ONLY: tc_startdate
+  USE mo_time_config,        ONLY: time_config
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
     &                              max_timedelta_str_len, datetime, newDatetime,     &
     &                              deallocateDatetime, OPERATOR(+),                  &
@@ -285,8 +285,8 @@ CONTAINS
     CALL getPTStringFromSeconds(end_time_avg_fg, str_end_time_avg_fg)
     td_end_time_avg_fg   => newTimedelta(str_end_time_avg_fg)
     !
-    startdatetime_avgFG = tc_startdate + td_start_time_avg_fg
-    enddatetime_avgFG   = tc_startdate + td_end_time_avg_fg
+    startdatetime_avgFG = time_config%tc_startdate + td_start_time_avg_fg
+    enddatetime_avgFG   = time_config%tc_startdate + td_end_time_avg_fg
     !
     ! get start and end datetime in ISO_8601 format relative to "tc_startdate"
     ! start time

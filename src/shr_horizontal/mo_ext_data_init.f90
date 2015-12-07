@@ -68,7 +68,8 @@ MODULE mo_ext_data_init
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_ext_data_state,     ONLY: construct_ext_data, levelname, cellname, o3name, o3unit, &
     &                              nlev_o3, nmonths
-  USE mo_master_config,      ONLY: getModelBaseDir, tc_current_date, tc_startdate
+  USE mo_master_config,      ONLY: getModelBaseDir
+  USE mo_time_config,        ONLY: time_config
   USE mo_io_config,          ONLY: default_read_method
   USE mo_read_interface,     ONLY: nf, openInputFile, closeFile, on_cells, &
     &                              t_stream_id, read_2D, read_2D_int, &
@@ -276,12 +277,12 @@ CONTAINS
         ! midnight.
         !
         IF (.NOT. isRestart()) THEN
-          this_datetime => newDatetime(tc_startdate)
+          this_datetime => newDatetime(time_config%tc_startdate)
           IF (timeshift%dt_shift < 0._wp) THEN
             this_datetime = this_datetime + timeshift%mtime_shift
           END IF
         ELSE
-          this_datetime => newDatetime(tc_current_date)
+          this_datetime => newDatetime(time_config%tc_current_date)
         END IF  ! isRestart
         !
         this_datetime%time%hour= 0   ! always assume midnight

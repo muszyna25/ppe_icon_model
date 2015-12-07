@@ -44,7 +44,7 @@
 MODULE mo_nwp_gscp_interface
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: message, message_text
+  USE mo_exception,            ONLY: message
   USE mo_parallel_config,      ONLY: nproma
 
   USE mo_model_domain,         ONLY: t_patch
@@ -71,7 +71,6 @@ MODULE mo_nwp_gscp_interface
   USE gscp_data,               ONLY: cloud_num
   USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst
   USE mo_grid_config,          ONLY: l_limited_area
-  USE mo_statistics,           ONLY: levels_horizontal_mean
 
   IMPLICIT NONE
 

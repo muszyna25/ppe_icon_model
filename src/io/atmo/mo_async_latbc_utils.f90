@@ -80,9 +80,8 @@
          &                            newTimedelta, deallocateTimedelta
     USE mo_limarea_config,      ONLY: latbc_config, generate_filename
     USE mo_ext_data_types,      ONLY: t_external_data
-    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime,  &
-      &                                tc_dt_model
-    USE mo_master_config,       ONLY: tc_startdate, tc_stopdate
+    USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, ltransport, dtime
+    USE mo_time_config,         ONLY: time_config
 
     USE mo_initicon_config,     ONLY: init_mode
     USE mtime_events,           ONLY: deallocateEvent
@@ -275,16 +274,16 @@
       ENDIF
 
       ! compute sim_start, sim_end in a formate appropriate for mtime
-      call datetimeToString(tc_startdate, sim_start)
-      call datetimeToString(tc_stopdate,  sim_end)
-      call datetimeToString(tc_startdate, sim_cur_read)
+      call datetimeToString(time_config%tc_startdate, sim_start)
+      call datetimeToString(time_config%tc_stopdate,  sim_end)
+      call datetimeToString(time_config%tc_startdate, sim_cur_read)
 
       event_name = 'Prefetch input'
 
       prefetchEvent => newEvent(TRIM(event_name), TRIM(sim_start), &
            TRIM(sim_cur_read), TRIM(sim_end), TRIM(latbc_config%dt_latbc))
 
-      my_duration_slack => newTimedelta(tc_dt_model)
+      my_duration_slack => newTimedelta(time_config%tc_dt_model)
       my_duration_slack = my_duration_slack * 0.5_wp
 
       delta_dtime => newTimedelta(latbc_config%dt_latbc)

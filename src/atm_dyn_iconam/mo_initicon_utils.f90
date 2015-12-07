@@ -79,7 +79,7 @@ MODULE mo_initicon_utils
   USE mo_dictionary,          ONLY: t_dictionary
   USE mo_checksum,            ONLY: printChecksum
   USE mo_fortran_tools,       ONLY: init
-  USE mo_master_config,       ONLY: tc_exp_startdate
+  USE mo_time_config,         ONLY: time_config
 
   IMPLICIT NONE
 
@@ -288,7 +288,7 @@ MODULE mo_initicon_utils
 
 
     ! add timeshift to INI-datetime to get true starting time
-    start_datetime => newDatetime(tc_exp_startdate)
+    start_datetime => newDatetime(time_config%tc_exp_startdate)
     start_datetime =  start_datetime + timeshift%mtime_shift
 
 
@@ -370,7 +370,7 @@ MODULE mo_initicon_utils
       !
       ! analysis field's validity time must match the model's initialization time
       !
-      lmatch_vtime = (this_list_element%field%vdatetime == tc_exp_startdate)
+      lmatch_vtime = (this_list_element%field%vdatetime == time_config%tc_exp_startdate)
 
       ! write(0,*) "vname: ", TRIM(grp_vars_ana(ivar))
       ! write(0,*) "vdatetime, inidatetime: ", this_list_element%field%vdatetime, mtime_inidatetime

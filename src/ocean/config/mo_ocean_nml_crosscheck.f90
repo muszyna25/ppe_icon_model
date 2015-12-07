@@ -73,7 +73,7 @@ CONTAINS
     !
     CALL compute_timestep_settings()
     CALL compute_restart_settings()
-    CALL compute_date_settings("oce", dt_restart, nsteps, time_config)
+    CALL compute_date_settings("oce", dt_restart, nsteps)
 
     CALL init_grid_configuration
 

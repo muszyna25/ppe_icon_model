@@ -42,12 +42,13 @@ MODULE mo_time_management
   USE mo_mtime_extensions,         ONLY: datetime_str_equal,                               &
     &                                    get_timedelta_divide_by_seconds,                  &
     &                                    getTimedeltaFromMS, timedelta_str_equal
-  USE mo_time_config,              ONLY: t_time_config, dt_restart,                        &
+  USE mo_time_config,              ONLY: dt_restart,                                       &
     &                                    ini_datetime_string, is_relative_time,            &
     &                                    time_nml_calendar => calendar,                    &
-    &                                    restart_calendar, restart_ini_datetime_string
-  USE mo_run_config,               ONLY: dtime, mtime_modelTimeStep => modelTimeStep,      &
+    &                                    restart_calendar, restart_ini_datetime_string,    &
+    &                                    setTimeConfigCalendar, setIsRelativeTime,         &
     &                                    setModelTimeStep
+  USE mo_run_config,               ONLY: dtime, mtime_modelTimeStep => modelTimeStep
   USE mo_master_control,           ONLY: atmo_process, get_my_process_type
   USE mo_impl_constants,           ONLY: max_dom, IHS_ATM_TEMP, IHS_ATM_THETA,             &
     &                                    DEFAULT_RESTART_INTVL, DEFAULT_CHECKPT_INTVL,     &
@@ -64,14 +65,13 @@ MODULE mo_time_management
   USE mo_atm_phy_nwp_config,       ONLY: atm_phy_nwp_config
   USE mo_master_config,            ONLY: experimentReferenceDate,                          &
     &                                    experimentStartDate,                              &
-    &                                    experimentStopDate, isRestart,                    &
-    &                                    setExpRefdate, setExpStartdate,                   &
+    &                                    checkpointTimeIntval, restartTimeIntval,          &
+    &                                    experimentStopDate, isRestart
+  USE mo_time_config,              ONLY: setExpRefdate, setExpStartdate,                   &
     &                                    setExpStopdate, setStartdate, setStopdate,        &
     &                                    master_nml_calendar => calendar,                  &
-    &                                    checkpointTimeIntval, restartTimeIntval,          &
     &                                    setrestarttimeinterval, setcheckpointtimeinterval,&
-    &                                    setCurrentdate
-  USE mo_time_config,              ONLY: end_datetime_string
+    &                                    setCurrentdate, end_datetime_string
   USE mo_io_restart_attributes,    ONLY: get_restart_attribute
   USE mo_io_restart,               ONLY: read_restart_header
 
@@ -388,11 +388,10 @@ CONTAINS
   !
   !  Initial revision:  10/2015 : F. Prill, DWD
   !
-  SUBROUTINE compute_date_settings(model_string, dt_restart, nsteps, time_config)
+  SUBROUTINE compute_date_settings(model_string, dt_restart, nsteps)
     CHARACTER(LEN=*),    INTENT(IN)    :: model_string       !< e.g.  "atm"
     REAL(wp),            INTENT(IN)    :: dt_restart         !< Length of restart cycle in seconds
     INTEGER,             INTENT(INOUT) :: nsteps
-    TYPE(t_time_config), INTENT(OUT)   :: time_config
     ! local variables
     CHARACTER(len=*), PARAMETER ::  routine = modname//'::compute_date_settings'
 
@@ -704,8 +703,8 @@ CONTAINS
 
     ! --- Finally, store the same information in a "t_datetime" data
     !     structure
-    time_config%calendar         = dtime_calendar
-    time_config%is_relative_time = is_relative_time
+    CALL setTimeConfigCalendar(dtime_calendar)
+    CALL setIsRelativeTime(is_relative_time)
 
     ! --------------------------------------------------------------
     ! PART III: Print all date and time components

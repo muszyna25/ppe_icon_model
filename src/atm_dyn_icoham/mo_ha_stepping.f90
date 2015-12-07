@@ -38,7 +38,7 @@ MODULE mo_ha_stepping
     &                               n_chkpt, n_diag
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,             &
                                   & ldynamics, ltransport, msg_level,   &
-                                  & ltestcase, output_mode, tc_dt_model
+                                  & ltestcase, output_mode
   USE mo_master_config,       ONLY: isRestart
   USE mo_ha_testcases,        ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
@@ -285,8 +285,8 @@ CONTAINS
     ! of nested domains with recursively halved time steps
 
     CALL process_grid( p_patch, p_hydro_state, p_int_state, p_grf_state,       &
-      &                ext_data, 1, jstep, l_3tl_init, dtime, tc_dt_model,     &
-      &                1, mtime_current )
+      &                ext_data, 1, jstep, l_3tl_init, dtime,                  &
+      &                time_config%tc_dt_model, 1, mtime_current )
 
     !--------------------------------------------------------------------------
     ! One integration cycle finished on the lowest grid level (coarsest
@@ -294,7 +294,7 @@ CONTAINS
     !--------------------------------------------------------------------------
 
     ! update model date and time (mtime)
-    mtime_current = mtime_current + tc_dt_model
+    mtime_current = mtime_current + time_config%tc_dt_model
 
     !--------------------------------------------------------------------------
     ! Set output flags

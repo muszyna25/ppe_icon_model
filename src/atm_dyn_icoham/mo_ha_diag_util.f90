@@ -35,7 +35,7 @@ MODULE mo_ha_diag_util
   USE mo_parallel_config,    ONLY: nproma, p_test_run, use_icon_comm
   USE mo_run_config,         ONLY: nlev, nlevp1, iqv, iqc, iqi, iqr, iqs, &
   &                                iforcing, output_mode
-  USE mo_master_config,      ONLY: tc_startdate, tc_current_date
+  USE mo_time_config,        ONLY: time_config
   USE mtime,                 ONLY: divideDatetimeDifferenceInSeconds, deallocateTimedelta, &
     &                              divisionquotienttimespan, timedelta, newTimedelta
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam
@@ -640,7 +640,8 @@ CONTAINS
             !    - ini_datetime%calday - ini_datetime%caltime) / 1._wp)
 
             intvl_1day => newTimedelta("P1D")
-            CALL divideDatetimeDifferenceInSeconds(tc_current_date, tc_startdate, intvl_1day, tq)
+            CALL divideDatetimeDifferenceInSeconds(time_config%tc_current_date, time_config%tc_startdate, &
+              &                                    intvl_1day, tq)
             factor_topo = MIN(1._wp, REAL(tq%remainder_in_ms,wp)/(24._wp * 3600._wp * 1000._wp))
             CALL deallocateTimedelta(intvl_1day)
 

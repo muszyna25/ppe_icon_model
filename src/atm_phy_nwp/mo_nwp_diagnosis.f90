@@ -63,7 +63,7 @@ MODULE mo_nwp_diagnosis
   USE mo_statistics,         ONLY: time_avg
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_nwp_parameters,     ONLY: t_phy_params
-  USE mo_master_config,      ONLY: tc_current_date
+  USE mo_time_config,        ONLY: time_config
 
   IMPLICIT NONE
 
@@ -1167,7 +1167,7 @@ CONTAINS
     IF (ASSOCIATED(ww_datetime(jg)%ptr)) THEN 
       CALL deallocateDatetime(ww_datetime(jg)%ptr)
     END IF
-    ww_datetime(jg)%ptr => newDateTime(tc_current_date)
+    ww_datetime(jg)%ptr => newDateTime(time_config%tc_current_date)
 
     ! compute modified cloud parameters for TV presentation
     CALL calcmod( pt_patch, pt_diag, prm_diag )

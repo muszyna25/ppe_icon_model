@@ -35,7 +35,7 @@ MODULE mo_ocean_coupling
 
   USE mo_ocean_types
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
-  USE mo_master_config,       ONLY: setCurrentDate
+  USE mo_time_config,         ONLY: setCurrentDate
   USE mtime,                  ONLY: datetime, datetimeToString, &
     &                               MAX_DATETIME_STR_LEN
 

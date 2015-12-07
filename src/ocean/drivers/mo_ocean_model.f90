@@ -14,7 +14,7 @@
 MODULE mo_ocean_model
 
   USE mo_exception,           ONLY: message, finish
-  USE mo_master_config,       ONLY: isRestart, tc_current_date
+  USE mo_master_config,       ONLY: isRestart
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
     & stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
@@ -53,7 +53,6 @@ MODULE mo_ocean_model
 
   USE mo_build_decomposition, ONLY: build_decomposition
   USE mo_complete_subdivision,ONLY: setup_phys_patches
-  USE mo_master_config,       ONLY: tc_exp_startdate, tc_exp_stopdate, tc_startdate, tc_stopdate
   USE mtime,                  ONLY: datetimeToString
 
   USE mo_ocean_ext_data,      ONLY: ext_data, construct_ocean_ext_data, destruct_ocean_ext_data
@@ -188,10 +187,10 @@ MODULE mo_ocean_model
 !       IF (process_mpi_io_size > 0) use_async_name_list_io = .TRUE.
       CALL parse_variable_groups()
       ! compute sim_start, sim_end
-      CALL datetimeToString(tc_exp_startdate, sim_step_info%sim_start)
-      CALL datetimeToString(tc_exp_stopdate, sim_step_info%sim_end)
-      CALL datetimeToString(tc_startdate, sim_step_info%run_start)
-      CALL datetimeToString(tc_stopdate, sim_step_info%restart_time)
+      CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
+      CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
+      CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
+      CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
 
       sim_step_info%dtime      = dtime
       jstep0 = 0
@@ -405,7 +404,7 @@ MODULE mo_ocean_model
     !
     ! TODO: remove this after transition to mtime library!!!
 
-    CALL datetimeToString(tc_current_date, datetime_string    )
+    CALL datetimeToString(time_config%tc_current_date, datetime_string    )
     CALL string_to_datetime( datetime_string,  start_datetime )
     !---------------------------------------------------------------  
 
@@ -625,10 +624,10 @@ MODULE mo_ocean_model
         IF (ltimer) CALL timer_stop(timer_model_init)
 
         ! compute sim_start, sim_end
-        CALL datetimeToString(tc_exp_startdate, sim_step_info%sim_start)
-        CALL datetimeToString(tc_exp_stopdate, sim_step_info%sim_end)
-        CALL datetimeToString(tc_startdate, sim_step_info%run_start)
-        CALL datetimeToString(tc_stopdate, sim_step_info%restart_time)
+        CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
+        CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
+        CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
+        CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
 
         sim_step_info%dtime      = dtime
         jstep0 = 0

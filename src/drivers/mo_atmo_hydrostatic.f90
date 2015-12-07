@@ -16,7 +16,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_exception,         ONLY: message
   USE mo_impl_constants,    ONLY: iecham, ildf_echam
 
-  USE mo_master_config,     ONLY: isRestart, tc_current_date
+  USE mo_master_config,     ONLY: isRestart
   USE mo_time_config,       ONLY: time_config
   USE mo_run_config,        ONLY: dtime, iforcing, nlev, &
     &                             msg_level, output_mode, ntracer, iqv, iqc, iqt
@@ -25,7 +25,6 @@ MODULE mo_atmo_hydrostatic
   USE mo_ha_testcases,      ONLY: ctest_name
   USE mo_io_config,         ONLY: configure_io
   USE mo_grid_config,       ONLY: n_dom
-  USE mo_master_config,       ONLY: tc_exp_startdate, tc_exp_stopdate, tc_startdate, tc_stopdate
   USE mo_model_domain,        ONLY: p_patch
   USE mo_intp_data_strc,      ONLY: p_int_state
   USE mo_grf_intp_data_strc,  ONLY: p_grf_state
@@ -76,7 +75,7 @@ CONTAINS
 
     CALL perform_ha_stepping( p_patch(1:), p_int_state(1:),                  &
                             & p_grf_state(1:),                               &
-                            & p_hydro_state, tc_current_date )
+                            & p_hydro_state, time_config%tc_current_date )
 
     !---------------------------------------------------------------------
     ! Integration finished. Start to clean up.
@@ -121,7 +120,7 @@ CONTAINS
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
       CALL init_echam_phy( p_patch(1:), ctest_name, &
-                            & nlev, vct_a, vct_b, tc_current_date )
+                            & nlev, vct_a, vct_b, time_config%tc_current_date )
     END IF
 
     !------------------------------------------------------------------
@@ -159,10 +158,10 @@ CONTAINS
 
     IF (output_mode%l_nml) THEN
       ! compute sim_start, sim_end
-      CALL datetimeToString(tc_exp_startdate, sim_step_info%sim_start)
-      CALL datetimeToString(tc_exp_stopdate, sim_step_info%sim_end)
-      CALL datetimeToString(tc_startdate, sim_step_info%run_start)
-      CALL datetimeToString(tc_stopdate, sim_step_info%restart_time)
+      CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
+      CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
+      CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
+      CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
 
       sim_step_info%dtime      = dtime
       jstep0 = 0

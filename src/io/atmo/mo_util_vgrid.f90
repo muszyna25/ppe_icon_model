@@ -53,8 +53,7 @@ MODULE mo_util_vgrid
   USE mo_util_cdi,                          ONLY: get_cdi_varID, read_cdi_3d, &
     &                                             t_inputParameters, makeInputParameters, deleteInputParameters
   USE mo_mpi,                               ONLY: my_process_is_mpi_workroot,                           &
-    &                                             p_comm_work, p_comm_work_test, p_bcast, p_io
-  USE mo_parallel_config,                   ONLY: p_test_run
+    &                                             p_comm_work, p_bcast, p_io
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
 
   IMPLICIT NONE

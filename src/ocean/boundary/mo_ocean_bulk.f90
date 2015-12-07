@@ -78,7 +78,7 @@ USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
 USE mo_sea_ice,             ONLY: calc_bulk_flux_ice, calc_bulk_flux_oce, ice_slow, ice_fast
 USE mo_sea_ice_refactor,    ONLY: ice_slow_slo
 USE mo_sea_ice_nml,         ONLY: use_constant_tfreez, i_therm_slo
-USE mo_master_config,       ONLY: tc_exp_startdate
+USE mo_time_config,         ONLY: time_config
 
 IMPLICIT NONE
 
@@ -1090,7 +1090,7 @@ CONTAINS
 
         ! use initial date to define correct set (year) of reading NCEP data
         !  - with offset=0 always the first year of NCEP data is used
-        iniyear = tc_exp_startdate%date%year
+        iniyear = time_config%tc_exp_startdate%date%year
         !curyear = time_config%cur_datetime%year  ! not updated each timestep
         curyear = datetime%year
         offset = 0

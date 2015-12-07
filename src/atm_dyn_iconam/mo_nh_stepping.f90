@@ -42,7 +42,7 @@ MODULE mo_nh_stepping
                                          num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
     &                                    ntracer, iforcing, msg_level, test_mode,           &
-    &                                    output_mode, lart, tc_dt_model
+    &                                    output_mode, lart
   USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_advection_config,         ONLY: advection_config
   USE mo_radiation_config,         ONLY: albedo_type
@@ -112,9 +112,7 @@ MODULE mo_nh_stepping
   USE mo_vertical_grid,            ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,    ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
-  USE mo_master_config,            ONLY: isRestart, tc_startdate, tc_stopdate,                      &
-       &                                 tc_exp_refdate, tc_exp_startdate, tc_exp_stopdate,         &
-       &                                 tc_dt_checkpoint, tc_dt_restart, lrestart_write_last
+  USE mo_master_config,            ONLY: isRestart, lrestart_write_last
   USE mo_io_restart_attributes,    ONLY: get_restart_attribute
   USE mo_meteogram_config,         ONLY: meteogram_output_config
   USE mo_meteogram_output,         ONLY: meteogram_sample_vars, meteogram_is_sample_step
@@ -422,7 +420,7 @@ MODULE mo_nh_stepping
   !------------------------------------------------------------------
   !  get and write out some of the initial values
   !------------------------------------------------------------------
-  IF (.NOT.isRestart() .AND. (mtime_current >= tc_startdate)) THEN
+  IF (.NOT.isRestart() .AND. (mtime_current >= time_config%tc_startdate)) THEN
 
     !--------------------------------------------------------------------------
     ! loop over the list of internal post-processing tasks, e.g.
@@ -455,7 +453,7 @@ MODULE mo_nh_stepping
       IF (.NOT. output_mode%l_none .AND. &    ! meteogram output is not initialized for output=none
         & p_patch(jg)%ldom_active  .AND. &
         & meteogram_is_sample_step( meteogram_output_config(jg), 0 ) ) THEN
-        CALL meteogram_sample_vars(jg, 0, tc_startdate, ierr)
+        CALL meteogram_sample_vars(jg, 0, time_config%tc_startdate, ierr)
         IF (ierr /= SUCCESS) THEN
           CALL finish (routine, 'Error in meteogram sampling! Sampling buffer too small?')
         ENDIF
@@ -579,7 +577,7 @@ MODULE mo_nh_stepping
   
   ! calculate elapsed simulation time in seconds
   time_diff  => newTimedelta("PT0S")
-  time_diff  =  getTimeDeltaFromDateTime(mtime_current, tc_startdate)
+  time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_startdate)
   sim_time   =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
   CALL deallocateTimedelta(time_diff)
 
@@ -644,19 +642,19 @@ MODULE mo_nh_stepping
 
   CALL message('','')
 
-  eventRefDate   => tc_exp_refdate
-  eventStartDate => tc_exp_startdate
-  eventEndDate   => tc_exp_stopdate
+  eventRefDate   => time_config%tc_exp_refdate
+  eventStartDate => time_config%tc_exp_startdate
+  eventEndDate   => time_config%tc_exp_stopdate
 
   ! create an event manager, ie. a collection of different events
-  CALL initEventManager(tc_exp_refdate)
+  CALL initEventManager(time_config%tc_exp_refdate)
 
   ! --- create an event group for checkpointing and restart
   checkpointEvents =  addEventGroup('checkpointEventGroup')
   checkpointEventGroup => getEventGroup(checkpointEvents)
 
   ! --- --- create checkpointing event
-  eventInterval  => tc_dt_checkpoint
+  eventInterval  => time_config%tc_dt_checkpoint
   checkpointEvent => newEvent('checkpoint', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
   IF (ierr /= no_Error) THEN
     CALL mtime_strerror(ierr, errstring)
@@ -665,7 +663,7 @@ MODULE mo_nh_stepping
   lret = addEventToEventGroup(checkpointEvent, checkpointEventGroup)
 
   ! --- --- create restart event, ie. checkpoint + medel stop
-  eventInterval  => tc_dt_restart
+  eventInterval  => time_config%tc_dt_restart
   restartEvent => newEvent('restart', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
   IF (ierr /= no_Error) THEN
     CALL mtime_strerror(ierr, errstring)
@@ -676,13 +674,13 @@ MODULE mo_nh_stepping
   CALL printEventGroup(checkpointEvents)
 
   ! set time loop properties
-  model_time_step => tc_dt_model
+  model_time_step => time_config%tc_dt_model
 
   CALL message('','')
   CALL datetimeToString(mtime_current, dstring)
   WRITE(message_text,'(a,a)') 'Start date of this run: ', dstring
   CALL message('',message_text)
-  CALL datetimeToString(tc_stopdate, dstring)
+  CALL datetimeToString(time_config%tc_stopdate, dstring)
   WRITE(message_text,'(a,a)') 'Stop date of this run:  ', dstring
   CALL message('',message_text)
   CALL message('','')
@@ -727,7 +725,7 @@ MODULE mo_nh_stepping
     IF (lprint_timestep) THEN
       ! compute current forecast time (delta):
       forecast_delta => newTimedelta("P01D")
-      forecast_delta = mtime_current - tc_startdate
+      forecast_delta = mtime_current - time_config%tc_startdate
       ! we append the forecast time delta as an ISO 8601 conforming
       ! string (where, for convenience, the 'T' token has been
       ! replaced by a blank character)
@@ -1045,10 +1043,10 @@ MODULE mo_nh_stepping
       !          or restart cycle has been reached, i.e. checkpoint+model stop
       &       .OR.  isCurrentEventActive(restartEvent, mtime_current)          &
       !          and the current date differs from simulation start date
-      &       .AND. (tc_startdate /= mtime_current))                           &
+      &       .AND. (time_config%tc_startdate /= mtime_current))                           &
       &  .OR.                                                                  &
       !   ... CASE B: if end of experiment has been reached
-      &  ((tc_exp_stopdate == mtime_current)                                   &
+      &  ((time_config%tc_exp_stopdate == mtime_current)                                   &
       &       .AND. lrestart_write_last)                                       &
       !   ... make sure (for both cases A and B) that model output is enabled
       &     .AND. .NOT. output_mode%l_none ) THEN
@@ -1106,7 +1104,7 @@ MODULE mo_nh_stepping
        CALL prefetch_input( mtime_current, p_patch(1), p_int_state(1), p_nh_state(1))
     ENDIF
 
-    IF (mtime_current >= tc_stopdate) then
+    IF (mtime_current >= time_config%tc_stopdate) then
 #ifdef _MTIME_DEBUG       
        ! consistency check: compare step counter to expected end step
        if (jstep /= (jstep0+nsteps)) then
@@ -1192,7 +1190,7 @@ MODULE mo_nh_stepping
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
     time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(datetime_local(jg)%ptr, tc_startdate)
+    time_diff  =  getTimeDeltaFromDateTime(datetime_local(jg)%ptr, time_config%tc_startdate)
     sim_time   =  getTotalMillisecondsTimedelta(time_diff, datetime_local(jg)%ptr)*1.e-3_wp
     CALL deallocateTimedelta(time_diff)
 
@@ -2048,7 +2046,7 @@ MODULE mo_nh_stepping
       IF ( ANY((/MODE_IAU,MODE_IAU_OLD/)==init_mode) ) THEN ! incremental analysis mode
 
         time_diff  => newTimedelta("PT0S")
-        time_diff  =  getTimeDeltaFromDateTime(mtime_current, tc_startdate)
+        time_diff  =  getTimeDeltaFromDateTime(mtime_current, time_config%tc_startdate)
         cur_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp &
           & + (REAL(nstep-ndyn_substeps_var(jg),wp)-0.5_wp)*dt_dyn
         CALL deallocateTimedelta(time_diff)

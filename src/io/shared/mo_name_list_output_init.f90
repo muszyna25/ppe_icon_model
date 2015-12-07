@@ -54,8 +54,7 @@ MODULE mo_name_list_output_init
     &                                             dtime_proleptic_gregorian => proleptic_gregorian, &
     &                                             dtime_cly360              => cly360
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
-  USE mo_master_config,                     ONLY: getModelBaseDir, isRestart, tc_startdate,       &
-    &                                             tc_exp_startdate
+  USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
   USE mo_master_control,                    ONLY: my_process_is_ocean
   ! basic utility modules
   USE mo_exception,                         ONLY: finish, message, message_text
@@ -1632,7 +1631,7 @@ CONTAINS
 
       ! set model domain start/end time
       dom_sim_step_info = sim_step_info
-      mtime_date => newDatetime(tc_startdate)
+      mtime_date => newDatetime(time_config%tc_startdate)
       mtime_td   => newTimedelta("PT"//TRIM(int2string(NINT(start_time(p_of%log_patch_id)),'(i0)'))//"S")
       mtime_date = mtime_date + mtime_td
       CALL datetimeToString(mtime_date, dom_sim_step_info%dom_start_time)
@@ -1640,7 +1639,7 @@ CONTAINS
       CALL deallocateTimedelta(mtime_td)
 
       IF (end_time(p_of%log_patch_id) < DEFAULT_ENDTIME) THEN
-        mtime_date => newDatetime(tc_startdate)
+        mtime_date => newDatetime(time_config%tc_startdate)
         mtime_td   => newTimedelta("PT"//TRIM(int2string(NINT(end_time(p_of%log_patch_id)),'(i0)'))//"S")
         mtime_date = mtime_date + mtime_td
         CALL datetimeToString(mtime_date, dom_sim_step_info%dom_end_time)
@@ -1658,7 +1657,7 @@ CONTAINS
         IF (TRIM(p_onl%output_start(2)) /= '') &
           CALL finish(routine, "Not implemented for ocean model with restart!")
 
-        mtime_date => newDatetime(tc_startdate)
+        mtime_date => newDatetime(time_config%tc_startdate)
         mtime_td   => newTimedelta(p_onl%output_interval(1))
         mtime_date = mtime_date + mtime_td
         CALL datetimeToString(mtime_date, p_onl%output_start(1))
@@ -2573,11 +2572,11 @@ CONTAINS
      CASE default
        CALL finish(routine, "Unsupported calendar!")
      END SELECT
-     idate = cdiEncodeDate(INT(tc_exp_startdate%date%year),  &
-       &                   INT(tc_exp_startdate%date%month), &
-       &                   INT(tc_exp_startdate%date%day))
-     itime = cdiEncodeTime(tc_exp_startdate%time%hour, tc_exp_startdate%time%minute, &
-                           INT(tc_exp_startdate%time%second))
+     idate = cdiEncodeDate(INT(time_config%tc_exp_startdate%date%year),  &
+       &                   INT(time_config%tc_exp_startdate%date%month), &
+       &                   INT(time_config%tc_exp_startdate%date%day))
+     itime = cdiEncodeTime(time_config%tc_exp_startdate%time%hour, time_config%tc_exp_startdate%time%minute, &
+                           INT(time_config%tc_exp_startdate%time%second))
 
      CALL taxisDefRdate (of%cdiTaxisID, idate )
      CALL taxisDefRtime (of%cdiTaxisID, itime )

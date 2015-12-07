@@ -50,8 +50,8 @@ MODULE mo_icon_cpl_exchg
    &                      RESTART,          &
    &                      XCHANGE
 
-  USE mo_master_config,  ONLY   : tc_current_date
   USE mo_io_config, ONLY        : dt_checkpoint
+  USE mo_time_config, ONLY      : time_config
   USE mtime, ONLY               : MAX_DATETIME_STR_LEN, datetimeToString
 
   IMPLICIT NONE
@@ -189,7 +189,7 @@ CONTAINS
     IF ( .NOT. l_action ) RETURN
 
     IF ( debug_coupler_level > 1 ) THEN
-      CALL datetimeToString(tc_current_date, datetime_string)
+      CALL datetimeToString(time_config%tc_current_date, datetime_string)
        WRITE ( cplout , '(A10,A8,A10,a,L1)' ) 'Receiving ', &
             TRIM(cpl_fields(field_id)%field_name), ' for date ', &
             datetime_string, l_restart
@@ -285,7 +285,7 @@ CONTAINS
           ENDIF
 
           IF ( debug_coupler_level > 1 ) THEN
-            CALL datetimeToString(tc_current_date, datetime_string)
+            CALL datetimeToString(time_config%tc_current_date, datetime_string)
              WRITE ( cplout , '(A10,A8,A10,A)' ) 'Receiving ', &
                   TRIM(cpl_fields(field_id)%field_name), ' for date ', &
                   datetime_string
@@ -521,7 +521,7 @@ CONTAINS
     ENDIF
 
     IF ( debug_coupler_level > 1 ) THEN
-      CALL datetimeToString(tc_current_date, datetime_string)
+      CALL datetimeToString(time_config%tc_current_date, datetime_string)
        WRITE ( cplout , '(A10,A8,A10,A)' ) 'Sending   ', &
             TRIM(cpl_fields(field_id)%field_name), ' for date ', &
             datetime_string
@@ -689,7 +689,7 @@ CONTAINS
           msgtag = msgtag + 1
 
           IF ( debug_coupler_level > 1 ) THEN
-            CALL datetimeToString(tc_current_date, datetime_string)
+            CALL datetimeToString(time_config%tc_current_date, datetime_string)
              WRITE ( cplout , '(A10,A8,A10,A)' ) 'Sending   ', &
                   TRIM(cpl_fields(field_id)%field_name), ' for date ', &
                   datetime_string

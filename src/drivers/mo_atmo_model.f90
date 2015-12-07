@@ -16,7 +16,7 @@
 MODULE mo_atmo_model
 
   ! basic modules
-  USE mo_exception,               ONLY: message, finish, message_text
+  USE mo_exception,               ONLY: message, finish
   USE mo_mpi,                     ONLY: stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
     &                                   set_mpi_work_communicators, process_mpi_io_size,      &
     &                                   my_process_is_restart, process_mpi_restart_size,      &
@@ -28,9 +28,7 @@ MODULE mo_atmo_model
   USE mo_parallel_config,         ONLY: p_test_run, l_test_openmp, num_io_procs,              &
     &                                   num_restart_procs, use_async_restart_output,          &
     &                                   num_prefetch_proc
-  USE mo_master_config,           ONLY: isRestart, setStartdate, setStopdate, setExpStopdate, &
-       &                                tc_startdate, tc_stopdate, tc_dt_restart,             &
-       &                                tc_exp_stopdate, tc_exp_startdate
+  USE mo_master_config,           ONLY: isRestart
 #ifndef NOMPI
 #if defined(__GET_MAXRSS__)
   USE mo_mpi,                     ONLY: get_my_mpi_all_id
@@ -113,9 +111,7 @@ MODULE mo_atmo_model
   USE mo_io_restart_namelist,     ONLY: delete_restart_namelists
   USE mo_time_config,             ONLY: time_config      ! variable
   USE mo_output_event_types,      ONLY: t_sim_step_info
-  USE mtime,                      ONLY: MAX_DATETIME_STR_LEN,                      &
-       &                                datetime, newDatetime, deallocateDatetime, &
-       &                                datetimeToString, OPERATOR(<), OPERATOR(+)
+  USE mtime,                      ONLY: datetimeToString, OPERATOR(<), OPERATOR(+)
   ! Prefetching  
   USE mo_async_latbc,             ONLY: prefetch_main_proc
   ! ART
@@ -214,9 +210,6 @@ CONTAINS
     INTEGER                 :: jg, jgp, jstep0, error_status
     TYPE(t_sim_step_info)   :: sim_step_info  
 
-    TYPE(datetime), POINTER :: calculatedStopDate => NULL()
-    CHARACTER(len=max_datetime_str_len) :: startDate = '', dstring
-
     ! initialize global registry of lon-lat grids
     CALL init_lonlat_grid_list()
 
@@ -227,50 +220,7 @@ CONTAINS
     IF (isRestart()) THEN
       CALL message('','Read restart file meta data ...')
       CALL read_restart_header("atm")
-      CALL get_restart_attribute('tc_startdate', startDate)
-    ELSE
-      CALL datetimeToString(tc_exp_startdate, startDate)
     ENDIF
-
-    !---------------------------------------------------------------------
-    ! 0.1 check for start and stop dates
-    !---------------------------------------------------------------------
-
-    CALL setStartdate(startDate)
-    
-    IF (ASSOCIATED(tc_startdate) .AND. ASSOCIATED(tc_dt_restart)) THEN
-      calculatedStopDate => newDatetime('0001-01-01T00:00:00')
-      calculatedStopDate = tc_startdate + tc_dt_restart 
-      IF (ASSOCIATED(tc_exp_stopdate)) THEN
-        IF (tc_exp_stopdate < calculatedStopDate) THEN
-          calculatedStopDate = tc_exp_stopdate
-          IF (msg_level >= 12) THEN
-            CALL message('','Experiment stop date earlier than run stop date. '// &
-              &         'Reset end to experiment stop date!')   
-          END IF
-        ENDIF
-      ENDIF
-      CALL datetimeToString(calculatedStopDate, dstring)
-      CALL setStopdate(dstring)
-      IF (.NOT. ASSOCIATED(tc_exp_stopdate)) THEN
-        CALL setExpStopdate(dstring)
-      ENDIF
-      CALL deallocateDatetime(calculatedStopDate)
-    ENDIF
-
-    IF (ASSOCIATED(tc_startdate)) THEN
-      CALL datetimeToString(tc_startdate, dstring)
-      WRITE(message_text,'(a,a)') 'Start date of this run   : ', dstring
-      CALL message('',message_text)
-    ENDIF
-
-    IF (ASSOCIATED(tc_stopdate)) THEN
-      CALL datetimeToString(tc_stopdate, dstring)
-      WRITE(message_text,'(a,a)') 'Stop date of this run    : ', dstring
-      CALL message('',message_text)
-    ENDIF
-
-    CALL message('','')
 
     !---------------------------------------------------------------------
     ! 1.1 Read namelists (newly) specified by the user; fill the
@@ -335,7 +285,7 @@ CONTAINS
       num_prefetch_proc = 1
       CALL message(routine,'asynchronous input prefetching is enabled.')
       IF (my_process_is_pref() .AND. (.NOT. my_process_is_mpi_test())) THEN
-        CALL prefetch_main_proc(tc_startdate)
+        CALL prefetch_main_proc(time_config%tc_startdate)
       ENDIF
     ENDIF
  
@@ -359,10 +309,10 @@ CONTAINS
           IF (timers_level > 3) CALL timer_stop(timer_model_init)
 
           ! compute sim_start, sim_end
-          CALL datetimeToString(tc_exp_startdate, sim_step_info%sim_start)
-          CALL datetimeToString(tc_exp_stopdate, sim_step_info%sim_end)
-          CALL datetimeToString(tc_startdate, sim_step_info%run_start)
-          CALL datetimeToString(tc_stopdate, sim_step_info%restart_time)
+          CALL datetimeToString(time_config%tc_exp_startdate, sim_step_info%sim_start)
+          CALL datetimeToString(time_config%tc_exp_stopdate, sim_step_info%sim_end)
+          CALL datetimeToString(time_config%tc_startdate, sim_step_info%run_start)
+          CALL datetimeToString(time_config%tc_stopdate, sim_step_info%restart_time)
           sim_step_info%dtime      = dtime
           jstep0 = 0
           IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
@@ -534,7 +484,7 @@ CONTAINS
         CALL configure_nonhydrostatic( jg, p_patch(jg)%nlev,     &
           &                            p_patch(jg)%nshift_total  )
         IF ( iforcing == inwp) THEN
-          CALL configure_ww( tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total)
+          CALL configure_ww( time_config%tc_startdate, jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total)
         END IF
       ENDDO
     ENDIF

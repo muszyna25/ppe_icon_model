@@ -53,7 +53,7 @@ MODULE mo_turbulent_diagnostic
   USE mtime,                 ONLY: datetime, timeDelta, newTimedelta,             &
     &                              deallocateTimedelta, getTimedeltaFromDatetime, &
     &                              getTotalMillisecondsTimedelta
-  USE mo_master_config,      ONLY: tc_startdate
+  USE mo_time_config,        ONLY: time_config
  
   IMPLICIT NONE
 
@@ -954,7 +954,7 @@ CONTAINS
     
     ! calculate elapsed simulation time in seconds
     time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(this_datetime, tc_startdate)
+    time_diff  =  getTimeDeltaFromDateTime(this_datetime, time_config%tc_startdate)
     sim_time   =  getTotalMillisecondsTimedelta(time_diff, this_datetime)*1.e-3_wp
     CALL deallocateTimedelta(time_diff)
  
@@ -1000,7 +1000,7 @@ CONTAINS
     
     ! calculate elapsed simulation time in seconds
     time_diff  => newTimedelta("PT0S")
-    time_diff  =  getTimeDeltaFromDateTime(this_datetime, tc_startdate)
+    time_diff  =  getTimeDeltaFromDateTime(this_datetime, time_config%tc_startdate)
     sim_time   =  getTotalMillisecondsTimedelta(time_diff, this_datetime)*1.e-3_wp
     CALL deallocateTimedelta(time_diff)
 
@@ -1051,7 +1051,7 @@ CONTAINS
  
    ! calculate elapsed simulation time in seconds
    time_diff  => newTimedelta("PT0S")
-   time_diff  =  getTimeDeltaFromDateTime(this_datetime, tc_startdate)
+   time_diff  =  getTimeDeltaFromDateTime(this_datetime, time_config%tc_startdate)
    p_sim_time =  getTotalMillisecondsTimedelta(time_diff, this_datetime)*1.e-3_wp
    CALL deallocateTimedelta(time_diff)
 

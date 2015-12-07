@@ -35,7 +35,7 @@ MODULE mo_var_metadata
   USE mo_action_types,       ONLY: t_var_action_element, t_var_action
   USE mo_util_string,        ONLY: toupper
   USE mo_fortran_tools,      ONLY: assign_if_present, resize_arr_c1d
-  USE mo_master_config,      ONLY: tc_startdate, tc_stopdate
+  USE mo_time_config,        ONLY: time_config
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,    &
     &                              timedelta, newTimedelta, deallocateTimedelta, &
     &                              OPERATOR(+), dateTimeToString, MAX_DATETIME_STR_LEN
@@ -545,9 +545,9 @@ CONTAINS
     !---------------------------------------------------------------------------------
 
     ! create model ini_datetime in ISO_8601 format
-    CALL dateTimeToString(tc_startdate, iso8601_ini_datetime)
+    CALL dateTimeToString(time_config%tc_startdate, iso8601_ini_datetime)
     ! create model end_datetime in ISO_8601 format
-    CALL dateTimeToString(tc_stopdate, iso8601_end_datetime)
+    CALL dateTimeToString(time_config%tc_stopdate, iso8601_end_datetime)
 
     ! default start time = model initialization time
     start0 = TRIM(iso8601_ini_datetime)
@@ -636,7 +636,7 @@ CONTAINS
       start_offset => newTimedelta(TRIM(opt_start))
       !
       ! add start offset to model ini date
-      startdatetime = tc_startdate + start_offset
+      startdatetime = time_config%tc_startdate + start_offset
       ! transform back from TYPE datetime to ISO_8601
       dummy_ptr => startdatetime
       CALL dateTimeToString(dummy_ptr, start)
@@ -652,7 +652,7 @@ CONTAINS
       end_offset => newTimedelta(TRIM(opt_end))
       !
       ! add end offset to model ini date
-      enddatetime = tc_startdate + end_offset
+      enddatetime = time_config%tc_startdate + end_offset
       ! transform back from TYPE datetime to ISO_8601
       dummy_ptr => enddatetime
       CALL dateTimeToString(dummy_ptr, end)
@@ -667,7 +667,7 @@ CONTAINS
       ref_offset => newTimedelta(TRIM(opt_ref))
       !
       ! add ref offset to model ini date
-      refdatetime = tc_startdate + ref_offset
+      refdatetime = time_config%tc_startdate + ref_offset
       ! transform back from TYPE datetime to ISO_8601
       dummy_ptr => refdatetime
       CALL dateTimeToString(dummy_ptr, ref)

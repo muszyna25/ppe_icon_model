@@ -144,8 +144,8 @@ MODULE mo_meteogram_output
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
   USE mo_lnd_nwp_config,        ONLY: tiles
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase, &
-    &                                 number_of_grid_used, iqm_max, iqni, &
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase,    &
+    &                                 iqm_max, iqni,                         &
     &                                 iqns, iqng, iqnh, iqnr, iqnc, ininact, &
                                       iqg, iqh  
   USE mo_meteogram_config,      ONLY: t_meteogram_output_config, t_station_list, &

@@ -30,7 +30,7 @@ MODULE mo_master_nml
        &                       cfg_experimentReferenceDate => experimentReferenceDate,       &
        &                       cfg_experimentStartDate     => experimentStartDate,           &
        &                       cfg_experimentStopDate      => experimentStopDate,            &
-       &                       cfg_calendar                => calendar,                      &
+       &                       cfg_calendar                => calendar_str,                  &
        &                       cfg_checkpointTimeIntval => checkpointTimeIntval,             &
        &                       cfg_restartTimeIntval => restartTimeIntval
 
