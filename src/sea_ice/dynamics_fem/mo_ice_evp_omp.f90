@@ -104,11 +104,13 @@ subroutine precalc4rhs_omp
 
   use mo_physical_constants,  ONLY: rhoi, rhos
 
+  USE mo_util_dbg_prnt,       ONLY: debug_printValue
+
 IMPLICIT NONE
 INTEGER      :: row, elem, elnodes(3), nodels(6), k, i
 REAL(wp) :: mass, aa
 REAL(wp) :: cluster_area,elevation_elem(3),dx(3),dy(3)
-REAL(wp) :: da(elem2D), dm(elem2D) ! temp storage for element-wise contributions from SSH
+REAL(wp) :: da(myDim_elem2D), dm(myDim_elem2D) ! temp storage for element-wise contributions from SSH
 
 !ICON_OMP_PARALLEL
 
@@ -121,6 +123,14 @@ REAL(wp) :: da(elem2D), dm(elem2D) ! temp storage for element-wise contributions
 
      rhs_u(row)=0.0_wp    ! these will be reinitialized at every subcycling iteration for non-ice-free nodes
      rhs_v(row)=0.0_wp    ! but fill all nodal vals with zeros here as well
+ END DO
+!ICON_OMP_END_DO
+
+!ICON_OMP_DO PRIVATE(i,elem) SCHEDULE(static,4)
+ DO i=1, myDim_elem2D
+     elem=myList_elem2D(i)
+     da(elem)=0.0_wp    ! initialize
+     dm(elem)=0.0_wp    !
  END DO
 !ICON_OMP_END_DO
 
