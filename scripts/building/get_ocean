@@ -4,10 +4,12 @@
 # links the ocean only needed files from the <icon-dev full path> to the <ocean only full path>
 
 set -x
+icon_dev_from=$1
+icon_dev_to=$2
 
-here=`pwd`
-icon_dev_from=$here/svn/$1
-icon_dev_to=$here/$2
+# here=`pwd`
+# icon_dev_from=$here/svn/$1
+# icon_dev_to=$here/$2
 
 if [ ! -d ${icon_dev_to} ] ; then
   mkdir -p ${icon_dev_to}
@@ -104,21 +106,21 @@ cat > ${icon_dev_to}/config/multiple_builds << EOF
 run_scripts=*
 
 #==============================================
-# Define parameters for each build - examples:
-build_folder=gcc_yMyO_hiopt configure_options=--with-fortran=gcc --with-mpi  --with-openmp --with-flags=hiopt
-build_folder=gcc_nMnO configure_options=--with-fortran=gcc --without-mpi
-build_folder=gcc_nMyO configure_options=--with-fortran=gcc --without-mpi --with-openmp
-build_folder=gcc_yMnO configure_options=--with-fortran=gcc --with-mpi
-build_folder=gcc_yMnO_hiopt configure_options=--with-fortran=gcc --with-mpi --with-flags=hiopt
-build_folder=nag_nMnO configure_options=--with-fortran=nag --without-mpi
-build_folder=nag_yMnO configure_options=--with-fortran=nag --with-mpi
-build_folder=intel_nMyO configure_options=--with-fortran=intel --without-mpi --with-openmp
-build_folder=intel_nMnO configure_options=--with-fortran=intel --without-mpi
-build_folder=intel_yMnO configure_options=--with-fortran=intel --with-mpi
-build_folder=intel_yMyO configure_options=--with-fortran=intel --with-mpi --with-openmp
-build_folder=intel_yMyO_hiopt configure_options=--with-fortran=intel --with-mpi --with-openmp --with-flags=hiopt
-build_folder=intel_yMnO_hiopt configure_options=--with-fortran=intel --with-mpi --with-flags=hiopt
-build_folder=pgi_yMnO configure_options=--with-fortran=pgi  --with-mpi
+# Define parameters for each build (testbed is disabled by default) - examples:
+build_folder=gcc_yMyO_hiopt configure_options=--with-fortran=gcc --with-mpi  --with-openmp --with-flags=hiopt --disable-atmo --disable-jsbach
+build_folder=gcc_nMnO configure_options=--with-fortran=gcc --without-mpi --disable-atmo --disable-jsbach
+build_folder=gcc_nMyO configure_options=--with-fortran=gcc --without-mpi --with-openmp --disable-atmo --disable-jsbach
+build_folder=gcc_yMnO configure_options=--with-fortran=gcc --with-mpi --disable-atmo --disable-jsbach
+build_folder=gcc_yMnO_hiopt configure_options=--with-fortran=gcc --with-mpi --with-flags=hiopt --disable-atmo --disable-jsbach
+build_folder=nag_nMnO configure_options=--with-fortran=nag --without-mpi --disable-atmo --disable-jsbach
+build_folder=nag_yMnO configure_options=--with-fortran=nag --with-mpi --disable-atmo --disable-jsbach
+build_folder=intel_nMyO configure_options=--with-fortran=intel --without-mpi --with-openmp --disable-atmo --disable-jsbach
+build_folder=intel_nMnO configure_options=--with-fortran=intel --without-mpi --disable-atmo --disable-jsbach
+build_folder=intel_yMnO configure_options=--with-fortran=intel --with-mpi --disable-atmo --disable-jsbach
+build_folder=intel_yMyO configure_options=--with-fortran=intel --with-mpi --with-openmp --disable-atmo --disable-jsbach
+build_folder=intel_yMyO_hiopt configure_options=--with-fortran=intel --with-mpi --with-openmp --with-flags=hiopt --disable-atmo --disable-jsbach
+build_folder=intel_yMnO_hiopt configure_options=--with-fortran=intel --with-mpi --with-flags=hiopt --disable-atmo --disable-jsbach
+build_folder=pgi_yMnO configure_options=--with-fortran=pgi  --with-mpi --disable-atmo --disable-jsbach
 EOF
 
 exit
