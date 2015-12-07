@@ -75,7 +75,8 @@ CONTAINS
   !OPTIONS XOPT(HSFUN)
   SUBROUTINE cuflxn &
     & (  kidia,    kfdia,    klon,   ktdia,   klev, rmfcfl, &
-    & rhebc_land, rhebc_ocean, rcucov,  ptsphy,             &
+    & rhebc_land, rhebc_ocean, rcucov, rhebc_land_trop,     &  
+    & rhebc_ocean_trop, rcucov_trop, trop_mask,  ptsphy,    &
     & pten,     pqen,     pqsen,    ptenh,    pqenh,&
     & paph,     pap,      pgeoh,    ldland,   ldlake, ldcum,&
     & kcbot,    kctop,    kdtop,    ktopm2,&
@@ -196,7 +197,9 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl
     REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
     REAL(KIND=jprb)   ,INTENT(in)    :: rhebc_land, rhebc_ocean
-    REAL(KIND=jprb)   ,INTENT(in)    :: rcucov
+    REAL(KIND=jprb)   ,INTENT(in)    :: rhebc_land_trop, rhebc_ocean_trop
+    REAL(KIND=jprb)   ,INTENT(in)    :: rcucov, rcucov_trop
+    REAL(KIND=jprb)   ,INTENT(in)    :: trop_mask(klon)
     REAL(KIND=jprb)   ,INTENT(in)    :: pten(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqen(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pqsen(klon,klev)
@@ -231,7 +234,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(out)   :: prain(klon)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfdde_rate(klon,klev)
 
-    REAL(KIND=jprb) :: zrhebc(klon)
+    REAL(KIND=jprb) :: zrhebc(klon), zrcucov(klon)
     INTEGER(KIND=jpim) :: ik, ikb, jk, jl
     INTEGER(KIND=jpim) :: idbas(klon)
     LOGICAL :: llddraf
@@ -263,14 +266,11 @@ CONTAINS
       IF(.NOT.ldcum(jl)) ktype(jl)=0
       idbas(jl)=klev
       IF(ldland(jl) .OR. ldlake(jl)) THEN
-        !!zrhebc(jl)=rhebc
-        !!zrhebc(jl)=0.7_jprb
-        zrhebc(jl) = rhebc_land
+        zrhebc(jl) = rhebc_land*(1._jprb - trop_mask(jl))  + rhebc_land_trop*trop_mask(jl)
       ELSE
-        !!zrhebc(jl)=rhebc
-        !!zrhebc(jl)=0.9_jprb
-        zrhebc(jl) = rhebc_ocean
+        zrhebc(jl) = rhebc_ocean*(1._jprb - trop_mask(jl)) + rhebc_ocean_trop*trop_mask(jl)
       ENDIF
+      zrcucov(jl) = rcucov*(1._jprb - trop_mask(jl)) + rcucov_trop*trop_mask(jl)
     ENDDO
     !!TO GET IDENTICAL RESULTS FOR DIFFERENT NPROMA FORCE KTOPM2 TO 2
     ktopm2=2
@@ -436,11 +436,11 @@ CONTAINS
         IF(ldcum(jl).AND.jk >= kcbot(jl)) THEN
           zrfl=pmflxr(jl,jk)+pmflxs(jl,jk)
           IF(zrfl > 1.e-20_JPRB) THEN
-            zdrfl1=rcpecons*MAX(0.0_JPRB,pqsen(jl,jk)-pqen(jl,jk))*rcucov*&
-              & EXP(0.5777_JPRB*LOG(SQRT(paph(jl,jk)/paph(jl,klev+1))/5.09E-3_JPRB*zrfl/rcucov))*&
+            zdrfl1=rcpecons*MAX(0.0_JPRB,pqsen(jl,jk)-pqen(jl,jk))*zrcucov(jl)*&
+              & EXP(0.5777_JPRB*LOG(SQRT(paph(jl,jk)/paph(jl,klev+1))/5.09E-3_JPRB*zrfl/zrcucov(jl)))*&
               & (paph(jl,jk+1)-paph(jl,jk))
             zrnew=zrfl-zdrfl1
-            zrmin=zrfl-rcucov*MAX(0.0_JPRB,zrhebc(jl)*pqsen(jl,jk)-pqen(jl,jk))&
+            zrmin=zrfl-zrcucov(jl)*MAX(0.0_JPRB,zrhebc(jl)*pqsen(jl,jk)-pqen(jl,jk))&
               & *zcons2*(paph(jl,jk+1)-paph(jl,jk))
             zrnew=MAX(zrnew,zrmin)
             zrfln=MAX(zrnew,0.0_JPRB)

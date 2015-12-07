@@ -24,7 +24,8 @@ MODULE mo_ensemble_pert_config
   USE mo_nwp_tuning_config,  ONLY: tune_gkwake, tune_gkdrag, tune_gfluxlaun, tune_zvz0i,    &
     &                        tune_entrorg, tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
     &                        tune_rhebc_ocean, tune_rcucov, tune_texc, tune_qexc,           &
-    &                        tune_minsnowfrac
+    &                        tune_minsnowfrac, tune_rhebc_land_trop, tune_rhebc_ocean_trop, &
+    &                        tune_rcucov_trop
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_gribout_config,     ONLY: gribout_config
   USE mo_grid_config,        ONLY: n_dom
@@ -177,6 +178,10 @@ MODULE mo_ensemble_pert_config
       tune_rhebc_land  = tune_rhebc_land  + 2._wp*(rnd_num-0.5_wp)*range_rhebc
       tune_rhebc_ocean = tune_rhebc_ocean + 2._wp*(rnd_num-0.5_wp)*range_rhebc
       tune_rcucov      = tune_rcucov / (1._wp + 15._wp*range_rhebc*(rnd_num-0.5_wp))
+      ! corresponding parameters for the tropics
+      tune_rhebc_land_trop  = tune_rhebc_land_trop  + 2._wp*(rnd_num-0.5_wp)*range_rhebc
+      tune_rhebc_ocean_trop = tune_rhebc_ocean_trop + 2._wp*(rnd_num-0.5_wp)*range_rhebc
+      tune_rcucov_trop      = tune_rcucov_trop / (1._wp + 15._wp*range_rhebc*(rnd_num-0.5_wp))
 
       CALL RANDOM_NUMBER(rnd_num)
       ! Perturbations for temperature / QV excess values in test parcel ascent must be anticorrelated
