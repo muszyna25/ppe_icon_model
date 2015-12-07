@@ -6,8 +6,9 @@ author_list="Marco Giorgetta, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 #
-# This file describes an AMIP experiment based on the non-hydrostatic dynamics and the ECHAM
-# physics, and intialized from analysis files and using transient boundary conditions for:
+# This file describes an AMIP experiment based on the non-hydrostatic atmosphere and the
+# ECHAM physics. The experiment is intialized from IFS analysis files and uses transient
+# boundary conditions for:
 # - SST and sea ice
 # - spectral solar irradiation
 # - well mixed greenhouse gases CO2, CH4, N2O, CFCs
@@ -16,7 +17,7 @@ author_list="Marco Giorgetta, MPIM"
 # - stratospheric volcanic aerosol optical properties
 #
 # _bb_table_Description_  AMIP experiment
-# _bb_table_Model_        non-hydrostatic dynamics + ECHAM physics
+# _bb_table_Model_        non-hydrostatic atmosphere with ECHAM physics
 #
 #--------------------------------------------------------------------------------------------------
 
@@ -92,9 +93,6 @@ cat > ${atmo_namelist} << EOF
 /
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
-/
-&dynamics_nml
- iequations       = 3           ! 3: ICONAM dynamics
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 2           ! dtime/dt_dyn
