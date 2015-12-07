@@ -178,11 +178,11 @@ MODULE mo_grid_nml
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
     !----------------------------------------------------------------
-    IF (use_restart_namelists()) THEN
-      funit = open_and_restore_namelist('grid_nml')
-      READ(funit,NML=grid_nml)
-      CALL close_tmpfile(funit)
-    END IF
+ !   IF (use_restart_namelists()) THEN
+ !     funit = open_and_restore_namelist('grid_nml')
+ !     READ(funit,NML=grid_nml)
+ !     CALL close_tmpfile(funit)
+ !   END IF
 
     !------------------------------------------------------------
     ! Read the namelist (done so far by all MPI processes)

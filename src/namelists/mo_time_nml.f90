@@ -119,7 +119,7 @@ CONTAINS
     is_relative_time = .FALSE.
 
 
-    IF (use_restart_namelists()) THEN
+    IF (isRestart()) THEN
  
       ! 2.1 Overwrite the defaults above by values in the restart file
       funit = open_and_restore_namelist('time_nml')

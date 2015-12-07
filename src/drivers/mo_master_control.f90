@@ -263,6 +263,7 @@ CONTAINS
   !------------------------------------------------------------------------
   LOGICAL FUNCTION use_restart_namelists()
     use_restart_namelists = (isRestart() .and. (my_process_model /= ocean_process))
+  !  use_restart_namelists = isRestart()
   END FUNCTION use_restart_namelists
   !------------------------------------------------------------------------
 
