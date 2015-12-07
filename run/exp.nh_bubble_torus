@@ -1,0 +1,168 @@
+#=============================================================================
+# A simple runscript to test the implementation of the ECHAM physics package
+# into iconam.  This runs a moist case of the Jablonowski Williamson B.I.
+# test.
+#
+# The debug mechanism for ICON is used: dbg_index_nml
+#
+# Levi Silvers, 2-2013
+#
+#=============================================================================
+#
+# This section of the run script contains the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# DWD, 2010-08-31
+#
+#=============================================================================
+#
+# These variables are set in the header section of the completed run script:
+#   EXPNAME = experiment name
+#   nproma  = array blocking length / inner loop length
+# They may be overwritten here
+#
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-08-01T00:00:00Z"
+end_date="2008-08-01T00:20:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=0.5
+dt_checkpoint=`expr 10 \* 86400 `  # write restart file every 1 hours
+#
+#-----------------------------------------------------------------------------
+# model parameters
+atmo_model_equations=3 # equation system
+#                     1=hydrost. atm. (T dynamics)
+#                     2=hydrost. atm. (theta dynamics)
+#                     3=non-hydrost. atm.,
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=101           # nlev = number of full levels
+iforcing=3        # 3 for inwp forcing; 0 for no forcing
+#
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids='torus_grid_r4_c200_elen100.nc'
+#
+#-----------------------------------------------------------------------------
+#
+#
+#-----------------------------------------------------------------------------
+#
+# write icon namelist parameters
+# ------------------------
+# for a complete list see namelist_overview and namelist_overview.pdf
+#
+cat >> ${atmo_namelist} << EOF
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+/
+&grid_nml
+ ! cell_type is not used = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+ corio_lat = 0.0
+/
+&nh_testcase_nml
+ nh_test_name   = '2D_BUBBLE'     ! test case identifier
+ bub_amp        = 2.0
+ bubctr_z       = 2000.0
+ bubctr_x       = 0.0
+ bubctr_y       = 0.0
+ bub_hor_width  = 2000.0
+ bub_ver_width  = 2000.0
+/
+&io_nml
+ dt_checkpoint  = ${dt_checkpoint}
+ lkeep_in_sync    = .true.
+/
+&run_nml
+ num_lev        = ${nlev},        ! number of full levels of vertical grid
+ dtime          = ${dtime}     ! timestep in seconds
+ ltransport     = .TRUE.
+ ntracer        = 5            ! default: 0
+ iforcing       = 3            ! 3: NWP forcing; 6:inhecham forcing
+ ltestcase      = .TRUE.       ! run testcase
+ ltimer         = .true.       ! 
+ msg_level      = 10          ! detailed report during integration
+ output         = 'nml'
+/
+&nwp_phy_nml
+ inwp_gscp       = 0
+ inwp_convection = 0 ! 1:Tiedtke/Bechtold
+ inwp_radiation  = 0 ! 1:RRTM radiation
+ inwp_cldcover   = 5 ! 3: clouds from COSMO SGS cloud scheme
+ inwp_turb       = 5 ! 1: COSMO diffusion and transfer
+ inwp_satad      = 1
+ inwp_surface    = 0 ! 0: none; 1: TERRA
+ latm_above_top  = .false.
+/
+&les_nml
+ isrfc_type        = 0   !0 = no fluxes; 2=Fixed flux, 5=fixed SST, 3=fixed bflux
+ expname           = '${EXPNAME}'
+ avg_interval_sec = 60.
+ sampl_freq_sec   = 10.
+ ldiag_les_out    = .TRUE.
+ km_min           = 0.0
+/
+&turbdiff_nml
+lconst_z0 = .TRUE.
+const_z0  = 0.0001
+/
+&diffusion_nml
+ lhdiff_temp  = .TRUE.
+ lhdiff_vn    = .TRUE.
+ lhdiff_w     = .FALSE.
+ hdiff_order  = 4
+/
+&transport_nml
+ ihadv_tracer = 2,2,0,0,0,0,0
+ ivadv_tracer = 3,3,0,0,0,0,0  !1=1st order upwind,3=ppm-highCFL,30-ppm
+/
+&nonhydrostatic_nml
+ ivctype        = 2       ! sleve vertical coordinate
+ damp_height    = 8000.  ! top_height-damp_height should be about 15km
+/
+&sleve_nml
+ top_height = 10000
+ min_lay_thckn = 0. ! thickness of lowest model layer
+/
+&extpar_nml
+ itopo          = 0 ! 0: analytical topo; 1: topography/ext. data read from file
+/
+&dynamics_nml
+ iequations     = ${atmo_model_equations}       ! equation system
+ idiv_method    = 1
+ lcoriolis      = .FALSE.
+/
+&output_nml
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT05M"
+ file_interval    = "P01D"
+ include_last     = .TRUE.
+ output_filename  = 'prog_vars'
+ filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
+ ml_varlist       = 'u','v','w','temp','theta_v','pres_sfc','pres','tkvh','z_ifc','z_mc','rho', 'qv', 'qc','clc'
+ output_grid      = .TRUE.
+/
+EOF
+#
+#----------------------------------------------------------------------------------
+# add standard atmo_non-hydrostatic_files
+add_link_file ${basedir}/data/sound_WarmBubble_the_320_rt_0.02          sound_in
+#----------------------------------------------------------------------------------

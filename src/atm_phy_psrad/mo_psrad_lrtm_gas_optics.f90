@@ -326,7 +326,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg01,      ONLY : fracrefa, fracrefb, absa, absb, &
+      USE psrad_rrlw_kg01,      ONLY : fracrefa, fracrefb, absa, absb, &
            ka_mn2, kb_mn2, selfref, forref
 
       ! ------- Declarations -------
@@ -412,7 +412,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg02, ONLY : fracrefa, fracrefb, absa, absb, &
+      USE psrad_rrlw_kg02, ONLY : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -477,7 +477,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg03, ONLY : fracrefa, fracrefb, absa, absb, &
+      USE psrad_rrlw_kg03, ONLY : fracrefa, fracrefb, absa, absb, &
            ka_mn2o, kb_mn2o, selfref, forref
 
       ! ------- Declarations -------
@@ -785,7 +785,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg04, ONLY : fracrefa, fracrefb, absa, absb, &
+      USE psrad_rrlw_kg04, ONLY : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -1040,7 +1040,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg05, ONLY : fracrefa, fracrefb, absa, absb, &
+      USE psrad_rrlw_kg05, ONLY : fracrefa, fracrefb, absa, absb, &
            ka_mo3, selfref, forref, ccl4
 
       ! ------- Declarations -------
@@ -1309,7 +1309,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg06, ONLY : fracrefa, absa, ka_mco2, &
+      USE psrad_rrlw_kg06, ONLY : fracrefa, absa, ka_mco2, &
            selfref, forref, cfc11adj, cfc12
 
       ! ------- Declarations -------
@@ -1389,7 +1389,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg07, ONLY : fracrefa, fracrefb, absa, absb, &
+      USE psrad_rrlw_kg07, ONLY : fracrefa, fracrefb, absa, absb, &
            ka_mco2, kb_mco2, selfref, forref
 
       ! ------- Declarations -------
@@ -1660,7 +1660,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg08, ONLY : fracrefa, fracrefb, absa, absb, &
+      USE psrad_rrlw_kg08, ONLY : fracrefa, fracrefb, absa, absb, &
            ka_mco2, ka_mn2o, ka_mo3, kb_mco2, kb_mn2o, &
            selfref, forref, cfc12, cfc22adj
 
@@ -1777,7 +1777,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg09, ONLY : fracrefa, fracrefb, absa, absb, &
+      USE psrad_rrlw_kg09, ONLY : fracrefa, fracrefb, absa, absb, &
            ka_mn2o, kb_mn2o, selfref, forref
 
       ! ------- Declarations -------
@@ -2033,7 +2033,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg10, ONLY : fracrefa, fracrefb, absa, absb, &
+      USE psrad_rrlw_kg10, ONLY : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -2096,7 +2096,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg11, ONLY : fracrefa, fracrefb, absa, absb, &
+      USE psrad_rrlw_kg11, ONLY : fracrefa, fracrefb, absa, absb, &
            ka_mo2, kb_mo2, selfref, forref
 
       ! ------- Declarations -------
@@ -2170,7 +2170,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg12, ONLY : fracrefa, absa, &
+      USE psrad_rrlw_kg12, ONLY : fracrefa, absa, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -2367,7 +2367,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg13, ONLY : fracrefa, fracrefb, absa, &
+      USE psrad_rrlw_kg13, ONLY : fracrefa, fracrefb, absa, &
            ka_mco2, ka_mco, kb_mo3, selfref, forref
 
       ! ------- Declarations -------
@@ -2621,7 +2621,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg14, ONLY : fracrefa, fracrefb, absa, absb, &
+      USE psrad_rrlw_kg14, ONLY : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
@@ -2678,7 +2678,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg15, ONLY : fracrefa, absa, &
+      USE psrad_rrlw_kg15, ONLY : fracrefa, absa, &
            ka_mn2, selfref, forref
 
       ! ------- Declarations -------
@@ -2896,7 +2896,7 @@ CONTAINS
 
       ! ------- Modules -------
 
-      USE rrlw_kg16, ONLY : fracrefa, fracrefb, absa, absb, &
+      USE psrad_rrlw_kg16, ONLY : fracrefa, fracrefb, absa, absb, &
            selfref, forref
 
       ! ------- Declarations -------
