@@ -15,7 +15,7 @@
 #include "omp_definitions.inc"
 !----------------------------
 !============================================================================
-module mo_ice_evp
+module mo_ice_evp_old
   !
   ! Arrays defined here are used to keep mesh information
   !
@@ -28,13 +28,13 @@ module mo_ice_evp
 
   IMPLICIT NONE
 
-  PUBLIC :: init_evp_solver_coeffs
-  PUBLIC :: EVPdynamics
+  PUBLIC :: init_evp_solver_coeffs_old
+  PUBLIC :: EVPdynamics_old
 
-  PRIVATE :: stress_tensor
-  PRIVATE :: stress2rhs
-  PRIVATE :: precalc4rhs_omp
-  PRIVATE :: index_si_elements_omp
+  PRIVATE :: stress_tensor_old
+  PRIVATE :: stress2rhs_old
+  PRIVATE :: precalc4rhs_old
+  PRIVATE :: index_si_elements_old
 
   PRIVATE
   ! some aggregated parameters used in the EVP solver
@@ -46,7 +46,7 @@ CONTAINS
 
 !===================================================================
 
-subroutine index_si_elements_omp
+subroutine index_si_elements_old
 ! Replaces ifs checking if sea ice is actually present in a given cell/node
 
     IMPLICIT NONE
@@ -94,10 +94,10 @@ subroutine index_si_elements_omp
     allocate(si_idx_elem(si_elem2D))
     si_idx_elem=buffy_array(1:si_elem2D)
 
-end subroutine index_si_elements_omp
+end subroutine index_si_elements_old
 !===================================================================
 
-subroutine precalc4rhs_omp
+subroutine precalc4rhs_old
 ! Some of the quantities used in the solver do not change
 ! with the subcycles. Hence, can be precalculated and stored.
 ! Those are rhs_a, rhs_m, mass
@@ -166,10 +166,10 @@ REAL(wp) :: dx(3), dy(3), da, dm
   END DO
 !ICON_OMP_END_PARALLEL_DO
 
-end subroutine precalc4rhs_omp
+end subroutine precalc4rhs_old
 !===================================================================
 
-subroutine init_evp_solver_coeffs
+subroutine init_evp_solver_coeffs_old
 ! Calculates coefficients which are used for calculations in stress_tensor
 ! Called once during the initialization step at ice_init_fem
 
@@ -192,10 +192,10 @@ subroutine init_evp_solver_coeffs
   ax=cos(theta_io)
   ay=sin(theta_io)
 
-end subroutine init_evp_solver_coeffs
+end subroutine init_evp_solver_coeffs_old
 !===================================================================
 
-subroutine stress_tensor(elem)
+subroutine stress_tensor_old(elem)
 ! EVP rheology implementation. Computes stress tensor components based on ice 
 ! velocity field. They are stored as elemental arrays (sigma11, sigma22 and
 ! sigma12). 
@@ -285,10 +285,10 @@ implicit none
      sigma11(elem)=0.5_wp*(si1+si2)
      sigma22(elem)=0.5_wp*(si1-si2)
    
-end subroutine stress_tensor
+end subroutine stress_tensor_old
 
 !===================================================================
-subroutine stress2rhs
+subroutine stress2rhs_old
 ! EVP implementation:
 ! Computes the divergence of stress tensor and puts the result into the
 ! rhs vectors 
@@ -349,10 +349,10 @@ REAL(wp) :: dx(3), dy(3)
   END DO
 !ICON_OMP_END_PARALLE_DO
 
-end subroutine stress2rhs
+end subroutine stress2rhs_old
 !===================================================================
 
-subroutine EVPdynamics
+subroutine EVPdynamics_old
 ! EVP implementation. Does cybcycling and boundary conditions.  
   USE mo_sea_ice_nml,           ONLY: evp_rheol_steps
   USE mo_physical_constants,    ONLY: rhoi, rhos, Cd_io, rho_ref
@@ -365,9 +365,9 @@ REAL(wp)    ::  drag, inv_mass, det, umod, rhsu, rhsv
 integer     ::  i,j
 
 ! index elements/nodes where sea ice is present for faster loops
-    call index_si_elements_omp
+    call index_si_elements_old
 ! precalculate several arrays that do not change during subcycling
-    call precalc4rhs_omp
+    call precalc4rhs_old
 
  DO shortstep=1, evp_rheol_steps
      ! ===== Boundary conditions
@@ -381,7 +381,7 @@ integer     ::  i,j
 
 !ICON_OMP_PARALLEL_DO PRIVATE(i) ICON_OMP_DEFAULT_SCHEDULE
     DO i=1,si_elem2D
-        call stress_tensor(si_idx_elem(i))
+        call stress_tensor_old(si_idx_elem(i))
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
@@ -389,7 +389,7 @@ integer     ::  i,j
      !if(shortstep<3) write(*,*) mype,'stress ', &
      !minval(sigma11(myList_elem2D(1:myDim_elem2D)))
 
-     call stress2rhs
+     call stress2rhs_old
       !write(*,*) 'rhs', maxval(rhs_u), minval(rhs_v)
       !if(shortstep<3)  write(*,*) mype, 'rhs  ', &
       !   maxval(rhs_u(myList_nod2D(1:myDim_nod2D)))
@@ -425,7 +425,7 @@ integer     ::  i,j
      call exchange_nod2D(v_ice)
  END DO
 
-end subroutine EVPdynamics
+end subroutine EVPdynamics_old
 !===================================================================
 
-end module mo_ice_evp
+end module mo_ice_evp_old
