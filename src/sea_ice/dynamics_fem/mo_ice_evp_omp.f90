@@ -28,7 +28,7 @@ module mo_ice_evp_omp
 
   IMPLICIT NONE
 
-  PUBLIC :: init_evp_solver_coeffs
+  PUBLIC :: init_evp_solver_coeffs_omp
   PUBLIC :: EVPdynamics_omp
 
   PRIVATE :: stress_tensor_omp
@@ -103,8 +103,6 @@ subroutine precalc4rhs_omp
 ! Those are rhs_a, rhs_m, mass
 
   use mo_physical_constants,  ONLY: rhoi, rhos
-
-  USE mo_util_dbg_prnt,       ONLY: debug_printValue
 
 IMPLICIT NONE
 INTEGER      :: row, elem, elnodes(3), nodels(6), k, i
@@ -227,7 +225,7 @@ END DO
 end subroutine precalc4rhs_omp
 !===================================================================
 
-subroutine init_evp_solver_coeffs
+subroutine init_evp_solver_coeffs_omp
 ! Calculates coefficients which are used for calculations in stress_tensor
 ! Called once during the initialization step at ice_init_fem
 
@@ -250,7 +248,7 @@ subroutine init_evp_solver_coeffs
   ax=cos(theta_io)
   ay=sin(theta_io)
 
-end subroutine init_evp_solver_coeffs
+end subroutine init_evp_solver_coeffs_omp
 !===================================================================
 
 subroutine stress_tensor_omp(elem)

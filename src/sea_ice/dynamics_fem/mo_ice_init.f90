@@ -31,6 +31,7 @@ module mo_ice_init
   USE mo_ice_mesh
   USE mo_ice_parsup
   USE mo_ice_evp, ONLY: init_evp_solver_coeffs
+  USE mo_ice_evp_omp, ONLY: init_evp_solver_coeffs_omp
 !  use mo_ice_atm_forcing
 !  USE mo_physical_constants,         ONLY: grav, earth_radius
 
@@ -122,6 +123,7 @@ subroutine ice_init_fem
 !  end if
   ! Vladimir: init some coeffs for EVP solver
   call init_evp_solver_coeffs
+  call init_evp_solver_coeffs_omp
 
   write(*,*) 'fields are initialized'
 
