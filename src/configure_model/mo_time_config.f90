@@ -25,7 +25,6 @@
 MODULE mo_time_config
 
   USE mo_kind,                  ONLY: wp
-  USE mo_impl_constants,        ONLY: max_dom
   USE mtime,                    ONLY: max_calendar_str_len
  
   IMPLICIT NONE
@@ -61,8 +60,6 @@ MODULE mo_time_config
     INTEGER          :: calendar           !< calendar type
 
     ! not directly from namelist  
-
-    REAL(wp)         :: sim_time(max_dom)  !< elapsed simulation time (may locally differ between domains!)
 
     !> LOGICAL is_relative_time: .TRUE., if time loop shall start with
     !> step 0 regardless whether we are in a standard run or in a

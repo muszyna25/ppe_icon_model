@@ -35,8 +35,11 @@
 MODULE mo_nh_interface_nwp
 
   USE mo_datetime,                ONLY: t_datetime, string_to_datetime
-  USE mtime,                      ONLY: datetime, MAX_DATETIME_STR_LEN, &
-    &                                   datetimeToString
+  USE mtime,                      ONLY: datetime, MAX_DATETIME_STR_LEN,                &
+    &                                   datetimeToString, timeDelta, newTimedelta,     &
+    &                                   deallocateTimedelta, getTimedeltaFromDatetime, &
+    &                                   getTotalMillisecondsTimedelta
+  USE mo_master_config,           ONLY: tc_startdate
   USE mo_kind,                    ONLY: wp
 
   USE mo_timer
@@ -111,7 +114,7 @@ CONTAINS
   !
   SUBROUTINE nwp_nh_interface(lcall_phy_jg, linit, lredgrid,       & !input
                             & dt_loc, dt_phy_jg,                   & !input
-                            & p_sim_time, mtime_datetime,          & !input
+                            & mtime_datetime,                      & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch,                        & !input
                             & ext_data,                            & !input
@@ -134,8 +137,6 @@ CONTAINS
     REAL(wp),INTENT(in)          :: dt_loc          !< (advective) time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
                                                     !< packages on domain jg
-    REAL(wp),INTENT(in)          :: p_sim_time
-
     TYPE(datetime),       POINTER :: mtime_datetime !< date/time information (in)
     TYPE(t_patch),        TARGET,INTENT(in):: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch !<grid/patch info (parent grid)
@@ -211,6 +212,8 @@ CONTAINS
 
     TYPE(t_datetime)                    :: this_datetime
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+    TYPE(timeDelta), POINTER            :: time_diff
+    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
 
     !---------------------------------------------------------------
     ! conversion of subroutine arguments to old "t_datetime" data
@@ -221,6 +224,13 @@ CONTAINS
     CALL datetimeToString(mtime_datetime, datetime_string )
     CALL string_to_datetime( datetime_string,  this_datetime )
     !---------------------------------------------------------------
+
+    ! calculate elapsed simulation time in seconds (local time for
+    ! this domain!)
+    time_diff  => newTimedelta("PT0S")
+    time_diff  =  getTimeDeltaFromDateTime(mtime_datetime, tc_startdate)
+    p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_datetime)*1.e-3_wp
+    CALL deallocateTimedelta(time_diff)
 
     IF (ltimer) CALL timer_start(timer_physics)
 

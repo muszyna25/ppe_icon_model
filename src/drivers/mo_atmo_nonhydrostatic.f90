@@ -524,7 +524,7 @@ CONTAINS
 
       IF(atm_phy_nwp_config(jg)%is_les_phy .AND. is_plane_torus) &
            CALL init_les_turbulent_output(p_patch(jg), p_nh_state(jg)%metrics, &
-           time_config%sim_time(jg), l_rh(jg), ldelete=(.NOT. isRestart()))
+           &                              tc_startdate, l_rh(jg), ldelete=(.NOT. isRestart()))
 
     END DO
 

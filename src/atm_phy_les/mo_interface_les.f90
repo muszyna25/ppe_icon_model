@@ -27,8 +27,11 @@
 MODULE mo_interface_les
 
   USE mo_datetime,           ONLY: t_datetime, string_to_datetime
-  USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, &
-    &                              datetimeToString
+  USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN,                &
+    &                              datetimeToString, timeDelta, newTimedelta,     &
+    &                              deallocateTimedelta, getTimedeltaFromDatetime, &
+    &                              getTotalMillisecondsTimedelta
+  USE mo_master_config,      ONLY: tc_startdate
   USE mo_kind,               ONLY: wp
   USE mo_timer
   USE mo_exception,          ONLY: message, message_text
@@ -51,7 +54,7 @@ MODULE mo_interface_les
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, iqr, iqs, iqm_max,   &
     &                              msg_level, ltimer, timers_level, nqtendphy,  &
     &                              ltransport, lart, iqni, iqnc
-  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cpd, cvd, cvv
+  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd, cvv
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
@@ -72,7 +75,6 @@ MODULE mo_interface_les
   USE mo_icon_comm_lib,      ONLY: new_icon_comm_variable, &
      & icon_comm_sync_all, is_ready, until_sync
   USE mo_art_washout_interface,  ONLY:art_washout_interface
-  USE mo_art_reaction_interface, ONLY:art_reaction_interface
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_ls_forcing_nml,      ONLY: is_ls_forcing
   USE mo_ls_forcing,          ONLY: apply_ls_forcing
@@ -83,7 +85,7 @@ MODULE mo_interface_les
                                      is_sampling_time, is_writing_time
   USE mo_les_utilities,       ONLY: init_vertical_grid_for_les
   USE mo_fortran_tools,       ONLY: copy
-  USE mo_util_dbg_prnt,      ONLY: dbg_print
+
   IMPLICIT NONE
 
   PRIVATE
@@ -96,7 +98,6 @@ MODULE mo_interface_les
   PUBLIC :: les_phy_interface, init_les_phy_interface
 
   CHARACTER(len=12)  :: str_module = 'les_interface'  ! Output of module for 1 line debug
-  INTEGER            :: idt_src    = 1           ! Determines level of detail for 1 line debug
 
 CONTAINS
   !
@@ -118,7 +119,7 @@ CONTAINS
   !
   SUBROUTINE les_phy_interface(lcall_phy_jg, linit, lredgrid,      & !input
                             & dt_loc, dt_phy_jg,                   & !input
-                            & p_sim_time, nstep, mtime_current,    & !input
+                            & nstep, mtime_current,                & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
                             & pt_par_patch,                        & !input
                             & ext_data,                            & !input
@@ -140,7 +141,6 @@ CONTAINS
     LOGICAL, INTENT(IN)          :: lredgrid        !< use reduced grid for radiation
     REAL(wp),INTENT(in)          :: dt_loc          !< (advective) time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics on jg
-    REAL(wp),INTENT(in)          :: p_sim_time
     INTEGER, INTENT(in)          :: nstep           !time step counter
     TYPE(datetime), POINTER      :: mtime_current
     TYPE(t_patch),        TARGET,INTENT(in):: pt_patch         !<grid/patch info.
@@ -210,6 +210,8 @@ CONTAINS
 
     TYPE(t_datetime)                    :: this_datetime
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+    TYPE(timeDelta), POINTER            :: time_diff
+    REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
 
     !---------------------------------------------------------------
     ! conversion of subroutine arguments to old "t_datetime" data
@@ -220,6 +222,13 @@ CONTAINS
     CALL datetimeToString(mtime_current, datetime_string     )
     CALL string_to_datetime( datetime_string,  this_datetime )
     !---------------------------------------------------------------
+
+    ! calculate elapsed simulation time in seconds (local time for
+    ! this domain!)
+    time_diff  => newTimedelta("PT0S")
+    time_diff  =  getTimeDeltaFromDateTime(mtime_current, tc_startdate)
+    p_sim_time =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
+    CALL deallocateTimedelta(time_diff)
 
 
     IF (ltimer) CALL timer_start(timer_physics)
@@ -580,8 +589,6 @@ CONTAINS
 
 
     IF (lart) THEN
-
-!      CALL art_reaction_interface(pt_patch,dt_phy_jg(itfastphy),p_prog_list,pt_prog_rcf%tracer)
 
       CALL art_washout_interface(pt_prog, pt_diag ,             & !>in
                  &          dt_phy_jg(itfastphy),               & !>in
@@ -1495,11 +1502,11 @@ CONTAINS
                               & prm_diag                )     !inout
 
       !write out time series
-      CALL write_time_series(prm_diag%turb_diag_0dvar, p_sim_time)
+      CALL write_time_series(prm_diag%turb_diag_0dvar, mtime_current)
     END IF
 
     IF( is_writing_time )THEN
-      CALL write_vertical_profiles(prm_diag%turb_diag_1dvar, p_sim_time, ncount)
+      CALL write_vertical_profiles(prm_diag%turb_diag_1dvar, mtime_current, ncount)
       ncount = 0
       prm_diag%turb_diag_1dvar = 0._wp
     END IF

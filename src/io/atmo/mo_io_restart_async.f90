@@ -291,8 +291,6 @@ MODULE mo_io_restart_async
     INTEGER               :: opt_ndyn_substeps
     LOGICAL               :: l_opt_jstep_adv_marchuk_order
     INTEGER               :: opt_jstep_adv_marchuk_order
-    LOGICAL               :: l_opt_sim_time
-    REAL(wp)              :: opt_sim_time
     LOGICAL               :: l_opt_ndom
     INTEGER               :: opt_ndom
     !
@@ -409,7 +407,6 @@ CONTAINS
                                 &   opt_pvct,                     &
                                 &   opt_t_elapsed_phy,            &
                                 &   opt_lcall_phy,                &
-                                &   opt_sim_time,                 &
                                 &   opt_ndyn_substeps,            &
                                 &   opt_jstep_adv_marchuk_order,  &
                                 &   opt_depth,                    &
@@ -428,7 +425,6 @@ CONTAINS
     INTEGER,              INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
     INTEGER,              INTENT(IN), OPTIONAL :: opt_nlev_snow
     INTEGER,              INTENT(IN), OPTIONAL :: opt_nice_class
-    REAL(wp),             INTENT(IN), OPTIONAL :: opt_sim_time
     LOGICAL ,             INTENT(IN), OPTIONAL :: opt_lcall_phy(:)
     REAL(wp),             INTENT(IN), OPTIONAL :: opt_pvct(:)
     REAL(wp),             INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:)
@@ -560,13 +556,6 @@ CONTAINS
         p_pd%l_opt_nice_class = .TRUE.
       ELSE
         p_pd%l_opt_nice_class = .FALSE.
-      ENDIF
-
-      IF (PRESENT(opt_sim_time)) THEN
-        p_pd%opt_sim_time = opt_sim_time
-        p_pd%l_opt_sim_time = .TRUE.
-      ELSE
-        p_pd%l_opt_sim_time = .FALSE.
       ENDIF
 
       IF (PRESENT(opt_ndom)) THEN
@@ -876,8 +865,6 @@ CONTAINS
           CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_ndyn_substeps,   p_comm_work)
           CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_jstep_adv_marchuk_order, p_comm_work)
           CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_jstep_adv_marchuk_order,   p_comm_work)
-          CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_sim_time,   p_comm_work)
-          CALL p_unpack_real(p_msg, MAX_BUF_SIZE, position, p_pd%opt_sim_time,     p_comm_work)
           CALL p_unpack_bool(p_msg, MAX_BUF_SIZE, position, p_pd%l_opt_ndom,       p_comm_work)
           CALL p_unpack_int( p_msg, MAX_BUF_SIZE, position, p_pd%opt_ndom,         p_comm_work)
 
@@ -1009,7 +996,6 @@ CONTAINS
 
           CALL p_recv(p_pd%opt_ndyn_substeps,           p_pd%work_pe0_id, 0)
           CALL p_recv(p_pd%opt_jstep_adv_marchuk_order, p_pd%work_pe0_id, 0)
-          CALL p_recv(p_pd%opt_sim_time,                p_pd%work_pe0_id, 0)
 
           IF (ALLOCATED(p_pd%opt_lcall_phy))     CALL p_recv(p_pd%opt_lcall_phy,     p_pd%work_pe0_id, 0)
           IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) CALL p_recv(p_pd%opt_t_elapsed_phy, p_pd%work_pe0_id, 0)
@@ -1024,7 +1010,6 @@ CONTAINS
 
           CALL p_send(p_pd%opt_ndyn_substeps, 0, 0)
           CALL p_send(p_pd%opt_jstep_adv_marchuk_order, 0, 0)
-          CALL p_send(p_pd%opt_sim_time,                0, 0)
 
           IF (ALLOCATED(p_pd%opt_lcall_phy))     CALL p_send(p_pd%opt_lcall_phy,     0, 0)
           IF (ALLOCATED(p_pd%opt_t_elapsed_phy)) CALL p_send(p_pd%opt_t_elapsed_phy, 0, 0)
@@ -1090,8 +1075,6 @@ CONTAINS
         CALL p_pack_int( p_pd%opt_ndyn_substeps,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
         CALL p_pack_bool(p_pd%l_opt_jstep_adv_marchuk_order, p_msg, MAX_BUF_SIZE, position, p_comm_work)
         CALL p_pack_int( p_pd%opt_jstep_adv_marchuk_order,   p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_bool(p_pd%l_opt_sim_time,    p_msg, MAX_BUF_SIZE, position, p_comm_work)
-        CALL p_pack_real( p_pd%opt_sim_time,     p_msg, MAX_BUF_SIZE, position, p_comm_work)
         CALL p_pack_bool(p_pd%l_opt_ndom,        p_msg, MAX_BUF_SIZE, position, p_comm_work)
         CALL p_pack_int( p_pd%opt_ndom,          p_msg, MAX_BUF_SIZE, position, p_comm_work)
 
@@ -2361,13 +2344,6 @@ CONTAINS
     CALL set_restart_attribute( 'nnew_DOM'//TRIM(int2string(jg, "(i2.2)"))    , p_pd%nnew)
     CALL set_restart_attribute( 'nnow_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnow_rcf)
     CALL set_restart_attribute( 'nnew_rcf_DOM'//TRIM(int2string(jg, "(i2.2)")), p_pd%nnew_rcf)
-
-    ! additional restart-output for nonhydrostatic model
-    IF (p_pd%l_opt_sim_time) THEN
-      WRITE(attrib_name, attrib_format_int) 'sim_time_DOM', jg
-      CALL set_restart_attribute (TRIM(attrib_name), &
-        &                         p_pd%opt_sim_time)
-    ENDIF
 
     !-------------------------------------------------------------
     ! DR

@@ -216,7 +216,7 @@ CONTAINS
   TYPE(t_hydro_atm), TARGET, INTENT(INOUT)     :: p_hydro_state(n_dom)
 
   REAL(wp), DIMENSION(:,:,:), POINTER          :: p_vn  => NULL()
-  REAL(wp)                                     :: sim_time(n_dom)
+
   INTEGER                                      :: jg, jn, jgc, jstep
   LOGICAL                                      :: l_nml_output
   LOGICAL                                      :: l_3tl_init(n_dom)
@@ -232,7 +232,6 @@ CONTAINS
 
 
 !-----------------------------------------------------------------------
-  sim_time(:) = 0._wp
 
   IF (ltimer) CALL timer_start(timer_total)
 
@@ -287,16 +286,13 @@ CONTAINS
 
     CALL process_grid( p_patch, p_hydro_state, p_int_state, p_grf_state,       &
       &                ext_data, 1, jstep, l_3tl_init, dtime, tc_dt_model,     &
-      &                sim_time, 1, mtime_current )
+      &                1, mtime_current )
 
     !--------------------------------------------------------------------------
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
     !--------------------------------------------------------------------------
 
-!!$    ! Not nice, but the name list output requires this
-!!$    sim_time(1) = MODULO(sim_time(1) + dtime, 86400.0_wp)
-    sim_time(1) = sim_time(1) + dtime   ! RS: is this correct? process_grid already advances sim_time by dtime !
     ! update model date and time (mtime)
     mtime_current = mtime_current + tc_dt_model
 

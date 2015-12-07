@@ -189,8 +189,6 @@ CONTAINS
 
     ! CALL datetime_to_string(datestring, this_datetime)
 
-    time_config%sim_time(:) = 0.0_wp
-
     !------------------------------------------------------------------
     jstep0 = 0
     IF (isRestart() .AND. .NOT. time_config%is_relative_time) THEN
@@ -217,8 +215,6 @@ CONTAINS
       ! Set model time - now before doing the calculation:
       !  - datetime refers to the currently calculating timestep
       CALL add_time(dtime,0,0,0,this_datetime)
-      ! Not nice, but the name list output requires this - needed?
-      time_config%sim_time(1) = time_config%sim_time(1) + dtime
       
       IF (timers_level > 2)  CALL timer_start(timer_extra22)
       CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
@@ -412,7 +408,6 @@ CONTAINS
           & current_date=current_date,   &
           & jstep=jstep,            &
           & model_type="oce",       &
-          & opt_sim_time=time_config%sim_time(1),&
           & opt_nice_class=1,       &
           & ocean_zlevels=n_zlev,                                         &
           & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
@@ -451,7 +446,6 @@ CONTAINS
         & current_date=current_date, &
         & jstep=jstep,            &
         & model_type="oce",       &
-        & opt_sim_time=time_config%sim_time(1),&
         & opt_nice_class=1,       &
         & ocean_zlevels=n_zlev,                                         &
         & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &

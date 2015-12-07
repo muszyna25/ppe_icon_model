@@ -1089,7 +1089,7 @@ CONTAINS
                                 & model_type,                  &
                                 & opt_pvct,                    &
                                 & opt_t_elapsed_phy,           &
-                                & opt_lcall_phy, opt_sim_time, &
+                                & opt_lcall_phy,               &
                                 & opt_ndyn_substeps,           &
                                 & opt_jstep_adv_marchuk_order, &
                                 & opt_depth_lnd,               &
@@ -1110,7 +1110,6 @@ CONTAINS
     INTEGER,  INTENT(IN), OPTIONAL :: opt_depth_lnd               ! vertical levels soil model
     REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:,:)
     LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
-    REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time
     INTEGER,  INTENT(IN), OPTIONAL :: opt_ndyn_substeps
     INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
     INTEGER,  INTENT(IN), OPTIONAL :: opt_nlev_snow
@@ -1174,13 +1173,6 @@ CONTAINS
 
     ! set simulation step
     CALL set_restart_attribute( 'jstep', jstep )
-
-    !----------------
-    ! additional restart-output for nonhydrostatic model
-    IF (PRESENT(opt_sim_time)) THEN
-      WRITE(attname,'(a,i2.2)') 'sim_time_DOM',jg
-      CALL set_restart_attribute( TRIM(attname), opt_sim_time )
-    ENDIF
 
     !-------------------------------------------------------------
     ! DR

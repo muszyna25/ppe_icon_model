@@ -208,7 +208,6 @@ CONTAINS
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
         
-    time_config%sim_time(:) = 0.0_wp
     jstep0 = 0
     jg=1
     !------------------------------------------------------------------
@@ -347,10 +346,7 @@ ENDIF
         ! One integration cycle finished on the lowest grid level (coarsest
         ! resolution). Set model time.
         CALL add_time(dtime,0,0,0,this_datetime)
-      
-        ! Not nice, but the name list output requires this
-        time_config%sim_time(1) = time_config%sim_time(1) + dtime
-      
+     
         ! update accumulated vars
         CALL update_ocean_statistics(ocean_state(1),     &
         & surface_fluxes,                                &
@@ -417,7 +413,6 @@ ENDIF
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
 
-    time_config%sim_time(:) = 0.0_wp
     jstep0 = 0
     !------------------------------------------------------------------
     ! IF(.NOT.l_time_marching)THEN
@@ -444,9 +439,6 @@ ENDIF
         ! One integration cycle finished on the lowest grid level (coarsest
         ! resolution). Set model time.
         CALL add_time(dtime,0,0,0,this_datetime)
-      
-        ! Not nice, but the name list output requires this
-        time_config%sim_time(1) = time_config%sim_time(1) + dtime
       
         ! update accumulated vars
         CALL update_ocean_statistics(ocean_state(1),&
@@ -519,7 +511,6 @@ ENDIF
 
     CALL datetime_to_string(datestring, this_datetime)
 
-    time_config%sim_time(:)                                              = 0.0_wp
     jstep0                                                               = 0
     !------------------------------------------------------------------
     ! write initial
@@ -547,7 +538,7 @@ ENDIF
 
       !------------------------------------------------------------------------
       ! output: TODO not working for 3d prognostics
-      time_config%sim_time(1) = time_config%sim_time(1) + dtime
+
       ! add values to output field
 
       p_os(n_dom)%p_prog(nnew(1))%tracer = p_os(n_dom)%p_prog(nold(1))%tracer
@@ -615,7 +606,6 @@ ENDIF
           & current_date=current_date,      &
           & jstep=jstep,            &
           & model_type="oce",       &
-          & opt_sim_time=time_config%sim_time(1),&
           & opt_nice_class=1,       &
           & ocean_zlevels=n_zlev,                                         &
           & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
@@ -669,7 +659,6 @@ ENDIF
 
     CALL datetime_to_string(datestring, this_datetime)
 
-    time_config%sim_time(:)                                              = 0.0_wp
     jstep0                                                               = 0
     draft(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)           = 0.0_wp
     saltBefore(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)      = 0.0_wp
@@ -811,7 +800,7 @@ ENDIF
 
       !------------------------------------------------------------------------
       ! output: TODO not working for 3d prognostics
-      time_config%sim_time(1) = time_config%sim_time(1) + dtime
+
       ! add values to output field
       subset => patch_2D%cells%owned
       DO block = subset%start_block, subset%end_block
@@ -932,7 +921,6 @@ ENDIF
 
     CALL datetime_to_string(datestring, this_datetime)
 
-    time_config%sim_time(:) = 0.0_wp
     jstep0 = 0
     !------------------------------------------------------------------
 
@@ -1121,8 +1109,6 @@ ENDIF
    !  p_ice%v(:,:) = saltBudget(:,:)
    !  CALL dbg_print('TB.SfcFlux: ice%u     END' ,p_ice%u(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
    !  CALL dbg_print('TB.SfcFlux: ice%v     END' ,p_ice%v(:,:),debug_string, 3, in_subset=patch_2D%cells%owned)
-
-      time_config%sim_time(1) = time_config%sim_time(1) + dtime
 
       p_os(n_dom)%p_prog(nnew(1))%tracer = p_os(n_dom)%p_prog(nold(1))%tracer
       p_os(n_dom)%p_prog(nnew(1))%h      = p_os(n_dom)%p_prog(nold(1))%h

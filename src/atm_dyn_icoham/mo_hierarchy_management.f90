@@ -95,7 +95,10 @@ MODULE mo_hierarchy_management
   USE mtime,                  ONLY: datetime, timeDelta, MAX_DATETIME_STR_LEN, &
     &                               newTimeDelta, newDatetime, OPERATOR(*),    &
     &                               OPERATOR(+), deallocateDatetime,           &
-    &                               deallocateTimedelta, datetimeToString
+    &                               deallocateTimedelta, datetimeToString,     &
+    &                               getTimedeltaFromDatetime,                  &
+    &                               getTotalMillisecondsTimedelta
+  USE mo_master_config,       ONLY: tc_startdate
 
   IMPLICIT NONE
   PRIVATE
@@ -136,7 +139,6 @@ CONTAINS
                                    & p_int_state, p_grf_state,       &
                                    & ext_data, jg, nstep_global,     &
                                    & l_3tl_init, dt_loc, mtime_step, &
-                                   & sim_time,                       &
                                    & nsteps,                         &
                                    & mtime_current )
 
@@ -156,7 +158,6 @@ CONTAINS
     REAL(wp),        INTENT(IN) :: dt_loc          ! time step applicable to local grid level
     TYPE(timeDelta), POINTER    :: mtime_step      ! time step (mtime object)
 
-    REAL(wp),INTENT(INOUT) :: sim_time(n_dom)  ! elapsed simulation time on each grid level
     LOGICAL, INTENT(INOUT) :: l_3tl_init(n_dom)
 
     TYPE(datetime),   POINTER    :: mtime_current     ! current datetime (mtime)
@@ -191,6 +192,14 @@ CONTAINS
     INTEGER :: ist
     INTEGER, EXTERNAL :: util_cputime
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dstring
+    TYPE(timeDelta), POINTER            :: time_diff
+    REAL(wp)                            :: sim_time     !< elapsed simulation time on this grid level
+
+    ! calculate elapsed simulation time in seconds
+    time_diff  => newTimedelta("PT0S")
+    time_diff  =  getTimeDeltaFromDateTime(mtime_current, tc_startdate)
+    sim_time   =  getTotalMillisecondsTimedelta(time_diff, mtime_current)*1.e-3_wp
+    CALL deallocateTimedelta(time_diff)
 
     !---------------
 
@@ -380,7 +389,7 @@ CONTAINS
             IF (.NOT.lshallow_water) THEN
               ! set time-variant vertical velocity
               CALL set_vertical_velocity( p_patch(jg), p_hydro_state(jg)%diag,  &
-                &                         jstep, sim_time(jg) )
+                &                         jstep, sim_time )
             ENDIF
 
           CASE ('SV') ! static vortex
@@ -395,12 +404,12 @@ CONTAINS
 
             ! get velocity field
             CALL get_df_velocity( p_patch(jg), p_hydro_state(jg)%prog(n_new),      &
-              &                   ctest_name, rotate_axis_deg, sim_time(jg)+zdtime )
+              &                   ctest_name, rotate_axis_deg, sim_time+zdtime )
 
             ! compute barycenter of departure region
             CALL get_departure_points( p_patch(jg), p_hydro_state(jg)%prog(n_new), &
               &                        ctest_name, rotate_axis_deg, zdtime,        &
-              &                        sim_time(jg)+zdtime )
+              &                        sim_time+zdtime )
           END SELECT
 
           ! Diagnose some pressure- and velocity-related quantities for
@@ -440,7 +449,7 @@ CONTAINS
             ! save analytic solution (tracer field) for error assessment
             CALL get_sv_tracer( p_patch(jg),                                   &
               &                 p_hydro_state(jg)%prog(n_new)%tracer(:,:,:,2), &
-              &                 sim_time(jg) )
+              &                 sim_time )
 
           CASE ('DF1', 'DF2', 'DF3', 'DF4') ! deformational flow
 
@@ -450,9 +459,6 @@ CONTAINS
               &                      p_hydro_state(jg)%prog(n_new)%tracer(:,:,:,ntracer) )
 
           END SELECT
-
-          ! counter for simulation time in seconds
-          sim_time(jg) = sim_time(jg) + dt_loc
 
           !---------------------------------------
           ! Semi-implicit two time level scheme
@@ -1049,7 +1055,7 @@ CONTAINS
               &                p_int_state, p_grf_state,           &
               &                ext_data, jgc, nstep_global,        &
               &                l_3tl_init, dt_sub, mtime_step_sub, &
-              &                sim_time,  2, grid_datetime)
+              &                2, grid_datetime)
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
 
