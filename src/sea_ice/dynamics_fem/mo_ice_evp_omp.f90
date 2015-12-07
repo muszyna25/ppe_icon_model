@@ -354,7 +354,7 @@ IMPLICIT NONE
 INTEGER  :: row, elem, nodels(6), k
 !REAL(wp) :: mass, aa
 !REAL(wp) :: cluster_area,elevation_elem(3)
-REAL(wp) :: dx(6), dy(6), val3
+REAL(wp) :: dx(6), dy(6)
 
 
     nodels=nod2D_elems(:,row)
