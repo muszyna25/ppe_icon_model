@@ -56,7 +56,7 @@ MODULE mo_ocean_tracer
   USE mo_statistics,                ONLY: global_minmaxmean, print_value_location
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
   USE mo_ocean_GM_Redi,             ONLY: calc_ocean_physics, prepare_ocean_physics
-  USE mo_ocean_math_operators,      ONLY: div_oce_3d, verticalDiv_scalar_midlevel
+  USE mo_ocean_math_operators,      ONLY: div_oce_3d, verticalDiv_scalar_onFullLevels
   USE mo_scalar_product,            ONLY: map_edges2edges_viacell_3d_const_z
   IMPLICIT NONE
 
@@ -493,7 +493,7 @@ CONTAINS
                    &   p_op_coeff%div_coeff, &
                    &   div_diff_flux_horz )
       !vertical div of GMRedi-flux
-      CALL verticalDiv_scalar_midlevel( patch_3d, &
+      CALL verticalDiv_scalar_onFullLevels( patch_3d, &
                                       & p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
                                       & div_diff_flx_vert)
       !---------DEBUG DIAGNOSTICS-------------------------------------------

@@ -1491,6 +1491,9 @@ CONTAINS
           IF (v_base%del_zlev_i(jk) > 0.0_wp)  &
             & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
 
+          patch_3d%p_patch_1d(1)%invConstantPrismThickness(jc,jk,jb) = &
+            & 1.0_wp / patch_3d%p_patch_1d(1)%prism_thick_c(jc,jk,jb)
+
           patch_3d%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb) = &
             & patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb)
           patch_3d%p_patch_1d(1)%constantPrismCenters_invZdistance(jc,jk,jb) = &
@@ -1498,17 +1501,17 @@ CONTAINS
             
         END DO
         IF (end_level > 0) THEN
-	  patch_3d%p_patch_1d(1)%depth_CellInterface(jc,end_level+1,jb)   = patch_3d%p_patch_1d(1)%zlev_i(end_level+1)
-	  patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)   = &
-	    & patch_3d%p_patch_1d(1)%prism_thick_c(jc,end_level,jb) * 0.5_wp
-	  IF (patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb) > 0.0_wp)  &
-	    & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,end_level+1,jb)= &
-	      &   1.0_wp / patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)
-	  patch_3d%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,end_level+1,jb) = &
-	    & patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)
-	  patch_3d%p_patch_1d(1)%constantPrismCenters_invZdistance(jc,end_level+1,jb) = &
-	    & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,end_level+1,jb)
-	ENDIF
+          patch_3d%p_patch_1d(1)%depth_CellInterface(jc,end_level+1,jb)   = patch_3d%p_patch_1d(1)%zlev_i(end_level+1)
+          patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)   = &
+            & patch_3d%p_patch_1d(1)%prism_thick_c(jc,end_level,jb) * 0.5_wp
+          IF (patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb) > 0.0_wp)  &
+            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,end_level+1,jb)= &
+              &   1.0_wp / patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)
+          patch_3d%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,end_level+1,jb) = &
+            & patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)
+          patch_3d%p_patch_1d(1)%constantPrismCenters_invZdistance(jc,end_level+1,jb) = &
+            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,end_level+1,jb)
+        ENDIF
         
         ! set bottom/columns values
         jk = dolic_c(jc,jb)

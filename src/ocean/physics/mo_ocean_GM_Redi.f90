@@ -53,7 +53,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_statistics,                ONLY: global_minmaxmean
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
  
-  USE mo_ocean_math_operators,  ONLY: grad_fd_norm_oce_3d_onBlock, verticalDeriv_scalar_midlevel_on_block
+  USE mo_ocean_math_operators,  ONLY: grad_fd_norm_oce_3d_onBlock, verticalDeriv_scalar_onHalfLevels_on_block
   USE mo_scalar_product,            ONLY: map_cell2edges_3d,map_edges2cell_3d, &
     & map_scalar_center2prismtop, map_scalar_prismtop2center
   IMPLICIT NONE
@@ -92,13 +92,12 @@ CONTAINS
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
     TYPE(t_operator_coeff),            INTENT(inout) :: op_coeff
-    
-    
-    TYPE(t_cartesian_coordinates) :: taper_off_diagonal_vert(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
-    TYPE(t_cartesian_coordinates) :: taper_off_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp)                      :: taper_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp)                      :: taper_diagonal_vert_expl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
-    REAL(wp)                      :: taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)           
+        
+!     TYPE(t_cartesian_coordinates) :: taper_off_diagonal_vert(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
+!     TYPE(t_cartesian_coordinates) :: taper_off_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+!     REAL(wp)                      :: taper_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+!     REAL(wp)                      :: taper_diagonal_vert_expl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
+!     REAL(wp)                      :: taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)           
    !-------------------------------------------------------------------------------
 
     CALL calc_neutral_slopes(patch_3d, ocean_state, param, op_coeff)
@@ -111,9 +110,7 @@ CONTAINS
 !                    & taper_diagonal_vert_impl,      &
 !                    & taper_off_diagonal_horz,       &
 !                    & taper_off_diagonal_vert  )
-    
-
- 
+     
   END SUBROUTINE prepare_ocean_physics
   !-------------------------------------------------------------------------
 
@@ -147,7 +144,6 @@ CONTAINS
     GMredi_flux_vert => ocean_state%p_diag%GMRedi_flux_vert(:,:,:,tracer_index)
     
     SELECT CASE(GMRedi_configuration)!GMRedi_configuration==Cartesian_Mixing)RETURN
-
  
     CASE(GMRedi_combined)
         CALL calc_combined_GentMcWilliamsRedi_flux( patch_3d,        &
@@ -195,7 +191,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: flux_vec_horz_center(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_cartesian_coordinates),POINTER :: tracer_gradient_horz_vec_center(:,:,:), slopes(:,:,:)
     REAL(wp), POINTER :: tracer_gradient_vert_center(:,:,:)
-    REAL(wp), POINTER :: slopes_squared(:,:,:)!K_I(:,:,:), K_D(:,:,:), kappa(:,:,:)  
+!     REAL(wp), POINTER :: slopes_squared(:,:,:)!K_I(:,:,:), K_D(:,:,:), kappa(:,:,:)  
 
     TYPE(t_cartesian_coordinates)            :: taper_off_diagonal_vert(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
     TYPE(t_cartesian_coordinates)            :: taper_off_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -212,7 +208,7 @@ CONTAINS
     !K_I           => param%k_tracer_isoneutral
     !K_D           => param%k_tracer_dianeutral
     !kappa         => param%k_tracer_GM_kappa
-    slopes_squared=> ocean_state%p_aux%slopes_squared
+!     slopes_squared=> ocean_state%p_aux%slopes_squared
     
     start_level=1
    
@@ -237,8 +233,7 @@ CONTAINS
       ENDIF
 
       
-!ICON_OMP_PARALLEL
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
 
         
@@ -278,7 +273,7 @@ CONTAINS
           END DO                  
         END DO                
       END DO
-!ICON_OMP_END_DO
+!ICON_OMP_END_DO_PARALLEL
 
 !       CALL sync_patch_array(sync_c, patch_2D, flux_vert_center)
 
@@ -294,7 +289,7 @@ CONTAINS
 
       IF(vertical_tracer_diffusion_type == explicit_diffusion)THEN
         
-!ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
         DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       
           CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
@@ -310,28 +305,32 @@ CONTAINS
             END DO                  
           END DO                
         END DO
-!ICON_OMP_END_DO
+!ICON_OMP_END_DO_PARALLEL
  
-       ELSEIF(vertical_tracer_diffusion_type == implicit_diffusion)THEN
+      ELSEIF(vertical_tracer_diffusion_type == implicit_diffusion)THEN
  
-         CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
-       
-         CALL map_scalar_center2prismtop( patch_3d, &
-           &                              taper_diagonal_vert_impl,&
-           &                              op_coeff,           &
-           &                              mapped_verticaloff_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
-      param%a_tracer_v(:,:,:, tracer_index)=param%a_tracer_v(:,:,:, tracer_index)+mapped_verticaloff_diagonal_impl(:,:,:)
- 
-      
-      param%a_tracer_v(:,:,:, tracer_index)=max(param%a_tracer_v(:,:,:, tracer_index),mapped_verticaloff_diagonal_impl)
-      CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+        CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+
+        CALL map_scalar_center2prismtop( patch_3d, &
+          &                              taper_diagonal_vert_impl,&
+          &                              op_coeff,           &
+          &                              mapped_verticaloff_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
+
+!         param%a_tracer_v(:,:,:, tracer_index)=param%a_tracer_v(:,:,:, tracer_index) + &
+!           & mapped_verticaloff_diagonal_impl(:,:,:)
+!         param%a_tracer_v(:,:,:, tracer_index)=max(param%a_tracer_v(:,:,:, tracer_index),mapped_verticaloff_diagonal_impl).
+
+        param%a_tracer_v(:,:,:, tracer_index) = &
+          & MAX(param%a_tracer_v(:,:,:, tracer_index), 0.0_wp) + &
+          & mapped_verticaloff_diagonal_impl(:,:,:)
+
+        CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
 ! !      Do level=1,4!n_zlev
 ! !      write(0,*)'New vert coeff',tracer_index,level,maxval(param%a_tracer_v(:,level,:, tracer_index)),&
 ! !      &minval(param%a_tracer_v(:,level,:, tracer_index)),maxval(K_I(:,level,:)),&
 ! !      &minval(K_I(:,level,:))
 ! !      END DO
       ENDIF
-!ICON_OMP_END_PARALLEL
 
 !       CALL sync_patch_array(sync_c, patch_2D, flux_vert_center)
    
@@ -494,7 +493,7 @@ CONTAINS
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       grad_T_vert(:,:,blockNo) = 0.0_wp ! this is only for the top level
       !1c) calculation of vertical derivative for temperature and salinity
-      CALL verticalDeriv_scalar_midlevel_on_block( patch_3d,                &
+      CALL verticalDeriv_scalar_onHalfLevels_on_block( patch_3d,                &
                                                   & pot_temp(:,:,blockNo),   &
                                                   & grad_T_vert(:,:,blockNo),&
                                                   & start_level+1,             &
@@ -504,7 +503,7 @@ CONTAINS
 
       IF(no_tracer>=2)THEN
         grad_S_vert(:,:,blockNo) = 0.0_wp! this is only for the top level
-        CALL verticalDeriv_scalar_midlevel_on_block( patch_3d,                &
+        CALL verticalDeriv_scalar_onHalfLevels_on_block( patch_3d,                &
                                                     & salinity(:,:,blockNo),   &
                                                     & grad_S_vert(:,:,blockNo),&
                                                     & start_level+1,             &

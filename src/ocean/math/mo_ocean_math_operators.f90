@@ -66,9 +66,9 @@ MODULE mo_ocean_math_operators
   PUBLIC :: grad_fd_norm_oce_2D_3D, grad_fd_norm_oce_2D_3D_sp
   PUBLIC :: grad_fd_norm_oce_2D_onBlock
   PUBLIC :: verticalDeriv_vec_midlevel_on_block
-  PUBLIC :: verticalDeriv_scalar_midlevel_on_block
-  PUBLIC :: verticalDiv_scalar_midlevel
-  PUBLIC :: verticalDiv_scalar_midlevel_on_block
+  PUBLIC :: verticalDeriv_scalar_onHalfLevels_on_block
+  PUBLIC :: verticalDiv_scalar_onFullLevels
+  PUBLIC :: verticalDiv_scalar_onFullLevels_on_block
   PUBLIC :: map_edges2vert_3D
   PUBLIC :: check_cfl_horizontal, check_cfl_vertical
   PUBLIC :: smooth_onCells
@@ -1098,7 +1098,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
 !<Optimize:inUse>
-  SUBROUTINE verticalDeriv_scalar_midlevel_on_block(patch_3d, scalar_in, vertDeriv_scalar, start_level, &
+  SUBROUTINE verticalDeriv_scalar_onHalfLevels_on_block(patch_3d, scalar_in, vertDeriv_scalar, start_level, &
     & blockNo, start_index, end_index)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     REAL(wp), INTENT(in)                             :: scalar_in(nproma, n_zlev)
@@ -1125,12 +1125,12 @@ CONTAINS
 !      ENDIF
     END DO
    !CALL sync_patch_array(sync_c, patch_3D%p_patch_2D(1), vertDeriv_scalar(:,:))
-  END SUBROUTINE verticalDeriv_scalar_midlevel_on_block
+  END SUBROUTINE verticalDeriv_scalar_onHalfLevels_on_block
   !-------------------------------------------------------------------------
   
    !-------------------------------------------------------------------------
 !<Optimize:inUse>
-  SUBROUTINE verticalDiv_scalar_midlevel( patch_3d, scalar_in, vertDiv_scalar, subset_range)
+  SUBROUTINE verticalDiv_scalar_onFullLevels( patch_3d, scalar_in, vertDiv_scalar, subset_range)
     TYPE(t_patch_3d), TARGET, INTENT(in) :: patch_3D
     REAL(wp), INTENT(in)                 :: scalar_in(:,:,:) ! (nproma, n_zlev+1, patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp), INTENT(inout)              :: vertDiv_scalar(:,:,:) ! (nproma, n_zlev+1, patch_3D%p_patch_2D(1)%alloc_cell_blocks)    ! out
@@ -1154,14 +1154,14 @@ CONTAINS
     
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       vertDiv_scalar(:,:,blockNo) = 0.0_wp ! only for the top level
-      CALL verticalDiv_scalar_midlevel_on_block(patch_3d, scalar_in(:,:,blockNo), vertDiv_scalar(:,:,blockNo), start_level, &
+      CALL verticalDiv_scalar_onFullLevels_on_block(patch_3d, scalar_in(:,:,blockNo), vertDiv_scalar(:,:,blockNo), start_level, &
         & blockNo, start_cell_index, end_cell_index)
       
     END DO
 !ICON_OMP_END_PARALLEL_DO
 
   !CALL sync_patch_array(sync_c, patch_3D%p_patch_2D(1), vertDiv_scalar)
-  END SUBROUTINE verticalDiv_scalar_midlevel
+  END SUBROUTINE verticalDiv_scalar_onFullLevels
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -1175,7 +1175,7 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
 !<Optimize:inUse>
-  SUBROUTINE verticalDiv_scalar_midlevel_on_block(patch_3d, scalar_in, vertDiv_scalar, start_level, &
+  SUBROUTINE verticalDiv_scalar_onFullLevels_on_block(patch_3d, scalar_in, vertDiv_scalar, start_level, &
     & blockNo, start_index, end_index)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     REAL(wp), INTENT(in)                             :: scalar_in(nproma, n_zlev+1)
@@ -1185,11 +1185,11 @@ CONTAINS
 
     !Local variables
     INTEGER :: jk, jc!,jb
-    REAL(wp), POINTER ::  prism_center_distance(:,:)
+    REAL(wp), POINTER ::  inv_prism_thickness(:,:)
 !     INTEGER :: end_level
     !-------------------------------------------------------------------------------
     ! prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)
-     inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(:,:,blockNo)
+     inv_prism_thickness => patch_3D%p_patch_1D(1)%invConstantPrismThickness(:,:,blockNo)
 
     DO jc = start_index, end_index
 !       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
@@ -1197,14 +1197,14 @@ CONTAINS
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
           vertDiv_scalar(jc,jk) &
             & = (scalar_in(jc,jk-1) - scalar_in(jc,jk))  & !/ prism_center_distance(jc,jk)
-              & * prism_center_distance(jc,jk)
+              & * inv_prism_thickness(jc,jk)
 
         END DO
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed
 !      ENDIF
     END DO
      !CALL sync_patch_array(sync_c, patch_3D%p_patch_2D(1), vertDiv_scalar)
-  END SUBROUTINE verticalDiv_scalar_midlevel_on_block
+  END SUBROUTINE verticalDiv_scalar_onFullLevels_on_block
   !-------------------------------------------------------------------------
  
  

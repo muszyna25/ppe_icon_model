@@ -65,7 +65,7 @@ MODULE mo_ocean_testbed_modules
   USE mo_parallel_config,        ONLY: nproma
   USE mo_statistics
   USE mo_ocean_testbed_vertical_diffusion
-  USE mo_ocean_math_operators,   ONLY: div_oce_3d, verticalDiv_scalar_midlevel 
+  USE mo_ocean_math_operators,   ONLY: div_oce_3d, verticalDiv_scalar_onFullLevels 
   USE mo_grid_subset,            ONLY: t_subset_range, get_index_range 
   USE mo_ocean_diffusion,        ONLY: tracer_diffusion_vertical_implicit,tracer_diffusion_horz
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
@@ -252,7 +252,7 @@ CONTAINS
                      &   operators_coefficients%div_coeff, &
                      &   div_diff_flux_horz )
             !vertical div of GMRedi-flux
-            CALL verticalDiv_scalar_midlevel( patch_3d, &
+            CALL verticalDiv_scalar_onFullLevels( patch_3d, &
                                             & ocean_state(n_dom)%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
                                             & div_diff_flx_vert)
                                    
