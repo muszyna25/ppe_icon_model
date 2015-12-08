@@ -552,7 +552,7 @@ MODULE mo_ocean_model
     !------------------------------------------------------------------
 
     ! patch_2D and ocean_state have dimension n_dom
-    CALL construct_hydro_ocean_state(patch_3d%p_patch_2d, ocean_state)
+    CALL construct_hydro_ocean_state(patch_3d, ocean_state)
     ocean_state(1)%operator_coeff => operators_coefficients
 
     CALL construct_ho_params(patch_3d%p_patch_2d(1), p_phys_param, ocean_restart_list)

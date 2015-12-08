@@ -28,10 +28,10 @@ MODULE mo_grid_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
   USE mo_impl_constants,     ONLY: max_dom, itri
   USE mo_math_constants,     ONLY: rad2deg
-  USE mo_master_config,      ONLY: isRestart
+  USE mo_master_control,     ONLY: use_restart_namelists
   USE mo_physical_constants, ONLY: earth_angular_velocity
-!  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
-!                                    & open_and_restore_namelist, close_tmpfile
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
+    &                               open_and_restore_namelist, close_tmpfile
 
   USE mo_grid_config,        ONLY:                                          &
     & config_lfeedback                    => lfeedback,                     &
@@ -86,7 +86,7 @@ MODULE mo_grid_nml
   SUBROUTINE read_grid_namelist( filename )
     
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
-    INTEGER  :: i_status, i
+    INTEGER  :: i_status, i, funit
 
 !     INTEGER    :: cell_type                ! cell type: NOT USED
 
@@ -178,11 +178,11 @@ MODULE mo_grid_nml
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
     !----------------------------------------------------------------
-    IF (isRestart()) THEN
-    ! funit = open_and_restore_namelist('grid_nml')
-    ! READ(funit,NML=grid_nml)
-    ! CALL close_tmpfile(funit)
-    END IF
+ !   IF (use_restart_namelists()) THEN
+ !     funit = open_and_restore_namelist('grid_nml')
+ !     READ(funit,NML=grid_nml)
+ !     CALL close_tmpfile(funit)
+ !   END IF
 
     !------------------------------------------------------------
     ! Read the namelist (done so far by all MPI processes)
