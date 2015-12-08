@@ -320,9 +320,18 @@ CONTAINS
 !           & mapped_verticaloff_diagonal_impl(:,:,:)
 !         param%a_tracer_v(:,:,:, tracer_index)=max(param%a_tracer_v(:,:,:, tracer_index),mapped_verticaloff_diagonal_impl).
 
-        param%a_tracer_v(:,:,:, tracer_index) = &
-          & MAX(param%a_tracer_v(:,:,:, tracer_index), 0.0_wp) + &
-          & mapped_verticaloff_diagonal_impl(:,:,:)
+!ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
+        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block     
+          CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
+          DO cell_index = start_cell_index, end_cell_index
+            DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+              param%a_tracer_v(ell_index,level,blockNo, tracer_index) = &
+                & MAX(param%a_tracer_v(ell_index,level,blockNo, tracer_index), 0.0_wp) + &
+                & mapped_verticaloff_diagonal_impl(:,:,:)
+            END DO                  
+          END DO                
+        END DO
+!ICON_OMP_END_DO_PARALLEL
 
         CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
 ! !      Do level=1,4!n_zlev
@@ -424,9 +433,9 @@ CONTAINS
     depth_cellinterface => patch_3D%p_patch_1d(1)%depth_cellinterface
     !-------------------------------------------------------------------------
 
-    pot_temp          => ocean_state%p_prog(nold(1))%ocean_tracers(1)%concentration
-    grad_T_vec        => ocean_state%p_aux%PgradTemperature_horz_center
-    grad_T_vert_center=> ocean_state%p_aux%DerivTemperature_vert_center
+!     pot_temp          => ocean_state%p_prog(nold(1))%ocean_tracers(1)%concentration
+!     grad_T_vec        => ocean_state%p_aux%PgradTemperature_horz_center
+!     grad_T_vert_center=> ocean_state%p_aux%DerivTemperature_vert_center
 
     IF(no_tracer>=2)THEN
     
