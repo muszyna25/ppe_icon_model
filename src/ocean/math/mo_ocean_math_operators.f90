@@ -1146,7 +1146,7 @@ CONTAINS
     ELSE
       cells_in_domain => patch_3D%p_patch_2D(1)%cells%in_domain
     ENDIF    
-    start_level=1
+    start_level=2
     !-----------------------------------------------------------------------
     
 !ICON_OMP_PARALLEL_DO PRIVATE(blockNo,start_cell_index,end_cell_index) ICON_OMP_DEFAULT_SCHEDULE

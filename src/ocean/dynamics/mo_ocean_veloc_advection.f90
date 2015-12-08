@@ -678,7 +678,7 @@ ENDDO
       DO jc = start_index, end_index
         fin_level = patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
 
-!         IF(fin_level >= min_dolic) THEN
+        IF(fin_level >= min_dolic) THEN
 
           !1a) ocean surface: vertical derivative times vertical velocity.
           !This form is consistent with energy conservation
@@ -697,7 +697,7 @@ ENDDO
 
           z_adv_u_i(jc,fin_level)%x = 0.0_wp
 
-!         ENDIF
+        ENDIF
       END DO
 
       ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
