@@ -1077,8 +1077,8 @@ CONTAINS
         
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
           vertDeriv_vec(jc,jk)%x &
-          & = (vec_in(jc,jk-1)%x - vec_in(jc,jk)%x)  & !/ prism_center_distance(jc,jk)
-              & * inv_prism_center_distance(jc,jk-1)
+          & = (vec_in(jc,jk-1)%x - vec_in(jc,jk)%x)  & 
+              & * inv_prism_center_distance(jc,jk)
               
         END DO    
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed 
@@ -1167,7 +1167,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !
   !>
-  !! !  SUBROUTINE calculates vertical derivative for a scalar that is located at cell center and at midelevel,
+  !! !  SUBROUTINE calculates vertical divergence/derivative for a scalar that is located at cell center and at midelevel,
   !!    i.e. at the center of a 3D prism.
   !!    start level has to be specifed, at end level value zero is assigned to vert. derivative 
   !!
@@ -1185,18 +1185,19 @@ CONTAINS
 
     !Local variables
     INTEGER :: jk, jc!,jb
-    ! REAL(wp), POINTER ::  prism_center_distance(:,:)
+    REAL(wp), POINTER ::  prism_center_distance(:,:)
 !     INTEGER :: end_level
     !-------------------------------------------------------------------------------
     ! prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)
+     inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(:,:,blockNo)
 
     DO jc = start_index, end_index
 !       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
 !      IF ( end_level >=min_dolic ) THEN
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
           vertDiv_scalar(jc,jk) &
-            & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & !/ prism_center_distance(jc,jk)
-              & * patch_3D%p_patch_1D(1)%inv_prism_thick_c(jc,jk,blockNo)
+            & = (scalar_in(jc,jk-1) - scalar_in(jc,jk))  & !/ prism_center_distance(jc,jk)
+              & * prism_center_distance(jc,jk)
 
         END DO
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed
