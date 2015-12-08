@@ -325,9 +325,9 @@ CONTAINS
           CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
           DO cell_index = start_cell_index, end_cell_index
             DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
-              param%a_tracer_v(ell_index,level,blockNo, tracer_index) = &
-                & MAX(param%a_tracer_v(ell_index,level,blockNo, tracer_index), 0.0_wp) + &
-                & mapped_verticaloff_diagonal_impl(:,:,:)
+              param%a_tracer_v(cell_index,level,blockNo, tracer_index) = &
+                & MAX(param%a_tracer_v(cell_index,level,blockNo, tracer_index), 0.0_wp) + &
+                & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo)
             END DO                  
           END DO                
         END DO
