@@ -232,7 +232,10 @@ CONTAINS
         tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
       ENDIF
 
-      
+     flux_vec_horz_center(:,:,:)%x(1) = 0.0_wp
+     flux_vec_horz_center(:,:,:)%x(2) = 0.0_wp
+     flux_vec_horz_center(:,:,:)%x(3) = 0.0_wp
+
 !ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
 
@@ -240,7 +243,7 @@ CONTAINS
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       
         DO cell_index = start_cell_index, end_cell_index
-        
+ 
           !horizontal GMRedi Flux at top layer
           DO level = start_level, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo),start_level)
             flux_vec_horz_center(cell_index,start_level,blockNo)%x &
