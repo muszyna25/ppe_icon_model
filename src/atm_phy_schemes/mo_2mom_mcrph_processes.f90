@@ -1089,7 +1089,7 @@ CONTAINS
              eva_q = MIN(eva_q,q_r)
              eva_n = MIN(eva_n,n_r)
 
-             atmo%qv(i,k)     = atmo%qv(i,k)     + eva_q
+             atmo%qv(i,k)= atmo%qv(i,k)+ eva_q
              rain%q(i,k) = rain%q(i,k) - eva_q
              rain%n(i,k) = rain%n(i,k) - eva_n
           END IF
@@ -1774,10 +1774,12 @@ CONTAINS
     ENDDO
 
     DO k = kstart,kend
-       dep_ice(:,k)     = 0.0
-       dep_snow(:,k)    = 0.0
-       dep_graupel(:,k) = 0.0
-       dep_hail(:,k)    = 0.0
+      DO i = istart, iend
+        dep_ice(i,k)     = 0.0
+        dep_snow(i,k)    = 0.0
+        dep_graupel(i,k) = 0.0
+        dep_hail(i,k)    = 0.0
+      END DO
     END DO
 
     CALL vapor_deposition_generic(ik_slice, ice, vid_params, g_i, s_si, &
