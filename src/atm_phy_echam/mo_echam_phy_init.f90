@@ -23,7 +23,6 @@ MODULE mo_echam_phy_init
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish, message, message_text
-  USE mo_datetime,             ONLY: t_datetime, string_to_datetime
   USE mtime,                   ONLY: datetime, MAX_DATETIME_STR_LEN, &
     &                                datetimeToString
 
@@ -127,21 +126,8 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: land_phys_fn = 'bc_land_phys.nc'
     CHARACTER(len=*), PARAMETER :: land_sso_fn  = 'bc_land_sso.nc'
 
-    TYPE(t_datetime)                    :: datetime_current        !< Date and time information
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
-
     TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
     
-    !---------------------------------------------------------------
-    ! conversion of subroutine arguments to old "t_datetime" data
-    ! structure
-    !
-    ! TODO: remove this after transition to mtime library!!!
-    
-    CALL datetimeToString(mtime_current, datetime_string        )
-    CALL string_to_datetime( datetime_string,  datetime_current )
-    !---------------------------------------------------------------  
-
     IF (timers_level > 1) CALL timer_start(timer_prep_echam_phy)
 
     !-------------------------------------------------------------------

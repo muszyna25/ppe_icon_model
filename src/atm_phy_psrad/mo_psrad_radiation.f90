@@ -74,7 +74,6 @@ MODULE mo_psrad_radiation
 !       &                        prev_radiation_date,get_date_components,      &
 !       &                        lresume, lstart, get_month_len
   USE mo_echam_convect_tables,  ONLY : prepare_ua_index_spline, lookup_ua_spline
-!  USE mo_datetime,        ONLY: t_datetime
 ! amu0_x must now be taken from prm_field (has to be passed to the respect. routines
 !  USE mo_geoloc,          ONLY: coslon_2d, &
 !       &                        sinlon_2d, sinlat_2d, coslat_2d

@@ -48,9 +48,7 @@ MODULE mo_art_emission_interface
                                           &   iCS137,iI131,iTE132,          &
                                           &   iZR95,iXE133,iI131g,          &
                                           &   iI131o,iBA140,iRU103
-  USE mo_datetime,                      ONLY: t_datetime, string_to_datetime
-  USE mtime,                            ONLY: datetime, MAX_DATETIME_STR_LEN, &
-    &                                         datetimeToString
+  USE mtime,                            ONLY: datetime
 #ifdef __ICON_ART
 ! Infrastructure Routines
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
@@ -121,20 +119,6 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
   TYPE(t_mode), POINTER   :: &
     &  this_mode               !< pointer to current aerosol mode
 
-  TYPE(t_datetime)                    :: datetime_current        !< Date and time information
-  CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
-
-  !---------------------------------------------------------------
-  ! conversion of subroutine arguments to old "t_datetime" data
-  ! structure
-  !
-  ! TODO: remove this after transition to mtime library!!!
-
-  CALL datetimeToString(mtime_current, datetime_string        )
-  CALL string_to_datetime( datetime_string,  datetime_current )
-  !---------------------------------------------------------------  
-  
-  
   ! --- Get the loop indizes
   i_nchdom   = MAX(1,p_patch%n_childdom)
   jg         = p_patch%id
@@ -315,7 +299,7 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
-            CALL art_emiss_chemtracer(datetime_current,               &
+            CALL art_emiss_chemtracer(mtime_current,                  &
               &                       dtime,                          &
               &                       tracer,                         &
               &                       p_nh_state%diag%pres,           &
