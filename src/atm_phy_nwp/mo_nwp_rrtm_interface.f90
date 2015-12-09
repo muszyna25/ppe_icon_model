@@ -25,7 +25,6 @@
 MODULE mo_nwp_rrtm_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-!  USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_exception,            ONLY: message,  finish, message_text
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
@@ -178,7 +177,6 @@ CONTAINS
     END SELECT
 
     IF ( irad_aero == 6 ) THEN
-!      CALL month2hour (datetime, imo1, imo2, zw )
       current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_datetime)
       imo1 = current_time_interpolation_weights%month1
       imo2 = current_time_interpolation_weights%month2

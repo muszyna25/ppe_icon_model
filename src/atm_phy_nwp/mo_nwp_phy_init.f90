@@ -107,7 +107,6 @@ MODULE mo_nwp_phy_init
   USE mo_master_config,       ONLY: isRestart
   USE mo_nwp_parameters,      ONLY: t_phy_params
 
-  USE mo_datetime,            ONLY: t_datetime,  month2hour, string_to_datetime
   USE mo_initicon_config,     ONLY: init_mode
 
   USE mo_nwp_ww,              ONLY: configure_ww
@@ -117,6 +116,8 @@ MODULE mo_nwp_phy_init
   USE mo_fortran_tools,       ONLY: init
   USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, &
     &                               datetimeToString
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
+    &                                  calculate_time_interpolation_weights
 
   IMPLICIT NONE
 
@@ -1445,18 +1446,8 @@ END SUBROUTINE init_nwp_phy
     INTEGER          :: jb, jc, jg, nlev
 
     REAL(wp) :: wgt, zncn(nproma, p_patch%nlev)
-    TYPE(t_datetime)                    :: this_datetime
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
-
-    !---------------------------------------------------------------
-    ! conversion of subroutine arguments to old "t_datetime" data
-    ! structure
-    !
-    ! TODO: remove this after transition to mtime library!!!
-
-    CALL datetimeToString(mtime_date, datetime_string        )
-    CALL string_to_datetime( datetime_string,  this_datetime )
-    !---------------------------------------------------------------
+    
+    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
 
     jg = p_patch%id
     nlev = p_patch%nlev
@@ -1464,7 +1455,11 @@ END SUBROUTINE init_nwp_phy
     IF (irad_aero /= 6) RETURN
     IF (atm_phy_nwp_config(jg)%icpl_aero_gscp /= 1 .AND. icpl_aero_conv /= 1) RETURN
 
-    CALL month2hour (this_datetime, imo1, imo2, wgt)
+    
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
+    imo1 = current_time_interpolation_weights%month1
+    imo2 = current_time_interpolation_weights%month2
+    wgt = current_time_interpolation_weights%weight2
 
     rl_start = 1
     rl_end   = min_rlcell_int

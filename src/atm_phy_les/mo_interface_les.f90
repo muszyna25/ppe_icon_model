@@ -26,8 +26,7 @@
 
 MODULE mo_interface_les
 
-  USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN,                &
-    &                              datetimeToString, timeDelta, newTimedelta,     &
+  USE mtime,                 ONLY: datetime, timeDelta, newTimedelta,     &
     &                              deallocateTimedelta, getTimedeltaFromDatetime, &
     &                              getTotalMillisecondsTimedelta
   USE mo_time_config,        ONLY: time_config

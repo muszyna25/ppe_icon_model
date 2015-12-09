@@ -704,7 +704,6 @@ MODULE mo_nwp_rg_interface
     END SELECT
 
     IF ( irad_aero == 6 ) THEN
-!      CALL month2hour (datetime, imo1, imo2, zw )
       current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_datetime)
       imo1 = current_time_interpolation_weights%month1
       imo2 = current_time_interpolation_weights%month2
