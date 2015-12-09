@@ -25,7 +25,7 @@
 MODULE mo_nwp_rrtm_interface
 
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
-  USE mo_datetime,             ONLY: t_datetime,  month2hour
+!  USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_exception,            ONLY: message,  finish, message_text
   USE mo_ext_data_types,       ONLY: t_external_data
   USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
@@ -47,9 +47,12 @@ MODULE mo_nwp_rrtm_interface
   USE mo_sync,                 ONLY: global_max, global_min
 
   USE mo_rrtm_data_interface,  ONLY: t_rrtm_data, recv_rrtm_input, send_rrtm_output
-  USE mo_timer,                ONLY: timer_start, timer_stop, timers_level, &
-    & timer_radiaton_recv, timer_radiaton_comp, timer_radiaton_send, &
-    & timer_preradiaton
+  USE mo_timer,                ONLY: timer_start, timer_stop, timers_level,    &
+    &                                timer_radiaton_recv, timer_radiaton_comp, &
+    &                                timer_radiaton_send, timer_preradiaton
+  USE mtime,                     ONLY: datetime
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
+    &                                  calculate_time_interpolation_weights
 
   IMPLICIT NONE
 
@@ -84,7 +87,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
+  SUBROUTINE nwp_rrtm_ozon_aerosol ( p_sim_time, mtime_datetime, pt_patch, ext_data, &
     & pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -92,11 +95,11 @@ CONTAINS
 
     REAL(wp),INTENT(in)         :: p_sim_time
 
-    TYPE(t_datetime),            INTENT(in) :: datetime
-    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
-    TYPE(t_external_data),       INTENT(inout) :: ext_data
-    TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
-    TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
+    TYPE(datetime), POINTER, INTENT(in)    :: mtime_datetime
+    TYPE(t_patch), TARGET,   INTENT(in)    :: pt_patch     !<grid/patch info.
+    TYPE(t_external_data),   INTENT(inout) :: ext_data
+    TYPE(t_nh_diag), TARGET, INTENT(in)    :: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag),    INTENT(inout) :: prm_diag
 
     REAL(wp), INTENT(out) :: &
       & zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
@@ -140,6 +143,8 @@ CONTAINS
 
     INTEGER:: imo1,imo2 !for Tegen aerosol time interpolation
 
+    TYPE(t_time_interpolation_weights) :: current_time_interpolation_weights
+    
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
 
@@ -167,13 +172,18 @@ CONTAINS
         & zvio3      = prm_diag%vio3,                & !inout
         & zhmo3      = prm_diag%hmo3  )                !inout
     CASE (7)
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
+      CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
     CASE (9)
-      CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
+      CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
     END SELECT
 
-    IF ( irad_aero == 6 ) CALL month2hour (datetime, imo1, imo2, zw )
-
+    IF ( irad_aero == 6 ) THEN
+!      CALL month2hour (datetime, imo1, imo2, zw )
+      current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_datetime)
+      imo1 = current_time_interpolation_weights%month1
+      imo2 = current_time_interpolation_weights%month2
+      zw = current_time_interpolation_weights%weight2
+    ENDIF
     rl_start = 1
     rl_end   = min_rlcell_int
 

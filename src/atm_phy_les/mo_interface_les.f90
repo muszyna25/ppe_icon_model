@@ -26,7 +26,6 @@
 
 MODULE mo_interface_les
 
-  USE mo_datetime,           ONLY: t_datetime, string_to_datetime
   USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN,                &
     &                              datetimeToString, timeDelta, newTimedelta,     &
     &                              deallocateTimedelta, getTimedeltaFromDatetime, &
@@ -208,20 +207,8 @@ CONTAINS
 
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_interface_les:les_phy_interface:'
 
-    TYPE(t_datetime)                    :: this_datetime
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
     TYPE(timeDelta), POINTER            :: time_diff
     REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
-
-    !---------------------------------------------------------------
-    ! conversion of subroutine arguments to old "t_datetime" data
-    ! structure
-    !
-    ! TODO: remove this after transition to mtime library!!!
-
-    CALL datetimeToString(mtime_current, datetime_string     )
-    CALL string_to_datetime( datetime_string,  this_datetime )
-    !---------------------------------------------------------------
 
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
@@ -861,7 +848,7 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
       CALL nwp_radiation (lredgrid,              & ! in
            &              p_sim_time,            & ! in
-           &              this_datetime,         & ! in
+           &              mtime_current,         & ! in
            &              pt_patch,              & ! in
            &              pt_par_patch,          & ! in
            &              ext_data,              & ! in

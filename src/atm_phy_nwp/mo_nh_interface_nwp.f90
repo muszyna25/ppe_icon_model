@@ -34,7 +34,6 @@
 
 MODULE mo_nh_interface_nwp
 
-  USE mo_datetime,                ONLY: t_datetime, string_to_datetime
   USE mtime,                      ONLY: datetime, MAX_DATETIME_STR_LEN,                &
     &                                   datetimeToString, timeDelta, newTimedelta,     &
     &                                   deallocateTimedelta, getTimedeltaFromDatetime, &
@@ -137,7 +136,7 @@ CONTAINS
     REAL(wp),INTENT(in)          :: dt_loc          !< (advective) time step applicable to local grid level
     REAL(wp),INTENT(in)          :: dt_phy_jg(:)    !< time interval for all physics
                                                     !< packages on domain jg
-    TYPE(datetime),       POINTER :: mtime_datetime !< date/time information (in)
+    TYPE(datetime), POINTER                :: mtime_datetime !< date/time information (in)
     TYPE(t_patch),        TARGET,INTENT(in):: pt_patch     !<grid/patch info.
     TYPE(t_patch),        TARGET,INTENT(in):: pt_par_patch !<grid/patch info (parent grid)
 
@@ -210,20 +209,8 @@ CONTAINS
 
     INTEGER :: ntracer_sync
 
-    TYPE(t_datetime)                    :: this_datetime
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
     TYPE(timeDelta), POINTER            :: time_diff
     REAL(wp)                            :: p_sim_time     !< elapsed simulation time on this grid level
-
-    !---------------------------------------------------------------
-    ! conversion of subroutine arguments to old "t_datetime" data
-    ! structure
-    !
-    ! TODO: remove this after transition to mtime library!!!
-
-    CALL datetimeToString(mtime_datetime, datetime_string )
-    CALL string_to_datetime( datetime_string,  this_datetime )
-    !---------------------------------------------------------------
 
     ! calculate elapsed simulation time in seconds (local time for
     ! this domain!)
@@ -585,11 +572,11 @@ CONTAINS
     ENDIF
 
     IF (lart) THEN
-      CALL calc_o3_gems(pt_patch,this_datetime,pt_diag,prm_diag,ext_data)
+      CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
 
       CALL art_reaction_interface(ext_data,                    & !> in
                 &          pt_patch,                           & !> in
-                &          this_datetime,                      & !> in
+                &          mtime_datetime,                     & !> in
                 &          dt_phy_jg(itfastphy),               & !> in
                 &          p_prog_list,                        & !> in
                 &          pt_prog,                            & !> in
@@ -898,7 +885,7 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
       CALL nwp_radiation (lredgrid,              & ! in
            &              p_sim_time,            & ! in
-           &              this_datetime,         & ! in
+           &              mtime_datetime,        & ! in
            &              pt_patch,              & ! in
            &              pt_par_patch,          & ! in
            &              ext_data,              & ! in

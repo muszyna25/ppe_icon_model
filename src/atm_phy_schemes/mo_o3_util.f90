@@ -28,7 +28,6 @@
 
 MODULE mo_o3_util
 
-  USE mo_datetime,             ONLY: t_datetime
   USE mo_exception,            ONLY: finish
   USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
   USE mo_parallel_config,      ONLY: nproma
@@ -46,6 +45,7 @@ MODULE mo_o3_util
   USE mo_radiation_config,     ONLY: irad_o3
   USE mo_physical_constants,   ONLY: amd,amo3,rd,grav
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone, icpl_o3_tp
+  USE mtime,                     ONLY: datetime
   USE mo_bcs_time_interpolation, ONLY: tiw => current_time_interpolation_weights
   
   IMPLICIT NONE
@@ -868,7 +868,14 @@ CONTAINS
   !! @par Revision History
   !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-10-18)
   !!
-  SUBROUTINE calc_o3_gems(pt_patch,datetime,p_diag,prm_diag,ext_data)
+  SUBROUTINE calc_o3_gems(pt_patch,mtime_datetime,p_diag,prm_diag,ext_data)
+
+    TYPE(t_patch),           INTENT(in) :: pt_patch    ! Patch
+    TYPE(datetime), POINTER, INTENT(in) :: mtime_datetime
+    TYPE(t_nh_diag),         INTENT(in) :: p_diag  !!the diagostic variables
+    TYPE(t_nwp_phy_diag),    INTENT(in):: prm_diag
+
+    TYPE(t_external_data),   INTENT(inout) :: ext_data  !!the external data state
 
     CHARACTER(len=*), PARAMETER :: routine =  'calc_o3_gems'
 
@@ -910,13 +917,6 @@ CONTAINS
       &  22320._wp,  64980._wp, 107640._wp, 151560._wp, 195480._wp, 239400._wp, &
       & 283320._wp, 327960._wp, 371880._wp, 415800._wp, 459720._wp, 503640._wp /)    
 
-    TYPE(t_patch),      INTENT(in) :: pt_patch    ! Patch
-    TYPE(t_datetime),   INTENT(in) :: datetime
-    TYPE(t_nh_diag),    INTENT(in) :: p_diag  !!the diagostic variables
-    TYPE(t_nwp_phy_diag),INTENT(in):: prm_diag
-
-    TYPE(t_external_data), INTENT(inout) :: ext_data  !!the external data state
-
     ! local fields
     INTEGER  :: idx0(nproma,0:pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp) :: zlat(0:ilat+1)
@@ -940,16 +940,16 @@ CONTAINS
 
     !Time index. Taken from su_ghgclim.F90 of ECMWF's IFS (37r2).
 
-    IDY = datetime%day - 1 !NDD(KINDAT)-1
-    IMN = datetime%month ! NMM(KINDAT)
+    IDY = mtime_datetime%date%day - 1 !NDD(KINDAT)-1
+    IMN = mtime_datetime%date%month ! NMM(KINDAT)
     IF (IMN == 1) THEN
-      ZXTIME=REAL(IDY,wp)*1440._wp + datetime%minute !KMINUT
+      ZXTIME=REAL(IDY,wp)*1440._wp + mtime_datetime%time%minute !KMINUT
     ELSEIF (IMN == 2) THEN
       IF(IDY == 28) IDY=IDY-1
       ! A DAY IN FEB. IS 28.25*24*60/28=1452.8571min LONG.
-      ZXTIME=44640._wp+REAL(IDY,wp)*1452.8571_wp + datetime%minute !KMINUT
+      ZXTIME=44640._wp+REAL(IDY,wp)*1452.8571_wp + mtime_datetime%time%minute !KMINUT
     ELSE
-      ZXTIME=(ZMDAY(IMN-1)+REAL(IDY,KIND(ZXTIME)))*1440._wp + datetime%minute !KMINUT
+      ZXTIME=(ZMDAY(IMN-1)+REAL(IDY,KIND(ZXTIME)))*1440._wp + mtime_datetime%time%minute !KMINUT
     ENDIF
     ! 525960=MINUTES IN A SIDERAL YEAR (365.25d)
     ZXTIME=MOD(ZXTIME,525960._wp)

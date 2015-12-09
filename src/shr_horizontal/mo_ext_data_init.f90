@@ -75,7 +75,6 @@ MODULE mo_ext_data_init
     &                              t_stream_id, read_2D, read_2D_int, &
     &                              read_3D_extdim
   USE mo_phyparam_soil,      ONLY: c_lnd, c_soil, c_sea
-  USE mo_datetime,           ONLY: t_datetime, month2hour, string_to_datetime
   USE mo_util_cdi,           ONLY: get_cdi_varID, test_cdi_varID, read_cdi_2d,     &
     &                              read_cdi_3d, t_inputParameters,                 &
     &                              makeInputParameters, deleteInputParameters,     &
@@ -97,6 +96,8 @@ MODULE mo_ext_data_init
   USE mtime,                 ONLY: datetime, newDatetime, deallocateDatetime,        &
     &                              MAX_DATETIME_STR_LEN, datetimetostring,           &
     &                              OPERATOR(+)
+  USE mo_bcs_time_interpolation, ONLY: t_time_interpolation_weights,         &
+    &                                  calculate_time_interpolation_weights
 
   IMPLICIT NONE
 
@@ -332,8 +333,6 @@ CONTAINS
     CALL dict_finalize(extpar_varnames_dict)
 
   END SUBROUTINE init_ext_data
-
-
 
 
   !-------------------------------------------------------------------------
@@ -2001,35 +2000,26 @@ CONTAINS
     REAL(wp),          INTENT(IN)  :: monthly_means(:,:,:)  ! monthly mean climatology
     REAL(wp),          INTENT(OUT) :: out_field(:,:)        ! interpolated output field
 
-    TYPE(t_datetime)                    :: this_datetime        ! actual date
     INTEGER                             :: jc, jb               !< loop index
     INTEGER                             :: i_startblk, i_endblk, i_nchdom
     INTEGER                             :: rl_start, rl_end
     INTEGER                             :: i_startidx, i_endidx
     INTEGER                             :: mo1, mo2             !< nearest months
     REAL(wp)                            :: zw1, zw2
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
-
+    TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
+    
 !!$    CHARACTER(len=max_char_length), PARAMETER :: &
 !!$      routine = modname//': interpol_monthly_mean'
 
     !---------------------------------------------------------------
-    ! conversion of subroutine arguments to old "t_datetime" data
-    ! structure
-    !
-    ! TODO: remove this after transition to mtime library!!!
-
-    CALL datetimeToString(mtime_date, datetime_string        )
-    CALL string_to_datetime( datetime_string,  this_datetime )
-    !---------------------------------------------------------------
-
-    !---------------------------------------------------------------
-
     ! Find the 2 nearest months mo1, mo2 and the weights zw1, zw2
     ! to the actual date and time
-    CALL month2hour( this_datetime, mo1, mo2, zw2 )
-
-    zw1 = 1._wp - zw2
+    current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_date)
+    
+    mo1 = current_time_interpolation_weights%month1
+    mo2 = current_time_interpolation_weights%month2
+    zw1 = current_time_interpolation_weights%weight1
+    zw2 = current_time_interpolation_weights%weight2
 
     ! Get interpolated field
     i_nchdom  = MAX(1,p_patch%n_childdom)
@@ -2056,9 +2046,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-
   END SUBROUTINE interpol_monthly_mean
-
 
 END MODULE mo_ext_data_init
 
