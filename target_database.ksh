@@ -26,7 +26,7 @@ case ${target} in
     # Generic
     # -------
     intel_hybrid)
-        configureoption="--with-fortran=intel --with-openmp"
+        configureoption="--with-fortran=intel --with-openmp --with-yac"
         ;;
     intel)
         configureoption="--with-fortran=intel"
@@ -41,7 +41,7 @@ case ${target} in
         configureoption="--with-fortran=gcc"
         ;;
     nag)
-        configureoption="--with-fortran=nag"
+        configureoption="--with-fortran=nag --with-yac"
         ;;
     nag_serial)
         configureoption="--with-fortran=nag --without-mpi"
