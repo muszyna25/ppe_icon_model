@@ -381,7 +381,7 @@ USE mo_lnd_nwp_config,     ONLY: lmulti_snow,                     &
   &                              max_toplaydepth, itype_interception
 !
 !
-USE mo_exception,          ONLY: message, finish, message_text
+USE mo_exception,          ONLY: message, message_text
 USE mo_run_config,         ONLY: msg_level
 USE mo_impl_constants,     ONLY: iedmf
 USE mo_data_turbdiff,      ONLY: itype_tran

@@ -29,7 +29,7 @@ MODULE mo_master_control
 
   USE mo_io_units,      ONLY: filename_max
 
-  USE mo_master_config, ONLY: noOfModels, master_component_models, isRestart
+  USE mo_master_config, ONLY: noOfModels, master_component_models
   USE mo_master_nml,    ONLY: read_master_namelist
   
   IMPLICIT NONE

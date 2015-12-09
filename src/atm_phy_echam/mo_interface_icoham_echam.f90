@@ -43,8 +43,7 @@ MODULE mo_interface_icoham_echam
   USE mo_icoham_dyn_types      ,ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_eta_coord_diag        ,ONLY: half_level_pressure, full_level_pressure
 
-  USE mo_datetime              ,ONLY: t_datetime, string_to_datetime, date_len, &
-    &                                 datetime_to_string
+  USE mo_datetime              ,ONLY: t_datetime, string_to_datetime
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
@@ -55,9 +54,7 @@ MODULE mo_interface_icoham_echam
     &                                 timer_echam_phy, timer_coupling
 
   USE mtime                    ,ONLY: datetime, MAX_DATETIME_STR_LEN, &
-    &                                 datetimeToString, newDatetime,  &
-    &                                 deallocateDatetime
-  USE mo_mtime_extensions      ,ONLY: convert_datetime_string_old2new
+    &                                 datetimeToString, deallocateDatetime
 
   IMPLICIT NONE
 
@@ -133,14 +130,12 @@ CONTAINS
 
     LOGICAL  :: any_uv_tend
     LOGICAL  :: ltrig_rad
-    TYPE(t_datetime)   :: datetime_radtran !< date and time for radiative transfer calculation
 
     INTEGER  :: return_status
 
     TYPE(t_datetime)                    :: this_datetime   !< copy of date/time ("old" data structure)
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
     TYPE(datetime), POINTER             :: mtime_radtran
-    CHARACTER(len=date_len)             :: datetime_str
 
     ! Local parameters
 

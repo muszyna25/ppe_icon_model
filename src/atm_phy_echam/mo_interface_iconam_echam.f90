@@ -88,11 +88,9 @@ MODULE mo_interface_iconam_echam
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
   USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav
 
-  USE mo_datetime              ,ONLY: t_datetime, string_to_datetime, date_len, &
-    &                                 datetime_to_string
+  USE mo_datetime              ,ONLY: t_datetime, string_to_datetime
   USE mtime                    ,ONLY: datetime, MAX_DATETIME_STR_LEN, &
-    &                                 datetimeToString, newDatetime, deallocateDatetime
-  USE mo_mtime_extensions      ,ONLY: convert_datetime_string_old2new
+    &                                 datetimeToString, deallocateDatetime
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
@@ -170,7 +168,6 @@ CONTAINS
     REAL(wp), POINTER :: zdudt(:,:,:), zdvdt(:,:,:)
 
     LOGICAL  :: ltrig_rad
-    TYPE(t_datetime)   :: datetime_radtran !< date and time for radiative transfer calculation
 
     INTEGER  :: return_status
 
@@ -181,7 +178,6 @@ CONTAINS
     TYPE(t_datetime)                    :: this_datetime
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
     TYPE(datetime), POINTER             :: mtime_radtran
-    CHARACTER(len=date_len)             :: datetime_str
 
     !---------------------------------------------------------------
     ! conversion of subroutine arguments to old "t_datetime" data

@@ -34,7 +34,7 @@
 
 MODULE mo_nh_interface_nwp
 
-  USE mtime,                      ONLY: datetime, timeDelta, newTimedelta,     &
+  USE mtime,                      ONLY: datetime, timeDelta, newTimedelta,             &
     &                                   deallocateTimedelta, getTimedeltaFromDatetime, &
     &                                   getTotalMillisecondsTimedelta
   USE mo_time_config,             ONLY: time_config
