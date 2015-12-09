@@ -247,9 +247,9 @@ CONTAINS
               &=taper_diagonal_horz(cell_index,start_level,blockNo) &
               &*tracer_gradient_horz_vec_center(cell_index,start_level,blockNo)%x
 
-            !flux_vert_center(cell_index,start_level,blockNo) &
-            !  &=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
-            !  &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
+            flux_vert_center(cell_index,start_level,blockNo) &
+              &=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
+              &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
           ENDDO
 
           DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
