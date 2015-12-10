@@ -1896,12 +1896,12 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
 
-        ext_data(jg)%atm%plcov (:,jb) = 0._wp
-        ext_data(jg)%atm%rootdp(:,jb) = 0._wp
-        ext_data(jg)%atm%lai   (:,jb) = 0._wp
-        ext_data(jg)%atm%rsmin (:,jb) = 0._wp
-        ext_data(jg)%atm%tai   (:,jb) = 0._wp
-        ext_data(jg)%atm%eai   (:,jb) = 0._wp
+        ext_data(jg)%atm%plcov (i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%rootdp(i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%lai   (i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%rsmin (i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%tai   (i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%eai   (i_startidx:i_endidx,jb) = 0._wp
         ext_data(jg)%atm%sai   (i_startidx:i_endidx,jb) = 0._wp
 
 
