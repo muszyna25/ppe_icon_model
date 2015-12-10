@@ -311,11 +311,6 @@ CONTAINS
       pe_placement_hl, pe_placement_il,                      &
       filename_extn, rbf_scale
 
-    ! -- preliminary checks:
-    !
-    ! We need dtime
-    IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
-
     ! Before we start: prepare the levels set objects for the vertical
     ! interpolation.
     !
@@ -1015,6 +1010,11 @@ CONTAINS
 #endif
     l_print_list = .FALSE.
     CALL assign_if_present(l_print_list, opt_lprintlist)
+
+    ! -- preliminary checks:
+    !
+    ! We need dtime
+    IF(dtime<=0._wp) CALL finish(routine, 'dtime must be set before reading output namelists')
 
     ! ---------------------------------------------------------------------------
 

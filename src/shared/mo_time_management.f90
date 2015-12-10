@@ -81,11 +81,11 @@ MODULE mo_time_management
   PUBLIC :: compute_timestep_settings
   PUBLIC :: compute_restart_settings
   PUBLIC :: compute_date_settings  
+
   PRIVATE
 
   !> module name
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_time_management'
-
 
 CONTAINS 
 
@@ -118,6 +118,7 @@ CONTAINS
     !
     dtime_string = ""
     IF (TRIM(mtime_modelTimeStep) /= "")   dtime_string = TRIM(mtime_modelTimeStep)
+    
     dtime_real = dtime
     IF (dtime_real > 0._wp) THEN
       dtime_ms   = NINT(dtime_real*1000, i8)
@@ -162,15 +163,15 @@ CONTAINS
             atm_phy_nwp_config(jg)%dt_gwd  * grid_rescale_factor
         END DO
       END IF
+    ELSE
+      CALL timedeltaToString(dtime1, dtime_string)
     END IF
 
     ! consistency check
     zero_dt => newTimedelta("PT0S") ! mtime object for zero
     IF (dtime1 <= zero_dt) CALL finish(TRIM(routine),'"dtime" must be positive')
 
-    CALL deallocateTimedelta( dtime1  )
     CALL deallocateTimedelta( zero_dt )
-
 
     ! --------------------------------------------------------------
     ! PART II: Convert ISO8601 string into "mtime" and old REAL
@@ -191,7 +192,8 @@ CONTAINS
       CALL deallocateDatetime(reference_dt)
     END IF
 
-
+    CALL deallocateTimedelta( dtime1  )
+    
     ! --------------------------------------------------------------
     ! PART III: Print time step
     ! --------------------------------------------------------------
@@ -465,8 +467,9 @@ CONTAINS
     !    *                    *                *                   *
     !  --|--------------------[----------------]-------------------|---------------> (time axis)
     !   exp_start           start            stop                exp_stop
+    !                         |----------------|
+    !                          restart interval
     !
-
     ! --- --- EXPERIMENT START DATE:
     !
     !         This is the start date for the whole experiment, which
