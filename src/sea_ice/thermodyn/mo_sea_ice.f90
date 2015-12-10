@@ -67,9 +67,8 @@ MODULE mo_sea_ice
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_dbg_nml,             ONLY: idbg_mxmn, idbg_val
-  USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, init_fem_wgts, destruct_fem_wgts,             &
-    &                               ice_fem_grid_init, ice_fem_grid_post, ice_advection,        &
-    &                               ice_advection_vla, ice_ocean_stress
+  USE mo_ice_fem_utils,       ONLY: fem_ice_wrap, ice_advection, ice_advection_vla, ice_ocean_stress
+  USE mo_ice_fem_init,        ONLY: init_fem_wgts, destruct_fem_wgts, ice_fem_grid_init, ice_fem_grid_post
   USE mo_ice_init,            ONLY: ice_init_fem
 !  USE mo_grid_config,         ONLY: n_dom   ! restrict sea-ice model to the global domain for the time being
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff

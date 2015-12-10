@@ -1778,11 +1778,13 @@ src/parallel_infrastructure/mo_scatter_pattern_scatter.f90 -text
 src/parallel_infrastructure/mo_scatter_pattern_scatterv.f90 -text
 src/parallel_infrastructure/mo_setup_subdivision.f90 -text
 src/parallel_infrastructure/mo_sync.f90 -text
-src/sea_ice/dynamics_fem/ice_evp.f90 -text
 src/sea_ice/dynamics_fem/ice_main.f90 -text
 src/sea_ice/dynamics_fem/mo_ice.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_data_types.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_elements.f90 -text
+src/sea_ice/dynamics_fem/mo_ice_evp.f90 -text
+src/sea_ice/dynamics_fem/mo_ice_evp_old.f90 -text
+src/sea_ice/dynamics_fem/mo_ice_fem_init.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_init.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_mesh.f90 -text
