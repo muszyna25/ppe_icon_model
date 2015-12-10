@@ -26,28 +26,28 @@ case ${target} in
     # Generic
     # -------
     intel_hybrid)
-        configureoption="--with-fortran=intel --with-openmp --with-yac"
+        configureoption="--with-fortran=intel --with-openmp --without-yac"
         ;;
     intel)
         configureoption="--with-fortran=intel"
         ;;
     intel_openmp)
-        configureoption="--with-fortran=intel --without-mpi --with-openmp"
+        configureoption="--with-fortran=intel --without-mpi --with-openmp --without-yac"
         ;;
     cce)
         configureoption="--with-fortran=cray"
         ;;
     gcc)
-        configureoption="--with-fortran=gcc --with-yac"
+        configureoption="--with-fortran=gcc"
         ;;
     nag)
-        configureoption="--with-fortran=nag --with-yac"
+        configureoption="--with-fortran=nag"
         ;;
     nag_serial)
-        configureoption="--with-fortran=nag --without-mpi"
+        configureoption="--with-fortran=nag --without-mpi --without-yac"
         ;;
     nag_mtime)
-        configureoption="--with-fortran=nag --enable-mtime-loop"
+        configureoption="--with-fortran=nag --enable-mtime-loop --without-yac"
         ;;
 
     # Default (for unspecified target)
