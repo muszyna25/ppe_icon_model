@@ -42,8 +42,7 @@ checkpoint_interval="P1Y"
 restart_interval="P1Y"
 
 # output intervals
-output_interval_3d="PT6H"
-output_interval_2d="PT2H"
+output_interval="P1D"
 file_interval="P1M"
 
 # namelist files
@@ -199,7 +198,8 @@ add_required_file ${basedir}/run/${lnd_namelist}                        ./
 # dictionary file for output variable names
 #
 dict_file="dict.${EXPNAME}"
-cat dict.iconam.mpim_inst  > ${dict_file}
+cat dict.iconam.mpim_mean  > ${dict_file}
+cat dict.echam.mpim_mean  >> ${dict_file}
 add_required_file ${basedir}/run/${dict_file}                           ./
 
 # initial conditions
@@ -311,7 +311,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
@@ -333,7 +333,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_2d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
@@ -365,7 +365,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_3d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
@@ -396,7 +396,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_2d}"
+ output_interval  = "${output_interval}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
