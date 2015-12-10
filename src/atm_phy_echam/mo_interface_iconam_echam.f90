@@ -88,7 +88,6 @@ MODULE mo_interface_iconam_echam
   USE mo_nh_diagnose_pres_temp ,ONLY: diagnose_pres_temp
   USE mo_physical_constants    ,ONLY: rd, p0ref, rd_o_cpd, vtmpc1, grav
 
-  USE mo_datetime              ,ONLY: t_datetime, string_to_datetime
   USE mtime                    ,ONLY: datetime, MAX_DATETIME_STR_LEN, &
     &                                 datetimeToString, deallocateDatetime
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
@@ -175,19 +174,7 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: method_name = "interface_iconam_echam"
 
-    TYPE(t_datetime)                    :: this_datetime
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
     TYPE(datetime), POINTER             :: mtime_radtran
-
-    !---------------------------------------------------------------
-    ! conversion of subroutine arguments to old "t_datetime" data
-    ! structure
-    !
-    ! TODO: remove this after transition to mtime library!!!
-
-    CALL datetimeToString(mtime_current, datetime_string     )
-    CALL string_to_datetime( datetime_string,  this_datetime )
-    !---------------------------------------------------------------
 
     !-------------------------------------------------------------------------------------
 
@@ -411,9 +398,6 @@ CONTAINS
       &                        dtadv_loc    ,&! in
       &                        ltrig_rad    ,&! out
       &                        mtime_radtran) ! out
-
-!    CALL datetime_to_string(datetime_str, datetime_radtran)
-!    mtime_radtran => newDatetime(convert_datetime_string_old2new(datetime_str))
 
     IF (ltimer) CALL timer_stop(timer_echam_bcs)
     !

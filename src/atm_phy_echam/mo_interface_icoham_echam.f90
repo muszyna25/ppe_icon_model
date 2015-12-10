@@ -43,7 +43,6 @@ MODULE mo_interface_icoham_echam
   USE mo_icoham_dyn_types      ,ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_eta_coord_diag        ,ONLY: half_level_pressure, full_level_pressure
 
-  USE mo_datetime              ,ONLY: t_datetime, string_to_datetime
   USE mo_echam_phy_memory      ,ONLY: prm_field, prm_tend
   USE mo_echam_phy_bcs         ,ONLY: echam_phy_bcs_global
   USE mo_echam_phy_main        ,ONLY: echam_phy_main
@@ -133,23 +132,11 @@ CONTAINS
 
     INTEGER  :: return_status
 
-    TYPE(t_datetime)                    :: this_datetime   !< copy of date/time ("old" data structure)
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
     TYPE(datetime), POINTER             :: mtime_radtran
 
     ! Local parameters
 
     CHARACTER(*), PARAMETER :: method_name = "interface_icoham_echam"
-
-    !---------------------------------------------------------------
-    ! conversion of subroutine arguments to old "t_datetime" data
-    ! structure
-    !
-    ! TODO: remove this after transition to mtime library!!!
-    
-    CALL datetimeToString( mtime_current, datetime_string   )
-    CALL string_to_datetime( datetime_string, this_datetime )
-    !---------------------------------------------------------------  
 
     !-------------------------------------------------------------------------------------
 
@@ -283,9 +270,6 @@ CONTAINS
          &                     mtime_radtran ) ! out
     !
     !=====================================================================================
-
-!    CALL datetime_to_string(datetime_str, datetime_radtran)
-!    mtime_radtran => newDatetime(convert_datetime_string_old2new(datetime_str))
 
     !=====================================================================================
     !
