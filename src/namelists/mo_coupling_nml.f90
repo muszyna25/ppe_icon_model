@@ -68,7 +68,7 @@ CONTAINS
     ! 1. Set default values
     !--------------------------------------------------------------------
 
-    config_coupled_mode  = .FALSE.
+    coupled_mode  = .FALSE.
 
     !--------------------------------------------------------------------
     ! 2. Read user's (new) specifications (done so far by all MPI processes)
@@ -83,11 +83,11 @@ CONTAINS
       READ (nnml, coupling_mode_nml)
     ENDIF
 
-    config_coupled_mode = coupled_mode
-
     CALL close_nml
 
 #endif
+
+    config_coupled_mode = coupled_mode
 
   END SUBROUTINE read_coupling_namelist
 
