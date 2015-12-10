@@ -27,11 +27,7 @@ CONTAINS
 
     is_coupled_run = config_coupled_mode
 
-    WRITE ( 6 , * ) " Rene is_coupled_run ", is_coupled_run
-    FLUSH ( 6 )
-
   END FUNCTION is_coupled_run
   !------------------------------------------------------------------------
-
 
 END MODULE mo_coupling_config
