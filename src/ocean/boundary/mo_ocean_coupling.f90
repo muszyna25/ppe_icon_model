@@ -846,8 +846,8 @@ MODULE mo_ocean_coupling
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
   USE mo_datetime,            ONLY: t_datetime
-
-  USE mo_exception, ONLY: finish
+  USE mo_coupling_config,     ONLY: is_coupled_run
+  USE mo_exception,           ONLY: finish
 
   PUBLIC :: construct_ocean_coupling, destruct_ocean_coupling
   PUBLIC :: couple_ocean_toatmo_fluxes
@@ -855,8 +855,15 @@ MODULE mo_ocean_coupling
 CONTAINS
 
   SUBROUTINE construct_ocean_coupling(patch_3d)
+
     TYPE(t_patch_3d ), TARGET, INTENT(in)    :: patch_3d
-    CALL finish('construct_ocean_coupling: The coupled model needs to be configured with --with-yac')
+
+    IF ( is_coupled_run() ) THEN
+       CALL finish('construct_ocean_coupling: unintentionally called. Check your source code and configure.')
+    ELSE
+       RETURN
+    ENDIF
+
   END SUBROUTINE construct_ocean_coupling
 
   SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, datetime)
@@ -866,12 +873,23 @@ CONTAINS
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes !atmos_fluxes
     TYPE(t_datetime), INTENT(inout)             :: datetime
-    CALL finish('couple_ocean_toatmo_fluxes: The coupled model needs to be configured with --with-yac')
+
+    IF ( is_coupled_run() ) THEN
+       CALL finish('couple_ocean_toatmo_fluxes: unintentionally called. Check your source code and configure.')
+    ELSE
+       RETURN
+    ENDIF
 
   END SUBROUTINE couple_ocean_toatmo_fluxes
 
   SUBROUTINE destruct_ocean_coupling()
-    CALL finish('destruct_ocean_coupling: The coupled model needs to be configured with --with-yac')
+
+    IF ( is_coupled_run() ) THEN
+       CALL finish('destruct_ocean_coupling: unintentionally called. Check your source code and configure.')
+    ELSE
+       RETURN
+    ENDIF
+
   END SUBROUTINE destruct_ocean_coupling
 
 END MODULE mo_ocean_coupling

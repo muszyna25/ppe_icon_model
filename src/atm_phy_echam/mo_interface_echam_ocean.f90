@@ -809,8 +809,9 @@ END MODULE mo_interface_echam_ocean
 
 MODULE mo_interface_echam_ocean
 
-  USE mo_model_domain, ONLY: t_patch
-  USE mo_exception,    ONLY: finish
+  USE mo_model_domain,    ONLY: t_patch
+  USE mo_exception,       ONLY: finish
+  USE mo_coupling_config, ONLY: is_coupled_run
 
   PUBLIC :: interface_echam_ocean
   PUBLIC :: construct_atmo_coupler, destruct_atmo_coupler
@@ -821,7 +822,11 @@ CONTAINS
 
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch(:)
 
-    CALL finish('construct_atmo_coupler: The coupled model needs to be configured with --with-yac')
+    IF ( is_coupled_run() ) THEN
+       CALL finish('construct_atmo_coupler: unintentionally called. Check your source code and configure.')
+    ELSE
+       RETURN
+    ENDIF
 
   END SUBROUTINE construct_atmo_coupler
 
@@ -830,12 +835,22 @@ CONTAINS
     INTEGER,               INTENT(IN)    :: jg
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
 
-    CALL finish('interface_echam_ocean: The coupled model needs to be configured with --with-yac')
+    IF ( is_coupled_run() ) THEN
+       CALL finish('interface_echam_ocean: unintentionally called. Check your source code and configure.')
+    ELSE
+       RETURN
+    ENDIF
 
   END SUBROUTINE interface_echam_ocean
 
   SUBROUTINE destruct_atmo_coupler
-    CALL finish('destruct_atmo_coupler: The coupled model needs to be configured with --with-yac')
+
+    IF ( is_coupled_run() ) THEN
+       CALL finish('destruct_atmo_coupler: unintentionally called. Check your source code and configure.')
+    ELSE
+       RETURN
+    ENDIF
+
   END SUBROUTINE destruct_atmo_coupler
 
 END MODULE mo_interface_echam_ocean

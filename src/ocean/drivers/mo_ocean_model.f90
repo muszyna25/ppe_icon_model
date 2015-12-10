@@ -105,7 +105,6 @@ MODULE mo_ocean_model
   USE mo_ocean_testbed,       ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
   USE mo_io_config,           ONLY: write_initial_state
-  USE mo_coupling_config,    ONLY: is_coupled_run
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -337,7 +336,7 @@ MODULE mo_ocean_model
     ENDIF
 
     CALL destruct_icon_communication()
-    IF ( is_coupled_run() ) CALL destruct_ocean_coupling ()
+    CALL destruct_ocean_coupling ()
 
     CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)
 
@@ -566,7 +565,7 @@ MODULE mo_ocean_model
     CALL construct_ocean_surface(patch_3d, p_sfc)
 
     CALL construct_ocean_forcing(patch_3d%p_patch_2d(1),p_sfc_flx, ocean_default_list)
-    IF ( is_coupled_run() ) CALL construct_ocean_coupling(ocean_patch_3d)
+    CALL construct_ocean_coupling(ocean_patch_3d)
 
     !------------------------------------------------------------------
     CALL datetime_to_string(datestring, start_datetime)
