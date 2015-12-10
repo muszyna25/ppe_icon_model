@@ -142,8 +142,6 @@ MODULE mo_2mom_mcrph_processes
 
   CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_processes'
 
-  INCLUDE 'phillips_nucleation_2010.incf'
-
 ! SWITCHES
   ! switches for ice scheme, ice nucleation, drop activation and autoconversion
   INTEGER  :: ice_typ, nuc_i_typ, nuc_c_typ, auto_typ
@@ -199,6 +197,8 @@ MODULE mo_2mom_mcrph_processes
        &    afrac_dust, &  ! look-up table of activated fraction of dust particles acting as ice nuclei
        &    afrac_soot, &  ! ... of soot particles
        &    afrac_orga     ! ... of organic material
+
+  INCLUDE 'phillips_nucleation_2010.incf'
 
   ! Size thresholds for partioning of freezing rain in the hail scheme:
   ! Raindrops smaller than D_rainfrz_ig freeze into cloud ice,
