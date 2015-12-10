@@ -168,7 +168,7 @@ cat > ${ocean_namelist} << EOF
 /                                           
 &sea_ice_nml
   i_ice_therm                     =   1       ! 0: not allowed, 1=zero-layer, 2=Winton
-  i_ice_dyn                       =   1       ! 1/0=switch on/off AWI ice dynamics
+  i_ice_dyn                       =   0       ! 1/0=switch on/off AWI ice dynamics
 /
 &ocean_forcing_nml
   iforc_oce                       =  12       ! ocean forcing
