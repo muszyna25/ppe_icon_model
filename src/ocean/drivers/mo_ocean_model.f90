@@ -337,8 +337,7 @@ MODULE mo_ocean_model
     ENDIF
 
     CALL destruct_icon_communication()
-
-    CALL destruct_ocean_coupling ()
+    IF ( is_coupled_run() ) CALL destruct_ocean_coupling ()
 
     CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)
 
@@ -567,7 +566,7 @@ MODULE mo_ocean_model
     CALL construct_ocean_surface(patch_3d, p_sfc)
 
     CALL construct_ocean_forcing(patch_3d%p_patch_2d(1),p_sfc_flx, ocean_default_list)
-    CALL construct_ocean_coupling(ocean_patch_3d)
+    IF ( is_coupled_run() ) CALL construct_ocean_coupling(ocean_patch_3d)
 
     !------------------------------------------------------------------
     CALL datetime_to_string(datestring, start_datetime)

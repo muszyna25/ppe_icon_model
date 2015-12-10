@@ -856,7 +856,7 @@ CONTAINS
 
   SUBROUTINE construct_ocean_coupling(patch_3d)
     TYPE(t_patch_3d ), TARGET, INTENT(in)    :: patch_3d
-    CALL finish('ERROR: The coupled model needs to be configured with --with-yac')
+    CALL finish('construct_ocean_coupling: The coupled model needs to be configured with --with-yac')
   END SUBROUTINE construct_ocean_coupling
 
   SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, datetime)
@@ -866,12 +866,12 @@ CONTAINS
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes !atmos_fluxes
     TYPE(t_datetime), INTENT(inout)             :: datetime
-    CALL finish('ERROR: The coupled model needs to be configured with --with-yac')
+    CALL finish('couple_ocean_toatmo_fluxes: The coupled model needs to be configured with --with-yac')
 
   END SUBROUTINE couple_ocean_toatmo_fluxes
 
   SUBROUTINE destruct_ocean_coupling()
-    CALL finish('ERROR: The coupled model needs to be configured with --with-yac')
+    CALL finish('destruct_ocean_coupling: The coupled model needs to be configured with --with-yac')
   END SUBROUTINE destruct_ocean_coupling
 
 END MODULE mo_ocean_coupling

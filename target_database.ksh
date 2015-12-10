@@ -38,7 +38,7 @@ case ${target} in
         configureoption="--with-fortran=cray"
         ;;
     gcc)
-        configureoption="--with-fortran=gcc"
+        configureoption="--with-fortran=gcc --with-yac"
         ;;
     nag)
         configureoption="--with-fortran=nag --with-yac"

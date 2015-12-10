@@ -821,22 +821,21 @@ CONTAINS
 
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch(:)
 
-    CALL finish('ERROR: The coupled model needs to be configured with --with-yac')
+    CALL finish('construct_atmo_coupler: The coupled model needs to be configured with --with-yac')
 
   END SUBROUTINE construct_atmo_coupler
 
-  SUBROUTINE interface_echam_ocean( jg      ,&
-    &                               p_patch )
+  SUBROUTINE interface_echam_ocean ( jg, p_patch )
 
     INTEGER,               INTENT(IN)    :: jg
     TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
 
-    CALL finish('ERROR: The coupled model needs to be configured with --with-yac')
+    CALL finish('interface_echam_ocean: The coupled model needs to be configured with --with-yac')
 
   END SUBROUTINE interface_echam_ocean
 
   SUBROUTINE destruct_atmo_coupler
-    CALL finish('ERROR: The coupled model needs to be configured with --with-yac')
+    CALL finish('destruct_atmo_coupler: The coupled model needs to be configured with --with-yac')
   END SUBROUTINE destruct_atmo_coupler
 
 END MODULE mo_interface_echam_ocean
