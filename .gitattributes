@@ -718,13 +718,6 @@ run/checksuite.icon-dev/check.atm_amip_noforcing -text
 run/checksuite.icon-dev/check.atm_amip_noforcing_notransport -text
 run/checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics -text
 run/checksuite.icon-dev/check.atm_amip_noparams -text
-run/checksuite.icon-dev/check.atm_amip_without_cld -text
-run/checksuite.icon-dev/check.atm_amip_without_cnv -text
-run/checksuite.icon-dev/check.atm_amip_without_gwd -text
-run/checksuite.icon-dev/check.atm_amip_without_jsb -text
-run/checksuite.icon-dev/check.atm_amip_without_rad -text
-run/checksuite.icon-dev/check.atm_amip_without_sso -text
-run/checksuite.icon-dev/check.atm_amip_without_vdf -text
 run/checksuite.icon-dev/check.atm_icoles_nested -text
 run/checksuite.icon-dev/check.atm_rce_les -text
 run/checksuite.icon-dev/check.oce_omip_0160km -text
@@ -838,13 +831,6 @@ run/exp.atm_amip_noforcing_notransport_test -text
 run/exp.atm_amip_noforcing_test -text
 run/exp.atm_amip_noparams_test -text
 run/exp.atm_amip_test -text
-run/exp.atm_amip_without_cld_test -text
-run/exp.atm_amip_without_cnv_test -text
-run/exp.atm_amip_without_gwd_test -text
-run/exp.atm_amip_without_jsb_test -text
-run/exp.atm_amip_without_rad_test -text
-run/exp.atm_amip_without_sso_test -text
-run/exp.atm_amip_without_vdf_test -text
 run/exp.atm_icoles_nested -text
 run/exp.atm_jww_hs -text
 run/exp.atm_jww_hs_test -text
