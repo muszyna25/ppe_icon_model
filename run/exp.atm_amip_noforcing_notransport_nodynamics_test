@@ -19,6 +19,7 @@ author_list="Marco Giorgetta, MPIM"
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
 # basedir                       = base directory, where src/, run/ etc exist
+# icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 # second, minute, hour, day     = length of these intervals in [s]
 
@@ -118,7 +119,7 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 INDATA=${icon_data_poolFolder}/input/r0003
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=/pool/data/ICON/setup/ifs_iconremap_amip
+datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
 add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
 
 #--------------------------------------------------------------------------------------------------
