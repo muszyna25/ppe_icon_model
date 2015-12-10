@@ -250,9 +250,8 @@ CONTAINS
               &=taper_diagonal_horz(cell_index,start_level,blockNo) &
               &*tracer_gradient_horz_vec_center(cell_index,start_level,blockNo)%x
 
-            flux_vert_center(cell_index,start_level,blockNo) &
-              &=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
-              &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
+            ! the top level flux_vert_center will be filled from the second level, if it exists
+            flux_vert_center(cell_index,start_level,blockNo) = 0.0_wp
           ENDDO
 
           DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
@@ -263,7 +262,6 @@ CONTAINS
               &*tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x&
               &+taper_off_diagonal_horz(cell_index,level,blockNo)%x&
               &*tracer_gradient_vert_center(cell_index,level,blockNo)
-                       
               
             !vertical GM-Redi Flux
             flux_vert_center(cell_index,level,blockNo)= &
@@ -273,7 +271,11 @@ CONTAINS
               &Dot_Product(tracer_gradient_horz_vec_center(cell_index,level,blockNo)%x,&
               &            taper_off_diagonal_vert(cell_index,level,blockNo)%x)
                 
-          END DO                  
+          END DO
+          ! fill the top level flux_vert_center from the second level, if it exists
+          DO level = start_level+1, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo),start_level+1)
+            flux_vert_center(cell_index,start_level,blockNo) = flux_vert_center(cell_index,start_level+1,blockNo)
+          END DO
         END DO                
       END DO
 !ICON_OMP_END_DO_PARALLEL
