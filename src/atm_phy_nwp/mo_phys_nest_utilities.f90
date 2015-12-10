@@ -2290,7 +2290,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
           ptr_ldiagc%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,z_aux3dl2_c(jc,17,jb)))
           IF (ptr_ldiagc%fr_seaice(jc,jb) < frsi_min )         ptr_ldiagc%fr_seaice(jc,jb) = 0._wp
           IF (ptr_ldiagc%fr_seaice(jc,jb) > (1._wp-frsi_min) ) ptr_ldiagc%fr_seaice(jc,jb) = 1._wp
-          IF (ext_data(jg)%atm%fr_land(jc,jb) >= 1._wp-MAX(frlake_thrhld,frsea_thrhld)) THEN ! pure land point
+          IF (ext_data(jgc)%atm%fr_land(jc,jb) >= 1._wp-MAX(frlake_thrhld,frsea_thrhld)) THEN ! pure land point
             ptr_wprogc%h_ice(jc,jb) = 0._wp
             ptr_wprogc%h_snow_si(jc,jb) = 0._wp
             ptr_ldiagc%fr_seaice(jc,jb) = 0._wp
