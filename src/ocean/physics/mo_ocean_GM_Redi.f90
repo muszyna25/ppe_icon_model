@@ -115,7 +115,6 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  !
   !>
   !! !  SUBROUTINE calculates the fluxes of the isoycnical diffusion following Redi.
   !!
@@ -185,7 +184,7 @@ CONTAINS
     !Local variables
     INTEGER :: start_cell_index, end_cell_index, cell_index,level,start_level,end_level,blockNo
     INTEGER :: start_edge_index, end_edge_index, je     
-    TYPE(t_subset_range), POINTER :: cells_in_domain,edges_in_domain
+    TYPE(t_subset_range), POINTER :: all_cells, cells_in_domain, edges_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp) :: flux_vert_center(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_cartesian_coordinates) :: flux_vec_horz_center(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
@@ -202,6 +201,7 @@ CONTAINS
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain 
+    all_cells       => patch_2D%cells%all
     edges_in_domain => patch_2D%edges%in_domain 
     slopes          => ocean_state%p_aux%slopes 
 
@@ -232,16 +232,18 @@ CONTAINS
         tracer_gradient_vert_center     => ocean_state%p_aux%DerivSalinity_vert_center
       ENDIF
 
-     flux_vec_horz_center(:,:,:)%x(1) = 0.0_wp
-     flux_vec_horz_center(:,:,:)%x(2) = 0.0_wp
-     flux_vec_horz_center(:,:,:)%x(3) = 0.0_wp
+      DO blockNo = all_cells%start_block, all_cells%end_block        
+        CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)      
+        DO cell_index = start_cell_index, end_cell_index
+          DO level = 1, n_zlev
+            flux_vec_horz_center(cell_index,level,blockNo)%x = 0.0_wp
+          ENDDO
+        ENDDO
+      ENDDO
 
 !ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-
-        
-        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
-      
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block        
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
         DO cell_index = start_cell_index, end_cell_index
  
           !horizontal GMRedi Flux at top layer
