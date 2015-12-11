@@ -562,16 +562,18 @@ CONTAINS
     IF (lart) THEN
       CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
 
-      CALL art_reaction_interface(ext_data,                    & !> in
-                &          pt_patch,                           & !> in
-                &          datetime,                           & !> in
-                &          dt_phy_jg(itfastphy),               & !> in
-                &          p_prog_list,                        & !> in
-                &          pt_prog,                            & !> in
-                &          p_metrics,                          & !> in
-                &          prm_diag,                           & !> in
-                &          pt_diag,                            & !> inout
-                &          pt_prog_rcf%tracer)
+      IF (.NOT. linit) THEN
+        CALL art_reaction_interface(ext_data,              & !> in
+                &                   pt_patch,              & !> in
+                &                   datetime,              & !> in
+                &                   dt_phy_jg(itfastphy),  & !> in
+                &                   p_prog_list,           & !> in
+                &                   pt_prog,               & !> in
+                &                   p_metrics,             & !> in
+                &                   prm_diag,              & !> in
+                &                   pt_diag,               & !> inout
+                &                   pt_prog_rcf%tracer)
+      END IF
 
       CALL art_washout_interface(pt_prog,pt_diag,              & !>in
                 &          dt_phy_jg(itfastphy),               & !>in
