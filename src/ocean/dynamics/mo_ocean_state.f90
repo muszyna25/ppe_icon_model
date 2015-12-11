@@ -1424,8 +1424,9 @@ CONTAINS
       & oce_tracer_longnames(max_oce_tracer)
     INTEGER :: oce_tracer_codes(max_oce_tracer)
     CHARACTER(LEN=max_char_length) :: var_suffix
+    CHARACTER(LEN=*), PARAMETER :: method_name="construct_hydro_ocean_acc"
     
-    CALL message(TRIM(routine), 'construct ocean_state_acc...')
+    CALL message(TRIM(method_name), '...')
     
     ! determine size of arrays
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
