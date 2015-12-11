@@ -10,6 +10,8 @@
 !! headers of the routines.
 !!
 
+#ifdef YAC_coupling
+
 !----------------------------
 #include "omp_definitions.inc"
 !----------------------------
@@ -39,8 +41,7 @@ MODULE mo_ocean_coupling
 
   !-------------------------------------------------------------
   ! For the coupling
-#ifndef __NO_ICON_ATMO__
-# ifdef YAC_coupling
+  !
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
   USE mo_yac_finterface,      ONLY: yac_finit, yac_fdef_comp,                    &
@@ -52,19 +53,7 @@ MODULE mo_ocean_coupling
   USE mo_coupling_config,     ONLY: is_coupled_run
   USE mo_mtime_extensions,    ONLY: get_datetime_string
   USE mo_output_event_types,  ONLY: t_sim_step_info
-# else
-  USE mo_master_control,      ONLY: get_my_model_no
-  USE mo_icon_cpl,            ONLY: RESTART
-  USE mo_icon_cpl_init,       ONLY: icon_cpl_init
-  USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
-  USE mo_coupling_config,     ONLY: is_coupled_run, config_debug_coupler_level
-  USE mo_icon_cpl_def_grid,   ONLY: icon_cpl_def_grid, icon_cpl_def_location
-  USE mo_icon_cpl_def_field,  ONLY: icon_cpl_def_field
-  USE mo_icon_cpl_search,     ONLY: icon_cpl_search
-  USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
-  USE mo_icon_cpl_exchg,      ONLY: icon_cpl_put, icon_cpl_get
-# endif
-#endif
+
   !-------------------------------------------------------------
 
   IMPLICIT NONE
@@ -87,36 +76,6 @@ MODULE mo_ocean_coupling
 
 CONTAINS
 
-#ifdef __NO_ICON_ATMO__
-  ! ---------------------------------------------------
-  ! Dummy routines for compiling without atmo
-!<Optimize:inUse>
-  SUBROUTINE construct_ocean_coupling(patch_3d)
-    TYPE(t_patch_3d ), TARGET, INTENT(in)    :: patch_3d
-    RETURN
-  END SUBROUTINE construct_ocean_coupling
-
-!<Optimize:inUse>
-  SUBROUTINE destruct_ocean_coupling()
-    RETURN
-  END SUBROUTINE destruct_ocean_coupling
-
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, datetime)
-    TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
-    TYPE(t_hydro_ocean_state)                   :: ocean_state
-    TYPE(t_sea_ice)                             :: ice
-    TYPE(t_atmos_fluxes)                        :: atmos_fluxes
-    TYPE(t_datetime), INTENT(inout)             :: datetime
-  END SUBROUTINE couple_ocean_toatmo_fluxes
-
-  !  SUBROUTINE init_coupled_ocean(patch_2d, ocean_state)
-  !    TYPE(t_patch)                     :: patch_2d
-  !    TYPE(t_hydro_ocean_state), TARGET :: ocean_state
-  !    RETURN
-  !  END SUBROUTINE init_coupled_ocean
-  ! ---------------------------------------------------
-#else
-
   !--------------------------------------------------------------------------
   ! Prepare the coupling
   !
@@ -133,8 +92,6 @@ CONTAINS
 
     INTEGER                :: patch_no
     TYPE(t_patch), POINTER :: patch_horz
-
-#ifdef YAC_coupling
 
     INTEGER, PARAMETER :: nbr_subdomain_ids = 1
     INTEGER, PARAMETER :: CELL = 0 ! one point per cell
@@ -390,87 +347,6 @@ CONTAINS
 
     CALL yac_fsearch ( 1, comp_ids, no_of_fields, field_id, error_status )
 
-#else
-
-    INTEGER :: grid_id
-    INTEGER :: grid_shape(2)
-    INTEGER :: field_shape(3)
-    INTEGER :: BLOCK, idx, INDEX
-
-    IF (.NOT. is_coupled_run()) RETURN
-
-    IF (ltimer) CALL timer_start(timer_coupling_init)
-
-    !------------------------------------------------------------
-    CALL icon_cpl_init(debug_level=config_debug_coupler_level)
-    ! Inform the coupler about what we are
-    CALL icon_cpl_init_comp ( get_my_process_name(), get_my_model_no(), error_status )
-    ! split the global_mpi_communicator into the components
-    !------------------------------------------------------------
-
-    patch_no = 1
-    patch_horz => patch_3d%p_patch_2d(patch_no)
-
-    grid_shape(1) = 1
-    grid_shape(2) = patch_horz%n_patch_cells
-
-    CALL icon_cpl_def_grid ( &
-      & grid_shape, patch_horz%cells%decomp_info%glb_index, & ! input
-      & grid_id, error_status )                               ! output
-
-    ! Marker for internal and halo points, a list which contains the
-    ! rank where the native cells are located.
-    CALL icon_cpl_def_location ( &
-      & grid_id, grid_shape, patch_3d%p_patch_2d(patch_no)%cells%decomp_info%owner_local, & ! input
-      & p_pe_work,  & ! this owner id
-      & error_status )                                            ! output
-
-    field_name(1) =  "TAUX"   ! bundled field containing two components
-    field_name(2) =  "TAUY"   ! bundled field containing two components
-    field_name(3) =  "SFWFLX" ! bundled field containing three components
-    field_name(4) =  "THFLX"  ! bundled field containing four components
-    field_name(5) =  "ICEATM" ! bundled field containing four components
-    field_name(6) =  "SST"
-    field_name(7) =  "OCEANU"
-    field_name(8) =  "OCEANV"
-    field_name(9) =  "ICEOCE" ! bundled field containing five components
-
-    field_shape(1:2) = grid_shape(1:2)
-
-    nbr_inner_cells = 0
-!ICON_OMP_PARALLEL_DO PRIVATE(idx) REDUCTION(+:nbr_inner_cells) ICON_OMP_DEFAULT_SCHEDULE
-    DO idx = 1, patch_horz%n_patch_cells
-       IF ( p_pe_work == patch_horz%cells%decomp_info%owner_local(idx) ) &
-    &    nbr_inner_cells = nbr_inner_cells + 1
-    ENDDO
-!ICON_OMP_END_PARALLEL_DO
-
-    ! see equivalent ocean counterpart in drivers/mo_atmo_model.f90
-    ! routine construct_atmo_coupler 
-
-    DO idx = 1, no_of_fields
-
-      IF ( idx == 1 .OR. idx == 2 ) THEN
-        field_shape(3) = 2
-      ELSE IF ( idx == 3 ) THEN
-        field_shape(3) = 3
-      ELSE IF ( idx == 4 .OR. idx == 5 ) THEN
-        field_shape(3) = 4
-      ELSE IF ( idx == 9 ) THEN
-        field_shape(3) = 5
-      ELSE
-        field_shape(3) = 1
-      ENDIF
-
-      CALL icon_cpl_def_field ( field_name(idx), grid_id, field_id(idx), &
-        & field_shape, error_status )
-
-    ENDDO
-
-    CALL icon_cpl_search
-
-#endif
-
     ALLOCATE(buffer(nproma * patch_horz%nblks_c,5))
 
 !ICON_OMP_PARALLEL_DO PRIVATE(BLOCK, INDEX, idx) ICON_OMP_DEFAULT_SCHEDULE
@@ -489,10 +365,9 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_coupling_init)
 
   END SUBROUTINE construct_ocean_coupling
-  !--------------------------------------------------------------------------
-
 
   !--------------------------------------------------------------------------
+
 !<Optimize:inUse>
   SUBROUTINE destruct_ocean_coupling()
 
@@ -500,15 +375,12 @@ CONTAINS
 
     DEALLOCATE(buffer)
 
-#ifdef YAC_coupling
     CALL yac_ffinalize
-#else
-    CALL icon_cpl_finalize ()
-#endif
+
   END SUBROUTINE destruct_ocean_coupling
-  !--------------------------------------------------------------------------
 
   !--------------------------------------------------------------------------
+
   SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, datetime)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
@@ -528,9 +400,6 @@ CONTAINS
     INTEGER :: i_blk          ! block loop count
     INTEGER :: nlen           ! nproma/npromz
     TYPE(t_patch), POINTER:: patch_horz
-#ifndef YAC_coupling
-    INTEGER :: field_shape(3)
-#endif
 
     INTEGER :: info, ierror   !< return values from cpl_put/get calls
 
@@ -560,11 +429,6 @@ CONTAINS
     !   field_id(8) represents "OCEANV" v component of ocean surface current
     !   field_id(9) represents "ICEOCE" ice thickness, concentration and temperatures
     !
-#ifndef YAC_coupling
-    field_shape(1) = 1
-    field_shape(2) = nbr_hor_cells
-    field_shape(3) = 1
-#endif
     !
     ! Send fields from ocean to atmosphere
     ! ------------------------------------
@@ -589,14 +453,11 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
     !    
     IF (ltimer) CALL timer_start(timer_coupling_put)
-#ifdef YAC_coupling
+
     CALL yac_fput ( field_id(6), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fput called after end of run')
-#else
-    CALL icon_cpl_put ( field_id(6), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
-#endif
+
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     !
@@ -617,14 +478,11 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
-#ifdef YAC_coupling
+
     CALL yac_fput ( field_id(7), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fput called after end of run')
-#else
-    CALL icon_cpl_put ( field_id(7), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
-#endif
+
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     !
@@ -645,14 +503,11 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
-#ifdef YAC_coupling
+
     CALL yac_fput ( field_id(8), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fput called after end of run')
-#else
-    CALL icon_cpl_put ( field_id(8), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    IF ( info == 2 ) write_coupler_restart = .TRUE.
-#endif
+
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     !
@@ -677,23 +532,15 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
     !
     IF (ltimer) CALL timer_start(timer_coupling_put)
-#ifdef YAC_coupling
+
     CALL yac_fput ( field_id(9), nbr_hor_cells, 5, 1, 1, buffer(1:nbr_hor_cells,1:5), info, ierror )
     IF ( info > 1 .AND. info < 7 ) write_coupler_restart = .TRUE.
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fput called after end of run')
-#else
-    field_shape(3) = 5
-    CALL icon_cpl_put ( field_id(9), field_shape, buffer(1:nbr_hor_cells,1:5), info, ierror )
-    IF ( info == RESTART ) write_coupler_restart = .TRUE.
-#endif
+
     IF (ltimer) CALL timer_stop(timer_coupling_put)
 
     IF ( write_coupler_restart ) THEN
-#ifdef YAC_coupling
        CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is put for restart')
-#else
-       WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is put for restart"
-#endif
     ENDIF
     !
     ! Receive fields from atmosphere
@@ -705,15 +552,11 @@ CONTAINS
     ! zonal wind stress
     !
     IF (ltimer) CALL timer_start(timer_coupling_1stget)
-#ifdef YAC_coupling
+
     CALL yac_fget ( field_id(1), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
-#else
-    field_shape(3) = 2
-    CALL icon_cpl_get ( field_id(1), field_shape, buffer(1:nbr_hor_cells,1:2), info, ierror )
-    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
-#endif
+
     IF (ltimer) CALL timer_stop(timer_coupling_1stget)
     !
     IF (info > 0 .AND. info < 7 ) THEN
@@ -746,14 +589,11 @@ CONTAINS
     ! meridional wind stress
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
-#ifdef YAC_coupling
+
     CALL yac_fget ( field_id(2), nbr_hor_cells, 2, 1, 1, buffer(1:nbr_hor_cells,1:2), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
-#else
-    CALL icon_cpl_get ( field_id(2), field_shape, buffer(1:nbr_hor_cells,1:2), info, ierror )
-    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
-#endif
+
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
     IF (info > 0 .AND. info < 7 ) THEN
@@ -789,15 +629,11 @@ CONTAINS
     ! Note: precipitation is the sum of rain and snowfall
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
-#ifdef YAC_coupling
+
     CALL yac_fget ( field_id(3), nbr_hor_cells, 3, 1, 1, buffer(1:nbr_hor_cells,1:3), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
-#else
-    field_shape(3) = 3
-    CALL icon_cpl_get ( field_id(3), field_shape, buffer(1:nbr_hor_cells,1:3), info, ierror )
-    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
-#endif
+
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
     IF (info > 0 .AND. info < 7 ) THEN
@@ -840,15 +676,11 @@ CONTAINS
     ! atmos_fluxes%slflx(:,:)  ocean latent heat fluxes                                [W/m2]
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
-#ifdef YAC_coupling
+
     CALL yac_fget ( field_id(4), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
-#else
-    field_shape(3) = 4
-    CALL icon_cpl_get ( field_id(4), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
-    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
-#endif
+
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
     IF (info > 0 .AND. info < 7 ) THEN
@@ -906,15 +738,11 @@ CONTAINS
     ! ice%T2  (:,:)         Temperature of the lower ice layer                      [degC]
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
-#ifdef YAC_coupling
+
     CALL yac_fget ( field_id(5), nbr_hor_cells, 4, 1, 1, buffer(1:nbr_hor_cells,1:4), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
-#else
-    field_shape(3) = 4
-    CALL icon_cpl_get ( field_id(5), field_shape, buffer(1:nbr_hor_cells,1:4), info, ierror )
-    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
-#endif
+
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
     IF (info > 0 .AND. info < 7 ) THEN
@@ -956,15 +784,11 @@ CONTAINS
     ! Note: freshwater fluxes are received in kg/m^2/s and are converted to m/s by division by rhoh2o below.
     !
     IF (ltimer) CALL timer_start(timer_coupling_get)
-#ifdef YAC_coupling
+
     CALL yac_fget ( field_id(10), nbr_hor_cells, 1, 1, 1, buffer(1:nbr_hor_cells,1:1), info, ierror )
     IF ( info > 1 .AND. info < 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says it is get for restart')
     IF ( info == 7 ) CALL warning('couple_ocean_toatmo_fluxes', 'YAC says fget called after end of run')
-#else
-    field_shape(3) = 1
-    CALL icon_cpl_get ( field_id(10), field_shape, buffer(1:nbr_hor_cells,1:1), info, ierror )
-    IF ( info == RESTART ) WRITE ( 6 , * ) "couple_ocean_toatmo_fluxes: cpl layer says it is get for restart"
-#endif
+
     IF (ltimer) CALL timer_stop(timer_coupling_get)
     !
     IF (info > 0 .AND. info < 7 ) THEN
@@ -1012,6 +836,62 @@ CONTAINS
   END SUBROUTINE couple_ocean_toatmo_fluxes
   !--------------------------------------------------------------------------
 
-#endif
+END MODULE mo_ocean_coupling
+
+#else
+
+MODULE mo_ocean_coupling
+
+  USE mo_model_domain,        ONLY: t_patch_3d
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state
+  USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
+  USE mo_datetime,            ONLY: t_datetime
+  USE mo_coupling_config,     ONLY: is_coupled_run
+  USE mo_exception,           ONLY: finish
+
+  PUBLIC :: construct_ocean_coupling, destruct_ocean_coupling
+  PUBLIC :: couple_ocean_toatmo_fluxes
+
+CONTAINS
+
+  SUBROUTINE construct_ocean_coupling(patch_3d)
+
+    TYPE(t_patch_3d ), TARGET, INTENT(in)    :: patch_3d
+
+    IF ( is_coupled_run() ) THEN
+       CALL finish('construct_ocean_coupling: unintentionally called. Check your source code and configure.')
+    ELSE
+       RETURN
+    ENDIF
+
+  END SUBROUTINE construct_ocean_coupling
+
+  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, datetime)
+
+    TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
+    TYPE(t_hydro_ocean_state)                   :: ocean_state
+    TYPE(t_sea_ice)                             :: ice
+    TYPE(t_atmos_fluxes)                        :: atmos_fluxes !atmos_fluxes
+    TYPE(t_datetime), INTENT(inout)             :: datetime
+
+    IF ( is_coupled_run() ) THEN
+       CALL finish('couple_ocean_toatmo_fluxes: unintentionally called. Check your source code and configure.')
+    ELSE
+       RETURN
+    ENDIF
+
+  END SUBROUTINE couple_ocean_toatmo_fluxes
+
+  SUBROUTINE destruct_ocean_coupling()
+
+    IF ( is_coupled_run() ) THEN
+       CALL finish('destruct_ocean_coupling: unintentionally called. Check your source code and configure.')
+    ELSE
+       RETURN
+    ENDIF
+
+  END SUBROUTINE destruct_ocean_coupling
 
 END MODULE mo_ocean_coupling
+
+#endif
