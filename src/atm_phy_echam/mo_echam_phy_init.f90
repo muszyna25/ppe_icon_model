@@ -23,9 +23,8 @@ MODULE mo_echam_phy_init
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish, message, message_text
-  USE mtime,                   ONLY: datetime, MAX_DATETIME_STR_LEN, &
-    &                                datetimeToString
-
+  USE mtime,                   ONLY: datetime
+  
   USE mo_io_config,            ONLY: default_read_method
   USE mo_read_interface,       ONLY: openInputFile, closeFile, read_2D, &
     &                                t_stream_id, on_cells

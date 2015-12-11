@@ -27,7 +27,7 @@ module mo_ice_init
 
   USE mo_kind,         ONLY: wp
   USE mo_run_config,   ONLY: dtime
-  USE mo_Sea_ice_nml,  ONLY: Tevp_inv
+  USE mo_sea_ice_nml,  ONLY: Tevp_inv
   USE mo_ice_elements
   USE mo_ice
   USE mo_ice_mesh

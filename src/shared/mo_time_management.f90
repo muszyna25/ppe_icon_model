@@ -719,18 +719,24 @@ CONTAINS
 
     WRITE(message_text,'(a,a)') 'Experiment reference date: ', TRIM(exp_ref_datetime_string)
     CALL message('',message_text)
-
+    WRITE(message_text,'(a,a)') 'Experiment start date    : ', TRIM(exp_start_datetime_string)
+    CALL message('',message_text)
+    WRITE(message_text,'(a,a)') 'Experiment stop date     : ', TRIM(exp_stop_datetime_string)
+    CALL message('',message_text)
     CALL message(' ',' ')
+
     CALL message(routine,'Initial date and time')
-    CALL message(routine,'---------------------')
-    WRITE(message_text,'(a,a)') 'Experiment start date    : ', TRIM(start_datetime_string)
+    CALL message('','---------------------')
+    WRITE(message_text,'(a,a)') 'Start date    : ', TRIM(start_datetime_string)
     CALL message('',message_text)
 
     CALL message(' ',' ')
     CALL message(routine,'End date and time')
-    CALL message(routine,'-----------------')
-    WRITE(message_text,'(a,a)') 'Experiment stop date     : ', TRIM(exp_stop_datetime_string)
+    CALL message('','-----------------')
+    WRITE(message_text,'(a,a)') 'Stop date     : ', TRIM(stop_datetime_string)
     CALL message('',message_text)
+    CALL message(' ',' ')
+    
   END SUBROUTINE compute_date_settings
  
 END MODULE mo_time_management

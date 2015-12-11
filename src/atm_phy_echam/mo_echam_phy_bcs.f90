@@ -105,8 +105,6 @@ CONTAINS
     ! Prepare some global parameters or parameter arrays
     !-------------------------------------------------------------------------
 
-    CALL message ('LK', '... started bcs global ...')
-    
     ! Check whether the radiative transfer needs to be calculated in this
     ! timestep. Then boundary conditions must be prepared for this purpose.
     !
@@ -138,7 +136,6 @@ CONTAINS
     ! Read and interpolate in time monthly mean SST for AMIP simulations
     ! SST is needed for turbulent vertical fluxes and for radiation.
     !
-    CALL message ('LK', '... read SST/sea ice ...')
     IF (echam_phy_config%lamip) THEN
       IF (iwtr <= nsfc_type .OR. iice <= nsfc_type) THEN
         IF (mtime_current%date%year /= get_current_bc_sst_sic_year()) THEN
@@ -160,8 +157,6 @@ CONTAINS
       END IF
     END IF
 
-    CALL message ('LK', '... read SSI ...')
-    
     ! total solar irradiation at the mean sun earth distance
     IF (isolrad==1) THEN
       CALL read_bc_solar_irradiance(mtime_current%date%year, .FALSE.)
@@ -177,38 +172,38 @@ CONTAINS
       radiation_time_interpolation_weights = calculate_time_interpolation_weights(radiation_time)
       !
       ! total and spectral solar irradiation at the mean sun earth distance
-      CALL message ('LK', '... read SSI(trigrad) ...')
+
       IF (isolrad==1) THEN
         CALL read_bc_solar_irradiance(mtime_current%date%year,.TRUE.)
         CALL ssi_time_interpolation(radiation_time_interpolation_weights,.TRUE.,tsi_radt,ssi_radt)
       END IF
       !
       ! greenhouse gas concentrations, assumed constant in horizontal dimensions
-      CALL message ('LK', '... read GHG(trigrad) ...')
+
       IF (ighg > 0) THEN
         CALL bc_greenhouse_gases_time_interpolation(mtime_current)
       END IF
       !
       ! ozone concentration
-      CALL message ('LK', '... read ozone(trigrad) ...')      
+
       IF (irad_o3 == io3_amip) THEN
         CALL read_bc_ozone(mtime_current%date%year, patch)
       END IF
       !
       ! tropospheric aerosol optical properties
-      CALL message ('LK', '... read aerosol (Kinne)(trigrad) ...')
+
       IF (irad_aero == 13) THEN
         CALL read_bc_aeropt_kinne(mtime_current%date%year, patch)
       END IF
       !
       ! stratospheric aerosol optical properties
-      CALL message ('LK', '... read aerosol (Stenchikov)(trigrad) ...')
+
       IF (irad_aero == 14) THEN
         CALL read_bc_aeropt_stenchikov(mtime_current%date%year)
       END IF
       !
       ! tropospheric and stratospheric aerosol optical properties
-      CALL message ('LK', '... read aerosol (all)(trigrad) ...')
+
       IF (irad_aero == 15) THEN
         CALL read_bc_aeropt_kinne     (mtime_current%date%year, patch)
         CALL read_bc_aeropt_stenchikov(mtime_current%date%year)
@@ -216,15 +211,12 @@ CONTAINS
       !
     END IF ! ltrig_rad
 
-    CALL message ('LK', '... call preprad ...')
     CALL pre_psrad_radiation( &
             & patch,                           radiation_time,               &
             & mtime_current,                   ltrig_rad,                    &
             & prm_field(jg)%cosmu0,            prm_field(jg)%daylght_frc,    &
             & prm_field(jg)%cosmu0_rad,        prm_field(jg)%daylght_frc_rad )
 
-    CALL message ('LK', '... finished bcs global ...')
-    
     is_1st_call = .FALSE.
 
   END SUBROUTINE echam_phy_bcs_global

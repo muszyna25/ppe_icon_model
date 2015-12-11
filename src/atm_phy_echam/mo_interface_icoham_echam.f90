@@ -52,8 +52,7 @@ MODULE mo_interface_icoham_echam
     &                                 timer_dyn2phy, timer_phy2dyn,   &
     &                                 timer_echam_phy, timer_coupling
 
-  USE mtime                    ,ONLY: datetime, MAX_DATETIME_STR_LEN, &
-    &                                 datetimeToString, deallocateDatetime
+  USE mtime                    ,ONLY: datetime, deallocateDatetime
 
   IMPLICIT NONE
 

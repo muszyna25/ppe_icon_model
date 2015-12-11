@@ -231,21 +231,17 @@ MODULE mo_psrad_radiation
 
     l_orbvsop87 = .TRUE.
 
-    CALL message('LK',' ... get orbit times ...')
     !
     ! 1.0 Compute orbital parameters for current time step
     ! --------------------------------
     CALL get_orbit_times(current_datetime, time_of_day, orbit_date)
 
-    CALL message('LK',' ... calculate orbit ...')
-    
     IF (l_orbvsop87) THEN 
       CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
     ELSE
       CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
     END IF
 
-    CALL message('LK',' ... solar parameters ...')    
 !!$    decl_sun_cur = decl_sun       ! save for aerosol and chemistry submodels
     CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
 !!$         &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
@@ -283,19 +279,15 @@ MODULE mo_psrad_radiation
     ! 2.0 Prepare time dependent quantities for rad (on radiation timestep)
     ! --------------------------------
     IF (phy_config%lrad .AND. ltrig_rad) THEN
-      CALL message('LK',' ... calculate orbit times 2 ...')
+
       CALL get_orbit_times(datetime_radiation, time_of_day, orbit_date)
 
-      CALL message('LK',' ... calculate orbit 2 ...')
-      
       IF ( l_orbvsop87 ) THEN 
         CALL orbit_vsop87 (orbit_date, rasc_sun, decl_sun, dist_sun)
       ELSE
         CALL orbit_kepler (orbit_date, rasc_sun, decl_sun, dist_sun)
       END IF
 
-      CALL message('LK',' ... solar parameters 2 ...')
-      
       CALL solar_parameters(decl_sun, dist_sun, time_of_day, &
 !!$           &                sinlon_2d, sinlat_2d, coslon_2d, coslat_2d, &
            &                p_patch,                         &
@@ -376,8 +368,6 @@ MODULE mo_psrad_radiation
 !!$           year=icurrentyear)
 !!$      CALL get_date_components(previous_date, month=iprevmonth)
 
-      CALL message('LK',' ... output ...')
-      
       icurrentmonth = datetime_radiation%date%month
       icurrentyear = datetime_radiation%date%year
       l_write_solar = icurrentmonth/=iprevmonth
@@ -403,8 +393,6 @@ MODULE mo_psrad_radiation
 
     END IF ! lrad .AND. l_trigrad
 
-    CALL message('LK',' ... prerad finished ...')    
-    
   END SUBROUTINE pre_psrad_radiation
 
   SUBROUTINE setup_psrad_radiation(file_name)
