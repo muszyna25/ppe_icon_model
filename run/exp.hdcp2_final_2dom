@@ -278,7 +278,7 @@ cat > ${atmo_namelist} << EOF
  latbc_filename  = 'latbc_${grid_1}_<y><m><d><h>.nc'
 /
 &diffusion_nml
- hdiff_order      = 4
+ hdiff_order      = 5
  lhdiff_vn        = .TRUE.
  lhdiff_temp      = .TRUE.
  lhdiff_w         = .TRUE.
