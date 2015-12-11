@@ -483,7 +483,7 @@ CONTAINS
       & routine = 'mo_ocean_state:construct_hydro_ocean_diag'
     
     !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'start to construct diagnostic hydro ocean state')
+    CALL message(TRIM(routine), 'construct diagnostic hydro ocean state...')
     
     ! determine size of arrays
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
@@ -1234,7 +1234,7 @@ CONTAINS
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_ocean_state:construct_hydro_ocean_aux'
     !-------------------------------------------------------------------------
-    CALL message(TRIM(routine), 'start to construct hydro ocean auxiliary state')
+    CALL message(TRIM(routine), 'construct hydro ocean auxiliary state...')
     
     ! determine size of arrays
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
@@ -1425,6 +1425,7 @@ CONTAINS
     INTEGER :: oce_tracer_codes(max_oce_tracer)
     CHARACTER(LEN=max_char_length) :: var_suffix
     
+    CALL message(TRIM(routine), 'construct ocean_state_acc...')
     
     ! determine size of arrays
     alloc_cell_blocks = patch_2d%alloc_cell_blocks
