@@ -680,7 +680,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
-    CASE (0,2,5,6)
+    CASE (0,2,5,6,9)
       !ok
     CASE DEFAULT
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
@@ -851,7 +851,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         & aerurb   = prm_diag%aerurb,        & !out
         & aerdes   = prm_diag%aerdes )         !out
 
-    ELSEIF ( irad_aero == 6 ) THEN
+    ELSEIF ( irad_aero == 6 .OR. irad_aero == 9) THEN
 
       CALL init_aerosol_props_tegen_rrtm
 
@@ -874,7 +874,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
     SELECT CASE ( irad_aero )
-    CASE (0,2,5,6)
+    CASE (0,2,5,6,9)
       !ok
     CASE DEFAULT
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
@@ -919,7 +919,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         & aerurb   = prm_diag%aerurb,        & !out
         & aerdes   = prm_diag%aerdes )         !out
 
-    ELSEIF ( irad_aero == 6 ) THEN
+    ELSEIF ( irad_aero == 6 .OR. irad_aero == 9) THEN
 
       CALL init_aerosol_props_tegen_rg
 
