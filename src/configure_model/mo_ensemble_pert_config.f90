@@ -167,7 +167,7 @@ MODULE mo_ensemble_pert_config
 
       CALL RANDOM_NUMBER(rnd_num)
       rnd_fac = range_rlam_heat**(2._wp*(rnd_num-0.5_wp))
-      ! The product rlam_heat*rat_sea must stay unchanged in order to keep evaporation over the oceans constant
+      ! The product rlam_heat*rat_sea must stay unchanged in order to keep heat and moisture fluxes over the oceans constant
       turbdiff_config(1:max_dom)%rlam_heat = turbdiff_config(1:max_dom)%rlam_heat * rnd_fac
       turbdiff_config(1:max_dom)%rat_sea   = turbdiff_config(1:max_dom)%rat_sea   / rnd_fac
 
