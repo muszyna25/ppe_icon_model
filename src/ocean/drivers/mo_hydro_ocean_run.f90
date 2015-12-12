@@ -316,9 +316,11 @@ CONTAINS
       ENDIF
       IF (debug_check_level > 5 .AND. idbg_mxmn >= 2) THEN
         ! check difference from old_mean_height
-        CALL debug_printValue(description="Old/New Mean Height", value=old_mean_height, &
-          & value1=mean_height, value2=(mean_height-old_mean_height) / old_mean_height, &
-          & detail_level=2)
+!         CALL debug_printValue(description="Old/New Mean Height", value=old_mean_height, &
+!           & value1=mean_height, value2=(mean_height-old_mean_height) / old_mean_height, &
+!           & detail_level=2)
+        CALL debug_printValue(description="Old/New Mean Height", &
+          & value=old_mean_height, value1=mean_height, detail_level=2)
         ! check if vertical and horizontal fluxes add to 0
 !         ocean_state(jg)%p_diag%w
         CALL horizontal_mean(values=ocean_state(jg)%p_diag%w, weights=patch_2d%cells%area(:,:), &

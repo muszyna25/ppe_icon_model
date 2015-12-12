@@ -1,3 +1,4 @@
+#!/bin/bash
 #-----------------------------------------------------------------------------
 # the namelist filename
 ocean_namelist=NAMELIST_${EXPNAME}
@@ -26,9 +27,8 @@ nout_interv="P$leading_zero${days_data}D"     # ocean model output interval in d
 (( dt_restart     = years_restart * year ))  
 (( steps_per_file = dt_restart / dt_data ))   # output intervals per file
 #
-LOC='POOL'
-#grids_folder="/pool/data/ICON/ocean_data/ocean_grid/"
-#ocean_grids="AtlanticAquaBox_0079km.nc"
+#-----------------------------------------------------------------------------
+#grids_folder="/scratch/mpi/CC/mh0287/oes/grids/Idealized"
 ocean_grids="Ocean_MunkGyreSphere_2000x1000_30km.nc"
 #-----------------------------------------------------------------------------
 #
@@ -42,7 +42,7 @@ cat > ${ocean_namelist} << EOF
  nproma       = ${nproma}
  l_fast_sum   = .true.
  p_test_run   = .false.
- division_method = 102
+! division_method = 102
 /
 &grid_nml
  dynamics_grid_filename = "${ocean_grids}",
