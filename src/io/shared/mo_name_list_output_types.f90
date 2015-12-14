@@ -418,6 +418,7 @@ MODULE mo_name_list_output_types
     ! The following members are set during open
     INTEGER                               :: cdiFileId
     INTEGER                               :: cdiVlistId                       !< cdi vlist handler
+    INTEGER                               :: cdiVlistId_orig                  !< cdi vlist handler, storing the model internal vlist id during append
     INTEGER                               :: cdiCellGridID
     INTEGER                               :: cdiSingleGridID
     INTEGER                               :: cdiVertGridID
@@ -425,9 +426,11 @@ MODULE mo_name_list_output_types
     INTEGER                               :: cdiLonLatGridID
     INTEGER                               :: cdiZaxisID(max_z_axes)           !< All types of possible Zaxis ID's
     INTEGER                               :: cdiTaxisID
+    INTEGER                               :: cdiTaxisID_orig
     INTEGER                               :: cdiTimeIndex
     INTEGER                               :: cdiInstID                        !< output generating institute
     INTEGER                               :: cdi_grb2(3,2)                    !< geographical position: (GRID, latitude/longitude)
+    LOGICAL                               :: appending = .FALSE.              !< the current file is appended (.true.), otherwise .false. 
 
   END TYPE t_output_file
 

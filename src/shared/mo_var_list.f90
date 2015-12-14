@@ -85,6 +85,8 @@ MODULE mo_var_list
   PUBLIC :: get_var_timelevel         ! return variable timelevel (or "-1")
   PUBLIC :: get_var_tileidx           ! return variable tile index
   PUBLIC :: get_var_list_element_info ! return a copy of the metadata for a var_list element
+  PUBLIC :: get_timelevel_string      ! return the default string with timelevel encoded
+  PUBLIC :: get_varname_with_timelevel! join varname with timelevel string
 
   PUBLIC :: total_number_of_variables ! returns total number of defined variables
 
@@ -404,6 +406,28 @@ CONTAINS
     END IF
   END FUNCTION get_var_name
 
+  !------------------------------------------------------------------------------------------------
+  ! construct varname  with timelevel
+  !
+  FUNCTION get_varname_with_timelevel(varname,timelevel)
+    CHARACTER(LEN=VARNAME_LEN) :: varname
+    INTEGER, INTENT(IN)        :: timelevel
+
+    CHARACTER(LEN=VARNAME_LEN) :: get_varname_with_timelevel
+
+    get_varname_with_timelevel = TRIM(varname)//get_timelevel_string(timelevel)
+  END FUNCTION get_varname_with_timelevel
+
+  !------------------------------------------------------------------------------------------------
+  ! construct string for timelevel encoding into variable names
+  !
+  FUNCTION get_timelevel_string(timelevel) RESULT(suffix)
+    INTEGER, INTENT(IN) :: timelevel
+
+    CHARACTER(len=4) :: suffix
+
+    WRITE(suffix,'(".TL",i1)') timelevel
+  END FUNCTION get_timelevel_string
 
   !------------------------------------------------------------------------------------------------
   !> @return time level (extracted from time level suffix ".TL") or "-1"

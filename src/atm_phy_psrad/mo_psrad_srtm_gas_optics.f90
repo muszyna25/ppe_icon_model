@@ -183,34 +183,34 @@ CONTAINS
   SUBROUTINE setup_taumol(klev)
 
     USE mo_psrad_srtm_setup,  ONLY: nspa, nspb
-    USE rrsw_kg16,      ONLY: absa16=>absa, absb16=>absb, forref16=>forref,  &
+    USE psrad_rrsw_kg16,      ONLY: absa16=>absa, absb16=>absb, forref16=>forref,  &
          & selfref16=>selfref, sflx_ref16 =>sfluxref, rayl16=>rayl, ng16
-    USE rrsw_kg17,      ONLY: absa17=>absa, absb17=>absb, forref17=>forref,  &
+    USE psrad_rrsw_kg17,      ONLY: absa17=>absa, absb17=>absb, forref17=>forref,  &
          & selfref17=>selfref, sflx_ref17 =>sfluxref, rayl17=>rayl, ng17
-    USE rrsw_kg18,      ONLY: absa18=>absa, absb18=>absb, forref18=>forref,  &
+    USE psrad_rrsw_kg18,      ONLY: absa18=>absa, absb18=>absb, forref18=>forref,  &
          & selfref18=>selfref, sflx_ref18 =>sfluxref, rayl18=>rayl, ng18
-    USE rrsw_kg19,      ONLY: absa19=>absa, absb19=>absb, forref19=>forref,  &
+    USE psrad_rrsw_kg19,      ONLY: absa19=>absa, absb19=>absb, forref19=>forref,  &
          & selfref19=>selfref, sflx_ref19 =>sfluxref, rayl19=>rayl, ng19
-    USE rrsw_kg20,      ONLY: absa20=>absa, absb20=>absb, forref20=>forref,  &
+    USE psrad_rrsw_kg20,      ONLY: absa20=>absa, absb20=>absb, forref20=>forref,  &
          & selfref20=>selfref, sflx_ref20 =>sfluxref, rayl20=>rayl, ng20,    &
          & abs_mnr20=>absch4
-    USE rrsw_kg21,      ONLY: absa21=>absa, absb21=>absb, forref21=>forref,  &
+    USE psrad_rrsw_kg21,      ONLY: absa21=>absa, absb21=>absb, forref21=>forref,  &
          & selfref21=>selfref, sflx_ref21 =>sfluxref, rayl21=>rayl, ng21
-    USE rrsw_kg22,      ONLY: absa22=>absa, absb22=>absb, forref22=>forref,  &
+    USE psrad_rrsw_kg22,      ONLY: absa22=>absa, absb22=>absb, forref22=>forref,  &
          & selfref22=>selfref, sflx_ref22 =>sfluxref, rayl22=>rayl, ng22
-    USE rrsw_kg23,      ONLY: absa23=>absa, forref23=>forref,                &
+    USE psrad_rrsw_kg23,      ONLY: absa23=>absa, forref23=>forref,                &
          & selfref23=>selfref, sflx_ref23 =>sfluxref, rayl23=>rayl, ng23
-    USE rrsw_kg24,      ONLY: absa24=>absa, absb24=>absb, forref24=>forref,  &
+    USE psrad_rrsw_kg24,      ONLY: absa24=>absa, absb24=>absb, forref24=>forref,  &
          & selfref24=>selfref, sflx_ref24=>sfluxref, ng24, abs_m24a=>abso3a, &
          & abs_m24b=>abso3b, rayl24a=>rayla, rayl24b=>raylb
-    USE rrsw_kg25,      ONLY: absa25=>absa, sflx_ref25 =>sfluxref, ng25,     &
+    USE psrad_rrsw_kg25,      ONLY: absa25=>absa, sflx_ref25 =>sfluxref, ng25,     &
          & rayl25=>rayl, abs_m25a=>abso3a,abs_m25b=>abso3b
-    USE rrsw_kg26,      ONLY: sflx_ref26=>sfluxref, rayl26=>rayl, ng26
-    USE rrsw_kg27,      ONLY: absa27=>absa, absb27=>absb,                    &
+    USE psrad_rrsw_kg26,      ONLY: sflx_ref26=>sfluxref, rayl26=>rayl, ng26
+    USE psrad_rrsw_kg27,      ONLY: absa27=>absa, absb27=>absb,                    &
          sflx_ref27=>sfluxref, rayl27=>rayl, ng27
-    USE rrsw_kg28,      ONLY: absa28=>absa, absb28=>absb,                    &
+    USE psrad_rrsw_kg28,      ONLY: absa28=>absa, absb28=>absb,                    &
          sflx_ref28=>sfluxref, rayl28=>rayl, ng28
-    USE rrsw_kg29,      ONLY: absa29=>absa, absb29=>absb, forref29=>forref,  &
+    USE psrad_rrsw_kg29,      ONLY: absa29=>absa, absb29=>absb, forref29=>forref,  &
          selfref29=>selfref, sflx_ref29=>sfluxref, ng29, rayl29=>rayl,       &
          abs_m29a=>absco2,abs_m29b=>absh2o
 

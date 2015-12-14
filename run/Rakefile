@@ -9,6 +9,10 @@ rescue
   warn "Could not find 'facets'"
 end
 
+# load user settings
+RC = "#{ENV['HOME']}/.rake.rc"
+load(RC) if File.exist?(RC)
+
 String.disable_colorization = ENV.has_key?('COLOR')
 
 $DEBUG = ENV.has_key?('DEBUG')
@@ -500,10 +504,13 @@ end # }}}
 # }}}
 # RUNNING|CHECKING TESTS {{{ ===========================================================
 # config first
-@jobHost   = /[[:alpha:]]+/.match(`hostname`.chomp)[0] ; dbg(@jobHost)
-@jobSubmit = {thunder: 'sbatch' , blizzard: 'llsubmit', passat: 'llsubmit'}#[@jobHost.to_sym]
-@jobCancel = {thunder: 'scancel', blizzard: 'llcancel', passat: 'llcancel'}#[#@jobHost.to_sym]
-@jobStatus = {thunder: 'squeue' , blizzard: 'llq'     , passat: 'llq'     }#[@jobHost.to_sym]
+@hostname = (`hostname -d`.chomp[0] =='(') ? \
+             `hostname`.chomp.to_sym       : \
+             `hostname -f`.chomp.split('.')[-2].to_sym
+@jobHost   = @hostname
+@jobSubmit = {:dkrz => "sbatch #{ICON_PROJECT_ID.nil? ? '' : ICON_PROJECT_ID.to_s}",:zmaw => 'sbatch'} 
+@jobCancel = {:dkrz => 'scancel',:zmaw => 'scancel'}
+@jobStatus = {:dkrz => 'squeue', :zmaw => 'scancel'}
 # default is direct execution
 @jobSubmit.default = ''
 

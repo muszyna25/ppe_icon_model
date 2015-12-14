@@ -78,11 +78,13 @@ MODULE mo_ocean_model
   USE mo_hydro_ocean_run,     ONLY: perform_ho_stepping, &
     & prepare_ho_stepping, write_initial_ocean_timestep, &
     & end_ho_stepping
+  USE mo_sea_ice_nml,         ONLY: i_ice_dyn
   USE mo_sea_ice_types,       ONLY: t_atmos_fluxes, t_atmos_for_ocean, &
     & v_sfc_flx, v_sea_ice, t_sfc_flx, t_sea_ice
   USE mo_sea_ice,             ONLY: ice_init, &
     & construct_atmos_for_ocean, construct_atmos_fluxes, construct_sea_ice, &
     & destruct_atmos_for_ocean, destruct_sea_ice
+  USE mo_ice_fem_utils,       ONLY: ice_fem_init_vel
   USE mo_ocean_surface_types, ONLY: t_ocean_surface, v_oce_sfc
   USE mo_ocean_surface,       ONLY: construct_ocean_surface
 
@@ -104,7 +106,6 @@ MODULE mo_ocean_model
   USE mo_ocean_testbed,       ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
   USE mo_io_config,           ONLY: write_initial_state
-  USE mo_coupling_config,    ONLY: is_coupled_run
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -205,6 +206,10 @@ MODULE mo_ocean_model
 
     CALL prepare_ho_stepping(ocean_patch_3d,operators_coefficients, &
       & ocean_state(1), ext_data(1), isRestart(), solverCoefficients_sp)
+    IF (isRestart() .AND. (i_ice_dyn == 1)) THEN
+        ! Initialize u_ice, v_ice with p_ice vals read from the restart file
+        CALL ice_fem_init_vel(ocean_patch_3d%p_patch_2D(1), v_sea_ice)
+    END IF
     !------------------------------------------------------------------
     ! write initial state
     !------------------------------------------------------------------
@@ -334,7 +339,6 @@ MODULE mo_ocean_model
     ENDIF
 
     CALL destruct_icon_communication()
-
     CALL destruct_ocean_coupling ()
 
     CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)

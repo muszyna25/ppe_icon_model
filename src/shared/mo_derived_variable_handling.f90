@@ -13,6 +13,7 @@ MODULE mo_derived_variable_handling
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma, use_dp_mpi2io
   USE mo_run_config, ONLY: tc_dt_model
+  USE mo_dynamics_config, ONLY: nnow, nnew, nold
   USE mo_master_config, ONLY: tc_startdate
   USE mo_ocean_nml,           ONLY: n_zlev
   USE mo_var_metadata_types, ONLY: varname_len
@@ -23,7 +24,8 @@ MODULE mo_derived_variable_handling
   USE mo_name_list_output_config, ONLY: first_output_name_list
   USE mo_var_list, ONLY: nvar_lists, max_var_lists, var_lists, new_var_list,&
        total_number_of_variables, collect_group, get_var_timelevel,&
-       get_var_name, default_var_list_settings, add_var, REAL_T, find_element, find_list_element
+       get_var_name, default_var_list_settings, add_var, REAL_T, find_element, find_list_element, &
+       & get_varname_with_timelevel
   USE mo_linked_list, ONLY: t_var_list, t_list_element
   USE mo_util_string, ONLY: tolower
   USE mo_exception, ONLY: finish, message, message_text
@@ -143,6 +145,7 @@ CONTAINS
 
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     INTEGER :: ntotal_vars, output_variables,i,ierrstat, dataType
+    INTEGER :: timelevel, timelevels(3)
     type(vector_ref) :: meanVariables
     CHARACTER(LEN=100) :: eventKey
     type(t_event_wrapper) :: event_wrapper
@@ -214,8 +217,16 @@ if (my_process_is_stdio()) write (0,*)'eventKey:',trim(eventKey)
           ! find existing source variable
           src_element => find_element ( TRIM(varlist(i)))
           IF (.not. ASSOCIATED (src_element)) THEN
+            ! try to find timelevel variables 
+            timelevels = (/nold(1),nnow(1),nnew(1)/)
+            do timelevel=1,3
+              src_element => find_element(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
+              if ( ASSOCIATED(src_element) ) CYCLE
+            end do
+          END IF
+          IF (.not. ASSOCIATED (src_element)) THEN
             call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
-          end if
+          END IF
 CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
 CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
 CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
@@ -224,7 +235,7 @@ CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
           dest_element => copy_var_to_list(mean_stream_list,dest_element_name,src_element)
 
           ! set output to double precission if necessary
-          IF ( use_dp_mpi2io ) THEN                                                                                                                                                                                                                  
+          IF ( use_dp_mpi2io ) THEN
             dataType = DATATYPE_FLT64
           ELSE
             dataType = DATATYPE_FLT32

@@ -97,9 +97,9 @@ AC_ARG_WITH([yac],
     [],
     [])
 
-AS_IF([test "x$with_yac" = "xyes"],
-      [use_yac="yes"],
-      [use_yac="no"])
+AS_IF([test "x$with_yac" = "xno"],
+      [use_yac="no"],
+      [use_yac="yes"])
 
 AC_ARG_WITH([messy],
   [AS_HELP_STRING([--with-messy],
