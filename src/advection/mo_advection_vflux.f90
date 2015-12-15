@@ -1242,11 +1242,12 @@ CONTAINS
       &  z_aux_p(nproma), z_aux_m(nproma)
 
     REAL(wp) ::   &                      !< auxiliaries for optimization
-      &   zfac, zfac_n(nproma), zden1, zden2, zden3, zden4
+      &   zfac, zfac_n(nproma), zgeo1, zgeo2, zgeo3, zgeo4
 
     REAL(wp) :: coeff_grid              !< parameter which is used to make the vertical 
                                         !< advection scheme applicable to a height      
                                         !< based coordinate system (coeff_grid=-1)
+
     !-----------------------------------------------------------------------
 
     ! get patch ID
@@ -1364,7 +1365,7 @@ CONTAINS
 !$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,                 &
 !$OMP            z_aux_p,z_aux_m,ikp1,p_cc_min,p_cc_max,ikp2,nlist,ji_p,              &
 !$OMP            ji_m,jk_shift,z_iflx_m,z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12,     &
-!$OMP            zfac, zfac_n, zden1, zden2, zden3, zden4,                            &
+!$OMP            zfac, zfac_n, zgeo1, zgeo2, zgeo3, zgeo4,                            &
 !$OMP            z_lext_1,z_lext_2,z_slope,z_face,z_face_up,z_face_low,z_flx_frac_high) ICON_OMP_GUIDED_SCHEDULE
   DO jb = i_startblk, i_endblk
 
@@ -1572,7 +1573,6 @@ CONTAINS
         &                         + p_cellhgt_mc_now(i_startidx:i_endidx,slev,jb))         &
         &                         * (p_cc(i_startidx:i_endidx,slevp1,jb) - p_cc(i_startidx:i_endidx,slev,jb))
 
-
       DO jk = slevp1, nlev
 
         ! index of top half level
@@ -1651,26 +1651,28 @@ CONTAINS
         ikp2 = jk + 2
 
         DO jc = i_startidx, i_endidx
-          zden1 = 1._wp / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))
-          zden2 = 1._wp / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb) &
-            &  + p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,ikp2,jb))
-          zden3 = 1._wp / (2._wp*p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))
-          zden4 = 1._wp / (2._wp*p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb))
+          zgeo1 = p_cellhgt_mc_now(jc,jk,jb)                                         &
+            &   / (p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))
+          zgeo2 = 1._wp / (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb) &
+            &   + p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,ikp2,jb))
+          zgeo3 = (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb))        &
+            &   / (2._wp*p_cellhgt_mc_now(jc,jk,jb) + p_cellhgt_mc_now(jc,ikp1,jb))
+          zgeo4 = (p_cellhgt_mc_now(jc,ikp2,jb) + p_cellhgt_mc_now(jc,ikp1,jb))      &
+            &   / (2._wp*p_cellhgt_mc_now(jc,ikp1,jb) + p_cellhgt_mc_now(jc,jk,jb))
 
-          z_face(jc,ikp1) = p_cc(jc,jk,jb) + (p_cellhgt_mc_now(jc,jk,jb) * zden1)              &
-            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb)) + zden2                                   &
-            &  * ( (2._wp * p_cellhgt_mc_now(jc,ikp1,jb) * p_cellhgt_mc_now(jc,jk,jb) * zden1) &
-            &  * ( (p_cellhgt_mc_now(jc,ikm1,jb) + p_cellhgt_mc_now(jc,jk,jb)) * zden3         &
-            &  - (p_cellhgt_mc_now(jc,ikp2,jb) + p_cellhgt_mc_now(jc,ikp1,jb)) * zden4 )       &
-            &  * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb)) - p_cellhgt_mc_now(jc,jk,jb)              &
-            &  * z_slope(jc,ikp1) * (p_cellhgt_mc_now(jc,ikm1,jb)                              &
-            &  + p_cellhgt_mc_now(jc,jk,jb)) * zden3 + p_cellhgt_mc_now(jc,ikp1,jb)            &
-            &  * z_slope(jc,jk) * (p_cellhgt_mc_now(jc,ikp1,jb)                                &
-            &  + p_cellhgt_mc_now(jc,ikp2,jb)) * zden4 )
+
+          z_face(jc,ikp1) = p_cc(jc,jk,jb)                                  &
+            &  + zgeo1 * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))                &
+            &  + zgeo2 * ( (2._wp * p_cellhgt_mc_now(jc,ikp1,jb) * zgeo1)   &
+            &  * ( zgeo3 - zgeo4 ) * (p_cc(jc,ikp1,jb) - p_cc(jc,jk,jb))    &
+            &  - zgeo3 * p_cellhgt_mc_now(jc,jk,jb)   * z_slope(jc,ikp1)    &
+            &  + zgeo4 * p_cellhgt_mc_now(jc,ikp1,jb) * z_slope(jc,jk) )
 
         END DO
 
       END DO
+
+
 
       !
       ! 4. Limitation of first guess parabola (which is based on z_face)
