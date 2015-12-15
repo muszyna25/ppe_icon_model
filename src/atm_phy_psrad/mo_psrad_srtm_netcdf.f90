@@ -143,7 +143,7 @@ CONTAINS
 
   SUBROUTINE sw_kgb16
 
-    USE rrsw_kg16, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, no16
+    USE psrad_rrsw_kg16, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, no16
 
     INTEGER, PARAMETER :: bandNumber = 1, numGPoints = no16
 
@@ -196,7 +196,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb17
 
-    USE rrsw_kg17, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, no17
+    USE psrad_rrsw_kg17, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, no17
 
     INTEGER, PARAMETER :: bandNumber = 2
     INTEGER, PARAMETER :: numGPoints = no17
@@ -255,7 +255,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb18
 
-    USE rrsw_kg18, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, no18
+    USE psrad_rrsw_kg18, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, no18
 
     INTEGER, PARAMETER :: bandNumber = 3
     INTEGER, PARAMETER :: numGPoints = no18
@@ -309,7 +309,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb19
 
-    USE rrsw_kg19, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, no19
+    USE psrad_rrsw_kg19, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, no19
 
     INTEGER, PARAMETER :: bandNumber = 4
     INTEGER, PARAMETER :: numGPoints = no19
@@ -363,7 +363,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb20
 
-    USE rrsw_kg20, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, absch4o, no20
+    USE psrad_rrsw_kg20, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, absch4o, no20
 
     INTEGER :: ab
     INTEGER, PARAMETER :: bandNumber = 5
@@ -430,7 +430,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb21
 
-    USE rrsw_kg21, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, no21
+    USE psrad_rrsw_kg21, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, no21
 
     INTEGER, PARAMETER :: bandNumber = 6
     INTEGER, PARAMETER :: numGPoints = no21
@@ -489,7 +489,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb22	
 
-    USE rrsw_kg22, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, no22
+    USE psrad_rrsw_kg22, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, rayl, no22
 
     INTEGER, PARAMETER :: bandNumber = 7
     INTEGER, PARAMETER :: numGPoints = no22
@@ -543,7 +543,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb23		
 
-    USE rrsw_kg23, ONLY: sfluxrefo, kao, selfrefo, forrefo, raylo, no23
+    USE psrad_rrsw_kg23, ONLY: sfluxrefo, kao, selfrefo, forrefo, raylo, no23
 
     INTEGER, PARAMETER :: bandNumber = 8
     INTEGER, PARAMETER :: numGPoints = no23
@@ -587,7 +587,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb24	
 
-    USE rrsw_kg24, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, &
+    USE psrad_rrsw_kg24, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, &
          raylao, raylbo, abso3ao, abso3bo, no24
 
     INTEGER :: ab
@@ -657,7 +657,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb25		
 
-    USE rrsw_kg25, ONLY: sfluxrefo, kao, raylo, abso3ao, abso3bo, no25
+    USE psrad_rrsw_kg25, ONLY: sfluxrefo, kao, raylo, abso3ao, abso3bo, no25
 
     INTEGER :: ab	
     INTEGER, PARAMETER :: bandNumber = 10
@@ -703,7 +703,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb26
 
-    USE rrsw_kg26, ONLY: sfluxrefo, raylo, no26
+    USE psrad_rrsw_kg26, ONLY: sfluxrefo, raylo, no26
 
     INTEGER, PARAMETER :: bandNumber = 11
     INTEGER, PARAMETER :: numGPoints = no26
@@ -729,7 +729,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb27
 
-    USE rrsw_kg27, ONLY: sfluxrefo, kao, kbo, raylo, no27
+    USE psrad_rrsw_kg27, ONLY: sfluxrefo, kao, kbo, raylo, no27
 
     INTEGER, PARAMETER :: bandNumber = 12
     INTEGER, PARAMETER :: numGPoints = no27
@@ -767,7 +767,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb28		
 
-    USE rrsw_kg28, ONLY: sfluxrefo, kao, kbo, rayl, no28
+    USE psrad_rrsw_kg28, ONLY: sfluxrefo, kao, kbo, rayl, no28
 
     INTEGER, PARAMETER :: bandNumber = 13
     INTEGER, PARAMETER :: numGPoints = no28  
@@ -809,7 +809,7 @@ CONTAINS
   !*******************************************************************************
   SUBROUTINE sw_kgb29	
 
-    USE rrsw_kg29, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, &
+    USE psrad_rrsw_kg29, ONLY: sfluxrefo, kao, kbo, selfrefo, forrefo, &
          absh2oo, absco2o, rayl, no29
 
     INTEGER :: ab
