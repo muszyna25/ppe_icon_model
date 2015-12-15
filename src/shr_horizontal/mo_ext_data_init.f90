@@ -1204,8 +1204,10 @@ CONTAINS
         ext_data(jg)%atm_td%phoz(nlev_o3+1) = 125000._wp
 
         DO i=1,nlev_o3
-          WRITE(0,*) 'full/half level press ozone ', i, ext_data(jg)%atm_td%pfoz(i),&
-            &                                           ext_data(jg)%atm_td%phoz(i+1)
+
+          WRITE(message_text,'(a,i4,f12.4,f12.4)')'full/half level press ozone ', &
+                              i, ext_data(jg)%atm_td%pfoz(i), ext_data(jg)%atm_td%phoz(i+1)
+          CALL message(routine, TRIM(message_text))
         ENDDO
 
         stream_id = openInputFile(ozone_file, p_patch(jg), default_read_method)
@@ -1213,8 +1215,9 @@ CONTAINS
         CALL read_3D_extdim(stream_id, on_cells, TRIM(o3name), &
           &                 ext_data(jg)%atm_td%O3)
 
-        WRITE(0,*)'MAX/MIN o3 ppmv',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
-          &                         MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+        WRITE(message_text,'(a,f12.4,f12.4)')'MAX/MIN o3 ppmv', &
+           MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)), MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+        CALL message(routine, TRIM(message_text))
 
         ! convert from ppmv to g/g only in case of APE ozone
         ! whether o3mr2gg or ppmv2gg is used to convert O3 to gg depends on the units of
@@ -1223,8 +1226,10 @@ CONTAINS
          ! &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*o3mr2gg
           &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
 
-        WRITE(0,*)'MAX/min o3 g/g',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
-          &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+
+        WRITE(message_text,'(a,f12.4,f12.4)')'MAX/MIN o3 g/g', &
+           MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)), MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+        CALL message(routine, TRIM(message_text))
 
         ! close file
         CALL closeFile(stream_id)

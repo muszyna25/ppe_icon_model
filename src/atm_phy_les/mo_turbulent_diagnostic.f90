@@ -65,7 +65,7 @@ MODULE mo_turbulent_diagnostic
 
   !Some indices: think of better way
   INTEGER  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
-  INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx, idx_dt_t_gsp
+  INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx
   
   CHARACTER(20) :: tname     = 'time'
   CHARACTER(20) :: tlongname = 'Time'
@@ -78,7 +78,6 @@ MODULE mo_turbulent_diagnostic
   PUBLIC  :: init_les_turbulent_output, close_les_turbulent_output
   PUBLIC  :: sampl_freq_step, avg_interval_step, is_sampling_time, is_writing_time
   PUBLIC  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx, idx_sgs_u_flx, idx_sgs_v_flx
-  PUBLIC  :: idx_dt_t_gsp
 
 CONTAINS
 
@@ -787,41 +786,53 @@ CONTAINS
        CALL levels_horizontal_mean(prm_diag%clc, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('qi')
+       IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
        CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqi), p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('qs')
+       IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
        CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqs), p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('qr')
        CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqr), p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('qg')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)&
+       IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))&
          CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqg), p_patch%cells%area,  &
                                      p_patch%cells%owned, outvar(1:nlev))
      CASE('qh')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)&
+       IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))&
          CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqh), p_patch%cells%area,  &
                                      p_patch%cells%owned, outvar(1:nlev))
      CASE('lwf')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%lwflxall, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlevp1))
      CASE('swf')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0)THEN
        CALL levels_horizontal_mean(prm_diag%trsolall, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlevp1))
        outvar0d = 0._wp
        CALL levels_horizontal_mean(prm_diag%flxdwswtoa, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar0d)
        outvar = outvar*outvar0d
+       END IF
      CASE('dt_t_sw')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(phy_tend%ddt_temp_radsw, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('dt_t_lw')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(phy_tend%ddt_temp_radlw, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('dt_t_tb')
+       IF(atm_phy_nwp_config(jg)%inwp_turb>0) &
        CALL levels_horizontal_mean(phy_tend%ddt_temp_turb, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
+     CASE('dt_t_mc')
+       IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
+         CALL levels_horizontal_mean(phy_tend%ddt_temp_gscp, p_patch%cells%area,  &
+                                     p_patch%cells%owned, outvar(1:nlev))
      CASE DEFAULT !In case calculations are performed somewhere else
       
        outvar = 0._wp
@@ -868,34 +879,40 @@ CONTAINS
      CASE('psfc')
        CALL levels_horizontal_mean(p_diag%pres_sfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('swf_tom')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%swflxtoa, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('lwf_tom')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%lwflxall(:,1,:), p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('swf_sfc')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%swflxsfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('lwf_sfc')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%lwflxsfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('precp_t')
        CALL levels_horizontal_mean(prm_diag%tot_prec_rate_avg, p_patch%cells%area, p_patch%cells%owned, outvar0d)
        outvar0d = outvar0d * day_sec
      CASE('precp_r')
+       IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
        CALL levels_horizontal_mean(prm_diag%rain_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
        outvar0d = outvar0d * day_sec
      CASE('precp_s')
+       IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
        CALL levels_horizontal_mean(prm_diag%snow_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
        outvar0d = outvar0d * day_sec
      CASE('precp_g')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
+       IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
          CALL levels_horizontal_mean(prm_diag%graupel_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
          outvar0d = outvar0d * day_sec
        END IF
      CASE('precp_h')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
+       IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
          CALL levels_horizontal_mean(prm_diag%hail_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
          outvar0d = outvar0d * day_sec
        END IF
      CASE('precp_i')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
+       IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
          CALL levels_horizontal_mean(prm_diag%ice_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
          outvar0d = outvar0d * day_sec
        END IF
@@ -1116,12 +1133,12 @@ CONTAINS
        longname = 'resolved meridional wind variance'
        unit     = 'm2/s2'
      CASE('kh')
-       longname = '(mass) eddy diffusivity'
-       unit     = 'kg/ms'
+       longname = 'mass weighted eddy diffusivity'
+       unit     = 'kg/(ms)'
        is_at_full_level(n) = .FALSE.
      CASE('km')
-       longname = '(mass) eddy viscosity'
-       unit     = 'kg/ms'
+       longname = 'mass weighted eddy viscosity'
+       unit     = 'kg/(ms)'
        is_at_full_level(n) = .FALSE.
      CASE('wud') !diffuse u flux
        longname = '(mass) subgrid zonal wind flux'
@@ -1200,7 +1217,6 @@ CONTAINS
      CASE('dt_t_mc') 
        longname = 'microphysics temp tendency'
        unit     = 'K/s'
-       idx_dt_t_gsp = n
      CASE DEFAULT 
          WRITE(message_text,'(a)')TRIM(turb_profile_list(n))
          CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')
