@@ -173,7 +173,7 @@ CONTAINS
       !  &          'Ozone used for radiation is calculated by ART')
     END SELECT
 
-    IF ( irad_aero == 6 ) CALL month2hour (datetime, imo1, imo2, zw )
+    IF ( irad_aero == 6 .OR. irad_aero == 9) CALL month2hour (datetime, imo1, imo2, zw )
 
     rl_start = 1
     rl_end   = min_rlcell_int
@@ -267,7 +267,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-      ELSEIF ( irad_o3 == 6 .AND. irad_aero == 6 ) THEN
+      ELSEIF ( irad_o3 == 6 .AND. (irad_aero == 6 .OR. irad_aero == 9)) THEN
 
         DO jc = 1,i_endidx
 
@@ -451,7 +451,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-      ELSEIF (irad_aero == 6 ) THEN !aerosols, but other ozone:
+      ELSEIF (irad_aero == 6 .OR. irad_aero == 9) THEN !aerosols, but other ozone:
 
         DO jc = 1,i_endidx
 

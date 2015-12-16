@@ -1288,6 +1288,7 @@ src/art_interface/mo_art_clouds_interface.f90 -text
 src/art_interface/mo_art_diagnostics_interface.f90 -text
 src/art_interface/mo_art_emission_interface.f90 -text
 src/art_interface/mo_art_init_interface.f90 -text
+src/art_interface/mo_art_radiation_interface.f90 -text
 src/art_interface/mo_art_reaction_interface.f90 -text
 src/art_interface/mo_art_sedimentation_interface.f90 -text
 src/art_interface/mo_art_tools_interface.f90 -text
