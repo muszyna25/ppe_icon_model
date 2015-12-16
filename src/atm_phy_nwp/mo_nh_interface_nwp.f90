@@ -740,7 +740,7 @@ CONTAINS
       ! Temperature at interface levels is needed if irad_aero = 5 or 6
       ! or if Ritter-Geleyn radiation is called
       IF ( lcall_phy_jg(itrad) .AND. ( irad_aero == 5 .OR. irad_aero == 6 &
-           .OR. atm_phy_nwp_config(jg)%inwp_radiation == 2 ) )         THEN
+           .OR. irad_aero == 9 .OR. atm_phy_nwp_config(jg)%inwp_radiation == 2 ) ) THEN
         ltemp_ifc = .TRUE.
       ELSE
         ltemp_ifc = .FALSE.

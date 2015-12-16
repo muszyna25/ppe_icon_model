@@ -1037,7 +1037,7 @@ CONTAINS
 
 
           ! Read time dependent data
-          IF ( irad_aero == 6 ) THEN
+          IF ( irad_aero == 6 .OR. irad_aero == 9) THEN
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_SS', ext_data(jg)%atm_td%aer_ss)
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_DUST', ext_data(jg)%atm_td%aer_dust)
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_ORG', ext_data(jg)%atm_td%aer_org)

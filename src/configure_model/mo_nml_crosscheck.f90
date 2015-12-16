@@ -877,14 +877,6 @@ CONTAINS
 
     END SELECT
 
-#ifndef __ICON_ART
-    IF (lart) THEN
-      WRITE(message_text,'(A)') &
-          'run_nml: lart is set .TRUE. but ICON was compiled without -D__ICON_ART'
-        CALL finish( TRIM(method_name),TRIM(message_text))
-    ENDIF
-#endif
-
     IF (ltransport) THEN
     DO jg = 1,n_dom
 
@@ -1008,6 +1000,7 @@ CONTAINS
     CALL check_meteogram_configuration(num_io_procs)
 
     CALL land_crosscheck()
+    CALL art_crosscheck()
     
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------
@@ -1036,4 +1029,41 @@ CONTAINS
   END SUBROUTINE land_crosscheck
   !---------------------------------------------------------------------------------------
 
+  !---------------------------------------------------------------------------------------
+  SUBROUTINE art_crosscheck
+  
+    CHARACTER(len=*), PARAMETER :: &
+      &  method_name =  'mo_nml_crosscheck:art_crosscheck'
+    INTEGER  :: &
+      &  jg
+    
+#ifndef __ICON_ART
+    IF (lart) THEN
+        CALL finish( TRIM(method_name),'run_nml: lart is set .TRUE. but ICON was compiled without -D__ICON_ART')
+    ENDIF
+#endif
+    
+    IF (.NOT. lart .AND. irad_aero == 9 ) THEN
+      CALL finish(TRIM(method_name),'irad_aero=9 needs lart = .TRUE.')
+    END IF
+    
+#ifdef __ICON_ART
+    IF ( ( irad_aero == 9 ) .AND. ( itopo /=1 ) ) THEN
+      CALL finish(TRIM(method_name),'irad_aero=9 requires itopo=1')
+    ENDIF
+    
+    DO jg= 1,n_dom
+      IF(lredgrid_phys(jg) .AND. irad_aero == 9) THEN
+        CALL finish(TRIM(method_name),'irad_aero=9 does not work with a reduced radiation grid')
+      ENDIF
+      IF(art_config(jg)%iart_ari == 0 .AND. irad_aero == 9) THEN
+        CALL finish(TRIM(method_name),'irad_aero=9 needs iart_ari > 0')
+      ENDIF
+      IF(art_config(jg)%iart_ari > 0  .AND. irad_aero /= 9) THEN
+        CALL finish(TRIM(method_name),'iart_ari > 0 requires irad_aero=9')
+      ENDIF
+    ENDDO
+#endif
+  END SUBROUTINE art_crosscheck
+  !---------------------------------------------------------------------------------------
 END MODULE mo_nml_crosscheck
