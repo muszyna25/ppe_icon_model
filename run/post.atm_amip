@@ -1,9 +1,9 @@
 #!/bin/ksh
 #=============================================================================
 #
-# Post-processing for a simulation over 1 year (1979)
+# Post-processing for a simulation from 1979 to 2008 (30 years)
 #
-# Marco Giorgetta, MPI-M, 2015-06-28
+# Marco Giorgetta, MPI-M, 2015-12-10
 # 
 #-----------------------------------------------------------------------------
 
@@ -16,7 +16,7 @@ echo ' '
 
 call_dir=$( pwd )
 
-expname=atm_amip_tune
+expname=atm_amip
 exp_dir=/work/mh0287/users/marco/experiments/${expname}
 post_dir=/work/mh0287/users/marco/experiments/${expname}_post
 echo "expname  = $expname"
@@ -29,7 +29,7 @@ fi
 echo " "
 
 # first and last dates/times included in the monthly means
-first_datetime="1979-01-01-01T00:00:00" ; last_datetime="1979-12-31T23:59:59"
+first_datetime="1979-01-01-01T00:00:00" ; last_datetime="2008-12-31T23:59:59"
 echo "first_datetime=$first_datetime ; last_datetime=$last_datetime"
 echo " "
 
@@ -73,7 +73,7 @@ echo 'remap horizontally to the t63 grid'
 
 cd $post_dir
 for file in monmean_${expname}_*.nc; do
-  cdo -P 8 remapycon,t63grid $file t63grid_$file
+  cdo -P 12 remapycon,t63grid $file t63grid_$file
 done
 
 echo '-------------------------------------------------------------------'
@@ -95,15 +95,6 @@ done
 echo '==================================================================='
 echo ' '
 echo 'spatial means'
-echo '-------------------------------------------------------------------'
-echo 'field mean of original atm_2d data'
-
-cd $exp_dir
-for file in ${expname}_atm_2d_*.nc; do
-  # use "cdo -r ..." for relative time axis for GrADS etc.
-  cdo -r fldmean ${file} $post_dir/fldmean_${file}
-done
-
 echo '-------------------------------------------------------------------'
 echo 'field mean of monthly mean data'
 

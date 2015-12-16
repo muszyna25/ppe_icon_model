@@ -1,22 +1,17 @@
 #--------------------------------------------------------------------------------------------------
 #
-# AMIP experiment
+# AMIP experiment without forcing
 #
 author_list="Marco Giorgetta, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 #
-# This file describes an AMIP experiment based on the non-hydrostatic dynamics and the ECHAM
-# physics, and intialized from analysis files and using transient boundary conditions for:
-# - SST and sea ice
-# - spectral solar irradiation
-# - well mixed greenhouse gases CO2, CH4, N2O, CFCs
-# - O3 concentration
-# - tropospheric aerosol optical properties
-# - stratospheric volcanic aerosol optical properties
+# This file describes an AMIP experiment based on the non-hydrostatic atmosphere.
+# The forcing is switched off.
+# The experiment is intialized from IFS analysis.
 #
-# _bb_table_Description_  AMIP experiment
-# _bb_table_Model_        non-hydrostatic dynamics + ECHAM physics
+# _bb_table_Description_  AMIP experiment, no forcing
+# _bb_table_Model_        non-hydrostatic atmosphere
 #
 #--------------------------------------------------------------------------------------------------
 
@@ -24,6 +19,7 @@ author_list="Marco Giorgetta, MPIM"
 
 # EXPNAME                       = name of exp. in 'exp.<name>'
 # basedir                       = base directory, where src/, run/ etc exist
+# icon_data_poolFolder          = base directory, where grids/, input/ and setup/ exist
 # nproma                        = blocking length for array dimensioning and inner loop lengths
 # second, minute, hour, day     = length of these intervals in [s]
 
@@ -50,7 +46,6 @@ restart_interval="PT16M"
 
 # output intervals
 output_interval_3d="PT4M"
-output_interval_2d="PT4M"
 file_interval="PT4M"
 
 # namelist files
@@ -91,9 +86,6 @@ cat > ${atmo_namelist} << EOF
 &initicon_nml
  init_mode        = 2           ! 2: initialize from IFS analysis
 /
-&dynamics_nml
- iequations       = 3           ! 3: ICONAM dynamics
-/
 &nonhydrostatic_nml
  ndyn_substeps    = 2           ! dtime/dt_dyn
  damp_height      = 50000.      ! [m]
@@ -127,12 +119,6 @@ EOF
 
 # (4) Define the input
 
-# model files
-#
-add_link_file ${basedir}/data/rrtmg_lw.nc                               ./
-add_link_file ${basedir}/data/rrtmg_sw.nc                               ./
-add_link_file ${basedir}/data/ECHAM6_CldOptProps.nc                     ./
-
 # namelist files
 #
 add_required_file ${basedir}/run/${atmo_namelist}                       ./
@@ -148,7 +134,7 @@ add_required_file ${basedir}/run/${dict_file}                           ./
 INDATA=${icon_data_poolFolder}/input/r0003
 #
 # - atmosphere: ECMWF analysis, 1979-01-01T00:00:00Z
-datadir=/pool/data/ICON/setup/ifs_iconremap_amip
+datadir=${icon_data_poolFolder}/setup/ifs_iconremap_amip
 add_link_file $datadir/ifs_remap_R2B4_00XX_AMIP_2012010100_setyear1979.nc ./ifs2icon_R2B04_DOM01.nc
 
 #--------------------------------------------------------------------------------------------------
