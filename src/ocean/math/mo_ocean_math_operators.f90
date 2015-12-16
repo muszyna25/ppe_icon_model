@@ -1649,7 +1649,7 @@ CONTAINS
 
 !ICON_OMP_MASTER
       CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%thick_e)
-      CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%h_e)
+      CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%h_e)      
 !ICON_OMP_END_MASTER
 !ICON_OMP_BARRIER
 
