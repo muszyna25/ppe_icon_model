@@ -14,6 +14,7 @@
       <xs:element name="dates" type="dates_type" minOccurs="1" maxOccurs="1" />
       <xs:element name="timestep_unit" type="timestep_unit_type" minOccurs="1" maxOccurs="1" />
       <xs:element name="couples" type="couples_type" minOccurs="1" maxOccurs="1" />
+      <xs:element name="created" minOccurs="0" maxOccurs="1" />
     </xs:sequence>
   </xs:complexType>
 
