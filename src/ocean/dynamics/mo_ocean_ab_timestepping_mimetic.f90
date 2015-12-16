@@ -238,6 +238,7 @@ CONTAINS
       start_detail_timer(timer_ab_rhs4sfc,5)
       CALL fill_rhs4surface_eq_ab(patch_3d, ocean_state, p_sfc_flx, op_coeffs)
       stop_detail_timer(timer_ab_rhs4sfc,5)
+
       
       
       ! Solve surface equation with ocean_gmres solver
@@ -255,8 +256,10 @@ CONTAINS
         z_h_c = 0.0_wp
       END SELECT
 
-      CALL dbg_print('bef ocean_gmres: h-old',ocean_state%p_prog(nold(1))%h(:,:) ,str_module,idt_src, in_subset=owned_cells)
+      CALL dbg_print('bef ocean_gmres: h-old',ocean_state%p_prog(nold(1))%h(:,:) ,str_module,idt_src,in_subset=owned_cells)
+!       CALL dbg_print('p_rhs_sfc_eq',ocean_state%p_aux%p_rhs_sfc_eq, str_module,1, in_subset=owned_cells)
 
+      
       SELECT CASE (select_solver)
 
       !-----------------------------------------------------------------------------------------
@@ -1280,29 +1283,29 @@ CONTAINS
       END DO
 !ICON_OMP_END_PARALLEL_DO
 
-    ELSEIF( patch_2d%cells%max_connectivity == 4 )THEN
+    ELSE
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, jc, jk, div_z_depth_int_c, div_z_c) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-	    CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
       
-		CALL div_oce_3D_general_onBlock( z_e, patch_3D, op_coeffs%div_coeff, div_z_c, &
-		  & blockNo=blockNo, start_index=start_cell_index, end_index=end_cell_index,      &
-		  & start_level=1, end_level=n_zlev)
-		! integrate div on columns
-		div_z_depth_int_c(:) = 0.0_wp
-		 DO jc = start_cell_index, end_cell_index
-	       div_z_depth_int_c(jc) = SUM(div_z_c(jc, 1:patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)))
-! write(456,*)'div',jc, div_z_c(jc, 1:1)		   
-		 END DO
-      
-		 ocean_state%p_aux%p_rhs_sfc_eq(:,blockNo) = 0.0_wp
-		 DO jc = start_cell_index, end_cell_index
-		   IF (patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) > 0) THEN
-		     ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = ((ocean_state%p_prog(nold(1))%h(jc,blockNo) &
-		     & - dtime * div_z_depth_int_c(jc)) * inv_gdt2)
-			 
-		   ENDIF
-		 END DO
+        CALL div_oce_3D_general_onBlock( z_e, patch_3D, op_coeffs%div_coeff, div_z_c, &
+          & blockNo=blockNo, start_index=start_cell_index, end_index=end_cell_index,      &
+          & start_level=1, end_level=n_zlev)
+        ! integrate div on columns
+        div_z_depth_int_c(:) = 0.0_wp
+        DO jc = start_cell_index, end_cell_index
+            div_z_depth_int_c(jc) = SUM(div_z_c(jc, 1:patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)))
+    ! write(456,*)'div',jc, div_z_c(jc, 1:1)
+      END DO
+
+      ocean_state%p_aux%p_rhs_sfc_eq(:,blockNo) = 0.0_wp
+      DO jc = start_cell_index, end_cell_index
+        IF (patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) > 0) THEN
+          ocean_state%p_aux%p_rhs_sfc_eq(jc,blockNo) = ((ocean_state%p_prog(nold(1))%h(jc,blockNo) &
+          & - dtime * div_z_depth_int_c(jc)) * inv_gdt2)
+
+        ENDIF
+      END DO
       
 	   END DO
 !ICON_OMP_END_PARALLEL_DO    
@@ -1450,6 +1453,13 @@ CONTAINS
     
     lhs   (1:nproma,cells_in_domain%end_block:patch_2D%alloc_cell_blocks)  = 0.0_wp
     
+!     CALL dbg_print('h_old', h_old, "lhs_surface_height_ab_mim", 1, &
+!         & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+!     CALL dbg_print('thickness_c', thickness_c, "lhs_surface_height_ab_mim", 1, &
+!         & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+!     CALL dbg_print('thickness_e', thickness_e, "lhs_surface_height_ab_mim", 1, &
+!         & in_subset=patch_3d%p_patch_2d(1)%edges%owned)
+
     CALL sync_patch_array(sync_c, patch_2D, x(1:nproma,1:patch_2D%cells%all%end_block) )
     
     !---------------------------------------
@@ -1527,6 +1537,10 @@ CONTAINS
 
     ENDIF
 
+!     CALL dbg_print('x', x, "lhs_surface_height_ab_mim", 1, &
+!         & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+!     CALL dbg_print('lhs', lhs, "lhs_surface_height_ab_mim", 1, &
+!         & in_subset=patch_3d%p_patch_2d(1)%cells%owned)
     !---------------------------------------
     stop_detail_timer(timer_extra32,6)
 

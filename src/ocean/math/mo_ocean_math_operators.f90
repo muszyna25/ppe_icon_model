@@ -482,9 +482,11 @@ CONTAINS
           div_vec_c(jc,level,blockNo) = 0.0_wp
           
           DO edgeofcell = 1, max_connectivity
-            div_vec_c(jc,level,blockNo) = div_vec_c(jc,level,blockNo) + &
-              & vec_e(iidx(jc,blockNo,edgeofcell),level,iblk(jc,blockNo,edgeofcell)) * &
-              & div_coeff(jc,level,blockNo,edgeofcell)
+            IF (iidx(jc,blockNo,edgeofcell) > 0) THEN
+              div_vec_c(jc,level,blockNo) = div_vec_c(jc,level,blockNo) + &
+                & vec_e(iidx(jc,blockNo,edgeofcell),level,iblk(jc,blockNo,edgeofcell)) * &
+                & div_coeff(jc,level,blockNo,edgeofcell)
+            ENDIF
           END DO
           
         END DO

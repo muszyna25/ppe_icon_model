@@ -301,8 +301,13 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           iidx = p_patch%cells%vertex_idx(jc,jb,j)
           iblk = p_patch%cells%vertex_blk(jc,jb,j)
-          lonv(jc,jb,j) = p_patch%verts%vertex(iidx,iblk)%lon
-          latv(jc,jb,j) = p_patch%verts%vertex(iidx,iblk)%lat
+          IF (iidx > 0) THEN
+            lonv(jc,jb,j) = p_patch%verts%vertex(iidx,iblk)%lon
+            latv(jc,jb,j) = p_patch%verts%vertex(iidx,iblk)%lat
+          ELSE
+            lonv(jc,jb,j) = 0.0_wp
+            latv(jc,jb,j) = 0.0_wp
+          ENDIF
         END DO
       END DO
     END DO

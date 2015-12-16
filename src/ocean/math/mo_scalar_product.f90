@@ -721,10 +721,11 @@ CONTAINS
           DO ie=1, no_primal_edges
             il_e = patch_2d%cells%edge_idx(cell_index,blockNo,ie)
             ib_e = patch_2d%cells%edge_blk(cell_index,blockNo,ie)
-            
-            p_vn_c(cell_index,level,blockNo)%x = p_vn_c(cell_index,level,blockNo)%x&
-              & + operators_coefficients%edge2cell_coeff_cc(cell_index,level,blockNo,ie)%x&
-              & * vn_e(il_e,level,ib_e)*patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+            IF (il_e > 0) THEN
+              p_vn_c(cell_index,level,blockNo)%x = p_vn_c(cell_index,level,blockNo)%x&
+                & + operators_coefficients%edge2cell_coeff_cc(cell_index,level,blockNo,ie)%x&
+                & * vn_e(il_e,level,ib_e)*patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+            ENDIF
           END DO
           
           p_vn_c(cell_index,level,blockNo)%x = p_vn_c(cell_index,level,blockNo)%x &
@@ -867,11 +868,13 @@ CONTAINS
               ictr = ictr+1
               il_e = patch_2d%cells%edge_idx(il_c,ib_c,ie)
               ib_e = patch_2d%cells%edge_blk(il_c,ib_c,ie)
-              thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
-              
-              out_vn_e(je,level,blockNo) = out_vn_e(je,level,blockNo) &
-                & +vn_e(il_e,level,ib_e)*operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr)&
-                & *thick_edge
+              IF (il_e > 0) THEN
+                thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+
+                out_vn_e(je,level,blockNo) = out_vn_e(je,level,blockNo) &
+                  & +vn_e(il_e,level,ib_e)*operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr)&
+                  & *thick_edge
+              ENDIF
               
             END DO
             
@@ -883,11 +886,13 @@ CONTAINS
               ictr = ictr+1
               il_e = patch_2d%cells%edge_idx(il_c,ib_c,ie)
               ib_e = patch_2d%cells%edge_blk(il_c,ib_c,ie)
-              thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
-              
-              out_vn_e(je,level,blockNo) = out_vn_e(je,level,blockNo) &
-                & +vn_e(il_e,level,ib_e)*operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr)&
-                & *thick_edge
+              IF (il_e > 0) THEN
+                thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+
+                out_vn_e(je,level,blockNo) = out_vn_e(je,level,blockNo) &
+                  & +vn_e(il_e,level,ib_e)*operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr)&
+                  & *thick_edge
+              ENDIF
               
             END DO
           ENDIF
@@ -1245,11 +1250,13 @@ CONTAINS
               ictr = ictr+1
               il_e = patch_2d%cells%edge_idx(il_c,ib_c,ie)
               ib_e = patch_2d%cells%edge_blk(il_c,ib_c,ie)
-              thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
-              
-              out_vn_e(je,blockNo) = out_vn_e(je,blockNo) &
-                & +vn_e(il_e,ib_e)*operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr)&
-                & *thick_edge
+              IF (il_e > 0) THEN
+                thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+
+                out_vn_e(je,blockNo) = out_vn_e(je,blockNo) &
+                  & +vn_e(il_e,ib_e)*operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr)&
+                  & *thick_edge
+              ENDIF
               
             END DO
             
@@ -1262,11 +1269,13 @@ CONTAINS
               ictr = ictr+1
               il_e = patch_2d%cells%edge_idx(il_c,ib_c,ie)
               ib_e = patch_2d%cells%edge_blk(il_c,ib_c,ie)
-              thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
-              
-              out_vn_e(je,blockNo) = out_vn_e(je,blockNo) &
-                & +vn_e(il_e,ib_e)*operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr)&
-                & *thick_edge
+              IF (il_e > 0) THEN
+                thick_edge = patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+
+                out_vn_e(je,blockNo) = out_vn_e(je,blockNo) &
+                  & +vn_e(il_e,ib_e)*operators_coefficients%edge2edge_viacell_coeff(je,level,blockNo,ictr)&
+                  & *thick_edge
+              ENDIF
               
             END DO
           ENDIF

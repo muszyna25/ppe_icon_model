@@ -360,8 +360,8 @@ CONTAINS
     nblks_v  = patch_2D%nblks_v
     nz_lev   = n_zlev
 
-    no_primal_edges = MAXVAL(patch_2D%cells%num_edges)
-    no_dual_edges   = MAXVAL(patch_2D%verts%num_edges)
+    no_primal_edges = patch_2D%cells%max_connectivity
+    no_dual_edges   = patch_2D%verts%max_connectivity
 
     ALLOCATE(operators_coefficients%div_coeff(nproma,n_zlev,alloc_cell_blocks,no_primal_edges),&
       & stat=return_status)
@@ -2032,9 +2032,10 @@ CONTAINS
               ictr =ictr+1
               il_e = patch_2D%cells%edge_idx(il_c,ib_c,ie)
               ib_e = patch_2D%cells%edge_blk(il_c,ib_c,ie)
-
-              IF ( patch_3D%lsm_e(il_e,jk,ib_e) /= sea ) THEN
-                operators_coefficients%edge2edge_viacell_coeff(je,jk,block,ictr)=0.0_wp
+              IF (il_e > 0) THEN
+                IF ( patch_3D%lsm_e(il_e,jk,ib_e) /= sea ) THEN
+                  operators_coefficients%edge2edge_viacell_coeff(je,jk,block,ictr)=0.0_wp
+                ENDIF
               ENDIF
             END DO
           ENDIF
@@ -2049,8 +2050,10 @@ CONTAINS
               il_e = patch_2D%cells%edge_idx(il_c,ib_c,ie)
               ib_e = patch_2D%cells%edge_blk(il_c,ib_c,ie)
 
-              IF ( patch_3D%lsm_e(il_e,jk,ib_e) /= sea ) THEN
-                operators_coefficients%edge2edge_viacell_coeff(je,jk,block,ictr)=0.0_wp
+              IF (il_e > 0) THEN
+                IF ( patch_3D%lsm_e(il_e,jk,ib_e) /= sea ) THEN
+                  operators_coefficients%edge2edge_viacell_coeff(je,jk,block,ictr)=0.0_wp
+                ENDIF
               ENDIF
             END DO
           ENDIF
@@ -2429,7 +2432,7 @@ CONTAINS
         CALL sync_patch_array(SYNC_V, patch_2D, operators_coefficients%edge2vert_coeff_cc(:,jk,:, jev)%x(3))
       ENDDO
     ENDDO
-    DO je=1,patch_2D%geometry_info%cell_type
+    DO je=1,no_dual_edges
       CALL sync_patch_array(SYNC_V, patch_2D, operators_coefficients%rot_coeff(:,:,:, je))
     ENDDO
 
