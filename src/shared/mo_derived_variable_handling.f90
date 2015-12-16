@@ -12,6 +12,7 @@ MODULE mo_derived_variable_handling
   USE mo_kind, ONLY: wp,i8
   USE mo_model_domain, ONLY: t_patch
   USE mo_parallel_config,     ONLY: nproma, use_dp_mpi2io
+  USE mo_io_config, ONLY: lnetcdf_flt64_output
   USE mo_run_config, ONLY: tc_dt_model
   USE mo_dynamics_config, ONLY: nnow, nnew, nold
   USE mo_master_config, ONLY: tc_startdate
@@ -221,29 +222,27 @@ if (my_process_is_stdio()) write (0,*)'eventKey:',trim(eventKey)
             timelevels = (/nold(1),nnow(1),nnew(1)/)
             do timelevel=1,3
               src_element => find_element(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
-              if ( ASSOCIATED(src_element) ) CYCLE
+              if ( ASSOCIATED(src_element) ) EXIT
             end do
           END IF
           IF (.not. ASSOCIATED (src_element)) THEN
             call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
           END IF
-CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
-CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
-CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
+if ( my_process_is_stdio())CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
+if ( my_process_is_stdio())CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
+if ( my_process_is_stdio())CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
           ! add new variable, copy the meta-data from the existing variable
           ! 1. copy the source variable to destination pointer
           dest_element => copy_var_to_list(mean_stream_list,dest_element_name,src_element)
 
           ! set output to double precission if necessary
-          IF ( use_dp_mpi2io ) THEN
+          IF ( lnetcdf_flt64_output ) THEN
             dataType = DATATYPE_FLT64
           ELSE
             dataType = DATATYPE_FLT32
           ENDIF
           dest_element%field%info%cf%datatype = dataType
-          if ( my_process_is_stdio()) then
-            print *,'copy_var to list CALLED'
-          endif
+if ( my_process_is_stdio()) print *,'copy_var to list CALLED'
           ! 2. update the nc-shortname to internal name of the source variable
           dest_element%field%info%cf%short_name = src_element%field%info%name
           CALL meanVariables%add(src_element) ! source element comes first
@@ -254,8 +253,8 @@ CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
 !         CALL meanVariables%add(t_accumulation_pair(source=src_element, destination=dest_element, counter=0))
 !TODO print *,'dst added'
         ! replace existince varname in output_nml with the meanStream Variable
-CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
-CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|')
+if ( my_process_is_stdio())CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
+if ( my_process_is_stdio())CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|')
         END IF
         in_varlist(i) = trim(dest_element%field%info%name)
       END DO
@@ -313,7 +312,30 @@ CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_nam
     type(t_list_element) , INTENT(INOUT) :: destination
     integer, intent(inout)               :: counter
 
-    destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:)+ source%field%r_ptr(:,:,:,:,:)
+    integer :: index
+
+    index = -1
+    if (source%field%info%lcontained) then
+      index = source%field%info%ncontained
+!     write(0,*)'index:',index
+if ( my_process_is_stdio()) write(0,*)'source shape:',shape(source%field%r_ptr)
+      SELECT CASE(source%field%info%var_ref_pos)
+      CASE(1)
+        destination%field%r_ptr(:,:,:,:,:) = &
+          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(index:index,:,:,:,:)
+      CASE(2)
+        destination%field%r_ptr(:,:,:,:,:) = &
+          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,index:index,:,:,:)
+      CASE(3)
+        destination%field%r_ptr(:,:,:,:,:) = &
+          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,index:index,:,:) 
+      CASE(4)
+        destination%field%r_ptr(:,:,:,:,:) = &
+          & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)
+      END SELECT
+    else
+      destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:)+ source%field%r_ptr(:,:,:,:,:)
+    endif
     counter                 = counter + 1
   END SUBROUTINE accumulation_add
 

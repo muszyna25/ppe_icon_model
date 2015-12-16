@@ -988,6 +988,7 @@ MODULE mo_nh_stepping
 #endif
 
     ! update accumlated values
+    CALL perform_accumulation
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
