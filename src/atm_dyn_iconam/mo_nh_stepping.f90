@@ -428,7 +428,7 @@ MODULE mo_nh_stepping
       &                                       i_timelevel_dyn= nnow, i_timelevel_phy= nnow_rcf)
     CALL pp_scheduler_process(simulation_status)
 
-    CALL perform_accumulation
+    CALL perform_accumulation(nnow(1))
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
@@ -988,7 +988,7 @@ MODULE mo_nh_stepping
 #endif
 
     ! update accumlated values
-    CALL perform_accumulation
+    CALL perform_accumulation(nnew(1))
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &

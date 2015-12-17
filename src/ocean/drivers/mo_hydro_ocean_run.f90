@@ -390,7 +390,7 @@ CONTAINS
 
       IF (timers_level > 2)  CALL timer_stop(timer_extra20)
 
-      CALL perform_accumulation
+      CALL perform_accumulation(nnew(1))
 
       CALL output_ocean( patch_3d, ocean_state, &
         &                datetime,              &

@@ -44,7 +44,7 @@ MODULE mo_derived_variable_handling
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_derived_variable_handling'
 
-  TYPE(map), SAVE    :: meanMap, meanEvents, meanEventsActivity, meanVarCounter
+  TYPE(map), SAVE    :: meanMap, meanEvents, meanEventsActivity, meanVarCounter, meanPrognostics
   TYPE(t_var_list)   :: mean_stream_list
   INTEGER, PARAMETER :: ntotal = 10
 
@@ -110,6 +110,7 @@ CONTAINS
     meanEvents         = map(verbose=.false.)
     meanEventsActivity = map(verbose=.false.)
     meanVarCounter     = map(verbose=.false.)
+    meanPrognostics    = map(verbose=.false.)
 
     WRITE(listname,'(a)')  'mean_stream_list'
     CALL new_var_list(mean_stream_list, listname, patch_id=patch_2d%id)
@@ -147,14 +148,14 @@ CONTAINS
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     INTEGER :: ntotal_vars, output_variables,i,ierrstat, dataType
     INTEGER :: timelevel, timelevels(3)
-    type(vector_ref) :: meanVariables
+    type(vector_ref) :: meanVariables, prognosticVariables
     CHARACTER(LEN=100) :: eventKey
     type(t_event_wrapper) :: event_wrapper
     class(*), pointer :: myBuffer
     TYPE(t_list_element), POINTER :: src_element, dest_element
+    LOGICAL :: variableIsPrognostic
     CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: varlist(:)
     CHARACTER(LEN=VARNAME_LEN) :: dest_element_name
-    TYPE(t_accumulation_pair) :: pair
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mean_stream"
 
     IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
@@ -210,6 +211,8 @@ if (my_process_is_stdio()) write (0,*)'eventKey:',trim(eventKey)
         IF ( INDEX(varlist(i),':') > 0) CYCLE
 !TODO print *,varlist(i)
  
+        variableIsPrognostic = .FALSE.
+
         ! check for already create meanStream variable (maybe from another output_nml with the same output_interval)
         dest_element_name = get_accumulation_varname(varlist(i),p_onl)
         call print_summary('CHECK NAME:'//TRIM(dest_element_name))
@@ -220,10 +223,17 @@ if (my_process_is_stdio()) write (0,*)'eventKey:',trim(eventKey)
           IF (.not. ASSOCIATED (src_element)) THEN
             ! try to find timelevel variables 
             timelevels = (/nold(1),nnow(1),nnew(1)/)
+            prognosticVariables = vector_ref((/.false.,.false.,.false./))
             do timelevel=1,3
+              call print_error(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
               src_element => find_element(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
-              if ( ASSOCIATED(src_element) ) EXIT
+              if ( ASSOCIATED(src_element) ) then
+                call prognosticVariables%set(timelevels(timelevel),src_element)
+                !all prognosticVariables%add(src_element)
+                variableIsPrognostic = .TRUE.
+              end if
             end do
+            call meanPrognostics%add(varlist(i),prognosticVariables)
           END IF
           IF (.not. ASSOCIATED (src_element)) THEN
             call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
@@ -244,13 +254,17 @@ if ( my_process_is_stdio())CALL print_summary('new name      :|'//trim(dest_elem
           dest_element%field%info%cf%datatype = dataType
 if ( my_process_is_stdio()) print *,'copy_var to list CALLED'
           ! 2. update the nc-shortname to internal name of the source variable
-          dest_element%field%info%cf%short_name = src_element%field%info%name
-          CALL meanVariables%add(src_element) ! source element comes first
+          dest_element%field%info%cf%short_name = get_var_name(src_element%field)
+          IF ( variableIsPrognostic ) then
+!TODO       write (0,*)'prognosticVariables:length:',prognosticVariables%length()
+            call var_print(prognosticVariables)
+            CALL meanVariables%add(prognosticVariables)
+          ELSE
+            CALL meanVariables%add(src_element) ! source element comes first
+          END IF
 !TODO print *,'src added'
           CALL meanVariables%add(dest_element)
           CALL meanVarCounter%add(dest_element%field%info%name,0)
-!         pair = t_accumulation_pair(source=src_element, destination=dest_element, counter=0)
-!         CALL meanVariables%add(t_accumulation_pair(source=src_element, destination=dest_element, counter=0))
 !TODO print *,'dst added'
         ! replace existince varname in output_nml with the meanStream Variable
 if ( my_process_is_stdio())CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
@@ -339,10 +353,12 @@ if ( my_process_is_stdio()) write(0,*)'source shape:',shape(source%field%r_ptr)
     counter                 = counter + 1
   END SUBROUTINE accumulation_add
 
-  SUBROUTINE perform_accumulation
+  SUBROUTINE perform_accumulation(timelevelIndex)
+    INTEGER :: timelevelIndex
+
     INTEGER :: element_counter
     class(*),pointer :: varListForMeanEvent, meanEventKey
-    class(*),pointer :: sourceVariable, destinationVariable
+    class(*),pointer :: sourceVariable, destinationVariable, sourceVariableReference
     class(*),pointer :: counter, meanEvent, myItem
     class(*), pointer :: eventActive
     type(t_list_element), pointer :: source, destination
@@ -354,7 +370,6 @@ if ( my_process_is_stdio()) write(0,*)'source shape:',shape(source%field%r_ptr)
 
     TYPE(divisionquotienttimespan) :: quot
 !   integer, pointer :: counter
-    TYPE(t_accumulation_pair), POINTER :: accumulation_pair
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::perform_accumulation"
     
     call print_routine(routine,'start')
@@ -396,10 +411,23 @@ if (my_process_is_stdio()) call print_summary(object_pointer_string(meanEventKey
         class is (vector_ref)
 !IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
           do element_counter=1,varListForMeanEvent%length(),2 !start at 2 because the event is at index 1
+            call print_routine("perform_accumulation",object_string(element_counter))
 
-            sourceVariable      => varListForMeanEvent%at(element_counter)
-            destinationVariable => varListForMeanEvent%at(element_counter+1)
+            sourceVariableReference  => varListForMeanEvent%at(element_counter)
+            destinationVariable      => varListForMeanEvent%at(element_counter+1)
+            call print_routine("perform_accumulation","after calling 'AT'")
 
+            select type (sourceVariableReference)
+            type is (vector_ref)
+              call print_routine("perform_accumulation"," in vec_ref select")
+              call var_print(sourceVariableReference)
+              call print_routine("perform_accumulation"," tried var_print")
+              call print_routine("perform_accumulation","Found prognosticVariables list")
+              sourceVariable => sourceVariableReference%at(timelevelIndex)
+            class default
+              call print_routine("perform_accumulation","Found plain list element list")
+              sourceVariable => varListForMeanEvent%at(element_counter)
+            end select
             if (associated(sourceVariable) .and. associated(destinationVariable)) then
               select type (sourceVariable)
               type is (t_list_element)
@@ -518,3 +546,5 @@ if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : ---
       &trim(output_name_list%output_interval(1))
   END FUNCTION get_event_key
 END MODULE mo_derived_variable_handling
+
+! vim:tw=0
