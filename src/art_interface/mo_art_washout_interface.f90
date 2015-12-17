@@ -179,8 +179,14 @@ SUBROUTINE art_washout_interface(pt_prog,pt_diag, dtime, p_patch, &
       ! ----------------------------------
       ! --- Clip the tracers
       ! ----------------------------------
-    
-      CALL art_clip_lt(tracer,0.0_wp)
+!$omp parallel do default(shared) private(jb, istart, iend)
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+          &                istart, iend, i_rlstart, i_rlend)
+        CALL art_clip_lt(tracer(istart:iend,1:nlev,jb,:),0.0_wp)
+      ENDDO
+!$omp end parallel do
+      
       DEALLOCATE(wash_rate_m0)
       DEALLOCATE(wash_rate_m3)
     ENDIF !lart_aerosol

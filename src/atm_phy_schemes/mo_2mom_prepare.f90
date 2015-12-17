@@ -1,6 +1,6 @@
 MODULE mo_2mom_prepare
   USE mo_kind,                 ONLY: wp
-  USE mo_2mom_mcrph_main, ONLY: particle, atmosphere
+  USE mo_2mom_mcrph_types,     ONLY: particle, atmosphere
   IMPLICIT NONE
   PUBLIC :: prepare_twomoment, post_twomoment
 CONTAINS
