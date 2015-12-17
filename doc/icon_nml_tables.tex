@@ -466,6 +466,23 @@ Output name style\\
 
 Defined and used in: \verb+src/grid_generator/mo_gridrefinement.f90+
 
+%------------------------------------------------------------------------------
+% coupling_model_nml:
+%------------------------------------------------------------------------------
+\subsection{coupling\_mode\_nml}
+\begin{longtab}
+
+%\hline
+coupled\_mode &
+L &
+.FALSE. &  &
+.TRUE.: if yac coupling routines have to be called &
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_coupling_nml.f90+
+
 
 %MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 %MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
@@ -476,76 +493,6 @@ Defined and used in: \verb+src/grid_generator/mo_gridrefinement.f90+
 Namelist parameters for the ICON models are organized in several thematic
 Fortran namelists controling the experiment, and the properties of
 dynamics, transport, physics etc.
-
-
-%------------------------------------------------------------------------------
-% coupling_nml:
-%------------------------------------------------------------------------------
-\subsection{coupling\_nml}
-\begin{longtab}
-
-%\hline
-name &
-C &
-blank &  &
-short name of the coupling field &
-\tabularnewline
-
-%\hline
-dt\_coupling &
-I &
-0 &
-s &
-coupling time step / coupling interval &
-\tabularnewline
-
-%\hline
-dt\_model &
-I &
-0 &
-s &
-model time step &
-\tabularnewline
-
-%\hline
-lag &
-I &
-0 &   &
-offset to coupling event in number of model time steps &
-\tabularnewline
-
-%\hline
-l\_time\_average &
-L &
-.FALSE. &  &
-.TRUE.: time averaging between two coupling events &
-\tabularnewline
-
-%\hline
-l\_time\_accumulation &
-L &
-.FALSE. &  &
-.TRUE.: accumulation of coupling fields in time between two coupling events &
-\tabularnewline
-
-%\hline
-l\_diagnostic &
-L &
-.FALSE. &  &
-.TRUE.: simple diagnostics (min, max, avg) for coupling fields is switched on &
-\tabularnewline
-
-%\hline
-l\_activated &
-L &
-.FALSE. &  &
-.TRUE.: activate the coupling of the respective coupling field &
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: \verb+src/namelists/mo_coupling_nml.f90+
-
 
 %-----------------------------------------------------------------------------
 % diffusion_nml: horizontal (numerical) diffusion
