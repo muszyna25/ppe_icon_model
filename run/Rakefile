@@ -774,6 +774,35 @@ task :checkTimeMeanSP, :pattern do |t,args|
   }
   q.run
 end
+
+task :checkAtmoMeanStream, :dir do |t,args|
+
+  dir = args.dir.nil? ? '.' : args.dir
+
+  files = {
+    M10: Dir.glob("#{dir}/*_10M_*nc").first,
+    M20: Dir.glob("#{dir}/*_20M_*nc").first,
+    M30: Dir.glob("#{dir}/*_30M_*nc").first,
+    H01: Dir.glob("#{dir}/*_01H_*nc").first
+  }
+
+  p files
+
+  Cdo.debug = true
+  # 10M vs. 20M
+  puts Cdo.diffv(:input => "         -seltimestep,1   #{files[:M10]}  -seltimestep,1 #{files[:M20]}",:options => '-s')
+  puts Cdo.diffv(:input => "-timmean -seltimestep,2/3 #{files[:M10]}  -seltimestep,2 #{files[:M20]}",:options => '-s')
+  puts Cdo.diffv(:input => "-timmean -seltimestep,4/5 #{files[:M10]}  -seltimestep,3 #{files[:M20]}",:options => '-s')
+  puts Cdo.diffv(:input => "-timmean -seltimestep,6/7 #{files[:M10]}  -seltimestep,4 #{files[:M20]}",:options => '-s')
+  # 10M vs 30M
+  puts Cdo.diffv(:input => "         -seltimestep,1   #{files[:M10]}  -seltimestep,1 #{files[:M30]}",:options => '-s')
+  puts Cdo.diffv(:input => "-timmean -seltimestep,2/4 #{files[:M10]}  -seltimestep,2 #{files[:M30]}",:options => '-s')
+  puts Cdo.diffv(:input => "-timmean -seltimestep,5/7 #{files[:M10]}  -seltimestep,3 #{files[:M30]}",:options => '-s')
+  # 20M vs. 30M
+  puts Cdo.diffv(:input => "         -seltimestep,1   #{files[:M20]}  -seltimestep,1 #{files[:M30]}",:options => '-s')
+  puts Cdo.diffv(:input => "-timmean -seltimestep,2/4 #{files[:M20]}  -timmean -seltimestep,2/3 #{files[:M30]}",:options => '-s')
+
+end
 desc "Check status of given of all experiments"
 task :stat, :expname do |t,args|
   expname = args.expname.nil? ? '' : args.expname
