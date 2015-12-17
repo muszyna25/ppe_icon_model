@@ -445,6 +445,7 @@ MODULE mo_nh_stepping
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL reset_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
+    CALL reset_accumulation
 
     ! sample meteogram output
     DO jg = 1, n_dom
