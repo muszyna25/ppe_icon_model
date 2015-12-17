@@ -193,6 +193,7 @@ doc/technical/cloud_variables.tex -text
 doc/technical/dwd_database/Makefile -text
 doc/technical/dwd_database/analysis.tex -text
 doc/technical/dwd_database/appendix.tex -text
+doc/technical/dwd_database/backmatter.tex -text
 doc/technical/dwd_database/build_varlists.py -text
 doc/technical/dwd_database/cosmo_eu_fields.tex -text
 doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
@@ -215,12 +216,16 @@ doc/technical/dwd_database/output_GRIB2_sma.tex -text
 doc/technical/dwd_database/output_GRIB2_vv0.tex -text
 doc/technical/dwd_database/output_description.tex -text
 doc/technical/dwd_database/output_statproc.tex -text
+doc/technical/dwd_database/pics/Bundesadler_schwarz.pdf -text svneol=unset#application/pdf
+doc/technical/dwd_database/pics/DWD_Logo_plain.pdf -text svneol=unset#application/pdf
 doc/technical/dwd_database/pics/DWD_logo.png -text
 doc/technical/dwd_database/pics/IAU_scheme_2.png -text
 doc/technical/dwd_database/pics/ICON_EU_nest_1.png -text svneol=unset#image/png
 doc/technical/dwd_database/pics/ICON_EU_nest_2.png -text svneol=unset#image/png
+doc/technical/dwd_database/pics/Wortbildmarke-und-Claim-positiv-transparent.pdf -text svneol=unset#application/pdf
 doc/technical/dwd_database/pics/analysis_drips.png -text
 doc/technical/dwd_database/pics/bisection.png -text
+doc/technical/dwd_database/pics/by-nc-nd.pdf -text svneol=unset#application/pdf
 doc/technical/dwd_database/pics/forecast_length_global.png -text svneol=unset#image/png
 doc/technical/dwd_database/pics/forecast_length_global.svg -text svneol=unset#image/svg%2Bxml
 doc/technical/dwd_database/pics/forecast_length_nest.png -text svneol=unset#image/png
@@ -236,7 +241,6 @@ doc/technical/dwd_database/pics/nsection.png -text
 doc/technical/dwd_database/pics/plot_maxhsurf.pdf -text svneol=unset#application/pdf
 doc/technical/dwd_database/preface_intro.tex -text
 doc/technical/dwd_database/preface_title_toc.tex -text
-doc/technical/dwd_database/preface_versionhistory.tex -text
 doc/technical/dwd_database/quote.tex -text
 doc/technical/dwd_database/statproc.tex -text
 doc/technical/flux_diagram-crop.pdf -text
