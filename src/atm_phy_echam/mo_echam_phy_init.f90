@@ -32,6 +32,8 @@ MODULE mo_echam_phy_init
   ! model configuration
   USE mo_run_config,           ONLY: nlev, iqv, iqt, ntracer, ltestcase
   USE mo_vertical_coord_table, ONLY: vct
+  USE mo_dynamics_config,      ONLY: iequations
+  USE mo_impl_constants,       ONLY: inh_atmosphere, max_char_length
   USE mo_echam_phy_config,     ONLY: phy_config => echam_phy_config, &
                                    & configure_echam_phy
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
@@ -44,8 +46,8 @@ MODULE mo_echam_phy_init
 #endif
 
   ! test cases
-  USE mo_ha_testcases,         ONLY: ape_sst_case
-  USE mo_nh_testcases_nml,     ONLY: th_cbl, tpe_temp
+  USE mo_ha_testcases,         ONLY: ha_ape_sst_case => ape_sst_case
+  USE mo_nh_testcases_nml,     ONLY: nh_ape_sst_case => ape_sst_case, th_cbl, tpe_temp
   USE mo_ape_params,           ONLY: ape_sst
   USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW
 
@@ -407,6 +409,8 @@ CONTAINS
     INTEGER  :: nblks_c, jb, jbs, jc, jcs, jce
     REAL(wp) :: zlat
 
+    CHARACTER(len=max_char_length)  :: ape_sst_case
+
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
     TYPE(t_echam_phy_tend) ,POINTER :: tend  => NULL()
     !----
@@ -615,6 +619,14 @@ CONTAINS
 
       ! For idealized test cases
 
+      IF (iequations == inh_atmosphere) THEN
+        ! use ape_sst_case from mo_nh_testcases_nml
+        ape_sst_case = nh_ape_sst_case
+      ELSE
+        ! use ape_sst_case from mo_ha_testcases
+        ape_sst_case = ha_ape_sst_case
+      END IF
+
       SELECT CASE (ctest_name)
       CASE('APE','APE_echam','RCEhydro') !Note that there is only one surface type in this case
 
@@ -802,6 +814,8 @@ CONTAINS
     INTEGER :: ndomain, nblks_c, jg, jb, jbs, jc, jcs, jce
     REAL(wp):: zlat
 
+    CHARACTER(len=max_char_length)  :: ape_sst_case
+
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
 
 !!$    CHARACTER(LEN=*),PARAMETER :: routine = 'additional_restart_init'
@@ -812,6 +826,14 @@ CONTAINS
     ndomain = SIZE(prm_field)
     IF (ndomain.eq.0) CALL finish('init_phy_memory', &
        & 'ERROR: array prm_field has zero length')
+
+    IF (iequations == inh_atmosphere) THEN
+      ! use ape_sst_case from mo_nh_testcases_nml
+      ape_sst_case = nh_ape_sst_case
+    ELSE
+      ! use ape_sst_case from mo_ha_testcases
+      ape_sst_case = ha_ape_sst_case
+    END IF
 
     !-------------------------
     ! Loop over all domains
@@ -831,7 +853,7 @@ CONTAINS
         ! Re-initialize SST, sea ice and glacier if necessary
         !---------------------------------------------------------------------
           SELECT CASE (ctest_name)
-          CASE('APE')
+          CASE('APE','APE_echam','RCEhydro')
           ! For an aqua-planet experiment, re-initialization is necessary if
           ! the restart file in use was generated during a differently configured
           ! experiment (e.g., an APE exp with a different SST setup, or

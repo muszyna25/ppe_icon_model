@@ -911,7 +911,7 @@ run/exp.yac_nh_r2b3 -text
 run/exp.yac_r2b3 -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
-run/post.atm_amip_tune -text
+run/post.atm_amip -text
 run/post.hat_jww -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text

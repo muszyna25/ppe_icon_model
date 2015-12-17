@@ -49,7 +49,6 @@ MODULE mo_echam_phy_nml
   LOGICAL  :: lvdiff     !< .true. for vertical diffusion.
   LOGICAL  :: lconv      !< .true. for moist convection
   LOGICAL  :: lcond      !< .true. for large scale condensation
-  INTEGER  :: icover     !< default 1 for Sundqvist scheme, 2 for Tompkins
   LOGICAL  :: lssodrag   !< .true. for subgrid scale orographic drag,
                          !< by blocking and gravity waves (lgwdrag in ECHAM6)
   LOGICAL  :: lgw_hines  !< .true. for atmospheric gravity wave drag
@@ -62,7 +61,7 @@ MODULE mo_echam_phy_nml
 
   NAMELIST /echam_phy_nml/ idcphycpl,               &
     &                      lrad, dt_rad, lvdiff,    &
-    &                      lconv, lcond, icover,    &
+    &                      lconv, lcond,            &
     &                      lssodrag, lgw_hines,     &
     &                      lmlo, lice, ljsbach,     &
     &                      lamip, lebudget
@@ -87,7 +86,6 @@ CONTAINS
     lvdiff    = .TRUE.
     lconv     = .TRUE.
     lcond     = .TRUE.
-    icover    = 1         ! 1=Sundquist, 2=Tompkins
     lssodrag  = .TRUE.
     lgw_hines = .TRUE.
     lmlo      = .FALSE.
@@ -153,7 +151,6 @@ CONTAINS
     echam_phy_config% lvdiff    = lvdiff                                              
     echam_phy_config% lconv     = lconv                                               
     echam_phy_config% lcond     = lcond                                               
-    echam_phy_config% icover    = icover                                              
     echam_phy_config% lssodrag  = lssodrag                                            
     echam_phy_config% lgw_hines = lgw_hines                                           
     echam_phy_config% lmlo      = lmlo                                                
