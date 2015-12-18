@@ -148,7 +148,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks                 = .FALSE.
  num_io_procs                 = 1
  itype_comm                   = 1
- iorder_sendrecv              = 1
+ iorder_sendrecv              = 3  ! best value for CRAY (slightly faster than option 1)
 /
 &grid_nml
  dynamics_grid_filename       = ${dynamics_grid_filename}
@@ -248,6 +248,7 @@ cat > ${atmo_namelist} << EOF
  inwp_sso                     = 1
  inwp_gwd                     = 1
  inwp_surface                 = 1
+ latm_above_top               = .false.
  itype_z0                     = 2   ! 1: default, 2: turn off SSO part of z0
  dt_conv                      = ${dtconv}
  dt_sso                       = ${dtconv}
@@ -260,16 +261,16 @@ cat > ${atmo_namelist} << EOF
  icpl_o3_tp                   = 1
 /
 &nwp_tuning_nml
-itune_albedo                  = 1       ! somewhat reduced albedo (w.r.t. MODIS data) over Sahara in order to reduce cold bias
-tune_zceff_min                = 0.025   ! ** default value to be used for R3B7; use 0.05 for R2B6 in order to get similar temperature biases in upper troposphere **
+ itune_albedo                  = 1       ! somewhat reduced albedo (w.r.t. MODIS data) over Sahara in order to reduce cold bias
+ tune_zceff_min                = 0.025   ! ** default value to be used for R3B7; use 0.025 for R2B6 in order to get similar temperature biases in upper troposphere **
 /
 &turbdiff_nml
  tkhmin                       = 0.75
  tkmmin                       = 0.75
- alpha0_max                   = 0.035
+ alpha0_max                   = 0.0335
  pat_len                      = 750.
  c_diff                       = 0.2
- rat_sea                      = 8.5
+ rat_sea                      = 8.0
  ltkesso                      = .true.  ! SSO dissipation energy used in TKE equation
  frcsmot                      = 0.2     ! these 2 switches together apply vertical smoothing of the TKE source terms
  imode_frcsmot                = 2       ! in the tropics (only), which reduces the moist bias in the tropical lower troposphere
@@ -284,7 +285,7 @@ tune_zceff_min                = 0.025   ! ** default value to be used for R3B7; 
  lmulti_snow                  = .false. ! true: multi-level snow, false:single-level snow
  itype_heatcond               = 2       ! 1: fixed heatcond, 2: moisture dependent heatcond
  idiag_snowfrac               = 20
- lsnowtile                    = .true. ! true: allow separate snow and snow-free tiles
+ lsnowtile                    = .true.  ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
  itype_lndtbl                 = 3       ! 2: tuned stomata resistance rsmin
  itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
@@ -360,6 +361,7 @@ tune_zceff_min                = 0.025   ! ** default value to be used for R3B7; 
  lsq_high_ord                 = 3
  l_intp_c2l                   = .TRUE.
  l_mono_c2l                   = .TRUE.
+ support_baryctr_intp         = .true.
 /
 &extpar_nml
  itopo                        = 1

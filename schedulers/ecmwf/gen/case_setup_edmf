@@ -63,10 +63,10 @@ ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 
 # model timing                             (EDMF, safer 90s)
-dtime=360       # advect, phys   R2B4:600  R2B5:450 (720) R2B6:360  R2B7:180  R2B8:90
-dtconv=720      # conv, SSO, GWD R2B4:600  R2B5:900 (720) R2B6:720  R2B7:360  R2B8:360
-dtrad=3600      # rad            R2B4:3600 R2B5:3600      R2B6:3600 R2B7:1800 R2B8:1800
-ndyn_substeps=5 # dyn/adv        R2B4:4    R2B5:5   (5)   R2B6:5    R2B7:5    R2B8:5
+dtime=360       # advect, phys   R2B4:600  R2B5:450 (720) R2B6:360  R2B7:180  R3B7: 120  R2B8:90
+dtconv=720      # conv, SSO, GWD R2B4:600  R2B5:900 (720) R2B6:720  R2B7:360  R3B7: 600  R2B8:360
+dtrad=3600      # rad            R2B4:3600 R2B5:3600      R2B6:3600 R2B7:1800 R3B7: 1800 R2B8:1800
+ndyn_substeps=5 # dyn/adv        R2B4:4    R2B5:5   (5)   R2B6:5    R2B7:5    R3B7: 5    R2B8:5
 ninc_mtgrm=10   # output interval 3600s             (25)
 ndays=10        # number of days to run
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
@@ -148,7 +148,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks                 = .FALSE.
  num_io_procs                 = 1
  itype_comm                   = 1
- iorder_sendrecv              = 1
+ iorder_sendrecv              = 3  ! best value for CRAY (slightly faster than option 1)
 /
 &grid_nml
  dynamics_grid_filename       = ${dynamics_grid_filename}
@@ -248,29 +248,36 @@ cat > ${atmo_namelist} << EOF
  inwp_sso                     = 1
  inwp_gwd                     = 1
  inwp_surface                 = 1
+ latm_above_top               = .false.
  itype_z0                     = 2   ! 1: default, 2: turn off SSO part of z0
  dt_conv                      = ${dtconv}
  dt_sso                       = ${dtconv}
  dt_gwd                       = ${dtconv}
  dt_rad                       = ${dtrad}
- latm_above_top               = .FALSE.
  efdt_min_raylfric            = 7200.
+ icapdcycl                    = 3
+ icpl_aero_conv               = 1
+ icpl_aero_gscp               = 1
+ icpl_o3_tp                   = 1
+/
+&nwp_tuning_nml
+ itune_albedo                  = 1       ! somewhat reduced albedo (w.r.t. MODIS data) over Sahara in order to reduce cold bias
+ tune_zceff_min                = 0.025   ! ** default value to be used for R3B7; use 0.025 for R2B6 in order to get similar temperature biases in upper troposphere **
 /
 &lnd_nml
 !ntiles                       = 5       ! number of tiles (DONE AUTOMATICALLY)
  nlev_snow                    = 3       ! 2 for multi-level snow
  lmulti_snow                  = .TRUE.  ! true: multi-level snow, false:single-level snow
+ itype_heatcond               = 2       ! 1: fixed heatcond, 2: moisture dependent heatcond
  idiag_snowfrac               = 4
  lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
  lseaice                      = .true.
- llake                        = .false.
- itype_lndtbl                 = 2       ! 2: tuned stomata resistance rsmin
+ itype_lndtbl                 = 3       ! 2: tuned stomata resistance rsmin
  itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
- itype_heatcond               = 2       ! 1: fixed heatcond, 2: moisture dependent heatcond
- itype_interception           = 1       ! 1: off/default, 2: on
+ llake                        = .false.
 /
 &radiation_nml
- irad_o3                      = 7           ! 6: GME, 7: GEMS
+ irad_o3                      = 7           ! 6: GME, 7: GEMS, 9: MACC
  irad_aero                    = 6
  izenith                      = 4           ! 4: NWP default, 3: no annual cycle
  albedo_type                  = 2           ! 2: Modis albedo
@@ -291,9 +298,9 @@ cat > ${atmo_namelist} << EOF
  rayleigh_coeff               = 0.10
  ndyn_substeps                = ${ndyn_substeps}
  lhdiff_rcf                   = .true.
- divdamp_fac                  = 0.004
- divdamp_order                = 4
- divdamp_type                 = 3
+ divdamp_fac                  = 0.004       ! 0.004 for R2B6; recommendation for R3B7: 0.003
+ divdamp_order                = 24          ! 2 ass, 24 fc
+ divdamp_type                 = 32          ! optional: 2 assimilation cycle, 32 forecast
  l_open_ubc                   = .FALSE.
  igradp_method                = 3
  l_zdiffu_t                   = .TRUE.
@@ -339,6 +346,7 @@ cat > ${atmo_namelist} << EOF
  lsq_high_ord                 = 3
  l_intp_c2l                   = .TRUE.
  l_mono_c2l                   = .TRUE.
+ support_baryctr_intp         = .true.
 /
 &extpar_nml
  itopo                        = 1
