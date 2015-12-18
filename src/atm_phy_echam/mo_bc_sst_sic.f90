@@ -140,7 +140,6 @@ CONTAINS
     END IF
     
     vlistID = streamInqVlist(streamID)
-    CALL vlistPrint(vlistID)
     varID = 0
     ngridsize = gridInqSize(vlistInqVarGrid(vlistID, varID))
 

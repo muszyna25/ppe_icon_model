@@ -250,7 +250,7 @@ CONTAINS
     !
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg16, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+    USE psrad_rrsw_kg16, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
          ka, kb, selfref, forref, sfluxref
 
     ! ------- Local -------
@@ -331,7 +331,7 @@ CONTAINS
     !     band 17:  3250-4000 cm-1 (low - h2o,co2; high - h2o,co2)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg17, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+    USE psrad_rrsw_kg17, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
          ka, kb, selfref, forref, sfluxref
 
     ! ------- Local -------
@@ -416,7 +416,7 @@ CONTAINS
     !     band 18:  4000-4650 cm-1 (low - h2o,ch4; high - ch4)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg18, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+    USE psrad_rrsw_kg18, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
          ka, kb, selfref, forref, sfluxref
 
     ! ------- Local -------
@@ -499,7 +499,7 @@ CONTAINS
     !     band 19:  4650-5150 cm-1 (low - h2o,co2; high - co2)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg19, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+    USE psrad_rrsw_kg19, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
          ka, kb, selfref, forref, sfluxref
 
     ! ------- Local -------
@@ -582,7 +582,7 @@ CONTAINS
     !     band 20:  5150-6150 cm-1 (low - h2o; high - h2o)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg20, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, absch4o, &
+    USE psrad_rrsw_kg20, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, absch4o, &
          ka, kb, selfref, forref, sfluxref, absch4
 
     ! ------- Local -------
@@ -661,7 +661,7 @@ CONTAINS
     !     band 21:  6150-7700 cm-1 (low - h2o,co2; high - h2o,co2)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg21, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+    USE psrad_rrsw_kg21, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
          ka, kb, selfref, forref, sfluxref
 
     ! ------- Local -------
@@ -746,7 +746,7 @@ CONTAINS
     !     band 22:  7700-8050 cm-1 (low - h2o,o2; high - o2)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg22, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+    USE psrad_rrsw_kg22, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
          ka, kb, selfref, forref, sfluxref
 
     ! ------- Local -------
@@ -829,7 +829,7 @@ CONTAINS
     !     band 23:  8050-12850 cm-1 (low - h2o; high - nothing)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg23, ONLY : kao, selfrefo, forrefo, sfluxrefo, raylo, &
+    USE psrad_rrsw_kg23, ONLY : kao, selfrefo, forrefo, sfluxrefo, raylo, &
          ka, selfref, forref, sfluxref, rayl
 
     ! ------- Local -------
@@ -897,7 +897,7 @@ CONTAINS
     !     band 24:  12850-16000 cm-1 (low - h2o,o2; high - o2)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg24, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+    USE psrad_rrsw_kg24, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
          abso3ao, abso3bo, raylao, raylbo, &
          ka, kb, selfref, forref, sfluxref, &
          abso3a, abso3b, rayla, raylb
@@ -1001,7 +1001,7 @@ CONTAINS
     !     band 25:  16000-22650 cm-1 (low - h2o; high - nothing)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg25, ONLY : kao, sfluxrefo, &
+    USE psrad_rrsw_kg25, ONLY : kao, sfluxrefo, &
          abso3ao, abso3bo, raylo, &
          ka, sfluxref, &
          abso3a, abso3b, rayl
@@ -1053,7 +1053,7 @@ CONTAINS
     !     band 26:  22650-29000 cm-1 (low - nothing; high - nothing)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg26, ONLY : sfluxrefo, raylo, &
+    USE psrad_rrsw_kg26, ONLY : sfluxrefo, raylo, &
          sfluxref, rayl
 
     ! ------- Local -------
@@ -1083,7 +1083,7 @@ CONTAINS
     !     band 27:  29000-38000 cm-1 (low - o3; high - o3)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg27, ONLY : kao, kbo, sfluxrefo, raylo, &
+    USE psrad_rrsw_kg27, ONLY : kao, kbo, sfluxrefo, raylo, &
          ka, kb, sfluxref, rayl
 
     ! ------- Local -------
@@ -1138,7 +1138,7 @@ CONTAINS
     !     band 28:  38000-50000 cm-1 (low - o3,o2; high - o3,o2)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg28, ONLY : kao, kbo, sfluxrefo, &
+    USE psrad_rrsw_kg28, ONLY : kao, kbo, sfluxrefo, &
          ka, kb, sfluxref
 
     ! ------- Local -------
@@ -1199,7 +1199,7 @@ CONTAINS
     !     band 29:  820-2600 cm-1 (low - h2o; high - co2)
     !-----------------------------------------------------------------------
 
-    USE rrsw_kg29, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
+    USE psrad_rrsw_kg29, ONLY : kao, kbo, selfrefo, forrefo, sfluxrefo, &
          absh2oo, absco2o, &
          ka, kb, selfref, forref, sfluxref, &
          absh2o, absco2
