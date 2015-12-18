@@ -16,9 +16,20 @@ echo ' '
 
 call_dir=$( pwd )
 
-expname=atm_amip
-exp_dir=/work/mh0287/users/marco/experiments/${expname}
-post_dir=/work/mh0287/users/marco/experiments/${expname}_post
+#--------------------------------------------------------------------------------------------------
+
+# (1) Variables provided by the scripting mechanism
+
+# EXPNAME                       = name of experiment in 'exp.<name>'
+# basedir                       = base directory, where src/, run/ etc exist
+
+#--------------------------------------------------------------------------------------------------
+
+# (2) Prepare post-processing
+
+expname=$EXPNAME
+exp_dir=${basedir}/experiments/${expname}
+post_dir=${exp_dir}_post
 echo "expname  = $expname"
 echo "exp_dir  = $exp_dir"
 echo "post_dir = $post_dir"
@@ -45,6 +56,10 @@ done
 #
 echo "file_type_list = $file_type_list"
 echo " "
+
+#--------------------------------------------------------------------------------------------------
+
+# (3) Post-processing
 
 echo '==================================================================='
 echo ' '
@@ -126,3 +141,5 @@ echo ' '
 cd $call_dir
 date
 echo '-------------------------------------------------------------------'
+
+#--------------------------------------------------------------------------------------------------
