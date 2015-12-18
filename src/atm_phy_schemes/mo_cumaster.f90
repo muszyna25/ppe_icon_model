@@ -573,7 +573,7 @@ CALL cuinin &
 CALL cubasen &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, &
   & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
-  & phy_params%texc, phy_params%qexc, mtnmask, &
+  & phy_params%texc, phy_params%qexc, mtnmask, ldland, ldlake, &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
   & pten,     pqen,     pqsen,    pgeo,&
