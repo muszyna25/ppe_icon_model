@@ -1190,7 +1190,7 @@ MODULE mo_nh_stepping
     REAL(wp):: dt_sub                ! (advective) timestep for next finer grid level
     REAL(wp):: rdt_loc,  rdtmflx_loc ! inverse time step for local grid level
 
-    LOGICAL :: lnest_active, lcall_rrg
+    LOGICAL :: lnest_active, lcall_rrg, lbdy_nudging
 
     INTEGER, PARAMETER :: nsteps_nest=2 ! number of time steps executed in nested domain
 
@@ -1267,11 +1267,31 @@ MODULE mo_nh_stepping
 
       IF ( p_patch(jg)%n_childdom > 0 .AND. ndyn_substeps_var(jg) > 1) THEN
 
+        lbdy_nudging = .FALSE.
+        lnest_active = .FALSE.
+        DO jn = 1, p_patch(jg)%n_childdom
+          jgc = p_patch(jg)%child_id(jn)
+          IF (p_patch(jgc)%ldom_active) THEN
+            lnest_active = .TRUE.
+            IF (.NOT. lfeedback(jgc)) lbdy_nudging = .TRUE.
+          ENDIF
+        ENDDO
+
         ! Save prognostic variables at current timestep to compute
         ! interpolation tendencies
         n_now  = nnow(jg)
         n_save = nsav1(jg)
-        CALL save_progvars(jg,p_nh_state(jg)%prog(n_now),p_nh_state(jg)%prog(n_save))
+        IF (lbdy_nudging) THEN ! full copy needed
+!$OMP PARALLEL
+          CALL copy(p_nh_state(jg)%prog(n_now)%vn,p_nh_state(jg)%prog(n_save)%vn)
+          CALL copy(p_nh_state(jg)%prog(n_now)%w,p_nh_state(jg)%prog(n_save)%w)
+          CALL copy(p_nh_state(jg)%prog(n_now)%rho,p_nh_state(jg)%prog(n_save)%rho)
+          CALL copy(p_nh_state(jg)%prog(n_now)%theta_v,p_nh_state(jg)%prog(n_save)%theta_v)
+!$OMP END PARALLEL
+        ELSE IF (lnest_active) THEN ! optimized copy restricted to nest boundary points
+          CALL save_progvars(jg,p_nh_state(jg)%prog(n_now),p_nh_state(jg)%prog(n_save))
+        ENDIF
+
       ENDIF
 
 
