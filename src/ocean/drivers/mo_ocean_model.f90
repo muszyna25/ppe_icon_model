@@ -17,11 +17,10 @@ MODULE mo_ocean_model
   USE mo_master_config,       ONLY: isRestart
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs , num_restart_procs
   USE mo_mpi,                 ONLY: set_mpi_work_communicators, process_mpi_io_size, &
-    & stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
-    & set_mpi_work_communicators, process_mpi_io_size
+    &                               stop_mpi, my_process_is_io, my_process_is_mpi_test,   &
+    &                               set_mpi_work_communicators, process_mpi_io_size
   USE mo_timer,               ONLY: init_timer, timer_start, timer_stop, print_timer, timer_model_init
-  USE mo_datetime,            ONLY: t_datetime, datetime_to_string, string_to_datetime
-  USE mtime,                  ONLY: MAX_DATETIME_STR_LEN, datetimeToString
+  USE mtime,                  ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToString
   USE mo_name_list_output_init, ONLY: init_name_list_output, parse_variable_groups
   USE mo_name_list_output,    ONLY: close_name_list_output, name_list_io_main_proc
   USE mo_name_list_output_config,  ONLY: use_async_name_list_io
@@ -37,7 +36,7 @@ MODULE mo_ocean_model
     & test_mode,              &
     & dtime,                  & !    :
     & ltimer,                 & !    :
-    & num_lev,     &
+    & num_lev,                &
     & nshift,                 &
     & grid_generatingcenter,  & ! grid generating center
     & grid_generatingsubcenter  ! grid generating subcenter
@@ -125,8 +124,9 @@ MODULE mo_ocean_model
     TYPE(t_operator_coeff)                          :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision)             :: solverCoefficients_sp
     TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
-    TYPE(t_datetime)                                :: start_datetime
-
+!LK    TYPE(t_datetime)                                :: start_datetime
+    TYPE(datetime), POINTER                         :: start_datetime
+    
   !  TYPE(t_oce_timeseries), POINTER :: oce_ts
 
   CONTAINS
@@ -359,7 +359,7 @@ MODULE mo_ocean_model
     CHARACTER(*), PARAMETER :: method_name = "mo_ocean_model:construct_ocean_model"
     INTEGER                             :: ist
     INTEGER                             :: error_status
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
+!    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datetime_string
 
     !-------------------------------------------------------------------
 
@@ -404,9 +404,10 @@ MODULE mo_ocean_model
     !
     ! TODO: remove this after transition to mtime library!!!
 
-    CALL datetimeToString(time_config%tc_current_date, datetime_string    )
-    CALL string_to_datetime( datetime_string,  start_datetime )
-    !---------------------------------------------------------------  
+!LK    CALL datetimeToString(time_config%tc_current_date, datetime_string    )
+!LK    CALL string_to_datetime( datetime_string,  start_datetime )
+    !---------------------------------------------------------------
+    start_datetime => time_config%tc_current_date
 
     !-------------------------------------------------------------------
     ! 4. Setup IO procs
@@ -579,7 +580,7 @@ MODULE mo_ocean_model
     CALL construct_ocean_coupling(ocean_patch_3d)
 
     !------------------------------------------------------------------
-    CALL datetime_to_string(datestring, start_datetime)
+    CALL datetimeToString(start_datetime, datestring)
     CALL construct_oce_diagnostics( ocean_patch_3d, ocean_state(1), datestring)
 
     !------------------------------------------------------------------

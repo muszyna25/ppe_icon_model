@@ -23,7 +23,6 @@ MODULE mo_ocean_coupling
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_physical_constants,  ONLY: tmelt, rhoh2o
   USE mo_mpi,                 ONLY: p_pe_work
-  USE mo_datetime,            ONLY: t_datetime, datetime_to_string
   USE mo_run_config,          ONLY: ltimer
   USE mo_dynamics_config,     ONLY: nold
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_coupling, &
@@ -102,12 +101,12 @@ CONTAINS
     RETURN
   END SUBROUTINE destruct_ocean_coupling
 
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, datetime)
+  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, this_datetime)
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes
-    TYPE(t_datetime), INTENT(inout)             :: datetime
+    TYPE(datetime), POINTER                     :: this_datetime
   END SUBROUTINE couple_ocean_toatmo_fluxes
 
   !  SUBROUTINE init_coupled_ocean(patch_2d, ocean_state)
@@ -515,7 +514,7 @@ CONTAINS
     TYPE(t_hydro_ocean_state)                   :: ocean_state
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes !atmos_fluxes
-    TYPE(t_datetime), INTENT(inout)             :: this_datetime
+    TYPE(datetime), POINTER                     :: this_datetime
     !
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = 'couple_ocean_toatmo_fluxes'
@@ -543,7 +542,7 @@ CONTAINS
 
     patch_horz   => patch_3D%p_patch_2D(1)
 
-    CALL datetime_to_string(datestring, this_datetime)
+    CALL datetimeToString(this_datetime, datestring)
     CALL setCurrentdate(TRIM(datestring))
 
     nbr_hor_cells = patch_horz%n_patch_cells

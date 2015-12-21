@@ -32,7 +32,6 @@ MODULE mo_ocean_testbed_modules
   USE mo_run_config,             ONLY: nsteps, dtime, output_mode, test_mode !, test_param
   USE mo_exception,              ONLY: message, message_text, finish
   !USE mo_io_units,               ONLY: filename_max
-  USE mo_datetime,               ONLY: t_datetime, add_time, datetime_to_string
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total
   USE mo_ocean_ab_timestepping,  ONLY: &
 !    solve_free_surface_eq_ab, &
@@ -71,7 +70,9 @@ MODULE mo_ocean_testbed_modules
   USE mo_scalar_product,         ONLY: calc_scalar_product_veloc_3d
   USE mo_ocean_tracer_transport_horz, ONLY: diffuse_horz
   USE mo_hydro_ocean_run,        ONLY: write_initial_ocean_timestep
-  USE mtime,                     ONLY: datetime, newDatetime, deallocateDatetime
+  USE mtime,                     ONLY: datetime, newDatetime, deallocateDatetime, datetimeToString, &
+       &                               timedelta, newTimedelta, deallocateTimedelta, &
+       &                               OPERATOR(+), ASSIGNMENT(=)
 
   IMPLICIT NONE
   PRIVATE
@@ -91,7 +92,7 @@ CONTAINS
 
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: this_datetime
+    TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_ocean_surface)                           :: ocean_surface
     TYPE (t_ho_params)                               :: physics_parameters
@@ -160,7 +161,7 @@ CONTAINS
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: this_datetime
+    TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_ho_params)                               :: physics_parameters
     TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
@@ -184,6 +185,9 @@ CONTAINS
     REAL(wp) :: div_diff_flx_vert(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: trac_cart(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: div_diff_flux_horz_cart(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+
+    TYPE(timedelta), POINTER :: model_time_step => NULL()
+
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:ocean_test_advection'
     !------------------------------------------------------------------
@@ -203,7 +207,7 @@ CONTAINS
     trac_cart(1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
     div_diff_flux_horz_cart(1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
     !---------------------------------------------------------------------   
-    CALL datetime_to_string(datestring, this_datetime)
+    CALL datetimeToString(this_datetime, datestring)
 
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
@@ -216,7 +220,7 @@ CONTAINS
       !IF(itestcase_oce==28)THEN
       DO jstep = (jstep0+1), (jstep0+nsteps)
       
-        CALL datetime_to_string(datestring, this_datetime)
+        CALL datetimeToString(this_datetime, datestring)
         WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
         CALL message (TRIM(method_name), message_text)
  
@@ -345,7 +349,11 @@ ENDIF
 
         ! One integration cycle finished on the lowest grid level (coarsest
         ! resolution). Set model time.
-        CALL add_time(dtime,0,0,0,this_datetime)
+
+        model_time_step => newTimedelta('+', 0, 0, 0, 0, 0, NINT(dtime), 0)
+        this_datetime = this_datetime + model_time_step
+        CALL deallocateTimedelta(model_time_step)        
+!        CALL add_time(dtime,0,0,0,this_datetime)
      
         ! update accumulated vars
         CALL update_ocean_statistics(ocean_state(1),     &
@@ -389,7 +397,7 @@ ENDIF
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: this_datetime
+    TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_ho_params)                               :: physics_parameters
     TYPE (t_sea_ice),         INTENT(inout)          :: ocean_ice
@@ -401,6 +409,8 @@ ENDIF
     CHARACTER(LEN=32)               :: datestring
     TYPE(t_patch), POINTER :: patch_2d
     INTEGER :: jstep0 ! start counter for time loop
+
+    TYPE(timedelta), POINTER :: model_time_step => NULL()
     
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
     CHARACTER(LEN=max_char_length), PARAMETER :: &
@@ -408,7 +418,7 @@ ENDIF
     !------------------------------------------------------------------
     
     patch_2D      => patch_3d%p_patch_2d(1)
-    CALL datetime_to_string(datestring, this_datetime)
+    CALL datetimeToString(this_datetime, datestring)
 
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
@@ -420,7 +430,7 @@ ENDIF
       !IF(itestcase_oce==28)THEN
       DO jstep = (jstep0+1), (jstep0+nsteps)
       
-        CALL datetime_to_string(datestring, this_datetime)
+        CALL datetimeToString(this_datetime, datestring)
         WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
         CALL message (TRIM(method_name), message_text)
  
@@ -438,7 +448,10 @@ ENDIF
           & jstep)
         ! One integration cycle finished on the lowest grid level (coarsest
         ! resolution). Set model time.
-        CALL add_time(dtime,0,0,0,this_datetime)
+        model_time_step => newTimedelta('+', 0, 0, 0, 0, 0, NINT(dtime), 0)
+        this_datetime = this_datetime + model_time_step
+        CALL deallocateTimedelta(model_time_step) 
+!        CALL add_time(dtime,0,0,0,this_datetime)
       
         ! update accumulated vars
         CALL update_ocean_statistics(ocean_state(1),&
@@ -479,7 +492,7 @@ ENDIF
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: this_datetime
+    TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE (t_ho_params)                               :: physics_parameters
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
@@ -498,6 +511,8 @@ ENDIF
     INTEGER                       :: jstep0,levels
     REAL(wp)                      :: delta_z
     LOGICAL                       :: lwrite_restart
+
+    TYPE(timedelta), POINTER :: model_time_step => NULL()
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:test_output'
@@ -509,7 +524,7 @@ ENDIF
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
 
-    CALL datetime_to_string(datestring, this_datetime)
+    CALL datetimeToString(this_datetime, datestring)
 
     jstep0                                                               = 0
     !------------------------------------------------------------------
@@ -523,12 +538,15 @@ ENDIF
 
     ! timeloop
     DO jstep = (jstep0+1), (jstep0+nsteps)
-      CALL datetime_to_string(datestring, this_datetime)
+      CALL datetimeToString(this_datetime, datestring)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(method_name), message_text)
 
       ! Set model time.
-      CALL add_time(dtime,0,0,0,this_datetime)
+        model_time_step => newTimedelta('+', 0, 0, 0, 0, 0, NINT(dtime), 0)
+        this_datetime = this_datetime + model_time_step
+        CALL deallocateTimedelta(model_time_step) 
+!      CALL add_time(dtime,0,0,0,this_datetime)
 
 
       !------------------------------------------------------------------------
@@ -603,7 +621,7 @@ ENDIF
         current_date => newDatetime("1970-01-01T00:00:00")
 #endif
         CALL create_restart_file( patch = patch_2d,       &
-          & current_date=current_date,      &
+          & current_date=this_datetime,      &
           & jstep=jstep,            &
           & model_type="oce",       &
           & opt_nice_class=1,       &
@@ -626,7 +644,7 @@ ENDIF
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: this_datetime
+    TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
     TYPE(t_atmos_fluxes ),    INTENT(inout)          :: atmos_fluxes
@@ -648,6 +666,8 @@ ENDIF
     TYPE(t_patch), POINTER :: patch_2d
     INTEGER :: jstep0,computation_type
     REAL(wp) :: delta_z
+
+    TYPE(timedelta), POINTER :: model_time_step => NULL()
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:test_sea_ice'
@@ -657,7 +677,7 @@ ENDIF
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
 
-    CALL datetime_to_string(datestring, this_datetime)
+    CALL datetimeToString(this_datetime, datestring)
 
     jstep0                                                               = 0
     draft(1:nproma,1:patch_3D%p_patch_2D(1)%alloc_cell_blocks)           = 0.0_wp
@@ -709,12 +729,15 @@ ENDIF
         &==============================================')
     
 
-      CALL datetime_to_string(datestring, this_datetime)
+      CALL datetimeToString(this_datetime, datestring)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(method_name), message_text)
 
       ! Set model time.
-      CALL add_time(dtime,0,0,0,this_datetime)
+      model_time_step => newTimedelta('+', 0, 0, 0, 0, 0, NINT(dtime), 0)
+      this_datetime = this_datetime + model_time_step
+      CALL deallocateTimedelta(model_time_step) 
+!      CALL add_time(dtime,0,0,0,this_datetime)
 
       ! print out 3d salinity
       CALL dbg_print('IceBudget: saltinity BEFORE' ,&
@@ -846,7 +869,7 @@ ENDIF
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: p_os(n_dom)
-    TYPE(t_datetime),         INTENT(inout)          :: this_datetime
+    TYPE(datetime),           POINTER                :: this_datetime
     TYPE(t_sfc_flx),          INTENT(inout)          :: surface_fluxes
     TYPE(t_ocean_surface),    INTENT(inout)          :: p_oce_sfc
     TYPE(t_atmos_for_ocean),  INTENT(inout)          :: p_as
@@ -866,6 +889,8 @@ ENDIF
     CHARACTER(LEN=32)             :: datestring
     TYPE(t_patch),        POINTER :: patch_2d
     TYPE(t_subset_range), POINTER :: cells_in_domain
+
+    TYPE(timedelta), POINTER :: model_time_step => NULL()
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & method_name = 'mo_ocean_testbed_modules:test_sea_ice'
@@ -919,7 +944,7 @@ ENDIF
     hCheck(:,:)    = flat(:,:) + p_os(n_dom)%p_prog(nold(1))%h(:,:) - p_ice%draftave(:,:)
     CALL dbg_print('TB.SfcFlux: heightCH2 tst' ,hCheck         (:,:),debug_string, 4, in_subset=patch_2D%cells%owned)
 
-    CALL datetime_to_string(datestring, this_datetime)
+    CALL datetimeToString(this_datetime, datestring)
 
     jstep0 = 0
     !------------------------------------------------------------------
@@ -932,12 +957,15 @@ ENDIF
 
       ! p_os(n_dom)%p_prog(nold(1))%h(:,:) = 0.0_wp  !  do not change h
 
-      CALL datetime_to_string(datestring, this_datetime)
+      CALL datetimeToString(this_datetime, datestring)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(method_name), message_text)
 
       ! Set model time.
-      CALL add_time(dtime,0,0,0,this_datetime)
+      model_time_step => newTimedelta('+', 0, 0, 0, 0, 0, NINT(dtime), 0)
+      this_datetime = this_datetime + model_time_step
+      CALL deallocateTimedelta(model_time_step) 
+!      CALL add_time(dtime,0,0,0,this_datetime)
 
       budget_type_salt   = 5  ! #slo# merging ocean_sea-ice-thermodyn r208xx
       budget_type_energy = 0

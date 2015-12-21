@@ -91,7 +91,6 @@ MODULE mo_nh_stepping
     &                                    itturb, itgscp, itsfc,                                    &
     &                                    MODE_IAU, MODE_IAU_OLD, MODIS, max_dom
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
-  USE mo_util_string,              ONLY: int2string
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
   USE mo_advection_stepping,       ONLY: step_advection
@@ -207,8 +206,6 @@ MODULE mo_nh_stepping
   ! event handling manager, wrong place, have to move later
 
   TYPE(eventGroup), POINTER :: checkpointEventGroup => NULL()
-
-  CHARACTER(len=MAX_MTIME_ERROR_STR_LEN) :: errstring
 
   PUBLIC :: prepare_nh_integration
   PUBLIC :: perform_nh_stepping
@@ -551,7 +548,6 @@ MODULE mo_nh_stepping
   INTEGER, ALLOCATABLE                 :: output_jfile(:)
 
   TYPE(timedelta), POINTER             :: forecast_delta
-  CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: dstring
   CHARACTER(LEN=128)                   :: forecast_delta_str
 
   TYPE(timedelta), POINTER             :: model_time_step => NULL()
@@ -567,8 +563,13 @@ MODULE mo_nh_stepping
   LOGICAL                              :: lret
   TYPE(t_datetime_ptr)                 :: datetime_current(max_dom) 
   TYPE(timeDelta), POINTER             :: time_diff
+
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: dstring
+  CHARACTER(len=MAX_MTIME_ERROR_STR_LEN) :: errstring
+  
   REAL(wp)                             :: sim_time     !< elapsed simulation time on this grid level
 
+  
 !!$  INTEGER omp_get_num_threads
 
 !-----------------------------------------------------------------------
@@ -662,7 +663,7 @@ MODULE mo_nh_stepping
   ENDIF
   lret = addEventToEventGroup(checkpointEvent, checkpointEventGroup)
 
-  ! --- --- create restart event, ie. checkpoint + medel stop
+  ! --- --- create restart event, ie. checkpoint + model stop
   eventInterval  => time_config%tc_dt_restart
   restartEvent => newEvent('restart', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
   IF (ierr /= no_Error) THEN
@@ -1114,7 +1115,7 @@ MODULE mo_nh_stepping
 #endif
        ! leave time loop
        EXIT TIME_LOOP
-    end IF
+    END IF
     jstep = jstep + 1
   ENDDO TIME_LOOP
 

@@ -35,7 +35,7 @@ MODULE mo_hydro_ocean_run
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
-  USE mo_datetime,               ONLY: t_datetime, add_time, datetime_to_string
+  !  USE mo_datetime,               ONLY: t_datetime, add_time, datetime_to_string
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
     & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
     & timer_upd_phys, timer_upd_flx, timer_extra20, timers_level, &
@@ -72,8 +72,16 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_statistics
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
-  USE mtime,                     ONLY: datetime, newDatetime, deallocateDatetime
-
+  USE mtime,                     ONLY: datetime, datetimeToString, deallocateDatetime,              &
+       &                               timedelta, newTimedelta, deallocateTimedelta,                &
+       &                               MAX_DATETIME_STR_LEN, newDatetime,                           &
+       &                               MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
+       &                               OPERATOR(-), OPERATOR(+), OPERATOR(>), OPERATOR(*),          &
+       &                               ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
+       &                               event, eventGroup, newEvent,                                 &
+       &                               addEventToEventGroup, isCurrentEventActive
+  USE mo_event_manager,          ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -86,6 +94,8 @@ MODULE mo_hydro_ocean_run
   INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
   !-------------------------------------------------------------------------
 
+  TYPE(eventGroup), POINTER :: checkpointEventGroup => NULL()
+  
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -150,7 +160,7 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout)          :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET, INTENT(inout) :: ocean_state(n_dom)
     TYPE(t_external_data), TARGET, INTENT(in)        :: p_ext_data(n_dom)
-    TYPE(t_datetime), INTENT(inout)                  :: this_datetime
+    TYPE(datetime), POINTER                          :: this_datetime
     TYPE(t_sfc_flx)                                  :: surface_fluxes
     TYPE(t_ocean_surface)                            :: p_sfc
     TYPE (t_ho_params)                               :: p_phys_param
@@ -172,7 +182,20 @@ CONTAINS
     !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_hydro_ocean_run:perform_ho_stepping'
-    TYPE(datetime), POINTER                      :: current_date
+
+    TYPE(timedelta), POINTER            :: model_time_step => NULL()
+    TYPE(datetime), POINTER             :: mtime_current   => NULL()
+    TYPE(datetime), POINTER             :: eventRefDate    => NULL(), eventStartDate  => NULL(), eventEndDate    => NULL()
+    TYPE(timedelta), POINTER            :: eventInterval   => NULL()
+    TYPE(event), POINTER                :: checkpointEvent => NULL()
+    TYPE(event), POINTER                :: restartEvent    => NULL()
+    
+    INTEGER                             :: checkpointEvents, ierr
+    LOGICAL                             :: lwrite_checkpoint, lret
+
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: dstring
+    CHARACTER(len=MAX_MTIME_ERROR_STR_LEN) :: errstring
+
     !------------------------------------------------------------------
 
     patch_2d      => patch_3d%p_patch_2d(1)
@@ -199,23 +222,72 @@ CONTAINS
       ! swap the g_n and g_nm1
       CALL update_time_g_n(ocean_state(jg))
     ENDIF
+
+    ! set events, group and the events
+
+    CALL message('','')
+
+    eventRefDate   => time_config%tc_exp_refdate
+    eventStartDate => time_config%tc_exp_startdate
+    eventEndDate   => time_config%tc_exp_stopdate
+
+    ! create an event manager, ie. a collection of different events
+    CALL initEventManager(time_config%tc_exp_refdate)
+
+    ! --- create an event group for checkpointing and restart
+    checkpointEvents =  addEventGroup('checkpointEventGroup')
+    checkpointEventGroup => getEventGroup(checkpointEvents)
+    
+    ! --- --- create checkpointing event
+    eventInterval  => time_config%tc_dt_checkpoint
+    checkpointEvent => newEvent('checkpoint', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
+    IF (ierr /= no_Error) THEN
+       CALL mtime_strerror(ierr, errstring)
+       CALL finish('perform_ho_timeloop', errstring)
+    ENDIF
+    lret = addEventToEventGroup(checkpointEvent, checkpointEventGroup)
+
+    ! --- --- create restart event, ie. checkpoint + model stop
+    eventInterval  => time_config%tc_dt_restart
+    restartEvent => newEvent('restart', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
+    IF (ierr /= no_Error) THEN
+       CALL mtime_strerror(ierr, errstring)
+       CALL finish('perform_ho_timeloop', errstring)
+    ENDIF
+    lret = addEventToEventGroup(restartEvent, checkpointEventGroup)
+
+    CALL printEventGroup(checkpointEvents)
+
+    ! set time loop properties
+    model_time_step => time_config%tc_dt_model
+
+    mtime_current => this_datetime
+    
+    CALL message('','')
+    CALL datetimeToString(mtime_current, dstring)
+    WRITE(message_text,'(a,a)') 'Start date of this run: ', dstring
+    CALL message('',message_text)
+    CALL datetimeToString(time_config%tc_stopdate, dstring)
+    WRITE(message_text,'(a,a)') 'Stop date of this run:  ', dstring
+    CALL message('',message_text)
+    CALL message('','')
+
     !------------------------------------------------------------------
     ! call the dynamical core: start the time loop
     !------------------------------------------------------------------
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
 
-    time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
-      ! write(0,*) "nold nnew=", nold(1), nnew(1)
+    jstep = jstep0+1
+    TIME_LOOP: DO 
 
-      CALL datetime_to_string(datestring, this_datetime)
+      ! update model date and time mtime based
+      mtime_current = mtime_current + model_time_step
+
+      CALL datetimeToString(mtime_current, datestring)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
       CALL message (TRIM(routine), message_text)
-      
-      ! Set model time - now before doing the calculation:
-      !  - datetime refers to the currently calculating timestep
-      CALL add_time(dtime,0,0,0,this_datetime)
-      
+            
       IF (timers_level > 2)  CALL timer_start(timer_extra22)
       CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
       IF (timers_level > 2)  CALL timer_stop(timer_extra22)
@@ -232,10 +304,10 @@ CONTAINS
       IF (ltimer) CALL timer_start(timer_upd_flx)
       IF (surface_module == 1) THEN
         CALL update_surface_flux( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, surface_fluxes, &
-          & jstep, this_datetime, operators_coefficients)
+          & jstep, mtime_current, operators_coefficients)
       ELSEIF (surface_module == 2) THEN
         CALL update_ocean_surface( patch_3d, ocean_state(jg), p_as, sea_ice, p_atm_f, surface_fluxes, p_sfc, &
-          & jstep, this_datetime, operators_coefficients)
+          & jstep, mtime_current, operators_coefficients)
       ENDIF
       IF (ltimer) CALL timer_stop(timer_upd_flx)
 
@@ -278,7 +350,7 @@ CONTAINS
        CALL output_ocean(              &
          & patch_3d=patch_3d,          &
          & ocean_state=ocean_state,    &
-         & datetime=this_datetime,     &
+         & this_datetime=mtime_current, &
          & surface_fluxes=surface_fluxes, &
          & sea_ice=sea_ice,            &
          & jstep=jstep, jstep0=jstep0, &
@@ -350,7 +422,7 @@ CONTAINS
         ! calculate diagnostic barotropic stream function
         CALL calc_psi (patch_3d, ocean_state(jg)%p_diag%u(:,:,:),         &
           & patch_3D%p_patch_1d(1)%prism_thick_c(:,:,:),                  &
-          & ocean_state(jg)%p_diag%u_vint, this_datetime)
+          & ocean_state(jg)%p_diag%u_vint, mtime_current)
         CALL dbg_print('calc_psi: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 3, in_subset=patch_2d%cells%owned)
           
         ! calculate diagnostic barotropic stream function with vn
@@ -358,7 +430,7 @@ CONTAINS
     !   CALL calc_psi_vn (patch_3d, ocean_state(jg)%p_prog(nold(1))%vn,   &
     !     & patch_3D%p_patch_1d(1)%prism_thick_e(:,:,:),                  &
     !     & operators_coefficients,                                       &
-    !     & ocean_state(jg)%p_diag%u_vint, ocean_state(jg)%p_diag%v_vint, this_datetime)
+    !     & ocean_state(jg)%p_diag%u_vint, ocean_state(jg)%p_diag%v_vint, mtime_current)
     !   CALL dbg_print('calc_psi_vn: u_vint' ,ocean_state(jg)%p_diag%u_vint, str_module, 5, in_subset=patch_2d%cells%owned)
     !   CALL dbg_print('calc_psi_vn: v_vint' ,ocean_state(jg)%p_diag%v_vint, str_module, 5, in_subset=patch_2d%cells%owned)
       ENDIF
@@ -382,14 +454,14 @@ CONTAINS
       IF (timers_level > 2)  CALL timer_stop(timer_extra20)
       
       CALL output_ocean( patch_3d, ocean_state, &
-        &                this_datetime,              &
+        &                mtime_current,              &
         &                surface_fluxes,             &
         &                sea_ice,                 &
         &                jstep, jstep0)
       
       ! receive coupling fluxes for ocean at the end of time stepping loop
       IF (iforc_oce == Coupled_FluxFromAtmo) &  !  14
-        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, this_datetime)
+        &  CALL couple_ocean_toatmo_fluxes(patch_3D, ocean_state(jg), sea_ice, p_atm_f, mtime_current)
 
       IF (timers_level > 2)  CALL timer_start(timer_extra21)
       ! Shift time indices for the next loop
@@ -398,23 +470,41 @@ CONTAINS
       ! update intermediate timestepping variables for the tracers
       CALL update_time_g_n(ocean_state(jg))
 
+      CALL message('','')
+      ! trigger creation of a restart file ...
+      !
+      IF ( &
+           !   ... CASE A: if normal checkpoint cycle has been reached ...
+           &       isCurrentEventActive(checkpointEvent, mtime_current)               &
+           !          or restart cycle has been reached, i.e. checkpoint+model stop
+           & .OR.  isCurrentEventActive(restartEvent, mtime_current)                  &
+           !          and the current date differs from simulation start date
+           & .AND. (time_config%tc_startdate /= mtime_current) ) THEN 
+        lwrite_checkpoint = .TRUE.
+        IF ( &
+             !   ... CASE B: if end of run has been reached
+             &  ((time_config%tc_stopdate == mtime_current) .AND. write_last_restart) &
+             !   ... make sure (for both cases A and B) that model output is enabled
+             &     .AND. .NOT. output_mode%l_none ) THEN
+          ! gets written after time loop
+          lwrite_checkpoint = .FALSE.
+        ENDIF
+      ELSE
+        lwrite_checkpoint = .FALSE.
+      ENDIF
+      CALL message('','')
+      
       ! write a restart or checkpoint file
-      IF (MOD(jstep,n_checkpoints())==0) THEN
-#ifdef _MTIME_DEBUG
-        ! *** TO BE DEFINED: current_date ***
-        current_date => newDatetime("1970-01-01T00:00:00")
-#endif
+!      IF (MOD(jstep,n_checkpoints())==0) THEN
+      IF (lwrite_checkpoint) THEN
         CALL create_restart_file( patch = patch_2d,       &
-          & current_date=current_date,   &
-          & jstep=jstep,            &
-          & model_type="oce",       &
-          & opt_nice_class=1,       &
-          & ocean_zlevels=n_zlev,                                         &
-          & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
-          & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
-#ifdef _MTIME_DEBUG
-        CALL deallocateDatetime(current_date)
-#endif
+             & current_date=mtime_current, &
+             & jstep=jstep,            &
+             & model_type="oce",       &
+             & opt_nice_class=1,       &
+             & ocean_zlevels=n_zlev,                                         &
+             & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
+             & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
       END IF
 
       ! check cfl criterion
@@ -439,20 +529,32 @@ CONTAINS
       
      IF (timers_level > 2)  CALL timer_stop(timer_extra21)
 
-    ENDDO time_loop
+     IF (mtime_current >= time_config%tc_stopdate) then
+#ifdef _MTIME_DEBUG       
+        ! consistency check: compare step counter to expected end step
+        if (jstep /= (jstep0+nsteps)) then
+           call finish(routine, 'Step counter does not match expected end step: '//int2string(jstep,'(i0)')&
+               &//' /= '//int2string((jstep0+nsteps),'(i0)'))
+        end if
+#endif
+        ! leave time loop
+        EXIT TIME_LOOP
+     END IF
+     jstep = jstep + 1
+  ENDDO TIME_LOOP
 
-    IF (write_last_restart) &
-      & CALL create_restart_file( patch = patch_2d,       &
-        & current_date=current_date, &
-        & jstep=jstep,            &
-        & model_type="oce",       &
-        & opt_nice_class=1,       &
-        & ocean_zlevels=n_zlev,                                         &
-        & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
-        & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
-       
-    CALL timer_stop(timer_total)
-
+  IF (write_last_restart) &
+       & CALL create_restart_file( patch = patch_2d,       &
+       & current_date=mtime_current, &
+       & jstep=jstep,            &
+       & model_type="oce",       &
+       & opt_nice_class=1,       &
+       & ocean_zlevels=n_zlev,                                         &
+       & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
+       & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+  
+  CALL timer_stop(timer_total)
+  
   END SUBROUTINE perform_ho_stepping
   !-------------------------------------------------------------------------
 

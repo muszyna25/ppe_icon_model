@@ -62,7 +62,6 @@ MODULE mo_ocean_diagnostics
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_exception,          ONLY: message, finish, message_text
   USE mo_sea_ice_types,      ONLY: t_sfc_flx, t_sea_ice
-  USE mo_datetime,           ONLY: t_datetime, datetime_to_string, date_len
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
   USE mo_scalar_product,     ONLY: map_edges2cell_3d
@@ -85,6 +84,8 @@ MODULE mo_ocean_diagnostics
     &                               GRID_UNSTRUCTURED_CELL, ZA_DEPTH_BELOW_SEA
   USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_sum
   USE mo_io_config,          ONLY: lnetcdf_flt64_output
+
+  USE mtime,                 ONLY: datetime, MAX_DATETIME_STR_LEN, datetimeToPosixString
   
   IMPLICIT NONE
   
@@ -718,13 +719,13 @@ CONTAINS
   ! Developed  by  Peter Korn, MPI-M (2010).
   !
   SUBROUTINE calc_slow_oce_diagnostics(patch_3D, ocean_state, surfaceFlux, ice, &
-    & timestep, datetime)
+    & timestep, this_datetime)
     TYPE(t_patch_3d ),TARGET, INTENT(in)    :: patch_3D
     TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_sfc_flx),    INTENT(in)          :: surfaceFlux
     TYPE (t_sea_ice),   INTENT(in)          :: ice
     INTEGER, INTENT(in) :: timestep
-    TYPE(t_datetime), INTENT(in)            :: datetime
+    TYPE(datetime), POINTER                 :: this_datetime
     
     !Local variables
     INTEGER :: start_cell_index, end_cell_index!,i_startblk_c, i_endblk_c,
@@ -743,9 +744,10 @@ CONTAINS
     TYPE(t_ocean_monitor),  POINTER :: monitor
     CHARACTER(LEN=linecharacters) :: line, nvars
     CHARACTER(LEN=linecharacters) :: fmt_string, real_fmt
-    CHARACTER(LEN=date_len)       :: datestring
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: datestring
     REAL(wp), PARAMETER :: equator = 0.00001_wp
     TYPE(t_ocean_regions)         :: ocean_regions
+    CHARACTER(len=32) :: fmtstr
     
     !-----------------------------------------------------------------------
     patch_2d       => patch_3D%p_patch_2d(1)
@@ -837,7 +839,9 @@ CONTAINS
     prism_vol      = 0.0_wp
     prism_area     = 0.0_wp
     z_w            = 0.0_wp
-    CALL datetime_to_string(datestring, datetime, plain=.TRUE.)
+
+    fmtstr = '%Y-%m-%d %H:%M:%S'
+    call datetimeToPosixString(this_datetime, datestring, fmtstr)
     CALL reset_ocean_monitor(monitor)
    
     !cell loop to calculate cell based monitored fields volume, kinetic energy and tracer content
@@ -1318,13 +1322,13 @@ CONTAINS
   ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
   ! TODO: calculate the 1 deg resolution meridional distance
   !!
-  SUBROUTINE calc_moc (patch_2d, patch_3D, w, datetime)
+  SUBROUTINE calc_moc (patch_2d, patch_3D, w, this_datetime)
     
     TYPE(t_patch), TARGET, INTENT(in)  :: patch_2d
     TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3D
     REAL(wp), INTENT(in)               :: w(:,:,:)   ! vertical velocity at cell centers
     ! dims: (nproma,nlev+1,alloc_cell_blocks)
-    TYPE(t_datetime), INTENT(in)       :: datetime
+    TYPE(datetime), POINTER            :: this_datetime
     !
     ! local variables
     ! INTEGER :: i
@@ -1459,9 +1463,9 @@ CONTAINS
       ! write out MOC in extra format, file opened in mo_hydro_ocean_run  - integer*8
       !  - correct date in extra format - i.e YYYYMMDD - no time info
       !idate=datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute
-      idate = datetime%year*10000+datetime%month*100+datetime%day
-      itime = datetime%hour*100+datetime%minute
-      WRITE(message_text,*) 'Write MOC at year =',datetime%year,', date =',idate,' time =', itime
+      idate = this_datetime%date%year*10000+this_datetime%date%month*100+this_datetime%date%day
+      itime = this_datetime%time%hour*100+this_datetime%time%minute
+      WRITE(message_text,*) 'Write MOC at year =',this_datetime%date%year,', date =',idate,' time =', itime
       CALL message (TRIM(routine), message_text)
       
       DO jk = 1,n_zlev
@@ -1498,14 +1502,14 @@ CONTAINS
   ! TODO: implement variable output dimension (1 deg resolution) and smoothing extent
   !!
 !<Optimize:inUse>
-  SUBROUTINE calc_psi (patch_3D, u, prism_thickness, u_vint, datetime)
+  SUBROUTINE calc_psi (patch_3D, u, prism_thickness, u_vint, this_datetime)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3D
     REAL(wp), INTENT(in)               :: u(:,:,:)     ! zonal velocity at cell centers
     REAL(wp), INTENT(in)               :: prism_thickness(:,:,:)       ! elevation on cell centers
     ! dims: (nproma,nlev,alloc_cell_blocks)
     REAL(wp), INTENT(inout)            :: u_vint(:,:)  ! barotropic zonal velocity on icon grid
-    TYPE(t_datetime), INTENT(in)       :: datetime
+    TYPE(datetime), POINTER            :: this_datetime
     !
     ! local variables
     ! INTEGER :: i
@@ -1640,8 +1644,9 @@ CONTAINS
     
     
     ! write out in extra format - integer*8
-    idate = INT(datetime%month*1000000+datetime%day*10000+datetime%hour*100+datetime%minute,i8)
-    WRITE(0,*) 'write global PSI at iyear, idate:',datetime%year, idate
+    idate = INT(this_datetime%date%month*1000000+this_datetime%date%day*10000 &
+         &     +this_datetime%time%hour*100+this_datetime%time%minute,i8)
+    WRITE(0,*) 'write global PSI at iyear, idate:',this_datetime%date%year, idate
     
     iextra(1) = INT(idate,i8)
     iextra(2) = INT(780,i8)
@@ -1676,7 +1681,7 @@ CONTAINS
   !! Developed  by  Stephan Lorenz, MPI-M (2014).
   !!
 !<Optimize:inUse>
-  SUBROUTINE calc_psi_vn (patch_3D, vn, prism_thickness_e, op_coeff, u_vint, v_vint, datetime)
+  SUBROUTINE calc_psi_vn (patch_3D, vn, prism_thickness_e, op_coeff, u_vint, v_vint, this_datetime)
     
     TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3D
     REAL(wp), INTENT(in)               :: vn(:,:,:)                 ! normal velocity at cell edges
@@ -1685,7 +1690,7 @@ CONTAINS
     REAL(wp), INTENT(inout)            :: u_vint(:,:)               ! barotropic zonal velocity on cell centers
     REAL(wp), INTENT(inout)            :: v_vint(:,:)               ! barotropic meridional velocity on cell centers
     TYPE(t_operator_coeff),INTENT(in)  :: op_coeff
-    TYPE(t_datetime), INTENT(in)       :: datetime
+    TYPE(datetime), POINTER            :: this_datetime
     !
     INTEGER  :: blockNo, jc, je, jk, start_index, end_index
     ! vertical integral vn on edges and in cartesian coordinates - no 2-dim mapping is available
