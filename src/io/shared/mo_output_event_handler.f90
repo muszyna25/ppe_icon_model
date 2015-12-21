@@ -736,12 +736,6 @@ CONTAINS
       end_str2(iintvl) = dt_string
     END DO
 
-    do iintvl=1,nintvls
-      call message('lk: ', trim(begin_str2(iintvl)))
-      call message('lk: ', trim(end_str2(iintvl)))
-      call message('lk: ', trim(intvl_str(iintvl)))
-    enddo
-
     allocate(indices_to_use(nintvls))
     
     CALL remove_duplicate_intervals(begin_str2, end_str2, intvl_str, nintvls, &

@@ -65,7 +65,7 @@ MODULE mo_ha_stepping
   USE mo_io_restart_attributes,  ONLY: get_restart_attribute
   USE mo_time_config,         ONLY: time_config
   USE mtime,                  ONLY: datetime, datetimeToString, MAX_DATETIME_STR_LEN,    &
-    &                               OPERATOR(+)
+    &                               OPERATOR(+), OPERATOR(>=) 
 
   IMPLICIT NONE
 
@@ -245,7 +245,8 @@ CONTAINS
     CALL get_restart_attribute("jstep", jstep0)
   END IF
 
-  TIME_LOOP: DO jstep = (jstep0+1), (jstep0+nsteps)
+  jstep = jstep0+1  
+  TIME_LOOP: DO 
 
     !--------------------------------------------------------------------------
     ! Send to stdout information about the current integration cycle
@@ -396,6 +397,18 @@ CONTAINS
       END IF
     END IF
 
+    IF (mtime_current >= time_config%tc_stopdate) then
+#ifdef _MTIME_DEBUG       
+       ! consistency check: compare step counter to expected end step
+       if (jstep /= (jstep0+nsteps)) then
+          call finish(routine, 'Step counter does not match expected end step: '//int2string(jstep,'(i0)')&
+               &//' /= '//int2string((jstep0+nsteps),'(i0)'))
+       end if
+#endif
+       ! leave time loop
+       EXIT TIME_LOOP
+    END IF
+    jstep = jstep + 1    
   ENDDO TIME_LOOP
 
   IF (use_async_restart_output) CALL close_async_restart
