@@ -539,6 +539,7 @@ INTEGER FUNCTION p_nf_get_vara_int(ncid, varid, start, count, ivals)
               start_(7), count_(7), dimlen(7), len
    INTEGER, ALLOCATABLE :: t_ivals(:,:,:,:,:,:,:)
 
+   write(0,*) "p_nf_get_vara_int start..."
    IF (p_pe == p_io) THEN
 
       ! First get the length of the array
@@ -563,6 +564,7 @@ INTEGER FUNCTION p_nf_get_vara_int(ncid, varid, start, count, ivals)
 
 9999 CONTINUE
 
+   write(0,*) "p_nf_get_vara_int p_bcast 1..."
    CALL p_bcast(res, p_io, p_comm_input_bcast)
    p_nf_get_vara_int = res
 
@@ -596,6 +598,7 @@ INTEGER FUNCTION p_nf_get_vara_int(ncid, varid, start, count, ivals)
       len = len * count(i)
    END DO
 
+   write(0,*) "p_nf_get_vara_int RESHAPE..."
    ivals(1:len) = RESHAPE(t_ivals(start_(1):start_(1)+count_(1) - 1, &
                                   start_(2):start_(2)+count_(2) - 1, &
                                   start_(3):start_(3)+count_(3) - 1, &
@@ -605,6 +608,7 @@ INTEGER FUNCTION p_nf_get_vara_int(ncid, varid, start, count, ivals)
                                   start_(7):start_(7)+count_(7) - 1), (/len/))
 
    DEALLOCATE(t_ivals)
+   write(0,*) "p_nf_get_vara_int done."
 
 END FUNCTION p_nf_get_vara_int
 

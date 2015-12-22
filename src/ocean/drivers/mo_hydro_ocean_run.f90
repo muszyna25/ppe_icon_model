@@ -119,6 +119,7 @@ CONTAINS
 !     !      & operators_coefficients%matrix_vert_diff_e,&
 !     !      & operators_coefficients%matrix_vert_diff_c)
 ! 
+     CALL update_height_depdendent_variables( patch_3d, ocean_state, ext_data, operators_coefficients, solvercoeff_sp)
      CALL construct_ho_lhs_fields_mimetic   ( patch_3d )
 ! 
   END SUBROUTINE prepare_ho_stepping
@@ -481,9 +482,9 @@ CONTAINS
     ocean_state%p_prog(nnew(1))%h      = ocean_state%p_prog(nold(1))%h
     
     ocean_state%p_prog(nnew(1))%vn     = ocean_state%p_prog(nold(1))%vn    
-    
+
     CALL calc_scalar_product_veloc_3d( patch_3d,  ocean_state%p_prog(nnew(1))%vn,&
-    & ocean_state%p_diag, operators_coefficients)
+      & ocean_state%p_diag, operators_coefficients)
     ! CALL update_height_depdendent_variables( patch_3d, ocean_state, p_ext_data, operators_coefficients, solvercoeff_sp)
     
     ! copy old tracer values to spot value fields for propper initial timestep

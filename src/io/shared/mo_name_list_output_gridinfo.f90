@@ -119,11 +119,12 @@ CONTAINS
     TYPE(t_patch_info),   INTENT(INOUT) :: patch_info
     ! local variables
     CHARACTER(LEN=*), PARAMETER :: routine = modname//"::collect_all_grid_info"
-    INTEGER                             :: ierrstat, max_cell_connectivity
+    INTEGER                             :: ierrstat, max_cell_connectivity, max_vertex_connectivity
     REAL(wp), ALLOCATABLE               :: lonv(:,:,:), latv(:,:,:)
 
     ! logical domain ID
-    max_cell_connectivity = p_patch%cells%max_connectivity
+    max_cell_connectivity   = p_patch%cells%max_connectivity
+    max_vertex_connectivity = p_patch%verts%max_connectivity
     !-- collect domain data on working PE 0
     ! --cells
     ALLOCATE(lonv(nproma, p_patch%nblks_c, max_cell_connectivity), &
@@ -136,7 +137,7 @@ CONTAINS
       &                    p_patch%cells%center,                &
       &                    lonv, latv,                          &
       &                    patch_info%cells%grid_info,          &
-      &                    max_cell_connectivity,                    &
+      &                    max_cell_connectivity,               &
       &                    patch_info%p_pat_c)
     DEALLOCATE(lonv, latv, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
@@ -158,8 +159,8 @@ CONTAINS
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
 
     !-- verts
-    ALLOCATE(lonv(nproma, p_patch%nblks_v, 9-max_cell_connectivity), &
-      &      latv(nproma, p_patch%nblks_v, 9-max_cell_connectivity), &
+    ALLOCATE(lonv(nproma, p_patch%nblks_v, max_vertex_connectivity), &
+      &      latv(nproma, p_patch%nblks_v, max_vertex_connectivity), &
       &      STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
 
@@ -174,7 +175,7 @@ CONTAINS
       &                    p_patch%verts%vertex,                &
       &                    lonv, latv,                          &
       &                    patch_info%verts%grid_info,          &
-      &                    9-max_cell_connectivity,                  &
+      &                    max_vertex_connectivity,             &
       &                    patch_info%p_pat_v)
     DEALLOCATE(lonv, latv, STAT=ierrstat)
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
@@ -290,7 +291,7 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_nchdom   = MAX(1,p_patch%n_childdom)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-    max_cell_connectivity = p_patch%cells%max_connectivity
+    max_cell_connectivity   = p_patch%cells%max_connectivity
 
     lonv(:,:,:) = 0.0_wp
     latv(:,:,:) = 0.0_wp
@@ -488,18 +489,19 @@ CONTAINS
     INTEGER :: jc, jb, j, iidx, iblk,                  &
       &        rl_start, rl_end, i_startblk, i_endblk, &
       &        i_startidx, i_endidx, i_nchdom
-    INTEGER :: max_cell_connectivity
+    INTEGER :: max_cell_connectivity, max_vertex_connectivity
 
     rl_start   = 2
     rl_end     = min_rlvert
     i_nchdom   = MAX(1,p_patch%n_childdom)
     i_startblk = p_patch%verts%start_blk(rl_start,1)
     i_endblk   = p_patch%verts%end_blk(rl_end,i_nchdom)
-    max_cell_connectivity = p_patch%cells%max_connectivity
+    max_cell_connectivity   = p_patch%cells%max_connectivity
+    max_vertex_connectivity = p_patch%verts%max_connectivity
 
     lonv(:,:,:) = 0.0_wp
     latv(:,:,:) = 0.0_wp
-    DO j = 1,(9-max_cell_connectivity)
+    DO j = 1,max_vertex_connectivity
       DO jb = i_startblk, i_endblk
         CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, &
           &                i_startidx, i_endidx, rl_start, rl_end)
@@ -508,17 +510,17 @@ CONTAINS
             & (p_patch%verts%refin_ctrl(jc,jb) /= 1)) THEN
             iidx = p_patch%verts%cell_idx(jc,jb,5)
             iblk = p_patch%verts%cell_blk(jc,jb,5)
-            lonv(jc,jb,7-j) = p_patch%cells%center(iidx,iblk)%lon
-            latv(jc,jb,7-j) = p_patch%cells%center(iidx,iblk)%lat
+            lonv(jc,jb,max_vertex_connectivity+1-j) = p_patch%cells%center(iidx,iblk)%lon
+            latv(jc,jb,max_vertex_connectivity+1-j) = p_patch%cells%center(iidx,iblk)%lat
           ELSE IF ((p_patch%verts%cell_idx(jc,jb,j) < 0) .OR. &
             &      (p_patch%verts%refin_ctrl(jc,jb) == 1)) THEN
-            lonv(jc,jb,7-j) = 0._wp
-            latv(jc,jb,7-j) = 0._wp
+            lonv(jc,jb,max_vertex_connectivity+1-j) = 0._wp
+            latv(jc,jb,max_vertex_connectivity+1-j) = 0._wp
           ELSE
             iidx = p_patch%verts%cell_idx(jc,jb,j)
             iblk = p_patch%verts%cell_blk(jc,jb,j)
-            lonv(jc,jb,7-j) = p_patch%cells%center(iidx,iblk)%lon
-            latv(jc,jb,7-j) = p_patch%cells%center(iidx,iblk)%lat
+            lonv(jc,jb,max_vertex_connectivity+1-j) = p_patch%cells%center(iidx,iblk)%lon
+            latv(jc,jb,max_vertex_connectivity+1-j) = p_patch%cells%center(iidx,iblk)%lat
           ENDIF
         ENDDO
       ENDDO
@@ -667,7 +669,7 @@ CONTAINS
     TYPE (t_output_file), INTENT(IN) :: of
 
     INTEGER :: ncid, dimid, varid
-    INTEGER :: i_nc, i_ne, i_nv, max_cell_connectivity
+    INTEGER :: i_nc, i_ne, i_nv, max_cell_connectivity, max_verts_connectivity
     INTEGER :: i_dom
 
     REAL(wp), ALLOCATABLE :: clon(:), clat(:), clonv(:,:), clatv(:,:)
@@ -690,6 +692,8 @@ CONTAINS
 
     CALL nf(nf_inq_dimid(ncid, 'nv', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, max_cell_connectivity))
+    CALL nf(nf_inq_dimid(ncid, 'ne', dimid))
+    CALL nf(nf_inq_dimlen(ncid, dimid, max_verts_connectivity))
     !
     ! SELECT CASE (max_cell_connectivity)
     ! CASE (3)
@@ -861,7 +865,7 @@ CONTAINS
     !  CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
     !ENDIF
 
-    ALLOCATE(vlonv(9-max_cell_connectivity, i_nv))
+    ALLOCATE(vlonv(max_verts_connectivity, i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlonv))
     CALL reorder2(patch_info(i_dom)%verts%n_glb, &
       &           patch_info(i_dom)%verts%grid_info%log_dom_index, vlonv)
@@ -875,7 +879,7 @@ CONTAINS
     !  CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
     !ENDIF
 
-    ALLOCATE(vlatv(9-max_cell_connectivity, i_nv))
+    ALLOCATE(vlatv(max_verts_connectivity, i_nv))
     CALL nf(nf_get_var_double(ncid, varid, vlatv))
     CALL reorder2(patch_info(i_dom)%verts%n_glb, &
       &           patch_info(i_dom)%verts%grid_info%log_dom_index, vlatv)
