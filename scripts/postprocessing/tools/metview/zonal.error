@@ -133,6 +133,10 @@ case stat of
     plotfile= plotdir&'/zon.'&expres&'.'&expnum&'.ifs.'&varplot&'.'&verdate&vertime&nd_txt1&'.L1'
     title   = vartitle&'    ANA    '&verdate&vertime&nd_txt2
     end
+  'rms':
+    plotfile= plotdir&'/zon.'&expres&'.'&expnum&'-ifs_rms.'&varplot&'.'&verdate&vertime&nd_txt1&'.L1'     # no ".ps"
+    title   = vartitle&'    '&expnum&'   RMS(EXP-ANA)   '&inidate&initime&' to '&verdate&vertime&nd_txt2
+    end
 end case
 
 
@@ -242,6 +246,12 @@ for nd=1 to ndays do
 # source_sfc_ifs='/uwork1/mkoehler/ifs.data/oper/ifs_oper_2x2_20110101-20.sfc.grb'
 
   mntxt = parse(tailfile, "_")
+
+  if stat = 'rms' then
+    # replace mn with var
+    index    = search(tailfile, 'mn')
+    tailfile = substring(tailfile,1,index-1)&"var"&substring(tailfile,index+2,length(tailfile))
+  end if
 
   if lmonth = 0 then
     source_ini_icon = datadir&'/'&expnum&'_'&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
@@ -361,6 +371,8 @@ case stat of
   end
   'ctr':      var_data = var_ana
   end
+  'rms':      var_data = sqrt(var_exp)
+  end
 end case
 
 var_data = var_data * scale
@@ -409,7 +421,7 @@ if diff_level > 0.0 then
 end if
 
 statistic   = 'Min:  '&mini&'   Max:  '&maxi&'   Mean:  '&integrate(mean(var_data))
-if stat = 'diff' or stat = 'diff_ref' then 
+if stat = 'diff' or stat = 'diff_ref' or stat = 'rms' then 
   statistic = statistic & '   RMS:  ' & rms
 end if
 statistic = statistic & '   Mem:  '&nfc
