@@ -51,7 +51,7 @@ MODULE mo_ocean_coupling
     &                               yac_fdef_mask, yac_fdef_field, yac_fsearch,  &
     &                               yac_ffinalize, yac_fput, yac_fget
   USE mo_coupling_config,     ONLY: is_coupled_run
-  USE mo_output_event_types,  ONLY: t_sim_step_info
+  USE mo_time_config,         ONLY: time_config 
 # else
   USE mo_master_control,      ONLY: get_my_model_no
   USE mo_icon_cpl,            ONLY: RESTART
@@ -165,7 +165,8 @@ CONTAINS
     INTEGER, ALLOCATABLE  :: buffer_c(:,:)
     INTEGER, ALLOCATABLE  :: ibuffer(:)
 
-    TYPE(t_sim_step_info) :: sim_step_info
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: startdatestring
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: stopdatestring
 
     IF (.NOT. is_coupled_run()) RETURN
 
@@ -186,11 +187,11 @@ CONTAINS
     comp_ids(1) = comp_id
 
     ! Overwrite job start and end date with component data
-    CALL datetimeToString(tc_startdate, sim_step_info%run_start)
-    CALL datetimeToString(tc_stopdate, sim_step_info%restart_time)
+    CALL datetimeToString(time_config%tc_startdate, startdatestring)
+    CALL datetimeToString(time_config%tc_stopdate, stopdatestring)
 
-    CALL yac_fdef_datetime ( start_datetime = TRIM(sim_step_info%run_start), &
-      &                      end_datetime   = TRIM(sim_step_info%restart_time)   )
+    CALL yac_fdef_datetime ( start_datetime = TRIM(startdatestring), &
+         &                   end_datetime   = TRIM(stopdatestring)   )
 
     ! Announce one subdomain (patch) to the coupler
     grid_name = "grid1"

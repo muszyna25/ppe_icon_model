@@ -96,30 +96,15 @@ start_date="1979-01-01T00:00:00Z"        # ISO-format date+time
 
 checkpoint_interval="P1Y"
 restart_interval="P1Y"
-# NEEDED TO KEEP THIS EXPERIMENT WORKING WITHOUT "--enable-mtime-loop" CONFIGURATION.
-# TO BE DELETED AFTER THE "mtime time loop" IS COMPLETELY IMPLEMENTED.
-
-# high frequency output and restart intervals
-#(( dt_checkpoint = 365 * day))
-#(( dt_restart    = 365 * day))
-#atm_output_interval_2d="PT6H"
-#atm_output_interval_3d="PT6H"
-#lnd_output_interval_2d="PT6H"
-#lnd_output_interval_3d="PT6H"
-#oce_output_interval="PT6H"
-
-# long-term low frequency output and restart intervals
-(( dt_checkpoint = 1825 * day))  #  5y
-(( dt_restart    = 1825 * day))  #  5y
-atm_output_interval_2d="P5DT6H"
-atm_output_interval_3d="P5DT6H"
-lnd_output_interval_2d="P5DT6H"
-lnd_output_interval_3d="P5DT6H"
+atm_output_interval_2d="P1D"
+atm_output_interval_3d="P1D"
+lnd_output_interval_2d="P1D"
+lnd_output_interval_3d="P1D"
 oce_output_interval="P30D"
 
-atm_file_interval="P6Y"
-lnd_file_interval="P6Y"
-oce_file_interval="P6Y"
+atm_file_interval="P1Y"
+lnd_file_interval="P1Y"
+oce_file_interval="P1Y"
 
 # namelist files
 # --------------
