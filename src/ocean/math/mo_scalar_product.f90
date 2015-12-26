@@ -60,7 +60,7 @@ MODULE mo_scalar_product
   !PRIVATE :: map_edges2edges_viacell_3d
   PUBLIC :: map_edges2edges_viavert_3d
   PUBLIC :: map_edges2edges_viacell_3d_const_z
-  PUBLIC :: map_edges2edges_viacell_2D_constZ_sp  
+  PUBLIC :: map_edges2edges_viacell_2d_constZ_onTriangles_sp
   PUBLIC :: map_vec_prismtop2center_on_block
   PUBLIC :: map_scalar_prismtop2center
   PUBLIC :: map_scalar_center2prismtop
@@ -731,6 +731,10 @@ CONTAINS
           p_vn_c(cell_index,level,blockNo)%x = p_vn_c(cell_index,level,blockNo)%x &
               & / (operators_coefficients%fixed_vol_norm(cell_index,level,blockNo) &
               &   *patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo))
+
+!           write(0,*) blockNo, cell_index, " velocity at cell:", p_vn_c(cell_index,level,blockNo)%x, &
+!             & "thick:", patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo)
+
         END DO level_loop
       END DO  cell_idx_loop
       
@@ -1367,7 +1371,7 @@ CONTAINS
   
   !-----------------------------------------------------------------------------
   !<Optimize:inUse>
-  SUBROUTINE map_edges2edges_viacell_2D_constZ_sp( patch_3d, in_vn_e, operators_coefficients, out_vn_e )!&   subset_range)
+  SUBROUTINE map_edges2edges_viacell_2d_constZ_onTriangles_sp( patch_3d, in_vn_e, operators_coefficients, out_vn_e )!&   subset_range)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)       :: patch_3d
     REAL(sp), INTENT(in)                       :: in_vn_e(nproma,patch_3d%p_patch_2d(1)%nblks_e)
@@ -1439,7 +1443,7 @@ CONTAINS
     END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
 !ICON_OMP_END_PARALLEL_DO
 
-  END SUBROUTINE map_edges2edges_viacell_2D_constZ_sp
+  END SUBROUTINE map_edges2edges_viacell_2d_constZ_onTriangles_sp
   !----------------------------------------------------------------------------- 
   
   
