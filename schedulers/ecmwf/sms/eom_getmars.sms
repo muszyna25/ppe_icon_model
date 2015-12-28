@@ -196,22 +196,25 @@ rm -rf tmp.nc tmp_var.nc tmp_err.nc
 #-----------------------------------------------------------------------------
 # --- retrieve CERES observational data from ECFS
 
-ceres_file=CERES_EBAF-TOA_Ed2.8_Subset_201001-201501.nc
-ecp ec:/deia/climplot.obs/ceres/${ceres_file} .
+if [[ ${YYYYMM} -le "201501" ]] ; then
 
-cdo -selyear,${YYYY} -selmon,${MM} ${ceres_file} tmp.nc
+  ceres_file=CERES_EBAF-TOA_Ed2.8_Subset_201001-201501.nc
+  ecp ec:/deia/climplot.obs/ceres/${ceres_file} .
+  
+  cdo -selyear,${YYYY} -selmon,${MM} ${ceres_file} tmp.nc
+  
+  cdo -selvar,toa_lw_all_mon -mulc,-1 tmp.nc  toa_lw_ceres_${YYYYMM}.nc
+  cdo -selvar,toa_sw_all_mon -mulc,-1 tmp.nc  toa_sw_ceres_${YYYYMM}.nc
+  cdo -selvar,solar_mon               tmp.nc   solar_ceres_${YYYYMM}.nc
+  
+  cdo -add solar_ceres_${YYYYMM}.nc toa_sw_ceres_${YYYYMM}.nc      toa_sw_net_ceres_${YYYYMM}.nc
+  
+  cdo -f grb2 remapcon,icon.grid    toa_sw_net_ceres_${YYYYMM}.nc  toa_sw_net_ceres_${YYYYMM}.grb
+  cdo -f grb2 remapcon,icon.grid    toa_lw_ceres_${YYYYMM}.nc      toa_lw_ceres_${YYYYMM}.grb
+  
+  rm -rf tmp.nc tmp.grb
 
-cdo -selvar,toa_lw_all_mon -mulc,-1 tmp.nc  toa_lw_ceres_${YYYYMM}.nc
-cdo -selvar,toa_sw_all_mon -mulc,-1 tmp.nc  toa_sw_ceres_${YYYYMM}.nc
-cdo -selvar,solar_mon               tmp.nc   solar_ceres_${YYYYMM}.nc
-
-cdo -add solar_ceres_${YYYYMM}.nc toa_sw_ceres_${YYYYMM}.nc      toa_sw_net_ceres_${YYYYMM}.nc
-
-cdo -f grb2 remapcon,icon.grid    toa_sw_net_ceres_${YYYYMM}.nc  toa_sw_net_ceres_${YYYYMM}.grb
-cdo -f grb2 remapcon,icon.grid    toa_lw_ceres_${YYYYMM}.nc      toa_lw_ceres_${YYYYMM}.grb
-
-rm -rf tmp.nc tmp.grb
-
+fi 
 
 # -------------------------------------------------
 
