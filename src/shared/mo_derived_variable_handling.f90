@@ -454,7 +454,7 @@ if (my_process_is_stdio()) call print_summary(object_pointer_string(meanEventKey
                   else
                   ! }}}
                   source      => sourceVariable
-                end if
+                  end if
                   destination => destinationVariable
                   counter     => meanVarCounter%get(destination%field%info%name)
                   select type (counter)
