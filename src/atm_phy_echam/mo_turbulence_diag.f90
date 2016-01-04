@@ -165,6 +165,7 @@ CONTAINS
     REAL(wp) :: za(kbdim),              zhdyn(kbdim)                          &
                ,zpapm1i(kbdim),         zua(kbdim)
     REAL(wp) :: hdt(kbdim)
+    REAL(wp) :: f_tau, f_theta, e_kin, e_pot, lmix, ldis, lmc, kmc, khc
     REAL(wp) :: z2geomf, zalf, zalh2, zbet, zbuoy
     REAL(wp) :: zcons18, zcons23
     REAL(wp) :: zcor, zdisl, zdusq, zdvsq
@@ -330,40 +331,77 @@ CONTAINS
         pqshear(jl,jk) = zqddif   ! store for variance production
         pri(jl,jk) = zri          ! save for output
 
-       ! Asymptotic mixing length for momentum and
-       ! heat (zlam) above the PBL as a function of height
-       ! according to Holtslag and Boville (1992), J. CLIMATE.
+        ! stability functions for heat and momentum (Mauritsen et al. 2007) 
 
-        zhexp=EXP(1._wp-pgeom1(jl,jk)/pgeom1(jl,ihpbl(jl)))
-        zlam=1._wp+(clam-1._wp)*zhexp
-        IF(jk.GE.ihpbl(jl)) THEN
-           zcons23=cons25        ! (1/lambda)*(0.5/grav)
+        IF(zri.GT.0._wp) THEN
+           f_tau   = f_tau0*(0.25_wp+0.75_wp/(1._wp+4._wp*zri))
+           f_theta = f_theta0/(1._wp+4._wp*zri)
         ELSE
-           zcons23=cons2/zlam    ! (1/lambda)*(0.5/grav)
+           f_tau   = f_tau0
+           f_theta = f_theta0
         END IF
 
-        ! Mixing length (Blackadar)
+        ! turbulent kinetic and turbulent potential energy
 
-        z2geomf = pgeom1(jl,jk)+pgeom1(jl,jk+1)  ! half-level value of gz
-        zz2geo  = cons2*z2geomf                  ! z*(Karman constant)
-        zmix    = zz2geo/(1._wp+zcons23*z2geomf) ! mixing length
+        IF(zri.GT.0._wp) THEN
+           e_kin=ptkem1(jl,jk)/(1._wp+zri/(f_tau0**2/(2._wp*f_theta0**2)+3._wp*zri))
+           e_pot=e_kin*zri/(f_tau0**2/(2._wp*f_theta0**2)+3._wp*zri)
+        ELSE
+           e_kin=ptkem1(jl,jk)/(1._wp+zri/(2._wp*zri-f_tau0**2/(2._wp*f_theta0**2)))
+           e_pot=e_kin*zri/(2._wp*zri-f_tau0**2/(2._wp*f_theta0**2)) 
+        END IF
 
-        pmixlen(jl,jk) = zmix   ! save for output
+        ! mixing length 
 
-        ! Stability functions (Louis, 1979)
+        IF(zri.GT.0._wp) THEN 
+           lmix=1._wp*grav/(ckap*pgeohm1(jl,jk+1))+2._wp*earth_angular_velocity/        &
+           (c_f*SQRT(f_tau*e_kin))+SQRT(zbuoy)/(c_n*SQRT(f_tau*e_kin))+1._wp/150._wp
+        ELSE
+           lmix=1._wp*grav/(ckap*pgeohm1(jl,jk+1))+2._wp*earth_angular_velocity/(c_f*SQRT(f_tau*e_kin))+1._wp/150._wp
+        END IF
+        lmix=1._wp/lmix
+        ldis=lmix
+        pmixlen(jl,jk)=lmix
 
-        IF(zri.LT.0._wp) THEN  ! unstable condition
-           zalh2=zmix*zmix
-           zucf=1._wp/                                              &
-                (1._wp+cons5*zalh2*SQRT(ABS(zri)*(((pgeom1(jl,jk)   &
-                    /pgeom1(jl,jk+1))**zonethird-1._wp)/(pgeom1(jl,jk) &
-                    -pgeom1(jl,jk+1)))**3/(pgeom1(jl,jk+1))))
-           zsh=shn*(1._wp-3._wp*cb*zri*zucf)*zmix
-           zsm=smn*(1._wp-2._wp*cb*zri*zucf)*zmix
+        ! mixing coefficients 
+        
+        km(jl,jk)=f_tau**2*e_kin**2/((c_e*e_kin*SQRT(ptkem1(jl,jk))/lmix)-grav/zthetavh(jl,jk)     &
+                 & *f_theta*SQRT(e_kin*2._wp*e_pot*abs(zbuoy)/(grav/zthetavh(jl,jk))**2))
+        kh(jl,jk)=2._wp*f_theta**2*e_kin*lmix/(c_e*SQRT(ptkem1(jl,jk)))
 
-        ELSE  ! stable condition
-           zsh=shn/(1._wp+2._wp*cb*zri*SQRT(1._wp+zri))*zmix
-           zsm=smn/(1._wp+2._wp*cb*zri/SQRT(1._wp+zri))*zmix
+        ! convective bl mixing coefs
+
+        IF(pgeom1(jl,jk)/grav.LE.hdt(jl)) THEN
+           lmc=1._wp*grav/(ckap*pgeohm1(jl,jk+1))+3._wp/(ckap*(hdt(jl)-pgeohm1(jl,jk+1)/grav))
+           lmc=1._wp/lmc
+           kmc=f_tau0/c_e*lmc*SQRT(e_kin)
+           khc=kmc/pr0
+        ELSE
+           lmc=lmix
+           kmc=km(jl,jk)
+           khc=kh(jl,jk)
+        END IF
+ 
+        ! merge mixing coefs
+
+        IF (pgeom1(jl,jk)/grav.LE.0.5_wp*hdt(jl)) THEN
+           km(jl,jk)=kmc
+           kh(jl,jk)=khc
+        ELSE
+           km(jl,jk)=max(km(jl,jk),kmc)  
+           kh(jl,jk)=max(kh(jl,jk),khc)
+        END IF
+
+        ! introduce unstable stability function (Louis 79)
+
+        IF (zri.LT.0._wp) THEN 
+           zalh2=lmix*lmix
+           zucf=1._wp/                                             &
+                (1._wp+cons5*zalh2*SQRT(ABS(zri)*(((pgeom1(jl,jk)  &
+                /pgeom1(jl,jk+1))**zonethird-1._wp)/(pgeom1(jl,jk) &
+                -pgeom1(jl,jk+1)))**3/(pgeom1(jl,jk+1))))
+           kh(jl,jk)=kh(jl,jk)*(1._wp-3._wp*cb*zri*zucf)
+           km(jl,jk)=km(jl,jk)*(1._wp-2._wp*cb*zri*zucf)
         END IF
 
         ! TKE at intermediate time step, obtained by solving a prognostic equation
@@ -371,8 +409,12 @@ CONTAINS
         ! buoyancy production, and dissipation of TKE.
         ! See Appendix A in Brinkop and Roeckner (1995, Tellus) for the numerics.
 
-        zzb=zshear*zsm-zbuoy*zsh
-        zdisl=da1*zmix/pstep_len
+        IF (zri.GT.0._wp) THEN 
+           zzb=km(jl,jk)*zshear
+        ELSE 
+           zzb=km(jl,jk)*zshear-2._wp*kh(jl,jk)*zbuoy
+        END IF
+        zdisl=ldis/(c_e*pstep_len)
         zktest=1._wp+(zzb*pstep_len+SQRT(ptkem1(jl,jk))*2._wp)/zdisl
         IF (zktest.LE.1._wp) THEN
            ptkevn(jl,jk)=tke_min
@@ -401,8 +443,8 @@ CONTAINS
         ! of which consists of a production term and dissipation.
         ! An explicit time stepping method is used here.
 
-        zthvprod = 2._wp*zsh*ztkesq*zthvirdif**2       ! production rate
-        zthvdiss = pthvvar(jl,jk)*ztkesq/(da1*zmix)    ! dissipation rate
+        zthvprod = 2._wp*kh(jl,jk)*zthvirdif**2       ! production rate
+        zthvdiss = pthvvar(jl,jk)*ztkesq/(da1*lmix)    ! dissipation rate
         pzthvvar(jl,jk) = pthvvar(jl,jk)+(zthvprod-zthvdiss)*pstep_len
         pzthvvar(jl,jk) = MAX(tke_min,pzthvvar(jl,jk))
 
@@ -412,9 +454,9 @@ CONTAINS
         ! - variance of hydrometeors (variable pcfv).
         ! These are proportional to the square root of TKE at the old step.
 
-        pcfm(jl,jk) = zsm*ztkesq
-        pcfh(jl,jk) = zsh*ztkesq
-        pcfv(jl,jk) = zsh*ztkesq*0.5_wp
+        pcfm(jl,jk) = km(jl,jk)
+        pcfh(jl,jk) = kh(jl,jk)
+        pcfv(jl,jk) = kh(jl,jk)*0.5_wp
 
         ! Exchange coefficients for
         ! - TKE (variable pfctke),
@@ -422,8 +464,8 @@ CONTAINS
         ! which are proportional to the square root of TKE at the
         ! intermediate time step
 
-        pcftke(jl,jk) = zsm*SQRT(ptkevn(jl,jk))
-        pcfthv(jl,jk) = zsh*SQRT(ptkevn(jl,jk))
+        pcftke(jl,jk) = km(jl,jk)
+        pcfthv(jl,jk) = kh(jl,jk)
 
         ! Air density at half levels, and the prefactor that will be multiplied
         ! later to the exchange coeffcients to build a linear algebraic equation set.
