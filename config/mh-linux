@@ -334,6 +334,7 @@ case "$ac_sitename" in
     dwd.de)
         case "$(hostname)" in
             xc*)
+                XML2ROOT    = /opt/cray/xc-sysroot/default/usr
                 NETCDFROOT  =${NETCDF_DIR}
                 CC          = cc
                 FC          = ftn
