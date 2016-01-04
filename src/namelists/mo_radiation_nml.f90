@@ -29,6 +29,7 @@ MODULE mo_radiation_nml
                                  & config_yr_perp    => yr_perp,     &
                                  & config_isolrad    => isolrad,     &
                                  & config_albedo_type=> albedo_type, &
+                                 & config_direct_albedo => direct_albedo, &
                                  & config_irad_h2o   => irad_h2o,    &
                                  & config_irad_co2   => irad_co2,    &
                                  & config_irad_ch4   => irad_ch4,    &
@@ -57,7 +58,7 @@ MODULE mo_radiation_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2
-  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_master_config,      ONLY: isRestart
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
@@ -92,6 +93,16 @@ MODULE mo_radiation_nml
   INTEGER :: albedo_type ! 1: albedo based on surface-type specific set of constants
                          !    (see )
                          ! 2: Modis albedo
+
+  INTEGER :: direct_albedo  ! 1: SZA dependence according to Ritter-Geleyn implementation
+                             ! 2: limitation to diffuse albedo according to Zaengl 
+                             !    applied to all land points
+                             !    Ritter-Geleyn implementation for remaining points (water,ice) 
+                             ! 3: Parameterization after Yang (2008) for snow-free land points
+                             !    limitation after Zaengl for snow-coverer points
+                             !    Ritter-Geleyn implementation for remaining points (water,ice)
+                             ! 4: Parameterization after Briegleb (1992) for snow-free land points
+                             !    limitation after Zaengl for snow-coverer points
 
   ! --- Switches for radiative agents
   !     irad_x=0 : radiation uses tracer x = 0
@@ -147,6 +158,7 @@ MODULE mo_radiation_nml
     &                      lyr_perp, yr_perp,     &
     &                      isolrad,               &
     &                      albedo_type,           &
+    &                      direct_albedo,         &
     &                      irad_h2o,              &
     &                      irad_co2,   vmr_co2,   &
     &                      irad_ch4,   vmr_ch4,   &
@@ -194,8 +206,9 @@ CONTAINS
     lyr_perp       = .FALSE.
     yr_perp        = -99999
 
-    isolrad     = 0
-    albedo_type = 1
+    isolrad        = 0
+    albedo_type    = 1
+    direct_albedo  = 4   ! Parameterization after Briegleb (1992)
 
     irad_h2o    = 1
     irad_co2    = 2
@@ -225,7 +238,7 @@ CONTAINS
     !    by values used in the previous integration.
     !------------------------------------------------------------------
 
-    IF (is_restart_run()) THEN
+    IF (isRestart()) THEN
       funit = open_and_restore_namelist('radiation_nml')
       READ(funit,NML=radiation_nml)
       CALL close_tmpfile(funit)
@@ -261,6 +274,7 @@ CONTAINS
     config_yr_perp    = yr_perp
     config_isolrad    = isolrad
     config_albedo_type= albedo_type
+    config_direct_albedo = direct_albedo
     config_irad_h2o   = irad_h2o
     config_irad_co2   = irad_co2
     config_irad_ch4   = irad_ch4

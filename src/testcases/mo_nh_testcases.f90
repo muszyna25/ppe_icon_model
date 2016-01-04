@@ -73,9 +73,9 @@ MODULE mo_nh_testcases
   USE mo_random_util,          ONLY: add_random_noise_global
   USE mo_grid_geometry_info,   ONLY: planar_torus_geometry
   USE mo_nh_rce_exp,           ONLY: init_nh_state_rce_glb
-  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl,init_nh_state_rce_cbl,        &
-                                   & init_nh_state_rce,                              & 
-                                   & init_nh_state_rico,init_nh_state_gate
+  USE mo_nh_torus_exp,         ONLY: init_nh_state_cbl, init_nh_state_rico, &
+                                     init_torus_with_sounding, init_warm_bubble
+  USE mo_nh_tpe_exp,           ONLY: init_nh_state_prog_TPE
   
   IMPLICIT NONE  
   
@@ -277,20 +277,39 @@ MODULE mo_nh_testcases
   CASE ('HS_nh')
     ! The topography has been initialized to 0 
     CALL message(TRIM(routine),'running the Held-Suarez test')
+    
   CASE ('APE_nwp')
-
-   ! The topography has been initialized to 0 at the begining of this SUB
-    CALL message(TRIM(routine),'running Aqua-Planet Experiment with NWP physics')
+    ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running Aqua-Planet Experiment with non-hydrostatic atm. dynamics and NWP physics')
   
   CASE ('APE_echam')
-
-    CALL message(TRIM(routine),'running Aqua-Planet Experiment with ECHAM physics')
+    ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running Aqua-Planet Experiment with non-hydrostatic atm. dynamics and ECHAM physics')
   
+  CASE ('APE_nh')
+    ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running Aqua-Planet Experiment with non-hydrostatic atm. dynamics')
+
   CASE ('APEc_nh')
+    ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running coupled Aqua-Planet Experiment with non-hydrostatic atm. dynamics')
+
+  CASE ('TPEo')
+
+    ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running Terra-Planet Experiment with ECHAM physics')
+    IF ( itopo == 0 ) THEN
+      CALL message(TRIM(routine), 'using zero topography for TPEc experiment')
+    END IF
+
+  CASE ('TPEc')
 
    ! The topography has been initialized to 0 at the begining of this SUB
-    CALL message(TRIM(routine),'running coupled Aqua-Planet Experiment')
-
+    CALL message(TRIM(routine),'running Terra-Planet Experiment with ECHAM physics')
+    IF ( itopo == 0 ) THEN
+      CALL message(TRIM(routine), 'using zero topography for TPEc experiment')
+    END IF
+  
   CASE ('g_lim_area')
 
     DO jg = 1, n_dom 
@@ -345,20 +364,18 @@ MODULE mo_nh_testcases
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running Convective Boundary Layer Experiment')
 
+  CASE ('2D_BUBBLE', '3D_BUBBLE')
+
+    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+        CALL finish(TRIM(routine),'2D BUBBLE case is only for plane torus!')
+
+   ! The topography has been initialized to 0 at the begining of this SUB
+    CALL message(TRIM(routine),'running 2D Warm Bubble test case')
+
   CASE ('RCE_glb')
 
    ! Running Radiative Convective Equilibrium testcase
    CALL message(TRIM(routine),'running ICON in RCE on a global domain')
-
-  CASE ('RCE_CBL')
-
-   ! Running Radiative Convective Equilibrium testcase
-   CALL message(TRIM(routine),'running ICON in RCE_CBL ')
-
-  CASE ('RCE')
-
-   ! Running Radiative Convective Equilibrium testcase
-   CALL message(TRIM(routine),'running ICON in Radiative Convective Equilibrium')
 
   CASE ('RICO')
 
@@ -368,13 +385,13 @@ MODULE mo_nh_testcases
    ! The topography has been initialized to 0 at the begining of this SUB
     CALL message(TRIM(routine),'running Rain in the Culumus Over the Ocean LES Experiment')
 
-  CASE ('GATE')
+  CASE ('RCE','GATE')
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
-        CALL finish(TRIM(routine),'GATE case is only for plane torus!')
+        CALL finish(TRIM(routine),'To initialize with sounding is only for torus!')
 
    ! The topography has been initialized to 0 at the begining of this SUB
-    CALL message(TRIM(routine),'running GATE Experiment')
+    CALL message(TRIM(routine),'running LES with sounding')
 
   CASE DEFAULT
 
@@ -752,7 +769,7 @@ MODULE mo_nh_testcases
     ENDDO !jg
 
 
-  CASE ('APE_nwp')  ! Aqua-Planet Experiment, no mountain
+  CASE ('APE_nwp', 'APE_echam', 'APE_nh', 'APEc_nh')  ! Aqua-Planet Experiment, no mountain
 
     p_sfc_jabw   = zp_ape          ! Pa
     global_moist = ztmc_ape        ! kg/m**2 total moisture content
@@ -765,7 +782,7 @@ MODULE mo_nh_testcases
                                      & p_int(jg),                                   &
                                      & p_sfc_jabw,jw_up )
     
-      IF ( ltransport .AND. iforcing == inwp ) THEN   !
+      IF ( ltransport ) THEN   !
     
         CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                   & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
@@ -778,57 +795,37 @@ MODULE mo_nh_testcases
     
     ENDDO !jg
 
-    CALL message(TRIM(routine),'End setup APE_nwp test')
+    CALL message(TRIM(routine),'End setup non-hydrostatic APE test (APE_nwp, APE_echam, APE_nh, APEc_nh)')
 
-  CASE ('APE_echam')  ! Aqua-Planet Experiment, no mountain
+  CASE ('TPEc', 'TPEo')  ! Terra-Planet Experiment
 
-    p_sfc_jabw   = zp_ape          ! Pa
-    global_moist = ztmc_ape        ! kg/m**2 total moisture content
     jw_up = 1._wp
 
     DO jg = 1, n_dom
     
-      CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                     & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                     & p_int(jg),                                   &
-                                     & p_sfc_jabw,jw_up )
-      ! these are the tracers used by echam, init to zero temporarily...     
-      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv) = 0.0_wp
-      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc) = 0.0_wp
-      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi) = 0.0_wp
-      !IF ( ltransport .AND. iforcing == inwp ) THEN   !
-    
-      !  CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-      !                            & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-      !                            & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
-      !                            & opt_global_moist=global_moist)
-    
-      !END IF
-   
+!!$      CALL   init_nh_state_prog_jabw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+!!$                                     & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+!!$                                     & p_int(jg),                                   &
+!!$                                     & p_sfc_jabw,jw_up )
+!!$
+!!$      CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+!!$                                & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
+!!$                                & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
+!!$                                & opt_global_moist=global_moist)
+!!$          p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv+1:) = 0._wp
+!!$
+!!$      ext_data(jg)%atm%topography_c = 0._wp
+
+      CALL init_nh_state_prog_TPE(p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag, &
+                                  ext_data(jg), p_nh_state(jg)%metrics,                            &
+                                  rh_at_1000hpa, qv_max, tpe_moist, tpe_psfc, tpe_temp)
+
       ! why do we call this?   
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     
     ENDDO !jg
 
-    CALL message(TRIM(routine),'End setup APE_echam test')
-
-  CASE ('APEc_nh')
-
-    DO jg = 1, n_dom
-      ! Initial conditions are the same as for the 'JWw-Moist' case
-      !
-      CALL init_nh_state_prog_isoRest( 300._wp, 100000._wp, &
-           & p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%diag )
-      !
-      CALL message(TRIM(routine),'Initial state used in &
-           & APEc_nh test: isothermal state at rest')
-      !
-      p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv+1:) = 0._wp
-
-      ! is this the same for the hydro and nh cores?
-      ext_data(jg)%atm%topography_c = 0._wp
-
-    ENDDO  ! jg
+    CALL message(TRIM(routine),'End setup TPEc test')
 
   CASE ('wk82')
 
@@ -1020,17 +1017,17 @@ MODULE mo_nh_testcases
         CALL finish(TRIM(routine),'CBL case is only for plane torus!')
 
     DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
+      nlev   = p_patch(jg)%nlev
       CALL init_nh_state_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
  
-      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+      call add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
                       & in_var=p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),         &
                       & start_level=nlev-3,                                    &
                       & end_level=nlev,                                        &
                       & noise_scale=w_perturb )   
 
-      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+      call add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
                       & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
                       & start_level=nlev-3,                                    &
                       & end_level=nlev,                                        &
@@ -1041,60 +1038,11 @@ MODULE mo_nh_testcases
 
     CALL message(TRIM(routine),'End setup CBL test')
 
-  CASE ('RCE_CBL')
-
-    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
-        CALL finish(TRIM(routine),'CBL case is only for plane torus!')
-
-    DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
-      CALL init_nh_state_rce_cbl ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
-                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
-                      
-      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
-                      & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
-                      & start_level=nlev-3,                                    &
-                      & end_level=nlev,                                        &
-                      & noise_scale=th_perturb )   
-
-      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
-    END DO !jg
-
-    CALL message(TRIM(routine),'End setup RCE_CBL test')
-
-  CASE ('RCE')
-
-    ! the value of lprofile determines which vertical profile to use for the initial conditions
-    lprofile = .TRUE.             
-
-    ! u,v,w are initialized to zero.  exner and rho are similar/identical to CBL
-    DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
-      CALL init_nh_state_rce ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
-                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics, lprofile )
-
-      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
-                      & in_var=p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),         &
-                      & start_level=nlev-3,                                    &
-                      & end_level=nlev,                                        &
-                      & noise_scale=w_perturb )   
-
-      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
-                      & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
-                      & start_level=nlev-3,                                    &
-                      & end_level=nlev,                                        &
-                      & noise_scale=th_perturb )   
-
-      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
-!
-      CALL message(TRIM(routine),'End setup RCE test')
-    END DO !jg
-
   CASE ('RCE_glb')
 
     ! u,v,w are initialized to zero.  exner and rho are similar/identical to CBL
     DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
+      nlev   = p_patch(jg)%nlev
       CALL init_nh_state_rce_glb ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
 
@@ -1115,46 +1063,76 @@ MODULE mo_nh_testcases
         CALL finish(TRIM(routine),'RICO case is only for plane torus!')
 
     DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
+      nlev   = p_patch(jg)%nlev
       CALL init_nh_state_rico ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
                       & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
 
-      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
-                               "cell", w_perturb, nlev-3, nlev ) 
-      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
-                               "cell", th_perturb, nlev-3, nlev ) 
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+                      & in_var=p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),         &
+                      & start_level=nlev-3,                                    &
+                      & end_level=nlev,                                        &
+                      & noise_scale=w_perturb )   
 
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+                      & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
+                      & start_level=nlev-3,                                    &
+                      & end_level=nlev,                                        &
+                      & noise_scale=th_perturb )   
+ 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
 
     CALL message(TRIM(routine),'End setup RICO test')
 
-  CASE ('GATE')
+  CASE ('RCE','GATE') !to initialize with sounding
 
     IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
-        CALL finish(TRIM(routine),'GATE case is only for plane torus!')
+        CALL finish(TRIM(routine),'To initizialize with sounding is only for torus!')
 
     DO jg = 1, n_dom
-      nlev   = p_patch(1)%nlev
-      CALL init_nh_state_gate ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%ref,  &
-                      & p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
-                      
-      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),       &
-                               "cell", w_perturb, nlev-3, nlev ) 
-      CALL nh_prog_add_random( p_patch(jg), p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:), & 
-                               "cell", th_perturb, nlev-3, nlev ) 
+      nlev   = p_patch(jg)%nlev
+
+      CALL init_torus_with_sounding ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                 p_nh_state(jg)%ref, p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
+ 
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+                      & in_var=p_nh_state(jg)%prog(nnow(jg))%w(:,:,:),         &
+                      & start_level=nlev-3,                                    &
+                      & end_level=nlev,                                        &
+                      & noise_scale=w_perturb )   
+
+      CALL add_random_noise_global(in_subset=p_patch(jg)%cells%all,            &
+                      & in_var=p_nh_state(jg)%prog(nnow(jg))%theta_v(:,:,:),   &
+                      & start_level=nlev-3,                                    &
+                      & end_level=nlev,                                        &
+                      & noise_scale=th_perturb )   
+                    
+      CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
+    END DO !jg
+
+    CALL message(TRIM(routine),'End init with sounding')
+
+  CASE ('2D_BUBBLE', '3D_BUBBLE') !to initialize with sounding
+
+    IF(p_patch(1)%geometry_info%geometry_type/=planar_torus_geometry)&
+        CALL finish(TRIM(routine),'2D warm bubble case is only for torus!')
+
+    DO jg = 1, n_dom
+      nlev   = p_patch(jg)%nlev
+
+      CALL init_warm_bubble ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                 p_nh_state(jg)%ref, p_nh_state(jg)%diag, p_int(jg), p_nh_state(jg)%metrics )
 
       CALL duplicate_prog_state(p_nh_state(jg)%prog(nnow(jg)),p_nh_state(jg)%prog(nnew(jg)))
     END DO !jg
 
-    CALL message(TRIM(routine),'End setup GATE test')
-
-
+    CALL message(TRIM(routine),'End initilization of 2D warm bubble')
   END SELECT
 
 
   IF ( ANY( (/icosmo,iedmf/)==atm_phy_nwp_config(1)%inwp_turb ) .AND. &
-       (nh_test_name=='APE_nwp' .OR. nh_test_name=='CBL' .OR. nh_test_name=='GATE'.OR. nh_test_name=='RICO') ) THEN
+     (nh_test_name=='APE_nwp' .OR. nh_test_name=='CBL' .OR. nh_test_name=='GATE' &
+     .OR. nh_test_name=='RICO') ) THEN
     DO jg = 1, n_dom
       p_lnd_state(jg)%prog_lnd(nnow(jg))%t_g                    = th_cbl(1)
     END DO !jg

@@ -44,7 +44,7 @@ fi
 
 set_default use_nodes 1
 set_default use_omp_stacksize 32M
-let "mpi_total_procs=${use_nodes}*${use_mpi_procs_pernode}"
+mpi_total_procs='$((no_of_nodes * mpi_procs_pernode))'
 
 cat >> $output_script << EOF
 #=============================================================================
@@ -83,9 +83,9 @@ export OMP_STACKSIZE=${use_omp_stacksize}
 # MPI variables
 # ----------------------------
 mpi_root=$use_mpi_root
-no_of_nodes=$use_nodes
+no_of_nodes=${use_nodes}
 mpi_procs_pernode=$use_mpi_procs_pernode
-mpi_total_procs=$mpi_total_procs
+((mpi_total_procs=no_of_nodes * mpi_procs_pernode))
 START="$start"
 #-----------------------------------------------------------------------------
 # load ../setting if exists  
@@ -143,7 +143,7 @@ EOF
 #for i in {1..$no_of_free_variables}
 i=1;while [ $i -le ${no_of_free_variables} ]
 do
-  echo "export ${free_variable[$i]}=${free_variable_value[$i]}" >> $output_script
+  echo "export ${free_variable[$i]}=\"${free_variable_value[$i]}\"" >> $output_script
   i=$((i+1));
 done
 
@@ -154,8 +154,8 @@ done
 set_run_target_blizzard()
 {
 
-  set_default use_nproma 32
-  set_default use_nodes 1
+  set_default use_nproma 40
+  set_default use_nodes 4
   use_OMP_SCHEDULE="dynamic,1"
   icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
   icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
@@ -366,6 +366,7 @@ export MP_BULK_MIN_MSG_SIZE=128k
 export MP_RFIFO_SIZE=4M
 export MP_SHM_ATTACH_THRESH=500000
 export LAPI_DEBUG_STRIPE_SEND_FLIP=8
+replicate_grid=2147483647
 #========================================
 
 run_model()
@@ -481,9 +482,7 @@ set_run_target_thunder()
         use_mpi_startrun="$use_mpi_startrun -npernode \$mpi_procs_pernode -cpus-per-proc \$OMP_NUM_THREADS --bind-to-core --verbose --report-bindings"
       ;;
   esac
-  # create header
-  start_header
-  
+
   if [[ "$is_serial_run" == "yes"  ]] ; then
     queue=${queue:="mpi-serial"}
     use_nodes=1
@@ -515,8 +514,7 @@ set_run_target_thunder()
     
   # ------------------------------------
  
-  cat > job_header << EOF
-#!$use_shell
+  cat >> $output_script << EOF
 #-----------------------------------------------------------------------------
 # thunder batch job parameters
 #-----------------------------------------------------------------------------
@@ -529,25 +527,31 @@ set_run_target_thunder()
 #$SBATCH_ntasks_per_node
 #$s_cpu_time
 EOF
-cat job_header $output_script > tmp_job_script && mv tmp_job_script $output_script
-rm job_header
+
+  # create header
+  start_header
+  
 }
+
+
 
 set_run_target_bullx()
 {
   icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
   icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
 
-  set_default use_nproma 8
-  set_default use_nodes 1
-  # use_OMP_SCHEDULE="static,1"
-  use_OMP_SCHEDULE="static,4"
+  set_default use_nproma 16
+  set_default use_nodes '\${SLURM_JOB_NUM_NODES:-1}'
+  set_default use_account_no "$(id -gn)"
+  use_submit="$use_submit -N \${SLURM_JOB_NUM_NODES:-1}"
+  use_OMP_SCHEDULE="dynamic,1"
+  use_omp_stacksize=200M
 
   is_serial_run="no"
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-      set_default use_mpi_procs_pernode 12
-      set_default use_openmp_threads 2
+      set_default use_mpi_procs_pernode 6
+      set_default use_openmp_threads 4
     else
       set_default use_mpi_procs_pernode 24
     fi
@@ -566,18 +570,46 @@ set_run_target_bullx()
       ;;
   esac
 
+  use_mpi_startrun="srun --cpu-freq=2500000 --kill-on-bad-exit=1 --nodes=\${SLURM_JOB_NUM_NODES:-1} --cpu_bind=verbose,cores --distribution=block:block --ntasks=\$((no_of_nodes * mpi_procs_pernode)) --ntasks-per-node=\${mpi_procs_pernode} --cpus-per-task=\$((2 * OMP_NUM_THREADS)) --propagate=STACK"
+  case $use_flags_group in
+    debug)
+      use_mpi_startrun="${use_mpi_startrun},CORE"
+      ;;
+  esac
+
   case _$use_compiler in
     "_intel" )
-        use_mpi_startrun="srun --cpu_bind=verbose,cores --distribution=block:cyclic"
         add_free_var KMP_AFFINITY "verbose,granularity=core,compact,1,1"
         add_free_var KMP_LIBRARY "turnaround"
         add_free_var KMP_KMP_SETTINGS "1"
         add_free_var OMP_WAIT_POLICY "active"
       ;;
   esac
-  # create header
-  start_header
+  case $use_mpi_root in
+    *bullxmpi*)
+      use_mpi_startrun+=" --mpi=openmpi"
+      add_free_var OMPI_MCA_pml cm
+      add_free_var OMPI_MCA_mtl mxm
+      add_free_var OMPI_MCA_coll '^ghc'
+      add_free_var MXM_RDMA_PORTS 'mlx5_0:1'
+      ;;
+    *intel*mpi*)
+      add_free_var I_MPI_FABRICS shm:dapl
+      add_free_var I_MPI_DAPL_UD enable
+      add_free_var I_MPI_DAPL_UD_PROVIDER ofa-v2-mlx5_0-1u
+      add_free_var DAPL_UCM_REP_TIME 8000
+      add_free_var DAPL_UCM_RTU_TIME 4000
+      add_free_var DAPL_UCM_CQ_SIZE 1000
+      add_free_var DAPL_UCM_QP_SIZE 1000
+      add_free_var DAPL_UCM_RETRY 10
+      add_free_var DAPL_ACK_RETRY 10
+      add_free_var DAPL_ACK_TIMER 20
+      add_free_var DAPL_UCM_TX_BURST 100
+      add_free_var DAPL_WR_MAX 500
+      ;;
+  esac
 
+  add_free_var MALLOC_TRIM_THRESHOLD_ -1
   if [[ "$is_serial_run" == "yes"  ]] ; then
     queue=${queue:="compute"}
     use_nodes=1
@@ -587,9 +619,8 @@ set_run_target_bullx()
     queue=${queue:="compute"}
     job_type=parallel
     tasks_per_node=$use_mpi_procs_pernode
-    SBATCH_ntasks_per_node="SBATCH --ntasks-per-node=24"
   fi
-  
+
   if [[ "x$BB_SYSTEM" != "x" ]]; then
     # this buildbot, do not use job id
     job_log_name="LOG.$job_name"
@@ -598,31 +629,51 @@ set_run_target_bullx()
   fi
 
   # ------------------------------------
-  s_cpu_time=""
+  s_cpu_time="00:30:00"
   if [[ "x$use_cpu_time" != "x" ]] ; then
-     s_cpu_time="SBATCH --time=$use_cpu_time"
+     s_cpu_time=$use_cpu_time
   fi
   # ------------------------------------
- 
+
   cat >> $output_script << EOF
-# the following line is only needed for srun to work with Intel MPI
-# but should be commented when using BullX MPI
-export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
 # =====================================
-# btc batch job parameters
+# mistral batch job parameters
 #-----------------------------------------------------------------------------
 #SBATCH --account=$use_account_no
 #SBATCH --job-name=$job_name
 #SBATCH --partition=$queue
-#SBATCH --nodes=$use_nodes
+#SBATCH --workdir=$output_folder
+#SBATCH --nodes=1
 #SBATCH --threads-per-core=2
-#SBATCH --output=$job_log_name.o
-#SBATCH --error=$job_log_name.o
-#========================================
+#SBATCH --output=$output_folder/$job_log_name.o
+#SBATCH --error=$output_folder/$job_log_name.o
+#SBATCH --exclusive
+#SBATCH --time=$s_cpu_time
+$(if [[ "$use_mpi_root" == *intel*mpi* ]]; then
+  printf '#========================================
+# the following line is only needed for srun to work with Intel MPI
+# but should be commented when using BullX MPI
+export I_MPI_PMI_LIBRARY=/usr/lib64/libpmi.so
+#========================================' ; fi)
+EOF
+  # create header
+  start_header
+  cat >>$output_script <<EOF
+ulimit -s 2097152
+$(case $use_flags_group in
+    (debug)
+      printf 'ulimit -c unlimited'
+      ;;
+  esac)
+# this can not be done in use_mpi_startrun since it depends on the
+# environment at time of script execution
+case " \$loadmodule " in
+  *\ mxm\ *)
+    START+=" --export=\$(env | sed '/()=/d;/=/{;s/=.*//;b;};d' | tr '\n' ',')LD_PRELOAD=\${LD_PRELOAD+\$LD_PRELOAD:}\${MXM_HOME}/lib/libmxm.so"
+    ;;
+esac
 EOF
 }
-
-
 
 #=============================================================================
 set_run_target_mpipc()
@@ -723,12 +774,17 @@ set_run_target_mpimac()
 {
   
   set_default use_nproma 48
+  use_nodes=1
+  icon_data_rootFolder=${icon_data_rootFolder:=/pool/data/ICON}
+  icon_data_poolFolder=${icon_data_poolFolder:=/pool/data/ICON}
   
   if [[ "$use_mpi" == "yes" ]]; then
     set_default use_mpi_procs_pernode 2
   fi
   if [[ "$use_openmp" == "yes" ]]; then
     set_default use_openmp_threads 2
+  else
+    set_default use_openmp_threads 1
   fi
 
   # create header
@@ -1172,6 +1228,7 @@ set_run_target_juqueen()
 # @ notification = error
 # @ notify_user = $(whoami)
 # @ job_type = bluegene
+# @ initialdir = $output_folder
 # @ bg_size = ${use_nodes}
 # @ queue
 # ==========================

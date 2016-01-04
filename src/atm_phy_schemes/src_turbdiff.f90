@@ -291,6 +291,7 @@ USE mo_data_turbdiff, ONLY : &
     z0m_dia,      & ! roughness length of a typical synoptic station
 !
     alpha0,       & ! lower bound for Charnock-parameter
+    alpha0_max,   & ! upper bound for Charnock-parameter
     alpha1,       & ! parameter scaling the molek. roughness of water waves
 !
     c_lnd,        & ! surface area index of the land exept the leaves
@@ -326,6 +327,8 @@ USE mo_data_turbdiff, ONLY : &
 !
     tkhmin,       & ! minimal diffusion coefficients for heat
     tkmmin,       & ! minimal diffusion coefficients for momentum
+    tkhmin_strat, & ! additional minimal diffusion coefficients for heat for stratosphere
+    tkmmin_strat, & ! additional minimal diffusion coefficients for momentum for stratosphere
 !
     clc_diag,     & ! cloud cover at saturation in statistical cloud diagnostic
     q_crit,       & ! critical value for normalized over-saturation
@@ -3122,7 +3125,7 @@ SUBROUTINE turbdiff
 !
 !
 !Tuning<
-           x1,x2,x3,x4,xri(ie,ke), tkvcorr(ie,ke), lencorr(ie,ke)
+           x1,x2,x3,x4,xri(ie,ke), tkvcorr(ie,ke), tkvcorr2(ie,ke), lencorr(ie,ke)
 !>Tuning
 
 !---------------------------------------------------------------------
@@ -3600,6 +3603,23 @@ SUBROUTINE turbdiff
 
         END DO
       END DO
+
+      ! Enhanced diffusion in the stratosphere - very important for the data assimilation cycle,
+      ! but can also be used in forecasting mode because there is no detectable detrimental impact on gravity waves
+      IF (tkhmin_strat > z0 .OR. tkmmin_strat > z0) THEN
+        DO k=2,ke
+          DO i=istartpar,iendpar
+            IF (hhl(i,k) > 25000._ireals) THEN
+              x4 = MIN(1._ireals, 2.e-4_ireals*(hhl(i,k) - 25000._ireals)) ! linear increase between 25 km and 30 km
+              tkvcorr2(i,k) = x4 * MIN( 7.5_ireals, MAX( 0.125_ireals, xri(i,k) ) )
+            ELSE
+              tkvcorr2(i,k) = z0
+            ENDIF
+          ENDDO
+        ENDDO
+      ELSE
+        tkvcorr2(:,:) = z0
+      ENDIF
 
       IF (ltkeshs .AND. itype_sher == 3) THEN
         DO k=2,kem
@@ -4381,8 +4401,8 @@ SUBROUTINE turbdiff
          DO i=istartpar,iendpar
 !           Berechn. der Diffusionskoeffizienten:
 
-            tkvh(i,k)=MAX( con_h, tkhmin*tkvcorr(i,k), tkvh(i,k)*tke(i,k,ntur) )
-            tkvm(i,k)=MAX( con_m, tkmmin*tkvcorr(i,k), tkvm(i,k)*tke(i,k,ntur) )
+            tkvh(i,k)=MAX( con_h, tkhmin*tkvcorr(i,k), tkhmin_strat*tkvcorr2(i,k), tkvh(i,k)*tke(i,k,ntur) )
+            tkvm(i,k)=MAX( con_m, tkmmin*tkvcorr(i,k), tkmmin_strat*tkvcorr2(i,k), tkvm(i,k)*tke(i,k,ntur) )
 
 !test: ohne tk?min (wird aber bei Diffusion benutzt!)
 ! tkvh(i,k)=MAX( con_h, tkvh(i,k)*tke(i,k,ntur) )
@@ -6362,7 +6382,7 @@ ELEMENTAL FUNCTION alpha0_char(u10)
 
   ulim = MIN(u10,umax)
   ured = MAX(0._ireals, ulim-u2)
-  alpha0_char = MAX (alpha0, a + ulim*(b + c*ulim - d*ured))
+  alpha0_char = MIN(alpha0_max, MAX (alpha0, a + ulim*(b + c*ulim - d*ured)))
 
 END FUNCTION alpha0_char
 

@@ -145,16 +145,22 @@ CONTAINS
     !-------------------------------------------------------------------------------------------------------------------------------
     SUBROUTINE scatterPatternPrintStatistics(me)
         CLASS(t_scatterPattern), INTENT(INOUT) :: me
+        REAL(dp) :: bandwidth
 
         CHARACTER(*), PARAMETER :: routine = modname//":scatterPatternPrintStatistics"
 
         IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
         IF(me%distributedData > 0) THEN
-            IF(msg_level >= 5 .and. my_process_is_stdio()) THEN
+            IF(msg_level >= 10 .and. my_process_is_stdio()) THEN
                 WRITE(0,*) routine, ": data distribution totals:"
                 WRITE(0,'(8X,A,I19,A)')   "amount:    ", me%distributedData, " bytes"
                 WRITE(0,'(8X,A,F19.3,A)') "duration:  ", me%distributionTime, " seconds"
-                WRITE(0,'(8X,A,F19.3,A)') "bandwidth: ", REAL(me%distributedData, dp)/(1048576.0_dp*me%distributionTime), " MiB/s"
+                IF (me%distributionTime == 0.0_dp) THEN
+                  bandwidth = -1.0_dp
+                ELSE
+                  bandwidth = REAL(me%distributedData, dp)/(1048576.0_dp*me%distributionTime)
+                END IF
+                WRITE(0,'(8X,A,F19.3,A)') "bandwidth: ", bandwidth, " MiB/s"
             END IF
         END IF
         call me%resetStatistics()
@@ -183,15 +189,20 @@ CONTAINS
         INTEGER(i8), INTENT(IN) :: bytes
 
         CHARACTER(*), PARAMETER :: routine = modname//":scatterPatternEndDistribution"
-        REAL(dp) :: curEndTime
+        REAL(dp) :: curEndTime, bw
 
         IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "entering ", routine
         curEndTime = p_mpi_wtime()
         me%distributionTime = me%distributionTime + curEndTime
         me%distributedData = me%distributedData + bytes
         IF(msg_level >= 20 .and. my_process_is_stdio()) THEN
-            WRITE(0,*) routine, ": Distributed ", bytes, " bytes in ", curEndTime - me%curStartTime, " seconds (", &
-                &      REAL(bytes, dp)/(1048576.0_dp*(curEndTime - me%curStartTime)), " MiB/s)"
+          IF (curEndTime - me%curStartTime == 0) THEN
+            bw = -1.0_dp
+          ELSE
+            bw = REAL(bytes, dp)/(1048576.0_dp*(curEndTime - me%curStartTime))
+          END IF
+          WRITE(0,*) routine, ": Distributed ", bytes, " bytes in ", &
+               curEndTime - me%curStartTime, " seconds (", bw, " MiB/s"
         END IF
         IF(debugModule .and. my_process_is_stdio()) WRITE(0,*) "leaving ", routine
     END SUBROUTINE scatterPatternEndDistribution

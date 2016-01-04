@@ -33,18 +33,21 @@ MODULE mo_statistics
     & my_process_is_mpi_parallel, p_sum, my_process_is_mpi_seq
   !   USE mo_io_units,           ONLY: nnml, filename_max
   !   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
+  USE mo_impl_constants, ONLY: on_cells, on_edges, on_vertices
+  USE mo_math_utilities, ONLY: t_geographical_coordinates
+  USE mo_math_constants, ONLY: rad2deg
   
   IMPLICIT NONE
   
   PRIVATE
 #define VerticalDim_Position 2
   
-  !-------------------------------------------------------------------------
-  
+  !-------------------------------------------------------------------------  
   ! NOTE: in order to get correct results make sure you provide the proper in_subset (ie, owned)!
-  PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d
+  PUBLIC :: global_minmaxmean, subset_sum, add_fields, add_fields_3d, add_sqr_fields
   PUBLIC :: accumulate_mean, levels_horizontal_mean, horizontal_mean, total_mean
   PUBLIC :: horizontal_sum
+  PUBLIc :: print_value_location
   
   ! simple min max mean (no weights)
   ! uses the range in_subset
@@ -231,7 +234,16 @@ MODULE mo_statistics
     MODULE PROCEDURE add_fields_2d
   END INTERFACE add_fields
   
-  CHARACTER(LEN=*), PARAMETER :: module_name="mo_statistics"
+  INTERFACE add_sqr_fields
+    MODULE PROCEDURE add_sqr_fields_2d
+  END INTERFACE add_sqr_fields
+
+  INTERFACE print_value_location
+    MODULE PROCEDURE print_2Dvalue_location
+    MODULE PROCEDURE print_3Dvalue_location
+  END INTERFACE print_value_location
+
+ CHARACTER(LEN=*), PARAMETER :: module_name="mo_statistics"
   
 CONTAINS
   
@@ -255,12 +267,133 @@ CONTAINS
 
   END FUNCTION MinMaxMean_3D_AllLevels
   !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  ! Returns the min max mean in a 3D array in a given range subset
+  ! The results are over all levels
+  SUBROUTINE print_2Dvalue_location(values, seek_value, in_subset)
+    REAL(wp) :: values(:,:)
+    REAL(wp) :: seek_value
+    TYPE(t_subset_range), TARGET :: in_subset
+    
+    INTEGER :: block, start_index, end_index, idx
+    TYPE(t_geographical_coordinates), POINTER ::  geocoordinates(:,:)
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':print_cell_value_location'
+    
+!     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
+        
+    ! get lon, lat
+    SELECT CASE (in_subset%entity_location)    
+    CASE(on_cells)
+      geocoordinates => in_subset%patch%cells%center
+    CASE(on_edges)
+      geocoordinates => in_subset%patch%edges%center
+    CASE(on_vertices)
+      geocoordinates => in_subset%patch%verts%vertex
+    CASE default
+      CALL finish(method_name, "unknown subset%entity_location")
+    END SELECT
+          
+    DO block = in_subset%start_block, in_subset%end_block
+      CALL get_index_range(in_subset, block, start_index, end_index)
+      DO idx = start_index, end_index
+        IF (values(idx, block) == seek_value) THEN
+          WRITE(0,*) "Value ", seek_value, &
+            & " found at lon=",  geocoordinates(idx, block)%lon * rad2deg, &
+            & " lat=",  geocoordinates(idx, block)%lat * rad2deg
+        ENDIF
+      ENDDO
+    ENDDO
+          
+  END SUBROUTINE print_2Dvalue_location
+  !-----------------------------------------------------------------------
+  
+
+  !-----------------------------------------------------------------------
+  !>
+  ! Returns the min max mean in a 3D array in a given range subset
+  ! The results are over all levels
+  SUBROUTINE print_3Dvalue_location(values, seek_value, in_subset, start_level, end_level)
+    REAL(wp) :: values(:,:,:)
+    REAL(wp) :: seek_value
+    TYPE(t_subset_range), TARGET :: in_subset
+    INTEGER, OPTIONAL :: start_level, end_level
+    
+    INTEGER :: block, level, start_index, end_index, idx, start_vertical, end_vertical
+    TYPE(t_geographical_coordinates), POINTER ::  geocoordinates(:,:)
+    CHARACTER(LEN=*), PARAMETER :: method_name=module_name//':print_cell_value_location'
+    
+!     IF (in_subset%no_of_holes > 0) CALL warning(module_name, "there are holes in the subset")
+    
+    IF (PRESENT(start_level)) THEN
+      start_vertical = start_level
+    ELSE
+      start_vertical = 1
+    ENDIF
+    IF (PRESENT(end_level)) THEN
+      end_vertical = end_level
+    ELSE
+      end_vertical = SIZE(values, VerticalDim_Position)
+    ENDIF
+    IF (start_vertical > end_vertical) &
+      & CALL finish(method_name, "start_vertical > end_vertical")
+    
+    ! get lon, lat
+    SELECT CASE (in_subset%entity_location)    
+    CASE(on_cells)
+      geocoordinates => in_subset%patch%cells%center
+    CASE(on_edges)
+      geocoordinates => in_subset%patch%edges%center
+    CASE(on_vertices)
+      geocoordinates => in_subset%patch%verts%vertex
+    CASE default
+      CALL finish(method_name, "unknown subset%entity_location")
+    END SELECT
+    
+    ! init the min, max values    
+    IF (ASSOCIATED(in_subset%vertical_levels)) THEN
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          DO level = start_vertical, MIN(end_vertical, in_subset%vertical_levels(idx,block))
+            IF (values(idx, level, block) == seek_value) THEN
+              WRITE(0,*) "Value ", seek_value, &
+                & " found at lon=",  geocoordinates(idx, block)%lon * rad2deg, &
+                & " lat=",  geocoordinates(idx, block)%lat * rad2deg, &
+                & " level=", level
+           ENDIF
+          ENDDO
+        ENDDO
+      ENDDO
+      
+    ELSE ! no in_subset%vertical_levels
+      
+      DO block = in_subset%start_block, in_subset%end_block
+        CALL get_index_range(in_subset, block, start_index, end_index)
+        DO idx = start_index, end_index
+          DO level = start_vertical, end_vertical
+            IF (values(idx, level, block) == seek_value) THEN
+              WRITE(0,*) "Value ", seek_value, &
+                & " found at lon=",  geocoordinates(idx, block)%lon, &
+                & " lat=",  geocoordinates(idx, block)%lat, &
+                & " level=", level
+            ENDIF
+          ENDDO
+        ENDDO
+      ENDDO
+      
+    ENDIF
+    
+  END SUBROUTINE print_3Dvalue_location
+  !-----------------------------------------------------------------------
+  
   
   !-----------------------------------------------------------------------
   !>
   ! Returns the min max mean in a 2D array in a given range subset
   FUNCTION MinMaxMean_2D_InRange(values, in_subset) result(minmaxmean)
-    REAL(wp), INTENT(in) :: values(:,:)
+    REAL(wp) :: values(:,:) ! INTENT(in)
     TYPE(t_subset_range), TARGET :: in_subset
     REAL(wp) :: minmaxmean(3)
     
@@ -319,7 +452,7 @@ CONTAINS
   ! Returns the min max mean in a 3D array in a given range subset
   ! The results are over all levels
   FUNCTION MinMaxMean_3D_AllLevels_InRange(values, in_subset, start_level, end_level) result(minmaxmean)
-    REAL(wp), INTENT(in) :: values(:,:,:)
+    REAL(wp) :: values(:,:,:) ! INTENT(in)
     TYPE(t_subset_range), TARGET :: in_subset
     INTEGER, OPTIONAL :: start_level, end_level
     REAL(wp) :: minmaxmean(3)
@@ -598,7 +731,7 @@ CONTAINS
 
     ELSE ! no in_subset%vertical_levels
 
-!ICON_OMP_DO PRIVATE(block, start_index, end_index)
+!ICON_OMP_DO PRIVATE(block, start_index, end_index, idx)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
         DO idx = start_index, end_index
@@ -976,8 +1109,8 @@ CONTAINS
     
     IF (my_process_is_mpi_parallel()) THEN
       communicator = get_my_mpi_work_communicator()
-      minmaxmean(1) = p_min( min_value,  comm=communicator ) ! only mpi_all_reduce is avaliable
-      minmaxmean(2) = p_max( max_value,  comm=communicator, root=process_mpi_stdio_id )
+      minmaxmean(1) = p_min( min_value,  comm=communicator ) !  mpi_all_reduce 
+      minmaxmean(2) = p_max( max_value,  comm=communicator )
       
       ! these are avaliable to all processes
       global_number_of_values = p_sum( REAL(number_of_values,wp),  comm=communicator)
@@ -1507,6 +1640,7 @@ CONTAINS
   END SUBROUTINE check_active_statistic_id
   !-----------------------------------------------------------------------
   
+  !-----------------------------------------------------------------------
   SUBROUTINE add_fields_3d(sum_field,field,subset,levels)
     REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
     REAL(wp),INTENT(in)             :: field(:,:,:)
@@ -1566,7 +1700,27 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
   END SUBROUTINE add_fields_2d
 
+  
+  SUBROUTINE add_sqr_fields_2d(sum_field,field,subset)
+    REAL(wp),INTENT(inout)          :: sum_field(:,:)
+    REAL(wp),INTENT(in)             :: field(:,:)
+    TYPE(t_subset_range),INTENT(in) :: subset
+    
+    INTEGER :: jb,jc,start_index,end_index
+    
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
+    DO jb = subset%start_block, subset%end_block
+      CALL get_index_range(subset, jb, start_index, end_index)
+      DO jc = start_index, end_index
+        sum_field(jc,jb) = sum_field(jc,jb) + field(jc,jb)**2
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+  END SUBROUTINE add_sqr_fields_2d
+  !-----------------------------------------------------------------------
 
+
+  !-----------------------------------------------------------------------
   !>
   !! Computes updated time average
   !!

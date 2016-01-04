@@ -14,24 +14,20 @@
 !!
 MODULE mo_add_tracer_ref
 
-  USE mo_kind,             ONLY: wp, i8
-  USE mo_exception,        ONLY: message, message_text, finish
+  USE mo_kind,             ONLY: wp
+  USE mo_exception,        ONLY: message, message_text
   USE mo_fortran_tools,    ONLY: t_ptr_2d3d
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
   USE mo_var_list,         ONLY: add_ref
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
-       &                         new_list, delete_list,             &
-       &                         append_list_element,               &
-       &                         find_list_element,                 &
-       &                         delete_list_element
-  USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
+       &                         find_list_element
+  USE mo_var_metadata_types,ONLY: t_var_metadata,                   &
     &                            t_tracer_meta,                     &
     &                            t_vert_interp_meta,                &
     &                            t_hor_interp_meta,                 &
-    &                            VARNAME_LEN, VAR_GROUPS,           &
-    &                            VINTP_TYPE_LIST,                   &
-    &                            t_post_op_meta, POST_OP_NONE
+    &                            MAX_GROUPS,                        &
+    &                            t_post_op_meta
   USE mo_var_metadata,     ONLY: create_tracer_metadata
   
   USE mo_advection_config, ONLY: t_advection_config
@@ -85,7 +81,7 @@ CONTAINS
     INTEGER             , INTENT(in), OPTIONAL :: tlev_source    ! actual TL for TL dependent vars
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp  ! horizontal interpolation metadata
-    LOGICAL, INTENT(in), OPTIONAL :: in_group(SIZE(VAR_GROUPS))  ! groups to which a variable belongs
+    LOGICAL, INTENT(in), OPTIONAL :: in_group(MAX_GROUPS)        ! groups to which a variable belongs
     LOGICAL             , INTENT(in), OPTIONAL :: lis_tracer     ! this is a tracer field (TRUE/FALSE)
     CHARACTER(len=*)    , INTENT(in), OPTIONAL :: tracer_class   ! type of tracer (cloud, volcash, radioact,...)
     INTEGER             , INTENT(in), OPTIONAL :: ihadv_tracer   ! method for hor. transport
@@ -102,7 +98,6 @@ CONTAINS
     TYPE(t_post_op_meta), INTENT(in), OPTIONAL :: post_op        ! post operation (e.g. scale with const. factor or rho)
     REAL(wp)            , INTENT(in), OPTIONAL :: lifetime_tracer! lifetime of a chemical tracer
 
-#ifdef __ICON_ART
 
     ! Local variables:
     TYPE(t_list_element), POINTER :: target_element
@@ -184,6 +179,8 @@ CONTAINS
        &          isteptype=isteptype, tlev_source=tlev_source,                  &
        &          vert_interp=vert_interp, hor_interp=hor_interp,                &
        &          tracer_info=tracer_info, in_group=in_group, post_op=post_op)
+
+#ifdef __ICON_ART
 
     ! Get the number of convection tracers
     IF(PRESENT(lconv_tracer)) THEN

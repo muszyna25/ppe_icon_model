@@ -18,12 +18,18 @@ use File::Path;
 
 my $target;
 my $srcdirs;
-my $with_ocean;
+my $enable_atmo;
+my $enable_ocean;
+my $enable_jsbach;
+my $enable_testbed;
 
 GetOptions( 
 	    'target=s'  => \$target,
             'srcdirs=s' => \$srcdirs,
-            'with_ocean=s' => \$with_ocean,
+            'enable_atmo=s' => \$enable_atmo,
+            'enable_ocean=s' => \$enable_ocean,
+            'enable_jsbach=s' => \$enable_jsbach,
+            'enable_testbed=s' => \$enable_testbed,
 	    ) or die "\n\nUsage: config/createMakefiles.pl --target=<OS_CPU> --srcdirs=< list of src directories>\n";  
 
 #__________________________________________________________________________________________________________________________________
@@ -55,12 +61,18 @@ my $build_path = &BuildSetup ($prefix, $target, \@directories);
 
 copy ("config/config.h", "${build_path}/include/config.h");
 
-opendir(DIR, "include") or die "Unable to open include:$!\n";
-my @incs = grep /\.(inc|h)/, readdir(DIR);
-closedir(DIR);
-foreach my $inc ( @incs ) {
-    copy ( "include/${inc}", "${build_path}/include/${inc}" );
-}
+my @incs = "";
+
+# as only cdi.inc is left and that has been replaced by the
+# iso-c-binding module file it is not required anymore.
+#
+#opendir(DIR, "include") or die "Unable to open include:$!\n";
+#my @incs = grep /\.(inc|h)/, readdir(DIR);
+#closedir(DIR);
+#foreach my $inc ( @incs ) {
+#    copy ( "include/${inc}", "${build_path}/include/${inc}" );
+#}
+
 
 if ( -d "externals/mtime/include" ) {
     opendir(DIR, "externals/mtime/include");
@@ -77,6 +89,24 @@ if ( -d "externals/yac/include" ) {
     closedir(DIR);
     foreach my $inc ( @incs ) {
 	copy ( "externals/yac/include/${inc}", "${build_path}/include/${inc}" );
+    }
+}
+
+if ( ($enable_jsbach eq "yes") and -d "src/lnd_phy_jsbach/include" ) {
+    opendir(DIR, "src/lnd_phy_jsbach/include");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach my $inc ( @incs ) {
+	copy ( "src/lnd_phy_jsbach/include/${inc}", "${build_path}/include/${inc}" );
+    }
+}
+
+if ( ($enable_ocean eq "yes") and -d "src/ocean/include" ) {
+    opendir(DIR, "src/ocean/include");
+    @incs = grep /\.(inc|h)/, readdir(DIR);
+    closedir(DIR);
+    foreach my $inc ( @incs ) {
+	copy ( "src/ocean/include/${inc}", "${build_path}/include/${inc}" );
     }
 }
 
@@ -181,12 +211,6 @@ foreach my $dir ( @directories ) {
 	print MAKEFILE "\n";
     }
     
-    if ($dir =~ m/^externals/) {
-	print MAKEFILE "%.o: %.F90\n";
-	print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
-	print MAKEFILE "\n\n";
-    }
-    
 #     print MAKEFILE "%.obj: %.f90\n";
 #     print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
 #     print MAKEFILE "\n";
@@ -284,17 +308,29 @@ foreach my $dir ( @directories ) {
 	}
 
     } else {
-	print MAKEFILE ".PHONY: create_version_c\n\n";
-	print MAKEFILE "create_version_c:\n";
-	print MAKEFILE "\t../../../config/pvcs.pl --srcdir ../../..\n\n";
-	print MAKEFILE "version.c: | create_version_c\n\n";
-	print MAKEFILE "version.o: version.c\n\n";
+	print MAKEFILE <<"__EOF__"
+.PHONY: create_version_c
+
+create_version_c:
+\t../../../config/pvcs.pl --srcdir ../../..
+
+version.c: | create_version_c
+
+version.o: version.c
+
+libicon.a: \$(OBJS)
+\t\$(AR) \$(ARFLAGS) \$@ \$(OBJS)
+
+__EOF__
+;
 	while ( my ($key, $value) = each(%target_programs) ) {
 	    my $okey = $key;
 	    $okey =~ s/ *$/.o/;	
-	    print MAKEFILE "$okey: $value\n";
-	    print MAKEFILE "../bin/$key: $okey \$(OBJS) version.o\n";
-	    print MAKEFILE "\t\$(FC) \$(LDFLAGS) -o \$@ \$< \$(OBJS) version.o \$(LIBS)\n\n";
+	    print MAKEFILE "$okey: $value
+../bin/$key: $okey libicon.a version.o
+\t\$(FC) \$(LDFLAGS) -o \$@ \$< libicon.a version.o \$(LIBS)
+
+";
 	}
     }
     
@@ -389,7 +425,9 @@ sub ScanDirectory {
         next if ($name eq "nh");
         next if ($name eq "phys");
         next if ($name eq "sw_options");
-        next if (($with_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice")) );
+        next if (($enable_ocean eq "no") and (($name eq "ocean") or ($name eq "sea_ice")) );
+        next if (($enable_jsbach eq "no") and ($name eq "lnd_phy_jsbach") );
+        next if (($enable_testbed eq "no") and ($name eq "testbed") and ($workpath eq "src") );
 
         if (-d $name){
 	    my $nextpath="$workpath/$name";

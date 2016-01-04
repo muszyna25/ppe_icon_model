@@ -55,7 +55,7 @@ MODULE mo_nwp_turbtrans_interface
   USE mo_run_config,           ONLY: ltestcase
   USE mo_nh_testcases_nml,     ONLY: nh_test_name
   USE mo_lnd_nwp_config,       ONLY: ntiles_total, ntiles_water, llake,  &
-    &                                isub_water, isub_lake, isub_seaice
+    &                                isub_lake, isub_seaice
 
   IMPLICIT NONE
 
@@ -127,7 +127,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
   REAL(wp), DIMENSION(nproma)   :: pres_sfc_t
 
   ! 2D half-level fields
-  REAL(wp), DIMENSION(nproma,3) :: z_ifc_t, rcld_t
+  REAL(wp), DIMENSION(nproma,3) :: z_ifc_t
+  REAL(wp), DIMENSION(nproma,3,ntiles_total+ntiles_water) :: rcld_t
 
   ! 2D full level fields (no tiles)
   REAL(wp), DIMENSION(nproma,2) :: u_t, v_t, temp_t, pres_t, qv_t, qc_t
@@ -345,12 +346,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
         prm_diag%u_10m(i_startidx:i_endidx,jb) = prm_diag%u_10m_t(i_startidx:i_endidx,jb,1)
         prm_diag%v_10m(i_startidx:i_endidx,jb) = prm_diag%v_10m_t(i_startidx:i_endidx,jb,1)
 
-        ! dynamic gusts
-        DO jc = i_startidx, i_endidx
-          prm_diag%dyn_gust(jc,jb) = nwp_dyn_gust(prm_diag%u_10m(jc,jb), prm_diag%v_10m(jc,jb), &
-            &  prm_diag%tcm(jc,jb), p_diag%u(jc,nlev,jb), p_diag%v(jc,nlev,jb),                 &
-            &  p_diag%u(jc,jk_gust(jc),jb), p_diag%v(jc,jk_gust(jc),jb) )
-        ENDDO
 
         prm_diag%tmax_2m(i_startidx:i_endidx,jb) = MAX(prm_diag%t_2m(i_startidx:i_endidx,jb), &
           &                                        prm_diag%tmax_2m(i_startidx:i_endidx,jb) )
@@ -413,8 +408,6 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             jc = ilist(ic)
 
             z_ifc_t (ic,1:3)    = p_metrics%z_ifc   (jc,nlev-1:nlevp1,jb)
-!MR: rcld: benoetigt nur fuer level nlev (als Nebenflaechenvariable)
-            rcld_t (ic,1:3)     = prm_diag%rcld     (jc,nlev-1:nlevp1,jb)
             u_t    (ic,1:2)     = p_diag%u          (jc,nlev-1:nlev  ,jb)
             v_t    (ic,1:2)     = p_diag%v          (jc,nlev-1:nlev  ,jb)
             temp_t (ic,1:2)     = p_diag%temp       (jc,nlev-1:nlev  ,jb)
@@ -427,6 +420,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             t_g_t  (ic,jt)      = lnd_prog_new%t_g_t(jc,jb,jt)
             qv_s_t (ic,jt)      = lnd_diag%qv_s_t   (jc,jb,jt)
             sai_t  (ic,jt)      = ext_data%atm%sai_t(jc,jb,jt)
+!MR: rcld: benoetigt nur fuer level nlev (als Nebenflaechenvariable)
+            rcld_t (ic,1:3,jt)  = prm_diag%rcld     (jc,nlev-1:nlevp1,jb)
             tvs_t  (ic,1:2,1,jt)= z_tvs             (jc,nlev-1:nlev,1)
             tvs_t  (ic,3,1,jt)  = prm_diag%tvs_s_t  (jc,jb,jt)      ! tile-specific for lowest level
             tkvm_t (ic,1,jt)    = prm_diag%tkvm     (jc,nlev,jb)
@@ -463,7 +458,7 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             &  tfm=tfm_t(:,jt), tfh=tfh_t(:,jt), tfv=tfv_t(:,jt),           & !inout
             &  tke=tvs_t(:,:,:,jt),                                         & !inout
             &  tkvm=tkvm_t(:,:,jt), tkvh=tkvh_t(:,:,jt),                    & !inout
-            &  rcld=rcld_t(:,:),                                            & !inout
+            &  rcld=rcld_t(:,:,jt),                                         & !inout
             &  t_2m=t_2m_t(:,jt), qv_2m=qv_2m_t(:,jt),                      & !out
             &  td_2m=td_2m_t(:,jt), rh_2m=rh_2m_t(:,jt),                    & !out
             &  u_10m=u_10m_t(:,jt), v_10m=v_10m_t(:,jt),                    & !out
@@ -542,6 +537,8 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
             z_tvs(jc,nlevp1,1)          = z_tvs(jc,nlevp1,1)+tvs_t(ic,3,1,jt)         * area_frac
             prm_diag%tkvm(jc,nlevp1,jb) = prm_diag%tkvm(jc,nlevp1,jb)+tkvm_t(ic,2,jt) * area_frac
             prm_diag%tkvh(jc,nlevp1,jb) = prm_diag%tkvh(jc,nlevp1,jb)+tkvh_t(ic,2,jt) * area_frac
+            prm_diag%rcld(jc,nlevp1,jb) = prm_diag%rcld(jc,nlevp1,jb)+rcld_t(ic,3,jt) * area_frac
+
 
             prm_diag%t_2m  (jc,jb) = prm_diag%t_2m(jc,jb)  + t_2m_t(ic,jt)  * area_frac
             prm_diag%qv_2m (jc,jb) = prm_diag%qv_2m(jc,jb) + qv_2m_t(ic,jt) * area_frac
@@ -573,20 +570,21 @@ SUBROUTINE nwp_turbtrans  ( tcall_turb_jg,                     & !>in
 
           ENDDO
 
-        ENDDO
-
-        ! Dynamic gusts are diagnosed from averaged values in order to avoid artifacts along coastlines
-        DO jc = i_startidx, i_endidx
-          prm_diag%dyn_gust(jc,jb) =  nwp_dyn_gust (prm_diag%u_10m(jc,jb),      &
-            &                                       prm_diag%v_10m(jc,jb),      &
-            &                                       prm_diag%tcm  (jc,jb),      &
-            &                                       p_diag%u      (jc,nlev,jb), &
-            &                                       p_diag%v      (jc,nlev,jb), &
-            &                                       p_diag%u(jc,jk_gust(jc),jb),&
-            &                                       p_diag%v(jc,jk_gust(jc),jb))
-        ENDDO
+        ENDDO  ! jt
 
       ENDIF ! tiles / no tiles
+
+
+      ! Dynamic gusts are diagnosed from averaged values in order to avoid artifacts along coastlines
+      DO jc = i_startidx, i_endidx
+        prm_diag%dyn_gust(jc,jb) =  nwp_dyn_gust (prm_diag%u_10m(jc,jb),      &
+          &                                       prm_diag%v_10m(jc,jb),      &
+          &                                       prm_diag%tcm  (jc,jb),      &
+          &                                       p_diag%u      (jc,nlev,jb), &
+          &                                       p_diag%v      (jc,nlev,jb), &
+          &                                       p_diag%u(jc,jk_gust(jc),jb),&
+          &                                       p_diag%v(jc,jk_gust(jc),jb))
+      ENDDO
 
       ! transform updated turbulent velocity scale back to TKE
       p_prog_rcf%tke(i_startidx:i_endidx,nlevp1,jb)= 0.5_wp*(z_tvs(i_startidx:i_endidx,nlevp1,1))**2

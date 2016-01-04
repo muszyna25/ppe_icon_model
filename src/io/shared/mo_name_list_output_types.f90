@@ -31,6 +31,7 @@ MODULE mo_name_list_output_types
   USE mo_io_units,              ONLY: filename_max
   USE mo_var_metadata_types,    ONLY: t_var_metadata
   USE mo_util_uuid,             ONLY: t_uuid
+  USE mo_util_string,           ONLY: tolower
   USE mo_communication,         ONLY: t_comm_gather_pattern
   USE mtime,                    ONLY: MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN
   USE mo_output_event_types,    ONLY: t_par_output_event, MAX_EVENT_NAME_STR_LEN
@@ -47,9 +48,10 @@ MODULE mo_name_list_output_types
   PUBLIC :: msg_io_shutdown
   PUBLIC :: IRLON, IRLAT, ILATLON
   PUBLIC :: ICELL, IEDGE, IVERT
-  PUBLIC :: sfs_name_list, ffs_name_list
-  PUBLIC :: second_tos, first_tos
   PUBLIC :: GRP_PREFIX
+  PUBLIC :: TILE_PREFIX
+  PUBLIC :: GRB2_GRID_INFO_NAME, GRB2_GRID_INFO
+
   ! derived data types:
   PUBLIC :: t_mem_win
   PUBLIC :: t_reorder_info
@@ -65,6 +67,8 @@ MODULE mo_name_list_output_types
   PUBLIC :: t_output_file
   ! global variables
   PUBLIC :: all_events
+  ! utility subroutines
+  PUBLIC :: is_grid_info_var
 
 
   !------------------------------------------------------------------------------------------------
@@ -73,6 +77,8 @@ MODULE mo_name_list_output_types
 
   ! prefix for group identifier in output namelist
   CHARACTER(len=6), PARAMETER :: GRP_PREFIX = "group:"
+  ! prefix for tile-group identifier in output namelist
+  CHARACTER(len=6), PARAMETER :: TILE_PREFIX = "tiles:"
 
   ! Tags for communication between compute PEs and I/O PEs
   INTEGER, PARAMETER :: msg_io_start    = 12345
@@ -90,27 +96,20 @@ MODULE mo_name_list_output_types
   INTEGER, PARAMETER :: IEDGE                 = 2
   INTEGER, PARAMETER :: IVERT                 = 3
 
-  ! fields for which typeOfSecondFixedSurface must be re-set
-  CHARACTER(LEN=12), PARAMETER :: sfs_name_list(10) =(/"z_ifc       ", "topography_c", &
-    &                                                  "hbas_con    ", "htop_con    ", &
-    &                                                  "hzerocl     ", "clcl        ", &
-    &                                                  "htop_dc     ", "c_t_lk      ", &
-    &                                                  "h_b1_lk     ", "snowlmt     "/)
-  ! typeOfSecondFixedSurface to be used
-  INTEGER          , PARAMETER :: second_tos(10)    =(/101, 101, 101, 101, 101, 1, 101, 162, 165, 101/)
-
-  ! fields for which typeOfFirstFixedSurface must be re-set
-  CHARACTER(LEN=12), PARAMETER :: ffs_name_list(4) =(/"t_mnw_lk    ", "depth_lk    ", &
-    &                                                 "t_wml_lk    ", "h_ml_lk     "/)
-  ! typeOfFirstFixedSurface to be used
-  INTEGER          , PARAMETER :: first_tos(4)    =(/1, 1, 1, 1/)
-
   ! The following parameter decides whether physical or logical patches are output
   ! and thus whether the domain number in output name lists pertains to physical
   ! or logical patches.
   LOGICAL, PARAMETER :: l_output_phys_patch = .TRUE. !** DO NOT CHANGE - needed for GRIB output **!
 
   INTEGER, PARAMETER :: max_z_axes = 34
+
+  ! Character-strings denoting the "special" GRIB2 output fields that
+  ! describe the grid coordinates. These fields are ignored by most
+  ! output routines and only used by "set_grid_info_grb2":
+  CHARACTER(LEN=5), PARAMETER :: GRB2_GRID_INFO = "GRID:"
+  CHARACTER(LEN=9), PARAMETER :: GRB2_GRID_INFO_NAME(0:3,2) = &
+    &  RESHAPE( (/ "GRID:RLON", "GRID:CLON", "GRID:ELON", "GRID:VLON", &
+    &              "GRID:RLAT", "GRID:CLAT", "GRID:ELAT", "GRID:VLAT" /), (/4,2/) )
 
   !------------------------------------------------------------------------------------------------
   ! DERIVED DATA TYPES
@@ -414,6 +413,7 @@ MODULE mo_name_list_output_types
     ! The following members are set during open
     INTEGER                               :: cdiFileId
     INTEGER                               :: cdiVlistId                       !< cdi vlist handler
+    INTEGER                               :: cdiVlistId_orig                  !< cdi vlist handler, storing the model internal vlist id during append
     INTEGER                               :: cdiCellGridID
     INTEGER                               :: cdiSingleGridID
     INTEGER                               :: cdiVertGridID
@@ -421,9 +421,11 @@ MODULE mo_name_list_output_types
     INTEGER                               :: cdiLonLatGridID
     INTEGER                               :: cdiZaxisID(max_z_axes)           !< All types of possible Zaxis ID's
     INTEGER                               :: cdiTaxisID
+    INTEGER                               :: cdiTaxisID_orig
     INTEGER                               :: cdiTimeIndex
     INTEGER                               :: cdiInstID                        !< output generating institute
     INTEGER                               :: cdi_grb2(3,2)                    !< geographical position: (GRID, latitude/longitude)
+    LOGICAL                               :: appending = .FALSE.              !< the current file is appended (.true.), otherwise .false. 
 
   END TYPE t_output_file
 
@@ -432,5 +434,22 @@ MODULE mo_name_list_output_types
   ! unified output event, indicating which PE performs a write process
   ! at which step:
   TYPE(t_par_output_event), POINTER       :: all_events
+
+CONTAINS
+
+  !------------------------------------------------------------------------------------------------
+  !> Utility routine: .TRUE. if the variable corresponds to a "grid
+  !  info" variable like clon, clat, elon, elat, etc. which must be
+  !  ignored by most output subroutines.
+  !
+  FUNCTION is_grid_info_var(varname)
+    LOGICAL :: is_grid_info_var
+    CHARACTER(len=*), INTENT(IN) :: varname
+    ! local variables
+    INTEGER :: idx
+
+    idx = INDEX(TRIM(varname), TRIM(tolower(GRB2_GRID_INFO)))
+    is_grid_info_var = (idx > 0)
+  END FUNCTION is_grid_info_var
 
 END MODULE mo_name_list_output_types

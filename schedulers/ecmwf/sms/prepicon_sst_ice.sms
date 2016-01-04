@@ -22,7 +22,7 @@
 
 echo "PREPICON_SST_ICE.SMS"
 
-SCRIPTDIR=%SCPERM%/icon-dev/scripts
+SCRIPTDIR=%SCPERM%/%USER_ICON_DIR%/scripts
 SSTICEDIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/sstice/%YYYY%
 
 TMPDIR="${TEMP}"
@@ -59,6 +59,7 @@ export MP_INFOLEVEL=2
 export XLFRTEOPTS=err_recovery=no
 
 export ICON_THREADS=%ICONTHREADS%
+export OMP_NUM_THREADS=$EC_threads_per_task
 export OMP_STACKSIZE=400M
 export OMP_SCHEDULE="static"
 export OMP_DYNAMIC="false"

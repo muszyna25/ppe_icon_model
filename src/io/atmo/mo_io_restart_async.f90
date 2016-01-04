@@ -19,7 +19,7 @@
 !!
 !!
 
-#if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI))
+#if ! (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER) || defined (__PGI) || defined (NAGFOR))
 #define HAVE_F2003
 #endif
 MODULE mo_io_restart_async
@@ -27,8 +27,8 @@ MODULE mo_io_restart_async
   USE mo_util_file,               ONLY: util_symlink, util_unlink, util_islink
   USE mo_exception,               ONLY: finish, message, message_text, get_filename_noext
   USE mo_kind,                    ONLY: wp, i8, dp
-  USE mo_datetime,                ONLY: t_datetime, iso8601
-  USE mo_io_units,                ONLY: nerr, filename_max, find_next_free_unit
+  USE mo_datetime,                ONLY: t_datetime, iso8601, iso8601extended
+  USE mo_io_units,                ONLY: nerr, filename_max
   USE mo_var_list,                ONLY: nvar_lists, var_lists, new_var_list, delete_var_lists
   USE mo_linked_list,             ONLY: t_list_element, t_var_list
   USE mo_io_restart_attributes,   ONLY: set_restart_attribute, delete_attributes, get_restart_attribute, &
@@ -37,7 +37,8 @@ MODULE mo_io_restart_async
   USE mo_dynamics_config,         ONLY: nold, nnow, nnew, nnew_rcf, nnow_rcf, iequations
   USE mo_grid_config,             ONLY: l_limited_area
   USE mo_impl_constants,          ONLY: IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER, INH_ATMOSPHERE, &
-    &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH
+    &                                   LEAPFROG_EXPL, LEAPFROG_SI, SUCCESS, MAX_CHAR_LENGTH,        &
+    &                                   TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,      ONLY: t_var_metadata
   USE mo_io_restart_namelist,     ONLY: nmls, restart_namelist, delete_restart_namelists, &
     &                                   set_restart_namelist, get_restart_namelist
@@ -54,8 +55,23 @@ MODULE mo_io_restart_async
   USE mo_run_config,              ONLY: msg_level, restart_filename
   USE mo_ha_dyn_config,           ONLY: ha_dyn_config
   USE mo_model_domain,            ONLY: p_patch
-  USE mo_util_sysinfo,            ONLY: util_user_name, util_os_system, util_node_name
-  USE mo_cdi_constants
+  USE mo_cdi,                     ONLY: CDI_UNDEFID, FILETYPE_NC2, FILETYPE_NC4, CDI_GLOBAL, DATATYPE_FLT64, DATATYPE_INT32, &
+                                      & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
+                                      & ZAXIS_HYBRID_HALF, ZAXIS_LAKE_BOTTOM, ZAXIS_MIX_LAYER, ZAXIS_SEDIMENT_BOTTOM_TW, &
+                                      & ZAXIS_SURFACE, ZAXIS_TOA, TIME_VARIABLE, ZAXIS_DEPTH_BELOW_LAND, GRID_UNSTRUCTURED, &
+                                      & vlistDefAttInt, vlistDefVar, zaxisCreate, gridCreate, cdiEncodeDate, cdiEncodeTime, &
+                                      & streamDefTimestep, taxisCreate, vlistDefAttFlt, vlistDefAttTxt, vlistCreate, &
+                                      & streamOpenWrite, taxisDestroy, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, &
+                                      & streamWriteVarSlice, streamDefVlist, cdiGetStringError, vlistDefVarDatatype, &
+                                      & vlistDefVarName, zaxisDefLevels, gridDefNvertex, zaxisDefVct, vlistDefVarLongname, &
+                                      & vlistDefVarUnits, vlistDefVarMissval, gridDefXlongname, gridDefYlongname, vlistDefTaxis, &
+                                      & taxisDefVdate, taxisDefVtime, gridDefXname, gridDefYname, gridDefXunits, gridDefYunits
+  USE mo_cdi_constants,           ONLY: ZA_SURFACE, ZA_HYBRID, ZA_HYBRID_HALF, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, &
+                                      & ZA_SNOW, ZA_SNOW_HALF, ZA_HEIGHT_2M, ZA_HEIGHT_10M, ZA_TOA, ZA_LAKE_BOTTOM, ZA_MIX_LAYER, &
+                                      & ZA_LAKE_BOTTOM_HALF, ZA_SEDIMENT_BOTTOM_TW_HALF, ZA_DEPTH_BELOW_SEA, &
+                                      & ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_DEPTH_RUNOFF_S, ZA_DEPTH_RUNOFF_G, &
+                                      & GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL
+  USE mo_cf_convention
   USE mo_util_string,             ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                   int2string
 
@@ -70,7 +86,7 @@ MODULE mo_io_restart_async
     &                                   p_send_packed, p_recv_packed, p_bcast_packed,     &
     &                                   p_pack_int, p_pack_bool, p_pack_real,             &
     &                                   p_unpack_int, p_unpack_bool, p_unpack_real,       &
-    &                                   p_int_byte
+    &                                   p_int_byte, get_my_mpi_work_id
 
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
@@ -125,11 +141,6 @@ MODULE mo_io_restart_async
 
   ! common constant strings
   CHARACTER(LEN=*), PARAMETER :: MODUL_NAME               = 'shared/mo_io_restart_async/'
-  CHARACTER(LEN=*), PARAMETER :: MODEL_TITLE              = 'ICON simulation'
-  CHARACTER(LEN=*), PARAMETER :: MODEL_INSTITUTION        = &
-    &                            'Max Planck Institute for Meteorology/Deutscher Wetterdienst'
-  CHARACTER(LEN=*), PARAMETER :: MODEL_VERSION            = '1.2.2'
-  CHARACTER(LEN=*), PARAMETER :: MODEL_REFERENCES         = 'see MPIM/DWD publications'
   CHARACTER(LEN=*), PARAMETER :: ALLOCATE_FAILED          = 'ALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: DEALLOCATE_FAILED        = 'DEALLOCATE failed!'
   CHARACTER(LEN=*), PARAMETER :: UNKNOWN_GRID_TYPE        = 'Unknown grid type!'
@@ -1714,6 +1725,7 @@ CONTAINS
 
     ! get the number of name lists
     IF(.NOT. my_process_is_restart()) nv = nmls
+    CALL p_bcast(nv, 0, p_comm_work) ! intracommunicator
     CALL p_bcast(nv, bcast_root, p_comm_work_2_restart)
 
 #ifdef HAVE_F2003
@@ -1740,12 +1752,12 @@ CONTAINS
     DO iv = 1, nv
       ! send name of the name list
       list_name = ''
-      IF (my_process_is_work()) CALL get_restart_namelist(iv, list_name)
+      IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) CALL get_restart_namelist(iv, list_name)
       CALL p_bcast(list_name, bcast_root, p_comm_work_2_restart)
 
       ! send text of the name list
       list_text = ''
-      IF (my_process_is_work()) list_text = TRIM(restart_namelist(iv)%text)
+      IF (my_process_is_work() .AND. (get_my_mpi_work_id() == 0)) list_text = TRIM(restart_namelist(iv)%text)
       CALL p_bcast(list_text, bcast_root, p_comm_work_2_restart)
 
       ! store name list parameters
@@ -2318,16 +2330,12 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LENGTH) :: attrib_name
     INTEGER                        :: jp, jp_end, jg, nlev_soil, &
       &                               nlev_snow, nlev_ocean, nice_class, ierrstat, &
-      &                               nlena, nlenb, nlenc, nlend, i,current_jfile
+      &                               i,current_jfile
 
     CHARACTER(LEN=*), PARAMETER    :: subname = MODUL_NAME//'set_restart_attributes'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int  = '(a,i2.2)'
     CHARACTER(LEN=*), PARAMETER    :: attrib_format_int2 = '(a,i2.2,a,i2.2)'
 
-    CHARACTER(LEN=256)             :: executable, user_name, os_name, host_name, &
-      &                               tmp_string
-    CHARACTER(LEN=  8)             :: date_string
-    CHARACTER(LEN= 10)             :: time_string
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
 
 #ifdef DEBUG
@@ -2337,41 +2345,22 @@ CONTAINS
     ! delete old attributes
     CALL delete_attributes()
 
-    ! get environment attributes
-    CALL get_command_argument(0, executable, nlend)
-    CALL date_and_time(date_string, time_string)
-
-    tmp_string = ''
-    CALL util_os_system (tmp_string, nlena)
-    os_name = tmp_string(1:nlena)
-
-    tmp_string = ''
-    CALL util_user_name (tmp_string, nlenb)
-    user_name = tmp_string(1:nlenb)
-
-    tmp_string = ''
-    CALL util_node_name (tmp_string, nlenc)
-    host_name = tmp_string(1:nlenc)
-
-    ! set CD-Convention required restart attributes
-    CALL set_restart_attribute('title',       &
-         MODEL_TITLE)
-    CALL set_restart_attribute('institution', &
-         MODEL_INSTITUTION)
-    CALL set_restart_attribute('source',      &
-         'ICON'//'-'//MODEL_VERSION)
-    CALL set_restart_attribute('history',     &
-         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
-    CALL set_restart_attribute('references',  &
-         MODEL_REFERENCES)
-    CALL set_restart_attribute('comment',     &
-         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
+    ! set CF-Convention required restart attributes
+    !
+    CALL set_restart_attribute('title',       TRIM(cf_global_info%title))
+    CALL set_restart_attribute('institution', TRIM(cf_global_info%institution))
+    CALL set_restart_attribute('source',      TRIM(cf_global_info%source))
+    CALL set_restart_attribute('history',     TRIM(cf_global_info%history))
+    CALL set_restart_attribute('references',  TRIM(cf_global_info%references))
+    CALL set_restart_attribute('comment',     TRIM(cf_global_info%comment))
 
     ! set restart time
     p_ra => restart_args
     CALL set_restart_attribute ('current_caltime', p_ra%datetime%caltime)
     CALL set_restart_attribute ('current_calday' , p_ra%datetime%calday)
     CALL set_restart_attribute ('current_daysec' , p_ra%datetime%daysec)
+
+    CALL set_restart_attribute('tc_startdate', iso8601extended(p_ra%datetime))
 
     ! set no. of domains
     IF (p_pd%l_opt_ndom) THEN
@@ -2534,11 +2523,11 @@ CONTAINS
       time_level = ICHAR(p_info%name(idx+3:idx+3)) - ICHAR('0')
 
       ! get information about time level to be skipped for current field
-      IF (p_info%tlev_source == 0) THEN
+      IF (p_info%tlev_source == TLEV_NNOW) THEN
         IF (time_level == nnew(id))                    lskip_timelev = .TRUE.
         ! this is needed to skip the extra time levels allocated for nesting
         IF (lskip_extra_timelevs .AND. time_level > 2) lskip_timelev = .TRUE.
-      ELSE IF (p_info%tlev_source == 1) THEN
+      ELSE IF (p_info%tlev_source == TLEV_NNOW_RCF) THEN
         IF (time_level == nnew_rcf(id)) lskip_timelev = .TRUE.
       ENDIF
     ENDIF
@@ -2796,7 +2785,8 @@ CONTAINS
     TYPE(t_reorder_data), POINTER   :: p_ri
     TYPE(t_var_data), POINTER       :: p_vars(:)
     REAL(wp), POINTER               :: r_ptr(:,:,:)
-    INTEGER                         :: iv, mpi_error, nindex, ierrstat, nlevs, i, jk
+    INTEGER                         :: iv, mpi_error, nindex, ierrstat, nlevs, i, jk, &
+      &                                var_ref_pos
     INTEGER(i8)                     :: ioff
     CHARACTER(LEN=*), PARAMETER     :: subname = MODUL_NAME//'compute_write_var_list'
 
@@ -2857,10 +2847,34 @@ CONTAINS
           ALLOCATE(r_ptr(p_info%used_dimensions(1),1,p_info%used_dimensions(2)), &
             &      STAT=ierrstat)
           IF (ierrstat /= SUCCESS) CALL finish(subname, ALLOCATE_FAILED)
-          r_ptr(:,1,:) = p_vars(iv)%r_ptr(:,:,nindex,1,1)
+          var_ref_pos = 3
+          IF (p_info%lcontained)  var_ref_pos = p_info%var_ref_pos
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            r_ptr(:,1,:) = p_vars(iv)%r_ptr(nindex,:,:,1,1)
+          CASE (2)
+            r_ptr(:,1,:) = p_vars(iv)%r_ptr(:,nindex,:,1,1)
+          CASE (3)
+            r_ptr(:,1,:) = p_vars(iv)%r_ptr(:,:,nindex,1,1)
+          CASE default
+            CALL finish(SUBNAME, "internal error!")
+          END SELECT
         CASE (3)
           ! copy the pointer
-          r_ptr => p_vars(iv)%r_ptr(:,:,:,nindex,1)
+          var_ref_pos = 4
+          IF (p_info%lcontained)  var_ref_pos = p_info%var_ref_pos
+          SELECT CASE(var_ref_pos)
+          CASE (1)
+            r_ptr => p_vars(iv)%r_ptr(nindex,:,:,:,1)
+          CASE (2)
+            r_ptr => p_vars(iv)%r_ptr(:,nindex,:,:,1)
+          CASE (3)
+            r_ptr => p_vars(iv)%r_ptr(:,:,nindex,:,1)
+          CASE (4)
+            r_ptr => p_vars(iv)%r_ptr(:,:,:,nindex,1)
+          CASE default
+            CALL finish(SUBNAME, "internal error!")
+          END SELECT
         CASE (4)
           CALL message(subname, p_info%name)
           CALL finish(subname,'4d arrays not handled yet.')
@@ -3056,10 +3070,10 @@ CONTAINS
       ! set optional parameters
       CALL vlistDefVarName(vlistID, varID, TRIM(p_info%name))
       IF (LEN_TRIM(p_info%cf%long_name) > 0) THEN
-        CALL vlistDefVarLongname(vlistID, varID, p_info%cf%long_name)
+        CALL vlistDefVarLongname(vlistID, varID, TRIM(p_info%cf%long_name))
       ENDIF
       IF (LEN_TRIM(p_info%cf%units) > 0) THEN
-        CALL vlistDefVarUnits(vlistID, varID, p_info%cf%units)
+        CALL vlistDefVarUnits(vlistID, varID, TRIM(p_info%cf%units))
       ENDIF
 
       ! currently only real valued variables are allowed, so we can always use info%missval%rval
@@ -3085,8 +3099,8 @@ CONTAINS
 
     TYPE(t_restart_file), POINTER     :: p_rf
     TYPE(t_v_grid), POINTER           :: p_vgd
-    REAL(wp)                          :: real_attribute
-    INTEGER                           :: i, status, int_attribute, nlevp1
+    REAL(wp)                          :: real_attribute(1)
+    INTEGER                           :: i, status, int_attribute(1), nlevp1
     LOGICAL                           :: bool_attribute
     CHARACTER(LEN=MAX_NAME_LENGTH)    :: attribute_name, text_attribute
     CHARACTER(LEN=*), PARAMETER       :: subname = MODUL_NAME//'init_restart_vlist'
@@ -3127,7 +3141,7 @@ CONTAINS
 
     ! 2.3. real attributes
     DO i = 1, restart_attributes_count_real()
-      CALL get_restart_attribute(i, attribute_name, real_attribute)
+      CALL get_restart_attribute(i, attribute_name, real_attribute(1))
       status = vlistDefAttFlt(p_rf%cdiVlistID, CDI_GLOBAL,           &
            &                  TRIM(attribute_name),                  &
            &                  DATATYPE_FLT64,                        &
@@ -3141,7 +3155,7 @@ CONTAINS
 
     ! 2.4. integer attributes
     DO i = 1, restart_attributes_count_int()
-      CALL get_restart_attribute(i, attribute_name, int_attribute)
+      CALL get_restart_attribute(i, attribute_name, int_attribute(1))
       status = vlistDefAttInt(p_rf%cdiVlistID, CDI_GLOBAL,           &
            &                  TRIM(attribute_name),                  &
            &                  DATATYPE_INT32,                        &
@@ -3157,9 +3171,9 @@ CONTAINS
     DO i = 1, restart_attributes_count_bool()
       CALL get_restart_attribute(i, attribute_name, bool_attribute)
       IF (bool_attribute) THEN
-        int_attribute = 1
+        int_attribute(1) = 1
       ELSE
-        int_attribute = 0
+        int_attribute(1) = 0
       ENDIF
       status = vlistDefAttInt(p_rf%cdiVlistID, CDI_GLOBAL,           &
            &                  TRIM(attribute_name),                  &
@@ -3352,7 +3366,7 @@ CONTAINS
     ! replace keywords in file name
     p_rf%filename = TRIM(with_keywords(keywords, TRIM(restart_filename)))
 
-    p_rf%cdiFileID = streamOpenWrite(p_rf%filename, restart_type)
+    p_rf%cdiFileID = streamOpenWrite(TRIM(p_rf%filename), restart_type)
 
     IF (p_rf%cdiFileID < 0) THEN
       CALL cdiGetStringError(p_rf%cdiFileID, cdiErrorText)

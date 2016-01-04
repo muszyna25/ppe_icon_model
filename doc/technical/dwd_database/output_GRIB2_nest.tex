@@ -5,6 +5,21 @@
 \section{Available output fields}\label{nest:sec_outfields}
 % --------------------------------------------------------------------------------
 
+\begin{table}[t]
+  \centering
+  \begin{tabular}{|p{5cm}|p{4.5cm}|p{4.5cm}|}\hline
+    \rowcolor{Gray}
+                               &    {\centering\textbf{global lat-lon}}          &     {\centering\textbf{EU nest lat-lon}} \\ \hline\hline
+    % ----------------------------------------------------------------------------------------------------------------------------------------
+    geogr. coordinates         &    $  0.0^\degree$          -- $359.75^\degree$                     &     $ 23.5^\degree~\text{W}$ -- $62.5^\degree~\text{E}$, \\
+                               &    $ 90.0^\degree~\text{S}$ -- $ 90.0^\degree~\text{N}$              &     $ 29.5^\degree~\text{N}$ -- $70.5^\degree~\text{N}$ \\
+    mesh size                  &    $0.25^\degree$                                &     $0.0625^\degree$ \\
+    \hline
+  \end{tabular}
+  \caption{Summary of the latitude-longitude grids for ICON global and ICON-EU nest output.}%
+  \label{tab:ICON_latlon_summary}
+\end{table}
+
 This section contains a list of output fields that are available with
 the launch of the ICON-EU nest. See Fig.~\ref{fig:EU_nest} on page~\pageref{fig:EU_nest} 
 for details regarding the nest location and extent.
@@ -26,14 +41,16 @@ forecast time and output intervals is provided in Figure \ref{fig:forecast_lengt
 Output is available on two distinct horizontal grids: 
 \begin{itemize}
   \item a native triangular grid with an average resolution of $6.5\,\mathrm{km}$, and
-  \item a regular latitude-longitude grid with a resolution of $\Delta \lambda = \Delta \Phi=0.0625^{\circ}$. 
+  \item a regular latitude-longitude grid with a resolution of $\Delta \lambda = \Delta \Phi=0.0625^{\circ}$.\\
+    See Table~\ref{tab:ICON_latlon_summary} for a summary.
 \end{itemize}
 %
 Note that output on the native (triangular) grid is limited to $48\,\mathrm{h}$, whereas output on the regular 
-grid is generally available til forecast end. See also Figure \ref{fig:forecast_length_nest}.
+grid is generally available until forecast end. See also Figure \ref{fig:forecast_length_nest}.
 
-Again, in the subsequent tables the availability of specific field on the native grid ($\,$\markRed$\,$), 
+Again, in the subsequent tables the availability of specific fields on the native grid ($\,$\markRed$\,$), 
 on the lat-lon grid($\,$\markBlue$\,$), or on both grids ($\,$\markRed\markBlue$\,$) is marked in the leftmost column.
+
 
 
 % --------------------------------------------------------------------------------
@@ -107,39 +124,39 @@ On the native (triangular) grid no output is generated for pressure levels.
       Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products 
       interpolated to pressure levels \pressurelevelsRegular.}\label{table:nest:output_pressurelevels_regular}}
   
-  \groups[][ll] & FI                         &  Geopotential                                                                              &               0                                   &                     3                       &                    4                       &                 100/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$   \\
-  \groups[][ll] & OMEGA                      &  Vertical velocity in pressure coordinates ($\omega=\mathrm{d}p/\mathrm{d}t$)              &               0                                   &                     2                       &                    8                       &                 100/--                          &                      inst                   &        $\mathrm{Pa\,s^{-1}}$  \\
-  \groups[][ll] & RELHUM                     &  Relative humidity (with respect to water)                                                 &               0                                   &                     1                       &                    1                       &                 100/--                          &                      inst                   &        $\mathrm{\%}$          \\
-  \groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 100/--                          &                      inst                   &        $\mathrm{K}$          \\
-  \groups[][ll] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
-  \groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
+  \groups[][ll] & FI                         &  Geopotential                                                                              &               0                                   &                     3                       &                    4                       &                 100/--                          &                      inst                   &        $\mathrm{m^{2}\,s^{-2}}$   \\ % pl
+  \groups[][ll] & OMEGA                      &  Vertical velocity in pressure coordinates ($\omega=\mathrm{d}p/\mathrm{d}t$)              &               0                                   &                     2                       &                    8                       &                 100/--                          &                      inst                   &        $\mathrm{Pa\,s^{-1}}$  \\     % pl
+  \groups[][ll] & RELHUM                     &  Relative humidity (with respect to water)                                                 &               0                                   &                     1                       &                    1                       &                 100/--                          &                      inst                   &        $\mathrm{\%}$          \\     % pl
+  \groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 100/--                          &                      inst                   &        $\mathrm{K}$          \\      % pl
+  \groups[][ll] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\     % pl
+  \groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 100/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\     % pl
   
 \end{vartable}
 
 
 
-% --------------------------------------------------------------------------------
-\subsection{Multi-level fields interpolated to height levels}
-% --------------------------------------------------------------------------------
-
-
+%% --------------------------------------------------------------------------------
+%\subsection{Multi-level fields interpolated to height levels}
+%% --------------------------------------------------------------------------------
 %
-% List of pressure levels taken from COSMO-EU DB documentation, Section 5.1 (2015-03-27)
 %
-\renewcommand{\heightlevelsRegular}{$10000$, $5000$, $3000$, $2000$, $1500$, $1000$, $500$, $100$~$\mathrm{m}$}
-
-\begin{vartable}{\caption{Regular grid output on the ICON EU Nest:
-      Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to height levels \heightlevelsRegular
-      ~(above mean sea level).}\label{table:nest:output_heightlevels_regular}}
-  
-  \groups[][ll] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ 
-  \groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
-  \groups[][ll] & W                          &  Vertical wind                                                                             &               0                                   &                     2                       &                    9                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\
-  \groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 102/--                          &                      inst                   &        $\mathrm{K}$          \\
-  \groups[][ll] & P                          &  Pressure                                                                                  &               0                                   &                     3                       &                    0                       &                 102/--                          &                      inst                   &        $\mathrm{Pa}$         \\
-
-\end{vartable}
-
+%%
+%% List of pressure levels taken from COSMO-EU DB documentation, Section 5.1 (2015-03-27)
+%%
+%\renewcommand{\heightlevelsRegular}{$10000$, $5000$, $3000$, $2000$, $1500$, $1000$, $500$, $100$~$\mathrm{m}$}
+%
+%\begin{vartable}{\caption{Regular grid output on the ICON EU Nest:
+%      Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to height levels \heightlevelsRegular
+%      ~(above mean sea level).}\label{table:nest:output_heightlevels_regular}}
+%  
+%  \groups[][ll] & U                          &  Zonal wind                                                                                &               0                                   &                     2                       &                    2                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ % pl
+%  \groups[][ll] & V                          &  Meridional wind                                                                           &               0                                   &                     2                       &                    3                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ % pl
+%  \groups[][ll] & W                          &  Vertical wind                                                                             &               0                                   &                     2                       &                    9                       &                 102/--                          &                      inst                   &        $\mathrm{m\,s^{-1}}$   \\ % pl
+%  \groups[][ll] & T                          &  Temperature                                                                               &               0                                   &                     0                       &                    0                       &                 102/--                          &                      inst                   &        $\mathrm{K}$          \\  % pl
+%  \groups[][ll] & P                          &  Pressure                                                                                  &               0                                   &                     3                       &                    0                       &                 102/--                          &                      inst                   &        $\mathrm{Pa}$         \\  % pl
+%
+%\end{vartable}
+%
 
 
 % --------------------------------------------------------------------------------
@@ -159,24 +176,7 @@ On the native (triangular) grid no output is generated for pressure levels.
 
 \end{vartable}
 
-\footnotetext[5]{Planned, but not yet available}
-
-% --------------------------------------------------------------------------------
-\subsection{Surface fields interpolated to msl}
-% --------------------------------------------------------------------------------
-
-% NOTE:
-%
-% "PMSL" is not among the variables required to drive INT2LM/COSMO-DE,
-%    see "~for1han/const/iglo/namelst.output.i2l"
-%
-\begin{vartable}{\caption{Forecast ($VV>0$) and initialised analysis ($VV=0$) products interpolated to msl}}
-  
-  \groups[][ll] & PMSL                       &  Surface pressure reduced to msl                                                           &               0                                   &                     3                       &                    1                       &                 101/--                          &                      inst                   &        $\mathrm{Pa}$   \\
-  
-\end{vartable}
-
-
+\footnotetext[5]{T\_S is identical to T\_SO at level 0. It will no longer be available in the future. Use T\_SO(0) instead of T\_S.} 
 
 
 % --------------------------------------------------------------------------------
@@ -193,9 +193,9 @@ On the native (triangular) grid no output is generated for pressure levels.
 
 \begin{vartable}{\caption[]{Multi-level forecast ($VV>0$) and initialised analysis ($VV=0$) products of the soil model}}
 
-  \groups[tri][ll] & T\_SO                          &  Soil temperature                                                                      &               2                                   &                     3                       &                    18                       &               106/--                           &                      inst                   &        $\mathrm{K}$   \\
-  \groups[tri][ll] & W\_SO                          &  Soil moisture integrated over individual soil layers  (ice + liquid)                  &               2                                   &                     3                       &                    20                       &               106/106                          &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\
-  \groups[   ][ll] & W\_SO\_ICE                     &  Soil ice content integrated over individual soil layers                               &               2                                   &                     3                       &                    22                       &               106/106                          &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\
+  \groups[tri][ll] & T\_SO                          &  Soil temperature                                                                      &               2                                   &                     3                       &                    18                       &               106/--                           &                      inst                   &        $\mathrm{K}$   \\           % i2l
+  \groups[tri][ll] & W\_SO                          &  Soil moisture integrated over individual soil layers  (ice + liquid)                  &               2                                   &                     3                       &                    20                       &               106/106                          &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\  % i2l
+  \groups[tri][ll] & W\_SO\_ICE                     &  Soil ice content integrated over individual soil layers                               &               2                                   &                     3                       &                    22                       &               106/106                          &                      inst                   &        $\mathrm{kg\,m^{-2}}$   \\
   
 \end{vartable}
 
@@ -233,23 +233,23 @@ Soil moisture \texttt{W\_SO} is prognosed for layers $1$ to $6$. In the two lowe
 % --------------------------------------------------------------------------------
 
 
-\begin{vartable}{\caption[]{Initialised analysis ($VV=0$) products of the lake model model on the ICON EU nest.}}
+%\begin{vartable}{\caption[]{Initialised analysis ($VV=0$) products of the lake model model on the ICON EU nest.}}
 
-  \groups[tri][ll] & C\_T\_LK                       &  Shape factor with respect to the temperature profile in the thermocline               &               1                                   &                     2                       &                    10                       &               162/166                          &                      inst                   &        $1$    \\
-  \groups[tri][ll] & H\_ML\_LK                      &  Mixed-layer depth                                                                     &               1                                   &                     2                       &                     0                       &                 1/166                          &                      inst                   &        $\mathrm{m}$ \\
-  \groups[tri][ll] & T\_BOT\_LK                     &  Temperature at the water-bottom sediment interface                                    &               1                                   &                     2                       &                     1                       &               162/--                           &                      inst                   &        $\mathrm{K}$ \\
-  \groups[tri][ll] & T\_MNW\_LK                     &  Mean temperature of the water column                                                  &               1                                   &                     2                       &                     1                       &                 1/162                          &                      inst                   &        $\mathrm{K}$ \\
-  \groups[tri][ll] & T\_WML\_LK                     &  Mixed-layer temperature                                                               &               1                                   &                     2                       &                     1                       &                 1/166                          &                      inst                   &        $\mathrm{K}$ \\
+%  \groups[tri][  ] & C\_T\_LK                       &  Shape factor with respect to the temperature profile in the thermocline               &               1                                   &                     2                       &                    10                       &               162/166                          &                      inst                   &        $1$    \\
+%  \groups[tri][  ] & H\_ML\_LK                      &  Mixed-layer depth                                                                     &               1                                   &                     2                       &                     0                       &                 1/166                          &                      inst                   &        $\mathrm{m}$ \\
+%  \groups[tri][  ] & T\_BOT\_LK                     &  Temperature at the water-bottom sediment interface                                    &               1                                   &                     2                       &                     1                       &               162/--                           &                      inst                   &        $\mathrm{K}$ \\
+%  \groups[tri][  ] & T\_MNW\_LK                     &  Mean temperature of the water column                                                  &               1                                   &                     2                       &                     1                       &                 1/162                          &                      inst                   &        $\mathrm{K}$ \\
+%  \groups[tri][  ] & T\_WML\_LK                     &  Mixed-layer temperature                                                               &               1                                   &                     2                       &                     1                       &                 1/166                          &                      inst                   &        $\mathrm{K}$ \\
 
-\end{vartable}
+%\end{vartable}
 
 
-\begin{vartable}{\caption[]{Single-level forecast ($VV>0$) products of the lake model model on the ICON EU nest.}}
+\begin{vartable}{\caption[]{Single-level forecast ($VV>0$) and initialised analysis ($VV=0$) products of the lake model model on the ICON EU nest.}}
 
-  \groups[][ll] & C\_T\_LK                       &  Shape factor with respect to the temperature profile in the thermocline               &               1                                   &                     2                       &                    10                       &               162/166                          &                      inst                   &        $1$    \\
-  \groups[][ll] & H\_ML\_LK                      &  Mixed-layer depth                                                                     &               1                                   &                     2                       &                     0                       &                 1/166                          &                      inst                   &        $\mathrm{m}$ \\
-  \groups[][ll] & T\_BOT\_LK                     &  Temperature at the water-bottom sediment interface                                    &               1                                   &                     2                       &                     1                       &               162/--                           &                      inst                   &        $\mathrm{K}$ \\
-  \groups[][ll] & T\_MNW\_LK                     &  Mean temperature of the water column                                                  &               1                                   &                     2                       &                     1                       &                 1/162                          &                      inst                   &        $\mathrm{K}$ \\
-  \groups[][ll] & T\_WML\_LK                     &  Mixed-layer temperature                                                               &               1                                   &                     2                       &                     1                       &                 1/166                          &                      inst                   &        $\mathrm{K}$ \\
+  \groups[tri][] & C\_T\_LK                       &  Shape factor with respect to the temperature profile in the thermocline               &               1                                   &                     2                       &                    10                       &               162/166                          &                      inst                   &        $1$    \\
+  \groups[tri][] & H\_ML\_LK                      &  Mixed-layer depth                                                                     &               1                                   &                     2                       &                     0                       &                 1/166                          &                      inst                   &        $\mathrm{m}$ \\
+  \groups[tri][] & T\_BOT\_LK                     &  Temperature at the water-bottom sediment interface                                    &               1                                   &                     2                       &                     1                       &               162/--                           &                      inst                   &        $\mathrm{K}$ \\
+  \groups[tri][] & T\_MNW\_LK                     &  Mean temperature of the water column                                                  &               1                                   &                     2                       &                     1                       &                 1/162                          &                      inst                   &        $\mathrm{K}$ \\
+  \groups[tri][] & T\_WML\_LK                     &  Mixed-layer temperature                                                               &               1                                   &                     2                       &                     1                       &                 1/166                          &                      inst                   &        $\mathrm{K}$ \\
   
 \end{vartable}

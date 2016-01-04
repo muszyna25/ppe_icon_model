@@ -192,6 +192,7 @@ $configureCall = lambda {|build|
   configureCall << " --with-fortran=#{$builds[build][:CC]}" unless $builds[build][:CC].nil?
   configureCall << " --with-flags=#{$builds[build][:FLAGS]}" unless $builds[build][:FLAGS].nil?
   configureCall << " --with-openmp" unless $builds[build][:openmp].nil?
+  configureCall << " --disable-atmo --disable-jsbach" if OCEAN_ONLY
   configureCall << " " << $builds[build][:confOpts] if $builds[build].has_key?(:confOpts)
   configureCall << " ;"
   end
@@ -571,11 +572,6 @@ def doSync(build)
     syncCmd = "rsync #{rsyncOpts} -avz --files-from=#{myFile}  -e '#{$remoteConnection[build]}' . #{dir}"
   end
   call(syncCmd)
-  # create the icon_components file for excluding everything but the ocean
-  call(connect(build,<<-EOS
-               echo "icon_components=NO_ICON_ATMO NO_JSBACH NO_ICON_TESTBED" >> config/icon_components
-               EOS
-              )) if OCEAN_ONLY
 end
 def doCheckoutRev(build,rev,url)
   dir  = $targetDir[build,false,rev]

@@ -88,7 +88,8 @@ USE data_turbulence, ONLY : rlam_mom, & ! scaling factor of the laminar boudary 
                                         ! over sea and land
      &                      rat_lam,  & ! ratio of laminar scaling factors for vapour and heat
      &                      z0m_dia,  & ! roughness length of a typical synoptic station
-     &                      alpha0,   & ! Charnock-parameter
+     &                      alpha0,   & ! minimum Charnock-parameter
+     &                      alpha0_max,& ! maximum Charnock-parameter
      &                      alpha1,   & ! parameter scaling the molek. roughness of water waves
 !
      &                      c_lnd,    & ! surface area index of the land exept the leaves
@@ -117,6 +118,8 @@ USE data_turbulence, ONLY : rlam_mom, & ! scaling factor of the laminar boudary 
                                         ! sub grid scale clouds
      &                      tkhmin,   & ! minimal diffusion coefficients for heat
      &                      tkmmin,   & ! minimal diffusion coefficients for momentum
+     &                      tkhmin_strat, & ! enhanced minimal diffusion coefficients for heat in the stratosphere
+     &                      tkmmin_strat, & ! enhanced minimal diffusion coefficients for momentum in the stratosphere
      &                      epsi,     & ! relative limit of accuracy for 
                                         ! comparison of numbers
      &                      impl_s,   & ! implicit weight near the surface (maximal value)
@@ -248,8 +251,12 @@ LOGICAL :: &
      tur_len      = turbdiff_config(jg)%tur_len
      pat_len      = turbdiff_config(jg)%pat_len
      a_stab       = turbdiff_config(jg)%a_stab
+     alpha0       = turbdiff_config(jg)%alpha0
+     alpha0_max   = turbdiff_config(jg)%alpha0_max
      tkhmin       = turbdiff_config(jg)%tkhmin
      tkmmin       = turbdiff_config(jg)%tkmmin
+     tkhmin_strat = turbdiff_config(jg)%tkhmin_strat
+     tkmmin_strat = turbdiff_config(jg)%tkmmin_strat
      c_diff       = turbdiff_config(jg)%c_diff
      rlam_heat    = turbdiff_config(jg)%rlam_heat
      rlam_mom     = turbdiff_config(jg)%rlam_mom

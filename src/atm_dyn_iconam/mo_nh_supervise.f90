@@ -1,5 +1,5 @@
 !>
-!! Initializes and controls the time stepping in the nonhydrostatic model.
+!! Computes total integrals and maxwinds in the nonhydrostatic model.
 !!
 !!
 !! @par Revision History
@@ -29,7 +29,7 @@ MODULE mo_nh_supervise
   USE mo_grid_config,         ONLY: n_dom, l_limited_area, grid_sphere_radius
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: dtime, msg_level, &
+  USE mo_run_config,          ONLY: dtime, msg_level, output_mode,          &
     &                               ltransport, ntracer, lforcing, iforcing
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp, iecham, &
     &                               min_rlcell_int, min_rledge_int
@@ -45,6 +45,7 @@ MODULE mo_nh_supervise
 
   PRIVATE
 
+  CHARACTER(LEN=*), PARAMETER :: modname   = 'mo_nh_supervise'
 
   ! Needed by supervise_total_integrals_nh to keep data between steps
   REAL(wp), ALLOCATABLE, SAVE :: z_total_tracer_old(:)
@@ -52,11 +53,57 @@ MODULE mo_nh_supervise
 
   INTEGER :: n_file_ti = -1, n_file_tti = -1,  check_total_quant_fileid = -1       ! file identifiers
 
+  ! --- Print-out of max winds to an ASCII file.
+  !     This requires namelist setting 'run_nml::output = "maxwinds"'
+  CHARACTER(len=*), PARAMETER :: maxwinds_filename = "maxwinds.log"   !< file name
+  INTEGER                     :: maxwinds_funit                       !< file unit
 
+  PUBLIC :: init_supervise_nh
+  PUBLIC :: finalize_supervise_nh
   PUBLIC :: supervise_total_integrals_nh, print_maxwinds
 
 CONTAINS
 
+  !-----------------------------------------------------------------------------
+  !> init_supervise_nh
+  !
+  !  Initialization routine for this module (eg. opening of files)
+  !
+  SUBROUTINE init_supervise_nh( )
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//"::init_supervise_nh"
+    INTEGER :: istat
+
+    ! --- Print-out of max winds to an ASCII file.
+    !     This requires namelist setting 'run_nml::output = "maxwinds"'
+    IF (output_mode%l_maxwinds .AND. my_process_is_stdio()) THEN
+      maxwinds_funit = find_next_free_unit(100,1000)
+      CALL message(routine,"Open log file "//TRIM(maxwinds_filename)//" for writing.")
+      OPEN(UNIT=maxwinds_funit, FILE=TRIM(maxwinds_filename), ACTION="write", &
+        &  FORM='FORMATTED', IOSTAT=istat)
+      IF (istat/=SUCCESS) &
+        &  CALL finish(routine,'could not open '//TRIM(maxwinds_filename))
+    END IF
+  END SUBROUTINE init_supervise_nh
+
+
+  !-----------------------------------------------------------------------------
+  !> finalize_supervise_nh
+  !
+  !  Clean-up routine for this module (eg. closing of files)
+  !
+  SUBROUTINE finalize_supervise_nh( )
+    ! local variables
+    CHARACTER(*), PARAMETER :: routine = modname//"::finalize_supervise_nh"
+    INTEGER :: istat
+
+    ! --- close max winds ASCII file.
+    IF (output_mode%l_maxwinds .AND. my_process_is_stdio()) THEN
+      CLOSE(maxwinds_funit, IOSTAT=istat)
+      IF (istat/=SUCCESS) &
+        &  CALL finish(routine,'could not open '//TRIM(maxwinds_filename))
+    END IF
+  END SUBROUTINE finalize_supervise_nh
   
 
   !-----------------------------------------------------------------------------
@@ -496,8 +543,17 @@ CONTAINS
       WRITE(message_text,'(a,2e18.10)') 'MAXABS VN, W ', max_vn, max_w
 
     END IF
-
     CALL message('',message_text)
+
+    ! --- Print-out of max winds to an ASCII file.
+    ! 
+    !     This requires namelist setting 'run_nml::output = "maxwinds"'
+
+    IF (output_mode%l_maxwinds .AND. my_process_is_stdio()) THEN
+      WRITE(maxwinds_funit,'(a,i3,a,2(e18.10,a,i3,a))') 'MAXABS VN, W in domain', patch%id, ':', &
+        & max_vn, " at level ",  max_vn_level, ", ", &
+        & max_w,  " at level ",  max_w_level,  ", "
+    END IF
 
   END SUBROUTINE print_maxwinds
 

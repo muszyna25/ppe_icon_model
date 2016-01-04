@@ -88,10 +88,18 @@ MODULE mo_turbdiff_config
       &  pat_len   !
     REAL(wp):: &   ! scaling factor for stability correction of 'tur_len'
       &  a_stab    !
+    REAL(wp):: &   ! lower limit of velocity-dependent Charnock-parameter
+      &  alpha0    !
+    REAL(wp):: &   ! upper limit of velocity-dependent Charnock-parameter
+      &  alpha0_max !
     REAL(wp):: &   ! minimal diffusion coefficient for scalars (heat)
       &  tkhmin    !
     REAL(wp):: &   ! minimal diffusion coefficient for momentum
       &  tkmmin    !
+    REAL(wp):: &   ! enhanced minimal diffusion coefficient for scalars (heat) in the stratosphere
+      &  tkhmin_strat    !
+    REAL(wp):: &   ! enhanced minimal diffusion coefficient for momentum in the stratosphere
+      &  tkmmin_strat    !
     REAL(wp):: &   ! constant diffusion coefficient for TKE
       &  c_diff    !
     REAL(wp):: &   ! scaling factor of laminar layer for scalars (heat)

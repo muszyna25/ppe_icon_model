@@ -29,7 +29,35 @@ AC_CONFIG_AUX_DIR(config)
 
 AC_CANONICAL_SYSTEM
 
+AC_PROG_AWK
+
+dnl Load pre-set configure options from config/config-options
 dnl ######################################################################
+
+if test -f "config/config-options" ; then
+  AC_GET_MH(config/config-options)
+fi
+
+dnl ######################################################################
+
+AC_ARG_ENABLE([mtime-loop],
+              AS_HELP_STRING([--enable-mtime-loop],[Use mtime based time loop in nh stepping.]))
+
+AC_ARG_ENABLE([atmo],
+              AS_HELP_STRING([--enable-atmo],[Use atmosphere model component.]),
+              [],[enable_atmo=yes])
+
+AC_ARG_ENABLE([jsbach],
+              AS_HELP_STRING([--enable-jsbach],[Use jsbach model component.]),
+              [],[enable_jsbach=yes])
+
+AC_ARG_ENABLE([ocean],
+              AS_HELP_STRING([--enable-ocean],[Use ocean model component.]),
+              [],[enable_ocean=yes])
+
+AC_ARG_ENABLE([testbed],
+              AS_HELP_STRING([--enable-testbed],[Use testbed component.]),
+              [],[enable_testbed=no])
 
 AC_ARG_WITH([fortran],
   [AS_HELP_STRING([--with-fortran=COMPILER],
@@ -69,9 +97,9 @@ AC_ARG_WITH([yac],
     [],
     [])
 
-AS_IF([test "x$with_yac" = "xyes"],
-      [use_yac="yes"],
-      [use_yac="no"])
+AS_IF([test "x$with_yac" = "xno"],
+      [use_yac="no"],
+      [use_yac="yes"])
 
 AC_ARG_WITH([messy],
   [AS_HELP_STRING([--with-messy],
@@ -89,6 +117,16 @@ AC_ARG_WITH([flags],
     [],
     [])
 
+AC_ARG_WITH([art],
+  [AS_HELP_STRING([--with-art],
+    [enable ART modules via precprocessing directive, if available for selected compiler])],
+  [],
+  [])
+
+AS_IF([test "x$with_art" = "xyes"],
+      [use_art="yes"],
+      [use_art="no"])
+
 case $host in
   i*86-*-linux-*)  
     if test x$fortran_compiler != xintel ; then
@@ -104,33 +142,41 @@ esac
 
 dnl ######################################################################
 
-ac_hostname=$(hostname)
-ac_hostname=${ac_hostname%%\.*}
+AC_PROG_AWK
 
-AS_CASE([x"$ac_hostname"],
-  [xplogintest1],
-  [ac_sitename=dkrz.de],
-  [xwizard*],
-  [ac_sitename=dkrz.de; ac_hostname=wizard],
-  [xbtc*],
-  [ac_sitename=dkrz.de; ac_hostname=btc],
-  [if [[ $(hostname) = $ac_hostname ]] ; then
-   fqdn=$(host -n $ac_hostname | awk '/has address/ {print $1}')
-else
-   fqdn=$(hostname)
-fi
-  echo $fqdn
-  if [[ -n "$fqdn" ]]; then
-    ac_sitename=$(echo $fqdn | awk -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')
-  else
-    if [[ -n "$PE_ENV" ]] ; then
-      fqdn=$(echo ${PE_ENV} | awk '{print tolower($0)}')
-      echo "detecting Cray environment... $fqdn"
-    else
-      fqdn=${HOSTNAME}
-    fi
-    ac_sitename=${fqdn}
-  fi])
+AS_CASE([$ac_hostname],
+        [wizard*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],  
+        [mlogin*|btc*],
+        [ac_sitename=dkrz.de
+         fqdn=$ac_hostname.$ac_sitename],
+        [ic2*],      
+        [ac_sitename=kit.edu;
+         fqdn=$ac_hostname.$ac_sitename],         
+        [
+         AS_IF([test "x$(hostname)" = "x$ac_hostname"],
+               [fqdn=$(host -n $ac_hostname | $AWK '/has address/ {print $1}')],
+               [fqdn=$(hostname)])
+         AS_IF([test -n "$fqdn"],
+           [ac_sitename=$(echo $fqdn | $AWK -F. '{i=NF-1; printf("%s.%s",$i,$NF);}')],
+           [ac_sitename=])])
+
+AS_IF([ test -n "$fqdn" ],
+      [AS_IF([test -z ac_sitename],
+             [ac_sitename=local.net],
+             [])],
+      [AS_IF([ test -n "$PE_ENV" ],
+             [fqdn=$(echo ${PE_ENV} | $AWK '{print tolower($0)}')
+              AC_MSG_CHECKING([for Cray environment])
+              AC_MSG_RESULT([$[fqdn]])],
+             [fqdn=${HOSTNAME}])
+       [ac_sitename=${fqdn}]])        
+
+AC_MSG_CHECKING([for hostname])
+AC_MSG_RESULT([$[ac_hostname]])
+AC_MSG_CHECKING([for site name])
+AC_MSG_RESULT([$[ac_sitename]])
 
 dnl ######################################################################
 
@@ -173,7 +219,7 @@ fi
 #------------------------------------
 cat $host_frag > config/mh-config-use
 mh_local_name=config/mh-${ac_sitename}-${ac_hostname}
-echo "mh_local_name=$mh_local_name"
+# echo "mh_local_name=$mh_local_name"
 if test -f $mh_local_name ; then
   cat $mh_local_name >> config/mh-config-use
 # else
@@ -203,51 +249,44 @@ if test "x$load_modules" != x ;  then
     echo module purge >> conf_load_module.tmp
     echo module load "$load_modules" >> conf_load_module.tmp
     echo module list >> conf_load_module.tmp
-    if test "x$config_target" = xblizzard ;  then
-      # change configure to bash
-      echo "sed '1s|/bin/sh|/bin/bash|' configure > conf__.tmp" >>  conf_load_module.tmp
-    else
-      cp configure conf__.tmp 
-    fi
+    cp configure conf__.tmp 
     echo "chmod +x conf__.tmp" >>  conf_load_module.tmp
     echo "./conf__.tmp $ac_configure_args ; "'rc=$?' >> conf_load_module.tmp
     echo "rm conf__.tmp" >> conf_load_module.tmp
     echo 'exit $rc' >>conf_load_module.tmp
     chmod +x conf_load_module.tmp
     ./conf_load_module.tmp ; rc=$?
-    rm conf_load_module.tmp
+#    rm conf_load_module.tmp
     exit $rc
   fi  
 fi
   
 dnl ######################################################################
-dnl define the packages
+dnl define the package
 
-use_components_file=config/icon_components
-
-AC_ARG_WITH([ocean],
-            [AC_HELP_STRING([--with-ocean=no],
-                            [compile without ocean])],,
-                            with_ocean=yes)
-
-if [[ $with_ocean = no ]]; then
-  use_components_file=config/icon_components_no_ocean
-  echo "icon_components=NO_ICON_OCEAN" > $use_components_file
-fi
-
-if test -f $use_components_file ; then
-  AC_GET_MH($use_components_file)
-fi
 FFLAGS="${FFLAGS} ${DEFOPT}__${package}__"
 CFLAGS="${CFLAGS} ${DEFCOPT}__${package}__"
 
-for other_package in $icon_components ; do
-  FFLAGS="${FFLAGS} ${DEFOPT}__${other_package}__"
-  CFLAGS="${CFLAGS} ${DEFCOPT}__${other_package}__"
+dnl #####################################################################
+dnl add defines for model components
 
-done
+AS_IF([test "x$enable_atmo" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_ATMO__"])
+
+AS_IF([test "x$enable_jsbach" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_JSBACH__"])
+
+AS_IF([test "x$enable_ocean" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_OCEAN__"])
+
+AS_IF([test "x$enable_testbed" = "xno"],
+      [FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"])
+
 dnl ######################################################################
+dnl add defines for transitional features (eg. mtime based time loop)
 
+AS_IF([test "x$enable_mtime_loop" = "xyes"], 
+      [FFLAGS="${FFLAGS} ${DEFOPT}USE_MTIME_LOOP"])
 
 dnl ######################################################################
 dnl Checks for programs.
@@ -264,6 +303,8 @@ fi
 dnl ######################################################################
 dnl Checks for XML2.
 
+if test x$use_yac = xyes ; then
+
 XML2_LIB=""
 XML2_INCLUDE=""
 
@@ -272,37 +313,47 @@ AC_ARG_WITH([xml2],
                             [Required libxml2])],,
 			    withval=yes)
 
-if test x$withval = xyes; then
-  if test x$with_xml2 != x; then
-    XML2ROOT=$with_xml2
+  if test x$withval = xyes; then
+    if test x$with_xml2 != x; then
+      XML2ROOT=$with_xml2
+    fi
   fi
-fi
 
-if test -n "$XML2ROOT" ; then
+  if test -n "$XML2ROOT" ; then
 
-  if test -r "$XML2ROOT/lib/libxml2.a" ; then
-     XML2_LIB='-L$(XML2ROOT)/lib -lxml2'
+    if test -r "$XML2ROOT/lib/libxml2.a" ; then
+       XML2_LIB='-L$(XML2ROOT)/lib -lxml2'
+    else
+      if test -r "$XML2ROOT/lib64/libxml2.a" -o -r "$XML2ROOT/lib64/libxml2.so" ; then     
+          XML2_LIB='-L$(XML2ROOT)/lib64 -lxml2'
+      else   
+          if test -r "$XML2ROOT/lib/x86_64-linux-gnu/libxml2.a" ; then
+             XML2_LIB='-L$(XML2ROOT)/x86_64-linux-gnu/lib -lxml2'
+          else 
+             echo "cannot read $XML2ROOT/lib/libxml2.a"  
+             exit 1    
+          fi
+      fi
+    fi
+
+    if test -d "$XML2ROOT/include/libxml2" ; then
+       XML2_INCLUDE='-I$(XML2ROOT)/include/libxml2'
+    else
+       echo "cannot find $XML2ROOT/include/libxml2"  
+       exit 1    
+    fi
+
+    FFLAGS="${FFLAGS} ${DEFOPT}USE_XML2"
+    CFLAGS="${CFLAGS} ${DEFCOPT}USE_XML2"
+
   else
-     echo "cannot read $XML2ROOT/lib/libxml2.a"  
-     exit 1    
+
+    echo "Warning: the variable XML2ROOT is not set in $host_frag"  
+    echo "         set XML2ROOT to the xml2 root directory"
+
   fi
 
-  if test -d "$XML2ROOT/include/libxml2" ; then
-     XML2_INCLUDE='-I$(XML2ROOT)/include/libxml2'
-  else
-     echo "cannot find $XML2ROOT/include/libxml2"  
-     exit 1    
-  fi
-
-  FFLAGS="${FFLAGS} ${DEFOPT}USE_XML2"
-  CFLAGS="${CFLAGS} ${DEFCOPT}USE_XML2"
-
-else
-
-  echo "Warning: the variable XML2ROOT is not set in $host_frag"  
-  echo "         set XML2ROOT to the xml2 root directory"
 fi
-
 
 dnl ######################################################################
 dnl Checks for LAPACK/BLAS
@@ -403,9 +454,16 @@ if test -n "$SZIPROOT" ; then
      echo "cannot find $SZIPROOT/include"  
      exit 1    
   fi
-  case $(hostname) in
-  btc*)  
-    SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+  case $ac_hostname in
+  mlogin*|btc*)
+    case $FC in
+    nagfor)
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+      ;;
+    *)
+      SZIP_LIB=$(echo $SZIP_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+      ;;
+    esac
     ;;
   *)
     ;;
@@ -445,9 +503,16 @@ if test -n "$HDF5ROOT" ; then
      echo "cannot find $HDF5ROOT/include"  
      exit 1    
   fi
-  case $(hostname) in
-  btc*)  
-    HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+  case $ac_hostname in
+  mlogin*|btc*)  
+    case $FC in
+    nagfor)
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+      ;;
+    *)
+      HDF5_LIB=$(echo $HDF5_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+     ;;
+    esac    
     ;;
   *)
     ;;
@@ -496,9 +561,16 @@ if test -n "$NETCDFROOT" ; then
   if test x$gcc_lib != x ; then
      NETCDF_LIB="${NETCDF_LIB} ${gcc_lib}"
   fi
-  case $(hostname) in
-  btc*)    
-    NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+  case $ac_hostname in
+  mlogin*|btc*)
+    case $FC in
+    nagfor)
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+      ;;
+    *)
+      NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+      ;;
+    esac
     ;;
   *)
     ;;
@@ -515,16 +587,24 @@ if test -n "$NETCDFROOT" ; then
        NETCDF_INCLUDE="-I$NETCDFROOT/include -I$NETCDFFROOT/include"
        if test -r "$NETCDFFROOT/lib/libnetcdff.a" -a -r "$NETCDFROOT/lib/libnetcdf.a" ; then
          NETCDF_LIB='-L$(NETCDFROOT)/lib -lnetcdf'
-         NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff' 
-         case $(hostname) in
-         btc*)    
-           NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-           NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
-           NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
+         NETCDF_FLIB='-L$(NETCDFFROOT)/lib -lnetcdff'
+         case $ac_hostname in
+         mlogin*|btc*)
+           case $FC in
+           nagfor)
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-Wl,,-rpath,,\2!g')
+             ;;
+           *)
+             NETCDF_FLIB=$(echo $NETCDF_FLIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+             NETCDF_LIB=$(echo $NETCDF_LIB | sed -e 's!\(-L\)\(\S*ROOT\S*\)!\1\2 -Wl,-rpath,\2!g')
+             ;;
+           esac
            ;;
          *)
            ;;
          esac
+         NETCDF_LIB="$NETCDF_FLIB $NETCDF_LIB"
        else
          echo "cannot read $NETCDFFROOT/lib/libnetcdff.a and/or $NETCDFROOT/lib/libnetcdf.a"
          exit 1
@@ -642,8 +722,8 @@ case $host in
   powerpc-ibm-aix*)
     q64_result="no"
     mt_result="no"
-    q64_result=$(echo $FFLAGS | awk -v b="-q64" '$0 ~ b { print "yes" }')
-    mt_result=$(echo $FC | awk -v b="_r" '$0 ~ b { print "yes" } ')
+    q64_result=$(echo $FFLAGS | $AWK -v b="-q64" '$0 ~ b { print "yes" }')
+    mt_result=$(echo $FC | $AWK -v b="_r" '$0 ~ b { print "yes" } ')
     if [[ x$mt_result != xyes ]]; then
       echo "error: IBM MPI requires thread safe compiler versions."
       echo "       add _r to compiler selected by FC."
@@ -674,40 +754,30 @@ esac
 
 MPI_INCLUDE=""
 
-withval=no
 AC_ARG_WITH([mpi],
             [AC_HELP_STRING([--with-mpi=DIR],
                             [MPI library])],,)
 
 
-#default is with mpi
-if test x$with_mpi != xno ; then
-  withval=yes
-fi
-
-if test x$withval = xno ; then
-  FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
-  CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
-  MPI_LIB=""
-  MPI_VERSION=none
-  MPIROOT=""
-  use_mpcc_r=no
-else
-  if test x$with_mpi != x ; then
-    if test $with_mpi != yes && $with_mpi != no  ; then
-      MPIROOT=$with_mpi
-    fi
-  fi
-  if test -n "$MPIROOT" ; then    
-    AC_CHECK_FILE($MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h,[],AC_MSG_ERROR([MPIROOT not properly defined]))
+AS_IF([test x"$with_mpi" = xno],
+  [FFLAGS="${FFLAGS} ${DEFOPT}NOMPI"
+   CFLAGS="${CFLAGS} ${DEFCOPT}NOMPI"
+   MPI_LIB=""
+   MPI_VERSION=none
+   MPIROOT=""
+   use_mpcc_r=no],
+  [AS_IF([test "x$with_mpi" != x -a x"$with_mpi" != xyes -a x"$with_mpi" != xno],
+    [MPIROOT=$with_mpi])
+   AS_IF([test x"$MPIROOT" != x],
+    [AC_CHECK_FILE([$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h],,[AC_MSG_ERROR([MPIROOT not properly defined])])
     case $host in
     *-*-darwin*)
-      MPI_LIB="$(mpif90 -show | awk '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
-      ;;    
+      MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
+      ;;
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
-      ;;   
-    esac 
+      ;;
+    esac
     MPI_I_INCLUDE="-I\$(MPIROOT)/include/${MPI_INCLUDE_THREAD}"
     case $host in
     powerpc-ibm-aix*)
@@ -720,17 +790,21 @@ else
       ;;
     *-*-darwin*)
       real_path=$(cd $MPIROOT; pwd -P)
-      mod_file=$(find $real_path/include $real_path/lib -name mpi.mod -print | awk 'NR==1')
+      mod_file=$(find $real_path/include $real_path/lib -name mpi.mod -print | $AWK 'NR==1')
       ;;
     *)
       real_path=$(cd $MPIROOT; pwd -P)
 #      mod_file=$(find $real_path -name mpi.mod -print -quit)
       case "$MPIROOT" in
       *impi*)
-        mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | awk 'NR==1')
+        AS_CASE([$FC],
+                [gfortran],
+                [vers=$(gfortran --version | $AWK 'NR==1{print $4}')
+                 mod_file=$(find $real_path/include/gfortran/$vers -name mpi.mod -print | $AWK 'NR==1')],
+                [mod_file=$(find $real_path -not \( -path */gfortran/* -prune \) -name mpi.mod -print | $AWK 'NR==1')])
         ;;      
       *)
-        mod_file=$(find $real_path -name mpi.mod -print | awk 'NR==1')
+        mod_file=$(find $real_path -name mpi.mod -print | $AWK 'NR==1')
         ;;
       esac
       ;;
@@ -748,12 +822,9 @@ else
       MPI_INCLUDE="$MPI_M_INCLUDE"
     else
       MPI_INCLUDE="$MPI_M_INCLUDE $MPI_I_INCLUDE"
-    fi  
-  else
-    MPI="${DEFOPT}NOMPI"
-    MPI_LIB=""
-  fi
-fi
+    fi],
+   [MPI="${DEFOPT}NOMPI"
+    MPI_LIB=""])])
 
 
 dnl ######################################################################
@@ -827,6 +898,14 @@ if [[ "x$use_messy" = xyes ]] ; then
     CFLAGS="${CFLAGS} ${DEFCOPT}MESSY ${DEFOPT}MESSYTIMER"
 fi
 
+if [[ "x$use_art" = xyes ]] ; then
+    FFLAGS="${FFLAGS} ${ART_FFLAGS}"
+    # ATTENTION: only temporary until chemistry part of ICON-ART is Fortran 2003 conform !!!
+    if [[ "x$fortran_compiler" = xdefault -o "x$fortran_compiler" = xgcc ]] ; then
+        FFLAGS="`echo ${FFLAGS} | sed -e s/-std=f2003/-std=gnu/`"
+    fi
+fi
+
 ac_srcdirs=$my_srcdirs
 
 if test "$use_mpcc_r" = yes ; then
@@ -860,19 +939,14 @@ else
     fi
     FFLAGS="${MODOPT}../module ${FFLAGS}"
 fi
+FFLAGS="${MODOPT}../src ${MODOPT}../support ${FFLAGS}"
 
-
-if [[ "x$LDFLAGS" = "x" ]] ; then
-  if [[ $(echo $FC | awk '{print index($0, "gfortran")}') -ne 0 ]] ; then  
-    LDFLAGS=${FFLAGS//-xf95-cpp-input/}
-  else
-    LDFLAGS=$FFLAGS
-  fi
-fi
 
 if [[ "x$use_openmp" = xyes ]] ; then
-   FFLAGS="${FFLAGS} ${OMPFLAG}"   
+   FFLAGS="${FFLAGS} ${OMPFLAG}"
+   F77FLAGS="${F77FLAGS} ${OMPFLAG}"
    LDFLAGS="${LDFLAGS} ${OMPFLAG}"
+   CFLAGS="${CFLAGS} ${CC_OMPFLAG}"
 fi
 
 #------------------------
@@ -893,6 +967,15 @@ AS_IF([eval test x\$\{`echo ${use_flags_group} | tr a-z A-Z`_FLAGS+set\} = xset]
    eval F77FLAGS=\"\${F77FLAGS} \${`echo ${use_flags_group} | tr a-z A-Z`_FLAGS}\"],
   [AS_IF([test x"$use_flags_group" != xstd],
      [AC_MSG_FAILURE([unknown with_flags parameter: $with_flags])])])
+
+if [[ "x$LDFLAGS" = "x" ]] ; then
+  if [[ $(echo $FC | $AWK '{print index($0, "gfortran")}') -ne 0 ]] ; then
+    LDFLAGS=${FFLAGS//-xf95-cpp-input/}
+  else
+    LDFLAGS=$FFLAGS
+  fi
+fi
+
 
 
 #------------------------
@@ -959,8 +1042,6 @@ AC_SUBST(LAPACKROOT,$LAPACKROOT)
 AC_SUBST(LAPACK_LIB_PATH,$LAPACK_LIB_PATH)
 AC_SUBST(LAPACK_LIB,$LAPACK_LIB)
 
-AC_SUBST(METIS_LIB,$METIS_LIB)
-
 AC_SUBST(PROFILE_LIB,$PROFILE_LIB)
 AC_SUBST(PROFILE_INCLUDE,$PROFILE_INCLUDE)
 
@@ -1008,21 +1089,21 @@ if test -n "$CROSS" ; then
    cp $cross_config config/config.h
 fi
 
-config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --with_ocean="${with_ocean}"
+config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --enable_ocean="${enable_ocean}" --enable_atmo="${enable_atmo}" --enable_jsbach="${enable_jsbach}" --enable_testbed="${enable_testbed}"
 
 #-----------------------------------------------------------------------------
 case $host in
   xt?-cray-*)
-    f90version=$($(echo $FC -V) 2>&1 | awk 'NR==2')
-    ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
+    ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
     ;;
   *-*-solaris*)
-    f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1' | cut -f2- -d" ")
-    ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
+    ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
     ;;
   sx*-*-*)
-    f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1;NR==5' | tr -d "\n")
-    ccversion=$($(echo sxc++ -V) 2>&1 | sed -e 's/.c.*$//' | sed -e 's/C++\/SX Compiler //' | sed -e 's/C\/C++ Compiler //' | awk 'NR==1;NR==3' | tr -d "\n")
+    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1;NR==5' | tr -d "\n")
+    ccversion=$($(echo sxc++ -V) 2>&1 | sed -e 's/.c.*$//' | sed -e 's/C++\/SX Compiler //' | sed -e 's/C\/C++ Compiler //' | $AWK 'NR==1;NR==3' | tr -d "\n")
     ;;
   *-ibm-aix*)
     f90version=$($(echo $FC -qversion) 2>&1 | tr -d "\n" | sed 's/Version: / \(/' | sed 's/$/\)/')
@@ -1031,34 +1112,34 @@ case $host in
   *-*-linux-*)
     case $fortran_compiler in
     default|gcc)
-      f90version=$($(echo $FC --version) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC --version) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     nag)
-      f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     intel)
-      f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     path)
-      f90version=$($(echo $FC -v) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -v) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     pgi)
-      f90version=$($(echo $FC -V) 2>&1 | awk 'NR==2')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     sun)
-      f90version=$($(echo $FC -V) 2>&1 | awk 'NR==1' | cut -f2- -d" ")
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
     esac
     ;;
   *-*-darwin*)
-      f90version=$($(echo $FC --version) 2>&1 | awk 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | awk 'NR==1')
+      f90version=$($(echo $FC --version) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
       ;;
   *)
     f90version="unknown"
@@ -1079,12 +1160,12 @@ if test x$MPIROOT = x || test x$CROSS = xyes; then
 case $host in
 powerpc-ibm-aix*)
   if test "$use_mpcc_r" = yes ; then
-    mpi_version_number=$(lslpp -l ppe.poe | grep ppe.poe | uniq | awk '{print $2}')
+    mpi_version_number=$(lslpp -l ppe.poe | grep ppe.poe | uniq | $AWK '{print $2}')
     MPI_VERSION="IBM MPI ${mpi_version_number}"
   fi
   ;;
 sx?-nec-superux)
-  mpi_version_number=$(strings $MPIROOT/lib/libmpi.a | grep "MPI/SX: library Version" | awk '{print $4}')
+  mpi_version_number=$(strings $MPIROOT/lib/libmpi.a | grep "MPI/SX: library Version" | $AWK '{print $4}')
   MPI_VERSION="SX MPI ${mpi_version_number}"
   ;;
 *)
@@ -1094,7 +1175,7 @@ esac
 else
 case $host in
 *-*-darwin*)
-  mpi_version_number=$(mpiexec --version | awk 'NR==2{print $2}')
+  mpi_version_number=$(mpiexec --version | $AWK 'NR==2{print $2}')
   MPI_VERSION="mpich ${mpi_version_number} (MacPorts)"
   ;;		       
 *)
@@ -1209,7 +1290,7 @@ use_make_command="$make_command"
 use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
-use_icon_components="$icon_components"
+use_flags_group="$use_flags_group"
 #############################
 EOF
 
@@ -1241,4 +1322,8 @@ echo ""
 echo "Configuration done. Run GNU make to build ICON."
 echo ""
 echo "build directory: build/${build_host}"
+echo ""
+AS_IF([test "x$enable_atmo" = "xyes" && test "x$enable_ocean" = "xno"],
+[AC_MSG_WARN([In order to use ECHAM physics, you need to enable ocean!])])
+
 echo ""

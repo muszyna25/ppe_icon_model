@@ -48,9 +48,11 @@ MODULE mo_turbulent_diagnostic
   USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_write_netcdf      
   USE mo_impl_constants,     ONLY: min_rlcell, min_rlcell_int
-  USE mo_physical_constants, ONLY: cpd, rcvd, p0ref, grav, rcpd, alv, vtmpc1
+  USE mo_physical_constants, ONLY: cpd, rcvd, p0ref, grav, rcpd, alv, &
+                                   rd_o_cpd, vtmpc1
   USE mo_sync,               ONLY: SYNC_C, sync_patch_array
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
+  USE mo_satad,              ONLY: sat_pres_water, spec_humi
  
   IMPLICIT NONE
 
@@ -63,7 +65,7 @@ MODULE mo_turbulent_diagnostic
 
   !Some indices: think of better way
   INTEGER  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx
-  INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx, idx_dt_t_gsp
+  INTEGER  :: idx_sgs_u_flx, idx_sgs_v_flx
   
   CHARACTER(20) :: tname     = 'time'
   CHARACTER(20) :: tlongname = 'Time'
@@ -76,72 +78,85 @@ MODULE mo_turbulent_diagnostic
   PUBLIC  :: init_les_turbulent_output, close_les_turbulent_output
   PUBLIC  :: sampl_freq_step, avg_interval_step, is_sampling_time, is_writing_time
   PUBLIC  :: idx_sgs_th_flx, idx_sgs_qv_flx, idx_sgs_qc_flx, idx_sgs_u_flx, idx_sgs_v_flx
-  PUBLIC  :: idx_dt_t_gsp
 
 CONTAINS
 
   !> AD: 28 July 2014- more diag yet to be added
   !!
-  !! <Calculates cloud diagnostics for realistic LES runs when convective 
-  !!  parameterization is off> !!  Very preliminary for now
+  !! Calculates cloud diagnostics for realistic LES runs when convective 
+  !! parameterization is off> !!  Very preliminary for now
   !!
-  !! <Describe the purpose of the subroutine and its algorithm(s).>
-  !! <Include any applicable external references inline as module::procedure,>
-  !! <external_procedure(), or by using @see.>
-  !! <Don't forget references to literature.>
+  !! Most of the diagnostics are from mo_nwp_diagnosis/nwp_diag_for_output
+  !! routine. Some of them which were very specific to NWP have been deleted.
   !!
   !! @par Revision History
   !!
-  SUBROUTINE les_cloud_diag(p_patch, p_prog_rcf, kstart_moist,  &
-                            p_prog_land, p_diag_land, p_diag,   &
-                            p_prog, p_metrics, prm_diag)
-                            
+  SUBROUTINE les_cloud_diag(  kstart_moist,               & !in
+                            & ih_clch, ih_clcm,           & !in
+                            & p_patch, p_metrics,         & !in
+                            & p_prog,                     & !in
+                            & p_prog_rcf,                 & !in
+                            & p_diag,                     & !in
+                            & p_diag_land,                & !in
+                            & p_prog_land,                & !in
+                            & prm_diag                    ) !inout    
+
     !>
     ! !INPUT PARAMETERS:
-    TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
-    TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog_rcf !<the prognostic variables (with
     INTEGER                , INTENT(in)   :: kstart_moist
+    INTEGER                ,INTENT(IN)    :: ih_clch, ih_clcm
+
+    TYPE(t_patch),   TARGET, INTENT(in)   :: p_patch    !<grid/patch info.
     TYPE(t_lnd_prog),        INTENT(in)   :: p_prog_land
     TYPE(t_lnd_diag),        INTENT(in)   :: p_diag_land
     TYPE(t_nh_diag), TARGET, INTENT(in)   :: p_diag     !<the diagnostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog_rcf !<the prognostic variables (with
     TYPE(t_nh_prog), TARGET, INTENT(in)   :: p_prog     !<the prognostic variables
     TYPE(t_nh_metrics), INTENT(in)        :: p_metrics
     TYPE(t_nwp_phy_diag)   , INTENT(inout):: prm_diag
 
     REAL(wp), PARAMETER :: qc_min = 1.e-8_wp
+    REAL(wp), PARAMETER :: grav_o_cpd = grav/cpd
+    REAL(wp), PARAMETER :: zundef = -999._wp   ! undefined value for 0 deg C level
+
+    REAL(wp):: zbuoy, zqsat, zcond
+    REAL(wp):: ri_no
+    REAL(wp):: ztp(nproma), zqp(nproma)
+
     INTEGER :: found_cltop, found_clbas
     INTEGER :: nlev, nlevp1
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
+    INTEGER :: i_nchdom, jg            !< domain index
     INTEGER :: jc,jk,jb                !block index
-
-    REAL(wp):: ri_no, z_agl, thv_s
+    INTEGER :: mtop_min
+    INTEGER :: mlab(nproma)
 
     nlev      = p_patch%nlev 
     nlevp1    = p_patch%nlev+1 
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
+    jg        = p_patch%id
 
     rl_start   = grf_bdywidth_c+1
     rl_end     = min_rlcell_int
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-    !Cloud base and cloud height: get the model levels only
-    !rest of the calulations are performed in mo_nwp_diag
-    !using the variables hbas_con/htop_con designed for convective
-    !parametrization
+    ! minimum top index for dry convection
+    mtop_min = (ih_clch+ih_clcm)/2    
 
     prm_diag%locum(:,:) = .FALSE.
 
 !$OMP PARALLEL 
-
-!$OMP DO PRIVATE(jc,jb,jk,i_startidx,i_endidx,found_cltop,found_clbas)
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,found_cltop,found_clbas,ri_no,&
+!$OMP            mlab,ztp,zqp,zbuoy,zqsat,zcond) ICON_OMP_DEFAULT_SCHEDULE 
     DO jb = i_startblk,i_endblk
        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                           i_startidx, i_endidx, rl_start, rl_end)
+
+       !Cloud base and cloud top model levels
        DO jc = i_startidx, i_endidx
 
          found_cltop = -1
@@ -171,40 +186,109 @@ CONTAINS
            prm_diag%mtop_con(jc,jb) = -1
          END IF
 
-       END DO
-    END DO
-!$OMP END DO
-
+       END DO!jc
 
 !  -included calculation of boundary layer height (Anurag Dipankar, MPI Octo 2013).
-!   using Bulk richardson number approach. Assumt exner surface=1
+!   using Bulk richardson number approach. 
+       DO jc = i_startidx, i_endidx           
+         DO jk = nlev-1, kstart_moist, -1
 
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_agl,thv_s,ri_no) ICON_OMP_DEFAULT_SCHEDULE
-    DO jb = i_startblk, i_endblk
-       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                          i_startidx, i_endidx, rl_start, rl_end)
-       DO jc = i_startidx, i_endidx   
-        
-         DO jk = nlev, kstart_moist, -1
+            ri_no = (grav/p_prog%theta_v(jc,nlev,jb)) * &
+                    ( p_prog%theta_v(jc,jk,jb)-p_prog%theta_v(jc,nlev,jb) ) *  &
+                    ( p_metrics%z_mc(jc,jk,jb)-p_metrics%z_mc(jc,nlev,jb) ) /  &
+                    MAX( 1.e-6_wp,(p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2) )
 
-            z_agl = p_metrics%z_mc(jc,jk,jb)-p_metrics%z_ifc(jc,nlevp1,jb)
-
-            thv_s = p_prog_land%t_g(jc,jb)*(1._wp+vtmpc1*p_diag_land%qv_s(jc,jb)) 
-
-            ri_no = (grav/thv_s)*(p_prog%theta_v(jc,jk,jb)-thv_s)*z_agl /  &
-                    MAX(1.e-6_wp,(p_diag%u(jc,jk,jb)**2+p_diag%v(jc,jk,jb)**2))
-
-            IF(ri_no > 0.25_wp)THEN
+            IF(ri_no > 0.28_wp)THEN
                prm_diag%z_pbl(jc,jb) = p_metrics%z_mc(jc,jk,jb)
                EXIT
             END IF
          END DO 
-
        ENDDO
-    ENDDO ! jb
-!$OMP END DO
+       !
+       ! height of ccloud base and top: hbas_con, htop_con
+       ! 
+       DO jc = i_startidx, i_endidx
+         IF ( prm_diag%locum(jc,jb)) THEN
+           prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
+           prm_diag%htop_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mtop_con(jc,jb), jb)
+         ELSE
+           prm_diag%hbas_con(jc,jb) = zundef
+           prm_diag%htop_con(jc,jb) = zundef
+         END IF
+       ENDDO  ! jc
+       !
+       ! height of the top of dry convection
+       !
+       DO jc = i_startidx, i_endidx 
+         prm_diag%htop_dc(jc,jb) = zundef
+         mlab(jc) = 1
+         ztp (jc) = p_diag%temp(jc,nlev,jb) + 0.25_wp
+         zqp (jc) = p_prog_rcf%tracer(jc,nlev,jb,iqv)
+       ENDDO
 
-!$OMP END PARALLEL 
+       DO jk = nlev-1, mtop_min, -1
+         DO jc = i_startidx, i_endidx 
+           IF ( mlab(jc) == 1) THEN
+             ztp(jc) = ztp(jc)  - grav_o_cpd*( p_metrics%z_mc(jc,jk,jb)    &
+            &                                 -p_metrics%z_mc(jc,jk+1,jb) )
+             zbuoy = ztp(jc)*( 1._wp + vtmpc1*zqp(jc) ) - p_diag%tempv(jc,jk,jb)
+             zqsat = spec_humi( sat_pres_water(ztp(jc)), p_diag%pres(jc,jk,jb) )
+             zcond = zqp(jc) - zqsat
+
+             IF ( zcond < 0._wp .AND. zbuoy > 0._wp) THEN
+               prm_diag%htop_dc(jc,jb) = p_metrics%z_ifc(jc,jk,jb)
+             ELSE
+               mlab(jc) = 0
+             END IF
+           END IF
+         ENDDO
+       ENDDO
+
+       DO jc = i_startidx, i_endidx 
+         IF ( prm_diag%htop_dc(jc,jb) > zundef) THEN
+           prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),        &
+          &                p_metrics%z_ifc(jc,nlevp1,jb) + 3000._wp )
+           IF ( prm_diag%locum(jc,jb)) THEN
+             prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),      &
+            &                               prm_diag%hbas_con(jc,jb) )
+           END IF
+         ELSE
+           prm_diag%htop_dc(jc,jb) = MIN( 0._wp, p_metrics%z_ifc(jc,nlevp1,jb) )
+         END IF
+       ENDDO
+       ! 
+       ! Compute wind speed in 10m
+       ! 
+       IF (atm_phy_nwp_config(jg)%inwp_turb > 0 ) THEN
+         DO jc = i_startidx, i_endidx
+           prm_diag%sp_10m(jc,jb) = SQRT(prm_diag%u_10m(jc,jb)**2 &
+             &                    +      prm_diag%v_10m(jc,jb)**2 )
+         ENDDO
+       ENDIF
+      
+       !
+       !Extended diagnostics for HDCP2
+       !
+      
+       !Temperature and pressure at cloud base and top
+       DO jc = i_startidx, i_endidx
+         IF ( prm_diag%locum(jc,jb)) THEN
+           prm_diag%t_cbase(jc,jb) = p_diag%temp(jc, prm_diag%mbas_con(jc,jb), jb)
+           prm_diag%p_cbase(jc,jb) = p_diag%pres(jc, prm_diag%mbas_con(jc,jb), jb)
+
+           prm_diag%t_ctop(jc,jb)  = p_diag%temp(jc, prm_diag%mtop_con(jc,jb), jb)
+           prm_diag%p_ctop(jc,jb)  = p_diag%pres(jc, prm_diag%mtop_con(jc,jb), jb)
+         ELSE
+           prm_diag%t_cbase(jc,jb) = zundef
+           prm_diag%p_cbase(jc,jb) = zundef
+           prm_diag%t_ctop(jc,jb)  = zundef
+           prm_diag%p_ctop(jc,jb)  = zundef
+         END IF
+       ENDDO  ! jc
+
+    ENDDO  ! jb
+!$OMP END DO
+!$OMP END PARALLEL  
 
 
   END SUBROUTINE les_cloud_diag
@@ -658,6 +742,8 @@ CONTAINS
        CALL levels_horizontal_mean(prm_diag%mech_prod, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlevp1))
        outvar = outvar * 0.5_wp          
+       outvar(1)      = outvar(2) 
+       outvar(nlevp1) = outvar(nlev) 
 
      CASE('wthsfs')!subfilter scale flux: see Erlebacher et al. 1992
 
@@ -700,41 +786,53 @@ CONTAINS
        CALL levels_horizontal_mean(prm_diag%clc, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('qi')
+       IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
        CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqi), p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('qs')
+       IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
        CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqs), p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('qr')
        CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqr), p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('qg')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)&
+       IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))&
          CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqg), p_patch%cells%area,  &
                                      p_patch%cells%owned, outvar(1:nlev))
      CASE('qh')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)&
+       IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))&
          CALL levels_horizontal_mean(p_prog_rcf%tracer(:,:,:,iqh), p_patch%cells%area,  &
                                      p_patch%cells%owned, outvar(1:nlev))
      CASE('lwf')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%lwflxall, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlevp1))
      CASE('swf')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0)THEN
        CALL levels_horizontal_mean(prm_diag%trsolall, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlevp1))
        outvar0d = 0._wp
        CALL levels_horizontal_mean(prm_diag%flxdwswtoa, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar0d)
        outvar = outvar*outvar0d
+       END IF
      CASE('dt_t_sw')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(phy_tend%ddt_temp_radsw, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('dt_t_lw')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(phy_tend%ddt_temp_radlw, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
      CASE('dt_t_tb')
+       IF(atm_phy_nwp_config(jg)%inwp_turb>0) &
        CALL levels_horizontal_mean(phy_tend%ddt_temp_turb, p_patch%cells%area,  &
                                    p_patch%cells%owned, outvar(1:nlev))
+     CASE('dt_t_mc')
+       IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
+         CALL levels_horizontal_mean(phy_tend%ddt_temp_gscp, p_patch%cells%area,  &
+                                     p_patch%cells%owned, outvar(1:nlev))
      CASE DEFAULT !In case calculations are performed somewhere else
       
        outvar = 0._wp
@@ -781,34 +879,40 @@ CONTAINS
      CASE('psfc')
        CALL levels_horizontal_mean(p_diag%pres_sfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('swf_tom')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%swflxtoa, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('lwf_tom')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%lwflxall(:,1,:), p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('swf_sfc')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%swflxsfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('lwf_sfc')
+       IF(atm_phy_nwp_config(jg)%inwp_radiation>0) &
        CALL levels_horizontal_mean(prm_diag%lwflxsfc, p_patch%cells%area, p_patch%cells%owned, outvar0d)
      CASE('precp_t')
        CALL levels_horizontal_mean(prm_diag%tot_prec_rate_avg, p_patch%cells%area, p_patch%cells%owned, outvar0d)
        outvar0d = outvar0d * day_sec
      CASE('precp_r')
+       IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
        CALL levels_horizontal_mean(prm_diag%rain_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
        outvar0d = outvar0d * day_sec
      CASE('precp_s')
+       IF(atm_phy_nwp_config(jg)%inwp_gscp>0) &
        CALL levels_horizontal_mean(prm_diag%snow_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
        outvar0d = outvar0d * day_sec
      CASE('precp_g')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
+       IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
          CALL levels_horizontal_mean(prm_diag%graupel_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
          outvar0d = outvar0d * day_sec
        END IF
      CASE('precp_h')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
+       IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
          CALL levels_horizontal_mean(prm_diag%hail_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
          outvar0d = outvar0d * day_sec
        END IF
      CASE('precp_i')
-       IF(atm_phy_nwp_config(jg)%inwp_gscp==4)THEN
+       IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
          CALL levels_horizontal_mean(prm_diag%ice_gsp_rate, p_patch%cells%area, p_patch%cells%owned, outvar0d)
          outvar0d = outvar0d * day_sec
        END IF
@@ -1029,12 +1133,12 @@ CONTAINS
        longname = 'resolved meridional wind variance'
        unit     = 'm2/s2'
      CASE('kh')
-       longname = '(mass) eddy diffusivity'
-       unit     = 'kg/ms'
+       longname = 'mass weighted eddy diffusivity'
+       unit     = 'kg/(ms)'
        is_at_full_level(n) = .FALSE.
      CASE('km')
-       longname = '(mass) eddy viscosity'
-       unit     = 'kg/ms'
+       longname = 'mass weighted eddy viscosity'
+       unit     = 'kg/(ms)'
        is_at_full_level(n) = .FALSE.
      CASE('wud') !diffuse u flux
        longname = '(mass) subgrid zonal wind flux'
@@ -1113,7 +1217,6 @@ CONTAINS
      CASE('dt_t_mc') 
        longname = 'microphysics temp tendency'
        unit     = 'K/s'
-       idx_dt_t_gsp = n
      CASE DEFAULT 
          WRITE(message_text,'(a)')TRIM(turb_profile_list(n))
          CALL finish(routine,'Variable '//TRIM(message_text)//' is not listed in les_nml')

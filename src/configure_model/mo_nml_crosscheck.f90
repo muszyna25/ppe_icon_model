@@ -24,7 +24,7 @@
 !!
 MODULE mo_nml_crosscheck
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, i8
   USE mo_exception,          ONLY: message, message_text, finish, print_value
   USE mo_impl_constants,     ONLY: max_char_length, max_dom,                  &
     &                              iecham, ildf_echam, inwp, iheldsuarez,     &
@@ -35,13 +35,17 @@ MODULE mo_nml_crosscheck
     &                              UP3, MCYCL, MIURA_MCYCL, MIURA3_MCYCL,     &
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, ifluxl_sm,     &
     &                              ifluxl_m, ihs_ocean, RAYLEIGH_CLASSIC,     &
-    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD,     &
-    &                              MODE_DWDANA_INC 
+    &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD 
+  USE mo_master_config,      ONLY: tc_exp_stopdate, tc_stopdate
+  USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta, &
+       &                           MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,     &
+       &                           OPERATOR(>), OPERATOR(/=), timedeltaToString   
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
-    &                              inextra_3d
+    &                              inextra_3d, lnetcdf_flt64_output
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
+    &                              use_dp_mpi2io,                             &
     &                              num_io_procs, itype_comm, num_restart_procs
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
     &                              ltransport, ntracer, nlev, ltestcase,      &
@@ -51,7 +55,7 @@ MODULE mo_nml_crosscheck
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,         & 
     &                              inccn, ininact, ininpot,                   &
     &                              activate_sync_timers, timers_level,        &
-    &                              output_mode, lart
+    &                              output_mode, lart, tc_dt_model
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_grid_config
@@ -69,20 +73,20 @@ MODULE mo_nml_crosscheck
 
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv
-  USE mo_lnd_nwp_config,     ONLY: ntiles_lnd
+  USE mo_lnd_nwp_config,     ONLY: ntiles_lnd, lsnowtile
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_radiation_config
   USE mo_echam_conv_config,  ONLY: echam_conv_config
   USE mo_gw_hines_config,    ONLY: gw_hines_config
   USE mo_vdiff_config,       ONLY: vdiff_config
   USE mo_turbdiff_config,    ONLY: turbdiff_config
-  USE mo_initicon_config,    ONLY: init_mode, dt_iau
+  USE mo_initicon_config,    ONLY: init_mode, dt_iau, ltile_coldstart
   USE mo_nh_testcases_nml,   ONLY: linit_tracer_fv,nh_test_name
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_datetime,           ONLY: add_time, print_datetime_all
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_master_control,     ONLY: is_restart_run, get_my_process_type,      &
+  USE mo_master_control,     ONLY: get_my_process_type,      &
     & testbed_process,  atmo_process, ocean_process, radiation_process
 
   USE mo_art_config,         ONLY: art_config
@@ -207,12 +211,20 @@ CONTAINS
 
     ! Length of this integration is limited by length of the restart cycle.
     !
+#ifdef USE_MTIME_LOOP
+    IF (tc_exp_stopdate > tc_stopdate) THEN
+      restart_experiment = .TRUE.
+    ELSE
+      restart_experiment = .FALSE.
+    ENDIF
+#else
     IF (nsteps > INT(time_config%dt_restart/dtime)) THEN
       nsteps = INT(time_config%dt_restart/dtime)
       restart_experiment = .TRUE.
     ELSE
       restart_experiment = .FALSE.
     ENDIF
+#endif
 !     nsteps = MIN(nsteps,INT(time_config%dt_restart/dtime))
 
 
@@ -287,7 +299,10 @@ CONTAINS
     INTEGER :: i_listlen
     INTEGER :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
-
+    TYPE(timedelta),  POINTER             :: mtime_td
+    INTEGER(i8)                           :: dtime_ms
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string, td_string0
+    
     !--------------------------------------------------------------------
     ! Parallelization
     !--------------------------------------------------------------------
@@ -345,6 +360,15 @@ CONTAINS
                  (ha_dyn_config%itime_scheme/=LEAPFROG_SI)
 
     END SELECT
+
+    !--------------------------------------------------------------------
+    ! If ltestcase is set to .FALSE. in run_nml set testcase name to empty
+    ! (in case it is still set in the run script)
+    IF (.NOT. ltestcase) THEN
+      ctest_name = ''
+      nh_test_name = ''
+    END IF
+    !--------------------------------------------------------------------
 
     !--------------------------------------------------------------------
     ! Testcases (hydrostatic)
@@ -474,10 +498,10 @@ CONTAINS
           SELECT CASE (irad_o3)
           CASE (0) ! ok
             CALL message(TRIM(method_name),'radiation is used without ozone')
-          CASE (2,4,6,7,8) ! ok
+          CASE (2,4,6,7,8,9) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone')
           CASE default
-            CALL finish(TRIM(method_name),'irad_o3 currently has to be 0, 2, 4, 6, 7 or 8.')
+            CALL finish(TRIM(method_name),'irad_o3 currently has to be 0, 2, 4, 6, 7, 8 or 9.')
           END SELECT
 
           ! Tegen aerosol and itopo (Tegen aerosol data have to be read from external data file)
@@ -629,14 +653,16 @@ CONTAINS
         iqns = 10        
         iqng = 11        
         iqnh = 12
+        iqnc = 13
+        ininact = 14
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mixing ratios
-        iqt       = 13    !! start index of other tracers not related at all to moisture
+        iqt       = 15    !! start index of other tracers not related at all to moisture
        
-        ntracer = 12
+        ntracer = 14
 
-      CASE(5)  ! two-moment scheme with prognotic cloud drop number and CCN and IN budgets
+      CASE(5)  ! two-moment scheme with CCN and IN budgets
       
         iqg  = 6
         iqh  = 7
@@ -646,9 +672,9 @@ CONTAINS
         iqng = 11        
         iqnh = 12
         iqnc = 13
-        inccn = 14
-        ininpot = 15
-        ininact = 16
+        ininact = 14
+        inccn   = 15
+        ininpot = 16
 
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mixing ratios
@@ -712,6 +738,17 @@ CONTAINS
       WRITE(message_text,'(a,i3)') 'Attention: NWP physics is used, '//&
                                    'ntracer is automatically reset to ',ntracer
       CALL message(TRIM(method_name),message_text)
+
+      ! take into account additional passive tracers, if present
+      ! iqt is not increased, since passive tracers do not belong to the hydrometeor group.
+      IF ( advection_config(jg)%npassive_tracer > 0) THEN
+        ntracer = ntracer + advection_config(jg)%npassive_tracer
+        WRITE(message_text,'(a,i3,a,i3)') 'Attention: passive tracers have been added, '//&
+                                     'ntracer is increased by ',advection_config(jg)%npassive_tracer, &
+                                     ' to ',ntracer
+        CALL message(TRIM(method_name),message_text)
+      ENDIF
+
 
       IF (lart) THEN
         
@@ -914,6 +951,17 @@ CONTAINS
     ! checking the meanings of the io settings
     !--------------------------------------------------------------------
 
+
+    IF (lnetcdf_flt64_output) THEN
+       CALL message(TRIM(method_name),'NetCDF output of floating point variables will be in 64-bit accuracy')
+       IF (.NOT. use_dp_mpi2io) THEN
+          use_dp_mpi2io = .TRUE.
+          CALL message(TRIM(method_name),'--> use_dp_mpi2io is changed to .TRUE. to allow 64-bit accuracy in the NetCDF output.')
+       END IF
+    ELSE
+       CALL message(TRIM(method_name),'NetCDF output of floating point variables will be in 32-bit accuracy')
+    END IF
+
     SELECT CASE(iforcing)
     CASE ( iecham, ildf_echam )
       inextra_2d   = 0
@@ -928,14 +976,14 @@ CONTAINS
       WRITE (message_text,*) &
         & "warning: namelist parameter 'activate_sync_timers' has been set to .FALSE., ", &
         & "because global 'ltimer' flag is disabled."
-      CALL message('io_namelist', TRIM(message_text))
+      CALL message(TRIM(method_name), TRIM(message_text))
     END IF
     IF (timers_level > 9 .AND. .NOT. activate_sync_timers) THEN
       activate_sync_timers = .TRUE.
       WRITE (message_text,*) &
         & "warning: namelist parameter 'activate_sync_timers' has been set to .TRUE., ", &
         & "because global 'timers_level' is > 9."
-      CALL message('io_namelist', TRIM(message_text))
+      CALL message(TRIM(method_name), TRIM(message_text))
     END IF
 
 
@@ -943,7 +991,7 @@ CONTAINS
     ! Realcase runs
     !--------------------------------------------------------------------
 
-    IF ( ANY((/MODE_IAU,MODE_IAU_OLD,MODE_DWDANA_INC/) == init_mode) ) THEN  ! start from dwd analysis with incremental update
+    IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN  ! start from dwd analysis with incremental update
 
       ! check analysis update window
       !
@@ -955,6 +1003,16 @@ CONTAINS
         CALL finish('initicon_nml:', TRIM(message_text))
       ENDIF 
 
+
+      ! IAU modes MODE_IAU_OLD cannot be combined with snowtiles
+      ! when performing snowtile warmstart.
+      IF ((ntiles_lnd > 1) .AND. (.NOT. ltile_coldstart) .AND. (lsnowtile)) THEN
+        IF ( init_mode == MODE_IAU_OLD ) THEN
+          WRITE (message_text,'(a,i2)') "lsnowtile=.TRUE. not allowed for IAU-Mode ", init_mode   
+          CALL finish(method_name, TRIM(message_text))
+        ENDIF
+      ENDIF
+
     ENDIF
 
 
@@ -962,6 +1020,20 @@ CONTAINS
     CALL check_meteogram_configuration(num_io_procs)
 
     CALL land_crosscheck()
+
+    ! Intermediate testing for consistency between old and mtime scheme 
+   
+    ! check if the model time step defined by run_nml:dtime is
+    ! identical to the time step defined by run_nml:modelTimeStep
+    CALL timedeltatostring(tc_dt_model, td_string0)
+    dtime_ms = NINT(dtime*1000, i8)
+    CALL getPTStringFromMS(dtime_ms, td_string)
+    mtime_td => newTimedelta(td_string)
+    IF (mtime_td /= tc_dt_model) THEN
+      CALL finish(method_name, 'Inconsistent time step definitions: '//&
+        &TRIM(td_string0)//' vs. '//TRIM(td_string))
+    END IF
+    CALL deallocateTimedelta(mtime_td)
     
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------

@@ -36,7 +36,8 @@ MODULE mo_complete_subdivision
   USE mo_parallel_config,    ONLY:  p_test_run
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d, &
     &                              setup_comm_gather_pattern, t_comm_gather_pattern, &
-    &                              ASSIGNMENT(=), delete_comm_gather_pattern
+    &                              ASSIGNMENT(=), delete_comm_gather_pattern, &
+    &                              delete_comm_pattern
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_fbk_start_c, grf_fbk_start_e, grf_bdywidth_c, &
     & grf_bdywidth_e
@@ -49,11 +50,10 @@ MODULE mo_complete_subdivision
   !modules interface-------------------------------------------
   !subroutines
   PUBLIC :: copy_processor_splitting
-  PUBLIC :: set_patch_communicators
   PUBLIC :: finalize_decomposition
   PUBLIC :: setup_phys_patches
   PUBLIC :: complete_parallel_setup
-
+  PUBLIC :: generate_comm_pat_cvec1
 
 CONTAINS
 
@@ -176,6 +176,34 @@ CONTAINS
   !-----------------------------------------------------------------------------
   ! sets communication patterns and parent-child relationships.
   !
+  SUBROUTINE generate_comm_pat_cvec1(patch, is_ocean_decomposition)
+
+    TYPE(t_patch), INTENT(INOUT) :: patch(n_dom_start:)
+    LOGICAL, INTENT(IN) :: is_ocean_decomposition
+
+    INTEGER :: jg
+
+    IF (is_ocean_decomposition .AND. (n_dom > n_dom_start)) &
+      CALL finish('generate_comm_pat_cvec1', &
+        &         'functionality with local parent patch not implemented')
+
+    DO jg = n_dom_start, n_dom
+
+      ! Set communication patterns for boundary exchange 
+      CALL set_comm_pat_bound_exch(patch(jg))
+
+      IF (jg > n_dom_start) THEN
+
+        CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
+      ENDIF
+
+    ENDDO
+
+  END SUBROUTINE generate_comm_pat_cvec1
+
+  !-----------------------------------------------------------------------------
+  ! sets communication patterns and parent-child relationships.
+  !
   SUBROUTINE complete_parallel_setup(patch, is_ocean_decomposition)
 
     TYPE(t_patch), INTENT(INOUT) :: patch(n_dom_start:)
@@ -184,14 +212,18 @@ CONTAINS
     INTEGER :: jg, jgp
 
     IF (is_ocean_decomposition .AND. (n_dom > n_dom_start)) &
-      CALL finish('finalize_decomposition_oce', &
+      CALL finish('complete_parallel_setup', &
         &         'functionality with local parent patch not implemented')
 
     DO jg = n_dom_start, n_dom
 
       jgp = patch(jg)%parent_id
 
-      ! Set communication patterns for boundary exchange
+      ! Rebuild communication patterns for boundary exchange
+      CALL delete_comm_pattern(patch(jg)%comm_pat_c)
+      CALL delete_comm_pattern(patch(jg)%comm_pat_v)
+      CALL delete_comm_pattern(patch(jg)%comm_pat_e)
+      CALL delete_comm_pattern(patch(jg)%comm_pat_c1)
       CALL set_comm_pat_bound_exch(patch(jg))
 
       ! Set communication patterns for gathering on proc 0
@@ -203,9 +235,10 @@ CONTAINS
         !
         ! CALL setup_comm_cpy_interpolation(patch(jg), patch(jgp))
 
-        CALL setup_comm_grf_interpolation(patch(jg), patch(jgp))
-        CALL setup_comm_ubc_interpolation(patch(jg), patch(jgp))
-
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_c)
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_v)
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_e)
+        CALL delete_comm_pattern(p_patch_local_parent(jg)%comm_pat_c1)
         CALL set_comm_pat_bound_exch(p_patch_local_parent(jg))
 
         CALL set_glb_loc_comm(patch(jgp), p_patch_local_parent(jg), &
@@ -689,7 +722,8 @@ CONTAINS
     DO j = 1, p_patch%n_patch_cells
       jc = idx_no(j)
       jb = blk_no(j)
-      jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
+      jp = idx_1d(p_patch%cells%parent_glb_idx(jc,jb), &
+        &         p_patch%cells%parent_glb_blk(jc,jb))
       IF(jp<p_index_s .OR. jp>p_index_e) CYCLE
       glb_index(j) = jp
     ENDDO
@@ -707,542 +741,6 @@ CONTAINS
     DEALLOCATE(owner, glb_index)
 
   END SUBROUTINE setup_comm_cpy_interpolation
-
-  !-------------------------------------------------------------------------
-  !>
-  !! This routine sets up a communication pattern for grf interpolation.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial version by Rainer Johanni, Nov 2009
-  SUBROUTINE setup_comm_grf_interpolation(p_patch, p_parent_patch)
-
-    TYPE(t_patch), INTENT(INOUT) :: p_patch, p_parent_patch
-
-    INTEGER :: j, n, jc, je, jb, jp
-    INTEGER :: num_send, num_recv, np, iss, ise, irs, ire
-    INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
-
-    !--------------------------------------------------------------------
-    ! Cells
-
-    ! For our local child patch, gather which cells receive values from which parent cell
-    ! This is done once for every of the four child cells
-
-    ALLOCATE(glb_index(p_patch%n_patch_cells))
-    ALLOCATE(owner(p_patch%n_patch_cells))
-
-    DO n = 1, 4
-
-      glb_index(:) = -1
-
-      ! Communication to nest boundary points includes halo points in order to save subsequent synchronization
-      DO j = 1,p_patch%n_patch_cells
-        jc = idx_no(j)
-        jb = blk_no(j)
-        IF (p_patch%cells%refin_ctrl(jc,jb) > 0 .AND. p_patch%cells%refin_ctrl(jc,jb) <= grf_bdywidth_c &
-            .AND. p_patch%cells%pc_idx(jc,jb) == n) THEN
-          jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
-          glb_index(j) = jp
-        ENDIF
-      ENDDO
-
-      owner(:) = &
-           dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
-           &                   glb_index(:), glb_index(:) /= -1)
-
-      ! Set up communication pattern
-
-      CALL setup_comm_pattern(p_patch%n_patch_cells, owner, glb_index,  &
-        & p_parent_patch%cells%decomp_info%glb2loc_index, &
-        & p_patch%comm_pat_interpol_scal_grf(n))
-
-    ENDDO
-
-    ! Recompute send/recv processor lists for the cell-based communication patterns
-    ! in order to be able to use the lists in the exchange routine
-    ! (This is necessary even though the child cells of a given cell are always
-    !  owned by the same PE because the halo cells are included in the communication pattern)
-
-    num_send = 0
-    num_recv = 0
-
-    DO np = 0, p_n_work-1 ! loop over PEs
-
-      DO n = 1, 4  ! loop over communication patterns
-        iss = p_patch%comm_pat_interpol_scal_grf(n)%send_limits(np)+1
-        ise = p_patch%comm_pat_interpol_scal_grf(n)%send_limits(np+1)
-        IF(ise >= iss) THEN
-          num_send = num_send + 1
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-      DO n = 1, 4  ! loop over communication patterns
-        irs = p_patch%comm_pat_interpol_scal_grf(n)%recv_limits(np)+1
-        ire = p_patch%comm_pat_interpol_scal_grf(n)%recv_limits(np+1)
-        IF(ire >= irs) THEN
-          num_recv = num_recv + 1
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-    ENDDO
-
-    DO n = 1, 4
-      DEALLOCATE (p_patch%comm_pat_interpol_scal_grf(n)%pelist_send,   &
-                  p_patch%comm_pat_interpol_scal_grf(n)%pelist_recv,   &
-                  p_patch%comm_pat_interpol_scal_grf(n)%send_startidx, &
-                  p_patch%comm_pat_interpol_scal_grf(n)%recv_startidx, &
-                  p_patch%comm_pat_interpol_scal_grf(n)%send_count,    &
-                  p_patch%comm_pat_interpol_scal_grf(n)%recv_count     )
-
-      p_patch%comm_pat_interpol_scal_grf(n)%np_send = num_send
-      p_patch%comm_pat_interpol_scal_grf(n)%np_recv = num_recv
-
-      ALLOCATE (p_patch%comm_pat_interpol_scal_grf(n)%pelist_send(num_send),   &
-                p_patch%comm_pat_interpol_scal_grf(n)%pelist_recv(num_recv),   &
-                p_patch%comm_pat_interpol_scal_grf(n)%send_startidx(num_send), &
-                p_patch%comm_pat_interpol_scal_grf(n)%recv_startidx(num_recv), &
-                p_patch%comm_pat_interpol_scal_grf(n)%send_count(num_send),    &
-                p_patch%comm_pat_interpol_scal_grf(n)%recv_count(num_recv)     )
-
-      ! The startidx and count fields are not used for the nest interpolation
-      ! communication, but the fields have to redimensioned here in order to avoid
-      ! segmentation faults in dump/restore mode
-      p_patch%comm_pat_interpol_scal_grf(n)%send_startidx(:) = 0
-      p_patch%comm_pat_interpol_scal_grf(n)%recv_startidx(:) = 0
-      p_patch%comm_pat_interpol_scal_grf(n)%send_count(:) = 0
-      p_patch%comm_pat_interpol_scal_grf(n)%recv_count(:) = 0
-    ENDDO
-
-    num_send = 0
-    num_recv = 0
-
-    ! Now compute "envelope PE lists" for all communication patterns
-    DO np = 0, p_n_work-1 ! loop over PEs
-
-      DO n = 1, 4  ! loop over communication patterns
-        iss = p_patch%comm_pat_interpol_scal_grf(n)%send_limits(np)+1
-        ise = p_patch%comm_pat_interpol_scal_grf(n)%send_limits(np+1)
-        IF(ise >= iss) THEN
-          num_send = num_send + 1
-          DO j = 1, 4
-            p_patch%comm_pat_interpol_scal_grf(j)%pelist_send(num_send) = np
-          ENDDO
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-      DO n = 1, 4  ! loop over communication patterns
-        irs = p_patch%comm_pat_interpol_scal_grf(n)%recv_limits(np)+1
-        ire = p_patch%comm_pat_interpol_scal_grf(n)%recv_limits(np+1)
-        IF(ire >= irs) THEN
-          num_recv = num_recv + 1
-          DO j = 1, 4
-            p_patch%comm_pat_interpol_scal_grf(j)%pelist_recv(num_recv) = np
-          ENDDO
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-    ENDDO
-
-    DEALLOCATE(owner, glb_index)
-
-    !--------------------------------------------------------------------
-    ! Edges
-
-    ! For our local child patch, gather which edges receive values from which parent edge
-    ! This is done once for every of the four child edges
-
-    ALLOCATE(glb_index(p_patch%n_patch_edges))
-    ALLOCATE(owner(p_patch%n_patch_edges))
-
-    DO n = 1, 4
-
-      glb_index(:) = -1
-
-      ! Communication to nest boundary points includes halo points in order to save subsequent synchronization
-      DO j = 1,p_patch%n_patch_edges
-        je = idx_no(j)
-        jb = blk_no(j)
-        IF (p_patch%edges%refin_ctrl(je,jb) > 0 .AND. p_patch%edges%refin_ctrl(je,jb) <= grf_bdywidth_e &
-            .AND. p_patch%edges%pc_idx(je,jb) == n) THEN
-          jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
-          glb_index(j) = jp
-        ENDIF
-      ENDDO
-
-      owner(:) = &
-           dist_dir_get_owners(p_parent_patch%edges%decomp_info%owner_dist_dir, &
-           &                   glb_index(:), glb_index(:) /= -1)
-
-      ! Set up communication pattern
-
-      CALL setup_comm_pattern(p_patch%n_patch_edges, owner, glb_index,  &
-        & p_parent_patch%edges%decomp_info%glb2loc_index, &
-        & p_patch%comm_pat_interpol_vec_grf(n))
-
-    ENDDO
-
-    ! Recompute send/recv processor lists for the edge-based communication patterns
-    ! in order to be able to use the lists in the exchange routine
-
-    num_send = 0
-    num_recv = 0
-
-    DO np = 0, p_n_work-1 ! loop over PEs
-
-      DO n = 1, 4  ! loop over communication patterns
-        iss = p_patch%comm_pat_interpol_vec_grf(n)%send_limits(np)+1
-        ise = p_patch%comm_pat_interpol_vec_grf(n)%send_limits(np+1)
-        IF(ise >= iss) THEN
-          num_send = num_send + 1
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-      DO n = 1, 4  ! loop over communication patterns
-        irs = p_patch%comm_pat_interpol_vec_grf(n)%recv_limits(np)+1
-        ire = p_patch%comm_pat_interpol_vec_grf(n)%recv_limits(np+1)
-        IF(ire >= irs) THEN
-          num_recv = num_recv + 1
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-    ENDDO
-
-    DO n = 1, 4
-      DEALLOCATE (p_patch%comm_pat_interpol_vec_grf(n)%pelist_send,   &
-                  p_patch%comm_pat_interpol_vec_grf(n)%pelist_recv,   &
-                  p_patch%comm_pat_interpol_vec_grf(n)%send_startidx, &
-                  p_patch%comm_pat_interpol_vec_grf(n)%recv_startidx, &
-                  p_patch%comm_pat_interpol_vec_grf(n)%send_count,    &
-                  p_patch%comm_pat_interpol_vec_grf(n)%recv_count     )
-
-      p_patch%comm_pat_interpol_vec_grf(n)%np_send = num_send
-      p_patch%comm_pat_interpol_vec_grf(n)%np_recv = num_recv
-
-      ALLOCATE (p_patch%comm_pat_interpol_vec_grf(n)%pelist_send(num_send),   &
-                p_patch%comm_pat_interpol_vec_grf(n)%pelist_recv(num_recv),   &
-                p_patch%comm_pat_interpol_vec_grf(n)%send_startidx(num_send), &
-                p_patch%comm_pat_interpol_vec_grf(n)%recv_startidx(num_recv), &
-                p_patch%comm_pat_interpol_vec_grf(n)%send_count(num_send),    &
-                p_patch%comm_pat_interpol_vec_grf(n)%recv_count(num_recv)     )
-
-      ! The startidx and count fields are not used for the nest interpolation
-      ! communication, but the fields have to redimensioned here in order to avoid
-      ! segmentation faults in dump/restore mode
-      p_patch%comm_pat_interpol_vec_grf(n)%send_startidx(:) = 0
-      p_patch%comm_pat_interpol_vec_grf(n)%recv_startidx(:) = 0
-      p_patch%comm_pat_interpol_vec_grf(n)%send_count(:) = 0
-      p_patch%comm_pat_interpol_vec_grf(n)%recv_count(:) = 0
-    ENDDO
-
-    num_send = 0
-    num_recv = 0
-
-    ! Now compute "envelope PE lists" for all communication patterns
-    DO np = 0, p_n_work-1 ! loop over PEs
-
-      DO n = 1, 4  ! loop over communication patterns
-        iss = p_patch%comm_pat_interpol_vec_grf(n)%send_limits(np)+1
-        ise = p_patch%comm_pat_interpol_vec_grf(n)%send_limits(np+1)
-        IF(ise >= iss) THEN
-          num_send = num_send + 1
-          DO j = 1, 4
-            p_patch%comm_pat_interpol_vec_grf(j)%pelist_send(num_send) = np
-          ENDDO
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-      DO n = 1, 4  ! loop over communication patterns
-        irs = p_patch%comm_pat_interpol_vec_grf(n)%recv_limits(np)+1
-        ire = p_patch%comm_pat_interpol_vec_grf(n)%recv_limits(np+1)
-        IF(ire >= irs) THEN
-          num_recv = num_recv + 1
-          DO j = 1, 4
-            p_patch%comm_pat_interpol_vec_grf(j)%pelist_recv(num_recv) = np
-          ENDDO
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-    ENDDO
-
-    DEALLOCATE(owner, glb_index)
-
-  END SUBROUTINE setup_comm_grf_interpolation
-
-  !-------------------------------------------------------------------------
-  !>
-  !! This routine sets up a communication pattern for ubc interpolation.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial version by Rainer Johanni, Nov 2009
-  SUBROUTINE setup_comm_ubc_interpolation(p_patch, p_parent_patch)
-
-    TYPE(t_patch), INTENT(INOUT) :: p_patch, p_parent_patch
-
-    INTEGER :: j, n, jc, je, jb, jp
-    INTEGER :: num_send, num_recv, np, iss, ise, irs, ire
-    INTEGER, ALLOCATABLE :: owner(:), glb_index(:)
-
-    !--------------------------------------------------------------------
-    ! Cells
-
-    ! For our local child patch, gather which cells receive values from which parent cell
-    ! This is done once for every of the four child cells
-
-    ALLOCATE(glb_index(p_patch%n_patch_cells))
-    ALLOCATE(owner(p_patch%n_patch_cells))
-
-    DO n = 1, 4
-
-      glb_index(:) = -1
-
-      DO j = 1,p_patch%n_patch_cells
-        jc = idx_no(j)
-        jb = blk_no(j)
-        IF ((p_patch%cells%refin_ctrl(jc,jb) >= grf_bdywidth_c+1 .OR. p_patch%cells%refin_ctrl(jc,jb) <= 0) &
-            .AND. p_patch%cells%pc_idx(jc,jb) == n) THEN
-          jp = idx_1d(p_patch%cells%parent_idx(jc,jb),p_patch%cells%parent_blk(jc,jb))
-          glb_index(j) = jp
-        ENDIF
-      ENDDO
-
-      owner(:) = &
-           dist_dir_get_owners(p_parent_patch%cells%decomp_info%owner_dist_dir, &
-           &                   glb_index(:), glb_index(:) /= -1)
-
-      ! Set up communication pattern
-
-      CALL setup_comm_pattern(p_patch%n_patch_cells, owner, glb_index,  &
-        & p_parent_patch%cells%decomp_info%glb2loc_index, &
-        & p_patch%comm_pat_interpol_scal_ubc(n))
-
-    ENDDO
-
-    ! Recompute send/recv processor lists for the cell-based communication patterns
-    ! in order to be able to use the lists in the exchange routine
-    ! (This is necessary even though the child cells of a given cell are always
-    !  owned by the same PE because the halo cells are included in the communication pattern)
-
-    num_send = 0
-    num_recv = 0
-
-    DO np = 0, p_n_work-1 ! loop over PEs
-
-      DO n = 1, 4  ! loop over communication patterns
-        iss = p_patch%comm_pat_interpol_scal_ubc(n)%send_limits(np)+1
-        ise = p_patch%comm_pat_interpol_scal_ubc(n)%send_limits(np+1)
-        IF(ise >= iss) THEN
-          num_send = num_send + 1
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-      DO n = 1, 4  ! loop over communication patterns
-        irs = p_patch%comm_pat_interpol_scal_ubc(n)%recv_limits(np)+1
-        ire = p_patch%comm_pat_interpol_scal_ubc(n)%recv_limits(np+1)
-        IF(ire >= irs) THEN
-          num_recv = num_recv + 1
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-    ENDDO
-
-    DO n = 1, 4
-      DEALLOCATE (p_patch%comm_pat_interpol_scal_ubc(n)%pelist_send,   &
-                  p_patch%comm_pat_interpol_scal_ubc(n)%pelist_recv,   &
-                  p_patch%comm_pat_interpol_scal_ubc(n)%send_startidx, &
-                  p_patch%comm_pat_interpol_scal_ubc(n)%recv_startidx, &
-                  p_patch%comm_pat_interpol_scal_ubc(n)%send_count,    &
-                  p_patch%comm_pat_interpol_scal_ubc(n)%recv_count     )
-
-      p_patch%comm_pat_interpol_scal_ubc(n)%np_send = num_send
-      p_patch%comm_pat_interpol_scal_ubc(n)%np_recv = num_recv
-
-      ALLOCATE (p_patch%comm_pat_interpol_scal_ubc(n)%pelist_send(num_send),   &
-                p_patch%comm_pat_interpol_scal_ubc(n)%pelist_recv(num_recv),   &
-                p_patch%comm_pat_interpol_scal_ubc(n)%send_startidx(num_send), &
-                p_patch%comm_pat_interpol_scal_ubc(n)%recv_startidx(num_recv), &
-                p_patch%comm_pat_interpol_scal_ubc(n)%send_count(num_send),    &
-                p_patch%comm_pat_interpol_scal_ubc(n)%recv_count(num_recv)     )
-
-      ! The startidx and count fields are not used for the nest interpolation
-      ! communication, but the fields have to redimensioned here in order to avoid
-      ! segmentation faults in dump/restore mode
-      p_patch%comm_pat_interpol_scal_ubc(n)%send_startidx(:) = 0
-      p_patch%comm_pat_interpol_scal_ubc(n)%recv_startidx(:) = 0
-      p_patch%comm_pat_interpol_scal_ubc(n)%send_count(:) = 0
-      p_patch%comm_pat_interpol_scal_ubc(n)%recv_count(:) = 0
-    ENDDO
-
-    num_send = 0
-    num_recv = 0
-
-    ! Now compute "envelope PE lists" for all communication patterns
-    DO np = 0, p_n_work-1 ! loop over PEs
-
-      DO n = 1, 4  ! loop over communication patterns
-        iss = p_patch%comm_pat_interpol_scal_ubc(n)%send_limits(np)+1
-        ise = p_patch%comm_pat_interpol_scal_ubc(n)%send_limits(np+1)
-        IF(ise >= iss) THEN
-          num_send = num_send + 1
-          DO j = 1, 4
-            p_patch%comm_pat_interpol_scal_ubc(j)%pelist_send(num_send) = np
-          ENDDO
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-      DO n = 1, 4  ! loop over communication patterns
-        irs = p_patch%comm_pat_interpol_scal_ubc(n)%recv_limits(np)+1
-        ire = p_patch%comm_pat_interpol_scal_ubc(n)%recv_limits(np+1)
-        IF(ire >= irs) THEN
-          num_recv = num_recv + 1
-          DO j = 1, 4
-            p_patch%comm_pat_interpol_scal_ubc(j)%pelist_recv(num_recv) = np
-          ENDDO
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-    ENDDO
-
-    DEALLOCATE(owner, glb_index)
-
-    !--------------------------------------------------------------------
-    ! Edges
-
-    ! For our local child patch, gather which edges receive values from which parent edge
-    ! This is done once for every of the four child edges
-
-    ALLOCATE(glb_index(p_patch%n_patch_edges))
-    ALLOCATE(owner(p_patch%n_patch_edges))
-
-    DO n = 1, 4
-
-      glb_index(:) = -1
-
-      DO j = 1,p_patch%n_patch_edges
-        je = idx_no(j)
-        jb = blk_no(j)
-        IF ((p_patch%edges%refin_ctrl(je,jb) >= grf_bdywidth_e+1 .OR. p_patch%edges%refin_ctrl(je,jb) <= 0) &
-            .AND. p_patch%edges%pc_idx(je,jb) == n) THEN
-          jp = idx_1d(p_patch%edges%parent_idx(je,jb),p_patch%edges%parent_blk(je,jb))
-          glb_index(j) = jp
-        ENDIF
-      ENDDO
-
-      owner(:) = &
-           dist_dir_get_owners(p_parent_patch%edges%decomp_info%owner_dist_dir, &
-           &                   glb_index(:), glb_index(:) /= -1)
-
-      ! Set up communication pattern
-
-      CALL setup_comm_pattern(p_patch%n_patch_edges, owner, glb_index,  &
-        & p_parent_patch%edges%decomp_info%glb2loc_index, &
-        & p_patch%comm_pat_interpol_vec_ubc(n))
-
-    ENDDO
-
-    ! Recompute send/recv processor lists for the edge-based communication patterns
-    ! in order to be able to use the lists in the exchange routine
-
-    num_send = 0
-    num_recv = 0
-
-    DO np = 0, p_n_work-1 ! loop over PEs
-
-      DO n = 1, 4  ! loop over communication patterns
-        iss = p_patch%comm_pat_interpol_vec_ubc(n)%send_limits(np)+1
-        ise = p_patch%comm_pat_interpol_vec_ubc(n)%send_limits(np+1)
-        IF(ise >= iss) THEN
-          num_send = num_send + 1
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-      DO n = 1, 4  ! loop over communication patterns
-        irs = p_patch%comm_pat_interpol_vec_ubc(n)%recv_limits(np)+1
-        ire = p_patch%comm_pat_interpol_vec_ubc(n)%recv_limits(np+1)
-        IF(ire >= irs) THEN
-          num_recv = num_recv + 1
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-    ENDDO
-
-    DO n = 1, 4
-      DEALLOCATE (p_patch%comm_pat_interpol_vec_ubc(n)%pelist_send,   &
-                  p_patch%comm_pat_interpol_vec_ubc(n)%pelist_recv,   &
-                  p_patch%comm_pat_interpol_vec_ubc(n)%send_startidx, &
-                  p_patch%comm_pat_interpol_vec_ubc(n)%recv_startidx, &
-                  p_patch%comm_pat_interpol_vec_ubc(n)%send_count,    &
-                  p_patch%comm_pat_interpol_vec_ubc(n)%recv_count     )
-
-      p_patch%comm_pat_interpol_vec_ubc(n)%np_send = num_send
-      p_patch%comm_pat_interpol_vec_ubc(n)%np_recv = num_recv
-
-      ALLOCATE (p_patch%comm_pat_interpol_vec_ubc(n)%pelist_send(num_send),   &
-                p_patch%comm_pat_interpol_vec_ubc(n)%pelist_recv(num_recv),   &
-                p_patch%comm_pat_interpol_vec_ubc(n)%send_startidx(num_send), &
-                p_patch%comm_pat_interpol_vec_ubc(n)%recv_startidx(num_recv), &
-                p_patch%comm_pat_interpol_vec_ubc(n)%send_count(num_send),    &
-                p_patch%comm_pat_interpol_vec_ubc(n)%recv_count(num_recv)     )
-
-      ! The startidx and count fields are not used for the nest interpolation
-      ! communication, but the fields have to redimensioned here in order to avoid
-      ! segmentation faults in dump/restore mode
-      p_patch%comm_pat_interpol_vec_ubc(n)%send_startidx(:) = 0
-      p_patch%comm_pat_interpol_vec_ubc(n)%recv_startidx(:) = 0
-      p_patch%comm_pat_interpol_vec_ubc(n)%send_count(:) = 0
-      p_patch%comm_pat_interpol_vec_ubc(n)%recv_count(:) = 0
-    ENDDO
-
-    num_send = 0
-    num_recv = 0
-
-    ! Now compute "envelope PE lists" for all communication patterns
-    DO np = 0, p_n_work-1 ! loop over PEs
-
-      DO n = 1, 4  ! loop over communication patterns
-        iss = p_patch%comm_pat_interpol_vec_ubc(n)%send_limits(np)+1
-        ise = p_patch%comm_pat_interpol_vec_ubc(n)%send_limits(np+1)
-        IF(ise >= iss) THEN
-          num_send = num_send + 1
-          DO j = 1, 4
-            p_patch%comm_pat_interpol_vec_ubc(j)%pelist_send(num_send) = np
-          ENDDO
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-      DO n = 1, 4  ! loop over communication patterns
-        irs = p_patch%comm_pat_interpol_vec_ubc(n)%recv_limits(np)+1
-        ire = p_patch%comm_pat_interpol_vec_ubc(n)%recv_limits(np+1)
-        IF(ire >= irs) THEN
-          num_recv = num_recv + 1
-          DO j = 1, 4
-            p_patch%comm_pat_interpol_vec_ubc(j)%pelist_recv(num_recv) = np
-          ENDDO
-          EXIT ! count each processor only once
-        ENDIF
-      ENDDO
-
-    ENDDO
-
-    DEALLOCATE(owner, glb_index)
-
-  END SUBROUTINE setup_comm_ubc_interpolation
 
   !-------------------------------------------------------------------------
   !>
@@ -1392,7 +890,7 @@ CONTAINS
 
       CALL setup_comm_gather_pattern(n_g, owner_local(:), &
         &                            decomp_info%glb_index(:), &
-        &                            comm_pat_gather(ip))
+        &                            comm_pat_gather(ip), .TRUE.)
     END DO
 
     DEALLOCATE(owner_local)

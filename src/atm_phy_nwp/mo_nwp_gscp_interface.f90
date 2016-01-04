@@ -11,7 +11,7 @@
 !! inwp_gscp == 3 : two-moment cloud ice scheme of Koehler (2013)
 !!
 !! inwp_gscp == 4 : two-moment bulk microphysics by Seifert and Beheng (2006)
-!!                  with prescribed cloud droplet number
+!!                  with prognostic cloud droplet number
 !!
 !! inwp_gscp == 5 : two-moment bulk microphysics by Seifert and Beheng (2006)
 !!                  with prognostic cloud droplet number and some aerosol,
@@ -64,14 +64,13 @@ MODULE mo_nwp_gscp_interface
   USE gscp_graupel,            ONLY: graupel
   USE gscp_hydci_pp_ice,       ONLY: hydci_pp_ice
   USE mo_exception,            ONLY: finish
-  USE mo_mcrph_sb,             ONLY: two_moment_mcrph, &
+  USE mo_mcrph_sb,             ONLY: two_moment_mcrph, set_qnc, &
        &                             set_qnr,set_qni,set_qns,set_qng
   USE mo_art_clouds_interface, ONLY: art_clouds_interface_twomom
   USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
   USE gscp_data,               ONLY: cloud_num
   USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst
   USE mo_grid_config,          ONLY: l_limited_area
-  USE mo_turbulent_diagnostic, ONLY: is_sampling_time, idx_dt_t_gsp
   USE mo_statistics,           ONLY: levels_horizontal_mean
 
   IMPLICIT NONE
@@ -117,7 +116,6 @@ CONTAINS
     INTEGER :: jc,jb,jg,jk               !<block indices
 
     REAL(wp) :: zncn(nproma,p_patch%nlev),qnc(nproma,p_patch%nlev),qnc_s(nproma)
-    REAL(wp) :: z_dtemp(nproma,p_patch%nlev,p_patch%nblks_c),outvar(p_patch%nlev)
     LOGICAL  :: l_nest_other_micro
     LOGICAL  :: ltwomoment
 
@@ -170,11 +168,11 @@ CONTAINS
              
              DO jk = 1, nlev
                 DO jc = i_startidx, i_endidx
+                   p_prog_rcf%tracer(jc,jk,jb,iqnc) = set_qnc(p_prog_rcf%tracer(jc,jk,jb,iqc))
                    p_prog_rcf%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_rcf%tracer(jc,jk,jb,iqr))
                    p_prog_rcf%tracer(jc,jk,jb,iqni) = set_qni(p_prog_rcf%tracer(jc,jk,jb,iqi))
                    p_prog_rcf%tracer(jc,jk,jb,iqns) = set_qns(p_prog_rcf%tracer(jc,jk,jb,iqs))
                    p_prog_rcf%tracer(jc,jk,jb,iqng) = set_qng(p_prog_rcf%tracer(jc,jk,jb,iqg))
-!                  p_prog_rcf%tracer(jc,jk,jb,iqnh) = set_qng(p_prog_rcf%tracer(jc,jk,jb,iqh))                   
                 ENDDO
              ENDDO
           ENDDO
@@ -187,6 +185,7 @@ CONTAINS
        ! Nothing to do for other schemes
     END SELECT
 
+   
     ! exclude boundary interpolation zone of nested domains
     i_rlstart = grf_bdywidth_c+1
     i_rlend   = min_rlcell_int
@@ -195,7 +194,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
     ! Some run time diagnostics (can also be used for other schemes)
-    IF (msg_level>10 .AND. ltwomoment) THEN
+    IF (msg_level>14 .AND. ltwomoment) THEN
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
     
@@ -336,6 +335,7 @@ CONTAINS
                        pres   = p_diag%pres(:,:,jb  )      ,    &!in:  pressure
                        qv     = p_prog_rcf%tracer (:,:,jb,iqv), &!inout:sp humidity
                        qc     = p_prog_rcf%tracer (:,:,jb,iqc), &!inout:cloud water
+                       qnc    = p_prog_rcf%tracer (:,:,jb,iqnc),&!inout: cloud droplet number 
                        qr     = p_prog_rcf%tracer (:,:,jb,iqr), &!inout:rain
                        qnr    = p_prog_rcf%tracer (:,:,jb,iqnr),&!inout:rain droplet number 
                        qi     = p_prog_rcf%tracer (:,:,jb,iqi), &!inout: ice
@@ -346,6 +346,7 @@ CONTAINS
                        qng    = p_prog_rcf%tracer (:,:,jb,iqng),&!inout: graupel number
                        qh     = p_prog_rcf%tracer (:,:,jb,iqh), &!inout: hail 
                        qnh    = p_prog_rcf%tracer (:,:,jb,iqnh),&!inout: hail number
+                       ninact = p_prog_rcf%tracer (:,:,jb,ininact), &!inout: IN number
                        tk     = p_diag%temp(:,:,jb),            &!inout: temp 
                        w      = p_prog%w(:,:,jb),               &!inout: w
                        prec_r = prm_diag%rain_gsp_rate (:,jb),  &!inout precp rate rain
@@ -353,7 +354,6 @@ CONTAINS
                        prec_s = prm_diag%snow_gsp_rate (:,jb),  &!inout precp rate snow
                        prec_g = prm_diag%graupel_gsp_rate (:,jb),&!inout precp rate graupel
                        prec_h = prm_diag%hail_gsp_rate (:,jb),   &!inout precp rate hail
-                       dtemp  = z_dtemp (:,:,jb),                &!inout opt. temperature increment
                        msg_level = msg_level                ,    &
                        l_cv=.TRUE.          )    
 
@@ -528,17 +528,10 @@ CONTAINS
 !$OMP END PARALLEL
  
     ! Some more run time diagnostics (can also be used for other schemes)
-    IF (msg_level>10 .AND. ltwomoment) THEN
+    IF (msg_level>14 .AND. ltwomoment) THEN
        CALL nwp_diag_output_minmax_micro(p_patch, p_prog, p_diag, p_prog_rcf)
     END IF
 
-    !Additional diagnostic for idealized LES runs
-    IF(is_sampling_time)THEN
-      CALL levels_horizontal_mean(z_dtemp, p_patch%cells%area, p_patch%cells%owned, outvar)
-      prm_diag%turb_diag_1dvar(kstart_moist(jg):nlev,idx_dt_t_gsp) =      &
-          prm_diag%turb_diag_1dvar(kstart_moist(jg):nlev,idx_dt_t_gsp) +  &
-          outvar(kstart_moist(jg):nlev)/tcall_gscp_jg
-    END IF
      
   END SUBROUTINE nwp_microphysics
 

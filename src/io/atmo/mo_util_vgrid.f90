@@ -15,7 +15,16 @@
 !!
 MODULE mo_util_vgrid
 
-  USE mo_cdi_constants          ! We need all
+  USE mo_cdi,                               ONLY: streamDefTimestep, streamOpenWrite, gridCreate, institutInq, vlistCreate, &
+                                                & vlistInqVarZaxis, vlistInqVarGrid, streamInqVlist, streamOpenRead, &
+                                                & ZAXIS_REFERENCE, zaxisCreate, TSTEP_CONSTANT, vlistDefVar, FILETYPE_NC2, &
+                                                & DATATYPE_INT32, DATATYPE_FLT64, CDI_UNDEFID, CDI_GLOBAL, vlistDefAttInt, &
+                                                & vlistInqAttInt, zaxisDestroy, gridDestroy, vlistDestroy, streamClose, &
+                                                & streamWriteVarSlice, streamWriteVar, streamDefVlist, cdiGetStringError, &
+                                                & vlistDefVarDatatype, vlistDefVarName, zaxisDefNumber, zaxisDefUUID, &
+                                                & gridDefPosition, gridInqUUID, gridDefNumber, gridDefUUID, zaxisDefLevels, &
+                                                & gridDefNvertex, vlistDefInstitut, zaxisInqUUID, streamReadVar, &
+                                                & GRID_UNSTRUCTURED
   USE mo_kind,                              ONLY: wp, dp
   USE mo_exception,                         ONLY: finish, message, message_text, warning
   !
@@ -31,9 +40,8 @@ MODULE mo_util_vgrid
     &                                             ishallow_water, SUCCESS, MAX_CHAR_LENGTH
   USE mo_model_domain,                      ONLY: t_patch
   USE mo_ext_data_types,                    ONLY: t_external_data
-  USE mo_ext_data_state,                    ONLY: ext_data
   USE mo_intp_data_strc,                    ONLY: t_int_state
-  USE mo_vertical_coord_table,              ONLY: init_vertical_coord_table, vct_a, vct_b, vct
+  USE mo_vertical_coord_table,              ONLY: init_vertical_coord_table
   USE mo_nh_init_utils,                     ONLY: init_hybrid_coord, init_sleve_coord,                  &
     &                                             init_vert_coord, compute_smooth_topo,                 &
     &                                             prepare_hybrid_coord, prepare_sleve_coord
@@ -247,12 +255,13 @@ CONTAINS
     CHARACTER(len=1)           :: uuid_string(16)
     CHARACTER(len=132)         :: message_text
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
+    INTEGER :: oneInt(1)
 
     CALL message(routine, "create vertical grid description file.")
 
     nlevp1 = p_patch%nlevp1
     IF (my_process_is_mpi_workroot()) THEN
-      gridtype    = GRID_REFERENCE
+      gridtype    = GRID_UNSTRUCTURED
       output_type = FILETYPE_NC2
 
       !--- create meta-data
@@ -283,7 +292,7 @@ CONTAINS
       ! cells
       CALL uuid2char(p_patch%grid_uuid, uuid_string)
       CALL gridDefUUID(cdiCellGridID, uuid_string)
-      CALL gridDefNumber(cdiCellGridID, number_of_grid_used)
+      CALL gridDefNumber(cdiCellGridID, number_of_grid_used(p_patch%id))
       CALL gridDefPosition(cdiCellGridID, 1)
 
       !--- set UUID for vertical grid
@@ -303,7 +312,8 @@ CONTAINS
       CALL vlistDefVarName(cdiVlistID, cdiVarID_c, "z_ifc")
       CALL vlistDefVarDatatype(cdiVlistID, cdiVarID_c, DATATYPE_FLT64)
       !--- add "nflat"
-      iret = vlistDefAttInt(cdiVlistID, CDI_GLOBAL, "nflat", DATATYPE_INT32,  1, nflat)
+      oneInt(1) = nflat
+      iret = vlistDefAttInt(cdiVlistID, CDI_GLOBAL, "nflat", DATATYPE_INT32,  1, oneInt)
 
       !--- open file via CDI
       cdiFileID   = streamOpenWrite(TRIM(filename), output_type)
@@ -332,7 +342,8 @@ CONTAINS
     ALLOCATE(r1d(MERGE(p_patch%n_patch_cells_g, 0, my_process_is_mpi_workroot())), STAT=error_status)
     IF (error_status /= SUCCESS) CALL finish (routine, 'ALLOCATE failed.')
     DO jk=1,nlevp1
-      CALL exchange_data(vgrid_buffer(p_patch%id)%z_ifc(:,jk,:), r1d, p_patch%comm_pat_gather_c)
+      CALL exchange_data(in_array=vgrid_buffer(p_patch%id)%z_ifc(:,jk,:), &
+        &                out_array=r1d, gather_pattern=p_patch%comm_pat_gather_c)
       IF (my_process_is_mpi_workroot()) THEN
         CALL streamWriteVarSlice(cdiFileID, cdiVarID_c, jk-1, r1d, 0)
       END IF
@@ -371,7 +382,7 @@ CONTAINS
     LOGICAL                  :: lexists
     INTEGER                  :: cdiFileID, cdiVarID_vct_a, cdiVarID_vct_b,       &
       &                         nlevp1, nmiss, iret, cdiVlistID, cdiGridID,      &
-      &                         cdiVarID_z_ifc, cdiZaxisID, communicator
+      &                         cdiVarID_z_ifc, cdiZaxisID, communicator, oneInt(1)
     CHARACTER(len=1)         :: vfile_uuidOfHGrid_string(16) ! uuidOfHGrid contained in the
                                                              ! vertical grid file
     TYPE(t_uuid)             :: vfile_uuidOfHGrid            ! same, but converted to TYPE(t_uuid)
@@ -404,7 +415,8 @@ CONTAINS
       cdiVarID_vct_b     = get_cdi_varID(cdiFileID, "vct_b")
       CALL streamReadVar(cdiFileID, cdiVarID_vct_b, vct_b, nmiss)
       cdiVlistID         = streamInqVlist(cdiFileID)
-      iret               = vlistInqAttInt(cdiVlistID, CDI_GLOBAL, "nflat", 1, nflat)
+      iret = vlistInqAttInt(cdiVlistID, CDI_GLOBAL, "nflat", 1, oneInt)
+      nflat = oneInt(1)
 
       !--- get UUID for horizontal grid contained in vertical grid file
       cdiVarID_z_ifc     = get_cdi_varID(cdiFileID, "z_ifc")

@@ -32,7 +32,7 @@ MODULE mo_echam_phy_main
   USE mo_physical_constants,  ONLY: grav, cpd, cpv, cvd, cvv
   USE mo_impl_constants,      ONLY: inh_atmosphere, io3_clim, io3_ape, io3_amip
   USE mo_run_config,          ONLY: ntracer, nlev, nlevm1, nlevp1,    &
-    &                               iqv, iqc, iqi, iqt
+    &                               iqv, iqc, iqi, iqt, irad_type
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_ext_data_state,      ONLY: ext_data, nlev_o3
   USE mo_ext_data_types,      ONLY: t_external_atmos_td
@@ -40,12 +40,12 @@ MODULE mo_echam_phy_main
   USE mo_o3_util,             ONLY: o3_pl2ml, o3_timeint
   USE mo_echam_phy_config,    ONLY: phy_config => echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
+  USE mo_echam_cloud_config,  ONLY: echam_cloud_config
   USE mo_cumastr,             ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend
   USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,                &
-!!    &                               timer_cover, timer_radiation, timer_radheat,    &
-    &                               timer_cover, timer_radheat,                     &
+    &                               timer_cover, timer_radiation, timer_radheat,    &
     &                               timer_vdiff_down, timer_surface,timer_vdiff_up, &
     &                               timer_gw_hines, timer_ssodrag,                  &
     &                               timer_cucall, timer_cloud
@@ -55,8 +55,8 @@ MODULE mo_echam_phy_main
   USE mo_surface,             ONLY: update_surface
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
-  USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
-  USE mo_radiation,           ONLY: radiation, radheat
+  USE mo_radiation,           ONLY: radheat
+  USE mo_psrad_radiation,     ONLY: psrad_radiation
   USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
@@ -78,7 +78,8 @@ CONTAINS
   !!
   SUBROUTINE echam_phy_main( jg,jb,jcs,jce,nbdim,      &
     &                        datetime,pdtime,psteplen, &
-    &                        ltrig_rad,ptime_radtran )
+    &                        ltrig_rad,                &
+    &                        datetime_radtran          )
 
     INTEGER         ,INTENT(IN) :: jg             !< grid level/domain index
     INTEGER         ,INTENT(IN) :: jb             !< block index
@@ -90,8 +91,7 @@ CONTAINS
     REAL(wp)        ,INTENT(IN) :: psteplen       !< 2*pdtime in case of leapfrog
 
     LOGICAL         ,INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
-    REAL(wp)        ,INTENT(IN) :: ptime_radtran  !< time instance of the radiative transfer
-                                                  !< computation, scaled into radians
+    TYPE(t_datetime),INTENT(IN) :: datetime_radtran !< date and time for radiative transfer calculation
 
     ! Local variables
 
@@ -108,6 +108,7 @@ CONTAINS
                                           !< used by "cloud"
     INTEGER  :: itype(nbdim)              !< type of convection
     INTEGER  :: invb (nbdim)
+    INTEGER  :: ictop (nbdim)             !< from massflux
 
     REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
     REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
@@ -134,15 +135,14 @@ CONTAINS
     REAL(wp) :: zq_phy (nbdim,nlev)       !< heating by whole ECHAM physics    [W/m2]
     REAL(wp) :: zq_rsw (nbdim,nlev)       !< heating by short wave radiation   [W/m2]
     REAL(wp) :: zq_rlw (nbdim,nlev)       !< heating by long  wave radiation   [W/m2]
-    REAL(wp) :: zq_rlw_impl (nbdim)       !< additional heating by long wave radiation due to impl. coupling in surface energy balance [W/m2]
+    REAL(wp) :: zq_rlw_impl (nbdim)       !< additional heating by LW rad. due to impl. coupling in surface energy balance [W/m2]
     REAL(wp) :: zq_vdf (nbdim,nlev)       !< heating by vertical diffusion     [W/m2]
     REAL(wp) :: zq_sso (nbdim,nlev)       !< heating by subgrid scale orogr.   [W/m2]
     REAL(wp) :: zq_gwh (nbdim,nlev)       !< heating by atm. gravity waves     [W/m2]
     REAL(wp) :: zq_cnv (nbdim,nlev)       !< heating by convection             [W/m2]
     REAL(wp) :: zq_cld (nbdim,nlev)       !< heating by stratiform clouds      [W/m2]
-
-    REAL(wp) :: zaedummy(nbdim,nlev)      !< dummy for aerosol input
-    REAL(wp) :: zheight(nbdim,nlev)       !< temp for height input
+    REAL(wp) :: zlw_net_clr_bnd(nbdim,2)!< Clear-sky net longwave  at TOA (:,1) and surface (:,2)
+    REAL(wp) :: zsw_net_clr_bnd(nbdim,2)!< Clear-sky net shortwave at TOA (:,1) and surface (:,2)
 
     INTEGER  :: ihpbl  (nbdim)            !< location of PBL top given as vertical level index
     REAL(wp) :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
@@ -151,7 +151,6 @@ CONTAINS
     INTEGER  :: jks   !< start index for vertical loops
     INTEGER  :: nc    !< number of cells/columns from (jce-jcs+1)
     INTEGER  :: jc
-    INTEGER  :: jsfc
     INTEGER  :: ntrac !< # of tracers excluding water vapour and hydrometeors
                       !< (handled by sub-models, e.g., chemical species)
     INTEGER  :: selmon !< selected month for ozone data (temporary var!)
@@ -200,7 +199,7 @@ CONTAINS
     ! Temporary variables used for cloud droplet number concentration
 
     REAL(wp) :: zprat, zn1, zn2, zcdnc
-    LOGICAL  :: lland, lglac
+    LOGICAL  :: lland(nbdim), lglac(nbdim)
 
     CHARACTER(len=12)  :: str_module = 'e_phy_main'        ! Output of module for 1 line debug
     INTEGER            :: idt_src               ! Determines level of detail for 1 line debug
@@ -249,11 +248,6 @@ CONTAINS
     DO jk = 1,nlev
       DO jc = jcs,jce
         !
-!!$        ! 3.1 Timescale of mixing for horizontal eddies
-!!$        !
-!!$        zhmixtau(jc,jk) = ctauk*ABS( field%vor(jc,jk,jb) )
-!!$        zhmixtau(jc,jk) = MIN( ctaus,MAX(ctaul,zhmixtau(jc,jk)) )
-        !
         ! 3.2 Thickness of model layer in pressure coordinate; mass of air
         !
         zdelp   (jc,jk) = field% presi_old (jc,jk+1,jb) - field% presi_old (jc,jk,jb)
@@ -277,6 +271,7 @@ CONTAINS
 
       ! fraction of land in the grid box. lsmask: land-sea mask, 1.= land
 
+      ! TBD: use fractional mask here
       zfrl(jc) = field% lsmask(jc,jb)
 
       ! fraction of sea/lake in the grid box
@@ -312,19 +307,22 @@ CONTAINS
     !      (1/M**3) USED IN RADLSW AND CLOUD
     !---------------------------------------------------------------------
 
+    DO jc=jcs,jce
+      lland(jc) = field%lfland(jc,jb)
+      lglac(jc) = lland(jc).AND.field%glac(jc,jb).GT.0._wp
+    END DO
+
     DO jk = 1,nlev
       DO jc = jcs,jce
         !
         zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**2
 
-        lland = field%lfland(jc,jb)
-        lglac = lland.AND.field%glac(jc,jb).GT.0._wp
-        IF (lland.AND.(.NOT.lglac)) THEN
-          zn1= 20._wp
-          zn2=180._wp
+        IF (lland(jc).AND.(.NOT.lglac(jc))) THEN
+          zn1= echam_cloud_config% cn1lnd
+          zn2= echam_cloud_config% cn2lnd
         ELSE
-          zn1= 20._wp
-          zn2= 80._wp
+          zn1= echam_cloud_config% cn1sea
+          zn2= echam_cloud_config% cn2sea
         ENDIF
         IF (field%presm_old(jc,jk,jb).LT.80000._wp) THEN
           zcdnc=1.e6_wp*(zn1+(zn2-zn1)*(EXP(1._wp-zprat)))
@@ -416,15 +414,16 @@ CONTAINS
           field%tsfc_radt(jcs:jce,jb) = field%tsfc_rad(jcs:jce,jb)
 
           ! to do (for implementing seasonal cycle):
-          ! - compute orbit position at ptime_radtran
+          ! - compute orbit position at datetime_radtran
 
+        IF(irad_type==1 .OR. irad_type==2) THEN
           SELECT CASE(izenith)
 
           CASE(0)
           ! local insolation = constant = global mean insolation (ca. 340 W/m2)
           ! zenith angle = 0,
 
-            field%cosmu0(jcs:jce,jb) = 1._wp ! sun in zenith everywhere
+!!$            field%cosmu0(jcs:jce,jb) = 1._wp ! sun in zenith everywhere
 
           CASE(1)
           ! circular non-seasonal orbit,
@@ -433,7 +432,7 @@ CONTAINS
           ! local time always 12:00
           ! --> sin(time of day)=1 ) and zenith angle depends on latitude only
 
-            field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )
+!!$            field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )
 
           CASE(2)
           ! circular non-seasonal orbit,
@@ -442,16 +441,16 @@ CONTAINS
           ! local time always  07:14:15 or 16:45:45
           ! --> sin(time of day)=1/pi and zenith angle depends on latitude only
 
-            field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )/pi
+!!$            field%cosmu0(jcs:jce,jb) = COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat )/pi
 
           CASE(3)
           ! circular non-seasonal orbit,
           ! perpetual equinox,
           ! with diurnal cycle,
 
-            field%cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
-                                     & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
-                                     &      +ptime_radtran )
+!!$            field%cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
+!!$                                     & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
+!!$                                     &      +2._wp*pi*datetime_radtran%daytim )
 
           CASE(4)
           ! elliptical seasonal orbit,
@@ -474,9 +473,9 @@ CONTAINS
                0.001868_wp * COS(zyearfrac) - 0.032077_wp * SIN(zyearfrac) -          &
                0.014615_wp * COS(2._wp * zyearfrac) - 0.040849_wp * SIN(2._wp * zyearfrac)
 
-            field%cosmu0(jcs:jce,jb) = SIN(zdeclination_sun) * SIN(p_patch(jg)%cells%center(jcs:jce,jb)%lat) + &
-                                       COS(zdeclination_sun) * COS(p_patch(jg)%cells%center(jcs:jce,jb)%lat) * &
-                                       COS(ztime_dateline + p_patch(jg)%cells%center(jcs:jce,jb)%lon)
+!!$            field%cosmu0(jcs:jce,jb) = SIN(zdeclination_sun) * SIN(p_patch(jg)%cells%center(jcs:jce,jb)%lat) + &
+!!$                                       COS(zdeclination_sun) * COS(p_patch(jg)%cells%center(jcs:jce,jb)%lat) * &
+!!$                                       COS(ztime_dateline + p_patch(jg)%cells%center(jcs:jce,jb)%lon)
           CASE(5)
           ! Radiative convective equilibrium
           ! circular non-seasonal orbit,
@@ -486,10 +485,10 @@ CONTAINS
           !cosmu0 = pi/4._wp ! zenith = 45 deg
           !cosmu0 = 2._wp/3._wp ! Cronin: zenith = 48.19
 
-            field%cosmu0(jcs:jce,jb) = 0.7854_wp ! Popke: zenith = 38
+!!$            field%cosmu0(jcs:jce,jb) = 0.7854_wp ! Popke: zenith = 38
 
           END SELECT
-
+        END IF
 
           SELECT CASE(irad_o3)
             CASE default
@@ -526,85 +525,55 @@ CONTAINS
                           & o3_clim=field%o3(:,:,jb)                          )
             END SELECT
 
-        zaedummy(:,:) = 0.0_wp
-        zheight (:,:) = field%geom(:,:,jb)/grav
+        IF (ltimer) CALL timer_start(timer_radiation)
 
-!!        IF (ltimer) CALL timer_start(timer_radiation)
+        CALL psrad_radiation(      &
+        & jg                      ,&!< in  domain index
+        & jb                      ,&!< in  block index
+        & kproma     = jce        ,&!< in  end index for loop over block
+        & kbdim      = nbdim      ,&!< in  dimension of block over cells
+        & klev       = nlev       ,&!< in  number of full levels = number of layers
+        & klevp1     = nlevp1     ,&!< in  number of half levels = number of layer interfaces
+        & ktrac      = ntrac      ,&!< in  number of non-water tracers
+        & ktype      = itype(:)   ,&!< in  type of convection
+        & loland     = lland      ,&!< in  land-sea mask. (logical)
+        & loglac     = lglac      ,&!< in  glacier mask (logical)
+        & pcos_mu0   = field%cosmu0_rad(:,jb)  ,&!< in  solar zenith angle
+        & alb_vis_dir= field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
+        & alb_nir_dir= field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
+        & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
+        & alb_nir_dif= field%albnirdif(:,jb)   ,&!< in  surface albedo for near IR range, diffuse
+        & tk_sfc     = field%tsfc_radt(:,jb)   ,&!< in  grid box mean surface temperature
+        & pp_hl  =field%presi_old(:,:,jb)      ,&!< in  pressure at half levels at t-dt [Pa]
+        & pp_fl  =field%presm_old(:,:,jb)      ,&!< in  pressure at full levels at t-dt [Pa]
+        & tk_fl  =field%temp(:,:,jb)          ,&!< in  tk_fl  = temperature at full level at t-dt
+        & qm_vap =field%q(:,:,jb,iqv)    ,&!< in  qm_vap = water vapor mass mixing ratio at t-dt
+        & qm_liq =field%q(:,:,jb,iqc)    ,&!< in  qm_liq = cloud water mass mixing ratio at t-dt
+        & qm_ice =field%q(:,:,jb,iqi)    ,&!< in  qm_ice = cloud ice mass mixing ratio at t-dt
+        & cdnc   =field% acdnc(:,:,jb)   ,&!< in     cloud droplet number conc
+        & cld_frc=field% aclc(:,:,jb)    ,&!< in     cld_frac = cloud fraction [m2/m2]
+!!$        & pxtm1  =field% q(:,:,jb,iqt:)  ,&!< in     xtm1
+        & cld_cvr=field%aclcov(:,jb)     ,&!< out  total cloud cover
+        & vis_frc_sfc=field%visfrcsfc(:,jb),&!< out  visible (250-680nm) fraction of net surface radiation
+        & par_dn_sfc=field%partrmdnsfc(:,jb),&!< out  downward photosynthetically active radiation (par) at surface
+        & nir_dff_frc=field%nirdffsfc(:,jb),&!< out  diffuse fraction of downward surface near-infrared radiation
+        & vis_dff_frc=field%visdffsfc(:,jb),&!< out  diffuse fraction of downward surface visible radiation
+        & par_dff_frc=field%pardffsfc(:,jb),&!< out  diffuse fraction of downward surface par
+        & lw_flx_up_sfc=field%lwflxupsfc(:,jb),&!< out  longwave upward surface radiation
+        & lw_net_clr_bnd=zlw_net_clr_bnd   ,&!<out  Clear-sky net longwave  at TOA (:,1) and surface (:,2)
+        & sw_net_clr_bnd=zsw_net_clr_bnd   ,&!< out  Clear-sky net shortwave at TOA (:,1) and surface (:,2) 
+        & lw_net_clr=field%lwflxclr(:,:,jb),&!< out  Clear-sky net longwave  at all levels
+        & sw_net_clr=field%swtrmclr(:,:,jb),&!< out  Clear-sky net shortwave at all levels
+        & lw_net=field%lwflxall(:,:,jb),&!< out  All-sky net longwave  at all levels
+        & sw_net=field%swtrmall(:,:,jb),&!< out  All-sky net shortwave at all levels
+        & xm_o3=field%o3(:,:,jb)        &!< inout  Avoid leaving kproma+1:kbdim undefined Ozone 
+        &                           )
+        field%lwflxclr(jcs:jce,1,jb)=zlw_net_clr_bnd(jcs:jce,1)
+        field%lwflxclr(jcs:jce,nlevp1,jb)=zlw_net_clr_bnd(jcs:jce,2)
+        field%swtrmclr(jcs:jce,1,jb)=zsw_net_clr_bnd(jcs:jce,1)
+        field%swtrmclr(jcs:jce,nlevp1,jb)=zsw_net_clr_bnd(jcs:jce,2)
 
-        CALL radiation(               &
-          !
-          ! argument                   !  INTENT comment
-          !
-          ! input
-          ! -----
-          !
-          ! indices and dimensions
-          & jg                       ,&!< in     domain index
-          & jb                       ,&!< in     block index
-          & jce        = jce         ,&!< in     end   index for loop over block
-          & kbdim      = nbdim       ,&!< in     dimension of block over cells
-          & klev       = nlev        ,&!< in     number of full levels = number of layers
-          & klevp1     = nlevp1      ,&!< in     number of half levels = number of layer interfaces
-          !
-          & ktype      = itype(:)    ,&!< in     type of convection
-          !
-          ! surface: albedo + temperature
-          & zland      = field% lsmask(:,jb) ,&!< in     land-sea mask. (1. = land, 0. = sea/lakes)
-          & zglac      = field% glac(:,jb)   ,&!< in     fraction of land covered by glaciers
-          !
-          & cos_mu0    = field% cosmu0(:,jb)      ,&!< in     cos of zenith angle mu0 for rad. transfer calc.
-          & alb_vis_dir= field% albvisdir(:,jb)   ,&!< in     surface albedo for visible range, direct
-          & alb_nir_dir= field% albnirdir(:,jb)   ,&!< in     surface albedo for near IR range, direct
-          & alb_vis_dif= field% albvisdif(:,jb)   ,&!< in     surface albedo for visible range, diffuse
-          & alb_nir_dif= field% albnirdif(:,jb)   ,&!< in     surface albedo for near IR range, diffuse
-          & emis_rad   = ext_data(jg)%atm%emis_rad(:,jb), & !< in longwave surface emissivity
-          & tk_sfc     = field%tsfc_radt(:,jb)    ,&!< in     grid box mean surface temperature
-          !
-          ! atmopshere: pressure, tracer mixing ratios and temperature
-          & pp_hl  =field% presi_old(:,:,jb) ,&!< in     pressure at half levels at t-dt [Pa]
-          & pp_fl  =field% presm_old(:,:,jb) ,&!< in     pressure at full levels at t-dt [Pa]
-          & tk_fl  =field% temp (:,:,jb)     ,&!< in     tk_fl  = temperature at full level at t-dt
-          & qm_vap =field% q (:,:,jb,iqv)    ,&!< in     qm_vap = water vapor mass mixing ratio at t-dt
-          & qm_liq =field% q (:,:,jb,iqc)    ,&!< in     qm_liq = cloud water mass mixing ratio at t-dt
-          & qm_ice =field% q (:,:,jb,iqi)    ,&!< in     qm_ice = cloud ice mass mixing ratio at t-dt
-          & qm_o3  =field% o3(:,:,jb)        ,&!< in     qm_o3 = o3 mass mixing ratio at t-dt
-!!$       & field% geom(:,:,jb)     ,&!< in     pgeom1 = geopotential above ground at t-dt [m2/s2]
-          & cdnc   =field% acdnc(:,:,jb)     ,&!< in     cld_frac = cloud fraction [m2/m2]
-          & cld_frc=field% aclc(:,:,jb)      ,&!< in     cld_frac = cloud fraction [m2/m2]
-          & zaeq1   = zaedummy(:,:)          ,&!< in aerosol continental
-          & zaeq2   = zaedummy(:,:)          ,&!< in aerosol maritime
-          & zaeq3   = zaedummy(:,:)          ,&!< in aerosol urban
-          & zaeq4   = zaedummy(:,:)          ,&!< in aerosol volcano ashes
-          & zaeq5   = zaedummy(:,:)          ,&!< in aerosol stratospheric background
-          & dt_rad  = phy_config%dt_rad      ,&
-          !
-          ! output
-          ! ------
-          !
-          & cld_cvr    =field% aclcov(:,jb)      ,&!< out    cloud cover in a column [m2/m2]
-          !
-          ! atmospheric profiles
-          & flx_lw_net_clr =field% lwflxclr(:,:,jb)     ,&!< out    net longwave flux, clear sky (positive downward)
-          & trm_sw_net_clr =field% swtrmclr(:,:,jb)     ,&!< out    net shortwave transmissivity, clear sky (positive downward)
-          !
-          & flx_lw_net     =field% lwflxall(:,:,jb)     ,&!< out    net longwave flux, all-sky (positive downward)
-          & trm_sw_net     =field% swtrmall(:,:,jb)     ,&!< out    net shortwave transmissivity, all-sky, (positive downward)
-          !
-          ! surface longwave
-          & flx_lw_up_sfc  =field% lwflxupsfc(:,jb)     ,&!< out    upward surface longwave flux, all-sky (positive upward)
-          !
-          ! surface shortwave
-          ! - transmissivities in spectral range w.r.t. total solar irradiation
-          ! - visible fraction w.r.t. total flux
-          ! - diffuse fractions in a spectral range w.r.t. total flux in the same spectral range
-          & trm_par_dn_sfc =field% partrmdnsfc(:,jb)      ,&!< out    downward shortwave transmissivity in PAR range
-          & vis_frc_sfc    =field% visfrcsfc  (:,jb)      ,&!< out    Visible fraction of net surface radiation
-          & nir_dff_frc_sfc=field% nirdffsfc  (:,jb)      ,&!< out    diffuse fraction in NIR net downw. flux
-          & vis_dff_frc_sfc=field% visdffsfc  (:,jb)      ,&!< out    diffuse fraction in VIS net downw. flux
-          & par_dff_frc_sfc=field% pardffsfc  (:,jb)       &!< out    diffuse fraction in PAR net downw. flux
-          )
-
-!!        IF (ltimer) CALL timer_stop(timer_radiation)
+        IF (ltimer) CALL timer_stop(timer_radiation)
 
       END IF ! ltrig_rad
 
@@ -612,7 +581,7 @@ CONTAINS
       !----------------------
 
       ! to do:
-      ! - compute orbit position at ptime_radheat
+      ! - compute orbit position at datetime
 
       ! - solar incoming flux at TOA
       zi0(jcs:jce) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheat
@@ -1127,63 +1096,50 @@ CONTAINS
 
       IF (ltimer) call timer_start(timer_cucall)
 
-      CALL cucall( echam_conv_config%iconv,   &! in
-!        &          echam_conv_config%lmfdudv, &! in
-!        &          echam_conv_config%lmfdd,   &! in
-!        &          echam_conv_config%lmfmid,  &! in
-!        &          echam_conv_config%dlev,    &! in
-!        &          echam_conv_config%cmftau,  &! in
-!        &          echam_conv_config%cmfctop, &! in
-!        &          echam_conv_config%cprcon,  &! in
-!        &          echam_conv_config%cminbuoy,&! in
-!        &          echam_conv_config%entrpen, &! in
-        &          echam_conv_config%nmctop,  &! in
-        &          echam_conv_config%cevapcu, &! in
-        &          jce, nbdim, nlev,          &! in
+      CALL cucall( jce, nbdim, nlev,          &! in
         &          nlevp1, nlevm1,            &! in
         &          ntrac,                     &! in     tracers
-        &          jb,                        &! in     row index
+!        &          jb,                        &! in     row index
         &          psteplen,                  &! in
         &          field% lfland(:,jb),       &! in     loland
         &          field% temp(:,:,jb),       &! in     tm1
         &          field% u(:,:,jb),          &! in     um1
         &          field% v(:,:,jb),          &! in     vm1
-        &          field% omega(:,:,jb),      &! in     vervel
-        &          field% geom(:,:,jb),       &! in     geom1
         &          field% q(:,:,jb,iqv),      &! in     qm1
         &          field% q(:,:,jb,iqc),      &! in     xlm1
         &          field% q(:,:,jb,iqi),      &! in     xim1
         &          field% q(:,:,jb,iqt:),     &! in     xtm1
-        &          zcd, zcv,                  &! in
-        &           tend% q(:,:,jb,iqc),      &! in     xlm1
-        &           tend% q(:,:,jb,iqi),      &! in     xim1
+        &          tend% q(:,:,jb,iqv),       &! in     qte  for internal updating
+        &          tend% q(:,:,jb,iqc),       &! in     xlte
+        &          tend% q(:,:,jb,iqi),       &! in     xite
+        &          field% omega(:,:,jb),      &! in     vervel
+        &          field% evap(:,jb),         &! in     qhfla (from "vdiff")
+        &          field% geom(:,:,jb),       &! in     geom1
         &          field% presm_new(:,:,jb),  &! in     app1
         &          field% presi_new(:,:,jb),  &! in     aphp1
-        &          field% evap(:,jb),         &! in     qhfla (from "vdiff")
-!0      &          field% tke,                &! in     tkem1 (from "vdiff")
         &          field% thvsig(:,jb),       &! in           (from "vdiff")
         &          tend% temp(:,:,jb),        &! in     tte  for internal updating
         &          tend% u(:,:,jb),           &! in     vom  for internal updating
         &          tend% v(:,:,jb),           &! in     vol  for internal updating
-        &          tend% q(:,:,jb,iqv),       &! in     qte  for internal updating
         &          tend% q(:,:,jb,iqt:),      &! in     xtte for internal updating
+        &          zqtec,                     &! inout
+        &          field% ch_concloud(:,jb),  &! inout condensational heat
+        &          field% cw_concloud(:,jb),  &! inout condensational heat
+        &          field% rsfc(:,jb),         &! out
+        &          field% ssfc(:,jb),         &! out
+        &          tend% xl_dtr(:,:,jb),      &! inout  xtecl
+        &          tend% xi_dtr(:,:,jb),      &! inout  xteci
+        &          itype,                     &! inout
+        &          ictop,                     &! out
+        &          ilab,                      &! out
+        &          field% topmax(:,jb),       &! inout
+        &          echam_conv_config%cevapcu, &! in
+        &          zcd, zcv,                  &! in
         &          tend% q_dyn(:,:,jb,iqv),   &! in     qte by transport
         &          tend% q_phy(:,:,jb,iqv),   &! in     qte by physics
-        &          zqtec,                     &! inout
-!        &          tend% x_dtr(:,:,jb),       &! inout  xtec
-        &          field% ch_concloud(:,jb),  &! inout condensational heat
         &          field% con_dtrl(:,jb),     &! inout detrained liquid
         &          field% con_dtri(:,jb),     &! inout detrained ice
         &          field% con_iteqv(:,jb),    &! inout v. int. tend of water vapor within conv
-        &          tend% xl_dtr(:,:,jb),      &! inout  xtecl
-        &          tend% xi_dtr(:,:,jb),      &! inout  xteci
-        &          field% rsfc(:,jb),         &! out
-        &          field% ssfc(:,jb),         &! out
-        &          field% topmax(:,jb),       &! inout
-        &          itype,                     &! inout
-        &          ilab,                      &! out
-!        &          zcvcbot,                   &! out
-!        &          zwcape,                    &! out
         &          tend%temp_cnv(:,:,jb),     &! out
         &          tend%   u_cnv(:,:,jb),     &! out
         &          tend%   v_cnv(:,:,jb),     &! out
@@ -1205,6 +1161,7 @@ CONTAINS
     ELSE ! NECESSARY COMPUTATIONS IF MASSFLUX IS BY-PASSED
 
       ilab(jcs:jce,1:nlev) = 0
+      ictop(jcs:jce)       = nlev-1
 
       tend%    u_cnv(jcs:jce,:,jb)      = 0._wp
       tend%    v_cnv(jcs:jce,:,jb)      = 0._wp
@@ -1232,39 +1189,42 @@ CONTAINS
         IF (ltimer) CALL timer_start(timer_cloud)
 
         CALL cloud(jce, nbdim, jks, nlev, nlevp1, &! in
-          &        pdtime, psteplen,          &! in
+          &        psteplen,                  &! in
+          &        invb,                      &! in (from "cover")
+          &        ictop,                     &! in (from "cucall")
           &        field% presi_old(:,:,jb),  &! in
+          &        field% omega(:,:,jb),      &! in. vervel
           &        field% presm_old(:,:,jb),  &! in
 !          &        field% presm_new(:,:,jb), &! in
-          &        field% temp (:,:,jb),      &! in. tm1
-          &        field%   tv (:,:,jb),      &! in. ztvm1
-          &        field% geom (:,:,jb),      &! in. geom1
-          &        field% omega(:,:,jb),      &! in. vervel
           &        field% acdnc(:,:,jb),      &! in. acdnc
           &        field% q(:,:,jb,iqv),      &! in.  qm1
+          &        field% temp (:,:,jb),      &! in. tm1
+          &        field%   tv (:,:,jb),      &! in. ztvm1
           &        field% q(:,:,jb,iqc),      &! in. xlm1
           &        field% q(:,:,jb,iqi),      &! in. xim1
           &        zcair(:,:),                &! in
-          &        invb,                      &! in (from "cover")
-          &        field% ch_concloud(:,jb),  &! inout condens. heat
-          &        field% cld_dtrl(:,jb),     &! inout detrained liquid
-          &        field% cld_dtri(:,jb),     &! inout detrained ice
-          &        field% cld_iteq(:,jb),     &! inout v. int. tend of qv,qc, and qi within cloud
-          &        zqtec,                     &! inout (there is a clip inside)
-!          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
-          &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
-          &         tend% xi_dtr(:,:,jb),     &! inout  xteci
-          &         tend% temp(:,:,jb),       &! inout.  tte
-          &         tend% q(:,:,jb,iqv),      &! inout.  qte
-          &         tend% q(:,:,jb,iqc),      &! inout. xlte
-          &         tend% q(:,:,jb,iqi),      &! inout. xite
-          &        field% aclc  (:,:,jb),     &! inout
+          &        field% geom (:,:,jb),      &! in. geom1
           &        field% aclcov(:,  jb),     &! out
           &        field%  qvi  (:,  jb),     &! out
           &        field% xlvi  (:,  jb),     &! out
           &        field% xivi  (:,  jb),     &! out
-          &        field% rsfl  (:,  jb),     &! out
+          &        itype,                     &!
+          &        field% ch_concloud(:,jb),  &! inout condens. heat
+          &        field% cw_concloud(:,jb),  &! inout condens. heat
+          &         tend% xl_dtr(:,:,jb),     &! inout  xtecl
+          &         tend% xi_dtr(:,:,jb),     &! inout  xteci
+          &        zqtec,                     &! inout (there is a clip inside)
+          &         tend% q(:,:,jb,iqv),      &! inout.  qte
+          &         tend% temp(:,:,jb),       &! inout.  tte
+          &         tend% q(:,:,jb,iqc),      &! inout. xlte
+          &         tend% q(:,:,jb,iqi),      &! inout. xite
+          &        field% cld_dtrl(:,jb),     &! inout detrained liquid
+          &        field% cld_dtri(:,jb),     &! inout detrained ice
+          &        field% cld_iteq(:,jb),     &! inout v. int. tend of qv,qc, and qi within cloud
+!          &         tend% x_dtr(:,:,jb),      &! inout (there is a clip inside)
+          &        field% aclc  (:,:,jb),     &! inout
           &        field% ssfl  (:,  jb),     &! out
+          &        field% rsfl  (:,  jb),     &! out
           &        field% relhum(:,:,jb),     &! out
           &        tend%temp_cld(:,:,jb),     &! out
           &        tend%   q_cld(:,:,jb,iqv), &! out

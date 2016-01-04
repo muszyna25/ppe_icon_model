@@ -113,8 +113,8 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk
     INTEGER  :: rl_start, rl_end
     INTEGER  :: jg                   !< grid index
-    INTEGER  :: jc, jcs, jce         !< cell in row index, start and end indices
-    INTEGER  :: je, jes, jee         !< edge in row index, start and end indices
+    INTEGER  :: jcs, jce             !< start and end cell indices
+    INTEGER  :: jes, jee, je         !< start and end edge indices
     INTEGER  :: jk                   !< level in column index
     INTEGER  :: jb, jbs, jbe         !< row in block index, start and end indices
     INTEGER  :: jcn,jbn              !< jc and jb of neighbor cells sharing an edge je
@@ -126,7 +126,7 @@ CONTAINS
 
     LOGICAL  :: any_uv_tend
     LOGICAL  :: ltrig_rad
-    REAL(wp) :: time_radtran
+    TYPE(t_datetime)   :: datetime_radtran !< date and time for radiative transfer calculation
 
     INTEGER  :: return_status
 
@@ -173,7 +173,7 @@ CONTAINS
       &                         prm_field(jg)%u       ,&! out
       &                         prm_field(jg)%v       ,&! out
       &                         opt_rlstart=rl_start  ,&! in
-      &                         opt_rlend=rl_end      ) ! in    
+      &                         opt_rlend=rl_end      ) ! in
 
 !$OMP PARALLEL WORKSHARE
 
@@ -257,13 +257,13 @@ CONTAINS
     !=====================================================================================
     !
     ! (3) Prepare boundary conditions for ECHAM physics
-    !     
+    !
     CALL echam_phy_bcs_global( datetime     ,&! in
       &                        jg           ,&! in
       &                        patch        ,&! in
       &                        pdtime       ,&! in
       &                        ltrig_rad    ,&! out
-      &                        time_radtran ) ! out
+      &                        datetime_radtran ) ! out
     !
     !=====================================================================================
 
@@ -299,7 +299,7 @@ CONTAINS
         &                  pdtime       ,&! in
         &                  psteplen     ,&! in
         &                  ltrig_rad    ,&! in
-        &                  time_radtran ) ! in
+        &                  datetime_radtran ) ! in
 
     END DO
 !$OMP END DO NOWAIT
@@ -312,7 +312,7 @@ CONTAINS
     !=====================================================================================
     !
     ! (5) Couple to ocean surface if an ocean is present and this is a coupling time step.
-    !     
+    !
     !
     IF ( is_coupled_run() ) THEN
       IF (ltimer) CALL timer_start(timer_coupling)
@@ -329,7 +329,7 @@ CONTAINS
     !=====================================================================================
     !
     !     Copy  physics tandencies in temp. and tracers from the physics to the dynamics
-    !     
+    !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk,i_endblk

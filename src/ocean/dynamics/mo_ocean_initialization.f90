@@ -30,15 +30,16 @@
 MODULE mo_ocean_initialization
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
-  USE mo_mpi,                 ONLY: global_mpi_barrier,my_process_is_mpi_test
+  USE mo_mpi,                 ONLY: my_process_is_mpi_test
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_master_control,      ONLY: is_restart_run
+  USE mo_master_config,       ONLY: isRestart
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     & success, max_char_length, min_dolic,               &
     & full_coriolis, beta_plane_coriolis,                &
-    & f_plane_coriolis, zero_coriolis, halo_levels_ceiling
+    & f_plane_coriolis, zero_coriolis, halo_levels_ceiling, &
+    & on_cells, on_edges, on_vertices
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
-    & coriolis_type, basin_center_lat, basin_height_deg, iswm_oce
+    & coriolis_type, basin_center_lat, basin_height_deg, iswm_oce, coriolis_fplane_latitude
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3d, t_grid_cells, t_grid_edges
@@ -46,7 +47,7 @@ MODULE mo_ocean_initialization
     & use_dummy_cell_closure
   USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_dynamics_config,     ONLY: nnew,nold
-  USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,cvec2gvec,      &
+  USE mo_math_utilities,      ONLY: gc2cc,t_cartesian_coordinates,      &
     & t_geographical_coordinates, &!vector_product, &
     & arc_length, set_zlev
   USE mo_math_constants,      ONLY: deg2rad,rad2deg
@@ -72,7 +73,8 @@ MODULE mo_ocean_initialization
     & t_hydro_ocean_aux, &
     & t_hydro_ocean_acc, &
     & t_oce_config, &
-    & t_ocean_tracer, &
+    & t_ocean_tracer
+  USE mo_ocean_diagnostics_types, ONLY: &
     & t_ocean_regions, &
     & t_ocean_region_volumes, &
     & t_ocean_region_areas, &
@@ -1262,10 +1264,9 @@ CONTAINS
     CALL message (TRIM(routine), 'end')
     
   END SUBROUTINE init_ho_basins
+  !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  !
-  !
   !>
   !! Modifies the already calculated Coriolis force, if beta-, f-plane or the nonrotating case
   !! is selected in the namelist. The tangent plane is associated to the center of the basin that is
@@ -1279,28 +1280,27 @@ CONTAINS
   !!
   !! @par Revision History
   !!  developed by Peter Korn, 2011
-  !!  mpi parallelized LL (no sync required)
   !!
 !<Optimize:inUse>
-  SUBROUTINE init_coriolis_oce( ptr_patch )
+  SUBROUTINE init_coriolis_oce( patch_2D )
     !
     IMPLICIT NONE
     !
     !
-    TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
+    TYPE(t_patch), TARGET, INTENT(inout) :: patch_2D
     !
     INTEGER :: jb, je, jv
     INTEGER :: i_startidx_e, i_endidx_e
     INTEGER :: i_startidx_v, i_endidx_v
     TYPE(t_geographical_coordinates) :: gc1,gc2
     TYPE(t_cartesian_coordinates) :: xx1, xx2
-    REAL(wp) :: z_y, z_lat_basin_center
+    REAL(wp) :: z_y, coriolis_lat
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = ('mo_ocean_initialization:init_coriolis_oce')
     TYPE(t_subset_range), POINTER :: all_verts, all_edges
     !-----------------------------------------------------------------------
-    all_verts => ptr_patch%verts%ALL
-    all_edges => ptr_patch%edges%ALL
+    all_verts => patch_2D%verts%ALL
+    all_edges => patch_2D%edges%ALL
     
     CALL message (TRIM(routine), 'start')
     
@@ -1310,7 +1310,7 @@ CONTAINS
       
       CALL message (TRIM(routine), 'BETA_PLANE_CORIOLIS: set to linear approximation')
       
-      z_lat_basin_center = basin_center_lat * deg2rad
+      coriolis_lat = basin_center_lat * deg2rad
       gc1%lat = basin_center_lat* deg2rad - 0.5_wp*basin_height_deg*deg2rad
       gc1%lon = 0.0_wp
       xx1=gc2cc(gc1)
@@ -1318,15 +1318,15 @@ CONTAINS
       DO jb = all_verts%start_block, all_verts%end_block
         CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
         DO jv = i_startidx_v, i_endidx_v
-          !z_y = grid_sphere_radius*(ptr_patch%verts%vertex(jv,jb)%lat - z_lat_basin_center)
-          gc2%lat = ptr_patch%verts%vertex(jv,jb)%lat!*deg2rad
+          !z_y = grid_sphere_radius*(patch_2D%verts%vertex(jv,jb)%lat - coriolis_lat)
+          gc2%lat = patch_2D%verts%vertex(jv,jb)%lat!*deg2rad
           gc2%lon = 0.0_wp
           xx2=gc2cc(gc2)
           z_y = grid_sphere_radius * arc_length(xx2,xx1)
-          ptr_patch%verts%f_v(jv,jb) = 2.0_wp * grid_angular_velocity * &
-            & ( SIN(z_lat_basin_center) + (COS(z_lat_basin_center)/grid_sphere_radius)*z_y)
-          !  write(*,*)'beta', jv,jb,z_beta_plane_vort,2.0_wp*grid_angular_velocity*sin(z_lat_basin_center),&
-          !  &2.0_wp*grid_angular_velocity*((cos(z_lat_basin_center)/grid_sphere_radius)*z_y)
+          patch_2D%verts%f_v(jv,jb) = 2.0_wp * grid_angular_velocity * &
+            & ( SIN(coriolis_lat) + (COS(coriolis_lat)/grid_sphere_radius)*z_y)
+          !  write(*,*)'beta', jv,jb,z_beta_plane_vort,2.0_wp*grid_angular_velocity*sin(coriolis_lat),&
+          !  &2.0_wp*grid_angular_velocity*((cos(coriolis_lat)/grid_sphere_radius)*z_y)
         END DO
       END DO
       
@@ -1334,36 +1334,41 @@ CONTAINS
         CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
         DO je = i_startidx_e, i_endidx_e
           ! depends on basin_center_lat only - not dependent on center_lon, basin_width or height
-          gc2%lat = ptr_patch%edges%center(je,jb)%lat!*deg2rad
+          gc2%lat = patch_2D%edges%center(je,jb)%lat!*deg2rad
           gc2%lon = 0.0_wp
           xx2=gc2cc(gc2)
           z_y = grid_sphere_radius*arc_length(xx2,xx1)
           
-          !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
-          ptr_patch%edges%f_e(je,jb) = 2.0_wp * grid_angular_velocity * &
-            & ( SIN(z_lat_basin_center) + &
-            & (COS(z_lat_basin_center)/grid_sphere_radius)*z_y)
+          !z_y = patch_2D%edges%center(je,jb)%lat - coriolis_lat
+          patch_2D%edges%f_e(je,jb) = 2.0_wp * grid_angular_velocity * &
+            & ( SIN(coriolis_lat) + &
+            & (COS(coriolis_lat)/grid_sphere_radius)*z_y)
         END DO
       END DO
     CASE(f_plane_coriolis)
       
       CALL message (TRIM(routine), 'F_PLANE_CORIOLIS: set to constant value')
       
-      z_lat_basin_center = basin_center_lat * deg2rad
+      coriolis_lat =  coriolis_fplane_latitude* deg2rad
       
-      ptr_patch%edges%f_e  = 2.0_wp*grid_angular_velocity*SIN(z_lat_basin_center)
-      ptr_patch%verts%f_v  = 2.0_wp*grid_angular_velocity*SIN(z_lat_basin_center)
+      patch_2D%edges%f_e  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
+      patch_2D%verts%f_v  = 2.0_wp*grid_angular_velocity*SIN(coriolis_lat)
       
     CASE(zero_coriolis)
       
       CALL message (TRIM(routine), 'ZERO_CORIOLIS: set to zero')
-      ptr_patch%verts%f_v = 0.0_wp
-      ptr_patch%edges%f_e = 0.0_wp
+      patch_2D%verts%f_v = 0.0_wp
+      patch_2D%edges%f_e = 0.0_wp
       
     CASE(full_coriolis)
       
-      CALL message (TRIM(routine), 'FULL_CORIOLIS: Nothing to do, coriolis not modified')
-      
+      DO jb = all_verts%start_block, all_verts%end_block
+        CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
+        DO jv = i_startidx_v, i_endidx_v
+          patch_2D%verts%f_v(jv,jb) = 2.0_wp * grid_angular_velocity * SIN(patch_2D%verts%vertex(jv,jb)%lat)
+        END DO
+      END DO
+           
     END SELECT
     
     CALL message (TRIM(routine), 'end')
@@ -1404,7 +1409,7 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_subset_range), POINTER :: owned_verts
     
-    INTEGER :: vertex_block, vertex_index, start_index, end_index
+    INTEGER :: vertex_block, vertex_index, start_index, end_index, end_level
     INTEGER :: edge_block, edge_index, neighbor
     INTEGER :: land_edges, sea_edges, boundary_edges
     REAL(wp), ALLOCATABLE :: z_sync_v(:,:)
@@ -1471,7 +1476,8 @@ CONTAINS
     DO jb = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, jb, i_startidx_c, i_endidx_c)
       DO jc = i_startidx_c, i_endidx_c
-        DO jk=1, dolic_c(jc,jb)
+        end_level = dolic_c(jc,jb)
+        DO jk=1, end_level
           patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_c(jc,jk,jb) = v_base%del_zlev_m(jk)
           patch_3d%p_patch_1d(1)%prism_thick_c(jc,jk,jb)          = v_base%del_zlev_m(jk)
           patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb)    = v_base%del_zlev_i(jk)
@@ -1485,8 +1491,25 @@ CONTAINS
             & patch_3d%p_patch_1d(1)%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
           IF (v_base%del_zlev_i(jk) > 0.0_wp)  &
             & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
+
+          patch_3d%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb) = &
+            & patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb)
+          patch_3d%p_patch_1d(1)%constantPrismCenters_invZdistance(jc,jk,jb) = &
+            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)
+            
         END DO
-        patch_3d%p_patch_1d(1)%depth_CellInterface(jc,dolic_c(jc,jb)+1,jb)   = patch_3d%p_patch_1d(1)%zlev_i(dolic_c(jc,jb)+1)
+        IF (end_level > 0) THEN
+	  patch_3d%p_patch_1d(1)%depth_CellInterface(jc,end_level+1,jb)   = patch_3d%p_patch_1d(1)%zlev_i(end_level+1)
+	  patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)   = &
+	    & patch_3d%p_patch_1d(1)%prism_thick_c(jc,end_level,jb) * 0.5_wp
+	  IF (patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb) > 0.0_wp)  &
+	    & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,end_level+1,jb)= &
+	      &   1.0_wp / patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)
+	  patch_3d%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,end_level+1,jb) = &
+	    & patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)
+	  patch_3d%p_patch_1d(1)%constantPrismCenters_invZdistance(jc,end_level+1,jb) = &
+	    & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,end_level+1,jb)
+	ENDIF
         
         ! set bottom/columns values
         jk = dolic_c(jc,jb)
@@ -1820,10 +1843,13 @@ CONTAINS
         ENDDO
       ENDDO
       ! recalculate cells subsets
-      CALL fill_subset(patch_2d%cells%ALL, patch_2d, patch_2d%cells%decomp_info%halo_level, &
-        & 0, halo_levels_ceiling)
-      CALL fill_subset(patch_2d%cells%owned, patch_2d, patch_2d%cells%decomp_info%halo_level, 0, 0)
-      CALL fill_subset(patch_2d%cells%in_domain, patch_2d, patch_2d%cells%decomp_info%halo_level, 0, 0)
+      CALL fill_subset(subset=patch_2D%cells%all, patch=patch_2D, &
+        & mask=patch_2D%cells%decomp_info%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_cells)
+      CALL fill_subset(subset=patch_2D%cells%owned, patch=patch_2D, &
+        & mask=patch_2D%cells%decomp_info%halo_level, start_mask=0, end_mask=0, located=on_cells)
+      
+      CALL fill_subset(subset=patch_2D%cells%in_domain, patch=patch_2D, &
+        & mask=patch_2D%cells%decomp_info%halo_level, start_mask=0, end_mask=0, located=on_cells)
       
       ! edges
       DO BLOCK = all_edges%start_block, all_edges%end_block
@@ -1836,11 +1862,13 @@ CONTAINS
         ENDDO
       ENDDO
       ! recalculate edges subsets
-      CALL fill_subset(patch_2d%edges%ALL, patch_2d, patch_2d%edges%decomp_info%halo_level, &
-        & 0, halo_levels_ceiling)
-      CALL fill_subset(patch_2d%edges%in_domain, patch_2d, patch_2d%edges%decomp_info%halo_level, 0, 0)
-      CALL fill_subset(patch_2d%edges%in_domain, patch_2d, patch_2d%edges%decomp_info%halo_level, 0, 1)
-      
+      CALL fill_subset(subset=patch_2D%edges%all, patch=patch_2D, &
+        & mask=patch_2D%edges%decomp_info%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_edges)
+      CALL fill_subset(subset=patch_2D%edges%owned, patch=patch_2D, &
+        & mask=patch_2D%edges%decomp_info%halo_level, start_mask=0, end_mask=0, located=on_edges)
+      CALL fill_subset(subset=patch_2D%edges%in_domain, patch=patch_2D, &
+        & mask=patch_2D%edges%decomp_info%halo_level, start_mask=0, end_mask=1, located=on_edges)
+
       ! verts
       DO BLOCK = all_verts%start_block, all_verts%end_block
         CALL get_index_range(all_verts, BLOCK, startidx, endidx)
@@ -1852,10 +1880,12 @@ CONTAINS
         ENDDO
       ENDDO
       ! recalculate verts subsets
-      CALL fill_subset(patch_2d%verts%ALL, patch_2d, patch_2d%verts%decomp_info%halo_level, &
-        & 0, halo_levels_ceiling)
-      CALL fill_subset(patch_2d%verts%owned, patch_2d, patch_2d%verts%decomp_info%halo_level, 0, 0)
-      CALL fill_subset(patch_2d%verts%in_domain, patch_2d, patch_2d%verts%decomp_info%halo_level, 0, 1)
+      CALL fill_subset(subset=patch_2D%verts%all,  patch=patch_2D, &
+        & mask=patch_2D%verts%decomp_info%halo_level, start_mask=0, end_mask=halo_levels_ceiling, located=on_vertices)
+      CALL fill_subset(subset=patch_2D%verts%owned, patch=patch_2D, &
+        & mask=patch_2D%verts%decomp_info%halo_level, start_mask=0, end_mask=0, located=on_vertices)
+      CALL fill_subset(subset=patch_2D%verts%in_domain, patch=patch_2D, &
+        & mask=patch_2D%verts%decomp_info%halo_level, start_mask=0, end_mask=1, located=on_vertices)
       
     ENDIF
   END SUBROUTINE ocean_subsets_ignore_land
@@ -1909,7 +1939,7 @@ CONTAINS
     INTEGER :: timestep
     LOGICAL is_initial_timestep
     
-    IF (timestep == 1 .AND. .NOT. is_restart_run()) THEN
+    IF (timestep == 1 .AND. .NOT. isRestart()) THEN
       is_initial_timestep = .TRUE.
     ELSE
       is_initial_timestep = .FALSE.
