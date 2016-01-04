@@ -24,7 +24,7 @@
 #endif
 MODULE mo_nwp_rrtm_interface
 
-  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, iprog_aero, icpl_aero_conv
   USE mo_datetime,             ONLY: t_datetime,  month2hour
   USE mo_exception,            ONLY: message,  finish, message_text
   USE mo_ext_data_types,       ONLY: t_external_data
@@ -140,6 +140,8 @@ CONTAINS
 
     INTEGER:: imo1,imo2 !for Tegen aerosol time interpolation
 
+    REAL(wp) :: wfac, ncn_bg
+
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
 
@@ -184,7 +186,7 @@ CONTAINS
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_endidx, &
 !$OMP       zsign,zvdaes, zvdael, zvdaeu, zvdaed, zaeqsn, zaeqln, &
-!$OMP zaequn,zaeqdn,zaetr_bot,zaetr )  ICON_OMP_DEFAULT_SCHEDULE
+!$OMP zaequn,zaeqdn,zaetr_bot,zaetr,wfac,ncn_bg )  ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -343,6 +345,21 @@ CONTAINS
         zaeq5(1:i_endidx,:,jb) = 0.0_wp
 
       ENDIF ! irad_aero
+
+      ! Compute cloud number concentration depending on aerosol climatology if 
+      ! aerosol-microphysics or aerosol-convection coupling is turned on
+      IF (atm_phy_nwp_config(jg)%icpl_aero_gscp == 1 .OR. icpl_aero_conv == 1) THEN
+
+        DO jk = 1,nlev
+!DIR$ IVDEP
+          DO jc = 1, i_endidx
+            wfac = MAX(1._wp,(MIN(8._wp,0.8_wp*pt_diag%pres_sfc(jc,jb)/pt_diag%pres(jc,jk,jb))))**2
+            ncn_bg = MIN(prm_diag%cloud_num(jc,jb),50.e6_wp)
+            prm_diag%acdnc(jc,jk,jb) = (ncn_bg+(prm_diag%cloud_num(jc,jb)-ncn_bg)*(EXP(1._wp-wfac)))
+          END DO
+        END DO
+
+      ENDIF
 
       IF ( irad_o3 == 6 ) THEN ! Old GME ozone climatology
 

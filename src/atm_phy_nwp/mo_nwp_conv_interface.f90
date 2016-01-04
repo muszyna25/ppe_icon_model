@@ -38,7 +38,7 @@ MODULE mo_nwp_conv_interface
   USE mo_nwp_phy_types,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_nwp_phy_state,        ONLY: phy_params
   USE mo_run_config,           ONLY: iqv, iqc, iqi !, iqs
-  USE mo_physical_constants,   ONLY: grav
+  USE mo_physical_constants,   ONLY: grav, alf, cvd
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cumaster,             ONLY: cumastrn
   USE mo_ext_data_types,       ONLY: t_external_data
@@ -101,6 +101,7 @@ CONTAINS
     INTEGER  :: jk,jc,jb,jg                !< block indeces
     INTEGER  :: zk850, zk950               !< level indices
     REAL(wp) :: u850, u950, v850, v950     !< zonal and meridional velocity at specific heights
+    REAL(wp) :: ticeini, lfocvd, wfac
 
 
     ! local variables related to the blocking
@@ -118,10 +119,12 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
+    lfocvd  = alf/cvd
+    ticeini = 261.15_wp
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_omega_p,z_plitot,z_qhfl,z_shfl,z_dtdqv,&
-!$OMP            z_dtdt,z_dtdqv_sv,z_dtdt_sv,zk850,zk950,u850,u950,v850,v950), ICON_OMP_GUIDED_SCHEDULE
+!$OMP            z_dtdt,z_dtdqv_sv,z_dtdt_sv,zk850,zk950,u850,u950,v850,v950,wfac), ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -316,6 +319,21 @@ CONTAINS
           &    z_dtdqv   (i_startidx:i_endidx,kstart_moist(jg):)                       &
           &  - z_dtdqv_sv(i_startidx:i_endidx,kstart_moist(jg):)
 
+        ! Convert detrained cloud ice into cloud water if the temperature is only slightly below freezing
+        ! and convective cloud top is not cold enough for substantial ice initiation
+        DO jk = kstart_moist(jg),nlev
+          DO jc = i_startidx,i_endidx
+            IF (prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) > 0._wp .AND. p_diag%temp(jc,jk,jb) > ticeini) THEN
+              wfac = MAX(0._wp, MIN(1._wp,0.25_wp*(p_diag%temp(jc,jk,jb)-ticeini)) + &
+                     0.25_wp*MIN(0._wp,p_diag%temp(jc,prm_diag%mtop_con(jc,jb),jb)-ticeini) )
+              prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) = prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqc) + &
+                wfac*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
+              prm_nwp_tend%ddt_temp_pconv(jc,jk,jb) = prm_nwp_tend%ddt_temp_pconv(jc,jk,jb) - &
+                lfocvd*wfac*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
+              prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi) = (1._wp-wfac)*prm_nwp_tend%ddt_tracer_pconv(jc,jk,jb,iqi)
+            ENDIF
+          ENDDO
+        ENDDO
 
         ! convective contribution to wind gust 
         ! (based on simple parameterization by Peter Bechthold)
