@@ -120,8 +120,8 @@ MODULE mo_ensemble_pert_config
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
     INTEGER, ALLOCATABLE :: rnd_seed(:)
-    INTEGER  :: rnd_size, i, jg
-    REAL(wp) :: rnd_num, rnd_fac, z0_lcc, rootdp, rsmin, laimax
+    INTEGER  :: rnd_size, i, jg, ipn
+    REAL(wp) :: rnd_num, rnd_fac, alpha0_sv, z0_lcc, rootdp, rsmin, laimax
 
 
     IF (use_ensemble_pert) THEN
@@ -130,11 +130,14 @@ MODULE mo_ensemble_pert_config
       ALLOCATE(rnd_seed(rnd_size))
 
       ! Initialize randum number generator with an integer sequence depending on the ensemble member ID
+      ipn = gribout_config(1)%perturbationNumber
       DO i = 1, rnd_size
-        rnd_seed(i) = (gribout_config(1)%perturbationNumber - 1) * 100 + i
+        rnd_seed(i) = (135+i)*ipn - (21+i**2)*(5+MOD(ipn,10))**2 + 3*i**3
       ENDDO
       CALL RANDOM_SEED(PUT=rnd_seed)
-
+      DO i = 1, 10+ipn
+        CALL RANDOM_NUMBER(rnd_num)
+      ENDDO
 
       ! Apply perturbations to physics tuning parameters
 
@@ -192,11 +195,17 @@ MODULE mo_ensemble_pert_config
       tune_minsnowfrac = tune_minsnowfrac + 2._wp*(rnd_num-0.5_wp)*range_minsnowfrac
 
       CALL RANDOM_NUMBER(rnd_num)
-      rnd_fac = range_charnock**(2._wp*(rnd_num-0.5_wp))
+      rnd_fac   = range_charnock**(2._wp*(rnd_num-0.5_wp))
+      alpha0_sv = turbdiff_config(1)%alpha0
+      !
       ! Upper and lower bound of the variation range of the wind-speed dependent Charnock parameter
       ! are varied inversely in order to avoid bias changes
       turbdiff_config(1:max_dom)%alpha0     = turbdiff_config(1:max_dom)%alpha0     * rnd_fac
       turbdiff_config(1:max_dom)%alpha0_max = turbdiff_config(1:max_dom)%alpha0_max / rnd_fac
+
+      CALL RANDOM_NUMBER(rnd_num)
+      ! Additional additive perturbation to Charnock parameter
+      turbdiff_config(1:max_dom)%alpha0_pert = (rnd_num-0.5_wp)*alpha0_sv*(range_charnock-1._wp)
 
       ! control output
       WRITE(message_text,'(2f8.4,e11.4)') tune_gkwake, tune_gkdrag, tune_gfluxlaun
@@ -208,10 +217,21 @@ MODULE mo_ensemble_pert_config
       WRITE(message_text,'(4f8.4,f8.5)') tune_rhebc_land, tune_rhebc_ocean, tune_rcucov, tune_texc, tune_qexc
       CALL message('Perturbed values, rhebc_land, rhebc_ocean, rcucov, texc, qexc', TRIM(message_text))
 
-      WRITE(message_text,'(3f8.4,f8.3,2f8.4)') turbdiff_config(1)%tkhmin, turbdiff_config(1)%tkmmin, &
+      WRITE(message_text,'(3f8.4,f8.3,3f8.4)') turbdiff_config(1)%tkhmin, turbdiff_config(1)%tkmmin, &
         turbdiff_config(1)%rlam_heat , turbdiff_config(1)%rat_sea, turbdiff_config(1)%alpha0,        &
-        turbdiff_config(1)%alpha0_max
-      CALL message('Perturbed values, tkhmin, tkmmin, rlam_heat, rat_sea, alpha0, alpha0_max', TRIM(message_text))
+        turbdiff_config(1)%alpha0_max, turbdiff_config(1)%alpha0_pert
+      CALL message('Perturbed values, tkhmin, tkmmin, rlam_heat, rat_sea, alpha0_min/max/pert', TRIM(message_text))
+
+
+      ! Reinitialization of randum number generator in order to make external parameter perturbations
+      ! independent of the number of RANDOM_NUMBER calls so far
+      DO i = 1, rnd_size
+        rnd_seed(i) = (139+i)*ipn - (23+i**2)*(5+MOD(ipn,12))**2 + 4*i**3
+      ENDDO
+      CALL RANDOM_SEED(PUT=rnd_seed)
+      DO i = 1, 10+ipn
+        CALL RANDOM_NUMBER(rnd_num)
+      ENDDO
 
       CALL message('','')
       CALL message('','Perturbed external parameters: roughness length, root depth, min. stomata resistance,&

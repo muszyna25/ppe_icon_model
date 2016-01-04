@@ -92,6 +92,8 @@ MODULE mo_turbdiff_config
       &  alpha0    !
     REAL(wp):: &   ! upper limit of velocity-dependent Charnock-parameter
       &  alpha0_max !
+    REAL(wp):: &   ! additive ensemble perturbation of Charnock-parameter
+      &  alpha0_pert !
     REAL(wp):: &   ! minimal diffusion coefficient for scalars (heat)
       &  tkhmin    !
     REAL(wp):: &   ! minimal diffusion coefficient for momentum

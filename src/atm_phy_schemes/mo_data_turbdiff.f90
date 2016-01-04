@@ -194,6 +194,7 @@ REAL (KIND=ireals)     ::      &
 
   alpha0     =  0.0123_ireals, & ! Charnock-parameter
   alpha0_max =  0.0335_ireals, & ! upper limit of velocity-dependent Charnock-parameter
+  alpha0_pert=  0.0_ireals,    & ! additive ensemble perturbation of Charnock-parameter
 !<Achtung:
   alpha1     =  1.0000_ireals    ! parameter scaling the molek. roughness of water waves
 !>
@@ -444,6 +445,7 @@ INTEGER :: &
 
      alpha0       = turbdiff_config(jg)%alpha0
      alpha0_max   = turbdiff_config(jg)%alpha0_max
+     alpha0_pert  = turbdiff_config(jg)%alpha0_pert
 
      c_diff       = turbdiff_config(jg)%c_diff
      rlam_heat    = turbdiff_config(jg)%rlam_heat
