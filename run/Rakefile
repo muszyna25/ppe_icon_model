@@ -2,6 +2,7 @@ require 'rake/clean'
 require 'logger'
 require 'pp'
 require 'cdo'
+require 'parallel'
 require 'colorize'
 begin
   require 'facets'
@@ -727,7 +728,7 @@ task :checkTimeMean, :pattern, :referenceExp do |t,args|
   }
 end
 
-desc "check single precission output of dtime output"
+desc "check single precission output of dtime output"# {{{
 task :checkTimeMeanSP, :pattern do |t,args|
   require 'parallel'
   require 'jobqueue'
@@ -773,27 +774,81 @@ task :checkTimeMeanSP, :pattern do |t,args|
     }#}
   }
   q.run
-end
+end# }}}
 
 task :checkAtmoMeanStream, :dir do |t,args|
 
   dir = args.dir.nil? ? '.' : args.dir
 
-  files = {
-    M10: Dir.glob("#{dir}/*_10M_*nc").first,
-    M20: Dir.glob("#{dir}/*_20M_*nc").first,
-    M30: Dir.glob("#{dir}/*_30M_*nc").first,
-    H01: Dir.glob("#{dir}/*_01H_*nc").first
+  @meanFiles = {}
+  @periods = %w[10M 20M 30M 01H].map {|t| "PT#{t}".to_sym}
+# Cdo.debug = true
+
+  # check for all regular output files# {{{
+  experimentName = File.expand_path(dir).split(File::SEPARATOR).last
+  pp experimentName
+  @regularFiles = Dir.glob("#{dir}/#{experimentName}*nc").delete_if {|fname| fname.include?('_mean_') or fname.include?('_restart_')}
+  @regularFiles.each {|f| @meanFiles[f] = {}}
+
+  @meanFiles.each_key {|regularFile|
+    @meanFiles[regularFile][:base] = regularFile
+    # check for meanValue versions of these files
+    tag = File.basename(regularFile).split('_ml_').first
+    @periods.each {|p| 
+      possibleMeanFiles = Dir.glob("#{dir}/#{tag}*_mean_#{p.to_s}_*nc")
+      @meanFiles[regularFile][p] = possibleMeanFiles.first unless possibleMeanFiles.empty?
+    }
   }
 
-  p files
+  # compare base vs. dtime-mean fields
+  @regularFiles.each {|regularFile|
+    if @meanFiles[regularFile].has_key?(:PT10M) then
+      #puts Cdo.diffv(:input => [regularFile,@meanFiles[regularFile][:PT10M]].join(' '))
+    end
+  }# }}}
 
-  Cdo.debug = true
-  # 10M vs. 20M
-  puts Cdo.diffv(:input => "         -seltimestep,1   #{files[:M10]}  -seltimestep,1 #{files[:M20]}",:options => '-s')
-  puts Cdo.diffv(:input => "-timmean -seltimestep,2/3 #{files[:M10]}  -seltimestep,2 #{files[:M20]}",:options => '-s')
-  puts Cdo.diffv(:input => "-timmean -seltimestep,4/5 #{files[:M10]}  -seltimestep,3 #{files[:M20]}",:options => '-s')
-  puts Cdo.diffv(:input => "-timmean -seltimestep,6/7 #{files[:M10]}  -seltimestep,4 #{files[:M20]}",:options => '-s')
+  pp @regularFiles.map {|f| @meanFiles[f].has_key?(:PT10M)}
+  pp @meanFiles
+
+  # compare mean values
+  {
+    :PT20M => [
+      { :ref => '2,3', :mean => '2'},
+      { :ref => '4,5', :mean => '3'},
+      { :ref => '6,7', :mean => '4'},
+    ],
+    :PT30M => [
+      { :ref => '2,3,4', :mean => '2'},
+      { :ref => '5,6,7', :mean => '3'},
+    ]
+  }.each {|period, configs|
+    @regularFiles.each {|regularFile|
+      next unless @meanFiles[regularFile].has_key?(period)
+      puts regularFile.colorize(:color => :blue, :background => :yellow)
+      puts period.to_s.colorize(:color => :blue, :background => :yellow)
+      varlist = Cdo.showname(:input => regularFile)[0].split(' ')
+      Parallel.each(varlist) {|varname|
+        configs.each {|config|
+#         Cdo.debug = true
+        diff = Cdo.diffv(input: [
+          "-timmean -seltimestep,#{config[:ref]}  -selname,#{varname} #{regularFile}",
+          "         -seltimestep,#{config[:mean]} -selname,#{varname} #{@meanFiles[regularFile][period]}"
+        ].join(' '),:options => '-s')
+          unless diff.empty? then
+            puts varname.colorize(:red)
+            print "\t#{diff[1..-2].join("\n\t")}".colorize(:yellow)
+            puts "\t"
+          else
+            puts "#{varname} ".colorize(:green)
+          end
+        }
+      }
+
+    }
+  }
+
+  exit
+
   # 10M vs 30M
   puts Cdo.diffv(:input => "         -seltimestep,1   #{files[:M10]}  -seltimestep,1 #{files[:M30]}",:options => '-s')
   puts Cdo.diffv(:input => "-timmean -seltimestep,2/4 #{files[:M10]}  -seltimestep,2 #{files[:M30]}",:options => '-s')

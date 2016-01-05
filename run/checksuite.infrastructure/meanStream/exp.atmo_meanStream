@@ -322,11 +322,10 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull','ps'
+ ml_varlist       = 'group:atmo_ml_vars','group:nh_prog_vars'
 /
 &output_nml
- output_filename  = "${EXPNAME}_atm_3d_mean_10M"
+ output_filename  = "${EXPNAME}_atm_3d_mean_PT10M"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  operation        = "mean"
  remap            = 0
@@ -336,11 +335,10 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "PT10M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull','ps'
+ ml_varlist       = 'group:atmo_ml_vars','group:nh_prog_vars'
 /
 &output_nml
- output_filename  = "${EXPNAME}_atm_3d_mean_20M"
+ output_filename  = "${EXPNAME}_atm_3d_mean_PT20M"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  operation        = "mean"
  remap            = 0
@@ -350,11 +348,10 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "PT20M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull','ps'
+ ml_varlist       = 'group:atmo_ml_vars','group:nh_prog_vars'
 /
 &output_nml
- output_filename  = "${EXPNAME}_atm_3d_mean_30M"
+ output_filename  = "${EXPNAME}_atm_3d_mean_PT30M"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  operation        = "mean"
  remap            = 0
@@ -364,8 +361,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_interval  = "PT30M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
-                    'zg','pfull','ps'
+ ml_varlist       = 'group:atmo_ml_vars','group:nh_prog_vars'
 /
 EOF
 fi
@@ -412,13 +408,14 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'con_dtrl', 'con_dtri', 'con_iteqv',
                     'cld_dtrl', 'cld_dtri', 'cld_iteq'
 /
- output_filename  = "${EXPNAME}_atm_2d_mean_10M"
+&output_nml
+ output_filename  = "${EXPNAME}_atm_2d_mean_PT10M"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "${output_interval_2d}"
+ output_interval  = "PT10M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
@@ -448,7 +445,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
                     'cld_dtrl', 'cld_dtri', 'cld_iteq'
 /
 &output_nml
- output_filename  = "${EXPNAME}_atm_2d_mean_01H"
+ output_filename  = "${EXPNAME}_atm_2d_mean_PT01H"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  operation        = "mean"
  remap            = 0
@@ -518,7 +515,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'pfull','ps'
 /
 &output_nml
- output_filename  = "${EXPNAME}_phy_3d_mean_10M"
+ output_filename  = "${EXPNAME}_phy_3d_mean_PT10M"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
@@ -542,7 +539,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'pfull','ps'
 /
 &output_nml
- output_filename  = "${EXPNAME}_phy_3d_mean_01H"
+ output_filename  = "${EXPNAME}_phy_3d_mean_PT01H"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
  output_grid      = .TRUE.
