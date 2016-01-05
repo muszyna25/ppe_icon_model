@@ -827,9 +827,9 @@ task :checkAtmoMeanStream, :dir do |t,args|
       puts regularFile.colorize(:color => :blue, :background => :yellow)
       puts period.to_s.colorize(:color => :blue, :background => :yellow)
       varlist = Cdo.showname(:input => regularFile)[0].split(' ')
-      Parallel.each(varlist) {|varname|
+      Parallel.each(varlist,:in_threads => 1) {|varname|
         configs.each {|config|
-#         Cdo.debug = true
+          Cdo.debug = true
         diff = Cdo.diffv(input: [
           "-timmean -seltimestep,#{config[:ref]}  -selname,#{varname} #{regularFile}",
           "         -seltimestep,#{config[:mean]} -selname,#{varname} #{@meanFiles[regularFile][period]}"
