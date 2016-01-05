@@ -123,6 +123,10 @@ def checkFile4Variables(*args)
   args.each {|varname| retval[varnamesInFile.include?(varname)] << varname }
   return retval
 end
+def varIsConstant(varname,filename)
+  info = Cdo.sinfov(:input => "-selname,#{varname} #{filename}")
+  not info.grep(/ constant /).empty? 
+end
 def printHashManyKeys(hash,tag)
   hash.each {|k,v| puts "#{k.to_s.ljust(15,' ')}:#{v ? '   ' : 'NOT'.colorize(:red)} #{tag.to_s}" }
 end
@@ -803,7 +807,7 @@ task :checkAtmoMeanStream, :dir do |t,args|
   # compare base vs. dtime-mean fields
   @regularFiles.each {|regularFile|
     if @meanFiles[regularFile].has_key?(:PT10M) then
-      #puts Cdo.diffv(:input => [regularFile,@meanFiles[regularFile][:PT10M]].join(' '))
+      puts Cdo.diffv(:input => [regularFile,@meanFiles[regularFile][:PT10M]].join(' '))
     end
   }# }}}
 
@@ -814,29 +818,36 @@ task :checkAtmoMeanStream, :dir do |t,args|
   {
     :PT20M => [
       { :ref => '2,3', :mean => '2'},
-      { :ref => '4,5', :mean => '3'},
-      { :ref => '6,7', :mean => '4'},
-    ],
-    :PT30M => [
-      { :ref => '2,3,4', :mean => '2'},
-      { :ref => '5,6,7', :mean => '3'},
-    ]
+  #   { :ref => '4,5', :mean => '3'},
+  #   { :ref => '6,7', :mean => '4'},
+    ]#,
+ #   :PT30M => [
+  #    { :ref => '2,3,4', :mean => '2'},
+  #    { :ref => '5,6,7', :mean => '3'},
+  #  ]
   }.each {|period, configs|
     @regularFiles.each {|regularFile|
       next unless @meanFiles[regularFile].has_key?(period)
       puts regularFile.colorize(:color => :blue, :background => :yellow)
       puts period.to_s.colorize(:color => :blue, :background => :yellow)
       varlist = Cdo.showname(:input => regularFile)[0].split(' ')
-      Parallel.each(varlist,:in_threads => 1) {|varname|
+#     pp varlist
+#     next
+      #Parallel.each(varlist,:in_threads => 1) {|varname|
+      Parallel.each(varlist) {|varname|
+        # avoid time-constant variables
+        next if varIsConstant(varname,regularFile)
+
         configs.each {|config|
-          Cdo.debug = true
+#Cdo.debug = true
         diff = Cdo.diffv(input: [
-          "-timmean -seltimestep,#{config[:ref]}  -selname,#{varname} #{regularFile}",
-          "         -seltimestep,#{config[:mean]} -selname,#{varname} #{@meanFiles[regularFile][period]}"
-        ].join(' '),:options => '-s')
+                 "-timmean -seltimestep,#{config[:ref]}  -selname,#{varname} #{regularFile}",
+                 "         -seltimestep,#{config[:mean]} -selname,#{varname} #{@meanFiles[regularFile][period]}"
+               ].join(' '),:options => '-s')
+#       puts diff
           unless diff.empty? then
             puts varname.colorize(:red)
-            print "\t#{diff[1..-2].join("\n\t")}".colorize(:yellow)
+            #print "\t#{diff[1..-2].join("\n\t")}".colorize(:yellow)
             puts "\t"
           else
             puts "#{varname} ".colorize(:green)
