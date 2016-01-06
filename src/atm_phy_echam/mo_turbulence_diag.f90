@@ -785,11 +785,11 @@ CONTAINS
           zcfnch(js,jsfc)=SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc)
         ! omit free convection, fxp  zcr   (js)=(cfreec/(pchn_sfc(js,jsfc)*SQRT(zdu2(js,jsfc))))*ABS(zbuoy)**zonethird
         ELSE IF ( jsfc == idx_ice ) THEN    ! over ice
-          pchn_sfc  (js,jsfc) = lmix(js,jsfc)/((fsl*pgeom1_b(js)/grav)*LOG(pgeom1_b(js)/(grav*pz0m(js,jsfc))))&
+          pchn_sfc  (js,jsfc) = lmix(js,jsfc)/((fsl*pgeom1_b(js)/grav)*LOG(MAX(2._wp,pgeom1_b(js)/(grav*pz0m(js,jsfc)))))&
                                               *1._wp/pr0*SQRT(pcdn_sfc(js,jsfc)) ! currently same roughness length
           zcfnch(js,jsfc) = SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc) 
         ELSE IF ( jsfc == idx_lnd ) THEN    ! over  land
-          pchn_sfc(js,jsfc) = lmix(js,jsfc)/((fsl*pgeom1_b(js)/grav)*LOG(pgeom1_b(js)/(grav*paz0lh(js)))) &
+          pchn_sfc(js,jsfc) = lmix(js,jsfc)/((fsl*pgeom1_b(js)/grav)*LOG(MAX(2._wp,pgeom1_b(js)/(grav*paz0lh(js))))) &
                                                *1._wp/pr0*SQRT(pcdn_sfc(js,jsfc))
           zcfnch(js,jsfc) = SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc)
         END IF
