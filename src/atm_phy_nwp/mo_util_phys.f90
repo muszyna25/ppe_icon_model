@@ -757,7 +757,8 @@ CONTAINS
     ddnz  => p_metrics%ddxn_z_full
     ddtz  => p_metrics%ddxt_z_full
     gamma => p_metrics%ddqz_z_full_e
-    
+
+
     ! Index bounds
     slev     = 1
     elev     = UBOUND(out_var,2)
@@ -880,7 +881,7 @@ CONTAINS
 !$OMP END PARALLEL
     
     !Interpolate to cells
-    CALL edges2cells_scalar( pv_ef, p_patch, p_int_state%e_bln_c_s, out_var )
+    CALL edges2cells_scalar( pv_ef, p_patch, p_int_state%e_bln_c_s, out_var, opt_rlstart=2 )
     
 
     rl_start = 2
