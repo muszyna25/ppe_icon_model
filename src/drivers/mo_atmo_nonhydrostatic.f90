@@ -137,7 +137,8 @@ CONTAINS
     LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
     LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
-    TYPE(t_sim_step_info) :: sim_step_info
+    LOGICAL :: l_pv(n_dom)       !< Flag. TRUE if computation of potential vorticity desired
+    TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
     REAL(wp) :: sim_time
 
@@ -225,11 +226,12 @@ CONTAINS
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom
         l_rh(jg) = is_variable_in_output(first_output_name_list, var_name="rh")
+        l_pv(jg) = is_variable_in_output(first_output_name_list, var_name="pv")
       END DO
     END IF
 
     IF (iforcing == inwp) THEN
-      CALL construct_nwp_phy_state( p_patch(1:), l_rh )
+      CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv )
       CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
     END IF
 
