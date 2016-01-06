@@ -50,7 +50,8 @@ USE mo_kind,                ONLY: wp
 USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
 USE mo_impl_constants,      ONLY: success, max_char_length,           &
   &                               VINTP_METHOD_LIN,VINTP_METHOD_QV,   &
-  &                               TASK_COMPUTE_RH, iedmf,             &
+  &                               TASK_COMPUTE_RH, TASK_COMPUTE_PV,   &
+  &                               iedmf,                              &
   &                               HINTP_TYPE_LONLAT_NNB,              &
   &                               HINTP_TYPE_LONLAT_BCTR,             &
   &                               HINTP_TYPE_LONLAT_RBF,              &
@@ -143,10 +144,11 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 
-SUBROUTINE construct_nwp_phy_state( p_patch, l_rh)
+SUBROUTINE construct_nwp_phy_state( p_patch, l_rh, l_pv)
 
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
-LOGICAL, INTENT(IN) :: l_rh(n_dom) !< Flag. TRUE if computation of relative humidity desired
+LOGICAL, INTENT(IN) :: l_rh(n_dom), &!< Flag. TRUE if computation of relative humidity desired
+                       l_pv(n_dom)   !< Flag. TRUE if computation of potential vorticity desired
 
 CHARACTER(len=max_char_length) :: listname
 INTEGER ::  jg,ist, nblks_c, nlev, nlevp1
@@ -184,7 +186,7 @@ CALL message('mo_nwp_phy_state:construct_nwp_state', &
      WRITE(listname,'(a,i2.2)') 'prm_diag_of_domain_',jg
 
      CALL new_nwp_phy_diag_list( jg, nlev, nlevp1, nblks_c, TRIM(listname),   &
-       &                         prm_nwp_diag_list(jg), prm_diag(jg), l_rh(jg))
+       &                         prm_nwp_diag_list(jg), prm_diag(jg), l_rh(jg), l_pv(jg))
      !
      WRITE(listname,'(a,i2.2)') 'prm_tend_of_domain_',jg
      CALL new_nwp_phy_tend_list ( jg, nlev, nblks_c,&
@@ -247,7 +249,7 @@ END SUBROUTINE destruct_nwp_phy_state
 
      !
 SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
-                     & listname, diag_list, diag, l_rh)
+                     & listname, diag_list, diag, l_rh, l_pv)
 
     INTEGER,INTENT(IN) :: klev, klevp1, kblks, k_jg !< dimension sizes
 
@@ -258,8 +260,8 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
 
     TYPE(t_var_list)    ,INTENT(INOUT) :: diag_list
     TYPE(t_nwp_phy_diag),INTENT(INOUT) :: diag
-    LOGICAL, INTENT(IN) :: l_rh !< Flag. TRUE if computation of relative humidity desired
-
+    LOGICAL, INTENT(IN) :: l_rh, & !< Flag. TRUE if computation of relative humidity desired
+                           l_pv    !< Flag. TRUE if computation of potential vorticity desired
     ! Local variables
 
     INTEGER :: n_updown = 7 !> number of up/downdrafts variables
@@ -2647,11 +2649,11 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     ! Optional computation of diagnostic fields
     !------------------
 
-    ! &     relative humidity
-    !
-    ! Note: This task is registered for the post-processing scheduler
+    ! Note: These tasks are registered for the post-processing scheduler
     !       which takes care of the regular update:
     ! 
+    ! &     relative humidity
+    !    
     IF (l_rh) THEN
       cf_desc    = t_cf_var('rh', '%', 'relative humidity', DATATYPE_FLT32)
       grib2_desc = grib2_var(0, 1, 1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
@@ -2667,6 +2669,24 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
                     &             l_extrapol=.FALSE., l_pd_limit=.TRUE.,             &
                     &             lower_limit=0._wp ),                               &
                     & l_pp_scheduler_task=TASK_COMPUTE_RH, lrestart=.FALSE.          )
+    END IF
+    
+    ! &     potential vorticity
+    
+    IF (l_pv) THEN
+      cf_desc    = t_cf_var('pv', 'K m2 kg-1 s-1', 'potential vorticity', DATATYPE_FLT32)
+      grib2_desc = grib2_var(0, 2, 14, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+      CALL add_var( diag_list,                                                       &
+                    & "pv", diag%pv,                                                 &
+                    & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &
+                    & cf_desc, grib2_desc,                                           &
+                    & ldims=shape3d,                                                 &
+                    & vert_interp=create_vert_interp_metadata(                       &
+                    &             vert_intp_type=vintp_types("P","Z","I"),           &
+                    &             vert_intp_method=VINTP_METHOD_LIN,                 &
+                    &             l_loglin=.FALSE.,                                  &
+                    &             l_extrapol=.FALSE.),                               &
+                    & l_pp_scheduler_task=TASK_COMPUTE_PV, lrestart=.FALSE.          )
     END IF
 
 

@@ -379,7 +379,9 @@ MODULE mo_nwp_phy_types
 
     !> (Optional:) Additional diagnostic fields:
     REAL(wp), POINTER ::  &
-      rh(:,:,:)               !> relative humidity
+      rh(:,:,:),          &   !> relative humidity
+      pv(:,:,:)               !> potential vorticity
+
 
     ! Buffer field needed when vertical nesting is combined with a reduced radiation
     ! grid and latm_above_top = .TRUE.
