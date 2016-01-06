@@ -11,6 +11,7 @@ MODULE mo_var_metadata_types
   USE mo_grib2,          ONLY: t_grib2_var
   USE mo_action_types,   ONLY: t_var_action
   USE mo_cf_convention,  ONLY: t_cf_var
+  USE mo_model_domain,   ONLY: t_subset_range
 
   IMPLICIT NONE
 
@@ -238,6 +239,7 @@ MODULE mo_var_metadata_types
     !
     INTEGER                    :: hgrid                 ! CDI horizontal grid type
     INTEGER                    :: vgrid                 ! CDI vertical grid type
+    TYPE(t_subset_range), POINTER :: subset             ! subset for latter field access
     !
     INTEGER                    :: tlev_source           ! Information where to find the actual
     !                                                     timelevel for timelevel dependent variables:        

@@ -37,6 +37,7 @@ MODULE mo_derived_variable_handling
   USE mo_output_event_types, ONLY: t_sim_step_info
   USE mo_time_config,         ONLY: time_config
   USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_FLT64
+  USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE, GRID_UNSTRUCTURED_VERT
 
   IMPLICIT NONE
 
@@ -167,10 +168,11 @@ CONTAINS
     END DO
   end function output_varlist_length
 
-  SUBROUTINE process_mean_stream(p_onl,i_typ, sim_step_info)
+  SUBROUTINE process_mean_stream(p_onl,i_typ, sim_step_info, patch_2d)
     TYPE (t_output_name_list), target :: p_onl
     INTEGER :: i_typ
     TYPE (t_sim_step_info), INTENT(IN) :: sim_step_info
+    TYPE(t_patch), INTENT(IN) :: patch_2d
 
     CHARACTER(LEN=vname_len), POINTER :: in_varlist(:)
     INTEGER :: ntotal_vars, output_variables,i,ierrstat, dataType
@@ -270,7 +272,7 @@ if ( my_process_is_stdio())CALL print_summary('varlist(name) :|'//trim(in_varlis
 if ( my_process_is_stdio())CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
           ! add new variable, copy the meta-data from the existing variable
           ! 1. copy the source variable to destination pointer
-          dest_element => copy_var_to_list(mean_stream_list,dest_element_name,src_element)
+          dest_element => copy_var_to_list(mean_stream_list,dest_element_name,src_element, patch_2d)
 
           ! set output to double precission if necessary
           dest_element%field%info%cf%datatype = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
@@ -298,10 +300,11 @@ if ( my_process_is_stdio())CALL print_summary('dst(shortname):|'//trim(dest_elem
     if (my_process_is_stdio())  CALL print_error(meanVarCounter%to_string())
   END SUBROUTINE process_mean_stream
 
-  FUNCTION copy_var_to_list(list,name,source_element) RESULT(dest_element)
+  FUNCTION copy_var_to_list(list,name,source_element,patch_2d) RESULT(dest_element)
     TYPE(t_var_list) :: list
     CHARACTER(LEN=VARNAME_LEN) :: name
     TYPE(t_list_element),POINTER :: source_element
+    TYPE(t_patch),TARGET, INTENT(in)    :: patch_2d
 
     TYPE(t_list_element), POINTER :: dest_element
     integer :: dataType = -1
@@ -329,6 +332,15 @@ if ( my_process_is_stdio())CALL print_summary('dst(shortname):|'//trim(dest_elem
       & loutput=.TRUE., lrestart=.FALSE., &
       & var_class=source_element%field%info%var_class )
 !   CALL message(routine,'FINISH')
+
+    select case (source_element%field%info%hgrid)
+    case (GRID_UNSTRUCTURED_CELL)
+      dest_element%field%info%subset => patch_2d%cells%owned
+    case (GRID_UNSTRUCTURED_EDGE)
+      dest_element%field%info%subset => patch_2d%edges%owned
+    case (GRID_UNSTRUCTURED_VERT)
+      dest_element%field%info%subset => patch_2d%verts%owned
+    end select
   END FUNCTION copy_var_to_list
 
   FUNCTION get_accumulation_varname(varname,output_setup)
