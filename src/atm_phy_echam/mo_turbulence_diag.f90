@@ -759,16 +759,13 @@ CONTAINS
            ELSE
            lmix(js,jsfc)=1._wp*grav/(ckap*fsl*pgeom1_b(js))+2._wp*earth_angular_velocity/(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
            END IF 
-
            lmix(js,jsfc)=1._wp/lmix(js,jsfc)
-
            IF(pri_sfc(js,jsfc).LT.0._wp) THEN
            lmc=1._wp*grav/(ckap*fsl*pgeom1_b(js))+3._wp/(ckap*(pghabl(js)/grav-fsl*pgeom1_b(js)/grav))
            lmc=1._wp/lmc
            lmix(js,jsfc)=MAX(lmix(js,jsfc),lmc)
            END IF
-
-        pcdn_sfc(js,jsfc) = lmix(js,jsfc)**2/((fsl*pgeom1_b(js)/grav)**2*(LOG(pgeom1_b(js)/(grav*pz0m(js,jsfc)))**2))
+        pcdn_sfc(js,jsfc) = lmix(js,jsfc)**2/((fsl*pgeom1_b(js)/grav)**2*((LOG(MAX(2._wp,pgeom1_b(js)/(grav*pz0m(js,jsfc)))))**2))
 
 
         pcfnc_sfc(js,jsfc)= SQRT(zdu2(js,jsfc))*pcdn_sfc(js,jsfc)
