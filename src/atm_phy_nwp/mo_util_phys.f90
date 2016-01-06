@@ -901,8 +901,38 @@ CONTAINS
     !Interpolate to cells
     CALL edges2cells_scalar( pv_ef, p_patch, p_int_state%e_bln_c_s, out_var )
     
+
+    rl_start = 1
+    rl_end   = min_rlcell
+
+    ! values for the blocking
+    i_nchdom   = MAX(1,p_patch%n_childdom)
+    i_startblk = p_patch%cells%start_blk (rl_start,1)
+    i_endblk   = p_patch%cells%end_blk   (rl_end,i_nchdom)
+
     !Normalize with density
-    out_var(:,:,:) = out_var(:,:,:) / p_prog%rho(:,:,:)
+    !
+!$OMP PARALLEL    
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+    
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+      
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        DO jk = slev, elev
+#else
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+#endif
+          out_var(jc,jk,jb) = out_var(jc,jk,jb) / p_prog%rho(jc,jk,jb)
+        ENDDO
+      ENDDO
+    ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL    
+
         
   END SUBROUTINE compute_field_pv
 
