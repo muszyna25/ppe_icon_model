@@ -1218,28 +1218,6 @@ CONTAINS
       END DO
     END IF
 
-    ! ---------------------------------------------------------------------------
-
-    ! If async IO is used, replicate data (mainly the variable lists) on IO procs
-
-#ifndef NOMPI
-    IF (use_async_name_list_io) THEN
-      CALL replicate_data_on_io_procs
-
-      ! Clear patch_info fields clon, clat, etc. (especially on work
-      ! PE 0) since they aren't needed there any longer.
-      IF ( (.NOT. my_process_is_io()) .AND. &
-        &  (.NOT. my_process_is_mpi_test())) THEN
-        ! Go over all output domains (deallocation is skipped if data
-        ! structures were not allocated)
-        DO idom = 1, n_dom_out
-          CALL deallocate_all_grid_info(patch_info(idom))
-        END DO
-      END IF
-    END IF
-#endif
-! NOMPI
-
     ! Set the number of domains in output and the patch reorder information
     CALL set_patch_info
 
@@ -1365,6 +1343,15 @@ CONTAINS
     ! Allocate output_file struct for all output files
 
     ALLOCATE(output_file(nfiles))
+
+    ! ---------------------------------------------------------------------------
+
+    ! If async IO is used, replicate data (mainly the variable lists) on IO procs
+
+#ifndef NOMPI
+    IF (use_async_name_list_io) CALL replicate_data_on_io_procs
+#endif
+! NOMPI
 
     output_file(:)%cdiFileID  = CDI_UNDEFID ! i.e. not opened
     output_file(:)%cdiVlistId = CDI_UNDEFID ! i.e. not defined
@@ -1575,6 +1562,27 @@ CONTAINS
     IF ((process_mpi_io_size /= nremaining_io_procs) .AND. my_process_is_stdio()) THEN
       WRITE (0,*) " "
     END IF
+
+    ! ---------------------------------------------------------------------------
+    ! If async IO is used, replicate coordinate data on IO procs
+
+#ifndef NOMPI
+    IF (use_async_name_list_io) THEN
+      CALL replicate_coordinate_data_on_io_procs
+
+      ! Clear patch_info fields clon, clat, etc. (especially on work
+      ! PE 0) since they aren't needed there any longer.
+      IF ( (.NOT. my_process_is_io()) .AND. &
+        &  (.NOT. my_process_is_mpi_test())) THEN
+        ! Go over all output domains (deallocation is skipped if data
+        ! structures were not allocated)
+        DO idom = 1, n_dom_out
+          CALL deallocate_all_grid_info(patch_info(idom))
+        END DO
+      END IF
+    END IF
+#endif
+! NOMPI
 
     ! ------------------------------------------------------
     ! Create I/O event data structures:
@@ -2793,13 +2801,14 @@ CONTAINS
     ! var_list_name should have at least the length of var_list names
     ! (although this doesn't matter as long as it is big enough for every name)
     CHARACTER(LEN=256)            :: var_list_name
-    INTEGER                       :: idom
+    INTEGER                       :: idom, i
 
 !DR Test
     INTEGER :: nvgrid, ivgrid
     INTEGER :: size_tiles
     INTEGER :: size_var_groups_dyn
     INTEGER :: idom_log
+    LOGICAL :: keep_grid_info
 
     ! There is nothing to do for the test PE:
     IF(my_process_is_mpi_test()) RETURN
@@ -2991,6 +3000,27 @@ CONTAINS
       CALL p_bcast(vgrid_buffer(ivgrid)%uuid, bcast_root, p_comm_work_2_io)
     ENDDO
 
+  END SUBROUTINE replicate_data_on_io_procs
+
+  !-------------------------------------------------------------------------------------------------
+  !> Replicates coordinate data needed for async I/O on the I/O procs.
+  !  ATTENTION: The data is not completely replicated, only as far as needed for I/O.
+  !
+  !  This routine has to be called by all PEs (work and I/O)
+  !
+  SUBROUTINE replicate_coordinate_data_on_io_procs()
+
+    ! local variables
+    CHARACTER(len=*), PARAMETER :: routine = &
+      modname//"::replicate_coordinate_data_on_io_procs"
+    INTEGER                       :: idom, i
+
+    INTEGER :: idom_log
+    LOGICAL :: keep_grid_info
+
+    ! There is nothing to do for the test PE:
+    IF(my_process_is_mpi_test()) RETURN
+
     !-----------------------------------------------------------------------------------------------
     ! Replicate coordinates of cells/edges/vertices:
 
@@ -3004,11 +3034,19 @@ CONTAINS
       IF (patch_info(idom)%grid_info_mode == GRID_INFO_BCAST) THEN
         ! logical domain ID
         idom_log = patch_info(idom)%log_patch_id
-        CALL allgather_grid_info(patch_info(idom), idom_log)
+        keep_grid_info = .FALSE.
+        IF (my_process_is_io()) THEN
+          DO i = 1, SIZE(output_file, 1)
+            keep_grid_info = keep_grid_info .OR. &
+              &              ((output_file(i)%io_proc_id == p_pe) .AND. &
+              &               (output_file(i)%phys_patch_id == idom))
+          END DO
+        END IF
+        CALL allgather_grid_info(patch_info(idom), idom_log, keep_grid_info)
       END IF
     END DO
 
-  END SUBROUTINE replicate_data_on_io_procs
+  END SUBROUTINE replicate_coordinate_data_on_io_procs
 
 
 #ifndef NOMPI
