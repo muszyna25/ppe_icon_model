@@ -51,7 +51,7 @@ CONTAINS
 #else
                        & ptkem1,     ptkem0,                            &! inout
 #endif
-                       & pustar,                                        &! inout
+                       & pustar,     pwstar,    pwstar_tile,            &! inout
                        & pqsat_tile, ihpbl,     pghpbl,                 &! out
                        & pri,        pmixlen,                           &! out
                        & pcfm,       pcfm_tile, pcfh,       pcfh_tile,  &! out
@@ -117,7 +117,9 @@ CONTAINS
     ! used in the computation of PBL height (then mixing length);
     ! Out: computed in sfc_exchange_coeff at step t-dt.
 
-    REAL(wp),INTENT(INOUT) :: pustar (kbdim)
+    REAL(wp),INTENT(INOUT) :: pustar (kbdim),      &
+                            & pwstar (kbdim),      &
+                            & pwstar_tile(kbdim,ksfc_type)
 
     ! Variables with intent(out)
 
@@ -227,6 +229,7 @@ CONTAINS
     !    Get boundary condition for TKE and variance of theta_v.
     !-----------------------------------------------------------------------
 
+    pztkevn(:,klev)=ptkem1(:,klev)
 !
     CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
@@ -241,6 +244,7 @@ CONTAINS
                            & ztheta_b (:),    zthetav_b(:),         &! in
                            & zthetal_b(:),    paclc (:,klev),       &! in
                            & pzthvvar(:,klevm1),                    &! in
+                           & pwstar(:),       pwstar_tile(:,:),     &! inout
                            & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
                            & pri    (:,klev),                       &! out
                            & pcfm   (:,klev), pcfm_tile(:,:),       &! out

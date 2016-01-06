@@ -683,6 +683,7 @@ CONTAINS
     IF (phy_config%lvdiff) THEN
       IF (ltimer) CALL timer_start(timer_vdiff_down)
 
+
       CALL vdiff_down( vdiff_config%lsfc_mom_flux,      &! in
                      & vdiff_config%lsfc_heat_flux,     &! in
                      & jce, nbdim, nlev, nlevm1, nlevp1,&! in
@@ -716,6 +717,8 @@ CONTAINS
                      & field% z0m_tile(:,jb,:),         &! in
                      & field%  tkem1(:,:,jb),           &! in, TKE at step t-dt
                      & field%  ustar(:,  jb),           &! inout
+                     & field%  wstar(:,  jb),           &! out, convective velocity scale
+                     & field%  wstar_tile(:,jb,:),      &! inout, convective velocity scale (each sfc type)
                      & field% qs_sfc_tile(:,jb,:),      &! out, sfc specific humidity at saturation
                      & ihpbl(:),                        &! out, for "vdiff_up"
                      & field%    ghpbl(:,jb),           &! out, for output
