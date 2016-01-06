@@ -487,7 +487,7 @@
             CALL compute_latbc_ifs_data( p_patch, patch_data, p_nh_state, p_int )
             ! NOMPI
             ! Compute tendencies for nest boundary update
-            CALL compute_boundary_tendencies(p_patch, p_nh_state)
+            IF (ltime_incr) CALL compute_boundary_tendencies(p_patch, p_nh_state)
          ENDIF
       ELSE
          IF( my_process_is_pref()) THEN
@@ -496,7 +496,7 @@
             CALL compute_latbc_icon_data( p_patch, patch_data, p_int )
             ! NOMPI
             ! Compute tendencies for nest boundary update
-            CALL compute_boundary_tendencies(p_patch, p_nh_state)
+            IF (ltime_incr) CALL compute_boundary_tendencies(p_patch, p_nh_state)
          ENDIF
       ENDIF
 #endif
