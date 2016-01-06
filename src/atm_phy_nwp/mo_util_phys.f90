@@ -51,6 +51,7 @@ MODULE mo_util_phys
     &                                 cells2edges_scalar
   USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
   USE mo_intp_rbf,              ONLY: rbf_vec_interpol_edge
+  USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
 
   IMPLICIT NONE
 
@@ -776,13 +777,9 @@ CONTAINS
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
       
-#ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-        DO jk = slev, elev
-#else
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
-#endif
+
           theta_cf(jc,jk,jb) = p_diag%temp(jc,jk,jb) / p_prog%exner(jc,jk,jb)
           
         ENDDO
@@ -791,7 +788,10 @@ CONTAINS
     END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
-    
+
+    ! synchronize theta
+    CALL sync_patch_array(SYNC_C, p_patch, theta_cf)
+
     !Get vt at edges (p_diag%vt is not up to date)
     CALL rbf_vec_interpol_edge( p_prog%vn, p_patch, p_int_state, vt)
     
@@ -817,7 +817,8 @@ CONTAINS
     CALL grad_fd_tang ( theta_vf, p_patch, ddtth_ef )
     
     !Recompute loop indices for edges
-    rl_end     = min_rledge
+    rl_start   = 3
+    rl_end     = min_rledge_int-1
     i_startblk = p_patch%edges%start_blk (rl_start,1)
     i_endblk   = p_patch%edges%end_blk   (rl_end,i_nchdom)
     
@@ -828,26 +829,6 @@ CONTAINS
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
      
-#ifdef __LOOP_EXCHANGE
-      DO je = i_startidx, i_endidx
-        
-        DO jk = slev, elev
-
-          !Get indices for vertical derivatives of full level variables
-          IF ( jk == slev ) THEN
-            ivd1=slev
-            ivd2=slev+1
-            vdfac=1_wp
-          ELSE IF ( jk == elev ) THEN
-            ivd1=elev-1
-            ivd2=elev
-            vdfac=1_wp
-          ELSE
-            ivd1=jk-1
-            ivd2=jk+1
-            vdfac=2_wp
-          END IF
-#else
       DO jk = slev, elev
       
         !Get indices for vertical derivatives of full level variables
@@ -866,7 +847,7 @@ CONTAINS
         END IF
           
         DO je = i_startidx, i_endidx
-#endif
+
           !Ertel-PV calculation on edges
           pv_ef(je,jk,jb) =                                                                                     &
             &     (   0.5_wp*(ddnw_eh(je,jk,jb)+ddnw_eh(je,jk+1,jb))                                            &
@@ -902,8 +883,8 @@ CONTAINS
     CALL edges2cells_scalar( pv_ef, p_patch, p_int_state%e_bln_c_s, out_var )
     
 
-    rl_start = 1
-    rl_end   = min_rlcell
+    rl_start = 2
+    rl_end   = min_rlcell_int
 
     ! values for the blocking
     i_nchdom   = MAX(1,p_patch%n_childdom)
@@ -919,13 +900,8 @@ CONTAINS
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, rl_start, rl_end)
       
-#ifdef __LOOP_EXCHANGE
-      DO jc = i_startidx, i_endidx
-        DO jk = slev, elev
-#else
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
-#endif
           out_var(jc,jk,jb) = out_var(jc,jk,jb) / p_prog%rho(jc,jk,jb)
         ENDDO
       ENDDO
