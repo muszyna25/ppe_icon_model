@@ -2644,7 +2644,7 @@ CONTAINS
     ! GZ: This routine is always called with grids from the global grid generator, so this warning
     ! is more confusing than useful
     IF (msg_level >= 15 .OR. patch%geometry_info%geometry_type /= sphere_geometry) THEN
-      CALL warning(method_name, " is called")
+      CALL message(method_name, " is called")
     ENDIF
     IF (patch%geometry_info%geometry_type /= sphere_geometry) &
       CALL finish(method_name, "geometry_type /= sphere_geometry")
