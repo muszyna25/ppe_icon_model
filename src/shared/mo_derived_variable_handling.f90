@@ -357,7 +357,7 @@ if ( my_process_is_stdio())CALL print_summary('dst(shortname):|'//trim(dest_elem
     index = -1
     if (source%field%info%lcontained) then
       index = source%field%info%ncontained
-!     write(0,*)'index:',index
+
 if ( my_process_is_stdio()) write(0,*)'source shape:',shape(source%field%r_ptr)
       SELECT CASE(source%field%info%var_ref_pos)
       CASE(1)
@@ -374,7 +374,7 @@ if ( my_process_is_stdio()) write(0,*)'source shape:',shape(source%field%r_ptr)
           & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)
       END SELECT
     else
-      destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:)+ source%field%r_ptr(:,:,:,:,:)
+      destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)
     endif
     counter                 = counter + 1
   END SUBROUTINE accumulation_add
@@ -394,6 +394,7 @@ if ( my_process_is_stdio()) write(0,*)'source shape:',shape(source%field%r_ptr)
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
     logical :: isactive
     integer :: varcounter
+    real(wp) :: counter_inverse
     integer :: timelevel
 
     TYPE(divisionquotienttimespan) :: quot
@@ -499,7 +500,8 @@ if (my_process_is_stdio()) CALL print_summary(" --------------->>>>  PERFORM MEA
                       counter => meanVarCounter%get(destination%field%info%name)
                       select type(counter)
                       type is (integer)
-                        destination%field%r_ptr = destination%field%r_ptr / (REAL(counter))
+                        counter_inverse = 1/REAL(counter,wp)
+                        destination%field%r_ptr = destination%field%r_ptr * counter_inverse
                         counter = 0
                       end select
                     end if
