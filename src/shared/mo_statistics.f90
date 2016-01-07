@@ -1666,9 +1666,8 @@ CONTAINS
 
     ELSE
       ! use constant levels
-      mylevels   = SIZE(sum_field, VerticalDim_Position)
-      IF (PRESENT(levels))  &
-        & mylevels = levels
+      mylevels                       = SIZE(sum_field, VerticalDim_Position)
+      IF (PRESENT(levels))  mylevels = levels
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, start_index, end_index)

@@ -17,6 +17,7 @@ MODULE mo_derived_variable_handling
   USE mo_dynamics_config, ONLY: nnow, nnew, nold
   USE mo_master_config, ONLY: tc_startdate
   USE mo_ocean_nml,           ONLY: n_zlev
+  USE mo_statistics, ONLY: add_fields
   USE mo_var_metadata_types, ONLY: varname_len
   USE mo_impl_constants, ONLY: vname_len, success, max_char_length, TLEV_NNOW, TLEV_NNEW, TLEV_NNOW_RCF, TLEV_NNEW_RCF
   USE mo_name_list_output_types, ONLY: t_output_name_list
@@ -211,7 +212,7 @@ CONTAINS
       ! }}}
 
       eventKey = get_event_key(p_onl)
-if (my_process_is_stdio()) write (0,*)'eventKey:',trim(eventKey)
+!TODO if (my_process_is_stdio()) write (0,*)'eventKey:',trim(eventKey)
       IF ( meanMap%has_key(eventKey) ) THEN
         myBuffer => meanMap%get(eventKey)
         select type (myBuffer)
@@ -243,7 +244,7 @@ if (my_process_is_stdio()) write (0,*)'eventKey:',trim(eventKey)
  
         ! check for already create meanStream variable (maybe from another output_nml with the same output_interval)
         dest_element_name = get_accumulation_varname(varlist(i),p_onl)
-        call print_summary('CHECK NAME:'//TRIM(dest_element_name))
+!TODO         call print_summary('CHECK NAME:'//TRIM(dest_element_name))
         dest_element => find_list_element(mean_stream_list, trim(dest_element_name))
         IF (.not. ASSOCIATED(dest_element) ) THEN !not found -->> create a new on
           ! find existing source variable
@@ -267,16 +268,16 @@ if (my_process_is_stdio()) write (0,*)'eventKey:',trim(eventKey)
           IF (.not. ASSOCIATED (src_element)) THEN
             call finish(routine,'Could not find source variable:'//TRIM(varlist(i)))
           END IF
-if ( my_process_is_stdio())CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
-if ( my_process_is_stdio())CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
-if ( my_process_is_stdio())CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
+!TODO if ( my_process_is_stdio())CALL print_summary('src(name)     :|'//trim(src_element%field%info%name)//'|')
+!TODO if ( my_process_is_stdio())CALL print_summary('varlist(name) :|'//trim(in_varlist(i))//'|')
+!TODO if ( my_process_is_stdio())CALL print_summary('new name      :|'//trim(dest_element_name)//'|')
           ! add new variable, copy the meta-data from the existing variable
           ! 1. copy the source variable to destination pointer
           dest_element => copy_var_to_list(mean_stream_list,dest_element_name,src_element, patch_2d)
 
           ! set output to double precission if necessary
           dest_element%field%info%cf%datatype = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
-if ( my_process_is_stdio()) print *,'copy_var to list CALLED'
+!TODO if ( my_process_is_stdio()) print *,'copy_var to list CALLED'
           ! 2. update the nc-shortname to internal name of the source variable
           dest_element%field%info%cf%short_name = get_var_name(src_element%field)
 
@@ -287,8 +288,8 @@ if ( my_process_is_stdio()) print *,'copy_var to list CALLED'
           CALL meanVarCounter%add(dest_element%field%info%name,0)
 !TODO print *,'dst added'
         ! replace existince varname in output_nml with the meanStream Variable
-if ( my_process_is_stdio())CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
-if ( my_process_is_stdio())CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|')
+!TODO if ( my_process_is_stdio())CALL print_summary('dst(name)     :|'//trim(dest_element%field%info%name)//'|')
+!TODO if ( my_process_is_stdio())CALL print_summary('dst(shortname):|'//trim(dest_element%field%info%cf%short_name)//'|')
         END IF
         in_varlist(i) = trim(dest_element%field%info%name)
       END DO
@@ -297,7 +298,7 @@ if ( my_process_is_stdio())CALL print_summary('dst(shortname):|'//trim(dest_elem
     ELSE
       RETURN
     END IF
-    if (my_process_is_stdio())  CALL print_error(meanVarCounter%to_string())
+!TODO     if (my_process_is_stdio())  CALL print_error(meanVarCounter%to_string())
   END SUBROUTINE process_mean_stream
 
   FUNCTION copy_var_to_list(list,name,source_element,patch_2d) RESULT(dest_element)
@@ -312,9 +313,7 @@ if ( my_process_is_stdio())CALL print_summary('dst(shortname):|'//trim(dest_elem
 
     dataType = MERGE(DATATYPE_FLT64, DATATYPE_FLT32, lnetcdf_flt64_output)
 
-!   CALL message(routine,'START')
     CALL add_var(source_element%field%info%ndims, &
-   !  & dataType, &
       & REAL_T, &
       & list, name, &
       & source_element%field%info%hgrid, source_element%field%info%vgrid, &
@@ -331,15 +330,15 @@ if ( my_process_is_stdio())CALL print_summary('dst(shortname):|'//trim(dest_elem
       & l_pp_scheduler_task=source_element%field%info%l_pp_scheduler_task, &
       & loutput=.TRUE., lrestart=.FALSE., &
       & var_class=source_element%field%info%var_class )
-!   CALL message(routine,'FINISH')
 
+    ! add the subset for later accumulation on all types of horizontal grids
     select case (source_element%field%info%hgrid)
     case (GRID_UNSTRUCTURED_CELL)
-      dest_element%field%info%subset => patch_2d%cells%owned
+      dest_element%field%info%subset = patch_2d%cells%owned
     case (GRID_UNSTRUCTURED_EDGE)
-      dest_element%field%info%subset => patch_2d%edges%owned
+      dest_element%field%info%subset = patch_2d%edges%owned
     case (GRID_UNSTRUCTURED_VERT)
-      dest_element%field%info%subset => patch_2d%verts%owned
+      dest_element%field%info%subset = patch_2d%verts%owned
     end select
   END FUNCTION copy_var_to_list
 
@@ -370,7 +369,7 @@ if ( my_process_is_stdio())CALL print_summary('dst(shortname):|'//trim(dest_elem
     if (source%field%info%lcontained) then
       index = source%field%info%ncontained
 
-if ( my_process_is_stdio()) write(0,*)'source shape:',shape(source%field%r_ptr)
+      ! tackle 4d containers
       SELECT CASE(source%field%info%var_ref_pos)
       CASE(1)
         destination%field%r_ptr(:,:,:,:,:) = &
@@ -386,7 +385,13 @@ if ( my_process_is_stdio()) write(0,*)'source shape:',shape(source%field%r_ptr)
           & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)
       END SELECT
     else
-      destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)
+      ! tackle 2d and 3d
+      if ( 3 .eq. destination%field%info%ndims ) then
+        call add_fields(destination%field%r_ptr(:,:,:,1,1), source%field%r_ptr(:,:,:,1,1), destination%field%info%subset)
+      else
+        call add_fields(destination%field%r_ptr(:,:,1,1,1), source%field%r_ptr(:,:,1,1,1), destination%field%info%subset)
+      end if
+!     destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)
     endif
     counter                 = counter + 1
   END SUBROUTINE accumulation_add
@@ -422,7 +427,7 @@ if ( my_process_is_stdio()) write(0,*)'source shape:',shape(source%field%r_ptr)
     isactive = .false.
     CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
     mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
-    if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
+!TODO     if (my_process_is_stdio()) call print_summary('Current mtime timestamp:'//trim(mtime_cur_datetime))
     ! Save results for (not so much) later
     do while (meanEventIterator%next(myItem))
       select type (myItem)
@@ -436,7 +441,7 @@ if ( my_process_is_stdio()) write(0,*)'source shape:',shape(source%field%r_ptr)
         call meanEventsActivity%add(meanEventKey,isactive)
       end select
     end do
-if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string()) !TODO
+!TODO if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string()) !TODO
     ! }}}
 !#ifdef T
     do while (meanMapIterator%next(myItem))
@@ -447,10 +452,10 @@ if (my_process_is_stdio()) call print_error(meanEventsActivity%to_string()) !TOD
         meanEventKey        => myItem%key
         varListForMeanEvent => myItem%value
 
-if (my_process_is_stdio()) call print_summary(object_pointer_string(meanEventKey)//"PERFORM ACCU") !TODO
+!TODO if (my_process_is_stdio()) call print_summary(object_pointer_string(meanEventKey)//"PERFORM ACCU") !TODO
         select type(varListForMeanEvent)
         class is (vector_ref)
-!IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
+!TODO !IF ( my_process_is_stdio() ) write(0,*)'type: vector' !TODO
           do element_counter=1,varListForMeanEvent%length(),2
 !           call print_routine("perform_accumulation",object_string(element_counter))
 
@@ -488,16 +493,16 @@ if (my_process_is_stdio()) call print_summary(object_pointer_string(meanEventKey
                   counter     => meanVarCounter%get(destination%field%info%name)
                   select type (counter)
                   type is (integer)
-IF ( my_process_is_stdio() ) call print_summary('sourceName : '//trim(source%field%info%name))
-IF ( my_process_is_stdio() ) call print_summary('destName   : '//trim(destination%field%info%name))
-IF ( my_process_is_stdio() ) call print_summary('destNameOut: '//trim(destination%field%info%cf%short_name))
-IF ( my_process_is_stdio() )  write (0,*)'counter: ',counter
+!TODO IF ( my_process_is_stdio() ) call print_summary('sourceName : '//trim(source%field%info%name))
+!TODO IF ( my_process_is_stdio() ) call print_summary('destName   : '//trim(destination%field%info%name))
+!TODO IF ( my_process_is_stdio() ) call print_summary('destNameOut: '//trim(destination%field%info%cf%short_name))
+!TODO IF ( my_process_is_stdio() )  write (0,*)'counter: ',counter
                     ! ACCUMULATION {{
                     varcounter = counter !TODO work around for integer pointer, ugly
                     CALL accumulation_add(source, destination, varcounter)
                     counter = varcounter
                     ! }}}
-IF ( my_process_is_stdio() )  write (0,*)'counter: ',counter
+!TODO IF ( my_process_is_stdio() )  write (0,*)'counter: ',counter
                   end select
 
                   ! MEAN VALUE COMPUTAION {{{
@@ -507,7 +512,7 @@ IF ( my_process_is_stdio() )  write (0,*)'counter: ',counter
                   type is (logical)
                     isactive = eventActive
                     if ( isactive ) then
-if (my_process_is_stdio()) CALL print_summary(" --------------->>>>  PERFORM MEAN VALUE COMP!!!!")
+!TODO if (my_process_is_stdio()) CALL print_summary(" --------------->>>>  PERFORM MEAN VALUE COMP!!!!")
 
                       counter => meanVarCounter%get(destination%field%info%name)
                       select type(counter)
@@ -550,10 +555,10 @@ if (my_process_is_stdio()) CALL print_summary(" --------------->>>>  PERFORM MEA
 
     meanMapIterator   = meanMap%iter()
 
-if (my_process_is_stdio()) call print_error("got iterator")
+!TODO if (my_process_is_stdio()) call print_error("got iterator")
     do while (meanMapIterator%next(myItem))
 
-if (my_process_is_stdio()) call print_error("started event loop")
+!TODO if (my_process_is_stdio()) call print_error("started event loop")
       select type (myItem)
       type is (map_item)
 
@@ -566,33 +571,33 @@ if (my_process_is_stdio()) call print_error("started event loop")
           do element_counter=1,varListForMeanEvent%length(),2 !start at 2 because the event is at index 1
 
             destinationVariable => varListForMeanEvent%at(element_counter+1)
- if (my_process_is_stdio()) call print_error("got destinationVariable")
+!TODO  if (my_process_is_stdio()) call print_error("got destinationVariable")
             if (associated(destinationVariable)) then
- if (my_process_is_stdio()) call print_error("    destinationVariable is associated")
+!TODO  if (my_process_is_stdio()) call print_error("    destinationVariable is associated")
               select type (destinationVariable)
               type is (t_list_element)
                   destination => destinationVariable
- if (my_process_is_stdio()) call print_error("    destinationVariable is t_list_element")
+!TODO  if (my_process_is_stdio()) call print_error("    destinationVariable is t_list_element")
                   eventActive => meanEventsActivity%get(meanEventKey)
- if (my_process_is_stdio()) call print_error("       eventActive got       ")
+!TODO  if (my_process_is_stdio()) call print_error("       eventActive got       ")
                   if (.not.associated(eventActive)) then
                     if (my_process_is_stdio()) call print_error("       eventActive not associated")
                   end if
                   select type (eventActive)
                   type is (logical)
- if (my_process_is_stdio()) call print_error("       eventActive is logical")
+!TODO  if (my_process_is_stdio()) call print_error("       eventActive is logical")
                     if ( LOGICAL(eventActive) ) then
- if (my_process_is_stdio()) call print_error("       eventActive is true")
- if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : ------------ >>>> PERFORM RESET')
+!TODO  if (my_process_is_stdio()) call print_error("       eventActive is true")
+!TODO  if (my_process_is_stdio()) call print_error(object_string(meanEventKey)//' : ------------ >>>> PERFORM RESET')
                       destination%field%r_ptr = 0.0_wp
                     else
-if (my_process_is_stdio()) call print_error("       eventActive is false")
+!TODO if (my_process_is_stdio()) call print_error("       eventActive is false")
                     end if
                   class default
-if (my_process_is_stdio()) call print_error("       eventActive has wrong type")
+!TODO if (my_process_is_stdio()) call print_error("       eventActive has wrong type")
                   end select
               class default
-if (my_process_is_stdio()) call print_error("     destinationVariable is not t_list_element")
+!TODO if (my_process_is_stdio()) call print_error("     destinationVariable is not t_list_element")
               end select
             else
               call print_error(routine//TRIM(": cannot find destination variable!"))
