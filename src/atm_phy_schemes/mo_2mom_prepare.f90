@@ -1,23 +1,50 @@
+!===============================================================================!
+!
+! This was originally part of mo_2mom_mcrph_driver, but ..
+!
+!  Work-around for Intel 14.0.3 optimizer bug.
+!  Host-associated variables are incorrectly propagated at -O2.
+!  (SVN Comment by Thomas Jahns in icon-hdcp2-20150604, rev 22867)
+!
+!===============================================================================!
+!!
+!! @par Copyright and License
+!!
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
+!! its most recent form.
+!! Please see the file LICENSE in the root of the source tree for this code.
+!! Where software is supplied by third parties, it is indicated in the
+!! headers of the routines.
+!!
+!===============================================================================!
+
 MODULE mo_2mom_prepare
-  USE mo_kind,                 ONLY: wp
-  USE mo_2mom_mcrph_types,     ONLY: particle, atmosphere
+
+  USE mo_kind,            ONLY: wp
+  USE mo_2mom_mcrph_main, ONLY: particle, particle_lwf, atmosphere
   IMPLICIT NONE
   PUBLIC :: prepare_twomoment, post_twomoment
+
 CONTAINS
+
   SUBROUTINE prepare_twomoment(atmo, cloud, rain, ice, snow, graupel, hail, &
        rho, rhocorr, rhocld, pres, w, tk, &
        nccn, ninpot, ninact, &
-       qv, qc, qnc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh, &
-       lprogccn, lprogin, its, ite, kts, kte)
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: cloud, rain, ice, snow, graupel, hail
+       qv, qc, qnc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh, qgl, qhl, &
+       lprogccn, lprogin, lprogmelt, its, ite, kts, kte)
+
+    TYPE(atmosphere), INTENT(inout)   :: atmo
+    CLASS(particle),  INTENT(inout)   :: cloud, rain, ice, snow
+    CLASS(particle),  INTENT(inout)   :: graupel, hail
     REAL(wp), TARGET, DIMENSION(:, :), INTENT(in) :: &
          rho, rhocorr, rhocld, pres, w, tk
     REAL(wp), DIMENSION(:,:), INTENT(inout) , TARGET :: &
          &               qv, qc, qnc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh
-    LOGICAL, INTENT(in) :: lprogccn, lprogin
+    LOGICAL, INTENT(in) :: lprogccn, lprogin, lprogmelt
     REAL(wp), DIMENSION(:,:), INTENT(INOUT), TARGET, OPTIONAL :: &
          &               nccn, ninpot, ninact
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT), TARGET, OPTIONAL :: &
+         &               qgl,qhl
     INTEGER, INTENT(in) :: its, ite, kts, kte
     INTEGER :: ii, kk
 
@@ -50,6 +77,11 @@ CONTAINS
         if (lprogin) then
           ninpot(ii,kk)  = rho(ii,kk) * ninpot(ii,kk)
         end if
+        IF (lprogmelt) THEN
+          qgl(ii,kk)  = rho(ii,kk) * qgl(ii,kk)
+          qhl(ii,kk)  = rho(ii,kk) * qhl(ii,kk)
+        END IF
+
       END DO
     END DO
 
@@ -80,21 +112,34 @@ CONTAINS
     hail%q    => qh
     hail%n    => qnh
 
+    SELECT TYPE (graupel)
+    CLASS IS (particle_lwf) 
+       graupel%l => qgl
+    END SELECT
+
+    SELECT TYPE (hail)
+    CLASS IS (particle_lwf) 
+       hail%l    => qhl
+    END SELECT
+
   END SUBROUTINE prepare_twomoment
 
   SUBROUTINE post_twomoment(atmo, cloud, rain, ice, snow, graupel, hail, &
        rho_r, qnc, nccn, ninpot, ninact, &
-       qv, qc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh, &
-       lprogccn, lprogin, its, ite, kts, kte)
+       qv, qc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh, qgl, qhl,  &
+       lprogccn, lprogin, lprogmelt, its, ite, kts, kte)
 
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: cloud, rain, ice, snow, graupel, hail
+    TYPE(atmosphere), INTENT(inout)   :: atmo
+    CLASS(particle), INTENT(inout)    :: cloud, rain, ice, snow
+    CLASS(particle), INTENT(inout)    :: graupel, hail
     REAL(wp), INTENT(in) :: rho_r(:, :)
     REAL(wp), DIMENSION(:,:), INTENT(inout) :: &
          &           qv, qc, qnc, qr, qnr, qi, qni, qs, qns, qg, qng, qh, qnh
     REAL(wp), DIMENSION(:,:), INTENT(INOUT), TARGET, OPTIONAL :: &
          &           nccn, ninpot, ninact
-    LOGICAL, INTENT(in) :: lprogccn, lprogin
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT), TARGET, OPTIONAL :: &
+         &               qgl,qhl
+    LOGICAL, INTENT(in) :: lprogccn, lprogin, lprogmelt
     INTEGER, INTENT(in) :: its, ite, kts, kte
     INTEGER :: ii, kk
     REAL(wp) :: hlp
@@ -125,6 +170,16 @@ CONTAINS
     graupel%n => null()
     hail%q    => null()
     hail%n    => null()
+
+    SELECT TYPE (graupel)
+    CLASS IS (particle_lwf) 
+       graupel%l => null()
+    END SELECT
+
+    SELECT TYPE (hail)
+    CLASS IS (particle_lwf) 
+       hail%l    => null()
+    END SELECT
 
     ! ... Transformation of variables back to ICON standard variables
     DO kk = kts, kte
@@ -157,6 +212,11 @@ CONTAINS
         if (lprogin) THEN
           ninpot(ii,kk)  = hlp * ninpot(ii,kk)
         end if
+        IF (lprogmelt) THEN
+          qgl(ii,kk)  = hlp * qgl(ii,kk)
+          qhl(ii,kk)  = hlp * qhl(ii,kk)
+        END IF
+
       ENDDO
     ENDDO
 

@@ -3,17 +3,13 @@
 ! Two-moment bulk microphysics by Axel Seifert, Klaus Beheng and Uli Blahak
 !
 ! Description:
-! Provides derived types for two-moment bulk microphysics
+! Provides various modules and subroutines for two-moment bulk microphysics
 !
 ! Current Code Owner: Axel Seifert, DWD
 !                     axel.seifert@dwd.de
 !
 ! Language: Fortran 2003
 !
-!===============================================================================!
-! Version of December 2015 by D. Rieger:
-! - Adaptions that were necessary due to the splitting of mo_2mom_mcrph_main
-!   into mo_2mom_mcrph_main and mo_2mom_mcrph_processes
 !===============================================================================!
 !!
 !! @par Copyright and License
@@ -33,7 +29,7 @@ MODULE mo_2mom_mcrph_types
 
   IMPLICIT NONE
 
-  PRIVATE
+  PUBLIC
 
   ! Derived type for atmospheric variables
   TYPE ATMOSPHERE
@@ -81,22 +77,23 @@ MODULE mo_2mom_mcrph_types
   !    Therefore we carry 2 data structures for each particle species, e.g. graupel and graupel_coeff.
   !    The following derived types are for the run-time coefficients
   
-  TYPE particle_params
+  TYPE particle_coeffs
     REAL(wp)      :: a_f  ! ventilation coefficient, vent_coeff_a(particle,1)
     REAL(wp)      :: b_f  ! ventilation coefficient, vent_coeff_b(particle,1) * N_sc**n_f / SQRT(nu_l)
     REAL(wp)      :: c_i  ! 1.0/particle%cap
-  END type particle_params
+    REAL(wp)      :: c_z  ! coefficient for 2nd mass moment
+  END type particle_coeffs
   
   ! .. for spherical particles we need to store the coefficients for the
   !    power law bulk sedimentation velocity
-  TYPE, EXTENDS(particle_params) :: particle_sphere
+  TYPE, EXTENDS(particle_coeffs) :: particle_sphere
     REAL(wp)      :: coeff_alfa_n
     REAL(wp)      :: coeff_alfa_q
     REAL(wp)      :: coeff_lambda
   END TYPE particle_sphere
 
   ! .. non-spherical particles have an Atlas-type terminal fall velocity relation
-  TYPE, EXTENDS(particle_params) :: particle_nonsphere
+  TYPE, EXTENDS(particle_coeffs) :: particle_nonsphere
     REAL(wp)      :: alfa   !..1st parameter in Atlas-type fall speed
     REAL(wp)      :: beta   !..2nd parameter in Atlas-type fall speed
     REAL(wp)      :: gama   !..3rd parameter in Atlas-type fall speed
@@ -113,6 +110,27 @@ MODULE mo_2mom_mcrph_types
     REAL(wp)      :: cmu4   !     location of min value = breakup equilibrium diameter
     INTEGER       :: cmu5   !     exponent
   END TYPE particle_rain_coeffs
+
+  TYPE, EXTENDS(particle_coeffs) :: particle_cloud_coeffs
+    REAL(wp)      :: k_au   !..Parameters for autoconversion
+    REAL(wp)      :: k_sc   !    and selfcollection
+  END TYPE particle_cloud_coeffs
+
+  TYPE, EXTENDS(particle_sphere) :: particle_graupel_coeffs
+    REAL(wp)      :: sc_coll_n  !..Parameters for self-collection
+  END TYPE particle_graupel_coeffs
+
+  TYPE, EXTENDS(particle_sphere) :: particle_snow_coeffs
+    REAL(wp)      :: sc_delta_n !..Parameters for self-collection
+    REAL(wp)      :: sc_theta_n !   of snow
+  END TYPE particle_snow_coeffs
+
+  TYPE, EXTENDS(particle_sphere) :: particle_ice_coeffs
+    REAL(wp)      :: sc_delta_n !..Parameters for self-collection
+    REAL(wp)      :: sc_delta_q !   of cloud ice
+    REAL(wp)      :: sc_theta_n
+    REAL(wp)      :: sc_theta_q
+  END TYPE particle_ice_coeffs
 
   TYPE aerosol_ccn
      REAL(wp)      :: Ncn0      ! CN concentration at ground
@@ -131,59 +149,28 @@ MODULE mo_2mom_mcrph_types
   END TYPE aerosol_in
 
     !..these are coefficients for collection processes of the type a+b->a
-  TYPE collection_params
+  TYPE collection_coeffs
      REAL(wp) :: delta_n_aa, delta_n_ab, delta_n_bb, &
           &      delta_q_aa, delta_q_ab, delta_q_bb, &
           &      theta_n_aa, theta_n_ab, theta_n_bb, &
           &      theta_q_aa, theta_q_ab, theta_q_bb
-  END TYPE collection_params
+  END TYPE collection_coeffs
 
   !..these are coefficients for collection processes of the type a+b->c
-  TYPE rain_riming_params
+  TYPE rain_riming_coeffs
     REAL(wp) :: delta_n_aa,delta_n_ab,delta_n_bb, &
          &      delta_q_aa,delta_q_ab,delta_q_ba,delta_q_bb, &
          &      theta_n_aa,theta_n_ab,theta_n_bb, &
          &      theta_q_aa,theta_q_ab,theta_q_ba,theta_q_bb
-  END TYPE rain_riming_params
+  END TYPE rain_riming_coeffs
 
-  TYPE dep_imm_params
+  TYPE dep_imm_coeffs
     REAL(wp) :: alf_dep, bet_dep, nin_dep, &
                 alf_imm, bet_imm, nin_imm
-  END TYPE dep_imm_params
-
-  TYPE sym_riming_params
-     REAL(wp) :: delta_n_aa, delta_n_ab, delta_n_bb, &
-          &      delta_q_aa, delta_q_ab, delta_q_bb, &
-          &      theta_n_aa, theta_n_ab, theta_n_bb, &
-          &      theta_q_aa, theta_q_ab, theta_q_bb
-  END TYPE sym_riming_params
-
-  TYPE asym_riming_params
-    REAL(wp) :: delta_n_aa,delta_n_ab,delta_n_bb, &
-         &      delta_q_aa,delta_q_ab,delta_q_ba,delta_q_bb, &
-         &      theta_n_aa,theta_n_ab,theta_n_bb, &
-         &      theta_q_aa,theta_q_ab,theta_q_ba,theta_q_bb
-  END TYPE asym_riming_params
-
-  TYPE evaporation_deposition_params
-    REAL(wp) :: c          !< coeff for capacity
-    REAL(wp) :: a_f,b_f    !< coeffs for ventilation
-  END TYPE evaporation_deposition_params
-
-  TYPE melt_params
-    REAL(wp) :: a_vent, b_vent
-  END TYPE melt_params
+  END TYPE dep_imm_coeffs
 
   CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_types'
 
-  PUBLIC :: ATMOSPHERE
-  PUBLIC :: PARTICLE
-  PUBLIC :: particle_frozen, particle_lwf, particle_params
-  PUBLIC :: particle_sphere, particle_nonsphere
-  PUBLIC :: particle_rain_coeffs
-  PUBLIC :: aerosol_ccn, aerosol_in
-  PUBLIC :: sym_riming_params, asym_riming_params
-  PUBLIC :: collection_params, rain_riming_params
-  PUBLIC :: dep_imm_params, evaporation_deposition_params, melt_params
-  
+  PRIVATE :: routine
+
 END MODULE mo_2mom_mcrph_types
