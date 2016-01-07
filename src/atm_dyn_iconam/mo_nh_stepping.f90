@@ -154,8 +154,8 @@ MODULE mo_nh_stepping
     &                                    calc_mean_opt_acc, p_nh_opt_diag
   USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list
   USE mo_async_latbc,              ONLY: prefetch_input
-  USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
-    &                                    end_latbc_tlev, latbc_data, update_lin_interpolation
+  USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, new_latbc_tlev, &
+    &                                    prev_latbc_tlev, latbc_data, update_lin_interpolation
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap, copy, init
@@ -1717,8 +1717,8 @@ MODULE mo_nh_stepping
                ! update the coefficients for the linear interpolation
                CALL update_lin_interpolation(datetime_current)
                CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
-                    p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=latbc_data(end_latbc_tlev)%atm,           &
-                    p_latbc_new=latbc_data(start_latbc_tlev)%atm)
+                    p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=latbc_data(prev_latbc_tlev)%atm,           &
+                    p_latbc_new=latbc_data(new_latbc_tlev)%atm)
             ELSE
 
                ! update the coefficients for the linear interpolation

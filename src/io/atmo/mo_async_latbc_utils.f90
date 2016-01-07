@@ -109,7 +109,7 @@
     PUBLIC :: compute_shutdown_async_pref
 
     PUBLIC ::  prepare_pref_latbc_data, pref_latbc_data, &
-         &     latbc_data, latbc_fileid, start_latbc_tlev, end_latbc_tlev,  &
+         &     latbc_data, latbc_fileid, new_latbc_tlev, prev_latbc_tlev,  &
          &     update_lin_interpolation, deallocate_pref_latbc_data, &
          &     get_field_index, prefetch_latbc_icon_data, &
          &     prefetch_latbc_ifs_data, mtime_read
@@ -127,8 +127,8 @@
     CHARACTER(len=*), PARAMETER :: version = '$Id$'
     CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc_utils'
     INTEGER                :: latbc_fileid, &
-         start_latbc_tlev, &  ! time level indices for  latbc_data. can be 1 or 2.
-         end_latbc_tlev     ! last_ext_tlev is the last written time level index
+         new_latbc_tlev, &  ! time level indices for  latbc_data. can be 1 or 2.
+         prev_latbc_tlev    ! new_latbc_tlev is the time level index carrying the most recent data
     TYPE(t_initicon_state) :: latbc_data(2)     ! storage for two time-level boundary data
     INTEGER                :: nlev_in             ! number of vertical levels in the boundary data
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: sim_start, sim_end, sim_cur, sim_cur_read
@@ -364,8 +364,8 @@
       ENDIF
 
       ! prepare read/last indices
-      start_latbc_tlev = 1   ! read in the first time-level slot
-      end_latbc_tlev = 2
+      new_latbc_tlev = 1   ! read in the first time-level slot
+      prev_latbc_tlev = 2
 
       ! read first two time steps
       IF( my_process_is_work()) THEN  ! IF (PRESENT(p_patch)) THEN
@@ -471,11 +471,11 @@
 
       ! Adjust read/last indices
       !
-      ! New boundary data time-level is always read in latbc_data(start_latbc_tlev),
-      ! whereas latbc_data(end_latbc_tlev) always holds the last read boundary data
+      ! New boundary data time-level is always read in latbc_data(new_latbc_tlev),
+      ! whereas latbc_data(prev_latbc_tlev) always holds the last read boundary data
       !
-      start_latbc_tlev = end_latbc_tlev
-      end_latbc_tlev = 3 - start_latbc_tlev
+      new_latbc_tlev = prev_latbc_tlev
+      prev_latbc_tlev = 3 - new_latbc_tlev
 
       !
       ! start reading boundary data
@@ -618,7 +618,7 @@
       !-------------------------------------------------------------------------
 
       nlev_in   = latbc_config%nlev_in
-      tlev      = start_latbc_tlev
+      tlev      = new_latbc_tlev
 
       ! Offset in memory window for async prefetching
       eoff = 0_i8
@@ -926,7 +926,7 @@
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::compute_latbc_ifs_data"
 
       nlev_in   = latbc_config%nlev_in
-      tlev      = start_latbc_tlev
+      tlev      = new_latbc_tlev
 
       !   WRITE(0,*) 'compute_latbc_ifs_data: tlev ', tlev
 
@@ -1296,8 +1296,8 @@
          DO jk = 1, nlev
             DO je = i_startidx, i_endidx
                p_nh%diag%grf_tend_vn(je,jk,jb) = rdt * (            &
-                    &   latbc_data(start_latbc_tlev)%atm%vn(je,jk,jb) &
-                    & - latbc_data(end_latbc_tlev)%atm%vn(je,jk,jb) )
+                    &   latbc_data(new_latbc_tlev)%atm%vn(je,jk,jb) &
+                    & - latbc_data(prev_latbc_tlev)%atm%vn(je,jk,jb) )
             ENDDO
          ENDDO
       ENDDO
@@ -1317,48 +1317,48 @@
             DO jc = i_startidx, i_endidx
 
                p_nh%diag%grf_tend_rho(jc,jk,jb) = rdt * (            &
-                    &   latbc_data(start_latbc_tlev)%atm%rho(jc,jk,jb) &
-                    & - latbc_data(end_latbc_tlev)%atm%rho(jc,jk,jb) )
+                    &   latbc_data(new_latbc_tlev)%atm%rho(jc,jk,jb) &
+                    & - latbc_data(prev_latbc_tlev)%atm%rho(jc,jk,jb) )
 
                p_nh%diag%grf_tend_thv(jc,jk,jb) = rdt * (                &
-                    &   latbc_data(start_latbc_tlev)%atm%theta_v(jc,jk,jb) &
-                    & - latbc_data(end_latbc_tlev)%atm%theta_v(jc,jk,jb) )
+                    &   latbc_data(new_latbc_tlev)%atm%theta_v(jc,jk,jb) &
+                    & - latbc_data(prev_latbc_tlev)%atm%theta_v(jc,jk,jb) )
 
                p_nh%diag%grf_tend_w(jc,jk,jb) = rdt * (            &
-                    &   latbc_data(start_latbc_tlev)%atm%w(jc,jk,jb) &
-                    & - latbc_data(end_latbc_tlev)%atm%w(jc,jk,jb) )
+                    &   latbc_data(new_latbc_tlev)%atm%w(jc,jk,jb) &
+                    & - latbc_data(prev_latbc_tlev)%atm%w(jc,jk,jb) )
 
             ENDDO
          ENDDO
 
          DO jc = i_startidx, i_endidx
             p_nh%diag%grf_tend_w(jc,nlevp1,jb) = rdt * (            &
-                 &   latbc_data(start_latbc_tlev)%atm%w(jc,nlevp1,jb) &
-                 & - latbc_data(end_latbc_tlev)%atm%w(jc,nlevp1,jb) )
+                 &   latbc_data(new_latbc_tlev)%atm%w(jc,nlevp1,jb) &
+                 & - latbc_data(prev_latbc_tlev)%atm%w(jc,nlevp1,jb) )
          ENDDO
 
          IF (ltransport) THEN
             DO jk = 1, nlev
                DO jc = i_startidx, i_endidx
                   p_nh%diag%grf_tend_tracer(jc,jk,jb,iqv) =  rdt * (   &
-                       &   latbc_data(start_latbc_tlev)%atm%qv(jc,jk,jb) &
-                       & - latbc_data(end_latbc_tlev)%atm%qv(jc,jk,jb) )
+                       &   latbc_data(new_latbc_tlev)%atm%qv(jc,jk,jb) &
+                       & - latbc_data(prev_latbc_tlev)%atm%qv(jc,jk,jb) )
 
                   p_nh%diag%grf_tend_tracer(jc,jk,jb,iqc) =  rdt * (   &
-                       &   latbc_data(start_latbc_tlev)%atm%qc(jc,jk,jb) &
-                       & - latbc_data(end_latbc_tlev)%atm%qc(jc,jk,jb) )
+                       &   latbc_data(new_latbc_tlev)%atm%qc(jc,jk,jb) &
+                       & - latbc_data(prev_latbc_tlev)%atm%qc(jc,jk,jb) )
 
                   p_nh%diag%grf_tend_tracer(jc,jk,jb,iqi) =  rdt * (   &
-                       &   latbc_data(start_latbc_tlev)%atm%qi(jc,jk,jb) &
-                       & - latbc_data(end_latbc_tlev)%atm%qi(jc,jk,jb) )
+                       &   latbc_data(new_latbc_tlev)%atm%qi(jc,jk,jb) &
+                       & - latbc_data(prev_latbc_tlev)%atm%qi(jc,jk,jb) )
 
                   p_nh%diag%grf_tend_tracer(jc,jk,jb,iqr) =  rdt * (   &
-                       &   latbc_data(start_latbc_tlev)%atm%qr(jc,jk,jb) &
-                       & - latbc_data(end_latbc_tlev)%atm%qr(jc,jk,jb) )
+                       &   latbc_data(new_latbc_tlev)%atm%qr(jc,jk,jb) &
+                       & - latbc_data(prev_latbc_tlev)%atm%qr(jc,jk,jb) )
 
                   p_nh%diag%grf_tend_tracer(jc,jk,jb,iqs) =  rdt * (   &
-                       &   latbc_data(start_latbc_tlev)%atm%qs(jc,jk,jb) &
-                       & - latbc_data(end_latbc_tlev)%atm%qs(jc,jk,jb) )
+                       &   latbc_data(new_latbc_tlev)%atm%qs(jc,jk,jb) &
+                       & - latbc_data(prev_latbc_tlev)%atm%qs(jc,jk,jb) )
 
                ENDDO
             ENDDO
