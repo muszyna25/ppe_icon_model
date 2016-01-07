@@ -27,7 +27,8 @@ MODULE mo_turbulence_diag
     &                             da1, custf, cwstf, cfreec, tpfac1,        &
     &                             eps_shear, eps_corio, tke_min,            &
     &                             cons2, cons25, cons5,                     &
-    &                             f_tau0, f_theta0, c_f, c_n, c_e, pr0, wmc,fsl 
+    &                             f_tau0, f_theta0, c_f, c_n, c_e, pr0,     &
+    &                             wmc,fsl,fbl 
   USE mo_physical_constants,ONLY: grav, rd, cpd, cpv, rd_o_cpd, rv,         &
     &                             vtmpc1, tmelt, alv, als, p0ref,           &
     &                             earth_angular_velocity
@@ -368,7 +369,7 @@ CONTAINS
         ! convective bl mixing coefs
 
         IF(pgeom1(jl,jk)/grav.LE.hdt(jl)) THEN
-           lmc=1._wp*grav/(ckap*pgeohm1(jl,jk+1))+3._wp/(ckap*(hdt(jl)-pgeohm1(jl,jk+1)/grav))
+           lmc=1._wp*grav/(ckap*pgeohm1(jl,jk+1))+fbl/(ckap*(hdt(jl)-pgeohm1(jl,jk+1)/grav))
            lmc=1._wp/lmc
            kmc=f_tau0/c_e*lmc*SQRT(e_kin)
            khc=kmc/pr0
@@ -731,7 +732,7 @@ CONTAINS
         zbuoy        = zdus1*zdthetal(js,jsfc) + zdus2*zthetamit*zdqt
         pri_sfc(js,jsfc) = pgeom1_b(js)*zbuoy/(zthetavmit(js,jsfc)*zdu2(js,jsfc))
 
-                ! stability functions for heat and momentum (Mauritsen et al. 2007) 
+! stability functions for heat and momentum (Mauritsen et al. 2007) 
 
         IF(pri_sfc(js,jsfc).GT.0._wp) THEN
            f_tau(js,jsfc)   = f_tau0*(0.25_wp+0.75_wp/(1._wp+4._wp*pri_sfc(js,jsfc)))
@@ -741,7 +742,7 @@ CONTAINS
            f_theta(js,jsfc) = f_theta0
         END IF
 
-        ! turbulent kinetic and turbulent potential energy
+! diagnose turbulent kinetic and turbulent potential energy from total turb. energy
 
         IF(pri_sfc(js,jsfc).GT.0._wp) THEN
            e_kin(js,jsfc) = ptkevn_sfc(js)/(1._wp+pri_sfc(js,jsfc)/(pr0+3._wp*pri_sfc(js,jsfc)))
@@ -751,20 +752,24 @@ CONTAINS
            e_pot(js,jsfc)=e_kin(js,jsfc)*pri_sfc(js,jsfc)/(2._wp*pri_sfc(js,jsfc)-pr0) 
         END IF
 
-        ! mixing length 
+!  compute mixing length 
 
-           IF(pri_sfc(js,jsfc).GT.0._wp) THEN
+        IF(pri_sfc(js,jsfc).GT.0._wp) THEN
            lmix(js,jsfc)=1._wp*grav/(ckap*fsl*pgeom1_b(js))+2._wp*earth_angular_velocity/(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc))) &
             +SQRT(grav**2._wp*zbuoy/(zthetavmit(js,jsfc)*pgeom1_b(js)))/(c_n*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
-           ELSE
+        ELSE
            lmix(js,jsfc)=1._wp*grav/(ckap*fsl*pgeom1_b(js))+2._wp*earth_angular_velocity/(c_f*SQRT(f_tau(js,jsfc)*e_kin(js,jsfc)))
-           END IF 
+        END IF 
            lmix(js,jsfc)=1._wp/lmix(js,jsfc)
-           IF(pri_sfc(js,jsfc).LT.0._wp) THEN
-           lmc=1._wp*grav/(ckap*fsl*pgeom1_b(js))+3._wp/(ckap*(pghabl(js)/grav-fsl*pgeom1_b(js)/grav))
+!  convective BL mixing length formulation
+        IF(pri_sfc(js,jsfc).LT.0._wp) THEN
+           lmc=1._wp*grav/(ckap*fsl*pgeom1_b(js))+fbl/(ckap*(pghabl(js)/grav-fsl*pgeom1_b(js)/grav))
            lmc=1._wp/lmc
            lmix(js,jsfc)=MAX(lmix(js,jsfc),lmc)
-           END IF
+        END IF
+
+! neutral drag coefficient for momentum, z0m is effectively limited to half the first level height! 
+       
         pcdn_sfc(js,jsfc) = lmix(js,jsfc)**2._wp/((fsl*pgeom1_b(js)/grav)**2._wp &
                             *((LOG(MAX(2._wp,pgeom1_b(js)/(grav*pz0m(js,jsfc)))))**2._wp))
 
@@ -788,6 +793,8 @@ CONTAINS
            z0h(js,jsfc)=paz0lh(js)
         END IF
 
+! neutral drag coefficient for heat/scalars, z0h is effectively limited to half the first level height! 
+
           pchn_sfc(js,jsfc)=lmix(js,jsfc)/((fsl*pgeom1_b(js)/grav)*LOG(MAX(2._wp,pgeom1_b(js)/(grav*z0h(js,jsfc))))) &
                             *1._wp/pr0*SQRT(pcdn_sfc(js,jsfc))
           zcfnch(js,jsfc)=SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc)
@@ -806,7 +813,7 @@ CONTAINS
      pcfh_sfc(1:kproma,1:ksfc_type) = 0._wp
      pcfm_sfc(1:kproma,1:ksfc_type) = 0._wp
 
-      ! stable case              pri_sfc(js,jsfc) > 0.
+! multiply neutral coefficients by stability functions
 
       DO jsfc = 1,ksfc_type
         DO jls = 1,is(jsfc)
@@ -820,7 +827,7 @@ CONTAINS
           ENDIF
         
  
-           IF ( pri_sfc(js,jsfc) <= 0._wp ) THEN ! retain Louis stability functions for the unstable case
+          IF ( pri_sfc(js,jsfc) <= 0._wp ) THEN ! retain Louis stability functions for the unstable case
             zucf =  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*pz0m(js,jsfc))) ) ! sqrt in (5.4)
             zucf =  1._wp+z3bc*pcdn_sfc(js,jsfc)*zucf                   ! denominator in (5.4)
             zucf =  1._wp/zucf
@@ -925,12 +932,12 @@ CONTAINS
         js=loidx(jls,jsfc)
           zust   = pcfm_sfc(js,jsfc)*SQRT(zdu2(js,jsfc)-(wmc*pwstar_sfc(js,jsfc))**2._wp)
           zustar(js,jsfc) = SQRT(zust)
-          IF (pri_sfc(js,jsfc).LT. 0._wp) THEN
-          pwstar_sfc(js,jsfc)= 0.5_wp*(pwstar_sfc(js,jsfc)+(pghabl(js)/zthetavmit(js,jsfc)*pcfh_sfc(js,jsfc) & 
+         IF (pri_sfc(js,jsfc).LT. 0._wp) THEN
+           pwstar_sfc(js,jsfc)= 0.5_wp*(pwstar_sfc(js,jsfc)+(pghabl(js)/zthetavmit(js,jsfc)*pcfh_sfc(js,jsfc) & 
                                        *abs(zdthetal(js,jsfc)))**(1._wp/3._wp))
-          ELSE
-          pwstar_sfc(js,jsfc) = 0._wp
-          END IF
+         ELSE
+           pwstar_sfc(js,jsfc) = 0._wp
+         END IF
         END DO
       END DO
  !  REMARK:
@@ -957,12 +964,12 @@ CONTAINS
     END IF
 
     !---------------------------------------------------
-    ! Surface value of TKE and its exchange coefficient
+    ! Surface value of TTE and its exchange coefficient
     !---------------------------------------------------
-    ! The exchange coefficient of TKE is set to the same value as for momentum
+    ! The exchange coefficient of TTE is set to the same value as for momentum
     pcftke_sfc(1:kproma) = pcfm_gbm(1:kproma)
 
-    ! TKE at the surface (formulation of Mailhot and Benoit (1982))
+    ! TTE at the surface
 
     ptkevn_sfc(1:kproma) = 0._wp  ! initialize the weighted average
 
@@ -971,20 +978,13 @@ CONTAINS
 ! set index
       js=loidx(jls,jsfc)
 
-        IF(pri_sfc(js,jsfc).GT.0._wp) THEN
-       ztkev    = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(pustarm(js)**2._wp)
-        ELSE
-       ztkev    = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(pustarm(js)**3._wp+lmix(js,jsfc)*2._wp &
+       IF(pri_sfc(js,jsfc).GT.0._wp) THEN
+         ztkev    = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(pustarm(js)**2._wp)
+       ELSE
+         ztkev    = (1._wp+e_pot(js,jsfc)/e_kin(js,jsfc))/f_tau(js,jsfc)*(pustarm(js)**3._wp+lmix(js,jsfc)*2._wp &
                   *grav/zthetavmit(js,jsfc)*pcfh_sfc(js,jsfc)*abs(zdthetal(js,jsfc)))**2._wp/3._wp
-        END IF
+       END IF
 
-     !   ztkev = custf*(zustar(js,jsfc)**2._wp)
-     !   IF(zwst(js,jsfc).GT.zepsr) THEN
-     !      zconvs = (zwst(js,jsfc)*pch_sfc(js,jsfc)*pghabl(js))**zonethird
-     !      zstabf = (pgeom1_b(js)*ckap*zwst(js,jsfc)*pch_sfc(js,jsfc))**ztwothirds
-     !      zstabf = MIN(custf*3._wp*zustar(js,jsfc)**2._wp,zstabf)
-     !      ztkev = ztkev + zstabf + cwstf*(zconvs**2._wp)
-     !   END IF
         ptkevn_sfc(js) = ptkevn_sfc(js) + ztkev*pfrc(js,jsfc)
       END DO
     END DO
