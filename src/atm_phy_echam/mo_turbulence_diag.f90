@@ -610,7 +610,7 @@ CONTAINS
     REAL(wp) :: e_pot (kbdim,ksfc_type) !
     REAL(wp) :: f_tau (kbdim,ksfc_type) !
     REAL(wp) :: f_theta (kbdim,ksfc_type) !
-
+    REAL(wp) :: z0h   (kbdim,ksfc_type) !
  
     INTEGER  :: loidx  (kbdim,ksfc_type) !< counter for masks
     INTEGER  :: is     (ksfc_type)       !< counter for masks
@@ -622,7 +622,7 @@ CONTAINS
     REAL(wp) :: ztmit, ztheta, zthetav, zthetamit, zfux, zfox
     REAL(wp) :: zmult1, zmult2, zmult3, zmult4, zmult5
     REAL(wp) :: zdus1, zdus2, zbuoy, zalo, zaloh, ztkev, zstabf
-    REAL(wp) :: zdthv, z0h, zscf,  zconvs, zucf, zucfh
+    REAL(wp) :: zdthv, zscf,  zconvs, zucf, zucfh
     REAL(wp) :: z2m, zcdn2m, zcdnr, zcfm2m, zust, zrrd
     REAL (wp):: lmc
     LOGICAL  :: lhighz0
@@ -778,21 +778,20 @@ CONTAINS
         zdthv         = MAX(0._wp,(zthetav-pthetav_b(js)))
         zwst(js,jsfc) = zdthv*SQRT(zdu2(js,jsfc))/zthetavmit(js,jsfc)
 
+ ! compute/extract roughness length for heat over each surface, currently equal to z0m over ice
+
         IF ( jsfc == idx_wtr ) THEN         ! over water
-          z0h        =pz0m(js,jsfc)*EXP(2._wp-86.276_wp*pz0m(js,jsfc)**0.375_wp)
-          zaloh      =LOG(1._wp+pgeom1_b(js)/(grav*z0h))
-          pchn_sfc  (js,jsfc)=lmix(js,jsfc)/((fsl*pgeom1_b(js)/grav)*LOG(pgeom1_b(js)/(grav*z0h)))*1._wp/pr0*SQRT(pcdn_sfc(js,jsfc))
-          zcfnch(js,jsfc)=SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc)
-        ! omit free convection, fxp  zcr   (js)=(cfreec/(pchn_sfc(js,jsfc)*SQRT(zdu2(js,jsfc))))*ABS(zbuoy)**zonethird
-        ELSE IF ( jsfc == idx_ice ) THEN    ! over ice
-          pchn_sfc  (js,jsfc) = lmix(js,jsfc)/((fsl*pgeom1_b(js)/grav)*LOG(MAX(2._wp,pgeom1_b(js)/(grav*pz0m(js,jsfc)))))&
-                                              *1._wp/pr0*SQRT(pcdn_sfc(js,jsfc)) ! currently same roughness length
-          zcfnch(js,jsfc) = SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc) 
-        ELSE IF ( jsfc == idx_lnd ) THEN    ! over  land
-          pchn_sfc(js,jsfc) = lmix(js,jsfc)/((fsl*pgeom1_b(js)/grav)*LOG(MAX(2._wp,pgeom1_b(js)/(grav*paz0lh(js))))) &
-                                               *1._wp/pr0*SQRT(pcdn_sfc(js,jsfc))
-          zcfnch(js,jsfc) = SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc)
+           z0h(js,jsfc)=pz0m(js,jsfc)*EXP(2._wp-86.276_wp*pz0m(js,jsfc)**0.375_wp)
+        ELSE IF ( jsfc == idx_ice ) THEN
+           z0h(js,jsfc)=pz0m(js,jsfc)
+        ELSE IF ( jsfc == idx_lnd ) THEN
+           z0h(js,jsfc)=paz0lh(js)
         END IF
+
+          pchn_sfc(js,jsfc)=lmix(js,jsfc)/((fsl*pgeom1_b(js)/grav)*LOG(MAX(2._wp,pgeom1_b(js)/(grav*z0h(js,jsfc))))) &
+                            *1._wp/pr0*SQRT(pcdn_sfc(js,jsfc))
+          zcfnch(js,jsfc)=SQRT(zdu2(js,jsfc))*pchn_sfc(js,jsfc)
+
       ENDDO ! 1:is
     ENDDO   ! 1:ksfc_type
 
@@ -820,20 +819,12 @@ CONTAINS
             pch_sfc (js,jsfc) = pcfh_sfc(js,jsfc)/zcfnch(js,jsfc)*pchn_sfc(js,jsfc)   
           ENDIF
         
-            IF ( jsfc == idx_wtr ) THEN         ! over water
-               z0h=pz0m(js,jsfc)*EXP(2._wp-86.276_wp*pz0m(js,jsfc)**0.375_wp)
-             ELSE IF ( jsfc == idx_ice ) THEN 
-               z0h=pz0m(js,jsfc)
-             ELSE IF ( jsfc == idx_lnd ) THEN
-               z0h=paz0lh(js)
-            END IF
-
  
            IF ( pri_sfc(js,jsfc) <= 0._wp ) THEN ! retain Louis stability functions for the unstable case
             zucf =  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*pz0m(js,jsfc))) ) ! sqrt in (5.4)
             zucf =  1._wp+z3bc*pcdn_sfc(js,jsfc)*zucf                   ! denominator in (5.4)
             zucf =  1._wp/zucf
-            zucfh=  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*z0h)) ) ! sqrt in (5.4)
+            zucfh=  SQRT( -pri_sfc(js,jsfc)*(1._wp+ pgeom1_b(js)/(grav*z0h(js,jsfc))) ) ! sqrt in (5.4)
             zucfh=  1._wp+z3bc*pchn_sfc(js,jsfc)*zucfh                   ! denominator in (5.4)
             zucfh=  1._wp/zucfh
             pcfm_sfc(js,jsfc) = pcfnc_sfc (js,jsfc)*(1._wp-z2b*pri_sfc(js,jsfc)*zucf)  ! (5.2), (5.4)
