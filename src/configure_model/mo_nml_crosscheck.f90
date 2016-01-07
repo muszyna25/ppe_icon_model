@@ -43,7 +43,8 @@ MODULE mo_nml_crosscheck
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
     &                              inextra_3d
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
-    &                              num_io_procs, itype_comm, num_restart_procs
+    &                              num_io_procs, itype_comm, num_restart_procs, &
+    &                              num_prefetch_proc
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, iqtke, iqv, iqc, iqi,           &
@@ -334,6 +335,9 @@ CONTAINS
     
     IF (lplane) CALL finish( TRIM(method_name),&
       'Currently a plane version is not available')
+
+    ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
+    IF (.NOT. l_limited_area) num_prefetch_proc = 0
 
     SELECT CASE (iequations)
     CASE(IHS_ATM_TEMP,IHS_ATM_THETA)         ! hydrostatic atm model
