@@ -385,11 +385,16 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
               &                istart, iend, i_rlstart, i_rlend)
             
-            CALL art_emiss_gasphase(dtime,tracer,               &
-              &                     p_nh_state%diag%pres,       &
-              &                     ext_data%atm%llsm_atm_c,    &
-              &                     p_patch,                    &
-              &                     jb,istart,iend,nlev,nproma)
+            CALL art_emiss_gasphase(datetime,                       &
+              &                     dtime,                          &
+              &                     tracer,                         &
+              &                     p_nh_state%diag%pres,           &
+              &                     p_nh_state%diag%temp,           &
+              &                     p_nh_state%metrics,             &
+              &                     ext_data%atm%llsm_atm_c,        &
+              &                     p_patch,                        &
+              &                     jb,istart,iend,nlev,nproma,     &
+              &                     prm_diag%swflx_par_sfc)
           ENDDO
         CASE DEFAULT
           CALL finish('mo_art_emission_interface:art_emission_interface', &
