@@ -475,7 +475,7 @@ CONTAINS
                     ! output? if true, theses variables should be used for
                     ! accumulation, too
 
-                    call print_error("show meanPrognostic:"//TRIM(destinationVariable%field%info%name))
+!TODO: call print_error("show meanPrognostic:"//TRIM(destinationVariable%field%info%name))
                     SELECT CASE (destinationVariable%field%info%tlev_source)
                     CASE(TLEV_NNOW);     timelevel = timelevelIndex
                     CASE(TLEV_NNEW);     timelevel = timelevelIndex
@@ -551,7 +551,7 @@ CONTAINS
 
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::reset_accumulation"
 
-    call print_routine(routine,'start')
+!TODO    call print_routine(routine,'start')
 
     meanMapIterator   = meanMap%iter()
 
@@ -607,7 +607,7 @@ CONTAINS
       end select 
     end do
 
-    call print_routine(routine,'finish')
+!TODO    call print_routine(routine,'finish')
   END SUBROUTINE reset_accumulation
   FUNCTION get_event_key(output_name_list) RESULT(event_key)
     TYPE(t_output_name_list) :: output_name_list
