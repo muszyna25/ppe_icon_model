@@ -722,7 +722,7 @@ MODULE mo_nh_stepping
     IF (jstep-jstep0 == 1) atm_phy_nwp_config(:)%lcalc_acc_avg = .TRUE.
 
     ! read boundary data if necessary
-    IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (num_prefetch_proc /= 1)) &
+    IF (l_limited_area .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) &
       CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), datetime_current)
 
     IF (msg_level > 2) THEN
@@ -1124,7 +1124,7 @@ MODULE mo_nh_stepping
 #endif
 
     ! prefetch boundary data if necessary
-    IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
+    IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0) THEN
        CALL prefetch_input( datetime_current, p_patch(1), p_int_state(1), p_nh_state(1))
     ENDIF
 
@@ -1712,7 +1712,7 @@ MODULE mo_nh_stepping
 
          IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
 
-            IF (num_prefetch_proc == 1) THEN
+            IF (num_prefetch_proc >= 1) THEN
 
                ! update the coefficients for the linear interpolation
                CALL update_lin_interpolation(datetime_current)
@@ -2005,7 +2005,7 @@ MODULE mo_nh_stepping
     dt_dyn = dt_phy/ndyn_substeps_var(jg)
 
 
-    IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. (l_limited_area .OR. (num_prefetch_proc == 1))) THEN
+    IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN
       ! apply boundary nudging if feedback is turned off and in limited-area mode
       l_bdy_nudge = .TRUE.
     ELSE
@@ -2761,10 +2761,12 @@ MODULE mo_nh_stepping
       &    'failed' )
   ENDIF
 
-  IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
-     CALL deallocate_pref_latbc_data()
-  ELSE IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) THEN
-     CALL deallocate_latbc_data()
+  IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
+    IF (num_prefetch_proc >= 1) THEN
+      CALL deallocate_pref_latbc_data()
+    ELSE
+      CALL deallocate_latbc_data()
+    ENDIF
   ENDIF
 
   END SUBROUTINE deallocate_nh_stepping
@@ -2861,8 +2863,8 @@ MODULE mo_nh_stepping
 
   ENDDO
 
-  IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (num_prefetch_proc /= 1)) THEN
-        CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
+  IF (l_limited_area .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
+    CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
   ENDIF
 
 END SUBROUTINE allocate_nh_stepping

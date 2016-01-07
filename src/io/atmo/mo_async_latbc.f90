@@ -497,7 +497,7 @@ MODULE mo_async_latbc
          CASE (FILETYPE_NC2, FILETYPE_NC4)
             IF (latbc_config%itype_latbc == 1) THEN
                DO jp= 1, ngrp_prefetch_vars
-                  latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp)))
+                  latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
                ENDDO
             ELSE
                DO jp= 1, ngrp_prefetch_vars
@@ -507,7 +507,7 @@ MODULE mo_async_latbc
          CASE (FILETYPE_GRB2)
             IF (latbc_config%itype_latbc == 1) THEN
                DO jp= 1, ngrp_prefetch_vars
-                  latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp)))
+                  latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
                ENDDO
             ELSE
                DO jp= 1, ngrp_prefetch_vars
@@ -1113,7 +1113,7 @@ MODULE mo_async_latbc
                ENDIF
 
                ! variable GEOSP is stored in cell center location
-               latbc_buffer%hgrid(jp) = hgrid
+               latbc_buffer%hgrid(jp) = GRID_UNSTRUCTURED_CELL
             ENDIF
          ENDDO
       ENDIF

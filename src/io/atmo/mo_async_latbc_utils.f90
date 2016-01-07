@@ -653,7 +653,7 @@
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
             !       WRITE(0,*) 'compute_latbc_icon_data 01 ',latbc_data(tlev)%atm%temp(jl,jk,jb)
-            latbc_data(tlev)%atm%temp(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm%temp(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
 !$OMP END DO  !NOWAIT
@@ -666,8 +666,8 @@
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm_in%u(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), sp)
-            latbc_data(tlev)%atm_in%v(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm_in%u(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
+            latbc_data(tlev)%atm_in%v(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             !          IF( p_pe_work == p_work_pe0 ) &
             !           &  WRITE(0,*) 'latbc_data(tlev)%atm_in%v value ', latbc_data(tlev)%atm_in%v(jl,jk,jb)
          ENDDO
@@ -680,7 +680,7 @@
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm%w(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm%w(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
 !$OMP END DO
@@ -693,7 +693,7 @@
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm%pres(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm%pres(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
 !$OMP END DO
@@ -705,7 +705,7 @@
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm%qv(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm%qv(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
 !$OMP END DO
@@ -716,7 +716,7 @@
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm%qc(jl,jk,jb) = REAL(latbc_buffer%vars(jc)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm%qc(jl,jk,jb) = REAL(latbc_buffer%vars(jc)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
 !$OMP END DO
@@ -728,7 +728,7 @@
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm%qi(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm%qi(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
 !$OMP END DO
@@ -740,7 +740,7 @@
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm%qr(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm%qr(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
 !$OMP END DO
@@ -753,7 +753,7 @@
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm%qs(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm%qs(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
 !$OMP END DO
@@ -957,7 +957,7 @@
          DO j = 1, p_ri%n_own ! p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm_in%temp(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm_in%temp(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
 !$OMP END DO
@@ -971,7 +971,7 @@
             DO j = 1, patch_data%edges%n_own !p_patch%n_patch_cells
                jb = patch_data%edges%own_blk(j) ! Block index in distributed patch
                jl = patch_data%edges%own_idx(j) ! Line  index in distributed patch
-               latbc_data(tlev)%atm_in%vn(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), sp)
+               latbc_data(tlev)%atm_in%vn(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
 !$OMP END DO
@@ -984,8 +984,8 @@
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc_data(tlev)%atm_in%u(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), sp)
-               latbc_data(tlev)%atm_in%v(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), sp)
+               latbc_data(tlev)%atm_in%u(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
+               latbc_data(tlev)%atm_in%v(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
                !          IF( p_pe_work == p_work_pe0 ) &
                !           &  WRITE(0,*) 'latbc_data(tlev)%atm_in%v value ', latbc_data(tlev)%atm_in%v(jl,jk,jb)
             ENDDO
@@ -1002,7 +1002,7 @@
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc_data(tlev)%atm_in%omega(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), sp)
+               latbc_data(tlev)%atm_in%omega(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
 !$OMP END DO
@@ -1014,7 +1014,7 @@
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc_data(tlev)%atm_in%w_ifc(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), sp)
+               latbc_data(tlev)%atm_in%w_ifc(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
 !$OMP END DO
@@ -1028,7 +1028,7 @@
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc_data(tlev)%atm_in%z3d_ifc(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), sp)
+               latbc_data(tlev)%atm_in%z3d_ifc(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
 !$OMP END DO
@@ -1043,10 +1043,10 @@
 
                ! Note: In future, we want to z3d from boundary data.
                !
-               latbc_data(tlev)%atm_in%z3d(jc,jk,jb) = (REAL(latbc_data(tlev)%atm_in%z3d_ifc(jc,jk,jb), sp) + &
-                    &   REAL(latbc_data(tlev)%atm_in%z3d_ifc(jc,jk+1,jb), sp)) * 0.5_sp
-               latbc_data(tlev)%atm_in%w(jc,jk,jb) = (REAL(latbc_data(tlev)%atm_in%w_ifc(jc,jk,jb), sp) + &
-                    &   REAL(latbc_data(tlev)%atm_in%w_ifc(jc,jk+1,jb), sp)) * 0.5_sp
+               latbc_data(tlev)%atm_in%z3d(jc,jk,jb) = (latbc_data(tlev)%atm_in%z3d_ifc(jc,jk,jb) + &
+                    &   latbc_data(tlev)%atm_in%z3d_ifc(jc,jk+1,jb) ) * 0.5_wp
+               latbc_data(tlev)%atm_in%w(jc,jk,jb) = (latbc_data(tlev)%atm_in%w_ifc(jc,jk,jb) + &
+                    &   latbc_data(tlev)%atm_in%w_ifc(jc,jk+1,jb)) * 0.5_wp
             ENDDO
          ENDDO
 !$OMP END DO
@@ -1059,7 +1059,7 @@
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm_in%qv(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm_in%qv(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
 !$OMP END DO
@@ -1070,7 +1070,7 @@
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm_in%qc(jl,jk,jb) = REAL(latbc_buffer%vars(jc)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm_in%qc(jl,jk,jb) = REAL(latbc_buffer%vars(jc)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
 !$OMP END DO
@@ -1081,7 +1081,7 @@
          DO j = 1, p_ri%n_own !p_patch%n_patch_cells
             jb = p_ri%own_blk(j) ! Block index in distributed patch
             jl = p_ri%own_idx(j) ! Line  index in distributed patch
-            latbc_data(tlev)%atm_in%qi(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), sp)
+            latbc_data(tlev)%atm_in%qi(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
          ENDDO
       ENDDO
 !$OMP END DO
@@ -1094,7 +1094,7 @@
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc_data(tlev)%atm_in%qr(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), sp)
+               latbc_data(tlev)%atm_in%qr(jl,jk,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
 !$OMP END DO
@@ -1111,7 +1111,7 @@
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc_data(tlev)%atm_in%qs(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), sp)
+               latbc_data(tlev)%atm_in%qs(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
 !$OMP END DO
@@ -1126,7 +1126,7 @@
        DO j = 1, p_ri%n_own !p_patch%n_patch_cells
           jb = p_ri%own_blk(j) ! Block index in distributed patch
           jl = p_ri%own_idx(j) ! Line  index in distributed patch
-          latbc_data(tlev)%atm_in%psfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,1,jb), sp)
+          latbc_data(tlev)%atm_in%psfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,1,jb), wp)
        ENDDO
 !$OMP END DO
 
@@ -1138,7 +1138,7 @@
             DO j = 1, p_ri%n_own !p_patch%n_patch_cells
                jb = p_ri%own_blk(j) ! Block index in distributed patch
                jl = p_ri%own_idx(j) ! Line  index in distributed patch
-               latbc_data(tlev)%atm_in%pres(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), sp)
+               latbc_data(tlev)%atm_in%pres(jl,jk,jb) = REAL(latbc_buffer%vars(jv)%buffer(jl,jk,jb), wp)
             ENDDO
          ENDDO
 !$OMP END DO
@@ -1150,7 +1150,7 @@
        DO j = 1, p_ri%n_own !p_patch%n_patch_cells
           jb = p_ri%own_blk(j) ! Block index in distributed patch
           jl = p_ri%own_idx(j) ! Line  index in distributed patch
-          latbc_data(tlev)%atm_in%phi_sfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,1,jb), sp)
+          latbc_data(tlev)%atm_in%phi_sfc(jl,jb) = REAL(latbc_buffer%vars(jm)%buffer(jl,1,jb), wp)
        ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
