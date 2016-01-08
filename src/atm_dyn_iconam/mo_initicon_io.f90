@@ -1196,12 +1196,11 @@ MODULE mo_initicon_io
 
 
       ! determine number of HALF LEVELS of generalized Z-AXIS
-      ! use 'theta_v' for testing (may have chosen another one as well)
       IF(lread_process) THEN
         IF (filetype_fg(jg) == FILETYPE_GRB2) THEN
-          nlev_in = get_cdi_NlevRef(fileID_fg(jg), 'theta_v', opt_dict=ana_varnames_dict)
+          nlev_in = get_cdi_NlevRef(fileID_fg(jg), 'z_ifc', opt_dict=ana_varnames_dict)
         ELSE
-          nlev_in = get_cdi_NlevRef(fileID_fg(jg), 'theta_v')
+          nlev_in = get_cdi_NlevRef(fileID_fg(jg), 'z_ifc')
         ENDIF
         ! number of LAYERS:
         nlev_in = nlev_in - 1
