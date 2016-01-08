@@ -271,7 +271,7 @@ def templateCheck(name,allTemplates,allSuites,suite=nil)
     msg << "from suite '#{name}'" unless suite.nil?
     msg << "!!!"
     warn msg unless $QUIET
-    exit(1) if $DEBUG
+    #exit(1) if $DEBUG
     return false
   end
   return true
@@ -821,19 +821,19 @@ task :checkAtmoMeanStream, :dir, :what do |t,args|
     # compare mean values
     {
       :PT20M => [
-        { :ref => '2,3', :mean => '2'},
-        #   { :ref => '4,5', :mean => '3'},
-        #   { :ref => '6,7', :mean => '4'},
-      ]#,
-      #   :PT30M => [
-      #    { :ref => '2,3,4', :mean => '2'},
-      #    { :ref => '5,6,7', :mean => '3'},
-      #  ]
+         { :ref => '2,3', :mean => '2'},
+           { :ref => '4,5', :mean => '3'},
+            { :ref => '6,7', :mean => '4'},
+      ],
+          :PT30M => [
+           { :ref => '2,3,4', :mean => '2'},
+           { :ref => '5,6,7', :mean => '3'},
+         ]
     }.each {|period, configs|
       @regularFiles.each {|regularFile|
         next unless @meanFiles[regularFile].has_key?(period)
-        puts regularFile.colorize(:color => :blue, :background => :yellow)
-        puts period.to_s.colorize(:color => :blue, :background => :yellow)
+        puts regularFile.colorize(:color => :blue, :background => :white)
+        puts "\t #{period.to_s}".colorize(:color => :blue, :background => :white)
         varlist = Cdo.showname(:input => regularFile)[0].split(' ')
         #     pp varlist
         #     next
@@ -843,6 +843,7 @@ task :checkAtmoMeanStream, :dir, :what do |t,args|
           next if varIsConstant(varname,regularFile)
 
           configs.each {|config|
+            s = "\t\tref tstep:#{config[:ref]} | mean tstep:#{config[:mean]}".colorize(:color => :blue, :background => :white)
             #Cdo.debug = true
             diff = Cdo.diffv(input: [
               "-timmean -seltimestep,#{config[:ref]}  -selname,#{varname} #{regularFile}",
@@ -850,9 +851,9 @@ task :checkAtmoMeanStream, :dir, :what do |t,args|
             ].join(' '),:options => '-s')
             #       puts diff
             unless diff.empty? then
-              puts varname.colorize(:red)
-              #print "\t#{diff[1..-2].join("\n\t")}".colorize(:yellow)
-              puts "\t"
+              puts [s,varname.colorize(:red),
+                    "\t#{diff[1..-2].join("\n\t")}".colorize(:yellow),
+                   "\t"].join("\n")
             else
               puts "#{varname} ".colorize(:green)
             end
