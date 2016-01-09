@@ -737,6 +737,7 @@ CONTAINS
                      & zcptgz(:,:), zrhoh(:,:),         &! out, for "vdiff_up"
                      & zqshear(:,:),                    &! out, for "vdiff_up"
                      & zthvvar(:,:),                    &! out, for "vdiff_up"
+                     & field%   thvsig(:,  jb),         &! out, for "cucall"
                      & ztkevn (:,:),                    &! out, for "vdiff_up"
                      & pch_tile = zch_tile(:,:),        &! out, optional, for JSBACH
                      & pcsat = field% csat(:,jb),       &! in, optional, area fraction with wet land surface

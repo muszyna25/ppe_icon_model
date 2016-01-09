@@ -491,6 +491,7 @@ CONTAINS
                                & ptheta_b, pthetav_b,                    &! in
                                & pthetal_b, paclc_b,                     &! in
                                & pthvvar_b,                              &! in
+                               & pthvsig_b,                              &! inout
                                & pwstar, pwstar_sfc,                     &! inout
                                & pqsat_sfc, pcpt_sfc,                    &! out
                                & pri_gbm,                                &! out
@@ -569,6 +570,7 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pustarm    (kbdim)  !< friction velocity, grid-box mean
     REAL(wp),INTENT(OUT) :: pwstar     (kbdim)  !< convective veolicty scale, grid-box mean
     REAL(wp),INTENT(INOUT) ::pwstar_sfc     (kbdim,ksfc_type)  !< convective veolicty scale, each sfc type
+    REAL(wp),INTENT(INOUT) ::pthvsig_b(kbdim)
 !    REAL(wp),INTENT(OUT) :: pbn_sfc  (kbdim,ksfc_type) !< for diagnostics
 !    REAL(wp),INTENT(OUT) :: pbhn_sfc (kbdim,ksfc_type) !< for diagnostics
 !    REAL(wp),INTENT(OUT) :: pbm_sfc  (kbdim,ksfc_type) !< for diagnostics
@@ -625,7 +627,7 @@ CONTAINS
     REAL(wp) :: zdus1, zdus2, zbuoy, zalo, zaloh, ztkev, zstabf
     REAL(wp) :: zdthv, zscf,  zconvs, zucf, zucfh
     REAL(wp) :: z2m, zcdn2m, zcdnr, zcfm2m, zust, zrrd
-    REAL (wp):: lmc
+    REAL (wp):: lmc, thvsig
     LOGICAL  :: lhighz0
     INTEGER  :: jsfc, jl, jls, js
 
@@ -751,6 +753,8 @@ CONTAINS
            e_kin(js,jsfc)=ptkevn_sfc(js)/(1._wp+pri_sfc(js,jsfc)/(2._wp*pri_sfc(js,jsfc)-pr0))
            e_pot(js,jsfc)=e_kin(js,jsfc)*pri_sfc(js,jsfc)/(2._wp*pri_sfc(js,jsfc)-pr0) 
         END IF
+
+        pthvsig_b(js) =  zthetav/grav*SQRT(2.0_wp*e_pot(js,jsfc)*ABS(zbuoy))
 
 !  compute mixing length 
 

@@ -59,7 +59,7 @@ CONTAINS
                        & aa,         aa_btm,    bb,         bb_btm,     &! out
                        & pfactor_sfc, pcpt_tile,                        &! out
                        & pcptgz,     prhoh,     pqshear,                &! out
-                       & pzthvvar,   pztkevn,                           &! out
+                       & pzthvvar,   pthvsig,   pztkevn,                &! out
                        & pch_tile,                                      &! out
                        & pcsat,                                         &! in
                        & pcair,                                         &! in
@@ -162,6 +162,7 @@ CONTAINS
       & prhoh     (kbdim,klev)     ,&!< air density at half levels
       & pqshear   (kbdim,klev)     ,&!<
       & pzthvvar  (kbdim,klev)     ,&!<
+      & pthvsig   (kbdim)          ,&
       & pztkevn   (kbdim,klev)       !< intermediate value of TKE
 
     REAL(wp), OPTIONAL, INTENT(INOUT) :: pch_tile(kbdim,ksfc_type)  ! out
@@ -244,6 +245,7 @@ CONTAINS
                            & ztheta_b (:),    zthetav_b(:),         &! in
                            & zthetal_b(:),    paclc (:,klev),       &! in
                            & pzthvvar(:,klevm1),                    &! in
+                           & pthvsig(:),                            &! inout
                            & pwstar(:),       pwstar_tile(:,:),     &! inout
                            & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
                            & pri    (:,klev),                       &! out
