@@ -323,6 +323,34 @@ CONTAINS
         i_startblk = p_patch%cells%start_blk(i_rlstart,1)
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
+
+        ! calculation of intermediate layer thickness (density)
+        ! necessary for tracer-mass consistency.
+        ptr_delp_mc_new  => z_delp_mc1
+
+        ! integration of tracer continuity equation in vertical
+        ! direction. Must be computed prior to the vertical tracer flux, 
+        ! since it is required for FCT (to be implemented).
+        ! This is independent of the tracer and thus must be
+        ! computed only once.
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
+        DO jb = i_startblk, i_endblk
+
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,      &
+                         i_startidx, i_endidx, i_rlstart, i_rlend)
+
+          ! integration of mass continuity equation
+          ptr_delp_mc_new(i_startidx:i_endidx,1:nlev,jb) =                      &
+            &              ptr_delp_mc_now(i_startidx:i_endidx,1:nlev,jb)       &
+            &              - pdtime_mod                                         &
+            &              * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb) &
+            &              - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )
+        ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+        ! compute vertical tracer flux
         CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
           &              p_mflx_contra_v,                            &! inout
           &              p_w_contra_traj,                            &! in
@@ -341,29 +369,15 @@ CONTAINS
           &              opt_rlend=i_rlend                           )! in
 
 
-        ! calculation of intermediate layer thickness (density)
-        ! necessary for tracer-mass consistency.
-        ptr_delp_mc_new  => z_delp_mc1
 
-        ! integration of tracer continuity equation in vertical
-        ! direction. This is independent of the tracer and thus must be
-        ! computed only once.
-        ! afterwards compute vertical flux divergence for each tracer
-
+        ! compute vertical flux divergence for each tracer
+        !
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jt,jc,ikp1,i_startidx,i_endidx) ICON_OMP_DEFAULT_SCHEDULE
         DO jb = i_startblk, i_endblk
 
           CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,      &
                          i_startidx, i_endidx, i_rlstart, i_rlend)
-
-
-          ! integration of tracer continuity equation
-          ptr_delp_mc_new(i_startidx:i_endidx,1:nlev,jb) =                      &
-            &              ptr_delp_mc_now(i_startidx:i_endidx,1:nlev,jb)       &
-            &              - pdtime_mod                                         &
-            &              * ( p_mflx_contra_v(i_startidx:i_endidx,2:nlevp1,jb) &
-            &              - p_mflx_contra_v(i_startidx:i_endidx,1:nlev,jb) )
 
 
           ! computation of vertical flux divergences
