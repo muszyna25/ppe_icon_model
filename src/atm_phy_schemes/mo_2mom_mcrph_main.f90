@@ -736,8 +736,8 @@ CONTAINS
   !*******************************************************************************
 
   SUBROUTINE init_2mom_scheme(cloud,rain,ice,snow,graupel,hail)
-    CLASS(particle)        :: cloud, rain
-    CLASS(particle_frozen) :: ice, snow, graupel, hail
+    CLASS(particle),INTENT(inout)        :: cloud, rain
+    CLASS(particle_frozen),INTENT(inout) :: ice, snow, graupel, hail
     
     call particle_assign(cloud,cloud_nue1mue1)
     call particle_assign(rain,rainSBB)
@@ -768,8 +768,8 @@ CONTAINS
 
   SUBROUTINE init_2mom_scheme_once(cloud,rain,ice,snow,graupel,hail,cloud_type)
     INTEGER, INTENT(in)  :: cloud_type
-    CLASS(particle), INTENT(in) :: cloud, rain
-    CLASS(particle_frozen), INTENT(in) :: ice, snow, graupel, hail
+    CLASS(particle), INTENT(inout) :: cloud, rain
+    CLASS(particle_frozen), INTENT(inout) :: ice, snow, graupel, hail
 
     CHARACTER(len=*), PARAMETER :: routine = 'init_2mom_scheme_once'
     REAL(wp), DIMENSION(1:1) :: q_r,x_r,q_c,vn_rain_min, vq_rain_min, vn_rain_max, vq_rain_max
