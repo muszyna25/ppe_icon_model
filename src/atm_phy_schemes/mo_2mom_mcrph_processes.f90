@@ -389,7 +389,7 @@ CONTAINS
     real(wp), intent(in) :: D_m
     real(wp)             :: dnorm
 
-    dnorm = min(max((log10(D_m*this%lwf_cnorm1)+this%lwf_cnorm2)*this%lwf_cnorm3,0.),1.)
+    dnorm = min(max((log10(D_m*this%lwf_cnorm1)+this%lwf_cnorm2)*this%lwf_cnorm3,0._wp),1._wp)
     return
   end function particle_normdiameter
 
@@ -400,7 +400,7 @@ CONTAINS
     real(wp)                    :: lwf
     real(wp), parameter         :: eps = 1e-20_wp
 
-    lwf = max(min(this%l(i,j)/(this%q(i,j)+eps),1.),0.)
+    lwf = max(min(this%l(i,j)/(this%q(i,j)+eps),1._wp),0._wp)
     return
   end function particle_lwf_idx
 
