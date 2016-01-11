@@ -564,7 +564,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   CASE (4) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
 
-    IF (jg == 1) CALL two_moment_mcrph_init( msg_level=msg_level )
+    IF (jg == 1) CALL two_moment_mcrph_init(igscp=atm_phy_nwp_config(jg)%inwp_gscp, msg_level=msg_level )
 
     IF (linit_mode) THEN ! Initial condition for number densities
 !$OMP PARALLEL
@@ -589,7 +589,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   CASE (5) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
 
-    IF (jg == 1) CALL two_moment_mcrph_init(N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin,msg_level)
+    IF (jg == 1) CALL two_moment_mcrph_init(atm_phy_nwp_config(jg)%inwp_gscp,&
+         &                                  N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin,msg_level)
 
     IF (linit_mode) THEN ! Initial condition for number densities
 !$OMP PARALLEL

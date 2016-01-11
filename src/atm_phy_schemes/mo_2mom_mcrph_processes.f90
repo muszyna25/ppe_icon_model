@@ -53,12 +53,6 @@
 ! - gscp=4 has now prognostic QNC and IN depletion (n_inact)
 ! - gscp=5 has additional budget equations for IN and CCN
 !===============================================================================!
-! Version of November, 2015, by D. Rieger:
-! - Created an own module for process subroutines (mo_2mom_mcrph_processes)
-! - Extended the argument lists of several process subroutines as the declaration
-!   of the according variables happens still in mo_2mom_mcrph_main
-! - Usage of a separate routine for type declaration as developed by AS
-!===============================================================================!
 ! To Do:
 ! - Check conservation of water mass
 ! - Further optimization might be possible in rain_freeze.
@@ -69,7 +63,6 @@
 !   used in COSMO two-moment code (but may be quite expensive).
 ! - Write a version with three or four different ice particle species
 !   (hom, het, frz, and splinters from ice multiplication)
-! - New melting with prognostic melt water
 !===============================================================================!
 ! Small stuff:
 ! - Increase alpha_spacefilling?
@@ -79,8 +72,6 @@
 ! - Better understand performance issues of semi-implicit solver
 ! - Introduce logicals llqi_crit=(qi>q_crit), and llqi_zero = (qi>0.0), etc.
 !   which are calculated once in the driver
-! - Include pointers for q and n in particle type and pass by argument
-!   instead of global pointers in module (q_cloud, n_cloud, etc.)
 !===============================================================================!
 !!
 !! @par Copyright and License
@@ -117,44 +108,37 @@ MODULE mo_2mom_mcrph_processes
   USE mo_satad, ONLY:     &
        & e_ws  => sat_pres_water,  & ! saturation pressure over liquid water
        & e_es  => sat_pres_ice       ! saturation pressure over ice
-
-  USE mo_2mom_mcrph_util, ONLY:      &
+  USE mo_2mom_mcrph_types, ONLY: &
+       & particle, particle_frozen, particle_lwf, atmosphere, &
+       & particle_sphere, particle_rain_coeffs, particle_cloud_coeffs, aerosol_ccn, aerosol_in, &
+       & particle_ice_coeffs, particle_snow_coeffs, particle_graupel_coeffs, &
+       & particle_coeffs, collection_coeffs, rain_riming_coeffs, dep_imm_coeffs
+  USE mo_2mom_mcrph_util, ONLY: &
        & gfct,                       &  ! Gamma function (becomes intrinsic in Fortran2008)
+       & rat2do3,                    &  ! rational function for lwf-melting scheme
+       & dyn_visc_sutherland,        &  ! used in lwf melting scheme
+       & Dv_Rasmussen,               &  ! used in lwf melting scheme
+       & ka_Rasmussen,               &  ! used in lwf melting scheme
+       & lh_evap_RH87,               &  ! used in lwf melting scheme
+       & lh_melt_RH87,               &  ! used in lwf melting scheme
        & gamlookuptable,             &  ! For look-up table of incomplete Gamma function
+       & nlookup, nlookuphr_dummy,   &  !   array size of table
        & incgfct_lower_lookup,       &  !   interpolation in table, lower incomplete Gamma function
        & incgfct_upper_lookup,       &  !   interpolation in talbe, upper incomplete Gamma function
        & dmin_wg_gr_ltab_equi,       &  ! For look-up table of wet growth diameter
        & ltabdminwgg
 
-  USE mo_2mom_mcrph_types,     ONLY:             &
-       &  ATMOSPHERE, PARTICLE, particle_sphere, &
-       &  particle_rain_coeffs,                  &
-       &  aerosol_ccn, aerosol_in,               &
-       &  sym_riming_params, asym_riming_params, &
-       &  evaporation_deposition_params,         &
-       &  melt_params, dep_imm_params
-
   IMPLICIT NONE
 
   PRIVATE
 
-  REAL(wp), PARAMETER :: pi6 = pi/6.0_wp, pi8 = pi/8.0_wp ! more pieces of pi
-
   CHARACTER(len=*), PARAMETER :: routine = 'mo_2mom_mcrph_processes'
 
-! SWITCHES
   ! switches for ice scheme, ice nucleation, drop activation and autoconversion
   INTEGER  :: ice_typ, nuc_i_typ, nuc_c_typ, auto_typ
 
-  ! debug switches
-  LOGICAL, PARAMETER     :: isdebug = .false.   ! use only when really desperate
-  LOGICAL, PARAMETER     :: ischeck = .true.   ! frequently check for positive definite q's
+  ! Physical parameters and coefficients which occur only in the two-moment scheme
 
-  ! some cloud microphysical switches
-  LOGICAL, PARAMETER     :: ice_multiplication = .TRUE.  ! default is .true.
-  LOGICAL, PARAMETER     :: enhanced_melting   = .TRUE.  ! default is .true.
-
-!PARAMETERS
   ! ... some physical parameters not found in ICON
   REAL(wp), PARAMETER :: T_f     = 233.0_wp     !..Bei T < T_f kein Fl.wasser
   REAL(wp), PARAMETER :: rho_ice = 916.7_wp     !..Materialdichte von Eis
@@ -162,8 +146,6 @@ MODULE mo_2mom_mcrph_processes
   ! .. some cloud physics parameters
   REAL(wp), PARAMETER :: N_sc = 0.710_wp        !..Schmidt-Zahl (PK, S.541)
   REAL(wp), PARAMETER :: n_f  = 0.333_wp        !..Exponent von N_sc im Vent-koeff. (PK, S.541)
-  REAL(wp), PARAMETER :: m_f  = 0.500_wp        !..Exponent von N_re im Vent-koeff. (PK, S.541)
-                                                !  (replaced by sqrt almost everywhere)
 
   ! .. for old saturation pressure relations (keep this for some time for testing)
   REAL(wp), PARAMETER :: A_e  = 2.18745584e1_wp !..Konst. Saettigungsdamppfdruck - Eis
@@ -172,6 +154,9 @@ MODULE mo_2mom_mcrph_processes
   REAL(wp), PARAMETER :: B_w  = 3.58600000e1_wp !..Konst. Saettigungsdamppfdruck - Wasser
   REAL(wp), PARAMETER :: e_3  = 6.10780000e2_wp !..Saettigungsdamppfdruck bei T = T_3
 
+  ! .. Autoconversion
+  REAL(wp), PARAMETER :: kc_autocon  = 9.44e+9_wp   !..Long-Kernel
+    
   ! .. Hallet-Mossop ice multiplication
   REAL(wp), PARAMETER ::           &
        &    C_mult     = 3.5e8_wp, &    !..Koeff. fuer Splintering
@@ -200,6 +185,17 @@ MODULE mo_2mom_mcrph_processes
 
   INCLUDE 'phillips_nucleation_2010.incf'
 
+  ! .. LWF melting scheme
+  REAL(wp) ::  &            ! .. Coefficients for rational approximation functions
+       &      adstarh(10), bdstarh(9), amelth(10), bmelth(9), aviwch(10), bviwch(9),  &
+       &      avlwch(10),  bvlwch(9),  avnumh(10), bvnumh(9), convqh(4),  convnh(4),  &   
+       &      adstarg(10), bdstarg(9), ameltg(10), bmeltg(9), aviwcg(10), bviwcg(9),  &
+       &      avlwcg(10),  bvlwcg(9),  avnumg(10), bvnumg(9), convqg(4) , convng(4)   
+
+  !..Include file with coefficients for lwf melting scheme
+  INCLUDE 'hailcoeffs.incf'
+  INCLUDE 'grplcoeffs.incf'
+
   ! Size thresholds for partioning of freezing rain in the hail scheme:
   ! Raindrops smaller than D_rainfrz_ig freeze into cloud ice,
   ! drops between D_rainfrz_ig and D_rainfrz_gh freeze to graupel, and the
@@ -210,44 +206,24 @@ MODULE mo_2mom_mcrph_processes
 
   ! Various parameters for collision and conversion rates
   REAL(wp), PARAMETER ::                  &
-       &    ecoll_ic     = 0.80_wp,       &  !..max. eff. for ice_cloud_riming
-       &    ecoll_sc     = 0.80_wp,       &  !..max. eff. for snow_cloud_riming
-       &    ecoll_gc     = 1.00_wp,       &  !..max. eff. for graupel_cloud_riming
-       &    ecoll_hc     = 1.00_wp,       &  !..max. eff. for hail_cloud_riming
        &    ecoll_min    = 0.01_wp,       &  !..min. eff. for graupel_cloud, ice_cloud and snow_cloud
        &    ecoll_gg     = 0.10_wp,       &  !..collision efficiency for graupel selfcollection
        &    ecoll_gg_wet = 0.40_wp,       &  !    in case of wet graupel
-       &    alpha_spacefilling = 0.01_wp, &  !..Raumerfuellungskoeff (max. 0.68)
-       &    ice_s_vel  = 0.00_wp,         &  !..dispersion of fall velocity for collection kernel
-       &    snow_s_vel = 0.25_wp,         &  !..dispersion of fall velocity (see SB2006, Eqs 60-63)
-       &    r_shedding = 500.0e-6_wp,     &  !..mean radius of shedding droplets
-       &    T_shed     = 263.2_wp            !..crit temperature for sheddding
+       &    alpha_spacefilling = 0.01_wp     !..Raumerfuellungskoeff (max. 0.68)
 
   ! Even more parameters for collision and conversion rates
   REAL(wp), PARAMETER :: &
        &    q_crit_ii = 1.000e-6_wp, & ! q-threshold for ice_selfcollection
        &    D_crit_ii = 100.0e-6_wp, & ! D-threshold for ice_selfcollection
        &    D_conv_ii = 75.00e-6_wp, & ! D-threshold for conversion in ice_selfcollection
-       &    q_crit_ic = 1.000e-5_wp, & ! q-threshold for ice_cloud_riming
-       &    D_crit_ic = 150.0e-6_wp, & ! D-threshold for ice_cloud_riming
-       &    q_crit_ir = 1.000e-5_wp, & ! q-threshold for ice_rain_riming
-       &    D_crit_ir = 100.0e-6_wp, & ! D-threshold for ice_rain_riming
-       &    q_crit_sc = 1.000e-5_wp, & ! q-threshold for snow_cloud_riming
-       &    D_crit_sc = 150.0e-6_wp, & ! D-threshold for snow_cloud_riming
-       &    q_crit_sr = 1.000e-5_wp, & ! q-threshold for snow_rain_riming
-       &    D_crit_sr = 100.0e-6_wp, & ! D-threshold for snow_rain_riming
-       &    q_crit_gc = 1.000e-6_wp, & ! q-threshold for graupel_cloud_riming
-       &    D_crit_gc = 100.0e-6_wp, & ! D-threshold for graupel_cloud_riming
-       &    q_crit_hc = 1.000e-6_wp, & ! q-threshold for hail_cloud_riming
-       &    D_crit_hc = 100.0e-6_wp, & ! D-threshold for hail_cloud_riming
+       &    q_crit_r  = 1.000e-5_wp, & ! q-threshold for ice_rain_riming and snow_rain_riming
+       &    D_crit_r  = 100.0e-6_wp, & ! D-threshold for ice_rain_riming and snow_rain_riming
        &    q_crit_fr = 1.000e-6_wp, & ! q-threshold for rain_freeze
        &    q_crit_c  = 1.000e-6_wp, & ! q-threshold for cloud water
        &    q_crit    = 1.000e-7_wp, & ! q-threshold elsewhere 1e-4 g/m3 = 0.1 mg/m3
        &    D_conv_sg = 200.0e-6_wp, & ! D-threshold for conversion of snow to graupel
        &    D_conv_ig = 200.0e-6_wp, & ! D-threshold for conversion of ice to graupel
        &    x_conv    = 0.100e-9_wp, & ! minimum mass of conversion due to riming
-       &    D_shed_g  = 3.000e-3_wp, & ! D-threshold for graupel shedding
-       &    D_shed_h  = 5.000e-3_wp, & ! D-threshold for hail shedding
        &    D_crit_c  = 10.00e-6_wp, & ! D-threshold for cloud drop collection efficiency
        &    D_coll_c  = 40.00e-6_wp    ! upper bound for diameter in collision efficiency
 
@@ -255,63 +231,54 @@ MODULE mo_2mom_mcrph_processes
        &    T_nuc     = 268.15_wp, & ! lower temperature threshold for ice nucleation, -5 C
        &    T_freeze  = 273.15_wp    ! lower temperature threshold for raindrop freezing
 
-  !..Jason's mu-Dm-relation for snow (see also Milbrandt & Yau 2005),
-  !  currently not used, because it shows no significant improvement
-  LOGICAL,  PARAMETER :: use_mu_Dm_snow_sedi = .FALSE.
-  REAL(wp), PARAMETER :: snow_cmu1 = 4.5_wp      ! a
-  REAL(wp), PARAMETER :: snow_cmu2 = 0.5e+3_wp   ! b
-  REAL(wp), PARAMETER :: snow_cmu3 = 5.0e-3_wp   ! Dnue
-  REAL(wp), PARAMETER :: snow_cmu4 = 5.5_wp      ! a
-  INTEGER,  PARAMETER :: snow_cmu5 = 1           ! exponent
+  ! choice of mu-D relation for rain, default is mu_Dm_rain_typ = 1
+  INTEGER, PARAMETER     :: mu_Dm_rain_typ = 1     ! see init_twomoment() for possible choices
 
-    TYPE(particle_rain_coeffs), PARAMETER :: rainSBBcoeffs = particle_rain_coeffs( &
-         &     0.0,0.0,0.0, & !..a_f,b_f,c_i from type particle_params
-         &     9.292000,    & !..alfa
-         &     9.623000,    & !..beta
-         &     6.222d+2,    & !..gama
-         &     6.000000,    & !..cmu0
-         &     3.000d+1,    & !..cmu1
-         &     1.000d+3,    & !..cmu2
-         &     1.100d-3,    & !..cmu3 = D_br
-         &     1.000000,    & !..cmu4
-         &     2 )            !..cmu5
+  ! Parameter for evaporation of rain, determines change of n_rain during evaporation
+  REAL(wp) :: rain_gfak   ! this is set in init_twomoment depending on mu_Dm_rain_typ
+
+  ! debug switches
+  LOGICAL, PARAMETER     :: isdebug = .false.   ! use only when really desperate
+  LOGICAL, PARAMETER     :: isprint = .true.    ! print-out initialization values
+  
+  ! some cloud microphysical switches
+  LOGICAL, PARAMETER     :: ice_multiplication = .TRUE.  ! default is .true.
+  LOGICAL, PARAMETER     :: enhanced_melting   = .TRUE.  ! default is .true.
+  LOGICAL, PARAMETER     :: classic_melting_in_lwf_scheme = .False.
+
+  REAL(wp), PARAMETER    :: pi6 = pi/6.0_wp, pi8 = pi/8.0_wp ! more pieces of pi
 
   ! Parameters
-  PUBLIC :: N_sc, n_f, ecoll_gc, ecoll_hc
-  PUBLIC :: q_crit_gc, D_crit_gc, q_crit_hc, D_crit_hc
-  PUBLIC :: D_shed_g, D_shed_h, D_crit_c, D_coll_c
   PUBLIC :: q_crit
-  PUBLIC :: rainSBBcoeffs
   ! Switches
   PUBLIC :: ice_typ, nuc_i_typ, nuc_c_typ, auto_typ
-  PUBLIC :: isdebug, ischeck
+  PUBLIC :: isdebug, isprint
   ! Functions
   PUBLIC :: particle_meanmass
-  PUBLIC :: coll_delta_11, coll_delta_12, coll_delta_22
-  PUBLIC :: coll_theta_11, coll_theta_12, coll_theta_22
-  PUBLIC :: vent_coeff_a, vent_coeff_b, moment_gamma
+  PUBLIC :: particle_assign, particle_frozen_assign, particle_lwf_assign
   ! Process Routines
-  PUBLIC :: sedi_vel_rain, sedi_vel_sphere, init_sedi_vel
+  PUBLIC :: sedi_vel_rain, sedi_vel_sphere, init_2mom_sedi_vel
   PUBLIC :: autoconversionSB, accretionSB, rain_selfcollectionSB
   PUBLIC :: autoconversionKB, accretionKB
   PUBLIC :: autoconversionKK, accretionKK
   PUBLIC :: rain_evaporation, evaporation
   PUBLIC :: cloud_freeze
   PUBLIC :: ice_nucleation_homhet, ice_nucleation_homhet_philips, ice_nucleation_homhet_hdcp2
-  PUBLIC :: vapor_dep_relaxation, vapor_deposition_generic
+  PUBLIC :: vapor_dep_relaxation
   PUBLIC :: rain_freeze_gamlook
+  PUBLIC :: setup_particle_coeffs, setup_cloud_autoconversion
   PUBLIC :: setup_ice_selfcollection, ice_selfcollection
   PUBLIC :: setup_snow_selfcollection, snow_selfcollection
-  PUBLIC :: snow_melting, ice_melting, graupel_melting, hail_melting
-  PUBLIC :: graupel_snow_collection, hail_snow_collection, graupel_ice_collection
-  PUBLIC :: hail_ice_collection, snow_ice_collection
+  PUBLIC :: setup_particle_collection_type1, setup_particle_collection_type2
+  PUBLIC :: snow_melting, ice_melting, graupel_melting, hail_melting_simple
+  PUBLIC :: particle_melting_lwf,prepare_melting_lwf
+  PUBLIC :: particle_particle_collection
   PUBLIC :: setup_graupel_selfcollection, graupel_selfcollection
-  PUBLIC :: prtcl_cloud_riming, prtcl_rain_riming
+  PUBLIC :: particle_cloud_riming, particle_rain_riming
   PUBLIC :: graupel_hail_conv_wet_gamlook
   PUBLIC :: ice_riming, snow_riming
-  PUBLIC :: riming_sym_core, riming_asym_core
   PUBLIC :: ccn_activation_sk, ccn_activation_hdcp2
-  PUBLIC :: sedi_icon_rain, sedi_icon_sphere, sedi_icon_core
+  PUBLIC :: sedi_icon_rain, sedi_icon_sphere, sedi_icon_sphere_lwf
 
 CONTAINS
   
@@ -321,9 +288,84 @@ CONTAINS
   ! (1) CLASS procedures for particle class
   !*******************************************************************************
 
+  subroutine particle_assign(that,this)
+    TYPE(particle), INTENT(in)    :: this
+    TYPE(particle), INTENT(inout) :: that
+
+    that%name = this%name    
+    that%nu = this%nu
+    that%mu = this%mu
+    that%x_max = this%x_max
+    that%x_min = this%x_min
+    that%a_geo = this%a_geo
+    that%b_geo = this%b_geo
+    that%a_vel = this%a_vel
+    that%b_vel = this%b_vel
+    that%a_ven = this%a_ven
+    that%b_ven = this%b_ven
+    that%cap   = this%cap
+    that%vsedi_max = this%vsedi_max
+    that%vsedi_min = this%vsedi_min
+  END subroutine particle_assign
+
+  subroutine particle_frozen_assign(that,this)
+    TYPE(particle_frozen), INTENT(in)    :: this
+    TYPE(particle_frozen), INTENT(inout) :: that
+
+    that%name = this%name    
+    that%nu = this%nu
+    that%mu = this%mu
+    that%x_max = this%x_max
+    that%x_min = this%x_min
+    that%a_geo = this%a_geo
+    that%b_geo = this%b_geo
+    that%a_vel = this%a_vel
+    that%b_vel = this%b_vel
+    that%a_ven = this%a_ven
+    that%b_ven = this%b_ven
+    that%cap   = this%cap
+    that%vsedi_max = this%vsedi_max
+    that%vsedi_min = this%vsedi_min
+    that%ecoll_c   = this%ecoll_c
+    that%D_crit_c  = this%D_crit_c
+    that%q_crit_c  = this%q_crit_c
+    that%s_vel     = this%s_vel
+  END subroutine particle_frozen_assign
+
+  subroutine particle_lwf_assign(that,this)
+    TYPE(particle_lwf), INTENT(in)    :: this
+    TYPE(particle_lwf), INTENT(inout) :: that
+    
+    that%name = this%name    
+    that%nu = this%nu
+    that%mu = this%mu
+    that%x_max = this%x_max
+    that%x_min = this%x_min
+    that%a_geo = this%a_geo
+    that%b_geo = this%b_geo
+    that%a_vel = this%a_vel
+    that%b_vel = this%b_vel
+    that%a_ven = this%a_ven
+    that%b_ven = this%b_ven
+    that%cap   = this%cap
+    that%vsedi_max = this%vsedi_max
+    that%vsedi_min = this%vsedi_min
+    
+    that%ecoll_c   = this%ecoll_c
+    that%D_crit_c  = this%D_crit_c
+    that%q_crit_c  = this%q_crit_c
+    that%s_vel     = this%s_vel
+
+    that%lwf_cnorm1 = this%lwf_cnorm1 
+    that%lwf_cnorm2 = this%lwf_cnorm2 
+    that%lwf_cnorm3 = this%lwf_cnorm3 
+    that%lwf_cmelt1 = this%lwf_cmelt1 
+    that%lwf_cmelt2 = this%lwf_cmelt2
+  END subroutine particle_lwf_assign
+
   ! mean mass with limiters, Eq. (94) of SB2006
   ELEMENTAL FUNCTION particle_meanmass(this,q,n) RESULT(xmean)
-    TYPE(particle), INTENT(in) :: this
+    CLASS(particle), INTENT(in) :: this
     REAL(wp),        INTENT(in) :: q,n
     REAL(wp)                    :: xmean
     REAL(wp), PARAMETER         :: eps = 1e-20_wp
@@ -333,16 +375,38 @@ CONTAINS
 
   ! mass-diameter relation, power law, Eq. (32) of SB2006
   ELEMENTAL FUNCTION particle_diameter(this,x) RESULT(D)
-    TYPE(particle), INTENT(in) :: this
+    CLASS(particle), INTENT(in) :: this
     REAL(wp),        INTENT(in) :: x
     REAL(wp)                    :: D
 
     D = this%a_geo * exp(this%b_geo*log(x))    ! v = a_geo * x**b_geo
   END FUNCTION particle_diameter
 
+  ! normalized diameter for rational function approx.
+  ! in lwf-melting scheme
+  pure function particle_normdiameter(this,D_m) result(dnorm)
+    CLASS(particle_lwf), intent(in) :: this
+    real(wp), intent(in) :: D_m
+    real(wp)             :: dnorm
+
+    dnorm = min(max((log10(D_m*this%lwf_cnorm1)+this%lwf_cnorm2)*this%lwf_cnorm3,0.),1.)
+    return
+  end function particle_normdiameter
+
+  ! lwf of mixed particle
+  pure function particle_lwf_idx(this,i,j) result(lwf)
+    CLASS(particle_lwf), intent(in) :: this
+    integer,         intent(in) :: i,j
+    real(wp)                    :: lwf
+    real(wp), parameter         :: eps = 1e-20_wp
+
+    lwf = max(min(this%l(i,j)/(this%q(i,j)+eps),1.),0.)
+    return
+  end function particle_lwf_idx
+
   ! terminal fall velocity of particles, cf. Eq. (33) of SB2006
   ELEMENTAL FUNCTION particle_velocity(this,x) RESULT(v)
-    TYPE(particle), INTENT(in) :: this
+    CLASS(particle), INTENT(in) :: this
     REAL(wp),        INTENT(in) :: x
     REAL(wp)                    :: v
 
@@ -352,8 +416,8 @@ CONTAINS
   ! mue-Dm relation of raindrops
   PURE FUNCTION rain_mue_dm_relation(this,D_m) result(mue)
     CLASS(particle_rain_coeffs), intent(in) :: this
-    real(wp),             intent(in) :: D_m
-    real(wp)                         :: mue, delta
+    real(wp), intent(in) :: D_m
+    real(wp)             :: mue, delta
 
     delta = this%cmu2*(D_m-this%cmu3)
     if (D_m.le.this%cmu3) then
@@ -371,7 +435,7 @@ CONTAINS
   REAL(wp) FUNCTION vent_coeff_a(parti,n)
     IMPLICIT NONE
     INTEGER, INTENT(IN)        :: n
-    TYPE(particle), INTENT(IN) :: parti
+    CLASS(particle), INTENT(IN) :: parti
 
     vent_coeff_a = parti%a_ven * gfct((parti%nu+n+parti%b_geo)/parti%mu)              &
          &                     / gfct((parti%nu+1.0)/parti%mu)                        &
@@ -383,7 +447,7 @@ CONTAINS
   REAL(wp) FUNCTION vent_coeff_b(parti,n)
     IMPLICIT NONE
     INTEGER, INTENT(in)         :: n
-    TYPE(particle), INTENT(in) :: parti
+    CLASS(particle), INTENT(in) :: parti
 
     REAL(wp), PARAMETER :: m_f = 0.500 ! see PK, S.541. Do not change.
 
@@ -399,7 +463,7 @@ CONTAINS
   REAL(wp) FUNCTION moment_gamma(p,n)
     IMPLICIT NONE
     INTEGER, INTENT(in)           :: n
-    TYPE(particle), INTENT(in)   :: p
+    CLASS(particle), INTENT(in)   :: p
 
     moment_gamma  = gfct((n+p%nu+1.0)/p%mu) / gfct((p%nu+1.0)/p%mu)        &
          &      * ( gfct((  p%nu+1.0)/p%mu) / gfct((p%nu+2.0)/p%mu) )**n
@@ -410,7 +474,7 @@ CONTAINS
   REAL(wp) FUNCTION fracmoment_gamma(p,fexp)
     IMPLICIT NONE
     REAL(wp), INTENT(in) :: fexp
-    TYPE(particle), INTENT(in)   :: p
+    CLASS(particle), INTENT(in)   :: p
 
     fracmoment_gamma  = gfct((fexp+p%nu+1.0)/p%mu) / gfct((p%nu+1.0)/p%mu)        &
          &          * ( gfct((    p%nu+1.0)/p%mu) / gfct((p%nu+2.0)/p%mu) )**fexp
@@ -420,7 +484,7 @@ CONTAINS
   REAL(wp) FUNCTION lambda_gamma(p,x)
     IMPLICIT NONE
     REAL(wp), INTENT(in) :: x
-    TYPE(particle), INTENT(in)   :: p
+    CLASS(particle), INTENT(in)   :: p
 
     lambda_gamma  = ( gfct((p%nu+1.0)/p%mu) / gfct((p%nu+2.0)/p%mu) * x)**(-p%mu)
   END FUNCTION lambda_gamma
@@ -428,7 +492,7 @@ CONTAINS
   ! coefficient for general collision integral, Eq. (90) of SB2006
   REAL(wp) FUNCTION coll_delta(p1,n)
     IMPLICIT NONE
-    TYPE(particle), INTENT(in) :: p1
+    CLASS(particle), INTENT(in) :: p1
     INTEGER, INTENT(in)         :: n
 
     coll_delta = gfct((2.0*p1%b_geo+p1%nu+1.0+n)/p1%mu)         &
@@ -440,7 +504,7 @@ CONTAINS
 
   ! wrapper for coll_delta (unnecessary and unused argument p2, but do not remove this)
   REAL(wp) FUNCTION coll_delta_11(p1,p2,n)
-    TYPE(particle), INTENT(in) :: p1,p2
+    CLASS(particle), INTENT(in) :: p1,p2
     INTEGER, INTENT(in)         :: n
     coll_delta_11 = coll_delta(p1,n)
     RETURN
@@ -448,7 +512,7 @@ CONTAINS
 
   ! wrapper for coll_delta (unnecessary and unused argument p2, but do not remove this)
   REAL(wp) FUNCTION coll_delta_22(p1,p2,n)
-    TYPE(particle), INTENT(in) :: p1,p2
+    CLASS(particle), INTENT(in) :: p1,p2
     INTEGER, INTENT(in)         :: n
     coll_delta_22 = coll_delta(p2,n)
     RETURN
@@ -456,7 +520,7 @@ CONTAINS
 
   ! coefficient for general collision integral, Eq. (91) of SB2006
   REAL(wp) FUNCTION coll_delta_12(p1,p2,n)
-    TYPE(particle), INTENT(in) :: p1,p2
+    CLASS(particle), INTENT(in) :: p1,p2
     INTEGER, INTENT(in)         :: n
 
     coll_delta_12 = 2.0 * gfct((p1%b_geo+p1%nu+1.0)/p1%mu)               &
@@ -472,7 +536,7 @@ CONTAINS
 
   ! coefficient for general collision integral, Eq. (92) of SB2006
   REAL(wp) FUNCTION coll_theta(p1,n)
-    TYPE(particle), INTENT(in) :: p1
+    CLASS(particle), INTENT(in) :: p1
     INTEGER, INTENT(in)         :: n
 
     coll_theta = gfct((2.0*p1%b_vel+2.0*p1%b_geo+p1%nu+1.0+n)/p1%mu)    &
@@ -484,7 +548,7 @@ CONTAINS
 
   ! wrapper for coll_theta (unnecessary and unused argument p2, but do not remove this)
   REAL(wp) FUNCTION coll_theta_11(p1,p2,n)
-    TYPE(particle), INTENT(in) :: p1,p2
+    CLASS(particle), INTENT(in) :: p1,p2
     INTEGER, INTENT(in)         :: n
 
     coll_theta_11 = coll_theta(p1,n)
@@ -493,7 +557,7 @@ CONTAINS
 
   ! wrapper for coll_theta (unnecessary and unused argument p2, but do not remove this)
   REAL(wp) FUNCTION coll_theta_22(p1,p2,n)
-    TYPE(particle), INTENT(in) :: p1,p2
+    CLASS(particle), INTENT(in) :: p1,p2
     INTEGER, INTENT(in)         :: n
 
     coll_theta_22 = coll_theta(p2,n)
@@ -502,7 +566,7 @@ CONTAINS
 
   ! coefficient for general collision integral, Eq. (93) of SB2006
   REAL(wp) FUNCTION coll_theta_12(p1,p2,n)
-    TYPE(particle), INTENT(in) :: p1,p2
+    CLASS(particle), INTENT(in) :: p1,p2
     INTEGER, INTENT(in)         :: n
 
     coll_theta_12 = 2.0 * gfct((p1%b_vel+2.0*p1%b_geo+p1%nu+1.0)/p1%mu)       &
@@ -518,7 +582,7 @@ CONTAINS
 
   ! bulk sedimentation velocities
   subroutine sedi_vel_rain(this,thisCoeffs,q,x,vn,vq,its,ite,qc)
-    TYPE(particle), intent(in)      :: this
+    CLASS(particle), intent(in)            :: this
     TYPE(particle_rain_coeffs), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
     real(wp), intent(in)  :: q(:),x(:)
@@ -552,8 +616,8 @@ CONTAINS
 
   ! bulk sedimentation velocities
   subroutine sedi_vel_sphere(this,thisCoeffs,q,x,vn,vq,its,ite)
-    TYPE(particle), intent(in)        :: this
-    TYPE(particle_sphere), intent(in) :: thisCoeffs
+    CLASS(particle), intent(in)        :: this
+    CLASS(particle_sphere), intent(in) :: thisCoeffs
     integer,  intent(in)  :: its,ite
     real(wp), intent(in)  :: q(:),x(:)
     real(wp), intent(out) :: vn(:), vq(:)
@@ -580,21 +644,23 @@ CONTAINS
   end subroutine sedi_vel_sphere
 
   ! initialize coefficients for bulk sedimentation velocity
-  subroutine init_sedi_vel(this,thisCoeffs)
-    TYPE(particle), INTENT(in) :: this
-    TYPE(particle_sphere), INTENT(out) :: thisCoeffs
+  subroutine init_2mom_sedi_vel(this,thisCoeffs)
+    CLASS(particle), INTENT(in) :: this
+    CLASS(particle_sphere), INTENT(out) :: thisCoeffs
+
+    CHARACTER(len=*), PARAMETER :: sroutine = 'init_2mom_sedi_vel'
 
     thisCoeffs%coeff_alfa_n = this%a_vel * gfct((this%nu+this%b_vel+1.0)/this%mu) / gfct((this%nu+1.0)/this%mu)
     thisCoeffs%coeff_alfa_q = this%a_vel * gfct((this%nu+this%b_vel+2.0)/this%mu) / gfct((this%nu+2.0)/this%mu)
     thisCoeffs%coeff_lambda = gfct((this%nu+1.0)/this%mu)/gfct((this%nu+2.0)/this%mu)
 
-    CALL message(TRIM(routine), "init_sedi_vel: ")
-    WRITE (txt,'(2A)') "    name  = ",this%name ; CALL message(routine,TRIM(txt))
-    WRITE (txt,'(A,D10.3)') "    c_lam = ",thisCoeffs%coeff_lambda ; CALL message(routine,TRIM(txt))
-    WRITE (txt,'(A,D10.3)') "    alf_n = ",thisCoeffs%coeff_alfa_n ; CALL message(routine,TRIM(txt))
-    WRITE (txt,'(A,D10.3)') "    alf_q = ",thisCoeffs%coeff_alfa_q ; CALL message(routine,TRIM(txt))
-
-  end subroutine init_sedi_vel
+    IF (isprint) THEN
+      WRITE (txt,'(2A)') "    name  = ",this%name ; CALL message(sroutine,TRIM(txt))
+      WRITE (txt,'(A,D10.3)') "    c_lam = ",thisCoeffs%coeff_lambda ; CALL message(sroutine,TRIM(txt))
+      WRITE (txt,'(A,D10.3)') "    alf_n = ",thisCoeffs%coeff_alfa_n ; CALL message(sroutine,TRIM(txt))
+      WRITE (txt,'(A,D10.3)') "    alf_q = ",thisCoeffs%coeff_alfa_q ; CALL message(sroutine,TRIM(txt))
+    END IF
+  end subroutine init_2mom_sedi_vel
 
   ! currently not used
   FUNCTION D_average_factor (parti)
@@ -602,7 +668,7 @@ CONTAINS
     !     gueltig fuer D = a_geo * x^b_geo
     !     Berechnung des mittleren Durchmessers: D_average = parti%b_geo * D_average_factor * (q/qn)**parti%b_geo
     REAL(wp) :: D_average_factor
-    TYPE(particle), INTENT(in) :: parti
+    CLASS(particle), INTENT(in) :: parti
 
     D_average_factor = &
          ( gfct( (parti%b_geo+parti%nu+1.0)/parti%mu ) / &
@@ -651,17 +717,17 @@ CONTAINS
   !   e_es_vec  = e_3 * EXP (A_e * (ta - T_3) / (ta - B_e))
   ! END FUNCTION e_es_vec
 
-  SUBROUTINE autoconversionSB(ik_slice, dt, autoconversion_sb_k_au, autoconversion_sb_k_sc, cloud,rain)
+  SUBROUTINE autoconversionSB(ik_slice,dt,cloud_coeffs,cloud,rain)
     !*******************************************************************************
     ! Autoconversion of Seifert and Beheng (2001, Atmos. Res.)                     *
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(particle_cloud_coeffs), INTENT(in) :: cloud_coeffs
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    REAL(wp), INTENT(in) :: autoconversion_sb_k_au, autoconversion_sb_k_sc
-    TYPE(particle), INTENT(inout) :: cloud, rain
+    CLASS(particle), INTENT(inout) :: cloud, rain
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER          :: i,k
@@ -690,7 +756,7 @@ CONTAINS
             q_r = rain%q(i,k)
             x_c = particle_meanmass(cloud, q_c,n_c)
 
-            au  = autoconversion_sb_k_au * q_c**2 * x_c**2 * dt &
+            au  = cloud_coeffs%k_au * q_c**2 * x_c**2 * dt &
                  * cloud%rho_v(i,k)
             tau = MIN(MAX(1.0-q_c/(q_c+q_r+eps),eps),0.9_wp)
             phi = k_1 * tau**k_2 * (1.0 - tau**k_2)**3
@@ -698,7 +764,7 @@ CONTAINS
 
             au  = MAX(MIN(q_c,au),0.0_wp)
 
-            sc  = autoconversion_sb_k_sc * q_c**2 * dt * cloud%rho_v(i,k)
+            sc  = cloud_coeffs%k_sc * q_c**2 * dt * cloud%rho_v(i,k)
 
             rain%n(i,k)  = rain%n(i,k)  + au * x_s_i
             rain%q(i,k)  = rain%q(i,k)  + au
@@ -720,7 +786,7 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(particle), INTENT(inout)  :: cloud, rain
+    CLASS(particle), INTENT(inout)  :: cloud, rain
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER     :: i, k
@@ -773,7 +839,7 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(particle) , INTENT(inout) :: rain
+    CLASS(particle) , INTENT(inout) :: rain
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER        :: i, k
@@ -823,7 +889,7 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(particle), INTENT(inout) :: cloud, rain
+    CLASS(particle), INTENT(inout) :: cloud, rain
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER          :: i,k
@@ -869,7 +935,7 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(particle), INTENT(inout)   :: cloud, rain
+    CLASS(particle), INTENT(inout)   :: cloud, rain
 
     !..Parameter of Beheng (1994)
     REAL(wp), PARAMETER :: k_r = 6.00d+00
@@ -911,7 +977,7 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(particle), INTENT(inout) :: cloud, rain
+    CLASS(particle), INTENT(inout) :: cloud, rain
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
@@ -955,7 +1021,7 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(particle), INTENT(inout) :: cloud, rain
+    CLASS(particle), INTENT(inout) :: cloud, rain
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
@@ -987,22 +1053,29 @@ CONTAINS
 
   END SUBROUTINE accretionKK
 
-  SUBROUTINE rain_evaporation(ik_slice, dt, rain_coeffs, rain_gfak, atmo,cloud,rain)
+  SUBROUTINE rain_evaporation(ik_slice, dt, rain_coeffs, rain_gfak, atmo, cloud, rain)
     !*******************************************************************************
     ! Evaporation of rain based on Seifert (2008, J. Atmos. Sci.)                  *
     !*******************************************************************************
+
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
+    
+    REAL(wp), INTENT(in) :: rain_gfak   ! this is set in init_twomoment depending on mu_Dm_rain_typ
+    TYPE(particle_rain_coeffs), INTENT(in) :: rain_coeffs
+
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(particle_rain_coeffs), INTENT(in) :: &
-      &  rain_coeffs
-    REAL(wp), INTENT(in) :: rain_gfak   ! this is set in init_twomoment depending on mu_Dm_rain_typ
+
+    ! 2mom variables
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle)      :: cloud,rain
+    CLASS(particle)      :: cloud,rain
+
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
+
+    ! local variables
     INTEGER             :: i,k
     REAL(wp)            :: T_a,p_a,e_sw,s_sw,g_d,eva_q,eva_n
     REAL(wp)            :: q_r,n_r,x_r,e_d,f_v
@@ -1089,7 +1162,7 @@ CONTAINS
              eva_q = MIN(eva_q,q_r)
              eva_n = MIN(eva_n,n_r)
 
-             atmo%qv(i,k)= atmo%qv(i,k)+ eva_q
+             atmo%qv(i,k)     = atmo%qv(i,k)     + eva_q
              rain%q(i,k) = rain%q(i,k) - eva_q
              rain%n(i,k) = rain%n(i,k) - eva_n
           END IF
@@ -1098,7 +1171,7 @@ CONTAINS
 
   END SUBROUTINE rain_evaporation
 
-  SUBROUTINE evaporation(ik_slice, dt, atmo, prtcl, params)
+  SUBROUTINE evaporation(ik_slice, dt, atmo, prtcl, coeffs)
     !*******************************************************************************
     ! Evaporation of melting snow/graupel/hail, see SB2006                                      *
     !*******************************************************************************
@@ -1108,8 +1181,8 @@ CONTAINS
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: prtcl
-    TYPE(evaporation_deposition_params), INTENT(in) :: params
+    CLASS(particle), INTENT(inout) :: prtcl
+    CLASS(particle_coeffs), INTENT(in) :: coeffs
 
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
@@ -1142,9 +1215,9 @@ CONTAINS
             D = particle_diameter(prtcl, x)
             v = particle_velocity(prtcl, x) * prtcl%rho_v(i,k)
 
-            f_v  = params%a_f + params%b_f * sqrt(v*D)
+            f_v  = coeffs%a_f + coeffs%b_f * sqrt(v*D)
 
-            eva = g_d * n * params%c * d * f_v * s_sw * dt
+            eva = g_d * n * coeffs%c_i * d * f_v * s_sw * dt
 
             eva = MAX(-eva,0.0_wp)
             eva = MIN(eva,q)
@@ -1158,7 +1231,7 @@ CONTAINS
 
   END SUBROUTINE evaporation
 
-  SUBROUTINE cloud_freeze(ik_slice, dt, cloud_freeze_coeff_z, qnc_const, atmo, cloud, ice)
+  SUBROUTINE cloud_freeze(ik_slice, dt, cloud_coeffs, qnc_const, atmo, cloud, ice)
     !*******************************************************************************
     ! This is only the homogeneous freezing of liquid water droplets.              *
     ! Immersion freezing and homogeneous freezing of liquid aerosols are           *
@@ -1169,10 +1242,10 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    REAL(wp), INTENT(in) :: cloud_freeze_coeff_z
-    real(wp), INTENT(in) :: qnc_const
+    REAL(wp), INTENT(in) :: qnc_const
+    TYPE(particle_cloud_coeffs), INTENT(in) :: cloud_coeffs
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout)  :: cloud, ice
+    CLASS(particle), INTENT(inout)  :: cloud, ice
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER            :: i, k
@@ -1209,7 +1282,7 @@ CONTAINS
                    ENDIF
 
                    fr_n  = j_hom * q_c *  dt
-                   fr_q  = j_hom * q_c * x_c * dt * cloud_freeze_coeff_z
+                   fr_q  = j_hom * q_c * x_c * dt * cloud_coeffs%c_z
                    fr_q  = MIN(fr_q,q_c)
                    fr_n  = MIN(fr_n,n_c)
                 END IF
@@ -1259,7 +1332,7 @@ CONTAINS
     LOGICAL, INTENT(in) :: use_prog_in
 
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: cloud, ice, snow
+    CLASS(particle), INTENT(inout) :: cloud, ice, snow
     REAL(wp), DIMENSION(:,:) :: n_inact
     REAL(wp), DIMENSION(:,:), OPTIONAL :: n_inpot
 
@@ -1293,57 +1366,47 @@ CONTAINS
     REAL(wp)  :: kappa,sqrtkap,ren,R_imfc,R_im,R_ik,ri_0
 
     ! parameters for Hande et al. nucleation parameterization for HDCP2 simulations
-    TYPE(dep_imm_params), PARAMETER :: hdcp2_nuc_params(5) &
-         = (/ dep_imm_params(&
-                                ! Spring of Table 1
+    TYPE(dep_imm_coeffs), PARAMETER :: hdcp2_nuc_coeffs(5) &
+         = (/ dep_imm_coeffs(&  ! Spring of Table 1
          nin_imm = 1.5684e5, &
-         alf_imm = 0.2466, &
-         bet_imm = 1.2293, &
+         alf_imm = 0.2466,   &
+         bet_imm = 1.2293,   &
          nin_dep = 1.7836e5, &
-         alf_dep = 0.0075, &
-         bet_dep = 2.0341), &
-         dep_imm_params(&
-                                ! Summer
+         alf_dep = 0.0075,   &
+         bet_dep = 2.0341),  &
+         dep_imm_coeffs(     &  ! Summer
          nin_imm = 2.9694e4, &
-         alf_imm = 0.2813, &
-         bet_imm = 1.1778, &
+         alf_imm = 0.2813,   &
+         bet_imm = 1.1778,   &
          nin_dep = 2.6543e4, &
-         alf_dep = 0.0020, &
-         bet_dep = 2.5128), &
-         dep_imm_params(&
-                                ! Autumn
+         alf_dep = 0.0020,   &
+         bet_dep = 2.5128),  &
+         dep_imm_coeffs(     &  ! Autumn
          nin_imm = 4.9920e4, &
-         alf_imm = 0.2622, &
-         bet_imm = 1.2044, &
+         alf_imm = 0.2622,   &
+         bet_imm = 1.2044,   &
          nin_dep = 7.7167e4, &
-         alf_dep = 0.0406, &
-         bet_dep = 1.4705), &
-         dep_imm_params(&
-                                ! Winter
+         alf_dep = 0.0406,   &
+         bet_dep = 1.4705),  &
+         dep_imm_coeffs(     &  ! Winter
          nin_imm = 1.0259e5, &
-         alf_imm = 0.2073, &
-         bet_imm = 1.2873, &
+         alf_imm = 0.2073,   &
+         bet_imm = 1.2873,   &
          nin_dep = 1.1663e4, &
-         alf_dep = 0.0194, &
-         bet_dep = 1.6943), &
-         dep_imm_params(&
-                                ! Spring with 95th percentile scaling factor
+         alf_dep = 0.0194,   &
+         bet_dep = 1.6943),  &
+         dep_imm_coeffs(     &  ! Spring with 95th percentile scaling factor
          nin_imm = 1.5684e5 * 17.82, &
-         alf_imm = 0.2466, &
-         bet_imm = 1.2293, &
+         alf_imm = 0.2466,   &
+         bet_imm = 1.2293,   &
          nin_dep = 1.7836e5 * 5.87, &
-         alf_dep = 0.0075, &
+         alf_dep = 0.0075,   &
          bet_dep = 2.0341) /)
-
-
 
     LOGICAL   :: use_homnuc
 
-    LOGICAL :: ndiag_mask(ik_slice(1):ik_slice(2), ik_slice(3):ik_slice(4))
-    REAL(wp) :: &
-         nuc_n_a(ik_slice(1):ik_slice(2), ik_slice(3):ik_slice(4))
-
-
+    LOGICAL  :: ndiag_mask(ik_slice(1):ik_slice(2), ik_slice(3):ik_slice(4))
+    REAL(wp) :: nuc_n_a(ik_slice(1):ik_slice(2), ik_slice(3):ik_slice(4))
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -1381,7 +1444,7 @@ CONTAINS
              &use_hdcp2_het=.true.')
       END IF
       CALL ice_nucleation_homhet_hdcp2(ik_slice, atmo, ice, snow, cloud, &
-           use_prog_in, hdcp2_nuc_params(nuc_typ), n_inact, ndiag_mask, nuc_n_a)
+           use_prog_in, hdcp2_nuc_coeffs(nuc_typ), n_inact, ndiag_mask, nuc_n_a)
     ELSE
       ! Heterogeneous nucleation using Phillips et al. scheme
       IF (iphillips == 2010) THEN
@@ -1394,7 +1457,7 @@ CONTAINS
           na_dust  = 160.e4_wp    !          coming close to Meyers formula at -20 C
           na_soot  =  25.e6_wp
           na_orga  =  30.e6_wp
-        ELSEIF (nuc_typ.EQ.8) THEN     ! no organics, no soot, coming close to DeMott et al. 2010 at -20 C
+        ELSE IF (nuc_typ.EQ.8) THEN     ! no organics, no soot, coming close to DeMott et al. 2010 at -20 C
           na_dust  =  70.e4_wp    ! i.e. roughly one order in magnitude lower than Meyers
           na_soot  =   0.e6_wp
           na_orga  =   0.e6_wp
@@ -1501,7 +1564,7 @@ CONTAINS
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(in) :: ice, snow, cloud
+    CLASS(particle), INTENT(in) :: ice, snow, cloud
     LOGICAL, INTENT(in) :: use_prog_in
     REAL(wp), INTENT(inout), DIMENSION(:,:) :: n_inact
     REAL(wp), INTENT(out) :: &
@@ -1629,14 +1692,14 @@ CONTAINS
   END SUBROUTINE ice_nucleation_homhet_philips
 
   SUBROUTINE ice_nucleation_homhet_hdcp2(ik_slice, atmo, ice, snow, cloud, &
-       use_prog_in, nuc_params, n_inact, ndiag_mask, nuc_n_a)
+       use_prog_in, nuc_coeffs, n_inact, ndiag_mask, nuc_n_a)
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(in) :: ice, snow, cloud
+    CLASS(particle), INTENT(in) :: ice, snow, cloud
     LOGICAL, INTENT(in) :: use_prog_in
-    TYPE(dep_imm_params), INTENT(in) :: nuc_params
+    TYPE(dep_imm_coeffs), INTENT(in) :: nuc_coeffs
     REAL(wp), INTENT(inout), DIMENSION(:,:) :: n_inact
     REAL(wp), INTENT(out) :: &
          nuc_n_a(ik_slice(1):ik_slice(2), ik_slice(3):ik_slice(4))
@@ -1679,8 +1742,8 @@ CONTAINS
             ! Hande et al. scheme, Eq. (1)
             T_a = MAX(T_a,237.1501_wp)
             IF (T_a.LT.261.15_wp) THEN
-              ndiag = nuc_params%nin_imm * EXP( - nuc_params%alf_imm &
-                   * EXP(nuc_params%bet_imm*LOG(T_a - 237.15_wp)) )
+              ndiag = nuc_coeffs%nin_imm * EXP( - nuc_coeffs%alf_imm &
+                   * EXP(nuc_coeffs%bet_imm*LOG(T_a - 237.15_wp)) )
             ELSE
               ndiag = 0.0_wp
             END IF
@@ -1688,8 +1751,8 @@ CONTAINS
             ! Hande et al. scheme, Eq. (3) with (2) and (1)
             T_a = max(T_a,220.001_wp)
             IF (T_a.LT.253.0_wp) THEN
-              ndiag = nuc_params%nin_dep * EXP( - nuc_params%alf_dep &
-                   * EXP(nuc_params%bet_dep*LOG(T_a - 220.0_wp)) )
+              ndiag = nuc_coeffs%nin_dep * EXP( - nuc_coeffs%alf_dep &
+                   * EXP(nuc_coeffs%bet_dep*LOG(T_a - 220.0_wp)) )
               ndiag = ndiag * (a_dep * atan(b_dep*(ssi-1.0_wp)+c_dep) + d_dep)
             ELSE
               ndiag = 0.0_wp
@@ -1720,7 +1783,8 @@ CONTAINS
     END DO
   END SUBROUTINE ice_nucleation_homhet_hdcp2
 
-  SUBROUTINE vapor_dep_relaxation(ik_slice, vid_params, vgd_params, vhd_params, vsd_params, dt_local, &
+  SUBROUTINE vapor_dep_relaxation(ik_slice, dt_local, &
+       &               ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
        &               atmo, ice, snow, graupel, hail, dep_rate_ice, dep_rate_snow)
     !*******************************************************************************
     ! Deposition and sublimation                                                   *
@@ -1728,11 +1792,10 @@ CONTAINS
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
-    TYPE(evaporation_deposition_params), INTENT(in)  :: &
-      &  vid_params, vgd_params, vhd_params, vsd_params
-    TYPE(atmosphere)         :: atmo
-    TYPE(particle)           :: ice, snow, graupel, hail
-    REAL(wp), INTENT(IN)     :: dt_local
+    TYPE(atmosphere)    :: atmo
+    CLASS(particle)     :: ice, snow, graupel, hail
+    CLASS(particle_sphere), INTENT(IN) :: ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs
+    REAL(wp), INTENT(IN)              :: dt_local
     REAL(wp), INTENT(INOUT), DIMENSION(:,:) :: dep_rate_ice, dep_rate_snow
 
     REAL(wp), DIMENSION(size(dep_rate_ice,1),size(dep_rate_ice,2)) :: &
@@ -1774,22 +1837,16 @@ CONTAINS
     ENDDO
 
     DO k = kstart,kend
-      DO i = istart, iend
-        dep_ice(i,k)     = 0.0
-        dep_snow(i,k)    = 0.0
-        dep_graupel(i,k) = 0.0
-        dep_hail(i,k)    = 0.0
-      END DO
+       dep_ice(:,k)     = 0.0
+       dep_snow(:,k)    = 0.0
+       dep_graupel(:,k) = 0.0
+       dep_hail(:,k)    = 0.0
     END DO
 
-    CALL vapor_deposition_generic(ik_slice, ice, vid_params, g_i, s_si, &
-         dt_local, dep_ice)
-    CALL vapor_deposition_generic(ik_slice, snow, vsd_params, g_i, s_si, &
-         dt_local, dep_snow)
-    CALL vapor_deposition_generic(ik_slice, graupel, vgd_params, g_i, s_si, &
-         dt_local, dep_graupel)
-    IF (ice_typ > 1) CALL vapor_deposition_generic(ik_slice, hail, vhd_params, &
-         g_i, s_si, dt_local, dep_hail)
+    CALL vapor_deposition_generic(ik_slice, ice, ice_coeffs, g_i, s_si,dt_local, dep_ice)
+    CALL vapor_deposition_generic(ik_slice, snow, snow_coeffs, g_i, s_si, dt_local, dep_snow)
+    CALL vapor_deposition_generic(ik_slice, graupel, graupel_coeffs, g_i, s_si, dt_local, dep_graupel)
+    CALL vapor_deposition_generic(ik_slice, hail, hail_coeffs, g_i, s_si, dt_local, dep_hail)
 
     zdt = 1.0/dt_local
 
@@ -1851,9 +1908,7 @@ CONTAINS
                 ice%q(i,k)     = ice%q(i,k)     + dep_ice(i,k)
                 snow%q(i,k)    = snow%q(i,k)    + dep_snow(i,k)
                 graupel%q(i,k) = graupel%q(i,k) + dep_graupel(i,k)
-                IF (ice_typ > 1) THEN
-                   hail%q(i,k)    = hail%q(i,k)    + dep_hail(i,k)
-                END IF
+                hail%q(i,k)    = hail%q(i,k)    + dep_hail(i,k)
 
                 atmo%qv(i,k) = atmo%qv(i,k) - dep_sum
 
@@ -1868,11 +1923,11 @@ CONTAINS
 
   END SUBROUTINE vapor_dep_relaxation
 
-  PURE SUBROUTINE vapor_deposition_generic(ik_slice, prtcl, params, g_i, s_si, &
+  PURE SUBROUTINE vapor_deposition_generic(ik_slice, prtcl, coeffs, g_i, s_si, &
        dt, dep)
     INTEGER, INTENT(in) :: ik_slice(4)
-    TYPE(particle), INTENT(in) :: prtcl
-    TYPE(evaporation_deposition_params), INTENT(in) :: params
+    CLASS(particle), INTENT(in) :: prtcl
+    CLASS(particle_coeffs), INTENT(in) :: coeffs
     REAL(wp), INTENT(in) :: g_i(:, :), s_si(:, :)
     REAL(wp), INTENT(in) :: dt
     REAL(wp), INTENT(out) :: dep(:, :)
@@ -1893,14 +1948,14 @@ CONTAINS
           n = prtcl%n(i,k)
           q = prtcl%q(i,k)
 
-          x = particle_meanmass(prtcl, q,n)
-          D = particle_diameter(prtcl, x)
-          v = particle_velocity(prtcl, x) * prtcl%rho_v(i,k)
+          x = particle_meanmass(prtcl,q,n)
+          D = particle_diameter(prtcl,x)
+          v = particle_velocity(prtcl,x) * prtcl%rho_v(i,k)
 
-          f_v  = params%a_f + params%b_f * SQRT(D*v)
-          f_v  = MAX(f_v,params%a_f/prtcl%a_ven)
+          f_v  = coeffs%a_f + coeffs%b_f * SQRT(D*v)
+          f_v  = MAX(f_v,coeffs%a_f/prtcl%a_ven)
 
-          dep(i,k) = g_i(i,k) * n * params%c * d * f_v * s_si(i,k) * dt
+          dep(i,k) = g_i(i,k) * n * coeffs%c_i * d * f_v * s_si(i,k) * dt
         ENDIF
       ENDDO
     ENDDO
@@ -1908,7 +1963,7 @@ CONTAINS
 
   SUBROUTINE rain_freeze_gamlook(ik_slice, dt, rain_ltable1, rain_ltable2, rain_ltable3, &
                                  rain_nm1, rain_nm2, rain_nm3, rain_g1, rain_g2,         &
-                                 rain_freeze_coeff_z, atmo,rain,ice,snow,graupel,hail)
+                                 rain_coeffs,atmo,rain,ice,snow,graupel,hail)
     !*******************************************************************************
     ! Freezing of raindrops                                                        *
     ! by Uli Blahak                                                                *
@@ -1917,14 +1972,16 @@ CONTAINS
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
+    INTEGER, INTENT(in)  :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
+    ! coefficients and tables
     TYPE(gamlookuptable), INTENT(in) :: rain_ltable1, rain_ltable2, rain_ltable3
     REAL(wp),INTENT(in)              :: rain_nm1, rain_nm2, rain_nm3, rain_g1, rain_g2
-    REAL(wp),INTENT(in)              :: rain_freeze_coeff_z
+    TYPE(particle_rain_coeffs),INTENT(in) :: rain_coeffs
+    ! prognostic variables
     TYPE(atmosphere), INTENT(inout)  :: atmo
-    TYPE(particle), INTENT(inout)    :: rain, ice, snow, graupel, hail
+    CLASS(particle), INTENT(inout)   :: rain, ice, snow, graupel, hail
 
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
@@ -2008,7 +2065,7 @@ CONTAINS
                    ! und von xmax_gr bis unendlich (--> Hagel).
                    IF (j_het >= 1d-20) THEN
                       fr_n  = j_het * q_r
-                      fr_q  = j_het * q_r * x_r * rain_freeze_coeff_z
+                      fr_q  = j_het * q_r * x_r * rain_coeffs%c_z
 
                       lam = ( rain_g1 / rain_g2 * x_r)**(-rain%mu)
                       n_0 = rain%mu * n_r * lam**(rain_nm1) / rain_g1
@@ -2054,23 +2111,15 @@ CONTAINS
              !   n_inact(i,k) = n_inact(i,k) + fr_n
              !end if
 
-             IF (ice_typ < 2) THEN
-                ! ohne Hagelklasse,  gefrierender Regen wird Eis oder Graupel
-                ice%q(i,k) = ice%q(i,k)  + fr_q_i
-                ice%n(i,k) = ice%n(i,k)  + fr_n_i
-                graupel%q(i,k) = graupel%q(i,k)  + fr_q_h + fr_q_g
-                graupel%n(i,k) = graupel%n(i,k)  + fr_n_h + fr_n_g
-             ELSE
-                ! mit Hagelklasse, gefrierender Regen wird Eis, Graupel oder Hagel
-                snow%q(i,k) = snow%q(i,k)  + fr_q_i
-                snow%n(i,k) = snow%n(i,k)  + fr_n_i   ! put this into snow
-                !ice%q(i,k) = ice%q(i,k)  + fr_q_i    ! ... or into ice?
-                !ice%n(i,k) = ice%n(i,k)  + fr_n_i
-                graupel%q(i,k) = graupel%q(i,k)  + fr_q_g
-                graupel%n(i,k) = graupel%n(i,k)  + fr_n_g
-                hail%q(i,k) = hail%q(i,k)  + fr_q_h
-                hail%n(i,k) = hail%n(i,k)  + fr_n_h
-             ENDIF
+             ! mit Hagelklasse, gefrierender Regen wird Eis, Graupel oder Hagel
+             snow%q(i,k) = snow%q(i,k)  + fr_q_i
+             snow%n(i,k) = snow%n(i,k)  + fr_n_i   ! put this into snow
+             !ice%q(i,k) = ice%q(i,k)  + fr_q_i    ! ... or into ice?
+             !ice%n(i,k) = ice%n(i,k)  + fr_n_i
+             graupel%q(i,k) = graupel%q(i,k)  + fr_q_g
+             graupel%n(i,k) = graupel%n(i,k)  + fr_n_g
+             hail%q(i,k) = hail%q(i,k)  + fr_q_h
+             hail%n(i,k) = hail%n(i,k)  + fr_n_h
 
              ! clipping of small negatives is necessary here
              if (lclipping) then
@@ -2087,16 +2136,52 @@ CONTAINS
     END DO
   END SUBROUTINE rain_freeze_gamlook
 
-  SUBROUTINE setup_ice_selfcollection(ice, ice_sc_delta_n, ice_sc_delta_q, ice_sc_theta_n, ice_sc_theta_q)
-    TYPE(particle), INTENT(in) :: ice
-    REAL(wp), INTENT(inout)    :: &
-      &  ice_sc_delta_n, ice_sc_delta_q, &
-      &  ice_sc_theta_n, ice_sc_theta_q
+  SUBROUTINE setup_particle_coeffs(ptype,pcoeffs)
+    CLASS(particle),        INTENT(in)    :: ptype
+    CLASS(particle_coeffs), INTENT(inout) :: pcoeffs
 
+    pcoeffs%c_i = 1.0 / ptype%cap
+    pcoeffs%a_f = vent_coeff_a(ptype,1)
+    pcoeffs%b_f = vent_coeff_b(ptype,1) * N_sc**n_f / sqrt(nu_l)
+    pcoeffs%c_z = moment_gamma(ptype,2)  
+
+  END SUBROUTINE setup_particle_coeffs
+
+  SUBROUTINE setup_cloud_autoconversion(cloud,cloud_coeffs)
+    CLASS(particle), INTENT(in) :: cloud
+    TYPE(particle_cloud_coeffs), INTENT(inout) :: cloud_coeffs
+    REAL(wp) :: nu, mu
+
+    nu = cloud%nu
+    mu = cloud%mu
+    IF (mu == 1.0) THEN
+      !.. see SB2001
+      cloud_coeffs%k_au  = kc_autocon / cloud%x_max * (1.0_wp / 20.0_wp) &
+           &               * (nu+2.0)*(nu+4.0)/(nu+1.0)**2
+      cloud_coeffs%k_sc  = kc_autocon * (nu+2.0)/(nu+1.0)
+    ELSE
+      !.. see Eq. (3.44) of Seifert (2002)
+      cloud_coeffs%k_au = kc_autocon / cloud%x_max * (1.0_wp / 20.0_wp)  &
+           & * ( 2.0_wp * gfct((nu+4.0)/mu)**1                           &
+           &            * gfct((nu+2.0)/mu)**1 * gfct((nu+1.0)/mu)**2    &
+           &   - 1.0_wp * gfct((nu+3.0)/mu)**2 * gfct((nu+1.0)/mu)**2 )  &
+           &   / gfct((nu+2.0)/mu)**4
+      cloud_coeffs%k_sc = kc_autocon * cloud_coeffs%c_z
+    ENDIF
+
+  END SUBROUTINE setup_cloud_autoconversion
+
+  SUBROUTINE setup_ice_selfcollection(ice,ice_coeffs)
+    CLASS(particle), INTENT(in)              :: ice
+    TYPE(particle_ice_coeffs), INTENT(inout) :: ice_coeffs
+
+    ! local variables
     REAL(wp) :: delta_n_11,delta_n_12,delta_n_22
     REAL(wp) :: delta_q_11,delta_q_12,delta_q_22
     REAL(wp) :: theta_n_11,theta_n_12,theta_n_22
     REAL(wp) :: theta_q_11,theta_q_12,theta_q_22
+
+    CHARACTER(len=*), PARAMETER :: sroutine = 'setup_ice_selfcollection'
 
     delta_n_11 = coll_delta_11(ice,ice,0)
     delta_n_12 = coll_delta_12(ice,ice,0)
@@ -2112,52 +2197,58 @@ CONTAINS
     theta_q_12 = coll_theta_12(ice,ice,1)
     theta_q_22 = coll_theta_22(ice,ice,1)
 
-    ice_sc_delta_n = delta_n_11 + delta_n_12 + delta_n_22
-    ice_sc_delta_q = delta_q_11 + delta_q_12 + delta_q_22
-    ice_sc_theta_n = theta_n_11 - theta_n_12 + theta_n_22
-    ice_sc_theta_q = theta_q_11 - theta_q_12 + theta_q_22
+    ice_coeffs%sc_delta_n = delta_n_11 + delta_n_12 + delta_n_22
+    ice_coeffs%sc_delta_q = delta_q_11 + delta_q_12 + delta_q_22
+    ice_coeffs%sc_theta_n = theta_n_11 - theta_n_12 + theta_n_22
+    ice_coeffs%sc_theta_q = theta_q_11 - theta_q_12 + theta_q_22
 
     IF (isdebug) THEN
-      WRITE(txt,'(A,D10.3)') "    a_ice      = ",ice%a_geo ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    b_ice      = ",ice%b_geo ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    alf_ice    = ",ice%a_vel ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    bet_ice    = ",ice%b_vel ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_n_11 = ",delta_n_11 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_n_12 = ",delta_n_12 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_n_22 = ",delta_n_22 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_n    = ",ice_sc_delta_n    ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_n_11 = ",theta_n_11 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_n_12 = ",theta_n_12 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_n_22 = ",theta_n_22 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_n    = ",ice_sc_theta_n    ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_q_11 = ",delta_q_11 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_q_12 = ",delta_q_12 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_q_22 = ",delta_q_22 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_q    = ",ice_sc_delta_q    ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_q_11 = ",theta_q_11 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_q_12 = ",theta_q_12 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_q_22 = ",theta_q_22 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_q    = ",ice_sc_theta_q    ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_ice      = ",ice%a_geo ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_ice      = ",ice%b_geo ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    alf_ice    = ",ice%a_vel ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    bet_ice    = ",ice%b_vel ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_11 = ",delta_n_11 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_12 = ",delta_n_12 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_22 = ",delta_n_22 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_11 = ",theta_n_11 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_12 = ",theta_n_12 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_22 = ",theta_n_22 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_11 = ",delta_q_11 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_12 = ",delta_q_12 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q_22 = ",delta_q_22 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_11 = ",theta_q_11 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_12 = ",theta_q_12 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q_22 = ",theta_q_22 ; CALL message(sroutine,TRIM(txt))
+    END IF
+    IF (isprint) THEN
+      WRITE(txt,'(A,D10.3)') "    delta_n    = ",ice_coeffs%sc_delta_n ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n    = ",ice_coeffs%sc_theta_n ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_q    = ",ice_coeffs%sc_delta_q ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_q    = ",ice_coeffs%sc_theta_q ; CALL message(sroutine,TRIM(txt))
     END IF
   END SUBROUTINE setup_ice_selfcollection
 
-  SUBROUTINE ice_selfcollection(ik_slice, dt, ice_sc_delta_n, ice_sc_delta_q, &
-    &                           ice_sc_theta_n, ice_sc_theta_q, atmo, ice, snow)
+  SUBROUTINE ice_selfcollection(ik_slice, dt, atmo, ice, snow, ice_coeffs)
     !*******************************************************************************
     ! selfcollection of ice crystals, see SB2006 or Seifert (2002)                 *
     !*******************************************************************************
+
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
+    TYPE(particle_ice_coeffs), INTENT(in) :: ice_coeffs
+
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    REAL(wp), INTENT(in) :: &
-      &  ice_sc_delta_n, ice_sc_delta_q, &
-      &  ice_sc_theta_n, ice_sc_theta_q
+
+    ! 2mom variables
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: ice, snow
+    CLASS(particle_frozen), INTENT(inout) :: ice, snow
+
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
+
+    ! local variables
     INTEGER             :: i,k
     REAL(wp)            :: T_a
     REAL(wp)            :: q_i,n_i,x_i,d_i,v_i,e_coll,x_conv_ii
@@ -2178,8 +2269,8 @@ CONTAINS
           q_i = ice%q(i,k)
           n_i = ice%n(i,k)
 
-          x_i = particle_meanmass(ice, q_i,n_i)
-          D_i = particle_diameter(ice, x_i)
+          x_i = particle_meanmass(ice,q_i,n_i)
+          D_i = particle_diameter(ice,x_i)
 
           IF ( n_i > 0.0_wp .AND. q_i > q_crit_ii .AND. D_i > D_crit_ii ) THEN
 
@@ -2191,11 +2282,11 @@ CONTAINS
 
              v_i = ice%a_vel * x_i**ice%b_vel * ice%rho_v(i,k)
 
-             self_n = pi4 * e_coll * ice_sc_delta_n * n_i * n_i * D_i * D_i &
-                  & * sqrt( ice_sc_theta_n * v_i * v_i + 2.0*ice_s_vel**2 ) * dt
+             self_n = pi4 * e_coll * ice_coeffs%sc_delta_n * n_i * n_i * D_i * D_i &
+                  & * sqrt( ice_coeffs%sc_theta_n * v_i * v_i + 2.0*ice%s_vel**2 ) * dt
 
-             self_q = pi4 * e_coll * ice_sc_delta_q * n_i * q_i * D_i * D_i &
-                  & * sqrt( ice_sc_theta_q * v_i * v_i + 2.0*ice_s_vel**2 ) * dt
+             self_q = pi4 * e_coll * ice_coeffs%sc_delta_q * n_i * q_i * D_i * D_i &
+                  & * sqrt( ice_coeffs%sc_theta_q * v_i * v_i + 2.0*ice%s_vel**2 ) * dt
 
              self_q = MIN(self_q,q_i)
              self_n = MIN(MIN(self_n,self_q/x_conv_ii),n_i)
@@ -2212,48 +2303,55 @@ CONTAINS
 
   END SUBROUTINE ice_selfcollection
 
-  SUBROUTINE setup_snow_selfcollection(snow, snow_sc_delta_n, snow_sc_theta_n)
-    TYPE(particle), INTENT(in) :: snow
-    REAL(wp), INTENT(inout)    :: &
-      &  snow_sc_delta_n, snow_sc_theta_n
+  SUBROUTINE setup_snow_selfcollection(snow, snow_coeffs)
+    CLASS(particle), INTENT(in)               :: snow
+    TYPE(particle_snow_coeffs), INTENT(inout) :: snow_coeffs
+
     REAL(wp) :: delta_n_11,delta_n_12
     REAL(wp) :: theta_n_11,theta_n_12
+
+    CHARACTER(len=*), PARAMETER :: sroutine = 'setup_snow_selfcollection'
 
     delta_n_11 = coll_delta_11(snow,snow,0)
     delta_n_12 = coll_delta_12(snow,snow,0)
     theta_n_11 = coll_theta_11(snow,snow,0)
     theta_n_12 = coll_theta_12(snow,snow,0)
 
-    snow_sc_delta_n = (2.0*delta_n_11 + delta_n_12)
-    snow_sc_theta_n = (2.0*theta_n_11 - theta_n_12)
+    snow_coeffs%sc_delta_n = (2.0*delta_n_11 + delta_n_12)
+    snow_coeffs%sc_theta_n = (2.0*theta_n_11 - theta_n_12)
 
     IF (isdebug) THEN
-      WRITE(txt,'(A,D10.3)') "    a_snow     = ",snow%a_geo ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    b_snow     = ",snow%b_geo ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    alf_snow   = ",snow%a_vel ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    bet_snow   = ",snow%b_vel ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_n_11 = ",delta_n_11  ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_n_12 = ",delta_n_12  ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_n    = ",snow_sc_delta_n     ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_n_11 = ",theta_n_11  ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_n_12 = ",theta_n_12  ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_n    = ",snow_sc_theta_n     ; CALL message(routine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    a_snow     = ",snow%a_geo ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    b_snow     = ",snow%b_geo ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    alf_snow   = ",snow%a_vel ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    bet_snow   = ",snow%b_vel ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_11 = ",delta_n_11 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_12 = ",delta_n_12 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_11 = ",theta_n_11 ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_12 = ",theta_n_12 ; CALL message(sroutine,TRIM(txt))
+    END IF
+    IF (isprint) THEN
+      WRITE(txt,'(A,D10.3)') "    delta_n    = ",snow_coeffs%sc_delta_n ; CALL message(sroutine,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n    = ",snow_coeffs%sc_theta_n ; CALL message(sroutine,TRIM(txt))
     END IF
   END SUBROUTINE setup_snow_selfcollection
 
-  SUBROUTINE snow_selfcollection(ik_slice, dt, snow_sc_delta_n, snow_sc_theta_n, atmo, snow)
+  SUBROUTINE snow_selfcollection(ik_slice, dt, atmo, snow, snow_coeffs)
     !*******************************************************************************
-    !                                                                              *
+    ! Selfcollection of snow                                                       *
     !*******************************************************************************
+
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
+    
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    REAL(wp), INTENT(in) :: &
-      &  snow_sc_delta_n, snow_sc_theta_n
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: snow
+    
+    TYPE(particle_snow_coeffs), INTENT(in) :: snow_coeffs
+    TYPE(atmosphere), INTENT(inout)        :: atmo
+    CLASS(particle_frozen), INTENT(inout)  :: snow
+
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
@@ -2280,13 +2378,13 @@ CONTAINS
              e_coll = MAX(0.1_wp,MIN(EXP(0.09*(T_a-T_3)),1.0_wp))
 
              n_s = snow%n(i,k)
-             x_s = particle_meanmass(snow, q_s,n_s)
-             D_s = particle_diameter(snow, x_s)
-             v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
+             x_s = particle_meanmass(snow,q_s,n_s)
+             D_s = particle_diameter(snow,x_s)
+             v_s = particle_velocity(snow,x_s) * snow%rho_v(i,k)
 
-             self_n = pi8 * e_coll * n_s * n_s * snow_sc_delta_n * D_s * D_s * &
-                  &          sqrt(  snow_sc_theta_n * v_s * v_s                &
-                  &               + 2.0 * snow_s_vel**2 ) * dt
+             self_n = pi8 * e_coll * n_s * n_s * snow_coeffs%sc_delta_n * D_s * D_s * &
+                  &          sqrt(  snow_coeffs%sc_theta_n * v_s * v_s                &
+                  &               + 2.0 * snow%s_vel**2 ) * dt
 
              self_n = MIN(self_n,n_s)
 
@@ -2298,7 +2396,7 @@ CONTAINS
 
   END SUBROUTINE snow_selfcollection
 
-  SUBROUTINE snow_melting(ik_slice, dt, sm_params, atmo,snow,rain)
+  SUBROUTINE snow_melting(ik_slice, dt, snow_coeffs, atmo, snow, rain)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
@@ -2306,10 +2404,10 @@ CONTAINS
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
-    REAL(wp), INTENT(in) :: dt
-    TYPE(melt_params), INTENT(in) :: sm_params
+    REAL(wp), INTENT(in)  :: dt
+    CLASS(particle_sphere), INTENT(in) :: snow_coeffs
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: rain, snow
+    CLASS(particle), INTENT(inout) :: rain, snow
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
@@ -2333,11 +2431,11 @@ CONTAINS
             e_a = e_ws(T_a)            ! saturation pressure
             n_s = snow%n(i,k)
 
-            x_s = particle_meanmass(snow, q_s,n_s)
-            D_s = particle_diameter(snow, x_s)
-            v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
+            x_s = particle_meanmass(snow,q_s,n_s)
+            D_s = particle_diameter(snow,x_s)
+            v_s = particle_velocity(snow,x_s) * snow%rho_v(i,k)
 
-            fv_q = sm_params%a_vent + sm_params%b_vent * sqrt(v_s*D_s)
+            fv_q = snow_coeffs%a_f + snow_coeffs%b_f * sqrt(v_s*D_s)
 
             ! UB: Based on Rasmussen and Heymsfield (1987) the ratio fh_q / fv_q is approx. 1.05
             !     for a wide temperature- and pressure range:
@@ -2375,29 +2473,38 @@ CONTAINS
 
   END SUBROUTINE snow_melting
 
-  SUBROUTINE graupel_snow_collection(ik_slice, dt, gsc_params, atmo, snow, graupel)
+  SUBROUTINE particle_particle_collection(ik_slice, dt, atmo, ctype, ptype, coeffs)
     !*******************************************************************************
-    !                                                                              *
+    !  Most simple particle-particle collection for ice particles, e.g.,           *
+    !    graupel+ice  -> graupel                                                   *
+    !    graupel+snow -> graupel                                                   *
+    !    hail+ice  -> hail                                                         *
+    !    hail+snow -> hail                                                         *
+    !    snow+ice  -> snow                                                         *
     !*******************************************************************************
+
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
+
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(sym_riming_params), INTENT(in) :: gsc_params
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: snow, graupel
 
+    ! 2mom variables and coefficients
+    TYPE(atmosphere), INTENT(inout)        :: atmo
+    CLASS(particle_frozen),  INTENT(inout) :: ctype, ptype
+    TYPE(collection_coeffs), INTENT(in)    :: coeffs
+    
     ! Locale Variablen
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: T_a
-    REAL(wp)            :: q_g,n_g,x_g,d_g,v_g
-    REAL(wp)            :: q_s,n_s,x_s,d_s,v_s
+    REAL(wp)            :: q_p,n_p,x_p,d_p,v_p
+    REAL(wp)            :: q_i,n_i,x_i,d_i,v_i
     REAL(wp)            :: coll_n,coll_q,e_coll
 
-    IF (isdebug) CALL message(routine, "graupel_snow_collection")
+    IF (isdebug) CALL message(routine, "particle_particle_collection")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -2405,341 +2512,67 @@ CONTAINS
     kend   = ik_slice(4)
 
     DO k = kstart,kend
-       DO i = istart,iend
+      DO i = istart,iend
+        
+        q_i = ctype%q(i,k)
+        q_p = ptype%q(i,k)
+        
+        IF (q_i > q_crit .AND. q_p > q_crit) THEN
+          T_a = atmo%T(i,k)
+          
+          !.. sticking efficiency of Lin (1983)
+          e_coll = min(exp(0.09*(T_a-T_3)),1.0_wp)
+          
+          n_i = ctype%n(i,k)
+          n_p = ptype%n(i,k)
+          
+          x_p = particle_meanmass(ptype, q_p,n_p)
+          d_p = particle_diameter(ptype, x_p)
+          v_p = particle_velocity(ptype, x_p) * ptype%rho_v(i,k)
+          
+          x_i = particle_meanmass(ctype, q_i,n_i)
+          d_i = particle_diameter(ctype, x_i)
+          v_i = particle_velocity(ctype, x_i) * ctype%rho_v(i,k)
+          
+          coll_n = pi4 * n_p * n_i * e_coll * dt      &
+               & *     ( coeffs%delta_n_aa * D_p**2   &
+               &       + coeffs%delta_n_ab * D_p*D_i  &
+               &       + coeffs%delta_n_bb * D_i**2)  &
+               & * sqrt( coeffs%theta_n_aa * v_p**2   &
+               &       - coeffs%theta_n_ab * v_p*v_i  &
+               &       + coeffs%theta_n_bb * v_i**2   &
+               &       + ctype%s_vel**2)
+          
+          coll_q = pi4 * n_p * q_i * e_coll * dt      &
+               & *     ( coeffs%delta_q_aa * D_p**2   &
+               &       + coeffs%delta_q_ab * D_p*D_i  &
+               &       + coeffs%delta_q_bb * D_i**2)  &
+               & * sqrt( coeffs%theta_q_aa * v_p**2   &
+               &       - coeffs%theta_q_ab * v_p*v_i  &
+               &       + coeffs%theta_q_bb * v_i**2   &
+               &       + ctype%s_vel**2)
 
-          q_s = snow%q(i,k)
-          q_g = graupel%q(i,k)
+          coll_n = MIN(n_i,coll_n)
+          coll_q = MIN(q_i,coll_q)
 
-          IF (q_s > q_crit .AND. q_g > q_crit) THEN
-            T_a = atmo%T(i,k)
+          ptype%q(i,k) = ptype%q(i,k) + coll_q
+          ctype%q(i,k)  = ctype%q(i,k)  - coll_q
+          ctype%n(i,k)  = ctype%n(i,k)  - coll_n
 
-            !.. sticking efficiency of Lin (1983)
-            e_coll = min(exp(0.09*(T_a-T_3)),1.0_wp)
-
-            n_s = snow%n(i,k)
-            n_g = graupel%n(i,k)
-
-            x_g = particle_meanmass(graupel, q_g,n_g)
-            d_g = particle_diameter(graupel, x_g)
-            v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
-
-            x_s = particle_meanmass(snow, q_s,n_s)
-            d_s = particle_diameter(snow, x_s)
-            v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
-
-            coll_n = pi4 * n_g * n_s * e_coll * dt &
-                 & *     (gsc_params%delta_n_aa * D_g**2 + gsc_params%delta_n_ab * D_g*D_s + gsc_params%delta_n_bb * D_s**2) &
-                 & * sqrt(gsc_params%theta_n_aa * v_g**2 - gsc_params%theta_n_ab * v_g*v_s + gsc_params%theta_n_bb * v_s**2  &
-                 &       +snow_s_vel**2)
-
-            coll_q = pi4 * n_g * q_s * e_coll * dt &
-                 & *     (gsc_params%delta_q_aa * D_g**2 + gsc_params%delta_q_ab * D_g*D_s + gsc_params%delta_q_bb * D_s**2) &
-                 & * sqrt(gsc_params%theta_q_aa * v_g**2 - gsc_params%theta_q_ab * v_g*v_s + gsc_params%theta_q_bb * v_s**2  &
-                 &       +snow_s_vel**2)
-
-            coll_n = MIN(n_s,coll_n)
-            coll_q = MIN(q_s,coll_q)
-
-            graupel%q(i,k) = graupel%q(i,k) + coll_q
-            snow%q(i,k)    = snow%q(i,k)    - coll_q
-            snow%n(i,k)    = snow%n(i,k)    - coll_n
-
-         ENDIF
+        ENDIF
       ENDDO
-   ENDDO
-
-  END SUBROUTINE graupel_snow_collection
-
-  SUBROUTINE hail_snow_collection(ik_slice, dt, hsc_params, atmo, snow, hail)
-    !*******************************************************************************
-    !                                                                              *
-    !*******************************************************************************
-    ! start and end indices for 2D slices
-    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
-    REAL(wp), INTENT(in) :: dt
-    TYPE(sym_riming_params), INTENT(in) :: hsc_params
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: snow, hail
-    ! start and end indices for 2D slices
-    INTEGER :: istart, iend, kstart, kend
-    INTEGER             :: i,k
-    REAL(wp)            :: T_a
-    REAL(wp)            :: q_h,n_h,x_h,d_h,v_h
-    REAL(wp)            :: q_s,n_s,x_s,d_s,v_s
-    REAL(wp)            :: coll_n,coll_q,e_coll
-
-    IF (isdebug) CALL message(routine, "hail_snow_collection")
-
-    istart = ik_slice(1)
-    iend   = ik_slice(2)
-    kstart = ik_slice(3)
-    kend   = ik_slice(4)
-
-    DO k = kstart,kend
-       DO i = istart,iend
-
-          q_s = snow%q(i,k)
-          q_h = hail%q(i,k)
-
-          IF (q_s > q_crit .AND. q_h > q_crit) THEN
-            T_a = atmo%T(i,k)
-
-            !.. sticking efficiency of Lin (1983)
-            e_coll = min(exp(0.09*(T_a-T_3)),1.0_wp)
-
-            n_s = snow%n(i,k)
-            n_h = hail%n(i,k)
-
-            x_s = particle_meanmass(snow, q_s,n_s)
-            D_s = particle_diameter(snow, x_s)
-            v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
-
-            x_h = particle_meanmass(hail, q_h,n_h)
-            D_h = particle_diameter(hail, x_h)
-            v_h = particle_velocity(hail, x_h) * hail%rho_v(i,k)
-
-            coll_n = pi4 * n_h * n_s * e_coll * dt &
-                 & *     (hsc_params%delta_n_aa * D_h**2 + hsc_params%delta_n_ab * D_h*D_s + hsc_params%delta_n_bb * D_s**2) &
-                 & * sqrt(hsc_params%theta_n_aa * v_h**2 - hsc_params%theta_n_ab * v_h*v_s + hsc_params%theta_n_bb * v_s**2  &
-                 &       +snow_s_vel**2)
-
-            coll_q = pi4 * n_h * q_s * e_coll * dt &
-                 & *     (hsc_params%delta_q_aa * D_h**2 + hsc_params%delta_q_ab * D_h*D_s + hsc_params%delta_q_bb * D_s**2) &
-                 & * sqrt(hsc_params%theta_q_aa * v_h**2 - hsc_params%theta_q_ab * v_h*v_s + hsc_params%theta_q_bb * v_s**2  &
-                 &       +snow_s_vel**2)
-
-            coll_n = MIN(n_s,coll_n)
-            coll_q = MIN(q_s,coll_q)
-
-            hail%q(i,k) = hail%q(i,k) + coll_q
-            snow%q(i,k) = snow%q(i,k) - coll_q
-            snow%n(i,k) = snow%n(i,k) - coll_n
-
-          ENDIF
-       ENDDO
     ENDDO
 
-  END SUBROUTINE hail_snow_collection
+  END SUBROUTINE particle_particle_collection
 
-  SUBROUTINE graupel_ice_collection(ik_slice, dt, gic_params, atmo, ice, graupel)
-    !*******************************************************************************
-    !                                                                              *
-    !*******************************************************************************
-    ! start and end indices for 2D slices
-    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
-    REAL(wp), INTENT(in) :: dt
-    TYPE(sym_riming_params), INTENT(in) :: gic_params
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: ice, graupel
-    ! start and end indices for 2D slices
-    INTEGER :: istart, iend, kstart, kend
-    INTEGER             :: i,k
-    REAL(wp)            :: T_a
-    REAL(wp)            :: q_g,n_g,x_g,d_g,v_g
-    REAL(wp)            :: q_i,n_i,x_i,d_i,v_i
-    REAL(wp)            :: coll_n,coll_q,e_coll
-
-    IF (isdebug) CALL message(routine, "graupel_ice_collection")
-
-    istart = ik_slice(1)
-    iend   = ik_slice(2)
-    kstart = ik_slice(3)
-    kend   = ik_slice(4)
-
-    DO k = kstart,kend
-       DO i = istart,iend
-
-          q_i = ice%q(i,k)
-          q_g = graupel%q(i,k)
-          IF (q_i > q_crit .AND. q_g > q_crit) THEN
-            T_a = atmo%T(i,k)
-
-            !.. sticking efficiency of Lin (1983)
-            e_coll = min(exp(0.09*(T_a-T_3)),1.0_wp)
-
-            n_i = ice%n(i,k)
-            n_g = graupel%n(i,k)
-
-            x_g = particle_meanmass(graupel, q_g,n_g)
-            d_g = particle_diameter(graupel, x_g)
-            v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
-
-            x_i = particle_meanmass(ice, q_i,n_i)
-            d_i = particle_diameter(ice, x_i)
-            v_i = particle_velocity(ice, x_i) * ice%rho_v(i,k)
-
-            coll_n = pi4 * n_g * n_i * e_coll * dt &
-                 & *     (gic_params%delta_n_aa * D_g**2 + gic_params%delta_n_ab * D_g*D_i + gic_params%delta_n_bb * D_i**2) &
-                 & * sqrt(gic_params%theta_n_aa * v_g**2 - gic_params%theta_n_ab * v_g*v_i + gic_params%theta_n_bb * v_i**2)
-
-            coll_q = pi4 * n_g * q_i * e_coll * dt &
-                 & *     (gic_params%delta_q_aa * D_g**2 + gic_params%delta_q_ab * D_g*D_i + gic_params%delta_q_bb * D_i**2) &
-                 & * sqrt(gic_params%theta_q_aa * v_g**2 - gic_params%theta_q_ab * v_g*v_i + gic_params%theta_q_bb * v_i**2)
-
-            coll_n = MIN(n_i,coll_n)
-            coll_q = MIN(q_i,coll_q)
-
-            graupel%q(i,k) = graupel%q(i,k) + coll_q
-            ice%q(i,k)     = ice%q(i,k)     - coll_q
-            ice%n(i,k)     = ice%n(i,k)     - coll_n
-
-          ENDIF
-       ENDDO
-    ENDDO
-
-  END SUBROUTINE graupel_ice_collection
-
-  SUBROUTINE hail_ice_collection(ik_slice, dt, hic_params, atmo, ice, hail)
-    !*******************************************************************************
-    !                                                                              *
-    !*******************************************************************************
-    ! start and end indices for 2D slices
-    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
-    REAL(wp), INTENT(in) :: dt
-    TYPE(sym_riming_params), INTENT(in) :: hic_params
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: ice, hail
-    ! start and end indices for 2D slices
-    INTEGER :: istart, iend, kstart, kend
-    INTEGER             :: i,k
-    REAL(wp)            :: T_a
-    REAL(wp)            :: q_h,n_h,x_h,d_h,v_h
-    REAL(wp)            :: q_i,n_i,x_i,d_i,v_i
-    REAL(wp)            :: coll_n,coll_q,e_coll
-
-    IF (isdebug) CALL message(routine, "hail_ice_collection")
-
-    istart = ik_slice(1)
-    iend   = ik_slice(2)
-    kstart = ik_slice(3)
-    kend   = ik_slice(4)
-
-    DO k = kstart,kend
-       DO i = istart,iend
-
-          q_i = ice%q(i,k)
-          q_h = hail%q(i,k)
-          IF (q_i > q_crit .AND. q_h > q_crit) THEN
-            T_a = atmo%T(i,k)
-
-            !.. sticking efficiency of Lin (1983)
-            e_coll = min(exp(0.09*(T_a-T_3)),1.0_wp)
-
-            n_i = ice%n(i,k)
-            n_h = hail%n(i,k)
-
-            x_h = particle_meanmass(hail, q_h,n_h)
-            D_h = particle_diameter(hail, x_h)
-            v_h = particle_velocity(hail, x_h) * hail%rho_v(i,k)
-
-            x_i = particle_meanmass(ice, q_i,n_i)
-            D_i = particle_diameter(ice, x_i)
-            v_i = particle_velocity(ice, x_i) * ice%rho_v(i,k)
-
-            coll_n = pi4 * n_h * n_i * e_coll * dt &
-                 & *     (hic_params%delta_n_aa * D_h**2 + hic_params%delta_n_ab * D_h*D_i + hic_params%delta_n_bb * D_i**2) &
-                 & * sqrt(hic_params%theta_n_aa * v_h**2 - hic_params%theta_n_ab * v_h*v_i + hic_params%theta_n_bb * v_i**2)
-
-            coll_q = pi4 * n_h * q_i * e_coll * dt &
-                 & *     (hic_params%delta_q_aa * D_h**2 + hic_params%delta_q_ab * D_h*D_i + hic_params%delta_q_bb * D_i**2) &
-                 & * sqrt(hic_params%theta_q_aa * v_h**2 - hic_params%theta_q_ab * v_h*v_i + hic_params%theta_q_bb * v_i**2)
-
-            coll_n = MIN(n_i,coll_n)
-            coll_q = MIN(q_i,coll_q)
-
-            hail%q(i,k) = hail%q(i,k) + coll_q
-            ice%q(i,k)  = ice%q(i,k)  - coll_q
-            ice%n(i,k)  = ice%n(i,k)  - coll_n
-
-          ENDIF
-       ENDDO
-    ENDDO
-
-  END SUBROUTINE hail_ice_collection
-
-  SUBROUTINE snow_ice_collection(ik_slice, dt, sic_params, atmo,ice,snow)
-    !*******************************************************************************
-    !                                                                              *
-    !*******************************************************************************
-    ! start and end indices for 2D slices
-    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
-    REAL(wp), INTENT(in) :: dt
-    TYPE(sym_riming_params), INTENT(in) :: sic_params
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: ice, snow
-    ! start and end indices for 2D slices
-    INTEGER :: istart, iend, kstart, kend
-    INTEGER             :: i,k
-    REAL(wp)            :: T_a
-    REAL(wp)            :: q_s,n_s,x_s,d_s,v_s
-    REAL(wp)            :: q_i,n_i,x_i,d_i,v_i
-    REAL(wp)            :: coll_n,coll_q,e_coll
-
-    IF (isdebug) CALL message(routine, "snow_ice_collection")
-
-    istart = ik_slice(1)
-    iend   = ik_slice(2)
-    kstart = ik_slice(3)
-    kend   = ik_slice(4)
-
-    DO k = kstart,kend
-       DO i = istart,iend
-
-          q_i = ice%q(i,k)
-          q_s = snow%q(i,k)
-          IF (q_i > q_crit .AND. q_s > q_crit) THEN
-            T_a = atmo%T(i,k)
-
-            !.. sticking efficiency of Lin (1983)
-            e_coll = max(0.1_wp,min(exp(0.09*(T_a-T_3)),1.0_wp))
-
-            n_i = ice%n(i,k)
-            n_s = snow%n(i,k)
-
-            x_i = particle_meanmass(ice, q_i,n_i)
-            d_i = particle_diameter(ice, x_i)
-            v_i = particle_velocity(ice, x_i) * ice%rho_v(i,k)
-
-            x_s = particle_meanmass(snow, q_s,n_s)
-            d_s = particle_diameter(snow, x_s)
-            v_s = particle_velocity(snow, x_s) * snow%rho_v(i,k)
-
-            coll_n = pi4 * n_s * n_i * e_coll * dt &
-                 & *     (sic_params%delta_n_aa * D_s**2 + sic_params%delta_n_ab * D_s*D_i + sic_params%delta_n_bb * D_i**2) &
-                 & * sqrt(sic_params%theta_n_aa * v_s**2 - sic_params%theta_n_ab * v_s*v_i + sic_params%theta_n_bb * v_i**2  &
-                 &       +snow_s_vel**2 + ice_s_vel**2)
-
-            coll_q = pi4 * n_s * q_i * e_coll * dt &
-                 & *     (sic_params%delta_q_aa * D_s**2 + sic_params%delta_q_ab * D_s*D_i + sic_params%delta_q_bb * D_i**2) &
-                 & * sqrt(sic_params%theta_q_aa * v_s**2 - sic_params%theta_q_ab * v_s*v_i + sic_params%theta_q_bb * v_i**2  &
-                 &       +snow_s_vel**2 + ice_s_vel**2)
-
-            coll_n = MIN(n_i,coll_n)
-            coll_q = MIN(q_i,coll_q)
-
-            snow%q(i,k) = snow%q(i,k) + coll_q
-            ice%q(i,k)  = ice%q(i,k)  - coll_q
-            ice%n(i,k)  = ice%n(i,k)  - coll_n
-          ENDIF
-       ENDDO
-    ENDDO
-
-  END SUBROUTINE snow_ice_collection
-
-  SUBROUTINE setup_graupel_selfcollection(graupel,graupel_sc_coll_n)
-    TYPE(particle), INTENT(in) :: graupel
-    REAL(wp), INTENT(inout)    :: graupel_sc_coll_n
+  SUBROUTINE setup_graupel_selfcollection(graupel,graupel_coeffs)
+    CLASS(particle), INTENT(in) :: graupel
+    TYPE(particle_graupel_coeffs)  :: graupel_coeffs
     REAL(wp) :: delta_n_11,delta_n_12
     REAL(wp) :: theta_n_11,theta_n_12
     REAL(wp) :: delta_n, theta_n
+
+    CHARACTER(len=*), PARAMETER :: routi = 'setup_graupel_selfcollection'
 
     delta_n_11 = coll_delta_11(graupel,graupel,0)
     delta_n_12 = coll_delta_12(graupel,graupel,0)
@@ -2748,32 +2581,78 @@ CONTAINS
 
     delta_n = (2.0*delta_n_11 + delta_n_12)
     theta_n = (2.0*theta_n_11 - theta_n_12)**0.5
-    graupel_sc_coll_n  = pi8 * delta_n * theta_n
 
-    IF (isdebug) THEN
-      WRITE(txt,'(A,D10.3)') "    delta_n_11 = ",delta_n_11 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_n_12 = ",delta_n_12 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    delta_n    = ",delta_n    ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_n_11 = ",theta_n_11 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_n_12 = ",theta_n_12 ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    theta_n    = ",theta_n    ; CALL message(routine,TRIM(txt))
-      WRITE(txt,'(A,D10.3)') "    coll_n     = ",graupel_sc_coll_n     ; CALL message(routine,TRIM(txt))
+    graupel_coeffs%sc_coll_n  = pi8 * delta_n * theta_n
+
+    IF (isprint) THEN
+      WRITE(txt,'(A,D10.3)') "    delta_n_11 = ",delta_n_11 ; CALL message(routi,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n_12 = ",delta_n_12 ; CALL message(routi,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    delta_n    = ",delta_n    ; CALL message(routi,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_11 = ",theta_n_11 ; CALL message(routi,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n_12 = ",theta_n_12 ; CALL message(routi,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    theta_n    = ",theta_n    ; CALL message(routi,TRIM(txt))
+      WRITE(txt,'(A,D10.3)') "    coll_n     = ",graupel_coeffs%sc_coll_n; CALL message(routi,TRIM(txt))
     END IF
   END SUBROUTINE setup_graupel_selfcollection
 
+  SUBROUTINE setup_particle_collection_type1(ptype,qtype,coll_coeffs)
+    CLASS(particle), INTENT(in) :: ptype, qtype
+    TYPE(collection_coeffs)     :: coll_coeffs
+    CHARACTER(len=*), PARAMETER :: routi = 'setup_particle_collection_type1'
+    
+    coll_coeffs%delta_n_aa = coll_delta_11(ptype,qtype,0)
+    coll_coeffs%delta_n_ab = coll_delta_12(ptype,qtype,0)
+    coll_coeffs%delta_n_bb = coll_delta_22(ptype,qtype,0)
+    coll_coeffs%delta_q_aa = coll_delta_11(ptype,qtype,0)
+    coll_coeffs%delta_q_ab = coll_delta_12(ptype,qtype,1)
+    coll_coeffs%delta_q_bb = coll_delta_22(ptype,qtype,1)
 
-  SUBROUTINE graupel_selfcollection(ik_slice, dt, graupel_sc_coll_n, atmo, graupel)
+    coll_coeffs%theta_n_aa = coll_theta_11(ptype,qtype,0)
+    coll_coeffs%theta_n_ab = coll_theta_12(ptype,qtype,0)
+    coll_coeffs%theta_n_bb = coll_theta_22(ptype,qtype,0)
+    coll_coeffs%theta_q_aa = coll_theta_11(ptype,qtype,0)
+    coll_coeffs%theta_q_ab = coll_theta_12(ptype,qtype,1)
+    coll_coeffs%theta_q_bb = coll_theta_22(ptype,qtype,1)
+
+  END SUBROUTINE setup_particle_collection_type1
+
+  SUBROUTINE setup_particle_collection_type2(ptype,qtype,coll_coeffs)
+    CLASS(particle), INTENT(in) :: ptype, qtype
+    TYPE(rain_riming_coeffs)    :: coll_coeffs
+    CHARACTER(len=*), PARAMETER :: routi = 'setup_particle_collection_type2'
+    
+    coll_coeffs%delta_n_aa = coll_delta_11(ptype,qtype,0)
+    coll_coeffs%delta_n_ab = coll_delta_12(ptype,qtype,0)
+    coll_coeffs%delta_n_bb = coll_delta_22(ptype,qtype,0)
+    coll_coeffs%delta_q_aa = coll_delta_11(ptype,qtype,1) ! mass weighted
+    coll_coeffs%delta_q_ab = coll_delta_12(ptype,qtype,1)
+    coll_coeffs%delta_q_ba = coll_delta_12(qtype,ptype,1)
+    coll_coeffs%delta_q_bb = coll_delta_22(ptype,qtype,1)
+
+    coll_coeffs%theta_n_aa = coll_theta_11(ptype,qtype,0)
+    coll_coeffs%theta_n_ab = coll_theta_12(ptype,qtype,0)
+    coll_coeffs%theta_n_bb = coll_theta_22(ptype,qtype,0)
+    coll_coeffs%theta_q_aa = coll_theta_11(ptype,qtype,1) ! mass weighted
+    coll_coeffs%theta_q_ab = coll_theta_12(ptype,qtype,1)
+    coll_coeffs%theta_q_ba = coll_theta_12(qtype,ptype,1)
+    coll_coeffs%theta_q_bb = coll_theta_22(ptype,qtype,1)
+
+  END SUBROUTINE setup_particle_collection_type2
+
+  SUBROUTINE graupel_selfcollection(ik_slice, dt, atmo, graupel, graupel_coeffs)
     !*******************************************************************************
     !                                                                              *
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
+
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    REAL(wp), INTENT(in) :: graupel_sc_coll_n
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: graupel
+    TYPE(particle_graupel_coeffs), INTENT(in) :: graupel_coeffs
+    TYPE(atmosphere), INTENT(inout)           :: atmo
+    CLASS(particle), INTENT(inout)            :: graupel
+
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
@@ -2798,7 +2677,7 @@ CONTAINS
              d_g = particle_diameter(graupel, x_g)
              v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
 
-             self_n = graupel_sc_coll_n * n_g**2 * D_g**2 * v_g * dt
+             self_n = graupel_coeffs%sc_coll_n * n_g**2 * D_g**2 * v_g * dt
 
              ! sticking efficiency does only distinguish dry and wet based on T_3
              self_n = self_n * MERGE(ecoll_gg_wet, ecoll_gg, atmo%T(i,k) > T_3)
@@ -2820,7 +2699,7 @@ CONTAINS
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: cloud, rain, ice
+    CLASS(particle), INTENT(inout) :: cloud, rain, ice
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
@@ -2864,81 +2743,84 @@ CONTAINS
     END DO
   END SUBROUTINE ice_melting
 
-  SUBROUTINE prtcl_cloud_riming(ik_slice, dt, atmo, prtcl, &
-    const1, ecoll_pc, D_shed_p, q_crit_pc, D_crit_pc, lshedding, params, &
-    cloud, rain, ice)
+  SUBROUTINE particle_cloud_riming(ik_slice, dt, atmo, ptype, coeffs, cloud, rain, ice)
     !*******************************************************************************
-    ! see SB2006                                                                   *
+    ! Riming of graupel or hail with cloud droplets                                *
     !*******************************************************************************
+
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
-    ! time step within two-moment scheme
-    REAL(wp), INTENT(in) :: dt, const1, ecoll_pc, d_shed_p, q_crit_pc, D_crit_pc
 
-    LOGICAL, INTENT(in) :: lshedding
-    TYPE(sym_riming_params), INTENT(in) :: params
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: cloud, rain, ice, prtcl
+    ! time step within two-moment scheme
+    REAL(wp), INTENT(in) :: dt
+
+    TYPE(collection_coeffs), INTENT(in)   :: coeffs
+    TYPE(atmosphere), INTENT(inout)       :: atmo
+    CLASS(particle),  INTENT(inout)       :: cloud, rain
+    CLASS(particle_frozen), INTENT(inout) :: ice, ptype
+
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
+
     INTEGER             :: i,k
     REAL(wp)            :: T_a
     REAL(wp)            :: q_p,n_p,x_p,d_p,v_p
     REAL(wp)            :: q_c,n_c,x_c,d_c,v_c
     REAL(wp)            :: rime_n,rime_q,e_coll_n
     REAL(wp)            :: melt_n,melt_q,e_coll_q
-    REAL(wp)            :: shed_n,shed_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
+    REAL(wp)            :: const1
     REAL(wp), PARAMETER :: &
+         const0 = 1.0/(D_coll_c - D_crit_c),     &
          const2 = 1.0/(T_mult_opt - T_mult_min), &
          const3 = 1.0/(T_mult_opt - T_mult_max), &
-         const4 = c_w / L_ew, &
-                                !..mean mass of shedding drops
-         x_shed = 4./3.*pi * rho_w * r_shedding**3
+         const4 = c_w / L_ew
 
-    IF (isdebug) CALL message(routine, "prtcl_cloud_riming")
+    IF (isdebug) CALL message(routine, "particle_cloud_riming")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
     kstart = ik_slice(3)
     kend   = ik_slice(4)
 
+    const1 = const0 * ptype%ecoll_c
+
     DO k = kstart,kend
       DO i = istart,iend
 
         q_c = cloud%q(i,k)
-        q_p = prtcl%q(i,k)
+        q_p = ptype%q(i,k)
         n_c = cloud%n(i,k)
-        n_p = prtcl%n(i,k)
+        n_p = ptype%n(i,k)
 
-        x_p = particle_meanmass(prtcl, q_p,n_p)
-        D_p = particle_diameter(prtcl, x_p)
-        x_c = particle_meanmass(cloud, q_c,n_c)
-        D_c = particle_diameter(cloud, x_c)
+        x_p = particle_meanmass(ptype,q_p,n_p)
+        D_p = particle_diameter(ptype,x_p)
+        x_c = particle_meanmass(cloud,q_c,n_c)
+        D_c = particle_diameter(cloud,x_c)
 
         T_a = atmo%T(i,k)
-        IF (q_c > q_crit_c .AND. q_p > q_crit_pc .AND. D_p > D_crit_pc .AND. &
-             & D_c > D_crit_c) THEN
+        IF (q_c > q_crit_c .AND. q_p > ptype%q_crit_c &
+             &             .AND. D_p > ptype%D_crit_c .AND. D_c > D_crit_c) THEN
 
-          v_p = particle_velocity(prtcl, x_p) * prtcl%rho_v(i,k)
-          v_c = particle_velocity(cloud, x_c) * cloud%rho_v(i,k)
+          v_p = particle_velocity(ptype,x_p) * ptype%rho_v(i,k)
+          v_c = particle_velocity(cloud,x_c) * cloud%rho_v(i,k)
 
-          e_coll_n = MIN(ecoll_pc, MAX(const1*(D_c - D_crit_c),ecoll_min))
+          e_coll_n = MIN(ptype%ecoll_c, MAX(const1*(D_c - D_crit_c),ecoll_min))
           e_coll_q = e_coll_n
 
           rime_n = pi4 * e_coll_n * n_p * n_c * dt &
-               & *     (params%delta_n_aa * D_p*D_p + params%delta_n_ab * D_p*D_c + params%delta_n_bb * D_c*D_c) &
-               & * sqrt(params%theta_n_aa * v_p*v_p - params%theta_n_ab * v_p*v_c + params%theta_n_bb * v_c*v_c)
+               & *     (coeffs%delta_n_aa * D_p*D_p + coeffs%delta_n_ab * D_p*D_c + coeffs%delta_n_bb * D_c*D_c) &
+               & * sqrt(coeffs%theta_n_aa * v_p*v_p - coeffs%theta_n_ab * v_p*v_c + coeffs%theta_n_bb * v_c*v_c)
 
           rime_q = pi4 * e_coll_q * n_p * q_c * dt &
-               & *     (params%delta_q_aa * D_p*D_p + params%delta_q_ab * D_p*D_c + params%delta_q_bb * D_c*D_c) &
-               & * sqrt(params%theta_q_aa * v_p*v_p - params%theta_q_ab * v_p*v_c + params%theta_q_bb * v_c*v_c)
+               & *     (coeffs%delta_q_aa * D_p*D_p + coeffs%delta_q_ab * D_p*D_c + coeffs%delta_q_bb * D_c*D_c) &
+               & * sqrt(coeffs%theta_q_aa * v_p*v_p - coeffs%theta_q_ab * v_p*v_c + coeffs%theta_q_bb * v_c*v_c)
 
           rime_q = MIN(q_c,rime_q)
           rime_n = MIN(n_c,rime_n)
 
-          prtcl%q(i,k) = prtcl%q(i,k) + rime_q
+          ptype%q(i,k) = ptype%q(i,k) + rime_q
           cloud%q(i,k) = cloud%q(i,k) - rime_q
           cloud%n(i,k) = cloud%n(i,k) - rime_n
 
@@ -2954,72 +2836,55 @@ CONTAINS
 
             ice%n(i,k)   = ice%n(i,k)   + mult_n
             ice%q(i,k)   = ice%q(i,k)   + mult_q
-            prtcl%q(i,k) = prtcl%q(i,k) - mult_q
+            ptype%q(i,k) = ptype%q(i,k) - mult_q
           ENDIF
 
-          ! enhancement of melting of prtcl
+          ! enhancement of melting 
           IF (T_a > T_3 .AND. enhanced_melting) THEN
             melt_q = const4 * (T_a - T_3) * rime_q
             melt_n = melt_q / x_p
 
-            melt_q = MIN(prtcl%q(i,k),melt_q)
-            melt_n = MIN(prtcl%n(i,k),melt_n)
+            melt_q = MIN(ptype%q(i,k),melt_q)
+            melt_n = MIN(ptype%n(i,k),melt_n)
 
-            prtcl%q(i,k) = prtcl%q(i,k) - melt_q
+            ptype%q(i,k) = ptype%q(i,k) - melt_q
             rain%q(i,k)  = rain%q(i,k)  + melt_q
-            prtcl%n(i,k) = prtcl%n(i,k) - melt_n
+            ptype%n(i,k) = ptype%n(i,k) - melt_n
             rain%n(i,k)  = rain%n(i,k)  + melt_n
           ENDIF
 
-          ! Shedding
-          IF ((lshedding .AND. D_p > D_shed_p .AND. T_a > T_shed) .OR. T_a > T_3 ) THEN
-            q_p = prtcl%q(i,k)
-            n_p = prtcl%n(i,k)
-            x_p = particle_meanmass(prtcl, q_p,n_p)
-
-            shed_q = MIN(q_p,rime_q)
-            shed_n = shed_q / MIN(x_shed,x_p)
-
-            prtcl%q(i,k) = prtcl%q(i,k) - shed_q
-            rain%q(i,k)  = rain%q(i,k)  + shed_q
-            rain%n(i,k)  = rain%n(i,k)  + shed_n
-          ENDIF
         ENDIF
       ENDDO
     ENDDO
-  END SUBROUTINE prtcl_cloud_riming
+  END SUBROUTINE particle_cloud_riming
 
-  SUBROUTINE prtcl_rain_riming(ik_slice, dt, atmo, prtcl, &
-       params, D_shed_p, prtcl_shedding, &
-       rain, ice)
+  SUBROUTINE particle_rain_riming(ik_slice, dt, atmo, ptype, &
+       coeffs, rain, ice)
     !*******************************************************************************
-    !                                                                              *
+    ! Riming of graupel or hail with rain drops                                    *
     !*******************************************************************************
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
-    REAL(wp), INTENT(in) :: dt, D_shed_p
-    LOGICAL, INTENT(in) :: prtcl_shedding
-    TYPE(sym_riming_params), INTENT(in) :: params
+    REAL(wp), INTENT(in) :: dt
+    TYPE(collection_coeffs), INTENT(in) :: coeffs
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: rain, ice, prtcl
+    CLASS(particle),  INTENT(inout) :: rain, ice, ptype
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: T_a
     REAL(wp)            :: q_p,n_p,x_p,d_p,v_p
     REAL(wp)            :: q_r,n_r,x_r,d_r,v_r
-    REAL(wp)            :: rime_n,rime_q,melt_n,melt_q,shed_n,shed_q
+    REAL(wp)            :: rime_n,rime_q,melt_n,melt_q
     REAL(wp)            :: mult_n,mult_q,mult_1,mult_2
     REAL(wp), PARAMETER :: &
          const2 = 1/(T_mult_opt - T_mult_min), &
          const3 = 1/(T_mult_opt - T_mult_max), &
-         const4 = c_w / L_ew, &
-         x_shed = 4./3. * pi * rho_w * r_shedding**3
+         const4 = c_w / L_ew
 
-
-    IF (isdebug) CALL message(routine, "prtcl_rain_riming")
+    IF (isdebug) CALL message(routine, "particle_rain_riming")
 
     istart = ik_slice(1)
     iend   = ik_slice(2)
@@ -3031,32 +2896,32 @@ CONTAINS
 
         T_a = atmo%T(i,k)
         q_r = rain%q(i,k)
-        q_p = prtcl%q(i,k)
+        q_p = ptype%q(i,k)
 
         IF (q_r > q_crit .AND. q_p > q_crit) THEN
 
           n_r = rain%n(i,k)
-          n_p = prtcl%n(i,k)
+          n_p = ptype%n(i,k)
 
-          x_p = particle_meanmass(prtcl, q_p,n_p)
-          d_p = particle_diameter(prtcl, x_p)
-          v_p = particle_velocity(prtcl, x_p) * prtcl%rho_v(i,k)
+          x_p = particle_meanmass(ptype, q_p,n_p)
+          d_p = particle_diameter(ptype, x_p)
+          v_p = particle_velocity(ptype, x_p) * ptype%rho_v(i,k)
           x_r = particle_meanmass(rain, q_r,n_r)
           D_r = particle_diameter(rain, x_r)
           v_r = particle_velocity(rain, x_r) * rain%rho_v(i,k)
 
           rime_n = pi4 * n_p * n_r * dt &
-               & *     (params%delta_n_aa * D_p**2 + params%delta_n_ab * D_p*D_r + params%delta_n_bb * D_r**2) &
-               & * sqrt(params%theta_n_aa * v_p**2 - params%theta_n_ab * v_p*v_r + params%theta_n_bb * v_r**2)
+               & *     (coeffs%delta_n_aa * D_p**2 + coeffs%delta_n_ab * D_p*D_r + coeffs%delta_n_bb * D_r**2) &
+               & * sqrt(coeffs%theta_n_aa * v_p**2 - coeffs%theta_n_ab * v_p*v_r + coeffs%theta_n_bb * v_r**2)
 
           rime_q = pi4 * n_p * q_r * dt &
-               & *     (params%delta_n_aa * D_p**2 + params%delta_q_ab * D_p*D_r + params%delta_q_bb * D_r**2) &
-               & * sqrt(params%theta_n_aa * v_p**2 - params%theta_q_ab * v_p*v_r + params%theta_q_bb * v_r**2)
+               & *     (coeffs%delta_n_aa * D_p**2 + coeffs%delta_q_ab * D_p*D_r + coeffs%delta_q_bb * D_r**2) &
+               & * sqrt(coeffs%theta_n_aa * v_p**2 - coeffs%theta_q_ab * v_p*v_r + coeffs%theta_q_bb * v_r**2)
 
           rime_q = MIN(q_r,rime_q)
           rime_n = MIN(n_r,rime_n)
 
-          prtcl%q(i,k) = prtcl%q(i,k) + rime_q
+          ptype%q(i,k) = ptype%q(i,k) + rime_q
           rain%q(i,k)    = rain%q(i,k)    - rime_q
           rain%n(i,k)    = rain%n(i,k)    - rime_n
 
@@ -3072,50 +2937,31 @@ CONTAINS
 
             ice%n(i,k)   = ice%n(i,k)   + mult_n
             ice%q(i,k)   = ice%q(i,k)   + mult_q
-            prtcl%q(i,k) = prtcl%q(i,k) - mult_q
+            ptype%q(i,k) = ptype%q(i,k) - mult_q
           ENDIF
 
-          ! enhancement of melting of prtcl
+          ! enhancement of melting of ptype
           IF (T_a > T_3 .AND. enhanced_melting) THEN
             melt_q = const4 * (T_a - T_3) * rime_q
             melt_n = melt_q / x_p
 
-            melt_q = MIN(prtcl%q(i,k),melt_q)
-            melt_n = MIN(prtcl%n(i,k),melt_n)
+            melt_q = MIN(ptype%q(i,k),melt_q)
+            melt_n = MIN(ptype%n(i,k),melt_n)
 
-            prtcl%q(i,k) = prtcl%q(i,k) - melt_q
+            ptype%q(i,k) = ptype%q(i,k) - melt_q
             rain%q(i,k)  = rain%q(i,k)  + melt_q
 
-            prtcl%n(i,k) = prtcl%n(i,k) - melt_n
+            ptype%n(i,k) = ptype%n(i,k) - melt_n
             rain%n(i,k)  = rain%n(i,k)  + melt_n
-          ENDIF
-
-          ! shedding
-          IF ((prtcl_shedding .AND. D_p > D_shed_p .AND. T_a > T_shed) .OR. T_a > T_3 ) THEN
-            q_p = prtcl%q(i,k)
-            n_p = prtcl%n(i,k)
-            x_p = particle_meanmass(prtcl, q_p,n_p)
-
-            shed_q = MIN(q_p,rime_q)
-            IF (T_a <= T_3) THEN
-              shed_n = MIN(x_shed, x_p)
-            ELSE
-              shed_n = MAX(x_r,    x_p)
-            ENDIF
-            shed_n = shed_q / shed_n
-
-            prtcl%q(i,k) = prtcl%q(i,k) - shed_q
-            rain%q(i,k)    = rain%q(i,k)    + shed_q
-            rain%n(i,k)    = rain%n(i,k)    + shed_n
           ENDIF
 
         ENDIF
       ENDDO
     ENDDO
 
-  END SUBROUTINE prtcl_rain_riming
+  END SUBROUTINE particle_rain_riming
 
-  SUBROUTINE graupel_melting(ik_slice, dt, gm_params, atmo, graupel, rain)
+  SUBROUTINE graupel_melting(ik_slice, dt, graupel_coeffs, atmo, graupel, rain)
     !*******************************************************************************
     ! Melting of graupel                                                           *
     !*******************************************************************************
@@ -3124,9 +2970,9 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(melt_params), INTENT(in) :: gm_params
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: rain, graupel
+    CLASS(particle_sphere), INTENT(in) :: graupel_coeffs
+    TYPE(atmosphere), INTENT(inout)    :: atmo
+    CLASS(particle), INTENT(inout)     :: rain, graupel
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
@@ -3155,7 +3001,7 @@ CONTAINS
              D_g = particle_diameter(graupel, x_g)
              v_g = particle_velocity(graupel, x_g) * graupel%rho_v(i,k)
 
-             fv_q = gm_params%a_vent + gm_params%b_vent * SQRT(v_g*D_g)
+             fv_q = graupel_coeffs%a_f + graupel_coeffs%b_f * SQRT(v_g*D_g)
              fh_q = 1.05 * fv_q
 
              melt   = 2.0*pi / L_ew * D_g * n_g * dt
@@ -3184,7 +3030,25 @@ CONTAINS
     ENDDO
   END SUBROUTINE graupel_melting
 
-  SUBROUTINE hail_melting(ik_slice, dt, hm_params, atmo, hail, rain)
+!!$  INTERFACE hail_melting
+!!$     SUBROUTINE hail_melting_simple(ik_slice, dt, atmo, hail, rain)
+!!$       INTEGER,  INTENT(in) :: ik_slice(4)
+!!$       REAL(wp), INTENT(in) :: dt
+!!$       TYPE(atmosphere), INTENT(inout) :: atmo
+!!$       CLASS(particle), INTENT(inout)  :: rain
+!!$       TYPE(particle), INTENT(inout)   :: hail
+!!$     END SUBROUTINE hail_melting_simple
+!!$
+!!$     SUBROUTINE hail_melting_lwf(ik_slice, dt, atmo, hail, rain)
+!!$       INTEGER, INTENT(in) :: ik_slice(4)
+!!$       REAL(wp), INTENT(in) :: dt
+!!$       TYPE(atmosphere), INTENT(inout)   :: atmo
+!!$       CLASS(particle),  INTENT(inout)   :: rain
+!!$       TYPE(particle_lwf), INTENT(inout) :: hail
+!!$     END SUBROUTINE HAIL_MELTING_LWF
+!!$  END INTERFACE hail_melting
+
+  SUBROUTINE hail_melting_simple(ik_slice, dt, hail_coeffs, atmo, hail, rain)
     !*******************************************************************************
     ! Melting of hail                                                              *
     !*******************************************************************************
@@ -3193,11 +3057,13 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(melt_params), INTENT(in) :: hm_params
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: rain, hail
+    TYPE(particle_sphere), INTENT(in) :: hail_coeffs
+    TYPE(atmosphere), INTENT(inout)   :: atmo
+    CLASS(particle), INTENT(inout)    :: rain
+    CLASS(particle), INTENT(inout)    :: hail
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
+    ! local variables
     INTEGER             :: i,k
     REAL(wp)            :: q_h,n_h,x_h,d_h,v_h,T_a,e_a
     REAL(wp)            :: melt,melt_v,melt_h,melt_n,melt_q
@@ -3220,11 +3086,11 @@ CONTAINS
             e_a = e_ws(T_a)
             n_h = hail%n(i,k)
 
-            x_h = particle_meanmass(hail, q_h,n_h)
-            D_h = particle_diameter(hail, x_h)
-            v_h = particle_velocity(hail, x_h) * hail%rho_v(i,k)
+            x_h = particle_meanmass(hail,q_h,n_h)
+            D_h = particle_diameter(hail,x_h)
+            v_h = particle_velocity(hail,x_h) * hail%rho_v(i,k)
 
-            fv_q = hm_params%a_vent + hm_params%b_vent * sqrt(v_h*D_h)
+            fv_q = hail_coeffs%a_f + hail_coeffs%b_f * sqrt(v_h*D_h)
             fh_q = 1.05 * fv_q                            ! UB: based on Rasmussen and Heymsfield
 
             melt   = 2.0*pi / L_ew * D_h * n_h * dt
@@ -3252,25 +3118,258 @@ CONTAINS
       ENDDO
    ENDDO
 
-  END SUBROUTINE hail_melting
+  END SUBROUTINE hail_melting_simple
+
+  SUBROUTINE particle_melting_lwf(ik_slice, dt, ptype, rain, gta)
+    !*******************************************************************************
+    ! Melting of hail for lwf scheme                                               *
+    !*******************************************************************************
+
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+
+    ! time step within two-moment scheme
+    REAL(wp), INTENT(in) :: dt
+
+    ! 2mom variables
+    CLASS(particle),  INTENT(inout)      :: rain
+    TYPE(particle_lwf), INTENT(inout)    :: ptype
+    REAL(wp), INTENT(IN), DIMENSION(:,:) :: gta   ! Thermodynamic environment function
+
+    ! local variables
+    INTEGER   :: i,k
+    REAL(wp)  :: q_p,n_p,x_p,d_p,d_n,qliq,qice,lwf,qrain,nrain
+    REAL(wp)  :: x_shed,D_star
+    REAL(wp)  :: qmlt,qconv,nconv,qfrac,nfrac,qshed
+    REAL(wp)  :: D_lim,lwf_lim,cmlt1,cmlt2,max_qmlt,melt
+
+    ! local parameters
+    REAL(wp), PARAMETER :: D_shed = 1.e-3_wp
+
+    ! local arrays
+    REAL(wp), DIMENSION(10) :: adst, amlt
+    REAL(wp), DIMENSION(9)  :: bdst, bmlt
+    REAL(wp), DIMENSION(4)  :: cnvq, cnvn
+
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
+
+    IF (isdebug) CALL message(routine, "particle_melting_lwf")
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
+    if (ptype%name .eq. 'hail_vivek') then
+      adst = adstarh
+      bdst = bdstarh
+      amlt = amelth
+      bmlt = bmelth
+      cnvq = convqh
+      cnvn = convnh
+      D_lim = 8.e-3_wp
+      lwf_lim = 0.3_wp
+    elseif (ptype%name .eq. 'graupel_vivek') then
+      adst = adstarg
+      bdst = bdstarg
+      amlt = ameltg
+      bmlt = bmeltg
+      cnvq = convqg
+      cnvn = convng
+      D_lim = 1.e-2_wp
+      lwf_lim = 0.6_wp
+    end if
+
+    cmlt1 = ptype%lwf_cmelt1
+    cmlt2 = ptype%lwf_cmelt2
+
+    x_shed = (D_shed/rain%a_geo)**(1._wp/rain%b_geo)
+
+    DO k = kstart,kend
+      DO i = istart,iend
+        
+        n_p  = ptype%q(i,k)
+        q_p  = ptype%n(i,k)
+        qliq = ptype%l(i,k)
+        qice = ptype%q(i,k) - ptype%l(i,k)
+
+        max_qmlt = qice / dt
+
+        qrain = rain%q(i,k)
+        nrain = rain%n(i,k)
+
+        qmlt = 0.0_wp
+        qconv = 0.0_wp
+        nconv = 0.0_wp
+        qshed = 0._wp
+
+        !! NOTE: LWF has to be given an upper limit!
+        !!       Something like 0.85, in which case all meltwater is transfered!
+        
+        if (qice > 0.0_wp .and. gta(i,k) > 0.0_wp) then
+ 
+          x_p = particle_meanmass(ptype,q_p,n_p)
+          D_p = particle_diameter(ptype,x_p)
+          D_n = particle_normdiameter(ptype,D_p)
+          lwf = particle_lwf_idx(ptype,i,k)
+
+          D_star = 1.e-2_wp * rat2do3(D_n,lwf,adst,bdst)  ! 1e-2 for conversion from cm to m
+
+          melt = rat2do3(D_n,lwf,amlt,bmlt)
+          qmlt = gta(i,k) * melt * cmlt1 * exp( cmlt2*log(qliq+qice) )
+          qmlt = max( min(qmlt,max_qmlt), 0.0_wp)
+
+          if (qmlt.eq.max_qmlt) then
+            qconv = qliq/dt + qmlt
+            nconv = n_p/dt
+            qshed = 0.0_wp
+          else
+
+            ! conversion of meltwater to rain
+            if (classic_melting_in_lwf_scheme .OR. lwf > 0.85_wp) then
+              qfrac = 1.0_wp
+            else
+              qfrac = cnvq(1)*lwf**cnvq(2) + cnvq(3)*lwf**cnvq(4)
+              qfrac = max(qfrac,0.0_wp)
+            end if
+            nfrac = cnvn(1)*lwf**cnvn(2) + cnvn(3)*lwf**cnvn(4)
+            nfrac = max(nfrac,0.0_wp)
+
+            qconv = qfrac * (qmlt + qliq/dt)
+            nconv = nfrac * n_p/dt
+
+            ! shedding of meltwater
+            if (D_p.gt.D_lim .and. lwf.gt.lwf_lim) then
+              qshed = max(lwf-0.3_wp, 0.0_wp) * qconv
+            else
+              qshed = 0.0_wp
+            end if
+            
+          end if
+
+          ! Forward integration
+          n_p  = max(n_p - nconv*dt, 0._wp)
+          qliq = max(qliq + (qmlt - qconv)*dt, 0._wp)
+          qice = max(qice - qmlt*dt, 0._wp)
+
+          qrain = qrain + (qconv + qshed)*dt
+          nrain = nrain + (nconv + qshed/x_shed)*dt
+
+          ptype%n(i,k) = n_p
+          ptype%q(i,k) = qliq + qice
+          ptype%l(i,k) = qliq
+             
+          rain%q(i,k) = qrain
+          rain%n(i,k) = nrain
+
+        ENDIF
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE particle_melting_lwf
+
+  SUBROUTINE prepare_melting_lwf(ik_slice, atmo, gta)
+    !*******************************************************************************
+    ! Melting of hail for lwf scheme                                               *
+    !*******************************************************************************
+
+    ! start and end indices for 2D slices
+    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+    INTEGER, INTENT(in) :: ik_slice(4)
+
+    ! 2mom variables
+    TYPE(atmosphere), INTENT(in) :: atmo
+    REAL(wp), INTENT(OUT), DIMENSION(:,:) :: gta
+
+    ! local variables
+    INTEGER  :: i,k
+    REAL(wp) :: T_a,p_a,rho_a,e_d,e_sw,rh_a,delta_T,delta_q,eta,Dv,ka,Le,Lm,nu,Sc,kt,Pr
+
+    REAL(wp) :: e_ws_T3_o_T3  ! this could be a parameter
+
+    ! start and end indices for 2D slices
+    INTEGER :: istart, iend, kstart, kend
+
+    IF (isdebug) CALL message(routine, "hail_melting_lwf")
+
+    istart = ik_slice(1)
+    iend   = ik_slice(2)
+    kstart = ik_slice(3)
+    kend   = ik_slice(4)
+
+    e_ws_T3_o_T3 = e_ws(T_3)/T_3
+
+    DO k = kstart,kend
+      DO i = istart,iend
+
+        p_a   = atmo%p(i,k)
+        T_a   = atmo%T(i,k)
+        rho_a = atmo%rho(i,k)
+
+        e_d   = atmo%qv(i,k) * R_d * T_a
+        e_sw  = e_ws(T_a)
+        rh_a  = e_d / e_sw
+    
+        delta_T = T_a - T_3
+        delta_q = rh_a * e_sw/T_a - e_ws_T3_o_T3
+
+        IF (delta_q < 0.0_wp) THEN
+          delta_q = 0.0_wp
+        END IF
+        
+        IF  (delta_T > 0.0_wp .OR. delta_q > 0.0_wp) THEN
+
+          eta = dyn_visc_sutherland(T_a)  !..dynamic viscosity        
+          Dv  = Dv_Rasmussen(T_a,p_a)     !..diffusivity of water vapour
+          ka  = ka_Rasmussen(T_a)         !..conductivity of air
+          Le  = lh_evap_RH87(T_a)         !..latent heat of evaporation
+          Lm  = lh_melt_RH87(T_a)         !..latent heat of melting
+
+          nu = eta/rho_a                 !..kinematic viscosity   
+          Sc = (nu/Dv)**(1._wp/3._wp)    !..Schmidt number
+          kt = ka / (rho_a*cp)           !..diffusivity of air    
+          Pr = (nu/kt)**(1._wp/3._wp)    !..Prandtl number    
+
+          !.thermodynamic, i.e. environmental, function for melting
+          gta(i,k) = 2._wp*pi/Lm * ( Pr*ka*delta_T + Sc*Le*Dv*delta_q/R_d )
+
+        ELSE
+          gta(i,k) = 0.0_wp
+        END IF
+
+      ENDDO
+    ENDDO
+
+  END SUBROUTINE prepare_melting_lwf
 
   SUBROUTINE graupel_hail_conv_wet_gamlook(ik_slice, graupel_ltable1, graupel_ltable2,       &
-                                           graupel_nm1, graupel_nm2, graupel_g1, graupel_g2, &
-                                           atmo, graupel, cloud, rain, ice, snow, hail)
+       &                                   graupel_nm1, graupel_nm2, graupel_g1, graupel_g2, &
+       &                                   atmo, graupel, cloud, rain, ice, snow, hail)
     !*******************************************************************************
     !  Wet growth and conversion of graupel to hail                                *
     !  (uses look-up table for incomplete gamma functions)                         *
     !  by Uli Blahak                                                               *
     !*******************************************************************************
+
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
+
+    ! Parameters and tables
     TYPE(gamlookuptable),INTENT(in) :: graupel_ltable1, graupel_ltable2
     REAL(wp), INTENT(in)            :: graupel_nm1, graupel_nm2, graupel_g1, graupel_g2
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: cloud, rain, ice, graupel, snow, hail
+
+    ! 2mom variables
+    TYPE(atmosphere), INTENT(inout)       :: atmo
+    CLASS(particle),  INTENT(inout)       :: cloud, rain
+    CLASS(particle_frozen), INTENT(inout) :: ice, graupel, snow, hail
+
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
+
+    ! local variables
     INTEGER             :: i,k
     REAL(wp)            :: T_a, p_a, d_trenn, qw_a, qi_a, N_0, lam, xmin
     REAL(wp)            :: q_g,n_g,x_g,d_g
@@ -3302,7 +3401,7 @@ CONTAINS
           !..supercooled liquid water in the cloud environment = sum of rain and cloud water
           qw_a = q_r + q_c
 
-          IF (T_a < T_3 .AND. q_g > q_crit_gc .AND. qw_a > 1e-3) THEN
+          IF (T_a < T_3 .AND. q_g > graupel%q_crit_c .AND. qw_a > 1e-3) THEN
 
             !.. Umgebungsgehalt Eispartikel (vernachl. werden Graupel und Hagel wg. geringer Kollisionseff.)
             !.. koennte problematisch sein, weil in konvekt. Wolken viel mehr Graupel und Hagel enthalten ist!!!
@@ -3336,8 +3435,8 @@ CONTAINS
 
   END SUBROUTINE graupel_hail_conv_wet_gamlook
 
-  SUBROUTINE ice_riming(ik_slice, dt, icr_params, irr_params, atmo, ice, cloud, rain, graupel, &
-       dep_rate_ice)
+  SUBROUTINE ice_riming(ik_slice, dt, icr_coeffs, irr_coeffs, &
+       &                atmo, ice, cloud, rain, graupel, dep_rate_ice)
     !*******************************************************************************
     !  Riming of ice with cloud droplet and rain drops. First the process rates    *
     !  are calculated in                                                           *
@@ -3351,10 +3450,13 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(sym_riming_params), INTENT(in)  :: icr_params
-    TYPE(asym_riming_params), INTENT(in) :: irr_params
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: cloud, ice, rain, graupel
+    ! parameters
+    TYPE(collection_coeffs), INTENT(in)  :: icr_coeffs
+    TYPE(rain_riming_coeffs), INTENT(in) :: irr_coeffs
+    ! progn. variables
+    TYPE(atmosphere), INTENT(inout)       :: atmo
+    CLASS(particle),  INTENT(inout)       :: cloud, rain
+    CLASS(particle_frozen), INTENT(inout) :: ice, graupel
     REAL(wp), INTENT (IN), DIMENSION(:,:) :: dep_rate_ice
 
     REAL(wp), DIMENSION(size(dep_rate_ice,1),size(dep_rate_ice,2)) ::       &
@@ -3374,7 +3476,6 @@ CONTAINS
          const4 = 1.0_wp/(T_mult_opt - T_mult_max), &
          const5 = alpha_spacefilling * rho_w/rho_ice
 
-
     IF (isdebug) CALL message(routine, "ice riming")
 
     istart = ik_slice(1)
@@ -3382,13 +3483,9 @@ CONTAINS
     kstart = ik_slice(3)
     kend   = ik_slice(4)
 
-    CALL riming_sym_core(ik_slice, &
-         &               ice, ice_s_vel, q_crit_ic, d_crit_ic, &
-         &               cloud, q_crit_c, d_crit_c, icr_params, dt, &
-         &               ecoll_ic/(D_coll_c - D_crit_c), ecoll_ic, &
-         &               rime_rate_qc, rime_rate_nc)
-    CALL riming_asym_core(ik_slice, ice, ice_s_vel, q_crit_ir, d_crit_ir, &
-         &                rain, q_crit, irr_params, dt, &
+    CALL riming_cloud_core(ik_slice, ice, cloud, icr_coeffs, dt, &
+         &                 rime_rate_qc, rime_rate_nc)
+    CALL riming_rain_core(ik_slice, ice, rain, irr_coeffs, dt, &
          &                rime_rate_qi, rime_rate_qr, rime_rate_nr)
 
     !
@@ -3561,8 +3658,8 @@ CONTAINS
 
   END SUBROUTINE ice_riming
 
-  SUBROUTINE snow_riming(ik_slice, dt, scr_params, srr_params, atmo, &
-       snow, cloud, rain, ice, graupel, dep_rate_snow)
+  SUBROUTINE snow_riming(ik_slice, dt, scr_coeffs, srr_coeffs, &
+       &                 atmo, snow, cloud, rain, ice, graupel, dep_rate_snow)
     !*******************************************************************************
     !  Riming of snow with cloud droplet and rain drops. First the process rates   *
     !  are calculated in                                                           *
@@ -3576,11 +3673,14 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
     ! time step within two-moment scheme
     REAL(wp), INTENT(in) :: dt
-    TYPE(sym_riming_params),INTENT(in) :: scr_params
-    TYPE(asym_riming_params),INTENT(in) :: srr_params
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: cloud, rain, snow, ice, graupel
-    REAL(wp), INTENT(IN), DIMENSION(:,:) :: dep_rate_snow
+    ! parameters
+    TYPE(collection_coeffs), INTENT(in) :: scr_coeffs  ! snow cloud riming
+    TYPE(rain_riming_coeffs),INTENT(in) :: srr_coeffs  ! snow rain riming
+    ! 2mom variables
+    TYPE(atmosphere), INTENT(inout)       :: atmo
+    CLASS(particle),  INTENT(inout)       :: cloud, rain
+    CLASS(particle_frozen), INTENT(inout) :: snow, ice, graupel
+    REAL(wp), INTENT(IN), DIMENSION(:,:)  :: dep_rate_snow
 
     REAL(wp), DIMENSION(size(dep_rate_snow,1),size(dep_rate_snow,2)) ::       &
          & rime_rate_qc, rime_rate_nc,                                        &
@@ -3606,14 +3706,9 @@ CONTAINS
     kstart = ik_slice(3)
     kend   = ik_slice(4)
 
-    CALL riming_sym_core(ik_slice, &
-         &               snow, snow_s_vel, q_crit_sc, d_crit_sc, &
-         &               cloud, q_crit_c, d_crit_c, scr_params, dt, &
-         &               ecoll_sc/(D_coll_c - D_crit_c), ecoll_sc, &
-         &               rime_rate_qc, rime_rate_nc)
-    CALL riming_asym_core(ik_slice, &
-         &                snow, snow_s_vel, q_crit_sr, d_crit_sr, &
-         &                rain, q_crit, srr_params, dt, &
+    CALL riming_cloud_core(ik_slice, snow, cloud, scr_coeffs, dt, &
+         &                 rime_rate_qc, rime_rate_nc)
+    CALL riming_rain_core(ik_slice, snow, rain, srr_coeffs, dt, &
          &                rime_rate_qs, rime_rate_qr, rime_rate_nr)
 
     DO k = kstart,kend
@@ -3806,105 +3901,116 @@ CONTAINS
 
  END SUBROUTINE snow_riming
 
-  SUBROUTINE riming_sym_core(ik_slice, &
-       &                     prtcla, prtcla_s_vel, q_crit_a, d_crit_a, &
-       &                     prtclb, q_crit_b, d_crit_b, params, dt, &
-       &                     const1, ecoll_ab, rime_rate_qb, rime_rate_nb)
-    ! start and end indices for 2D slices
-    ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
-    INTEGER, INTENT(in) :: ik_slice(4)
-    TYPE(particle), INTENT(in) :: prtcla, prtclb
-    REAL(wp), INTENT(in) :: prtcla_s_vel, q_crit_a, d_crit_a, &
-         q_crit_b, d_crit_b, dt, const1, ecoll_ab
-    TYPE(sym_riming_params), INTENT(in) :: params
-    REAL(wp), INTENT(out) :: rime_rate_qb(:, :), rime_rate_nb(:, :)
+ SUBROUTINE riming_cloud_core(ik_slice, ptype, cloud, coeffs, dt, &
+      &                     rime_rate_qb, rime_rate_nb)
+   !*******************************************************************************
+   !  Riming rate of ice or snow collecting cloud droplets                        *
+   !  This is a process of the form a+b->c, but b is here always rain and         *
+   !  therefore some parameters are hardcoded for rain                            *
+   !*******************************************************************************
+   ! start and end indices for 2D slices
+   ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
+   INTEGER, INTENT(in) :: ik_slice(4)
+   CLASS(particle_frozen), INTENT(in)  :: ptype
+   CLASS(particle), INTENT(in)         :: cloud
+   REAL(wp), INTENT(in)                :: dt 
+   TYPE(collection_coeffs), INTENT(in) :: coeffs
+   REAL(wp), INTENT(out)               :: rime_rate_qb(:, :), rime_rate_nb(:, :)
+   
+   ! start and end indices for 2D slices
+   INTEGER :: istart, iend, kstart, kend
+   INTEGER             :: i,k
+   REAL(wp)            :: q_p,n_p,x_p,d_p,v_p
+   REAL(wp)            :: q_c,n_c,x_c,d_c,v_c,e_coll,const1
+   REAL(wp)            :: rime_n,rime_q
+   REAL(wp), PARAMETER :: &
+        &  const0 = 1.0/(D_coll_c - D_crit_c)
 
-    ! start and end indices for 2D slices
-    INTEGER :: istart, iend, kstart, kend
-    INTEGER             :: i,k
-    REAL(wp)            :: q_a,n_a,x_a,d_a,v_a
-    REAL(wp)            :: q_b,n_b,x_b,d_b,v_b,e_coll
-    REAL(wp)            :: rime_n,rime_q
+   IF (isdebug) CALL message(routine, "riming_cloud_core")
+   
+   istart = ik_slice(1)
+   iend   = ik_slice(2)
+   kstart = ik_slice(3)
+   kend   = ik_slice(4)
 
-    IF (isdebug) CALL message(routine, "snow_cloud_riming")
+   const1 = const0 * ptype%ecoll_c
+   
+   DO k = kstart,kend
+     DO i = istart,iend
+       
+       n_p = ptype%n(i,k)
+       q_p = ptype%q(i,k)
+       n_c = cloud%n(i,k)
+       q_c = cloud%q(i,k)
+       
+       x_p = particle_meanmass(ptype, q_p, n_p)
+       D_p = particle_diameter(ptype, x_p)
+       x_c = particle_meanmass(cloud, q_c, n_c)
+       D_c = particle_diameter(cloud, x_c)
+       
+       IF (q_c > q_crit_c .AND. q_p > ptype%q_crit_c &
+            &             .AND. D_p > ptype%D_crit_c .AND. D_c > D_crit_c) THEN
+          
+         v_c = particle_velocity(cloud,x_c) * cloud%rho_v(i,k)
+         v_p = particle_velocity(ptype,x_p) * ptype%rho_v(i,k)
+         
+         e_coll = MIN(ptype%ecoll_c, MAX(const1*(D_c - D_crit_c), ecoll_min))
+         
+         rime_n = pi4 * e_coll * n_p * n_c * dt &
+              & *     (  coeffs%delta_n_aa * D_p**2 &
+              &        + coeffs%delta_n_ab * D_p*D_c &
+              &        + coeffs%delta_n_bb * D_c**2) &
+              & * SQRT(  coeffs%theta_n_aa * v_p**2 &
+              &        - coeffs%theta_n_ab * v_p*v_c &
+              &        + coeffs%theta_n_bb * v_c**2 &
+              &        + ptype%s_vel**2)
+         
+         rime_q = pi4 * e_coll * n_p * q_c * dt &
+              & *     (  coeffs%delta_q_aa * D_p**2 &
+              &        + coeffs%delta_q_ab * D_p*D_c &
+              &        + coeffs%delta_q_bb * D_c**2) &
+              & * SQRT(  coeffs%theta_q_aa * v_p**2 &
+              &        - coeffs%theta_q_ab * v_p*v_c &
+              &        + coeffs%theta_q_bb * v_c**2 &
+              &        + ptype%s_vel**2)
+         
+         rime_rate_qb(i,k) = rime_q
+         rime_rate_nb(i,k) = rime_n
+       ELSE
+         rime_rate_qb(i,k) = 0.0_wp
+         rime_rate_nb(i,k) = 0.0_wp
+       ENDIF
+     ENDDO
+   ENDDO
+    
+ END SUBROUTINE riming_cloud_core
 
-    istart = ik_slice(1)
-    iend   = ik_slice(2)
-    kstart = ik_slice(3)
-    kend   = ik_slice(4)
-
-    DO k = kstart,kend
-      DO i = istart,iend
-
-        n_b = prtclb%n(i,k)
-        q_b = prtclb%q(i,k)
-        n_a = prtcla%n(i,k)
-        q_a = prtcla%q(i,k)
-
-        x_b = particle_meanmass(prtclb, q_b, n_b)
-        D_b = particle_diameter(prtclb, x_b)
-        x_a = particle_meanmass(prtcla, q_a, n_a)
-        D_a = particle_diameter(prtcla, x_a)
-
-        IF (q_b > q_crit_b .AND. q_a > q_crit_a .AND. D_a > D_crit_a .AND. D_b > D_crit_b) THEN
-
-          v_b = particle_velocity(prtclb, x_b) * prtclb%rho_v(i,k)
-          v_a = particle_velocity(prtcla, x_a) * prtcla%rho_v(i,k)
-
-          e_coll = MIN(ecoll_ab, MAX(const1*(D_b - D_crit_b), ecoll_min))
-
-          rime_n = pi4 * e_coll * n_a * n_b * dt &
-               & *     (  params%delta_n_aa * D_a**2 &
-               &        + params%delta_n_ab * D_a*D_b &
-               &        + params%delta_n_bb * D_b**2) &
-               & * SQRT(  params%theta_n_aa * v_a**2 &
-               &        - params%theta_n_ab * v_a*v_b &
-               &        + params%theta_n_bb * v_b**2 &
-               &        + prtcla_s_vel**2)
-
-          rime_q = pi4 * e_coll * n_a * q_b * dt &
-               & *     (  params%delta_q_aa * D_a**2 &
-               &        + params%delta_q_ab * D_a*D_b &
-               &        + params%delta_q_bb * D_b**2) &
-               & * SQRT(  params%theta_q_aa * v_a**2 &
-               &        - params%theta_q_ab * v_a*v_b &
-               &        + params%theta_q_bb * v_b**2 &
-               &        + prtcla_s_vel**2)
-
-          rime_rate_qb(i,k) = rime_q
-          rime_rate_nb(i,k) = rime_n
-        ELSE
-          rime_rate_qb(i,k) = 0.0_wp
-          rime_rate_nb(i,k) = 0.0_wp
-        ENDIF
-      ENDDO
-    ENDDO
-
-  END SUBROUTINE riming_sym_core
-
-  SUBROUTINE riming_asym_core(ik_slice, &
-       &                      prtcla, prtcla_s_vel, q_crit_ar, d_crit_ar, &
-       &                      prtclb, q_crit_b, params, dt, &
+  SUBROUTINE riming_rain_core(ik_slice, ptype, rain, coeffs, dt, &
        &                      rime_rate_qa, rime_rate_qb, rime_rate_nb)
     !*******************************************************************************
     !  Riming rate of ice collecting rain drop, or rain collecting ice             *
-    !  and riming of snow with raindrops.
-    !
+    !  and riming of snow with raindrops.                                          *
+    !  This is a process of the form a+b->c, but b is here always rain and         *
+    !  therefore some parameters are hardcoded for rain                            *
     !*******************************************************************************
+
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
-    TYPE(particle), INTENT(in) :: prtcla, prtclb
-    REAL(wp), INTENT(in) :: prtcla_s_vel, q_crit_ar, d_crit_ar, q_crit_b, dt
-    TYPE(asym_riming_params), INTENT(in) :: params
-    REAL(wp), INTENT(out) :: rime_rate_qa(:,:), rime_rate_qb(:,:), &
-         rime_rate_nb(:,:)
+
+    ! 2mom variables
+    CLASS(particle_frozen), INTENT(in)   :: ptype
+    TYPE(particle), INTENT(in)           :: rain
+    REAL(wp), INTENT(in)                 :: dt
+    TYPE(rain_riming_coeffs), INTENT(in) :: coeffs
+    REAL(wp), INTENT(out)                :: rime_rate_qa(:,:), rime_rate_qb(:,:), &
+         &                                  rime_rate_nb(:,:)
 
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
     INTEGER             :: i,k
     REAL(wp)            :: q_a,n_a,x_a,d_a,v_a
-    REAL(wp)            :: q_b,n_b,x_b,d_b,v_b
+    REAL(wp)            :: q_r,n_r,x_r,d_r,v_r
     REAL(wp)            :: rime_n,rime_qi,rime_qr
 
     IF (isdebug) CALL message(routine, "ice_rain_riming")
@@ -3917,47 +4023,47 @@ CONTAINS
     DO k = kstart,kend
       DO i = istart,iend
 
-        q_b = prtclb%q(i,k)
-        q_a = prtcla%q(i,k)
-        n_b = prtclb%n(i,k)
-        n_a = prtcla%n(i,k)
+        q_r = rain%q(i,k)
+        n_r = rain%n(i,k)
+        q_a = ptype%q(i,k)
+        n_a = ptype%n(i,k)
 
-        x_a = particle_meanmass(prtcla, q_a,n_a)
-        D_a = particle_diameter(prtcla, x_a)
+        x_a = particle_meanmass(ptype, q_a,n_a)
+        D_a = particle_diameter(ptype, x_a)
 
-        IF (q_b > q_crit_b .AND. q_a > q_crit_ar .AND. D_a > D_crit_ar) THEN
+        IF (q_r > q_crit .AND. q_a > q_crit_r .AND. D_a > D_crit_r) THEN
 
-          x_b = particle_meanmass(prtclb, q_b,n_b)
-          D_b = particle_diameter(prtclb, x_b)
-          v_b = particle_velocity(prtclb, x_b) * prtclb%rho_v(i,k)
-          v_a = particle_velocity(prtcla, x_a) * prtcla%rho_v(i,k)
+          x_r = particle_meanmass(rain,q_r,n_r)
+          D_r = particle_diameter(rain,x_r)
+          v_r = particle_velocity(rain,x_r) * rain%rho_v(i,k)
+          v_a = particle_velocity(ptype,x_a) * ptype%rho_v(i,k)
 
-          rime_n  = pi4 * n_a * n_b * dt &
-               &  *     (  params%delta_n_aa * D_a * D_a &
-               &         + params%delta_n_ab * D_a * D_b &
-               &         + params%delta_n_bb * D_b * D_b) &
-               &  * SQRT(params%theta_n_aa * v_a * v_a &
-               &         - params%theta_n_ab * v_a * v_b &
-               &         + params%theta_n_bb * v_b * v_b &
-               &         + prtcla_s_vel**2)
+          rime_n  = pi4 * n_a * n_r * dt &
+               &  *     (  coeffs%delta_n_aa * D_a * D_a &
+               &         + coeffs%delta_n_ab * D_a * D_r &
+               &         + coeffs%delta_n_bb * D_r * D_r) &
+               &  * SQRT(coeffs%theta_n_aa * v_a * v_a &
+               &         - coeffs%theta_n_ab * v_a * v_r &
+               &         + coeffs%theta_n_bb * v_r * v_r &
+               &         + ptype%s_vel**2)
 
-          rime_qr = pi4 * n_a * q_b * dt &
-               &  *     (  params%delta_n_aa * D_a * D_a &
-               &         + params%delta_q_ab * D_a * D_b &
-               &         + params%delta_q_bb * D_b * D_b) &
-               &  * SQRT(  params%theta_n_aa * v_a * v_a &
-               &         - params%theta_q_ab * v_a * v_b &
-               &         + params%theta_q_bb * v_b * v_b &
-               &         + prtcla_s_vel**2)
+          rime_qr = pi4 * n_a * q_r * dt &
+               &  *     (  coeffs%delta_n_aa * D_a * D_a &
+               &         + coeffs%delta_q_ab * D_a * D_r &
+               &         + coeffs%delta_q_bb * D_r * D_r) &
+               &  * SQRT(  coeffs%theta_n_aa * v_a * v_a &
+               &         - coeffs%theta_q_ab * v_a * v_r &
+               &         + coeffs%theta_q_bb * v_r * v_r &
+               &         + ptype%s_vel**2)
 
-          rime_qi = pi4 * n_b * q_a * dt &
-               &  *     (  params%delta_q_aa * D_a * D_a &
-               &         + params%delta_q_ba * D_a * D_b &
-               &         + params%delta_n_bb * D_b * D_b) &
-               &  * SQRT(  params%theta_q_aa * v_a * v_a &
-               &         - params%theta_q_ba * v_a * v_b &
-               &         + params%theta_n_bb * v_b * v_b &
-               &         + prtcla_s_vel**2)
+          rime_qi = pi4 * n_r * q_a * dt &
+               &  *     (  coeffs%delta_q_aa * D_a * D_a &
+               &         + coeffs%delta_q_ba * D_a * D_r &
+               &         + coeffs%delta_n_bb * D_r * D_r) &
+               &  * SQRT(  coeffs%theta_q_aa * v_a * v_a &
+               &         - coeffs%theta_q_ba * v_a * v_r &
+               &         + coeffs%theta_n_bb * v_r * v_r &
+               &         + ptype%s_vel**2)
 
           rime_rate_nb(i,k) = rime_n
           rime_rate_qa(i,k) = rime_qi
@@ -3969,9 +4075,9 @@ CONTAINS
         ENDIF
       ENDDO
     ENDDO
-  END SUBROUTINE riming_asym_core
+  END SUBROUTINE riming_rain_core
 
- SUBROUTINE ccn_activation_sk(ik_slice, ccn_coeffs, atmo,cloud,n_cn)
+ SUBROUTINE ccn_activation_sk(ik_slice, ccn_coeffs, atmo, cloud, n_cn)
    !*******************************************************************************
    !       Calculation of ccn activation                                          *
    !       using the look-up tables by Segal and Khain 2006 (JGR, vol.11)         *
@@ -3981,19 +4087,26 @@ CONTAINS
     ! start and end indices for 2D slices
     ! istart = slice(1), iend = slice(2), kstart = slice(3), kend = slice(4)
     INTEGER, INTENT(in) :: ik_slice(4)
-    TYPE(aerosol_ccn),INTENT(in)    :: ccn_coeffs
-    TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout) :: cloud
-    REAL(wp), DIMENSION(:,:) :: n_cn
 
-    ! Locale Variablen
-    INTEGER, PARAMETER :: n_ncn=8, n_r2=3, n_lsigs=5, n_wcb=4
-    INTEGER            :: i_lsigs, i_R2
+    ! parameters
+    TYPE(aerosol_ccn),INTENT(in)    :: ccn_coeffs
+
+    ! 2mom variables
+    TYPE(atmosphere), INTENT(inout) :: atmo
+    CLASS(particle), INTENT(inout)  :: cloud
+    REAL(wp), DIMENSION(:,:)        :: n_cn
+
     ! start and end indices for 2D slices
     INTEGER :: istart, iend, kstart, kend
+
+    ! local variables
     INTEGER            :: i,k,nuc_typ
     REAL(wp)           :: n_c,q_c
     REAL(wp)           :: nuc_n, nuc_q
+
+    ! for activation tables
+    INTEGER, PARAMETER :: n_ncn=8, n_r2=3, n_lsigs=5, n_wcb=4
+    INTEGER            :: i_lsigs, i_R2
     REAL(wp)           :: Ncn, wcb, &
          tab_Ndrop(n_wcb,n_ncn), & ! number of cloud droplets in look_up-Table
          tab_Ndrop_i(n_wcb)        ! number of cloud droplets in look_up-Table,
@@ -4337,7 +4450,7 @@ CONTAINS
     INTEGER, INTENT(in) :: ik_slice(4)
 
     TYPE(atmosphere), INTENT(inout) :: atmo
-    TYPE(particle), INTENT(inout)  :: cloud
+    CLASS(particle), INTENT(inout)  :: cloud
 
     ! Locale Variablen
     ! start and end indices for 2D slices
@@ -4414,14 +4527,14 @@ CONTAINS
   SUBROUTINE sedi_icon_rain (rain,rain_coeffs,qp,np,precrate,qc,rhocorr,adz,dt, &
       &                  its,ite,kts,kte,cmax) !
 
-    TYPE(particle), INTENT(in)             :: rain
-    TYPE(particle_rain_coeffs), INTENT(in)        :: rain_coeffs
-    INTEGER,  INTENT(IN)                   :: its,ite,kts,kte
-    REAL(wp), DIMENSION(:,:), INTENT(INOUT):: qp,np
-    REAL(wp), DIMENSION(:,:), INTENT(IN)   :: adz,qc,rhocorr
-    REAL(wp), DIMENSION(:),   INTENT(OUT)  :: precrate
-    REAL(wp), INTENT(IN)                   :: dt
-    REAL(wp), INTENT(INOUT), OPTIONAL      :: cmax
+    CLASS(particle), INTENT(in)             :: rain
+    TYPE(particle_rain_coeffs), INTENT(in)  :: rain_coeffs
+    INTEGER,  INTENT(IN)                    :: its,ite,kts,kte
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT ):: qp,np
+    REAL(wp), DIMENSION(:,:), INTENT(IN)    :: adz,qc,rhocorr
+    REAL(wp), DIMENSION(:),   INTENT(OUT)   :: precrate
+    REAL(wp), INTENT(IN)                    :: dt
+    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
 
     INTEGER  :: i, k
     REAL(wp) :: x_p,D_m,D_p,mue,v_n,v_q
@@ -4459,7 +4572,6 @@ CONTAINS
       END DO
     END DO
 
-
     CALL sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
          np, qp, precrate, cmax)
 
@@ -4468,8 +4580,8 @@ CONTAINS
   SUBROUTINE sedi_icon_sphere (ptype,pcoeffs,qp,np,precrate,rhocorr,adz,dt, &
       &                  its,ite,kts,kte,cmax) !
 
-    TYPE(particle), INTENT(in)              :: ptype
-    TYPE(particle_sphere), INTENT(in)       :: pcoeffs
+    CLASS(particle), INTENT(in)             :: ptype
+    CLASS(particle_sphere), INTENT(in)      :: pcoeffs
     INTEGER, INTENT(IN)                     :: its,ite,kts,kte
     REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: qp,np
     REAL(wp), DIMENSION(:,:), INTENT(IN)    :: adz,rhocorr
@@ -4522,6 +4634,100 @@ CONTAINS
 
   END SUBROUTINE sedi_icon_sphere
 
+  SUBROUTINE sedi_icon_sphere_lwf (ptype,pcoeffs,qp,np,ql,precrate,rhocorr,adz,dt, &
+      &                  its,ite,kts,kte,cmax) !
+
+    TYPE(particle_lwf), INTENT(in)          :: ptype
+    CLASS(particle_sphere), INTENT(in)      :: pcoeffs
+    INTEGER, INTENT(IN)                     :: its,ite,kts,kte
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT) :: qp,np,ql
+    REAL(wp), DIMENSION(:,:), INTENT(IN)    :: adz,rhocorr
+    REAL(wp), DIMENSION(:),   INTENT(OUT)   :: precrate
+    REAL(wp), INTENT(IN)                    :: dt
+    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
+
+    INTEGER  :: i, k
+    REAL(wp) :: x_p,D_p,D_n,v_n,v_q,v_l,lam,lwf
+
+    REAL(wp), DIMENSION(its:ite,kts-1:kte+1) :: v_n_sedi,v_q_sedi,v_ql_sedi
+
+    REAL(wp), DIMENSION(10) :: avq, avl, avn
+    REAL(wp), DIMENSION(9)  :: bvq, bvl, bvn
+
+    if (ptype%name .eq. 'hail_vivek') then
+      avq = aviwch
+      bvq = bviwch
+      avl = avlwch
+      bvl = bvlwch
+      avn = avnumh
+      bvn = bvnumh
+    elseif (ptype%name .eq. 'graupel_vivek') then
+      avq = aviwcg
+      bvq = bviwcg
+      avl = avlwcg
+      bvl = bvlwcg
+      avn = avnumg
+      bvn = bvnumg
+    end if
+
+    v_n_sedi(:, kts-1) = 0.0_wp
+    v_q_sedi(:, kts-1) = 0.0_wp
+    v_ql_sedi(:,kts-1) = 0.0_wp
+
+    DO k = kts,kte
+      DO i = its,ite
+
+        IF (qp(i,k) > q_crit) THEN
+
+          x_p = particle_meanmass(ptype,qp(i,k),np(i,k))
+          lwf = particle_lwf_idx(ptype,i,k)
+
+          IF (.false.) THEN
+            lam = EXP(ptype%b_vel* LOG(pcoeffs%coeff_lambda*x_p))            
+            v_n = pcoeffs%coeff_alfa_n * lam
+            v_q = pcoeffs%coeff_alfa_q * lam
+            v_l = pcoeffs%coeff_alfa_q * lam
+          ELSE
+            D_p = particle_diameter(ptype,x_p)
+            D_n = particle_normdiameter(ptype,D_p)
+            v_n = rat2do3(D_n,lwf,avn,bvn)
+            v_q = rat2do3(D_n,lwf,avq,bvq)
+            v_l = rat2do3(D_n,lwf,avl,bvl)
+          END IF
+
+          v_n = MAX(v_n,ptype%vsedi_min)
+          v_q = MAX(v_q,ptype%vsedi_min)
+          v_l = MAX(v_l,ptype%vsedi_min)
+          v_n = MIN(v_n,ptype%vsedi_max)
+          v_q = MIN(v_q,ptype%vsedi_max)
+          v_l = MIN(v_l,ptype%vsedi_max)
+          v_n = v_n * rhocorr(i,k)
+          v_q = v_q * rhocorr(i,k)
+          v_l = v_l * rhocorr(i,k)
+
+          v_n_sedi(i,k)  = -v_n
+          v_q_sedi(i,k)  = -v_q
+          v_ql_sedi(i,k) = -v_l
+        ELSE
+          v_n_sedi(i,k) = 0.0_wp
+          v_q_sedi(i,k) = 0.0_wp
+          v_ql_sedi(i,k) = 0.0_wp
+        END IF
+      END DO
+    END DO
+
+    CALL sedi_icon_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, &
+         & its, ite, kts, kte, np, qp, ql, precrate, cmax)
+
+    DO k=kts,kte
+      DO i = its,ite
+        np(i,k) = MIN(np(i,k), qp(i,k)/ptype%x_min)
+        np(i,k) = MAX(np(i,k), qp(i,k)/ptype%x_max)
+      END DO
+    END DO
+
+  END SUBROUTINE sedi_icon_sphere_lwf
+
   SUBROUTINE sedi_icon_core(v_n_sedi, v_q_sedi, adz, dt, its, ite, kts, kte, &
        np, qp, precrate, cmax)
     REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
@@ -4549,7 +4755,7 @@ CONTAINS
     DO k = kts,kte
 
       DO i = its,ite
-        v_nv(i) = 0.5 * (v_n_sedi(i,k-1)+v_n_sedi(i,k))   ! Das sollte wohl k-1 sein.
+        v_nv(i) = 0.5 * (v_n_sedi(i,k-1)+v_n_sedi(i,k))  
         v_qv(i) = 0.5 * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
         ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
         c_nv(i) = -v_nv(i) * adz(i,k) * dt
@@ -4630,5 +4836,147 @@ CONTAINS
     precrate(its:ite) = - q_fluss(its:ite,IAND(kte, 1)) ! Regenrate
 
   END SUBROUTINE sedi_icon_core
+
+  SUBROUTINE sedi_icon_core_lwf(v_n_sedi, v_q_sedi, v_ql_sedi, adz, dt, &
+    &                           its, ite, kts, kte, np, qp, ql, precrate, cmax)
+
+    REAL(wp), DIMENSION(:,:), INTENT(IN) :: adz
+    REAL(wp), INTENT(in) :: dt
+    INTEGER, INTENT(IN) :: its,ite,kts,kte
+    REAL(wp), DIMENSION(its:,kts-1:), INTENT(in) :: v_n_sedi,v_q_sedi,v_ql_sedi
+    REAL(wp), INTENT(INOUT), OPTIONAL       :: cmax
+    REAL(wp), DIMENSION(:), INTENT(OUT)   :: precrate
+    REAL(wp), DIMENSION(:,:), INTENT(INOUT):: np,qp,ql
+
+    REAL(wp), DIMENSION(its:ite, 0:1) :: q_fluss, n_fluss, ql_fluss
+    REAL(wp), DIMENSION(its:ite) :: v_nv, v_qv, v_ql, s_nv, s_qv, s_ql, c_nv, c_qv, c_ql
+    LOGICAL,  DIMENSION(its:ite) :: cflag
+    INTEGER :: i, k, kk, k_c, k_p
+    REAL(wp) :: cmax_temp
+
+    q_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    ql_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+    n_fluss(:, 1-IAND(kts, 1))  = 0.0_wp
+
+    IF (PRESENT(cmax)) THEN
+      cmax_temp = cmax
+    ELSE
+      cmax_temp = 0.0_wp
+    END IF
+    DO k = kts,kte
+
+      DO i = its,ite
+        v_nv(i) = 0.5 * (v_n_sedi(i,k-1)+v_n_sedi(i,k))  
+        v_qv(i) = 0.5 * (v_q_sedi(i,k-1)+v_q_sedi(i,k))
+        v_ql(i) = 0.5 * (v_ql_sedi(i,k-1)+v_ql_sedi(i,k))
+        ! Formulierung unter der Annahme, dass v_nv, v_qv stets negativ
+        c_nv(i) = -v_nv(i) * adz(i,k) * dt
+        c_qv(i) = -v_qv(i) * adz(i,k) * dt
+        c_ql(i) = -v_ql(i) * adz(i,k) * dt
+        cmax_temp = MAX(cmax_temp, c_qv(i))
+      END DO
+
+      kk = k
+      s_nv = 0._wp
+      DO i = its,ite
+        IF (c_nv(i) <= 1._wp) THEN
+          s_nv(i) = v_nv(i) * np(i,k)
+        END IF
+      END DO
+      IF (ANY(c_nv > 1._wp)) THEN
+        cflag = .FALSE.
+        DO WHILE (ANY(c_nv > 1._wp) .AND. kk > 2)
+          DO i = its,ite
+            IF (c_nv(i) > 1._wp) THEN
+              cflag(i) = .TRUE.
+              s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)
+              c_nv(i) = (c_nv(i) - 1._wp) * adz(i,kk-1)/adz(i,kk)
+            END IF
+          END DO
+          kk  = kk - 1
+        ENDDO
+        DO i = its,ite
+          IF (cflag(i)) THEN
+            s_nv(i) = s_nv(i) + np(i,kk)/adz(i,kk)*MIN(c_nv(i),1.0_wp)
+            s_nv(i) = -s_nv(i) / dt
+          END IF
+        END DO
+      ENDIF
+
+      kk = k
+      s_qv = 0.0
+      DO i = its,ite
+        IF (c_qv(i) <= 1._wp) THEN
+          s_qv(i) = v_qv(i) * qp(i,k)
+        END IF
+      END DO
+      IF (ANY(c_qv > 1._wp)) THEN
+        cflag = .FALSE.
+        DO WHILE (ANY(c_qv > 1._wp) .AND. kk > 2)
+          DO i = its,ite
+            IF (c_qv(i) > 1._wp) THEN
+              cflag(i) = .TRUE.
+              s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)
+              c_qv(i) = (c_qv(i) - 1) * adz(i,kk-1)/adz(i,kk)
+            END IF
+          END DO
+          kk  = kk - 1
+        ENDDO
+        DO i = its,ite
+          IF (cflag(i)) THEN
+            s_qv(i) = s_qv(i) + qp(i,kk)/adz(i,kk)*MIN(c_qv(i),1.0_wp)
+            s_qv(i) = -s_qv(i) / dt
+          END IF
+        END DO
+      ENDIF
+
+      kk = k
+      s_ql = 0.0
+      DO i = its,ite
+        IF (c_ql(i) <= 1._wp) THEN
+          s_ql(i) = v_ql(i) * qp(i,k)
+        END IF
+      END DO
+      IF (ANY(c_ql > 1._wp)) THEN
+        cflag = .FALSE.
+        DO WHILE (ANY(c_ql > 1._wp) .AND. kk > 2)
+          DO i = its,ite
+            IF (c_ql(i) > 1._wp) THEN
+              cflag(i) = .TRUE.
+              s_ql(i) = s_ql(i) + ql(i,kk)/adz(i,kk)
+              c_ql(i) = (c_ql(i) - 1) * adz(i,kk-1)/adz(i,kk)
+            END IF
+          END DO
+          kk  = kk - 1
+        ENDDO
+        DO i = its,ite
+          IF (cflag(i)) THEN
+            s_ql(i) = s_ql(i) + ql(i,kk)/adz(i,kk)*MIN(c_ql(i),1.0_wp)
+            s_ql(i) = -s_ql(i) / dt
+          END IF
+        END DO
+      ENDIF
+
+      ! Flux-limiter to avoid negative values
+      k_c = IAND(k, 1)
+      k_p = 1-IAND(k, 1)
+      DO i = its,ite
+        n_fluss(i,k_c)  = MAX(s_nv(i),n_fluss(i,k_p)-np(i,k)/(adz(i,k)*dt))
+        q_fluss(i,k_c)  = MAX(s_qv(i),q_fluss(i,k_p)-qp(i,k)/(adz(i,k)*dt))
+        ql_fluss(i,k_c) = MAX(s_ql(i),ql_fluss(i,k_p)-ql(i,k)/(adz(i,k)*dt))
+      END DO
+
+      DO i = its,ite
+        np(i,k) = np(i,k) + ( n_fluss(i,k_c) - n_fluss(i,k_p) )*adz(i,k)*dt
+        qp(i,k) = qp(i,k) + ( q_fluss(i,k_c) - q_fluss(i,k_p) )*adz(i,k)*dt
+        ql(i,k) = ql(i,k) + ( ql_fluss(i,k_c) - ql_fluss(i,k_p) )*adz(i,k)*dt
+      ENDDO
+
+    END DO
+    IF (PRESENT(cmax)) cmax = cmax_temp
+
+    precrate(its:ite) = - (q_fluss(its:ite,IAND(kte,1))+ql_fluss(its:ite,IAND(kte,1))) ! Regenrate
+
+  END SUBROUTINE sedi_icon_core_lwf
 
 END MODULE mo_2mom_mcrph_processes
