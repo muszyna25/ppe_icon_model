@@ -254,7 +254,7 @@ CONTAINS
             foundPrognostic = .false.
             timelevels = (/nold(1),nnow(1),nnew(1)/)
             do timelevel=1,3
-              call print_error(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
+!TODO         call print_error(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
               src_element => find_element(get_varname_with_timelevel(varlist(i),timelevels(timelevel)))
               if ( ASSOCIATED(src_element) ) then
                 if ( .not. foundPrognostic ) then
@@ -323,6 +323,10 @@ CONTAINS
       & tlev_source=source_element%field%info%tlev_source, &
       & isteptype=source_element%field%info%isteptype, &
       & post_op=source_element%field%info%post_op, &
+      & initval_r=source_element%field%info%initval%rval, &
+      & resetval_r=source_element%field%info%resetval%rval, &
+      & lmiss=source_element%field%info%lmiss, &
+      & missval_r=source_element%field%info%missval%rval, &
       & action_list=source_element%field%info%action_list, &
       & vert_interp=source_element%field%info%vert_interp, &
       & hor_interp=source_element%field%info%hor_interp, &
@@ -387,9 +391,17 @@ CONTAINS
     else
       ! tackle 2d and 3d
       if ( 3 .eq. destination%field%info%ndims ) then
-        call add_fields(destination%field%r_ptr(:,:,:,1,1), source%field%r_ptr(:,:,:,1,1), destination%field%info%subset)
+        call add_fields(destination%field%r_ptr(:,:,:,1,1), &
+          &             source%field%r_ptr(:,:,:,1,1), &
+          &             destination%field%info%subset, &
+          &             has_missvals=destination%field%info%lmiss, &
+          &             missval=destination%field%info%missval%rval)
       else
-        call add_fields(destination%field%r_ptr(:,:,1,1,1), source%field%r_ptr(:,:,1,1,1), destination%field%info%subset)
+        call add_fields(destination%field%r_ptr(:,:,1,1,1), &
+          &             source%field%r_ptr(:,:,1,1,1), &
+          &             destination%field%info%subset, &
+          &             has_missvals=destination%field%info%lmiss, &
+          &             missval=destination%field%info%missval%rval)
       end if
 !     destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)
     endif

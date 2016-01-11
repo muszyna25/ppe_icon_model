@@ -1641,24 +1641,33 @@ CONTAINS
   !-----------------------------------------------------------------------
   
   !-----------------------------------------------------------------------
-  SUBROUTINE add_fields_3d(sum_field,field,subset,levels)
+  SUBROUTINE add_fields_3d(sum_field,field,subset,levels,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:,:)
     REAL(wp),INTENT(in)             :: field(:,:,:)
     TYPE(t_subset_range),INTENT(in) :: subset
     INTEGER,INTENT(in),OPTIONAL :: levels
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
     
     INTEGER :: idx,block,level,start_index,end_index
     
     INTEGER :: mylevels
-    LOGICAL :: my_force_level
-    
+    LOGICAL :: my_force_level, my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
+
     IF (ASSOCIATED(subset%vertical_levels) .AND. .NOT. PRESENT(levels)) THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, idx, level) SCHEDULE(dynamic)
       DO block = subset%start_block, subset%end_block
         CALL get_index_range(subset, block, start_index, end_index)
         DO idx = start_index, end_index
           DO level = 1, subset%vertical_levels(idx,block)
-            sum_field(idx,level,block) = sum_field(idx,level,block) + field(idx,level,block)
+            sum_field(idx,level,block) = MERGE(sum_field(idx,level,block) + field(idx,level,block),my_miss, my_has_missvals)
           END DO
         END DO
       END DO
@@ -1673,7 +1682,7 @@ CONTAINS
         CALL get_index_range(subset, block, start_index, end_index)
         DO idx = start_index, end_index
           DO level = 1, mylevels
-            sum_field(idx,level,block) = sum_field(idx,level,block) + field(idx,level,block)
+            sum_field(idx,level,block) = MERGE(my_miss, sum_field(idx,level,block) + field(idx,level,block), my_has_missvals)
           END DO
         END DO
       END DO
@@ -1682,18 +1691,28 @@ CONTAINS
     ENDIF
   END SUBROUTINE add_fields_3d
   
-  SUBROUTINE add_fields_2d(sum_field,field,subset)
+  SUBROUTINE add_fields_2d(sum_field,field,subset,has_missvals, missval)
     REAL(wp),INTENT(inout)          :: sum_field(:,:)
     REAL(wp),INTENT(in)             :: field(:,:)
     TYPE(t_subset_range),INTENT(in) :: subset
+    LOGICAL, INTENT(IN), OPTIONAL :: has_missvals
+    REAL(wp), INTENT(IN), OPTIONAL :: missval
     
     INTEGER :: jb,jc,start_index,end_index
+    LOGICAL :: my_has_missvals
+    REAL(wp) :: my_miss
+
+    my_has_missvals = .FALSE.
+    my_miss = 0.0_wp
+
+    CALL assign_if_present(my_has_missvals, has_missvals)
+    CALL assign_if_present(my_miss, missval)
     
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index, jc) SCHEDULE(dynamic)
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
       DO jc = start_index, end_index
-        sum_field(jc,jb) = sum_field(jc,jb) + field(jc,jb)
+        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb), my_has_missvals)
       END DO
     END DO
 !ICON_OMP_END_PARALLEL_DO

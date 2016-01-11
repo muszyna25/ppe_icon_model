@@ -384,6 +384,7 @@ STATE_COLUMNS_WIDTH = 12
 NAME_COLUMN_WIDTH   = 65
 DATE_COLUMN_WIDTH   = 20
 #@log                = Logger.new("#{ENV['HOME']}/rllq.log")
+@periods = %w[10M 20M 30M 01H].map {|t| "PT#{t}".to_sym}
 #==============================================================================
 def getAdditionalInfo(logfile,tag)# {{{
   info =[]
@@ -780,30 +781,32 @@ task :checkTimeMeanSP, :pattern do |t,args|
   q.run
 end# }}}
 
-task :checkAtmoMeanStream, :dir, :what do |t,args|
-
-  dir = args.dir.nil? ? '.' : args.dir
-  what = args.what.nil? ? 'all' : args.what
-
-  @meanFiles = {}
-  @periods = %w[10M 20M 30M 01H].map {|t| "PT#{t}".to_sym}
-# Cdo.debug = true
-
+def getResultFiles(dir)
+  dir = '.' if dir.nil? 
+  meanFiles = {}
   # check for all regular output files# {{{
   experimentName = File.expand_path(dir).split(File::SEPARATOR).last
   pp experimentName
-  @regularFiles = Dir.glob("#{dir}/#{experimentName}*nc").delete_if {|fname| fname.include?('_mean_') or fname.include?('_restart_')}
-  @regularFiles.each {|f| @meanFiles[f] = {}}
+  regularFiles = Dir.glob("#{dir}/#{experimentName}*nc").delete_if {|fname| fname.include?('_mean_') or fname.include?('_restart_')}
+  regularFiles.each {|f| meanFiles[f] = {}}
   # collect the mean value versions of the spot value files
-  @meanFiles.each_key {|regularFile|
-    @meanFiles[regularFile][:base] = regularFile
+  meanFiles.each_key {|regularFile|
+    meanFiles[regularFile][:base] = regularFile
     # check for meanValue versions of these files
     tag = File.basename(regularFile).split('_ml_').first
     @periods.each {|p| 
       possibleMeanFiles = Dir.glob("#{dir}/#{tag}*_mean_#{p.to_s}_*nc")
-      @meanFiles[regularFile][p] = possibleMeanFiles.first unless possibleMeanFiles.empty?
+      meanFiles[regularFile][p] = possibleMeanFiles.first unless possibleMeanFiles.empty?
     }
   }
+  [regularFiles ,meanFiles]
+end
+desc "check general mena value solution based on amip expriment"
+task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
+
+  what = args.what.nil? ? 'all' : args.what
+
+  @regularFiles , @meanFiles = getResultFiles(args.dir)
 
   if %w[all sp].include?(what) then
     # compare standard output and mean value output each timestep
@@ -817,7 +820,7 @@ task :checkAtmoMeanStream, :dir, :what do |t,args|
     pp @meanFiles
   end
 
-  if %w[all mean].include?(what) then
+  if %w[all mean].include?(what) then# {{{
     # compare mean values
     {
       :PT20M => [
@@ -835,6 +838,10 @@ task :checkAtmoMeanStream, :dir, :what do |t,args|
         puts regularFile.colorize(:color => :blue, :background => :white)
         puts "\t #{period.to_s}".colorize(:color => :blue, :background => :white)
         varlist = Cdo.showname(:input => regularFile)[0].split(' ')
+        unless args.variable.nil?
+          next unless varlist.include?(args.variable)
+          varlist = [args.variable]
+        end
         #     pp varlist
         #     next
         #Parallel.each(varlist,:in_threads => 1) {|varname|
@@ -862,7 +869,7 @@ task :checkAtmoMeanStream, :dir, :what do |t,args|
 
       }
     }
-  end
+  end# }}}
 
   exit
 
@@ -875,6 +882,34 @@ task :checkAtmoMeanStream, :dir, :what do |t,args|
   puts Cdo.diffv(:input => "-timmean -seltimestep,2/4 #{files[:M20]}  -timmean -seltimestep,2/3 #{files[:M30]}",:options => '-s')
 
 end
+
+task :mk, :dir, :varname do |t,args|
+  # search for varname in regular files
+  regularFiles, meanFiles = getResultFiles(args.dir)
+  pp meanFiles
+  basefile = Parallel.map(regularFiles) {|rfile| 
+    rfile if Cdo.showname(:input => rfile)[0].split.include?(args.varname)
+  }.find     {|i| not i.nil?}
+
+  pp basefile
+
+  selection = "-select,levidx=30 "
+  selection = ''
+  selection << "-select,name=#{args.varname} "
+  %w[base PT10M PT20M].map(&:to_sym).each {|period|
+    puts meanFiles[basefile][period].colorize(:green)
+    puts Cdo.infov(:input => "#{selection} #{meanFiles[basefile][period]}")
+  }
+  puts "cdo -sub #{selection} -seltimestep,2 #{meanFiles[basefile][:PT20M]} #{selection} -seltimestep,3 #{meanFiles[basefile][:PT20M]}".colorize(:blue)
+  puts Cdo.infov(:input => "-sub #{selection} -seltimestep,2 #{meanFiles[basefile][:PT20M]} #{selection} -seltimestep,3 #{meanFiles[basefile][:PT20M]}")
+  puts ["-sub ",
+   "#{selection} -seltimestep,3,5 #{meanFiles[basefile][:base]}",
+   "#{selection} -seltimestep,2,3 #{meanFiles[basefile][:PT20M]}"].join(' ').colorize(:blue)
+  puts Cdo.infov(:input => ["-sub ",
+                            "#{selection} -seltimestep,3,5 #{meanFiles[basefile][:base]}",
+                            "#{selection} -seltimestep,2,3 #{meanFiles[basefile][:PT20M]}"].join(' '))
+end
+
 desc "Check status of given of all experiments"
 task :stat, :expname do |t,args|
   expname = args.expname.nil? ? '' : args.expname
