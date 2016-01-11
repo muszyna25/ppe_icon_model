@@ -26535,7 +26535,7 @@ int gridCompare(int gridID, const grid_t *grid)
               if ( !differ && grid->nvertex != gridInqNvertex(gridID) ) differ = 1;
 
               if ( !differ && grid->number != gridInqNumber(gridID) ) differ = 1;
-              if ( !differ && grid->position != gridInqPosition(gridID) ) differ = 1;
+	      //              if ( !differ && grid->position != gridInqPosition(gridID) ) differ = 1;
 
               if ( !differ && grid->nvertex != gridInqNvertex(gridID) ) differ = 1;
               if ( !differ && grid->number != gridInqNumber(gridID) ) differ = 1;
