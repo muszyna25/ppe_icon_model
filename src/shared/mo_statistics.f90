@@ -1667,7 +1667,9 @@ CONTAINS
         CALL get_index_range(subset, block, start_index, end_index)
         DO idx = start_index, end_index
           DO level = 1, subset%vertical_levels(idx,block)
-            sum_field(idx,level,block) = MERGE(sum_field(idx,level,block) + field(idx,level,block),my_miss, my_has_missvals)
+          sum_field(idx,level,block) = MERGE(my_miss, &
+                                           & sum_field(idx,level,block) + field(idx,level,block), &
+                                           & my_has_missvals .AND. (field(idx,level,block) == my_miss))
           END DO
         END DO
       END DO
@@ -1682,7 +1684,9 @@ CONTAINS
         CALL get_index_range(subset, block, start_index, end_index)
         DO idx = start_index, end_index
           DO level = 1, mylevels
-            sum_field(idx,level,block) = MERGE(my_miss, sum_field(idx,level,block) + field(idx,level,block), my_has_missvals)
+          sum_field(idx,level,block) = MERGE(my_miss, &
+                                          & sum_field(idx,level,block) + field(idx,level,block), &
+                                          & my_has_missvals .AND. (field(idx,level,block) == my_miss))
           END DO
         END DO
       END DO
@@ -1712,7 +1716,7 @@ CONTAINS
     DO jb = subset%start_block, subset%end_block
       CALL get_index_range(subset, jb, start_index, end_index)
       DO jc = start_index, end_index
-        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb), my_has_missvals)
+        sum_field(jc,jb) = MERGE(my_miss, sum_field(jc,jb) + field(jc,jb), my_has_missvals .AND. (field(jc,jb) == my_miss))
       END DO
     END DO
 !ICON_OMP_END_PARALLEL_DO

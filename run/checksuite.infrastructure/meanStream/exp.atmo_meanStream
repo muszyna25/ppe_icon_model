@@ -363,6 +363,19 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  include_last     = .FALSE.
  ml_varlist       = 'group:atmo_ml_vars','group:nh_prog_vars'
 /
+&output_nml
+ output_filename  = "${EXPNAME}_atm_3d_mean_PT40M"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ operation        = "mean"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT40M"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ ml_varlist       = 'group:atmo_ml_vars','group:nh_prog_vars'
+/
 EOF
 fi
 
@@ -418,6 +431,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "PT10M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
+ operation        = "mean"
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
                     'cosmu0'  , 'daylght_frc', 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
@@ -455,6 +469,45 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "PT20M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
+ operation        = "mean"
+ ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
+                    'cosmu0'  , 'daylght_frc', 'rsdt'    ,
+                    'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
+                    'rsns_wtr', 'rsns_ice', 'rsns_lnd',
+                    'rlns_wtr', 'rlns_ice', 'rlns_lnd', 'tend_ta_rlw_impl',
+                    'ts_wtr'  , 'ts_ice'  , 'ts_lnd'  , 'ts'      , 'ts_rad'  ,
+                    'sic'     , 'sit'     ,
+                    'visdffsfc','nirdffsfc','vissfc'  , 'nirsfc'  ,
+                    'albedo'  , 'albedo_wtr', 'albedo_ice', 'albedo_lnd',
+                    'albvisdir','albvisdif' , 'albnirdir' , 'albnirdif',
+                    'albvisdir_ice', 'albvisdir_wtr', 'albvisdir_lnd',
+                    'clt'     ,
+                    'prlr'    , 'prls'    , 'prcr'    , 'prcs'    ,
+                    'pr'      , 'prw'     , 'cllvi'   , 'clivi'   ,
+                    'hfls'    , 'hfss'    , 'evspsbl' ,
+                    'hfls_wtr', 'hfls_ice', 'hfls_lnd',
+                    'hfss_wtr', 'hfss_ice', 'hfss_lnd',
+                    'tauu'    , 'tauv'    ,
+                    'tauu_wtr', 'tauu_ice', 'tauu_lnd',
+                    'tauv_wtr', 'tauv_ice', 'tauv_lnd',
+                    'tauu_sso', 'tauv_sso', 'diss_sso', 
+                    'sh_vdiff', 'qv_vdiff',
+                    'ch_concloud',
+                    'con_dtrl', 'con_dtri', 'con_iteqv',
+                    'cld_dtrl', 'cld_dtri', 'cld_iteq'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_atm_2d_mean_PT30M"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ operation        = "mean"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT30M"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ operation        = "mean"
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
                     'cosmu0'  , 'daylght_frc', 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
@@ -492,6 +545,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "PT01H"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
+ operation        = "mean"
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
                     'cosmu0'  , 'daylght_frc', 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
@@ -561,6 +615,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_interval  = "PT10M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
+ operation        = "mean"
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
@@ -585,6 +640,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_interval  = "PT20M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
+ operation        = "mean"
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
@@ -609,6 +665,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_interval  = "PT01H"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
+ operation        = "mean"
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
@@ -665,6 +722,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_interval  = "PT10M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
+ operation        = "mean"
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
                     'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
                     'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
@@ -688,6 +746,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_interval  = "PT20M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
+ operation        = "mean"
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
                     'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
                     'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
@@ -711,6 +770,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_interval  = "PT01H"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
+ operation        = "mean"
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
                     'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
                     'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
