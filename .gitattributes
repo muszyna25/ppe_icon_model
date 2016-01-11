@@ -712,7 +712,6 @@ run/add_run_routines -text
 run/ana_varnames_map_file.txt -text
 run/checksuite.coupled/exp.couple_atmo-ocean -text
 run/checksuite.coupled/exp.couple_atmo-ocean-prod -text
-run/checksuite.coupled/exp.coupled_r2b3 -text
 run/checksuite.icon-dev/check.atm_amip -text
 run/checksuite.icon-dev/check.atm_amip_noforcing -text
 run/checksuite.icon-dev/check.atm_amip_noforcing_notransport -text
@@ -842,7 +841,6 @@ run/exp.bench_nh_hdcp2_lam_r0416 -text
 run/exp.couple_atmo-ocean -text
 run/exp.couple_atmo-radiation -text
 run/exp.couple_dummy_models -text
-run/exp.coupled_r2b3 -text
 run/exp.hat_heldsuarez -text
 run/exp.hat_icoham_ape -text
 run/exp.hat_icoham_apei -text
@@ -907,8 +905,6 @@ run/exp.test_ocean_omip_10days -text
 run/exp.test_ocean_omip_parallel -text
 run/exp.test_ocean_omip_technical -text
 run/exp.tracer_solid_body -text
-run/exp.yac_nh_r2b3 -text
-run/exp.yac_r2b3 -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
 run/post.atm_amip_tune -text
