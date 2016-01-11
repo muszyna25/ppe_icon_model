@@ -470,7 +470,7 @@ MODULE mo_2mom_mcrph_main
   PUBLIC :: atmosphere, particle, particle_lwf, particle_frozen
   PUBLIC :: init_2mom_scheme, init_2mom_scheme_once, clouds_twomoment
   PUBLIC :: rain_coeffs, ice_coeffs, snow_coeffs, graupel_coeffs, hail_coeffs, &
-       &    ccn_coeffs, in_coeffs
+       &    ccn_coeffs, in_coeffs, cloud_coeffs
 
   PUBLIC :: qnc_const
 
