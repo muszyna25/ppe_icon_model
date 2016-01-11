@@ -21,7 +21,8 @@ MODULE mo_initicon_config
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,         &
-    &                              MODE_IAU, MODE_IAU_OLD
+    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
+  USE mo_grid_config,        ONLY: l_limited_area
   USE mo_time_config,        ONLY: time_config
   USE mo_datetime,           ONLY: t_datetime
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
@@ -231,6 +232,8 @@ CONTAINS
     IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
        init_mode_soil = 1   ! full coldstart is executed
        ! i.e. w_so_ice and h_snow are re-diagnosed
+    ELSE IF (l_limited_area .AND. init_mode == MODE_ICONVREMAP .AND. .NOT. lread_ana) THEN
+       init_mode_soil = 1   ! same initialization for limited-area cold start
     ELSE IF ( ANY((/MODE_IAU, MODE_IAU_OLD/) == init_mode) ) THEN
        init_mode_soil = 3  ! warmstart (within assimilation cycle) with analysis increments for h_snow
     ELSE

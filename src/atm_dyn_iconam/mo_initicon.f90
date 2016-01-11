@@ -46,7 +46,7 @@ MODULE mo_initicon
     &                               min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd, tmelt, tf_salt
   USE mo_exception,           ONLY: message, finish
-  USE mo_grid_config,         ONLY: n_dom
+  USE mo_grid_config,         ONLY: n_dom, l_limited_area
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_satad,               ONLY: sat_pres_ice, spec_humi
@@ -1524,7 +1524,7 @@ MODULE mo_initicon
     TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg, ic, jc, jk, jb, jt, jgch          ! loop indices
+    INTEGER :: jg, ic, jc, jk, jb, jt, jgch, ist          ! loop indices
     INTEGER :: ntlr
     INTEGER :: nblks_c
     REAL(wp):: missval
@@ -1557,7 +1557,7 @@ MODULE mo_initicon
       lanaread_tso = ( one_of('t_so', initicon(jgch)%grp_vars_ana(1:initicon(jgch)%ngrp_vars_ana)) /= -1)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         CALL get_indices_c(p_patch(jg), jb, 1, nblks_c, &
@@ -1675,6 +1675,20 @@ MODULE mo_initicon
                ENDIF
 
             ENDDO  ! jc
+
+            ! Coldstart for limited-area mode still needs limitation of soil moisture to the allowed range
+            IF (l_limited_area .AND. jg == 1 .AND. .NOT. lread_ana) THEN
+
+              DO jc = i_startidx, i_endidx
+                ist = ext_data(jg)%atm%soiltyp(jc,jb)
+                SELECT CASE(ist)
+                CASE (3,4,5,6,7,8) ! soil types with non-zero water content
+                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*cporv(ist),    &
+                  &  MAX(p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*cadp(ist)) )
+                END SELECT
+              ENDDO
+
+            ENDIF
 
           ENDDO  ! jk
 
