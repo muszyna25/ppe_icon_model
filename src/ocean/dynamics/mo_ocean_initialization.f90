@@ -1486,13 +1486,14 @@ CONTAINS
           patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,jk,jb)      = patch_3d%p_patch_1d(1)%zlev_m(jk)
           patch_3d%p_patch_1d(1)%depth_CellInterface(jc,jk,jb)   = patch_3d%p_patch_1d(1)%zlev_i(jk)
           
-          IF (v_base%del_zlev_m(jk) > 0.0_wp) &
-            & patch_3d%p_patch_1d(1)%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
+          IF (patch_3d%p_patch_1d(1)%prism_thick_c(jc,jk,jb) > 0.0_wp) THEN
+            patch_3d%p_patch_1d(1)%inv_prism_thick_c(jc,jk,jb) = &
+              & 1.0_wp/patch_3d%p_patch_1d(1)%prism_thick_c(jc,jk,jb)
+            patch_3d%p_patch_1d(1)%invConstantPrismThickness(jc,jk,jb) = &
+              patch_3d%p_patch_1d(1)%inv_prism_thick_c(jc,jk,jb)
+          ENDIF
           IF (v_base%del_zlev_i(jk) > 0.0_wp)  &
             & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
-
-          patch_3d%p_patch_1d(1)%invConstantPrismThickness(jc,jk,jb) = &
-            & 1.0_wp / patch_3d%p_patch_1d(1)%prism_thick_c(jc,jk,jb)
 
           patch_3d%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,jk,jb) = &
             & patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,jk,jb)

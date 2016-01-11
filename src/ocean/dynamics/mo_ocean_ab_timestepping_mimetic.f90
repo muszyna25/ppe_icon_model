@@ -50,7 +50,7 @@ MODULE mo_ocean_ab_timestepping_mimetic
     & MASS_MATRIX_INVERSION_ALLTERMS,                     &
     & physics_parameters_type,                            &
     & physics_parameters_ICON_PP_Edge_vnPredict_type,     &
-    & solver_FirstGuess
+    & solver_FirstGuess, MassMatrix_solver_tolerance
     
   USE mo_run_config,                ONLY: dtime, ltimer, debug_check_level
   USE mo_timer  
@@ -71,11 +71,11 @@ MODULE mo_ocean_ab_timestepping_mimetic
   USE mo_scalar_product,            ONLY:   &
     & calc_scalar_product_veloc_3d,         &
     & map_edges2edges_viacell_3d_const_z,   &
-    & map_edges2edges_viacell_2D_constZ_sp, &
+    & map_edges2edges_viacell_2d_constZ_onTriangles_sp, &
     & map_edges2edges_viacell_2D_per_level
   USE mo_ocean_math_operators,      ONLY: div_oce_3d, grad_fd_norm_oce_3d,        &
     & grad_fd_norm_oce_2d_3d, grad_fd_norm_oce_2d_3d_sp,                          &
-    & div_oce_2d_sp, grad_fd_norm_oce_2d_onBlock, div_oce_2D_onTriangles_onBlock, &
+    & grad_fd_norm_oce_2d_onBlock, div_oce_2D_onTriangles_onBlock, &
     & div_oce_3D_onTriangles_onBlock, div_oce_2D_onTriangles_onBlock_sp,          &
     & smooth_onCells, div_oce_2D_general_onBlock, div_oce_2D_general_onBlock_sp,  &
 	& div_oce_3D_general_onBlock
@@ -1582,6 +1582,9 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2D     ! patch_2D on which computation is performed
     REAL(wp) :: x_sync(SIZE(x,1), SIZE(x,2))    ! used to syn x, since we cannot synd single precision at the moment
     !-----------------------------------------------------------------------
+    IF( patch_2d%cells%max_connectivity /= 3 )THEN
+      CALL finish("lhs_surface_height_ab_mim_sp", "only works on triangles")
+    ENDIF
     start_timer(timer_lhs_sp,2)
     !-----------------------------------------------------------------------
     patch_2D           => patch_3d%p_patch_2d(1)
@@ -1624,15 +1627,13 @@ CONTAINS
         & lhs_z_grad_h_sp(:,:),           &
         & subset_range=patch_2D%edges%gradIsCalculable)
         
-      CALL map_edges2edges_viacell_2d_constZ_sp( patch_3d, lhs_z_grad_h_sp(:,:), solverCoeffs, lhs_z_e_sp(:,:))
+      CALL map_edges2edges_viacell_2d_constZ_onTriangles_sp( patch_3d, lhs_z_grad_h_sp(:,:), solverCoeffs, lhs_z_e_sp(:,:))
 
     ENDIF ! l_edge_based
     !---------------------------------------
 
     !Step 3) Calculate divergence
     ! store the div in lhs for reducing memory and improving performance
-
-    IF( patch_2d%cells%max_connectivity == 3 )THEN
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
@@ -1646,27 +1647,7 @@ CONTAINS
           lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
         END DO
       END DO ! blockNo
-!ICON_OMP_END_PARALLEL_DO
-
-   ELSE
-
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc) ICON_OMP_DEFAULT_SCHEDULE
-     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-       CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
-       CALL div_oce_2D_general_onBlock_sp( lhs_z_e_sp, patch_2D, solverCoeffs%div_coeff, lhs(:,blockNo),&
-         & blockNo=blockNo, start_index=start_index, end_index=end_index)
-        
-       !Step 4) Finalize LHS calculations
-       DO jc = start_index, end_index
-         !lhs(jc,blockNo) =(x(jc,blockNo) - gdt2 * ab_gam * ab_beta * lhs_div_z_c(jc,blockNo)) / gdt2 !rho_sfc(jc,blockNo)*rho_inv
-         lhs(jc,blockNo) = x(jc,blockNo) * gdt2_inv - gam_times_beta * lhs(jc,blockNo)
-       END DO
-      END DO ! blockNo
-!ICON_OMP_END_PARALLEL_DO
-	   
-    ENDIF	   	
-	
+!ICON_OMP_END_PARALLEL_DO	
     !---------------------------------------
 
     stop_timer(timer_lhs_sp,2)
@@ -2120,7 +2101,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     
-    tolerance                = 1.0e-7_wp  ! solver_tolerance
+    tolerance                = MassMatrix_solver_tolerance
     inv_flip_flop_e(:,:,:)   = 0.0_wp
     use_absolute_solver_tolerance=.true.
 	

@@ -60,7 +60,7 @@ MODULE mo_scalar_product
   !PRIVATE :: map_edges2edges_viacell_3d
   PUBLIC :: map_edges2edges_viavert_3d
   PUBLIC :: map_edges2edges_viacell_3d_const_z
-  PUBLIC :: map_edges2edges_viacell_2D_constZ_sp  
+  PUBLIC :: map_edges2edges_viacell_2d_constZ_onTriangles_sp
   PUBLIC :: map_vec_prismtop2center_on_block
   PUBLIC :: map_scalar_prismtop2center
   PUBLIC :: map_scalar_center2prismtop
@@ -163,7 +163,9 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
     ELSEIF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_PRIMAL_GRID)THEN
-    
+      IF (no_primal_edges /= 3) THEN
+        CALL finish("calc_scalar_product_veloc_3d", "NONLINEAR_CORIOLIS_PRIMAL_GRID works only for triangles")
+      ENDIF
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
@@ -706,7 +708,7 @@ CONTAINS
     ELSE
       endLevel = n_zlev
     END IF
-    
+       
     !Calculation of Pv in cartesian coordinates
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
@@ -731,11 +733,54 @@ CONTAINS
           p_vn_c(cell_index,level,blockNo)%x = p_vn_c(cell_index,level,blockNo)%x &
               & / (operators_coefficients%fixed_vol_norm(cell_index,level,blockNo) &
               &   *patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo))
+
+!           IF (abs(p_vn_c(cell_index,level,blockNo)%x(3)) > 0.5) THEN
+!             write(0,*) "---------------------------"
+!             write(0,*) blockNo, cell_index, " velocity at cell:", p_vn_c(cell_index,level,blockNo)%x
+!             p_vn_c(cell_index,level,blockNo)%x = 0.0_wp
+!             DO ie=1, no_primal_edges
+!               il_e = patch_2d%cells%edge_idx(cell_index,blockNo,ie)
+!               ib_e = patch_2d%cells%edge_blk(cell_index,blockNo,ie)
+!               IF (il_e > 0) THEN
+!                 write(0,*) ie, ":"
+!                 write(0,*) " ", patch_2d%edges%cartesian_center(il_e,ib_e)%x
+!                 write(0,*) " ", patch_2d%verts%cartesian( &
+!                   patch_2d%edges%vertex_idx(il_e,ib_e,1), patch_2d%edges%vertex_blk(il_e,ib_e,1)) %x
+!                 write(0,*) " ", patch_2d%verts%cartesian( &
+!                   patch_2d%edges%vertex_idx(il_e,ib_e,2), patch_2d%edges%vertex_blk(il_e,ib_e,2)) %x
+!                 write(0,*) " ", (patch_2d%verts%cartesian( &
+!                   patch_2d%edges%vertex_idx(il_e,ib_e,2), patch_2d%edges%vertex_blk(il_e,ib_e,2))%x + &
+!                   patch_2d%verts%cartesian( &
+!                   patch_2d%edges%vertex_idx(il_e,ib_e,2), patch_2d%edges%vertex_blk(il_e,ib_e,2))%x) * 0.5_wp
+! 
+!                 write(0,*) " "
+!                 write(0,*) " ", patch_2d%cells%cartesian_center(cell_index,blockNo)%x
+!                 write(0,*) " ", patch_2d%edges%cartesian_center(il_e,ib_e)%x - &
+!                   & patch_2d%cells%cartesian_center(cell_index,blockNo)%x
+! 
+!                 write(0,*) " "
+!                 write(0,*) "   ", vn_e(il_e,level,ib_e)
+! 
+!                 p_vn_c(cell_index,level,blockNo)%x = p_vn_c(cell_index,level,blockNo)%x&
+!                   & + operators_coefficients%edge2cell_coeff_cc(cell_index,level,blockNo,ie)%x&
+!                   & * vn_e(il_e,level,ib_e)*patch_3d%p_patch_1d(1)%prism_thick_e(il_e,level,ib_e)
+!                 write(0,*) "   velocity:", p_vn_c(cell_index,level,blockNo)%x
+!               ENDIF
+!             END DO
+!           ENDIF
+
         END DO level_loop
       END DO  cell_idx_loop
       
     END DO ! blockNo = all_cells%start_block, all_cells%end_block
-    
+
+!     CALL dbg_print('x(1)', p_vn_c(:,:,:)%x(1), &
+!       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+!     CALL dbg_print('x(2)', p_vn_c(:,:,:)%x(2), &
+!       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+    CALL dbg_print('x(3)', p_vn_c(:,:,:)%x(3), &
+      & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+
   END SUBROUTINE map_edges2cell_no_height_3d
   !-----------------------------------------------------------------------------
 
@@ -792,7 +837,8 @@ CONTAINS
         edge_2_block = patch_2d%cells%edge_blk(cell_index,blockNo,2)
         edge_3_index = patch_2d%cells%edge_idx(cell_index,blockNo,3)
         edge_3_block = patch_2d%cells%edge_blk(cell_index,blockNo,3)
-        
+
+
         DO level = startLevel, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo), endLevel)
           p_vn_c(cell_index,level,blockNo)%x =                                            &
             & (  operators_coefficients%edge2cell_coeff_cc(cell_index,level,blockNo,1)%x  &
@@ -1366,7 +1412,7 @@ CONTAINS
   
   !-----------------------------------------------------------------------------
   !<Optimize:inUse>
-  SUBROUTINE map_edges2edges_viacell_2D_constZ_sp( patch_3d, in_vn_e, operators_coefficients, out_vn_e )!&   subset_range)
+  SUBROUTINE map_edges2edges_viacell_2d_constZ_onTriangles_sp( patch_3d, in_vn_e, operators_coefficients, out_vn_e )!&   subset_range)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)       :: patch_3d
     REAL(sp), INTENT(in)                       :: in_vn_e(nproma,patch_3d%p_patch_2d(1)%nblks_e)
@@ -1438,7 +1484,7 @@ CONTAINS
     END DO ! blockNo = edges_in_domain%start_block, edges_in_domain%end_block
 !ICON_OMP_END_PARALLEL_DO
 
-  END SUBROUTINE map_edges2edges_viacell_2D_constZ_sp
+  END SUBROUTINE map_edges2edges_viacell_2d_constZ_onTriangles_sp
   !----------------------------------------------------------------------------- 
   
   

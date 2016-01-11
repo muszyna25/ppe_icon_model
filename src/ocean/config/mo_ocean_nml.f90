@@ -171,6 +171,7 @@ MODULE mo_ocean_nml
 
   ! parameters for gmres solver
   REAL(wp) :: solver_tolerance                   = 1.e-14_wp   ! Maximum value allowed for solver absolute tolerance
+  REAL(wp) :: MassMatrix_solver_tolerance       = 1.e-11_wp   ! Maximum value allowed for solver absolute tolerance
   !  REAL(wp) :: solver_start_tolerance          = -1.0_wp
   INTEGER  :: solver_max_restart_iterations      = 100       ! For restarting gmres
   INTEGER  :: solver_max_iter_per_restart        = 200       ! For inner loop after restart
