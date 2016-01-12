@@ -839,7 +839,7 @@ CONTAINS
    !
    SUBROUTINE sedimentation_explicit()
 
-     logical, parameter :: lfullyexplicit = .true.
+     logical, parameter :: lfullyexplicit = .false.
      REAL(wp) :: cmax, rdzmaxdt
 
      cmax = 0.0_wp
