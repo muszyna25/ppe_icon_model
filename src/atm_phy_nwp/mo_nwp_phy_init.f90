@@ -73,7 +73,7 @@ MODULE mo_nwp_phy_init
   USE mo_mcrph_sb,            ONLY: two_moment_mcrph_init,       &
     &                               set_qnc, set_qnr, set_qni,   &
     &                               set_qns, set_qng
-  USE mo_art_clouds_interface,ONLY: art_clouds_interface_twomom_init
+  USE mo_art_clouds_interface,ONLY: art_clouds_interface_2mom_init
   USE mo_cpl_aerosol_microphys, ONLY: lookupcreate_segalkhain, specccn_segalkhain_simple, &
                                       ncn_from_tau_aerosol_speccnconst
 
@@ -564,7 +564,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   CASE (4) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
 
-    IF (jg == 1) CALL two_moment_mcrph_init( msg_level=msg_level )
+    IF (jg == 1) CALL two_moment_mcrph_init(igscp=atm_phy_nwp_config(jg)%inwp_gscp, msg_level=msg_level )
 
     IF (linit_mode) THEN ! Initial condition for number densities
 !$OMP PARALLEL
@@ -589,7 +589,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   CASE (5) !two moment micrphysics
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: two-moment')
 
-    IF (jg == 1) CALL two_moment_mcrph_init(N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin,msg_level)
+    IF (jg == 1) CALL two_moment_mcrph_init(atm_phy_nwp_config(jg)%inwp_gscp,&
+         &                                  N_cn0,z0_nccn,z1e_nccn,N_in0,z0_nin,z1e_nin,msg_level)
 
     IF (linit_mode) THEN ! Initial condition for number densities
 !$OMP PARALLEL
@@ -641,7 +642,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
            ! and chemical composition taken from the ART extension
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics: ART two-moment')
 
-    IF (jg == 1) CALL art_clouds_interface_twomom_init(msg_level=msg_level)
+    IF (jg == 1) CALL art_clouds_interface_2mom_init(msg_level)
 
     IF (linit_mode) THEN ! Initial condition for number densities
 !$OMP PARALLEL
@@ -651,6 +652,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
                &                i_startidx, i_endidx, rl_start, rl_end)
           DO jk=1,nlev
              DO jc=i_startidx,i_endidx
+                p_prog_now%tracer(jc,jk,jb,iqnc) = set_qnc(p_prog_now%tracer(jc,jk,jb,iqc))
                 p_prog_now%tracer(jc,jk,jb,iqnr) = set_qnr(p_prog_now%tracer(jc,jk,jb,iqr))
                 p_prog_now%tracer(jc,jk,jb,iqni) = set_qni(p_prog_now%tracer(jc,jk,jb,iqi))
                 p_prog_now%tracer(jc,jk,jb,iqns) = set_qns(p_prog_now%tracer(jc,jk,jb,iqs))
@@ -678,7 +680,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     SELECT CASE ( irad_aero )
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
-    CASE (0,2,5,6)
+    CASE (0,2,5,6,9)
       !ok
     CASE DEFAULT
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
@@ -849,7 +851,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         & aerurb   = prm_diag%aerurb,        & !out
         & aerdes   = prm_diag%aerdes )         !out
 
-    ELSEIF ( irad_aero == 6 ) THEN
+    ELSEIF ( irad_aero == 6 .OR. irad_aero == 9) THEN
 
       CALL init_aerosol_props_tegen_rrtm
 
@@ -872,7 +874,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
     SELECT CASE ( irad_aero )
-    CASE (0,2,5,6)
+    CASE (0,2,5,6,9)
       !ok
     CASE DEFAULT
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
@@ -917,7 +919,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         & aerurb   = prm_diag%aerurb,        & !out
         & aerdes   = prm_diag%aerdes )         !out
 
-    ELSEIF ( irad_aero == 6 ) THEN
+    ELSEIF ( irad_aero == 6 .OR. irad_aero == 9) THEN
 
       CALL init_aerosol_props_tegen_rg
 

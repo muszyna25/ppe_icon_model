@@ -29,8 +29,8 @@ MODULE mo_art_clouds_interface
   USE mo_run_config,                    ONLY: lart
 #ifdef __ICON_ART
   USE mo_art_config,                    ONLY: art_config
-  USE mo_art_twomom_driver,             ONLY: art_twomom_mcrph,      &
-                                          &   art_twomom_mcrph_init
+  USE mo_art_2mom_driver,               ONLY: art_2mom_mcrph,      &
+                                          &   art_2mom_mcrph_init
   USE mo_art_modes_linked_list,         ONLY: p_mode_state,t_mode
   USE mo_art_modes,                     ONLY: t_fields_2mom,t_fields_radio, &
                                           &   t_fields_volc
@@ -42,17 +42,17 @@ MODULE mo_art_clouds_interface
 
   PRIVATE
 
-  PUBLIC  :: art_clouds_interface_twomom
-  PUBLIC  :: art_clouds_interface_twomom_init
+  PUBLIC  :: art_clouds_interface_2mom
+  PUBLIC  :: art_clouds_interface_2mom_init
 
 CONTAINS
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_clouds_interface_twomom(isize, ke, jg, jb, is, ie, ks, dt, &
-                                     & dz, rho, pres, tke, p_trac, tk,    &
-                                     & w, prec_r, prec_i, prec_s,         &
-                                     & prec_g, prec_h, tkvh, msg_level, l_cv)
+SUBROUTINE art_clouds_interface_2mom(isize, ke, jg, jb, is, ie, ks, dt, &
+                                   & dz, rho, pres, tke, p_trac, tk,    &
+                                   & w, prec_r, prec_i, prec_s,         &
+                                   & prec_g, prec_h, tkvh, msg_level, l_cv)
   !! Interface for ART: Aerosol-Cloud-Interactions
   !! @par Revision History
   !! Initial revision by Daniel Rieger, KIT (2014-11-10)
@@ -99,20 +99,20 @@ SUBROUTINE art_clouds_interface_twomom(isize, ke, jg, jb, is, ie, ks, dt, &
     IF (art_config(jg)%iart_aci_cold == 6 .OR. art_config(jg)%iart_aci_cold == 7) THEN
       CALL art_prepare_dust_KL06(jg,jb,is,ie,ks,ke,rho,p_trac)
     ENDIF
-    CALL art_twomom_mcrph(isize, ke, jg, jb, is, ie, ks, dt,           &
+    CALL art_2mom_mcrph(isize, ke, jg, jb, is, ie, ks, dt,           &
                         & dz, rho, pres, tke, p_trac(:,:,:), tk,    &
                         & w, prec_r, prec_i, prec_s,         &
                         & prec_g, prec_h, tkvh, msg_level, l_cv)
   ELSE
-    call finish('mo_art_clouds_interface:art_clouds_interface_twomom', &
+    call finish('mo_art_clouds_interface:art_clouds_interface_2mom', &
          &      'Two moment micophysics with ART aerosol chosen (inwp_gscp=6), but lart=.FALSE.')
   ENDIF !lart
 #endif
-END SUBROUTINE art_clouds_interface_twomom
+END SUBROUTINE art_clouds_interface_2mom
 !!
 !!-------------------------------------------------------------------------
 !!
-SUBROUTINE art_clouds_interface_twomom_init(msg_level)
+SUBROUTINE art_clouds_interface_2mom_init(msg_level)
   !! Interface for ART: Aerosol-Cloud-Interactions Initialization
   !! @par Revision History
   !! Initial revision by Daniel Rieger, KIT (2014-11-10)
@@ -122,14 +122,14 @@ SUBROUTINE art_clouds_interface_twomom_init(msg_level)
   
 #ifdef __ICON_ART
   IF (lart) THEN
-    CALL art_twomom_mcrph_init(msg_level)
+    CALL art_2mom_mcrph_init(msg_level)
   ELSE
-    call finish('mo_art_clouds_interface:art_clouds_interface_twomom_init', &
+    call finish('mo_art_clouds_interface:art_clouds_interface_2mom_init', &
          &      'Two moment micophysics with ART aerosol chosen (inwp_gscp=6), but lart=.FALSE.')
   ENDIF !lart
 #endif
 
-END SUBROUTINE art_clouds_interface_twomom_init
+END SUBROUTINE art_clouds_interface_2mom_init
 !!
 !!-------------------------------------------------------------------------
 !!

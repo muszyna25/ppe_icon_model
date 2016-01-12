@@ -214,19 +214,18 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               nflx_contra_vsed => fields%flx_contra_vsed0
               
             CLASS IS (t_fields_volc)
-              CALL art_sedi_volc( p_patch,p_metrics,p_prog,           &
-                &              rho, p_diag,                           & 
-                &              fields%diam,fields%rho,                &
-                &              fields%flx_contra_vsed3,               &
-                &              fields%itracer) 
+              CALL art_sedi_volc( p_patch,p_metrics,p_prog,    &
+                &                 rho, p_diag,                 & 
+                &                 fields%diam,fields%rho,      &
+                &                 fields%flx_contra_vsed3,     &
+                &                 fields%itracer )
               mflx_contra_vsed => fields%flx_contra_vsed3
             CLASS IS (t_fields_radio)
               ! Sedimentation velocity is zero for radioact. tracers
               fields%flx_contra_vsed3(:,:,:) = 0.0_wp
               mflx_contra_vsed => fields%flx_contra_vsed3
               ! However, a deposition velocity is required
-              CALL art_drydepo_radioact( p_patch,p_prog,           &
-                &              fields%itracer) 
+              CALL art_drydepo_radioact( p_patch,p_prog,fields%itracer ) 
             CLASS DEFAULT
               CALL finish('mo_art_sedimentation_interface:art_sedimentation_interface', &
                 &         'ART: Unknown mode field type')
@@ -248,12 +247,15 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
               ! --- calculate vertical flux term due to sedimentation
               ! ----------------------------------
               ! upwind_vflux_ppm_cfl is internally OpenMP parallelized
-              CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             & !< in
-                &                       iubc, flx_contra_vsed, dt_sub,          & !< in
-                &                       lcompute_gt, lcleanup_gt, itype_vlimit, & !< in
-                &                       dz,                                     & !< in
-                &                       rhodz_new, lprint_cfl,                  & !< in
-                &                       p_upflux_sed(:,:,:), opt_elev=nlevp1 )    !< out
+              CALL upwind_vflux_ppm_cfl(p_patch, tracer(:,:,:,jsp),             &
+                &                       iubc, flx_contra_vsed, dt_sub,          &
+                &                       lcompute_gt, lcleanup_gt, itype_vlimit, &
+                &                       dz,                                     &
+                &                       rhodz_new, lprint_cfl,                  &
+                &                       p_upflux_sed(:,:,:),                    &
+                &                       opt_rlstart=i_rlstart,                  &
+                &                       opt_rlend=i_rlend,                      &
+                &                       opt_elev=nlevp1)
     
               ! ----------------------------------
               ! --- update mixing ratio after sedimentation
@@ -282,7 +284,13 @@ SUBROUTINE art_sedi_interface(p_patch, p_dtime, p_prog, p_metrics, rho, p_diag, 
         ! ----------------------------------
         ! --- Clip the tracers
         ! ----------------------------------
-        CALL art_clip_lt(tracer,0.0_wp)
+!$omp parallel do default(shared) private(jb, istart, iend)
+        DO jb = i_startblk, i_endblk
+          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+            &                istart, iend, i_rlstart, i_rlend)
+          CALL art_clip_lt(tracer(istart:iend,1:nlev,jb,:),0.0_wp)
+        ENDDO
+!$omp end parallel do
         
         DEALLOCATE(p_upflux_sed)
         DEALLOCATE(vsed0,vsed3,vdep0,vdep3)
