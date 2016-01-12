@@ -24,6 +24,7 @@ MODULE mo_derived_variable_handling
   USE mo_mpi, ONLY: my_process_is_stdio
   USE mo_var_list_element, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
   USE mo_name_list_output_config, ONLY: first_output_name_list
+  USE mo_name_list_output_metadata, ONLY: metainfo_get_timelevel
   USE mo_var_list, ONLY: nvar_lists, max_var_lists, var_lists, new_var_list,&
        total_number_of_variables, collect_group, get_var_timelevel,&
        get_var_name, default_var_list_settings, add_var, REAL_T, find_element, find_list_element, &
@@ -499,6 +500,7 @@ CONTAINS
                     CASE(TLEV_NNEW_RCF); timelevel = timelevelIndex_rcf
                     CASE DEFAULT;        timelevel = timelevelIndex
                     END SELECT
+                    timelevel = metainfo_get_timelevel(destinationVariable%field%info, 1)
                     source         => get_prognstics_source_pointer (destinationVariable, timelevel)
                     
                   else
