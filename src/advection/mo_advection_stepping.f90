@@ -252,8 +252,6 @@ CONTAINS
 
     LOGICAL  :: l_parallel
 
-    INTEGER, POINTER :: i_itype_hlimit(:) => NULL()
-
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices (array)
       &  iidx, iblk                          !< of edges
 
@@ -508,14 +506,14 @@ CONTAINS
     !
     ! calculate horizontal tracer flux with upwind scheme
     !
-    i_itype_hlimit => advection_config(jg)%itype_hlimit
     i_rlend        = min_rledge_int-1
     !
     CALL hor_upwind_flux( ptr_current_tracer,                                &! in
       &                  ptr_delp_mc_now,                                    &! in
       &                  p_mflx_contra_h, p_vn_contra_traj, p_dtime, p_patch,&! in
       &                  p_int_state, advection_config(jg)%ihadv_tracer,     &! in
-      &                  advection_config(jg)%igrad_c_miura, i_itype_hlimit, &! in
+      &                  advection_config(jg)%igrad_c_miura,                 &! in
+      &                  advection_config(jg)%itype_hlimit,                  &! in
       &                  advection_config(jg)%iadv_slev(:),                  &! in
       &                  advection_config(jg)%iord_backtraj,                 &! in
       &                  p_mflx_tracer_h, opt_rlend=i_rlend                  )! inout,in
