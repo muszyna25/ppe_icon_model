@@ -838,7 +838,7 @@ CONTAINS
    ! flux-form semi-lagrangian scheme after the microphysics.
    !
    SUBROUTINE sedimentation_explicit()
-
+     ! D.Rieger: the parameter lfullyexplicit needs to be set false, otherwise the nproma/mpi tests of buildbot are not passed
      logical, parameter :: lfullyexplicit = .false.
      REAL(wp) :: cmax, rdzmaxdt
 
