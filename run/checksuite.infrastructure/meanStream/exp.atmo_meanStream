@@ -38,7 +38,7 @@ atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"
-  end_date="1979-01-01T01:00:00Z"
+  end_date="1979-01-01T00:30:00Z"
 
 # restart intervals
 checkpoint_interval="P1Y"
@@ -656,6 +656,31 @@ if [[ "$output_phy_3d" == "yes" ]]; then
                     'pfull','ps'
 /
 &output_nml
+ output_filename  = "${EXPNAME}_phy_3d_mean_PT30M"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT30M"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ operation        = "mean"
+ ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
+                    'tend_ta_rlw'  , 'tend_ta_rsw'  ,
+                    'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
+                    'tend_ta_cnv'  , 'tend_ta_cld'  , 
+                    'tend_ua'      , 'tend_ua_dyn'  , 'tend_ua_phy'  ,
+                    'tend_ua_vdf'  , 'tend_ua_gwh'  , 'tend_ua_sso'  ,
+                    'tend_ua_cnv'  , 
+                    'tend_va'      , 'tend_va_dyn'  , 'tend_va_phy'  ,
+                    'tend_va_vdf'  , 'tend_va_gwh'  , 'tend_va_sso'  ,
+                    'tend_va_cnv'  ,
+                    'tend_hus'     , 'tend_hus_dyn' , 'tend_hus_phy' ,
+                    'tend_hus_cld' , 'tend_hus_cnv' , 'tend_hus_vdf' ,
+                    'pfull','ps'
+/
+&output_nml
  output_filename  = "${EXPNAME}_phy_3d_mean_PT01H"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
@@ -744,6 +769,30 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "PT20M"
+ file_interval    = "${file_interval}"
+ include_last     = .FALSE.
+ operation        = "mean"
+ ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
+                    'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
+                    'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
+                    'albedo_srf', 't_air', 'q_air',
+                    'lw_srf_down', 'swnir_srf_down', 'swpar_srf_down', 'swvis_srf_down',
+                    'root_depth', 'root_depth_l', 'soil_depth', 'soil_depth_l'
+                    'evapotrans', 'sensible_hflx', 'latent_hflx' 
+                    'fact_qsat_srf', 'fact_qsat_trans_srf', 'fact_q_air', 'fract_fpc_max', 'fract_fpc'
+                    't_srf_unfilt', 't_srf_unfilt_old', 't_srf_old'
+                    't_soil', 'wsn_srf', 'wsr_srf', 't_eff_srf', 'grnd_hflx'
+                    'sfract_srf', 'wfract_srf', 'sfract_soil', 'sfract_can', 'wfract_can', 'wfract_soil'
+                    'tte_corr', 'rough_m_srf', 'rough_h_srf'
+/
+&output_nml
+ output_filename  = "${EXPNAME}_lnd_mean_PT30M"
+ filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
+ remap            = 0
+ output_grid      = .TRUE.
+ output_start     = "${start_date}"
+ output_end       = "${end_date}"
+ output_interval  = "PT30M"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
  operation        = "mean"
