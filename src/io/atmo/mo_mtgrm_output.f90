@@ -2295,10 +2295,12 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: description_str
     INTEGER         , INTENT(in) :: ncfile, var_id
     CHARACTER(LEN=*), PARAMETER  :: descr_label = "description"
+    CHARACTER(LEN=*), PARAMETER  :: routine = modname//":nf_add_descr"
+    INTEGER :: desc_tlen
 
+    desc_tlen = LEN_TRIM(description_str)
     CALL nf(nf_put_att_text(ncfile, var_id, descr_label, &
-      &         LEN(TRIM(description_str)), TRIM(description_str)), &
-      &         modname )
+      &     desc_tlen, description_str(1:desc_tlen)), routine)
 
   END SUBROUTINE nf_add_descr
 
