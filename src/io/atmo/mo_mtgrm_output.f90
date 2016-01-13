@@ -2319,7 +2319,7 @@ CONTAINS
     TYPE(t_meteogram_data), POINTER :: meteogram_data
     INTEGER                         :: nlev, ivar
 
-    IF (TRIM(meteogram_config%var_list(1)) /= "") THEN
+    IF (LEN_TRIM(meteogram_config%var_list(1)) > 0) THEN
       ! If the user has specified a list of variable names to be
       ! included in the meteogram, check if this variable is contained
       ! in the list:
