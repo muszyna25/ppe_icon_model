@@ -160,13 +160,9 @@ CONTAINS
     !----------------------------------------------------
 
     ! determine length of station list:
-    nstations = 0
-    DO
-      nstations = nstations + 1
-      IF (nstations > MAX_NUM_STATIONS) EXIT
-      IF (stationlist_tot(nstations)%lon == -1._wp) EXIT
+    DO nstations = 0, MAX_NUM_STATIONS - 1
+      IF (stationlist_tot(nstations + 1)%lon == -1._wp) EXIT
     END DO
-    nstations = nstations - 1
 
     ! fill in values for each model domain:
     DO idom=1,max_dom
