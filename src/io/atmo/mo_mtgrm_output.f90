@@ -125,8 +125,7 @@ MODULE mo_meteogram_output
     &                                 p_comm_io, p_comm_rank, p_comm_size
   USE mo_model_domain,          ONLY: t_patch
   USE mo_parallel_config,       ONLY: nproma, p_test_run
-  USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS, zml_soil, &
-    &                                 MAX_CHAR_LENGTH
+  USE mo_impl_constants,        ONLY: inwp, max_dom, SUCCESS, zml_soil
   USE mo_math_constants,        ONLY: pi, pi_180
   USE mo_communication,         ONLY: idx_1d, blk_no, idx_no
   USE mo_ext_data_types,        ONLY: t_external_data
@@ -146,7 +145,7 @@ MODULE mo_meteogram_output
   USE mo_dynamics_config,       ONLY: nnow
   USE mo_io_config,             ONLY: inextra_2d, inextra_3d
   USE mo_lnd_nwp_config,        ONLY: tiles
-  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, ltestcase,    &
+  USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs,               &
     &                                 iqm_max, iqni,                         &
     &                                 iqns, iqng, iqnh, iqnr, iqnc, ininact, &
                                       iqg, iqh
@@ -156,7 +155,6 @@ MODULE mo_meteogram_output
   USE mo_name_list_output_types,ONLY: msg_io_meteogram_flush
   USE mo_util_phys,             ONLY: rel_hum, swdir_s
   USE mo_grid_config,           ONLY: grid_sphere_radius, is_plane_torus
-  USE mo_les_config,            ONLY: les_config
 
   IMPLICIT NONE
 
