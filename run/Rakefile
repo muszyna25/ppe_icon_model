@@ -4,6 +4,7 @@ require 'pp'
 require 'cdo'
 require 'parallel'
 require 'colorize'
+require 'iconPlot'
 begin
   require 'facets'
 rescue
@@ -808,6 +809,7 @@ task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
   what = args.what.nil? ? 'all' : args.what
 
   @regularFiles , @meanFiles = getResultFiles(args.dir)
+  @plotter = IconPlot.new
 
   if %w[all sp].include?(what) then
     # compare standard output and mean value output each timestep
@@ -824,11 +826,11 @@ task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
   if %w[all mean].include?(what) then# {{{
     # compare mean values
     {
-     #:PT20M => [
-     #  { :ref => '2,3', :mean => '2'},
-     #  { :ref => '4,5', :mean => '3'},
-     #  { :ref => '6,7', :mean => '4'},
-     #],
+    #:PT20M => [
+    #  { :ref => '2,3', :mean => '2'},
+    #  { :ref => '4,5', :mean => '3'},
+    #  { :ref => '6,7', :mean => '4'},
+    #],
       :PT30M => [
         { :ref => '2,3,4', :mean => '2'},
       # { :ref => '5,6,7', :mean => '3'},
@@ -863,6 +865,12 @@ task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
               "-timmean -seltimestep,#{config[:ref]}  -selname,#{varname} #{regularFile}",
               "         -seltimestep,#{config[:mean]} -selname,#{varname} #{@meanFiles[regularFile][period]}"
             ].join(' '),:options => '-s')
+            diffFile = Cdo.sub(input: [
+              "-timmean -seltimestep,#{config[:ref]}  -selname,#{varname} #{regularFile}",
+              "         -seltimestep,#{config[:mean]} -selname,#{varname} #{@meanFiles[regularFile][period]}"
+            ].join(' '),:options => '-s',:output => [period, varname, File.basename(regularFile)].map(&:to_s).join('_'))
+          
+            @plotter.show(@plotter.scalarPlot(diffFile,"NH_"+diffFile,varname,showGrid: true))
             #       puts diff
             unless diff.empty? then
               puts [s,varname.colorize(:red),
