@@ -901,7 +901,7 @@ CONTAINS
     cf%history     = TRIM(cf_global_info%history)
     cf%references  = TRIM(cf_global_info%references)
     cf%comment     = TRIM(cf_global_info%comment)
-    
+
     mtgrm(jg)%meteogram_file_info%ldistributed = meteogram_output_config%ldistributed
     CALL uuid_unparse(grid_uuid, mtgrm(jg)%meteogram_file_info%uuid_string)
     mtgrm(jg)%meteogram_file_info%number_of_grid_used = number_of_grid_used
@@ -2264,20 +2264,24 @@ CONTAINS
     ! patch index
     INTEGER, INTENT(IN) :: jg
     ! Local variables
-    INTEGER :: my_id
+    INTEGER :: my_id, dist_prefix_len
+    CHARACTER(len=3+10) :: dist_prefix
 
+    IF (meteogram_output_config%ldistributed) THEN
+      WRITE(dist_prefix, '(a,i3.3,a)') "PE", my_id, "_"
+      dist_prefix_len = LEN_TRIM(dist_prefix)
+    ELSE
+      dist_prefix = ''
+      dist_prefix_len = 0
+    END IF
     my_id = get_my_mpi_all_id()
 
     SELECT CASE (meteogram_output_config%ftype)
     CASE (FTYPE_NETCDF)
-      IF (meteogram_output_config%ldistributed) THEN
-        WRITE (mtgrm(jg)%meteogram_file_info%zname,'(a,i3.3,a,i3.3,a)') "PE", my_id, "_patch", jg, ".nc"
-      ELSE
-        WRITE (mtgrm(jg)%meteogram_file_info%zname,'(a,i3.3,a)') "patch", jg, ".nc"
-      END IF
+      WRITE (mtgrm(jg)%meteogram_file_info%zname,'(3a,i3.3,a)') &
+        TRIM(meteogram_output_config%zprefix), &
+        dist_prefix(1:dist_prefix_len), "patch", jg, ".nc"
     END SELECT
-    mtgrm(jg)%meteogram_file_info%zname = &
-      &  TRIM(meteogram_output_config%zprefix)//TRIM(mtgrm(jg)%meteogram_file_info%zname)
   END SUBROUTINE meteogram_create_filename
 
 
