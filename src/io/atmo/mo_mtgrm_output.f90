@@ -1867,22 +1867,13 @@ CONTAINS
       &               meteogram_file_info%file_id), routine)
     ncfile = meteogram_file_info%file_id
     CALL nf(nf_set_fill(ncfile, nf_nofill, old_mode), routine)
-    CALL nf(nf_put_att_text(ncfile, NF_GLOBAL, 'title',       &
-      &                     LEN_TRIM(cf%title),       TRIM(cf%title)), routine)
-    CALL nf(nf_put_att_text(ncfile, NF_GLOBAL, 'history',     &
-      &                     LEN_TRIM(cf%history),     TRIM(cf%history)), routine)
-    CALL nf(nf_put_att_text(ncfile, NF_GLOBAL, 'institution', &
-      &                     LEN_TRIM(cf%institution), TRIM(cf%institution)), routine)
-    CALL nf(nf_put_att_text(ncfile, NF_GLOBAL, 'source',      &
-      &                     LEN_TRIM(cf%source),      TRIM(cf%source)), routine)
-    CALL nf(nf_put_att_text(ncfile, NF_GLOBAL, 'comment',     &
-      &                     LEN_TRIM(cf%comment),     TRIM(cf%comment)), routine)
-    CALL nf(nf_put_att_text(ncfile, NF_GLOBAL, 'references',  &
-      &                     LEN_TRIM(cf%references),  TRIM(cf%references)), routine)
-
-    CALL nf(nf_put_att_text(ncfile, NF_GLOBAL, 'uuidOfHGrid',  &
-      &                     LEN_TRIM(meteogram_file_info%uuid_string),  &
-      &                     TRIM(meteogram_file_info%uuid_string)), routine)
+    CALL put_global_txt_att('title', TRIM(cf%title))
+    CALL put_global_txt_att('history', TRIM(cf%history))
+    CALL put_global_txt_att('institution', TRIM(cf%institution))
+    CALL put_global_txt_att('source', TRIM(cf%source))
+    CALL put_global_txt_att('comment', TRIM(cf%comment))
+    CALL put_global_txt_att('references', TRIM(cf%references))
+    CALL put_global_txt_att('uuidOfHGrid', TRIM(meteogram_file_info%uuid_string))
     CALL nf(nf_put_att_int (ncfile, NF_GLOBAL, 'numberOfGridUsed',  &
       &                     nf_int,  1, meteogram_file_info%number_of_grid_used), routine)
 
@@ -2117,6 +2108,13 @@ CONTAINS
         istation = istation + 1
       END DO
     END DO
+  CONTAINS
+    SUBROUTINE put_global_txt_att(attname, attval)
+      CHARACTER(len=*), INTENT(in) :: attname, attval
+      CHARACTER(len=*), PARAMETER :: routine = modname//":put_global_txt_att"
+      CALL nf(nf_put_att_text(ncfile, NF_GLOBAL, attname, LEN(attval), attval), &
+        &     routine)
+    END SUBROUTINE put_global_txt_att
   END SUBROUTINE meteogram_create_file
 
 
