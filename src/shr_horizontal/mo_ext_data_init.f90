@@ -882,6 +882,9 @@ CONTAINS
           ext_data(jg)%atm%i_lc_snow_ice = 21
           ext_data(jg)%atm%i_lc_water    = 20
           ext_data(jg)%atm%i_lc_urban    = 22
+          ext_data(jg)%atm%i_lc_shrub_eg = 11
+          ext_data(jg)%atm%i_lc_shrub    = 12
+          ext_data(jg)%atm%i_lc_grass    = 13
           ext_data(jg)%atm%i_lc_bare_soil= 19
           ext_data(jg)%atm%i_lc_sparse   = 14
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
@@ -899,6 +902,9 @@ CONTAINS
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
+          ext_data(jg)%atm%i_lc_shrub_eg = 12
+          ext_data(jg)%atm%i_lc_shrub    = 13
+          ext_data(jg)%atm%i_lc_grass    = 14
           ext_data(jg)%atm%i_lc_bare_soil= 20
           ext_data(jg)%atm%i_lc_sparse   = 15
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
@@ -916,6 +922,9 @@ CONTAINS
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
+          ext_data(jg)%atm%i_lc_shrub_eg = 12
+          ext_data(jg)%atm%i_lc_shrub    = 13
+          ext_data(jg)%atm%i_lc_grass    = 14
           ext_data(jg)%atm%i_lc_bare_soil= 20
           ext_data(jg)%atm%i_lc_sparse   = 15
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
@@ -933,6 +942,9 @@ CONTAINS
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
+          ext_data(jg)%atm%i_lc_shrub_eg = 12
+          ext_data(jg)%atm%i_lc_shrub    = 13
+          ext_data(jg)%atm%i_lc_grass    = 14
           ext_data(jg)%atm%i_lc_bare_soil= 20
           ext_data(jg)%atm%i_lc_sparse   = 15
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
@@ -1025,7 +1037,7 @@ CONTAINS
 
 
           ! Read time dependent data
-          IF ( irad_aero == 6 ) THEN
+          IF ( irad_aero == 6 .OR. irad_aero == 9) THEN
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_SS', ext_data(jg)%atm_td%aer_ss)
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_DUST', ext_data(jg)%atm_td%aer_dust)
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_ORG', ext_data(jg)%atm_td%aer_org)

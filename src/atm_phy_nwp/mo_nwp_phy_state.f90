@@ -1574,7 +1574,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
         & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,          &
         & ldims=shape2d, lrestart=.FALSE. ) 
 
-    ELSE IF (irad_aero == 6) THEN ! Tegen aerosol climatology, time-interpolated values 
+    ELSE IF (irad_aero == 6 .OR. irad_aero == 9) THEN ! Tegen aerosol climatology, time-interpolated values 
                                   ! (needed as state fields for coupling with microphysics and convection)
       IF (atm_phy_nwp_config(k_jg)%icpl_aero_gscp > 1 .OR. icpl_aero_conv > 1) THEN
         lrestart = .TRUE.
