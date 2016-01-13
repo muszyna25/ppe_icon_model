@@ -2011,13 +2011,13 @@ CONTAINS
 
     DO ivar=1,nvars
       CALL nf(nf_put_vara_text(ncfile, ncid%var_name, (/ 1, ivar /), &
-        &        (/ LEN(TRIM(meteogram_data%var_info(ivar)%cf%standard_name)), 1 /), &
+        &        (/ LEN_TRIM(meteogram_data%var_info(ivar)%cf%standard_name), 1 /), &
         &        TRIM(meteogram_data%var_info(ivar)%cf%standard_name)), routine)
       CALL nf(nf_put_vara_text(ncfile, ncid%var_longname, (/ 1, ivar /), &
-        &        (/ LEN(TRIM(meteogram_data%var_info(ivar)%cf%long_name)), 1 /), &
+        &        (/ LEN_TRIM(meteogram_data%var_info(ivar)%cf%long_name), 1 /), &
         &        TRIM(meteogram_data%var_info(ivar)%cf%long_name)), routine)
       CALL nf(nf_put_vara_text(ncfile, ncid%var_unit, (/ 1, ivar /), &
-        &        (/ LEN(TRIM(meteogram_data%var_info(ivar)%cf%units)), 1 /), &
+        &        (/ LEN_TRIM(meteogram_data%var_info(ivar)%cf%units), 1 /), &
         &        TRIM(meteogram_data%var_info(ivar)%cf%units)), routine)
       CALL nf(nf_put_vara_int(ncfile, ncid%var_group_id, ivar, 1, &
         &        meteogram_data%var_info(ivar)%igroup_id), routine)
@@ -2031,13 +2031,13 @@ CONTAINS
 
     DO ivar=1,nsfcvars
       CALL nf(nf_put_vara_text(ncfile, ncid%sfcvar_name, (/ 1, ivar /), &
-        &        (/ LEN(TRIM(meteogram_data%sfc_var_info(ivar)%cf%standard_name)), 1 /), &
+        &        (/ LEN_TRIM(meteogram_data%sfc_var_info(ivar)%cf%standard_name), 1 /), &
         &        TRIM(meteogram_data%sfc_var_info(ivar)%cf%standard_name)), routine)
       CALL nf(nf_put_vara_text(ncfile, ncid%sfcvar_longname, (/ 1, ivar /), &
-        &        (/ LEN(TRIM(meteogram_data%sfc_var_info(ivar)%cf%long_name)), 1 /), &
+        &        (/ LEN_TRIM(meteogram_data%sfc_var_info(ivar)%cf%long_name), 1 /), &
         &        TRIM(meteogram_data%sfc_var_info(ivar)%cf%long_name)), routine)
       CALL nf(nf_put_vara_text(ncfile, ncid%sfcvar_unit, (/ 1, ivar /), &
-        &        (/ LEN(TRIM(meteogram_data%sfc_var_info(ivar)%cf%units)), 1 /), &
+        &        (/ LEN_TRIM(meteogram_data%sfc_var_info(ivar)%cf%units), 1 /), &
         &        TRIM(meteogram_data%sfc_var_info(ivar)%cf%units)), routine)
       CALL nf(nf_put_vara_int(ncfile, ncid%sfcvar_group_id, ivar, 1, &
         &        meteogram_data%sfc_var_info(ivar)%igroup_id), routine)
@@ -2064,7 +2064,7 @@ CONTAINS
           &               meteogram_data%station(jc,jb)%station_idx(1), &
           &               meteogram_data%station(jc,jb)%station_idx(2))
         CALL nf(nf_put_vara_text(ncfile, ncid%station_name, (/ 1, istation /), &
-          &                      (/ LEN(TRIM(this_station%zname)), 1 /), &
+          &                      (/ LEN_TRIM(this_station%zname), 1 /), &
           &                      TRIM(this_station%zname)), routine)
         CALL nf(nf_put_vara_double(ncfile, ncid%station_lon, istation, 1, &
           &                        this_station%location%lon), routine)
@@ -2175,7 +2175,7 @@ CONTAINS
       DO itime=1,meteogram_data%icurrent
 
         CALL nf(nf_put_vara_text(ncfile, ncid%dateid, (/ 1, totaltime+itime /), &
-             &                      (/ LEN(TRIM(meteogram_data%time_stamp(itime)%zdate)), 1 /), &
+             &                      (/ LEN_TRIM(meteogram_data%time_stamp(itime)%zdate), 1 /), &
              &                      TRIM(meteogram_data%time_stamp(itime)%zdate)), &
              &                      modname)
         CALL nf(nf_put_vara_int(ncfile, ncid%time_step, totaltime+itime, 1, &
@@ -2323,7 +2323,7 @@ CONTAINS
       ! If the user has specified a list of variable names to be
       ! included in the meteogram, check if this variable is contained
       ! in the list:
-      IF (one_of(TRIM(zname), meteogram_config%var_list) == -1) RETURN
+      IF (one_of(zname, meteogram_config%var_list) == -1) RETURN
     END IF
 
     IF (dbg_level > 0) &
