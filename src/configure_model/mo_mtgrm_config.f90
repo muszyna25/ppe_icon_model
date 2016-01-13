@@ -64,6 +64,8 @@ MODULE mo_meteogram_config
     !> mpi_comm_world rank that writes the data for this meteogram file
     INTEGER                        :: io_proc_id
 
+    !> instead of clobbering existing file, append instead
+    LOGICAL                        :: append_if_exists
     ! Specification of meteogram stations.
     ! Note: This info is the same for all patches.
     INTEGER                           :: nstations

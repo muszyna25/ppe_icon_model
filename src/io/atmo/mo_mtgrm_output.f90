@@ -1801,13 +1801,14 @@ CONTAINS
   !!
   SUBROUTINE meteogram_open_file(meteogram_output_config, jg)
     ! station data from namelist
-    TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: meteogram_output_config
+    TYPE(t_meteogram_output_config), INTENT(IN) :: meteogram_output_config
     ! patch index
     INTEGER,                             INTENT(IN) :: jg
     ! local variables:
     CHARACTER(len=*), PARAMETER :: &
       &  routine = "mo_meteogram_output:meteogram_open_file"
     INTEGER :: old_mode
+    LOGICAL :: mtgrm_file_exists
 
     IF (meteogram_output_config%ftype /= FTYPE_NETCDF) &
       CALL finish(routine, "Output format not yet implemented.")
@@ -1830,11 +1831,20 @@ CONTAINS
 
     ! create NetCDF file:
     CALL nf(nf_set_default_format(nf_format_64bit, old_mode), routine)
-    CALL meteogram_create_file(meteogram_output_config, mtgrm(jg)%ncid_list, &
-      mtgrm(jg)%meteogram_file_info%cf, mtgrm(jg)%meteogram_file_info, &
-      MERGE(mtgrm(jg)%meteogram_global_data, mtgrm(jg)%meteogram_local_data, &
-      &     .NOT. meteogram_output_config%ldistributed), jg)
-
+    INQUIRE(file=TRIM(mtgrm(jg)%meteogram_file_info%zname), &
+      exist=mtgrm_file_exists)
+    IF (.NOT. mtgrm_file_exists .OR. &
+      .NOT. meteogram_output_config%append_if_exists) THEN
+      CALL meteogram_create_file(meteogram_output_config, mtgrm(jg)%ncid_list, &
+        mtgrm(jg)%meteogram_file_info%cf, mtgrm(jg)%meteogram_file_info, &
+        MERGE(mtgrm(jg)%meteogram_global_data, mtgrm(jg)%meteogram_local_data, &
+        &     .NOT. meteogram_output_config%ldistributed), jg)
+    ELSE
+      CALL meteogram_append_file(mtgrm(jg)%ncid_list, &
+        mtgrm(jg)%meteogram_file_info, &
+        MERGE(mtgrm(jg)%meteogram_global_data, mtgrm(jg)%meteogram_local_data, &
+        &     .NOT. meteogram_output_config%ldistributed))
+    END IF
     IF (dbg_level > 5)  WRITE (*,*) routine, " Leave"
 
   END SUBROUTINE meteogram_open_file
@@ -1843,7 +1853,7 @@ CONTAINS
        meteogram_file_info, meteogram_data, jg)
     TYPE(t_meteogram_output_config), TARGET, INTENT(IN) :: &
          meteogram_output_config
-    TYPE(t_ncid), INTENT(in) :: ncid
+    TYPE(t_ncid), INTENT(inout) :: ncid
     TYPE(t_cf_global), INTENT(in) :: cf
     TYPE(t_meteogram_file), INTENT(in) :: meteogram_file_info
     TYPE(t_meteogram_data), INTENT(in) :: meteogram_data
@@ -1885,10 +1895,9 @@ CONTAINS
     ! write variables:
     CALL nf(nf_def_dim(ncfile, 'nvars',      meteogram_data%nvars, ncid%nvars), routine)
     CALL nf(nf_def_dim(ncfile, 'ntiles',     ntiles_mtgrm, ncid%ntiles), routine)
-    IF (meteogram_data%nsfcvars > 0) THEN
+    IF (meteogram_data%nsfcvars > 0) &
       CALL nf(nf_def_dim(ncfile, 'nsfcvars', meteogram_data%nsfcvars,  ncid%nsfcvars), &
         &     routine)
-    END IF
     CALL nf(nf_def_dim(ncfile, 'max_nlevs',  meteogram_data%max_nlevs, ncid%max_nlevs), &
       &     routine)
     ! create time dimension:
@@ -2116,6 +2125,67 @@ CONTAINS
   END SUBROUTINE meteogram_create_file
 
 
+  SUBROUTINE meteogram_append_file(ncid, &
+       meteogram_file_info, meteogram_data)
+    TYPE(t_ncid), INTENT(inout) :: ncid
+    TYPE(t_meteogram_file), INTENT(in) :: meteogram_file_info
+    TYPE(t_meteogram_data), INTENT(in) :: meteogram_data
+
+    CHARACTER(len=*), PARAMETER :: routine = modname//":meteogram_append_file"
+    INTEGER :: old_mode, ncfile
+
+    CALL nf(nf_open(TRIM(meteogram_file_info%zname), nf_write, &
+      &             meteogram_file_info%file_id), routine)
+    ncfile = meteogram_file_info%file_id
+    CALL nf(nf_set_fill(ncfile, nf_nofill, old_mode), routine)
+    CALL nf(nf_inq_dimid(ncfile, "stringlen", ncid%charid), routine)
+    CALL nf(nf_inq_dimid(ncfile, 'nstations', ncid%nstations), routine)
+    CALL nf(nf_inq_dimid(ncfile, 'nvars', ncid%nvars), routine)
+    IF (meteogram_data%nsfcvars > 0) &
+      CALL nf(nf_inq_dimid(ncfile, 'nsfcvars', ncid%nsfcvars), routine)
+    CALL nf(nf_inq_dimid(ncfile, 'max_nlevs', ncid%max_nlevs), routine)
+    CALL nf(nf_inq_dimid(ncfile, 'time', ncid%timeid), routine)
+    CALL nf(nf_inq_varid(ncfile, "station_name", ncid%station_name), routine)
+    CALL nf(nf_inq_varid(ncfile, "station_lon", ncid%station_lon), routine)
+    CALL nf(nf_inq_varid(ncfile, "station_lat", ncid%station_lat), routine)
+    CALL nf(nf_inq_varid(ncfile, "station_idx", ncid%station_idx), routine)
+    CALL nf(nf_inq_varid(ncfile, "station_blk", ncid%station_blk), routine)
+    CALL nf(nf_inq_varid(ncfile, "station_hsurf", ncid%station_hsurf), routine)
+    CALL nf(nf_inq_varid(ncfile, "station_frland", ncid%station_frland), routine)
+    CALL nf(nf_inq_varid(ncfile, "station_fc", ncid%station_fc), routine)
+    CALL nf(nf_inq_varid(ncfile, "station_soiltype", ncid%station_soiltype), routine)
+
+    ! inquire variable info fields:
+    ! volume variables
+    CALL nf(nf_inq_varid(ncfile, "var_name", ncid%var_name), routine)
+    CALL nf(nf_inq_varid(ncfile, "var_long_name", ncid%var_longname), routine)
+    CALL nf(nf_inq_varid(ncfile, "var_unit", ncid%var_unit), routine)
+    CALL nf(nf_inq_varid(ncfile, "var_group_id", ncid%var_group_id), routine)
+    CALL nf(nf_inq_varid(ncfile, "var_nlevs", ncid%var_nlevs), routine)
+    CALL nf(nf_inq_varid(ncfile, "var_levels", ncid%var_levels), routine)
+    ! surface variables:
+    IF (meteogram_data%nsfcvars > 0) THEN
+      CALL nf(nf_inq_varid(ncfile, "sfcvar_name", ncid%sfcvar_name), routine)
+      CALL nf(nf_inq_varid(ncfile, "sfcvar_long_name", ncid%sfcvar_longname), routine)
+      CALL nf(nf_inq_varid(ncfile, "sfcvar_unit", ncid%sfcvar_unit), routine)
+      CALL nf(nf_inq_varid(ncfile, "sfcvar_group_id", ncid%sfcvar_group_id), routine)
+    END IF
+
+    ! create variables for time slice info:
+    CALL nf(nf_inq_varid(ncfile, "time_step", ncid%time_step), routine)
+    CALL nf(nf_inq_varid(ncfile, "date", ncid%dateid), routine)
+
+    ! height levels
+    CALL nf(nf_inq_varid(ncfile, "heights", ncid%var_heights), routine)
+
+    ! add value buffer for volume variables:
+    CALL nf(nf_inq_varid(ncfile, "values", ncid%var_values), routine)
+    ! add value buffer for surface variables:
+    IF (meteogram_data%nsfcvars > 0) THEN
+      CALL nf(nf_inq_varid(ncfile, "sfcvalues", ncid%sfcvar_values), routine)
+    END IF
+
+  END SUBROUTINE meteogram_append_file
   !>
   !! The IO PE writes the global meteogram buffer to the output
   !! file. Afterwards, the global meteogram buffer is cleared.
@@ -2582,3 +2652,9 @@ CONTAINS
   END FUNCTION get_sfcvar
 
 END MODULE mo_meteogram_output
+!
+! Local Variables:
+! f90-continuation-indent: 2
+! End:
+!
+

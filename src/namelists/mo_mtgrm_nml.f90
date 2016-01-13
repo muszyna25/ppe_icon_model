@@ -91,11 +91,15 @@ CONTAINS
     INTEGER :: max_time_stamps(max_dom)
     !> flush silently when time stamp buffer is exhausted or warn user?
     LOGICAL :: silent_flush(max_dom)
+    !> instead of clobbering existing file, append instead
+    LOGICAL :: append_if_exists(max_dom)
 
     !> Namelist for meteogram output
     NAMELIST/meteogram_output_nml/ lmeteogram_enabled, zprefix, ldistributed,            &
          &                         loutput_tiles, n0_mtgrm, ninc_mtgrm, stationlist_tot, &
-         &                         var_list, max_time_stamps, silent_flush
+         &                         var_list, max_time_stamps, silent_flush,   &
+         &                         append_if_exists
+
 
     !-----------------------
     ! 1. default settings
@@ -121,7 +125,7 @@ CONTAINS
 
     max_time_stamps          = 10000
     silent_flush             = .FALSE.
-
+    append_if_exists         = .FALSE.
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above
     !    by values used in the previous integration.
@@ -182,6 +186,7 @@ CONTAINS
 
       meteogram_output_config(idom)%max_time_stamps = max_time_stamps(idom)
       meteogram_output_config(idom)%silent_flush = silent_flush(idom)
+      meteogram_output_config(idom)%append_if_exists = append_if_exists(idom)
 
       nblks   = nstations/nproma + 1
       npromz  = nstations - nproma*(nblks-1)
