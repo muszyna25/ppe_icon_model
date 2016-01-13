@@ -60,6 +60,7 @@ MODULE mo_atm_phy_nwp_config
     INTEGER ::  inwp_gscp        !> microphysics
     INTEGER ::  inwp_satad       !! saturation adjustment
     INTEGER ::  inwp_convection  !! convection
+    LOGICAL ::  lshallowconv_only !! use shallow convection only
     INTEGER ::  inwp_radiation   !! radiation
     INTEGER ::  inwp_sso         !! sso
     INTEGER ::  inwp_gwd         !! non-orographic gravity wave drag

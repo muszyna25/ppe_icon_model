@@ -174,7 +174,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   REAL(wp), ALLOCATABLE :: zpres_sfc(:,:)    ! ref sfc press
   REAL(wp), ALLOCATABLE :: zpres_ifc(:,:,:)  ! ref press at interfaces
 
-  LOGICAL :: lland, lglac
+  LOGICAL :: lland, lglac, lshallow
   LOGICAL :: ltkeinp_loc, lgz0inp_loc  !< turbtran switches
   LOGICAL :: linit_mode, lturb_init
 
@@ -1021,8 +1021,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 !    WRITE(message_text,'(i3,i10,f20.10)') jg, nsmax, phy_params%mean_charlen
 !    CALL message('nwp_phy_init, nsmax=', TRIM(message_text))
 
-
-    CALL sucumf(rsltn,nlev,pref,phy_params)
+    lshallow = atm_phy_nwp_config(jg)%lshallowconv_only
+    CALL sucumf(rsltn,nlev,pref,phy_params,lshallow)
     CALL suphli
     CALL suvdf
     CALL suvdfs
