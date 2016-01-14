@@ -260,7 +260,7 @@ CONTAINS
 #ifdef USE_MTIME_LOOP
       CALL finish('','Cannot calculate this runs stop date.')
 #else
-      CALL message('use_mtime_loop','Cannot calculate this runs stop date.')
+!      CALL message('use_mtime_loop','Cannot calculate this runs stop date.')
 #endif
     ENDIF
 #ifdef USE_MTIME_LOOP
