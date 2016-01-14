@@ -32,7 +32,7 @@ MODULE mo_art_turbdiff_interface
   USE src_turbdiff,                     ONLY: modvar
   USE mo_run_config,                    ONLY: lart
 #ifdef __ICON_ART
-  USE mo_art_data,                      ONLY: p_art_data
+  USE mo_art_data,                      ONLY: t_art_diag, p_art_data
   USE mo_art_surface_value,             ONLY: art_surface_value
   USE mo_art_config,                    ONLY: art_config
 #endif
@@ -53,6 +53,7 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
     &          prm_nwp_tend,                 & !>in
     &          ncloud_offset,                & !>in
     &          ptr,                          & !>out
+    &          p_rho,                        & !>in
     &          p_metrics, p_diag, prm_diag,  & !>in, optional
     &          jb,                           & !>in, optional
     &          opt_sv, opt_fc,               & !>in, optional
@@ -65,7 +66,7 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
 !!
   CHARACTER(len=*), INTENT(in)              :: &
     &  defcase                           !< definition of case
-  TYPE(t_patch), TARGET, INTENT(IN)         :: &
+  TYPE(t_patch), TARGET, INTENT(in)         :: &
     &  p_patch                           !< patch on which computation is performed
   TYPE(t_nh_prog),  INTENT(in)              :: &
     &  p_prog_rcf                        !< the prog vars
@@ -74,8 +75,13 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
   INTEGER, INTENT(IN)                       :: &
     &  ncloud_offset                     !< index offset due to additional cloud variables 
                                          !< to be diffused.
-  TYPE(modvar), DIMENSION(:), INTENT(inout) :: &
-    &  ptr                               !< passive tracer pointer type structure for diffusion
+  TYPE(modvar), INTENT(inout) :: &
+    &  ptr(:)                            !< passive tracer pointer type structure for diffusion
+  REAL(wp), INTENT(in)                      :: &
+    &  dt
+
+  REAL(wp), INTENT(in), OPTIONAL            :: &
+    &  p_rho(:,:,:)                      !< air density
   TYPE(t_nh_metrics), INTENT(in), OPTIONAL  :: &
     &  p_metrics                         !< metrical fields
   TYPE(t_nh_diag), INTENT(in), OPTIONAL     :: &
@@ -84,29 +90,23 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
     &  prm_diag                          !< atm phys vars
   INTEGER, INTENT(in), OPTIONAL             :: &
     &  jb, i_st, i_en
-  REAL(wp), DIMENSION(:,:,:), INTENT(out), TARGET, OPTIONAL :: &
-    &  opt_sv                            !< surface value according to transfer coeff.
+  REAL(wp), INTENT(out), TARGET, OPTIONAL   :: &
+    &  opt_sv(:,:,:)                     !< surface value according to transfer coeff.
   LOGICAL, INTENT(in), OPTIONAL             :: &
     &  opt_fc
-  REAL(wp), INTENT(in), OPTIONAL            :: &
-    &  dt
-  REAL(wp),POINTER                 ::  &
-    &  sv(:,:,:),                      & !< surface value of tracer
-    &  vdep(:,:,:)                       !< deposition velocity of tracer
-    
-  !Local variables
-  ! ---------------------------------------
-
-  INTEGER  :: jg, idx_trac, jk, jc       !< loop indices
-  INTEGER  :: nblks, istat, nlev, i_startidx, i_endidx
-  INTEGER  :: idx_tot                    !< counter for total number of fields 
-                                         !< (additional cloud vars + tracer vars) 
-                                         !< to be diffused
-
-  !-----------------------------------------------------------------------
-
 #ifdef __ICON_ART
-
+!Local variables
+  REAL(wp), POINTER         :: &
+    &  sv(:,:,:),              & !< surface value of tracer
+    &  vdep(:,:,:)               !< deposition velocity of tracer
+  TYPE(t_art_diag), POINTER :: &
+    &  art_diag                  !< Pointer to ART diagnostic fields
+  INTEGER                   :: &
+    &  jg, idx_trac, jk, jc,   & !< loop indices
+    &  nblks, istat, nlev,     & !<
+    &  i_startidx, i_endidx,   & !<
+    &  idx_tot                   !< counter for total number of fields (add. cloud vars + tracer vars) to be diffused
+  
   jg  = p_patch%id
   IF ( lart ) THEN
     SELECT CASE(TRIM(defcase))
@@ -115,15 +115,16 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
       sv => p_art_data(jg)%turb_fields%sv
       vdep => p_art_data(jg)%turb_fields%vdep
 
+      art_diag => p_art_data(jg)%diag
+
       IF ( .NOT. PRESENT(opt_sv) ) THEN
         CALL art_surface_value( p_patch, p_prog_rcf, p_metrics, p_diag, prm_diag, &
-          &                     jb, vdep, sv )
+          &                     art_diag, p_rho(:,:,:), dt, jg, jb, vdep, sv )
       END IF
 
       DO idx_trac = 1, art_config(jg)%nturb_tracer
 
         idx_tot = idx_trac + ncloud_offset
-
 
         ! set up pointer to tracer type structure for diffusion
         ptr(idx_tot)%av => p_prog_rcf%turb_tracer(jb,idx_trac)%ptr
@@ -142,23 +143,6 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
           ptr(idx_tot)%fc = .FALSE.
         END IF
 
-
-!!$        ! set up pointer to tracer type structure for diffusion
-!!$        ptr(idx_trac)%av => p_prog_rcf%turb_tracer(jb,idx_trac)%ptr
-!!$        ptr(idx_trac)%at => prm_nwp_tend%turb_tracer_tend(jb,idx_trac)%ptr
-!!$        ptr(idx_trac)%at =  0._wp
-!!$  
-!!$        IF ( PRESENT(opt_sv) ) THEN
-!!$          ptr(idx_trac)%sv => opt_sv(:,jb,idx_trac)
-!!$          IF ( PRESENT(opt_fc) ) THEN
-!!$            ptr(idx_trac)%fc = opt_fc
-!!$          ELSE
-!!$            ptr(idx_trac)%fc = .FALSE.
-!!$          END IF
-!!$        ELSE
-!!$          ptr(idx_trac)%sv => sv(:,jb,idx_trac)
-!!$          ptr(idx_trac)%fc = .FALSE.
-!!$        END IF
       END DO
 
     CASE('update_ptr')
@@ -173,8 +157,6 @@ SUBROUTINE art_turbdiff_interface( defcase,  & !>in
           DO jc = i_st, i_en
             ptr(idx_tot)%av(jc,jk) = MAX( 0._wp, ptr(idx_tot)%av(jc,jk)     &
               &                     + dt * ptr(idx_tot)%at(jc,jk) )
-!!$            ptr(idx_trac)%av(jc,jk) = MAX( 0._wp, ptr(idx_trac)%av(jc,jk)     &
-!!$              &                     + dt * ptr(idx_trac)%at(jc,jk) )
           END DO
         END DO
       END DO
