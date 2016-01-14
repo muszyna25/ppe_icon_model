@@ -110,8 +110,7 @@ MODULE mo_time_config
   !! 
   !! The actual variable
   !!
-  TYPE(t_time_config), PROTECTED :: time_config
-
+  TYPE(t_time_config), PROTECTED, SAVE :: time_config
 
 CONTAINS
 
