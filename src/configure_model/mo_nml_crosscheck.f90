@@ -24,7 +24,7 @@
 !!
 MODULE mo_nml_crosscheck
 
-  USE mo_kind,               ONLY: wp
+  USE mo_kind,               ONLY: wp, i8
   USE mo_exception,          ONLY: message, message_text, finish, print_value
   USE mo_impl_constants,     ONLY: max_char_length, max_dom,                  &
     &                              iecham, ildf_echam, inwp, iheldsuarez,     &
@@ -37,12 +37,15 @@ MODULE mo_nml_crosscheck
     &                              ifluxl_m, ihs_ocean, RAYLEIGH_CLASSIC,     &
     &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD 
   USE mo_master_config,      ONLY: tc_exp_stopdate, tc_stopdate
-  USE mtime,                 ONLY: OPERATOR(>) 
+  USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta, &
+       &                           MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,     &
+       &                           OPERATOR(>), OPERATOR(/=), timedeltaToString   
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
-    &                              inextra_3d
+    &                              inextra_3d, lnetcdf_flt64_output
   USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
+    &                              use_dp_mpi2io,                             &
     &                              num_io_procs, itype_comm, num_restart_procs
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
     &                              ltransport, ntracer, nlev, ltestcase,      &
@@ -52,7 +55,7 @@ MODULE mo_nml_crosscheck
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,         & 
     &                              inccn, ininact, ininpot,                   &
     &                              activate_sync_timers, timers_level,        &
-    &                              output_mode, lart
+    &                              output_mode, lart, tc_dt_model
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_grid_config
@@ -296,7 +299,10 @@ CONTAINS
     INTEGER :: i_listlen
     INTEGER :: z_go_tri(11)  ! for crosscheck
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:atm_crosscheck'
-
+    TYPE(timedelta),  POINTER             :: mtime_td
+    INTEGER(i8)                           :: dtime_ms
+    CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)  :: td_string, td_string0
+    
     !--------------------------------------------------------------------
     ! Parallelization
     !--------------------------------------------------------------------
@@ -494,6 +500,10 @@ CONTAINS
             CALL message(TRIM(method_name),'radiation is used without ozone')
           CASE (2,4,6,7,8,9) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone')
+          CASE (10) ! ok                                                                                                                                                                                            CALL message(TRIM(method_name),'radiation is used with ozone calculated from ART')
+            IF ( .NOT. lart ) THEN
+              CALL finish(TRIM(method_name),'irad_o3 currently is 10 but lart is false.')
+            ENDIF
           CASE default
             CALL finish(TRIM(method_name),'irad_o3 currently has to be 0, 2, 4, 6, 7, 8 or 9.')
           END SELECT
@@ -873,14 +883,6 @@ CONTAINS
 
     END SELECT
 
-#ifndef __ICON_ART
-    IF (lart) THEN
-      WRITE(message_text,'(A)') &
-          'run_nml: lart is set .TRUE. but ICON was compiled without -D__ICON_ART'
-        CALL finish( TRIM(method_name),TRIM(message_text))
-    ENDIF
-#endif
-
     IF (ltransport) THEN
     DO jg = 1,n_dom
 
@@ -946,6 +948,17 @@ CONTAINS
     ! checking the meanings of the io settings
     !--------------------------------------------------------------------
 
+
+    IF (lnetcdf_flt64_output) THEN
+       CALL message(TRIM(method_name),'NetCDF output of floating point variables will be in 64-bit accuracy')
+       IF (.NOT. use_dp_mpi2io) THEN
+          use_dp_mpi2io = .TRUE.
+          CALL message(TRIM(method_name),'--> use_dp_mpi2io is changed to .TRUE. to allow 64-bit accuracy in the NetCDF output.')
+       END IF
+    ELSE
+       CALL message(TRIM(method_name),'NetCDF output of floating point variables will be in 32-bit accuracy')
+    END IF
+
     SELECT CASE(iforcing)
     CASE ( iecham, ildf_echam )
       inextra_2d   = 0
@@ -960,14 +973,14 @@ CONTAINS
       WRITE (message_text,*) &
         & "warning: namelist parameter 'activate_sync_timers' has been set to .FALSE., ", &
         & "because global 'ltimer' flag is disabled."
-      CALL message('io_namelist', TRIM(message_text))
+      CALL message(TRIM(method_name), TRIM(message_text))
     END IF
     IF (timers_level > 9 .AND. .NOT. activate_sync_timers) THEN
       activate_sync_timers = .TRUE.
       WRITE (message_text,*) &
         & "warning: namelist parameter 'activate_sync_timers' has been set to .TRUE., ", &
         & "because global 'timers_level' is > 9."
-      CALL message('io_namelist', TRIM(message_text))
+      CALL message(TRIM(method_name), TRIM(message_text))
     END IF
 
 
@@ -1004,6 +1017,21 @@ CONTAINS
     CALL check_meteogram_configuration(num_io_procs)
 
     CALL land_crosscheck()
+    CALL art_crosscheck()
+
+    ! Intermediate testing for consistency between old and mtime scheme 
+   
+    ! check if the model time step defined by run_nml:dtime is
+    ! identical to the time step defined by run_nml:modelTimeStep
+    CALL timedeltatostring(tc_dt_model, td_string0)
+    dtime_ms = NINT(dtime*1000, i8)
+    CALL getPTStringFromMS(dtime_ms, td_string)
+    mtime_td => newTimedelta(td_string)
+    IF (mtime_td /= tc_dt_model) THEN
+      CALL finish(method_name, 'Inconsistent time step definitions: '//&
+        &TRIM(td_string0)//' vs. '//TRIM(td_string))
+    END IF
+    CALL deallocateTimedelta(mtime_td)
     
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------
@@ -1032,4 +1060,41 @@ CONTAINS
   END SUBROUTINE land_crosscheck
   !---------------------------------------------------------------------------------------
 
+  !---------------------------------------------------------------------------------------
+  SUBROUTINE art_crosscheck
+  
+    CHARACTER(len=*), PARAMETER :: &
+      &  method_name =  'mo_nml_crosscheck:art_crosscheck'
+    INTEGER  :: &
+      &  jg
+    
+#ifndef __ICON_ART
+    IF (lart) THEN
+        CALL finish( TRIM(method_name),'run_nml: lart is set .TRUE. but ICON was compiled without -D__ICON_ART')
+    ENDIF
+#endif
+    
+    IF (.NOT. lart .AND. irad_aero == 9 ) THEN
+      CALL finish(TRIM(method_name),'irad_aero=9 needs lart = .TRUE.')
+    END IF
+    
+#ifdef __ICON_ART
+    IF ( ( irad_aero == 9 ) .AND. ( itopo /=1 ) ) THEN
+      CALL finish(TRIM(method_name),'irad_aero=9 requires itopo=1')
+    ENDIF
+    
+    DO jg= 1,n_dom
+      IF(lredgrid_phys(jg) .AND. irad_aero == 9) THEN
+        CALL finish(TRIM(method_name),'irad_aero=9 does not work with a reduced radiation grid')
+      ENDIF
+      IF(art_config(jg)%iart_ari == 0 .AND. irad_aero == 9) THEN
+        CALL finish(TRIM(method_name),'irad_aero=9 needs iart_ari > 0')
+      ENDIF
+      IF(art_config(jg)%iart_ari > 0  .AND. irad_aero /= 9) THEN
+        CALL finish(TRIM(method_name),'iart_ari > 0 requires irad_aero=9')
+      ENDIF
+    ENDDO
+#endif
+  END SUBROUTINE art_crosscheck
+  !---------------------------------------------------------------------------------------
 END MODULE mo_nml_crosscheck

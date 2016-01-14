@@ -44,7 +44,7 @@ MODULE mo_art_config
   PUBLIC :: idusta,idustb,idustc,idusta0,idustb0,idustc0                 !Running index for mineral dust in ICON-ART
   PUBLIC :: iTRCHBR3,iTRCH2BR2,iTRBRy                                    !Running index for chemical tracer in ICON-ART - VSLS-BRy
   PUBLIC :: iTRCH4,iTRCO2,iTRCO,iTRH2O,iTRO3                             !Running index for chemical tracer in ICON-ART - CH4-CO-CO2-H2O-O3
-  PUBLIC :: iTRCH3COCH3,iTRC2H6,iTRSF6,iTRN2O                            !Running index for chemical tracer in ICON-ART - CH3COCH3,C2H6,SF6,N2O
+  PUBLIC :: iTRCH3COCH3,iTRC5H8,iTRC2H6,iTRSF6,iTRN2O                    !Running index for chemical tracer in ICON-ART - CH3COCH3,C5H8,C2H6,SF6,N2O
   PUBLIC :: iTR1,iTR2,iTR3,iTR4,iTR5                                     !Running index for chemical tracer in ICON-ART - artificial tracer
   
   
@@ -66,7 +66,8 @@ MODULE mo_art_config
   INTEGER :: & !< Chemical tracers
     &  iTRCHBR3, iTRCH2BR2, iTRBRy, &
     &  iTRCH4, iTRCO2, iTRCO,       &
-    &  iTRCH3COCH3, iTRC2H6, iTRH2O,&
+    &  iTRCH3COCH3, iTRC5H8,        &
+    &  iTRC2H6, iTRH2O,             &
     &  iTRO3, iTRSF6, iTRN2O,       &
     &  iTR1, iTR2, iTR3, iTR4, iTR5
   
