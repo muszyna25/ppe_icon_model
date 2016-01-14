@@ -81,8 +81,9 @@ MODULE mo_name_list_output
 
   ! constants
   USE mo_kind,                      ONLY: wp, i8, dp, sp
-  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,       &
-    &                                     ihs_ocean, TLEV_NNOW, TLEV_NNOW_RCF, TLEV_NNEW, TLEV_NNEW_RCF
+  USE mo_impl_constants,            ONLY: max_dom, SUCCESS, MAX_TIME_LEVELS, MAX_CHAR_LENGTH,            &
+    &                                     ihs_ocean, TLEV_NNOW, TLEV_NNOW_RCF, TLEV_NNEW, TLEV_NNEW_RCF, &
+    &                                     BOUNDARY_MISSVAL, max_rlcell 
   USE mo_dynamics_config,           ONLY: iequations
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
@@ -103,7 +104,8 @@ MODULE mo_name_list_output
   USE mo_master_config,             ONLY: getModelBaseDir
   USE mo_grid_config,               ONLY: n_dom
   USE mo_run_config,                ONLY: msg_level
-  USE mo_io_config,                 ONLY: lkeep_in_sync
+  USE mo_io_config,                 ONLY: lkeep_in_sync,                   &
+    &                                     config_lmask_boundary => lmask_boundary
   USE mo_gribout_config,            ONLY: gribout_config
   USE mo_parallel_config,           ONLY: p_test_run, use_dp_mpi2io, &
        num_io_procs, io_proc_chunk_size
@@ -144,6 +146,9 @@ MODULE mo_name_list_output
     &                                     metainfo_get_size
   USE mo_name_list_output_zaxes,    ONLY: deallocate_level_selection, create_mipz_level_selections
   USE mo_grib2_util,                ONLY: set_GRIB2_timedep_keys, set_GRIB2_timedep_local_keys
+  ! model domain
+  USE mo_model_domain,              ONLY: t_patch, p_patch
+  USE mo_loopindices,               ONLY: get_indices_c
   ! post-ops
 
 #ifndef __NO_ICON_ATMO__
@@ -611,6 +616,10 @@ CONTAINS
     LOGICAL                                     :: var_ignore_level_selection
     INTEGER                                     :: nmiss    ! missing value indicator
     INTEGER                                     :: var_ref_pos
+    REAL(wp)                                    :: missval
+    INTEGER                                     :: rl_start, rl_end, i_nchdom, i_startblk, i_endblk, &
+      &                                            i_startidx, i_endidx
+    TYPE(t_patch), POINTER                      :: ptr_patch
 
     ! Offset in memory window for async I/O
     ioff = 0_i8
@@ -987,7 +996,8 @@ CONTAINS
 
         ! set missval flag, if applicable
         !
-        IF (of%var_desc(iv)%info%lmiss ) THEN
+        IF ( of%var_desc(iv)%info%lmiss .OR. &
+          &  ( of%var_desc(iv)%info%lmask_boundary .AND. config_lmask_boundary) ) THEN
           nmiss = 1
         ELSE
           nmiss = 0
@@ -1153,6 +1163,35 @@ CONTAINS
                   & REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),dp)
               ENDDO
             END IF
+
+            ! If required, set lateral boundary points to missing
+            ! value. Note that this modifies only the output buffer!
+            IF (info%lmask_boundary .AND. (info%hgrid == GRID_UNSTRUCTURED_CELL)) THEN
+              missval = BOUNDARY_MISSVAL
+              IF (info%lmiss) THEN
+                IF (idata_type == iREAL) THEN
+                  missval = info%missval%rval
+                ELSE IF (idata_type == iINTEGER) THEN
+                  missval = REAL(info%missval%ival,dp)
+                END IF
+              END IF
+              ptr_patch => p_patch(i_log_dom)
+              rl_start   = 1
+              rl_end     = max_rlcell
+              i_nchdom   = MAX(1,ptr_patch%n_childdom)
+              i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+              i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+              CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
+                i_startidx, i_endidx, rl_start, rl_end)
+              DO i = 1, p_ri%n_own
+                IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
+                  &  ((p_ri%own_blk(i) == i_endblk) .AND. &
+                  &   (p_ri%own_idx(i) <= i_endidx)) ) THEN
+                  of%mem_win%mem_ptr_dp(ioff+INT(i,i8)) = missval
+                END IF
+              END DO
+            END IF
+
           ELSE
             IF (idata_type == iREAL) THEN
               DO i = 1, p_ri%n_own
@@ -1166,6 +1205,35 @@ CONTAINS
                   & REAL(i_ptr(p_ri%own_idx(i),lev_idx,p_ri%own_blk(i)),sp)
               ENDDO
             END IF
+
+            ! If required, set lateral boundary points to missing
+            ! value. Note that this modifies only the output buffer!
+            IF (info%lmask_boundary .AND. (info%hgrid == GRID_UNSTRUCTURED_CELL)) THEN
+              missval = BOUNDARY_MISSVAL
+              IF (info%lmiss) THEN
+                IF (idata_type == iREAL) THEN
+                  missval = info%missval%rval
+                ELSE IF (idata_type == iINTEGER) THEN
+                  missval = REAL(info%missval%ival,sp)
+                END IF
+              END IF
+              ptr_patch => p_patch(i_log_dom)
+              rl_start   = 1
+              rl_end     = max_rlcell
+              i_nchdom   = MAX(1,ptr_patch%n_childdom)
+              i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+              i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+              CALL get_indices_c(ptr_patch, i_endblk, i_startblk, i_endblk, &
+                i_startidx, i_endidx, rl_start, rl_end)
+              DO i = 1, p_ri%n_own
+                IF ( (p_ri%own_blk(i) < i_endblk) .OR. &
+                  &  ((p_ri%own_blk(i) == i_endblk) .AND. &
+                  &   (p_ri%own_idx(i) <= i_endidx)) ) THEN
+                  of%mem_win%mem_ptr_sp(ioff+INT(i,i8)) = REAL(missval,sp)
+                END IF
+              END DO
+            END IF
+
           END IF
           ioff = ioff + INT(p_ri%n_own,i8)
         END DO ! nlevs
@@ -1501,7 +1569,8 @@ CONTAINS
       ! set missval flag, if applicable
       !
       IF ( (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2) ) THEN
-        IF ( info%lmiss ) THEN
+        IF ( info%lmiss .OR. &
+          &  ( info%lmask_boundary .AND. config_lmask_boundary) ) THEN
           nmiss = 1
         ELSE
           nmiss = 0

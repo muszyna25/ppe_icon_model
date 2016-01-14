@@ -50,7 +50,7 @@ MODULE mo_name_list_output_init
     &                                             MAX_TIME_LEVELS, vname_len,                     &
     &                                             MAX_CHAR_LENGTH, MAX_NUM_IO_PROCS,              &
     &                                             MAX_TIME_INTERVALS, ihs_ocean, MAX_NPLEVS,      &
-    &                                             MAX_NZLEVS, MAX_NILEVS
+    &                                             MAX_NZLEVS, MAX_NILEVS, BOUNDARY_MISSVAL
   USE mo_io_units,                          ONLY: filename_max, nnml, nnml_output
   USE mo_master_config,                     ONLY: getModelBaseDir, isRestart
   USE mo_master_control,                    ONLY: my_process_is_ocean
@@ -82,7 +82,8 @@ MODULE mo_name_list_output_init
     &                                             number_of_grid_used
   USE mo_grid_config,                       ONLY: n_dom, n_phys_dom, start_time, end_time,        &
     &                                             DEFAULT_ENDTIME
-  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict
+  USE mo_io_config,                         ONLY: netcdf_dict, output_nml_dict,                   &
+    &                                             config_lmask_boundary => lmask_boundary
   USE mo_name_list_output_config,           ONLY: use_async_name_list_io,                         &
     &                                             first_output_name_list,                         &
     &                                             add_var_desc
@@ -2673,7 +2674,21 @@ CONTAINS
       IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
 
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
-      IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
+      IF (info%lmiss) THEN
+        ! set the missing value
+        IF ((.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) .OR. use_dp_mpi2io) THEN
+          CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
+        ELSE
+          ! In cases, where we use asynchronous output and the data is
+          ! transferred using a single-precision buffer, we need to
+          ! transfer the missing value to single-precision as well.
+          ! Otherwise, in pathological cases, the missing value and
+          ! the masked data in the buffer might be different values.
+          CALL vlistDefVarMissval(vlistID, varID, REAL(REAL(info%missval%rval,sp),dp))
+        END IF
+      ELSE IF (info%lmask_boundary .AND. config_lmask_boundary) THEN
+        CALL vlistDefVarMissval(vlistID, varID, BOUNDARY_MISSVAL)
+      END IF
 
       ! Set GRIB2 Triplet
       IF (info%post_op%lnew_grib2) THEN

@@ -592,6 +592,12 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CL = 3
   INTEGER, PARAMETER, PUBLIC :: RTTOV_RAD_CS = 4
 
+  !------------------------------------------------!
+  !  MISSING VALUE FOR BOUNDARY INTERPOLATION ZONE !
+  !------------------------------------------------!
+
+  REAL(WP), PARAMETER, PUBLIC :: BOUNDARY_MISSVAL = -999.e-10
+
 
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants
