@@ -191,7 +191,7 @@ case "$fortran_compiler" in
         FCLIBS      = -v
         GEN_FLAGS   =
         FDEBUG      = -g -R abc
-        ART_FFLAGS  = -D__ICON_ART -D__XML4ART
+        ART_FFLAGS  = -D__ICON_ART
         DEFOPT      = -D
         DEFCOPT     = -D
         MODOPT      = -I
@@ -231,7 +231,7 @@ case "$fortran_compiler" in
         F77         = $FC
         F77FLAGS    = $FFLAGS $STD_FLAGS
         OMPFLAG     = -openmp
-        ART_FFLAGS  = -D__ICON_ART -D__XML4ART
+        ART_FFLAGS  = -D__ICON_ART
         CC_OMPFLAG  = -openmp
         DEFOPT      = -D
         DEFCOPT     = -D
