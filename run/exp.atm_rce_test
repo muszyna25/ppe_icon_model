@@ -1,14 +1,14 @@
 #--------------------------------------------------------------------------------------------------
 #
-# Aqua Planet Experiment (APE)
+# Radiative Convective Equilibrium experiment (RCE)
 #
 author_list="Marco Giorgetta, MPIM"
 #
 #--------------------------------------------------------------------------------------------------
 #
-# This file describes an aqua planet experiment based on the non-hydrostatic atmosphere and the
-# ECHAM physics. The experiment is intialized analytically and uses constant-in-time
-# boundary conditions for:
+# This file describes a radiative convective equilibrium experiment on the sphere based on the
+# non-hydrostatic atmosphere and the ECHAM physics. The experiment is intialized analytically
+# and uses constant-in-time boundary conditions for:
 # - SST and sea ice
 # - spectral solar irradiation
 # - well mixed greenhouse gases CO2, CH4, N2O, CFCs
@@ -16,7 +16,7 @@ author_list="Marco Giorgetta, MPIM"
 #
 # No aerosols are used
 #
-# _bb_table_Description_  aqua planet experiment
+# _bb_table_Description_  radiative convective equilibrium
 # _bb_table_Model_        non-hydrostatic atmosphere with ECHAM physics
 #
 #--------------------------------------------------------------------------------------------------
@@ -87,9 +87,13 @@ cat > ${atmo_namelist} << EOF
  irad_type        = 2
  activate_sync_timers = .TRUE.
 /
+&dynamics
+ lcoriolis        = .FALSE.
+/
 &nh_testcase_nml
  nh_test_name     = 'APE_echam'
- ape_sst_case     = 'sst_qobs'
+ ape_sst_case     = 'sst_const'
+ ape_sst_val      = 29.0        ! [degC]
 /
 &nonhydrostatic_nml
  ndyn_substeps    = 2           ! dtime/dt_dyn
