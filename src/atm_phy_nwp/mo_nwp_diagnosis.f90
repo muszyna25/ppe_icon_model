@@ -1033,7 +1033,7 @@ CONTAINS
           IF ( prm_diag%htop_dc(jc,jb) > zundef) THEN
             prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),        &
            &                p_metrics%z_ifc(jc,nlevp1,jb) + 3000._wp )
-            IF ( prm_diag%locum(jc,jb)) THEN
+            IF ( prm_diag%hbas_con(jc,jb) /= -500._wp) THEN
               prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),      &
              &                               prm_diag%hbas_con(jc,jb) )
             END IF
