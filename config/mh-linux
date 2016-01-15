@@ -625,7 +625,11 @@ case "$ac_sitename" in
                 ZLIBROOT    = /usr
                 MPIROOT     = /pfs/imk/ICON/LIBRARIES
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
-                OTHER_LIBS  = -lTIXI
+                case "$with_art" in
+                     yes)
+                       OTHER_LIBS = ${OTHER_LIBS} -lTIXI
+                       ;;
+                esac
                 CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
                 config_target=ic2
                 make_command=make -j8
