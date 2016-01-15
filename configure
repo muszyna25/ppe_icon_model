@@ -4407,7 +4407,7 @@ fi
 
     case $host in
     *-*-darwin*)
-      MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
+      MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){printf $i " "}}}') "$MPI_LIB
       ;;
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB

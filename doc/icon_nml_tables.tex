@@ -827,13 +827,6 @@ run\_nml/iforcing = 2
 \tabularnewline
 
 %\hline
-\textbf{icover} &
-I& 1 &&
-1 = diagnostic cloud cover scheme (Sunquist)&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
 \textbf{lgw\_hines} &
 L& .TRUE.&&
 .TRUE. for non-orographic gravity wave drag (Hines)&
@@ -5698,7 +5691,7 @@ Defined and used in: \verb+src/testcases/mo_ha_testcases.f90+
 
 
 %-------------------------------------------------------------------------------
-% nh_test_nml:
+% nh_testcase_nml:
 %-------------------------------------------------------------------------------
 \subsection{nh\_testcase\_nml (Scope: ltestcase=.TRUE. and iequations=3 in run\_nml)}
 
@@ -5738,7 +5731,7 @@ u=v=0, topography=0.0).&
 &&&&'\textbf{HS\_jw}': Initializes the Held-Suarez test case
 with Jablonowski Williamson initial conditions and zero topography.&
 \tabularnewline
-&&&&'\textbf{APE\_nh}': Initializes the APE experiments. With the
+&&&&'\textbf{APE\_nwp, APE\_echam, APE\_nh, APEc\_nh, }': Initializes the APE experiments. With the
 jabw test case, including moisture.&
 \tabularnewline
 &&&&'\textbf{wk82}': Initializes the Weisman Klemp test case&
@@ -5935,8 +5928,16 @@ SST distribution selection\\
 'sst2': Peaked experiment\\
 'sst3': Flat experiment\\
 'sst4': Control-5N experiment\\
-'sst\_qobs': Qobs SST distribution exp.&
- nh\_test\_name='APE\_nh'
+'sst\_qobs': Qobs SST distribution exp.\\
+'sst\_const': constant SST&
+nh\_test\_name='APE\_nwp', 'APE\_echam'
+\tabularnewline
+
+%\hline
+ape\_sst\_val&
+R& 29.0& degC &
+aqua planet SST  for ape\_sst\_case='sst\_const'&
+nh\_test\_name= 'APE\_nwp', 'APE\_echam'
 \tabularnewline
 
 %\hline

@@ -1,8 +1,8 @@
 #!/bin/ksh
 #--------------------------------------------------------------------------------
 #
-# _bb_table_Description_  AMIP experiment, no forcing
-# _bb_table_Model_        non-hydrostatic atmosphere
+# _bb_table_Description_  AMIP experiment
+# _bb_table_Model_        non-hydrostatic atmosphere with ECHAM physics
 
 #--------------------------------------------------------------------------------
 #
@@ -14,12 +14,12 @@
 # - the output  file names: <EXPNAME>_<TYPE>_<DATE>.nc
 # - the restart file names: 
 #
-export EXPERIMENT='atm_amip_noforcing_test'
+export EXPERIMENT='atm_ape_test'
 
 # TYPES is a list of names identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
 #
-export TYPES='atm_3d_ml'
+export TYPES='atm_2d_ml atm_3d_ml phy_3d_ml'
 
 # DATES is a list of dates identifying the files <EXPNAME>_<TYPE>_<DATE>.nc
 # to be checked.
