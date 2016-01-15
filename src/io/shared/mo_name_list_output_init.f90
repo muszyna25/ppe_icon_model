@@ -2673,7 +2673,20 @@ CONTAINS
       IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
 
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
-      IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
+      IF (info%lmiss) THEN
+        ! set the missing value
+        IF ((.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) .OR. use_dp_mpi2io) THEN
+          CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
+        ELSE
+          ! In cases, where we use asynchronous output and the data is
+          ! transferred using a single-precision buffer, we need to
+          ! transfer the missing value to single-precision as well.
+          ! Otherwise, in pathological cases, the missing value and
+          ! the masked data in the buffer might be different values.
+          CALL vlistDefVarMissval(vlistID, varID, REAL(REAL(info%missval%rval,sp),dp))
+        END IF
+      ENDIF  ! info%lmiss
+
 
       ! Set GRIB2 Triplet
       IF (info%post_op%lnew_grib2) THEN
