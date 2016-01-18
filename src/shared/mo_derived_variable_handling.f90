@@ -395,21 +395,23 @@ CONTAINS
           & destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,index:index,:)
       END SELECT
     else
-      ! tackle 2d and 3d
-      if ( 3 .eq. destination%field%info%ndims ) then
+      ! tackle 1d, 2d and 3d
+      SELECT CASE(destination%field%info%ndims)
+      CASE(3)
         call add_fields(destination%field%r_ptr(:,:,:,1,1), &
           &             source%field%r_ptr(:,:,:,1,1), &
           &             destination%field%info%subset, &
           &             has_missvals=destination%field%info%lmiss, &
           &             missval=destination%field%info%missval%rval)
-      else
+      CASE(2)
         call add_fields(destination%field%r_ptr(:,:,1,1,1), &
           &             source%field%r_ptr(:,:,1,1,1), &
           &             destination%field%info%subset, &
           &             has_missvals=destination%field%info%lmiss, &
           &             missval=destination%field%info%missval%rval)
-      end if
-!     destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)
+      CASE DEFAULT
+        destination%field%r_ptr(:,:,:,:,:) = destination%field%r_ptr (:,:,:,:,:) + source%field%r_ptr(:,:,:,:,:)
+      END SELECT
     endif
     counter                 = counter + 1
   END SUBROUTINE accumulation_add
