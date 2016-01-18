@@ -5,6 +5,8 @@ require 'cdo'
 require 'parallel'
 require 'colorize'
 require 'iconPlot'
+require 'unifiedPlot'
+require 'gsl'
 begin
   require 'facets'
 rescue
@@ -803,6 +805,15 @@ def getResultFiles(dir)
   }
   [regularFiles ,meanFiles]
 end
+
+def hist(inputs)
+  nbins = 1000 
+  max = inputs[:y].abs.max   
+  h = GSL::Histogram.alloc(nbins, [-max, max])                                                                                                                                                                                               
+  h.fill(inputs[:y])         
+  GSL::graph(h)
+
+end
 desc "check general mena value solution based on amip expriment"
 task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
 
@@ -815,7 +826,9 @@ task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
     # compare standard output and mean value output each timestep
     @regularFiles.each {|regularFile|
       if @meanFiles[regularFile].has_key?(:PT10M) then
+        next unless ( (not args.variable.nil?) and Cdo.showname(:input => @meanFiles[regularFile][:PT10M])[0].split.include?(args.variable))
         puts Cdo.diffv(:input => [regularFile,@meanFiles[regularFile][:PT10M]].join(' '))
+        puts Cdo.infov(:input => " -selname,#{args.variable} #{@meanFiles[regularFile][:PT10M]}") unless args.variable.nil?
       end
     }# }}}
 
@@ -825,22 +838,31 @@ task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
 
   if %w[all mean].include?(what) then# {{{
     # compare mean values
-    {
-    #:PT20M => [
-    #  { :ref => '2,3', :mean => '2'},
-    #  { :ref => '4,5', :mean => '3'},
-    #  { :ref => '6,7', :mean => '4'},
-    #],
+    { #{{{ setup for 10M shifted 20M-mean fields
+   # :PT20M => [
+   #   { :ref => '3,4', :mean => '2'},
+   #   { :ref => '5,6', :mean => '3'},
+   # ], #}}}
+   # #   10M shift 30M mean {{{
+   #  :PT30M => [
+   #    { :ref => '3,4,5', :mean => '2'},
+   #  ],
+   #  # }}}
+      :PT20M => [
+        { :ref => '2,3', :mean => '2'},
+        { :ref => '4,5', :mean => '3'},
+        { :ref => '6,7', :mean => '4'},
+      ],
       :PT30M => [
         { :ref => '2,3,4', :mean => '2'},
-      # { :ref => '5,6,7', :mean => '3'},
+        { :ref => '5,6,7', :mean => '3'},
       ],
-     #:PT40M => [
-     #  { :ref => '2,3,4,5', :mean => '2'},
-     #],
-     #:PT01H => [
-     #  { :ref => '2,3,4,5,6,7',:mean => '2'},
-     #],
+      :PT40M => [
+        { :ref => '2,3,4,5', :mean => '2'},
+      ],
+     :PT01H => [
+       { :ref => '2,3,4,5,6,7',:mean => '2'},
+     ],
     }.each {|period, configs|
       @regularFiles.each {|regularFile|
         next unless @meanFiles[regularFile].has_key?(period)
@@ -868,16 +890,20 @@ task :checkAtmoMeanStream, :dir, :what, :variable do |t,args|
             diffFile = Cdo.sub(input: [
               "-timmean -seltimestep,#{config[:ref]}  -selname,#{varname} #{regularFile}",
               "         -seltimestep,#{config[:mean]} -selname,#{varname} #{@meanFiles[regularFile][period]}"
-            ].join(' '),:options => '-s',:output => [period, varname, File.basename(regularFile)].map(&:to_s).join('_'))
-          
-            @plotter.show(@plotter.scalarPlot(diffFile,"NH_"+diffFile,varname,showGrid: true))
+            ].join(' '),:returnArray => varname,:options => '-s',:output => [period, varname, File.basename(regularFile)].map(&:to_s).join('_'))
+  #         UnifiedPlot.linePlot(:y => diffFile.flatten,:style => 'points')
+  #         hist(y: diffFile.flatten)
+          # 
+          #
+          # @plotter.debug = true
+          # @plotter.show(@plotter.scalarPlot(diffFile,"NH_"+diffFile,varname,showGrid: false))
             #       puts diff
             unless diff.empty? then
-              puts [s,varname.colorize(:red),
+              puts ["\n",s,varname.colorize(:red),
                     "\t#{diff[1..-2].join("\n\t")}".colorize(:yellow),
                    "\t"].join("\n")
             else
-              puts "#{varname} ".colorize(:green)
+              print "#{varname} ".colorize(:green)
             end
           }
         }

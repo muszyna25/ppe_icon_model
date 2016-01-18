@@ -224,7 +224,8 @@ CONTAINS
         meanVariables = vector_ref()
 
         event_wrapper = t_event_wrapper(this=newEvent(eventKey, &
-          &                 sim_step_info%sim_start, &
+!         &                 sim_step_info%sim_start, &
+          &                 p_onl%output_start(1), &
           &                 p_onl%output_start(1), &
           &                 p_onl%output_end(1), &
           &                 p_onl%output_interval(1) &
@@ -428,11 +429,10 @@ CONTAINS
     CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: mtime_cur_datetime
     logical :: isactive
     integer :: varcounter
-    real(wp) :: counter_inverse
     integer :: timelevel
 
     TYPE(divisionquotienttimespan) :: quot
-!   integer, pointer :: counter
+
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::perform_accumulation"
     
     call print_routine(routine,'start')
@@ -493,13 +493,13 @@ CONTAINS
                     ! accumulation, too
 
        call print_error("show meanPrognostic:"//TRIM(destinationVariable%field%info%name))
-                    SELECT CASE (destinationVariable%field%info%tlev_source)
-                    CASE(TLEV_NNOW);     timelevel = timelevelIndex
-                    CASE(TLEV_NNEW);     timelevel = timelevelIndex
-                    CASE(TLEV_NNOW_RCF); timelevel = timelevelIndex_rcf
-                    CASE(TLEV_NNEW_RCF); timelevel = timelevelIndex_rcf
-                    CASE DEFAULT;        timelevel = timelevelIndex
-                    END SELECT
+                   !SELECT CASE (destinationVariable%field%info%tlev_source)
+                   !CASE(TLEV_NNOW);     timelevel = timelevelIndex
+                   !CASE(TLEV_NNEW);     timelevel = timelevelIndex
+                   !CASE(TLEV_NNOW_RCF); timelevel = timelevelIndex_rcf
+                   !CASE(TLEV_NNEW_RCF); timelevel = timelevelIndex_rcf
+                   !CASE DEFAULT;        timelevel = timelevelIndex
+                   !END SELECT
                     timelevel = metainfo_get_timelevel(destinationVariable%field%info, 1)
                     source         => get_prognstics_source_pointer (destinationVariable, timelevel)
                     
@@ -535,8 +535,7 @@ CONTAINS
                       counter => meanVarCounter%get(destination%field%info%name)
                       select type(counter)
                       type is (integer)
-                        counter_inverse = 1/REAL(counter,wp)
-                        destination%field%r_ptr = destination%field%r_ptr * counter_inverse
+                        destination%field%r_ptr = destination%field%r_ptr / REAL(counter,wp)
                         counter = 0
                       end select
                     end if
