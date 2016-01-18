@@ -40,7 +40,8 @@ MODULE mo_nwp_diagnosis
   USE mo_exception,          ONLY: message, message_text
   USE mo_model_domain,       ONLY: t_patch
   USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,  &
-                                   iqni, iqg, iqh, iqnc, iqm_max    
+                                   iqni, iqg, iqh, iqnc, iqm_max
+  USE mo_timer,              ONLY: ltimer, timer_start, timer_stop, timer_nh_diagnostics
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma
@@ -130,6 +131,8 @@ CONTAINS
 
 
   !-----------------------------------------------------------------
+
+    IF (ltimer) CALL timer_start(timer_nh_diagnostics)
 
     jg        = pt_patch%id
 
@@ -570,6 +573,7 @@ CONTAINS
 
 !$OMP END PARALLEL  
 
+    IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
 
   END SUBROUTINE nwp_statistics
 
@@ -937,6 +941,7 @@ CONTAINS
 
   !-----------------------------------------------------------------
 
+    IF (ltimer) CALL timer_start(timer_nh_diagnostics)
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -1168,6 +1173,8 @@ CONTAINS
 
     ! compute modified cloud parameters for TV presentation
     CALL calcmod( pt_patch, pt_diag, prm_diag )
+
+    IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
 
   END SUBROUTINE nwp_diag_for_output
 
