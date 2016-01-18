@@ -252,7 +252,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-      ELSE IF (irad_aero == 6 ) THEN ! Tegen aerosol climatology
+      ELSE IF ((irad_aero == 6) .OR. (irad_aero == 9)) THEN ! Tegen aerosol climatology
 
         IF (iprog_aero == 0) THEN ! purely climatological aerosol
 !DIR$ IVDEP

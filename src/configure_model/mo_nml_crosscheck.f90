@@ -74,7 +74,7 @@ MODULE mo_nml_crosscheck
   USE mo_diffusion_config,   ONLY: diffusion_config
 
 
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
   USE mo_lnd_nwp_config,     ONLY: ntiles_lnd, lsnowtile
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_radiation_config
@@ -1090,6 +1090,10 @@ CONTAINS
     IF (.NOT. lart .AND. irad_aero == 9 ) THEN
       CALL finish(TRIM(method_name),'irad_aero=9 needs lart = .TRUE.')
     END IF
+
+    IF ( ( irad_aero == 9 ) .AND. ( iprog_aero /= 0 ) ) THEN
+      CALL finish(TRIM(method_name),'irad_aero=9 requires iprog_aero=0')
+    ENDIF
     
 #ifdef __ICON_ART
     IF ( ( irad_aero == 9 ) .AND. ( itopo /=1 ) ) THEN
