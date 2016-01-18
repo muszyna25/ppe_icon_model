@@ -3118,6 +3118,8 @@ CONTAINS
   SUBROUTINE dist_mult_array_delete(dm_array)
     TYPE(dist_mult_array), INTENT(inout) :: dm_array
 
+    INTEGER :: i
+
     DO i = 1, dm_array%num_sub_arrays
       IF (dm_array%sub_arrays_global_desc(i)%a_rank == 1 .AND. &
         & dm_array%sub_arrays_global_desc(i)%element_dt == ppm_int) THEN

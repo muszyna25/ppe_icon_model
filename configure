@@ -742,7 +742,6 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
-enable_mtime_loop
 enable_atmo
 enable_jsbach
 enable_ocean
@@ -1391,7 +1390,6 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --enable-mtime-loop     Use mtime based time loop in nh stepping.
   --enable-atmo           Use atmosphere model component.
   --enable-jsbach         Use jsbach model component.
   --enable-ocean          Use ocean model component.
@@ -2434,12 +2432,6 @@ fi
 fi
 
 
-# Check whether --enable-mtime-loop was given.
-if test "${enable_mtime_loop+set}" = set; then :
-  enableval=$enable_mtime_loop;
-fi
-
-
 # Check whether --enable-atmo was given.
 if test "${enable_atmo+set}" = set; then :
   enableval=$enable_atmo;
@@ -2819,11 +2811,6 @@ fi
 
 if test "x$enable_testbed" = "xno"; then :
   FFLAGS="${FFLAGS} ${DEFOPT}__NO_ICON_TESTBED__"
-fi
-
-
-if test "x$enable_mtime_loop" = "xyes"; then :
-  FFLAGS="${FFLAGS} ${DEFOPT}USE_MTIME_LOOP"
 fi
 
 

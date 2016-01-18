@@ -94,7 +94,6 @@ MODULE mo_hydro_ocean_run
   INTEGER            :: idt_src    = 1               ! Level of detail for 1 line debug
   !-------------------------------------------------------------------------
 
-  TYPE(eventGroup), POINTER :: checkpointEventGroup => NULL()
   
 CONTAINS
 
@@ -183,6 +182,7 @@ CONTAINS
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_hydro_ocean_run:perform_ho_stepping'
 
+    TYPE(eventGroup), POINTER           :: checkpointEventGroup => NULL()
     TYPE(timedelta), POINTER            :: model_time_step => NULL()
     TYPE(datetime), POINTER             :: mtime_current   => NULL()
     TYPE(datetime), POINTER             :: eventRefDate    => NULL(), eventStartDate  => NULL(), eventEndDate    => NULL()
@@ -278,11 +278,23 @@ CONTAINS
     ! IF (ltimer) CALL timer_start(timer_total)
     CALL timer_start(timer_total)
 
-    jstep = jstep0+1
+    jstep = jstep0
     TIME_LOOP: DO 
 
       ! update model date and time mtime based
       mtime_current = mtime_current + model_time_step
+      jstep = jstep + 1
+      IF (mtime_current > time_config%tc_stopdate) then
+#ifdef _MTIME_DEBUG
+        ! consistency check: compare step counter to expected end step
+        if (jstep /= (jstep0+nsteps)) then
+           call finish(routine, 'Step counter does not match expected end step: '//int2string(jstep,'(i0)')&
+               &//' /= '//int2string((jstep0+nsteps),'(i0)'))
+        end if
+#endif
+        ! leave time loop
+        EXIT TIME_LOOP
+      END IF
 
       CALL datetimeToString(mtime_current, datestring)
       WRITE(message_text,'(a,i10,2a)') '  Begin of timestep =',jstep,'  datetime:  ', datestring
@@ -470,29 +482,23 @@ CONTAINS
       ! update intermediate timestepping variables for the tracers
       CALL update_time_g_n(ocean_state(jg))
 
-      CALL message('','')
+!       CALL message('','')
       ! trigger creation of a restart file ...
-      !
+      lwrite_checkpoint = .FALSE.      
       IF ( &
            !   ... CASE A: if normal checkpoint cycle has been reached ...
            &       isCurrentEventActive(checkpointEvent, mtime_current)               &
            !          or restart cycle has been reached, i.e. checkpoint+model stop
-           & .OR.  isCurrentEventActive(restartEvent, mtime_current)                  &
-           !          and the current date differs from simulation start date
-           & .AND. (time_config%tc_startdate /= mtime_current) ) THEN 
+           & .OR.  isCurrentEventActive(restartEvent, mtime_current)) THEN
         lwrite_checkpoint = .TRUE.
-        IF ( &
-             !   ... CASE B: if end of run has been reached
-             &  ((time_config%tc_stopdate == mtime_current) .AND. write_last_restart) &
-             !   ... make sure (for both cases A and B) that model output is enabled
-             &     .AND. .NOT. output_mode%l_none ) THEN
-          ! gets written after time loop
-          lwrite_checkpoint = .FALSE.
-        ENDIF
-      ELSE
+      ENDIF
+      
+      ! if this is the first timestep (it cannot occur), or output is disabled, do not write the restart
+      IF ( (time_config%tc_startdate == mtime_current) .OR. output_mode%l_none ) THEN
         lwrite_checkpoint = .FALSE.
       ENDIF
-      CALL message('','')
+
+!       CALL message('','')
       
       ! write a restart or checkpoint file
 !      IF (MOD(jstep,n_checkpoints())==0) THEN
@@ -527,33 +533,21 @@ CONTAINS
           & cfl_write)
       END IF
       
-     IF (timers_level > 2)  CALL timer_stop(timer_extra21)
+      IF (timers_level > 2)  CALL timer_stop(timer_extra21)
 
-     IF (mtime_current >= time_config%tc_stopdate) then
-#ifdef _MTIME_DEBUG       
-        ! consistency check: compare step counter to expected end step
-        if (jstep /= (jstep0+nsteps)) then
-           call finish(routine, 'Step counter does not match expected end step: '//int2string(jstep,'(i0)')&
-               &//' /= '//int2string((jstep0+nsteps),'(i0)'))
-        end if
-#endif
-        ! leave time loop
-        EXIT TIME_LOOP
-     END IF
-     jstep = jstep + 1
-  ENDDO TIME_LOOP
+    ENDDO TIME_LOOP
 
-  IF (write_last_restart) &
-       & CALL create_restart_file( patch = patch_2d,       &
-       & current_date=mtime_current, &
-       & jstep=jstep,            &
-       & model_type="oce",       &
-       & opt_nice_class=1,       &
-       & ocean_zlevels=n_zlev,                                         &
-       & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
-       & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
+    IF (write_last_restart .and. .not. lwrite_checkpoint) &
+        & CALL create_restart_file( patch = patch_2d,       &
+        & current_date=mtime_current, &
+        & jstep=jstep-1,          &
+        & model_type="oce",       &
+        & opt_nice_class=1,       &
+        & ocean_zlevels=n_zlev,                                         &
+        & ocean_zheight_cellmiddle = patch_3d%p_patch_1d(1)%zlev_m(:),  &
+        & ocean_zheight_cellinterfaces = patch_3d%p_patch_1d(1)%zlev_i(:))
   
-  CALL timer_stop(timer_total)
+    CALL timer_stop(timer_total)
   
   END SUBROUTINE perform_ho_stepping
   !-------------------------------------------------------------------------
