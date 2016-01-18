@@ -171,7 +171,6 @@ MODULE mo_nh_stepping
   USE mo_mtime_extensions,         ONLY: get_datetime_string
   USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
   USE mo_derived_variable_handling, ONLY: perform_accumulation, reset_accumulation
-  USE mo_statistics,               ONLY: global_minmaxmean
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
     &                                  , IOMODE_RST
@@ -429,11 +428,6 @@ MODULE mo_nh_stepping
       &                                       i_timelevel_dyn= nnow, i_timelevel_phy= nnow_rcf)
     CALL pp_scheduler_process(simulation_status)
 
-    BLOCK 
-      REAL(wp) :: r(3)
-      r = global_minmaxmean(p_nh_state(1)%diag%temp,p_patch(1)%cells%owned)
-      p_nh_opt_diag(1)%acc%global_temp(:) = r(3)
-    END BLOCK
     CALL perform_accumulation(nnow(1),nnow_rcf(1))
     IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
