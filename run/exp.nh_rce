@@ -39,7 +39,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #-----------------------------------------------------------------------------
 # model timing
 dtime=12.5
-dt_checkpoint=`expr 10 \* 86400 `  # write restart file every 1 hours
+dt_checkpoint=`expr 10 \* 86400 `  # write restart file every 10 days
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -54,7 +54,8 @@ iforcing=3        # 3 for inwp forcing; 0 for no forcing
 #
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='torus_grid_r2km_s64.nc'
+grid_name=torus_grid_r2km_s64
+atmo_dyn_grids=${grid_name}.nc
 #
 #-----------------------------------------------------------------------------
 #
@@ -95,14 +96,14 @@ cat >> ${atmo_namelist} << EOF
  dtime          = ${dtime}     ! timestep in seconds
  ltransport     = .TRUE.
  ntracer        = 5            ! default: 0
- iforcing       = 3            ! 3: NWP forcing; 6:inhecham forcing
+ iforcing       = ${iforcing}  ! 3: NWP forcing; 6:inhecham forcing
  ltestcase      = .TRUE.       ! run testcase
  ltimer         = .true.       ! 
  msg_level      = 10          ! detailed report during integration
  output         = 'nml'
 /
 &nwp_phy_nml
- inwp_gscp       = 4
+ inwp_gscp       = 1
  inwp_convection = 0 ! 1:Tiedtke/Bechtold
  inwp_radiation  = 1 ! 1:RRTM radiation
  inwp_cldcover   = 5 ! 3: clouds from COSMO SGS cloud scheme
@@ -110,7 +111,7 @@ cat >> ${atmo_namelist} << EOF
  inwp_satad      = 1
  inwp_surface    = 0 ! 0: none; 1: TERRA
  latm_above_top  = .true.
- dt_rad          = 1600.
+ dt_rad          = 1500.
 /
 &les_nml
  sst               = 301
@@ -160,8 +161,8 @@ const_z0  = 0.0001
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT03H"
- file_interval    = "P01D"
+ output_interval  = "PT12H"
+ file_interval    = "P01M"
  include_last     = .TRUE.
  output_filename  = 'cloud_diag'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
@@ -171,8 +172,8 @@ const_z0  = 0.0001
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT06H"
- file_interval    = "P01D"
+ output_interval  = "PT12H"
+ file_interval    = "P01M"
  include_last     = .TRUE.
  output_filename  = 'pbl_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
@@ -182,8 +183,8 @@ const_z0  = 0.0001
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT06H"
- file_interval    = "P01D"
+ output_interval  = "P01D"
+ file_interval    = "P01M"
  include_last     = .TRUE.
  output_filename  = 'prog_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
@@ -193,8 +194,8 @@ const_z0  = 0.0001
 &output_nml
  output_start     = "${start_date}"
  output_end       = "${end_date}"
- output_interval  = "PT03H"
- file_interval    = "P01D"
+ output_interval  = "P01D"
+ file_interval    = "P01M"
  include_last     = .TRUE.
  output_filename  = 'rad_vars'
  filename_format  = "<output_filename>_DOM<physdom>_<levtype>_<datetime2>"
@@ -205,5 +206,11 @@ EOF
 #
 #----------------------------------------------------------------------------------
 # add standard atmo_non-hydrostatic_files
-. ${thisdir}/add_required_atmo_non-hydrostatic_files
+DATADIR=${basedir}/data
+add_link_file ${DATADIR}/rrtmg_lw.nc                 rrtmg_lw.nc 
+add_link_file ${DATADIR}/ECHAM6_CldOptProps.nc       ECHAM6_CldOptProps.nc
+add_link_file ${DATADIR}/dmin_wetgrowth_lookup.dat   dmin_wetgrowth_lookup.dat   #for inwp_gscp==4
+add_link_file ${DATADIR}/sound_rce_new               sound_in
+OZONEDIR=${basedir}/data/external/ape_ozone
+add_link_file ${OZONEDIR}/${grid_name}_o3_CMIP5_ape_1870_march.nc  o3_icon_DOM01.nc
 #----------------------------------------------------------------------------------

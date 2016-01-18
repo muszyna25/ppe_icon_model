@@ -15,6 +15,7 @@ MODULE mo_atmo_nonhydrostatic
 
 USE mo_kind,                 ONLY: wp
 USE mo_exception,            ONLY: message, finish
+USE mo_fortran_tools,        ONLY: copy
 USE mo_impl_constants,       ONLY: SUCCESS, max_dom, inwp, iecham
 USE mo_timer,                ONLY: timers_level, timer_start, timer_stop, &
   &                                timer_model_init, timer_init_icon, timer_read_restart
@@ -29,13 +30,15 @@ USE mo_advection_config,     ONLY: configure_advection
 USE mo_art_config,           ONLY: configure_art
 USE mo_run_config,           ONLY: dtime,                & !    namelist parameter
   &                                ltestcase,            &
+  &                                ldynamics,            &
+  &                                ltransport,           &
   &                                iforcing,             & !    namelist parameter
   &                                output_mode,          &
   &                                lvert_nest, ntracer,  &
   &                                nlev,                 &
   &                                iqv, iqc, iqt,        &
   &                                number_of_grid_used
-USE mo_dynamics_config,      ONLY: iequations, nnow, idiv_method
+USE mo_dynamics_config,      ONLY: iequations, nnow, nnow_rcf, nnew, nnew_rcf, idiv_method
 ! Horizontal grid
 USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom, start_time, end_time, is_plane_torus
@@ -133,13 +136,14 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "construct_atmo_nonhydrostatic"
 
-    INTEGER :: jg, ist
+    INTEGER :: jg, jt, ist
     LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
     LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
     LOGICAL :: l_pv(n_dom)       !< Flag. TRUE if computation of potential vorticity desired
     TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
+    INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
@@ -221,7 +225,7 @@ CONTAINS
       &                     l_pres_msl=l_pres_msl, l_omega=l_omega)
 
     ! Add optional diagnostic variable lists (might remain empty)
-    CALL construct_opt_diag(p_patch(1:), .TRUE.,iforcing==iecham,l_pres_msl=l_pres_msl(1),l_omega=l_omega(1))
+    CALL construct_opt_diag(p_patch(1:), .TRUE.)
 
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom
@@ -337,7 +341,7 @@ CONTAINS
           &             p_lnd_state(1:) )
         IF (timers_level > 5) CALL timer_stop(timer_init_icon)
 
-      ELSE IF (iforcing == iecham) THEN
+      ELSE
 
         ! Initialize the atmosphere only
 
@@ -353,6 +357,37 @@ CONTAINS
 
     END IF
 
+    ! Copy prognostic variables, for which no tendencies are computed,
+    ! from time level "now" to time level "new", so that they are correctly set
+    ! at odd and even time steps.
+    !
+    IF (.NOT.ldynamics)  THEN ! copy prognostic variables of the dynamics
+      DO jg = 1,n_dom
+         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+         n_now = nnow(jg)
+         n_new = nnew(jg)
+!$OMP PARALLEL
+         CALL copy(p_nh_state(jg)%prog(n_now)%vn     , p_nh_state(jg)%prog(n_new)%vn     )
+         CALL copy(p_nh_state(jg)%prog(n_now)%w      , p_nh_state(jg)%prog(n_new)%w      )
+         CALL copy(p_nh_state(jg)%prog(n_now)%theta_v, p_nh_state(jg)%prog(n_new)%theta_v)
+         CALL copy(p_nh_state(jg)%prog(n_now)%exner  , p_nh_state(jg)%prog(n_new)%exner  )
+         CALL copy(p_nh_state(jg)%prog(n_now)%rho    , p_nh_state(jg)%prog(n_new)%rho    )
+!$OMP END PARALLEL
+      END DO
+    END IF
+
+    IF (.NOT.ltransport) THEN ! copy prognostic variables of the transport
+      DO jg = 1,n_dom
+         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+         n_now_rcf = nnow_rcf(jg)
+         n_new_rcf = nnew_rcf(jg)
+         DO jt = 1,ntracer
+!$OMP PARALLEL
+            CALL copy(p_nh_state(jg)%prog(n_now_rcf)%tracer(:,:,:,jt), p_nh_state(jg)%prog(n_new_rcf)%tracer(:,:,:,jt) )
+!$OMP END PARALLEL
+         END DO
+      END DO
+    END IF
 
     ! If async prefetching is in effect, init_prefetch is a collective call
     ! with the prefetching processor and effectively starts async prefetching

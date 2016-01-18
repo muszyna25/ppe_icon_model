@@ -1463,6 +1463,22 @@ MODULE mo_initicon_utils
 
         ! Cloud and precipitation hydrometeors - these are supposed to be zero in the region where
         ! moisture physics is turned off
+        !
+        ! above kstart_moist(jg): set to zero
+        DO jk = 1, kstart_moist(jg)-1
+          DO jc = 1, nlen
+            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = 0.0_wp
+            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = 0.0_wp
+            IF ( iqr /= 0 ) THEN
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = 0.0_wp
+            END IF
+            IF ( iqs /= 0 ) THEN
+              p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = 0.0_wp
+            END IF
+          ENDDO
+        ENDDO
+        !
+        ! at and below kstart_moist(jg): copy from initicon%atm
         DO jk = kstart_moist(jg), nlev
           DO jc = 1, nlen
             p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = initicon(jg)%atm%qc(jc,jk,jb)

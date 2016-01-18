@@ -111,7 +111,7 @@
     PUBLIC :: compute_shutdown_async_pref
 
     PUBLIC ::  prepare_pref_latbc_data, pref_latbc_data, &
-         &     latbc_data, latbc_fileid, new_latbc_tlev, prev_latbc_tlev,  &
+         &     latbc_data, latbc_fileID, new_latbc_tlev, prev_latbc_tlev,  &
          &     update_lin_interpolation, deallocate_pref_latbc_data, mtime_read
 
     !------------------------------------------------------------------------------------------------
@@ -126,7 +126,7 @@
     INTEGER, PARAMETER :: msg_latbc_done    = 20883
     CHARACTER(len=*), PARAMETER :: version = '$Id$'
     CHARACTER(LEN=*), PARAMETER :: modname = 'mo_async_latbc_utils'
-    INTEGER                :: latbc_fileid, &
+    INTEGER                :: latbc_fileID, &
          new_latbc_tlev, &  ! time level indices for  latbc_data. can be 1 or 2.
          prev_latbc_tlev    ! new_latbc_tlev is the time level index carrying the most recent data
     TYPE(t_initicon_state) :: latbc_data(2)     ! storage for two time-level boundary data
@@ -542,7 +542,7 @@
 #ifndef NOMPI
       INTEGER(KIND=MPI_ADDRESS_KIND)      :: ioff(0:num_work_procs-1)
       ! local variables
-      INTEGER                             :: jm, latbc_fileid
+      INTEGER                             :: jm, latbc_fileID
       LOGICAL                             :: l_exist
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::prefetch_latbc_icon_data"
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
@@ -564,10 +564,10 @@
       !
       ! open file
       !
-      latbc_fileid  = streamOpenRead(TRIM(latbc_full_filename))
+      latbc_fileID  = streamOpenRead(TRIM(latbc_full_filename))
       ! check if the file could be opened
-      IF (latbc_fileid < 0) THEN
-         CALL cdiGetStringError(latbc_fileid, cdiErrorText)
+      IF (latbc_fileID < 0) THEN
+         CALL cdiGetStringError(latbc_fileID, cdiErrorText)
          WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
               ' cannot be opened: ', TRIM(cdiErrorText)
          CALL finish(routine, TRIM(message_text))
@@ -586,10 +586,10 @@
             SELECT CASE (latbc_buffer%hgrid(jm))
             CASE(GRID_UNSTRUCTURED_CELL)
                ! Read 3d variables
-               CALL prefetch_cdi_3d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
+               CALL prefetch_cdi_3d ( latbc_fileID, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%nlev(jm), latbc_buffer%hgrid(jm), ioff )
             CASE(GRID_UNSTRUCTURED_EDGE)
-               CALL prefetch_cdi_3d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
+               CALL prefetch_cdi_3d ( latbc_fileID, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%nlev(jm), latbc_buffer%hgrid(jm), ioff )
             CASE default
                CALL finish(routine,'unknown grid type')
@@ -598,10 +598,10 @@
             SELECT CASE (latbc_buffer%hgrid(jm))
             CASE(GRID_UNSTRUCTURED_CELL)
                ! Read 2d variables
-               CALL prefetch_cdi_2d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
+               CALL prefetch_cdi_2d ( latbc_fileID, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%hgrid(jm), ioff )
             CASE(GRID_UNSTRUCTURED_EDGE)
-               CALL prefetch_cdi_2d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
+               CALL prefetch_cdi_2d ( latbc_fileID, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%hgrid(jm), ioff )
             CASE default
                CALL finish(routine,'unknown grid type')
@@ -612,7 +612,7 @@
       !
       ! close the open dataset file
       !
-      CALL streamClose(latbc_fileid)
+      CALL streamClose(latbc_fileID)
 
 #endif
     END SUBROUTINE prefetch_latbc_icon_data
@@ -848,7 +848,7 @@
 #ifndef NOMPI
       ! local variables
       INTEGER(KIND=MPI_ADDRESS_KIND)      :: ioff(0:num_work_procs-1)
-      INTEGER                             :: jm, latbc_fileid
+      INTEGER                             :: jm, latbc_fileID
       LOGICAL                             :: l_exist
       CHARACTER(MAX_CHAR_LENGTH), PARAMETER :: routine = "mo_async_latbc_utils::pref_latbc_intp_data"
       CHARACTER(LEN=filename_max)           :: latbc_filename, latbc_full_filename
@@ -869,10 +869,10 @@
       ENDIF
 
       ! opening and reading file
-      latbc_fileid  = streamOpenRead(TRIM(latbc_full_filename))
+      latbc_fileID  = streamOpenRead(TRIM(latbc_full_filename))
       ! check if the file could be opened
-      IF (latbc_fileid < 0) THEN
-         CALL cdiGetStringError(latbc_fileid, cdiErrorText)
+      IF (latbc_fileID < 0) THEN
+         CALL cdiGetStringError(latbc_fileID, cdiErrorText)
          WRITE(message_text,'(4a)') 'File ', TRIM(latbc_full_filename), &
               ' cannot be opened: ', TRIM(cdiErrorText)
          CALL finish(routine, TRIM(message_text))
@@ -890,11 +890,11 @@
             SELECT CASE (latbc_buffer%hgrid(jm))
             CASE(GRID_UNSTRUCTURED_CELL)
                ! Read 3d variables
-               CALL prefetch_cdi_3d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
+               CALL prefetch_cdi_3d ( latbc_fileID, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%nlev(jm), latbc_buffer%hgrid(jm), ioff )
 
             CASE(GRID_UNSTRUCTURED_EDGE)
-               CALL prefetch_cdi_3d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
+               CALL prefetch_cdi_3d ( latbc_fileID, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%nlev(jm), latbc_buffer%hgrid(jm), ioff )
             CASE default
                CALL finish(routine,'unknown grid type')
@@ -904,11 +904,11 @@
             SELECT CASE (latbc_buffer%hgrid(jm))
             CASE(GRID_UNSTRUCTURED_CELL)
                ! Read 2d variables
-               CALL prefetch_cdi_2d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
+               CALL prefetch_cdi_2d ( latbc_fileID, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%hgrid(jm), ioff )
 
             CASE(GRID_UNSTRUCTURED_EDGE)
-               CALL prefetch_cdi_2d ( latbc_fileid, latbc_buffer%mapped_name(jm), patch_data, &
+               CALL prefetch_cdi_2d ( latbc_fileID, latbc_buffer%mapped_name(jm), patch_data, &
                     &                 latbc_buffer%hgrid(jm), ioff )
 
             CASE default
@@ -921,7 +921,7 @@
       !
       ! close the open dataset file
       !
-      CALL streamClose(latbc_fileid)
+      CALL streamClose(latbc_fileID)
 #endif
     END SUBROUTINE prefetch_latbc_intp_data
 

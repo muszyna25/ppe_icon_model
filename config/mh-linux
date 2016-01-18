@@ -334,6 +334,7 @@ case "$ac_sitename" in
     dwd.de)
         case "$(hostname)" in
             xc*)
+                XML2ROOT    = /opt/cray/xc-sysroot/default/usr
                 NETCDFROOT  =${NETCDF_DIR}
                 CC          = cc
                 FC          = ftn
@@ -480,6 +481,7 @@ case "$ac_sitename" in
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-intel14
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-gcc48
                         HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-gcc48
+
                         SZIPROOT    = $software_tree/sys/libaec-0.3.2-gcc48
                         XML2ROOT    = /usr
                         ZLIBROOT    = /usr
@@ -487,17 +489,24 @@ case "$ac_sitename" in
                         case "$with_mpi" in
                             "$software_tree/intel/impi/5.1.0.038_dapl2.1.6")
                                 load_modules = ${load_modules} intelmpi/5.1.0.038_dapl2.1.6
-                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+                                FFLAGS       = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = $with_mpi/compilers_and_libraries_2016.0.079/linux/mpi/intel64
                                 MPI_LIB      = $WLFLAG,--disable-new-dtags -L$MPIROOT/lib/release_mt $WLFLAG,-rpath,$MPIROOT/lib/release_mt -L$MPIROOT/lib $WLFLAG,-rpath,$MPIROOT/lib -lmpifort -lmpi -lmpigi -ldl -lrt -lpthread
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-impi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-ixmpi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
                                 ;;
                             "$software_tree/intel/impi/4.1.3.049"|"$software_tree/intel/impi/4.1.3.049/intel64")
-                                FFLAGS = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED
+                                FFLAGS = $FFLAGS -DHAVE_SLOW_PASSIVE_TARGET_ONESIDED -DHAVE_PARALLEL_NETCDF
                                 load_modules=${load_modules} intelmpi/4.1.3.049
 
                                 MPIROOT     = $software_tree/intel/impi/4.1.3.049/intel64
                                 SYS_LIBS    = -ldl -lrt -lpthread
                                 MPI_LIB     = $WLFLAG,-rpath,$MPIROOT/lib -lmpigf -lmpi -lmpigi $SYS_LIBS
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-impi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-ixmpi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-impi-intel14
+
                                 case "${with_openmp}" in
                                   yes)
                                     MPI_LIB=${MPI_LIB/ -lmpi / -lmpi_mt }
@@ -508,11 +517,14 @@ case "$ac_sitename" in
                                 ;;
                             /opt/mpi/bullxmpi_mlx/1.2.8.3|*)
                                 load_modules = ${load_modules} fca mxm bullxmpi_mlx/bullxmpi_mlx-1.2.8.3
-                                FFLAGS       = $FFLAGS
+                                FFLAGS       = $FFLAGS -DHAVE_PARALLEL_NETCDF
                                 MPIROOT      = /opt/mpi/bullxmpi_mlx/1.2.8.3
                                 SYS_LIBS     = -ldl -lm -lnuma -Wl,--export-dynamic -lrt -lnsl -lutil -lm -ldl
                                 MPI_LIB      = $WLFLAG,-rpath,/opt/mpi/bullxmpi_mlx/1.2.8.3/lib -lmpi_f90 -lmpi_f77 $SYS_LIBS
-                                ;;
+                                NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-parallel-bullxmpi-intel14
+                                NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-parallel-bullxmpi-intel14
+                                HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-parallel-bullxmpi-intel14
+                                ;;                              
                         esac
                         mpi_startrun = srun
                         ;;
@@ -521,7 +533,7 @@ case "$ac_sitename" in
                         config_compiler = gcc
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
-                        CFLAGS = -std=gnu99 -g -O3 -march=native -mpc64 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran
+                        CFLAGS = -std=gnu99 -g -O3 -march=native -mpc64 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran -DWITHOUT_PACK_EXTERNAL
                         F77    = gfortran
                         FC     = gfortran
 
@@ -547,7 +559,7 @@ case "$ac_sitename" in
                         config_compiler = gcc
                         c_compiler_version = $(gcc --version | awk 'NR==1{split($NF,v,"."); printf("gcc%1d%1d", v[1], v[2])}')
                         CC     = gcc
-                        CFLAGS = -std=gnu99 -g -O3 -march=native -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran
+                        CFLAGS = -std=gnu99 -g -O3 -march=native -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -DHAVE_LIBSZ -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2 -DgFortran -DWITHOUT_PACK_EXTERNAL
                         F77    = nagfor
                         FC     = nagfor
 
@@ -601,12 +613,12 @@ case "$ac_sitename" in
     kit.edu)
         case $ac_hostname in
             ic2*)
-                NETCDFROOT  = /pfs/imk/ICON
-                NETCDFFROOT = /pfs/imk/ICON
-                HDF5ROOT    = /pfs/imk/ICON
-                SZIPROOT    = /pfs/imk/ICON
+                NETCDFROOT  = /pfs/imk/ICON/LIBRARIES
+                NETCDFFROOT = /pfs/imk/ICON/LIBRARIES
+                HDF5ROOT    = /pfs/imk/ICON/LIBRARIES
+                SZIPROOT    = /pfs/imk/ICON/LIBRARIES
                 ZLIBROOT    = /usr
-                MPIROOT     = /pfs/imk/ICON
+                MPIROOT     = /pfs/imk/ICON/LIBRARIES
                 MPI_LIB     = -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
                 CFLAGS = $CFLAGS -DHAVE_LIBNETCDF -DHAVE_NETCDF4 -DHAVE_LIBHDF5 -DHAVE_NETCDF2
                 config_target=ic2

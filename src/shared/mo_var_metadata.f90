@@ -195,28 +195,36 @@ CONTAINS
   ! Comment by DR: Maybe for the future one could define different sets of default values
   ! for different groups of ART species.
   !
-  FUNCTION create_tracer_metadata(lis_tracer,tracer_class,                              &
-    &                            ihadv_tracer, ivadv_tracer, lturb_tracer,              &
-    &                            lsed_tracer, ldep_tracer, lconv_tracer,                &
-    &                            lwash_tracer,rdiameter_tracer, rrho_tracer,            &
-    &                            halflife_tracer,imis_tracer,lifetime_tracer) RESULT(tracer_meta)
+  FUNCTION create_tracer_metadata( lis_tracer,tracer_class,                           &
+    &                              ihadv_tracer, ivadv_tracer, lturb_tracer,          &
+    &                              lsed_tracer, ldep_tracer, lconv_tracer,            &
+    &                              lwash_tracer,rdiameter_tracer, rrho_tracer,        &
+    &                              halflife_tracer,imis_tracer,lifetime_tracer,       &
+    &                              mode_number, diameter, variance, constituent,      &
+    &                              tau_wavelength )  RESULT(tracer_meta)
 
-    LOGICAL, INTENT(IN), OPTIONAL :: lis_tracer      ! this is a tracer field (TRUE/FALSE)
+    LOGICAL, INTENT(IN), OPTIONAL :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
     CHARACTER(len=*), INTENT(IN), OPTIONAL :: tracer_class  ! type of tracer (cloud, volcash, radioact,...)
-    INTEGER, INTENT(IN), OPTIONAL :: ihadv_tracer    ! method for horizontal transport
-    INTEGER, INTENT(IN), OPTIONAL :: ivadv_tracer    ! method for vertical transport
-    LOGICAL, INTENT(IN), OPTIONAL :: lturb_tracer    ! turbulent transport (TRUE/FALSE)
-    LOGICAL, INTENT(IN), OPTIONAL :: lsed_tracer     ! sedimentation (TRUE/FALSE)
-    LOGICAL, INTENT(IN), OPTIONAL :: ldep_tracer     ! dry deposition (TRUE/FALSE)
-    LOGICAL, INTENT(IN), OPTIONAL :: lconv_tracer    ! convection  (TRUE/FALSE)
-    LOGICAL, INTENT(IN), OPTIONAL :: lwash_tracer    ! washout (TRUE/FALSE)
-    REAL(wp),INTENT(IN), OPTIONAL :: rdiameter_tracer! particle diameter in m
-    REAL(wp),INTENT(IN), OPTIONAL :: rrho_tracer     ! particle density in kg m^-3
-    REAL(wp),INTENT(IN), OPTIONAL :: halflife_tracer ! radioactive half-life in s^-1
-    INTEGER, INTENT(IN), OPTIONAL :: imis_tracer     ! IMIS number
-    REAL(wp),INTENT(IN), OPTIONAL :: lifetime_tracer ! lifetime of a chemical tracer
+    INTEGER, INTENT(IN), OPTIONAL :: ihadv_tracer     ! method for horizontal transport
+    INTEGER, INTENT(IN), OPTIONAL :: ivadv_tracer     ! method for vertical transport
+    LOGICAL, INTENT(IN), OPTIONAL :: lturb_tracer     ! turbulent transport (TRUE/FALSE)
+    LOGICAL, INTENT(IN), OPTIONAL :: lsed_tracer      ! sedimentation (TRUE/FALSE)
+    LOGICAL, INTENT(IN), OPTIONAL :: ldep_tracer      ! dry deposition (TRUE/FALSE)
+    LOGICAL, INTENT(IN), OPTIONAL :: lconv_tracer     ! convection  (TRUE/FALSE)
+    LOGICAL, INTENT(IN), OPTIONAL :: lwash_tracer     ! washout (TRUE/FALSE)
+    REAL(wp),INTENT(IN), OPTIONAL :: rdiameter_tracer ! particle diameter in m
+    REAL(wp),INTENT(IN), OPTIONAL :: rrho_tracer      ! particle density in kg m^-3
+    REAL(wp),INTENT(IN), OPTIONAL :: halflife_tracer  ! radioactive half-life in s^-1
+    INTEGER, INTENT(IN), OPTIONAL :: imis_tracer      ! IMIS number
+    REAL(wp),INTENT(IN), OPTIONAL :: lifetime_tracer  ! lifetime of a chemical tracer
+    !
+    INTEGER, INTENT(IN), OPTIONAL :: mode_number      ! number of mode                  for GRIB2 output
+    INTEGER, INTENT(IN), OPTIONAL :: diameter         ! diameter of ash particle        for GRIB2 output
+    INTEGER, INTENT(IN), OPTIONAL :: variance         ! variance of aerosol mode        for GRIB2 output
+    INTEGER, INTENT(IN), OPTIONAL :: constituent      ! constituent type of tracer      for GRIB2 output
+    INTEGER, INTENT(IN), OPTIONAL :: tau_wavelength   ! wavelength of diagnostic AOD    for GRIB2 output
 
-    TYPE(t_tracer_meta) :: tracer_meta               ! tracer metadata
+    TYPE(t_tracer_meta) :: tracer_meta                ! tracer metadata
 
     ! lis_tracer
     IF ( PRESENT(lis_tracer) ) THEN
@@ -314,6 +322,41 @@ CONTAINS
       tracer_meta%lifetime_tracer = lifetime_tracer
     ELSE
       tracer_meta%lifetime_tracer = -999._wp   ! lifetime of a chemical tracer
+    ENDIF
+
+    ! mode_number
+    IF ( PRESENT(mode_number) ) THEN
+      tracer_meta%mode_number = mode_number
+    ELSE
+      tracer_meta%mode_number = -1
+    ENDIF
+
+    ! diameter
+    IF ( PRESENT(diameter) ) THEN
+      tracer_meta%diameter = diameter
+    ELSE
+      tracer_meta%diameter = -1
+    ENDIF
+
+    ! variance
+    IF ( PRESENT(variance) ) THEN
+      tracer_meta%variance = variance
+    ELSE
+      tracer_meta%variance = -1
+    ENDIF
+
+    ! constituent
+    IF ( PRESENT(constituent) ) THEN
+      tracer_meta%constituent = constituent
+    ELSE
+      tracer_meta%constituent = -1
+    ENDIF
+
+    ! wavelength for diagnostic AOD
+    IF ( PRESENT(tau_wavelength) ) THEN
+      tracer_meta%tau_wavelength = tau_wavelength
+    ELSE
+      tracer_meta%tau_wavelength = -1
     ENDIF
 
   END FUNCTION create_tracer_metadata
