@@ -44,8 +44,8 @@ MODULE mo_opt_diagnostics
   USE mo_advection_config,     ONLY: t_advection_config, advection_config
   USE mo_cdi,                  ONLY: DATATYPE_FLT32, DATATYPE_PACK16,                &
     &                                DATATYPE_PACK24, TSTEP_INSTANT,                 &
-    &                                DATATYPE_FLT64
-  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE,          &
+    &                                DATATYPE_FLT64, GRID_LONLAT
+  USE mo_cdi_constants,        ONLY: GRID_UNSTRUCTURED_CELL, GRID_REFERENCE, &
     &                                GRID_CELL, ZA_HYBRID, ZA_HYBRID_HALF, ZA_SURFACE, &
     &                                ZA_MEANSEA
   USE mo_var_list,             ONLY: default_var_list_settings,     &
@@ -130,6 +130,8 @@ MODULE mo_opt_diagnostics
 #endif
     &  ::               &
     !
+    ! profile
+    & global_temp(:),   &
     ! dynamics
     &  rho(:,:,:),      &
     &  qv(:,:,:),       &
@@ -1467,6 +1469,14 @@ CONTAINS
 !!$    END IF
     ! }}}
 
+   CALL add_var( list, 'global_temp', p_acc%global_temp,      &
+                 & GRID_LONLAT, ZA_SURFACE,        &
+                 & t_cf_var('counter', '',                    &
+                 &          'counter',                        &
+                 &          datatype_flt),                    &
+                 & grib2_var(255,255,255, ibits, GRID_REFERENCE, GRID_CELL), &
+                 & ldims=(/1/),                               &
+                 & isteptype=TSTEP_INSTANT )
     p_acc%numberOfAccumulations = 0
   END SUBROUTINE construct_opt_acc
 
