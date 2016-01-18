@@ -658,7 +658,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'cin_ml', diag%cin_ml,                           &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,    &
                 & ldims=shape2d, lrestart=.FALSE.,                            &
-                & lmiss=.TRUE., missval=-999.9_wp,                            &
+!!$                & lmiss=.TRUE., missval=-999.9_wp,                            &
                 & hor_interp=create_hor_interp_metadata(                      &
                 &    hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
 
@@ -881,7 +881,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'hbas_con', diag%hbas_con,                       &
       & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_BASE, cf_desc, grib2_desc,           &
       & ldims=shape2d, lrestart=.FALSE.,                                      &
-      & lmiss=.TRUE., missval=-500._wp,                                       &
+!!$      & lmiss=.TRUE., missval=-500._wp,                                       &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB))
 
     ! &      diag%htop_con(nproma,nblks_c)
@@ -891,7 +891,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'htop_con', diag%htop_con,                       &
       & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
       & ldims=shape2d, lrestart=.FALSE.,                                      &
-      & lmiss=.TRUE., missval=-500._wp,                                       &
+!!$      & lmiss=.TRUE., missval=-500._wp,                                       &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB))
 
     ! &      diag%htop_dc(nproma,nblks_c)
@@ -901,7 +901,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'htop_dc', diag%htop_dc,                         &
       & GRID_UNSTRUCTURED_CELL, ZA_CLOUD_TOP, cf_desc, grib2_desc,            &
       & ldims=shape2d, lrestart=.FALSE.,                                      &
-      & lmiss=.TRUE., missval=-999._wp,                                       &
+!!$      & lmiss=.TRUE., missval=-999._wp,                                       &
       & hor_interp=create_hor_interp_metadata(hor_intp_type=HINTP_TYPE_LONLAT_NNB))
 
     ! &      diag%acdnc(nproma,nlev,nblks_c)
@@ -2710,7 +2710,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks, &
     CALL add_var( diag_list, 'hzerocl', diag%hzerocl,                                &
       &           GRID_UNSTRUCTURED_CELL, ZA_ISOTHERM_ZERO, cf_desc, grib2_desc,     &
       &           ldims=shape2d, lrestart=.FALSE.,                                   &
-      &           lmiss=.TRUE., missval=-999._wp,                                    &
+!!$      &           lmiss=.TRUE., missval=-999._wp,                                    &
       &           hor_interp=create_hor_interp_metadata(                             &
       &                      hor_intp_type=HINTP_TYPE_LONLAT_NNB) )
 
