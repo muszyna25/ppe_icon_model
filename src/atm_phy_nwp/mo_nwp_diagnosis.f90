@@ -118,7 +118,6 @@ CONTAINS
     INTEGER,           INTENT(IN)  :: ih_clch, ih_clcm
 
     ! Local
-    INTEGER :: nlev                    !< number of full levels
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
@@ -133,9 +132,6 @@ CONTAINS
   !-----------------------------------------------------------------
 
     jg        = pt_patch%id
-
-    ! number of vertical levels
-    nlev   = pt_patch%nlev
 
     ! Inverse of simulation time
     r_sim_time = 1._wp/MAX(1.e-6_wp, p_sim_time)
