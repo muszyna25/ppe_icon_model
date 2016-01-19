@@ -1012,7 +1012,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init convection')
 
     ! Please take care for scale-dependent initializations!
-    ! Spectral resolution corresponding to ICON
+    ! rsltn = Average mesh size of ICON grid
     ! needed for RTAU - CAPE calculation
     ! adapted for more general gemoetries
     rsltn = p_patch%geometry_info%mean_characteristic_length
