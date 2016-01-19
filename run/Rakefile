@@ -17,7 +17,6 @@ end
 RC = "#{ENV['HOME']}/.rake.rc"
 load(RC) if File.exist?(RC)
 #Cdo.debug = true
-Cdo.setCdo("#{ENV['HOME']}/local/bin/cdo-plot")
 String.disable_colorization = ENV.has_key?('COLOR')
 
 $DEBUG = ENV.has_key?('DEBUG')
