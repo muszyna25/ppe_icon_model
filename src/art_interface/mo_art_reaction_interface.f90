@@ -8,14 +8,13 @@
 !!
 !! @author Max Bangert, KIT
 !!
-!!
-!!  chemical tracer section
-!!  by Roland Ruhnke (RR), Jennifer Schroeter (JS), KIT
-!!
 !! @par Revision History
 !! Initial revision by Max Bangert, KIT (2013-02-15)
 !! Modifications by Daniel Rieger, KIT (2014-05-22)
 !! - Adaption to changes in ART data structure
+!! Modifications by Roland Ruhnke, Jennifer Schröter, KIT (2015-08-06)
+!! - Splitting between simple chemtracer and full gas phase chemistry
+!!   called by iart_chem_mechanism == 0 or 1
 !!
 !! @par Copyright and License
 !!
@@ -68,8 +67,9 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
   !!
   !! @par Revision History
   !! Initial revision by Max Bangert, KIT (2013-02-25)
+  !!
   ! atmosphere external data                                
-  TYPE(t_external_data), INTENT(IN) :: &
+  TYPE(t_external_data), INTENT(INOUT) :: &
     &  ext_data
   TYPE(t_patch), TARGET, INTENT(IN) :: & 
     &  p_patch                           !< patch on which computation is performed
@@ -125,16 +125,15 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
     ! ----------------------------------
     ! --- chemical tracer reactions
     ! ----------------------------------
-  !< JS added splitting between simple chemtracer and full gas phase chemistry
-  !< called by iart_chem_mechanism == 0 or 1
 
     IF (art_config(jg)%lart_chem) THEN
     
       SELECT CASE(art_config(jg)%iart_chem_mechanism)
         CASE(0)
-          CALL art_loss_chemtracer(p_patch,           &
+          CALL art_loss_chemtracer(ext_data, p_patch, &
                  & datetime,                          &
                  & p_dtime,                           &
+                 & p_prog,                            &
                  & p_prog_list,                       &
                  & p_diag,                            &
                  & p_metrics,                         &
@@ -151,11 +150,31 @@ SUBROUTINE art_reaction_interface(ext_data, p_patch,datetime,p_dtime,p_prog_list
                  & p_metrics,                         &
                  & prm_diag,                          &
                  & p_tracer_now)
+          CALL art_loss_chemtracer(ext_data, p_patch, &
+                 & datetime,                          &
+                 & p_dtime,                           &
+                 & p_prog,                            &
+                 & p_prog_list,                       &
+                 & p_diag,                            &
+                 & p_metrics,                         &
+                 & p_tracer_now)
+        CASE(2)
+          CALL art_photolysis(ext_data,               &
+                 & p_patch,                           &
+                 & datetime,                          &
+                 & p_dtime,                           &
+                 & p_prog_list,                       &
+                 & p_prog,                            &
+                 & p_diag,                            &
+                 & p_rho,                             &
+                 & p_metrics,                         &
+                 & prm_diag,                          &
+                 & p_tracer_now)
+
         CASE DEFAULT
           CALL finish('mo_art_reaction_interface:art_reaction_interface', &
                &      'ART: Unknown iart_chem_mechanism')
       END SELECT
-        !CALL art_loss_gasphase(p_patch,p_dtime,p_prog_list,p_diag,p_tracer_now)
     ENDIF !lart_chem
 
   ENDIF ! lart

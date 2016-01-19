@@ -952,7 +952,8 @@ MODULE mo_nonhydro_state
         END IF ! inwp_gscp==5 .or. inwp_gscp==6
 
         IF (atm_phy_nwp_config(p_patch%id)%inwp_gscp==4 &
-             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==5) THEN            
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==5 &
+             & .OR. atm_phy_nwp_config(p_patch%id)%inwp_gscp==6) THEN            
             CALL add_ref( p_prog_list, 'tracer',                                     &
                     & TRIM(vname_prefix)//'ninact'//suffix, p_prog%tracer_ptr(ininact)%p_3d, &
                     & GRID_UNSTRUCTURED_CELL, ZA_HYBRID,                             &

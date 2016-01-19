@@ -112,9 +112,7 @@ SUBROUTINE art_tracer_interface(defcase,jg,nblks_c,this_list,vname_prefix,&
         CALL art_init(jg,this_list,tracer=p_prog%tracer)
       ENDIF
     ELSE !defcase is diag
-      IF (art_config(jg)%lart_diag_out) THEN
-        CALL art_create_diagnostics(jg, this_list)
-      ENDIF
+      CALL art_create_diagnostics(jg, this_list)
     ENDIF
   ENDIF ! lart
 #endif

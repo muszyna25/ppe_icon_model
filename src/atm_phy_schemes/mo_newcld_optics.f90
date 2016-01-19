@@ -40,6 +40,7 @@ MODULE mo_newcld_optics
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: setup_newcld_optics, newcld_optics
+  PUBLIC :: relmin, relmax, reimax, reimin
 
 
   INTEGER, PARAMETER :: &
