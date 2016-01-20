@@ -1218,7 +1218,7 @@ CONTAINS
     INTEGER  :: jg                       !< patch ID
 
     REAL(wp) ::   &                      !< high order flux
-      &  z_flx_frac_high(nproma,p_patch%nlevp1)
+      &  z_flx_frac_high
 
     REAL(wp) ::   &                      !< maximum vertical Courant number
       &  max_cfl(nproma,p_patch%nlevp1)
@@ -1839,7 +1839,7 @@ CONTAINS
 
 
             ! fractional high order flux   
-            z_flx_frac_high(jc,jk) = ( - coeff_grid                                 &
+            z_flx_frac_high = ( - coeff_grid                                        &
               &         * p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)                  &
               &         * z_cflfrac_p(jc,jk,jb) *( p_cc(jc,jk_int_p(jc,jk,jb),jb)   &
               &         + (0.5_wp * z_delta_p * (1._wp - z_cflfrac_p(jc,jk,jb)))    &
@@ -1848,7 +1848,7 @@ CONTAINS
               &         / p_dtime
 
             ! full flux (integer- plus high order fractional flux)
-            p_upflux(jc,jk,jb) = z_iflx_p(jc,jk)/p_dtime + z_flx_frac_high(jc,jk)
+            p_upflux(jc,jk,jb) = z_iflx_p(jc,jk)/p_dtime + z_flx_frac_high
 
           ENDDO
         ENDIF
@@ -1917,7 +1917,7 @@ CONTAINS
 
 
             ! fractional high order flux           
-            z_flx_frac_high(jc,jk)= ( coeff_grid                                    &
+            z_flx_frac_high = ( coeff_grid                                          &
               &         * p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)                  &
               &         * z_cflfrac_m(jc,jk,jb) * ( p_cc(jc,jk_int_m(jc,jk,jb),jb)  &
               &         - (0.5_wp * z_delta_m * (1._wp - z_cflfrac_m(jc,jk,jb)))    &
@@ -1926,7 +1926,7 @@ CONTAINS
               &         / p_dtime
 
             ! full flux (integer- plus fractional flux)
-            p_upflux(jc,jk,jb) = z_iflx_m(jc,jk)/p_dtime + z_flx_frac_high(jc,jk)
+            p_upflux(jc,jk,jb) = z_iflx_m(jc,jk)/p_dtime + z_flx_frac_high
 
           ENDDO
         ENDIF
