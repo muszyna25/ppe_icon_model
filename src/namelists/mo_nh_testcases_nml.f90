@@ -90,7 +90,7 @@ MODULE mo_nh_testcases_nml
   REAL(wp) :: tpe_moist              ! initial total moisture content for terra planet [kg/m2]
   REAL(wp) :: tpe_psfc               ! initial surface pressure for terra planet [Pa]
   REAL(wp) :: tpe_temp               ! iitial atmospheric temperature for terra planet [K]
-  REAL(wp) :: ape_sst_val            ! (K) value to be used for SST computation for aqua planet
+  REAL(wp) :: ape_sst_val            ! (degC) value to be used for SST computation for aqua planet
   REAL(wp) :: w_perturb, th_perturb !Random perturbation scale for torus based experiments
   REAL(wp) :: sol_const              ! [W/m2] solar constant
   REAL(wp) :: zenithang              ! [degrees] zenith angle 

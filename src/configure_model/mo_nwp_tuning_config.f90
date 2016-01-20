@@ -36,6 +36,9 @@ MODULE mo_nwp_tuning_config
   PUBLIC :: tune_rhebc_land
   PUBLIC :: tune_rhebc_ocean
   PUBLIC :: tune_rcucov
+  PUBLIC :: tune_rhebc_land_trop
+  PUBLIC :: tune_rhebc_ocean_trop
+  PUBLIC :: tune_rcucov_trop
   PUBLIC :: tune_texc
   PUBLIC :: tune_qexc
   PUBLIC :: tune_minsnowfrac
@@ -83,6 +86,15 @@ MODULE mo_nwp_tuning_config
 
   REAL(wp) :: &                    !< Convective area fraction
     &  tune_rcucov
+
+  REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over tropical land
+    &  tune_rhebc_land_trop        !  (relevant only if smaller than rhebc_land)
+
+  REAL(wp) :: &                    !< RH threshold for onset of evaporation below cloud base over tropical sea
+    &  tune_rhebc_ocean_trop       !  (relevant only if smaller than rhebc_ocean)
+
+  REAL(wp) :: &                    !< Convective area fraction in the tropics
+    &  tune_rcucov_trop            !  (relevant only if smaller than rcucov)
 
   REAL(wp) :: &                    !< Excess value for temperature used in test parcel ascent
     &  tune_texc

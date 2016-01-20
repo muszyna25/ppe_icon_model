@@ -1912,7 +1912,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
   TYPE(t_wtr_prog),             POINTER :: ptr_wprogc ! child level water prog state
 
   ! Local fields
-  INTEGER, PARAMETER  :: nfields_p1=59   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
+  INTEGER, PARAMETER  :: nfields_p1=62   ! Number of positive-definite 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_p2=18   ! Number of remaining 2D physics fields for which boundary interpolation is needed
   INTEGER, PARAMETER  :: nfields_l2=18   ! Number of 2D land state fields
 
@@ -2034,6 +2034,9 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         z_aux3dp1_p(jc,58,jb) = 0._wp
         z_aux3dp1_p(jc,59,jb) = 0._wp
       ENDIF
+      z_aux3dp1_p(jc,60,jb) = prm_diag(jg)%tvm(jc,jb)
+      z_aux3dp1_p(jc,61,jb) = prm_diag(jg)%tvh(jc,jb)
+      z_aux3dp1_p(jc,62,jb) = prm_diag(jg)%tkr(jc,jb)
 
       z_aux3dp2_p(jc,1,jb) = prm_diag(jg)%u_10m(jc,jb)
       z_aux3dp2_p(jc,2,jb) = prm_diag(jg)%v_10m(jc,jb)
@@ -2228,6 +2231,9 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         prm_diag(jgc)%graupel_gsp(jc,jb)      = MAX(z_aux3dp1_c(jc,58,jb),prm_diag(jgc)%graupel_gsp(jc,jb))
         prm_diag(jgc)%graupel_gsp_rate(jc,jb) = z_aux3dp1_c(jc,59,jb)
       ENDIF
+      prm_diag(jgc)%tvm(jc,jb)            = z_aux3dp1_c(jc,60,jb)
+      prm_diag(jgc)%tvh(jc,jb)            = z_aux3dp1_c(jc,61,jb)
+      prm_diag(jgc)%tkr(jc,jb)            = z_aux3dp1_c(jc,62,jb)
 
       prm_diag(jgc)%u_10m(jc,jb)          = z_aux3dp2_c(jc,1,jb)
       prm_diag(jgc)%v_10m(jc,jb)          = z_aux3dp2_c(jc,2,jb)
@@ -2267,6 +2273,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
         ptr_ldiagc%h_snow(jc,jb)           = z_aux3dl2_c(jc,6,jb)
         ptr_ldiagc%freshsnow(jc,jb)        = MIN(1._wp,z_aux3dl2_c(jc,7,jb))
         ptr_ldiagc%snowfrac(jc,jb)         = MIN(1._wp,z_aux3dl2_c(jc,8,jb))
+        ptr_ldiagc%snowfrac_lc(jc,jb)      = MIN(1._wp,z_aux3dl2_c(jc,8,jb))
         ptr_ldiagc%runoff_s(jc,jb)         = z_aux3dl2_c(jc,9,jb)
         ptr_ldiagc%runoff_g(jc,jb)         = z_aux3dl2_c(jc,10,jb)
         ptr_ldiagc%t_so(jc,nlev_soil+1,jb) = z_aux3dl2_c(jc,11,jb)
@@ -2283,7 +2290,7 @@ SUBROUTINE interpol_phys_grf (ext_data, jg, jgc, jn)
           ptr_ldiagc%fr_seaice(jc,jb) = MAX(0._wp,MIN(1._wp,z_aux3dl2_c(jc,17,jb)))
           IF (ptr_ldiagc%fr_seaice(jc,jb) < frsi_min )         ptr_ldiagc%fr_seaice(jc,jb) = 0._wp
           IF (ptr_ldiagc%fr_seaice(jc,jb) > (1._wp-frsi_min) ) ptr_ldiagc%fr_seaice(jc,jb) = 1._wp
-          IF (ext_data(jg)%atm%fr_land(jc,jb) >= 1._wp-MAX(frlake_thrhld,frsea_thrhld)) THEN ! pure land point
+          IF (ext_data(jgc)%atm%fr_land(jc,jb) >= 1._wp-MAX(frlake_thrhld,frsea_thrhld)) THEN ! pure land point
             ptr_wprogc%h_ice(jc,jb) = 0._wp
             ptr_wprogc%h_snow_si(jc,jb) = 0._wp
             ptr_ldiagc%fr_seaice(jc,jb) = 0._wp
