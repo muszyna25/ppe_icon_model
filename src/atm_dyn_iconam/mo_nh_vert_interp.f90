@@ -530,7 +530,7 @@ CONTAINS
     CALL sync_patch_array(SYNC_C,p_patch,initicon%atm%w)
 
 
-    IF (init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) THEN
+    IF ((init_mode == MODE_ICONVREMAP .OR. lvert_remap_fg) .AND. ASSOCIATED(initicon%atm_in%tke)) THEN
       CALL lin_intp(initicon%atm_in%tke, initicon%atm%tke,                 &
                     p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlevp1,    &
                     wfac_lin_w, idx0_lin_w, bot_idx_lin_w, wfacpbl1, kpbl1,&

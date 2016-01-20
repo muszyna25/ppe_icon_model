@@ -33,13 +33,15 @@ MODULE mo_nwp_parameters
     ! resolution-dependent parameters for convection scheme
     REAL(wp) :: tau, mfcfl, tau0
     ! relative humidity below which sub-cloud evaporation of rain starts over land and water, respectively
-    REAL(wp) :: rhebc_land, rhebc_ocean
+    REAL(wp) :: rhebc_land, rhebc_ocean, rhebc_land_trop, rhebc_ocean_trop
     ! 'excess values' of temperature and QV used for convection triggering (test parcel ascent)
     REAL(wp) :: texc, qexc
     ! fractional area covered by convective precipitation
-    REAL(wp) :: rcucov
+    REAL(wp) :: rcucov, rcucov_trop
     ! tuning coefficient for organized entrainment of deep convection
     REAL(wp) :: entrorg
+    ! switches for activation of shallow, midlevel and deep convection
+    LOGICAL :: lmfscv, lmfmid, lmfpen
     !
     ! Parameters which are only computed if Gravity wave drag scheme is switched on
     !

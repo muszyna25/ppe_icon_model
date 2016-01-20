@@ -84,8 +84,7 @@ MODULE mo_cumaster
   !KF
   USE mo_cuparameters , ONLY :                                   &
     & rtwat                                                     ,&
-    & lmfdd    ,lmfdudv                                         ,&
-    & rdepths ,lmfscv  ,lmfpen   ,lmfit                         ,&
+    & lmfdd    ,lmfdudv, rdepths   ,lmfit                       ,&
     & rmflic  ,rmflia  ,rmflmax, rmfsoluv                       ,&
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&
     & lmftrac   ,   LMFUVDIS                                    ,&
@@ -573,7 +572,7 @@ CALL cuinin &
 CALL cubasen &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, &
   & phy_params%kcon1, phy_params%kcon2, phy_params%entrorg, &
-  & phy_params%texc, phy_params%qexc, mtnmask, &
+  & phy_params%texc, phy_params%qexc, mtnmask, ldland, ldlake, &
   & ztenh,    zqenh,    pgeoh,    paph,&
   & pqhfl,    pahfs,    &
   & pten,     pqen,     pqsen,    pgeo,&
@@ -731,7 +730,7 @@ ENDDO
 
 CALL cuascn &
   & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-  & phy_params%entrorg, ptsphy,&
+  & phy_params%entrorg, phy_params%lmfmid, ptsphy,&
   & paer_ss, &
   & ztenh,    zqenh,&
   & ptenq, &
@@ -1001,7 +1000,7 @@ IF(lmfit) THEN
 
   CALL cuascn &
     & ( kidia,    kfdia,    klon,   ktdia,   klev, phy_params%mfcfl, &
-    & phy_params%entrorg, ptsphy,&
+    & phy_params%entrorg, phy_params%lmfmid, ptsphy,&
     & paer_ss,&
     & ztenh,    zqenh,    &
     & ptenq,            &
@@ -1094,10 +1093,10 @@ DO JL=KIDIA,KFDIA
 ENDDO
 
 
-IF (.NOT.lmfscv .OR. .NOT.lmfpen) THEN
+IF (.NOT.phy_params%lmfscv .OR. .NOT.phy_params%lmfpen) THEN
   DO jl=kidia,kfdia
     llo2(jl)=.FALSE.
-    IF((.NOT.lmfscv .AND. ktype(jl)==2).OR.(.NOT.lmfpen .AND. ktype(jl)==1))THEN
+    IF((.NOT.phy_params%lmfscv .AND. ktype(jl)==2).OR.(.NOT.phy_params%lmfpen .AND. ktype(jl)==1))THEN
       llo2(jl)=.TRUE.
       ldcum(jl)=.FALSE.
     ENDIF
@@ -1137,6 +1136,8 @@ ENDDO
 CALL cuflxn &
   & ( kidia,    kfdia,    klon,   ktdia,    klev, phy_params%mfcfl, &
   & phy_params%rhebc_land, phy_params%rhebc_ocean, phy_params%rcucov, &
+  & phy_params%rhebc_land_trop, phy_params%rhebc_ocean_trop, &
+  & phy_params%rcucov_trop, capdcfac,                       &
   & ptsphy,  pten,     pqen,     pqsen,    ztenh,    zqenh,&
   & paph,     pap,      pgeoh,    ldland,   ldlake, ldcum,&
   & kcbot,    kctop,    idtop,    itopm2,&
@@ -1526,7 +1527,7 @@ ENDIF
 !                  NEED TO SET SOME VARIABLES A POSTERIORI TO ZERO
 !                  ---------------------------------------------------
 
-IF (.NOT.lmfscv .OR. .NOT.lmfpen) THEN
+IF (.NOT.phy_params%lmfscv .OR. .NOT.phy_params%lmfpen) THEN
   DO jk=ktdia+1,klev
     DO jl=kidia,kfdia
       IF(llo2(jl).AND.jk>=kctop(jl)-1) THEN

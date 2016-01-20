@@ -453,7 +453,7 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-  !> @return the number of half levels of a generalized Z-axis for a given variable name
+  !> @return the number of levels for a given variable name
   !
   !  Uses cdilib for file access.
   !  Initial revision by D. Reinert, DWD (2014-10-24)
@@ -475,11 +475,8 @@ CONTAINS
     END IF
     vlistID = streamInqVlist(streamID)
     zaxisID = vlistInqVarZaxis(vlistID,varID)
-    IF (zaxisInqType(zaxisID) /= ZAXIS_REFERENCE) THEN
-      CALL finish(routine, "Variable "//TRIM(name)//" has no generalized Z-axis!")
-    ENDIF
     ! number of half levels of the generalized Z-axis
-    result_NlevRef = zaxisInqNlevRef(zaxisID)
+    result_NlevRef = zaxisInqSize(zaxisID)
   END FUNCTION get_cdi_NlevRef
 
 

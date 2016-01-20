@@ -851,15 +851,16 @@ CONTAINS
        ntsedi = 1       
      END IF
 
+     prec_r(:) = 0.0_wp
+     prec_i(:) = 0.0_wp
+     prec_s(:) = 0.0_wp
+     prec_g(:) = 0.0_wp
+     prec_h(:) = 0.0_wp
+
      DO ii=1,ntsedi       
        CALL sedi_icon_rain (rain,rain_coeffs,qr,qnr,prec_r,qc,rhocorr,rdz,dt/ntsedi,its,ite,kts,kte,cmax)
      END DO
-     
-     prec_i(:) = 0._wp
-     prec_s(:) = 0._wp
-     prec_g(:) = 0._wp
-     prec_h(:) = 0.0
-     
+          
      IF (ANY(qi(its:ite,kts:kte)>0._wp)) &
           call sedi_icon_sphere (ice,ice_coeffs,qi,qni,prec_i,rhocorr,rdz,dt,its,ite,kts,kte)
      
