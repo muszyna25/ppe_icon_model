@@ -1836,6 +1836,8 @@ src/shared/mo_time_base.f90 -text
 src/shared/mo_time_interpolation.f90 -text
 src/shared/mo_time_interpolation_weights.f90 -text
 src/shared/mo_timer.f90 -text
+src/shared/mo_tracer_metadata.f90 -text
+src/shared/mo_tracer_metadata_types.f90 -text
 src/shared/mo_util_backtrace.f90 -text
 src/shared/mo_util_dbg_prnt.f90 -text
 src/shared/mo_util_debug.f90 -text

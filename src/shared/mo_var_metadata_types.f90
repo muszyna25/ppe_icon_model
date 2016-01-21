@@ -7,10 +7,11 @@
 !! headers of the routines.
 MODULE mo_var_metadata_types
 
-  USE mo_kind,           ONLY: dp, wp
-  USE mo_grib2,          ONLY: t_grib2_var
-  USE mo_action_types,   ONLY: t_var_action
-  USE mo_cf_convention,  ONLY: t_cf_var
+  USE mo_kind,                  ONLY: dp, wp
+  USE mo_grib2,                 ONLY: t_grib2_var
+  USE mo_action_types,          ONLY: t_var_action
+  USE mo_cf_convention,         ONLY: t_cf_var
+  USE mo_tracer_metadata_types, ONLY: t_tracer_meta
 
   IMPLICIT NONE
 
@@ -141,36 +142,6 @@ MODULE mo_var_metadata_types
   END type t_union_vals
 
 
-  TYPE t_tracer_meta
-    !
-    LOGICAL :: lis_tracer         ! this is a tracer field (TRUE/FALSE)
-    CHARACTER(len=VARNAME_LEN) :: tracer_class ! type of tracer
-    !  
-    INTEGER :: ihadv_tracer       ! method for horizontal transport
-    INTEGER :: ivadv_tracer       ! method for vertical transport
-    !
-    LOGICAL :: lturb_tracer       ! turbulent transport (TRUE/FALSE)
-    LOGICAL :: lsed_tracer        ! sedimentation (TRUE/FALSE)
-    LOGICAL :: ldep_tracer        ! dry deposition (TRUE/FALSE)  
-    LOGICAL :: lconv_tracer       ! convection  (TRUE/FALSE)
-    LOGICAL :: lwash_tracer       ! washout (TRUE/FALSE)
-    !
-    REAL(wp) :: rdiameter_tracer  ! particle diameter in m
-    REAL(wp) :: rrho_tracer       ! particle density in kg m^-3
-    !
-    REAL(wp) :: halflife_tracer   ! radioactive half-life in s^-1
-    INTEGER  :: imis_tracer       ! IMIS number
-    REAL(wp) :: lifetime_tracer   ! lifetime of a chemical tracer
-    !
-    INTEGER :: mode_number        ! number of mode                   for GRIB2 output
-    INTEGER :: diameter           ! diameter of ash particle         for GRIB2 output
-    INTEGER :: variance           ! variance of aerosol mode         for GRIB2 output
-    INTEGER :: constituent        ! constituent type of tracer       for GRIB2 output
-    INTEGER :: tau_wavelength     ! wavelength of diagnostic AOD     for GRIB2 output
-    !
-  END TYPE t_tracer_meta
-
-
   !> data specific for pz-level interpolation.
   TYPE t_vert_interp_meta
     ! meta data containing the groups to which a variable belongs
@@ -259,8 +230,6 @@ MODULE mo_var_metadata_types
     INTEGER                    :: cdiZaxisID
     INTEGER                    :: cdiDataType
     !
-    TYPE(t_tracer_meta)        :: tracer                ! metadata for tracer fields
-    !
     ! Metadata for "post-ops" (small arithmetic operations)
     !
     TYPE(t_post_op_meta)       :: post_op               !<  "post-op" (small arithmetic operations) for this variable
@@ -288,13 +257,41 @@ MODULE mo_var_metadata_types
 
   END TYPE t_var_metadata
 
+  ! The type t_var_metadata_dynamic contains pointers to all metadata stored in t_var_metadata (i.e. the
+  ! infostate) of the same element. In contrast to t_var_metadata, it is not transfered to the output PE.
+  ! This allows for additional dynamical objects inside t_var_metadata_dynamic like pointers or allocatables.
+  TYPE t_var_metadata_dynamic
+  ! pointers to static part: content of t_var_metadata (DESCRIPTIONS CAN BE FOUND AT: t_var_metadata)
+    CHARACTER(len=VARNAME_LEN), POINTER :: name
+    INTEGER, POINTER :: &
+      &  key, var_class, ndims, used_dimensions(:), &
+      &  isteptype, ncontained, maxcontained,       &
+      &  var_ref_pos, hgrid, vgrid, tlev_source,    &
+      &  cdiVarID, cdiVarID_2, cdiGridID,           &
+      &  cdiZaxisID, cdiDataType, l_pp_scheduler_task
+    LOGICAL, POINTER :: &
+      &  allocated, lrestart, loutput, lmiss,       &
+      &  lrestart_cont, lrestart_read, lcontainer,  &
+      &  lcontained, in_group(:)
+    TYPE(t_cf_var), POINTER             :: cf
+    TYPE(t_grib2_var), POINTER          :: grib2
+    TYPE(t_union_vals), POINTER :: &
+      &  resetval, missval, initval
+    TYPE(t_post_op_meta), POINTER       :: post_op
+    TYPE(t_var_action), POINTER         :: action_list
+    TYPE(t_vert_interp_meta), POINTER   :: vert_interp 
+    TYPE(t_hor_interp_meta), POINTER    :: hor_interp 
+  ! Additional dynamical objects
+    CLASS(t_tracer_meta), POINTER       :: tracer      ! Tracer-specific metadata
+  END TYPE t_var_metadata_dynamic
+
   PUBLIC :: VINTP_TYPE_LIST
   PUBLIC :: VARNAME_LEN
   PUBLIC :: MAX_GROUPS
 
   PUBLIC :: t_union_vals
   PUBLIC :: t_var_metadata
-  PUBLIC :: t_tracer_meta
+  PUBLIC :: t_var_metadata_dynamic
   PUBLIC :: t_vert_interp_meta
   PUBLIC :: t_hor_interp_meta
   PUBLIC :: t_post_op_meta
