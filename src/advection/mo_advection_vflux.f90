@@ -1247,8 +1247,12 @@ CONTAINS
     REAL(wp) :: coeff_grid              !< parameter which is used to make the vertical 
                                         !< advection scheme applicable to a height      
                                         !< based coordinate system (coeff_grid=-1)
+    REAL(wp) :: rdtime                  !< 1/dt
 
     !-----------------------------------------------------------------------
+
+    ! inverse of time step for computational efficiency
+    rdtime = 1._wp/p_dtime
 
     ! get patch ID
     jg = p_patch%id
@@ -1845,10 +1849,10 @@ CONTAINS
               &         + (0.5_wp * z_delta_p * (1._wp - z_cflfrac_p(jc,jk,jb)))    &
               &         - z_a12*(1._wp - 3._wp*z_cflfrac_p(jc,jk,jb)                &
               &         + 2._wp*z_cflfrac_p(jc,jk,jb)**2) ) )                       &
-              &         / p_dtime
+              &         * rdtime
 
             ! full flux (integer- plus high order fractional flux)
-            p_upflux(jc,jk,jb) = z_iflx_p(jc,jk)/p_dtime + z_flx_frac_high
+            p_upflux(jc,jk,jb) = z_iflx_p(jc,jk)*rdtime + z_flx_frac_high
 
           ENDDO
         ENDIF
@@ -1923,10 +1927,10 @@ CONTAINS
               &         - (0.5_wp * z_delta_m * (1._wp - z_cflfrac_m(jc,jk,jb)))    &
               &         - z_a11*(1._wp - 3._wp*z_cflfrac_m(jc,jk,jb)                &
               &         + 2._wp*z_cflfrac_m(jc,jk,jb)**2) ) )                       &
-              &         / p_dtime
+              &         * rdtime
 
             ! full flux (integer- plus fractional flux)
-            p_upflux(jc,jk,jb) = z_iflx_m(jc,jk)/p_dtime + z_flx_frac_high
+            p_upflux(jc,jk,jb) = z_iflx_m(jc,jk)*rdtime + z_flx_frac_high
 
           ENDDO
         ENDIF
