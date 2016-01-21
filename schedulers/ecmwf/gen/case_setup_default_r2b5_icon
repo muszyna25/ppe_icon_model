@@ -55,6 +55,7 @@ ln -sf $IFS2ICONDIR/${ifs2icon_filename}            ${ifs2icon_filename}
 
 ln -sf ${RADDIR}/ECHAM6_CldOptProps.nc .
 ln -sf ${RADDIR}/rrtmg_lw.nc .
+ln -sf ${RADDIR}/rrtmg_sw.nc .
 
 # global timing
 start_date="${INITIME_FMT}"
@@ -125,7 +126,7 @@ ml_varlist="'temp','u','v','w','pres','pres_sfc', 'pres_msl',
 'clct','clch','clcm','clcl', 'tqv_dia', 'tqc_dia', 'tqi_dia', 'tqv', 'tqc', 'tqi', 'tqr', 'tqs',
 'tot_prec','rain_gsp','rain_con','snow_gsp','snow_con', 
 'u_10m','v_10m','sp_10m', 't_2m', 'td_2m',
-'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t', 
+'accshfl_s','acclhfl_s',  'accthb_s','accthb_t','accsob_s','accsob_t',
 'ddt_temp_dyn', 'ddt_temp_radsw', 'ddt_temp_radlw',  'ddt_temp_turb', 'ddt_temp_drag', 'ddt_temp_pconv',   
 'ddt_u_turb', 'ddt_u_sso', 'ddt_u_gwd', 'ddt_u_pconv', 'ddt_v_turb', 'ddt_v_sso', 
 'ddt_v_gwd', 'ddt_v_pconv', 'ddt_qv_turb', 'ddt_qv_conv',
@@ -147,7 +148,7 @@ cat > ${atmo_namelist} << EOF
  l_log_checks                 = .FALSE.
  num_io_procs                 = 1
  itype_comm                   = 1
- iorder_sendrecv              = 1
+ iorder_sendrecv              = 3  ! best value for CRAY (slightly faster than option 1)
 /
 &grid_nml
  dynamics_grid_filename       = ${dynamics_grid_filename}
@@ -165,6 +166,8 @@ cat > ${atmo_namelist} << EOF
  lread_ana                    = .false.
  ana_varnames_map_file        = '${basedir}/${user_icon_dir}/run/ana_varnames_map_file.txt'
  filetype                     = 2
+ ltile_coldstart              =.true.
+/
 &run_nml
  num_lev                      = 90
  lvert_nest                   = .TRUE.
@@ -243,41 +246,56 @@ cat > ${atmo_namelist} << EOF
  inwp_convection              = 1
  inwp_radiation               = 1
  inwp_cldcover                = 1   ! 0: no cld, 1: new diagnostic, 3: COSMO, 5: grid scale
- inwp_turb                    = 10  ! 1/10: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
+ inwp_turb                    = 1   ! 1/10: Raschendorfer, 2: GME, 3: EDMF-DUALM (ntracer+1,ntiles=8)
  inwp_satad                   = 1
  inwp_sso                     = 1
  inwp_gwd                     = 1
  inwp_surface                 = 1
+ latm_above_top               = .false.
  itype_z0                     = 2   ! 1: default, 2: turn off SSO part of z0
  dt_conv                      = ${dtconv}
  dt_sso                       = ${dtconv}
  dt_gwd                       = ${dtconv}
  dt_rad                       = ${dtrad}
- latm_above_top               = .FALSE.
  efdt_min_raylfric            = 7200.
+ icapdcycl                    = 3
+ icpl_aero_conv               = 1
+ icpl_aero_gscp               = 1
+ icpl_o3_tp                   = 1
+/
+&nwp_tuning_nml
+ itune_albedo                  = 1       ! somewhat reduced albedo (w.r.t. MODIS data) over Sahara in order to reduce cold bias
+ tune_zceff_min                = 0.025   ! ** default value to be used for R3B7; use 0.025 for R2B6 in order to get similar temperature biases in upper troposphere **
 /
 &turbdiff_nml
  tkhmin                       = 0.75
  tkmmin                       = 0.75
- pat_len                      = 100.
+ alpha0_max                   = 0.0335
+ pat_len                      = 750.
  c_diff                       = 0.2
- rat_sea                      = 9.0
+ rat_sea                      = 8.0
  ltkesso                      = .true.  ! SSO dissipation energy used in TKE equation
+ frcsmot                      = 0.2     ! these 2 switches together apply vertical smoothing of the TKE source terms
+ imode_frcsmot                = 2       ! in the tropics (only), which reduces the moist bias in the tropical lower troposphere
+ itype_sher                   = 3       ! use horizontal shear production terms with 1/SQRT(Ri) scaling to prevent unwanted side effects
+ ltkeshs                      = .true.
+ a_hshr                       = 2.0
+ icldm_tran                   = 2
 /
 &lnd_nml
- ntiles                       = 1
- nlev_snow                    = 1       ! 2 for multi-level snow
- lmulti_snow                  = .FALSE.  ! true: multi-level snow, false:single-level snow
- idiag_snowfrac               = 4
- lsnowtile                    = .FALSE. ! true: allow separate snow and snow-free tiles
- lseaice                      = .true.
- llake                        = .false.
- itype_lndtbl                 = 2       ! 2: tuned stomata resistance rsmin
- itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
+ ntiles                       = 3
+ nlev_snow                    = 3       ! 2 for multi-level snow
+ lmulti_snow                  = .false. ! true: multi-level snow, false:single-level snow
  itype_heatcond               = 2       ! 1: fixed heatcond, 2: moisture dependent heatcond
+ idiag_snowfrac               = 20
+ lsnowtile                    = .true.  ! true: allow separate snow and snow-free tiles
+ lseaice                      = .true.
+ itype_lndtbl                 = 3       ! 2: tuned stomata resistance rsmin
+ itype_root                   = 2       ! 2: exponetial root distribution, 1: roots at level 3 
+ llake                        = .true.
 /
 &radiation_nml
- irad_o3                      = 7           ! 6: GME, 7: GEMS
+ irad_o3                      = 7           ! 6: GME, 7: GEMS, 9: MACC
  irad_aero                    = 6
  izenith                      = 4           ! 4: NWP default, 3: no annual cycle
  albedo_type                  = 2           ! 2: Modis albedo
@@ -293,14 +311,14 @@ cat > ${atmo_namelist} << EOF
  ivctype                      = 2
  itime_scheme                 = 4
  exner_expol                  = 0.333
- vwind_offctr                 = 0.3         ! 0.2 for R2B6 and higher resolution, 0.3 for lower resolution
+ vwind_offctr                 = 0.2         ! 0.2 for R2B6 and higher resolution, 0.3 for lower resolution
  damp_height                  = 50000.
  rayleigh_coeff               = 0.10
  ndyn_substeps                = ${ndyn_substeps}
  lhdiff_rcf                   = .true.
- divdamp_fac                  = 0.004
- divdamp_order                = 4
- divdamp_type                 = 3
+ divdamp_fac                  = 0.004       ! 0.004 for R2B6; recommendation for R3B7: 0.003
+ divdamp_order                = 24          ! 2 ass, 24 fc
+ divdamp_type                 = 32          ! optional: 2 assimilation cycle, 32 forecast
  l_open_ubc                   = .FALSE.
  igradp_method                = 3
  l_zdiffu_t                   = .TRUE.
@@ -346,6 +364,7 @@ cat > ${atmo_namelist} << EOF
  lsq_high_ord                 = 3
  l_intp_c2l                   = .TRUE.
  l_mono_c2l                   = .TRUE.
+ support_baryctr_intp         = .true.
  rbf_scale_mode_ll            = 1       ! workaround for RBF lat lon interpolation problems at R2B5 
 /
 &extpar_nml

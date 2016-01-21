@@ -43,6 +43,11 @@ MODULE mo_ensemble_pert_nml
     &                               config_range_tkhmin    => range_tkhmin,    &  
     &                               config_range_tkmmin    => range_tkmmin,    &  
     &                               config_range_rlam_heat => range_rlam_heat, &
+    &                               config_range_charnock  => range_charnock,  &  
+    &                               config_range_z0_lcc    => range_z0_lcc,    &
+    &                               config_range_rootdp    => range_rootdp,    &
+    &                               config_range_rsmin     => range_rsmin,     &
+    &                               config_range_laimax    => range_laimax,    &
     &                               config_use_ensemble_pert => use_ensemble_pert
 
   
@@ -95,11 +100,28 @@ MODULE mo_ensemble_pert_nml
   REAL(wp) :: &                    !< Laminar transport resistance parameter 
     &  range_rlam_heat
 
+  REAL(wp) :: &                    !< Upper and lower bound of wind-speed dependent Charnock parameter 
+    &  range_charnock
+
+  REAL(wp) :: &                    !< Roughness length attributed to land-cover class 
+    &  range_z0_lcc
+
+  REAL(wp) :: &                    !< Root depth related to land-cover class
+    &  range_rootdp
+
+  REAL(wp) :: &                    !< Minimum stomata resistance related to land-cover class
+    &  range_rsmin
+
+  REAL(wp) :: &                    !< Maximum leaf area index related to land-cover class
+    &  range_laimax
+
+
   LOGICAL :: use_ensemble_pert     !< main switch
 
   NAMELIST/ensemble_pert_nml/ use_ensemble_pert, range_gkwake, range_gkdrag, range_gfluxlaun, range_zvz0i, &
     &                         range_entrorg, range_capdcfac_et, range_box_liq, range_tkhmin, range_tkmmin, &
-    &                         range_rlam_heat, range_rhebc, range_texc, range_minsnowfrac
+    &                         range_rlam_heat, range_rhebc, range_texc, range_minsnowfrac, range_z0_lcc,   &
+    &                         range_rootdp, range_rsmin, range_laimax, range_charnock
 
 CONTAINS
 
@@ -162,10 +184,19 @@ CONTAINS
     range_tkmmin     = 0.15_wp      ! minimum vertical diffusion for momentum
     range_rlam_heat  = 1.5_wp       ! multiplicative change of laminar transport resistance parameter
                                     ! (compensated by an inverse change of rat_sea)
+    range_charnock   = 1.5_wp       ! multiplicative change of upper and lower bound of wind-speed dependent
+                                    ! Charnock parameter
     !
     ! snow cover diagnosis
     range_minsnowfrac = 0.05_wp     ! Minimum value to which the snow cover fraction is artificially reduced
                                     ! in case of melting show (in case of idiag_snowfrac = 20/30/40)
+
+    ! external parameters specified depending on land-cover class
+    ! all subsequent ranges indicate relative changes of the respective parameter
+    range_z0_lcc   = 0.2_wp         ! Roughness length
+    range_rootdp   = 0.2_wp         ! Root depth
+    range_rsmin    = 0.2_wp         ! Minimum stomata resistance
+    range_laimax   = 0.15_wp        ! Leaf area index
 
     use_ensemble_pert = .FALSE.     ! Usage of ensemble perturbations must be turned on explicitly
 
@@ -223,6 +254,11 @@ CONTAINS
     config_range_tkhmin       = range_tkhmin
     config_range_tkmmin       = range_tkmmin
     config_range_rlam_heat    = range_rlam_heat
+    config_range_charnock     = range_charnock
+    config_range_z0_lcc       = range_z0_lcc
+    config_range_rootdp       = range_rootdp
+    config_range_rsmin        = range_rsmin
+    config_range_laimax       = range_laimax
     config_use_ensemble_pert  = use_ensemble_pert
 
 

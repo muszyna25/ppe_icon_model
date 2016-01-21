@@ -237,7 +237,7 @@ CONTAINS
     CASE ('sst_const')
       sst=ape_sst_const()
     CASE DEFAULT
-      CALL finish( TRIM(FUNCTION),'wrong sst name, must be sst1, sst2, sst3, sst4 or sst_qobs')
+      CALL finish( TRIM(FUNCTION),'wrong sst name, must be sst1, sst2, sst3, sst4, sst_qobs, sst_ice or sst_const')
     END SELECT
   END FUNCTION ape_sst
 

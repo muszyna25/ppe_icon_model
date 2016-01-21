@@ -266,17 +266,17 @@ CASE( 1 )
 
 ! stratiform cloud
 !  liquid cloud
-     ! quadratic increase of cloud cover from 0 to 1 between RH = 85% and 105%;
+     ! quadratic increase of cloud cover from 0 to 1 between RH = 87.5% and 105%;
      ! diagnosed cloud water is proportional to clcov**2
       deltaq = MIN(tune_box_liq, zagl_lim(jl,jk)) * zqlsat(jl,jk)
       IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
       ELSE
-        zaux = qv(jl,jk) + qc(jl,jk) + 3._wp*deltaq - zqlsat(jl,jk)
-        cc_turb_liq(jl,jk) = SIGN((zaux/(4._wp*deltaq))**2,zaux)
+        zaux = qv(jl,jk) + qc(jl,jk) + 2.5_wp*deltaq - zqlsat(jl,jk)
+        cc_turb_liq(jl,jk) = SIGN((zaux/(3.5_wp*deltaq))**2,zaux)
         IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN
-          qc_turb  (jl,jk) = zaux**4 / (256._wp*deltaq**3)
+          qc_turb  (jl,jk) = zaux**4 / (150.0625_wp*deltaq**3)
         ELSE
           qc_turb  (jl,jk) = 0.0_wp
         ENDIF
