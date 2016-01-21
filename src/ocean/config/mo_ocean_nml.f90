@@ -114,9 +114,9 @@ MODULE mo_ocean_nml
   INTEGER :: tracer_update_mode = i_post_step
 
   !Options for non-linear corilois term in vector invariant velocity equations
-  INTEGER            :: NONLINEAR_CORIOLIS            =200
   INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_DUAL_GRID  = 200 !Default
   INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_PRIMAL_GRID= 201
+  INTEGER            :: NONLINEAR_CORIOLIS            = NONLINEAR_CORIOLIS_DUAL_GRID
   
   LOGICAL :: l_ANTICIPATED_VORTICITY  = .FALSE.
 
