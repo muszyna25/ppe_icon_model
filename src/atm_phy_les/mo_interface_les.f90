@@ -82,7 +82,7 @@ MODULE mo_interface_les
                                      is_sampling_time, is_writing_time
   USE mo_les_utilities,       ONLY: init_vertical_grid_for_les
   USE mo_fortran_tools,       ONLY: copy
-
+  USE mo_util_dbg_prnt,      ONLY: dbg_print
   IMPLICIT NONE
 
   PRIVATE
@@ -93,6 +93,9 @@ MODULE mo_interface_les
   INTEGER             :: ncount = 0
 
   PUBLIC :: les_phy_interface, init_les_phy_interface
+
+  CHARACTER(len=12)  :: str_module = 'les_interface'  ! Output of module for 1 line debug
+  INTEGER            :: idt_src    = 1           ! Determines level of detail for 1 line debug
 
 CONTAINS
   !
@@ -178,6 +181,7 @@ CONTAINS
       & z_ddt_temp  (nproma,pt_patch%nlev,pt_patch%nblks_c)   !< Temperature tendency
 
     REAL(wp) :: z_exner_sv(nproma,pt_patch%nlev,pt_patch%nblks_c), z_tempv
+    REAL(wp) :: z_temp_old(nproma,pt_patch%nlev,pt_patch%nblks_c)
 
     !< vertical interfaces
 
@@ -185,7 +189,7 @@ CONTAINS
     REAL(wp) :: zsct ! solar constant (at time of year)
     REAL(wp) :: zcosmu0 (nproma,pt_patch%nblks_c)
 
-    REAL(wp) :: r_sim_time
+    REAL(wp) :: r_sim_time, inv_dt_fastphy
 
     REAL(wp) :: z_qsum(nproma,pt_patch%nlev)  !< summand of virtual increment
     REAL(wp) :: z_ddt_qsum                    !< summand of tendency of virtual increment
@@ -221,6 +225,8 @@ CONTAINS
     ieidx => pt_patch%cells%edge_idx
     ieblk => pt_patch%cells%edge_blk
 
+    ! inverse of fast physics time step
+    inv_dt_fastphy = 1._wp / dt_phy_jg(itfastphy)
 
     ! Inverse of simulation time
     r_sim_time = 1._wp/MAX(1.e-6_wp, p_sim_time)
@@ -272,9 +278,10 @@ CONTAINS
     IF(diffusion_config(jg)%lhdiff_w .AND. lhdiff_rcf) &
        CALL sync_patch_array(SYNC_C, pt_patch, pt_prog%w)
 
-    !add all tracers that are used in satad
+    !add all tracers that are used in satad and turbulence
     IF(ltransport) &
-      CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer)
+      CALL sync_patch_array_mult(SYNC_C, pt_patch, iqm_max, &
+           f4din=pt_prog_rcf%tracer(:,:,:,1:iqm_max)) 
 
     !-------------------------------------------------------------------------
     !>  Update the tracer for every advective timestep,
@@ -524,12 +531,37 @@ CONTAINS
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
 
+      !Copy temp to calculate its tendency next
+      CALL copy(pt_diag%temp(:,:,:), z_temp_old(:,:,:)) 
+
       CALL nwp_microphysics ( dt_phy_jg(itfastphy),             & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
                             & prm_diag                          ) !>inout
+
+      !Calculate temp tendency due to microphysics in interior points
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
+
+      i_startblk = pt_patch%cells%start_blk(rl_start,1)
+      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx ) ICON_OMP_DEFAULT_SCHEDULE
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end )
+         DO jk = kstart_moist(jg), nlev
+          DO jc =  i_startidx, i_endidx
+            prm_nwp_tend%ddt_temp_gscp(jc,jk,jb) =  &
+                 ( pt_diag%temp(jc,jk,jb) - z_temp_old(jc,jk,jb) ) * inv_dt_fastphy
+          END DO
+         END DO
+      END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
 
       IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 
@@ -707,7 +739,7 @@ CONTAINS
       ! Temperature at interface levels is needed if irad_aero = 5 or 6
       ! or if Ritter-Geleyn radiation is called
       IF ( lcall_phy_jg(itrad) .AND. ( irad_aero == 5 .OR. irad_aero == 6 &
-           .OR. atm_phy_nwp_config(jg)%inwp_radiation == 2 ) )         THEN
+           .OR. irad_aero == 9 .OR. atm_phy_nwp_config(jg)%inwp_radiation == 2 ) ) THEN
         ltemp_ifc = .TRUE.
       ELSE
         ltemp_ifc = .FALSE.
@@ -1551,7 +1583,7 @@ CONTAINS
       ENDDO
 
 !Clipping for number concentrations
-      IF(atm_phy_nwp_config(jg)%inwp_gscp==4.or.atm_phy_nwp_config(jg)%inwp_gscp==5)THEN
+      IF(ANY((/4,5/) == atm_phy_nwp_config(jg)%inwp_gscp))THEN
          DO jt=iqni, iqnc  ! qni,qnr,qns,qng,qnh,qnc
             DO jk = kstart_moist(jg), nlev
                DO jc = i_startidx, i_endidx

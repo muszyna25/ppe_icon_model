@@ -882,6 +882,9 @@ CONTAINS
           ext_data(jg)%atm%i_lc_snow_ice = 21
           ext_data(jg)%atm%i_lc_water    = 20
           ext_data(jg)%atm%i_lc_urban    = 22
+          ext_data(jg)%atm%i_lc_shrub_eg = 11
+          ext_data(jg)%atm%i_lc_shrub    = 12
+          ext_data(jg)%atm%i_lc_grass    = 13
           ext_data(jg)%atm%i_lc_bare_soil= 19
           ext_data(jg)%atm%i_lc_sparse   = 14
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
@@ -899,6 +902,9 @@ CONTAINS
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
+          ext_data(jg)%atm%i_lc_shrub_eg = 12
+          ext_data(jg)%atm%i_lc_shrub    = 13
+          ext_data(jg)%atm%i_lc_grass    = 14
           ext_data(jg)%atm%i_lc_bare_soil= 20
           ext_data(jg)%atm%i_lc_sparse   = 15
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
@@ -916,6 +922,9 @@ CONTAINS
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
+          ext_data(jg)%atm%i_lc_shrub_eg = 12
+          ext_data(jg)%atm%i_lc_shrub    = 13
+          ext_data(jg)%atm%i_lc_grass    = 14
           ext_data(jg)%atm%i_lc_bare_soil= 20
           ext_data(jg)%atm%i_lc_sparse   = 15
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
@@ -933,6 +942,9 @@ CONTAINS
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
+          ext_data(jg)%atm%i_lc_shrub_eg = 12
+          ext_data(jg)%atm%i_lc_shrub    = 13
+          ext_data(jg)%atm%i_lc_grass    = 14
           ext_data(jg)%atm%i_lc_bare_soil= 20
           ext_data(jg)%atm%i_lc_sparse   = 15
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
@@ -1025,7 +1037,7 @@ CONTAINS
 
 
           ! Read time dependent data
-          IF ( irad_aero == 6 ) THEN
+          IF ( irad_aero == 6 .OR. irad_aero == 9) THEN
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_SS', ext_data(jg)%atm_td%aer_ss)
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_DUST', ext_data(jg)%atm_td%aer_dust)
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_ORG', ext_data(jg)%atm_td%aer_org)
@@ -1204,8 +1216,10 @@ CONTAINS
         ext_data(jg)%atm_td%phoz(nlev_o3+1) = 125000._wp
 
         DO i=1,nlev_o3
-          WRITE(0,*) 'full/half level press ozone ', i, ext_data(jg)%atm_td%pfoz(i),&
-            &                                           ext_data(jg)%atm_td%phoz(i+1)
+
+          WRITE(message_text,'(a,i4,f12.4,f12.4)')'full/half level press ozone ', &
+                              i, ext_data(jg)%atm_td%pfoz(i), ext_data(jg)%atm_td%phoz(i+1)
+          CALL message(routine, TRIM(message_text))
         ENDDO
 
         stream_id = openInputFile(ozone_file, p_patch(jg), default_read_method)
@@ -1213,8 +1227,9 @@ CONTAINS
         CALL read_3D_extdim(stream_id, on_cells, TRIM(o3name), &
           &                 ext_data(jg)%atm_td%O3)
 
-        WRITE(0,*)'MAX/MIN o3 ppmv',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
-          &                         MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+        WRITE(message_text,'(a,f12.4,f12.4)')'MAX/MIN o3 ppmv', &
+           MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)), MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+        CALL message(routine, TRIM(message_text))
 
         ! convert from ppmv to g/g only in case of APE ozone
         ! whether o3mr2gg or ppmv2gg is used to convert O3 to gg depends on the units of
@@ -1223,8 +1238,10 @@ CONTAINS
          ! &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*o3mr2gg
           &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
 
-        WRITE(0,*)'MAX/min o3 g/g',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
-          &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+
+        WRITE(message_text,'(a,f12.4,f12.4)')'MAX/MIN o3 g/g', &
+           MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)), MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+        CALL message(routine, TRIM(message_text))
 
         ! close file
         CALL closeFile(stream_id)

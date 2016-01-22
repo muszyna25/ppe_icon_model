@@ -46,7 +46,7 @@ MODULE mo_2mom_mcrph_util
 !       & L_wd  => alv,    & ! specific heat of vaporization (wd: wasser->dampf)
 !       & L_ed  => als,    & ! specific heat of sublimation (ed: eis->dampf)
 !       & L_ew  => alf,    & ! specific heat of fusion (ew: eis->wasser)
-!       & T_3   => tmelt,  & ! melting temperature of ice
+       & T_3   => tmelt,  & ! melting temperature of ice
 !       & rho_w => rhoh2o, & ! density of liquid water
 !       & nu_l  => con_m,  & ! kinematic viscosity of air
 !       & D_v   => dv0,    & ! diffusivity of water vapor in air at 0 C
@@ -61,6 +61,12 @@ MODULE mo_2mom_mcrph_util
 
   PUBLIC :: &
        & gfct,                       & ! main (could be replaced by intrinsic in Fortran2008)
+       & rat2do3,                    & ! main
+       & dyn_visc_sutherland,        & ! main
+       & Dv_Rasmussen,               & ! main
+       & ka_Rasmussen,               & ! main
+       & lh_evap_RH87,               & ! main
+       & lh_melt_RH87,               & ! main
        & gamlookuptable,             & ! main
        & nlookup, nlookuphr_dummy,   & ! main
        & incgfct_lower_lookupcreate, & ! main
@@ -1246,4 +1252,114 @@ CONTAINS
     RETURN
   END FUNCTION dmin_wg_gr_ltab_equi
 
+  !*******************************************************************************
+  ! 2D rational functions to evaluate bulk approximations                        *
+  ! following Frick et al. (2013; cf. Eq. (31)), for n=2 and n=3                 *
+  !*******************************************************************************
+
+  REAL(wp) FUNCTION rat2do3(x,y,a,b)
+    implicit none
+
+    real(wp), intent(IN)                :: x,y
+    real(wp), intent(IN), dimension(10) :: a
+    real(wp), intent(IN), dimension(9)  :: b
+    real(wp), parameter :: eins = 1.0_wp
+    real(wp)            :: p1,p2
+
+    p1 = a(1)+a(2)*x+a(3)*y+a(4)*x*x+a(5)*x*y+a(6)*y*y &
+         &   +a(7)*x*x*x+a(8)*x*x*y+a(9)*x*y*y+a(10)*y*y*y 
+    p2 = eins+b(1)*x+b(2)*y+b(3)*x*x+b(4)*x*y+b(5)*y*y &
+         &  + b(6)*x*x*x+b(7)*x*x*y+b(8)*x*y*y+b(9)*y*y*y 
+
+    rat2do3 = p1/p2
+
+    return
+  end function rat2do3
+
+  ELEMENTAL REAL(wp) FUNCTION dyn_visc_sutherland(Ta)
+    !
+    ! Calculate dynamic viscosity of air [kg m-1 s-1]
+    ! following Sutherland's formula of an ideal
+    ! gas with reference temp. T = 291.15 K
+    !
+    ! There is another alternative in P&K97 on
+    ! page 417
+    !
+    IMPLICIT NONE
+    REAL(wp), INTENT(in) :: Ta   ! ambient temp. [K]
+    REAL(wp), PARAMETER :: &
+         C = 120.d0      , &     ! Sutherland's constant (for air) [K]
+         T0 = 291.15d0   , &     ! Reference temp. [K]
+         eta0 = 1.827d-5         ! Reference dyn. visc. [kg m-1 s-1]
+    REAL(wp) :: a, b
+
+    a = T0 + C
+    b = Ta + C
+    dyn_visc_sutherland = eta0 * a/b * (Ta/T0)**(3.d0/2.d0)
+
+    RETURN
+  END FUNCTION dyn_visc_sutherland
+  ! ---------------------------------------------------------------------
+  ELEMENTAL REAL(wp) FUNCTION Dv_Rasmussen(Ta,pa)
+    !
+    ! Calculating the diffusivity of water vapor in air
+    ! following Rasmussen et al. 1987, App. A, Tab. A1
+    ! Changed: Units of D_v in m2 s-1
+    !
+    IMPLICIT NONE
+    REAL(wp), INTENT(in) :: Ta, pa  ! Temp. and pressure in [K] and [Pa]
+    REAL(wp), PARAMETER  :: p_0 = 1013.25e2_wp
+
+    Dv_Rasmussen = 0.211d-4*(p_0/pa)*(Ta/T_3)**1.94
+    RETURN
+  END FUNCTION Dv_Rasmussen
+  ! ---------------------------------------------------------------------
+  ELEMENTAL REAL(wp) FUNCTION ka_Rasmussen(Ta)
+    !
+    ! Calculating the thermal conductivity of air
+    ! following Rasmussen et al. 1987, App. A, Tab. A1
+    !
+    IMPLICIT NONE
+    REAL(wp), INTENT(in)  :: Ta  ! ambient temp. [K]
+    REAL(wp), PARAMETER :: &
+         c_unit = 4.1840d2      ! for transforming units
+
+    ! transform [cal cm-1 s-1 Â°C-1] into [W m-1 K-1]
+    ka_rasmussen = c_unit * (5.69 + 0.017*(Ta-T_3))*1.d-5
+    RETURN
+  END FUNCTION ka_Rasmussen
+  ! ---------------------------------------------------------------------
+  ELEMENTAL REAL(wp) FUNCTION lh_evap_RH87(T)
+    !
+    ! Calculating the latent heat of evaporation
+    ! following the formulation of RH87a
+    !
+    IMPLICIT NONE
+    REAL(wp), INTENT(in) :: T    ! ambient temp.
+    REAL(wp) :: lh_e0, gam
+
+    !.latent heat of evap. at T_3
+    lh_e0 = 2.5008d6
+    !.exponent for calculation
+    gam = 0.167d0 + 3.67d-4 * T
+    !.latent heat of evap. as a fct. of temp.
+    lh_evap_RH87 = lh_e0 * (T_3 / T)**gam
+    RETURN
+  END FUNCTION lh_evap_RH87
+  ! ---------------------------------------------------------------------
+  ELEMENTAL REAL(wp) FUNCTION lh_melt_RH87(T)
+    !
+    ! Calculating the latent heat of melting
+    ! following the formulation of RH87a
+    !
+    IMPLICIT NONE
+    REAL(wp), INTENT(in) :: T    ! ambient temp.
+    REAL(wp), PARAMETER :: &
+         c_unit = 4.1840d3       ! constant to transform [cal g-1] to [J kg-1]
+
+    !.latent heat of melt. as a fct. of temp.
+    lh_melt_RH87 = c_unit * ( 79.7d0 + 0.485d0*(T-T_3) - 2.5d-3*(T-T_3)**2)
+    RETURN
+  END FUNCTION lh_melt_RH87
+ 
 END MODULE mo_2mom_mcrph_util

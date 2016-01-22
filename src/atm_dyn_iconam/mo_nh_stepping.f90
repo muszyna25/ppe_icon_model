@@ -41,7 +41,7 @@ MODULE mo_nh_stepping
   USE mo_parallel_config,          ONLY: nproma, itype_comm, iorder_sendrecv, use_async_restart_output, &
                                          num_prefetch_proc
   USE mo_run_config,               ONLY: ltestcase, dtime, nsteps, ldynamics, ltransport,   &
-    &                                    ntracer, lforcing, iforcing, msg_level, test_mode, &
+    &                                    ntracer, iforcing, msg_level, test_mode,           &
     &                                    output_mode, lart
   USE mo_echam_phy_config,         ONLY: echam_phy_config
   USE mo_advection_config,         ONLY: advection_config
@@ -88,7 +88,8 @@ MODULE mo_nh_stepping
   USE mo_exception,                ONLY: message, message_text, finish
   USE mo_impl_constants,           ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc, iphysproc_short,     &
     &                                    itconv, itccov, itrad, itradheat, itsso, itsatad, itgwd,  &
-    &                                    inwp, iecham, itturb, itgscp, itsfc,                      &
+    &                                    inoforcing, iheldsuarez, inwp, iecham,                    &
+    &                                    itturb, itgscp, itsfc,                                    &
     &                                    MODE_IAU, MODE_IAU_OLD, MODIS
   USE mo_math_divrot,              ONLY: rot_vertex, div_avg !, div
   USE mo_solve_nonhydro,           ONLY: solve_nh
@@ -121,6 +122,7 @@ MODULE mo_nh_stepping
   USE mo_name_list_output_init,    ONLY: output_file
   USE mo_pp_scheduler,             ONLY: new_simulation_status, pp_scheduler_process
   USE mo_pp_tasks,                 ONLY: t_simulation_status
+  USE mo_art_diagnostics_interface,ONLY: art_diagnostics_interface
   USE mo_art_emission_interface,   ONLY: art_emission_interface
   USE mo_art_sedi_interface,       ONLY: art_sedi_interface
   USE mo_art_tools_interface,      ONLY: art_tools_interface
@@ -242,8 +244,9 @@ MODULE mo_nh_stepping
   ENDIF
 
   IF (ltestcase) THEN
+
     CALL init_nh_testcase(p_patch(1:), p_nh_state, p_int_state(1:), p_lnd_state(1:), &
-      & ext_data, ntl)
+                        & ext_data, ntl)
 
     IF(is_ls_forcing) &
        CALL init_ls_forcing(p_nh_state(1)%metrics)
@@ -425,19 +428,21 @@ MODULE mo_nh_stepping
       &                                       i_timelevel_dyn= nnow, i_timelevel_phy= nnow_rcf)
     CALL pp_scheduler_process(simulation_status)
 
-    IF (iforcing==iecham) THEN
+    IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
         &                 p_nh_state(1)%prog(nnow(1))%rho, &
         &                 p_nh_state(1)%diag,              &
         &                 p_patch(1)%cells%owned,          &
-        &                 p_patch(1)%nlev,iforcing==iecham)
+        &                 p_patch(1)%nlev                  )
     END IF
+
     IF (output_mode%l_nml) THEN
       CALL write_name_list_output(jstep=0)
     END IF
-    IF (iforcing==iecham) THEN
-      CALL reset_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
+
+    IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
+      CALL reset_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
 
     ! sample meteogram output
@@ -887,7 +892,8 @@ MODULE mo_nh_stepping
 
 
     ! Compute diagnostics for output if necessary
-    IF (l_compute_diagnostic_quants .OR. iforcing==iecham) THEN
+    IF (l_compute_diagnostic_quants .OR. iforcing==iecham .OR. iforcing==inoforcing) THEN
+
       CALL diag_for_output_dyn ()
 
       IF (iforcing == inwp) THEN
@@ -944,15 +950,24 @@ MODULE mo_nh_stepping
       END IF !iforcing=inwp
 
       ! Unit conversion for output from mass mixing ratios to densities
-      !
+      ! and calculation of ART diagnostics
       DO jg = 1, n_dom
         IF (.NOT. p_patch(jg)%ldom_active) CYCLE
+        ! Call the ART diagnostics
+        CALL art_diagnostics_interface(p_patch(jg),                              &
+          &                            p_nh_state(jg)%prog(nnew(jg))%rho,        &
+          &                            p_nh_state(jg)%diag%pres,                 &
+          &                            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer, &
+          &                            p_nh_state(jg)%metrics%ddqz_z_full,       &
+          &                            p_nh_state(jg)%metrics%z_mc, jg)
+        ! Call the ART unit conversion 
         CALL art_tools_interface('unit_conversion',                            & !< in
           &                      p_nh_state_lists(jg)%prog_list(nnow_rcf(jg)), & !< in
           &                      p_nh_state(jg)%prog(nnow_rcf(jg))%tracer,     & !< in
           &                      p_nh_state(jg)%prog(nnew_rcf(jg))%tracer,     & !< out
           &                      p_nh_state(jg)%prog(nnew(jg))%rho)              !< in
       END DO
+
     ENDIF
 
 
@@ -982,14 +997,14 @@ MODULE mo_nh_stepping
 #endif
 
     ! update accumlated values
-    IF (iforcing==iecham) THEN
+    IF (p_nh_opt_diag(1)%acc%l_any_m) THEN
       CALL update_opt_acc(p_nh_opt_diag(1)%acc,            &
         &                 p_nh_state(1)%prog(nnow_rcf(1)), &
         &                 p_nh_state(1)%prog(nnow(1))%rho, &
         &                 p_nh_state(1)%diag,              &
         &                 p_patch(1)%cells%owned,          &
-        &                 p_patch(1)%nlev,iforcing==iecham)
-    IF (l_nml_output) CALL calc_mean_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
+        &                 p_patch(1)%nlev)
+    IF (l_nml_output) CALL calc_mean_opt_acc(p_nh_opt_diag(1)%acc)
     END IF
 
     ! output of results
@@ -1037,7 +1052,7 @@ MODULE mo_nh_stepping
     !
     CALL reset_act%execute(slack=dtime)
 
-    IF ( l_nml_output .AND. iforcing==iecham) CALL reset_opt_acc(p_nh_opt_diag(1)%acc,iforcing==iecham)
+    IF ( l_nml_output .AND. p_nh_opt_diag(1)%acc%l_any_m) CALL reset_opt_acc(p_nh_opt_diag(1)%acc)
     ! re-initialization for FG-averaging. Ensures that average is centered in time.
     IF (is_avgFG_time(datetime_current)) THEN
       IF (p_nh_state(1)%diag%nsteps_avg(1) == 0) THEN
@@ -1416,7 +1431,7 @@ MODULE mo_nh_stepping
         !!!!!!!!
         ! re-check: iadv_rcf -> ndynsubsteps
         !!!!!!!!
-        IF ( lforcing .AND. iforcing == 1) THEN
+        IF ( iforcing == iheldsuarez) THEN
           CALL held_suarez_nh_interface (p_nh_state(jg)%prog(nnow(jg)), p_patch(jg), &
                                          p_int_state(jg),p_nh_state(jg)%metrics,  &
                                          p_nh_state(jg)%diag)
@@ -1428,7 +1443,7 @@ MODULE mo_nh_stepping
         !
         ! For the time being, we hand over the dynamics time step and replace iadv_rcf by
         ! ndyn_substeps (for bit-reproducibility).
-        IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
+        IF (ldynamics .AND. .NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn .AND. &
             init_mode /= MODE_IAU .AND. init_mode /= MODE_IAU_OLD) THEN
           CALL diffusion(p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,       &
             p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), dt_loc/ndyn_substeps, .TRUE.)
@@ -1451,9 +1466,8 @@ MODULE mo_nh_stepping
                 &            dt_loc/ndyn_substeps, .FALSE.)
             ENDIF
 
-          ELSE
-            CALL add_slowphys(p_nh_state(jg), p_patch(jg), p_int_state(jg), &
-              nnow(jg), nnew(jg), dt_loc, n_now_rcf, n_new_rcf)
+          ELSE IF (iforcing == inwp .OR. iforcing == iecham) THEN
+            CALL add_slowphys(p_nh_state(jg), p_patch(jg), nnow(jg), nnew(jg), dt_loc)
           ENDIF
         ELSE
           CALL finish (routine, 'itype_comm /= 1 currently not implemented')
@@ -2050,6 +2064,9 @@ MODULE mo_nh_stepping
         &           nnow(jg), nnew(jg), linit_dyn(jg), l_recompute, &
         &           lsave_mflx, lprep_adv, lclean_mflx,             &
         &           nstep, ndyn_substeps_tot-1, l_bdy_nudge, dt_dyn)
+
+      ! now reset linit_dyn to .FALSE.
+      linit_dyn(jg) = .FALSE.
 
       ! compute diffusion at every dynamics substep (.NOT. lhdiff_rcf)
       IF (diffusion_config(jg)%lhdiff_vn .AND. .NOT. lhdiff_rcf)   &
