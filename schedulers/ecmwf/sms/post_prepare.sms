@@ -291,6 +291,7 @@ if [[ $lcatdata = 1 ]] ; then
         fi
         cp -f ${basename}_DOM01_0001_${var}_0.grb   \
               ${basename}_DOM01_0001_${var}_24.grb  \
+              ${basename}_DOM01_0001_${var}_216.grb \
               ${basename}_DOM01_0001_${var}_240.grb ${mondir}/tmp_dir
         rm -f ${basename}_DOM01_0001_${var}_*.grb
       fi

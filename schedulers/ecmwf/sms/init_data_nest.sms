@@ -38,6 +38,7 @@ fi
 # grid directory
 #GRIDDIR=%SCPERM%/icon_input/grids
 GRIDDIR='/scratch/ms/de/dei2/icon_input/grids'
+#GRIDDIR='/scratch/ms/de/dei2/icon_input/grids/pacific_-5-30N_100-160E'
 # ifsdir for IFS initial condition
 IFSDATADIR=%SCTEMP%/%SUITE%/%EXPNUM%/input/%YMD%%INIHOUR%${DIRENS}
 # base directory for model output

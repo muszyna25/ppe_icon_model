@@ -24,9 +24,13 @@ MODULE mo_ensemble_pert_config
   USE mo_nwp_tuning_config,  ONLY: tune_gkwake, tune_gkdrag, tune_gfluxlaun, tune_zvz0i,    &
     &                        tune_entrorg, tune_capdcfac_et, tune_box_liq, tune_rhebc_land, &
     &                        tune_rhebc_ocean, tune_rcucov, tune_texc, tune_qexc,           &
-    &                        tune_minsnowfrac
+    &                        tune_minsnowfrac, tune_rhebc_land_trop, tune_rhebc_ocean_trop, &
+    &                        tune_rcucov_trop
   USE mo_turbdiff_config,    ONLY: turbdiff_config
   USE mo_gribout_config,     ONLY: gribout_config
+  USE mo_grid_config,        ONLY: n_dom
+  USE mo_ext_data_types,     ONLY: t_external_data
+  USE mo_extpar_config,      ONLY: nclass_lu
   USE mo_exception,          ONLY: message_text, message
 
   IMPLICIT NONE
@@ -36,7 +40,7 @@ MODULE mo_ensemble_pert_config
   PUBLIC :: use_ensemble_pert, configure_ensemble_pert
   PUBLIC :: range_gkwake, range_gkdrag, range_gfluxlaun, range_zvz0i, range_entrorg, range_capdcfac_et, &
             range_box_liq, range_tkhmin, range_tkmmin, range_rlam_heat, range_rhebc, range_texc,        &
-            range_minsnowfrac
+            range_minsnowfrac, range_z0_lcc, range_rootdp, range_rsmin, range_laimax, range_charnock
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for ensemble perturbations
@@ -83,6 +87,21 @@ MODULE mo_ensemble_pert_config
   REAL(wp) :: &                    !< Laminar transport resistance parameter 
     &  range_rlam_heat
 
+  REAL(wp) :: &                    !< Upper and lower bound of wind-speed dependent Charnock parameter 
+    &  range_charnock
+
+  REAL(wp) :: &                    !< Roughness length attributed to land-cover class 
+    &  range_z0_lcc
+
+  REAL(wp) :: &                    !< Root depth related to land-cover class
+    &  range_rootdp
+
+  REAL(wp) :: &                    !< Minimum stomata resistance related to land-cover class
+    &  range_rsmin
+
+  REAL(wp) :: &                    !< Maximum leaf area index related to land-cover class
+    &  range_laimax
+
   LOGICAL :: use_ensemble_pert     !< main switch
 
   CONTAINS
@@ -91,16 +110,18 @@ MODULE mo_ensemble_pert_config
   !>
   !! Application of the ensemble perturbation to the config/namelist variables 
   !!
-  !! This is done based on randum numbers determined by the ensemble member ID
+  !! This is done based on random numbers determined by the ensemble member ID
   !!
   !! @par Revision History
   !! Initial revision by Guenther Zaengl, DWD (2015-04-23)
   !!
-  SUBROUTINE configure_ensemble_pert
+  SUBROUTINE configure_ensemble_pert(ext_data)
+
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
     INTEGER, ALLOCATABLE :: rnd_seed(:)
-    INTEGER  :: rnd_size, i
-    REAL(wp) :: rnd_num, rnd_fac
+    INTEGER  :: rnd_size, i, jg, ipn
+    REAL(wp) :: rnd_num, rnd_fac, alpha0_sv, z0_lcc, rootdp, rsmin, laimax
 
 
     IF (use_ensemble_pert) THEN
@@ -109,11 +130,14 @@ MODULE mo_ensemble_pert_config
       ALLOCATE(rnd_seed(rnd_size))
 
       ! Initialize randum number generator with an integer sequence depending on the ensemble member ID
+      ipn = gribout_config(1)%perturbationNumber
       DO i = 1, rnd_size
-        rnd_seed(i) = (gribout_config(1)%perturbationNumber - 1) * 100 + i
+        rnd_seed(i) = (135+i)*ipn - (21+i**2)*(5+MOD(ipn,10))**2 + 3*i**3
       ENDDO
       CALL RANDOM_SEED(PUT=rnd_seed)
-
+      DO i = 1, 10+ipn
+        CALL RANDOM_NUMBER(rnd_num)
+      ENDDO
 
       ! Apply perturbations to physics tuning parameters
 
@@ -146,7 +170,7 @@ MODULE mo_ensemble_pert_config
 
       CALL RANDOM_NUMBER(rnd_num)
       rnd_fac = range_rlam_heat**(2._wp*(rnd_num-0.5_wp))
-      ! The product rlam_heat*rat_sea must stay unchanged in order to keep evaporation over the oceans constant
+      ! The product rlam_heat*rat_sea must stay unchanged in order to keep heat and moisture fluxes over the oceans constant
       turbdiff_config(1:max_dom)%rlam_heat = turbdiff_config(1:max_dom)%rlam_heat * rnd_fac
       turbdiff_config(1:max_dom)%rat_sea   = turbdiff_config(1:max_dom)%rat_sea   / rnd_fac
 
@@ -157,6 +181,10 @@ MODULE mo_ensemble_pert_config
       tune_rhebc_land  = tune_rhebc_land  + 2._wp*(rnd_num-0.5_wp)*range_rhebc
       tune_rhebc_ocean = tune_rhebc_ocean + 2._wp*(rnd_num-0.5_wp)*range_rhebc
       tune_rcucov      = tune_rcucov / (1._wp + 15._wp*range_rhebc*(rnd_num-0.5_wp))
+      ! corresponding parameters for the tropics
+      tune_rhebc_land_trop  = tune_rhebc_land_trop  + 2._wp*(rnd_num-0.5_wp)*range_rhebc
+      tune_rhebc_ocean_trop = tune_rhebc_ocean_trop + 2._wp*(rnd_num-0.5_wp)*range_rhebc
+      tune_rcucov_trop      = tune_rcucov_trop / (1._wp + 15._wp*range_rhebc*(rnd_num-0.5_wp))
 
       CALL RANDOM_NUMBER(rnd_num)
       ! Perturbations for temperature / QV excess values in test parcel ascent must be anticorrelated
@@ -166,19 +194,80 @@ MODULE mo_ensemble_pert_config
       CALL RANDOM_NUMBER(rnd_num)
       tune_minsnowfrac = tune_minsnowfrac + 2._wp*(rnd_num-0.5_wp)*range_minsnowfrac
 
+      CALL RANDOM_NUMBER(rnd_num)
+      rnd_fac   = range_charnock**(2._wp*(rnd_num-0.5_wp))
+      alpha0_sv = turbdiff_config(1)%alpha0
+      !
+      ! Upper and lower bound of the variation range of the wind-speed dependent Charnock parameter
+      ! are varied inversely in order to avoid bias changes
+      turbdiff_config(1:max_dom)%alpha0     = turbdiff_config(1:max_dom)%alpha0     * rnd_fac
+      turbdiff_config(1:max_dom)%alpha0_max = turbdiff_config(1:max_dom)%alpha0_max / rnd_fac
+
+      CALL RANDOM_NUMBER(rnd_num)
+      ! Additional additive perturbation to Charnock parameter
+      turbdiff_config(1:max_dom)%alpha0_pert = (rnd_num-0.5_wp)*alpha0_sv*(range_charnock-1._wp)
+
       ! control output
       WRITE(message_text,'(2f8.4,e11.4)') tune_gkwake, tune_gkdrag, tune_gfluxlaun
       CALL message('Perturbed values, gkwake, gkdrag, gfluxlaun', TRIM(message_text))
 
-      WRITE(message_text,'(3f8.4,e11.4)') tune_box_liq, tune_zvz0i, tune_capdcfac_et, tune_entrorg
-      CALL message('Perturbed values, box_liq, zvz0i, capdcfac_et, entrorg', TRIM(message_text))
+      WRITE(message_text,'(4f8.4,e11.4)') tune_box_liq, tune_minsnowfrac, tune_capdcfac_et, tune_zvz0i, tune_entrorg
+      CALL message('Perturbed values, box_liq, minsnowfrac, capdcfac_et, zvz0i, entrorg', TRIM(message_text))
 
       WRITE(message_text,'(4f8.4,f8.5)') tune_rhebc_land, tune_rhebc_ocean, tune_rcucov, tune_texc, tune_qexc
       CALL message('Perturbed values, rhebc_land, rhebc_ocean, rcucov, texc, qexc', TRIM(message_text))
 
-      WRITE(message_text,'(3f8.4,f8.3,f8.4)') turbdiff_config(1)%tkhmin, turbdiff_config(1)%tkmmin, &
-        turbdiff_config(1)%rlam_heat , turbdiff_config(1)%rat_sea, tune_minsnowfrac
-      CALL message('Perturbed values, tkhmin, tkmmin, rlam_heat, rat_sea, minsnowfrac', TRIM(message_text))
+      WRITE(message_text,'(3f8.4,f8.3,3f8.4)') turbdiff_config(1)%tkhmin, turbdiff_config(1)%tkmmin, &
+        turbdiff_config(1)%rlam_heat , turbdiff_config(1)%rat_sea, turbdiff_config(1)%alpha0,        &
+        turbdiff_config(1)%alpha0_max, turbdiff_config(1)%alpha0_pert
+      CALL message('Perturbed values, tkhmin, tkmmin, rlam_heat, rat_sea, alpha0_min/max/pert', TRIM(message_text))
+
+
+      ! Reinitialization of randum number generator in order to make external parameter perturbations
+      ! independent of the number of RANDOM_NUMBER calls so far
+      DO i = 1, rnd_size
+        rnd_seed(i) = (139+i)*ipn - (23+i**2)*(5+MOD(ipn,12))**2 + 4*i**3
+      ENDDO
+      CALL RANDOM_SEED(PUT=rnd_seed)
+      DO i = 1, 10+ipn
+        CALL RANDOM_NUMBER(rnd_num)
+      ENDDO
+
+      CALL message('','')
+      CALL message('','Perturbed external parameters: roughness length, root depth, min. stomata resistance,&
+                   & max. leaf area index; defaults in brackets')
+      ! Perturbations for external parameters specified depending on the land cover class
+      DO i = 1, nclass_lu(1) ! we assume here that the same land cover dataset is used for all model domains
+
+        ! roughness length
+        CALL RANDOM_NUMBER(rnd_num)
+        z0_lcc  = ext_data(1)%atm%z0_lcc(i) * (1._wp + 2._wp*(rnd_num-0.5_wp)*range_z0_lcc)
+
+        ! root depth
+        CALL RANDOM_NUMBER(rnd_num)
+        rootdp  = ext_data(1)%atm%rootdmax_lcc(i) * (1._wp + 2._wp*(rnd_num-0.5_wp)*range_rootdp)
+
+        ! minimum stomata resistance
+        CALL RANDOM_NUMBER(rnd_num)
+        rsmin   = ext_data(1)%atm%stomresmin_lcc(i) * (1._wp + 2._wp*(rnd_num-0.5_wp)*range_rsmin)
+
+        ! leaf area index
+        CALL RANDOM_NUMBER(rnd_num)
+        laimax  = ext_data(1)%atm%laimax_lcc(i) * (1._wp + 2._wp*(rnd_num-0.5_wp)*range_laimax)
+
+        WRITE(message_text,'(a,i3,2f8.4,f8.1,f8.3,2x,a,2f8.4,f8.1,f8.3,a)') 'Land-cover class:', i,       &
+          z0_lcc, rootdp, rsmin, laimax, '(', ext_data(1)%atm%z0_lcc(i), ext_data(1)%atm%rootdmax_lcc(i), &
+          ext_data(1)%atm%stomresmin_lcc(i), ext_data(1)%atm%laimax_lcc(i), ' )'
+        CALL message('', TRIM(message_text))
+
+        DO jg = 1, n_dom
+          ext_data(jg)%atm%z0_lcc(i)         = z0_lcc
+          ext_data(jg)%atm%rootdmax_lcc(i)   = rootdp
+          ext_data(jg)%atm%stomresmin_lcc(i) = rsmin
+          ext_data(jg)%atm%laimax_lcc(i)     = laimax
+        ENDDO
+
+      ENDDO
 
       DEALLOCATE(rnd_seed)
     ENDIF

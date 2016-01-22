@@ -86,6 +86,9 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tcm_t_ptr(:) !< pointer array: turbulent transfer coefficients for momentum
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tch_t_ptr(:) !< pointer array: turbulent transfer coefficients for heat
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tfv_t_ptr(:) !< pointer array: laminar reduction factor for evaporation
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tvm_t_ptr(:) !< pointer array: turbulent transfer velocity for momentum
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tvh_t_ptr(:) !< pointer array: turbulent transfer velocity for heat
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: tkr_t_ptr(:) !< pointer array: turbulent reference surface diffusion coefficient
     TYPE(t_ptr_2d3d),ALLOCATABLE :: gz0_t_ptr(:) !< pointer array: roughness length * gravity
 
     TYPE(t_ptr_2d3d),ALLOCATABLE :: tvs_s_t_ptr(:)  !< pointer array: turbulent velocity scale at surface
@@ -100,6 +103,7 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: qhfl_s_t_ptr(:) !< pointer array: surface moisture flux
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_bs_t_ptr(:)!< pointer array: lhf from bare soil
     TYPE(t_ptr_2d3d),ALLOCATABLE :: lhfl_pl_t_ptr(:)!< pointer array: lhf from plants
+    TYPE(t_ptr_2d3d),ALLOCATABLE :: aerosol_ptr(:)  !< pointer array: prognostic vertically integrated aerosol optical depth
 
     REAL(wp), POINTER          &
 #ifdef _CRAYFTN
@@ -258,6 +262,9 @@ MODULE mo_nwp_phy_types
       tfm(:,:)        ,    & !! factor of laminar transfer of momentum          --
       tfh(:,:)        ,    & !! factor of laminar transfer of scalars           --
       tfv(:,:)        ,    & !! laminar reduction factor for evaporation        --
+      tvm(:,:)        ,    & !! turbulent transfer velocity for momentum      (m/s)
+      tvh(:,:)        ,    & !! factor of laminar transfer of scalars           --
+      tkr(:,:)        ,    & !! turbulent reference surface diffusion coeff.  (m2/s) (Ustar*kap*z0)
       gz0(:,:),            & !! roughness length * g of the vertically not
                              !! resolved canopy                               (m2/s2)
       tkvm(:,:,:),         & !! turbulent diffusion coefficients for momentum (m/s2 )
@@ -277,6 +284,9 @@ MODULE mo_nwp_phy_types
       tcm_t(:,:,:)     ,   & !! turbulent transfer coefficients for momentum    --
       tch_t(:,:,:)     ,   & !! turbulent transfer coefficients for heat        --
       tfv_t(:,:,:)     ,   & !! laminar reduction factor for evaporation        --
+      tvm_t(:,:,:)     ,   & !! turbulent transfer velocity for momentum      ( m/s )
+      tvh_t(:,:,:)     ,   & !! turbulent transfer velocity for heat          ( m/s )
+      tkr_t(:,:,:)     ,   & !! turbulent reference surface diffusion coeff.  ( m2/s) (Ustar*kap*z0)
       gz0_t(:,:,:)     ,   & !! roughness length * g                          (m2/s2)
       tvs_s_t(:,:,:)   ,   & !! surface turbulence velocity scale (SQRT(2*TKE)) (m/s)
                              !! (tile based)
@@ -335,11 +345,12 @@ MODULE mo_nwp_phy_types
       , CONTIGUOUS          &
 #endif
       & ::                  &
-      & aer_ss  (:,:),      &
-      & aer_or  (:,:),      &
-      & aer_bc  (:,:),      &
-      & aer_su  (:,:),      &
-      & aer_du  (:,:)
+      & aercl_ss  (:,:),    &
+      & aercl_or  (:,:),    &
+      & aercl_bc  (:,:),    &
+      & aercl_su  (:,:),    &
+      & aercl_du  (:,:),    &
+      & aerosol   (:,:,:)
 
     INTEGER, POINTER        &
 #ifdef _CRAYFTN
@@ -368,7 +379,9 @@ MODULE mo_nwp_phy_types
 
     !> (Optional:) Additional diagnostic fields:
     REAL(wp), POINTER ::  &
-      rh(:,:,:)               !> relative humidity
+      rh(:,:,:),          &   !> relative humidity
+      pv(:,:,:)               !> potential vorticity
+
 
     ! Buffer field needed when vertical nesting is combined with a reduced radiation
     ! grid and latm_above_top = .TRUE.

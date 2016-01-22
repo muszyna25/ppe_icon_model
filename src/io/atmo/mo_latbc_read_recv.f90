@@ -99,7 +99,13 @@ CONTAINS
     
 #ifndef NOMPI
     ! allocate a buffer for one vertical level
-    ALLOCATE(tmp_buf(patch_data%n_patch_cells_g), STAT=ierrstat)
+    IF (hgrid == GRID_UNSTRUCTURED_CELL) THEN
+      ALLOCATE(tmp_buf(patch_data%n_patch_cells_g), STAT=ierrstat)
+    ELSE IF (hgrid == GRID_UNSTRUCTURED_EDGE) THEN
+      ALLOCATE(tmp_buf(patch_data%n_patch_edges_g), STAT=ierrstat)
+    ELSE
+      CALL finish(routine, "invalid grid type")
+    ENDIF
     IF (ierrstat /= SUCCESS) CALL finish(routine, "ALLOCATE failed!")
 
     ! initialize temporary buffers
@@ -114,9 +120,9 @@ CONTAINS
     dimlen(2) = zaxisInqSize(zaxisID)
 
     ! Check variable dimensions:
-    IF ((dimlen(1) /= patch_data%n_patch_cells_g) .OR.  &
+    IF ((dimlen(1) /= SIZE(tmp_buf)) .OR.  &
          & (dimlen(2) /= nlevs)) THEN
-       WRITE(message_text,'(s,2i4)') "Horizontal cells: ", dimlen(1), patch_data%n_patch_cells_g, &
+       WRITE(message_text,'(a,2i4)') "Horizontal cells: ", dimlen(1), SIZE(tmp_buf), &
          &                           "nlev: ", dimlen(2), nlevs
        CALL message(TRIM(routine), message_text)
        CALL finish(routine, "Incompatible dimensions!")

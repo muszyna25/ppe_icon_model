@@ -33,7 +33,7 @@ MODULE mo_nwp_rad_interface
   USE mo_nwp_rrtm_interface,   ONLY: nwp_rrtm_radiation,             &
     &                                nwp_rrtm_radiation_reduced,     &
     &                                nwp_rrtm_radiation_repartition, &
-    &                                nwp_rrtm_ozon_aerosol
+    &                                nwp_ozon_aerosol
   USE mo_nwp_rg_interface,     ONLY: nwp_rg_radiation,               &
     &                                nwp_rg_radiation_reduced
   USE mo_albedo,               ONLY: sfc_albedo, sfc_albedo_modis
@@ -154,8 +154,8 @@ MODULE mo_nwp_rad_interface
 
       irad = atm_phy_nwp_config(jg)%inwp_radiation
 
-      CALL nwp_rrtm_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
-        & pt_diag,prm_diag,zaeq1,zaeq2,zaeq3,zaeq4,zaeq5 )
+      CALL nwp_ozon_aerosol ( p_sim_time, datetime, pt_patch, ext_data, &
+        & pt_diag, prm_diag, zaeq1, zaeq2, zaeq3, zaeq4, zaeq5 )
     
       IF ( .NOT. lredgrid ) THEN
 
