@@ -25,6 +25,7 @@ MODULE mo_tracer_metadata
 
   PRIVATE
 
+  PUBLIC  :: create_tracer_metadata
   PUBLIC  :: create_tracer_metadata_aero
   PUBLIC  :: create_tracer_metadata_chem
   PUBLIC  :: create_tracer_metadata_hydro
@@ -40,6 +41,88 @@ MODULE mo_tracer_metadata
   !     which are given in the argument list.
 
 CONTAINS
+
+  TYPE(t_tracer_meta) FUNCTION create_tracer_metadata(lis_tracer, name, ihadv_tracer, ivadv_tracer,         &
+                      &                               lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer, &
+                      &                               iwash_tracer)
+    ! Base type (t_tracer_meta) content
+    LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
+    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name      ! Name of tracer
+    INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer     ! Method for horizontal transport
+    INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer     ! Method for vertical transport
+    LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer     ! Switch for turbulent transport
+    LOGICAL, INTENT(IN), OPTIONAL  :: lconv_tracer     ! Switch for convection
+    INTEGER, INTENT(IN), OPTIONAL  :: ised_tracer      ! Method for sedimentation
+    LOGICAL, INTENT(IN), OPTIONAL  :: ldep_tracer      ! Switch for dry deposition
+    INTEGER, INTENT(IN), OPTIONAL  :: iwash_tracer     ! Method for washout
+    
+    ! Fill the meta of the base type (t_tracer_meta)
+    ! lis_tracer
+    IF ( PRESENT(lis_tracer) ) THEN
+      create_tracer_metadata%lis_tracer = lis_tracer
+    ELSE
+      create_tracer_metadata%lis_tracer = .FALSE.
+    ENDIF
+
+    ! name
+    IF ( PRESENT(name) ) THEN
+      create_tracer_metadata%name = TRIM(name)
+    ELSE
+      create_tracer_metadata%name = "unnamed"
+    ENDIF
+
+    ! ihadv_tracer
+    IF ( PRESENT(ihadv_tracer) ) THEN
+      create_tracer_metadata%ihadv_tracer = ihadv_tracer
+    ELSE
+      create_tracer_metadata%ihadv_tracer = 2
+    ENDIF
+
+    ! ivadv_tracer
+    IF ( PRESENT(ivadv_tracer) ) THEN
+      create_tracer_metadata%ivadv_tracer = ivadv_tracer
+    ELSE
+      create_tracer_metadata%ivadv_tracer = 3
+    ENDIF
+
+    ! lturb_tracer
+    IF ( PRESENT(lturb_tracer) ) THEN
+      create_tracer_metadata%lturb_tracer = lturb_tracer
+    ELSE
+      create_tracer_metadata%lturb_tracer = .FALSE.
+    ENDIF
+
+    ! lconv_tracer
+    IF ( PRESENT(lconv_tracer) ) THEN
+      create_tracer_metadata%lconv_tracer = lconv_tracer
+    ELSE
+      create_tracer_metadata%lconv_tracer = .FALSE.
+    ENDIF
+
+    ! ised_tracer
+    IF ( PRESENT(ised_tracer) ) THEN
+      create_tracer_metadata%ised_tracer = ised_tracer
+    ELSE
+      create_tracer_metadata%ised_tracer = 0
+    ENDIF
+
+    ! ldep_tracer
+    IF ( PRESENT(ldep_tracer) ) THEN
+      create_tracer_metadata%ldep_tracer = ldep_tracer
+    ELSE
+      create_tracer_metadata%ldep_tracer = .FALSE.
+    ENDIF
+
+    ! iwash_tracer
+    IF ( PRESENT(iwash_tracer) ) THEN
+      create_tracer_metadata%iwash_tracer = iwash_tracer
+    ELSE
+      create_tracer_metadata%iwash_tracer = 0
+    ENDIF
+    
+  END FUNCTION create_tracer_metadata
+
+
 
   TYPE(t_aero_meta) FUNCTION create_tracer_metadata_aero(lis_tracer, name, ihadv_tracer, ivadv_tracer,          &
                       &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,  &
@@ -246,8 +329,8 @@ CONTAINS
 
 
 
-  TYPE(t_hydro_meta) FUNCTION create_tracer_metadata_hydro(lis_tracer, name, ihadv_tracer, ivadv_tracer, &
-                      &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,       &
+  TYPE(t_hydro_meta) FUNCTION create_tracer_metadata_hydro(lis_tracer, name, ihadv_tracer, ivadv_tracer,       &
+                      &                                  lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer, &
                       &                                  iwash_tracer)
     ! Base type (t_tracer_meta) content
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)

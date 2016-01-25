@@ -25,7 +25,7 @@ MODULE mo_var_list
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var, grib2_var
   USE mo_var_metadata_types,ONLY: t_var_metadata, t_union_vals,     &
-    &                            t_tracer_meta,                     &
+    &                            t_var_metadata_dynamic,            &
     &                            t_vert_interp_meta,                &
     &                            t_hor_interp_meta,                 &
     &                            VARNAME_LEN, VAR_GROUPS,           &
@@ -34,11 +34,12 @@ MODULE mo_var_list
     &                            t_post_op_meta,                    &
     &                            CLASS_DEFAULT, CLASS_TILE,         &
     &                            CLASS_TILE_LAND
-  USE mo_var_metadata,     ONLY: create_tracer_metadata,            &
-    &                            create_vert_interp_metadata,       &
+  USE mo_var_metadata,     ONLY: create_vert_interp_metadata,       &
     &                            create_hor_interp_metadata,        &
     &                            post_op, groups, group_id,         &
     &                            actions, add_member_to_vargroup
+  USE mo_tracer_metadata_types,ONLY: t_tracer_meta, t_aero_meta,    &
+    &                            t_chem_meta, t_hydro_meta
   USE mo_var_list_element, ONLY: t_var_list_element
   USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
        &                         new_list, delete_list,             &
@@ -611,7 +612,6 @@ CONTAINS
     this_info%cdiZaxisID          = CDI_UNDEFID
     this_info%cdiDataType         = CDI_UNDEFID
     !
-    this_info%tracer              = create_tracer_metadata()
     this_info%vert_interp         = create_vert_interp_metadata()
     this_info%hor_interp          = create_hor_interp_metadata()
     !
@@ -639,7 +639,7 @@ CONTAINS
          &                     name, hgrid, vgrid, cf, grib2, ldims,           &
          &                     loutput, lcontainer, lrestart, lrestart_cont,   &
          &                     initval, isteptype, resetval, lmiss, missval,   &
-         &                     tlev_source, tracer_info, vert_interp,          &
+         &                     tlev_source, vert_interp,                       &
          &                     hor_interp, in_group, verbose,                  &
          &                     l_pp_scheduler_task, post_op, action_list,      &
          &                     var_class)
@@ -661,7 +661,6 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss         ! missing value flag
     TYPE(t_union_vals),      INTENT(in), OPTIONAL :: missval       ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source   ! actual TL for TL dependent vars
-    TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info   ! tracer meta data
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp   ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp    ! horizontal interpolation metadata
     LOGICAL, INTENT(in), OPTIONAL :: in_group(:)          ! groups to which a variable belongs
@@ -714,10 +713,6 @@ CONTAINS
     CALL struct_assign_if_present (info%initval,       initval)
     CALL assign_if_present (info%tlev_source,   tlev_source)
     !
-    ! set flags concerning tracer fields
-    !
-    CALL struct_assign_if_present (info%tracer,   tracer_info)
-    !
     ! set flags concerning vertical interpolation
     CALL struct_assign_if_present (info%vert_interp,   vert_interp )
 
@@ -742,6 +737,58 @@ CONTAINS
     !LK    IF (lverbose) CALL print_var_metadata (info)
     !
   END SUBROUTINE set_var_metadata
+
+
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
+  ! (private routine within this module)
+  !
+  SUBROUTINE set_var_metadata_dyn(this_info, this_info_dyn,tracer_info)
+    TYPE(t_var_metadata),TARGET,INTENT(IN)   :: this_info
+    TYPE(t_var_metadata_dynamic),INTENT(OUT) :: this_info_dyn
+    CLASS(t_tracer_meta),INTENT(IN),OPTIONAL :: tracer_info
+
+    this_info_dyn%name                => this_info%name
+    this_info_dyn%key                 => this_info%key
+    this_info_dyn%var_class           => this_info%var_class
+    this_info_dyn%ndims               => this_info%ndims
+    this_info_dyn%used_dimensions     => this_info%used_dimensions
+    this_info_dyn%isteptype           => this_info%isteptype
+    this_info_dyn%ncontained          => this_info%ncontained
+    this_info_dyn%maxcontained        => this_info%maxcontained
+    this_info_dyn%var_ref_pos         => this_info%var_ref_pos
+    this_info_dyn%hgrid               => this_info%hgrid
+    this_info_dyn%vgrid               => this_info%vgrid
+    this_info_dyn%tlev_source         => this_info%tlev_source
+    this_info_dyn%cdiVarID            => this_info%cdiVarID
+    this_info_dyn%cdiVarID_2          => this_info%cdiVarID_2
+    this_info_dyn%cdiGridID           => this_info%cdiGridID
+    this_info_dyn%cdiZaxisID          => this_info%cdiZaxisID
+    this_info_dyn%cdiDataType         => this_info%cdiDataType
+    this_info_dyn%l_pp_scheduler_task => this_info%l_pp_scheduler_task
+    this_info_dyn%allocated           => this_info%allocated
+    this_info_dyn%lrestart            => this_info%lrestart
+    this_info_dyn%loutput             => this_info%loutput
+    this_info_dyn%lmiss               => this_info%lmiss
+    this_info_dyn%lrestart_cont       => this_info%lrestart_cont
+    this_info_dyn%lrestart_read       => this_info%lrestart_read
+    this_info_dyn%lcontainer          => this_info%lcontainer
+    this_info_dyn%lcontained          => this_info%lcontained
+    this_info_dyn%in_group            => this_info%in_group
+    this_info_dyn%cf                  => this_info%cf
+    this_info_dyn%grib2               => this_info%grib2
+    this_info_dyn%resetval            => this_info%resetval
+    this_info_dyn%missval             => this_info%missval
+    this_info_dyn%initval             => this_info%initval
+    this_info_dyn%post_op             => this_info%post_op
+    this_info_dyn%action_list         => this_info%action_list
+    this_info_dyn%vert_interp         => this_info%vert_interp
+    this_info_dyn%hor_interp          => this_info%hor_interp
+    
+    CALL assign_if_present_tracer_meta(this_info_dyn%tracer,tracer_info)
+    
+  END SUBROUTINE set_var_metadata_dyn
 
 
   ! Auxiliary routine: initialize array, REAL(wp) variant
@@ -844,7 +891,7 @@ CONTAINS
     INTEGER,                 INTENT(in), OPTIONAL :: l_pp_scheduler_task          ! .TRUE., if field is updated by pp scheduler
     TYPE(t_post_op_meta),    INTENT(IN), OPTIONAL :: post_op                      ! "post-op" (small arithmetic operations) for this variable
     TYPE(t_var_action),      INTENT(IN), OPTIONAL :: action_list                  ! regularly triggered events
-    TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
+    CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     REAL(wp),                INTENT(in), OPTIONAL :: initval_r                    ! value if var not available
     INTEGER,                 INTENT(in), OPTIONAL :: initval_i                    ! value if var not available
     LOGICAL,                 INTENT(in), OPTIONAL :: initval_l                    ! value if var not available
@@ -907,10 +954,14 @@ CONTAINS
          ldims=ldims(1:ndims), loutput=loutput, lcontainer=lcontainer,       &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval,    &
          isteptype=isteptype, resetval=resetval, lmiss=lmiss,                &
-         missval=missval, tlev_source=tlev_source, tracer_info=tracer_info,  &
+         missval=missval, tlev_source=tlev_source,                           &
          vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group,  &
          verbose=verbose, l_pp_scheduler_task=l_pp_scheduler_task,           &
          post_op=post_op, action_list=action_list, var_class=var_class )
+    ! set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
+    CALL set_var_metadata_dyn (new_list_element%field%info,                  &
+                               new_list_element%field%info_dyn,              &
+                               tracer_info=tracer_info)
     !
     IF (.NOT. referenced) THEN
       new_list_element%field%info%ndims                    = ndims
@@ -1064,7 +1115,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
     REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
-    TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
+    CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
     REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
@@ -1124,7 +1175,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
     REAL(wp),                INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
-    TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
+    CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata),    POINTER,    OPTIONAL :: info                         ! returns reference to metadata
     REAL(wp),                POINTER,    OPTIONAL :: p5(:,:,:,:,:)                ! provided pointer
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
@@ -2027,7 +2078,7 @@ CONTAINS
     LOGICAL,                 INTENT(in),    OPTIONAL :: lmiss                      ! missing value flag
     REAL(wp),                INTENT(in),    OPTIONAL :: missval                    ! missing value
     INTEGER,                 INTENT(in),    OPTIONAL :: tlev_source                ! actual TL for TL dependent vars
-    TYPE(t_tracer_meta),     INTENT(in),    OPTIONAL :: tracer_info                ! tracer meta data
+    CLASS(t_tracer_meta),    INTENT(in),    OPTIONAL :: tracer_info                ! tracer meta data
     TYPE(t_var_metadata), POINTER,          OPTIONAL :: info                       ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in),    OPTIONAL :: vert_interp                ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in),    OPTIONAL :: hor_interp                 ! horizontal interpolation metadata
@@ -2132,11 +2183,15 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                   &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initvalt,   &
          isteptype=isteptype, resetval=resetvalt, lmiss=lmiss,               &
-         missval=missvalt, tlev_source=tlev_source, tracer_info=tracer_info, &
+         missval=missvalt, tlev_source=tlev_source,                          &
          vert_interp=vert_interp, hor_interp=hor_interp,                     &
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class)
+    ! set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
+    CALL set_var_metadata_dyn (new_list_element%field%info,                  &
+                               new_list_element%field%info_dyn,              &
+                               tracer_info=tracer_info)
 
     ref_info%ndims = ndims
     ref_info%used_dimensions(:)       = 0
@@ -2230,7 +2285,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                       ! missing value flag
     REAL(wp),                INTENT(in), OPTIONAL :: missval                     ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                 ! actual TL for TL dependent vars
-    TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info                 ! tracer meta data
+    CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                 ! tracer meta data
     TYPE(t_var_metadata), POINTER,       OPTIONAL :: info                        ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                 ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                  ! horizontal interpolation metadata
@@ -2332,11 +2387,15 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                   &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initvalt,   &
          isteptype=isteptype, resetval=resetvalt, lmiss=lmiss,               &
-         missval=missvalt, tlev_source=tlev_source, tracer_info=tracer_info, &
+         missval=missvalt, tlev_source=tlev_source,                          &
          vert_interp=vert_interp, hor_interp=hor_interp,                     &
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class)
+    ! set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
+    CALL set_var_metadata_dyn (new_list_element%field%info,                  &
+                               new_list_element%field%info_dyn,              &
+                               tracer_info=tracer_info)
 
     ref_info%ndims = ndims
     ref_info%used_dimensions(:)       = 0
@@ -2429,7 +2488,7 @@ CONTAINS
     LOGICAL,                 INTENT(in), OPTIONAL :: lmiss                        ! missing value flag
     INTEGER,                 INTENT(in), OPTIONAL :: missval                      ! missing value
     INTEGER,                 INTENT(in), OPTIONAL :: tlev_source                  ! actual TL for TL dependent vars
-    TYPE(t_tracer_meta),     INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
+    CLASS(t_tracer_meta),    INTENT(in), OPTIONAL :: tracer_info                  ! tracer meta data
     TYPE(t_var_metadata), POINTER,       OPTIONAL :: info                         ! returns reference to metadata
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp                  ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp                   ! horizontal interpolation metadata
@@ -2531,11 +2590,15 @@ CONTAINS
          cf=cf, grib2=grib2, ldims=ldims, loutput=loutput,                   &
          lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initvalt,   &
          isteptype=isteptype, resetval=resetvalt, lmiss=lmiss,               &
-         missval=missvalt, tlev_source=tlev_source, tracer_info=tracer_info, &
+         missval=missvalt, tlev_source=tlev_source,                          &
          vert_interp=vert_interp, hor_interp=hor_interp,                     &
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class)
+    ! set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
+    CALL set_var_metadata_dyn (new_list_element%field%info,                  &
+                               new_list_element%field%info_dyn,              &
+                               tracer_info=tracer_info)
     !
     ref_info%ndims = ndims
     ref_info%used_dimensions(:)       = 0
@@ -2857,79 +2920,79 @@ CONTAINS
           CALL message('', 'Added to Restart                            : no.')
         ENDIF
         !
-        IF (this_list_element%field%info%tracer%lis_tracer) THEN
-          CALL message('', 'Tracer field                                : yes.')
-
-          WRITE (message_text,'(a,a)') &
-             'Tracer class                                : ', &
-             this_list_element%field%info%tracer%tracer_class
-          CALL message('', message_text)
-
-
-          WRITE (message_text,'(a,3i3)') &
-             'Horizontal transport method                 : ', &
-             this_list_element%field%info%tracer%ihadv_tracer
-          CALL message('', message_text)
-
-          WRITE (message_text,'(a,3i3)') &
-             'Vertical transport method                   : ', &
-             this_list_element%field%info%tracer%ivadv_tracer
-          CALL message('', message_text)
-
-          IF (this_list_element%field%info%tracer%lturb_tracer) THEN
-            CALL message('', 'Turbulent transport                         : yes.')
-          ELSE
-            CALL message('', 'Turbulent transport                         : no.')
-          ENDIF
-
-          IF (this_list_element%field%info%tracer%lsed_tracer) THEN
-            CALL message('', 'Sedimentation                               : yes.')
-          ELSE
-            CALL message('', 'Sedimentation                               : no.')
-          ENDIF
-
-          IF (this_list_element%field%info%tracer%ldep_tracer) THEN
-            CALL message('', 'Dry deposition                              : yes.')
-          ELSE
-            CALL message('', 'Dry deposition                              : no.')
-          ENDIF
-
-          IF (this_list_element%field%info%tracer%lconv_tracer) THEN
-            CALL message('', 'Convection                                  : yes.')
-          ELSE
-            CALL message('', 'Convection                                  : no.')
-          ENDIF
-
-          IF (this_list_element%field%info%tracer%lwash_tracer) THEN
-            CALL message('', 'Washout                                     : yes.')
-          ELSE
-            CALL message('', 'Washout                                     : no.')
-          ENDIF
-
-          WRITE (message_text,'(a,e18.12)') &
-             'Particle diameter in m                      : ', &
-             this_list_element%field%info%tracer%rdiameter_tracer
-          CALL message('', message_text)
-
-          WRITE (message_text,'(a,e18.12)') &
-             'particle density in kg m^-3                 : ', &
-             this_list_element%field%info%tracer%rrho_tracer
-          CALL message('', message_text)
-
-        WRITE (message_text,'(a,e18.12)') &
-             'Radioactive half-life in s^-1                      : ', &
-             this_list_element%field%info%tracer%halflife_tracer
-          CALL message('', message_text)
-
-        WRITE (message_text,'(a,i3)') &
-             'IMIS number                      : ', &
-             this_list_element%field%info%tracer%imis_tracer
-          CALL message('', message_text)
-
-
-        ELSE
-          CALL message('', 'Tracer field                                : no.')
-        ENDIF
+!>DRIEG        IF (this_list_element%field%info%tracer%lis_tracer) THEN
+!>DRIEG          CALL message('', 'Tracer field                                : yes.')
+!>DRIEG
+!>DRIEG          WRITE (message_text,'(a,a)') &
+!>DRIEG             'Tracer class                                : ', &
+!>DRIEG             this_list_element%field%info%tracer%tracer_class
+!>DRIEG          CALL message('', message_text)
+!>DRIEG
+!>DRIEG
+!>DRIEG          WRITE (message_text,'(a,3i3)') &
+!>DRIEG             'Horizontal transport method                 : ', &
+!>DRIEG             this_list_element%field%info%tracer%ihadv_tracer
+!>DRIEG          CALL message('', message_text)
+!>DRIEG
+!>DRIEG          WRITE (message_text,'(a,3i3)') &
+!>DRIEG             'Vertical transport method                   : ', &
+!>DRIEG             this_list_element%field%info%tracer%ivadv_tracer
+!>DRIEG          CALL message('', message_text)
+!>DRIEG
+!>DRIEG          IF (this_list_element%field%info%tracer%lturb_tracer) THEN
+!>DRIEG            CALL message('', 'Turbulent transport                         : yes.')
+!>DRIEG          ELSE
+!>DRIEG            CALL message('', 'Turbulent transport                         : no.')
+!>DRIEG          ENDIF
+!>DRIEG
+!>DRIEG          IF (this_list_element%field%info%tracer%lsed_tracer) THEN
+!>DRIEG            CALL message('', 'Sedimentation                               : yes.')
+!>DRIEG          ELSE
+!>DRIEG            CALL message('', 'Sedimentation                               : no.')
+!>DRIEG          ENDIF
+!>DRIEG
+!>DRIEG          IF (this_list_element%field%info%tracer%ldep_tracer) THEN
+!>DRIEG            CALL message('', 'Dry deposition                              : yes.')
+!>DRIEG          ELSE
+!>DRIEG            CALL message('', 'Dry deposition                              : no.')
+!>DRIEG          ENDIF
+!>DRIEG
+!>DRIEG          IF (this_list_element%field%info%tracer%lconv_tracer) THEN
+!>DRIEG            CALL message('', 'Convection                                  : yes.')
+!>DRIEG          ELSE
+!>DRIEG            CALL message('', 'Convection                                  : no.')
+!>DRIEG          ENDIF
+!>DRIEG
+!>DRIEG          IF (this_list_element%field%info%tracer%lwash_tracer) THEN
+!>DRIEG            CALL message('', 'Washout                                     : yes.')
+!>DRIEG          ELSE
+!>DRIEG            CALL message('', 'Washout                                     : no.')
+!>DRIEG          ENDIF
+!>DRIEG
+!>DRIEG          WRITE (message_text,'(a,e18.12)') &
+!>DRIEG             'Particle diameter in m                      : ', &
+!>DRIEG             this_list_element%field%info%tracer%rdiameter_tracer
+!>DRIEG          CALL message('', message_text)
+!>DRIEG
+!>DRIEG          WRITE (message_text,'(a,e18.12)') &
+!>DRIEG             'particle density in kg m^-3                 : ', &
+!>DRIEG             this_list_element%field%info%tracer%rrho_tracer
+!>DRIEG          CALL message('', message_text)
+!>DRIEG
+!>DRIEG        WRITE (message_text,'(a,e18.12)') &
+!>DRIEG             'Radioactive half-life in s^-1                      : ', &
+!>DRIEG             this_list_element%field%info%tracer%halflife_tracer
+!>DRIEG          CALL message('', message_text)
+!>DRIEG
+!>DRIEG        WRITE (message_text,'(a,i3)') &
+!>DRIEG             'IMIS number                      : ', &
+!>DRIEG             this_list_element%field%info%tracer%imis_tracer
+!>DRIEG          CALL message('', message_text)
+!>DRIEG
+!>DRIEG
+!>DRIEG        ELSE
+!>DRIEG          CALL message('', 'Tracer field                                : no.')
+!>DRIEG        ENDIF
 
         ! print variable class/species
         WRITE (message_text,'(a,i2)')       &
@@ -3105,10 +3168,10 @@ CONTAINS
   END SUBROUTINE assign_if_present_union
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_tracer_meta (y,x)
-    TYPE(t_tracer_meta), INTENT(inout)        :: y
-    TYPE(t_tracer_meta) ,INTENT(in) ,OPTIONAL :: x
+    CLASS(t_tracer_meta), POINTER, INTENT(out) :: y
+    CLASS(t_tracer_meta) ,INTENT(in) ,OPTIONAL :: x
     IF (.NOT.PRESENT(x)) RETURN
-    y = x
+    ALLOCATE(y, source=x)
   END SUBROUTINE assign_if_present_tracer_meta
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_vert_interp (y,x)
