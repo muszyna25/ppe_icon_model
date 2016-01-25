@@ -55,7 +55,7 @@ MODULE mo_ocean_initial_conditions
     & land_boundary,                                             &
     & oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
   USE mo_dynamics_config,    ONLY: nold,nnew
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates, cc2gc
   USE mo_exception,          ONLY: finish, message, message_text, warning
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
@@ -973,6 +973,13 @@ CONTAINS
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
     REAL(wp):: perturbation_lat, perturbation_lon
 
+    INTEGER :: v1_idx, v1_blk, v2_idx, v2_blk, v3_idx, v3_blk
+    TYPE(t_cartesian_coordinates), POINTER :: vertex_cartesian(:,:)
+    TYPE(t_geographical_coordinates), POINTER :: vertex_lonlat(:,:)
+    TYPE(t_cartesian_coordinates) :: barycenter_cartesian
+    TYPE(t_geographical_coordinates) :: barycenter_lonlat
+    REAL(wp) :: min_lat, max_lat, lat
+
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_WilliamsonTest2'
     !-------------------------------------------------------------------------
     ! CASE (204)
@@ -980,12 +987,33 @@ CONTAINS
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
     cell_center => patch_2d%cells%center
+    vertex_cartesian => patch_2d%verts%cartesian
+    vertex_lonlat => patch_2d%verts%vertex
 
     ! test2_h
     CALL message(TRIM(method_name), ' h for Williamson Test 2')
     DO block = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
       DO idx = start_cell_index, end_cell_index
+!         v1_idx = patch_2d%cells%vertex_idx(idx, block, 1)
+!         v1_blk = patch_2d%cells%vertex_blk(idx, block, 1)
+!         v2_idx = patch_2d%cells%vertex_idx(idx, block, 2)
+!         v2_blk = patch_2d%cells%vertex_blk(idx, block, 2)
+!         v3_idx = patch_2d%cells%vertex_idx(idx, block, 3)
+!         v3_blk = patch_2d%cells%vertex_blk(idx, block, 3)
+!         min_lat = MIN( vertex_lonlat(v1_idx, v1_blk)%lat, vertex_lonlat(v2_idx, v2_blk)%lat, &
+!           & vertex_lonlat(v3_idx, v3_blk)%lat)
+!         max_lat = MAX( vertex_lonlat(v1_idx, v1_blk)%lat, vertex_lonlat(v2_idx, v2_blk)%lat, &
+!           & vertex_lonlat(v3_idx, v3_blk)%lat)
+!         lat = (min_lat+max_lat) * 0.5_wp
+!         ocean_height(idx,block) = test2_h( cell_center(idx, block)%lon, lat, 0.0_wp)
+!         barycenter_cartesian%x = (vertex_cartesian(v1_idx, v1_blk)%x + &
+!                                   vertex_cartesian(v2_idx, v2_blk)%x + &
+!                                   vertex_cartesian(v3_idx, v3_blk)%x) / 3.0_wp
+!         barycenter_lonlat = cc2gc(barycenter_cartesian)
+!         ocean_height(idx,block) = test2_h( barycenter_lonlat%lon, barycenter_lonlat%lat, 0.0_wp)
+
+        ! this is the correct one
         ocean_height(idx,block) = test2_h( cell_center(idx, block)%lon, cell_center(idx, block)%lat, 0.0_wp)
       END DO
     END DO

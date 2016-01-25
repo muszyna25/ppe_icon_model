@@ -43,7 +43,6 @@ MODULE mo_ocean_statistics
   USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  USE mo_ocean_tracer,             ONLY: advect_tracer_ab
   USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
@@ -96,6 +95,11 @@ CONTAINS
     CALL add_fields(ocean_state%p_acc%mass_flx_e    , ocean_state%p_diag%mass_flx_e    , edges)
     CALL add_fields(ocean_state%p_acc%vort          , ocean_state%p_diag%vort          , verts,levels=max_zlev)
     CALL add_fields(ocean_state%p_acc%kin           , ocean_state%p_diag%kin           , cells)
+    CALL add_verticalSum_field(ocean_state%p_acc%edgeFlux_total, ocean_state%p_diag%mass_flx_e, edges)
+    ! CALL dbg_print('nnew(1))%vn', ocean_state%p_prog(nnew(1))%vn ,"statistics",1,in_subset=edges)
+    ! CALL dbg_print('edgeFlux_total_acc', ocean_state%p_acc%edgeFlux_total, "statistics",1,in_subset=edges)
+
+
     IF (PRESENT(p_phys_param)) THEN
       ! physics
       DO jtrc=1,no_tracer
@@ -105,7 +109,9 @@ CONTAINS
       CALL add_fields(ocean_state%p_acc%k_veloc_h(:,:,:),p_phys_param%k_veloc_h(:,:,:),edges)
       CALL add_fields(ocean_state%p_acc%a_veloc_v(:,:,:),p_phys_param%a_veloc_v(:,:,:),edges)
     END IF
-    
+
+
+
     IF (iforc_oce > No_Forcing) THEN
       ! update forcing accumulated values
       CALL add_fields(p_sfc_flx%topBoundCond_windStress_u_acc   , p_sfc_flx%topBoundCond_windStress_u   , cells)
@@ -173,6 +179,7 @@ CONTAINS
     p_acc%rhopot                    = p_acc%rhopot                   /REAL(nsteps_since_last_output,wp)
     p_acc%u_vint                    = p_acc%u_vint                   /REAL(nsteps_since_last_output,wp)
     p_acc%v_vint                    = p_acc%v_vint                   /REAL(nsteps_since_last_output,wp)
+    p_acc%edgeFlux_total                   = p_acc%edgeFlux_total                  /REAL(nsteps_since_last_output,wp)
     p_acc%w                         = p_acc%w                        /REAL(nsteps_since_last_output,wp)
     p_acc%div_mass_flx_c            = p_acc%div_mass_flx_c           /REAL(nsteps_since_last_output,wp)
     p_acc%rho                       = p_acc%rho                      /REAL(nsteps_since_last_output,wp)
@@ -247,6 +254,7 @@ CONTAINS
     p_acc%rhopot                    = 0.0_wp
     p_acc%u_vint                    = 0.0_wp
     p_acc%v_vint                    = 0.0_wp
+    p_acc%edgeFlux_total                   = 0.0_wp
     p_acc%w                         = 0.0_wp
     p_acc%div_mass_flx_c            = 0.0_wp
     p_acc%rho                       = 0.0_wp

@@ -989,7 +989,8 @@ begin
   resource@lbLabelAutoStride            = True;          nice label bar label stride
   resource@gsnSpreadColors              = True;          use full range of colormap
   resource@lbOrientation                = "vertical";    vertical label bar
-  resource@pmLabelBarOrthogonalPosF     = -0.05;         move label bar closer to plot
+  resource@pmLabelBarOrthogonalPosF     = -0.04;         move label bar closer to plot
+  resource@lbTitleString      = "kg/m^3"
   resource@lbTitlePosition              = "Bottom"
 ;   resource@gsnYAxisIrregular2Log      = True
 
@@ -1025,7 +1026,7 @@ begin
   resource@vcVectorDrawOrder  = "Postdraw"
   resource@vcFillArrowWidthF  = 12.0
   resource@lbOrientation      = "Vertical"
-  resource@lbTitleString      = "C"
+  resource@lbTitleString      = "kg/m^3"
   resource@lbTitlePosition    = "Left"
   resource@cnInfoLabelOn      = False
   resource@lbTitleFontHeightF = 0.02
@@ -1201,7 +1202,7 @@ end
 undef("setSectionVertLabel")
 procedure setSectionVertLabel(resource,itype,atmlev)
 begin
-  resource@lbTitleString     = "[C]"
+  resource@lbTitleString     = "[kg/m^3]"
   label = ""
   reversYAxis = True
   if (itype .eq. "atm") then
