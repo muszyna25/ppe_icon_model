@@ -94,59 +94,6 @@ too, however it is re-diagnosed within the ICON-code based on the analyzed snow 
 %new/independent information, they are simply re-diagnosed from the analysed field $h\_snow$. This diagnosis is performed within the ICON-code based 
 %on the first guess fields of $w\_snow$ and $\rho\_snow$ and the analyzed field $h\_snow$.}
 
-
-\section{Incremental analysis update}
-\label{sec_iau}
-Analysis fields provided by the data assimilation system are usually not perfectly balanced, leading to e.g.\ the generation of spurious gravity waves. 
-Thus, atmospheric models generally require some initialization procedure in order to minimize spin-up effects and to prevent the accumulation of noise. In ICON, 
-a method known as \textbf{I}ncremental \textbf{A}nalysis \textbf{U}pdate (IAU) \citep{Bloom96, Polavarapu04} is applied. The basic idea is quite simple: 
-Rather than adding the analysis increments $\Delta \mathbf{x}^{A}=\mathbf{x}^{A} - \mathbf{x}^{FG}$ ( i.e.\ the difference between the analysis 
-$\mathbf{x}^{A}$ and the model first guess $\mathbf{x}^{FG}$) in one go, they are incorporated into the model in small drips over many timesteps 
-(see Figure \ref{fig_ana_drips}).
-\begin{figure}[hbt]
- \centering
- \includegraphics[width=0.30\textwidth]{analysis_drips.png}
- \caption{\textbf{I}ncremental \textbf{A}nalysis \textbf{U}pdate. Analysis increments are added to the background state (FG) in small drips over 
-some time interval rather than in one go. Currently, increments for \texttt{U}, \texttt{V}, \texttt{P}, \texttt{T}, \texttt{QV} are treated in 
-this way.}\label{fig_ana_drips}
-\end{figure}
-
-Mathematically speaking, during forward integration the model is forced with appropriately weighted analysis increments:
-\begin{align}
- \frac{\mathrm{d} \mathbf{x}}{\mathrm{d} t} = A\mathbf{x} + g(t)\Delta\mathbf{x}^{A}\qquad \text{, with}\quad \int g(t)\, \mathrm{d}t = 1
-\end{align}
-$\mathbf{x}$ is the discrete model state, $A$ is a matrix representing the (non)-linear dynamics of the system and $g(t)$ is a weighting 
-function, which is non-zero over some time-interval $\Delta t$.
-
-This drip by drip incorporation acts as a low pass filter in frequency domain on the analysis increments such that 
-small scale unbalanced modes are effectively filtered (see \cite{Bloom96}). The filter characteristic depends on the weighting function 
-$g(t)$. It should be noted that IAU only filters the increments and not the backgound state, such that regions where analysis increments are 
-zero remain unaffected. This method is currently applied to the prognostic atmospheric fields $\pi$, $\rho$, $v_{n}$, $q_{v}$, based on 
-analysis increments provided for $u$, $v$, $p$, $t$ and $q_{v}$. $\pi$ denotes the Exner pressure.
-
-The method sounds incredibly simple, however there are a few technical aspects to be taken care of when implementing this into an operational 
-system: Figure \ref{fig_IAU_scheme} shows how the IAU-method is implemented in ICON for a $3\,\mathrm{h}$ assimilation run starting at midnight. 
-Analysis increments are applied over a $3h$ hour time window, centered at the actual model start time. As indicated by the blue line, constant 
-weights are used:
-\begin{align}
- g(t) = \frac{\Delta t}{T}\qquad \text{, for } -T/2 < t < T/2
-\end{align}
-$T$ is the window width and $\Delta t$ is the fast physics time step. The key point in terms of technical implementation is that the model 
-must be started $90$ minutes prior to the actual starting time of the assimilation run. The model is started from the 22:30 UTC first guess. 
-The analysis increments for \texttt{U}, \texttt{V}, \texttt{P}, \texttt{T}, \texttt{QV}, whose validity time is 00:00 UTC are added over 
-$3$ hours until at 1:30 the free forecast starts. Then, two first guess data sets are written into the database. One at 1:30 UTC, which will 
-be used for starting the next 3h assimilation run, and a second one at 3:00 UTC, which serves as input for the assimilation system 
-itself. Thus in general, using the IAU method requires some care in terms of reading and writing the right fields at the right times.
-\begin{figure}[hbt]
- \centering
- \includegraphics[width=1.0\textwidth]{IAU_scheme_2.png}
- \caption{Time line for an ICON assimilation run starting at 00:00 UTC.}\label{fig_IAU_scheme}
-\end{figure}
-
-This method is not restricted to atmospheric fields, but also applicated to
-assimilated soil and surface fields, specifically soil moisture
-\texttt{W\_SO}, and snow quantities \texttt{H\_SNOW} and \texttt{FRESHSNW}.
-
 \section{Ensemble Data Assimilation}
 
 Until 20.1.2016 the analyses were derived by a 3-hourly cycled 3-dimensional
@@ -244,3 +191,56 @@ W\_SO\_ICE &    "        &      & fg      & Soil ice content            \\
 T\_SO      &    "        &      & fg      & Soil temperature            \\
 \bottomrule
 \end{longtable}
+
+
+\section{Incremental analysis update}
+\label{sec_iau}
+Analysis fields provided by the data assimilation system are usually not perfectly balanced, leading to e.g.\ the generation of spurious gravity waves. 
+Thus, atmospheric models generally require some initialization procedure in order to minimize spin-up effects and to prevent the accumulation of noise. In ICON, 
+a method known as \textbf{I}ncremental \textbf{A}nalysis \textbf{U}pdate (IAU) \citep{Bloom96, Polavarapu04} is applied. The basic idea is quite simple: 
+Rather than adding the analysis increments $\Delta \mathbf{x}^{A}=\mathbf{x}^{A} - \mathbf{x}^{FG}$ ( i.e.\ the difference between the analysis 
+$\mathbf{x}^{A}$ and the model first guess $\mathbf{x}^{FG}$) in one go, they are incorporated into the model in small drips over many timesteps 
+(see Figure \ref{fig_ana_drips}).
+\begin{figure}[hbt]
+ \centering
+ \includegraphics[width=0.30\textwidth]{analysis_drips.png}
+ \caption{\textbf{I}ncremental \textbf{A}nalysis \textbf{U}pdate. Analysis increments are added to the background state (FG) in small drips over 
+some time interval rather than in one go. Currently, increments for \texttt{U}, \texttt{V}, \texttt{P}, \texttt{T}, \texttt{QV} are treated in 
+this way.}\label{fig_ana_drips}
+\end{figure}
+
+Mathematically speaking, during forward integration the model is forced with appropriately weighted analysis increments:
+\begin{align}
+ \frac{\mathrm{d} \mathbf{x}}{\mathrm{d} t} = A\mathbf{x} + g(t)\Delta\mathbf{x}^{A}\qquad \text{, with}\quad \int g(t)\, \mathrm{d}t = 1
+\end{align}
+$\mathbf{x}$ is the discrete model state, $A$ is a matrix representing the (non)-linear dynamics of the system and $g(t)$ is a weighting 
+function, which is non-zero over some time-interval $\Delta t$.
+
+This drip by drip incorporation acts as a low pass filter in frequency domain on the analysis increments such that 
+small scale unbalanced modes are effectively filtered (see \cite{Bloom96}). The filter characteristic depends on the weighting function 
+$g(t)$. It should be noted that IAU only filters the increments and not the backgound state, such that regions where analysis increments are 
+zero remain unaffected. This method is currently applied to the prognostic atmospheric fields $\pi$, $\rho$, $v_{n}$, $q_{v}$, based on 
+analysis increments provided for $u$, $v$, $p$, $t$ and $q_{v}$. $\pi$ denotes the Exner pressure.
+
+The method sounds incredibly simple, however there are a few technical aspects to be taken care of when implementing this into an operational 
+system: Figure \ref{fig_IAU_scheme} shows how the IAU-method is implemented in ICON for a $3\,\mathrm{h}$ assimilation run starting at midnight. 
+Analysis increments are applied over a $3h$ hour time window, centered at the actual model start time. As indicated by the blue line, constant 
+weights are used:
+\begin{align}
+ g(t) = \frac{\Delta t}{T}\qquad \text{, for } -T/2 < t < T/2
+\end{align}
+$T$ is the window width and $\Delta t$ is the fast physics time step. The key point in terms of technical implementation is that the model 
+must be started $90$ minutes prior to the actual starting time of the assimilation run. The model is started from the 22:30 UTC first guess. 
+The analysis increments for \texttt{U}, \texttt{V}, \texttt{P}, \texttt{T}, \texttt{QV}, whose validity time is 00:00 UTC are added over 
+$3$ hours until at 1:30 the free forecast starts. Then, two first guess data sets are written into the database. One at 1:30 UTC, which will 
+be used for starting the next 3h assimilation run, and a second one at 3:00 UTC, which serves as input for the assimilation system 
+itself. Thus in general, using the IAU method requires some care in terms of reading and writing the right fields at the right times.
+\begin{figure}[hbt]
+ \centering
+ \includegraphics[width=1.0\textwidth]{IAU_scheme_2.png}
+ \caption{Time line for an ICON assimilation run starting at 00:00 UTC.}\label{fig_IAU_scheme}
+\end{figure}
+
+This method is not restricted to atmospheric fields, but also applicated to
+assimilated soil and surface fields, specifically soil moisture
+\texttt{W\_SO}, and snow quantities \texttt{H\_SNOW} and \texttt{FRESHSNW}.

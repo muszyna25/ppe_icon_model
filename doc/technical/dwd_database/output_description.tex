@@ -156,6 +156,21 @@ is not correctly taken into account.
 
  \item [RUNOFF\_S] Surface water runoff from interception and snow reservoir and from limited infiltration rate. Sum over forecast.
 
+ \item [SOILTYP] Characterizes the dominant soiltype in a grid cell. The soiltype is assumed to be the same for all 
+                 soil levels. Currently 9 soiltypes are distinguished and encoded by 1-digit integers 1-9:
+                 \begin{tabbing}
+                   \hspace{0.23\textwidth} \= \hspace{0.23\textwidth} \= \hspace{0.23\textwidth} \kill
+                   1: ice  \>
+                   2: rock \>
+                   3: sand \\
+                   4: sandyloam \>
+                   5: loam  \>
+                   6: clayloam \\
+                   7: clay  \>
+                   8: peat  \>
+                   9: sea water
+                 \end{tabbing}
+        
  \item [T\_SO] Temperature of the soil and earth surface (uppermost level). The soil full level depths at which the 
                the soil temperature is defined are given in Table \ref{tab_soillayer}. The temperature at the uppermost 
                level \texttt{T\_SO(0)} is not prognostic. It is rather set equal to the temperature at the first prognostic 
