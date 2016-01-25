@@ -41,7 +41,7 @@ MODULE mo_var_metadata_types
   ! New groups can be added by extending the VAR_GROUPS list.
   !
 
-  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(51) = &
+  CHARACTER(len=VARNAME_LEN), PARAMETER :: var_groups(52) = &
     (/ "ALL                   ",  &
     &  "ATMO_ML_VARS          ",  &
     &  "ATMO_PL_VARS          ",  &
@@ -92,6 +92,7 @@ MODULE mo_var_metadata_types
     &  "ART_AERO_RADIO        ",  &  ! ICON-ART fields for radioactive tracers
     &  "ART_AERO_DUST         ",  &  ! ICON-ART fields for mineral dust aerosol
     &  "ART_AERO_SEAS         ",  &  ! ICON-ART fields for sea salt aerosol
+    &  "ART_CHEMTRACER        ",  &  ! ICON-ART fields for lifetime based chemical tracer
     &  "RTTOV                 " /)
 
   ! maximum number of variable groups supported by info state
@@ -126,6 +127,7 @@ MODULE mo_var_metadata_types
   INTEGER, PARAMETER, PUBLIC :: CLASS_TILE_LAND     = 2   !< variable contains tile-specific information
                                                           !< but is restricted to land-tiles only
   INTEGER, PARAMETER, PUBLIC :: CLASS_SYNSAT        = 3
+  INTEGER, PARAMETER, PUBLIC :: CLASS_CHEM          = 3   !< atmospheric chemical constituent
 
   ! ---------------------------------------------------------------
   ! TYPE DEFINITIONS
@@ -159,6 +161,12 @@ MODULE mo_var_metadata_types
     REAL(wp) :: halflife_tracer   ! radioactive half-life in s^-1
     INTEGER  :: imis_tracer       ! IMIS number
     REAL(wp) :: lifetime_tracer   ! lifetime of a chemical tracer
+    !
+    INTEGER :: mode_number        ! number of mode                   for GRIB2 output
+    INTEGER :: diameter           ! diameter of ash particle         for GRIB2 output
+    INTEGER :: variance           ! variance of aerosol mode         for GRIB2 output
+    INTEGER :: constituent        ! constituent type of tracer       for GRIB2 output
+    INTEGER :: tau_wavelength     ! wavelength of diagnostic AOD     for GRIB2 output
     !
   END TYPE t_tracer_meta
 

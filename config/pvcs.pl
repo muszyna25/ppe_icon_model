@@ -78,7 +78,7 @@ if ( -d $srcdir."/.svn" ) {
     $branch = $remote_url;
     $branch =~ s/\S+(branches|trunk)\///;
     $branch =~ s/ *\n//;
-    my @revisions = `svnversion $srcdir`; 
+    my @revisions = `svnversion -c $srcdir | sed 's/.*://'`;
     $revision = $revisions[0];
     $revision =~ s/Revision: */r/;
     $revision =~ s/ *\n//;

@@ -28,36 +28,10 @@
 !!     This scheme calculates cover diagnostically and is called
 !!     once at the beginning of each timestep.  It uses the
 !!     standard relative humidity calculation from Lohmann and
-!!     Roeckner (96), or the method from the new prognostic
-!!     scheme of Tompkins.  The choice of which scheme to use is
-!!     controlled by the parameter switch ICOVER, which is set in
-!!     namelist PHYSCTL along with lsurf etc... Note that even if
-!!     icover.EQ.1 (RH scheme) you can't restart this model version
-!!     from restart files saved from a different model version, since
-!!     the two extra prognostic equations, pxvar and pxskew are still
-!!     stored even though they are not actively used.  However, this means
-!!     that once you have restart files from this version, you are able
-!!     change icover at will.
-!!
-!!     In the new scheme the variable xskew is provided
-!!     as outlined in the reference, this variable represents
-!!     directly the Beta distribution shape parameter "q"
-!!     The shape parameter "p" (zbetap) a tunable parameter and it is
-!!     recommended that this be set to a low constant 1.5<p<2.0
-!!     (This may be changed later to prognostic to allow negative skewness
-!!     from downdraft detrainment, see ref. for details).
-!!
-!!     from xi,xl,q,xskew and zbetap, the Beta distribution is defined
-!!     and cloud cover is diagnosable.  For the iteration, Ridders' method
-!!     is used (see Numerical Recipes).
-!!
-!!     Attention:
-!!     In the current version the advective tendencies of skewness
-!!     and variance are set to zero.
+!!     Roeckner (96).
 !!
 !! @references.
 !!     Diagnostic CC scheme: Lohmann and Roeckner 96, Clim. Dyn.
-!!     Prognostic CC scheme: Tompkins 2002, J. Atmos. Sci.
 !!
 !! @author A. Tompkins    MPI-Hamburg        2000
 !!         K. Ketelesen   NEC,         April 2002
