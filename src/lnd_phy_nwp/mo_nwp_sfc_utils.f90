@@ -1331,7 +1331,11 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           styp = ext_data%atm%soiltyp(jc,jb)
           IF ( (styp>=3) .AND. (styp<=8)) THEN   ! 3:sand; 8:peat
-            lnd_diag%w_so(jc,jk,jb) = MAX(lnd_diag%w_so(jc,jk,jb),dzsoil(jk)*cadp(styp)) 
+            lnd_diag%w_so(jc,jk,jb) = MAX(lnd_diag%w_so(jc,jk,jb),dzsoil(jk)*cadp(styp))
+          ELSE
+            ! make sure that aggregated w_so=0, w_so_ice=0, where no infiltration is allowed
+            lnd_diag%w_so(jc,jk,jb)     = 0._wp
+            lnd_diag%w_so_ice(jc,jk,jb) = 0._wp
           ENDIF
         ENDDO
       ENDDO
