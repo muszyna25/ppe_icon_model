@@ -439,7 +439,8 @@ CONTAINS
     ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr)  and 
     !    prm_field(jg)% v_stress_tile(:,:,iwtr)  which are the wind stress components;
     !
-    ! 2. prm_field(jg)% evap_tile(:,:,iwtr) evaporation rate
+    ! 2. prm_field(jg)% evap(:,:)  evaporation rate over whole grid-cell,
+    !    which is ice-covered, open ocean, no land;
     !
     ! 3. prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
     !    which gives the precipitation rate;
@@ -533,7 +534,9 @@ CONTAINS
     IF (ltimer) CALL timer_stop(timer_coupling_put)
     !
     !
-    ! SFWFLX Note: the evap_tile should be properly updated and added
+    ! SFWFLX Note: the evap_tile should be properly updated and added;
+    !              as long as the tiles are not passed correctly, the evaporation over the
+    !              whole grid-cell is passed to the ocean
     !
 !ICON_OMP_PARALLEL_DO PRIVATE(i_blk, n, nn, nlen) ICON_OMP_RUNTIME_SCHEDULE
     DO i_blk = 1, p_patch%nblks_c
@@ -546,7 +549,7 @@ CONTAINS
       DO n = 1, nlen
         buffer(nn+n,1) = prm_field(jg)%rsfl(n,i_blk) + prm_field(jg)%rsfc(n,i_blk) ! total rain
         buffer(nn+n,2) = prm_field(jg)%ssfl(n,i_blk) + prm_field(jg)%ssfc(n,i_blk) ! total snow
-        buffer(nn+n,3) = prm_field(jg)%evap_tile(n,i_blk,iwtr)
+        buffer(nn+n,3) = prm_field(jg)%evap(n,i_blk)                               ! total evaporation
       ENDDO
     ENDDO
 !ICON_OMP_END_PARALLEL_DO
