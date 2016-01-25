@@ -363,6 +363,11 @@ case "$ac_sitename" in
                       load_modules    = PrgEnv-gnu netcdf grib_api cray-mpich ${load_modules}
                       FFLAGS          = ${FFLAGS}
                       OTHER_LIBS      = -L${GRIB_API}/lib -lgrib_api_f90 -lgrib_api $OTHER_LIBS
+                      case "$with_art" in
+                           yes)
+                             OTHER_LIBS = ${OTHER_LIBS} -L/e/uhome/jfoerstn/Software/lib -lTIXI -L/opt/cray/xc-sysroot/default/usr/lib64 -lxslt -lxml2
+                             ;;
+                      esac
                       ;;
                 esac
                 ;;
