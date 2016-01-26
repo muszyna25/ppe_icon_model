@@ -1771,15 +1771,34 @@ MODULE mo_initicon
           DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
 
-             IF ( (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) < crhosmin_ml)  &
-               &  .AND. ( (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp)  .OR.                     &
-               &          (p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_snow_t(jc,jb,jt) >0._wp) ) &
+             IF ( (p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow_t(jc,jb,jt) < crhosmin_ml)  &
+               &  .AND. ( (ext_data(jg)%atm%fr_land(jc,jb) < 0.5_wp)  .OR.             &
+               &          (p_lnd_state(jg)%prog_lnd(ntlr)%w_snow_t(jc,jb,jt) >0._wp) ) &
                & )  THEN
 
                ! re-initialize rho_snow_t with minimum density of fresh snow (taken from TERRA)
-               p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%rho_snow_t(jc,jb,jt) = crhosmin_ml
+               p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow_t(jc,jb,jt) = crhosmin_ml
              ENDIF
           ENDDO  ! ic
+
+          IF (init_mode == MODE_ICONVREMAP) THEN
+
+            ! Constrain both rho_snow and t_snow because initial fields interpolated from a coarser grid
+            ! may suffer from missing values near coasts
+            DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+
+              p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow_t(jc,jb,jt) = &
+                MAX(crhosmin_ml,p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow_t(jc,jb,jt))
+
+              p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt) = &
+                MIN(p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt), p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,jt))
+              IF (p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt) < tmelt-10._wp) &
+                p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt) = &
+                MAX(p_lnd_state(jg)%prog_lnd(ntlr)%t_snow_t(jc,jb,jt), p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,jt)-10._wp)
+
+             ENDDO
+           ENDIF
 
 
           ! Catch problematic coast cases: ICON-land but GME ocean for moisture
