@@ -5,27 +5,12 @@
 \section{Available output fields}\label{nest:sec_outfields}
 % --------------------------------------------------------------------------------
 
-\begin{table}[t]
-  \centering
-  \begin{tabular}{|p{5cm}|p{4.5cm}|p{4.5cm}|}\hline
-    \rowcolor{Gray}
-                               &    {\centering\textbf{global lat-lon}}          &     {\centering\textbf{EU nest lat-lon}} \\ \hline\hline
-    % ----------------------------------------------------------------------------------------------------------------------------------------
-    geogr. coordinates         &    $  0.0^\degree$          -- $359.75^\degree$                     &     $ 23.5^\degree~\text{W}$ -- $62.5^\degree~\text{E}$, \\
-                               &    $ 90.0^\degree~\text{S}$ -- $ 90.0^\degree~\text{N}$              &     $ 29.5^\degree~\text{N}$ -- $70.5^\degree~\text{N}$ \\
-    mesh size                  &    $0.25^\degree$                                &     $0.0625^\degree$ \\
-    \hline
-  \end{tabular}
-  \caption{Summary of the latitude-longitude grids for ICON global and ICON-EU nest output.}%
-  \label{tab:ICON_latlon_summary}
-\end{table}
-
 This section contains a list of output fields that are available with
 the launch of the ICON-EU nest. See Fig.~\ref{fig:EU_nest} on page~\pageref{fig:EU_nest} 
 for details regarding the nest location and extent.
 %
 Forecasts on the EU-nest are performed multiple times a day with varying forecast times. Forecasts reaching out to $120\,\mathrm{h}$ 
-are performed at 0, 6, 12, and 18~UTC. Additional short-range forecasts reaching out to $30\,\mathrm{h}$ are performed at 3, 9, 15 and 21~UTC. 
+are performed at 00, 06, 12, and 18~UTC. Additional short-range forecasts reaching out to $30\,\mathrm{h}$ are performed at 03, 09, 15 and 21~UTC. 
 Its main purpose is to provide boundary data for the high resolution COSMO-DE runs. A schematic overview of the various forecasts, including its 
 forecast time and output intervals is provided in Figure \ref{fig:forecast_length_nest}.
 \begin{figure}[hbt]
@@ -50,7 +35,21 @@ grid is generally available until forecast end. See also Figure \ref{fig:forecas
 
 Again, in the subsequent tables the availability of specific fields on the native grid ($\,$\markRed$\,$), 
 on the lat-lon grid($\,$\markBlue$\,$), or on both grids ($\,$\markRed\markBlue$\,$) is marked in the leftmost column.
-
+%
+\begin{table}[hbt]
+  \centering
+  \begin{tabular}{|p{5cm}|p{4.5cm}|p{4.5cm}|}\hline
+    \rowcolor{Gray}
+                               &    \centering\arraybackslash\textbf{global lat-lon}          &     \centering\arraybackslash\textbf{EU nest lat-lon} \\ \hline\hline
+    % ----------------------------------------------------------------------------------------------------------------------------------------
+    geogr. coordinates         &    $  0.0^\degree$          -- $359.75^\degree$                     &     $ 23.5^\degree~\text{W}$ -- $62.5^\degree~\text{E}$, \\
+                               &    $ 90.0^\degree~\text{S}$ -- $ 90.0^\degree~\text{N}$              &     $ 29.5^\degree~\text{N}$ -- $70.5^\degree~\text{N}$ \\
+    mesh size                  &    $0.25^\degree$                                &     $0.0625^\degree$ \\
+    \hline
+  \end{tabular}
+  \caption{Summary of the latitude-longitude grids for ICON global and ICON-EU nest output.}%
+  \label{tab:ICON_latlon_summary}
+\end{table}
 
 
 % --------------------------------------------------------------------------------
