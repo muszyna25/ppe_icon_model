@@ -98,13 +98,11 @@ MODULE mo_async_latbc
     USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  vlistInqVarGrid, streamClose, streamInqFiletype,   &
-         &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2,         &
-         &                                  cdiGetStringError
+         &                                  FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
     USE mo_cdi_constants,             ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
     USE mo_io_units,                  ONLY: filename_max
-!    USE mo_util_cdi_table,            ONLY: print_cdi_summary
     USE mo_util_file,                 ONLY: util_filesize
-    USE mo_util_cdi,                  ONLY: test_cdi_varID
+    USE mo_util_cdi,                  ONLY: test_cdi_varID, cdiGetStringError
 
 #ifdef USE_CRAY_POINTER
     USE mo_name_list_output_init,     ONLY: set_mem_ptr_sp
@@ -539,8 +537,6 @@ MODULE mo_async_latbc
          ENDIF
 
          vlistID = streamInqVlist(fileID_latbc)
-
-         ! CALL print_cdi_summary(vlistID)
 
          ! get the number of variables
          nvars = vlistNvars(vlistID)

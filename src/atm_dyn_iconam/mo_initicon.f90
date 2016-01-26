@@ -23,9 +23,8 @@
 MODULE mo_initicon
 
   USE mo_kind,                ONLY: wp
-  USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, msg_level
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqr, iqs, iqm_max, iforcing, check_uuid_gracefully
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
@@ -36,10 +35,10 @@ MODULE mo_initicon
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_initicon_types,      ONLY: t_initicon_state, ana_varnames_dict
   USE mo_initicon_config,     ONLY: init_mode, dt_iau, nlevatm_in, lvert_remap_fg, &
-    &                               rho_incr_filter_wgt, lread_ana, ltile_init,    &
-    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart
+    &                               rho_incr_filter_wgt, lread_ana, ltile_init, &
+    &                               lp2cintp_incr, lp2cintp_sfcana, ltile_coldstart, lconsistency_checks
   USE mo_nwp_tuning_config,   ONLY: max_freshsnow_inc
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, MODE_DWDANA,   &
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA,   &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA,              &
     &                               MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE,     &
     &                               min_rlcell, INWP, min_rledge_int, grf_bdywidth_c, &
@@ -61,18 +60,23 @@ MODULE mo_initicon
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla4_vec
-  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
-  USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval
+  USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval, FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, cdiDefMissval
   USE mo_flake,               ONLY: flake_coldinit
-  USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points, init_snowtiles,             &
+  USE mo_initicon_utils,      ONLY: fill_tile_points, init_snowtiles,             &
                                   & copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
                                   & deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
                                   & copy_fg2initicon, initVarnamesDict, printChecksums, init_aerosol
-  USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, read_dwdfg_atm, &
-                                  & read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc, read_dwdfg_atm_ii, &
-                                  & process_input_dwdana_sfc, process_input_dwdfg_atm_ii, process_input_dwdana_atm, &
-                                  & process_input_dwdfg_sfc
-  USE mo_util_string,         ONLY: one_of
+  USE mo_initicon_io,         ONLY: read_extana_atm, read_extana_sfc, request_dwdfg_atm, &
+                                  & fetch_dwdfg_atm, request_dwdfg_sfc, request_dwdana_atm, request_dwdfg_atm_ii, &
+                                  & request_dwdana_sfc, fetch_dwdana_sfc, &
+                                  & process_input_dwdana_sfc, process_input_dwdana_atm, process_input_dwdfg_sfc, &
+                                  & fetch_dwdfg_sfc, fetch_dwdfg_atm_ii, fetch_dwdana_atm, &
+                                  & fgFilename, fgFiletype, anaFilename, anaFiletype
+  USE mo_input_request_list,  ONLY: t_InputRequestList, InputRequestList_create
+  USE mo_mpi,                 ONLY: my_process_is_stdio
+  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna
+  USE mo_util_string,         ONLY: int2string
+  USE mo_util_uuid,           ONLY: t_uuid
 
   IMPLICIT NONE
 
@@ -83,20 +87,9 @@ MODULE mo_initicon
 
   TYPE(t_initicon_state), ALLOCATABLE, TARGET :: initicon(:)
 
-  ! NetCDF file IDs / CDI stream IDs for first guess and analysis file
-  INTEGER, ALLOCATABLE :: fileID_fg(:),   fileID_ana(:)
-
-  ! file type (NetCDF/GRB2) for first guess and analysis file
-  INTEGER, ALLOCATABLE :: filetype_fg(:), filetype_ana(:)
-
-  ! filename: first guess
-  CHARACTER(LEN=filename_max) :: dwdfg_file(max_dom)
-
-  ! filename: analysis
-  CHARACTER(LEN=filename_max) :: dwdana_file(max_dom)
-
   PUBLIC :: init_icon
 
+  DOUBLE PRECISION, PARAMETER :: kMissval = -9.E+15
 
 
   CONTAINS
@@ -113,7 +106,7 @@ MODULE mo_initicon
   SUBROUTINE init_icon (p_patch,  p_int_state, p_grf_state, p_nh_state, &
     &                   ext_data, prm_diag, p_lnd_state)
 
-    TYPE(t_patch),          INTENT(IN)              :: p_patch(:)
+    TYPE(t_patch),          INTENT(INOUT)              :: p_patch(:)
     TYPE(t_int_state),      INTENT(IN)              :: p_int_state(:)
     TYPE(t_gridref_state),  INTENT(IN)              :: p_grf_state(:)
     TYPE(t_nh_state),       INTENT(INOUT)           :: p_nh_state(:)
@@ -124,11 +117,10 @@ MODULE mo_initicon
     CHARACTER(LEN = *), PARAMETER :: routine = modname//':init_icon'
     INTEGER :: jg, ist
     INTEGER :: jb              ! block loop index
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
 
     ! Allocate initicon data type
     ALLOCATE (initicon(n_dom),                         &
-      &       filetype_fg(n_dom), filetype_ana(n_dom), &
-      &       fileID_fg(n_dom),   fileID_ana(n_dom),   &
       &       stat=ist)
     IF (ist /= SUCCESS)  CALL finish(TRIM(routine),'allocation for initicon failed')
 
@@ -153,35 +145,42 @@ MODULE mo_initicon
     CALL cdiDefAdditionalKey("tileIndex")
     CALL cdiDefAdditionalKey("tileAttribute")
 
-
     ! -----------------------------------------------
-    ! open files containing first guess and analysis
-    ! and generate analysis/FG input lists
+    ! set the CDI Missval
     ! -----------------------------------------------
     !
-    IF (ANY((/MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE,MODE_ICONVREMAP/) &
-      &  == init_mode)) THEN ! read in DWD analysis
-      CALL open_init_files(p_patch, fileID_fg, fileID_ana, filetype_fg, filetype_ana, &
-        &                  dwdfg_file, dwdana_file)
+    ! XXX: Explanation:
+    !
+    ! Inside the GRIB_API (v.1.9.18) the missing value is converted into
+    ! LONG INT for a test, but the default CDI missing value is outside
+    ! of the valid range for LONG INT (U. Schulzweida, bug report
+    ! SUP-277). This causes a crash with INVALID OPERATION.
+    !
+    ! As a workaround we can choose a different missing value in the
+    ! calling subroutine (here). For the SX-9 this must lie within 53
+    ! bits, because "the SX compiler generates codes using HW
+    ! instructions for floating-point data instead of instructions for
+    ! integers. Therefore, the operation result is not guaranteed if the
+    ! value cannot be represented as integer within 53 bits."
+    CALL cdiDefMissval(kMissval)
 
-      ! Generate lists of fields that must be read from FG/ANA files
-      !
-      DO jg = 1, n_dom
-        IF (.NOT. p_patch(jg)%ldom_active) CYCLE
-        CALL create_input_groups(p_patch(jg),                        &
-          &   initicon(jg)%grp_vars_fg,  initicon(jg)%ngrp_vars_fg,  &
-          &   initicon(jg)%grp_vars_ana, initicon(jg)%ngrp_vars_ana, &
-          &   initicon(jg)%grp_vars_ana_mandatory, initicon(jg)%ngrp_vars_ana_mandatory, &
-          &   init_mode)
-      ENDDO
 
-    END IF
+    ! -----------------------------------------------
+    ! generate analysis/FG input instructions
+    ! -----------------------------------------------
+    DO jg = 1, n_dom
+      inputInstructions(jg)%ptr => NULL()
+      IF(p_patch(jg)%ldom_active) inputInstructions(jg)%ptr => readInstructionList_make(p_patch(jg), init_mode)
+    END DO
 
+    ! -----------------------------------------------
+    ! READ AND process the input DATA
+    ! -----------------------------------------------
     CALL print_init_mode()
+
     ! read and initialize ICON prognostic fields
     !
-    CALL process_input_data(p_patch, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
-
+    CALL process_input_data(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
     CALL printChecksums(initicon, p_nh_state, p_lnd_state)
 
     ! Deallocate initicon data type
@@ -190,14 +189,21 @@ MODULE mo_initicon
     CALL deallocate_extana_atm (initicon)
     CALL deallocate_extana_sfc (initicon)
 
-    ! close first guess and analysis files and corresponding inventory lists
-    !
-    IF (ANY((/MODE_DWDANA,MODE_IAU,MODE_IAU_OLD,MODE_COMBINED,MODE_COSMODE/) == init_mode)) THEN
-      CALL close_init_files(fileID_fg, fileID_ana)
-    END IF
-
-    DEALLOCATE (initicon, filetype_fg, filetype_ana, fileID_fg, fileID_ana, stat=ist)
+    DEALLOCATE (initicon, stat=ist)
     IF (ist /= success) CALL finish(TRIM(routine),'deallocation for initicon failed')
+    DO jg = 1, n_dom
+      IF(p_patch(jg)%ldom_active) THEN
+        IF(my_process_is_stdio()) THEN
+            WRITE(0,*) ""
+            WRITE(0,*) "input results for patch "//TRIM(int2string(jg))//":"
+            CALL inputInstructions(jg)%ptr%printSummary()
+            WRITE(0,*) ""
+        END IF
+        CALL inputInstructions(jg)%ptr%destruct()
+        DEALLOCATE(inputInstructions(jg)%ptr, stat=ist)
+        IF(ist /= success) CALL finish(TRIM(routine),'deallocation of an input instruction list failed')
+      END IF
+    END DO
 
     ! splitting of sea-points list into open water and sea-ice points could be placed
     ! here, instead of nwp_phy_init/init_nwp_phy
@@ -231,27 +237,90 @@ MODULE mo_initicon
     END SELECT
   END SUBROUTINE print_init_mode
 
-  ! Read the data from the first-guess file.
-  SUBROUTINE read_dwdfg(p_patch, p_nh_state, prm_diag, p_lnd_state)
+  FUNCTION gridUuids(p_patch) RESULT(RESULT)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_uuid), DIMENSION(n_dom) :: RESULT
+
+    RESULT(:) = p_patch(:)%grid_uuid
+  END FUNCTION gridUuids
+
+  ! Read the data from the first-guess file.
+  SUBROUTINE read_dwdfg(p_patch, inputInstructions, p_nh_state, prm_diag, p_lnd_state)
+    TYPE(t_patch), INTENT(INOUT) :: p_patch(:)
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdfg"
+    INTEGER :: jg
+    CLASS(t_InputRequestList), POINTER :: requestList
+
+    !The input file paths & types are NOT initialized IN all modes, so we need to avoid creating InputRequestLists IN these cases.
+    SELECT CASE(init_mode)
+        CASE(MODE_IFSANA)    !MODE_IFSANA uses the read_extana_*() routines, which directly use NetCDF input.
+            RETURN
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE)
+        CASE DEFAULT
+            CALL finish(routine, "assertion failed: unknown init_mode")
+    END SELECT
+
+    ! Create a request list for all the relevant variable names.
+    requestList => InputRequestList_create()
     SELECT CASE(init_mode)
         CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
-            CALL read_dwdfg_atm (p_patch, p_nh_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
-            CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+            CALL request_dwdfg_atm(requestList)
+            CALL request_dwdfg_sfc(requestList)
         CASE(MODE_ICONVREMAP)
             ! read DWD first guess for atmosphere and store to
             ! initicon input state variables (input data are allowed
             ! to have a different number of model levels than the
             ! current model grid)
-            CALL read_dwdfg_atm_ii (p_patch, initicon, fileID_fg, filetype_fg, dwdfg_file)
-            CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+            CALL request_dwdfg_atm_ii(requestList)
+            CALL request_dwdfg_sfc(requestList)
         CASE(MODE_COMBINED, MODE_COSMODE)
-            CALL read_dwdfg_sfc (p_patch, prm_diag, p_lnd_state, initicon, fileID_fg, filetype_fg, dwdfg_file)
+            CALL request_dwdfg_sfc(requestList)
     END SELECT
+
+    ! Scan the input files AND distribute the relevant variables across the processes.
+    DO jg = 1, n_dom
+        IF(p_patch(jg)%ldom_active) THEN
+            IF(my_process_is_stdio()) THEN
+                CALL message (TRIM(routine), 'read atm_FG fields from '//TRIM(fgFilename(p_patch(jg))))
+            ENDIF  ! p_io
+            SELECT CASE(fgFiletype())
+                CASE(FILETYPE_NC2, FILETYPE_NC4)
+                    CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE.)
+                CASE(FILETYPE_GRB2)
+                    CALL requestList%readFile(p_patch(jg), TRIM(fgFilename(p_patch(jg))), .TRUE., opt_dict = ana_varnames_dict)
+                CASE DEFAULT
+                    CALL finish(routine, "Unknown file TYPE")
+            END SELECT
+        END IF
+    END DO
+    IF(my_process_is_stdio()) THEN
+        CALL requestList%printInventory()
+        IF(lconsistency_checks) THEN
+          CALL requestList%checkRuntypeAndUuids([CHARACTER(LEN=1)::], gridUuids(p_patch), lIsFg=.TRUE., &
+            lHardCheckUuids=.NOT.check_uuid_gracefully)
+        END IF
+    END IF
+
+    ! Fetch the input DATA from the request list.
+    SELECT CASE(init_mode)
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
+            CALL fetch_dwdfg_atm(requestList, p_patch, p_nh_state, initicon, inputInstructions)
+            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
+        CASE(MODE_ICONVREMAP)
+            CALL fetch_dwdfg_atm_ii(requestList, p_patch, initicon)
+            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
+        CASE(MODE_COMBINED, MODE_COSMODE)
+            CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
+    END SELECT
+
+    ! Cleanup.
+    CALL requestList%destruct()
+    DEALLOCATE(requestList)
   END SUBROUTINE read_dwdfg
 
   ! Do postprocessing of data from first-guess file.
@@ -264,9 +333,10 @@ MODULE mo_initicon
     TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
     TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
 
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_dwdfg"
+
     SELECT CASE(init_mode)
         CASE(MODE_ICONVREMAP)
-            CALL process_input_dwdfg_atm_ii (p_patch, initicon)
             CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
         CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMODE)
             IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
@@ -295,37 +365,103 @@ MODULE mo_initicon
   END SUBROUTINE process_dwdfg
 
   ! Read data from analysis files.
-  SUBROUTINE read_dwdana(p_patch, p_nh_state, p_lnd_state)
+  SUBROUTINE read_dwdana(p_patch, inputInstructions, p_nh_state, p_lnd_state)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
 
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":read_dwdana"
+    CHARACTER(LEN = :), ALLOCATABLE :: incrementsList(:)
+    CLASS(t_InputRequestList), POINTER :: requestList
+    INTEGER :: jg
+
+    !The input file paths & types are NOT initialized IN all modes, so we need to avoid creating InputRequestLists IN these cases.
     SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
-            IF(lread_ana) CALL read_dwdana_atm(p_patch, p_nh_state, initicon, fileID_ana, filetype_ana, dwdana_file)
-            IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
         CASE(MODE_IFSANA)
             CALL read_extana_atm(p_patch, initicon)
             ! Perform vertical interpolation from intermediate
             ! IFS2ICON grid to ICON grid and convert variables to the
             ! NH set of prognostic variables
             IF (iforcing == inwp) CALL read_extana_sfc(p_patch, initicon)
+            RETURN
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_ICONVREMAP, MODE_COMBINED, MODE_COSMODE)
+        CASE DEFAULT
+            CALL finish(routine, "assertion failed: unknown init_mode")
+    END SELECT
+
+    ! Create a request list for all the relevant variable names.
+    requestList => InputRequestList_create()
+    SELECT CASE(init_mode)
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
+            IF(lread_ana) CALL request_dwdana_atm(requestList)
+            IF(lread_ana) CALL request_dwdana_sfc(requestList)
         CASE(MODE_COMBINED, MODE_COSMODE)
             CALL read_extana_atm(p_patch, initicon)
-            IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+            IF(lread_ana) CALL request_dwdana_sfc(requestList)
         CASE(MODE_ICONVREMAP)
-            IF(lread_ana) CALL read_dwdana_sfc(p_patch, p_lnd_state, initicon, fileID_ana, filetype_ana, dwdana_file)
+            IF(lread_ana) CALL request_dwdana_sfc(requestList)
     END SELECT
+
+    ! Scan the input files AND distribute the relevant variables across the processes.
+    DO jg = 1, n_dom
+        IF(p_patch(jg)%ldom_active .AND. lread_ana) THEN
+            IF(my_process_is_stdio()) THEN
+                CALL message (TRIM(routine), 'read atm_ANA fields from '//TRIM(anaFilename(p_patch(jg))))
+            ENDIF  ! p_io
+            SELECT CASE(anaFiletype())
+                CASE(FILETYPE_NC2, FILETYPE_NC4)
+                    CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE.)
+                CASE(FILETYPE_GRB2)
+                    CALL requestList%readFile(p_patch(jg), TRIM(anaFilename(p_patch(jg))), .FALSE., opt_dict = ana_varnames_dict)
+                CASE DEFAULT
+                    CALL finish(routine, "Unknown file TYPE")
+            END SELECT
+        END IF
+    END DO
+    IF(my_process_is_stdio()) THEN
+        CALL requestList%printInventory()
+        IF(lconsistency_checks) THEN
+            SELECT CASE(init_mode)
+                CASE(MODE_IAU)
+                    incrementsList = [CHARACTER(LEN=9) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so', 'h_snow', 'freshsnow']
+                CASE(MODE_IAU_OLD)
+                    incrementsList = [CHARACTER(LEN=4) :: 'u', 'v', 'pres', 'temp', 'qv', 'w_so']
+                CASE DEFAULT
+                    incrementsList = [CHARACTER(LEN=1) :: ]
+            END SELECT
+            CALL requestList%checkRuntypeAndUuids(incrementsList, gridUuids(p_patch), lIsFg = .FALSE., &
+              lHardCheckUuids = .NOT.check_uuid_gracefully)
+        END IF
+    END IF
+
+    ! Fetch the input DATA from the request list.
+    SELECT CASE(init_mode)
+        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
+            IF(lread_ana) CALL fetch_dwdana_atm(requestList, p_patch, p_nh_state, initicon, inputInstructions)
+            IF(lread_ana) CALL fetch_dwdana_sfc(requestList, p_patch, p_lnd_state, initicon, inputInstructions)
+        CASE(MODE_COMBINED, MODE_COSMODE)
+            IF(lread_ana) CALL fetch_dwdana_sfc(requestList, p_patch, p_lnd_state, initicon, inputInstructions)
+        CASE(MODE_ICONVREMAP)
+            IF(lread_ana) CALL fetch_dwdana_sfc(requestList, p_patch, p_lnd_state, initicon, inputInstructions)
+    END SELECT
+
+    ! Cleanup.
+    CALL requestList%destruct()
+    DEALLOCATE(requestList)
   END SUBROUTINE read_dwdana
 
   ! Do postprocessing of data from analysis files.
-  SUBROUTINE process_dwdana(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
+  SUBROUTINE process_dwdana(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
     TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
     TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
+
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_dwdana"
 
     INTEGER :: jg, jb
     INTEGER :: i_rlstart, i_rlend, i_nchdom
@@ -368,11 +504,11 @@ MODULE mo_initicon
             ! Add increments to time-shifted first guess in one go.
             ! The following CALL must not be moved after create_dwdana_sfc()!
             IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
-              CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
+                CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
             END IF
             ! get SST from first soil level t_so (for sea and lake points)
             ! perform consistency checks
-            CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data)
+            CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data, inputInstructions)
             IF (ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode) .AND. ntiles_total > 1) THEN
                 ! Call neighbor-filling routine for a second time in
                 ! order to ensure that fr_seaice is filled with
@@ -433,8 +569,9 @@ MODULE mo_initicon
   END SUBROUTINE process_dwdana
 
   ! Reads the data from the first-guess and analysis files, and does any required processing of that input data.
-  SUBROUTINE process_input_data(p_patch, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
-    TYPE(t_patch), INTENT(IN) :: p_patch(:)
+  SUBROUTINE process_input_data(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
+    TYPE(t_patch), INTENT(INOUT) :: p_patch(:)
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
     TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
@@ -442,12 +579,14 @@ MODULE mo_initicon
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
     TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
 
-    CALL read_dwdfg(p_patch, p_nh_state, prm_diag, p_lnd_state)
+    CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_input_data"
+
+    CALL read_dwdfg(p_patch, inputInstructions, p_nh_state, prm_diag, p_lnd_state)
     CALL process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data, prm_diag)
 
-    CALL read_dwdana(p_patch, p_nh_state, p_lnd_state)
+    CALL read_dwdana(p_patch, inputInstructions, p_nh_state, p_lnd_state)
     ! process DWD analysis data
-    CALL process_dwdana(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
+    CALL process_dwdana(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
   END SUBROUTINE process_input_data
 
   !>
@@ -1518,11 +1657,12 @@ MODULE mo_initicon
   !!
   !!
   !-------------------------------------------------------------------------
-  SUBROUTINE create_dwdana_sfc (p_patch, p_lnd_state, ext_data)
+  SUBROUTINE create_dwdana_sfc (p_patch, p_lnd_state, ext_data, inputInstructions)
 
     TYPE(t_patch),    TARGET ,INTENT(IN)    :: p_patch(:)
     TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
+    TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
 
     INTEGER :: jg, ic, jc, jk, jb, jt, jgch, ist          ! loop indices
     INTEGER :: ntlr
@@ -1554,7 +1694,7 @@ MODULE mo_initicon
       ELSE
         jgch = jg
       ENDIF
-      lanaread_tso = ( one_of('t_so', initicon(jgch)%grp_vars_ana(1:initicon(jgch)%ngrp_vars_ana)) /= -1)
+      lanaread_tso = inputInstructions(jgch)%ptr%sourceOfVar('t_so') == kInputSourceAna
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist) ICON_OMP_DEFAULT_SCHEDULE

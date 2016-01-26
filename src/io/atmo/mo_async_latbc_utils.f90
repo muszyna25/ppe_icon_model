@@ -89,8 +89,9 @@
     USE mtime_events,           ONLY: deallocateEvent
     USE mtime_timedelta,        ONLY: timedelta, newTimedelta, deallocateTimedelta, &
          &                            operator(+)
-    USE mo_cdi,                 ONLY: streamOpenRead, streamClose, cdiGetStringError
+    USE mo_cdi,                 ONLY: streamOpenRead, streamClose
     USE mo_cdi_constants,       ONLY: GRID_UNSTRUCTURED_CELL, GRID_UNSTRUCTURED_EDGE
+    USE mo_util_cdi,            ONLY: cdiGetStringError
     USE mo_master_config,       ONLY: isRestart
     USE mo_run_config,          ONLY: nsteps, dtime
     USE mo_fortran_tools,       ONLY: copy, init
