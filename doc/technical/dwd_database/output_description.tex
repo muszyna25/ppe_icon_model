@@ -46,6 +46,12 @@ description of the available output fields.
 % uses package enumitem
 %\begin{description}[font=\sffamily\bfseries, leftmargin=3.0cm,style=sameline]
 \begin{description}[leftmargin=3.0cm,style=sameline]
+  \item[TD\_2M]     Dew point temperature at $2\,\mathrm{m}$ above ground, i.e.\ the temperature to which the 
+                    air must be cooled, keeping its vapour pressure $e$ constant, such that $e$ equals the 
+                    saturation (or equilibrium) vapour pressure $e_{s}$.
+                    \begin{align*}
+                      e_{s}(T_{d}) = e
+                    \end{align*}
   \item [TMIN\_2M]  Minimum temperature at $2\,\mathrm{m}$ above ground. Minima are collected over $6$-hourly intervals 
                     on all domains. (Prior to 2015-07-07 minima were collected over $3$-hourly intervals on the 
                     global grid.)
