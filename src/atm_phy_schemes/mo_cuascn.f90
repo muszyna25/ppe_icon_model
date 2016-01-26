@@ -46,8 +46,7 @@ MODULE mo_cuascn
     &                        lphylin  ,rlptrc,           &
     &                        entshalp ,rmfcmin,rprcon   ,&
     &                        rmflic   ,rmflia ,rvdifts  ,&
-    &                        rmfcmax          ,&
-    &                        lmfmid   , rlmin, detrpen  ,&
+    &                        rmfcmax, rlmin, detrpen    ,&
     &                        lhook,   dr_hook
 
   USE mo_adjust ,ONLY: cuadjtq
@@ -66,7 +65,7 @@ CONTAINS
   !
   SUBROUTINE cuascn &
     & ( kidia,    kfdia,    klon,    ktdia,  klev, rmfcfl, &
-    & entrorg, ptsphy,&
+    & entrorg, lmfmid, ptsphy,&
     & paer_ss,&
     & ptenh,    pqenh,   &
     & ptenq,             &
@@ -233,7 +232,8 @@ INTEGER(KIND=jpim),INTENT(in)    :: kidia
 INTEGER(KIND=jpim),INTENT(in)    :: kfdia 
 INTEGER(KIND=jpim),INTENT(in)    :: ktdia
 REAL(KIND=jprb)   ,INTENT(in)    :: rmfcfl 
-REAL(KIND=jprb)   ,INTENT(in)    :: entrorg 
+REAL(KIND=jprb)   ,INTENT(in)    :: entrorg
+LOGICAL           ,INTENT(in)    :: lmfmid
 REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy 
 !KF
 REAL(KIND=jprb)   ,INTENT(in), OPTIONAL:: paer_ss(klon)
@@ -966,7 +966,7 @@ END SUBROUTINE cuascn
 
   SUBROUTINE cubasmcn &
     & (kidia,    kfdia,    klon,    klev,&
-    & kk,                                &
+    & kk, lmfmid,                        &
     & pten,     pqen,     pqsen,    &
     & pvervel,  pgeo,     pgeoh,    ldcum,    ktype,    klab,&
     & kcbot,    pmfu,     pmfub,    plrain,&
@@ -1069,6 +1069,7 @@ END SUBROUTINE cuascn
     INTEGER(KIND=jpim),INTENT(in)    :: kidia
     INTEGER(KIND=jpim),INTENT(in)    :: kfdia
     INTEGER(KIND=jpim),INTENT(in)    :: kk
+    LOGICAL           ,INTENT(in)    :: lmfmid
     REAL(KIND=jprb)   ,INTENT(in)    :: pten(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqen(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqsen(klon,klev)

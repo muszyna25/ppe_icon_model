@@ -114,6 +114,13 @@ L&
 switch for generating planar grid. The root level consists of 8 triangles.&
 \tabularnewline
 
+\textbf{lread\_graph}&
+L&
+.FALSE.&
+&
+switch for reading graph information from precomputed file; .TRUE. implies that
+the graph generator needs to be executed in advance&
+\tabularnewline
 \end{longtab}
 
 Defined and used in: \verb+src/grid_generator/mo_grid_levels.f90+
@@ -827,13 +834,6 @@ run\_nml/iforcing = 2
 \tabularnewline
 
 %\hline
-\textbf{icover} &
-I& 1 &&
-1 = diagnostic cloud cover scheme (Sunquist)&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
 \textbf{lgw\_hines} &
 L& .TRUE.&&
 .TRUE. for non-orographic gravity wave drag (Hines)&
@@ -1013,6 +1013,15 @@ inwp\_turb = 1
 \tabularnewline
 
 \hline
+range\_charnock&
+R&
+1.5&
+&
+Variability range (multiplicative!) of upper and lower bound of wind-speed dependent Charnock parameter &
+inwp\_turb = 1
+\tabularnewline
+
+\hline
 range\_minsnowfrac&
 R&
 0.05&
@@ -1020,6 +1029,39 @@ R&
 Variability range for minimum value to which snow cover fraction is artificially reduced in case of melting snow & 
 idiag\_snowfrac = 20/30/40
 \tabularnewline
+
+\hline
+range\_z0\_lcc&
+R&
+0.2&
+&
+Variability range (relative change) of roughness length attributed to each landuse class &
+\tabularnewline
+
+\hline
+range\_rootdp&
+R&
+0.2&
+&
+Variability range (relative change) of root depth attributed to each landuse class &
+\tabularnewline
+
+\hline
+range\_rsmin&
+R&
+0.2&
+&
+Variability range (relative change) of minimum stomata resistance attributed to each landuse class &
+\tabularnewline
+
+\hline
+range\_laimax&
+R&
+0.15&
+&
+Variability range (relative change) of leaf area index (maximum of annual cycle) attributed to each landuse class &
+\tabularnewline
+
 
 \end{longtab}
 
@@ -2760,6 +2802,7 @@ If a file name contains the keyword "\texttt{<path>}", then this
 % meteogram_output_nml:
 %------------------------------------------------------------------------------
 \subsection{meteogram\_output\_nml}
+Nearest neighbour 'interpolation' is used for all variables.
 \begin{longtab}
 
 %\hline
@@ -3138,6 +3181,15 @@ convection\\
 \tabularnewline
 
 %\hline
+lshallowconv\_only&
+L (max\_ dom)&
+.FALSE.&
+&
+.TRUE.: use shallow convection only\\
+& inwp\_convection = 1
+\tabularnewline
+
+%\hline
 icapdcycl&
 I & 0 &  & Type of CAPE correction to improve diurnal cycle for convection: \\
 0 = none (IFS default prior to autumn 2013) \\
@@ -3153,6 +3205,14 @@ I&
  &
 0: off \\
 1: simple coupling between autoconversion and Tegen aerosol climatology; requires irad\_aero=6 &
+\tabularnewline
+
+iprog\_aero &
+I&
+0&
+ &
+0: off \\
+1: simple prognostic aerosol scheme, based on 2D aerosol optical depth fields of Tegen climatology; requires irad\_aero=6 &
 \tabularnewline
 
 icpl\_o3\_tp&
@@ -3430,9 +3490,9 @@ run\_nml:iforcing = inwp
 \hline
 tune\_entrorg&
 R&
-1.825e-3&
+1.85e-3&
 1/m&
-Entrainment parameter valid for dx=20 km&
+Entrainment parameter valid for dx=20 km (depends on model resolution)&
 run\_nml:iforcing = inwp
 \tabularnewline
 
@@ -3455,6 +3515,15 @@ run\_nml:iforcing = inwp
 \tabularnewline
 
 \hline
+tune\_rhebc\_land\_trop&
+R&
+0.70&
+&
+RH threshold for onset of evaporation below cloud base over land in the tropics&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
 tune\_rhebc\_ocean &
 R&
 0.85&
@@ -3464,11 +3533,29 @@ run\_nml:iforcing = inwp
 \tabularnewline
 
 \hline
+tune\_rhebc\_ocean\_trop &
+R&
+0.80&
+&
+RH threshold for onset of evaporation below cloud base over sea in the tropics&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
 tune\_rcucov&
 R&
 0.05&
 &
 Convective area fraction used for computing evaporation below cloud base&
+run\_nml:iforcing = inwp
+\tabularnewline
+
+\hline
+tune\_rcucov\_trop&
+R&
+0.05&
+&
+Convective area fraction used for computing evaporation below cloud base in the tropics&
 run\_nml:iforcing = inwp
 \tabularnewline
 
@@ -4475,7 +4562,8 @@ irad\_o3 = 4: ozone clim for Aqua Planet Exp \par
 irad\_o3 = 6: ozone climatology with T5 geographical distribution and Fourier series for seasonal cycle {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 7: GEMS ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 8: ozone climatology for AMIP \par
-irad\_o3 = 9: MACC ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)}
+irad\_o3 = 9: MACC ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
+irad\_o3 = 10: Linearized ozone chemistry (ART extension necessary) {\color{red}for run\_nml/iforcing = 3 (NWP)}
 &
 Note: until further notice, please use \par
 irad\_h2o = 1\par
@@ -4512,7 +4600,8 @@ Aerosols\\
 2: global constant\\
 3: externally specified\\
 5: Tanre aerosol climatology {\color{red}for run\_nml/iforcing = 3 (NWP) }\\
-6: Tegen aerosol climatology {\color{red}for run\_nml/iforcing = 3 (NWP) .AND. itopo =1 }
+6: Tegen aerosol climatology {\color{red}for run\_nml/iforcing = 3 (NWP) .AND. itopo =1 }\\
+9: ART online aerosol radiation interaction, uses Tegen for aerosols not chosen to be represented in ART {\color{red}for run\_nml/iforcing = 3 (NWP) .AND. itopo =1 .AND. lart=TRUE .AND. iart\_ari=1}
 &
 \tabularnewline
 
@@ -5696,7 +5785,7 @@ Defined and used in: \verb+src/testcases/mo_ha_testcases.f90+
 
 
 %-------------------------------------------------------------------------------
-% nh_test_nml:
+% nh_testcase_nml:
 %-------------------------------------------------------------------------------
 \subsection{nh\_testcase\_nml (Scope: ltestcase=.TRUE. and iequations=3 in run\_nml)}
 
@@ -5736,7 +5825,7 @@ u=v=0, topography=0.0).&
 &&&&'\textbf{HS\_jw}': Initializes the Held-Suarez test case
 with Jablonowski Williamson initial conditions and zero topography.&
 \tabularnewline
-&&&&'\textbf{APE\_nh}': Initializes the APE experiments. With the
+&&&&'\textbf{APE\_nwp, APE\_echam, APE\_nh, APEc\_nh, }': Initializes the APE experiments. With the
 jabw test case, including moisture.&
 \tabularnewline
 &&&&'\textbf{wk82}': Initializes the Weisman Klemp test case&
@@ -5933,8 +6022,16 @@ SST distribution selection\\
 'sst2': Peaked experiment\\
 'sst3': Flat experiment\\
 'sst4': Control-5N experiment\\
-'sst\_qobs': Qobs SST distribution exp.&
- nh\_test\_name='APE\_nh'
+'sst\_qobs': Qobs SST distribution exp.\\
+'sst\_const': constant SST&
+nh\_test\_name='APE\_nwp', 'APE\_echam'
+\tabularnewline
+
+%\hline
+ape\_sst\_val&
+R& 29.0& degC &
+aqua planet SST  for ape\_sst\_case='sst\_const'&
+nh\_test\_name= 'APE\_nwp', 'APE\_echam'
 \tabularnewline
 
 %\hline

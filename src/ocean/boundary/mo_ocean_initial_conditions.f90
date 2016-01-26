@@ -356,10 +356,14 @@ CONTAINS
      !CALL temperature_CollapsingDensityFront_StuhnePeltier(patch_3d, ocean_salinity)
      !CALL temperature_CollapsingDensityFront_WeakGrad(patch_3d, ocean_salinity)
      
-    CALL tracer_GM_test(patch_3d, ocean_salinity,2,9, 12,19)!decrease_end_level,increase_start_level,increase_end_level)     
+      CALL tracer_GM_test(patch_3d, ocean_salinity,2,9, 12,19)!decrease_end_level,increase_start_level,increase_end_level)     
     !CALL de_increaseTracerVertically(patch_3d, ocean_salinity,2,12, 20,32)
     !& decrease_start_level,decrease_end_level, increase_start_level,increase_end_level)
+    !------------------------------
+    CASE (221)
+      CALL tracer_quads_checkerboard(patch_3d=patch_3d, ocean_tracer=ocean_salinity, base_value=2.0_wp, variation=2.0_wp)
 
+    !------------------------------
     CASE (300)
       CALL tracer_bubble(patch_3d, ocean_salinity ,initial_salinity_top, initial_salinity_bottom)
 
@@ -802,11 +806,14 @@ CONTAINS
     CASE (205)
       CALL height_WilliamsonTest5(patch_3d, ocean_height)
       
-     CASE (206)
+    CASE (206)
       CALL height_WilliamsonTest6(patch_3d, ocean_height)
 
-     CASE (207)
+    CASE (207)
       CALL height_GalewskyTest(patch_3d, ocean_height)
+
+    CASE (221)
+      CALL height_quads_checkerboard(patch_3d=patch_3d, ocean_height=ocean_height, base_value=1.0_wp, variation=1.0_wp)
 
     CASE default
       CALL finish(method_name, "unknown sea_surface_height_type")
@@ -1397,7 +1404,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 !            !uu=tanh((0.75_wp-point_lat)*300.0_wp) 
 !            uu=tanh((shear_depth-point_lat)*300.0_wp) 
 !          ENDIF
-          IF(point_lat>=basin_center_lat)THEN	 
+          IF(point_lat>=basin_center_lat)THEN
             !uu=tanh((point_lat-0.025)*300.0_wp) 
             uu=tanh((point_lat+shear_depth)*300.0_wp) 
           ELSEIF(point_lat<basin_center_lat)THEN
@@ -2178,6 +2185,68 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 !
 !  END SUBROUTINE tracer_ConstantSurface_IncludeLand
   !-------------------------------------------------------------------------------
+  SUBROUTINE tracer_quads_checkerboard(patch_3d, ocean_tracer, base_value, variation)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_tracer(:,:,:)
+    REAL(wp), INTENT(in) :: base_value, variation
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+    INTEGER  :: block, idx, level, start_cell_index, end_cell_index
+    INTEGER  :: checkerboard_top_mod
+    REAL(wp) :: checkerboard_mod
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_quads_checkerboard'
+
+    !-------------------------------------------------------------------------
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+        checkerboard_top_mod = MODULO((block - all_cells%start_block) * nproma + idx, 2)
+        DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(idx,block)
+          checkerboard_mod = (REAL(MODULO(checkerboard_top_mod + level, 2),wp) - 0.5_wp) * 2.0_wp ! this is -1,+1
+          ocean_tracer(idx,level,block) = base_value + checkerboard_mod * variation
+        ENDDO
+      END DO
+    END DO
+
+  END SUBROUTINE tracer_quads_checkerboard
+  !-------------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------------
+  SUBROUTINE height_quads_checkerboard(patch_3d, ocean_height, base_value, variation)
+    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
+    REAL(wp), TARGET :: ocean_height(:,:)
+    REAL(wp), INTENT(in) :: base_value, variation
+
+    TYPE(t_patch),POINTER   :: patch_2d
+    TYPE(t_subset_range), POINTER :: all_cells
+    INTEGER  :: block, idx, level, start_cell_index, end_cell_index
+    INTEGER  :: checkerboard_top_mod
+    REAL(wp) :: checkerboard_mod
+
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_quads_checkerboard'
+
+    !-------------------------------------------------------------------------
+    patch_2d => patch_3d%p_patch_2d(1)
+    all_cells => patch_2d%cells%ALL
+
+    DO block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
+      DO idx = start_cell_index, end_cell_index
+        checkerboard_top_mod = MODULO((block - all_cells%start_block) * nproma + idx, 2)
+        checkerboard_mod = (REAL(checkerboard_top_mod,wp) - 0.5_wp) * 2.0_wp ! this is -1,+1
+        DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(idx,block),1)
+          ocean_height(idx,block) = base_value + checkerboard_mod * variation
+        ENDDO
+      END DO
+    END DO
+
+  END SUBROUTINE height_quads_checkerboard
+  !-------------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------------
   SUBROUTINE tracer_ConstantSurface(patch_3d, ocean_tracer, top_value)
@@ -2187,9 +2256,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
 
     TYPE(t_patch),POINTER   :: patch_2d
     TYPE(t_subset_range), POINTER :: all_cells
-
-    INTEGER :: block, idx, level
-    INTEGER :: start_cell_index, end_cell_index
+    INTEGER :: block, idx, level, start_cell_index, end_cell_index
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':tracer_ConstantSurface'
     !-------------------------------------------------------------------------
@@ -3007,7 +3074,7 @@ stop
                 & - max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2) !&
              !                &   * sin(pi*v_base%zlev_m(level)/4000.0_wp)!&
              !   & * SIN(pi*patch_3d%p_patch_1d(1)%zlev_m(level) / patch_3d%p_patch_1d(1)%zlev_i(levels+1))
-write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2)			 
+write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad))**2)
             END DO
           ENDIF !Local hot perturbation
 
@@ -4669,7 +4736,7 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
     radius_bubble = 15.0_wp
     layers_above_bubble = 35 !15 !35
     layers_bubble = 40 !20 !40 
-    dist_layer=layers_bubble/2.0_wp	 !radius in z direction
+    dist_layer=layers_bubble/2.0_wp  !radius in z direction
     layers_perturbation = 1
     amplitude_perturbation = 0.10_wp
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
@@ -4782,7 +4849,7 @@ write(123,*)'perturb',max_perturbation*EXP(-(distan/(perturbation_width*deg2rad)
     layers_bubble = 35 
     lat_small_bubble= 20.0_wp
 
-    dist_layer=layers_bubble/2.0_wp	 !radius in z direction
+    dist_layer=layers_bubble/2.0_wp  !radius in z direction
     small_bubble_inside = 2.0_wp * ( bubble_outside - bubble_inside ) + bubble_inside
     CALL assign_if_present(lat_bubble,lat_bubble_opt)
     CALL assign_if_present(lon_bubble,lon_bubble_opt)

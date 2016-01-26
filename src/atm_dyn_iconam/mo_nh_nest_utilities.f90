@@ -38,7 +38,9 @@ MODULE mo_nh_nest_utilities
   USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest, iqv, iqc, iforcing
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydro_state,      ONLY: p_nh_state
+  USE mo_nwp_phy_state,       ONLY: prm_diag
   USE mo_nonhydrostatic_config,ONLY: ndyn_substeps_var
+  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, MAX_CHAR_LENGTH
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c,                       &
@@ -939,6 +941,11 @@ CONTAINS
         f4din2  = p_nhp_tr%tracer(:,:,:,1:ntracer_bdyintp),                         &
         f4dout2 = p_nhc_tr%tracer(:,:,:,1:ntracer_bdyintp), llimit_nneg=l_limit     )
 
+    ENDIF
+
+    IF (ltransport .AND. iprog_aero == 1) THEN
+     CALL interpol_scal_grf (p_pp, p_pc, p_grf%p_dom(i_chidx), 1, prm_diag(jg)%aerosol,    &
+                             prm_diag(jgc)%aerosol, llimit_nneg=(/.TRUE./), lnoshift=.TRUE.)
     ENDIF
 
     ! Lateral boundary interpolation of edge-based variables  (velocity components)

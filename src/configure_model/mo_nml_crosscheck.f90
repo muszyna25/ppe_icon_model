@@ -39,14 +39,15 @@ MODULE mo_nml_crosscheck
   USE mo_master_config,      ONLY: tc_exp_stopdate, tc_stopdate
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta, &
        &                           MAX_TIMEDELTA_STR_LEN, getPTStringFromMS,     &
-       &                           OPERATOR(>), OPERATOR(/=), timedeltaToString   
+       &                           OPERATOR(>), OPERATOR(/=), OPERATOR(*),       &
+       &                           timedeltaToString   
   USE mo_time_config,        ONLY: time_config, restart_experiment
   USE mo_extpar_config,      ONLY: itopo
   USE mo_io_config,          ONLY: dt_checkpoint, lflux_avg,inextra_2d,       &
     &                              inextra_3d, lnetcdf_flt64_output
-  USE mo_parallel_config,    ONLY: check_parallel_configuration,              &
-    &                              use_dp_mpi2io,                             &
-    &                              num_io_procs, itype_comm, num_restart_procs
+  USE mo_parallel_config,    ONLY: check_parallel_configuration,                &
+    &                              num_io_procs, itype_comm, num_restart_procs, &
+    &                              num_prefetch_proc, use_dp_mpi2io
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                   &
     &                              ltransport, ntracer, nlev, ltestcase,      &
     &                              nqtendphy, iqtke, iqv, iqc, iqi,           &
@@ -55,7 +56,8 @@ MODULE mo_nml_crosscheck
     &                              iqh, iqnr, iqns, iqng, iqnh, iqnc,         & 
     &                              inccn, ininact, ininpot,                   &
     &                              activate_sync_timers, timers_level,        &
-    &                              output_mode, lart, tc_dt_model
+    &                              output_mode, lart, tc_dt_model,            &
+    &                              setModelTimeStep 
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_grid_config
@@ -72,7 +74,7 @@ MODULE mo_nml_crosscheck
   USE mo_diffusion_config,   ONLY: diffusion_config
 
 
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
   USE mo_lnd_nwp_config,     ONLY: ntiles_lnd, lsnowtile
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_radiation_config
@@ -117,24 +119,32 @@ CONTAINS
     INTEGER :: jg
     CHARACTER(len=*), PARAMETER :: method_name =  'mo_nml_crosscheck:resize_atmo_simulation_length'
 
+    TYPE(timedelta), POINTER :: new_dt_model => NULL()
+    CHARACTER(len=MAX_TIMEDELTA_STR_LEN) :: tdstring
+
     !----------------------------
     ! rescale timestep
     dtime     = dtime     * grid_rescale_factor
+
+    IF (ASSOCIATED(tc_dt_model)) THEN
+      new_dt_model => newTimedelta('PT0S')
+      new_dt_model = tc_dt_model * grid_rescale_factor
+      CALL timedeltaToString(new_dt_model, tdstring)
+      CALL setModelTimeStep(tdstring)
+      CALL deallocateTimedelta(new_dt_model)
+    ENDIF
+
     IF (get_my_process_type() == atmo_process) THEN
-      echam_phy_config%dt_rad = &
-        & echam_phy_config%dt_rad * grid_rescale_factor
+      echam_phy_config%dt_rad = echam_phy_config%dt_rad * grid_rescale_factor
 
       DO jg=1,max_dom
-        atm_phy_nwp_config(jg)%dt_conv = &
-          atm_phy_nwp_config(jg)%dt_conv * grid_rescale_factor
-        atm_phy_nwp_config(jg)%dt_rad  = &
-          atm_phy_nwp_config(jg)%dt_rad  * grid_rescale_factor
-        atm_phy_nwp_config(jg)%dt_sso  = &
-          atm_phy_nwp_config(jg)%dt_sso  * grid_rescale_factor
-        atm_phy_nwp_config(jg)%dt_gwd  = &
-          atm_phy_nwp_config(jg)%dt_gwd  * grid_rescale_factor
+        atm_phy_nwp_config(jg)%dt_conv = atm_phy_nwp_config(jg)%dt_conv * grid_rescale_factor
+        atm_phy_nwp_config(jg)%dt_rad  = atm_phy_nwp_config(jg)%dt_rad  * grid_rescale_factor
+        atm_phy_nwp_config(jg)%dt_sso  = atm_phy_nwp_config(jg)%dt_sso  * grid_rescale_factor
+        atm_phy_nwp_config(jg)%dt_gwd  = atm_phy_nwp_config(jg)%dt_gwd  * grid_rescale_factor
       ENDDO
     ENDIF
+
     !---------------------------------
     ! Check length of this integration
     !---------------------------------
@@ -341,6 +351,9 @@ CONTAINS
     IF (lplane) CALL finish( TRIM(method_name),&
       'Currently a plane version is not available')
 
+    ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
+    IF (.NOT. l_limited_area) num_prefetch_proc = 0
+
     SELECT CASE (iequations)
     CASE(IHS_ATM_TEMP,IHS_ATM_THETA)         ! hydrostatic atm model
 
@@ -500,6 +513,10 @@ CONTAINS
             CALL message(TRIM(method_name),'radiation is used without ozone')
           CASE (2,4,6,7,8,9) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone')
+          CASE (10) ! ok                                                                                                                                                                                            CALL message(TRIM(method_name),'radiation is used with ozone calculated from ART')
+            IF ( .NOT. lart ) THEN
+              CALL finish(TRIM(method_name),'irad_o3 currently is 10 but lart is false.')
+            ENDIF
           CASE default
             CALL finish(TRIM(method_name),'irad_o3 currently has to be 0, 2, 4, 6, 7, 8 or 9.')
           END SELECT
@@ -692,12 +709,13 @@ CONTAINS
         iqng = 11        
         iqnh = 12
         iqnc = 13
+        ininact = 14
         
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mixing ratios
         iqt       = 14    !! start index of other tracers not related at all to moisture
         
-        ntracer = 13
+        ntracer = 14
         
       END SELECT ! microphysics schemes
 
@@ -878,14 +896,6 @@ CONTAINS
 
     END SELECT
 
-#ifndef __ICON_ART
-    IF (lart) THEN
-      WRITE(message_text,'(A)') &
-          'run_nml: lart is set .TRUE. but ICON was compiled without -D__ICON_ART'
-        CALL finish( TRIM(method_name),TRIM(message_text))
-    ENDIF
-#endif
-
     IF (ltransport) THEN
     DO jg = 1,n_dom
 
@@ -1020,6 +1030,7 @@ CONTAINS
     CALL check_meteogram_configuration(num_io_procs)
 
     CALL land_crosscheck()
+    CALL art_crosscheck()
 
     ! Intermediate testing for consistency between old and mtime scheme 
    
@@ -1062,4 +1073,45 @@ CONTAINS
   END SUBROUTINE land_crosscheck
   !---------------------------------------------------------------------------------------
 
+  !---------------------------------------------------------------------------------------
+  SUBROUTINE art_crosscheck
+  
+    CHARACTER(len=*), PARAMETER :: &
+      &  method_name =  'mo_nml_crosscheck:art_crosscheck'
+    INTEGER  :: &
+      &  jg
+    
+#ifndef __ICON_ART
+    IF (lart) THEN
+        CALL finish( TRIM(method_name),'run_nml: lart is set .TRUE. but ICON was compiled without -D__ICON_ART')
+    ENDIF
+#endif
+    
+    IF (.NOT. lart .AND. irad_aero == 9 ) THEN
+      CALL finish(TRIM(method_name),'irad_aero=9 needs lart = .TRUE.')
+    END IF
+
+    IF ( ( irad_aero == 9 ) .AND. ( iprog_aero /= 0 ) ) THEN
+      CALL finish(TRIM(method_name),'irad_aero=9 requires iprog_aero=0')
+    ENDIF
+    
+#ifdef __ICON_ART
+    IF ( ( irad_aero == 9 ) .AND. ( itopo /=1 ) ) THEN
+      CALL finish(TRIM(method_name),'irad_aero=9 requires itopo=1')
+    ENDIF
+    
+    DO jg= 1,n_dom
+      IF(lredgrid_phys(jg) .AND. irad_aero == 9) THEN
+        CALL finish(TRIM(method_name),'irad_aero=9 does not work with a reduced radiation grid')
+      ENDIF
+      IF(art_config(jg)%iart_ari == 0 .AND. irad_aero == 9) THEN
+        CALL finish(TRIM(method_name),'irad_aero=9 needs iart_ari > 0')
+      ENDIF
+      IF(art_config(jg)%iart_ari > 0  .AND. irad_aero /= 9) THEN
+        CALL finish(TRIM(method_name),'iart_ari > 0 requires irad_aero=9')
+      ENDIF
+    ENDDO
+#endif
+  END SUBROUTINE art_crosscheck
+  !---------------------------------------------------------------------------------------
 END MODULE mo_nml_crosscheck

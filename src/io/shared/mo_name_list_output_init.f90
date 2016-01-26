@@ -61,7 +61,8 @@ MODULE mo_name_list_output_init
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
     &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
-    &                                             set_GRIB2_synsat_keys
+    &                                             set_GRIB2_synsat_keys, set_GRIB2_chem_keys,     &
+    &                                             set_GRIB2_art_keys
   USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
@@ -2677,7 +2678,20 @@ CONTAINS
       IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
 
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
-      IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
+      IF (info%lmiss) THEN
+        ! set the missing value
+        IF ((.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) .OR. use_dp_mpi2io) THEN
+          CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
+        ELSE
+          ! In cases, where we use asynchronous output and the data is
+          ! transferred using a single-precision buffer, we need to
+          ! transfer the missing value to single-precision as well.
+          ! Otherwise, in pathological cases, the missing value and
+          ! the masked data in the buffer might be different values.
+          CALL vlistDefVarMissval(vlistID, varID, REAL(REAL(info%missval%rval,sp),dp))
+        END IF
+      ENDIF  ! info%lmiss
+
 
       ! Set GRIB2 Triplet
       IF (info%post_op%lnew_grib2) THEN
@@ -2709,6 +2723,12 @@ CONTAINS
         ! these settings are performed prior to "productDefinitionTemplateNumber"
 
         DO i=1,info%grib2%additional_keys%nint_keys
+! JF:           WRITE(message_text,'(a,i4,a,i4,a,a,a,i2,a,a,a,i4)')        &
+! JF:             &  'vlistID = ', vlistID, '  varID = ', varID,           &
+! JF:             &  '  tracer_class = ', TRIM(info%tracer%tracer_class),  &
+! JF:             &  '  key(', i, ') : ', info%grib2%additional_keys%int_key(i)%key, ' = ',  &
+! JF:             &  info%grib2%additional_keys%int_key(i)%val
+! JF:           CALL message(' ==> add_variables_to_vlist :',TRIM(message_text),0,5,.TRUE.)
           CALL vlistDefVarIntKey(vlistID, varID, TRIM(info%grib2%additional_keys%int_key(i)%key), &
             &                    info%grib2%additional_keys%int_key(i)%val)
         END DO
@@ -2722,6 +2742,9 @@ CONTAINS
         ! Set synsat keys (if applicable)
         CALL set_GRIB2_synsat_keys(vlistID, varID, info)
 
+        ! Set keys for atmospheric chemical constituents, if applicable
+        CALL set_GRIB2_chem_keys(vlistID, varID, info)
+
         ! Set local use SECTION 2
         CALL set_GRIB2_local_keys(vlistID, varID, gribout_config(of%phys_patch_id))
 
@@ -2729,6 +2752,10 @@ CONTAINS
         ! Set tile-specific GRIB2 keys (if applicable)
         CALL set_GRIB2_tile_keys(vlistID, varID, info, i_lctype(of%phys_patch_id))
 #endif
+
+        ! Set ART-specific GRIB2 keys (if applicable)
+        CALL set_GRIB2_art_keys(vlistID, varID, info)
+
       ELSE ! NetCDF
         CALL vlistDefVarDatatype(vlistID, varID, this_cf%datatype)
       ENDIF

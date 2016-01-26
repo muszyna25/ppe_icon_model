@@ -76,13 +76,14 @@ while [[ $nt < ${#inidate[*]} ]]; do
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc diff     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc rms      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc diff_ref ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc ctr      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
   done
 
   # -------------------------------------------------------
  
-  set -A vars  SP_10M  T_2M  T_G ACCLHFL_S  ACCSHFL_S      #comparison to observations,     QV_2M  
+  set -A vars  SP_10M  T_2M  T_G  ACCLHFL_S  ACCSHFL_S  ACCSOB_T  ACCTHB_T     #comparison to observations,     QV_2M  
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc diff_obs ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
@@ -97,6 +98,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc snap     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc ctr      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc diff     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc rms      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var sfc diff_ref ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
   done
   
@@ -108,6 +110,7 @@ while [[ $nt < ${#inidate[*]} ]]; do
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var 114 snap     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var 114 ctr      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var 114 diff     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error $expnum $expref $var 114 rms      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}map.error $expnum $expref $var 114 diff_ref ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
   done
   
@@ -117,10 +120,12 @@ while [[ $nt < ${#inidate[*]} ]]; do
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var ml diff     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var ml rms      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var ml diff_ref ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var ml snap     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var ml ctr      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}map.error   $expnum $expref $var ml diff     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error   $expnum $expref $var ml rms      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}map.error   $expnum $expref $var ml diff_ref ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
 #   echo ${metview} -b ${scriptdir}map.error   $expnum $expref $var ml snap     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
 #   echo ${metview} -b ${scriptdir}map.error   $expnum $expref $var ml ctr      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
@@ -147,10 +152,12 @@ while [[ $nt < ${#inidate[*]} ]]; do
   for var in ${vars[*]}
   do
     echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var pl diff     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var pl rms      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var pl diff_ref ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var pl snap     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}zonal.error $expnum $expref $var pl ctr      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}map.error   $expnum $expref $var pl diff     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
+    echo ${metview} -b ${scriptdir}map.error   $expnum $expref $var pl rms      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
     echo ${metview} -b ${scriptdir}map.error   $expnum $expref $var pl diff_ref ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
 #   echo ${metview} -b ${scriptdir}map.error   $expnum $expref $var pl snap     ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job
 #   echo ${metview} -b ${scriptdir}map.error   $expnum $expref $var pl ctr      ${inidate[nt]} ${initime[nt]} ${verdate[nt]} ${vertime[nt]} ${ndays} ${res} >> $met_job

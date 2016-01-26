@@ -209,19 +209,19 @@ for iloop=1 to nloop do
     # checking that this request does not already exist
     #
     if plot_tot then
-        plot_an=1
+        plot_all=1
         for imon=1 to nmon do
             if (yy_start[imon] = yy_sin[1] and
-                        mm_start[imon] = mm_sin[1] and
-                        mm_len[imon]   = nsingmon) then
-                plot_an=0
+                mm_start[imon] = mm_sin[1] and
+                mm_len[imon]   = nsingmon) then
+              plot_all=0
             end if
         end for
-        if (plot_an) then
+        if (plot_all) then
            nmon=nmon+1
-           yy_start=yy_start & list(yy_sin[1])
-           mm_start=mm_start & list(mm_sin[1])
-           mm_len=mm_len&list(nsingmon)
+           yy_start=yy_start & list(yy_sin[2])  # exclude 1st month
+           mm_start=mm_start & list(mm_sin[2])  # ..
+           mm_len=mm_len&list(nsingmon-1)       # ..
         end if
     end if
 

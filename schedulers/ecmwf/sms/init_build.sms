@@ -42,12 +42,14 @@ case ${compiler} in
     #module swap fortran fortran/xlf/14.1.0.3
     
     #---CRAY 8.3.1
-    module swap cce cce/8.3.1
+    module swap cce cce/8.3.12
    #module swap PrgEnv-cray PrgEnv-cray/5.1.29
     
     module load subversion
     module swap grib_api grib_api/1.12.3
-    module load netcdf
+    module load hdf5/1.8.13
+    module load netcdf4/4.3.2
+   #module load netcdf
 
     ./configure --with-fortran=cray  #--with-openmp     # --with-flags=hiopt
     ;;

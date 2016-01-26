@@ -47,7 +47,7 @@ MODULE mo_atm_phy_nwp_config
   PUBLIC :: configure_atm_phy_nwp
   PUBLIC :: lrtm_filename
   PUBLIC :: cldopt_filename
-  PUBLIC :: ltuning_kessler, icpl_aero_conv, icpl_o3_tp
+  PUBLIC :: ltuning_kessler, icpl_aero_conv, icpl_o3_tp, iprog_aero
   PUBLIC :: ltuning_ozone
 
   !!--------------------------------------------------------------------------
@@ -60,6 +60,7 @@ MODULE mo_atm_phy_nwp_config
     INTEGER ::  inwp_gscp        !> microphysics
     INTEGER ::  inwp_satad       !! saturation adjustment
     INTEGER ::  inwp_convection  !! convection
+    LOGICAL ::  lshallowconv_only !! use shallow convection only
     INTEGER ::  inwp_radiation   !! radiation
     INTEGER ::  inwp_sso         !! sso
     INTEGER ::  inwp_gwd         !! non-orographic gravity wave drag
@@ -128,6 +129,7 @@ MODULE mo_atm_phy_nwp_config
   CHARACTER(LEN=filename_max) :: cldopt_filename
 
   INTEGER  :: icpl_aero_conv     !! type of coupling between aerosols and convection scheme
+  INTEGER  :: iprog_aero         !! type of prognostic aerosol
   INTEGER  :: icpl_o3_tp         !! type of coupling between ozone and the tropopause
 
   REAL(wp) ::  &                       !> Field of calling-time interval (seconds) for

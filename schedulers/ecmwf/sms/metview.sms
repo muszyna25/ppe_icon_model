@@ -18,7 +18,7 @@
 %end
 
 # include the standard header file
-%include <init_ws_large.h>
+%include <init_ws_submit.h>
 
 # -------------------------------------------------
 
@@ -53,9 +53,9 @@ export nstart
 if [[ $lmetview = 1 ]] ; then
 
   sleep $nstart  # avoid simulaneous copying
-  \cp -f ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error .
+  \cp -f ${METDIR}/many.error.s ${METDIR}/map.error ${METDIR}/zonal.error . || true
   export PLOTDIR='metplots'
-  export DATADIR='grb_data/%SUITE%_%EXPNUM%_'
+  export DATADIR='grb_data'
   export DATAREF='../../../%SUITE2%/%EXPNUM2%/'${YYYYMM}'/grb_data'
   export TAILFILE='.grb'
   export LMONTH=0
