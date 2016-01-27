@@ -39,7 +39,8 @@ MODULE mo_ocean_initialization
     & f_plane_coriolis, zero_coriolis, halo_levels_ceiling, &
     & on_cells, on_edges, on_vertices
   USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, l_max_bottom, l_partial_cells, &
-    & coriolis_type, basin_center_lat, basin_height_deg, iswm_oce, coriolis_fplane_latitude
+    & coriolis_type, basin_center_lat, basin_height_deg, iswm_oce, coriolis_fplane_latitude,   &
+    & use_smooth_ocean_boundary
   USE mo_util_dbg_prnt,       ONLY: c_i, c_b, nc_i, nc_b
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch,t_patch_3d, t_grid_cells, t_grid_edges
@@ -423,94 +424,96 @@ CONTAINS
     ! Correction loop for cells in all levels, similar to surface done in grid generator
     !  - through all levels each wet cell has at most one dry cell as neighbour
     !  - otherwise it is set to dry grid cell
-    niter=30
-    zloop_cor: DO jk=1,n_zlev
-      
-      ctr_jk = 0
-      
-      ! working on 2D lsm_c inside the loop
-      lsm_c(:,:) = v_base%lsm_c(:,jk,:)
-      
-      ! LL: disable checks here, the changes in halos will differ from seq run
-      !     as the access patterns differ
-      CALL disable_sync_checks()
-      
-      DO jiter=1,niter
-        !
-        ctr = 0 ! no changes initially
-        
-        ! loop through owned patch cells
-        DO jb = owned_cells%start_block, owned_cells%end_block
-          CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
-          
-          DO jc =  i_startidx, i_endidx
-            
-            nowet_c = 0
-            
-            ! LL: here we probably want to check if the above cell is land
-            !     and change this into land accordingly
-            
-            IF (lsm_c(jc,jb) <= sea_boundary) THEN
-              DO ji = 1, 3
-                ! Get indices/blks of cells 1 to 3 adjacent to cell (jc,jb)
-                idxn = patch_2d%cells%neighbor_idx(jc,jb,ji)
-                ibln = patch_2d%cells%neighbor_blk(jc,jb,ji)
-                ! counts number of land-cells for all three neighbors
-                !  - only one land-point neighbor is allowed
-                IF (idxn <= 0) THEN
-                  nowet_c = nowet_c + 1
-                ELSE IF ( lsm_c(idxn,ibln) > sea_boundary ) THEN
-                  nowet_c = nowet_c + 1
-                ENDIF
-              END DO
-              
-              ! More than 1 wet neighbor-cell then set cell to land
-              !  - edges are set in the correction loop below
-              IF ( nowet_c >= 2 ) THEN
-                lsm_c(jc,jb)=land_boundary
-                ctr = ctr+1
-                
-                IF (jk<3) THEN
-                  WRITE(message_text,'(a,2i8)') &
-                    & 'WARNING: Found 2 land neighbors at jc, jk=',jc,jk
-                  CALL message(TRIM(routine), TRIM(message_text))
-                END IF
-                
-              END IF ! 2 land neighbors
-              
-            END IF ! lsm_c(jc,jb) <= SEA_BOUNDARY
-            
-          END DO  ! jc =  i_startidx, i_endidx
-        END DO ! jb = owned_cells%start_block, owned_cells%end_block
-        
-        ! see what is the sum of changes of all procs
-        ctr_glb = global_sum_array(ctr)
-        
-        WRITE(message_text,'(a,i2,a,i2,a,i8)') 'Level:', jk, &
-          & ' Corrected wet cells with 2 land neighbors - iter=', &
-          & jiter,' no of cor:',ctr_glb
-        CALL message(TRIM(routine), TRIM(message_text))
-        
-        ! if no changes have been done, we are done with this level. Exit
-        IF (ctr_glb == 0) EXIT
-        
-        ! we need to sync the halos here
-        z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
+    IF (use_smooth_ocean_boundary) THEN
+      niter=30
+      zloop_cor: DO jk=1,n_zlev
+
+        ctr_jk = 0
+
+        ! working on 2D lsm_c inside the loop
+        lsm_c(:,:) = v_base%lsm_c(:,jk,:)
+
+        ! LL: disable checks here, the changes in halos will differ from seq run
+        !     as the access patterns differ
+        CALL disable_sync_checks()
+
+        DO jiter=1,niter
+          !
+          ctr = 0 ! no changes initially
+
+          ! loop through owned patch cells
+          DO jb = owned_cells%start_block, owned_cells%end_block
+            CALL get_index_range(owned_cells, jb, i_startidx, i_endidx)
+
+            DO jc =  i_startidx, i_endidx
+
+              nowet_c = 0
+
+              ! LL: here we probably want to check if the above cell is land
+              !     and change this into land accordingly
+
+              IF (lsm_c(jc,jb) <= sea_boundary) THEN
+                DO ji = 1, 3
+                  ! Get indices/blks of cells 1 to 3 adjacent to cell (jc,jb)
+                  idxn = patch_2d%cells%neighbor_idx(jc,jb,ji)
+                  ibln = patch_2d%cells%neighbor_blk(jc,jb,ji)
+                  ! counts number of land-cells for all three neighbors
+                  !  - only one land-point neighbor is allowed
+                  IF (idxn <= 0) THEN
+                    nowet_c = nowet_c + 1
+                  ELSE IF ( lsm_c(idxn,ibln) > sea_boundary ) THEN
+                    nowet_c = nowet_c + 1
+                  ENDIF
+                END DO
+
+                ! More than 1 wet neighbor-cell then set cell to land
+                !  - edges are set in the correction loop below
+                IF ( nowet_c >= 2 ) THEN
+                  lsm_c(jc,jb)=land_boundary
+                  ctr = ctr+1
+
+                  IF (jk<3) THEN
+                    WRITE(message_text,'(a,2i8)') &
+                      & 'WARNING: Found 2 land neighbors at jc, jk=',jc,jk
+                    CALL message(TRIM(routine), TRIM(message_text))
+                  END IF
+
+                END IF ! 2 land neighbors
+
+              END IF ! lsm_c(jc,jb) <= SEA_BOUNDARY
+
+            END DO  ! jc =  i_startidx, i_endidx
+          END DO ! jb = owned_cells%start_block, owned_cells%end_block
+
+          ! see what is the sum of changes of all procs
+          ctr_glb = global_sum_array(ctr)
+
+          WRITE(message_text,'(a,i2,a,i2,a,i8)') 'Level:', jk, &
+            & ' Corrected wet cells with 2 land neighbors - iter=', &
+            & jiter,' no of cor:',ctr_glb
+          CALL message(TRIM(routine), TRIM(message_text))
+
+          ! if no changes have been done, we are done with this level. Exit
+          IF (ctr_glb == 0) EXIT
+
+          ! we need to sync the halos here
+          z_sync_c(:,:) =  REAL(lsm_c(:,:),wp)
+          CALL sync_patch_array(sync_c, patch_2d, z_sync_c(:,:))
+          lsm_c(:,:) = INT(z_sync_c(:,:))
+
+        END DO   ! jiter
+
+        CALL enable_sync_checks()
+
+        z_sync_c(:,:) = REAL(lsm_c(:,:),wp)
         CALL sync_patch_array(sync_c, patch_2d, z_sync_c(:,:))
         lsm_c(:,:) = INT(z_sync_c(:,:))
-        
-      END DO   ! jiter
-      
-      CALL enable_sync_checks()
-      
-      z_sync_c(:,:) = REAL(lsm_c(:,:),wp)
-      CALL sync_patch_array(sync_c, patch_2d, z_sync_c(:,:))
-      lsm_c(:,:) = INT(z_sync_c(:,:))
-      
-      ! get back into 3D the slm
-      v_base%lsm_c(:,jk,:) = lsm_c(:,:)
-      
-    END DO zloop_cor ! jk=1,n_zlev
+
+        ! get back into 3D the slm
+        v_base%lsm_c(:,jk,:) = lsm_c(:,:)
+
+      END DO zloop_cor ! jk=1,n_zlev
+    ENDIF !(use_smooth_ocean_boundary)
     
     ! restore p_test_run
     CALL enable_sync_checks()

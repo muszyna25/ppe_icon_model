@@ -325,7 +325,7 @@ CONTAINS
         ! check if vertical and horizontal fluxes add to 0
 !         ocean_state(jg)%p_diag%w
         CALL horizontal_mean(values=ocean_state(jg)%p_diag%w, weights=patch_2d%cells%area(:,:), &
-          & in_subset=patch_2d%cells%owned, mean=verticalMeanFlux, start_level=2, end_level=n_zlev-1)
+          & in_subset=patch_2d%cells%owned, mean=verticalMeanFlux, start_level=2, end_level=n_zlev)
         
         DO level=2, n_zlev-1
           CALL debug_printValue(description="Mean vertical flux at", value=REAL(level,wp),  &

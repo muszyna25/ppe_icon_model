@@ -2226,7 +2226,7 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     TYPE(t_subset_range), POINTER :: all_cells
     INTEGER  :: block, idx, level, start_cell_index, end_cell_index
     INTEGER  :: checkerboard_top_mod
-    REAL(wp) :: checkerboard_mod
+    REAL(wp) :: checkerboard_mod, column_sign
 
     CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_quads_checkerboard'
 
@@ -2234,11 +2234,17 @@ write(0,*)'Williamson-Test6:vn', maxval(vn),minval(vn)
     patch_2d => patch_3d%p_patch_2d(1)
     all_cells => patch_2d%cells%ALL
 
+    column_sign = -1
     DO block = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, block, start_cell_index, end_cell_index)
       DO idx = start_cell_index, end_cell_index
+        IF (MODULO((block - all_cells%start_block) * nproma + idx - 1, 4) == 0) THEN
+          column_sign = -column_sign
+        ENDIF
         checkerboard_top_mod = MODULO((block - all_cells%start_block) * nproma + idx, 2)
-        checkerboard_mod = (REAL(checkerboard_top_mod,wp) - 0.5_wp) * 2.0_wp ! this is -1,+1
+        checkerboard_mod = column_sign * (REAL(checkerboard_top_mod,wp) - 0.5_wp) * 2.0_wp ! this is -1,+1
+        
+        write(0,*) block, idx, " checkerboard_mod=", checkerboard_mod
         DO level = 1, MIN(patch_3d%p_patch_1d(1)%dolic_c(idx,block),1)
           ocean_height(idx,block) = base_value + checkerboard_mod * variation
         ENDDO

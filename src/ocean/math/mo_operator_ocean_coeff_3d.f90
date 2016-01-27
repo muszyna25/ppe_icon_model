@@ -248,8 +248,8 @@ CONTAINS
     
     SELECT CASE(geometry_info%geometry_type)
 
-    CASE (planar_torus_geometry)
-      CALL finish(method_name, "planar_torus_geometry is not implemented yet")
+!     CASE (planar_torus_geometry)
+!       CALL finish(method_name, "planar_torus_geometry is not implemented yet")
       
     CASE (sphere_geometry)
     
@@ -281,7 +281,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
             
               
-    CASE ( planar_channel_geometry,  planar_geometry)
+    CASE ( planar_channel_geometry,  planar_geometry, planar_torus_geometry)
     
       ! just a projection
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, this_index, level) ICON_OMP_DEFAULT_SCHEDULE
@@ -313,14 +313,14 @@ CONTAINS
     
     SELECT CASE(geometry_info%geometry_type)
 
-    CASE (planar_torus_geometry)
-      CALL finish(method_name, "planar_torus_geometry is not implemented yet")
+!     CASE (planar_torus_geometry)
+!       CALL finish(method_name, "planar_torus_geometry is not implemented yet")
       
     CASE (sphere_geometry)
       CALL cvec2gvec ( vector%x(1), vector%x(2), vector%x(3),     &
         & position_local%lon, position_local%lat, &
         & x, y)
-    CASE ( planar_channel_geometry, planar_geometry )
+    CASE ( planar_channel_geometry, planar_geometry, planar_torus_geometry )
       ! just a projection
       x = vector%x(1)
       y = vector%x(2)
@@ -339,22 +339,33 @@ CONTAINS
     TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
     TYPE(t_cartesian_coordinates) :: d_vector
 
-    REAL(wp) :: channel_x_modulo
+    REAL(wp) :: channel_x_modulo, channel_y_modulo
     CHARACTER(LEN=*), PARAMETER :: method_name='distance_vector'
     !-----------------------------------------------------------------------
 
     SELECT CASE(geometry_info%geometry_type)
 
     CASE (planar_torus_geometry)
-      CALL finish(method_name, "planar_torus_geometry is not implemented yet")
+      d_vector%x = y%x - x%x
+      channel_x_modulo = geometry_info%domain_length / geometry_info%sphere_radius
+      IF (ABS(d_vector%x(1)) > channel_x_modulo  * 0.5_wp) THEN
+        d_vector%x(1) = SIGN(1.0_wp, d_vector%x(1)) * (ABS(d_vector%x(1)) - channel_x_modulo)
+      ENDIF
+      channel_y_modulo = geometry_info%domain_height / geometry_info%sphere_radius
+      IF (ABS(d_vector%x(2)) > channel_y_modulo  * 0.5_wp) THEN
+        d_vector%x(2) = SIGN(1.0_wp, d_vector%x(2)) * (ABS(d_vector%x(2)) - channel_y_modulo)
+      ENDIF
+
     CASE (sphere_geometry)
       d_vector%x = y%x - x%x
+
     CASE ( planar_channel_geometry )
       d_vector%x = y%x - x%x
       channel_x_modulo = geometry_info%domain_length / geometry_info%sphere_radius
       IF (ABS(d_vector%x(1)) > channel_x_modulo  * 0.5_wp) THEN
         d_vector%x(1) = SIGN(1.0_wp, d_vector%x(1)) * (ABS(d_vector%x(1)) - channel_x_modulo)
       ENDIF
+
     CASE ( planar_geometry )
       d_vector%x = y%x - x%x
     CASE DEFAULT
@@ -433,11 +444,9 @@ CONTAINS
 
     SELECT CASE(geometry_info%geometry_type)
 
-    CASE (planar_torus_geometry)
-      CALL finish(method_name, "planar_torus_geometry is not implemented yet")
     CASE (sphere_geometry)
       z_vector%x = x%x !/ d_norma_3d(x)
-    CASE ( planar_channel_geometry, planar_geometry )
+    CASE ( planar_channel_geometry, planar_geometry, planar_torus_geometry )
       z_vector%x = (/0.0_wp, 0.0_wp, 1.0_wp/)
     CASE DEFAULT
       CALL finish(method_name, "Undefined geometry type")

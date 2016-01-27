@@ -281,8 +281,8 @@ MODULE mo_ocean_nml
   LOGICAL  :: cfl_stop_on_violation = .FALSE.
   REAL(wp) :: cfl_threshold         = 1.0_wp
 
-  ! special diagnostics configuration
-  !
+  LOGICAL  :: use_smooth_ocean_boundary  = .TRUE.
+
 
   NAMELIST/ocean_dynamics_nml/&
     &                 ab_beta                      , &
@@ -329,7 +329,8 @@ MODULE mo_ocean_nml
     &                 fast_performance_level       , &
     &                 MASS_MATRIX_INVERSION_TYPE   , &
     &                 NONLINEAR_CORIOLIS           , &
-    &                 solver_FirstGuess
+    &                 solver_FirstGuess            , &
+    &                 use_smooth_ocean_boundary
 
 
   NAMELIST/ocean_tracer_transport_nml/&
