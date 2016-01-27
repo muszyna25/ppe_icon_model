@@ -53,7 +53,7 @@ MODULE mo_initicon_io
   USE mo_util_cdi,            ONLY: t_inputParameters, trivial_tileId
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: ntiles_total, &
-    &                               ntiles_water, lmulti_snow, tiles
+    &                               ntiles_water, lmulti_snow, tiles, lsnowtile
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
@@ -1149,7 +1149,9 @@ MODULE mo_initicon_io
             CALL fetchRequiredTiledSurfaceWrapper('qv_s', jg, ntiles_total + ntiles_water, lnd_diag%qv_s_t)
 
             CALL fetchTiledSurfaceWrapper('freshsnow', jg, ntiles_total, lnd_diag%freshsnow_t)
-            CALL fetchTiledSurfaceWrapper('snowfrac_lc', jg, ntiles_total, lnd_diag%snowfrac_lc_t)
+            IF (lsnowtile .AND. .NOT. ltile_coldstart) THEN
+              CALL fetchTiledSurfaceWrapper('snowfrac_lc', jg, ntiles_total, lnd_diag%snowfrac_lc_t)
+            ENDIF
             CALL fetchTiledSurfaceWrapper('w_snow', jg, ntiles_total, lnd_prog%w_snow_t)
             CALL fetchTiledSurfaceWrapper('w_i', jg, ntiles_total, lnd_prog%w_i_t)
             CALL fetchTiledSurfaceWrapper('h_snow', jg, ntiles_total, lnd_diag%h_snow_t)
