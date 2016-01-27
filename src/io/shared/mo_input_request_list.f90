@@ -381,7 +381,7 @@ CONTAINS
         SELECT CASE(metadata%levelType)
             !the level types that translate to a single height VALUE
             CASE(ZAXIS_SURFACE, ZAXIS_PRESSURE, ZAXIS_HEIGHT, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_ALTITUDE, &
-                &ZAXIS_REFERENCE)
+                &ZAXIS_REFERENCE, ZAXIS_SNOW)
 
                 levelValue = 0.0
                 error = cdiIterator_inqLevel(iterator, 1, outValue1 = levelValue)
@@ -390,7 +390,7 @@ CONTAINS
                 !TODO[NH]: check the zaxis UUID
 
             !the level types for special levels
-            CASE(ZAXIS_TOA, ZAXIS_ATMOSPHERE, ZAXIS_CLOUD_BASE, ZAXIS_CLOUD_TOP, ZAXIS_SNOW, ZAXIS_ISOTHERM_ZERO, &
+            CASE(ZAXIS_TOA, ZAXIS_ATMOSPHERE, ZAXIS_CLOUD_BASE, ZAXIS_CLOUD_TOP, ZAXIS_ISOTHERM_ZERO, &
                 &ZAXIS_MEANSEA, ZAXIS_SEA_BOTTOM, ZAXIS_LAKE_BOTTOM, ZAXIS_SEDIMENT_BOTTOM, ZAXIS_SEDIMENT_BOTTOM_TA, &
                 &ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_MIX_LAYER)
 
