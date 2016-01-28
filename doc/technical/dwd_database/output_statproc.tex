@@ -211,17 +211,23 @@ from the native triangular grid onto a regular lat-lon grid:
 For each field, the chosen interpolation method is indicated in the previous tables 
 listing all available output fields.
 
-Most of the output data on regular grids is processed using an RBF-based interpolation method.
+Most of the output data on regular grids is processed using an \emph{RBF-based interpolation method}.
 The algorithm  approximates the input field with a linear combination of 
 radial basis functions~(RBF) located at the data sites, see, for example, \cite{Ruppert2007}.
 RBF interpolation typically produces over- and undershoots at position where the input field
 exhibits steep gradients.
 Therefore, the internal interpolation algorithm performs a cut-off by default.
-Note that RBF-based interpolation is \emph{not conservative}.\\
+Note that RBF-based interpolation is \emph{not conservative}.
 
-\textbf{ToDo:} Short description of the barycentric interpolation method
+\emph{Barycentric interpolation} is a two-dimensional generalization of
+linear interpolation.
+This method uses just three near-neighbors to interpolate and
+avoids over- and undershoots, since extremal values are taken
+only in the data points.
+This interpolation makes sense for fields where the values change  
+in a roughly piecewise linear way.
 
-A small number of output fields is treated differently, with a nearest-neighbor interpolation 
+A small number of output fields is treated differently, with a \emph{nearest-neighbor interpolation} 
 (NNB). The nearest neighbor algorithm selects the value of the nearest point and does not consider 
 the values of neighboring points at all, yielding a piecewise-constant interpolant. 
 % \begin{tabbing}
