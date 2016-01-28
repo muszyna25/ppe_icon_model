@@ -55,7 +55,6 @@ MODULE mo_var_metadata
   PUBLIC  :: new_action
   PUBLIC  :: actions
   PUBLIC  :: add_member_to_vargroup
-  PUBLIC  :: connect_dynamic_info_state
 
 CONTAINS
 
@@ -541,49 +540,6 @@ CONTAINS
     action_list%n_actions = n_act
 
   END FUNCTION actions
-
-  SUBROUTINE connect_dynamic_info_state(info_static, info_dynamic)
-    TYPE(t_var_metadata),INTENT(IN), TARGET    :: info_static
-    TYPE(t_var_metadata_dynamic),INTENT(INOUT) :: info_dynamic
-    
-    info_dynamic%key                  => info_static%key
-    info_dynamic%name                 => info_static%name
-    info_dynamic%var_class            => info_static%var_class
-    info_dynamic%cf                   => info_static%cf
-    info_dynamic%grib2                => info_static%grib2
-    info_dynamic%allocated            => info_static%allocated
-    info_dynamic%ndims                => info_static%ndims
-    info_dynamic%used_dimensions      => info_static%used_dimensions
-    info_dynamic%lrestart             => info_static%lrestart
-    info_dynamic%loutput              => info_static%loutput
-    info_dynamic%isteptype            => info_static%isteptype
-    info_dynamic%resetval             => info_static%resetval
-    info_dynamic%lmiss                => info_static%lmiss
-    info_dynamic%missval              => info_static%missval
-    info_dynamic%lrestart_cont        => info_static%lrestart_cont
-    info_dynamic%lrestart_read        => info_static%lrestart_read
-    info_dynamic%initval              => info_static%initval
-    info_dynamic%lcontainer           => info_static%lcontainer
-    info_dynamic%lcontained           => info_static%lcontained
-    info_dynamic%ncontained           => info_static%ncontained
-    info_dynamic%maxcontained         => info_static%maxcontained
-    info_dynamic%var_ref_pos          => info_static%var_ref_pos
-    info_dynamic%hgrid                => info_static%hgrid
-    info_dynamic%vgrid                => info_static%vgrid
-    info_dynamic%tlev_source          => info_static%tlev_source
-    info_dynamic%cdiVarID             => info_static%cdiVarID
-    info_dynamic%cdiVarID_2           => info_static%cdiVarID_2
-    info_dynamic%cdiGridID            => info_static%cdiGridID
-    info_dynamic%cdiZaxisID           => info_static%cdiZaxisID
-    info_dynamic%cdiDataType          => info_static%cdiDataType
-    info_dynamic%post_op              => info_static%post_op
-    info_dynamic%action_list          => info_static%action_list
-    info_dynamic%vert_interp          => info_static%vert_interp
-    info_dynamic%hor_interp           => info_static%hor_interp
-    info_dynamic%in_group             => info_static%in_group
-    info_dynamic%l_pp_scheduler_task  => info_static%l_pp_scheduler_task
-    
-  END SUBROUTINE connect_dynamic_info_state
 
 END MODULE mo_var_metadata
 
