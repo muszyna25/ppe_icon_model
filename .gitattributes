@@ -1464,6 +1464,7 @@ src/atm_phy_psrad/mo_psrad_lrtm_netcdf.f90 -text
 src/atm_phy_psrad/mo_psrad_lrtm_setup.f90 -text
 src/atm_phy_psrad/mo_psrad_lrtm_solver.f90 -text
 src/atm_phy_psrad/mo_psrad_orbit.f90 -text
+src/atm_phy_psrad/mo_psrad_orbit_config.f90 -text
 src/atm_phy_psrad/mo_psrad_radiation.f90 -text
 src/atm_phy_psrad/mo_psrad_radiation_parameters.f90 -text
 src/atm_phy_psrad/mo_psrad_rrtm_coeffs.f90 -text
@@ -1695,6 +1696,7 @@ src/namelists/mo_nonhydrostatic_nml.f90 -text
 src/namelists/mo_nwp_phy_nml.f90 -text
 src/namelists/mo_nwp_tuning_nml.f90 -text
 src/namelists/mo_parallel_nml.f90 -text
+src/namelists/mo_psrad_orbit_nml.f90 -text
 src/namelists/mo_radiation_nml.f90 -text
 src/namelists/mo_read_namelists.f90 -text
 src/namelists/mo_run_nml.f90 -text

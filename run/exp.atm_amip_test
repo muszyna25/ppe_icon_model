@@ -156,6 +156,11 @@ cat > ${atmo_namelist} << EOF
 &psrad_nml
 rad_perm          = 1           ! Integer for perturbing random number seeds
 /
+&psrad_orbit_nml
+cecc        = 0.0
+cobld       = 0.0
+l_orbvsop87 = .FALSE.
+/
 &echam_conv_nml
 /
 &echam_cloud_nml

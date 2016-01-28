@@ -45,6 +45,7 @@ MODULE mo_psrad_orbit
   USE mo_math_constants, ONLY : pi
   USE mo_exception, ONLY : finish
   USE mo_datetime,  ONLY : t_datetime
+  USE mo_psrad_orbit_config, ONLY: psrad_orbit_config
 
   IMPLICIT NONE
   PRIVATE 
@@ -63,8 +64,8 @@ MODULE mo_psrad_orbit
   REAL(wp), PARAMETER :: sec2rad = deg2rad/3600.0_wp
   REAL(wp), SAVE      :: declination
 
-  REAL(wp), SAVE :: cecc   =  0.016715_wp !< Eccentricity of Earth's Orbit
-  REAL(wp), SAVE :: cobld  =  23.44100_wp !< Obliquity of Earth [Deg]
+  REAL(wp)       :: cecc                  !< eccentricity
+  REAL(wp)       :: cobld                 !< obliquity in degrees
   REAL(wp), SAVE :: clonp  =  282.7000_wp !< Long. of Perihelion (from v.eqin)
 
 CONTAINS
@@ -101,12 +102,16 @@ CONTAINS
     REAL(wp) :: sq_ecc, lmbd, delt, guess, a, b, z1, z2, z3, diff, cos_e, big_e
 
     !
+    ! set local variables for eccentricity and obliquity
+    cecc  = psrad_orbit_config%cecc
+    cobld = psrad_orbit_config%cobld
     obl_rad = cobld*deg2rad
     phl_rad = clonp*deg2rad
     !
     ! Calculation of eccentric anomaly (big_e) of vernal equinox using
     ! Lacaille's formula.
     ! --------------------------------
+write(0,*) 'eccentricity=',cecc,'obliquity=',cobld
     sq_ecc = SQRT((1.0_wp+cecc)/(1.0_wp-cecc))
     big_e  = 2.0_wp*ATAN(TAN(0.5_wp*phl_rad)/sq_ecc)
     !
