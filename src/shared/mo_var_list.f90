@@ -741,53 +741,15 @@ CONTAINS
 
   !------------------------------------------------------------------------------------------------
   !
-  ! Set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
+  ! Set dynamic metadata, i.e. polymorphic tracer metadata
   ! (private routine within this module)
   !
-  SUBROUTINE set_var_metadata_dyn(this_info, this_info_dyn,tracer_info)
-    TYPE(t_var_metadata),TARGET,INTENT(IN)   :: this_info
+  SUBROUTINE set_var_metadata_dyn(this_info_dyn,tracer_info)
     TYPE(t_var_metadata_dynamic),INTENT(OUT) :: this_info_dyn
     CLASS(t_tracer_meta),INTENT(IN),OPTIONAL :: tracer_info
 
-    this_info_dyn%name                => this_info%name
-    this_info_dyn%key                 => this_info%key
-    this_info_dyn%var_class           => this_info%var_class
-    this_info_dyn%ndims               => this_info%ndims
-    this_info_dyn%used_dimensions     => this_info%used_dimensions
-    this_info_dyn%isteptype           => this_info%isteptype
-    this_info_dyn%ncontained          => this_info%ncontained
-    this_info_dyn%maxcontained        => this_info%maxcontained
-    this_info_dyn%var_ref_pos         => this_info%var_ref_pos
-    this_info_dyn%hgrid               => this_info%hgrid
-    this_info_dyn%vgrid               => this_info%vgrid
-    this_info_dyn%tlev_source         => this_info%tlev_source
-    this_info_dyn%cdiVarID            => this_info%cdiVarID
-    this_info_dyn%cdiVarID_2          => this_info%cdiVarID_2
-    this_info_dyn%cdiGridID           => this_info%cdiGridID
-    this_info_dyn%cdiZaxisID          => this_info%cdiZaxisID
-    this_info_dyn%cdiDataType         => this_info%cdiDataType
-    this_info_dyn%l_pp_scheduler_task => this_info%l_pp_scheduler_task
-    this_info_dyn%allocated           => this_info%allocated
-    this_info_dyn%lrestart            => this_info%lrestart
-    this_info_dyn%loutput             => this_info%loutput
-    this_info_dyn%lmiss               => this_info%lmiss
-    this_info_dyn%lrestart_cont       => this_info%lrestart_cont
-    this_info_dyn%lrestart_read       => this_info%lrestart_read
-    this_info_dyn%lcontainer          => this_info%lcontainer
-    this_info_dyn%lcontained          => this_info%lcontained
-    this_info_dyn%in_group            => this_info%in_group
-    this_info_dyn%cf                  => this_info%cf
-    this_info_dyn%grib2               => this_info%grib2
-    this_info_dyn%resetval            => this_info%resetval
-    this_info_dyn%missval             => this_info%missval
-    this_info_dyn%initval             => this_info%initval
-    this_info_dyn%post_op             => this_info%post_op
-    this_info_dyn%action_list         => this_info%action_list
-    this_info_dyn%vert_interp         => this_info%vert_interp
-    this_info_dyn%hor_interp          => this_info%hor_interp
-    
     CALL assign_if_present_tracer_meta(this_info_dyn%tracer,tracer_info)
-    
+
   END SUBROUTINE set_var_metadata_dyn
 
 
@@ -959,8 +921,7 @@ CONTAINS
          verbose=verbose, l_pp_scheduler_task=l_pp_scheduler_task,           &
          post_op=post_op, action_list=action_list, var_class=var_class )
     ! set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
-    CALL set_var_metadata_dyn (new_list_element%field%info,                  &
-                               new_list_element%field%info_dyn,              &
+    CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
     !
     IF (.NOT. referenced) THEN
@@ -2189,8 +2150,7 @@ CONTAINS
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class)
     ! set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
-    CALL set_var_metadata_dyn (new_list_element%field%info,                  &
-                               new_list_element%field%info_dyn,              &
+    CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
 
     ref_info%ndims = ndims
@@ -2393,8 +2353,7 @@ CONTAINS
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class)
     ! set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
-    CALL set_var_metadata_dyn (new_list_element%field%info,                  &
-                               new_list_element%field%info_dyn,              &
+    CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
 
     ref_info%ndims = ndims
@@ -2596,8 +2555,7 @@ CONTAINS
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class)
     ! set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
-    CALL set_var_metadata_dyn (new_list_element%field%info,                  &
-                               new_list_element%field%info_dyn,              &
+    CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
     !
     ref_info%ndims = ndims

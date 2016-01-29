@@ -118,7 +118,7 @@ CONTAINS
                       &                                  lifetime_tracer, mol_weight)
     ! Base type (t_tracer_meta) content
     LOGICAL, INTENT(IN), OPTIONAL  :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
-    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name      ! Name of tracer
+    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name       ! Name of tracer
     INTEGER, INTENT(IN), OPTIONAL  :: ihadv_tracer     ! Method for horizontal transport
     INTEGER, INTENT(IN), OPTIONAL  :: ivadv_tracer     ! Method for vertical transport
     LOGICAL, INTENT(IN), OPTIONAL  :: lturb_tracer     ! Switch for turbulent transport

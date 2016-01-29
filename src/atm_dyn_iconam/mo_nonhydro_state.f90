@@ -66,7 +66,8 @@ MODULE mo_nonhydro_state
     &                                add_ref, new_var_list, delete_var_list, &
     &                                add_var_list_reference
   USE mo_linked_list,          ONLY: t_list_element
-  USE mo_var_metadata_types,   ONLY: t_var_metadata_dynamic, MAX_GROUPS
+  USE mo_var_metadata_types,   ONLY: t_var_metadata,t_var_metadata_dynamic,  &
+    &                                MAX_GROUPS
   USE mo_var_metadata,         ONLY: create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
     &                                groups, vintp_types, new_action, actions
@@ -1162,7 +1163,8 @@ MODULE mo_nonhydro_state
       &  listname
 
     ! local variables
-    TYPE (t_var_metadata_dynamic), POINTER :: from_info
+    TYPE (t_var_metadata), POINTER         :: from_info
+    TYPE (t_var_metadata_dynamic), POINTER :: from_info_dyn
     TYPE (t_list_element), POINTER         :: element
     TYPE (t_list_element), TARGET          :: start_with
 
@@ -1190,10 +1192,11 @@ MODULE mo_nonhydro_state
       !
       ! retrieve information from actual linked list element
       !
-      from_info => element%field%info_dyn
+      from_info     => element%field%info
+      from_info_dyn => element%field%info_dyn
 
       ! Only add tracer fields to the tracer list
-      IF (from_info%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) THEN
+      IF (from_info_dyn%tracer%lis_tracer .AND. .NOT. from_info%lcontainer ) THEN
 
         CALL add_var_list_reference(p_tracer_list, from_info%name, &
           &                         from_var_list%p%name, in_group=groups() )

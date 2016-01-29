@@ -168,7 +168,8 @@ MODULE mo_pp_scheduler
     &                                   get_var_timelevel
   USE mo_var_list_element,        ONLY: level_type_ml,                                      &
     &                                   level_type_pl, level_type_hl, level_type_il
-  USE mo_var_metadata_types,      ONLY: t_var_metadata_dynamic, VARNAME_LEN, t_post_op_meta
+  USE mo_var_metadata_types,      ONLY: t_var_metadata, t_var_metadata_dynamic, VARNAME_LEN,&
+    &                                   t_post_op_meta
   USE mo_var_metadata,            ONLY: create_hor_interp_metadata, vintp_type_id
   USE mo_intp_data_strc,          ONLY: lonlat_grid_list,                                   &
     &                                   t_lon_lat_intp, p_int_state,                        &
@@ -333,7 +334,7 @@ CONTAINS
     INTEGER                       :: i, shape3d_ll(3), nblks_lonlat, &
       &                              nlev, jg, tl
     TYPE(t_job_queue),    POINTER :: task
-    TYPE(t_var_metadata_dynamic), POINTER :: info
+    TYPE(t_var_metadata), POINTER :: info
     REAL(wp),             POINTER :: p_opt_field_r3d(:,:,:)
     CHARACTER(len=varname_len)    :: name
     CHARACTER(len=4)              :: suffix
@@ -389,7 +390,7 @@ CONTAINS
         ENDIF
         IF(.NOT.ASSOCIATED(element)) EXIT
 
-        info => element%field%info_dyn
+        info     => element%field%info
         ! Do not inspect element if it is a container
         IF (info%lcontainer) CYCLE
         ! Do not inspect element if "loutput=.false."
@@ -488,7 +489,8 @@ CONTAINS
     CHARACTER(LEN=vname_len), ALLOCATABLE :: ll_varlist(:)
     INTEGER, ALLOCATABLE                  :: ll_varlevs(:)
     CHARACTER(LEN=vname_len)              :: vname
-    TYPE(t_var_metadata_dynamic),POINTER  :: info
+    TYPE(t_var_metadata),POINTER          :: info
+    TYPE(t_var_metadata_dynamic),POINTER  :: info_dyn
     INTEGER                               :: var_shape(5)
     TYPE (t_lon_lat_intp),     POINTER    :: ptr_int_lonlat
     INTEGER                               :: uv_hrz_intp_grid(4*MAX_LONLAT_GRIDS), &
@@ -635,7 +637,8 @@ CONTAINS
           ENDIF
           IF(.NOT.ASSOCIATED(element)) EXIT
             
-          info => element%field%info_dyn
+          info     => element%field%info
+          info_dyn => element%field%info_dyn
           ! Do not inspect element if it is a container
           IF (info%lcontainer) CYCLE VAR_LOOP
           ! Do not inspect element if "loutput=.false."
@@ -689,7 +692,7 @@ CONTAINS
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
                 &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
                 &           ldims=var_shape, lrestart=.FALSE.,                    &
-                &           tracer_info=info%tracer,                              &
+                &           tracer_info=info_dyn%tracer,                          &
                 &           loutput=.TRUE., new_element=new_element,              &
                 &           isteptype=info%isteptype,                             &
                 &           hor_interp=create_hor_interp_metadata(                &
@@ -900,7 +903,7 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element_u, element_v, element, vn_element, new_element, new_element_2
     INTEGER                       :: i, shape3d_c(3), shape3d_e(3), nblks_c, nblks_e, tl
     TYPE(t_job_queue),    POINTER :: task
-    TYPE(t_var_metadata_dynamic), POINTER :: info
+    TYPE(t_var_metadata), POINTER :: info
     REAL(wp),             POINTER :: p_opt_field_r3d(:,:,:)
     CHARACTER(len=varname_len)    :: name
     CHARACTER(len=4)              :: suffix
@@ -945,7 +948,7 @@ CONTAINS
         ENDIF
         IF(.NOT.ASSOCIATED(element)) EXIT
 
-        info => element%field%info_dyn
+        info => element%field%info
         ! Do not inspect element if it is a container
         IF (info%lcontainer) CYCLE
         ! Do not inspect element if "loutput=.false."
@@ -1076,11 +1079,12 @@ CONTAINS
     ! variable lists (for all domains + output name lists):
     CHARACTER(LEN=vname_len), TARGET, ALLOCATABLE  :: &
          &                                pl_varlist(:), hl_varlist(:), il_varlist(:)
-    CHARACTER(LEN=vname_len),  POINTER :: varlist(:)
-    CHARACTER(LEN=10)                  :: prefix
-    TYPE(t_var_metadata_dynamic),POINTER :: info
-    TYPE(t_cf_var)                     :: cf_desc
-    TYPE(t_grib2_var)                  :: grib2_desc
+    CHARACTER(LEN=vname_len),  POINTER   :: varlist(:)
+    CHARACTER(LEN=10)                    :: prefix
+    TYPE(t_var_metadata),POINTER         :: info
+    TYPE(t_var_metadata_dynamic),POINTER :: info_dyn
+    TYPE(t_cf_var)                       :: cf_desc
+    TYPE(t_grib2_var)                    :: grib2_desc
 
     ! define NetCDF output precision
     IF ( lnetcdf_flt64_output ) THEN
@@ -1324,7 +1328,8 @@ CONTAINS
               ENDIF
               IF(.NOT.ASSOCIATED(element)) EXIT
 
-              info => element%field%info_dyn
+              info     => element%field%info
+              info_dyn => element%field%info_dyn
               ! Do not inspect element if it is a container
               IF (info%lcontainer) CYCLE
               ! Do not inspect element if "loutput=.false."
@@ -1364,7 +1369,7 @@ CONTAINS
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,    &
                 &           info%hgrid, vgrid, info%cf, info%grib2,         &
                 &           ldims=shape3d, lrestart=.FALSE.,                &
-                &           tracer_info=info%tracer,                     &
+                &           tracer_info=info_dyn%tracer,                    &
                 &           loutput=.TRUE., new_element=new_element,        &
                 &           post_op=info%post_op, var_class=info%var_class, &
                 &           tlev_source=info%tlev_source )

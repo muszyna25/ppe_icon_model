@@ -257,30 +257,9 @@ MODULE mo_var_metadata_types
 
   END TYPE t_var_metadata
 
-  ! The type t_var_metadata_dynamic contains pointers to all metadata stored in t_var_metadata (i.e. the
-  ! infostate) of the same element. In contrast to t_var_metadata, it is not transfered to the output PE.
+  ! The type t_var_metadata_dynamic is (in contrast to t_var_metadata) not transfered to the output PE.
   ! This allows for additional dynamical objects inside t_var_metadata_dynamic like pointers or allocatables.
   TYPE t_var_metadata_dynamic
-  ! pointers to static part: content of t_var_metadata (DESCRIPTIONS CAN BE FOUND AT: t_var_metadata)
-    CHARACTER(len=VARNAME_LEN), POINTER :: name
-    INTEGER, POINTER :: &
-      &  key, var_class, ndims, used_dimensions(:), &
-      &  isteptype, ncontained, maxcontained,       &
-      &  var_ref_pos, hgrid, vgrid, tlev_source,    &
-      &  cdiVarID, cdiVarID_2, cdiGridID,           &
-      &  cdiZaxisID, cdiDataType, l_pp_scheduler_task
-    LOGICAL, POINTER :: &
-      &  allocated, lrestart, loutput, lmiss,       &
-      &  lrestart_cont, lrestart_read, lcontainer,  &
-      &  lcontained, in_group(:)
-    TYPE(t_cf_var), POINTER             :: cf
-    TYPE(t_grib2_var), POINTER          :: grib2
-    TYPE(t_union_vals), POINTER :: &
-      &  resetval, missval, initval
-    TYPE(t_post_op_meta), POINTER       :: post_op
-    TYPE(t_var_action), POINTER         :: action_list
-    TYPE(t_vert_interp_meta), POINTER   :: vert_interp 
-    TYPE(t_hor_interp_meta), POINTER    :: hor_interp 
   ! Additional dynamical objects
     CLASS(t_tracer_meta), POINTER       :: tracer      ! Tracer-specific metadata
   END TYPE t_var_metadata_dynamic
