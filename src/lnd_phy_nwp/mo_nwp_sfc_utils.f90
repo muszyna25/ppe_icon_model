@@ -36,7 +36,7 @@ MODULE mo_nwp_sfc_utils
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ntiles_total, ntiles_water, &
     &                               lseaice, llake, lmulti_snow, idiag_snowfrac, ntiles_lnd, &
     &                               lsnowtile, isub_water, isub_seaice, isub_lake,    &
-    &                               itype_interception
+    &                               itype_interception, l2lay_rho_snow
   USE mo_nwp_tuning_config,   ONLY: tune_minsnowfrac
   USE mo_initicon_config,     ONLY: init_mode_soil, ltile_coldstart, init_mode
   USE mo_nwp_soil_init,       ONLY: terra_multlay_init
@@ -294,6 +294,15 @@ CONTAINS
           tai_t(ic,jb,isubs)                 =  ext_data%atm%tai_t(jc,jb,isubs)
         ENDDO
 
+        IF(l2lay_rho_snow .OR. lmulti_snow) THEN
+          DO jk=1,nlev_snow
+            DO ic = 1, i_count
+              jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
+              rho_snow_mult_now_t(ic,jk,jb,isubs) =  p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs)
+            ENDDO
+          ENDDO
+
+        ENDIF
 
         IMSNOWI: IF(lmulti_snow) THEN
 
@@ -309,7 +318,6 @@ CONTAINS
           DO jk=1,nlev_snow
             DO ic = 1, i_count
               jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
-              rho_snow_mult_now_t(ic,jk,jb,isubs) =  p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs)
               wliq_snow_now_t(ic,jk,jb,isubs)     =  p_prog_lnd_now%wliq_snow_t    (jc,jk,jb,isubs)
               wtot_snow_now_t(ic,jk,jb,isubs)     =  p_prog_lnd_now%wtot_snow_t    (jc,jk,jb,isubs)
               dzh_snow_now_t(ic,jk,jb,isubs)      =  p_prog_lnd_now%dzh_snow_t     (jc,jk,jb,isubs)
@@ -349,7 +357,7 @@ CONTAINS
             &  t_snow    = t_snow_now_t      (:,jb,isubs), & ! snow temp
             &  t_soiltop = t_s_now_t         (:,jb,isubs), & ! soil top temp
             &  w_snow    = w_snow_now_t      (:,jb,isubs), & ! snow WE
-            &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow depth
+            &  rho_snow  = rho_snow_now_t    (:,jb,isubs), & ! snow density
             &  freshsnow = freshsnow_t       (:,jb,isubs), & ! fresh snow fraction
             &  sso_sigma = sso_sigma_t       (:,jb,isubs), & ! sso stdev
             &  tai       = tai_t             (:,jb,isubs), & ! effective leaf area index
@@ -473,6 +481,15 @@ CONTAINS
 
         ENDIF
 
+        IF(l2lay_rho_snow .OR. lmulti_snow) THEN
+          DO jk=1,nlev_snow
+            DO ic = 1, i_count
+              jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
+              p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs)
+            ENDDO
+          ENDDO
+        ENDIF
+
         IMSNOWO: IF(lmulti_snow) THEN
 
 !CDIR UNROLL=nlsnow+1
@@ -489,7 +506,6 @@ CONTAINS
             IF (lsnowtile .AND. isubs > ntiles_lnd .AND. .NOT. lsnowtile_warmstart) THEN
               DO ic = 1, i_count
                 jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
-                p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs)
                 p_prog_lnd_now%wliq_snow_t(jc,jk,jb,isubs) = wliq_snow_now_t(ic,jk,jb,isubs)/ &
                                              MAX(0.01_wp,p_lnd_diag%snowfrac_lc_t(jc,jb,isubs))
                 p_prog_lnd_now%wtot_snow_t(jc,jk,jb,isubs) = wtot_snow_now_t(ic,jk,jb,isubs)/ &
@@ -500,7 +516,6 @@ CONTAINS
             ELSE
               DO ic = 1, i_count
                 jc = ext_data%atm%idx_lst_lp_t(ic,jb,isubs)
-                p_prog_lnd_now%rho_snow_mult_t(jc,jk,jb,isubs) = rho_snow_mult_now_t(ic,jk,jb,isubs)
                 p_prog_lnd_now%wliq_snow_t(jc,jk,jb,isubs) = wliq_snow_now_t(ic,jk,jb,isubs)
                 p_prog_lnd_now%wtot_snow_t(jc,jk,jb,isubs) = wtot_snow_now_t(ic,jk,jb,isubs)
                 p_prog_lnd_now%dzh_snow_t(jc,jk,jb,isubs)  = dzh_snow_now_t(ic,jk,jb,isubs)
@@ -1131,11 +1146,18 @@ CONTAINS
           ENDDO
         ENDDO
 
+        IF (l2lay_rho_snow .OR. lmulti_snow) THEN
+          DO jk=1,nlev_snow
+            DO jc = i_startidx, i_endidx
+              lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_prog%rho_snow_mult_t(jc,jk,jb,1)
+            ENDDO
+          ENDDO
+        ENDIF
+
         IF (lmulti_snow) THEN
           DO jk=1,nlev_snow
             DO jc = i_startidx, i_endidx
               lnd_diag%t_snow_mult  (jc,jk,jb) = lnd_prog%t_snow_mult_t(jc,jk,jb,1)
-              lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_prog%rho_snow_mult_t(jc,jk,jb,1)
               lnd_diag%wliq_snow    (jc,jk,jb) = lnd_prog%wliq_snow_t(jc,jk,jb,1)
               lnd_diag%wtot_snow    (jc,jk,jb) = lnd_prog%wtot_snow_t(jc,jk,jb,1)
               lnd_diag%dzh_snow     (jc,jk,jb) = lnd_prog%dzh_snow_t(jc,jk,jb,1)
@@ -1170,9 +1192,12 @@ CONTAINS
           lnd_diag%w_s    (:,jb)  = 0._wp
         ENDIF
 
+        IF (l2lay_rho_snow .OR. lmulti_snow) THEN
+          lnd_diag%rho_snow_mult(:,:,jb) = 0._wp
+        ENDIF
+
         IF (lmulti_snow) THEN
           lnd_diag%t_snow_mult  (:,:,jb) = 0._wp
-          lnd_diag%rho_snow_mult(:,:,jb) = 0._wp
           lnd_diag%wliq_snow    (:,:,jb) = 0._wp
           lnd_diag%wtot_snow    (:,:,jb) = 0._wp
           lnd_diag%dzh_snow     (:,:,jb) = 0._wp
@@ -1249,6 +1274,18 @@ CONTAINS
             ENDDO
           ENDDO
 
+          IF (l2lay_rho_snow .OR. lmulti_snow) THEN
+            DO jk=1,nlev_snow
+              DO jc = i_startidx, i_endidx
+                tilefrac = ext_data%atm%frac_t(jc,jb,isubs)        &
+                  &      * ext_data%atm%inv_frland_from_tiles(jc,jb)
+
+                lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_diag%rho_snow_mult(jc,jk,jb) + tilefrac  &
+                                                   * lnd_prog%rho_snow_mult_t(jc,jk,jb,isubs)
+              ENDDO
+            ENDDO
+          ENDIF
+
           IF (lmulti_snow) THEN
             DO jk=1,nlev_snow
               DO jc = i_startidx, i_endidx
@@ -1260,8 +1297,6 @@ CONTAINS
 
                 lnd_diag%t_snow_mult(jc,jk,jb)   = lnd_diag%t_snow_mult(jc,jk,jb) + tilefrac  &
                                                    * lnd_prog%t_snow_mult_t(jc,jk,jb,isubs)
-                lnd_diag%rho_snow_mult(jc,jk,jb) = lnd_diag%rho_snow_mult(jc,jk,jb) + tilefrac  &
-                                                   * lnd_prog%rho_snow_mult_t(jc,jk,jb,isubs)
                 lnd_diag%wliq_snow(jc,jk,jb)     = lnd_diag%wliq_snow(jc,jk,jb) + tilefrac  &
                                                    * lnd_prog%wliq_snow_t(jc,jk,jb,isubs)
                 lnd_diag%wtot_snow(jc,jk,jb)     = lnd_diag%wtot_snow(jc,jk,jb) + tilefrac  &
@@ -2593,10 +2628,15 @@ CONTAINS
         p_prog_lnd_new%rho_snow_t(is:ie,jb,jt)   = p_prog_lnd_now%rho_snow_t(is:ie,jb,jt)
       ENDDO
 
+      IF (l2lay_rho_snow .OR. lmulti_snow) THEN
+        DO jt = 1, ntiles_total
+          p_prog_lnd_new%rho_snow_mult_t(is:ie,:,jb,jt) = p_prog_lnd_now%rho_snow_mult_t(is:ie,:,jb,jt)
+        ENDDO
+      ENDIF
+
       IF (lmulti_snow) THEN
         DO jt = 1, ntiles_total
           p_prog_lnd_new%t_snow_mult_t(is:ie,:,jb,jt)   = p_prog_lnd_now%t_snow_mult_t(is:ie,:,jb,jt)
-          p_prog_lnd_new%rho_snow_mult_t(is:ie,:,jb,jt) = p_prog_lnd_now%rho_snow_mult_t(is:ie,:,jb,jt)
           p_prog_lnd_new%wliq_snow_t(is:ie,:,jb,jt)     = p_prog_lnd_now%wliq_snow_t(is:ie,:,jb,jt)
           p_prog_lnd_new%wtot_snow_t(is:ie,:,jb,jt)     = p_prog_lnd_now%wtot_snow_t(is:ie,:,jb,jt)
           p_prog_lnd_new%dzh_snow_t(is:ie,:,jb,jt)      = p_prog_lnd_now%dzh_snow_t(is:ie,:,jb,jt)

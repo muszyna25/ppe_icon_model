@@ -52,7 +52,7 @@ MODULE mo_initicon_io
     &                               read_3d_1time, on_cells, on_edges
   USE mo_util_cdi,            ONLY: t_inputParameters, trivial_tileId
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
-  USE mo_lnd_nwp_config,      ONLY: ntiles_total, &
+  USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, tiles, lsnowtile
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
@@ -1082,11 +1082,15 @@ MODULE mo_initicon_io
                                       & 'aer_su     ', &
                                       & 'aer_du     '/))
 
-    IF (lmulti_snow) CALL requestList%requestMultiple((/ 't_snow_mult  ', &
-                                                       & 'rho_snow_mult', &
-                                                       & 'wtot_snow    ', &
-                                                       & 'wliq_snow    ', &
-                                                       & 'dzh_snow     ' /))    ! multi layer snow fields
+    IF (lmulti_snow) THEN
+      CALL requestList%requestMultiple((/ 't_snow_mult  ', &
+                                        & 'rho_snow_mult', &
+                                        & 'wtot_snow    ', &
+                                        & 'wliq_snow    ', &
+                                        & 'dzh_snow     ' /))    ! multi layer snow fields
+    ELSE IF (l2lay_rho_snow) THEN
+      CALL requestList%requestMultiple((/ 'rho_snow_mult' /))
+    ENDIF
 
     SELECT CASE(init_mode)
         CASE(MODE_COMBINED)
@@ -1121,6 +1125,7 @@ MODULE mo_initicon_io
     TYPE(t_wtr_prog), POINTER :: wtr_prog
     CHARACTER(LEN=VARNAME_LEN), POINTER :: checkgrp(:)
     TYPE(t_inputParameters) :: parameters
+    LOGICAL :: lread
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':fetch_dwdfg_sfc'
 
@@ -1165,6 +1170,20 @@ MODULE mo_initicon_io
                 CALL fetchTiled3dWrapper('wtot_snow', jg, ntiles_total, lnd_prog%wtot_snow_t)
                 CALL fetchTiled3dWrapper('wliq_snow', jg, ntiles_total, lnd_prog%wliq_snow_t)
                 CALL fetchTiled3dWrapper('dzh_snow', jg, ntiles_total, lnd_prog%dzh_snow_t)
+            ELSE IF (l2lay_rho_snow) THEN
+              IF (ltile_coldstart) THEN
+                lread = .TRUE.
+                DO jt = 1, ntiles_total
+                  lread = lread .AND. requestList%fetch3d('rho_snow_mult', trivial_tileId, jg, &
+                    lnd_prog%rho_snow_mult_t(:,:,:,jt))
+                ENDDO
+              ELSE
+                lread = requestList%fetchTiled3d('rho_snow_mult', jg, lnd_prog%rho_snow_mult_t)
+              ENDIF
+              IF (.NOT. lread) THEN
+                ! initialize top-layer snow density with average density if no input field is available
+                lnd_prog%rho_snow_mult_t(:,1,:,:) = lnd_prog%rho_snow_t(:,:,:)
+              ENDIF
             END IF ! lmulti_snow
 
 

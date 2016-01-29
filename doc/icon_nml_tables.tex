@@ -2551,12 +2551,20 @@ L&
 .TRUE. for use of multi-layer snow model&
 \tabularnewline
 
+l2lay\_rho\_snow &
+L&
+.FALSE.&
+&
+.TRUE. predict additional snow density for upper part of the snowpack, having
+a maximum depth of max\_toplaydepth & lmulti\_snow = .FALSE.
+\tabularnewline
+
 %\hline
 max\_toplaydepth &
 R &
 0.25&
 m &
-maximum depth of uppermost snow layer & lmulti\_snow=.TRUE.
+maximum depth of uppermost snow layer & lmulti\_snow=.TRUE. or l2lay\_rho\_snow=.TRUE.
 \tabularnewline
 
 %\hline

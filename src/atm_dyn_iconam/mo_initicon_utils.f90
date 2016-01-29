@@ -52,7 +52,7 @@ MODULE mo_initicon_utils
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of, int2string
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
     &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld,         &
-    &                               nlev_snow, ntiles_lnd, lsnowtile
+    &                               nlev_snow, ntiles_lnd, lsnowtile, l2lay_rho_snow
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, iprog_aero
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
@@ -481,6 +481,10 @@ MODULE mo_initicon_utils
                 CALL ngb_search(lnd_prog%rho_snow_t (:,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
 
                 CALL ngb_search(lnd_prog%t_so_t(:,nlev_soil+1,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+
+                IF (l2lay_rho_snow) THEN ! only rho_snow layer 1 is relevant in this case
+                  CALL ngb_search(lnd_prog%rho_snow_mult_t(:,1,:,jt), iidx, iblk, lpmask, lpcount, jc, jb)
+                ENDIF
               ENDIF
             ENDDO
 
