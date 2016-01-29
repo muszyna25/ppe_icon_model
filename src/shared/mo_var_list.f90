@@ -2878,79 +2878,57 @@ CONTAINS
           CALL message('', 'Added to Restart                            : no.')
         ENDIF
         !
-!>DRIEG        IF (this_list_element%field%info%tracer%lis_tracer) THEN
-!>DRIEG          CALL message('', 'Tracer field                                : yes.')
-!>DRIEG
-!>DRIEG          WRITE (message_text,'(a,a)') &
-!>DRIEG             'Tracer class                                : ', &
-!>DRIEG             this_list_element%field%info%tracer%tracer_class
-!>DRIEG          CALL message('', message_text)
-!>DRIEG
-!>DRIEG
-!>DRIEG          WRITE (message_text,'(a,3i3)') &
-!>DRIEG             'Horizontal transport method                 : ', &
-!>DRIEG             this_list_element%field%info%tracer%ihadv_tracer
-!>DRIEG          CALL message('', message_text)
-!>DRIEG
-!>DRIEG          WRITE (message_text,'(a,3i3)') &
-!>DRIEG             'Vertical transport method                   : ', &
-!>DRIEG             this_list_element%field%info%tracer%ivadv_tracer
-!>DRIEG          CALL message('', message_text)
-!>DRIEG
-!>DRIEG          IF (this_list_element%field%info%tracer%lturb_tracer) THEN
-!>DRIEG            CALL message('', 'Turbulent transport                         : yes.')
-!>DRIEG          ELSE
-!>DRIEG            CALL message('', 'Turbulent transport                         : no.')
-!>DRIEG          ENDIF
-!>DRIEG
-!>DRIEG          IF (this_list_element%field%info%tracer%lsed_tracer) THEN
-!>DRIEG            CALL message('', 'Sedimentation                               : yes.')
-!>DRIEG          ELSE
-!>DRIEG            CALL message('', 'Sedimentation                               : no.')
-!>DRIEG          ENDIF
-!>DRIEG
-!>DRIEG          IF (this_list_element%field%info%tracer%ldep_tracer) THEN
-!>DRIEG            CALL message('', 'Dry deposition                              : yes.')
-!>DRIEG          ELSE
-!>DRIEG            CALL message('', 'Dry deposition                              : no.')
-!>DRIEG          ENDIF
-!>DRIEG
-!>DRIEG          IF (this_list_element%field%info%tracer%lconv_tracer) THEN
-!>DRIEG            CALL message('', 'Convection                                  : yes.')
-!>DRIEG          ELSE
-!>DRIEG            CALL message('', 'Convection                                  : no.')
-!>DRIEG          ENDIF
-!>DRIEG
-!>DRIEG          IF (this_list_element%field%info%tracer%lwash_tracer) THEN
-!>DRIEG            CALL message('', 'Washout                                     : yes.')
-!>DRIEG          ELSE
-!>DRIEG            CALL message('', 'Washout                                     : no.')
-!>DRIEG          ENDIF
-!>DRIEG
-!>DRIEG          WRITE (message_text,'(a,e18.12)') &
-!>DRIEG             'Particle diameter in m                      : ', &
-!>DRIEG             this_list_element%field%info%tracer%rdiameter_tracer
-!>DRIEG          CALL message('', message_text)
-!>DRIEG
-!>DRIEG          WRITE (message_text,'(a,e18.12)') &
-!>DRIEG             'particle density in kg m^-3                 : ', &
-!>DRIEG             this_list_element%field%info%tracer%rrho_tracer
-!>DRIEG          CALL message('', message_text)
-!>DRIEG
-!>DRIEG        WRITE (message_text,'(a,e18.12)') &
-!>DRIEG             'Radioactive half-life in s^-1                      : ', &
-!>DRIEG             this_list_element%field%info%tracer%halflife_tracer
-!>DRIEG          CALL message('', message_text)
-!>DRIEG
-!>DRIEG        WRITE (message_text,'(a,i3)') &
-!>DRIEG             'IMIS number                      : ', &
-!>DRIEG             this_list_element%field%info%tracer%imis_tracer
-!>DRIEG          CALL message('', message_text)
-!>DRIEG
-!>DRIEG
-!>DRIEG        ELSE
-!>DRIEG          CALL message('', 'Tracer field                                : no.')
-!>DRIEG        ENDIF
+        IF (this_list_element%field%info_dyn%tracer%lis_tracer) THEN
+          CALL message('', 'Tracer field                                : yes.')
+
+          WRITE (message_text,'(a,a)') &
+             'Tracer class                                : ', &
+             this_list_element%field%info_dyn%tracer%tracer_class
+          CALL message('', message_text)
+
+          WRITE (message_text,'(a,3i3)') &
+             'Horizontal transport method                 : ', &
+             this_list_element%field%info_dyn%tracer%ihadv_tracer
+          CALL message('', message_text)
+
+          WRITE (message_text,'(a,3i3)') &
+             'Vertical transport method                   : ', &
+             this_list_element%field%info_dyn%tracer%ivadv_tracer
+          CALL message('', message_text)
+
+          IF (this_list_element%field%info_dyn%tracer%lturb_tracer) THEN
+            CALL message('', 'Turbulent transport                         : yes.')
+          ELSE
+            CALL message('', 'Turbulent transport                         : no.')
+          ENDIF
+
+          IF (this_list_element%field%info_dyn%tracer%ised_tracer > 0) THEN
+            CALL message('', 'Sedimentation                               : yes.')
+          ELSE
+            CALL message('', 'Sedimentation                               : no.')
+          ENDIF
+
+          IF (this_list_element%field%info_dyn%tracer%ldep_tracer) THEN
+            CALL message('', 'Dry deposition                              : yes.')
+          ELSE
+            CALL message('', 'Dry deposition                              : no.')
+          ENDIF
+
+          IF (this_list_element%field%info_dyn%tracer%lconv_tracer) THEN
+            CALL message('', 'Convection                                  : yes.')
+          ELSE
+            CALL message('', 'Convection                                  : no.')
+          ENDIF
+
+          IF (this_list_element%field%info_dyn%tracer%iwash_tracer > 0) THEN
+            CALL message('', 'Washout                                     : yes.')
+          ELSE
+            CALL message('', 'Washout                                     : no.')
+          ENDIF
+
+        ELSE
+          CALL message('', 'Tracer field                                : no.')
+        ENDIF !lis_tracer
 
         ! print variable class/species
         WRITE (message_text,'(a,i2)')       &
