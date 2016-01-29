@@ -143,70 +143,23 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: rho               ! Density [kg m-3]
     REAL(wp), INTENT(IN), OPTIONAL :: mol_weight        ! Molar mass [g mol-1]
     
+    TYPE(t_tracer_meta) :: parent_meta
+    
+    parent_meta=create_tracer_metadata(lis_tracer, name, ihadv_tracer, ivadv_tracer,          &
+      &                                lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,  &
+      &                                iwash_tracer)
+    
     ! Fill the meta of the base type (t_tracer_meta)
-    ! lis_tracer
-    IF ( PRESENT(lis_tracer) ) THEN
-      create_tracer_metadata_aero%lis_tracer = lis_tracer
-    ELSE
-      create_tracer_metadata_aero%lis_tracer = .FALSE.
-    ENDIF
-
-    ! name
-    IF ( PRESENT(name) ) THEN
-      create_tracer_metadata_aero%name = TRIM(name)
-    ELSE
-      create_tracer_metadata_aero%name = "unnamed"
-    ENDIF
-
-    ! ihadv_tracer
-    IF ( PRESENT(ihadv_tracer) ) THEN
-      create_tracer_metadata_aero%ihadv_tracer = ihadv_tracer
-    ELSE
-      create_tracer_metadata_aero%ihadv_tracer = 2
-    ENDIF
-
-    ! ivadv_tracer
-    IF ( PRESENT(ivadv_tracer) ) THEN
-      create_tracer_metadata_aero%ivadv_tracer = ivadv_tracer
-    ELSE
-      create_tracer_metadata_aero%ivadv_tracer = 3
-    ENDIF
-
-    ! lturb_tracer
-    IF ( PRESENT(lturb_tracer) ) THEN
-      create_tracer_metadata_aero%lturb_tracer = lturb_tracer
-    ELSE
-      create_tracer_metadata_aero%lturb_tracer = .FALSE.
-    ENDIF
-
-    ! lconv_tracer
-    IF ( PRESENT(lconv_tracer) ) THEN
-      create_tracer_metadata_aero%lconv_tracer = lconv_tracer
-    ELSE
-      create_tracer_metadata_aero%lconv_tracer = .FALSE.
-    ENDIF
-
-    ! ised_tracer
-    IF ( PRESENT(ised_tracer) ) THEN
-      create_tracer_metadata_aero%ised_tracer = ised_tracer
-    ELSE
-      create_tracer_metadata_aero%ised_tracer = 0
-    ENDIF
-
-    ! ldep_tracer
-    IF ( PRESENT(ldep_tracer) ) THEN
-      create_tracer_metadata_aero%ldep_tracer = ldep_tracer
-    ELSE
-      create_tracer_metadata_aero%ldep_tracer = .FALSE.
-    ENDIF
-
-    ! iwash_tracer
-    IF ( PRESENT(iwash_tracer) ) THEN
-      create_tracer_metadata_aero%iwash_tracer = iwash_tracer
-    ELSE
-      create_tracer_metadata_aero%iwash_tracer = 0
-    ENDIF
-      
+    create_tracer_metadata_aero%lis_tracer   = parent_meta%lis_tracer
+    create_tracer_metadata_aero%name         = parent_meta%name
+    create_tracer_metadata_aero%ihadv_tracer = parent_meta%ihadv_tracer
+    create_tracer_metadata_aero%ivadv_tracer = parent_meta%ivadv_tracer
+    create_tracer_metadata_aero%lturb_tracer = parent_meta%lturb_tracer
+    create_tracer_metadata_aero%lconv_tracer = parent_meta%lconv_tracer
+    create_tracer_metadata_aero%ised_tracer  = parent_meta%ised_tracer
+    create_tracer_metadata_aero%ldep_tracer  = parent_meta%ldep_tracer
+    create_tracer_metadata_aero%iwash_tracer = parent_meta%iwash_tracer
+    
     ! Fill the meta of the extended type (t_aero_meta)
     IF(PRESENT(solubility)) THEN
       create_tracer_metadata_aero%solubility = solubility
@@ -248,69 +201,22 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL ::  lifetime_tracer ! Lifetime of tracer [s]
     REAL(wp), INTENT(IN), OPTIONAL ::  mol_weight      ! Molar mass [g mol-1]
     
+    TYPE(t_tracer_meta) :: parent_meta
+    
+    parent_meta=create_tracer_metadata(lis_tracer, name, ihadv_tracer, ivadv_tracer,          &
+      &                                lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,  &
+      &                                iwash_tracer)
+    
     ! Fill the meta of the base type (t_tracer_meta)
-    ! lis_tracer
-    IF ( PRESENT(lis_tracer) ) THEN
-      create_tracer_metadata_chem%lis_tracer = lis_tracer
-    ELSE
-      create_tracer_metadata_chem%lis_tracer = .FALSE.
-    ENDIF
-
-    ! name
-    IF ( PRESENT(name) ) THEN
-      create_tracer_metadata_chem%name = TRIM(name)
-    ELSE
-      create_tracer_metadata_chem%name = "unnamed"
-    ENDIF
-
-    ! ihadv_tracer
-    IF ( PRESENT(ihadv_tracer) ) THEN
-      create_tracer_metadata_chem%ihadv_tracer = ihadv_tracer
-    ELSE
-      create_tracer_metadata_chem%ihadv_tracer = 2
-    ENDIF
-
-    ! ivadv_tracer
-    IF ( PRESENT(ivadv_tracer) ) THEN
-      create_tracer_metadata_chem%ivadv_tracer = ivadv_tracer
-    ELSE
-      create_tracer_metadata_chem%ivadv_tracer = 3
-    ENDIF
-
-    ! lturb_tracer
-    IF ( PRESENT(lturb_tracer) ) THEN
-      create_tracer_metadata_chem%lturb_tracer = lturb_tracer
-    ELSE
-      create_tracer_metadata_chem%lturb_tracer = .FALSE.
-    ENDIF
-
-    ! lconv_tracer
-    IF ( PRESENT(lconv_tracer) ) THEN
-      create_tracer_metadata_chem%lconv_tracer = lconv_tracer
-    ELSE
-      create_tracer_metadata_chem%lconv_tracer = .FALSE.
-    ENDIF
-
-    ! ised_tracer
-    IF ( PRESENT(ised_tracer) ) THEN
-      create_tracer_metadata_chem%ised_tracer = ised_tracer
-    ELSE
-      create_tracer_metadata_chem%ised_tracer = 0
-    ENDIF
-
-    ! ldep_tracer
-    IF ( PRESENT(ldep_tracer) ) THEN
-      create_tracer_metadata_chem%ldep_tracer = ldep_tracer
-    ELSE
-      create_tracer_metadata_chem%ldep_tracer = .FALSE.
-    ENDIF
-
-    ! iwash_tracer
-    IF ( PRESENT(iwash_tracer) ) THEN
-      create_tracer_metadata_chem%iwash_tracer = iwash_tracer
-    ELSE
-      create_tracer_metadata_chem%iwash_tracer = 0
-    ENDIF
+    create_tracer_metadata_chem%lis_tracer   = parent_meta%lis_tracer
+    create_tracer_metadata_chem%name         = parent_meta%name
+    create_tracer_metadata_chem%ihadv_tracer = parent_meta%ihadv_tracer
+    create_tracer_metadata_chem%ivadv_tracer = parent_meta%ivadv_tracer
+    create_tracer_metadata_chem%lturb_tracer = parent_meta%lturb_tracer
+    create_tracer_metadata_chem%lconv_tracer = parent_meta%lconv_tracer
+    create_tracer_metadata_chem%ised_tracer  = parent_meta%ised_tracer
+    create_tracer_metadata_chem%ldep_tracer  = parent_meta%ldep_tracer
+    create_tracer_metadata_chem%iwash_tracer = parent_meta%iwash_tracer
     
     ! Fill the meta of the extended type (t_chem_meta)
     IF(PRESENT(lifetime_tracer)) THEN
@@ -345,69 +251,22 @@ CONTAINS
     ! Extended type (t_hydro_meta) content
     ! ...
     
+    TYPE(t_tracer_meta) :: parent_meta
+    
+    parent_meta=create_tracer_metadata(lis_tracer, name, ihadv_tracer, ivadv_tracer,          &
+      &                                lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer,  &
+      &                                iwash_tracer)
+    
     ! Fill the meta of the base type (t_tracer_meta)
-    ! lis_tracer
-    IF ( PRESENT(lis_tracer) ) THEN
-      create_tracer_metadata_hydro%lis_tracer = lis_tracer
-    ELSE
-      create_tracer_metadata_hydro%lis_tracer = .FALSE.
-    ENDIF
-
-    ! name
-    IF ( PRESENT(name) ) THEN
-      create_tracer_metadata_hydro%name = TRIM(name)
-    ELSE
-      create_tracer_metadata_hydro%name = "unnamed"
-    ENDIF
-
-    ! ihadv_tracer
-    IF ( PRESENT(ihadv_tracer) ) THEN
-      create_tracer_metadata_hydro%ihadv_tracer = ihadv_tracer
-    ELSE
-      create_tracer_metadata_hydro%ihadv_tracer = 2
-    ENDIF
-
-    ! ivadv_tracer
-    IF ( PRESENT(ivadv_tracer) ) THEN
-      create_tracer_metadata_hydro%ivadv_tracer = ivadv_tracer
-    ELSE
-      create_tracer_metadata_hydro%ivadv_tracer = 3
-    ENDIF
-
-    ! lturb_tracer
-    IF ( PRESENT(lturb_tracer) ) THEN
-      create_tracer_metadata_hydro%lturb_tracer = lturb_tracer
-    ELSE
-      create_tracer_metadata_hydro%lturb_tracer = .FALSE.
-    ENDIF
-
-    ! lconv_tracer
-    IF ( PRESENT(lconv_tracer) ) THEN
-      create_tracer_metadata_hydro%lconv_tracer = lconv_tracer
-    ELSE
-      create_tracer_metadata_hydro%lconv_tracer = .FALSE.
-    ENDIF
-
-    ! ised_tracer
-    IF ( PRESENT(ised_tracer) ) THEN
-      create_tracer_metadata_hydro%ised_tracer = ised_tracer
-    ELSE
-      create_tracer_metadata_hydro%ised_tracer = 0
-    ENDIF
-
-    ! ldep_tracer
-    IF ( PRESENT(ldep_tracer) ) THEN
-      create_tracer_metadata_hydro%ldep_tracer = ldep_tracer
-    ELSE
-      create_tracer_metadata_hydro%ldep_tracer = .FALSE.
-    ENDIF
-
-    ! iwash_tracer
-    IF ( PRESENT(iwash_tracer) ) THEN
-      create_tracer_metadata_hydro%iwash_tracer = iwash_tracer
-    ELSE
-      create_tracer_metadata_hydro%iwash_tracer = 0
-    ENDIF
+    create_tracer_metadata_hydro%lis_tracer   = parent_meta%lis_tracer
+    create_tracer_metadata_hydro%name         = parent_meta%name
+    create_tracer_metadata_hydro%ihadv_tracer = parent_meta%ihadv_tracer
+    create_tracer_metadata_hydro%ivadv_tracer = parent_meta%ivadv_tracer
+    create_tracer_metadata_hydro%lturb_tracer = parent_meta%lturb_tracer
+    create_tracer_metadata_hydro%lconv_tracer = parent_meta%lconv_tracer
+    create_tracer_metadata_hydro%ised_tracer  = parent_meta%ised_tracer
+    create_tracer_metadata_hydro%ldep_tracer  = parent_meta%ldep_tracer
+    create_tracer_metadata_hydro%iwash_tracer = parent_meta%iwash_tracer
     
     ! Fill the meta of the extended type (t_hydro_meta)
     ! ...
