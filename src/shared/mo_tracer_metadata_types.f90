@@ -1,3 +1,12 @@
+!>
+!! Description...
+!!
+!! @author Daniel Rieger, KIT
+!!
+!!
+!! @par Revision History
+!! Initial revision by Daniel Rieger, KIT (2016-01-29)
+!!
 !! @par Copyright and License
 !!
 !! This code is subject to the DWD and MPI-M-Software-License-Agreement in
@@ -5,6 +14,7 @@
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
+!!
 MODULE mo_tracer_metadata_types
 
   USE mo_kind,           ONLY: wp
@@ -43,6 +53,8 @@ MODULE mo_tracer_metadata_types
                                   !   1 = Monodisperse aerosol
                                   !   2 = As part of an according aerosol mode
     !
+    CONTAINS
+      procedure :: construct_base => construct_t_tracer_meta
   END TYPE t_tracer_meta
 
   ! Aerosol-specific metadata
@@ -71,5 +83,87 @@ MODULE mo_tracer_metadata_types
   PUBLIC :: t_aero_meta
   PUBLIC :: t_chem_meta
   PUBLIC :: t_hydro_meta
+
+CONTAINS
+
+  SUBROUTINE construct_t_tracer_meta(meta, lis_tracer, name, ihadv_tracer, ivadv_tracer,   &
+    &                                lturb_tracer, lconv_tracer, ised_tracer, ldep_tracer, &
+    &                                iwash_tracer)
+
+    CLASS(t_tracer_meta),INTENT(OUT)     :: meta          ! Base meta container to be filled
+    LOGICAL, INTENT(IN), OPTIONAL        :: lis_tracer    ! this is a tracer field (TRUE/FALSE)
+    CHARACTER(LEN=*),INTENT(IN),OPTIONAL :: name          ! Name of tracer
+    INTEGER, INTENT(IN), OPTIONAL        :: ihadv_tracer  ! Method for horizontal transport
+    INTEGER, INTENT(IN), OPTIONAL        :: ivadv_tracer  ! Method for vertical transport
+    LOGICAL, INTENT(IN), OPTIONAL        :: lturb_tracer  ! Switch for turbulent transport
+    LOGICAL, INTENT(IN), OPTIONAL        :: lconv_tracer  ! Switch for convection
+    INTEGER, INTENT(IN), OPTIONAL        :: ised_tracer   ! Method for sedimentation
+    LOGICAL, INTENT(IN), OPTIONAL        :: ldep_tracer   ! Switch for dry deposition
+    INTEGER, INTENT(IN), OPTIONAL        :: iwash_tracer  ! Method for washout
+
+    ! lis_tracer
+    IF ( PRESENT(lis_tracer) ) THEN
+      meta%lis_tracer = lis_tracer
+    ELSE
+      meta%lis_tracer = .FALSE.
+    ENDIF
+
+    ! name
+    IF ( PRESENT(name) ) THEN
+      meta%name = TRIM(name)
+    ELSE
+      meta%name = "unnamed"
+    ENDIF
+
+    ! ihadv_tracer
+    IF ( PRESENT(ihadv_tracer) ) THEN
+      meta%ihadv_tracer = ihadv_tracer
+    ELSE
+      meta%ihadv_tracer = 2
+    ENDIF
+
+    ! ivadv_tracer
+    IF ( PRESENT(ivadv_tracer) ) THEN
+      meta%ivadv_tracer = ivadv_tracer
+    ELSE
+      meta%ivadv_tracer = 3
+    ENDIF
+
+    ! lturb_tracer
+    IF ( PRESENT(lturb_tracer) ) THEN
+      meta%lturb_tracer = lturb_tracer
+    ELSE
+      meta%lturb_tracer = .FALSE.
+    ENDIF
+
+    ! lconv_tracer
+    IF ( PRESENT(lconv_tracer) ) THEN
+      meta%lconv_tracer = lconv_tracer
+    ELSE
+      meta%lconv_tracer = .FALSE.
+    ENDIF
+
+    ! ised_tracer
+    IF ( PRESENT(ised_tracer) ) THEN
+      meta%ised_tracer = ised_tracer
+    ELSE
+      meta%ised_tracer = 0
+    ENDIF
+
+    ! ldep_tracer
+    IF ( PRESENT(ldep_tracer) ) THEN
+      meta%ldep_tracer = ldep_tracer
+    ELSE
+      meta%ldep_tracer = .FALSE.
+    ENDIF
+
+    ! iwash_tracer
+    IF ( PRESENT(iwash_tracer) ) THEN
+      meta%iwash_tracer = iwash_tracer
+    ELSE
+      meta%iwash_tracer = 0
+    ENDIF
+
+  END SUBROUTINE construct_t_tracer_meta
 
 END MODULE mo_tracer_metadata_types
