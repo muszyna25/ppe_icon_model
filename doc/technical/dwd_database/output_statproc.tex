@@ -201,44 +201,53 @@ Since the collection process is restarted every $\chi$ hours, the key \texttt{fo
 \section{Technical Details of the Horizontal Interpolation}
 \label{section:technical_details_of_the_horizontal_interpolation}
 % --------------------------------------------------------------------------------
+ICON currently supports three different methods for interpolating data horizontally  
+from the native triangular grid onto a regular lat-lon grid:
+\begin{description}[leftmargin=3.0cm,style=sameline]
+ \item [RBF] Radial basis functions
+ \item [BCT] Barycentric interpolation
+ \item [NNB] Nearest-neighbor interpolation
+\end{description}
+The interpolation selected for a particular field is indicated in the previous tables 
+which list all available output fields.
 
-Most of the output data on regular grids is processed using an RBF-based interpolation method.
+Most of the output data on regular grids is processed using an \emph{RBF-based interpolation method}.
 The algorithm  approximates the input field with a linear combination of 
 radial basis functions~(RBF) located at the data sites, see, for example, \cite{Ruppert2007}.
 RBF interpolation typically produces over- and undershoots at position where the input field
 exhibits steep gradients.
 Therefore, the internal interpolation algorithm performs a cut-off by default.
-Note that RBF-based interpolation is \emph{not conservative}.\\
+Note that RBF-based interpolation is \emph{not conservative}.
 
-A small number of output fields is treated differently, with a nearest-neighbor interpolation:
-\begin{tabbing}
-  \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \kill
-  CAPE\_CON  \>
-  CAPE\_ML   \>
-  CIN\_ML    \>
-  HBAS\_CON  \\
-  HTOP\_CON  \>
-  HTOP\_DC   \>  
-  HZEROCL    \>
-  RAIN\_CON  \\
-  RAIN\_GSP  \>   
-  SNOW\_CON  \>
-  SNOW\_GSP  \>
-  SNOWLMT    \\
-  SOILTYP    \>
-  TOT\_PREC  \>
-  W\_SO\_ICE \>
-  WW   
-\end{tabbing}
-The nearest neighbor algorithm selects the value of the nearest point and does
-not consider the values of neighboring points at all, yielding a piecewise-constant interpolant. 
+\emph{Barycentric interpolation} is a two-dimensional generalization of
+linear interpolation.
+This method uses just three near-neighbors to interpolate and
+avoids over- and undershoots, since extremal values are taken
+only in the data points.
+This interpolation makes sense for fields where the values change  
+in a roughly piecewise linear way.
 
+A small number of output fields is treated differently, with a \emph{nearest-neighbor interpolation} 
+(NNB). The nearest neighbor algorithm selects the value of the nearest point and does not consider 
+the values of neighboring points at all, yielding a piecewise-constant interpolant. 
+% \begin{tabbing}
+%   \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \kill
+%   CAPE\_CON  \>
+%   CAPE\_ML   \>
+%   CIN\_ML    \>
+%   HBAS\_CON  \\
+%   HTOP\_CON  \>
+%   HTOP\_DC   \>  
+%   HZEROCL    \>
+%   RAIN\_CON  \\
+%   RAIN\_GSP  \>   
+%   SNOW\_CON  \>
+%   SNOW\_GSP  \>
+%   SNOWLMT    \\
+%   SOILTYP    \>
+%   TOT\_PREC  \>
+%   W\_SO\_ICE \>
+%   WW   
+% \end{tabbing}
 
-
-%  The following variables are marked as HINTP_TYPE_LONLAT_NNB in the ICON code:
-%  
-%  soiltyp        lc_class_t    w_so_t      w_so_ice_t
-%  w_so_ice       rain_gsp      snow_gsp    rain_con
-%  snow_con       tot_prec      cape        ktype
-%  k850           k950          ww
 

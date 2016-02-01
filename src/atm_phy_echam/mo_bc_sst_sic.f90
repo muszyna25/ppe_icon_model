@@ -30,7 +30,8 @@ MODULE mo_bc_sst_sic
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_cdi,                ONLY: streamOpenRead, streamInqVlist, gridInqSize,      &
     &                              vlistInqTaxis, streamInqTimestep, taxisInqVdate,  &
-    &                              vlistInqVarGrid, streamClose, cdiGetStringError, streamReadVarslice, vlistPrint
+    &                              vlistInqVarGrid, streamClose, streamReadVarslice, vlistPrint
+  USE mo_util_cdi,           ONLY: cdiGetStringError
 
   USE mo_time_interpolation_weights,ONLY: t_wi_limm
 

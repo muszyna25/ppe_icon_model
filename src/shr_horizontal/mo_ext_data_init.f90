@@ -80,7 +80,7 @@ MODULE mo_ext_data_init
     &                              read_cdi_3d, t_inputParameters,                 &
     &                              makeInputParameters, deleteInputParameters,     &
     &                              has_filetype_netcdf
-  USE mo_util_uuid,          ONLY: t_uuid, char2uuid, OPERATOR(==), uuid_unparse,  &
+  USE mo_util_uuid,          ONLY: t_uuid, OPERATOR(==), uuid_unparse,  &
     &                              uuid_string_length
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
@@ -351,9 +351,8 @@ CONTAINS
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
     INTEGER :: extpar_file_namelen
 
-    CHARACTER(len=1)        :: extpar_uuidOfHGrid_string(16)  ! uuidOfHGrid contained in the
+    TYPE(t_uuid)            :: extpar_uuidOfHGrid             ! uuidOfHGrid contained in the
                                                               ! extpar file
-    TYPE(t_uuid)            :: extpar_uuidOfHGrid             ! same, but converted to TYPE(t_uuid)
 
     CHARACTER(len=uuid_string_length) :: grid_uuid_unparsed   ! unparsed grid uuid (human readable)
     CHARACTER(len=uuid_string_length) :: extpar_uuid_unparsed ! same for extpar-file uuid
@@ -425,8 +424,7 @@ CONTAINS
       ! get horizontal grid UUID contained in extpar file
       ! use lu_class_fraction as sample field
       cdiGridID = vlistInqVarGrid(vlist_id, lu_class_fraction_id)
-      CALL gridInqUUID(cdiGridID, extpar_uuidOfHGrid_string)
-      CALL char2uuid(extpar_uuidOfHGrid_string, extpar_uuidOfHGrid)
+      CALL gridInqUUID(cdiGridID, extpar_uuidOfHGrid%DATA)
       !
       ! --- compare UUID of horizontal grid file with UUID from extpar file
       lmatch = (p_patch(jg)%grid_uuid == extpar_uuidOfHGrid)

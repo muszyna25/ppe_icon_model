@@ -63,7 +63,6 @@ MODULE mo_name_list_output_init
     &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
     &                                             set_GRIB2_synsat_keys, set_GRIB2_chem_keys,     &
     &                                             set_GRIB2_art_keys
-  USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
     &                                             with_keywords, insert_group,                    &
@@ -2312,7 +2311,6 @@ CONTAINS
     INTEGER                         :: k, i_dom, ll_dim(2), gridtype, idate, itime, iret
     TYPE(t_lon_lat_data), POINTER   :: lonlat
     TYPE(t_datetime)                :: ini_datetime
-    CHARACTER(len=1)                :: uuid_string(16)
     REAL(wp)                        :: pi_180
     INTEGER                         :: max_cell_connectivity
     REAL(wp), ALLOCATABLE           :: p_lonlat(:)
@@ -2424,8 +2422,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiCellGridID, 'center latitude')
       CALL gridDefYunits(of%cdiCellGridID, 'radian')
       !
-      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
-      CALL gridDefUUID(of%cdiCellGridID, uuid_string)
+      CALL gridDefUUID(of%cdiCellGridID, patch_info(i_dom)%grid_uuid%DATA)
       !
       CALL gridDefNumber(of%cdiCellGridID, patch_info(i_dom)%number_of_grid_used)
 
@@ -2455,8 +2452,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiVertGridID, 'vertex latitude')
       CALL gridDefYunits(of%cdiVertGridID, 'radian')
       !
-      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
-      CALL gridDefUUID(of%cdiVertGridID, uuid_string)
+      CALL gridDefUUID(of%cdiVertGridID, patch_info(i_dom)%grid_uuid%DATA)
       !
       CALL gridDefNumber(of%cdiVertGridID, patch_info(i_dom)%number_of_grid_used)
 
@@ -2477,8 +2473,7 @@ CONTAINS
       CALL gridDefYlongname(of%cdiEdgeGridID, 'edge midpoint latitude')
       CALL gridDefYunits(of%cdiEdgeGridID, 'radian')
       !
-      CALL uuid2char(patch_info(i_dom)%grid_uuid, uuid_string)
-      CALL gridDefUUID(of%cdiEdgeGridID, uuid_string)
+      CALL gridDefUUID(of%cdiEdgeGridID, patch_info(i_dom)%grid_uuid%DATA)
       !
       CALL gridDefNumber(of%cdiEdgeGridID, patch_info(i_dom)%number_of_grid_used)
 
@@ -3015,7 +3010,7 @@ CONTAINS
     ENDIF
     ! broadcast
     DO ivgrid = 1,nvgrid
-      CALL p_bcast(vgrid_buffer(ivgrid)%uuid, bcast_root, p_comm_work_2_io)
+      CALL p_bcast(vgrid_buffer(ivgrid)%uuid%DATA, SIZE(vgrid_buffer(ivgrid)%uuid%DATA, 1), bcast_root, p_comm_work_2_io)
     ENDDO
 
     !-----------------------------------------------------------------------------------------------

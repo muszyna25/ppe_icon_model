@@ -87,8 +87,9 @@ MODULE mo_name_list_output
   USE mo_cdi,                       ONLY: streamOpenWrite, FILETYPE_GRB2, streamDefTimestep, cdiEncodeTime, cdiEncodeDate, &
       &                                   CDI_UNDEFID, TSTEP_CONSTANT, FILETYPE_GRB, taxisDestroy, zaxisDestroy, gridDestroy, &
       &                                   vlistDestroy, streamClose, streamWriteVarSlice, streamWriteVarSliceF, streamDefVlist, &
-      &                                   cdiGetStringError, streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
+      &                                   streamSync, taxisDefVdate, taxisDefVtime, GRID_LONLAT, &
       &                                   streamOpenAppend, streamInqVlist, vlistInqTaxis, vlistNtsteps
+  USE mo_util_cdi,                  ONLY: cdiGetStringError
   USE mo_cdi_constants,             ONLY: GRID_REGULAR_LONLAT, GRID_UNSTRUCTURED_VERT, GRID_UNSTRUCTURED_CELL, &
       &                                   GRID_UNSTRUCTURED_EDGE
   ! utility functions

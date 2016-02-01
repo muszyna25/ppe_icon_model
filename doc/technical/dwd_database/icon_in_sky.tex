@@ -68,9 +68,15 @@ For the nested domain, the specification of the mesh width and number of levels 
 example, \textbf{icreu} is the ICON nest over Europe (with a mesh width of $6.5\,\mathrm{km}$ and 60 
 levels), interpolated to a regular lat-lon grid.
 
+For ensemble forecasts or ensemble analyses the first part of the
+category is extended by an \textbf{e} (for instance \textbf{icogle}
+or \textbf{icrgle}). Ensemble members or ranges of ensemble members
+are specified by the parameter \emph{enum=}$NUM$
+or \emph{enum=}$NUM1-NUM2$ where $NUM$ is the member id.
+
 Hence, the full category name for data from a global operational forecast run of ICON on a
 regular grid will be \textbf{icrgl130l90\_main\_fc\_rout}. The initial analysis for this
-run is in category \textbf{icogl130l90\_main\_an\_rout}.
+run is in category\\ \textbf{icogl130l90\_main\_an\_rout}.
 
 \begin{note}
 Since 2014-08-12 12 UTC ICON is running pre-operationally at DWD. Hence, forecast data

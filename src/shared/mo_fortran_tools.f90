@@ -25,8 +25,25 @@ MODULE mo_fortran_tools
   USE mo_var_metadata_types,      ONLY: VARNAME_LEN
 
   IMPLICIT NONE
+
+  PUBLIC :: t_Destructible
+  PUBLIC :: assign_if_present
+  PUBLIC :: t_ptr_2d3d
+  PUBLIC :: t_ptr_i2d3d
+  PUBLIC :: t_ptr_tracer
+  PUBLIC :: copy, init, swap, var_scale, negative2zero
+  PUBLIC :: init_zero_contiguous_dp, init_zero_contiguous_sp
+  PUBLIC :: resize_arr_c1d
+
   PRIVATE
 
+
+  !> Just a small base CLASS for anything that needs a destructor.
+  !> XXX: This will become unnecessary once all relevant compilers support the FINAL keyword.
+  TYPE, ABSTRACT :: t_Destructible
+  CONTAINS
+    PROCEDURE(interface_destructor), DEFERRED :: destruct
+  END TYPE t_Destructible
 
   TYPE t_ptr_2d3d
     REAL(wp),POINTER :: p_3d(:,:,:)  ! REAL pointer to 3D (spatial) array
@@ -43,14 +60,6 @@ MODULE mo_fortran_tools
     REAL(wp), POINTER :: ptr(:,:)
     INTEGER           :: idx_tracer
   END TYPE t_ptr_tracer
-
-  PUBLIC :: assign_if_present
-  PUBLIC :: t_ptr_2d3d
-  PUBLIC :: t_ptr_i2d3d
-  PUBLIC :: t_ptr_tracer
-  PUBLIC :: copy, init, swap, var_scale, negative2zero
-  PUBLIC :: init_zero_contiguous_dp, init_zero_contiguous_sp
-  PUBLIC :: resize_arr_c1d
 
   INTERFACE assign_if_present
     MODULE PROCEDURE assign_if_present_character
@@ -102,6 +111,14 @@ MODULE mo_fortran_tools
   INTERFACE swap
     MODULE PROCEDURE swap_int
   END INTERFACE swap
+
+  ABSTRACT INTERFACE
+    !> destructor interface
+    SUBROUTINE interface_destructor(me)
+        IMPORT t_Destructible
+        CLASS(t_Destructible), INTENT(INOUT) :: me
+    END SUBROUTINE interface_destructor
+  END INTERFACE
 
 CONTAINS
 
