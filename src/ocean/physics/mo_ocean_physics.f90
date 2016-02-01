@@ -56,7 +56,8 @@ MODULE mo_ocean_physics
     & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
     & HorizontalViscosity_ScaleWeight,                        &
     & tracer_TopWindMixing, WindMixingDecayDepth,             &
-    & velocity_TopWindMixing
+    & velocity_TopWindMixing, TracerHorizontalDiffusion_type, &
+    & TracerHorizontalDiffusion_ScaleWeight
     
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
@@ -182,7 +183,7 @@ CONTAINS
     REAL(wp) :: minCellArea, meanCellArea, maxCellArea
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_patch), POINTER :: patch_2D
-    REAL(wp):: length_scale, dual_length_scale
+    REAL(wp):: length_scale, dual_length_scale, prime_length_scale
     !-----------------------------------------------------------------------
     patch_2D   => patch_3d%p_patch_2d(1)
     !-------------------------------------------------------------------------
@@ -250,6 +251,10 @@ CONTAINS
         p_phys_param%k_veloc_h(:,:,:) = 3.82E-12_wp&
           & *(points_in_munk_layer*z_largest_edge_length)**3
 
+      !  WRITE(message_text,'(a,g25.16)') 'k_veloc_h=', &
+      !    3.82E-12_wp*(points_in_munk_layer*z_largest_edge_length)**3
+      !  CALL message ('init_ho_params', message_text)
+
       CASE(3)! calculate coefficients for each location based on MUNK layer
         DO jb = all_edges%start_block, all_edges%end_block
           CALL get_index_range(all_edges, jb, start_index, end_index)
@@ -260,11 +265,40 @@ CONTAINS
               & *(points_in_munk_layer*patch_2D%edges%primal_edge_length(je,jb))**3
           END DO
         END DO
+      !  minmaxmean_k_veloc_h = global_minmaxmean(_phys_param%k_veloc_h, patch_2D%edges%owned)
+      !  WRITE(message_text,*) 'k_veloc_h min,max,mean', minmaxmean_k_veloc_h 
+      !  CALL message ('init_ho_params', message_text)
+
 
       CASE(4)!calculate coefficients based on Leith closure. Start value is the same as case(2)  
 
         p_phys_param%k_veloc_h(:,:,:) = 3.82E-12_wp&
           & *(points_in_munk_layer*z_largest_edge_length)**3      
+
+      CASE(5) ! scale according to dual edge
+
+        DO jb = all_edges%start_block, all_edges%end_block
+          CALL get_index_range(all_edges, jb, start_index, end_index)
+          p_phys_param%k_veloc_h(:,:,jb) = 0.0_wp
+          DO je = start_index, end_index
+
+            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
+            prime_length_scale = patch_2D%edges%primal_edge_length(je,jb) / maxEdgeLength
+            length_scale = dual_length_scale**3
+
+            DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
+              p_phys_param%k_veloc_h(je,jk,jb) = &
+                & p_phys_param%k_veloc_h_back * &
+                & (1.0_wp - HorizontalViscosity_ScaleWeight &
+                &  +  HorizontalViscosity_ScaleWeight * length_scale)
+            END DO
+
+          END DO
+        END DO
+
+       CASE DEFAULT
+         CALL finish ('mo_ocean_physics:init_ho_params',  &
+            & 'uknown HorizontalViscosity_type')
 
       END SELECT
       CALL dbg_print('horzVelocDiff:',p_phys_param%k_veloc_h ,str_module,0,in_subset=owned_edges)
@@ -329,15 +363,13 @@ CONTAINS
           CALL get_index_range(all_edges, jb, start_index, end_index)
           p_phys_param%k_veloc_h(:,:,jb) = 0.0_wp
           DO je = start_index, end_index
-            
-            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength 
-            length_scale = patch_2D%edges%primal_edge_length(je,jb) / maxEdgeLength 
-                        
+            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
+            prime_length_scale = patch_2D%edges%primal_edge_length(je,jb) / maxEdgeLength
+     
 !             length_scale = 0.5_wp * (length_scale**2 + length_scale**3)
-!            length_scale = SQRT(length_scale * dual_length_scale) * dual_length_scale
-!            length_scale = length_scale**2
+!            length_scale = SQRT(prime_length_scale * dual_length_scale) * dual_length_scale
+            length_scale = dual_length_scale**3
 !            length_scale = length_scale**2 * (1.0_wp + length_scale) * 0.5_wp
-            length_scale = length_scale**3
             
             DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
               p_phys_param%k_veloc_h(je,jk,jb) = &
@@ -382,7 +414,7 @@ CONTAINS
     ENDIF
 
     DO i=1, HorizontalViscosity_SmoothIterations
- !      CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h, HorizontalViscosity_SpatialSmoothFactor )
+      CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h, HorizontalViscosity_SpatialSmoothFactor )
     ENDDO
 
 
@@ -400,8 +432,40 @@ CONTAINS
         CALL finish ('mo_ocean_physics:init_ho_params',  &
           & 'number of tracers exceeds number of background values')
       ENDIF
-      p_phys_param%k_tracer_h(:,:,:,i) = p_phys_param%k_tracer_h_back(i)
+
       p_phys_param%a_tracer_v(:,:,:,i) = p_phys_param%a_tracer_v_back(i)
+
+      SELECT CASE(TracerHorizontalDiffusion_type)
+
+      CASE(1) ! constant
+        p_phys_param%k_tracer_h(:,:,:,i) = p_phys_param%k_tracer_h_back(i)
+
+      CASE(5)
+        ! Simple scaling of the constant diffusion
+        DO jb = all_edges%start_block, all_edges%end_block
+          p_phys_param%k_tracer_h(:,:,jb,i) = 0.0_wp
+          CALL get_index_range(all_edges, jb, start_index, end_index)
+          DO je = start_index, end_index
+            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
+            prime_length_scale = patch_2D%edges%primal_edge_length(je,jb) / maxEdgeLength
+
+            length_scale = dual_length_scale**3
+
+            DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
+              p_phys_param%k_tracer_h(je,jk,jb,i) = p_phys_param%k_tracer_h_back(i) * &
+                & (1.0_wp - TracerHorizontalDiffusion_ScaleWeight &
+                &  + TracerHorizontalDiffusion_ScaleWeight * length_scale)
+            END DO
+
+          END DO
+        END DO
+
+ 
+      CASE DEFAULT
+         CALL finish ('mo_ocean_physics:init_ho_params', 'uknown TracerHorizontalDiffusion_type')
+
+      END SELECT
+ 
     END DO
 
     p_phys_param%bottom_drag_coeff = bottom_drag_coeff
@@ -431,7 +495,6 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-08)
-  !
   !
   SUBROUTINE calc_lower_bound_veloc_diff(  patch_2D, lower_bound_diff )
     TYPE(t_patch), TARGET, INTENT(in)  :: patch_2D

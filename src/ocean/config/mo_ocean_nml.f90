@@ -381,6 +381,9 @@ MODULE mo_ocean_nml
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
   REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
+
+  INTEGER :: TracerHorizontalDiffusion_type = 1 ! 1= constant, 5=scale with edge (dual) **3
+  REAL(wp) :: TracerHorizontalDiffusion_ScaleWeight = 1.0_wp
   
   NAMELIST/ocean_diffusion_nml/&
     &  HorizontalViscosity_type,    &
@@ -395,6 +398,8 @@ MODULE mo_ocean_nml
     &  k_sal_v                     ,    &
     &  k_veloc_h                   ,    &
     &  k_veloc_v                   ,    &
+    &  TracerHorizontalDiffusion_type,  &
+    &  TracerHorizontalDiffusion_ScaleWeight,&
     &  MAX_VERT_DIFF_TRAC          ,    &
     &  MAX_VERT_DIFF_VELOC         ,    &
     &  convection_InstabilityThreshold, &
