@@ -155,12 +155,18 @@ cat > $master_namelist << EOF
 /
 EOF
 else
+if [ x$calendar = x ]; then
+  calendar="'proleptic gregorian'"
+else
+  calendar=$calendar
+fi
 cat > $master_namelist << EOF
 &master_nml
  lrestart            = $restart
 /
 &master_time_control_nml
- calendar             = "proleptic gregorian" 
+ calendar             =  $calendar
+!"proleptic gregorian" 
  checkpointTimeIntval = "$checkpoint_interval" 
  restartTimeIntval    = "$restart_interval" 
  experimentStartDate  = "$start_date" 

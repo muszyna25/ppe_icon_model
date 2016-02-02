@@ -43,7 +43,7 @@ MODULE mo_psrad_orbit
 
   USE mo_kind,      ONLY : wp
   USE mo_math_constants, ONLY : pi
-  USE mo_exception, ONLY : finish
+  USE mo_exception, ONLY : finish, message, message_text, em_param
   USE mo_datetime,  ONLY : t_datetime
   USE mo_psrad_orbit_config, ONLY: psrad_orbit_config
 
@@ -107,11 +107,13 @@ CONTAINS
     cobld = psrad_orbit_config%cobld
     obl_rad = cobld*deg2rad
     phl_rad = clonp*deg2rad
+    WRITE(message_text, '(a14,f9.3,a23,f9.3)') &
+         & ' eccentricity=',cecc,'  obliquity in degrees=',cobld
+    CALL message('orbit_kepler (mo_psrad_orbit):',message_text,level=em_param)
     !
     ! Calculation of eccentric anomaly (big_e) of vernal equinox using
     ! Lacaille's formula.
     ! --------------------------------
-write(0,*) 'eccentricity=',cecc,'obliquity=',cobld
     sq_ecc = SQRT((1.0_wp+cecc)/(1.0_wp-cecc))
     big_e  = 2.0_wp*ATAN(TAN(0.5_wp*phl_rad)/sq_ecc)
     !
