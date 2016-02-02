@@ -1,5 +1,4 @@
 !>
-!!               This module is used by ICON-ART
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
@@ -14,21 +13,20 @@
 !!
 MODULE mo_add_tracer_ref
 
-  USE mo_kind,             ONLY: wp
-  USE mo_exception,        ONLY: message, message_text
-  USE mo_fortran_tools,    ONLY: t_ptr_2d3d
-  USE mo_cf_convention,    ONLY: t_cf_var
-  USE mo_grib2,            ONLY: t_grib2_var
-  USE mo_var_list,         ONLY: add_ref
-  USE mo_linked_list,      ONLY: t_var_list, t_list_element,        &
-       &                         find_list_element
-  USE mo_var_metadata_types,ONLY: t_var_metadata,                   &
-    &                            t_tracer_meta,                     &
-    &                            t_vert_interp_meta,                &
-    &                            t_hor_interp_meta,                 &
-    &                            MAX_GROUPS,                        &
-    &                            t_post_op_meta
-  USE mo_var_metadata,     ONLY: create_tracer_metadata
+  USE mo_kind,                  ONLY: wp
+  USE mo_exception,             ONLY: message, message_text
+  USE mo_fortran_tools,         ONLY: t_ptr_2d3d
+  USE mo_cf_convention,         ONLY: t_cf_var
+  USE mo_grib2,                 ONLY: t_grib2_var
+  USE mo_var_list,              ONLY: add_ref
+  USE mo_linked_list,           ONLY: t_var_list, t_list_element,        &
+       &                              find_list_element
+  USE mo_var_metadata_types,    ONLY: t_var_metadata,                    &
+    &                                 t_vert_interp_meta,                &
+    &                                 t_hor_interp_meta,                 &
+    &                                 MAX_GROUPS,                        &
+    &                                 t_post_op_meta
+  USE mo_tracer_metadata_types, ONLY: t_tracer_meta
   
   USE mo_advection_config, ONLY: t_advection_config
 
@@ -59,12 +57,8 @@ CONTAINS
   !
   SUBROUTINE add_var_list_reference_tracer(this_list, target_name, tracer_name,    &
     &        tracer_idx, ptr_arr, cf, grib2, advconf,jg, ldims, loutput, lrestart, &
-    &        isteptype, tlev_source, vert_interp, hor_interp, in_group,            &
-    &        lis_tracer,tracer_class,                                              &
-    &        ihadv_tracer, ivadv_tracer, lturb_tracer, lsed_tracer,                &
-    &        ldep_tracer, lconv_tracer, lwash_tracer, rdiameter_tracer,            &
-    &        rrho_tracer, halflife_tracer, imis_tracer, post_op,lifetime_tracer,   &
-    &        mode_number, diameter, variance, constituent)
+    &        isteptype, tlev_source, vert_interp, hor_interp, in_group, post_op,   &
+    &        tracer_info)
 
     TYPE(t_var_list)    , INTENT(inout)        :: this_list
     CHARACTER(len=*)    , INTENT(in)           :: target_name
@@ -83,30 +77,12 @@ CONTAINS
     TYPE(t_vert_interp_meta),INTENT(in), OPTIONAL :: vert_interp   ! vertical interpolation metadata
     TYPE(t_hor_interp_meta), INTENT(in), OPTIONAL :: hor_interp    ! horizontal interpolation metadata
     LOGICAL, INTENT(in), OPTIONAL :: in_group(MAX_GROUPS)          ! groups to which a variable belongs
-    LOGICAL             , INTENT(in), OPTIONAL :: lis_tracer       ! this is a tracer field (TRUE/FALSE)
-    CHARACTER(len=*)    , INTENT(in), OPTIONAL :: tracer_class     ! type of tracer (cloud, volcash, radioact,...)
-    INTEGER             , INTENT(in), OPTIONAL :: ihadv_tracer     ! method for hor. transport
-    INTEGER             , INTENT(in), OPTIONAL :: ivadv_tracer     ! method for vert. transport
-    LOGICAL             , INTENT(in), OPTIONAL :: lturb_tracer     ! turbulent transport (TRUE/FALSE)
-    LOGICAL             , INTENT(in), OPTIONAL :: lsed_tracer      ! sedimentation (TRUE/FALSE)
-    LOGICAL             , INTENT(in), OPTIONAL :: ldep_tracer      ! dry deposition (TRUE/FALSE)
-    LOGICAL             , INTENT(in), OPTIONAL :: lconv_tracer     ! convection  (TRUE/FALSE)
-    LOGICAL             , INTENT(in), OPTIONAL :: lwash_tracer     ! washout (TRUE/FALSE)
-    REAL(wp)            , INTENT(in), OPTIONAL :: rdiameter_tracer ! particle diameter in m
-    REAL(wp)            , INTENT(in), OPTIONAL :: rrho_tracer      ! particle density in kg m^-3
-    REAL(wp)            , INTENT(in), OPTIONAL :: halflife_tracer  ! radioactive half-life in s^-1
-    INTEGER             , INTENT(in), OPTIONAL :: imis_tracer      ! IMIS number
     TYPE(t_post_op_meta), INTENT(in), OPTIONAL :: post_op          ! post operation (e.g. scale with const. factor or rho)
-    REAL(wp)            , INTENT(in), OPTIONAL :: lifetime_tracer  ! lifetime of a chemical tracer
-    INTEGER             , INTENT(IN), OPTIONAL :: mode_number      ! number of mode              for GRIB2 output
-    INTEGER             , INTENT(IN), OPTIONAL :: diameter         ! diameter of ash particle    for GRIB2 output
-    INTEGER             , INTENT(IN), OPTIONAL :: variance         ! variance of aerosol mode    for GRIB2 output
-    INTEGER             , INTENT(IN), OPTIONAL :: constituent      ! constituent type of tracer  for GRIB2 output
+    CLASS(t_tracer_meta), INTENT(in), OPTIONAL :: tracer_info      ! tracer meta data
 
     ! Local variables:
     TYPE(t_list_element), POINTER :: target_element
     TYPE(t_var_metadata), POINTER :: target_info
-    TYPE(t_tracer_meta)           :: tracer_info    ! tracer meta data
 
     INTEGER :: zihadv_tracer, zivadv_tracer
 
@@ -138,46 +114,27 @@ CONTAINS
     ! If ihadv_tracer or ivadv_tracer are present, take those values, and overwrite
     ! the respective values of the advection_config state.
     !
-    IF ( PRESENT( ihadv_tracer )) THEN
-      zihadv_tracer = ihadv_tracer
-      ! BE AWARE, THAT ivadv_tracer IS NOT SANITY-CHECKED. THIS OVERWRITES THE
-      ! SANITY CHECKED NAMELIST SETTINGS.
-      advconf%ihadv_tracer(tracer_idx) = ihadv_tracer
-    ELSE
-      zihadv_tracer = advconf%ihadv_tracer(tracer_idx)
+    IF( PRESENT(tracer_info) ) THEN
+      IF ( tracer_info%ihadv_tracer /= 2) THEN
+        zihadv_tracer = tracer_info%ihadv_tracer
+        ! BE AWARE, THAT ihadv_tracer IS NOT SANITY-CHECKED. THIS OVERWRITES THE
+        ! SANITY CHECKED NAMELIST SETTINGS.
+        advconf%ihadv_tracer(tracer_idx) = tracer_info%ihadv_tracer
+      ELSE
+        zihadv_tracer = advconf%ihadv_tracer(tracer_idx)
+      ENDIF
     ENDIF
 
-    IF ( PRESENT( ivadv_tracer )) THEN
-      zivadv_tracer = ivadv_tracer
-      ! BE AWARE, THAT ivadv_tracer IS NOT SANITY-CHECKED. THIS OVERWRITES THE
-      ! SANITY CHECKED NAMELIST SETTINGS.
-      advconf%ivadv_tracer(tracer_idx) = ivadv_tracer
-    ELSE
-      zivadv_tracer = advconf%ivadv_tracer(tracer_idx)
+    IF( PRESENT(tracer_info) ) THEN
+      IF ( tracer_info%ivadv_tracer /= 3) THEN
+        zivadv_tracer = tracer_info%ivadv_tracer
+        ! BE AWARE, THAT ivadv_tracer IS NOT SANITY-CHECKED. THIS OVERWRITES THE
+        ! SANITY CHECKED NAMELIST SETTINGS.
+        advconf%ivadv_tracer(tracer_idx) = tracer_info%ivadv_tracer
+      ELSE
+        zivadv_tracer = advconf%ivadv_tracer(tracer_idx)
+      ENDIF
     ENDIF
-
-    ! generate tracer metadata information
-    !
-    tracer_info = create_tracer_metadata(                                     &
-      &                                  lis_tracer       = lis_tracer,       &
-      &                                  tracer_class     = tracer_class,     &
-      &                                  ihadv_tracer     = zihadv_tracer,    &
-      &                                  ivadv_tracer     = zivadv_tracer,    &
-      &                                  lturb_tracer     = lturb_tracer,     &
-      &                                  lsed_tracer      = lsed_tracer,      &
-      &                                  ldep_tracer      = ldep_tracer,      &
-      &                                  lconv_tracer     = lconv_tracer,     &
-      &                                  lwash_tracer     = lwash_tracer,     &
-      &                                  rdiameter_tracer = rdiameter_tracer, &
-      &                                  rrho_tracer      = rrho_tracer,      &
-      &                                  halflife_tracer  = halflife_tracer,  &
-      &                                  imis_tracer      = imis_tracer,      &
-      &                                  lifetime_tracer  = lifetime_tracer,  &
-      &                                  mode_number      = mode_number,      &
-      &                                  diameter         = diameter,         &
-      &                                  variance         = variance,         &
-      &                                  constituent      = constituent )
-
 
     ! create new table entry reference including additional tracer metadata
     CALL add_ref( this_list, target_name, tracer_name, ptr_arr(tracer_idx)%p_3d, &
@@ -190,17 +147,17 @@ CONTAINS
 #ifdef __ICON_ART
 
     ! Get the number of convection tracers
-    IF(PRESENT(lconv_tracer)) THEN
-    IF (lconv_tracer) THEN
-      art_config(jg)%nconv_tracer = art_config(jg)%nconv_tracer + 1
-    ENDIF
+    IF( PRESENT(tracer_info) ) THEN
+      IF (tracer_info%lconv_tracer) THEN
+        art_config(jg)%nconv_tracer = art_config(jg)%nconv_tracer + 1
+      ENDIF
     ENDIF
 
     ! Get the number of turbulence tracers
-    IF(PRESENT(lturb_tracer)) THEN
-    IF (lturb_tracer) THEN
-      art_config(jg)%nturb_tracer = art_config(jg)%nturb_tracer + 1
-    ENDIF
+    IF( PRESENT(tracer_info) ) THEN
+      IF (tracer_info%lturb_tracer) THEN
+        art_config(jg)%nturb_tracer = art_config(jg)%nturb_tracer + 1
+      ENDIF
     ENDIF
 
 #endif
