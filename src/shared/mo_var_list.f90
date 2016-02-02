@@ -920,7 +920,7 @@ CONTAINS
          vert_interp=vert_interp, hor_interp=hor_interp, in_group=in_group,  &
          verbose=verbose, l_pp_scheduler_task=l_pp_scheduler_task,           &
          post_op=post_op, action_list=action_list, var_class=var_class )
-    ! set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
+    ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
     !
@@ -2149,7 +2149,7 @@ CONTAINS
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class)
-    ! set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
+    ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
 
@@ -2352,7 +2352,7 @@ CONTAINS
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class)
-    ! set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
+    ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
 
@@ -2554,7 +2554,7 @@ CONTAINS
          in_group=in_group, verbose=verbose,                                 &
          l_pp_scheduler_task=l_pp_scheduler_task,                            &
          post_op=post_op, action_list=action_list, var_class=var_class)
-    ! set dynamic metadata, i.e. polymorphic tracer metadata and pointers to static metadata
+    ! set dynamic metadata, i.e. polymorphic tracer metadata
     CALL set_var_metadata_dyn (new_list_element%field%info_dyn,              &
                                tracer_info=tracer_info)
     !

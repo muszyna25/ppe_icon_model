@@ -390,7 +390,7 @@ CONTAINS
         ENDIF
         IF(.NOT.ASSOCIATED(element)) EXIT
 
-        info     => element%field%info
+        info => element%field%info
         ! Do not inspect element if it is a container
         IF (info%lcontainer) CYCLE
         ! Do not inspect element if "loutput=.false."

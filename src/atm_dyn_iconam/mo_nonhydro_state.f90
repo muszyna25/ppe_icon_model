@@ -1057,24 +1057,24 @@ MODULE mo_nonhydro_state
 
 
         ! add references to additional passive tracers, if existing
-!drieg: todo       DO ipassive=1,advection_config(p_patch%id)%npassive_tracer
-!drieg: todo         WRITE(passive_tracer_suffix,'(I2)') ipassive
-!drieg: todo         cf_desc    = t_cf_var('Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix)),   &
-!drieg: todo           &          'kg kg-1', 'passive tracer', datatype_flt)
-!drieg: todo         grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-!drieg: todo         CALL add_tracer_ref( p_prog_list, 'tracer',                                &
-!drieg: todo           &                 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix, &
-!drieg: todo           &                  dummy_idx,                                            &
-!drieg: todo           &                  p_prog%tracer_ptr(:),                                 &
-!drieg: todo           &                  cf_desc, grib2_desc,                                  &
-!drieg: todo           &                  advection_config(p_patch%id),                         &
-!drieg: todo           &                  p_patch%id,                                           &
-!drieg: todo           &                  ldims=shape3d_c,                                      &
-!drieg: todo           &                  loutput=.TRUE.,                                       &
-!drieg: todo           &                  lrestart=.FALSE.,                                     &
-!drieg: todo           &                  tlev_source=TLEV_NNOW_RCF,                            &  ! output from nnow_rcf slice
-!drieg: todo           &                  lis_tracer=.TRUE. )
-!drieg: todo       ENDDO
+        DO ipassive=1,advection_config(p_patch%id)%npassive_tracer
+          WRITE(passive_tracer_suffix,'(I2)') ipassive
+          cf_desc    = t_cf_var('Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix)),   &
+            &          'kg kg-1', 'passive tracer', datatype_flt)
+          grib2_desc = grib2_var(255,255,255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+          CALL add_tracer_ref( p_prog_list, 'tracer',                                &
+            &                 'Qpassive_'//TRIM(ADJUSTL(passive_tracer_suffix))//suffix, &
+            &                  dummy_idx,                                            &
+            &                  p_prog%tracer_ptr(:),                                 &
+            &                  cf_desc, grib2_desc,                                  &
+            &                  advection_config(p_patch%id),                         &
+            &                  p_patch%id,                                           &
+            &                  ldims=shape3d_c,                                      &
+            &                  loutput=.TRUE.,                                       &
+            &                  lrestart=.FALSE.,                                     &
+            &                  tlev_source=TLEV_NNOW_RCF,                            &  ! output from nnow_rcf slice
+            &                  lis_tracer=.TRUE. )
+        ENDDO
 
 
 

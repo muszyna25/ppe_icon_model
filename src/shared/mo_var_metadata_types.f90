@@ -258,9 +258,8 @@ MODULE mo_var_metadata_types
   END TYPE t_var_metadata
 
   ! The type t_var_metadata_dynamic is (in contrast to t_var_metadata) not transfered to the output PE.
-  ! This allows for additional dynamical objects inside t_var_metadata_dynamic like pointers or allocatables.
+  ! This allows for dynamical objects inside t_var_metadata_dynamic like pointers or allocatables.
   TYPE t_var_metadata_dynamic
-  ! Additional dynamical objects
     CLASS(t_tracer_meta), POINTER       :: tracer      ! Tracer-specific metadata
   END TYPE t_var_metadata_dynamic
 
