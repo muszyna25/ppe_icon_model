@@ -38,6 +38,7 @@ MODULE mo_var_list
     &                            create_hor_interp_metadata,        &
     &                            post_op, groups, group_id,         &
     &                            actions, add_member_to_vargroup
+  USE mo_tracer_metadata,  ONLY: create_tracer_metadata
   USE mo_tracer_metadata_types,ONLY: t_tracer_meta, t_aero_meta,    &
     &                            t_chem_meta, t_hydro_meta
   USE mo_var_list_element, ONLY: t_var_list_element
@@ -3106,8 +3107,15 @@ CONTAINS
   SUBROUTINE assign_if_present_tracer_meta (y,x)
     CLASS(t_tracer_meta), POINTER, INTENT(out) :: y
     CLASS(t_tracer_meta) ,INTENT(in) ,OPTIONAL :: x
-    IF (.NOT.PRESENT(x)) RETURN
-    ALLOCATE(y, source=x)
+    IF (PRESENT(x)) THEN
+      ALLOCATE(y, source=x)
+    ELSE
+      ALLOCATE(t_tracer_meta :: y)
+      SELECT TYPE(y)
+        TYPE IS(t_tracer_meta)
+          y = create_tracer_metadata(lis_tracer=.FALSE.)
+      END SELECT
+    ENDIF
   END SUBROUTINE assign_if_present_tracer_meta
   !------------------------------------------------------------------------------------------------
   SUBROUTINE assign_if_present_vert_interp (y,x)
