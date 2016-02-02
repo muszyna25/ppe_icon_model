@@ -297,10 +297,6 @@ src/configure_model/*.settings
 src/configure_model/.cproject
 src/configure_model/.project
 src/configure_model/icon-dev
-src/coupler/*.settings
-src/coupler/.cproject
-src/coupler/.project
-src/coupler/icon-dev
 src/diagnostics/*.settings
 src/diagnostics/.cproject
 src/diagnostics/.project

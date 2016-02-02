@@ -701,9 +701,13 @@ MODULE mo_nwp_rg_interface
       CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
     CASE (9)
       CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
+    CASE (10)
+      CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data) 
+      !CALL message('mo_nwp_rg_interface:irad_o3=10', & 
+      !  &          'Ozone used for radiation is calculated by ART')
     END SELECT
 
-    IF ( irad_aero == 6 ) THEN
+    IF ( irad_aero == 6  .OR. irad_aero == 9) THEN
       current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_datetime)
       imo1 = current_time_interpolation_weights%month1
       imo2 = current_time_interpolation_weights%month2
@@ -791,7 +795,7 @@ MODULE mo_nwp_rg_interface
             ext_data%atm%o3(jc,jk,jb) = zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb)
           ENDDO
         ENDDO
-      ELSEIF ( irad_o3 == 6 .AND. irad_aero == 6 ) THEN
+      ELSEIF ( irad_o3 == 6 .AND. (irad_aero == 6 .OR. irad_aero == 9)) THEN
         
         DO jc = i_startidx,i_endidx
 
@@ -973,7 +977,7 @@ MODULE mo_nwp_rg_interface
             zduo3(jc,jk,jb) = ext_data%atm%o3(jc,jk,jb) * pt_diag%dpres_mc(jc,jk,jb)
           ENDDO
         ENDDO
-      ELSEIF (irad_aero == 6 ) THEN !aerosols, but other ozone:
+      ELSEIF (irad_aero == 6 .OR. irad_aero == 9) THEN !aerosols, but other ozone:
 
         DO jc = i_startidx,i_endidx
 

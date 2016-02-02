@@ -174,14 +174,18 @@ CONTAINS
       CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
     CASE (9)
       CALL calc_o3_gems(pt_patch,mtime_datetime,pt_diag,prm_diag,ext_data)
+    CASE(10)
+      !CALL message('mo_nwp_rg_interface:irad_o3=10', &  
+      !  &          'Ozone used for radiation is calculated by ART')
     END SELECT
 
-    IF ( irad_aero == 6 ) THEN
+    IF ( irad_aero == 6  .OR. irad_aero == 9) THEN
       current_time_interpolation_weights = calculate_time_interpolation_weights(mtime_datetime)
       imo1 = current_time_interpolation_weights%month1
       imo2 = current_time_interpolation_weights%month2
       zw = current_time_interpolation_weights%weight2
     ENDIF
+
     rl_start = 1
     rl_end   = min_rlcell_int
 
@@ -274,7 +278,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-      ELSEIF ( irad_o3 == 6 .AND. irad_aero == 6 ) THEN
+      ELSEIF ( irad_o3 == 6 .AND. (irad_aero == 6 .OR. irad_aero == 9)) THEN
 
         DO jc = 1,i_endidx
 
@@ -458,7 +462,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-      ELSEIF (irad_aero == 6 ) THEN !aerosols, but other ozone:
+      ELSEIF (irad_aero == 6 .OR. irad_aero == 9) THEN !aerosols, but other ozone:
 
         DO jc = 1,i_endidx
 

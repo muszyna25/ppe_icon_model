@@ -103,7 +103,6 @@ MODULE mo_ocean_model
   USE mo_ocean_testbed,       ONLY: ocean_testbed
   USE mo_ocean_postprocessing, ONLY: ocean_postprocess
   USE mo_io_config,           ONLY: write_initial_state
-  USE mo_coupling_config,    ONLY: is_coupled_run
 
   !-------------------------------------------------------------
   ! For the coupling
@@ -336,7 +335,6 @@ MODULE mo_ocean_model
     ENDIF
 
     CALL destruct_icon_communication()
-
     CALL destruct_ocean_coupling ()
 
     CALL destruct_operators_coefficients(operators_coefficients, solverCoefficients_sp)

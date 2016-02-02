@@ -249,10 +249,12 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
         ncloud_offset = 0
       ENDIF
 
-      CALL art_turbdiff_interface( 'setup_ptr', p_patch, p_prog_rcf, prm_nwp_tend, &
-        &                          ncloud_offset=ncloud_offset, &
-        &                          ptr=ptr(:), &
-        &                          p_metrics=p_metrics, p_diag=p_diag, prm_diag=prm_diag, &
+      CALL art_turbdiff_interface( 'setup_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
+        &                          ncloud_offset=ncloud_offset,                     &
+        &                          ptr=ptr(:), dt=tcall_turb_jg,                    &
+        &                          p_rho=p_prog%rho(:,:,:),                         &
+        &                          p_metrics=p_metrics,                             &
+        &                          p_diag=p_diag, prm_diag=prm_diag,                &
         &                          jb=jb )
 
       ! turbdiff
@@ -303,10 +305,10 @@ SUBROUTINE nwp_turbdiff  ( tcall_turb_jg,                     & !>in
           &  prm_diag%qhfl_s(i_startidx:i_endidx,jb) * lh_v
       END IF
 
-      CALL art_turbdiff_interface( 'update_ptr', p_patch, p_prog_rcf, prm_nwp_tend, &
-        &                          ncloud_offset=ncloud_offset, &
-        &                          ptr=ptr(:), &
-        &                          i_st=i_startidx, i_en=i_endidx, dt=tcall_turb_jg )
+      CALL art_turbdiff_interface( 'update_ptr', p_patch, p_prog_rcf, prm_nwp_tend,  &
+        &                          ncloud_offset=ncloud_offset,                      &
+        &                          ptr=ptr(:), dt=tcall_turb_jg,                     &
+        &                          i_st=i_startidx, i_en=i_endidx )
 
 
       IF (ierrstat.NE.0) THEN

@@ -306,6 +306,7 @@ CONTAINS
       ztsfc_lnd_eff(:)    = 0._wp
       z0m_tile(:,idx_lnd) = 0._wp
 
+!$OMP CRITICAL(jsbach)
       CALL jsbach_interface ( jg, nblock, 1, kproma, pdtime, psteplen,                  & ! in
         & t_air            = ptemp(1:kproma),                                           & ! in
         & q_air            = pq(1:kproma),                                              & ! in
@@ -344,6 +345,7 @@ CONTAINS
         & alb_vis_dif      = albvisdif_tile(1:kproma, idx_lnd),                         & ! out
         & alb_nir_dif      = albnirdif_tile(1:kproma, idx_lnd)                          & ! out
         )
+!$OMP END CRITICAL(jsbach)
 
       ptsfc_tile(1:kproma,idx_lnd) = ztsfc_lnd(1:kproma)
       pcpt_tile (1:kproma,idx_lnd) = dry_static_energy(1:kproma)

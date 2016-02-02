@@ -279,6 +279,10 @@ CONTAINS
             CALL message(TRIM(method_name),'radiation is used without ozone')
           CASE (2,4,6,7,8,9) ! ok
             CALL message(TRIM(method_name),'radiation is used with ozone')
+          CASE (10) ! ok                                                                                                                                                                                            CALL message(TRIM(method_name),'radiation is used with ozone calculated from ART')
+            IF ( .NOT. lart ) THEN
+              CALL finish(TRIM(method_name),'irad_o3 currently is 10 but lart is false.')
+            ENDIF
           CASE default
             CALL finish(TRIM(method_name),'irad_o3 currently has to be 0, 2, 4, 6, 7, 8 or 9.')
           END SELECT
@@ -471,12 +475,13 @@ CONTAINS
         iqng = 11        
         iqnh = 12
         iqnc = 13
+        ininact = 14
         
         nqtendphy = 3     !! number of water species for which convective and turbulent tendencies are stored
         iqm_max   = 7     !! end index of water species mixing ratios
         iqt       = 14    !! start index of other tracers not related at all to moisture
         
-        ntracer = 13
+        ntracer = 14
         
       END SELECT ! microphysics schemes
 
@@ -657,14 +662,6 @@ CONTAINS
 
     END SELECT
 
-#ifndef __ICON_ART
-    IF (lart) THEN
-      WRITE(message_text,'(A)') &
-          'run_nml: lart is set .TRUE. but ICON was compiled without -D__ICON_ART'
-        CALL finish( TRIM(method_name),TRIM(message_text))
-    ENDIF
-#endif
-
     IF (ltransport) THEN
     DO jg = 1,n_dom
 
@@ -799,6 +796,7 @@ CONTAINS
     CALL check_meteogram_configuration(num_io_procs)
 
     CALL land_crosscheck()
+    CALL art_crosscheck()
 
   END  SUBROUTINE atm_crosscheck
   !---------------------------------------------------------------------------------------
@@ -827,4 +825,41 @@ CONTAINS
   END SUBROUTINE land_crosscheck
   !---------------------------------------------------------------------------------------
 
+  !---------------------------------------------------------------------------------------
+  SUBROUTINE art_crosscheck
+  
+    CHARACTER(len=*), PARAMETER :: &
+      &  method_name =  'mo_nml_crosscheck:art_crosscheck'
+    INTEGER  :: &
+      &  jg
+    
+#ifndef __ICON_ART
+    IF (lart) THEN
+        CALL finish( TRIM(method_name),'run_nml: lart is set .TRUE. but ICON was compiled without -D__ICON_ART')
+    ENDIF
+#endif
+    
+    IF (.NOT. lart .AND. irad_aero == 9 ) THEN
+      CALL finish(TRIM(method_name),'irad_aero=9 needs lart = .TRUE.')
+    END IF
+    
+#ifdef __ICON_ART
+    IF ( ( irad_aero == 9 ) .AND. ( itopo /=1 ) ) THEN
+      CALL finish(TRIM(method_name),'irad_aero=9 requires itopo=1')
+    ENDIF
+    
+    DO jg= 1,n_dom
+      IF(lredgrid_phys(jg) .AND. irad_aero == 9) THEN
+        CALL finish(TRIM(method_name),'irad_aero=9 does not work with a reduced radiation grid')
+      ENDIF
+      IF(art_config(jg)%iart_ari == 0 .AND. irad_aero == 9) THEN
+        CALL finish(TRIM(method_name),'irad_aero=9 needs iart_ari > 0')
+      ENDIF
+      IF(art_config(jg)%iart_ari > 0  .AND. irad_aero /= 9) THEN
+        CALL finish(TRIM(method_name),'iart_ari > 0 requires irad_aero=9')
+      ENDIF
+    ENDDO
+#endif
+  END SUBROUTINE art_crosscheck
+  !---------------------------------------------------------------------------------------
 END MODULE mo_nml_crosscheck
