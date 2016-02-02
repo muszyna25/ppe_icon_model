@@ -373,7 +373,7 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
 !
 USE mo_phyparam_soil
 !
-USE mo_lnd_nwp_config,     ONLY: lmulti_snow,                     &
+USE mo_lnd_nwp_config,     ONLY: lmulti_snow, l2lay_rho_snow,     &
   &                              itype_trvg, itype_evsl,          &
   &                              itype_root, itype_heatcond,      &
   &                              itype_hydbound, lstomata, l2tls, &
@@ -1244,6 +1244,7 @@ END SUBROUTINE message
 !    zw_snow_old(ie)    , & !
     zdqvtsnow(ie)      , & ! first derivative of saturation specific humidity
                               !    with respect to t_snow
+    zrho_snow(ie)      , & ! snow density used for computing heat capacity and conductivity
     zts_pm   (ie)      , & ! indicator zts > < T_melt
     ztsnow_pm(ie)          ! indicator ztsnow > < T_melt
 
@@ -1543,6 +1544,13 @@ END SUBROUTINE message
       w_so_ice_new(i,kso)     = w_so_ice_now(i,kso)
     END DO
   END DO
+
+  ! Decide which snow density is used for computing the heat capacity
+  IF (l2lay_rho_snow) THEN
+    zrho_snow(istarts:iends) = rho_snow_mult_now(istarts:iends,1)
+  ELSE
+    zrho_snow(istarts:iends) = rho_snow_now(istarts:iends)
+  ENDIF
 
   IF (itype_heatcond == 2) THEN
 
@@ -2050,7 +2058,7 @@ END SUBROUTINE message
 !       limitation of snow depth to 1.5m for snow cover heat transfer
         zdz_snow_fl(i) = MIN(1.5_iREALs, zdz_snow(i))
         IF(.NOT. lmulti_snow) &
-          zrocs(i) = chc_i*zdz_snow_fl(i)*rho_snow_now(i)
+          zrocs(i) = chc_i*zdz_snow_fl(i)*zrho_snow(i)
 !BR 7/2005 End
 !      END IF
   ENDDO
@@ -3577,7 +3585,7 @@ ELSE   IF (itype_interception == 2) THEN
 !
 ! BR 7/2005 Introduce new dependency of snow heat conductivity on snow density
 !
-          zalas  = 2.22_ireals*EXP(1.88_ireals*LOG(rho_snow_now(i)/rho_i))
+          zalas  = 2.22_ireals*EXP(1.88_ireals*LOG(zrho_snow(i)/rho_i))
 
 ! BR 11/2005 Use alternative formulation for heat conductivity by Sun et al., 1999
 !            The water vapour transport associated conductivity is not included.
@@ -4036,7 +4044,7 @@ ENDIF
 ! BR        zalas  = MAX(calasmin,MIN(calasmax, calasmin + calas_dw*zwsnew(i)))
 ! BR 7/2005 Introduce new dependency of snow heat conductivity on snow density
 !
-            zalas  = 2.22_ireals*EXP(1.88_ireals*LOG(rho_snow_now(i)/rho_i))
+            zalas  = 2.22_ireals*EXP(1.88_ireals*LOG(zrho_snow(i)/rho_i))
 
             ztsnow_im    = - zrhoch(i) * (cp_d + zdqvtsnow(i) * lh_s)       &
                                          - zalas/zdz_snow_fl(i)
@@ -4829,6 +4837,16 @@ ENDIF
 ! New calculation of snow height for single layer snow model
          zdz_snow(i)=w_snow_new(i)*rho_w/rho_snow_new(i)
          h_snow_new(i) = zdz_snow(i)
+
+         ! Calculation of top-layer snow density for two-layer snow density scheme
+         IF (l2lay_rho_snow) THEN
+           zrho_snowe = MAX(rho_snow_mult_now(i,1),zrhosmax+(rho_snow_mult_now(i,1)-zrhosmax)* &
+                        EXP(-ztau_snow*zdt/86400._ireals) )
+           zwsnow(i)  = MIN(max_toplaydepth,h_snow_gp(i))*rho_snow_mult_now(i,1)/rho_w
+           rho_snow_mult_new(i,1) = (zwsnow(i)+zzz) / ( MAX(zwsnow(i),zepsi)/zrho_snowe + zzz/zrho_snowf )
+           rho_snow_mult_new(i,1) = MIN(crhosmax_ml,MAX(crhosmin_ml, rho_snow_mult_new(i,1)))
+           rho_snow_mult_new(i,2) = rho_snow_new(i)
+         ENDIF
 
       END DO
 

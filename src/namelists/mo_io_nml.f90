@@ -38,6 +38,7 @@ MODULE mo_io_nml
                                  & config_itype_pres_msl          => itype_pres_msl         , &
                                  & config_output_nml_dict         => output_nml_dict        , &
                                  & config_netcdf_dict             => netcdf_dict            , &
+                                 & config_lnetcdf_flt64_output    => lnetcdf_flt64_output   , &
                                  & config_itype_rh                => itype_rh               , &
                                  & config_restart_file_type       => restart_file_type      , &
                                  & config_write_initial_state     => write_initial_state    , &
@@ -100,8 +101,11 @@ CONTAINS
 
 
     CHARACTER(LEN=filename_max) :: &
-      &        output_nml_dict,    &     !< maps variable names onto the internal ICON names.
-      &        netcdf_dict               !< maps internal variable names onto names in output file (NetCDF only).
+      &        output_nml_dict,    &      !< maps variable names onto the internal ICON names.
+      &        netcdf_dict                !< maps internal variable names onto names in output file (NetCDF only).
+
+    LOGICAL :: lnetcdf_flt64_output       !< if .TRUE. floating point valued NetCDF output
+                                          !  is written in 64-bit instead of 32-bit accuracy
 
 
     INTEGER :: restart_file_type
@@ -118,6 +122,7 @@ CONTAINS
       &              inextra_2d, inextra_3d,                 &
       &              lflux_avg, itype_pres_msl, itype_rh,    &
       &              output_nml_dict, netcdf_dict,           &
+      &              lnetcdf_flt64_output,                   &
       &              restart_file_type, write_initial_state, &
       &              write_last_restart, timeSteps_per_outputStep, &
       &              lmask_boundary
@@ -137,6 +142,7 @@ CONTAINS
     itype_rh                = RH_METHOD_WMO       ! WMO: water only
     output_nml_dict         = ' '
     netcdf_dict             = ' '
+    lnetcdf_flt64_output    = .FALSE.
 
     restart_file_type       = config_restart_file_type
     write_initial_state     = config_write_initial_state
@@ -188,6 +194,7 @@ CONTAINS
     config_itype_rh                = itype_rh
     config_output_nml_dict         = output_nml_dict
     config_netcdf_dict             = netcdf_dict
+    config_lnetcdf_flt64_output    = lnetcdf_flt64_output
     config_restart_file_type       = restart_file_type
     config_write_initial_state     = write_initial_state
     config_timeSteps_per_outputStep= timeSteps_per_outputStep

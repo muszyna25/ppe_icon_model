@@ -66,11 +66,13 @@
 !!
 MODULE mo_name_list_output_zaxes
 
+  USE ISO_C_BINDING,                        ONLY: C_SIGNED_CHAR
   USE mo_cdi,                               ONLY: CDI_UNDEFID, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_GENERIC, ZAXIS_SURFACE, &
                                                 & ZAXIS_ISENTROPIC, ZAXIS_ALTITUDE, ZAXIS_PRESSURE, ZAXIS_CLOUD_BASE, &
                                                 & ZAXIS_CLOUD_TOP, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_HEIGHT, ZAXIS_HYBRID, &
                                                 & ZAXIS_HYBRID_HALF, ZAXIS_ISOTHERM_ZERO, ZAXIS_LAKE_BOTTOM, ZAXIS_MEANSEA, &
                                                 & ZAXIS_MIX_LAYER, ZAXIS_REFERENCE, ZAXIS_SEDIMENT_BOTTOM_TW, ZAXIS_SNOW, &
+                                                & ZAXIS_ATMOSPHERE,  &
                                                 & ZAXIS_TOA, zaxisCreate, zaxisDefNumber, zaxisDefUUID, zaxisDefLevels, &
                                                 & zaxisDefLbounds, zaxisDefUbounds, zaxisDefVct, zaxisDefUnits, zaxisDefNlevRef
   USE mo_cdi_constants,                     ONLY: ZA_depth_below_sea, ZA_depth_below_sea_half, ZA_GENERIC_ICE, ZA_surface, &
@@ -79,6 +81,8 @@ MODULE mo_name_list_output_zaxes
                                                 & ZA_depth_runoff_s, ZA_height_10m, ZA_height_2m, ZA_hybrid, ZA_hybrid_half, &
                                                 & ZA_hybrid_half_hhl, ZA_isotherm_zero, ZA_lake_bottom, ZA_lake_bottom_half, &
                                                 & ZA_meansea, ZA_mix_layer, ZA_pressure_0, ZA_pressure_400, ZA_pressure_800, &
+                                                & ZA_ATMOSPHERE, ZA_PRES_FL_SFC_200, ZA_PRES_FL_200_350, ZA_PRES_FL_350_550,      &
+                                                & ZA_PRES_FL_SFC_100, ZA_PRES_FL_100_245, ZA_PRES_FL_245_390, ZA_PRES_FL_390_530, &
                                                 & ZA_reference, ZA_reference_half, ZA_reference_half_hhl, &
                                                 & ZA_sediment_bottom_tw_half, ZA_snow, ZA_snow_half, ZA_toa
   USE mo_kind,                              ONLY: wp, dp
@@ -217,6 +221,17 @@ CONTAINS
     ! either the first- or secondFixedSurfaces if necessary)
     CALL define_single_layer_axis(of, ZA_mix_layer, ZAXIS_MIX_LAYER, 1._dp, 0._dp, "m")
 
+    ! Volcanic ash products - Maximum total mass concentration in flight level range
+    !                         defined by pressure layers
+    CALL define_single_layer_axis(of, ZA_PRES_FL_SFC_200, ZAXIS_PRESSURE, 465.00_dp, 1013.25_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_200_350, ZAXIS_PRESSURE, 240.00_dp,  465.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_350_550, ZAXIS_PRESSURE,  91.00_dp,  240.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_SFC_100, ZAXIS_PRESSURE, 700.00_dp, 1013.25_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_100_245, ZAXIS_PRESSURE, 385.00_dp,  700.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_245_390, ZAXIS_PRESSURE, 200.00_dp,  385.00_dp, "hPa")
+    CALL define_single_layer_axis(of, ZA_PRES_FL_390_530, ZAXIS_PRESSURE, 100.00_dp,  200.00_dp, "hPa")
+    ! Volcanic ash products - Colummn integrated total mass concentration (entire atmosphere)
+    CALL define_single_level_axis(of, ZA_ATMOSPHERE, ZAXIS_ATMOSPHERE)
 
     ! --------------------------------------------------------------------------------------
     ! Definitions for reference grids (ZAXIS_REFERENCE) ------------------------------------
@@ -227,7 +242,7 @@ CONTAINS
       &                           levels           = (/ ( REAL(k,dp),   k=1,nlevp1 ) /), &
       &                           opt_set_bounds   = .TRUE.,                             &
       &                           opt_number       = get_numberOfVgridUsed(ivctype),     &
-      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid )
+      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid%DATA )
     ! Define number of half levels for z-axis 
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference),nlevp1)
 
@@ -235,7 +250,7 @@ CONTAINS
     CALL define_vertical_axis(of, ZA_reference_half, ZAXIS_REFERENCE, nlevp1,        &
       &                           levels   = (/ ( REAL(k,dp),   k=1,nlevp1 ) /),     &
       &                           opt_number = get_numberOfVgridUsed(ivctype),       &
-      &                           opt_uuid   = vgrid_buffer(of%log_patch_id)%uuid )
+      &                           opt_uuid   = vgrid_buffer(of%log_patch_id)%uuid%DATA )
     ! Define number of half levels for z-axis 
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half),nlevp1)
 
@@ -245,7 +260,7 @@ CONTAINS
       &                           opt_set_bounds   = .TRUE.,                             &
       &                           opt_set_ubounds_value = 0._dp,                         &
       &                           opt_number       = get_numberOfVgridUsed(ivctype),     &
-      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid )
+      &                           opt_uuid         = vgrid_buffer(of%log_patch_id)%uuid%DATA )
     ! Define number of half levels for z-axis 
     CALL zaxisDefNlevRef(of%cdiZaxisID(ZA_reference_half_hhl),nlevp1)
 
@@ -525,7 +540,7 @@ CONTAINS
     LOGICAL,                 INTENT(IN), OPTIONAL :: opt_set_bounds        !< Flag. Set lower/upper bounds if .TRUE.
     REAL(dp),                INTENT(IN), OPTIONAL :: opt_set_ubounds_value !< Explicit value for ubounds
     INTEGER,                 INTENT(IN), OPTIONAL :: opt_number            !< numberOfVGridUsed
-    CHARACTER(len=1),        INTENT(IN), OPTIONAL :: opt_uuid(16)          !< UUID of vertical grid
+    INTEGER(KIND = C_SIGNED_CHAR), INTENT(IN), OPTIONAL :: opt_uuid(16)          !< UUID of vertical grid
     LOGICAL,                 INTENT(IN), OPTIONAL :: opt_set_vct_as_levels !< set VCT to level values
     ! local variables
     CHARACTER(*), PARAMETER :: routine = TRIM(modname)//":define_vertical_axis"

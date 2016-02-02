@@ -40,6 +40,8 @@ MODULE mo_nwp_parameters
     REAL(wp) :: rcucov, rcucov_trop
     ! tuning coefficient for organized entrainment of deep convection
     REAL(wp) :: entrorg
+    ! switches for activation of shallow, midlevel and deep convection
+    LOGICAL :: lmfscv, lmfmid, lmfpen
     !
     ! Parameters which are only computed if Gravity wave drag scheme is switched on
     !

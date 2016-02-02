@@ -353,9 +353,6 @@ MODULE mo_cuparameters
   ! REAL(KIND=jprb) :: rhebc
   REAL(KIND=jprb) :: ruvper
 
-  LOGICAL :: lmfpen
-  LOGICAL :: lmfscv
-  LOGICAL :: lmfmid
   LOGICAL :: lmfdd
   LOGICAL :: lmfit
   LOGICAL :: lmfdudv
@@ -428,10 +425,8 @@ MODULE mo_cuparameters
           & rcvd     ,rsigma
   !yoecumf
   PUBLIC :: entshalp ,entstpc1 ,entstpc2            ,&
-          & rprcon   ,rmfcmax  ,rmfcmin,&
-          & lmfmid   ,detrpen  ,&
-          & lmfdd    ,lmfdudv  ,&
-          & rdepths  ,lmfscv   ,lmfpen             ,&
+          & rprcon   ,rmfcmax  ,rmfcmin   ,detrpen  ,&
+          & lmfdd    ,lmfdudv  , rdepths            ,&
           & lmfit    ,rmflic                       ,&
           & rmflia   ,rmfsoluv ,rmflmax            ,&
           & ruvper   ,rmfsoltq ,rmfsolct ,&
@@ -991,7 +986,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
   
-  SUBROUTINE sucumf(rsltn,klev,pmean,phy_params)
+  SUBROUTINE sucumf(rsltn,klev,pmean,phy_params,lshallow_only)
 
 !     THIS ROUTINE DEFINES DISPOSABLE PARAMETERS FOR MASSFLUX SCHEME
 
@@ -1044,6 +1039,7 @@ INTEGER(KIND=jpim), INTENT(in) :: klev
 REAL(KIND=jprb)   , INTENT(in) :: rsltn
 REAL(KIND=jprb)   , INTENT(in) :: pmean(klev)
 TYPE(t_phy_params), INTENT(inout) :: phy_params
+LOGICAL           , INTENT(in) :: lshallow_only
 !* change to operations
 
 #ifdef __GME__
@@ -1224,9 +1220,15 @@ IF (icapdcycl >= 2) phy_params%tau0 = 1.0_jprb/phy_params%tau
 !     LOGICAL SWITCHES
 !     ----------------
 
-lmfpen  =.TRUE.   ! deep convection
-lmfscv  =.TRUE.   ! shallow convection
-lmfmid  =.TRUE.   ! mid-level convection
+phy_params%lmfscv  =.TRUE.   ! shallow convection
+IF (lshallow_only) THEN
+  phy_params%lmfmid  =.FALSE.   ! mid-level convection
+  phy_params%lmfpen  =.FALSE.   ! deep convection
+ELSE
+  phy_params%lmfmid  =.TRUE.   ! mid-level convection
+  phy_params%lmfpen  =.TRUE.   ! deep convection
+ENDIF
+
 lmfdd   =.TRUE.   ! use downdrafts
 lmfit   =.FALSE.  ! updraught iteration or not
 LMFUVDIS=.TRUE.   ! use kinetic energy dissipation (addit T-tendency)
@@ -1288,7 +1290,7 @@ WRITE(UNIT=nulout,FMT='('' COMMON YOECUMF '')')
 WRITE(UNIT=nulout,FMT='('' LMFMID = '',L5 &
   & ,'' LMFDD = '',L5,'' LMFDUDV = '',L5 &
   & ,'' RTAU = '',E12.5,'' s-1'')') &
-  & lmfmid,lmfdd,lmfdudv,rtau
+  & phy_params%lmfmid,lmfdd,lmfdudv,rtau
 #endif
 
 #ifdef __ICON__
@@ -1296,7 +1298,7 @@ CALL message('mo_cuparameters, sucumf', 'NJKT1, NJKT2, KSMAX')
 WRITE(message_text,'(2i7,E12.5)') phy_params%kcon1, phy_params%kcon2, rsltn 
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
 CALL message('mo_cuparameters, sucumf', 'LMFMID, LMFDD, LMFDUDV, RTAU, ENTRORG, TEXC, QEXC')
-WRITE(message_text,'(4x,l6,l6,l6,F8.4,E11.4,2F8.5)')lmfmid,lmfdd,lmfdudv,phy_params%tau,&
+WRITE(message_text,'(4x,l6,l6,l6,F8.4,E11.4,2F8.5)')phy_params%lmfmid,lmfdd,lmfdudv,phy_params%tau,&
   phy_params%entrorg,phy_params%texc,phy_params%qexc
 CALL message('mo_cuparameters, sucumf ', TRIM(message_text))
 CALL message('mo_cuparameters, sucumf', 'RHEBC_LND, RHEBC_LND_TROP, RHEBC_OCE, RHEBC_OCE_TROP, RCUCOV, RCUCOV_TROP')

@@ -473,6 +473,23 @@ Output name style\\
 
 Defined and used in: \verb+src/grid_generator/mo_gridrefinement.f90+
 
+%------------------------------------------------------------------------------
+% coupling_model_nml:
+%------------------------------------------------------------------------------
+\subsection{coupling\_mode\_nml}
+\begin{longtab}
+
+%\hline
+coupled\_mode &
+L &
+.FALSE. &  &
+.TRUE.: if yac coupling routines have to be called &
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: \verb+src/namelists/mo_coupling_nml.f90+
+
 
 %MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 %MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
@@ -483,76 +500,6 @@ Defined and used in: \verb+src/grid_generator/mo_gridrefinement.f90+
 Namelist parameters for the ICON models are organized in several thematic
 Fortran namelists controling the experiment, and the properties of
 dynamics, transport, physics etc.
-
-
-%------------------------------------------------------------------------------
-% coupling_nml:
-%------------------------------------------------------------------------------
-\subsection{coupling\_nml}
-\begin{longtab}
-
-%\hline
-name &
-C &
-blank &  &
-short name of the coupling field &
-\tabularnewline
-
-%\hline
-dt\_coupling &
-I &
-0 &
-s &
-coupling time step / coupling interval &
-\tabularnewline
-
-%\hline
-dt\_model &
-I &
-0 &
-s &
-model time step &
-\tabularnewline
-
-%\hline
-lag &
-I &
-0 &   &
-offset to coupling event in number of model time steps &
-\tabularnewline
-
-%\hline
-l\_time\_average &
-L &
-.FALSE. &  &
-.TRUE.: time averaging between two coupling events &
-\tabularnewline
-
-%\hline
-l\_time\_accumulation &
-L &
-.FALSE. &  &
-.TRUE.: accumulation of coupling fields in time between two coupling events &
-\tabularnewline
-
-%\hline
-l\_diagnostic &
-L &
-.FALSE. &  &
-.TRUE.: simple diagnostics (min, max, avg) for coupling fields is switched on &
-\tabularnewline
-
-%\hline
-l\_activated &
-L &
-.FALSE. &  &
-.TRUE.: activate the coupling of the respective coupling field &
-\tabularnewline
-
-\end{longtab}
-
-Defined and used in: \verb+src/namelists/mo_coupling_nml.f90+
-
 
 %-----------------------------------------------------------------------------
 % diffusion_nml: horizontal (numerical) diffusion
@@ -883,13 +830,6 @@ run\_nml/iforcing = 2
 \textbf{lcond} &
 L& .TRUE.&&
 .TRUE. for large scale condensation&
-run\_nml/iforcing = 2
-\tabularnewline
-
-%\hline
-\textbf{icover} &
-I& 1 &&
-1 = diagnostic cloud cover scheme (Sunquist)&
 run\_nml/iforcing = 2
 \tabularnewline
 
@@ -2288,6 +2228,13 @@ NetCDF output
 \tabularnewline
 
 %\hline
+lnetcdf\_flt64\_output&
+L& .FALSE. & &
+If .TRUE. floating point variable output in NetCDF files is written in 64-bit instead of 32-bit accuracy. \\
+This is currently implemented for the atm. dynamical core and ECHAM physics. &
+\tabularnewline
+
+%\hline
 restart\_file\_type&
 I&  4& &
 Type of restart file. One of CDI's FILETYPE\_XXX. So far, only 4 (=FILETYPE\_NC2) is allowed&
@@ -2315,18 +2262,17 @@ Defined and used in: \verb+src/namelists/mo_io_nml.f90+
 %\hline
 sst & R & 300 & K &
 sea surface temperature for idealized LES simulations &
-nh\_test\_name=CBL, RICO\\
 isrfc\_type=5,4
 \tabularnewline
 
 %\hline
-shflx & R & -999 & Km/s &
+shflx & R & 0.1 & Km/s &
 Kinematic sensible heat flux at surface &
 isrfc\_type = 2
 \tabularnewline
 
 %\hline
-lhflx & R & -999 & m/s &
+lhflx & R & 0 & m/s &
 Kinematic latent heat flux at surface &
 isrfc\_type = 2
 \tabularnewline
@@ -2334,6 +2280,7 @@ isrfc\_type = 2
 %\hline
 isrfc\_type & I & 1 &  &
 surface type \\
+0 = No fluxes and zero shear stress \\
 1 = TERRA land physics \\
 2 = fixed surface fluxes \\
 3 = fixed buoyancy fluxes \\
@@ -2343,7 +2290,14 @@ surface type \\
 
 %\hline
 ufric & R & -999 & m/s &
-friction velocity for idealized LES simulations &
+friction velocity for idealized LES simulations; if < 0 then it is
+automatically diagnosed &
+\tabularnewline
+
+%\hline
+psfc & R & -999 & Pa &
+surface pressure for idealized LES simulations; if < 0 then it uses
+the surface pressure from dynamics &
 \tabularnewline
 
 %\hline
@@ -2362,7 +2316,7 @@ Smagorinsky constant &
 \tabularnewline
 
 %\hline
-km\_min & R & 0.01 &  &
+km\_min & R & 0.0 &  &
 Minimum turbulent viscosity &
 \tabularnewline
 
@@ -2377,13 +2331,13 @@ turbulent Prandtl number &
 \tabularnewline
 
 %\hline
-bflux & R & -999 &  m$^2$/s$^3$ &
+bflux & R & 0.0007 &  m$^2$/s$^3$ &
 buoyancy flux for idealized LES simulations (Stevens 2007) &
 isrfc\_type=3
 \tabularnewline
 
 %\hline
-tran\_coeff & R & -999 &  m/s &
+tran\_coeff & R & 0.02 &  m/s &
 transfer coefficient near surface for idealized LES simulation (Stevens 2007)&
 isrfc\_type=3
 \tabularnewline
@@ -2413,6 +2367,11 @@ expname to name the statistical output file &
 %\hline
 ldiag\_les\_out & L & .FALSE. &   &
 Control for the statistical output in LES mode &
+\tabularnewline
+
+%\hline
+les\_metric & L & .FALSE. &   &
+Switch to turn on Smagorinsky diffusion with 3D metric terms to account for topography &
 \tabularnewline
 
 \end{longtab}
@@ -2598,12 +2557,20 @@ L&
 .TRUE. for use of multi-layer snow model&
 \tabularnewline
 
+l2lay\_rho\_snow &
+L&
+.FALSE.&
+&
+.TRUE. predict additional snow density for upper part of the snowpack, having
+a maximum depth of max\_toplaydepth & lmulti\_snow = .FALSE.
+\tabularnewline
+
 %\hline
 max\_toplaydepth &
 R &
 0.25&
 m &
-maximum depth of uppermost snow layer & lmulti\_snow=.TRUE.
+maximum depth of uppermost snow layer & lmulti\_snow=.TRUE. or l2lay\_rho\_snow=.TRUE.
 \tabularnewline
 
 %\hline
@@ -2849,6 +2816,7 @@ If a file name contains the keyword "\texttt{<path>}", then this
 % meteogram_output_nml:
 %------------------------------------------------------------------------------
 \subsection{meteogram\_output\_nml}
+Nearest neighbour 'interpolation' is used for all variables.
 \begin{longtab}
 
 %\hline
@@ -3224,6 +3192,15 @@ convection\\
 0: none\\
 1: Tiedtke/Bechtold convection
 &run\_nml:iforcing = inwp
+\tabularnewline
+
+%\hline
+lshallowconv\_only&
+L (max\_ dom)&
+.FALSE.&
+&
+.TRUE.: use shallow convection only\\
+& inwp\_convection = 1
 \tabularnewline
 
 %\hline
@@ -3971,7 +3948,7 @@ I&0& &
 %\hline
  north\_pole &
 R(2)&0,90& &
- definition of north pole for rotated lon-lat grids.
+ definition of north pole for rotated lon-lat grids (\texttt{[longitude, latitude]}.
 &
 \tabularnewline
 
@@ -4599,7 +4576,8 @@ irad\_o3 = 4: ozone clim for Aqua Planet Exp \par
 irad\_o3 = 6: ozone climatology with T5 geographical distribution and Fourier series for seasonal cycle {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 7: GEMS ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
 irad\_o3 = 8: ozone climatology for AMIP \par
-irad\_o3 = 9: MACC ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)}
+irad\_o3 = 9: MACC ozone climatology (from IFS) {\color{red}for run\_nml/iforcing = 3 (NWP)} \par
+irad\_o3 = 10: Linearized ozone chemistry (ART extension necessary) {\color{red}for run\_nml/iforcing = 3 (NWP)}
 &
 Note: until further notice, please use \par
 irad\_h2o = 1\par
@@ -4636,7 +4614,8 @@ Aerosols\\
 2: global constant\\
 3: externally specified\\
 5: Tanre aerosol climatology {\color{red}for run\_nml/iforcing = 3 (NWP) }\\
-6: Tegen aerosol climatology {\color{red}for run\_nml/iforcing = 3 (NWP) .AND. itopo =1 }
+6: Tegen aerosol climatology {\color{red}for run\_nml/iforcing = 3 (NWP) .AND. itopo =1 }\\
+9: ART online aerosol radiation interaction, uses Tegen for aerosols not chosen to be represented in ART {\color{red}for run\_nml/iforcing = 3 (NWP) .AND. itopo =1 .AND. lart=TRUE .AND. iart\_ari=1}
 &
 \tabularnewline
 
@@ -5820,7 +5799,7 @@ Defined and used in: \verb+src/testcases/mo_ha_testcases.f90+
 
 
 %-------------------------------------------------------------------------------
-% nh_test_nml:
+% nh_testcase_nml:
 %-------------------------------------------------------------------------------
 \subsection{nh\_testcase\_nml (Scope: ltestcase=.TRUE. and iequations=3 in run\_nml)}
 
@@ -5860,7 +5839,7 @@ u=v=0, topography=0.0).&
 &&&&'\textbf{HS\_jw}': Initializes the Held-Suarez test case
 with Jablonowski Williamson initial conditions and zero topography.&
 \tabularnewline
-&&&&'\textbf{APE\_nh}': Initializes the APE experiments. With the
+&&&&'\textbf{APE\_nwp, APE\_echam, APE\_nh, APEc\_nh, }': Initializes the APE experiments. With the
 jabw test case, including moisture.&
 \tabularnewline
 &&&&'\textbf{wk82}': Initializes the Weisman Klemp test case&
@@ -6057,8 +6036,16 @@ SST distribution selection\\
 'sst2': Peaked experiment\\
 'sst3': Flat experiment\\
 'sst4': Control-5N experiment\\
-'sst\_qobs': Qobs SST distribution exp.&
- nh\_test\_name='APE\_nh'
+'sst\_qobs': Qobs SST distribution exp.\\
+'sst\_const': constant SST&
+nh\_test\_name='APE\_nwp', 'APE\_echam'
+\tabularnewline
+
+%\hline
+ape\_sst\_val&
+R& 29.0& degC &
+aqua planet SST  for ape\_sst\_case='sst\_const'&
+nh\_test\_name= 'APE\_nwp', 'APE\_echam'
 \tabularnewline
 
 %\hline

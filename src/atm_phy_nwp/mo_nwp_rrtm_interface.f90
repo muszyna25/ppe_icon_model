@@ -173,9 +173,12 @@ CONTAINS
       CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
     CASE (9)
       CALL calc_o3_gems(pt_patch,datetime,pt_diag,prm_diag,ext_data)
+    CASE(10)
+      !CALL message('mo_nwp_rg_interface:irad_o3=10', &  
+      !  &          'Ozone used for radiation is calculated by ART')
     END SELECT
 
-    IF ( irad_aero == 6 ) CALL month2hour (datetime, imo1, imo2, zw )
+    IF ( irad_aero == 6 .OR. irad_aero == 9) CALL month2hour (datetime, imo1, imo2, zw )
 
     rl_start = 1
     rl_end   = min_rlcell_int
@@ -249,7 +252,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-      ELSE IF (irad_aero == 6 ) THEN ! Tegen aerosol climatology
+      ELSE IF ((irad_aero == 6) .OR. (irad_aero == 9)) THEN ! Tegen aerosol climatology
 
         IF (iprog_aero == 0) THEN ! purely climatological aerosol
 !DIR$ IVDEP
@@ -395,7 +398,6 @@ CONTAINS
           ENDDO
         ENDDO
       ENDIF
-
     ENDDO !jb
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL

@@ -180,11 +180,13 @@ MODULE mo_pp_scheduler
   USE mo_name_list_output_config, ONLY: first_output_name_list
   USE mo_name_list_output_types,  ONLY: t_output_name_list, is_grid_info_var
   USE mo_parallel_config,         ONLY: nproma
+  USE mo_io_config,               ONLY: lnetcdf_flt64_output
   USE mo_cf_convention,           ONLY: t_cf_var
   USE mo_grib2,                   ONLY: t_grib2_var, grib2_var
   USE mo_util_string,             ONLY: int2string, remove_duplicates,                      &
     &                                   difference, toupper, tolower
-  USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_PACK16, GRID_UNSTRUCTURED
+  USE mo_cdi,                     ONLY: DATATYPE_FLT32, DATATYPE_FLT64, DATATYPE_PACK16,    &
+    &                                   GRID_UNSTRUCTURED
   USE mo_cdi_constants,           ONLY: GRID_CELL, GRID_UNSTRUCTURED_CELL, ZA_ALTITUDE,     &
     &                                   ZA_PRESSURE, GRID_REGULAR_LONLAT,                   &
     &                                   is_2d_field, ZA_ISENTROPIC
@@ -697,6 +699,7 @@ CONTAINS
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,          &
                 &           GRID_REGULAR_LONLAT, info%vgrid, info%cf, info%grib2, &
                 &           ldims=var_shape, lrestart=.FALSE.,                    &
+                &           tracer_info=info%tracer,                              &
                 &           loutput=.TRUE., new_element=new_element,              &
                 &           isteptype=info%isteptype,                             &
                 &           hor_interp=create_hor_interp_metadata(                &
@@ -882,6 +885,7 @@ CONTAINS
     ! add new variable, copy the meta-data from the existing variable
     CALL add_var( dst_varlist, TRIM(name), ptr, element%field%info%hgrid, dst_axis,     &
       &           element%field%info%cf, element%field%info%grib2, ldims=shape3d,       &
+      &           tracer_info=element%field%info%tracer,                                &
       &           post_op=element%field%info%post_op, loutput=.TRUE., lrestart=.FALSE., &
       &           var_class=element%field%info%var_class,                               &
       &           tlev_source=element%field%info%tlev_source )
@@ -1068,7 +1072,7 @@ CONTAINS
     INTEGER                            :: &
       &  jg, ndom, ibits, nblks_c, nblks_v, ierrstat, ivar, i,      &
       &  iaxis, vgrid, nlev, nvars_pl, nvars_hl, nvars_il, nvars,   &
-      &  job_type, z_id, p_id, i_id, shape3d(3)
+      &  job_type, z_id, p_id, i_id, shape3d(3), datatype_flt
     LOGICAL                            :: &
       &  l_intp_p, l_intp_z, l_intp_i, found, &
       &  l_uv_vertical_intp_z, l_uv_vertical_intp_p, l_uv_vertical_intp_i, &
@@ -1087,6 +1091,13 @@ CONTAINS
     TYPE(t_var_metadata),      POINTER :: info
     TYPE(t_cf_var)                     :: cf_desc
     TYPE(t_grib2_var)                  :: grib2_desc
+
+    ! define NetCDF output precision
+    IF ( lnetcdf_flt64_output ) THEN
+      datatype_flt = DATATYPE_FLT64
+    ELSE
+      datatype_flt = DATATYPE_FLT32
+    ENDIF
 
     ! initialize "new_element" pointer (cf. NEC compiler bugs DWD0121
     ! and DWD0123 for hybrid parallelization)
@@ -1183,7 +1194,7 @@ CONTAINS
       END IF
       IF (l_intp_p) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%plevels%nvalues, nblks_c /)
-        cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
+        cf_desc    = t_cf_var('gh', 'm', 'geopotential height', datatype_flt)
         grib2_desc = grib2_var(0, 3, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_opt_diag_list_p, 'gh', p_diag_pz%p_gh,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_PRESSURE, cf_desc, grib2_desc,           &
@@ -1193,7 +1204,7 @@ CONTAINS
       END IF
       IF (l_intp_i) THEN
         shape3d = (/ nproma, nh_pzlev_config(jg)%ilevels%nvalues, nblks_c /)
-        cf_desc    = t_cf_var('gh', 'm', 'geopotential height', DATATYPE_FLT32)
+        cf_desc    = t_cf_var('gh', 'm', 'geopotential height', datatype_flt)
         grib2_desc = grib2_var(0, 3, 5, ibits, GRID_UNSTRUCTURED, GRID_CELL)
         CALL add_var( p_opt_diag_list_i, 'gh', p_diag_pz%i_gh,                  &
           & GRID_UNSTRUCTURED_CELL, ZA_ISENTROPIC, cf_desc, grib2_desc,         &
@@ -1363,6 +1374,7 @@ CONTAINS
               CALL add_var( p_opt_diag_list, info%name, p_opt_field_r3d,    &
                 &           info%hgrid, vgrid, info%cf, info%grib2,         &
                 &           ldims=shape3d, lrestart=.FALSE.,                &
+                &           tracer_info=info%tracer,                     &
                 &           loutput=.TRUE., new_element=new_element,        &
                 &           post_op=info%post_op, var_class=info%var_class, &
                 &           tlev_source=info%tlev_source )

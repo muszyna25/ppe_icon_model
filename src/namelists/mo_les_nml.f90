@@ -33,6 +33,7 @@ MODULE mo_les_nml
   PUBLIC :: turb_profile_list, turb_tseries_list
 
   REAL(wp) :: sst        ! prescribed SST
+  REAL(wp) :: psfc       ! prescribed surface pressure
   REAL(wp) :: shflx      ! prescribed sensible heat flux (Km/s)
   REAL(wp) :: lhflx      ! prescribed latent heat flux   (Km/s)
   INTEGER  :: isrfc_type ! 1=fixed sst, 2=fixed flux, 3=fixed buyancy flux
@@ -62,7 +63,7 @@ MODULE mo_les_nml
   CHARACTER(MAX_CHAR_LENGTH) :: expname        !name of experiment for naming the file
   LOGICAL  :: les_metric
 
-  NAMELIST/les_nml/ sst, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
+  NAMELIST/les_nml/ sst, psfc, shflx, lhflx, isrfc_type, ufric, is_dry_cbl, &
                     smag_constant, turb_prandtl, bflux, tran_coeff,   &
                     vert_scheme_type, avg_interval_sec, sampl_freq_sec,  &
                     expname, ldiag_les_out, km_min, min_sfc_wind, les_metric, &
@@ -98,8 +99,9 @@ CONTAINS
     ! 1. default settings
     !-----------------------
     sst          = 300._wp
-    shflx        = -999._wp 
-    lhflx        = -999._wp 
+    psfc         = -999._wp
+    shflx        = 0.1_wp 
+    lhflx        = 0._wp 
     isrfc_type   = 1 
     ufric        = -999._wp 
 
@@ -112,8 +114,8 @@ CONTAINS
     max_turb_scale   = 300._wp
     min_sfc_wind     = 1._wp !Default from Holstag and Boville 1991
 
-    bflux       = -999._wp
-    tran_coeff  = -999._wp
+    bflux       = 0.0007_wp
+    tran_coeff  = 0.02_wp
 
     vert_scheme_type = 2 !implicit
 
@@ -176,6 +178,7 @@ CONTAINS
     !----------------------------------------------------
     DO jg = 1 , max_dom
       les_config(jg)% sst          =  sst
+      les_config(jg)% psfc         =  psfc
       les_config(jg)% shflx        =  shflx
       les_config(jg)% lhflx        =  lhflx
       les_config(jg)% isrfc_type   =  isrfc_type

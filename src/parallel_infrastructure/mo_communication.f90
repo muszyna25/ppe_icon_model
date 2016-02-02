@@ -32,7 +32,7 @@ MODULE mo_communication
 !
 !
 USE mo_impl_constants, ONLY: SUCCESS
-USE mo_scatter_pattern_base, ONLY: t_scatterPattern, deleteScatterPattern
+USE mo_scatter_pattern_base, ONLY: t_ScatterPattern, t_ScatterPatternPtr, deleteScatterPattern
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish, message, message_text
 USE mo_mpi,                ONLY: p_send, p_recv, p_irecv, p_wait, p_isend, &
@@ -74,7 +74,7 @@ PUBLIC :: t_comm_allgather_pattern
 PUBLIC :: setup_comm_allgather_pattern
 PUBLIC :: delete_comm_allgather_pattern
 
-PUBLIC :: t_scatterPattern, makeScatterPattern, deleteScatterPattern
+PUBLIC :: t_ScatterPattern, t_ScatterPatternPtr, makeScatterPattern, deleteScatterPattern
 
 PUBLIC :: ASSIGNMENT(=)
 !
@@ -3155,20 +3155,12 @@ SUBROUTINE gather_r_1d_deblock(in_array, out_array, fill_value, gather_pattern)
                                                ! front of the array
   TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
 
-  REAL(wp), ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  REAL(wp), ALLOCATABLE :: send_buffer(:,:)
   REAL(wp), POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, idx, blk
 
   num_send_points = SUM(gather_pattern%collector_send_size(:))
   ALLOCATE(send_buffer(1, num_send_points))
-
-  IF (p_pe_work == process_mpi_root_id) THEN
-    ALLOCATE(recv_buffer(1, MERGE(gather_pattern%global_size, &
-      &                           SUM(gather_pattern%collector_size(:)), &
-      &                           PRESENT(fill_value))))
-  ELSE
-    ALLOCATE(recv_buffer(0,0))
-  END IF
 
   DO i = 1, SIZE(gather_pattern%loc_index(:))
     idx = idx_no(gather_pattern%loc_index(i))
@@ -3179,14 +3171,21 @@ SUBROUTINE gather_r_1d_deblock(in_array, out_array, fill_value, gather_pattern)
   CALL two_phase_gather_first(send_buffer_r=send_buffer, fill_value=fill_value,&
                               gather_pattern=gather_pattern, &
                               collector_buffer_r=collector_buffer)
-  CALL two_phase_gather_second(recv_buffer_r=recv_buffer, fill_value=fill_value,&
-                               gather_pattern=gather_pattern, &
-                               collector_buffer_r=collector_buffer)
+  CALL out_array_to_2d(out_array, SIZE(out_array))
 
-  IF (p_pe_work == process_mpi_root_id) &
-    out_array(1:SIZE(recv_buffer, 2)) = recv_buffer(1,:)
+  DEALLOCATE(send_buffer)
 
-  DEALLOCATE(send_buffer,recv_buffer)
+CONTAINS
+
+  SUBROUTINE out_array_to_2d(out_array_2d, n)
+    INTEGER, INTENT(IN) :: n
+    REAL(wp), INTENT(INOUT) :: out_array_2d(1,n)
+
+    CALL two_phase_gather_second(recv_buffer_r=out_array_2d, &
+                                 fill_value=fill_value, &
+                                 gather_pattern=gather_pattern, &
+                                 collector_buffer_r=collector_buffer)
+  END SUBROUTINE out_array_to_2d
 
 END SUBROUTINE gather_r_1d_deblock
 
@@ -3202,20 +3201,12 @@ SUBROUTINE gather_i_1d_deblock(in_array, out_array, fill_value, gather_pattern)
                                                ! front of the array
   TYPE(t_comm_gather_pattern), INTENT(IN) :: gather_pattern
 
-  INTEGER, ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  INTEGER, ALLOCATABLE :: send_buffer(:,:)
   INTEGER, POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, idx, blk
 
   num_send_points = SUM(gather_pattern%collector_send_size(:))
   ALLOCATE(send_buffer(1, num_send_points))
-
-  IF (p_pe_work == process_mpi_root_id) THEN
-    ALLOCATE(recv_buffer(1, MERGE(gather_pattern%global_size, &
-      &                           SUM(gather_pattern%collector_size(:)), &
-      &                           PRESENT(fill_value))))
-  ELSE
-    ALLOCATE(recv_buffer(0,0))
-  END IF
 
   DO i = 1, SIZE(gather_pattern%loc_index(:))
     idx = idx_no(gather_pattern%loc_index(i))
@@ -3226,14 +3217,22 @@ SUBROUTINE gather_i_1d_deblock(in_array, out_array, fill_value, gather_pattern)
   CALL two_phase_gather_first(send_buffer_i=send_buffer, fill_value=fill_value,&
                               gather_pattern=gather_pattern, &
                               collector_buffer_i=collector_buffer)
-  CALL two_phase_gather_second(recv_buffer_i=recv_buffer, fill_value=fill_value,&
-                               gather_pattern=gather_pattern, &
-                               collector_buffer_i=collector_buffer)
+  CALL out_array_to_2d(out_array, SIZE(out_array))
 
-  IF (p_pe_work == process_mpi_root_id) &
-    out_array(1:SIZE(recv_buffer, 2)) = recv_buffer(1,:)
+  DEALLOCATE(send_buffer)
 
-  DEALLOCATE(send_buffer,recv_buffer)
+CONTAINS
+
+  SUBROUTINE out_array_to_2d(out_array_2d, n)
+    INTEGER, INTENT(IN) :: n
+    INTEGER, INTENT(INOUT) :: out_array_2d(1,n)
+
+    CALL two_phase_gather_second(recv_buffer_i=out_array_2d, &
+                                 fill_value=fill_value, &
+                                 gather_pattern=gather_pattern, &
+                                 collector_buffer_i=collector_buffer)
+  END SUBROUTINE out_array_to_2d
+
 
 END SUBROUTINE gather_i_1d_deblock
 
@@ -3370,21 +3369,13 @@ SUBROUTINE allgather_r_1d_deblock(in_array, out_array, fill_value, &
                                                ! front of the array
   TYPE(t_comm_allgather_pattern), INTENT(IN) :: allgather_pattern
 
-  REAL(wp), ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  REAL(wp), ALLOCATABLE :: send_buffer(:,:)
   REAL(wp), POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, idx, blk, n_procs, comm
   INTEGER, ALLOCATABLE :: collector_buffer_sizes(:)
 
   num_send_points = SUM(allgather_pattern%gather_pattern%collector_send_size(:))
   ALLOCATE(send_buffer(1, num_send_points))
-
-  IF (p_pe_work == process_mpi_root_id) THEN
-    ALLOCATE(recv_buffer(1, MERGE(allgather_pattern%gather_pattern%global_size, &
-      &                           SUM(allgather_pattern%gather_pattern%collector_size(:)), &
-      &                           PRESENT(fill_value))))
-  ELSE
-    ALLOCATE(recv_buffer(0,0))
-  END IF
 
   DO i = 1, SIZE(allgather_pattern%gather_pattern%loc_index(:))
     idx = idx_no(allgather_pattern%gather_pattern%loc_index(i))
@@ -3426,21 +3417,13 @@ SUBROUTINE allgather_i_1d_deblock(in_array, out_array, fill_value, &
                                                ! front of the array
   TYPE(t_comm_allgather_pattern), INTENT(IN) :: allgather_pattern
 
-  INTEGER, ALLOCATABLE :: send_buffer(:,:), recv_buffer(:,:)
+  INTEGER, ALLOCATABLE :: send_buffer(:,:)
   INTEGER, POINTER :: collector_buffer(:,:)
   INTEGER :: i, num_send_points, idx, blk, n_procs, comm
   INTEGER, ALLOCATABLE :: collector_buffer_sizes(:)
 
   num_send_points = SUM(allgather_pattern%gather_pattern%collector_send_size(:))
   ALLOCATE(send_buffer(1, num_send_points))
-
-  IF (p_pe_work == process_mpi_root_id) THEN
-    ALLOCATE(recv_buffer(1, MERGE(allgather_pattern%gather_pattern%global_size, &
-      &                           SUM(allgather_pattern%gather_pattern%collector_size(:)), &
-      &                           PRESENT(fill_value))))
-  ELSE
-    ALLOCATE(recv_buffer(0,0))
-  END IF
 
   DO i = 1, SIZE(allgather_pattern%gather_pattern%loc_index(:))
     idx = idx_no(allgather_pattern%gather_pattern%loc_index(i))
@@ -3672,20 +3655,21 @@ SUBROUTINE two_phase_gather_second(recv_buffer_r, recv_buffer_i, fill_value, &
 END SUBROUTINE two_phase_gather_second
 
     !-------------------------------------------------------------------------------------------------------------------------------
-    !> Factory method for t_scatterPattern. Destroy with deleteScatterPattern().
+    !> Factory method for t_ScatterPattern. Destroy with deleteScatterPattern().
     !-------------------------------------------------------------------------------------------------------------------------------
-    FUNCTION makeScatterPattern(loc_arr_len, glb_index, communicator)
+    FUNCTION makeScatterPattern(jg, loc_arr_len, glb_index, communicator)
         USE mo_scatter_pattern_scatter
         IMPLICIT NONE
-        CLASS(t_scatterPattern), POINTER :: makeScatterPattern
-        INTEGER, INTENT(IN) :: loc_arr_len, glb_index(:), communicator
+        CLASS(t_ScatterPattern), POINTER :: makeScatterPattern
+        INTEGER, VALUE :: jg, loc_arr_len, communicator
+        INTEGER, INTENT(IN) :: glb_index(:)
 
         CHARACTER(*), PARAMETER :: routine = modname//":makeScatterPattern"
         INTEGER :: ierr
 
-        ALLOCATE(t_scatterPatternScatter::makeScatterPattern, stat = ierr)
+        ALLOCATE(t_ScatterPatternScatter::makeScatterPattern, stat = ierr)
         IF(ierr /= SUCCESS) CALL finish(routine, "error allocating memory")
-        CALL makeScatterPattern%construct(loc_arr_len, glb_index, communicator)
+        CALL makeScatterPattern%construct(jg, loc_arr_len, glb_index, communicator)
     END FUNCTION makeScatterPattern
 
 END MODULE mo_communication

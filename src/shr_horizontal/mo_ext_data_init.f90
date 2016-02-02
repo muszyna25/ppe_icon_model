@@ -80,7 +80,7 @@ MODULE mo_ext_data_init
     &                              read_cdi_3d, t_inputParameters,                 &
     &                              makeInputParameters, deleteInputParameters,     &
     &                              has_filetype_netcdf
-  USE mo_util_uuid,          ONLY: t_uuid, char2uuid, OPERATOR(==), uuid_unparse,  &
+  USE mo_util_uuid,          ONLY: t_uuid, OPERATOR(==), uuid_unparse,  &
     &                              uuid_string_length
   USE mo_dictionary,         ONLY: t_dictionary, dict_init, dict_finalize,         &
     &                              dict_loadfile
@@ -351,9 +351,8 @@ CONTAINS
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
     INTEGER :: extpar_file_namelen
 
-    CHARACTER(len=1)        :: extpar_uuidOfHGrid_string(16)  ! uuidOfHGrid contained in the
+    TYPE(t_uuid)            :: extpar_uuidOfHGrid             ! uuidOfHGrid contained in the
                                                               ! extpar file
-    TYPE(t_uuid)            :: extpar_uuidOfHGrid             ! same, but converted to TYPE(t_uuid)
 
     CHARACTER(len=uuid_string_length) :: grid_uuid_unparsed   ! unparsed grid uuid (human readable)
     CHARACTER(len=uuid_string_length) :: extpar_uuid_unparsed ! same for extpar-file uuid
@@ -425,8 +424,7 @@ CONTAINS
       ! get horizontal grid UUID contained in extpar file
       ! use lu_class_fraction as sample field
       cdiGridID = vlistInqVarGrid(vlist_id, lu_class_fraction_id)
-      CALL gridInqUUID(cdiGridID, extpar_uuidOfHGrid_string)
-      CALL char2uuid(extpar_uuidOfHGrid_string, extpar_uuidOfHGrid)
+      CALL gridInqUUID(cdiGridID, extpar_uuidOfHGrid%DATA)
       !
       ! --- compare UUID of horizontal grid file with UUID from extpar file
       lmatch = (p_patch(jg)%grid_uuid == extpar_uuidOfHGrid)
@@ -882,6 +880,9 @@ CONTAINS
           ext_data(jg)%atm%i_lc_snow_ice = 21
           ext_data(jg)%atm%i_lc_water    = 20
           ext_data(jg)%atm%i_lc_urban    = 22
+          ext_data(jg)%atm%i_lc_shrub_eg = 11
+          ext_data(jg)%atm%i_lc_shrub    = 12
+          ext_data(jg)%atm%i_lc_grass    = 13
           ext_data(jg)%atm%i_lc_bare_soil= 19
           ext_data(jg)%atm%i_lc_sparse   = 14
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
@@ -899,6 +900,9 @@ CONTAINS
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
+          ext_data(jg)%atm%i_lc_shrub_eg = 12
+          ext_data(jg)%atm%i_lc_shrub    = 13
+          ext_data(jg)%atm%i_lc_grass    = 14
           ext_data(jg)%atm%i_lc_bare_soil= 20
           ext_data(jg)%atm%i_lc_sparse   = 15
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
@@ -916,6 +920,9 @@ CONTAINS
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
+          ext_data(jg)%atm%i_lc_shrub_eg = 12
+          ext_data(jg)%atm%i_lc_shrub    = 13
+          ext_data(jg)%atm%i_lc_grass    = 14
           ext_data(jg)%atm%i_lc_bare_soil= 20
           ext_data(jg)%atm%i_lc_sparse   = 15
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
@@ -933,6 +940,9 @@ CONTAINS
           ext_data(jg)%atm%i_lc_snow_ice = 22
           ext_data(jg)%atm%i_lc_water    = 21
           ext_data(jg)%atm%i_lc_urban    = 19
+          ext_data(jg)%atm%i_lc_shrub_eg = 12
+          ext_data(jg)%atm%i_lc_shrub    = 13
+          ext_data(jg)%atm%i_lc_grass    = 14
           ext_data(jg)%atm%i_lc_bare_soil= 20
           ext_data(jg)%atm%i_lc_sparse   = 15
           DO i = 1, num_lcc*n_param_lcc, n_param_lcc
@@ -1025,7 +1035,7 @@ CONTAINS
 
 
           ! Read time dependent data
-          IF ( irad_aero == 6 ) THEN
+          IF ( irad_aero == 6 .OR. irad_aero == 9) THEN
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_SS', ext_data(jg)%atm_td%aer_ss)
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_DUST', ext_data(jg)%atm_td%aer_dust)
             CALL read_cdi_2d(parameters, nmonths_ext(jg), 'AER_ORG', ext_data(jg)%atm_td%aer_org)
@@ -1204,8 +1214,10 @@ CONTAINS
         ext_data(jg)%atm_td%phoz(nlev_o3+1) = 125000._wp
 
         DO i=1,nlev_o3
-          WRITE(0,*) 'full/half level press ozone ', i, ext_data(jg)%atm_td%pfoz(i),&
-            &                                           ext_data(jg)%atm_td%phoz(i+1)
+
+          WRITE(message_text,'(a,i4,f12.4,f12.4)')'full/half level press ozone ', &
+                              i, ext_data(jg)%atm_td%pfoz(i), ext_data(jg)%atm_td%phoz(i+1)
+          CALL message(routine, TRIM(message_text))
         ENDDO
 
         stream_id = openInputFile(ozone_file, p_patch(jg), default_read_method)
@@ -1213,8 +1225,9 @@ CONTAINS
         CALL read_3D_extdim(stream_id, on_cells, TRIM(o3name), &
           &                 ext_data(jg)%atm_td%O3)
 
-        WRITE(0,*)'MAX/MIN o3 ppmv',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
-          &                         MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+        WRITE(message_text,'(a,f12.4,f12.4)')'MAX/MIN o3 ppmv', &
+           MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)), MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+        CALL message(routine, TRIM(message_text))
 
         ! convert from ppmv to g/g only in case of APE ozone
         ! whether o3mr2gg or ppmv2gg is used to convert O3 to gg depends on the units of
@@ -1223,8 +1236,10 @@ CONTAINS
          ! &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*o3mr2gg
           &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
 
-        WRITE(0,*)'MAX/min o3 g/g',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
-          &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+
+        WRITE(message_text,'(a,f12.4,f12.4)')'MAX/MIN o3 g/g', &
+           MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)), MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+        CALL message(routine, TRIM(message_text))
 
         ! close file
         CALL closeFile(stream_id)

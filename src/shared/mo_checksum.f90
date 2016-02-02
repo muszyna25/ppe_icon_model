@@ -182,18 +182,18 @@ CONTAINS
         IF(p_comm_rank(communicator) == 0) THEN
             hash = checksum(processChecksums, prime2)
             IF(printDetails) THEN
-                print*, prefix//"details:"
+                WRITE(0, *) prefix//"details:"
                 DO i = 1, processCount
-                    print*, "checksum from process "//TRIM(int2string(i - 1))//": "//checksumString(processChecksums(i))
+                    WRITE(0, *) "checksum from process "//TRIM(int2string(i - 1))//": "//checksumString(processChecksums(i))
                 END DO
             END IF
 
             !print the RESULT
-            print*, prefix//checksumString(hash)
+            WRITE(0, *) prefix//checksumString(hash)
         END IF
         DEALLOCATE(processChecksums)
 #else
-        print*, prefix//checksumString(hash)
+        WRITE(0, *) prefix//checksumString(hash)
 #endif
     END SUBROUTINE printChecksum_1d_int32
 
@@ -214,9 +214,9 @@ CONTAINS
         printDetails = .FALSE.
         IF(PRESENT(opt_lDetails)) printDetails = opt_lDetails
         IF(printDetails) THEN
-            print*, prefix//"hex dump:"
+            WRITE(0, *) prefix//"hex dump:"
             DO i = 0, SIZE(array, 1) - 4, 4
-                print*, TRIM(int2string(i*4)) &
+                WRITE(0, *) TRIM(int2string(i*4)) &
                     & //": "//checksumString(IAND(mask, INT(array(i + 1), C_INT64_T))) &
                     & // " "//checksumString(IAND(mask, INT(array(i + 2), C_INT64_T))) &
                     & // " "//checksumString(IAND(mask, INT(array(i + 3), C_INT64_T))) &
@@ -224,14 +224,14 @@ CONTAINS
             END DO
             SELECT CASE(MOD(SIZE(array, 1),4))
                 CASE(1)
-                    print*, TRIM(int2string(SIZE(array, 1) - 1)) &
+                    WRITE(0, *) TRIM(int2string(SIZE(array, 1) - 1)) &
                         & //": "//checksumString(IAND(mask, INT(array(SIZE(array, 1) - 0), C_INT64_T)))
                 CASE(2)
-                    print*, TRIM(int2string(SIZE(array, 1) - 2)) &
+                    WRITE(0, *) TRIM(int2string(SIZE(array, 1) - 2)) &
                         & //": "//checksumString(IAND(mask, INT(array(SIZE(array, 1) - 1), C_INT64_T))) &
                         & // " "//checksumString(IAND(mask, INT(array(SIZE(array, 1) - 0), C_INT64_T)))
                 CASE(3)
-                    print*, TRIM(int2string(SIZE(array, 1) - 3)) &
+                    WRITE(0, *) TRIM(int2string(SIZE(array, 1) - 3)) &
                         & //": "//checksumString(IAND(mask, INT(array(SIZE(array, 1) - 2), C_INT64_T))) &
                         & //": "//checksumString(IAND(mask, INT(array(SIZE(array, 1) - 1), C_INT64_T))) &
                         & // " "//checksumString(IAND(mask, INT(array(SIZE(array, 1) - 0), C_INT64_T)))
@@ -239,7 +239,7 @@ CONTAINS
         END IF
 
         hash = checksum(array, prime)
-        print*, prefix//checksumString(hash)
+        WRITE(0, *) prefix//checksumString(hash)
     END SUBROUTINE printLocalChecksum_1d_int32
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

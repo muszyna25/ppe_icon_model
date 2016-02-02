@@ -25,7 +25,7 @@ MODULE mo_echam_phy_config
   PUBLIC :: t_echam_phy_config, echam_phy_config   !< derived type and variable
   PUBLIC :: configure_echam_phy                    !< subroutine
   PUBLIC :: get_lrad, get_dt_rad, get_lvdiff,    & !< functions to retrieve values
-    &       get_lconv, get_lcond, get_icover,    & !<   of single parameters of the
+    &       get_lconv, get_lcond,                & !<   of single parameters of the
     &       get_lgw_hines, get_lssodrag,         & !<   whole echam6 configuration
     &       get_lmlo, get_lice, get_ljsbach,     & !<   state without USEing the
     &       get_lamip, get_lebudget                !<   whole state.
@@ -44,7 +44,6 @@ MODULE mo_echam_phy_config
     LOGICAL  :: lvdiff      !<  .true. for vertical diffusion.
     LOGICAL  :: lconv       !<  .true. for moist convection
     LOGICAL  :: lcond       !<  .true. for large scale condensation
-    INTEGER  :: icover      !<  default 1 for Sundqvist scheme, 2 for Tompkins
     LOGICAL  :: lgw_hines   !<  .true. for atmospheric gravity wave drag
     LOGICAL  :: lssodrag    !<  .true. for subgrid scale orographic drag,
                             !<         by blocking and gravity waves (lgwdrag in ECHAM6)
@@ -91,7 +90,6 @@ CONTAINS
     CALL print_value('    lvdiff     ',echam_phy_config% lvdiff   )
     CALL print_value('    lconv      ',echam_phy_config% lconv    )
     CALL print_value('    lcond      ',echam_phy_config% lcond    )
-    CALL print_value('    icover     ',echam_phy_config% icover   )
     CALL print_value('    lgw_hines  ',echam_phy_config% lgw_hines)
     CALL print_value('    lssodrag   ',echam_phy_config% lssodrag )
     CALL print_value('    lmlo       ',echam_phy_config% lmlo     )
@@ -138,11 +136,6 @@ CONTAINS
   LOGICAL FUNCTION get_lcond()
     get_lcond = echam_phy_config%lcond
   END FUNCTION get_lcond
-  !>
-  !!
-  INTEGER FUNCTION get_icover()
-    get_icover = echam_phy_config%icover
-  END FUNCTION get_icover
   !>
   !!
   LOGICAL FUNCTION get_lgw_hines()

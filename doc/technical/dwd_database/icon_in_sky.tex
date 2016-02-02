@@ -68,9 +68,15 @@ For the nested domain, the specification of the mesh width and number of levels 
 example, \textbf{icreu} is the ICON nest over Europe (with a mesh width of $6.5\,\mathrm{km}$ and 60 
 levels), interpolated to a regular lat-lon grid.
 
+For ensemble forecasts or ensemble analyses the first part of the
+category is extended by an \textbf{e} (for instance \textbf{icogle}
+or \textbf{icrgle}). Ensemble members or ranges of ensemble members
+are specified by the parameter \emph{enum=}$NUM$
+or \emph{enum=}$NUM1-NUM2$ where $NUM$ is the member id.
+
 Hence, the full category name for data from a global operational forecast run of ICON on a
 regular grid will be \textbf{icrgl130l90\_main\_fc\_rout}. The initial analysis for this
-run is in category \textbf{icogl130l90\_main\_an\_rout}.
+run is in category\\ \textbf{icogl130l90\_main\_an\_rout}.
 
 \begin{note}
 Since 2014-08-12 12 UTC ICON is running pre-operationally at DWD. Hence, forecast data
@@ -103,48 +109,39 @@ and f the name of the GRIB data file.
 read db=roma cat=icogl130l90_main_an_rout d=t18-1d p=T gptype=0 bin f=t_icon_ana
 \end{skydb}
 
-\item Retrieve the 6, 12, 18, and 24 hour forecast of the 2m temperature from a forecast
-run on 2012-06-28 at 00 UTC on the global domain from an ICON run on a R3B07 grid with 90 levels:
+\item Retrieve the 6, 12, 18, and 24 hour forecast of the 2m temperature from a forecast in experiment
+10096 on 2015-09-05 at 00 UTC on the global domain from an ICON run on a R3B07 grid with 90 levels:
 
 \begin{skydb}
-read db=numex cat=icrgl130l90_main_fc_exp1 exp=901 d=2012062800 s[h]=6,12,18,24 p=t_2m bin f=t_2m_fc.grb
+read db=numex cat=icrgl130l90_main_fc_exp exp=10096 d=2015090500 s[h]=6,12,18,24 p=t_2m bin f=t_2m_fc.grb
 \end{skydb}
 
-\item Retrieve wind components U and V at 300 hPa on the regular grid from a 24 hour forecast on
-2013-10-03 at 00 UTC. lv=P specifies the level type as pressure levels. lv1=30000 specifies the level in Pa. 
+\item Retrieve accumulated precipiation of the ICON-EU nest on the regular grid every 6 hours to 72 hours
+from the yesterday's operational run at 12 UTC:
 
 \begin{skydb}
-read db=numex cat=icrgl130l90_main_fc_exp1 exp=907 d=2013100300 s[h]=24 p=U,V lv=P lv1=30000 bin f=uvReg300hPa
+read db=roma cat=icreu_main_fc_rout d=t12-1d s[h]=6/to/72/by/6 p=tot_prec bin f=tot_prec_ieu
 \end{skydb}
 
-\item Retrieve the analysis of U on the native grid:
+
+
+\item List the data on pressure levels of the 18 hours forecast from 06 UTC of ICON-EU nest on the
+regular grid. Write reference date (d), forecast step (s), level type (lv), value of first level (lv1),
+decoding date (dedat), and store date (stdat) in information file icr.info.
 \begin{skydb}
-read db=numex cat=icogl130l90_main_an_exp1 exp=907 d=2013100300 p=U bin f=u_icon_ana
+read db=roma cat=icreu_main_fc_rout d=06 step[h]=18 lv=P info=metaData metaArray=d,s,p,lv,lv1,dedat,stdat sort=d,s,p,lv,lv1 infof=icr.info
 \end{skydb}
 
-\item Retrieve temperature forecasts from 7 to 9 hours on the native grid:
-\begin{skydb}
-read db=numex cat=icogl130l90_main_fc_exp1 exp=907 d=2013100300 s[h]=7/to/9 p=T bin f=T_icon_07-09
-\end{skydb}
-
-\item Retrieve a 6 hour forecast on a regular grid on pressure levels. ICON was run on a 40 km
-grid (R2B06).  Write reference date (d),
-forecast step (s), level type (lv), value of first level (lv1), decoding date (dedat), and
-store date (stdat) in information file icr.info.
-\begin{skydb}
-read db=numex cat=icrgl400l90_main_fc_exp exp=9323 d=2012010100 step[h]=6 lv=P f=icr06p bin info=metaData metaArray=d,s,p,lv,lv1,dedat,stdat sort=d,s,p,lv,lv1 infof=icr.info
-\end{skydb}
-In order to retrieve the same forecast on height levels, the level type must be changed to lv=HMSL.
-
-\item Retrieve temperature in 850 hPa from a forecast on 2013-10-05 at 12 UTC:
+\item Retrieve temperature in 850 hPa from the first guess of the 40 ensemble members of the EDA
+on the 40 km grid in the parallel suite yesterday at 21 UTC. Sort the data by ensemble member.
 
 \begin{skydb}
-read db=numex cat=icrgl400l90_main_fc_exp1 exp=906 d=2013100512 p=T lv1=85000 lv=P bin f=t850_iconr
+read db=parma cat=icrgle_ass_fc_para1 enum=1/to/ d=t21-1d s=3 p=T lv=P lv1=85000 info=epsInfo sort=enum
 \end{skydb}
 
 \item Retrieve all available time-invariant (constant) fields on the native grid and store them in the file const\_icongl. 
 Write reference date (d), forecast step (s), level type (lv), value of first level (lv1), decoding date (dedat), 
-and store date (stdat) in information file icr.info. It is important to set \textbf{invar=true}.
+store date (stdat), and validity date (valdat) in information file icr.info. It is important to set \textbf{invar=true}.
 
 \begin{skydb}
 read db=roma cat=icogl130l90_const_an_rout invar=true info=metaData metaArray=d,s,p,lv,lv1,dedat,stdat bin infof=icr.info f=const_icongl
