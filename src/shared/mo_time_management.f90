@@ -532,9 +532,13 @@ CONTAINS
         &                       TRIM(end_datetime1)//"/"//TRIM(end_datetime2))
     END IF
     ! throw an error, if no start date has been specified at all
-    IF (TRIM(exp_stop_datetime_string) == "") THEN
-      CALL finish(routine, "No experiment stop date has been set!")
-    END IF
+    !
+    ! Note: this error check is disabled since some scripts do not
+    !       specify the experiment stop date.
+    !
+    !  IF (TRIM(exp_stop_datetime_string) == "") THEN
+    !    CALL finish(routine, "No experiment stop date has been set!")
+    !  END IF
 
     ! --- --- REFERENCE DATE:
     !
