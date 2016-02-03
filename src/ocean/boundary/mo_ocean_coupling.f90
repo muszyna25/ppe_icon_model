@@ -846,9 +846,9 @@ MODULE mo_ocean_coupling
   USE mo_model_domain,        ONLY: t_patch_3d
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
   USE mo_sea_ice_types,       ONLY: t_sea_ice, t_atmos_fluxes
-  USE mo_datetime,            ONLY: t_datetime
   USE mo_coupling_config,     ONLY: is_coupled_run
   USE mo_exception,           ONLY: finish
+  USE mtime,                  ONLY: datetime
 
   PUBLIC :: construct_ocean_coupling, destruct_ocean_coupling
   PUBLIC :: couple_ocean_toatmo_fluxes
