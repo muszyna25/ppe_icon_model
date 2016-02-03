@@ -56,14 +56,14 @@ CONTAINS
     INTEGER :: get_filetype
     CHARACTER(LEN=*), INTENT(IN) :: filename
     ! local variables
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_nh_initicon:get_filetype'
+    CHARACTER(len=*), PARAMETER :: routine = modname//'::get_filetype'
     INTEGER :: idx
     
     idx = INDEX(tolower(filename),'.nc')
     IF (idx==0) THEN
       idx = INDEX(tolower(filename),'.grb')
       IF (idx==0) THEN
-        CALL finish(routine, "File type could not be determined!")
+        CALL finish(routine, "File type could not be determined!  File: " // trim (filename))
       ELSE
         get_filetype = FILETYPE_GRB2
       END IF
