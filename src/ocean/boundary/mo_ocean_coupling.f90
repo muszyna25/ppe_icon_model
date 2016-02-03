@@ -867,13 +867,13 @@ CONTAINS
 
   END SUBROUTINE construct_ocean_coupling
 
-  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, datetime)
+  SUBROUTINE couple_ocean_toatmo_fluxes(patch_3d, ocean_state, ice, atmos_fluxes, this_datetime)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)        :: patch_3d
     TYPE(t_hydro_ocean_state)                   :: ocean_state
     TYPE(t_sea_ice)                             :: ice
     TYPE(t_atmos_fluxes)                        :: atmos_fluxes !atmos_fluxes
-    TYPE(t_datetime), INTENT(inout)             :: datetime
+    TYPE(datetime), POINTER                     :: this_datetime
 
     IF ( is_coupled_run() ) THEN
        CALL finish('couple_ocean_toatmo_fluxes: unintentionally called. Check your source code and configure.')
