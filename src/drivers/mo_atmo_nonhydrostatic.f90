@@ -86,7 +86,9 @@ USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 USE mo_vertical_coord_table,ONLY: vct_a, vct_b
 USE mo_nh_testcases_nml,    ONLY: nh_test_name
 
-USE mtime,                  ONLY: datetimeToString
+USE mtime,                  ONLY: datetimeToString, timeDelta, newTimeDelta,               &
+  &                               getTimeDeltaFromDateTime, getTotalMillisecondsTimedelta, &
+  &                               deallocateTimedelta
 USE mo_output_event_types,  ONLY: t_sim_step_info
 USE mo_action,              ONLY: ACTION_RESET, reset_act
 USE mo_turbulent_diagnostic,ONLY: init_les_turbulent_output, close_les_turbulent_output
@@ -142,6 +144,7 @@ CONTAINS
     INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
+    TYPE(timeDelta), POINTER             :: time_diff
 
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
@@ -175,7 +178,12 @@ CONTAINS
         ENDIF
       ENDDO
     ELSE
-      CALL get_restart_attribute("sim_time_DOM01", sim_time)
+      ! calculate elapsed simulation time in seconds
+      time_diff  => newTimedelta("PT0S")
+      time_diff  =  getTimeDeltaFromDateTime(time_config%tc_current_date, time_config%tc_startdate)
+      sim_time   =  getTotalMillisecondsTimedelta(time_diff, time_config%tc_current_date)*1.e-3_wp
+      CALL deallocateTimedelta(time_diff)
+
       DO jg=1, n_dom
         IF (jg > 1 .AND. start_time(jg) > sim_time .OR. end_time(jg) <= sim_time) THEN
           p_patch(jg)%ldom_active = .FALSE. ! domain not active at restart time

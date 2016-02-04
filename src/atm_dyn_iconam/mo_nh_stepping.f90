@@ -568,7 +568,7 @@ MODULE mo_nh_stepping
   CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: dstring
   CHARACTER(len=MAX_MTIME_ERROR_STR_LEN) :: errstring
   
-  REAL(wp)                             :: sim_time     !< elapsed simulation time on this grid level
+  REAL(wp)                             :: sim_time     !< elapsed simulation time
 
   
 !!$  INTEGER omp_get_num_threads
