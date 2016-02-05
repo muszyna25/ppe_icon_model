@@ -44,11 +44,10 @@ MODULE mo_time_management
     &                                    getTimedeltaFromMS, timedelta_str_equal
   USE mo_time_config,              ONLY: dt_restart,                                       &
     &                                    ini_datetime_string, is_relative_time,            &
-    &                                    time_nml_calendar  => calendar,                   &
     &                                    time_nml_icalendar => icalendar,                  &
     &                                    restart_calendar, restart_ini_datetime_string,    &
     &                                    setTimeConfigCalendar, setIsRelativeTime,         &
-    &                                    setModelTimeStep
+    &                                    setModelTimeStep, calendar_index2string
   USE mo_run_config,               ONLY: dtime, mtime_modelTimeStep => modelTimeStep
   USE mo_master_control,           ONLY: atmo_process, get_my_process_type
   USE mo_impl_constants,           ONLY: max_dom, IHS_ATM_TEMP, IHS_ATM_THETA,             &
@@ -67,10 +66,10 @@ MODULE mo_time_management
   USE mo_master_config,            ONLY: experimentReferenceDate,                          &
     &                                    experimentStartDate,                              &
     &                                    checkpointTimeIntval, restartTimeIntval,          &
-    &                                    experimentStopDate, isRestart
+    &                                    experimentStopDate, isRestart,                    &
+    &                                    master_nml_calendar => calendar_str
   USE mo_time_config,              ONLY: setExpRefdate, setExpStartdate,                   &
     &                                    setExpStopdate, setStartdate, setStopdate,        &
-    &                                    master_nml_calendar => calendar,                  &
     &                                    setrestarttimeinterval, setcheckpointtimeinterval,&
     &                                    setCurrentdate, end_datetime_string
   USE mo_io_restart_attributes,    ONLY: get_restart_attribute
@@ -426,7 +425,10 @@ CONTAINS
     !     in "time_nml" or the namelist parameter "calendar" in
     !     "master_time_control_nml".
 
-    calendar1 = TRIM(time_nml_calendar)
+    ! Convert the calendar setting (which is an integer value for this
+    ! namelist) into a string. The naming scheme is then compatible
+    ! with concurrent namelist settings of the calendar (mtime):
+    calendar1 = calendar_index2string(time_nml_icalendar)
     calendar2 = TRIM(master_nml_calendar)
     IF (TRIM(calendar1) /= "")  calendar = calendar1
     IF (TRIM(calendar2) /= "")  calendar = calendar2

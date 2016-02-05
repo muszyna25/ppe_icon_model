@@ -24,8 +24,7 @@ MODULE mo_initicon_config
     &                              MODE_IAU, MODE_IAU_OLD
   USE mo_time_config,        ONLY: time_config
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
-    &                              max_timedelta_str_len, datetime, newDatetime,     &
-    &                              deallocateDatetime, OPERATOR(+),                  &
+    &                              max_timedelta_str_len, datetime, OPERATOR(+),     &
     &                              MAX_DATETIME_STR_LEN, OPERATOR(<=), OPERATOR(>=), &
     &                              getPTStringFromSeconds
   USE mo_parallel_config,    ONLY: num_prefetch_proc
@@ -209,9 +208,6 @@ CONTAINS
     TYPE(timedelta), POINTER             :: mtime_shift_local, td_start_time_avg_fg, td_end_time_avg_fg
     CHARACTER(len=max_timedelta_str_len) :: str_start_time_avg_fg, str_end_time_avg_fg
     !
-
-    TYPE(datetime), POINTER              :: inidatetime          ! in mtime format
-    CHARACTER(LEN=MAX_DATETIME_STR_LEN)  :: iso8601_ini_datetime ! ISO_8601
 
     REAL(wp)                             :: zdt_shift            ! rounded dt_shift
     !

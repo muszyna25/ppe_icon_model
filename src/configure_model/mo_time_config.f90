@@ -25,13 +25,16 @@
 MODULE mo_time_config
 
   USE mo_kind,                  ONLY: wp
-  USE mtime,                    ONLY: max_calendar_str_len,                           &
-    &                                 datetime, timedelta, newDatetime, newTimedelta, &
-    &                                 MAX_CALENDAR_STR_LEN, deallocateDatetime
+  USE mtime,                    ONLY: datetime, timedelta, newDatetime, newTimedelta, &
+    &                                 deallocateDatetime, MAX_CALENDAR_STR_LEN
+  USE mo_impl_constants,        ONLY: proleptic_gregorian,                            &
+                                    & julian_gregorian, cly360
+  USE mo_util_string,           ONLY: tolower
  
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: ini_datetime_string, end_datetime_string, calendar, icalendar
+  PUBLIC :: calendar_index2string
+  PUBLIC :: ini_datetime_string, end_datetime_string, icalendar
   PUBLIC :: restart_ini_datetime_string, restart_end_datetime_string, restart_calendar
   PUBLIC :: dt_restart, is_relative_time
   PUBLIC :: t_time_config, time_config
@@ -54,10 +57,9 @@ MODULE mo_time_config
   !
   !  these are namelist setting which may originate from the restart
   !  file, but with user modifications in the current run:
+  INTEGER                             :: icalendar
   CHARACTER(len=32)                   :: ini_datetime_string
   CHARACTER(len=32)                   :: end_datetime_string
-  INTEGER                             :: icalendar
-  CHARACTER(len=max_calendar_str_len) :: calendar = ''       !< string translation of "icalendar"
   REAL(wp)                            :: dt_restart          !< Length of restart cycle in seconds
   LOGICAL                             :: is_relative_time
 
@@ -112,7 +114,53 @@ MODULE mo_time_config
   !!
   TYPE(t_time_config), PROTECTED, SAVE :: time_config
 
+  CHARACTER(LEN = *), PARAMETER :: modname = "mo_time_config"
+
 CONTAINS
+
+    !> Convert the calendar setting (which is an integer value for this
+  !  namelist) into a string. The naming scheme is then compatible
+  !  with concurrent namelist settings of the calendar (mtime).
+  !
+  FUNCTION calendar_index2string(icalendar) RESULT(ret)
+    CHARACTER(LEN=MAX_CALENDAR_STR_LEN) :: ret
+    INTEGER, INTENT(IN) :: icalendar
+    ! local variables
+    CHARACTER(len=*), PARAMETER ::  routine = modname//'::calendar_index2string'
+
+    ret = ""
+    SELECT CASE(icalendar)
+    CASE(julian_gregorian)
+      ret = 'julian gregorian'
+    CASE(proleptic_gregorian)
+      ret = 'proleptic gregorian'
+    CASE(cly360)
+      ret = '360 day year'
+    END SELECT
+  END FUNCTION calendar_index2string
+
+
+  !> Convert the calendar setting (which is an integer value for this
+  !  namelist) into a string. The naming scheme is then compatible
+  !  with concurrent namelist settings of the calendar (mtime).
+  !
+  FUNCTION calendar_string2index(cal_str) RESULT(ret)
+    INTEGER :: ret
+    CHARACTER(LEN=*), INTENT(IN) :: cal_str
+    ! local variables
+    CHARACTER(len=*), PARAMETER ::  routine = modname//'::calendar_string2index'
+
+    ret = -1
+    IF (TRIM(tolower(cal_str)) == 'julian gregorian') THEN
+      ret = julian_gregorian
+    ELSE IF (TRIM(tolower(cal_str)) == 'proleptic gregorian') THEN
+      ret = proleptic_gregorian
+    ELSE IF (TRIM(tolower(cal_str)) == '360 day year') THEN
+      ret = cly360
+    END IF
+  END FUNCTION calendar_string2index
+
+
 
   SUBROUTINE setExpRefdate(experimentReferenceDate)   
     CHARACTER(len=*), INTENT(in) :: experimentReferenceDate   
