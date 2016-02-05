@@ -44,7 +44,8 @@ MODULE mo_time_management
     &                                    getTimedeltaFromMS, timedelta_str_equal
   USE mo_time_config,              ONLY: dt_restart,                                       &
     &                                    ini_datetime_string, is_relative_time,            &
-    &                                    time_nml_calendar => calendar,                    &
+    &                                    time_nml_calendar  => calendar,                   &
+    &                                    time_nml_icalendar => icalendar,                  &
     &                                    restart_calendar, restart_ini_datetime_string,    &
     &                                    setTimeConfigCalendar, setIsRelativeTime,         &
     &                                    setModelTimeStep
@@ -450,8 +451,9 @@ CONTAINS
       dtime_calendar  = dtime_cly360
       mtime_calendar  = mtime_year_of_360_days
     CASE default
-      dtime_calendar  = dtime_proleptic_gregorian
-      mtime_calendar  = mtime_proleptic_gregorian
+      dtime_calendar       = dtime_proleptic_gregorian
+      mtime_calendar       = mtime_proleptic_gregorian
+      time_nml_icalendar   = dtime_proleptic_gregorian
       CALL message('','No calendar selected! Use default proleptic Gregorian.')
     END SELECT
 

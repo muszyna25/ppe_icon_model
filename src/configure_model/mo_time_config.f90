@@ -27,12 +27,11 @@ MODULE mo_time_config
   USE mo_kind,                  ONLY: wp
   USE mtime,                    ONLY: max_calendar_str_len,                           &
     &                                 datetime, timedelta, newDatetime, newTimedelta, &
-    &                                 MAX_DATETIME_STR_LEN, MAX_CALENDAR_STR_LEN,     &
-    &                                 MAX_TIMEDELTA_STR_LEN, deallocateDatetime
+    &                                 MAX_CALENDAR_STR_LEN, deallocateDatetime
  
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: ini_datetime_string, end_datetime_string, calendar
+  PUBLIC :: ini_datetime_string, end_datetime_string, calendar, icalendar
   PUBLIC :: restart_ini_datetime_string, restart_end_datetime_string, restart_calendar
   PUBLIC :: dt_restart, is_relative_time
   PUBLIC :: t_time_config, time_config
@@ -57,7 +56,8 @@ MODULE mo_time_config
   !  file, but with user modifications in the current run:
   CHARACTER(len=32)                   :: ini_datetime_string
   CHARACTER(len=32)                   :: end_datetime_string
-  CHARACTER(len=max_calendar_str_len) :: calendar = ''
+  INTEGER                             :: icalendar
+  CHARACTER(len=max_calendar_str_len) :: calendar = ''       !< string translation of "icalendar"
   REAL(wp)                            :: dt_restart          !< Length of restart cycle in seconds
   LOGICAL                             :: is_relative_time
 
