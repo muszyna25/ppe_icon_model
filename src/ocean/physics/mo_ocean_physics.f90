@@ -304,7 +304,8 @@ CONTAINS
     meanCellArea = minmaxmean_length(3)
     maxCellArea = minmaxmean_length(2)
 
-    out_DiffusionBackground = DiffusionReferenceValue
+    IF (present(out_DiffusionBackground)) &
+      out_DiffusionBackground = DiffusionReferenceValue
 
     SELECT CASE(DiffusionType)
 
