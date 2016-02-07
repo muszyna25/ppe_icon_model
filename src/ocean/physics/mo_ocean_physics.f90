@@ -381,22 +381,36 @@ CONTAINS
       END DO
 
     CASE(7)
-      ! Simple scaling of the constant diffusion by prime edge lenght + cell area (estimated)
-      reference_scale = 4.0_wp / (3.0_wp * maxEdgeLength * maxCellArea)
+      ! multiply DiffusionReferenceValue by dual_edge_length**3
+      ! recommended values:
+      !  Harmonic viscosity: 6.0E-11 
+      !  Biharmonic viscosicity: 3.125e-3
+      !  Tracer diffusion:  7.2E-13
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
         out_DiffusionCoefficients(:,:,jb) = 0.0_wp
         DO je = start_index, end_index
 
-          length_scale = &
-            & patch_2D%edges%primal_edge_length(je,jb)**2 * patch_2D%edges%dual_edge_length(je,jb) &
-            & * reference_scale
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
+            out_DiffusionCoefficients(je,jk,jb) = &
+              & DiffusionReferenceValue * patch_2D%edges%dual_edge_length(je,jb)**3
+          END DO
+
+        END DO
+      END DO
+
+    CASE(8)
+      ! multiply DiffusionReferenceValue by sqrt(dual_edge_length**3)
+      ! recommended values:
+      !  Biharmonic viscosicity: 0.45
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        out_DiffusionCoefficients(:,:,jb) = 0.0_wp
+        DO je = start_index, end_index
 
           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
             out_DiffusionCoefficients(je,jk,jb) = &
-              & DiffusionReferenceValue * &
-              & (1.0_wp - HorizontalViscosity_ScaleWeight &
-              &  +  HorizontalViscosity_ScaleWeight * length_scale)
+              & DiffusionReferenceValue * SQRT(patch_2D%edges%dual_edge_length(je,jb)**3)
           END DO
 
         END DO
@@ -437,6 +451,28 @@ CONTAINS
           & sqrt(patch_2D%edges%primal_edge_length(je,jb) * patch_2D%edges%dual_edge_length(je,jb))
 
           out_DiffusionCoefficients(je,:,jb)=C_MPIOM*length_scale**2
+        END DO
+      END DO
+
+    CASE(13)
+      ! Simple scaling of the constant diffusion by prime edge lenght + cell area (estimated)
+      reference_scale = 4.0_wp / (3.0_wp * maxEdgeLength * maxCellArea)
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        out_DiffusionCoefficients(:,:,jb) = 0.0_wp
+        DO je = start_index, end_index
+
+          length_scale = &
+            & patch_2D%edges%primal_edge_length(je,jb)**2 * patch_2D%edges%dual_edge_length(je,jb) &
+            & * reference_scale
+
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
+            out_DiffusionCoefficients(je,jk,jb) = &
+              & DiffusionReferenceValue * &
+              & (1.0_wp - HorizontalViscosity_ScaleWeight &
+              &  +  HorizontalViscosity_ScaleWeight * length_scale)
+          END DO
+
         END DO
       END DO
 

@@ -810,11 +810,14 @@ CONTAINS
     ividx => patch_2D%edges%vertex_idx
     ivblk => patch_2D%edges%vertex_blk
     
-!     z_nabla2_e(1:nproma,1:n_zlev,1:patch_2D%nblks_e) = 0.0_wp
-!     p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(1)=0.0_wp
-!     p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(2)=0.0_wp
-!     p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(3)=0.0_wp
-!     z_div_c(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks) =0.0_wp   
+#ifdef NAGFOR
+    ! this is only for sync with nag
+    z_nabla2_e(:,:,:) = 0.0_w
+    z_div_c(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks) =0.0_wp
+    p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(1)=0.0_wp
+    p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(2)=0.0_wp
+    p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(3)=0.0_wp
+#endif
 !     z_rot_v(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v) =0.0_wp
 
 !     IF (veloc_diffusion_order==21) THEN
