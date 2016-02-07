@@ -8,7 +8,7 @@
 !!
 !! @par Copyright and License
 !!
-!! This code is subedge_indexct to the DWD and MPI-M-Software-License-Agreement in
+!! This code is subject to the DWD and MPI-M-Software-License-Agreement in
 !! its most recent form.
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
@@ -719,7 +719,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
-      nabla2_vec_e(:,:,blockNo) = 0.0_wp
+      nabla2(:,:) = 0.0_wp
       DO edge_index = start_index, end_index
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
 
@@ -737,7 +737,6 @@ CONTAINS
           !IF(v_base%lsm_e(edge_index,level,blockNo) < land_boundary)THEN
 
           nabla2(edge_index,level) = &   ! patch_3D%wet_e(edge_index,level,blockNo)* &
-            & k_h(edge_index,level,blockNo) * (                                             &
             & patch_2D%edges%tangent_orientation(edge_index,blockNo) *                      &
             & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))         &
             & - vort(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )       &
@@ -745,15 +744,15 @@ CONTAINS
             & +                                                &
             & ( z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))      &
             & - z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1)) )    &
-            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo))
+            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
 
-          IF (present(nabla2_vec_e)) &
-            nabla2_vec_e(edge_index,level,blockNo) = nabla2(edge_index,level)
-          IF (present(HarmonicDiffusion)) &
-            HarmonicDiffusion(edge_index,level,blockNo) = nabla2(edge_index,level) * k_h(edge_index,level,blockNo)
 
         END DO
       END DO
+      IF (present(nabla2_vec_e)) &
+        nabla2_vec_e(:,:,blockNo) = nabla2(:,:)
+      IF (present(HarmonicDiffusion)) &
+        HarmonicDiffusion(:,:,blockNo) = nabla2(:,:) * k_h(:,:,blockNo)
     END DO
 !ICON_OMP_END_PARALLEL_DO
    

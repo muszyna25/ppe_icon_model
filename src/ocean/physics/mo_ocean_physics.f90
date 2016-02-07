@@ -213,6 +213,8 @@ CONTAINS
         & DiffusionReferenceValue=HorizontalViscosity_HarmonicReference, &
         & out_DiffusionBackground=physics_param%HorizontalViscosity_Harmonic_back, &
         & out_DiffusionCoefficients=physics_param%HorizontalViscosity_Harmonic)
+      CALL dbg_print('HarmonicVisc:'     ,physics_param%HorizontalViscosity_Harmonic,str_module,0, &
+        & in_subset=patch_2D%edges%owned)
     ENDIF
 
     IF (veloc_diffusion_order == 2 .OR. veloc_diffusion_order == 21) THEN
@@ -221,6 +223,8 @@ CONTAINS
         & DiffusionReferenceValue=HorizontalViscosity_BiharmonicReference, &
         & out_DiffusionBackground=physics_param%HorizontalViscosity_Biharmonic_back, &
         & out_DiffusionCoefficients=physics_param%HorizontalViscosity_Biharmonic)
+      CALL dbg_print('BiharmonicVisc:'     ,physics_param%HorizontalViscosity_Biharmonic,str_module,0, &
+        & in_subset=patch_2D%edges%owned)
     ENDIF
         
     DO i=1,no_tracer
@@ -242,6 +246,9 @@ CONTAINS
         & DiffusionType=TracerHorizontalDiffusion_type, &
         & DiffusionReferenceValue=physics_param%k_tracer_h_back(i), &
         & out_DiffusionCoefficients=physics_param%k_tracer_h(:,:,:,i))
+
+      CALL dbg_print('Tracer Diff:'     ,physics_param%k_tracer_h(:,:,:,i),str_module,0, &
+        & in_subset=patch_2D%edges%owned)
 
       physics_param%a_tracer_v(:,:,:,i) = physics_param%a_tracer_v_back(i)
  
@@ -617,7 +624,7 @@ CONTAINS
     ENDIF
     IF (veloc_diffusion_order == 2 .OR. veloc_diffusion_order == 21) THEN
       CALL add_var(ocean_params_list, 'HorizontalViscosity_Biharmonic', &
-        & params_oce%HorizontalViscosity_Harmonic , grid_unstructured_edge,&
+        & params_oce%HorizontalViscosity_Biharmonic , grid_unstructured_edge,&
         & za_depth_below_sea, &
         & t_cf_var('HorizontalViscosity_Biharmonic', 'kg/kg', 'horizontal velocity diffusion', datatype_flt),&
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
