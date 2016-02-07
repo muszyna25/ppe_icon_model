@@ -207,7 +207,7 @@ CONTAINS
       physics_param%k_tracer_GM_kappa = k_tracer_GM_kappa_parameter
     ENDIF
 
-    IF (veloc_diffusion_order == 1 .OR. veloc_diffusion_order == 3) THEN
+    IF (veloc_diffusion_order == 1 .OR. veloc_diffusion_order == 21) THEN
       ! harmonic or harmonic+biharmonic
       CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, DiffusionType=HarmonicViscosity_type, &
         & DiffusionReferenceValue=HorizontalViscosity_HarmonicReference, &
@@ -215,7 +215,7 @@ CONTAINS
         & out_DiffusionCoefficients=physics_param%HorizontalViscosity_Harmonic)
     ENDIF
 
-    IF (veloc_diffusion_order == 2 .OR. veloc_diffusion_order == 3) THEN
+    IF (veloc_diffusion_order == 2 .OR. veloc_diffusion_order == 21) THEN
       ! biharmonic or harmonic+biharmonic
       CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, DiffusionType=BiharmonicViscosity_type, &
         & DiffusionReferenceValue=HorizontalViscosity_BiharmonicReference, &
@@ -607,7 +607,7 @@ CONTAINS
     alloc_cell_blocks = patch_2D%alloc_cell_blocks
     nblks_e = patch_2D%nblks_e
 
-    IF (veloc_diffusion_order == 1 .OR. veloc_diffusion_order == 3) THEN
+    IF (veloc_diffusion_order == 1 .OR. veloc_diffusion_order == 21) THEN
       CALL add_var(ocean_params_list, 'HorizontalViscosity_Harmonic', &
         & params_oce%HorizontalViscosity_Harmonic , grid_unstructured_edge,&
         & za_depth_below_sea, &
@@ -615,7 +615,7 @@ CONTAINS
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
     ENDIF
-    IF (veloc_diffusion_order == 2 .OR. veloc_diffusion_order == 3) THEN
+    IF (veloc_diffusion_order == 2 .OR. veloc_diffusion_order == 21) THEN
       CALL add_var(ocean_params_list, 'HorizontalViscosity_Biharmonic', &
         & params_oce%HorizontalViscosity_Harmonic , grid_unstructured_edge,&
         & za_depth_below_sea, &

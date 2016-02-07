@@ -373,6 +373,7 @@ MODULE mo_ocean_nml
                                       !the smaller becomes the effect of biharmonic diffusion.The appropriate
                                       !size of this number depends also on the position of the biharmonic diffusion coefficient
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
+  REAL(wp) :: HorizontalViscosity_HarmonicWeight = 0.5_wp ! when combining harmonc+biharmonic
   INTEGER  :: BiharmonicViscosity_type = 1
   INTEGER  :: HarmonicViscosity_type = 1
   INTEGER  :: HorizontalViscosity_SmoothIterations = 0
@@ -391,8 +392,9 @@ MODULE mo_ocean_nml
     &  HorizontalViscosity_SpatialSmoothFactor,   &
     &  HorizontalViscosity_BiharmonicReference,   &
     &  HorizontalViscosity_HarmonicReference,     &
+    &  HorizontalViscosity_HarmonicWeight,        &
     &  HorizontalViscosity_ScaleWeight,           &
-    &  VerticalViscosity_TimeWeight,  &
+    &  VerticalViscosity_TimeWeight,              &
     &  k_pot_temp_h                ,    &
     &  k_pot_temp_v                ,    &
     &  k_sal_h                     ,    &

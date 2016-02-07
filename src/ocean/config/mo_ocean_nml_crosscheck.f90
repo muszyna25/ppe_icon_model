@@ -218,6 +218,8 @@ CONTAINS
       write_initial_state = .false.
     ENDIF
 
+    IF (veloc_diffusion_order == 21 .and. .not. veloc_diffusion_form == 1) &
+      CALL finish(method_name,"harmonic+biharmonic velocity diffusion requires curl-curl form")
 
   END SUBROUTINE ocean_crosscheck
 

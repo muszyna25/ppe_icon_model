@@ -23,7 +23,8 @@ MODULE mo_ocean_diffusion
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates
   USE mo_impl_constants,      ONLY: boundary, sea_boundary, min_dolic ! ,max_char_length
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, veloc_diffusion_order, veloc_diffusion_form
+  USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, veloc_diffusion_order, veloc_diffusion_form, &
+    & HorizontalViscosity_HarmonicWeight
   USE mo_run_config,          ONLY: dtime
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_ocean_tracer, t_hydro_ocean_aux
@@ -52,7 +53,7 @@ MODULE mo_ocean_diffusion
   INTEGER, PARAMETER :: top=1
   PUBLIC :: velocity_diffusion
   PUBLIC :: veloc_diff_harmonic_div_grad, veloc_diff_biharmonic_div_grad
-  PUBLIC :: veloc_diff_harmonic_curl_curl, veloc_diff_biharmonic_curl_curl
+!   PUBLIC :: veloc_diff_harmonic_curl_curl, veloc_diff_biharmonic_curl_curl
   ! PUBLIC :: velocity_diffusion_vert_explicit
   PUBLIC :: velocity_diffusion_vertical_implicit
   PUBLIC :: velocity_diffusion_vertical_implicit_onBlock
@@ -63,8 +64,6 @@ MODULE mo_ocean_diffusion
 CONTAINS
   
   !-------------------------------------------------------------------------
-  !
-  !
   !>
   !! !  SUBROUTINE calculates horizontal diffusion of edge velocity via laplacian diffusion
   !!    implemented as P^T div( K_H grad P v).
@@ -73,14 +72,14 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
-  SUBROUTINE velocity_diffusion( patch_3D, vn_in, physics_parameters, p_diag,p_op_coeff, laplacian_vn_out)
+  SUBROUTINE velocity_diffusion( patch_3D, vn_in, physics_parameters, p_diag,operators_coeff, laplacian_vn_out)
     
-    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
-    REAL(wp)                               :: vn_in(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
-    TYPE(t_ho_params), INTENT(in)       :: physics_parameters !mixing parameters
-    TYPE(t_hydro_ocean_diag),INTENT(in) :: p_diag
-    TYPE(t_operator_coeff),INTENT(in)   :: p_op_coeff
-    REAL(wp), INTENT(inout)             :: laplacian_vn_out(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
+    TYPE(t_patch_3d ),TARGET :: patch_3D ! INTENT(in)
+    REAL(wp)                 :: vn_in(:,:,:)! INTENT(in)
+    TYPE(t_ho_params)        :: physics_parameters !mixing parameters INTENT(in)
+    TYPE(t_hydro_ocean_diag) :: p_diag! INTENT(in)
+    TYPE(t_operator_coeff)   :: operators_coeff! INTENT(in)
+    REAL(wp)                 :: laplacian_vn_out(:,:,:)! INTENT(out)
     
     !Local variables
     REAL(wp) :: z_lapl(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
@@ -98,39 +97,40 @@ CONTAINS
         CALL veloc_diff_harmonic_div_grad( patch_3D,&
           & physics_parameters,   &
           & p_diag,    &
-          & p_op_coeff,&
+          & operators_coeff,&
           & laplacian_vn_out)
         
       ELSEIF(veloc_diffusion_form==1)THEN
         ! inUse
-        CALL veloc_diff_harmonic_curl_curl( vn_in, p_diag%vort,&
-          & patch_3D,           &
-          & p_op_coeff,        &
-          & p_diag%p_vn_dual,  &
-          & laplacian_vn_out,  &
-          & physics_parameters%HorizontalViscosity_Harmonic)
+        CALL veloc_diff_harmonic_curl_curl(     &
+          & patch_3D=patch_3D,                  &
+          & u_vec_e=vn_in,                      &
+          & vort=p_diag%vort,                   &
+          & div_coeff=operators_coeff%div_coeff,&
+          & HarmonicDiffusion=laplacian_vn_out, &
+          & k_h=physics_parameters%HorizontalViscosity_Harmonic)
         
       ENDIF
       
-    ELSEIF(veloc_diffusion_order==2)THEN
+    ELSEIF(veloc_diffusion_order==2 .or. veloc_diffusion_order==21)THEN
       
       IF(veloc_diffusion_form==2)THEN
         !CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of biharmonic Laplacian not recommended")
         CALL veloc_diff_biharmonic_div_grad( patch_3D,   &
           & physics_parameters,      &
           & p_diag,       &
-          & p_op_coeff,   &
+          & operators_coeff,   &
           & laplacian_vn_out)
           
           
       ELSEIF(veloc_diffusion_form==1)THEN
         
-        CALL veloc_diff_biharmonic_curl_curl( patch_3D,        &
-          & physics_parameters, &
-          & vn_in,             &
-          & p_diag%vort,       &
-          & p_op_coeff,        &
-          & p_diag%p_vn_dual,  &
+        CALL veloc_diff_biharmonic_curl_curl( &
+          & patch_3D,            &
+          & physics_parameters,  &
+          & vn_in,               &
+          & p_diag%vort,         &
+          & operators_coeff,     &
           & laplacian_vn_out)
       ENDIF
     ENDIF
@@ -149,12 +149,12 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
   SUBROUTINE veloc_diff_harmonic_div_grad( patch_3D, physics_parameters, p_diag,&
-    & p_op_coeff, laplacian_vn_out)
+    & operators_coeff, laplacian_vn_out)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
     TYPE(t_ho_params), INTENT(in)     :: physics_parameters !mixing parameters
     TYPE(t_hydro_ocean_diag)          :: p_diag
-    TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in) :: operators_coeff
     REAL(wp), INTENT(inout)           :: laplacian_vn_out(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     
     !Local variables
@@ -252,11 +252,11 @@ CONTAINS
           ELSE
             z_div_grad_u(cell_index,level,blockNo)%x =  &
               & z_grad_u(iidx(cell_index,blockNo,1),level,iblk(cell_index,blockNo,1))%x&
-              & * p_op_coeff%div_coeff(cell_index,level,blockNo,1)+&
+              & * operators_coeff%div_coeff(cell_index,level,blockNo,1)+&
               & z_grad_u(iidx(cell_index,blockNo,2),level,iblk(cell_index,blockNo,2))%x&
-              & * p_op_coeff%div_coeff(cell_index,level,blockNo,2)+&
+              & * operators_coeff%div_coeff(cell_index,level,blockNo,2)+&
               & z_grad_u(iidx(cell_index,blockNo,3),level,iblk(cell_index,blockNo,3))%x&
-              & * p_op_coeff%div_coeff(cell_index,level,blockNo,3)
+              & * operators_coeff%div_coeff(cell_index,level,blockNo,3)
             
           ENDIF
         END DO
@@ -267,7 +267,7 @@ CONTAINS
     END DO
     
     !Step 3: Map divergence back to edges
-    CALL map_cell2edges_3d( patch_3D, z_div_grad_u, laplacian_vn_out, p_op_coeff)
+    CALL map_cell2edges_3d( patch_3D, z_div_grad_u, laplacian_vn_out, operators_coeff)
     
   END SUBROUTINE veloc_diff_harmonic_div_grad
   !-------------------------------------------------------------------------
@@ -283,13 +283,13 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
   SUBROUTINE veloc_diff_biharmonic_div_grad0( patch_3D, physics_parameters, p_diag,&
-    & p_op_coeff, laplacian_vn_out)
+    & operators_coeff, laplacian_vn_out)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
     !REAL(wp), INTENT(in)              :: vn_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_ho_params), INTENT(in)     :: physics_parameters !mixing parameters
     TYPE(t_hydro_ocean_diag)          :: p_diag
-    TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in) :: operators_coeff
     REAL(wp), INTENT(inout)           :: laplacian_vn_out(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     
     !Local variables
@@ -384,11 +384,11 @@ CONTAINS
         
           z_div_grad_u(cell_index,level,blockNo)%x =  &
             & z_grad_u(iidx(cell_index,blockNo,1),level,iblk(cell_index,blockNo,1))%x &
-            & * p_op_coeff%div_coeff(cell_index,level,blockNo,1) + &
+            & * operators_coeff%div_coeff(cell_index,level,blockNo,1) + &
             & z_grad_u(iidx(cell_index,blockNo,2),level,iblk(cell_index,blockNo,2))%x &
-            & * p_op_coeff%div_coeff(cell_index,level,blockNo,2) + &
+            & * operators_coeff%div_coeff(cell_index,level,blockNo,2) + &
             & z_grad_u(iidx(cell_index,blockNo,3),level,iblk(cell_index,blockNo,3))%x &
-            & * p_op_coeff%div_coeff(cell_index,level,blockNo,3)
+            & * operators_coeff%div_coeff(cell_index,level,blockNo,3)
             
         END DO
 
@@ -447,11 +447,11 @@ CONTAINS
           z_div_grad_u(cell_index,level,blockNo)%x =  &
             & -physics_parameters%HorizontalViscosity_Biharmonic(edge_index,level,blockNo) *( & ! take the negative div in order to avoid the negation of the laplacian
             & z_grad_u(iidx(cell_index,blockNo,1),level,iblk(cell_index,blockNo,1))%x &
-            & * p_op_coeff%div_coeff(cell_index,level,blockNo,1)+ &
+            & * operators_coeff%div_coeff(cell_index,level,blockNo,1)+ &
             & z_grad_u(iidx(cell_index,blockNo,2),level,iblk(cell_index,blockNo,2))%x &
-            & * p_op_coeff%div_coeff(cell_index,level,blockNo,2)+ &
+            & * operators_coeff%div_coeff(cell_index,level,blockNo,2)+ &
             & z_grad_u(iidx(cell_index,blockNo,3),level,iblk(cell_index,blockNo,3))%x &
-            & * p_op_coeff%div_coeff(cell_index,level,blockNo,3))
+            & * operators_coeff%div_coeff(cell_index,level,blockNo,3))
               
         END DO
       END DO
@@ -467,7 +467,7 @@ CONTAINS
     
     
     !Step 6: Map divergence back to edges
-    CALL map_cell2edges_3d( patch_3D, z_div_grad_u,laplacian_vn_out,p_op_coeff)! requires cells_oneEdgeInDomain 
+    CALL map_cell2edges_3d( patch_3D, z_div_grad_u,laplacian_vn_out,operators_coeff)! requires cells_oneEdgeInDomain
 
 !     ! this is not needed since we take the negative div
 !     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
@@ -502,13 +502,13 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
   SUBROUTINE veloc_diff_biharmonic_div_grad( patch_3D, physics_parameters, p_diag,&
-    & p_op_coeff, laplacian_vn_out)
+    & operators_coeff, laplacian_vn_out)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
     !REAL(wp), INTENT(in)              :: vn_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_ho_params), INTENT(in)     :: physics_parameters !mixing parameters
     TYPE(t_hydro_ocean_diag)          :: p_diag
-    TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
+    TYPE(t_operator_coeff),INTENT(in) :: operators_coeff
     REAL(wp), INTENT(inout)           :: laplacian_vn_out(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     
     !Local variables
@@ -590,11 +590,11 @@ CONTAINS
 !ICON_OMP_END_DO
     CALL sync_patch_array(SYNC_E, patch_2D, z_grad_u_normal)
     
-    !CALL map_edges2edges_viacell_3d_const_z( patch_3d, z_grad_u_normal, p_op_coeff, &
+    !CALL map_edges2edges_viacell_3d_const_z( patch_3d, z_grad_u_normal, operators_coeff, &
     !    & z_grad_u_normal_ptp)   
-    !CALL div_oce_3D( z_grad_u_normal_ptp, patch_3D, p_op_coeff%div_coeff, div_c)
-    CALL div_oce_3D( z_grad_u_normal, patch_3D, p_op_coeff%div_coeff, div_c)
-    CALL grad_fd_norm_oce_3D( div_c, patch_3D, p_op_coeff%grad_coeff, grad_div_e)
+    !CALL div_oce_3D( z_grad_u_normal_ptp, patch_3D, operators_coeff%div_coeff, div_c)
+    CALL div_oce_3D( z_grad_u_normal, patch_3D, operators_coeff%div_coeff, div_c)
+    CALL grad_fd_norm_oce_3D( div_c, patch_3D, operators_coeff%grad_coeff, grad_div_e)
 
 ! !     !Step 4: Repeat the application of div and grad and take the mixing coefficients into account
 ! !     !First the grad of previous result
@@ -616,7 +616,7 @@ CONTAINS
 ! ! !ICON_OMP_END_DO
    CALL sync_patch_array(SYNC_E, patch_2D, grad_div_e)
 
-    CALL div_oce_3D( grad_div_e, patch_3D, p_op_coeff%div_coeff, div_c)
+    CALL div_oce_3D( grad_div_e, patch_3D, operators_coeff%div_coeff, div_c)
 
 !ICON_OMP_DO PRIVATE(start_edge_index, end_edge_index, edge_index, level, il_c1, ib_c1, il_c2, ib_c2 ) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
@@ -638,7 +638,7 @@ CONTAINS
     END DO
 !ICON_OMP_END_DO
     !!Step 6: Map divergence back to edges
-    !CALL map_cell2edges_3d( patch_3D, div_c,laplacian_vn_out,p_op_coeff)! requires cells_oneEdgeInDomain 
+    !CALL map_cell2edges_3d( patch_3D, div_c,laplacian_vn_out,operators_coeff)! requires cells_oneEdgeInDomain
     
         DO level=1,n_zlev
          write(*,*)'Biharmonic divgrad',level,maxval(laplacian_vn_out(:,level,:)),&
@@ -647,10 +647,7 @@ CONTAINS
      CALL sync_patch_array(SYNC_E, patch_2D, laplacian_vn_out)
   END SUBROUTINE veloc_diff_biharmonic_div_grad
   !-------------------------------------------------------------------------
- 
-  
-  
-  
+   
   
   !-------------------------------------------------------------------------
   !>
@@ -662,24 +659,24 @@ CONTAINS
   !! @par Revision History
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   !!
-  SUBROUTINE veloc_diff_harmonic_curl_curl( u_vec_e, vort, patch_3D, p_op_coeff,&
-    & p_vn_dual, nabla2_vec_e,k_h )
+  SUBROUTINE veloc_diff_harmonic_curl_curl( patch_3D, u_vec_e, vort, div_coeff, &
+    & nabla2_vec_e, HarmonicDiffusion, k_h )
     !
-    !  patch on which computation is performed
-    !
-    TYPE(t_patch_3d ),TARGET, INTENT(in)      :: patch_3D
-    REAL(wp), INTENT(in)                      :: u_vec_e(nproma, n_zlev, patch_3D%p_patch_2d(1)%nblks_e)
-    REAL(wp), INTENT(in)                      :: vort   (nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_v)
-    TYPE(t_operator_coeff), INTENT(in)        :: p_op_coeff
-    TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual    (nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_v)
-    REAL(wp), INTENT(inout)                   :: nabla2_vec_e(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
-    REAL(wp),OPTIONAL, INTENT(in)             :: k_h(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
+    TYPE(t_patch_3d ),TARGET      :: patch_3D  ! INTENT(in)
+    REAL(wp)                      :: u_vec_e(:,:,:)  ! INTENT(in)
+    REAL(wp)                      :: vort   (:,:,:) ! INTENT(in)
+    REAL(wp)                      :: div_coeff(:,:,:,:) ! INTENT(in)
+!     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual    (nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_v)
+    REAL(wp),OPTIONAL             :: nabla2_vec_e(:,:,:) !  ! INTENT(out)
+    REAL(wp),OPTIONAL             :: HarmonicDiffusion(:,:,:) !  ! INTENT(out)
+    REAL(wp),OPTIONAL             :: k_h(:,:,:) ! INTENT(in)
     !
     !Local variables
     INTEGER :: start_level, end_level     ! vertical start and end level
     INTEGER :: edge_index, level, blockNo
     INTEGER :: start_index, end_index
-    REAL(wp) ::  z_div_c(nproma,n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)!, &
+    REAL(wp) :: z_div_c(nproma,n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)!, &
+    REAL(wp) :: nabla2(nproma,n_zlev)
     !REAL(wp) ::  z_vn_e(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
     !REAL(wp) ::  z_rot_v(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_v)
     INTEGER,  DIMENSION(:,:,:),   POINTER :: icidx, icblk, ividx, ivblk
@@ -690,9 +687,15 @@ CONTAINS
     patch_2D        => patch_3D%p_patch_2d(1)
     edges_in_domain => patch_2D%edges%in_domain
     !-----------------------------------------------------------------------
-    
-    start_level = 1
-    
+    IF (present(HarmonicDiffusion) .and. .not. present(k_h)) THEN
+      CALL finish('veloc_diff_harmonic_curl_curl','present(HarmonicDiffusion) .and. .not. present(k_h)')
+    ENDIF
+    IF (.not. present(HarmonicDiffusion) .and. present(k_h)) THEN
+      CALL finish('veloc_diff_harmonic_curl_curl','.not. present(HarmonicDiffusion) .and. present(k_h)')
+    ENDIF
+    !-----------------------------------------------------------------------
+
+    start_level = 1    
     icidx => patch_2D%edges%cell_idx
     icblk => patch_2D%edges%cell_blk
     ividx => patch_2D%edges%vertex_idx
@@ -705,76 +708,54 @@ CONTAINS
     z_div_c = 0.0_wp
 #endif
 
-    CALL div_oce_3d( u_vec_e, patch_3D, p_op_coeff%div_coeff, z_div_c)
+    CALL div_oce_3d( u_vec_e, patch_3D, div_coeff, z_div_c)
     CALL sync_patch_array(sync_c,patch_2D,z_div_c)
     
     ! compute rotation of vector field for the ocean
-    !CALL rot_vertex_ocean_3D( patch_2D, u_vec_e, p_vn_dual, p_op_coeff, z_rot_v)!
+    !CALL rot_vertex_ocean_3D( patch_2D, u_vec_e, p_vn_dual, operators_coeff, z_rot_v)!
     !CALL sync_patch_array(SYNC_V,patch_2D,z_rot_v)
     !z_rot_v=vort
     
-    IF(PRESENT(k_h))THEN
-    
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-        CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
-        nabla2_vec_e(:,:,blockNo) = 0.0_wp
-        DO edge_index = start_index, end_index
-          DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
-            
-            !              write(0, *) "==============================="
-            !              write(0, *) "0",  edge_index,level,blockNo
-            !              write(0, *) "1",  p_patch_3D%wet_e(edge_index,level,blockNo)
-            !              write(0,*)  "2",  k_h(edge_index,level,blockNo)
-            !              write(0,*)  "3",  patch_2D%edges%tangent_orientation(edge_index,blockNo)
-            !              write(0,*)  "4",  vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))
-            !              write(0,*)  "5",  vort(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1))
-            !              write(0,*)  "6",  patch_2D%edges%inv_primal_edge_length(edge_index,blockNo)
-            !              write(0,*)  "7",  z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))
-            !              write(0,*)  "8",  z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1))
-            !              write(0,*)  "9",  patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
-            !IF(v_base%lsm_e(edge_index,level,blockNo) < land_boundary)THEN
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
+      nabla2_vec_e(:,:,blockNo) = 0.0_wp
+      DO edge_index = start_index, end_index
+        DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
 
-            nabla2_vec_e(edge_index,level,blockNo) = &   ! patch_3D%wet_e(edge_index,level,blockNo)* &
-              & k_h(edge_index,level,blockNo) * (                                             &
-              & patch_2D%edges%tangent_orientation(edge_index,blockNo) *                      &
-              & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))         &
-              & - vort(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )       &
-              & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo)    &
-              & +                                                &
-              & ( z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))      &
-              & - z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1)) )    &
-              & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo))
-          END DO
+          !              write(0, *) "==============================="
+          !              write(0, *) "0",  edge_index,level,blockNo
+          !              write(0, *) "1",  p_patch_3D%wet_e(edge_index,level,blockNo)
+          !              write(0,*)  "2",  k_h(edge_index,level,blockNo)
+          !              write(0,*)  "3",  patch_2D%edges%tangent_orientation(edge_index,blockNo)
+          !              write(0,*)  "4",  vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))
+          !              write(0,*)  "5",  vort(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1))
+          !              write(0,*)  "6",  patch_2D%edges%inv_primal_edge_length(edge_index,blockNo)
+          !              write(0,*)  "7",  z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))
+          !              write(0,*)  "8",  z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1))
+          !              write(0,*)  "9",  patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
+          !IF(v_base%lsm_e(edge_index,level,blockNo) < land_boundary)THEN
+
+          nabla2(edge_index,level) = &   ! patch_3D%wet_e(edge_index,level,blockNo)* &
+            & k_h(edge_index,level,blockNo) * (                                             &
+            & patch_2D%edges%tangent_orientation(edge_index,blockNo) *                      &
+            & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))         &
+            & - vort(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )       &
+            & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo)    &
+            & +                                                &
+            & ( z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))      &
+            & - z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1)) )    &
+            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo))
+
+          IF (present(nabla2_vec_e)) &
+            nabla2_vec_e(edge_index,level,blockNo) = nabla2(edge_index,level)
+          IF (present(HarmonicDiffusion)) &
+            HarmonicDiffusion(edge_index,level,blockNo) = nabla2(edge_index,level) * k_h(edge_index,level,blockNo)
+
         END DO
       END DO
+    END DO
 !ICON_OMP_END_PARALLEL_DO
-
-    ELSEIF(.NOT.PRESENT(k_h))THEN
-    
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-        CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
-        nabla2_vec_e(:,:,blockNo) = 0.0_wp
-        DO edge_index = start_index, end_index
-          DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
-          
-            nabla2_vec_e(edge_index,level,blockNo) = & !patch_3D%wet_e(edge_index,level,blockNo)*&
-              & (   &
-              & patch_2D%edges%tangent_orientation(edge_index,blockNo) *     &
-              & ( vort(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))     &
-              & - vort(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )   &
-              & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo) &
-              & + &
-              & ( z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))     &
-              & - z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1)) )   &
-              & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo))
-          END DO
-        END DO
-      END DO
-!ICON_OMP_END_PARALLEL_DO
-      
-    ENDIF
    
   END SUBROUTINE veloc_diff_harmonic_curl_curl
   !-------------------------------------------------------------------------
@@ -791,20 +772,16 @@ CONTAINS
   !! Developed by P. Korn, MPI-M(2012)
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   !!
-  SUBROUTINE veloc_diff_biharmonic_curl_curl( patch_3D,physics_parameters,u_vec_e,vort, p_op_coeff,&
-    & p_vn_dual, nabla4_vec_e)
-    !
-    !  patch on which computation is performed
-    !
-    TYPE(t_patch_3d ),TARGET, INTENT(in)      :: patch_3D
-    TYPE(t_ho_params), INTENT(in)             :: physics_parameters !mixing parameters
-    REAL(wp), INTENT(in)                      :: u_vec_e(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
-    REAL(wp), INTENT(in)                      :: vort   (nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_v)
-    TYPE(t_operator_coeff), INTENT(in)        :: p_op_coeff
-    TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual   (nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_v)
-    REAL(wp), INTENT(inout)                   :: nabla4_vec_e(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
+  SUBROUTINE veloc_diff_biharmonic_curl_curl( patch_3D,physics_parameters,u_vec_e,vort, operators_coeff,&
+    & nabla4_vec_e)
+
+    TYPE(t_patch_3d ),TARGET      :: patch_3D ! INTENT(in)
+    TYPE(t_ho_params)             :: physics_parameters !mixing parameters  INTENT(in)
+    REAL(wp)                      :: u_vec_e(:,:,:) ! INTENT(in)
+    REAL(wp)                      :: vort   (:,:,:) ! INTENT(in)
+    TYPE(t_operator_coeff)        :: operators_coeff ! INTENT(in)
+    REAL(wp)                      :: nabla4_vec_e(:,:,:) ! INTENT(out)
     
-    !
     !Local variables
     REAL(wp), POINTER                      :: k_h(:,:,:)
     INTEGER :: start_level, end_level     ! vertical start and end level
@@ -813,6 +790,7 @@ CONTAINS
     REAL(wp) ::  z_div_c   (nproma,n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) ::  z_rot_v   (nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_v)
     REAL(wp) ::  z_nabla2_e(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
+!     REAL(wp) ::  HarmonicDiffusion(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     REAL(wp) :: h_e        (nproma,patch_3D%p_patch_2d(1)%nblks_e)
     TYPE(t_cartesian_coordinates)  :: p_nabla2_dual(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_v)
     INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ividx, ivblk
@@ -833,24 +811,40 @@ CONTAINS
     ividx => patch_2D%edges%vertex_idx
     ivblk => patch_2D%edges%vertex_blk
     
-    z_nabla2_e(1:nproma,1:n_zlev,1:patch_2D%nblks_e) = 0.0_wp
-    p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(1)=0.0_wp
-    p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(2)=0.0_wp
-    p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(3)=0.0_wp
-    z_div_c(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks) =0.0_wp   
-    z_rot_v(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v) =0.0_wp
-    
-    CALL veloc_diff_harmonic_curl_curl( u_vec_e, vort, patch_3D, p_op_coeff,&
-      & p_vn_dual, z_nabla2_e)!, k_h)     
+!     z_nabla2_e(1:nproma,1:n_zlev,1:patch_2D%nblks_e) = 0.0_wp
+!     p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(1)=0.0_wp
+!     p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(2)=0.0_wp
+!     p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(3)=0.0_wp
+!     z_div_c(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks) =0.0_wp   
+!     z_rot_v(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v) =0.0_wp
+
+!     IF (veloc_diffusion_order==21) THEN
+!       CALL veloc_diff_harmonic_curl_curl(     &
+!         & patch_3D=patch_3D,                  &
+!         & u_vec_e=u_vec_e,                    &
+!         & vort=vort,                          &
+!         & div_coeff=operators_coeff%div_coeff,&
+!         & HarmonicDiffusion=HarmonicDiffusion,&
+!         & nabla2_vec_e=z_nabla2_e,            &
+!         & k_h=physics_parameters%HorizontalViscosity_Harmonic)
+!     ELSE
+      CALL veloc_diff_harmonic_curl_curl(     &
+        & patch_3D=patch_3D,                  &
+        & u_vec_e=u_vec_e,                    &
+        & vort=vort,                          &
+        & div_coeff=operators_coeff%div_coeff,&
+        & nabla2_vec_e=z_nabla2_e)
+!     ENDIF
+  
     CALL sync_patch_array(sync_e,patch_2D,z_nabla2_e)
       
     ! compute divergence of vector field
-    !     CALL div_oce_3d( u_vec_e, patch_2D, p_op_coeff%div_coeff, z_div_c)
+    !     CALL div_oce_3d( u_vec_e, patch_2D, operators_coeff%div_coeff, z_div_c)
     !     ! DO level = start_level, end_level
     !     ! write(*,*)'vort1:',level,maxval(vort(:,level,:)),minval(vort(:,level,:))
     !     ! END DO
     !     ! compute rotation of vector field for the ocean
-    !     !CALL rot_vertex_ocean_3D( patch_2D, u_vec_e, p_vn_dual, p_op_coeff, z_rot_v)!
+    !     !CALL rot_vertex_ocean_3D( patch_2D, u_vec_e, p_vn_dual, operators_coeff, z_rot_v)!
     !     !z_rot_v=vort
     !     !
     !     !  loop through all patch edges (and blocks)
@@ -876,48 +870,62 @@ CONTAINS
     !     END DO
     
     ! compute divergence of vector field
-    CALL div_oce_3d( z_nabla2_e, patch_3D, p_op_coeff%div_coeff, z_div_c)
+    CALL div_oce_3d( z_nabla2_e, patch_3D, operators_coeff%div_coeff, z_div_c)
     CALL sync_patch_array(sync_c,patch_2D,z_div_c)
     
     ! compute rotation of vector field for the ocean
     CALL map_edges2vert_3d( patch_2D, &
       & z_nabla2_e,&
-      & p_op_coeff%edge2vert_coeff_cc,&
+      & operators_coeff%edge2vert_coeff_cc,&
       & p_nabla2_dual)      
     CALL sync_patch_array_mult(sync_v, patch_2D, 3, &
       & p_nabla2_dual(:,:,:)%x(1), p_nabla2_dual(:,:,:)%x(2), p_nabla2_dual(:,:,:)%x(3))
     
-    CALL rot_vertex_ocean_3d( patch_3D, z_nabla2_e, p_nabla2_dual, p_op_coeff, z_rot_v)
+    CALL rot_vertex_ocean_3d( patch_3D, z_nabla2_e, p_nabla2_dual, operators_coeff, z_rot_v)
     
     !combine divergence and vorticity
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_index,end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
       DO edge_index = start_index, end_index
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
           
           nabla4_vec_e(edge_index,level,blockNo) =  &    ! patch_3D%wet_e(edge_index,level,blockNo) *&
-            &  k_h(edge_index,level,blockNo)  &
-            & *(patch_2D%edges%tangent_orientation(edge_index,blockNo) *  &
+            &  - k_h(edge_index,level,blockNo) * ( &
+            & (patch_2D%edges%tangent_orientation(edge_index,blockNo) *  &
             & ( z_rot_v(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))  &
             & - z_rot_v(ividx(edge_index,blockNo,1),level,ivblk(edge_index,blockNo,1)) )  &
             & * patch_2D%edges%inv_primal_edge_length(edge_index,blockNo))   &
             & + & !patch_3D%wet_e(edge_index,level,blockNo)  *                    &
-            &  k_h(edge_index,level,blockNo) * &            
             & (( z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))    &
             & - z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1)) )  &
-            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo))
-
-           nabla4_vec_e(edge_index,level,blockNo)=- nabla4_vec_e(edge_index,level,blockNo)
+            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)))
 
         END DO
       END DO
     END DO
+!ICON_OMP_END_DO
 
-!       DO level=1,INT(0.5*n_zlev)
-!        write(*,*)'Biharmonic curlcurls',level,maxval(nabla4_vec_e(:,level,:)),&
-!        &minval(nabla4_vec_e(:,level,:))
-!       END DO
+    IF (veloc_diffusion_order==21) THEN
+!ICON_OMP_DO PRIVATE(start_index,end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
+      DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+        CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
+        DO edge_index = start_index, end_index
+          DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
 
+          nabla4_vec_e(edge_index,level,blockNo) =      &
+            & nabla4_vec_e(edge_index,level,blockNo) * (1.0_wp - HorizontalViscosity_HarmonicWeight) + &
+            & z_nabla2_e(edge_index,level,blockNo) *    &
+            & physics_parameters%HorizontalViscosity_Harmonic(edge_index,level,blockNo) *  &
+            & HorizontalViscosity_HarmonicWeight
+
+          END DO
+        END DO
+      END DO
+!ICON_OMP_END_DO NOWAIT
+    ENDIF
+!ICON_OMP_END_PARALLEL
 
   END SUBROUTINE veloc_diff_biharmonic_curl_curl
   !-------------------------------------------------------------------------
