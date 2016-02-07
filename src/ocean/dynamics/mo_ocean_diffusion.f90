@@ -716,7 +716,7 @@ CONTAINS
     !CALL sync_patch_array(SYNC_V,patch_2D,z_rot_v)
     !z_rot_v=vort
     
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, edge_index, level, nabla2) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)
       nabla2(:,:) = 0.0_wp
