@@ -357,8 +357,8 @@ MODULE mo_ocean_types
     onEdges_tracers ::       &
       & k_tracer_h            ! coefficient of horizontal tracer diffusion
 
-    onEdges :: &
-      & k_veloc_h             ! coefficient of horizontal velocity diffusion
+!     onEdges :: &
+!       & k_veloc_h             ! coefficient of horizontal velocity diffusion
 
     onCells_HalfLevels_tracers ::    &
       & a_tracer_v            ! coefficient of vertical tracer diffusion

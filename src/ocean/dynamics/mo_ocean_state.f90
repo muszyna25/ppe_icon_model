@@ -1591,11 +1591,11 @@ CONTAINS
     ENDIF ! no_tracer > 0
 
     ! Accumulates physics
-    CALL add_var(ocean_default_list, 'K_veloc_h_acc', ocean_state_acc%k_veloc_h , grid_unstructured_edge,&
-      & za_depth_below_sea, &
-      & t_cf_var('K_veloc_h_acc', 'kg/kg', 'horizontal velocity diffusion', datatype_flt),&
-      & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
+!     CALL add_var(ocean_default_list, 'K_veloc_h_acc', ocean_state_acc%k_veloc_h , grid_unstructured_edge,&
+!       & za_depth_below_sea, &
+!       & t_cf_var('K_veloc_h_acc', 'kg/kg', 'horizontal velocity diffusion', datatype_flt),&
+!       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
+!       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
  
     CALL add_var(ocean_default_list, 'A_veloc_v_acc', ocean_state_acc%a_veloc_v , grid_unstructured_edge,&
       & za_depth_below_sea_half, &

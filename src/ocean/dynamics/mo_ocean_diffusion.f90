@@ -73,11 +73,11 @@ CONTAINS
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
-  SUBROUTINE velocity_diffusion( patch_3D, vn_in, p_param, p_diag,p_op_coeff, laplacian_vn_out)
+  SUBROUTINE velocity_diffusion( patch_3D, vn_in, physics_parameters, p_diag,p_op_coeff, laplacian_vn_out)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
     REAL(wp)                               :: vn_in(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
-    TYPE(t_ho_params), INTENT(in)       :: p_param !mixing parameters
+    TYPE(t_ho_params), INTENT(in)       :: physics_parameters !mixing parameters
     TYPE(t_hydro_ocean_diag),INTENT(in) :: p_diag
     TYPE(t_operator_coeff),INTENT(in)   :: p_op_coeff
     REAL(wp), INTENT(inout)             :: laplacian_vn_out(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
@@ -96,7 +96,7 @@ CONTAINS
       IF(veloc_diffusion_form==2)THEN
         CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of harmonic Laplacian not recommended")        
         CALL veloc_diff_harmonic_div_grad( patch_3D,&
-          & p_param,   &
+          & physics_parameters,   &
           & p_diag,    &
           & p_op_coeff,&
           & laplacian_vn_out)
@@ -108,7 +108,7 @@ CONTAINS
           & p_op_coeff,        &
           & p_diag%p_vn_dual,  &
           & laplacian_vn_out,  &
-          & p_param%k_veloc_h)
+          & physics_parameters%HorizontalViscosity_Harmonic)
         
       ENDIF
       
@@ -117,7 +117,7 @@ CONTAINS
       IF(veloc_diffusion_form==2)THEN
         !CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of biharmonic Laplacian not recommended")
         CALL veloc_diff_biharmonic_div_grad( patch_3D,   &
-          & p_param,      &
+          & physics_parameters,      &
           & p_diag,       &
           & p_op_coeff,   &
           & laplacian_vn_out)
@@ -126,9 +126,9 @@ CONTAINS
       ELSEIF(veloc_diffusion_form==1)THEN
         
         CALL veloc_diff_biharmonic_curl_curl( patch_3D,        &
+          & physics_parameters, &
           & vn_in,             &
           & p_diag%vort,       &
-          & p_param%k_veloc_h, &
           & p_op_coeff,        &
           & p_diag%p_vn_dual,  &
           & laplacian_vn_out)
@@ -148,11 +148,11 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE veloc_diff_harmonic_div_grad( patch_3D, p_param, p_diag,&
+  SUBROUTINE veloc_diff_harmonic_div_grad( patch_3D, physics_parameters, p_diag,&
     & p_op_coeff, laplacian_vn_out)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
-    TYPE(t_ho_params), INTENT(in)     :: p_param !mixing parameters
+    TYPE(t_ho_params), INTENT(in)     :: physics_parameters !mixing parameters
     TYPE(t_hydro_ocean_diag)          :: p_diag
     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: laplacian_vn_out(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
@@ -220,7 +220,8 @@ CONTAINS
             il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
             ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
             
-            z_grad_u(edge_index,level,blockNo)%x = p_param%k_veloc_h(edge_index,level,blockNo)*  &
+            z_grad_u(edge_index,level,blockNo)%x = &
+              & physics_parameters%HorizontalViscosity_Harmonic(edge_index,level,blockNo)*  &
               & ( p_diag%p_vn(il_c2,level,ib_c2)%x &
               & - p_diag%p_vn(il_c1,level,ib_c1)%x)&
               & / patch_2D%edges%dual_edge_length(edge_index,blockNo)
@@ -268,9 +269,6 @@ CONTAINS
     !Step 3: Map divergence back to edges
     CALL map_cell2edges_3d( patch_3D, z_div_grad_u, laplacian_vn_out, p_op_coeff)
     
-    ! write(*,*)'lapla',maxval(p_param%K_veloc_h(:,1,:)*patch_2D%edges%primal_edge_length),&
-    ! &minval(p_param%K_veloc_h(:,1,:)*patch_2D%edges%primal_edge_length)
-    ! !  CALL sync_patch_array(SYNC_E, patch_2D, laplacian_vn_out)
   END SUBROUTINE veloc_diff_harmonic_div_grad
   !-------------------------------------------------------------------------
 
@@ -284,12 +282,12 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE veloc_diff_biharmonic_div_grad0( patch_3D, p_param, p_diag,&
+  SUBROUTINE veloc_diff_biharmonic_div_grad0( patch_3D, physics_parameters, p_diag,&
     & p_op_coeff, laplacian_vn_out)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
     !REAL(wp), INTENT(in)              :: vn_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    TYPE(t_ho_params), INTENT(in)     :: p_param !mixing parameters
+    TYPE(t_ho_params), INTENT(in)     :: physics_parameters !mixing parameters
     TYPE(t_hydro_ocean_diag)          :: p_diag
     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: laplacian_vn_out(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
@@ -357,7 +355,7 @@ CONTAINS
           il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
           ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
 
-          z_grad_u(edge_index,level,blockNo)%x = & !p_param%k_veloc_h(edge_index,level,blockNo)*&
+          z_grad_u(edge_index,level,blockNo)%x = & 
             & (p_diag%p_vn(il_c2,level,ib_c2)%x - p_diag%p_vn(il_c1,level,ib_c1)%x)&
             & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
         ENDDO
@@ -446,13 +444,14 @@ CONTAINS
       DO cell_index = start_index, end_index
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_c(cell_index, blockNo)
           
-           z_div_grad_u(cell_index,level,blockNo)%x =  -p_param%k_veloc_h(edge_index,level,blockNo) *( &        ! take the negative div in order to avoid the negation of the laplacian
-              & z_grad_u(iidx(cell_index,blockNo,1),level,iblk(cell_index,blockNo,1))%x &
-              & * p_op_coeff%div_coeff(cell_index,level,blockNo,1)+ &
-              & z_grad_u(iidx(cell_index,blockNo,2),level,iblk(cell_index,blockNo,2))%x &
-              & * p_op_coeff%div_coeff(cell_index,level,blockNo,2)+ &
-              & z_grad_u(iidx(cell_index,blockNo,3),level,iblk(cell_index,blockNo,3))%x &
-              & * p_op_coeff%div_coeff(cell_index,level,blockNo,3))
+          z_div_grad_u(cell_index,level,blockNo)%x =  &
+            & -physics_parameters%HorizontalViscosity_Biharmonic(edge_index,level,blockNo) *( & ! take the negative div in order to avoid the negation of the laplacian
+            & z_grad_u(iidx(cell_index,blockNo,1),level,iblk(cell_index,blockNo,1))%x &
+            & * p_op_coeff%div_coeff(cell_index,level,blockNo,1)+ &
+            & z_grad_u(iidx(cell_index,blockNo,2),level,iblk(cell_index,blockNo,2))%x &
+            & * p_op_coeff%div_coeff(cell_index,level,blockNo,2)+ &
+            & z_grad_u(iidx(cell_index,blockNo,3),level,iblk(cell_index,blockNo,3))%x &
+            & * p_op_coeff%div_coeff(cell_index,level,blockNo,3))
               
         END DO
       END DO
@@ -477,7 +476,7 @@ CONTAINS
 !         DO edge_index = start_edge_index, end_edge_index
 !           
 !           laplacian_vn_out(edge_index,level,blockNo)&
-!           &=p_param%k_veloc_h(edge_index,level,blockNo)*laplacian_vn_out(edge_index,level,blockNo)
+!           &=physics_parameters%k_veloc_h(edge_index,level,blockNo)*laplacian_vn_out(edge_index,level,blockNo)
 !  
 !         ENDDO
 !       END DO
@@ -502,12 +501,12 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE veloc_diff_biharmonic_div_grad( patch_3D, p_param, p_diag,&
+  SUBROUTINE veloc_diff_biharmonic_div_grad( patch_3D, physics_parameters, p_diag,&
     & p_op_coeff, laplacian_vn_out)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
     !REAL(wp), INTENT(in)              :: vn_in(nproma,n_zlev,p_patch_3D%p_patch_2D(1)%nblks_e)
-    TYPE(t_ho_params), INTENT(in)     :: p_param !mixing parameters
+    TYPE(t_ho_params), INTENT(in)     :: physics_parameters !mixing parameters
     TYPE(t_hydro_ocean_diag)          :: p_diag
     TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
     REAL(wp), INTENT(inout)           :: laplacian_vn_out(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
@@ -573,7 +572,7 @@ CONTAINS
           il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
           ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
 
-          z_grad_u(edge_index,level,blockNo)%x = & !p_param%k_veloc_h(edge_index,level,blockNo)*&
+          z_grad_u(edge_index,level,blockNo)%x = & !physics_parameters%k_veloc_h(edge_index,level,blockNo)*&
             & (p_diag%p_vn(il_c2,level,ib_c2)%x - p_diag%p_vn(il_c1,level,ib_c1)%x)&
             & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)
             
@@ -608,7 +607,7 @@ CONTAINS
 ! !         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
 ! !           
 ! !             grad_div_e(edge_index,level,blockNo) &
-! !             &= sqrt(p_param%k_veloc_h(edge_index,level,blockNo)) * &
+! !             &= sqrt(physics_parameters%k_veloc_h(edge_index,level,blockNo)) * &
 ! !             & grad_div_e(edge_index,level,blockNo)
 ! !               
 ! !         ENDDO
@@ -631,7 +630,8 @@ CONTAINS
           ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
           
           laplacian_vn_out(edge_index,level,blockNo) &
-            &= -0.5_wp*p_param%k_veloc_h(edge_index,level,blockNo)*(div_c(il_c1,level,ib_c1)+div_c(il_c2,level,ib_c2))
+            &= -0.5_wp*physics_parameters%HorizontalViscosity_Biharmonic(edge_index,level,blockNo) &
+            & * (div_c(il_c1,level,ib_c1)+div_c(il_c2,level,ib_c2))
               
         END DO
       END DO
@@ -791,21 +791,22 @@ CONTAINS
   !! Developed by P. Korn, MPI-M(2012)
   !!  mpi note: the result is not synced. Should be done in the calling method if required
   !!
-  SUBROUTINE veloc_diff_biharmonic_curl_curl( patch_3D,u_vec_e,vort, k_h, p_op_coeff,&
+  SUBROUTINE veloc_diff_biharmonic_curl_curl( patch_3D,physics_parameters,u_vec_e,vort, p_op_coeff,&
     & p_vn_dual, nabla4_vec_e)
     !
     !  patch on which computation is performed
     !
-    TYPE(t_patch_3d ),TARGET, INTENT(in)  :: patch_3D
+    TYPE(t_patch_3d ),TARGET, INTENT(in)      :: patch_3D
+    TYPE(t_ho_params), INTENT(in)             :: physics_parameters !mixing parameters
     REAL(wp), INTENT(in)                      :: u_vec_e(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     REAL(wp), INTENT(in)                      :: vort   (nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_v)
-    REAL(wp), INTENT(in)                      :: k_h(:,:,:)
     TYPE(t_operator_coeff), INTENT(in)        :: p_op_coeff
     TYPE(t_cartesian_coordinates), INTENT(in) :: p_vn_dual   (nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_v)
     REAL(wp), INTENT(inout)                   :: nabla4_vec_e(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     
     !
     !Local variables
+    REAL(wp), POINTER                      :: k_h(:,:,:)
     INTEGER :: start_level, end_level     ! vertical start and end level
     INTEGER :: edge_index, level, blockNo
     INTEGER :: start_index, end_index
@@ -821,6 +822,7 @@ CONTAINS
     ! note that this will go through the lateral boundaries
     patch_2D         => patch_3D%p_patch_2d(1)
     edges_in_domain => patch_2D%edges%in_domain
+    k_h => physics_parameters%HorizontalViscosity_Biharmonic
     !-----------------------------------------------------------------------
     
     start_level = 1

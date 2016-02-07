@@ -215,10 +215,6 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: implicit_diffusion = 1
   INTEGER  :: expl_vertical_tracer_diff   = 1    ! NOT USED
   INTEGER  :: vertical_tracer_diffusion_type   = 1    ! 0=explicit, 1 = implicit
-  INTEGER  :: HorizontalViscosity_type  = 1          ! 0=no hor.diff; 1=constant Laplacian coefficients
-                                                 ! 2=constant coefficients satisfying Munk criterion
-                                                 ! 3=variable coefficients satisfying Munk criterion
-  INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
   INTEGER  :: veloc_diffusion_order = 1          !order of friction/diffusion in velocity eq.: 1=laplacian, 2=biharmonic
   INTEGER  :: veloc_diffusion_form  = 1          !form of friction/diffusion operator
                                                  !1: Laplace=curlcurl-graddiv
@@ -357,7 +353,6 @@ MODULE mo_ocean_nml
 
   REAL(wp) :: convection_InstabilityThreshold = -5.0E-8_wp ! used in update_ho_params
   REAL(wp) :: RichardsonDiffusion_threshold   =  5.0E-8_wp ! used in update_ho_params
-  REAL(wp) :: k_veloc_h             = 1.0E+5_wp  ! horizontal diffusion coefficient
   REAL(wp) :: k_veloc_v             = 1.0E-3_wp  ! vertical diffusion coefficient
   REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
   REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
@@ -372,31 +367,36 @@ MODULE mo_ocean_nml
                                         !with option HorizontalViscosity_type=3. Constanjt has no physical meaning, just trial and error.
   INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure
   REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure
-  REAL(wp) :: HorizontalViscosityBackground_Biharmonic = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
+  REAL(wp) :: HorizontalViscosity_HarmonicReference  = 1.0E+5_wp  ! horizontal harmonic diffusion coefficient
+  REAL(wp) :: HorizontalViscosity_BiharmonicReference = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
                                       !has to be adjusted for each resolution, the bigger this number
                                       !the smaller becomes the effect of biharmonic diffusion.The appropriate
                                       !size of this number depends also on the position of the biharmonic diffusion coefficient
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
-  INTEGER  :: HorizontalViscosity_SmoothIterations = 1
+  INTEGER  :: BiharmonicViscosity_type = 1
+  INTEGER  :: HarmonicViscosity_type = 1
+  INTEGER  :: HorizontalViscosity_SmoothIterations = 0
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
   REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
+  INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
 
   INTEGER :: TracerHorizontalDiffusion_type = 1 ! 1= constant, 5=scale with edge (dual) **3
   REAL(wp) :: TracerHorizontalDiffusion_ScaleWeight = 1.0_wp
   
   NAMELIST/ocean_diffusion_nml/&
-    &  HorizontalViscosity_type,    &
-    &  HorizontalViscosity_SmoothIterations,       &
-    &  HorizontalViscosity_SpatialSmoothFactor,    &
-    &  HorizontalViscosityBackground_Biharmonic,   &
-    &  HorizontalViscosity_ScaleWeight,            &
+    &  BiharmonicViscosity_type,                  &
+    &  HarmonicViscosity_type,                    &
+    &  HorizontalViscosity_SmoothIterations,      &
+    &  HorizontalViscosity_SpatialSmoothFactor,   &
+    &  HorizontalViscosity_BiharmonicReference,   &
+    &  HorizontalViscosity_HarmonicReference,     &
+    &  HorizontalViscosity_ScaleWeight,           &
     &  VerticalViscosity_TimeWeight,  &
     &  k_pot_temp_h                ,    &
     &  k_pot_temp_v                ,    &
     &  k_sal_h                     ,    &
     &  k_sal_v                     ,    &
-    &  k_veloc_h                   ,    &
     &  k_veloc_v                   ,    &
     &  TracerHorizontalDiffusion_type,  &
     &  TracerHorizontalDiffusion_ScaleWeight,&

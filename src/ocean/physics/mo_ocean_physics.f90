@@ -26,12 +26,15 @@
 MODULE mo_ocean_physics
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
-  USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,        &
+  USE mo_ocean_nml,           ONLY: &
+    & n_zlev, bottom_drag_coeff,                              &
+    & HorizontalViscosity_HarmonicReference, k_veloc_v,       &
     & k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
     & max_vert_diff_veloc, max_vert_diff_trac,                &
-    & HorizontalViscosity_type, veloc_diffusion_order,        &
+    & BiharmonicViscosity_type, HarmonicViscosity_type,       &
+    & veloc_diffusion_order,                                  &
     & n_points_in_munk_layer,                                 &
-    & HorizontalViscosityBackground_Biharmonic,               &
+    & HorizontalViscosity_BiharmonicReference,                &
     & richardson_tracer, richardson_veloc,                    &
     & physics_parameters_type,                                &
     & physics_parameters_Constant_type,                       &
@@ -112,7 +115,6 @@ MODULE mo_ocean_physics
   PUBLIC :: init_ho_params
   PUBLIC :: update_ho_params
   PUBLIC :: update_physics_parameters_ICON_PP_Edge_vnPredict_scheme
-  PRIVATE :: calculate_leith_closure
 
   ! variables
   TYPE (t_var_list), PUBLIC :: ocean_params_list
@@ -123,7 +125,8 @@ MODULE mo_ocean_physics
 
     ! diffusion coefficients for horizontal velocity, temp. and salinity, dim=(nproma,n_zlev,nblks_e)
     REAL(wp),POINTER ::     &
-      & k_veloc_h(:,:,:),  & ! coefficient of horizontal velocity diffusion
+      & HorizontalViscosity_Harmonic(:,:,:),   & ! coefficient of horizontal velocity harmonic diffusion
+      & HorizontalViscosity_Biharmonic(:,:,:), & ! coefficient of horizontal velocity biharmonic diffusion
       & k_tracer_h(:,:,:,:)  ! coefficient of horizontal tracer diffusion
     TYPE(t_onEdges_Pointer_3d_wp),ALLOCATABLE :: tracer_h_ptr(:)
 
@@ -134,7 +137,9 @@ MODULE mo_ocean_physics
     TYPE(t_onCells_HalfLevels_Pointer_wp), ALLOCATABLE :: tracer_v_ptr(:)
 
     !constant background values of coefficients above
-    REAL(wp) :: k_veloc_h_back, &! coefficient of horizontal velocity diffusion
+    REAL(wp) :: &
+      & HorizontalViscosity_Harmonic_back,   &
+      & HorizontalViscosity_Biharmonic_back, &
       & a_veloc_v_back   ! coefficient of vertical velocity diffusion
 
     REAL(wp),ALLOCATABLE ::     &
@@ -165,9 +170,9 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2010-07)
 !<Optimize:inUse:initOnly>
-  SUBROUTINE init_ho_params(  patch_3d, p_phys_param, fu10 )
-    TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
-    TYPE (t_ho_params)                          :: p_phys_param
+  SUBROUTINE init_ho_params(  patch_3d, physics_param, fu10 )
+    TYPE(t_patch_3d ),POINTER, INTENT(in) :: patch_3d
+    TYPE (t_ho_params)                          :: physics_param
     REAL(wp), TARGET                     :: fu10   (:,:) ! t_atmos_for_ocean%fu10
  
     ! Local variables
@@ -177,10 +182,6 @@ CONTAINS
     REAL(wp) :: z_lower_bound_diff, C_MPIOM
     REAL(wp) :: z_largest_edge_length ,z_diff_multfac, z_diff_efdt_ratio
     REAL(wp) :: points_in_munk_layer
-    REAL(wp) :: minmaxmean_length(3), reference_scale
-    REAL(wp) :: minDualEdgeLength, minEdgeLength, meanDualEdgeLength, meanEdgeLength
-    REAL(wp) :: maxDualEdgeLength, maxEdgeLength
-    REAL(wp) :: minCellArea, meanCellArea, maxCellArea
     TYPE(t_subset_range), POINTER :: all_edges, owned_edges
     TYPE(t_patch), POINTER :: patch_2D
     REAL(wp):: length_scale, dual_length_scale, prime_length_scale
@@ -194,21 +195,102 @@ CONTAINS
     !-------------------------------------------------------------------------
     points_in_munk_layer = REAL(n_points_in_munk_layer,wp)
     !Init from namelist
-    p_phys_param%k_veloc_h_back = k_veloc_h
-    p_phys_param%k_veloc_h      = k_veloc_h
-    p_phys_param%a_veloc_v_back = k_veloc_v
-    p_phys_param%a_veloc_v      = k_veloc_v
+    physics_param%a_veloc_v_back = k_veloc_v
+    physics_param%a_veloc_v      = k_veloc_v
 
-   IF(GMRedi_configuration==GMRedi_combined&
-   &.OR.GMRedi_configuration==GM_only.OR.GMRedi_configuration==Redi_only)THEN
+    IF(GMRedi_configuration==GMRedi_combined&
+      &.OR.GMRedi_configuration==GM_only.OR.GMRedi_configuration==Redi_only)THEN
 
-      p_phys_param%k_tracer_isoneutral = k_tracer_isoneutral_parameter
-      p_phys_param%k_tracer_dianeutral = k_tracer_dianeutral_parameter
+      physics_param%k_tracer_isoneutral = k_tracer_isoneutral_parameter
+      physics_param%k_tracer_dianeutral = k_tracer_dianeutral_parameter
 
-      p_phys_param%k_tracer_GM_kappa = k_tracer_GM_kappa_parameter
+      physics_param%k_tracer_GM_kappa = k_tracer_GM_kappa_parameter
     ENDIF
 
-    z_largest_edge_length = global_max(MAXVAL(patch_2D%edges%primal_edge_length))
+    IF (veloc_diffusion_order == 1 .OR. veloc_diffusion_order == 3) THEN
+      ! harmonic or harmonic+biharmonic
+      CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, DiffusionType=HarmonicViscosity_type, &
+        & DiffusionReferenceValue=HorizontalViscosity_HarmonicReference, &
+        & out_DiffusionBackground=physics_param%HorizontalViscosity_Harmonic_back, &
+        & out_DiffusionCoefficients=physics_param%HorizontalViscosity_Harmonic)
+    ENDIF
+
+    IF (veloc_diffusion_order == 2 .OR. veloc_diffusion_order == 3) THEN
+      ! biharmonic or harmonic+biharmonic
+      CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, DiffusionType=BiharmonicViscosity_type, &
+        & DiffusionReferenceValue=HorizontalViscosity_BiharmonicReference, &
+        & out_DiffusionBackground=physics_param%HorizontalViscosity_Biharmonic_back, &
+        & out_DiffusionCoefficients=physics_param%HorizontalViscosity_Biharmonic)
+    ENDIF
+        
+    DO i=1,no_tracer
+
+      IF(i==1)THEN!temperature
+        physics_param%k_tracer_h_back(i) = k_pot_temp_h
+        physics_param%a_tracer_v_back(i) = k_pot_temp_v
+
+      ELSEIF(i==2)THEN!salinity
+        physics_param%k_tracer_h_back(2) = k_sal_h
+        physics_param%a_tracer_v_back(2) = k_sal_v
+      ELSE
+
+        CALL finish ('mo_ocean_physics:init_ho_params',  &
+          & 'number of tracers exceeds number of background values')
+      ENDIF
+
+      CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, &
+        & DiffusionType=TracerHorizontalDiffusion_type, &
+        & DiffusionReferenceValue=physics_param%k_tracer_h_back(i), &
+        & out_DiffusionCoefficients=physics_param%k_tracer_h(:,:,:,i))
+
+      physics_param%a_tracer_v(:,:,:,i) = physics_param%a_tracer_v_back(i)
+ 
+    END DO
+
+    physics_param%bottom_drag_coeff = bottom_drag_coeff
+
+    DO i_no_trac=1, no_tracer
+      CALL sync_patch_array(sync_c,patch_2D,physics_param%k_tracer_h(:,:,:,i_no_trac))
+    END DO
+    
+    ! precalculate exponential wind mixing decay with depth
+    DO jk=2,n_zlev
+      WindMixingDecay(jk) = EXP(-patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)/WindMixingDecayDepth)
+      WindMixingLevel(jk) = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk-1)
+    ENDDO 
+
+  END SUBROUTINE init_ho_params
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE calculate_initial_horizontal_diffusion(patch_3D, &
+    & DiffusionType, DiffusionReferenceValue, out_DiffusionBackground, out_DiffusionCoefficients)
+    TYPE(t_patch_3d), POINTER :: patch_3D
+    INTEGER, INTENT(in) :: DiffusionType
+    REAL(wp), INTENT(in) :: DiffusionReferenceValue
+    REAL(wp), optional :: out_DiffusionBackground
+    REAL(wp) ::  out_DiffusionCoefficients(:,:,:)
+
+    TYPE(t_patch), POINTER :: patch_2D
+    INTEGER :: i, je, jb, jk
+    INTEGER :: start_index, end_index
+    REAL(wp) :: z_lower_bound_diff, C_MPIOM
+    REAL(wp) :: z_diff_multfac, z_diff_efdt_ratio
+    REAL(wp) :: points_in_munk_layer
+    REAL(wp) :: minmaxmean_length(3), reference_scale
+    REAL(wp) :: minDualEdgeLength, minEdgeLength, meanDualEdgeLength, meanEdgeLength
+    REAL(wp) :: maxDualEdgeLength, maxEdgeLength
+    REAL(wp) :: minCellArea, meanCellArea, maxCellArea
+    TYPE(t_subset_range), POINTER :: all_edges, owned_edges
+    REAL(wp):: length_scale, dual_length_scale, prime_length_scale
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3d%p_patch_2d(1)
+    !-------------------------------------------------------------------------
+    all_edges => patch_2D%edges%ALL
+    owned_edges => patch_2D%edges%owned
+    !-------------------------------------------------------------------------
+    points_in_munk_layer = REAL(n_points_in_munk_layer,wp)
+
     minmaxmean_length = global_minmaxmean(patch_2D%edges%dual_edge_length, owned_edges)
     minDualEdgeLength = minmaxmean_length(1)
     meanDualEdgeLength = minmaxmean_length(3)
@@ -222,266 +304,146 @@ CONTAINS
     meanCellArea = minmaxmean_length(3)
     maxCellArea = minmaxmean_length(2)
 
-    !Distinghuish between harmonic and biharmonic laplacian
-    !Harmonic laplacian
-    IF(veloc_diffusion_order==1)THEN
-      p_phys_param%k_veloc_h_back = k_veloc_h
-      p_phys_param%k_veloc_h      = k_veloc_h
-      SELECT CASE(HorizontalViscosity_type)
-      CASE(0)!no friction
-        p_phys_param%k_veloc_h(:,:,:) = 0.0_wp
+    out_DiffusionBackground = DiffusionReferenceValue
 
-      CASE(1)!use uniform viscosity coefficient from namelist
-        CALL calc_lower_bound_veloc_diff(  patch_2D, z_lower_bound_diff )
-        IF(z_lower_bound_diff>p_phys_param%k_veloc_h_back)THEN
-          ! SX9 cannot handle messages of that size -> split
-          CALL message ('init_ho_params','WARNING: Specified diffusivity&
-            & does not satisfy Munk criterion.')
-          CALL message ('init_ho_params','WARNING: This may lead&
-            & to stability problems for experiments with lateral boundaries')
-        ENDIF
+    SELECT CASE(DiffusionType)
 
-        p_phys_param%k_veloc_h(:,:,:) = p_phys_param%k_veloc_h_back
-        !write(0,*)'lower bound of diffusivity:',z_lower_bound_diff
-        WRITE(message_text,'(a,g25.16)') 'Lower bound of diffusivity:',z_lower_bound_diff
-        CALL message ('init_ho_params', message_text)
+    CASE(1)
+      out_DiffusionCoefficients(:,:,:) = DiffusionReferenceValue
 
-      CASE(2)!calculate uniform viscosity coefficient, according to Munk criterion
+    CASE(2)!calculate coefficients based on Leith closure. Start value is the same as case(2).
+      out_DiffusionCoefficients(:,:,:) = 3.82E-12_wp * &
+        & (points_in_munk_layer * maxEdgeLength)**3
 
-        p_phys_param%k_veloc_h(:,:,:) = 3.82E-12_wp&
-          & *(points_in_munk_layer*z_largest_edge_length)**3
-
-      !  WRITE(message_text,'(a,g25.16)') 'k_veloc_h=', &
-      !    3.82E-12_wp*(points_in_munk_layer*z_largest_edge_length)**3
-      !  CALL message ('init_ho_params', message_text)
-
-      CASE(3)! calculate coefficients for each location based on MUNK layer
-        DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, start_index, end_index)
-          DO je = start_index, end_index
+    CASE(3)! calculate coefficients for each location based on MUNK layer
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        out_DiffusionCoefficients(:,:,jb) = 0.0_wp
+        DO je = start_index, end_index
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
             !calculate lower bound for diffusivity
             !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29))
-            p_phys_param%k_veloc_h(je,:,jb) = 3.82E-12_wp&
-              & *(points_in_munk_layer*patch_2D%edges%primal_edge_length(je,jb))**3
+            out_DiffusionCoefficients(je,jk,jb) = 3.82E-12_wp  &
+              & *(points_in_munk_layer * patch_2D%edges%primal_edge_length(je,jb))**3
           END DO
         END DO
-      !  minmaxmean_k_veloc_h = global_minmaxmean(_phys_param%k_veloc_h, patch_2D%edges%owned)
-      !  WRITE(message_text,*) 'k_veloc_h min,max,mean', minmaxmean_k_veloc_h 
-      !  CALL message ('init_ho_params', message_text)
+      END DO
 
+    CASE(4)!calculate coefficients based on Leith closure. Start value is the same as case(2)
+      out_DiffusionCoefficients(:,:,:) = 3.82E-12_wp * &
+        &  (points_in_munk_layer * maxEdgeLength)**3
 
-      CASE(4)!calculate coefficients based on Leith closure. Start value is the same as case(2)  
+    CASE(5)
+      ! Simple scaling of the constant diffusion using the dual edge
+      ! this is the default scaling
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        out_DiffusionCoefficients(:,:,jb) = 0.0_wp
+        DO je = start_index, end_index
+          dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
+          length_scale = dual_length_scale**3
 
-        p_phys_param%k_veloc_h(:,:,:) = 3.82E-12_wp&
-          & *(points_in_munk_layer*z_largest_edge_length)**3      
-
-      CASE(5) ! scale according to dual edge
-
-        DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, start_index, end_index)
-          p_phys_param%k_veloc_h(:,:,jb) = 0.0_wp
-          DO je = start_index, end_index
-
-            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
-            prime_length_scale = patch_2D%edges%primal_edge_length(je,jb) / maxEdgeLength
-            length_scale = dual_length_scale**3
-
-            DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
-              p_phys_param%k_veloc_h(je,jk,jb) = &
-                & p_phys_param%k_veloc_h_back * &
-                & (1.0_wp - HorizontalViscosity_ScaleWeight &
-                &  +  HorizontalViscosity_ScaleWeight * length_scale)
-            END DO
-
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
+            out_DiffusionCoefficients(je,jk,jb) = &
+              & DiffusionReferenceValue * &
+              & (1.0_wp - HorizontalViscosity_ScaleWeight &
+              &  +  HorizontalViscosity_ScaleWeight * length_scale)
           END DO
+
         END DO
+      END DO
 
-       CASE DEFAULT
-         CALL finish ('mo_ocean_physics:init_ho_params',  &
-            & 'uknown HorizontalViscosity_type')
+    CASE(6)
+      ! Simple scaling of the constant diffusion using the prime edge
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        out_DiffusionCoefficients(:,:,jb) = 0.0_wp
+        DO je = start_index, end_index
+          prime_length_scale = patch_2D%edges%primal_edge_length(je,jb) / maxEdgeLength
+          length_scale = prime_length_scale**3
 
-      END SELECT
-      CALL dbg_print('horzVelocDiff:',p_phys_param%k_veloc_h ,str_module,0,in_subset=owned_edges)
-      
-      
-      !Biharmonic laplacian
-    ELSEIF(veloc_diffusion_order==2)THEN
-    
-      p_phys_param%k_veloc_h_back = HorizontalViscosityBackground_Biharmonic
-!       p_phys_param%k_veloc_h      = HorizontalViscosityBackground_Biharmonic
-      SELECT CASE(HorizontalViscosity_type)
-
-      CASE(1)
-        p_phys_param%k_veloc_h(:,:,:) = p_phys_param%k_veloc_h_back
-
-      CASE(2)  
-        !The number that controls all that the "z_diff_efdt_ratio"
-        !is different. Higher z_diff_efdt_ratio decreases the final
-        !diffusion coefficient
-        z_diff_efdt_ratio = 10000.0_wp * HorizontalViscosityBackground_Biharmonic
-        z_diff_multfac = (1._wp/ (z_diff_efdt_ratio*64._wp))/3._wp
-        DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, start_index, end_index)
-          DO je = start_index, end_index
-            p_phys_param%k_veloc_h(je,:,jb) = &
-            & patch_2D%edges%area_edge(je,jb)*patch_2D%edges%area_edge(je,jb)*z_diff_multfac
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
+            out_DiffusionCoefficients(je,jk,jb) = &
+              & DiffusionReferenceValue * &
+              & (1.0_wp - HorizontalViscosity_ScaleWeight &
+              &  +  HorizontalViscosity_ScaleWeight * length_scale)
           END DO
+
         END DO
-        !          z_diff_multfac = 0.0045_wp*dtime/3600.0_wp
-        !         DO jb = all_edges%start_block, all_edges%end_block
-        !            CALL get_index_range(all_edges, jb, start_index, end_index)
-        !            DO je = start_index, end_index
-        !              p_phys_param%K_veloc_h(je,:,jb) = z_diff_multfac*&
-        !              &maxval(patch_2D%edges%primal_edge_length)**4
-        !            END DO
-        !          END DO
-      CASE(3)
-        ! Simple scaling of the backgound diffusion by the dual edge length^4
-        ! This is meant to be used with the non-uniform grids
-        !This follows the MPI-OM convention
-        C_MPIOM = biharmonic_const*dtime/3600.0_wp
-        DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, start_index, end_index)
-          DO je = start_index, end_index
+      END DO
 
-            length_scale = &
-            & sqrt(patch_2D%edges%primal_edge_length(je,jb) * patch_2D%edges%dual_edge_length(je,jb))         
+    CASE(7)
+      ! Simple scaling of the constant diffusion by prime edge lenght + cell area (estimated)
+      reference_scale = 4.0_wp / (3.0_wp * maxEdgeLength * maxCellArea)
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        out_DiffusionCoefficients(:,:,jb) = 0.0_wp
+        DO je = start_index, end_index
 
-            p_phys_param%k_veloc_h(je,:,jb)=C_MPIOM*length_scale**2
+          length_scale = &
+            & patch_2D%edges%primal_edge_length(je,jb)**2 * patch_2D%edges%dual_edge_length(je,jb) &
+            & * reference_scale
+
+          DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
+            out_DiffusionCoefficients(je,jk,jb) = &
+              & DiffusionReferenceValue * &
+              & (1.0_wp - HorizontalViscosity_ScaleWeight &
+              &  +  HorizontalViscosity_ScaleWeight * length_scale)
           END DO
+
         END DO
+      END DO
 
-      CASE(4)!calculate coefficients based on Leith closure. Start value is the same as case(2).
-      !This is just an initial value that will be overwritten as  soon as the velocities are different from zero.   
-
-        p_phys_param%k_veloc_h(:,:,:) = 3.82E-12_wp&
-          & *(points_in_munk_layer*z_largest_edge_length)**3
-          
-      CASE(5)
-        ! Simple scaling of the constant diffusion
-        DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, start_index, end_index)
-          p_phys_param%k_veloc_h(:,:,jb) = 0.0_wp
-          DO je = start_index, end_index
-            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
-            prime_length_scale = patch_2D%edges%primal_edge_length(je,jb) / maxEdgeLength
-     
-!             length_scale = 0.5_wp * (length_scale**2 + length_scale**3)
-!            length_scale = SQRT(prime_length_scale * dual_length_scale) * dual_length_scale
-            length_scale = dual_length_scale**3
-!            length_scale = length_scale**2 * (1.0_wp + length_scale) * 0.5_wp
-            
-            DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
-              p_phys_param%k_veloc_h(je,jk,jb) = &
-                & p_phys_param%k_veloc_h_back * &
-                & (1.0_wp - HorizontalViscosity_ScaleWeight &
-                &  +  HorizontalViscosity_ScaleWeight * length_scale)
-            END DO
-              
-          END DO
+    CASE(11)
+      !The number that controls all that the "z_diff_efdt_ratio"
+      !is different. Higher z_diff_efdt_ratio decreases the final
+      !diffusion coefficient
+      z_diff_efdt_ratio = 10000.0_wp * DiffusionReferenceValue
+      z_diff_multfac = (1._wp/ (z_diff_efdt_ratio*64._wp))/3._wp
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        DO je = start_index, end_index
+          out_DiffusionCoefficients(je,:,jb) = &
+          & patch_2D%edges%area_edge(je,jb)*patch_2D%edges%area_edge(je,jb)*z_diff_multfac
         END DO
-        
-      CASE(6)
-        ! Simple scaling of the constant diffusion
-        reference_scale = 4.0_wp / (3.0_wp * maxEdgeLength * maxCellArea)
-        DO jb = all_edges%start_block, all_edges%end_block
-          CALL get_index_range(all_edges, jb, start_index, end_index)
-          p_phys_param%k_veloc_h(:,:,jb) = 0.0_wp
-          DO je = start_index, end_index
-            
-            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength 
-            length_scale = &
-              & patch_2D%edges%primal_edge_length(je,jb)**2 * patch_2D%edges%dual_edge_length(je,jb) &
-              & * reference_scale
-                                   
-            DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
-              p_phys_param%k_veloc_h(je,jk,jb) = &
-                & p_phys_param%k_veloc_h_back * &
-                & (1.0_wp - HorizontalViscosity_ScaleWeight &
-                &  +  HorizontalViscosity_ScaleWeight * length_scale)
-            END DO
-              
-          END DO
+      END DO
+      !          z_diff_multfac = 0.0045_wp*dtime/3600.0_wp
+      !         DO jb = all_edges%start_block, all_edges%end_block
+      !            CALL get_index_range(all_edges, jb, start_index, end_index)
+      !            DO je = start_index, end_index
+      !              physics_param%HorizontalViscosity_HarmonicReference(je,:,jb) = z_diff_multfac*&
+      !              &maxval(patch_2D%edges%primal_edge_length)**4
+      !            END DO
+      !          END DO
+
+    CASE(12)
+      ! Simple scaling of the backgound diffusion by the dual edge length^4
+      ! This is meant to be used with the non-uniform grids
+      !This follows the MPI-OM convention
+      C_MPIOM = biharmonic_const*dtime/3600.0_wp
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        DO je = start_index, end_index
+
+          length_scale = &
+          & sqrt(patch_2D%edges%primal_edge_length(je,jb) * patch_2D%edges%dual_edge_length(je,jb))
+
+          out_DiffusionCoefficients(je,:,jb)=C_MPIOM*length_scale**2
         END DO
-        
-      CASE DEFAULT
-         CALL finish ('mo_ocean_physics:init_ho_params',  &
-          & 'option not supported')
+      END DO
 
-      END SELECT
-      CALL dbg_print('horzVelocDiff:',p_phys_param%k_veloc_h ,str_module,0,in_subset=owned_edges)
+    CASE DEFAULT
+        CALL finish ('mo_ocean_physics:calculate_initial_horizontal_diffusion', 'uknown DiffusionType')
 
-    ENDIF
+    END SELECT
 
+    ! smooth if requested
     DO i=1, HorizontalViscosity_SmoothIterations
-      CALL smooth_lapl_diff( patch_2D, patch_3d, p_phys_param%k_veloc_h, HorizontalViscosity_SpatialSmoothFactor )
+      CALL smooth_lapl_diff( patch_3d, &
+        & out_DiffusionCoefficients, HorizontalViscosity_SpatialSmoothFactor )
     ENDDO
 
-
-    DO i=1,no_tracer
-
-      IF(i==1)THEN!temperature
-        p_phys_param%k_tracer_h_back(i) = k_pot_temp_h
-        p_phys_param%a_tracer_v_back(i) = k_pot_temp_v
-
-      ELSEIF(i==2)THEN!salinity
-        p_phys_param%k_tracer_h_back(2) = k_sal_h
-        p_phys_param%a_tracer_v_back(2) = k_sal_v
-      ELSE
-
-        CALL finish ('mo_ocean_physics:init_ho_params',  &
-          & 'number of tracers exceeds number of background values')
-      ENDIF
-
-      p_phys_param%a_tracer_v(:,:,:,i) = p_phys_param%a_tracer_v_back(i)
-
-      SELECT CASE(TracerHorizontalDiffusion_type)
-
-      CASE(1) ! constant
-        p_phys_param%k_tracer_h(:,:,:,i) = p_phys_param%k_tracer_h_back(i)
-
-      CASE(5)
-        ! Simple scaling of the constant diffusion
-        DO jb = all_edges%start_block, all_edges%end_block
-          p_phys_param%k_tracer_h(:,:,jb,i) = 0.0_wp
-          CALL get_index_range(all_edges, jb, start_index, end_index)
-          DO je = start_index, end_index
-            dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
-            prime_length_scale = patch_2D%edges%primal_edge_length(je,jb) / maxEdgeLength
-
-            length_scale = dual_length_scale**3
-
-            DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
-              p_phys_param%k_tracer_h(je,jk,jb,i) = p_phys_param%k_tracer_h_back(i) * &
-                & (1.0_wp - TracerHorizontalDiffusion_ScaleWeight &
-                &  + TracerHorizontalDiffusion_ScaleWeight * length_scale)
-            END DO
-
-          END DO
-        END DO
-
- 
-      CASE DEFAULT
-         CALL finish ('mo_ocean_physics:init_ho_params', 'uknown TracerHorizontalDiffusion_type')
-
-      END SELECT
- 
-    END DO
-
-    p_phys_param%bottom_drag_coeff = bottom_drag_coeff
-
-    DO i_no_trac=1, no_tracer
-      CALL sync_patch_array(sync_c,patch_2D,p_phys_param%k_tracer_h(:,:,:,i_no_trac))
-    END DO
-    CALL sync_patch_array(sync_e,patch_2D,p_phys_param%k_veloc_h(:,:,:))
-    
-    ! precalculate exponential wind mixing decay with depth
-    DO jk=2,n_zlev
-      WindMixingDecay(jk) = EXP(-patch_3d%p_patch_1d(1)%del_zlev_m(jk-1)/WindMixingDecayDepth)
-      WindMixingLevel(jk) = lambda_wind * patch_3d%p_patch_1d(1)%inv_del_zlev_m(jk-1)
-    ENDDO 
-
-  END SUBROUTINE init_ho_params
+  END SUBROUTINE calculate_initial_horizontal_diffusion
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -523,24 +485,26 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-08)
 !<Optimize:inUse:initOnly>
-  SUBROUTINE smooth_lapl_diff( patch_2D,patch_3d, k_h, smoothFactor )
-    TYPE(t_patch), TARGET, INTENT(in)  :: patch_2D
+  SUBROUTINE smooth_lapl_diff( patch_3d, k_h, smoothFactor )
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(inout)    :: k_h(:,:,:)
     REAL(wp), INTENT(in)       ::smoothFactor
     ! Local variables
+    TYPE(t_patch), POINTER  :: patch_2D
     INTEGER :: je,jv,jb,jk, jev, ile, ibe
     INTEGER :: il_v1,ib_v1, il_v2,ib_v2
     INTEGER :: start_index, end_index
     INTEGER :: i_startidx_v, i_endidx_v
-    REAL(wp) :: z_k_ave_v(nproma,n_zlev,patch_2D%nblks_v)
+    REAL(wp), POINTER :: z_k_ave_v(:,:,:)
     INTEGER  :: sea_edges_onLevel(n_zlev)
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER ::all_edges, verts_in_domain
     !-------------------------------------------------------------------------
+    patch_2D => patch_3d%p_patch_2D(1)
     all_edges => patch_2D%edges%all
     verts_in_domain => patch_2D%verts%in_domain
 
+    ALLOCATE(z_k_ave_v(nproma,n_zlev,patch_2D%nblks_v))
     z_k_ave_v(:,:,:) = 0.0_wp
 
     DO jb = verts_in_domain%start_block, verts_in_domain%end_block
@@ -596,6 +560,7 @@ CONTAINS
     CALL dbg_print('smoothed Laplac Diff.'     ,k_h                     ,str_module,idt_src, &
       & in_subset=patch_2D%edges%owned)
     !---------------------------------------------------------------------
+    DEALLOCATE(z_k_ave_v)
 
   END SUBROUTINE smooth_lapl_diff
   !-------------------------------------------------------------------------
@@ -641,11 +606,22 @@ CONTAINS
     alloc_cell_blocks = patch_2D%alloc_cell_blocks
     nblks_e = patch_2D%nblks_e
 
-    CALL add_var(ocean_params_list, 'K_veloc_h', params_oce%k_veloc_h , grid_unstructured_edge,&
-      & za_depth_below_sea, &
-      & t_cf_var('K_veloc_h', 'kg/kg', 'horizontal velocity diffusion', datatype_flt),&
-      & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
-      & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
+    IF (veloc_diffusion_order == 1 .OR. veloc_diffusion_order == 3) THEN
+      CALL add_var(ocean_params_list, 'HorizontalViscosity_Harmonic', &
+        & params_oce%HorizontalViscosity_Harmonic , grid_unstructured_edge,&
+        & za_depth_below_sea, &
+        & t_cf_var('HorizontalViscosity_Harmonic', 'kg/kg', 'horizontal velocity diffusion', datatype_flt),&
+        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
+        & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
+    ENDIF
+    IF (veloc_diffusion_order == 2 .OR. veloc_diffusion_order == 3) THEN
+      CALL add_var(ocean_params_list, 'HorizontalViscosity_Biharmonic', &
+        & params_oce%HorizontalViscosity_Harmonic , grid_unstructured_edge,&
+        & za_depth_below_sea, &
+        & t_cf_var('HorizontalViscosity_Biharmonic', 'kg/kg', 'horizontal velocity diffusion', datatype_flt),&
+        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
+        & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
+    ENDIF
 
     CALL add_var(ocean_params_list, 'A_veloc_v', params_oce%a_veloc_v , grid_unstructured_edge,&
       & za_depth_below_sea_half, &
@@ -860,16 +836,11 @@ CONTAINS
       CALL finish("update_ho_params", "unknown physics_parameters_type")
     END SELECT
 
-    IF(HorizontalViscosity_type==4)THEN
-
-     IF(veloc_diffusion_order==1)THEN!.AND.veloc_diffusion_form==1)THEN
-        CALL calculate_leith_closure(patch_3d, ocean_state, params_oce, op_coeffs)
-      ENDIF
-
-      IF(veloc_diffusion_order==2)THEN!.AND.veloc_diffusion_form==2)THEN
-        CALL calculate_leith_closure(patch_3d, ocean_state, params_oce, op_coeffs)
-      ENDIF
-
+    IF(HarmonicViscosity_type == 4)THEN
+        CALL calculate_leith_closure_harmonic(patch_3d, ocean_state, params_oce, op_coeffs)
+    ENDIF
+    IF(BiharmonicViscosity_type == 4)THEN
+        CALL calculate_leith_closure_biharmonic(patch_3d, ocean_state, params_oce, op_coeffs)
     ENDIF
 
     !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -892,7 +863,6 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
-  !
   !>
   !! !  SUBROUTINE calculates the viscosity coefficients following the Leith closure.
   !! Implemented is the pure leith closure and a modified version of it. Both options
@@ -903,7 +873,7 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
-  SUBROUTINE calculate_leith_closure(patch_3d, ocean_state, param, op_coeff)
+  SUBROUTINE calculate_leith_closure_harmonic(patch_3d, ocean_state, param, op_coeff)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
     TYPE(t_ho_params),                 INTENT(inout) :: param
@@ -971,10 +941,8 @@ CONTAINS
 
 
    !leith closure for Laplacian(harmonic) viscosity
-   IF(veloc_diffusion_order==1)THEN
 
      LEITH_EXPONENT=3
-
 
     !1) calculation of horizontal gradient of vertical vorticity
 !ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, level, vertex1_idx, &
@@ -1012,7 +980,7 @@ CONTAINS
         DO je=start_edge_index, end_edge_index   
           end_level = patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
           DO level=start_level,end_level     
-            param%k_veloc_h(je,level,blockNo) = &
+            param%HorizontalViscosity_Harmonic(je,level,blockNo) = &
             &grad_vort_abs(je,level,blockNo) *(leith_closure_gamma* length_scale(je,blockNo))**LEITH_EXPONENT        
           END DO    
         END DO
@@ -1036,7 +1004,7 @@ CONTAINS
             div_e(je,level,blockNo)&
             &=0.5_wp*(div_c(cell1_idx,level,cell1_blk) + div_c(cell2_idx,level,cell2_blk))
 
-            param%k_veloc_h(je,level,blockNo) &
+            param%HorizontalViscosity_Harmonic(je,level,blockNo) &
             &=(leith_closure_gamma*length_scale(je,blockNo))**LEITH_EXPONENT&
             & *sqrt(grad_vort_abs(je,level,blockNo)**2  + div_e(je,level,blockNo)**2)          
           END DO    
@@ -1045,8 +1013,106 @@ CONTAINS
 
     ENDIF
 
-    !leith closure for Bi-Laplacian(biharmonic) viscosity    
-   ELSEIF(veloc_diffusion_order==2)THEN     
+   !CALL sync_patch_array(sync_e, patch_2D, grad_vort_abs)
+   !Note: this sync most probably is nor needed
+   CALL sync_patch_array(sync_e, patch_2D, param%HorizontalViscosity_Harmonic)
+
+!idt_src=1  ! output print level (1-5, fix)
+!      CALL debug_print_MaxMinMean('after ocean_gmres: h-new', minmaxmean, str_module, idt_src)
+
+!    !---------DEBUG DIAGNOSTICS-------------------------------------------
+     idt_src=2  ! output print level (1-5, fix)
+     CALL dbg_print('calculate_leith_closure: viscosity',param%HorizontalViscosity_Harmonic,&
+    &str_module,idt_src, in_subset=edges_in_domain)      
+!   !---------------------------------------------------------------------   
+
+!    DO level= start_level, 5!end_level-1  
+!    write(*,*)'Leith-Viscosity',level,maxval(param%HorizontalViscosity_Harmonic(:,level,:)),&
+!    & minval(param%HorizontalViscosity_Harmonic(:,level,:))!, maxval(grad_vort_abs(:,level,:)),minval(grad_vort_abs(:,level,:))!,&
+!    !&maxval(grad_vort_abs(:,level,:)),minval(grad_vort_abs(:,level,:))
+!    END DO
+
+  END SUBROUTINE calculate_leith_closure_harmonic
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! !  SUBROUTINE calculates the viscosity coefficients following the Leith closure.
+  !! Implemented is the pure leith closure and a modified version of it. Both options
+  !! are available for harmonic as well as for biharmonic diffusion.
+  !!
+  !! Liteature: Fox-Kemper, Menemenlis, Can Large Eddy Simulations improve Mesoscale Rich Ocean Models ?
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2014).
+  !!
+  SUBROUTINE calculate_leith_closure_biharmonic(patch_3d, ocean_state, param, op_coeff)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
+    TYPE(t_hydro_ocean_state), TARGET                :: ocean_state
+    TYPE(t_ho_params),                 INTENT(inout) :: param
+    TYPE(t_operator_coeff),            INTENT(in)    :: op_coeff
+
+    !Local variables
+    REAL(wp) :: grad_vort_abs(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
+
+    INTEGER :: jk, blockNo, je, jc,jb
+    INTEGER :: start_cell_index, end_cell_index, cell_index
+    INTEGER :: start_edge_index, end_edge_index
+    INTEGER :: start_level, level,end_level
+    INTEGER :: vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk, vertex3_idx, vertex3_blk
+    INTEGER :: cell1_idx, cell1_blk, cell2_idx, cell2_blk
+    INTEGER :: LEITH_EXPONENT
+    TYPE(t_subset_range), POINTER :: cells_in_domain, edges_in_domain, all_cells
+    TYPE(t_patch), POINTER :: patch_2D
+    REAL(wp):: div_e(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
+    REAL(wp):: div_c(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp):: vort_c(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp):: vort_e(nproma, n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
+    REAL(wp):: laplacian_vort(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp):: laplacian_div(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp):: length_scale(nproma, patch_3D%p_patch_2d(1)%nblks_e)
+    REAL(wp)::  laplacian_vort_e, laplacian_div_e
+    !REAL(wp):: size_grad_S_horz_vec(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
+    !-------------------------------------------------------------------------------
+    patch_2D        => patch_3D%p_patch_2D(1)
+    all_cells       => patch_2D%cells%all
+    cells_in_domain => patch_2D%cells%in_domain
+    edges_in_domain => patch_2D%edges%in_domain
+
+    start_level = 1
+
+    grad_vort_abs(1:nproma, 1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e)=0.0_wp
+    length_scale (1:nproma, 1:patch_3D%p_patch_2d(1)%nblks_e)=0.0_wp
+    div_e        (1:nproma, 1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e)=0.0_wp
+    div_c        (1:nproma, 1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+    vort_e        (1:nproma, 1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e)=0.0_wp
+    vort_c       (1:nproma, 1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+    laplacian_vort(1:nproma, 1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+    laplacian_div(1:nproma, 1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+   !-------------------------------------------------------------------------------
+
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+      DO je=start_edge_index, end_edge_index
+
+!         end_level = patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
+
+!         DO level=start_level,end_level
+
+          length_scale(je,blockNo) = &
+            & sqrt(patch_2D%edges%primal_edge_length(je,blockNo) * patch_2D%edges%dual_edge_length(je,blockNo))
+
+!         END DO
+      END DO
+    END DO ! blocks
+!ICON_OMP_END_PARALLEL_DO
+
+   ! Note: this sync is not needed
+   CALL sync_patch_array(sync_e, patch_2D, length_scale)
+
+
 
      LEITH_EXPONENT=6
 
@@ -1056,7 +1122,7 @@ CONTAINS
 !ICON_OMP vertex1_blk, vertex2_idx, vertex2_blk, vertex3_idx, vertex3_blk) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
-      DO jc=start_cell_index, end_cell_index 
+      DO jc=start_cell_index, end_cell_index
 
 
         vertex1_idx = patch_2d%cells%vertex_idx(jc,blockNo,1)
@@ -1073,26 +1139,26 @@ CONTAINS
             &+ ocean_state%p_diag%vort(vertex2_idx,level,vertex2_blk) &
             &+ ocean_state%p_diag%vort(vertex3_idx,level,vertex3_blk)
 
-        END DO    
+        END DO
       END DO
     END DO ! blocks
 !ICON_OMP_END_PARALLEL_DO
 
    CALL sync_patch_array(sync_c, patch_2D, vort_c)
 
-   !2) calculate laplacian of vertical velocity 
-   CALL tracer_diffusion_horz_local(patch_3D, vort_c, ocean_state, vort_e)!,subset_range = edges_in_domain)   
+   !2) calculate laplacian of vertical velocity
+   CALL tracer_diffusion_horz_local(patch_3D, vort_c, ocean_state, vort_e)!,subset_range = edges_in_domain)
    CALL div_oce_3d( vort_e, patch_3D, op_coeff%div_coeff, laplacian_vort)
 
 
-   !3a) In case of pure Leith, we have all to calculate the coefficient       
-   IF(leith_closure==1)THEN   
+   !3a) In case of pure Leith, we have all to calculate the coefficient
+   IF(leith_closure==1)THEN
      !Now aggregate the final parameter
 !ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, level, cell1_idx, &
 !ICON_OMP cell1_blk, cell2_idx, cell2_blk, laplacian_vort_e) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-        DO je=start_edge_index, end_edge_index   
+        DO je=start_edge_index, end_edge_index
 !           end_level = patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
 
           cell1_idx = patch_2d%edges%cell_idx(je,blockNo,1)
@@ -1106,27 +1172,27 @@ CONTAINS
 !             laplacian_vort_e = laplacian_vort_e*laplacian_vort_e
 
             !The leith viscosity coefficient
-            param%k_veloc_h(je,level,blockNo) = &
+            param%HorizontalViscosity_Biharmonic(je,level,blockNo) = &
               & ((leith_closure_gamma * length_scale(je,blockNo))**LEITH_EXPONENT) &
               & * sqrt(laplacian_vort_e * laplacian_vort_e)
-          END DO    
+          END DO
         END DO
       END DO ! blocks
 !ICON_OMP_END_PARALLEL_DO
 
-!    DO level= start_level, 5!end_level-1  
-!     write(*,*)'SIZES Leith-Viscosity',level,maxval(param%k_veloc_h(:,level,:)),&
-!     & minval(param%k_veloc_h(:,level,:)), maxval(laplacian_vort(:,level,:)),minval(laplacian_vort(:,level,:)),&
+!    DO level= start_level, 5!end_level-1
+!     write(*,*)'SIZES Leith-Viscosity',level,maxval(param%HorizontalViscosity_Harmonic(:,level,:)),&
+!     & minval(param%HorizontalViscosity_Harmonic(:,level,:)), maxval(laplacian_vort(:,level,:)),minval(laplacian_vort(:,level,:)),&
 !      &maxval(length_scale)**LEITH_EXPONENT,minval(length_scale)**LEITH_EXPONENT
-!     END DO    
+!     END DO
 
-   !3b) In case of modified Leith, we need additionally the Laplacian of divergence    
+   !3b) In case of modified Leith, we need additionally the Laplacian of divergence
    ELSEIF(leith_closure==2)THEN
 
      CALL div_oce_3d(ocean_state%p_diag%vn_time_weighted, patch_3D, op_coeff%div_coeff, div_c)
      !CALL div_oce_3d( ocean_state%p_diag%ptp_vn, patch_3D, op_coeff%div_coeff, div_c)
 
-     !The next two calls calculate the laplacian of the divergence without any diffusion parameter    
+     !The next two calls calculate the laplacian of the divergence without any diffusion parameter
      CALL tracer_diffusion_horz_local(patch_3D, div_c, ocean_state, div_e)!,subset_range = edges_in_domain)
      CALL div_oce_3d( div_e, patch_3D, op_coeff%div_coeff, laplacian_div)
 
@@ -1135,7 +1201,7 @@ CONTAINS
 !ICON_OMP cell1_blk, cell2_idx, cell2_blk, laplacian_div_e, laplacian_vort_e) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-        DO je=start_edge_index, end_edge_index   
+        DO je=start_edge_index, end_edge_index
 !           end_level = patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
 
           cell1_idx = patch_2d%edges%cell_idx(je,blockNo,1)
@@ -1143,7 +1209,7 @@ CONTAINS
           cell2_idx = patch_2d%edges%cell_idx(je,blockNo,2)
           cell2_blk = patch_2d%edges%cell_blk(je,blockNo,2)
 
-          DO level=start_level,  patch_3D%p_patch_1D(1)%dolic_e(je,blockNo) 
+          DO level=start_level,  patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
 
             laplacian_div_e = &
               & 0.5_wp*(laplacian_div(cell1_idx,level,cell1_blk) + laplacian_div(cell2_idx,level,cell2_blk))
@@ -1153,47 +1219,47 @@ CONTAINS
               & 0.5_wp*(laplacian_vort(cell1_idx,level,cell1_blk) + laplacian_vort(cell2_idx,level,cell2_blk))
             laplacian_vort_e = laplacian_vort_e * laplacian_vort_e
 
-            !The modified leith viscosity coefficient            
-            param%k_veloc_h(je,level,blockNo) = &
+            !The modified leith viscosity coefficient
+            param%HorizontalViscosity_Biharmonic(je,level,blockNo) = &
               & ((leith_closure_gamma*length_scale(je,blockNo))**LEITH_EXPONENT) &
-              & * sqrt(laplacian_vort_e+laplacian_div_e)          
-          END DO    
+              & * sqrt(laplacian_vort_e+laplacian_div_e)
+          END DO
         END DO
       END DO ! blocks
 !ICON_OMP_END_PARALLEL_DO
 
-!    DO level= start_level, 5!end_level-1  
-!     write(*,*)'SIZES Leith-Viscosity',level,maxval(param%k_veloc_h(:,level,:)),&
-!     & minval(param%k_veloc_h(:,level,:)), &
+!    DO level= start_level, 5!end_level-1
+!     write(*,*)'SIZES Leith-Viscosity',level,maxval(param%HorizontalViscosity_Harmonic(:,level,:)),&
+!     & minval(param%HorizontalViscosity_Harmonic(:,level,:)), &
 !     &maxval(laplacian_vort(:,level,:)),minval(laplacian_vort(:,level,:)),&
-!     &maxval(laplacian_div(:,level,:)),minval(laplacian_div(:,level,:)),&    
+!     &maxval(laplacian_div(:,level,:)),minval(laplacian_div(:,level,:)),&
 !     &maxval(length_scale)**LEITH_EXPONENT,minval(length_scale)**LEITH_EXPONENT
-!     END DO    
+!     END DO
 
-   ENDIF     
- ENDIF  
+   ENDIF
 
    !CALL sync_patch_array(sync_e, patch_2D, grad_vort_abs)
    !Note: this sync most probably is nor needed
-   CALL sync_patch_array(sync_e, patch_2D, param%k_veloc_h)
+   CALL sync_patch_array(sync_e, patch_2D, param%HorizontalViscosity_Biharmonic)
 
 !idt_src=1  ! output print level (1-5, fix)
 !      CALL debug_print_MaxMinMean('after ocean_gmres: h-new', minmaxmean, str_module, idt_src)
 
 !    !---------DEBUG DIAGNOSTICS-------------------------------------------
      idt_src=2  ! output print level (1-5, fix)
-     CALL dbg_print('calculate_leith_closure: viscosity',param%k_veloc_h,&
-    &str_module,idt_src, in_subset=edges_in_domain)      
-!   !---------------------------------------------------------------------   
+     CALL dbg_print('leith_closure: biharm visc',param%HorizontalViscosity_Biharmonic,&
+       &str_module,idt_src, in_subset=edges_in_domain)
+!   !---------------------------------------------------------------------
 
-!    DO level= start_level, 5!end_level-1  
-!    write(*,*)'Leith-Viscosity',level,maxval(param%k_veloc_h(:,level,:)),&
-!    & minval(param%k_veloc_h(:,level,:))!, maxval(grad_vort_abs(:,level,:)),minval(grad_vort_abs(:,level,:))!,&
+!    DO level= start_level, 5!end_level-1
+!    write(*,*)'Leith-Viscosity',level,maxval(param%HorizontalViscosity_Harmonic(:,level,:)),&
+!    & minval(param%HorizontalViscosity_Harmonic(:,level,:))!, maxval(grad_vort_abs(:,level,:)),minval(grad_vort_abs(:,level,:))!,&
 !    !&maxval(grad_vort_abs(:,level,:)),minval(grad_vort_abs(:,level,:))
 !    END DO
 
-  END SUBROUTINE calculate_leith_closure
+  END SUBROUTINE calculate_leith_closure_biharmonic
   !-------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------
   !>
