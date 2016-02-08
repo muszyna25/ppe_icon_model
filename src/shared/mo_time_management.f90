@@ -579,9 +579,11 @@ CONTAINS
       IF ((restart_calendar                  /= dtime_calendar) .OR.     &
         & (TRIM(restart_ini_datetime_string) /= TRIM(ini_datetime_string))) THEN
 
-      IF (restart_calendar /= dtime_calendar) &
-        &  CALL message('','Restart calendar is not matching, fallback to experiment start date: '//&
-        &int2string(restart_calendar)//' /= '//int2string(dtime_calendar))
+        IF ((restart_calendar /= dtime_calendar) .AND. &
+          & (restart_calendar /= -1)) THEN
+          CALL message('','Restart calendar is not matching, fallback to experiment start date: '//&
+            &int2string(restart_calendar)//' /= '//int2string(dtime_calendar))
+        END IF
 
       IF (TRIM(restart_ini_datetime_string) /= TRIM(ini_datetime_string)) &
         &  CALL message('','Restart ini date is not matching, fallback to experiment start date: '//&
