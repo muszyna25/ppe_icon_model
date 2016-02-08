@@ -351,8 +351,12 @@ MODULE mo_ocean_nml
     &                 l_GRADIENT_RECONSTRUCTION
 
 
-  REAL(wp) :: convection_InstabilityThreshold = -5.0E-8_wp ! used in update_ho_params
-  REAL(wp) :: RichardsonDiffusion_threshold   =  5.0E-8_wp ! used in update_ho_params
+  REAL(wp) :: convection_InstabilityThreshold            = -5.0E-8_wp ! used in update_ho_params
+  REAL(wp) :: RichardsonDiffusion_threshold              =  5.0E-8_wp ! used in update_ho_params
+  REAL(wp) :: Temperature_HorizontalDiffusion_Background = 0.0_wp
+  REAL(wp) :: Temperature_HorizontalDiffusion_Reference  = 1.0E+3_wp
+  REAL(wp) :: Salinity_HorizontalDiffusion_Background    = 0.0_wp
+  REAL(wp) :: Salinity_HorizontalDiffusion_Reference     = 1.0E+3_wp
   REAL(wp) :: k_veloc_v             = 1.0E-3_wp  ! vertical diffusion coefficient
   REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
   REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
@@ -367,6 +371,8 @@ MODULE mo_ocean_nml
                                         !with option HorizontalViscosity_type=3. Constanjt has no physical meaning, just trial and error.
   INTEGER  :: leith_closure = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure
   REAL(wp) :: leith_closure_gamma = 0.25_wp !dimensionless constant for Leith closure
+  REAL(wp) :: HorizontalViscosity_HarmonicBackground  = 0.0_wp  ! horizontal harmonic diffusion coefficient
+  REAL(wp) :: HorizontalViscosity_BiharmonicBackground = 0.0_wp! factor for adjusting the biharmonic diffusion coefficient
   REAL(wp) :: HorizontalViscosity_HarmonicReference  = 1.0E+5_wp  ! horizontal harmonic diffusion coefficient
   REAL(wp) :: HorizontalViscosity_BiharmonicReference = 5.0E12_wp! factor for adjusting the biharmonic diffusion coefficient
                                       !has to be adjusted for each resolution, the bigger this number
@@ -378,7 +384,6 @@ MODULE mo_ocean_nml
   INTEGER  :: HarmonicViscosity_type = 1
   INTEGER  :: HorizontalViscosity_SmoothIterations = 0
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
-  REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
   REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
   INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
 
@@ -390,18 +395,22 @@ MODULE mo_ocean_nml
     &  HarmonicViscosity_type,                    &
     &  HorizontalViscosity_SmoothIterations,      &
     &  HorizontalViscosity_SpatialSmoothFactor,   &
+    &  HorizontalViscosity_HarmonicBackground,    &
+    &  HorizontalViscosity_BiharmonicBackground,  &
     &  HorizontalViscosity_BiharmonicReference,   &
     &  HorizontalViscosity_HarmonicReference,     &
     &  HorizontalViscosity_HarmonicWeight,        &
-    &  HorizontalViscosity_ScaleWeight,           &
     &  VerticalViscosity_TimeWeight,              &
-    &  k_pot_temp_h                ,    &
+!     &  k_pot_temp_h                ,    &
     &  k_pot_temp_v                ,    &
     &  k_sal_h                     ,    &
     &  k_sal_v                     ,    &
     &  k_veloc_v                   ,    &
     &  TracerHorizontalDiffusion_type,  &
-    &  TracerHorizontalDiffusion_ScaleWeight,&
+    &  Temperature_HorizontalDiffusion_Background,&
+    &  Temperature_HorizontalDiffusion_Reference, &
+    &  Salinity_HorizontalDiffusion_Background,&
+    &  Salinity_HorizontalDiffusion_Reference, &
     &  MAX_VERT_DIFF_TRAC          ,    &
     &  MAX_VERT_DIFF_VELOC         ,    &
     &  convection_InstabilityThreshold, &

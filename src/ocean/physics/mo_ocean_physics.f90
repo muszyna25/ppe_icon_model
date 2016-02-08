@@ -29,7 +29,7 @@ MODULE mo_ocean_physics
   USE mo_ocean_nml,           ONLY: &
     & n_zlev, bottom_drag_coeff,                              &
     & HorizontalViscosity_HarmonicReference, k_veloc_v,       &
-    & k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
+    & k_pot_temp_v, k_sal_v, no_tracer,                       &
     & max_vert_diff_veloc, max_vert_diff_trac,                &
     & BiharmonicViscosity_type, HarmonicViscosity_type,       &
     & veloc_diffusion_order,                                  &
@@ -57,10 +57,14 @@ MODULE mo_ocean_physics
     & veloc_diffusion_form, biharmonic_const,                 &
     & HorizontalViscosity_SpatialSmoothFactor,                &
     & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
-    & HorizontalViscosity_ScaleWeight,                        &
     & tracer_TopWindMixing, WindMixingDecayDepth,             &
     & velocity_TopWindMixing, TracerHorizontalDiffusion_type, &
-    & TracerHorizontalDiffusion_ScaleWeight
+    &  Temperature_HorizontalDiffusion_Background,            &
+    &  Temperature_HorizontalDiffusion_Reference,             &
+    &  Salinity_HorizontalDiffusion_Background,               &
+    &  Salinity_HorizontalDiffusion_Reference,                &
+    &  HorizontalViscosity_HarmonicBackground,                &
+    &  HorizontalViscosity_BiharmonicBackground
     
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
@@ -138,12 +142,11 @@ MODULE mo_ocean_physics
 
     !constant background values of coefficients above
     REAL(wp) :: &
-      & HorizontalViscosity_Harmonic_back,   &
-      & HorizontalViscosity_Biharmonic_back, &
       & a_veloc_v_back   ! coefficient of vertical velocity diffusion
 
-    REAL(wp),ALLOCATABLE ::     &
-      & k_tracer_h_back(:),    & ! coefficient of horizontal tracer diffusion dim=no_tracer
+    REAL(wp),ALLOCATABLE ::         &
+      & Tracer_HorizontalDiffusion_Reference(:),    &
+      & Tracer_HorizontalDiffusion_Background(:),   & ! coefficient of horizontal tracer diffusion dim=no_tracer
       & a_tracer_v_back(:)       ! coefficient of vertical tracer diffusion dim=no_tracer
 
     REAL(wp),POINTER ::     &
@@ -211,7 +214,7 @@ CONTAINS
       ! harmonic or harmonic+biharmonic
       CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, DiffusionType=HarmonicViscosity_type, &
         & DiffusionReferenceValue=HorizontalViscosity_HarmonicReference, &
-        & out_DiffusionBackground=physics_param%HorizontalViscosity_Harmonic_back, &
+        & DiffusionBackgroundValue=HorizontalViscosity_HarmonicBackground,  &
         & out_DiffusionCoefficients=physics_param%HorizontalViscosity_Harmonic)
       CALL dbg_print('HarmonicVisc:'     ,physics_param%HorizontalViscosity_Harmonic,str_module,0, &
         & in_subset=patch_2D%edges%owned)
@@ -221,7 +224,7 @@ CONTAINS
       ! biharmonic or harmonic+biharmonic
       CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, DiffusionType=BiharmonicViscosity_type, &
         & DiffusionReferenceValue=HorizontalViscosity_BiharmonicReference, &
-        & out_DiffusionBackground=physics_param%HorizontalViscosity_Biharmonic_back, &
+        & DiffusionBackgroundValue=HorizontalViscosity_BiharmonicBackground,  &
         & out_DiffusionCoefficients=physics_param%HorizontalViscosity_Biharmonic)
       CALL dbg_print('BiharmonicVisc:'     ,physics_param%HorizontalViscosity_Biharmonic,str_module,0, &
         & in_subset=patch_2D%edges%owned)
@@ -230,11 +233,12 @@ CONTAINS
     DO i=1,no_tracer
 
       IF(i==1)THEN!temperature
-        physics_param%k_tracer_h_back(i) = k_pot_temp_h
+        physics_param%Tracer_HorizontalDiffusion_Background(i) = Temperature_HorizontalDiffusion_Background
+        physics_param%Tracer_HorizontalDiffusion_Reference(i) = Temperature_HorizontalDiffusion_Reference
         physics_param%a_tracer_v_back(i) = k_pot_temp_v
-
       ELSEIF(i==2)THEN!salinity
-        physics_param%k_tracer_h_back(2) = k_sal_h
+        physics_param%Tracer_HorizontalDiffusion_Background(2) = Salinity_HorizontalDiffusion_Background
+        physics_param%Tracer_HorizontalDiffusion_Reference(2) = Salinity_HorizontalDiffusion_Reference
         physics_param%a_tracer_v_back(2) = k_sal_v
       ELSE
 
@@ -244,9 +248,9 @@ CONTAINS
 
       CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, &
         & DiffusionType=TracerHorizontalDiffusion_type, &
-        & DiffusionReferenceValue=physics_param%k_tracer_h_back(i), &
+        & DiffusionReferenceValue=physics_param%Tracer_HorizontalDiffusion_Reference(i), &
+        & DiffusionBackgroundValue=physics_param%Tracer_HorizontalDiffusion_Background(i), &
         & out_DiffusionCoefficients=physics_param%k_tracer_h(:,:,:,i))
-
       CALL dbg_print('Tracer Diff:'     ,physics_param%k_tracer_h(:,:,:,i),str_module,0, &
         & in_subset=patch_2D%edges%owned)
 
@@ -271,11 +275,10 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   SUBROUTINE calculate_initial_horizontal_diffusion(patch_3D, &
-    & DiffusionType, DiffusionReferenceValue, out_DiffusionBackground, out_DiffusionCoefficients)
+    & DiffusionType, DiffusionReferenceValue, DiffusionBackgroundValue, out_DiffusionCoefficients)
     TYPE(t_patch_3d), POINTER :: patch_3D
     INTEGER, INTENT(in) :: DiffusionType
-    REAL(wp), INTENT(in) :: DiffusionReferenceValue
-    REAL(wp), optional :: out_DiffusionBackground
+    REAL(wp), INTENT(in) :: DiffusionReferenceValue, DiffusionBackgroundValue
     REAL(wp) ::  out_DiffusionCoefficients(:,:,:)
 
     TYPE(t_patch), POINTER :: patch_2D
@@ -310,9 +313,6 @@ CONTAINS
     minCellArea = minmaxmean_length(1)
     meanCellArea = minmaxmean_length(3)
     maxCellArea = minmaxmean_length(2)
-
-    IF (present(out_DiffusionBackground)) &
-      out_DiffusionBackground = DiffusionReferenceValue
 
     SELECT CASE(DiffusionType)
 
@@ -353,9 +353,8 @@ CONTAINS
 
           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
             out_DiffusionCoefficients(je,jk,jb) = &
-              & DiffusionReferenceValue * &
-              & (1.0_wp - HorizontalViscosity_ScaleWeight &
-              &  +  HorizontalViscosity_ScaleWeight * length_scale)
+              & DiffusionBackgroundValue + &
+              & DiffusionReferenceValue * length_scale 
           END DO
 
         END DO
@@ -372,9 +371,8 @@ CONTAINS
 
           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
             out_DiffusionCoefficients(je,jk,jb) = &
-              & DiffusionReferenceValue * &
-              & (1.0_wp - HorizontalViscosity_ScaleWeight &
-              &  +  HorizontalViscosity_ScaleWeight * length_scale)
+              & DiffusionBackgroundValue + &
+              & DiffusionReferenceValue * length_scale 
           END DO
 
         END DO
@@ -393,7 +391,7 @@ CONTAINS
 
           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
             out_DiffusionCoefficients(je,jk,jb) = &
-              & DiffusionReferenceValue * patch_2D%edges%dual_edge_length(je,jb)**3
+              & DiffusionBackgroundValue + DiffusionReferenceValue * patch_2D%edges%dual_edge_length(je,jb)**3
           END DO
 
         END DO
@@ -410,7 +408,7 @@ CONTAINS
 
           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
             out_DiffusionCoefficients(je,jk,jb) = &
-              & DiffusionReferenceValue * SQRT(patch_2D%edges%dual_edge_length(je,jb)**3)
+              & DiffusionBackgroundValue + DiffusionReferenceValue * SQRT(patch_2D%edges%dual_edge_length(je,jb)**3)
           END DO
 
         END DO
@@ -468,9 +466,8 @@ CONTAINS
 
           DO jk = 1, patch_3d%p_patch_1d(1)%dolic_e(je, jb)
             out_DiffusionCoefficients(je,jk,jb) = &
-              & DiffusionReferenceValue * &
-              & (1.0_wp - HorizontalViscosity_ScaleWeight &
-              &  +  HorizontalViscosity_ScaleWeight * length_scale)
+              & DiffusionBackgroundValue +        &
+              & DiffusionReferenceValue * length_scale
           END DO
 
         END DO
@@ -730,14 +727,12 @@ CONTAINS
     ENDIF ! no_tracer > 0
 
 
-    ALLOCATE(params_oce%k_tracer_h_back(no_tracer), stat=ist)
+    ALLOCATE(params_oce%Tracer_HorizontalDiffusion_Background(no_tracer),  &
+      & params_oce%Tracer_HorizontalDiffusion_Reference(no_tracer),                  &
+      & params_oce%a_tracer_v_back(no_tracer),            &
+      & stat=ist)
     IF (ist/=success) THEN
       CALL finish(TRIM(routine), 'allocation for horizontal background tracer diffusion failed')
-    END IF
-
-    ALLOCATE(params_oce%a_tracer_v_back(no_tracer), stat=ist)
-    IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation for vertical tracer background diffusion failed')
     END IF
 
    IF(GMRedi_configuration==GMRedi_combined&
@@ -769,12 +764,6 @@ CONTAINS
 
     ENDIF
 
-
-    DO i=1,no_tracer
-      params_oce%k_tracer_h_back(i)  = 0.0_wp
-      params_oce%a_tracer_v_back(i)  = 0.0_wp
-    END DO
-
     ALLOCATE(WindMixingDecay(1:n_zlev+1), WindMixingLevel(1:n_zlev+1))
     
   END SUBROUTINE construct_ho_params
@@ -801,16 +790,12 @@ CONTAINS
 
     CALL delete_var_list(ocean_params_list)
 
-    DEALLOCATE(params_oce%k_tracer_h_back, stat=ist)
+    DEALLOCATE(params_oce%a_tracer_v,                    &
+      & params_oce%Tracer_HorizontalDiffusion_Reference, &
+      & params_oce%Tracer_HorizontalDiffusion_Background,&
+      & stat=ist)
     IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'deallocation for horizontal tracer &
-        & background iffusion failed')
-    END IF
-
-    DEALLOCATE(params_oce%a_tracer_v_back, stat=ist)
-    IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'deallocation for vertical background &
-        & temperaure diffusion failed')
+      CALL finish(TRIM(routine), 'deallocation for tracer Diffusion Background failed')
     END IF
     
     DEALLOCATE(WindMixingDecay, WindMixingLevel)
