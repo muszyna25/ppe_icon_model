@@ -237,9 +237,9 @@ CONTAINS
         physics_param%Tracer_HorizontalDiffusion_Reference(i) = Temperature_HorizontalDiffusion_Reference
         physics_param%a_tracer_v_back(i) = k_pot_temp_v
       ELSEIF(i==2)THEN!salinity
-        physics_param%Tracer_HorizontalDiffusion_Background(2) = Salinity_HorizontalDiffusion_Background
-        physics_param%Tracer_HorizontalDiffusion_Reference(2) = Salinity_HorizontalDiffusion_Reference
-        physics_param%a_tracer_v_back(2) = k_sal_v
+        physics_param%Tracer_HorizontalDiffusion_Background(i) = Salinity_HorizontalDiffusion_Background
+        physics_param%Tracer_HorizontalDiffusion_Reference(i) = Salinity_HorizontalDiffusion_Reference
+        physics_param%a_tracer_v_back(i) = k_sal_v
       ELSE
 
         CALL finish ('mo_ocean_physics:init_ho_params',  &
@@ -381,9 +381,9 @@ CONTAINS
     CASE(7)
       ! multiply DiffusionReferenceValue by dual_edge_length**3
       ! recommended values:
-      !  Harmonic viscosity: 6.0E-11 
+      !  Harmonic viscosity: 1.0E-11
       !  Biharmonic viscosicity: 3.125e-3
-      !  Tracer diffusion:  7.2E-13
+      !  Tracer diffusion:  7.0E-13
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
         out_DiffusionCoefficients(:,:,jb) = 0.0_wp
@@ -749,7 +749,7 @@ CONTAINS
 
       CALL add_var(ocean_params_list, 'k_tracer_dianeutral', params_oce%k_tracer_dianeutral, &
         & grid_unstructured_cell, za_depth_below_sea_half, &
-        & t_cf_var('A_tracer_v', '', '1:temperature 2:salinity', datatype_flt),&
+        & t_cf_var('k_tracer_dianeutral', '', '1:temperature 2:salinity', datatype_flt),&
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
         & ldims=(/nproma,n_zlev,alloc_cell_blocks/), &
         & lcontainer=.TRUE., lrestart=.FALSE., loutput=.FALSE.)
@@ -790,7 +790,7 @@ CONTAINS
 
     CALL delete_var_list(ocean_params_list)
 
-    DEALLOCATE(params_oce%a_tracer_v,                    &
+    DEALLOCATE(params_oce%a_tracer_v_back,               &
       & params_oce%Tracer_HorizontalDiffusion_Reference, &
       & params_oce%Tracer_HorizontalDiffusion_Background,&
       & stat=ist)
