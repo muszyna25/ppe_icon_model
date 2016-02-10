@@ -616,12 +616,18 @@ CONTAINS
     !         b) start date + dt_restart
     !         c) start date + nsteps*dtime
     !
+    NULLIFY(mtime_exp_stop)
+    NULLIFY(mtime_restart_stop)
+    NULLIFY(mtime_nsteps_stop)
+
     mtime_dtime        => getTimedeltaFromMS(INT(dtime,i8)*1000)
     IF (.NOT. ASSOCIATED(mtime_dtime))  CALL finish(routine, "Error in conversion of dtime to mtime!")
     mtime_start        => newDatetime(start_datetime_string, errno)
-    IF (errno /= 0)  CALL finish(routine, "Error in conversion of start date")
-    mtime_exp_stop     => newDatetime(exp_stop_datetime_string, errno)
-    IF (errno /= 0)  CALL finish(routine, "Error in conversion of exp stop date")
+    IF (errno /= 0)  CALL finish(routine, "Error in conversion of start date: "//start_datetime_string)
+    IF (TRIM(exp_stop_datetime_string) /= "") THEN
+      mtime_exp_stop     => newDatetime(exp_stop_datetime_string, errno)
+      IF (errno /= 0)  CALL finish(routine, "Error in conversion of exp stop date: "//exp_stop_datetime_string)
+    END IF
 
     IF (INT(dt_restart) > 0) THEN
       mtime_dt_restart   => newTimedelta("PT"//TRIM(int2string(INT(dt_restart),'(i0)'))//"S", errno)
@@ -630,8 +636,10 @@ CONTAINS
       IF (errno /= 0)  CALL finish(routine, "Error in initialization of restart date")
       mtime_restart_stop =  mtime_restart_stop + mtime_dt_restart
     ELSE
-      mtime_restart_stop => newDatetime(exp_stop_datetime_string, errno)
-      IF (errno /= 0)  CALL finish(routine, "Error in initialization of restart date")
+      IF (TRIM(exp_stop_datetime_string) /= "") THEN
+        mtime_restart_stop => newDatetime(exp_stop_datetime_string, errno)
+        IF (errno /= 0)  CALL finish(routine, "Error in initialization of restart date")
+      END IF
     END IF
     IF (nsteps >= 0) THEN   
 
@@ -655,13 +663,39 @@ CONTAINS
         ! step N after the integration from N-1 to N is finished.
       END IF
       mtime_nsteps_stop  => newDatetime(mtime_start, errno)
-      IF (errno /= 0)  CALL finish(routine, "Error in initialization of nsteps  stop date")
+      IF (errno /= 0)  CALL finish(routine, "Error in initialization of nsteps stop date")
       mtime_nsteps_stop = mtime_nsteps_stop + mtime_dtime * INT(nsteps,c_int32_t)
     ELSE
-      mtime_nsteps_stop  => newDatetime(mtime_exp_stop, errno)
-      IF (errno /= 0)  CALL finish(routine, "Error in initialization of nsteps  stop date")
+      IF (TRIM(exp_stop_datetime_string) /= "") THEN
+        mtime_nsteps_stop  => newDatetime(mtime_exp_stop, errno)
+        IF (errno /= 0)  CALL finish(routine, "Error in initialization of nsteps  stop date")
+      END IF
     END IF
-    mtime_stop => newDatetime(MIN(MIN(mtime_exp_stop, mtime_restart_stop), mtime_nsteps_stop))
+
+    ! now, we could simply set
+    !
+    !   mtime_stop => newDatetime(MIN(MIN(mtime_exp_stop, mtime_restart_stop), mtime_nsteps_stop))
+    !
+    ! but we need to check cases where one or two of these dates have
+    ! not been specified by the user...
+    IF (.NOT. ASSOCIATED(mtime_exp_stop)     .AND. &
+      & .NOT. ASSOCIATED(mtime_restart_stop) .AND. &
+      & .NOT. ASSOCIATED(mtime_nsteps_stop)) THEN
+      CALL finish(routine, "Error in initialization of stop date")
+    ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
+      & ASSOCIATED(mtime_restart_stop)       .AND. &
+      & ASSOCIATED(mtime_nsteps_stop)) THEN
+      mtime_stop => newDatetime(MIN(MIN(mtime_exp_stop, mtime_restart_stop), mtime_nsteps_stop))
+    ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
+      & ASSOCIATED(mtime_restart_stop)) THEN
+      mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_restart_stop))
+    ELSE IF (ASSOCIATED(mtime_exp_stop)      .AND. &
+      & ASSOCIATED(mtime_nsteps_stop)) THEN
+      mtime_stop => newDatetime(MIN(mtime_exp_stop, mtime_nsteps_stop))
+    ELSE IF (ASSOCIATED(mtime_restart_stop)  .AND. &
+      & ASSOCIATED(mtime_nsteps_stop)) THEN
+      mtime_stop => newDatetime(MIN(mtime_restart_stop, mtime_nsteps_stop))
+    END IF
 
     ! consistency checks:
     !
@@ -679,9 +713,9 @@ CONTAINS
       END IF
     END IF
     CALL deallocateDatetime(mtime_start)
-    CALL deallocateDatetime(mtime_exp_stop)
-    CALL deallocateDatetime(mtime_restart_stop)
-    CALL deallocateDatetime(mtime_nsteps_stop)
+    IF (ASSOCIATED(mtime_restart_stop))  CALL deallocateDatetime(mtime_exp_stop)
+    IF (ASSOCIATED(mtime_restart_stop))  CALL deallocateDatetime(mtime_restart_stop)
+    IF (ASSOCIATED(mtime_restart_stop))  CALL deallocateDatetime(mtime_nsteps_stop)
     CALL deallocateDatetime(mtime_stop)
     IF (INT(dt_restart) > 0)  CALL deallocateTimedelta(mtime_dt_restart)
     CALL deallocateTimedelta(mtime_dtime)
