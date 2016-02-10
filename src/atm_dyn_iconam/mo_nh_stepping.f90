@@ -159,13 +159,14 @@ MODULE mo_nh_stepping
   USE mo_fortran_tools,            ONLY: swap, copy, init
   USE mtime,                       ONLY: datetime, datetimeToString, deallocateDatetime,              &
        &                                 timedelta, newTimedelta, deallocateTimedelta,                &
-       &                                 MAX_DATETIME_STR_LEN, newDatetime,                           &
+       &                                 MAX_DATETIME_STR_LEN, MAX_TIMEDELTA_STR_LEN, newDatetime,    &
        &                                 MAX_MTIME_ERROR_STR_LEN, no_error, mtime_strerror,           &
        &                                 OPERATOR(-), OPERATOR(+), OPERATOR(>), OPERATOR(*),          &
        &                                 ASSIGNMENT(=), OPERATOR(==), OPERATOR(>=), OPERATOR(/=),     &
        &                                 event, eventGroup, newEvent,                                 &
        &                                 addEventToEventGroup, isCurrentEventActive,                  &
-       &                                 getTotalMillisecondsTimedelta, getTimedeltaFromDatetime
+       &                                 getTotalMillisecondsTimedelta, getTimedeltaFromDatetime,     &
+       &                                 timedeltaToString
   USE mo_event_manager,            ONLY: initEventManager, addEventGroup, getEventGroup, printEventGroup
 #ifdef MESSY
   USE messy_main_channel_bi,       ONLY: messy_channel_write_output &
@@ -565,7 +566,8 @@ MODULE mo_nh_stepping
   TYPE(t_datetime_ptr)                 :: datetime_current(max_dom) 
   TYPE(timeDelta), POINTER             :: time_diff
 
-  CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: dstring
+  CHARACTER(LEN=MAX_TIMEDELTA_STR_LEN)   :: td_string
+  CHARACTER(LEN=MAX_DATETIME_STR_LEN)    :: dt_string, dstring
   CHARACTER(len=MAX_MTIME_ERROR_STR_LEN) :: errstring
   
   REAL(wp)                             :: sim_time     !< elapsed simulation time
@@ -659,8 +661,17 @@ MODULE mo_nh_stepping
   eventInterval  => time_config%tc_dt_checkpoint
   checkpointEvent => newEvent('checkpoint', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
   IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString(eventRefDate,   dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString(eventStartDate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString(eventEndDate,   dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
     CALL mtime_strerror(ierr, errstring)
-    CALL finish('perform_nh_timeloop', errstring)
+    CALL finish('perform_nh_timeloop', "event 'checkpoint': "//errstring)
   ENDIF
   lret = addEventToEventGroup(checkpointEvent, checkpointEventGroup)
 
@@ -668,8 +679,17 @@ MODULE mo_nh_stepping
   eventInterval  => time_config%tc_dt_restart
   restartEvent => newEvent('restart', eventRefDate, eventStartDate, eventEndDate, eventInterval, errno=ierr)
   IF (ierr /= no_Error) THEN
+    ! give an elaborate error message:
+    CALL datetimeToString(eventRefDate,   dt_string)
+    WRITE (0,*) "event reference date: ", dt_string
+    CALL datetimeToString(eventStartDate, dt_string)
+    WRITE (0,*) "event start date    : ", dt_string
+    CALL datetimeToString(eventEndDate,   dt_string)
+    WRITE (0,*) "event end date      : ", dt_string
+    CALL timedeltaToString(eventInterval, td_string)
+    WRITE (0,*) "event interval      : ", td_string
     CALL mtime_strerror(ierr, errstring)
-    CALL finish('perform_nh_timeloop', errstring)
+    CALL finish('perform_nh_timeloop', "event 'restart': "//errstring)
   ENDIF
   lret = addEventToEventGroup(restartEvent, checkpointEventGroup)
 

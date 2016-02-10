@@ -697,9 +697,17 @@ CONTAINS
       mtime_stop => newDatetime(MIN(mtime_restart_stop, mtime_nsteps_stop))
     END IF
 
+    CALL datetimeToString(mtime_stop, stop_datetime_string)
+
+    ! if it has not been specified by the user, set experiment stop
+    ! date to stop date:
+    IF (.NOT. ASSOCIATED(mtime_exp_stop)) THEN
+      mtime_exp_stop => newDatetime(stop_datetime_string)
+    END IF
+
+
     ! consistency checks:
     !
-    CALL datetimeToString(mtime_stop, stop_datetime_string)
     IF (mtime_stop < mtime_start) THEN
       CALL finish(routine, 'The end date and time must not be '// &
         &                  'before the current date and time')
