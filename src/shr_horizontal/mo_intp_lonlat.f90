@@ -40,7 +40,8 @@
     USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int,                                &
       &                               HINTP_TYPE_NONE, HINTP_TYPE_LONLAT_RBF,                 &
       &                               HINTP_TYPE_LONLAT_NNB, HINTP_TYPE_LONLAT_BCTR,          &
-      &                               SCALE_MODE_TABLE, SCALE_MODE_AUTO, SCALE_MODE_PRESET
+      &                               SCALE_MODE_TABLE, SCALE_MODE_AUTO, SCALE_MODE_PRESET,   &
+      &                               max_rlcell
     USE mo_model_domain,        ONLY: t_patch
     USE mo_run_config,          ONLY: ltimer
     USE mo_grid_config,         ONLY: n_dom, grid_sphere_radius, is_plane_torus
@@ -69,7 +70,7 @@
       &                               p_recv, process_mpi_all_test_id,                        &
       &                               process_mpi_all_workroot_id, p_pe,                      &
       &                               my_process_is_stdio
-    USE mo_communication,       ONLY: blk_no, idx_no, setup_comm_gather_pattern
+    USE mo_communication,       ONLY: blk_no, idx_no, setup_comm_gather_pattern, idx_1d
     USE mo_lonlat_grid,         ONLY: rotate_latlon_grid
     USE mo_cf_convention,       ONLY: t_cf_var
     USE mo_grib2,               ONLY: t_grib2_var, grib2_var
@@ -1252,6 +1253,100 @@
     END SUBROUTINE rbf_compute_coeff_c2l
 
 
+    !-------------------------------------------------------------------------
+    !> Mask out nest boundary zone.
+    !  -------------------------------------------------------------------------
+    !
+    SUBROUTINE mask_out_boundary( ptr_patch, ptr_int_lonlat, &
+      &                           nblks_lonlat, npromz_lonlat)
+
+      ! Input parameters
+      TYPE(t_patch),                 INTENT(IN)    :: ptr_patch
+      TYPE (t_lon_lat_intp),         INTENT(INOUT) :: ptr_int_lonlat
+      INTEGER,                       INTENT(IN)    :: nblks_lonlat, npromz_lonlat ! blocking info
+      ! Local parameters
+      INTEGER  :: last_bdry_index, rl_start, rl_end, i_nchdom, i_startblk, i_endblk, &
+        &         i_startidx, i_endidx, local_idx, glb_idx, jc, jb, je1, jc_cell,    &
+        &         jb_cell, istencil, istencil2, iidx, iblk
+      REAL(wp) :: area(nproma)
+
+      !--------------------------------------------------------------------
+
+      IF (ptr_patch%n_patch_cells == 0) RETURN;
+
+      ! communicate the largest global index of the lateral boundary cells:
+      last_bdry_index = 0
+
+      rl_start   = 1
+      rl_end     = max_rlcell
+      i_nchdom   = MAX(1,ptr_patch%n_childdom)
+      i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+      i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+      glb_idx    = 0
+      DO jb=i_startblk,i_endblk
+        CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+          i_startidx, i_endidx, rl_start, rl_end)
+        DO jc=i_startidx, i_endidx
+          local_idx = idx_1d(jc,jb)
+          glb_idx   = MAX(glb_idx, ptr_patch%cells%decomp_info%glb_index(local_idx))
+        END DO
+      END DO
+      last_bdry_index = p_max(glb_idx, p_comm_work)
+
+!OMP PARALLEL DO PRIVATE(i_startidx, i_endidx, jc, jc_cell, jb_cell, istencil, &
+!OMP                     istencil2, area, je1, iidx, iblk, local_idx, glb_idx)
+      BLOCKS: DO jb = 1, nblks_lonlat
+        
+        i_startidx = 1
+        i_endidx   = nproma
+        IF (jb == nblks_lonlat) i_endidx = npromz_lonlat
+        
+        DO jc = i_startidx, i_endidx
+          
+          jc_cell = ptr_int_lonlat%tri_idx(1,jc, jb)
+          jb_cell = ptr_int_lonlat%tri_idx(2,jc, jb)
+          ! Get actual number of stencil points
+          istencil = ptr_int_lonlat%rbf_c2l_stencil(jc_cell,jb_cell)
+          istencil2 = istencil
+
+          ! first, multiply interpolation weights by total "area" (the
+          ! sum of weights in the stencil). we perform this step
+          ! though we may assume normalized coefficients (area=1).
+          area = 0._wp
+          DO je1 = 1, istencil
+            area(je1) = area(je1) + ptr_int_lonlat%rbf_c2l_coeff(je1,jc,jb)
+          ENDDO
+          DO je1 = 1, istencil
+            ptr_int_lonlat%rbf_c2l_coeff(je1,jc,jb) = &
+              ptr_int_lonlat%rbf_c2l_coeff(je1,jc,jb) * area(je1)
+          END DO
+          ! remove stencil points from the nest boundary region
+          ! together with their coefficients
+          DO je1 = 1, istencil
+            iidx = ptr_int_lonlat%rbf_c2lr_idx(je1,jc,jb)
+            iblk = ptr_int_lonlat%rbf_c2lr_blk(je1,jc,jb)
+            local_idx = idx_1d(iidx,iblk)
+            glb_idx   = ptr_patch%cells%decomp_info%glb_index(local_idx)
+            IF (glb_idx <= last_bdry_index) THEN
+              area(je1) = area(je1) - ptr_int_lonlat%rbf_c2l_coeff(je1,jc,jb)
+              ptr_int_lonlat%rbf_c2l_coeff(je1,jc,jb) = 0._wp
+              istencil2 = istencil2 - 1
+              IF (istencil2 == 0)  area(je1) = 1._wp ! avoid zero divide
+            END IF
+          END DO
+          ! re-normalize weights
+          DO je1 = 1, istencil
+            ptr_int_lonlat%rbf_c2l_coeff(je1,jc,jb) = &
+              ptr_int_lonlat%rbf_c2l_coeff(je1,jc,jb) / area(je1)
+          END DO
+        END DO ! jc
+      
+      END DO BLOCKS
+!OMP END PARALLEL DO
+
+    END SUBROUTINE mask_out_boundary
+
+
     ! -----------------------------------------------------------------------------------
     !> Utility function: distance computation
     !
@@ -1728,6 +1823,11 @@
         ! compute coefficients:
         CALL rbf_compute_coeff_c2l( ptr_patch, ptr_int_lonlat, &
           &                         nblks_lonlat, npromz_lonlat, rbf_shape_param )
+        ! mask out enst boundary points
+        IF (ptr_patch%id > 1) THEN
+          CALL mask_out_boundary( ptr_patch, ptr_int_lonlat, &
+            &                     nblks_lonlat, npromz_lonlat)
+        END IF
 
       END IF ! if (l_intp_c2l)
 
