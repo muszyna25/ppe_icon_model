@@ -576,20 +576,17 @@ CONTAINS
     !
     IF (isRestart()) THEN
 
-      IF ((restart_calendar                  /= dtime_calendar) .OR.     &
-        & (TRIM(restart_ini_datetime_string) /= TRIM(ini_datetime_string))) THEN
-
-        IF ((restart_calendar /= dtime_calendar) .AND. &
-          & (restart_calendar /= -1)) THEN
-          CALL message('','Restart calendar is not matching, fallback to experiment start date: '//&
-            &int2string(restart_calendar)//' /= '//int2string(dtime_calendar))
-        END IF
-
-      IF (TRIM(restart_ini_datetime_string) /= TRIM(ini_datetime_string)) &
-        &  CALL message('','Restart ini date is not matching, fallback to experiment start date: '//&
-        &TRIM(restart_ini_datetime_string)//' /= '//TRIM(ini_datetime_string))
-
+      IF ((restart_calendar /= dtime_calendar) .AND. &
+        & (restart_calendar /= -1)) THEN
+        
+        CALL message('','Restart calendar is not matching, fallback to experiment start date: '//&
+          &int2string(restart_calendar)//' /= '//int2string(dtime_calendar))
         start_datetime_string = exp_start_datetime_string
+
+      ELSE IF (TRIM(restart_ini_datetime_string) /= TRIM(ini_datetime_string)) THEN
+
+        CALL message('','Restart ini date is not matching, fallback to experiment start date: '//&
+        &TRIM(restart_ini_datetime_string)//' /= '//TRIM(ini_datetime_string))
 
       ELSE
         CALL message('','Read restart file meta data ...')
@@ -745,7 +742,13 @@ CONTAINS
 
     CALL message(routine,'Initial date and time')
     CALL message('','---------------------')
-    WRITE(message_text,'(a,a)') 'Start date    : ', TRIM(start_datetime_string)
+
+    CALL message('',message_text)
+    IF (isRestart()) THEN
+      WRITE(message_text,'(a,a,a)') 'Start date    : ', TRIM(start_datetime_string), ' (restart run)'
+    ELSE
+      WRITE(message_text,'(a,a)') 'Start date    : ', TRIM(start_datetime_string)
+    END IF
     CALL message('',message_text)
 
     CALL message(' ',' ')

@@ -17,7 +17,7 @@
 !!
 MODULE mo_nml_crosscheck
 
-  USE mo_kind,               ONLY: wp, i8
+  USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: ildf_echam, inwp, iheldsuarez,                    &
     &                              ildf_dry, inoforcing, ihs_atm_temp,               &
@@ -28,7 +28,7 @@ MODULE mo_nml_crosscheck
     &                              FFSL_MCYCL, FFSL_HYB_MCYCL, iecham,               &
     &                              RAYLEIGH_CLASSIC,                                 &
     &                              iedmf, icosmo, MODE_IAU, MODE_IAU_OLD
-  USE mo_time_config,        ONLY: time_config, dt_restart
+  USE mo_time_config,        ONLY: dt_restart
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: lflux_avg,inextra_2d, inextra_3d,                 &
     &                              lnetcdf_flt64_output

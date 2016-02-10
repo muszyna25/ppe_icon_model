@@ -27,7 +27,7 @@ MODULE mo_ocean_nml_crosscheck
   USE mo_grid_config,       ONLY: init_grid_configuration
   USE mo_parallel_config,   ONLY: check_parallel_configuration, p_test_run, l_fast_sum
   USE mo_run_config,        ONLY: nsteps
-  USE mo_time_config,       ONLY: time_config, dt_restart
+  USE mo_time_config,       ONLY: dt_restart
   USE mo_io_config,         ONLY: write_initial_state
   USE mo_grid_config,       ONLY: use_duplicated_connectivity
   USE mo_ocean_nml
