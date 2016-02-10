@@ -2019,9 +2019,10 @@ CONTAINS
     INTEGER                             :: mo1, mo2             !< nearest months
     REAL(wp)                            :: zw1, zw2
     TYPE(t_time_interpolation_weights)  :: current_time_interpolation_weights
+    CHARACTER(LEN=MAX_DATETIME_STR_LEN) :: dtime_string
     
-!!$    CHARACTER(len=max_char_length), PARAMETER :: &
-!!$      routine = modname//': interpol_monthly_mean'
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = modname//': interpol_monthly_mean'
 
     !---------------------------------------------------------------
     ! Find the 2 nearest months mo1, mo2 and the weights zw1, zw2
@@ -2032,6 +2033,16 @@ CONTAINS
     mo2 = current_time_interpolation_weights%month2
     zw1 = current_time_interpolation_weights%weight1
     zw2 = current_time_interpolation_weights%weight2
+
+    ! consistency check
+    IF ((MIN(mo1,mo2) < 1) .OR. (MAX(mo1,mo2) > SIZE(monthly_means,3))) THEN
+      WRITE (0,*) "Result of call to calculate_time_interpolation_weights:"
+      CALL datetimeToString(mtime_date, dtime_string)
+      WRITE (0,*) "   mtime_date = ", dtime_string
+      WRITE (0,*) "   mo1        = ", mo1
+      WRITE (0,*) "   mo2        = ", mo2
+      CALL finish(routine, "Error!")
+    END IF
 
     ! Get interpolated field
     i_nchdom  = MAX(1,p_patch%n_childdom)

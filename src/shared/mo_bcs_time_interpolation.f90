@@ -83,6 +83,8 @@ CONTAINS
       time_interpolation_weight%weight2 = REAL(seconds_in_month - seconds_in_middle_of_month,wp) &
            &                             /REAL(seconds_in_middle_of_month + seconds_in_middle_of_next_month,wp)
       time_interpolation_weight%weight1 = 1.0_wp - time_interpolation_weight%weight2
+      time_interpolation_weight%month1 = current_date%date%month
+      time_interpolation_weight%month2 = next_month%date%month
       time_interpolation_weight%year1 = current_date%date%year
       time_interpolation_weight%year2 = next_month%date%year
 
