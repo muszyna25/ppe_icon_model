@@ -352,8 +352,8 @@ CONTAINS
     ! For conversion to (milli-)seconds, we need an anchor date:
     !
     reference_dt => newDatetime("1980-06-01T00:00:00.000")
-    dt_restart    = REAL(getTotalMilliSecondsTimeDelta(mtime_dt_checkpoint, reference_dt),wp)/1000._wp
-    dt_checkpoint = REAL(getTotalMilliSecondsTimeDelta(mtime_dt_restart,    reference_dt),wp)/1000._wp
+    dt_restart    = REAL(getTotalMilliSecondsTimeDelta(mtime_dt_restart,    reference_dt),wp)/1000._wp
+    dt_checkpoint = REAL(getTotalMilliSecondsTimeDelta(mtime_dt_checkpoint, reference_dt),wp)/1000._wp
     CALL deallocateTimedelta(mtime_dt_checkpoint)
     CALL deallocateTimedelta(mtime_dt_restart)
     CALL deallocateDatetime(reference_dt)
