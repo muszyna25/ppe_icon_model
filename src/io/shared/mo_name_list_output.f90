@@ -1220,13 +1220,11 @@ CONTAINS
           ! write data
           ! ----------
 
-          IF ( (of%output_type == FILETYPE_GRB) .OR. (of%output_type == FILETYPE_GRB2) ) THEN
-            IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
-              IF (use_dp_mpi2io .OR. have_GRIB) THEN
-                CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
-              ELSE
-                CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
-              ENDIF
+          IF (my_process_is_mpi_workroot() .AND. .NOT. my_process_is_mpi_test()) THEN
+            IF (use_dp_mpi2io .OR. have_GRIB) THEN
+              CALL streamWriteVarSlice (of%cdiFileID, info%cdiVarID, lev-1, r_out_dp(:), nmiss)
+            ELSE
+              CALL streamWriteVarSliceF(of%cdiFileID, info%cdiVarID, lev-1, r_out_sp(:), nmiss)
             ENDIF
           END IF
 
