@@ -582,6 +582,14 @@ TYPE t_lon_lat_intp
   INTEGER, ALLOCATABLE  :: rbf_c2grad_blk(:,:,:)      ! ... dito for the blocks
 
 
+  ! --- nearest-neighbor interpolation
+  !
+  !     (we need interpolation weights also here to blank out points)
+
+  REAL(wp), ALLOCATABLE  :: nnb_coeff(:,:,:)          ! array containing nearest-neighbor interpolation 
+                                                      ! weights (1,nproma,nblks_lonlat)
+
+
   ! --- barycentric interpolation
 
   INTEGER,  ALLOCATABLE  :: baryctr_idx(:,:,:)        ! index array defining the
