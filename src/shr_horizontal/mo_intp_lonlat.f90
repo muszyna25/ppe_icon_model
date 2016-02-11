@@ -1431,9 +1431,7 @@
         &                                 iend_idx, iend_blk, tri_idx_pole,       &
         &                                 ibeg_glb
       REAL(gk)                         :: min_dist_pole
-      TYPE(t_geographical_coordinates) :: cell_center, lonlat_pt
-      TYPE(t_cartesian_coordinates)    :: p1, p2
-      REAL(wp)                         :: point(2), z_norm, z_nx1(3), z_nx2(3),   &
+      REAL(wp)                         :: point(2),                               &
         &                                 max_dist, start_radius, rbf_shape_param
 !$    REAL                             :: time1
       LOGICAL                          :: l_grid_is_unrotated, l_grid_contains_poles
@@ -2232,9 +2230,7 @@
 
       ! Local Parameters:
       CHARACTER(*), PARAMETER :: routine = modname//"::interpol_lonlat_real"
-      INTEGER  :: jb, jk, jc, i_startidx, i_endidx, slev, elev
-      REAL(wp) :: grad_x(nproma, SIZE(p_cell_in,2), SIZE(p_lonlat_out,3)), &
-        &         grad_y(nproma, SIZE(p_cell_in,2), SIZE(p_lonlat_out,3))
+      INTEGER  :: slev, elev
 
       !-----------------------------------------------------------------------
 
