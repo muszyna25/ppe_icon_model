@@ -259,6 +259,10 @@ CONTAINS
       CALL finish( TRIM(routine),'wrong value of lsq_high_ord, must be 1,2,30 or 3')
     END SELECT
 
+    IF (.NOT. l_intp_c2l) THEN
+      CALL finish( TRIM(routine),'Lon-lat RBF interpolation by gradient reconstruction no longer supported!')
+    ENDIF
+
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
