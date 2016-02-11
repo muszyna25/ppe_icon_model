@@ -990,7 +990,7 @@ CONTAINS
       mtgrm(jg)%max_varlist_buf_size = MAX_NVARS*(3*MAX_DESCR_LENGTH+5*4)
       ALLOCATE(mtgrm(jg)%msg_varlist_buffer(mtgrm(jg)%max_varlist_buf_size), stat=ierrstat)
       IF (ierrstat /= SUCCESS) &
-        CALL finish (routine, 'DEALLOCATE of MPI buffer failed.')
+        CALL finish (routine, 'ALLOCATE of MPI buffer failed.')
       mtgrm(jg)%vbuf_pos = 0
 
       IF (mtgrm(jg)%l_pure_io_pe) THEN
