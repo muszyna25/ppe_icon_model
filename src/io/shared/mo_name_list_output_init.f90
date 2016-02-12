@@ -2449,7 +2449,11 @@ CONTAINS
       ! Verts
 
       of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
-      CALL gridDefNvertex(of%cdiVertGridID, max_vertex_connectivity)
+      IF (my_process_is_ocean()) THEN
+        CALL gridDefNvertex(of%cdiVertGridID, max_vertex_connectivity)
+      ELSE
+        CALL gridDefNvertex(of%cdiVertGridID, 9-max_cell_connectivity)
+      ENDIF
       !
       CALL gridDefXname(of%cdiVertGridID, 'vlon')
       CALL gridDefXlongname(of%cdiVertGridID, 'vertex longitude')
