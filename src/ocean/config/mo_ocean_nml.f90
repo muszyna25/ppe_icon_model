@@ -65,7 +65,7 @@ MODULE mo_ocean_nml
 
   ! switch for reading relaxation data: 1: read from file
   INTEGER :: init_oce_relax = 0
-  INTEGER            :: relax_analytical_type     = 0 ! special setup for analytic testases, replacement for itestcase_oce in the
+  INTEGER :: relax_analytical_type     = 0 ! special setup for analytic testases, replacement for itestcase_oce in the
 
 !  LOGICAL :: l_time_marching    = .TRUE.  !=.TRUE. is default, the time loop is entered
 !                                          !=.FALSE. the time loop is NOT entered and tests with stationary fields can

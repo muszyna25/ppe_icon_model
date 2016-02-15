@@ -381,9 +381,9 @@ CONTAINS
     CASE(7)
       ! multiply DiffusionReferenceValue by dual_edge_length**3
       ! recommended values:
-      !  Harmonic viscosity: 1.0E-11
-      !  Biharmonic viscosicity: 3.125e-3
-      !  Tracer diffusion:  7.0E-13
+      !  Harmonic viscosity: 1.5E-11
+      !  Biharmonic viscosicity: 3.15e-3
+      !  Tracer diffusion: 5.0E-13
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
         out_DiffusionCoefficients(:,:,jb) = 0.0_wp
@@ -400,7 +400,8 @@ CONTAINS
     CASE(8)
       ! multiply DiffusionReferenceValue by sqrt(dual_edge_length**3)
       ! recommended values:
-      !  Biharmonic viscosicity: 0.45
+      !  Biharmonic viscosicity: 
+      !  Tracer diffusion: 1.25E-5
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
         out_DiffusionCoefficients(:,:,jb) = 0.0_wp

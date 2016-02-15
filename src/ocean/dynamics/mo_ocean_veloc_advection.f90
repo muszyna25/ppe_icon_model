@@ -318,7 +318,7 @@ CONTAINS
     edges_in_domain => patch_2D%edges%in_domain
     all_cells => patch_2D%cells%all
     !-----------------------------------------------------------------------
-     CALL rot_vertex_ocean_3d( patch_3d, vn, p_diag%p_vn_dual, p_op_coeff, p_diag%vort)
+    CALL rot_vertex_ocean_3d( patch_3d, vn, p_diag%p_vn_dual, p_op_coeff, p_diag%vort)
     !--------------------------------------------------------------
     !calculate nonlinear coriolis term by
     !1) projection cell reconstructed velocity vector in tangential direction
@@ -371,7 +371,9 @@ CONTAINS
             !calculation of nonlinear Coriolis
             veloc_adv_horz_e(je,jk,blockNo)=veloc_tangential&
             &*(patch_2d%edges%f_e(je,blockNo)&
-            &+0.5_wp*(p_diag%vort(il_v1,jk,ib_v1)+p_diag%vort(il_v2,jk,ib_v2)))
+            & + (p_diag%vort(il_v2,jk,ib_v2)-p_diag%vort(il_v1,jk,ib_v1)) * &
+            &    patch_2d%edges%tangent_orientation(je,blockNo))
+!             &+0.5_wp*(p_diag%vort(il_v1,jk,ib_v1)+p_diag%vort(il_v2,jk,ib_v2)))
 
           ENDIF
         END DO

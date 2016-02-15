@@ -144,7 +144,7 @@ CONTAINS
 !
 !    ! local variables
 !    INTEGER :: jb, je, jk
-!    INTEGER :: i_startidx_e, i_endidx_e
+!    INTEGER :: StartEdgeIndex, EndEdgeIndex
 !    INTEGER :: slev,elev
 !    TYPE(t_subset_range), POINTER :: all_edges
 !    TYPE(t_patch), POINTER :: patch_2d
@@ -157,9 +157,9 @@ CONTAINS
 !    elev         = n_zlev
 !
 !    DO jb = all_edges%start_block, all_edges%end_block
-!      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
+!      CALL get_index_range(all_edges, jb, StartEdgeIndex, EndEdgeIndex)
 !      DO jk = slev, elev
-!        DO je= i_startidx_e, i_endidx_e
+!        DO je= StartEdgeIndex, EndEdgeIndex
 !          IF ( patch_3d%lsm_e(je,jk,jb) >= boundary ) THEN
 !            vn(je,jk,jb) = 0.0_wp
 !          ENDIF
@@ -1292,8 +1292,8 @@ CONTAINS
     TYPE(t_patch), TARGET, INTENT(inout) :: patch_2D
     !
     INTEGER :: jb, je, jv
-    INTEGER :: i_startidx_e, i_endidx_e
-    INTEGER :: i_startidx_v, i_endidx_v
+    INTEGER :: StartEdgeIndex, EndEdgeIndex
+    INTEGER :: StartVertexIndex, EndVertexIndex
     TYPE(t_geographical_coordinates) :: gc1,gc2
     TYPE(t_cartesian_coordinates) :: xx1, xx2
     REAL(wp) :: z_y, coriolis_lat
@@ -1318,8 +1318,8 @@ CONTAINS
       xx1=gc2cc(gc1)
       
       DO jb = all_verts%start_block, all_verts%end_block
-        CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
-        DO jv = i_startidx_v, i_endidx_v
+        CALL get_index_range(all_verts, jb, StartVertexIndex, EndVertexIndex)
+        DO jv = StartVertexIndex, EndVertexIndex
           !z_y = grid_sphere_radius*(patch_2D%verts%vertex(jv,jb)%lat - coriolis_lat)
           gc2%lat = patch_2D%verts%vertex(jv,jb)%lat!*deg2rad
           gc2%lon = 0.0_wp
@@ -1333,8 +1333,8 @@ CONTAINS
       END DO
       
       DO jb = all_edges%start_block, all_edges%end_block
-        CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-        DO je = i_startidx_e, i_endidx_e
+        CALL get_index_range(all_edges, jb, StartEdgeIndex, EndEdgeIndex)
+        DO je = StartEdgeIndex, EndEdgeIndex
           ! depends on basin_center_lat only - not dependent on center_lon, basin_width or height
           gc2%lat = patch_2D%edges%center(je,jb)%lat!*deg2rad
           gc2%lon = 0.0_wp
@@ -1365,9 +1365,15 @@ CONTAINS
     CASE(full_coriolis)
       
       DO jb = all_verts%start_block, all_verts%end_block
-        CALL get_index_range(all_verts, jb, i_startidx_v, i_endidx_v)
-        DO jv = i_startidx_v, i_endidx_v
+        CALL get_index_range(all_verts, jb, StartVertexIndex, EndVertexIndex)
+        DO jv = StartVertexIndex, EndVertexIndex
           patch_2D%verts%f_v(jv,jb) = 2.0_wp * grid_angular_velocity * SIN(patch_2D%verts%vertex(jv,jb)%lat)
+        END DO
+      END DO
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, StartEdgeIndex, EndEdgeIndex)
+        DO je = StartEdgeIndex, EndEdgeIndex
+          patch_2D%edges%f_e(je,jb) = 2.0_wp * grid_angular_velocity * SIN(patch_2D%edges%center(je,jb)%lat)
         END DO
       END DO
            
@@ -1400,7 +1406,7 @@ CONTAINS
     INTEGER :: ist
     !     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v, n_zlvp, n_zlvm!, ie
     INTEGER :: je,jc,jb,jk
-    INTEGER :: i_startidx_c, i_endidx_c,i_startidx_e, i_endidx_e
+    INTEGER :: i_startidx_c, i_endidx_c,StartEdgeIndex, EndEdgeIndex
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_ocean_initialization:init_patch_3D'
     
@@ -1569,8 +1575,8 @@ CONTAINS
     patch_3d%p_patch_1d(1)%inv_prism_thick_e(:,:,:)       = 0.0_wp
     patch_3d%p_patch_1d(1)%inv_prism_center_dist_e(:,:,:) = 0.0_wp 
     DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
+      CALL get_index_range(all_edges, jb, StartEdgeIndex, EndEdgeIndex)
+      DO je = StartEdgeIndex, EndEdgeIndex
         
         DO jk=1, dolic_e(je,jb)
           patch_3d%p_patch_1d(1)%prism_thick_flat_sfc_e(je,jk,jb) = v_base%del_zlev_m(jk)
@@ -1654,14 +1660,14 @@ CONTAINS
     END DO
     ! edges
     DO jb = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
+      CALL get_index_range(all_edges, jb, StartEdgeIndex, EndEdgeIndex)
+      DO je = StartEdgeIndex, EndEdgeIndex
         patch_3d%wet_halo_zero_e(je,:,jb) = 0.0_wp
       END DO
     END DO
     DO jb = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, jb, i_startidx_e, i_endidx_e)
-      DO je = i_startidx_e, i_endidx_e
+      CALL get_index_range(edges_in_domain, jb, StartEdgeIndex, EndEdgeIndex)
+      DO je = StartEdgeIndex, EndEdgeIndex
         patch_3d%wet_halo_zero_e(je,:,jb) = patch_3d%wet_e(je,:,jb)
       END DO
     END DO
