@@ -107,7 +107,7 @@ CONTAINS
     is_meanPrognosticVariable = meanPrognostics%includes(variable%field%info%cf%short_name)
   end function is_meanPrognosticVariable
 
-  function get_prognstics_source_pointer(destinationVariable, timelevelIndex) result(sourcePointer)
+  function get_prognostics_source_pointer(destinationVariable, timelevelIndex) result(sourcePointer)
     type(t_list_element), pointer :: sourcePointer
     type(t_list_element)          :: destinationVariable
     INTEGER , INTENT(IN) :: timelevelIndex
@@ -124,7 +124,7 @@ CONTAINS
     type is (t_list_element)
       sourcePointer => dummy
     end select
-  end function get_prognstics_source_pointer
+  end function get_prognostics_source_pointer
 
 
   !>
@@ -496,7 +496,7 @@ CONTAINS
                    !CASE DEFAULT;        timelevel = timelevelIndex
                    !END SELECT
                     timelevel = metainfo_get_timelevel(destinationVariable%field%info, 1)
-                    source         => get_prognstics_source_pointer (destinationVariable, timelevel)
+                    source         => get_prognostics_source_pointer (destinationVariable, timelevel)
                     
                   else
                   ! }}}
