@@ -326,7 +326,7 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_end       = "${end_date}"
  output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval}"
- operation        = "mean"
+!operation        = "mean"
  include_last     = .FALSE.
  ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
                     'zg','pfull','ps'
@@ -350,7 +350,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${output_interval_2d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- operation        = "mean"
+!operation        = "mean"
  ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
                     'cosmu0'  , 'daylght_frc', 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
@@ -396,7 +396,7 @@ if [[ "$output_phy_3d" == "yes" ]]; then
  output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- operation        = "mean"
+!operation        = "mean"
  ml_varlist       = 'tend_ta'      , 'tend_ta_dyn'  , 'tend_ta_phy'  ,
                     'tend_ta_rlw'  , 'tend_ta_rsw'  ,
                     'tend_ta_vdf'  , 'tend_ta_gwh'  , 'tend_ta_sso'  ,
@@ -430,7 +430,7 @@ if [[ "$output_lnd" == "yes" ]]; then
  output_interval  = "${output_interval_2d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- operation        = "mean"
+!operation        = "mean"
  ml_varlist       = 'fract', 'alb_vis_srf', 'alb_nir_srf', 't_srf', 'lai', 's_srf', 'qsat_srf'
                     'canopy_cond', 'ws_l', 'ws_fc_l', 'ws_pwp_l', 'ws_sat_l', 'ws'
                     'water_stress', 'ws_root', 'ws_fc_root', 'ws_pwp_root'
