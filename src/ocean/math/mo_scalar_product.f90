@@ -175,33 +175,33 @@ CONTAINS
         DO cell_index =  start_cell_index, end_cell_index
           DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
         
-            p_diag%kin(cell_index,level,blockNo)=&!p_diag%kin(cell_index,level,blockNo)&
-            & vn_e       (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
-            & *vn_e      (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
+            p_diag%kin(cell_index,level,blockNo)= &!p_diag%kin(cell_index,level,blockNo)&
+            &   vn_e       (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
+            & * vn_e      (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1)) &
             !*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
-            &*patch_2D%edges%primal_edge_length      &
-              & (edge_of_cell_idx(cell_index,blockNo,1),edge_of_cell_blk(cell_index,blockNo,1))&
-            &*0.5_wp*patch_2D%edges%dual_edge_length &
-              & (edge_of_cell_idx(cell_index,blockNo,1),edge_of_cell_blk(cell_index,blockNo,1))&
+            & * patch_2D%edges%primal_edge_length      &
+            &      (edge_of_cell_idx(cell_index,blockNo,1),edge_of_cell_blk(cell_index,blockNo,1))&
+            & * patch_2D%edges%dual_edge_length &
+            &      (edge_of_cell_idx(cell_index,blockNo,1),edge_of_cell_blk(cell_index,blockNo,1))&
             &+&
-            &vn_e       (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
-            &*vn_e      (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
+            &  vn_e       (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
+            &* vn_e      (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
             !&*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
             & * patch_2D%edges%primal_edge_length      &
-              & (edge_of_cell_idx(cell_index,blockNo,2),edge_of_cell_blk(cell_index,blockNo,2))&
-            &*0.5_wp * patch_2D%edges%dual_edge_length &
-              & (edge_of_cell_idx(cell_index,blockNo,2),edge_of_cell_blk(cell_index,blockNo,2))&
+            &       (edge_of_cell_idx(cell_index,blockNo,2),edge_of_cell_blk(cell_index,blockNo,2))&
+            & * patch_2D%edges%dual_edge_length &
+            &       (edge_of_cell_idx(cell_index,blockNo,2),edge_of_cell_blk(cell_index,blockNo,2))&
             &+&
             &    vn_e   (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
             &*   vn_e   (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
             ! &*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
-            &*patch_2D%edges%primal_edge_length      &
-              & (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))&
-            &*0.5_wp*patch_2D%edges%dual_edge_length &
-              & (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))
+            &*   patch_2D%edges%primal_edge_length      &
+            &       (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))&
+            &*   patch_2D%edges%dual_edge_length &
+            &       (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))
         
-            p_diag%kin(cell_index,level,blockNo) = 0.5_wp * p_diag%kin(cell_index,level,blockNo) / &
-            & patch_2d%cells%area(cell_index,blockNo)
+            p_diag%kin(cell_index,level,blockNo) = 0.125_wp * p_diag%kin(cell_index,level,blockNo) / &
+            & patch_2d%cells%area(cell_index,blockNo) ! .125 = 0.25 (edge triangle area) * 0.5 (kinetic energy)
           END DO
         END DO
       END DO ! block
