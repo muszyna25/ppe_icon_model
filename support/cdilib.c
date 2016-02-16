@@ -32115,7 +32115,7 @@ static ssize_t scanToGribMarker(CdiGribIterator *me)
       if(scannedBytes + scanSize > kMaxScanSize) scanSize = kMaxScanSize - scannedBytes;
       assert(scanSize <= me->bufferSize);
       int status = cdiInputFile_read(me->file, me->fileOffset + (off_t)scannedBytes, scanSize, &scanSize, me->gribBuffer);
-      if(status != CDI_NOERR && status != CDI_EEOF) return status;
+      if(status != CDI_NOERR && status != CDI_EEOF) return -1;
 
       const unsigned char *startPosition = positionOfGribMarker(me->gribBuffer, scanSize);
       if(startPosition)
@@ -32125,8 +32125,8 @@ static ssize_t scanToGribMarker(CdiGribIterator *me)
 
       //Get the offset for the next iteration if there is a next iteration.
       scanSize -= 3;        //so that we won't miss a 'GRIB' sequence that happens to be cut off
-      scannedBytes += scanSize;
-      scannedBytes &= ~(size_t)0xf; //make 16 bytes aligned
+      scanSize &= ~(size_t)0xf; //make 16 bytes aligned
+      if((ssize_t)scanSize <= 0) return -1; //ensure that we make progress
     }
   return -1;
 }
