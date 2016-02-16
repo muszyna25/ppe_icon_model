@@ -65,6 +65,9 @@
 
 %\renewcommand{\sffamily}{\fontfamily{DejaVuSans-TLF}\selectfont}
 
+% change komafont sections from sansserif to serif
+\setkomafont{sectioning}{\normalfont\normalcolor\bfseries}
+
 % Select Sans-Serif DejaVu font
 \newenvironment{sansserif}{\fontfamily{DejaVuSans-TLF}\selectfont}{\par}
 
@@ -125,7 +128,7 @@
 
 
 \setkomafont{captionlabel}{\sffamily\bfseries}
-\setkomafont{caption}{\sffamily\raggedright}
+\setkomafont{caption}{\sffamily}
 \setcaphanging
 
 
