@@ -126,6 +126,32 @@ CONTAINS
     end select
   end function get_prognostics_source_pointer
 
+  !>
+  !! The current mean values are supported 
+  !!   * on the global domain (dom = 1)
+  !!   * without stream partitioning
+  !! the model should abort under these circumstances
+  SUBROUTINE meanStreamCrossCheck(p_onl)
+    TYPE(t_output_name_list) :: p_onl
+
+    CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::meanStreamCrossCheck"
+    LOGICAL :: abort
+
+    abort = .FALSE.
+
+ write(0,*)'stream_partitions_ml:',p_onl%stream_partitions_ml
+
+    IF (MAXVAL(p_onl%dom) > 1) abort = .TRUE.
+
+    IF (  p_onl%stream_partitions_ml > 1 .OR. &
+      &   p_onl%stream_partitions_pl > 1 .OR. &
+      &   p_onl%stream_partitions_hl > 1 .OR. &
+      &   p_onl%stream_partitions_il > 1 ) abort = .TRUE.
+
+    IF (abort) THEN
+      call finish(routine,"meanValues are only supported on global domain 1 and without stream partitioning!")
+    END IF
+  END SUBROUTINE meanStreamCrossCheck
 
   !>
   !! Create a variable list
@@ -190,6 +216,8 @@ CONTAINS
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::process_mean_stream"
 
     IF ("mean" .EQ. TRIM(p_onl%operation)) THEN
+
+      call meanStreamCrossCheck(p_onl)
 
       ntotal_vars = total_number_of_variables()
       ! temporary variables needed for variable group parsing
