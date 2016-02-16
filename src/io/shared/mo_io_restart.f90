@@ -1120,7 +1120,7 @@ CONTAINS
     REAL(wp), INTENT(IN), OPTIONAL :: ocean_Zheight_CellInterfaces(:)
 
 
-    INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
+    INTEGER :: klev, jg, kcell, kvert, kedge, max_cell_connectivity, max_vertex_connectivity
     INTEGER :: inlev_soil, inlev_snow, i, nice_class
     INTEGER :: ndepth    ! depth of n
     REAL(wp), ALLOCATABLE :: zlevels_full(:), zlevels_half(:)
@@ -1147,7 +1147,8 @@ CONTAINS
     kcell     = patch%n_patch_cells_g
     kvert     = patch%n_patch_verts_g
     kedge     = patch%n_patch_edges_g
-    icelltype = patch%geometry_info%cell_type
+    max_cell_connectivity   = patch%cells%max_connectivity
+    max_vertex_connectivity = patch%verts%max_connectivity
 
     CALL set_restart_attribute( 'current_caltime', datetime%caltime )
     CALL set_restart_attribute( 'current_calday' , datetime%calday )
@@ -1286,8 +1287,8 @@ CONTAINS
 
     CALL init_restart( 'ICON',            &! model name
                      & '1.4.00',          &! model version
-                     & kcell, icelltype,  &! total # of cells, # of vertices per cell
-                     & kvert, 9-icelltype,&! total # of vertices, # of vertices per dual cell
+                     & kcell, max_cell_connectivity,  &! total # of cells, # of vertices per cell
+                     & kvert, max_vertex_connectivity,&! total # of vertices, # of vertices per dual cell
                      & kedge, 4,          &! total # of cells, shape of control volume for edge
                      & klev,              &! total # of vertical layers
                      & ndepth,            &! total # of depths below sea
