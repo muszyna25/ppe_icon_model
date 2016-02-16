@@ -370,10 +370,8 @@ CONTAINS
 
             !calculation of nonlinear Coriolis
             veloc_adv_horz_e(je,jk,blockNo)=veloc_tangential&
-            &*(patch_2d%edges%f_e(je,blockNo)&
-            & + (p_diag%vort(il_v2,jk,ib_v2)-p_diag%vort(il_v1,jk,ib_v1)) * &
-            &    patch_2d%edges%tangent_orientation(je,blockNo))
-!             &+0.5_wp*(p_diag%vort(il_v1,jk,ib_v1)+p_diag%vort(il_v2,jk,ib_v2)))
+             & * (patch_2d%edges%f_e(je,blockNo)  &
+             & +0.5_wp*(p_diag%vort(il_v1,jk,ib_v1)+p_diag%vort(il_v2,jk,ib_v2)))
 
           ENDIF
         END DO

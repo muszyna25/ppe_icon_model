@@ -125,7 +125,7 @@ subroutine ice_init_fem
   call init_evp_solver_coeffs_old
   call init_evp_solver_coeffs
 
-  write(*,*) 'fields are initialized'
+  ! write(*,*) 'fields are initialized'
 
 end subroutine ice_init_fem
 
@@ -186,7 +186,7 @@ integer   :: k
 DO k=1,nod2D
  lmass_matrix(k)=sum(mass_matrix(icestiff%rowptr(k):icestiff%rowptr(k+1)-1))
 END DO
- write(*,*) 'Stiffness matrix is allocated'   
+ ! write(*,*) 'Stiffness matrix is allocated'   
 ! Einar: ICON does advection
 !if(ice_advection==ice_FCT) then
 !call fem_fct_ice_init      !##### FCT advection scheme allocations

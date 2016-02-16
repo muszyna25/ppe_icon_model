@@ -812,7 +812,7 @@ CONTAINS
     
 #ifdef NAGFOR
     ! this is only for sync with nag
-    z_nabla2_e(:,:,:) = 0.0_w
+    z_nabla2_e(:,:,:) = 0.0_wp
     z_div_c(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%alloc_cell_blocks) =0.0_wp
     p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(1)=0.0_wp
     p_nabla2_dual(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v)%x(2)=0.0_wp

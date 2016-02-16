@@ -175,7 +175,7 @@ implicit none
 !     call read_restart_ice
 !     write(*,*) 'restart'
 !  end if
-  write(*,*) 'fields are initialized'
+!  write(*,*) 'fields are initialized'
 
 ! Einar: Initialization finished
 !  do step=1, steps
