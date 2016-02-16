@@ -360,7 +360,6 @@ MODULE mo_ocean_nml
   REAL(wp) :: k_veloc_v             = 1.0E-3_wp  ! vertical diffusion coefficient
   REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
   REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
-  REAL(wp) :: k_sal_h               = 1.0E+3_wp  ! horizontal diffusion coefficient for salinity
   REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
   REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
   REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
@@ -403,7 +402,6 @@ MODULE mo_ocean_nml
     &  VerticalViscosity_TimeWeight,              &
 !     &  k_pot_temp_h                ,    &
     &  k_pot_temp_v                ,    &
-    &  k_sal_h                     ,    &
     &  k_sal_v                     ,    &
     &  k_veloc_v                   ,    &
     &  TracerHorizontalDiffusion_type,  &

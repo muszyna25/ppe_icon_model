@@ -110,6 +110,7 @@ CONTAINS
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: cell_index, blockNo, level
     INTEGER, DIMENSION(:,:,:), POINTER :: edge_of_cell_idx, edge_of_cell_blk
+    REAL(wp) :: w1, w2, w3, w4, w
     TYPE(t_subset_range), POINTER :: all_cells ! , cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d
     !-----------------------------------------------------------------------
@@ -166,42 +167,41 @@ CONTAINS
       IF (no_primal_edges /= 3) THEN
         CALL finish("calc_scalar_product_veloc_3d", "NONLINEAR_CORIOLIS_PRIMAL_GRID works only for triangles")
       ENDIF
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level, w1, w2, w3, w4, w) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
 
 !         p_diag%kin(:,:,blockNo)=0.0_wp
         
         DO cell_index =  start_cell_index, end_cell_index
-          DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)      
+          w1 =  patch_2d%edges%area_edge      &
+            &      (edge_of_cell_idx(cell_index,blockNo,1),edge_of_cell_blk(cell_index,blockNo,1))
+          w2 =  patch_2d%edges%area_edge      &
+            &      (edge_of_cell_idx(cell_index,blockNo,2),edge_of_cell_blk(cell_index,blockNo,2))
+          w3 =  patch_2d%edges%area_edge      &
+            &      (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))
+!           w4 = 2.0_wp * patch_2d%cells%area(cell_index,blockNo)
+          w = w1 + w2 + w3
+          DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+
+            p_diag%kin(cell_index,level,blockNo)= (&!p_diag%kin(cell_index,level,blockNo)&
+              & vn_e(edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))**2 &
+              !*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
+              & *  w1 &
+              &+&
+              & vn_e(edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))**2 &
+              !&*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
+              & * w2 &
+              &+&
+              & vn_e(edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))**2 &
+              ! &*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
+              & * w3 &
+              & ) / w
         
-            p_diag%kin(cell_index,level,blockNo)= &!p_diag%kin(cell_index,level,blockNo)&
-            &   vn_e       (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
-            & * vn_e      (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1)) &
-            !*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
-            & * patch_2D%edges%primal_edge_length      &
-            &      (edge_of_cell_idx(cell_index,blockNo,1),edge_of_cell_blk(cell_index,blockNo,1))&
-            & * patch_2D%edges%dual_edge_length &
-            &      (edge_of_cell_idx(cell_index,blockNo,1),edge_of_cell_blk(cell_index,blockNo,1))&
-            &+&
-            &  vn_e       (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
-            &* vn_e      (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
-            !&*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
-            & * patch_2D%edges%primal_edge_length      &
-            &       (edge_of_cell_idx(cell_index,blockNo,2),edge_of_cell_blk(cell_index,blockNo,2))&
-            & * patch_2D%edges%dual_edge_length &
-            &       (edge_of_cell_idx(cell_index,blockNo,2),edge_of_cell_blk(cell_index,blockNo,2))&
-            &+&
-            &    vn_e   (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
-            &*   vn_e   (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
-            ! &*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
-            &*   patch_2D%edges%primal_edge_length      &
-            &       (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))&
-            &*   patch_2D%edges%dual_edge_length &
-            &       (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))
-        
-            p_diag%kin(cell_index,level,blockNo) = 0.125_wp * p_diag%kin(cell_index,level,blockNo) / &
-            & patch_2d%cells%area(cell_index,blockNo) ! .125 = 0.25 (edge triangle area) * 0.5 (kinetic energy)
+            p_diag%kin(cell_index,level,blockNo) = 0.5_wp * &
+              & (p_diag%kin(cell_index,level,blockNo) - &
+              & ((p_diag%w(cell_index,level,blockNo)+p_diag%w(cell_index,level+1,blockNo))*0.5_wp)**2)
+
           END DO
         END DO
       END DO ! block
