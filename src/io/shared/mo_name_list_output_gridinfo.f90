@@ -967,17 +967,17 @@ CONTAINS
       gather_pattern => patch_info%p_pat_v
     END IF
 
-!     IF (my_process_is_ocean()) THEN
+    IF (my_process_is_ocean()) THEN
       CALL allgather_grid_info_cve(idom_log, patch_info%max_vertex_connectivity, &
         &                          patch_info%nblks_glb_v, patch_info%nblks_glb_v, &
         &                          coordinates, patch_info%verts%grid_info, &
         &                          gather_pattern, cf_1_1_grid_verts_ocean)
-!     ELSE
-!       CALL allgather_grid_info_cve(idom_log, 9 - patch_info%max_cell_connectivity, &
-!         &                          patch_info%nblks_glb_v, patch_info%nblks_glb_v, &
-!         &                          coordinates, patch_info%verts%grid_info, &
-!         &                          gather_pattern, cf_1_1_grid_verts)
-!     END IF
+    ELSE
+      CALL allgather_grid_info_cve(idom_log, 9 - patch_info%max_cell_connectivity, &
+        &                          patch_info%nblks_glb_v, patch_info%nblks_glb_v, &
+        &                          coordinates, patch_info%verts%grid_info, &
+        &                          gather_pattern, cf_1_1_grid_verts)
+    END IF
 
     IF (.NOT. my_process_is_io()) THEN
       coordinates => p_patch(idom_log)%edges%center
