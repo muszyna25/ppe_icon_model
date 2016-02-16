@@ -209,6 +209,7 @@ doc/technical/dwd_database/level_tables/vertical_half_levels_maxheight_i.txt -te
 doc/technical/dwd_database/level_tables/vertical_levels_i.txt -text
 doc/technical/dwd_database/level_tables/vertical_levels_i_small.txt -text
 doc/technical/dwd_database/litera.bib -text
+doc/technical/dwd_database/model_timeline.tex -text
 doc/technical/dwd_database/output_GRIB2_forecast.tex -text
 doc/technical/dwd_database/output_GRIB2_forecast_singlelvl.tex -text
 doc/technical/dwd_database/output_GRIB2_global.tex -text
