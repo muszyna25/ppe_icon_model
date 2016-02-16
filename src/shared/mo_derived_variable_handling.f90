@@ -9,17 +9,13 @@ MODULE mo_derived_variable_handling
   USE self_map
   USE self_assert
 
-  USE mo_kind, ONLY: wp,i8
+  USE mo_kind, ONLY: wp
   USE mo_model_domain, ONLY: t_patch
-  USE mo_parallel_config,     ONLY: nproma, use_dp_mpi2io
   USE mo_io_config, ONLY: lnetcdf_flt64_output
-  USE mo_run_config, ONLY: tc_dt_model
   USE mo_dynamics_config, ONLY: nnow, nnew, nold
-  USE mo_master_config, ONLY: tc_startdate
-  USE mo_ocean_nml,           ONLY: n_zlev
   USE mo_statistics, ONLY: add_fields
-  USE mo_var_metadata_types, ONLY: varname_len
-  USE mo_impl_constants, ONLY: vname_len, success, max_char_length, TLEV_NNOW, TLEV_NNEW, TLEV_NNOW_RCF, TLEV_NNEW_RCF
+  USE mo_var_metadata_types, ONLY: VARNAME_LEN
+  USE mo_impl_constants, ONLY: vname_len, SUCCESS, max_char_length, TLEV_NNOW, TLEV_NNEW, TLEV_NNOW_RCF, TLEV_NNEW_RCF
   USE mo_name_list_output_types, ONLY: t_output_name_list
   USE mo_mpi, ONLY: my_process_is_stdio
   USE mo_var_list_element, ONLY: level_type_ml, level_type_pl, level_type_hl, level_type_il
@@ -29,7 +25,6 @@ MODULE mo_derived_variable_handling
        get_var_name, default_var_list_settings, add_var, REAL_T, find_element, find_list_element, &
        & get_varname_with_timelevel, delete_var_list
   USE mo_linked_list, ONLY: t_var_list, t_list_element
-  USE mo_util_string, ONLY: tolower
   USE mo_exception, ONLY: finish, message, message_text
   USE mtime, ONLY: MAX_DATETIME_STR_LEN, newEvent, event, isCurrentEventActive,&
     & newDatetime, datetime, eventToString, divideDatetimeDifferenceInSeconds, &
@@ -49,7 +44,6 @@ MODULE mo_derived_variable_handling
   TYPE(map), SAVE    :: meanMap, meanEvents, meanEventsActivity, meanVarCounter, meanPrognosticPointers
   TYPE(vector), SAVE :: meanPrognostics
   TYPE(t_var_list)   :: mean_stream_list
-  INTEGER, PARAMETER :: ntotal = 10
 
   PUBLIC :: init_mean_stream
   PUBLIC :: finish_mean_stream
