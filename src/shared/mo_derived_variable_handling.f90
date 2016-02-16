@@ -63,6 +63,9 @@ MODULE mo_derived_variable_handling
     INTEGER                       :: counter = 0
   END TYPE t_accumulation_pair
 
+  !>
+  ! wrapper for bind_c event type - needed because bind_c types are not allowed
+  ! in "select type"
   type :: t_event_wrapper
     type(event), pointer :: this
   end type
@@ -99,11 +102,17 @@ CONTAINS
     END DO
   END SUBROUTINE var_print
 
+  !>
+  !! function to check if a varable is prognostic and saved for accumulation
+  !!
   logical function is_meanPrognosticVariable(variable)
     type(t_list_element), intent(in) :: variable
     is_meanPrognosticVariable = meanPrognostics%includes(variable%field%info%cf%short_name)
   end function is_meanPrognosticVariable
 
+  !>
+  !! return pointer to prognostic accumulation copy for given timelevel
+  !!
   function get_prognostics_source_pointer(destinationVariable, timelevelIndex) result(sourcePointer)
     type(t_list_element), pointer :: sourcePointer
     type(t_list_element)          :: destinationVariable
@@ -145,7 +154,7 @@ CONTAINS
   END SUBROUTINE init_mean_stream
 
   !>
-  !!
+  !! Delete internal mean value fields
   !!
   SUBROUTINE finish_mean_stream()
     IF (my_process_is_stdio()) THEN
@@ -164,6 +173,9 @@ CONTAINS
     END DO
   end function output_varlist_length
 
+  !>
+  !! Go through the output namelists and create events and accumulation fields if needed
+  !!
   SUBROUTINE process_mean_stream(p_onl,i_typ, sim_step_info, patch_2d)
     TYPE (t_output_name_list), target :: p_onl
     INTEGER :: i_typ
@@ -293,6 +305,10 @@ CONTAINS
 !DEBUG           if (my_process_is_stdio())  CALL print_error(meanVarCounter%to_string())
   END SUBROUTINE process_mean_stream
 
+  !>
+  !! copy varlist element (source_element) to target varlist (list) with given name
+  !! lrestart = .true.
+  !!
   FUNCTION copy_var_to_list(list,name,source_element,patch_2d) RESULT(dest_element)
     TYPE(t_var_list) :: list
     CHARACTER(LEN=VARNAME_LEN) :: name
@@ -300,6 +316,7 @@ CONTAINS
     TYPE(t_patch),TARGET, INTENT(in)    :: patch_2d
 
     TYPE(t_list_element), POINTER :: dest_element
+
     integer :: dataType = -1
     CHARACTER(LEN=*), PARAMETER :: routine =  modname//"::copy_var_to_list"
 
@@ -342,6 +359,9 @@ CONTAINS
     end select
   END FUNCTION copy_var_to_list
 
+  !>
+  !! return internal name for accumulation variables
+  !!
   FUNCTION get_accumulation_varname(varname,output_setup)
     CHARACTER(LEN=VARNAME_LEN)  :: varname
     type(t_output_name_list) :: output_setup
@@ -358,6 +378,9 @@ CONTAINS
 
   END FUNCTION get_accumulation_varname
 
+  !>
+  !! implement addition for source fields to the internal accumulation fields
+  !!
   SUBROUTINE accumulation_add(source, destination, counter)
     type(t_list_element) , INTENT(IN)    :: source
     type(t_list_element) , INTENT(INOUT) :: destination
@@ -406,6 +429,10 @@ CONTAINS
     counter                 = counter + 1
   END SUBROUTINE accumulation_add
 
+  !>
+  !! Execute the accumulation forall internal variables and compute mean values
+  !! if the corresponding event is active
+  !!
   SUBROUTINE perform_accumulation(timelevelIndex, timelevelIndex_rcf)
     INTEGER :: timelevelIndex
     INTEGER :: timelevelIndex_rcf
@@ -414,7 +441,7 @@ CONTAINS
     class(*),pointer :: varListForMeanEvent, meanEventKey
     class(*),pointer :: sourceVariable, destinationVariable, sourceVariable4Prognostics
     class(*),pointer :: counter, meanEvent, myItem
-    class(*), pointer :: eventActive
+    class(*),pointer :: eventActive
     type(t_list_element), pointer :: source, destination
     type(vector_iterator) :: meanMapIterator, meanEventIterator
     TYPE(datetime), POINTER :: mtime_date 
@@ -433,6 +460,7 @@ CONTAINS
     meanEventIterator = meanEvents%iter()
 
     ! Check events first {{{
+    ! this is necessary because of mtime internals
     isactive = .false.
     CALL get_datetime_string(mtime_cur_datetime, time_config%cur_datetime)
     mtime_date  => newDatetime(TRIM(mtime_cur_datetime)) 
@@ -549,6 +577,9 @@ CONTAINS
 !DEBUG     call print_routine(routine,'finish')
   END SUBROUTINE perform_accumulation
 
+  !>
+  !! reset internal fields to zero, if the corresponding event is active
+  !!
   SUBROUTINE reset_accumulation
     INTEGER :: element_counter
     type(t_list_element), pointer :: destination
@@ -618,6 +649,10 @@ CONTAINS
 
 !DEBUG          call print_routine(routine,'finish')
   END SUBROUTINE reset_accumulation
+
+  !>
+  !! return the event string from given output name list, based on output_start, -end and -interval
+  !!
   FUNCTION get_event_key(output_name_list) RESULT(event_key)
     TYPE(t_output_name_list) :: output_name_list
     CHARACTER(LEN=1000) :: event_key
