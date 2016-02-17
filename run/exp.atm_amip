@@ -32,13 +32,12 @@ author_list="Marco Giorgetta, MPIM"
 # (2) Set variables needed by the scripting mechanism
 
 # horizontal grid(s)
-icon_data_poolFolder=/pool/data/ICON
 grids_folder=${icon_data_poolFolder}/grids/private/r2b4_amip
 atmo_dyn_grids='r2b4_amip.nc'
 
 # start and end date+time
 start_date="1979-01-01T00:00:00Z"
-  end_date="1979-01-01T01:00:00Z"
+  end_date="2009-01-01T00:00:00Z"
 
 # restart intervals
 checkpoint_interval="P1Y"
@@ -292,6 +291,13 @@ add_link_file $datadir/bc_land_sso_1976.nc                              ./bc_lan
 
 # Parameters for all output files
 # -------------------------------
+cat >> ${atmo_namelist} << EOF
+&io_nml
+ output_nml_dict  = "${dict_file}"
+ netcdf_dict      = "${dict_file}"
+ itype_pres_msl   = 4
+/
+EOF
 
 # Define output files
 # -------------------
@@ -307,20 +313,20 @@ if [[ "$output_atm_3d" == "yes" ]]; then
  output_filename  = "${EXPNAME}_atm_3d"
  filename_format  = "<output_filename>_<levtype_l>_<datetime2>"
  remap            = 0
- operation        = "mean"
  output_grid      = .TRUE.
  output_start     = "${start_date}"
  output_end       = "${end_date}"
  output_interval  = "${output_interval_3d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'qv'
+ ml_varlist       = 'ta','ua','va','wap','hus','hur','cl','clw','cli','rho',
+                    'zg','pfull','ps'
 /
 EOF
 fi
 
 
-output_atm_2dno
+output_atm_2d=yes
 #
 if [[ "$output_atm_2d" == "yes" ]]; then
   #
@@ -365,7 +371,7 @@ EOF
 fi
 
 
-output_phy_3d=no
+output_phy_3d=yes # "yes" increases the output volume significantly!
 #
 if [[ "$output_phy_3d" == "yes" ]]; then
   #
@@ -398,7 +404,7 @@ EOF
 fi
 
 
-output_lnd=no
+output_lnd=yes
 #
 if [[ "$output_lnd" == "yes" ]]; then
   #
