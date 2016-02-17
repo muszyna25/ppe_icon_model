@@ -171,6 +171,7 @@ MODULE mo_ocean_nml
 
   ! parameters for gmres solver
   REAL(wp) :: solver_tolerance                   = 1.e-14_wp   ! Maximum value allowed for solver absolute tolerance
+  REAL(wp) :: MassMatrix_solver_tolerance       = 1.e-11_wp   ! Maximum value allowed for solver absolute tolerance
   !  REAL(wp) :: solver_start_tolerance          = -1.0_wp
   INTEGER  :: solver_max_restart_iterations      = 100       ! For restarting gmres
   INTEGER  :: solver_max_iter_per_restart        = 200       ! For inner loop after restart
@@ -181,6 +182,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: select_restart_gmres     = 2
   INTEGER, PARAMETER :: select_restart_mixedPrecision_gmres     = 3
   INTEGER :: select_solver                       = select_restart_gmres
+  INTEGER :: solver_FirstGuess                   = 0
   LOGICAL :: use_continuity_correction           = .true.  
   INTEGER :: fast_performance_level              = 50 ! 5  ! 0= most safe, bit identical results, should be fast_sum = .false.
                                                       ! 1 = no optimized calls
@@ -281,7 +283,6 @@ MODULE mo_ocean_nml
 
   ! special diagnostics configuration
   !
-  INTEGER :: solver_FirstGuess           = 0
 
   NAMELIST/ocean_dynamics_nml/&
     &                 ab_beta                      , &
