@@ -11,24 +11,28 @@ official change notifications which are available from
 \end{note}
 
 
-
+% Timeline:
+%
+% The macro "\colorA" corresponds to ICON model changes
+%           "\colorB" corresponds to data assimilation changes.
+%
 \begin{vtimeline}[description={text width=0.85\textwidth}, 
  row sep=7ex, 
  add bottom line,
  line offset=50pt,
- timeline color=cyan!80!blue,
- timeline color2=red]
-2015-01-16 & First operational ICON forecast run at a horizontal resolution of $13\,\mathrm{km}$ and $90$ vertical levels. Model top at $75\,\mathrm{km}$\endlr
-2015-02-25 & $4$ additional forecast runs 03, 09, 15, 21\,UTC up to $30\,\mathrm{h}$ lead time. Maximum forecast lead times for 06 and 18\,UTC runs extended to $120\,\mathrm{h}$\endlr
-2015-03-04 & Improved wind gust diagnostic for mountainous regions \endlr
-%2015-06-17 & Introduction of a surface wind dependent Charnock-Parameter.
-2015-07-07 & Time interval over which max/min temperatures \texttt{TMAX\_2M}, \texttt{TMIN\_2M} are collected changed to $6\,\mathrm{h}$ (formerly $3\,\mathrm{h}$). 
-             Time interval over which maximum wind gusts \texttt{VMAX\_10M} are collected changed to $1\,\mathrm{h}$ (formerly $3\,\mathrm{h}$).\endlr  
-2015-07-21 & Launch of the ICON-EU nest with a horizontal resolution of $6.5\,\mathrm{km}$ and $50$ vertical levels. Model top at $50\,\mathrm{km}$.\endlr
-2015-09-02 & Assimilation of selected microwave satellite radiance channels over land (AMSU-A and ATMS), which have so far been assimilated only over the oceans.\endlr
-2015-12-01 & Surface tile approach for land, sea-ice and lake points, including snow-tiles. Each grid point can have up to $5$ tiles consisting of 3 land tiles 
-             (dominant land-use types), a lake tile or a sea-water plus sea-ice tile. Land tiles may have additional snow tiles.\endlr
-2016-01-20 & Launch of the ensemble data assimilation system (LETKF, Localized Ensemble Transform Kalman Filter), providing a $40$ member analysis ensemble at R2B6N7. 
-             For deterministic forecasts the 3D-Var assimilation system is replaced by En-Var (Ensemble Variational analysis system) which makes use 
-             of the ensemble-based model error covariances.\endlr
+ timeline color=colorBlue,
+ timeline color2=colorRed]
+\colorA  2015-01-16 & First operational ICON forecast run at a horizontal resolution of $13\,\mathrm{km}$ and $90$ vertical levels. Model top at $75\,\mathrm{km}$\endlr
+\colorA  2015-02-25 & $4$ additional forecast runs 03, 09, 15, 21\,UTC up to $30\,\mathrm{h}$ lead time. Maximum forecast lead times for 06 and 18\,UTC runs extended to $120\,\mathrm{h}$\endlr
+\colorA  2015-03-04 & Improved wind gust diagnostic for mountainous regions \endlr
+%        2015-06-17 & Introduction of a surface wind dependent Charnock-Parameter.
+\colorA  2015-07-07 & Time interval over which max/min temperatures \texttt{TMAX\_2M}, \texttt{TMIN\_2M} are collected changed to $6\,\mathrm{h}$ (formerly $3\,\mathrm{h}$). 
+                      Time interval over which maximum wind gusts \texttt{VMAX\_10M} are collected changed to $1\,\mathrm{h}$ (formerly $3\,\mathrm{h}$).\endlr  
+\colorA  2015-07-21 & Launch of the ICON-EU nest with a horizontal resolution of $6.5\,\mathrm{km}$ and $50$ vertical levels. Model top at $50\,\mathrm{km}$.\endlr
+\colorB  2015-09-02 & Assimilation of selected microwave satellite radiance channels over land (AMSU-A and ATMS), which have so far been assimilated only over the oceans.\endlr
+\colorA  2015-12-01 & Surface tile approach for land, sea-ice and lake points, including snow-tiles. Each grid point can have up to $5$ tiles consisting of 3 land tiles 
+                      (dominant land-use types), a lake tile or a sea-water plus sea-ice tile. Land tiles may have additional snow tiles.\endlr
+\colorB  2016-01-20 & Launch of the ensemble data assimilation system (LETKF, Localized Ensemble Transform Kalman Filter), providing a $40$ member analysis ensemble at R2B6N7. 
+                      For deterministic forecasts the 3D-Var assimilation system is replaced by En-Var (Ensemble Variational analysis system) which makes use 
+                      of the ensemble-based model error covariances.\endlr
 \end{vtimeline}
