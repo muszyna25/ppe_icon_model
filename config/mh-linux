@@ -227,7 +227,7 @@ case "$fortran_compiler" in
         FC          = ifort
         DEBUG_FLAGS = -check bounds -check pointers -check uninit -debug -O0 -g
         STD_FLAGS   = -O2 -msse2 -fltconsistency -g -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
-        FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE -standard-semantics
+        FFLAGS      = -g -pc64 -fpp -D__LOOP_EXCHANGE
         F77         = $FC
         F77FLAGS    = $FFLAGS $STD_FLAGS
         OMPFLAG     = -openmp
@@ -473,7 +473,7 @@ case "$ac_sitename" in
                         CHECK_FLAGS = -check bounds -check pointers -debug -g -traceback
                         DEBUG_FLAGS = -debug-parameters -debug -g -O0
                         FPPFLAGS    = -fpp
-                        STD_FLAGS   = -ftz -O2 -march=native -pc64 -fp-model source -g -standard-semantics
+                        STD_FLAGS   = -ftz -O2 -march=native -pc64 -fp-model source -g
                         HIOPT_FLAGS = -O3 -march=native -mkl=sequential -pc64 -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded
                         FFLAGS      = $FPPFLAGS
                         F77FLAGS    = $FPPFLAGS $STD_FLAGS
