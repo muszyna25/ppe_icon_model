@@ -33,9 +33,11 @@ MODULE mo_ocean_read_namelists
   USE mo_dynamics_nml        ,ONLY: read_dynamics_namelist
   ! USE mo_extpar_nml          ,ONLY: read_extpar_namelist
 
-  USE mo_ocean_nml           ,ONLY: read_ocean_namelist
+  USE mo_ocean_nml           ,ONLY: read_ocean_namelist, lhamocc
 
   USE mo_sea_ice_nml         ,ONLY: read_sea_ice_namelist
+
+  USE mo_hamocc_nml          ,ONLY: read_hamocc_namelist
 
   USE mo_name_list_output_init,ONLY: read_name_list_output_namelists
 #ifndef __NO_ICON_ATMO__
@@ -121,6 +123,10 @@ CONTAINS
     ! Sea ice namelist
     !
     CALL read_sea_ice_namelist        (TRIM(oce_namelist_filename))
+
+    ! HAMOCC namelist
+    !
+    IF(lhamocc)CALL read_hamocc_namelist        (TRIM(oce_namelist_filename))
 
     !-----------------------------------------------------------------
     ! Close the file in which all the namelist variables and their

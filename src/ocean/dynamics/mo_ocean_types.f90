@@ -377,7 +377,7 @@ MODULE mo_ocean_types
   END TYPE t_hydro_ocean_acc
   
   !-------------------------------
-  INTEGER, PARAMETER :: max_tracers = 2
+  INTEGER, PARAMETER :: max_tracers = 20
   TYPE t_oce_config
     CHARACTER(LEN=max_char_length) :: tracer_names(max_tracers)
     CHARACTER(LEN=max_char_length) :: tracer_longnames(max_tracers)

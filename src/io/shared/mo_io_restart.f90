@@ -78,7 +78,7 @@ MODULE mo_io_restart
                                     & ZA_HYBRID, ZA_HYBRID_HALF, ZA_DEPTH_BELOW_LAND, ZA_DEPTH_BELOW_LAND_P1, ZA_DEPTH_RUNOFF_S, &
                                     & ZA_DEPTH_RUNOFF_G, ZA_SNOW, ZA_SNOW_HALF, ZA_TOA, ZA_HEIGHT_2M, ZA_HEIGHT_10M, &
                                     & ZA_LAKE_BOTTOM, ZA_LAKE_BOTTOM_HALF, ZA_MIX_LAYER, ZA_SEDIMENT_BOTTOM_TW_HALF, &
-                                    & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE
+                                    & ZA_DEPTH_BELOW_SEA, ZA_DEPTH_BELOW_SEA_HALF, ZA_GENERIC_ICE, ZA_OCEAN_SEDIMENT
   USE mo_cf_convention
   USE mo_util_string,           ONLY: t_keyword_list, associate_keyword, with_keywords, &
     &                                 int2string, separator
@@ -116,6 +116,10 @@ MODULE mo_io_restart
   USE mo_communication,         ONLY: t_comm_gather_pattern, exchange_data, &
     &                                 t_scatterPattern
 
+#ifndef __NO_ICON__OCEAN
+  USE mo_sedmnt,                ONLY: ks, ksp, dzsed
+  USE mo_math_utilities,        ONLY: set_zlev
+#endif
   !
   IMPLICIT NONE
   !
@@ -420,6 +424,7 @@ CONTAINS
     CALL set_vertical_grid(ZA_GENERIC_ICE         , nice_class )
     CALL set_vertical_grid(ZA_DEPTH_RUNOFF_S      , 1          )
     CALL set_vertical_grid(ZA_DEPTH_RUNOFF_G      , 1          )
+    CALL set_vertical_grid(ZA_OCEAN_SEDIMENT      , ks         )
     !
     ! define time axis
     !
@@ -457,7 +462,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: restart_filename
     !
     INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
-    REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:)
+    REAL(wp), ALLOCATABLE :: levels(:), ubounds(:), lbounds(:), levels_sp(:)
     !
     CHARACTER(len=64) :: attribute_name
     CHARACTER(len=256) :: text_attribute
@@ -810,7 +815,18 @@ CONTAINS
             levels(1) = 1.0_wp
             CALL zaxisDefLevels(var_lists(i)%p%cdiIceGenericZaxisID, levels)
             DEALLOCATE(levels)
-
+    
+          CASE (ZA_OCEAN_SEDIMENT)
+           ! HAMOCC sediment
+            var_lists(i)%p%cdiOceanSedGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
+              &                                           vgrid_def(ivg)%nlevels)
+           ALLOCATE(levels(ks))
+           ALLOCATE(levels_sp(ksp))
+           CALL set_zlev(levels_sp, levels, ks, dzsed*1000._wp)
+           CALL zaxisDefLevels(var_lists(i)%p%cdiOceanSedGenericZaxisID, REAL(levels,wp))
+           DEALLOCATE(levels)
+           DEALLOCATE(levels_sp)
+            
           CASE DEFAULT
             CALL finish('open_writing_restart_files','Vertical grid description not found.')
           END SELECT
@@ -872,6 +888,7 @@ CONTAINS
           var_lists(j)%p%cdiDepthRunoff_sZaxisID = var_lists(i)%p%cdiDepthRunoff_sZaxisID
           var_lists(j)%p%cdiDepthRunoff_gZaxisID = var_lists(i)%p%cdiDepthRunoff_gZaxisID
           var_lists(j)%p%cdiIceGenericZaxisID    = var_lists(i)%p%cdiIceGenericZaxisID
+          var_lists(j)%p%cdiOceanSedGenericZaxisID    = var_lists(i)%p%cdiOceanSedGenericZaxisID
           var_lists(j)%p%cdiSnowGenericZaxisID   = var_lists(i)%p%cdiSnowGenericZaxisID
           var_lists(j)%p%cdiSnowHalfGenericZaxisID = var_lists(i)%p%cdiSnowHalfGenericZaxisID
           var_lists(j)%p%cdiToaZaxisID           = var_lists(i)%p%cdiToaZaxisID
@@ -1035,6 +1052,8 @@ CONTAINS
           info%cdiZaxisID =  this_list%p%cdiDepthHalfZaxisID
         CASE (ZA_GENERIC_ICE)
           info%cdiZaxisID =  this_list%p%cdiIceGenericZaxisID
+        CASE (ZA_OCEAN_SEDIMENT)
+          info%cdiZaxisID =  this_list%p%cdiOceanSedGenericZaxisID
         END SELECT
       END IF
 
@@ -1702,6 +1721,8 @@ CONTAINS
              CALL zaxisDestroy(var_lists(i)%p%cdiDepthRunoff_gZaxisID)
         IF (var_lists(i)%p%cdiIceGenericZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiIceGenericZaxisID)
+        IF (var_lists(i)%p%cdiOceanSedGenericZaxisID /= CDI_UNDEFID) &
+             CALL zaxisDestroy(var_lists(i)%p%cdiOceanSedGenericZaxisID)
         IF (var_lists(i)%p%cdiH2mZaxisID /= CDI_UNDEFID) &
              CALL zaxisDestroy(var_lists(i)%p%cdiH2mZaxisID)
         IF (var_lists(i)%p%cdiH10mZaxisID /= CDI_UNDEFID) &
@@ -1734,6 +1755,7 @@ CONTAINS
         var_lists(i)%p%cdiDepthRunoff_sZaxisID = CDI_UNDEFID
         var_lists(i)%p%cdiDepthRunoff_gZaxisID = CDI_UNDEFID
         var_lists(i)%p%cdiIceGenericZaxisID    = CDI_UNDEFID
+        var_lists(i)%p%cdiOceanSedGenericZaxisID    = CDI_UNDEFID
         var_lists(i)%p%cdiH2mZaxisID           = CDI_UNDEFID
         var_lists(i)%p%cdiH10mZaxisID          = CDI_UNDEFID
         var_lists(i)%p%cdiLakeBottomZaxisID    = CDI_UNDEFID
