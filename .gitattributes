@@ -730,6 +730,7 @@ run/checksuite.icon-dev/timeMean/exp.check_timemean_02 -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_communication -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_grid -text
 run/checksuite.icon-infrastructure/icon-testbed/exp.icon-testbed_jitter -text
+run/checksuite.infrastructure/meanStream/exp.atm_amip_noforcing_notransport_nodynamics_meanStream -text
 run/checksuite.infrastructure/meanStream/exp.atmo_amip -text
 run/checksuite.infrastructure/meanStream/exp.atmo_meanStream -text
 run/checksuite.infrastructure/meanStream/exp.ocean_meanStream -text
