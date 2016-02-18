@@ -88,6 +88,7 @@ MODULE mo_radiation
 
   USE mo_nh_testcases_nml,     ONLY: zenithang
   USE mo_rad_diag,             ONLY: rad_aero_diag
+  USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
 
   IMPLICIT NONE
 
@@ -1442,6 +1443,14 @@ CONTAINS
           ENDDO
         ENDDO
       ENDDO
+    CASE (9)
+      CALL art_rad_aero_interface(zaeq1,zaeq2,zaeq3,zaeq4,zaeq5, &
+        &                         zaea_rrtm,zaes_rrtm,zaeg_rrtm, &
+        &                         jg,jb,1,klev,1,jce,jpband,jpsw,&
+        &                         aer_tau_lw_vr,                 &
+        &                         aer_tau_sw_vr,                 &
+        &                         aer_piz_sw_vr,                 &
+        &                         aer_cg_sw_vr)
     CASE (13)
       CALL set_bc_aeropt_kinne( jg,                                  &
         & jce              ,kbdim                 ,klev             ,&

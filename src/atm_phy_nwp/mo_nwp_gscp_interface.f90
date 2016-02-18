@@ -66,7 +66,7 @@ MODULE mo_nwp_gscp_interface
   USE mo_exception,            ONLY: finish
   USE mo_mcrph_sb,             ONLY: two_moment_mcrph, set_qnc, &
        &                             set_qnr,set_qni,set_qns,set_qng
-  USE mo_art_clouds_interface, ONLY: art_clouds_interface_twomom
+  USE mo_art_clouds_interface, ONLY: art_clouds_interface_2mom
   USE mo_nwp_diagnosis,        ONLY: nwp_diag_output_minmax_micro
   USE gscp_data,               ONLY: cloud_num
   USE mo_cpl_aerosol_microphys,ONLY: specccn_segalkhain, ncn_from_tau_aerosol_speccnconst
@@ -399,7 +399,7 @@ CONTAINS
         CASE(6)  ! two-moment scheme with prognostic cloud droplet number
                  ! and chemical composition taken from the ART extension
 
-          CALL art_clouds_interface_twomom(                      &
+          CALL art_clouds_interface_2mom(                        &
                        isize  = nproma,                          &!in: array size
                        ke     = nlev,                            &!in: end level/array size
                        jg     = jg,                              &!in: domain index
