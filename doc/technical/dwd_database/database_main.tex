@@ -41,7 +41,10 @@
 \usepackage{array}
 \usepackage[titletoc]{appendix}
 \usepackage{soul}
+\usepackage[T1]{fontenc}
+\usepackage{DejaVuSans}
 
+\usetikzlibrary{calc}
 
 
 % left-aligned fixed-width table column
@@ -54,6 +57,7 @@
 \definecolor{darkgreen}{rgb}{0.,0.5,0.}
 \definecolor{darkgrey}{rgb}{0.7,0.75,0.71}
 \definecolor{Gray}{gray}{0.9}
+\definecolor{DWDblue}{RGB}{47,79,162}
 
 % textcolors
 \newcommand{\tred}{\textcolor{red}}
@@ -66,7 +70,8 @@
 % customize hyperref
 \hypersetup{colorlinks, linkcolor=darkblue, citecolor=blue, urlcolor=darkred, linktoc=all}
 
-
+% Select Sans-Serif DejaVu font
+\newenvironment{sansserif}{\fontfamily{DejaVuSans-TLF}\selectfont}{\par}
 
 % Fortran environment
 \lstnewenvironment{fortran}%
@@ -107,6 +112,11 @@
 \newcommand{\pressurelevelsRegular}{}
 \newcommand{\heightlevelsRegular}{}
 
+% macro: new page, until we are on a left page
+\newcommand*\cleartoleftpage{%
+  \clearpage
+  \ifodd\value{page}\hbox{}\newpage\fi
+}
 
 \newcolumntype{x}[1]{%
   >{\centering\hspace{0pt}}p{#1}}%
@@ -250,7 +260,6 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
 
 \includeonly{./preface_title_toc,
              ./preface_intro,
-             ./preface_versionhistory,
              ./analysis,
              ./input,
              ./grid_geometry,
@@ -261,7 +270,9 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
              ./output_statproc,
              ./output_description,
              ./quote,
-             ./cosmo_eu_fields.tex} 
+             ./cosmo_eu_fields.tex,
+             ./backmatter}
+ 
 
 
 
@@ -305,13 +316,11 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
 \frontmatter     %--- aendert Zahlen von Arabisch auf roemisch
 
 % ---------------- Generate title page ---------------------%
+% ------- generate version history page --------------------%
 \begin{titlepage}
   \include{./preface_title_toc}
 \end{titlepage}
 % ----------------------------------------------------------------%
-
-%---- generate version history page -----------------%
-\include{./preface_versionhistory}
 
 % --------------------------------------------------------------------------------
 \include{./quote}
@@ -406,6 +415,13 @@ p{1.4cm}p{1cm}p{1cm}}#1\\
 \renewcommand{\chaptermark}[1]{%
   \markboth{\chaptername
     \ \thechapter.\ #1}{}}
+
+
+% --------------------------- Backside of document -------------------------------
+\newpage
+\cleartoleftpage
+\include{./backmatter}
+% --------------------------------------------------------------------------------
 
 
 % --------------------------------------------------------------------------------

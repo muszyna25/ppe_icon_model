@@ -99,6 +99,7 @@ MODULE mo_async_latbc_types
   TYPE t_buffer
      INTEGER     :: ngrp_vars    ! Number of variables for prefetching
      CHARACTER(LEN=DICT_MAX_STRLEN),ALLOCATABLE  :: mapped_name(:) ! name of mapped dictionary variables for prefetching
+     CHARACTER(LEN=DICT_MAX_STRLEN),ALLOCATABLE  :: internal_name(:) ! corresponding internal name of variables
      CHARACTER(LEN=VARNAME_LEN), ALLOCATABLE :: grp_vars(:) ! name of variables for prefetching
      INTEGER, ALLOCATABLE :: nlev(:) ! Size of variables for prefetching
      TYPE(t_size), ALLOCATABLE :: vars(:) 
@@ -107,6 +108,7 @@ MODULE mo_async_latbc_types
                                       ! or edge location of grid )
      LOGICAL :: lread_qr, lread_qs ! are qr, qs provided as input?
      LOGICAL :: lread_vn ! is vn provided as input?
+     LOGICAL :: lthd_progvars ! are prognostic thermodynamic variables (= rho and theta_v) present in the input file?
      CHARACTER(LEN=10) :: psvar
      CHARACTER(LEN=10) :: geop_ml_var ! model level surface geopotential
   END TYPE t_buffer

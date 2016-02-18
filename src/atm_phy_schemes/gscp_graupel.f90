@@ -1125,7 +1125,7 @@ SUBROUTINE graupel     (             &
           ELSEIF (iautocon == 1) THEN
             ! Seifert and Beheng (2001) autoconversion rate
             ! with constant cloud droplet number concentration qnc
-            IF (qcg > 1.0E-6) THEN
+            IF (qcg > 1.0E-6_wp) THEN
               ztau = MIN(1.0_wp-qcg/(qcg+qrg),0.9_wp)
               ztau = MAX(ztau,1.E-30_wp)
               hlp  = EXP(zkphi2*LOG(ztau))
@@ -1141,7 +1141,7 @@ SUBROUTINE graupel     (             &
           ENDIF
           IF (llqr) THEN
             ! Calculation of in-cloud rainwater freezing
-            IF ( tg < ztrfrz ) THEN
+            IF ( tg < ztrfrz .AND. qrg > 0.1_wp*qcg ) THEN
               IF (lsuper_coolw) THEN
                 srfrz = zcrfrz1*(EXP(zcrfrz2*(ztrfrz-tg))-1.0_wp ) * zeln7o4qrk
               ELSE
@@ -1193,7 +1193,7 @@ SUBROUTINE graupel     (             &
             snuc = zmi0 / rhog * znin * zdtr
           END IF
         ENDIF
-        !FR>>> Calculation of reduction of depositional growth at cloud top (Forbes 2012)
+        ! Calculation of reduction of depositional growth at cloud top (Forbes 2012)
         IF( k>1 .AND. k<ke .AND. lred_depgrow ) THEN
           znin = MIN(fxna_cooper(tg), znimax )
           fnuc = MIN(znin/znimix, 1.0_wp)
@@ -1273,15 +1273,17 @@ SUBROUTINE graupel     (             &
             zztau      = 1.5_wp*( EXP(0.66_wp*zlnlogmi) - 1.0_wp)
             sdau       = zsvidep/zztau
             sicri      = zcicri * qig * zeln7o8qrk
-            srcri      = zcrcri * (qig/zmi) * zeln13o8qrk
+            IF (qsg > 1.e-7_wp) srcri = zcrcri * (qig/zmi) * zeln13o8qrk
           ELSE
             zsimax    =  0.0_wp
             zsvidep   =  0.0_wp
             zsvisub   =  0.0_wp
           ENDIF
 
-          zxfac = 1.0_wp + zbsdep * EXP(ccsdxp*LOG(zcslam))
-          ssdep = zcsdep * zxfac * zqvsidiff / (zcslam+zeps)**2
+          IF (qsg > 1.e-7_wp) THEN
+            zxfac = 1.0_wp + zbsdep * EXP(ccsdxp*LOG(zcslam))
+            ssdep = zcsdep * zxfac * zqvsidiff / (zcslam+zeps)**2
+          ENDIF
           !FR new: depositional growth reduction
           IF (lred_depgrow .AND. ssdep > 0.0_wp) THEN
             ssdep = ssdep*reduce_dep

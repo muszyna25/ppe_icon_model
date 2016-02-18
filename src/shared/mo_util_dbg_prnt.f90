@@ -18,6 +18,9 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+!----------------------------
+#include "icon_definitions.inc"
+!----------------------------
 MODULE mo_util_dbg_prnt
   !-------------------------------------------------------------------------
   !
@@ -367,9 +370,8 @@ CONTAINS
     INTEGER ::  slev, elev, elev_val, elev_mxmn
     INTEGER ::  iout, icheck_str_mod, jstr, i, jk, nlev, ndimblk
     REAL(wp)          :: minmaxmean(3)
-    
-    IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
-    
+
+    start_detail_timer(timer_dbg_prnt,10)    
     
 #ifdef __SX__
     ! valid g-format without offset of decimal point
@@ -417,9 +419,11 @@ CONTAINS
       END DO
       
       ! if place not found in str_mod_tst - no output
-      IF (icheck_str_mod == 0 .AND. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
-      IF (icheck_str_mod == 0 ) RETURN
-      
+      IF (icheck_str_mod == 0) THEN
+        stop_detail_timer(timer_dbg_prnt,10)
+        RETURN
+      ENDIF
+
       strout=TRIM(description)
       strmod=TRIM(place)
       
@@ -481,8 +485,10 @@ CONTAINS
       END DO
       
       ! if place not found in str_mod_tst - no output
-      IF (icheck_str_mod == 0 .AND. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
-      IF (icheck_str_mod == 0 ) RETURN
+      IF (icheck_str_mod == 0) THEN
+        stop_detail_timer(timer_dbg_prnt,10)
+        RETURN
+      ENDIF
       
       strout=TRIM(description)
       strmod=TRIM(place)
@@ -522,7 +528,7 @@ CONTAINS
       
     END IF
     
-    IF (timers_level > 10) CALL timer_stop(timer_dbg_prnt)
+    stop_detail_timer(timer_dbg_prnt,10)
     
   END SUBROUTINE dbg_print_3d
   !-------------------------------------------------------------------------
@@ -545,7 +551,7 @@ CONTAINS
     INTEGER ::  iout, icheck_str_mod, jstr, i, jk, ndimblk
     REAL(wp)          ::  minmaxmean(3)
     
-    IF (timers_level > 10) CALL timer_start(timer_dbg_prnt)
+    start_detail_timer(timer_dbg_prnt,10)
     
     ! dimensions - first dimension is nproma
     ndimblk = SIZE(p_array,2)
@@ -561,8 +567,10 @@ CONTAINS
     END DO
     
     ! if place not found in str_mod_tst - no output
-    IF (icheck_str_mod == 0 .AND. timers_level > 10) CALL timer_stop(timer_dbg_prnt)
-    IF (icheck_str_mod == 0 ) RETURN
+    IF (icheck_str_mod == 0) THEN
+      stop_detail_timer(timer_dbg_prnt,10)
+      RETURN
+    ENDIF
     
 #ifdef __SX__
     ! valid g-format without offset of decimal point
@@ -631,7 +639,7 @@ CONTAINS
       
     END IF
     
-    IF (timers_level > 10) CALL timer_stop(timer_dbg_prnt)
+    stop_detail_timer(timer_dbg_prnt,10)
     
   END SUBROUTINE dbg_print_2d
   !-------------------------------------------------------------------------

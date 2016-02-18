@@ -19,30 +19,39 @@
 
 MODULE mo_util_phys
 
-  USE mo_kind,                  ONLY: wp
+  USE mo_kind,                  ONLY: vp, wp
   USE mo_parallel_config,       ONLY: nproma
   USE mo_physical_constants,    ONLY: o_m_rdv        , & !! 1 - r_d/r_v &
     &                                 rdv,             & !! r_d / r_v
     &                                 cpd, p0ref, rd,  &
     &                                 vtmpc1, t3,      &
     &                                 grav,            &
-    &                                 tmelt,           &
+    &                                 tmelt, earth_radius, &
     &                                 alvdcp, rd_o_cpd
   USE mo_satad,                 ONLY: sat_pres_water, sat_pres_ice
   USE mo_fortran_tools,         ONLY: assign_if_present
-  USE mo_impl_constants,        ONLY: min_rlcell_int
+  USE mo_impl_constants,        ONLY: min_rlcell_int, min_rledge_int, &
+    &                                 min_rlcell, min_rledge
   USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c
   USE mo_model_domain,          ONLY: t_patch
-  USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag
+  USE mo_nonhydro_types,        ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,         ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,            ONLY: iqv, iqc, iqi, iqr, iqs, nqtendphy, lart
   USE mo_ls_forcing_nml,        ONLY: is_ls_forcing
-  USE mo_loopindices,           ONLY: get_indices_c
+  USE mo_loopindices,           ONLY: get_indices_c, get_indices_e
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_art_config,            ONLY: art_config
   USE mo_initicon_config,       ONLY: is_iau_active, iau_wgt_adv
   USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_satad,                 ONLY: qsat_rho
+  USE mo_intp_data_strc,        ONLY: t_int_state
+  USE mo_icon_interpolation_scalar,                     &
+    &                           ONLY: edges2cells_scalar, cells2edges_scalar, &
+    &                                 cells2verts_scalar, verts2edges_scalar, &
+    &                                 cells2edges_scalar
+  USE mo_math_gradients,        ONLY: grad_fd_norm, grad_fd_tang
+  USE mo_intp_rbf,              ONLY: rbf_vec_interpol_edge
+  USE mo_sync,                  ONLY: sync_patch_array, SYNC_C
 
   IMPLICIT NONE
 
@@ -60,6 +69,7 @@ MODULE mo_util_phys
   PUBLIC :: compute_field_rel_hum_wmo
   PUBLIC :: compute_field_rel_hum_ifs
   PUBLIC :: compute_field_omega
+  PUBLIC :: compute_field_pv
   PUBLIC :: nh_update_prog_phy
   PUBLIC :: cal_cape_cin
 
@@ -703,6 +713,206 @@ CONTAINS
 
 
   END SUBROUTINE compute_field_omega
+  
+  !> Computation of potential vorticity
+  !! The full 3D-Ertel PV is calculated at the edges and interpolated to cells.
+  !! The shallow atmosphere approximations are used.
+  !!
+  !! Implemented by Tobias Selz, LMU
+  
+  SUBROUTINE compute_field_pv(p_patch, p_int_state, p_metrics, p_prog, p_diag, out_var )
+    
+    TYPE(t_patch)        , INTENT(IN)    :: p_patch              !< patch on which computation is performed
+    TYPE(t_int_state)    , INTENT(IN)    :: p_int_state
+    TYPE(t_nh_metrics)   , INTENT(IN)    :: p_metrics
+    TYPE(t_nh_prog)      , INTENT(IN)    :: p_prog                 !< nonhydrostatic state
+    TYPE(t_nh_diag)      , INTENT(IN)    :: p_diag
+    REAL(wp)             , INTENT(INOUT) :: out_var(:,:,:)         !< output variable, dim: (nproma,nlev,nblks_c)
+  
+    !Local variables
+    !Indices
+    INTEGER  :: slev, elev, rl_start, rl_end, i_nchdom,     &
+      &         i_startblk, i_endblk, i_startidx, i_endidx, &
+      &         jc, je, jk, jb, ivd1, ivd2
+      
+    REAL(wp) :: vdfac
+        
+    !temporary fields
+    REAL(wp) :: pv_ef    (nproma,p_patch%nlev  ,p_patch%nblks_e),  &
+                vt       (nproma,p_patch%nlev  ,p_patch%nblks_e),  &
+                theta_cf (nproma,p_patch%nlev  ,p_patch%nblks_c),  &
+                theta_vf (nproma,p_patch%nlev  ,p_patch%nblks_v),  &
+                theta_ef (nproma,p_patch%nlev  ,p_patch%nblks_e),  &
+                w_vh     (nproma,p_patch%nlev+1,p_patch%nblks_v),  & 
+                w_eh     (nproma,p_patch%nlev+1,p_patch%nblks_e),  &
+                ddtw_eh  (nproma,p_patch%nlev+1,p_patch%nblks_e),  &
+                ddnw_eh  (nproma,p_patch%nlev+1,p_patch%nblks_e),  &
+                ddtth_ef (nproma,p_patch%nlev  ,p_patch%nblks_e),  &
+                ddnth_ef (nproma,p_patch%nlev  ,p_patch%nblks_e),  &
+                vor_ef   (nproma,p_patch%nlev  ,p_patch%nblks_e)
+                
+    !Pointers to metric terms
+    REAL(vp), POINTER :: ddnz(:,:,:), ddtz(:,:,:), gamma(:,:,:)
+    
+    ddnz  => p_metrics%ddxn_z_full
+    ddtz  => p_metrics%ddxt_z_full
+    gamma => p_metrics%ddqz_z_full_e
+
+
+    ! Index bounds
+    slev     = 1
+    elev     = UBOUND(out_var,2)
+    rl_start = 1
+    rl_end   = min_rlcell
+
+    ! values for the blocking
+    i_nchdom   = MAX(1,p_patch%n_childdom)
+    i_startblk = p_patch%cells%start_blk (rl_start,1)
+    i_endblk   = p_patch%cells%end_blk   (rl_end,i_nchdom)
+    
+!$OMP PARALLEL    
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    !compute theta on cells
+    DO jb = i_startblk, i_endblk
+    
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+      
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+
+          theta_cf(jc,jk,jb) = p_diag%temp(jc,jk,jb) / p_prog%exner(jc,jk,jb)
+          
+        ENDDO
+      ENDDO
+    
+    END DO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+    ! synchronize theta
+    CALL sync_patch_array(SYNC_C, p_patch, theta_cf)
+
+    !Get vt at edges (p_diag%vt is not up to date)
+    CALL rbf_vec_interpol_edge( p_prog%vn, p_patch, p_int_state, vt)
+    
+    !Interpolate theta to vertices
+    CALL cells2verts_scalar( theta_cf, p_patch, p_int_state%cells_aw_verts, theta_vf )
+    
+    !Interpolate theta to edges
+    CALL cells2edges_scalar( theta_cf, p_patch, p_int_state%c_lin_e, theta_ef )
+    
+    !Interpolate w to vertices
+    CALL cells2verts_scalar( p_prog%w, p_patch, p_int_state%cells_aw_verts, w_vh )
+    
+    !Interpolate w to edges
+    CALL cells2edges_scalar( p_prog%w, p_patch, p_int_state%c_lin_e, w_eh )
+    
+    !Interpolate vorticity to edges
+    CALL verts2edges_scalar( p_diag%omega_z, p_patch, p_int_state%v_1o2_e, vor_ef )
+    
+    !Calculate horizontal derivatives of w and theta
+    CALL grad_fd_norm ( p_prog%w, p_patch, ddnw_eh  )
+    CALL grad_fd_tang ( w_vh,     p_patch, ddtw_eh  )
+    CALL grad_fd_norm ( theta_cf, p_patch, ddnth_ef )
+    CALL grad_fd_tang ( theta_vf, p_patch, ddtth_ef )
+    
+    !Recompute loop indices for edges
+    rl_start   = 3
+    rl_end     = min_rledge_int-1
+    i_startblk = p_patch%edges%start_blk (rl_start,1)
+    i_endblk   = p_patch%edges%end_blk   (rl_end,i_nchdom)
+    
+!$OMP PARALLEL    
+!$OMP DO PRIVATE(je,jk,jb,i_startidx,i_endidx,ivd1,ivd2,vdfac), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+      
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+     
+      DO jk = slev, elev
+      
+        !Get indices for vertical derivatives of full level variables
+        IF ( jk == slev ) THEN
+          ivd1=slev
+          ivd2=slev+1
+          vdfac=1_wp
+        ELSE IF ( jk == elev ) THEN
+          ivd1=elev-1
+          ivd2=elev
+          vdfac=1_wp
+        ELSE
+          ivd1=jk-1
+          ivd2=jk+1
+          vdfac=2_wp
+        END IF
+          
+        DO je = i_startidx, i_endidx
+
+          !Ertel-PV calculation on edges
+          pv_ef(je,jk,jb) =                                                                                     &
+            &     (   0.5_wp*(ddnw_eh(je,jk,jb)+ddnw_eh(je,jk+1,jb))                                            &
+            &       + ddnz(je,jk,jb)/gamma(je,jk,jb)*(w_eh(je,jk+1,jb)-w_eh(je,jk,jb))                          &
+            &       + (p_prog%vn(je,ivd2,jb)-p_prog%vn(je,ivd1,jb))/vdfac/gamma(je,jk,jb)                       &
+            &       - p_prog%vn(je,jk,jb)/earth_radius                                                          &
+            &     )                                                                                             &
+            &   * (   ddtth_ef(je,jk,jb)                                                                        &
+            &       + ddtz(je,jk,jb)/gamma(je,jk,jb) * (theta_ef(je,ivd2,jb)-theta_ef(je,ivd1,jb))/vdfac        &
+            &     )                                                                                             &
+            &   + ( - (vt(je,ivd2,jb)-vt(je,ivd1,jb))/vdfac/gamma(je,jk,jb)                                     &
+            &       - 0.5_wp*(ddtw_eh(je,jk,jb)+ddtw_eh(je,jk+1,jb))                                            &
+            &       - ddtz(je,jk,jb)/gamma(je,jk,jb) * (w_eh(je,jk+1,jb)-w_eh(je,jk,jb))                        &
+            &       + vt(je,jk,jb)/earth_radius                                                                 &
+            &      )                                                                                            &
+            &   * (   ddnth_ef(je,jk,jb)                                                                        &
+            &       + ddnz(je,jk,jb)/gamma(je,jk,jb) * (theta_ef(je,ivd2,jb)-theta_ef(je,ivd1,jb))/vdfac        &
+            &     )                                                                                             &
+            &   + (   vor_ef(je,jk,jb)                                                                          &
+            &       + ddtz(je,jk,jb)/gamma(je,jk,jb) * (p_prog%vn(je,ivd2,jb)-p_prog%vn(je,ivd1,jb))/vdfac      &
+            &       - ddnz(je,jk,jb)/gamma(je,jk,jb) * (vt(je,ivd2,jb)-vt(je,ivd1,jb))/vdfac                    &
+            &       + p_patch%edges%f_e(je,jb)                                                                  &
+            &     )                                                                                             &
+            &   * ( -(theta_ef(je,ivd2,jb)-theta_ef(je,ivd1,jb))/vdfac/gamma(je,jk,jb) )
+                   
+        ENDDO
+      ENDDO
+    ENDDO 
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+    
+    !Interpolate to cells
+    CALL edges2cells_scalar( pv_ef, p_patch, p_int_state%e_bln_c_s, out_var, opt_rlstart=2 )
+    
+
+    rl_start = 2
+    rl_end   = min_rlcell_int
+
+    ! values for the blocking
+    i_nchdom   = MAX(1,p_patch%n_childdom)
+    i_startblk = p_patch%cells%start_blk (rl_start,1)
+    i_endblk   = p_patch%cells%end_blk   (rl_end,i_nchdom)
+
+    !Normalize with density
+    !
+!$OMP PARALLEL    
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx), ICON_OMP_RUNTIME_SCHEDULE
+    DO jb = i_startblk, i_endblk
+    
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+      
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+          out_var(jc,jk,jb) = out_var(jc,jk,jb) / p_prog%rho(jc,jk,jb)
+        ENDDO
+      ENDDO
+    ENDDO  ! jb
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL    
+
+        
+  END SUBROUTINE compute_field_pv
+
 
   SUBROUTINE nh_update_prog_phy( pt_patch, pdtime, pt_diag, prm_nwp_tend, &
     &                            prm_diag, pt_prog_rcf, pt_prog )
