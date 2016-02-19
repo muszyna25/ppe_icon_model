@@ -535,6 +535,14 @@ CONTAINS
         & 'allocation for geofac_grad failed')
     ENDIF
 
+    ALLOCATE(operators_coefficients%averageCellsToEdges(nproma,nblks_e,2),&
+      & stat=return_status)
+    IF (return_status /= success) THEN
+      CALL finish ('mo_operator_ocean_coeff_3d',                 &
+        & 'allocation for averageCellsToEdges failed')
+    ENDIF
+
+
     ALLOCATE(operators_coefficients%rot_coeff(nproma,n_zlev,nblks_v,no_dual_edges),&
       & stat=return_status)
     IF (return_status /= success) THEN
@@ -802,6 +810,7 @@ CONTAINS
     operators_coefficients%div_coeff  = 0._wp
     operators_coefficients%rot_coeff  = 0._wp
     operators_coefficients%grad_coeff = 0._wp
+    operators_coefficients%averageCellsToEdges = 0._wp
 
     operators_coefficients%vertex_bnd_edge_idx = 0
     operators_coefficients%vertex_bnd_edge_blk = 0
@@ -829,6 +838,7 @@ CONTAINS
     !-----------------------------------------------------------------------
     DEALLOCATE(operators_coefficients%div_coeff)
     DEALLOCATE(operators_coefficients%grad_coeff)
+    DEALLOCATE(operators_coefficients%averageCellsToEdges)
 
     DEALLOCATE(operators_coefficients%rot_coeff)
 
@@ -1067,6 +1077,7 @@ CONTAINS
 
     TYPE(t_cartesian_coordinates) :: edge2cell_coeff_cc     (1:nproma,1:patch_2D%alloc_cell_blocks,1:no_primal_edges)
 
+
     TYPE(t_subset_range), POINTER :: owned_edges         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_cells         ! these are the owned entities
     TYPE(t_subset_range), POINTER :: owned_verts         ! these are the owned entities
@@ -1077,6 +1088,8 @@ CONTAINS
     REAL(wp) :: basin_center_lat_rad, basin_height_rad
     REAL(wp) :: length
     REAL(wp) :: inverse_sphere_radius
+    REAL(wp) :: w1, w2
+
     INTEGER :: edge_block, edge_index
     INTEGER :: cell_index, cell_block
     INTEGER :: vertex_index, vertex_block
@@ -1123,13 +1136,25 @@ CONTAINS
     ENDDO !cell_block = owned_cells%start_block, owned_cells%end_block
  
 
-   !2b) gradient
+   !2b) gradient, average
     DO edge_block = owned_edges%start_block, owned_edges%end_block
       CALL get_index_range(owned_edges, edge_block, start_index, end_index)
       DO edge_index = start_index, end_index
 
         grad_coeff(edge_index,edge_block)&
-        & =1.0_wp/ dual_edge_length(edge_index,edge_block)!patch_2D%edges%inv_dual_edge_length(edge_index, edge_block)
+          & =1.0_wp/ dual_edge_length(edge_index,edge_block)!patch_2D%edges%inv_dual_edge_length(edge_index, edge_block)
+
+        w1 = 0.0_wp
+        w2 = 0.0_wp
+        IF (dist_cell2edge(edge_index,edge_block,1) > 0.0_wp) THEN
+          w1 = 1.0_wp / dist_cell2edge(edge_index,edge_block,1)
+        ENDIF
+        IF (dist_cell2edge(edge_index,edge_block,2) > 0.0_wp) THEN
+          w2 = 1.0_wp / dist_cell2edge(edge_index,edge_block,2)
+        ENDIF
+         
+        operators_coefficients%averageCellsToEdges(edge_index,edge_block,1) = w1 / (w1+w2)
+        operators_coefficients%averageCellsToEdges(edge_index,edge_block,2) = w2 / (w1+w2)
 
       ENDDO ! edge_index = start_index, end_index
     ENDDO ! edge_block = owned_edges%start_block, owned_edges%end_block
@@ -1156,13 +1181,15 @@ CONTAINS
    
     !Copy coefficients to 3D
     DO level=1,n_zlev
-    operators_coefficients%div_coeff(:,level,:,:) = div_coeff(:,:,:)
-    operators_coefficients%rot_coeff(:,level,:,:) = rot_coeff(:,:,:)
-    operators_coefficients%grad_coeff(:,level,:)  = grad_coeff(:,:)
+      operators_coefficients%div_coeff(:,level,:,:) = div_coeff(:,:,:)
+      operators_coefficients%rot_coeff(:,level,:,:) = rot_coeff(:,:,:)
+      operators_coefficients%grad_coeff(:,level,:)  = grad_coeff(:,:)
     END DO
     !-------------------
     ! sync the results
     CALL sync_patch_array(SYNC_E, patch_2D, operators_coefficients%grad_coeff(:,:,:))
+    CALL sync_patch_array(SYNC_E, patch_2D, operators_coefficients%averageCellsToEdges(:,:,1))
+    CALL sync_patch_array(SYNC_E, patch_2D, operators_coefficients%averageCellsToEdges(:,:,2))
     DO neigbor=1,no_primal_edges
       CALL sync_patch_array(SYNC_C, patch_2D, operators_coefficients%div_coeff(:,:,:,neigbor))
     END DO

@@ -413,7 +413,7 @@ MODULE mo_ocean_types
     mapEdgesToCells    :: div_coeff
     mapEdgesToVertices :: rot_coeff  
     onEdges            :: grad_coeff ! this should be revised
-    mapCellsToEdges_2D :: average_fromCellsToEdges
+    mapCellsToEdges_2D :: averageCellsToEdges
     
 !     REAL(wp), ALLOCATABLE :: n2s_coeff(:,:,:,:)    ! factor for nabla2-scalar (nproma,nlev,nblks_c)
 !     REAL(wp), ALLOCATABLE :: n2v_coeff(:,:,:)      ! factor for nabla2-vector (nproma,nlev,nblks_e)
