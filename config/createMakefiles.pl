@@ -167,6 +167,7 @@ foreach my $dir ( @directories ) {
 	    print MAKEFILE "SHELL = /bin/bash\n\n";
 	    print MAKEFILE "LIB  = $subdirs[1]\n\n";
 	    $add_vpath_level = 2;
+
 	} else {
 	    print MAKEFILE "LIB  = $dir\n\n";
 	}
@@ -205,10 +206,15 @@ foreach my $dir ( @directories ) {
 	print MAKEFILE "\n";
 	print MAKEFILE "%.o: %.f90\n";
 	print MAKEFILE "\t\$(FC) \$(FlibFLAGS) -c \$<\n";
+	print MAKEFILE "\n";
+	print MAKEFILE "%.o: %.F90\n";
+	print MAKEFILE "\t\$(FC) \$(FlibFLAGS) -c \$<\n";
     } else {	
 	print MAKEFILE "%.o: %.f90\n";
 	print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
 	print MAKEFILE "\n";
+	print MAKEFILE "%.o: %.F90\n";
+	print MAKEFILE "\t\$(FC) \$(FFLAGS) -c \$<\n";
     }
     
 #     print MAKEFILE "%.obj: %.f90\n";
@@ -280,7 +286,7 @@ foreach my $dir ( @directories ) {
 
     if ( "$dir" ne "src" ) {
 	if ( $dir =~ m/^externals/) {
-	    print MAKEFILE "../../../lib/lib\$(LIB).a: \$(OBJS)\n";
+            print MAKEFILE "../../../lib/lib\$(LIB).a: \$(OBJS)\n";
 	    print MAKEFILE "\t\$(AR) \$(ARFLAGS) ../../../lib/lib\$(LIB).a \$(OBJS)\n";
             print MAKEFILE "\t\@for modfile in \$(wildcard *.mod); do \\\n";
             print MAKEFILE "\t\tcp \$\$modfile ../../../include; \\\n"; 
@@ -294,6 +300,9 @@ foreach my $dir ( @directories ) {
 		print MAKEFILE "CFLAGS += -I../../../../../$include_dir/xml\n";
 	    }
             print MAKEFILE "FFLAGS := \$(subst ../module,../../../module, \$(FFLAGS))\n";	    
+            if ( $dir =~ m/self/) {
+              print MAKEFILE 'FFLAGS := $(subst -C=all,,$(FFLAGS))';print MAKEFILE "\n";
+            }
             print MAKEFILE "\n\n";
 	} else {
 	    print MAKEFILE "../lib/lib\$(LIB).a: \$(OBJS)\n";
@@ -355,6 +364,13 @@ __EOF__
 #	}
 #    }
     
+    if ( $dir =~ m/self/) {
+      my @_myvpath = @vpath;
+      shift @_myvpath; 
+      my $_myvpath = join('',@_myvpath);
+      chop $_myvpath;
+      print MAKEFILE "-include ",$_myvpath,"/../Makefile.depend";print MAKEFILE "\n";
+    } else {
     for my $file ( keys %module_usage ) {
 	next if $file =~ /c$/;
 	my ($object) = $file;
@@ -375,7 +391,7 @@ __EOF__
 	print MAKEFILE "$object: $file ";
 	&PrintWords (length($object)+length($file)+3, 0, \@dependencies);
 	print MAKEFILE "\n\n";
-    }
+    } }
 
     close (MAKEFILE);
     

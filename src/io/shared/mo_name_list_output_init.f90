@@ -160,6 +160,10 @@ MODULE mo_name_list_output_init
     &                                             setup_hl_axis_atmo, setup_il_axis_atmo,         &
     &                                             setup_zaxes_oce
   USE mo_util_vgrid_types,                  ONLY: vgrid_buffer
+  USE mo_derived_variable_handling,         ONLY: process_mean_stream
+  USE self_vector
+  USE self_map
+  USE self_assert
 
 #ifndef __NO_ICON_ATMO__
   USE mo_vertical_coord_table,              ONLY: vct
@@ -258,6 +262,7 @@ CONTAINS
     REAL(wp)                              :: h_levels(MAX_NZLEVS)             !< height levels
     REAL(wp)                              :: i_levels(MAX_NILEVS)             !< isentropic levels
     INTEGER                               :: remap
+    CHARACTER(LEN=MAX_CHAR_LENGTH)        :: operation
     REAL(wp)                              :: reg_lon_def(3)
     REAL(wp)                              :: reg_lat_def(3)
     INTEGER                               :: reg_def_mode
@@ -308,7 +313,7 @@ CONTAINS
       stream_partitions_hl, stream_partitions_il,            &
       pe_placement_ml, pe_placement_pl,                      &
       pe_placement_hl, pe_placement_il,                      &
-      filename_extn, rbf_scale
+      filename_extn, rbf_scale, operation
 
     ! -- preliminary checks:
     !
@@ -382,6 +387,7 @@ CONTAINS
       h_levels(:)              = -1._wp
       i_levels(:)              = -1._wp
       remap                    = REMAP_NONE
+      operation                = ''
       reg_lon_def(:)           = 0._wp
       reg_lat_def(:)           = 0._wp
       reg_def_mode             = 0
@@ -562,6 +568,7 @@ CONTAINS
       p_onl%z_levels                 = h_levels
       p_onl%i_levels                 = i_levels
       p_onl%remap                    = remap
+      p_onl%operation                = operation
       p_onl%lonlat_id                = -1
       p_onl%output_start(:)          = output_start(:)
       p_onl%output_end(:)            = output_end
@@ -598,19 +605,19 @@ CONTAINS
           &                            default=p_onl%il_varlist(i))
       END DO
 
-      ! allow case-insensitive variable names:
-      DO i=1,max_var_ml
-        p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
-      END DO
-      DO i=1,max_var_pl
-        p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
-      END DO
-      DO i=1,max_var_hl
-        p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
-      END DO
-      DO i=1,max_var_il
-        p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
-      END DO
+     !! allow case-insensitive variable names:
+     !DO i=1,max_var_ml
+     !  p_onl%ml_varlist(i) = tolower(p_onl%ml_varlist(i))
+     !END DO
+     !DO i=1,max_var_pl
+     !  p_onl%pl_varlist(i) = tolower(p_onl%pl_varlist(i))
+     !END DO
+     !DO i=1,max_var_hl
+     !  p_onl%hl_varlist(i) = tolower(p_onl%hl_varlist(i))
+     !END DO
+     !DO i=1,max_var_il
+     !  p_onl%il_varlist(i) = tolower(p_onl%il_varlist(i))
+     !END DO
 
       p_onl%next => NULL()
 
@@ -872,7 +879,7 @@ CONTAINS
               &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
               &               opt_vlevel_type=i_typ)
             DO i=1,ngrp_vars
-              grp_vars(i) = tolower(grp_vars(i))
+              grp_vars(i) = grp_vars(i)
             END DO
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
@@ -900,7 +907,7 @@ CONTAINS
               &               lremap_lonlat=(p_onl%remap == REMAP_REGULAR_LATLON), &
               &               opt_vlevel_type=i_typ)
             DO i=1,ngrp_vars
-              grp_vars(i) = tolower(grp_vars(i))
+              grp_vars(i) = grp_vars(i)
             END DO
             ! generate varlist where "grp_name" has been replaced;
             ! duplicates are removed
@@ -1448,6 +1455,12 @@ CONTAINS
 
               ENDDO
 
+#ifdef USE_MTIME_LOOP
+              CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( patch_info(1)%log_patch_id ) ) ! works for amip and test_nat_rce
+              !CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( 0 )) ! this is how it works for _nwp_R02B04N06multi2
+              !CALL process_mean_stream(p_onl,i_typ,sim_step_info, p_patch( 1 )) ! initial setup
+#endif
+
               SELECT CASE(i_typ)
               CASE(level_type_ml)
                 CALL add_varlist_to_output_file(p_of,vl_list(1:nvl),p_onl%ml_varlist)
@@ -1888,7 +1901,7 @@ CONTAINS
           tl = get_var_timelevel(element%field)
 
           ! Check for matching name
-          IF(TRIM(varlist(ivar)) /= TRIM(tolower(get_var_name(element%field)))) CYCLE
+          IF(tolower(varlist(ivar)) /= tolower(get_var_name(element%field))) CYCLE
 
           ! Found it, add it to the variable list of output file
           p_var_desc => var_desc
@@ -2662,7 +2675,12 @@ CONTAINS
       ENDIF
 
       ! Search name mapping for name in NetCDF file
-      mapped_name = TRIM(dict_get(out_varnames_dict, info%name, default=info%name))
+      IF (info%cf%short_name /= '') THEN
+!TODO   IF ( my_process_is_stdio() ) print *,'SHORTNAME gefunden!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+        mapped_name = dict_get(out_varnames_dict, info%cf%short_name, default=info%cf%short_name)
+      ELSE
+        mapped_name = dict_get(out_varnames_dict, info%name, default=info%name)
+      END IF
 
       ! note that an explicit call of vlistDefVarTsteptype is obsolete, since
       ! isteptype is already defined via vlistDefVar

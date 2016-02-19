@@ -182,7 +182,7 @@ MODULE mo_initicon
     !
     CALL process_input_data(p_patch, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
 
-    CALL printChecksums(initicon, p_nh_state, p_lnd_state)
+!   CALL printChecksums(initicon, p_nh_state, p_lnd_state)
 
     ! Deallocate initicon data type
     !

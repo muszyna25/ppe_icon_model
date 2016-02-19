@@ -58,8 +58,8 @@ MODULE mo_io_restart
   USE mo_exception,             ONLY: finish, message, message_text, get_filename_noext
   USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, TLEV_NNOW, TLEV_NNOW_RCF
   USE mo_var_metadata_types,    ONLY: t_var_metadata
-  USE mo_linked_list,           ONLY: t_var_list, t_list_element, find_list_element
-  USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel
+  USE mo_linked_list,           ONLY: t_var_list, t_list_element
+  USE mo_var_list,              ONLY: nvar_lists, var_lists, get_var_timelevel, find_list_element
   USE mo_cdi,                   ONLY: FILETYPE_NC, FILETYPE_NC2, FILETYPE_NC4, ZAXIS_SURFACE, CDI_UNDEFID, COMPRESS_ZIP, &
                                     & DATATYPE_FLT64, TIME_VARIABLE, CDI_GLOBAL, DATATYPE_INT32, GRID_UNSTRUCTURED, &
                                     & TAXIS_ABSOLUTE, ZAXIS_DEPTH_BELOW_LAND, ZAXIS_GENERIC, ZAXIS_DEPTH_BELOW_SEA, ZAXIS_HEIGHT, &
