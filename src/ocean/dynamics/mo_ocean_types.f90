@@ -412,7 +412,8 @@ MODULE mo_ocean_types
     !------------------------------------------------------------------------------
     mapEdgesToCells    :: div_coeff
     mapEdgesToVertices :: rot_coeff  
-    mapCellsToEdges    :: grad_coeff ! this should be revised 
+    onEdges            :: grad_coeff ! this should be revised
+    mapCellsToEdges_2D :: average_fromCellsToEdges
     
 !     REAL(wp), ALLOCATABLE :: n2s_coeff(:,:,:,:)    ! factor for nabla2-scalar (nproma,nlev,nblks_c)
 !     REAL(wp), ALLOCATABLE :: n2v_coeff(:,:,:)      ! factor for nabla2-vector (nproma,nlev,nblks_e)
@@ -494,7 +495,7 @@ MODULE mo_ocean_types
     
   TYPE t_solverCoeff_singlePrecision
     ! the same as in t_operator_coeff in single precision for using in the solver
-    mapCellsToEdges_2D_RealPrecision(sp) :: grad_coeff                    ! as in t_operator_coeff for the 1st level
+    onEdges_2D_RealPrecision(sp) :: grad_coeff                  ! as in t_operator_coeff for the 1st level
     mapEdgesToCells_2D_RealPrecision(sp) :: div_coeff                   ! as in t_operator_coeff for the 1st level
 
     mapEdgesToEdges_2D_RealPrecision(sp) :: edge2edge_viacell_coeff_all  ! as in t_operator_coeff

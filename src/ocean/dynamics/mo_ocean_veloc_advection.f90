@@ -307,9 +307,10 @@ CONTAINS
     INTEGER :: jk, blockNo, je, jc
     INTEGER :: start_edge_index, end_edge_index
     INTEGER :: start_cell_index, end_cell_index
-    INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-    INTEGER :: il_v1, ib_v1, il_v2, ib_v2
+    INTEGER :: c1_idx, c1_blk, c2_idx, c2_blk
+    INTEGER :: v1_idx, v1_blk, v2_idx, v2_blk
     REAL(wp) :: veloc_tangential
+    INTEGER, POINTER :: edge_levels(:,:)
     !REAL(wp) :: z_vort_flx(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_subset_range), POINTER :: edges_in_domain, all_edges, all_cells
     TYPE(t_patch), POINTER         :: patch_2D
@@ -317,6 +318,7 @@ CONTAINS
     patch_2D   => patch_3D%p_patch_2D(1)
     edges_in_domain => patch_2D%edges%in_domain
     all_cells => patch_2D%cells%all
+    edge_levels => patch_3D%p_patch_1D(1)%dolic_e
     !-----------------------------------------------------------------------
     CALL rot_vertex_ocean_3d( patch_3d, vn, p_diag%p_vn_dual, p_op_coeff, p_diag%vort)
     !--------------------------------------------------------------
@@ -324,26 +326,29 @@ CONTAINS
     !1) projection cell reconstructed velocity vector in tangential direction
     !2) averaging the result from 1) from two adjecent cells to an edge
     !3) multiplying the result by the averaged vorticity
+!ICON_OMP_PARALLEL
+!ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index, je, jk, c1_idx, c1_blk, c2_idx, c2_blk, &
+!ICON_OMP  v1_idx, v1_blk, v2_idx, v2_blk, veloc_tangential) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-      DO jk = 1, n_zlev
-        DO je = start_edge_index, end_edge_index
+      DO je = start_edge_index, end_edge_index
+        !Neighbouring cells
+        c1_idx = patch_2D%edges%cell_idx(je,blockNo,1)
+        c1_blk = patch_2D%edges%cell_blk(je,blockNo,1)
+        c2_idx = patch_2D%edges%cell_idx(je,blockNo,2)
+        c2_blk = patch_2D%edges%cell_blk(je,blockNo,2)
+        !Neighbouring verts
+        v1_idx = patch_2D%edges%vertex_idx(je,blockNo,1)
+        v1_blk = patch_2D%edges%vertex_blk(je,blockNo,1)
+        v2_idx = patch_2D%edges%vertex_idx(je,blockNo,2)
+        v2_blk = patch_2D%edges%vertex_blk(je,blockNo,2)
 
-          IF(patch_3D%lsm_e(je,jk,blockNo)< boundary)THEN
-            !Neighbouring cells
-            il_c1 = patch_2D%edges%cell_idx(je,blockNo,1)
-            ib_c1 = patch_2D%edges%cell_blk(je,blockNo,1)
-            il_c2 = patch_2D%edges%cell_idx(je,blockNo,2)
-            ib_c2 = patch_2D%edges%cell_blk(je,blockNo,2)
-            !Neighbouring verts
-            il_v1 = patch_2D%edges%vertex_idx(je,blockNo,1)
-            ib_v1 = patch_2D%edges%vertex_blk(je,blockNo,1)
-            il_v2 = patch_2D%edges%vertex_idx(je,blockNo,2)
-            ib_v2 = patch_2D%edges%vertex_blk(je,blockNo,2)
-
-            !calculation of tangential velocity
-            veloc_tangential=0.5_wp*&
-            dot_product(p_diag%p_vn(il_c1,jk,ib_c1)%x+p_diag%p_vn(il_c2,jk,ib_c2)%x,patch_2D%edges%dual_cart_normal(je,blockNo)%x)
+        DO jk = 1, edge_levels(je,blockNo)
+          !calculation of tangential velocity
+          veloc_tangential=0.5_wp*&
+            & dot_product( &
+            &   p_diag%p_vn(c1_idx,jk,c1_blk)%x+p_diag%p_vn(c2_idx,jk,c2_blk)%x, &
+            &   patch_2D%edges%dual_cart_normal(je,blockNo)%x)
 
 !           !This is an upwind version of the nonlinear coriolis.
 !           !Not recommended just for testing purposes
@@ -369,15 +374,14 @@ CONTAINS
 !           ENDIF
 
             !calculation of nonlinear Coriolis
-            veloc_adv_horz_e(je,jk,blockNo)=veloc_tangential&
-             & * (patch_2d%edges%f_e(je,blockNo)  &
-             & +0.5_wp*(p_diag%vort(il_v1,jk,ib_v1)+p_diag%vort(il_v2,jk,ib_v2)))
+          veloc_adv_horz_e(je,jk,blockNo) = veloc_tangential &
+            & * (patch_2d%edges%f_e(je,blockNo)  &
+            & + 0.5_wp * (p_diag%vort(v1_idx,jk,v1_blk)+p_diag%vort(v2_idx,jk,v2_blk)))
 
-          ENDIF
         END DO
       END DO
     END DO
-
+!ICON_OMP_END_DO
 
  !   DO blockNo = all_cells%start_block, all_cells%end_block
  !     CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
@@ -393,7 +397,7 @@ CONTAINS
 
 
 
-!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
 
@@ -407,7 +411,8 @@ CONTAINS
     ! the result is on edges_in_domain
 
     END DO ! blocks
-!ICON_OMP_END_PARALLEL_DO
+!ICON_OMP_END_DO_NOWAIT
+!ICON_OMP_END_PARALLEL
 
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
