@@ -117,7 +117,7 @@ CONTAINS
 
     IF (lat > lat5 .AND. lat < lat0 ) THEN
       sst = 27._wp*( 1._wp - SIN(1.6363_wp*(lat-lat5))**2 ) + tmelt
-    ELSE IF (lat > -1._wp*lat0 .AND. lat < lat5 ) THEN
+    ELSE IF (lat > -1._wp*lat0 .AND. lat <= lat5 ) THEN
       sst = 27._wp*( 1._wp - SIN(1.3846_wp*(lat-lat5))**2 ) + tmelt
     ELSE
       sst = tmelt
