@@ -35,7 +35,7 @@ MODULE mo_scalar_product
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
   USE mo_ocean_types,        ONLY: t_hydro_ocean_diag, t_solvercoeff_singleprecision
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, fast_performance_level,l_ANTICIPATED_VORTICITY,&
-                                  & NONLINEAR_CORIOLIS, NONLINEAR_CORIOLIS_PRIMAL_GRID,NONLINEAR_CORIOLIS_DUAL_GRID
+    & KineticEnergy_type, KineticEnergy_onPrimalGrid, KineticEnergy_onDualGrid
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges, &
     & Get3DVectorTo2DLocal_array3D
@@ -109,6 +109,7 @@ CONTAINS
     INTEGER :: startLevel, endLevel
     INTEGER :: start_cell_index, end_cell_index
     INTEGER :: cell_index, blockNo, level
+    INTEGER :: edge_idx, edge_blk, n
     INTEGER, DIMENSION(:,:,:), POINTER :: edge_of_cell_idx, edge_of_cell_blk
     REAL(wp) :: w1, w2, w3, w4, w
     TYPE(t_subset_range), POINTER :: all_cells ! , cells_in_domain
@@ -146,7 +147,8 @@ CONTAINS
     !--------------------------------------------------------------
     !calculate kinetic energy
     ! First option is our default configuration
-    IF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_DUAL_GRID)THEN
+    SELECT CASE(KineticEnergy_type)
+    CASE (KineticEnergy_onDualGrid)
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
@@ -163,51 +165,83 @@ CONTAINS
       ENDDO
 !ICON_OMP_END_PARALLEL_DO
 
-    ELSEIF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_PRIMAL_GRID)THEN
+    CASE (KineticEnergy_onPrimalGrid)
       IF (no_primal_edges /= 3) THEN
-        CALL finish("calc_scalar_product_veloc_3d", "NONLINEAR_CORIOLIS_PRIMAL_GRID works only for triangles")
-      ENDIF
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level, w1, w2, w3, w4, w) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level, n, &
+!ICON_OMP edge_idx, edge_blk, w1, w2, w3, w4, w) ICON_OMP_DEFAULT_SCHEDULE
+        DO blockNo = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
 
-!         p_diag%kin(:,:,blockNo)=0.0_wp
-        
-        DO cell_index =  start_cell_index, end_cell_index
-          w1 =  patch_2d%edges%area_edge      &
-            &      (edge_of_cell_idx(cell_index,blockNo,1),edge_of_cell_blk(cell_index,blockNo,1))
-          w2 =  patch_2d%edges%area_edge      &
-            &      (edge_of_cell_idx(cell_index,blockNo,2),edge_of_cell_blk(cell_index,blockNo,2))
-          w3 =  patch_2d%edges%area_edge      &
-            &      (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))
-!           w4 = 2.0_wp * patch_2d%cells%area(cell_index,blockNo)
-          w = w1 + w2 + w3
-          DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+          p_diag%kin(:,:,blockNo)=0.0_wp
+          DO cell_index =  start_cell_index, end_cell_index
+            w = 0.0_wp
+            DO n=1,patch_2d%cells%max_connectivity
+              edge_idx = edge_of_cell_idx(cell_index,blockNo,n)
+              edge_blk = edge_of_cell_blk(cell_index,blockNo,n)
+              IF (edge_idx > 0) THEN
+                w1 = patch_2d%edges%area_edge(edge_idx, edge_blk)
+                w  = w + w1
+                DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+                  p_diag%kin(cell_index,level,blockNo) = p_diag%kin(cell_index,level,blockNo) + &
+                    & vn_e(edge_idx, level, edge_blk)**2 * w1
+                ENDDO
+              ENDIF
+            ENDDO
 
-            p_diag%kin(cell_index,level,blockNo)= (&!p_diag%kin(cell_index,level,blockNo)&
-              & vn_e(edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))**2 &
-              !*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
-              & *  w1 &
-              &+&
-              & vn_e(edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))**2 &
-              !&*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
-              & * w2 &
-              &+&
-              & vn_e(edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))**2 &
-              ! &*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
-              & * w3 &
-              & ) / w
-        
-            p_diag%kin(cell_index,level,blockNo) = 0.5_wp * &
-              & (p_diag%kin(cell_index,level,blockNo) - &
-              & ((p_diag%w(cell_index,level,blockNo)+p_diag%w(cell_index,level+1,blockNo))*0.5_wp)**2)
+            DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+              p_diag%kin(cell_index,level,blockNo) = 0.5_wp * &
+                (p_diag%kin(cell_index,level,blockNo) / w)! -   &
+               ! ((p_diag%w(cell_index,level,blockNo)+p_diag%w(cell_index,level+1,blockNo))*0.5_wp)**2)
+            END DO
 
           END DO
-        END DO
-      END DO ! block
+        END DO ! block
 !ICON_OMP_END_PARALLEL_DO
-      
-    ENDIF            
+!         CALL finish("calc_scalar_product_veloc_3d", "NONLINEAR_CORIOLIS_PRIMAL_GRID works only for triangles")
+      ELSE
+!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level, w1, w2, w3, w4, w) ICON_OMP_DEFAULT_SCHEDULE
+        DO blockNo = all_cells%start_block, all_cells%end_block
+          CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
+
+  !         p_diag%kin(:,:,blockNo)=0.0_wp
+
+          DO cell_index =  start_cell_index, end_cell_index
+            w1 =  patch_2d%edges%area_edge      &
+              &      (edge_of_cell_idx(cell_index,blockNo,1),edge_of_cell_blk(cell_index,blockNo,1))
+            w2 =  patch_2d%edges%area_edge      &
+              &      (edge_of_cell_idx(cell_index,blockNo,2),edge_of_cell_blk(cell_index,blockNo,2))
+            w3 =  patch_2d%edges%area_edge      &
+              &      (edge_of_cell_idx(cell_index,blockNo,3),edge_of_cell_blk(cell_index,blockNo,3))
+  !           w4 = 2.0_wp * patch_2d%cells%area(cell_index,blockNo)
+            w = w1 + w2 + w3
+            DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+
+              p_diag%kin(cell_index,level,blockNo)= (&!p_diag%kin(cell_index,level,blockNo)&
+                & vn_e(edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))**2 &
+                !*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,1),level,edge_of_cell_blk(cell_index,blockNo,1))&
+                & *  w1 &
+                &+&
+                & vn_e(edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))**2 &
+                !&*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,2),level,edge_of_cell_blk(cell_index,blockNo,2))&
+                & * w2 &
+                &+&
+                & vn_e(edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))**2 &
+                ! &*p_diag%ptp_vn                         (edge_of_cell_idx(cell_index,blockNo,3),level,edge_of_cell_blk(cell_index,blockNo,3))&
+                & * w3 &
+                & ) / w
+
+              p_diag%kin(cell_index,level,blockNo) = 0.5_wp * &
+                & (p_diag%kin(cell_index,level,blockNo) - &
+                & ((p_diag%w(cell_index,level,blockNo)+p_diag%w(cell_index,level+1,blockNo))*0.5_wp)**2)
+
+            END DO
+          END DO
+        END DO ! block
+!ICON_OMP_END_PARALLEL_DO
+      ENDIF
+
+    END SELECT
+          
     stop_detail_timer(timer_extra28,5)
 !       CALL sync_patch_array(sync_c, patch_2d,p_diag%kin)
       
@@ -232,9 +266,9 @@ CONTAINS
       
     !--------------------------------------------------------------    
     
-    CALL dbg_print('veloc_3d: vn_e',                   vn_e,      module_name,3, &
+    CALL dbg_print('veloc_3d: vn_e',                   vn_e,      module_name,1, &
           patch_2D%edges%owned )
-    CALL dbg_print('veloc_3d: kin energy',             p_diag%kin,module_name,3, &
+    CALL dbg_print('veloc_3d: kin energy',             p_diag%kin,module_name,1, &
           patch_2D%cells%owned )
    CALL dbg_print('veloc_3d: East-West  :u',p_diag%u,  module_name,1, &
          patch_2D%cells%owned )

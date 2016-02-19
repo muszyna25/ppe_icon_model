@@ -117,6 +117,9 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_DUAL_GRID  = 200 !Default
   INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_PRIMAL_GRID= 201
   INTEGER            :: NONLINEAR_CORIOLIS            = NONLINEAR_CORIOLIS_DUAL_GRID
+  INTEGER, PARAMETER :: KineticEnergy_onDualGrid      = 200
+  INTEGER, PARAMETER :: KineticEnergy_onPrimalGrid    = 201
+  INTEGER            :: KineticEnergy_type            = KineticEnergy_onDualGrid
   
   LOGICAL :: l_ANTICIPATED_VORTICITY  = .FALSE.
 
@@ -325,6 +328,7 @@ MODULE mo_ocean_nml
     &                 fast_performance_level       , &
     &                 MASS_MATRIX_INVERSION_TYPE   , &
     &                 NONLINEAR_CORIOLIS           , &
+    &                 KineticEnergy_type           , &
     &                 solver_FirstGuess            , &
     &                 use_smooth_ocean_boundary
 
