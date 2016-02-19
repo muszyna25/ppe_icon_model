@@ -200,7 +200,8 @@ function diff_results
                 FILE2="${MODEL_DIR2}/experiments/${DEXP2}/${DEXP2}_${TYPE}_${DATE}.nc"
     
                 echo "Compare for TYPE=$TYPE"
-                cdo diffn ${FILE1} ${FILE2} > cdo_diffn.out
+                TEMP_SUFFIX=$(cat /dev/urandom | env LC_CTYPE=C tr -cd 'a-f0-9' | head -c 32)
+                cdo diffn ${FILE1} ${FILE2} > cdo_diffn_${TEMP_SUFFIX}.out
     
                 STATUS=`echo $?`
                 if [ "$STATUS" -ne 0 ]; then
@@ -214,8 +215,8 @@ function diff_results
                     echo " - file 1: ${FILE1}"
                     echo " - file 2: ${FILE2}"
                     if [ "$CAT_CDO_DIFFN" == 'yes' ]; then
-                        cat cdo_diffn.out
-                        rm  cdo_diffn.out
+                        cat cdo_diffn_${TEMP_SUFFIX}.out
+                        rm  cdo_diffn_${TEMP_SUFFIX}.out
                     fi
                     IS_DIFFERENT='yes'
                     DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
