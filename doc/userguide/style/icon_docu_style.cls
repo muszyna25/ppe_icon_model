@@ -93,3 +93,15 @@
 \pagenumbering{gobble}
 \newcommand{\contrib}[1]{\textit{Authors of the original document:\\ {#1}}}
 \newcommand{\prt}{\partial}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% for code listings:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\RequirePackage{listings}
+\definecolor{dgray}{gray}{0.9}
+\lstset{basicstyle=\normalsize\ttfamily,
+%         frame=lines,
+        backgroundcolor=\color{dgray},
+        breaklines=true,
+        language=fortran,
+        escapechar=?
+        } 
