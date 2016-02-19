@@ -1147,10 +1147,10 @@ CONTAINS
         w1 = 0.0_wp
         w2 = 0.0_wp
         IF (dist_cell2edge(edge_index,edge_block,1) > 0.0_wp) THEN
-          w1 = 1.0_wp / dist_cell2edge(edge_index,edge_block,1)
+          w1 = exp(-dist_cell2edge(edge_index,edge_block,1))
         ENDIF
         IF (dist_cell2edge(edge_index,edge_block,2) > 0.0_wp) THEN
-          w2 = 1.0_wp / dist_cell2edge(edge_index,edge_block,2)
+          w2 = exp(-dist_cell2edge(edge_index,edge_block,2))
         ENDIF
          
         operators_coefficients%averageCellsToEdges(edge_index,edge_block,1) = w1 / (w1+w2)
