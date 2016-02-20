@@ -141,7 +141,7 @@ CONTAINS
                                     & operators_coefficients,&
                                     & p_diag%ptp_vn)    
     stop_detail_timer(timer_extra27,5)
-    ! CALL sync_patch_array(sync_e, patch_2d, p_diag%ptp_vn)
+    CALL sync_patch_array(sync_e, patch_2d, p_diag%ptp_vn)
    
     start_detail_timer(timer_extra28,5)
     !--------------------------------------------------------------
@@ -321,8 +321,8 @@ CONTAINS
     ! endLevel    = n_zlev
     
     CALL rot_vertex_ocean_3d( patch_3d, vn, p_vn_dual, operators_coefficients, vort_v)
-    ! this is not needed, since vort_v is on vertices in domain
-    ! CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
+    ! sync not needed here, but used for example for the Leith
+    CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
 
     IF(.NOT.l_ANTICIPATED_VORTICITY)THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(blockNo,level,je,start_edge_index,end_edge_index, this_vort_flux, &
@@ -593,8 +593,8 @@ CONTAINS
     !vn(3,1:n_zlev,5)=1.0E14
     
     CALL rot_vertex_ocean_3d( patch_3d, vn, p_vn_dual, operators_coefficients, vort_v)
-    ! this is not needed
-    ! CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
+    ! sync not needed here, but used for example for the Leith
+    CALL sync_patch_array(SYNC_V, patch_2D, vort_v)
     
 
     ! !$OMP PARALLEL

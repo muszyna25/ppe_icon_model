@@ -145,10 +145,10 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE grad_fd_norm_oce_3D( psi_c, patch_3D, grad_coeff, grad_norm_psi_e)
     
-    TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
-    REAL(wp), INTENT(in)                   :: grad_coeff(:,:,:)!(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(in)                   :: psi_c          (nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp), INTENT(inout)                :: grad_norm_psi_e(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    TYPE(t_patch_3D ),TARGET     :: patch_3D           ! in
+    REAL(wp)                     :: grad_coeff(:,:,:)  ! in (nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp)                     :: psi_c (:,:,:)      ! in (nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(inout)      :: grad_norm_psi_e(:,:,:) ! out (nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
     
     !
     INTEGER :: start_edge_index, end_edge_index, blockNo

@@ -24,7 +24,7 @@ MODULE mo_ocean_diffusion
   USE mo_impl_constants,      ONLY: boundary, sea_boundary, min_dolic ! ,max_char_length
   USE mo_parallel_config,     ONLY: nproma
   USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, VelocityDiffusion_type, laplacian_form, &
-    & HorizontalViscosity_HarmonicWeight
+    & HarmonicViscosity_weight
   USE mo_run_config,          ONLY: dtime
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_ocean_tracer, t_hydro_ocean_aux
@@ -108,7 +108,7 @@ CONTAINS
           & vort=p_diag%vort,                   &
           & div_coeff=operators_coeff%div_coeff,&
           & HarmonicDiffusion=laplacian_vn_out, &
-          & k_h=physics_parameters%HorizontalViscosity_Harmonic)
+          & k_h=physics_parameters%HarmonicViscosity_coeff)
         
       ENDIF
       
@@ -221,7 +221,7 @@ CONTAINS
             ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
             
             z_grad_u(edge_index,level,blockNo)%x = &
-              & physics_parameters%HorizontalViscosity_Harmonic(edge_index,level,blockNo)*  &
+              & physics_parameters%HarmonicViscosity_coeff(edge_index,level,blockNo)*  &
               & ( p_diag%p_vn(il_c2,level,ib_c2)%x &
               & - p_diag%p_vn(il_c1,level,ib_c1)%x)&
               & / patch_2D%edges%dual_edge_length(edge_index,blockNo)
@@ -445,7 +445,7 @@ CONTAINS
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_c(cell_index, blockNo)
           
           z_div_grad_u(cell_index,level,blockNo)%x =  &
-            & -physics_parameters%HorizontalViscosity_Biharmonic(edge_index,level,blockNo) *( & ! take the negative div in order to avoid the negation of the laplacian
+            & -physics_parameters%BiharmonicViscosity_coeff(edge_index,level,blockNo) *( & ! take the negative div in order to avoid the negation of the laplacian
             & z_grad_u(iidx(cell_index,blockNo,1),level,iblk(cell_index,blockNo,1))%x &
             & * operators_coeff%div_coeff(cell_index,level,blockNo,1)+ &
             & z_grad_u(iidx(cell_index,blockNo,2),level,iblk(cell_index,blockNo,2))%x &
@@ -630,7 +630,7 @@ CONTAINS
           ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
           
           laplacian_vn_out(edge_index,level,blockNo) &
-            &= -0.5_wp*physics_parameters%HorizontalViscosity_Biharmonic(edge_index,level,blockNo) &
+            &= -0.5_wp*physics_parameters%BiharmonicViscosity_coeff(edge_index,level,blockNo) &
             & * (div_c(il_c1,level,ib_c1)+div_c(il_c2,level,ib_c2))
               
         END DO
@@ -799,7 +799,7 @@ CONTAINS
     ! note that this will go through the lateral boundaries
     patch_2D         => patch_3D%p_patch_2d(1)
     edges_in_domain => patch_2D%edges%in_domain
-    k_h => physics_parameters%HorizontalViscosity_Biharmonic
+    k_h => physics_parameters%BiharmonicViscosity_coeff
     !-----------------------------------------------------------------------
     
     start_level = 1
@@ -828,7 +828,7 @@ CONTAINS
 !         & div_coeff=operators_coeff%div_coeff,&
 !         & HarmonicDiffusion=HarmonicDiffusion,&
 !         & nabla2_vec_e=z_nabla2_e,            &
-!         & k_h=physics_parameters%HorizontalViscosity_Harmonic)
+!         & k_h=physics_parameters%HarmonicViscosity_coeff)
 !     ELSE
       CALL veloc_diff_harmonic_curl_curl(     &
         & patch_3D=patch_3D,                  &
@@ -872,8 +872,8 @@ CONTAINS
     !     END DO
     
     ! compute divergence of vector field
-    CALL div_oce_3d( z_nabla2_e, patch_3D, operators_coeff%div_coeff, z_div_c)
-    CALL sync_patch_array(sync_c,patch_2D,z_div_c)
+    CALL div_oce_3d( z_nabla2_e, patch_3D, operators_coeff%div_coeff, z_div_c, subset_range=patch_2D%cells%all)
+!     CALL sync_patch_array(sync_c,patch_2D,z_div_c)
     
     ! compute rotation of vector field for the ocean
     CALL map_edges2vert_3d( patch_2D, &
@@ -917,10 +917,10 @@ CONTAINS
           DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
 
           nabla4_vec_e(edge_index,level,blockNo) =      &
-            & nabla4_vec_e(edge_index,level,blockNo) * (1.0_wp - HorizontalViscosity_HarmonicWeight) + &
+            & nabla4_vec_e(edge_index,level,blockNo) * (1.0_wp - HarmonicViscosity_weight) + &
             & z_nabla2_e(edge_index,level,blockNo) *    &
-            & physics_parameters%HorizontalViscosity_Harmonic(edge_index,level,blockNo) *  &
-            & HorizontalViscosity_HarmonicWeight
+            & physics_parameters%HarmonicViscosity_coeff(edge_index,level,blockNo) *  &
+            & HarmonicViscosity_weight
 
           END DO
         END DO

@@ -321,6 +321,8 @@ CONTAINS
     edge_levels => patch_3D%p_patch_1D(1)%dolic_e
     !-----------------------------------------------------------------------
     CALL rot_vertex_ocean_3d( patch_3d, vn, p_diag%p_vn_dual, ocean_coefficients, p_diag%vort)
+    ! sync not needed here, but used for example for the Leith
+    CALL sync_patch_array(SYNC_V, patch_2D, p_diag%vort)
     !--------------------------------------------------------------
     !calculate nonlinear coriolis term by
     !1) projection cell reconstructed velocity vector in tangential direction
