@@ -351,6 +351,23 @@ CONTAINS
 !       out_DiffusionCoefficients(:,:) = 3.82E-12_wp * &
 !         & (points_in_munk_layer * maxEdgeLength)**3
 
+   CASE(2)
+      ! multiply DiffusionReferenceValue by dual_edge_length**2
+      ! recommended values:
+      !  Harmonic viscosity: 1.5E-11
+      !  Biharmonic viscosicity: 3.15e-3
+      !  Tracer diffusion: 5.0E-13
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        out_DiffusionCoefficients(:,jb) = 0.0_wp
+        DO je = start_index, end_index
+
+            out_DiffusionCoefficients(je,jb) = &
+              & DiffusionBackgroundValue + DiffusionReferenceValue * patch_2D%edges%dual_edge_length(je,jb)**2
+
+        END DO
+      END DO
+
     CASE(3)! calculate coefficients for each location based on MUNK layer
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
