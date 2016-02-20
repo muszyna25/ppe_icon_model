@@ -415,10 +415,6 @@ MODULE mo_ocean_types
     onEdges            :: grad_coeff ! this should be revised
     mapCellsToEdges_2D :: averageCellsToEdges
     
-!     REAL(wp), ALLOCATABLE :: n2s_coeff(:,:,:,:)    ! factor for nabla2-scalar (nproma,nlev,nblks_c)
-!     REAL(wp), ALLOCATABLE :: n2v_coeff(:,:,:)      ! factor for nabla2-vector (nproma,nlev,nblks_e)
-
-
     !2) Required for description of boundary around a vertex
     !------------------------------------------------------------------------------
     onVertices_3D_Int :: bnd_edges_per_vertex

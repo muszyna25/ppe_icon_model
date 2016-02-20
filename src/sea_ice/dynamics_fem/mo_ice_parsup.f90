@@ -132,7 +132,7 @@ subroutine set_par_support
      end do
 
   end if
-  write(*,*) 'Communication arrays are set'
+!   write(*,*) 'Communication arrays are set'
 end subroutine set_par_support
 !=======================================================================
 subroutine communication_nod
