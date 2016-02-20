@@ -126,6 +126,8 @@ MODULE mo_sync_latbc
     nblks_e = p_patch%nblks_e
 
     DO tlev = 1, 2
+      NULLIFY(p_latbc_data(tlev)%atm_in%tke)
+
       ! Basic icon_remap data
       ALLOCATE(p_latbc_data(tlev)%topography_c(nproma,nblks_c),         &
                p_latbc_data(tlev)%z_ifc       (nproma,nlevp1,nblks_c),  &

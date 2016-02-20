@@ -45,6 +45,7 @@ module mo_ice_mesh
   integer, allocatable, dimension(:)           :: index_nod2D
   REAL(wp), allocatable, dimension(:)      :: cos_elem2D
   REAL(wp), allocatable, dimension(:)      :: sin_elem2D
+  REAL(wp), allocatable, dimension(:)      :: metrics_elem2D
   integer, allocatable, dimension(:)           :: col_pos
   REAL(wp), ALLOCATABLE, DIMENSION(:)    :: coriolis_nod2D
   !
@@ -265,6 +266,8 @@ subroutine mesh_scaling
   ! Transforms degrees in rad in coord_nod2D(2,nod2D)
   ! Fills in the arrays cos_elem2D(elem2D) and sin_elem2D(elem2D)
   !
+  use mo_physical_constants,  ONLY: earth_radius
+
   integer         :: i!, j, n, node
   !
   !  degrees to radians
@@ -272,15 +275,17 @@ subroutine mesh_scaling
   coord_nod2D(1,:)=coord_nod2D(1,:)*deg2rad
   coord_nod2D(2,:)=coord_nod2D(2,:)*deg2rad
 
-  allocate(cos_elem2D(elem2D), sin_elem2D(elem2D))
+  allocate(cos_elem2D(elem2D), sin_elem2D(elem2D), metrics_elem2D(elem2D))
 
   do i=1, elem2D
      cos_elem2D(i)=sum(cos(coord_nod2D(2,elem2D_nodes(:,i))))/3.0_wp
      sin_elem2D(i)=sum(sin(coord_nod2D(2,elem2D_nodes(:,i))))/3.0_wp
+     metrics_elem2D(i)=sin_elem2D(i)/cos_elem2D(i)/earth_radius
   end do
   !
   if(cartesian) cos_elem2D=1.0_wp
   if(cartesian) sin_elem2D=0.0_wp
+  if(cartesian) metrics_elem2D=1.0_wp
 end subroutine mesh_scaling
 !
 !---------------------------------------------------------------------------

@@ -19,7 +19,7 @@
 MODULE mo_util_cdi_table
 
   USE mo_impl_constants,   ONLY : MAX_CHAR_LENGTH
-  USE mo_util_string,      ONLY : int2string
+  USE mo_util_string,      ONLY : int2string, tolower
   USE mo_exception,        ONLY : finish
   USE mo_util_uuid,        ONLY : t_uuid, char2uuid, uuid_unparse, uuid_string_length
   USE mo_util_hash,        ONLY : util_hashword
@@ -542,7 +542,7 @@ CONTAINS
       ENDIF
       !
       ! create hash value
-      current_element%field%key = util_hashword(current_element%field%name, &
+      current_element%field%key = util_hashword(tolower(current_element%field%name), &
         &                         LEN_TRIM(current_element%field%name), 0)
 
       current_element => current_element%next_list_element
@@ -627,7 +627,7 @@ CONTAINS
     TYPE(t_inventory_element), POINTER :: this_list_element
     INTEGER :: key
     !
-    key = util_hashword(name, LEN_TRIM(name), 0)
+    key = util_hashword(tolower(name), LEN_TRIM(name), 0)
     !
     this_list_element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(this_list_element))
