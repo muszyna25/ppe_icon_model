@@ -716,7 +716,7 @@ CONTAINS
       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
     CALL add_var(ocean_params_list, 'BiharmonicViscosity_coeff', &
-      & params_oce%HarmonicViscosity_coeff , grid_unstructured_edge,&
+      & params_oce%BiharmonicViscosity_coeff , grid_unstructured_edge,&
       & za_depth_below_sea, &
       & t_cf_var('BiharmonicViscosity_coeff', 'kg/kg', 'horizontal velocity diffusion', datatype_flt),&
       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
