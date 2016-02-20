@@ -23,7 +23,7 @@ MODULE mo_ocean_diffusion
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates
   USE mo_impl_constants,      ONLY: boundary, sea_boundary, min_dolic ! ,max_char_length
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, veloc_diffusion_order, veloc_diffusion_form, &
+  USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, VelocityDiffusion_type, laplacian_form, &
     & HorizontalViscosity_HarmonicWeight
   USE mo_run_config,          ONLY: dtime
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -89,10 +89,10 @@ CONTAINS
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     
-    IF(veloc_diffusion_order==1)THEN
+    IF(VelocityDiffusion_type==1)THEN
       
       !divgrad laplacian is chosen
-      IF(veloc_diffusion_form==2)THEN
+      IF(laplacian_form==2)THEN
         CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of harmonic Laplacian not recommended")        
         CALL veloc_diff_harmonic_div_grad( patch_3D,&
           & physics_parameters,   &
@@ -100,7 +100,7 @@ CONTAINS
           & operators_coeff,&
           & laplacian_vn_out)
         
-      ELSEIF(veloc_diffusion_form==1)THEN
+      ELSEIF(laplacian_form==1)THEN
         ! inUse
         CALL veloc_diff_harmonic_curl_curl(     &
           & patch_3D=patch_3D,                  &
@@ -112,9 +112,9 @@ CONTAINS
         
       ENDIF
       
-    ELSEIF(veloc_diffusion_order==2 .or. veloc_diffusion_order==21)THEN
+    ELSEIF(VelocityDiffusion_type==2 .or. VelocityDiffusion_type==21)THEN
       
-      IF(veloc_diffusion_form==2)THEN
+      IF(laplacian_form==2)THEN
         !CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of biharmonic Laplacian not recommended")
         CALL veloc_diff_biharmonic_div_grad( patch_3D,   &
           & physics_parameters,      &
@@ -123,7 +123,7 @@ CONTAINS
           & laplacian_vn_out)
           
           
-      ELSEIF(veloc_diffusion_form==1)THEN
+      ELSEIF(laplacian_form==1)THEN
         
         CALL veloc_diff_biharmonic_curl_curl( &
           & patch_3D,            &
@@ -820,7 +820,7 @@ CONTAINS
 #endif
 !     z_rot_v(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v) =0.0_wp
 
-!     IF (veloc_diffusion_order==21) THEN
+!     IF (VelocityDiffusion_type==21) THEN
 !       CALL veloc_diff_harmonic_curl_curl(     &
 !         & patch_3D=patch_3D,                  &
 !         & u_vec_e=u_vec_e,                    &
@@ -909,7 +909,7 @@ CONTAINS
     END DO
 !ICON_OMP_END_DO
 
-    IF (veloc_diffusion_order==21) THEN
+    IF (VelocityDiffusion_type==21) THEN
 !ICON_OMP_DO PRIVATE(start_index,end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)

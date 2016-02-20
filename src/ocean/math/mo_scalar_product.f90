@@ -189,7 +189,7 @@ CONTAINS
             ENDDO
 
             DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
-              p_diag%kin(cell_index,level,blockNo) = 0.5_wp * &
+              p_diag%kin(cell_index,level,blockNo) = & ! this is doubled for some metaphysocal reason 0.5_wp * &
                 (p_diag%kin(cell_index,level,blockNo) / w)! -   &
                ! ((p_diag%w(cell_index,level,blockNo)+p_diag%w(cell_index,level+1,blockNo))*0.5_wp)**2)
             END DO
@@ -230,9 +230,9 @@ CONTAINS
                 & * w3 &
                 & ) / w
 
-              p_diag%kin(cell_index,level,blockNo) = 0.5_wp * &
-                & (p_diag%kin(cell_index,level,blockNo) - &
-                & ((p_diag%w(cell_index,level,blockNo)+p_diag%w(cell_index,level+1,blockNo))*0.5_wp)**2)
+!               p_diag%kin(cell_index,level,blockNo) = & ! this is doubled for some metaphysocal reason 0.5_wp * &
+!                 & (p_diag%kin(cell_index,level,blockNo) - &
+!                 & ((p_diag%w(cell_index,level,blockNo)+p_diag%w(cell_index,level+1,blockNo))*0.5_wp)**2)
 
             END DO
           END DO

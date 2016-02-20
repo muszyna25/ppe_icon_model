@@ -31,8 +31,8 @@ MODULE mo_ocean_physics
     & HorizontalViscosity_HarmonicReference, k_veloc_v,       &
     & k_pot_temp_v, k_sal_v, no_tracer,                       &
     & max_vert_diff_veloc, max_vert_diff_trac,                &
-    & BiharmonicViscosity_type, HarmonicViscosity_type,       &
-    & veloc_diffusion_order,                                  &
+    & BiharmonicViscosity_scaling, HarmonicViscosity_scaling,       &
+    & VelocityDiffusion_type,                                  &
     & n_points_in_munk_layer,                                 &
     & HorizontalViscosity_BiharmonicReference,                &
     & richardson_tracer, richardson_veloc,                    &
@@ -54,11 +54,11 @@ MODULE mo_ocean_physics
     & GMRedi_configuration,GMRedi_combined,                   &
     & GM_only,Redi_only,                                      &
     & leith_closure, leith_closure_gamma,                     & 
-    & veloc_diffusion_form, biharmonic_const,                 &
+    & laplacian_form, biharmonic_const,                 &
     & HorizontalViscosity_SpatialSmoothFactor,                &
     & VerticalViscosity_TimeWeight, OceanReferenceDensity,    &
     & tracer_TopWindMixing, WindMixingDecayDepth,             &
-    & velocity_TopWindMixing, TracerHorizontalDiffusion_type, &
+    & velocity_TopWindMixing, TracerHorizontalDiffusion_scaling, &
     &  Temperature_HorizontalDiffusion_Background,            &
     &  Temperature_HorizontalDiffusion_Reference,             &
     &  Salinity_HorizontalDiffusion_Background,               &
@@ -210,9 +210,9 @@ CONTAINS
       physics_param%k_tracer_GM_kappa = k_tracer_GM_kappa_parameter
     ENDIF
 
-    IF (veloc_diffusion_order == 1 .OR. veloc_diffusion_order == 21) THEN
+    IF (VelocityDiffusion_type == 1 .OR. VelocityDiffusion_type == 21 .OR. VelocityDiffusion_type == 213) THEN
       ! harmonic or harmonic+biharmonic
-      CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, DiffusionType=HarmonicViscosity_type, &
+      CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, DiffusionScaling=HarmonicViscosity_scaling, &
         & DiffusionReferenceValue=HorizontalViscosity_HarmonicReference, &
         & DiffusionBackgroundValue=HorizontalViscosity_HarmonicBackground,  &
         & out_DiffusionCoefficients=physics_param%HorizontalViscosity_Harmonic)
@@ -220,9 +220,9 @@ CONTAINS
         & in_subset=patch_2D%edges%owned)
     ENDIF
 
-    IF (veloc_diffusion_order == 2 .OR. veloc_diffusion_order == 21) THEN
+    IF (VelocityDiffusion_type == 2 .OR. VelocityDiffusion_type == 21 .OR. VelocityDiffusion_type == 213) THEN
       ! biharmonic or harmonic+biharmonic
-      CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, DiffusionType=BiharmonicViscosity_type, &
+      CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, DiffusionScaling=BiharmonicViscosity_scaling, &
         & DiffusionReferenceValue=HorizontalViscosity_BiharmonicReference, &
         & DiffusionBackgroundValue=HorizontalViscosity_BiharmonicBackground,  &
         & out_DiffusionCoefficients=physics_param%HorizontalViscosity_Biharmonic)
@@ -247,7 +247,7 @@ CONTAINS
       ENDIF
 
       CALL calculate_initial_horizontal_diffusion(patch_3D=patch_3D, &
-        & DiffusionType=TracerHorizontalDiffusion_type, &
+        & DiffusionScaling=TracerHorizontalDiffusion_scaling, &
         & DiffusionReferenceValue=physics_param%Tracer_HorizontalDiffusion_Reference(i), &
         & DiffusionBackgroundValue=physics_param%Tracer_HorizontalDiffusion_Background(i), &
         & out_DiffusionCoefficients=physics_param%k_tracer_h(:,:,:,i))
@@ -275,9 +275,9 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   SUBROUTINE calculate_initial_horizontal_diffusion(patch_3D, &
-    & DiffusionType, DiffusionReferenceValue, DiffusionBackgroundValue, out_DiffusionCoefficients)
+    & DiffusionScaling, DiffusionReferenceValue, DiffusionBackgroundValue, out_DiffusionCoefficients)
     TYPE(t_patch_3d), POINTER :: patch_3D
-    INTEGER, INTENT(in) :: DiffusionType
+    INTEGER, INTENT(in) :: DiffusionScaling
     REAL(wp), INTENT(in) :: DiffusionReferenceValue, DiffusionBackgroundValue
     REAL(wp) ::  out_DiffusionCoefficients(:,:,:)
 
@@ -314,7 +314,7 @@ CONTAINS
     meanCellArea = minmaxmean_length(3)
     maxCellArea = minmaxmean_length(2)
 
-    SELECT CASE(DiffusionType)
+    SELECT CASE(DiffusionScaling)
 
     CASE(1)
       out_DiffusionCoefficients(:,:,:) = DiffusionReferenceValue
@@ -475,7 +475,7 @@ CONTAINS
       END DO
 
     CASE DEFAULT
-        CALL finish ('mo_ocean_physics:calculate_initial_horizontal_diffusion', 'uknown DiffusionType')
+        CALL finish ('mo_ocean_physics:calculate_initial_horizontal_diffusion', 'uknown DiffusionScaling')
 
     END SELECT
 
@@ -648,7 +648,7 @@ CONTAINS
     alloc_cell_blocks = patch_2D%alloc_cell_blocks
     nblks_e = patch_2D%nblks_e
 
-    IF (veloc_diffusion_order == 1 .OR. veloc_diffusion_order == 21) THEN
+    IF (VelocityDiffusion_type == 1 .OR. VelocityDiffusion_type == 21) THEN
       CALL add_var(ocean_params_list, 'HorizontalViscosity_Harmonic', &
         & params_oce%HorizontalViscosity_Harmonic , grid_unstructured_edge,&
         & za_depth_below_sea, &
@@ -656,7 +656,7 @@ CONTAINS
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_physics"))
     ENDIF
-    IF (veloc_diffusion_order == 2 .OR. veloc_diffusion_order == 21) THEN
+    IF (VelocityDiffusion_type == 2 .OR. VelocityDiffusion_type == 21) THEN
       CALL add_var(ocean_params_list, 'HorizontalViscosity_Biharmonic', &
         & params_oce%HorizontalViscosity_Biharmonic , grid_unstructured_edge,&
         & za_depth_below_sea, &
@@ -866,10 +866,10 @@ CONTAINS
       CALL finish("update_ho_params", "unknown physics_parameters_type")
     END SELECT
 
-    IF(HarmonicViscosity_type == 4)THEN
+    IF(HarmonicViscosity_scaling == 4)THEN
         CALL calculate_leith_closure_harmonic(patch_3d, ocean_state, params_oce, op_coeffs)
     ENDIF
-    IF(BiharmonicViscosity_type == 4)THEN
+    IF(BiharmonicViscosity_scaling == 4)THEN
         CALL calculate_leith_closure_biharmonic(patch_3d, ocean_state, params_oce, op_coeffs)
     ENDIF
 

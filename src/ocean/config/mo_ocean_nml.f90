@@ -218,8 +218,8 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: implicit_diffusion = 1
   INTEGER  :: expl_vertical_tracer_diff   = 1    ! NOT USED
   INTEGER  :: vertical_tracer_diffusion_type   = 1    ! 0=explicit, 1 = implicit
-  INTEGER  :: veloc_diffusion_order = 1          !order of friction/diffusion in velocity eq.: 1=laplacian, 2=biharmonic
-  INTEGER  :: veloc_diffusion_form  = 1          !form of friction/diffusion operator
+  INTEGER  :: VelocityDiffusion_type = 1         !1=laplacian, 2=biharmonic, 21=laplacian+biharmonic, 213=laplacian+biharmonic+leith
+  INTEGER  :: laplacian_form  = 1          !form of friction/diffusion operator
                                                  !1: Laplace=curlcurl-graddiv
                                                  !2: Laplace=div k  grad
                                                  !For the corresponding biharmonic choice the laplacian in their form 1 or 2 are iterated
@@ -323,8 +323,8 @@ MODULE mo_ocean_nml
     &                 threshold_vn                 , &
     &                 surface_module               , &
     &                 use_continuity_correction    , &
-    &                 veloc_diffusion_form         , &
-    &                 veloc_diffusion_order        , &
+    &                 laplacian_form         , &
+    &                 VelocityDiffusion_type        , &
     &                 fast_performance_level       , &
     &                 MASS_MATRIX_INVERSION_TYPE   , &
     &                 NONLINEAR_CORIOLIS           , &
@@ -383,19 +383,19 @@ MODULE mo_ocean_nml
                                       !size of this number depends also on the position of the biharmonic diffusion coefficient
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   REAL(wp) :: HorizontalViscosity_HarmonicWeight = 0.5_wp ! when combining harmonc+biharmonic
-  INTEGER  :: BiharmonicViscosity_type = 1
-  INTEGER  :: HarmonicViscosity_type = 1
+  INTEGER  :: BiharmonicViscosity_scaling = 1
+  INTEGER  :: HarmonicViscosity_scaling = 1
   INTEGER  :: HorizontalViscosity_SmoothIterations = 0
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
   INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
 
-  INTEGER :: TracerHorizontalDiffusion_type = 1 ! 1= constant, 5=scale with edge (dual) **3
+  INTEGER :: TracerHorizontalDiffusion_scaling = 1 ! 1= constant, 5=scale with edge (dual) **3
   REAL(wp) :: TracerHorizontalDiffusion_ScaleWeight = 1.0_wp
   
   NAMELIST/ocean_diffusion_nml/&
-    &  BiharmonicViscosity_type,                  &
-    &  HarmonicViscosity_type,                    &
+    &  BiharmonicViscosity_scaling,                  &
+    &  HarmonicViscosity_scaling,                    &
     &  HorizontalViscosity_SmoothIterations,      &
     &  HorizontalViscosity_SpatialSmoothFactor,   &
     &  HorizontalViscosity_HarmonicBackground,    &
@@ -408,7 +408,7 @@ MODULE mo_ocean_nml
     &  k_pot_temp_v                ,    &
     &  k_sal_v                     ,    &
     &  k_veloc_v                   ,    &
-    &  TracerHorizontalDiffusion_type,  &
+    &  TracerHorizontalDiffusion_scaling,  &
     &  Temperature_HorizontalDiffusion_Background,&
     &  Temperature_HorizontalDiffusion_Reference, &
     &  Salinity_HorizontalDiffusion_Background,&
