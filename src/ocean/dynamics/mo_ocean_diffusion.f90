@@ -1501,6 +1501,5 @@ CONTAINS
 ! 
 !   END SUBROUTINE tracer_diffusion_vertical_implicit
 !   !------------------------------------------------------------------------
-
   
 END MODULE mo_ocean_diffusion
