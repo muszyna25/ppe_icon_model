@@ -536,9 +536,9 @@ CONTAINS
 !      vol_h(:,:) = patch_3d%p_patch_2d(n_dom)%cells%area(:,:) * ocean_state%p_prog(nnew(1))%h(:,:)
 !      CALL dbg_print('after ocean_gmres: vol_h(:,:)',vol_h ,str_module,idt_src, in_subset=owned_cells)
       !---------------------------------------------------------------------
+      idt_src=1  ! output print level (1-5, fix)
       CALL dbg_print('vn-new',ocean_state%p_prog(nnew(1))%vn,str_module, idt_src,in_subset=owned_edges)
       minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=owned_cells)
-      idt_src=1  ! output print level (1-5, fix)
 
       CALL debug_print_MaxMinMean('after ocean_gmres: h-new', minmaxmean, str_module, idt_src)
       IF (minmaxmean(1) + patch_3D%p_patch_1D(1)%del_zlev_m(1) <= min_top_height) THEN

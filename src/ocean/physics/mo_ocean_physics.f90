@@ -986,7 +986,7 @@ CONTAINS
 !      LEITH_EXPONENT=3
     !1) calculation leith closure or modified LeithClosure_type
 !     IF(LeithClosure_type==1)THEN
-!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, start_level, level,end_level, &
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, je, level,end_level, &
 !ICON_OMP vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk, grad_vort_abs) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
@@ -1066,7 +1066,7 @@ CONTAINS
     CALL div_oce_3d( ocean_state%p_diag%ptp_vn, patch_3D, op_coeff%div_coeff, div_c, &
       & subset_range=patch_2d%cells%all)
 
-!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, start_level, level,end_level, &
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, je, level,end_level, &
 !ICON_OMP vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk, grad_vort_abs, &
 !ICON_OMP cell1_idx, cell1_blk, cell2_idx, cell2_blk, div_e) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
