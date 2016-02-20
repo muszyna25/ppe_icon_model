@@ -281,10 +281,11 @@ CONTAINS
         & DiffusionReferenceValue=physics_param%Tracer_HorizontalDiffusion_Reference(i), &
         & DiffusionBackgroundValue=physics_param%Tracer_HorizontalDiffusion_Background(i), &
         & out_DiffusionCoefficients=tracer_basisCoeff)
-      CALL dbg_print('Tracer Diff:'     ,tracer_basisCoeff,str_module,0, &
-        & in_subset=patch_2D%edges%owned)
-      CALL copy2Dto3D(physics_param%BiharmonicViscosity_BasisCoeff, physics_param%k_tracer_h(:,:,:,i), &
+      CALL copy2Dto3D(tracer_basisCoeff, physics_param%k_tracer_h(:,:,:,i), &
         all_edges)
+      CALL dbg_print('Tracer Diff:', physics_param%k_tracer_h(:,:,:,i),str_module,0, &
+        & in_subset=patch_2D%edges%owned)
+
 
       physics_param%a_tracer_v(:,:,:,i) = physics_param%a_tracer_v_back(i)
  
@@ -352,7 +353,7 @@ CONTAINS
 !         & (points_in_munk_layer * maxEdgeLength)**3
 
    CASE(2)
-      ! multiply DiffusionReferenceValue by dual_edge_length**2
+      ! linear scale: multiply DiffusionReferenceValue by dual_edge_length
       ! recommended values:
       !  Harmonic viscosity: 1.5E-11
       !  Biharmonic viscosicity: 3.15e-3
@@ -363,7 +364,7 @@ CONTAINS
         DO je = start_index, end_index
 
             out_DiffusionCoefficients(je,jb) = &
-              & DiffusionBackgroundValue + DiffusionReferenceValue * patch_2D%edges%dual_edge_length(je,jb)**2
+              & DiffusionBackgroundValue + DiffusionReferenceValue * patch_2D%edges%dual_edge_length(je,jb)
 
         END DO
       END DO
@@ -2425,11 +2426,13 @@ CONTAINS
 
     INTEGER :: block, level, start_index, end_index, idx
 
-!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, idx)
+!ICON_OMP_PARALLEL_DO PRIVATE(block, start_index, end_index, idx, level)
       DO block = in_subset%start_block, in_subset%end_block
         CALL get_index_range(in_subset, block, start_index, end_index)
         DO idx = start_index, end_index
-          to(idx, :, block) = from(idx, block)
+          DO level = 1, in_subset%vertical_levels(idx,block)
+            to(idx, level, block) = from(idx, block)
+          ENDDO
         ENDDO
       ENDDO
 !ICON_OMP_END_PARALLEL_DO

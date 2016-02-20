@@ -1808,6 +1808,9 @@ CONTAINS
     ! subset range pointer
     all_cells => p_patch%cells%all
 
+    ! CALL dbg_print('omipBudOce:p_as%pao', p_as%pao,str_module, 1, in_subset=p_patch%cells%owned)
+    ! CALL dbg_print('omipBudOce:Tsurf', Tsurf,str_module, 1,in_subset=p_patch%cells%owned)
+
     !-----------------------------------------------------------------------
     ! Compute water vapor pressure and specific humididty in 2m height (esta)
     ! and at water surface (estw) according to "Buck Research Manual (1996)
