@@ -215,6 +215,14 @@ CONTAINS
       physics_param%k_tracer_GM_kappa = k_tracer_GM_kappa_parameter
     ENDIF
 
+    CALL dbg_print('edge area:', patch_2D%edges%area_edge, str_module,0, &
+      & in_subset=patch_2D%edges%owned)
+    CALL dbg_print('edge lentgh:', patch_2D%edges%primal_edge_length, str_module,0, &
+      & in_subset=patch_2D%edges%owned)
+    CALL dbg_print('dual edge lentgh:', patch_2D%edges%dual_edge_length, str_module,0, &
+      & in_subset=patch_2D%edges%owned)
+
+
     IF (VelocityDiffusion_type == 1 .OR. VelocityDiffusion_type == 21 ) THEN
       ! harmonic or harmonic+biharmonic
       CALL scale_horizontal_diffusion(patch_3D=patch_3D, DiffusionScaling=HarmonicViscosity_scaling, &
@@ -353,63 +361,38 @@ CONTAINS
 !         & (points_in_munk_layer * maxEdgeLength)**3
 
    CASE(2)
-      ! linear scale: multiply DiffusionReferenceValue by dual_edge_length
-      ! recommended values:
-      !  Harmonic viscosity: 1.5E-11
-      !  Biharmonic viscosicity: 3.15e-3
-      !  Tracer diffusion: 5.0E-13
+      ! linear scale
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
         out_DiffusionCoefficients(:,jb) = 0.0_wp
         DO je = start_index, end_index
 
             out_DiffusionCoefficients(je,jb) = &
-              & DiffusionBackgroundValue + DiffusionReferenceValue * patch_2D%edges%dual_edge_length(je,jb)
+              & DiffusionBackgroundValue + DiffusionReferenceValue * SQRT(patch_2D%edges%area_edge(je,jb))
 
         END DO
       END DO
 
-    CASE(3)! calculate coefficients for each location based on MUNK layer
-      DO jb = all_edges%start_block, all_edges%end_block
-        CALL get_index_range(all_edges, jb, start_index, end_index)
-        out_DiffusionCoefficients(:,jb) = 0.0_wp
-        DO je = start_index, end_index
-          !calculate lower bound for diffusivity
-          !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29))
-          out_DiffusionCoefficients(je,jb) = 3.82E-12_wp  &
-            & *(points_in_munk_layer * patch_2D%edges%primal_edge_length(je,jb))**3
-        END DO
-      END DO
-
-    CASE(5)
-      ! Simple scaling of the constant diffusion using the dual edge
-      ! this is the default scaling
-      DO jb = all_edges%start_block, all_edges%end_block
-        CALL get_index_range(all_edges, jb, start_index, end_index)
-        out_DiffusionCoefficients(:,jb) = 0.0_wp
-        DO je = start_index, end_index
-          dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
-          length_scale = dual_length_scale**3
-
-          out_DiffusionCoefficients(je,jb) = &
-            & DiffusionBackgroundValue + &
-            & DiffusionReferenceValue * length_scale
-
-        END DO
-      END DO
+ !   CASE(3)! calculate coefficients for each location based on MUNK layer
+ !     DO jb = all_edges%start_block, all_edges%end_block
+ !       CALL get_index_range(all_edges, jb, start_index, end_index)
+ !       out_DiffusionCoefficients(:,jb) = 0.0_wp
+ !       DO je = start_index, end_index
+ !         !calculate lower bound for diffusivity
+ !         !The factor cos(lat) is omitted here, because of equatorial reference (cf. Griffies, eq. (18.29))
+ !         out_DiffusionCoefficients(je,jb) = 3.82E-12_wp  &
+ !           & *(points_in_munk_layer * patch_2D%edges%primal_edge_length(je,jb))**3
+ !       END DO
+ !     END DO
 
     CASE(6)
-      ! Simple scaling of the constant diffusion using the prime edge
       DO jb = all_edges%start_block, all_edges%end_block
         CALL get_index_range(all_edges, jb, start_index, end_index)
         out_DiffusionCoefficients(:,jb) = 0.0_wp
         DO je = start_index, end_index
-          prime_length_scale = patch_2D%edges%primal_edge_length(je,jb) / maxEdgeLength
-          length_scale = prime_length_scale**3
 
-          out_DiffusionCoefficients(je,jb) = &
-            & DiffusionBackgroundValue + &
-            & DiffusionReferenceValue * length_scale
+            out_DiffusionCoefficients(je,jb) = &
+              & DiffusionBackgroundValue + DiffusionReferenceValue * SQRT(patch_2D%edges%area_edge(je,jb))**3
 
         END DO
       END DO
@@ -432,6 +415,18 @@ CONTAINS
       END DO
 
     CASE(8)
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        out_DiffusionCoefficients(:,jb) = 0.0_wp
+        DO je = start_index, end_index
+
+            out_DiffusionCoefficients(je,jb) = &
+              & DiffusionBackgroundValue + DiffusionReferenceValue * patch_2D%edges%primal_edge_length(je,jb)**3
+
+        END DO
+      END DO
+
+    CASE(9)
       ! multiply DiffusionReferenceValue by sqrt(dual_edge_length**3)
       ! recommended values:
       !  Biharmonic viscosicity: 
@@ -502,6 +497,39 @@ CONTAINS
             out_DiffusionCoefficients(je,jb) = &
               & DiffusionBackgroundValue +        &
               & DiffusionReferenceValue * length_scale
+
+        END DO
+      END DO
+ 
+    CASE(14)
+      ! Simple scaling of the constant diffusion using the dual edge
+      ! this is the default scaling
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        out_DiffusionCoefficients(:,jb) = 0.0_wp
+        DO je = start_index, end_index
+          dual_length_scale = patch_2D%edges%dual_edge_length(je,jb) / maxDualEdgeLength
+          length_scale = dual_length_scale**3
+
+          out_DiffusionCoefficients(je,jb) = &
+            & DiffusionBackgroundValue + &
+            & DiffusionReferenceValue * length_scale
+
+        END DO
+      END DO
+
+    CASE(15)
+      ! Simple scaling of the constant diffusion using the prime edge
+      DO jb = all_edges%start_block, all_edges%end_block
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+        out_DiffusionCoefficients(:,jb) = 0.0_wp
+        DO je = start_index, end_index
+          prime_length_scale = patch_2D%edges%primal_edge_length(je,jb) / maxEdgeLength
+          length_scale = prime_length_scale**3
+
+          out_DiffusionCoefficients(je,jb) = &
+            & DiffusionBackgroundValue + &
+            & DiffusionReferenceValue * length_scale
 
         END DO
       END DO
