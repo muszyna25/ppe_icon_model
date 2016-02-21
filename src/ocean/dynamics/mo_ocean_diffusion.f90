@@ -708,8 +708,9 @@ CONTAINS
     z_div_c = 0.0_wp
 #endif
 
-    CALL div_oce_3d( u_vec_e, patch_3D, div_coeff, z_div_c)
-    CALL sync_patch_array(sync_c,patch_2D,z_div_c)
+    ! vn is synced on all edges
+    CALL div_oce_3d( u_vec_e, patch_3D, div_coeff, z_div_c, subset_range=patch_2D%cells%all)
+!     CALL sync_patch_array(sync_c,patch_2D,z_div_c)
     
     ! compute rotation of vector field for the ocean
     !CALL rot_vertex_ocean_3D( patch_2D, u_vec_e, p_vn_dual, operators_coeff, z_rot_v)!
@@ -752,7 +753,7 @@ CONTAINS
       IF (present(nabla2_vec_e)) &
         nabla2_vec_e(:,:,blockNo) = nabla2(:,:)
       IF (present(HarmonicDiffusion)) &
-        HarmonicDiffusion(:,:,blockNo) = nabla2(:,:) * k_h(:,:,blockNo)
+        HarmonicDiffusion(:,:,blockNo) = ABS(nabla2(:,:) * k_h(:,:,blockNo))
     END DO
 !ICON_OMP_END_PARALLEL_DO
    
@@ -893,7 +894,7 @@ CONTAINS
       DO edge_index = start_index, end_index
         DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
           
-          nabla4_vec_e(edge_index,level,blockNo) =  &    ! patch_3D%wet_e(edge_index,level,blockNo) *&
+          nabla4_vec_e(edge_index,level,blockNo) =  ABS( &    ! patch_3D%wet_e(edge_index,level,blockNo) *&
             &  - k_h(edge_index,level,blockNo) * ( &
             & (patch_2D%edges%tangent_orientation(edge_index,blockNo) *  &
             & ( z_rot_v(ividx(edge_index,blockNo,2),level,ivblk(edge_index,blockNo,2))  &
@@ -902,7 +903,7 @@ CONTAINS
             & + & !patch_3D%wet_e(edge_index,level,blockNo)  *                    &
             & (( z_div_c(icidx(edge_index,blockNo,2),level,icblk(edge_index,blockNo,2))    &
             & - z_div_c(icidx(edge_index,blockNo,1),level,icblk(edge_index,blockNo,1)) )  &
-            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo)))
+            & * patch_2D%edges%inv_dual_edge_length(edge_index,blockNo))))
 
         END DO
       END DO
@@ -918,7 +919,7 @@ CONTAINS
 
           nabla4_vec_e(edge_index,level,blockNo) =      &
             & nabla4_vec_e(edge_index,level,blockNo) * (1.0_wp - HarmonicViscosity_weight) + &
-            & z_nabla2_e(edge_index,level,blockNo) *    &
+            & ABS(z_nabla2_e(edge_index,level,blockNo)) *    &
             & physics_parameters%HarmonicViscosity_coeff(edge_index,level,blockNo) *  &
             & HarmonicViscosity_weight
 
