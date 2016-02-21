@@ -380,18 +380,19 @@ MODULE mo_ocean_nml
                                       !size of this number depends also on the position of the biharmonic diffusion coefficient
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   REAL(wp) :: HarmonicViscosity_weight = 0.5_wp ! when combining harmonc+biharmonic
-  INTEGER  :: BiharmonicViscosity_scaling = 1
+  INTEGER  :: BiharmonicViscosity_scaling = 4
   INTEGER  :: HarmonicViscosity_scaling = 1
-  INTEGER  :: LeithClosure_type = 1       !viscosity calculation for biharmonic operator: =1 pure leith closure, =2 modified leith closure
+  ! do not chamge this, they are used in bitwise logical operations
+  INTEGER  :: LeithClosure_order = 0 ! 1=laplacian, 2= biharmonc, 21 =laplacian+biharmonc
+  INTEGER  :: LeithClosure_form = 0  ! 1=vort, 2=vort+div
   REAL(wp) :: LeithHarmonicViscosity_background = 0.0_wp
   REAL(wp) :: LeithHarmonicViscosity_reference = 3.82E-12_wp
-  INTEGER  :: LeithHarmonicViscosity_scaling = 7
-  REAL(wp) :: LeithHarmonicViscosity_weight = 0.0_wp
+  INTEGER  :: LeithHarmonicViscosity_scaling = 4
   REAL(wp) :: LeithBiharmonicViscosity_background = 0.0_wp
   REAL(wp) :: LeithBiharmonicViscosity_reference = 3.82E-12_wp
-  INTEGER  :: LeithBiharmonicViscosity_scaling = 7
-  REAL(wp) :: LeithBiharmonicViscosity_weight = 0.0_wp
-  REAL(wp) :: LeithClosure_gamma = 0.25_wp !dimensionless constant for Leith closure
+  INTEGER  :: LeithBiharmonicViscosity_scaling = 4
+!   REAL(wp) :: LeithClosure_gamma = 0.25_wp !dimensionless constant for Leith closure, not used
+
   INTEGER  :: HorizontalViscosity_SmoothIterations = 0
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
@@ -415,11 +416,11 @@ MODULE mo_ocean_nml
     &  k_pot_temp_v                ,    &
     &  k_sal_v                     ,    &
     &  k_veloc_v                   ,    &
-    &  TracerHorizontalDiffusion_scaling,  &
+    &  TracerHorizontalDiffusion_scaling,         &
     &  Temperature_HorizontalDiffusion_Background,&
     &  Temperature_HorizontalDiffusion_Reference, &
-    &  Salinity_HorizontalDiffusion_Background,&
-    &  Salinity_HorizontalDiffusion_Reference, &
+    &  Salinity_HorizontalDiffusion_Background,   &
+    &  Salinity_HorizontalDiffusion_Reference,    &
     &  MAX_VERT_DIFF_TRAC          ,    &
     &  MAX_VERT_DIFF_VELOC         ,    &
     &  convection_InstabilityThreshold, &
@@ -427,17 +428,15 @@ MODULE mo_ocean_nml
     &  k_tracer_dianeutral_parameter,   &
     &  k_tracer_isoneutral_parameter,   &
     &  k_tracer_GM_kappa_parameter,     &
-    &  LeithClosure_type,               &
-    &  LeithClosure_gamma,              &
     &  biharmonic_const,                &
+    &  LeithClosure_order,              &
+    &  LeithClosure_form,               &
     &  LeithHarmonicViscosity_background,       &
     &  LeithHarmonicViscosity_reference,        &
     &  LeithHarmonicViscosity_scaling,          &
-    &  LeithHarmonicViscosity_weight,           &
-    &  LeithBiharmonicViscosity_background,       &
-    &  LeithBiharmonicViscosity_reference,        &
-    &  LeithBiharmonicViscosity_scaling,          &
-    &  LeithBiharmonicViscosity_weight
+    &  LeithBiharmonicViscosity_background,     &
+    &  LeithBiharmonicViscosity_reference,      &
+    &  LeithBiharmonicViscosity_scaling
 
   !Parameters for GM-Redi configuration
   INTEGER            :: GMRedi_configuration=0
