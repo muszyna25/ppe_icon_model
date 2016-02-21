@@ -136,7 +136,7 @@ CONTAINS
         & p_os%p_aux%bc_top_tracer(:,:,tracer_index),       &
         & p_os%p_aux%bc_bot_tracer(:,:,tracer_index),       &
         & p_param,                                          &
-        & p_param%k_tracer_h(:,:,:,tracer_index ),          &
+        & p_param%TracerDiffusion_coeff(:,:,:,tracer_index ),          &
         & p_param%a_tracer_v(:,:,:, tracer_index),          &
         & p_os%p_prog(nnew(1))%ocean_tracers(tracer_index), &
         & tracer_index )

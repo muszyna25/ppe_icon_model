@@ -355,7 +355,7 @@ MODULE mo_ocean_types
     ! diffusion coefficients for horizontal/vertical velocity,
     !  temp. and salinity, dim=(nproma,n_zlev,nblks_ec)/(nproma,n_zlev+1,nblks_e)
     onEdges_tracers ::       &
-      & k_tracer_h            ! coefficient of horizontal tracer diffusion
+      & TracerDiffusion_coeff            ! coefficient of horizontal tracer diffusion
 
 !     onEdges :: &
 !       & k_veloc_h             ! coefficient of horizontal velocity diffusion

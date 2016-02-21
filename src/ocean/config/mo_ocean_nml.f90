@@ -392,7 +392,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: LeithBiharmonicViscosity_reference = 3.82E-12_wp
   INTEGER  :: LeithBiharmonicViscosity_scaling = 4
 !   REAL(wp) :: LeithClosure_gamma = 0.25_wp !dimensionless constant for Leith closure, not used
-
+  REAL(wp) :: TracerDiffusion_LeithWeight = 0.0_wp ! if Leith is active then the Leith coeff*this id added to the tracer diffusion coeff
   INTEGER  :: HorizontalViscosity_SmoothIterations = 0
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
@@ -436,7 +436,8 @@ MODULE mo_ocean_nml
     &  LeithHarmonicViscosity_scaling,          &
     &  LeithBiharmonicViscosity_background,     &
     &  LeithBiharmonicViscosity_reference,      &
-    &  LeithBiharmonicViscosity_scaling
+    &  LeithBiharmonicViscosity_scaling,        &
+    &  TracerDiffusion_LeithWeight
 
   !Parameters for GM-Redi configuration
   INTEGER            :: GMRedi_configuration=0

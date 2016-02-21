@@ -68,7 +68,8 @@ MODULE mo_ocean_physics
     &  LeithHarmonicViscosity_scaling,                                         &
     &  LeithBiharmonicViscosity_background, LeithBiharmonicViscosity_reference,&
     &  LeithBiharmonicViscosity_scaling,                       &
-    &  LeithClosure_order,   LeithClosure_form
+    &  LeithClosure_order,   LeithClosure_form, &
+    &  TracerDiffusion_LeithWeight
 
    !, l_convection, l_pp_scheme
   USE mo_parallel_config,     ONLY: nproma
@@ -137,9 +138,11 @@ MODULE mo_ocean_physics
       & BiharmonicViscosity_BasisCoeff(:,:), & ! coefficient of horizontal velocity biharmonic diffusion
       & LeithHarmonicViscosity_BasisCoeff(:,:), & ! coefficient of Leith scaled basis coefficients, use in calculating the HarmonicViscosity_coeff
       & LeithBiharmonicViscosity_BasisCoeff(:,:), & ! coefficient of Leith scaled basis coefficients, use in calculating the HarmonicViscosity_coeff
-      & HarmonicViscosity_coeff(:,:,:),      & ! coefficient of total diffusion
-      & BiharmonicViscosity_coeff(:,:,:),      & ! coefficient of total diffusion
-      & k_tracer_h(:,:,:,:)  ! coefficient of horizontal tracer diffusion
+      & HarmonicViscosity_coeff(:,:,:),       & ! coefficient of total diffusion
+      & BiharmonicViscosity_coeff(:,:,:),     & ! coefficient of total diffusion
+      & TracerDiffusion_BasisCoeff(:,:,:),    &  ! coefficient of horizontal tracer diffusion
+      & TracerDiffusion_coeff(:,:,:,:)  ! coefficient of horizontal tracer diffusion
+!       & TracerDiffusion_coeff(:,:,:,:)  ! coefficient of horizontal tracer diffusion
     TYPE(t_onEdges_Pointer_3d_wp),ALLOCATABLE :: tracer_h_ptr(:)
 
     ! diffusion coefficients for vertical velocity, temp. and salinity, dim=(nproma,n_zlev+1,nblks_e)
@@ -284,10 +287,10 @@ CONTAINS
         & DiffusionScaling=TracerHorizontalDiffusion_scaling, &
         & DiffusionReferenceValue=physics_param%Tracer_HorizontalDiffusion_Reference(i), &
         & DiffusionBackgroundValue=physics_param%Tracer_HorizontalDiffusion_Background(i), &
-        & out_DiffusionCoefficients=tracer_basisCoeff)
-      CALL copy2Dto3D(tracer_basisCoeff, physics_param%k_tracer_h(:,:,:,i), &
+        & out_DiffusionCoefficients=physics_param%TracerDiffusion_BasisCoeff(:,:,i))
+      CALL copy2Dto3D(physics_param%TracerDiffusion_BasisCoeff(:,:,i), physics_param%TracerDiffusion_coeff(:,:,:,i), &
         all_edges)
-      CALL dbg_print('Tracer Diff:', physics_param%k_tracer_h(:,:,:,i),str_module,0, &
+      CALL dbg_print('Tracer Diff:', physics_param%TracerDiffusion_coeff(:,:,:,i),str_module,0, &
         & in_subset=patch_2D%edges%owned)
 
 
@@ -751,11 +754,17 @@ CONTAINS
 
     !! Tracers
     IF ( no_tracer > 0 ) THEN
-      CALL add_var(ocean_params_list, 'K_tracer_h', params_oce%k_tracer_h , &
-        & grid_unstructured_edge, za_depth_below_sea, &
-        & t_cf_var('K_tracer_h', '', '1:temperature 2:salinity', datatype_flt),&
+      CALL add_var(ocean_params_list, 'TracerDiffusion_coeff', params_oce%TracerDiffusion_coeff , &
+        & grid_unstructured_edge, za_surface, &
+        & t_cf_var('TracerDiffusion_coeff', '', '1:temperature 2:salinity', datatype_flt),&
         & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
         & ldims=(/nproma,n_zlev,nblks_e,no_tracer/), &
+        & lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.)
+      CALL add_var(ocean_params_list, 'TracerDiffusion_BasisCoeff', params_oce%TracerDiffusion_BasisCoeff , &
+        & grid_unstructured_edge, za_depth_below_sea, &
+        & t_cf_var('TracerDiffusion_BasisCoeff', '', '1:temperature 2:salinity', datatype_flt),&
+        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
+        & ldims=(/nproma,nblks_e,no_tracer/), &
         & lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.)
       CALL add_var(ocean_params_list, 'A_tracer_v', params_oce%a_tracer_v , &
         & grid_unstructured_cell, za_depth_below_sea_half, &
@@ -769,7 +778,7 @@ CONTAINS
       ALLOCATE(params_oce%tracer_h_ptr(no_tracer))
       ALLOCATE(params_oce%tracer_v_ptr(no_tracer))
       DO jtrc = 1,no_tracer
-        CALL add_ref( ocean_params_list, 'K_tracer_h',&
+        CALL add_ref( ocean_params_list, 'TracerDiffusion_coeff',&
           & 'K_tracer_h_'//TRIM(oce_config%tracer_names(jtrc)),     &
           & params_oce%tracer_h_ptr(jtrc)%p,                             &
           & grid_unstructured_edge, za_depth_below_sea,               &
@@ -988,7 +997,7 @@ CONTAINS
     TYPE(t_operator_coeff),            INTENT(in)    :: op_coeff
 
     !Local variables
-    INTEGER :: jk, blockNo, je, jc,jb
+    INTEGER :: jk, blockNo, je, jc,jb, i
     INTEGER :: start_cell_index, end_cell_index, cell_index
     INTEGER :: start_edge_index, end_edge_index
     INTEGER :: start_level, level,end_level 
@@ -1009,7 +1018,7 @@ CONTAINS
     !1) calculation leith closure or modified LeithClosure_type
 !     IF(LeithClosure_type==1)THEN
 !ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, je, level,end_level, &
-!ICON_OMP vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk, grad_vort_abs) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk, grad_vort_abs, i) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       DO je=start_edge_index, end_edge_index
@@ -1028,6 +1037,13 @@ CONTAINS
           param%HarmonicViscosity_coeff(je,level,blockNo) = &
             & param%HarmonicViscosity_BasisCoeff(je,blockNo) + &
             & grad_vort_abs * param%LeithHarmonicViscosity_BasisCoeff(je,blockNo)
+
+          DO i=1,no_tracer
+            param%TracerDiffusion_coeff(je,level,blockNo,i) = &
+              & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
+              & grad_vort_abs * TracerDiffusion_LeithWeight * &
+              & param%LeithHarmonicViscosity_BasisCoeff(je,blockNo)
+          END DO
 
         END DO
       END DO
@@ -1062,7 +1078,7 @@ CONTAINS
     TYPE(t_operator_coeff),            INTENT(in)    :: op_coeff
 
     !Local variables
-    INTEGER :: jk, blockNo, je, jc,jb
+    INTEGER :: jk, blockNo, je, jc,jb, i
     INTEGER :: start_cell_index, end_cell_index, cell_index
     INTEGER :: start_edge_index, end_edge_index
     INTEGER :: start_level, level,end_level
@@ -1071,7 +1087,7 @@ CONTAINS
 !     INTEGER :: LEITH_EXPONENT
     TYPE(t_subset_range), POINTER ::edges_in_domain
     TYPE(t_patch), POINTER :: patch_2D
-    REAL(wp):: div_e, grad_vort_abs
+    REAL(wp):: div_e, grad_vort_abs, LeithCoeff
     REAL(wp):: div_c(nproma, n_zlev,patch_3D%p_patch_2d(1)%alloc_cell_blocks)
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3D%p_patch_2D(1)
@@ -1090,7 +1106,7 @@ CONTAINS
 
 !ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index, end_edge_index, je, level,end_level, &
 !ICON_OMP vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk, grad_vort_abs, &
-!ICON_OMP cell1_idx, cell1_blk, cell2_idx, cell2_blk, div_e) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP cell1_idx, cell1_blk, cell2_idx, cell2_blk, div_e, LeithCoeff, i) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       DO je=start_edge_index, end_edge_index
@@ -1115,10 +1131,19 @@ CONTAINS
           div_e &
             &  = 0.5_wp *(div_c(cell1_idx,level,cell1_blk) + div_c(cell2_idx,level,cell2_blk))
 
+          LeithCoeff = param%LeithHarmonicViscosity_BasisCoeff(je,blockNo) *  &
+            &   sqrt(grad_vort_abs**2  + div_e**2)
+
           param%HarmonicViscosity_coeff(je,level,blockNo)  = &
             & param%HarmonicViscosity_BasisCoeff(je,blockNo) + &
-            &   param%LeithHarmonicViscosity_BasisCoeff(je,blockNo) *  &
-            &   sqrt(grad_vort_abs**2  + div_e**2)
+            & LeithCoeff
+
+          DO i=1,no_tracer
+            param%TracerDiffusion_coeff(je,level,blockNo,i) = &
+              & param%TracerDiffusion_BasisCoeff(je,blockNo,i) + &
+              & LeithCoeff * TracerDiffusion_LeithWeight
+          END DO
+
         END DO
       END DO
     END DO ! blocks

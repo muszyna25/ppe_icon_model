@@ -258,8 +258,8 @@ CONTAINS
                                    
          ELSE
           CALL tracer_diffusion_horz(patch_3D,&
-                                   & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration,&
-                                   & ocean_state(n_dom), z_diff_flux_h, physics_parameters%k_tracer_h(:,:,:,tracer_index ))
+            & ocean_state(n_dom)%p_prog(nold(1))%ocean_tracers(tracer_index)%concentration,&
+            & ocean_state(n_dom), z_diff_flux_h, physics_parameters%TracerDiffusion_coeff(:,:,:,tracer_index ))
 
             CALL div_oce_3d( z_diff_flux_h,&
                      &   patch_3D, &
