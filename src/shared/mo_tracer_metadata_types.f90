@@ -1,5 +1,8 @@
 !>
-!! Description...
+!! Description: 
+!! This module contains types for polymorphic tracer metadata. Additionally,
+!! a type bound procedure (TBP) is given as a constructor for the base type 
+!! t_tracer_meta. This procedure is private and may only be adressed as TBP. 
 !!
 !! @author Daniel Rieger, KIT
 !!
