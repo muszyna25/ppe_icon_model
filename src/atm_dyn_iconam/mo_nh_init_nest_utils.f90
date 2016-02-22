@@ -35,7 +35,7 @@ MODULE mo_nh_init_nest_utils
   USE mo_physical_constants,    ONLY: rd, cvd_o_rd, p0ref, rhoh2o, tmelt
   USE mo_phyparam_soil,         ONLY: crhosminf
   USE mo_impl_constants,        ONLY: min_rlcell, min_rlcell_int, min_rledge_int, &
-    &                                 MAX_CHAR_LENGTH, dzsoil, inwp
+    &                                 MAX_CHAR_LENGTH, dzsoil, inwp, nclass_aero
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging, interpol_vec_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf, interpol2_vec_grf
   USE mo_grid_config,           ONLY: lfeedback, ifeedback_type
@@ -53,7 +53,8 @@ MODULE mo_nh_init_nest_utils
   USE mo_lnd_nwp_config,        ONLY: ntiles_total, ntiles_water, nlev_soil, lseaice,  &
     &                                 llake, isub_lake, frlake_thrhld, frsea_thrhld
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
-  USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
+  USE mo_nwp_phy_state,         ONLY: prm_diag
+  USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config, iprog_aero
   USE mo_interpol_config,       ONLY: nudge_zone_width
   USE mo_ext_data_state,        ONLY: ext_data
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
@@ -138,7 +139,7 @@ MODULE mo_nh_init_nest_utils
     ! Local arrays for variables living on the local parent grid in the MPI case. These have
     ! to be allocatable because their dimensions differ between MPI and non-MPI runs
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:)   :: vn_lp, w_lp, thv_pr_lp, rho_pr_lp, phdiag_lp, &
-                                                 lndvars_lp, wtrvars_lp
+                                                 lndvars_lp, wtrvars_lp, aero_lp
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:,:) :: tracer_lp
 
     ! Local arrays on the parent or child grid. These would not have to be allocatable,
@@ -227,6 +228,7 @@ MODULE mo_nh_init_nest_utils
              rho_pr_lp  (nproma, nlev_p,      p_pp%nblks_c),          &
              phdiag_lp  (nproma, num_phdiagvars,p_pp%nblks_c),        &
              tracer_lp  (nproma, nlev_p,      p_pp%nblks_c, ntracer), &
+             aero_lp    (nproma, nclass_aero, p_pp%nblks_c),          &
              lndvars_lp (nproma, num_lndvars, p_pp%nblks_c),          &
              wtrvars_lp (nproma, num_wtrvars ,p_pp%nblks_c)           )
 
@@ -416,6 +418,11 @@ MODULE mo_nh_init_nest_utils
         f4din1=p_parent_prog_rcf%tracer, f4dout1=p_child_prog_rcf%tracer, llimit_nneg=l_limit)
     ENDIF
 
+    IF (ltransport .AND. iprog_aero == 1) THEN
+      CALL interpol_scal_grf ( p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 1,   &
+        prm_diag(jg)%aerosol, prm_diag(jgc)%aerosol, llimit_nneg=(/.TRUE./), lnoshift=.TRUE.)
+    ENDIF
+
     IF (iforcing == inwp) THEN
       CALL sync_patch_array(SYNC_C,p_patch(jg),phdiag_par)
       CALL interpol_scal_grf (p_patch(jg), p_pc, p_grf_state(jg)%p_dom(i_chidx), 1, &
@@ -446,8 +453,14 @@ MODULE mo_nh_init_nest_utils
 
     CALL exchange_data(p_pp%comm_pat_glb_to_loc_e, RECV=vn_lp, SEND=p_parent_prog%vn)
 
-    CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, ntracer, ntracer*nlev_p, &
-      &                     RECV4D=tracer_lp, SEND4D=p_parent_prog_rcf%tracer    )
+    IF (ltransport) THEN
+      CALL exchange_data_mult(p_pp%comm_pat_glb_to_loc_c, ntracer, ntracer*nlev_p, &
+        &                     RECV4D=tracer_lp, SEND4D=p_parent_prog_rcf%tracer    )
+    ENDIF
+
+    IF (ltransport .AND. iprog_aero == 1) THEN
+      CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=aero_lp, SEND=prm_diag(jg)%aerosol)
+    ENDIF
 
     IF (iforcing == inwp) &
       &      CALL exchange_data(p_pp%comm_pat_glb_to_loc_c, RECV=phdiag_lp, SEND=phdiag_par)
@@ -485,6 +498,13 @@ MODULE mo_nh_init_nest_utils
                                   nshift, ntracer, 1, f4din=tracer_lp,        &
                                   f4dout=p_child_prog_rcf%tracer, llimit_nneg=l_limit)
       CALL sync_patch_array_mult(SYNC_C,p_pc,ntracer,f4din=p_child_prog_rcf%tracer)
+    ENDIF
+
+    IF (ltransport .AND. iprog_aero == 1) THEN
+      IF(l_parallel) CALL exchange_data(p_pp%comm_pat_c, aero_lp)
+      CALL interpol_scal_nudging (p_pp, p_int, p_grf%p_dom(i_chidx), i_chidx, &
+         0, 1, 1, f3din1=aero_lp, f3dout1=prm_diag(jgc)%aerosol, llimit_nneg=(/.TRUE./))
+      CALL sync_patch_array(SYNC_C,p_pc,prm_diag(jgc)%aerosol)
     ENDIF
 
     IF (iforcing == inwp) THEN
@@ -695,7 +715,7 @@ MODULE mo_nh_init_nest_utils
 
     DEALLOCATE(thv_pr_par, rho_pr_par, lndvars_par, wtrvars_par, phdiag_par, lndvars_chi, &
       &       wtrvars_chi, phdiag_chi, tsfc_ref_p, tsfc_ref_c, vn_lp, w_lp, thv_pr_lp   , &
-      &       rho_pr_lp, phdiag_lp, tracer_lp, lndvars_lp, wtrvars_lp)
+      &       rho_pr_lp, phdiag_lp, tracer_lp, lndvars_lp, wtrvars_lp, aero_lp)
 
   END SUBROUTINE initialize_nest
 

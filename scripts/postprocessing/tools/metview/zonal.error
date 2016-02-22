@@ -61,7 +61,6 @@ dataref  = getenv("DATAREF")
 tailfile = getenv("TAILFILE")
 lmonth   = getenv("LMONTH")
 yyyymm   = getenv("YYYYMM")
-#plotdir = '/fe1-daten/'&user&'/plots/icon/nwp.exp'&expnum
 
 
 #-----------------------------------------------------------------------
@@ -133,6 +132,10 @@ case stat of
   'ctr':
     plotfile= plotdir&'/zon.'&expres&'.'&expnum&'.ifs.'&varplot&'.'&verdate&vertime&nd_txt1&'.L1'
     title   = vartitle&'    ANA    '&verdate&vertime&nd_txt2
+    end
+  'rms':
+    plotfile= plotdir&'/zon.'&expres&'.'&expnum&'-ifs_rms.'&varplot&'.'&verdate&vertime&nd_txt1&'.L1'     # no ".ps"
+    title   = vartitle&'    '&expnum&'   RMS(EXP-ANA)   '&inidate&initime&' to '&verdate&vertime&nd_txt2
     end
 end case
 
@@ -244,6 +247,12 @@ for nd=1 to ndays do
 
   mntxt = parse(tailfile, "_")
 
+  if stat = 'rms' then
+    # replace mn with var
+    index    = search(tailfile, 'mn')
+    tailfile = substring(tailfile,1,index-1)&"var"&substring(tailfile,index+2,length(tailfile))
+  end if
+
   if lmonth = 0 then
     source_ini_icon = datadir&'/'&expnum&'_'&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
     source_ref_icon = dataref&'/'&expref&'_'&inidate&initime&'_DOM01_0001_'&varfile&'_'&levtype&'.grb'
@@ -291,8 +300,6 @@ for nd=1 to ndays do
     temp_ref = read(
                 SOURCE   : source_ref_icon,
                 grid     : grid,
-#               param    : varname,
-#               levtype  : levtype,
   		date     : inidate,
   		time     : initime,
                 step     : step
@@ -330,8 +337,6 @@ for nd=1 to ndays do
         temp = read(  
   		SOURCE   : source_ver_icon, 
                 grid     : grid,
-#               param    : varname,
-#               levtype  : levtype,
    		date     : verdate,
    		time     : vertime,
                 step     : 0
@@ -366,6 +371,8 @@ case stat of
   end
   'ctr':      var_data = var_ana
   end
+  'rms':      var_data = sqrt(var_exp)
+  end
 end case
 
 var_data = var_data * scale
@@ -378,24 +385,6 @@ var_data = avgtime_met(var_data,nlev,ndays)
 #ntime   = count(var_data)/(nlev*nvar)
 #meanvar = avgtime(var_data,nlon,nlat,nvar,nlev,ntime)   #large files from mean
 	
-var_zonal = xs_average(  
-		DIRECTION           : "EW", 
-#		PRESSURE_LEVEL_AXIS : "LOG", 
-		DATA                : var_data 
-	)
-
-#if levtype = 'ml' then 
-#  zonal_view = maverageview(
-#    direction       : "ew",
-#    top_pressure    : 1,
-#    bottom_pressure : nlev
-#    )
-#else
-#  zonal_view = maverageview(
-#    direction           : "ew",
-#    PRESSURE_LEVEL_AXIS : "LOG"
-#    )
-#endif
 
 # --- variable specific plotting
 
@@ -432,7 +421,7 @@ if diff_level > 0.0 then
 end if
 
 statistic   = 'Min:  '&mini&'   Max:  '&maxi&'   Mean:  '&integrate(mean(var_data))
-if stat = 'diff' or stat = 'diff_ref' then 
+if stat = 'diff' or stat = 'diff_ref' or stat = 'rms' then 
   statistic = statistic & '   RMS:  ' & rms
 end if
 statistic = statistic & '   Mem:  '&nfc
@@ -453,7 +442,7 @@ statistic = statistic & '   Mem:  '&nfc
 # end case
 
 #diff_level = 4.0
-#level_list = [-diff_level, -diff_level/2, -diff_level/4, -diff_level/8,                              diff_level/8, diff_level/4, diff_level/2, diff_level]
+#level_list = [-diff_level, -diff_level/2, -diff_level/4, -diff_level/8,                                diff_level/8, diff_level/4, diff_level/2, diff_level]
 #level_list = [-20,-10,-5,-2,-1, 1,2,5,10,20]
 #level_list = [-2.5,-2,-1.5,-1,-0.5,0.5,1,1.5,2,2.5]
  level_list = [-diff_level, -diff_level/2, -diff_level/4, -diff_level/8, -diff_level/16, diff_level/16, diff_level/8, diff_level/4, diff_level/2, diff_level]
@@ -552,11 +541,9 @@ display_window =layout(levtype,p_scale,p_min,p_max)
 
 
 if stat = 'diff' or stat = 'diff_ref'  or  tend = 1 then
-  plot ( display_window[1], text, var_zonal,            cont, legend )
- #plot ( display_window[1], text, zonal_view, var_data, cont, legend )
+  plot ( display_window[1], text, var_data,             cont, legend )
 else
-  plot ( display_window[1], text, var_zonal,            all,  legend )
- #plot ( display_window[1], text, zonal_view, var_data, all,  legend )
+  plot ( display_window[1], text, var_data,             all,  legend )
 end if
 
 

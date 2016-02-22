@@ -366,6 +366,42 @@ unit for accumulated fields (\emph{typeOfStatisticalProcessing}=1), the unit dis
 \footnotetext[5]{T\_S is identical to T\_SO at level 0. It will no longer be available in the future. Use T\_SO(0) instead of T\_S.} 
 
 
+\begin{table}[t]
+  \centering
+  \begin{tabular}{|>{\cellcolor{Gray}\bfseries}p{1.cm}|p{6cm}|>{\cellcolor{Gray}\bfseries}p{1.cm}|p{6cm}|}\hline
+     {\centering\textbf{WW}}    &     {\centering\textbf{weather interpretation}} &
+     {\centering\textbf{WW}}    &     {\centering\textbf{weather interpretation}} 
+    \\ \hline\hline
+    % ----------------------------------------------------------------------------------------------------------
+    45 & Fog                                     &  48  & Fog, depositing rime              \\
+    50 & Slight drizzle                          &  56  & Drizzle, freezing, slight         \\
+    60 & Slight rain, not freezing               &  63  & Moderate rain, not freezing       \\
+    65 & Heavy rain, not freezing                &  66  & Rain, freezing, slight            \\
+    67 & Rain, freezing, moderate or heavy       &  70  & Slight fall of snowflakes         \\
+    73 & Moderate fall of snowflakes             &  75  & Heavy fall of snowflakes          \\
+    80 & Rain shower(s), slight                  &  81  & Rain shower(s), moderate or heavy \\
+    82 & Rain shower(s), violent                 &  85  & Snow shower(s), slight            \\
+    86 & Snow shower(s), moderate or heavy       &  95  & Thunderstorm, slight or moderate  \\
+    96 & \multicolumn{3}{l|}{Thunderstorm with hail, or heavy thunderstorm} \\
+    \hline
+  \end{tabular}
+  \caption{Weather interpretation (WW) code table for the ICON model.
+           This table is a subset of the WMO code table \emph{FM 94 BUFR/FM 95 CREX code table 0 20 003 -- present weather}.
+           In the case that none of the values provided in Table~\ref{table:ww_code_table} is returned, the WW output contains
+           the total cloud cover, encoded in the following form: 
+           \textbf{0}: clear sky
+           \textbf{1}: mainly clear            % clct > 0.0625_wp = 0.5 octa
+           \textbf{2}: partly/generally cloudy % clct > 0.4375_wp = 3.5 octa
+           \textbf{3}: cloudy/overcast.        % clct > 0.8125_wp = 6.5 octa
+           }%
+  \label{table:ww_code_table}
+  \vspace*{2em}
+\end{table}
+
+
+\cleardoublepage
+
+
 % --------------------------------------------------------------------------------
 \subsection{Soil-specific multi-level fields}
 % --------------------------------------------------------------------------------
