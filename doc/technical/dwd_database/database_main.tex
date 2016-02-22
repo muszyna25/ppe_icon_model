@@ -36,6 +36,8 @@
 \usepackage[T1]{fontenc}
 \usepackage{scrpage2}
 \usepackage{environ}
+\usepackage{pgf}
+\usepackage{pgffor}
 
 \usetikzlibrary{calc}
 \usetikzlibrary{matrix}
@@ -118,6 +120,30 @@
 
 \newcolumntype{x}[1]{%
   >{\centering\hspace{0pt}}p{#1}}%
+
+
+% LaTeX macro storing an array of strings
+%
+% individual entries can be accessed by
+%   \pgfmathparse{{\storedContent}[\i]}\pgfmathresult
+\newcommand{\storedContent}{}
+\makeatletter
+\let\storedContent\@empty
+\newcommand{\listappend}[1]{%
+    \ifx\storedContent\@empty
+     \g@addto@macro\storedContent{#1}%
+    \else
+     \g@addto@macro\storedContent{, #1}%
+    \fi 
+}
+\makeatother
+
+% macros storing colors in "storedContent" array
+% ... these are then used in the timeline of model changes.
+\definecolor{colorBlue}{rgb}{0.,0.,1.}
+\definecolor{colorRed}{rgb}{1.,0.,0.}
+\newcommand{\colorA}{\listappend{"0.,0.,1."}}
+\newcommand{\colorB}{\listappend{"1.,0.,0."}}
 
 
 % ---------- Glossary: All the stuff and more ----------%
@@ -299,47 +325,6 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
  line offset=4pt,
 }
 
-% backup version, close to the original one
-% \NewEnviron{vtimeline}[1][]{%
-% \setcounter{lines}{1}%
-% \stepcounter{vtml}%
-% \begin{tikzpicture}[column 1/.style={anchor=east},
-%  column 2/.style={anchor=west},
-%  text depth=0pt,text height=1.7ex,
-%  row sep=1ex,
-%  column sep=2em,
-%  #1
-% ]
-% \matrix(vtimeline\thevtml)[matrix of nodes]{\BODY};
-% \pgfmathtruncatemacro\endmtx{\thelines-1}
-% \path[timeline color st] 
-% ($(vtimeline\thevtml-1-1.north east)!0.5!(vtimeline\thevtml-1-2.north west)$)--
-% ($(vtimeline\thevtml-\endmtx-1.south east)!0.5!(vtimeline\thevtml-\endmtx-2.south west)$);
-% \foreach \x in {1,...,\endmtx}{
-%  \node[circle,timeline color st, inner sep=0.15pt, draw=white, thick] 
-%  (vtimeline\thevtml-c-\x) at 
-%  ($(vtimeline\thevtml-\x-1.east)!0.5!(vtimeline\thevtml-\x-2.west)$){};
-%  \draw[timeline color st](vtimeline\thevtml-c-\x.west)--++(-5pt,0);
-%  }
-%  \ifvtimelinetitle%
-%   \draw[timeline color st]([yshift=\lineoffset]vtimeline\thevtml.north west)--
-%   ([yshift=\lineoffset]vtimeline\thevtml.north east);
-%   \node[anchor=west,yshift=16pt,font=\large]
-%    at (vtimeline\thevtml-1-1.north west) 
-%    {\textsc{Timeline \thevtml}: \textit{\vtimelinetitle}};
-%  \else%
-%   \relax%
-%  \fi%
-%  \ifvtimebottomline%
-%    \draw[timeline color st]([yshift=-\lineoffset]vtimeline\thevtml.south west)--
-%   ([yshift=-\lineoffset]vtimeline\thevtml.south east);
-%  \else%
-%    \relax%
-%  \fi%
-% \end{tikzpicture}
-% }
-
-
 \NewEnviron{vtimeline}[1][]{%
 \setcounter{lines}{1}%
 \stepcounter{vtml}%
@@ -352,20 +337,22 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
 ]
 \matrix(vtimeline\thevtml)[matrix of nodes]{\BODY};
 \pgfmathtruncatemacro\endmtx{\thelines-1}
-\path[timeline color st] 
+\path[timeline color st, thick] 
 ($(vtimeline\thevtml-1-1.north east)!0.42!(vtimeline\thevtml-1-2.north west)$)--
 ($(vtimeline\thevtml-\endmtx-1.south east)!0.42!(vtimeline\thevtml-\endmtx-2.south west)$);
-\path[timeline color st2] 
+\path[timeline color st2, thick] 
 ($(vtimeline\thevtml-1-1.north east)!0.58!(vtimeline\thevtml-1-2.north west)$)--
 ($(vtimeline\thevtml-\endmtx-1.south east)!0.58!(vtimeline\thevtml-\endmtx-2.south west)$);
 \foreach \x in {1,...,\endmtx}{
- \node[circle,timeline color st, inner sep=0.15pt, draw=white, thick] 
+ \pgfmathparse{{\storedContent}[\x-1]};
+ \definecolor{ballcolor}{rgb}{\pgfmathresult}
+ \node[circle,timeline color st, inner sep=0.15pt, draw=white, fill=ballcolor, thick] 
  (vtimeline\thevtml-c-\x) at 
  ($(vtimeline\thevtml-\x-1.east)!0.5!(vtimeline\thevtml-\x-2.west)$){};
- \draw[timeline color st](vtimeline\thevtml-c-\x.west)--++(-5pt,0);
+ \draw[timeline color st,thick,color=ballcolor](vtimeline\thevtml-c-\x.west)--++(-5pt,0);
  }
  \ifvtimelinetitle%
-  \draw[timeline color st]([yshift=\lineoffset]vtimeline\thevtml.north west)--
+  \draw[timeline color st,thick]([yshift=\lineoffset]vtimeline\thevtml.north west)--
   ([yshift=\lineoffset]vtimeline\thevtml.north east);
   \node[anchor=west,yshift=16pt,font=\large]
    at (vtimeline\thevtml-1-1.north west) 
@@ -374,7 +361,7 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
   \relax%
  \fi%
  \ifvtimebottomline%
-   \draw[timeline color st]([yshift=-\lineoffset]vtimeline\thevtml.south west)--
+   \draw[timeline color st, thick]([yshift=-\lineoffset]vtimeline\thevtml.south west)--
   ([yshift=-\lineoffset]vtimeline\thevtml.south east);
  \else%
    \relax%
