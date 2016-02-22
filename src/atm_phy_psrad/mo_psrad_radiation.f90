@@ -81,6 +81,7 @@ MODULE mo_psrad_radiation
 ! the present mo_orbit is different from the one in echam6
   USE mo_psrad_orbit,     ONLY: orbit_kepler, orbit_vsop87, &
                               & get_orbit_times
+  USE mo_psrad_orbit_nml, ONLY: read_psrad_orbit_namelist
   USE mo_psrad_radiation_parameters, ONLY: solar_parameters, &
                               & l_interp_rad_in_time,        &
                               & zepzen
@@ -186,6 +187,7 @@ MODULE mo_psrad_radiation
   USE mo_psrad_interface,ONLY : setup_psrad, psrad_interface, &
                                 lw_strat, sw_strat
   USE mo_psrad_spec_sampling, ONLY : set_spec_sampling_lw, set_spec_sampling_sw, get_num_gpoints
+  USE mo_psrad_orbit_config,  ONLY : psrad_orbit_config
 
   IMPLICIT NONE
   
@@ -227,7 +229,7 @@ MODULE mo_psrad_radiation
     REAL(wp) :: solcm
     LOGICAL  :: l_orbvsop87
 
-    l_orbvsop87 = .TRUE.
+    l_orbvsop87 = psrad_orbit_config%l_orbvsop87
 
     !
     ! 1.0 Compute orbital parameters for current time step
@@ -407,6 +409,8 @@ MODULE mo_psrad_radiation
                        & rad_perm,    &
                        & sw_gpts_ts,  &
                        & sw_spec_samp
+    ! 0.9 Read psrad_orbit namelist
+    CALL read_psrad_orbit_namelist(file_name)
     !
     ! 1.0 Read psrad_nml namelist 
     ! --------------------------------
