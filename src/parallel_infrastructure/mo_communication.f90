@@ -2753,6 +2753,11 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
    ENDIF
 
    ! Copy exchanged data back to receive buffer
+
+#ifdef __OMPPAR_COPY__
+!$OMP PARALLEL PRIVATE(ioffset,pid,isum,irs,ire,isum1)
+#endif
+
    ioffset = 0
    DO np = 1, num_recv ! loop over PEs from where to receive the data
 
@@ -2764,8 +2769,15 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
        ire = p_pat(n)%recv_limits(pid+1) + ioffset_r(n)
        isum1 = ire - irs + 1
        IF (isum1 > 0) THEN
-!CDIR COLLAPSE
-         recv_buf(:,irs:ire) = auxr_buf(:,isum+1:isum+isum1)
+#ifdef __OMPPAR_COPY__
+!$OMP DO
+#endif
+         DO i = 1, isum1
+           recv_buf(:,irs-1+i) = auxr_buf(:,isum+i)
+         ENDDO
+#ifdef __OMPPAR_COPY__
+!$OMP END DO
+#endif
          isum = isum + isum1
        ENDIF
      ENDDO
@@ -2789,9 +2801,6 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, recv1, send1, &
      ENDDO
    ENDDO
 #else
-#ifdef __OMPPAR_COPY__
-!$OMP PARALLEL
-#endif
    DO np = 1, npats
 #ifdef __OMPPAR_COPY__
 !$OMP DO PRIVATE(jb,jl,ik)
