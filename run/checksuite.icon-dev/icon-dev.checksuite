@@ -113,15 +113,15 @@ function diff_results
     MODEL_DIR2=$3
     DEXP2=$4
     TEST=$5
-    DISTRO=$(lsb_release -cs)
-    case $DISTRO in
-        squeeze)
-            module load cdo/1.6.5.1
-            ;;
-        wheezy)
-            module load cdo/1.6.5.1
-            ;;
-    esac
+    # DISTRO=$(lsb_release -cs)
+    # case $DISTRO in
+    #     squeeze)
+    #         module load cdo/1.6.5.1
+    #         ;;
+    #     wheezy)
+    #         module load cdo/1.6.5.1
+    #         ;;
+    # esac
     #TYPES: defined in main script and used from main script 
     #DATES: defined in main script and used from main script 
 
@@ -198,10 +198,11 @@ function diff_results
     
                 FILE1="${MODEL_DIR1}/experiments/${DEXP1}/${DEXP1}_${TYPE}_${DATE}.nc"
                 FILE2="${MODEL_DIR2}/experiments/${DEXP2}/${DEXP2}_${TYPE}_${DATE}.nc"
-    
+                TEMP_SUFFIX=$(cat /dev/urandom | env LC_CTYPE=C tr -cd 'a-f0-9' | head -c 16)
+                DIFF_FILE="cdo_diffn_${DEXP1}_${DEXP2}_${TYPE}_${DATE}_${TEMP_SUFFIX}.out"
+                
                 echo "Compare for TYPE=$TYPE"
-                TEMP_SUFFIX=$(cat /dev/urandom | env LC_CTYPE=C tr -cd 'a-f0-9' | head -c 32)
-                cdo diffn ${FILE1} ${FILE2} > cdo_diffn_${TEMP_SUFFIX}.out
+                cdo diffn ${FILE1} ${FILE2} > ${DIFF_FILE}
     
                 STATUS=`echo $?`
                 if [ "$STATUS" -ne 0 ]; then
@@ -210,13 +211,13 @@ function diff_results
                     echo " - file 2: ${FILE2}"
                     DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
                 fi
-                if [ -s cdo_diffn.out ]; then
+                if [ -s ${DIFF_FILE} ]; then
                     echo " File 1 and file 2 differ"
                     echo " - file 1: ${FILE1}"
                     echo " - file 2: ${FILE2}"
                     if [ "$CAT_CDO_DIFFN" == 'yes' ]; then
-                        cat cdo_diffn_${TEMP_SUFFIX}.out
-                        rm  cdo_diffn_${TEMP_SUFFIX}.out
+                        cat ${DIFF_FILE}
+                        rm  ${DIFF_FILE}
                     fi
                     IS_DIFFERENT='yes'
                     DIFFERENT_TYPES="$DIFFERENT_TYPES $TYPE"
