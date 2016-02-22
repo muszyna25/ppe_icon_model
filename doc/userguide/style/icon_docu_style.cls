@@ -56,7 +56,7 @@
 \voffset-1.0cm
 \hoffset-1.0cm
 %
-\setlength{\textwidth}{15.4cm}
+\setlength{\textwidth}{16.4cm}
 \setlength{\topmargin}{0.8cm}
 \setlength{\headheight}{0.5cm}
 \setlength{\headsep}{0.6cm}
