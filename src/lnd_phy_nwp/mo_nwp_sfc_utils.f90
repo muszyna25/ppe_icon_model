@@ -956,7 +956,7 @@ CONTAINS
       END IF
 
 
-      ! Remove snow on non-existing grid points. This has no impact on the prognostic
+      ! Remove snow and w_i on non-existing grid points. This has no impact on the prognostic
       ! results but is needed in order to have meaningful data on the tile-based fields 
       DO isubs = 1, ntiles_total
         DO jc = i_startidx, i_endidx
@@ -964,6 +964,7 @@ CONTAINS
             p_lnd_diag%h_snow_t(jc,jb,isubs)     = 0._wp
             p_prog_lnd_now%w_snow_t(jc,jb,isubs) = 0._wp
             p_lnd_diag%snowfrac_t(jc,jb,isubs)   = 0._wp
+            p_prog_lnd_now%w_i_t(jc,jb,isubs)    = 0._wp
           ENDIF
           IF (ext_data%atm%lc_frac_t(jc,jb,isubs) < 1.e-10_wp) THEN
             p_lnd_diag%snowfrac_lc_t(jc,jb,isubs)   = 0._wp
