@@ -19,9 +19,10 @@ MODULE mo_input_instructions
     USE mo_impl_constants, ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, MODE_COMBINED, MODE_COSMODE
     USE mo_initicon_config, ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr, lp2cintp_sfcana
     USE mo_initicon_types, ONLY: ana_varnames_dict
+    USE mo_input_request_list, ONLY: t_InputRequestList
     USE mo_lnd_nwp_config, ONLY: lsnowtile
     USE mo_model_domain, ONLY: t_patch
-    USE mo_util_string, ONLY: difference, add_to_list
+    USE mo_util_string, ONLY: difference, add_to_list, int2string
     USE mo_util_table, ONLY: t_table, initialize_table, add_table_column, set_table_entry, print_table, finalize_table
     USE mo_var_list, ONLY: collect_group
     USE mo_var_metadata_types,  ONLY: VARNAME_LEN
@@ -29,24 +30,39 @@ MODULE mo_input_instructions
     IMPLICIT NONE
 
 PUBLIC :: t_readInstructionList, readInstructionList_make, t_readInstructionListPtr
-PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna
+PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth
 
     ! The possible RETURN values of readInstructionList_sourceOfVar().
-    INTEGER, PARAMETER :: kInputSourceNone = 0, kInputSourceFg = 1, kInputSourceAna = 2
+    INTEGER, PARAMETER :: kInputSourceUnset = -1, kInputSourceNone = 0, kInputSourceFg = 1, kInputSourceAna = 2, &
+                        & kInputSourceBoth = 3
 
     ! The readInstructionList is used to tell the fetch_dwd*() routines which fields may be read from first guess and/or analysis,
     ! and to signal whether we have found data in the first guess file, so that we can fail correctly.
+    ! I. e. for each variable, we expect a pair of calls to
+    !     wantVarXXX()
+    !     handleErrorXXX()
+    ! The wantVarXXX() CALL tells the caller whether they should try to READ the variable,
+    ! the handleErrorXXX() CALL tells the ReadInstructionList whether that READ was successfull,
+    ! possibly panicking with a `finish()` CALL IN CASE there are no options left to READ the DATA.
     TYPE :: t_readInstructionList
         TYPE(t_readInstruction), POINTER :: list(:)
         INTEGER :: nInstructions
 
     CONTAINS
+        PROCEDURE :: fileRequests => readInstructionList_fileRequests   ! tell an InputRequestList what variables are required
+
+        PROCEDURE :: wantVar => readInstructionList_wantVar
         PROCEDURE :: wantVarFg => readInstructionList_wantVarFg
         PROCEDURE :: wantVarAna => readInstructionList_wantVarAna
+        PROCEDURE :: handleError => readInstructionList_handleError
         PROCEDURE :: handleErrorFg => readInstructionList_handleErrorFg
         PROCEDURE :: handleErrorAna => readInstructionList_handleErrorAna
+        PROCEDURE :: optionalReadResult => readInstructionList_optionalReadResult
+        PROCEDURE :: optionalReadResultFg => readInstructionList_optionalReadResultFg
+        PROCEDURE :: optionalReadResultAna => readInstructionList_optionalReadResultAna
 
-        PROCEDURE :: sourceOfVar => readInstructionList_sourceOfVar ! returns kInputSourceNone, kInputSourceFg, OR kInputSourceAna
+        PROCEDURE :: sourceOfVar => readInstructionList_sourceOfVar ! returns kInputSourceNone, kInputSourceFg, kInputSourceAna, OR kInputSourceBoth
+        PROCEDURE :: setSource => readInstructionList_setSource ! overrides the automatic calculation of the input source, argument must be 'kInputSource\(None\|Fg\|Ana\)'
         PROCEDURE :: printSummary => readInstructionList_printSummary
 
         PROCEDURE :: destruct => readInstructionList_destruct
@@ -69,6 +85,9 @@ PRIVATE
         CHARACTER(LEN = VARNAME_LEN) :: varName
         LOGICAL :: lReadFg, lReadAna
         INTEGER(KIND = C_CHAR) :: statusFg, statusAna
+        INTEGER :: sourceOverride   ! IF this IS NOT kInputSourceUnset, it overrides the automatic calculation of the input source.
+    CONTAINS
+        PROCEDURE :: source => readInstruction_source
     END TYPE t_readInstruction
 
     CHARACTER(LEN = *), PARAMETER :: modname = 'mo_input_instructions'
@@ -338,6 +357,7 @@ CONTAINS
         RESULT%lReadAna = .FALSE.
         RESULT%statusFg = kStateNoFetch
         RESULT%statusAna = kStateNoFetch
+        RESULT%sourceOverride = kInputSourceUnset
     END FUNCTION readInstructionList_findInstruction
 
     SUBROUTINE readInstructionList_resize(me, newSize)
@@ -362,6 +382,7 @@ CONTAINS
             tempList(i)%lReadAna = me%list(i)%lReadAna
             tempList(i)%statusFg = me%list(i)%statusFg
             tempList(i)%statusAna = me%list(i)%statusAna
+            tempList(i)%sourceOverride = me%list(i)%sourceOverride
         END DO
 
         ! replace the old list with the new one
@@ -369,6 +390,34 @@ CONTAINS
         me%list => tempList
         tempList => NULL()
     END SUBROUTINE readInstructionList_resize
+
+    SUBROUTINE readInstructionList_fileRequests(me, requestList, lIsFg)
+        CLASS(t_readInstructionList), INTENT(IN) :: me
+        TYPE(t_inputRequestList), INTENT(INOUT) :: requestList
+        LOGICAL, VALUE :: lIsFg
+
+        INTEGER :: i
+
+        DO i = 1, me%nInstructions
+            IF(lIsFg) THEN
+                IF(me%list(i)%lReadFg) CALL requestList%request(TRIM(me%list(i)%varName))
+            ELSE
+                IF(me%list(i)%lReadAna) CALL requestList%request(TRIM(me%list(i)%varName))
+            END IF
+        END DO
+    END SUBROUTINE readInstructionList_fileRequests
+
+    LOGICAL FUNCTION readInstructionList_wantVar(me, varName, lIsFg) RESULT(RESULT)
+        CLASS(t_readInstructionList), INTENT(IN) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: varName
+        LOGICAL, VALUE :: lIsFg
+
+        IF(lIsFg) THEN
+            RESULT = me%wantVarFg(varName)
+        ELSE
+            RESULT = me%wantVarAna(varName)
+        END IF
+    END FUNCTION readInstructionList_wantVar
 
     LOGICAL FUNCTION readInstructionList_wantVarFg(me, varName) RESULT(RESULT)
         CLASS(t_readInstructionList), INTENT(IN) :: me
@@ -399,6 +448,18 @@ CONTAINS
             END IF
         END DO
     END FUNCTION readInstructionList_wantVarAna
+
+    SUBROUTINE readInstructionList_handleError(me, lSuccess, varName, caller, lIsFg)
+        LOGICAL, VALUE :: lSuccess, lIsFg
+        CLASS(t_readInstructionList), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: varName, caller
+
+        IF(lIsFg) THEN
+            CALL me%handleErrorFg(lSuccess, varName, caller)
+        ELSE
+            CALL me%handleErrorAna(lSuccess, varName, caller)
+        END IF
+    END SUBROUTINE readInstructionList_handleError
 
     SUBROUTINE readInstructionList_handleErrorFg(me, lSuccess, varName, caller)
         LOGICAL, VALUE :: lSuccess
@@ -457,6 +518,82 @@ CONTAINS
         END IF
     END SUBROUTINE readInstructionList_handleErrorAna
 
+    SUBROUTINE readInstructionList_optionalReadResult(me, lSuccess, varName, caller, lIsFg)
+        LOGICAL, VALUE :: lSuccess, lIsFg
+        CLASS(t_readInstructionList), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: varName, caller
+
+        IF(lIsFg) THEN
+            CALL me%optionalReadResultFg(lSuccess, varName, caller)
+        ELSE
+            CALL me%optionalReadResultAna(lSuccess, varName, caller)
+        END IF
+    END SUBROUTINE readInstructionList_optionalReadResult
+
+    SUBROUTINE readInstructionList_optionalReadResultFg(me, lSuccess, varName, caller)
+        LOGICAL, VALUE :: lSuccess
+        CLASS(t_readInstructionList), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: varName, caller
+
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//"readInstructionList_optionalReadResultFg"
+        TYPE(t_readInstruction), POINTER :: instruction
+
+        instruction => me%findInstruction(varName)
+
+        ! sanity check
+        IF(.NOT.instruction%lReadFg) CALL finish(routine, "internal error: variable '"//varName//"' was read even though there &
+            &are no read instructions for it")
+
+        IF(lSuccess) THEN
+            instruction%statusFg = kStateRead
+        ELSE
+            instruction%statusFg = kStateFailedFetch
+
+            ! check whether we can READ this variable from the analysis file as well
+            IF(instruction%lReadAna) THEN
+                ! now this variable must be READ from the analysis file
+                instruction%lReadFg = .FALSE.
+            END IF
+        END IF
+    END SUBROUTINE readInstructionList_optionalReadResultFg
+
+    SUBROUTINE readInstructionList_optionalReadResultAna(me, lSuccess, varName, caller)
+        LOGICAL, VALUE :: lSuccess
+        CLASS(t_readInstructionList), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: varName, caller
+
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//"readInstructionList_optionalReadResultAna"
+        TYPE(t_readInstruction), POINTER :: instruction
+
+        instruction => me%findInstruction(varName)
+
+        ! sanity check
+        IF(.NOT.instruction%lReadAna) CALL finish(routine, "internal error: variable '"//varName//"' was read even though there &
+            &are no read instructions for it")
+
+        IF(lSuccess) THEN
+            instruction%statusAna = kStateRead
+        ELSE
+            instruction%statusAna = kStateFailedFetch
+        END IF
+    END SUBROUTINE readInstructionList_optionalReadResultAna
+
+    INTEGER FUNCTION readInstruction_source(me) RESULT(RESULT)
+        CLASS(t_readInstruction), INTENT(IN) :: me
+
+        IF(me%sourceOverride /= kInputSourceUnset) THEN
+            RESULT = me%sourceOverride
+        ELSE
+            IF(me%statusAna == kStateRead) THEN
+                RESULT = kInputSourceAna
+            ELSE IF(me%statusFg == kStateRead) THEN
+                RESULT = kInputSourceFg
+            ELSE
+                RESULT = kInputSourceNone
+            END IF
+        END IF
+    END FUNCTION readInstruction_source
+
     INTEGER FUNCTION readInstructionList_sourceOfVar(me, varName) RESULT(RESULT)
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         CHARACTER(LEN = *), INTENT(IN) :: varName
@@ -464,17 +601,29 @@ CONTAINS
         TYPE(t_readInstruction), POINTER :: instruction
 
         instruction => me%findInstruction(varName)
-        IF(instruction%statusAna == kStateRead) THEN
-            RESULT = kInputSourceAna
-        ELSE IF(instruction%statusFg == kStateRead) THEN
-            RESULT = kInputSourceFg
-        ELSE
-            RESULT = kInputSourceNone
-        END IF
+        RESULT = instruction%source()
     END FUNCTION readInstructionList_sourceOfVar
 
-    SUBROUTINE readInstructionList_printSummary(me)
+    SUBROUTINE readInstructionList_setSource(me, varName, source)
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: varName
+        INTEGER, VALUE :: source
+
+        CHARACTER(LEN = *), PARAMETER :: routine = modname//":readInstructionList_setSource"
+        TYPE(t_readInstruction), POINTER :: instruction
+
+        SELECT CASE(source)
+            CASE(kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth)
+                instruction => me%findInstruction(varName)
+                instruction%sourceOverride = source
+            CASE DEFAULT
+                CALL finish(routine, "assertion failed: illegal source argument")
+        END SELECT
+    END SUBROUTINE readInstructionList_setSource
+
+    SUBROUTINE readInstructionList_printSummary(me, domain)
+        CLASS(t_readInstructionList), INTENT(INOUT) :: me
+        INTEGER, VALUE :: domain
 
         CHARACTER(LEN = *), PARAMETER :: routine = modname//":readInstructionList_printSummary"
         CHARACTER(LEN = 12) :: fgString, anaString
@@ -487,6 +636,16 @@ CONTAINS
                                        & anaAttemptCol = "ANA read attempt", &
                                        & anaSuccessCol = "ANA data found", &
                                        & useCol = "data used from"
+
+        IF(me%nInstructions == 0) THEN
+            ! Don't print empty tables, just give a message that there are no input instructions.
+            WRITE(0, *) "no input results available for domain "//TRIM(int2string(domain))
+            RETURN
+        END IF
+
+        ! Print the title of the list.
+        WRITE(0,*) ""
+        WRITE(0,*) "input results for domain "//TRIM(int2string(domain))//":"
 
         CALL initialize_table(table)
         CALL add_table_column(table, variableCol)
@@ -513,6 +672,7 @@ CONTAINS
                 CASE DEFAULT
                     CALL finish(routine, "unexpected value in statusFg")
             END SELECT
+
             SELECT CASE(curInstruction%statusAna)
                 CASE(kStateNoFetch)
                     CALL set_table_entry(table, i, anaAttemptCol, "no")
@@ -526,18 +686,25 @@ CONTAINS
                     CALL finish(routine, "unexpected value in statusAna")
             END SELECT
 
-            IF(curInstruction%statusAna == kStateRead) THEN
-                CALL set_table_entry(table, i, useCol, "ana")
-            ELSE IF(curInstruction%statusFg == kStateRead) THEN
-                CALL set_table_entry(table, i, useCol, "fg")
-            ELSE
-                CALL set_table_entry(table, i, useCol, "none")
-            END IF
+            SELECT CASE(curInstruction%source())
+                CASE(kInputSourceNone)
+                    CALL set_table_entry(table, i, useCol, "none")
+                CASE(kInputSourceFg)
+                    CALL set_table_entry(table, i, useCol, "fg")
+                CASE(kInputSourceAna)
+                    CALL set_table_entry(table, i, useCol, "ana")
+                CASE(kInputSourceBoth)
+                    CALL set_table_entry(table, i, useCol, "both")
+                CASE DEFAULT
+                    CALL finish(routine, "unexpected RESULT from curInstruction%source()")
+            END SELECT
         END DO
 
         CALL print_table(table, opt_delimiter = " | ")
 
         CALL finalize_table(table)
+
+        WRITE(0,*) ""   ! Separate the table from the following messages.
     END SUBROUTINE readInstructionList_printSummary
 
     SUBROUTINE readInstructionList_destruct(me)
