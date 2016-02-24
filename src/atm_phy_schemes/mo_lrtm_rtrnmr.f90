@@ -161,7 +161,7 @@ CONTAINS
     REAL(wp) :: radld(kproma), radclrd(kproma), plfrac
     REAL(wp) :: odepth(kproma), odtot(kproma), odepth_rec, odtot_rec, &
          gassrc(kproma), ttot, odepth_temp
-    REAL(wp) :: tfactot, bbd(kproma), bbdtot(kproma), tfacgas, transc, tausfac
+    REAL(wp) :: tfactot, bbd(kproma), bbdtot(kproma), tfacgas
     REAL(wp) :: rad0, reflect, radlu(kproma), radclru(kproma)
 
     REAL(wp) :: duflux_dt
@@ -174,7 +174,7 @@ CONTAINS
     INTEGER :: ibnd, ib, iband, lay, lev    ! loop indices
     INTEGER :: igc                          ! g-point interval counter
     LOGICAL :: iclddn(kproma)               ! flag for cloud in down path
-    INTEGER :: ittot, itgas, itr            ! lookup table indices
+    INTEGER :: ittot, itgas            ! lookup table indices
     INTEGER :: ipat(16,0:2)
     INTEGER :: jl
 
@@ -236,7 +236,6 @@ CONTAINS
     !    tbound                       ! surface temperature (k)
     !    cldfrac                      ! layer cloud fraction
     !    taucloud                     ! layer cloud optical depth
-    !    itr                          ! integer look-up table index
     !    lcldlyr                      ! flag for cloudy layers
     !    iclddn                       ! flag for cloud in column at any layer
     !    semiss                       ! surface emissivities for each band
@@ -287,8 +286,6 @@ CONTAINS
     ! Local variables for cloud / no cloud index lists
     INTEGER, DIMENSION(kproma,nlayers) :: icld_ind,iclear_ind
     INTEGER :: icld, iclear, n_cloudpoints(nlayers), n_clearpoints(nlayers)
-    INTEGER :: icld1, npoints1, npoints2, npoints3, &
-      &        ilist1(kproma), ilist2(kproma), ilist3(kproma)
 
     ! These arrays indicate the spectral 'region' (used in the
     ! calculation of ice cloud optical depths) corresponding
@@ -439,18 +436,17 @@ CONTAINS
 
       ! Downward radiative transfer loop.
       DO lev = nlayers, 1, -1
-        IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
-
+        IF (n_clearpoints(lev) /= kproma) THEN
           DO jl = 1, kproma ! Thus, direct addressing can be used
             ib = ibv(jl)
             plfrac = fracs(jl,lev,igc)
             odepth_temp = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
+            branch_od2 = odepth_temp .LE. 0.06_wp
 
             IF (lcldlyr(jl,lev)) THEN
               iclddn(jl) = .TRUE.
               odtot(jl) = odepth_temp + secdiff(jl,ib) * taucloud(jl,lev,ib)
               branch_od1 = odtot(jl) .LT. 0.06_wp
-              branch_od2 = odepth_temp .LE. 0.06_wp
               itgas = INT(tblint * odepth_temp/(bpade+odepth_temp) + 0.5_wp)
               tfacgas = tfn_tbl(itgas)
               ittot = MERGE(0, INT(tblint * odtot(jl)/(bpade+odtot(jl)) + 0.5_wp), branch_od1)
@@ -482,7 +478,7 @@ CONTAINS
                 & clrradd(jl), istcldd(jl,lev)) * (1._wp-atrans(jl,lev)) + &
                 & (1._wp-cldfrac(jl,lev))*gassrc(jl)
               cldradd_temp = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
-                   istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
+                istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
               radld(jl) = cldradd_temp + clrradd_temp
               drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
 
@@ -498,182 +494,52 @@ CONTAINS
                 &  faccld2d(jl,lev-1)*oldcld
               cldradd(jl) = cldradd_temp + rad(jl)
               clrradd(jl) = clrradd_temp - rad(jl)
+            ELSE
+              ! only needed for NAG
+              atot(jl, lev) = 0.0_wp
+              bbutot(jl, lev) = 0.0_wp
+
+              odepth_rec_or_tausfac = MERGE(rec_6*odepth_temp, &
+                tfn_tbl(INT(tblint*odepth_temp/(bpade+odepth_temp)+0.5_wp)), &
+                branch_od2)
+              atrans(jl,lev) = MERGE(odepth_temp-0.5_wp*odepth_temp*odepth_temp, &
+                1._wp - exp_tbl(INT(tblint*odepth_temp/(bpade+odepth_temp) + 0.5_wp)), &
+                branch_od2)
+              odepth(jl) = odepth_temp
+              bbd(jl) = plfrac * (planklay(jl,lev,iband) &
+                + odepth_rec_or_tausfac * dplankdn(jl,lev))
+              bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
+                + odepth_rec_or_tausfac * dplankup(jl,lev))
+              radld(jl) = radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev)
+              drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
+
             END IF
           ENDDO
 
-        ELSE IF (n_clearpoints(lev) == kproma) THEN ! all points are clear
+        ELSE
 
           DO jl = 1, kproma ! Thus, direct addressing can be used
+
+            plfrac = fracs(jl,lev,igc)
+            odepth_temp = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
+
+            branch_od2 = odepth_temp .LE. 0.06_wp
 
             ! only needed for NAG
             atot(jl, lev) = 0.0_wp
             bbutot(jl, lev) = 0.0_wp
 
-            plfrac = fracs(jl,lev,igc)
-            odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
-
-            branch_od2 = odepth(jl) .LE. 0.06_wp
-
-            odepth_rec_or_tausfac = MERGE(rec_6*odepth(jl), &
-              tfn_tbl(INT(tblint*odepth(jl)/(bpade+odepth(jl))+0.5_wp)), &
+            odepth_rec_or_tausfac = MERGE(rec_6*odepth_temp, &
+              tfn_tbl(INT(tblint*odepth_temp/(bpade+odepth_temp)+0.5_wp)), &
               branch_od2)
-            atrans(jl,lev) = MERGE(odepth(jl)-0.5_wp*odepth(jl)*odepth(jl), &
-              1._wp - exp_tbl(INT(tblint*odepth(jl)/(bpade+odepth(jl)) + 0.5_wp)), &
+            atrans(jl,lev) = MERGE(odepth_temp-0.5_wp*odepth_temp*odepth_temp, &
+              1._wp - exp_tbl(INT(tblint*odepth_temp/(bpade+odepth_temp) + 0.5_wp)), &
               branch_od2)
+            odepth(jl) = odepth_temp
             bbd(jl) = plfrac * (planklay(jl,lev,iband) &
               + odepth_rec_or_tausfac * dplankdn(jl,lev))
             bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
               + odepth_rec_or_tausfac * dplankup(jl,lev))
-            radld(jl) = radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev)
-            drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
-          ENDDO
-
-        ELSE ! both cloudy and clear points are in the vector
-
-          npoints1 = 0
-          npoints2 = 0
-          npoints3 = 0
-
-          ! Cloudy layer
-!CDIR NODEP,VOVERTAKE,VOB
-          DO icld = 1, n_cloudpoints(lev)
-            jl = icld_ind(icld,lev)
-
-            ib = ibv(jl)
-            odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
-
-            iclddn(jl) = .TRUE.
-            odtot(jl) = odepth(jl) + secdiff(jl,ib) * taucloud(jl,lev,ib)
-
-            IF (odtot(jl) .LT. 0.06_wp) THEN
-              npoints1 = npoints1 + 1
-              ilist1(npoints1) = jl
-            ELSEIF (odepth(jl) .LE. 0.06_wp) THEN
-              npoints2 = npoints2 + 1
-              ilist2(npoints2) = jl
-            ELSE
-              npoints3 = npoints3 + 1
-              ilist3(npoints3) = jl
-            ENDIF
-          ENDDO
-
-!CDIR NODEP,VOVERTAKE,VOB
-          DO icld1 = 1, npoints1
-            jl = ilist1(icld1)
-
-            plfrac = fracs(jl,lev,igc)
-            atrans(jl,lev) = odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl)
-            odepth_rec = rec_6*odepth(jl)
-            gassrc(jl) = plfrac*(planklay(jl,lev,iband) &
-                       + dplankdn(jl,lev)*odepth_rec)*atrans(jl,lev)
-
-            atot(jl,lev) = odtot(jl) - 0.5_wp*odtot(jl)*odtot(jl)
-            odtot_rec = rec_6*odtot(jl)
-            bbdtot(jl) =  plfrac * (planklay(jl,lev,iband)+dplankdn(jl,lev)*odtot_rec)
-            bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
-
-            bbugas(jl,lev) =  plfrac * (planklay(jl,lev,iband)+dplankup(jl,lev)*odepth_rec)
-            bbutot(jl,lev) =  plfrac * (planklay(jl,lev,iband)+dplankup(jl,lev)*odtot_rec)
-          ENDDO
-
-!CDIR NODEP,VOVERTAKE,VOB
-          DO icld1 = 1, npoints2
-            jl = ilist2(icld1)
-
-            plfrac = fracs(jl,lev,igc)
-            atrans(jl,lev) = odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl)
-            odepth_rec = rec_6*odepth(jl)
-            gassrc(jl) = plfrac*(planklay(jl,lev,iband) &
-                       + dplankdn(jl,lev)*odepth_rec)*atrans(jl,lev)
-
-            ittot = INT(tblint*odtot(jl)/(bpade+odtot(jl)) + 0.5_wp)
-            tfactot = tfn_tbl(ittot)
-            bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + tfactot*dplankdn(jl,lev))
-            bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
-            atot(jl,lev) = 1._wp - exp_tbl(ittot)
-
-            bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) + dplankup(jl,lev)*odepth_rec)
-            bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfactot * dplankup(jl,lev))
-          ENDDO
-
-!CDIR NODEP,VOVERTAKE,VOB
-          DO icld1 = 1, npoints3
-            jl = ilist3(icld1)
-
-            plfrac = fracs(jl,lev,igc)
-            itgas = INT(tblint*odepth(jl)/(bpade+odepth(jl))+0.5_wp)
-            odepth(jl) = tau_tbl(itgas)
-            atrans(jl,lev) = 1._wp - exp_tbl(itgas)
-            tfacgas = tfn_tbl(itgas)
-            gassrc(jl) = atrans(jl,lev) * plfrac * (planklay(jl,lev,iband) &
-                                                 + tfacgas*dplankdn(jl,lev))
-
-            ittot = INT(tblint*odtot(jl)/(bpade+odtot(jl)) + 0.5_wp)
-            tfactot = tfn_tbl(ittot)
-            bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + tfactot*dplankdn(jl,lev))
-            bbd(jl) = plfrac*(planklay(jl,lev,iband)+tfacgas*dplankdn(jl,lev))
-            atot(jl,lev) = 1._wp - exp_tbl(ittot)
-
-            bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfacgas * dplankup(jl,lev))
-            bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfactot * dplankup(jl,lev))
-          ENDDO
-
-!CDIR NODEP,VOVERTAKE,VOB
-          DO icld = 1, n_cloudpoints(lev)
-            jl = icld_ind(icld,lev)
-
-            IF (istcldd(jl,lev)) THEN
-              cldradd(jl) = cldfrac(jl,lev) * radld(jl)
-              clrradd(jl) = radld(jl) - cldradd(jl)
-              rad(jl) = 0._wp
-            ENDIF
-            ttot = 1._wp - atot(jl,lev)
-            cldsrc = bbdtot(jl) * atot(jl,lev)
-            cldradd(jl) = cldradd(jl) * ttot + cldfrac(jl,lev) * cldsrc
-            clrradd(jl) = clrradd(jl) * (1._wp-atrans(jl,lev)) + &
-              & (1._wp-cldfrac(jl,lev))*gassrc(jl)
-            radld(jl) = cldradd(jl) + clrradd(jl)
-            drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
-
-            radmod = rad(jl) * &
-              & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
-              & faccld1d(jl,lev-1) *  ttot) - &
-              & faccmb1d(jl,lev-1) * gassrc(jl) + &
-              & faccmb2d(jl,lev-1) * cldsrc
-
-            oldcld = cldradd(jl) - radmod
-            oldclr = clrradd(jl) + radmod
-            rad(jl) = -radmod + facclr2d(jl,lev-1)*oldclr -&
-              &  faccld2d(jl,lev-1)*oldcld
-            cldradd(jl) = cldradd(jl) + rad(jl)
-            clrradd(jl) = clrradd(jl) - rad(jl)
-          ENDDO
-
-          ! Clear layer
-!CDIR NODEP,VOVERTAKE,VOB
-          DO iclear = 1, n_clearpoints(lev)
-            jl = iclear_ind(iclear,lev)
-
-            ! only needed for NAG
-            atot(jl, lev) = 0.0_wp
-            bbutot(jl, lev) = 0.0_wp
-
-            plfrac = fracs(jl,lev,igc)
-            odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
-
-            IF (odepth(jl) .LE. 0.06_wp) THEN
-              atrans(jl,lev) = odepth(jl)-0.5_wp*odepth(jl)*odepth(jl)
-              odepth_rec = rec_6*odepth(jl)
-              bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
-              bbugas(jl,lev) = plfrac*(planklay(jl,lev,iband)+dplankup(jl,lev)*odepth_rec)
-            ELSE
-              itr = INT(tblint*odepth(jl)/(bpade+odepth(jl))+0.5_wp)
-              transc = exp_tbl(itr)
-              atrans(jl,lev) = 1._wp-transc
-              tausfac = tfn_tbl(itr)
-              bbd(jl) = plfrac*(planklay(jl,lev,iband)+tausfac*dplankdn(jl,lev))
-              bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) + tausfac * dplankup(jl,lev))
-            ENDIF
             radld(jl) = radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev)
             drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
           ENDDO
@@ -1031,4 +897,8 @@ CONTAINS
   END SUBROUTINE compute_radiative_transfer
 
 END MODULE mo_lrtm_rtrnmr
-
+!
+! Local Variables:
+! f90-continuation-indent: 2
+! End:
+!
