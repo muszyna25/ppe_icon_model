@@ -156,8 +156,24 @@ CONTAINS
     REAL(wp) :: dclfl
 
     REAL(wp) :: secdiff(kproma,nbndlw)          ! secant of diffusivity angle
-    REAL(wp) :: a0(nbndlw),a1(nbndlw),a2(nbndlw)! diffusivity angle adjustment coefficients
-    REAL(wp) :: wtdiff, rec_6, dplankup(kproma,nlayers), dplankdn(kproma,nlayers)
+    REAL(wp) :: dplankup(kproma,nlayers), dplankdn(kproma,nlayers)
+    REAL(wp), PARAMETER :: rec_6 = 0.166667_wp, &
+      ! diffusivity angle adjustment coefficients
+      a0(nbndlw) = (/ 1.66_wp,  1.55_wp,  1.58_wp,  1.66_wp, &
+      & 1.54_wp, 1.454_wp,  1.89_wp,  1.33_wp, &
+      & 1.668_wp,  1.66_wp,  1.66_wp,  1.66_wp, &
+      & 1.66_wp,  1.66_wp,  1.66_wp,  1.66_wp /),&
+      a1(nbndlw) = (/ 0.00_wp,  0.25_wp,  0.22_wp,  0.00_wp, &
+      & 0.13_wp, 0.446_wp, -0.10_wp,  0.40_wp, &
+      & -0.006_wp,  0.00_wp,  0.00_wp,  0.00_wp, &
+      & 0.00_wp,  0.00_wp,  0.00_wp,  0.00_wp /),&
+      a2(nbndlw) = (/ 0.00_wp, -12.0_wp, -11.7_wp,  0.00_wp, &
+      & -0.72_wp,-0.243_wp,  0.19_wp,-0.062_wp, &
+      & 0.414_wp,  0.00_wp,  0.00_wp,  0.00_wp, &
+      & 0.00_wp,  0.00_wp,  0.00_wp,  0.00_wp /), &
+    ! This secant and weight corresponds to the standard diffusivity
+    ! angle.  This initial value is redefined below for some bands.
+      wtdiff = 0.5_wp
     REAL(wp) :: radld(kproma), radclrd(kproma), plfrac
     REAL(wp) :: odepth(kproma), odtot(kproma), odepth_rec, odtot_rec, &
          gassrc(kproma), ttot, odepth_temp
@@ -175,7 +191,14 @@ CONTAINS
     INTEGER :: igc                          ! g-point interval counter
     LOGICAL :: iclddn(kproma)               ! flag for cloud in down path
     INTEGER :: ittot, itgas            ! lookup table indices
-    INTEGER :: ipat(16,0:2)
+    INTEGER, PARAMETER :: ipat(16,0:2) = RESHAPE((/&
+      ! These arrays indicate the spectral 'region' (used in the
+      ! calculation of ice cloud optical depths) corresponding
+      ! to each spectral band.  See cldprop.f for more details.
+      & 1,1,1,1,1,1,1,1,1, 1, 1, 1, 1, 1, 1, 1, &
+      & 1,2,3,3,3,4,4,4,5, 5, 5, 5, 5, 5, 5, 5, &
+      & 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16/), (/16, 3/))
+
     INTEGER :: jl
 
     INTEGER :: ibv(kproma)
@@ -287,34 +310,11 @@ CONTAINS
     INTEGER, DIMENSION(kproma,nlayers) :: icld_ind,iclear_ind
     INTEGER :: icld, iclear, n_cloudpoints(nlayers), n_clearpoints(nlayers)
 
-    ! These arrays indicate the spectral 'region' (used in the
-    ! calculation of ice cloud optical depths) corresponding
-    ! to each spectral band.  See cldprop.f for more details.
-    DATA ipat /1,1,1,1,1,1,1,1,1, 1, 1, 1, 1, 1, 1, 1, &
-      & 1,2,3,3,3,4,4,4,5, 5, 5, 5, 5, 5, 5, 5, &
-      & 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16/
-
-    ! This secant and weight corresponds to the standard diffusivity
-    ! angle.  This initial value is redefined below for some bands.
-    DATA wtdiff /0.5_wp/
-    DATA rec_6 /0.166667_wp/
 
     ! Reset diffusivity angle for Bands 2-3 and 5-9 to vary (between 1.50
     ! and 1.80) as a function of total column water vapor.  The function
     ! has been defined to minimize flux and cooling rate errors in these bands
     ! over a wide range of precipitable water values.
-    DATA a0 / 1.66_wp,  1.55_wp,  1.58_wp,  1.66_wp, &
-      & 1.54_wp, 1.454_wp,  1.89_wp,  1.33_wp, &
-      & 1.668_wp,  1.66_wp,  1.66_wp,  1.66_wp, &
-      & 1.66_wp,  1.66_wp,  1.66_wp,  1.66_wp /
-    DATA a1 / 0.00_wp,  0.25_wp,  0.22_wp,  0.00_wp, &
-      & 0.13_wp, 0.446_wp, -0.10_wp,  0.40_wp, &
-      & -0.006_wp,  0.00_wp,  0.00_wp,  0.00_wp, &
-      & 0.00_wp,  0.00_wp,  0.00_wp,  0.00_wp /
-    DATA a2 / 0.00_wp, -12.0_wp, -11.7_wp,  0.00_wp, &
-      & -0.72_wp,-0.243_wp,  0.19_wp,-0.062_wp, &
-      & 0.414_wp,  0.00_wp,  0.00_wp,  0.00_wp, &
-      & 0.00_wp,  0.00_wp,  0.00_wp,  0.00_wp /
 
     DO ibnd = 1,nbndlw
       IF (ibnd.EQ.1 .OR. ibnd.EQ.4 .OR. ibnd.GE.10) THEN
