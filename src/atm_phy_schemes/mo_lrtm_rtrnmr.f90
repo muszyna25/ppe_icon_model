@@ -448,6 +448,9 @@ CONTAINS
             branch_od1 = odtot .LT. 0.06_wp
             itgas = INT(tblint * odepth/(bpade+odepth) + 0.5_wp)
             tfacgas = tfn_tbl(itgas)
+            atrans(jl,lev) = MERGE(odepth - 0.5_wp*odepth*odepth, &
+              &           1._wp - exp_tbl(itgas), &
+              &           (lcldlyr(jl,lev) .AND. branch_od1) .OR. branch_od2)
             IF (lcldlyr(jl,lev)) THEN
               ittot = INT(tblint * odtot/(bpade+odtot) + 0.5_wp)
               tfactot = MERGE(0.0_wp, tfn_tbl(ittot), branch_od1)
@@ -459,8 +462,6 @@ CONTAINS
               atot(jl,lev) = MERGE(odtot - 0.5_wp*odtot*odtot, &
                 &               1._wp - exp_tbl(ittot), branch_od1)
 
-              atrans(jl,lev) = MERGE(odepth - 0.5_wp*odepth*odepth, &
-                &           1._wp - exp_tbl(itgas), branch_od1 .OR. branch_od2)
               bbdtot = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev))
               bbd(jl) = plfrac * (planklay(jl,lev,iband) + odepth_rec_or_tfacgas * dplankdn(jl,lev))
               gassrc = plfrac * (planklay(jl,lev,iband) &
@@ -497,8 +498,6 @@ CONTAINS
 
               odepth_rec_or_tausfac = MERGE(rec_6*odepth, &
                 tfacgas, branch_od2)
-              atrans(jl,lev) = MERGE(odepth-0.5_wp*odepth*odepth, &
-                1._wp - exp_tbl(itgas), branch_od2)
               bbd(jl) = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tausfac * dplankdn(jl,lev))
               bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
