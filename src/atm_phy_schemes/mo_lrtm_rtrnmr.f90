@@ -186,7 +186,7 @@ CONTAINS
     REAL(wp) :: d_clrurad_dt(kproma,0:nlayers)
     REAL(wp) :: d_rad0_dt, d_radlu_dt(kproma), d_radclru_dt(kproma)
 
-    LOGICAL :: lcldlyr(kproma,nlayers)             ! flag for cloud in layer
+    LOGICAL :: lcldlyr(kproma,0:nlayers+1)             ! flag for cloud in layer
     INTEGER :: ibnd, ib, iband, lay, lev    ! loop indices
     INTEGER :: igc                          ! g-point interval counter
     LOGICAL :: iclddn(kproma)               ! flag for cloud in down path
@@ -241,8 +241,7 @@ CONTAINS
     REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, &
       & rad
 
-    LOGICAL :: istcld(kproma,nlayers+1),istcldd(kproma,0:nlayers), &
-         branch_od1, branch_od2
+    LOGICAL :: branch_od1, branch_od2
 
     ! ------- Definitions -------
     ! input
@@ -360,6 +359,7 @@ CONTAINS
 !CDIR END
     ENDIF
 
+    lcldlyr(:, 0) = .FALSE.
     DO lay = 1, nlayers
 
       icld   = 0
@@ -380,22 +380,22 @@ CONTAINS
       n_cloudpoints(lay) = icld
 
     ENDDO
+    lcldlyr(:, nlayers+1) = .FALSE.
 
     ! Maximum/Random cloud overlap parameter
 
-    istcld(:,1) = .TRUE.
-    istcldd(:,nlayers) = .TRUE.
-
     CALL cloud_overlap(kproma, nlayers, 1, cldfrac, &
-      n_cloudpoints, icld_ind,iclear_ind, &
+      lcldlyr, n_cloudpoints, icld_ind,iclear_ind, &
       1, nlayers, 1, &
-      faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2, istcld)
+      faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2)
+
+    ! istcld(i,j) = .true. if j == 1 or .not. lcldlyr(i, j - 1)
+    ! istcldd(i,j) = .true. if j == nlayers or .not. lcldlyr(i, j + 1)
 
     CALL cloud_overlap(kproma, nlayers, 0, cldfrac, &
-      n_cloudpoints, icld_ind,iclear_ind, &
+      lcldlyr, n_cloudpoints, icld_ind,iclear_ind, &
       nlayers, 1, -1, &
-      faccld1d, faccld2d, facclr1d, facclr2d, faccmb1d, faccmb2d, istcldd)
-
+      faccld1d, faccld2d, facclr1d, facclr2d, faccmb1d, faccmb2d)
 
     igc = 1
     ! Loop over frequency bands.
@@ -439,14 +439,14 @@ CONTAINS
           DO jl = 1, kproma ! Thus, direct addressing can be used
             ib = ibv(jl)
             plfrac = fracs(jl,lev,igc)
-            odepth = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
+            odepth = secdiff(jl,iband) * taut(jl,lev,igc)
+            odepth = (ABS(odepth) + odepth) * 0.5_wp
             branch_od2 = odepth .LE. 0.06_wp
 
             iclddn(jl) = iclddn(jl) .OR. lcldlyr(jl,lev)
             odtot = odepth + secdiff(jl,ib) * taucloud(jl,lev,ib)
             branch_od1 = odtot .LT. 0.06_wp
             itgas = INT(tblint * odepth/(bpade+odepth) + 0.5_wp)
-            tfacgas = tfn_tbl(itgas)
             atrans(jl,lev) = MERGE(odepth - 0.5_wp*odepth*odepth, &
               &           1._wp - exp_tbl(itgas), &
               &           (lcldlyr(jl,lev) .AND. branch_od1) .OR. branch_od2)
@@ -454,7 +454,7 @@ CONTAINS
             atot(jl,lev) = MERGE(odtot - 0.5_wp*odtot*odtot, &
               &                  1._wp - exp_tbl(ittot), branch_od1)
 
-            odepth_rec_or_tfacgas = MERGE(rec_6 * odepth, tfacgas, &
+            odepth_rec_or_tfacgas = MERGE(rec_6 * odepth, tfn_tbl(itgas), &
               &             (lcldlyr(jl,lev) .AND. branch_od1) .OR. branch_od2)
             bbd(jl)        = plfrac * (planklay(jl,lev,iband) &
               + odepth_rec_or_tfacgas * dplankdn(jl,lev))
@@ -468,11 +468,11 @@ CONTAINS
               + odtot_rec_or_tfactot * dplankdn(jl,lev)) * atot(jl,lev)
             ttot = 1._wp - atot(jl,lev)
             clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
-              & clrradd(jl), istcldd(jl,lev)) * (1._wp-atrans(jl,lev)) + &
+              & clrradd(jl), .NOT. lcldlyr(jl,lev+1)) * (1._wp-atrans(jl,lev)) + &
               & (1._wp-cldfrac(jl,lev))*gassrc
             cldradd_temp = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
-              istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
-            radmod = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
+              .NOT. lcldlyr(jl,lev+1)) * ttot + cldfrac(jl,lev) * cldsrc
+            radmod = MERGE(0._wp, rad(jl), .NOT. lcldlyr(jl,lev+1)) * &
               & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
               & faccld1d(jl,lev-1) * ttot) - &
               & faccmb1d(jl,lev-1) * gassrc + &
@@ -568,7 +568,7 @@ CONTAINS
 !DIR$ SIMD
           DO jl = 1, kproma
             gassrc = bbugas(jl,lev) * atrans(jl,lev)
-            IF (istcld(jl,lev)) THEN
+            IF (.NOT. lcldlyr(jl,lev-1)) THEN
               cldradu(jl) = cldfrac(jl,lev) * radlu(jl)
               clrradu(jl) = radlu(jl) - cldradu(jl)
               rad(jl) = 0._wp
@@ -685,9 +685,9 @@ CONTAINS
   END SUBROUTINE lrtm_rtrnmr
 
   SUBROUTINE cloud_overlap(kproma, nlayers, ofs, cldfrac, &
-       n_cloudpoints, icld_ind,iclear_ind, &
+       lcldlyr, n_cloudpoints, icld_ind,iclear_ind, &
        start_lev, end_lev, lev_incr, &
-       faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2, istcld)
+       faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2)
     INTEGER, INTENT(in) :: kproma          ! number of columns
     INTEGER, INTENT(in) :: nlayers         ! total number of layers
     INTEGER, intent(in) :: ofs             ! layer offset to use for
@@ -695,7 +695,7 @@ CONTAINS
     INTEGER, INTENT(in) :: n_cloudpoints(nlayers)
     INTEGER, DIMENSION(kproma,nlayers) :: icld_ind,iclear_ind
     INTEGER, INTENT(in) :: start_lev, end_lev, lev_incr
-
+    LOGICAL, INTENT(in) :: lcldlyr(kproma,0:nlayers+1)
 
     REAL(wp), INTENT(inout) :: faccld1(kproma,nlayers+1), &
          faccld2(kproma,nlayers+1), &
@@ -703,7 +703,6 @@ CONTAINS
          facclr2(kproma,nlayers+1), &
          faccmb1(kproma,nlayers+1), &
          faccmb2(kproma,nlayers+1)
-    LOGICAL, INTENT(out) :: istcld(kproma,nlayers+1)
     REAL(wp), INTENT(in) :: cldfrac(:,:)       ! layer cloud fraction
 
     REAL(wp) :: fmax, fmin, rat1(kproma), rat2(kproma)
@@ -714,7 +713,6 @@ CONTAINS
       IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
         DO jl = 1, kproma ! Thus, direct addressing can be used
           ! Maximum/random cloud overlap
-          istcld(jl,olev) = .FALSE.
           IF (lev .EQ. end_lev) THEN
             faccld1(jl,olev) = 0._wp
             faccld2(jl,olev) = 0._wp
@@ -725,7 +723,7 @@ CONTAINS
           ELSEIF (cldfrac(jl,olev) .GE. cldfrac(jl,lev)) THEN
             faccld1(jl,olev) = 0._wp
             faccld2(jl,olev) = 0._wp
-            IF (istcld(jl,lev+1-ofs)) THEN
+            IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
               facclr1(jl,olev) = 0._wp
               facclr2(jl,olev) = 0._wp
               IF (cldfrac(jl,lev) .LT. 1._wp) facclr2(jl,olev) = &
@@ -752,7 +750,7 @@ CONTAINS
           ELSE
             facclr1(jl,olev) = 0._wp
             facclr2(jl,olev) = 0._wp
-            IF (istcld(jl,lev+1-ofs)) THEN
+            IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
               faccld1(jl,olev) = 0._wp
               faccld2(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,olev))/cldfrac(jl,lev)
 
@@ -780,14 +778,12 @@ CONTAINS
             faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,lev) * (1._wp - cldfrac(jl,lev-lev_incr))
           ENDIF
         ENDDO
-      ELSE IF (n_cloudpoints(lev) == 0) THEN ! all points are clear
-        istcld(1:kproma,olev) = .TRUE.
-      ELSE ! use index list for the case that not all points are cloudy
+      ELSE IF (n_cloudpoints(lev) /= 0) THEN
+        ! use index list for the case that not all points are cloudy
 !CDIR NODEP,VOVERTAKE,VOB
         DO icld = 1, n_cloudpoints(lev)
           jl = icld_ind(icld,lev)
           ! Maximum/random cloud overlap
-          istcld(jl,olev) = .FALSE.
           IF (lev .EQ. end_lev) THEN
             faccld1(jl,olev) = 0._wp
             faccld2(jl,olev) = 0._wp
@@ -798,7 +794,7 @@ CONTAINS
           ELSEIF (cldfrac(jl,olev) .GE. cldfrac(jl,lev)) THEN
             faccld1(jl,olev) = 0._wp
             faccld2(jl,olev) = 0._wp
-            IF (istcld(jl,lev+1-ofs)) THEN
+            IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
               facclr1(jl,olev) = 0._wp
               facclr2(jl,olev) = 0._wp
               IF (cldfrac(jl,lev) .LT. 1._wp) facclr2(jl,olev) = &
@@ -825,7 +821,7 @@ CONTAINS
           ELSE
             facclr1(jl,olev) = 0._wp
             facclr2(jl,olev) = 0._wp
-            IF (istcld(jl,lev+1-ofs)) THEN
+            IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
               faccld1(jl,olev) = 0._wp
               faccld2(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,olev))/cldfrac(jl,lev)
 
@@ -852,11 +848,6 @@ CONTAINS
             faccmb1(jl,olev) = facclr1(jl,olev) * faccld2(jl,lev) * cldfrac(jl,lev-lev_incr)
             faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,lev) * (1._wp - cldfrac(jl,lev-lev_incr))
           ENDIF
-        ENDDO
-!CDIR NODEP,VOVERTAKE,VOB
-        DO iclear = 1, kproma - n_cloudpoints(lev)
-          jl = iclear_ind(iclear,lev)
-          istcld(jl,olev) = .TRUE.
         ENDDO
       ENDIF
 
