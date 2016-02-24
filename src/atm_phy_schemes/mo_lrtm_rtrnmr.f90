@@ -93,8 +93,8 @@ CONTAINS
     INTEGER, INTENT(in) :: iout            ! output option flag
 
     ! Atmosphere
+    REAL(wp), INTENT(in) :: pwvcm(kproma)           ! precipitable water vapor (cm)
     !    Dimensions: (0:nlayers)
-    REAL(wp), INTENT(in) :: pwvcm(:)           ! precipitable water vapor (cm)
     REAL(wp), INTENT(in) :: semiss(:,:)        ! lw surface emissivity
     !    Dimensions: (nbndlw)
     REAL(wp), INTENT(in) :: planklay(:,:,:)      !
@@ -109,7 +109,7 @@ CONTAINS
     !    Dimensions: (kproma,nlayers,ngptlw)
 
     ! Clouds
-    INTEGER, INTENT(in) :: ncbands(:)          ! number of cloud spectral bands
+    INTEGER, INTENT(in) :: ncbands(kproma)          ! number of cloud spectral bands
     REAL(wp), INTENT(in) :: cldfrac(:,:)       ! layer cloud fraction
     !    Dimensions: (nlayers)
     REAL(wp), INTENT(in) :: taucloud(:,:,:)      ! layer cloud optical depth
