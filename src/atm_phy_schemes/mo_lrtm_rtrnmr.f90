@@ -523,13 +523,10 @@ CONTAINS
         !  remain clear.  Streams diverge when a cloud is reached (iclddn=1),
         !  and clear sky stream must be computed separately from that point.
         DO jl = 1, kproma
-          IF (iclddn(jl)) THEN
-            radclrd(jl) = radclrd(jl) + (bbd(jl)-radclrd(jl)) * atrans(jl,lev)
-            clrdrad(jl,lev-1) = clrdrad(jl,lev-1) + radclrd(jl)
-          ELSE
-            radclrd(jl) = radld(jl)
-            clrdrad(jl,lev-1) = drad(jl,lev-1)
-          ENDIF
+          radclrd(jl) = MERGE(radclrd(jl) &
+            + (bbd(jl)-radclrd(jl)) * atrans(jl,lev), radld(jl), iclddn(jl))
+          clrdrad(jl,lev-1) = MERGE(clrdrad(jl,lev-1) + radclrd(jl), &
+            drad(jl,lev-1), iclddn(jl))
         ENDDO
       ENDDO
 
