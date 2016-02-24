@@ -458,29 +458,31 @@ CONTAINS
               + odepth_rec_or_tfacgas * dplankdn(jl,lev))
             bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
               + odepth_rec_or_tfacgas * dplankup(jl,lev))
-            gassrc         = bbd(jl) * atrans(jl,lev)
             odtot_rec_or_tfactot = MERGE(rec_6*odtot, tfn_tbl(ittot), branch_od1)
-            cldsrc = plfrac * (planklay(jl,lev,iband) &
-              + odtot_rec_or_tfactot * dplankdn(jl,lev)) * atot(jl,lev)
             bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) &
               + odtot_rec_or_tfactot * dplankup(jl,lev))
-            IF (lcldlyr(jl,lev)) THEN
-              ttot = 1._wp - atot(jl,lev)
-              clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
-                & clrradd(jl), istcldd(jl,lev)) * (1._wp-atrans(jl,lev)) + &
-                & (1._wp-cldfrac(jl,lev))*gassrc
-              cldradd_temp = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
-                istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
-              radmod = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
-                & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
-                & faccld1d(jl,lev-1) * ttot) - &
-                & faccmb1d(jl,lev-1) * gassrc + &
-                & faccmb2d(jl,lev-1) * cldsrc
-              rad(jl) = -radmod + facclr2d(jl,lev-1) * (cldradd_temp - radmod) &
-                - faccld2d(jl,lev-1) * (clrradd_temp + radmod)
-              cldradd(jl) = cldradd_temp + rad(jl)
-              clrradd(jl) = clrradd_temp - rad(jl)
-            END IF
+            gassrc         = bbd(jl) * atrans(jl,lev)
+            cldsrc = plfrac * (planklay(jl,lev,iband) &
+              + odtot_rec_or_tfactot * dplankdn(jl,lev)) * atot(jl,lev)
+            ttot = 1._wp - atot(jl,lev)
+            clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
+              & clrradd(jl), istcldd(jl,lev)) * (1._wp-atrans(jl,lev)) + &
+              & (1._wp-cldfrac(jl,lev))*gassrc
+            cldradd_temp = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
+              istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
+            radmod = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
+              & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
+              & faccld1d(jl,lev-1) * ttot) - &
+              & faccmb1d(jl,lev-1) * gassrc + &
+              & faccmb2d(jl,lev-1) * cldsrc
+            rad(jl) = MERGE(-radmod &
+              + facclr2d(jl,lev-1) * (cldradd_temp - radmod) &
+              - faccld2d(jl,lev-1) * (clrradd_temp + radmod), rad(jl), &
+              lcldlyr(jl,lev))
+            cldradd(jl) = MERGE(cldradd_temp + rad(jl), cldradd(jl), &
+              lcldlyr(jl,lev))
+            clrradd(jl) = MERGE(clrradd_temp - rad(jl), clrradd(jl), &
+              lcldlyr(jl,lev))
             radld(jl) = MERGE(cldradd_temp + clrradd_temp, &
               radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev), lcldlyr(jl,lev))
             drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
