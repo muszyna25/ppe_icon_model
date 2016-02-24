@@ -213,9 +213,9 @@ CONTAINS
     !--------------------------------------------------------------------------
 
     REAL(wp) :: odepth_rec_or_tfacgas, odtot_rec_or_tfactot, cldsrc, &
-         oldclr, oldcld, clrradd_temp, cldradd_temp
+         oldclr, oldcld, clrradd_temp, cldradd_temp, radmod
     REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, &
-      & rad, radmod
+      & rad
 
     LOGICAL :: istcld(kproma,nlayers+1),istcldd(kproma,0:nlayers), &
          branch_od1, branch_od2
@@ -483,15 +483,15 @@ CONTAINS
             radld(jl) = cldradd_temp + clrradd_temp
             drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
 
-            radmod(jl) = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
+            radmod = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
               & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
               & faccld1d(jl,lev-1) *  ttot) - &
               & faccmb1d(jl,lev-1) * gassrc(jl) + &
               & faccmb2d(jl,lev-1) * cldsrc
 
-            oldcld = cldradd_temp - radmod(jl)
-            oldclr = clrradd_temp + radmod(jl)
-            rad(jl) = -radmod(jl) + facclr2d(jl,lev-1)*oldclr -&
+            oldcld = cldradd_temp - radmod
+            oldclr = clrradd_temp + radmod
+            rad(jl) = -radmod + facclr2d(jl,lev-1)*oldclr -&
               &  faccld2d(jl,lev-1)*oldcld
             cldradd(jl) = cldradd_temp + rad(jl)
             clrradd(jl) = clrradd_temp - rad(jl)
@@ -632,15 +632,15 @@ CONTAINS
             radld(jl) = cldradd(jl) + clrradd(jl)
             drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
 
-            radmod(jl) = rad(jl) * &
+            radmod = rad(jl) * &
               & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
               & faccld1d(jl,lev-1) *  ttot) - &
               & faccmb1d(jl,lev-1) * gassrc(jl) + &
               & faccmb2d(jl,lev-1) * cldsrc
 
-            oldcld = cldradd(jl) - radmod(jl)
-            oldclr = clrradd(jl) + radmod(jl)
-            rad(jl) = -radmod(jl) + facclr2d(jl,lev-1)*oldclr -&
+            oldcld = cldradd(jl) - radmod
+            oldclr = clrradd(jl) + radmod
+            rad(jl) = -radmod + facclr2d(jl,lev-1)*oldclr -&
               &  faccld2d(jl,lev-1)*oldcld
             cldradd(jl) = cldradd(jl) + rad(jl)
             clrradd(jl) = clrradd(jl) - rad(jl)
@@ -742,14 +742,14 @@ CONTAINS
                  lcldlyr(jl,lev))
 
             urad(jl,lev) = urad(jl,lev) + radlu(jl)
-            radmod(jl) = rad(jl) * &
+            radmod = rad(jl) * &
               & (facclr1(jl,lev+1)*(1.0_wp-atrans(jl,lev))+ &
               & faccld1(jl,lev+1) *  ttot) - &
               & faccmb1(jl,lev+1) * gassrc(jl) + &
               & faccmb2(jl,lev+1) * cldsrc
-            oldcld = cldradu(jl) - radmod(jl)
-            oldclr = clrradu(jl) + radmod(jl)
-            rad(jl) = -radmod(jl) + facclr2(jl,lev+1)*oldclr - faccld2(jl,lev+1)*oldcld
+            oldcld = cldradu(jl) - radmod
+            oldclr = clrradu(jl) + radmod
+            rad(jl) = -radmod + facclr2(jl,lev+1)*oldclr - faccld2(jl,lev+1)*oldcld
             cldradu(jl) = cldradu(jl) + rad(jl)
             clrradu(jl) = clrradu(jl) - rad(jl)
           ENDDO
