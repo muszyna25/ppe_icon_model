@@ -169,11 +169,7 @@ MODULE mo_nwp_rg_interface
       ENDDO
 
       ! Switch off solar radiation calculations where sun is below horizon:
-      WHERE ( prm_diag%cosmu0(i_startidx:i_endidx,jb) > 1.e-8_wp ) !zepmu0 )
-        lo_sol(i_startidx:i_endidx) = .TRUE.
-      ELSEWHERE
-        lo_sol(i_startidx:i_endidx) = .FALSE.
-      END WHERE
+      lo_sol(i_startidx:i_endidx) = prm_diag%cosmu0(i_startidx:i_endidx,jb) > 1.e-8_wp
       losol = ANY(lo_sol(i_startidx:i_endidx))
 
       CALL fesft ( &
