@@ -451,15 +451,15 @@ CONTAINS
             atrans(jl,lev) = MERGE(odepth - 0.5_wp*odepth*odepth, &
               &           1._wp - exp_tbl(itgas), &
               &           (lcldlyr(jl,lev) .AND. branch_od1) .OR. branch_od2)
+            ittot = INT(tblint * odtot/(bpade+odtot) + 0.5_wp)
+            atot(jl,lev) = MERGE(odtot - 0.5_wp*odtot*odtot, &
+              &                  1._wp - exp_tbl(ittot), branch_od1)
             IF (lcldlyr(jl,lev)) THEN
-              ittot = INT(tblint * odtot/(bpade+odtot) + 0.5_wp)
               odepth_rec = rec_6 * MERGE(odepth, tau_tbl(itgas), branch_od1 .OR. branch_od2)
               odtot_rec = MERGE(rec_6*odtot, 0.0_wp, branch_od1)
               odepth_rec_or_tfacgas = MERGE(odepth_rec, tfacgas, branch_od1 .OR. branch_od2)
               odtot_rec_or_tfactot = MERGE(odtot_rec, tfn_tbl(ittot), branch_od1)
 
-              atot(jl,lev) = MERGE(odtot - 0.5_wp*odtot*odtot, &
-                &               1._wp - exp_tbl(ittot), branch_od1)
 
               bbdtot = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev))
               bbd(jl) = plfrac * (planklay(jl,lev,iband) + odepth_rec_or_tfacgas * dplankdn(jl,lev))
@@ -492,7 +492,6 @@ CONTAINS
               clrradd(jl) = clrradd_temp - rad(jl)
             ELSE
               ! only needed for NAG
-              atot(jl, lev) = 0.0_wp
               bbutot(jl, lev) = 0.0_wp
 
               odepth_rec_or_tausfac = MERGE(rec_6*odepth, &
