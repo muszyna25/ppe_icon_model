@@ -213,9 +213,9 @@ CONTAINS
     !--------------------------------------------------------------------------
 
     REAL(wp) :: fmax, fmin, rat1(kproma), rat2(kproma), &
-         odepth_rec_or_tfacgas, odtot_rec_or_tfactot
+         odepth_rec_or_tfacgas, odtot_rec_or_tfactot, cldsrc
     REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, oldclr, oldcld, &
-      & rad, cldsrc, radmod
+      & rad, radmod
 
     LOGICAL :: istcld(kproma,nlayers+1),istcldd(kproma,0:nlayers), &
          branch_od1, branch_od2
@@ -804,8 +804,8 @@ CONTAINS
               rad(jl) = 0._wp
             ENDIF
             ttot = 1._wp - atot(jl,lev)
-            cldsrc(jl) = bbdtot(jl) * atot(jl,lev)
-            cldradd(jl) = cldradd(jl) * ttot + cldfrac(jl,lev) * cldsrc(jl)
+            cldsrc = bbdtot(jl) * atot(jl,lev)
+            cldradd(jl) = cldradd(jl) * ttot + cldfrac(jl,lev) * cldsrc
             clrradd(jl) = clrradd(jl) * (1._wp-atrans(jl,lev)) + &
               & (1._wp-cldfrac(jl,lev))*gassrc(jl)
             radld(jl) = cldradd(jl) + clrradd(jl)
@@ -815,7 +815,7 @@ CONTAINS
               & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
               & faccld1d(jl,lev-1) *  ttot) - &
               & faccmb1d(jl,lev-1) * gassrc(jl) + &
-              & faccmb2d(jl,lev-1) * cldsrc(jl)
+              & faccmb2d(jl,lev-1) * cldsrc
 
             oldcld(jl) = cldradd(jl) - radmod(jl)
             oldclr(jl) = clrradd(jl) + radmod(jl)
@@ -955,8 +955,8 @@ CONTAINS
               rad(jl) = 0._wp
             ENDIF
             ttot = 1._wp - atot(jl,lev)
-            cldsrc(jl) = bbdtot(jl) * atot(jl,lev)
-            cldradd(jl) = cldradd(jl) * ttot + cldfrac(jl,lev) * cldsrc(jl)
+            cldsrc = bbdtot(jl) * atot(jl,lev)
+            cldradd(jl) = cldradd(jl) * ttot + cldfrac(jl,lev) * cldsrc
             clrradd(jl) = clrradd(jl) * (1._wp-atrans(jl,lev)) + &
               & (1._wp-cldfrac(jl,lev))*gassrc(jl)
             radld(jl) = cldradd(jl) + clrradd(jl)
@@ -966,7 +966,7 @@ CONTAINS
               & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
               & faccld1d(jl,lev-1) *  ttot) - &
               & faccmb1d(jl,lev-1) * gassrc(jl) + &
-              & faccmb2d(jl,lev-1) * cldsrc(jl)
+              & faccmb2d(jl,lev-1) * cldsrc
 
             oldcld(jl) = cldradd(jl) - radmod(jl)
             oldclr(jl) = clrradd(jl) + radmod(jl)
@@ -1063,8 +1063,8 @@ CONTAINS
               rad(jl) = 0._wp
             ENDIF
             ttot = 1._wp - atot(jl,lev)
-            cldsrc(jl) = bbutot(jl,lev) * atot(jl,lev)
-            cldradu(jl) = cldradu(jl) * ttot + cldfrac(jl,lev) * cldsrc(jl)
+            cldsrc = bbutot(jl,lev) * atot(jl,lev)
+            cldradu(jl) = cldradu(jl) * ttot + cldfrac(jl,lev) * cldsrc
             clrradu(jl) = clrradu(jl) * (1.0_wp-atrans(jl,lev))+(1._wp-cldfrac(jl,lev))*gassrc(jl)
             ! Total sky radiance
             radlu(jl) = cldradu(jl) + clrradu(jl)
@@ -1073,7 +1073,7 @@ CONTAINS
               & (facclr1(jl,lev+1)*(1.0_wp-atrans(jl,lev))+ &
               & faccld1(jl,lev+1) *  ttot) - &
               & faccmb1(jl,lev+1) * gassrc(jl) + &
-              & faccmb2(jl,lev+1) * cldsrc(jl)
+              & faccmb2(jl,lev+1) * cldsrc
             oldcld(jl) = cldradu(jl) - radmod(jl)
             oldclr(jl) = clrradu(jl) + radmod(jl)
             rad(jl) = -radmod(jl) + facclr2(jl,lev+1)*oldclr(jl) - faccld2(jl,lev+1)*oldcld(jl)
@@ -1117,8 +1117,8 @@ CONTAINS
               rad(jl) = 0._wp
             ENDIF
             ttot = 1._wp - atot(jl,lev)
-            cldsrc(jl) = bbutot(jl,lev) * atot(jl,lev)
-            cldradu(jl) = cldradu(jl) * ttot + cldfrac(jl,lev) * cldsrc(jl)
+            cldsrc = bbutot(jl,lev) * atot(jl,lev)
+            cldradu(jl) = cldradu(jl) * ttot + cldfrac(jl,lev) * cldsrc
             clrradu(jl) = clrradu(jl) * (1.0_wp-atrans(jl,lev))+(1._wp-cldfrac(jl,lev))*gassrc(jl)
             ! Total sky radiance
             radlu(jl) = cldradu(jl) + clrradu(jl)
@@ -1127,7 +1127,7 @@ CONTAINS
               & (facclr1(jl,lev+1)*(1.0_wp-atrans(jl,lev))+ &
               & faccld1(jl,lev+1) *  ttot) - &
               & faccmb1(jl,lev+1) * gassrc(jl) + &
-              & faccmb2(jl,lev+1) * cldsrc(jl)
+              & faccmb2(jl,lev+1) * cldsrc
             oldcld(jl) = cldradu(jl) - radmod(jl)
             oldclr(jl) = clrradu(jl) + radmod(jl)
             rad(jl) = -radmod(jl) + facclr2(jl,lev+1)*oldclr(jl) - faccld2(jl,lev+1)*oldcld(jl)
