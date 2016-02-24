@@ -169,7 +169,7 @@ CONTAINS
     REAL(wp) :: d_clrurad_dt(kproma,0:nlayers)
     REAL(wp) :: d_rad0_dt, d_radlu_dt(kproma), d_radclru_dt(kproma)
 
-    INTEGER :: icldlyr(kproma,nlayers)             ! flag for cloud in layer
+    LOGICAL :: lcldlyr(kproma,nlayers)             ! flag for cloud in layer
     INTEGER :: ibnd, ib, iband, lay, lev    ! loop indices
     INTEGER :: igc                          ! g-point interval counter
     LOGICAL :: iclddn(kproma)               ! flag for cloud in down path
@@ -235,7 +235,7 @@ CONTAINS
     !    cldfrac                      ! layer cloud fraction
     !    taucloud                     ! layer cloud optical depth
     !    itr                          ! integer look-up table index
-    !    icldlyr                      ! flag for cloudy layers
+    !    lcldlyr                      ! flag for cloudy layers
     !    iclddn                       ! flag for cloud in column at any layer
     !    semiss                       ! surface emissivities for each band
     !    reflect                      ! surface reflectance
@@ -370,11 +370,11 @@ CONTAINS
 
       DO jl = 1, kproma  ! loop over columns
         IF (cldfrac(jl,lay) .GE. 1.e-6_wp) THEN
-          icldlyr(jl,lay) = 1
+          lcldlyr(jl,lay) = .TRUE.
           icld = icld + 1
           icld_ind(icld,lay) = jl
         ELSE
-          icldlyr(jl,lay) = 0
+          lcldlyr(jl,lay) = .FALSE.
           iclear = iclear + 1
           iclear_ind(iclear,lay) = jl
         ENDIF
@@ -1146,7 +1146,7 @@ CONTAINS
 
           IF (idrv .EQ. 1) THEN
             DO jl = 1, kproma
-              IF (icldlyr(jl,lev) .EQ. 1) THEN
+              IF (lcldlyr(jl,lev)) THEN
                 d_radlu_dt(jl) = d_radlu_dt(jl) * cldfrac(jl,lev) * (1.0_wp - atot(jl,lev)) + &
                   & d_radlu_dt(jl) * (1.0_wp - cldfrac(jl,lev)) * (1.0_wp - atrans(jl,lev))
                 d_urad_dt(jl,lev) = d_urad_dt(jl,lev) + d_radlu_dt(jl)
