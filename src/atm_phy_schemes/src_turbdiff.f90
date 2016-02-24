@@ -6750,7 +6750,6 @@ REAL (KIND=ireals), DIMENSION(istart:iend,kstart:kend), TARGET :: &
   qt_tar, tl_tar
 
 REAL (KIND=ireals), DIMENSION(:,:), POINTER &
-#endif
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
      , CONTIGUOUS &
 #endif
