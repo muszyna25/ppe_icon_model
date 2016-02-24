@@ -6559,8 +6559,6 @@ if test -n "$CROSS" ; then
    cp $cross_config config/config.h
 fi
 
-config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --enable_ocean="${enable_ocean}" --enable_atmo="${enable_atmo}" --enable_jsbach="${enable_jsbach}" --enable_testbed="${enable_testbed}"
-
 #-----------------------------------------------------------------------------
 case $host in
   xt?-cray-*)
@@ -6736,6 +6734,7 @@ if test "x$mpi_startrun" = "x" ; then
 fi
 
 sync_submit=${sync_submit:=$submit}
+ac_config_commands="$ac_config_commands Makefiles"
 
 ac_config_commands="$ac_config_commands config/set-up.info"
 
@@ -7437,6 +7436,12 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 #
 # INIT-COMMANDS
 #
+build_host="${build_host}"
+my_srcdirs="$my_srcdirs"
+enable_ocean="${enable_ocean}"
+enable_atmo="${enable_atmo}"
+enable_jsbach="${enable_jsbach}"
+enable_testbed="${enable_testbed}"
 use_site="${ac_sitename}"
 use_target="${config_target}"
 use_compiler="${config_compiler}"
@@ -7471,6 +7476,7 @@ do
   case $ac_config_target in
     "config/config.h") CONFIG_HEADERS="$CONFIG_HEADERS config/config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "Makefiles") CONFIG_COMMANDS="$CONFIG_COMMANDS Makefiles" ;;
     "config/set-up.info") CONFIG_COMMANDS="$CONFIG_COMMANDS config/set-up.info" ;;
     "build_command") CONFIG_COMMANDS="$CONFIG_COMMANDS build_command" ;;
 
@@ -8023,6 +8029,14 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
+    "Makefiles":C)
+config/createMakefiles.pl --target="$build_host" \
+  --srcdirs="${my_srcdirs}" \
+  --enable_ocean="${enable_ocean}" \
+  --enable_atmo="${enable_atmo}" \
+  --enable_jsbach="${enable_jsbach}" \
+  --enable_testbed="${enable_testbed}"
+ ;;
     "config/set-up.info":C)
 echo Creating set-up.info... >&2
 cat > config/set-up.info << EOF

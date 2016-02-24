@@ -1103,8 +1103,6 @@ if test -n "$CROSS" ; then
    cp $cross_config config/config.h
 fi
 
-config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --enable_ocean="${enable_ocean}" --enable_atmo="${enable_atmo}" --enable_jsbach="${enable_jsbach}" --enable_testbed="${enable_testbed}"
-
 #-----------------------------------------------------------------------------
 case $host in
   xt?-cray-*)
@@ -1280,7 +1278,22 @@ if test "x$mpi_startrun" = "x" ; then
 fi
 
 sync_submit=${sync_submit:=$submit}
-
+dnl
+AC_CONFIG_COMMANDS([Makefiles],[
+config/createMakefiles.pl --target="$build_host" \
+  --srcdirs="${my_srcdirs}" \
+  --enable_ocean="${enable_ocean}" \
+  --enable_atmo="${enable_atmo}" \
+  --enable_jsbach="${enable_jsbach}" \
+  --enable_testbed="${enable_testbed}"
+],[build_host="${build_host}"
+my_srcdirs="$my_srcdirs"
+enable_ocean="${enable_ocean}"
+enable_atmo="${enable_atmo}"
+enable_jsbach="${enable_jsbach}"
+enable_testbed="${enable_testbed}"])
+dnl
+dnl
 AC_CONFIG_COMMANDS([config/set-up.info],[
 echo Creating set-up.info... >&2
 cat > config/set-up.info << EOF
