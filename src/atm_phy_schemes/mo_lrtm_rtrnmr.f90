@@ -412,6 +412,7 @@ CONTAINS
       ENDDO
 
       DO lev = 1, nlayers
+!DIR$ SIMD
         DO jl = 1, kproma
           dplankup(jl,lev) = planklev(jl,lev,iband) - planklay(jl,lev,iband)
           dplankdn(jl,lev) = planklev(jl,lev-1,iband) - planklay(jl,lev,iband)
@@ -434,6 +435,7 @@ CONTAINS
       ! Downward radiative transfer loop.
       DO lev = nlayers, 1, -1
         IF (n_cloudpoints(lev) /= 0) THEN
+!DIR$ SIMD
           DO jl = 1, kproma ! Thus, direct addressing can be used
             ib = ibv(jl)
             plfrac = fracs(jl,lev,igc)
@@ -553,6 +555,7 @@ CONTAINS
         clrurad(jl,0) = clrurad(jl,0) + radclru(jl)
       ENDDO
       IF (idrv .EQ. 1) THEN
+!DIR$ SIMD
         DO jl = 1, kproma
           d_rad0_dt = fracs(jl,1,igc) * dplankbnd_dt(jl,iband)
           d_radlu_dt(jl) = d_rad0_dt
@@ -564,6 +567,7 @@ CONTAINS
 
       DO lev = 1, nlayers
 
+!DIR$ SIMD
           DO jl = 1, kproma
             gassrc = bbugas(jl,lev) * atrans(jl,lev)
             IF (istcld(jl,lev)) THEN
@@ -598,6 +602,7 @@ CONTAINS
         !  are clear (iclddn=true).  Streams must be calculated separately at
         !  all layers when a cloud is present (iclddn=false), because surface
         !  reflectance is different for each stream.
+!DIR$ SIMD
         DO jl = 1, kproma
           radclru(jl) = MERGE(radclru(jl) + (bbugas(jl,lev)-radclru(jl))*atrans(jl,lev), &
                radlu(jl), iclddn(jl))
@@ -606,6 +611,7 @@ CONTAINS
         ENDDO
 
         IF (idrv .EQ. 1) THEN
+!DIR$ SIMD
           DO jl = 1, kproma
             d_radlu_dt(jl) = d_radlu_dt(jl) * MERGE(cldfrac(jl,lev) * (1.0_wp - atot(jl,lev)) + &
                  & (1.0_wp - cldfrac(jl,lev)) * (1.0_wp - atrans(jl,lev)), &
@@ -627,6 +633,7 @@ CONTAINS
       ! Process longwave output from band.
       ! Calculate upward, downward, and net flux.
       DO lev = nlayers, 0, -1
+!DIR$ SIMD
         DO jl = 1, kproma
           uflux = urad(jl,lev)*wtdiff
           dflux = drad(jl,lev)*wtdiff
@@ -646,6 +653,7 @@ CONTAINS
       ! Calculate total change in upward flux wrt surface temperature
       IF (idrv .EQ. 1) THEN
         DO lev = nlayers, 0, -1
+!DIR$ SIMD
           DO jl = 1, kproma
             duflux_dt = d_urad_dt(jl,lev) * wtdiff
             d_urad_dt(jl,lev) = 0.0_wp
@@ -662,6 +670,7 @@ CONTAINS
     ENDDO
 
     ! Calculate fluxes at surface
+!DIR$ SIMD
     DO jl = 1, kproma  ! loop over columns
       totuflux(jl,0) = totuflux(jl,0) * fluxfac
       totdflux(jl,0) = totdflux(jl,0) * fluxfac
@@ -674,6 +683,7 @@ CONTAINS
 
     ! Calculate fluxes at model levels
     DO lev = 1, nlayers
+!DIR$ SIMD
       DO jl = 1, kproma  ! loop over columns
         totuflux(jl,lev) = totuflux(jl,lev) * fluxfac
         totdflux(jl,lev) = totdflux(jl,lev) * fluxfac
