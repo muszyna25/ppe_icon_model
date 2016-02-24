@@ -443,8 +443,8 @@ CONTAINS
             odepth_temp = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
             branch_od2 = odepth_temp .LE. 0.06_wp
 
+            iclddn(jl) = iclddn(jl) .OR. lcldlyr(jl,lev)
             IF (lcldlyr(jl,lev)) THEN
-              iclddn(jl) = .TRUE.
               odtot(jl) = odepth_temp + secdiff(jl,ib) * taucloud(jl,lev,ib)
               branch_od1 = odtot(jl) .LT. 0.06_wp
               itgas = INT(tblint * odepth_temp/(bpade+odepth_temp) + 0.5_wp)
