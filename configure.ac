@@ -1088,8 +1088,7 @@ AC_SUBST(SRCDIRS,$ac_srcdirs)
 
 AC_SUBST(OBJDIRS,$ac_objdirs)
 
-
-AC_OUTPUT(Makefile)
+AC_CONFIG_FILES([Makefile])
 
 if test -n "$CROSS" ; then
    case "${host}" in	
@@ -1309,18 +1308,27 @@ use_flags_group="$use_flags_group"
 #############################
 EOF
 
-echo Creating the build_command...
-echo "$load_profile" > build_command
+AC_CONFIG_COMMANDS([build_command],[
+echo Creating the build_command... >&2
+exec 8>build_command
+echo "@%:@! ${SHELL}" >&8
+echo "$load_profile" >&8
 if test "x$load_modules" != x; then
-   echo module purge >> build_command
-   echo module load "$load_modules" >> build_command
-   echo module list >> build_command
+   echo module purge >&8
+   echo module load "$load_modules" >&8
+   echo module list >&8
 fi
 if test "x${config_target}" = "xblizzard" ; then
-   echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >> build_command
+   echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8
 fi
-echo "$make_command" >> build_command
+echo "$make_command" >&8
+exec 8>-
 chmod +x build_command
+],[load_profile="$load_profile"
+load_modules="$load_modules"
+make_command="$make_command"
+config_target="$config_target"
+])
 
 #echo Creating the run scripts...
 #if test -f ./make_runscripts ; then
@@ -1332,6 +1340,7 @@ echo ""
 cat config/set-up.info
 echo ""
 #############################
+AC_OUTPUT
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."

@@ -6543,9 +6543,240 @@ SRCDIRS=$ac_srcdirs
 OBJDIRS=$ac_objdirs
 
 
-
 ac_config_files="$ac_config_files Makefile"
 
+
+if test -n "$CROSS" ; then
+   case "${host}" in
+       sx*-*-*)             ARCH=SX ;;
+   esac
+   cross_config=config/config.h.${ARCH}
+   echo "config.status: creating config/config.h from $cross_config"
+   if test ! -f $cross_config ; then
+      echo "cross configuration file $cross_config does not exist!"
+      exit 1
+   fi
+   cp $cross_config config/config.h
+fi
+
+config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --enable_ocean="${enable_ocean}" --enable_atmo="${enable_atmo}" --enable_jsbach="${enable_jsbach}" --enable_testbed="${enable_testbed}"
+
+#-----------------------------------------------------------------------------
+case $host in
+  xt?-cray-*)
+    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
+    ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
+    ;;
+  *-*-solaris*)
+    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
+    ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
+    ;;
+  sx*-*-*)
+    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1;NR==5' | tr -d "\n")
+    ccversion=$($(echo sxc++ -V) 2>&1 | sed -e 's/.c.*$//' | sed -e 's/C++\/SX Compiler //' | sed -e 's/C\/C++ Compiler //' | $AWK 'NR==1;NR==3' | tr -d "\n")
+    ;;
+  *-ibm-aix*)
+    f90version=$($(echo $FC -qversion) 2>&1 | tr -d "\n" | sed 's/Version: / \(/' | sed 's/$/\)/')
+    ccversion=$($(echo $CC -qversion) 2>&1 | tr -d "\n" | sed 's/Version: / \(/' | sed 's/$/\)/')
+    ;;
+  *-*-linux-*)
+    case $fortran_compiler in
+    default|gcc)
+      f90version=$($(echo $FC --version) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
+      ;;
+    nag)
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
+      ;;
+    intel)
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
+      ;;
+    path)
+      f90version=$($(echo $FC -v) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
+      ;;
+    pgi)
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
+      ;;
+    sun)
+      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
+      ;;
+    esac
+    ;;
+  *-*-darwin*)
+      f90version=$($(echo $FC --version) 2>&1 | $AWK 'NR==1')
+      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
+      ;;
+  *)
+    f90version="unknown"
+    ccversion="unknown"
+    ;;
+esac
+#-----------------------------------------------------------------------------
+echo ""
+echo "Selected compiler:"
+echo ""
+echo "    Fortran: ${f90version}"
+echo "    C      : ${ccversion}"
+echo ""
+echo "    OpenMP : ${use_openmp}"
+echo ""
+#-----------------------------------------------------------------------------
+if test x$MPIROOT = x || test x$CROSS = xyes; then
+case $host in
+powerpc-ibm-aix*)
+  if test "$use_mpcc_r" = yes ; then
+    mpi_version_number=$(lslpp -l ppe.poe | grep ppe.poe | uniq | $AWK '{print $2}')
+    MPI_VERSION="IBM MPI ${mpi_version_number}"
+  fi
+  ;;
+sx?-nec-superux)
+  mpi_version_number=$(strings $MPIROOT/lib/libmpi.a | grep "MPI/SX: library Version" | $AWK '{print $4}')
+  MPI_VERSION="SX MPI ${mpi_version_number}"
+  ;;
+*)
+  MPI_VERSION=none
+  ;;
+esac
+else
+case $host in
+*-*-darwin*)
+  mpi_version_number=$(mpiexec --version | $AWK 'NR==2{print $2}')
+  MPI_VERSION="mpich ${mpi_version_number} (MacPorts)"
+  ;;
+*)
+  MPI_VERSION=${MPIROOT##*/}
+esac
+fi
+#-----------------------------------------------------------------------------
+echo "Selected libraries:"
+echo ""
+echo "    MPI    : ${MPI_VERSION}"
+echo "             installation  ${MPIROOT}"
+if test x$NETCDFROOT = x; then
+echo "    netCDF : none (error)"
+else
+netcdf_version=$(${NETCDFROOT}/bin/ncdump 2>&1 | grep "netcdf library version" | cut -f4 -d" ")
+echo "    NETCDF : netcdf-${netcdf_version}"
+echo "             installation  ${NETCDFROOT}"
+fi
+if test x$with_netcdf4 != xno ; then
+if test x$CDIROOT = x; then
+echo "    CDI    : none (use internal version)"
+else
+echo "    CDI    : ${CDIROOT}"
+fi
+if test x$HDF5ROOT = x; then
+echo "    HDF5   : none (error)"
+else
+hdf5_version=$(grep "define H5_VERSION" ${HDF5ROOT}/include/H5pubconf.h | cut -f2 -d"\"")
+echo "    HDF5   : hdf5-${hdf5_version}"
+echo "             installation  ${HDF5ROOT}"
+fi
+if test x$SZIPROOT = x; then
+echo "    SZIP   : none (error)"
+else
+szlib_version=$(grep "define SZLIB_VERSION" ${SZIPROOT}/include/szlib.h | cut -f2 -d"\"")
+echo "    SZIP   : szip-${szlib_version}"
+echo "             installation  ${SZIPROOT}"
+fi
+if test x$ZLIBROOT = x; then
+echo "    ZLIB   : none (error)"
+else
+zlib_version=$(grep "define ZLIB_VERSION" ${ZLIBROOT}/include/zlib.h | cut -f2 -d"\"")
+echo "    ZLIB   : zlib-${zlib_version}"
+echo "             installation  ${ZLIBROOT}"
+fi
+if test x$XML2ROOT = x; then
+echo "    XML2   : none (error)"
+else
+xml2_version=$(grep "define LIBXML_DOTTED_VERSION" ${XML2ROOT}/include/libxml2/libxml/xmlversion.h | cut -f2 -d "\"")
+echo "    XML2   : xml2-${xml2_version}"
+echo "             installation  ${XML2ROOT}"
+fi
+if test x$SCTROOT = x; then
+echo "    SCT    : none"
+else
+sct_version=$(grep "define SCT_VERSION" ${SCTROOT}/include/sct.h)
+echo "    SCT    : installation  ${SCTROOT}"
+fi
+fi
+#############################
+echo ""
+
+if test "x$config_target" = "x"; then
+  config_target="default"
+fi
+
+if test "x$with_mpi" = "xno" ; then
+  use_mpi=no
+else
+  use_mpi=yes
+fi
+
+if test "x$load_module" != "x" ; then
+  if test "$use_mpi" = "yes" ; then
+    load_modules="$load_modules $load_mpi_modules"
+  else
+    load_modules="$load_modules $load_nompi_modules"
+  fi
+fi
+
+# general command for running a progmam
+if test "x$mpi_startrun" = "x" ; then
+  if  test "x$MPIROOT" = "x" ; then
+    mpi_startrun="mpiexec -n \\\$mpi_total_procs"
+  else
+    mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_total_procs"
+  fi
+fi
+
+sync_submit=${sync_submit:=$submit}
+
+echo Creating set-up.info...
+cat > config/set-up.info << EOF
+#############################
+# set-up.info created by configure
+# do not modify this file
+#############################
+use_site="${ac_sitename}"
+use_target="${config_target}"
+use_compiler="${config_compiler}"
+use_mpi="${use_mpi}"
+use_openmp="${use_openmp}"
+use_builddir="build/${build_host}"
+use_mpi_root="${MPIROOT}"
+use_mpi_procs_pernode="${use_mpi_procs_pernode}"
+use_mpi_startrun="${mpi_startrun}"
+use_load_modules="$load_modules"
+use_load_profile="$load_profile"
+use_netcdflibpath="$NETCDFLIBPATH"
+use_cdilibpath="$CDILIBPATH"
+use_make_command="$make_command"
+use_submit="$submit"
+use_sync_submit="$sync_submit"
+use_shell="$use_shell"
+use_flags_group="$use_flags_group"
+#############################
+EOF
+
+ac_config_commands="$ac_config_commands build_command"
+
+
+#echo Creating the run scripts...
+#if test -f ./make_runscripts ; then
+#  ./make_runscripts
+#fi
+
+#############################
+echo ""
+cat config/set-up.info
+echo ""
+#############################
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -7080,6 +7311,7 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 # Files that config.status was made for.
 config_files="$ac_config_files"
 config_headers="$ac_config_headers"
+config_commands="$ac_config_commands"
 
 _ACEOF
 
@@ -7108,6 +7340,9 @@ $config_files
 
 Configuration headers:
 $config_headers
+
+Configuration commands:
+$config_commands
 
 Report bugs to <luis.kornblueh@mpimet.mpg.de>."
 
@@ -7229,6 +7464,15 @@ _ASBOX
 
 _ACEOF
 cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
+#
+# INIT-COMMANDS
+#
+load_profile="$load_profile"
+load_modules="$load_modules"
+make_command="$make_command"
+config_target="$config_target"
+
+
 _ACEOF
 
 cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
@@ -7239,6 +7483,7 @@ do
   case $ac_config_target in
     "config/config.h") CONFIG_HEADERS="$CONFIG_HEADERS config/config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "build_command") CONFIG_COMMANDS="$CONFIG_COMMANDS build_command" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
@@ -7252,6 +7497,7 @@ done
 if $ac_need_defaults; then
   test "${CONFIG_FILES+set}" = set || CONFIG_FILES=$config_files
   test "${CONFIG_HEADERS+set}" = set || CONFIG_HEADERS=$config_headers
+  test "${CONFIG_COMMANDS+set}" = set || CONFIG_COMMANDS=$config_commands
 fi
 
 # Have a temporary directory for convenience.  Make it in the build tree
@@ -7548,7 +7794,7 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
 fi # test -n "$CONFIG_HEADERS"
 
 
-eval set X "  :F $CONFIG_FILES  :H $CONFIG_HEADERS    "
+eval set X "  :F $CONFIG_FILES  :H $CONFIG_HEADERS    :C $CONFIG_COMMANDS"
 shift
 for ac_tag
 do
@@ -7781,9 +8027,32 @@ $as_echo "$as_me: $ac_file is unchanged" >&6;}
   fi
  ;;
 
-
+  :C)  { $as_echo "$as_me:${as_lineno-$LINENO}: executing $ac_file commands" >&5
+$as_echo "$as_me: executing $ac_file commands" >&6;}
+ ;;
   esac
 
+
+  case $ac_file$ac_mode in
+    "build_command":C)
+echo Creating the build_command... >&2
+exec 8>build_command
+echo "#! ${SHELL}" >&8
+echo "$load_profile" >&8
+if test "x$load_modules" != x; then
+   echo module purge >&8
+   echo module load "$load_modules" >&8
+   echo module list >&8
+fi
+if test "x${config_target}" = "xblizzard" ; then
+   echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >&8
+fi
+echo "$make_command" >&8
+exec 8>-
+chmod +x build_command
+ ;;
+
+  esac
 done # for ac_tag
 
 
@@ -7820,248 +8089,6 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
 $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
-
-if test -n "$CROSS" ; then
-   case "${host}" in
-       sx*-*-*)             ARCH=SX ;;
-   esac
-   cross_config=config/config.h.${ARCH}
-   echo "config.status: creating config/config.h from $cross_config"
-   if test ! -f $cross_config ; then
-      echo "cross configuration file $cross_config does not exist!"
-      exit 1
-   fi
-   cp $cross_config config/config.h
-fi
-
-config/createMakefiles.pl --target=$build_host --srcdirs="${my_srcdirs}" --enable_ocean="${enable_ocean}" --enable_atmo="${enable_atmo}" --enable_jsbach="${enable_jsbach}" --enable_testbed="${enable_testbed}"
-
-#-----------------------------------------------------------------------------
-case $host in
-  xt?-cray-*)
-    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
-    ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-    ;;
-  *-*-solaris*)
-    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
-    ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-    ;;
-  sx*-*-*)
-    f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1;NR==5' | tr -d "\n")
-    ccversion=$($(echo sxc++ -V) 2>&1 | sed -e 's/.c.*$//' | sed -e 's/C++\/SX Compiler //' | sed -e 's/C\/C++ Compiler //' | $AWK 'NR==1;NR==3' | tr -d "\n")
-    ;;
-  *-ibm-aix*)
-    f90version=$($(echo $FC -qversion) 2>&1 | tr -d "\n" | sed 's/Version: / \(/' | sed 's/$/\)/')
-    ccversion=$($(echo $CC -qversion) 2>&1 | tr -d "\n" | sed 's/Version: / \(/' | sed 's/$/\)/')
-    ;;
-  *-*-linux-*)
-    case $fortran_compiler in
-    default|gcc)
-      f90version=$($(echo $FC --version) 2>&1 | $AWK 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-    nag)
-      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-    intel)
-      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-    path)
-      f90version=$($(echo $FC -v) 2>&1 | $AWK 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-    pgi)
-      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==2')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-    sun)
-      f90version=$($(echo $FC -V) 2>&1 | $AWK 'NR==1' | cut -f2- -d" ")
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-    esac
-    ;;
-  *-*-darwin*)
-      f90version=$($(echo $FC --version) 2>&1 | $AWK 'NR==1')
-      ccversion=$($(echo $CC --version) 2>&1 | $AWK 'NR==1')
-      ;;
-  *)
-    f90version="unknown"
-    ccversion="unknown"
-    ;;
-esac
-#-----------------------------------------------------------------------------
-echo ""
-echo "Selected compiler:"
-echo ""
-echo "    Fortran: ${f90version}"
-echo "    C      : ${ccversion}"
-echo ""
-echo "    OpenMP : ${use_openmp}"
-echo ""
-#-----------------------------------------------------------------------------
-if test x$MPIROOT = x || test x$CROSS = xyes; then
-case $host in
-powerpc-ibm-aix*)
-  if test "$use_mpcc_r" = yes ; then
-    mpi_version_number=$(lslpp -l ppe.poe | grep ppe.poe | uniq | $AWK '{print $2}')
-    MPI_VERSION="IBM MPI ${mpi_version_number}"
-  fi
-  ;;
-sx?-nec-superux)
-  mpi_version_number=$(strings $MPIROOT/lib/libmpi.a | grep "MPI/SX: library Version" | $AWK '{print $4}')
-  MPI_VERSION="SX MPI ${mpi_version_number}"
-  ;;
-*)
-  MPI_VERSION=none
-  ;;
-esac
-else
-case $host in
-*-*-darwin*)
-  mpi_version_number=$(mpiexec --version | $AWK 'NR==2{print $2}')
-  MPI_VERSION="mpich ${mpi_version_number} (MacPorts)"
-  ;;
-*)
-  MPI_VERSION=${MPIROOT##*/}
-esac
-fi
-#-----------------------------------------------------------------------------
-echo "Selected libraries:"
-echo ""
-echo "    MPI    : ${MPI_VERSION}"
-echo "             installation  ${MPIROOT}"
-if test x$NETCDFROOT = x; then
-echo "    netCDF : none (error)"
-else
-netcdf_version=$(${NETCDFROOT}/bin/ncdump 2>&1 | grep "netcdf library version" | cut -f4 -d" ")
-echo "    NETCDF : netcdf-${netcdf_version}"
-echo "             installation  ${NETCDFROOT}"
-fi
-if test x$with_netcdf4 != xno ; then
-if test x$CDIROOT = x; then
-echo "    CDI    : none (use internal version)"
-else
-echo "    CDI    : ${CDIROOT}"
-fi
-if test x$HDF5ROOT = x; then
-echo "    HDF5   : none (error)"
-else
-hdf5_version=$(grep "define H5_VERSION" ${HDF5ROOT}/include/H5pubconf.h | cut -f2 -d"\"")
-echo "    HDF5   : hdf5-${hdf5_version}"
-echo "             installation  ${HDF5ROOT}"
-fi
-if test x$SZIPROOT = x; then
-echo "    SZIP   : none (error)"
-else
-szlib_version=$(grep "define SZLIB_VERSION" ${SZIPROOT}/include/szlib.h | cut -f2 -d"\"")
-echo "    SZIP   : szip-${szlib_version}"
-echo "             installation  ${SZIPROOT}"
-fi
-if test x$ZLIBROOT = x; then
-echo "    ZLIB   : none (error)"
-else
-zlib_version=$(grep "define ZLIB_VERSION" ${ZLIBROOT}/include/zlib.h | cut -f2 -d"\"")
-echo "    ZLIB   : zlib-${zlib_version}"
-echo "             installation  ${ZLIBROOT}"
-fi
-if test x$XML2ROOT = x; then
-echo "    XML2   : none (error)"
-else
-xml2_version=$(grep "define LIBXML_DOTTED_VERSION" ${XML2ROOT}/include/libxml2/libxml/xmlversion.h | cut -f2 -d "\"")
-echo "    XML2   : xml2-${xml2_version}"
-echo "             installation  ${XML2ROOT}"
-fi
-if test x$SCTROOT = x; then
-echo "    SCT    : none"
-else
-sct_version=$(grep "define SCT_VERSION" ${SCTROOT}/include/sct.h)
-echo "    SCT    : installation  ${SCTROOT}"
-fi
-fi
-#############################
-echo ""
-
-if test "x$config_target" = "x"; then
-  config_target="default"
-fi
-
-if test "x$with_mpi" = "xno" ; then
-  use_mpi=no
-else
-  use_mpi=yes
-fi
-
-if test "x$load_module" != "x" ; then
-  if test "$use_mpi" = "yes" ; then
-    load_modules="$load_modules $load_mpi_modules"
-  else
-    load_modules="$load_modules $load_nompi_modules"
-  fi
-fi
-
-# general command for running a progmam
-if test "x$mpi_startrun" = "x" ; then
-  if  test "x$MPIROOT" = "x" ; then
-    mpi_startrun="mpiexec -n \\\$mpi_total_procs"
-  else
-    mpi_startrun="$MPIROOT/bin/mpiexec -n \\\$mpi_total_procs"
-  fi
-fi
-
-sync_submit=${sync_submit:=$submit}
-
-echo Creating set-up.info...
-cat > config/set-up.info << EOF
-#############################
-# set-up.info created by configure
-# do not modify this file
-#############################
-use_site="${ac_sitename}"
-use_target="${config_target}"
-use_compiler="${config_compiler}"
-use_mpi="${use_mpi}"
-use_openmp="${use_openmp}"
-use_builddir="build/${build_host}"
-use_mpi_root="${MPIROOT}"
-use_mpi_procs_pernode="${use_mpi_procs_pernode}"
-use_mpi_startrun="${mpi_startrun}"
-use_load_modules="$load_modules"
-use_load_profile="$load_profile"
-use_netcdflibpath="$NETCDFLIBPATH"
-use_cdilibpath="$CDILIBPATH"
-use_make_command="$make_command"
-use_submit="$submit"
-use_sync_submit="$sync_submit"
-use_shell="$use_shell"
-use_flags_group="$use_flags_group"
-#############################
-EOF
-
-echo Creating the build_command...
-echo "$load_profile" > build_command
-if test "x$load_modules" != x; then
-   echo module purge >> build_command
-   echo module load "$load_modules" >> build_command
-   echo module list >> build_command
-fi
-if test "x${config_target}" = "xblizzard" ; then
-   echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >> build_command
-fi
-echo "$make_command" >> build_command
-chmod +x build_command
-
-#echo Creating the run scripts...
-#if test -f ./make_runscripts ; then
-#  ./make_runscripts
-#fi
-
-#############################
-echo ""
-cat config/set-up.info
-echo ""
-#############################
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."
