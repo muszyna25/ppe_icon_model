@@ -172,7 +172,7 @@ CONTAINS
     INTEGER :: icldlyr(kproma,nlayers)             ! flag for cloud in layer
     INTEGER :: ibnd, ib, iband, lay, lev    ! loop indices
     INTEGER :: igc                          ! g-point interval counter
-    INTEGER :: iclddn(kproma)               ! flag for cloud in down path
+    LOGICAL :: iclddn(kproma)               ! flag for cloud in down path
     INTEGER :: ittot, itgas, itr            ! lookup table indices
     INTEGER :: ipat(16,0:2)
     INTEGER :: jl
@@ -255,16 +255,16 @@ CONTAINS
     !    bbdtot                       ! gas and cloud planck function for downward rt
     !    bbutot                       ! gas and cloud planck function for upward calc.
     !    gassrc                       ! source radiance due to gas only
-    !    radlu                        ! spectrally summed upward radiance 
-    !    radclru                      ! spectrally summed clear sky upward radiance 
+    !    radlu                        ! spectrally summed upward radiance
+    !    radclru                      ! spectrally summed clear sky upward radiance
     !    urad                         ! upward radiance by layer
     !    clrurad                      ! clear sky upward radiance by layer
-    !    radld                        ! spectrally summed downward radiance 
-    !    radclrd                      ! spectrally summed clear sky downward radiance 
+    !    radld                        ! spectrally summed downward radiance
+    !    radclrd                      ! spectrally summed clear sky downward radiance
     !    drad                         ! downward radiance by layer
     !    clrdrad                      ! clear sky downward radiance by layer
-    !    d_radlu_dt                   ! spectrally summed upward radiance 
-    !    d_radclru_dt                 ! spectrally summed clear sky upward radiance 
+    !    d_radlu_dt                   ! spectrally summed upward radiance
+    !    d_radclru_dt                 ! spectrally summed clear sky upward radiance
     !    d_urad_dt                    ! upward radiance by layer
     !    d_clrurad_dt                 ! clear sky upward radiance by layer
 
@@ -278,7 +278,7 @@ CONTAINS
     !    dtotuflux_dt                 ! change in upward longwave flux (w/m2/k)
     !                                 ! with respect to surface temperature
     !    dtotuclfl_dt                 ! change in clear sky upward longwave flux (w/m2/k)
-    !     
+    !
 
     ! Local variables for cloud / no cloud index lists
     INTEGER, DIMENSION(kproma,nlayers) :: icld_ind,iclear_ind
@@ -752,7 +752,7 @@ CONTAINS
       ! Radiative transfer starts here.
       radld(:) = 0._wp
       radclrd(:) = 0._wp
-      iclddn(:) = 0
+      iclddn(:) = .FALSE.
 
       ! Downward radiative transfer loop.
       DO lev = nlayers, 1, -1
@@ -764,7 +764,7 @@ CONTAINS
             plfrac = fracs(jl,lev,igc)
             odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
 
-            iclddn(jl) = 1
+            iclddn(jl) = .TRUE.
             odtot(jl) = odepth(jl) + secdiff(jl,ib) * taucloud(jl,lev,ib)
             IF (odtot(jl) .LT. 0.06_wp) THEN
               atrans(jl,lev) = odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl)
@@ -882,7 +882,7 @@ CONTAINS
             ib = ibv(jl)
             odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
 
-            iclddn(jl) = 1
+            iclddn(jl) = .TRUE.
             odtot(jl) = odepth(jl) + secdiff(jl,ib) * taucloud(jl,lev,ib)
 
             IF (odtot(jl) .LT. 0.06_wp) THEN
@@ -1026,7 +1026,7 @@ CONTAINS
         !  remain clear.  Streams diverge when a cloud is reached (iclddn=1),
         !  and clear sky stream must be computed separately from that point.
         DO jl = 1, kproma
-          IF (iclddn(jl).EQ.1) THEN
+          IF (iclddn(jl)) THEN
             radclrd(jl) = radclrd(jl) + (bbd(jl)-radclrd(jl)) * atrans(jl,lev)
             clrdrad(jl,lev-1) = clrdrad(jl,lev-1) + radclrd(jl)
           ELSE
@@ -1177,11 +1177,11 @@ CONTAINS
 
         ENDIF
         !  Set clear sky stream to total sky stream as long as all layers
-        !  are clear (iclddn=0).  Streams must be calculated separately at
-        !  all layers when a cloud is present (iclddn=1), because surface
+        !  are clear (iclddn=true).  Streams must be calculated separately at
+        !  all layers when a cloud is present (iclddn=false), because surface
         !  reflectance is different for each stream.
         DO jl = 1, kproma
-          IF (iclddn(jl).EQ.1) THEN
+          IF (iclddn(jl)) THEN
             radclru(jl) = radclru(jl) + (bbugas(jl,lev)-radclru(jl))*atrans(jl,lev)
             clrurad(jl,lev) = clrurad(jl,lev) + radclru(jl)
           ELSE
@@ -1191,7 +1191,7 @@ CONTAINS
         ENDDO
         IF (idrv .EQ. 1) THEN
           DO jl = 1, kproma
-            IF (iclddn(jl).EQ.1) THEN
+            IF (iclddn(jl)) THEN
               d_radclru_dt(jl) = d_radclru_dt(jl) * (1.0_wp - atrans(jl,lev))
               d_clrurad_dt(jl,lev) = d_clrurad_dt(jl,lev) + d_radclru_dt(jl)
             ELSE
