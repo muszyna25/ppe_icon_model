@@ -216,7 +216,7 @@ CONTAINS
     REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, oldclr, oldcld, &
       & rad, cldsrc, radmod
 
-    INTEGER :: istcld(kproma,nlayers+1),istcldd(kproma,0:nlayers)
+    logical :: istcld(kproma,nlayers+1),istcldd(kproma,0:nlayers)
 
     ! ------- Definitions -------
     ! input
@@ -385,14 +385,14 @@ CONTAINS
 
     ! Maximum/Random cloud overlap parameter
 
-    istcld(:,1) = 1
-    istcldd(:,nlayers) = 1
+    istcld(:,1) = .TRUE.
+    istcldd(:,nlayers) = .TRUE.
 
     DO lev = 1, nlayers
       IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
         DO jl = 1, kproma ! Thus, direct addressing can be used
           ! Maximum/random cloud overlap
-          istcld(jl,lev+1) = 0
+          istcld(jl,lev+1) = .FALSE.
           IF (lev .EQ. nlayers) THEN
             faccld1(jl,lev+1) = 0._wp
             faccld2(jl,lev+1) = 0._wp
@@ -403,7 +403,7 @@ CONTAINS
           ELSEIF (cldfrac(jl,lev+1) .GE. cldfrac(jl,lev)) THEN
             faccld1(jl,lev+1) = 0._wp
             faccld2(jl,lev+1) = 0._wp
-            IF (istcld(jl,lev) .EQ. 1) THEN
+            IF (istcld(jl,lev)) THEN
               facclr1(jl,lev+1) = 0._wp
               facclr2(jl,lev+1) = 0._wp
               IF (cldfrac(jl,lev) .LT. 1._wp) facclr2(jl,lev+1) = &
@@ -434,7 +434,7 @@ CONTAINS
           ELSE
             facclr1(jl,lev+1) = 0._wp
             facclr2(jl,lev+1) = 0._wp
-            IF (istcld(jl,lev) .EQ. 1) THEN
+            IF (istcld(jl,lev)) THEN
               faccld1(jl,lev+1) = 0._wp
               faccld2(jl,lev+1) = (cldfrac(jl,lev)-cldfrac(jl,lev+1))/cldfrac(jl,lev)
 
@@ -467,13 +467,13 @@ CONTAINS
           ENDIF
         ENDDO
       ELSE IF (n_clearpoints(lev) == kproma) THEN ! all points are clear
-        istcld(1:kproma,lev+1) = 1
+        istcld(1:kproma,lev+1) = .TRUE.
       ELSE ! use index list for the case that not all points are cloudy
 !CDIR NODEP,VOVERTAKE,VOB
         DO icld = 1, n_cloudpoints(lev)
           jl = icld_ind(icld,lev)
           ! Maximum/random cloud overlap
-          istcld(jl,lev+1) = 0
+          istcld(jl,lev+1) = .FALSE.
           IF (lev .EQ. nlayers) THEN
             faccld1(jl,lev+1) = 0._wp
             faccld2(jl,lev+1) = 0._wp
@@ -484,7 +484,7 @@ CONTAINS
           ELSEIF (cldfrac(jl,lev+1) .GE. cldfrac(jl,lev)) THEN
             faccld1(jl,lev+1) = 0._wp
             faccld2(jl,lev+1) = 0._wp
-            IF (istcld(jl,lev) .EQ. 1) THEN
+            IF (istcld(jl,lev)) THEN
               facclr1(jl,lev+1) = 0._wp
               facclr2(jl,lev+1) = 0._wp
               IF (cldfrac(jl,lev) .LT. 1._wp) facclr2(jl,lev+1) = &
@@ -515,7 +515,7 @@ CONTAINS
           ELSE
             facclr1(jl,lev+1) = 0._wp
             facclr2(jl,lev+1) = 0._wp
-            IF (istcld(jl,lev) .EQ. 1) THEN
+            IF (istcld(jl,lev)) THEN
               faccld1(jl,lev+1) = 0._wp
               faccld2(jl,lev+1) = (cldfrac(jl,lev)-cldfrac(jl,lev+1))/cldfrac(jl,lev)
 
@@ -550,7 +550,7 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
         DO iclear = 1, n_clearpoints(lev)
           jl = iclear_ind(iclear,lev)
-          istcld(jl,lev+1) = 1
+          istcld(jl,lev+1) = .TRUE.
         ENDDO
       ENDIF
 
@@ -560,7 +560,7 @@ CONTAINS
 
       IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
         DO jl = 1, kproma ! Thus, direct addressing can be used
-          istcldd(jl,lev-1) = 0
+          istcldd(jl,lev-1) = .FALSE.
           IF (lev .EQ. 1) THEN
             faccld1d(jl,lev-1) = 0._wp
             faccld2d(jl,lev-1) = 0._wp
@@ -571,7 +571,7 @@ CONTAINS
           ELSEIF (cldfrac(jl,lev-1) .GE. cldfrac(jl,lev)) THEN
             faccld1d(jl,lev-1) = 0._wp
             faccld2d(jl,lev-1) = 0._wp
-            IF (istcldd(jl,lev) .EQ. 1) THEN
+            IF (istcldd(jl,lev)) THEN
               facclr1d(jl,lev-1) = 0._wp
               facclr2d(jl,lev-1) = 0._wp
               IF (cldfrac(jl,lev) .LT. 1._wp) facclr2d(jl,lev-1) = &
@@ -602,7 +602,7 @@ CONTAINS
           ELSE
             facclr1d(jl,lev-1) = 0._wp
             facclr2d(jl,lev-1) = 0._wp
-            IF (istcldd(jl,lev) .EQ. 1) THEN
+            IF (istcldd(jl,lev)) THEN
               faccld1d(jl,lev-1) = 0._wp
               faccld2d(jl,lev-1) = (cldfrac(jl,lev)-cldfrac(jl,lev-1))/cldfrac(jl,lev)
               facclr2d(jl,lev) = 0._wp
@@ -634,13 +634,13 @@ CONTAINS
           ENDIF
         ENDDO
       ELSE IF (n_clearpoints(lev) == kproma) THEN ! all points are clear
-        istcldd(1:kproma,lev-1) = 1
+        istcldd(1:kproma,lev-1) = .TRUE.
       ELSE  ! use index list for the case that not all points are cloudy
 !CDIR NODEP,VOVERTAKE,VOB
         DO icld = 1, n_cloudpoints(lev)
           jl = icld_ind(icld,lev)
 
-          istcldd(jl,lev-1) = 0
+          istcldd(jl,lev-1) = .FALSE.
           IF (lev .EQ. 1) THEN
             faccld1d(jl,lev-1) = 0._wp
             faccld2d(jl,lev-1) = 0._wp
@@ -651,7 +651,7 @@ CONTAINS
           ELSEIF (cldfrac(jl,lev-1) .GE. cldfrac(jl,lev)) THEN
             faccld1d(jl,lev-1) = 0._wp
             faccld2d(jl,lev-1) = 0._wp
-            IF (istcldd(jl,lev) .EQ. 1) THEN
+            IF (istcldd(jl,lev)) THEN
               facclr1d(jl,lev-1) = 0._wp
               facclr2d(jl,lev-1) = 0._wp
               IF (cldfrac(jl,lev) .LT. 1._wp) facclr2d(jl,lev-1) = &
@@ -682,7 +682,7 @@ CONTAINS
           ELSE
             facclr1d(jl,lev-1) = 0._wp
             facclr2d(jl,lev-1) = 0._wp
-            IF (istcldd(jl,lev) .EQ. 1) THEN
+            IF (istcldd(jl,lev)) THEN
               faccld1d(jl,lev-1) = 0._wp
               faccld2d(jl,lev-1) = (cldfrac(jl,lev)-cldfrac(jl,lev-1))/cldfrac(jl,lev)
               facclr2d(jl,lev) = 0._wp
@@ -716,7 +716,7 @@ CONTAINS
 !CDIR NODEP,VOVERTAKE,VOB
         DO iclear = 1, n_clearpoints(lev)
           jl = iclear_ind(iclear,lev)
-          istcldd(jl,lev-1) = 1
+          istcldd(jl,lev-1) = .TRUE.
         ENDDO
       ENDIF
 
@@ -814,7 +814,7 @@ CONTAINS
               bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfactot * dplankup(jl,lev))
             ENDIF
 
-            IF (istcldd(jl,lev) .EQ. 1) THEN
+            IF (istcldd(jl,lev)) THEN
               cldradd(jl) = cldfrac(jl,lev) * radld(jl)
               clrradd(jl) = radld(jl) - cldradd(jl)
               oldcld(jl) = cldradd(jl)
@@ -965,7 +965,7 @@ CONTAINS
           DO icld = 1, n_cloudpoints(lev)
             jl = icld_ind(icld,lev)
 
-            IF (istcldd(jl,lev) .EQ. 1) THEN
+            IF (istcldd(jl,lev)) THEN
               cldradd(jl) = cldfrac(jl,lev) * radld(jl)
               clrradd(jl) = radld(jl) - cldradd(jl)
               oldcld(jl) = cldradd(jl)
@@ -1073,7 +1073,7 @@ CONTAINS
           DO jl = 1, kproma ! Thus, direct addressing can be used
 
             gassrc(jl) = bbugas(jl,lev) * atrans(jl,lev)
-            IF (istcld(jl,lev) .EQ. 1) THEN
+            IF (istcld(jl,lev)) THEN
               cldradu(jl) = cldfrac(jl,lev) * radlu(jl)
               clrradu(jl) = radlu(jl) - cldradu(jl)
               oldcld(jl) = cldradu(jl)
@@ -1127,7 +1127,7 @@ CONTAINS
             jl = icld_ind(icld,lev)
 
             gassrc(jl) = bbugas(jl,lev) * atrans(jl,lev)
-            IF (istcld(jl,lev) .EQ. 1) THEN
+            IF (istcld(jl,lev)) THEN
               cldradu(jl) = cldfrac(jl,lev) * radlu(jl)
               clrradu(jl) = radlu(jl) - cldradu(jl)
               oldcld(jl) = cldradu(jl)
