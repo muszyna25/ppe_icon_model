@@ -1411,7 +1411,7 @@ MODULE mo_initicon_io
             END IF
 
             ! T_SEA
-            my_ptr2d => lnd_diag%t_seasfc(:,:)
+            my_ptr2d => initicon(jg)%sfc%sst(:,:)
             IF(inputInstructions(jg)%ptr%wantVarAna('t_seasfc')) &
             &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch2d('t_seasfc', 0.0_wp, trivial_tileId, jg, my_ptr2d), &
             &                                                 't_seasfc', routine)

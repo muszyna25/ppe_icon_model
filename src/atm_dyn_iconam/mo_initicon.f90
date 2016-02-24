@@ -72,7 +72,7 @@ MODULE mo_initicon
                                   & fgFilename, fgFiletype, anaFilename, anaFiletype
   USE mo_input_request_list,  ONLY: t_InputRequestList, InputRequestList_create
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna
+  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, kInputSourceBoth
   USE mo_util_uuid,           ONLY: t_uuid
 
   IMPLICIT NONE
@@ -1677,7 +1677,8 @@ MODULE mo_initicon
       ELSE
         jgch = jg
       ENDIF
-      lanaread_tso  = inputInstructions(jgch)%ptr%sourceOfVar('t_so') == kInputSourceAna
+
+      lanaread_tso  = ANY((/kInputSourceAna,kInputSourceBoth/) == inputInstructions(jgch)%ptr%sourceOfVar('t_so'))
       lanaread_tseasfc = inputInstructions(jgch)%ptr%sourceOfVar('t_seasfc') == kInputSourceAna
 
 !$OMP PARALLEL
@@ -1688,9 +1689,9 @@ MODULE mo_initicon
                            i_startidx, i_endidx, rl_start, rl_end)
 
 
-        IF (lanaread_tso) THEN
+        IF (lanaread_tso .OR. lanaread_tseasfc) THEN
           !
-          ! SST analysis (T_SO(0)) was read into initicon(jg)%sfc%sst.
+          ! SST analysis (T_SO(0) or T_SEA) was read into initicon(jg)%sfc%sst.
           ! Now copy to diag_lnd%t_seasfc for water, ice and lake points
           !
 !CDIR NODEP,VOVERTAKE,VOB
@@ -1703,46 +1704,6 @@ MODULE mo_initicon
            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt,initicon(jg)%sfc%sst(jc,jb))
           END DO
-
-          ! Compute mask field for land points
-          lp_mask(:) = .FALSE.
-          DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,1)
-            jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
-            lp_mask(jc) = .TRUE.
-          ENDDO
-
-          ! Fill T_SO with SST analysis over pure water points
-          DO jt = 1, ntiles_total
-            DO jk = 1, nlev_soil
-              DO jc = i_startidx, i_endidx
-                IF (.NOT. lp_mask(jc)) THEN
-                  p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jk,jb,jt) = initicon(jg)%sfc%sst(jc,jb)
-                ENDIF
-              ENDDO
-            ENDDO
-          ENDDO
-
-        ELSE IF (lanaread_tseasfc) THEN
-          !
-          ! SST analysis (T_SEA) was read into diag_lnd%t_seasfc.
-          !
-          ! Compute mask field for land points
-          lp_mask(:) = .FALSE.
-          DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,1)
-            jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
-            lp_mask(jc) = .TRUE.
-          ENDDO
-
-          ! Fill T_SO with SST analysis over pure water points
-          DO jt = 1, ntiles_total
-            DO jk = 1, nlev_soil
-              DO jc = i_startidx, i_endidx
-                IF (.NOT. lp_mask(jc)) THEN
-                  p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jk,jb,jt) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
-                ENDIF
-              ENDDO
-            ENDDO
-          ENDDO
 
         ELSE  ! SST (can be T_SEA or T_SO(0)) is not read from the analysis
           !
@@ -1762,6 +1723,27 @@ MODULE mo_initicon
           END DO
 
         ENDIF  ! lanaread_t_so
+
+
+        ! Fill T_SO with SST analysis over pure water points
+        !
+        ! Compute mask field for land points
+        lp_mask(:) = .FALSE.
+        DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,1)
+          jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
+          lp_mask(jc) = .TRUE.
+        ENDDO
+
+        ! Fill T_SO with SST analysis over pure water points
+        DO jt = 1, ntiles_total
+          DO jk = 1, nlev_soil
+            DO jc = i_startidx, i_endidx
+              IF (.NOT. lp_mask(jc)) THEN
+                p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jk,jb,jt) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+              ENDIF
+            ENDDO
+          ENDDO
+        ENDDO
 
 
 
