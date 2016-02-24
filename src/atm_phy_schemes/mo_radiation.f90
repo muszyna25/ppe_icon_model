@@ -1796,12 +1796,13 @@ CONTAINS
 
     ! Shortwave fluxes = transmissivity * local solar incoming flux at TOA
     ! ----------------
-    ! - TOA
-    zflxsw(jcs:jce,1)      = ptrmsw(jcs:jce,1)      *        pi0(jcs:jce)
-    ! - Atmosphere
-    zflxsw(jcs:jce,2:klev) = ptrmsw(jcs:jce,2:klev) * SPREAD(pi0(jcs:jce),2,klev-1)
-    ! - Surface
-    zflxsw(jcs:jce,klevp1) = ptrmsw(jcs:jce,klevp1) *        pi0(jcs:jce)
+
+    ! lev == 1        => TOA
+    ! lev in [2,klev] => Atmosphere
+    ! lev == klevp1   => Surface
+    DO jk = 1, klevp1
+      zflxsw(jcs:jce,jk)      = ptrmsw(jcs:jce,jk) * pi0(jcs:jce)
+    END DO
     ! Longwave fluxes
     ! - TOA
 !    zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
