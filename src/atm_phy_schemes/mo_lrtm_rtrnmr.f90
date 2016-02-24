@@ -212,8 +212,9 @@ CONTAINS
     !           clear in the current layer
     !--------------------------------------------------------------------------
 
-    REAL(wp) :: odepth_rec_or_tfacgas, odtot_rec_or_tfactot, cldsrc
-    REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, oldclr, oldcld, &
+    REAL(wp) :: odepth_rec_or_tfacgas, odtot_rec_or_tfactot, cldsrc, &
+         oldclr, oldcld
+    REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, &
       & rad, radmod
 
     LOGICAL :: istcld(kproma,nlayers+1),istcldd(kproma,0:nlayers), &
@@ -488,10 +489,10 @@ CONTAINS
               & faccmb1d(jl,lev-1) * gassrc(jl) + &
               & faccmb2d(jl,lev-1) * cldsrc
 
-            oldcld(jl) = cldradd(jl) - radmod(jl)
-            oldclr(jl) = clrradd(jl) + radmod(jl)
-            rad(jl) = -radmod(jl) + facclr2d(jl,lev-1)*oldclr(jl) -&
-              &  faccld2d(jl,lev-1)*oldcld(jl)
+            oldcld = cldradd(jl) - radmod(jl)
+            oldclr = clrradd(jl) + radmod(jl)
+            rad(jl) = -radmod(jl) + facclr2d(jl,lev-1)*oldclr -&
+              &  faccld2d(jl,lev-1)*oldcld
             cldradd(jl) = cldradd(jl) + rad(jl)
             clrradd(jl) = clrradd(jl) - rad(jl)
           ENDDO
@@ -625,8 +626,6 @@ CONTAINS
             IF (istcldd(jl,lev)) THEN
               cldradd(jl) = cldfrac(jl,lev) * radld(jl)
               clrradd(jl) = radld(jl) - cldradd(jl)
-              oldcld(jl) = cldradd(jl)
-              oldclr(jl) = clrradd(jl)
               rad(jl) = 0._wp
             ENDIF
             ttot = 1._wp - atot(jl,lev)
@@ -643,10 +642,10 @@ CONTAINS
               & faccmb1d(jl,lev-1) * gassrc(jl) + &
               & faccmb2d(jl,lev-1) * cldsrc
 
-            oldcld(jl) = cldradd(jl) - radmod(jl)
-            oldclr(jl) = clrradd(jl) + radmod(jl)
-            rad(jl) = -radmod(jl) + facclr2d(jl,lev-1)*oldclr(jl) -&
-              &  faccld2d(jl,lev-1)*oldcld(jl)
+            oldcld = cldradd(jl) - radmod(jl)
+            oldclr = clrradd(jl) + radmod(jl)
+            rad(jl) = -radmod(jl) + facclr2d(jl,lev-1)*oldclr -&
+              &  faccld2d(jl,lev-1)*oldcld
             cldradd(jl) = cldradd(jl) + rad(jl)
             clrradd(jl) = clrradd(jl) - rad(jl)
           ENDDO
@@ -735,8 +734,6 @@ CONTAINS
             IF (istcld(jl,lev)) THEN
               cldradu(jl) = cldfrac(jl,lev) * radlu(jl)
               clrradu(jl) = radlu(jl) - cldradu(jl)
-              oldcld(jl) = cldradu(jl)
-              oldclr(jl) = clrradu(jl)
               rad(jl) = 0._wp
             ENDIF
             ttot = 1._wp - atot(jl,lev)
@@ -755,9 +752,9 @@ CONTAINS
               & faccld1(jl,lev+1) *  ttot) - &
               & faccmb1(jl,lev+1) * gassrc(jl) + &
               & faccmb2(jl,lev+1) * cldsrc
-            oldcld(jl) = cldradu(jl) - radmod(jl)
-            oldclr(jl) = clrradu(jl) + radmod(jl)
-            rad(jl) = -radmod(jl) + facclr2(jl,lev+1)*oldclr(jl) - faccld2(jl,lev+1)*oldcld(jl)
+            oldcld = cldradu(jl) - radmod(jl)
+            oldclr = clrradu(jl) + radmod(jl)
+            rad(jl) = -radmod(jl) + facclr2(jl,lev+1)*oldclr - faccld2(jl,lev+1)*oldcld
             cldradu(jl) = cldradu(jl) + rad(jl)
             clrradu(jl) = clrradu(jl) - rad(jl)
           ENDDO
