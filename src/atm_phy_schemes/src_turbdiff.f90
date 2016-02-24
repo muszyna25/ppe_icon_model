@@ -644,7 +644,7 @@ TYPE turvar !turbulence variables
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
           , CONTIGUOUS &
 #endif
-          :: dzs(:)   => NULL() !effective surface layer depth
+          :: tsv(:)   => NULL() !effective surface layer depth
 END TYPE turvar
 
 TYPE varprf !variable profile
