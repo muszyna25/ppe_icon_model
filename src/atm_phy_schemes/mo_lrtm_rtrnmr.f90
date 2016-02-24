@@ -829,6 +829,10 @@ CONTAINS
 
           DO jl = 1, kproma ! Thus, direct addressing can be used
 
+            ! only needed for NAG
+            atot(jl, lev) = 0.0_wp
+            bbutot(jl, lev) = 0.0_wp
+
             plfrac = fracs(jl,lev,igc)
             odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
 
@@ -981,6 +985,10 @@ CONTAINS
           DO iclear = 1, n_clearpoints(lev)
             jl = iclear_ind(iclear,lev)
 
+            ! only needed for NAG
+            atot(jl, lev) = 0.0_wp
+            bbutot(jl, lev) = 0.0_wp
+
             plfrac = fracs(jl,lev,igc)
             odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
 
@@ -1050,10 +1058,8 @@ CONTAINS
       ENDIF
 
       DO lev = 1, nlayers
-        IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
 
-          DO jl = 1, kproma ! Thus, direct addressing can be used
-
+          DO jl = 1, kproma
             gassrc(jl) = bbugas(jl,lev) * atrans(jl,lev)
             IF (istcld(jl,lev)) THEN
               cldradu(jl) = cldfrac(jl,lev) * radlu(jl)
@@ -1067,61 +1073,11 @@ CONTAINS
             cldradu(jl) = cldradu(jl) * ttot + cldfrac(jl,lev) * cldsrc
             clrradu(jl) = clrradu(jl) * (1.0_wp-atrans(jl,lev))+(1._wp-cldfrac(jl,lev))*gassrc(jl)
             ! Total sky radiance
-            radlu(jl) = cldradu(jl) + clrradu(jl)
-            urad(jl,lev) = urad(jl,lev) + radlu(jl)
-            radmod(jl) = rad(jl) * &
-              & (facclr1(jl,lev+1)*(1.0_wp-atrans(jl,lev))+ &
-              & faccld1(jl,lev+1) *  ttot) - &
-              & faccmb1(jl,lev+1) * gassrc(jl) + &
-              & faccmb2(jl,lev+1) * cldsrc
-            oldcld(jl) = cldradu(jl) - radmod(jl)
-            oldclr(jl) = clrradu(jl) + radmod(jl)
-            rad(jl) = -radmod(jl) + facclr2(jl,lev+1)*oldclr(jl) - faccld2(jl,lev+1)*oldcld(jl)
-            cldradu(jl) = cldradu(jl) + rad(jl)
-            clrradu(jl) = clrradu(jl) - rad(jl)
-          ENDDO
-          IF (idrv .EQ. 1) THEN
-            DO jl = 1, kproma
-              d_radlu_dt(jl) = d_radlu_dt(jl) * cldfrac(jl,lev) * (1.0_wp - atot(jl,lev)) + &
-                & d_radlu_dt(jl) * (1.0_wp - cldfrac(jl,lev)) * (1.0_wp - atrans(jl,lev))
-              d_urad_dt(jl,lev) = d_urad_dt(jl,lev) + d_radlu_dt(jl)
-            ENDDO
-          ENDIF
+            ! Clear layer if lcldlyr(jl,lev) == .true.
+            radlu(jl) = MERGE(cldradu(jl) + clrradu(jl), &
+                 radlu(jl) + (bbugas(jl,lev)-radlu(jl))*atrans(jl,lev), &
+                 lcldlyr(jl,lev))
 
-        ELSE IF (n_clearpoints(lev) == kproma) THEN ! all points are clear
-
-          DO jl = 1, kproma ! thus, direct addressing can be used
-            radlu(jl) = radlu(jl) + (bbugas(jl,lev)-radlu(jl))*atrans(jl,lev)
-            urad(jl,lev) = urad(jl,lev) + radlu(jl)
-          ENDDO
-          IF (idrv .EQ. 1) THEN
-            DO jl = 1, kproma
-              d_radlu_dt(jl) = d_radlu_dt(jl) * (1.0_wp - atrans(jl,lev))
-              d_urad_dt(jl,lev) = d_urad_dt(jl,lev) + d_radlu_dt(jl)
-            ENDDO
-          ENDIF
-
-        ELSE ! both cloudy and clear points are in the vector
-
-          ! Cloudy layer
-!CDIR NODEP,VOVERTAKE,VOB
-          DO icld = 1, n_cloudpoints(lev)
-            jl = icld_ind(icld,lev)
-
-            gassrc(jl) = bbugas(jl,lev) * atrans(jl,lev)
-            IF (istcld(jl,lev)) THEN
-              cldradu(jl) = cldfrac(jl,lev) * radlu(jl)
-              clrradu(jl) = radlu(jl) - cldradu(jl)
-              oldcld(jl) = cldradu(jl)
-              oldclr(jl) = clrradu(jl)
-              rad(jl) = 0._wp
-            ENDIF
-            ttot = 1._wp - atot(jl,lev)
-            cldsrc = bbutot(jl,lev) * atot(jl,lev)
-            cldradu(jl) = cldradu(jl) * ttot + cldfrac(jl,lev) * cldsrc
-            clrradu(jl) = clrradu(jl) * (1.0_wp-atrans(jl,lev))+(1._wp-cldfrac(jl,lev))*gassrc(jl)
-            ! Total sky radiance
-            radlu(jl) = cldradu(jl) + clrradu(jl)
             urad(jl,lev) = urad(jl,lev) + radlu(jl)
             radmod(jl) = rad(jl) * &
               & (facclr1(jl,lev+1)*(1.0_wp-atrans(jl,lev))+ &
@@ -1135,51 +1091,27 @@ CONTAINS
             clrradu(jl) = clrradu(jl) - rad(jl)
           ENDDO
 
-          ! Clear layer
-!CDIR NODEP,VOVERTAKE,VOB
-          DO iclear = 1, n_clearpoints(lev)
-            jl = iclear_ind(iclear,lev)
-
-            radlu(jl) = radlu(jl) + (bbugas(jl,lev)-radlu(jl))*atrans(jl,lev)
-            urad(jl,lev) = urad(jl,lev) + radlu(jl)
-          ENDDO
-
-          IF (idrv .EQ. 1) THEN
-            DO jl = 1, kproma
-              IF (lcldlyr(jl,lev)) THEN
-                d_radlu_dt(jl) = d_radlu_dt(jl) * cldfrac(jl,lev) * (1.0_wp - atot(jl,lev)) + &
-                  & d_radlu_dt(jl) * (1.0_wp - cldfrac(jl,lev)) * (1.0_wp - atrans(jl,lev))
-                d_urad_dt(jl,lev) = d_urad_dt(jl,lev) + d_radlu_dt(jl)
-              ELSE
-                d_radlu_dt(jl) = d_radlu_dt(jl) * (1.0_wp - atrans(jl,lev))
-                d_urad_dt(jl,lev) = d_urad_dt(jl,lev) + d_radlu_dt(jl)
-              ENDIF
-            ENDDO
-          ENDIF
-
-        ENDIF
         !  Set clear sky stream to total sky stream as long as all layers
         !  are clear (iclddn=true).  Streams must be calculated separately at
         !  all layers when a cloud is present (iclddn=false), because surface
         !  reflectance is different for each stream.
         DO jl = 1, kproma
-          IF (iclddn(jl)) THEN
-            radclru(jl) = radclru(jl) + (bbugas(jl,lev)-radclru(jl))*atrans(jl,lev)
-            clrurad(jl,lev) = clrurad(jl,lev) + radclru(jl)
-          ELSE
-            radclru(jl) = radlu(jl)
-            clrurad(jl,lev) = urad(jl,lev)
-          ENDIF
+          radclru(jl) = MERGE(radclru(jl) + (bbugas(jl,lev)-radclru(jl))*atrans(jl,lev), &
+               radlu(jl), iclddn(jl))
+          clrurad(jl,lev) = MERGE(clrurad(jl,lev) + radclru(jl), urad(jl,lev), &
+               iclddn(jl))
         ENDDO
+
         IF (idrv .EQ. 1) THEN
           DO jl = 1, kproma
-            IF (iclddn(jl)) THEN
-              d_radclru_dt(jl) = d_radclru_dt(jl) * (1.0_wp - atrans(jl,lev))
-              d_clrurad_dt(jl,lev) = d_clrurad_dt(jl,lev) + d_radclru_dt(jl)
-            ELSE
-              d_radclru_dt(jl) = d_radlu_dt(jl)
-              d_clrurad_dt(jl,lev) = d_urad_dt(jl,lev)
-            ENDIF
+            d_radlu_dt(jl) = d_radlu_dt(jl) * MERGE(cldfrac(jl,lev) * (1.0_wp - atot(jl,lev)) + &
+                 & (1.0_wp - cldfrac(jl,lev)) * (1.0_wp - atrans(jl,lev)), &
+                 & (1.0_wp - atrans(jl,lev)), lcldlyr(jl,lev))
+            d_urad_dt(jl,lev) = d_urad_dt(jl,lev) + d_radlu_dt(jl)
+            d_radclru_dt(jl) = MERGE(d_radclru_dt(jl) * (1.0_wp - atrans(jl,lev)), &
+                 d_radlu_dt(jl), iclddn(jl))
+            d_clrurad_dt(jl,lev) = MERGE(d_clrurad_dt(jl,lev) + d_radclru_dt(jl), &
+                 d_urad_dt(jl,lev), iclddn(jl))
           ENDDO
         ENDIF
       ENDDO
