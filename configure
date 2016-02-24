@@ -6737,32 +6737,8 @@ fi
 
 sync_submit=${sync_submit:=$submit}
 
-echo Creating set-up.info...
-cat > config/set-up.info << EOF
-#############################
-# set-up.info created by configure
-# do not modify this file
-#############################
-use_site="${ac_sitename}"
-use_target="${config_target}"
-use_compiler="${config_compiler}"
-use_mpi="${use_mpi}"
-use_openmp="${use_openmp}"
-use_builddir="build/${build_host}"
-use_mpi_root="${MPIROOT}"
-use_mpi_procs_pernode="${use_mpi_procs_pernode}"
-use_mpi_startrun="${mpi_startrun}"
-use_load_modules="$load_modules"
-use_load_profile="$load_profile"
-use_netcdflibpath="$NETCDFLIBPATH"
-use_cdilibpath="$CDILIBPATH"
-use_make_command="$make_command"
-use_submit="$submit"
-use_sync_submit="$sync_submit"
-use_shell="$use_shell"
-use_flags_group="$use_flags_group"
-#############################
-EOF
+ac_config_commands="$ac_config_commands config/set-up.info"
+
 
 ac_config_commands="$ac_config_commands build_command"
 
@@ -6771,12 +6747,6 @@ ac_config_commands="$ac_config_commands build_command"
 #if test -f ./make_runscripts ; then
 #  ./make_runscripts
 #fi
-
-#############################
-echo ""
-cat config/set-up.info
-echo ""
-#############################
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -7467,6 +7437,24 @@ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
 #
 # INIT-COMMANDS
 #
+use_site="${ac_sitename}"
+use_target="${config_target}"
+use_compiler="${config_compiler}"
+use_mpi="${use_mpi}"
+use_openmp="${use_openmp}"
+use_builddir="build/${build_host}"
+use_mpi_root="${MPIROOT}"
+use_mpi_procs_pernode="${use_mpi_procs_pernode}"
+use_mpi_startrun="${mpi_startrun}"
+use_load_modules="$load_modules"
+use_load_profile="$load_profile"
+use_netcdflibpath="$NETCDFLIBPATH"
+use_cdilibpath="$CDILIBPATH"
+use_make_command="$make_command"
+use_submit="$submit"
+use_sync_submit="$sync_submit"
+use_shell="$use_shell"
+use_flags_group="$use_flags_group"
 load_profile="$load_profile"
 load_modules="$load_modules"
 make_command="$make_command"
@@ -7483,6 +7471,7 @@ do
   case $ac_config_target in
     "config/config.h") CONFIG_HEADERS="$CONFIG_HEADERS config/config.h" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
+    "config/set-up.info") CONFIG_COMMANDS="$CONFIG_COMMANDS config/set-up.info" ;;
     "build_command") CONFIG_COMMANDS="$CONFIG_COMMANDS build_command" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
@@ -8034,6 +8023,34 @@ $as_echo "$as_me: executing $ac_file commands" >&6;}
 
 
   case $ac_file$ac_mode in
+    "config/set-up.info":C)
+echo Creating set-up.info... >&2
+cat > config/set-up.info << EOF
+#############################
+# set-up.info created by configure
+# do not modify this file
+#############################
+use_site='${use_site}'
+use_target='${use_target}'
+use_compiler='${use_compiler}'
+use_mpi='${use_mpi}'
+use_openmp='${use_openmp}'
+use_builddir='${use_builddir}'
+use_mpi_root='${use_mpi_root}'
+use_mpi_procs_pernode='${use_mpi_procs_pernode}'
+use_mpi_startrun='${use_mpi_startrun}'
+use_load_modules='${use_load_modules}'
+use_load_profile='${use_load_profile}'
+use_netcdflibpath='${use_netcdflibpath}'
+use_cdilibpath='${use_cdilibpath}'
+use_make_command='${use_make_command}'
+use_submit='${use_submit}'
+use_sync_submit='${use_sync_submit}'
+use_shell='${use_shell}'
+use_flags_group='${use_flags_group}'
+#############################
+EOF
+ ;;
     "build_command":C)
 echo Creating the build_command... >&2
 exec 8>build_command
@@ -8089,6 +8106,12 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
 $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
+
+#############################
+echo ""
+cat config/set-up.info
+echo ""
+#############################
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."

@@ -1281,13 +1281,34 @@ fi
 
 sync_submit=${sync_submit:=$submit}
 
-echo Creating set-up.info...
+AC_CONFIG_COMMANDS([config/set-up.info],[
+echo Creating set-up.info... >&2
 cat > config/set-up.info << EOF
 #############################
 # set-up.info created by configure
 # do not modify this file
 #############################
-use_site="${ac_sitename}"
+use_site='${use_site}'
+use_target='${use_target}'
+use_compiler='${use_compiler}'
+use_mpi='${use_mpi}'
+use_openmp='${use_openmp}'
+use_builddir='${use_builddir}'
+use_mpi_root='${use_mpi_root}'
+use_mpi_procs_pernode='${use_mpi_procs_pernode}'
+use_mpi_startrun='${use_mpi_startrun}'
+use_load_modules='${use_load_modules}'
+use_load_profile='${use_load_profile}'
+use_netcdflibpath='${use_netcdflibpath}'
+use_cdilibpath='${use_cdilibpath}'
+use_make_command='${use_make_command}'
+use_submit='${use_submit}'
+use_sync_submit='${use_sync_submit}'
+use_shell='${use_shell}'
+use_flags_group='${use_flags_group}'
+#############################
+EOF
+],[use_site="${ac_sitename}"
 use_target="${config_target}"
 use_compiler="${config_compiler}"
 use_mpi="${use_mpi}"
@@ -1304,9 +1325,7 @@ use_make_command="$make_command"
 use_submit="$submit"
 use_sync_submit="$sync_submit"
 use_shell="$use_shell"
-use_flags_group="$use_flags_group"
-#############################
-EOF
+use_flags_group="$use_flags_group"])
 
 AC_CONFIG_COMMANDS([build_command],[
 echo Creating the build_command... >&2
@@ -1334,13 +1353,13 @@ config_target="$config_target"
 #if test -f ./make_runscripts ; then
 #  ./make_runscripts
 #fi
+AC_OUTPUT
 
 #############################
 echo ""
 cat config/set-up.info
 echo ""
 #############################
-AC_OUTPUT
 
 echo ""
 echo "Configuration done. Run GNU make to build ICON."
