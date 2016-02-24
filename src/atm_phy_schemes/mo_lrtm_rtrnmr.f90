@@ -214,7 +214,8 @@ CONTAINS
     !--------------------------------------------------------------------------
 
     REAL(wp) :: odepth_rec_or_tfacgas, odtot_rec_or_tfactot, cldsrc, &
-         oldclr, oldcld, clrradd_temp, cldradd_temp, radmod
+         oldclr, oldcld, clrradd_temp, cldradd_temp, radmod, &
+         odepth_rec_or_tausfac
     REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, &
       & rad
 
@@ -509,19 +510,18 @@ CONTAINS
             plfrac = fracs(jl,lev,igc)
             odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
 
-            IF (odepth(jl) .LE. 0.06_wp) THEN
-              atrans(jl,lev) = odepth(jl)-0.5_wp*odepth(jl)*odepth(jl)
-              odepth_rec = rec_6*odepth(jl)
-              bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
-              bbugas(jl,lev) = plfrac*(planklay(jl,lev,iband)+dplankup(jl,lev)*odepth_rec)
-            ELSE
-              itr = INT(tblint*odepth(jl)/(bpade+odepth(jl))+0.5_wp)
-              transc = exp_tbl(itr)
-              atrans(jl,lev) = 1._wp-transc
-              tausfac = tfn_tbl(itr)
-              bbd(jl) = plfrac*(planklay(jl,lev,iband)+tausfac*dplankdn(jl,lev))
-              bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) + tausfac * dplankup(jl,lev))
-            ENDIF
+            branch_od2 = odepth(jl) .LE. 0.06_wp
+
+            odepth_rec_or_tausfac = MERGE(rec_6*odepth(jl), &
+              tfn_tbl(INT(tblint*odepth(jl)/(bpade+odepth(jl))+0.5_wp)), &
+              branch_od2)
+            atrans(jl,lev) = MERGE(odepth(jl)-0.5_wp*odepth(jl)*odepth(jl), &
+              1._wp - exp_tbl(INT(tblint*odepth(jl)/(bpade+odepth(jl)) + 0.5_wp)), &
+              branch_od2)
+            bbd(jl) = plfrac * (planklay(jl,lev,iband) &
+              + odepth_rec_or_tausfac * dplankdn(jl,lev))
+            bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
+              + odepth_rec_or_tausfac * dplankup(jl,lev))
             radld(jl) = radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev)
             drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
           ENDDO
