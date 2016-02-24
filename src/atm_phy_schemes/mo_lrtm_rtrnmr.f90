@@ -312,7 +312,7 @@ CONTAINS
     ! Local variables for cloud / no cloud index lists
     !    icld_ind(1:n_cloudpoints(lev),lev) stores indices of cloudy points
     INTEGER :: icld_ind(kproma,nlayers)
-    INTEGER :: icld, n_cloudpoints(nlayers)
+    INTEGER :: icld, iclear, n_cloudpoints(nlayers)
 
 
     ! Reset diffusivity angle for Bands 2-3 and 5-9 to vary (between 1.50
@@ -335,18 +335,6 @@ CONTAINS
     ENDDO
 
 !CDIR BEGIN COLLAPSE
-    faccld1(:,:) = 0.0_wp
-    faccld2(:,:) = 0.0_wp
-    facclr1(:,:) = 0.0_wp
-    facclr2(:,:) = 0.0_wp
-    faccmb1(:,:) = 0.0_wp
-    faccmb2(:,:) = 0.0_wp
-    faccld1d(:,:) = 0.0_wp
-    faccld2d(:,:) = 0.0_wp
-    facclr1d(:,:) = 0.0_wp
-    facclr2d(:,:) = 0.0_wp
-    faccmb1d(:,:) = 0.0_wp
-    faccmb2d(:,:) = 0.0_wp
     urad(:,:)     = 0.0_wp
     drad(:,:)     = 0.0_wp
     totuflux(:,:) = 0.0_wp
@@ -370,6 +358,7 @@ CONTAINS
     DO lay = 1, nlayers
 
       icld   = 0
+      iclear = 0
 
       DO jl = 1, kproma  ! loop over columns
         IF (cldfrac(jl,lay) .GE. 1.e-6_wp) THEN
@@ -378,6 +367,8 @@ CONTAINS
           icld_ind(icld,lay) = jl
         ELSE
           lcldlyr(jl,lay) = .FALSE.
+          icld_ind(kproma - iclear,lay) = jl
+          iclear = iclear + 1
         ENDIF
       ENDDO
 
@@ -694,7 +685,7 @@ CONTAINS
        faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2)
     INTEGER, INTENT(in) :: kproma          ! number of columns
     INTEGER, INTENT(in) :: nlayers         ! total number of layers
-    INTEGER, intent(in) :: ofs             ! layer offset to use for
+    INTEGER, INTENT(in) :: ofs             ! layer offset to use for
                                            ! references to facc*
     INTEGER, INTENT(in) :: n_cloudpoints(nlayers)
     INTEGER, INTENT(in) :: icld_ind(kproma,nlayers)
@@ -708,23 +699,25 @@ CONTAINS
          faccmb1(kproma,nlayers+1), &
          faccmb2(kproma,nlayers+1)
     REAL(wp), INTENT(in) :: cldfrac(:,:)       ! layer cloud fraction
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: cldfrac
+#endif
 
     REAL(wp) :: fmax, fmin, rat1(kproma), rat2(kproma)
-    INTEGER :: lev, jl, olev, icld
+    INTEGER :: lev, jl, olev, icld, iclr
 
-    DO lev = start_lev, end_lev, lev_incr
+    faccld1(:,start_lev-lev_incr+ofs) = 0.0_wp
+    faccld2(:,start_lev-lev_incr+ofs) = 0.0_wp
+    facclr1(:,start_lev-lev_incr+ofs) = 0.0_wp
+    facclr2(:,start_lev-lev_incr+ofs) = 0.0_wp
+    faccmb1(:,start_lev-lev_incr+ofs) = 0.0_wp
+    faccmb2(:,start_lev-lev_incr+ofs) = 0.0_wp
+    DO lev = start_lev, end_lev - lev_incr, lev_incr
       olev = lev + ofs
       IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
         DO jl = 1, kproma ! Thus, direct addressing can be used
           ! Maximum/random cloud overlap
-          IF (lev .EQ. end_lev) THEN
-            faccld1(jl,olev) = 0._wp
-            faccld2(jl,olev) = 0._wp
-            facclr1(jl,olev) = 0._wp
-            facclr2(jl,olev) = 0._wp
-            faccmb1(jl,olev) = 0._wp
-            faccmb2(jl,olev) = 0._wp
-          ELSEIF (cldfrac(jl,olev) .GE. cldfrac(jl,lev)) THEN
+          IF (cldfrac(jl,olev) .GE. cldfrac(jl,lev)) THEN
             faccld1(jl,olev) = 0._wp
             faccld2(jl,olev) = 0._wp
             IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
@@ -788,14 +781,7 @@ CONTAINS
         DO icld = 1, n_cloudpoints(lev)
           jl = icld_ind(icld,lev)
           ! Maximum/random cloud overlap
-          IF (lev .EQ. end_lev) THEN
-            faccld1(jl,olev) = 0._wp
-            faccld2(jl,olev) = 0._wp
-            facclr1(jl,olev) = 0._wp
-            facclr2(jl,olev) = 0._wp
-            faccmb1(jl,olev) = 0._wp
-            faccmb2(jl,olev) = 0._wp
-          ELSEIF (cldfrac(jl,olev) .GE. cldfrac(jl,lev)) THEN
+          IF (cldfrac(jl,olev) .GE. cldfrac(jl,lev)) THEN
             faccld1(jl,olev) = 0._wp
             faccld2(jl,olev) = 0._wp
             IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
@@ -853,9 +839,31 @@ CONTAINS
             faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,lev) * (1._wp - cldfrac(jl,lev-lev_incr))
           ENDIF
         ENDDO
+        DO iclr = n_cloudpoints(lev) + 1, kproma
+          jl = icld_ind(iclr, lev)
+          faccld1(jl,olev) = 0.0
+          faccld2(jl,olev) = 0.0
+          facclr1(jl,olev) = 0.0
+          facclr2(jl,olev) = 0.0
+          faccmb1(jl,olev) = 0.0
+          faccmb2(jl,olev) = 0.0
+        END DO
+      ELSE
+        faccld1(:,olev) = 0.0
+        faccld2(:,olev) = 0.0
+        facclr1(:,olev) = 0.0
+        facclr2(:,olev) = 0.0
+        faccmb1(:,olev) = 0.0
+        faccmb2(:,olev) = 0.0
       ENDIF
-
     ENDDO
+    olev = end_lev + ofs
+    faccld1(:,olev) = 0._wp
+    faccld2(:,olev) = 0._wp
+    facclr1(:,olev) = 0._wp
+    facclr2(:,olev) = 0._wp
+    faccmb1(:,olev) = 0._wp
+    faccmb2(:,olev) = 0._wp
 
   END SUBROUTINE cloud_overlap
 
