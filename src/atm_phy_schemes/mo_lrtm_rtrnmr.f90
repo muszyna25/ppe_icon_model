@@ -462,7 +462,7 @@ CONTAINS
               + odepth_rec_or_tfacgas * dplankup(jl,lev))
             odtot_rec_or_tfactot = MERGE(rec_6*odtot, tfn_tbl(ittot), branch_od1)
             bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) &
-              + odtot_rec_or_tfactot * dplankup(jl,lev))
+              + odtot_rec_or_tfactot * dplankup(jl,lev)) * atot(jl,lev)
             gassrc         = bbd(jl) * atrans(jl,lev)
             cldsrc = plfrac * (planklay(jl,lev,iband) &
               + odtot_rec_or_tfactot * dplankdn(jl,lev)) * atot(jl,lev)
@@ -470,9 +470,9 @@ CONTAINS
             clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
               & clrradd(jl), .NOT. lcldlyr(jl,lev+1)) * (1._wp-atrans(jl,lev)) + &
               & (1._wp-cldfrac(jl,lev))*gassrc
-            cldradd_temp = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
-              .NOT. lcldlyr(jl,lev+1)) * ttot + cldfrac(jl,lev) * cldsrc
-            radmod = MERGE(0._wp, rad(jl), .NOT. lcldlyr(jl,lev+1)) * &
+            cldradd_temp = MERGE(cldradd(jl), cldfrac(jl,lev) * radld(jl), &
+              lcldlyr(jl,lev+1)) * ttot + cldfrac(jl,lev) * cldsrc
+            radmod = MERGE(rad(jl), 0._wp, lcldlyr(jl,lev+1)) * &
               & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
               & faccld1d(jl,lev-1) * ttot) - &
               & faccmb1d(jl,lev-1) * gassrc + &
@@ -574,7 +574,7 @@ CONTAINS
               rad(jl) = 0._wp
             ENDIF
             ttot = 1._wp - atot(jl,lev)
-            cldsrc = bbutot(jl,lev) * atot(jl,lev)
+            cldsrc = bbutot(jl,lev)
             cldradu(jl) = cldradu(jl) * ttot + cldfrac(jl,lev) * cldsrc
             clrradu(jl) = clrradu(jl) * (1.0_wp-atrans(jl,lev))+(1._wp-cldfrac(jl,lev))*gassrc
             ! Total sky radiance
