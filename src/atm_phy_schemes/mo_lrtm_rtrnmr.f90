@@ -138,6 +138,12 @@ CONTAINS
     REAL(wp), INTENT(out) :: dtotuclfl_dt(:,0:)  ! change in upward longwave flux (w/m2/k)
     ! with respect to surface temperature
     !    Dimensions: (0:nlayers)
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+    CONTIGUOUS :: semiss, planklay, planklev, plankbnd, fracs, taut, &
+      cldfrac, taucloud, dplankbnd_dt, totuflux, totdflux, fnet, totuclfl, &
+      fnetc, dtotuflux_dt, dtotuclfl_dt
+#endif
+
 
     ! Vectorized version implemented by Guenther Zaengl, DWD
     ! See above for variable descriptions
