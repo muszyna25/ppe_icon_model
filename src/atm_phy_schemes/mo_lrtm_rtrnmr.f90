@@ -399,10 +399,10 @@ CONTAINS
       DO jl = 1, kproma
         IF (ncbands(jl) .EQ. 1) THEN
           ibv(jl) = ipat(iband,0)
-        ELSEIF (ncbands(jl) .EQ.  5) THEN
-          ibv(jl) = ipat(iband,1)
         ELSEIF (ncbands(jl) .EQ. 16) THEN
           ibv(jl) = ipat(iband,2)
+        ELSEIF (ncbands(jl) .EQ.  5) THEN
+          ibv(jl) = ipat(iband,1)
         ENDIF
       ENDDO
 
