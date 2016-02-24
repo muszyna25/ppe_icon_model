@@ -83,7 +83,7 @@ PRIVATE
 
     TYPE :: t_readInstruction
         CHARACTER(LEN = VARNAME_LEN) :: varName
-        LOGICAL :: lReadFg, lReadAna
+        LOGICAL :: lReadFg, lReadAna, lRequireAna
         INTEGER(KIND = C_CHAR) :: statusFg, statusAna
         INTEGER :: sourceOverride   ! IF this IS NOT kInputSourceUnset, it overrides the automatic calculation of the input source.
     CONTAINS
@@ -315,8 +315,8 @@ CONTAINS
                 curInstruction => RESULT%findInstruction(TRIM(dict_get(ana_varnames_dict, &
                 &                                                      initicon_config(p_patch%id)%ana_varlist(ivar), &
                 &                                                      linverse=.TRUE.)))
-                curInstruction%lReadFg = .FALSE.
                 curInstruction%lReadAna = .TRUE.
+                curInstruction%lRequireAna = .TRUE.
             ENDDO
         END IF
 
@@ -355,6 +355,7 @@ CONTAINS
         RESULT%varName = varName
         RESULT%lReadFg = .FALSE.
         RESULT%lReadAna = .FALSE.
+        RESULT%lRequireAna = .FALSE.
         RESULT%statusFg = kStateNoFetch
         RESULT%statusAna = kStateNoFetch
         RESULT%sourceOverride = kInputSourceUnset
@@ -380,6 +381,7 @@ CONTAINS
             tempList(i)%varName = me%list(i)%varName
             tempList(i)%lReadFg = me%list(i)%lReadFg
             tempList(i)%lReadAna = me%list(i)%lReadAna
+            tempList(i)%lRequireAna = me%list(i)%lRequireAna
             tempList(i)%statusFg = me%list(i)%statusFg
             tempList(i)%statusAna = me%list(i)%statusAna
             tempList(i)%sourceOverride = me%list(i)%sourceOverride
@@ -515,6 +517,11 @@ CONTAINS
                 CALL finish(caller, "failed to read variable '"//varName//"' from the analysis file, &
                     &and reading from first guess is not allowed or failed")
             END IF
+
+            ! check whether we are forced by the user to READ analysis DATA for this variable (ana_varlist)
+            IF(instruction%lRequireAna) THEN
+                CALL finish(caller, "failed to read variable '"//varName//"' from the analysis file (required by ana_varlist)")
+            END IF
         END IF
     END SUBROUTINE readInstructionList_handleErrorAna
 
@@ -575,6 +582,11 @@ CONTAINS
             instruction%statusAna = kStateRead
         ELSE
             instruction%statusAna = kStateFailedFetch
+
+            ! check whether we are forced by the user to READ analysis DATA for this variable (ana_varlist)
+            IF(instruction%lRequireAna) THEN
+                CALL finish(caller, "failed to read variable '"//varName//"' from the analysis file (required by ana_varlist)")
+            END IF
         END IF
     END SUBROUTINE readInstructionList_optionalReadResultAna
 
@@ -635,6 +647,7 @@ CONTAINS
                                        & fgSuccessCol = "FG data found", &
                                        & anaAttemptCol = "ANA read attempt", &
                                        & anaSuccessCol = "ANA data found", &
+                                       & anaRequiredCol = "ANA DATA required (ana_varlist)", &
                                        & useCol = "data used from"
 
         IF(me%nInstructions == 0) THEN
@@ -653,6 +666,7 @@ CONTAINS
         CALL add_table_column(table, fgSuccessCol)
         CALL add_table_column(table, anaAttemptCol)
         CALL add_table_column(table, anaSuccessCol)
+        CALL add_table_column(table, anaRequiredCol)
         CALL add_table_column(table, useCol)
 
         DO i = 1, me%nInstructions
@@ -685,6 +699,10 @@ CONTAINS
                 CASE DEFAULT
                     CALL finish(routine, "unexpected value in statusAna")
             END SELECT
+
+            IF(curInstruction%lRequireAna) THEN
+                CALL set_table_entry(table, i, anaRequiredCol, "required")
+            END IF
 
             SELECT CASE(curInstruction%source())
                 CASE(kInputSourceNone)
