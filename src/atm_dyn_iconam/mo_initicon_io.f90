@@ -32,7 +32,7 @@ MODULE mo_initicon_io
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var
-  USE mo_input_instructions,  ONLY: t_readInstructionListPtr
+  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth
   USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, l_sst_in, generate_filename, &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lread_vn,      &
@@ -41,7 +41,7 @@ MODULE mo_initicon_io
   USE mo_nh_init_nest_utils,  ONLY: interpolate_increments, interpolate_sfcana
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom,                           &
     &                               MODE_IAU, MODE_IAU_OLD, MODE_IFSANA, MODE_COMBINED, &
-    &                               MODE_COSMODE, iss, iorg, ibc, iso4, idu
+    &                               MODE_COSMODE, iss, iorg, ibc, iso4, idu, SUCCESS
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, l_limited_area
   USE mo_mpi,                 ONLY: p_io, p_bcast, p_comm_work,    &
@@ -63,6 +63,7 @@ MODULE mo_initicon_io
   USE mo_fortran_tools,       ONLY: init
   USE mo_input_request_list,  ONLY: t_InputRequestList
   USE mo_util_string,         ONLY: int2string
+  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
 
   IMPLICIT NONE
 
@@ -81,12 +82,6 @@ MODULE mo_initicon_io
   PUBLIC :: read_extana_atm
   PUBLIC :: read_extana_sfc
 
-  PUBLIC :: request_dwdfg_atm
-  PUBLIC :: request_dwdfg_atm_ii
-  PUBLIC :: request_dwdfg_sfc
-  PUBLIC :: request_dwdana_atm
-  PUBLIC :: request_dwdana_sfc
-
   PUBLIC :: fetch_dwdfg_atm
   PUBLIC :: fetch_dwdfg_atm_ii
   PUBLIC :: fetch_dwdfg_sfc
@@ -100,6 +95,12 @@ MODULE mo_initicon_io
   PUBLIC :: process_input_dwdana_sfc
 
 
+  TYPE :: t_fetchParams
+    TYPE(t_readInstructionListPtr), ALLOCATABLE :: inputInstructions(:)
+    CLASS(t_InputRequestList), POINTER :: requestList
+    CHARACTER(LEN = :), ALLOCATABLE :: routine
+    LOGICAL :: isFg
+  END TYPE t_fetchParams
 
   CONTAINS
 
@@ -705,25 +706,180 @@ MODULE mo_initicon_io
 
   END SUBROUTINE read_extana_sfc
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   !>
-  !! Request the DWD first guess variables (atmosphere only)
-  SUBROUTINE request_dwdfg_atm(requestList)
-    CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
+  !! Some wrapper routines to fetch DATA from an InputRequestList that first ask the inputInstructions whether a READ attempt should be made,
+  !! AND proceed to tell the inputInstructions whether that attempt was successful.
+  !! In the CASE of tiled input, these also take care of checking the ltile_coldstart flag, falling back to reading AND copying untiled input DATA IF it's set.
 
-    CALL requestList%requestMultiple((/ 'theta_v', &
-                                      & 'rho    ', &
-                                      & 'w      ', &
-                                      & 'tke    ', &
-                                      & 'qv     ', &
-                                      & 'qc     ', &
-                                      & 'qi     ', &
-                                      & 'vn     ' /))
-    IF ( iqr /= 0 ) CALL requestList%request('qr')
-    IF ( iqs /= 0 ) CALL requestList%request('qs')
-    IF (lvert_remap_fg) CALL requestList%request('z_ifc')
-  END SUBROUTINE request_dwdfg_atm
+  SUBROUTINE fetch2d(params, varName, level, jg, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    REAL(dp), VALUE :: level
+    INTEGER, VALUE :: jg
+    REAL(wp), INTENT(INOUT) :: field(:,:)
 
+    LOGICAL :: fetchResult
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        fetchResult = params%requestList%fetch2d(varName, level, trivial_tileId, jg, field)
+        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetch2d
+
+  SUBROUTINE fetch3d(params, varName, jg, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg
+    REAL(wp), INTENT(INOUT) :: field(:,:,:)
+
+    LOGICAL :: fetchResult
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        fetchResult = params%requestList%fetch3d(varName, trivial_tileId, jg, field)
+        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetch3d
+
+  FUNCTION fetchSurfaceOptional(params, varName, jg, field) RESULT(RESULT)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg
+    REAL(wp), INTENT(INOUT) :: field(:,:)
+    LOGICAL :: RESULT
+
+    INTEGER :: jt
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        RESULT = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
+        CALL params%inputInstructions(jg)%ptr%optionalReadResult(RESULT, varName, params%routine, params%isFg)
+    END IF
+  END FUNCTION fetchSurfaceOptional
+
+  SUBROUTINE fetchSurface(params, varName, jg, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg
+    REAL(wp), INTENT(INOUT) :: field(:,:)
+
+    INTEGER :: jt
+    LOGICAL :: fetchResult
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        fetchResult = params%requestList%fetchSurface(varName, trivial_tileId, jg, field)
+        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetchSurface
+
+  ! Wrapper for requestList%fetchTiledSurface() that falls back to reading copies of untiled input IF ltile_coldstart IS set.
+  SUBROUTINE fetchTiledSurface(params, varName, jg, tileCount, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg, tileCount
+    REAL(wp), INTENT(INOUT) :: field(:,:,:)
+
+    INTEGER :: jt
+    LOGICAL :: fetchResult
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        IF(ltile_coldstart) THEN
+            !Fake tiled input by copying the input field to all tiles.
+            fetchResult = .TRUE.
+            DO jt = 1, tileCount
+                fetchResult = fetchResult.AND.params%requestList%fetchSurface(varName, trivial_tileId, jg, field(:,:,jt))
+            END DO
+        ELSE
+            !True tiled input.
+            fetchResult = params%requestList%fetchTiledSurface(varName, jg, field)
+        END IF
+        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetchTiledSurface
+
+  ! Wrapper for requestList%fetchTiled3d() that falls back to reading copies of untiled input IF ltile_coldstart IS set.
+  SUBROUTINE fetchTiled3d(params, varName, jg, tileCount, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg, tileCount
+    REAL(wp), INTENT(INOUT) :: field(:,:,:,:)
+
+    INTEGER :: jt
+    LOGICAL :: fetchResult
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        IF(ltile_coldstart) THEN
+            !Fake tiled input by copying the input field to all tiles.
+            fetchResult = .TRUE.
+            DO jt = 1, tileCount
+                fetchResult = fetchResult.AND.params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
+            END DO
+        ELSE
+            !True tiled input.
+            fetchResult = params%requestList%fetchTiled3d(varName, jg, field)
+        END IF
+        CALL params%inputInstructions(jg)%ptr%handleError(fetchResult, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetchTiled3d
+
+  ! Same as above for variables that are optionally read from input file.
+  SUBROUTINE fetchTiled3dOptional(params, varName, jg, tileCount, field, avail)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg, tileCount
+    REAL(wp), INTENT(INOUT) :: field(:,:,:,:)
+    LOGICAL, INTENT(OUT) :: avail
+
+    INTEGER :: jt
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        IF(ltile_coldstart) THEN
+            !Fake tiled input by copying the input field to all tiles.
+            avail = .TRUE.
+            DO jt = 1, tileCount
+                avail = avail.AND.params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
+            END DO
+        ELSE
+            !True tiled input.
+            avail = params%requestList%fetchTiled3d(varName, jg, field)
+        END IF
+        CALL params%inputInstructions(jg)%ptr%optionalReadResult(avail, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetchTiled3dOptional
+
+  SUBROUTINE fetchRequired3d(params, varName, jg, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg
+    REAL(wp), INTENT(INOUT) :: field(:,:,:)
+
+    CALL params%requestList%fetchRequired3d(varName, trivial_tileId, jg, field)
+    CALL params%inputInstructions(jg)%ptr%handleError(.TRUE., varName, params%routine, params%isFg)
+  END SUBROUTINE fetchRequired3d
+
+  ! Wrapper for requestList%fetchRequiredTiledSurface() that falls back to reading copies of untiled input IF ltile_coldstart IS set.
+  SUBROUTINE fetchRequiredTiledSurface(params, varName, jg, tileCount, field)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg, tileCount
+    REAL(wp), INTENT(INOUT) :: field(:,:,:)
+
+    INTEGER :: jt
+
+    IF(ltile_coldstart) THEN
+        !Fake tiled input by copying the input field to all tiles.
+        DO jt = 1, tileCount
+            CALL params%requestList%fetchRequiredSurface(varName, trivial_tileId, jg, field(:,:,jt))
+        END DO
+    ELSE
+        !True tiled input.
+        CALL params%requestList%fetchRequiredTiledSurface(varName, jg, field)
+    END IF
+    CALL params%inputInstructions(jg)%ptr%handleError(.TRUE., varName, params%routine, params%isFg)
+  END SUBROUTINE fetchRequiredTiledSurface
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   !>
   !! Fetch the DWD first guess from the request list (atmosphere only)
@@ -741,6 +897,12 @@ MODULE mo_initicon_io
     INTEGER jg
     TYPE(t_nh_prog), POINTER :: prognosticFields
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
+    TYPE(t_fetchParams) :: params
+
+    params%inputInstructions = inputInstructions
+    params%requestList => requestList
+    params%routine = routine
+    params%isFg = .TRUE.
 
     DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active) THEN
@@ -748,69 +910,41 @@ MODULE mo_initicon_io
             prognosticFields => p_nh_state(jg)%prog(nnow(jg))
 
             ! request the first guess fields (atmosphere only)
-            CALL requestList%fetchRequired3d('theta_v', trivial_tileId, jg, prognosticFields%theta_v)
-            CALL requestList%fetchRequired3d('rho', trivial_tileId, jg, prognosticFields%rho)
-            CALL requestList%fetchRequired3d('w', trivial_tileId, jg, prognosticFields%w)
-            CALL requestList%fetchRequired3d('tke', trivial_tileId, jg, prognosticFields%tke)
+            CALL fetchRequired3d(params, 'theta_v', jg, prognosticFields%theta_v)
+            CALL fetchRequired3d(params, 'rho', jg, prognosticFields%rho)
+            CALL fetchRequired3d(params, 'w', jg, prognosticFields%w)
+            CALL fetchRequired3d(params, 'tke', jg, prognosticFields%tke)
 
             ! Only needed for FG-only runs; usually read from ANA
             my_ptr3d => prognosticFields%tracer(:,:,:,iqv)
-            IF(inputInstructions(jg)%ptr%wantVarFg('qv')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorFg(requestList%fetch3d('qv', trivial_tileId, jg, my_ptr3d), &
-            &                                                'qv', routine)
+            CALL fetch3d(params, 'qv', jg, my_ptr3d)
 
             my_ptr3d => prognosticFields%tracer(:,:,:,iqc)
-            IF(inputInstructions(jg)%ptr%wantVarFg('qc')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorFg(requestList%fetch3d('qc', trivial_tileId, jg, my_ptr3d), &
-            &                                                'qc', routine)
+            CALL fetch3d(params, 'qc', jg, my_ptr3d)
 
             my_ptr3d => prognosticFields%tracer(:,:,:,iqi)
-            IF(inputInstructions(jg)%ptr%wantVarFg('qi')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorFg(requestList%fetch3d('qi', trivial_tileId, jg, my_ptr3d), &
-            &                                                'qi', routine)
+            CALL fetch3d(params, 'qi', jg, my_ptr3d)
 
             IF ( iqr /= 0 ) THEN
               my_ptr3d => prognosticFields%tracer(:,:,:,iqr)
-              IF(inputInstructions(jg)%ptr%wantVarFg('qr')) &
-              & CALL inputInstructions(jg)%ptr%handleErrorFg(requestList%fetch3d('qr', trivial_tileId, jg, my_ptr3d), &
-              &                                              'qr', routine)
+              CALL fetch3d(params, 'qr', jg, my_ptr3d)
             END IF
 
             IF ( iqs /= 0 ) THEN
               my_ptr3d => prognosticFields%tracer(:,:,:,iqs)
-              IF(inputInstructions(jg)%ptr%wantVarFg('qs')) &
-              & CALL inputInstructions(jg)%ptr%handleErrorFg(requestList%fetch3d('qs', trivial_tileId, jg, my_ptr3d), &
-              &                                              'qs', routine)
+              CALL fetch3d(params, 'qs', jg, my_ptr3d)
             END IF
 
             IF (lvert_remap_fg) THEN
                 CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
-                CALL requestList%fetchRequired3D('z_ifc', trivial_tileId, jg, initicon(jg)%atm_in%z3d_ifc)
+                CALL fetchRequired3d(params, 'z_ifc', jg, initicon(jg)%atm_in%z3d_ifc)
             END IF
 
-            CALL requestList%fetchRequired3d('vn', trivial_tileId, jg, prognosticFields%vn)
+            CALL fetchRequired3d(params, 'vn', jg, prognosticFields%vn)
         END IF
     END DO
 
   END SUBROUTINE fetch_dwdfg_atm
-
-  !>
-  !! Request the DWD first guess variables (atmosphere ONLY)
-  SUBROUTINE request_dwdfg_atm_ii(requestList)
-    CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
-
-    CALL requestList%requestMultiple((/ 'z_ifc  ', &
-                                      & 'theta_v', &
-                                      & 'rho    ', &
-                                      & 'w      ', &
-                                      & 'tke    ', &
-                                      & 'qv     ', &
-                                      & 'qc     ', &
-                                      & 'qi     ', &
-                                      & 'vn     ' /))
-    IF ( iqr /= 0 ) CALL requestList%request('qr')
-    IF ( iqs /= 0 ) CALL requestList%request('qs')
-  END SUBROUTINE request_dwdfg_atm_ii
 
   !>
   !! Fetch DWD first guess from the request list (atmosphere only) and store to initicon input state
@@ -825,17 +959,22 @@ MODULE mo_initicon_io
   !! - split off reading of FG fields
   !!
   !!
-  SUBROUTINE fetch_dwdfg_atm_ii(requestList, p_patch, initicon)
+  SUBROUTINE fetch_dwdfg_atm_ii(requestList, p_patch, initicon, inputInstructions)
     CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
+    TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':fetch_dwdfg_atm_ii'
-    INTEGER :: jg, jb, jk, jc, i_endidx, nlev_in
+    INTEGER :: jg, jb, jk, jc, i_endidx
     REAL(wp) :: tempv, exner
     REAL(dp), POINTER :: levelValues(:)
+    TYPE(t_fetchParams) :: params
 
-    !-------------------------------------------------------------------------
+    params%inputInstructions = inputInstructions
+    params%requestList => requestList
+    params%routine = routine
+    params%isFg = .TRUE.
 
     DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active) THEN  ! Skip reading the atmospheric input data if a model domain is not active at initial time
@@ -843,35 +982,34 @@ MODULE mo_initicon_io
             ! determine number of HALF LEVELS of generalized Z-AXIS
             levelValues => requestList%getLevels('z_ifc', jg)
             IF(.NOT.ASSOCIATED(levelValues)) CALL finish(routine, "no DATA found for domain "//TRIM(int2string(jg))//" of &
-                                                                  &required variable 'theta_v'")
-            nlev_in = SIZE(levelValues, 1) - 1
-            nlevatm_in(jg) = nlev_in
+                                                                  &required variable 'z_ifc'")
+            nlevatm_in(jg) = SIZE(levelValues, 1) - 1
 
             CALL allocate_extana_atm(jg, p_patch(jg)%nblks_c, p_patch(jg)%nblks_e, initicon)
 
             ! start reading first guess (atmosphere only)
-            CALL requestList%fetchRequired3d('z_ifc', trivial_tileId, jg, initicon(jg)%atm_in%z3d_ifc)
-            CALL requestList%fetchRequired3d('theta_v', trivial_tileId, jg, initicon(jg)%atm_in%theta_v)
-            CALL requestList%fetchRequired3d('rho', trivial_tileId, jg, initicon(jg)%atm_in%rho)
-            CALL requestList%fetchRequired3d('w', trivial_tileId, jg, initicon(jg)%atm_in%w_ifc)
-            CALL requestList%fetchRequired3d('tke', trivial_tileId, jg, initicon(jg)%atm_in%tke_ifc)
+            CALL fetchRequired3d(params, 'z_ifc', jg, initicon(jg)%atm_in%z3d_ifc)
+            CALL fetchRequired3d(params, 'theta_v', jg, initicon(jg)%atm_in%theta_v)
+            CALL fetchRequired3d(params, 'rho', jg, initicon(jg)%atm_in%rho)
+            CALL fetchRequired3d(params, 'w', jg, initicon(jg)%atm_in%w_ifc)
+            CALL fetchRequired3d(params, 'tke', jg, initicon(jg)%atm_in%tke_ifc)
 
-            CALL requestList%fetchRequired3d('qv', trivial_tileId, jg, initicon(jg)%atm_in%qv)
-            CALL requestList%fetchRequired3d('qc', trivial_tileId, jg, initicon(jg)%atm_in%qc)
-            CALL requestList%fetchRequired3d('qi', trivial_tileId, jg, initicon(jg)%atm_in%qi)
+            CALL fetchRequired3d(params, 'qv', jg, initicon(jg)%atm_in%qv)
+            CALL fetchRequired3d(params, 'qc', jg, initicon(jg)%atm_in%qc)
+            CALL fetchRequired3d(params, 'qi', jg, initicon(jg)%atm_in%qi)
             IF ( iqr /= 0 ) THEN
-            CALL requestList%fetchRequired3d('qr', trivial_tileId, jg, initicon(jg)%atm_in%qr)
+            CALL fetchRequired3d(params, 'qr', jg, initicon(jg)%atm_in%qr)
             ELSE
             initicon(jg)%atm_in%qr(:,:,:) = 0._wp
             END IF
 
             IF ( iqs /= 0 ) THEN
-            CALL requestList%fetchRequired3d('qs', trivial_tileId, jg, initicon(jg)%atm_in%qs)
+            CALL fetchRequired3d(params, 'qs', jg, initicon(jg)%atm_in%qs)
             ELSE
             initicon(jg)%atm_in%qs(:,:,:) = 0._wp
             END IF
 
-            CALL requestList%fetchRequired3d('vn', trivial_tileId, jg, initicon(jg)%atm_in%vn)
+            CALL fetchRequired3d(params, 'vn', jg, initicon(jg)%atm_in%vn)
 
             ! Interpolate half level variables from interface levels to main levels, and convert thermodynamic variables
             ! into temperature and pressure as expected by the vertical interpolation routine  
@@ -924,29 +1062,11 @@ MODULE mo_initicon_io
 
 
   !>
-  !! Request the DA-analysis variables (atmosphere ONLY)
-  SUBROUTINE request_dwdana_atm(requestList)
-    CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
-
-    CALL requestList%requestMultiple((/ 'temp', &
-                                      & 'pres', &
-                                      & 'u   ', &
-                                      & 'v   ' /))
-
-    CALL requestList%requestMultiple((/ 'qv', 'qc', 'qi' /))
-    IF ( iqr /= 0 ) CALL requestList%request('qr')
-    IF ( iqs /= 0 ) CALL requestList%request('qs')
-  END SUBROUTINE request_dwdana_atm
-
-  !>
   !! Fetch DA-analysis DATA from the request list (atmosphere only)
   !!
   !! Depending on the initialization mode, either full fields or increments
-  !! are read (atmosphere only):
-  !! MODE_DWDANA: The following full fields are read, if available
-  !!              u, v, t, p, qv
-  !! MODE_IAO_OLD: 
-  !! MODE_IAU:
+  !! are read (atmosphere only). The following full fields are read, if available:
+  !!     u, v, t, p, qv, qi, qc, qr, qs
   !!
   !! @par Revision History
   !! Initial version by Daniel Reinert, DWD(2012-12-18)
@@ -965,6 +1085,13 @@ MODULE mo_initicon_io
     INTEGER :: jg
     TYPE(t_pi_atm), POINTER :: my_ptr
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
+    TYPE(t_fetchParams) :: params
+    LOGICAL :: lHaveFg
+
+    params%inputInstructions = inputInstructions
+    params%requestList => requestList
+    params%routine = routine
+    params%isFg = .FALSE.
 
     DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active) THEN  ! Skip reading the atmospheric input data if a model domain is not active at initial time
@@ -983,50 +1110,35 @@ MODULE mo_initicon_io
             ! are either stored in initicon(jg)%atm or initicon(jg)%atm_inc, depending on whether
             ! IAU is used or not. The moisture variables, which can be taken over directly from
             ! the Analysis, are written to the NH prognostic state
-            IF(inputInstructions(jg)%ptr%wantVarAna('temp')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch3d('temp', trivial_tileId, jg, my_ptr%temp), &
-            &                                                 'temp', routine)
-            IF(inputInstructions(jg)%ptr%wantVarAna('pres')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch3d('pres', trivial_tileId, jg, my_ptr%pres), &
-            &                                                 'pres', routine)
-            IF(inputInstructions(jg)%ptr%wantVarAna('u')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch3d('u', trivial_tileId, jg, my_ptr%u), &
-            &                                                 'u', routine)
-            IF(inputInstructions(jg)%ptr%wantVarAna('v')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch3d('v', trivial_tileId, jg, my_ptr%v), &
-            &                                                 'v', routine)
+            CALL fetch3d(params, 'temp', jg, my_ptr%temp)
+            CALL fetch3d(params, 'pres', jg, my_ptr%pres)
+            CALL fetch3d(params, 'u', jg, my_ptr%u)
+            CALL fetch3d(params, 'v', jg, my_ptr%v)
 
             IF ( ANY((/MODE_IAU,MODE_IAU_OLD/) == init_mode) ) THEN
-                IF(inputInstructions(jg)%ptr%wantVarAna('qv')) &
-                &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch3d('qv', trivial_tileId, jg, my_ptr%qv), &
-                &                                                 'qv', routine)
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('qv') == kInputSourceFg
+                CALL fetch3d(params, 'qv', jg, my_ptr%qv)
+                ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('qv') == kInputSourceAna) THEN
+                    CALL inputInstructions(jg)%ptr%setSource('qv', kInputSourceBoth)
+                END IF
             ELSE
                 my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqv)
-                IF(inputInstructions(jg)%ptr%wantVarAna('qv')) &
-                &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch3d('qv', trivial_tileId, jg, my_ptr3d), &
-                &                                                 'qv', routine)
+                CALL fetch3d(params, 'qv', jg, my_ptr3d)
             ENDIF
 
             ! For the time being, these are identical to qc, qi, qr, AND qs from FG => usually read from FG
             my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqc)
-            IF(inputInstructions(jg)%ptr%wantVarAna('qc')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch3d('qc', trivial_tileId, jg, my_ptr3d), &
-            &                                                 'qc', routine)
+            CALL fetch3d(params, 'qc', jg, my_ptr3d)
             my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqi)
-            IF(inputInstructions(jg)%ptr%wantVarAna('qi')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch3d('qi', trivial_tileId, jg, my_ptr3d), &
-            &                                                 'qi', routine)
+            CALL fetch3d(params, 'qi', jg, my_ptr3d)
             IF ( iqr /= 0 ) THEN
                 my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqr)
-                IF(inputInstructions(jg)%ptr%wantVarAna('qr')) &
-                &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch3d('qr', trivial_tileId, jg, my_ptr3d), &
-                &                                                 'qr', routine)
+                CALL fetch3d(params, 'qr', jg, my_ptr3d)
             END IF
             IF ( iqs /= 0 ) THEN
                 my_ptr3d => p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,iqs)
-                IF(inputInstructions(jg)%ptr%wantVarAna('qs')) &
-                &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch3d('qs', trivial_tileId, jg, my_ptr3d), &
-                &                                                 'qs', routine)
+                CALL fetch3d(params, 'qs', jg, my_ptr3d)
             END IF
         END IF
     ENDDO ! loop over model domains
@@ -1054,61 +1166,6 @@ MODULE mo_initicon_io
 
 
   !>
-  !! Request the DWD first guess variables (land/surface only)
-  SUBROUTINE request_dwdfg_sfc(requestList)
-    CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
-
-    CALL requestList%requestMultiple((/ 't_ice      ', &
-                                      & 'h_ice      ', &
-                                      & 't_g        ', &
-                                      & 'qv_s       ', &
-                                      & 'freshsnow  ', &
-                                      & 'snowfrac_lc', &
-                                      & 'w_snow     ', &
-                                      & 'w_i        ', &
-                                      & 'h_snow     ', &
-                                      & 't_snow     ', &
-                                      & 'rho_snow   ', &
-                                      & 't_mnw_lk   ', &
-                                      & 't_wml_lk   ', &
-                                      & 'h_ml_lk    ', &
-                                      & 't_bot_lk   ', &
-                                      & 'c_t_lk     ', &
-                                      & 't_b1_lk    ', &
-                                      & 'h_b1_lk    ', &
-                                      & 'aer_ss     ', &
-                                      & 'aer_or     ', &
-                                      & 'aer_bc     ', &
-                                      & 'aer_su     ', &
-                                      & 'aer_du     '/))
-
-    IF (lmulti_snow) THEN
-      CALL requestList%requestMultiple((/ 't_snow_mult  ', &
-                                        & 'rho_snow_mult', &
-                                        & 'wtot_snow    ', &
-                                        & 'wliq_snow    ', &
-                                        & 'dzh_snow     ' /))    ! multi layer snow fields
-    ELSE IF (l2lay_rho_snow) THEN
-      CALL requestList%requestMultiple((/ 'rho_snow_mult' /))
-    ENDIF
-
-    SELECT CASE(init_mode)
-        CASE(MODE_COMBINED)
-            CALL requestList%requestMultiple((/ 'smi      ', &
-                                              & 'fr_seaice' /))
-        CASE(MODE_COSMODE)
-            CALL requestList%requestMultiple((/ 'smi' /))
-        CASE DEFAULT
-            CALL requestList%requestMultiple((/ 'w_so     ', &
-                                              & 'fr_seaice' /))
-    END SELECT
-
-    CALL requestList%requestMultiple((/ 'w_so_ice', &
-                                      & 't_so    ' /))
-    CALL requestList%request('gz0')
-  END SUBROUTINE request_dwdfg_sfc
-
-  !>
   !! Fetch DWD first guess DATA from request list (land/surface only)
   SUBROUTINE fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
     CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
@@ -1117,17 +1174,24 @@ MODULE mo_initicon_io
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
-    INTEGER :: jg, jt, jb, jc, i_endidx
+    INTEGER :: jg, error
+    LOGICAL :: avail
     REAL(wp), POINTER :: my_ptr2d(:,:)
-    REAL(wp), POINTER :: my_ptr3d(:,:,:)
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
     TYPE(t_wtr_prog), POINTER :: wtr_prog
-    CHARACTER(LEN=VARNAME_LEN), POINTER :: checkgrp(:)
-    TYPE(t_inputParameters) :: parameters
-    LOGICAL :: lread
+    TYPE(t_fetchParams) :: params
 
     CHARACTER(len=*), PARAMETER :: routine = modname//':fetch_dwdfg_sfc'
+
+    ! Workaround for the intel compiler botching implicit allocation.
+    ALLOCATE(params%inputInstructions(SIZE(inputInstructions, 1)), STAT = error)
+    IF(error /= SUCCESS) CALL finish(routine, "memory allocation failed")
+
+    params%inputInstructions = inputInstructions
+    params%requestList => requestList
+    params%routine = routine
+    params%isFg = .TRUE.
 
     DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active) THEN ! Skip reading the atmospheric input data if a model domain is not active at initial time
@@ -1137,53 +1201,45 @@ MODULE mo_initicon_io
 
             ! COSMO-DE does not provide sea ice field. In that case set fr_seaice to 0
             IF (init_mode /= MODE_COSMODE) THEN
-                CALL fetchSurfaceWrapper('fr_seaice', jg, lnd_diag%fr_seaice)
+                CALL fetchSurface(params, 'fr_seaice', jg, lnd_diag%fr_seaice)
             ELSE
 !$OMP PARALLEL
-            CALL init(lnd_diag%fr_seaice(:,:))
+                CALL init(lnd_diag%fr_seaice(:,:))
 !$OMP END PARALLEL
             ENDIF ! init_mode /= MODE_COSMODE
 
             ! sea-ice related fields
-            CALL fetchSurfaceWrapper('t_ice', jg, wtr_prog%t_ice)
-            CALL fetchSurfaceWrapper('h_ice', jg, wtr_prog%h_ice)
+            CALL fetchSurface(params, 't_ice', jg, wtr_prog%t_ice)
+            CALL fetchSurface(params, 'h_ice', jg, wtr_prog%h_ice)
 
             !These two fields are required for the processing step below, AND they are NOT initialized before this SUBROUTINE IS called, so they are fetched as required.
             !This diverges from the code that I found which READ them conditionally.
-            CALL fetchRequiredTiledSurfaceWrapper('t_g', jg, ntiles_total + ntiles_water, lnd_prog%t_g_t)
-            CALL fetchRequiredTiledSurfaceWrapper('qv_s', jg, ntiles_total + ntiles_water, lnd_diag%qv_s_t)
+            CALL fetchRequiredTiledSurface(params, 't_g', jg, ntiles_total + ntiles_water, lnd_prog%t_g_t)
+            CALL fetchRequiredTiledSurface(params, 'qv_s', jg, ntiles_total + ntiles_water, lnd_diag%qv_s_t)
 
-            CALL fetchTiledSurfaceWrapper('freshsnow', jg, ntiles_total, lnd_diag%freshsnow_t)
+            CALL fetchTiledSurface(params, 'freshsnow', jg, ntiles_total, lnd_diag%freshsnow_t)
             IF (lsnowtile .AND. .NOT. ltile_coldstart) THEN
-              CALL fetchTiledSurfaceWrapper('snowfrac_lc', jg, ntiles_total, lnd_diag%snowfrac_lc_t)
+                CALL fetchTiledSurface(params, 'snowfrac_lc', jg, ntiles_total, lnd_diag%snowfrac_lc_t)
             ENDIF
-            CALL fetchTiledSurfaceWrapper('w_snow', jg, ntiles_total, lnd_prog%w_snow_t)
-            CALL fetchTiledSurfaceWrapper('w_i', jg, ntiles_total, lnd_prog%w_i_t)
-            CALL fetchTiledSurfaceWrapper('h_snow', jg, ntiles_total, lnd_diag%h_snow_t)
-            CALL fetchTiledSurfaceWrapper('t_snow', jg, ntiles_total, lnd_prog%t_snow_t)
-            CALL fetchTiledSurfaceWrapper('rho_snow', jg, ntiles_total, lnd_prog%rho_snow_t)
+            CALL fetchTiledSurface(params, 'w_snow', jg, ntiles_total, lnd_prog%w_snow_t)
+            CALL fetchTiledSurface(params, 'w_i', jg, ntiles_total, lnd_prog%w_i_t)
+            CALL fetchTiledSurface(params, 'h_snow', jg, ntiles_total, lnd_diag%h_snow_t)
+            CALL fetchTiledSurface(params, 't_snow', jg, ntiles_total, lnd_prog%t_snow_t)
+            CALL fetchTiledSurface(params, 'rho_snow', jg, ntiles_total, lnd_prog%rho_snow_t)
 
             IF (lmulti_snow) THEN
                 ! multi layer snow fields
-                CALL fetchTiled3dWrapper('t_snow_mult', jg, ntiles_total, lnd_prog%t_snow_mult_t)
-                CALL fetchTiled3dWrapper('rho_snow_mult', jg, ntiles_total, lnd_prog%rho_snow_mult_t)
-                CALL fetchTiled3dWrapper('wtot_snow', jg, ntiles_total, lnd_prog%wtot_snow_t)
-                CALL fetchTiled3dWrapper('wliq_snow', jg, ntiles_total, lnd_prog%wliq_snow_t)
-                CALL fetchTiled3dWrapper('dzh_snow', jg, ntiles_total, lnd_prog%dzh_snow_t)
+                CALL fetchTiled3d(params, 't_snow_mult', jg, ntiles_total, lnd_prog%t_snow_mult_t)
+                CALL fetchTiled3d(params, 'rho_snow_mult', jg, ntiles_total, lnd_prog%rho_snow_mult_t)
+                CALL fetchTiled3d(params, 'wtot_snow', jg, ntiles_total, lnd_prog%wtot_snow_t)
+                CALL fetchTiled3d(params, 'wliq_snow', jg, ntiles_total, lnd_prog%wliq_snow_t)
+                CALL fetchTiled3d(params, 'dzh_snow', jg, ntiles_total, lnd_prog%dzh_snow_t)
             ELSE IF (l2lay_rho_snow) THEN
-              IF (ltile_coldstart) THEN
-                lread = .TRUE.
-                DO jt = 1, ntiles_total
-                  lread = lread .AND. requestList%fetch3d('rho_snow_mult', trivial_tileId, jg, &
-                    lnd_prog%rho_snow_mult_t(:,:,:,jt))
-                ENDDO
-              ELSE
-                lread = requestList%fetchTiled3d('rho_snow_mult', jg, lnd_prog%rho_snow_mult_t)
-              ENDIF
-              IF (.NOT. lread) THEN
-                ! initialize top-layer snow density with average density if no input field is available
-                lnd_prog%rho_snow_mult_t(:,1,:,:) = lnd_prog%rho_snow_t(:,:,:)
-              ENDIF
+                CALL fetchTiled3dOptional(params, 'rho_snow_mult', jg, ntiles_total, lnd_prog%rho_snow_mult_t, avail)
+                IF(.NOT. avail) THEN
+                    ! initialize top-layer snow density with average density if no input field is available
+                    lnd_prog%rho_snow_mult_t(:,1,:,:) = lnd_prog%rho_snow_t(:,:,:)
+                ENDIF
             END IF ! lmulti_snow
 
 
@@ -1194,146 +1250,58 @@ MODULE mo_initicon_io
             ! that smi is read, it is lateron converted to w_so (see smi_to_wsoil)
             SELECT CASE(init_mode)
                 CASE(MODE_COMBINED, MODE_COSMODE)
-                    CALL fetchTiled3dWrapper('smi', jg, ntiles_total, lnd_prog%w_so_t)
+                    CALL fetchTiled3d(params, 'smi', jg, ntiles_total, lnd_prog%w_so_t)
                 CASE DEFAULT
-                    CALL fetchTiled3dWrapper('w_so', jg, ntiles_total, lnd_prog%w_so_t)
-                    CALL fetchTiled3dWrapper('w_so_ice', jg, ntiles_total, lnd_prog%w_so_ice_t) ! w_so_ice is re-diagnosed in terra_multlay_init
+                    CALL fetchTiled3d(params, 'w_so', jg, ntiles_total, lnd_prog%w_so_t)
+                    CALL fetchTiled3d(params, 'w_so_ice', jg, ntiles_total, lnd_prog%w_so_ice_t) ! w_so_ice is re-diagnosed in terra_multlay_init
             END SELECT
 
-            CALL fetchTiled3dWrapper('t_so', jg, ntiles_total, lnd_prog%t_so_t)
+            CALL fetchTiled3d(params, 't_so', jg, ntiles_total, lnd_prog%t_so_t)
 
             ! Skipped in MODE_COMBINED and in MODE_COSMODE (i.e. when starting from GME soil)
             ! Instead z0 is re-initialized (see mo_nwp_phy_init)
-            CALL fetchSurfaceWrapper('gz0', jg, prm_diag(jg)%gz0)
+            CALL fetchSurface(params, 'gz0', jg, prm_diag(jg)%gz0)
 
             ! first guess for fresh water lake fields
-            IF(ASSOCIATED(wtr_prog%t_mnw_lk)) CALL fetchSurfaceWrapper('t_mnw_lk', jg, wtr_prog%t_mnw_lk)
-            IF(ASSOCIATED(wtr_prog%t_wml_lk)) CALL fetchSurfaceWrapper('t_wml_lk', jg, wtr_prog%t_wml_lk)
-            IF(ASSOCIATED(wtr_prog%h_ml_lk)) CALL fetchSurfaceWrapper('h_ml_lk', jg, wtr_prog%h_ml_lk)
-            IF(ASSOCIATED(wtr_prog%t_bot_lk)) CALL fetchSurfaceWrapper('t_bot_lk', jg, wtr_prog%t_bot_lk)
-            IF(ASSOCIATED(wtr_prog%c_t_lk)) CALL fetchSurfaceWrapper('c_t_lk', jg, wtr_prog%c_t_lk)
-            IF(ASSOCIATED(wtr_prog%t_b1_lk)) CALL fetchSurfaceWrapper('t_b1_lk', jg, wtr_prog%t_b1_lk)
-            IF(ASSOCIATED(wtr_prog%h_b1_lk)) CALL fetchSurfaceWrapper('h_b1_lk', jg, wtr_prog%h_b1_lk)
+            IF(ASSOCIATED(wtr_prog%t_mnw_lk)) CALL fetchSurface(params, 't_mnw_lk', jg, wtr_prog%t_mnw_lk)
+            IF(ASSOCIATED(wtr_prog%t_wml_lk)) CALL fetchSurface(params, 't_wml_lk', jg, wtr_prog%t_wml_lk)
+            IF(ASSOCIATED(wtr_prog%h_ml_lk)) CALL fetchSurface(params, 'h_ml_lk', jg, wtr_prog%h_ml_lk)
+            IF(ASSOCIATED(wtr_prog%t_bot_lk)) CALL fetchSurface(params, 't_bot_lk', jg, wtr_prog%t_bot_lk)
+            IF(ASSOCIATED(wtr_prog%c_t_lk)) CALL fetchSurface(params, 'c_t_lk', jg, wtr_prog%c_t_lk)
+            IF(ASSOCIATED(wtr_prog%t_b1_lk)) CALL fetchSurface(params, 't_b1_lk', jg, wtr_prog%t_b1_lk)
+            IF(ASSOCIATED(wtr_prog%h_b1_lk)) CALL fetchSurface(params, 'h_b1_lk', jg, wtr_prog%h_b1_lk)
 
-            aerosol_fg_present(jg) = .TRUE.
-            my_ptr2d => prm_diag(jg)%aerosol(:,iss,:)
-            IF(.NOT. requestList%fetchSurface('aer_ss', trivial_tileId, jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
-            my_ptr2d => prm_diag(jg)%aerosol(:,iorg,:)
-            IF(.NOT. requestList%fetchSurface('aer_or', trivial_tileId, jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
-            my_ptr2d => prm_diag(jg)%aerosol(:,ibc,:)
-            IF(.NOT. requestList%fetchSurface('aer_bc', trivial_tileId, jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
-            my_ptr2d => prm_diag(jg)%aerosol(:,iso4,:)
-            IF(.NOT. requestList%fetchSurface('aer_su', trivial_tileId, jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
-            my_ptr2d => prm_diag(jg)%aerosol(:,idu,:)
-            IF(.NOT. requestList%fetchSurface('aer_du', trivial_tileId, jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+            IF(iprog_aero == 1) THEN
+                aerosol_fg_present(jg) = .TRUE.
+
+                my_ptr2d => prm_diag(jg)%aerosol(:,iss,:)
+                IF(.NOT.fetchSurfaceOptional(params, 'aer_ss', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                my_ptr2d => prm_diag(jg)%aerosol(:,iorg,:)
+                IF(.NOT.fetchSurfaceOptional(params, 'aer_or', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                my_ptr2d => prm_diag(jg)%aerosol(:,ibc,:)
+                IF(.NOT.fetchSurfaceOptional(params, 'aer_bc', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                my_ptr2d => prm_diag(jg)%aerosol(:,iso4,:)
+                IF(.NOT.fetchSurfaceOptional(params, 'aer_su', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+                my_ptr2d => prm_diag(jg)%aerosol(:,idu,:)
+                IF(.NOT.fetchSurfaceOptional(params, 'aer_du', jg, my_ptr2d)) aerosol_fg_present(jg) = .FALSE.
+
+                ! Reading of these variables IS purely OPTIONAL, but IF reading of one fails, we USE NONE. Inform the InputInstructions about this.
+                IF(.NOT.aerosol_fg_present(jg)) THEN
+                    CALL inputInstructions(jg)%ptr%setSource('aer_ss', kInputSourceNone)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_or', kInputSourceNone)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_bc', kInputSourceNone)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_su', kInputSourceNone)
+                    CALL inputInstructions(jg)%ptr%setSource('aer_du', kInputSourceNone)
+                END IF
+            ELSE
+                aerosol_fg_present(jg) = .FALSE.
+            END IF
         END IF
     END DO
 
-  CONTAINS
-
-    ! Wrapper for requestList%fetchSurface()
-    SUBROUTINE fetchSurfaceWrapper(varName, jg, field)
-        CHARACTER(LEN = *), INTENT(IN) :: varName
-        INTEGER, VALUE :: jg
-        REAL(wp), INTENT(INOUT) :: field(:,:)
-
-        INTEGER :: jt
-
-        IF(inputInstructions(jg)%ptr%wantVarFg(varName)) THEN
-            CALL inputInstructions(jg)%ptr%handleErrorFg(requestList%fetchSurface(varName, trivial_tileId, jg, field), &
-            &                                            varName, routine)
-        END IF
-    END SUBROUTINE fetchSurfaceWrapper
-
-    ! Wrapper for requestList%fetchTiledSurface() that falls back to reading copies of untiled input IF ltile_coldstart IS set.
-    SUBROUTINE fetchTiledSurfaceWrapper(varName, jg, tileCount, field)
-        CHARACTER(LEN = *), INTENT(IN) :: varName
-        INTEGER, VALUE :: jg, tileCount
-        REAL(wp), INTENT(INOUT) :: field(:,:,:)
-
-        INTEGER :: jt
-
-        IF(inputInstructions(jg)%ptr%wantVarFg(varName)) THEN
-            IF(ltile_coldstart) THEN
-                !Fake tiled input by copying the input field to all tiles.
-                DO jt = 1, tileCount
-                    CALL inputInstructions(jg)%ptr%handleErrorFg(requestList%fetchSurface(varName, trivial_tileId, jg, &
-                    &                                                                     field(:,:,jt)), &
-                    &                                            varName, routine)
-                END DO
-            ELSE
-                !True tiled input.
-                CALL inputInstructions(jg)%ptr%handleErrorFg(requestList%fetchTiledSurface(varName, jg, field), &
-                &                                            varName, routine)
-            END IF
-        END IF
-    END SUBROUTINE fetchTiledSurfaceWrapper
-
-    ! Wrapper for requestList%fetchRequiredTiledSurface() that falls back to reading copies of untiled input IF ltile_coldstart IS set.
-    SUBROUTINE fetchRequiredTiledSurfaceWrapper(varName, jg, tileCount, field)
-        CHARACTER(LEN = *), INTENT(IN) :: varName
-        INTEGER, VALUE :: jg, tileCount
-        REAL(wp), INTENT(INOUT) :: field(:,:,:)
-
-        INTEGER :: jt
-
-        IF(ltile_coldstart) THEN
-            !Fake tiled input by copying the input field to all tiles.
-            DO jt = 1, tileCount
-                CALL requestList%fetchRequiredSurface(varName, trivial_tileId, jg, field(:,:,jt))
-            END DO
-        ELSE
-            !True tiled input.
-            CALL requestList%fetchRequiredTiledSurface(varName, jg, field)
-        END IF
-    END SUBROUTINE fetchRequiredTiledSurfaceWrapper
-
-    ! Wrapper for requestList%fetchTiled3d() that falls back to reading copies of untiled input IF ltile_coldstart IS set.
-    SUBROUTINE fetchTiled3dWrapper(varName, jg, tileCount, field)
-        CHARACTER(LEN = *), INTENT(IN) :: varName
-        INTEGER, VALUE :: jg, tileCount
-        REAL(wp), INTENT(INOUT) :: field(:,:,:,:)
-
-        INTEGER :: jt
-
-        IF(inputInstructions(jg)%ptr%wantVarFg(varName)) THEN
-            IF(ltile_coldstart) THEN
-                !Fake tiled input by copying the input field to all tiles.
-                DO jt = 1, tileCount
-                    CALL inputInstructions(jg)%ptr%handleErrorFg(requestList%fetch3d(varName, trivial_tileId, jg, &
-                    &                                                                field(:,:,:,jt)), &
-                    &                                            varName, routine)
-                END DO
-            ELSE
-                !True tiled input.
-                CALL inputInstructions(jg)%ptr%handleErrorFg(requestList%fetchTiled3d(varName, jg, field), &
-                &                                            varName, routine)
-            END IF
-        END IF
-    END SUBROUTINE fetchTiled3dWrapper
-
   END SUBROUTINE fetch_dwdfg_sfc
 
-  !>
-  !! Request the DWD analysis variables (land/surface only)
-  SUBROUTINE request_dwdana_sfc(requestList)
-    CLASS(t_InputRequestList), POINTER, INTENT(INOUT) :: requestList
 
-    CALL requestList%requestMultiple((/ 'fr_seaice', &
-                                      & 't_ice    ', &
-                                      & 'h_ice    ', &
-                                      & 't_so     ', &
-                                      & 't_seasfc ', &    !DR Test
-                                      & 'h_snow   ', &
-                                      & 'w_snow   ', &
-                                      & 'w_i      ', &
-                                      & 't_snow   ', &
-                                      & 'rho_snow ', &
-                                      & 'freshsnow', &
-                                      & 'w_so     '/))
-  END SUBROUTINE request_dwdana_sfc
-
-  !>
   !! processing of DWD first-guess DATA
   SUBROUTINE process_input_dwdfg_sfc(p_patch, p_lnd_state)
     TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
@@ -1386,8 +1354,7 @@ MODULE mo_initicon_io
   !! Fetch DWD analysis DATA from the request list (land/surface only)
   !!
   !! Analysis is read for:
-  !! fr_seaice, t_ice, h_ice, t_g, qv_s, freshsnow, w_snow, w_i, t_snow,
-  !! rho_snow, w_so, w_so_ice, t_so, gz0
+  !! fr_seaice, t_ice, h_ice, t_so, h_snow, w_snow, w_i, t_snow, rho_snow, freshsnow, w_so
   !!
   !!
   !! @par Revision History
@@ -1402,19 +1369,22 @@ MODULE mo_initicon_io
     TYPE(t_initicon_state), INTENT(INOUT), TARGET :: initicon(:)
     TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
-    INTEGER :: jg, jt
-    INTEGER :: ngrp_vars_ana, filetype
+    INTEGER :: jg
+    INTEGER, PARAMETER :: jt = 1
     REAL(wp), POINTER :: my_ptr2d(:,:)
     REAL(wp), POINTER :: my_ptr3d(:,:,:)
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
     TYPE(t_wtr_prog), POINTER :: wtr_prog
+    TYPE(t_fetchParams) :: params
+    LOGICAL :: lHaveFg
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//':fetch_dwdana_sfc'
 
-    !----------------------------------------!
-    ! read in DWD analysis (surface)         !
-    !----------------------------------------!
+    params%inputInstructions = inputInstructions
+    params%requestList => requestList
+    params%routine = routine
+    params%isFg = .FALSE.
 
     DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active) THEN
@@ -1424,29 +1394,21 @@ MODULE mo_initicon_io
             lnd_diag => p_lnd_state(jg)%diag_lnd
             wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
 
-            jt = 1  ! set tile-index explicitly
-
             ! sea-ice fraction
-            IF(inputInstructions(jg)%ptr%wantVarAna('fr_seaice')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetchSurface('fr_seaice', trivial_tileId, jg, &
-            &                                                                          lnd_diag%fr_seaice), &
-            &                                                 'fr_seaice', routine)
+            CALL fetchSurface(params, 'fr_seaice', jg, lnd_diag%fr_seaice)
             ! sea-ice temperature
-            IF(inputInstructions(jg)%ptr%wantVarAna('t_ice')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetchSurface('t_ice', trivial_tileId, jg, &
-            &                                                                          wtr_prog%t_ice), &
-            &                                                 't_ice', routine)
+            CALL fetchSurface(params, 't_ice', jg, wtr_prog%t_ice)
             ! sea-ice height
-            IF(inputInstructions(jg)%ptr%wantVarAna('h_ice')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetchSurface('h_ice', trivial_tileId, jg, &
-            &                                                                          wtr_prog%h_ice), &
-            &                                                 'h_ice', routine)
+            CALL fetchSurface(params, 'h_ice', jg, wtr_prog%h_ice)
 
             ! T_SO(0). Note that the file may contain a 3D field, of which we ONLY fetch the level at 0.0.
+            lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceFg
             my_ptr2d => initicon(jg)%sfc%sst(:,:)
-            IF(inputInstructions(jg)%ptr%wantVarAna('t_so')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch2d('t_so', 0.0_wp, trivial_tileId, jg, my_ptr2d), &
-            &                                                 't_so', routine)
+            CALL fetch2d(params, 't_so', 0.0_wp, jg, my_ptr2d)
+            ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+            IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceAna) THEN
+                CALL inputInstructions(jg)%ptr%setSource('t_so', kInputSourceBoth)
+            END IF
 
             ! T_SEA
             my_ptr2d => lnd_diag%t_seasfc(:,:)
@@ -1456,58 +1418,61 @@ MODULE mo_initicon_io
 
             ! h_snow
             IF ( init_mode == MODE_IAU ) THEN
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('h_snow') == kInputSourceFg
                 my_ptr2d => initicon(jg)%sfc_inc%h_snow(:,:)
+                CALL fetchSurface(params, 'h_snow', jg, my_ptr2d)
+                ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('h_snow') == kInputSourceAna) THEN
+                    CALL inputInstructions(jg)%ptr%setSource('h_snow', kInputSourceBoth)
+                END IF
             ELSE
                 my_ptr2d => lnd_diag%h_snow_t(:,:,jt)
+                CALL fetchSurface(params, 'h_snow', jg, my_ptr2d)
             ENDIF
-            IF(inputInstructions(jg)%ptr%wantVarAna('h_snow')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetchSurface('h_snow', trivial_tileId, jg, my_ptr2d), &
-            &                                                 'h_snow', routine)
 
             ! w_snow
             my_ptr2d => lnd_prog%w_snow_t(:,:,jt)
-            IF(inputInstructions(jg)%ptr%wantVarAna('w_snow')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetchSurface('w_snow', trivial_tileId, jg, my_ptr2d), &
-            &                                                 'w_snow', routine)
+            CALL fetchSurface(params, 'w_snow', jg, my_ptr2d)
 
             ! w_i
             my_ptr2d => lnd_prog%w_i_t(:,:,jt)
-            IF(inputInstructions(jg)%ptr%wantVarAna('w_i')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetchSurface('w_i', trivial_tileId, jg, my_ptr2d), &
-            &                                                 'w_i', routine)
+            CALL fetchSurface(params, 'w_i', jg, my_ptr2d)
 
             ! t_snow
             my_ptr2d => lnd_prog%t_snow_t(:,:,jt)
-            IF(inputInstructions(jg)%ptr%wantVarAna('t_snow')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetchSurface('t_snow', trivial_tileId, jg, my_ptr2d), &
-            &                                                 't_snow', routine)
+            CALL fetchSurface(params, 't_snow', jg, my_ptr2d)
 
             ! rho_snow
             my_ptr2d => lnd_prog%rho_snow_t(:,:,jt)
-            IF(inputInstructions(jg)%ptr%wantVarAna('rho_snow')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetchSurface('rho_snow', trivial_tileId, jg, my_ptr2d), &
-            &                                                 'rho_snow', routine)
+            CALL fetchSurface(params, 'rho_snow', jg, my_ptr2d)
 
             ! freshsnow
             IF ( init_mode == MODE_IAU ) THEN
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('freshsnow') == kInputSourceFg
                 my_ptr2d => initicon(jg)%sfc_inc%freshsnow(:,:)
+                CALL fetchSurface(params, 'freshsnow', jg, my_ptr2d)
+                ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('freshsnow') == kInputSourceAna) THEN
+                    CALL inputInstructions(jg)%ptr%setSource('freshsnow', kInputSourceBoth)
+                END IF
             ELSE
                 my_ptr2d => lnd_diag%freshsnow_t(:,:,jt)
+                CALL fetchSurface(params, 'freshsnow', jg, my_ptr2d)
             ENDIF
-            IF(inputInstructions(jg)%ptr%wantVarAna('freshsnow')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetchSurface('freshsnow', trivial_tileId, jg, &
-            &                                                                          my_ptr2d), &
-            &                                                 'freshsnow', routine)
 
             ! w_so
             IF ( (init_mode == MODE_IAU) .OR. (init_mode == MODE_IAU_OLD) ) THEN
+                lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('w_so') == kInputSourceFg
                 my_ptr3d => initicon(jg)%sfc_inc%w_so(:,:,:)
+                CALL fetch3d(params, 'w_so', jg, my_ptr3d)
+                ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('w_so') == kInputSourceAna) THEN
+                    CALL inputInstructions(jg)%ptr%setSource('w_so', kInputSourceBoth)
+                END IF
             ELSE
                 my_ptr3d => lnd_prog%w_so_t(:,:,:,jt)
+                CALL fetch3d(params, 'w_so', jg, my_ptr3d)
             END IF
-            IF(inputInstructions(jg)%ptr%wantVarAna('w_so')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch3d('w_so', trivial_tileId, jg, my_ptr3d), &
-            &                                                 'w_so', routine)
         END IF
     END DO ! loop over model domains
 
