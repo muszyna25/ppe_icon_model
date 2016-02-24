@@ -35,7 +35,7 @@ MODULE mo_lrtm_rtrnmr
   USE mo_math_constants,   ONLY : pi
 
   USE mo_lrtm_par,         ONLY : nbndlw, delwave, ngs
-  USE mo_lrtm_setup,       ONLY : ntbl, bpade, tau_tbl, exp_tbl, tfn_tbl
+  USE mo_lrtm_setup,       ONLY : ntbl, bpade, exp_tbl, tfn_tbl
 
   IMPLICIT NONE
 
@@ -262,7 +262,6 @@ CONTAINS
     !    semiss                       ! surface emissivities for each band
     !    reflect                      ! surface reflectance
     !    bpade                        ! 1/(pade constant)
-    !    tau_tbl                      ! clear sky optical depth look-up table
     !    exp_tbl                      ! exponential look-up table for transmittance
     !    tfn_tbl                      ! tau transition function look-up table
 
