@@ -175,7 +175,7 @@ CONTAINS
     ! angle.  This initial value is redefined below for some bands.
       wtdiff = 0.5_wp
     REAL(wp) :: radld(kproma), radclrd(kproma), plfrac
-    REAL(wp) :: odepth, odtot, odepth_rec, odtot_rec, &
+    REAL(wp) :: odepth, odtot, odtot_rec, &
          gassrc, ttot
     REAL(wp) :: bbd(kproma), bbdtot, tfacgas
     REAL(wp) :: rad0, reflect, radlu(kproma), radclru(kproma)
@@ -453,10 +453,12 @@ CONTAINS
             ittot = INT(tblint * odtot/(bpade+odtot) + 0.5_wp)
             atot(jl,lev) = MERGE(odtot - 0.5_wp*odtot*odtot, &
               &                  1._wp - exp_tbl(ittot), branch_od1)
+
+            odepth_rec_or_tfacgas = MERGE(rec_6 * odepth, tfacgas, &
+              &             (lcldlyr(jl,lev) .AND. branch_od1) .OR. branch_od2)
+
             IF (lcldlyr(jl,lev)) THEN
-              odepth_rec = rec_6 * MERGE(odepth, tau_tbl(itgas), branch_od1 .OR. branch_od2)
               odtot_rec = MERGE(rec_6*odtot, 0.0_wp, branch_od1)
-              odepth_rec_or_tfacgas = MERGE(odepth_rec, tfacgas, branch_od1 .OR. branch_od2)
               odtot_rec_or_tfactot = MERGE(odtot_rec, tfn_tbl(ittot), branch_od1)
 
 
@@ -493,8 +495,6 @@ CONTAINS
               ! only needed for NAG
               bbutot(jl, lev) = 0.0_wp
 
-              odepth_rec_or_tfacgas = MERGE(rec_6*odepth, &
-                tfacgas, branch_od2)
               bbd(jl) = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tfacgas * dplankdn(jl,lev))
               bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
