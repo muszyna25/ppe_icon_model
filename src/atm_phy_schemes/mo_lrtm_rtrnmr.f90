@@ -480,7 +480,6 @@ CONTAINS
               cldradd_temp = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
                 istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
               radld(jl) = cldradd_temp + clrradd_temp
-              drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
 
               radmod = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
                 & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
@@ -511,9 +510,9 @@ CONTAINS
               bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tausfac * dplankup(jl,lev))
               radld(jl) = radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev)
-              drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
 
             END IF
+            drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
           ENDDO
 
         ELSE
