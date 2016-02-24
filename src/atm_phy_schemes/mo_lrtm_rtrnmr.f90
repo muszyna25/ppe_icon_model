@@ -481,9 +481,9 @@ CONTAINS
             ENDIF
             ttot = 1._wp - atot(jl,lev)
             cldsrc = bbdtot(jl) * atot(jl,lev)
-            cldradd(jl) = cldradd(jl) * ttot + cldfrac(jl,lev) * cldsrc
             clrradd(jl) = clrradd(jl) * (1._wp-atrans(jl,lev)) + &
               & (1._wp-cldfrac(jl,lev))*gassrc(jl)
+            cldradd(jl) = cldradd(jl) * ttot + cldfrac(jl,lev) * cldsrc
             radld(jl) = cldradd(jl) + clrradd(jl)
             drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
 
