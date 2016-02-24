@@ -482,7 +482,6 @@ CONTAINS
               lcldlyr(jl,lev))
             radld(jl) = MERGE(cldradd_temp + clrradd_temp, &
               radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev), lcldlyr(jl,lev))
-            drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
           ENDDO
 
         ELSE ! n_cloudpoints(lev) == 0 implies all points are clear
@@ -510,7 +509,6 @@ CONTAINS
             bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
               + odepth_rec_or_tfacgas * dplankup(jl,lev))
             radld(jl) = radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev)
-            drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
           ENDDO
 
         ENDIF
@@ -519,6 +517,7 @@ CONTAINS
         !  remain clear.  Streams diverge when a cloud is reached (iclddn=1),
         !  and clear sky stream must be computed separately from that point.
         DO jl = 1, kproma
+          drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
           radclrd(jl) = MERGE(radclrd(jl) &
             + (bbd(jl)-radclrd(jl)) * atrans(jl,lev), radld(jl), iclddn(jl))
           clrdrad(jl,lev-1) = MERGE(clrdrad(jl,lev-1) + radclrd(jl), &
