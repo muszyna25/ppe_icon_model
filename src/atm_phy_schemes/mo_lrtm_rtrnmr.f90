@@ -304,8 +304,9 @@ CONTAINS
     !
 
     ! Local variables for cloud / no cloud index lists
-    INTEGER, DIMENSION(kproma,nlayers) :: icld_ind,iclear_ind
-    INTEGER :: icld, iclear, n_cloudpoints(nlayers)
+    !    icld_ind(1:n_cloudpoints(lev),lev) stores indices of cloudy points
+    INTEGER :: icld_ind(kproma,nlayers)
+    INTEGER :: icld, n_cloudpoints(nlayers)
 
 
     ! Reset diffusivity angle for Bands 2-3 and 5-9 to vary (between 1.50
@@ -363,7 +364,6 @@ CONTAINS
     DO lay = 1, nlayers
 
       icld   = 0
-      iclear = 0
 
       DO jl = 1, kproma  ! loop over columns
         IF (cldfrac(jl,lay) .GE. 1.e-6_wp) THEN
@@ -372,8 +372,6 @@ CONTAINS
           icld_ind(icld,lay) = jl
         ELSE
           lcldlyr(jl,lay) = .FALSE.
-          iclear = iclear + 1
-          iclear_ind(iclear,lay) = jl
         ENDIF
       ENDDO
 
@@ -385,7 +383,7 @@ CONTAINS
     ! Maximum/Random cloud overlap parameter
 
     CALL cloud_overlap(kproma, nlayers, 1, cldfrac, &
-      lcldlyr, n_cloudpoints, icld_ind,iclear_ind, &
+      lcldlyr, n_cloudpoints, icld_ind, &
       1, nlayers, 1, &
       faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2)
 
@@ -393,7 +391,7 @@ CONTAINS
     ! istcldd(i,j) = .true. if j == nlayers or .not. lcldlyr(i, j + 1)
 
     CALL cloud_overlap(kproma, nlayers, 0, cldfrac, &
-      lcldlyr, n_cloudpoints, icld_ind,iclear_ind, &
+      lcldlyr, n_cloudpoints, icld_ind, &
       nlayers, 1, -1, &
       faccld1d, faccld2d, facclr1d, facclr2d, faccmb1d, faccmb2d)
 
@@ -685,7 +683,7 @@ CONTAINS
   END SUBROUTINE lrtm_rtrnmr
 
   SUBROUTINE cloud_overlap(kproma, nlayers, ofs, cldfrac, &
-       lcldlyr, n_cloudpoints, icld_ind,iclear_ind, &
+       lcldlyr, n_cloudpoints, icld_ind, &
        start_lev, end_lev, lev_incr, &
        faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2)
     INTEGER, INTENT(in) :: kproma          ! number of columns
@@ -693,7 +691,7 @@ CONTAINS
     INTEGER, intent(in) :: ofs             ! layer offset to use for
                                            ! references to facc*
     INTEGER, INTENT(in) :: n_cloudpoints(nlayers)
-    INTEGER, DIMENSION(kproma,nlayers) :: icld_ind,iclear_ind
+    INTEGER, INTENT(in) :: icld_ind(kproma,nlayers)
     INTEGER, INTENT(in) :: start_lev, end_lev, lev_incr
     LOGICAL, INTENT(in) :: lcldlyr(kproma,0:nlayers+1)
 
@@ -706,7 +704,7 @@ CONTAINS
     REAL(wp), INTENT(in) :: cldfrac(:,:)       ! layer cloud fraction
 
     REAL(wp) :: fmax, fmin, rat1(kproma), rat2(kproma)
-    INTEGER :: lev, jl, olev, icld, iclear
+    INTEGER :: lev, jl, olev, icld
 
     DO lev = start_lev, end_lev, lev_incr
       olev = lev + ofs
