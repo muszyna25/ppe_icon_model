@@ -1614,6 +1614,7 @@ src/grid_generator/mo_optimize.f90 -text
 src/grid_generator/mo_small_circle_c.f90 -text
 src/grid_generator/mo_spring_dynamics.f90 -text
 src/grid_generator/mo_topology.f90 -text
+src/include/consistent_fma.inc -text
 src/include/fsel.inc -text
 src/include/grplcoeffs.incf -text
 src/include/hailcoeffs.incf -text
