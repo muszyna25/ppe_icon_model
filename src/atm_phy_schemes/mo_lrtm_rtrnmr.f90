@@ -177,7 +177,7 @@ CONTAINS
     REAL(wp) :: radld(kproma), radclrd(kproma), plfrac
     REAL(wp) :: odepth, odtot, odepth_rec, odtot_rec, &
          gassrc, ttot
-    REAL(wp) :: tfactot, bbd(kproma), bbdtot, tfacgas
+    REAL(wp) :: bbd(kproma), bbdtot, tfacgas
     REAL(wp) :: rad0, reflect, radlu(kproma), radclru(kproma)
 
     REAL(wp) :: duflux_dt
@@ -453,11 +453,10 @@ CONTAINS
               &           (lcldlyr(jl,lev) .AND. branch_od1) .OR. branch_od2)
             IF (lcldlyr(jl,lev)) THEN
               ittot = INT(tblint * odtot/(bpade+odtot) + 0.5_wp)
-              tfactot = MERGE(0.0_wp, tfn_tbl(ittot), branch_od1)
               odepth_rec = rec_6 * MERGE(odepth, tau_tbl(itgas), branch_od1 .OR. branch_od2)
               odtot_rec = MERGE(rec_6*odtot, 0.0_wp, branch_od1)
               odepth_rec_or_tfacgas = MERGE(odepth_rec, tfacgas, branch_od1 .OR. branch_od2)
-              odtot_rec_or_tfactot = MERGE(odtot_rec, tfactot, branch_od1)
+              odtot_rec_or_tfactot = MERGE(odtot_rec, tfn_tbl(ittot), branch_od1)
 
               atot(jl,lev) = MERGE(odtot - 0.5_wp*odtot*odtot, &
                 &               1._wp - exp_tbl(ittot), branch_od1)
