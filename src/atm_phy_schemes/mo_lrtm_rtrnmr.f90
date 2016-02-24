@@ -212,8 +212,7 @@ CONTAINS
     !           clear in the current layer
     !--------------------------------------------------------------------------
 
-    REAL(wp) :: fmax, fmin, rat1(kproma), rat2(kproma), &
-         odepth_rec_or_tfacgas, odtot_rec_or_tfactot, cldsrc
+    REAL(wp) :: odepth_rec_or_tfacgas, odtot_rec_or_tfactot, cldsrc
     REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, oldclr, oldcld, &
       & rad, radmod
 
@@ -390,307 +389,16 @@ CONTAINS
     istcld(:,1) = .TRUE.
     istcldd(:,nlayers) = .TRUE.
 
-    DO lev = 1, nlayers
-      IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
-        DO jl = 1, kproma ! Thus, direct addressing can be used
-          ! Maximum/random cloud overlap
-          istcld(jl,lev+1) = .FALSE.
-          IF (lev .EQ. nlayers) THEN
-            faccld1(jl,lev+1) = 0._wp
-            faccld2(jl,lev+1) = 0._wp
-            facclr1(jl,lev+1) = 0._wp
-            facclr2(jl,lev+1) = 0._wp
-            faccmb1(jl,lev+1) = 0._wp
-            faccmb2(jl,lev+1) = 0._wp
-          ELSEIF (cldfrac(jl,lev+1) .GE. cldfrac(jl,lev)) THEN
-            faccld1(jl,lev+1) = 0._wp
-            faccld2(jl,lev+1) = 0._wp
-            IF (istcld(jl,lev)) THEN
-              facclr1(jl,lev+1) = 0._wp
-              facclr2(jl,lev+1) = 0._wp
-              IF (cldfrac(jl,lev) .LT. 1._wp) facclr2(jl,lev+1) = &
-                & (cldfrac(jl,lev+1)-cldfrac(jl,lev))/(1._wp-cldfrac(jl,lev))
-              facclr2(jl,lev) = 0._wp
-              faccld2(jl,lev) = 0._wp
-            ELSE
-              fmax = MAX(cldfrac(jl,lev),cldfrac(jl,lev-1))
-              IF (cldfrac(jl,lev+1) .GT. fmax) THEN
-                facclr1(jl,lev+1) = rat2(jl)
-                facclr2(jl,lev+1) = (cldfrac(jl,lev+1)-fmax)/(1._wp-fmax)
-              ELSEIF (cldfrac(jl,lev+1) .LT. fmax) THEN
-                facclr1(jl,lev+1) = (cldfrac(jl,lev+1)-cldfrac(jl,lev))/ &
-                  & (cldfrac(jl,lev-1)-cldfrac(jl,lev))
-                facclr2(jl,lev+1) = 0._wp
-              ELSE
-                facclr1(jl,lev+1) = rat2(jl)
-                facclr2(jl,lev+1) = 0._wp
-              ENDIF
-            ENDIF
-            rat1(jl) = MERGE(1._wp, 0._wp, &
-                 facclr1(jl,lev+1) > 0._wp .OR. facclr2(jl,lev+1) > 0._wp)
-            rat2(jl) = 0._wp
-          ELSE
-            facclr1(jl,lev+1) = 0._wp
-            facclr2(jl,lev+1) = 0._wp
-            IF (istcld(jl,lev)) THEN
-              faccld1(jl,lev+1) = 0._wp
-              faccld2(jl,lev+1) = (cldfrac(jl,lev)-cldfrac(jl,lev+1))/cldfrac(jl,lev)
+    CALL compute_radiative_transfer(kproma, nlayers, 1, cldfrac, &
+      n_cloudpoints, n_clearpoints, icld_ind,iclear_ind, &
+      1, nlayers, 1, &
+      faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2, istcld)
 
-              facclr2(jl,lev) = 0._wp
-              faccld2(jl,lev) = 0._wp
-            ELSE
-              fmin = MIN(cldfrac(jl,lev),cldfrac(jl,lev-1))
-              IF (cldfrac(jl,lev+1) .LE. fmin) THEN
-                faccld1(jl,lev+1) = rat1(jl)
-                faccld2(jl,lev+1) = (fmin-cldfrac(jl,lev+1))/fmin
-              ELSE
-                faccld1(jl,lev+1) = (cldfrac(jl,lev)-cldfrac(jl,lev+1))/(cldfrac(jl,lev)-fmin)
-                faccld2(jl,lev+1) = 0._wp
-              ENDIF
-            ENDIF
-            rat2(jl) = MERGE(1._wp, 0._wp, &
-                 faccld1(jl,lev+1) > 0._wp .OR. faccld2(jl,lev+1) > 0._wp)
-            rat1(jl) = 0._wp
-          ENDIF
-          IF (lev == 1) THEN
-            faccmb1(jl,lev+1) = 0._wp
-            faccmb2(jl,lev+1) = faccld1(jl,lev+1) * facclr2(jl,lev)
-          ELSE
-            faccmb1(jl,lev+1) = facclr1(jl,lev+1) * faccld2(jl,lev) * cldfrac(jl,lev-1)
-            faccmb2(jl,lev+1) = faccld1(jl,lev+1) * facclr2(jl,lev) * (1._wp - cldfrac(jl,lev-1))
-          ENDIF
-        ENDDO
-      ELSE IF (n_clearpoints(lev) == kproma) THEN ! all points are clear
-        istcld(1:kproma,lev+1) = .TRUE.
-      ELSE ! use index list for the case that not all points are cloudy
-!CDIR NODEP,VOVERTAKE,VOB
-        DO icld = 1, n_cloudpoints(lev)
-          jl = icld_ind(icld,lev)
-          ! Maximum/random cloud overlap
-          istcld(jl,lev+1) = .FALSE.
-          IF (lev .EQ. nlayers) THEN
-            faccld1(jl,lev+1) = 0._wp
-            faccld2(jl,lev+1) = 0._wp
-            facclr1(jl,lev+1) = 0._wp
-            facclr2(jl,lev+1) = 0._wp
-            faccmb1(jl,lev+1) = 0._wp
-            faccmb2(jl,lev+1) = 0._wp
-          ELSEIF (cldfrac(jl,lev+1) .GE. cldfrac(jl,lev)) THEN
-            faccld1(jl,lev+1) = 0._wp
-            faccld2(jl,lev+1) = 0._wp
-            IF (istcld(jl,lev)) THEN
-              facclr1(jl,lev+1) = 0._wp
-              facclr2(jl,lev+1) = 0._wp
-              IF (cldfrac(jl,lev) .LT. 1._wp) facclr2(jl,lev+1) = &
-                & (cldfrac(jl,lev+1)-cldfrac(jl,lev))/(1._wp-cldfrac(jl,lev))
-              facclr2(jl,lev) = 0._wp
-              faccld2(jl,lev) = 0._wp
-            ELSE
-              fmax = MAX(cldfrac(jl,lev),cldfrac(jl,lev-1))
-              IF (cldfrac(jl,lev+1) .GT. fmax) THEN
-                facclr1(jl,lev+1) = rat2(jl)
-                facclr2(jl,lev+1) = (cldfrac(jl,lev+1)-fmax)/(1._wp-fmax)
-              ELSEIF (cldfrac(jl,lev+1) .LT. fmax) THEN
-                facclr1(jl,lev+1) = (cldfrac(jl,lev+1)-cldfrac(jl,lev))/ &
-                  & (cldfrac(jl,lev-1)-cldfrac(jl,lev))
-                facclr2(jl,lev+1) = 0._wp
-              ELSE
-                facclr1(jl,lev+1) = rat2(jl)
-                facclr2(jl,lev+1) = 0._wp
-              ENDIF
-            ENDIF
-            rat1(jl) = MERGE(1._wp, 0._wp, &
-              facclr1(jl,lev+1) > 0._wp .OR. facclr2(jl,lev+1) > 0._wp)
-            rat2(jl) = 0._wp
-          ELSE
-            facclr1(jl,lev+1) = 0._wp
-            facclr2(jl,lev+1) = 0._wp
-            IF (istcld(jl,lev)) THEN
-              faccld1(jl,lev+1) = 0._wp
-              faccld2(jl,lev+1) = (cldfrac(jl,lev)-cldfrac(jl,lev+1))/cldfrac(jl,lev)
+    CALL compute_radiative_transfer(kproma, nlayers, 0, cldfrac, &
+      n_cloudpoints, n_clearpoints, icld_ind,iclear_ind, &
+      nlayers, 1, -1, &
+      faccld1d, faccld2d, facclr1d, facclr2d, faccmb1d, faccmb2d, istcldd)
 
-              facclr2(jl,lev) = 0._wp
-              faccld2(jl,lev) = 0._wp
-            ELSE
-              fmin = MIN(cldfrac(jl,lev),cldfrac(jl,lev-1))
-              IF (cldfrac(jl,lev+1) .LE. fmin) THEN
-                faccld1(jl,lev+1) = rat1(jl)
-                faccld2(jl,lev+1) = (fmin-cldfrac(jl,lev+1))/fmin
-              ELSE
-                faccld1(jl,lev+1) = (cldfrac(jl,lev)-cldfrac(jl,lev+1))/(cldfrac(jl,lev)-fmin)
-                faccld2(jl,lev+1) = 0._wp
-              ENDIF
-            ENDIF
-            rat2(jl) = MERGE(1._wp, 0._wp, &
-              faccld1(jl,lev+1) > 0._wp .OR. faccld2(jl,lev+1) > 0._wp)
-            rat1(jl) = 0._wp
-          ENDIF
-          IF (lev == 1) THEN
-            faccmb1(jl,lev+1) = 0._wp
-            faccmb2(jl,lev+1) = faccld1(jl,lev+1) * facclr2(jl,lev)
-          ELSE
-            faccmb1(jl,lev+1) = facclr1(jl,lev+1) * faccld2(jl,lev) * cldfrac(jl,lev-1)
-            faccmb2(jl,lev+1) = faccld1(jl,lev+1) * facclr2(jl,lev) * (1._wp - cldfrac(jl,lev-1))
-          ENDIF
-        ENDDO
-!CDIR NODEP,VOVERTAKE,VOB
-        DO iclear = 1, n_clearpoints(lev)
-          jl = iclear_ind(iclear,lev)
-          istcld(jl,lev+1) = .TRUE.
-        ENDDO
-      ENDIF
-
-    ENDDO
-
-    DO lev = nlayers, 1, -1
-
-      IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
-        DO jl = 1, kproma ! Thus, direct addressing can be used
-          istcldd(jl,lev-1) = .FALSE.
-          IF (lev .EQ. 1) THEN
-            faccld1d(jl,lev-1) = 0._wp
-            faccld2d(jl,lev-1) = 0._wp
-            facclr1d(jl,lev-1) = 0._wp
-            facclr2d(jl,lev-1) = 0._wp
-            faccmb1d(jl,lev-1) = 0._wp
-            faccmb2d(jl,lev-1) = 0._wp
-          ELSEIF (cldfrac(jl,lev-1) .GE. cldfrac(jl,lev)) THEN
-            faccld1d(jl,lev-1) = 0._wp
-            faccld2d(jl,lev-1) = 0._wp
-            IF (istcldd(jl,lev)) THEN
-              facclr1d(jl,lev-1) = 0._wp
-              facclr2d(jl,lev-1) = 0._wp
-              IF (cldfrac(jl,lev) .LT. 1._wp) facclr2d(jl,lev-1) = &
-                & (cldfrac(jl,lev-1)-cldfrac(jl,lev))/(1._wp-cldfrac(jl,lev))
-              facclr2d(jl,lev) = 0._wp
-              faccld2d(jl,lev) = 0._wp
-            ELSE
-              fmax = MAX(cldfrac(jl,lev),cldfrac(jl,lev+1))
-              IF (cldfrac(jl,lev-1) .GT. fmax) THEN
-                facclr1d(jl,lev-1) = rat2(jl)
-                facclr2d(jl,lev-1) = (cldfrac(jl,lev-1)-fmax)/(1._wp-fmax)
-              ELSEIF (cldfrac(jl,lev-1) .LT. fmax) THEN
-                facclr1d(jl,lev-1) = (cldfrac(jl,lev-1)-cldfrac(jl,lev))/ &
-                  & (cldfrac(jl,lev+1)-cldfrac(jl,lev))
-                facclr2d(jl,lev-1) = 0._wp
-              ELSE
-                facclr1d(jl,lev-1) = rat2(jl)
-                facclr2d(jl,lev-1) = 0._wp
-              ENDIF
-            ENDIF
-            rat1(jl) = MERGE(1._wp, 0._wp, &
-              facclr1d(jl,lev-1) > 0._wp .OR. facclr2d(jl,lev-1) > 0._wp)
-            rat2(jl) = 0._wp
-          ELSE
-            facclr1d(jl,lev-1) = 0._wp
-            facclr2d(jl,lev-1) = 0._wp
-            IF (istcldd(jl,lev)) THEN
-              faccld1d(jl,lev-1) = 0._wp
-              faccld2d(jl,lev-1) = (cldfrac(jl,lev)-cldfrac(jl,lev-1))/cldfrac(jl,lev)
-              facclr2d(jl,lev) = 0._wp
-              faccld2d(jl,lev) = 0._wp
-            ELSE
-              fmin = MIN(cldfrac(jl,lev),cldfrac(jl,lev+1))
-              IF (cldfrac(jl,lev-1) .LE. fmin) THEN
-                faccld1d(jl,lev-1) = rat1(jl)
-                faccld2d(jl,lev-1) = (fmin-cldfrac(jl,lev-1))/fmin
-              ELSE
-                faccld1d(jl,lev-1) = (cldfrac(jl,lev)-cldfrac(jl,lev-1))/(cldfrac(jl,lev)-fmin)
-                faccld2d(jl,lev-1) = 0._wp
-              ENDIF
-            ENDIF
-            rat2(jl) = MERGE(1._wp, 0._wp, &
-              faccld1d(jl,lev-1) > 0._wp .OR. faccld2d(jl,lev-1) > 0._wp)
-            rat1(jl) = 0._wp
-          ENDIF
-          IF (lev == nlayers) THEN
-            faccmb1d(jl,lev-1) = 0._wp
-            faccmb2d(jl,lev-1) = faccld1d(jl,lev-1) * facclr2d(jl,lev)
-          ELSE
-            faccmb1d(jl,lev-1) = facclr1d(jl,lev-1) * faccld2d(jl,lev) * cldfrac(jl,lev+1)
-            faccmb2d(jl,lev-1) = faccld1d(jl,lev-1) * facclr2d(jl,lev) * (1._wp-cldfrac(jl,lev+1))
-          ENDIF
-        ENDDO
-      ELSE IF (n_clearpoints(lev) == kproma) THEN ! all points are clear
-        istcldd(1:kproma,lev-1) = .TRUE.
-      ELSE  ! use index list for the case that not all points are cloudy
-!CDIR NODEP,VOVERTAKE,VOB
-        DO icld = 1, n_cloudpoints(lev)
-          jl = icld_ind(icld,lev)
-
-          istcldd(jl,lev-1) = .FALSE.
-          IF (lev .EQ. 1) THEN
-            faccld1d(jl,lev-1) = 0._wp
-            faccld2d(jl,lev-1) = 0._wp
-            facclr1d(jl,lev-1) = 0._wp
-            facclr2d(jl,lev-1) = 0._wp
-            faccmb1d(jl,lev-1) = 0._wp
-            faccmb2d(jl,lev-1) = 0._wp
-          ELSEIF (cldfrac(jl,lev-1) .GE. cldfrac(jl,lev)) THEN
-            faccld1d(jl,lev-1) = 0._wp
-            faccld2d(jl,lev-1) = 0._wp
-            IF (istcldd(jl,lev)) THEN
-              facclr1d(jl,lev-1) = 0._wp
-              facclr2d(jl,lev-1) = 0._wp
-              IF (cldfrac(jl,lev) .LT. 1._wp) facclr2d(jl,lev-1) = &
-                & (cldfrac(jl,lev-1)-cldfrac(jl,lev))/(1._wp-cldfrac(jl,lev))
-              facclr2d(jl,lev) = 0._wp
-              faccld2d(jl,lev) = 0._wp
-            ELSE
-              fmax = MAX(cldfrac(jl,lev),cldfrac(jl,lev+1))
-              IF (cldfrac(jl,lev-1) .GT. fmax) THEN
-                facclr1d(jl,lev-1) = rat2(jl)
-                facclr2d(jl,lev-1) = (cldfrac(jl,lev-1)-fmax)/(1._wp-fmax)
-              ELSEIF (cldfrac(jl,lev-1) .LT. fmax) THEN
-                facclr1d(jl,lev-1) = (cldfrac(jl,lev-1)-cldfrac(jl,lev))/ &
-                  & (cldfrac(jl,lev+1)-cldfrac(jl,lev))
-                facclr2d(jl,lev-1) = 0._wp
-              ELSE
-                facclr1d(jl,lev-1) = rat2(jl)
-                facclr2d(jl,lev-1) = 0._wp
-              ENDIF
-            ENDIF
-            rat1(jl) = MERGE(1._wp, 0._wp, &
-              facclr1d(jl,lev-1) > 0._wp .OR. facclr2d(jl,lev-1) > 0._wp)
-            rat2(jl) = 1._wp
-          ELSE
-            facclr1d(jl,lev-1) = 0._wp
-            facclr2d(jl,lev-1) = 0._wp
-            IF (istcldd(jl,lev)) THEN
-              faccld1d(jl,lev-1) = 0._wp
-              faccld2d(jl,lev-1) = (cldfrac(jl,lev)-cldfrac(jl,lev-1))/cldfrac(jl,lev)
-              facclr2d(jl,lev) = 0._wp
-              faccld2d(jl,lev) = 0._wp
-            ELSE
-              fmin = MIN(cldfrac(jl,lev),cldfrac(jl,lev+1))
-              IF (cldfrac(jl,lev-1) .LE. fmin) THEN
-                faccld1d(jl,lev-1) = rat1(jl)
-                faccld2d(jl,lev-1) = (fmin-cldfrac(jl,lev-1))/fmin
-              ELSE
-                faccld1d(jl,lev-1) = (cldfrac(jl,lev)-cldfrac(jl,lev-1))/(cldfrac(jl,lev)-fmin)
-                faccld2d(jl,lev-1) = 0._wp
-              ENDIF
-            ENDIF
-            rat2(jl) = MERGE(1._wp, 0._wp, &
-              faccld1d(jl,lev-1) > 0._wp .OR. faccld2d(jl,lev-1) > 0._wp)
-            rat1(jl) = 0._wp
-          ENDIF
-          IF (lev == nlayers) THEN
-            faccmb1d(jl,lev-1) = 0._wp
-            faccmb2d(jl,lev-1) = faccld1d(jl,lev-1) * facclr2d(jl,lev)
-          ELSE
-            faccmb1d(jl,lev-1) = facclr1d(jl,lev-1) * faccld2d(jl,lev) * cldfrac(jl,lev+1)
-            faccmb2d(jl,lev-1) = faccld1d(jl,lev-1) * facclr2d(jl,lev) * (1._wp-cldfrac(jl,lev+1))
-          ENDIF
-        ENDDO
-!CDIR NODEP,VOVERTAKE,VOB
-        DO iclear = 1, n_clearpoints(lev)
-          jl = iclear_ind(iclear,lev)
-          istcldd(jl,lev-1) = .TRUE.
-        ENDDO
-      ENDIF
-
-    ENDDO
 
     igc = 1
     ! Loop over frequency bands.
@@ -1151,6 +859,186 @@ CONTAINS
 
     ! end vectorized version
   END SUBROUTINE lrtm_rtrnmr
+
+  SUBROUTINE compute_radiative_transfer(kproma, nlayers, ofs, cldfrac, &
+       n_cloudpoints, n_clearpoints, icld_ind,iclear_ind, &
+       start_lev, end_lev, lev_incr, &
+       faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2, istcld)
+    INTEGER, INTENT(in) :: kproma          ! number of columns
+    INTEGER, INTENT(in) :: nlayers         ! total number of layers
+    INTEGER, intent(in) :: ofs             ! layer offset to use for
+                                           ! references to facc*
+    INTEGER, INTENT(in) :: n_cloudpoints(nlayers), n_clearpoints(nlayers)
+    INTEGER, DIMENSION(kproma,nlayers) :: icld_ind,iclear_ind
+    INTEGER, INTENT(in) :: start_lev, end_lev, lev_incr
+
+
+    REAL(wp), INTENT(inout) :: faccld1(kproma,nlayers+1), &
+         faccld2(kproma,nlayers+1), &
+         facclr1(kproma,nlayers+1), &
+         facclr2(kproma,nlayers+1), &
+         faccmb1(kproma,nlayers+1), &
+         faccmb2(kproma,nlayers+1)
+    LOGICAL, INTENT(out) :: istcld(kproma,nlayers+1)
+    REAL(wp), INTENT(in) :: cldfrac(:,:)       ! layer cloud fraction
+
+    REAL(wp) :: fmax, fmin, rat1(kproma), rat2(kproma)
+    INTEGER :: lev, jl, olev, icld, iclear
+
+    DO lev = start_lev, end_lev, lev_incr
+      olev = lev + ofs
+      IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
+        DO jl = 1, kproma ! Thus, direct addressing can be used
+          ! Maximum/random cloud overlap
+          istcld(jl,olev) = .FALSE.
+          IF (lev .EQ. end_lev) THEN
+            faccld1(jl,olev) = 0._wp
+            faccld2(jl,olev) = 0._wp
+            facclr1(jl,olev) = 0._wp
+            facclr2(jl,olev) = 0._wp
+            faccmb1(jl,olev) = 0._wp
+            faccmb2(jl,olev) = 0._wp
+          ELSEIF (cldfrac(jl,olev) .GE. cldfrac(jl,lev)) THEN
+            faccld1(jl,olev) = 0._wp
+            faccld2(jl,olev) = 0._wp
+            IF (istcld(jl,lev+1-ofs)) THEN
+              facclr1(jl,olev) = 0._wp
+              facclr2(jl,olev) = 0._wp
+              IF (cldfrac(jl,lev) .LT. 1._wp) facclr2(jl,olev) = &
+                & (cldfrac(jl,olev)-cldfrac(jl,lev))/(1._wp-cldfrac(jl,lev))
+              facclr2(jl,lev+1-ofs) = 0._wp
+              faccld2(jl,lev+1-ofs) = 0._wp
+            ELSE
+              fmax = MAX(cldfrac(jl,lev),cldfrac(jl,lev-lev_incr))
+              IF (cldfrac(jl,olev) .GT. fmax) THEN
+                facclr1(jl,olev) = rat2(jl)
+                facclr2(jl,olev) = (cldfrac(jl,olev)-fmax)/(1._wp-fmax)
+              ELSEIF (cldfrac(jl,olev) .LT. fmax) THEN
+                facclr1(jl,olev) = (cldfrac(jl,olev)-cldfrac(jl,lev))/ &
+                  & (cldfrac(jl,lev-lev_incr)-cldfrac(jl,lev))
+                facclr2(jl,olev) = 0._wp
+              ELSE
+                facclr1(jl,olev) = rat2(jl)
+                facclr2(jl,olev) = 0._wp
+              ENDIF
+            ENDIF
+            rat1(jl) = MERGE(1._wp, 0._wp, &
+                 facclr1(jl,olev) > 0._wp .OR. facclr2(jl,olev) > 0._wp)
+            rat2(jl) = 0._wp
+          ELSE
+            facclr1(jl,olev) = 0._wp
+            facclr2(jl,olev) = 0._wp
+            IF (istcld(jl,lev+1-ofs)) THEN
+              faccld1(jl,olev) = 0._wp
+              faccld2(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,olev))/cldfrac(jl,lev)
+
+              facclr2(jl,lev+1-ofs) = 0._wp
+              faccld2(jl,lev+1-ofs) = 0._wp
+            ELSE
+              fmin = MIN(cldfrac(jl,lev),cldfrac(jl,lev-lev_incr))
+              IF (cldfrac(jl,olev) .LE. fmin) THEN
+                faccld1(jl,olev) = rat1(jl)
+                faccld2(jl,olev) = (fmin-cldfrac(jl,olev))/fmin
+              ELSE
+                faccld1(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,olev))/(cldfrac(jl,lev)-fmin)
+                faccld2(jl,olev) = 0._wp
+              ENDIF
+            ENDIF
+            rat2(jl) = MERGE(1._wp, 0._wp, &
+                 faccld1(jl,olev) > 0._wp .OR. faccld2(jl,olev) > 0._wp)
+            rat1(jl) = 0._wp
+          ENDIF
+          IF (lev == start_lev) THEN
+            faccmb1(jl,olev) = 0._wp
+            faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,lev)
+          ELSE
+            faccmb1(jl,olev) = facclr1(jl,olev) * faccld2(jl,lev) * cldfrac(jl,lev-lev_incr)
+            faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,lev) * (1._wp - cldfrac(jl,lev-lev_incr))
+          ENDIF
+        ENDDO
+      ELSE IF (n_clearpoints(lev) == kproma) THEN ! all points are clear
+        istcld(1:kproma,olev) = .TRUE.
+      ELSE ! use index list for the case that not all points are cloudy
+!CDIR NODEP,VOVERTAKE,VOB
+        DO icld = 1, n_cloudpoints(lev)
+          jl = icld_ind(icld,lev)
+          ! Maximum/random cloud overlap
+          istcld(jl,olev) = .FALSE.
+          IF (lev .EQ. end_lev) THEN
+            faccld1(jl,olev) = 0._wp
+            faccld2(jl,olev) = 0._wp
+            facclr1(jl,olev) = 0._wp
+            facclr2(jl,olev) = 0._wp
+            faccmb1(jl,olev) = 0._wp
+            faccmb2(jl,olev) = 0._wp
+          ELSEIF (cldfrac(jl,olev) .GE. cldfrac(jl,lev)) THEN
+            faccld1(jl,olev) = 0._wp
+            faccld2(jl,olev) = 0._wp
+            IF (istcld(jl,lev+1-ofs)) THEN
+              facclr1(jl,olev) = 0._wp
+              facclr2(jl,olev) = 0._wp
+              IF (cldfrac(jl,lev) .LT. 1._wp) facclr2(jl,olev) = &
+                & (cldfrac(jl,olev)-cldfrac(jl,lev))/(1._wp-cldfrac(jl,lev))
+              facclr2(jl,lev+1-ofs) = 0._wp
+              faccld2(jl,lev+1-ofs) = 0._wp
+            ELSE
+              fmax = MAX(cldfrac(jl,lev),cldfrac(jl,lev-lev_incr))
+              IF (cldfrac(jl,olev) .GT. fmax) THEN
+                facclr1(jl,olev) = rat2(jl)
+                facclr2(jl,olev) = (cldfrac(jl,olev)-fmax)/(1._wp-fmax)
+              ELSEIF (cldfrac(jl,olev) .LT. fmax) THEN
+                facclr1(jl,olev) = (cldfrac(jl,olev)-cldfrac(jl,lev))/ &
+                  & (cldfrac(jl,lev-lev_incr)-cldfrac(jl,lev))
+                facclr2(jl,olev) = 0._wp
+              ELSE
+                facclr1(jl,olev) = rat2(jl)
+                facclr2(jl,olev) = 0._wp
+              ENDIF
+            ENDIF
+            rat1(jl) = MERGE(1._wp, 0._wp, &
+              facclr1(jl,olev) > 0._wp .OR. facclr2(jl,olev) > 0._wp)
+            rat2(jl) = 0._wp
+          ELSE
+            facclr1(jl,olev) = 0._wp
+            facclr2(jl,olev) = 0._wp
+            IF (istcld(jl,lev+1-ofs)) THEN
+              faccld1(jl,olev) = 0._wp
+              faccld2(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,olev))/cldfrac(jl,lev)
+
+              facclr2(jl,lev+1-ofs) = 0._wp
+              faccld2(jl,lev+1-ofs) = 0._wp
+            ELSE
+              fmin = MIN(cldfrac(jl,lev),cldfrac(jl,lev-lev_incr))
+              IF (cldfrac(jl,olev) .LE. fmin) THEN
+                faccld1(jl,olev) = rat1(jl)
+                faccld2(jl,olev) = (fmin-cldfrac(jl,olev))/fmin
+              ELSE
+                faccld1(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,olev))/(cldfrac(jl,lev)-fmin)
+                faccld2(jl,olev) = 0._wp
+              ENDIF
+            ENDIF
+            rat2(jl) = MERGE(1._wp, 0._wp, &
+              faccld1(jl,olev) > 0._wp .OR. faccld2(jl,olev) > 0._wp)
+            rat1(jl) = 0._wp
+          ENDIF
+          IF (lev == start_lev) THEN
+            faccmb1(jl,olev) = 0._wp
+            faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,lev)
+          ELSE
+            faccmb1(jl,olev) = facclr1(jl,olev) * faccld2(jl,lev) * cldfrac(jl,lev-lev_incr)
+            faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,lev) * (1._wp - cldfrac(jl,lev-lev_incr))
+          ENDIF
+        ENDDO
+!CDIR NODEP,VOVERTAKE,VOB
+        DO iclear = 1, n_clearpoints(lev)
+          jl = iclear_ind(iclear,lev)
+          istcld(jl,olev) = .TRUE.
+        ENDDO
+      ENDIF
+
+    ENDDO
+
+  END SUBROUTINE compute_radiative_transfer
 
 END MODULE mo_lrtm_rtrnmr
 
