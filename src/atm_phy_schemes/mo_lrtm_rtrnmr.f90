@@ -37,6 +37,9 @@ MODULE mo_lrtm_rtrnmr
 
   USE mo_lrtm_par,         ONLY : nbndlw, delwave, ngs
   USE mo_lrtm_setup,       ONLY : ntbl, bpade, exp_tbl, tfn_tbl
+#ifndef LRTM_FULL_VECTORIZE
+  USE mo_lrtm_setup,       ONLY : tau_tbl
+#endif
 
   IMPLICIT NONE
 
@@ -65,6 +68,7 @@ CONTAINS
     !  Revision for GCMs:  Michael J. Iacono; October, 2002
     !  Revision for F90:  Michael J. Iacono; June, 2006
     !  Revision for dFdT option: M. J. Iacono and E. J. Mlawer, November 2009
+    !  Version for In-Order architectures: Thomas Jahns, DKRZ 2016
     !
     !  This program calculates the upward fluxes, downward fluxes, and
     !  heating rates for an arbitrary clear or cloudy atmosphere.  The input
@@ -81,6 +85,19 @@ CONTAINS
     !  the derivative of upward flux respect to surface temperature using
     !  the pre-tabulated derivative of the Planck function with respect to
     !  temperature integrated over each spectral band.
+    !
+    !  Setting the preprocessor switch LRTM_FULL_VECTORIZATION selects
+    !  an equivalent (bit-reproducible results with NAG Fortran)
+    !  algorithm that vectorizes much more thoroughly and gives
+    !  parallelization-invariant results on platforms with FMA where
+    !  the divergent branches of the default implementation lead to
+    !  different contractions per branch. But it's only faster on
+    !  architectures where branches and loop overhead are relatively
+    !  expensive compared to computation and memory accesses. The
+    !  alternative, incompletely-vectorized version was found to run
+    !  faster on Intel Sandy Bridge and Ivy Bridge Xeons and about
+    !  equally fast on later AVX2 CPUs (Haswell/Broadwell).
+
     !***************************************************************************
 
     ! ------- Declarations -------
@@ -242,12 +259,25 @@ CONTAINS
     !           clear in the current layer
     !--------------------------------------------------------------------------
 
-    REAL(wp) :: odepth_rec_or_tfacgas, odtot_rec_or_tfactot, cldsrc, &
-         oldclr, oldcld, clrradd_temp, cldradd_temp, radmod
+    REAL(wp) :: cldsrc, oldclr, oldcld
+#ifndef LRTM_FULL_VECTORIZATION
+    REAL(wp) :: odepth_rec, odtot_rec, tblind, tfactot, tfacgas, bbdtot, &
+      transc, tausfac, radmod
+    DIMENSION :: gassrc(kproma), cldsrc(kproma), bbdtot(kproma), &
+      oldcld(kproma), oldclr(kproma), odepth(kproma), odtot(kproma), &
+      radmod(kproma)
+    INTEGER :: itr, icld1, npoints1, npoints2, npoints3, &
+      ilist1(kproma), ilist2(kproma), ilist3(kproma)
+#else
+    REAL(wp) :: odepth_rec_or_tfacgas, odtot_rec_or_tfactot, &
+      clrradd_temp, cldradd_temp
+#endif
     REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, &
       & rad
 
+#ifdef LRTM_FULL_VECTORIZATION
     LOGICAL :: branch_od1, branch_od2
+#endif
 
     ! ------- Definitions -------
     ! input
@@ -424,11 +454,14 @@ CONTAINS
       radld(:) = 0._wp
       radclrd(:) = 0._wp
       iclddn(:) = .FALSE.
+#ifdef LRTM_FULL_VECTORIZATION
       clrradd = 0._wp
       cldradd = 0._wp
+#endif
 
       ! Downward radiative transfer loop.
       DO lev = nlayers, 1, -1
+#ifdef LRTM_FULL_VECTORIZATION
         IF (n_cloudpoints(lev) /= 0) THEN
 !DIR$ SIMD
           DO jl = 1, kproma ! Thus, direct addressing can be used
@@ -523,6 +556,286 @@ CONTAINS
           clrdrad(jl,lev-1) = MERGE(clrdrad(jl,lev-1) + radclrd(jl), &
             drad(jl,lev-1), iclddn(jl))
         ENDDO
+#else
+        IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
+
+          DO jl = 1, kproma ! Thus, direct addressing can be used
+
+            ib = ibv(jl)
+            plfrac = fracs(jl,lev,igc)
+            odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
+
+            iclddn(jl) = .TRUE.
+            odtot(jl) = odepth(jl) + secdiff(jl,ib) * taucloud(jl,lev,ib)
+            IF (odtot(jl) .LT. 0.06_wp) THEN
+              atrans(jl,lev) = odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl)
+              odepth_rec = rec_6*odepth(jl)
+              gassrc(jl) = plfrac*(planklay(jl,lev,iband) &
+                         + dplankdn(jl,lev)*odepth_rec)*atrans(jl,lev)
+
+              atot(jl,lev) = odtot(jl) - 0.5_wp*odtot(jl)*odtot(jl)
+              odtot_rec = rec_6*odtot(jl)
+              bbdtot(jl) =  plfrac * (planklay(jl,lev,iband)+dplankdn(jl,lev)*odtot_rec)
+              bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
+
+              bbugas(jl,lev) =  plfrac * (planklay(jl,lev,iband)+dplankup(jl,lev)*odepth_rec)
+              bbutot(jl,lev) =  plfrac * (planklay(jl,lev,iband)+dplankup(jl,lev)*odtot_rec)
+            ELSEIF (odepth(jl) .LE. 0.06_wp) THEN
+              atrans(jl,lev) = odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl)
+              odepth_rec = rec_6*odepth(jl)
+              gassrc(jl) = plfrac*(planklay(jl,lev,iband) &
+                         + dplankdn(jl,lev)*odepth_rec)*atrans(jl,lev)
+
+              tblind = odtot(jl)/(bpade+odtot(jl))
+              ittot = INT(tblint*tblind + 0.5_wp)
+              tfactot = tfn_tbl(ittot)
+              bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + tfactot*dplankdn(jl,lev))
+              bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
+              atot(jl,lev) = 1._wp - exp_tbl(ittot)
+
+              bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) + dplankup(jl,lev)*odepth_rec)
+              bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfactot * dplankup(jl,lev))
+            ELSE
+              tblind = odepth(jl)/(bpade+odepth(jl))
+              itgas = INT(tblint*tblind+0.5_wp)
+              odepth(jl) = tau_tbl(itgas)
+              atrans(jl,lev) = 1._wp - exp_tbl(itgas)
+              tfacgas = tfn_tbl(itgas)
+              gassrc(jl) = atrans(jl,lev) * plfrac * (planklay(jl,lev,iband) &
+                                                   + tfacgas*dplankdn(jl,lev))
+
+              tblind = odtot(jl)/(bpade+odtot(jl))
+              ittot = INT(tblint*tblind + 0.5_wp)
+              tfactot = tfn_tbl(ittot)
+              bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + tfactot*dplankdn(jl,lev))
+              bbd(jl) = plfrac*(planklay(jl,lev,iband)+tfacgas*dplankdn(jl,lev))
+              atot(jl,lev) = 1._wp - exp_tbl(ittot)
+
+              bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfacgas * dplankup(jl,lev))
+              bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfactot * dplankup(jl,lev))
+            ENDIF
+
+            IF (.NOT. lcldlyr(jl,lev+1)) THEN
+              cldradd(jl) = cldfrac(jl,lev) * radld(jl)
+              clrradd(jl) = radld(jl) - cldradd(jl)
+              oldcld(jl) = cldradd(jl)
+              oldclr(jl) = clrradd(jl)
+              rad(jl) = 0._wp
+            ENDIF
+            ttot = 1._wp - atot(jl,lev)
+            cldsrc(jl) = bbdtot(jl) * atot(jl,lev)
+            cldradd(jl) = cldradd(jl) * ttot + cldfrac(jl,lev) * cldsrc(jl)
+            clrradd(jl) = clrradd(jl) * (1._wp-atrans(jl,lev)) + &
+              & (1._wp-cldfrac(jl,lev))*gassrc(jl)
+            radld(jl) = cldradd(jl) + clrradd(jl)
+            drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
+
+            radmod(jl) = rad(jl) * &
+              & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
+              & faccld1d(jl,lev-1) *  ttot) - &
+              & faccmb1d(jl,lev-1) * gassrc(jl) + &
+              & faccmb2d(jl,lev-1) * cldsrc(jl)
+
+            oldcld(jl) = cldradd(jl) - radmod(jl)
+            oldclr(jl) = clrradd(jl) + radmod(jl)
+            rad(jl) = -radmod(jl) + facclr2d(jl,lev-1)*oldclr(jl) -&
+              &  faccld2d(jl,lev-1)*oldcld(jl)
+            cldradd(jl) = cldradd(jl) + rad(jl)
+            clrradd(jl) = clrradd(jl) - rad(jl)
+          ENDDO
+
+        ELSE IF (n_cloudpoints(lev) == 0) THEN ! all points are clear
+
+          DO jl = 1, kproma ! Thus, direct addressing can be used
+
+            plfrac = fracs(jl,lev,igc)
+            odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
+
+            IF (odepth(jl) .LE. 0.06_wp) THEN
+              atrans(jl,lev) = odepth(jl)-0.5_wp*odepth(jl)*odepth(jl)
+              odepth_rec = rec_6*odepth(jl)
+              bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
+              bbugas(jl,lev) = plfrac*(planklay(jl,lev,iband)+dplankup(jl,lev)*odepth_rec)
+            ELSE
+              tblind = odepth(jl)/(bpade+odepth(jl))
+              itr = INT(tblint*tblind+0.5_wp)
+              transc = exp_tbl(itr)
+              atrans(jl,lev) = 1._wp-transc
+              tausfac = tfn_tbl(itr)
+              bbd(jl) = plfrac*(planklay(jl,lev,iband)+tausfac*dplankdn(jl,lev))
+              bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) + tausfac * dplankup(jl,lev))
+            ENDIF
+            radld(jl) = radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev)
+            drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
+          ENDDO
+
+        ELSE ! both cloudy and clear points are in the vector
+
+          npoints1 = 0
+          npoints2 = 0
+          npoints3 = 0
+
+          ! Cloudy layer
+!CDIR NODEP,VOVERTAKE,VOB
+          DO icld = 1, n_cloudpoints(lev)
+            jl = icld_ind(icld,lev)
+
+            ib = ibv(jl)
+            odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
+
+            iclddn(jl) = .TRUE.
+            odtot(jl) = odepth(jl) + secdiff(jl,ib) * taucloud(jl,lev,ib)
+
+            IF (odtot(jl) .LT. 0.06_wp) THEN
+              npoints1 = npoints1 + 1
+              ilist1(npoints1) = jl
+            ELSEIF (odepth(jl) .LE. 0.06_wp) THEN
+              npoints2 = npoints2 + 1
+              ilist2(npoints2) = jl
+            ELSE
+              npoints3 = npoints3 + 1
+              ilist3(npoints3) = jl
+            ENDIF
+          ENDDO
+
+!CDIR NODEP,VOVERTAKE,VOB
+          DO icld1 = 1, npoints1
+            jl = ilist1(icld1)
+
+            plfrac = fracs(jl,lev,igc)
+            atrans(jl,lev) = odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl)
+            odepth_rec = rec_6*odepth(jl)
+            gassrc(jl) = plfrac*(planklay(jl,lev,iband) &
+                       + dplankdn(jl,lev)*odepth_rec)*atrans(jl,lev)
+
+            atot(jl,lev) = odtot(jl) - 0.5_wp*odtot(jl)*odtot(jl)
+            odtot_rec = rec_6*odtot(jl)
+            bbdtot(jl) =  plfrac * (planklay(jl,lev,iband)+dplankdn(jl,lev)*odtot_rec)
+            bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
+
+            bbugas(jl,lev) =  plfrac * (planklay(jl,lev,iband)+dplankup(jl,lev)*odepth_rec)
+            bbutot(jl,lev) =  plfrac * (planklay(jl,lev,iband)+dplankup(jl,lev)*odtot_rec)
+          ENDDO
+
+!CDIR NODEP,VOVERTAKE,VOB
+          DO icld1 = 1, npoints2
+            jl = ilist2(icld1)
+
+            plfrac = fracs(jl,lev,igc)
+            atrans(jl,lev) = odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl)
+            odepth_rec = rec_6*odepth(jl)
+            gassrc(jl) = plfrac*(planklay(jl,lev,iband) &
+                       + dplankdn(jl,lev)*odepth_rec)*atrans(jl,lev)
+
+            tblind = odtot(jl)/(bpade+odtot(jl))
+            ittot = INT(tblint*tblind + 0.5_wp)
+            tfactot = tfn_tbl(ittot)
+            bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + tfactot*dplankdn(jl,lev))
+            bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
+            atot(jl,lev) = 1._wp - exp_tbl(ittot)
+
+            bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) + dplankup(jl,lev)*odepth_rec)
+            bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfactot * dplankup(jl,lev))
+          ENDDO
+
+!CDIR NODEP,VOVERTAKE,VOB
+          DO icld1 = 1, npoints3
+            jl = ilist3(icld1)
+
+            plfrac = fracs(jl,lev,igc)
+            tblind = odepth(jl)/(bpade+odepth(jl))
+            itgas = INT(tblint*tblind+0.5_wp)
+            odepth(jl) = tau_tbl(itgas)
+            atrans(jl,lev) = 1._wp - exp_tbl(itgas)
+            tfacgas = tfn_tbl(itgas)
+            gassrc(jl) = atrans(jl,lev) * plfrac * (planklay(jl,lev,iband) &
+                                                 + tfacgas*dplankdn(jl,lev))
+
+            tblind = odtot(jl)/(bpade+odtot(jl))
+            ittot = INT(tblint*tblind + 0.5_wp)
+            tfactot = tfn_tbl(ittot)
+            bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + tfactot*dplankdn(jl,lev))
+            bbd(jl) = plfrac*(planklay(jl,lev,iband)+tfacgas*dplankdn(jl,lev))
+            atot(jl,lev) = 1._wp - exp_tbl(ittot)
+
+            bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfacgas * dplankup(jl,lev))
+            bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfactot * dplankup(jl,lev))
+          ENDDO
+
+!CDIR NODEP,VOVERTAKE,VOB
+          DO icld = 1, n_cloudpoints(lev)
+            jl = icld_ind(icld,lev)
+
+            IF (.NOT. lcldlyr(jl, lev + 1)) THEN
+              cldradd(jl) = cldfrac(jl,lev) * radld(jl)
+              clrradd(jl) = radld(jl) - cldradd(jl)
+              oldcld(jl) = cldradd(jl)
+              oldclr(jl) = clrradd(jl)
+              rad(jl) = 0._wp
+            ENDIF
+            ttot = 1._wp - atot(jl,lev)
+            cldsrc(jl) = bbdtot(jl) * atot(jl,lev)
+            cldradd(jl) = cldradd(jl) * ttot + cldfrac(jl,lev) * cldsrc(jl)
+            clrradd(jl) = clrradd(jl) * (1._wp-atrans(jl,lev)) + &
+              & (1._wp-cldfrac(jl,lev))*gassrc(jl)
+            radld(jl) = cldradd(jl) + clrradd(jl)
+            drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
+
+            radmod(jl) = rad(jl) * &
+              & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
+              & faccld1d(jl,lev-1) *  ttot) - &
+              & faccmb1d(jl,lev-1) * gassrc(jl) + &
+              & faccmb2d(jl,lev-1) * cldsrc(jl)
+
+            oldcld(jl) = cldradd(jl) - radmod(jl)
+            oldclr(jl) = clrradd(jl) + radmod(jl)
+            rad(jl) = -radmod(jl) + facclr2d(jl,lev-1)*oldclr(jl) -&
+              &  faccld2d(jl,lev-1)*oldcld(jl)
+            cldradd(jl) = cldradd(jl) + rad(jl)
+            clrradd(jl) = clrradd(jl) - rad(jl)
+          ENDDO
+
+          ! Clear layer
+!CDIR NODEP,VOVERTAKE,VOB
+          DO iclear = 0, kproma - n_cloudpoints(lev) - 1
+            jl = icld_ind(kproma - iclear,lev)
+
+            plfrac = fracs(jl,lev,igc)
+            odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
+
+            IF (odepth(jl) .LE. 0.06_wp) THEN
+              atrans(jl,lev) = odepth(jl)-0.5_wp*odepth(jl)*odepth(jl)
+              odepth_rec = rec_6*odepth(jl)
+              bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
+              bbugas(jl,lev) = plfrac*(planklay(jl,lev,iband)+dplankup(jl,lev)*odepth_rec)
+            ELSE
+              tblind = odepth(jl)/(bpade+odepth(jl))
+              itr = INT(tblint*tblind+0.5_wp)
+              transc = exp_tbl(itr)
+              atrans(jl,lev) = 1._wp-transc
+              tausfac = tfn_tbl(itr)
+              bbd(jl) = plfrac*(planklay(jl,lev,iband)+tausfac*dplankdn(jl,lev))
+              bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) + tausfac * dplankup(jl,lev))
+            ENDIF
+            radld(jl) = radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev)
+            drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
+          ENDDO
+
+        ENDIF
+
+        !  Set clear sky stream to total sky stream as long as layers
+        !  remain clear.  Streams diverge when a cloud is reached (iclddn=1),
+        !  and clear sky stream must be computed separately from that point.
+        DO jl = 1, kproma
+          IF (iclddn(jl)) THEN
+            radclrd(jl) = radclrd(jl) + (bbd(jl)-radclrd(jl)) * atrans(jl,lev)
+            clrdrad(jl,lev-1) = clrdrad(jl,lev-1) + radclrd(jl)
+          ELSE
+            radclrd(jl) = radld(jl)
+            clrdrad(jl,lev-1) = drad(jl,lev-1)
+          ENDIF
+        ENDDO
+#endif
       ENDDO
 
       DO jl = 1, kproma
@@ -558,6 +871,7 @@ CONTAINS
       ENDIF
 
       DO lev = 1, nlayers
+#ifdef LRTM_FULL_VECTORIZATION
 
 !DIR$ SIMD
           DO jl = 1, kproma
@@ -590,6 +904,117 @@ CONTAINS
             clrradu(jl) = clrradu(jl) - rad(jl)
           ENDDO
 
+#else
+        IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
+
+          DO jl = 1, kproma ! Thus, direct addressing can be used
+
+            gassrc(jl) = bbugas(jl,lev) * atrans(jl,lev)
+            IF (.NOT. lcldlyr(jl,lev-1)) THEN
+              cldradu(jl) = cldfrac(jl,lev) * radlu(jl)
+              clrradu(jl) = radlu(jl) - cldradu(jl)
+              oldcld(jl) = cldradu(jl)
+              oldclr(jl) = clrradu(jl)
+              rad(jl) = 0._wp
+            ENDIF
+            ttot = 1._wp - atot(jl,lev)
+            cldsrc(jl) = bbutot(jl,lev) * atot(jl,lev)
+            cldradu(jl) = cldradu(jl) * ttot + cldfrac(jl,lev) * cldsrc(jl)
+            clrradu(jl) = clrradu(jl) * (1.0_wp-atrans(jl,lev))+(1._wp-cldfrac(jl,lev))*gassrc(jl)
+            ! Total sky radiance
+            radlu(jl) = cldradu(jl) + clrradu(jl)
+            urad(jl,lev) = urad(jl,lev) + radlu(jl)
+            radmod(jl) = rad(jl) * &
+              & (facclr1(jl,lev+1)*(1.0_wp-atrans(jl,lev))+ &
+              & faccld1(jl,lev+1) *  ttot) - &
+              & faccmb1(jl,lev+1) * gassrc(jl) + &
+              & faccmb2(jl,lev+1) * cldsrc(jl)
+            oldcld(jl) = cldradu(jl) - radmod(jl)
+            oldclr(jl) = clrradu(jl) + radmod(jl)
+            rad(jl) = -radmod(jl) + facclr2(jl,lev+1)*oldclr(jl) - faccld2(jl,lev+1)*oldcld(jl)
+            cldradu(jl) = cldradu(jl) + rad(jl)
+            clrradu(jl) = clrradu(jl) - rad(jl)
+          ENDDO
+          IF (idrv .EQ. 1) THEN
+            DO jl = 1, kproma
+              d_radlu_dt(jl) = d_radlu_dt(jl) * cldfrac(jl,lev) * (1.0_wp - atot(jl,lev)) + &
+                & d_radlu_dt(jl) * (1.0_wp - cldfrac(jl,lev)) * (1.0_wp - atrans(jl,lev))
+              d_urad_dt(jl,lev) = d_urad_dt(jl,lev) + d_radlu_dt(jl)
+            ENDDO
+          ENDIF
+
+        ELSE IF (n_cloudpoints(lev) == 0) THEN ! all points are clear
+
+          DO jl = 1, kproma ! thus, direct addressing can be used
+            radlu(jl) = radlu(jl) + (bbugas(jl,lev)-radlu(jl))*atrans(jl,lev)
+            urad(jl,lev) = urad(jl,lev) + radlu(jl)
+          ENDDO
+          IF (idrv .EQ. 1) THEN
+            DO jl = 1, kproma
+              d_radlu_dt(jl) = d_radlu_dt(jl) * (1.0_wp - atrans(jl,lev))
+              d_urad_dt(jl,lev) = d_urad_dt(jl,lev) + d_radlu_dt(jl)
+            ENDDO
+          ENDIF
+
+        ELSE ! both cloudy and clear points are in the vector
+
+          ! Cloudy layer
+!CDIR NODEP,VOVERTAKE,VOB
+          DO icld = 1, n_cloudpoints(lev)
+            jl = icld_ind(icld,lev)
+
+            gassrc(jl) = bbugas(jl,lev) * atrans(jl,lev)
+            IF (.NOT. lcldlyr(jl, lev - 1)) THEN
+              cldradu(jl) = cldfrac(jl,lev) * radlu(jl)
+              clrradu(jl) = radlu(jl) - cldradu(jl)
+              oldcld(jl) = cldradu(jl)
+              oldclr(jl) = clrradu(jl)
+              rad(jl) = 0._wp
+            ENDIF
+            ttot = 1._wp - atot(jl,lev)
+            cldsrc(jl) = bbutot(jl,lev) * atot(jl,lev)
+            cldradu(jl) = cldradu(jl) * ttot + cldfrac(jl,lev) * cldsrc(jl)
+            clrradu(jl) = clrradu(jl) * (1.0_wp-atrans(jl,lev))+(1._wp-cldfrac(jl,lev))*gassrc(jl)
+            ! Total sky radiance
+            radlu(jl) = cldradu(jl) + clrradu(jl)
+            urad(jl,lev) = urad(jl,lev) + radlu(jl)
+            radmod(jl) = rad(jl) * &
+              & (facclr1(jl,lev+1)*(1.0_wp-atrans(jl,lev))+ &
+              & faccld1(jl,lev+1) *  ttot) - &
+              & faccmb1(jl,lev+1) * gassrc(jl) + &
+              & faccmb2(jl,lev+1) * cldsrc(jl)
+            oldcld(jl) = cldradu(jl) - radmod(jl)
+            oldclr(jl) = clrradu(jl) + radmod(jl)
+            rad(jl) = -radmod(jl) + facclr2(jl,lev+1)*oldclr(jl) - faccld2(jl,lev+1)*oldcld(jl)
+            cldradu(jl) = cldradu(jl) + rad(jl)
+            clrradu(jl) = clrradu(jl) - rad(jl)
+          ENDDO
+
+          ! Clear layer
+!CDIR NODEP,VOVERTAKE,VOB
+          DO iclear = 0, kproma - n_cloudpoints(lev) - 1
+            jl = icld_ind(kproma - iclear,lev)
+
+            radlu(jl) = radlu(jl) + (bbugas(jl,lev)-radlu(jl))*atrans(jl,lev)
+            urad(jl,lev) = urad(jl,lev) + radlu(jl)
+          ENDDO
+
+          IF (idrv .EQ. 1) THEN
+            DO jl = 1, kproma
+              IF (lcldlyr(jl,lev)) THEN
+                d_radlu_dt(jl) = d_radlu_dt(jl) * cldfrac(jl,lev) * (1.0_wp - atot(jl,lev)) + &
+                  & d_radlu_dt(jl) * (1.0_wp - cldfrac(jl,lev)) * (1.0_wp - atrans(jl,lev))
+                d_urad_dt(jl,lev) = d_urad_dt(jl,lev) + d_radlu_dt(jl)
+              ELSE
+                d_radlu_dt(jl) = d_radlu_dt(jl) * (1.0_wp - atrans(jl,lev))
+                d_urad_dt(jl,lev) = d_urad_dt(jl,lev) + d_radlu_dt(jl)
+              ENDIF
+            ENDDO
+          ENDIF
+
+        ENDIF
+
+#endif
         !  Set clear sky stream to total sky stream as long as all layers
         !  are clear (iclddn=true).  Streams must be calculated separately at
         !  all layers when a cloud is present (iclddn=false), because surface
