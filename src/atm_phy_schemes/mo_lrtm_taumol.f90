@@ -12,6 +12,7 @@
 !     created:   $Date: 2009/10/20 15:08:37 $
 !
 #include "consistent_fma.inc"
+#include "mod1.inc"
 module mo_lrtm_taumol
 
   !  --------------------------------------------------------------------------
@@ -687,19 +688,19 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2oco2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_mn2o = colh2o(jl,lay) + refrat_m_a*colco2(jl,lay)
           specparm_mn2o = MIN(colh2o(jl,lay)/speccomb_mn2o,oneminus)
           specmult_mn2o = 8._wp*specparm_mn2o
           jmn2o = 1 + int(specmult_mn2o)
-          fmn2o = mod(specmult_mn2o,1.0_wp)
+          fmn2o = MOD1(specmult_mn2o)
           !  In atmospheres where the amount of N2O is too great to be considered
           !  a minor species, adjust the column amount of N2O by an empirical factor
           !  to obtain the proper contribution.
@@ -716,7 +717,7 @@ contains
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl = 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(3) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(3) + js1
@@ -874,13 +875,13 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 4._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2oco2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 4._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           fac000 = (1._wp - fs) * fac00(jl,lay)
           fac010 = (1._wp - fs) * fac10(jl,lay)
@@ -895,7 +896,7 @@ contains
           specparm_mn2o = MIN(colh2o(jl,lay)/speccomb_mn2o,oneminus)
           specmult_mn2o = 4._wp*specparm_mn2o
           jmn2o = 1 + int(specmult_mn2o)
-          fmn2o = mod(specmult_mn2o,1.0_wp)
+          fmn2o = MOD1(specmult_mn2o)
           !  In atmospheres where the amount of N2O is too great to be considered
           !  a minor species, adjust the column amount of N2O by an empirical factor
           !  to obtain the proper contribution.
@@ -912,7 +913,7 @@ contains
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 4._wp*specparm_planck
           jpl= 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(3) + js
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(3) + js1
@@ -961,19 +962,19 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2oco2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_mn2o = colh2o(jl,lay) + refrat_m_a*colco2(jl,lay)
           specparm_mn2o = MIN(colh2o(jl,lay)/speccomb_mn2o,oneminus)
           specmult_mn2o = 8._wp*specparm_mn2o
           jmn2o = 1 + int(specmult_mn2o)
-          fmn2o = mod(specmult_mn2o,1.0_wp)
+          fmn2o = MOD1(specmult_mn2o)
           !  In atmospheres where the amount of N2O is too great to be considered
           !  a minor species, adjust the column amount of N2O by an empirical factor
           !  to obtain the proper contribution.
@@ -990,7 +991,7 @@ contains
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl = 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(3) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(3) + js1
@@ -1148,13 +1149,13 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 4._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2oco2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 4._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           fac000 = (1._wp - fs) * fac00(jl,lay)
           fac010 = (1._wp - fs) * fac10(jl,lay)
@@ -1169,7 +1170,7 @@ contains
           specparm_mn2o = MIN(colh2o(jl,lay)/speccomb_mn2o,oneminus)
           specmult_mn2o = 4._wp*specparm_mn2o
           jmn2o = 1 + int(specmult_mn2o)
-          fmn2o = mod(specmult_mn2o,1.0_wp)
+          fmn2o = MOD1(specmult_mn2o)
           !  In atmospheres where the amount of N2O is too great to be considered
           !  a minor species, adjust the column amount of N2O by an empirical factor
           !  to obtain the proper contribution.
@@ -1186,7 +1187,7 @@ contains
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 4._wp*specparm_planck
           jpl= 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(3) + js
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(3) + js1
@@ -1273,19 +1274,19 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2oco2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_planck = colh2o(jl,lay)+refrat_planck_a*colco2(jl,lay)
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl= 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(4) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(4) + js1
@@ -1436,13 +1437,13 @@ contains
           specparm = MIN(colo3(jl,lay)/speccomb,oneminus)
           specmult = 4._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colo3(jl,lay) + rat_o3co2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colo3(jl,lay)/speccomb1,oneminus)
           specmult1 = 4._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           fac000 = (1._wp - fs) * fac00(jl,lay)
           fac010 = (1._wp - fs) * fac10(jl,lay)
@@ -1457,7 +1458,7 @@ contains
           specparm_planck = MIN(colo3(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 4._wp*specparm_planck
           jpl= 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(4) + js
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(4) + js1
@@ -1508,19 +1509,19 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2oco2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_planck = colh2o(jl,lay)+refrat_planck_a*colco2(jl,lay)
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl= 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(4) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(4) + js1
@@ -1671,13 +1672,13 @@ contains
           specparm = MIN(colo3(jl,lay)/speccomb,oneminus)
           specmult = 4._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colo3(jl,lay) + rat_o3co2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colo3(jl,lay)/speccomb1,oneminus)
           specmult1 = 4._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           fac000 = (1._wp - fs) * fac00(jl,lay)
           fac010 = (1._wp - fs) * fac10(jl,lay)
@@ -1692,7 +1693,7 @@ contains
           specparm_planck = MIN(colo3(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 4._wp*specparm_planck
           jpl= 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(4) + js
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(4) + js1
@@ -1796,25 +1797,25 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2oco2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_mo3 = colh2o(jl,lay) + refrat_m_a*colco2(jl,lay)
           specparm_mo3 = MIN(colh2o(jl,lay)/speccomb_mo3,oneminus)
           specmult_mo3 = 8._wp*specparm_mo3
           jmo3 = 1 + int(specmult_mo3)
-          fmo3 = mod(specmult_mo3,1.0_wp)
+          fmo3 = MOD1(specmult_mo3)
 
           speccomb_planck = colh2o(jl,lay)+refrat_planck_a*colco2(jl,lay)
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl= 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(5) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(5) + js1
@@ -1973,13 +1974,13 @@ contains
           specparm = MIN(colo3(jl,lay)/speccomb,oneminus)
           specmult = 4._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colo3(jl,lay) + rat_o3co2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colo3(jl,lay)/speccomb1,oneminus)
           specmult1 = 4._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           fac000 = (1._wp - fs) * fac00(jl,lay)
           fac010 = (1._wp - fs) * fac10(jl,lay)
@@ -1994,7 +1995,7 @@ contains
           specparm_planck = MIN(colo3(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 4._wp*specparm_planck
           jpl= 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(5) + js
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(5) + js1
@@ -2033,25 +2034,25 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2oco2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_mo3 = colh2o(jl,lay) + refrat_m_a*colco2(jl,lay)
           specparm_mo3 = MIN(colh2o(jl,lay)/speccomb_mo3,oneminus)
           specmult_mo3 = 8._wp*specparm_mo3
           jmo3 = 1 + int(specmult_mo3)
-          fmo3 = mod(specmult_mo3,1.0_wp)
+          fmo3 = MOD1(specmult_mo3)
 
           speccomb_planck = colh2o(jl,lay)+refrat_planck_a*colco2(jl,lay)
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl= 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(5) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(5) + js1
@@ -2210,13 +2211,13 @@ contains
           specparm = MIN(colo3(jl,lay)/speccomb,oneminus)
           specmult = 4._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colo3(jl,lay) + rat_o3co2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colo3(jl,lay)/speccomb1,oneminus)
           specmult1 = 4._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           fac000 = (1._wp - fs) * fac00(jl,lay)
           fac010 = (1._wp - fs) * fac10(jl,lay)
@@ -2231,7 +2232,7 @@ contains
           specparm_planck = MIN(colo3(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 4._wp*specparm_planck
           jpl= 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-13)*5+(jt(jl,lay)-1))*nspb(5) + js
           ind1 = ((jp(jl,lay)-12)*5+(jt1(jl,lay)-1))*nspb(5) + js1
@@ -2471,20 +2472,20 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2oo3_1(jl,lay)*colo3(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_mco2 = colh2o(jl,lay) + refrat_m_a*colo3(jl,lay)
           specparm_mco2 = MIN(colh2o(jl,lay)/speccomb_mco2,oneminus)
           specmult_mco2 = 8._wp*specparm_mco2
 
           jmco2 = 1 + int(specmult_mco2)
-          fmco2 = mod(specmult_mco2,1.0_wp)
+          fmco2 = MOD1(specmult_mco2)
 
           !  In atmospheres where the amount of CO2 is too great to be considered
           !  a minor species, adjust the column amount of CO2 by an empirical factor
@@ -2502,7 +2503,7 @@ contains
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl = 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(7) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(7) + js1
@@ -2713,20 +2714,20 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2oo3_1(jl,lay)*colo3(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_mco2 = colh2o(jl,lay) + refrat_m_a*colo3(jl,lay)
           specparm_mco2 = MIN(colh2o(jl,lay)/speccomb_mco2,oneminus)
           specmult_mco2 = 8._wp*specparm_mco2
 
           jmco2 = 1 + int(specmult_mco2)
-          fmco2 = mod(specmult_mco2,1.0_wp)
+          fmco2 = MOD1(specmult_mco2)
 
           !  In atmospheres where the amount of CO2 is too great to be considered
           !  a minor species, adjust the column amount of CO2 by an empirical factor
@@ -2744,7 +2745,7 @@ contains
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl = 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(7) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(7) + js1
@@ -3230,19 +3231,19 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2och4_1(jl,lay)*colch4(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_mn2o = colh2o(jl,lay) + refrat_m_a*colch4(jl,lay)
           specparm_mn2o = MIN(colh2o(jl,lay)/speccomb_mn2o,oneminus)
           specmult_mn2o = 8._wp*specparm_mn2o
           jmn2o = 1 + int(specmult_mn2o)
-          fmn2o = mod(specmult_mn2o,1.0_wp)
+          fmn2o = MOD1(specmult_mn2o)
 
           !  In atmospheres where the amount of N2O is too great to be considered
           !  a minor species, adjust the column amount of N2O by an empirical factor
@@ -3260,7 +3261,7 @@ contains
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl= 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(9) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(9) + js1
@@ -3459,19 +3460,19 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2och4_1(jl,lay)*colch4(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_mn2o = colh2o(jl,lay) + refrat_m_a*colch4(jl,lay)
           specparm_mn2o = MIN(colh2o(jl,lay)/speccomb_mn2o,oneminus)
           specmult_mn2o = 8._wp*specparm_mn2o
           jmn2o = 1 + int(specmult_mn2o)
-          fmn2o = mod(specmult_mn2o,1.0_wp)
+          fmn2o = MOD1(specmult_mn2o)
 
           !  In atmospheres where the amount of N2O is too great to be considered
           !  a minor species, adjust the column amount of N2O by an empirical factor
@@ -3489,7 +3490,7 @@ contains
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl= 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(9) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(9) + js1
@@ -4012,19 +4013,19 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2oco2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_planck = colh2o(jl,lay)+refrat_planck_a*colco2(jl,lay)
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl = 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(12) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(12) + js1
@@ -4192,19 +4193,19 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2oco2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_planck = colh2o(jl,lay)+refrat_planck_a*colco2(jl,lay)
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl = 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(12) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(12) + js1
@@ -4428,19 +4429,19 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2on2o_1(jl,lay)*coln2o(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_mco2 = colh2o(jl,lay) + refrat_m_a*coln2o(jl,lay)
           specparm_mco2 = MIN(colh2o(jl,lay)/speccomb_mco2,oneminus)
           specmult_mco2 = 8._wp*specparm_mco2
           jmco2 = 1 + int(specmult_mco2)
-          fmco2 = mod(specmult_mco2,1.0_wp)
+          fmco2 = MOD1(specmult_mco2)
 
           !  In atmospheres where the amount of CO2 is too great to be considered
           !  a minor species, adjust the column amount of CO2 by an empirical factor
@@ -4458,13 +4459,13 @@ contains
           specparm_mco = MIN(colh2o(jl,lay)/speccomb_mco,oneminus)
           specmult_mco = 8._wp*specparm_mco
           jmco = 1 + int(specmult_mco)
-          fmco = mod(specmult_mco,1.0_wp)
+          fmco = MOD1(specmult_mco)
 
           speccomb_planck = colh2o(jl,lay)+refrat_planck_a*coln2o(jl,lay)
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl = 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(13) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(13) + js1
@@ -4650,19 +4651,19 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2on2o_1(jl,lay)*coln2o(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_mco2 = colh2o(jl,lay) + refrat_m_a*coln2o(jl,lay)
           specparm_mco2 = MIN(colh2o(jl,lay)/speccomb_mco2,oneminus)
           specmult_mco2 = 8._wp*specparm_mco2
           jmco2 = 1 + int(specmult_mco2)
-          fmco2 = mod(specmult_mco2,1.0_wp)
+          fmco2 = MOD1(specmult_mco2)
 
           !  In atmospheres where the amount of CO2 is too great to be considered
           !  a minor species, adjust the column amount of CO2 by an empirical factor
@@ -4680,13 +4681,13 @@ contains
           specparm_mco = MIN(colh2o(jl,lay)/speccomb_mco,oneminus)
           specmult_mco = 8._wp*specparm_mco
           jmco = 1 + int(specmult_mco)
-          fmco = mod(specmult_mco,1.0_wp)
+          fmco = MOD1(specmult_mco)
 
           speccomb_planck = colh2o(jl,lay)+refrat_planck_a*coln2o(jl,lay)
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl = 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(13) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(13) + js1
@@ -5040,25 +5041,25 @@ contains
           specparm = MIN(coln2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = coln2o(jl,lay) + rat_n2oco2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(coln2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_mn2 = coln2o(jl,lay) + refrat_m_a*colco2(jl,lay)
           specparm_mn2 = MIN(coln2o(jl,lay)/speccomb_mn2,oneminus)
           specmult_mn2 = 8._wp*specparm_mn2
           jmn2 = 1 + int(specmult_mn2)
-          fmn2 = mod(specmult_mn2,1.0_wp)
+          fmn2 = MOD1(specmult_mn2)
 
           speccomb_planck = coln2o(jl,lay)+refrat_planck_a*colco2(jl,lay)
           specparm_planck = MIN(coln2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl = 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(15) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(15) + js1
@@ -5233,25 +5234,25 @@ contains
           specparm = MIN(coln2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = coln2o(jl,lay) + rat_n2oco2_1(jl,lay)*colco2(jl,lay)
           specparm1 = MIN(coln2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_mn2 = coln2o(jl,lay) + refrat_m_a*colco2(jl,lay)
           specparm_mn2 = MIN(coln2o(jl,lay)/speccomb_mn2,oneminus)
           specmult_mn2 = 8._wp*specparm_mn2
           jmn2 = 1 + int(specmult_mn2)
-          fmn2 = mod(specmult_mn2,1.0_wp)
+          fmn2 = MOD1(specmult_mn2)
 
           speccomb_planck = coln2o(jl,lay)+refrat_planck_a*colco2(jl,lay)
           specparm_planck = MIN(coln2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl = 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(15) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(15) + js1
@@ -5469,19 +5470,19 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2och4_1(jl,lay)*colch4(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_planck = colh2o(jl,lay)+refrat_planck_a*colch4(jl,lay)
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl = 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(16) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(16) + js1
@@ -5657,19 +5658,19 @@ contains
           specparm = MIN(colh2o(jl,lay)/speccomb,oneminus)
           specmult = 8._wp*(specparm)
           js = 1 + int(specmult)
-          fs = mod(specmult,1.0_wp)
+          fs = MOD1(specmult)
 
           speccomb1 = colh2o(jl,lay) + rat_h2och4_1(jl,lay)*colch4(jl,lay)
           specparm1 = MIN(colh2o(jl,lay)/speccomb1,oneminus)
           specmult1 = 8._wp*(specparm1)
           js1 = 1 + int(specmult1)
-          fs1 = mod(specmult1,1.0_wp)
+          fs1 = MOD1(specmult1)
 
           speccomb_planck = colh2o(jl,lay)+refrat_planck_a*colch4(jl,lay)
           specparm_planck = MIN(colh2o(jl,lay)/speccomb_planck,oneminus)
           specmult_planck = 8._wp*specparm_planck
           jpl = 1 + int(specmult_planck)
-          fpl = mod(specmult_planck,1.0_wp)
+          fpl = MOD1(specmult_planck)
 
           ind0 = ((jp(jl,lay)-1)*5+(jt(jl,lay)-1))*nspa(16) + js
           ind1 = (jp(jl,lay)*5+(jt1(jl,lay)-1))*nspa(16) + js1
