@@ -444,9 +444,9 @@ CONTAINS
             branch_od2 = odepth_temp .LE. 0.06_wp
 
             iclddn(jl) = iclddn(jl) .OR. lcldlyr(jl,lev)
+            odtot = odepth_temp + secdiff(jl,ib) * taucloud(jl,lev,ib)
+            branch_od1 = odtot .LT. 0.06_wp
             IF (lcldlyr(jl,lev)) THEN
-              odtot = odepth_temp + secdiff(jl,ib) * taucloud(jl,lev,ib)
-              branch_od1 = odtot .LT. 0.06_wp
               itgas = INT(tblint * odepth_temp/(bpade+odepth_temp) + 0.5_wp)
               tfacgas = tfn_tbl(itgas)
               ittot = MERGE(0, INT(tblint * odtot/(bpade+odtot) + 0.5_wp), branch_od1)
