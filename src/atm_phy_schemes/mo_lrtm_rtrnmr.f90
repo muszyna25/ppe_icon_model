@@ -386,12 +386,12 @@ CONTAINS
     istcld(:,1) = .TRUE.
     istcldd(:,nlayers) = .TRUE.
 
-    CALL compute_radiative_transfer(kproma, nlayers, 1, cldfrac, &
+    CALL cloud_overlap(kproma, nlayers, 1, cldfrac, &
       n_cloudpoints, icld_ind,iclear_ind, &
       1, nlayers, 1, &
       faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2, istcld)
 
-    CALL compute_radiative_transfer(kproma, nlayers, 0, cldfrac, &
+    CALL cloud_overlap(kproma, nlayers, 0, cldfrac, &
       n_cloudpoints, icld_ind,iclear_ind, &
       nlayers, 1, -1, &
       faccld1d, faccld2d, facclr1d, facclr2d, faccmb1d, faccmb2d, istcldd)
@@ -684,7 +684,7 @@ CONTAINS
     ! end vectorized version
   END SUBROUTINE lrtm_rtrnmr
 
-  SUBROUTINE compute_radiative_transfer(kproma, nlayers, ofs, cldfrac, &
+  SUBROUTINE cloud_overlap(kproma, nlayers, ofs, cldfrac, &
        n_cloudpoints, icld_ind,iclear_ind, &
        start_lev, end_lev, lev_incr, &
        faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2, istcld)
@@ -862,7 +862,7 @@ CONTAINS
 
     ENDDO
 
-  END SUBROUTINE compute_radiative_transfer
+  END SUBROUTINE cloud_overlap
 
 END MODULE mo_lrtm_rtrnmr
 !
