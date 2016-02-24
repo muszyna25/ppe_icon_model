@@ -822,6 +822,31 @@ MODULE mo_initicon_io
     END IF
   END SUBROUTINE fetchTiled3d
 
+  ! Same as above for variables that are optionally read from input file.
+  SUBROUTINE fetchTiled3dOptional(params, varName, jg, tileCount, field, avail)
+    TYPE(t_fetchParams), INTENT(INOUT) :: params
+    CHARACTER(LEN = *), INTENT(IN) :: varName
+    INTEGER, VALUE :: jg, tileCount
+    REAL(wp), INTENT(INOUT) :: field(:,:,:,:)
+    LOGICAL, INTENT(OUT) :: avail
+
+    INTEGER :: jt
+
+    IF(params%inputInstructions(jg)%ptr%wantVar(varName, params%isFg)) THEN
+        IF(ltile_coldstart) THEN
+            !Fake tiled input by copying the input field to all tiles.
+            avail = .TRUE.
+            DO jt = 1, tileCount
+                avail = avail.AND.params%requestList%fetch3d(varName, trivial_tileId, jg, field(:,:,:,jt))
+            END DO
+        ELSE
+            !True tiled input.
+            avail = params%requestList%fetchTiled3d(varName, jg, field)
+        END IF
+        CALL params%inputInstructions(jg)%ptr%optionalReadResult(avail, varName, params%routine, params%isFg)
+    END IF
+  END SUBROUTINE fetchTiled3dOptional
+
   SUBROUTINE fetchRequired3d(params, varName, jg, field)
     TYPE(t_fetchParams), INTENT(INOUT) :: params
     CHARACTER(LEN = *), INTENT(IN) :: varName
@@ -1150,6 +1175,7 @@ MODULE mo_initicon_io
     TYPE(t_readInstructionListPtr), INTENT(INOUT) :: inputInstructions(:)
 
     INTEGER :: jg, error
+    LOGICAL :: avail
     REAL(wp), POINTER :: my_ptr2d(:,:)
     TYPE(t_lnd_prog), POINTER :: lnd_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
@@ -1209,8 +1235,8 @@ MODULE mo_initicon_io
                 CALL fetchTiled3d(params, 'wliq_snow', jg, ntiles_total, lnd_prog%wliq_snow_t)
                 CALL fetchTiled3d(params, 'dzh_snow', jg, ntiles_total, lnd_prog%dzh_snow_t)
             ELSE IF (l2lay_rho_snow) THEN
-                CALL fetchTiled3d(params, 'rho_snow_mult', jg, ntiles_total, lnd_prog%rho_snow_mult_t)
-                IF(inputInstructions(jg)%ptr%sourceOfVar('rho_snow_mult') == kInputSourceNone) THEN
+                CALL fetchTiled3dOptional(params, 'rho_snow_mult', jg, ntiles_total, lnd_prog%rho_snow_mult_t, avail)
+                IF(.NOT. avail) THEN
                     ! initialize top-layer snow density with average density if no input field is available
                     lnd_prog%rho_snow_mult_t(:,1,:,:) = lnd_prog%rho_snow_t(:,:,:)
                 ENDIF

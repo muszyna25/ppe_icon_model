@@ -260,7 +260,9 @@ MODULE mo_initicon
     ! Create a request list for all the relevant variable names.
     requestList => InputRequestList_create()
     DO jg = 1, n_dom
+      IF(p_patch(jg)%ldom_active) THEN
         CALL inputInstructions(jg)%ptr%fileRequests(requestList, lIsFg = .TRUE.)
+      ENDIF
     END DO
 
     ! Scan the input files AND distribute the relevant variables across the processes.
@@ -378,7 +380,9 @@ MODULE mo_initicon
             CALL read_extana_atm(p_patch, initicon)
     END SELECT
     DO jg = 1, n_dom
+      IF(p_patch(jg)%ldom_active) THEN
         CALL inputInstructions(jg)%ptr%fileRequests(requestList, lIsFg = .FALSE.)
+      ENDIF
     END DO
 
     ! Scan the input files AND distribute the relevant variables across the processes.
