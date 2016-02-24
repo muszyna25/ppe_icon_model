@@ -15,6 +15,7 @@
 @PROCESS HOT
 @PROCESS NOSTRICT
 #endif
+#include "consistent_fma.inc"
 
 MODULE mo_lrtm_rtrnmr
 
@@ -666,20 +667,9 @@ CONTAINS
       ! End spectral band loop
     ENDDO
 
-    ! Calculate fluxes at surface
-!DIR$ SIMD
-    DO jl = 1, kproma  ! loop over columns
-      totuflux(jl,0) = totuflux(jl,0) * fluxfac
-      totdflux(jl,0) = totdflux(jl,0) * fluxfac
-      fnet(jl,0) = totuflux(jl,0) - totdflux(jl,0)
-
-      totuclfl(jl,0) = totuclfl(jl,0) * fluxfac
-      totdclfl(jl,0) = totdclfl(jl,0) * fluxfac
-      fnetc(jl,0) = totuclfl(jl,0) - totdclfl(jl,0)
-    ENDDO
-
-    ! Calculate fluxes at model levels
-    DO lev = 1, nlayers
+    ! Calculate fluxes at surface (lev==0) and model levels
+!PREVENT_INCONSISTENT_IFORT_FMA
+    DO lev = 0, nlayers
 !DIR$ SIMD
       DO jl = 1, kproma  ! loop over columns
         totuflux(jl,lev) = totuflux(jl,lev) * fluxfac
