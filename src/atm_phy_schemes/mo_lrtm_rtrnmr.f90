@@ -461,7 +461,7 @@ CONTAINS
               atot(jl,lev) = MERGE(odtot - 0.5_wp*odtot*odtot, &
                 &               1._wp - exp_tbl(ittot), branch_od1)
 
-              atrans(jl,lev) = MERGE(odepth - 0.5_wp*odepth*odepth, &
+              atrans(jl,lev) = MERGE(odepth_temp - 0.5_wp*odepth_temp*odepth_temp, &
                 &           1._wp - exp_tbl(itgas), branch_od1 .OR. branch_od2)
               bbdtot = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev))
               bbd(jl) = plfrac * (planklay(jl,lev,iband) + odepth_rec_or_tfacgas * dplankdn(jl,lev))
