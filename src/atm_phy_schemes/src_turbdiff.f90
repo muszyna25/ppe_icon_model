@@ -617,35 +617,47 @@ LOGICAL :: &
 
 TYPE modvar !model variable
      REAL (KIND=ireals), POINTER &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+          , CONTIGUOUS &
+#endif
           :: av(:,:) => NULL() !atmospheric values
      REAL (KIND=ireals), POINTER &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+          , CONTIGUOUS &
+#endif
           :: sv(:)   => NULL() !surface     values (concentration of flux density)
      REAL (KIND=ireals), POINTER &
-          :: at(:,:) => NULL() !atmospheric time tendencies
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     CONTIGUOUS :: av, sv, at
+          , CONTIGUOUS &
 #endif
+          :: at(:,:) => NULL() !atmospheric time tendencies
      LOGICAL                                 :: fc                !surface values are flux densities
 END TYPE modvar
 
 TYPE turvar !turbulence variables
      REAL (KIND=ireals), POINTER &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+          , CONTIGUOUS &
+#endif
           :: tkv(:,:) => NULL() !turbulent coefficient for vert. diff.
      REAL (KIND=ireals), POINTER &
-          :: dzs(:)   => NULL() !effective surface layer depth
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     CONTIGUOUS :: tkv, dzs
+          , CONTIGUOUS &
 #endif
+          :: dzs(:)   => NULL() !effective surface layer depth
 END TYPE turvar
 
 TYPE varprf !variable profile
      REAL (KIND=ireals), POINTER &
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
+          , CONTIGUOUS &
+#endif
           :: bl(:,:) !variable at boundary model levels
      REAL (KIND=ireals), POINTER &
-          :: ml(:,:) !variable at main     model levels
 #ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
-     CONTIGUOUS :: bl, ml
+          , CONTIGUOUS &
 #endif
+          :: ml(:,:) !variable at main     model levels
 END TYPE varprf
 !-------------------------------------------------------------------------------
 CONTAINS
