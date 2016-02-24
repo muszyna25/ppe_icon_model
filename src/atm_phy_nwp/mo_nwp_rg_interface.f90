@@ -207,16 +207,13 @@ MODULE mo_nwp_rg_interface
         & pflt  = prm_diag%lwflxall(:,:,jb),& !Thermal radiative fluxes at each layer boundary
         & pfls  = zfls  (:,:,jb)  &! solar radiative fluxes at each layer boundary
         & )
-      
-      zi0 (i_startidx:i_endidx) = prm_diag%cosmu0(i_startidx:i_endidx,jb) * zsct
+
+      zi0 (i_startidx:i_endidx) = 1._wp / (prm_diag%cosmu0(i_startidx:i_endidx,jb) * zsct)
       ! compute sw transmissivity trsolall from sw fluxes
       DO jk = 1,nlevp1
         DO jc = i_startidx,i_endidx
-          IF (prm_diag%cosmu0(jc,jb) < 1.e-8_wp) THEN
-            prm_diag%trsolall(jc,jk,jb) = 0.0_wp
-          ELSE
-            prm_diag%trsolall(jc,jk,jb) = zfls(jc,jk,jb) / zi0(jc)
-          ENDIF
+          prm_diag%trsolall(jc,jk,jb) &
+            = MERGE(0.0_wp, zfls(jc,jk,jb) * zi0(jc), prm_diag%cosmu0(jc,jb) < 1.e-8_wp)
         ENDDO
       ENDDO
 
