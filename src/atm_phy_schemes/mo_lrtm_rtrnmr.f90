@@ -497,7 +497,7 @@ CONTAINS
             drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
           ENDDO
 
-        ELSE
+        ELSE ! n_clearpoints(lev) == kproma implies all points are clear
 
           DO jl = 1, kproma ! Thus, direct addressing can be used
 
