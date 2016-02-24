@@ -73,7 +73,6 @@ case "$fortran_compiler" in
         FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
         FDEBUG      = -g -fbacktrace
         FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
-        FOPTIONS    = $FCPP $FLANG $FWARN $FDEBUG $FCHECK
         FOTPTIM     = -march=native -O3 -ffast-math -D__LOOP_EXCHANGE
 
         DEBUG_FLAGS = -g -fbacktrace -fbounds-check -fstack-protector-all $FCHECK
@@ -537,6 +536,9 @@ case "$ac_sitename" in
                         F77    = gfortran
                         FC     = gfortran
 
+                        FLANG  = ${FLANG/-std=f2003/-std=f2008}
+                        FFLAGS = ${FFLAGS/-std=f2003/-std=f2008}
+
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-$compiler_version
                         NETCDFROOT  = $software_tree/netcdf/netcdf_c-4.3.2-gcc48
                         HDF5ROOT    = $software_tree/hdf5/hdf5-1.8.14-threadsafe-gcc48
@@ -658,6 +660,9 @@ case "$ac_sitename" in
                       MPIROOT     = $software_tree/mpilib/openmpi-1.8.4-static-${compiler_version}
                       MPI_LIB     = -L$MPIROOT/lib -Wl,-rpath -Wl,$MPIROOT/lib -Wl,--disable-new-dtags -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi -lopen-rte -lopen-pal -lm -lnuma -ldl -lrt -lpthread -libverbs -lrdmacm -lutil
                       load_modules=gcc/5.1.0 ${load_modules}
+
+                      FLANG  = ${FLANG/-std=f2003/-std=f2008}
+                      FFLAGS = ${FFLAGS/-std=f2003/-std=f2008}
                       ;;
                     pgi)
                       NETCDFROOT = $software_tree/netcdf-4.1.3-static-pgi14
