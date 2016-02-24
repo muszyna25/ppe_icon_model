@@ -25,7 +25,9 @@ dnl ######################################################################
 
 AC_PREFIX_DEFAULT(.)
 
-AC_CONFIG_AUX_DIR(config)
+AC_CONFIG_SRCDIR([src/drivers/icon.f90])
+AC_CONFIG_AUX_DIR([config])
+AC_CONFIG_MACRO_DIR([m4])
 
 AC_CANONICAL_SYSTEM
 
@@ -310,10 +312,17 @@ dnl ######################################################################
 AC_PROG_RANLIB
 
 dnl ######################################################################
+AC_PROG_FC
 
 if test -z "$CROSS" ; then
   AC_PROG_CC
 fi
+
+dnl ######################################################################
+dnl Checks for program properties
+dnl ######################################################################
+ACX_FC_ATTRIBUTE_CONTIGUOUS(
+  [FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_FC_ATTRIBUTE_CONTIGUOUS"])
 
 dnl ######################################################################
 dnl Checks for XML2.
