@@ -479,11 +479,10 @@ CONTAINS
                 & (1._wp-cldfrac(jl,lev))*gassrc
               cldradd_temp = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
                 istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
-              radld(jl) = cldradd_temp + clrradd_temp
 
               radmod = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
                 & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
-                & faccld1d(jl,lev-1) *  ttot) - &
+                & faccld1d(jl,lev-1) * ttot) - &
                 & faccmb1d(jl,lev-1) * gassrc + &
                 & faccmb2d(jl,lev-1) * cldsrc
 
@@ -508,9 +507,9 @@ CONTAINS
                 + odepth_rec_or_tausfac * dplankdn(jl,lev))
               bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tausfac * dplankup(jl,lev))
-              radld(jl) = radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev)
-
             END IF
+            radld(jl) = MERGE(cldradd_temp + clrradd_temp, &
+              radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev), lcldlyr(jl,lev))
             drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
           ENDDO
 
