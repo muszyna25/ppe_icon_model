@@ -449,7 +449,7 @@ CONTAINS
             itgas = INT(tblint * odepth_temp/(bpade+odepth_temp) + 0.5_wp)
             tfacgas = tfn_tbl(itgas)
             IF (lcldlyr(jl,lev)) THEN
-              ittot = MERGE(0, INT(tblint * odtot/(bpade+odtot) + 0.5_wp), branch_od1)
+              ittot = INT(tblint * odtot/(bpade+odtot) + 0.5_wp)
               tfactot = MERGE(0.0_wp, tfn_tbl(ittot), branch_od1)
               odepth = MERGE(odepth_temp, tau_tbl(itgas), branch_od1 .OR. branch_od2)
 
