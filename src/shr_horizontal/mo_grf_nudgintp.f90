@@ -628,26 +628,18 @@ DO jn = 1, nfields
 
       DO jc = i_startidx, i_endidx
 
-        limfac1 = 1._wp
-        limfac2 = 1._wp
         ! Allow a limited amount of over-/undershooting in the downscaled fields
-        IF (minval_neighb(jc,jk) > 0._wp) THEN
-          relaxed_minval = r_ovsht_fac*minval_neighb(jc,jk)
-        ELSE
-          relaxed_minval = ovsht_fac*minval_neighb(jc,jk)
-        ENDIF
-        IF (maxval_neighb(jc,jk) > 0._wp) THEN
-          relaxed_maxval = ovsht_fac*maxval_neighb(jc,jk)
-        ELSE
-          relaxed_maxval = r_ovsht_fac*maxval_neighb(jc,jk)
-        ENDIF
+        relaxed_minval = MERGE(r_ovsht_fac, ovsht_fac, &
+             minval_neighb(jc,jk) > 0._wp) * minval_neighb(jc,jk)
+        relaxed_maxval = MERGE(ovsht_fac, r_ovsht_fac, &
+             maxval_neighb(jc,jk) > 0._wp) * maxval_neighb(jc,jk)
 
-        IF (p_in(jn)%fld(jc,jk+js,jb) + min_expval(jc) < relaxed_minval-epsi) THEN
-          limfac1 = ABS((relaxed_minval-p_in(jn)%fld(jc,jk+js,jb))/min_expval(jc))
-        ENDIF
-        IF (p_in(jn)%fld(jc,jk+js,jb) + max_expval(jc) > relaxed_maxval+epsi) THEN
-          limfac2 = ABS((relaxed_maxval-p_in(jn)%fld(jc,jk+js,jb))/max_expval(jc))
-        ENDIF
+        limfac1 = MERGE(1._wp, &
+             ABS((relaxed_minval-p_in(jn)%fld(jc,jk+js,jb))/min_expval(jc)), &
+             p_in(jn)%fld(jc,jk+js,jb) + min_expval(jc) >= relaxed_minval-epsi)
+        limfac2 = MERGE(1._wp, &
+             ABS((relaxed_maxval-p_in(jn)%fld(jc,jk+js,jb))/max_expval(jc)), &
+             p_in(jn)%fld(jc,jk+js,jb) + max_expval(jc) <= relaxed_maxval+epsi)
         limfac = MIN(limfac1,limfac2)
 
         grad_x(jc,jk) = grad_x(jc,jk)*limfac
