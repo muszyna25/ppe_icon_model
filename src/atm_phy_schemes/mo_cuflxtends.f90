@@ -44,7 +44,7 @@ MODULE mo_cuflxtends
 !  USE parkind1  ,ONLY : jpim     ,jprb
   USE gme_data_parameters, ONLY:  JPRB =>ireals, JPIM => iintegers
 #endif
-  
+
 !  USE yomhook   ,ONLY : lhook,   dr_hook
   !KF
   USE mo_cuparameters, ONLY: lphylin  ,rlptrc,  lepcld              ,&
@@ -52,8 +52,8 @@ MODULE mo_cuflxtends
     &                        rmfsoltq,  rmfsoluv                    ,&
     &                        rmfsolct, rmfcmin,rg       ,rcpd       ,&
     &                        rlvtt   , rlstt    ,rlmlt    ,rtt      ,&
-    &                        lhook,   dr_hook, rcvd  
-  
+    &                        lhook,   dr_hook, rcvd
+
   USE mo_cufunctions, ONLY: foelhmcu, foeewmcu, foealfcu, &
     & foeewl,   foeewi
 
@@ -319,7 +319,7 @@ CONTAINS
    pmflxr(:,klev+1)=0.0_JPRB
    pmflxs(:,klev+1)=0.0_JPRB
 
-       
+
     !*    1.5          SCALE FLUXES BELOW CLOUD BASE
     !!                 LINEAR DCREASE
     !!                 -----------------------------
@@ -377,7 +377,7 @@ CONTAINS
     !*                  CALCULATE MELTING OF SNOW
     !*                  CALCULATE EVAPORATION OF PRECIP
     !!                  -------------------------------
-    
+
     DO jk=ktdia-1+ktopm2,klev
       DO jl=kidia,kfdia
         IF(ldcum(jl).AND.jk >= kctop(jl)-1) THEN
@@ -430,7 +430,7 @@ CONTAINS
 
     !!Reminder for conservation:
     !!   pdmfup(jl,jk)+pdmfdp(jl,jk)=pmflxr(jl,jk+1)+pmflxs(jl,jk+1)-pmflxr(jl,jk)-pmflxs(jl,jk)
-    
+
     DO jk=ktdia-1+ktopm2,klev
       DO jl=kidia,kfdia
         IF(ldcum(jl).AND.jk >= kcbot(jl)) THEN
@@ -765,7 +765,7 @@ CONTAINS
               & plude(jl,jk)-pdmfup(jl,jk))
           ENDIF
        ENDDO
-      
+
       ELSE
         DO jl=kidia,kfdia
           IF(ldcum(jl)) THEN
@@ -1276,7 +1276,7 @@ CONTAINS
 
     !USE PARKIND1  ,ONLY : JPIM     ,JPRB
     !USE YOMHOOK   ,ONLY : LHOOK,   DR_HOOK
- 
+
     IMPLICIT NONE
 
     INTEGER(KIND=jpim),INTENT(in)    :: klon
@@ -1667,17 +1667,21 @@ CONTAINS
     pu(:,:)=0.0_JPRB
 
     ! Forward Substitution
-
-    DO jk = ktdia+1, klev
-      DO jl = kidia,kfdia
+    DO jl = kidia,kfdia
+      jk = kctop(jl)-1
+      IF (jk >= ktdia+1 .AND. jk <= klev) THEN
         IF ( ld_lcumask(jl,jk) ) THEN
-          IF ( jk==kctop(jl)-1 ) THEN
-            zbet      =1.0_JPRB/(pb(jl,jk)+1.e-35_JPRB)
-            pu(jl,jk) = pr(jl,jk) * zbet
-          ELSEIF ( jk>kctop(jl)-1 ) THEN
-            zbet      = 1.0_JPRB/(pb(jl,jk) + 1.e-35_JPRB)
-            pu(jl,jk) =(pr(jl,jk)-pa(jl,jk)*pu(jl,jk-1))*zbet
-          ENDIF
+          zbet      =1.0_JPRB/(pb(jl,jk)+1.e-35_JPRB)
+          pu(jl,jk) = pr(jl,jk) * zbet
+        ENDIF
+      END IF
+    END DO
+
+    DO jk = MAX(ktdia+1, MINVAL(kctop)), klev
+      DO jl = kidia,kfdia
+        IF ( jk >= kctop(jl) .AND. ld_lcumask(jl,jk) ) THEN
+          zbet      = 1.0_JPRB/(pb(jl,jk) + 1.e-35_JPRB)
+          pu(jl,jk) =(pr(jl,jk)-pa(jl,jk)*pu(jl,jk-1))*zbet
         ENDIF
       ENDDO
     ENDDO
