@@ -472,22 +472,17 @@ CONTAINS
             bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) &
               + odtot_rec_or_tfactot * dplankup(jl,lev))
 
-            IF (istcldd(jl,lev)) THEN
-              cldradd(jl) = cldfrac(jl,lev) * radld(jl)
-              clrradd(jl) = radld(jl) - cldradd(jl)
-              oldcld(jl) = cldradd(jl)
-              oldclr(jl) = clrradd(jl)
-              rad(jl) = 0._wp
-            ENDIF
             ttot = 1._wp - atot(jl,lev)
             cldsrc = bbdtot(jl) * atot(jl,lev)
-            clrradd(jl) = clrradd(jl) * (1._wp-atrans(jl,lev)) + &
+            clrradd(jl) = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
+                 clrradd(jl), istcldd(jl,lev)) * (1._wp-atrans(jl,lev)) + &
               & (1._wp-cldfrac(jl,lev))*gassrc(jl)
-            cldradd(jl) = cldradd(jl) * ttot + cldfrac(jl,lev) * cldsrc
+            cldradd(jl) = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
+                 istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
             radld(jl) = cldradd(jl) + clrradd(jl)
             drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
 
-            radmod(jl) = rad(jl) * &
+            radmod(jl) = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
               & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
               & faccld1d(jl,lev-1) *  ttot) - &
               & faccmb1d(jl,lev-1) * gassrc(jl) + &
