@@ -177,7 +177,7 @@ CONTAINS
       wtdiff = 0.5_wp
     REAL(wp) :: radld(kproma), radclrd(kproma), plfrac
     REAL(wp) :: odepth, odtot, gassrc, ttot
-    REAL(wp) :: bbd(kproma), tfacgas
+    REAL(wp) :: bbd(kproma)
     REAL(wp) :: rad0, reflect, radlu(kproma), radclru(kproma)
 
     REAL(wp) :: duflux_dt
