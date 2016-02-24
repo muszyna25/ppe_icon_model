@@ -1406,7 +1406,7 @@ MODULE mo_initicon_io
             my_ptr2d => initicon(jg)%sfc%sst(:,:)
             CALL fetch2d(params, 't_so', 0.0_wp, jg, my_ptr2d)
             ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
-            IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceFg) THEN
+            IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceAna) THEN
                 CALL inputInstructions(jg)%ptr%setSource('t_so', kInputSourceBoth)
             END IF
 
@@ -1416,7 +1416,7 @@ MODULE mo_initicon_io
                 my_ptr2d => initicon(jg)%sfc_inc%h_snow(:,:)
                 CALL fetchSurface(params, 'h_snow', jg, my_ptr2d)
                 ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
-                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('h_snow') == kInputSourceFg) THEN
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('h_snow') == kInputSourceAna) THEN
                     CALL inputInstructions(jg)%ptr%setSource('h_snow', kInputSourceBoth)
                 END IF
             ELSE
@@ -1446,7 +1446,7 @@ MODULE mo_initicon_io
                 my_ptr2d => initicon(jg)%sfc_inc%freshsnow(:,:)
                 CALL fetchSurface(params, 'freshsnow', jg, my_ptr2d)
                 ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
-                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('freshsnow') == kInputSourceFg) THEN
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('freshsnow') == kInputSourceAna) THEN
                     CALL inputInstructions(jg)%ptr%setSource('freshsnow', kInputSourceBoth)
                 END IF
             ELSE
@@ -1460,7 +1460,7 @@ MODULE mo_initicon_io
                 my_ptr3d => initicon(jg)%sfc_inc%w_so(:,:,:)
                 CALL fetch3d(params, 'w_so', jg, my_ptr3d)
                 ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
-                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('w_so') == kInputSourceFg) THEN
+                IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('w_so') == kInputSourceAna) THEN
                     CALL inputInstructions(jg)%ptr%setSource('w_so', kInputSourceBoth)
                 END IF
             ELSE
