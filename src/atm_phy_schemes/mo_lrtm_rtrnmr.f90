@@ -446,8 +446,8 @@ CONTAINS
             iclddn(jl) = iclddn(jl) .OR. lcldlyr(jl,lev)
             odtot = odepth_temp + secdiff(jl,ib) * taucloud(jl,lev,ib)
             branch_od1 = odtot .LT. 0.06_wp
+            itgas = INT(tblint * odepth_temp/(bpade+odepth_temp) + 0.5_wp)
             IF (lcldlyr(jl,lev)) THEN
-              itgas = INT(tblint * odepth_temp/(bpade+odepth_temp) + 0.5_wp)
               tfacgas = tfn_tbl(itgas)
               ittot = MERGE(0, INT(tblint * odtot/(bpade+odtot) + 0.5_wp), branch_od1)
               tfactot = MERGE(0.0_wp, tfn_tbl(ittot), branch_od1)
@@ -498,11 +498,9 @@ CONTAINS
               bbutot(jl, lev) = 0.0_wp
 
               odepth_rec_or_tausfac = MERGE(rec_6*odepth_temp, &
-                tfn_tbl(INT(tblint*odepth_temp/(bpade+odepth_temp)+0.5_wp)), &
-                branch_od2)
+                tfn_tbl(itgas), branch_od2)
               atrans(jl,lev) = MERGE(odepth_temp-0.5_wp*odepth_temp*odepth_temp, &
-                1._wp - exp_tbl(INT(tblint*odepth_temp/(bpade+odepth_temp) + 0.5_wp)), &
-                branch_od2)
+                1._wp - exp_tbl(itgas), branch_od2)
               bbd(jl) = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tausfac * dplankdn(jl,lev))
               bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
