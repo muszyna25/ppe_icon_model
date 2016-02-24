@@ -213,7 +213,7 @@ CONTAINS
     !--------------------------------------------------------------------------
 
     REAL(wp) :: odepth_rec_or_tfacgas, odtot_rec_or_tfactot, cldsrc, &
-         oldclr, oldcld
+         oldclr, oldcld, clrradd_temp, cldradd_temp
     REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, &
       & rad, radmod
 
@@ -475,12 +475,12 @@ CONTAINS
 
             ttot = 1._wp - atot(jl,lev)
             cldsrc = bbdtot(jl) * atot(jl,lev)
-            clrradd(jl) = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
+            clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
                  clrradd(jl), istcldd(jl,lev)) * (1._wp-atrans(jl,lev)) + &
               & (1._wp-cldfrac(jl,lev))*gassrc(jl)
-            cldradd(jl) = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
+            cldradd_temp = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
                  istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
-            radld(jl) = cldradd(jl) + clrradd(jl)
+            radld(jl) = cldradd_temp + clrradd_temp
             drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
 
             radmod(jl) = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
@@ -489,12 +489,12 @@ CONTAINS
               & faccmb1d(jl,lev-1) * gassrc(jl) + &
               & faccmb2d(jl,lev-1) * cldsrc
 
-            oldcld = cldradd(jl) - radmod(jl)
-            oldclr = clrradd(jl) + radmod(jl)
+            oldcld = cldradd_temp - radmod(jl)
+            oldclr = clrradd_temp + radmod(jl)
             rad(jl) = -radmod(jl) + facclr2d(jl,lev-1)*oldclr -&
               &  faccld2d(jl,lev-1)*oldcld
-            cldradd(jl) = cldradd(jl) + rad(jl)
-            clrradd(jl) = clrradd(jl) - rad(jl)
+            cldradd(jl) = cldradd_temp + rad(jl)
+            clrradd(jl) = clrradd_temp - rad(jl)
           ENDDO
 
         ELSE IF (n_clearpoints(lev) == kproma) THEN ! all points are clear
