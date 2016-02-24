@@ -446,57 +446,59 @@ CONTAINS
             plfrac = fracs(jl,lev,igc)
             odepth_temp = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
 
-            iclddn(jl) = .TRUE.
-            odtot(jl) = odepth_temp + secdiff(jl,ib) * taucloud(jl,lev,ib)
-            branch_od1 = odtot(jl) .LT. 0.06_wp
-            branch_od2 = odepth_temp .LE. 0.06_wp
-            itgas = INT(tblint * odepth_temp/(bpade+odepth_temp) + 0.5_wp)
-            tfacgas = tfn_tbl(itgas)
-            ittot = MERGE(0, INT(tblint * odtot(jl)/(bpade+odtot(jl)) + 0.5_wp), branch_od1)
-            tfactot = MERGE(0.0_wp, tfn_tbl(ittot), branch_od1)
-            odepth(jl) = MERGE(odepth_temp, tau_tbl(itgas), branch_od1 .OR. branch_od2)
+            IF (lcldlyr(jl,lev)) THEN
+              iclddn(jl) = .TRUE.
+              odtot(jl) = odepth_temp + secdiff(jl,ib) * taucloud(jl,lev,ib)
+              branch_od1 = odtot(jl) .LT. 0.06_wp
+              branch_od2 = odepth_temp .LE. 0.06_wp
+              itgas = INT(tblint * odepth_temp/(bpade+odepth_temp) + 0.5_wp)
+              tfacgas = tfn_tbl(itgas)
+              ittot = MERGE(0, INT(tblint * odtot(jl)/(bpade+odtot(jl)) + 0.5_wp), branch_od1)
+              tfactot = MERGE(0.0_wp, tfn_tbl(ittot), branch_od1)
+              odepth(jl) = MERGE(odepth_temp, tau_tbl(itgas), branch_od1 .OR. branch_od2)
 
-            odepth_rec = rec_6*odepth(jl)
-            odtot_rec = MERGE(rec_6*odtot(jl), 0.0_wp, branch_od1)
-            odepth_rec_or_tfacgas = MERGE(odepth_rec, tfacgas, branch_od1 .OR. branch_od2)
-            odtot_rec_or_tfactot = MERGE(odtot_rec, tfactot, branch_od1)
+              odepth_rec = rec_6*odepth(jl)
+              odtot_rec = MERGE(rec_6*odtot(jl), 0.0_wp, branch_od1)
+              odepth_rec_or_tfacgas = MERGE(odepth_rec, tfacgas, branch_od1 .OR. branch_od2)
+              odtot_rec_or_tfactot = MERGE(odtot_rec, tfactot, branch_od1)
 
-            atot(jl,lev) = MERGE(odtot(jl) - 0.5_wp*odtot(jl)*odtot(jl), &
-                 &               1._wp - exp_tbl(ittot), branch_od1)
+              atot(jl,lev) = MERGE(odtot(jl) - 0.5_wp*odtot(jl)*odtot(jl), &
+                &               1._wp - exp_tbl(ittot), branch_od1)
 
-            atrans(jl,lev) = MERGE(odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl), &
-                 &                 1._wp - exp_tbl(itgas), branch_od1 .OR. branch_od2)
-            bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev))
-            bbd(jl) = plfrac * (planklay(jl,lev,iband) + odepth_rec_or_tfacgas * dplankdn(jl,lev))
-            gassrc(jl) = plfrac * (planklay(jl,lev,iband) &
-              + odepth_rec_or_tfacgas * dplankdn(jl,lev)) * atrans(jl,lev)
-            bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
-              + odepth_rec_or_tfacgas * dplankup(jl,lev))
-            bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) &
-              + odtot_rec_or_tfactot * dplankup(jl,lev))
+              atrans(jl,lev) = MERGE(odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl), &
+                &           1._wp - exp_tbl(itgas), branch_od1 .OR. branch_od2)
+              bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev))
+              bbd(jl) = plfrac * (planklay(jl,lev,iband) + odepth_rec_or_tfacgas * dplankdn(jl,lev))
+              gassrc(jl) = plfrac * (planklay(jl,lev,iband) &
+                + odepth_rec_or_tfacgas * dplankdn(jl,lev)) * atrans(jl,lev)
+              bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
+                + odepth_rec_or_tfacgas * dplankup(jl,lev))
+              bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) &
+                + odtot_rec_or_tfactot * dplankup(jl,lev))
 
-            ttot = 1._wp - atot(jl,lev)
-            cldsrc = bbdtot(jl) * atot(jl,lev)
-            clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
-                 clrradd(jl), istcldd(jl,lev)) * (1._wp-atrans(jl,lev)) + &
-              & (1._wp-cldfrac(jl,lev))*gassrc(jl)
-            cldradd_temp = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
-                 istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
-            radld(jl) = cldradd_temp + clrradd_temp
-            drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
+              ttot = 1._wp - atot(jl,lev)
+              cldsrc = bbdtot(jl) * atot(jl,lev)
+              clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
+                & clrradd(jl), istcldd(jl,lev)) * (1._wp-atrans(jl,lev)) + &
+                & (1._wp-cldfrac(jl,lev))*gassrc(jl)
+              cldradd_temp = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
+                   istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
+              radld(jl) = cldradd_temp + clrradd_temp
+              drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
 
-            radmod = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
-              & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
-              & faccld1d(jl,lev-1) *  ttot) - &
-              & faccmb1d(jl,lev-1) * gassrc(jl) + &
-              & faccmb2d(jl,lev-1) * cldsrc
+              radmod = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
+                & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
+                & faccld1d(jl,lev-1) *  ttot) - &
+                & faccmb1d(jl,lev-1) * gassrc(jl) + &
+                & faccmb2d(jl,lev-1) * cldsrc
 
-            oldcld = cldradd_temp - radmod
-            oldclr = clrradd_temp + radmod
-            rad(jl) = -radmod + facclr2d(jl,lev-1)*oldclr -&
-              &  faccld2d(jl,lev-1)*oldcld
-            cldradd(jl) = cldradd_temp + rad(jl)
-            clrradd(jl) = clrradd_temp - rad(jl)
+              oldcld = cldradd_temp - radmod
+              oldclr = clrradd_temp + radmod
+              rad(jl) = -radmod + facclr2d(jl,lev-1)*oldclr -&
+                &  faccld2d(jl,lev-1)*oldcld
+              cldradd(jl) = cldradd_temp + rad(jl)
+              clrradd(jl) = clrradd_temp - rad(jl)
+            END IF
           ENDDO
 
         ELSE IF (n_clearpoints(lev) == kproma) THEN ! all points are clear
