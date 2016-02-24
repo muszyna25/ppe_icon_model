@@ -458,7 +458,8 @@ CONTAINS
             bbd(jl) = plfrac * (planklay(jl,lev,iband) &
               + odepth_rec_or_tfacgas * dplankdn(jl,lev))
             odtot_rec_or_tfactot = MERGE(rec_6*odtot, tfn_tbl(ittot), branch_od1)
-            cldsrc = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev)) * atot(jl,lev)
+            cldsrc = plfrac * (planklay(jl,lev,iband) &
+              + odtot_rec_or_tfactot * dplankdn(jl,lev)) * atot(jl,lev)
             bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) &
               + odtot_rec_or_tfactot * dplankup(jl,lev))
 
