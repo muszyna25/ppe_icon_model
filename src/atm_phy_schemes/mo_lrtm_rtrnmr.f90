@@ -448,8 +448,8 @@ CONTAINS
             odtot(jl) = odepth(jl) + secdiff(jl,ib) * taucloud(jl,lev,ib)
             branch_od1 = odtot(jl) .LT. 0.06_wp
             branch_od2 = odepth(jl) .LE. 0.06_wp
-            itgas = MERGE(0, INT(tblint * odepth(jl)/(bpade+odepth(jl)) + 0.5_wp), branch_od1 .OR. branch_od2)
-            tfacgas = MERGE(0.0_wp, tfn_tbl(itgas), branch_od1 .OR. branch_od2)
+            itgas = INT(tblint * odepth(jl)/(bpade+odepth(jl)) + 0.5_wp)
+            tfacgas = tfn_tbl(itgas)
             ittot = MERGE(0, INT(tblint * odtot(jl)/(bpade+odtot(jl)) + 0.5_wp), branch_od1)
             tfactot = MERGE(0.0_wp, tfn_tbl(ittot), branch_od1)
             odepth(jl) = MERGE(odepth(jl), tau_tbl(itgas), branch_od1 .OR. branch_od2)
