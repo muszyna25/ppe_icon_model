@@ -455,8 +455,10 @@ CONTAINS
 
             odepth_rec_or_tfacgas = MERGE(rec_6 * odepth, tfacgas, &
               &             (lcldlyr(jl,lev) .AND. branch_od1) .OR. branch_od2)
-            bbd(jl) = plfrac * (planklay(jl,lev,iband) &
+            bbd(jl)        = plfrac * (planklay(jl,lev,iband) &
               + odepth_rec_or_tfacgas * dplankdn(jl,lev))
+            bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
+              + odepth_rec_or_tfacgas * dplankup(jl,lev))
             odtot_rec_or_tfactot = MERGE(rec_6*odtot, tfn_tbl(ittot), branch_od1)
             cldsrc = plfrac * (planklay(jl,lev,iband) &
               + odtot_rec_or_tfactot * dplankdn(jl,lev)) * atot(jl,lev)
@@ -467,8 +469,6 @@ CONTAINS
 
               gassrc = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tfacgas * dplankdn(jl,lev)) * atrans(jl,lev)
-              bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
-                + odepth_rec_or_tfacgas * dplankup(jl,lev))
 
               ttot = 1._wp - atot(jl,lev)
               clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
@@ -489,9 +489,6 @@ CONTAINS
                 &  faccld2d(jl,lev-1)*oldcld
               cldradd(jl) = cldradd_temp + rad(jl)
               clrradd(jl) = clrradd_temp - rad(jl)
-            ELSE
-              bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
-                + odepth_rec_or_tfacgas * dplankup(jl,lev))
             END IF
             radld(jl) = MERGE(cldradd_temp + clrradd_temp, &
               radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev), lcldlyr(jl,lev))
