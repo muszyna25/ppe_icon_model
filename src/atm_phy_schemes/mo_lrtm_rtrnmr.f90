@@ -175,9 +175,9 @@ CONTAINS
     ! angle.  This initial value is redefined below for some bands.
       wtdiff = 0.5_wp
     REAL(wp) :: radld(kproma), radclrd(kproma), plfrac
-    REAL(wp) :: odepth(kproma), odtot, odepth_rec, odtot_rec, &
+    REAL(wp) :: odepth, odtot, odepth_rec, odtot_rec, &
          gassrc, ttot, odepth_temp
-    REAL(wp) :: tfactot, bbd(kproma), bbdtot(kproma), tfacgas
+    REAL(wp) :: tfactot, bbd(kproma), bbdtot, tfacgas
     REAL(wp) :: rad0, reflect, radlu(kproma), radclru(kproma)
 
     REAL(wp) :: duflux_dt
@@ -451,9 +451,9 @@ CONTAINS
               tfacgas = tfn_tbl(itgas)
               ittot = MERGE(0, INT(tblint * odtot/(bpade+odtot) + 0.5_wp), branch_od1)
               tfactot = MERGE(0.0_wp, tfn_tbl(ittot), branch_od1)
-              odepth(jl) = MERGE(odepth_temp, tau_tbl(itgas), branch_od1 .OR. branch_od2)
+              odepth = MERGE(odepth_temp, tau_tbl(itgas), branch_od1 .OR. branch_od2)
 
-              odepth_rec = rec_6*odepth(jl)
+              odepth_rec = rec_6*odepth
               odtot_rec = MERGE(rec_6*odtot, 0.0_wp, branch_od1)
               odepth_rec_or_tfacgas = MERGE(odepth_rec, tfacgas, branch_od1 .OR. branch_od2)
               odtot_rec_or_tfactot = MERGE(odtot_rec, tfactot, branch_od1)
@@ -461,9 +461,9 @@ CONTAINS
               atot(jl,lev) = MERGE(odtot - 0.5_wp*odtot*odtot, &
                 &               1._wp - exp_tbl(ittot), branch_od1)
 
-              atrans(jl,lev) = MERGE(odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl), &
+              atrans(jl,lev) = MERGE(odepth - 0.5_wp*odepth*odepth, &
                 &           1._wp - exp_tbl(itgas), branch_od1 .OR. branch_od2)
-              bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev))
+              bbdtot = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev))
               bbd(jl) = plfrac * (planklay(jl,lev,iband) + odepth_rec_or_tfacgas * dplankdn(jl,lev))
               gassrc = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tfacgas * dplankdn(jl,lev)) * atrans(jl,lev)
@@ -473,7 +473,7 @@ CONTAINS
                 + odtot_rec_or_tfactot * dplankup(jl,lev))
 
               ttot = 1._wp - atot(jl,lev)
-              cldsrc = bbdtot(jl) * atot(jl,lev)
+              cldsrc = bbdtot * atot(jl,lev)
               clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
                 & clrradd(jl), istcldd(jl,lev)) * (1._wp-atrans(jl,lev)) + &
                 & (1._wp-cldfrac(jl,lev))*gassrc
@@ -504,7 +504,6 @@ CONTAINS
               atrans(jl,lev) = MERGE(odepth_temp-0.5_wp*odepth_temp*odepth_temp, &
                 1._wp - exp_tbl(INT(tblint*odepth_temp/(bpade+odepth_temp) + 0.5_wp)), &
                 branch_od2)
-              odepth(jl) = odepth_temp
               bbd(jl) = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tausfac * dplankdn(jl,lev))
               bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
@@ -520,21 +519,20 @@ CONTAINS
           DO jl = 1, kproma ! Thus, direct addressing can be used
 
             plfrac = fracs(jl,lev,igc)
-            odepth_temp = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
+            odepth = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
 
-            branch_od2 = odepth_temp .LE. 0.06_wp
+            branch_od2 = odepth .LE. 0.06_wp
 
             ! only needed for NAG
             atot(jl, lev) = 0.0_wp
             bbutot(jl, lev) = 0.0_wp
 
-            odepth_rec_or_tausfac = MERGE(rec_6*odepth_temp, &
-              tfn_tbl(INT(tblint*odepth_temp/(bpade+odepth_temp)+0.5_wp)), &
+            odepth_rec_or_tausfac = MERGE(rec_6*odepth, &
+              tfn_tbl(INT(tblint*odepth/(bpade+odepth)+0.5_wp)), &
               branch_od2)
-            atrans(jl,lev) = MERGE(odepth_temp-0.5_wp*odepth_temp*odepth_temp, &
-              1._wp - exp_tbl(INT(tblint*odepth_temp/(bpade+odepth_temp) + 0.5_wp)), &
+            atrans(jl,lev) = MERGE(odepth-0.5_wp*odepth*odepth, &
+              1._wp - exp_tbl(INT(tblint*odepth/(bpade+odepth) + 0.5_wp)), &
               branch_od2)
-            odepth(jl) = odepth_temp
             bbd(jl) = plfrac * (planklay(jl,lev,iband) &
               + odepth_rec_or_tausfac * dplankdn(jl,lev))
             bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
