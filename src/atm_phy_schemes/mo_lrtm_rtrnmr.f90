@@ -259,10 +259,10 @@ CONTAINS
     !           clear in the current layer
     !--------------------------------------------------------------------------
 
-    REAL(wp) :: cldsrc, oldclr, oldcld
+    REAL(wp) :: cldsrc, oldclr, oldcld, radmod
 #ifndef LRTM_FULL_VECTORIZATION
     REAL(wp) :: odepth_rec, odtot_rec, tblind, tfactot, tfacgas, bbdtot, &
-      transc, tausfac, radmod
+      transc, tausfac
     DIMENSION :: gassrc(kproma), cldsrc(kproma), bbdtot(kproma), &
       oldcld(kproma), oldclr(kproma), odepth(kproma), odtot(kproma), &
       radmod(kproma)
