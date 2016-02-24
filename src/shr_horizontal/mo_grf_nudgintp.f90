@@ -395,9 +395,10 @@ REAL(wp) :: h_aux(nproma,MAX(32,ptr_pp%nlevp1),                       &
                   MAX(ptr_pp%cells%start_block(grf_nudgintp_start_c), &
                       ptr_pp%cells%end_block(min_rlcell_int)),4,nfields)
 
-REAL(wp) :: limfac1, limfac2, limfac, min_expval(nproma), max_expval(nproma), epsi, ovsht_fac, r_ovsht_fac, &
+REAL(wp) :: limfac1, limfac2, limfac, min_expval(nproma), max_expval(nproma), ovsht_fac, r_ovsht_fac, &
             relaxed_minval, relaxed_maxval
 
+REAL(wp), PARAMETER :: epsi = 1.e-75_wp
 ! Pointers to index and coefficient fields
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk, ichcidx, ichcblk
 REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff, ptr_dist
@@ -472,7 +473,6 @@ ENDIF
       l_enabled = .TRUE.
     END IF
 
-epsi = 1.e-75_wp
 r_ovsht_fac = 1._wp/ovsht_fac
 
 ! Start and end blocks for which scalar interpolation is needed
