@@ -212,11 +212,13 @@ CONTAINS
     !           clear in the current layer
     !--------------------------------------------------------------------------
 
-    REAL(wp) :: fmax, fmin, rat1(kproma), rat2(kproma)
+    REAL(wp) :: fmax, fmin, rat1(kproma), rat2(kproma), &
+         odepth_rec_or_tfacgas, odtot_rec_or_tfactot
     REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, oldclr, oldcld, &
       & rad, cldsrc, radmod
 
-    logical :: istcld(kproma,nlayers+1),istcldd(kproma,0:nlayers)
+    LOGICAL :: istcld(kproma,nlayers+1),istcldd(kproma,0:nlayers), &
+         branch_od1, branch_od2
 
     ! ------- Definitions -------
     ! input
@@ -753,66 +755,46 @@ CONTAINS
       radld(:) = 0._wp
       radclrd(:) = 0._wp
       iclddn(:) = .FALSE.
+      clrradd = 0._wp
+      cldradd = 0._wp
 
       ! Downward radiative transfer loop.
       DO lev = nlayers, 1, -1
         IF (n_cloudpoints(lev) == kproma) THEN ! all points are cloudy
 
           DO jl = 1, kproma ! Thus, direct addressing can be used
-
             ib = ibv(jl)
             plfrac = fracs(jl,lev,igc)
             odepth(jl) = MAX(0.0_wp, secdiff(jl,iband) * taut(jl,lev,igc))
 
             iclddn(jl) = .TRUE.
             odtot(jl) = odepth(jl) + secdiff(jl,ib) * taucloud(jl,lev,ib)
-            IF (odtot(jl) .LT. 0.06_wp) THEN
-              atrans(jl,lev) = odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl)
-              odepth_rec = rec_6*odepth(jl)
-              gassrc(jl) = plfrac*(planklay(jl,lev,iband) &
-                         + dplankdn(jl,lev)*odepth_rec)*atrans(jl,lev)
+            branch_od1 = odtot(jl) .LT. 0.06_wp
+            branch_od2 = odepth(jl) .LE. 0.06_wp
+            itgas = MERGE(0, INT(tblint * odepth(jl)/(bpade+odepth(jl)) + 0.5_wp), branch_od1 .OR. branch_od2)
+            tfacgas = MERGE(0.0_wp, tfn_tbl(itgas), branch_od1 .OR. branch_od2)
+            ittot = MERGE(0, INT(tblint * odtot(jl)/(bpade+odtot(jl)) + 0.5_wp), branch_od1)
+            tfactot = MERGE(0.0_wp, tfn_tbl(ittot), branch_od1)
+            odepth(jl) = MERGE(odepth(jl), tau_tbl(itgas), branch_od1 .OR. branch_od2)
 
-              atot(jl,lev) = odtot(jl) - 0.5_wp*odtot(jl)*odtot(jl)
-              odtot_rec = rec_6*odtot(jl)
-              bbdtot(jl) =  plfrac * (planklay(jl,lev,iband)+dplankdn(jl,lev)*odtot_rec)
-              bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
+            odepth_rec = rec_6*odepth(jl)
+            odtot_rec = MERGE(rec_6*odtot(jl), 0.0_wp, branch_od1)
+            odepth_rec_or_tfacgas = MERGE(odepth_rec, tfacgas, branch_od1 .OR. branch_od2)
+            odtot_rec_or_tfactot = MERGE(odtot_rec, tfactot, branch_od1)
 
-              bbugas(jl,lev) =  plfrac * (planklay(jl,lev,iband)+dplankup(jl,lev)*odepth_rec)
-              bbutot(jl,lev) =  plfrac * (planklay(jl,lev,iband)+dplankup(jl,lev)*odtot_rec)
-            ELSEIF (odepth(jl) .LE. 0.06_wp) THEN
-              atrans(jl,lev) = odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl)
-              odepth_rec = rec_6*odepth(jl)
-              gassrc(jl) = plfrac*(planklay(jl,lev,iband) &
-                         + dplankdn(jl,lev)*odepth_rec)*atrans(jl,lev)
+            atot(jl,lev) = MERGE(odtot(jl) - 0.5_wp*odtot(jl)*odtot(jl), &
+                 &               1._wp - exp_tbl(ittot), branch_od1)
 
-              tblind = odtot(jl)/(bpade+odtot(jl))
-              ittot = INT(tblint*tblind + 0.5_wp)
-              tfactot = tfn_tbl(ittot)
-              bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + tfactot*dplankdn(jl,lev))
-              bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
-              atot(jl,lev) = 1._wp - exp_tbl(ittot)
-
-              bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) + dplankup(jl,lev)*odepth_rec)
-              bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfactot * dplankup(jl,lev))
-            ELSE
-              tblind = odepth(jl)/(bpade+odepth(jl))
-              itgas = INT(tblint*tblind+0.5_wp)
-              odepth(jl) = tau_tbl(itgas)
-              atrans(jl,lev) = 1._wp - exp_tbl(itgas)
-              tfacgas = tfn_tbl(itgas)
-              gassrc(jl) = atrans(jl,lev) * plfrac * (planklay(jl,lev,iband) &
-                                                   + tfacgas*dplankdn(jl,lev))
-
-              tblind = odtot(jl)/(bpade+odtot(jl))
-              ittot = INT(tblint*tblind + 0.5_wp)
-              tfactot = tfn_tbl(ittot)
-              bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + tfactot*dplankdn(jl,lev))
-              bbd(jl) = plfrac*(planklay(jl,lev,iband)+tfacgas*dplankdn(jl,lev))
-              atot(jl,lev) = 1._wp - exp_tbl(ittot)
-
-              bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfacgas * dplankup(jl,lev))
-              bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) + tfactot * dplankup(jl,lev))
-            ENDIF
+            atrans(jl,lev) = MERGE(odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl), &
+                 &                 1._wp - exp_tbl(itgas), branch_od1 .OR. branch_od2)
+            bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev))
+            bbd(jl) = plfrac * (planklay(jl,lev,iband) + odepth_rec_or_tfacgas * dplankdn(jl,lev))
+            gassrc(jl) = plfrac * (planklay(jl,lev,iband) &
+              + odepth_rec_or_tfacgas * dplankdn(jl,lev)) * atrans(jl,lev)
+            bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
+              + odepth_rec_or_tfacgas * dplankup(jl,lev))
+            bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) &
+              + odtot_rec_or_tfactot * dplankup(jl,lev))
 
             IF (istcldd(jl,lev)) THEN
               cldradd(jl) = cldfrac(jl,lev) * radld(jl)
