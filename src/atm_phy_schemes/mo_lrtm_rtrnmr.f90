@@ -237,8 +237,7 @@ CONTAINS
     !--------------------------------------------------------------------------
 
     REAL(wp) :: odepth_rec_or_tfacgas, odtot_rec_or_tfactot, cldsrc, &
-         oldclr, oldcld, clrradd_temp, cldradd_temp, radmod, &
-         odepth_rec_or_tausfac
+         oldclr, oldcld, clrradd_temp, cldradd_temp, radmod
     REAL(wp), DIMENSION(kproma) :: clrradd, cldradd, clrradu, cldradu, &
       & rad
 
@@ -494,12 +493,12 @@ CONTAINS
               ! only needed for NAG
               bbutot(jl, lev) = 0.0_wp
 
-              odepth_rec_or_tausfac = MERGE(rec_6*odepth, &
+              odepth_rec_or_tfacgas = MERGE(rec_6*odepth, &
                 tfacgas, branch_od2)
               bbd(jl) = plfrac * (planklay(jl,lev,iband) &
-                + odepth_rec_or_tausfac * dplankdn(jl,lev))
+                + odepth_rec_or_tfacgas * dplankdn(jl,lev))
               bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
-                + odepth_rec_or_tausfac * dplankup(jl,lev))
+                + odepth_rec_or_tfacgas * dplankup(jl,lev))
             END IF
             radld(jl) = MERGE(cldradd_temp + clrradd_temp, &
               radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev), lcldlyr(jl,lev))
@@ -519,16 +518,16 @@ CONTAINS
             atot(jl, lev) = 0.0_wp
             bbutot(jl, lev) = 0.0_wp
 
-            odepth_rec_or_tausfac = MERGE(rec_6*odepth, &
+            odepth_rec_or_tfacgas = MERGE(rec_6*odepth, &
               tfn_tbl(INT(tblint*odepth/(bpade+odepth)+0.5_wp)), &
               branch_od2)
             atrans(jl,lev) = MERGE(odepth-0.5_wp*odepth*odepth, &
               1._wp - exp_tbl(INT(tblint*odepth/(bpade+odepth) + 0.5_wp)), &
               branch_od2)
             bbd(jl) = plfrac * (planklay(jl,lev,iband) &
-              + odepth_rec_or_tausfac * dplankdn(jl,lev))
+              + odepth_rec_or_tfacgas * dplankdn(jl,lev))
             bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
-              + odepth_rec_or_tausfac * dplankup(jl,lev))
+              + odepth_rec_or_tfacgas * dplankup(jl,lev))
             radld(jl) = radld(jl) + (bbd(jl)-radld(jl))*atrans(jl,lev)
             drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
           ENDDO
