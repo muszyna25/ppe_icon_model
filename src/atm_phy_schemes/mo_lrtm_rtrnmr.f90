@@ -46,7 +46,7 @@ MODULE mo_lrtm_rtrnmr
 
   REAL(wp), PARAMETER :: fluxfac = 2.0e+04_wp * pi
 
-  REAL(wp), PARAMETER :: tblint = 10000.0_wp
+  REAL(wp), PARAMETER :: tblint = REAL(ntbl, wp)
 
 CONTAINS
 
