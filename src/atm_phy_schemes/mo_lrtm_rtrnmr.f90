@@ -176,7 +176,7 @@ CONTAINS
       wtdiff = 0.5_wp
     REAL(wp) :: radld(kproma), radclrd(kproma), plfrac
     REAL(wp) :: odepth, odtot, gassrc, ttot
-    REAL(wp) :: bbd(kproma), bbdtot, tfacgas
+    REAL(wp) :: bbd(kproma), tfacgas
     REAL(wp) :: rad0, reflect, radlu(kproma), radclru(kproma)
 
     REAL(wp) :: duflux_dt
@@ -455,13 +455,11 @@ CONTAINS
 
             odepth_rec_or_tfacgas = MERGE(rec_6 * odepth, tfacgas, &
               &             (lcldlyr(jl,lev) .AND. branch_od1) .OR. branch_od2)
+            odtot_rec_or_tfactot = MERGE(rec_6*odtot, tfn_tbl(ittot), branch_od1)
+            cldsrc = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev)) * atot(jl,lev)
 
             IF (lcldlyr(jl,lev)) THEN
-              odtot_rec_or_tfactot = MERGE(rec_6*odtot, tfn_tbl(ittot), &
-                branch_od1)
 
-
-              bbdtot = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev))
               bbd(jl) = plfrac * (planklay(jl,lev,iband) + odepth_rec_or_tfacgas * dplankdn(jl,lev))
               gassrc = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tfacgas * dplankdn(jl,lev)) * atrans(jl,lev)
@@ -471,7 +469,6 @@ CONTAINS
                 + odtot_rec_or_tfactot * dplankup(jl,lev))
 
               ttot = 1._wp - atot(jl,lev)
-              cldsrc = bbdtot * atot(jl,lev)
               clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
                 & clrradd(jl), istcldd(jl,lev)) * (1._wp-atrans(jl,lev)) + &
                 & (1._wp-cldfrac(jl,lev))*gassrc
