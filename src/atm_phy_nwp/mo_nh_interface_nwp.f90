@@ -1578,7 +1578,7 @@ CONTAINS
 
           ENDDO
         ENDDO
-      END if
+      END IF
       IF (lcall_phy_jg(itturb) ) THEN
 #ifdef __LOOP_EXCHANGE
         DO jce = i_startidx, i_endidx
