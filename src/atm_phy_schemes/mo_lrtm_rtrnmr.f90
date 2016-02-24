@@ -306,7 +306,7 @@ CONTAINS
 
     ! Local variables for cloud / no cloud index lists
     INTEGER, DIMENSION(kproma,nlayers) :: icld_ind,iclear_ind
-    INTEGER :: icld, iclear, n_cloudpoints(nlayers), n_clearpoints(nlayers)
+    INTEGER :: icld, iclear, n_cloudpoints(nlayers)
 
 
     ! Reset diffusivity angle for Bands 2-3 and 5-9 to vary (between 1.50
@@ -378,7 +378,6 @@ CONTAINS
       ENDDO
 
       n_cloudpoints(lay) = icld
-      n_clearpoints(lay) = iclear
 
     ENDDO
 
@@ -388,12 +387,12 @@ CONTAINS
     istcldd(:,nlayers) = .TRUE.
 
     CALL compute_radiative_transfer(kproma, nlayers, 1, cldfrac, &
-      n_cloudpoints, n_clearpoints, icld_ind,iclear_ind, &
+      n_cloudpoints, icld_ind,iclear_ind, &
       1, nlayers, 1, &
       faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2, istcld)
 
     CALL compute_radiative_transfer(kproma, nlayers, 0, cldfrac, &
-      n_cloudpoints, n_clearpoints, icld_ind,iclear_ind, &
+      n_cloudpoints, icld_ind,iclear_ind, &
       nlayers, 1, -1, &
       faccld1d, faccld2d, facclr1d, facclr2d, faccmb1d, faccmb2d, istcldd)
 
@@ -434,7 +433,7 @@ CONTAINS
 
       ! Downward radiative transfer loop.
       DO lev = nlayers, 1, -1
-        IF (n_clearpoints(lev) /= kproma) THEN
+        IF (n_cloudpoints(lev) /= 0) THEN
           DO jl = 1, kproma ! Thus, direct addressing can be used
             ib = ibv(jl)
             plfrac = fracs(jl,lev,igc)
@@ -487,7 +486,7 @@ CONTAINS
             drad(jl,lev-1) = drad(jl,lev-1) + radld(jl)
           ENDDO
 
-        ELSE ! n_clearpoints(lev) == kproma implies all points are clear
+        ELSE ! n_cloudpoints(lev) == 0 implies all points are clear
 
           DO jl = 1, kproma ! Thus, direct addressing can be used
 
@@ -687,14 +686,14 @@ CONTAINS
   END SUBROUTINE lrtm_rtrnmr
 
   SUBROUTINE compute_radiative_transfer(kproma, nlayers, ofs, cldfrac, &
-       n_cloudpoints, n_clearpoints, icld_ind,iclear_ind, &
+       n_cloudpoints, icld_ind,iclear_ind, &
        start_lev, end_lev, lev_incr, &
        faccld1, faccld2, facclr1, facclr2, faccmb1, faccmb2, istcld)
     INTEGER, INTENT(in) :: kproma          ! number of columns
     INTEGER, INTENT(in) :: nlayers         ! total number of layers
     INTEGER, intent(in) :: ofs             ! layer offset to use for
                                            ! references to facc*
-    INTEGER, INTENT(in) :: n_cloudpoints(nlayers), n_clearpoints(nlayers)
+    INTEGER, INTENT(in) :: n_cloudpoints(nlayers)
     INTEGER, DIMENSION(kproma,nlayers) :: icld_ind,iclear_ind
     INTEGER, INTENT(in) :: start_lev, end_lev, lev_incr
 
@@ -782,7 +781,7 @@ CONTAINS
             faccmb2(jl,olev) = faccld1(jl,olev) * facclr2(jl,lev) * (1._wp - cldfrac(jl,lev-lev_incr))
           ENDIF
         ENDDO
-      ELSE IF (n_clearpoints(lev) == kproma) THEN ! all points are clear
+      ELSE IF (n_cloudpoints(lev) == 0) THEN ! all points are clear
         istcld(1:kproma,olev) = .TRUE.
       ELSE ! use index list for the case that not all points are cloudy
 !CDIR NODEP,VOVERTAKE,VOB
@@ -856,7 +855,7 @@ CONTAINS
           ENDIF
         ENDDO
 !CDIR NODEP,VOVERTAKE,VOB
-        DO iclear = 1, n_clearpoints(lev)
+        DO iclear = 1, kproma - n_cloudpoints(lev)
           jl = iclear_ind(iclear,lev)
           istcld(jl,olev) = .TRUE.
         ENDDO
