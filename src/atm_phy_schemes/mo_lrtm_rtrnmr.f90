@@ -175,7 +175,7 @@ CONTAINS
     ! angle.  This initial value is redefined below for some bands.
       wtdiff = 0.5_wp
     REAL(wp) :: radld(kproma), radclrd(kproma), plfrac
-    REAL(wp) :: odepth(kproma), odtot(kproma), odepth_rec, odtot_rec, &
+    REAL(wp) :: odepth(kproma), odtot, odepth_rec, odtot_rec, &
          gassrc(kproma), ttot, odepth_temp
     REAL(wp) :: tfactot, bbd(kproma), bbdtot(kproma), tfacgas
     REAL(wp) :: rad0, reflect, radlu(kproma), radclru(kproma)
@@ -445,20 +445,20 @@ CONTAINS
 
             iclddn(jl) = iclddn(jl) .OR. lcldlyr(jl,lev)
             IF (lcldlyr(jl,lev)) THEN
-              odtot(jl) = odepth_temp + secdiff(jl,ib) * taucloud(jl,lev,ib)
-              branch_od1 = odtot(jl) .LT. 0.06_wp
+              odtot = odepth_temp + secdiff(jl,ib) * taucloud(jl,lev,ib)
+              branch_od1 = odtot .LT. 0.06_wp
               itgas = INT(tblint * odepth_temp/(bpade+odepth_temp) + 0.5_wp)
               tfacgas = tfn_tbl(itgas)
-              ittot = MERGE(0, INT(tblint * odtot(jl)/(bpade+odtot(jl)) + 0.5_wp), branch_od1)
+              ittot = MERGE(0, INT(tblint * odtot/(bpade+odtot) + 0.5_wp), branch_od1)
               tfactot = MERGE(0.0_wp, tfn_tbl(ittot), branch_od1)
               odepth(jl) = MERGE(odepth_temp, tau_tbl(itgas), branch_od1 .OR. branch_od2)
 
               odepth_rec = rec_6*odepth(jl)
-              odtot_rec = MERGE(rec_6*odtot(jl), 0.0_wp, branch_od1)
+              odtot_rec = MERGE(rec_6*odtot, 0.0_wp, branch_od1)
               odepth_rec_or_tfacgas = MERGE(odepth_rec, tfacgas, branch_od1 .OR. branch_od2)
               odtot_rec_or_tfactot = MERGE(odtot_rec, tfactot, branch_od1)
 
-              atot(jl,lev) = MERGE(odtot(jl) - 0.5_wp*odtot(jl)*odtot(jl), &
+              atot(jl,lev) = MERGE(odtot - 0.5_wp*odtot*odtot, &
                 &               1._wp - exp_tbl(ittot), branch_od1)
 
               atrans(jl,lev) = MERGE(odepth(jl) - 0.5_wp*odepth(jl)*odepth(jl), &
