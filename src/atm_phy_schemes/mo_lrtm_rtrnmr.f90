@@ -459,6 +459,8 @@ CONTAINS
               + odepth_rec_or_tfacgas * dplankdn(jl,lev))
             odtot_rec_or_tfactot = MERGE(rec_6*odtot, tfn_tbl(ittot), branch_od1)
             cldsrc = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev)) * atot(jl,lev)
+            bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) &
+              + odtot_rec_or_tfactot * dplankup(jl,lev))
 
             IF (lcldlyr(jl,lev)) THEN
 
@@ -466,8 +468,6 @@ CONTAINS
                 + odepth_rec_or_tfacgas * dplankdn(jl,lev)) * atrans(jl,lev)
               bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tfacgas * dplankup(jl,lev))
-              bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) &
-                + odtot_rec_or_tfactot * dplankup(jl,lev))
 
               ttot = 1._wp - atot(jl,lev)
               clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
@@ -489,9 +489,6 @@ CONTAINS
               cldradd(jl) = cldradd_temp + rad(jl)
               clrradd(jl) = clrradd_temp - rad(jl)
             ELSE
-              ! only needed for NAG
-              bbutot(jl, lev) = 0.0_wp
-
               bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tfacgas * dplankup(jl,lev))
             END IF
