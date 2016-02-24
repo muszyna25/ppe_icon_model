@@ -33,6 +33,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+#include "consistent_fma.inc"
 MODULE mo_cuflxtends
 
 #ifdef __ICON__
@@ -860,6 +861,7 @@ CONTAINS
 
       ! Compute tendencies
 
+!PREVENT_INCONSISTENT_IFORT_FMA
       DO jk=ktdia-1+ktopm2,klev
         DO jl=kidia,kfdia
           IF(llcumbas(jl,jk)) THEN
@@ -1335,6 +1337,7 @@ CONTAINS
 
     !!Initialize Cumulus mask + some setups
 
+!PREVENT_INCONSISTENT_IFORT_FMA
     DO jk=ktdia+1,klev
       DO jl=kidia,kfdia
         llcumask(jl,jk)=.FALSE.

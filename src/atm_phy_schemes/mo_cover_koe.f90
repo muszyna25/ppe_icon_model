@@ -209,7 +209,8 @@ REAL(KIND=wp), PARAMETER  :: &
 
 ! saturation mixing ratio at -60 C and 200 hPa
   REAL(kind=wp), PARAMETER :: &
-       zqisat_m60 = FGQS(FGEE(213.15_wp), 0._wp, 20000._wp)
+       zqisat_m60 = &
+FGQS(FGEE(213.15_wp), 0._wp, 20000._wp)
   REAL(kind=wp), PARAMETER :: grav_i = 1._wp/grav
 
 !-----------------------------------------------------------------------
