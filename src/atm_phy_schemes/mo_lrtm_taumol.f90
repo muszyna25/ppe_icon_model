@@ -11,6 +11,7 @@
 !     revision:  $Revision: 1.7 $
 !     created:   $Date: 2009/10/20 15:08:37 $
 !
+#include "consistent_fma.inc"
 module mo_lrtm_taumol
 
   !  --------------------------------------------------------------------------
@@ -1495,7 +1496,7 @@ contains
       IF (laytrop_max == laytrop_min) RETURN
       ! Mixed loop
       ! Lower atmosphere part
-      do lay = laytrop_min+1, laytrop_max
+      DO lay = laytrop_min+1, laytrop_max
 
         ixc0 = ixc(lay)
 
@@ -1726,7 +1727,7 @@ contains
           taug(jl,lay,ngs3+14)=taug(jl,lay,ngs3+14)*0.943_wp
         enddo
 
-      enddo
+      ENDDO
 
     end subroutine taugb4
 
@@ -4004,7 +4005,7 @@ contains
       ! (in temperature) separately.
 
       ! Lower atmosphere loop
-      do lay = 1, laytrop_min
+      DO lay = 1, laytrop_min
         do jl = 1, kproma
 
           speccomb = colh2o(jl,lay) + rat_h2oco2(jl,lay)*colco2(jl,lay)
@@ -4164,7 +4165,7 @@ contains
           enddo
         enddo
 
-      enddo
+      ENDDO
 
       ! Upper atmosphere loop
       do ig = 1, ng12
