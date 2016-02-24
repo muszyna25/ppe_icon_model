@@ -506,7 +506,7 @@ MODULE mo_initicon
             IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
                 CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
             END IF
-            ! get SST from first soil level t_so (for sea and lake points)
+            ! get SST from first soil level t_so or t_seasfc (for sea and lake points)
             ! perform consistency checks
             CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data, inputInstructions)
             IF (ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode) .AND. ntiles_total > 1) THEN
@@ -1671,6 +1671,7 @@ MODULE mo_initicon
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx, i_endblk
     LOGICAL :: lanaread_tso                    ! .TRUE. T_SO(0) was read from analysis
+    LOGICAL :: lanaread_tseasfc                ! .TRUE. T_SEA was read from analysis
     LOGICAL :: lp_mask(nproma)
   !-------------------------------------------------------------------------
 
@@ -1694,7 +1695,8 @@ MODULE mo_initicon
       ELSE
         jgch = jg
       ENDIF
-      lanaread_tso = inputInstructions(jgch)%ptr%sourceOfVar('t_so') == kInputSourceAna
+      lanaread_tso  = inputInstructions(jgch)%ptr%sourceOfVar('t_so') == kInputSourceAna
+      lanaread_tseasfc = inputInstructions(jgch)%ptr%sourceOfVar('t_seasfc') == kInputSourceAna
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist) ICON_OMP_DEFAULT_SCHEDULE
@@ -1738,7 +1740,29 @@ MODULE mo_initicon
             ENDDO
           ENDDO
 
-        ELSE  ! SST (T_SO(0)) is not read from the analysis
+        ELSE IF (lanaread_tseasfc) THEN
+          !
+          ! SST analysis (T_SEA) was read into diag_lnd%t_seasfc.
+          !
+          ! Compute mask field for land points
+          lp_mask(:) = .FALSE.
+          DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,1)
+            jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
+            lp_mask(jc) = .TRUE.
+          ENDDO
+
+          ! Fill T_SO with SST analysis over pure water points
+          DO jt = 1, ntiles_total
+            DO jk = 1, nlev_soil
+              DO jc = i_startidx, i_endidx
+                IF (.NOT. lp_mask(jc)) THEN
+                  p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jk,jb,jt) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+                ENDIF
+              ENDDO
+            ENDDO
+          ENDDO
+
+        ELSE  ! SST (can be T_SEA or T_SO(0)) is not read from the analysis
           !
           ! get SST from first guess T_G (for sea and lake points)
           !

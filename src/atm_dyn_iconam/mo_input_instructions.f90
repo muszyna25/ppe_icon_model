@@ -17,7 +17,8 @@ MODULE mo_input_instructions
     USE mo_dictionary, ONLY: dict_get
     USE mo_exception, ONLY: message, finish
     USE mo_impl_constants, ONLY: SUCCESS, MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU, MODE_IAU_OLD, MODE_COMBINED, MODE_COSMODE
-    USE mo_initicon_config, ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr, lp2cintp_sfcana
+    USE mo_initicon_config, ONLY: initicon_config, lread_ana, ltile_coldstart, lp2cintp_incr, lp2cintp_sfcana, &
+      &                           l_sst_in
     USE mo_initicon_types, ONLY: ana_varnames_dict
     USE mo_lnd_nwp_config, ONLY: lsnowtile
     USE mo_model_domain, ONLY: t_patch
@@ -184,6 +185,19 @@ CONTAINS
                 IF(init_mode == MODE_IAU .AND. .NOT. lsnowtile) lRemoveSnowfrac = .TRUE.
                 IF(lRemoveSnowfrac) CALL difference(fgGroup, fgGroupSize, (/'snowfrac'/), 1)
 
+
+                !DR Test
+                IF (l_sst_in) THEN
+                  ! if sst is provided as a separate input field, read it instead of t_so(0)
+                  CALL difference(anaGroup, anaGroupSize, (/'t_so'/), 1)
+                ELSE  
+                  ! otherwise read t_so(0), which means that we have to remove t_seasfc 
+                  ! from the input group 
+                  CALL difference(anaGroup, anaGroupSize, (/'t_seasfc'/), 1)
+                ENDIF
+                !DR End Test
+
+
                 IF (.NOT. lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg) ) THEN
                     ! full ANA read
 
@@ -285,7 +299,7 @@ CONTAINS
         END DO
 
 
-        ! Allow the user to override the DEFAULT settings via ana_varlist. These variables must be READ from analyisis.
+        ! Allow the user to override the DEFAULT settings via ana_varlist. These variables must be READ from analysis.
         IF( lread_ana ) THEN
             ! translate GRIB2 varname to internal netcdf varname
             ! If requested GRIB2 varname is not found in the dictionary

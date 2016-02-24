@@ -1323,6 +1323,7 @@ MODULE mo_initicon_io
                                       & 't_ice    ', &
                                       & 'h_ice    ', &
                                       & 't_so     ', &
+                                      & 't_seasfc ', &    !DR Test
                                       & 'h_snow   ', &
                                       & 'w_snow   ', &
                                       & 'w_i      ', &
@@ -1446,6 +1447,12 @@ MODULE mo_initicon_io
             IF(inputInstructions(jg)%ptr%wantVarAna('t_so')) &
             &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch2d('t_so', 0.0_wp, trivial_tileId, jg, my_ptr2d), &
             &                                                 't_so', routine)
+
+            ! T_SEA
+            my_ptr2d => lnd_diag%t_seasfc(:,:)
+            IF(inputInstructions(jg)%ptr%wantVarAna('t_seasfc')) &
+            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch2d('t_seasfc', 0.0_wp, trivial_tileId, jg, my_ptr2d), &
+            &                                                 't_seasfc', routine)
 
             ! h_snow
             IF ( init_mode == MODE_IAU ) THEN
