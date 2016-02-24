@@ -176,7 +176,7 @@ CONTAINS
       wtdiff = 0.5_wp
     REAL(wp) :: radld(kproma), radclrd(kproma), plfrac
     REAL(wp) :: odepth(kproma), odtot, odepth_rec, odtot_rec, &
-         gassrc(kproma), ttot, odepth_temp
+         gassrc, ttot, odepth_temp
     REAL(wp) :: tfactot, bbd(kproma), bbdtot(kproma), tfacgas
     REAL(wp) :: rad0, reflect, radlu(kproma), radclru(kproma)
 
@@ -465,7 +465,7 @@ CONTAINS
                 &           1._wp - exp_tbl(itgas), branch_od1 .OR. branch_od2)
               bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev))
               bbd(jl) = plfrac * (planklay(jl,lev,iband) + odepth_rec_or_tfacgas * dplankdn(jl,lev))
-              gassrc(jl) = plfrac * (planklay(jl,lev,iband) &
+              gassrc = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tfacgas * dplankdn(jl,lev)) * atrans(jl,lev)
               bbugas(jl,lev) = plfrac * (planklay(jl,lev,iband) &
                 + odepth_rec_or_tfacgas * dplankup(jl,lev))
@@ -476,7 +476,7 @@ CONTAINS
               cldsrc = bbdtot(jl) * atot(jl,lev)
               clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
                 & clrradd(jl), istcldd(jl,lev)) * (1._wp-atrans(jl,lev)) + &
-                & (1._wp-cldfrac(jl,lev))*gassrc(jl)
+                & (1._wp-cldfrac(jl,lev))*gassrc
               cldradd_temp = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
                 istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
               radld(jl) = cldradd_temp + clrradd_temp
@@ -484,7 +484,7 @@ CONTAINS
               radmod = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
                 & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
                 & faccld1d(jl,lev-1) *  ttot) - &
-                & faccmb1d(jl,lev-1) * gassrc(jl) + &
+                & faccmb1d(jl,lev-1) * gassrc + &
                 & faccmb2d(jl,lev-1) * cldsrc
 
               oldcld = cldradd_temp - radmod
@@ -593,7 +593,7 @@ CONTAINS
       DO lev = 1, nlayers
 
           DO jl = 1, kproma
-            gassrc(jl) = bbugas(jl,lev) * atrans(jl,lev)
+            gassrc = bbugas(jl,lev) * atrans(jl,lev)
             IF (istcld(jl,lev)) THEN
               cldradu(jl) = cldfrac(jl,lev) * radlu(jl)
               clrradu(jl) = radlu(jl) - cldradu(jl)
@@ -602,7 +602,7 @@ CONTAINS
             ttot = 1._wp - atot(jl,lev)
             cldsrc = bbutot(jl,lev) * atot(jl,lev)
             cldradu(jl) = cldradu(jl) * ttot + cldfrac(jl,lev) * cldsrc
-            clrradu(jl) = clrradu(jl) * (1.0_wp-atrans(jl,lev))+(1._wp-cldfrac(jl,lev))*gassrc(jl)
+            clrradu(jl) = clrradu(jl) * (1.0_wp-atrans(jl,lev))+(1._wp-cldfrac(jl,lev))*gassrc
             ! Total sky radiance
             ! Clear layer if lcldlyr(jl,lev) == .true.
             radlu(jl) = MERGE(cldradu(jl) + clrradu(jl), &
@@ -613,7 +613,7 @@ CONTAINS
             radmod = rad(jl) * &
               & (facclr1(jl,lev+1)*(1.0_wp-atrans(jl,lev))+ &
               & faccld1(jl,lev+1) *  ttot) - &
-              & faccmb1(jl,lev+1) * gassrc(jl) + &
+              & faccmb1(jl,lev+1) * gassrc + &
               & faccmb2(jl,lev+1) * cldsrc
             oldcld = cldradu(jl) - radmod
             oldclr = clrradu(jl) + radmod
