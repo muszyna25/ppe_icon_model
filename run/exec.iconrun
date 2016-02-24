@@ -177,8 +177,8 @@ cat > $master_namelist << EOF
 &time_nml
  ini_datetime_string = "$start_date"
  end_datetime_string = "$end_date"
- dt_restart          = $dt_restart
  calendar            = $calendar_type
+ dt_restart          = $dt_restart
 /
 EOF
 fi
