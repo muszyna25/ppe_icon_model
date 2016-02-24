@@ -160,7 +160,7 @@ CONTAINS
     REAL(wp) :: wtdiff, rec_6, dplankup(kproma,nlayers), dplankdn(kproma,nlayers)
     REAL(wp) :: radld(kproma), radclrd(kproma), plfrac
     REAL(wp) :: odepth(kproma), odtot(kproma), odepth_rec, odtot_rec, gassrc(kproma), ttot
-    REAL(wp) :: tblind, tfactot, bbd(kproma), bbdtot(kproma), tfacgas, transc, tausfac
+    REAL(wp) :: tfactot, bbd(kproma), bbdtot(kproma), tfacgas, transc, tausfac
     REAL(wp) :: rad0, reflect, radlu(kproma), radclru(kproma)
 
     REAL(wp) :: duflux_dt
@@ -514,8 +514,7 @@ CONTAINS
               bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
               bbugas(jl,lev) = plfrac*(planklay(jl,lev,iband)+dplankup(jl,lev)*odepth_rec)
             ELSE
-              tblind = odepth(jl)/(bpade+odepth(jl))
-              itr = INT(tblint*tblind+0.5_wp)
+              itr = INT(tblint*odepth(jl)/(bpade+odepth(jl))+0.5_wp)
               transc = exp_tbl(itr)
               atrans(jl,lev) = 1._wp-transc
               tausfac = tfn_tbl(itr)
@@ -584,8 +583,7 @@ CONTAINS
             gassrc(jl) = plfrac*(planklay(jl,lev,iband) &
                        + dplankdn(jl,lev)*odepth_rec)*atrans(jl,lev)
 
-            tblind = odtot(jl)/(bpade+odtot(jl))
-            ittot = INT(tblint*tblind + 0.5_wp)
+            ittot = INT(tblint*odtot(jl)/(bpade+odtot(jl)) + 0.5_wp)
             tfactot = tfn_tbl(ittot)
             bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + tfactot*dplankdn(jl,lev))
             bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
@@ -600,16 +598,14 @@ CONTAINS
             jl = ilist3(icld1)
 
             plfrac = fracs(jl,lev,igc)
-            tblind = odepth(jl)/(bpade+odepth(jl))
-            itgas = INT(tblint*tblind+0.5_wp)
+            itgas = INT(tblint*odepth(jl)/(bpade+odepth(jl))+0.5_wp)
             odepth(jl) = tau_tbl(itgas)
             atrans(jl,lev) = 1._wp - exp_tbl(itgas)
             tfacgas = tfn_tbl(itgas)
             gassrc(jl) = atrans(jl,lev) * plfrac * (planklay(jl,lev,iband) &
                                                  + tfacgas*dplankdn(jl,lev))
 
-            tblind = odtot(jl)/(bpade+odtot(jl))
-            ittot = INT(tblint*tblind + 0.5_wp)
+            ittot = INT(tblint*odtot(jl)/(bpade+odtot(jl)) + 0.5_wp)
             tfactot = tfn_tbl(ittot)
             bbdtot(jl) = plfrac * (planklay(jl,lev,iband) + tfactot*dplankdn(jl,lev))
             bbd(jl) = plfrac*(planklay(jl,lev,iband)+tfacgas*dplankdn(jl,lev))
@@ -668,8 +664,7 @@ CONTAINS
               bbd(jl) = plfrac*(planklay(jl,lev,iband)+dplankdn(jl,lev)*odepth_rec)
               bbugas(jl,lev) = plfrac*(planklay(jl,lev,iband)+dplankup(jl,lev)*odepth_rec)
             ELSE
-              tblind = odepth(jl)/(bpade+odepth(jl))
-              itr = INT(tblint*tblind+0.5_wp)
+              itr = INT(tblint*odepth(jl)/(bpade+odepth(jl))+0.5_wp)
               transc = exp_tbl(itr)
               atrans(jl,lev) = 1._wp-transc
               tausfac = tfn_tbl(itr)
