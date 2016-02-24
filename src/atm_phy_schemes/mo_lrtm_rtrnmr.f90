@@ -465,9 +465,9 @@ CONTAINS
             cldsrc = plfrac * (planklay(jl,lev,iband) &
               + odtot_rec_or_tfactot * dplankdn(jl,lev)) * atot(jl,lev)
             ttot = 1._wp - atot(jl,lev)
-            clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
-              & clrradd(jl), .NOT. lcldlyr(jl,lev+1)) * (1._wp-atrans(jl,lev)) + &
-              & (1._wp-cldfrac(jl,lev))*gassrc
+            clrradd_temp = MERGE(clrradd(jl), &
+              & radld(jl) - cldfrac(jl,lev) * radld(jl), lcldlyr(jl,lev+1)) &
+              & * (1._wp-atrans(jl,lev)) + (1._wp-cldfrac(jl,lev))*gassrc
             cldradd_temp = MERGE(cldradd(jl), cldfrac(jl,lev) * radld(jl), &
               lcldlyr(jl,lev+1)) * ttot + cldfrac(jl,lev) * cldsrc
             radmod = MERGE(rad(jl), 0._wp, lcldlyr(jl,lev+1)) * &
