@@ -491,6 +491,7 @@ CONTAINS
 
         ELSE ! n_cloudpoints(lev) == 0 implies all points are clear
 
+!DIR$ SIMD
           DO jl = 1, kproma ! Thus, direct addressing can be used
 
             plfrac = fracs(jl,lev,igc)
