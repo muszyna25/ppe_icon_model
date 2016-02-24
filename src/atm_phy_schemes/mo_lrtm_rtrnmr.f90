@@ -175,8 +175,7 @@ CONTAINS
     ! angle.  This initial value is redefined below for some bands.
       wtdiff = 0.5_wp
     REAL(wp) :: radld(kproma), radclrd(kproma), plfrac
-    REAL(wp) :: odepth, odtot, odtot_rec, &
-         gassrc, ttot
+    REAL(wp) :: odepth, odtot, gassrc, ttot
     REAL(wp) :: bbd(kproma), bbdtot, tfacgas
     REAL(wp) :: rad0, reflect, radlu(kproma), radclru(kproma)
 
@@ -458,8 +457,8 @@ CONTAINS
               &             (lcldlyr(jl,lev) .AND. branch_od1) .OR. branch_od2)
 
             IF (lcldlyr(jl,lev)) THEN
-              odtot_rec = MERGE(rec_6*odtot, 0.0_wp, branch_od1)
-              odtot_rec_or_tfactot = MERGE(odtot_rec, tfn_tbl(ittot), branch_od1)
+              odtot_rec_or_tfactot = MERGE(rec_6*odtot, tfn_tbl(ittot), &
+                branch_od1)
 
 
               bbdtot = plfrac * (planklay(jl,lev,iband) + odtot_rec_or_tfactot * dplankdn(jl,lev))
