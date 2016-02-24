@@ -426,13 +426,9 @@ CONTAINS
                 facclr2(jl,lev+1) = 0._wp
               ENDIF
             ENDIF
-            IF (facclr1(jl,lev+1).GT.0._wp .OR. facclr2(jl,lev+1).GT.0._wp) THEN
-              rat1(jl) = 1._wp
-              rat2(jl) = 0._wp
-            ELSE
-              rat1(jl) = 0._wp
-              rat2(jl) = 0._wp
-            ENDIF
+            rat1(jl) = MERGE(1._wp, 0._wp, &
+                 facclr1(jl,lev+1) > 0._wp .OR. facclr2(jl,lev+1) > 0._wp)
+            rat2(jl) = 0._wp
           ELSE
             facclr1(jl,lev+1) = 0._wp
             facclr2(jl,lev+1) = 0._wp
@@ -452,13 +448,9 @@ CONTAINS
                 faccld2(jl,lev+1) = 0._wp
               ENDIF
             ENDIF
-            IF (faccld1(jl,lev+1).GT.0._wp .OR. faccld2(jl,lev+1).GT.0._wp) THEN
-              rat1(jl) = 0._wp
-              rat2(jl) = 1._wp
-            ELSE
-              rat1(jl) = 0._wp
-              rat2(jl) = 0._wp
-            ENDIF
+            rat2(jl) = MERGE(1._wp, 0._wp, &
+                 faccld1(jl,lev+1) > 0._wp .OR. faccld2(jl,lev+1) > 0._wp)
+            rat1(jl) = 0._wp
           ENDIF
           IF (lev == 1) THEN
             faccmb1(jl,lev+1) = 0._wp
@@ -507,13 +499,9 @@ CONTAINS
                 facclr2(jl,lev+1) = 0._wp
               ENDIF
             ENDIF
-            IF (facclr1(jl,lev+1).GT.0._wp .OR. facclr2(jl,lev+1).GT.0._wp) THEN
-              rat1(jl) = 1._wp
-              rat2(jl) = 0._wp
-            ELSE
-              rat1(jl) = 0._wp
-              rat2(jl) = 0._wp
-            ENDIF
+            rat1(jl) = MERGE(1._wp, 0._wp, &
+              facclr1(jl,lev+1) > 0._wp .OR. facclr2(jl,lev+1) > 0._wp)
+            rat2(jl) = 0._wp
           ELSE
             facclr1(jl,lev+1) = 0._wp
             facclr2(jl,lev+1) = 0._wp
@@ -533,13 +521,9 @@ CONTAINS
                 faccld2(jl,lev+1) = 0._wp
               ENDIF
             ENDIF
-            IF (faccld1(jl,lev+1).GT.0._wp .OR. faccld2(jl,lev+1).GT.0._wp) THEN
-              rat1(jl) = 0._wp
-              rat2(jl) = 1._wp
-            ELSE
-              rat1(jl) = 0._wp
-              rat2(jl) = 0._wp
-            ENDIF
+            rat2(jl) = MERGE(1._wp, 0._wp, &
+              faccld1(jl,lev+1) > 0._wp .OR. faccld2(jl,lev+1) > 0._wp)
+            rat1(jl) = 0._wp
           ENDIF
           IF (lev == 1) THEN
             faccmb1(jl,lev+1) = 0._wp
@@ -594,13 +578,9 @@ CONTAINS
                 facclr2d(jl,lev-1) = 0._wp
               ENDIF
             ENDIF
-            IF (facclr1d(jl,lev-1).GT.0._wp .OR. facclr2d(jl,lev-1).GT.0._wp)THEN
-              rat1(jl) = 1._wp
-              rat2(jl) = 0._wp
-            ELSE
-              rat1(jl) = 0._wp
-              rat2(jl) = 0._wp
-            ENDIF
+            rat1(jl) = MERGE(1._wp, 0._wp, &
+              facclr1d(jl,lev-1) > 0._wp .OR. facclr2d(jl,lev-1) > 0._wp)
+            rat2(jl) = 0._wp
           ELSE
             facclr1d(jl,lev-1) = 0._wp
             facclr2d(jl,lev-1) = 0._wp
@@ -619,13 +599,9 @@ CONTAINS
                 faccld2d(jl,lev-1) = 0._wp
               ENDIF
             ENDIF
-            IF (faccld1d(jl,lev-1).GT.0._wp .OR. faccld2d(jl,lev-1).GT.0._wp)THEN
-              rat1(jl) = 0._wp
-              rat2(jl) = 1._wp
-            ELSE
-              rat1(jl) = 0._wp
-              rat2(jl) = 0._wp
-            ENDIF
+            rat2(jl) = MERGE(1._wp, 0._wp, &
+              faccld1d(jl,lev-1) > 0._wp .OR. faccld2d(jl,lev-1) > 0._wp)
+            rat1(jl) = 0._wp
           ENDIF
           IF (lev == nlayers) THEN
             faccmb1d(jl,lev-1) = 0._wp
@@ -674,13 +650,9 @@ CONTAINS
                 facclr2d(jl,lev-1) = 0._wp
               ENDIF
             ENDIF
-            IF (facclr1d(jl,lev-1).GT.0._wp .OR. facclr2d(jl,lev-1).GT.0._wp)THEN
-              rat1(jl) = 1._wp
-              rat2(jl) = 0._wp
-            ELSE
-              rat1(jl) = 0._wp
-              rat2(jl) = 0._wp
-            ENDIF
+            rat1(jl) = MERGE(1._wp, 0._wp, &
+              facclr1d(jl,lev-1) > 0._wp .OR. facclr2d(jl,lev-1) > 0._wp)
+            rat2(jl) = 1._wp
           ELSE
             facclr1d(jl,lev-1) = 0._wp
             facclr2d(jl,lev-1) = 0._wp
@@ -699,13 +671,9 @@ CONTAINS
                 faccld2d(jl,lev-1) = 0._wp
               ENDIF
             ENDIF
-            IF (faccld1d(jl,lev-1).GT.0._wp .OR. faccld2d(jl,lev-1).GT.0._wp)THEN
-              rat1(jl) = 0._wp
-              rat2(jl) = 1._wp
-            ELSE
-              rat1(jl) = 0._wp
-              rat2(jl) = 0._wp
-            ENDIF
+            rat2(jl) = MERGE(1._wp, 0._wp, &
+              faccld1d(jl,lev-1) > 0._wp .OR. faccld2d(jl,lev-1) > 0._wp)
+            rat1(jl) = 0._wp
           ENDIF
           IF (lev == nlayers) THEN
             faccmb1d(jl,lev-1) = 0._wp
