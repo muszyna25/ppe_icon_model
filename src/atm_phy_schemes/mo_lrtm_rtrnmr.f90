@@ -465,27 +465,20 @@ CONTAINS
               + odtot_rec_or_tfactot * dplankdn(jl,lev)) * atot(jl,lev)
             bbutot(jl,lev) = plfrac * (planklay(jl,lev,iband) &
               + odtot_rec_or_tfactot * dplankup(jl,lev))
-
             IF (lcldlyr(jl,lev)) THEN
-
-
               ttot = 1._wp - atot(jl,lev)
               clrradd_temp = MERGE(radld(jl) - cldfrac(jl,lev) * radld(jl), &
                 & clrradd(jl), istcldd(jl,lev)) * (1._wp-atrans(jl,lev)) + &
                 & (1._wp-cldfrac(jl,lev))*gassrc
               cldradd_temp = MERGE(cldfrac(jl,lev) * radld(jl), cldradd(jl), &
                 istcldd(jl,lev)) * ttot + cldfrac(jl,lev) * cldsrc
-
               radmod = MERGE(0._wp, rad(jl), istcldd(jl,lev)) * &
                 & (facclr1d(jl,lev-1) * (1._wp-atrans(jl,lev)) + &
                 & faccld1d(jl,lev-1) * ttot) - &
                 & faccmb1d(jl,lev-1) * gassrc + &
                 & faccmb2d(jl,lev-1) * cldsrc
-
-              oldcld = cldradd_temp - radmod
-              oldclr = clrradd_temp + radmod
-              rad(jl) = -radmod + facclr2d(jl,lev-1)*oldclr -&
-                &  faccld2d(jl,lev-1)*oldcld
+              rad(jl) = -radmod + facclr2d(jl,lev-1) * (cldradd_temp - radmod) &
+                - faccld2d(jl,lev-1) * (clrradd_temp + radmod)
               cldradd(jl) = cldradd_temp + rad(jl)
               clrradd(jl) = clrradd_temp - rad(jl)
             END IF
