@@ -16,7 +16,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
   USE mo_bgc_icon_comm, ONLY  : ini_bgc_regions, initial_update_icon, hamocc_state, &
       &                         print_bgc_parameters,print_wpoc, update_bgc 
   USE mo_sedmnt, ONLY         : alloc_mem_sedmnt, ini_bottom, sediment_bottom
-  USE mo_carbch, ONLY         : alloc_mem_carbch
+  USE mo_carbch, ONLY         : alloc_mem_carbch,totalarea
   USE mo_ini_bgc, ONLY        : ini_aquatic_tracers,            &
        &                        ini_pore_water_tracers,         &
        &                        ini_atmospheric_concentrations, &
@@ -59,7 +59,6 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
 
   INTEGER, POINTER              :: regions(:,:)
   INTEGER :: old90
-  REAL(wp) :: totalarea
 
  ! TYPE(d2d) :: n90,n1000,n2000
    CALL message(TRIM(routine), 'start')

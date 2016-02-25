@@ -101,7 +101,7 @@ MODULE mo_name_list_output_zaxes
   USE mo_lnd_nwp_config,                    ONLY: nlev_snow
 #endif
 #ifndef __NO_ICON_OCEAN__
-  USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m
+  USE mo_ocean_nml,                         ONLY: n_zlev, dzlev_m,lhamocc
   USE mo_sedmnt,                            ONLY: ks, ksp, dzsed
 
 
@@ -471,6 +471,7 @@ CONTAINS
     DEALLOCATE(levels_i)
     DEALLOCATE(levels_m)
     of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
+    if(lhamocc)then
     ! ocean sediment
     of%cdiZaxisID(ZA_OCEAN_SEDIMENT) = zaxisCreate(ZAXIS_GENERIC, ks)
     ALLOCATE(levels_s(ks))
@@ -482,6 +483,7 @@ CONTAINS
     CALL zaxisDefLevels(of%cdiZaxisID(ZA_OCEAN_SEDIMENT), REAL(levels_s,dp))
     DEALLOCATE(levels_s)
     DEALLOCATE(levels_sp)
+    endif
 #endif
 
   END SUBROUTINE setup_zaxes_oce

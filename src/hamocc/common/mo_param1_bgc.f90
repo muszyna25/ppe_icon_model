@@ -98,7 +98,15 @@ MODULE mo_param1_bgc
       &                 kdmsbac   = 16,               &
       &                 kdmsuv    = 17,               &
       &                 keuexp    = 18,               &
-                        nbgctend  = 18 
+      &                 kplim     = 19,               &
+      &                 kflim     = 20,               &
+      &                 knlim     = 21,               &
+      &                 kgraton   = 22,               &
+      &                 kexudp    = 23,               &
+      &                 kexudz    = 24,               &
+      &                 kzdy      = 25,               &
+      &                 kpdy      = 26,               &
+                        nbgctend  = 26 
  
   INTEGER, PARAMETER :: kcflux     = 1,               &
       &                 koflux     = 2,               &
@@ -108,11 +116,13 @@ MODULE mo_param1_bgc
       &                 kprorca    = 6,               &
       &                 ksilpro    = 7,               &
       &                 kcoex90    = 8,               &
-      &                 kn2oflux   = 9,               &
-      &                 korginp   = 10,              &
-      &                 ksilinp   = 11,              &
-      &                 kcalinp   = 12,              &
-      &                 kprodus   = 13,               &
-      &                 kdmsflux  = 14,               &
-                        nbgcflux   = 14  
+      &                 kcalex90   = 9,               &
+      &                 kopex90    = 10,               &
+      &                 kn2oflux   = 11,               &
+      &                 korginp    = 12,              &
+      &                 ksilinp    = 13,              &
+      &                 kcalinp    = 14,              &
+      &                 kprodus    = 15,               &
+      &                 kdmsflux   = 16,               &
+                        nbgcflux   = 16  
 END MODULE mo_param1_bgc

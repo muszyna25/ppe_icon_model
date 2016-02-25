@@ -41,7 +41,8 @@
        &                         ialkali, idoccya, kphosy, kremin,   &
        &                         iiron, ksred, kdenit, kgraz, kbacfra, &
        &                         kn2b, kh2ob, kdelcar, kdelsil, kbacfrac, &
-       &                         kdmsprod, kdmsuv, kdmsbac,keuexp
+       &                         kdmsprod, kdmsuv, kdmsbac,keuexp, knlim, kflim,&
+       &                         kplim, kgraton, kexudp, kexudz, kpdy,kzdy
 
 
    USE mo_hamocc_nml, ONLY     : l_cyadyn
@@ -100,6 +101,15 @@
        avanut = MAX(0._wp, MIN(bgctra(j,k,iphosph),        &     ! available nutrients (phosphate   [kmol P /m3]
  &          rnoi*bgctra(j,k,iano3)))                 !                     + nitrate)
        avanfe = MAX(0._wp, MIN(avanut,bgctra(j,k,iiron)/riron))  ! available iron
+
+       ! Nutrient limitation diagnostic
+       !   Iron: flim=merge(1,0,(P<=N).and.(Fe<P))
+        bgctend(j,k,kflim)=merge(1._wp,0._wp,avanfe.eq.bgctra(j,k,iiron)/riron)
+       !Phosphate: plim=merge(1.,0.,(flim==0.).and.(P<=N))
+        bgctend(j,k,kplim)=merge(1._wp,0._wp,(bgctend(j,k,kflim).eq.0._wp).and.(bgctra(j,k,iphosph).le.rnoi*bgctra(j,k,iano3)))
+        ! Nitrate: nlim=merge(1.,0.,(flim==0.).and.(N<P))
+        bgctend(j,k,knlim)=merge(1._wp,0._wp,(bgctend(j,k,kflim).eq.0._wp).and.(rnoi*bgctra(j,k,iano3).lt.bgctra(j,k,iphosph)))
+
 
        ! phytoplankton growth
        phofa = pi_alpha*fPAR*strahl(j)*swr_frac(j,k)
@@ -178,6 +188,11 @@
 
        bgctend(j,k,kphosy) = phosy / dtbgc 
        bgctend(j,k,kgraz) = grazing / dtbgc 
+       bgctend(j,k,kgraton) = graton / dtbgc 
+       bgctend(j,k,kexudp) = exud / dtbgc 
+       bgctend(j,k,kexudz) = excdoc / dtbgc 
+       bgctend(j,k,kzdy) = zoomor / dtbgc 
+       bgctend(j,k,kpdy) =  phymor / dtbgc 
        bgctend(j,k,kdelsil) = delsil / dtbgc 
        bgctend(j,k,kdelcar) = delcar / dtbgc 
        bgctend(j,k,keuexp) = export / dtbgc 

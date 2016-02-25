@@ -48,11 +48,11 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER :: sfdic(:)
     REAL(wp), POINTER :: bacfra(:)
     REAL(wp), POINTER :: bacfrac(:)
-    REAL(wp), POINTER :: dyphy(:)
-    REAL(wp), POINTER :: dyzoo(:)
-    REAL(wp), POINTER :: zooexud(:)
-    REAL(wp), POINTER :: remzoo(:)
-    REAL(wp), POINTER :: phyexud(:)
+    REAL(wp), POINTER :: phymor(:)
+    REAL(wp), POINTER :: zoomor(:)
+    REAL(wp), POINTER :: exudz(:)
+    REAL(wp), POINTER :: graton(:)
+    REAL(wp), POINTER :: exud(:)
     REAL(wp), POINTER :: n2fix(:)
     REAL(wp), POINTER :: wcdenit(:)
     REAL(wp), POINTER :: seddenit(:)
@@ -122,6 +122,11 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  phoc(:,:,:)           
     REAL(wp), POINTER ::  cyloss(:,:,:)           
     REAL(wp), POINTER ::  graz(:,:,:)       
+    REAL(wp), POINTER ::  graton(:,:,:)       
+    REAL(wp), POINTER ::  exud(:,:,:)       
+    REAL(wp), POINTER ::  exudz(:,:,:)       
+    REAL(wp), POINTER ::  zoomor(:,:,:)       
+    REAL(wp), POINTER ::  phymor(:,:,:)       
     REAL(wp), POINTER ::  nfix(:,:,:)       
     REAL(wp), POINTER ::  remina(:,:,:)       
     REAL(wp), POINTER ::  remins(:,:,:)       
@@ -141,6 +146,8 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  prorca(:,:)       
     REAL(wp), POINTER ::  silpro(:,:)       
     REAL(wp), POINTER ::  coex90(:,:)       
+    REAL(wp), POINTER ::  opex90(:,:)       
+    REAL(wp), POINTER ::  calex90(:,:)       
     REAL(wp), POINTER ::  orginp(:,:)   ! for now constant value read via nml    
     REAL(wp), POINTER ::  silinp(:,:)   ! later riverine input possible     
     REAL(wp), POINTER ::  calinp(:,:)   ! via mo_bgc_bcond    
@@ -161,11 +168,20 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  dmsbac(:,:,:)       
     REAL(wp), POINTER ::  dmsuv(:,:,:)       
     REAL(wp), POINTER ::  euexp(:,:,:)       
+    REAL(wp), POINTER ::  plim(:,:,:)       
+    REAL(wp), POINTER ::  flim(:,:,:)       
+    REAL(wp), POINTER ::  nlim(:,:,:)       
+    REAL(wp), POINTER ::  aksp(:,:,:)       
+    REAL(wp), POINTER ::  akb(:,:,:)       
+    REAL(wp), POINTER ::  akw(:,:,:)       
+    REAL(wp), POINTER ::  ak1(:,:,:)       
+    REAL(wp), POINTER ::  ak2(:,:,:)       
   END TYPE t_hamocc_acc
 
   TYPE, EXTENDS(t_hamocc_acc):: t_hamocc_tend
     ! all tendencies (not all are accumulated)
     !--------------------------------------------
+
     TYPE(t_hamocc_monitor) :: monitor
   END TYPE t_hamocc_tend
 

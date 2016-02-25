@@ -36,7 +36,7 @@ MODULE mo_ocean_state
     &                               k_tracer_isoneutral_parameter, k_tracer_GM_kappa_parameter,    &
     &                               GMRedi_configuration,GMRedi_combined,                   &
     &                               GM_only,Redi_only, type_3dimrelax_salt, type_3dimrelax_temp,  &
-    &                               nbgctra, nbgcadv
+    &                               nbgctra, nbgcadv,lhamocc
   USE mo_ocean_types,           ONLY: t_hydro_ocean_base ,t_hydro_ocean_state ,t_hydro_ocean_prog ,t_hydro_ocean_diag, &
     &                               t_hydro_ocean_aux ,t_hydro_ocean_acc, t_oce_config ,t_ocean_tracer
   USE mo_mpi,                 ONLY: get_my_global_mpi_id, global_mpi_barrier,my_process_is_mpi_test
@@ -414,13 +414,14 @@ CONTAINS
         & oce_tracer_codes    , &
         & oce_tracer_units,     &
         & var_suffix)
-      
+      if(lhamocc)then 
       CALL set_bgc_tracer_info(max_oce_tracer+nbgctra      , &
         & oce_tracer_names    , &
         & oce_tracer_longnames, &
         & oce_tracer_codes    , &
         & oce_tracer_units,     &
         & var_suffix)
+      endif
       CALL add_var(ocean_restart_list, 'tracers'//TRIM(var_suffix), ocean_state_prog%tracer , &
         & grid_unstructured_cell, za_depth_below_sea, &
         & t_cf_var('tracers'//TRIM(var_suffix), '', '1:temperature 2:salinity', &

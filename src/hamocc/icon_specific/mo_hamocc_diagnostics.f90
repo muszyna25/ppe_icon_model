@@ -19,6 +19,7 @@ MODULE mo_hamocc_diagnostics
    USE mo_bgc_constants, ONLY:  s2year, n2tgn, c2gtc, kilo
    USE mo_biomod, ONLY: p2gtc
    USE mo_control_bgc, ONLY: dtbgc
+   USE mo_carbch, ONLY: totalarea
 
 
 IMPLICIT NONE
@@ -31,7 +32,7 @@ CONTAINS
 
 SUBROUTINE get_monitoring(hamocc_state,ocean_state,p_patch_3d)
 
-USE mo_biomod, ONLY: rcar
+USE mo_biomod, ONLY: rcar, rn2 
 TYPE(t_hamocc_state) :: hamocc_state
 TYPE(t_hydro_ocean_state) :: ocean_state
 TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
@@ -47,24 +48,57 @@ CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%npp(:,:,:), i_
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%phoc(:,:,:), &
 & i_time_stat, hamocc_state%p_tend%monitor%phosy_cya(1))
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%graz(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%grazing(1))
+CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%graton(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%graton(1))
+CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%exud(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%exud(1))
+CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%exudz(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%exudz(1))
+CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%zoomor(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%zoomor(1))
+CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%phymor(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%phymor(1))
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%delsil(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%delsil(1))
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%delcar(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%delcar(1))
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%bacfra(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%bacfra(1))
+if(l_cyadyn)then
+CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%nfix(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%n2fix(1))
+else
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%nfixd(:,:), i_time_stat,&
+& hamocc_state%p_tend%monitor%n2fix(1), 1, ocean_state)
+endif
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%bacfrac(:,:,:), &
 &i_time_stat, hamocc_state%p_tend%monitor%bacfrac(1))
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%reminn(:,:,:), &
 & i_time_stat, hamocc_state%p_tend%monitor%wcdenit(1))
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%cflux(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%net_co2_flux(1), 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%coex90(:,:), i_time_stat,&
+& hamocc_state%p_tend%monitor%omex90(1), 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calex90(:,:), i_time_stat,&
+& hamocc_state%p_tend%monitor%calex90(1), 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%opex90(:,:), i_time_stat,&
+& hamocc_state%p_tend%monitor%opex90(1), 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,4), &
+  i_time_stat,hamocc_state%p_tend%monitor%sfalk(1),-2)
+CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,3), &
+  i_time_stat,hamocc_state%p_tend%monitor%sfdic(1),-2)
+
 
 ! Unit conversion 
-! Due to the construction of hamocc monitoring (add_var) taking place before
-! HAMOCC parameter setting the conversion to GtC has to take place here
 hamocc_state%p_tend%monitor%phosy(1) = hamocc_state%p_tend%monitor%phosy(1) * p2gtc
 hamocc_state%p_tend%monitor%phosy_cya(1) = hamocc_state%p_tend%monitor%phosy_cya(1) * p2gtc
 hamocc_state%p_tend%monitor%grazing(1) = hamocc_state%p_tend%monitor%grazing(1) * p2gtc
+hamocc_state%p_tend%monitor%exud(1) = hamocc_state%p_tend%monitor%exud(1) * p2gtc
+hamocc_state%p_tend%monitor%exudz(1) = hamocc_state%p_tend%monitor%exudz(1) * p2gtc
+hamocc_state%p_tend%monitor%zoomor(1) = hamocc_state%p_tend%monitor%zoomor(1) * p2gtc
+hamocc_state%p_tend%monitor%phymor(1) = hamocc_state%p_tend%monitor%phymor(1) * p2gtc
+hamocc_state%p_tend%monitor%graton(1) = hamocc_state%p_tend%monitor%graton(1) * p2gtc
 hamocc_state%p_tend%monitor%bacfra(1) = hamocc_state%p_tend%monitor%bacfra(1) * p2gtc
 hamocc_state%p_tend%monitor%bacfrac(1) = hamocc_state%p_tend%monitor%bacfrac(1) * p2gtc
+hamocc_state%p_tend%monitor%net_co2_flux(1) = hamocc_state%p_tend%monitor%net_co2_flux(1) * c2gtc
+hamocc_state%p_tend%monitor%delcar(1) = hamocc_state%p_tend%monitor%delcar(1) * c2gtc
+hamocc_state%p_tend%monitor%wcdenit(1) = hamocc_state%p_tend%monitor%wcdenit(1) * n2tgn
+hamocc_state%p_tend%monitor%n2fix(1) = hamocc_state%p_tend%monitor%n2fix(1) * n2tgn * rn2
+hamocc_state%p_tend%monitor%omex90(1) = hamocc_state%p_tend%monitor%omex90(1) * p2gtc
+hamocc_state%p_tend%monitor%calex90(1) = hamocc_state%p_tend%monitor%calex90(1) * c2gtc
+hamocc_state%p_tend%monitor%sfalk(1) = hamocc_state%p_tend%monitor%sfalk(1)/totalarea
+hamocc_state%p_tend%monitor%sfdic(1) = hamocc_state%p_tend%monitor%sfdic(1)/totalarea
 
 END SUBROUTINE get_monitoring
 

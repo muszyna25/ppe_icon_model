@@ -107,7 +107,8 @@
       SUBROUTINE update_bgc(start_index, end_index, &
 &             klevs,pddpo,jb,ptracer,p_diag,p_sed,p_tend)
 
-      USE MO_CARBCH, ONLY: bgctra, co3, hi, bgctend, bgcflux
+      USE MO_CARBCH, ONLY: bgctra, co3, hi, bgctend, bgcflux, &
+ &                         akw3,ak13,ak23,akb3,aksp 
       USE MO_PARAM1_BGC, ONLY: n_bgctra, issso12,         &
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
@@ -145,6 +146,11 @@
           ENDDO 
           hi(jc, jk) = p_diag%hi(jc,jk,jb)    
           co3(jc, jk) = p_diag%co3(jc,jk,jb)    
+          aksp(jc, jk) = p_tend%aksp(jc,jk,jb)    
+          ak13(jc, jk) = p_tend%ak1(jc,jk,jb)    
+          ak23(jc, jk) = p_tend%ak2(jc,jk,jb)    
+          akb3(jc, jk) = p_tend%akb(jc,jk,jb)    
+          akw3(jc, jk) = p_tend%akw(jc,jk,jb)    
           bgctend(jc,jk,kh2ob) =  p_tend%h2obudget(jc,jk,jb) 
           bgctend(jc,jk,kn2b) =  p_tend%n2budget(jc,jk,jb) 
         ENDDO
@@ -217,7 +223,8 @@
 
       
       USE mo_biomod, ONLY: bolay
-      USE mo_carbch, ONLY: bgctend, bgcflux, hi, co3, bgctra, sedfluxo
+      USE mo_carbch, ONLY: bgctend, bgcflux, hi, co3, bgctra, sedfluxo, &
+ &                         akw3, akb3, aksp, ak13, ak23
 
       USE mo_param1_bgc, ONLY: kphosy, ksred, kremin, kdenit, &
  &                             kcflux, koflux, knflux, knfixd, &
@@ -231,7 +238,9 @@
  &                             kcyaloss, kn2b, kh2ob, kprodus, &
 &                              kbacfra, kdelsil, kdelcar, kbacfrac, &
 &                              kdmsflux, kdmsprod, kdmsbac, kdmsuv, &
-&                              keuexp
+&                              keuexp, kplim, kflim, knlim,kcalex90,&
+&                              kopex90, kgraton, kexudp, kexudz, &
+&                              kzdy, kpdy
   
       USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
 &                           isremino, isreminn, isremins
@@ -266,10 +275,17 @@
         p_tend%silpro(jc,jb) = bgcflux(jc,ksilpro)
         p_tend%produs(jc,jb) = bgcflux(jc,kprodus)
         p_tend%coex90(jc,jb) = bgcflux(jc,kcoex90)
+        p_tend%calex90(jc,jb) = bgcflux(jc,kcalex90)
+        p_tend%opex90(jc,jb) = bgcflux(jc,kopex90)
         kpke=klevs(jc)
         DO jk =1,kpke
              p_tend%npp(jc,jk,jb) = bgctend(jc,jk,kphosy)
              p_tend%graz(jc,jk,jb) = bgctend(jc,jk,kgraz)
+             p_tend%zoomor(jc,jk,jb) = bgctend(jc,jk,kzdy)
+             p_tend%phymor(jc,jk,jb) = bgctend(jc,jk,kpdy)
+             p_tend%exudz(jc,jk,jb) = bgctend(jc,jk,kexudz)
+             p_tend%graton(jc,jk,jb) = bgctend(jc,jk,kgraton)
+             p_tend%exud(jc,jk,jb) = bgctend(jc,jk,kexudp)
              p_tend%nfix(jc,jk,jb) = bgctend(jc,jk,knfix)
              p_tend%phoc(jc,jk,jb) = bgctend(jc,jk,kpho_cya)
              p_tend%cyloss(jc,jk,jb) = bgctend(jc,jk,kcyaloss)
@@ -288,6 +304,14 @@
              p_tend%euexp(jc,jk,jb) = bgctend(jc,jk,keuexp)
              p_diag%hi(jc,jk,jb)     = hi(jc, jk)
              p_diag%co3(jc,jk,jb)    = co3(jc,jk) 
+             p_tend%akb(jc,jk,jb)    = akb3(jc,jk) 
+             p_tend%akw(jc,jk,jb)    = akw3(jc,jk) 
+             p_tend%ak1(jc,jk,jb)    = ak13(jc,jk) 
+             p_tend%ak2(jc,jk,jb)    = ak23(jc,jk) 
+             p_tend%aksp(jc,jk,jb)   = aksp(jc,jk) 
+             p_tend%flim(jc,jk,jb) = bgctend(jc,jk,kflim)
+             p_tend%nlim(jc,jk,jb) = bgctend(jc,jk,knlim)
+             p_tend%plim(jc,jk,jb) = bgctend(jc,jk,kplim)
         ENDDO
         ! Sediment
         ! Burial layers
@@ -369,9 +393,9 @@
         DO jk =1,kpke
           DO itrac=no_tracer+1,no_tracer+n_bgctra
              ptracer(jc,jk,itrac) = bgctra(jc,jk,itrac-no_tracer)
+          ENDDO
              p_diag%hi(jc,jk,jb)  = hi(jc, jk)
              p_diag%co3(jc,jk,jb) = co3(jc,jk) 
-          ENDDO
         ENDDO
         ! Sediment
         ! Burial layers

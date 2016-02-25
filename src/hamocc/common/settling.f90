@@ -10,8 +10,8 @@
   !!
       SUBROUTINE settling (klev,start_idx, end_idx,pddpo,za)
 
-      USE mo_param1_bgc, ONLY     : icalc, iopal,   &
-       &                            idet, &
+      USE mo_param1_bgc, ONLY     : icalc, iopal, kopex90,   &
+       &                            idet, kcalex90, &
        &                            kprorca,kprcaca,   &
        &                            ksilpro,kcoex90, idust, kprodus
 
@@ -50,7 +50,11 @@
         IF(kpke > 0)THEN
         IF(pddpo(j,1) > 0.5_wp)THEN
 
-         if(kpke>=n90depth)bgcflux(j,kcoex90) = bgctra(j,n90depth,idet)*wpoc(n90depth)/dtbgc  
+         if(kpke>=n90depth)then
+           bgcflux(j,kcoex90) = bgctra(j,n90depth,idet)*wpoc(n90depth)/dtbgc  
+           bgcflux(j,kcalex90) = bgctra(j,n90depth,icalc)*wcal/dtbgc  
+           bgcflux(j,kopex90) = bgctra(j,n90depth,iopal)*wopal/dtbgc  
+         endif
 
                   ! -----------surface layer
          k=1 

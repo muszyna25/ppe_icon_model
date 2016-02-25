@@ -46,6 +46,11 @@ CONTAINS
     ! update hamocc state accumulated values
     CALL add_fields(hamocc_state%p_acc%npp             , hamocc_state%p_tend%npp             , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%graz            , hamocc_state%p_tend%graz            , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%graton          , hamocc_state%p_tend%graton          , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%exud            , hamocc_state%p_tend%exud            , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%exudz           , hamocc_state%p_tend%exudz           , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%zoomor          , hamocc_state%p_tend%zoomor           , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%phymor          , hamocc_state%p_tend%phymor           , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%nfix            , hamocc_state%p_tend%nfix            , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%phoc            , hamocc_state%p_tend%phoc            , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%cyloss          , hamocc_state%p_tend%cyloss          , cells,levels=max_zlev)
@@ -60,6 +65,9 @@ CONTAINS
     CALL add_fields(hamocc_state%p_acc%dmsbac          , hamocc_state%p_tend%dmsbac          , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%dmsuv           , hamocc_state%p_tend%dmsuv           , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%euexp           , hamocc_state%p_tend%euexp           , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%flim            , hamocc_state%p_tend%flim            , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%nlim            , hamocc_state%p_tend%nlim            , cells,levels=max_zlev)
+    CALL add_fields(hamocc_state%p_acc%plim            , hamocc_state%p_tend%plim            , cells,levels=max_zlev)
     CALL add_fields(hamocc_state%p_acc%nfixd           , hamocc_state%p_tend%nfixd           , cells)
     CALL add_fields(hamocc_state%p_acc%cflux           , hamocc_state%p_tend%cflux           , cells)
     CALL add_fields(hamocc_state%p_acc%oflux           , hamocc_state%p_tend%oflux           , cells)
@@ -73,6 +81,8 @@ CONTAINS
     CALL add_fields(hamocc_state%p_acc%prorca          , hamocc_state%p_tend%prorca          , cells)
     CALL add_fields(hamocc_state%p_acc%silpro          , hamocc_state%p_tend%silpro          , cells)
     CALL add_fields(hamocc_state%p_acc%coex90          , hamocc_state%p_tend%coex90          , cells)
+    CALL add_fields(hamocc_state%p_acc%calex90         , hamocc_state%p_tend%calex90         , cells)
+    CALL add_fields(hamocc_state%p_acc%opex90          , hamocc_state%p_tend%opex90          , cells)
     CALL add_fields(hamocc_state%p_acc%sedflic         , hamocc_state%p_tend%sedflic          , cells)
     CALL add_fields(hamocc_state%p_acc%sedflal         , hamocc_state%p_tend%sedflal          , cells)
     CALL add_fields(hamocc_state%p_acc%sedflph         , hamocc_state%p_tend%sedflph          , cells)
@@ -100,6 +110,11 @@ CONTAINS
 !ICON_OMP_WORKSHARE
     p_acc%npp                         = p_acc%npp                        /REAL(nsteps_since_last_output,wp)
     p_acc%graz                        = p_acc%graz                       /REAL(nsteps_since_last_output,wp)
+    p_acc%exudz                       = p_acc%exudz                      /REAL(nsteps_since_last_output,wp)
+    p_acc%zoomor                      = p_acc%zoomor                     /REAL(nsteps_since_last_output,wp)
+    p_acc%phymor                      = p_acc%phymor                     /REAL(nsteps_since_last_output,wp)
+    p_acc%graton                      = p_acc%graton                     /REAL(nsteps_since_last_output,wp)
+    p_acc%exud                        = p_acc%exud                       /REAL(nsteps_since_last_output,wp)
     p_acc%nfix                        = p_acc%nfix                       /REAL(nsteps_since_last_output,wp)
     p_acc%phoc                        = p_acc%phoc                       /REAL(nsteps_since_last_output,wp)
     p_acc%cyloss                      = p_acc%cyloss                     /REAL(nsteps_since_last_output,wp)
@@ -107,7 +122,7 @@ CONTAINS
     p_acc%remina                      = p_acc%remina                     /REAL(nsteps_since_last_output,wp)
     p_acc%remins                      = p_acc%remins                     /REAL(nsteps_since_last_output,wp)
     p_acc%reminn                      = p_acc%reminn                     /REAL(nsteps_since_last_output,wp)
-    p_acc%bacfrac                      = p_acc%bacfrac                     /REAL(nsteps_since_last_output,wp)
+    p_acc%bacfrac                      = p_acc%bacfrac                   /REAL(nsteps_since_last_output,wp)
     p_acc%cflux                       = p_acc%cflux                      /REAL(nsteps_since_last_output,wp)
     p_acc%oflux                       = p_acc%oflux                      /REAL(nsteps_since_last_output,wp)
     p_acc%dmsflux                     = p_acc%dmsflux                    /REAL(nsteps_since_last_output,wp)
@@ -116,6 +131,8 @@ CONTAINS
     p_acc%prorca                      = p_acc%prorca                     /REAL(nsteps_since_last_output,wp)
     p_acc%silpro                      = p_acc%silpro                     /REAL(nsteps_since_last_output,wp)
     p_acc%coex90                      = p_acc%coex90                     /REAL(nsteps_since_last_output,wp)
+    p_acc%calex90                     = p_acc%calex90                    /REAL(nsteps_since_last_output,wp)
+    p_acc%opex90                      = p_acc%opex90                     /REAL(nsteps_since_last_output,wp)
     p_acc%delsil                      = p_acc%delsil                     /REAL(nsteps_since_last_output,wp)
     p_acc%orginp                      = p_acc%orginp                     /1._wp
     p_acc%silinp                      = p_acc%silinp                     /1._wp
@@ -135,6 +152,9 @@ CONTAINS
     p_acc%dmsbac                      = p_acc%dmsbac                     /REAL(nsteps_since_last_output,wp)
     p_acc%dmsuv                       = p_acc%dmsuv                      /REAL(nsteps_since_last_output,wp)
     p_acc%euexp                       = p_acc%euexp                      /REAL(nsteps_since_last_output,wp)
+    p_acc%flim                        = p_acc%flim                      /REAL(nsteps_since_last_output,wp)
+    p_acc%nlim                        = p_acc%nlim                      /REAL(nsteps_since_last_output,wp)
+    p_acc%plim                        = p_acc%plim                      /REAL(nsteps_since_last_output,wp)
 
 !ICON_OMP_END_WORKSHARE
 !ICON_OMP_END_PARALLEL
@@ -153,6 +173,11 @@ CONTAINS
     
     p_acc%npp                         = 0._wp
     p_acc%graz                        = 0._wp
+    p_acc%graton                      = 0._wp
+    p_acc%exud                        = 0._wp
+    p_acc%exudz                       = 0._wp
+    p_acc%zoomor                      = 0._wp
+    p_acc%phymor                      = 0._wp
     p_acc%nfix                        = 0._wp
     p_acc%phoc                        = 0._wp
     p_acc%cyloss                      = 0._wp
@@ -171,6 +196,8 @@ CONTAINS
     p_acc%prorca                      = 0._wp
     p_acc%silpro                      = 0._wp
     p_acc%coex90                      = 0._wp
+    p_acc%calex90                     = 0._wp
+    p_acc%opex90                      = 0._wp
     p_acc%delsil                      = 0._wp
     p_acc%delcar                      = 0._wp
     p_acc%sedflic                     = 0._wp
@@ -191,6 +218,9 @@ CONTAINS
     p_acc%dmsuv                       = 0._wp
     p_acc%dmsprod                      = 0._wp
     p_acc%euexp                      = 0._wp
+    p_acc%flim                       = 0._wp
+    p_acc%plim                       = 0._wp
+    p_acc%nlim                       = 0._wp
     
 
   END SUBROUTINE reset_hamocc_statistics

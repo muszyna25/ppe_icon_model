@@ -18,7 +18,7 @@ SUBROUTINE cyano ( start_idx,end_idx,pddpo, za )
 !!
 !! @par Copyright
 
-  USE mo_biomod, ONLY         : rnit, n2_fixation
+  USE mo_biomod, ONLY         : rnit, n2_fixation, rn2
   USE mo_carbch, ONLY         : bgctra, bgcflux, bgctend 
   USE mo_param1_bgc, ONLY     : iano3, iphosph, igasnit, &
        &                        ioxygen, ialkali, knfixd, &
@@ -54,9 +54,10 @@ SUBROUTINE cyano ( start_idx,end_idx,pddpo, za )
 
 
               bgctra(j,1,igasnit)  = bgctra(j,1,igasnit)                  &
-                                     - (bgctra(j,1,iano3)-oldnitrate) *  .5_wp  
-             
+                                     - (bgctra(j,1,iano3)-oldnitrate) /rn2  
 
+
+         
               bgctra(j,1,ioxygen)  = bgctra(j,1,ioxygen)                  &
                                      - (bgctra(j,1,iano3)-oldnitrate) * 1.5_wp  ! factor 1.5 results from: NO3 = N + 3O = N + 1.5*O2 
                                                                                  ! (O2 is used for the balancing)
@@ -67,7 +68,7 @@ SUBROUTINE cyano ( start_idx,end_idx,pddpo, za )
               bgctra(j,1,ialkali)  = bgctra(j,1,ialkali)                  &
                    &                 - (bgctra(j,1,iano3)-oldnitrate)
              
-              bgcflux(j,knfixd)    = (- oldnitrate + bgctra(j,1,iano3))*0.5_wp /dtbgc
+              bgcflux(j,knfixd)    = (- oldnitrate + bgctra(j,1,iano3))/rn2 /dtbgc
               bgctend(j,1,kn2b)    = bgctend(j,1,kn2b) - (bgctra(j,1,iano3) - oldnitrate) * (pddpo(j,1) + za(j))
            ENDIF
         ENDIF

@@ -66,7 +66,7 @@ MODULE mo_carbch
 
 
   REAL(wp) :: roc13, atcoa
-  REAL(wp) :: ozkoa
+  REAL(wp) :: ozkoa, totalarea
 
   !                              .35e-3 * 5.1e14*12. .35e-3 * 5.1e14
   REAL(wp) :: globalmean_co2, globalmean_o2, globalmean_n2

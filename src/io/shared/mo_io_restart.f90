@@ -117,6 +117,7 @@ MODULE mo_io_restart
     &                                 t_scatterPattern
 
 #ifndef __NO_ICON__OCEAN
+  USE mo_ocean_nml,                ONLY: lhamocc
   USE mo_sedmnt,                ONLY: ks, ksp, dzsed
   USE mo_math_utilities,        ONLY: set_zlev
 #endif
@@ -424,7 +425,7 @@ CONTAINS
     CALL set_vertical_grid(ZA_GENERIC_ICE         , nice_class )
     CALL set_vertical_grid(ZA_DEPTH_RUNOFF_S      , 1          )
     CALL set_vertical_grid(ZA_DEPTH_RUNOFF_G      , 1          )
-    CALL set_vertical_grid(ZA_OCEAN_SEDIMENT      , ks         )
+    if(lhamocc)CALL set_vertical_grid(ZA_OCEAN_SEDIMENT      , ks         )
     !
     ! define time axis
     !
@@ -817,6 +818,7 @@ CONTAINS
             DEALLOCATE(levels)
     
           CASE (ZA_OCEAN_SEDIMENT)
+           if(lhamocc)then
            ! HAMOCC sediment
             var_lists(i)%p%cdiOceanSedGenericZaxisID = zaxisCreate(ZAXIS_GENERIC, &
               &                                           vgrid_def(ivg)%nlevels)
@@ -826,7 +828,7 @@ CONTAINS
            CALL zaxisDefLevels(var_lists(i)%p%cdiOceanSedGenericZaxisID, REAL(levels,wp))
            DEALLOCATE(levels)
            DEALLOCATE(levels_sp)
-            
+          endif  
           CASE DEFAULT
             CALL finish('open_writing_restart_files','Vertical grid description not found.')
           END SELECT
