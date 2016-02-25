@@ -543,6 +543,7 @@ END SUBROUTINE message
 !
                   prr_con          , & ! precipitation rate of rain, convective        (kg/m2*s)
                   prs_con          , & ! precipitation rate of snow, convective        (kg/m2*s)
+                  conv_frac        , & ! convective area fraction as assumed in convection scheme
                   prr_gsp          , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
                   prs_gsp          , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
                   prg_gsp          , & ! precipitation rate of graupel, grid-scale     (kg/m2*s)
@@ -688,6 +689,7 @@ END SUBROUTINE message
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) ::    &
                   prr_con          , & ! precipitation rate of rain, convective        (kg/m2*s)
                   prs_con          , & ! precipitation rate of snow, convective        (kg/m2*s)
+                  conv_frac        , & ! convective area fraction
                   prr_gsp          , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
                   prs_gsp          , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
                   prg_gsp              ! precipitation rate of graupel, grid-scale     (kg/m2*s)
@@ -920,7 +922,6 @@ END SUBROUTINE message
 !
 !   Interception variables
 !
-    conv_frac             , & ! assumed area fraction of convective precipitation
     zwinstr  (ie  )       , & ! preliminary value of interception store
     zinfmx   (ie  )       , & ! maximum infiltration rate
     zwimax   (ie  )       , & ! maximum interception store
@@ -1353,8 +1354,6 @@ END SUBROUTINE message
 
 ! time constant for infiltration of water from interception store
   ctau_i        = MAX(ctau_i,zdt)
-
-  conv_frac = 0.1_ireals
 
 ! grids for temperature and water content
 
@@ -2709,7 +2708,7 @@ ELSE          IF (itype_interception == 2) THEN
 
         ! water supply from interception store (if Ts above freezing)
         zuv    = SQRT ( u_10m(i)**2 + v_10m(i)**2 )
-        zzz    = MAX(0.05_ireals, 0.25_ireals - 0.04_ireals*zuv)
+        zzz    = MAX(0.1_ireals, 0.4_ireals - 0.05_ireals*zuv)
         zinf   = MAX(0._ireals,zwinstr(i)-zzz*zwimax(i))*rho_w/ctau_i*        &
                  (1._ireals+0.75_ireals*MAX(0._ireals,zuv-1._ireals))*zts_pm(i)
 
@@ -2729,7 +2728,7 @@ ELSE          IF (itype_interception == 2) THEN
         IF (lmulti_snow .AND. zwsnow(i) > 0.0_ireals) zalf = 1.0_ireals
 
         ! interception store; convective precip is taken into account with a fractional area coverage of 10%
-        zdwidtt  = zalf*(zrr(i)+(conv_frac-1._ireals)*prr_con(i)) + zrime + zdwidt(i)-zinf
+        zdwidtt  = zalf*(zrr(i)+(conv_frac(i)-1._ireals)*prr_con(i)) + zrime + zdwidt(i)-zinf
         zwinstr(i)  = zwin(i) + zdwidtt*zdtdrhw
         zwinstr(i)  = MAX(0.0_ireals, zwinstr(i)) !avoid negative values (security)
         zdwieps  = 0.0_ireals
@@ -2746,11 +2745,11 @@ ELSE          IF (itype_interception == 2) THEN
         zinf         = zinf + zro_wi
 
         ! add rain contribution to water supply for infiltration
-        zvers(i) = zinf + (1._ireals - zalf)*zrr(i) + (1._ireals-conv_frac)*zalf*prr_con(i)
+        zvers(i) = zinf + (1._ireals - zalf)*zrr(i) + (1._ireals-conv_frac(i))*zalf*prr_con(i)
 
         ! compute surface runoff
-        zro_inf  = conv_frac*MAX(0._ireals,zvers(i)+(1._ireals/conv_frac-1._ireals)*prr_con(i)-zinfmx(i)) + &
-                   (1._ireals-conv_frac)*MAX(0._ireals,zvers(i)-prr_con(i)-zinfmx(i))
+        zro_inf  = conv_frac(i)*MAX(0._ireals,zvers(i)+(1._ireals/conv_frac(i)-1._ireals)*prr_con(i)-zinfmx(i)) + &
+                   (1._ireals-conv_frac(i))*MAX(0._ireals,zvers(i)-prr_con(i)-zinfmx(i))
 
         ! final infiltration rate
         zinfil(i) = zvers(i) - zro_inf

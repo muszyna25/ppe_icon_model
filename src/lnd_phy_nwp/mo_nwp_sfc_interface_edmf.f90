@@ -34,6 +34,7 @@ MODULE mo_nwp_sfc_interface_edmf
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_nwp_phy_state,       ONLY: phy_params, prm_diag
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nlev_snow, ibot_w_so, ntiles_total,  &
     &                               ntiles_water, lseaice, llake, lmulti_snow,      &
     &                               ntiles_lnd, lsnowtile, isub_water, isub_seaice, &
@@ -250,6 +251,7 @@ CONTAINS
     REAL(wp) :: ps_t       (nproma)
     REAL(wp) :: prr_con_t  (nproma)
     REAL(wp) :: prs_con_t  (nproma)
+    REAL(wp) :: conv_frac  (nproma)
     REAL(wp) :: prr_gsp_t  (nproma)
     REAL(wp) :: prs_gsp_t  (nproma)
 
@@ -477,6 +479,8 @@ CONTAINS
           ps_t(ic)      =  ps_ex        (jc)
           prr_con_t(ic) =  rain_con_rate(jc,isubs)
           prs_con_t(ic) =  snow_con_rate(jc,isubs)
+          conv_frac(ic) =  phy_params(jg)%rcucov*     (1._wp - prm_diag(jg)%tropics_mask(jc,jb)) + &
+                           phy_params(jg)%rcucov_trop*         prm_diag(jg)%tropics_mask(jc,jb)
           prr_gsp_t(ic) =  rain_gsp_rate(jc,isubs)
           prs_gsp_t(ic) =  snow_gsp_rate(jc,isubs)
 
@@ -664,6 +668,7 @@ IF ( .true. ) THEN
 !
         &  prr_con       = prr_con_t(:)                      , & ! precipitation rate of rain, convective       (kg/m2*s)
         &  prs_con       = prs_con_t(:)                      , & ! precipitation rate of snow, convective       (kg/m2*s)
+        &  conv_frac     = conv_frac(:)                      , & ! convective area fraction
         &  prr_gsp       = prr_gsp_t(:)                      , & ! precipitation rate of rain, grid-scale       (kg/m2*s)
         &  prs_gsp       = prs_gsp_t(:)                      , & ! precipitation rate of snow, grid-scale       (kg/m2*s)
         &  prg_gsp       = dummy_prg_gsp(:)                  , & ! precipitation rate of graupel, grid-scale    (kg/m2*s)
