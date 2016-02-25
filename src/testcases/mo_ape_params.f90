@@ -36,31 +36,7 @@ MODULE mo_ape_params
   ! Requirements for APE
 
   REAL(wp),PARAMETER :: sst_min = tmelt        !< no sea ice in APE
-  REAL(wp),PARAMETER :: sirrad  = 1365._wp     !< constant solar irradiance [W/m^2]
-  REAL(wp),PARAMETER :: eccent  = 0._wp        !< Earth orbit param.
-  REAL(wp),PARAMETER :: obliq   = 0._wp        !< Earth orbit param.
-  REAL(wp),PARAMETER :: co2     = 348._wp      !< ppmv (as in AMIP II)
-
-  ! Recommendations for APE
-
-!   REAL(wp),PARAMETER :: omega = 7.292115e-5_wp !< Earth rotation rate [1/m]
-!   REAL(wp),PARAMETER :: re    = 6.371e6_wp     !< mean Earth radius [m]
-  REAL(wp),PARAMETER :: grav  = 9.79764_wp     !< mean surface gravity [m/s^2]
-  REAL(wp),PARAMETER :: rd    = 287.04_wp      !< gas const. for dry air [J/kg/K]
-  REAL(wp),PARAMETER :: cpd   = 1004.64_wp     !< specific heat capacity for dry air [J/kg/K]
-  REAL(wp),PARAMETER :: rv    = 461.50_wp      !< water vapour gas constant [J/kg/K]
-  REAL(wp),PARAMETER :: cpv   = 1846.0_wp      !< water vapour specific heat capacity [J/kg/K]
-  REAL(wp),PARAMETER :: alv   = 2.501e6_wp     !< latent heat of vaporization at 0 degC [J/kg]
-  REAL(wp),PARAMETER :: alf   = 3.337e5_wp     !< latent heat of fusion       at 0 degC [J/kg]
-  REAL(wp),PARAMETER :: als   = 2.834e6_wp     !< latent heat of sublimation  at 0 degC [J/kg]
-
-  REAL(wp),PARAMETER :: ch4   = 1650._wp       !< ppbv
-  REAL(wp),PARAMETER :: n2o   = 306._wp        !< ppbv
-  REAL(wp),PARAMETER :: haloc = 0.2_wp         !< radiative forcing from Halocarbon [W/m^2]
-
-  REAL(wp),PARAMETER :: ps_dry_init = 101325._wp - 245._wp !< initial mean surface pressure [Pa]
-  REAL(wp),PARAMETER :: q_tot_dry   = 25.006_wp            !< initial value of
-  !< global moisture content [kg/m^2]
+!  REAL(wp),PARAMETER :: ps_dry_init = 101325._wp - 245._wp !< initial mean surface pressure [Pa]
 CONTAINS
   !>
   !! Zonally symmetric analytic distributions of sea surface temperature (SST)
@@ -141,7 +117,7 @@ CONTAINS
 
     IF (lat > lat5 .AND. lat < lat0 ) THEN
       sst = 27._wp*( 1._wp - SIN(1.6363_wp*(lat-lat5))**2 ) + tmelt
-    ELSE IF (lat > -1._wp*lat0 .AND. lat < lat5 ) THEN
+    ELSE IF (lat > -1._wp*lat0 .AND. lat <= lat5 ) THEN
       sst = 27._wp*( 1._wp - SIN(1.3846_wp*(lat-lat5))**2 ) + tmelt
     ELSE
       sst = tmelt

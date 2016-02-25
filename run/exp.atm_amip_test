@@ -76,7 +76,7 @@ cat > ${atmo_namelist} << EOF
 &run_nml
  num_lev          = 47          ! number of full levels
  dtime            = 240         ! [s] time step   !! MUST BE EQUAL TO "modelTimeStep" !!
- modelTimeStep    = "PT4M"
+ modelTimeStep    = "PT04M"
  ltestcase        = .FALSE.     ! run testcase
  ldynamics        = .TRUE.      ! dynamics
  ltransport       = .TRUE.      ! transport
@@ -85,7 +85,6 @@ cat > ${atmo_namelist} << EOF
  output           = 'nml'
  msg_level        = 15          ! level of details report during integration 
  restart_filename = "${EXPNAME}_restart_atm_<rsttime>.nc"
- irad_type        = 2
  activate_sync_timers = .TRUE.
 /
 &extpar_nml
@@ -155,6 +154,11 @@ cat > ${atmo_namelist} << EOF
 /
 &psrad_nml
 rad_perm          = 1           ! Integer for perturbing random number seeds
+/
+&psrad_orbit_nml
+cecc        = 0.0
+cobld       = 0.0
+l_orbvsop87 = .TRUE.
 /
 &echam_conv_nml
 /
