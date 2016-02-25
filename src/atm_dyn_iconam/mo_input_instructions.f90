@@ -39,11 +39,16 @@ PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth
     ! The readInstructionList is used to tell the fetch_dwd*() routines which fields may be read from first guess and/or analysis,
     ! and to signal whether we have found data in the first guess file, so that we can fail correctly.
     ! I. e. for each variable, we expect a pair of calls to
+    !
     !     wantVarXXX()
     !     handleErrorXXX()
+    !
     ! The wantVarXXX() CALL tells the caller whether they should try to READ the variable,
     ! the handleErrorXXX() CALL tells the ReadInstructionList whether that READ was successfull,
     ! possibly panicking with a `finish()` CALL IN CASE there are no options left to READ the DATA.
+    !
+    ! If reading of the variable itself is not required, optionalReadResultXXX() has to be used
+    ! instead of handleErrorXXX(), this won't panick if no data is available.
     TYPE :: t_readInstructionList
         TYPE(t_readInstruction), POINTER :: list(:)
         INTEGER :: nInstructions
@@ -51,19 +56,24 @@ PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth
     CONTAINS
         PROCEDURE :: fileRequests => readInstructionList_fileRequests   ! tell an InputRequestList what variables are required
 
+        ! inquire whether an attempt should be made to read a variable
         PROCEDURE :: wantVar => readInstructionList_wantVar
         PROCEDURE :: wantVarFg => readInstructionList_wantVarFg
         PROCEDURE :: wantVarAna => readInstructionList_wantVarAna
+
+        ! inform the ReadInstructionList about the result of a read, possibly triggering a `finish()` call if there is no alternative left to read the variable
         PROCEDURE :: handleError => readInstructionList_handleError
         PROCEDURE :: handleErrorFg => readInstructionList_handleErrorFg
         PROCEDURE :: handleErrorAna => readInstructionList_handleErrorAna
+
+        ! inform the ReadInstructionList about the result of a read (nofail variant)
         PROCEDURE :: optionalReadResult => readInstructionList_optionalReadResult
         PROCEDURE :: optionalReadResultFg => readInstructionList_optionalReadResultFg
         PROCEDURE :: optionalReadResultAna => readInstructionList_optionalReadResultAna
 
         PROCEDURE :: sourceOfVar => readInstructionList_sourceOfVar ! returns kInputSourceNone, kInputSourceFg, kInputSourceAna, OR kInputSourceBoth
-        PROCEDURE :: setSource => readInstructionList_setSource ! overrides the automatic calculation of the input source, argument must be 'kInputSource\(None\|Fg\|Ana\)'
-        PROCEDURE :: printSummary => readInstructionList_printSummary
+        PROCEDURE :: setSource => readInstructionList_setSource ! overrides the automatic calculation of the input source, argument must be 'kInputSource\(None\|Fg\|Ana\|Both\)'
+        PROCEDURE :: printSummary => readInstructionList_printSummary   ! print a table with the information obtained via `handleErrorXXX()`, `optionalReadResult()`, and `setSource()`; THIS DEPENDS ON THE ACTUAL READ ATTEMPTS AND THEIR RESULTS, NOT ON `lReadFg` or `lReadAna`.
 
         PROCEDURE :: destruct => readInstructionList_destruct
 
@@ -83,8 +93,9 @@ PRIVATE
 
     TYPE :: t_readInstruction
         CHARACTER(LEN = VARNAME_LEN) :: varName
-        LOGICAL :: lReadFg, lReadAna, lRequireAna
-        INTEGER(KIND = C_CHAR) :: statusFg, statusAna
+        LOGICAL :: lReadFg, lReadAna    ! These reflect the result of interpreting the variable groups, they are not used in the table output.
+        LOGICAL :: lRequireAna  ! Panick if reading from analysis fails (set according to the `ana_varlist` namelist parameter)
+        INTEGER(KIND = C_CHAR) :: statusFg, statusAna   ! These reflect what read attempts really have been made, and what their results were. This is the basis for the table output.
         INTEGER :: sourceOverride   ! IF this IS NOT kInputSourceUnset, it overrides the automatic calculation of the input source.
     CONTAINS
         PROCEDURE :: source => readInstruction_source
@@ -633,6 +644,10 @@ CONTAINS
         END SELECT
     END SUBROUTINE readInstructionList_setSource
 
+    ! The table that is printed by this function deliberately depends on the actual read attempts and their results, not on `lReadFg` or `lReadAna`.
+    ! This is due to the fact that there are existing discrepancies between the input groups and the actual read attempts made by the `fetch...()` routines
+    ! in `mo_initicon_io`: The table is supposed to show the reality of which data was read from where, and which inputs were used,
+    ! not some hypothetical this-is-what-should-have-been-done info.
     SUBROUTINE readInstructionList_printSummary(me, domain)
         CLASS(t_readInstructionList), INTENT(INOUT) :: me
         INTEGER, VALUE :: domain
@@ -674,6 +689,8 @@ CONTAINS
 
             CALL set_table_entry(table, i, variableCol, TRIM(curInstruction%varName))
 
+            ! Display whether an actual read attempt from FG has been made, and its result.
+            ! read attempt == there was a call from a `fetch...()` routine in `mo_initicon_io`
             SELECT CASE(curInstruction%statusFg)
                 CASE(kStateNoFetch)
                     CALL set_table_entry(table, i, fgAttemptCol, "no")
@@ -687,6 +704,7 @@ CONTAINS
                     CALL finish(routine, "unexpected value in statusFg")
             END SELECT
 
+            ! As above, but for ANA.
             SELECT CASE(curInstruction%statusAna)
                 CASE(kStateNoFetch)
                     CALL set_table_entry(table, i, anaAttemptCol, "no")
@@ -704,6 +722,8 @@ CONTAINS
                 CALL set_table_entry(table, i, anaRequiredCol, "required")
             END IF
 
+            ! Display which data is actually used. If there was a call to `setSource()`, that is what is printed,
+            ! otherwise this column is computed from the two `statusXXX` variables printed above.
             SELECT CASE(curInstruction%source())
                 CASE(kInputSourceNone)
                     CALL set_table_entry(table, i, useCol, "none")

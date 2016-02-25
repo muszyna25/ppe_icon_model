@@ -65,6 +65,74 @@ MODULE mo_initicon_io
   USE mo_util_string,         ONLY: int2string
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
 
+  ! High level overview of how `mo_initicon` reads input data
+  ! =========================================================
+  !
+  ! Knobs that control what is read
+  ! -------------------------------
+  !
+  !  1. variable groups
+  !
+  !  2. init_mode
+  !
+  !  3. further flags and the `ana_varlist` field from the namelists
+  !
+  !
+  ! Steps of reading
+  ! ----------------
+  !
+  !  1. A list with input instructions is generated.
+  !     The code for this is found in `mo_input_instructions`.
+  !
+  !     This is where the variable groups enter the process, all further processing depends on the variable groups only indirectly via `t_ReadInstructions`.
+  !     This is also the place where the `ana_varlist` namelist parameter is evaluated.
+  !
+  !     The input instructions serve a dual purpose (which is a source of confusion, unfortunately):
+  !     They encode from which input file a read attempt for a variable should be made,
+  !     but they also collect whether such an attempt has been made, and whether that attempt was successfull.
+  !
+  !  2. The input instructions are used to generate a `t_InputRequestList`.
+  !     This is done by the `fileRequests()` method of `t_ReadInstructionList`, and is quite straight-forward:
+  !     All variables that can be read from a file are requested from that file.
+  !
+  !  3. The files are read, and a file inventory output is produced in the process (mo_initicon: read_dwdfg() and read_dwdana()).
+  !     Note that the file inventory contains only information about variables that have been requested!
+  !
+  !  4. The data is fetched from the `t_InputRequestList`.
+  !     This happens in `fetch_dwd...()` routines in `mo_initicon_io`.
+  !
+  !     This is a complicated process that takes much more conditions into account then the code generating the `t_ReadInstructions` does.
+  !     Especially, this is the place where all the different namelist flags are honored, and it's the place where optional reading is handled
+  !     (variables that are read if they are present in the file, but which are not necessary to start the run).
+  !
+  !     The `fetch_dwd...()` routines generally first ask the `t_ReadInstructions` whether they should attempt to read a variable,
+  !     then they try to fetch the data from the `t_InputRequestList`, and finally inform the `t_ReadInstructions` about the result of this operation.
+  !     It is then the duty of `t_ReadInstructions` to check whether a failure to read is fatal or whether it can be compensated.
+  !
+  !     This ask-fetch-inform triple is usually encapsulated within the wrapper functions `fetch2d()` etc. within this file.
+  !     Exceptions exist, like the all-or-nothing behavior that's implemented for the aerosol variables, but they are not frequent.
+  !
+  !  5. The `t_ReadInstructions` is asked to output a table describing what read attempts have been made
+  !     and which data is actually used for the model run.
+  !
+  !     Note that this is about what read attempts have *really* been made (= there was an ask-fetch-inform triple for this variable),
+  !     not what read attempts *should* have been made (= `t_ReadInstructions::wantVar()` would have returned `.true.` if it had been called).
+  !
+  !
+  ! How to add variables
+  ! --------------------
+  !
+  ! There are two places that need to be changed to add support for a new input variable:
+  !
+  !  1. The variable has to be added to the relevant variable groups, so that input instructions are generated for it, and so that it's requested from the right files.
+  !
+  !  2. Code has to be added to one of the `fetch_dwd...()` routines in this file to retrieve the data from the file(s)
+  !     and to inform the `t_ReadInstructions` about the succes/failure to do so.
+  !
+  !     In most cases, this is simply done by calling the right wrapper routine (`fetch2d()` and friends).
+  !     If the appropriate wrapper routine is missing, just copy-paste-modify one of the existing wrappers;
+  !     I have only generated the ones that were actually needed to implement the current functionality, so the list of wrappers is incomplete.
+
   IMPLICIT NONE
 
   INCLUDE 'netcdf.inc'
