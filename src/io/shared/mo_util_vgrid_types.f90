@@ -34,7 +34,7 @@ MODULE mo_util_vgrid_types
     !       mo_vertical_grid::set_nh_metrics
     !
     REAL(wp), POINTER      &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS         &
 #endif
       ::                    &
