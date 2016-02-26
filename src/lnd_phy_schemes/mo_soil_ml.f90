@@ -493,6 +493,9 @@ END SUBROUTINE message
                   t_s_now          , & ! temperature of the ground surface             (  K  )
                   t_s_new          , & ! temperature of the ground surface             (  K  )
 !
+                  t_canp_now       , & ! temperature of the canopy surface             (  K  )
+                  t_canp_new       , & ! temperature of the canopy surface             (  K  )
+!
                   t_g              , & ! weighted surface temperature                  (  K  )
                   qv_s             , & ! specific humidity at the surface              (kg/kg)
                   w_snow_now       , & ! water content of snow                         (m H2O)
@@ -625,6 +628,10 @@ END SUBROUTINE message
                   t_s_now              ! temperature of the ground surface             (  K  )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
                   t_s_new              ! temperature of the ground surface             (  K  )
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
+                  t_canp_now              ! temperature of the canopy surface          (  K  )
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
+                  t_canp_new              ! temperature of the canopy surface          (  K  )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) ::&
                   t_g              , & ! weighted surface temperature                  (  K  )
                   qv_s                 ! specific humidity at the surface              (kg/kg)
@@ -5000,6 +5007,12 @@ ENDIF
      h_snow(i) = h_snow_new(i)
 !    END IF
   END DO
+
+      DO i = istarts, iends
+!        IF (llandmask(i)) THEN  ! for landpoints only
+          t_canp_new(i) =  t_so_new(i,0)
+!        END IF  ! land-points only
+      END DO
 
 !---loop over tiles---
 !END DO

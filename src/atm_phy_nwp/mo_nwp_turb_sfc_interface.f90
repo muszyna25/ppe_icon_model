@@ -353,6 +353,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
 
       DO jt = 1,ntiles_total
         DO jc = i_startidx, i_endidx
+          lnd_prog_new%t_canp_t  (jc,jb,jt) = lnd_prog_now%t_canp_t  (jc,jb,jt)
           lnd_prog_new%t_snow_t  (jc,jb,jt) = lnd_prog_now%t_snow_t  (jc,jb,jt)
           lnd_prog_new%t_s_t     (jc,jb,jt) = lnd_prog_now%t_s_t     (jc,jb,jt)
           lnd_prog_new%w_snow_t  (jc,jb,jt) = lnd_prog_now%w_snow_t  (jc,jb,jt)
@@ -680,6 +681,7 @@ SUBROUTINE nwp_turbulence_sfc ( tcall_turb_jg,                     & !>input
         & , t_snow_ex       = lnd_prog_new%t_snow_t    (:,jb,:)   & !inout
         & , t_snow_mult_ex  = lnd_prog_new%t_snow_mult_t(:,:,jb,:)& ! -
         & , t_s_ex          = lnd_prog_new%t_s_t       (:,jb,:)   & ! -
+        & , t_canp_ex       = lnd_prog_new%t_canp_t    (:,jb,:)   & !inout
         & , t_g_ex          = lnd_prog_new%t_g_t       (:,jb,:)   & ! -
         & , qv_s_ex         = lnd_diag%qv_s_t          (:,jb,:)   & ! -
         & , w_snow_ex       = lnd_prog_new%w_snow_t    (:,jb,:)   & ! -

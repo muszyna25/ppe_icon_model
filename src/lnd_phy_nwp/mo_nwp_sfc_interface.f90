@@ -126,6 +126,9 @@ CONTAINS
 
     REAL(wp) :: t_snow_now_t (nproma)
     REAL(wp) :: t_snow_new_t (nproma)
+ 
+    REAL(wp) :: t_canp_now_t (nproma)
+    REAL(wp) :: t_canp_new_t (nproma)
 
     REAL(wp) :: t_s_now_t  (nproma)
     REAL(wp) :: t_s_new_t  (nproma)
@@ -272,7 +275,7 @@ CONTAINS
 !$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,isubs,i_count,ic,isubs_snow,i_count_snow,          &
 !$OMP   tmp1,tmp2,tmp3,fact1,fact2,frac_sv,frac_snow_sv,icount_init,init_list,it1,it2,is1,is2,   &
 !$OMP   rain_gsp_rate,snow_gsp_rate,rain_con_rate,snow_con_rate,ps_t,prr_con_t,prs_con_t,        &
-!$OMP   prr_gsp_t,prs_gsp_t,u_t,v_t,t_t,qv_t,p0_t,sso_sigma_t,lc_class_t,t_snow_now_t,t_s_now_t, &
+!$OMP   prr_gsp_t,prs_gsp_t,u_t,v_t,t_t,qv_t,p0_t,sso_sigma_t,lc_class_t,t_snow_now_t,t_canp_now_t ,t_s_now_t, &
 !$OMP   t_g_t,qv_s_t,w_snow_now_t,rho_snow_now_t,w_i_now_t,w_p_now_t,w_s_now_t,freshsnow_t,      &
 !$OMP   snowfrac_t,runoff_s_t,runoff_g_t,u_10m_t,v_10m_t,tch_t,tcm_t,tfv_t,sobs_t,thbs_t,pabs_t, &
 !$OMP   soiltyp_t,plcov_t,rootdp_t,sai_t,tai_t,eai_t,rsmin2d_t,t_snow_mult_now_t,wliq_snow_now_t,&
@@ -280,7 +283,7 @@ CONTAINS
 !$OMP   t_s_new_t,w_snow_new_t,rho_snow_new_t,h_snow_t,w_i_new_t,w_p_new_t,w_s_new_t,t_so_new_t, &
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
 !$OMP   wliq_snow_new_t,wtot_snow_new_t,dzh_snow_new_t,w_so_new_t,w_so_ice_new_t,lhfl_pl_t,      &
-!$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,graupel_gsp_rate,prg_gsp_t, &
+!$OMP   shfl_soil_t,lhfl_soil_t,shfl_snow_t,lhfl_snow_t,t_snow_new_t,t_canp_new_t,graupel_gsp_rate,prg_gsp_t, &
 !$OMP   meltrate,h_snow_gp_t) ICON_OMP_GUIDED_SCHEDULE
  
     DO jb = i_startblk, i_endblk
@@ -405,6 +408,7 @@ CONTAINS
 
           t_snow_now_t(ic)          =  lnd_prog_now%t_snow_t(jc,jb,isubs) 
           t_s_now_t(ic)             =  lnd_prog_now%t_s_t(jc,jb,isubs)   
+          t_canp_now_t(ic)          =  lnd_prog_now%t_canp_t(jc,jb,isubs)   
           t_g_t (ic)                =  lnd_prog_now%t_g_t(jc,jb,isubs)
           qv_s_t(ic)                =  lnd_diag%qv_s_t(jc,jb,isubs)
           w_snow_now_t(ic)          =  lnd_prog_now%w_snow_t(jc,jb,isubs)
@@ -534,6 +538,9 @@ CONTAINS
         &  t_s_now       = t_s_now_t             , & !INOUT temperature of the ground surface (  K  )
         &  t_s_new       = t_s_new_t             , & !OUT temperature of the ground surface   (  K  )
 !
+        &  t_canp_now    = t_canp_now_t          , & !INOUT temperature of the canopy surface (  K  )
+        &  t_canp_new    = t_canp_new_t          , & !OUT temperature of the canopy surface   (  K  )
+!
         &  t_g           = t_g_t                 , & !INOUT weighted surface temperature      (  K  )
         &  qv_s          = qv_s_t                , & !INOUT specific humidity at the surface  (kg/kg)
 !
@@ -647,6 +654,7 @@ CONTAINS
         DO ic = 1, i_count
           jc = ext_data%atm%idx_lst_t(ic,jb,isubs)
           lnd_prog_new%t_snow_t  (jc,jb,isubs) = t_snow_new_t  (ic)         
+          lnd_prog_new%t_canp_t  (jc,jb,isubs) = t_canp_new_t  (ic)         
           lnd_prog_new%t_s_t     (jc,jb,isubs) = t_s_new_t     (ic)              
           lnd_prog_new%t_g_t     (jc,jb,isubs) = t_g_t         (ic)
           ! qv_s may violate the saturation constraint in cases of numerical instability
@@ -794,6 +802,7 @@ CONTAINS
              is2 = it2(ic)
              lnd_prog_new%t_snow_t  (jc,jb,is1) = lnd_prog_new%t_snow_t  (jc,jb,is2)        
              lnd_prog_new%t_s_t     (jc,jb,is1) = lnd_prog_new%t_s_t     (jc,jb,is2)       
+             lnd_prog_new%t_canp_t  (jc,jb,is1) = lnd_prog_new%t_canp_t  (jc,jb,is2)       
              lnd_prog_new%t_g_t     (jc,jb,is1) = lnd_prog_new%t_g_t     (jc,jb,is2) 
              lnd_diag%qv_s_t        (jc,jb,is1) = lnd_diag%qv_s_t        (jc,jb,is2)             
              lnd_prog_new%w_snow_t  (jc,jb,is1) = lnd_prog_new%w_snow_t  (jc,jb,is2)     
