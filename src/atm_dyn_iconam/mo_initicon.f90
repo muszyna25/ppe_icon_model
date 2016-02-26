@@ -60,7 +60,7 @@ MODULE mo_initicon
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla4_vec
-  USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval, FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, cdiDefMissval
+  USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval, FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: fill_tile_points, init_snowtiles,             &
                                   & copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
@@ -142,24 +142,6 @@ MODULE mo_initicon
     CALL cdiDefAdditionalKey("tileIndex")
     CALL cdiDefAdditionalKey("tileAttribute")
 
-    ! -----------------------------------------------
-    ! set the CDI Missval
-    ! -----------------------------------------------
-    !
-    ! XXX: Explanation:
-    !
-    ! Inside the GRIB_API (v.1.9.18) the missing value is converted into
-    ! LONG INT for a test, but the default CDI missing value is outside
-    ! of the valid range for LONG INT (U. Schulzweida, bug report
-    ! SUP-277). This causes a crash with INVALID OPERATION.
-    !
-    ! As a workaround we can choose a different missing value in the
-    ! calling subroutine (here). For the SX-9 this must lie within 53
-    ! bits, because "the SX compiler generates codes using HW
-    ! instructions for floating-point data instead of instructions for
-    ! integers. Therefore, the operation result is not guaranteed if the
-    ! value cannot be represented as integer within 53 bits."
-    CALL cdiDefMissval(kMissval)
 
 
     ! -----------------------------------------------
