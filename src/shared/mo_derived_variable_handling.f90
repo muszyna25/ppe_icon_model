@@ -139,8 +139,6 @@ CONTAINS
 
     abort = .FALSE.
 
- write(0,*)'stream_partitions_ml:',p_onl%stream_partitions_ml
-
     IF (MAXVAL(p_onl%dom) > 1) abort = .TRUE.
 
     IF (  p_onl%stream_partitions_ml > 1 .OR. &
@@ -177,9 +175,8 @@ CONTAINS
   !! Delete internal mean value fields
   !!
   SUBROUTINE finish_mean_stream()
-    IF (my_process_is_stdio()) THEN
-      CALL print_summary('destruct mean stream variables')
-    END IF
+!DEBUG  IF (my_process_is_stdio()) CALL print_summary('destruct mean stream variables')
+
     CALL delete_var_list(mean_stream_list)
   END SUBROUTINE finish_mean_stream
 
