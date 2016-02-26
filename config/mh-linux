@@ -418,7 +418,7 @@ case "$ac_sitename" in
                         CHECK_FLAGS = -check bounds -check pointers -debug -g -traceback
                         DEBUG_FLAGS = -debug-parameters -debug -g -O0
                         FPPFLAGS    = -fpp
-                        STD_FLAGS   = -ftz -O2 -march=native -pc64 -fp-model source -g -DIFORT_CONSISTENCY_ENFORCE -DLRTM_FULL_VECTORIZATION
+                        STD_FLAGS   = -ftz -O2 -march=native -no-fma -pc64 -fp-model source -g -DIFORT_CONSISTENCY_ENFORCE -DLRTM_FULL_VECTORIZATION
                         HIOPT_FLAGS = -O3 -march=native -mkl=sequential -pc64 -no-prec-div -no-prec-sqrt -fast-transcendentials -reentrancy threaded
                         FFLAGS      = $FPPFLAGS
                         F77FLAGS    = $FPPFLAGS
