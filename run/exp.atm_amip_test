@@ -264,6 +264,8 @@ do
   (( year = year+1 ))
 done
 #
+# - tropospheric anthropogenic aerosols, simple plumes
+  add_link_file ${basedir}/data/MACv2.0-SP_v1-beta.nc ./MACv2.0-SP_v1-beta.nc
 # - stratospheric aerosol
 datadir=$INDATA/r2b4_amip/atm/bc_aeropt_stenchikov
 year=$start_year

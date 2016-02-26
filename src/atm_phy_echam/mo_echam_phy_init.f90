@@ -55,7 +55,8 @@ MODULE mo_echam_phy_init
   USE mo_physical_constants,   ONLY: tmelt, Tf, albi, albedoW
 
   ! radiation
-  USE mo_radiation_config,     ONLY: ssi_radt, tsi_radt, tsi, ighg, isolrad
+  USE mo_radiation_config,     ONLY: ssi_radt, tsi_radt, tsi, &
+                                   & ighg, isolrad, irad_aero
   USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip, ssi_default, ssi_preind, ssi_rce
   USE mo_lrtm_setup,           ONLY: lrtm_setup
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
@@ -94,6 +95,8 @@ MODULE mo_echam_phy_init
   USE mo_bc_sst_sic,           ONLY: read_bc_sst_sic, bc_sst_sic_time_interpolation
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read
+  ! for aeorosols in simple plumes
+  USE mo_bc_aeropt_splumes,    ONLY: sp_setup
 
   IMPLICIT NONE
 
@@ -339,6 +342,12 @@ CONTAINS
     IF (iice > nsfc_type .AND. iwtr > nsfc_type .AND. ctest_name(1:3) /= 'TPE') THEN
       CALL finish('','only lnd tile present: must use TPE* testcase!')
     END IF
+
+    !read data for simple plumes of aerosols
+
+!!$    IF (irad_aero == 18) THEN
+      CALL sp_setup
+!!$    END IF
 
     DO jg= 1,ndomain
 

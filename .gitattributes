@@ -78,6 +78,7 @@ config/pvcs.pl -text
 /configure -text
 /configure.ac -text
 data/ECHAM6_CldOptProps.nc -text
+data/MACv2.0-SP_v1-beta.nc -text
 data/README -text
 data/dmin_wetgrowth_lookup.dat -text
 data/external/etopo40.cdf -text
@@ -1360,6 +1361,7 @@ src/atm_dyn_iconam/mo_velocity_advection.f90 -text
 src/atm_dyn_iconam/mo_vertical_grid.f90 -text
 src/atm_phy_echam/mo_ape.f90 -text
 src/atm_phy_echam/mo_bc_aeropt_kinne.f90 -text
+src/atm_phy_echam/mo_bc_aeropt_splumes.f90 -text
 src/atm_phy_echam/mo_bc_aeropt_stenchikov.f90 -text
 src/atm_phy_echam/mo_bc_greenhouse_gases.f90 -text
 src/atm_phy_echam/mo_bc_ozone.f90 -text
