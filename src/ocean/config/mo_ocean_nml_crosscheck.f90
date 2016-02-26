@@ -218,7 +218,7 @@ CONTAINS
       write_initial_state = .false.
     ENDIF
 
-    IF ((VelocityDiffusion_type == 21 .or. VelocityDiffusion_type == 213) .and. .not. laplacian_form == 1) &
+    IF ((VelocityDiffusion_order == 21 .or. VelocityDiffusion_order == 213) .and. .not. laplacian_form == 1) &
       CALL finish(method_name,"harmonic+biharmonic velocity diffusion requires curl-curl form")
 
   END SUBROUTINE ocean_crosscheck

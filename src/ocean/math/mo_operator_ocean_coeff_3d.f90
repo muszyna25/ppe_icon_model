@@ -446,6 +446,7 @@ CONTAINS
 
     CASE (sphere_geometry)
       z_vector%x = x%x !/ d_norma_3d(x)
+      d_normalize(z_vector)
     CASE ( planar_channel_geometry, planar_geometry, planar_torus_geometry )
       z_vector%x = (/0.0_wp, 0.0_wp, 1.0_wp/)
     CASE DEFAULT

@@ -218,7 +218,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: implicit_diffusion = 1
   INTEGER  :: expl_vertical_tracer_diff   = 1    ! NOT USED
   INTEGER  :: vertical_tracer_diffusion_type   = 1    ! 0=explicit, 1 = implicit
-  INTEGER  :: VelocityDiffusion_type = 1         !1=laplacian, 2=biharmonic, 21=laplacian+biharmonic
+  INTEGER  :: VelocityDiffusion_order = 1         !1=laplacian, 2=biharmonic, 21=laplacian+biharmonic
   INTEGER  :: laplacian_form  = 1          !form of friction/diffusion operator
                                                  !1: Laplace=curlcurl-graddiv
                                                  !2: Laplace=div k  grad
@@ -324,7 +324,7 @@ MODULE mo_ocean_nml
     &                 surface_module               , &
     &                 use_continuity_correction    , &
     &                 laplacian_form         , &
-    &                 VelocityDiffusion_type        , &
+    &                 VelocityDiffusion_order        , &
     &                 fast_performance_level       , &
     &                 MASS_MATRIX_INVERSION_TYPE   , &
     &                 NONLINEAR_CORIOLIS           , &
@@ -938,7 +938,7 @@ MODULE mo_ocean_nml
       !the fct case requires suitable choices of high- and low order fluxes and of limiter
       IF( flux_calculation_horz == fct_horz) THEN
         !high and low order flux check
-        IF(fct_low_order_flux/=upwind .AND. fct_low_order_flux/=miura_order1)THEN
+        IF(fct_low_order_flux/=upwind)THEN
           CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
         ENDIF
         IF(fct_high_order_flux/= central.AND.fct_high_order_flux/=lax_friedrichs.AND.fct_high_order_flux/=miura_order1)THEN
@@ -958,9 +958,9 @@ MODULE mo_ocean_nml
       IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind.OR.flux_calculation_horz==lax_friedrichs ) THEN
         CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5 without 3')
       ENDIF     
-      IF( flux_calculation_horz == fct_horz) THEN
+      IF( flux_calculation_horz == fct_horz .AND. fct_low_order_flux/=miura_order1) THEN
         !high and low order flux check
-        IF(fct_low_order_flux/=upwind)THEN
+        IF(fct_low_order_flux/=upwind )THEN
           CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
         ENDIF
         !there is no option for high- or low order fluxes in cell_based config, this is all prescribed.

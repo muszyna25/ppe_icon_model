@@ -986,11 +986,11 @@ CONTAINS
       & ldims=(/nproma,n_zlev,nblks_e/),in_group=groups("oce_diag"),lrestart_cont=.FALSE.)
     
     ! divergence component
-    CALL add_var(ocean_default_list, 'div', ocean_state_diag%div, grid_unstructured_cell, &
-      & za_depth_below_sea, &
-      & t_cf_var('div','','divergence', datatype_flt),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
-      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),lrestart_cont=.FALSE.)
+!     CALL add_var(ocean_default_list, 'div', ocean_state_diag%div, grid_unstructured_cell, &
+!       & za_depth_below_sea, &
+!       & t_cf_var('div','','divergence', datatype_flt),&
+!       & grib2_var(255, 255, 255, DATATYPE_PACK16, GRID_UNSTRUCTURED, grid_cell),&
+!       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),lrestart_cont=.FALSE.)
     
     ! pressures
     CALL add_var(ocean_restart_list, 'press_hyd', ocean_state_diag%press_hyd, grid_unstructured_cell,&

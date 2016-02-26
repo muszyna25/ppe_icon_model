@@ -23,7 +23,7 @@ MODULE mo_ocean_diffusion
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates
   USE mo_impl_constants,      ONLY: boundary, sea_boundary, min_dolic ! ,max_char_length
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, VelocityDiffusion_type, laplacian_form, &
+  USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, VelocityDiffusion_order, laplacian_form, &
     & HarmonicViscosity_weight
   USE mo_run_config,          ONLY: dtime
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -32,7 +32,7 @@ MODULE mo_ocean_diffusion
   USE mo_ocean_physics,         ONLY: t_ho_params
   USE mo_scalar_product,      ONLY: map_cell2edges_3d, map_edges2edges_viacell_3d_const_z
   USE mo_ocean_math_operators,  ONLY: div_oce_3d, rot_vertex_ocean_3d,&
-    & map_edges2vert_3d, grad_fd_norm_oce_3D
+    & map_edges2vert_3d, grad_fd_norm_oce_3D, grad_vector, div_vector
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_patch_array_mult
@@ -52,9 +52,6 @@ MODULE mo_ocean_diffusion
   !
   INTEGER, PARAMETER :: top=1
   PUBLIC :: velocity_diffusion
-  PUBLIC :: veloc_diff_harmonic_div_grad, veloc_diff_biharmonic_div_grad
-!   PUBLIC :: veloc_diff_harmonic_curl_curl, veloc_diff_biharmonic_curl_curl
-  ! PUBLIC :: velocity_diffusion_vert_explicit
   PUBLIC :: velocity_diffusion_vertical_implicit
   PUBLIC :: velocity_diffusion_vertical_implicit_onBlock
   PUBLIC :: tracer_diffusion_horz
@@ -89,7 +86,7 @@ CONTAINS
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     
-    IF(VelocityDiffusion_type==1)THEN
+    IF(VelocityDiffusion_order==1)THEN
       
       !divgrad laplacian is chosen
       IF(laplacian_form==2)THEN
@@ -115,7 +112,7 @@ CONTAINS
   
       ENDIF
       
-    ELSEIF(VelocityDiffusion_type==2 .or. VelocityDiffusion_type==21)THEN
+    ELSEIF(VelocityDiffusion_order==2 .or. VelocityDiffusion_order==21)THEN
       
       IF(laplacian_form==2)THEN
         !CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of biharmonic Laplacian not recommended")
@@ -181,93 +178,102 @@ CONTAINS
     start_level = 1
     end_level = n_zlev
     
-    laplacian_vn_out(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e) = 0.0_wp
-    
-    ! loop over cells in local domain + halo
-    DO blockNo = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, blockNo, start_index, end_index)
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-      DO level = start_level, end_level
-        DO cell_index = start_index, end_index
-          z_div_grad_u(cell_index,level,blockNo)%x =  0.0_wp
-        END DO
-      END DO
-    END DO
-    
-    ! loop over edges in local domain + halo
-    DO blockNo = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, blockNo, start_edge_index, end_edge_index)
-      DO level = start_level, end_level
-        DO edge_index = start_edge_index, end_edge_index
-          z_grad_u(edge_index,level,blockNo)%x = 0.0_wp
-        ENDDO
-      END DO
-    END DO
-    
-    !-------------------------------------------------------------------------------------------------------
-    !Step 1: Calculate gradient of cell velocity vector.
-    !Result is a gradient vector, located at edges
-    !Step 2: Multiply each component of gradient vector with mixing coefficients
-    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-      
-      DO level = start_level, end_level
-        DO edge_index = start_edge_index, end_edge_index
-          !IF ( v_base%lsm_e(edge_index,level,blockNo) <= sea_boundary ) THEN
-          IF (patch_3D%lsm_e(edge_index,level,blockNo) <= sea_boundary) THEN
-            !Get indices of two adjacent triangles
-            il_c1 = patch_2D%edges%cell_idx(edge_index,blockNo,1)
-            ib_c1 = patch_2D%edges%cell_blk(edge_index,blockNo,1)
-            il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
-            ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
-            
-            z_grad_u(edge_index,level,blockNo)%x = &
-              & physics_parameters%HarmonicViscosity_coeff(edge_index,level,blockNo)*  &
-              & ( p_diag%p_vn(il_c2,level,ib_c2)%x &
-              & - p_diag%p_vn(il_c1,level,ib_c1)%x)&
-              & / patch_2D%edges%dual_edge_length(edge_index,blockNo)
-            
-          ENDIF
-        ENDDO
-      END DO
-    END DO
-    DO idx_cartesian = 1,3
-      CALL sync_patch_array(sync_e, patch_2D,z_grad_u(:,:,:)%x(idx_cartesian) )
-    END DO
-    
-    !Step 2: Apply divergence to each component of mixing times gradient vector
-    iidx => patch_2D%cells%edge_idx
-    iblk => patch_2D%cells%edge_blk
-    
-    DO blockNo = all_cells%start_block, all_cells%end_block
-      CALL get_index_range(all_cells, blockNo, start_index, end_index)
-      
-#ifdef __SX__
-!CDIR UNROLL=6
-#endif
-      DO level = start_level, end_level
-        DO cell_index = start_index, end_index
-          
-          IF (patch_3D%lsm_c(cell_index,level,blockNo) >= boundary) THEN
-            z_div_grad_u(cell_index,level,blockNo)%x = 0.0_wp
-          ELSE
-            z_div_grad_u(cell_index,level,blockNo)%x =  &
-              & z_grad_u(iidx(cell_index,blockNo,1),level,iblk(cell_index,blockNo,1))%x&
-              & * operators_coeff%div_coeff(cell_index,level,blockNo,1)+&
-              & z_grad_u(iidx(cell_index,blockNo,2),level,iblk(cell_index,blockNo,2))%x&
-              & * operators_coeff%div_coeff(cell_index,level,blockNo,2)+&
-              & z_grad_u(iidx(cell_index,blockNo,3),level,iblk(cell_index,blockNo,3))%x&
-              & * operators_coeff%div_coeff(cell_index,level,blockNo,3)
-            
-          ENDIF
-        END DO
-      END DO
-    END DO
-    DO idx_cartesian = 1,3
-      CALL sync_patch_array(sync_c, patch_2D,z_div_grad_u(:,:,:)%x(idx_cartesian) )
-    END DO
+
+    !-------------------------------------------------------------------------------
+    ! Note that HarmonicViscosity_coef is divided by dual_edge_length
+    CALL grad_vector(cellVector=p_diag%p_vn, patch_3D=patch_3d, &
+      grad_coeff=physics_parameters%HarmonicViscosity_coeff, gradVector=z_grad_u)
+
+    CALL div_vector(patch_3d=patch_3D, edgeVector=z_grad_u, &
+      & divVector=z_div_grad_u, div_coeff=operators_coeff%div_coeff)
+
+
+!     laplacian_vn_out(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_e) = 0.0_wp
+!     
+!     ! loop over cells in local domain + halo
+!     DO blockNo = all_cells%start_block, all_cells%end_block
+!       CALL get_index_range(all_cells, blockNo, start_index, end_index)
+!       DO level = start_level, end_level
+!         DO cell_index = start_index, end_index
+!           z_div_grad_u(cell_index,level,blockNo)%x =  0.0_wp
+!         END DO
+!       END DO
+!     END DO
+!     
+!     ! loop over edges in local domain + halo
+!     DO blockNo = all_edges%start_block, all_edges%end_block
+!       CALL get_index_range(all_edges, blockNo, start_edge_index, end_edge_index)
+!       DO level = start_level, end_level
+!         DO edge_index = start_edge_index, end_edge_index
+!           z_grad_u(edge_index,level,blockNo)%x = 0.0_wp
+!         ENDDO
+!       END DO
+!     END DO
+!     
+!     !-------------------------------------------------------------------------------------------------------
+!     !Step 1: Calculate gradient of cell velocity vector.
+!     !Result is a gradient vector, located at edges
+!     !Step 2: Multiply each component of gradient vector with mixing coefficients
+!     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+!       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+!       
+!       DO level = start_level, end_level
+!         DO edge_index = start_edge_index, end_edge_index
+!           !IF ( v_base%lsm_e(edge_index,level,blockNo) <= sea_boundary ) THEN
+!           IF (patch_3D%lsm_e(edge_index,level,blockNo) <= sea_boundary) THEN
+!             !Get indices of two adjacent triangles
+!             il_c1 = patch_2D%edges%cell_idx(edge_index,blockNo,1)
+!             ib_c1 = patch_2D%edges%cell_blk(edge_index,blockNo,1)
+!             il_c2 = patch_2D%edges%cell_idx(edge_index,blockNo,2)
+!             ib_c2 = patch_2D%edges%cell_blk(edge_index,blockNo,2)
+!             
+!             z_grad_u(edge_index,level,blockNo)%x = &
+!               & physics_parameters%HarmonicViscosity_coeff(edge_index,level,blockNo)*  &
+!               & ( p_diag%p_vn(il_c2,level,ib_c2)%x &
+!               & - p_diag%p_vn(il_c1,level,ib_c1)%x)&
+!               & / patch_2D%edges%dual_edge_length(edge_index,blockNo)
+!             
+!           ENDIF
+!         ENDDO
+!       END DO
+!     END DO
+!     DO idx_cartesian = 1,3
+!       CALL sync_patch_array(sync_e, patch_2D,z_grad_u(:,:,:)%x(idx_cartesian) )
+!     END DO
+!     
+!     !Step 2: Apply divergence to each component of mixing times gradient vector
+!     iidx => patch_2D%cells%edge_idx
+!     iblk => patch_2D%cells%edge_blk
+!     
+!     DO blockNo = all_cells%start_block, all_cells%end_block
+!       CALL get_index_range(all_cells, blockNo, start_index, end_index)
+!       
+! #ifdef __SX__
+! !CDIR UNROLL=6
+! #endif
+!       DO level = start_level, end_level
+!         DO cell_index = start_index, end_index
+!           
+!           IF (patch_3D%lsm_c(cell_index,level,blockNo) >= boundary) THEN
+!             z_div_grad_u(cell_index,level,blockNo)%x = 0.0_wp
+!           ELSE
+!             z_div_grad_u(cell_index,level,blockNo)%x =  &
+!               & z_grad_u(iidx(cell_index,blockNo,1),level,iblk(cell_index,blockNo,1))%x&
+!               & * operators_coeff%div_coeff(cell_index,level,blockNo,1)+&
+!               & z_grad_u(iidx(cell_index,blockNo,2),level,iblk(cell_index,blockNo,2))%x&
+!               & * operators_coeff%div_coeff(cell_index,level,blockNo,2)+&
+!               & z_grad_u(iidx(cell_index,blockNo,3),level,iblk(cell_index,blockNo,3))%x&
+!               & * operators_coeff%div_coeff(cell_index,level,blockNo,3)
+!             
+!           ENDIF
+!         END DO
+!       END DO
+!     END DO
+!     DO idx_cartesian = 1,3
+!       CALL sync_patch_array(sync_c, patch_2D,z_div_grad_u(:,:,:)%x(idx_cartesian) )
+!     END DO
+    CALL sync_patch_array_mult(sync_c, patch_2D, 3, &
+      z_div_grad_u(:,:,:)%x(1), z_div_grad_u(:,:,:)%x(2),z_div_grad_u(:,:,:)%x(3))
     
     !Step 3: Map divergence back to edges
     CALL map_cell2edges_3d( patch_3D, z_div_grad_u, laplacian_vn_out, operators_coeff)
@@ -824,7 +830,7 @@ CONTAINS
 #endif
 !     z_rot_v(1:nproma,1:n_zlev,1:patch_3D%p_patch_2d(1)%nblks_v) =0.0_wp
 
-!     IF (VelocityDiffusion_type==21) THEN
+!     IF (VelocityDiffusion_order==21) THEN
 !       CALL veloc_diff_harmonic_curl_curl(     &
 !         & patch_3D=patch_3D,                  &
 !         & u_vec_e=u_vec_e,                    &
@@ -913,7 +919,7 @@ CONTAINS
     END DO
 !ICON_OMP_END_DO
 
-    IF (VelocityDiffusion_type==21) THEN
+    IF (VelocityDiffusion_order==21) THEN
 !ICON_OMP_DO PRIVATE(start_index,end_index, edge_index, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
         CALL get_index_range(edges_in_domain, blockNo, start_index, end_index)

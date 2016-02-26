@@ -173,7 +173,7 @@ MODULE mo_ocean_types
       & v              ,& ! reconstructed meridional velocity component. Unit [m/s]
 !       & potential_vort_c ,& ! potential vorticity averaged to triangle cells. Unit [1/s]
       & kin            ,& ! kinetic energy. Unit [m/s].
-      & div            ,& ! divergence. Unit [m/s]
+!       & div            ,& ! divergence. Unit [m/s]
       & press_hyd      ,& ! hydrostatic pressure. Unit [m]
       & temp_insitu    ,&
       & t,s ! dummy pointer for output variabless

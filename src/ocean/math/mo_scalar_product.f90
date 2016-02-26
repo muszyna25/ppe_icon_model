@@ -312,6 +312,7 @@ CONTAINS
     REAL(wp):: this_vort_flux(n_zlev, 2) ! for each of the two vertices
     REAL(wp):: thick_edge(n_zlev,2), thick_vert(n_zlev,2)
     REAL(wp):: numOfEdges(n_zlev,2)
+    REAL(wp):: this_edge_length
     
     TYPE(t_subset_range), POINTER :: edges_in_domain
     TYPE(t_patch), POINTER :: patch_2d
@@ -331,7 +332,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(blockNo,level,je,start_edge_index,end_edge_index, this_vort_flux, &
 !ICON_OMP  vertex1_idx, vertex1_blk, vertex2_idx, vertex2_blk,  &
 !ICON_OMP vertex_edge, ictr, thick_vert, numOfEdges, edgeOfVertex_index, edgeOfVertex_block, &
-!ICON_OMP thick_edge) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP thick_edge, this_edge_length) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
       
@@ -346,11 +347,12 @@ CONTAINS
         vertex2_idx = patch_2d%edges%vertex_idx(je,blockNo,2)
         vertex2_blk = patch_2d%edges%vertex_blk(je,blockNo,2)
 
+!         this_edge_length  = patch_2d%edges%dual_edge_length(je,blockNo)
         ! vertex 1
         ictr = 0
         
-        thick_vert(1:n_zlev,1)=0.0_wp
-        thick_vert(1:n_zlev,2)=0.0_wp
+!         thick_vert(1:n_zlev,1)=0.0_wp
+!         thick_vert(1:n_zlev,2)=0.0_wp
         numOfEdges(1:n_zlev,1)=0.0_wp
         numOfEdges(1:n_zlev,2)=0.0_wp
         
@@ -364,16 +366,18 @@ CONTAINS
             &                        patch_3d%p_patch_1d(1)%dolic_e(edgeOfVertex_index, edgeOfVertex_block))
 
             numOfEdges(level,1) = numOfEdges(level,1) + 1.0_wp
-            thick_edge(level,1) = patch_3D%p_patch_1d(1)%prism_thick_e(                  &
-              & edgeOfVertex_index, level, edgeOfVertex_block)
+!             thick_edge(level,1) = patch_3D%p_patch_1d(1)%prism_thick_e(                  &
+!               & edgeOfVertex_index, level, edgeOfVertex_block)
 
             ! This should be calculated in the calculate_thickness routine
-            thick_vert(level,1) = thick_vert(level,1)+thick_edge(level,1)
+!             thick_vert(level,1) = thick_vert(level,1)+thick_edge(level,1)
             
             this_vort_flux(level, 1) =  this_vort_flux(level, 1) +                        &
               & vn( edgeOfVertex_index, level, edgeOfVertex_block)                        &
-              & * operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)   &
-              & * thick_edge(level,1)
+              & * operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr) !  &
+!               & * thick_edge(level,1) !* &
+!               & patch_2d%edges%inv_dual_edge_length(edgeOfVertex_index, edgeOfVertex_block) &
+!               & * this_edge_length
 
           ENDDO
 
@@ -391,17 +395,19 @@ CONTAINS
             &                        patch_3d%p_patch_1d(1)%dolic_e(edgeOfVertex_index, edgeOfVertex_block))
 
             numOfEdges(level,2) = numOfEdges(level,2) + 1.0_wp
-            thick_edge(level,2) = patch_3D%p_patch_1d(1)%prism_thick_e(                  &
-              & edgeOfVertex_index, level, edgeOfVertex_block)
+!             thick_edge(level,2) = patch_3D%p_patch_1d(1)%prism_thick_e(                  &
+!               & edgeOfVertex_index, level, edgeOfVertex_block)
             
               
             ! This should be calculated in the calculate_thickness routine
-            thick_vert(level,2) = thick_vert(level,2)+thick_edge(level,2)
+!             thick_vert(level,2) = thick_vert(level,2)+thick_edge(level,2)
           
             this_vort_flux(level, 2) =  this_vort_flux(level, 2) +                        &
               & vn( edgeOfVertex_index, level, edgeOfVertex_block)                        &
-              & * operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr)   &
-              & * thick_edge(level,2)
+              & * operators_coefficients%edge2edge_viavert_coeff(je,level,blockNo,ictr) !  &
+!               & * thick_edge(level,2) !* &
+!               & patch_2d%edges%inv_dual_edge_length(edgeOfVertex_index, edgeOfVertex_block) &
+!               & * this_edge_length
 
           ENDDO
         END DO ! edges of this vertex
@@ -411,11 +417,11 @@ CONTAINS
           vort_flux(je,level,blockNo) =  &
             & this_vort_flux(level,1) &
             ! divide by the vertex thickness
-            &  * numOfEdges(level,1) / thick_vert(level,1)  &
+!             &  * numOfEdges(level,1) / thick_vert(level,1)  &
             &  * (vort_v(vertex1_idx, level, vertex1_blk) + patch_2d%verts%f_v(vertex1_idx, vertex1_blk))  &
             & + this_vort_flux(level,2)  &
             ! divide by the vertex thickness
-            &  * numOfEdges(level,2) / thick_vert(level,2)  &
+!             &  * numOfEdges(level,2) / thick_vert(level,2)  &
             &  * (vort_v(vertex2_idx, level, vertex2_blk) + patch_2d%verts%f_v(vertex2_idx, vertex2_blk))
 
         ENDDO
