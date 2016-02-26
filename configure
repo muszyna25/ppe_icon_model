@@ -3980,49 +3980,6 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 fi
 
 
-   { $as_echo "$as_me:${as_lineno-$LINENO}: checking wether $FC supports CONTIGUOUS attribute" >&5
-$as_echo_n "checking wether $FC supports CONTIGUOUS attribute... " >&6; }
-if ${acx_cv_fc_attribute_contiguous+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-
-      cat > conftest.$ac_ext <<_ACEOF
-      SUBROUTINE f(x)
-      REAL, CONTIGUOUS, TARGET, INTENT(IN) :: x(:, :)
-      REAL, CONTIGUOUS, POINTER :: p(:, :)
-      p => x
-      DO j = 1, SIZE(p, 2)
-      DO i = 1, SIZE(p, 1)
-      p(i, j) = p(i, j) * 0.1
-      END DO
-      END DO
-      END SUBROUTINE f
-
-_ACEOF
-if ac_fn_fc_try_compile "$LINENO"; then :
-  acx_cv_fc_attribute_contiguous=yes
-else
-  acx_cv_fc_attribute_contiguous=no
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-      ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_attribute_contiguous" >&5
-$as_echo "$acx_cv_fc_attribute_contiguous" >&6; }
-    if test x"$acx_cv_fc_attribute_contiguous" = xyes; then :
-  FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_FC_ATTRIBUTE_CONTIGUOUS"
-fi
-
-
 if test x$use_yac = xyes ; then
 
 XML2_LIB=""
@@ -5624,7 +5581,8 @@ $as_echo "#define AC_APPLE_UNIVERSAL_BUILD 1" >>confdefs.h
 
 
 
-   ac_ext=${ac_fc_srcext-f}
+
+ac_ext=${ac_fc_srcext-f}
 ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
 ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_fc_compiler_gnu
@@ -6421,6 +6379,48 @@ if [ "x$LDFLAGS" = "x" ] ; then
   fi
 fi
 
+FCFLAGS=$FFLAGS
+   { $as_echo "$as_me:${as_lineno-$LINENO}: checking wether $FC supports CONTIGUOUS attribute" >&5
+$as_echo_n "checking wether $FC supports CONTIGUOUS attribute... " >&6; }
+if ${acx_cv_fc_attribute_contiguous+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+      cat > conftest.$ac_ext <<_ACEOF
+      SUBROUTINE f(x)
+      REAL, CONTIGUOUS, TARGET, INTENT(IN) :: x(:, :)
+      REAL, CONTIGUOUS, POINTER :: p(:, :)
+      p => x
+      DO j = 1, SIZE(p, 2)
+      DO i = 1, SIZE(p, 1)
+      p(i, j) = p(i, j) * 0.1
+      END DO
+      END DO
+      END SUBROUTINE f
+
+_ACEOF
+if ac_fn_fc_try_compile "$LINENO"; then :
+  acx_cv_fc_attribute_contiguous=yes
+else
+  acx_cv_fc_attribute_contiguous=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+      ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $acx_cv_fc_attribute_contiguous" >&5
+$as_echo "$acx_cv_fc_attribute_contiguous" >&6; }
+    if test x"$acx_cv_fc_attribute_contiguous" = xyes; then :
+  FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_FC_ATTRIBUTE_CONTIGUOUS"
+fi
 
 
 #------------------------

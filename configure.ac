@@ -321,9 +321,6 @@ fi
 dnl ######################################################################
 dnl Checks for program properties
 dnl ######################################################################
-ACX_FC_ATTRIBUTE_CONTIGUOUS(
-  [FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_FC_ATTRIBUTE_CONTIGUOUS"])
-
 dnl ######################################################################
 dnl Checks for XML2.
 
@@ -1000,6 +997,11 @@ if [[ "x$LDFLAGS" = "x" ]] ; then
   fi
 fi
 
+dnl this check should be far above, but has a dependency on the adding
+dnl of VARIANT_FFLAGS to FFLAGS above, which should also be moved.
+FCFLAGS=$FFLAGS
+ACX_FC_ATTRIBUTE_CONTIGUOUS(
+  [FFLAGS="${FFLAGS+$FFLAGS }${DEFOPT}HAVE_FC_ATTRIBUTE_CONTIGUOUS"])
 
 
 #------------------------
