@@ -318,6 +318,7 @@ CONTAINS
     REAL(wp) :: sai_t     (nproma, ntiles_total)
     REAL(wp) :: tai_t     (nproma, ntiles_total)
     REAL(wp) :: eai_t     (nproma, ntiles_total)
+    REAL(wp) :: gz0_t     (nproma, ntiles_total)
     REAL(wp) :: rsmin2d_t (nproma, ntiles_total)
 
     ! local dummy variable for precipitation rate of graupel, grid-scale
@@ -531,6 +532,7 @@ CONTAINS
           sai_t         (ic,isubs) =  ext_data%atm%sai_t    (jc,jb,isubs)
           tai_t         (ic,isubs) =  ext_data%atm%tai_t    (jc,jb,isubs)
           eai_t         (ic,isubs) =  ext_data%atm%eai_t    (jc,jb,isubs)
+!          gz0_t         (ic,isubs) =  ext_data%atm%gz0(jc,jb,isubs) 
           rsmin2d_t     (ic,isubs) =  ext_data%atm%rsmin2d_t(jc,jb,isubs)
 
           t_so_now_t(ic,nlev_soil+1,isubs) = t_so_ex(jc,nlev_soil+1,isubs)
@@ -603,6 +605,7 @@ IF ( .true. ) THEN
         &  tai          = tai_t(:,isubs)                     , & ! surface area index                  --
         &  eai          = eai_t(:,isubs)                     , & ! surface area index                  --
         &  rsmin2d      = rsmin2d_t(:,isubs)                 , & ! minimum stomata resistance        ( s/m )
+        &  gz0          = gz0_t(:,isubs)                     , & ! surface rougness                  ( m )
 !
         &  u  = u_t(:)                                       , & ! zonal wind speed
         &  v  = v_t(:)                                       , & ! meridional wind speed

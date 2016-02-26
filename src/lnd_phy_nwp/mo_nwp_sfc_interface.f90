@@ -174,6 +174,7 @@ CONTAINS
     INTEGER  :: soiltyp_t (nproma)
     REAL(wp) :: plcov_t   (nproma)
     REAL(wp) :: rootdp_t  (nproma)
+    REAL(wp) :: gz0_t     (nproma)
     REAL(wp) :: sai_t     (nproma)
     REAL(wp) :: tai_t     (nproma)
     REAL(wp) :: eai_t     (nproma)
@@ -278,7 +279,7 @@ CONTAINS
 !$OMP   prr_gsp_t,prs_gsp_t,u_t,v_t,t_t,qv_t,p0_t,sso_sigma_t,lc_class_t,t_snow_now_t,t_canp_now_t ,t_s_now_t, &
 !$OMP   t_g_t,qv_s_t,w_snow_now_t,rho_snow_now_t,w_i_now_t,w_p_now_t,w_s_now_t,freshsnow_t,      &
 !$OMP   snowfrac_t,runoff_s_t,runoff_g_t,u_10m_t,v_10m_t,tch_t,tcm_t,tfv_t,sobs_t,thbs_t,pabs_t, &
-!$OMP   soiltyp_t,plcov_t,rootdp_t,sai_t,tai_t,eai_t,rsmin2d_t,t_snow_mult_now_t,wliq_snow_now_t,&
+!$OMP   soiltyp_t,plcov_t,rootdp_t,sai_t,tai_t,eai_t,gz0_t,rsmin2d_t,t_snow_mult_now_t,wliq_snow_now_t,&
 !$OMP   rho_snow_mult_now_t,wtot_snow_now_t,dzh_snow_now_t,t_so_now_t,w_so_now_t,w_so_ice_now_t, &
 !$OMP   t_s_new_t,w_snow_new_t,rho_snow_new_t,h_snow_t,w_i_new_t,w_p_new_t,w_s_new_t,t_so_new_t, &
 !$OMP   lhfl_bs_t,rstom_t,shfl_s_t,lhfl_s_t,qhfl_s_t,t_snow_mult_new_t,rho_snow_mult_new_t,      &
@@ -447,6 +448,7 @@ CONTAINS
           soiltyp_t(ic)             =  ext_data%atm%soiltyp_t(jc,jb,isubs)
           plcov_t(ic)               =  ext_data%atm%plcov_t(jc,jb,isubs)
           rootdp_t(ic)              =  ext_data%atm%rootdp_t(jc,jb,isubs)
+          gz0_t(ic)                 =  prm_diag%gz0(jc,jb)
           sai_t(ic)                 =  ext_data%atm%sai_t(jc,jb,isubs)
           tai_t(ic)                 =  ext_data%atm%tai_t(jc,jb,isubs)
           eai_t(ic)                 =  ext_data%atm%eai_t(jc,jb,isubs)
@@ -521,6 +523,7 @@ CONTAINS
         &  tai          = tai_t                  , & !IN surface area index                  --
         &  eai          = eai_t                  , & !IN surface area index                  --
         &  rsmin2d      = rsmin2d_t              , & !IN minimum stomata resistance        ( s/m )
+        &  gz0          = gz0_t                  , & !IN roughness length                  ( m )
 !
         &  u  =  u_t                             , & !IN zonal wind speed
         &  v  =  v_t                             , & !IN meridional wind speed 

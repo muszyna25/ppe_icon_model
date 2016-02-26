@@ -475,6 +475,7 @@ END SUBROUTINE message
                   eai              , & ! earth area (evaporative surface area) index     --
 !                 llandmask        , & ! landpoint mask                                  --
                   rsmin2d          , & ! minimum stomata resistance                    ( s/m )
+                  gz0              , & ! roughness length                              ( m )
 !
                   u                , & ! zonal wind speed                              ( m/s )
                   v                , & ! meridional wind speed                         ( m/s )
@@ -607,6 +608,9 @@ END SUBROUTINE message
 !                  llandmask           ! landpoint mask                                  --
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
                  rsmin2d               ! minimum stomata resistance                    ( s/m )
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
+                 gz0                   ! roughness length                              ( m )
+
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
                   u                , & ! zonal wind speed                              ( m/s )
                   v                , & ! meridional wind speed                         ( m/s )
@@ -942,6 +946,52 @@ END SUBROUTINE message
     zesn (ie  )   ,       & ! evaporation from snow
     zdrr (ie  )   ,       & ! formation of dew
     zrrs (ie  )             ! formation of rime
+!
+  REAL    (KIND=ireals   ) ::  &
+!
+!   Canopy variables
+!
+    zroc_canp(ie  )         , &     ! rho*c for canopy
+    z_canp                  , &     ! Canopy height 
+    h_displ                 , &
+    z_0_canp                , &
+    u_star_canp             , &
+    u_canp                  , &
+    u_star_sfc              , & 
+    u_sfc                   , &
+    z_0_sfc                 , &
+    F_r                     , &
+    r_ac_dash               , &
+    r_a_dash                , & 
+    r_a_0                   , &
+    r_ac_0                  , & 
+    r_a     (ie)            , & 
+    r_as    (ie)            , &
+    r_ap    (ie)            , &
+    r_ac    (ie)            , &
+    lh_v_sa, lh_v_pl        , &
+    zrnet_canp   (ie)       , & ! net radiation for canopy
+    zrhoch_canp  (ie)       , & ! transfer coefficient*rho*g for canopy layer
+    zverbo_s     (ie)       , & ! total evapotranspiration canopy floor
+    zverbo_canp  (ie)       , & ! total evapotranspiration for canopy
+    zfor_canp    (ie)       , & ! total forcing at canopy leafes
+    SVF(ie)                 , & !  canopy sky view fraction
+    lwds(ie)                , & !  radiation for canopy
+    zshfl_canp(ie)          , & ! sensible heatflux at canopy surface
+    zlhfl_canp(ie)          , & ! latent heatflux at canopy surface
+    zdqcanp                 , & ! derivative of zqs with respect to T_canp
+    zdtcanpdt(ie)           , & ! tendency of ztcanp
+    ztcanp(ie)              , & 
+    ztcanpn(ie)             , & 
+    ztcanp_im               , &
+    zdqvtcanp(ie)           , &
+    zqcanp                  
+!
+  REAL (KIND=ireals   ) , PARAMETER::   &
+    leaf_w=0.02_ireals        , & ! leaf width
+    kappa=0.4_ireals          , & ! Karman const.
+    surf_w=0.02_ireals        , & ! dimension of surface structures (for snow 
+    surf_w_snow=0.0075_ireals     ! dimension of surface structures for snow 
 !
   REAL    (KIND=ireals   ) ::  &
 !   Hydraulic parameters
@@ -1672,6 +1722,10 @@ END SUBROUTINE message
 
   DO i = istarts, iends
 !      IF (llandmask(i)) THEN     ! for land-points only
+
+
+     zroc_canp(i) = 2700._ireals * 3._ireals * gz0(i) ! Approximation of canopy type by roughness length
+
 #ifdef __ICON__
         zuv        = SQRT ( u(i)**2 + v(i)**2 )
 #else
@@ -5010,7 +5064,7 @@ ENDIF
 
       DO i = istarts, iends
 !        IF (llandmask(i)) THEN  ! for landpoints only
-          t_canp_new(i) =  t_so_new(i,0)
+          t_canp_new(i) =  gz0(i)
 !        END IF  ! land-points only
       END DO
 
