@@ -1493,9 +1493,12 @@ CONTAINS
         & lhs_z_grad_h(:,:),              &
         & subset_range=patch_2D%edges%gradIsCalculable)
 
+      IF( patch_2d%cells%max_connectivity /= 3 )THEN
+        ! we need to check why edges%gradIsCalculable does not work with quads
+        CALL sync_patch_array(sync_e, patch_2D, lhs_z_grad_h )
+      ENDIF
 
       CALL map_edges2edges_viacell_3d_const_z( patch_3d, lhs_z_grad_h(:,:), op_coeffs, lhs_z_e(:,:))
-
       
     ENDIF ! l_edge_based
     !---------------------------------------
