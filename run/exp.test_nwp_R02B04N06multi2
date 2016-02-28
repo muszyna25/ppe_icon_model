@@ -6,7 +6,6 @@
 #    keyword matches.
 #
 #    __exclude_target_compiler=thunder,nag;
-#    __exclude_target_compiler=mistral,nag;
 #    __exclude_target_compiler=thunder,intel;
 #    __exclude_target_compiler=thunder,gcc;
 #    __exclude_target_compiler_mode=bullx,intel,mpi=no;
