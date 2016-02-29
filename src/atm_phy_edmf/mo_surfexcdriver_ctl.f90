@@ -53,7 +53,7 @@ SUBROUTINE SURFEXCDRIVER_CTL(CDCONF &
 ! TERRA data
  & , ext_data                                                           & !in
  & , jb, jg                                                             & ! -
- & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex                 & !inout
+ & , t_snow_ex, t_snow_mult_ex, t_s_ex, t_g_ex, qv_s_ex , t_canp_ex     & !inout
  & , w_snow_ex                                                          & ! -
  & , rho_snow_ex, rho_snow_mult_ex, h_snow_ex, w_i_ex, w_p_ex, w_s_ex   & ! -
  & , t_so_ex, w_so_ex, w_so_ice_ex, u_10m_ex, v_10m_ex                  & ! -
@@ -375,7 +375,7 @@ REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,nlev_snow,ntiles_total)   :: &
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total+ntiles_water):: &
   t_g_ex         ,qv_s_ex  
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,ntiles_total)             :: &
-  t_snow_ex      ,t_s_ex         ,                                            & 
+  t_snow_ex      ,t_s_ex         ,  t_canp_ex ,                               & 
   w_snow_ex      ,rho_snow_ex    ,h_snow_ex       ,                           &
   w_i_ex         ,w_p_ex         ,w_s_ex
 REAL(KIND=JPRB)  ,INTENT(INOUT)  ,DIMENSION(KLON,0:nlev_soil,ntiles_total) :: &
@@ -805,6 +805,7 @@ IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
     t_snow_ex        = t_snow_ex       , & ! temperature of the snow-surface               (  K  )
     t_snow_mult_ex   = t_snow_mult_ex  , & ! temperature of the snow-surface               (  K  )
     t_s_ex           = t_s_ex          , & ! temperature of the ground surface             (  K  )
+    t_canp_ex        = t_canp_ex       , & ! temperature of the canopy surface             (  K  )
     t_g_ex           = t_g_ex          , & ! surface temperature                           (  K  )
     qv_s_ex          = qv_s_ex         , & ! specific humidity at the surface              (kg/kg)
     w_snow_ex        = w_snow_ex       , & ! water content of snow                         (m H2O)

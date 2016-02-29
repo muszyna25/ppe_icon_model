@@ -360,6 +360,10 @@ CONTAINS
         !Check the time.
         metadata%vtime => cdiIterator_inqVTime(iterator)
         metadata%rtime => cdiIterator_inqRTime(iterator)
+        IF (.NOT. ASSOCIATED(metadata%vtime) .OR. .NOT. ASSOCIATED(metadata%rtime)) THEN
+          CALL finish(routine, "Internal error!")
+        END IF
+
         IF(lconsistency_checks) THEN
             vtimeString => toCharacter(metadata%vtime)
             tempTime => newDatetime(vtimeString)

@@ -216,7 +216,7 @@ CONTAINS
         IF(printDetails) THEN
             WRITE(0, *) prefix//"hex dump:"
             DO i = 0, SIZE(array, 1) - 4, 4
-                WRITE(0, *) TRIM(int2string(i*4)) &
+                WRITE(0, *) prefix//TRIM(int2string(i*4)) &
                     & //": "//checksumString(IAND(mask, INT(array(i + 1), C_INT64_T))) &
                     & // " "//checksumString(IAND(mask, INT(array(i + 2), C_INT64_T))) &
                     & // " "//checksumString(IAND(mask, INT(array(i + 3), C_INT64_T))) &
@@ -224,14 +224,14 @@ CONTAINS
             END DO
             SELECT CASE(MOD(SIZE(array, 1),4))
                 CASE(1)
-                    WRITE(0, *) TRIM(int2string(SIZE(array, 1) - 1)) &
+                    WRITE(0, *) prefix//TRIM(int2string(SIZE(array, 1) - 1)) &
                         & //": "//checksumString(IAND(mask, INT(array(SIZE(array, 1) - 0), C_INT64_T)))
                 CASE(2)
-                    WRITE(0, *) TRIM(int2string(SIZE(array, 1) - 2)) &
+                    WRITE(0, *) prefix//TRIM(int2string(SIZE(array, 1) - 2)) &
                         & //": "//checksumString(IAND(mask, INT(array(SIZE(array, 1) - 1), C_INT64_T))) &
                         & // " "//checksumString(IAND(mask, INT(array(SIZE(array, 1) - 0), C_INT64_T)))
                 CASE(3)
-                    WRITE(0, *) TRIM(int2string(SIZE(array, 1) - 3)) &
+                    WRITE(0, *) prefix//TRIM(int2string(SIZE(array, 1) - 3)) &
                         & //": "//checksumString(IAND(mask, INT(array(SIZE(array, 1) - 2), C_INT64_T))) &
                         & //": "//checksumString(IAND(mask, INT(array(SIZE(array, 1) - 1), C_INT64_T))) &
                         & // " "//checksumString(IAND(mask, INT(array(SIZE(array, 1) - 0), C_INT64_T)))

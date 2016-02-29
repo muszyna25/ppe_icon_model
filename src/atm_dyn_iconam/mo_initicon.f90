@@ -66,16 +66,13 @@ MODULE mo_initicon
                                   & copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
                                   & deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
                                   & copy_fg2initicon, initVarnamesDict, printChecksums, init_aerosol
-  USE mo_initicon_io,         ONLY: read_extana_atm, read_extana_sfc, request_dwdfg_atm, &
-                                  & fetch_dwdfg_atm, request_dwdfg_sfc, request_dwdana_atm, request_dwdfg_atm_ii, &
-                                  & request_dwdana_sfc, fetch_dwdana_sfc, &
+  USE mo_initicon_io,         ONLY: read_extana_atm, read_extana_sfc, fetch_dwdfg_atm, fetch_dwdana_sfc, &
                                   & process_input_dwdana_sfc, process_input_dwdana_atm, process_input_dwdfg_sfc, &
                                   & fetch_dwdfg_sfc, fetch_dwdfg_atm_ii, fetch_dwdana_atm, &
                                   & fgFilename, fgFiletype, anaFilename, anaFiletype
   USE mo_input_request_list,  ONLY: t_InputRequestList, InputRequestList_create
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna
-  USE mo_util_string,         ONLY: int2string
   USE mo_util_uuid,           ONLY: t_uuid
 
   IMPLICIT NONE
@@ -193,12 +190,7 @@ MODULE mo_initicon
     IF (ist /= success) CALL finish(TRIM(routine),'deallocation for initicon failed')
     DO jg = 1, n_dom
       IF(p_patch(jg)%ldom_active) THEN
-        IF(my_process_is_stdio()) THEN
-            WRITE(0,*) ""
-            WRITE(0,*) "input results for patch "//TRIM(int2string(jg))//":"
-            CALL inputInstructions(jg)%ptr%printSummary()
-            WRITE(0,*) ""
-        END IF
+        IF(my_process_is_stdio()) CALL inputInstructions(jg)%ptr%printSummary(jg)
         CALL inputInstructions(jg)%ptr%destruct()
         DEALLOCATE(inputInstructions(jg)%ptr, stat=ist)
         IF(ist /= success) CALL finish(TRIM(routine),'deallocation of an input instruction list failed')
@@ -267,20 +259,11 @@ MODULE mo_initicon
 
     ! Create a request list for all the relevant variable names.
     requestList => InputRequestList_create()
-    SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
-            CALL request_dwdfg_atm(requestList)
-            CALL request_dwdfg_sfc(requestList)
-        CASE(MODE_ICONVREMAP)
-            ! read DWD first guess for atmosphere and store to
-            ! initicon input state variables (input data are allowed
-            ! to have a different number of model levels than the
-            ! current model grid)
-            CALL request_dwdfg_atm_ii(requestList)
-            CALL request_dwdfg_sfc(requestList)
-        CASE(MODE_COMBINED, MODE_COSMODE)
-            CALL request_dwdfg_sfc(requestList)
-    END SELECT
+    DO jg = 1, n_dom
+      IF(p_patch(jg)%ldom_active) THEN
+        CALL inputInstructions(jg)%ptr%fileRequests(requestList, lIsFg = .TRUE.)
+      ENDIF
+    END DO
 
     ! Scan the input files AND distribute the relevant variables across the processes.
     DO jg = 1, n_dom
@@ -312,7 +295,7 @@ MODULE mo_initicon
             CALL fetch_dwdfg_atm(requestList, p_patch, p_nh_state, initicon, inputInstructions)
             CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
         CASE(MODE_ICONVREMAP)
-            CALL fetch_dwdfg_atm_ii(requestList, p_patch, initicon)
+            CALL fetch_dwdfg_atm_ii(requestList, p_patch, initicon, inputInstructions)
             CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
         CASE(MODE_COMBINED, MODE_COSMODE)
             CALL fetch_dwdfg_sfc(requestList, p_patch, prm_diag, p_lnd_state, inputInstructions)
@@ -393,15 +376,14 @@ MODULE mo_initicon
     ! Create a request list for all the relevant variable names.
     requestList => InputRequestList_create()
     SELECT CASE(init_mode)
-        CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU)
-            IF(lread_ana) CALL request_dwdana_atm(requestList)
-            IF(lread_ana) CALL request_dwdana_sfc(requestList)
         CASE(MODE_COMBINED, MODE_COSMODE)
             CALL read_extana_atm(p_patch, initicon)
-            IF(lread_ana) CALL request_dwdana_sfc(requestList)
-        CASE(MODE_ICONVREMAP)
-            IF(lread_ana) CALL request_dwdana_sfc(requestList)
     END SELECT
+    DO jg = 1, n_dom
+      IF(p_patch(jg)%ldom_active) THEN
+        CALL inputInstructions(jg)%ptr%fileRequests(requestList, lIsFg = .FALSE.)
+      ENDIF
+    END DO
 
     ! Scan the input files AND distribute the relevant variables across the processes.
     DO jg = 1, n_dom

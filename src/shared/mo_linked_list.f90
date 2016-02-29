@@ -70,9 +70,10 @@ MODULE mo_linked_list
     INTEGER                       :: patch_id           ! ID of patch to which list variables belong
     INTEGER                       :: vlevel_type        ! 1: model levels, 2: pressure levels, 3: height levels
     !--------------------------------------------------------------------------------------------
-    ! Internal used handler for cdi
+    ! Internal used handler for CDI setup of synchronous restart
+    !
+    ! Todo: This metadata should not be placed in this location ?!
     INTEGER                       :: cdiFileId_restart  ! cdi file handler for restart
-    INTEGER                       :: cdiFileId_output   ! cdi file handler for output
     INTEGER                       :: cdiVlistId         ! cdi vlist handler
     !
     INTEGER                       :: cdiCellGridID
@@ -158,7 +159,6 @@ CONTAINS
     this_list%p%vlevel_type        =  level_type_ml ! Default is model levels
     !
     this_list%p%cdiFileID_restart  = -1
-    this_list%p%cdiFileID_output   = -1
     this_list%p%cdiVlistID         = -1
     this_list%p%cdiCellGridID      = -1
     this_list%p%cdiVertGridID      = -1

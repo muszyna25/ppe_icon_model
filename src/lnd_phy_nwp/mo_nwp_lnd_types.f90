@@ -56,6 +56,7 @@ MODULE mo_nwp_lnd_types
     &  t_s_t          (:,:,:)   , & ! temperature of the ground surface             (  K  )
     &  t_g            (:,:)     , & ! weighted surface temperature                  (  K  )
     &  t_g_t          (:,:,:)   , & ! weighted surface temperature on tiles         (  K  )
+    &  t_canp_t       (:,:,:)   , & ! canopy surface temperature on tiles           (  K  )
     &  w_i_t          (:,:,:)   , & ! water content of interception water           (m H2O)
     &  w_p_t          (:,:,:)   , & ! water content of pond interception water      (m H2O)
     &  w_s_t          (:,:,:)   , & ! water content of interception snow            (m H2O)
@@ -75,6 +76,7 @@ MODULE mo_nwp_lnd_types
     TYPE(t_ptr_2d3d), ALLOCATABLE :: t_snow_mult_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: t_s_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: t_gt_ptr(:) 
+    TYPE(t_ptr_2d3d), ALLOCATABLE :: t_canp_ptr(:) 
     TYPE(t_ptr_2d3d), ALLOCATABLE :: w_snow_ptr(:) 
     TYPE(t_ptr_2d3d), ALLOCATABLE :: rho_snow_ptr(:)
     TYPE(t_ptr_2d3d), ALLOCATABLE :: rho_snow_mult_ptr(:)
@@ -131,6 +133,7 @@ MODULE mo_nwp_lnd_types
     &  ::                     &
     &  qv_s         (:,:)   , & ! specific humidity at the surface              (kg/kg)
     &  t_s          (:,:)   , & ! temperature of the ground surface             (  K  )
+    &  t_canp       (:,:)   , & ! temperature of the canopy surface             (  K  )
     &  t_seasfc     (:,:)   , & ! temperature of the sea surface                (  K  )
     &  w_i          (:,:)   , & ! water content of interception water           (m H2O)
     &  w_p          (:,:)   , & ! water content of pond interception water      (m H2O)

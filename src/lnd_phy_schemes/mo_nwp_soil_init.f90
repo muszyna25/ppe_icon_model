@@ -83,6 +83,8 @@ CONTAINS
                   t_snow_mult_now  , & ! temperature of the snow-surface               (  K  )
                   t_s_now          , & ! temperature of the ground surface             (  K  )
                   t_s_new          , & ! temperature of the ground surface             (  K  )
+                  t_canp_now       , & ! temperature of the canopy surface             (  K  )
+                  t_canp_new       , & ! temperature of the canopy surface             (  K  )
                   w_snow_now       , & ! water content of snow                         (m H2O)
                   h_snow           , & ! snow depth                                   (m H2O)
                   rho_snow_now     , & ! snow density                                  (kg/m**3)
@@ -132,6 +134,10 @@ CONTAINS
                   t_s_now              ! temperature of the ground surface             (  K  )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
                   t_s_new              ! temperature of the ground surface             (  K  )
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
+                  t_canp_now              ! temperature of the canopy surface          (  K  )
+  REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
+                  t_canp_new              ! temperature of the canopy surface          (  K  )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
                   w_snow_now       , & ! water content of snow                         (m H2O)
                   rho_snow_now         ! snow density                                  (kg/m**3)
@@ -346,6 +352,7 @@ CONTAINS
   END DO
 
 
+
 ! adjust temperature profile in lower soil layers, if temperature of first soil
 ! layer was reduced due to the detection of snow (e.g. in the analysis)
 ! loop over grid points
@@ -403,7 +410,11 @@ CONTAINS
     t_so_new(i,1) = t_so_now(i,0)
     t_so_new(i,0) = t_so_now(i,0)
 
-  END DO
+! Prescribe canopy temperature
+     t_canp_now(i)=t_so_now(i,0)
+     t_canp_new(i)=t_so_now(i,0)
+ 
+ END DO
 
 
   ! Note that a few parts need to be shifted to the .NOT. is_coldstart branch.

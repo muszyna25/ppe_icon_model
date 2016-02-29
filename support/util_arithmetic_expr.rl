@@ -12,8 +12,10 @@
 #include <math.h>
 #include "util_arithmetic_expr.h"
 
-const char*  const priorities = "(;><;+-;*/;^";
-const char * const fct_name[NUM_FCT] = { "exp", "log", "sin", "cos", "min", "max", "if", "sqrt" };
+const char*  const priorities = "(;><;+-;/*;^";
+const char*  const left_assoc = "><+-/*";
+const char * const fct_name[NUM_FCT] = { "exp", "log", "sin", "cos", "min", "max", 
+					 "if", "sqrt" };
 
 /* All data needed to define the state of the Finite State Machine parser. */
 struct t_parsedata {
@@ -31,6 +33,13 @@ int priority(char op) {
     if ((*o) == ';')     val++;
     else if ((*o) == op) return val;
   return -1;
+}
+
+/* Associativity of an arithmetic operator */
+int left_associative(char op) {
+  const char* o = left_assoc;
+  for (; o!='\0'; o++) if ((*o) == op) return 1;
+  return 0;
 }
 
 
@@ -61,8 +70,6 @@ int priority(char op) {
    data->queue->list[data->queue->size].type = VALUE;
    if (strcmp(constant, "pi") == 0)
      data->queue->list[data->queue->size++].val = 4.*atan(1.);
-   else if (strcmp(constant, "r") == 0)
-     data->queue->list[data->queue->size++].val = 6.371229e6;
  }
  # push a function onto stack
  action store_fct { 
@@ -85,13 +92,15 @@ action store_sep {
 # store operator 
 action store_op { 
   /*  While the stack is not empty and an operator is at the top and
-      the operator at the top is higher priority that the item then
-      pop the operator on the top of the stack, add the popped
-      operator to the queue. */
+      the operator at the top is higher (or, if left associative,
+      equal) priority that the item then pop the operator on the top
+      of the stack, add the popped operator to the queue. */
   char this_op = data->buffer[0];
-  while ((data->ostack.size > 0) && (data->ostack.list[data->ostack.size-1].type==OPERATOR) &&
-	 (priority(this_op) < priority(data->ostack.list[data->ostack.size-1].op)))
-    data->queue->list[data->queue->size++] = data->ostack.list[--data->ostack.size];
+  int lassoc   = left_associative(this_op);
+  while (((data->ostack.size > 0) && (data->ostack.list[data->ostack.size-1].type==OPERATOR)) &&
+	 ( ((lassoc==1) && (priority(this_op) <= priority(data->ostack.list[data->ostack.size-1].op)) ) ||
+	   ((lassoc==0) && (priority(this_op) <  priority(data->ostack.list[data->ostack.size-1].op)) ) ) )
+	data->queue->list[data->queue->size++] = data->ostack.list[--data->ostack.size];
   struct t_item new_item =  { .type=OPERATOR, .op=this_op };
   data->ostack.list[data->ostack.size++] = new_item;
  }
@@ -132,8 +141,8 @@ action store_op {
  # parser definitions
  # ===========================================================================
  
- # token for a single integer value
- value           = space* ([0-9]|'-'[0-9]) >clear $append [0-9]* '.'? $append [0-9]* $append space* ;
+ # token for a single value
+ value           = space* ([0-9]|'-'[0-9]) >clear $append [0-9]* '.'? $append [0-9]* $append 'e'? $append [0-9]* $append space* ;
  # tokens for basic arithmetic expressions
  operator        = space* ('+'|'-'|'*'|'/'|'^'|'>'|'<') >clear $append space* ;
  parenthesis     = space* ('('|')') >clear $append space* ;
@@ -152,7 +161,7 @@ action store_op {
    parenthesis => store_paren;
    sep         => store_sep;
    constant    => store_constant;
-   var_token   => store_variable;
+   var_token   => store_variable; 
  *|;
  # ===========================================================================
 }%%

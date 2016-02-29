@@ -23568,7 +23568,7 @@ static int getAvailabilityOfRelativeTimes(grib_handle* gh, bool* outHaveForecast
         return 0;
 
       //case 55 and case 40455 are the same: 55 is the proposed standard value, 40455 is the value in the local use range that is used by the dwd until the standard is updated.
-      case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 15: case 32: case 33: case 40: case 41: case 44: case 45: case 48: case 51: case 53: case 54: case 55: case 60: case 1000: case 1002: case 1100: case 40033: case 40455:
+      case 0: case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 15: case 32: case 33: case 40: case 41: case 44: case 45: case 48: case 51: case 53: case 54: case 55: case 56: case 60: case 1000: case 1002: case 1100: case 40033: case 40455: case 40456:
         *outHaveForecastTime = true, *outHaveTimeRange = false;
         return 0;
 
@@ -32115,7 +32115,7 @@ static ssize_t scanToGribMarker(CdiGribIterator *me)
       if(scannedBytes + scanSize > kMaxScanSize) scanSize = kMaxScanSize - scannedBytes;
       assert(scanSize <= me->bufferSize);
       int status = cdiInputFile_read(me->file, me->fileOffset + (off_t)scannedBytes, scanSize, &scanSize, me->gribBuffer);
-      if(status != CDI_NOERR && status != CDI_EEOF) return status;
+      if(status != CDI_NOERR && status != CDI_EEOF) return -1;
 
       const unsigned char *startPosition = positionOfGribMarker(me->gribBuffer, scanSize);
       if(startPosition)
@@ -32125,8 +32125,8 @@ static ssize_t scanToGribMarker(CdiGribIterator *me)
 
       //Get the offset for the next iteration if there is a next iteration.
       scanSize -= 3;        //so that we won't miss a 'GRIB' sequence that happens to be cut off
-      scannedBytes += scanSize;
-      scannedBytes &= ~(size_t)0xf; //make 16 bytes aligned
+      scanSize &= ~(size_t)0xf; //make 16 bytes aligned
+      if((ssize_t)scanSize <= 0) return -1; //ensure that we make progress
     }
   return -1;
 }

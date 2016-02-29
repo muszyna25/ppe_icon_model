@@ -1302,15 +1302,10 @@ SUBROUTINE cloudice (             &
         ELSE
           zsdau    =  0.0_wp
         ENDIF
-        zsicri    = zcicri * qig * zeln7o8qrk(iv)
-        IF (qsg > 1.e-7_wp) THEN
-          zsrcri  = zcrcri * (qig/zmi) * zeln13o8qrk(iv)
-          zxfac     = 1.0_wp + zbsdep(iv) * EXP(ccsdxp*LOG(zcslam(iv)))
-          zssdep  = zcsdep(iv) * zxfac * ( qvg - zqvsi(iv) ) / (zcslam(iv)+zeps)**2
-        ELSE
-          zsrcri  = 0.0_wp
-          zssdep  = 0.0_wp
-        ENDIF
+        zsicri  = zcicri * qig * zeln7o8qrk(iv)
+        zsrcri  = zcrcri * (qig/zmi) * zeln13o8qrk(iv)
+        zxfac   = 1.0_wp + zbsdep(iv) * EXP(ccsdxp*LOG(zcslam(iv)))
+        zssdep  = zcsdep(iv) * zxfac * ( qvg - zqvsi(iv) ) / (zcslam(iv)+zeps)**2
 
         ! Check for maximal depletion of vapor by sdep
         IF (zssdep > 0.0_wp) THEN
@@ -1330,10 +1325,12 @@ SUBROUTINE cloudice (             &
         sdau (iv)  = zcorr*zsdau
         siau (iv)  = zcorr*zsiau
         sagg (iv)  = zcorr*zsagg
-        ssdep(iv)  = zssdep
-        srcri(iv)  = zsrcri
         sicri(iv)  = zcorr*zsicri
 
+        ! Allow growth of snow only if the existing amount of snow is sufficiently large 
+        ! for a meaningful distiction between snow and cloud ice
+        IF (qsg > 1.e-7_wp .OR. zssdep <= 0.0_wp) ssdep(iv) = zssdep
+        IF (qsg > 1.e-7_wp)  srcri(iv) = zsrcri
 
       !------------------------------------------------------------------------
       ! Section 7: Search for warm grid points with cloud ice and/or snow and
