@@ -32,7 +32,8 @@ MODULE mo_initicon_io
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var
-  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth
+  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceNone, kInputSourceFg, &
+    &                               kInputSourceAna, kInputSourceBoth, kStateFailedFetch
   USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, l_sst_in, generate_filename, &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lread_vn,      &
@@ -1469,20 +1470,21 @@ MODULE mo_initicon_io
             ! sea-ice height
             CALL fetchSurface(params, 'h_ice', jg, wtr_prog%h_ice)
 
-            ! T_SO(0). Note that the file may contain a 3D field, of which we ONLY fetch the level at 0.0.
-            lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceFg
+            ! sea-surface temperature: fetch T_SEA or, alternatively, T_SO(0)
             my_ptr2d => initicon(jg)%sfc%sst(:,:)
-            CALL fetch2d(params, 't_so', 0.0_wp, jg, my_ptr2d)
-            ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
-            IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceAna) THEN
-                CALL inputInstructions(jg)%ptr%setSource('t_so', kInputSourceBoth)
-            END IF
+            CALL fetch2d(params, 't_seasfc', 0.0_wp, jg, my_ptr2d)
+            !
+            IF (inputInstructions(jg)%ptr%fetchStatus('t_seasfc', lIsFg=.FALSE.) == kStateFailedFetch) THEN
 
-            ! T_SEA
-            my_ptr2d => initicon(jg)%sfc%sst(:,:)
-            IF(inputInstructions(jg)%ptr%wantVarAna('t_seasfc')) &
-            &   CALL inputInstructions(jg)%ptr%handleErrorAna(requestList%fetch2d('t_seasfc', 0.0_wp, trivial_tileId, jg, my_ptr2d), &
-            &                                                 't_seasfc', routine)
+              ! T_SO(0). Note that the file may contain a 3D field, of which we ONLY fetch the level at 0.0.
+              lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceFg
+              CALL fetch2d(params, 't_so', 0.0_wp, jg, my_ptr2d)
+              ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+              IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('t_so', kInputSourceBoth)
+              END IF
+            ENDIF
+
 
             ! h_snow
             IF ( init_mode == MODE_IAU ) THEN

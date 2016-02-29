@@ -32,10 +32,13 @@ MODULE mo_input_instructions
 
 PUBLIC :: t_readInstructionList, readInstructionList_make, t_readInstructionListPtr
 PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth
-
+PUBLIC :: kStateNoFetch, kStateFailedFetch, kStateRead
     ! The possible RETURN values of readInstructionList_sourceOfVar().
     INTEGER, PARAMETER :: kInputSourceUnset = -1, kInputSourceNone = 0, kInputSourceFg = 1, kInputSourceAna = 2, &
                         & kInputSourceBoth = 3
+
+    ! The possible values for statusFg AND statusAna:
+    INTEGER(KIND = C_CHAR), PARAMETER :: kStateNoFetch = 0, kStateFailedFetch = 1, kStateRead = 2
 
     ! The readInstructionList is used to tell the fetch_dwd*() routines which fields may be read from first guess and/or analysis,
     ! and to signal whether we have found data in the first guess file, so that we can fail correctly.
@@ -74,6 +77,9 @@ PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth
 
         PROCEDURE :: sourceOfVar => readInstructionList_sourceOfVar ! returns kInputSourceNone, kInputSourceFg, kInputSourceAna, OR kInputSourceBoth
         PROCEDURE :: setSource => readInstructionList_setSource ! overrides the automatic calculation of the input source, argument must be 'kInputSource\(None\|Fg\|Ana\|Both\)'
+
+        PROCEDURE :: fetchStatus => readInstructionList_fetchStatus  ! returns the result of a read attempt for a particular field
+
         PROCEDURE :: printSummary => readInstructionList_printSummary   ! print a table with the information obtained via `handleErrorXXX()`, `optionalReadResult()`, and `setSource()`; THIS DEPENDS ON THE ACTUAL READ ATTEMPTS AND THEIR RESULTS, NOT ON `lReadFg` or `lReadAna`.
 
         PROCEDURE :: destruct => readInstructionList_destruct
@@ -88,9 +94,6 @@ PUBLIC :: kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth
     END TYPE t_readInstructionListPtr
 
 PRIVATE
-
-    ! The possible values for statusFg AND statusAna:
-    INTEGER(KIND = C_CHAR), PARAMETER :: kStateNoFetch = 0, kStateFailedFetch = 1, kStateRead = 2
 
     TYPE :: t_readInstruction
         CHARACTER(LEN = VARNAME_LEN) :: varName
@@ -214,19 +217,6 @@ CONTAINS
                 lRemoveSnowfrac = ltile_coldstart
                 IF(init_mode == MODE_IAU .AND. .NOT. lsnowtile) lRemoveSnowfrac = .TRUE.
                 IF(lRemoveSnowfrac) CALL difference(fgGroup, fgGroupSize, (/'snowfrac'/), 1)
-
-
-                !DR Test
-                IF (l_sst_in) THEN
-                  ! if sst is provided as a separate input field, read it instead of t_so(0)
-                  CALL difference(anaGroup, anaGroupSize, (/'t_so'/), 1)
-                ELSE  
-                  ! otherwise read t_so(0), which means that we have to remove t_seasfc 
-                  ! from the input group 
-                  CALL difference(anaGroup, anaGroupSize, (/'t_seasfc'/), 1)
-                ENDIF
-                !DR End Test
-
 
                 IF (.NOT. lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg) ) THEN
                     ! full ANA read
@@ -657,6 +647,25 @@ CONTAINS
                 CALL finish(routine, "assertion failed: illegal source argument")
         END SELECT
     END SUBROUTINE readInstructionList_setSource
+
+
+    INTEGER FUNCTION readInstructionList_fetchStatus(me, varName, lIsFg) RESULT(RESULT)
+        CLASS(t_readInstructionList), INTENT(INOUT) :: me
+        CHARACTER(LEN = *), INTENT(IN) :: varName
+        LOGICAL, VALUE :: lIsFg
+
+        TYPE(t_readInstruction), POINTER :: instruction
+
+        instruction => me%findInstruction(varName)
+        IF(lIsFg) THEN
+            RESULT = instruction%statusFg
+        ELSE
+            RESULT = instruction%statusAna
+        ENDIF
+    END FUNCTION readInstructionList_fetchStatus
+
+
+
 
     ! The table that is printed by this function deliberately depends on the actual read attempts and their results, not on `lReadFg` or `lReadAna`.
     ! This is due to the fact that there are existing discrepancies between the input groups and the actual read attempts made by the `fetch...()` routines
