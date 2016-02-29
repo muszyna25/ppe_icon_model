@@ -437,7 +437,8 @@ sub ScanDirectory {
 	    if ($name =~ /\.[c|f|F]{1}(90|95|03)?$/) {
 		push @source_files, $name;
 
-		open F, "<$name";
+		open F, '<', $name
+                    or die("Cannot open file $name", $!);
 		my @lines = <F>;
 		close (F);
 

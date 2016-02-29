@@ -153,7 +153,6 @@ CONTAINS
         INTEGER(KIND = C_INT64_T), ALLOCATABLE :: processChecksums(:)
         INTEGER(KIND = C_INT64_T), PARAMETER :: prime1 = 2131876679, prime2 = 1665879031    !just two random primes IN the range
                                                                                             ![2**30, 2**31]
-        INTEGER(KIND = C_INT64_T), PARAMETER :: mask = 2_C_INT64_T**32 - 1_C_INT64_T
         CHARACTER(LEN = *), PARAMETER :: routine = moduleName//":printChecksum_1d_int32"
 
         !XXX: These two variables are a workaround for the MPI implementation on AIX, which does NOT provide the constants
