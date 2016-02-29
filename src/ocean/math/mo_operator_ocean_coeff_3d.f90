@@ -33,7 +33,7 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_physical_constants,  ONLY: earth_radius
   USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
     &  t_geographical_coordinates, vector_product, &
-    &  arc_length, triangle_area, cvec2gvec 
+    &  arc_length, cvec2gvec
   USE mo_ocean_nml,           ONLY: n_zlev, no_tracer, &
     & coriolis_type, basin_center_lat, basin_height_deg, &
     & select_solver, select_restart_mixedPrecision_gmres
@@ -43,7 +43,6 @@ MODULE mo_operator_ocean_coeff_3d
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array!, sync_idx, global_max
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_operator_coeff, &
     & t_verticalAdvection_ppm_coefficients, t_solverCoeff_singlePrecision
-  USE mo_ocean_physics,       ONLY: t_ho_params
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_grid_config,         ONLY: grid_sphere_radius, grid_angular_velocity
   USE mo_run_config,          ONLY: dtime
@@ -1173,8 +1172,9 @@ CONTAINS
 
           IF (edge_block > 0) THEN
             rot_coeff(vertex_index,vertex_block,neigbor)           &
-            & = dual_edge_length(edge_index,edge_block) * grid_sphere_radius &     !PK why not dual_edge_length from above ??
-            &  * patch_2D%verts%edge_orientation(vertex_index,vertex_block,neigbor)
+!              & = dual_edge_length(edge_index,edge_block) * grid_sphere_radius &     !PK why not dual_edge_length from above ??
+             & = patch_2D%edges%primal_edge_length(edge_index,edge_block) &         !PK why not dual_edge_length from above ??
+             &  * patch_2D%verts%edge_orientation(vertex_index,vertex_block,neigbor)
           ENDIF
         ENDDO !neigbor=1,6
       ENDDO ! vertex_index = start_index, end_index
@@ -1205,52 +1205,52 @@ CONTAINS
     !----------------------------------------------------
     ! 9) recalculate the coriolis coefficient
     ! It is required if we use the middle of the dual_edge_length
-    IF (MID_POINT_DUAL_EDGE) THEN
-
-      IF (CORIOLIS_TYPE == full_coriolis) THEN
-
-        DO edge_block = owned_edges%start_block, owned_edges%end_block
-          CALL get_index_range(owned_edges, edge_block, start_index, end_index)
-          DO edge_index = start_index, end_index
-
-             coriolis_geo_coordinates = cc2gc(dual_edge_middle(edge_index,edge_block))
-             patch_2D%edges%f_e(edge_index,edge_block) = &
-               & 2._wp * grid_angular_velocity * SIN(coriolis_geo_coordinates%lat)
-
-          ENDDO
-        ENDDO
-
-      ELSEIF (CORIOLIS_TYPE == BETA_PLANE_CORIOLIS) THEN
-
-        basin_center_lat_rad = basin_center_lat * deg2rad
-        basin_height_rad     = basin_height_deg * deg2rad
-        coriolis_geo_coordinates%lat = basin_center_lat_rad - 0.5_wp * basin_height_rad
-        coriolis_geo_coordinates%lon = 0.0_wp
-        coriolis_cartesian_coordinates  = gc2cc(coriolis_geo_coordinates)
-
-        DO edge_block = owned_edges%start_block, owned_edges%end_block
-          CALL get_index_range(owned_edges, edge_block, start_index, end_index)
-          DO edge_index = start_index, end_index
-
-          geo_coordinates     = cc2gc(dual_edge_middle(edge_index,edge_block))
-          geo_coordinates%lon = 0.0_wp
-          edge_center         = gc2cc(geo_coordinates)
-          length              = grid_sphere_radius * &
-            & arc_length(edge_center, coriolis_cartesian_coordinates)
-
-          patch_2D%edges%f_e(edge_index,edge_block) =  2.0_wp * grid_angular_velocity * &
-            & ( sin(basin_center_lat_rad) + (cos(basin_center_lat_rad) / &
-            &   grid_sphere_radius) * length)
-
-          ENDDO
-        ENDDO
-
-      ENDIF !(CORIOLIS_TYPE==full_coriolis)
-    ENDIF ! (MID_POINT_DUAL_EDGE)
-    !-------------------
-    ! sync patch_2D%edges%f_e
-    CALL sync_patch_array(SYNC_E, patch_2D, patch_2D%edges%f_e)
-    !---------------------------------------------------------
+!     IF (MID_POINT_DUAL_EDGE) THEN
+! 
+!       IF (CORIOLIS_TYPE == full_coriolis) THEN
+! 
+!         DO edge_block = owned_edges%start_block, owned_edges%end_block
+!           CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+!           DO edge_index = start_index, end_index
+! 
+!              coriolis_geo_coordinates = cc2gc(dual_edge_middle(edge_index,edge_block))
+!              patch_2D%edges%f_e(edge_index,edge_block) = &
+!                & 2._wp * grid_angular_velocity * SIN(coriolis_geo_coordinates%lat)
+! 
+!           ENDDO
+!         ENDDO
+! 
+!       ELSEIF (CORIOLIS_TYPE == BETA_PLANE_CORIOLIS) THEN
+! 
+!         basin_center_lat_rad = basin_center_lat * deg2rad
+!         basin_height_rad     = basin_height_deg * deg2rad
+!         coriolis_geo_coordinates%lat = basin_center_lat_rad - 0.5_wp * basin_height_rad
+!         coriolis_geo_coordinates%lon = 0.0_wp
+!         coriolis_cartesian_coordinates  = gc2cc(coriolis_geo_coordinates)
+! 
+!         DO edge_block = owned_edges%start_block, owned_edges%end_block
+!           CALL get_index_range(owned_edges, edge_block, start_index, end_index)
+!           DO edge_index = start_index, end_index
+! 
+!           geo_coordinates     = cc2gc(dual_edge_middle(edge_index,edge_block))
+!           geo_coordinates%lon = 0.0_wp
+!           edge_center         = gc2cc(geo_coordinates)
+!           length              = grid_sphere_radius * &
+!             & arc_length(edge_center, coriolis_cartesian_coordinates)
+! 
+!           patch_2D%edges%f_e(edge_index,edge_block) =  2.0_wp * grid_angular_velocity * &
+!             & ( sin(basin_center_lat_rad) + (cos(basin_center_lat_rad) / &
+!             &   grid_sphere_radius) * length)
+! 
+!           ENDDO
+!         ENDDO
+! 
+!       ENDIF !(CORIOLIS_TYPE==full_coriolis)
+!     ENDIF ! (MID_POINT_DUAL_EDGE)
+!     !-------------------
+!     ! sync patch_2D%edges%f_e
+!     CALL sync_patch_array(SYNC_E, patch_2D, patch_2D%edges%f_e)
+!     !---------------------------------------------------------
 
   END SUBROUTINE init_operator_coeffs
   !-------------------------------------------------------------------------
@@ -2347,17 +2347,17 @@ CONTAINS
           END DO
 
           !---------------------------------------------------------------------------------------------
-          DO je = 1, boundary_counter
-            ivertex_bnd_edge_idx(je) = operators_coefficients%vertex_bnd_edge_idx(jv,jk,block,je)
-            ivertex_bnd_edge_blk(je) = operators_coefficients%vertex_bnd_edge_blk(jv,jk,block,je)
-
-            ! needs to be re-examined !
-            operators_coefficients%rot_coeff(jv,jk,block,i_edge_idx(je) )=&
-              & 0.5_wp*patch_2D%edges%tangent_orientation(ivertex_bnd_edge_idx(je),ivertex_bnd_edge_blk(je)) * &
-              & prime_edge_length(ivertex_bnd_edge_idx(je),ivertex_bnd_edge_blk(je)) * grid_sphere_radius
-              ! this is the real distance on the Earth
-
-          ENDDO
+!           DO je = 1, boundary_counter
+!             ivertex_bnd_edge_idx(je) = operators_coefficients%vertex_bnd_edge_idx(jv,jk,block,je)
+!             ivertex_bnd_edge_blk(je) = operators_coefficients%vertex_bnd_edge_blk(jv,jk,block,je)
+! 
+!             ! needs to be re-examined !
+!             operators_coefficients%rot_coeff(jv,jk,block,i_edge_idx(je) )=&
+!               & 0.5_wp*patch_2D%edges%tangent_orientation(ivertex_bnd_edge_idx(je),ivertex_bnd_edge_blk(je)) * &
+!               & prime_edge_length(ivertex_bnd_edge_idx(je),ivertex_bnd_edge_blk(je)) * grid_sphere_radius
+!               ! this is the real distance on the Earth
+! 
+!           ENDDO
         END DO ! jv = i_startidx_v, i_endidx_v
 
       END DO ! jk = 1, n_zlev

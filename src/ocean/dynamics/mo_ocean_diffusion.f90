@@ -32,7 +32,7 @@ MODULE mo_ocean_diffusion
   USE mo_ocean_physics,         ONLY: t_ho_params
   USE mo_scalar_product,      ONLY: map_cell2edges_3d, map_edges2edges_viacell_3d_const_z
   USE mo_ocean_math_operators,  ONLY: div_oce_3d, rot_vertex_ocean_3d,&
-    & map_edges2vert_3d, grad_fd_norm_oce_3D, grad_vector, div_vector
+    & map_edges2vert_3d, grad_fd_norm_oce_3D, grad_vector, div_vector_onTriangle
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
   USE mo_sync,                ONLY: sync_c, sync_e, sync_v, sync_patch_array, sync_patch_array_mult
@@ -184,7 +184,7 @@ CONTAINS
     CALL grad_vector(cellVector=p_diag%p_vn, patch_3D=patch_3d, &
       grad_coeff=physics_parameters%HarmonicViscosity_coeff, gradVector=z_grad_u)
 
-    CALL div_vector(patch_3d=patch_3D, edgeVector=z_grad_u, &
+    CALL div_vector_onTriangle(patch_3d=patch_3D, edgeVector=z_grad_u, &
       & divVector=z_div_grad_u, div_coeff=operators_coeff%div_coeff)
 
 
