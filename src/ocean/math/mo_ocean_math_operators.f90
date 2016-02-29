@@ -73,7 +73,7 @@ MODULE mo_ocean_math_operators
   PUBLIC :: check_cfl_horizontal, check_cfl_vertical
   PUBLIC :: smooth_onCells
   PUBLIC :: update_height_depdendent_variables, calculate_thickness
-  PUBLIC :: grad_vector, div_vector_onTriangle
+  PUBLIC :: grad_vector, div_vector
   
   
   INTERFACE div_oce_3D
@@ -225,8 +225,8 @@ CONTAINS
   !-------------------------------------------------------------------------------------
   SUBROUTINE grad_vector( cellVector, patch_3D, grad_coeff, gradVector)
 
-    TYPE(t_patch_3D ),TARGET      :: patch_3D           ! in
-    REAL(wp)                      :: grad_coeff(:,:,:)  ! in (nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    TYPE(t_patch_3D ),TARGET     :: patch_3D           ! in
+    REAL(wp)                     :: grad_coeff(:,:,:)  ! in (nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
     TYPE(t_cartesian_coordinates) :: cellVector (:,:,:)      ! in (nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     TYPE(t_cartesian_coordinates) :: gradVector(:,:,:) ! out (nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
 
@@ -262,7 +262,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  SUBROUTINE div_vector_onTriangle(patch_3d, edgeVector, divVector, div_coeff)
+  SUBROUTINE div_vector(patch_3d, edgeVector, divVector, div_coeff)
     TYPE(t_patch_3d ),TARGET        :: patch_3d
     TYPE(t_cartesian_coordinates)   :: edgeVector(:,:,:)
     TYPE(t_cartesian_coordinates)   :: divVector (:,:,:)
@@ -275,10 +275,6 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2D
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3D%p_patch_2D(1)
-    IF (patch_2D%cells%max_connectivity /= 3) THEN
-      CALL finish('div_vector_onTriangle','cells%max_connectivity /= 3')
-    ENDIF
-
     cells_in_domain => patch_2D%cells%in_domain
     idx => patch_3D%p_patch_2D(1)%cells%edge_idx
     blk => patch_3D%p_patch_2D(1)%cells%edge_blk
@@ -289,12 +285,12 @@ CONTAINS
       DO cell_index = start_index, end_index
         DO level = 1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
 
-          divVector(cell_index,level,blockNo)%x =  &
-            & edgeVector(idx(cell_index,blockNo,1),level,blk(cell_index,blockNo,1))%x&
-            & * div_coeff(cell_index,level,blockNo,1)+&
-            & edgeVector(idx(cell_index,blockNo,2),level,blk(cell_index,blockNo,2))%x&
-            & * div_coeff(cell_index,level,blockNo,2)+&
-            & edgeVector(idx(cell_index,blockNo,3),level,blk(cell_index,blockNo,3))%x&
+            divVector(cell_index,level,blockNo)%x =  &
+              & edgeVector(idx(cell_index,blockNo,1),level,blk(cell_index,blockNo,1))%x&
+              & * div_coeff(cell_index,level,blockNo,1)+&
+              & edgeVector(idx(cell_index,blockNo,2),level,blk(cell_index,blockNo,2))%x&
+              & * div_coeff(cell_index,level,blockNo,2)+&
+              & edgeVector(idx(cell_index,blockNo,3),level,blk(cell_index,blockNo,3))%x&
               & * div_coeff(cell_index,level,blockNo,3)
 
         END DO
@@ -305,7 +301,7 @@ CONTAINS
     END DO
 !ICON_OMP_END_PARALLEL_DO
 
-  END SUBROUTINE div_vector_onTriangle
+  END SUBROUTINE div_vector
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -522,8 +518,8 @@ CONTAINS
       CALL div_oce_3D_mlevels_onTriangles(vec_e, patch_3D, div_coeff, div_vec_c, &
         & opt_start_level, opt_end_level, subset_range)
       RETURN
-    ENDIF
     !-----------------------------------------------------------------------
+    ENDIF
     
     IF (PRESENT(subset_range)) THEN
       cells_subset => subset_range

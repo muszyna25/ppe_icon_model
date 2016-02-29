@@ -35,7 +35,7 @@ MODULE mo_scalar_product
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
   USE mo_ocean_types,        ONLY: t_hydro_ocean_diag, t_solvercoeff_singleprecision
   USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, fast_performance_level,l_ANTICIPATED_VORTICITY,&
-    & KineticEnergy_type, KineticEnergy_onPrimalGrid, KineticEnergy_onDualGrid, NoKineticEnergy
+    & KineticEnergy_type, KineticEnergy_onPrimalGrid, KineticEnergy_onDualGrid
   USE mo_math_utilities,     ONLY: t_cartesian_coordinates
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff, no_primal_edges, no_dual_edges, &
     & Get3DVectorTo2DLocal_array3D
@@ -114,7 +114,6 @@ CONTAINS
     REAL(wp) :: w1, w2, w3, w4, w
     TYPE(t_subset_range), POINTER :: all_cells ! , cells_in_domain
     TYPE(t_patch), POINTER :: patch_2d
-    CHARACTER(*), PARAMETER :: method_name="calc_scalar_product_veloc_3d"
     !-----------------------------------------------------------------------
     patch_2d        => patch_3d%p_patch_2d(1)
     all_cells       => patch_2d%cells%all
@@ -149,21 +148,6 @@ CONTAINS
     !calculate kinetic energy
     ! First option is our default configuration
     SELECT CASE(KineticEnergy_type)
-    CASE (NoKineticEnergy)
-!ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = all_cells%start_block, all_cells%end_block
-        CALL get_index_range(all_cells, blockNo, start_cell_index, end_cell_index)
-
-        DO cell_index =  start_cell_index, end_cell_index
-          DO level = startLevel, patch_3d%p_patch_1d(1)%dolic_c(cell_index,blockNo)
-
-            p_diag%kin(cell_index,level,blockNo) = 0.0_wp
-
-          ENDDO
-        ENDDO
-      ENDDO
-!ICON_OMP_END_PARALLEL_DO
-
     CASE (KineticEnergy_onDualGrid)
 !ICON_OMP_PARALLEL_DO PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = all_cells%start_block, all_cells%end_block
@@ -255,9 +239,6 @@ CONTAINS
         END DO ! block
 !ICON_OMP_END_PARALLEL_DO
       ENDIF
-
-    CASE default
-      CALL finish(method_name,"unknown KineticEnergy_type")
 
     END SELECT
           
@@ -840,8 +821,8 @@ CONTAINS
 !       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
 !     CALL dbg_print('x(2)', p_vn_c(:,:,:)%x(2), &
 !       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
-!     CALL dbg_print('x(3)', p_vn_c(:,:,:)%x(3), &
-!       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+    CALL dbg_print('x(3)', p_vn_c(:,:,:)%x(3), &
+      & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
 
   END SUBROUTINE map_edges2cell_no_height_3d
   !-----------------------------------------------------------------------------

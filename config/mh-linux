@@ -474,8 +474,8 @@ case "$ac_sitename" in
                         DEBUG_FLAGS = -debug-parameters -debug -g -O0
                         # replaced -fltconsitency because the option is deprected and should be replaced by -fp-model source
                         FPPFLAGS    = -fpp -D__LOOP_EXCHANGE  
-                        STD_FLAGS   =  -ftz -O2 -march=native -pc64 -fp-model source -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -gline
-                        HIOPT_FLAGS = -O3 -march=native -pc64 -fp-model source -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=0 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH__
+                        STD_FLAGS   =  -ftz -O2 -march=native -pc64 -fp-model source -qopt-report-file=stdout -qopt-report=2 -qopt-report-phase=vec -gline
+                        HIOPT_FLAGS = -O3 -march=native -pc64 -fp-model source -mkl=sequential -reentrancy threaded -qopt-report-file=stdout -qopt-report=2 -qopt-report-phase=vec -D__OMP_FIRSTTOUCH__
                         F77FLAGS    = $FPPFLAGS $STD_FLAGS
 
                         NETCDFFROOT = $software_tree/netcdf/netcdf_fortran-4.4.2-intel14

@@ -114,11 +114,9 @@ MODULE mo_ocean_nml
   INTEGER :: tracer_update_mode = i_post_step
 
   !Options for non-linear corilois term in vector invariant velocity equations
-  INTEGER, PARAMETER :: NO_CORIOLIS                   = 0
   INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_DUAL_GRID  = 200 !Default
   INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_PRIMAL_GRID= 201
   INTEGER            :: NONLINEAR_CORIOLIS            = NONLINEAR_CORIOLIS_DUAL_GRID
-  INTEGER, PARAMETER :: NoKineticEnergy               = 0
   INTEGER, PARAMETER :: KineticEnergy_onDualGrid      = 200
   INTEGER, PARAMETER :: KineticEnergy_onPrimalGrid    = 201
   INTEGER            :: KineticEnergy_type            = KineticEnergy_onDualGrid

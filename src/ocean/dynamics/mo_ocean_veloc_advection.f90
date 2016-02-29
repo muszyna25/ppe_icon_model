@@ -30,7 +30,7 @@ MODULE mo_ocean_veloc_advection
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_impl_constants,      ONLY: boundary, min_dolic
   USE mo_ocean_nml,           ONLY: n_zlev,NONLINEAR_CORIOLIS,&
-    & NONLINEAR_CORIOLIS_PRIMAL_GRID,NONLINEAR_CORIOLIS_DUAL_GRID, NO_CORIOLIS
+    &                               NONLINEAR_CORIOLIS_PRIMAL_GRID,NONLINEAR_CORIOLIS_DUAL_GRID !, iswm_oce, l_inverse_flip_flop, ab_beta, ab_gam
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_ocean_types,         ONLY: t_hydro_ocean_diag
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3d_onBlock, &
@@ -98,14 +98,6 @@ CONTAINS
       ELSEIF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_PRIMAL_GRID)THEN
 
         CALL veloc_adv_horz_mimetic_classicCgrid( patch_3D, &
-          & vn_old,          &
-          & p_diag,          &
-          & veloc_adv_horz_e,&
-          & ocean_coefficients)
-
-      ELSEIF(NONLINEAR_CORIOLIS==NO_CORIOLIS)THEN
-
-        CALL calculate_only_kineticGrad( patch_3D, &
           & vn_old,          &
           & p_diag,          &
           & veloc_adv_horz_e,&
@@ -186,9 +178,9 @@ CONTAINS
     REAL(wp), POINTER, INTENT(inout)  :: vn(:,:,:)
     TYPE(t_hydro_ocean_diag) :: p_diag
     REAL(wp), POINTER, INTENT(inout)  :: veloc_adv_horz_e(:,:,:) ! out
+    
     TYPE(t_operator_coeff), INTENT(in):: ocean_coefficients
-
-    INTEGER :: jk, blockNo, cell_index,start_cell_index, end_cell_index, level,startLevel
+    INTEGER :: jk, blockNo, je,cell_index,start_cell_index, end_cell_index, level,startLevel
     INTEGER :: start_edge_index, end_edge_index
     INTEGER, DIMENSION(:,:,:), POINTER :: edge_of_cell_idx, edge_of_cell_blk
     !REAL(wp) :: z_vort_flx(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
@@ -240,7 +232,7 @@ CONTAINS
     ! ENDIF
     !-------------------------------------------------------------------------------
 
-!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
       CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
 
@@ -274,55 +266,6 @@ CONTAINS
   END SUBROUTINE veloc_adv_horz_mimetic_rot
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
-  SUBROUTINE calculate_only_kineticGrad( patch_3D,     &
-    & vn,              &
-    & p_diag,          &
-    & veloc_adv_horz_e,&
-    & ocean_coefficients)
-
-    TYPE(t_patch_3D ),TARGET   :: patch_3D
-    REAL(wp), POINTER, INTENT(inout)  :: vn(:,:,:)
-    TYPE(t_hydro_ocean_diag) :: p_diag
-    REAL(wp), POINTER, INTENT(inout)  :: veloc_adv_horz_e(:,:,:) ! out
-    TYPE(t_operator_coeff), INTENT(in):: ocean_coefficients
-
-    INTEGER :: blockNo, start_edge_index, end_edge_index
-    TYPE(t_subset_range), POINTER :: edges_in_domain
-    TYPE(t_patch), POINTER         :: patch_2D
-    !-----------------------------------------------------------------------
-    patch_2D        => patch_3D%p_patch_2D(1)
-    edges_in_domain => patch_2D%edges%in_domain
-    !-----------------------------------------------------------------------
-
-    veloc_adv_horz_e = 0.0_wp
-
-!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
-      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
-
-      !calculate gradient of kinetic energy
-      CALL grad_fd_norm_oce_3d_onBlock ( &
-        & p_diag%kin,                    &
-        & patch_3D,                    &
-        & ocean_coefficients%grad_coeff(:,:,blockNo), &
-        & p_diag%grad(:,:,blockNo),           &
-        & start_edge_index, end_edge_index, blockNo)
-      ! the result is on edges_in_domain
-
-
-    END DO ! blocks
-!ICON_OMP_END_PARALLEL_DO
-
-    !---------Debug Diagnostics-------------------------------------------
-    idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('HorzMimRot: kin energy'        ,p_diag%kin              ,str_module,idt_src, &
-          patch_2D%cells%owned )
-    CALL dbg_print('HorzMimRot: grad kin en'       ,p_diag%grad             ,str_module,idt_src, &
-          patch_2D%edges%owned )
-
-  END SUBROUTINE calculate_only_kineticGrad
-  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
@@ -474,17 +417,12 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
 
     !---------Debug Diagnostics-------------------------------------------
-    idt_src=1  ! output print level (1-5, fix)
-    CALL dbg_print('advHorCgrid: f_e', patch_2d%edges%f_e,str_module,idt_src, &
-          patch_2D%edges%owned )
-!     idt_src=3  ! output print level (1-5, fix)
-    CALL dbg_print('advHorCgrid: kin energy'        ,p_diag%kin              ,str_module,idt_src, &
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('HorzMimRot: kin energy'        ,p_diag%kin              ,str_module,idt_src, &
           patch_2D%cells%owned )
-    CALL dbg_print('advHorCgrid: vorticity'         ,p_diag%vort             ,str_module,idt_src, &
+    CALL dbg_print('HorzMimRot: vorticity'         ,p_diag%vort             ,str_module,idt_src, &
           patch_2D%verts%owned )
-    CALL dbg_print('advHorCgrid: grad kin en'       ,p_diag%grad             ,str_module,idt_src, &
-          patch_2D%edges%owned )
-    CALL dbg_print('advHorCgrid: veloc_adv_horz_e'  ,veloc_adv_horz_e        ,str_module,idt_src, &
+    CALL dbg_print('HorzMimRot: grad kin en'       ,p_diag%grad             ,str_module,idt_src, &
           patch_2D%edges%owned )
     !---------------------------------------------------------------------
     !idt_src=2  ! output print level (1-5, fix)
@@ -494,6 +432,10 @@ CONTAINS
 
   END SUBROUTINE veloc_adv_horz_mimetic_classicCgrid
   !-------------------------------------------------------------------------
+
+
+
+
 
 
   !-------------------------------------------------------------------------
@@ -610,6 +552,7 @@ CONTAINS
         END DO
       END DO
     END DO
+
 
 
 

@@ -294,7 +294,7 @@ CONTAINS
       jb = blk_no(j) ! Block index in distributed patch
       jl = idx_no(j) ! Line  index in distributed patch
 
-      DO i=1,p_patch%geometry_info%cell_type
+      DO i=1,p_patch%cells%max_connectivity
 
 !CDIR IEXPAND
         CALL remap_index(p_patch%cells%decomp_info%glb2loc_index, &
