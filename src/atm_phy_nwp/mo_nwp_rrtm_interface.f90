@@ -469,12 +469,27 @@ CONTAINS
     IF (msg_level >= 12) &
       &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
 
+    IF (p_test_run) THEN
+      CALL get_indices_c(pt_patch, i_startblk, i_startblk, i_endblk, &
+           &                         i_startidx, i_endidx, rl_start, rl_end)
+      aclcov(1:i_startidx-1,i_startblk) = 0
+      prm_diag%lwflxall(1:i_startidx-1,:,i_startblk) = 0
+      prm_diag%trsolall(1:i_startidx-1,:,i_startblk) = 0
+      prm_diag%lwflx_up_sfc_rs(1:i_startidx-1,i_startblk) = 0
+      prm_diag%trsol_up_toa(1:i_startidx-1,i_startblk) = 0
+      prm_diag%trsol_up_sfc(1:i_startidx-1,i_startblk) = 0
+      prm_diag%trsol_par_sfc(1:i_startidx-1,i_startblk) = 0
+      prm_diag%trsol_dn_sfc_diff(1:i_startidx-1,i_startblk) = 0
+      prm_diag%trsolclr_sfc(1:i_startidx-1,i_startblk) = 0
+    END IF
+
 !$OMP PARALLEL PRIVATE(jb,i_startidx,i_endidx)
 !$OMP DO ICON_OMP_GUIDED_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
         &                         i_startidx, i_endidx, rl_start, rl_end)
+
 
 
       ! It may happen that an MPI patch contains only nest boundary points
@@ -668,10 +683,6 @@ CONTAINS
 
       ! section for computing radiation on reduced grid
 
-      IF (p_test_run) THEN
-        prm_diag%lwflxall(:,:,:) = 0._wp
-        prm_diag%trsolall(:,:,:) = 0._wp
-      ENDIF
 
       IF (msg_level >= 12) &
         &       CALL message('mo_nwp_rad_interface', 'RRTM radiation on reduced grid')
@@ -735,12 +746,25 @@ CONTAINS
         zrg_lwflxall (nproma,nlev_rg+1,nblks_par_c),   &
         zrg_trsolall (nproma,nlev_rg+1,nblks_par_c)    )
 
+
       rl_start = 1 ! SR radiation is not set up to handle boundaries of nested domains
       rl_end   = min_rlcell_int
 
       i_startblk = pt_patch%cells%start_blk(rl_start,1)
       i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
+      IF (p_test_run) THEN
+        CALL get_indices_c(pt_patch, i_startblk, i_startblk, i_endblk, &
+             &                         i_startidx, i_endidx, rl_start, rl_end)
+        zrg_lwflxall(:,:,:) = 0._wp
+        zrg_trsolall(:,:,:) = 0._wp
+        zrg_lwflx_up_sfc(1:i_startidx-1,i_startblk) = 0
+        zrg_trsol_up_toa(1:i_startidx-1,i_startblk) = 0
+        zrg_trsol_up_sfc(1:i_startidx-1,i_startblk) = 0
+        zrg_trsol_par_sfc(1:i_startidx-1,i_startblk) = 0
+        zrg_trsol_dn_sfc_diff(1:i_startidx-1,i_startblk) = 0
+        zrg_trsol_clr_sfc(1:i_startidx-1,i_startblk) = 0
+      ENDIF
 
       ! parallel section commented because it does almost no work (more overhead than benefit)
 !!$OMP PARALLEL
