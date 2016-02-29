@@ -1495,9 +1495,12 @@ CONTAINS
         & lhs_z_grad_h(:,:),              &
         & subset_range=patch_2D%edges%gradIsCalculable)
 
+      IF( patch_2d%cells%max_connectivity /= 3 )THEN
+        ! we need to check why edges%gradIsCalculable does not work with quads
+        CALL sync_patch_array(sync_e, patch_2D, lhs_z_grad_h )
+      ENDIF
 
       CALL map_edges2edges_viacell_3d_const_z( patch_3d, lhs_z_grad_h(:,:), op_coeffs, lhs_z_e(:,:))
-
       
     ENDIF ! l_edge_based
     !---------------------------------------
@@ -1905,46 +1908,45 @@ CONTAINS
       CALL map_edges2edges_viacell_3d_const_z( patch_3d, ocean_state%p_diag%vn_time_weighted, op_coeffs, &
         & ocean_state%p_diag%mass_flx_e)!, patch_3D%p_patch_1D(1)%prism_thick_c)
 
-        IF( patch_2d%cells%max_connectivity == 3 )THEN
+      IF( patch_2d%cells%max_connectivity == 3 )THEN
 
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
-          DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-            CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
-        
-            CALL div_oce_3D_onTriangles_onBlock(                 &
-              & ocean_state%p_diag%mass_flx_e,                   &
-              & patch_3D,op_coeffs%div_coeff,                    &
-              & ocean_state%p_diag%div_mass_flx_c(:,:,blockNo),  &
-              & blockNo=blockNo, start_index=start_index, end_index=end_index,      &
-              & start_level=1, end_level=n_zlev)
-        
-            DO jc = start_index, end_index          
-              !use bottom boundary condition for vertical velocity at bottom of prism
-              ! this should be awlays zero
-              ! vertical_velocity(jc,z_dolic+1,blockNo)=0.0_wp
-              DO jk = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), 1, -1
-                vertical_velocity(jc,jk,blockNo) &
-                  &= vertical_velocity(jc,jk+1,blockNo) - ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo)
-              END DO
-            END DO
-        
-          END DO ! blockNo
-!ICON_OMP_END_PARALLEL_DO 
-
-
-        ELSE
-		  
 !ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
         DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
           CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
-        
+
+          CALL div_oce_3D_onTriangles_onBlock(                 &
+            & ocean_state%p_diag%mass_flx_e,                   &
+            & patch_3D,op_coeffs%div_coeff,                    &
+            & ocean_state%p_diag%div_mass_flx_c(:,:,blockNo),  &
+            & blockNo=blockNo, start_index=start_index, end_index=end_index,      &
+            & start_level=1, end_level=n_zlev)
+
+          DO jc = start_index, end_index
+            !use bottom boundary condition for vertical velocity at bottom of prism
+            ! this should be awlays zero
+            ! vertical_velocity(jc,z_dolic+1,blockNo)=0.0_wp
+            DO jk = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), 1, -1
+              vertical_velocity(jc,jk,blockNo) &
+                &= vertical_velocity(jc,jk+1,blockNo) - ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo)
+            END DO
+          END DO
+
+        END DO ! blockNo
+!ICON_OMP_END_PARALLEL_DO
+
+      ELSE
+  
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
+        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+          CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+
           CALL div_oce_3D_general_onBlock(                     &
             & ocean_state%p_diag%mass_flx_e,                   &
             & patch_3D,op_coeffs%div_coeff,                    &
             & ocean_state%p_diag%div_mass_flx_c(:,:,blockNo),  &
             & blockNo=blockNo, start_index=start_index, end_index=end_index,      &
             & start_level=1, end_level=n_zlev)
-        
+
           DO jc = start_index, end_index
 
             !use bottom boundary condition for vertical velocity at bottom of prism
@@ -1955,10 +1957,10 @@ CONTAINS
               &= vertical_velocity(jc,jk+1,blockNo) - ocean_state%p_diag%div_mass_flx_c(jc,jk,blockNo)
             END DO
           END DO
-        
+
         END DO ! blockNo
-!ICON_OMP_END_PARALLEL_DO 
-		  		  
+!ICON_OMP_END_PARALLEL_DO
+  
       ENDIF	!patch_2d%cells%max_connectivity  
 
     ENDIF  !  (l_EDGE_BASED)
