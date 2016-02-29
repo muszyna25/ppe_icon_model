@@ -527,8 +527,6 @@ CONTAINS
         &              jg, p_lnd_diag%t_snow(:,:))
       CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "T_S", "K", "temperature of the ground surface", &
         &              jg, p_lnd_diag%t_s(:,:))
-      CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "T_CANP", "K", "temperature of the canopy surface", &
-        &              jg, p_lnd_diag%t_canp(:,:))
       CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "T_G", "K", "weighted surface temperature", &
         &              jg, p_lnd_prog%t_g(:,:))
       CALL add_sfc_var(meteogram_config, VAR_GROUP_SURFACE,  "FRESHSNW", "-",              &

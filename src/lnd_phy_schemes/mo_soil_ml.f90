@@ -475,7 +475,6 @@ END SUBROUTINE message
                   eai              , & ! earth area (evaporative surface area) index     --
 !                 llandmask        , & ! landpoint mask                                  --
                   rsmin2d          , & ! minimum stomata resistance                    ( s/m )
-                  gz0              , & ! roughness length                              ( m )
 !
                   u                , & ! zonal wind speed                              ( m/s )
                   v                , & ! meridional wind speed                         ( m/s )
@@ -493,9 +492,6 @@ END SUBROUTINE message
 !
                   t_s_now          , & ! temperature of the ground surface             (  K  )
                   t_s_new          , & ! temperature of the ground surface             (  K  )
-!
-                  t_canp_now       , & ! temperature of the canopy surface             (  K  )
-                  t_canp_new       , & ! temperature of the canopy surface             (  K  )
 !
                   t_g              , & ! weighted surface temperature                  (  K  )
                   qv_s             , & ! specific humidity at the surface              (kg/kg)
@@ -609,9 +605,6 @@ END SUBROUTINE message
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
                  rsmin2d               ! minimum stomata resistance                    ( s/m )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
-                 gz0                   ! roughness length                              ( m )
-
-  REAL    (KIND = ireals), DIMENSION(ie), INTENT(IN) :: &
                   u                , & ! zonal wind speed                              ( m/s )
                   v                , & ! meridional wind speed                         ( m/s )
                   t                , & ! temperature                                   (  k  )
@@ -632,10 +625,6 @@ END SUBROUTINE message
                   t_s_now              ! temperature of the ground surface             (  K  )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
                   t_s_new              ! temperature of the ground surface             (  K  )
-  REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) :: &
-                  t_canp_now              ! temperature of the canopy surface          (  K  )
-  REAL    (KIND = ireals), DIMENSION(ie), INTENT(OUT) :: &
-                  t_canp_new              ! temperature of the canopy surface          (  K  )
   REAL    (KIND = ireals), DIMENSION(ie), INTENT(INOUT) ::&
                   t_g              , & ! weighted surface temperature                  (  K  )
                   qv_s                 ! specific humidity at the surface              (kg/kg)
@@ -946,53 +935,6 @@ END SUBROUTINE message
     zesn (ie  )   ,       & ! evaporation from snow
     zdrr (ie  )   ,       & ! formation of dew
     zrrs (ie  )             ! formation of rime
-!
-  REAL    (KIND=ireals   ) ::  &
-!
-!   Canopy variables
-!
-    zroc_canp(ie  )         , &     ! rho*c for canopy
-    z_canp                  , &     ! Canopy height 
-    h_displ                 , &
-    z_0_canp                , &
-    u_star_canp             , &
-    u_canp                  , &
-    u_star_sfc              , & 
-    u_sfc                   , &
-    z_0_sfc                 , &
-    F_r                     , &
-    r_ac_dash               , &
-    r_a_dash                , & 
-    r_a_0                   , &
-    r_ac_0                  , & 
-    r_a     (ie)            , & 
-    r_as    (ie)            , &
-    r_ap    (ie)            , &
-    r_ac    (ie)            , &
-    lh_v_sa, lh_v_pl        , &
-    zrnet_canp   (ie)       , & ! net radiation for canopy
-    zrhoch_canp  (ie)       , & ! transfer coefficient*rho*g for canopy layer
-    zverbo_s     (ie)       , & ! total evapotranspiration canopy floor
-    zverbo_canp  (ie)       , & ! total evapotranspiration for canopy
-    zep_canp     (ie)       , & ! total evapotranspiration for canopy
-    zfor_canp    (ie)       , & ! total forcing at canopy leafes
-    SVF(ie)                 , & !  canopy sky view fraction
-    lwds(ie)                , & !  radiation for canopy
-    zshfl_canp(ie)          , & ! sensible heatflux at canopy surface
-    zlhfl_canp(ie)          , & ! latent heatflux at canopy surface
-    zdqcanp                 , & ! derivative of zqs with respect to T_canp
-    zdtcanpdt(ie)           , & ! tendency of ztcanp
-    ztcanp(ie)              , & 
-    ztcanpn(ie)             , & 
-    ztcanp_im               , &
-    zdqvtcanp(ie)           , &
-    zqcanp                  
-!
-  REAL (KIND=ireals   ) , PARAMETER::   &
-    leaf_w=0.02_ireals        , & ! leaf width
-    kappa=0.4_ireals          , & ! Karman const.
-    surf_w=0.02_ireals        , & ! dimension of surface structures (for snow 
-    surf_w_snow=0.0075_ireals     ! dimension of surface structures for snow 
 !
   REAL    (KIND=ireals   ) ::  &
 !   Hydraulic parameters
@@ -1723,54 +1665,6 @@ END SUBROUTINE message
 
   DO i = istarts, iends
 !      IF (llandmask(i)) THEN     ! for land-points only
-
-! --------------------------------------------------------------------------------------------------------------------------------------- 
-! 
-!       Atmospheric resistances for the canopy scheme according to Braden, Harald: 
-!       The model AMBETI - A detailed description of a soil-plant-atmosphere model
-!        Berichte des Deutschen Wetterdienstes 195, Offenbach am Main, 1995.
-!        ftp://ftp.dwd.de/pub/CDC/derived_germany/soil/daily/recent/AMBETI.pdf
-!                      
-!
-!
-!     -------------------------  t_low  ---------------------------     -------------------  qv   ------------------------     
-!                                |   |                                                      |     |
-!    shfl_ca = shfl_s+shfl_canp r_a  r_a                                lhfl_ca =           r_a   r_a
-!                                |   |                                  lhfl_s+lhfl_canp    |     |
-!                                    * -----r_ap-----* T_canp                               |     * ----r_ap-----rstom---* qv_s_canp 
-!                                |        shfl_canp                                         |            lhfl_canp
-!                 shfl_s        r_ac                                         lhfl_s        r_ac            
-!                                |                                                          |      
-!     ___________*T_g____________|_____r_as______________________     _________*qv_s________|_____r_as______________________
-!     ///////////////////////////////////////////////////////////     //////////////////////////////////////////////////////
-
-
-     zroc_canp(i) = 2700._ireals * 3._ireals * gz0(i) ! Approximation of canopy type by roughness length
-     zuv        = SQRT ( u(i)**2 + v(i)**2 )
-    r_a(i) = 1._ireals/MAX(zepsi,(tch(i)*zuv))    
-
-      z_canp = gz0(i) ! Approximate canopy height as function if rougness length
-      h_displ = 0.52_ireals * z_canp ! forest displacement height
-      z_0_canp=0.14_ireals*z_canp    ! canopy roughness lenght (Eq. 3.26) 
-      u_star_canp = zuv*kappa/(log(((10._ireals+z_canp)-h_displ)/z_0_canp)) 
-      u_canp = u_star_canp/kappa*log((z_canp-h_displ)/z_0_canp) !(Eq. 3.22) 
-    r_ap(i) = 90._ireals*sqrt(leaf_w/u_canp) ! (Eq. 3.29)
- 
-      z_0_sfc = surf_w/7.5_ireals
-    IF (w_snow_now(i) > zepsi) z_0_sfc = surf_w_snow/7.5_ireals
-        u_star_sfc = u_star_canp * log(((10._ireals+z_canp)-h_displ)/z_0_canp)/log(z_canp/z_0_sfc)
-        u_sfc = u_star_sfc/kappa * log(surf_w/z_0_sfc)
-    r_as(i) =  307._ireals * sqrt(surf_w/u_sfc)
-
-       F_r = 80._ireals*z_canp ! (Tab. 3.2)
-       r_ac_dash = F_r * tai(i) * 2.5_ireals / zuv !(Eq. 3.25)
-       r_a_dash  = log((10._ireals + z_canp - h_displ)/(z_canp-h_displ))/u_star_canp/kappa ! (Eq. 3.28)
-      
-       r_a_0 = r_a_dash + 0.02 * r_ac_dash ! (Eq. 3.28a)
-       r_ac_0 = 0.98 * r_a_dash
-    r_ac(i) = r_ac_0
-! atmospheric resistances estimated....
-!
 #ifdef __ICON__
         zuv        = SQRT ( u(i)**2 + v(i)**2 )
 #else
@@ -2072,13 +1966,6 @@ END SUBROUTINE message
     ENDDO
   ENDIF
 
-! Initialisation of CANOPY parameters
-      DO i = istarts, iends
-          SVF(i)=exp(-0.5_ireals*tai(i))  ! Sky-view_factor
-          zdtcanpdt = 0._ireals
-          ztcanp   (i) = t_canp_now(i)
-       ENDDO
-
   DO i = istarts, iends
 !    IF (llandmask(i)) THEN   ! for land-points only
 
@@ -2108,11 +1995,8 @@ END SUBROUTINE message
 
     ! density*transfer coefficient*wind velocity
     zrhoch(i)    = ztmch(i)*(1._ireals/g) + zepsi
-! scale transfer coeff for surface with and without plants (no canopy above)
-     zrhoch(i)    = (1._ireals-plcov(i))*zrhoch(i) + plcov(i)*zrho_atm(i)/(r_a(i) + r_ac(i) + r_as(i))
-!  transfer coeff for canopy surface with atmosphere
-     zrhoch_canp(i)    = zrho_atm(i)/(r_a(i) + r_ap(i))
-! saturation specific humidity for t_s and t_snow and first derivative
+
+    ! saturation specific humidity for t_s and t_snow and first derivative
     z2iw        = zts_pm(i)*b2w + (1._ireals - zts_pm(i))*b2i
     z4iw        = zts_pm(i)*b4w + (1._ireals - zts_pm(i))*b4i
     z234iw      = z2iw*(b3 - z4iw)
@@ -2124,16 +2008,12 @@ END SUBROUTINE message
     z234iw      = z2iw*(b3 - z4iw)
     zqsnow      = zsf_qsat(zsf_psat_iw(ztsnow(i),z2iw,z4iw), ps(i))
     zdqvtsnow(i)= zsf_dqvdt_iw(ztsnow(i), zqsnow, z4iw,z234iw)
-    zqcanp      = zsf_qsat(zsf_psat_iw(ztcanp(i),z2iw,z4iw), ps(i))
-    zdqvtcanp(i) = zsf_dqvdt_iw(ztcanp(i), zqcanp, z4iw,z234iw)
     zdqsnow     = zqvlow - zqsnow
-    zdqcanp     = zqvlow - zqcanp
     IF (ABS(zdqsnow).LT.zepsi) zdqsnow = 0._ireals
 
     ! potential evaporation at T_snow and Ts
     zep_snow(i) = (1._ireals-ztsnow_pm(i))* tfv(i)*zrhoch(i)*zdqsnow
     zep_s   (i) =                           tfv(i)*zrhoch(i)*zdqs
-    zep_canp(i) =                           tfv(i)*zrhoch(i)*zdqcanp ! zrhoch_canp ?
 !    END IF
   ENDDO
 
@@ -2426,8 +2306,6 @@ END SUBROUTINE message
 
 
     ! Determination of the transfer functions CA, CF, and CV
-! Now Canopy temperature and potential evap. for canopy is used!
-!
 !CDIR NODEP,VOVERTAKE,VOB
          DO ic=1,icount_soil
             i=soil_list(ic)
@@ -2452,7 +2330,7 @@ END SUBROUTINE message
               zpar       = pabs(i)  !  PAR
               zf_rad(i)= MAX(0.0_ireals,MIN(1.0_ireals,zpar/cparcrit))
               ztlpmwp(i) = (zfcap(i,1) - zpwp(i,1))*(0.81_ireals +       &
-                 0.121_ireals*ATAN(-86400._ireals*zep_canp(i) - 4.75_ireals))
+                 0.121_ireals*ATAN(-86400._ireals*zep_s(i) - 4.75_ireals))
 
               ! Soil water function
               IF (itype_root == 2) THEN
@@ -2471,7 +2349,7 @@ END SUBROUTINE message
 !                          (t_2m(i)-t0_melt)*(ctend-t_2m(i))/(ctend-t0_melt)**2))
               ! T at lowest model level used (approximation of leaf height)
               zf_tem     = MAX(0.0_ireals,MIN(1.0_ireals,4.0_ireals*     &
-                           (ztcanp(i)-t0_melt)*(ctend-ztcanp(i))/(ctend-t0_melt)**2))
+                           (t(i)-t0_melt)*(ctend-t(i))/(ctend-t0_melt)**2))
 
               ! Saturation deficit function (function not used, but computations
               ! necessary for determination of  slope of the saturation curve)
@@ -2497,7 +2375,7 @@ END SUBROUTINE message
               rstom(i) = zrstom
               zrveg      = zrla + zrstom
               ! Transpiration rate of dry leaves:
-              ztraleav(i)=zep_canp(i)*tai(i)/(sai(i)+zrveg*zcatm)
+              ztraleav(i)=zep_s(i)*tai(i)/(sai(i)+zrveg*zcatm)
             END IF  ! upwards directed potential evaporation only
 !!$          END IF    ! m_styp > 2
 !        END IF      ! land points
@@ -2514,7 +2392,7 @@ IF (itype_interception == 1) THEN
 !!$        DO i         = istarts, iends
 !!$!          IF (llandmask(i)) THEN ! land points only,
 !!$            IF (m_styp(i).ge.3) THEN ! neither ice or rocks
-              IF (zep_canp(i) < 0.0_ireals) THEN    ! upwards potential evaporation
+              IF (zep_s(i) < 0.0_ireals) THEN    ! upwards potential evaporation
                 ztrabpf  = ztraleav(i)*                   & ! plant covered part
                            (1.0_ireals - zf_wi(i))*       & ! not water covered
                            (1.0_ireals - zf_snow(i))        ! not snow covered
@@ -2714,15 +2592,11 @@ END IF
 
         ! store forcing terms due to evapotranspiration, formation of dew
         ! and rime for later use
+        zverbo(i) = zdwidt(i) + zesoil(i) + ztrangs(i) +              &
+                        (1._ireals-zf_snow(i))*(zrr(i) + zrs(i))
+
         zversn(i) = zdwsndt(i) + zrs(i)                                 &
                                   + zsf_heav (zwsnow(i) - zepsi) * zrr(i)
-        zverbo_s(i) = ( &       ! Surface - bare soil evaporation  
-           zesoil(i) & 
-          +  (1._ireals-zf_snow(i))*(zrr(i) + zrs(i)) )
-                        
-        zverbo_canp(i) = ( &    ! Canopy - Interception and Evapotranspiration
-           zdwidt(i) &           
-          + ztrangs(i) ) 
 
         ! add grid scale and convective precipitation (and graupel, if present)
         ! to dew and rime
@@ -3657,8 +3531,8 @@ ELSE   IF (itype_interception == 2) THEN
         ! Estimate thermal surface fluxes over snow covered and snow free
         ! part of surface based on area mean values calculated in radiation
         ! code (positive = downward)
-        zgstr =  SVF(i)*(thbs(i) + sigma*(1._ireals - Ctalb) * ( (1._ireals - zf_snow(i))* &
-                  zts(i) + zf_snow(i)*ztsnow(i) )**4 )
+        zgstr =   sigma*(1._ireals - Ctalb) * ( (1._ireals - zf_snow(i))* &
+                  zts(i) + zf_snow(i)*ztsnow(i) )**4 + thbs(i)
         zthsnw(i) = - sigma*(1._ireals - Ctalb)*ztsnow(i)**4 + zgstr
         zthsoi(i) = - sigma*(1._ireals - Ctalb)*zts(i)**4 + zgstr
         ! the estimation of the solar component would require the availability
@@ -3669,7 +3543,7 @@ ELSE   IF (itype_interception == 2) THEN
         !  weighted by correspondind surface fraction)
         ! net radiation, sensible and latent heat flux
 
-        zrnet_s(i) =SVF(i)*(sobs(i) + zthsoi(i))+ (1._ireals -SVF(i))*sigma*(1. - Ctalb)*ztcanp(i)**4
+        zrnet_s(i) = sobs(i) + zthsoi(i)
         zshfl_s(i) = cp_d*zrhoch(i) * (zth_low(i) - zts(i))
         zlhfl_s(i) = (zts_pm(i)*lh_v + (1._ireals-zts_pm(i))*lh_s)*zverbo(i) &
                      / MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
@@ -3677,18 +3551,6 @@ ELSE   IF (itype_interception == 2) THEN
         zqhfl_s(i) = zverbo(i)/ MAX(zepsi,(1._ireals - zf_snow(i)))  ! take out (1-f) scaling
 !DR end
         zsprs  (i) = 0.0_ireals
-
-        lwds(i) =  thbs(i) + sigma*(1._ireals - Ctalb) * ( (1._ireals - zf_snow(i)) * &
-                   zts(i) + zf_snow(i)*ztsnow(i) )**4 
-! Canopy
-        zrnet_canp(i) =(1._ireals -SVF(i))*sobs(i) + (1._ireals -SVF(i))*(lwds(i) +  &
-             sigma*(1._ireals - Ctalb) * ( (1._ireals - zf_snow(i))*    &
-             zts(i)**4 + zf_snow(i)*ztsnow(i)**4 )     -    &
-             sigma*(1._ireals - Ctalb)*2._ireals*ztcanp(i)**4)
-
-        zshfl_canp(i) = cp_d*zrhoch_canp(i)*(zth_low(i) - ztcanp(i))
-        zlhfl_canp(i) = lh_v*zverbo_canp(i)
-
         ! thawing of snow falling on soil with Ts > T0
         IF (ztsnow_pm(i)*zrs(i) > 0.0_ireals) THEN
           ! snow fall on soil with T>T0, snow water content increases
@@ -3740,14 +3602,6 @@ ELSE   IF (itype_interception == 2) THEN
         zfor_s(i) = ( zrnet_s(i) + zshfl_s(i) + zlhfl_s(i) ) &
                          * (1._ireals - zf_snow(i)) + zsprs(i) &
                     + zf_snow(i) * (1._ireals-ztsnow_pm(i)) * zgsb(i)
-        zfor_canp(i) =  zrnet_canp(i) + zshfl_canp(i) + zlhfl_canp(i)
-
-
-          ztcanpn(i) = ztcanp(i) + zdt*zfor_canp(i)/zroc_canp(i) ! first guess
-          ztcanp_im    = - zrho_atm(i)/(r_a(i) + r_ap(i))*(cp_d + zdqvtcanp(i) * lh_v)/zroc_canp(i)
-          zfak  = MAX(zepsi,1.0_ireals - zdt*zalfa*ztcanp_im) 
-          ztcanpn(i) = ztcanp(i) + (ztcanpn(i)-ztcanp(i))/MAX(zfak,zepsi) ! New canopy temperature
-          zdtcanpdt(i) = (ztcanpn(i) - ztcanp(i))*z1d2dt                  ! Increment
 
 !      END IF          ! land-points only
     END DO
@@ -4173,9 +4027,7 @@ ENDIF
 
         IF(.NOT. lmulti_snow) THEN
 
-!          zrnet_snow    = sobs(i) + zthsnw(i)
-       zrnet_snow = SVF(i)*sobs(i)+ SVF(i)* lwds(i) + &
-       (1._ireals - SVF(i))*sigma*(1._ireals - Ctalb)*ztcanp(i)**4 - sigma*(1. - Ctalb)*ztsnow(i)**4
+          zrnet_snow    = sobs(i) + zthsnw(i)
           zshfl_snow(i) = zrhoch(i)*cp_d*(zth_low(i) - ztsnow(i))
           zlhfl_snow(i) = lh_s*zversn(i)
 !DR start
@@ -5148,12 +5000,6 @@ ENDIF
      h_snow(i) = h_snow_new(i)
 !    END IF
   END DO
-
-      DO i = istarts, iends
-!        IF (llandmask(i)) THEN  ! for landpoints only
-          t_canp_new(i) =  t_canp_now(i) + zdt*zdtcanpdt(i)
-!        END IF  ! land-points only
-      END DO
 
 !---loop over tiles---
 !END DO
