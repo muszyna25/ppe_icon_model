@@ -354,7 +354,7 @@ if [[ "$output_atm_2d" == "yes" ]]; then
  output_interval  = "${output_interval_2d}"
  file_interval    = "${file_interval}"
  include_last     = .FALSE.
- ml_varlist       = 'orog'    , 'ps'      , 'psl'     ,
+ ml_varlist       = 'orog'    , 'gpfull'  , 'ps'      , 'psl'     ,
                     'cosmu0'  , 'daylght_frc', 'rsdt'    ,
                     'rsns'    , 'rlns'    , 'rsnt'    , 'rlnt'    ,
                     'rsns_wtr', 'rsns_ice', 'rsns_lnd',
