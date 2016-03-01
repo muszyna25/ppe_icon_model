@@ -96,7 +96,7 @@ MODULE mo_echam_phy_init
   USE mo_bc_greenhouse_gases,  ONLY: read_bc_greenhouse_gases, bc_greenhouse_gases_time_interpolation, &
     &                                bc_greenhouse_gases_file_read
   ! for aeorosols in simple plumes
-  USE mo_bc_aeropt_splumes,    ONLY: sp_setup
+  USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
   IMPLICIT NONE
 
@@ -345,9 +345,9 @@ CONTAINS
 
     !read data for simple plumes of aerosols
 
-!!$    IF (irad_aero == 18) THEN
-      CALL sp_setup
-!!$    END IF
+    IF (irad_aero == 18) THEN
+      CALL setup_bc_aeropt_splumes
+    END IF
 
     DO jg= 1,ndomain
 

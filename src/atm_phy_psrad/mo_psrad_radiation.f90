@@ -797,7 +797,11 @@ MODULE mo_psrad_radiation
     & ktype      ,&!< in  type of convection
     & loland     ,&!< in  land-sea mask. (1. = land, 0. = sea/lakes)
     & loglac     ,&!< in  fraction of land covered by glaciers
+    & datetime   ,&!< in  actual time step
     & pcos_mu0   ,&!< in  cosine of solar zenith angle
+    & geoi       ,&!< in  geopotential wrt surface at layer interfaces
+    & geom       ,&!< in  geopotential wrt surface at layer centres
+    & oromea     ,&!< in  orography in m
     & alb_vis_dir,&!< in  surface albedo for visible range, direct
     & alb_nir_dir,&!< in  surface albedo for near IR range, direct
     & alb_vis_dif,&!< in  surface albedo for visible range, diffuse
@@ -841,8 +845,13 @@ MODULE mo_psrad_radiation
     & loland(kbdim),     & !< land mask
     & loglac(kbdim)        !< glacier mask
 
+    TYPE(t_datetime), INTENT(in) :: datetime !< actual time step
+
     REAL(wp), INTENT(IN) :: &
     & pcos_mu0(kbdim),   & !< cosine of solar zenith angle
+    & geoi(kbdim,klevp1),& !< geopotential wrt surface at layer interfaces
+    & geom(kbdim,klev),  & !< geopotential wrt surface at layer centres
+    & oromea(kbdim),     & !< orography in m
     & alb_vis_dir(kbdim),& !< surface albedo for visible range and direct light
     & alb_nir_dir(kbdim),& !< surface albedo for NIR range and direct light
     & alb_vis_dif(kbdim),& !< surface albedo for visible range and diffuse light
@@ -1010,13 +1019,14 @@ MODULE mo_psrad_radiation
       CALL psrad_interface( jg,       &
            & iaero_call      ,kproma          ,kbdim           ,klev            ,& 
            & jb              ,ktrac           ,ktype           ,nb_sw           ,&
-           & loland          ,loglac          ,cemiss          ,cos_mu0         ,&
-           & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif                      ,&
-           & alb_nir_dif     ,pp_fl           ,pp_hl           ,pp_sfc          ,&
-           & tk_fl           ,tk_hl           ,tk_sfc          ,xq_vap          ,&
-           & xq_liq          ,xq_ice          ,cdnc            ,xc_frc          ,&
-           & xm_o3           ,xm_co2          ,xm_ch4                           ,&
-           & xm_n2o          ,xm_cfc          ,xm_o2           ,&!!$pxtm1           ,&
+           & loland          ,loglac          ,cemiss          ,datetime        ,&
+           & cos_mu0         ,geoi            ,geom            ,oromea          ,&
+           & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+           & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
+           & tk_hl           ,tk_sfc          ,xq_vap          ,xq_liq          ,&
+           & xq_ice          ,cdnc            ,xc_frc          ,xm_o3           ,&
+           & xm_co2          ,xm_ch4          ,xm_n2o          ,xm_cfc          ,&
+           & xm_o2           ,&!!$pxtm1           ,&
            & flx_uplw        ,flx_uplw_clr    ,flx_dnlw        ,flx_dnlw_clr    ,&
            & flx_upsw        ,flx_upsw_clr    ,flx_dnsw        ,flx_dnsw_clr    ,&
            & vis_frc_sfc     ,par_dn_sfc      ,nir_dff_frc     ,vis_dff_frc     ,&

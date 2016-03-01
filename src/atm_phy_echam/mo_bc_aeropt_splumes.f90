@@ -23,7 +23,6 @@ MODULE mo_bc_aeropt_splumes
                                    & closeFile
   USE mo_datetime,             ONLY: t_datetime
   USE mo_physical_constants,   ONLY: rgrav
-  USE mo_echam_phy_memory,     ONLY: t_echam_phy_field
   USE mo_model_domain,         ONLY: p_patch
   USE mo_psrad_srtm_setup,     ONLY: &
       &  sw_wv1 => wavenum1     ,&     !< smallest wave number in each of the sw bands
@@ -38,7 +37,7 @@ MODULE mo_bc_aeropt_splumes
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC                  :: sp_setup, add_aop_sp
+  PUBLIC                  :: setup_bc_aeropt_splumes, add_bc_aeropt_splumes
 
   INTEGER, PARAMETER      ::     &
        nplumes   = 9            ,& !< Number of plumes
@@ -80,12 +79,12 @@ MODULE mo_bc_aeropt_splumes
   CONTAINS
 
   ! -----------------------------------------------------------------
-  ! SP_SETUP:  This subroutine should be called at initialization to 
+  ! SETUP_BC_AEROPT_SPLUMES:  This subroutine should be called at initialization to 
   !            read the netcdf data that describes the simple plume
   !            climatology.  The information needs to be either read 
   !            by each processor or distributed to processors.
   !
-  SUBROUTINE sp_setup
+  SUBROUTINE setup_bc_aeropt_splumes
     !
     ! ---------- 
     !
@@ -98,91 +97,91 @@ MODULE mo_bc_aeropt_splumes
                        & return_pointer=plume_lat, file_name=cfname,         &
                        & variable_dimls=(/nplumes/),                         &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_1d_wrapper(ifile_id=ifile_id,        variable_name='plume_lon',&
                        & return_pointer=plume_lon, file_name=cfname,         &
                        & variable_dimls=(/nplumes/),                         &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_1d_wrapper(ifile_id=ifile_id,        variable_name='beta_a',   &
                        & return_pointer=beta_a, file_name=cfname,            &
                        & variable_dimls=(/nplumes/),                         &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_1d_wrapper(ifile_id=ifile_id,        variable_name='beta_b',   &
                        & return_pointer=beta_b, file_name=cfname,            &
                        & variable_dimls=(/nplumes/),                         &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_1d_wrapper(ifile_id=ifile_id,        variable_name='aod_spmx', &
                        & return_pointer=aod_spmx, file_name=cfname,          &
                        & variable_dimls=(/nplumes/),                         &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_1d_wrapper(ifile_id=ifile_id,        variable_name='aod_fmbg', &
                        & return_pointer=aod_fmbg, file_name=cfname,          &
                        & variable_dimls=(/nplumes/),                         &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_1d_wrapper(ifile_id=ifile_id,        variable_name='ssa550',   &
                        & return_pointer=ssa550, file_name=cfname,            &
                        & variable_dimls=(/nplumes/),                         &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_1d_wrapper(ifile_id=ifile_id,        variable_name='asy550',   &
                        & return_pointer=asy550, file_name=cfname,            &
                        & variable_dimls=(/nplumes/),                         &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_1d_wrapper(ifile_id=ifile_id,        variable_name='angstrom', &
                        & return_pointer=angstrom, file_name=cfname,          &
                        & variable_dimls=(/nplumes/),                         &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_2d_wrapper(ifile_id=ifile_id,        variable_name='sig_lat_W',&
                        & return_pointer=sig_lat_W, file_name=cfname,         &
                        & variable_dimls=(/nfeatures,nplumes/),               &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_2d_wrapper(ifile_id=ifile_id,        variable_name='sig_lat_E',&
                        & return_pointer=sig_lat_E, file_name=cfname,         &
                        & variable_dimls=(/nfeatures,nplumes/),               &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_2d_wrapper(ifile_id=ifile_id,        variable_name='sig_lon_W',&
                        & return_pointer=sig_lon_W, file_name=cfname,         &
                        & variable_dimls=(/nfeatures,nplumes/),               &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_2d_wrapper(ifile_id=ifile_id,        variable_name='sig_lon_E',&
                        & return_pointer=sig_lon_E, file_name=cfname,         &
                        & variable_dimls=(/nfeatures,nplumes/),               &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_2d_wrapper(ifile_id=ifile_id,        variable_name='theta',    &
                        & return_pointer=theta, file_name=cfname,             &
                        & variable_dimls=(/nfeatures,nplumes/),               &
                        & module_name='mo_bc_aeropt_splumes',                 &
-                       & sub_prog_name='sp_setup'                            )
+                       & sub_prog_name='setup_bc_aeropt_splumes'             )
     CALL read_2d_wrapper(ifile_id=ifile_id,        variable_name='ftr_weight',&
                        & return_pointer=ftr_weight, file_name=cfname,         &
                        & variable_dimls=(/nfeatures,nplumes/),                &
                        & module_name='mo_bc_aeropt_splumes',                  &
-                       & sub_prog_name='sp_setup'                             )
+                       & sub_prog_name='setup_bc_aeropt_splumes'              )
     CALL read_2d_wrapper(ifile_id=ifile_id,        variable_name='year_weight',&
                        & return_pointer=year_weight, file_name=cfname,         &
                        & variable_dimls=(/nyears,nplumes/),                    &
                        & module_name='mo_bc_aeropt_splumes',                   &
-                       & sub_prog_name='sp_setup'                              )
+                       & sub_prog_name='setup_bc_aeropt_splumes'               )
     CALL read_3d_wrapper(ifile_id=ifile_id,        variable_name='ann_cycle', &
                        & return_pointer=ann_cycle, file_name=cfname,          &
                        & variable_dimls=(/nfeatures,ntimes,nplumes/),         &
                        & module_name='mo_bc_aeropt_splumes',                  &
-                       & sub_prog_name='sp_setup'                             )
+                       & sub_prog_name='setup_bc_aeropt_splumes'               )
     CALL closeFile(ifile_id)
     sp_initialized = .TRUE.
     RETURN
-  END SUBROUTINE SP_SETUP
+  END SUBROUTINE SETUP_BC_AEROPT_SPLUMES
   ! ------------------------------------------------------------------------------------------------------------------------
   ! SET_TIME_WEIGHT:  The simple plume model assumes that meteorology constrains plume shape and that only source strength
   ! influences the amplitude of a plume associated with a given source region.   This routine retrieves the temporal weights
@@ -292,7 +291,7 @@ MODULE mo_bc_aeropt_splumes
     !
     ! initialize input data (by calling setup at first instance) 
     !
-    IF (.NOT.sp_initialized) CALL sp_setup
+    IF (.NOT.sp_initialized) CALL setup_bc_aeropt_splumes
     !
     ! get time weights
     !
@@ -408,14 +407,14 @@ MODULE mo_bc_aeropt_splumes
     RETURN
   END SUBROUTINE sp_aop_profile
   ! ------------------------------------------------------------------------------------------------------------------------
-  ! ADD_AOP_SP:  This subroutine provides the interface to simple plume (sp) fit to the MPI Aerosol Climatology (Version 2).
+  ! ADD_BC_AEROPT_SPLUMES:  This subroutine provides the interface to simple plume (sp) fit to the MPI Aerosol Climatology (Version 2).
   ! It does so by collecting or deriving spatio-temporal information and calling the simple plume aerosol subroutine and
   ! incrementing the background aerosol properties (and effective radisu) with the anthropogenic plumes.
   !
-  SUBROUTINE add_aop_sp                                                           ( &
+  SUBROUTINE add_bc_aeropt_splumes                                                ( &
      & jg             ,kproma         ,kbdim          ,klev           ,krow        ,&
-     & nb_sw          ,datetime       ,prm_field      ,aod_sw_vr      ,ssa_sw_vr   ,&
-     & asy_sw_vr      ,x_cdnc                                                     )
+     & nb_sw          ,datetime       ,geoi           ,geom           ,oromea      ,&
+     & aod_sw_vr      ,ssa_sw_vr      ,asy_sw_vr      ,x_cdnc                      )
     !
     ! --- 0.1 Variables passed through argument list
     INTEGER, INTENT(IN) ::            &
@@ -428,7 +427,10 @@ MODULE mo_bc_aeropt_splumes
 
     TYPE(t_datetime), INTENT(IN) :: datetime
 
-    TYPE(t_echam_phy_field), INTENT(IN) :: prm_field
+    REAL(wp), INTENT (IN)        :: &
+         geoi(kbdim,klev+1),        & !< geopotential wrt surface at layer interfaces
+         geom(kbdim,klev),          & !< geopotential wrt surface at layer centres
+         oromea(kbdim)                !< orography in metres
 
     REAL(wp), INTENT (INOUT) ::       &
          aod_sw_vr(kbdim,klev,nb_sw) ,& !< Aerosol shortwave optical depth
@@ -467,11 +469,11 @@ MODULE mo_bc_aeropt_splumes
       DO jk=1,klev
         jki=klev-jk+1
         DO jl=1,kproma
-          dz_vr  (jl,jk) = rgrav*(prm_field%geoi(jl,jki+1,krow)-prm_field%geoi(jl,jki,krow))
-          z_fl_vr(jl,jk) = rgrav*prm_field%geom(jl,jki,krow)+prm_field%oromea(jl,krow)
+          dz_vr  (jl,jk) = rgrav*(geoi(jl,jki+1)-geoi(jl,jki))
+          z_fl_vr(jl,jk) = rgrav*geom(jl,jki)+oromea(jl)
         END DO
       END DO
-      z_sfc(1:kproma)  = prm_field%oromea(1:kproma,krow)
+      z_sfc(1:kproma)  = oromea(1:kproma)
       lon_sp(1:kproma) = p_patch(jg)%cells%center(1:kproma,krow)%lon
       lat_sp(1:kproma) = p_patch(jg)%cells%center(1:kproma,krow)%lat
       ! 
@@ -510,7 +512,7 @@ MODULE mo_bc_aeropt_splumes
       RETURN
     END IF
  
-  END SUBROUTINE add_aop_sp
+  END SUBROUTINE add_bc_aeropt_splumes
 
   SUBROUTINE read_1d_wrapper(ifile_id,                 variable_name,        &
                            & return_pointer,           file_name,            &

@@ -536,7 +536,11 @@ CONTAINS
         & ktype      = itype(:)   ,&!< in  type of convection
         & loland     = lland      ,&!< in  land-sea mask. (logical)
         & loglac     = lglac      ,&!< in  glacier mask (logical)
+        & datetime   = datetime   ,&!< in  actual time step
         & pcos_mu0   = field%cosmu0_rad(:,jb)  ,&!< in  solar zenith angle
+        & geoi       = field%geoi(:,:,jb)      ,&!< geopotential wrt surface at layer interfaces
+        & geom       = field%geom(:,:,jb)      ,&!< geopotential wrt surface at layer centres
+        & oromea     = field%oromea(:,jb)      ,&!< mean orography in m
         & alb_vis_dir= field%albvisdir(:,jb)   ,&!< in  surface albedo for visible range, direct
         & alb_nir_dir= field%albnirdir(:,jb)   ,&!< in  surface albedo for near IR range, direct
         & alb_vis_dif= field%albvisdif(:,jb)   ,&!< in  surface albedo for visible range, diffuse
