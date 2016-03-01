@@ -4,6 +4,7 @@
 /LICENSE -text
 /Makefile.in -text
 /README -text
+/acinclude.m4 -text
 /aclocal.m4 -text
 blas/CMakeLists.txt -text
 blas/dasum.f -text
@@ -77,7 +78,6 @@ config/missing -text
 config/pvcs.pl -text
 /configure -text
 /configure.ac -text
-/create_builds -text
 data/ECHAM6_CldOptProps.nc -text
 data/README -text
 data/dmin_wetgrowth_lookup.dat -text
@@ -705,6 +705,7 @@ lapack/slaswp.f -text
 lapack/spotf2.f -text
 lapack/spotrf.f -text
 lapack/spotrs.f -text
+m4/acx_fc_attribute_contiguous.m4 -text
 /make_runscripts -text
 run/README -text
 run/Rakefile -text
@@ -1059,6 +1060,7 @@ scripts/building/build_all -text
 scripts/building/compile_for_dev.mpi.ksh -text
 scripts/building/compile_for_developers.ksh -text
 scripts/building/cp_ocean -text
+scripts/building/create_builds -text
 scripts/building/get_atmo -text
 scripts/building/get_icon -text
 scripts/building/get_ocean -text
@@ -1614,9 +1616,13 @@ src/grid_generator/mo_optimize.f90 -text
 src/grid_generator/mo_small_circle_c.f90 -text
 src/grid_generator/mo_spring_dynamics.f90 -text
 src/grid_generator/mo_topology.f90 -text
+src/include/consistent_fma.inc -text
 src/include/fsel.inc -text
 src/include/grplcoeffs.incf -text
 src/include/hailcoeffs.incf -text
+src/include/icon_definitions.inc -text
+src/include/iconfor_dsl_definitions.inc -text
+src/include/mod1.inc -text
 src/include/omp_definitions.inc -text
 src/include/phillips_nucleation_2010.incf -text
 src/io/atmo/mo_async_latbc.f90 -text
@@ -1749,7 +1755,6 @@ src/ocean/dynamics/mo_ocean_tracer_transport_horz.f90 -text
 src/ocean/dynamics/mo_ocean_tracer_transport_vert.f90 -text
 src/ocean/dynamics/mo_ocean_types.f90 -text
 src/ocean/dynamics/mo_ocean_veloc_advection.f90 -text
-src/ocean/include/ocean_dsl_definitions.inc -text
 src/ocean/math/mo_ocean_gmres.f90 -text
 src/ocean/math/mo_ocean_math_operators.f90 -text
 src/ocean/math/mo_operator_ocean_coeff_3d.f90 -text
@@ -1782,11 +1787,13 @@ src/parallel_infrastructure/mo_scatter_pattern_scatter.f90 -text
 src/parallel_infrastructure/mo_scatter_pattern_scatterv.f90 -text
 src/parallel_infrastructure/mo_setup_subdivision.f90 -text
 src/parallel_infrastructure/mo_sync.f90 -text
-src/sea_ice/dynamics_fem/ice_evp.f90 -text
 src/sea_ice/dynamics_fem/ice_main.f90 -text
 src/sea_ice/dynamics_fem/mo_ice.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_data_types.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_elements.f90 -text
+src/sea_ice/dynamics_fem/mo_ice_evp.f90 -text
+src/sea_ice/dynamics_fem/mo_ice_evp_old.f90 -text
+src/sea_ice/dynamics_fem/mo_ice_fem_init.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_fem_utils.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_init.f90 -text
 src/sea_ice/dynamics_fem/mo_ice_mesh.f90 -text

@@ -20,7 +20,7 @@ MODULE mo_time_nml
                                     & date_to_time, string_to_datetime
   USE mo_time_config,           ONLY: time_config
   USE mo_io_units,              ONLY: nnml, nnml_output
-  USE mo_master_config,         ONLY: isRestart
+  USE mo_master_control,        ONLY: use_restart_namelists, isRestart
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                   ONLY: my_process_is_stdio 
 
@@ -122,7 +122,6 @@ CONTAINS
     IF (isRestart()) THEN
  
       ! 2.1 Overwrite the defaults above by values in the restart file
-
       funit = open_and_restore_namelist('time_nml')
       READ(funit,NML=time_nml)
       CALL close_tmpfile(funit) 

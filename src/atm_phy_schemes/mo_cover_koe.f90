@@ -26,6 +26,7 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
+#include "consistent_fma.inc"
 MODULE mo_cover_koe
 
   USE mo_kind,               ONLY: wp, i4
@@ -46,7 +47,7 @@ MODULE mo_cover_koe
   USE mo_cloud_diag,         ONLY: cloud_diag
 
   USE mo_cover_cosmo,        ONLY: cover_cosmo
-  
+
   USE mo_impl_constants,     ONLY: iedmf
 
   USE mo_nwp_tuning_config,  ONLY: tune_box_liq
@@ -78,7 +79,7 @@ CONTAINS
 !  (3) clouds as in COSMO
 !  (4) clouds as in turbulence
 !  (5) grid-scale cloud cover [1 or 0]
-!  
+!
 !-------------------------------------------------------------------------
 
 SUBROUTINE cover_koe( &
@@ -95,7 +96,7 @@ SUBROUTINE cover_koe( &
   & ldland                          , & ! in:    land/sea mask
   & ldcum, kcbot, kctop             , & ! in:    convection: on/off, bottom, top
   & pmfude_rate                     , & ! in:    convection: updraft detrainment rate
-  & plu                             , & ! in:    convection: updraft condensate 
+  & plu                             , & ! in:    convection: updraft condensate
   & qv, qc, qi, qtvar               , & ! inout: prognostic cloud variables
   & cc_tot, qv_tot, qc_tot, qi_tot )    ! out:   cloud output diagnostic
 
@@ -172,8 +173,8 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
 REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , &
-  & zt_ice1, zt_ice2, zf_ice , deltaq , qisat_grid, &
-  & vap_pres, zaux, zqisat_m60
+  & zf_ice , deltaq , qisat_grid, &
+  & vap_pres, zaux
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim
@@ -185,7 +186,10 @@ REAL(KIND=wp), PARAMETER  :: &
   & zcldlim  = 1.0e-8_wp, & ! threshold of cloud water/ice for cloud cover  (kg/kg)
   & taudecay = 1500.0_wp, & ! decay time scale of convective anvils
 !  & box_liq  = 0.05_wp  , & ! box width scale liquid clouds - replaced by tuning namelist switch
-  & box_ice  = 0.05_wp      ! box width scale ice clouds
+  & box_ice  = 0.05_wp,    &  ! box width scale ice clouds
+  & zt_ice1 = tmelt -  5.0_wp, &
+  & zt_ice2 = tmelt - 25.0_wp
+
 
 !-----------------------------------------------------------------------
 
@@ -193,13 +197,21 @@ REAL(KIND=wp), PARAMETER  :: &
   fgew(ztt)            = c1es * EXP( c3les*(ztt - tmelt)/(ztt - c4les) )  ! ztt: temperature
 
 ! statement function to calculate saturation vapour pressure over ice
-  fgee(ztt)            = c1es * EXP( c3ies*(ztt - tmelt)/(ztt - c4ies) )  ! ztt: temperature
+#define FGEE(ztt) (c1es * EXP( c3ies*((ztt) - tmelt)/((ztt) - c4ies) ))
+  fgee(ztt)            = FGEE(ztt)  ! ztt: temperature
 
 ! statement function to calculate specific humitdity
 ! fgqv(zzpv,zzpa)      = rdv * zzpv / (zzpa - (1._wp-rdv)*zzpv)           ! zzpv: vapour pressure
 
 ! statement function to calculate saturation specific humidities from RH=esat/e (proper and safe)
-  fgqs(zzps,zzpv,zzpa) = rdv * zzps / (zzpa - (1._wp-rdv)*zzpv)           ! zzps: saturation vapour pressure
+#define FGQS(zzps,zzpv,zzpa)  (rdv * (zzps) / ((zzpa) - (1._wp-rdv)*(zzpv)))
+  fgqs(zzps,zzpv,zzpa) = FGQS(zzps,zzpv,zzpa)           ! zzps: saturation vapour pressure
+
+! saturation mixing ratio at -60 C and 200 hPa
+  REAL(kind=wp), PARAMETER :: &
+       zqisat_m60 = &
+FGQS(FGEE(213.15_wp), 0._wp, 20000._wp)
+  REAL(kind=wp), PARAMETER :: grav_i = 1._wp/grav
 
 !-----------------------------------------------------------------------
 
@@ -215,12 +227,9 @@ DO jk = 1,kstart-1
 ENDDO
 
 !-----------------------------------------------------------------------
-! Calculate water vapour saturation mixing ratios of over water 
+! Calculate water vapour saturation mixing ratios of over water
 ! and over ice (from mo_cover_cosmo.f90)
 !-----------------------------------------------------------------------
-
-zt_ice1 = tmelt -  5.0_wp
-zt_ice2 = tmelt - 25.0_wp
 
 DO jk = kstart,klev
   DO jl = kidia,kfdia
@@ -229,12 +238,10 @@ DO jk = kstart,klev
     zqlsat (jl,jk) = fgqs ( fgew(tt(jl,jk)), vap_pres, pp(jl,jk) )
     zqisat (jl,jk) = fgqs ( fgee(tt(jl,jk)), vap_pres, pp(jl,jk) )
     ! limit on box width near the surface, reaches 0.05 at 500 m AGL
-    zagl_lim(jl,jk) = MAX(0.01_wp, 1.e-4_wp*pgeo(jl,jk)/grav)
+    zagl_lim(jl,jk) = MAX(0.01_wp, 1.e-4_wp*pgeo(jl,jk) * grav_i)
   ENDDO
 ENDDO
 
-! saturation mixing ratio at -60 C and 200 hPa
-zqisat_m60 = fgqs ( fgee(213.15_wp), 0._wp, 20000._wp )
 
 
 !-----------------------------------------------------------------------
@@ -283,7 +290,7 @@ CASE( 1 )
       ENDIF
 
 !  ice cloud
-     !ice cloud: assumed box distribution, width 0.1 qisat, saturation above qv 
+     !ice cloud: assumed box distribution, width 0.1 qisat, saturation above qv
      !           (qv is microphysical threshold for ice as seen by grid scale microphysics)
       IF ( qi(jl,jk) > zcldlim ) THEN
        !deltaq     = min( box_ice * zqisat(jl,jk), 10._wp * qi(jl,jk) )     ! box width = 2*deltaq
@@ -304,7 +311,7 @@ CASE( 1 )
         ENDIF
       ELSE
         cc_turb_ice(jl,jk) = 0.0_wp
-        qi_turb    (jl,jk) = 0.0_wp    
+        qi_turb    (jl,jk) = 0.0_wp
       ENDIF
 
       ! reduce cloud cover fraction of very thin ice clouds, defined as clouds with a mixing ratio
@@ -318,7 +325,7 @@ CASE( 1 )
 
 
 ! convective cloud
-      cc_conv(jl,jk) = ( pmfude_rate(jl,jk) / rho(jl,jk) ) &                  ! cc = detrainment / rho / 
+      cc_conv(jl,jk) = ( pmfude_rate(jl,jk) / rho(jl,jk) ) &                  ! cc = detrainment / rho /
                    & / ( pmfude_rate(jl,jk) / rho(jl,jk) + 1.0_wp / taudecay )!      ( Du/rho + 1/tau,decay )
       qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*      foealfa(tt(jl,jk))   ! ql up  foealfa = liquid/(liquid+ice)
       qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*(1._wp-foealfa(tt(jl,jk))) ! qi up
@@ -336,12 +343,12 @@ CASE( 1 )
   IF (inwp_turb == iedmf) THEN
     DO jk = kstart,klev
       DO jl = kidia,kfdia
-        IF (sqrt(qtvar(jl,jk)) / (MAX((qv(jl,jk)+qc(jl,jk)+qi(jl,jk)),0.000001_wp)) > 0.01_wp) THEN
+        IF (SQRT(qtvar(jl,jk)) / MAX(qv(jl,jk)+qc(jl,jk)+qi(jl,jk),0.000001_wp) > 0.01_wp) THEN
 ! for EDMF DUALM: take values written within EDMF - only done within high qtvar grid points
           cc_tot(jl,jk) = cc_tot(jl,jk)
           qc_tot(jl,jk) = qc_tot(jl,jk)
           qi_tot(jl,jk) = qi_tot(jl,jk)
-        ELSE 
+        ELSE
 ! combination strat/conv cloud
           cc_tot(jl,jk)  = max( cc_turb(jl,jk), cc_conv(jl,jk) )
           qc_tot(jl,jk)  = max( qc_turb(jl,jk), qc_conv(jl,jk) )
@@ -456,6 +463,7 @@ END SELECT
 
 ! total water vapor by conservation of grid-scale total water
 
+!PREVENT_INCONSISTENT_IFORT_FMA
 DO jk = kstart,klev
   DO jl = kidia,kfdia
     qv_tot(jl,jk) = qv(jl,jk) + qc(jl,jk) + qi(jl,jk) - qc_tot(jl,jk) - qi_tot(jl,jk)

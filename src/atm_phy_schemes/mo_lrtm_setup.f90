@@ -39,7 +39,8 @@ module mo_lrtm_setup
   REAL(wp), DIMENSION(0:ntbl) :: tau_tbl
   REAL(wp), DIMENSION(0:ntbl) :: exp_tbl
   REAL(wp), DIMENSION(0:ntbl) :: tfn_tbl
-  REAL(wp)                    :: bpade
+  REAL(wp), PARAMETER :: pade   = 0.278_wp   ! Smallest value for exponential table
+  REAL(wp), PARAMETER :: bpade = 1.0_wp / pade
 
 contains
 
@@ -72,7 +73,6 @@ contains
     real(wp) :: tfn                    !
 
     real(wp), parameter :: expeps = 1.e-20_wp   ! Smallest value for exponential table
-    real(wp), parameter :: pade   = 0.278_wp   ! Smallest value for exponential table
 
     ! GZ, 2013-12-04: Turn off vectorization and inlining for the Cray compiler. It generates incorrect code otherwise.
 !DIR$ NOINLINE,NOVECTOR
@@ -112,7 +112,7 @@ contains
     exp_tbl(ntbl) = expeps
     tfn_tbl(0) = 0.0_wp
     tfn_tbl(ntbl) = 1.0_wp
-    bpade = 1.0_wp / pade
+
     do itr = 1, ntbl-1
       tfn = REAL(itr,wp) / REAL(ntbl,wp)
       tau_tbl(itr) = bpade * tfn / (1._wp - tfn)
