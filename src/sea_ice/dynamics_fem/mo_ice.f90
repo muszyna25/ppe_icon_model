@@ -18,7 +18,7 @@ PUBLIC
 save
   REAL(wp), ALLOCATABLE, DIMENSION(:)         :: u_ice, v_ice, m_ice, a_ice  
   REAL(wp), ALLOCATABLE, DIMENSION(:)         :: rhs_u, rhs_v, m_snow
-  REAL(wp), ALLOCATABLE, DIMENSION(:)         :: rhs_m, rhs_a, rhs_ms
+  REAL(wp), ALLOCATABLE, DIMENSION(:)         :: rhs_m, rhs_a, rhs_mis
   REAL(wp), ALLOCATABLE, DIMENSION(:)         :: u_w, v_w
   REAL(wp), ALLOCATABLE, DIMENSION(:)         :: elevation
   REAL(wp), ALLOCATABLE, DIMENSION(:)         :: mass_matrix

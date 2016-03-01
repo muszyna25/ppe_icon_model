@@ -395,9 +395,10 @@ REAL(wp) :: h_aux(nproma,MAX(32,ptr_pp%nlevp1),                       &
                   MAX(ptr_pp%cells%start_block(grf_nudgintp_start_c), &
                       ptr_pp%cells%end_block(min_rlcell_int)),4,nfields)
 
-REAL(wp) :: limfac1, limfac2, limfac, min_expval(nproma), max_expval(nproma), epsi, ovsht_fac, r_ovsht_fac, &
+REAL(wp) :: limfac1, limfac2, limfac, min_expval(nproma), max_expval(nproma), ovsht_fac, r_ovsht_fac, &
             relaxed_minval, relaxed_maxval
 
+REAL(wp), PARAMETER :: epsi = 1.e-75_wp
 ! Pointers to index and coefficient fields
 INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk, ichcidx, ichcblk
 REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff, ptr_dist
@@ -407,6 +408,8 @@ TYPE t_fieldptr
   REAL(wp), POINTER :: fld(:,:,:)
 END TYPE t_fieldptr
 TYPE(t_fieldptr) :: p_in(nfields), p_out(nfields)
+
+    LOGICAL, ALLOCATABLE :: l_enabled(:)
 
 !-----------------------------------------------------------------------
 
@@ -459,7 +462,17 @@ ELSE
   ovsht_fac = 1.05_wp
 ENDIF
 
-epsi = 1.e-75_wp
+    elev = 1
+    DO jn = 1, nfields
+      elev = MAX(elev, UBOUND(p_out(jn)%fld,2))
+    END DO
+    ALLOCATE(l_enabled(elev))
+    IF (PRESENT(opt_l_enabled)) THEN
+      l_enabled = opt_l_enabled(1:elev)
+    ELSE
+      l_enabled = .TRUE.
+    END IF
+
 r_ovsht_fac = 1._wp/ovsht_fac
 
 ! Start and end blocks for which scalar interpolation is needed
@@ -493,66 +506,10 @@ DO jn = 1, nfields
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
          i_startidx, i_endidx, grf_nudgintp_start_c, min_rlcell_int)
 
-    IF (PRESENT(opt_l_enabled)) THEN
-      DO jk = 1, elev
-        IF (.NOT. opt_l_enabled(jk)) CYCLE
+    DO jk = 1, elev
+      IF (.NOT. l_enabled(jk)) CYCLE
 
-        DO jc = i_startidx, i_endidx
-          grad_x(jc,jk) =  &
-            ptr_coeff(1,1,jc,jb)*p_in(jn)%fld(jc,jk+js,jb) + &
-            ptr_coeff(2,1,jc,jb)*p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
-            ptr_coeff(3,1,jc,jb)*p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)) + &
-            ptr_coeff(4,1,jc,jb)*p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)) + &
-            ptr_coeff(5,1,jc,jb)*p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)) + &
-            ptr_coeff(6,1,jc,jb)*p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)) + &
-            ptr_coeff(7,1,jc,jb)*p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)) + &
-            ptr_coeff(8,1,jc,jb)*p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)) + &
-            ptr_coeff(9,1,jc,jb)*p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)) + &
-            ptr_coeff(10,1,jc,jb)*p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb))
-          grad_y(jc,jk) =  &
-            ptr_coeff(1,2,jc,jb)*p_in(jn)%fld(jc,jk+js,jb) + &
-            ptr_coeff(2,2,jc,jb)*p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
-            ptr_coeff(3,2,jc,jb)*p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)) + &
-            ptr_coeff(4,2,jc,jb)*p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)) + &
-            ptr_coeff(5,2,jc,jb)*p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)) + &
-            ptr_coeff(6,2,jc,jb)*p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)) + &
-            ptr_coeff(7,2,jc,jb)*p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)) + &
-            ptr_coeff(8,2,jc,jb)*p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)) + &
-            ptr_coeff(9,2,jc,jb)*p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)) + &
-            ptr_coeff(10,2,jc,jb)*p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb))
-          maxval_neighb(jc,jk) =                                 &
-            MAX(p_in(jn)%fld(jc,jk+js,jb),                       &
-                p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)), &
-                p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)), &
-                p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)), &
-                p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)), &
-                p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)), &
-                p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)), &
-                p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
-                p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
-                p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
-          minval_neighb(jc,jk) =                                 &
-            MIN(p_in(jn)%fld(jc,jk+js,jb),                       &
-                p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)), &
-                p_in(jn)%fld(iidx(3,jc,jb),jk+js,iblk(3,jc,jb)), &
-                p_in(jn)%fld(iidx(4,jc,jb),jk+js,iblk(4,jc,jb)), &
-                p_in(jn)%fld(iidx(5,jc,jb),jk+js,iblk(5,jc,jb)), &
-                p_in(jn)%fld(iidx(6,jc,jb),jk+js,iblk(6,jc,jb)), &
-                p_in(jn)%fld(iidx(7,jc,jb),jk+js,iblk(7,jc,jb)), &
-                p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
-                p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
-                p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
-        ENDDO
-      ENDDO
-    ELSE
-#ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
-        DO jk = 1, elev
-#else
-      DO jk = 1, elev
-        DO jc = i_startidx, i_endidx
-#endif
-
           grad_x(jc,jk) =  &
             ptr_coeff(1,1,jc,jb)*p_in(jn)%fld(jc,jk+js,jb) + &
             ptr_coeff(2,1,jc,jb)*p_in(jn)%fld(iidx(2,jc,jb),jk+js,iblk(2,jc,jb)) + &
@@ -597,14 +554,11 @@ DO jn = 1, nfields
                 p_in(jn)%fld(iidx(8,jc,jb),jk+js,iblk(8,jc,jb)), &
                 p_in(jn)%fld(iidx(9,jc,jb),jk+js,iblk(9,jc,jb)), &
                 p_in(jn)%fld(iidx(10,jc,jb),jk+js,iblk(10,jc,jb)))
-        ENDDO
       ENDDO
-    ENDIF
+    ENDDO
 
     DO jk = 1, elev
-      IF (PRESENT(opt_l_enabled)) THEN
-        IF (.NOT. opt_l_enabled(jk)) CYCLE
-      END IF
+      IF (.NOT. l_enabled(jk)) CYCLE
       DO jc = i_startidx, i_endidx
         min_expval(jc) = MIN(grad_x(jc,jk)*ptr_dist(jc,1,1,jb) + &
                            grad_y(jc,jk)*ptr_dist(jc,1,2,jb),  &
@@ -628,26 +582,18 @@ DO jn = 1, nfields
 
       DO jc = i_startidx, i_endidx
 
-        limfac1 = 1._wp
-        limfac2 = 1._wp
         ! Allow a limited amount of over-/undershooting in the downscaled fields
-        IF (minval_neighb(jc,jk) > 0._wp) THEN
-          relaxed_minval = r_ovsht_fac*minval_neighb(jc,jk)
-        ELSE
-          relaxed_minval = ovsht_fac*minval_neighb(jc,jk)
-        ENDIF
-        IF (maxval_neighb(jc,jk) > 0._wp) THEN
-          relaxed_maxval = ovsht_fac*maxval_neighb(jc,jk)
-        ELSE
-          relaxed_maxval = r_ovsht_fac*maxval_neighb(jc,jk)
-        ENDIF
+        relaxed_minval = MERGE(r_ovsht_fac, ovsht_fac, &
+             minval_neighb(jc,jk) > 0._wp) * minval_neighb(jc,jk)
+        relaxed_maxval = MERGE(ovsht_fac, r_ovsht_fac, &
+             maxval_neighb(jc,jk) > 0._wp) * maxval_neighb(jc,jk)
 
-        IF (p_in(jn)%fld(jc,jk+js,jb) + min_expval(jc) < relaxed_minval-epsi) THEN
-          limfac1 = ABS((relaxed_minval-p_in(jn)%fld(jc,jk+js,jb))/min_expval(jc))
-        ENDIF
-        IF (p_in(jn)%fld(jc,jk+js,jb) + max_expval(jc) > relaxed_maxval+epsi) THEN
-          limfac2 = ABS((relaxed_maxval-p_in(jn)%fld(jc,jk+js,jb))/max_expval(jc))
-        ENDIF
+        limfac1 = MERGE(1._wp, &
+             ABS((relaxed_minval-p_in(jn)%fld(jc,jk+js,jb))/min_expval(jc)), &
+             p_in(jn)%fld(jc,jk+js,jb) + min_expval(jc) >= relaxed_minval-epsi)
+        limfac2 = MERGE(1._wp, &
+             ABS((relaxed_maxval-p_in(jn)%fld(jc,jk+js,jb))/max_expval(jc)), &
+             p_in(jn)%fld(jc,jk+js,jb) + max_expval(jc) <= relaxed_maxval+epsi)
         limfac = MIN(limfac1,limfac2)
 
         grad_x(jc,jk) = grad_x(jc,jk)*limfac
@@ -657,9 +603,7 @@ DO jn = 1, nfields
     ENDDO
 
     DO jk = 1, elev
-      IF (PRESENT(opt_l_enabled)) THEN
-        IF (.NOT. opt_l_enabled(jk)) CYCLE
-      END IF
+      IF (.NOT. l_enabled(jk)) CYCLE
       DO jc = i_startidx, i_endidx
 
         h_aux(jc,jk,jb,1,jn) = p_in(jn)%fld(jc,jk+js,jb) + &
@@ -702,14 +646,10 @@ DO jn = 1, nfields
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = 1, elev
-          IF (PRESENT(opt_l_enabled)) THEN
-            IF (.NOT. opt_l_enabled(jk)) CYCLE
-          END IF
+          IF (.NOT. l_enabled(jk)) CYCLE
 #else
       DO jk = 1, elev
-        IF (PRESENT(opt_l_enabled)) THEN
-          IF (.NOT. opt_l_enabled(jk)) CYCLE
-        END IF
+        IF (.NOT. l_enabled(jk)) CYCLE
 !CDIR NODEP,VOVERTAKE,VOB
         DO jc = i_startidx, i_endidx
 #endif
@@ -730,14 +670,10 @@ DO jn = 1, nfields
 #ifdef __LOOP_EXCHANGE
       DO jc = i_startidx, i_endidx
         DO jk = 1, elev
-          IF (PRESENT(opt_l_enabled)) THEN
-            IF (.NOT. opt_l_enabled(jk)) CYCLE
-          END IF
+          IF (.NOT. l_enabled(jk)) CYCLE
 #else
       DO jk = 1, elev
-        IF (PRESENT(opt_l_enabled)) THEN
-          IF (.NOT. opt_l_enabled(jk)) CYCLE
-        END IF
+        IF (.NOT. l_enabled(jk)) CYCLE
 !CDIR NODEP,VOVERTAKE,VOB
         DO jc = i_startidx, i_endidx
 #endif

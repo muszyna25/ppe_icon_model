@@ -125,9 +125,12 @@ CONTAINS
     ! Modification of surface wind forcing according to surface boundary condition
 !ICON_OMP_PARALLEL
     IF(iswm_oce == 1)THEN
-!ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_DO PRIVATE(start_index, end_index, je) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = all_edges%start_block, all_edges%end_block
-        z_scale(:,jb) = 1.0_wp / (OceanReferenceDensity*ocean_state%p_diag%thick_e(:,jb))
+        CALL get_index_range(all_edges, jb, start_index, end_index)
+          DO je = start_index, end_index
+            z_scale(je,jb) = 1.0_wp / (OceanReferenceDensity*ocean_state%p_diag%thick_e(je,jb))
+        ENDDO
       ENDDO
 !ICON_OMP_END_DO 
     ELSEIF(iswm_oce /= 1)THEN

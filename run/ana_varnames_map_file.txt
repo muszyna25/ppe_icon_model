@@ -28,7 +28,7 @@ t_ice               T_ICE
 h_ice               H_ICE
 t_snow              T_SNOW
 freshsnow           FRESHSNW
-snowfrac            SNOWC
+snowfrac_lc         SNOWC
 w_snow              W_SNOW
 rho_snow            RHO_SNOW
 h_snow              H_SNOW
@@ -58,3 +58,8 @@ asodifu_s           ASWDIFU_S
 asodird_s           ASWDIR_S
 topography_c        HSURF
 gust10              VMAX_10M
+aer_ss              AER_SS
+aer_or              AER_ORG
+aer_bc              AER_BC
+aer_su              AER_SO4
+aer_du              AER_DUST

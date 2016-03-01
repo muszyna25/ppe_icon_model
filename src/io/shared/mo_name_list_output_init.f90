@@ -61,7 +61,8 @@ MODULE mo_name_list_output_init
   USE mo_fortran_tools,                     ONLY: assign_if_present
   USE mo_grib2_util,                        ONLY: set_GRIB2_additional_keys, set_GRIB2_tile_keys, &
     &                                             set_GRIB2_ensemble_keys, set_GRIB2_local_keys,  &
-    &                                             set_GRIB2_synsat_keys, set_GRIB2_art_keys
+    &                                             set_GRIB2_synsat_keys, set_GRIB2_chem_keys,     &
+    &                                             set_GRIB2_art_keys
   USE mo_util_uuid,                         ONLY: uuid2char
   USE mo_io_util,                           ONLY: get_file_extension
   USE mo_util_string,                       ONLY: t_keyword_list, associate_keyword,              &
@@ -1134,7 +1135,8 @@ CONTAINS
           patch_info(jp)%nblks_glb_e = (p_phys_patch(jp)%n_patch_edges-1)/nproma + 1
           patch_info(jp)%p_pat_v    => p_phys_patch(jp)%comm_pat_gather_v
           patch_info(jp)%nblks_glb_v = (p_phys_patch(jp)%n_patch_verts-1)/nproma + 1
-          patch_info(jp)%max_cell_connectivity = p_patch(patch_info(jp)%log_patch_id)%cells%max_connectivity
+          patch_info(jp)%max_cell_connectivity   = p_patch(patch_info(jp)%log_patch_id)%cells%max_connectivity
+          patch_info(jp)%max_vertex_connectivity = p_patch(patch_info(jp)%log_patch_id)%verts%max_connectivity
         END IF
       ELSE
         patch_info(jp)%log_patch_id = jp
@@ -1145,7 +1147,8 @@ CONTAINS
           patch_info(jp)%nblks_glb_e = (p_patch(jp)%n_patch_edges_g-1)/nproma + 1
           patch_info(jp)%p_pat_v    => p_patch(jp)%comm_pat_gather_v
           patch_info(jp)%nblks_glb_v = (p_patch(jp)%n_patch_verts_g-1)/nproma + 1
-          patch_info(jp)%max_cell_connectivity = p_patch(patch_info(jp)%log_patch_id)%cells%max_connectivity
+          patch_info(jp)%max_cell_connectivity   = p_patch(patch_info(jp)%log_patch_id)%cells%max_connectivity
+          patch_info(jp)%max_vertex_connectivity = p_patch(patch_info(jp)%log_patch_id)%verts%max_connectivity
         END IF
       ENDIF
     ENDDO ! jp
@@ -1997,6 +2000,7 @@ CONTAINS
         patch_info(jp)%number_of_grid_used = number_of_grid_used(jl)
 
         patch_info(jp)%max_cell_connectivity = p_patch(jl)%cells%max_connectivity
+        patch_info(jp)%max_vertex_connectivity = p_patch(jl)%verts%max_connectivity
 
       ENDIF
 #ifndef NOMPI
@@ -2313,7 +2317,7 @@ CONTAINS
     TYPE(t_datetime)                :: ini_datetime
     CHARACTER(len=1)                :: uuid_string(16)
     REAL(wp)                        :: pi_180
-    INTEGER                         :: max_cell_connectivity
+    INTEGER                         :: max_cell_connectivity, max_vertex_connectivity
     REAL(wp), ALLOCATABLE           :: p_lonlat(:)
 
     pi_180 = ATAN(1._wp)/45._wp
@@ -2321,7 +2325,8 @@ CONTAINS
     gridtype = GRID_UNSTRUCTURED
 
     i_dom = of%phys_patch_id
-    max_cell_connectivity = patch_info(i_dom)%max_cell_connectivity
+    max_cell_connectivity   = patch_info(i_dom)%max_cell_connectivity
+    max_vertex_connectivity = patch_info(i_dom)%max_vertex_connectivity
 
     !
     ! The following sections add the file global properties collected in init_name_list_output
@@ -2444,7 +2449,11 @@ CONTAINS
       ! Verts
 
       of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
-      CALL gridDefNvertex(of%cdiVertGridID, 9-max_cell_connectivity)
+      IF (my_process_is_ocean()) THEN
+        CALL gridDefNvertex(of%cdiVertGridID, max_vertex_connectivity)
+      ELSE
+        CALL gridDefNvertex(of%cdiVertGridID, 9-max_cell_connectivity)
+      ENDIF
       !
       CALL gridDefXname(of%cdiVertGridID, 'vlon')
       CALL gridDefXlongname(of%cdiVertGridID, 'vertex longitude')
@@ -2673,7 +2682,20 @@ CONTAINS
       IF (this_cf%units /= '')         CALL vlistDefVarUnits(vlistID, varID, TRIM(this_cf%units))
 
       ! Currently only real valued variables are allowed, so we can always use info%missval%rval
-      IF (info%lmiss) CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
+      IF (info%lmiss) THEN
+        ! set the missing value
+        IF ((.NOT.use_async_name_list_io .OR. my_process_is_mpi_test()) .OR. use_dp_mpi2io) THEN
+          CALL vlistDefVarMissval(vlistID, varID, info%missval%rval)
+        ELSE
+          ! In cases, where we use asynchronous output and the data is
+          ! transferred using a single-precision buffer, we need to
+          ! transfer the missing value to single-precision as well.
+          ! Otherwise, in pathological cases, the missing value and
+          ! the masked data in the buffer might be different values.
+          CALL vlistDefVarMissval(vlistID, varID, REAL(REAL(info%missval%rval,sp),dp))
+        END IF
+      ENDIF  ! info%lmiss
+
 
       ! Set GRIB2 Triplet
       IF (info%post_op%lnew_grib2) THEN
@@ -2723,6 +2745,9 @@ CONTAINS
 
         ! Set synsat keys (if applicable)
         CALL set_GRIB2_synsat_keys(vlistID, varID, info)
+
+        ! Set keys for atmospheric chemical constituents, if applicable
+        CALL set_GRIB2_chem_keys(vlistID, varID, info)
 
         ! Set local use SECTION 2
         CALL set_GRIB2_local_keys(vlistID, varID, gribout_config(of%phys_patch_id))

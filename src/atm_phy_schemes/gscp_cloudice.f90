@@ -1096,7 +1096,6 @@ SUBROUTINE cloudice (             &
         zcsdep(iv) = 4.0_wp * zn0s(iv) * hlp
       ENDIF
 
-!>>>
 
     ENDDO loop_over_qi_qs
 
@@ -1153,7 +1152,7 @@ SUBROUTINE cloudice (             &
       ELSEIF (iautocon == 1) THEN
         ! Seifert and Beheng (2001) autoconversion rate
         ! with cloud droplet number concentration qnc depending on aerosol climatology
-        IF (qcg > 1e-6) THEN
+        IF (qcg > 1.e-6_wp) THEN
           ztau   = MIN(1.0_wp-qcg/(qcg+qrg),0.9_wp)
           ztau   = MAX(ztau,1.E-30_wp)
           hlp    = EXP(zkphi2*LOG(ztau))
@@ -1208,7 +1207,7 @@ SUBROUTINE cloudice (             &
         END IF
       ENDIF
       ! Calculation of in-cloud rainwater freezing
-      IF (tg < ztrfrz)  THEN
+      IF (tg < ztrfrz .AND. qrg > 0.1_wp*qcg)  THEN
         IF (lsuper_coolw) THEN
           srfrz(iv) = zcrfrz1*(EXP(zcrfrz2*(ztrfrz-tg))-1.0_wp ) * zeln7o4qrk(iv)
         ELSE 
@@ -1216,7 +1215,7 @@ SUBROUTINE cloudice (             &
         ENDIF
       ENDIF
       
-!FR>>> Calculation of reduction of depositional growth at cloud top (Forbes 2012)
+! Calculation of reduction of depositional growth at cloud top (Forbes 2012)
       IF( k>1 .AND. k<ke .AND. lsuper_coolw ) THEN
         znin  = MIN( fxna_cooper(tg), znimax )
         fnuc = MIN(znin/znimix, 1.0_wp)
@@ -1238,13 +1237,12 @@ SUBROUTINE cloudice (             &
                           dist_cldtop(iv)/dist_cldtop_ref), 1.0_wp)
        
       END IF ! Reduction of dep. growth of snow/ice 
-!FR<<<
       
     ENDDO loop_over_qc
 
       !------------------------------------------------------------------------
       ! Section 6: Search for cold grid points with cloud ice and/or snow and
-      !            calculation of the conversion rates involving qi and ps
+      !            calculation of the conversion rates involving qi and qs
       !------------------------------------------------------------------------
 
 ! also ic3
@@ -1305,9 +1303,14 @@ SUBROUTINE cloudice (             &
           zsdau    =  0.0_wp
         ENDIF
         zsicri    = zcicri * qig * zeln7o8qrk(iv)
-        zsrcri    = zcrcri * (qig/zmi) * zeln13o8qrk(iv)
-        zxfac     = 1.0_wp + zbsdep(iv) * EXP(ccsdxp*LOG(zcslam(iv)))
-        zssdep    = zcsdep(iv) * zxfac * ( qvg - zqvsi(iv) ) / (zcslam(iv)+zeps)**2
+        IF (qsg > 1.e-7_wp) THEN
+          zsrcri  = zcrcri * (qig/zmi) * zeln13o8qrk(iv)
+          zxfac     = 1.0_wp + zbsdep(iv) * EXP(ccsdxp*LOG(zcslam(iv)))
+          zssdep  = zcsdep(iv) * zxfac * ( qvg - zqvsi(iv) ) / (zcslam(iv)+zeps)**2
+        ELSE
+          zsrcri  = 0.0_wp
+          zssdep  = 0.0_wp
+        ENDIF
 
         ! Check for maximal depletion of vapor by sdep
         IF (zssdep > 0.0_wp) THEN
