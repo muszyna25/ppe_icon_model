@@ -174,7 +174,7 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , &
   & zf_ice , deltaq , qisat_grid, &
-  & vap_pres, zaux
+  & vap_pres, zaux, zqisat_m60
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim
@@ -190,6 +190,7 @@ REAL(KIND=wp), PARAMETER  :: &
   & zt_ice1 = tmelt -  5.0_wp, &
   & zt_ice2 = tmelt - 25.0_wp
 
+  REAL(kind=wp), PARAMETER :: grav_i = 1._wp/grav
 
 !-----------------------------------------------------------------------
 
@@ -197,23 +198,18 @@ REAL(KIND=wp), PARAMETER  :: &
   fgew(ztt)            = c1es * EXP( c3les*(ztt - tmelt)/(ztt - c4les) )  ! ztt: temperature
 
 ! statement function to calculate saturation vapour pressure over ice
-#define FGEE(ztt) (c1es * EXP( c3ies*((ztt) - tmelt)/((ztt) - c4ies) ))
-  fgee(ztt)            = FGEE(ztt)  ! ztt: temperature
+  fgee(ztt)            = c1es * EXP( c3ies*(ztt - tmelt)/(ztt - c4ies) )  ! ztt: temperature
 
 ! statement function to calculate specific humitdity
 ! fgqv(zzpv,zzpa)      = rdv * zzpv / (zzpa - (1._wp-rdv)*zzpv)           ! zzpv: vapour pressure
 
 ! statement function to calculate saturation specific humidities from RH=esat/e (proper and safe)
-#define FGQS(zzps,zzpv,zzpa)  (rdv * (zzps) / ((zzpa) - (1._wp-rdv)*(zzpv)))
-  fgqs(zzps,zzpv,zzpa) = FGQS(zzps,zzpv,zzpa)           ! zzps: saturation vapour pressure
-
-! saturation mixing ratio at -60 C and 200 hPa
-  REAL(kind=wp), PARAMETER :: &
-       zqisat_m60 = &
-FGQS(FGEE(213.15_wp), 0._wp, 20000._wp)
-  REAL(kind=wp), PARAMETER :: grav_i = 1._wp/grav
+  fgqs(zzps,zzpv,zzpa) = rdv * zzps / (zzpa - (1._wp-rdv)*zzpv)           ! zzps: saturation vapour pressure
 
 !-----------------------------------------------------------------------
+
+! saturation mixing ratio at -60 C and 200 hPa
+zqisat_m60 = fgqs ( fgee(213.15_wp), 0._wp, 20000._wp )
 
 
 ! Set cloud fields for stratospheric levels to zero
@@ -241,8 +237,6 @@ DO jk = kstart,klev
     zagl_lim(jl,jk) = MAX(0.01_wp, 1.e-4_wp*pgeo(jl,jk) * grav_i)
   ENDDO
 ENDDO
-
-
 
 !-----------------------------------------------------------------------
 ! Select desired cloud cover framework
