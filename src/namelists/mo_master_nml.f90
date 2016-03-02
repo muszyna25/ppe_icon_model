@@ -29,7 +29,7 @@ MODULE mo_master_nml
        &                       OPERATOR(+), OPERATOR(<)
   USE mo_master_config,  ONLY: master_component_models, addModel, noOfModels, maxNoOfModels, &
        &                       setInstitution,                                               &
-       &                       setRestart, isREstart, setModelBaseDir,                       &
+       &                       setRestart, isRestart, setModelBaseDir,                       &
        &                       setExpRefdate,                                                &
        &                       setExpStartdate, setExpStopdate,                              &
        &                       setCheckpointTimeInterval,  setRestartTimeInterval,           &

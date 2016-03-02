@@ -20,7 +20,7 @@ MODULE mo_nonhydrostatic_nml
   USE mo_impl_constants,        ONLY: max_dom, TRACER_ONLY
   USE mo_io_units,              ONLY: nnml, nnml_output
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_master_config,         ONLY: isRestart
+  USE mo_master_control,      ONLY: use_restart_namelists
   USE mo_mpi,                   ONLY: my_process_is_stdio
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
                                     & open_and_restore_namelist, close_tmpfile
@@ -217,7 +217,11 @@ CONTAINS
     ! for values between 1/2 and 2/3, whereas for high resolutions, where stability limitations
     ! arise from large-amplitude breaking gravity waves rather than sound wave reflections, values
     ! around 1/3 are better.
+#ifdef __INTEL_COMPILER
+    exner_expol       = 0.333333333333333_wp    
+#else
     exner_expol       = 1._wp/3._wp
+#endif
     ! TRUE: use the open upper boundary condition
     l_open_ubc        = .FALSE.
     ! 2 child dynamics substeps (DO NOT CHANGE!!! The code will not work correctly with other values)
@@ -239,7 +243,7 @@ CONTAINS
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (isRestart()) THEN
+    IF (use_restart_namelists()) THEN
       funit = open_and_restore_namelist('nonhydrostatic_nml')
       READ(funit,NML=nonhydrostatic_nml)
       CALL close_tmpfile(funit)

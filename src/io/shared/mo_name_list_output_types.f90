@@ -194,6 +194,7 @@ MODULE mo_name_list_output_types
 
     ! the maximum cell connectivity reproduced from the patch
     INTEGER                              :: max_cell_connectivity
+    INTEGER                              :: max_vertex_connectivity
   END TYPE t_patch_info
 
 

@@ -14,6 +14,7 @@
 !!
 !----------------------------
 #include "omp_definitions.inc"
+#include "icon_definitions.inc"
 !----------------------------
 MODULE mo_ocean_tracer_transport_vert
   !-------------------------------------------------------------------------
@@ -28,7 +29,7 @@ MODULE mo_ocean_tracer_transport_vert
   USE mo_parallel_config,           ONLY: nproma
   USE mo_run_config,                ONLY: dtime, ltimer
   USE mo_timer,                     ONLY: timer_start, timer_stop, timer_adv_vert, timer_ppm_slim, &
-    & timer_adpo_vert  !, timer_dif_vert,
+    & timer_adpo_vert, timers_level  !, timer_dif_vert,
   USE mo_ocean_types,                 ONLY: t_hydro_ocean_state, t_verticalAdvection_ppm_coefficients, &
     & t_operator_coeff
   USE mo_model_domain,              ONLY: t_patch,t_patch_3d, t_patch_vert
@@ -98,6 +99,8 @@ CONTAINS
     !-------------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------------
+    start_timer(timer_adv_vert,2)
+
     patch_2D         => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
     
@@ -106,7 +109,6 @@ CONTAINS
     ! This is already synced in  edges_in_domain !
     ! CALL sync_patch_array(SYNC_C, patch_2D, ocean_state%p_diag%w_time_weighted)
     
-    IF (ltimer) CALL timer_start(timer_adv_vert)
 
     IF (flux_calculation_vert == fct_vert_ppm) THEN
 
@@ -121,7 +123,7 @@ CONTAINS
         & flux_div_vert)
 
         ! CALL sync_patch_array(sync_c, patch_2D, flux_div_vert)
-        IF (ltimer) CALL timer_stop(timer_adv_vert)
+        stop_timer(timer_adv_vert,2)
         RETURN
     ENDIF
 
@@ -168,8 +170,6 @@ CONTAINS
       ! Vertical advection scheme: fct_vert_adpo, adapted from MPIOM (Ernst Meier-Reimer)
     CASE(fct_vert_adpo)
 
-      IF (ltimer) CALL timer_start(timer_adpo_vert)
-
       CALL upwind_vflux_oce( patch_3d,          &
         & trac_old,                             &
         & ocean_state%p_diag%w_time_weighted,          &
@@ -202,8 +202,6 @@ CONTAINS
           ENDDO
         END DO
       END DO
-
-      IF (ltimer) CALL timer_stop(timer_adpo_vert)
 
     CASE(fct_vert_minmod)
       CALL advect_flux_vertical_high_res( patch_3d,  &
@@ -241,7 +239,7 @@ CONTAINS
               a_v)
     
     CALL sync_patch_array(sync_c, patch_2D, flux_div_vert)
-    IF (ltimer) CALL timer_stop(timer_adv_vert)
+    stop_timer(timer_adv_vert,2)
     
   END SUBROUTINE advect_flux_vertical
   !-------------------------------------------------------------------------
@@ -298,7 +296,6 @@ CONTAINS
     
     CALL sync_patch_array(sync_c, patch_2d, trac_old)
     
-    !IF (ltimer) CALL timer_start(timer_adv_vert)
     !0) For testing
     CALL upwind_vflux_oce( patch_3d,                  &
       & trac_old,                   &
@@ -360,7 +357,6 @@ CONTAINS
     END DO
     CALL sync_patch_array(sync_c, patch_2d, z_limit_psi)
     CALL sync_patch_array(sync_c, patch_2d, adv_flux_v)
-    !IF (ltimer) CALL timer_stop(timer_adv_vert)
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=4  ! output print thisLevel (1-5, fix)
@@ -1080,7 +1076,6 @@ CONTAINS
     !
     IF (p_itype_vlimit == islopel_vsm) THEN
       !     ! monotonic (mo) limiter
-      IF (ltimer) CALL timer_start(timer_ppm_slim)
       
       CALL v_ppm_slimiter_mo( patch_3d, &
         & p_cc,       &
@@ -1089,7 +1084,6 @@ CONTAINS
         & z_face_up,  &
         & z_face_low)
       
-      IF (ltimer) CALL timer_stop(timer_ppm_slim)
     ELSE
       !      ! simply copy face values to 'face_up' and 'face_low' arrays
       ! !$OMP PARALLEL
