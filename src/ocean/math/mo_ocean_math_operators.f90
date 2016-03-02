@@ -74,6 +74,7 @@ MODULE mo_ocean_math_operators
   PUBLIC :: smooth_onCells
   PUBLIC :: update_height_depdendent_variables, calculate_thickness
   PUBLIC :: grad_vector, div_vector_onTriangle
+  PUBLIC :: verticalDiv_vector_onFullLevels_on_block
   
   
   INTERFACE div_oce_3D
@@ -1101,7 +1102,9 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! !  SUBROUTINE calculates vertical derivative for a vector that is located at cell center and at midelevel, i.e. at the center of a 3D prism.
+  !!    calculates vertical derivative for a vector that is located at cell center and at midelevel,
+  !!    i.e. at the center of a 3D prism.
+  !!    The result is on half levels, ie prism interfaces !
   !!    start level has to be specifed, at end level value zero is assigned to vert. derivative
   !!    start_level should be > 1
   !!
@@ -1115,7 +1118,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates), INTENT(in)        :: vec_in(nproma, n_zlev)
     INTEGER, INTENT(in)                              :: start_level
     INTEGER, INTENT(in)                              :: blockNo, start_index, end_index
-    TYPE(t_cartesian_coordinates), INTENT(inout)     :: vertDeriv_vec(nproma, n_zlev)    ! out
+    TYPE(t_cartesian_coordinates), INTENT(inout)     :: vertDeriv_vec(:,:) ! (nproma, n_zlev+1)    ! out
     
     !Local variables
     INTEGER :: jk, jc!,jb
@@ -1125,12 +1128,16 @@ CONTAINS
     inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(:,:,blockNo)
 
     DO jc = start_index, end_index
-        
-        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
+!         vertDeriv_vec(jc,1)%x = 0.0_wp
+        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
           vertDeriv_vec(jc,jk)%x &
           & = (vec_in(jc,jk-1)%x - vec_in(jc,jk)%x)  & 
               & * inv_prism_center_distance(jc,jk)
-              
+
+!           IF (vertDeriv_vec(jc,jk)%x(1) < 0.0_wp) THEN
+!             write(0,*) jk, vec_in(jc,jk-1)%x(1),  vec_in(jc,jk)%x(1)
+!             CALL finish('','negative vertDeriv_vec')
+!           ENDIF
         END DO    
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed 
     END DO
@@ -1216,7 +1223,6 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  !
   !>
   !! !  SUBROUTINE calculates vertical divergence/derivative for a scalar that is located at cell center and at midelevel,
   !!    i.e. at the center of a 3D prism.
@@ -1247,7 +1253,7 @@ CONTAINS
 !      IF ( end_level >=min_dolic ) THEN
         DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
           vertDiv_scalar(jc,jk) &
-            & = (scalar_in(jc,jk-1) - scalar_in(jc,jk))  & !/ prism_center_distance(jc,jk)
+            & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & !/ prism_center_distance(jc,jk)
               & * inv_prism_thickness(jc,jk)
 
         END DO
@@ -1258,6 +1264,40 @@ CONTAINS
   END SUBROUTINE verticalDiv_scalar_onFullLevels_on_block
   !-------------------------------------------------------------------------
  
+  !-------------------------------------------------------------------------
+!<Optimize:inUse>
+  SUBROUTINE verticalDiv_vector_onFullLevels_on_block(patch_3d, vector_in, vertDiv_vector, start_level, &
+    & blockNo, start_index, end_index)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
+    TYPE(t_cartesian_coordinates)                    :: vector_in(nproma, n_zlev+1)
+    INTEGER, INTENT(in)                              :: start_level
+    INTEGER, INTENT(in)                              :: blockNo, start_index, end_index
+    TYPE(t_cartesian_coordinates)                    :: vertDiv_vector(nproma, n_zlev)    ! out
+
+    !Local variables
+    INTEGER :: jk, jc!,jb
+    REAL(wp), POINTER ::  inv_prism_thickness(:,:)
+!     INTEGER :: end_level
+    !-------------------------------------------------------------------------------
+    ! prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)
+    inv_prism_thickness => patch_3D%p_patch_1D(1)%invConstantPrismThickness(:,:,blockNo)
+
+    DO jc = start_index, end_index
+!       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
+!      IF ( end_level >=min_dolic ) THEN
+        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
+          vertDiv_vector(jc,jk)%x &
+            & = (vector_in(jc,jk)%x - vector_in(jc,jk+1)%x)  & !/ prism_center_distance(jc,jk)
+              & * inv_prism_thickness(jc,jk)
+
+        END DO
+        ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed
+!      ENDIF
+    END DO
+     !CALL sync_patch_array(sync_c, patch_3D%p_patch_2D(1), vertDiv_vector)
+  END SUBROUTINE verticalDiv_vector_onFullLevels_on_block
+  !-------------------------------------------------------------------------
+
  
   !-------------------------------------------------------------------------
   !<Optimize:inUse>

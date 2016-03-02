@@ -81,8 +81,7 @@ CONTAINS
     !Local variables
     REAL(wp) :: z_lapl(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
     !INTEGER  :: level
-    ! CHARACTER(len=max_char_length), PARAMETER :: &
-    !        & routine = ('mo_ocean_diffusion:velocity_diffusion_horz')
+    CHARACTER(*), PARAMETER :: method_name = "velocity_diffusion"
     !-------------------------------------------------------------------------------
     !CALL message (TRIM(routine), 'start')
     
@@ -90,7 +89,7 @@ CONTAINS
       
       !divgrad laplacian is chosen
       IF(laplacian_form==2)THEN
-        CALL finish("mo_ocean_diffusion:velocity_diffusion", "form of harmonic Laplacian not recommended")        
+        CALL finish(method_name, "form of harmonic Laplacian not recommended")
         CALL veloc_diff_harmonic_div_grad( patch_3D,&
           & physics_parameters,   &
           & p_diag,    &
@@ -133,6 +132,10 @@ CONTAINS
           & operators_coeff,     &
           & laplacian_vn_out)
       ENDIF
+    ELSEIF(VelocityDiffusion_order==0)THEN
+      laplacian_vn_out = 0.0_wp
+    ELSE
+      CALL finish(method_name, "unknown VelocityDiffusion_order")
     ENDIF
     
     ! CALL sync_patch_array(sync_e, patch_3D%p_patch_2d(1), laplacian_vn_out)

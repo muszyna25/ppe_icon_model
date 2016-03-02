@@ -2032,7 +2032,7 @@ CONTAINS
   SUBROUTINE map_vec_prismtop2center_on_block(patch_3d, vec_top, p_op_coeff, vec_center, &
     & blockNo, start_cell_index, end_cell_index)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
-    TYPE(t_cartesian_coordinates), INTENT(in)        :: vec_top(nproma, n_zlev)
+    TYPE(t_cartesian_coordinates), INTENT(in)        :: vec_top(:,:) ! (nproma, n_zlev+1)
     TYPE(t_operator_coeff), INTENT(in)               :: p_op_coeff
     INTEGER, INTENT(in)                              :: blockNo, start_cell_index, end_cell_index
     TYPE(t_cartesian_coordinates), INTENT(inout)     :: vec_center(nproma, n_zlev,blockNo) ! out
@@ -2054,7 +2054,7 @@ CONTAINS
     DO jc = start_cell_index, end_cell_index
       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
 !       IF ( end_level >=min_dolic ) THEN
-        DO level = start_level, end_level-1
+        DO level = start_level, end_level
           vec_center(jc,level,blockNo)%x &
           & = (prism_center_distance(jc,level)   * vec_top(jc,level)%x    &
           & +  prism_center_distance(jc,level+1) * vec_top(jc,level+1)%x) &

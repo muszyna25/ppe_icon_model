@@ -679,8 +679,6 @@ CONTAINS
     
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src = 3  ! output print level (1-5, fix)
-    CALL dbg_print('horizontal advection'      ,ocean_state%p_diag%veloc_adv_horz,str_module,idt_src, &
-      & in_subset=owned_edges)
     CALL dbg_print('density'                   ,ocean_state%p_diag%rho           ,str_module,idt_src, &
       & in_subset = owned_cells)
     CALL dbg_print('internal pressure'         ,ocean_state%p_diag%press_hyd     ,str_module,idt_src, &
@@ -690,8 +688,6 @@ CONTAINS
     idt_src = 4  ! output print level (1-5, fix)
     CALL dbg_print('kinetic energy'            ,ocean_state%p_diag%kin           ,str_module,idt_src, &
       in_subset = owned_cells)
-    CALL dbg_print('vertical advection'        ,ocean_state%p_diag%veloc_adv_vert,str_module,idt_src, &
-      & in_subset=owned_edges)
     !---------------------------------------------------------------------
     
     !---------------------------------------------------------------------
@@ -728,9 +724,16 @@ CONTAINS
     !---------DEBUG DIAGNOSTICS-------------------------------------------
 
     idt_src=3  ! output print level (1-5, fix)
+    idt_src = 1  ! output print level (1-5, fix)
+    CALL dbg_print('horizontal advection'      ,ocean_state%p_diag%veloc_adv_horz,str_module,idt_src, &
+      & in_subset=owned_edges)
+    CALL dbg_print('horizontal grad'          ,ocean_state%p_diag%grad,str_module,idt_src, &
+      & in_subset=owned_edges)
+    CALL dbg_print('vertical advection'        ,ocean_state%p_diag%veloc_adv_vert,str_module,idt_src, &
+      & in_subset=owned_edges)
     CALL dbg_print('VelocDiff: LaPlacHorz'    ,ocean_state%p_diag%laplacian_horz  ,str_module,idt_src, in_subset=owned_edges)
     IF (iswm_oce /= 1) THEN
-      CALL dbg_print('ImplVelocDiff vertical'   ,ocean_state%p_diag%vn_pred       ,str_module,idt_src, in_subset=owned_edges)
+      CALL dbg_print('vn_pred'   ,ocean_state%p_diag%vn_pred       ,str_module,idt_src, in_subset=owned_edges)
     ELSE
       CALL dbg_print('VelocDiff: LaPlacVert'    ,ocean_state%p_diag%laplacian_vert,str_module,idt_src, in_subset=owned_edges)
     ENDIF

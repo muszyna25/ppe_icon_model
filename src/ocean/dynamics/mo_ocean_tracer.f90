@@ -35,7 +35,7 @@ MODULE mo_ocean_tracer
     & l_skip_tracer, implicit_diffusion,explicit_diffusion,               &! , use_ThermoExpansion_Correction
     & GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,          &
     & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
-    & namelist_tracer_name
+    & namelist_tracer_name, NoTracerAdvectionDiffusion
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma
   USE mo_dynamics_config,           ONLY: nold, nnew
@@ -96,6 +96,8 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     !-------------------------------------------------------------------------------
+    IF(tracer_update_mode == NoTracerAdvectionDiffusion) RETURN
+
     patch_2D => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
 

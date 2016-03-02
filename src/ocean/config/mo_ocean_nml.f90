@@ -107,7 +107,8 @@ MODULE mo_ocean_nml
                                             !                     slope (not implemented yet)
   ! Parameters for tracer transport scheme
   !
-  !identifiers for different modes of updating the tracer state (substep 
+  !identifiers for different modes of updating the tracer state (substep
+  INTEGER, PARAMETER :: NoTracerAdvectionDiffusion = 0
   INTEGER, PARAMETER :: i_during_step =1
   INTEGER, PARAMETER :: i_post_step   =2
   !default value
@@ -282,6 +283,11 @@ MODULE mo_ocean_nml
   LOGICAL  :: cfl_stop_on_violation = .FALSE.
   REAL(wp) :: cfl_threshold         = 1.0_wp
 
+  INTEGER, PARAMETER :: VerticalAdvection_None           = 0
+  INTEGER, PARAMETER :: VerticalAdvection_RotationalForm = 1
+  INTEGER, PARAMETER :: VerticalAdvection_DivergenceForm = 2
+  INTEGER :: HorizonatlVelocity_VerticalAdvection_form = VerticalAdvection_RotationalForm
+
   LOGICAL  :: use_smooth_ocean_boundary  = .TRUE.
 
 
@@ -331,6 +337,7 @@ MODULE mo_ocean_nml
     &                 MASS_MATRIX_INVERSION_TYPE   , &
     &                 NONLINEAR_CORIOLIS           , &
     &                 KineticEnergy_type           , &
+    &                 HorizonatlVelocity_VerticalAdvection_form, &
     &                 solver_FirstGuess            , &
     &                 use_smooth_ocean_boundary
 

@@ -1440,8 +1440,13 @@ CONTAINS
             IF (orientation * (1.5_wp - REAL(neigbor, wp)) <=0) &
               & CALL finish(method_name, "wrong orientation in edge2cell_coeff_cc_t")
 
+!             edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = &
+!               dist_vector%x / dual_edge_length(edge_index, edge_block)
+
             edge2cell_coeff_cc_t(edge_index, edge_block, neigbor)%x = &
-              dist_vector%x / dual_edge_length(edge_index, edge_block)
+              & patch_2D%edges%primal_cart_normal(edge_index, edge_block)%x &
+              & * d_norma_3d(dist_vector) &
+              & / dual_edge_length(edge_index, edge_block)
 
           ENDIF ! (cell_block > 0)
         ENDDO ! neigbor=1,2

@@ -106,7 +106,6 @@ MODULE mo_ocean_physics
     & timer_extra10, timer_extra11
   USE mo_statistics,          ONLY: global_minmaxmean
   USE mo_io_config,           ONLY: lnetcdf_flt64_output
-  USE mo_scalar_product,      ONLY: map_cell2edges_3d
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates
 
   IMPLICIT NONE
