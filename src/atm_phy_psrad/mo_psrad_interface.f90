@@ -345,12 +345,11 @@ CONTAINS
 ! iaero=13: only tropospheric Kinne aerosols
 ! iaero=14: only Stenchikov's volcanic aerosols
 ! iaero=15: tropospheric Kinne aerosols + volcanic Stenchikov's aerosols
-    IF (iaero==0 .OR. iaero==14) THEN
-      aer_tau_lw_vr(:,:,:) = 0.0_wp
-      aer_tau_sw_vr(:,:,:) = 0.0_wp
-      aer_piz_sw_vr(:,:,:) = 1.0_wp
-      aer_cg_sw_vr(:,:,:)  = 0.0_wp
-    END IF
+! set all aerosols to zero first
+    aer_tau_lw_vr(:,:,:) = 0.0_wp
+    aer_tau_sw_vr(:,:,:) = 0.0_wp
+    aer_piz_sw_vr(:,:,:) = 1.0_wp
+    aer_cg_sw_vr(:,:,:)  = 0.0_wp
     IF (iaero==13 .OR. iaero==15 .OR. iaero==18) THEN
 ! iaero=13: only Kinne aerosols are used
 ! iaero=15: Kinne aerosols plus Stenchikov's volcanic aerosols are used

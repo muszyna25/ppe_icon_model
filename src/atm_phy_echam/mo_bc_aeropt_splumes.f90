@@ -30,6 +30,7 @@ MODULE mo_bc_aeropt_splumes
   USE mo_rrtm_params,          ONLY: &
       & jpb1                    ,&     !< index for lower sw band
       & jpb2                           !< index for upper sw band
+  USE mo_math_constants,       ONLY: rad2deg
 
 !!$, on_cells, &
 !!$    &                                t_stream_id, read_0D_real, read_3D_time
@@ -69,10 +70,11 @@ MODULE mo_bc_aeropt_splumes
        theta       (:,:),& !< (nfeatures,nplumes) Rotation angle of feature
        ftr_weight  (:,:),& !< (nfeatures,nplumes) Feature weights = 
                            !< (nfeatures + 1) to account for BB background
-       time_weight (:,:),& !< (nfeatures,nplumes) Time-weights = 
-                           !< (nfeatures +1) to account for BB background
        year_weight (:,:)    ,& !< (nyear,nplumes) Yearly weight for plume
        ann_cycle   (:,:,:)     !< (nfeatures,ntimes,nplumes) annual cycle for feature
+  REAL(wp)                 :: &
+    time_weight (nfeatures,nplumes)       !< Time-weights to account for BB background
+
   CHARACTER(LEN=256)       :: cfname
   LOGICAL                  :: sp_initialized
 
@@ -247,8 +249,8 @@ MODULE mo_bc_aeropt_splumes
        & lambda,                  & !< wavelength
        & year_fr,                 & !< Fractional Year (1903.0 is the 0Z on the first of January 1903, Gregorian)
        & oro(ncol),               & !< orographic height (m)
-       & lon(ncol),               & !< longitude 
-       & lat(ncol),               & !< latitude
+       & lon(ncol),               & !< longitude in degrees E
+       & lat(ncol),               & !< latitude in degrees N
        & z (ncol_max,nlevels),    & !< height above sea-level (m)
        & dz(ncol_max,nlevels)       !< level thickness (difference between half levels)
 
@@ -461,7 +463,7 @@ MODULE mo_bc_aeropt_splumes
          sp_asy_vr(kbdim,klev)       ,& !< simple plume asymmetry factor, vertically reversed indexing
          sp_xcdnc(kproma)               !< drop number scale factor
 
-    year_fr=datetime%yeafrc
+    year_fr=datetime%yeafrc+REAL(datetime%year)
     IF (datetime%year > 1850) THEN
       ! 
       ! --- 1.1 geographic information
@@ -474,8 +476,8 @@ MODULE mo_bc_aeropt_splumes
         END DO
       END DO
       z_sfc(1:kproma)  = oromea(1:kproma)
-      lon_sp(1:kproma) = p_patch(jg)%cells%center(1:kproma,krow)%lon
-      lat_sp(1:kproma) = p_patch(jg)%cells%center(1:kproma,krow)%lat
+      lon_sp(1:kproma) = p_patch(jg)%cells%center(1:kproma,krow)%lon*rad2deg
+      lat_sp(1:kproma) = p_patch(jg)%cells%center(1:kproma,krow)%lat*rad2deg
       ! 
       ! --- 1.2 Aerosol Shortwave properties
       !
