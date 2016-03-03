@@ -704,7 +704,6 @@ CONTAINS
       & ocean_state%p_diag%laplacian_horz)
     stop_detail_timer(timer_extra3,5)
  
-    ! CALL dbg_print('bc_top_vn'   ,ocean_state%p_aux%bc_top_vn       ,str_module,idt_src, in_subset=owned_edges)
     ! write(0,*) "MASS_MATRIX_INVERSION_TYPE=", MASS_MATRIX_INVERSION_TYPE
     ! CALL sync_patch_array(sync_e, patch_2D, ocean_state%p_diag%laplacian_horz)
     !---------------------------------------------------------------------
@@ -725,6 +724,7 @@ CONTAINS
 
     idt_src=3  ! output print level (1-5, fix)
     idt_src = 1  ! output print level (1-5, fix)
+    CALL dbg_print('bc_top_vn'   ,ocean_state%p_aux%bc_top_vn,str_module,idt_src, in_subset=owned_edges)
     CALL dbg_print('horizontal advection'      ,ocean_state%p_diag%veloc_adv_horz,str_module,idt_src, &
       & in_subset=owned_edges)
     CALL dbg_print('horizontal grad'          ,ocean_state%p_diag%grad,str_module,idt_src, &

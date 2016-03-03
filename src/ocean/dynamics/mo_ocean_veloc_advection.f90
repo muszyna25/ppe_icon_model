@@ -482,14 +482,14 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
 
     !---------Debug Diagnostics-------------------------------------------
-    idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('advHorCgrid: f_e', patch_2d%edges%f_e,str_module,idt_src, &
-          patch_2D%edges%owned )
+    idt_src=1  ! output print level (1-5, fix)
 !     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('advHorCgrid: kin energy'        ,p_diag%kin              ,str_module,idt_src, &
           patch_2D%cells%owned )
     CALL dbg_print('advHorCgrid: vorticity'         ,p_diag%vort             ,str_module,idt_src, &
           patch_2D%verts%owned )
+    CALL dbg_print('advHorCgrid: f_e'  ,        patch_2d%edges%f_e        ,str_module,idt_src, &
+          patch_2D%edges%owned )
     CALL dbg_print('advHorCgrid: grad kin en'       ,p_diag%grad             ,str_module,idt_src, &
           patch_2D%edges%owned )
     CALL dbg_print('advHorCgrid: veloc_adv_horz_e'  ,veloc_adv_horz_e        ,str_module,idt_src, &
@@ -686,20 +686,12 @@ ENDDO
   !>
   !! Computes vertical advection of a (edge based) horizontal vector field that
   !! suits to rotational form of velocity equation.
-  !! The vertical derivative of the velocity vector at circumcenters that
-  !! is reconstructed from edge data is calculated and then multiplied by
-  !! the vertical velocity. The product is mapped from top of the computational
-  !! prism to the middle (still at centers) via the transposed of vertical differentiation
-  !! and then transformed to edges.
   !!
   !! IMPORTANT: It is assumed that the velocity vector reconstruction from
   !! edges to cells has been done before.
   !!
   !! input:  lives on cells (velocity points)
   !! output: lives on edges (velocity points)
-  !!
-  !! @par Revision History
-  !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
   SUBROUTINE veloc_adv_vert_mimetic_rot( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
@@ -751,13 +743,13 @@ ENDDO
         & 1, blockNo, start_index, end_index)
 
       ! multiply vertical velocity with vertical derivative of horizontal velocity
-      z_adv_u_m(:,:,blockNo)%x(1) = 0.0_wp
-      z_adv_u_m(:,:,blockNo)%x(2) = 0.0_wp
-      z_adv_u_m(:,:,blockNo)%x(3) = 0.0_wp
       DO jc = start_index, end_index
         DO jk = 1, patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
           z_adv_u_m(jc,jk,blockNo)%x =  &
             center_vertical_velocity(jc,jk) * z_adv_u_fullLevels(jc,jk)%x
+        END DO
+        DO jk = patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)+1, n_zlev
+          z_adv_u_m(jc,jk,blockNo)%x = 0.0_wp
         END DO
       END DO
 
@@ -797,6 +789,115 @@ ENDDO
     !---------------------------------------------------------------------
 
   END SUBROUTINE veloc_adv_vert_mimetic_rot
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Computes vertical advection of a (edge based) horizontal vector field that
+  !! suits to rotational form of velocity equation.
+  !! The vertical derivative of the velocity vector at circumcenters that
+  !! is reconstructed from edge data is calculated and then multiplied by
+  !! the vertical velocity. The product is mapped from top of the computational
+  !! prism to the middle (still at centers) via the transposed of vertical differentiation
+  !! and then transformed to edges.
+  !!
+  !! IMPORTANT: It is assumed that the velocity vector reconstruction from
+  !! edges to cells has been done before.
+  !!
+  !! input:  lives on cells (velocity points)
+  !! output: lives on edges (velocity points)
+  !!
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2010).
+  !!
+!<Optimize:inUse>
+  SUBROUTINE veloc_adv_vert_mimetic_rot_ori( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
+
+    TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
+    TYPE(t_hydro_ocean_diag)          :: p_diag
+    TYPE(t_operator_coeff),INTENT(in) :: p_op_coeff
+    REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)
+
+    !local variables
+    INTEGER :: start_level     ! vertical start and end level
+    INTEGER :: jc, jk, blockNo
+    INTEGER :: start_index, end_index
+    INTEGER :: fin_level
+    REAL(wp), POINTER :: inv_prism_center_distance(:,:)! ,prism_thick(:,:)
+    TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1)
+    TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+!     TYPE(t_cartesian_coordinates) :: vertDeriv_vec(nproma, n_zlev)
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_patch), POINTER        :: patch_2D
+    REAL(wp), POINTER             :: vertical_velocity(:,:,:)
+    !-----------------------------------------------------------------------
+    patch_2D   => patch_3D%p_patch_2D(1)
+    all_cells => patch_2D%cells%all
+   !-----------------------------------------------------------------------
+    start_level = 1
+
+    z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(1) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(2) = 0.0_wp
+    z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(3) = 0.0_wp
+
+    vertical_velocity => p_diag%w
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index,jc, jk, fin_level,inv_prism_center_distance, &
+!ICON_OMP z_adv_u_i) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, blockNo, start_index, end_index)
+
+      !vertical derivative at ocean interior Surface is handled below
+      ! this does not include h
+      CALL verticalDeriv_vec_midlevel_on_block( patch_3d, &
+                                              & p_diag%p_vn(:,:,blockNo),  &
+                                              & z_adv_u_i(:,:),&
+                                              & start_level+1,             &
+                                              & blockNo, start_index, end_index)
+
+      !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity
+      DO jc = start_index, end_index
+        fin_level = patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
+
+        IF(fin_level >= min_dolic) THEN
+
+          !1a) ocean surface: vertical derivative times vertical velocity.
+          !This form is consistent with energy conservation
+!           z_adv_u_i(jc,start_level)%x =               &
+!             & p_diag%w(jc,start_level,blockNo)*&  !/v_base%del_zlev_i(slev)
+!             & (p_diag%p_vn(jc,start_level,blockNo)%x - p_diag%p_vn(jc,start_level+1,blockNo)%x)&!/del_zlev_i(slev)
+!             & * inv_prism_center_distance(jc,start_level)
+           z_adv_u_i(jc,start_level)%x =               &
+             & -vertical_velocity(jc,start_level,blockNo) * p_diag%p_vn(jc,start_level,blockNo)%x &
+             & * patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(jc,start_level,blockNo)
+
+          ! 1b) ocean interior
+          DO jk = start_level+1, fin_level-1
+            z_adv_u_i(jc,jk)%x =  vertical_velocity(jc,jk,blockNo) * z_adv_u_i(jc,jk)%x
+          END DO
+
+          z_adv_u_i(jc,fin_level)%x = 0.0_wp
+
+        ENDIF
+      END DO
+
+      ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
+      CALL map_vec_prismtop2center_on_block(patch_3d, z_adv_u_i, z_adv_u_m(:,:,blockNo), &
+        & blockNo, start_index, end_index)
+
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+    ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
+    CALL map_cell2edges_3D( patch_3D, z_adv_u_m, veloc_adv_vert_e,p_op_coeff)
+
+    !---------Debug Diagnostics-------------------------------------------
+    idt_src=3  ! output print level (1-5, fix)
+    CALL dbg_print('VertMimRot: V.Adv. Final'    ,veloc_adv_vert_e         ,str_module,idt_src, &
+          patch_2D%edges%owned )
+    !---------------------------------------------------------------------
+
+  END SUBROUTINE veloc_adv_vert_mimetic_rot_ori
   !-------------------------------------------------------------------------
 
 

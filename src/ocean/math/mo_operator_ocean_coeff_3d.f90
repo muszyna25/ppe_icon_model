@@ -1097,6 +1097,7 @@ CONTAINS
     INTEGER :: cell_1_index, cell_1_block, cell_2_index, cell_2_block
     INTEGER :: vertex_1_index, vertex_1_block, vertex_2_index, vertex_2_block
     INTEGER :: level
+    CHARACTER(*), PARAMETER :: method_name = "init_operator_coeffs"
     !-----------------------------------------------------------------------
     inverse_sphere_radius = 1.0_wp / grid_sphere_radius
 
@@ -1172,9 +1173,19 @@ CONTAINS
 
           IF (edge_block > 0) THEN
             rot_coeff(vertex_index,vertex_block,neigbor)           &
-!              & = dual_edge_length(edge_index,edge_block) * grid_sphere_radius &     !PK why not dual_edge_length from above ??
-             & = patch_2D%edges%primal_edge_length(edge_index,edge_block) &         !PK why not dual_edge_length from above ??
+             = dual_edge_length(edge_index,edge_block) * grid_sphere_radius &     !PK why not dual_edge_length from above ??
+!             & = patch_2D%edges%primal_edge_length(edge_index,edge_block) &         !PK why not dual_edge_length from above ??
              &  * patch_2D%verts%edge_orientation(vertex_index,vertex_block,neigbor)
+
+            dist_vector = distance_vector( &
+              & patch_2D%edges%cartesian_center(edge_index,edge_block), &
+              & patch_2D%verts%cartesian(vertex_index, vertex_block), &
+              & patch_2D%geometry_info)
+            IF (DOT_PRODUCT(patch_2D%edges%dual_cart_normal(edge_index,edge_block)%x, dist_vector%x) &
+                 * patch_2D%verts%edge_orientation(vertex_index,vertex_block,neigbor) < 0.0_wp ) THEN
+              CALL finish(method_name, "wrong orientation for rot_coeff")
+            ENDIF
+
           ENDIF
         ENDDO !neigbor=1,6
       ENDDO ! vertex_index = start_index, end_index
@@ -1979,7 +1990,6 @@ CONTAINS
     !in_domain_verts  => patch_3D%p_patch_2D(1)%verts%in_domain
 
     sea_edges_per_vertex(:,:,:)                       = 0
-    zarea_fraction(1:nproma,1:n_zlev,1:patch_2D%nblks_v) = 0.0_wp
     grid_radius_squared = grid_sphere_radius * grid_sphere_radius
 
     ! calculate cells SeaBoundaryLevel
@@ -2416,8 +2426,8 @@ CONTAINS
     DO block = owned_verts%start_block, owned_verts%end_block
       CALL get_index_range(owned_verts, block, i_startidx_v, i_endidx_v)
       DO jk = 1, n_zlev
-!CDIR nextscalar
         DO jv = i_startidx_v, i_endidx_v
+          zarea_fraction(jv,jk,block) = 0.0_wp
 
 !           IF ( sea_edges_per_vertex(jv,jk,block) == no_dual_edges ) THEN ! we have to count for lateral boundaries at the top
 !             zarea_fraction(jv,jk,block)= patch_2D%verts%dual_area(jv,block) / grid_radius_squared
@@ -2481,25 +2491,31 @@ CONTAINS
           !and 
           !patch_2D%verts%dual_area(jv,block)
           !are identical
-!CDIR nextscalar
 
           !Final coefficient calculation
-          IF(zarea_fraction(jv,jk,block)/=0.0_wp)THEN
-
-            operators_coefficients%rot_coeff(jv,jk,block,:)&
-            &=operators_coefficients%rot_coeff(jv,jk,block,:)/(zarea_fraction(jv,jk,block)*grid_radius_squared)
+          IF(zarea_fraction(jv,jk,block) > 0.0_wp)THEN
             
-            DO jev = 1, patch_2D%verts%num_edges(jv,block)
+            DO jev = 1, no_dual_edges
               operators_coefficients%edge2vert_coeff_cc(jv,jk,block,jev)%x(1:3)&
                 & =operators_coefficients%edge2vert_coeff_cc(jv,jk,block,jev)%x(1:3)/zarea_fraction(jv,jk,block)
                 !SUM(operators_coefficients%variable_dual_vol_norm(jv,jk,block,:))!
+              operators_coefficients%rot_coeff(jv,jk,block,jev)&
+                &=operators_coefficients%rot_coeff(jv,jk,block,jev)/(zarea_fraction(jv,jk,block)*grid_radius_squared)
+
+              IF (ABS(operators_coefficients%rot_coeff(jv,jk,block,jev)) > 1.0E-2_wp) THEN
+                write(0,*) "rot_coeff > 1.0E-2_wp: ", operators_coefficients%rot_coeff(jv,jk,block,jev), &
+                  zarea_fraction(jv,jk,block), grid_radius_squared
+              ENDIF
+
             END DO
 
           ELSE
-            DO jev = 1, patch_2D%verts%num_edges(jv,block)
-                operators_coefficients%edge2vert_coeff_cc(jv,jk,block,jev)%x(1:3)=0.0_wp
+
+            DO jev = 1, no_dual_edges
+              operators_coefficients%edge2vert_coeff_cc(jv,jk,block,jev)%x(1:3)=0.0_wp
+              operators_coefficients%rot_coeff(jv,jk,block,jev)=0.0_wp
             END DO
-            operators_coefficients%rot_coeff(jv,jk,block,:)=0.0_wp
+
           ENDIF
          !!ENDIF !( sea_edges_per_vertex(jv,jk,block) == patch_2D%verts%num_edges(jv,block) )
 
@@ -2516,6 +2532,10 @@ CONTAINS
     ENDDO
     DO je=1,no_dual_edges
       CALL sync_patch_array(SYNC_V, patch_2D, operators_coefficients%rot_coeff(:,:,:, je))
+    ENDDO
+    DO je=1,no_dual_edges
+      CALL dbg_print('rot_coeff'    ,operators_coefficients%rot_coeff(:,:,:, je), str_module,1, &
+            patch_2D%verts%owned )
     ENDDO
 
     DO jk = 1, n_zlev
