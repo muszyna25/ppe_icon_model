@@ -98,6 +98,9 @@ MODULE mo_echam_phy_init
   ! for aeorosols in simple plumes
   USE mo_bc_aeropt_splumes,    ONLY: setup_bc_aeropt_splumes
 
+  ! radiative forcing diagnostics
+  USE mo_psrad_memory,         ONLY: construct_psrad_forcing_list
+
   IMPLICIT NONE
 
   PRIVATE
@@ -343,7 +346,10 @@ CONTAINS
       CALL finish('','only lnd tile present: must use TPE* testcase!')
     END IF
 
-    !read data for simple plumes of aerosols
+    ! construct stream for radiative forcing diagnostics
+    CALL construct_psrad_forcing_list ( p_patch )
+
+    ! read data for simple plumes of aerosols
 
     IF (irad_aero == 18) THEN
       CALL setup_bc_aeropt_splumes

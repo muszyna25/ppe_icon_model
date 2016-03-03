@@ -1471,6 +1471,7 @@ src/atm_phy_psrad/mo_psrad_lrtm_kgs.f90 -text
 src/atm_phy_psrad/mo_psrad_lrtm_netcdf.f90 -text
 src/atm_phy_psrad/mo_psrad_lrtm_setup.f90 -text
 src/atm_phy_psrad/mo_psrad_lrtm_solver.f90 -text
+src/atm_phy_psrad/mo_psrad_memory.f90 -text
 src/atm_phy_psrad/mo_psrad_orbit.f90 -text
 src/atm_phy_psrad/mo_psrad_orbit_config.f90 -text
 src/atm_phy_psrad/mo_psrad_radiation.f90 -text

@@ -133,6 +133,7 @@ MODULE mo_psrad_radiation
   USE mo_psrad_radiation_parameters, ONLY:                     &
 !!$                                     ldiur,                    &
 !!$                                     lradforcing,              &
+                                     iaero_forcing,            &
                                      l_interp_rad_in_time,     &
                                      zepzen,                   &
 !!$                                     lyr_perp,                 &
@@ -403,11 +404,12 @@ MODULE mo_psrad_radiation
     CHARACTER(len=*), INTENT(IN)      :: file_name
     INTEGER :: istat, funit
 
-    NAMELIST /psrad_nml/ lradforcing, &
-                       & lw_gpts_ts,  &
-                       & lw_spec_samp,&
-                       & rad_perm,    &
-                       & sw_gpts_ts,  &
+    NAMELIST /psrad_nml/ lradforcing,   &
+                       & iaero_forcing, &
+                       & lw_gpts_ts,    &
+                       & lw_spec_samp,  &
+                       & rad_perm,      &
+                       & sw_gpts_ts,    &
                        & sw_spec_samp
     ! 0.9 Read psrad_orbit namelist
     CALL read_psrad_orbit_namelist(file_name)
@@ -741,14 +743,15 @@ MODULE mo_psrad_radiation
       ELSE
         CALL message('','ldiur =.FALSE. --> diurnal cycle off')
       ENDIF
-!!$      !
-!!$      ! --- Check for diagnosis of instantaneous aerosol radiative forcing
-!!$      ! 
-!!$      CALL message('','instantaneous forcing diagnostic:')
-!!$      WRITE (message_text,'(a16,L3,a18,L3)')       &
-!!$           ' solar radiation: ',   lradforcing(1), &
-!!$           ' thermal radiation: ', lradforcing(2)
-!!$      CALL message('',message_text)
+      !
+      ! --- Check for diagnosis of instantaneous aerosol radiative forcing
+      ! 
+      CALL message('','instantaneous forcing diagnostic:')
+      WRITE (message_text,'(a18,L3,a20,L3,a39,I3)')       &
+           ' solar radiation: ',   lradforcing(1), &
+           ' thermal radiation: ', lradforcing(2), &
+           ' iaero_forcing for reference aerosols: ', iaero_forcing
+      CALL message('',message_text)
       !
       ! --- Check perpetual orbit
       ! 
