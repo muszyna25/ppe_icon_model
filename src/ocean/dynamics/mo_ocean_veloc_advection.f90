@@ -40,7 +40,8 @@ MODULE mo_ocean_veloc_advection
     & rot_vertex_ocean_3d, verticalDeriv_vec_midlevel_on_block,  &
     & verticalDiv_vector_onFullLevels_on_block
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates, vector_product
-  USE mo_scalar_product,      ONLY: map_cell2edges_3D, nonlinear_coriolis_3D,map_vec_prismtop2center_on_block
+  USE mo_scalar_product,      ONLY: map_cell2edges_3D, nonlinear_coriolis_3D,map_vec_prismtop2center_on_block, &
+    & map_scalar_prismtop2center_onBlock, map_vector_center2prismtop_onBlock
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,         ONLY: t_subset_range, get_index_range
 
@@ -481,7 +482,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
 
     !---------Debug Diagnostics-------------------------------------------
-    idt_src=1  ! output print level (1-5, fix)
+    idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('advHorCgrid: f_e', patch_2d%edges%f_e,str_module,idt_src, &
           patch_2D%edges%owned )
 !     idt_src=3  ! output print level (1-5, fix)
@@ -709,86 +710,61 @@ ENDDO
     REAL(wp), INTENT(inout)           :: veloc_adv_vert_e(1:nproma,1:n_zlev,1:patch_3D%p_patch_2D(1)%nblks_e)
 
     !local variables
-    INTEGER :: start_level     ! vertical start and end level
+!     INTEGER :: start_level     ! vertical start and end level
     INTEGER :: jc, jk, blockNo
     INTEGER :: start_index, end_index
     INTEGER :: fin_level
     REAL(wp), POINTER :: inv_prism_center_distance(:,:)! ,prism_thick(:,:)
-    TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1) !, z_adv_u_fullLevel(nproma,n_zlev)
+    TYPE(t_cartesian_coordinates) :: z_adv_u_fullLevels(nproma,n_zlev)
+    TYPE(t_cartesian_coordinates) :: vn_halfLevels(nproma,n_zlev+1) !, z_adv_u_fullLevel(nproma,n_zlev)
     TYPE(t_cartesian_coordinates) :: z_adv_u_m(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp) :: center_vertical_velocity(nproma,n_zlev) !, z_adv_u_fullLevel(nproma,n_zlev)
 !     TYPE(t_cartesian_coordinates) :: vertDeriv_vec(nproma, n_zlev)
     TYPE(t_subset_range), POINTER :: all_cells
     TYPE(t_patch), POINTER        :: patch_2D
-    REAL(wp), POINTER             :: vertical_velocity(:,:,:), prism_center_distance(:,:,:)
+    REAL(wp), POINTER             :: vertical_velocity(:,:,:)! , prism_center_distance(:,:,:)
     !-----------------------------------------------------------------------
     patch_2D   => patch_3D%p_patch_2D(1)
     all_cells => patch_2D%cells%all
-    prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance(:,:,:)
+!     prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c(:,:,:)
    !-----------------------------------------------------------------------
-    start_level = 1
-
-    ! note we should remove this
-    z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(1) = 0.0_wp
-    z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(2) = 0.0_wp
-    z_adv_u_m(1:nproma,1:n_zlev,1:patch_2D%alloc_cell_blocks)%x(3) = 0.0_wp
+!     start_level = 1
 
     vertical_velocity => p_diag%w
 
-!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index,jc, jk, fin_level,inv_prism_center_distance, &
-!ICON_OMP z_adv_u_i, z_adv_u_fullLevel) ICON_OMP_DEFAULT_SCHEDULE
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index,jc, jk, center_vertical_velocity, &
+!ICON_OMP vn_halfLevels, z_adv_u_fullLevels) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = all_cells%start_block, all_cells%end_block
       CALL get_index_range(all_cells, blockNo, start_index, end_index)
 
+      ! map w on full levels
+      CALL map_scalar_prismtop2center_onBlock(patch_3d, vertical_velocity(:,:,blockNo), center_vertical_velocity, &
+        & blockNo, start_index, end_index)
+
+      ! map p_vn on half levels
+      CALL map_vector_center2prismtop_onBlock(patch_3d, p_diag%p_vn(:,:,blockNo), vn_halfLevels, &
+        & blockNo, start_index, end_index)
+
       !vertical derivative at ocean interior Surface is handled below
       ! this does not include h
-      CALL verticalDeriv_vec_midlevel_on_block( patch_3d, &
-                                              & p_diag%p_vn(:,:,blockNo),  &
-                                              & z_adv_u_i(:,:),&
-                                              & start_level+1,             &
-                                              & blockNo, start_index, end_index)
+      CALL verticalDiv_vector_onFullLevels_on_block( patch_3d, vn_halfLevels, z_adv_u_fullLevels, &
+        & 1, blockNo, start_index, end_index)
 
-      !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity
+      ! multiply vertical velocity with vertical derivative of horizontal velocity
+      z_adv_u_m(:,:,blockNo)%x(1) = 0.0_wp
+      z_adv_u_m(:,:,blockNo)%x(2) = 0.0_wp
+      z_adv_u_m(:,:,blockNo)%x(3) = 0.0_wp
       DO jc = start_index, end_index
-        fin_level = patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
-
-!         IF(fin_level >= min_dolic) THEN
-
-          !1a) ocean surface: vertical derivative times vertical velocity.
-          !This form is consistent with energy conservation
-!           z_adv_u_i(jc,start_level)%x =               &
-!             & p_diag%w(jc,start_level,blockNo)*&  !/v_base%del_zlev_i(slev)
-!             & (p_diag%p_vn(jc,start_level,blockNo)%x - p_diag%p_vn(jc,start_level+1,blockNo)%x)&!/del_zlev_i(slev)
-!             & * inv_prism_center_distance(jc,start_level)
-
-!            z_adv_u_i(jc,start_level)%x =               &
-!              & -vertical_velocity(jc,start_level,blockNo) * p_diag%p_vn(jc,start_level,blockNo)%x &
-!              & * patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(jc,start_level,blockNo)
-          z_adv_u_i(jc,start_level)%x = 0.0_wp
-
-          ! 1b) ocean interior
-          DO jk = start_level+1, fin_level
-            z_adv_u_i(jc,jk)%x =  -vertical_velocity(jc,jk,blockNo) * prism_center_distance(jc,jk,blockNo) * z_adv_u_i(jc,jk)%x
-          END DO
-
-          z_adv_u_i(jc,fin_level+1)%x = 0.0_wp
-
-!           DO jk = start_level, fin_level
-!             z_adv_u_m(jc,jk,blockNo)%x = (z_adv_u_i(jc,jk)%x + z_adv_u_i(jc,jk+1)%x ) * 0.5_wp
-!           END DO
-
-!         ENDIF
+        DO jk = 1, patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
+          z_adv_u_m(jc,jk,blockNo)%x =  &
+            center_vertical_velocity(jc,jk) * z_adv_u_fullLevels(jc,jk)%x
+        END DO
       END DO
-
-      CALL verticalDiv_vector_onFullLevels_on_block(patch_3d, z_adv_u_i, z_adv_u_m, 1, &
-        & blockNo, start_index, end_index)
-      ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
-!       CALL map_vec_prismtop2center_on_block(patch_3d, z_adv_u_i, ocean_coefficients, z_adv_u_m, &
-!         & blockNo, start_index, end_index)
 
     END DO
 !ICON_OMP_END_PARALLEL_DO
 
-    idt_src=1  ! output print level (1-5, fix)
+    idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('vn 1%x(1)'    ,p_diag%p_vn(:,1,:)%x(1)        ,str_module,idt_src, &
           patch_2D%cells%owned )
     CALL dbg_print('vn 1%x(2)'    ,p_diag%p_vn(:,1,:)%x(2)        ,str_module,idt_src, &
@@ -813,6 +789,7 @@ ENDDO
     ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
     CALL map_cell2edges_3D( patch_3D, z_adv_u_m, veloc_adv_vert_e,ocean_coefficients)
 
+!     CALL sync_patch_array(SYNC_E, patch_2D, veloc_adv_vert_e)
     !---------Debug Diagnostics-------------------------------------------
     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('VertMimRot: V.Adv. Final'    ,veloc_adv_vert_e         ,str_module,idt_src, &
@@ -821,6 +798,7 @@ ENDDO
 
   END SUBROUTINE veloc_adv_vert_mimetic_rot
   !-------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------
   !>

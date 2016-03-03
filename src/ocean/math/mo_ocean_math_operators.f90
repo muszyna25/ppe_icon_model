@@ -1251,7 +1251,7 @@ CONTAINS
     DO jc = start_index, end_index
 !       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
 !      IF ( end_level >=min_dolic ) THEN
-        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
+        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
           vertDiv_scalar(jc,jk) &
             & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & !/ prism_center_distance(jc,jk)
               & * inv_prism_thickness(jc,jk)
@@ -1269,10 +1269,10 @@ CONTAINS
   SUBROUTINE verticalDiv_vector_onFullLevels_on_block(patch_3d, vector_in, vertDiv_vector, start_level, &
     & blockNo, start_index, end_index)
     TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
-    TYPE(t_cartesian_coordinates)                    :: vector_in(nproma, n_zlev+1)
+    TYPE(t_cartesian_coordinates)                    :: vector_in(:,:) ! (nproma, n_zlev+1)
     INTEGER, INTENT(in)                              :: start_level
     INTEGER, INTENT(in)                              :: blockNo, start_index, end_index
-    TYPE(t_cartesian_coordinates)                    :: vertDiv_vector(nproma, n_zlev)    ! out
+    TYPE(t_cartesian_coordinates)                    :: vertDiv_vector(:,:) ! (nproma, n_zlev)    ! out
 
     !Local variables
     INTEGER :: jk, jc!,jb
@@ -1283,18 +1283,14 @@ CONTAINS
     inv_prism_thickness => patch_3D%p_patch_1D(1)%invConstantPrismThickness(:,:,blockNo)
 
     DO jc = start_index, end_index
-!       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
-!      IF ( end_level >=min_dolic ) THEN
-        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
+        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
           vertDiv_vector(jc,jk)%x &
             & = (vector_in(jc,jk)%x - vector_in(jc,jk+1)%x)  & !/ prism_center_distance(jc,jk)
-              & * inv_prism_thickness(jc,jk)
+            &   * inv_prism_thickness(jc,jk)
 
         END DO
-        ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed
-!      ENDIF
     END DO
-     !CALL sync_patch_array(sync_c, patch_3D%p_patch_2D(1), vertDiv_vector)
+
   END SUBROUTINE verticalDiv_vector_onFullLevels_on_block
   !-------------------------------------------------------------------------
 

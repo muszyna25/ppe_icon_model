@@ -45,8 +45,6 @@ MODULE mo_scalar_product
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_timer,               ONLY: timers_level, timer_start, timer_stop, timer_extra25, timer_extra26, timer_extra27, &
     & timer_extra28, timer_extra29
-
-
   
   IMPLICIT NONE
   
@@ -65,6 +63,9 @@ MODULE mo_scalar_product
   PUBLIC :: map_scalar_prismtop2center
   PUBLIC :: map_scalar_center2prismtop
   PUBLIC :: map_edges2edges_viacell_2D_per_level
+  PUBLIC :: map_scalar_prismtop2center_onBlock
+  PUBLIC :: map_vector_center2prismtop_onBlock
+
   
 !   INTERFACE map_edges2edges_viacell_3d
 !     MODULE PROCEDURE map_edges2edges_viacell_3d_1lev
@@ -2029,13 +2030,12 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2014).
   !!
-  SUBROUTINE map_vec_prismtop2center_on_block(patch_3d, vec_top, p_op_coeff, vec_center, &
+  SUBROUTINE map_vec_prismtop2center_on_block(patch_3d, vec_top, vec_center, &
     & blockNo, start_cell_index, end_cell_index)
-    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
-    TYPE(t_cartesian_coordinates), INTENT(in)        :: vec_top(:,:) ! (nproma, n_zlev+1)
-    TYPE(t_operator_coeff), INTENT(in)               :: p_op_coeff
-    INTEGER, INTENT(in)                              :: blockNo, start_cell_index, end_cell_index
-    TYPE(t_cartesian_coordinates), INTENT(inout)     :: vec_center(nproma, n_zlev,blockNo) ! out
+    TYPE(t_patch_3d ),TARGET, INTENT(in)            :: patch_3d
+    TYPE(t_cartesian_coordinates), INTENT(in)       :: vec_top(:,:) ! (nproma, n_zlev+1)
+    INTEGER, INTENT(in)                               :: blockNo, start_cell_index, end_cell_index
+    TYPE(t_cartesian_coordinates), INTENT(inout)    :: vec_center(:,:) ! (nproma, n_zlev) ! out
     
     !Local variables
     INTEGER :: level, jc!,jb
@@ -2055,7 +2055,7 @@ CONTAINS
       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
 !       IF ( end_level >=min_dolic ) THEN
         DO level = start_level, end_level
-          vec_center(jc,level,blockNo)%x &
+          vec_center(jc,level)%x &
           & = (prism_center_distance(jc,level)   * vec_top(jc,level)%x    &
           & +  prism_center_distance(jc,level+1) * vec_top(jc,level+1)%x) &
           & / (2.0_wp*prism_thick(jc,level))
@@ -2127,7 +2127,39 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  !
+  !>
+  SUBROUTINE map_scalar_prismtop2center_onBlock(patch_3d, scalar_top, scalar_center, &
+    & blockNo, start_cell_index, end_cell_index)
+    TYPE(t_patch_3d ),TARGET                         :: patch_3d
+    REAL(wp)                                         :: scalar_top(:,:) ! (nproma, n_zlev+1)
+    REAL(wp)                                         :: scalar_center(:,:) !nproma, n_zlev)
+    INTEGER, INTENT(in) :: blockNo, start_cell_index, end_cell_index
+
+    !Local variables
+    INTEGER :: level, jc!,jb
+    REAL(wp), POINTER ::  prism_center_distance(:,:),prism_thick(:,:)
+
+    !-------------------------------------------------------------------------------
+
+    ! these do not include the height
+    ! if they are used for the GM-Redi then we should re-consider if height is needed
+    prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_Zdistance  (:,:,blockNo)
+    prism_thick => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
+
+    DO jc = start_cell_index, end_cell_index
+      DO level = 1, patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
+        scalar_center(jc,level) &
+          & = (prism_center_distance(jc,level)   * scalar_top(jc,level)    &
+          & +  prism_center_distance(jc,level+1) * scalar_top(jc,level+1)) &
+          & / (2.0_wp*prism_thick(jc,level))
+
+      END DO
+    END DO
+
+  END SUBROUTINE map_scalar_prismtop2center_onBlock
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
   !>
   !! !  SUBROUTINE maps within a fluid column a scalar value from the the central level of the prism to top/bottom of a 3D prism.
   !!
@@ -2174,6 +2206,43 @@ CONTAINS
 
   END SUBROUTINE map_scalar_center2prismtop
   !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE map_vector_center2prismtop_onBlock(patch_3d, vector_center, vector_top, &
+    & blockNo, start_cell_index, end_cell_index)
+    TYPE(t_patch_3d ),TARGET          :: patch_3d
+    TYPE(t_cartesian_coordinates)     :: vector_center(:,:) ! (nproma, n_zlev,blockNo) ! out
+    TYPE(t_cartesian_coordinates)     :: vector_top(:,:)
+    INTEGER, INTENT(in) :: blockNo, start_cell_index, end_cell_index
+    
+    !Local variables
+    INTEGER :: cell_index, level
+    REAL(wp), POINTER ::  inv_prism_center_distance(:,:),prism_thick(:,:)
+
+    !-------------------------------------------------------------------------------
+    inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance  (:,:,blockNo)
+    prism_thick => patch_3D%p_patch_1D(1)%prism_thick_flat_sfc_c(:,:,blockNo)
+    !-------------------------------------------------------------------------------
+    vector_top(:,:)%x(1) = 0.0_wp
+    vector_top(:,:)%x(2) = 0.0_wp
+    vector_top(:,:)%x(3) = 0.0_wp
+    DO cell_index = start_cell_index, end_cell_index
+      ! the top moves only up-down
+!       vector_top(cell_index,1)%x = vector_center(cell_index,1)%x !* 0.5_wp
+      vector_top(cell_index,1)%x = 0.0_wp 
+
+      DO level = 2, patch_3D%p_patch_1d(1)%dolic_c(cell_index,blockNo)
+        vector_top(cell_index,level)%x = &
+        & (  vector_center(cell_index,level-1)%x * prism_thick(cell_index,level-1)  &
+        &  + vector_center(cell_index,level)%x   * prism_thick(cell_index,level))   &
+        &  * 2.0_wp * inv_prism_center_distance(cell_index,level)
+      END DO
+    END DO
+
+  END SUBROUTINE map_vector_center2prismtop_onBlock
+  !-------------------------------------------------------------------------
+
 
   ! !   !-----------------------------------------------------------------------------
 !   !-----------------------------------------------------------------------------
