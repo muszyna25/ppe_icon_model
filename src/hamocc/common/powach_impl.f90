@@ -12,6 +12,7 @@
 !! First version by Ernst Maier-Reimer     (MPI-M)     Apr 10, 2001
 !!
 !!
+#include "omp_definitions.inc"
 SUBROUTINE powach_impl( start_idx, end_idx, klevs, psao )
 
   USE mo_kind, ONLY        : wp
@@ -79,6 +80,12 @@ SUBROUTINE powach_impl( start_idx, end_idx, klevs, psao )
 
   sedb1(:)    = 0._wp
   sediso(:)   = 0._wp
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(j,bolven,undsa,sedb1,solrat,posol,umfa,&
+!$OMP           aerob,anaerob,seddenit,ansulf,iter,k,bt,&
+!$OMP           alk,c,ak1,ak2,akb,akw,h,t1,t2,a,dadh,dddhhh,&
+!$OMP           satlev)
 
   DO j = start_idx, end_idx
      prorca(j)=0._wp
@@ -399,6 +406,8 @@ SUBROUTINE powach_impl( start_idx, end_idx, klevs, psao )
      END DO
 
   END DO ! cells 
+!$OMP END DO
+!$OMP END PARALLEL
 
   CALL dipowa(start_idx,end_idx)
 

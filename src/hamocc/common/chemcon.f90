@@ -11,6 +11,7 @@
 !!
 !! @par Revision History
 !!
+#include "omp_definitions.inc"
 
 SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
      &               pddpo, ptiestu, kldtday)
@@ -68,6 +69,11 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
   !*        21. CHEMICAL CONSTANTS - SEA SURFACE
   !             --------------------------------
   !
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,T,log_t,ti,q,log_q,qi,q2,s,sqrt_s,&
+!$OMP            cek0,ak0,rs,oxy,ani,ck1,ck2,ckb,ckw,ak1,ak2,&
+!$OMP            akw,akb)
+
  DO jc = start_idx, end_idx
 
        IF (pddpo(jc, 1) > 0.5_wp) THEN           ! wet cell
@@ -170,13 +176,18 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
            ENDIF
 
      END DO
-
+!$OMP END DO
+!$OMP END PARALLEL
   !
   !     -----------------------------------------------------------------
   !*        22. CHEMICAL CONSTANTS - DEEP OCEAN
   !     ----------------------------------------------------------------
 
   IF ( kldtday == 1 ) THEN
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,kpke,p,t,ti,log_t,q,log_q,qi,s,sqrt_s,&
+!$OMP            oxy,ck1,ck2,ckb,ak1,ak2,akb,akw,cp,tc,tc2,&
+!$OMP            log10ksp,aksp0,ckw)
 
      !
      !*     22.1 APPROX. SEAWATER PRESSURE AT U-POINT DEPTH (BAR)
@@ -281,6 +292,8 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
           END IF
         END DO
   END DO
+!$OMP END DO
+!$OMP END PARALLEL
 
   ENDIF  ! kldtay == 1
 

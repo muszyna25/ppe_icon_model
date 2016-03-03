@@ -1,3 +1,4 @@
+#include "omp_definitions.inc"
 MODULE mo_carchm
 
 !>
@@ -75,7 +76,6 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
             ENDIF   ! wet cell
          END DO
   END DO
-
 END SUBROUTINE
 
 FUNCTION update_hi(hi,c,ak1,ak2,akw,s,akb,alk) RESULT (h)

@@ -34,9 +34,9 @@ SUBROUTINE powadi ( j,  solrat, sedb1, sediso, bolven)
 
   !! Local variables
 
-  INTEGER  :: i,k,l
-  REAL(wp) :: tredsy(0:ks,3)
-  REAL(wp) :: asu,alo
+  INTEGER,SAVE  :: i,k,l   
+  REAL(wp),SAVE :: tredsy(0:ks,3)
+  REAL(wp),sAVE :: asu,alo
   !
   !----------------------------------------------------------------------
   !

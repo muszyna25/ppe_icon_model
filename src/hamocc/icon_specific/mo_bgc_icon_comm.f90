@@ -1,4 +1,5 @@
-      MODULE mo_bgc_icon_comm
+#include "omp_definitions.inc"      
+   MODULE mo_bgc_icon_comm
 
 ! icon specific routines for output, update etc
 
@@ -90,7 +91,8 @@
                 routine = 'update_icon'
 
      ! CALL message(TRIM(routine), 'start' )
- 
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,kpke,jk,itrac)
       DO jc=start_idx,end_idx 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
@@ -101,6 +103,8 @@
         ENDDO
         ENDIF
       ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
       END SUBROUTINE
 
 !================================================================================== 
@@ -135,7 +139,9 @@
                 routine = 'update_icon'
 
 !      CALL message(TRIM(routine), 'start' )
- 
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,kpke,jk,itrac)
       DO jc=start_index,end_index 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
@@ -184,6 +190,8 @@
        ENDIF
 
       ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
       END SUBROUTINE
 
 !================================================================================== 
@@ -258,7 +266,8 @@
       INTEGER :: jc, jk, kpke
       INTEGER :: itrac
 
- 
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,jk,kpke) 
       DO jc=start_idx,end_idx 
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
         p_tend%cflux(jc,jb) = bgcflux(jc,kcflux)
@@ -355,6 +364,8 @@
         ENDDO
       ENDIF
       ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
 
   END SUBROUTINE 
 
@@ -386,7 +397,8 @@
                 routine = 'update_icon'
 
      ! CALL message(TRIM(routine), 'start' )
- 
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jc,kpke,jk) 
       DO jc=start_index,end_index 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
@@ -425,6 +437,8 @@
       ENDIF
  
       ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
       END SUBROUTINE
 
 !================================================================================== 

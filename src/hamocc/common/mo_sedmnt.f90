@@ -14,6 +14,7 @@
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
 !!
+#include "omp_definitions.inc"
 MODULE mo_sedmnt
 
   USE mo_kind, ONLY        : wp
@@ -231,7 +232,8 @@ SUBROUTINE  ini_bottom(start_idx,end_idx,klevs,pddpo)
 
 
   bolaymin=8000._wp
-
+!$OMP PARALLEL
+!$OMP DO PRIVATE(j,kpke,k,bolaymin)
   DO j = start_idx, end_idx
    kpke=klevs(j)
    !IF(kpke.eq.bgc_zlevs)THEN ! always valid for MPIOM
@@ -247,6 +249,8 @@ SUBROUTINE  ini_bottom(start_idx,end_idx,klevs,pddpo)
    ENDIF
       !  write(88,*) kpke, kbo(j),"3.",j 
   END DO
+!$OMP END DO
+!$OMP END PARALLEL
 
  END SUBROUTINE
  SUBROUTINE ALLOC_MEM_SEDMNT

@@ -8,6 +8,8 @@
   !!
 
   !!
+#include "omp_definitions.inc"
+
       SUBROUTINE settling (klev,start_idx, end_idx,pddpo,za)
 
       USE mo_param1_bgc, ONLY     : icalc, iopal, kopex90,   &
@@ -43,7 +45,8 @@
      ! C(k,T+dt)=(ddpo(k)*C(k,T)+w*dt*C(k-1,T+dt))/(ddpo(k)+w*dt)
      ! sedimentation=w*dt*C(ks,T+dt)
      !
-
+!$OMP PARALLEL
+!$OMP DO PRIVATE(j,kpke,k)
 
        DO j=start_idx,end_idx
         kpke=klev(j)        
@@ -108,6 +111,7 @@
         ENDIF
          ENDIF
       END DO
-
+!$OMP END DO
+!$OMP END PARALLEL
       END SUBROUTINE settling 
 

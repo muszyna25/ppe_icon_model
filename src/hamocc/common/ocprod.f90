@@ -14,6 +14,8 @@
   !!
 
   !!
+#include "omp_definitions.inc"
+
   SUBROUTINE ocprod (klev,start_idx,end_idx, ptho,pddpo, za)
     
    USE mo_kind, ONLY           : wp
@@ -76,7 +78,13 @@
 ! check if cyanobacteria are switched on
  rcyano=merge(1._wp,0._wp,l_cyadyn)
 
-
+!$OMP PARALLEL
+!$OMP DO PRIVATE(j,kpke,k,surface_height,avphy,avgra,avsil,avanut,&
+!$OMP            avanfe,phofa,temfa,pho,phosy,xa,xn,ya,yn,grazing,&
+!$OMP            graton,gratpoc,grawa,phymor,zoomor,zoothresh,excdoc,&
+!$OMP            exud,export,delsil,delcar,opalrem,dms_prod,dms_bac,&
+!$OMP            dms_uv,avoxy,tpremin,r_bacfra,r_bacfra_cya,r_remin,&
+!$OMP            bacfra,bacfra_cya,remin,aou,refra,remin2o)
 
  DO j = start_idx, end_idx
   
@@ -388,6 +396,7 @@
      ENDDO ! k=1,kpke
   ENDDO ! j=start_idx,end_idx 
 
- 
+!$OMP END DO
+!$OMP END PARALLEL
 
   END SUBROUTINE ocprod
