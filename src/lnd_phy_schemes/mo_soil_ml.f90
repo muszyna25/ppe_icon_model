@@ -2727,7 +2727,7 @@ ELSE          IF (itype_interception == 2) THEN
         ! rain freezes on the snow surface
         IF (lmulti_snow .AND. zwsnow(i) > 0.0_ireals) zalf = 1.0_ireals
 
-        ! interception store; convective precip is taken into account with a fractional area coverage of 10%
+        ! interception store; convective precip is taken into account with a fractional area passed from the convection scheme
         zdwidtt  = zalf*(zrr(i)+(conv_frac(i)-1._ireals)*prr_con(i)) + zrime + zdwidt(i)-zinf
         zwinstr(i)  = zwin(i) + zdwidtt*zdtdrhw
         zwinstr(i)  = MAX(0.0_ireals, zwinstr(i)) !avoid negative values (security)
@@ -2747,9 +2747,9 @@ ELSE          IF (itype_interception == 2) THEN
         ! add rain contribution to water supply for infiltration
         zvers(i) = zinf + (1._ireals - zalf)*zrr(i) + (1._ireals-conv_frac(i))*zalf*prr_con(i)
 
-        ! compute surface runoff
-        zro_inf  = conv_frac(i)*MAX(0._ireals,zvers(i)+(1._ireals/conv_frac(i)-1._ireals)*prr_con(i)-zinfmx(i)) + &
-                   (1._ireals-conv_frac(i))*MAX(0._ireals,zvers(i)-prr_con(i)-zinfmx(i))
+        ! compute surface runoff; accounting for the fractional area of convective precip proved to be disadvanageous
+        ! here because of excessive drying of the soil in longer-term runs
+        zro_inf  = MAX(0._ireals,zvers(i)-zinfmx(i))
 
         ! final infiltration rate
         zinfil(i) = zvers(i) - zro_inf
