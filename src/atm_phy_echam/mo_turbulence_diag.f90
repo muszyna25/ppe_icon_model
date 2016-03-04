@@ -434,7 +434,7 @@ CONTAINS
                                & pthetal_b, paclc_b,                     &! in
                                & pthvvar_b,                              &! in
                                & pqsat_sfc, pcpt_sfc,                    &! out
-                               & pri_gbm,                                &! out
+                               & pri_gbm, pri_sfc,                       &! out
                                & pcfm_gbm, pcfm_sfc,                     &! out
                                & pcfh_gbm, pcfh_sfc,                     &! out
                                & pcfv_sfc,                               &! out
@@ -442,12 +442,11 @@ CONTAINS
                                & pprfac_sfc, prho_sfc,                   &! out
                                & ptkevn_sfc, pthvvar_sfc,                &! out
                                & pqshear_sfc, pustarm,                   &! out
-                               & pch_sfc,                                &! out
+                               & pch_sfc, pchn_sfc, pcdn_sfc, pcfnc_sfc, &! out
+                               & pbn_sfc, pbhn_sfc, pbm_sfc, pbh_sfc,    &! out
                                & paz0lh,                                 &! in, optional
                                & pcsat, pcair                            &! in, optional
                                & )
-!                               & pch_sfc, pchn_sfc, pcdn_sfc, pcfnc_sfc, &! out
-!                               & pbn_sfc, pbhn_sfc, pbm_sfc, pbh_sfc     )! out
 
     INTEGER, INTENT(IN) :: kproma, kbdim
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
@@ -490,7 +489,7 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pqsat_sfc (kbdim,ksfc_type) !< saturation specific humidity at surface
     REAL(wp),INTENT(OUT) :: pcpt_sfc  (kbdim,ksfc_type) !< dry static energy
     REAL(wp),INTENT(OUT) :: pri_gbm   (kbdim)           !< moist Richardson number
-    REAL(wp)             :: pri_sfc   (kbdim,ksfc_type) !< moist Richardson number
+    REAL(wp),INTENT(OUT) :: pri_sfc   (kbdim,ksfc_type) !< moist Richardson number
 
     REAL(wp),INTENT(OUT) :: pcfm_gbm  (kbdim)           !< exchange coeff. of momentum
     REAL(wp),INTENT(OUT) :: pcfm_sfc  (kbdim,ksfc_type) !< exchange coeff. of momentum,
@@ -508,13 +507,13 @@ CONTAINS
                                                 !< of the variance of theta_v
     REAL(wp),INTENT(OUT) :: pqshear_sfc(kbdim)  !< vertical shear of total water concentration
     REAL(wp),INTENT(OUT) :: pustarm    (kbdim)  !< friction velocity, grid-box mean
-!    REAL(wp),INTENT(OUT) :: pbn_sfc  (kbdim,ksfc_type) !< for diagnostics
-!    REAL(wp),INTENT(OUT) :: pbhn_sfc (kbdim,ksfc_type) !< for diagnostics
-!    REAL(wp),INTENT(OUT) :: pbm_sfc  (kbdim,ksfc_type) !< for diagnostics
-!    REAL(wp),INTENT(OUT) :: pbh_sfc  (kbdim,ksfc_type) !< for diagnostics
-!    REAL(wp),INTENT(OUT) :: pchn_sfc (kbdim,ksfc_type) !<
-!    REAL(wp),INTENT(OUT) :: pcdn_sfc (kbdim,ksfc_type) !<
-!    REAL(wp),INTENT(OUT) :: pcfnc_sfc(kbdim,ksfc_type) !<
+    REAL(wp),INTENT(OUT) :: pbn_sfc  (kbdim,ksfc_type) !< for diagnostics
+    REAL(wp),INTENT(OUT) :: pbhn_sfc (kbdim,ksfc_type) !< for diagnostics
+    REAL(wp),INTENT(OUT) :: pbm_sfc  (kbdim,ksfc_type) !< for diagnostics
+    REAL(wp),INTENT(OUT) :: pbh_sfc  (kbdim,ksfc_type) !< for diagnostics
+    REAL(wp),INTENT(OUT) :: pchn_sfc (kbdim,ksfc_type) !<
+    REAL(wp),INTENT(OUT) :: pcdn_sfc (kbdim,ksfc_type) !<
+    REAL(wp),INTENT(OUT) :: pcfnc_sfc(kbdim,ksfc_type) !<
     REAL(wp),INTENT(OUT) :: pch_sfc  (kbdim,ksfc_type) !< for TKE boundary condition
 !
 ! optional arguments for use with jsbach
@@ -525,13 +524,13 @@ CONTAINS
 !    REAL(wp),INTENT(INOUT) :: ptkem1_sfc (kbdim)  !< boundary condition (surface value) for TKE
 !    REAL(wp),INTENT(INOUT) :: ptkem0_sfc (kbdim)  !< boundary condition (surface value) for TKE
 
-    REAL(wp) :: pbn_sfc  (kbdim,ksfc_type) !< for diagnostics
-    REAL(wp) :: pbhn_sfc (kbdim,ksfc_type) !< for diagnostics
-    REAL(wp) :: pbm_sfc  (kbdim,ksfc_type) !< for diagnostics
-    REAL(wp) :: pbh_sfc  (kbdim,ksfc_type) !< for diagnostics
-    REAL(wp) :: pchn_sfc (kbdim,ksfc_type) !<
-    REAL(wp) :: pcdn_sfc (kbdim,ksfc_type) !<
-    REAL(wp) :: pcfnc_sfc(kbdim,ksfc_type) !<
+!    REAL(wp) :: pbn_sfc  (kbdim,ksfc_type) !< for diagnostics
+!    REAL(wp) :: pbhn_sfc (kbdim,ksfc_type) !< for diagnostics
+!    REAL(wp) :: pbm_sfc  (kbdim,ksfc_type) !< for diagnostics
+!    REAL(wp) :: pbh_sfc  (kbdim,ksfc_type) !< for diagnostics
+!    REAL(wp) :: pchn_sfc (kbdim,ksfc_type) !<
+!    REAL(wp) :: pcdn_sfc (kbdim,ksfc_type) !<
+!    REAL(wp) :: pcfnc_sfc(kbdim,ksfc_type) !<
 
     ! Local variables
 
@@ -592,6 +591,7 @@ CONTAINS
 !TODO:    preset values to zero
      pcpt_sfc(1:kproma,1:ksfc_type) = 0._wp
      pqsat_sfc(1:kproma,1:ksfc_type) = 0._wp
+     pri_sfc(1:kproma,1:ksfc_type) = 0._wp
 
      DO jsfc = 1,ksfc_type
 
@@ -940,8 +940,8 @@ CONTAINS
 
     !------------------------------------------------------------------------------
     ! Store values
-    ! to be used in subroutine "vdiff_tendencies" to compute
-    ! new t2m, t2m_max t2m_min, 2m dew point, 10m wind components
+    ! to be used in subroutine "nsurf_diag" to compute
+    ! new t2m, 2m dew point, 10m wind components
     !------------------------------------------------------------------------------
 
     pbn_sfc (1:kproma,1:ksfc_type) = 0._wp  !

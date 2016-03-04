@@ -477,6 +477,18 @@ CONTAINS
       field% u_stress_tile(:,:,:) = 0._wp
       field% v_stress_tile(:,:,:) = 0._wp
 
+      field% sp_10m(:,  :) = 0._wp
+      field% u_10m(:,  :)  = 0._wp
+      field% v_10m(:,  :)  = 0._wp
+      field% t_2m(:,  :)   = 0._wp
+      field% td_2m(:,  :)  = 0._wp
+!      field% sp_10m_tile(:,:,:) = 0._wp
+!      field% u_10m_tile(:,:,:)  = 0._wp
+!      field% v_10m_tile(:,:,:)  = 0._wp
+!      field% t_2m_tile(:,:,:)   = 0._wp
+!      field% td_2m_tile(:,:,:)  = 0._wp
+
+
       field% u_stress_sso(:,:) = 0._wp
       field% v_stress_sso(:,:) = 0._wp
       field% dissipation_sso(:,:) = 0._wp
