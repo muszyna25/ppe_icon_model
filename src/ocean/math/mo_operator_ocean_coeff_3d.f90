@@ -2500,7 +2500,8 @@ CONTAINS
                 & =operators_coefficients%edge2vert_coeff_cc(jv,jk,block,jev)%x(1:3)/zarea_fraction(jv,jk,block)
                 !SUM(operators_coefficients%variable_dual_vol_norm(jv,jk,block,:))!
               operators_coefficients%rot_coeff(jv,jk,block,jev)&
-                &=operators_coefficients%rot_coeff(jv,jk,block,jev)/(zarea_fraction(jv,jk,block)*grid_radius_squared)
+                &=operators_coefficients%rot_coeff(jv,jk,block,jev)/patch_2D%verts%dual_area(jv,block)
+!                 &=operators_coefficients%rot_coeff(jv,jk,block,jev)/(zarea_fraction(jv,jk,block)*grid_radius_squared)
 
               IF (ABS(operators_coefficients%rot_coeff(jv,jk,block,jev)) > 1.0E-2_wp) THEN
                 write(0,*) "rot_coeff > 1.0E-2_wp: ", operators_coefficients%rot_coeff(jv,jk,block,jev), &
