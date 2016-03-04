@@ -574,7 +574,7 @@ CONTAINS
         & waveNumber=initial_perturbation_waveNumber, max_ratio=initial_perturbation_max_ratio)
       CALL perturbeTracer_LatCosinus(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
         & waveNumber=1.0_wp * initial_perturbation_waveNumber, &
-        &  max_ratio=0.5_wp * initial_perturbation_max_ratio)
+        &  max_ratio=0.1_wp * initial_perturbation_max_ratio)
 
     CASE (218)
       CALL SST_LinearMeridional(patch_3d, ocean_temperature)
@@ -584,7 +584,7 @@ CONTAINS
         & waveNumber=initial_perturbation_waveNumber, max_ratio=initial_perturbation_max_ratio)
       CALL perturbeTracer_LatCosinus(patch_3d=patch_3d, ocean_tracer=ocean_temperature, &
         & waveNumber=1.0_wp * initial_perturbation_waveNumber, &
-        &  max_ratio=0.5_wp * initial_perturbation_max_ratio)
+        &  max_ratio=0.1_wp * initial_perturbation_max_ratio)
 
     CASE (220)
      
