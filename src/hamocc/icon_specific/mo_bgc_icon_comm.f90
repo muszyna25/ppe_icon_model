@@ -1,4 +1,4 @@
-#include "omp_definitions.inc"      
+#include "hamocc_omp_definitions.inc"      
    MODULE mo_bgc_icon_comm
 
 ! icon specific routines for output, update etc
@@ -91,8 +91,8 @@
                 routine = 'update_icon'
 
      ! CALL message(TRIM(routine), 'start' )
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jc,kpke,jk,itrac)
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(jc,kpke,jk,itrac) HAMOCC_OMP_DEFAULT_SCHEDULE
       DO jc=start_idx,end_idx 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
@@ -103,8 +103,8 @@
         ENDDO
         ENDIF
       ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
       END SUBROUTINE
 
 !================================================================================== 
@@ -140,8 +140,8 @@
 
 !      CALL message(TRIM(routine), 'start' )
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jc,kpke,jk,itrac)
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(jc,kpke,jk,itrac) HAMOCC_OMP_DEFAULT_SCHEDULE
       DO jc=start_index,end_index 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
@@ -190,8 +190,8 @@
        ENDIF
 
       ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMICC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
       END SUBROUTINE
 
 !================================================================================== 
@@ -266,8 +266,8 @@
       INTEGER :: jc, jk, kpke
       INTEGER :: itrac
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jk,kpke) 
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(jc,jk,kpke) HAMOCC_OMP_DEFAULT_SCHEDULE
       DO jc=start_idx,end_idx 
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
         p_tend%cflux(jc,jb) = bgcflux(jc,kcflux)
@@ -364,8 +364,8 @@
         ENDDO
       ENDIF
       ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
   END SUBROUTINE 
 
@@ -397,8 +397,8 @@
                 routine = 'update_icon'
 
      ! CALL message(TRIM(routine), 'start' )
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jc,kpke,jk) 
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(jc,kpke,jk) HAMOCC_OMP_DEFAULT_SCHEDULE
       DO jc=start_index,end_index 
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
@@ -437,8 +437,8 @@
       ENDIF
  
       ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
       END SUBROUTINE
 
 !================================================================================== 

@@ -24,6 +24,14 @@ output_interval="P${days_data}D"                  # ocean model output interval 
 autoPostProcessing="true"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
+use_hamocc=yes
+if [  "x${use_hamocc}"  = "xyes" ]; then
+lhamocc=".true."
+lbgcadv=".true."
+else
+lhamocc=".false."
+lbgcadv=".false."
+fi
 # global resolution
 iforc=12
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
@@ -35,7 +43,7 @@ ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-
 #
 # write namelist parameters
 # -------------------------
-cat > ${ocean_namelist} << EOF
+cat > ${ocean_namelist} << EOF0
 !
 &parallel_nml
  nproma         = $nproma
@@ -85,6 +93,9 @@ cat > ${ocean_namelist} << EOF
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'group:ocean_monitor'
 /
+EOF0
+if [  "x${use_hamocc}"  = "xyes" ]; then
+cat >> ${ocean_namelist} << EOF1
 &output_nml
  output_start     = "${start_date}"
   output_end       = "${end_date}"
@@ -136,8 +147,10 @@ cat > ${ocean_namelist} << EOF
   ml_varlist       =  'group:HAMOCC_TEND'
 !  ml_varlist       =  'prcaca','prorca'
 /
+EOF1
+fi
 
-
+cat >> ${ocean_namelist} << EOF2
 &dbg_index_nml
   idbg_mxmn=1                     ! initialize MIN/MAX  debug output
   idbg_val =0                     ! initialize one cell debug output
@@ -209,8 +222,8 @@ cat > ${ocean_namelist} << EOF
   physics_parameters_type         =   2       ! type of pp-scheme: 1=ICON-optimized; 2=MPIOM-type
   use_wind_mixing                 = .TRUE.    ! true: use wind mixing scheme in MPIOM-type pp-scheme
   GMRedi_configuration            =   0       ! 0=cartesian diffusion 1=GM-Redi: bolus advection + isopycnal diffusion
-  lhamocc                         = .TRUE.
-  lbgcadv                         = .TRUE.
+  lhamocc                         = ${lhamocc}
+  lbgcadv                         = ${lbgcadv}
 /                                           
 &sea_ice_nml
 ! i_ice_therm                     =   1       ! 1=zero-layer (default), 2=Winton, 0/2: not allowed
@@ -222,6 +235,9 @@ cat > ${ocean_namelist} << EOF
 ! leadclose_2n                    =   0.666   ! default: 0.0 - value of MPIOM: 2/3
 
 /
+EOF2
+if [  "x${use_hamocc}"  = "xyes" ]; then
+cat >> ${ocean_namelist} << EOF3
 &hamocc_nml
 l_cyadyn                          = .TRUE.    ! dynamic cyanobacteria
 l_cpl_co2                         = .FALSE.   ! CO2 coupled to land carbon cycle
@@ -241,6 +257,9 @@ mc_depth                          = 100.      ! depth where linear increase of s
 mc_fac                            = 2.0       ! slope of sinking speed increase relative to remin rate (default 2.0)
 l_implsed                         =.FALSE.     ! implicit sediment formulation
 /
+EOF3
+fi
+cat >> ${ocean_namelist} << EOF4
 &ocean_forcing_nml
   iforc_oce                       = ${iforc}            ! ocean forcing
   forcing_timescale               = $forcing_timescale  ! length of ocean forcing data set, see above
@@ -285,7 +304,7 @@ l_implsed                         =.FALSE.     ! implicit sediment formulation
   dt_checkpoint = ${dt_checkpoint}
   lkeep_in_sync = .true.          ! sync after each timestep
 /
-EOF
+EOF4
 #-----------------------------------------------------------------------------
 
 

@@ -5,7 +5,7 @@
 !! Note:
 !!
 !!
-#include "omp_definitions.inc"
+#include "hamocc_omp_definitions.inc"
    !SUBROUTINE POWACH(start_idx,end_idx,klevs, psao)!,pddpo)
    SUBROUTINE POWACH(start_idx,end_idx,psao,pddpo)
  !  SUBROUTINE POWACH
@@ -67,10 +67,10 @@
 
 !!! WE start with remineralisation of organic to estimate alkalinity changes first
 !          
-!$OMP PARALLEL
-!$OMP DO PRIVATE(j,k,o2lim,pomax,posol,orgsed,sssnew,&
-!$OMP           undsa,iter,bt,alk,c,ak1,ak2,akb,akw,h,t1,&
-!$OMP           t2,a,dadh,dddhhh,satlev,powcar)
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(j,k,o2lim,pomax,posol,orgsed,sssnew,&
+!HAMOCC_OMP           undsa,iter,bt,alk,c,ak1,ak2,akb,akw,h,t1,&
+!HAMOCC_OMP           t2,a,dadh,dddhhh,satlev,powcar) HAMOCC_OMP_DEFAULT_SCHEDULE
     Do j = start_idx, end_idx
 
          IF(bolay(j) > 0._wp) THEN
@@ -287,8 +287,8 @@
          ENDIF
    ENDDO
  ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
   CALL dipowa(start_idx,end_idx)
 

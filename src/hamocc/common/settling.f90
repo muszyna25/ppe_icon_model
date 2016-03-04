@@ -8,7 +8,7 @@
   !!
 
   !!
-#include "omp_definitions.inc"
+#include "hamocc_omp_definitions.inc"
 
       SUBROUTINE settling (klev,start_idx, end_idx,pddpo,za)
 
@@ -45,8 +45,8 @@
      ! C(k,T+dt)=(ddpo(k)*C(k,T)+w*dt*C(k-1,T+dt))/(ddpo(k)+w*dt)
      ! sedimentation=w*dt*C(ks,T+dt)
      !
-!$OMP PARALLEL
-!$OMP DO PRIVATE(j,kpke,k)
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(j,kpke,k) HAMOCC_OMP_DEFAULT_SCHEDULE
 
        DO j=start_idx,end_idx
         kpke=klev(j)        
@@ -111,7 +111,7 @@
         ENDIF
          ENDIF
       END DO
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
       END SUBROUTINE settling 
 

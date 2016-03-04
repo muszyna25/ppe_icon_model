@@ -1,4 +1,4 @@
-#include "omp_definitions.inc"
+#include "hamocc_omp_definitions.inc"
 
   SUBROUTINE swr_absorption(start_idx,end_idx, klevs, pfswr, psicomo, dzw)
 
@@ -42,8 +42,8 @@
     ! use them in absorption (rcyano=1)
     rcyano=merge(1._wp,0._wp,l_cyadyn)
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(j,kpke,k,swr_r,swr_b)
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(j,kpke,k,swr_r,swr_b) HAMOCC_OMP_DEFAULT_SCHEDULE
     DO j = start_idx, end_idx
 
       strahl(j) = pfswr(j) * (1._wp - psicomo(j))
@@ -66,8 +66,8 @@
       END DO
 
    ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
   END SUBROUTINE swr_absorption
 
 

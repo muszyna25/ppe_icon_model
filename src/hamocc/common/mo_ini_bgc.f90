@@ -1,3 +1,4 @@
+#include "hamocc_omp_definitions.inc"
 !>
 !! @brief set start values for bgc variables
 !!
@@ -286,6 +287,8 @@ CONTAINS
    wpoc = sinkspeed_poc 
 
    IF(i_settling==1)then
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(j,kpke,k,at_mc_depth,wpoc) HAMOCC_OMP_DEFAULT_SCHEDULE
    DO j=start_idx,end_idx
     kpke=klevs(j)
     DO k = 1,kpke
@@ -297,8 +300,9 @@ CONTAINS
       wpoc(k) = sinkspeed_martin_ez + at_mc_depth * drempoc/mc_fac * (ptiestw(j,k+1) - mc_depth) 
     ENDDO
    ENDDO
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
    ENDIF
-
   END SUBROUTINE ini_wpoc
   
   SUBROUTINE ini_aquatic_tracers (start_idx, end_idx , klevs, ibek )
@@ -326,6 +330,8 @@ CONTAINS
     oxyat   = 2.5e-4_wp
     oxymed  = 2.e-4_wp
 
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(j,k,kpke,m) HAMOCC_OMP_DEFAULT_SCHEDULE
    DO j = start_idx, end_idx
     kpke=klevs(j)
     m=ibek(j)
@@ -391,6 +397,8 @@ CONTAINS
 
        ENDDO
     ENDDO
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
   END SUBROUTINE ini_aquatic_tracers
 
@@ -404,6 +412,8 @@ CONTAINS
     INTEGER :: j, k
     !  Initial values for sediment pore water tracers. (solid components?)
 
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(j,k) HAMOCC_OMP_DEFAULT_SCHEDULE
 
    DO j = start_idx, end_idx
     DO k = 1, ks
@@ -442,6 +452,8 @@ CONTAINS
 
        ENDDO
     ENDDO
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
   END SUBROUTINE ini_pore_water_tracers
 

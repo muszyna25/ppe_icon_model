@@ -32,7 +32,7 @@
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
 !!
-#include "omp_definitions.inc"
+#include "hamocc_omp_definitions.inc"
 
 SUBROUTINE DIPOWA (start_idx,end_idx)
 
@@ -89,8 +89,8 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
   ! diffusion coefficient for bottom sediment layer
   zcoeflo(ks) = 0.0_wp
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(j,k,iv,iv_oc,l,aprior,tredsy,sedb1,zcoefsu,zcoeflo)
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(j,k,iv,iv_oc,l,aprior,tredsy,sedb1,zcoefsu,zcoeflo) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO j = start_idx, end_idx
 
         k = 0
@@ -211,7 +211,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 
 
   END DO ! j loop
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
 END SUBROUTINE DIPOWA

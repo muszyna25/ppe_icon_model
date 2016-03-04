@@ -1,6 +1,6 @@
 
 !--------------------------------------
-#include "omp_definitions.inc"
+#include "hamocc_omp_definitions.inc"
 !--------------------------------------
 MODULE mo_hamocc_diagnostics
 

@@ -1649,6 +1649,7 @@ src/hamocc/icon_specific/set_bgc_tra_info.f90 -text
 src/include/fsel.inc -text
 src/include/grplcoeffs.incf -text
 src/include/hailcoeffs.incf -text
+src/include/hamocc_omp_definitions.inc -text
 src/include/icon_definitions.inc -text
 src/include/iconfor_dsl_definitions.inc -text
 src/include/omp_definitions.inc -text

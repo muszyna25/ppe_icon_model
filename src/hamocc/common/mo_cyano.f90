@@ -1,4 +1,4 @@
-#include "omp_definitions.inc"
+#include "hamocc_omp_definitions.inc"
 
 MODULE mo_cyano
 
@@ -43,8 +43,8 @@ SUBROUTINE cyano ( start_idx,end_idx,pddpo, za )
   !
   ! --------------------------------------------------------------------
   !
-!$OMP PARALLEL
-!$OMP DO PRIVATE(j,oldnitrate)
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(j,oldnitrate) HAMOCC_OMP_DEFAULT_SCHEDULE
      DO j = start_idx, end_idx
 
         IF (pddpo(j,1) > 0.5_wp) THEN
@@ -78,8 +78,8 @@ SUBROUTINE cyano ( start_idx,end_idx,pddpo, za )
         ENDIF
 
      ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 END SUBROUTINE cyano
 
 

@@ -17,7 +17,7 @@
 !!
 !! First version by Ernst Maier-Reimer  (MPI-M) Apr 10, 2001
 !!
-#include "omp_definitions.inc"
+#include "hamocc_omp_definitions.inc"
 SUBROUTINE sedshi(start_idx,end_idx)
 
   USE mo_kind, ONLY       : wp
@@ -56,8 +56,8 @@ SUBROUTINE sedshi(start_idx,end_idx)
   ! distributed in the layer below over a volume of porsol(i+1)*seddw(i+1)
   if (start_idx==0)RETURN
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(k,j,iv,uebers,sedlo,wsed,sedlay)
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(k,j,iv,uebers,sedlo,wsed,sedlay) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO k = 1, ks-1
 
      DO j = start_idx, end_idx
@@ -88,8 +88,8 @@ SUBROUTINE sedshi(start_idx,end_idx)
      ENDDO !end iv-loop
 
   ENDDO !end k-loop
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
   ! store amount lost from bottom sediment layer - this is a kind of
   ! permanent burial in deep consolidated layer, and this stuff is
@@ -110,8 +110,8 @@ SUBROUTINE sedshi(start_idx,end_idx)
 
   ENDDO !end j-loop
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(j,sedlo,iv,uebers)
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(j,sedlo,iv,uebers) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO iv = 1, nsedtra
      DO j = start_idx, end_idx
 
@@ -123,8 +123,8 @@ SUBROUTINE sedshi(start_idx,end_idx)
 
      ENDDO !end j-loop
   ENDDO !end iv-loop
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
  IF(l_up_sedshi)THEN 
 
@@ -139,8 +139,8 @@ SUBROUTINE sedshi(start_idx,end_idx)
 
   fulsed(:) = 0._wp
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(k,j,sedlo)
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(k,j,sedlo) HAMOCC_OMP_DEFAULT_SCHEDULE
   ! determine how the total sediment column is filled
   DO k = 1, ks
      DO j = start_idx, end_idx
@@ -153,13 +153,13 @@ SUBROUTINE sedshi(start_idx,end_idx)
            ENDIF
      ENDDO !end j-loop
   ENDDO !end k-loop
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
   ! shift the sediment deficiency from the deepest (burial)
   ! layer into layer ks
-!$OMP PARALLEL
-!$OMP DO PRIVATE(j,seddef,spresent,buried,refill,frac)
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(j,seddef,spresent,buried,refill,frac) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO j = start_idx, end_idx
 
         IF (bolay(j) > 0._wp) THEN
@@ -213,11 +213,11 @@ SUBROUTINE sedshi(start_idx,end_idx)
         ENDIF ! bolay >0
 
   ENDDO !end j-loop
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(j,k,sedlo,iv,uebers,frac)
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(j,k,sedlo,iv,uebers,frac) HAMOCC_OMP_DEFAULT_SCHEDULE
   !     redistribute overload of deepest layer ks to layers 2 to ks
   DO  k = ks, 2, -1
      DO j = start_idx, end_idx
@@ -243,8 +243,8 @@ SUBROUTINE sedshi(start_idx,end_idx)
         ENDDO !end j-loop
      ENDDO !end iv-loop
   ENDDO !end k-loop
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
  ENDIF ! l_up_sedshi
 
 END SUBROUTINE 
