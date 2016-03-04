@@ -543,7 +543,9 @@ if [[ "$output_radforcing_3d" == "yes" ]]; then
                     'flw_clear_top','flw_total_top',
                     'flw_clear_sur','flw_total_sur',
                     'd_aflx_lw'    ,'d_aflx_lwc',
-                    'netht_lw'
+                    'netht_lw',
+		    'emter_for'    ,'emtef_for',
+                    'trsol_for'    ,'trsof_for'
 /
 EOF
 fi

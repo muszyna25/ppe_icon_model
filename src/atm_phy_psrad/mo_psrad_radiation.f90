@@ -179,7 +179,7 @@ MODULE mo_psrad_radiation
                                      solar_parameters
 
 ! following module for diagnostic of radiative forcing only
-!  USE mo_radiation_forcing,ONLY: prepare_forcing
+  USE mo_psrad_radiation_forcing,ONLY: prepare_psrad_radiation_forcing
 
   USE mo_rrtm_params,   ONLY : nbndsw
 ! new to icon
@@ -1048,9 +1048,9 @@ MODULE mo_psrad_radiation
            &                      SPREAD(flux_factor(1:kproma),2,klevp1)
       par_dn_sfc(1:kproma) = par_dn_sfc(1:kproma) * flux_factor(1:kproma)
 
-!!$      IF (i_rad_call < number_rad_call) CALL prepare_forcing(                & 
-!!$           & kproma          ,kbdim           ,klevp1          ,jb          ,&
-!!$           & lw_net          ,sw_net          ,lw_net_clr      ,sw_net_clr   )
+      IF (i_rad_call < number_rad_call) CALL prepare_psrad_radiation_forcing(jg, & 
+           & kproma          ,kbdim           ,klevp1          ,jb          ,&
+           & lw_net          ,sw_net          ,lw_net_clr      ,sw_net_clr   )
     END DO
     !
     ! 2.1 Fluxes to advance to the model, compute cloud radiative effect 

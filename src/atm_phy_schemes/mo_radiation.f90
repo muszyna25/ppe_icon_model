@@ -90,6 +90,7 @@ MODULE mo_radiation
   USE mo_nh_testcases_nml,     ONLY: zenithang
   USE mo_rad_diag,             ONLY: rad_aero_diag
   USE mo_art_radiation_interface, ONLY: art_rad_aero_interface
+  USE mo_psrad_radiation_forcing, ONLY: calculate_psrad_radiation_forcing
 
   IMPLICIT NONE
 
@@ -2007,6 +2008,16 @@ CONTAINS
     !
     IF ( PRESENT(pflxtoasw) ) pflxtoasw(jcs:jce) = zflxsw(jcs:jce,1)
     IF ( PRESENT(pflxtoalw) ) pflxtoalw(jcs:jce) = zflxlw(jcs:jce,1)
+
+! Calculate radiative forcing
+    zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
+!!$    CALL calculate_psrad_radiation_forcing( jg, &
+!!$                  &  jcs                ,jce                 ,kbdim           &
+!!$                  & ,klevp1             ,krow                ,psteplen        &
+!!$                  & ,pi0             &
+!!$                  & ,zconv              ,zflxsw              ,zflxs0          &
+!!$                  &  ,zflxt           &
+!!$                  & ,zflxt0             ,zti                 ,pztsnew         )
 
 
   END SUBROUTINE radheat

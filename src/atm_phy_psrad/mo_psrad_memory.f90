@@ -99,32 +99,32 @@ MODULE mo_psrad_memory
   TYPE t_psrad_forcing
       !--- Auxiliary radiative fluxes:
 
-  REAL(wp),  POINTER :: emter_for(:,:,:)
-  REAL(wp),  POINTER :: emtef_for(:,:,:)
-  REAL(wp),  POINTER :: trsol_for(:,:,:)
-  REAL(wp),  POINTER :: trsof_for(:,:,:)
+  REAL(wp),  POINTER :: emter_for(:,:,:) !<Net dwnwrd LW flux [Wm2]
+  REAL(wp),  POINTER :: emtef_for(:,:,:) !<Net dwnnrd LW flux (clear sky) [Wm2]
+  REAL(wp),  POINTER :: trsol_for(:,:,:) !<Net dwnwrd SW flux [Wm2] for forcing
+  REAL(wp),  POINTER :: trsof_for(:,:,:) !<Net dwnwrd SW flux (clear sky) [Wm2]
 
   !--- Forcing fields TOA, SUR:
 
-  REAL(wp),  POINTER :: fsw_clear_top(:,:) !instantaneous sw forcing clear sky top of atmosphere
-  REAL(wp),  POINTER :: fsw_total_top(:,:) !instantaneous sw forcing all sky top of atmosphere
-  REAL(wp),  POINTER :: fsw_clear_sur(:,:) !instantaneous sw forcing clear sky surface
-  REAL(wp),  POINTER :: fsw_total_sur(:,:) !instantaneous sw forcing all sky surface
+  REAL(wp),  POINTER :: fsw_clear_top(:,:) !<instantaneous sw forcing clear sky top of atmosphere
+  REAL(wp),  POINTER :: fsw_total_top(:,:) !<instantaneous sw forcing all sky top of atmosphere
+  REAL(wp),  POINTER :: fsw_clear_sur(:,:) !<instantaneous sw forcing clear sky surface
+  REAL(wp),  POINTER :: fsw_total_sur(:,:) !<instantaneous sw forcing all sky surface
 
-  REAL(wp),  POINTER :: flw_clear_top(:,:) !instantaneous lw forcing clear sky top of atmosphere
-  REAL(wp),  POINTER :: flw_total_top(:,:) !instantaneous lw forcing all sky top of atmosphere
-  REAL(wp),  POINTER :: flw_clear_sur(:,:) !instantaneous lw forcing clear sky surface
-  REAL(wp),  POINTER :: flw_total_sur(:,:) !instantaneous lw forcing all sky surface
+  REAL(wp),  POINTER :: flw_clear_top(:,:) !<instantaneous lw forcing clear sky top of atmosphere
+  REAL(wp),  POINTER :: flw_total_top(:,:) !<instantaneous lw forcing all sky top of atmosphere
+  REAL(wp),  POINTER :: flw_clear_sur(:,:) !<instantaneous lw forcing clear sky surface
+  REAL(wp),  POINTER :: flw_total_sur(:,:) !<instantaneous lw forcing all sky surface
 
   !--- Radiation flux forcing:
-  REAL(wp),  POINTER :: d_aflx_sw(:,:,:)  !3d instantaneous sw forcing all sky
-  REAL(wp),  POINTER :: d_aflx_lw(:,:,:)  !3d instantaneous lw forcing all sky
-  REAL(wp),  POINTER :: d_aflx_swc(:,:,:) !3d instantaneous sw forcing clear sky
-  REAL(wp),  POINTER :: d_aflx_lwc(:,:,:) !3d instantaneous lw forcing clear sky
+  REAL(wp),  POINTER :: d_aflx_sw(:,:,:)  !<3d instantaneous sw forcing all sky
+  REAL(wp),  POINTER :: d_aflx_lw(:,:,:)  !<3d instantaneous lw forcing all sky
+  REAL(wp),  POINTER :: d_aflx_swc(:,:,:) !<3d instantaneous sw forcing clear sky
+  REAL(wp),  POINTER :: d_aflx_lwc(:,:,:) !<3d instantaneous lw forcing clear sky
 
   !--- Heating rate forcing:
-  REAL(wp), POINTER  :: netht_lw(:,:,:)   !3d forcing of net lw heating rate (K/day) 
-  REAL(wp), POINTER  :: netht_sw(:,:,:)   !3d forcing of net sw heating rate (K/day)
+  REAL(wp), POINTER  :: netht_lw(:,:,:)   !<3d forcing of net lw heating rate (K/day) 
+  REAL(wp), POINTER  :: netht_sw(:,:,:)   !<3d forcing of net sw heating rate (K/day)
 
   END TYPE t_psrad_forcing
 
@@ -276,32 +276,36 @@ CONTAINS
     IF (lradforcing(2)) THEN
     cf_desc    = t_cf_var('emter_for', 'W m-2', 'thermal radiation flux', datatype_flt)
     grib2_desc = grib2_var(0, 5, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'emter_for', field%emter_for,                      &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp = &
+    CALL add_var( field_list, prefix//'emter_for', field%emter_for,                           &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,                &
+                & ldims=shape3d_layer_interfaces,                                             &
+                & vert_interp =                                                               &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
 
     cf_desc    = t_cf_var('emter_for', 'W m-2', 'thermal radiation flux', datatype_flt)
     grib2_desc = grib2_var(0, 5, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'emtef_for', field%emtef_for,                      &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp = &
+    CALL add_var( field_list, prefix//'emtef_for', field%emtef_for,                           &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,                &
+                & ldims=shape3d_layer_interfaces,                                             &
+                & vert_interp =                                                               &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
     END IF
 
     IF (lradforcing(1)) THEN
     cf_desc    = t_cf_var('trsol_for', 'W m-2', 'solar radiation flux', datatype_flt)
     grib2_desc = grib2_var(0, 4, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'trsol_for', field%trsol_for,                      &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp = &
+    CALL add_var( field_list, prefix//'trsol_for', field%trsol_for,                           &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,                &
+                & ldims=shape3d_layer_interfaces,                                             &
+                & vert_interp =                                                               &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
 
     cf_desc    = t_cf_var('trsof_for', 'W m-2', 'solar radiation flux', datatype_flt)
     grib2_desc = grib2_var(0, 4, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'trsof_for', field%trsof_for,                      &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
-                & vert_interp = &
+    CALL add_var( field_list, prefix//'trsof_for', field%trsof_for,                           &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,                &
+                & ldims=shape3d_layer_interfaces,                                             &
+                & vert_interp =                                                               &
                 &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ) )
     END IF
 
@@ -368,62 +372,66 @@ CONTAINS
     END IF
     
     IF (lradforcing(1)) THEN
-    cf_desc    = t_cf_var('d_aflx_sw', 'W m-2', '3d instantaneous sw forcing all sky',      &
+    cf_desc    = t_cf_var('d_aflx_sw', 'W m-2', '3d instantaneous sw forcing all sky',       &
                & datatype_flt)
     grib2_desc = grib2_var(0, 4, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'d_aflx_sw', field%d_aflx_sw,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d,    &
-                & vert_interp = &
-                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ), &
+    CALL add_var( field_list, prefix//'d_aflx_sw', field%d_aflx_sw,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,               &
+                ldims=shape3d_layer_interfaces,                                              &
+                & vert_interp =                                                              &
+                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ),  &
                 & lrestart=.FALSE. )
 
-    cf_desc    = t_cf_var('d_aflx_swc', 'W m-2', '3d instantaneous sw forcing clear sky',   &
+    cf_desc    = t_cf_var('d_aflx_swc', 'W m-2', '3d instantaneous sw forcing clear sky',    &
                & datatype_flt)
     grib2_desc = grib2_var(0, 4, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'d_aflx_swc', field%d_aflx_swc,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d,    &
-                & vert_interp = &
-                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ), &
+    CALL add_var( field_list, prefix//'d_aflx_swc', field%d_aflx_swc,                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,               &
+                & ldims=shape3d_layer_interfaces,                                            &
+                & vert_interp =                                                              &
+                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ),  &
                 & lrestart=.FALSE. )
     END IF
 
     IF (lradforcing(2)) THEN
-    cf_desc    = t_cf_var('d_aflx_lw', 'W m-2', '3d instantaneous lw forcing all sky',      &
+    cf_desc    = t_cf_var('d_aflx_lw', 'W m-2', '3d instantaneous lw forcing all sky',       &
                & datatype_flt)
     grib2_desc = grib2_var(0, 5, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'d_aflx_lw', field%d_aflx_lw,                         &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d,    &
-                & vert_interp = &
-                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ), &
+    CALL add_var( field_list, prefix//'d_aflx_lw', field%d_aflx_lw,                          &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,               &
+                & ldims=shape3d_layer_interfaces,                                            &
+                & vert_interp =                                                              &
+                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ),  &
                 & lrestart=.FALSE. )
 
-    cf_desc    = t_cf_var('d_aflx_lwc', 'W m-2', '3d instantaneous lw forcing clear sky',   &
+    cf_desc    = t_cf_var('d_aflx_lwc', 'W m-2', '3d instantaneous lw forcing clear sky',    &
                & datatype_flt)
     grib2_desc = grib2_var(0, 5, 2, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'d_aflx_lwc', field%d_aflx_lwc,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d,    &
-                & vert_interp = &
-                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ), &
+    CALL add_var( field_list, prefix//'d_aflx_lwc', field%d_aflx_lwc,                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF, cf_desc, grib2_desc,               &
+                & ldims=shape3d_layer_interfaces,                                            &
+                & vert_interp =                                                              &
+                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ),  &
                 & lrestart=.FALSE. )
 
-    cf_desc    = t_cf_var('netht_lw', 'K d-1', '3d forcing of net lw heating rate',         &
+    cf_desc    = t_cf_var('netht_lw', 'K d-1', '3d forcing of net lw heating rate',          &
                & datatype_flt)
     grib2_desc = grib2_var(0, 0, 22, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'netht_lw', field%netht_lw,                           &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d,    & 
-                & vert_interp = &
-                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ), &
+    CALL add_var( field_list, prefix//'netht_lw', field%netht_lw,                            &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d,     & 
+                & vert_interp =                                                              &
+                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ),  &
                 & lrestart=.FALSE. )
     END IF
 
     IF (lradforcing(1)) THEN
-    cf_desc    = t_cf_var('netht_sw', 'K d-1', '3d forcing of net sw heating rate',         &
+    cf_desc    = t_cf_var('netht_sw', 'K d-1', '3d forcing of net sw heating rate',          &
                & datatype_flt)
     grib2_desc = grib2_var(0, 0, 23, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'netht_sw', field%netht_sw,                           &
-                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d,    &
-                & vert_interp = &
-                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ), &
+    CALL add_var( field_list, prefix//'netht_sw', field%netht_sw,                            &
+                & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d,     &
+                & vert_interp =                                                              &
+                &   create_vert_interp_metadata( vert_intp_type=vintp_types("P","Z","I") ),  &
                 & lrestart=.FALSE. )
     END IF
 
