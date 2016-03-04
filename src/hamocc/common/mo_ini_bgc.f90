@@ -270,38 +270,28 @@ CONTAINS
   END SUBROUTINE
 
   ! ---------------------------------------------------------------------
-  SUBROUTINE ini_wpoc(start_idx,end_idx,klevs,ptiestw)
+  SUBROUTINE ini_wpoc(ptiestw)
   ! initialize wpoc
   ! if lmartin==TRUE (mo_control_bgc, nml)
   ! wpoc increases linearly with depth below mc_depth (beleg, nml)
   ! otherwise the constant sinkspeed_poc (beleg, nml) is used
-   INTEGER, INTENT(in):: start_idx
-   INTEGER, INTENT(in):: end_idx
-   INTEGER :: klevs(bgc_nproma)
-   REAL(wp),INTENT(in):: ptiestw(bgc_nproma,bgc_zlevs)
+   REAL(wp),INTENT(in):: ptiestw(bgc_zlevs)
 
-   INTEGER :: k, j, kpke
+   INTEGER :: k 
    REAL(wp) :: at_mc_depth
    
    ! default case: constant sinking speed
    wpoc = sinkspeed_poc 
 
    IF(i_settling==1)then
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,kpke,k,at_mc_depth,wpoc) HAMOCC_OMP_DEFAULT_SCHEDULE
-   DO j=start_idx,end_idx
-    kpke=klevs(j)
-    DO k = 1,kpke
+   DO k = 1,bgc_zlevs
       ! Are we at z0 (below which the Martin curve starts)?
-      at_mc_depth=merge(0._wp,1._wp,ptiestw(j,k+1)<=mc_depth)
+      at_mc_depth=merge(0._wp,1._wp,ptiestw(k+1)<=mc_depth)
       ! w=w0 + a*(z-z0)
       ! z0= mc_depth
       ! a=remin_rate/b  with F(z)=F(z0)(z/zo)**(-b) 
-      wpoc(k) = sinkspeed_martin_ez + at_mc_depth * drempoc/mc_fac * (ptiestw(j,k+1) - mc_depth) 
-    ENDDO
+      wpoc(k) = sinkspeed_martin_ez + at_mc_depth * drempoc/mc_fac * (ptiestw(k+1) - mc_depth) 
    ENDDO
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
    ENDIF
   END SUBROUTINE ini_wpoc
   

@@ -74,6 +74,18 @@ CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calex90(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%calex90(1), 1, ocean_state)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%opex90(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%opex90(1), 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%coex1000(:,:), i_time_stat,&
+& hamocc_state%p_tend%monitor%omex1000(1), 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calex1000(:,:), i_time_stat,&
+& hamocc_state%p_tend%monitor%calex1000(1), 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%opex1000(:,:), i_time_stat,&
+& hamocc_state%p_tend%monitor%opex1000(1), 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%coex2000(:,:), i_time_stat,&
+& hamocc_state%p_tend%monitor%omex2000(1), 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calex2000(:,:), i_time_stat,&
+& hamocc_state%p_tend%monitor%calex2000(1), 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%opex2000(:,:), i_time_stat,&
+& hamocc_state%p_tend%monitor%opex2000(1), 1, ocean_state)
 CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,4), &
   i_time_stat,hamocc_state%p_tend%monitor%sfalk(1),-2)
 CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,3), &
@@ -97,6 +109,10 @@ hamocc_state%p_tend%monitor%wcdenit(1) = hamocc_state%p_tend%monitor%wcdenit(1) 
 hamocc_state%p_tend%monitor%n2fix(1) = hamocc_state%p_tend%monitor%n2fix(1) * n2tgn * rn2
 hamocc_state%p_tend%monitor%omex90(1) = hamocc_state%p_tend%monitor%omex90(1) * p2gtc
 hamocc_state%p_tend%monitor%calex90(1) = hamocc_state%p_tend%monitor%calex90(1) * c2gtc
+hamocc_state%p_tend%monitor%omex1000(1) = hamocc_state%p_tend%monitor%omex1000(1) * p2gtc
+hamocc_state%p_tend%monitor%calex1000(1) = hamocc_state%p_tend%monitor%calex1000(1) * c2gtc
+hamocc_state%p_tend%monitor%omex2000(1) = hamocc_state%p_tend%monitor%omex2000(1) * p2gtc
+hamocc_state%p_tend%monitor%calex2000(1) = hamocc_state%p_tend%monitor%calex2000(1) * c2gtc
 hamocc_state%p_tend%monitor%sfalk(1) = hamocc_state%p_tend%monitor%sfalk(1)/totalarea
 hamocc_state%p_tend%monitor%sfdic(1) = hamocc_state%p_tend%monitor%sfdic(1)/totalarea
 

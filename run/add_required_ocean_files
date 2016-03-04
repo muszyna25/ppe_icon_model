@@ -58,7 +58,7 @@
   ocean_forcing_filename=${ocean_forcing_filename:=${forcing_DataType}${forcing_FileFrequence}-${grid_name}.nc}
   ocean_forcing_InputFilename=${ocean_forcing_folder}/${ocean_forcing_filename}
 
-  ocean_initialState_filenams=${ocean_initialState_filename:=${init_DataType}-${grid_name}-${file_vertical_levels}.nc}
+  ocean_initialState_filename=${ocean_initialState_filename:=${init_DataType}-${grid_name}-${file_vertical_levels}.nc}
   ocean_initialState_InputFilename=${ocean_init_folder}/${ocean_initialState_filename}
 
   ocean_relax_filename=${ocean_relax_filename:=${relax_DataType}-${grid_name}.nc}

@@ -22,7 +22,7 @@ MODULE mo_biomod
 
   PUBLIC
 
-  INTEGER :: n90depth
+  INTEGER :: n90depth,n1000depth,n2000depth
   INTEGER, DIMENSION (:), ALLOCATABLE  :: kbo   !< k-index of bottom layer (2d)
   REAL(wp), DIMENSION (:), ALLOCATABLE :: bolay !<  height of bottom cell
 

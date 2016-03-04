@@ -124,5 +124,11 @@ MODULE mo_param1_bgc
       &                 kcalinp    = 14,              &
       &                 kprodus    = 15,               &
       &                 kdmsflux   = 16,               &
-                        nbgcflux   = 16  
+      &                 kcoex1000  = 17,               &
+      &                 kcalex1000 = 18,               &
+      &                 kopex1000  = 19,               &
+      &                 kcoex2000  = 20,               &
+      &                 kcalex2000 = 21,               &
+      &                 kopex2000  = 22,               &
+                        nbgcflux   = 22  
 END MODULE mo_param1_bgc

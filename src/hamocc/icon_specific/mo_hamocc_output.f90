@@ -568,6 +568,48 @@
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
+    CALL add_var(hamocc_acc_list, 'coex1000',hamocc_state_acc%coex1000,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('coex1000','kmol P m-2 s-1','OM flux at 1000 m', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 81, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'calex1000',hamocc_state_acc%calex1000,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('calex1000','kmol C m-2 s-1','Calc flux at 1000 m', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 78, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'opex1000',hamocc_state_acc%opex1000,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('opex1000','kmol Si m-2 s-1','Opal flux at 1000 m', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 75, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'coex2000',hamocc_state_acc%coex2000,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('coex2000','kmol P m-2 s-1','OM flux at 2000 m', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 81, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'calex2000',hamocc_state_acc%calex2000,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('calex2000','kmol C m-2 s-1','Calc flux at 2000 m', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 78, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'opex2000',hamocc_state_acc%opex2000,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('opex2000','kmol Si m-2 s-1','Opal flux at 2000 m', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 75, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
     CALL add_var(hamocc_sediment_list, 'sedflux_dic',hamocc_state_acc%sedflic,    &
       & grid_unstructured_cell, za_surface,&
       & t_cf_var('sedflux_dic','kmol C m-2 s-1 ','sediment-ocean flux DIC', DATATYPE_FLT64), &
@@ -851,6 +893,56 @@
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('global_opal_export_at_90m', 'kmol Si s-1', 'global_opal_export_at_90m', DATATYPE_FLT64),&
       & grib2_var(255, 255, 504, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+   CALL add_var(hamocc_tendency_list, 'global_OM_export_at_1000m', hamocc_state_moni%omex1000, &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_OM_export_at_1000m', 'GtC s-1', 'global_om_export_at_1000m', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_OM_export_at_1000m','GtCyr-1','global_om_export_at_1000m', &
+      &  DATATYPE_FLT64)))
+
+   CALL add_var(hamocc_tendency_list, 'global_calc_export_at_1000m', hamocc_state_moni%calex1000 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_calc_export_at_1000m', 'GtC s-1', 'global_calc_export_at_1000m', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_calc_export_at_1000m','GtCyr-1','global_calc_export_at_1000m', &
+      &  DATATYPE_FLT64)))
+
+   CALL add_var(hamocc_tendency_list, 'global_opal_export_at_1000m', hamocc_state_moni%opex1000 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_opal_export_at_1000m', 'kmol Si s-1', 'global_opal_export_at_1000m', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+   CALL add_var(hamocc_tendency_list, 'global_OM_export_at_2000m', hamocc_state_moni%omex2000, &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_OM_export_at_2000m', 'GtC s-1', 'global_om_export_at_2000m', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_OM_export_at_2000m','GtCyr-1','global_om_export_at_2000m', &
+      &  DATATYPE_FLT64)))
+
+   CALL add_var(hamocc_tendency_list, 'global_calc_export_at_2000m', hamocc_state_moni%calex2000 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_calc_export_at_2000m', 'GtC s-1', 'global_calc_export_at_2000m', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_calc_export_at_2000m','GtCyr-1','global_calc_export_at_2000m', &
+      &  DATATYPE_FLT64)))
+
+   CALL add_var(hamocc_tendency_list, 'global_opal_export_at_2000m', hamocc_state_moni%opex2000 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_opal_export_at_2000m', 'kmol Si s-1', 'global_opal_export_at_2000m', DATATYPE_FLT64),&
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
 
@@ -1176,6 +1268,48 @@
       & grid_unstructured_cell, za_surface,&
       & t_cf_var('opex90','kmol Si m-2 s-1','Opal flux at 90 m', DATATYPE_FLT64), &
       & grib2_var(255, 255, 75, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'coex1000',hamocc_state_tend%coex1000,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('coex1000','kmol P m-2 s-1','OM flux at 1000 m', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 82, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'calex1000',hamocc_state_tend%calex1000,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('calex1000','kmol C m-2 s-1','Calc flux at 1000 m', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 79, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'opex1000',hamocc_state_tend%opex1000,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('opex1000','kmol Si m-2 s-1','Opal flux at 1000 m', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 76, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'coex2000',hamocc_state_tend%coex2000,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('coex2000','kmol P m-2 s-1','OM flux at  2000 m', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 83, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'calex2000',hamocc_state_tend%calex2000,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('calex2000','kmol C m-2 s-1','Calc flux at  2000 m', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 80, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'opex2000',hamocc_state_tend%opex2000,    &
+      & grid_unstructured_cell, za_surface,&
+      & t_cf_var('opex2000','kmol Si m-2 s-1','Opal flux at  2000 m', DATATYPE_FLT64), &
+      & grib2_var(255, 255, 77, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)
 

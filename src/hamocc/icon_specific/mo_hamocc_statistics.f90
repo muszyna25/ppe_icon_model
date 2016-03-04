@@ -83,6 +83,12 @@ CONTAINS
     CALL add_fields(hamocc_state%p_acc%coex90          , hamocc_state%p_tend%coex90          , cells)
     CALL add_fields(hamocc_state%p_acc%calex90         , hamocc_state%p_tend%calex90         , cells)
     CALL add_fields(hamocc_state%p_acc%opex90          , hamocc_state%p_tend%opex90          , cells)
+    CALL add_fields(hamocc_state%p_acc%coex1000          , hamocc_state%p_tend%coex1000          , cells)
+    CALL add_fields(hamocc_state%p_acc%calex1000         , hamocc_state%p_tend%calex1000         , cells)
+    CALL add_fields(hamocc_state%p_acc%opex1000          , hamocc_state%p_tend%opex1000          , cells)
+    CALL add_fields(hamocc_state%p_acc%coex2000          , hamocc_state%p_tend%coex2000          , cells)
+    CALL add_fields(hamocc_state%p_acc%calex2000         , hamocc_state%p_tend%calex2000         , cells)
+    CALL add_fields(hamocc_state%p_acc%opex2000          , hamocc_state%p_tend%opex2000          , cells)
     CALL add_fields(hamocc_state%p_acc%sedflic         , hamocc_state%p_tend%sedflic          , cells)
     CALL add_fields(hamocc_state%p_acc%sedflal         , hamocc_state%p_tend%sedflal          , cells)
     CALL add_fields(hamocc_state%p_acc%sedflph         , hamocc_state%p_tend%sedflph          , cells)
@@ -133,6 +139,12 @@ CONTAINS
     p_acc%coex90                      = p_acc%coex90                     /REAL(nsteps_since_last_output,wp)
     p_acc%calex90                     = p_acc%calex90                    /REAL(nsteps_since_last_output,wp)
     p_acc%opex90                      = p_acc%opex90                     /REAL(nsteps_since_last_output,wp)
+    p_acc%coex1000                    = p_acc%coex1000                   /REAL(nsteps_since_last_output,wp)
+    p_acc%calex1000                   = p_acc%calex1000                  /REAL(nsteps_since_last_output,wp)
+    p_acc%opex1000                    = p_acc%opex1000                   /REAL(nsteps_since_last_output,wp)
+    p_acc%coex2000                    = p_acc%coex2000                   /REAL(nsteps_since_last_output,wp)
+    p_acc%calex2000                   = p_acc%calex2000                  /REAL(nsteps_since_last_output,wp)
+    p_acc%opex2000                    = p_acc%opex2000                   /REAL(nsteps_since_last_output,wp)
     p_acc%delsil                      = p_acc%delsil                     /REAL(nsteps_since_last_output,wp)
     p_acc%orginp                      = p_acc%orginp                     /1._wp
     p_acc%silinp                      = p_acc%silinp                     /1._wp
@@ -198,6 +210,12 @@ CONTAINS
     p_acc%coex90                      = 0._wp
     p_acc%calex90                     = 0._wp
     p_acc%opex90                      = 0._wp
+    p_acc%coex1000                    = 0._wp
+    p_acc%calex1000                   = 0._wp
+    p_acc%opex1000                    = 0._wp
+    p_acc%coex2000                    = 0._wp
+    p_acc%calex2000                   = 0._wp
+    p_acc%opex2000                    = 0._wp
     p_acc%delsil                      = 0._wp
     p_acc%delcar                      = 0._wp
     p_acc%sedflic                     = 0._wp

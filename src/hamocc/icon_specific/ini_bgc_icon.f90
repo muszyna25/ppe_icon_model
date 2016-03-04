@@ -12,9 +12,10 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
 
  ! USE mo_grid, ONLY           : get_level_index_by_depth
 
-  USE mo_biomod, ONLY         : alloc_mem_biomod, n90depth
+  USE mo_biomod, ONLY         : alloc_mem_biomod, n90depth,n1000depth,n2000depth
   USE mo_bgc_icon_comm, ONLY  : ini_bgc_regions, initial_update_icon, hamocc_state, &
-      &                         print_bgc_parameters,print_wpoc, update_bgc 
+      &                         print_bgc_parameters,print_wpoc, update_bgc,        &
+      &                         get_level_index_by_depth
   USE mo_sedmnt, ONLY         : alloc_mem_sedmnt, ini_bottom, sediment_bottom
   USE mo_carbch, ONLY         : alloc_mem_carbch,totalarea
   USE mo_ini_bgc, ONLY        : ini_aquatic_tracers,            &
@@ -22,8 +23,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
        &                        ini_atmospheric_concentrations, &
        &                        set_parameters_bgc, &
        &                        ini_continental_carbon_input, &
-       &                        ini_wpoc, bgc_param_conv_unit!, &
-    !   &                        d2d, level_ini
+       &                        ini_wpoc, bgc_param_conv_unit
 
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -31,10 +31,11 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
   USE mo_run_config,          ONLY: dtime
   USE mo_impl_constants,      ONLY: max_char_length
   USE mo_ocean_types,         ONLY: t_hydro_ocean_state
-  USE mo_ocean_nml,           ONLY: n_zlev, nbgctra, no_tracer
+  USE mo_ocean_nml,           ONLY: n_zlev, nbgctra, no_tracer,dzlev_m
   USE mo_dynamics_config,     ONLY: nold,nnew
   USE mo_parallel_config,     ONLY: nproma
   USE mo_sync,                ONLY: global_sum_array
+  USE mo_math_utilities,      ONLY: set_zlev
  ! USE mo_hamocc_diagnostics,  ONLY: get_inventories
 
   IMPLICIT NONE
@@ -55,13 +56,12 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
   INTEGER :: jc, jk, jb
   INTEGER :: start_index, end_index
   INTEGER  :: levels(nproma)
-!  INTEGER, POINTER:: levels(nproma)
 
   INTEGER, POINTER              :: regions(:,:)
-  INTEGER :: old90
 
- ! TYPE(d2d) :: n90,n1000,n2000
-   CALL message(TRIM(routine), 'start')
+  REAL(wp),ALLOCATABLE:: dlevels_m(:),dlevels_i(:)
+ 
+  CALL message(TRIM(routine), 'start')
 
   !
   !----------------------------------------------------------------------
@@ -149,10 +149,22 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
   totalarea     = global_sum_array(totalarea)
   CALL ini_continental_carbon_input(totalarea)
 
-! replace 
- n90depth=8
-   
+! set level for 90m, 1000m, 2000m for diagnostic output
+  ALLOCATE(dlevels_m(n_zlev))
+  ALLOCATE(dlevels_i(n_zlev+1))
+  CALL set_zlev(dlevels_i, dlevels_m, n_zlev, dzlev_m)
+  n90depth=get_level_index_by_depth(90._wp,dlevels_i)
+  n1000depth=get_level_index_by_depth(1000._wp,dlevels_i)
+  n2000depth=get_level_index_by_depth(2000._wp,dlevels_i)
 
+! Initialize POC sinking speed
+  CALL ini_wpoc(dlevels_i)
+  CALL print_wpoc
+
+  DEALLOCATE(dlevels_m)
+  DEALLOCATE(dlevels_i)
+   
+!DIR$ INLINE
  DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
         !  tracer 1: potential temperature
@@ -163,10 +175,6 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
         CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
         CALL ini_atmospheric_concentrations
-
-        ! Initialize POC sinking speed
-        CALL ini_wpoc(start_index,end_index,levels, p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb) )
-
 
         IF(l_is_restart)then
 
@@ -192,7 +200,6 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
 
   ENDDO
 
-  CALL print_wpoc
 !  IF (l_cpl_co2) THEN
 !     !     initializes fields used for redistribution of co2 fluxes
 !     CALL avflux_ini

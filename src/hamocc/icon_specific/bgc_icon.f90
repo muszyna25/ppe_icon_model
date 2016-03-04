@@ -80,12 +80,10 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
  
 IF(l_bgc_check)THEN
  call message('before loop','inventories',io_stdo_bgc)
-! call get_inventories(hamocc_state, p_os, p_patch_3d)
+ call get_inventories(hamocc_state, p_os, p_patch_3d,nold(1))
 ENDIF
-  !CALL dbg_print('h new   ',p_os%p_prog(nnew(1))%h,       'bgc_icon', 1, in_subset=p_patch%cells%owned)
- ! CALL dbg_print('thick_c_flat   ', p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,1,:),       'bgc_icon', 1, in_subset=p_patch%cells%owned)
 
-
+!DIR$ INLINE
   DO jb = all_cells%start_block, all_cells%end_block
         CALL get_index_range(all_cells, jb, start_index, end_index)
         !  tracer 1: potential temperature
@@ -214,7 +212,7 @@ ENDIF
 
 IF(l_bgc_check)THEN
  call message('after loop','inventories',io_stdo_bgc)
-! call get_inventories(hamocc_state, p_os, p_patch_3d)
+ call get_inventories(hamocc_state, p_os, p_patch_3d,nold(1))
 ENDIF
   
 

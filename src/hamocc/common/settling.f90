@@ -15,11 +15,16 @@
       USE mo_param1_bgc, ONLY     : icalc, iopal, kopex90,   &
        &                            idet, kcalex90, &
        &                            kprorca,kprcaca,   &
-       &                            ksilpro,kcoex90, idust, kprodus
+       &                            ksilpro,kcoex90, idust, &
+       &                            kprodus, kopex1000, &
+       &                            kopex2000,kcoex1000,&
+       &                            kcoex2000, kcalex1000, &
+       &                            kcalex2000
 
       USE mo_carbch,  ONLY        : bgctra, wpoc, bgcflux
 
-      USE mo_biomod,  ONLY        : wopal, wcal, wdust, kbo, n90depth
+      USE mo_biomod,  ONLY        : wopal, wcal, wdust, kbo, n90depth,&
+      &                             n1000depth,n2000depth
 
       USE mo_kind,    ONLY        : wp
       USE mo_sedmnt,  ONLY        : prorca, prcaca, silpro, produs
@@ -57,6 +62,16 @@
            bgcflux(j,kcoex90) = bgctra(j,n90depth,idet)*wpoc(n90depth)/dtbgc  
            bgcflux(j,kcalex90) = bgctra(j,n90depth,icalc)*wcal/dtbgc  
            bgcflux(j,kopex90) = bgctra(j,n90depth,iopal)*wopal/dtbgc  
+         endif
+         if(kpke>=n1000depth)then
+           bgcflux(j,kcoex1000) = bgctra(j,n1000depth,idet)*wpoc(n1000depth)/dtbgc  
+           bgcflux(j,kcalex1000) = bgctra(j,n1000depth,icalc)*wcal/dtbgc  
+           bgcflux(j,kopex1000) = bgctra(j,n1000depth,iopal)*wopal/dtbgc  
+         endif
+         if(kpke>=n2000depth)then
+           bgcflux(j,kcoex2000) = bgctra(j,n2000depth,idet)*wpoc(n2000depth)/dtbgc  
+           bgcflux(j,kcalex2000) = bgctra(j,n2000depth,icalc)*wcal/dtbgc  
+           bgcflux(j,kopex2000) = bgctra(j,n2000depth,iopal)*wopal/dtbgc  
          endif
 
                   ! -----------surface layer

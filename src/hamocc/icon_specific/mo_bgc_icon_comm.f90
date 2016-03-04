@@ -52,6 +52,21 @@
       CONTAINS
 
 !================================================================================== 
+
+  function get_level_index_by_depth(depth,tiestw) result(level_index)
+
+     real(wp), intent(in) :: depth,tiestw(n_zlev+1)
+     
+     integer :: level_index
+
+     level_index = 1
+     do while(tiestw(level_index+1) < depth .and. level_index < n_zlev)
+        level_index = level_index + 1
+     end do
+
+  end function get_level_index_by_depth
+
+!================================================================================== 
        SUBROUTINE ini_bgc_regions
 
         IMPLICIT NONE
@@ -248,7 +263,9 @@
 &                              kdmsflux, kdmsprod, kdmsbac, kdmsuv, &
 &                              keuexp, kplim, kflim, knlim,kcalex90,&
 &                              kopex90, kgraton, kexudp, kexudz, &
-&                              kzdy, kpdy
+&                              kzdy, kpdy,kcoex1000,kcoex2000, &
+&                              kopex1000,kopex2000,kcalex1000,&
+&                              kcalex2000
   
       USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
 &                           isremino, isreminn, isremins
@@ -286,6 +303,12 @@
         p_tend%coex90(jc,jb) = bgcflux(jc,kcoex90)
         p_tend%calex90(jc,jb) = bgcflux(jc,kcalex90)
         p_tend%opex90(jc,jb) = bgcflux(jc,kopex90)
+        p_tend%coex1000(jc,jb) = bgcflux(jc,kcoex1000)
+        p_tend%calex1000(jc,jb) = bgcflux(jc,kcalex1000)
+        p_tend%opex1000(jc,jb) = bgcflux(jc,kopex1000)
+        p_tend%coex2000(jc,jb) = bgcflux(jc,kcoex2000)
+        p_tend%calex2000(jc,jb) = bgcflux(jc,kcalex2000)
+        p_tend%opex2000(jc,jb) = bgcflux(jc,kopex2000)
         kpke=klevs(jc)
         DO jk =1,kpke
              p_tend%npp(jc,jk,jb) = bgctend(jc,jk,kphosy)

@@ -43,6 +43,12 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER :: omex90(:)
     REAL(wp), POINTER :: calex90(:)
     REAL(wp), POINTER :: opex90(:)
+    REAL(wp), POINTER :: omex1000(:)
+    REAL(wp), POINTER :: calex1000(:)
+    REAL(wp), POINTER :: opex1000(:)
+    REAL(wp), POINTER :: omex2000(:)
+    REAL(wp), POINTER :: calex2000(:)
+    REAL(wp), POINTER :: opex2000(:)
     REAL(wp), POINTER :: net_co2_flux(:)
     REAL(wp), POINTER :: sfalk(:)
     REAL(wp), POINTER :: sfdic(:)
@@ -148,6 +154,12 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  coex90(:,:)       
     REAL(wp), POINTER ::  opex90(:,:)       
     REAL(wp), POINTER ::  calex90(:,:)       
+    REAL(wp), POINTER ::  coex1000(:,:)       
+    REAL(wp), POINTER ::  opex1000(:,:)       
+    REAL(wp), POINTER ::  calex1000(:,:)       
+    REAL(wp), POINTER ::  coex2000(:,:)       
+    REAL(wp), POINTER ::  opex2000(:,:)       
+    REAL(wp), POINTER ::  calex2000(:,:)       
     REAL(wp), POINTER ::  orginp(:,:)   ! for now constant value read via nml    
     REAL(wp), POINTER ::  silinp(:,:)   ! later riverine input possible     
     REAL(wp), POINTER ::  calinp(:,:)   ! via mo_bgc_bcond    
