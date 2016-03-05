@@ -2422,6 +2422,7 @@ CONTAINS
     !Merge dual area calculation with coefficients
     ! note: sea_edges_per_vertex has been calculated on the owned_verts
     !       it does not need to be synced
+    zarea_fraction(:,:,:) = 0.0_wp
     DO block = owned_verts%start_block, owned_verts%end_block
       CALL get_index_range(owned_verts, block, i_startidx_v, i_endidx_v)
       DO jk = 1, n_zlev
@@ -2506,10 +2507,10 @@ CONTAINS
               operators_coefficients%rot_coeff(jv,jk,block,jev)&
                 &=operators_coefficients%rot_coeff(jv,jk,block,jev)/(zarea_fraction(jv,jk,block)*grid_radius_squared)
 
-              IF (ABS(operators_coefficients%rot_coeff(jv,jk,block,jev)) > 1.0E-2_wp) THEN
-                write(0,*) "rot_coeff > 1.0E-2_wp: ", operators_coefficients%rot_coeff(jv,jk,block,jev), &
-                  zarea_fraction(jv,jk,block), grid_radius_squared
-              ENDIF
+!               IF (ABS(operators_coefficients%rot_coeff(jv,jk,block,jev)) > 1.0E-2_wp) THEN
+!                 write(0,*) "rot_coeff > 1.0E-2_wp: ", operators_coefficients%rot_coeff(jv,jk,block,jev), &
+!                   zarea_fraction(jv,jk,block), grid_radius_squared
+!               ENDIF
 
             END DO
 
@@ -2542,14 +2543,12 @@ CONTAINS
             patch_2D%verts%owned )
     ENDDO
 
-    DO jk = 1, n_zlev
-      CALL sync_patch_array(SYNC_V, patch_2D, zarea_fraction(:,jk,:))
-    ENDDO
     DO jev=1,2*no_dual_edges
       DO jk = 1, n_zlev
         CALL sync_patch_array(SYNC_E, patch_2D, operators_coefficients%edge2edge_viavert_coeff(:,jk,:, jev))
       ENDDO
     ENDDO
+    CALL sync_patch_array(SYNC_V, patch_2D, zarea_fraction(:,:,:))
     
     DO block = owned_edges%start_block, owned_edges%end_block
       CALL get_index_range(owned_edges, block, edges_startidx, edges_endidx)

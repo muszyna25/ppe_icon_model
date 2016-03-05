@@ -23,8 +23,7 @@ MODULE mo_ocean_diffusion
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates
   USE mo_impl_constants,      ONLY: boundary, sea_boundary, min_dolic ! ,max_char_length
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, VelocityDiffusion_order, laplacian_form, &
-    & HarmonicViscosity_weight
+  USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, VelocityDiffusion_order, laplacian_form
   USE mo_run_config,          ONLY: dtime
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_ocean_tracer, t_hydro_ocean_aux
@@ -930,10 +929,9 @@ CONTAINS
           DO level = start_level, patch_3D%p_patch_1d(1)%dolic_e(edge_index,blockNo)
 
           nabla4_vec_e(edge_index,level,blockNo) =      &
-            & nabla4_vec_e(edge_index,level,blockNo) * (1.0_wp - HarmonicViscosity_weight) + &
+            & nabla4_vec_e(edge_index,level,blockNo) + &
             & z_nabla2_e(edge_index,level,blockNo) *    &
-            & physics_parameters%HarmonicViscosity_coeff(edge_index,level,blockNo) *  &
-            & HarmonicViscosity_weight
+            & physics_parameters%HarmonicViscosity_coeff(edge_index,level,blockNo)
 
           END DO
         END DO

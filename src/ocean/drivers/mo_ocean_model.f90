@@ -122,7 +122,7 @@ MODULE mo_ocean_model
     TYPE(t_patch_3d), POINTER                       :: ocean_patch_3d
     TYPE(t_atmos_for_ocean)                         :: p_as
     TYPE(t_atmos_fluxes)                            :: atmos_fluxes
-    TYPE(t_operator_coeff)                          :: operators_coefficients
+    TYPE(t_operator_coeff), TARGET                  :: operators_coefficients
     TYPE(t_solverCoeff_singlePrecision)             :: solverCoefficients_sp
     TYPE(t_hydro_ocean_state), ALLOCATABLE, TARGET  :: ocean_state(:)
     TYPE(t_datetime)                                :: start_datetime

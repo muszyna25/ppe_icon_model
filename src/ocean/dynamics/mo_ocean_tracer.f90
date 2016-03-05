@@ -32,7 +32,7 @@ MODULE mo_ocean_tracer
     & flux_calculation_horz, flux_calculation_vert, miura_order1,         &
     & l_with_vert_tracer_diffusion, l_with_vert_tracer_advection,         &
     & tracer_update_mode, i_post_step, i_during_step,      &
-    & l_skip_tracer, implicit_diffusion,explicit_diffusion,               &! , use_ThermoExpansion_Correction
+    & implicit_diffusion,explicit_diffusion,               &! , use_ThermoExpansion_Correction
     & GMRedi_configuration,GMRedi_combined,  GM_only,Redi_only ,          &
     & Cartesian_Mixing, tracer_threshold_min, tracer_threshold_max,       &
     & namelist_tracer_name, NoTracerAdvectionDiffusion
@@ -96,7 +96,14 @@ CONTAINS
     TYPE(t_subset_range), POINTER :: cells_in_domain
     TYPE(t_patch), POINTER :: patch_2D
     !-------------------------------------------------------------------------------
-    IF(tracer_update_mode == NoTracerAdvectionDiffusion) RETURN
+    IF(tracer_update_mode == NoTracerAdvectionDiffusion) THEN
+      DO tracer_index = 1, no_tracer
+        CALL copy_individual_tracer_ab( patch_3d,            &
+          & p_os%p_prog(nold(1))%ocean_tracers(tracer_index), &
+          & p_os%p_prog(nnew(1))%ocean_tracers(tracer_index))
+      ENDDO
+      RETURN
+    ENDIF
 
     patch_2D => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
@@ -223,8 +230,41 @@ CONTAINS
   END SUBROUTINE advect_tracer_ab
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE copy_individual_tracer_ab(patch_3d, old_ocean_tracer, new_ocean_tracer)
 
-    !-------------------------------------------------------------------------
+    TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
+    TYPE(t_ocean_tracer), TARGET :: old_ocean_tracer
+    TYPE(t_ocean_tracer), TARGET :: new_ocean_tracer
+
+
+    INTEGER :: jc,level,jb
+    INTEGER :: start_cell_index, end_cell_index
+    REAL(wp), POINTER :: trac_old(:,:,:), trac_new(:,:,:) ! temporary pointers to the concentration arrays
+    TYPE(t_subset_range), POINTER :: all_cells
+    TYPE(t_patch), POINTER :: patch_2D
+    ! CHARACTER(len=max_char_length), PARAMETER :: &
+    !        & routine = ('mo_tracer_advection:advect_individual_tracer')
+    !-------------------------------------------------------------------------------_
+    trac_old => old_ocean_tracer%concentration
+    trac_new => new_ocean_tracer%concentration
+    patch_2D => patch_3d%p_patch_2d(1)
+    all_cells => patch_2D%cells%all
+
+    DO jb = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, jb, start_cell_index, end_cell_index)
+      DO jc = start_cell_index, end_cell_index
+        DO level = 1, n_zlev
+          new_ocean_tracer%concentration(jc,level,jb)= old_ocean_tracer%concentration(jc,level,jb)
+        END DO
+      END DO
+    END DO
+  END SUBROUTINE copy_individual_tracer_ab
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
   !>
   !! !  SUBROUTINE advects the tracers present in the ocean model.
   !!
@@ -279,15 +319,6 @@ CONTAINS
     !---------DEBUG DIAGNOSTICS-------------------------------------------
     idt_src=2  ! output print level (1-5, fix)
     CALL dbg_print('on entry: IndTrac: trac_old',trac_old(:,:,:) ,str_module,idt_src, in_subset=patch_2D%cells%owned)
-    !---------------------------------------------------------------------
-    IF (l_skip_tracer) THEN
-
-      !   trac_new(1:nproma,1:n_zlev,1:patch_2D%nblks_c) = trac_old(1:nproma,1:n_zlev,1:patch_2D%nblks_c)
-      new_ocean_tracer%concentration(1:nproma,1:n_zlev,1:patch_2D%nblks_c) = &
-        & old_ocean_tracer%concentration(1:nproma,1:n_zlev,1:patch_2D%nblks_c)
-
-      RETURN
-    ENDIF
     !---------------------------------------------------------------------
     
     !Shallow water is done with horizontal advection

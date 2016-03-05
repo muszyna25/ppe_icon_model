@@ -55,21 +55,21 @@ MODULE mo_ocean_initial_conditions
     & land_boundary,                                             &
     & oce_testcase_zero, oce_testcase_init, oce_testcase_file! , MIN_DOLIC
   USE mo_dynamics_config,    ONLY: nold,nnew
-  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates, cc2gc
+  USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates, cc2gc, gvec2cvec
   USE mo_exception,          ONLY: finish, message, message_text, warning
   USE mo_util_dbg_prnt,      ONLY: dbg_print
   USE mo_model_domain,       ONLY: t_patch, t_patch_3d
   USE mo_ext_data_types,     ONLY: t_external_data
   USE mo_sea_ice_types,      ONLY: t_sfc_flx
   USE mo_ocean_types,          ONLY: t_hydro_ocean_state
-  USE mo_scalar_product,     ONLY: calc_scalar_product_veloc_3d
+  USE mo_scalar_product,     ONLY: map_cell2edges_3D
   USE mo_ocean_math_operators,ONLY: grad_fd_norm_oce_3d, smooth_onCells
   USE mo_ocean_ab_timestepping,ONLY: update_time_indices
   USE mo_ape_params,         ONLY: ape_sst
   USE mo_operator_ocean_coeff_3d, ONLY: t_operator_coeff
   USE mo_grid_subset,        ONLY: t_subset_range, get_index_range
   
-  USE mo_sync,              ONLY: sync_c, sync_patch_array
+  USE mo_sync,              ONLY: sync_c, sync_e, sync_patch_array
   USE mo_fortran_tools,     ONLY: assign_if_present
   
   USE mo_read_interface,    ONLY: read_2D_1Time, read_3D_1Time, on_cells, t_stream_id, &
@@ -89,6 +89,8 @@ MODULE mo_ocean_initial_conditions
   REAL(wp), PARAMETER :: aleph = 0.0_wp
   
   CHARACTER(LEN=12), PARAMETER :: module_name = 'oceInitCond'
+
+  TYPE(t_operator_coeff), POINTER :: this_operators_coeff
 
   ! Should be replaced by reading a file
   REAL(wp), PARAMETER :: tprof(20)=&
@@ -116,11 +118,12 @@ CONTAINS
     TYPE(t_patch_3d ),TARGET, INTENT(inout) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET       :: ocean_state
     TYPE(t_external_data)                   :: external_data
-    TYPE(t_operator_coeff)                  :: operators_coeff
+    TYPE(t_operator_coeff), TARGET          :: operators_coeff
 
     TYPE(t_patch),POINTER                   :: patch_2d
 !     REAL(wp), ALLOCATABLE                   :: check_temp(:,:,:), check_salinity(:,:,:)
 
+    this_operators_coeff => operators_coeff
     patch_2d => patch_3d%p_patch_2d(1)
     sphere_radius = grid_sphere_radius
     u0 = (2.0_wp*pi*sphere_radius)/(12.0_wp*24.0_wp*3600.0_wp)
@@ -1076,7 +1079,7 @@ CONTAINS
     REAL(wp):: distan, lat_deg, lon_deg, z_tmp
     REAL(wp):: perturbation_lat, perturbation_lon
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_WilliamsonTest5'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_WilliamsonTest6'
     !-------------------------------------------------------------------------
     ! CASE (205)
     patch_2d => patch_3d%p_patch_2d(1)
@@ -1110,7 +1113,7 @@ write(0,*)'Williamson-Test6:h', maxval(ocean_height),minval(ocean_height)
     REAL(wp):: perturbation_lat, perturbation_lon
     REAL(wp) :: h_perturb, phi_2, alpha,beta
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_WilliamsonTest5'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':height_GalewskyTest'
     !-------------------------------------------------------------------------
     ! CASE (205)
     patch_2d    => patch_3d%p_patch_2d(1)
@@ -1217,11 +1220,15 @@ write(0,*)'Galewsky-Test:h', maxval(ocean_height),minval(ocean_height)
     REAL(wp), INTENT(in) :: velocity_amplitude
 
     TYPE(t_patch),POINTER   :: patch_2d
-    TYPE(t_subset_range), POINTER :: all_edges
+    TYPE(t_subset_range), POINTER :: all_edges, all_cells
+    TYPE(t_cartesian_coordinates), POINTER ::cellVelocity_cc(:,:,:)
 
     INTEGER :: edge_block, edge_index, level
     INTEGER :: start_edges_index, end_edges_index
+    INTEGER :: cell_block, cell_index
+    INTEGER :: start_cells_index, end_cells_index
     REAL(wp) :: point_lon, point_lat     ! latitude of point
+    REAL(wp) :: x1, x2, x3
     REAL(wp) :: t       ! point of time
     REAL(wp) :: uu, vv      ! zonal,  meridional velocity
     REAL(wp) :: angle1, angle2, edge_vn, COS_angle1, SIN_angle1
@@ -1233,12 +1240,15 @@ write(0,*)'Galewsky-Test:h', maxval(ocean_height),minval(ocean_height)
 
     patch_2d => patch_3d%p_patch_2d(1)
     all_edges => patch_2d%edges%ALL
+    all_cells => patch_2d%cells%ALL
 
-    DO edge_block = all_edges%start_block, all_edges%end_block
-      CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
-      DO edge_index = start_edges_index, end_edges_index
-        point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
-        point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
+    ! fisrt calculate th velocyt at cell centers
+    ALLOCATE(cellVelocity_cc(nproma,n_zlev, patch_2d%alloc_cell_blocks))
+    DO cell_block = all_cells%start_block, all_cells%end_block
+      CALL get_index_range(all_cells, cell_block, start_cells_index, end_cells_index)
+      DO cell_index = start_cells_index, end_cells_index
+        point_lon = patch_2d%cells%center(cell_index,cell_block)%lon
+        point_lat = patch_2d%cells%center(cell_index,cell_block)%lat
 
         uu = COS(point_lat) * COS(aleph)
         uu = uu + COS(point_lon) * SIN(point_lat) * SIN(aleph)
@@ -1247,15 +1257,46 @@ write(0,*)'Galewsky-Test:h', maxval(ocean_height),minval(ocean_height)
         vv = SIN(point_lon) * SIN(aleph)
         vv = -1._wp * velocity_amplitude * vv
 
-        edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
-              & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
-
-        DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
-          vn(edge_index, level, edge_block) = edge_vn
+        CALL gvec2cvec(  uu, vv, point_lon, point_lat, x1, x2, x3)
+        DO level = 1, n_zlev
+          cellVelocity_cc(cell_index, level, cell_block)%x(1) = x1 
+          cellVelocity_cc(cell_index, level, cell_block)%x(2) = x2
+          cellVelocity_cc(cell_index, level, cell_block)%x(3) = x3
         ENDDO
 
       ENDDO
     ENDDO
+
+    ! map velocity to edge centers
+    CALL map_cell2edges_3D( patch_3D, cellVelocity_cc, vn, this_operators_coeff)
+    CALL sync_patch_array(sync_e, patch_2D, vn)
+    
+    DEALLOCATE(cellVelocity_cc)
+
+
+    ! calculate the velocity directly on edges
+!     DO edge_block = all_edges%start_block, all_edges%end_block
+!       CALL get_index_range(all_edges, edge_block, start_edges_index, end_edges_index)
+!       DO edge_index = start_edges_index, end_edges_index
+!         point_lon = patch_2d%edges%center(edge_index,edge_block)%lon
+!         point_lat = patch_2d%edges%center(edge_index,edge_block)%lat
+! 
+!         uu = COS(point_lat) * COS(aleph)
+!         uu = uu + COS(point_lon) * SIN(point_lat) * SIN(aleph)
+!         uu = velocity_amplitude * uu
+! 
+!         vv = SIN(point_lon) * SIN(aleph)
+!         vv = -1._wp * velocity_amplitude * vv
+! 
+!         edge_vn = uu * patch_2d%edges%primal_normal(edge_index,edge_block)%v1 &
+!               & + vv * patch_2d%edges%primal_normal(edge_index,edge_block)%v2
+! 
+!         DO level = 1, patch_3d%p_patch_1d(1)%dolic_e(edge_index,edge_block)
+!           vn(edge_index, level, edge_block) = edge_vn
+!         ENDDO
+! 
+!       ENDDO
+!     ENDDO
 
   END SUBROUTINE  velocity_WilliamsonTest_2_5
   !-----------------------------------------------------------------------------------
@@ -1276,7 +1317,7 @@ write(0,*)'Galewsky-Test:h', maxval(ocean_height),minval(ocean_height)
     REAL(wp) :: uu, vv      ! zonal,  meridional velocity
     REAL(wp) :: angle1, angle2, edge_vn, COS_angle1, SIN_angle1
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_WilliamsonTest_2_5'
+    CHARACTER(LEN=*), PARAMETER :: method_name = module_name//':velocity_WilliamsonTest_2_6'
     !-------------------------------------------------------------------------
 
     ! CALL message(TRIM(method_name), ' ')

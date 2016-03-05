@@ -29,7 +29,8 @@ MODULE mo_ocean_tracer_transport_horz
     & upwind, central,lax_friedrichs, fct_horz, miura_order1, flux_calculation_horz,      &
     & fct_high_order_flux,  fct_low_order_flux,FCT_Limiter_horz, fct_limiter_horz_zalesak,&
     & fct_limiter_horz_minmod, fct_limiter_horz_posdef, l_with_horz_tracer_diffusion, l_with_horz_tracer_advection,&
-    &l_LAX_FRIEDRICHS, l_GRADIENT_RECONSTRUCTION, k_pot_temp_h
+    &l_LAX_FRIEDRICHS, l_GRADIENT_RECONSTRUCTION, k_pot_temp_h, tracer_HorizontalAdvection_type, &
+    & edge_based, cell_based
   USE mo_util_dbg_prnt,             ONLY: dbg_print
   USE mo_parallel_config,           ONLY: nproma, p_test_run
   USE mo_dynamics_config,           ONLY: nold, nnew
@@ -113,8 +114,9 @@ CONTAINS
     !
     !-------------------------------------------------------------------------------    
     start_timer(timer_adv_horz,2)
-    
-    IF(l_edge_based)THEN
+
+    SELECT CASE(tracer_HorizontalAdvection_type)
+    CASE(edge_based)
       CALL advect_edge_based( patch_3d, &
       & trac_old,            &
       & p_os,                &
@@ -124,7 +126,7 @@ CONTAINS
       & h_new,               &
       & flux_horz)
     
-    ELSE
+    CASE(cell_based)
       CALL advect_cell_based( patch_3d,          &
       & trac_old,            &
       & p_os,                &
@@ -135,7 +137,9 @@ CONTAINS
       & flux_horz) !,           &
       ! & horizontally_diffused_tracer)
     
-    ENDIF
+    CASE default
+      CALL finish("advect_horz","uknown tracer_HorizontalAdvection_type")
+    END SELECT
 
     stop_timer(timer_adv_horz,2)
      

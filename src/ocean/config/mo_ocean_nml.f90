@@ -15,13 +15,13 @@
 !! its most recent form.
 !! Please see the file LICENSE in the root of the source tree for this code.
 !! Where software is supplied by third parties, it is indicated in the
-!! headers of the routines.
+!! headers of the method_names.
 !!
 !!
 MODULE mo_ocean_nml
 !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp, sp
-  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_exception,          ONLY: message, warning, message_text, finish
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
@@ -111,9 +111,11 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: NoTracerAdvectionDiffusion = 0
   INTEGER, PARAMETER :: i_during_step =1
   INTEGER, PARAMETER :: i_post_step   =2
-  !default value
-  INTEGER :: tracer_update_mode = i_post_step
+  INTEGER, PARAMETER :: cell_based    = 1
+  INTEGER, PARAMETER :: edge_based    = 2
 
+  INTEGER :: tracer_update_mode = i_post_step
+  INTEGER :: tracer_HorizontalAdvection_type = edge_based
   !Options for non-linear corilois term in vector invariant velocity equations
   INTEGER, PARAMETER :: NO_CORIOLIS                   = 0
   INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_DUAL_GRID  = 200 !Default
@@ -270,7 +272,6 @@ MODULE mo_ocean_nml
   LOGICAL  :: l_relaxsal_ice        = .TRUE.     ! TRUE: relax salinity below sea ice
                                                  ! false = salinity is relaxed under sea ice completely
 
-  LOGICAL  :: l_skip_tracer                = .FALSE. ! TRUE: no advection and diffusion (incl. convection) of tracer
   LOGICAL  :: use_tracer_x_height          = .FALSE. ! use the tracer_x_height to calculate advection, in order to minimize round-off errors
   LOGICAL  :: l_with_horz_tracer_diffusion = .TRUE.  ! FALSE: no horizontal tracer diffusion
   LOGICAL  :: l_with_vert_tracer_diffusion = .TRUE.  ! FALSE: no vertical tracer diffusion
@@ -318,7 +319,6 @@ MODULE mo_ocean_nml
     &                 l_inverse_flip_flop          , &
     &                 l_max_bottom                 , &
     &                 l_partial_cells              , &
-    &                 l_skip_tracer                , &
     &                 lviscous                     , &
     &                 n_zlev                       , &
     &                 select_solver                , &
@@ -360,6 +360,7 @@ MODULE mo_ocean_nml
     &                 threshold_min_S              , &
     &                 threshold_min_T              , &
     &                 tracer_update_mode           , &
+    &                 tracer_HorizontalAdvection_type, &
     &                 l_LAX_FRIEDRICHS             , &
     &                 l_GRADIENT_RECONSTRUCTION
 
@@ -388,7 +389,6 @@ MODULE mo_ocean_nml
                                       !the smaller becomes the effect of biharmonic diffusion.The appropriate
                                       !size of this number depends also on the position of the biharmonic diffusion coefficient
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
-  REAL(wp) :: HarmonicViscosity_weight = 0.5_wp ! when combining harmonc+biharmonic
   INTEGER  :: BiharmonicViscosity_scaling = 4
   INTEGER  :: HarmonicViscosity_scaling = 1
   ! do not chamge this, they are used in bitwise logical operations
@@ -419,7 +419,6 @@ MODULE mo_ocean_nml
     &  BiharmonicViscosity_background,  &
     &  BiharmonicViscosity_reference,   &
     &  HarmonicViscosity_reference,     &
-    &  HarmonicViscosity_weight,        &
     &  VerticalViscosity_TimeWeight,              &
 !     &  k_pot_temp_h                ,    &
     &  k_pot_temp_v                ,    &
@@ -772,8 +771,8 @@ MODULE mo_ocean_nml
  !!
  !! @par Revision History
  !!   Modification by Constantin Junk, MPI-M (2010-02-22)
- !!    - separated subroutine ocean_nml_setup from the original
- !!      setup_run subroutine (which is moved to mo_run_nml)
+ !!    - separated submethod_name ocean_nml_setup from the original
+ !!      setup_run submethod_name (which is moved to mo_run_nml)
  !!
 !<Optimize:inUse>
  SUBROUTINE read_ocean_namelist( filename )
@@ -787,10 +786,10 @@ MODULE mo_ocean_nml
   INTEGER :: i_status, istat
   INTEGER :: iunit
 
-  CHARACTER(len=max_char_length), PARAMETER :: &
-          routine = 'mo_ocean_nml/read_ocean_namelist:'
+  CHARACTER(*), PARAMETER :: &
+          method_name = 'mo_ocean_nml/read_ocean_namelist:'
 
-  CALL message(TRIM(routine),'running the hydrostatic ocean model')
+  CALL message(method_name,'running the hydrostatic ocean model')
 
     !------------------------------------------------------------
     ! 4.0 set up the default values for ocean_nml
@@ -924,53 +923,55 @@ MODULE mo_ocean_nml
     !------------------------------------------------------------
 
     IF( n_zlev < 1 ) &
-      & CALL finish(TRIM(routine),  'n_zlev < 1')
+      & CALL finish(method_name,  'n_zlev < 1')
     IF( iswm_oce == 1 .AND. n_zlev > 1 ) THEN
-      CALL message(TRIM(routine),'WARNING, shallow water model (ocean): n_zlev set to 1')
+      CALL message(method_name,'WARNING, shallow water model (ocean): n_zlev set to 1')
       n_zlev = 1
     ENDIF
 
     IF(discretization_scheme == 1)THEN
-      CALL message(TRIM(routine),'You have choosen the mimetic dicretization')
+      CALL message(method_name,'You have choosen the mimetic dicretization')
     !ELSEIF(discretization_scheme == 2)THEN
-    !  CALL message(TRIM(routine),'You have choosen the RBF dicretization')
+    !  CALL message(method_name,'You have choosen the RBF dicretization')
     ELSE
-      CALL finish(TRIM(routine), 'wrong parameter for discretization scheme')
+      CALL finish(method_name, 'wrong parameter for discretization scheme')
     ENDIF
 
     !consistency check for horizontal advection in edge_based configuration
     IF(l_edge_based)THEN
-      CALL message(TRIM(routine),'You are using the EDGE_BASED discretization')
+      CALL message(method_name,'You are using the EDGE_BASED discretization')
+      tracer_HorizontalAdvection_type = edge_based
+      CALL warning(method_name, 'seting tracer_HorizontalAdvection_type to edge_based')
       IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind ) THEN
-        CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5')
+        CALL finish(method_name, 'wrong parameter for horizontal advection scheme; use 1-5')
       ENDIF
       !the fct case requires suitable choices of high- and low order fluxes and of limiter
       IF( flux_calculation_horz == fct_horz) THEN
         !high and low order flux check
         IF(fct_low_order_flux/=upwind)THEN
-          CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
+          CALL finish(method_name, 'wrong parameter for low order advection scheme in horizontal fct')
         ENDIF
         IF(fct_high_order_flux/= central.AND.fct_high_order_flux/=lax_friedrichs.AND.fct_high_order_flux/=miura_order1)THEN
-          CALL finish(TRIM(routine), 'wrong parameter for high order advection scheme in horizontal fct')
+          CALL finish(method_name, 'wrong parameter for high order advection scheme in horizontal fct')
         ENDIF
         !limiter check
         IF(      fct_limiter_horz/=fct_limiter_horz_zalesak&
           &.AND.fct_limiter_horz/=fct_limiter_horz_minmod &
           &.AND.fct_limiter_horz/=fct_limiter_horz_posdef)THEN
-          CALL finish(TRIM(routine), 'wrong parameter for limiter in horizontal fct')         
+          CALL finish(method_name, 'wrong parameter for limiter in horizontal fct')
         ENDIF
     
       ENDIF
     !consistency check for horizontal advection in cell_based configuration       
     ELSEIF(.NOT.l_edge_based)THEN
-      CALL message(TRIM(routine),'You are using the CELL_BASED discretization')
+      CALL message(method_name,'You are using the CELL_BASED discretization')
       IF( flux_calculation_horz > fct_horz .OR. flux_calculation_horz <upwind.OR.flux_calculation_horz==lax_friedrichs ) THEN
-        CALL finish(TRIM(routine), 'wrong parameter for horizontal advection scheme; use 1-5 without 3')
+        CALL finish(method_name, 'wrong parameter for horizontal advection scheme; use 1-5 without 3')
       ENDIF     
       IF( flux_calculation_horz == fct_horz .AND. fct_low_order_flux/=miura_order1) THEN
         !high and low order flux check
         IF(fct_low_order_flux/=upwind )THEN
-          CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
+          CALL finish(method_name, 'wrong parameter for low order advection scheme in horizontal fct')
         ENDIF
         !there is no option for high- or low order fluxes in cell_based config, this is all prescribed.
         !a wrong option has no effect.
@@ -978,7 +979,7 @@ MODULE mo_ocean_nml
         IF(     fct_limiter_horz/=fct_limiter_horz_zalesak &
           &.AND.fct_limiter_horz/=fct_limiter_horz_minmod &
           &.AND.fct_limiter_horz/=fct_limiter_horz_posdef)THEN
-          CALL finish(TRIM(routine), 'wrong parameter for limiter in horizontal fct')         
+          CALL finish(method_name, 'wrong parameter for limiter in horizontal fct')
         ENDIF     
       ENDIF     
     ENDIF
@@ -989,31 +990,31 @@ MODULE mo_ocean_nml
       &.AND.flux_calculation_vert/=fct_vert_adpo &
       &.AND.flux_calculation_vert/=fct_vert_zalesak&
       &.AND.flux_calculation_vert/=fct_vert_minmod)THEN
-      CALL finish(TRIM(routine), 'wrong parameter for vertical advection')   
+      CALL finish(method_name, 'wrong parameter for vertical advection')
     ENDIF
 
     IF(i_bc_veloc_lateral/= 0) THEN
-      CALL finish(TRIM(routine), &
+      CALL finish(method_name, &
         &  'free-slip boundary condition for velocity currently not supported')
     ENDIF
     IF(i_bc_veloc_top < 0 .OR. (i_bc_veloc_top > 1 .and. i_bc_veloc_top /= 4)) THEN
     !  option >1 disabled due to unphysical difference of stress minus velocity
-    !  see routine top_bound_cond_horz_veloc (#slo#, 2014-04)
-      CALL finish(TRIM(routine), &
+    !  see method_name top_bound_cond_horz_veloc (#slo#, 2014-04)
+      CALL finish(method_name, &
         &  'top boundary condition for velocity currently not supported: choose = 0,1')
     ENDIF
     IF(i_bc_veloc_bot < 0 .OR. i_bc_veloc_bot>2) THEN
-      CALL finish(TRIM(routine), &
+      CALL finish(method_name, &
         &  'bottom boundary condition for velocity currently not supported: choose = 0, 1, 2')
     ENDIF
 
 !      IF(no_tracer == 1 .OR. no_tracer < 0 .OR. no_tracer > 2) THEN
 !        IF(no_tracer == 1) THEN
-!          CALL message(TRIM(routine), 'WARNING - You have chosen tracer temperature only')
-!          CALL message(TRIM(routine), ' - this generates error in mo_varlist/mo_ocean_state')
-!          CALL finish(TRIM(routine),  'no_tracer=1 not supported - choose =0 or =2')
+!          CALL message(method_name, 'WARNING - You have chosen tracer temperature only')
+!          CALL message(method_name, ' - this generates error in mo_varlist/mo_ocean_state')
+!          CALL finish(method_name,  'no_tracer=1 not supported - choose =0 or =2')
 !        ENDIF
-!        CALL finish(TRIM(routine),  'no_tracer not supported - choose =0 or =2')
+!        CALL finish(method_name,  'no_tracer not supported - choose =0 or =2')
 !      ENDIF
 
 
@@ -1024,22 +1025,22 @@ MODULE mo_ocean_nml
 
     !IF (forcing_enable_freshwater) THEN
     !  !limit_elevation = .TRUE.
-    !  CALL message(TRIM(routine),'WARNING, limit_elevation set to .TRUE. with forcing_enable_freshwater=.TRUE.')
+    !  CALL message(method_name,'WARNING, limit_elevation set to .TRUE. with forcing_enable_freshwater=.TRUE.')
     !END IF
 
     IF (forcing_set_runoff_to_zero) THEN
-      CALL message(TRIM(routine),'WARNING, forcing_set_runoff_to_zero is .TRUE. - forcing with river runoff is set to zero')
+      CALL message(method_name,'WARNING, forcing_set_runoff_to_zero is .TRUE. - forcing with river runoff is set to zero')
     END IF
 
 #ifndef __NO_ICON_ATMO__
     IF ( is_coupled_run() ) THEN
       iforc_oce = Coupled_FluxFromAtmo
-      CALL message(TRIM(routine),'WARNING, iforc_oce set to 14 for coupled experiment')
+      CALL message(method_name,'WARNING, iforc_oce set to 14 for coupled experiment')
  !!!  limiters can now be set by namelist
  !!!  limit_elevation = .FALSE.
- !!!  CALL message(TRIM(routine),'WARNING, limit_elevation set to .FALSE. for coupled experiment')
+ !!!  CALL message(method_name,'WARNING, limit_elevation set to .FALSE. for coupled experiment')
  !!!  limit_seaice = .FALSE.
- !!!  CALL message(TRIM(routine),'WARNING, limit_seaice set to .FALSE. - no limit for coupled experiment')
+ !!!  CALL message(method_name,'WARNING, limit_seaice set to .FALSE. - no limit for coupled experiment')
     END IF
 #endif
 
@@ -1060,8 +1061,8 @@ MODULE mo_ocean_nml
 
     ! 3-char string with marked processes to be printed out for debug purposes
     str_proc_tst =  (/  & 
-      &  'all', &  ! initiate print messages in all routines
-      &  'abm', &  ! main timestepping routines       in mo_ocean_ab_timestepping (mimetic/rbf)
+      &  'all', &  ! initiate print messages in all method_names
+      &  'abm', &  ! main timestepping method_names       in mo_ocean_ab_timestepping (mimetic/rbf)
       &  'vel', &  ! velocity advection and diffusion in mo_ocean_veloc_advection
       &  'dif', &  ! diffusion                        in mo_ocean_diffusion
       &  'trc', &  ! tracer advection and diffusion   in mo_ocean_tracer_transport
