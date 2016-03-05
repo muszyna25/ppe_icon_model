@@ -115,7 +115,7 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: edge_based    = 2
 
   INTEGER :: tracer_update_mode = i_post_step
-  INTEGER :: tracer_HorizontalAdvection_type = edge_based
+  INTEGER :: tracer_HorizontalAdvection_type = cell_based
   !Options for non-linear corilois term in vector invariant velocity equations
   INTEGER, PARAMETER :: NO_CORIOLIS                   = 0
   INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_DUAL_GRID  = 200 !Default
