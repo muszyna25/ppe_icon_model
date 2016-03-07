@@ -1688,6 +1688,8 @@ CONTAINS
     &                 cosmu0,          & ! optional: cosine of zenith angle
     &                 opt_nh_corr   ,  & ! optional: switch for applying corrections for NH model
     &                 use_trsolclr_sfc,& ! optional: use clear-sky surface transmissivity passed on input
+    &                 jg            ,  & ! optional: domain index
+    &                 krow          ,  & ! optional: block index
     &                 ptrmsw        ,  &
     &                 pflxlw        ,  &
     &                 pdtdtradsw    ,  &
@@ -1746,6 +1748,10 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL   ::  &
       &     opt_nh_corr, use_trsolclr_sfc
 
+    INTEGER, INTENT(in), OPTIONAL   ::  &
+      &     jg,                         & ! index of domain
+      &     krow                          ! block index
+   
     REAL(wp), INTENT(inout) ::       &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
       &     pdtdtradlw (kbdim,klev)    ! longwave temperature tendency            [K/s]
@@ -1777,6 +1783,7 @@ CONTAINS
       &     intclw (kbdim,klevp1), &
       &     intcli (kbdim,klevp1), &
       &     dlwflxall_o_dtg(kbdim,klevp1)
+    REAL(wp) :: dummy(kbdim,klevp1)
 
     REAL(wp) :: swfac1(kbdim), swfac2(kbdim), dflxsw_o_dalb(kbdim), trsolclr(kbdim), logtqv(kbdim)
 
@@ -2011,13 +2018,21 @@ CONTAINS
 
 ! Calculate radiative forcing
     zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
-!!$    CALL calculate_psrad_radiation_forcing( jg, &
-!!$                  &  jcs                ,jce                 ,kbdim           &
-!!$                  & ,klevp1             ,krow                ,psteplen        &
-!!$                  & ,pi0             &
-!!$                  & ,zconv              ,zflxsw              ,zflxs0          &
-!!$                  &  ,zflxt           &
-!!$                  & ,zflxt0             ,zti                 ,pztsnew         )
+    CALL calculate_psrad_radiation_forcing( &
+                  & jg=jg,                  &
+                  & jcs=jcs,                &
+                  & jce=jce,                &
+                  & kbdim=kbdim,            &
+                  & klevp1=klevp1,          &
+                  & krow=krow,              &       
+                  & pi0=pi0,                &
+                  & pconvfact=zconv,        &
+                  & pflxs=zflxsw,           &
+                  & pflxs0=dummy,           &
+                  & pflxt=zflxlw,           &
+                  & pflxt0=dummy,           &   
+                  & ptsfctrad=ptsfctrad,    &
+                  & pztsnew=ptsfc           )
 
 
   END SUBROUTINE radheat
