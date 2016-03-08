@@ -27,7 +27,7 @@ MODULE mo_psrad_radiation_forcing
   USE mo_datetime,            ONLY: rdaylen
   USE mo_physical_constants,  ONLY: stbo
   USE mo_radiation_config,    ONLY: lradforcing
-  USE mo_psrad_radiation_parameters,ONLY: cemiss
+!!$  USE mo_psrad_radiation_parameters,ONLY: cemiss
 
   IMPLICIT NONE
   PRIVATE
@@ -74,11 +74,11 @@ MODULE mo_psrad_radiation_forcing
   !!  S.J.Lorenz
   !-----------------------------------------------------------------------------
   SUBROUTINE calculate_psrad_radiation_forcing( jg                 &
-       & ,jcs        ,jce ,kbdim               ,klevp1          &
-       & ,krow               ,pi0             &
-       & ,pconvfact          ,pflxs               ,pflxs0          &
-       & ,pflxt              ,pflxt0              ,ptsfctrad            &
-       & ,pztsnew                                                  )
+       & ,jcs                ,jce              ,kbdim              &
+       & ,klevp1             ,krow             ,pi0                &
+       & ,pconvfact          ,pflxs            ,pflxs0             &
+       & ,pflxt              ,pflxt0           ,pemiss             &
+       & ,ptsfctrad          ,pztsnew                              )
     INTEGER, INTENT(in)          :: jg,     & !< domain index 
                                   & jcs,jce, & !< block length
                                   & kbdim,  & !< maximum block length
@@ -87,10 +87,11 @@ MODULE mo_psrad_radiation_forcing
     REAL(wp), INTENT(in)         :: &
          & pi0(kbdim),                 & !< solar irradiance at top of atmosphere
          & pconvfact(kbdim,klevp1-1),  & !< conversion factor radiation flux -> heating rate
-         & pflxs(kbdim,klevp1),        & !< short wave net radiation flux per Watt irradiance (all sky)
-         & pflxs0(kbdim,klevp1),       & !< short wave net radiation flux per Watt irradiance (clear sky)
-         & pflxt(kbdim,klevp1),        & !< long wave net radiation flux per Watt irradiance (all sky)
-         & pflxt0(kbdim,klevp1),       & !< long wave net radiation flux per Watt irradiance (clear sky)
+         & pflxs(kbdim,klevp1),        & !< short wave net radiation flux (all sky)
+         & pflxs0(kbdim,klevp1),       & !< short wave net radiation flux (clear sky)
+         & pflxt(kbdim,klevp1),        & !< long wave net radiation flux (all sky)
+         & pflxt0(kbdim,klevp1),       & !< long wave net radiation flux (clear sky)
+         & pemiss(kbdim),              & !< emissivity at surface
          & ptsfctrad(kbdim),           & !< surface temperature at radiation time step
          & pztsnew(kbdim)                !< surface temperature
 
@@ -101,6 +102,7 @@ MODULE mo_psrad_radiation_forcing
                                  & zflxs_clear_for(kbdim,klevp1), &
                                  & zflxt_all_for(kbdim,klevp1), &
                                  & zflxt_clear_for(kbdim,klevp1)
+    REAL(wp)                    :: dlwem_o_dtg(kbdim)
     REAL(wp)                    :: zdtdt_sw, zdtdt_all_for_sw, &
          zdtdt_lw, zdtdt_all_for_lw
 
@@ -114,8 +116,8 @@ MODULE mo_psrad_radiation_forcing
       !--- Radiation flux forcing:
       zflxs_all_for(jcs:jce,1:klevp1)=SPREAD(pi0(jcs:jce),2,klevp1)* &
            ztrsol_for(jcs:jce,1:klevp1)
-!!$      zflxs_clear_for(jcs:jce,1:klevp1)=SPREAD(pi0(jcs:jce),2,klevp1)* &
-!!$           ztrsof_for(jcs:jce,1:klevp1)
+      zflxs_clear_for(jcs:jce,1:klevp1)=SPREAD(pi0(jcs:jce),2,klevp1)* &
+           ztrsof_for(jcs:jce,1:klevp1)
       !  forcing solar wave length bands:
       DO jk = 1, klev
         DO jl = jcs, jce
@@ -125,14 +127,13 @@ MODULE mo_psrad_radiation_forcing
         ENDDO
       END DO
       DO jk = 1, klevp1
-        psf(jg)%d_aflx_sw(jcs:jce,jk,krow) = pflxs(jcs:jce,jk)-zflxs_all_for(jcs:jce,jk)
-!!$        psf(jg)%d_aflx_swc(jcs:jce,jk,krow) = psf(jg)%d_aflx_swc(jcs:jce,jk,krow) + &
-!!$             (pflxs0(jcs:jce,jk)-zflxs_clear_for(jcs:jce,jk))*psteplen
+        psf(jg)%d_aflx_sw(jcs:jce,jk,krow)  = pflxs(jcs:jce,jk) - zflxs_all_for(jcs:jce,jk)
+        psf(jg)%d_aflx_swc(jcs:jce,jk,krow) = pflxs0(jcs:jce,jk)- zflxs_clear_for(jcs:jce,jk)
       END DO
       psf(jg)%fsw_total_top(jcs:jce,krow)=psf(jg)%d_aflx_sw(jcs:jce,1,krow)
       psf(jg)%fsw_total_sur(jcs:jce,krow)=psf(jg)%d_aflx_sw(jcs:jce,klevp1,krow)
-!!$      psf(jg)%fsw_clear_top(jcs:jce,krow)=psf(jg)%d_aflx_swc(jcs:jce,1,krow)
-!!$      psf(jg)%fsw_clear_sur(jcs:jce,krow)=psf(jg)%d_aflx_swc(jcs:jce,klevp1,krow)
+      psf(jg)%fsw_clear_top(jcs:jce,krow)=psf(jg)%d_aflx_swc(jcs:jce,1,krow)
+      psf(jg)%fsw_clear_sur(jcs:jce,krow)=psf(jg)%d_aflx_swc(jcs:jce,klevp1,krow)
     END IF
 
     IF (lradforcing(2)) THEN
@@ -142,15 +143,21 @@ MODULE mo_psrad_radiation_forcing
       ! in the following formulae, the order of calculation has to be as is
       ! if not, for an aerosol free atmosphere the forcing is not exactly 0
       ! because of numeric effects (see the corresponding formulae in radheat)
-      zflxt_all_for(jcs:jce,klevp1)=zemter_for(jcs:jce,klevp1)+ &
-           cemiss*stbo*ptsfctrad(jcs:jce)**4
-      zflxt_all_for(jcs:jce,klevp1)=zflxt_all_for(jcs:jce,klevp1)- &
-           cemiss*stbo*pztsnew(jcs:jce)**4
-!!$      zflxt_clear_for(jcs:jce,1:klev)=zemtef_for(jcs:jce,1:klev)
-!!$      zflxt_clear_for(jcs:jce,klevp1)=zemtef_for(jcs:jce,klevp1) + &
-!!$           cemiss*stbo*ptsfctrad(jcs:jce)**4
-!!$      zflxt_clear_for(jcs:jce,klevp1)=zflxt_clear_for(jcs:jce,klevp1)- &
-!!$           cemiss*stbo*pztsnew(jcs:jce)**4
+      ! NEW adjustment of radiation at surface by Tayler expansion
+      dlwem_o_dtg(jcs:jce) =  pemiss(jcs:jce)*4._wp*stbo*pztsnew(jcs:jce)**3
+!!$      zflxt_all_for(jcs:jce,klevp1)   = zemter_for(jcs:jce,klevp1)+ &
+!!$           pemiss(jcs:jce)*stbo*ptsfctrad(jcs:jce)**4
+!!$      zflxt_all_for(jcs:jce,klevp1)   = zflxt_all_for(jcs:jce,klevp1)- &
+!!$           pemiss(jcs:jce)*stbo*pztsnew(jcs:jce)**4
+      zflxt_all_for(jcs:jce,klevp1)   = zemter_for(jcs:jce,klevp1) &
+           & - dlwem_o_dtg(jcs:jce) * (pztsnew(jcs:jce) - ptsfctrad(jcs:jce))
+      zflxt_clear_for(jcs:jce,1:klev) = zemtef_for(jcs:jce,1:klev)
+!!$      zflxt_clear_for(jcs:jce,klevp1) = zemtef_for(jcs:jce,klevp1) + &
+!!$           pemiss(jcs:jce)*stbo*ptsfctrad(jcs:jce)**4
+!!$      zflxt_clear_for(jcs:jce,klevp1) = zflxt_clear_for(jcs:jce,klevp1)- &
+!!$           pemiss(jcs:jce)*stbo*pztsnew(jcs:jce)**4
+      zflxt_clear_for(jcs:jce,klevp1) = zemtef_for(jcs:jce,klevp1) &
+           & - dlwem_o_dtg(jcs:jce) * (pztsnew(jcs:jce) - ptsfctrad(jcs:jce))
       DO jk = 1,klev
         DO jl = jcs, jce
           zdtdt_lw=pconvfact(jl,jk)*(pflxt(jl,jk+1)-pflxt(jl,jk))
@@ -159,14 +166,13 @@ MODULE mo_psrad_radiation_forcing
         END DO
       END DO
       DO jk = 1, klevp1
-        psf(jg)%d_aflx_lw(jcs:jce,jk,krow) = pflxt(jcs:jce,jk)-zflxt_all_for(jcs:jce,jk)
-!!$        psf(jg)%d_aflx_lwc(jcs:jce,jk,krow) = psf(jg)%d_aflx_lwc(jcs:jce,jk,krow) + &
-!!$             (pflxt0(jcs:jce,jk)-zflxt_clear_for(jcs:jce,jk))*psteplen
+        psf(jg)%d_aflx_lw(jcs:jce,jk,krow)  = pflxt(jcs:jce,jk)-zflxt_all_for(jcs:jce,jk)
+        psf(jg)%d_aflx_lwc(jcs:jce,jk,krow) = pflxt0(jcs:jce,jk)-zflxt_clear_for(jcs:jce,jk)
       END DO
       psf(jg)%flw_total_top(jcs:jce,krow) = psf(jg)%d_aflx_lw(jcs:jce,1,krow)
       psf(jg)%flw_total_sur(jcs:jce,krow) = psf(jg)%d_aflx_lw(jcs:jce,klevp1,krow)
-!!$      psf(jg)%flw_clear_top(jcs:jce,krow) = psf(jg)%d_aflx_lwc(jcs:jce,1,krow)
-!!$      psf(jg)%flw_clear_sur(jcs:jce,krow) = psf(jg)%d_aflx_lwc(jcs:jce,klevp1,krow)
+      psf(jg)%flw_clear_top(jcs:jce,krow) = psf(jg)%d_aflx_lwc(jcs:jce,1,krow)
+      psf(jg)%flw_clear_sur(jcs:jce,krow) = psf(jg)%d_aflx_lwc(jcs:jce,klevp1,krow)
     END IF
   END SUBROUTINE calculate_psrad_radiation_forcing
 

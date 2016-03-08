@@ -186,7 +186,7 @@ cat > ${atmo_namelist} << EOF
 &psrad_nml
 lradforcing       = .TRUE.,.TRUE. ! diagnose instantaneous radiative forcing
                                   ! for solar and lw spectrum
-iaero_forcing     = 15          ! Kinne aerosols + Stenchikov's volc aerosols
+irad_aero_forcing     = 15        ! Kinne aerosols + Stenchikov's volc aerosols
                                 ! as reference for instantaneous forcing
 rad_perm          = 1           ! Integer for perturbing random number seeds
 /

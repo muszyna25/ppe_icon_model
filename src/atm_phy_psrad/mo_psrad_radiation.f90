@@ -133,7 +133,7 @@ MODULE mo_psrad_radiation
   USE mo_psrad_radiation_parameters, ONLY:                     &
 !!$                                     ldiur,                    &
 !!$                                     lradforcing,              &
-                                     iaero_forcing,            &
+                                     irad_aero_forcing,        &
                                      l_interp_rad_in_time,     &
                                      zepzen,                   &
 !!$                                     lyr_perp,                 &
@@ -404,12 +404,12 @@ MODULE mo_psrad_radiation
     CHARACTER(len=*), INTENT(IN)      :: file_name
     INTEGER :: istat, funit
 
-    NAMELIST /psrad_nml/ lradforcing,   &
-                       & iaero_forcing, &
-                       & lw_gpts_ts,    &
-                       & lw_spec_samp,  &
-                       & rad_perm,      &
-                       & sw_gpts_ts,    &
+    NAMELIST /psrad_nml/ lradforcing,       &
+                       & irad_aero_forcing, &
+                       & lw_gpts_ts,        &
+                       & lw_spec_samp,      &
+                       & rad_perm,          &
+                       & sw_gpts_ts,        &
                        & sw_spec_samp
     ! 0.9 Read psrad_orbit namelist
     CALL read_psrad_orbit_namelist(file_name)
@@ -750,7 +750,7 @@ MODULE mo_psrad_radiation
       WRITE (message_text,'(a18,L3,a20,L3,a39,I3)')       &
            ' solar radiation: ',   lradforcing(1), &
            ' thermal radiation: ', lradforcing(2), &
-           ' iaero_forcing for reference aerosols: ', iaero_forcing
+           ' irad_aero_forcing for reference aerosols: ', irad_aero_forcing
       CALL message('',message_text)
       !
       ! --- Check perpetual orbit
@@ -1017,7 +1017,7 @@ MODULE mo_psrad_radiation
 
     DO i_rad_call = 1,number_rad_call
       iaero_call = iaero
-      IF (i_rad_call < number_rad_call) iaero_call = 0
+      IF (i_rad_call < number_rad_call) iaero_call = irad_aero_forcing
 
       CALL psrad_interface( jg,       &
            & iaero_call      ,kproma          ,kbdim           ,klev            ,& 

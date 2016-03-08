@@ -64,7 +64,7 @@ MODULE mo_radiation
     &                                irad_cfc12, vmr_cfc12,   &
     &                                irad_aero,               &
     &                                lrad_aero_diag,          &
-    &                                izenith
+    &                                izenith, lradforcing
   USE mo_lnd_nwp_config,       ONLY: isub_seaice, isub_lake
 
   USE mo_newcld_optics,        ONLY: newcld_optics
@@ -1692,6 +1692,8 @@ CONTAINS
     &                 krow          ,  & ! optional: block index
     &                 ptrmsw        ,  &
     &                 pflxlw        ,  &
+    &                 ptrmswclr     ,  & ! optional: shortwave net transmissivity at last rad. step clear sky []
+    &                 pflxlwclr     ,  & ! optional: longwave net flux at last rad. step clear sky [W/m2]
     &                 pdtdtradsw    ,  &
     &                 pdtdtradlw    ,  &
     &                 pflxsfcsw     ,  &
@@ -1751,6 +1753,10 @@ CONTAINS
     INTEGER, INTENT(in), OPTIONAL   ::  &
       &     jg,                         & ! index of domain
       &     krow                          ! block index
+
+    REAL(wp), INTENT(in), OPTIONAL  ::  &
+      &     ptrmswclr   (kbdim,klevp1), & ! shortwave net transmissivity at last rad. step clear sky []
+      &     pflxlwclr   (kbdim,klevp1)    ! longwave net flux at last rad. step clear sky [W/m2]
    
     REAL(wp), INTENT(inout) ::       &
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
@@ -1775,6 +1781,8 @@ CONTAINS
     REAL(wp) ::                    &
       &     zflxsw (kbdim,klevp1), &
       &     zflxlw (kbdim,klevp1), &
+      &     zflxswclr(kbdim,klevp1),&
+      &     zflxlwclr(kbdim,klevp1),&
       &     zconv  (kbdim,klev)  , &
       &     tqv    (kbdim)       , &
       &     dlwem_o_dtg(kbdim)   , &
@@ -1816,11 +1824,21 @@ CONTAINS
     ! Shortwave fluxes = transmissivity * local solar incoming flux at TOA
     ! ----------------
     ! - TOA
-    zflxsw(jcs:jce,1)      = ptrmsw(jcs:jce,1)      *        pi0(jcs:jce)
+    zflxsw(jcs:jce,1)         = ptrmsw(jcs:jce,1)         *        pi0(jcs:jce)
     ! - Atmosphere
-    zflxsw(jcs:jce,2:klev) = ptrmsw(jcs:jce,2:klev) * SPREAD(pi0(jcs:jce),2,klev-1)
+    zflxsw(jcs:jce,2:klev)    = ptrmsw(jcs:jce,2:klev)    * SPREAD(pi0(jcs:jce),2,klev-1)
     ! - Surface
-    zflxsw(jcs:jce,klevp1) = ptrmsw(jcs:jce,klevp1) *        pi0(jcs:jce)
+    zflxsw(jcs:jce,klevp1)    = ptrmsw(jcs:jce,klevp1)    *        pi0(jcs:jce)
+    IF (lradforcing(1)) THEN
+      ! Shortwave fluxes clear sky = transmissivity clear sky * local solar incoming flux at TOA
+      ! ----------------
+      ! - TOA
+      zflxswclr(jcs:jce,1)      = ptrmswclr(jcs:jce,1)      *        pi0(jcs:jce)
+      ! - Atmosphere
+      zflxswclr(jcs:jce,2:klev) = ptrmswclr(jcs:jce,2:klev) * SPREAD(pi0(jcs:jce),2,klev-1)
+      ! - Surface
+      zflxswclr(jcs:jce,klevp1) = ptrmswclr(jcs:jce,klevp1) *        pi0(jcs:jce)
+    END IF
     ! Longwave fluxes
     ! - TOA
 !    zflxlw(jcs:jce,1)      = pflxlw(jcs:jce,1)
@@ -1991,7 +2009,24 @@ CONTAINS
 !!$      zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)                      &
 !!$        &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
 !!$        &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
+      IF (lradforcing(2)) THEN
+        ! Longwave fluxes clear sky: For now keep fluxes fixed at TOA and in atmosphere,
+        ! but adjust flux from surface to the current surface temperature.
+        ! - TOA
+        zflxlwclr(jcs:jce,1)      = pflxlwclr(jcs:jce,1)
+        ! - Atmosphere
+        zflxlwclr(jcs:jce,2:klev) = pflxlwclr(jcs:jce,2:klev)
 
+        ! - Surface
+        !   Adjust net sfc longwave radiation for changed surface temperature (ptsfc) with respect to the
+        !   surface temperature used for the longwave flux computation (ptsfctrad).
+        !   --> modifies heating in lowermost layer only (is this smart?)
+        !   This assumes that downward sfc longwave radiation is constant between radiation time steps and
+        !   upward and net sfc longwave radiation are updated between radiation time steps
+        dlwem_o_dtg(jcs:jce) = pemiss(jcs:jce)*4._wp*stbo*ptsfc(jcs:jce)**3    ! Derivative of upward sfc rad wrt to sfc temperature
+        zflxlwclr(jcs:jce,klevp1) = pflxlwclr(jcs:jce,klevp1)                & ! Net longwave sfc rad at radiation time step
+        & - dlwem_o_dtg(jcs:jce) * (ptsfc(jcs:jce) - ptsfctrad(jcs:jce))       ! Correction for new sfc temp between radiation time steps
+      END IF
 
     ENDIF
 
@@ -2028,9 +2063,10 @@ CONTAINS
                   & pi0=pi0,                &
                   & pconvfact=zconv,        &
                   & pflxs=zflxsw,           &
-                  & pflxs0=dummy,           &
+                  & pflxs0=zflxswclr,       &
                   & pflxt=zflxlw,           &
-                  & pflxt0=dummy,           &   
+                  & pflxt0=zflxlwclr,       &   
+                  & pemiss=pemiss,          &
                   & ptsfctrad=ptsfctrad,    &
                   & pztsnew=ptsfc           )
 

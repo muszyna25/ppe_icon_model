@@ -618,9 +618,11 @@ CONTAINS
         & ptsfctrad  = field%tsfc_radt(:,jb)          ,&! in    rad. surface temp. at last rad. step [K]
         & jg         = jg                             ,&! in    domain index
         & krow       = jb                             ,&! in    block index
-        & ptrmsw     = field%swtrmall         (:,:,jb),&! in    shortwave net tranmissivity at last rad. step []
+        & ptrmsw     = field%swtrmall         (:,:,jb),&! in    shortwave net transmissivity at last rad. step []
         & pflxlw     = field%lwflxall         (:,:,jb),&! in    longwave net flux at last rad. step [W/m2]
         & lwflx_up_sfc_rs = field%lwflxupsfc  (:,  jb),&! in    surface longwave upward flux at last rad. step [W/m2]
+        & ptrmswclr  = field%swtrmclr         (:,:,jb),&! in    shortwave net transmissivity at last rad. step clear sky []
+        & pflxlwclr  = field%lwflxclr         (:,:,jb),&! in    longwave net flux at last rad. step clear sky [W/m2]
         !
         ! output
         ! ------
