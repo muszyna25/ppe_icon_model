@@ -442,7 +442,8 @@ CONTAINS
                                & pprfac_sfc, prho_sfc,                   &! out
                                & ptkevn_sfc, pthvvar_sfc,                &! out
                                & pqshear_sfc, pustarm,                   &! out
-                               & pch_sfc, pchn_sfc, pcdn_sfc, pcfnc_sfc, &! out
+                               & pch_sfc,                                &! out
+!                               & pch_sfc, pchn_sfc, pcdn_sfc, pcfnc_sfc, &! out
                                & pbn_sfc, pbhn_sfc, pbm_sfc, pbh_sfc,    &! out
                                & paz0lh,                                 &! in, optional
                                & pcsat, pcair                            &! in, optional
@@ -511,9 +512,9 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pbhn_sfc (kbdim,ksfc_type) !< for diagnostics
     REAL(wp),INTENT(OUT) :: pbm_sfc  (kbdim,ksfc_type) !< for diagnostics
     REAL(wp),INTENT(OUT) :: pbh_sfc  (kbdim,ksfc_type) !< for diagnostics
-    REAL(wp),INTENT(OUT) :: pchn_sfc (kbdim,ksfc_type) !<
-    REAL(wp),INTENT(OUT) :: pcdn_sfc (kbdim,ksfc_type) !<
-    REAL(wp),INTENT(OUT) :: pcfnc_sfc(kbdim,ksfc_type) !<
+!    REAL(wp),INTENT(OUT) :: pchn_sfc (kbdim,ksfc_type) !<
+!    REAL(wp),INTENT(OUT) :: pcdn_sfc (kbdim,ksfc_type) !<
+!    REAL(wp),INTENT(OUT) :: pcfnc_sfc(kbdim,ksfc_type) !<
     REAL(wp),INTENT(OUT) :: pch_sfc  (kbdim,ksfc_type) !< for TKE boundary condition
 !
 ! optional arguments for use with jsbach
@@ -528,9 +529,9 @@ CONTAINS
 !    REAL(wp) :: pbhn_sfc (kbdim,ksfc_type) !< for diagnostics
 !    REAL(wp) :: pbm_sfc  (kbdim,ksfc_type) !< for diagnostics
 !    REAL(wp) :: pbh_sfc  (kbdim,ksfc_type) !< for diagnostics
-!    REAL(wp) :: pchn_sfc (kbdim,ksfc_type) !<
-!    REAL(wp) :: pcdn_sfc (kbdim,ksfc_type) !<
-!    REAL(wp) :: pcfnc_sfc(kbdim,ksfc_type) !<
+    REAL(wp) :: pchn_sfc (kbdim,ksfc_type) !<
+    REAL(wp) :: pcdn_sfc (kbdim,ksfc_type) !<
+    REAL(wp) :: pcfnc_sfc(kbdim,ksfc_type) !<
 
     ! Local variables
 
@@ -962,14 +963,14 @@ CONTAINS
       END DO
     END DO
 ! extra variable for land points:
-    IF (idx_lnd<=ksfc_type) THEN
-     jsfc = idx_lnd  ! land
-      DO jls = 1,is(jsfc)
-! set index
-      js=loidx(jls,jsfc)
-        pbhn_sfc(js,jsfc) = ckap / SQRT(pchn_sfc(js,jsfc))
-      END DO
-    END IF
+!    IF (idx_lnd<=ksfc_type) THEN
+!     jsfc = idx_lnd  ! land
+!      DO jls = 1,is(jsfc)
+!! set index
+!      js=loidx(jls,jsfc)
+!        pbhn_sfc(js,jsfc) = ckap / SQRT(pchn_sfc(js,jsfc))
+!      END DO
+!    END IF
 
   END SUBROUTINE sfc_exchange_coeff
   !-------------

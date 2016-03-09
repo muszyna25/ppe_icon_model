@@ -59,8 +59,9 @@ CONTAINS
                        & pfactor_sfc, pcpt_tile,                        &! out
                        & pcptgz,     prhoh,     pqshear,                &! out
                        & pzthvvar,   pztkevn,                           &! out
-                       & pch_tile,   pchn_tile,                         &! out, for "nsurf_diag"
-                       & pcdn_tile,  pcfnc_tile,                        &! out, for "nsurf_diag"
+                       & pch_tile,                                      &! out, for "nsurf_diag"
+!                       & pch_tile,   pchn_tile,                         &! out, for "nsurf_diag"
+!                       & pcdn_tile,  pcfnc_tile,                        &! out, for "nsurf_diag"
                        & pbn_tile,   pbhn_tile,                         &! out, for "nsurf_diag"
                        & pbm_tile,   pbh_tile,                          &! out, for "nsurf_diag"
                        & pcsat,                                         &! in
@@ -165,9 +166,9 @@ CONTAINS
       & pztkevn   (kbdim,klev)       !< intermediate value of TKE
 
     REAL(wp), INTENT(OUT) :: pch_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
-    REAL(wp), INTENT(OUT) :: pchn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
-    REAL(wp), INTENT(OUT) :: pcdn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
-    REAL(wp), INTENT(OUT) :: pcfnc_tile(kbdim,ksfc_type)  ! out, for "nsurf_diag"
+!    REAL(wp), INTENT(OUT) :: pchn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
+!    REAL(wp), INTENT(OUT) :: pcdn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
+!    REAL(wp), INTENT(OUT) :: pcfnc_tile(kbdim,ksfc_type)  ! out, for "nsurf_diag"
     REAL(wp), INTENT(OUT) :: pbn_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
     REAL(wp), INTENT(OUT) :: pbhn_tile(kbdim,ksfc_type)   ! out, for "nsurf_diag"
     REAL(wp), INTENT(OUT) :: pbm_tile(kbdim,ksfc_type)    ! out, for "nsurf_diag"
@@ -260,8 +261,9 @@ CONTAINS
                            & pztkevn(:,klev), pzthvvar(:,klev),     &! out
                            & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
                            & pustar(:),                             &! out, for "atm_exchange_coeff" at next time step
-                           & pch_tile(:,:),   pchn_tile(:,:),       &! out, for "nsurf_diag"
-                           & pcdn_tile(:,:),  pcfnc_tile(:,:),      &! out, for "nsurf_diag"
+                           & pch_tile(:,:),                         &! out, for "nsurf_diag"
+!                           & pch_tile(:,:),   pchn_tile(:,:),       &! out, for "nsurf_diag"
+!                           & pcdn_tile(:,:),  pcfnc_tile(:,:),      &! out, for "nsurf_diag"
                            & pbn_tile(:,:),   pbhn_tile(:,:),       &! out, for "nsurf_diag"
                            & pbm_tile(:,:),   pbh_tile(:,:),        &! out, for "nsurf_diag"
                            & paz0lh(:),                             &! in, optional

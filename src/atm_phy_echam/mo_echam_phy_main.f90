@@ -176,9 +176,9 @@ CONTAINS
     REAL(wp) :: zthvvar  (nbdim,nlev) !< intermediate value of thvvar
     REAL(wp) :: ztkevn   (nbdim,nlev) !< intermediate value of tke
     REAL(wp) :: zch_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
-    REAL(wp) :: zchn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
-    REAL(wp) :: zcdn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
-    REAL(wp) :: zcfnc_tile(nbdim,nsfc_type)  !<  for "nsurf_diag"
+!    REAL(wp) :: zchn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
+!    REAL(wp) :: zcdn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
+!    REAL(wp) :: zcfnc_tile(nbdim,nsfc_type)  !<  for "nsurf_diag"
     REAL(wp) :: zbn_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
     REAL(wp) :: zbhn_tile(nbdim,nsfc_type)   !<  for "nsurf_diag"
     REAL(wp) :: zbm_tile (nbdim,nsfc_type)   !<  for "nsurf_diag"
@@ -744,9 +744,9 @@ CONTAINS
                      & zthvvar(:,:),                    &! out, for "vdiff_up"
                      & ztkevn (:,:),                    &! out, for "vdiff_up"
                      & zch_tile(:,:),                   &! out, for "nsurf_diag"
-                     & zchn_tile(:,:),                  &! out, for "nsurf_diag"
-                     & zcdn_tile(:,:),                  &! out, for "nsurf_diag"
-                     & zcfnc_tile(:,:),                 &! out, for "nsurf_diag"
+!                     & zchn_tile(:,:),                  &! out, for "nsurf_diag"
+!                     & zcdn_tile(:,:),                  &! out, for "nsurf_diag"
+!                     & zcfnc_tile(:,:),                 &! out, for "nsurf_diag"
                      & zbn_tile(:,:),                   &! out, for "nsurf_diag"
                      & zbhn_tile(:,:),                  &! out, for "nsurf_diag"
                      & zbm_tile(:,:),                   &! out, for "nsurf_diag"
@@ -958,6 +958,7 @@ CONTAINS
                    & zcptgz(:,nlev),                  &! in dry static energy
                    & zcpt_sfc_tile(:,:),              &! in dry static energy
                    & zbn_tile(:,:),                   &! in for diagnostic
+                   & zbhn_tile(:,:),                  &! in for diagnostic
                    & zbh_tile(:,:),                   &! in for diagnostic
                    & zbm_tile(:,:),                   &! in for diagnostic
                    & zri_tile(:,:),                   &! in 

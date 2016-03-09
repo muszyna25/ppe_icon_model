@@ -2142,7 +2142,7 @@ CONTAINS
     !-----------------------------------------
 
     CALL add_var( field_list, prefix//'sp_10m', field%sp_10m,                   &
-                & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M,                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
                 & t_cf_var('sp_10m','m s-1','10m windspeed',                    &
                 &          datatype_flt),                                       &
                 & grib2_var(0,2,1, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -2151,7 +2151,7 @@ CONTAINS
                 & isteptype=TSTEP_INSTANT                                       )
 
     CALL add_var( field_list, prefix//'u_10m', field%u_10m,                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M,                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
                 & t_cf_var('u_10m','m s-1','zonal wind in 10m',                 &
                 &          datatype_flt),                                       &
                 & grib2_var(0,2,2, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -2160,7 +2160,7 @@ CONTAINS
                 & isteptype=TSTEP_INSTANT                                       )
 
     CALL add_var( field_list, prefix//'v_10m', field%v_10m,                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_10M,                        &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                        &
                 & t_cf_var('v_10m','m s-1','meridional wind in 10m',            &
                 &          datatype_flt),                                       &
                 & grib2_var(0,2,3, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -2169,7 +2169,7 @@ CONTAINS
                 & isteptype=TSTEP_INSTANT                                       )
 
     CALL add_var( field_list, prefix//'t_2m', field%t_2m,                       &
-                & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                         &
                 & t_cf_var('t_2m','K','temperature in 2m',                      &
                 &          datatype_flt),                                       &
                 & grib2_var(0,0,0, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
@@ -2178,7 +2178,7 @@ CONTAINS
                 & isteptype=TSTEP_INSTANT                                       )
 
     CALL add_var( field_list, prefix//'td_2m', field%td_2m,                     &
-                & GRID_UNSTRUCTURED_CELL, ZA_HEIGHT_2M,                         &
+                & GRID_UNSTRUCTURED_CELL, ZA_SURFACE,                         &
                 & t_cf_var('td_2m','K','dew point temperature in 2m',           &
                 &          datatype_flt),                                       &
                 & grib2_var(0,0,6, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
