@@ -1859,7 +1859,7 @@ MODULE mo_initicon
 
           DO jc = i_startidx, i_endidx
             IF (ext_data(jg)%atm%fr_land(jc,jb) <= 1-frlnd_thrhld) THEN ! grid points with non-zero water fraction
-              IF (lanaread_tso) THEN
+              IF (lanaread_tso .OR. lanaread_tseasfc) THEN
                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt,initicon(jg)%sfc%sst(jc,jb))
               ELSE IF (ext_data(jg)%atm%fr_land(jc,jb) >= frlake_thrhld) THEN
                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
