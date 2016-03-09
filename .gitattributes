@@ -1045,7 +1045,9 @@ scripts/buildbot_scripts/bb_run -text
 scripts/buildbot_scripts/buildbot.tac.blizzard1 -text
 scripts/buildbot_scripts/buildbot.tac_master -text
 scripts/buildbot_scripts/buildbot_builders.py -text
+scripts/buildbot_scripts/buildbot_oceanlists.py -text
 scripts/buildbot_scripts/copy_plots.ksh -text
+scripts/buildbot_scripts/experiment_lists/ocean -text
 scripts/buildbot_scripts/public_html/archive.css -text
 scripts/buildbot_scripts/public_html/buildbot.css -text
 scripts/buildbot_scripts/public_html/closed.gif -text
