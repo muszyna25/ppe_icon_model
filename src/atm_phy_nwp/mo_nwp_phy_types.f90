@@ -106,7 +106,7 @@ MODULE mo_nwp_phy_types
     TYPE(t_ptr_2d3d),ALLOCATABLE :: aerosol_ptr(:)  !< pointer array: prognostic vertically integrated aerosol optical depth
 
     REAL(wp), POINTER          &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS             &
 #endif
       &  ::                    &
@@ -252,7 +252,7 @@ MODULE mo_nwp_phy_types
 
     !> Parameter fields for turbulence
     REAL(wp), POINTER      &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS         &
 #endif
       ::                   &
@@ -307,7 +307,7 @@ MODULE mo_nwp_phy_types
 
     ! need only for EDMF
     REAL(wp), POINTER       &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &
 #endif
       & ::                  &
@@ -315,7 +315,7 @@ MODULE mo_nwp_phy_types
 
     !> Diagnostics for LES turbulence
     REAL(wp), POINTER      &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS         &
 #endif
       ::                   &
@@ -330,7 +330,7 @@ MODULE mo_nwp_phy_types
 
     ! for old aerosol climatology from COSMO (to be used with inwp_radiation==2)
     REAL(wp), POINTER       &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &
 #endif
       & ::                  &
@@ -341,7 +341,7 @@ MODULE mo_nwp_phy_types
 
     ! time-interpolated values for Tegen aerosol climatology (needed as state fields for coupling with microphysics and convection)
     REAL(wp), POINTER       &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &
 #endif
       & ::                  &
@@ -353,7 +353,7 @@ MODULE mo_nwp_phy_types
       & aerosol   (:,:,:)
 
     INTEGER, POINTER        &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &
 #endif
       & ::                  &
@@ -370,7 +370,7 @@ MODULE mo_nwp_phy_types
     REAL(wp), POINTER :: tropics_mask(:,:) !< mask field that is 1 in the tropics and 0 in the extratropics
 
     LOGICAL, POINTER        &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS          &
 #endif
       & ::                  &
@@ -407,7 +407,7 @@ MODULE mo_nwp_phy_types
   TYPE t_nwp_phy_tend
 
     REAL(wp), POINTER           &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS              &
 #endif
       ::                        &

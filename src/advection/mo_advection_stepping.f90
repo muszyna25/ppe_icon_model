@@ -236,7 +236,7 @@ CONTAINS
       &  z_fluxdiv_c(nproma,p_patch%nlev)
 
     REAL(wp), POINTER   &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS        &
 #endif
       & :: ptr_current_tracer(:,:,:,:) => NULL()  !< pointer to tracer field

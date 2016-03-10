@@ -152,8 +152,8 @@ CONTAINS
     CALL message(routine, 'start of domain decomposition')
 #ifdef HAVE_SLOW_PASSIVE_TARGET_ONESIDED
     CALL message(routine, 'Is this taking a long time?&
-         & Consider removing macro defintion HAVE_SLOW_PASSIVE_TARGET_ONESIDED&
-         & from compile time settings.')
+         & Consider removing macro definition HAVE_SLOW_PASSIVE&
+         &_TARGET_ONESIDED from compile time settings.')
 #else
     CALL message(routine, 'Is this taking a long time?&
          & Consider adding macro definition HAVE_SLOW_PASSIVE_TARGET_ONESIDED&
