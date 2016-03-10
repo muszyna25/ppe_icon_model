@@ -17,40 +17,36 @@ class buildbot_experimentList(object):
     self.buildbot_machine_list = self.create_all_builders(name)
     self.experimentList = {}
 
-  # add an experiment to the list; not builder is associated here
+  # add an experiment to the list; no builder is associated here
   def add_experiment(self, name):
     if not self.experimentList.get(name):
       self.experimentList[name] = buildbot_experiment(name, self)
     return self.experimentList[name]
 
-  def add_experimentToBuilder(self, name, builder):
+  def add_experimentByNameToBuilder(self, name, builder):
     experiment = self.add_experiment(name)
     experiment.add_builder(builder)
-
-  def add_experimentToAllBuilders(self, experiment):
-    self.buildbot_machine_list.add_experimentToAllMachines(experiment)
-
-  def add_experimentToAllBuildersWithFlag(self, experiment, flag):
-    self.buildbot_machine_list.add_experimentToAllBuildersWithFlag(experiment, flag)
-
-  def add_experimentToAllBuildersWithoutFlag(self, experiment, flag):
-    self.buildbot_machine_list.add_experimentToAllBuildersWithoutFlag(experiment, flag)
-
-  def add_experimentByNameToAllBuilders(self, name):
-    experiment = self.add_experiment(name)
-    self.add_experimentToAllBuilders(experiment)
     return experiment
     
-  def add_experimentByNameToAllBuildersWithFlag(self, name, flag):
-    experiment = self.add_experiment(name)
-    self.add_experimentToAllBuildersWithFlag(experiment, flag)
-    return experiment
-    
-  def add_experimentByNameToAllBuildersWithoutFlag(self, name, flag):
-    experiment = self.add_experiment(name)
-    self.add_experimentToAllBuildersWithoutFlag(experiment, flag)
-    return experiment
+  def add_experimentsByNameToBuilders(self, name_list, builder_list):
+    exp_list = []
+    for name in name_list:
+      for builder in builder_list:
+        exp_list.append(self.add_experimentByNameToBuilder(name, builder))
+    return exp_list
 
+  def add_experimentsByNameToAllBuilders(self, name_list):
+    all_builders = self.buildbot_machine_list.get_all_builders()
+    return self.add_experimentsByNameToBuilders( name_list, all_builders)
+    
+  def add_experimentsByNameToAllBuildersWithFlag(self, name_list, flag):
+    builders_list = self.buildbot_machine_list.get_builders_withFlag(flag)
+    return self.add_experimentsByNameToBuilders( name_list, builders_list)
+    
+  def add_experimentsByNameToAllBuildersWithoutFlag(self, name_list, flag):
+    builders_list = self.buildbot_machine_list.get_builders_withoutFlag(flag)
+    return self.add_experimentsByNameToBuilders( name_list, builders_list)
+    
   def delete_experiment(self, experiment):
     self.experimentList[experiment.name].delete()
 
@@ -135,7 +131,7 @@ class buildbot_experimentList(object):
       elif (keyword == "builder"):
         builder=self.getBuilderByName(name)
       elif (keyword == "experiment"):
-        self.add_experimentToBuilder(name,builder)
+        self.add_experimentByNameToBuilder(name,builder)
       
     listfile.close()    
 #-----------------------------------------------------------------------
@@ -161,18 +157,24 @@ class buildbot_machine_list(object):
   def writeToFile_builders(self, listfile):
     for machine in self.machines.values():
       machine.writeToFile_builders(listfile)
-      
-  def add_experimentToAllMachines(self,experiment):
-    for machine in self.machines.values():
-      machine.add_experimentToAllBuilders(experiment)
 
-  def add_experimentToAllBuildersWithFlag(self,experiment, flag):
+  def get_all_builders(self):
+    all_builders = []
     for machine in self.machines.values():
-      machine.add_experimentToAllBuildersWithFlag(experiment, flag)
+      all_builders.extend(machine.get_all_builders())
+    return all_builders
+    
+  def get_builders_withFlag(self, flag):
+    builders = []
+    for machine in self.machines.values():
+      builders.extend(machine.get_builders_withFlag(flag))
+    return builders
 
-  def add_experimentToAllBuildersWithoutFlag(self,experiment, flag):
+  def get_builders_withoutFlag(self, flag):
+    builders = []
     for machine in self.machines.values():
-      machine.add_experimentToAllBuildersWithoutFlag(experiment, flag)
+      builders.extend(machine.get_builders_withoutFlag(flag))
+    return builders
 
   def getBuilderByName(self,builderName):
     for machine in self.machines.values():
@@ -258,19 +260,22 @@ class buildbot_machine(object):
     for builder in self.builders.values():
       builder.print_builder_experiments()
       
-  def add_experimentToAllBuilders(self,experiment):
-    for builder in self.builders.values():
-      experiment.add_builder(builder)
-      
-  def add_experimentToAllBuildersWithFlag(self,experiment, flag):
+  def get_all_builders(self):
+    return self.builders.values()
+
+  def get_builders_withFlag(self, flag):
+    builders = []
     for builder in self.builders.values():
       if builder.hasFlag(flag):
-        experiment.add_builder(builder)
-        
-  def add_experimentToAllBuildersWithoutFlag(self,experiment, flag):
+        builders.append(builder)        
+    return builders
+
+  def get_builders_withoutFlag(self, flag):
+    builders = []
     for builder in self.builders.values():
       if not builder.hasFlag(flag):
-        experiment.add_builder(builder)
+        builders.append(builder)
+    return builders
       
   def writeToFile_builders(self, listfile):
     listfile.write("machine:"+self.name+" "+self.queue+"\n")
