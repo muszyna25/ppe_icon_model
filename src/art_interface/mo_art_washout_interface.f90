@@ -46,7 +46,7 @@ MODULE mo_art_washout_interface
   USE mo_art_integration,               ONLY: art_integrate_explicit
 ! Washout Routines
   USE mo_art_washout_volc,              ONLY: art_washout_volc
-  USE mo_art_radioactive,               ONLY: art_washout_radioact
+  USE mo_art_washout_radioact,          ONLY: art_washout_radioact
   USE mo_art_washout_aerosol,           ONLY: art_aerosol_washout
   USE omp_lib
 #endif

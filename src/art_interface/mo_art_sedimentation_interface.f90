@@ -47,7 +47,7 @@ MODULE mo_art_sedi_interface
   USE mo_art_sedi_volc,                 ONLY: art_sedi_volc
   USE mo_art_sedi_2mom,                 ONLY: art_calc_v_sed, art_calc_sed_flx
   USE mo_art_depo_2mom,                 ONLY: art_calc_v_dep, art_store_v_dep
-  USE mo_art_radioactive,               ONLY: art_drydepo_radioact
+  USE mo_art_drydepo_radioact,          ONLY: art_drydepo_radioact
 #endif
 
   IMPLICIT NONE
