@@ -1,12 +1,15 @@
 #!/usr/bin/python3.2
 # -*- coding: utf-8 -*-
 #==============================================================================
-# Simple lib for the builders
+# Simple lib for the builders and experiment lists
 #==============================================================================
 import weakref
 
+# the default folder for the lists files
 listsFolder="experiment_lists/"
+
 #-----------------------------------------------------------------------
+# contains a list of machines+builders and a list of experiments for them
 class buildbot_experimentList(object):
 
   def __init__(self, name):
@@ -14,6 +17,7 @@ class buildbot_experimentList(object):
     self.buildbot_machine_list = self.create_all_builders(name)
     self.experimentList = {}
 
+  # add an experiment to the list; not builder is associated here
   def add_experiment(self, name):
     if not self.experimentList.get(name):
       self.experimentList[name] = buildbot_experiment(name, self)
@@ -26,15 +30,31 @@ class buildbot_experimentList(object):
   def add_experimentToAllBuilders(self, experiment):
     self.buildbot_machine_list.add_experimentToAllMachines(experiment)
 
+  def add_experimentToAllBuildersWithFlag(self, experiment, flag):
+    self.buildbot_machine_list.add_experimentToAllBuildersWithFlag(experiment, flag)
+
+  def add_experimentToAllBuildersWithoutFlag(self, experiment, flag):
+    self.buildbot_machine_list.add_experimentToAllBuildersWithoutFlag(experiment, flag)
+
   def add_experimentByNameToAllBuilders(self, name):
     experiment = self.add_experiment(name)
     self.add_experimentToAllBuilders(experiment)
+    return experiment
+    
+  def add_experimentByNameToAllBuildersWithFlag(self, name, flag):
+    experiment = self.add_experiment(name)
+    self.add_experimentToAllBuildersWithFlag(experiment, flag)
+    return experiment
+    
+  def add_experimentByNameToAllBuildersWithoutFlag(self, name, flag):
+    experiment = self.add_experiment(name)
+    self.add_experimentToAllBuildersWithoutFlag(experiment, flag)
     return experiment
 
   def delete_experiment(self, experiment):
     self.experimentList[experiment.name].delete()
 
-  # this should only called by an experiment object; use the delete_experiment() in all other cases
+  # this should only be called by an experiment object; use the delete_experiment() in all other cases
   def delete_experimentFromList(self, experiment):
     print("Deleting "+experiment.name+" from "+self.name+" list...")
     del self.experimentList[experiment.name]
@@ -89,8 +109,8 @@ class buildbot_experimentList(object):
   # i/o routines
   #---------------------------------------  
   # the files have a simple ascii form:
-  # <keyword>: name parameters
-  # keyword=machine,experiment,builder
+  # <keyword>:<name> <parameters>
+  # keyword=machine|experiment|builder
   # the hierarchy is:
   # machine:
   #   builder:
@@ -98,7 +118,7 @@ class buildbot_experimentList(object):
   def write(self):
     fileName=listsFolder+self.name
     listfile = open(fileName, 'w')
-    self.buildbot_machine_list.write_builders(listfile)    
+    self.buildbot_machine_list.writeToFile_builders(listfile)
     listfile.close()
     
   def read(self):
@@ -117,11 +137,12 @@ class buildbot_experimentList(object):
       elif (keyword == "experiment"):
         self.add_experimentToBuilder(name,builder)
       
-    listfile.close()
-    
+    listfile.close()    
 #-----------------------------------------------------------------------
 
+
 #-----------------------------------------------------------------------
+# a list of machines
 class buildbot_machine_list(object):
 
   def __init__(self, name):
@@ -137,13 +158,21 @@ class buildbot_machine_list(object):
     for machine in self.machines.values():
       machine.print_builders()
       
-  def write_builders(self, listfile):    
+  def writeToFile_builders(self, listfile):
     for machine in self.machines.values():
-      machine.write_builders(listfile)
+      machine.writeToFile_builders(listfile)
       
   def add_experimentToAllMachines(self,experiment):
     for machine in self.machines.values():
       machine.add_experimentToAllBuilders(experiment)
+
+  def add_experimentToAllBuildersWithFlag(self,experiment, flag):
+    for machine in self.machines.values():
+      machine.add_experimentToAllBuildersWithFlag(experiment, flag)
+
+  def add_experimentToAllBuildersWithoutFlag(self,experiment, flag):
+    for machine in self.machines.values():
+      machine.add_experimentToAllBuildersWithoutFlag(experiment, flag)
 
   def getBuilderByName(self,builderName):
     for machine in self.machines.values():
@@ -158,9 +187,11 @@ class buildbot_machine_list(object):
     if not machine:
       print("Error: machine "+machineName+" not found in "+self.name+".")
       quit()
+#-----------------------------------------------------------------------
 
       
 #-----------------------------------------------------------------------
+# experiment class
 class buildbot_experiment(object):
 
   def __init__(self, name, experimentList):
@@ -179,7 +210,7 @@ class buildbot_experiment(object):
   def print_experiment(self):
     print("    "+self.name)
     
-  def write_experiment(self,listfile):
+  def writeToFile_experiment(self,listfile):
     listfile.write("experiment:"+self.name+"\n")
     
   def print_builders(self):
@@ -192,7 +223,7 @@ class buildbot_experiment(object):
     print("Deleting experiment "+self.name+" from all builds...")
     for builder in self.builders.values():
       builder.delete_experiment_onlyFromExperimentObject(self)
-    print("Deleting experiment "+self.name+" builders...")
+    #print("Deleting experiment "+self.name+" builders...")
     self.builders.clear()
     #print("Deleting experiment "+self.name+" from "+self.experimentList.name+" list...")
     self.experimentList.delete_experimentFromList(self)
@@ -203,11 +234,14 @@ class buildbot_experiment(object):
     self.builders[builderName].delete_experiment_onlyFromExperimentObject(self)
     del self.builders[builderName]
     
-  def __del__(self):
-    print("Deleting experiment "+self.name+" done.")
+  #def __del__(self):
+    #print("Deleting experiment "+self.name+" done.")
+#-----------------------------------------------------------------------
    
 
 #-----------------------------------------------------------------------
+# one machine; holds a number of builders, as well as the queue to be
+# used for the associated list
 class buildbot_machine(object):
 
   def __init__(self, name, queue):
@@ -228,16 +262,30 @@ class buildbot_machine(object):
     for builder in self.builders.values():
       experiment.add_builder(builder)
       
-  def write_builders(self, listfile):
+  def add_experimentToAllBuildersWithFlag(self,experiment, flag):
+    for builder in self.builders.values():
+      if builder.hasFlag(flag):
+        experiment.add_builder(builder)
+        
+  def add_experimentToAllBuildersWithoutFlag(self,experiment, flag):
+    for builder in self.builders.values():
+      if not builder.hasFlag(flag):
+        experiment.add_builder(builder)
+      
+  def writeToFile_builders(self, listfile):
     listfile.write("machine:"+self.name+" "+self.queue+"\n")
     for builder in self.builders.values():
-      builder.write_builder_experiments(listfile)
+      builder.writeToFile_builder_experiments(listfile)
 
   def getBuilderByName(self,name):
     return self.builders.get(name)
+#-----------------------------------------------------------------------
 
 
 #-----------------------------------------------------------------------
+# the builder class; belongs to a machine and stores the flags associated
+# with it. It also holds a list of experiments associated with the builder;
+# these are driven through the experiment class, not directly for this class
 class buildbot_builder(object):
 
   def __init__(self, name, machine, flags):
@@ -248,16 +296,19 @@ class buildbot_builder(object):
 
   def print_builder(self):
     print("  "+self.name+':', self.configure_flags)
-      
+
+  def hasFlag(self,flag):
+    return (flag in self.configure_flags)
+  
   def print_builder_experiments(self):
     print("  "+self.name+':', self.configure_flags)
     for experiment in self.experiments.values():
       experiment.print_experiment()
       
-  def write_builder_experiments(self, listfile):
+  def writeToFile_builder_experiments(self, listfile):
     listfile.write("builder:"+self.name+" "+self.configure_flags+"\n")
     for experiment in self.experiments.values():
-      experiment.write_experiment(listfile)
+      experiment.writeToFile_experiment(listfile)
 
   # this should be called only from an experiment object
   def add_experiment_onlyFromExperimentObject(self, experiment):
@@ -268,7 +319,5 @@ class buildbot_builder(object):
     print(" Deleting "+experiment.name+" from "+self.name+"...")
     del self.experiments[experiment.name]
     #print(experiment.name+" is deleted from "+self.name+"...")
-    
-  
 #-----------------------------------------------------------------------
 
