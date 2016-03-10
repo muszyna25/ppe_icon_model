@@ -40,10 +40,14 @@ sameOceanList  = buildbot_experimentList("ocean")
 sameOceanList.read()
 sameOceanList.print_list()
 
+builderExps = sameOceanList.getBuilderExperimentNames("mistral_intel_hybrid")
+print(builderExps)
+quit()
+
+
 myexp = sameOceanList.get_experiment("checksuite.ocean_internal/omip/exp.ocean_omip_short")
 myexp.print_builders()
 sameOceanList.delete_experiment(myexp)
-
 # this will cause an error, since this experiment is deleted
 myexp = sameOceanList.get_experiment("checksuite.ocean_internal/omip/exp.ocean_omip_short")
 

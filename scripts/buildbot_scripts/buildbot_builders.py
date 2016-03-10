@@ -127,6 +127,9 @@ class buildbot_experimentList(object):
   def getBuilderByName(self, name):
     return self.buildbot_machine_list.getBuilderByName(name)
         
+  def getBuilderExperimentNames(self, builder_name):
+    return self.buildbot_machine_list.getBuilderExperimentNames(builder_name)
+
   def print_list(self):
     self.buildbot_machine_list.print_builders()
      
@@ -195,11 +198,19 @@ class buildbot_machine_list(object):
   def __init__(self, name):
     self.name  = name
     self.machines = {}
+    self.builders = weakref.WeakValueDictionary() # {}
 
   def add_machine(self, name, queue):
-    self.machines[name] = buildbot_machine(name, queue)
+    self.machines[name] = buildbot_machine(name, queue, self)
     return self.machines[name]
 
+  # this is only called by a child machine
+  def add_builder(self, builder):
+    if self.builders.get(builder.name):
+      print("Error: trying to add existing builder "+builder.name+". Stop")
+      quit()
+    self.builders[builder.name] = builder
+    
   def print_builders(self):
     print("----------------------------")
     for machine in self.machines.values():
@@ -243,6 +254,61 @@ class buildbot_machine_list(object):
     if not machine:
       print("Error: machine "+machineName+" not found in "+self.name+".")
       quit()
+
+  def getBuilderExperimentNames(self, builder_name):
+    if not self.builders.get(builder_name):
+      print("Error: getBuilderExperimentNames: not existing builder "+builder_name+". Stop")
+      quit()
+    return self.builders[builder_name].getExperimentNames()
+     
+#-----------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------
+# one machine; holds a number of builders, as well as the queue to be
+# used for the associated list
+class buildbot_machine(object):
+
+  def __init__(self, name, queue, machine_list):
+    self.name  = name
+    self.queue = queue
+    self.machine_list = machine_list
+    self.builders= {}
+
+  def add_builder(self, name, flags):
+    self.builders[name] = buildbot_builder(name, self, flags)
+    self.machine_list.add_builder(self.builders[name])
+    return self.builders[name]
+
+  def print_builders(self):
+    print(self.name+":")
+    for builder in self.builders.values():
+      builder.print_builder_experiments()
+
+  def get_all_builders(self):
+    return self.builders.values()
+
+  def get_builders_withFlag(self, flag):
+    builders = []
+    for builder in self.builders.values():
+      if builder.hasFlag(flag):
+        builders.append(builder)
+    return builders
+
+  def get_builders_withoutFlag(self, flag):
+    builders = []
+    for builder in self.builders.values():
+      if not builder.hasFlag(flag):
+        builders.append(builder)
+    return builders
+
+  def writeToFile_builders(self, listfile):
+    listfile.write("machine:"+self.name+" "+self.queue+"\n")
+    for builder in self.builders.values():
+      builder.writeToFile_builder_experiments(listfile)
+
+  def getBuilderByName(self,name):
+    return self.builders.get(name)
 #-----------------------------------------------------------------------
 
       
@@ -299,52 +365,6 @@ class buildbot_experiment(object):
    
 
 #-----------------------------------------------------------------------
-# one machine; holds a number of builders, as well as the queue to be
-# used for the associated list
-class buildbot_machine(object):
-
-  def __init__(self, name, queue):
-    self.name  = name
-    self.queue = queue
-    self.builders= {}
-
-  def add_builder(self, name, flags):
-    self.builders[name] = buildbot_builder(name, self, flags)
-    return self.builders[name]
-    
-  def print_builders(self):
-    print(self.name+":")
-    for builder in self.builders.values():
-      builder.print_builder_experiments()
-      
-  def get_all_builders(self):
-    return self.builders.values()
-
-  def get_builders_withFlag(self, flag):
-    builders = []
-    for builder in self.builders.values():
-      if builder.hasFlag(flag):
-        builders.append(builder)        
-    return builders
-
-  def get_builders_withoutFlag(self, flag):
-    builders = []
-    for builder in self.builders.values():
-      if not builder.hasFlag(flag):
-        builders.append(builder)
-    return builders
-      
-  def writeToFile_builders(self, listfile):
-    listfile.write("machine:"+self.name+" "+self.queue+"\n")
-    for builder in self.builders.values():
-      builder.writeToFile_builder_experiments(listfile)
-
-  def getBuilderByName(self,name):
-    return self.builders.get(name)
-#-----------------------------------------------------------------------
-
-
-#-----------------------------------------------------------------------
 # the builder class; belongs to a machine and stores the flags associated
 # with it. It also holds a list of experiments associated with the builder;
 # these are driven through the experiment class, not directly for this class
@@ -366,6 +386,9 @@ class buildbot_builder(object):
     print("  "+self.name+':', self.configure_flags)
     for experiment in self.experiments.values():
       experiment.print_experiment()
+
+  def getExperimentNames(self):
+    return list(self.experiments.keys())
       
   def writeToFile_builder_experiments(self, listfile):
     listfile.write("builder:"+self.name+" "+self.configure_flags+"\n")
