@@ -143,7 +143,7 @@ CONTAINS
       &       , zqude, zmfusk, zmfuqk, zmfulk, zxteen, zxtude, zmfuxtk               &
       &       , zbuo, zdnoprc, zprcon, zlnew, zz, zdmfeu, zdmfdu, zzdmf              &
       &       , zdz, zdrodz, zdprho, zalvs, zmse, znevn, zodmax, zga, zdt            &
-      &       , zscod, zqcod, zbuoyz, zscde, zdlev, zlift
+      &       , zscod, zqcod, zbuoyz, zscde, zlift
     !
 #ifndef __ICON__
     REAL(wp) :: pmwc(kbdim,klev),        pmrateprecip(kbdim,klev)
@@ -185,7 +185,6 @@ CONTAINS
     !
     zcons2=1._wp/(grav*ptime_step_len)
     zqold(1:kproma) = 0.0_wp
-    zdlev=3.0E4_wp
     !
     !---------------------------------------------------------------------------------
     !

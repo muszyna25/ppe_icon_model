@@ -97,8 +97,8 @@ CONTAINS
     cbfac    = 1.0_wp
     centrmax = 3.0e-4_wp
     !
-    dlev_land  = 3.0e4_wp
-    dlev_ocean = 1.5e4_wp
+    dlev_land  = 0.0_wp
+    dlev_ocean = 0.0_wp
     !
     cmftau   = 3600.0_wp
 
