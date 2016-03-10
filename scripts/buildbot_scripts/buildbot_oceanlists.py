@@ -4,12 +4,19 @@
 # create the ocean experiment lists
 #==============================================================================
 from buildbot_builders import *
-import os
+from model_paths import *
+  
 
-thisPath = os.getcwd()
-print(thisPath)
+myPaths = model_paths()
+omipFileList = myPaths.get_experimentsNames_inPath("checksuite.ocean_internal/omip/exp.*")
+print(omipFileList)
 
-#quit()
+omipList  = buildbot_experimentList("omip")
+myexp     = omipList.add_experimentsByNameToAllBuildersWithoutFlag(omipFileList, "without-mpi")
+
+omipList.print_list()
+
+quit()
 
 
 oceanList  = buildbot_experimentList("ocean")

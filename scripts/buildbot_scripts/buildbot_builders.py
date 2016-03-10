@@ -1,8 +1,17 @@
 #!/usr/bin/python3.2
 # -*- coding: utf-8 -*-
 #==============================================================================
-# Simple lib for the builders and experiment lists
+# Simple library for the builders and experiment lists
+#
+# The class structure is:
+#   buildbot_experimentList
+#     buildbot_machine_list
+#       buildbot_machines
+#         buildbot_builders
+#     experimentList
+#       experiment
 #==============================================================================
+
 import weakref
 
 # the default folder for the lists files
@@ -17,7 +26,10 @@ class buildbot_experimentList(object):
     self.buildbot_machine_list = self.create_all_builders(name)
     self.experimentList = {}
 
-  # add an experiment to the list; no builder is associated here
+  # add an experiment only to the list; no builder is associated here
+  # if the experiment name exists, it just returns the pointer
+  # if one needs to check first the existence of an experiment,
+  #    should use the get_experiment_state()
   def add_experiment(self, name):
     if not self.experimentList.get(name):
       self.experimentList[name] = buildbot_experiment(name, self)
@@ -34,6 +46,12 @@ class buildbot_experimentList(object):
       for builder in builder_list:
         exp_list.append(self.add_experimentByNameToBuilder(name, builder))
     return exp_list
+    
+  def add_experimentsByNameToBuildersByName(self, name_list, builder_name_list):
+    builder_list = []
+    for builder_name in builder_name_list:
+      builder_list.append(sel.getBuilderByName(builder_name))
+    return add_experimentsByNameToBuilders(self, name_list, builder_list)
 
   def add_experimentsByNameToAllBuilders(self, name_list):
     all_builders = self.buildbot_machine_list.get_all_builders()
@@ -50,14 +68,15 @@ class buildbot_experimentList(object):
   def delete_experiment(self, experiment):
     self.experimentList[experiment.name].delete()
 
-  # this should only be called by an experiment object; use the delete_experiment() in all other cases
-  def delete_experimentFromList(self, experiment):
+  # Note: this should only be called by an experiment object; use the delete_experiment() in all other cases
+  def delete_experimentFromBuildbotList(self, experiment):
     print("Deleting "+experiment.name+" from "+self.name+" list...")
     del self.experimentList[experiment.name]
     
-  def delete_experimentByName(self, experimentName):
-    experiment = self.get_experiment(experimentName)
-    self.delete_experiment(experiment)
+  def delete_experimentsByName(self, experiment_list):
+    for experiment in experiment_list:
+      experiment = self.get_experiment(experimentName)
+      self.delete_experiment(experiment)
 
   def delete_experimentByName_fromBuilder(self, experimentName, builderName):
     experiment = self.get_experiment(experimentName)
@@ -69,6 +88,11 @@ class buildbot_experimentList(object):
       print("Error: experiment "+name+" not found in "+self.name+" list. Stop")
       quit()
     return experiment
+
+  def get_experiment_state(self, name):
+    experiment = self.experimentList.get(name)
+    return experiment
+
     
   def getMachineByName(self, name):
     return self.buildbot_machine_list.getMachineByName(name)
@@ -228,7 +252,7 @@ class buildbot_experiment(object):
     #print("Deleting experiment "+self.name+" builders...")
     self.builders.clear()
     #print("Deleting experiment "+self.name+" from "+self.experimentList.name+" list...")
-    self.experimentList.delete_experimentFromList(self)
+    self.experimentList.delete_experimentFromBuildbotList(self)
     #del self
     
   def delete_fromBuilder(self, builderName):
