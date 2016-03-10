@@ -40,6 +40,10 @@ class buildbot_experimentList(object):
     experiment.add_builder(builder)
     return experiment
     
+  def add_experimentsByNameToMachine(self, name_list, machine_name):
+    builders_list = self.buildbot_machine_list.get_machine_builders(machine_name)
+    self.add_experimentsByNameToBuilders(name_list, builders_list)
+    
   def add_experimentsByNameToBuilders(self, name_list, builder_list):
     exp_list = []
     for name in name_list:
@@ -57,11 +61,11 @@ class buildbot_experimentList(object):
     all_builders = self.buildbot_machine_list.get_all_builders()
     return self.add_experimentsByNameToBuilders( name_list, all_builders)
     
-  def add_experimentsByNameToAllBuildersWithFlag(self, name_list, flag):
+  def add_experimentsByNameToBuildersWithFlag(self, name_list, flag):
     builders_list = self.buildbot_machine_list.get_builders_withFlag(flag)
     return self.add_experimentsByNameToBuilders( name_list, builders_list)
     
-  def add_experimentsByNameToAllBuildersWithoutFlag(self, name_list, flag):
+  def add_experimentsByNameToBuildersWithoutFlag(self, name_list, flag):
     builders_list = self.buildbot_machine_list.get_builders_withoutFlag(flag)
     return self.add_experimentsByNameToBuilders( name_list, builders_list)
     
@@ -74,14 +78,32 @@ class buildbot_experimentList(object):
     del self.experimentList[experiment.name]
     
   def delete_experimentsByName(self, experiment_list):
-    for experiment in experiment_list:
+    for experimentName in experiment_list:
       experiment = self.get_experiment(experimentName)
       self.delete_experiment(experiment)
+      
+  def delete_experimentsByName_fromBuilders(self, experiment_list, builders_list):
+    for experimentName in experiment_list:
+      experiment = self.get_experiment(experimentName)
+      for builder in builders_list:
+        experiment.delete_fromBuilder(builder)
 
-  def delete_experimentByName_fromBuilder(self, experimentName, builderName):
-    experiment = self.get_experiment(experimentName)
-    experiment.delete_fromBuilder(builderName)
-    
+  def delete_experimentsByName_fromBuildersName(self, experiment_list, buildersName):
+    builders_list = self.getBuildersListByName(buildersName)
+    self.delete_experimentsByName_fromBuilders(experiment_list, builders_list)
+            
+  def delete_experimentsByName_fromMachineName(self, experiment_list, machine_name):
+    builders_list = self.buildbot_machine_list.get_machine_builders(machine_name)
+    self.delete_experimentsByName_fromBuilders(experiment_list, builders_list)
+
+  def delete_experimentsByName_fromBuildersWithFlag(self, experiment_list, flag):
+    builders_list = self.buildbot_machine_list.get_builders_withFlag(flag)
+    self.delete_experimentsByName_fromBuilders(experiment_list, builders_list)
+
+  def delete_experimentsByName_fromBuildersWithoutFlag(self, experiment_list, flag):
+    builders_list = self.buildbot_machine_list.get_builders_withoutFlag(flag)
+    self.delete_experimentsByName_fromBuilders(experiment_list, builders_list)
+        
   def get_experiment(self, name):
     experiment = self.experimentList.get(name)
     if not experiment:
@@ -92,10 +114,15 @@ class buildbot_experimentList(object):
   def get_experiment_state(self, name):
     experiment = self.experimentList.get(name)
     return experiment
-
     
   def getMachineByName(self, name):
     return self.buildbot_machine_list.getMachineByName(name)
+
+  def getBuildersListByName(self, name_list):
+    builders_list = []
+    for name in name_list:
+      builders_list.append(self.getBuilderByName(name))
+    return builders_list
     
   def getBuilderByName(self, name):
     return self.buildbot_machine_list.getBuilderByName(name)
@@ -182,6 +209,9 @@ class buildbot_machine_list(object):
     for machine in self.machines.values():
       machine.writeToFile_builders(listfile)
 
+  def get_machine_builders(self, machine_name):
+    return self.machines[machine_name].get_all_builders()
+    
   def get_all_builders(self):
     all_builders = []
     for machine in self.machines.values():
@@ -255,11 +285,14 @@ class buildbot_experiment(object):
     self.experimentList.delete_experimentFromBuildbotList(self)
     #del self
     
-  def delete_fromBuilder(self, builderName):
-    print("Deleting experiment "+self.name+" from builder "+builderName+"...")
-    self.builders[builderName].delete_experiment_onlyFromExperimentObject(self)
-    del self.builders[builderName]
-    
+  def delete_fromBuilder(self, builder):
+    if self.builders.get(builder.name):
+      print("Deleting experiment "+self.name+" from builder "+builder.name+"...")
+      builder.delete_experiment_onlyFromExperimentObject(self)
+      del self.builders[builder.name]
+    else:
+      print("Warning: delete failed. "+self.name+" experiment is not in the "+ builder.name+" builder.")
+      
   #def __del__(self):
     #print("Deleting experiment "+self.name+" done.")
 #-----------------------------------------------------------------------

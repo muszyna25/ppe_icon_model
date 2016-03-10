@@ -12,25 +12,31 @@ omipFileList = myPaths.get_experimentsNames_inPath("checksuite.ocean_internal/om
 print(omipFileList)
 
 omipList  = buildbot_experimentList("omip")
-myexp     = omipList.add_experimentsByNameToAllBuildersWithoutFlag(omipFileList, "without-mpi")
+myexps    = omipList.add_experimentsByNameToBuildersWithoutFlag(omipFileList, "without-mpi")
 
 omipList.print_list()
+omipList.delete_experimentsByName_fromMachineName(omipFileList, "daint_cpu")
+omipList.print_list()
+omipList.delete_experimentsByName_fromMachineName(omipFileList, "thunder")
+omipList.print_list()
+omipList.delete_experimentsByName_fromBuildersWithoutFlag(omipFileList, "-with-openmp")
+omipList.print_list()
 
-quit()
 
+oceanList   = buildbot_experimentList("ocean")
 
-oceanList  = buildbot_experimentList("ocean")
-
-myexp      = oceanList.add_experimentsByNameToAllBuildersWithoutFlag(["checksuite.ocean_internal/omip/exp.ocean_omip_ptest"], "without-mpi")
-myexp      = oceanList.add_experimentsByNameToAllBuilders(["checksuite.ocean_internal/omip/exp.ocean_omip_short"])
-myexp      = oceanList.add_experimentsByNameToAllBuildersWithoutFlag(["checksuite.ocean_internal/technical/exp.test_ocean_omip_technical"], "without-mpi")
+myexps      = oceanList.add_experimentsByNameToBuildersWithoutFlag(\
+[  "checksuite.ocean_internal/omip/exp.ocean_omip_ptest", \
+   "checksuite.ocean_internal/technical/exp.test_ocean_omip_technical"], "without-mpi")
+myexps      = oceanList.add_experimentsByNameToAllBuilders(["checksuite.ocean_internal/omip/exp.ocean_omip_short"])
+myexps      = oceanList.add_experimentsByNameToMachine(["checksuite.ocean_internal/omip/exp.ocean_omip_testbed"], "mistral")
 
 oceanList.print_list()
 
 oceanList.write()
 
+# some low level tests
 sameOceanList  = buildbot_experimentList("ocean")
-
 sameOceanList.read()
 sameOceanList.print_list()
 
