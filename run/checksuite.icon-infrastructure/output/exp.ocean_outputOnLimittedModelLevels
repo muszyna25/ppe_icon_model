@@ -34,7 +34,8 @@ ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"
 #grids_folder="/scratch/mpi/CC/mh0287/users/m300056/icon/boundary_files/OceanOnly_160km_20levels_conservative"
 #-----------------------------------------------------------------------------
 #
-icon_data_poolFolder=/pool/data/ICON
+icon_data_rootFolder=/pool/data/ICON
+ocean_location=fluent
 # write namelist parameters
 # -------------------------
 cat > ${ocean_namelist} << EOF
@@ -74,7 +75,7 @@ cat > ${ocean_namelist} << EOF
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
   ml_varlist       =  'u','v'
-  m_levels         = 1
+  m_levels         = '1'
 /
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
