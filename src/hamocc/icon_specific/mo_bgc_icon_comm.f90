@@ -4,7 +4,9 @@
 ! icon specific routines for output, update etc
 
       USE mo_ocean_diagnostics_types,   ONLY:  t_ocean_regions
+
       USE mo_ocean_types,          ONLY:  t_hydro_ocean_prog
+
       USE mo_control_bgc,          ONLY: dtb,bgc_gin, bgc_arctic, bgc_lab, & 
        &                                 bgc_natl, bgc_atl, bgc_tatl, &
        &                                 bgc_tropac, &
@@ -32,10 +34,6 @@
     &                                  t_hamocc_acc, t_hamocc_monitor                    
    
 
-
-
-
-
        
       USE mo_parallel_config,     ONLY: nproma
 
@@ -46,25 +44,18 @@
 
       PUBLIC
 
-      !TYPE(t_hamocc_state), ALLOCATABLE, TARGET     :: hamocc_state(:)
       TYPE(t_hamocc_state), TARGET                  :: hamocc_state
 
+
+      INTERFACE to_bgcout
+        module procedure to_bgcout_real
+        module procedure to_bgcout_int
+        module procedure to_bgcout_logical
+      END INTERFACE
+
+
+
       CONTAINS
-
-!================================================================================== 
-
-  function get_level_index_by_depth(depth,tiestw) result(level_index)
-
-     real(wp), intent(in) :: depth,tiestw(n_zlev+1)
-     
-     integer :: level_index
-
-     level_index = 1
-     do while(tiestw(level_index+1) < depth .and. level_index < n_zlev)
-        level_index = level_index + 1
-     end do
-
-  end function get_level_index_by_depth
 
 !================================================================================== 
        SUBROUTINE ini_bgc_regions
@@ -488,6 +479,7 @@
 
    USE mo_sedmnt, ONLY: disso_op, disso_cal,sred_sed
 
+
   CHARACTER(LEN=max_char_length) :: &
                 cpara_name,cpara_val
 
@@ -499,178 +491,96 @@
    cpara_name='PHYTOPLANKTON'
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='phytomi'
-   write(cpara_val,'(ES9.2)')phytomi
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='dyphy'
-   write(cpara_val,'(f6.4)')dyphy
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='bkphy'
-   write(cpara_val,'(ES9.2)')bkphy
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
+   CALL to_bgcout("phytomi",phytomi)
+   CALL to_bgcout("dyphy",dyphy)
+   CALL to_bgcout("bkphy",bkphy)
 
    ! Zooplankton
    cpara_name='ZOOPLANKTON'
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='grami'
-   write(cpara_val,'(ES9.2)')grami
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='zinges'
-   write(cpara_val,'(f5.2)')zinges
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='grazra'
-   write(cpara_val,'(f6.4)')grazra
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='bkzoo'
-   write(cpara_val,'(ES9.2)')bkzoo
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
+   CALL to_bgcout("grami",grami)
+   CALL to_bgcout("zinges",zinges)
+   CALL to_bgcout("grazra",grazra)
+   CALL to_bgcout("bkzoo",bkzoo)
 
    ! Cyanobacteria
    cpara_name='CYANOBACTERIA'
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='l_cyadyn'
-   write(cpara_val,'(L1)')l_cyadyn
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='n2_fixation'
-   write(cpara_val,'(f6.4)')n2_fixation
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='buoyancyspeed_cya'
-   write(cpara_val,'(f6.4)')buoyancyspeed_cya
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='cycdec'
-   write(cpara_val,'(f6.4)')cycdec
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='pi_alpha_cya'
-   write(cpara_val,'(f6.4)')pi_alpha_cya
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='Topt_cya'
-   write(cpara_val,'(f6.2)')Topt_cya
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='T1_cya'
-   write(cpara_val,'(f6.2)')T1_cya
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='T2_cya'
-   write(cpara_val,'(f6.2)')T2_cya
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='bkcya_p'
-   write(cpara_val,'(ES9.2)')bkcya_p
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='bkcya_n'
-   write(cpara_val,'(ES9.2)')bkcya_n
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='bkcya_fe'
-   write(cpara_val,'(ES9.2)')bkcya_fe
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='remido_cya'
-   write(cpara_val,'(ES9.2)')remido_cya
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='doccya_cya'
-   write(cpara_val,'(f6.4)')doccya_fac
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
+   CALL to_bgcout("l_cyadyn",l_cyadyn)
+   CALL to_bgcout("n2_fixation",n2_fixation)
+   CALL to_bgcout("n2_fixation",n2_fixation)
+   CALL to_bgcout("buoyancyspeed_cya",buoyancyspeed_cya)
+   CALL to_bgcout("cycdec",cycdec)
+   CALL to_bgcout("pi_alpha_cya",pi_alpha_cya)
+   CALL to_bgcout("Topt_cya",Topt_cya)
+   CALL to_bgcout("T1",T1_cya)
+   CALL to_bgcout("T2",T2_cya)
+   CALL to_bgcout("bkcya_p",bkcya_p)
+   CALL to_bgcout("bkcya_n",bkcya_n)
+   CALL to_bgcout("bkcya_fe",bkcya_fe)
+   CALL to_bgcout("remido_cya",remido_cya)
+   CALL to_bgcout("doccya_fac",doccya_fac)
   
    ! Detritus
    cpara_name='DETRITUS'
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='i_settling'
-   write(cpara_val,'(i1)')i_settling
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='drempoc'
-   write(cpara_val,'(f6.4)')drempoc
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='denitrification'
-   write(cpara_val,'(f6.4)')denitrification
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='sulfate reduction'
-   write(cpara_val,'(f6.4)')sulfate_reduction
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='thresh_aerob'
-   write(cpara_val,'(ES9.2)')thresh_aerob
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='thresh_sred'
-   write(cpara_val,'(ES9.2)')thresh_sred
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
+   CALL to_bgcout("i_settling",i_settling)
+   CALL to_bgcout("drempoc",drempoc)
+   CALL to_bgcout("denitrification",denitrification)
+   CALL to_bgcout("sulfate_reduction",sulfate_reduction)
+   CALL to_bgcout("thresh_aerob",thresh_aerob)
+   CALL to_bgcout("thresh_sred",thresh_sred)
 
 
    ! DOC
    cpara_name='DOC'
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='remido'
-   write(cpara_val,'(f6.4)')remido
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
+   CALL to_bgcout("remido",remido)
   
 
    ! Opal
    cpara_name='Si/Opal'
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='bkopal'
-   write(cpara_val,'(ES9.2)')bkopal
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='dremopal'
-   write(cpara_val,'(f6.4)')dremopal
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='ropal'
-   write(cpara_val,'(f6.2)')ropal
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='sinkspeed_opal'
-   write(cpara_val,'(f6.2)')sinkspeed_opal
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
+   CALL to_bgcout("bkopal",bkopal)
+   CALL to_bgcout("dremopal",dremopal)
+   CALL to_bgcout("ropal",ropal)
+   CALL to_bgcout("sinkspeed_opal",sinkspeed_opal)
 
    ! Iron
    cpara_name='Iron'
    cpara_val="========"
-   cpara_name='perc_diron'
-   write(cpara_val,'(f6.4)')perc_diron
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='fesoly'
-   write(cpara_val,'(ES9.2)')fesoly
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='riron'
-   write(cpara_val,'(f6.4)')riron
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='relaxfe'
-   write(cpara_val,'(ES9.2)')relaxfe
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
+   CALL to_bgcout("perc_diron",perc_diron)
+   CALL to_bgcout("fesoly",fesoly)
+   CALL to_bgcout("riron",riron)
+   CALL to_bgcout("relaxfe",relaxfe)
 
    ! Sediment
    cpara_name='Sediment'
    cpara_val="========"
-   cpara_name='denit_sed'
-   write(cpara_val,'(f6.4)')denit_sed
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='disso_po'
-   write(cpara_val,'(f6.4)')disso_po
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='disso_op'
-   write(cpara_val,'(ES9.2)')disso_op
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='disso_cal'
-   write(cpara_val,'(ES9.2)')disso_cal
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='sred_sed'
-   write(cpara_val,'(ES9.2)')sred_sed
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
+   CALL to_bgcout("denit_sed",denit_sed)
+   CALL to_bgcout("disso_po",disso_po)
+   CALL to_bgcout("disso_op",disso_op)
+   CALL to_bgcout("disso_cal",disso_cal)
+   CALL to_bgcout("sred_sed",sred_sed)
    
 
    ! Calc
    cpara_name='Calc'
    cpara_val="========"
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='dremcalc'
-   write(cpara_val,'(f6.4)')dremcalc
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
-   cpara_name='sinkspeed_calc'
-   write(cpara_val,'(f6.2)')sinkspeed_calc
-   CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
+   CALL to_bgcout("dremcalc",dremcalc)
+   CALL to_bgcout("sinkspeed_calc",sinkspeed_calc)
 
    cpara_name='======================='
    cpara_val="==========="
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )
   END SUBROUTINE print_bgc_parameters
+!================================================================================== 
 
   SUBROUTINE print_wpoc
    USE mo_carbch, ONLY: wpoc    
@@ -695,5 +605,42 @@
   
 
   END SUBROUTINE print_wpoc
+
+!================================================================================== 
+
+SUBROUTINE to_bgcout_real(cname,val)
+  REAL(wp),INTENT(in) ::val
+  CHARACTER( LEN = * ):: cname
+  CHARACTER(LEN=max_char_length) :: cpara_name, cpara_val
+
+  cpara_name=cname
+  IF(abs(val)<100._wp.and.abs(val)>0.1)then
+    write(cpara_val, '(f9.2)') val
+  ELSE
+    write(cpara_val, '(ES22.15)') val
+  ENDIF
+  CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc)
+END SUBROUTINE
+
+SUBROUTINE to_bgcout_logical(cname,val)
+  LOGICAL,INTENT(in) ::val
+  CHARACTER( LEN = * ):: cname
+  CHARACTER(LEN=max_char_length) :: cpara_name, cpara_val
+
+  cpara_name=cname
+  cpara_val=merge(".true. ",".false.",val)
+  CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc)
+END SUBROUTINE
+
+SUBROUTINE to_bgcout_int(cname,val)
+  INTEGER,INTENT(in) ::val
+  CHARACTER( LEN = * ):: cname
+  CHARACTER(LEN=max_char_length) :: cpara_name, cpara_val
+
+  cpara_name=cname
+  write(cpara_val, '(i0)') val
+  CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc)
+END SUBROUTINE
+
 
  END MODULE

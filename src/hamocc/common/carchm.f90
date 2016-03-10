@@ -2,32 +2,32 @@
 !! @file carchm.f90
 !! @brief Inorganic carbon cycle.
 !!
-!! Computes carbonate chemisty in the water column, and sea-air gass exchange
-!! for oxygen, DMS, O2, N2, and CO2. It computes dissolution of calcium carbonate.
+!! Computes dissolution of calcium carbonate.
 !!
 !!
 !!
+#include "hamocc_omp_definitions.inc"
 
 SUBROUTINE carchm ( start_idx, end_idx, klevs, pddpo, psao)
 
   USE mo_biomod, ONLY         : rrrcl, dremcalc
-  USE mo_control_bgc, ONLY    : dtbgc, bgc_nproma, bgc_zlevs
+  USE mo_control_bgc, ONLY    : bgc_nproma, bgc_zlevs
 
   
-  USE mo_param1_bgc, ONLY     : icalc, igasnit, ian2o, iatmco2,          &
-       &                        iatmo2, iatmn2, ioxygen, ialkali,        &
-       &                        isco212, kphosy
+  USE mo_param1_bgc, ONLY     : icalc,            &
+       &                        ialkali,        &
+       &                        isco212
 
-  USE mo_carbch, ONLY         : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra, bgctend
+  USE mo_carbch, ONLY         : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra
   USE mo_kind, ONLY           : wp
   
   IMPLICIT NONE
 
   !! Arguments
 
-  INTEGER, INTENT(in) :: start_idx                
-  INTEGER, INTENT(in) :: end_idx                
-  INTEGER, INTENT(in) :: klevs(bgc_nproma)                  !< 3rd (vertical) REAL of model grid.
+  INTEGER, INTENT(in) :: start_idx                   !< start index for j loop (ICON cells, MPIOM lat dir)        
+  INTEGER, INTENT(in) :: end_idx                     !< end index  for j loop  (ICON cells, MPIOM lat dir) 
+  INTEGER, INTENT(in) :: klevs(bgc_nproma)           !< vertical levels
 
   REAL(wp),INTENT(in) :: pddpo(bgc_nproma,bgc_zlevs) !< size of scalar grid cell (3rd REAL) [m]
   REAL(wp),INTENT(in) :: psao(bgc_nproma,bgc_zlevs)  !< salinity
@@ -36,15 +36,10 @@ SUBROUTINE carchm ( start_idx, end_idx, klevs, pddpo, psao)
 
   INTEGER :: k, iter, j, kpke 
 
-  INTEGER :: laumo1
-
-
   REAL(wp) :: supsat, undsa, dissol
   REAL(wp) :: dddhhh,dadh,a,h,c,alk,t1,t2
-  REAL(wp) :: akbi,ak2i,ak1i
 
-  REAL(wp) :: AK0,AK1,AK2,AKB,AKW,BT
-  REAL(wp) :: supsatup,satdiff,depthdiff   ! needed to calculate depth of lysokline
+  REAL(wp) :: AK2,AKB,AKW,BT
   !
    !*********************************************************************
   !
@@ -56,6 +51,9 @@ SUBROUTINE carchm ( start_idx, end_idx, klevs, pddpo, psao)
   !*        22. CHEMICAL CONSTANTS - water column
   !     -----------------------------------------------------------------
 
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(iter,j,start_idx,end_idx,kpke,k,h,&
+!HAMOCC_OMP           c,t1,t2,ak2,akw,bt,akb,alk,a,dadh,dddhhh) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO iter = 1, 3
     DO j=start_idx,end_idx
      kpke=klevs(j)
@@ -86,7 +84,12 @@ SUBROUTINE carchm ( start_idx, end_idx, klevs, pddpo, psao)
         END DO
      END DO
   END DO
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(j,start_idx,end_idx,kpke,k,supsat,&
+!HAMOCC_OMP            undsa,dissol) HAMOCC_OMP_DEFAULT_SCHEDULE 
   DO j= start_idx, end_idx
        kpke=klevs(j)
         IF(pddpo(j,1) > 0.5_wp) THEN
@@ -117,6 +120,8 @@ SUBROUTINE carchm ( start_idx, end_idx, klevs, pddpo, psao)
             ENDIF   ! wet cell
          END DO
   END DO
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
 
 

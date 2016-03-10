@@ -1,18 +1,5 @@
-  !
-
   !! @file ocprod.f90
-  !! @brief compute biological production, settling of debris, and related biogeochemistry
-  !!
-  !! Notes:
-  !!
-  !! called by bgc_{icon, mpiom, ..}.f90
-  !!
-  !! @author Ernst Maier-Reimer, MPI-Met, HH
-  !!
-  !! @par Revision History
-  !!
-  !!
-
+  !! @brief Computes plankton dynamics, OM degradation
   !!
 #include "hamocc_omp_definitions.inc"
 
@@ -20,19 +7,18 @@
     
    USE mo_kind, ONLY           : wp
    
-   USE mo_biomod, ONLY         :perc_diron, phytomi, grami, rnoi, riron, pi_alpha, &
+   USE mo_biomod, ONLY         :phytomi, grami, rnoi, riron, pi_alpha, &
        &                        fpar, bkphy,grazra, bkzoo, epsher,         &
        &                        zinges, drempoc, ro2ut, remido, dyphy, spemor,     &
        &                        gammaz, gammap, ecan, rnit, ropal, bkopal,         &
        &                        rcalc, rcar, dremopal, relaxfe, fesoly,            &
-       &                        expoor, expoca, exposi,            &
        &                        denitrification, nitdem, dremn2o,         &
        &                        n2prod, sulfate_reduction, strahl,                 &
        &                        remido_cya, thresh_aerob,   & 
        &                        thresh_sred, dmsp, calmax
  
    USE mo_carbch, ONLY         : n2budget, h2obudget, satoxy, &
-       &                         bgctra, swr_frac, bgctend,hi
+       &                         bgctra, swr_frac, bgctend
 
 
    USE mo_control_bgc, ONLY    : dtb, bgc_nproma, bgc_zlevs, dtbgc 
@@ -51,24 +37,26 @@
 
     IMPLICIT NONE
 
+    ! Arguments
 
-    INTEGER, INTENT(in), TARGET    :: klev(bgc_nproma)              !<  levels
-    INTEGER, INTENT(in)    :: end_idx               !<  starting column 
-    INTEGER, INTENT(in)    :: start_idx               !<  number of columns to be treated at once 
+    INTEGER, INTENT(in), TARGET    :: klev(bgc_nproma)       !<  vertical levels
+    INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
+    INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
     REAL(wp), INTENT(in), TARGET   :: ptho(bgc_nproma,bgc_zlevs)       !<  potential temperature (degC)
     REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
 
-    REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)      !< size of scalar grid cell (3rd dimension) [m]
-!  Local variables
+    REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)      !< surface height
+
+   !  Local variables
 
     INTEGER                :: j,k, kpke
     REAL(wp) :: avphy,avanut,avanfe,xa,xn,ya,yn,phosy,                   &
        &      pho, phofa, temfa,                                         &
        &      avgra,grazing,avsil,graton,                                &
        &      gratpoc,grawa,bacfra,phymor,zoothresh,zoomor,excdoc,exud,  &
-       &      export, delsil, delcar, sterph, sterzo, remin,             &
-       &      docrem, opalrem, remin2o, aou, refra,                      &
-       &      docrem_cya, bacfra_cya, tpremin, r_bacfra, r_bacfra_cya,   &
+       &      export, delsil, delcar, remin,             &
+       &      opalrem, remin2o, aou, refra,                      &
+       &      bacfra_cya, tpremin, r_bacfra, r_bacfra_cya,   &
        &      r_remin, avoxy, rcyano
 
    REAL(wp) :: surface_height
@@ -103,7 +91,7 @@
        !===(EXUDATION)
        !===(EXCRETION)
 
-       avphy  = MAX(phytomi,bgctra(j,k,iphy))                   ! 'available' phytoplankton
+       avphy  = MAX(phytomi,bgctra(j,k,iphy))                    ! 'available' phytoplankton
        avgra  = MAX(grami, bgctra(j,k,izoo))                     ! 'available' zooplankton
        avsil  = MAX(0._wp, bgctra(j,k,isilica))                  ! available silicate
        avanut = MAX(0._wp, MIN(bgctra(j,k,iphosph),        &     ! available nutrients (phosphate   [kmol P /m3]
@@ -226,10 +214,9 @@
        bgctend(j,k,kdmsuv)   = dms_uv / dtbgc 
       
 
-       avoxy = MAX(0._wp,bgctra(j,k,ioxygen))                             
-              
+       avoxy = MAX(0._wp,bgctra(j,k,ioxygen))       ! available O2                       
 
-        IF (avoxy > thresh_aerob) THEN                          
+       IF (avoxy >= thresh_aerob) THEN                          
            !=====AEROB REMINERALIZATION ========================
            tpremin = remido*bgctra(j,k,idoc)  &
               &         + rcyano *remido_cya*bgctra(j,k,idoccya) &
@@ -240,19 +227,20 @@
            r_bacfra_cya = rcyano * remido_cya*bgctra(j,k,idoccya) / tpremin
            r_remin  =  drempoc * bgctra(j,k,idet) / tpremin
         
-           ! doc remin only under aerob conditions
+           ! DOC decomposition
            xn=bgctra(j,k,idoc)/(1._wp+remido)
            bacfra=MAX(0._wp,bgctra(j,k,idoc) - xn)
            bacfra    = MIN(bacfra,   &                         !
                &     r_bacfra*(avoxy-thresh_aerob)/ro2ut)
 
+           ! DOCcya decomposition
            xn=bgctra(j,k,idoccya)/(1._wp+remido_cya)
            bacfra_cya=MAX(0._wp,bgctra(j,k,idoccya) - xn )
            bacfra_cya = rcyano * MIN(bacfra_cya, &
               &     r_bacfra_cya*(avoxy-thresh_aerob)/ro2ut)
    
+           ! POC decomposition
            xn=bgctra(j,k,idet)/(1._wp+drempoc)
-
            remin=MAX(0._wp,bgctra(j,k,idet)-xn)
            remin = MIN(remin,               &
                     &      r_remin*(avoxy-thresh_aerob)/ro2ut)      
@@ -308,7 +296,11 @@
            bgctend(j,k,kbacfra) = bacfra / dtbgc 
            bgctend(j,k,kbacfrac) = bacfra_cya / dtbgc 
            bgctend(j,k,kdenit) = 0._wp 
-       ELSE   ! anaerob  : denitrification
+       ENDIF   ! O2 >= thresh_aerob
+
+       avoxy = MAX(0._wp,bgctra(j,k,ioxygen))       ! available O2                       
+
+       IF (avoxy < thresh_aerob) THEN                          
             !=====DENITRIFICATION ========================
 
            ! NO3 reduction
@@ -370,9 +362,12 @@
            bgctend(j,k,kbacfra) = 0._wp 
            bgctend(j,k,kbacfrac) = 0._wp 
 
-       ENDIF ! oxygen > thresh_aerob
+       ENDIF ! oxygen < thresh_aerob
 
-             bgctend(j,k,ksred) = 0._wp 
+
+       avoxy = MAX(0._wp,bgctra(j,k,ioxygen))       ! available O2                       
+       bgctend(j,k,ksred) = 0._wp 
+
        !=====SULFATE REDUCTION ========================
        IF (bgctra(j,k, ioxygen) < thresh_sred) THEN
 
@@ -391,7 +386,8 @@
      
              bgctend(j,k,kn2b) = bgctend(j,k,kn2b) + 2._wp * rnit * remin * (pddpo(j,k) + surface_height) 
              bgctend(j,k,kh2ob) = bgctend(j,k,kh2ob) - ro2ut * remin * (pddpo(j,k) + surface_height) 
-       ENDIF
+
+       ENDIF ! O2 < thresh_sred
       ENDIF ! wet cells
      ENDDO ! k=1,kpke
   ENDDO ! j=start_idx,end_idx 

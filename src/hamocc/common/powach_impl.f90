@@ -1,23 +1,16 @@
 !>
-!! @file powach.f90
-!! @brief compute biological production, settling of debris, and related biogeochemistry
+!! @file powach_impl.f90
+!! @brief Computes sediment chemistry, implicit method, 
+!!        calls powre water diffusion
 !!
-!!
-!! called by bgc
-!!
-!! @author Ernst Maier-Reimer, MPI-Met, HH
-!!
-!! @par Revision History
-!!
-!! First version by Ernst Maier-Reimer     (MPI-M)     Apr 10, 2001
 !!
 !!
 #include "hamocc_omp_definitions.inc"
-SUBROUTINE powach_impl( start_idx, end_idx, klevs, psao )
+SUBROUTINE powach_impl( start_idx, end_idx, psao )
 
   USE mo_kind, ONLY        : wp
 
-  USE mo_carbch, ONLY      : bgctra, sedfluxo,                           &
+  USE mo_carbch, ONLY      : bgctra,                           &
        &                     ak13, ak23, akb3, akw3, aksp, co3
 
   USE mo_sedmnt, ONLY      : sedlay, sedhpl, seddw, silpro, produs,      &
@@ -43,15 +36,14 @@ SUBROUTINE powach_impl( start_idx, end_idx, klevs, psao )
 
   !! Arguments
 
-  INTEGER, INTENT(in)  :: start_idx                  !< 1st REAL of model grid.
-  INTEGER, INTENT(in)  :: end_idx                  !< 2nd REAL of model grid.
-  INTEGER, INTENT(in)  :: klevs(bgc_nproma)                  !< 3rd (vertical) REAL of model grid.
+  INTEGER, INTENT(in)  :: start_idx      !< start index for j loop (ICON cells, MPIOM lat dir)        
+  INTEGER, INTENT(in)  :: end_idx        !< end index  for j loop  (ICON cells, MPIOM lat dir)         
 
   REAL(wp), INTENT(in) :: psao(bgc_nproma,bgc_zlevs)  !< salinity [psu.].
 
   !! Local variables
 
-  INTEGER :: j,k, iter, kpke
+  INTEGER :: j,k, iter
 
   REAL(wp) :: sedb1(0:ks), sediso(0:ks)
   REAL(wp) :: solrat(ks), powcar(ks)
@@ -62,9 +54,6 @@ SUBROUTINE powach_impl( start_idx, end_idx, klevs, psao )
   REAL(wp) :: ak1, ak2, akb, akw
   REAL(wp) :: h, t1, t2, a, dadh, dddhhh, satlev
 
-  ! *****************************************************************
-  ! accelerated sediment
-  ! needed for boundary layer ventilation in fast sediment routine
   !
   REAL(wp) :: bolven
   !
@@ -131,8 +120,6 @@ SUBROUTINE powach_impl( start_idx, end_idx, klevs, psao )
      ! Add biogenic opal flux to top sediment layer.
 
      IF(bolay(j) > 0._wp) THEN
-     !      sedfluxo(j,ipowasi) = sedfluxo(j,ipowasi) +                &
-     !           &  (silsat-sediso(0)-bgctra(j,kbo(j),isilica))*bolay(j)
 
            bgctra(j,kbo(j),isilica) = silsat-sediso(0)
            sedlay(j,1,issssil)=                                    &
@@ -250,7 +237,6 @@ SUBROUTINE powach_impl( start_idx, end_idx, klevs, psao )
                  sedlay(j,k,issso12) = sedlay(j,k,issso12) - posol
                  powtra(j,k,ipowaph) = powtra(j,k,ipowaph) + posol*umfa
 
-                 !tk27012010 changed no3 use and n2 production in denitrification
                  powtra(j,k,ipowno3) = powtra(j,k,ipowno3) - nitdem*posol*umfa
                  powtra(j,k,ipown2)  = powtra(j,k,ipown2)  + n2prod*posol*umfa
                  powh2obud(j,k)      = powh2obud(j,k)+0.5_wp*n2prod*posol*umfa
@@ -272,7 +258,6 @@ SUBROUTINE powach_impl( start_idx, end_idx, klevs, psao )
 
                  posol  = sred_sed * sedlay(j,k,issso12)
                  ansulf(k) = posol*umfa !this has P units: kmol P/m3 of pore water
-                ! seddiag(j,k,ksred_sed) = posol*umfa/dtbgc
                  sedlay(j,k,issso12) = sedlay(j,k,issso12) - posol
                  powtra(j,k,ipowaph) = powtra(j,k,ipowaph) + posol*umfa
                  powtra(j,k,ipowno3) = powtra(j,k,ipowno3) + posol*umfa*rno3
@@ -411,8 +396,6 @@ SUBROUTINE powach_impl( start_idx, end_idx, klevs, psao )
 
   CALL dipowa(start_idx,end_idx)
 
-  ! f(POC) [kg C] / f(total) [kg] = 0.05
-  ! thus it is
   DO j = start_idx, end_idx
         sedlay(j,1,issster) = sedlay(j,1,issster)                 &
              &                + produs(j)/(porsol(1)*seddw(1))

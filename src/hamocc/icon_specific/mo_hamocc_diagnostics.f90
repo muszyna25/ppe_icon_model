@@ -20,6 +20,7 @@ MODULE mo_hamocc_diagnostics
    USE mo_biomod, ONLY: p2gtc
    USE mo_control_bgc, ONLY: dtbgc
    USE mo_carbch, ONLY: totalarea
+   USE mo_bgc_icon_comm, ONLY: to_bgcout
 
 
 IMPLICIT NONE
@@ -27,6 +28,7 @@ IMPLICIT NONE
 PRIVATE
 
 PUBLIC:: get_inventories, get_monitoring
+
 
 CONTAINS
 
@@ -559,20 +561,5 @@ ENDIF
 
 
 END SUBROUTINE 
-
-SUBROUTINE to_bgcout(cname,val)
-  REAL(wp),INTENT(in) ::val
-  CHARACTER( LEN = * ):: cname
-  CHARACTER(LEN=max_char_length) :: cpara_name, cpara_val
-
-  cpara_name=cname
-  IF(abs(val)<100._wp.and.abs(val)>0.1)then
-    write(cpara_val, '(f9.2)') val
-  ELSE
-    write(cpara_val, '(ES22.15)') val
-   ! write(cpara_val, '(ES30.23)') val
-  ENDIF
-  CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc)
-END SUBROUTINE
 
 END MODULE mo_hamocc_diagnostics

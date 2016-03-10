@@ -113,7 +113,6 @@
     
     ! local variables
     
-    INTEGER :: ist
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:construct_hamocc_diag'
@@ -289,7 +288,6 @@
     
     ! local variables
     
-    INTEGER :: ist
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:construct_hamocc_acc'
@@ -719,7 +717,6 @@
     
     ! local variables
     
-    INTEGER :: ist
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:construct_hamocc_tend'
@@ -973,7 +970,6 @@
     
     ! local variables
     
-    INTEGER :: ist
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:construct_hamocc_moni'
@@ -1452,7 +1448,6 @@
     
     ! local variables
     
-    INTEGER :: ist
     INTEGER :: alloc_cell_blocks, nblks_e, nblks_v
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:construct_hamocc_sed'
@@ -1622,7 +1617,7 @@
     
     ! local variables
     
-    INTEGER :: jg,  ist
+    INTEGER :: jg
     
     CHARACTER(LEN=max_char_length), PARAMETER :: &
       & routine = 'mo_bgc_icon_comm:destruct_hydro_ocean_state'

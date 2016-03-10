@@ -10,12 +10,11 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
 !  USE mo_avflux, ONLY         : avflux_ini
 !#endif
 
- ! USE mo_grid, ONLY           : get_level_index_by_depth
 
   USE mo_biomod, ONLY         : alloc_mem_biomod, n90depth,n1000depth,n2000depth
   USE mo_bgc_icon_comm, ONLY  : ini_bgc_regions, initial_update_icon, hamocc_state, &
-      &                         print_bgc_parameters,print_wpoc, update_bgc,        &
-      &                         get_level_index_by_depth
+      &                         print_bgc_parameters,print_wpoc, update_bgc
+
   USE mo_sedmnt, ONLY         : alloc_mem_sedmnt, ini_bottom, sediment_bottom
   USE mo_carbch, ONLY         : alloc_mem_carbch,totalarea
   USE mo_ini_bgc, ONLY        : ini_aquatic_tracers,            &
@@ -152,10 +151,12 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
 ! set level for 90m, 1000m, 2000m for diagnostic output
   ALLOCATE(dlevels_m(n_zlev))
   ALLOCATE(dlevels_i(n_zlev+1))
+
   CALL set_zlev(dlevels_i, dlevels_m, n_zlev, dzlev_m)
-  n90depth=get_level_index_by_depth(90._wp,dlevels_i)
-  n1000depth=get_level_index_by_depth(1000._wp,dlevels_i)
-  n2000depth=get_level_index_by_depth(2000._wp,dlevels_i)
+
+  n90depth   = maxloc(dlevels_i,DIM=1,MASK=(dlevels_i < 90._wp))
+  n1000depth = maxloc(dlevels_i,DIM=1,MASK=(dlevels_i < 1000._wp))
+  n2000depth = maxloc(dlevels_i,DIM=1,MASK=(dlevels_i < 2000._wp))
 
 ! Initialize POC sinking speed
   CALL ini_wpoc(dlevels_i)

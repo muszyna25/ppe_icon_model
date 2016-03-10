@@ -241,9 +241,9 @@ EOF2
 if [  "x${use_hamocc}"  = "xyes" ]; then
 cat >> ${ocean_namelist} << EOF3
 &hamocc_nml
-l_cyadyn                          = .FALSE.    ! dynamic cyanobacteria
+l_cyadyn                          = .TRUE.    ! dynamic cyanobacteria
 l_cpl_co2                         = .FALSE.   ! CO2 coupled to land carbon cycle
-l_bgc_check                       = .TRUE.   ! mass check at every time step
+l_bgc_check                       = .FALSE.   ! mass check at every time step
 deltacalc                         = 0.        ! CaCO3 weathering rate [kmol/yr] 
 deltaorg                          = 0.        ! OC weathering rate [kmol/yr]
 deltasil                          = 0.        ! Si(OH)4 weathering rate [kmol/yr]
@@ -252,12 +252,12 @@ atm_n2                            = 802000.   ! atmospheric N2  (default 802000)
 atm_o2                            = 196800.   ! atmospheric O2  (default 196800)
 sinkspeed_opal                    = 30.       ! opal sinking speed [m/d] (default 30)
 sinkspeed_calc                    = 30.       ! calc sinking speed [m/d] (default 30)
-i_settling                        = 0         ! 0 constant POC sinking speed, 1 Martin curve, 2 AGG module
+i_settling                        = 1         ! 0 constant POC sinking speed, 1 Martin curve, 2 AGG module (not yet implemented)
 sinkspeed_poc                     = 5.        ! detritus sinking speed [m/d] for i_settling=0 (default 5)
 sinkspeed_martin_ez               = 3.5       ! detritue sinking speed within (0, mc_depth) [m/d] for i_settling=1 (default 3.5)
 mc_depth                          = 100.      ! depth where linear increase of sinking speed starts for i_settling=1 (default 100.)
 mc_fac                            = 2.0       ! slope of sinking speed increase relative to remin rate (default 2.0)
-l_implsed                         =.FALSE.     ! implicit sediment formulation
+l_implsed                         =.FALSE.    ! implicit sediment formulation
 /
 EOF3
 fi

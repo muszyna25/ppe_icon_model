@@ -275,7 +275,7 @@ CONTAINS
   ! if lmartin==TRUE (mo_control_bgc, nml)
   ! wpoc increases linearly with depth below mc_depth (beleg, nml)
   ! otherwise the constant sinkspeed_poc (beleg, nml) is used
-   REAL(wp),INTENT(in):: ptiestw(bgc_zlevs)
+   REAL(wp),INTENT(in):: ptiestw(bgc_zlevs+1)
 
    INTEGER :: k 
    REAL(wp) :: at_mc_depth

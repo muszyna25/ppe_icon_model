@@ -1,10 +1,9 @@
 #include "hamocc_omp_definitions.inc"
 MODULE mo_carchm
 
-!>
+!> @file mo_carchm.f90
 !! @brief Inorganic carbon cycle.
-!!
-!!
+!!        Calc dissolution, update of hydrogen ions
 !!
 !!
 
@@ -31,19 +30,19 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
 
   !! Arguments
 
-  INTEGER, INTENT(in) :: start_idx                
-  INTEGER, INTENT(in) :: end_idx                
-  INTEGER, INTENT(in) :: klevs(bgc_nproma)                  !< 3rd (vertical) REAL of model grid.
+  INTEGER, INTENT(in) :: start_idx             !< start index for j loop (ICON cells, MPIOM lat dir)    
+  INTEGER, INTENT(in) :: end_idx               !< end index  for j loop  (ICON cells, MPIOM lat dir)    
+  INTEGER, INTENT(in) :: klevs(bgc_nproma)     !<  vertical levels
+           
 
   REAL(wp),INTENT(in) :: pddpo(bgc_nproma,bgc_zlevs) !< size of scalar grid cell (3rd REAL) [m]
   REAL(wp),INTENT(in) :: psao(bgc_nproma,bgc_zlevs)  !< salinity
 
   !! Local variables
 
-  INTEGER :: k, iter, j, kpke 
+  INTEGER :: k, j, kpke 
 
   REAL(wp) :: supsat, undsa, dissol
-  REAL(wp) :: supsatup,satdiff,depthdiff   ! needed to calculate depth of lysokline
   !
    !*********************************************************************
   !
@@ -74,6 +73,7 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
               bgctra(j,k,isco212) = bgctra(j,k,isco212)+dissol
 
             ENDIF   ! wet cell
+
          END DO
   END DO
 END SUBROUTINE

@@ -183,7 +183,7 @@ ENDIF
        !----------------------------------------------------------------------
         ! Calculate sediment dynamics
         if(l_implsed)then 
-         CALL powach_impl( start_index, end_index, levels,   & 
+         CALL powach_impl( start_index, end_index,    & 
    &               p_os%p_prog(nold(1))%tracer(:,:,jb,2))          ! salinity
          else
  

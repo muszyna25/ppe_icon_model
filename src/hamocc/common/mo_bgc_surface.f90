@@ -1,4 +1,7 @@
 MODULE MO_BGC_SURFACE
+!! @file mo_bgc_surface.f90
+!! @brief module contains gas exchange, weathering fluxes,
+!!        dust deposition
 
   USE mo_kind, ONLY           : wp
   USE mo_control_bgc, ONLY    : dtbgc, bgc_nproma, bgc_zlevs
@@ -12,17 +15,20 @@ MODULE MO_BGC_SURFACE
 
 contains
 
-SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, surface_height)
+SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, za)
 
   USE mo_carbch, ONLY         : bgctra, calcinp, orginp, silinp, bgcflux
-  USE mo_param1_bgc, ONLY     : isco212, icalc, ialkali, idoc, isilica, iiron, &
+  USE mo_param1_bgc, ONLY     : isco212, ialkali, idoc, isilica,  &
  &                              korginp, ksilinp, kcalinp
 
-  INTEGER, INTENT(in) :: start_idx                  !< 1st REAL of model grid
-  INTEGER, INTENT(in) :: end_idx                  !< 2nd REAL of model grid.
-  REAL(wp),INTENT(in) :: pddpo(bgc_nproma,bgc_zlevs) !< size of scalar grid cell (3rd REAL) [m]
-  REAL(wp),INTENT(in) :: surface_height(bgc_nproma) !< size of scalar grid cell (3rd REAL) [m]
-  
+  ! Arguments
+ 
+  INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
+  INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
+
+  REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
+  REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)      !< surface height
+
   ! Local variables
 
   INTEGER :: jc
@@ -30,15 +36,18 @@ SUBROUTINE update_weathering ( start_idx,end_idx, pddpo, surface_height)
   DO jc = start_idx, end_idx
 
   if(pddpo(jc,1) > 0.5_wp) then
-    bgctra(jc,1,idoc) = bgctra(jc,1,idoc) + orginp / (pddpo(jc,1) + surface_height(jc))
-    bgctra(jc,1,isco212) = bgctra(jc,1,isco212) + calcinp / (pddpo(jc,1) + surface_height(jc))
-    bgctra(jc,1,ialkali) = bgctra(jc,1,ialkali) + 2._wp * calcinp / (pddpo(jc,1) +surface_height(jc))
-    bgctra(jc,1,isilica) = bgctra(jc,1,isilica) + silinp / (pddpo(jc,1) + surface_height(jc))
+
+    bgctra(jc,1,idoc) = bgctra(jc,1,idoc) + orginp / (pddpo(jc,1) + za(jc))
+    bgctra(jc,1,isco212) = bgctra(jc,1,isco212) + calcinp / (pddpo(jc,1) + za(jc))
+    bgctra(jc,1,ialkali) = bgctra(jc,1,ialkali) + 2._wp * calcinp / (pddpo(jc,1) + za(jc))
+    bgctra(jc,1,isilica) = bgctra(jc,1,isilica) + silinp / (pddpo(jc,1) + za(jc))
   
-    bgcflux(jc,korginp) = orginp / (pddpo(jc,1) + surface_height(jc))
-    bgcflux(jc,ksilinp) = silinp / (pddpo(jc,1) + surface_height(jc))
-    bgcflux(jc,kcalinp) = calcinp / (pddpo(jc,1) + surface_height(jc))
+    bgcflux(jc,korginp) = orginp / (pddpo(jc,1) + za(jc))
+    bgcflux(jc,ksilinp) = silinp / (pddpo(jc,1) + za(jc))
+    bgcflux(jc,kcalinp) = calcinp / (pddpo(jc,1) + za(jc))
+
   endif
+
   ENDDO
 
 END SUBROUTINE
@@ -50,11 +59,15 @@ SUBROUTINE dust_deposition ( start_idx,end_idx, pddpo,za,dustinp)
   USE mo_control_bgc, ONLY    : dtb
   USE mo_biomod,     ONLY     : perc_diron 
 
-  INTEGER, INTENT(in) :: start_idx                  !< 1st REAL of model grid
-  INTEGER, INTENT(in) :: end_idx                  !< 2nd REAL of model grid.
-  REAL(wp),INTENT(in) :: dustinp(bgc_nproma ) !< size of scalar grid cell (3rd REAL) [m]
-  REAL(wp),INTENT(in) :: pddpo(bgc_nproma,bgc_zlevs) !< size of scalar grid cell (3rd REAL) [m]
-  REAL(wp),INTENT(in) :: za(bgc_nproma ) !< size of scalar grid cell (3rd REAL) [m]
+  
+  !Arguments
+
+  INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
+  INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
+
+  REAL(wp),INTENT(in) :: dustinp(bgc_nproma )                        !< dust input
+  REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
+  REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)                   !< surface height
   
   ! Local variables
 
@@ -62,10 +75,15 @@ SUBROUTINE dust_deposition ( start_idx,end_idx, pddpo,za,dustinp)
 
 
   DO jc = start_idx, end_idx
+
   if(pddpo(jc,1) > 0.5_wp) then
+
    bgctra(jc,1,iiron) = bgctra(jc,1,iiron) + dustinp(jc)*dtb/365._wp/(pddpo(jc,1)+za(jc)) *perc_diron 
+
    bgctra(jc,1,idust) = bgctra(jc,1,idust) + dustinp(jc)*dtb/365._wp/(pddpo(jc,1)+za(jc))  
+
   endif
+
  ENDDO
 
 END SUBROUTINE
@@ -73,31 +91,22 @@ END SUBROUTINE
 
 SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
      &              pfu10, psicomo )
-!! Computes sea-air gass exchange
-!! for oxygen, O2, N2, and CO2.
-!! called by bgc
-!!
-!! @par Revision History
-!!
-!! First version by Ernst Maier-Reimer  (MPI-M)     Apr 04, 2001
+!! @brief Computes sea-air gass exchange
+!!         for oxygen, O2, N2, and CO2.
 !!
 
-  USE mo_biomod, ONLY         : rrrcl
 
-
-  USE mo_param1_bgc, ONLY     : icalc, igasnit, ian2o,  iatmco2,          &
-       &                        iatmo2, iatmn2, ioxygen, isco212,         &
+  USE mo_param1_bgc, ONLY     : igasnit, ian2o,  iatmco2,          &
+       &                        ioxygen, isco212,         &
        &                        ialkali, kcflux, koflux, knflux,          &
        &                        kn2oflux, idms, kdmsflux 
 
-  USE mo_carbch, ONLY         : hi, aksp, akb3, akw3, ak13, ak23, co3,         &
-       &                        solco2,satoxy,satn2,aksurf, molw_co2,          &
-       &                        globalmean_o2, globalmean_n2, globalmean_co2,  &
-       &                        co2flux, co2trans, o2flux,            &
-       &                        contppm, satn2o, n2oflux, n2flux,              &
-       &                        co2flux_cpl, bgctra, atm, bgcflux
+  USE mo_carbch, ONLY         : hi, &
+       &                        solco2,satoxy,satn2,aksurf,    &
+       &                        satn2o,            &
+       &                        bgctra, atm, bgcflux
 
-  USE mo_hamocc_nml, ONLY     : l_cpl_co2, l_diffat, atm_co2, atm_o2, atm_n2
+  USE mo_hamocc_nml, ONLY     : l_cpl_co2, atm_co2, atm_o2, atm_n2
 
   USE mo_bgc_constants, ONLY : cmh2ms
 
@@ -107,19 +116,19 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
 
   !! Arguments
 
-  INTEGER, INTENT(in) :: start_idx                !< cell range start  
-  INTEGER, INTENT(in) :: end_idx                  !< cell range end
+  INTEGER, INTENT(in)  :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
+  INTEGER, INTENT(in)  :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
 
   REAL(wp),INTENT(in) :: pddpo(bgc_nproma,bgc_zlevs) !< size of scalar grid cell (3rd REAL) [m]
   REAL(wp),INTENT(in) :: psao(bgc_nproma,bgc_zlevs)  !< salinity
   REAL(wp),INTENT(in) :: ptho(bgc_nproma,bgc_zlevs)  !< potential temperature
-  REAL(wp),INTENT(in) :: pfu10(bgc_nproma)          !< forcing field wind speed
-  REAL(wp),INTENT(in) :: psicomo(bgc_nproma)        !< sea ice concentration
-  REAL(wp),INTENT(in) :: za(bgc_nproma)             !< sea surface height
+  REAL(wp),INTENT(in) :: pfu10(bgc_nproma)           !< forcing field wind speed
+  REAL(wp),INTENT(in) :: psicomo(bgc_nproma)         !< sea ice concentration
+  REAL(wp),INTENT(in) :: za(bgc_nproma)              !< sea surface height
 
   !! Local variables
 
-  INTEGER :: j, k, kpke
+  INTEGER :: j, k
 
   REAL(wp) :: fluxd,fluxu
   REAL(wp) :: kwco2,kwo2, kwdms
@@ -150,7 +159,7 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
            !  O2 Schmidt number after Keeling et al. (1998, Global Biogeochem.
            !                                                Cycles, 12, 141-163)
            !
-           !DMS Schmidt number after Saltzmann et al. (1993, J. Geophys. Res. 98,
+           !  DMS Schmidt number after Saltzmann et al. (1993, J. Geophys. Res. 98,
            !                                                      16,481-16,486)
 
            !*********************************************************************
@@ -251,8 +260,8 @@ SUBROUTINE gasex ( start_idx,end_idx, pddpo, za, psao, ptho,  &
          !
            pco2=  bgctra(j,k,isco212)  /((1._wp + aksurf(j,1) * (1._wp + aksurf(j,2)/hi(j,k))/hi(j,k)) * solco2(j))
 
-           fluxd=atm(j,iatmco2)*kwco2*dtbgc*solco2(j) ! *ppao(i,j)/101300.
-           fluxu=pco2 *kwco2*dtbgc*solco2(j) ! *ppao(i,j)/101300.
+           fluxd=atm(j,iatmco2)*kwco2*dtbgc*solco2(j) ! 
+           fluxu=pco2 *kwco2*dtbgc*solco2(j) ! 
 
 !         ! new concentrations ocean (kmol/m3 -->ppm)
            thickness = pddpo(j,1) + za(j)                             

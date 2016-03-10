@@ -5,12 +5,6 @@
 !! Computes chemical constants in the surface layer (aksurf, former chemc)
 !! and in the water column (ak13, ak23, akb3, aksp)
 !!
-!! called by bgc
-!!
-!! @author Ernst Maier-Reimer  (MPI-M)
-!!
-!! @par Revision History
-!!
 #include "hamocc_omp_definitions.inc"
 
 SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
@@ -24,7 +18,6 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
   USE mo_sedmnt, ONLY      : calcon
   USE mo_control_bgc, ONLY : bgc_nproma, bgc_zlevs
 
- ! USE mo_control_bgc, ONLY : io_stdo_bgc
 
   USE mo_bgc_constants
 
@@ -32,9 +25,9 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
 
   !! Arguments
 
-  INTEGER, INTENT(in)  :: start_idx                  !< 1st REAL of model grid
-  INTEGER, INTENT(in)  :: end_idx                  !< 2nd REAL of model grid.
-  INTEGER, INTENT(in) :: klevs(bgc_nproma)                 !< 3rd (vertical) REAL of model grid.
+  INTEGER, INTENT(in)  :: start_idx            !< start index for j loop (ICON cells, MPIOM lat dir)  
+  INTEGER, INTENT(in)  :: end_idx              !< end index  for j loop  (ICON cells, MPIOM lat dir) 
+  INTEGER, INTENT(in)  :: klevs(bgc_nproma)    !<  vertical levels
 
   REAL(wp) :: psao(bgc_nproma,bgc_zlevs)  !< salinity [psu]
   REAL(wp) :: ptho(bgc_nproma,bgc_zlevs)  !< potential temperature [deg C]
@@ -44,8 +37,8 @@ SUBROUTINE CHEMCON ( start_idx, end_idx, klevs, psao, ptho,  &
   !! Local variables
 
   INTEGER ::  jc, k, kldtday, kpke
-  REAL(wp) :: t, q, s, cl, log_t, log_q, sqrt_s, ti, qi, q2, tc2
-  REAL(wp) :: cek0, ckb, ck1, ck2, ckw, oxy, ani, lnckb
+  REAL(wp) :: t, q, s, log_t, log_q, sqrt_s, ti, qi, q2, tc2
+  REAL(wp) :: cek0, ckb, ck1, ck2, ckw, oxy, ani
   REAL(wp) :: ak1, ak2, akb, akw, ak0, aksp0, log10ksp
   REAL(wp) :: p, cp, tc
   REAL(wp) :: rs

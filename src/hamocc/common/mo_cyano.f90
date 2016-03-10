@@ -1,3 +1,12 @@
+!>
+!! @file mo_cyano.f90
+!! @brief N2 fixation and cyanobateria dynamics.
+!!
+!! Contains computation of diagnostic and prognostic N2 fixation and.
+!! cyanobacteria dyanmics (growth, decay, buouyancy) 
+!!
+!!
+
 #include "hamocc_omp_definitions.inc"
 
 MODULE mo_cyano
@@ -15,10 +24,8 @@ MODULE mo_cyano
 CONTAINS
 
 SUBROUTINE cyano ( start_idx,end_idx,pddpo, za )
-!! @brief Nitrate reduction by cyano bacteria (2NO3 + O2 => N2O + O2)
-!!     - code cleaning, refactored for ICON
-!!
-!! @par Copyright
+
+!! @brief diagostic N2 fixation
 
   USE mo_biomod, ONLY         : rnit, n2_fixation, rn2
   USE mo_carbch, ONLY         : bgctra, bgcflux, bgctend 
@@ -30,11 +37,11 @@ SUBROUTINE cyano ( start_idx,end_idx,pddpo, za )
 
   !! Arguments
 
-  INTEGER, INTENT(in) :: start_idx                !< 1st REAL of model grid
-  INTEGER, INTENT(in) :: end_idx                   !< 3rd (vertical) REAL of model grid.
+  INTEGER, INTENT(in) :: start_idx            !< start index for j loop (ICON cells, MPIOM lat dir)   
+  INTEGER, INTENT(in) :: end_idx              !< end index  for j loop  (ICON cells, MPIOM lat dir) 
 
   REAL(wp), INTENT(in) :: pddpo(bgc_nproma,bgc_zlevs) !< size of scalar grid cell (3rd dimension) [m].
-  REAL(wp), INTENT(in) :: za(bgc_nproma) !< size of scalar grid cell (3rd dimension) [m].
+  REAL(wp), INTENT(in) :: za(bgc_nproma)              !< surface height [m].
 
   !! Local variables
 
@@ -85,38 +92,15 @@ END SUBROUTINE cyano
 
 
 SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
-!**********************************************************************
-!
-!**** *CYADYN* -  .
-!
-!     Ernst Maier-Reimer,    *MPI-Met, HH*    10.04.01
-!
-!     Modified
-!
-!     H.Paulsen,             *MPI-Met, HH*    Jan 2015
-!     - further developed : explicit 3D growth of buoyant cyanobacteria 
-!
-!     Purpose
-!     -------
-!     Nitrogen fixation by cyano bacteria 
-!
-!     Method:
-!     ------
-!
-!**   Interface to ocean model (parameter list):
-!     -----------------------------------------
-!
-!     Externals
-!     ---------
-!     .
-!**********************************************************************
+!! @brief prognostic N2 fixation, cyanobacteria
+
       USE mo_biomod, ONLY         : cycdec, pi_alpha_cya,cya_growth_max,          &
        &                            Topt_cya,T1_cya,T2_cya,bkcya_N, bkcya_P,      &
-       &                            buoyancyspeed_cya, fPAR, strahl, ro2ut,       &
+       &                            fPAR, strahl, ro2ut,       &
        &                            doccya_fac, rnit, riron, rcar, rn2, &
        &                            strahl,bkcya_fe,   wcya, rnoi
 
-      USE mo_carbch, ONLY         : bgctra, bgctend,n2budget, swr_frac
+      USE mo_carbch, ONLY         : bgctra, bgctend, swr_frac
       USE mo_param1_bgc, ONLY     : iano3, iphosph, igasnit, &
            &                        ioxygen, ialkali, icya,  &
            &                        isco212, idoccya, &
@@ -140,10 +124,10 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
       REAL(wp) :: oldigasnit                                                                          
       REAL(wp) :: cyapro,cyaloss
       REAL(wp) :: avanut,avcyabac                                             
-      REAL(wp) :: pho,xa,xn,avanfe,pho_fe,pho_p 
+      REAL(wp) :: pho,xn,avanfe,pho_fe,pho_p 
       REAL(wp) :: l_I, l_T
       REAL(wp) :: T_min_Topt,sgnT
-      REAL(wp) :: xa_P, xa_fe, xa_nit, xn_nit, avnit,l_P,l_fe
+      REAL(wp) :: xa_P, xa_fe, avnit,l_P,l_fe
       REAL(wp) :: xn_p,xn_fe
    
 !$OMP PARALLEL 

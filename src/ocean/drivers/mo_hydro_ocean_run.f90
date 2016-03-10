@@ -219,7 +219,10 @@ CONTAINS
     !------------------------------------------------------------------
     CALL timer_start(timer_total)
 
-    !if(lhamocc)CALL ini_bgc_icon(patch_3d,ocean_state(jg))
+    IF(lhamocc) THEN
+     CALL message ('start of time loop', 'HAMOCC inventories', io_stdo_bgc)
+     CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
+    ENDIF
 
     time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
       ! write(0,*) "nold nnew=", nold(1), nnew(1)
@@ -233,7 +236,6 @@ CONTAINS
       CALL add_time(dtime,0,0,0,datetime)
       ! Not nice, but the name list output requires this - needed?
       time_config%sim_time(1) = time_config%sim_time(1) + dtime
-      if(lhamocc)call get_inventories(hamocc_state, ocean_state(jg), patch_3d,nold(1))
       
       start_detail_timer(timer_extra22,6)
       CALL update_height_depdendent_variables( patch_3d, ocean_state(jg), p_ext_data(jg), operators_coefficients, solvercoeff_sp)
@@ -311,7 +313,6 @@ CONTAINS
         CALL finish(TRIM(routine), 'solve_free_surface_eq_ab  returned error')
       ENDIF
       
-     !CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
       stop_timer(timer_solve_ab,1)
 
       !------------------------------------------------------------------------
@@ -482,7 +483,7 @@ CONTAINS
     
     IF(lhamocc) THEN
      CALL message ('end of time loop', 'HAMOCC inventories', io_stdo_bgc)
- 
+     CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
     ENDIF
 
     IF (write_last_restart) &

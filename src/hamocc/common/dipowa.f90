@@ -1,5 +1,5 @@
 !! @file dipowa.f90
-!! @brief diffusion of pore wate
+!! @brief diffusion of pore water
 !!
 !! vertical diffusion of sediment pore water tracers
 !! calculate vertical diffusion of sediment pore water properties
@@ -7,31 +7,9 @@
 !! integration.
 !!
 !! implicit formulation;
-!! constant diffusion coefficient : 1.e-9 set in BODENSED.
+!! constant diffusion coefficient : 1.e-9 set in mo_sedment.
 !! diffusion coefficient : zcoefsu/zcoeflo for upper/lower
 !! sediment layer boundary.
-!!
-!! called by powach
-!!
-!! @author Ernst Maier-Reimer, MPI-Met, HH
-!!
-!! @par Revision History
-!!
-!! First version by Ernst Maier-Reimer (MPI-M) Apr 10, 2001
-!!
-!! Revised version by S.Legutke        (MPI-M) Apr 23, 2013
-!! - all npowtra-1 properties are diffused in 1 go.
-!!
-!! J. Segschneider: not mass conserving check c13/powtra/bgctra
-!!
-!! Revised version by Rene Redler      (MPI-M) Apr 23, 2013
-!!     - code cleaning, refactored for ICON
-!!
-!! @par Copyright
-!! 2002-2013 by MPI-M
-!! This software is provided for non-commercial use only.
-!! See the LICENSE and the WARRANTY conditions.
-!!
 #include "hamocc_omp_definitions.inc"
 
 SUBROUTINE DIPOWA (start_idx,end_idx)
@@ -44,9 +22,9 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
        &                        porwah, porwat, powtra,&
        &                        ks
 
-  USE mo_biomod, ONLY         : kbo, bolay, riron
+  USE mo_biomod, ONLY         : kbo, bolay
 
-  USE mo_control_bgc, ONLY    : dtbgc, bgc_nproma
+  USE mo_control_bgc, ONLY    : dtbgc
 
   USE mo_param1_bgc, ONLY     : npowtra, ipowaox,  ioxygen,  &
   &                             ipowno3, ipowasi, iphosph, iano3, &
@@ -58,8 +36,9 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 
   !! Arguments
 
-  INTEGER, INTENT(in)  :: start_idx                  !< 1st REAL of model grid
-  INTEGER, INTENT(in)  :: end_idx                  !< 2nd REAL of model grid
+  INTEGER, INTENT(in)  :: start_idx    !< start index for j loop (ICON cells, MPIOM lat dir)          
+  INTEGER, INTENT(in)  :: end_idx      !< end index  for j loop  (ICON cells, MPIOM lat dir) 
+         
 
   !! Local variables
 
@@ -201,7 +180,6 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
                    &         ( sedb1(l,iv) - tredsy(l,3) * powtra(j,l+1,iv) ) &
                    &         / tredsy(l,2)
 
-              !sedfluxo(j,iv) = sedfluxo(j,iv)                          &  
               sedfluxo(j,iv) = (bgctra(j,kbo(j),iv)-aprior)*bolay(j)/dtbgc
            ENDIF       !----------------------------------------------------------------------
 

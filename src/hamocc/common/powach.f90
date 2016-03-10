@@ -1,58 +1,54 @@
 
 !>!! @file powach.f90
-!! @brief compute biological production, settling of debris, and related biogeochemistry
-!!
-!! Note:
-!!
+!!   @brief compute sediment chemistry, explicit discretisation
+!!   call pore water diffusion
 !!
 #include "hamocc_omp_definitions.inc"
-   !SUBROUTINE POWACH(start_idx,end_idx,klevs, psao)!,pddpo)
+
    SUBROUTINE POWACH(start_idx,end_idx,psao,pddpo)
- !  SUBROUTINE POWACH
 
 ! 
-    USE mo_kind, ONLY        : wp
-   USE mo_carbch, ONLY      : bgctra, sedfluxo,                           &
-        &                     ak13, ak23, akb3, akw3, aksp, co3
+   USE mo_kind, ONLY        : wp
+
+   USE mo_carbch, ONLY      : ak13, ak23, akb3, akw3, aksp
    USE mo_sedmnt, ONLY      : sedlay, sedhpl, seddw, silpro,              &
         &                     powtra, prcaca, prorca, produs,             &
         &                     pown2bud, powh2obud, sred_sed,              &
-        &                     porsol, pors2w, rno3, calcon,               &
+        &                     porsol, pors2w, calcon,               &
         &                     disso_op, disso_cal,  ks, o2thresh,         &
         &                     sedtend, isremins, isremino, isreminn,      &
         &                     silsat
 
    USE mo_biomod, ONLY      : bolay, kbo, ro2ut, rnit, nitdem, n2prod,    &
-        &                     rrrcl, rcar, riron
+        &                     rrrcl, rcar
  
-    USE mo_control_bgc, ONLY : dtbgc, bgc_nproma, bgc_zlevs
+   USE mo_control_bgc, ONLY : dtbgc, bgc_nproma, bgc_zlevs
  
-   USE mo_param1_bgc, ONLY  : ipowasi, isilica, issssil, ipowaox,     &
-        &                     ioxygen, issso12, ipowaph, ipowno3, ipown2, &
-        &                     ipowaal, ipowaic, isssc12, ipowafe, issster
+   USE mo_param1_bgc, ONLY  : ipowasi, issssil, ipowaox,     &
+        &                     issso12, ipowaph, ipowno3, ipown2, &
+        &                     ipowaal, ipowaic, isssc12, issster
  
-   USE mo_hamocc_nml, ONLY  : disso_po, denit_sed
+   USE mo_hamocc_nml, ONLY  : disso_po
  
   IMPLICIT NONE
 
-!! Arguments
+  !! Arguments
 
-   INTEGER, INTENT(in)  :: start_idx                  !< 1st REAL of model grid.
-   INTEGER, INTENT(in)  :: end_idx                  !< 2nd REAL of model grid.
-! 
-   REAL(wp), INTENT(in) :: psao(bgc_nproma,bgc_zlevs)  !< salinity [psu.].
-   REAL(wp), INTENT(in) :: pddpo(bgc_nproma,bgc_zlevs)  !< salinity [psu.].
-! !  REAL(wp), INTENT(IN) :: pddpo(kpie,kpje,kpke)
-! 
-!! Local variables
+   INTEGER, INTENT(in)  :: start_idx     !< start index for j loop (ICON cells, MPIOM lat dir)          
+   INTEGER, INTENT(in)  :: end_idx        !< end index  for j loop  (ICON cells, MPIOM lat dir)        
 
-   INTEGER :: i,j,k, iter
+   REAL(wp), INTENT(in) :: psao(bgc_nproma,bgc_zlevs)   !< salinity [psu.].
+   REAL(wp), INTENT(in) :: pddpo(bgc_nproma,bgc_zlevs)  !< size of scalar grid cell 
+  
+  !! Local variables
+
+   INTEGER :: j,k, iter
 
 
-   REAL(wp) :: orgsed,calsed                 ! sum of C12 and C13 in organic sed.
-   REAL(wp) :: sssnew,popot                  ! temporarily value of solid constituent after solution
+   REAL(wp) :: orgsed                        ! sum of C12 and C13 in organic sed.
+   REAL(wp) :: sssnew                        ! temporarily value of solid constituent after solution
 
-   REAL(wp) :: solrat(ks),powcar(ks)
+   REAL(wp) :: powcar(ks)
 
    REAL(wp) :: o2lim          ! o2-limitation of processes in suboxic water
 
@@ -61,9 +57,7 @@
       REAL(wp) :: ak1,ak2,akb,akw
       REAL(wp) :: h,t1,t2,a,dadh,dddhhh,satlev
 
-      REAL(wp) :: avo2
 
-	   
 
 !!! WE start with remineralisation of organic to estimate alkalinity changes first
 !          
@@ -165,7 +159,7 @@
            sedlay(j,k,issso12)=sedlay(j,k,issso12)-posol
            powtra(j,k,ipowaic)=powtra(j,k,ipowaic)+posol*pors2w(k)*rcar
            powtra(j,k,ipowaph)=powtra(j,k,ipowaph)+posol*pors2w(k)
-	   powtra(j,k,ipowno3)=powtra(j,k,ipowno3)+posol*rnit*pors2w(k)
+           powtra(j,k,ipowno3)=powtra(j,k,ipowno3)+posol*rnit*pors2w(k)
            powtra(j,k,ipowaal)=powtra(j,k,ipowaal)+posol*rnit*pors2w(k) ! alkalinity correction 2015
            powh2obud(j,k)=powh2obud(j,k)-posol*ro2ut*pors2w(k)
            pown2bud(j,k) = pown2bud(j,k) + 2._wp*rnit*posol*pors2w(k) 
@@ -199,20 +193,20 @@
 
       DO  k=1,ks
          IF(bolay(j).GT.0._wp) THEN
-			undsa=MAX(silsat-powtra(j,k,ipowasi),0._wp)
+            undsa=MAX(silsat-powtra(j,k,ipowasi),0._wp)
 ! explixit version     
 ! new implicit within layer
-                        sssnew = sedlay(j,k,issssil)/(1._wp+ disso_op*undsa)
-                        posol =  sedlay(j,k,issssil) - sssnew
+             sssnew = sedlay(j,k,issssil)/(1._wp+ disso_op*undsa)
+             posol =  sedlay(j,k,issssil) - sssnew
 
-			sedlay(j,k,issssil)=sedlay(j,k,issssil)-posol
-			powtra(j,k,ipowasi)=powtra(j,k,ipowasi)+posol*pors2w(k)
+             sedlay(j,k,issssil)=sedlay(j,k,issssil)-posol
+             powtra(j,k,ipowasi)=powtra(j,k,ipowasi)+posol*pors2w(k)
          ENDIF
       ENDDO
 
 !!! End dissolution opal
 
-	  ! CALCULATE CaCO3-CO3 CYCLE AND SIMULTANEOUS CO3-UNDERSATURATION DIFFUSION
+! CALCULATE CaCO3-CO3 CYCLE AND SIMULTANEOUS CO3-UNDERSATURATION DIFFUSION
 !*************************************************************************
 ! COMPUTE NEW POWCAR=CARBONATE ION CONCENTRATION IN THE SEDIMENT
 ! FROM CHANGED ALKALINITY (NITRATE PRODUCTION DURING REMINERALISATION)
@@ -227,7 +221,7 @@
          ENDIF
 
 
-	  ! as we have sedhpl ( code number 50) in the restart file one iteration is enough
+  ! as we have sedhpl ( code number 50) in the restart file one iteration is enough
       DO ITER=1,1
       DO  k=1,ks
          IF((bolay(j).GT.0._wp).and.(pddpo(j,1)>0.5_wp)) THEN
@@ -254,7 +248,6 @@
 
 ! Evaluate boundary conditions for sediment-water column exchange.
 ! Current undersaturation of bottom water: sedb(i,0) and
-! Approximation for new solid sediment, as from sedimentation flux: solrat(i,1)
 
 ! CO3 saturation concentration is aksp/calcon as in CARCHM
 ! (calcon defined in BELEG_BGC with 1.03e-2; 1/calcon =~ 97.)
@@ -292,8 +285,6 @@
 
   CALL dipowa(start_idx,end_idx)
 
-  ! f(POC) [kg C] / f(total) [kg] = 0.05
-  ! thus it is
   DO j = start_idx, end_idx
         sedlay(j,1,issster) = sedlay(j,1,issster)                 &
              &                + produs(j)/(porsol(1)*seddw(1))

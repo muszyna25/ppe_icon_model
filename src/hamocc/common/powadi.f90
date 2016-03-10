@@ -1,15 +1,7 @@
 !>
 !! @file powadi.f90
-!! @brief vertical diffusion with simultaneous dissolution
-!!
+!! @brief vertical diffusion with simultaneous dissolution,
 !! implicit discretisation.
-!!
-!! called by powach
-!!
-!! @author Ernst Maier-Reimer, MPI-Met, HH
-!!
-!! @par Revision History
-!!
 !!
 !!
 SUBROUTINE powadi ( j,  solrat, sedb1, sediso, bolven)
@@ -25,18 +17,18 @@ SUBROUTINE powadi ( j,  solrat, sedb1, sediso, bolven)
 
   !! Arguments
 
-  INTEGER, INTENT(in)     :: j                  !< zonal grid index
+  INTEGER, INTENT(in)     :: j             !< zonal grid index
 
   REAL(wp), INTENT(in)    :: solrat(ks)    !< dissolution rate
   REAL(wp), INTENT(inout) :: sedb1(0:ks)   !< tracer at entry
   REAL(wp), INTENT(inout) :: sediso(0:ks)  !<
-  REAL(wp), INTENT(in)    :: bolven       !< bottom layer ventilation rate
+  REAL(wp), INTENT(in)    :: bolven        !< bottom layer ventilation rate
 
   !! Local variables
 
-  INTEGER,SAVE  :: i,k,l   
-  REAL(wp),SAVE :: tredsy(0:ks,3)
-  REAL(wp),sAVE :: asu,alo
+  INTEGER,  SAVE  :: k,l   
+  REAL(wp), SAVE :: tredsy(0:ks,3)
+  REAL(wp), SAVE :: asu,alo
   !
   !----------------------------------------------------------------------
   !

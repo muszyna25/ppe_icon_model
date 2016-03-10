@@ -1,13 +1,6 @@
-     !>
-     !! @file settling.f90
-     !! @brief compute settling of debris
-  !!
-  !! Notes:
-  !!
-  !!
-  !!
-
-  !!
+!>
+!! @file settling.f90
+!! @brief compute settling of debris
 #include "hamocc_omp_definitions.inc"
 
       SUBROUTINE settling (klev,start_idx, end_idx,pddpo,za)
@@ -23,7 +16,7 @@
 
       USE mo_carbch,  ONLY        : bgctra, wpoc, bgcflux
 
-      USE mo_biomod,  ONLY        : wopal, wcal, wdust, kbo, n90depth,&
+      USE mo_biomod,  ONLY        : wopal, wcal, wdust, n90depth,&
       &                             n1000depth,n2000depth
 
       USE mo_kind,    ONLY        : wp
@@ -34,11 +27,15 @@
       IMPLICIT NONE
 
 
-      INTEGER, INTENT(in)    :: start_idx             !<  number of levels
-      INTEGER, INTENT(in)    :: end_idx               !<  number of columns to be treated at once 
-      INTEGER, INTENT(in), target    :: klev(bgc_nproma) 
-      REAL(wp), INTENT(in), target   :: pddpo(bgc_nproma,bgc_zlevs)
-      REAL(wp), INTENT(in), target   :: za(bgc_nproma)
+      ! Arguments
+
+      INTEGER, INTENT(in), TARGET    :: klev(bgc_nproma)       !<  vertical levels
+      INTEGER, INTENT(in)            :: start_idx              !< start index for j loop (ICON cells, MPIOM lat dir)  
+      INTEGER, INTENT(in)            :: end_idx                !< end index  for j loop  (ICON cells, MPIOM lat dir) 
+
+      REAL(wp), INTENT(in), TARGET   :: pddpo(bgc_nproma,bgc_zlevs)      !< size of scalar grid cell (3rd dimension) [m]
+      REAL(wp), INTENT(in), TARGET   :: za(bgc_nproma)      !< surface height
+
 
       ! Local variables
       INTEGER :: k, kpke,j
@@ -63,11 +60,13 @@
            bgcflux(j,kcalex90) = bgctra(j,n90depth,icalc)*wcal/dtbgc  
            bgcflux(j,kopex90) = bgctra(j,n90depth,iopal)*wopal/dtbgc  
          endif
+
          if(kpke>=n1000depth)then
            bgcflux(j,kcoex1000) = bgctra(j,n1000depth,idet)*wpoc(n1000depth)/dtbgc  
            bgcflux(j,kcalex1000) = bgctra(j,n1000depth,icalc)*wcal/dtbgc  
            bgcflux(j,kopex1000) = bgctra(j,n1000depth,iopal)*wopal/dtbgc  
          endif
+
          if(kpke>=n2000depth)then
            bgcflux(j,kcoex2000) = bgctra(j,n2000depth,idet)*wpoc(n2000depth)/dtbgc  
            bgcflux(j,kcalex2000) = bgctra(j,n2000depth,icalc)*wcal/dtbgc  
@@ -118,6 +117,7 @@
             prcaca(j) = bgctra(j,kpke,icalc)*wcal
             silpro(j) = bgctra(j,kpke,iopal)*wopal
             produs(j) = bgctra(j,kpke,idust)*wdust
+
             bgcflux(j,kprorca) = prorca(j)
             bgcflux(j,kprcaca) = prcaca(j)
             bgcflux(j,ksilpro) = silpro(j)
