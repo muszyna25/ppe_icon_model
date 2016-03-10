@@ -300,31 +300,31 @@ SUBROUTINE art_emission_interface(ext_data,p_patch,dtime,p_nh_state,prm_diag,p_d
             ! Nothing to do here
           CLASS is (t_fields_radio)
             SELECT CASE(TRIM(fields%info%name))
-              CASE ('CS137')
+              CASE ('Cs-137')
                 CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iCS137),373, & 
                   &                     p_art_data(jg)%radioact_data)
-              CASE ('I131')
+              CASE ('I-131')
                 CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131),340, & 
                   &                     p_art_data(jg)%radioact_data)
-              CASE ('TE132')
+              CASE ('Te-132')
                 CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iTE132),325, & 
                   &                     p_art_data(jg)%radioact_data)
-              CASE ('ZR95')
+              CASE ('Zr-95')
                 CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iZR95),184, & 
                   &                     p_art_data(jg)%radioact_data)
-              CASE ('XE133')
+              CASE ('Xe-133')
                 CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iXE133),355, & 
                   &                     p_art_data(jg)%radioact_data)
-              CASE ('I131g')
+              CASE ('I-131g')
                 CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131g),870, & 
                   &                     p_art_data(jg)%radioact_data)
-              CASE ('I131o')
+              CASE ('I-131o')
                 CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iI131o),880, & 
                   &                     p_art_data(jg)%radioact_data)
-              CASE ('BA140')
+              CASE ('Ba-140')
                 CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iBA140),384, & 
                   &                     p_art_data(jg)%radioact_data)
-              CASE ('RU103')
+              CASE ('Ru-103')
                 CALL art_emiss_radioact(p_patch,dtime,rho,tracer(:,:,:,iRU103),220, & 
                   &                     p_art_data(jg)%radioact_data)
               ! And Default...
