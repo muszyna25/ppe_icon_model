@@ -82,20 +82,20 @@ CLEAN.include('*.run')
   :oceanLong              => [['exp.ocean_omip_long','no_of_nodes=8']],
   :oceanDev               => %w[oceanTechnical oceanBasicConservation],
   :oceanStable            => %w[oceanLong],
-  :oceanDycorePaper       => %w[exp.ocean_exp1_GeostrophicBalance exp.ocean_exp6a_Instability_Barotropic exp.ocean_exp2_WavePropagation exp.ocean_exp6b_Instability_KelvinHelmholtz exp.ocean_exp3_WindDrivenBasin exp.ocean_exp7_BaroclinicInstabilityChannel_10km exp.ocean_exp4_CheckerBoardBasin exp.ocean_exp8_OMIP],
+# :oceanDycorePaper       => %w[exp.ocean_exp1_GeostrophicBalance exp.ocean_exp6a_Instability_Barotropic exp.ocean_exp2_WavePropagation exp.ocean_exp6b_Instability_KelvinHelmholtz exp.ocean_exp3_WindDrivenBasin exp.ocean_exp7_BaroclinicInstabilityChannel_10km exp.ocean_exp4_CheckerBoardBasin exp.ocean_exp8_OMIP],
 # :oceanDycoreExp1        => %w[exp.ocean_exp1_GeostrophicBalance_0020km exp.ocean_exp1_GeostrophicBalance_0039km exp.ocean_exp1_GeostrophicBalance_0079km exp.ocean_exp1_GeostrophicBalance_0158km],
-  :oceanDycoreExp1        => [
-    %w[exp.ocean_exp1_GeostrophicBalance_0039km no_of_nodes=3],
-    %w[exp.ocean_exp1_GeostrophicBalance_0079km no_of_nodes=2],
-    %w[exp.ocean_exp1_GeostrophicBalance_0158km no_of_nodes=2],
-  ],
+# :oceanDycoreExp1        => [
+#   %w[exp.ocean_exp1_GeostrophicBalance_0039km no_of_nodes=3],
+#   %w[exp.ocean_exp1_GeostrophicBalance_0079km no_of_nodes=2],
+#   %w[exp.ocean_exp1_GeostrophicBalance_0158km no_of_nodes=2],
+# ],
   :oceanTracers           => %w[exp.test_ocean_numeric_tracerconservation],
   :oceanBuildbot          => %w[exp.test_ocean_omip_parallel exp.test_ocean_omip_10days exp.test_ocean_omip_technical],
   :iconDev                => %w[exp.atm_icoles_nested exp.atm_amip_test],
   :atmTimeMeanSmall       => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime],
   :atmTimeMean            => %w[exp.atm_amip_acc_dtime exp.atm_amip_acc_2dtime exp.atm_amip_acc_dtime_sp],
-  :atmTimeMeanX           => %w[exp.test_nat_rce_cbl_120km_nwp exp.test_nh_hdcp2_lam_r15000_modified],
-  :meanStream             => %w[exp.ocean_meanStream],
+# :atmTimeMeanX           => %w[exp.test_nat_rce_cbl_120km_nwp exp.test_nh_hdcp2_lam_r15000_modified],
+# :meanStream             => %w[exp.ocean_meanStream],
 }
 # }}}
 #==============================================================================
