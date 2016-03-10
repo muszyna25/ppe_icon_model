@@ -934,7 +934,9 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
-        zcosmu0 (i_startidx:i_endidx,jb) = MAX(zcosmu0(i_startidx:i_endidx,jb),0.0_wp)
+        zcosmu0 (i_startidx:i_endidx,jb) &
+          = 0.5_wp * (ABS(zcosmu0(i_startidx:i_endidx,jb)) &
+          &           + zcosmu0(i_startidx:i_endidx,jb))
 
         !calculate solar incoming flux at TOA
         prm_diag%flxdwswtoa(i_startidx:i_endidx,jb) = zcosmu0(i_startidx:i_endidx,jb) &
@@ -1574,22 +1576,10 @@ CONTAINS
 &                                  +  z_ddt_v_tot(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 )
 
-            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dt_loc * (                 &
-                                              pt_int_state%c_lin_e(jce,1,jb)           &
-&                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
-&                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v1  &
-&                       + prm_nwp_tend%ddt_v_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
-&                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v2 )&
-&                                                 + pt_int_state%c_lin_e(jce,2,jb)     &
-&                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
-&                                    * pt_patch%edges%primal_normal_cell(jce,jb,2)%v1  &
-&                      +  prm_nwp_tend%ddt_v_turb(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
-&                                  *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 ) )
-
           ENDDO
         ENDDO
-
-      ELSE IF (lcall_phy_jg(itturb) ) THEN
+      END IF
+      IF (lcall_phy_jg(itturb) ) THEN
 #ifdef __LOOP_EXCHANGE
         DO jce = i_startidx, i_endidx
 !DIR$ IVDEP
