@@ -199,6 +199,7 @@ doc/technical/dwd_database/build_varlists.py -text
 doc/technical/dwd_database/cosmo_eu_fields.tex -text
 doc/technical/dwd_database/database_main.pdf -text svneol=unset#unset
 doc/technical/dwd_database/database_main.tex -text
+doc/technical/dwd_database/glossary.tex -text
 doc/technical/dwd_database/grid_geometry.tex -text
 doc/technical/dwd_database/icon_in_sky.tex -text
 doc/technical/dwd_database/iglo_namelst_output.pl -text
