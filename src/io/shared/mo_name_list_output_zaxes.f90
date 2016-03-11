@@ -443,30 +443,34 @@ CONTAINS
     ! local variables
     REAL(dp), ALLOCATABLE           :: levels(:)
     REAL(wp), ALLOCATABLE           :: levels_i(:), levels_m(:)
-    INTEGER                         :: nzlevp1
 
 #ifndef __NO_ICON_OCEAN__
     of%cdiZaxisID(:) = CDI_UNDEFID ! not all are set
 
     ! surface level
-    of%cdiZaxisID(ZA_surface) = zaxisCreate(ZAXIS_SURFACE, 1)
-    ALLOCATE(levels(1))
-    levels(1) = 0.0_dp
-    CALL zaxisDefLevels(of%cdiZaxisID(ZA_surface), levels)
-    DEALLOCATE(levels)
+ !  of%cdiZaxisID(ZA_surface) = zaxisCreate(ZAXIS_SURFACE, 1)
+ !  ALLOCATE(levels(1))
+ !  levels(1) = 0.0_dp
+ !  CALL zaxisDefLevels(of%cdiZaxisID(ZA_surface), levels)
+ !  DEALLOCATE(levels)
 
-    of%cdiZaxisID(ZA_depth_below_sea)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
-    nzlevp1 = n_zlev + 1
-    of%cdiZaxisID(ZA_depth_below_sea_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
+ !  of%cdiZaxisID(ZA_depth_below_sea)      = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
+ !  of%cdiZaxisID(ZA_depth_below_sea_half) = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
     
-    ALLOCATE(levels_i(nzlevp1))
+    ALLOCATE(levels_i(n_zlev+1))
     ALLOCATE(levels_m(n_zlev))
     CALL set_zlev(levels_i, levels_m, n_zlev, dzlev_m)
-    CALL zaxisDefLevels(of%cdiZaxisID(ZA_DEPTH_BELOW_SEA), REAL(levels_m,dp))
-    CALL zaxisDefLevels(of%cdiZaxisID(ZA_DEPTH_BELOW_SEA_HALF), REAL(levels_i,dp))
+!   CALL zaxisDefLevels(of%cdiZaxisID(ZA_DEPTH_BELOW_SEA), REAL(levels_m,dp))
+!   CALL zaxisDefLevels(of%cdiZaxisID(ZA_DEPTH_BELOW_SEA_HALF), REAL(levels_i,dp))
+!   of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
+
+    CALL define_single_level_axis(of, ZA_surface, ZAXIS_SURFACE)
+    CALL define_vertical_axis(of, ZA_depth_below_sea,      ZAXIS_DEPTH_BELOW_SEA, n_zlev  , levels = REAL(levels_m,wp))
+    CALL define_vertical_axis(of, ZA_depth_below_sea_half, ZAXIS_DEPTH_BELOW_SEA, n_zlev+1, levels = REAL(levels_i,wp))
+    CALL define_single_level_axis(of, ZA_GENERIC_ICE, ZAXIS_GENERIC)
+
     DEALLOCATE(levels_i)
     DEALLOCATE(levels_m)
-    of%cdiZaxisID(ZA_GENERIC_ICE) = zaxisCreate(ZAXIS_GENERIC, 1)
 #endif
 
   END SUBROUTINE setup_zaxes_oce
