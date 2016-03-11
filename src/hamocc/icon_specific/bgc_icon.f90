@@ -15,6 +15,8 @@
 !!
 !! @par Revision History
 !!
+#include "icon_definitions.inc"
+
 SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
 
   USE mo_kind,                ONLY: wp
@@ -40,6 +42,11 @@ SUBROUTINE BGC_ICON(p_patch_3D, p_os, p_as, p_ice)
   USE mo_exception, ONLY: message
   USE mo_carchm,              ONLY: calc_dissol 
   USE mo_sedmnt, ONLY         : ini_bottom
+  USE mo_timer, ONLY          : timer_bgc_up_bgc, timer_bgc_swr, timer_bgc_wea,timer_bgc_depo, &
+    &                           timer_bgc_chemcon, timer_bgc_ocprod, timer_bgc_sett,timer_bgc_cya,&
+    &                           timer_bgc_gx, timer_bgc_calc, timer_bgc_powach, timer_bgc_up_ic, &
+    &                           timer_bgc_tend, timer_start, timer_stop, timers_level
+  USE mo_run_config, ONLY    : ltimer
 
   IMPLICIT NONE
 
@@ -93,55 +100,69 @@ ENDIF
 
         CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
+        start_detail_timer(timer_bgc_up_bgc,5)
          CALL update_bgc(start_index,end_index,levels,&
              & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
              &jb, p_os%p_prog(nold(1))%tracer(:,:,jb,:)&
              & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)
+        stop_detail_timer(timer_bgc_up_bgc,5)
 
 
-       !
+        start_detail_timer(timer_bgc_swr,5)
        ! Net solar radiation update and swr_frac
         CALL swr_absorption(start_index,end_index,levels,                   &
  &                          p_as%fswr(:,jb),                                & ! SW radiation
  &                          p_ice%concSum(:,jb),                            & ! sea ice concentration
  &                          p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))   ! level thickness
 
+        stop_detail_timer(timer_bgc_swr,5)
 
        ! Biogeochemistry
 
+        start_detail_timer(timer_bgc_wea,5)
        ! Weathering fluxes 
         CALL update_weathering(start_index, end_index,  & ! index range, levels, salinity
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&! cell thickness (check for z0)
    &                 p_os%p_prog(nold(1))%h(:,jb)) ! surface_height
 
+        stop_detail_timer(timer_bgc_wea,5)
+
+        start_detail_timer(timer_bgc_depo,5)
       ! Dust deposition
         CALL dust_deposition(start_index, end_index,  & ! index range, levels, salinity
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), &! cell thickness (check for z0)
    &                 p_os%p_prog(nold(1))%h(:,jb),& ! surface_height
    &                 ext_data_bgc%dusty(:,jb))       ! dust input
 
+        stop_detail_timer(timer_bgc_depo,5)
        !----------------------------------------------------------------------
        ! Calculate chemical properties 
 
+        start_detail_timer(timer_bgc_chemcon,5)
         CALL chemcon(start_index, end_index,levels,  p_os%p_prog(nold(1))%tracer(:,:,jb,2), & ! index range, levels, salinity
    &                 p_os%p_prog(nold(1))%tracer(:,:,jb,1),                              & ! pot. temperature
    &                 p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),                    & ! cell thickness
    &                 p_patch_3d%p_patch_1d(1)%depth_CellInterface(:,:,jb) ,  &           ! depths at interface  
    &                 itrig_chemcon)           
+        stop_detail_timer(timer_bgc_chemcon,5)
        !----------------------------------------------------------------------
        ! Calculate plankton dynamics and particle settling 
 
        IF(i_settling.ne.2)then !2==agg
 
+        start_detail_timer(timer_bgc_ocprod,5)
          ! plankton dynamics and remineralization  
          CALL ocprod(levels, start_index,end_index, p_os%p_prog(nold(1))%tracer(:,:,jb,1),&
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb), & ! cell thickness
    &               p_os%p_prog(nold(1))%h(:,jb)) ! surface height
+        stop_detail_timer(timer_bgc_ocprod,5)
 
+        start_detail_timer(timer_bgc_sett,5)
          ! particle settling
          CALL settling(levels,start_index, end_index, &
    &                   p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
    &                   p_os%p_prog(nold(1))%h(:,jb))                   ! surface height
+        stop_detail_timer(timer_bgc_sett,5)
 
         endif
 
@@ -149,6 +170,7 @@ ENDIF
        !----------------------------------------------------------------------
        ! Calculate N2 fixation 
 
+       start_detail_timer(timer_bgc_cya,5)
        IF (l_cyadyn) THEN 
         ! dynamic cyanobacteria
         CALL cyadyn(levels, start_index,end_index, &  ! vertical range, cell range,
@@ -160,11 +182,13 @@ ENDIF
         CALL cyano (start_index, end_index,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&
      &               p_os%p_prog(nold(1))%h(:,jb))                 ! surface height    
        endif
+       stop_detail_timer(timer_bgc_cya,5)
 
 
        !----------------------------------------------------------------------
        ! Calculate gas exchange
 
+        start_detail_timer(timer_bgc_gx,5)
         CALL gasex( start_index, end_index,    & 
   &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
   &               p_os%p_prog(nold(1))%h(:,jb), &                   ! surface height
@@ -173,15 +197,19 @@ ENDIF
   &               p_as%fu10(:,jb)                      , &          ! 10m wind speed 
   &               p_ice%concSum(:,jb))                              ! sea ice concentration
 
+       stop_detail_timer(timer_bgc_gx,5)
         !----------------------------------------------------------------------
         ! Calculate carbonate dissolution
  
+        start_detail_timer(timer_bgc_calc,5)
          CALL calc_dissol( start_index, end_index, levels,   & 
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),& ! cell thickness
    &               p_os%p_prog(nold(1))%tracer(:,:,jb,2))           ! salinity
  
+        stop_detail_timer(timer_bgc_calc,5)
        !----------------------------------------------------------------------
         ! Calculate sediment dynamics
+        start_detail_timer(timer_bgc_powach,5)
         if(l_implsed)then 
          CALL powach_impl( start_index, end_index,    & 
    &               p_os%p_prog(nold(1))%tracer(:,:,jb,2))          ! salinity
@@ -191,13 +219,17 @@ ENDIF
    &               p_os%p_prog(nold(1))%tracer(:,:,jb,2),          &! salinity
    &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))  ! cell thickness
          endif
+        stop_detail_timer(timer_bgc_powach,5)
 
         if(mod(ldtrunbgc,ndtdaybgc).eq.0) CALL sedshi(start_index,end_index)
  
+        start_detail_timer(timer_bgc_up_ic,5)
         CALL update_icon(start_index,end_index,levels,&
   &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
   &               p_os%p_prog(nold(1))%tracer(:,:,jb,:))
- 
+        stop_detail_timer(timer_bgc_up_ic,5)
+
+        start_detail_timer(timer_bgc_tend,5)
         CALL set_bgc_tendencies_output(start_index,end_index,levels, &
   &               p_patch_3D%p_patch_1d(1)%prism_thick_c(:,:,jb),&  ! cell thickness
   &                                   jb, &
@@ -205,6 +237,7 @@ ENDIF
   &                                   hamocc_state%p_diag,            &
   &                                   hamocc_state%p_sed)
 
+        stop_detail_timer(timer_bgc_tend,5)
  ENDDO
   ! Increment bgc time step counter of run (initialized in INI_BGC).
   !

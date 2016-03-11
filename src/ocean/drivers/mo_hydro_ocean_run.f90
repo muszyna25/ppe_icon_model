@@ -42,7 +42,8 @@ MODULE mo_hydro_ocean_run
   USE mo_timer,                  ONLY: timer_start, timer_stop, timer_total, timer_solve_ab,  &
     & timer_tracer_ab, timer_vert_veloc, timer_normal_veloc,     &
     & timer_upd_phys, timer_upd_flx, timer_extra20, timers_level, &
-    & timer_scalar_prod_veloc, timer_extra21, timer_extra22
+    & timer_scalar_prod_veloc, timer_extra21, timer_extra22, timer_bgc_ini, &
+    & timer_bgc_inv, timer_bgc_tot
   USE mo_ocean_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
     & calc_normal_velocity_ab,  &
     & calc_vert_velocity,       &
@@ -107,7 +108,11 @@ CONTAINS
 ! !   TYPE (t_ho_params)                :: p_phys_param
     LOGICAL, INTENT(in)               :: is_restart
     TYPE(t_solvercoeff_singleprecision), INTENT(inout) :: solvercoeff_sp
-    if(lhamocc)CALL ini_bgc_icon(patch_3d,ocean_state,is_restart)
+    if(lhamocc)then
+      if(ltimer)call timer_start(timer_bgc_ini)
+      CALL ini_bgc_icon(patch_3d,ocean_state,is_restart)
+      if(ltimer)call timer_stop(timer_bgc_ini)
+    endif
 ! 
 !     IF (is_restart) THEN
 !       ! Prepare ocean_state%p_prog, since it is needed by the sea ice model (e.g. wind stress computation)
@@ -220,8 +225,10 @@ CONTAINS
     CALL timer_start(timer_total)
 
     IF(lhamocc) THEN
+     if(ltimer)CALL timer_start(timer_bgc_inv)
      CALL message ('start of time loop', 'HAMOCC inventories', io_stdo_bgc)
-     CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
+     if(ltimer)CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
+    CALL timer_stop(timer_bgc_inv)
     ENDIF
 
     time_loop: DO jstep = (jstep0+1), (jstep0+nsteps)
@@ -359,7 +366,11 @@ CONTAINS
 
 
          ! Step : call HAMOCC
-      if(lhamocc)CALL bgc_icon(patch_3d,ocean_state(jg),p_as,sea_ice)
+      if(lhamocc)then
+        if(ltimer) call timer_start(timer_bgc_tot)
+        CALL bgc_icon(patch_3d,ocean_state(jg),p_as,sea_ice)
+        if(ltimer) call timer_stop(timer_bgc_tot)
+      endif
       !------------------------------------------------------------------------
       ! Step 6: transport tracers and diffuse them
       IF (no_tracer>=1) THEN
@@ -482,8 +493,10 @@ CONTAINS
     ENDDO time_loop
     
     IF(lhamocc) THEN
+     if(ltimer)CALL timer_start(timer_bgc_inv)
      CALL message ('end of time loop', 'HAMOCC inventories', io_stdo_bgc)
      CALL get_inventories(hamocc_state,ocean_state(1),patch_3d,nold(1))
+     if(ltimer)CALL timer_stop(timer_bgc_inv)
     ENDIF
 
     IF (write_last_restart) &

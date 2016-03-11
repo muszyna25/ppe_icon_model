@@ -130,10 +130,10 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
       REAL(wp) :: xa_P, xa_fe, avnit,l_P,l_fe
       REAL(wp) :: xn_p,xn_fe
    
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_I,T_min_Topt,&
-!$OMP            sgnT,l_T,xa_p,l_P,xa_fe,pho_fe,pho_p,xn_p,xn_fe,pho,&
-!$OMP            cyapro,oldigasnit,xn,cyaloss)
+!HAMOCC_OMP_PARALLEL 
+!HAMOCC_OMP_DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_I,T_min_Topt,&
+!HAMOCC_OMP            sgnT,l_T,xa_p,l_P,xa_fe,pho_fe,pho_p,xn_p,xn_fe,pho,&
+!HAMOCC_OMP            cyapro,oldigasnit,xn,cyaloss) HAMOCC_OMP_DEFAULT_SCHEDULE
 
   DO j = start_idx, end_idx
   
@@ -230,12 +230,12 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
             ENDIF ! wet cells
       ENDDO ! 
   ENDDO ! 
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
 
-!$OMP PARALLEL 
-!$OMP DO PRIVATE(j,kpke,k)
+!HAMOCC_OMP_PARALLEL 
+!HAMOCC_OMP_DO PRIVATE(j,kpke,k) HAMOCC_OMP_DEFAULT_SCHEDULE
 
 ! -------------- buoyancy of cyanobacteria----------------------------------------
 
@@ -274,8 +274,8 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
     endif   
    ENDIF
  ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 
                   
  

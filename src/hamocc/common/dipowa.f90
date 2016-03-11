@@ -10,7 +10,6 @@
 !! constant diffusion coefficient : 1.e-9 set in mo_sedment.
 !! diffusion coefficient : zcoefsu/zcoeflo for upper/lower
 !! sediment layer boundary.
-#include "hamocc_omp_definitions.inc"
 
 SUBROUTINE DIPOWA (start_idx,end_idx)
 
@@ -68,8 +67,6 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
   ! diffusion coefficient for bottom sediment layer
   zcoeflo(ks) = 0.0_wp
 
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,k,iv,iv_oc,l,aprior,tredsy,sedb1,zcoefsu,zcoeflo) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO j = start_idx, end_idx
 
         k = 0
@@ -189,7 +186,5 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 
 
   END DO ! j loop
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
 
 END SUBROUTINE DIPOWA

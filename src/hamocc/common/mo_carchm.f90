@@ -6,6 +6,7 @@ MODULE mo_carchm
 !!        Calc dissolution, update of hydrogen ions
 !!
 !!
+#include "hamocc_omp_definitions.inc"
 
 USE mo_carbch, ONLY         : hi, aksp, akb3, akw3, ak13, ak23, co3, bgctra, bgctend
 USE mo_kind, ONLY           : wp
@@ -49,6 +50,8 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
   ! Dissolution of calcite, whole water column
   !
   !*********************************************************************
+!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_DO PRIVATE(k,start_idx,end_idx,supsat,undsa, dissol) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO j= start_idx, end_idx
 
        kpke=klevs(j)
@@ -76,6 +79,8 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
 
          END DO
   END DO
+!HAMOCC_OMP_END_DO
+!HAMOCC_OMP_END_PARALLEL
 END SUBROUTINE
 
 FUNCTION update_hi(hi,c,ak1,ak2,akw,s,akb,alk) RESULT (h)
