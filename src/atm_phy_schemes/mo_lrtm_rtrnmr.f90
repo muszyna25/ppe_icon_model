@@ -601,8 +601,8 @@ CONTAINS
               odepth(jl) = tau_tbl(itgas)
               atrans(jl,lev) = 1._wp - exp_tbl(itgas)
               tfacgas = tfn_tbl(itgas)
-              gassrc(jl) = atrans(jl,lev) * plfrac * (planklay(jl,lev,iband) &
-                                                   + tfacgas*dplankdn(jl,lev))
+              gassrc(jl) = plfrac * (planklay(jl,lev,iband) &
+                + tfacgas*dplankdn(jl,lev)) * atrans(jl,lev)
 
               tblind = odtot(jl)/(bpade+odtot(jl))
               ittot = INT(tblint*tblind + 0.5_wp)
@@ -748,8 +748,8 @@ CONTAINS
             odepth(jl) = tau_tbl(itgas)
             atrans(jl,lev) = 1._wp - exp_tbl(itgas)
             tfacgas = tfn_tbl(itgas)
-            gassrc(jl) = atrans(jl,lev) * plfrac * (planklay(jl,lev,iband) &
-                                                 + tfacgas*dplankdn(jl,lev))
+            gassrc(jl) = plfrac * (planklay(jl,lev,iband) &
+              + tfacgas*dplankdn(jl,lev)) * atrans(jl,lev)
 
             tblind = odtot(jl)/(bpade+odtot(jl))
             ittot = INT(tblint*tblind + 0.5_wp)
