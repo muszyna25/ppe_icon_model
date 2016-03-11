@@ -8,19 +8,21 @@ from model_paths import *
   
 
 myPaths = model_paths()
+
 omipFileList = myPaths.get_experimentsNames_inPath("checksuite.ocean_internal/omip/exp.*")
 #print(omipFileList)
-
-noList  = buildbot_experimentList("tt")
-noList.read()
-
-noList.print_list()
+omipList  = buildbot_experimentList("omip")
+#myexps    = omipList.add_experimentsByNameToAllBuilders(omipFileList)
+#myexps    = omipList.add_experimentsByNameToBuildersByName(omipFileList, ["mistral_gcc", "thunder_nag"])
+#myexps    = omipList.add_experimentsByNameToBuildersWithOptions(omipFileList, ["mistral", "daint_cpu"], None, None)
+#omipList.print_list()
+#omipList.delete_experimentsByNameFromBuildersWithOptions(omipFileList, ["mistral", "daint_cpu"], None, None)
+#omipList.print_list()
+#myexps    = omipList.add_experimentsByNameToBuildersWithOptions(omipFileList, None, ["openmp"], None)
+myexps    = omipList.add_experimentsByNameToBuildersWithOptions(omipFileList, ["mistral"], ["openmp"], None)
+omipList.print_list()
 quit()
 
-omipList  = buildbot_experimentList("omip")
-myexps    = omipList.add_experimentsByNameToBuildersWithoutFlag(omipFileList, "without-mpi")
-
-omipList.print_list()
 omipList.delete_experimentsByName_fromMachineName(omipFileList, "daint_cpu")
 omipList.print_list()
 omipList.delete_experimentsByName_fromMachineName(omipFileList, "thunder")

@@ -34,45 +34,37 @@ class buildbot_experimentList(object):
     if not self.experimentList.get(name):
       self.experimentList[name] = buildbot_experiment(name, self)
     return self.experimentList[name]
-
-  def add_experimentByNameToBuilder(self, name, builder):
-    experiment = self.add_experiment(name)
-    experiment.add_builder(builder)
-    return experiment
-    
-  def add_experimentsByNameToMachine(self, name_list, machine_name):
-    builders_list = self.buildbot_machine_list.get_machine_builders(machine_name)
-    self.add_experimentsByNameToBuilders(name_list, builders_list)
-    
-  def add_experimentsByNameToBuilders(self, name_list, builder_list):
+        
+  def add_experimentsByNameToBuilders(self, experimentNames, builder_list):
     exp_list = []
-    for name in name_list:
-      for builder in builder_list:
-        exp_list.append(self.add_experimentByNameToBuilder(name, builder))
+    for name in experimentNames:
+      experiment = self.add_experiment(name)
+      exp_list.append(experiment)
+      experiment.add_builders(builder_list)      
+      #for builder in builder_list:
+        #experiment.add_builder(builder)
+        #print("after builder:"+builder.name)
     return exp_list
     
-  def add_experimentsByNameToBuildersByName(self, name_list, builder_name_list):
-    builder_list = []
-    for builder_name in builder_name_list:
-      builder_list.append(sel.getBuilderByName(builder_name))
-    return add_experimentsByNameToBuilders(self, name_list, builder_list)
+  def add_experimentsByNameToBuildersByName(self, experimentNames, builder_name_list):    
+    builder_list = self.buildbot_machine_list.get_buildersByName(builder_name_list)
+    return self.add_experimentsByNameToBuilders(experimentNames, builder_list)
 
-  def add_experimentsByNameToAllBuilders(self, name_list):
+  def add_experimentsByNameToAllBuilders(self, experimentNames):
     all_builders = self.buildbot_machine_list.get_all_builders()
-    return self.add_experimentsByNameToBuilders( name_list, all_builders)
-    
-  def add_experimentsByNameToBuildersWithFlag(self, name_list, flag):
-    builders_list = self.buildbot_machine_list.get_builders_withFlag(flag)
-    return self.add_experimentsByNameToBuilders( name_list, builders_list)
-    
-  def add_experimentsByNameToBuildersWithoutFlag(self, name_list, flag):
-    builders_list = self.buildbot_machine_list.get_builders_withoutFlag(flag)
-    return self.add_experimentsByNameToBuilders( name_list, builders_list)
+    return self.add_experimentsByNameToBuilders( experimentNames, all_builders)
+
+  def add_experimentsByNameToBuildersWithOptions(self, experimentNames, machinesNames, withFlags, withoutFlags):
+    if machinesNames:
+      buildersList = self.buildbot_machine_list.get_machinesBuilders(machinesNames)
+    else:
+      buildersList = self.buildbot_machine_list.get_all_builders()
+    buildersList_withOptions = self.buildbot_machine_list.get_buildersWithOptions(buildersList, withFlags, withoutFlags)
+    return self.add_experimentsByNameToBuilders( experimentNames, buildersList_withOptions)   
     
   def delete_experiment(self, experiment):
     self.experimentList[experiment.name].delete()
-
-  # Note: this should only be called by an experiment object; use the delete_experiment() in all other cases
+  # Note: this is only be called by an experiment object; use the delete_experiment() in all other cases
   def delete_experimentFromBuildbotList(self, experiment):
     print("Deleting "+experiment.name+" from "+self.name+" list...")
     del self.experimentList[experiment.name]
@@ -82,28 +74,23 @@ class buildbot_experimentList(object):
       experiment = self.get_experiment(experimentName)
       self.delete_experiment(experiment)
       
-  def delete_experimentsByName_fromBuilders(self, experiment_list, builders_list):
-    for experimentName in experiment_list:
+  def delete_experimentsByName_fromBuilders(self, experimentsNames, builders_list):
+    for experimentName in experimentsNames:
       experiment = self.get_experiment(experimentName)
-      for builder in builders_list:
-        experiment.delete_fromBuilder(builder)
+      experiment.delete_fromBuilders(builders_list)
 
   def delete_experimentsByName_fromBuildersName(self, experiment_list, buildersName):
-    builders_list = self.getBuildersListByName(buildersName)
-    self.delete_experimentsByName_fromBuilders(experiment_list, builders_list)
-            
-  def delete_experimentsByName_fromMachineName(self, experiment_list, machine_name):
-    builders_list = self.buildbot_machine_list.get_machine_builders(machine_name)
+    builders_list = self.get_buildersByName(buildersName)
     self.delete_experimentsByName_fromBuilders(experiment_list, builders_list)
 
-  def delete_experimentsByName_fromBuildersWithFlag(self, experiment_list, flag):
-    builders_list = self.buildbot_machine_list.get_builders_withFlag(flag)
-    self.delete_experimentsByName_fromBuilders(experiment_list, builders_list)
-
-  def delete_experimentsByName_fromBuildersWithoutFlag(self, experiment_list, flag):
-    builders_list = self.buildbot_machine_list.get_builders_withoutFlag(flag)
-    self.delete_experimentsByName_fromBuilders(experiment_list, builders_list)
-        
+  def delete_experimentsByNameFromBuildersWithOptions(self, experimentNames, machinesNames, withFlags, withoutFlags):
+    if machinesNames:
+      buildersList = self.buildbot_machine_list.get_machinesBuilders(machinesNames)
+    else:
+      buildersList = self.buildbot_machine_list.get_all_builders()
+    buildersList_withOptions = self.buildbot_machine_list.get_buildersWithOptions(buildersList, withFlags, withoutFlags)
+    return self.delete_experimentsByName_fromBuilders( experimentNames, buildersList_withOptions)
+                    
   def get_experiment(self, name):
     experiment = self.experimentList.get(name)
     if not experiment:
@@ -115,17 +102,11 @@ class buildbot_experimentList(object):
     experiment = self.experimentList.get(name)
     return experiment
     
-  def getMachineByName(self, name):
-    return self.buildbot_machine_list.getMachineByName(name)
-
-  def getBuildersListByName(self, name_list):
-    builders_list = []
-    for name in name_list:
-      builders_list.append(self.getBuilderByName(name))
-    return builders_list
+  def get_MachineByName(self, name):
+    return self.buildbot_machine_list.get_MachineByName(name)
     
   def getBuilderByName(self, name):
-    return self.buildbot_machine_list.getBuilderByName(name)
+    return self.buildbot_machine_list.get_buildersByName([name])
         
   def getBuilderExperimentNames(self, builder_name):
     return self.buildbot_machine_list.getBuilderExperimentNames(builder_name)
@@ -182,11 +163,11 @@ class buildbot_experimentList(object):
         name=parameters[0]
         #print(keyword, name)
         if   (keyword == "machine"):
-          machine=self.getMachineByName(name)
+          machine=self.get_MachineByName(name)
         elif (keyword == "builder"):
           builder=self.getBuilderByName(name)
         elif (keyword == "experiment"):
-          self.add_experimentByNameToBuilder(name,builder)
+          self.add_experimentsByNameToBuilders([name],[builder])
 
       listfile.close()
       
@@ -225,40 +206,40 @@ class buildbot_machine_list(object):
     for machine in self.machines.values():
       machine.writeToFile_builders(listfile)
 
-  def get_machine_builders(self, machine_name):
-    return self.machines[machine_name].get_all_builders()
+  def get_machinesBuilders(self, machine_names):
+    builders_list = []
+    for machine_name in machine_names:
+      machine = self.get_MachineByName(machine_name)
+      builders_list.extend(machine.get_all_builders())
+    return builders_list
     
   def get_all_builders(self):
-    all_builders = []
-    for machine in self.machines.values():
-      all_builders.extend(machine.get_all_builders())
-    return all_builders
-    
-  def get_builders_withFlag(self, flag):
-    builders = []
-    for machine in self.machines.values():
-      builders.extend(machine.get_builders_withFlag(flag))
-    return builders
+    return list(self.builders.values())
 
-  def get_builders_withoutFlag(self, flag):
-    builders = []
-    for machine in self.machines.values():
-      builders.extend(machine.get_builders_withoutFlag(flag))
-    return builders
+  def get_buildersWithOptions(self, buildersList, withFlags, withoutFlags):
+    buildersWithOptions = []
+    for builder in buildersList:
+      if builder.hasOptions(withFlags, withoutFlags):
+        buildersWithOptions.append(builder)
+    return buildersWithOptions
 
-  def getBuilderByName(self,builderName):
-    for machine in self.machines.values():
-      builder = machine.getBuilderByName(builderName)
-      if builder:
-        return builder
-    print("Error: builder "+builderName+" not found in "+self.name+".")
-    quit()
+  def get_buildersByName(self,buildersNames):
+    buildersList = []
+    for builderName in buildersNames:
+      builder = self.builders.get(builderName)
+      if not builder:
+        print("Error: builder "+builderName+" not found in "+self.name+".")
+        quit()
+      else:
+        buildersList.append(builder)
+    return buildersList
     
-  def getMachineByName(self,machineName):
+  def get_MachineByName(self,machineName):
     machine = self.machines.get(machineName)
     if not machine:
       print("Error: machine "+machineName+" not found in "+self.name+".")
       quit()
+    return machine
 
   def getBuilderExperimentNames(self, builder_name):
     if not self.builders.get(builder_name):
@@ -291,29 +272,13 @@ class buildbot_machine(object):
       builder.print_builder_experiments()
 
   def get_all_builders(self):
-    return self.builders.values()
-
-  def get_builders_withFlag(self, flag):
-    builders = []
-    for builder in self.builders.values():
-      if builder.hasFlag(flag):
-        builders.append(builder)
-    return builders
-
-  def get_builders_withoutFlag(self, flag):
-    builders = []
-    for builder in self.builders.values():
-      if not builder.hasFlag(flag):
-        builders.append(builder)
-    return builders
+    return list(self.builders.values())
 
   def writeToFile_builders(self, listfile):
     listfile.write("machine:"+self.name+" "+self.queue+"\n")
     for builder in self.builders.values():
       builder.writeToFile_builder_experiments(listfile)
 
-  def getBuilderByName(self,name):
-    return self.builders.get(name)
 #-----------------------------------------------------------------------
 
       
@@ -326,13 +291,11 @@ class buildbot_experiment(object):
     self.builders = weakref.WeakValueDictionary() # {}
     self.experimentList = experimentList # weakref.ref(experimentList)
 
-  def add_builder(self, builder):
-    self.builders[builder.name] = builder
-    builder.add_experiment_onlyFromExperimentObject(self)
-
-  def add_builderByName(self, builder_name):
-    builder = self.experimentList.getBuilderByName(builder_name)
-    self.add_builder(builder)
+  def add_builders(self, buildersList):
+    for builder in buildersList:
+      print("adding "+self.name+" to "+builder.name+"...")
+      self.builders[builder.name] = builder
+      builder.add_experiment_onlyFromExperimentObject(self)
     
   def print_experiment(self):
     print("    "+self.name)
@@ -356,13 +319,11 @@ class buildbot_experiment(object):
     self.experimentList.delete_experimentFromBuildbotList(self)
     #del self
     
-  def delete_fromBuilder(self, builder):
-    if self.builders.get(builder.name):
+  def delete_fromBuilders(self, builders):
+    for builder in builders:
       print("Deleting experiment "+self.name+" from builder "+builder.name+"...")
       builder.delete_experiment_onlyFromExperimentObject(self)
       del self.builders[builder.name]
-    else:
-      print("Warning: delete failed. "+self.name+" experiment is not in the "+ builder.name+" builder.")
       
   #def __del__(self):
     #print("Deleting experiment "+self.name+" done.")
@@ -380,12 +341,20 @@ class buildbot_builder(object):
     self.machine = machine
     self.configure_flags = flags
     self.experiments = weakref.WeakValueDictionary() # {}
-
+    
   def print_builder(self):
     print("  "+self.name+':', self.configure_flags)
 
-  def hasFlag(self,flag):
-    return (flag in self.configure_flags)
+  def hasOptions(self, withFlags, withoutFlags):
+    hasTheseOptions = True
+    if withFlags:
+      for flag in withFlags:
+        hasTheseOptions = hasTheseOptions and flag in self.configure_flags
+        #print("Checking builder "+self.name+" for flag "+flag+" in "+self.configure_flags, flag in self.configure_flags, hasTheseOptions)
+    if withoutFlags:
+      for flag in withoutFlags:
+        hasTheseOptions = hasTheseOptions and not flag in self.configure_flags.contains       
+    return hasTheseOptions
   
   def print_builder_experiments(self):
     print("  "+self.name+':', self.configure_flags)
