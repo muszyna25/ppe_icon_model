@@ -51,8 +51,9 @@ MODULE mo_initicon_utils
   USE mo_mpi,                 ONLY: my_process_is_stdio, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_util_string,         ONLY: tolower, difference, add_to_list, one_of, int2string
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, lseaice, llake, lmulti_snow,         &
-    &                               isub_lake, frlnd_thrhld, frlake_thrhld, frsea_thrhld,         &
-    &                               nlev_snow, ntiles_lnd, lsnowtile, l2lay_rho_snow
+    &                               isub_lake, isub_water, isub_seaice, frlnd_thrhld,             &
+    &                               frlake_thrhld, frsea_thrhld, nlev_snow, ntiles_lnd,           &
+    &                               lsnowtile, l2lay_rho_snow
   USE mo_nwp_sfc_utils,       ONLY: init_snowtile_lists
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config, iprog_aero
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
@@ -1037,6 +1038,15 @@ MODULE mo_initicon_utils
     INTEGER  :: nblks_c, npromz_c, nlen
     REAL(wp) :: zfrice_thrhld, zminsnow_alb, zmaxsnow_alb, zsnowalb_lu, t_fac
 
+
+    ! set frice_thrhld depending on tile usage
+    IF ( ntiles_total == 1 ) THEN  ! no tile approach
+      zfrice_thrhld = 0.5_wp
+    ELSE
+      zfrice_thrhld = frsi_min
+    ENDIF
+
+
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c)
     DO jg = 1, n_dom
 
@@ -1046,7 +1056,7 @@ MODULE mo_initicon_utils
       npromz_c  = p_patch(jg)%npromz_c
 
 
-!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zfrice_thrhld,zminsnow_alb,zmaxsnow_alb,zsnowalb_lu,t_fac,ilu) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jb,jc,nlen,jt,js,jp,ic,zminsnow_alb,zmaxsnow_alb,zsnowalb_lu,t_fac,ilu) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -1061,6 +1071,13 @@ MODULE mo_initicon_utils
           p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(jc,jb) = initicon(jg)%sfc%tskin(jc,jb)
           p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = initicon(jg)%sfc%tskin(jc,jb)
         ENDDO
+        ! In addition, write skin temperature to lake points, limited to 33 deg C. We stick 
+        ! to that until something more reasonable becomes available
+        DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(jc,jb) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
+          p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_g(jc,jb) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
+        ENDDO
 
         ! Fill also SST and sea ice fraction fields over ocean points; SST is limited to 30 deg C
         ! Note: missing values of the sea ice fraction, which may occur due to differing land-sea masks, 
@@ -1071,7 +1088,7 @@ MODULE mo_initicon_utils
           IF ( l_sst_in .AND. initicon(jg)%sfc%sst(jc,jb) > 10._wp  ) THEN
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = initicon(jg)%sfc%sst(jc,jb)              
           ELSE
-           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,initicon(jg)%sfc%tskin(jc,jb))
+            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(303.15_wp,initicon(jg)%sfc%tskin(jc,jb))
           ENDIF
           !
           ! In case of missing sea ice fraction values, we make use of the sea 
@@ -1090,13 +1107,7 @@ MODULE mo_initicon_utils
           ENDIF
 
         ENDDO
-        ! In addition, write skin temperature to lake points, limited to 33 deg C. These will
-        ! be used to initialize lake points until something more reasonable becomes available
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-          p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
-        ENDDO
+
 
         IF ( atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
           DO jt = 1, ntiles_total
@@ -1185,8 +1196,15 @@ MODULE mo_initicon_utils
               ENDDO
             ENDDO
 
+            ! set t_s for land tiles to t_so_t(1)
+            DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+              jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_s_t(jc,jb,jt)= &
+                &                                              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_so_t(jc,1,jb,jt)
+              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_s_t(jc,jb,jt)= &
+                &                                              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_so_t(jc,1,jb,jt)
+            ENDDO
           ENDDO
-
 
 
           ! Coldstart for sea-ice parameterization scheme
@@ -1201,11 +1219,6 @@ MODULE mo_initicon_utils
           !        in mo_nwp_sfc_utils:nwp_surface_init
           !
           IF (lseaice) THEN
-            IF ( ntiles_total == 1 ) THEN  ! no tile approach
-              zfrice_thrhld = 0.5_wp
-            ELSE
-              zfrice_thrhld = frsi_min
-            ENDIF
 
             CALL seaice_coldinit_nwp(nproma, zfrice_thrhld,                               &
               &         frsi    = p_lnd_state(jg)%diag_lnd%fr_seaice(:,jb),               &
@@ -1219,7 +1232,7 @@ MODULE mo_initicon_utils
               &         tsnow_n = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%t_snow_si(:,jb), &
               &         hsnow_n = p_lnd_state(jg)%prog_wtr(nnew_rcf(jg))%h_snow_si(:,jb)  )
 
-          ENDIF  ! leseaice
+          ENDIF  ! lseaice
 
           ! Cold-start initialization of the fresh-water lake model FLake.
           ! The procedure is the same as in "int2lm".
@@ -1247,6 +1260,21 @@ MODULE mo_initicon_utils
               &     t_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_b1_lk  (:,jb), &
               &     h_b1_lk_p   = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%h_b1_lk  (:,jb), &
               &     t_g_lk_p    = p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g_t    (:,jb,isub_lake) )
+
+            ! t_s for lake tile
+            DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+              jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_s_t(jc,jb,isub_lake) = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb)
+              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_s_t(jc,jb,isub_lake) = p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))%t_wml_lk(jc,jb)
+            ENDDO
+
+          ELSE
+
+            DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+              jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+              p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_s_t(jc,jb,isub_lake) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
+              p_lnd_state(jg)%prog_lnd(nnew_rcf(jg))%t_s_t(jc,jb,isub_lake) = MIN(306.15_wp,initicon(jg)%sfc%tskin(jc,jb))
+            ENDDO
           ENDIF  ! llake
 
         ENDIF   ! inwp_surface > 0
@@ -1256,6 +1284,11 @@ MODULE mo_initicon_utils
     ENDDO
 !$OMP END PARALLEL
 
+    ! NOTE: Initialization of sea-water and sea-ice tiles 
+    ! for t_s_t is done later in mo_nwp_sfc_utils:nwp_surface_init, 
+    ! because
+    ! I)  index lists for sea-ice and sea-water are 
+    !     not yet available at this point.
   END SUBROUTINE copy_initicon2prog_sfc
 
 

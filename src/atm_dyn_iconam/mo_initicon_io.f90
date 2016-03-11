@@ -28,6 +28,7 @@ MODULE mo_initicon_io
   USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
+  USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
@@ -54,7 +55,8 @@ MODULE mo_initicon_io
   USE mo_util_cdi,            ONLY: t_inputParameters, trivial_tileId
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
-    &                               ntiles_water, lmulti_snow, tiles, lsnowtile
+    &                               ntiles_water, lmulti_snow, tiles, lsnowtile, &
+    &                               isub_lake
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
@@ -65,6 +67,8 @@ MODULE mo_initicon_io
   USE mo_input_request_list,  ONLY: t_InputRequestList
   USE mo_util_string,         ONLY: int2string
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
+
+
 
   ! High level overview of how `mo_initicon` reads input data
   ! =========================================================
@@ -1372,18 +1376,21 @@ MODULE mo_initicon_io
 
 
   !! processing of DWD first-guess DATA
-  SUBROUTINE process_input_dwdfg_sfc(p_patch, p_lnd_state)
+  SUBROUTINE process_input_dwdfg_sfc(p_patch, p_lnd_state, ext_data)
     TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data)    , INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg, jt, jb, jc, i_endidx
+    INTEGER :: jg, jt, jb, jc, ic, i_endidx
     TYPE(t_lnd_prog), POINTER :: lnd_prog
+    TYPE(t_wtr_prog), POINTER :: wtr_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_input_dwdfg_sfc"
 
     DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active) THEN
             lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+            wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
             lnd_diag => p_lnd_state(jg)%diag_lnd
             DO jt=1, ntiles_total + ntiles_water
                 ! Copy t_g_t and qv_s_t to t_g and qv_s, respectively, on limited-area domains.
@@ -1414,7 +1421,39 @@ MODULE mo_initicon_io
                     CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
                 END DO
             END IF
+
+
+            ! Initialize t_s_t, which is not read in
+            !
+!$OMP PARALLEL DO PRIVATE(jb,jt,ic,jc)
+            DO jb = 1, p_patch(jg)%nblks_c
+
+              ! set t_s_t to t_so_t(1) for land tiles
+              DO jt = 1, ntiles_total
+                DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+                  jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+                  lnd_prog%t_s_t(jc,jb,jt) = lnd_prog%t_so_t(jc,1,jb,jt)
+                ENDDO
+              ENDDO  ! ntiles
+
+              ! take lake surface temperature from t_wml_lk
+              DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+                jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+                lnd_prog%t_s_t(jc,jb,isub_lake) = wtr_prog%t_wml_lk(jc,jb)
+              ENDDO
+
+              ! NOTE: Initialization of sea-water and sea-ice tiles 
+              ! is done later in mo_nwp_sfc_utils:nwp_surface_init for 
+              ! two reasons:
+              ! I)  index lists for sea-ice and sea-water are 
+              !     not yet available at this point.
+              ! II) If an SST-analysis is read in, t_s_t(isub_water) 
+              !     must be updated another time, anyway.
+
+            ENDDO  ! jb
+!$OMP END PARALLEL DO
         END IF
+
     END DO
   END SUBROUTINE process_input_dwdfg_sfc
 

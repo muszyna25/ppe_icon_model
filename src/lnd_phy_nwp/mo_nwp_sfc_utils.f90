@@ -235,29 +235,21 @@ CONTAINS
           END DO
         END DO
 
-        ! t_s_t: special initialization for open water and sea-ice tiles
+
+        ! t_s_t: initialization for open water and sea-ice tiles
         ! proper values are needed to perform surface analysis
         ! open water points: set it to SST
-        ! lake points      : set it to tskin (note that t_seasfc=tskin for lake points)
-        ! sea-ice points   : set it to t_melt
+        ! sea-ice points   : set it to tf_salt (salt-water freezing point)
         !
         ! Note that after aggregation, t_s is copied to t_so(1)
+        !
         DO ic = 1, ext_data%atm%spw_count(jb)
-
           jc = ext_data%atm%idx_lst_spw(ic,jb)
           p_prog_lnd_now%t_s_t(jc,jb,isub_water) = p_lnd_diag%t_seasfc(jc,jb)
           p_prog_lnd_new%t_s_t(jc,jb,isub_water) = p_lnd_diag%t_seasfc(jc,jb)
         ENDDO
 
-        DO ic = 1, ext_data%atm%fp_count(jb)
-
-          jc = ext_data%atm%idx_lst_fp(ic,jb)
-          p_prog_lnd_now%t_s_t(jc,jb,isub_lake) = p_lnd_diag%t_seasfc(jc,jb)
-          p_prog_lnd_new%t_s_t(jc,jb,isub_lake) = p_lnd_diag%t_seasfc(jc,jb)
-        ENDDO
-
         DO ic = 1, ext_data%atm%spi_count(jb)
-
           jc = ext_data%atm%idx_lst_spi(ic,jb)
           p_prog_lnd_now%t_s_t(jc,jb,isub_seaice) = tf_salt
           p_prog_lnd_new%t_s_t(jc,jb,isub_seaice) = tf_salt

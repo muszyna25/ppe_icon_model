@@ -364,22 +364,6 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         END DO
       ELSE ! For real-case simulations, initialize also qv_s and the tile-based fields
 
-        ! t_g:
-        ! Note, that in copy_prepicon2prog the entire t_g field is initialized with
-        ! t_skin.
-        ! Here, t_g is re-initialized over open water points with t_seasfc.
-        ! Thus:
-        ! t_g = tskin (from IFS), for land and seaice points
-        ! t_g = t_seasfc for open water and lake points
-        !
-        ! If l_sst_in==FALSE, then t_seasfc=t_skin (with a limiter), so nothing important happens
-        !
-        ! qv_s:
-        ! Over the sea and over the ice, qv_s is set to the saturated value
-        ! Over the land we take the minimum of the saturated value and the value
-        ! at the first main level above ground
-        !
-
         !t_g_t and qv_s_t are initialized in read_dwdfg_sfc, calculate the aggregated values
         ! needed for example for initializing the turbulence fields
         IF (init_mode /= MODE_IFSANA) THEN
@@ -395,6 +379,24 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
             END DO
           END DO
         END IF  ! init_mode /= MODE_IFSANA
+
+        ! MODE_IFSANA
+        ! t_g:
+        ! Note, that in copy_prepicon2prog the entire t_g field is initialized with
+        ! t_skin. Lake points are re-initialized with MIN(306.15_wp,tskin).
+        !
+        ! Here, t_g is re-initialized over sea water points with t_seasfc.
+        ! Thus:
+        ! t_g = tskin (from IFS), for land, lake and seaice points
+        ! t_g = t_seasfc for open water
+        !
+        ! If l_sst_in==FALSE, then t_seasfc=t_skin (with a limiter), so nothing important happens
+        !
+        ! qv_s:
+        ! Over the sea and over the ice, qv_s is set to the saturated value
+        ! Over the land we take the minimum of the saturated value and the value
+        ! at the first main level above ground
+        !
 
         ! t_g_t, qv_s and qv_s_t are not initialized in case of MODE_IFSANA
         IF (init_mode == MODE_IFSANA) THEN
@@ -422,7 +424,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 
           DO ic=1, ext_data%atm%fp_count(jb)
             jc = ext_data%atm%idx_lst_fp(ic,jb)
-            p_prog_lnd_now%t_g(jc,jb) = p_diag_lnd%t_seasfc(jc,jb)
+            ! lake points already initialized in mo_initicon_utils:copy_initicon2prog_sfc
             p_diag_lnd%qv_s    (jc,jb)    = &
               & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
@@ -436,7 +438,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
           END DO
 
           DO jc = i_startidx, i_endidx
-            p_prog_lnd_new%t_g(jc,jb)     =  p_prog_lnd_now%t_g(jc,jb)
+            p_prog_lnd_new%t_g(jc,jb) = p_prog_lnd_now%t_g(jc,jb)
           ENDDO
 
 
