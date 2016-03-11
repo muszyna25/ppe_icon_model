@@ -72,7 +72,8 @@ MODULE mo_initicon
                                   & fgFilename, fgFiletype, anaFilename, anaFiletype
   USE mo_input_request_list,  ONLY: t_InputRequestList, InputRequestList_create
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna
+  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, &
+                                    kInputSourceBoth
   USE mo_util_uuid,           ONLY: t_uuid
 
   IMPLICIT NONE
@@ -1676,7 +1677,8 @@ MODULE mo_initicon
       ELSE
         jgch = jg
       ENDIF
-      lanaread_tso = inputInstructions(jgch)%ptr%sourceOfVar('t_so') == kInputSourceAna
+      lanaread_tso = ( inputInstructions(jgch)%ptr%sourceOfVar('t_so') == kInputSourceAna .OR. &
+                       inputInstructions(jgch)%ptr%sourceOfVar('t_so') == kInputSourceBoth )
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist) ICON_OMP_DEFAULT_SCHEDULE
