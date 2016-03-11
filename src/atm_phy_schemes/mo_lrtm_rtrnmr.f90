@@ -506,8 +506,8 @@ CONTAINS
               & faccmb1d(jl,lev-1) * gassrc + &
               & faccmb2d(jl,lev-1) * cldsrc
             rad(jl) = MERGE(-radmod &
-              + facclr2d(jl,lev-1) * (cldradd_temp - radmod) &
-              - faccld2d(jl,lev-1) * (clrradd_temp + radmod), rad(jl), &
+              + facclr2d(jl,lev-1) * (clrradd_temp + radmod) &
+              - faccld2d(jl,lev-1) * (cldradd_temp - radmod), rad(jl), &
               lcldlyr(jl,lev))
             cldradd(jl) = MERGE(cldradd_temp + rad(jl), cldradd(jl), &
               lcldlyr(jl,lev))
