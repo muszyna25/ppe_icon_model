@@ -107,7 +107,6 @@ CONTAINS
                                           !< due to turbulence. Computed in "vdiff",
                                           !< used by "cloud"
     INTEGER  :: itype(nbdim)              !< type of convection
-    INTEGER  :: invb (nbdim)
     INTEGER  :: ictop (nbdim)             !< from massflux
 
     REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
@@ -353,7 +352,6 @@ CONTAINS
         &         field%     q(:,:,jb,iqv), &! in    qm1
         &         field%     q(:,:,jb,iqi), &! in    xim1
         &         field%  aclc(:,:,jb),     &! out   (for "radiation" and "vdiff_down")
-        &         invb,                     &! out   (for "cloud")
         &         field% rintop(:,  jb)    ) ! out   (for output)
 
       IF (ltimer) CALL timer_stop(timer_cover)
@@ -1194,7 +1192,6 @@ CONTAINS
 
         CALL cloud(jce, nbdim, jks, nlev, nlevp1, &! in
           &        psteplen,                  &! in
-          &        invb,                      &! in (from "cover")
           &        ictop,                     &! in (from "cucall")
           &        field% presi_old(:,:,jb),  &! in
           &        field% omega(:,:,jb),      &! in. vervel
