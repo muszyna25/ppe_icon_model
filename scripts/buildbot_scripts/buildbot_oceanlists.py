@@ -9,7 +9,13 @@ from model_paths import *
 
 myPaths = model_paths()
 omipFileList = myPaths.get_experimentsNames_inPath("checksuite.ocean_internal/omip/exp.*")
-print(omipFileList)
+#print(omipFileList)
+
+noList  = buildbot_experimentList("tt")
+noList.read()
+
+noList.print_list()
+quit()
 
 omipList  = buildbot_experimentList("omip")
 myexps    = omipList.add_experimentsByNameToBuildersWithoutFlag(omipFileList, "without-mpi")

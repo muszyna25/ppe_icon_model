@@ -1048,6 +1048,7 @@ scripts/buildbot_scripts/buildbot_builders.py -text
 scripts/buildbot_scripts/buildbot_oceanlists.py -text
 scripts/buildbot_scripts/copy_plots.ksh -text
 scripts/buildbot_scripts/experiment_lists/ocean -text
+scripts/buildbot_scripts/mklist.py -text
 scripts/buildbot_scripts/model_paths.py -text
 scripts/buildbot_scripts/public_html/archive.css -text
 scripts/buildbot_scripts/public_html/buildbot.css -text
@@ -1057,6 +1058,7 @@ scripts/buildbot_scripts/public_html/open.gif -text
 scripts/buildbot_scripts/py/MainPage.py -text
 scripts/buildbot_scripts/py/exp_plot.py -text
 scripts/buildbot_scripts/py/reference_page.py -text
+scripts/buildbot_scripts/rmlist.py -text
 scripts/building/README -text
 scripts/building/Rakefile -text
 scripts/building/build_all -text

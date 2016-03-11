@@ -13,9 +13,8 @@
 #==============================================================================
 
 import weakref
-
-# the default folder for the lists files
-listsFolder="experiment_lists/"
+import sys
+from model_paths import *
 
 #-----------------------------------------------------------------------
 # contains a list of machines+builders and a list of experiments for them
@@ -25,11 +24,12 @@ class buildbot_experimentList(object):
     self.name  = name
     self.buildbot_machine_list = self.create_all_builders(name)
     self.experimentList = {}
+    self.paths = model_paths()
 
-  # add an experiment only to the list; no builder is associated here
-  # if the experiment name exists, it just returns the pointer
-  # if one needs to check first the existence of an experiment,
-  #    should use the get_experiment_state()
+  # Add an experiment only to the list; no builder is associated here.
+  # If the experiment name exists, it just returns the pointer.
+  # If one needs to check first the existence of an experiment,
+  # should use the get_experiment_state()
   def add_experiment(self, name):
     if not self.experimentList.get(name):
       self.experimentList[name] = buildbot_experiment(name, self)
@@ -166,28 +166,33 @@ class buildbot_experimentList(object):
   #   builder:
   #     experiment:
   def write(self):
-    fileName=listsFolder+self.name
+    fileName=self.paths.get_thisExperimentListPath(self.name)
     listfile = open(fileName, 'w')
     self.buildbot_machine_list.writeToFile_builders(listfile)
     listfile.close()
     
   def read(self):
-    fileName=listsFolder+self.name
-    listfile = open(fileName, 'r')
-    for inLine in listfile:
-      inputs=inLine.split(':')
-      keyword=inputs[0]
-      parameters=inputs[1].rstrip().split(' ',2)
-      name=parameters[0]
-      #print(keyword, name)
-      if   (keyword == "machine"):
-        machine=self.getMachineByName(name)
-      elif (keyword == "builder"):
-        builder=self.getBuilderByName(name)
-      elif (keyword == "experiment"):
-        self.add_experimentByNameToBuilder(name,builder)
+    try:
+      fileName=self.paths.get_thisExperimentListPath(self.name)
+      listfile = open(fileName, 'r')
+      for inLine in listfile:
+        inputs=inLine.split(':')
+        keyword=inputs[0]
+        parameters=inputs[1].rstrip().split(' ',2)
+        name=parameters[0]
+        #print(keyword, name)
+        if   (keyword == "machine"):
+          machine=self.getMachineByName(name)
+        elif (keyword == "builder"):
+          builder=self.getBuilderByName(name)
+        elif (keyword == "experiment"):
+          self.add_experimentByNameToBuilder(name,builder)
+
+      listfile.close()
       
-    listfile.close()    
+    except IOError as e:
+      print("I/O error({0}): {1}".format(e.errno, e.strerror)+" in reading list "+self.name+". Stop.")
+      quit()
 #-----------------------------------------------------------------------
 
 
@@ -367,7 +372,7 @@ class buildbot_experiment(object):
 #-----------------------------------------------------------------------
 # the builder class; belongs to a machine and stores the flags associated
 # with it. It also holds a list of experiments associated with the builder;
-# these are driven through the experiment class, not directly for this class
+# this list is driven through the experiment class, not directly from this class
 class buildbot_builder(object):
 
   def __init__(self, name, machine, flags):
