@@ -293,9 +293,9 @@ CONTAINS
 !     CALL dbg_print('veloc_3d: w', p_diag%w,module_name,1, &
 !           patch_2D%cells%owned )
  
-   CALL dbg_print('veloc_3d: East-West  :u',p_diag%u,  module_name,3, &
+   CALL dbg_print('veloc_3d: East-West  :u',p_diag%u,  module_name,1, &
          patch_2D%cells%owned )
-   CALL dbg_print('veloc_3d: North-South :v',p_diag%v, module_name,3, &
+   CALL dbg_print('veloc_3d: North-South :v',p_diag%v, module_name,1, &
          patch_2D%cells%owned )
 
           

@@ -2140,7 +2140,7 @@ CONTAINS
           !  & + MIN(1._wp,r_frac) * z_anti(edge_index,level,blockNo)
             
           flx_tracer_final(edge_index,level,blockNo) = flx_tracer_low(edge_index,level,blockNo)               &
-            & - MIN(1._wp,r_frac) * z_anti(edge_index,level,blockNo)
+            & + MIN(1._wp,r_frac) * z_anti(edge_index,level,blockNo)
           ! ELSE
           !   flx_tracer_high(edge_index,level,blockNo)= 0.0_wp
            ENDIF
