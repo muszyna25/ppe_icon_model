@@ -1003,19 +1003,28 @@ CONTAINS
     LOGICAL,  INTENT(IN   ), OPTIONAL :: update(kbdim,klev)
     
     REAL(WP) :: wf(kbdim,klev)
-    LOGICAL  :: do_this(kbdim, klev) 
-        
-    do_this(:,:) = .true. 
-    IF(PRESENT(update)) do_this(1:kproma,1:klev) = update(1:kproma,1:klev)  
-    
-    WHERE(do_this(1:kproma,1:klev)) 
-      wf(1:kproma,1:klev) = w0(1:kproma,1:klev) * g(1:kproma,1:klev) * g(1:kproma,1:klev) ! f = g**2
+    LOGICAL  :: do_this(kbdim, klev)
+    INTEGER :: k, i
 
-      tau(1:kproma,1:klev) = (1.0_wp - wf(1:kproma,1:klev)) * tau(1:kproma,1:klev)
-      w0 (1:kproma,1:klev) = (w0(1:kproma,1:klev) - wf(1:kproma,1:klev)) / (1.0_wp - wf(1:kproma,1:klev))
-      ! Special case for f = g**2; generally g = (g - f) / (1 - f) 
-      g  (1:kproma,1:klev) = g(1:kproma,1:klev)  / (1.0_wp + g(1:kproma,1:klev))
-    END WHERE
+    IF(PRESENT(update)) THEN
+      do_this(1:kproma,1:klev) = update(1:kproma,1:klev)
+    ELSE
+      do_this(:,:) = .true.
+    END IF
+
+    DO k = 1, klev
+      DO i = 1, kproma
+        wf(i,k) = MERGE(w0(i,k) * g(i,k) * g(i,k), wf(i, k), &
+             do_this(i, k)) ! f = g**2
+        tau(i,k) = MERGE((1.0_wp - wf(i,k)) * tau(i,k), tau(i, k), &
+             do_this(i, k))
+        w0(i,k) = MERGE((w0(i,k) - wf(i,k)) / (1.0_wp - wf(i,k)), w0(i, k), &
+             do_this(i, k))
+        ! Special case for f = g**2; generally g = (g - f) / (1 - f)
+        g(i,k) = MERGE(g(i,k)  / (1.0_wp + g(i,k)), g(i, k), &
+             do_this(i, k))
+      END DO
+    END DO
   END SUBROUTINE delta_scale_2d
    ! -----------------
 END MODULE mo_psrad_srtm_solver

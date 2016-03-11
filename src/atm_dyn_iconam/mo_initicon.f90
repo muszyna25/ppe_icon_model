@@ -72,7 +72,8 @@ MODULE mo_initicon
                                   & fgFilename, fgFiletype, anaFilename, anaFiletype
   USE mo_input_request_list,  ONLY: t_InputRequestList, InputRequestList_create
   USE mo_mpi,                 ONLY: my_process_is_stdio
-  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, kInputSourceBoth
+  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, readInstructionList_make, kInputSourceAna, &
+                                    kInputSourceBoth
   USE mo_util_uuid,           ONLY: t_uuid
 
   IMPLICIT NONE

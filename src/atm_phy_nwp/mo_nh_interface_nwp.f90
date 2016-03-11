@@ -934,7 +934,9 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
-        zcosmu0 (i_startidx:i_endidx,jb) = MAX(zcosmu0(i_startidx:i_endidx,jb),0.0_wp)
+        zcosmu0 (i_startidx:i_endidx,jb) &
+          = 0.5_wp * (ABS(zcosmu0(i_startidx:i_endidx,jb)) &
+          &           + zcosmu0(i_startidx:i_endidx,jb))
 
         !calculate solar incoming flux at TOA
         prm_diag%flxdwswtoa(i_startidx:i_endidx,jb) = zcosmu0(i_startidx:i_endidx,jb) &

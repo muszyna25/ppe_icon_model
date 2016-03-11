@@ -30,7 +30,10 @@
 !!
 
 !----------------------------
+#ifdef __GMRES_OPENMP__
 ! #include "omp_definitions.inc"
+#endif
+#include "icon_definitions.inc"
 !----------------------------
 
 MODULE mo_ocean_gmres
@@ -39,7 +42,7 @@ MODULE mo_ocean_gmres
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltimer
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
-  USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres,   &
+  USE mo_timer,               ONLY: timer_start, timer_stop, timers_level, timer_gmres,   &
     & timer_gmres_p_sum, activate_sync_timers
   USE mo_ocean_types,         ONLY: t_operator_coeff, t_solverCoeff_singlePrecision
   USE mo_sync,                ONLY: omp_global_sum_array, global_sum_array
@@ -230,7 +233,7 @@ CONTAINS
     !    sum_w    = SUM(w(:,:))
     !    write(0,*) "gmres sum x(0:1), w:", sum_x(0:1), sum_w
     
-    IF (ltimer) CALL timer_start(timer_gmres)
+    start_timer(timer_gmres,2)
     
     mythreadno = 0
 ! !ICON_OMP_PARALLEL PRIVATE(rrn2, myThreadNo)
@@ -253,9 +256,9 @@ CONTAINS
     
     IF (mythreadno == 0) THEN
       h_aux  = SUM(sum_aux(1:no_of_blocks))
-      IF (activate_sync_timers) CALL timer_start(timer_gmres_p_sum)
+      start_detail_timer(timer_gmres_p_sum, 5)
       h_aux = p_sum(h_aux, my_mpi_work_communicator)
-      IF (activate_sync_timers) CALL timer_stop(timer_gmres_p_sum)
+      stop_detail_timer(timer_gmres_p_sum, 5)
       rn2(1) = SQRT(h_aux)
       !       rn2(1) = SQRT(p_sum(h_aux, my_mpi_work_communicator))
       ! !ICON_OMP FLUSH(rn2(1))
@@ -288,7 +291,7 @@ CONTAINS
       niter = 0
       res(1) = ABS(rn2(1))
 
-      IF (ltimer) CALL timer_stop(timer_gmres)
+      stop_timer(timer_gmres,2)
 
       RETURN
     ENDIF
@@ -324,7 +327,7 @@ CONTAINS
       gs_orth: DO k = 1, i
         
 !ICON_OMP_PARALLEL PRIVATE(myThreadNo)
-       !$   myThreadNo = OMP_GET_THREAD_NUM()
+!$   myThreadNo = OMP_GET_THREAD_NUM()
 !ICON_OMP_DO ICON_OMP_DEFAULT_SCHEDULE
         DO jb = 1, no_of_blocks
           sum_aux(jb) = SUM(w(1:nproma,jb) * v(1:nproma,jb,k))
@@ -337,9 +340,9 @@ CONTAINS
         
         IF (mythreadno == 0) THEN
           h_aux = SUM(sum_aux(1:no_of_blocks))
-          IF (activate_sync_timers) CALL timer_start(timer_gmres_p_sum)
+          start_detail_timer(timer_gmres_p_sum,5)
           h_aux = p_sum(h_aux, my_mpi_work_communicator)
-          IF (activate_sync_timers) CALL timer_stop(timer_gmres_p_sum)
+          stop_detail_timer(timer_gmres_p_sum,5)
           h(k,i) = h_aux
 !ICON_OMP FLUSH(h_aux)
         ENDIF
@@ -371,9 +374,9 @@ CONTAINS
 ! !ICON_OMP_END_DO
       IF (mythreadno == 0) THEN
         h_aux = SUM(sum_aux(1:no_of_blocks))
-        IF (activate_sync_timers) CALL timer_start(timer_gmres_p_sum)
+        start_detail_timer(timer_gmres_p_sum,5)
         h_aux = p_sum(h_aux, my_mpi_work_communicator)
-        IF (activate_sync_timers) CALL timer_stop(timer_gmres_p_sum)
+        stop_detail_timer(timer_gmres_p_sum,5)
         h_aux = SQRT(h_aux)
         h(i+1,i) = h_aux
         IF (h_aux < tol2) THEN
@@ -458,10 +461,10 @@ CONTAINS
       ENDDO
     ENDDO
 !ICON_OMP_END_DO NOWAIT
-!ICON_OMP_END_PARALLEL
-    IF (ltimer) CALL timer_stop(timer_gmres)
-    
+!ICON_OMP_END_PARALLEL    
     res(1:niter) = ABS(rn2(1:niter))
+
+    stop_timer(timer_gmres,2)
     
   END SUBROUTINE ocean_restart_gmres
   !-------------------------------------------------------------------------
@@ -587,7 +590,7 @@ CONTAINS
     !    sum_w    = SUM(w(:,:))
     !    write(0,*) "gmres sum x(0:1), w:", sum_x(0:1), sum_w
 
-    IF (ltimer) CALL timer_start(timer_gmres)
+    start_timer(timer_gmres,2)
 
     mythreadno = 0
 ! !ICON_OMP_PARALLEL PRIVATE(rrn2, myThreadNo)
@@ -610,9 +613,9 @@ CONTAINS
 
     IF (mythreadno == 0) THEN
       h_aux  = SUM(sum_aux(1:no_of_blocks))
-      IF (activate_sync_timers) CALL timer_start(timer_gmres_p_sum)
+      start_detail_timer(timer_gmres_p_sum,5)
       h_aux = p_sum(h_aux, my_mpi_work_communicator)
-      IF (activate_sync_timers) CALL timer_stop(timer_gmres_p_sum)
+      stop_detail_timer(timer_gmres_p_sum,5)
       rn2(1) = SQRT(h_aux)
       !       rn2(1) = SQRT(p_sum(h_aux, my_mpi_work_communicator))
       ! !ICON_OMP FLUSH(rn2(1))
@@ -693,9 +696,9 @@ CONTAINS
 
         IF (mythreadno == 0) THEN
           h_aux = SUM(sum_aux(1:no_of_blocks))
-          IF (activate_sync_timers) CALL timer_start(timer_gmres_p_sum)
+          start_detail_timer(timer_gmres_p_sum,5)
           h_aux = p_sum(h_aux, my_mpi_work_communicator)
-          IF (activate_sync_timers) CALL timer_stop(timer_gmres_p_sum)
+          stop_detail_timer(timer_gmres_p_sum,5)
           h(k,i) = h_aux
 ! !ICON_OMP FLUSH(h_aux)
         ENDIF
@@ -727,9 +730,9 @@ CONTAINS
 !ICON_OMP_END_DO
       IF (mythreadno == 0) THEN
         h_aux = SUM(sum_aux(1:no_of_blocks))
-        IF (activate_sync_timers) CALL timer_start(timer_gmres_p_sum)
+        start_detail_timer(timer_gmres_p_sum,5)
         h_aux = p_sum(h_aux, my_mpi_work_communicator)
-        IF (activate_sync_timers) CALL timer_stop(timer_gmres_p_sum)
+        stop_detail_timer(timer_gmres_p_sum,5)
         h_aux = SQRT(h_aux)
         h(i+1,i) = h_aux
         IF (h_aux < tol2) THEN
@@ -814,9 +817,9 @@ CONTAINS
     ENDDO
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
-    IF (ltimer) CALL timer_stop(timer_gmres)
-
     res(1:niter) = ABS(rn2(1:niter))
+
+    stop_timer(timer_gmres,2)
 
   END SUBROUTINE ocean_restart_gmres_singlePrecesicion
   !-------------------------------------------------------------------------

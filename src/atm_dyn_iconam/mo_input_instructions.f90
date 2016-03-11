@@ -212,11 +212,11 @@ CONTAINS
                 ENDIF
 
             CASE(MODE_IAU, MODE_IAU_OLD)
-                ! in case of tile coldstart, we can omit snowfrac
-                ! Remove field 'snowfrac' from FG list
+                ! in case of tile coldstart, we can omit snowfrac_lc
+                ! Remove field 'snowfrac_lc' from FG list
                 lRemoveSnowfrac = ltile_coldstart
                 IF(init_mode == MODE_IAU .AND. .NOT. lsnowtile) lRemoveSnowfrac = .TRUE.
-                IF(lRemoveSnowfrac) CALL difference(fgGroup, fgGroupSize, (/'snowfrac'/), 1)
+                IF(lRemoveSnowfrac) CALL difference(fgGroup, fgGroupSize, (/'snowfrac_lc'/), 1)
 
                 IF (.NOT. lp2cintp_incr(jg) .AND. .NOT. lp2cintp_sfcana(jg) ) THEN
                     ! full ANA read

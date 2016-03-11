@@ -1134,7 +1134,8 @@ CONTAINS
           patch_info(jp)%nblks_glb_e = (p_phys_patch(jp)%n_patch_edges-1)/nproma + 1
           patch_info(jp)%p_pat_v    => p_phys_patch(jp)%comm_pat_gather_v
           patch_info(jp)%nblks_glb_v = (p_phys_patch(jp)%n_patch_verts-1)/nproma + 1
-          patch_info(jp)%max_cell_connectivity = p_patch(patch_info(jp)%log_patch_id)%cells%max_connectivity
+          patch_info(jp)%max_cell_connectivity   = p_patch(patch_info(jp)%log_patch_id)%cells%max_connectivity
+          patch_info(jp)%max_vertex_connectivity = p_patch(patch_info(jp)%log_patch_id)%verts%max_connectivity
         END IF
       ELSE
         patch_info(jp)%log_patch_id = jp
@@ -1145,7 +1146,8 @@ CONTAINS
           patch_info(jp)%nblks_glb_e = (p_patch(jp)%n_patch_edges_g-1)/nproma + 1
           patch_info(jp)%p_pat_v    => p_patch(jp)%comm_pat_gather_v
           patch_info(jp)%nblks_glb_v = (p_patch(jp)%n_patch_verts_g-1)/nproma + 1
-          patch_info(jp)%max_cell_connectivity = p_patch(patch_info(jp)%log_patch_id)%cells%max_connectivity
+          patch_info(jp)%max_cell_connectivity   = p_patch(patch_info(jp)%log_patch_id)%cells%max_connectivity
+          patch_info(jp)%max_vertex_connectivity = p_patch(patch_info(jp)%log_patch_id)%verts%max_connectivity
         END IF
       ENDIF
     ENDDO ! jp
@@ -1997,6 +1999,7 @@ CONTAINS
         patch_info(jp)%number_of_grid_used = number_of_grid_used(jl)
 
         patch_info(jp)%max_cell_connectivity = p_patch(jl)%cells%max_connectivity
+        patch_info(jp)%max_vertex_connectivity = p_patch(jl)%verts%max_connectivity
 
       ENDIF
 #ifndef NOMPI
@@ -2312,7 +2315,7 @@ CONTAINS
     TYPE(t_lon_lat_data), POINTER   :: lonlat
     TYPE(t_datetime)                :: ini_datetime
     REAL(wp)                        :: pi_180
-    INTEGER                         :: max_cell_connectivity
+    INTEGER                         :: max_cell_connectivity, max_vertex_connectivity
     REAL(wp), ALLOCATABLE           :: p_lonlat(:)
 
     pi_180 = ATAN(1._wp)/45._wp
@@ -2320,7 +2323,8 @@ CONTAINS
     gridtype = GRID_UNSTRUCTURED
 
     i_dom = of%phys_patch_id
-    max_cell_connectivity = patch_info(i_dom)%max_cell_connectivity
+    max_cell_connectivity   = patch_info(i_dom)%max_cell_connectivity
+    max_vertex_connectivity = patch_info(i_dom)%max_vertex_connectivity
 
     !
     ! The following sections add the file global properties collected in init_name_list_output
@@ -2442,7 +2446,11 @@ CONTAINS
       ! Verts
 
       of%cdiVertGridID = gridCreate(gridtype, patch_info(i_dom)%verts%n_glb)
-      CALL gridDefNvertex(of%cdiVertGridID, 9-max_cell_connectivity)
+      IF (my_process_is_ocean()) THEN
+        CALL gridDefNvertex(of%cdiVertGridID, max_vertex_connectivity)
+      ELSE
+        CALL gridDefNvertex(of%cdiVertGridID, 9-max_cell_connectivity)
+      ENDIF
       !
       CALL gridDefXname(of%cdiVertGridID, 'vlon')
       CALL gridDefXlongname(of%cdiVertGridID, 'vertex longitude')
