@@ -1265,7 +1265,7 @@ END SUBROUTINE message
   REAL    (KIND=ireals) ::          &
     hzalam   (ie,ke_soil+1),     & ! heat conductivity
     zthetas, zlamli, zlamsat, zlams, rsandf, zlamq, zlam0, zrhod, zlamdry,  &
-    zlamdry_soil, zsri, zKe, zthliq, zlamic
+    zlamdry_soil, zsri, zKe, zthliq, zlamic, zlamdry_c1, zlamdry_c2
 
   ! For performance improvement
   REAL    (KIND=ireals) :: ln_2, ln_3, ln_10, ln_006
@@ -1569,6 +1569,15 @@ END SUBROUTINE message
     ln_3    = LOG(3._ireals)
     ln_006  = LOG(0.06_ireals)
 
+    ! tuning constants for dry thermal conductivity formula
+    IF (itype_evsl == 4) THEN
+      zlamdry_c1 = 437._ireals
+      zlamdry_c2 = 0.901_ireals
+    ELSE
+      zlamdry_c1 = 64.7_ireals
+      zlamdry_c2 = 0.947_ireals
+    ENDIF
+
     DO kso = 1, ke_soil+1
       DO i = istarts, iends
         zthetas = zporv(i,kso)                                 ! porosity
@@ -1588,8 +1597,8 @@ END SUBROUTINE message
   ! dry thermal conductivity
 
         zrhod   = 2700.0_ireals*(1.0_ireals-zthetas)       ! dry density
-        zlamdry_soil = ( 0.135_ireals*zrhod + 437._ireals )                     &
-                / ( 2700.0_ireals - 0.901_ireals*zrhod )
+        zlamdry_soil = ( 0.135_ireals*zrhod + zlamdry_c1 )                     &
+                / ( 2700.0_ireals - zlamdry_c2*zrhod )
         ! missing: crushed rock formulation for dry thermal conductivity (see PL98)
   ! Scale zlamdry with organic fraction
         IF(zmls(kso) < rootdp(i)) THEN
@@ -2747,7 +2756,7 @@ ELSE          IF (itype_interception == 2) THEN
         ! add rain contribution to water supply for infiltration
         zvers(i) = zinf + (1._ireals - zalf)*zrr(i) + (1._ireals-conv_frac(i))*zalf*prr_con(i)
 
-        ! compute surface runoff; accounting for the fractional area of convective precip proved to be disadvanageous
+        ! compute surface runoff; accounting for the fractional area of convective precip proved to be disadvantageous
         ! here because of excessive drying of the soil in longer-term runs
         zro_inf  = MAX(0._ireals,zvers(i)-zinfmx(i))
 
