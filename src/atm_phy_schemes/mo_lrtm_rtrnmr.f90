@@ -1147,7 +1147,7 @@ CONTAINS
           IF (cldfrac(jl,clev) .GE. cldfrac(jl,lev)) THEN
             faccld1(jl,olev) = 0._wp
             faccld2(jl,olev) = 0._wp
-            IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
+            IF (.NOT. lcldlyr(jl,lev-lev_incr)) THEN
               facclr1(jl,olev) = 0._wp
               facclr2(jl,olev) = 0._wp
               IF (cldfrac(jl,lev) .LT. 1._wp) facclr2(jl,olev) = &
@@ -1174,7 +1174,7 @@ CONTAINS
           ELSE
             facclr1(jl,olev) = 0._wp
             facclr2(jl,olev) = 0._wp
-            IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
+            IF (.NOT. lcldlyr(jl,lev-lev_incr)) THEN
               faccld1(jl,olev) = 0._wp
               faccld2(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,clev))/cldfrac(jl,lev)
 
@@ -1211,7 +1211,7 @@ CONTAINS
           IF (cldfrac(jl,clev) .GE. cldfrac(jl,lev)) THEN
             faccld1(jl,olev) = 0._wp
             faccld2(jl,olev) = 0._wp
-            IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
+            IF (.NOT. lcldlyr(jl,lev-lev_incr)) THEN
               facclr1(jl,olev) = 0._wp
               facclr2(jl,olev) = 0._wp
               IF (cldfrac(jl,lev) .LT. 1._wp) facclr2(jl,olev) = &
@@ -1238,7 +1238,7 @@ CONTAINS
           ELSE
             facclr1(jl,olev) = 0._wp
             facclr2(jl,olev) = 0._wp
-            IF (.NOT. lcldlyr(jl,lev+1-lev_incr-ofs)) THEN
+            IF (.NOT. lcldlyr(jl,lev-lev_incr)) THEN
               faccld1(jl,olev) = 0._wp
               faccld2(jl,olev) = (cldfrac(jl,lev)-cldfrac(jl,clev))/cldfrac(jl,lev)
 
