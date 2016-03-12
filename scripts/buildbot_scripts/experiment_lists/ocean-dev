@@ -1,0 +1,43 @@
+machine:daint_cpu default
+builder:DAINT_CPU_cce 
+experiment:checksuite.ocean_internal/technical/exp.test_ocean_omip_technical
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_ptest
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_short
+machine:mistral compute
+builder:mistral_nag_serial --with-fortran=nag --without-mpi
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_short
+builder:mistral_nag --with-fortran=nag
+experiment:checksuite.ocean_internal/technical/exp.test_ocean_omip_technical
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_ptest
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_short
+builder:mistral_nag_mtime --with-fortran=nag
+experiment:checksuite.ocean_internal/technical/exp.test_ocean_omip_technical
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_ptest
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_short
+builder:mistral_intel_openmp --with-fortran=intel --without-mpi --with-openmp --without-yac 
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_short
+builder:mistral_intel --with-fortran=intel
+experiment:checksuite.ocean_internal/technical/exp.test_ocean_omip_technical
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_ptest
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_short
+builder:mistral_gcc --with-fortran=gcc
+experiment:checksuite.ocean_internal/technical/exp.test_ocean_omip_technical
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_ptest
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_short
+builder:mistral_intel_hybrid --with-fortran=intel --with-openmp
+experiment:checksuite.ocean_internal/technical/exp.test_ocean_omip_technical
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_ptest
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_short
+machine:thunder mpi-compute
+builder:thunder_intel_hybrid --with-fortran=intel --with-openmp
+experiment:checksuite.ocean_internal/technical/exp.test_ocean_omip_technical
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_ptest
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_short
+builder:thunder_gcc --with-fortran=gcc
+experiment:checksuite.ocean_internal/technical/exp.test_ocean_omip_technical
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_ptest
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_short
+builder:thunder_nag --with-fortran=nag
+experiment:checksuite.ocean_internal/technical/exp.test_ocean_omip_technical
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_ptest
+experiment:checksuite.ocean_internal/omip/exp.ocean_omip_short
