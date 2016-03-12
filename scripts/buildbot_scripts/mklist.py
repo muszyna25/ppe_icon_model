@@ -14,7 +14,7 @@ args = parser.parse_args()
 #print(args.name)
 name=args.name
 paths = model_paths()
-if paths.thisExperimentListExists(name):
+if paths.thisListExists(name):
   print("This list exists.")
   quit()
   

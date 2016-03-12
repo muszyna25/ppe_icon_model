@@ -17,21 +17,29 @@ class model_paths(object):
     self.runPath    = self.basePath+"/run"
     self.experimentsListPath = self.thisPath+"/experiment_lists"
     
-  def get_experimentsNames_inPath(self, pathInRun):
-    return glob.glob(self.runPath+"/"+pathInRun)
+  def get_experimentsNames_inPaths(self, pathsInRun):
+    os.chdir(self.runPath)
+    experimentsNames = []
+    for path in pathsInRun:
+      experiments = glob.glob(path)
+      if not experiments:
+        print("No experiment "+path+" found. Stop")
+        quit()
+      experimentsNames.extend(experiments)
+    os.chdir(self.thisPath)
+    return experimentsNames
 
-  def get_thisExperimentListPath(self, listName):
+  def get_thisListPath(self, listName):
     return self.experimentsListPath+"/"+listName
     
-  def thisExperimentListExists(self, listName):
-    return os.path.isfile(self.get_thisExperimentListPath(listName))
+  def thisListExists(self, listName):
+    return os.path.isfile(self.get_thisListPath(listName))
     
-  def deleteThisExperimentList(self, listName):
-    if not self.thisExperimentListExists(listName):
+  def deleteThisList(self, listName):
+    if not self.thisListExists(listName):
       print("The list "+listName+" does not exist.")
       quit()
-    os.remove(self.get_thisExperimentListPath(listName))
-
+    os.remove(self.get_thisListPath(listName))
 
   def print_paths(self):
     print("Base path:"+self.basePath)

@@ -14,6 +14,6 @@ args = parser.parse_args()
 name=args.name
 paths = model_paths()
 
-paths.deleteThisExperimentList(name)
+paths.deleteThisList(name)
 print("Experiment list "+name+" is deleted.")
 

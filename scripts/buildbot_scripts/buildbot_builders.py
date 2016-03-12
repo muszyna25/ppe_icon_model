@@ -15,16 +15,18 @@
 import weakref
 import sys
 from model_paths import *
-
+verbal=True
 #-----------------------------------------------------------------------
 # contains a list of machines+builders and a list of experiments for them
 class buildbot_experimentList(object):
 
   def __init__(self, name):
     self.name  = name
-    self.buildbot_machine_list = self.create_all_builders(name)
+    self.create_all_builders(name) # creates self.buildbot_machine_list with all machines+builders
     self.experimentList = {}
     self.paths = model_paths()
+    if self.paths.thisListExists(self.name):
+      self.read()
 
   # Add an experiment only to the list; no builder is associated here.
   # If the experiment name exists, it just returns the pointer.
@@ -41,9 +43,6 @@ class buildbot_experimentList(object):
       experiment = self.add_experiment(name)
       exp_list.append(experiment)
       experiment.add_builders(builder_list)      
-      #for builder in builder_list:
-        #experiment.add_builder(builder)
-        #print("after builder:"+builder.name)
     return exp_list
     
   def add_experimentsByNameToBuildersByName(self, experimentNames, builder_name_list):    
@@ -64,6 +63,7 @@ class buildbot_experimentList(object):
     
   def delete_experiment(self, experiment):
     self.experimentList[experiment.name].delete()
+    
   # Note: this is only be called by an experiment object; use the delete_experiment() in all other cases
   def delete_experimentFromBuildbotList(self, experiment):
     print("Deleting "+experiment.name+" from "+self.name+" list...")
@@ -79,8 +79,8 @@ class buildbot_experimentList(object):
       experiment = self.get_experiment(experimentName)
       experiment.delete_fromBuilders(builders_list)
 
-  def delete_experimentsByName_fromBuildersName(self, experiment_list, buildersName):
-    builders_list = self.get_buildersByName(buildersName)
+  def delete_experimentsByNameFromBuildersByName(self, experiment_list, buildersName):
+    builders_list = self.buildbot_machine_list.get_buildersByName(buildersName)
     self.delete_experimentsByName_fromBuilders(experiment_list, builders_list)
 
   def delete_experimentsByNameFromBuildersWithOptions(self, experimentNames, machinesNames, withFlags, withoutFlags):
@@ -105,7 +105,7 @@ class buildbot_experimentList(object):
   def get_MachineByName(self, name):
     return self.buildbot_machine_list.get_MachineByName(name)
     
-  def getBuilderByName(self, name):
+  def getBuildersByName(self, name):
     return self.buildbot_machine_list.get_buildersByName([name])
         
   def getBuilderExperimentNames(self, builder_name):
@@ -115,26 +115,8 @@ class buildbot_experimentList(object):
     self.buildbot_machine_list.print_builders()
      
   def create_all_builders(self, name):
-    buildbot_machines     =  buildbot_machine_list(name)
-    # mistral builders
-    mistral               = buildbot_machines.add_machine('mistral', 'compute')
-    mistral_gcc           = mistral.add_builder('mistral_gcc', '--with-fortran=gcc')
-    mistral_intel         = mistral.add_builder('mistral_intel', '--with-fortran=intel')
-    mistral_intel_hybrid  = mistral.add_builder('mistral_intel_hybrid', '--with-fortran=intel --with-openmp')
-    mistral_intel_openmp  = mistral.add_builder('mistral_intel_openmp', '--with-fortran=intel --without-mpi --with-openmp --without-yac ')
-    mistral_nag           = mistral.add_builder('mistral_nag', '--with-fortran=nag')
-    mistral_nag_mtime     = mistral.add_builder('mistral_nag_mtime', '--with-fortran=nag')
-    mistral_nag_serial    = mistral.add_builder('mistral_nag_serial', '--with-fortran=nag --without-mpi')
-    # CSCS builders
-    daint_cpu             = buildbot_machines.add_machine('daint_cpu', 'default')
-    daint_cpu_cce         = daint_cpu.add_builder('DAINT_CPU_cce', '')
-    # thunder builders
-    thunder               = buildbot_machines.add_machine('thunder', 'mpi-compute')
-    thunder_gcc           = thunder.add_builder('thunder_gcc', '--with-fortran=gcc')
-    thunder_intel_hybrid  = thunder.add_builder('thunder_intel_hybrid', '--with-fortran=intel --with-openmp')
-    thunder_nag           = thunder.add_builder('thunder_nag', '--with-fortran=nag')
-         
-    return buildbot_machines
+    self.buildbot_machine_list     =  buildbot_machine_list(name)
+    self.buildbot_machine_list.create_all_builders()
 
   #---------------------------------------
   # i/o routines
@@ -147,14 +129,17 @@ class buildbot_experimentList(object):
   #   builder:
   #     experiment:
   def write(self):
-    fileName=self.paths.get_thisExperimentListPath(self.name)
+    fileName=self.paths.get_thisListPath(self.name)
     listfile = open(fileName, 'w')
     self.buildbot_machine_list.writeToFile_builders(listfile)
     listfile.close()
     
   def read(self):
+    global verbal
+    verbal_oldStatus = verbal
+    verbal = False
     try:
-      fileName=self.paths.get_thisExperimentListPath(self.name)
+      fileName=self.paths.get_thisListPath(self.name)
       listfile = open(fileName, 'r')
       for inLine in listfile:
         inputs=inLine.split(':')
@@ -165,15 +150,15 @@ class buildbot_experimentList(object):
         if   (keyword == "machine"):
           machine=self.get_MachineByName(name)
         elif (keyword == "builder"):
-          builder=self.getBuilderByName(name)
+          builder=self.getBuildersByName(name)
         elif (keyword == "experiment"):
-          self.add_experimentsByNameToBuilders([name],[builder])
-
-      listfile.close()
-      
+          self.add_experimentsByNameToBuilders([name],builder)
+      listfile.close()     
     except IOError as e:
       print("I/O error({0}): {1}".format(e.errno, e.strerror)+" in reading list "+self.name+". Stop.")
       quit()
+      
+    verbal = verbal_oldStatus
 #-----------------------------------------------------------------------
 
 
@@ -247,6 +232,25 @@ class buildbot_machine_list(object):
       quit()
     return self.builders[builder_name].getExperimentNames()
      
+  def create_all_builders(self):
+    # mistral builders
+    mistral               = self.add_machine('mistral', 'compute')
+    mistral_gcc           = mistral.add_builder('mistral_gcc', '--with-fortran=gcc')
+    mistral_intel         = mistral.add_builder('mistral_intel', '--with-fortran=intel')
+    mistral_intel_hybrid  = mistral.add_builder('mistral_intel_hybrid', '--with-fortran=intel --with-openmp')
+    mistral_intel_openmp  = mistral.add_builder('mistral_intel_openmp', '--with-fortran=intel --without-mpi --with-openmp --without-yac ')
+    mistral_nag           = mistral.add_builder('mistral_nag', '--with-fortran=nag')
+    mistral_nag_mtime     = mistral.add_builder('mistral_nag_mtime', '--with-fortran=nag')
+    mistral_nag_serial    = mistral.add_builder('mistral_nag_serial', '--with-fortran=nag --without-mpi')
+    # CSCS builders
+    daint_cpu             = self.add_machine('daint_cpu', 'default')
+    daint_cpu_cce         = daint_cpu.add_builder('DAINT_CPU_cce', '')
+    # thunder builders
+    thunder               = self.add_machine('thunder', 'mpi-compute')
+    thunder_gcc           = thunder.add_builder('thunder_gcc', '--with-fortran=gcc')
+    thunder_intel_hybrid  = thunder.add_builder('thunder_intel_hybrid', '--with-fortran=intel --with-openmp')
+    thunder_nag           = thunder.add_builder('thunder_nag', '--with-fortran=nag')
+
 #-----------------------------------------------------------------------
 
 
@@ -293,7 +297,7 @@ class buildbot_experiment(object):
 
   def add_builders(self, buildersList):
     for builder in buildersList:
-      print("adding "+self.name+" to "+builder.name+"...")
+      if verbal: print("adding "+self.name+" to "+builder.name+"...")
       self.builders[builder.name] = builder
       builder.add_experiment_onlyFromExperimentObject(self)
     
@@ -313,17 +317,15 @@ class buildbot_experiment(object):
     print("Deleting experiment "+self.name+" from all builds...")
     for builder in self.builders.values():
       builder.delete_experiment_onlyFromExperimentObject(self)
-    #print("Deleting experiment "+self.name+" builders...")
     self.builders.clear()
-    #print("Deleting experiment "+self.name+" from "+self.experimentList.name+" list...")
     self.experimentList.delete_experimentFromBuildbotList(self)
-    #del self
     
   def delete_fromBuilders(self, builders):
     for builder in builders:
-      print("Deleting experiment "+self.name+" from builder "+builder.name+"...")
-      builder.delete_experiment_onlyFromExperimentObject(self)
-      del self.builders[builder.name]
+      if self.builders.get(builder.name):
+        print("Deleting experiment "+self.name+" from builder "+builder.name+"...")
+        builder.delete_experiment_onlyFromExperimentObject(self)
+        del self.builders[builder.name]
       
   #def __del__(self):
     #print("Deleting experiment "+self.name+" done.")
@@ -350,10 +352,9 @@ class buildbot_builder(object):
     if withFlags:
       for flag in withFlags:
         hasTheseOptions = hasTheseOptions and flag in self.configure_flags
-        #print("Checking builder "+self.name+" for flag "+flag+" in "+self.configure_flags, flag in self.configure_flags, hasTheseOptions)
     if withoutFlags:
       for flag in withoutFlags:
-        hasTheseOptions = hasTheseOptions and not flag in self.configure_flags.contains       
+        hasTheseOptions = hasTheseOptions and not flag in self.configure_flags      
     return hasTheseOptions
   
   def print_builder_experiments(self):
@@ -377,6 +378,5 @@ class buildbot_builder(object):
   def delete_experiment_onlyFromExperimentObject(self, experiment):
     print(" Deleting "+experiment.name+" from "+self.name+"...")
     del self.experiments[experiment.name]
-    #print(experiment.name+" is deleted from "+self.name+"...")
 #-----------------------------------------------------------------------
 
