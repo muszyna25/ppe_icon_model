@@ -1,0 +1,10 @@
+#!/bin/bash
+
+python rmlist.py ocean-dev
+python mklist.py ocean-dev
+
+python addexp.py checksuite.ocean_internal/omip/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
+  --list ocean-dev --without-flags without-mpi
+python addexp.py checksuite.ocean_internal/omip/exp.ocean_omip_short --list ocean-dev
+
+python lslist.py ocean-dev
