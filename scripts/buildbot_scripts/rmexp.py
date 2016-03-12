@@ -10,7 +10,7 @@ import argparse
 parser = argparse.ArgumentParser(description='Delete experiments from an experiment list.')
 parser.add_argument('experiment_names', type=str, nargs='+', help='experiment names')
 parser.add_argument('--list', dest="list_name", type=str, help='buildbot list', required=True)
-parser.add_argument('--builders', dest="builder_names", nargs='*', help='buildbot list', required=False)
+parser.add_argument('--builders', dest="builder_names", nargs='*', help='buildbers', required=False)
 parser.add_argument('--machines', dest="machine_names", nargs='*', help='machine name', required=False)
 parser.add_argument('--with-flags', dest="withFlags", nargs='*', help='with build flag', required=False)
 parser.add_argument('--without-flags', dest="withoutFlags", nargs='*', help='without build flag', required=False)

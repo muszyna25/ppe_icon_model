@@ -1,0 +1,59 @@
+#!/bin/bash
+listname=icon-dev
+addexp="python addexp.py"
+python rmlist.py $listname
+python mklist.py $listname
+
+#-----------------------------------------------------------
+# add omip technical tests only for builders with mpi parallelization
+$addexp checksuite.ocean_internal/omip/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
+  --without-flags without-mpi --list $listname 
+# add omip binary-identical test to all builders
+$addexp checksuite.ocean_internal/omip/exp.ocean_omip_short --list $listname
+
+#-----------------------------------------------------------
+# add amip tests to all builders
+$addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
+
+#-----------------------------------------------------------
+# tests for nwp
+$addexp exp.test_nwp_R02B04N06multi  exp.test_nwp_R02B04_R02B05_nest  --without-flags without-mpi --list $listname
+# runs only on mistral and daint_cpu, with-mpi and without openmp
+$addexp exp.test_nwp_R02B04N06multi2 --machines mistral daint_cpu --without-flags without-mpi with-openmp --list $listname
+
+#-----------------------------------------------------------
+# test coupled run, only with mpi
+$addexp exp.couple_atmo-ocean --without-flags without-mpi --list $listname
+
+#-----------------------------------------------------------
+# test mean values on all builders
+$addexp checksuite.infrastructure/meanStream/exp.atm_amip_noforcing_notransport_nodynamics_meanStream --list $listname
+
+#-----------------------------------------------------------
+# add checksuite.icon-dev/check.atm_amip to the restricted builder MISTRAL_nag_mtime
+python  flag_builder.py Active                  --builders MISTRAL_nag_mtime --list $listname
+$addexp checksuite.icon-dev/check.atm_amip      --builders MISTRAL_nag_mtime --list $listname
+python  flag_builder.py Restricted              --builders MISTRAL_nag_mtime --list $listname
+python lslist.py $listname
+
+#-----------------------------------------------------------
+# Other tests
+#   torus test from Anurag
+$addexp checksuite.icon-dev/check.atm_rce_les --list $listname
+#   old test from Anurag
+$addexp checksuite.icon-dev/check.atm_icoles_nested --list $listname
+#   old test from Levi
+$addexp exp.nat_rce_cbl_120km_nwp --list $listname
+#   very old test from Pilar
+$addexp exp.nat_jww_nwp_mpiomp --without-flags without-mpi --list $listname
+#   obsolete test from Leonidas, will be deleted
+$addexp exp.test_oce_testbed_read --list $listname
+
+
+#-----------------------------------------------------------
+#lets see the list
+python lslist.py $listname
+
+#commit the list
+# svn add experiment_lists/$listname
+# svn commit experiment_lists/$listname -m "[create_ocean_lists] update ocean experiment lists"

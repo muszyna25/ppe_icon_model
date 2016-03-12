@@ -22,16 +22,18 @@ class buildbot_experimentList(object):
 
   def __init__(self, name):
     self.name  = name
-    self.create_all_builders(name) # creates self.buildbot_machine_list with all machines+builders
     self.experimentList = {}
     self.paths = model_paths()
-    if self.paths.thisListExists(self.name):
+    self.buildbot_machine_list = buildbot_machine_list(name)
+    if self.paths.thisListExists(self.name):     
       self.read()
+    else:  
+      self.create_all_builders(name) # creates self.buildbot_machine_list with all machines+builders
 
   # Add an experiment only to the list; no builder is associated here.
   # If the experiment name exists, it just returns the pointer.
   # If one needs to check first the existence of an experiment,
-  # should use the get_experiment_state()
+  # should use the get_experiment_value()
   def add_experiment(self, name):
     if not self.experimentList.get(name):
       self.experimentList[name] = buildbot_experiment(name, self)
@@ -42,7 +44,7 @@ class buildbot_experimentList(object):
     for name in experimentNames:
       experiment = self.add_experiment(name)
       exp_list.append(experiment)
-      experiment.add_builders(builder_list)      
+      experiment.add_builders(builder_list, "Normal")
     return exp_list
     
   def add_experimentsByNameToBuildersByName(self, experimentNames, builder_name_list):    
@@ -90,7 +92,12 @@ class buildbot_experimentList(object):
       buildersList = self.buildbot_machine_list.get_all_builders()
     buildersList_withOptions = self.buildbot_machine_list.get_buildersWithOptions(buildersList, withFlags, withoutFlags)
     return self.delete_experimentsByName_fromBuilders( experimentNames, buildersList_withOptions)
-                    
+
+  def set_builders_flags(self, builders_names, flag):
+    builders = self.getBuildersByName(builders_names)
+    for builder in builders:
+      builder.set_builder_flags(flag)
+    
   def get_experiment(self, name):
     experiment = self.experimentList.get(name)
     if not experiment:
@@ -98,15 +105,16 @@ class buildbot_experimentList(object):
       quit()
     return experiment
 
-  def get_experiment_state(self, name):
+  def get_experiment_value(self, name):
     experiment = self.experimentList.get(name)
     return experiment
+
     
   def get_MachineByName(self, name):
     return self.buildbot_machine_list.get_MachineByName(name)
     
-  def getBuildersByName(self, name):
-    return self.buildbot_machine_list.get_buildersByName([name])
+  def getBuildersByName(self, names):
+    return self.buildbot_machine_list.get_buildersByName(names)
         
   def getBuilderExperimentNames(self, builder_name):
     return self.buildbot_machine_list.getBuilderExperimentNames(builder_name)
@@ -115,7 +123,6 @@ class buildbot_experimentList(object):
     self.buildbot_machine_list.print_builders()
      
   def create_all_builders(self, name):
-    self.buildbot_machine_list     =  buildbot_machine_list(name)
     self.buildbot_machine_list.create_all_builders()
 
   #---------------------------------------
@@ -142,17 +149,17 @@ class buildbot_experimentList(object):
       fileName=self.paths.get_thisListPath(self.name)
       listfile = open(fileName, 'r')
       for inLine in listfile:
-        inputs=inLine.split(':')
-        keyword=inputs[0]
-        parameters=inputs[1].rstrip().split(' ',2)
-        name=parameters[0]
-        #print(keyword, name)
+        inputs  = inLine.rstrip().split('|')
+        keyword = inputs[0]
+        name    = inputs[1]
+        #print(inputs)
         if   (keyword == "machine"):
-          machine=self.get_MachineByName(name)
+          machine=self.buildbot_machine_list.add_machine(name, inputs[2])
         elif (keyword == "builder"):
-          builder=self.getBuildersByName(name)
+          builder=machine.add_builder(name, inputs[2], inputs[3])
         elif (keyword == "experiment"):
-          self.add_experimentsByNameToBuilders([name],builder)
+          experiment = self.add_experiment(name)
+          experiment.add_builders([builder], "Force")
       listfile.close()     
     except IOError as e:
       print("I/O error({0}): {1}".format(e.errno, e.strerror)+" in reading list "+self.name+". Stop.")
@@ -184,9 +191,10 @@ class buildbot_machine_list(object):
     
   def print_builders(self):
     print("----------------------------")
-    for machine in self.machines.values():
-      machine.print_builders()
-      
+    sortKeys = sorted(self.machines.keys())
+    for machineKey in sortKeys:
+      self.machines[machineKey].print_builders()
+            
   def writeToFile_builders(self, listfile):
     for machine in self.machines.values():
       machine.writeToFile_builders(listfile)
@@ -233,23 +241,25 @@ class buildbot_machine_list(object):
     return self.builders[builder_name].getExperimentNames()
      
   def create_all_builders(self):
+    # add_machine(name, queue)
+    # add_builder(name, configure flags, builder flags)
     # mistral builders
     mistral               = self.add_machine('mistral', 'compute')
-    mistral_gcc           = mistral.add_builder('mistral_gcc', '--with-fortran=gcc')
-    mistral_intel         = mistral.add_builder('mistral_intel', '--with-fortran=intel')
-    mistral_intel_hybrid  = mistral.add_builder('mistral_intel_hybrid', '--with-fortran=intel --with-openmp')
-    mistral_intel_openmp  = mistral.add_builder('mistral_intel_openmp', '--with-fortran=intel --without-mpi --with-openmp --without-yac ')
-    mistral_nag           = mistral.add_builder('mistral_nag', '--with-fortran=nag')
-    mistral_nag_mtime     = mistral.add_builder('mistral_nag_mtime', '--with-fortran=nag')
-    mistral_nag_serial    = mistral.add_builder('mistral_nag_serial', '--with-fortran=nag --without-mpi')
+    mistral_gcc           = mistral.add_builder('MISTRAL_gcc', '--with-fortran=gcc', 'Active')
+    mistral_intel         = mistral.add_builder('MISTRAL_intel', '--with-fortran=intel', 'Active')
+    mistral_intel_hybrid  = mistral.add_builder('MISTRAL_intel_hybrid', '--with-fortran=intel --with-openmp', 'Active')
+    mistral_intel_openmp  = mistral.add_builder('MISTRAL_intel_openmp', '--with-fortran=intel --without-mpi --with-openmp --without-yac', 'Active')
+    mistral_nag           = mistral.add_builder('MISTRAL_nag', '--with-fortran=nag', 'Active')
+    mistral_nag_mtime     = mistral.add_builder('MISTRAL_nag_mtime', '--with-fortran=nag --enable-mtime-loop --without-yac', 'Restricted')
+    mistral_nag_serial    = mistral.add_builder('MISTRAL_nag_serial', '--with-fortran=nag --without-mpi', 'build_only')
     # CSCS builders
     daint_cpu             = self.add_machine('daint_cpu', 'default')
-    daint_cpu_cce         = daint_cpu.add_builder('DAINT_CPU_cce', '')
+    daint_cpu_cce         = daint_cpu.add_builder('DAINT_CPU_cce', '', 'Active')
     # thunder builders
     thunder               = self.add_machine('thunder', 'mpi-compute')
-    thunder_gcc           = thunder.add_builder('thunder_gcc', '--with-fortran=gcc')
-    thunder_intel_hybrid  = thunder.add_builder('thunder_intel_hybrid', '--with-fortran=intel --with-openmp')
-    thunder_nag           = thunder.add_builder('thunder_nag', '--with-fortran=nag')
+    thunder_gcc           = thunder.add_builder('THUNDER_gcc', '--with-fortran=gcc', 'Active')
+    thunder_intel_hybrid  = thunder.add_builder('THUNDER_intel_hybrid', '--with-fortran=intel --with-openmp', 'Active')
+    thunder_nag           = thunder.add_builder('THUNDER_nag', '--with-fortran=nag', 'Active')
 
 #-----------------------------------------------------------------------
 
@@ -265,21 +275,22 @@ class buildbot_machine(object):
     self.machine_list = machine_list
     self.builders= {}
 
-  def add_builder(self, name, flags):
-    self.builders[name] = buildbot_builder(name, self, flags)
+  def add_builder(self, name, configure_flags, builder_flags):
+    self.builders[name] = buildbot_builder(name, self, configure_flags, builder_flags)
     self.machine_list.add_builder(self.builders[name])
     return self.builders[name]
 
   def print_builders(self):
-    print(self.name+":")
-    for builder in self.builders.values():
-      builder.print_builder_experiments()
+    print(self.name+" ("+self.queue+"):")
+    sortKeys = sorted(self.builders.keys())
+    for builderKey in sortKeys:
+      self.builders[builderKey].print_builder_experiments()
 
   def get_all_builders(self):
     return list(self.builders.values())
 
   def writeToFile_builders(self, listfile):
-    listfile.write("machine:"+self.name+" "+self.queue+"\n")
+    listfile.write("machine|"+self.name+"|"+self.queue+"\n")
     for builder in self.builders.values():
       builder.writeToFile_builder_experiments(listfile)
 
@@ -295,17 +306,18 @@ class buildbot_experiment(object):
     self.builders = weakref.WeakValueDictionary() # {}
     self.experimentList = experimentList # weakref.ref(experimentList)
 
-  def add_builders(self, buildersList):
+  def add_builders(self, buildersList, ActionFlag):
     for builder in buildersList:
-      if verbal: print("adding "+self.name+" to "+builder.name+"...")
-      self.builders[builder.name] = builder
-      builder.add_experiment_onlyFromExperimentObject(self)
+      if builder.isActive() or ActionFlag == "Force":
+        if verbal: print("adding "+self.name+" to "+builder.name+"...")
+        self.builders[builder.name] = builder
+        builder.add_experiment_onlyFromExperimentObject(self)
     
   def print_experiment(self):
     print("    "+self.name)
     
   def writeToFile_experiment(self,listfile):
-    listfile.write("experiment:"+self.name+"\n")
+    listfile.write("experiment|"+self.name+"\n")
     
   def print_builders(self):
     print("----------------------------")
@@ -338,15 +350,19 @@ class buildbot_experiment(object):
 # this list is driven through the experiment class, not directly from this class
 class buildbot_builder(object):
 
-  def __init__(self, name, machine, flags):
+  def __init__(self, name, machine, configure_flags, builder_flags):
     self.name  = name
     self.machine = machine
-    self.configure_flags = flags
+    self.configure_flags = configure_flags
+    self.builder_flags = builder_flags
     self.experiments = weakref.WeakValueDictionary() # {}
-    
-  def print_builder(self):
-    print("  "+self.name+':', self.configure_flags)
 
+  def isActive(self):
+    return self.builder_flags == "Active"
+    
+  def set_builder_flags(self, flags):
+    self.builder_flags = flags
+    
   def hasOptions(self, withFlags, withoutFlags):
     hasTheseOptions = True
     if withFlags:
@@ -356,19 +372,12 @@ class buildbot_builder(object):
       for flag in withoutFlags:
         hasTheseOptions = hasTheseOptions and not flag in self.configure_flags      
     return hasTheseOptions
-  
-  def print_builder_experiments(self):
-    print("  "+self.name+':', self.configure_flags)
-    for experiment in self.experiments.values():
-      experiment.print_experiment()
-
+    
   def getExperimentNames(self):
     return list(self.experiments.keys())
-      
-  def writeToFile_builder_experiments(self, listfile):
-    listfile.write("builder:"+self.name+" "+self.configure_flags+"\n")
-    for experiment in self.experiments.values():
-      experiment.writeToFile_experiment(listfile)
+  
+  def print_builder(self):
+    print("  "+self.name+" ("+self.builder_flags+"):", self.configure_flags)
 
   # this should be called only from an experiment object
   def add_experiment_onlyFromExperimentObject(self, experiment):
@@ -378,5 +387,15 @@ class buildbot_builder(object):
   def delete_experiment_onlyFromExperimentObject(self, experiment):
     print(" Deleting "+experiment.name+" from "+self.name+"...")
     del self.experiments[experiment.name]
+
+  def print_builder_experiments(self):
+    self.print_builder()
+    for experiment in self.experiments.values():
+      experiment.print_experiment()
+
+  def writeToFile_builder_experiments(self, listfile):
+    listfile.write("builder|"+self.name+'|'+self.configure_flags+"|"+self.builder_flags+"\n")
+    for experiment in self.experiments.values():
+      experiment.writeToFile_experiment(listfile)
 #-----------------------------------------------------------------------
 
