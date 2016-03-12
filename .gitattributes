@@ -1048,7 +1048,6 @@ scripts/buildbot_scripts/buildbot.tac_master -text
 scripts/buildbot_scripts/buildbot_builders.py -text
 scripts/buildbot_scripts/copy_plots.ksh -text
 scripts/buildbot_scripts/create_ocean_lists -text
-scripts/buildbot_scripts/experiment_lists/ocean -text
 scripts/buildbot_scripts/experiment_lists/ocean-dev -text
 scripts/buildbot_scripts/lslist.py -text
 scripts/buildbot_scripts/mklist.py -text

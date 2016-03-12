@@ -8,3 +8,6 @@ python addexp.py checksuite.ocean_internal/omip/exp.ocean_omip_ptest checksuite.
 python addexp.py checksuite.ocean_internal/omip/exp.ocean_omip_short --list ocean-dev
 
 python lslist.py ocean-dev
+
+svn add experiment_lists/ocean-dev
+svn commit experiment_lists/ocean-dev -m "[create_ocean_lists] update ocean experiment lists"
