@@ -45,5 +45,10 @@ class model_paths(object):
     print("Base path:"+self.basePath)
     print("Run path:"+self.runPath)
     print("This path:"+self.thisPath)
+
+  def getPathAndName(self, PathName):
+    dirName  = os.path.dirname(PathName)
+    fileName = os.path.basename(PathName)
+    return dirName, fileName
     
 

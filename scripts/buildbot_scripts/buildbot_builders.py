@@ -39,29 +39,29 @@ class buildbot_experimentList(object):
       self.experimentList[name] = buildbot_experiment(name, self)
     return self.experimentList[name]
         
-  def add_experimentsByNameToBuilders(self, experimentNames, builder_list):
+  def add_experimentsByNameToBuilders(self, experimentNames, builder_list, runflags):
     exp_list = []
     for name in experimentNames:
       experiment = self.add_experiment(name)
       exp_list.append(experiment)
-      experiment.add_builders(builder_list, "Normal")
+      experiment.add_builders(builder_list, runflags, "Normal")
     return exp_list
     
-  def add_experimentsByNameToBuildersByName(self, experimentNames, builder_name_list):    
+  def add_experimentsByNameToBuildersByName(self, experimentNames, builder_name_list, runflags):    
     builder_list = self.buildbot_machine_list.get_buildersByName(builder_name_list)
-    return self.add_experimentsByNameToBuilders(experimentNames, builder_list)
+    return self.add_experimentsByNameToBuilders(experimentNames, builder_list, runflags)
 
-  def add_experimentsByNameToAllBuilders(self, experimentNames):
+  def add_experimentsByNameToAllBuilders(self, experimentNames, runflags):
     all_builders = self.buildbot_machine_list.get_all_builders()
-    return self.add_experimentsByNameToBuilders( experimentNames, all_builders)
+    return self.add_experimentsByNameToBuilders( experimentNames, all_builders, runflags)
 
-  def add_experimentsByNameToBuildersWithOptions(self, experimentNames, machinesNames, withFlags, withoutFlags):
+  def add_experimentsByNameToBuildersWithOptions(self, experimentNames, machinesNames, withFlags, withoutFlags, runflags):
     if machinesNames:
       buildersList = self.buildbot_machine_list.get_machinesBuilders(machinesNames)
     else:
       buildersList = self.buildbot_machine_list.get_all_builders()
     buildersList_withOptions = self.buildbot_machine_list.get_buildersWithOptions(buildersList, withFlags, withoutFlags)
-    return self.add_experimentsByNameToBuilders( experimentNames, buildersList_withOptions)   
+    return self.add_experimentsByNameToBuilders( experimentNames, buildersList_withOptions, runflags)   
     
   def delete_experiment(self, experiment):
     self.experimentList[experiment.name].delete()
@@ -108,7 +108,6 @@ class buildbot_experimentList(object):
   def get_experiment_value(self, name):
     experiment = self.experimentList.get(name)
     return experiment
-
     
   def get_MachineByName(self, name):
     return self.buildbot_machine_list.get_MachineByName(name)
@@ -125,6 +124,23 @@ class buildbot_experimentList(object):
   def create_all_builders(self, name):
     self.buildbot_machine_list.create_all_builders()
 
+  # prepares a builder for running
+  #  returns:
+  #    the builder flags (active, build_only, restricted): string
+  #    the configure flags: string
+  #    the list of expriments to run in a list of the form [[path, name],[path,name],..]
+  #         note: the experiment path is the one under the model_paths.runPath
+  #
+  def getBuilderProperties(self, builder_name):
+    experimentList = []
+    builder = self.getBuildersByName([builder_name])[0]
+    experimentPathNames = builder.getExperimentNames()
+    for experimentPathName in experimentPathNames:
+      # seperate the the input path from the experiment name
+      experimentPath, experimentName = self.paths.getPathAndName(experimentPathName)
+      experimentList.append([experimentPath, experimentName])
+    return builder.get_builder_flags(), builder.get_configure_flags(), experimentList
+    
   #---------------------------------------
   # i/o routines
   #---------------------------------------  
@@ -159,7 +175,7 @@ class buildbot_experimentList(object):
           builder=machine.add_builder(name, inputs[2], inputs[3])
         elif (keyword == "experiment"):
           experiment = self.add_experiment(name)
-          experiment.add_builders([builder], "Force")
+          experiment.add_builders([builder], inputs[2], "Force")
       listfile.close()     
     except IOError as e:
       print("I/O error({0}): {1}".format(e.errno, e.strerror)+" in reading list "+self.name+". Stop.")
@@ -304,20 +320,22 @@ class buildbot_experiment(object):
   def __init__(self, name, experimentList):
     self.name  = name
     self.builders = weakref.WeakValueDictionary() # {}
+    self.builder_runflags = {}
     self.experimentList = experimentList # weakref.ref(experimentList)
 
-  def add_builders(self, buildersList, ActionFlag):
+  def add_builders(self, buildersList, runflags, ActionFlag):
     for builder in buildersList:
       if builder.isActive() or ActionFlag == "Force":
         if verbal: print("adding "+self.name+" to "+builder.name+"...")
         self.builders[builder.name] = builder
-        builder.add_experiment_onlyFromExperimentObject(self)
+        self.builder_runflags[builder.name] = runflags
+        builder.add_experiment_onlyFromExperimentObject(self, runflags)
     
   def print_experiment(self):
     print("    "+self.name)
     
-  def writeToFile_experiment(self,listfile):
-    listfile.write("experiment|"+self.name+"\n")
+  def writeToFile_experiment(self,listfile, builder_name):
+    listfile.write("experiment|"+self.name+"|"+self.builder_runflags[builder_name]+"\n")
     
   def print_builders(self):
     print("----------------------------")
@@ -356,12 +374,19 @@ class buildbot_builder(object):
     self.configure_flags = configure_flags
     self.builder_flags = builder_flags
     self.experiments = weakref.WeakValueDictionary() # {}
+    self.experiments_runflags = {} # {}
 
   def isActive(self):
     return self.builder_flags == "Active"
     
   def set_builder_flags(self, flags):
     self.builder_flags = flags
+
+  def get_builder_flags(self):
+    return self.builder_flags
+
+  def get_configure_flags(self):
+    return self.configure_flags
     
   def hasOptions(self, withFlags, withoutFlags):
     hasTheseOptions = True
@@ -376,12 +401,16 @@ class buildbot_builder(object):
   def getExperimentNames(self):
     return list(self.experiments.keys())
   
+  def getExperiments(self):
+    return list(self.experiments.values())
+
   def print_builder(self):
     print("  "+self.name+" ("+self.builder_flags+"):", self.configure_flags)
 
   # this should be called only from an experiment object
-  def add_experiment_onlyFromExperimentObject(self, experiment):
+  def add_experiment_onlyFromExperimentObject(self, experiment, runflags):
     self.experiments[experiment.name] = experiment
+    self.experiments_runflags[experiment.name] = runflags
     
   # this should be called only from an experiment object
   def delete_experiment_onlyFromExperimentObject(self, experiment):
@@ -390,12 +419,14 @@ class buildbot_builder(object):
 
   def print_builder_experiments(self):
     self.print_builder()
-    for experiment in self.experiments.values():
-      experiment.print_experiment()
+    #for experiment in self.experiments.values():
+      #experiment.print_experiment()
+    for experimentName in self.experiments.keys():
+      print(experimentName+" runflags:"+self.experiments_runflags[experimentName])
 
   def writeToFile_builder_experiments(self, listfile):
     listfile.write("builder|"+self.name+'|'+self.configure_flags+"|"+self.builder_flags+"\n")
     for experiment in self.experiments.values():
-      experiment.writeToFile_experiment(listfile)
+      experiment.writeToFile_experiment(listfile, self.name)
 #-----------------------------------------------------------------------
 

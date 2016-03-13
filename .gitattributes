@@ -1049,7 +1049,6 @@ scripts/buildbot_scripts/buildbot_builders.py -text
 scripts/buildbot_scripts/copy_plots.ksh -text
 scripts/buildbot_scripts/create_icon-dev_lists -text
 scripts/buildbot_scripts/experiment_lists/icon-dev -text
-scripts/buildbot_scripts/flag_builder.py -text
 scripts/buildbot_scripts/lslist.py -text
 scripts/buildbot_scripts/mklist.py -text
 scripts/buildbot_scripts/model_paths.py -text
@@ -1063,6 +1062,8 @@ scripts/buildbot_scripts/py/exp_plot.py -text
 scripts/buildbot_scripts/py/reference_page.py -text
 scripts/buildbot_scripts/rmexp.py -text
 scripts/buildbot_scripts/rmlist.py -text
+scripts/buildbot_scripts/set_builder_flags.py -text
+scripts/buildbot_scripts/test_builders.py -text
 scripts/building/README -text
 scripts/building/Rakefile -text
 scripts/building/build_all -text

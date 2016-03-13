@@ -14,6 +14,7 @@ parser.add_argument('--builders', dest="builder_names", nargs='*', help='buildbe
 parser.add_argument('--machines', dest="machine_names", nargs='*', help='machine name', required=False)
 parser.add_argument('--with-flags', dest="withFlags", nargs='*', help='with build flag', required=False)
 parser.add_argument('--without-flags', dest="withoutFlags", nargs='*', help='without build flag', required=False)
+parser.add_argument('--runflags', dest="runFlags", type=str, help='use these run flags', required=False)
 
 args = parser.parse_args()
 
@@ -36,12 +37,14 @@ if not paths.thisListExists(args.list_name):
   print("The list "+args.list_name+" does not exist.")
   quit()
 
+if not args.runFlags: args.runFlags = ""
+
 thisList  = buildbot_experimentList(args.list_name)
 
 if args.builder_names:
-  thisList.add_experimentsByNameToBuildersByName(experiment_names, args.builder_names)
+  thisList.add_experimentsByNameToBuildersByName(experiment_names, args.builder_names, args.runFlags)
 else:
-  thisList.add_experimentsByNameToBuildersWithOptions(experiment_names, args.machine_names, args.withFlags, args.withoutFlags)
+  thisList.add_experimentsByNameToBuildersWithOptions(experiment_names, args.machine_names, args.withFlags, args.withoutFlags, args.runFlags)
 
 thisList.write()
 #thisList.print_list()

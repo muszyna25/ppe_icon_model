@@ -5,6 +5,10 @@ python rmlist.py $listname
 python mklist.py $listname
 
 #-----------------------------------------------------------
+# add amip tests to all builders
+$addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
+
+#-----------------------------------------------------------
 # add omip technical tests only for builders with mpi parallelization
 $addexp checksuite.ocean_internal/omip/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
   --without-flags without-mpi --list $listname 
@@ -12,13 +16,9 @@ $addexp checksuite.ocean_internal/omip/exp.ocean_omip_ptest checksuite.ocean_int
 $addexp checksuite.ocean_internal/omip/exp.ocean_omip_short --list $listname
 
 #-----------------------------------------------------------
-# add amip tests to all builders
-$addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
-
-#-----------------------------------------------------------
 # tests for nwp
 $addexp exp.test_nwp_R02B04N06multi  exp.test_nwp_R02B04_R02B05_nest  --without-flags without-mpi --list $listname
-# runs only on mistral and daint_cpu, with-mpi and without openmp
+# this runs only on mistral and daint_cpu, with-mpi and without openmp
 $addexp exp.test_nwp_R02B04N06multi2 --machines mistral daint_cpu --without-flags without-mpi with-openmp --list $listname
 
 #-----------------------------------------------------------
@@ -31,10 +31,9 @@ $addexp checksuite.infrastructure/meanStream/exp.atm_amip_noforcing_notransport_
 
 #-----------------------------------------------------------
 # add checksuite.icon-dev/check.atm_amip to the restricted builder MISTRAL_nag_mtime
-python  flag_builder.py Active                  --builders MISTRAL_nag_mtime --list $listname
+python  set_builder_flags.py Active             --builders MISTRAL_nag_mtime --list $listname
 $addexp checksuite.icon-dev/check.atm_amip      --builders MISTRAL_nag_mtime --list $listname
-python  flag_builder.py Restricted              --builders MISTRAL_nag_mtime --list $listname
-python lslist.py $listname
+python  set_builder_flags.py Restricted         --builders MISTRAL_nag_mtime --list $listname
 
 #-----------------------------------------------------------
 # Other tests
@@ -47,7 +46,7 @@ $addexp exp.nat_rce_cbl_120km_nwp --list $listname
 #   very old test from Pilar
 $addexp exp.nat_jww_nwp_mpiomp --without-flags without-mpi --list $listname
 #   obsolete test from Leonidas, will be deleted
-$addexp exp.test_oce_testbed_read --list $listname
+$addexp checksuite.ocean_internal/other/exp.oce_testbed_read --list $listname
 
 
 #-----------------------------------------------------------
@@ -56,4 +55,4 @@ python lslist.py $listname
 
 #commit the list
 # svn add experiment_lists/$listname
-# svn commit experiment_lists/$listname -m "[create_ocean_lists] update ocean experiment lists"
+# svn commit experiment_lists/$listname -m "[buildbot_scripts] update $listname"
