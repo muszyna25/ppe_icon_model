@@ -482,7 +482,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
 
     !---------Debug Diagnostics-------------------------------------------
-    idt_src=1  ! output print level (1-5, fix)
+    idt_src=3  ! output print level (1-5, fix)
 !     idt_src=3  ! output print level (1-5, fix)
     CALL dbg_print('advHorCgrid: kin energy'        ,p_diag%kin              ,str_module,idt_src, &
           patch_2D%cells%owned )

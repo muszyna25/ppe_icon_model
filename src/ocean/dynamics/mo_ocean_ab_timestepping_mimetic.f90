@@ -536,7 +536,7 @@ CONTAINS
 !      vol_h(:,:) = patch_3d%p_patch_2d(n_dom)%cells%area(:,:) * ocean_state%p_prog(nnew(1))%h(:,:)
 !      CALL dbg_print('after ocean_gmres: vol_h(:,:)',vol_h ,str_module,idt_src, in_subset=owned_cells)
       !---------------------------------------------------------------------
-      idt_src=1  ! output print level (1-5, fix)
+      idt_src=2  ! output print level (1-5, fix)
       CALL dbg_print('vn-new',ocean_state%p_prog(nnew(1))%vn,str_module, idt_src,in_subset=owned_edges)
       minmaxmean(:) = global_minmaxmean(values=ocean_state%p_prog(nnew(1))%h(:,:), in_subset=owned_cells)
 
@@ -723,7 +723,7 @@ CONTAINS
     !---------DEBUG DIAGNOSTICS-------------------------------------------
 
     idt_src=3  ! output print level (1-5, fix)
-    idt_src = 1  ! output print level (1-5, fix)
+    idt_src = 4  ! output print level (1-5, fix)
     CALL dbg_print('bc_top_vn'   ,ocean_state%p_aux%bc_top_vn,str_module,idt_src, in_subset=owned_edges)
     CALL dbg_print('horizontal advection'      ,ocean_state%p_diag%veloc_adv_horz,str_module,idt_src, &
       & in_subset=owned_edges)
@@ -733,7 +733,7 @@ CONTAINS
       & in_subset=owned_edges)
     CALL dbg_print('VelocDiff: LaPlacHorz'    ,ocean_state%p_diag%laplacian_horz  ,str_module,idt_src, in_subset=owned_edges)
     IF (iswm_oce /= 1) THEN
-      CALL dbg_print('vn_pred'   ,ocean_state%p_diag%vn_pred       ,str_module,idt_src, in_subset=owned_edges)
+      CALL dbg_print('vn_pred'   ,ocean_state%p_diag%vn_pred       ,str_module,2, in_subset=owned_edges)
     ELSE
       CALL dbg_print('VelocDiff: LaPlacVert'    ,ocean_state%p_diag%laplacian_vert,str_module,idt_src, in_subset=owned_edges)
     ENDIF
@@ -744,8 +744,8 @@ CONTAINS
     CALL dbg_print('G_n'                      ,ocean_state%p_aux%g_n          ,str_module,idt_src, in_subset=owned_edges)
     CALL dbg_print('G_n-1'                    ,ocean_state%p_aux%g_nm1        ,str_module,idt_src, in_subset=owned_edges)
 
-    idt_src=2  ! output print level (1-5, fix)
-    CALL dbg_print('vn_pred'                   ,ocean_state%p_diag%vn_pred           ,str_module,idt_src, in_subset=owned_edges)
+!     idt_src=1  ! output print level (1-5, fix)
+!     CALL dbg_print('vn_pred'                   ,ocean_state%p_diag%vn_pred           ,str_module,idt_src, in_subset=owned_edges)
     !---------------------------------------------------------------------    
   END SUBROUTINE calculate_explicit_term_ab
   !-------------------------------------------------------------------------
