@@ -2052,24 +2052,25 @@ CONTAINS
     IF ( PRESENT(pflxtoalw) ) pflxtoalw(jcs:jce) = zflxlw(jcs:jce,1)
 
 ! Calculate radiative forcing
-    zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
-    CALL calculate_psrad_radiation_forcing( &
-                  & jg=jg,                  &
-                  & jcs=jcs,                &
-                  & jce=jce,                &
-                  & kbdim=kbdim,            &
-                  & klevp1=klevp1,          &
-                  & krow=krow,              &       
-                  & pi0=pi0,                &
-                  & pconvfact=zconv,        &
-                  & pflxs=zflxsw,           &
-                  & pflxs0=zflxswclr,       &
-                  & pflxt=zflxlw,           &
-                  & pflxt0=zflxlwclr,       &   
-                  & pemiss=pemiss,          &
-                  & ptsfctrad=ptsfctrad,    &
-                  & pztsnew=ptsfc           )
-
+    IF (lradforcing(1).OR.lradforcing(2)) THEN
+      zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
+      CALL calculate_psrad_radiation_forcing( &
+                  & jg=jg,                    &
+                  & jcs=jcs,                  &
+                  & jce=jce,                  &
+                  & kbdim=kbdim,              &
+                  & klevp1=klevp1,            &
+                  & krow=krow,                &       
+                  & pi0=pi0,                  &
+                  & pconvfact=zconv,          &
+                  & pflxs=zflxsw,             &
+                  & pflxs0=zflxswclr,         &
+                  & pflxt=zflxlw,             &
+                  & pflxt0=zflxlwclr,         &   
+                  & pemiss=pemiss,            &
+                  & ptsfctrad=ptsfctrad,      &
+                  & pztsnew=ptsfc             )
+   END IF
 
   END SUBROUTINE radheat
 
