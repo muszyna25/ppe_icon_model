@@ -149,8 +149,6 @@ CONTAINS
 
     INTEGER , SAVE :: itaja_zsct_previous = 0
 
-    ie = kbdim
-
     IF (izenith == 0) THEN
     ! local insolation = constant = global mean insolation (ca. 340 W/m2)
     ! zenith angle = 0,
@@ -202,7 +200,6 @@ CONTAINS
           &   nactday        = itaja,          &
           &   acthour        = zstunde )
 
-        ie = kbdim
         DO jb = 1, pt_patch%nblks_c
           ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
@@ -221,18 +218,14 @@ CONTAINS
 
       ENDDO!jmu0
 
-      ie = kbdim
-
       DO jb = 1, pt_patch%nblks_c
 
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
+!DIR$ SIMD
         DO jc = 1,ie
-          IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
-            zsmu0(jc,jb) = SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp))
-          ELSE
-            zsmu0(jc,jb) = cosmu0_dark
-          ENDIF
+          zsmu0(jc,jb) = MERGE(SQRT(zsmu0(jc,jb)/REAL(n_cosmu0pos(jc,jb),wp)), &
+               cosmu0_dark, n_cosmu0pos(jc,jb) > 0)
         ENDDO
 
       ENDDO !jb
@@ -289,9 +282,8 @@ CONTAINS
 
         zeit0   = pi*(zstunde-12._wp)/12._wp + zdtzgl
 
-        ie = kbdim
         DO jb = 1, pt_patch%nblks_c
-          IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+          ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
           zsinphi(1:ie,jb)      = SIN (pt_patch%cells%center(1:ie,jb)%lat)
           zcosphi(1:ie,jb)      = SQRT(1.0_wp - zsinphi(1:ie,jb)**2)
@@ -310,10 +302,9 @@ CONTAINS
 
       ENDDO !jmu0
 
-      ie = kbdim
       DO jb = 1, pt_patch%nblks_c
 
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
 
         DO jc = 1,ie
           IF ( n_cosmu0pos(jc,jb) > 0 ) THEN
@@ -343,7 +334,7 @@ CONTAINS
      ! the product tsi*cos(zenith angle) should equal 340 W/m2
      ! see Popke et al. 2013 and Cronin 2013
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS(zenithang*pi/180._wp)
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt ! no rescale tsi was adjstd in atm_phy_nwp w ssi_rce
@@ -391,14 +382,12 @@ CONTAINS
     INTEGER , SAVE :: itaja_zsct_previous = 0
     REAL(wp), SAVE :: zsct_save
 
-    ie = kbdim
-
     !First: cases izenith==0 to izenith==2 (no date and time needed)
     IF (izenith == 0) THEN
      ! for testing: provisional setting of cos(zenith angle) and TSI
      ! The global mean insolation is TSI/4 (ca. 340 W/m2)
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = 1._wp ! sun in zenith everywhere
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt/4._wp ! scale ztsi to get the correct global mean insolation
@@ -407,7 +396,7 @@ CONTAINS
       ! circular non-seasonal orbit, zenith angle dependent on latitude only,
       ! no diurnal cycle (always at 12:00 local time --> sin(time of day)=1 )
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat )
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt/pi ! because sun is always in local noon, the TSI needs to be
@@ -417,7 +406,7 @@ CONTAINS
       ! circular non-seasonal orbit, no diurnal cycle
       ! at 07:14:15 or 16:45:45 local time (--> sin(time of day)=1/pi )
       DO jb = 1, pt_patch%nblks_c
-        IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c
+        ie = MERGE(kbdim, pt_patch%npromz_c, jb /= pt_patch%nblks_c)
         zsmu0(1:ie,jb) = COS( pt_patch%cells%center(1:ie,jb)%lat ) * rpi
       ENDDO
       IF (PRESENT(zsct)) zsct = tsi_radt
@@ -1821,23 +1810,17 @@ CONTAINS
     ! Conversion factor for heating rates
     zconv(jcs:jce,1:klev) = 1._wp/(pmair(jcs:jce,1:klev)*(pcd+(pcv-pcd)*pqv(jcs:jce,1:klev)))
 
-    ! Shortwave fluxes = transmissivity * local solar incoming flux at TOA
-    ! ----------------
-    ! - TOA
-    zflxsw(jcs:jce,1)         = ptrmsw(jcs:jce,1)         *        pi0(jcs:jce)
-    ! - Atmosphere
-    zflxsw(jcs:jce,2:klev)    = ptrmsw(jcs:jce,2:klev)    * SPREAD(pi0(jcs:jce),2,klev-1)
-    ! - Surface
-    zflxsw(jcs:jce,klevp1)    = ptrmsw(jcs:jce,klevp1)    *        pi0(jcs:jce)
+    ! lev == 1        => TOA
+    ! lev in [2,klev] => Atmosphere
+    ! lev == klevp1   => Surface
+    DO jk = 1, klevp1
+      zflxsw(jcs:jce,jk)      = ptrmsw(jcs:jce,jk) * pi0(jcs:jce)
+    END DO
     IF (lradforcing(1)) THEN
       ! Shortwave fluxes clear sky = transmissivity clear sky * local solar incoming flux at TOA
-      ! ----------------
-      ! - TOA
-      zflxswclr(jcs:jce,1)      = ptrmswclr(jcs:jce,1)      *        pi0(jcs:jce)
-      ! - Atmosphere
-      zflxswclr(jcs:jce,2:klev) = ptrmswclr(jcs:jce,2:klev) * SPREAD(pi0(jcs:jce),2,klev-1)
-      ! - Surface
-      zflxswclr(jcs:jce,klevp1) = ptrmswclr(jcs:jce,klevp1) *        pi0(jcs:jce)
+      DO jk = 1, klevp1
+        zflxswclr(jcs:jce,jk)  = ptrmswclr(jcs:jce,jk)*pi0(jcs:jce)
+      END DO
     END IF
     ! Longwave fluxes
     ! - TOA
@@ -1875,11 +1858,8 @@ CONTAINS
         lwfac2(jc) = 0.92_wp*EXP(-0.07_wp*logtqv(jc))
       ENDDO
       DO jc = jcs, jce
-        IF (tqv(jc) > 15._wp) then
-          lwfac1(jc) = 1.677_wp*EXP(-0.72_wp*logtqv(jc))
-        ELSE
-          lwfac1(jc) = 0.4388_wp*EXP(-0.225_wp*logtqv(jc))
-        ENDIF
+        lwfac1(jc) = MERGE(1.677_wp, 0.4388_wp, tqv(jc) > 15._wp) &
+             * EXP(MERGE(-0.72_wp, -0.225_wp, tqv(jc) > 15._wp) *logtqv(jc))
       ENDDO
 
       DO jk = 1,klevp1
