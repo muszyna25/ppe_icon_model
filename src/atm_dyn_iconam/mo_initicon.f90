@@ -1703,16 +1703,21 @@ MODULE mo_initicon
         ! construct temporary field containing both SST and lake-surface temperatures
         ! which is needed for initializing T_SO at pure water points
         z_t_seasfc(:) = 0._wp
-!CDIR NODEP,VOVERTAKE,VOB
         DO ic = 1, ext_data(jg)%atm%sp_count(jb)
           jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
           z_t_seasfc(jc) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
         END DO
-!CDIR NODEP,VOVERTAKE,VOB
-        DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-          jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-          z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_wtr(ntlr)%t_wml_lk(jc,jb))
-        END DO
+        IF (llake) THEN
+          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+            z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_wtr(ntlr)%t_wml_lk(jc,jb))
+          END DO
+        ELSE
+          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+            z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
+          END DO
+        ENDIF
         !
         ! Fill T_SO with SST analysis over pure water points
         !
