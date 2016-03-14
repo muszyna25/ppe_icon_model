@@ -124,6 +124,30 @@ class buildbot_experimentList(object):
   def create_all_builders(self, name):
     self.buildbot_machine_list.create_all_builders()
 
+  def make_binaries(self, builder_name):
+    builder = self.getBuildersByName([builder_name])[0]
+    os.chdir(self.paths.basePath)
+    status = builder.make_binaries()
+    os.chdir(self.paths.thisPath)
+    return status
+
+  def make_runscripts(self, builder_name):
+    builder = self.getBuildersByName([builder_name])[0]
+    
+    builder.make_runscripts
+    configure_flags = builder.configure_flags
+    os.chdir(self.paths.basePath)
+    status = os.system("./configure "+configure_flags)
+    if not status == 0:
+      print("Configure failed")
+      return status
+    status = os.system("./build_command")
+    if not status == 0:
+      print("Build failed")
+      return status
+    os.chdir(self.paths.thisPath)
+    return 0
+
   # prepares a builder for running
   #  returns:
   #    the builder flags (active, build_only, restricted): string
@@ -418,6 +442,17 @@ class buildbot_builder(object):
     print(" Deleting "+experiment.name+" from "+self.name+"...")
     del self.experiments[experiment.name]
 
+  def make_binaries(self):
+    status = os.system("./configure "+self.configure_flags)
+    if not status == 0:
+      print("Configure failed")
+      return status
+    status = os.system("./build_command")
+    if not status == 0:
+      print("Build failed")
+      return status
+    return 0
+    
   def print_builder_experiments(self):
     self.print_builder()
     #for experiment in self.experiments.values():

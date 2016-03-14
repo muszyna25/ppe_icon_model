@@ -15,6 +15,8 @@ print(builder_flags)
 print(configure_flags)
 print(experimentList)
 
+thisList.make_binaries("THUNDER_nag")
+
 quit()
 
 
