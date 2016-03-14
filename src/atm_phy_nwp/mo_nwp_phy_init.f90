@@ -152,7 +152,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   REAL(wp)            :: rsltn   ! horizontal resolution
   REAL(wp)            :: pref(p_patch%nlev)
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
-  REAL(wp)            :: zpres
+  REAL(wp)            :: zpres, zpres0
   REAL(wp)            :: gz0(nproma), l_hori(nproma)
   REAL(wp)            :: scale_fac ! scale factor used only for RCE cases
 
@@ -165,6 +165,9 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 
   REAL(wp), PARAMETER :: grav_o_rd = grav / rd
   REAL(wp), PARAMETER :: cpd_o_rd  = cpd  / rd
+
+  REAL(wp), PARAMETER :: pr800  = 800._wp / 1013.25_wp
+  REAL(wp), PARAMETER :: pr400  = 400._wp / 1013.25_wp
 
   REAL(wp) :: ttropo, ptropo, temp, zfull
 
@@ -1045,7 +1048,7 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
     h950_standard = 540.3130233_wp
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,hag) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,jk,jb,i_startidx,i_endidx,hag,zpres,zpres0) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -1069,6 +1072,22 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         ! security measure
         prm_diag%k950(jc,jb) = MAX(prm_diag%k950(jc,jb),2)
         prm_diag%k850(jc,jb) = MAX(prm_diag%k850(jc,jb),2)
+
+        ! analogous initialization of k800 and k400, based on reference pressure
+        ! because this is more meaningful for k400 in the presence of very high orography
+        zpres0 = p0ref * (p_metrics%exner_ref_mc(jc,nlev,jb))**(cpd/rd)
+        prm_diag%k800(jc,jb) = nlev
+        prm_diag%k400(jc,jb) = nlev
+        DO jk=nlev-1, 2, -1
+          zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
+          IF (zpres/zpres0 >= pr800) prm_diag%k800(jc,jb) = jk
+          IF (zpres/zpres0 >= pr400*SQRT(p0ref/zpres0)) THEN
+            prm_diag%k400(jc,jb) = jk
+          ELSE
+            EXIT
+          ENDIF
+        ENDDO
+
       ENDDO  ! jc
     ENDDO  ! jb
 !$OMP END DO NOWAIT
