@@ -35,7 +35,7 @@ MODULE mo_opt_diagnostics
   USE mo_echam_phy_memory,     ONLY: prm_field, prm_tend
   USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH,           &
     &                                VINTP_METHOD_QV,                    &
-    &                                VINTP_METHOD_PRES,                  & 
+    &                                VINTP_METHOD_PRES,                  &
     &                                VINTP_METHOD_LIN,                   &
     &                                VINTP_METHOD_LIN_NLEVP1
   USE mo_exception,            ONLY: finish!!$, message, message_text
@@ -107,13 +107,13 @@ MODULE mo_opt_diagnostics
       & l_allocated   = .FALSE.
 
     ! LINEAR interpolation data
-    TYPE (t_vcoeff_lin) ::    &  
+    TYPE (t_vcoeff_lin) ::    &
       &    lin_cell,          &  !< cell centers: interpolation data for the model levels
       &    lin_cell_nlevp1,   &  !< cell centers: interpolation data for the vertical interface of cells, "nlevp1"
       &    lin_edge              !< edge midpts:  interpolation data for the model levels
 
     ! CUBIC interpolation (model levels)
-    TYPE (t_vcoeff_cub) ::    &  
+    TYPE (t_vcoeff_cub) ::    &
       &    cub_cell,          &  !< cell centers: interpolation data for the model levels
       &    cub_edge
 
@@ -125,7 +125,7 @@ MODULE mo_opt_diagnostics
   ! variable to be accumulated manually
   TYPE t_nh_acc
     REAL(wp), POINTER   &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS        &
 #endif
     &  ::               &
@@ -223,7 +223,7 @@ MODULE mo_opt_diagnostics
 !!$    !  - xl and xi
 !!$    &  tend_clw_dtr(:,:,:),&
 !!$    &  tend_cli_dtr(:,:,:)
-    
+
     TYPE(t_pointer_3d_wp),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
 
     ! Internal counter for accumulation operations
@@ -328,7 +328,7 @@ MODULE mo_opt_diagnostics
 
 
   ! State vector for diagnostic variables on p-, z- and/or i-levels
-  ! 
+  !
   ! @note The pointers which are collected in this derived type
   !       constitute only the minimum set of fields that are required
   !       for i/p/z-level interpolation. All other variables are
@@ -344,7 +344,7 @@ MODULE mo_opt_diagnostics
       ! fields that are essential for p-level interpolation only:
       &  p_gh    (:,:,:),      & ! geopotential height          [m]
       &  p_temp(:,:,:),        & ! temperature                  [K]
-      ! fields that are essential for interpolation on isentropes only:            
+      ! fields that are essential for interpolation on isentropes only:
       &  i_gh    (:,:,:),      & ! geopotential height          [m]
       &  i_temp(:,:,:)           ! temperature                  [K]
 
@@ -403,7 +403,7 @@ CONTAINS
     INTEGER :: shape2d_c(2), shape3d_c(3), shape3d_chalf(3), shape4d_c(4)
 !!$    INTEGER :: shape2d_e(2), shape3d_e(3)
 !!$    INTEGER ::               shape3d_v(3)
- 
+
     INTEGER :: ibits,iextbits     !< "entropy" of horizontal slice
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for some thermodynamic fields
     INTEGER :: datatype_flt       !< floating point accuracy in NetCDF output
@@ -1424,7 +1424,7 @@ CONTAINS
             &        l_extrapol=.FALSE. ) )
     END IF
 
-    
+
 !!$    p_acc%l_tend_hus_m     = is_variable_in_output(first_output_name_list, var_name="tend_hus_m")
 !!$    p_acc%l_any_m = p_acc%l_any_m .OR. p_acc%l_tend_hus_m
 !!$    IF (p_acc%l_tend_hus_m) THEN
@@ -1667,7 +1667,7 @@ CONTAINS
     REAL(wp) :: xfactor
 
     xfactor = 1._wp/REAL(acc%numberOfAccumulations,wp)
-    
+
     IF (acc%l_ua_m)    acc%u        = acc%u        *xfactor
     IF (acc%l_va_m)    acc%v        = acc%v        *xfactor
     IF (acc%l_wa_m)    acc%w        = acc%w        *xfactor
@@ -1836,7 +1836,7 @@ CONTAINS
 
 
   !-------------
-  !>  
+  !>
   ! Initialize a variable containing coefficient tables for vertical
   ! interpolation. There exist to different kinds of coefficients: For
   ! p- and for z-level-interpolation.
@@ -1874,7 +1874,7 @@ CONTAINS
 
 
   !-------------
-  !>  
+  !>
   ! Initialize a variable containing coefficient tables for cubic
   ! vertical interpolation.
   !
@@ -1905,7 +1905,7 @@ CONTAINS
 
 
   !-------------
-  !>  
+  !>
   ! Initialize a variable containing coefficient tables for vertical
   ! interpolation. There exist to different kinds of coefficients: For
   ! p- and for z-level-interpolation.
@@ -1921,7 +1921,7 @@ CONTAINS
       CALL vcoeff_lin_allocate(nblks_c, nlev, vcoeff%lin_cell_nlevp1)
       CALL vcoeff_lin_allocate(nblks_e, nlev, vcoeff%lin_edge)
 
-      ! CUBIC interpolation coefficients:      
+      ! CUBIC interpolation coefficients:
       CALL vcoeff_cub_allocate(nblks_c, nlev, vcoeff%cub_cell)
       CALL vcoeff_cub_allocate(nblks_e, nlev, vcoeff%cub_edge)
 
@@ -1931,7 +1931,7 @@ CONTAINS
 
 
   !-------------
-  !>  
+  !>
   ! Clear a coefficient tables for linear vertical interpolation.
   SUBROUTINE vcoeff_lin_deallocate(vcoeff_lin)
     TYPE(t_vcoeff_lin), INTENT(INOUT) :: vcoeff_lin
@@ -1946,7 +1946,7 @@ CONTAINS
     ! integer
     DEALLOCATE( vcoeff_lin%idx0_lin, vcoeff_lin%bot_idx_lin, STAT=ierrstat )
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
-    
+
     DEALLOCATE( vcoeff_lin%wfacpbl1, vcoeff_lin%wfacpbl2, STAT=ierrstat )
     IF (ierrstat /= SUCCESS) CALL finish (routine, 'DEALLOCATE failed.')
     DEALLOCATE( vcoeff_lin%kpbl1, vcoeff_lin%kpbl2, STAT=ierrstat )
@@ -1956,7 +1956,7 @@ CONTAINS
 
 
   !-------------
-  !>  
+  !>
   ! Clear a coefficient tables for cubic vertical interpolation.
   SUBROUTINE vcoeff_cub_deallocate(vcoeff_cub)
     TYPE(t_vcoeff_cub), INTENT(INOUT) :: vcoeff_cub
@@ -1977,7 +1977,7 @@ CONTAINS
 
 
   !-------------
-  !>  
+  !>
   ! Clear a variable containing coefficient tables for vertical
   ! interpolation. There exist to different kinds of coefficients: For
   ! p-, z- and for i-level-interpolation.

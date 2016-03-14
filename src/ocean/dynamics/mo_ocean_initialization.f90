@@ -71,7 +71,6 @@ MODULE mo_ocean_initialization
     & t_hydro_ocean_prog, &
     & t_hydro_ocean_diag, &
     & t_hydro_ocean_aux, &
-    & t_hydro_ocean_acc, &
     & t_oce_config, &
     & t_ocean_tracer
   USE mo_ocean_diagnostics_types, ONLY: &
@@ -635,11 +634,11 @@ CONTAINS
           ELSE
             
             ! set land/sea for all edges
-            IF ( (v_base%lsm_c(iic1,jk,ibc1) < boundary)  .AND.   &
-              & (v_base%lsm_c(iic2,jk,ibc2) < boundary) ) THEN
+            IF ( (v_base%lsm_c(iic1,jk,ibc1) <= sea_boundary)  .AND.   &
+              & (v_base%lsm_c(iic2,jk,ibc2) <= sea_boundary) ) THEN
               v_base%lsm_e(je,jk,jb) = sea
-            ELSEIF ( (v_base%lsm_c(iic1,jk,ibc1) > boundary)  .AND.   &
-              & (v_base%lsm_c(iic2,jk,ibc2) > boundary) ) THEN
+            ELSEIF ( (v_base%lsm_c(iic1,jk,ibc1) >= LAND_BOUNDARY)  .AND.   &
+              & (v_base%lsm_c(iic2,jk,ibc2) >= LAND_BOUNDARY) ) THEN
               v_base%lsm_e(je,jk,jb) = land
             ELSE
               v_base%lsm_e(je,jk,jb) = boundary
@@ -1487,8 +1486,12 @@ CONTAINS
           patch_3d%p_patch_1d(1)%depth_CellMiddle(jc,jk,jb)      = patch_3d%p_patch_1d(1)%zlev_m(jk)
           patch_3d%p_patch_1d(1)%depth_CellInterface(jc,jk,jb)   = patch_3d%p_patch_1d(1)%zlev_i(jk)
           
-          IF (v_base%del_zlev_m(jk) > 0.0_wp) &
-            & patch_3d%p_patch_1d(1)%inv_prism_thick_c(jc,jk,jb)      = 1.0_wp/v_base%del_zlev_m(jk)
+          IF (patch_3d%p_patch_1d(1)%prism_thick_c(jc,jk,jb) > 0.0_wp) THEN
+            patch_3d%p_patch_1d(1)%inv_prism_thick_c(jc,jk,jb) = &
+              & 1.0_wp/patch_3d%p_patch_1d(1)%prism_thick_c(jc,jk,jb)
+            patch_3d%p_patch_1d(1)%invConstantPrismThickness(jc,jk,jb) = &
+              patch_3d%p_patch_1d(1)%inv_prism_thick_c(jc,jk,jb)
+          ENDIF
           IF (v_base%del_zlev_i(jk) > 0.0_wp)  &
             & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,jk,jb)= 1.0_wp/v_base%del_zlev_i(jk)
 
@@ -1499,17 +1502,17 @@ CONTAINS
             
         END DO
         IF (end_level > 0) THEN
-	  patch_3d%p_patch_1d(1)%depth_CellInterface(jc,end_level+1,jb)   = patch_3d%p_patch_1d(1)%zlev_i(end_level+1)
-	  patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)   = &
-	    & patch_3d%p_patch_1d(1)%prism_thick_c(jc,end_level,jb) * 0.5_wp
-	  IF (patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb) > 0.0_wp)  &
-	    & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,end_level+1,jb)= &
-	      &   1.0_wp / patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)
-	  patch_3d%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,end_level+1,jb) = &
-	    & patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)
-	  patch_3d%p_patch_1d(1)%constantPrismCenters_invZdistance(jc,end_level+1,jb) = &
-	    & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,end_level+1,jb)
-	ENDIF
+          patch_3d%p_patch_1d(1)%depth_CellInterface(jc,end_level+1,jb)   = patch_3d%p_patch_1d(1)%zlev_i(end_level+1)
+          patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)   = &
+            & patch_3d%p_patch_1d(1)%prism_thick_c(jc,end_level,jb) * 0.5_wp
+          IF (patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb) > 0.0_wp)  &
+            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,end_level+1,jb)= &
+              &   1.0_wp / patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)
+          patch_3d%p_patch_1d(1)%constantPrismCenters_Zdistance(jc,end_level+1,jb) = &
+            & patch_3d%p_patch_1d(1)%prism_center_dist_c(jc,end_level+1,jb)
+          patch_3d%p_patch_1d(1)%constantPrismCenters_invZdistance(jc,end_level+1,jb) = &
+            & patch_3d%p_patch_1d(1)%inv_prism_center_dist_c(jc,end_level+1,jb)
+        ENDIF
         
         ! set bottom/columns values
         jk = dolic_c(jc,jb)

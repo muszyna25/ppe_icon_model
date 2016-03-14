@@ -29,7 +29,7 @@ MODULE mo_nwp_phy_nml
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output, filename_max
-  USE mo_master_config,       ONLY: isRestart
+  USE mo_master_control,      ONLY: use_restart_namelists, isRestart
 
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,    &
     &                               open_and_restore_namelist, close_tmpfile
@@ -100,7 +100,8 @@ MODULE mo_nwp_phy_nml
     &                    lrtm_filename, cldopt_filename, icpl_o3_tp, &
     &                    iprog_aero, lshallowconv_only
 
-
+  LOGICAL :: l_nwp_phy_namelist_read = .false.
+  
 CONTAINS
 
   !-------------------------------------------------------------------------
@@ -128,7 +129,7 @@ CONTAINS
     INTEGER :: istat, funit, jg
     INTEGER :: iunit
     CHARACTER(len=*), PARAMETER ::  &
-         &  routine = 'mo_atm_phy_nwp_nml:read_nwp_phy_namelist'
+         &  routine = 'mo_nwp_phy_nml:read_nwp_phy_namelist'
 
     !-----------------------
     ! 0a. dummy settings; will be replaced with defaults after reading the namelist
@@ -199,10 +200,11 @@ CONTAINS
     ! 1. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (isRestart()) THEN
+    IF (use_restart_namelists()) THEN
       funit = open_and_restore_namelist('nwp_phy_nml')
       READ(funit,NML=nwp_phy_nml)
       CALL close_tmpfile(funit)
+      l_nwp_phy_namelist_read = .true.
     END IF
 
     !--------------------------------------------------------------------
@@ -221,14 +223,15 @@ CONTAINS
         iunit = temp_settings()
         WRITE(iunit, nwp_phy_nml)   ! write settings to temporary text file
       END IF
+      l_nwp_phy_namelist_read = .true.
     END SELECT
     CALL close_nml
 
     !-----------------------
     ! 3. apply default settings where nothing is specified explicitly (except for restart)
     !-----------------------
-
-    IF (.NOT. isRestart()) THEN
+    
+    IF (.NOT. isRestart() .or. .NOT. l_nwp_phy_namelist_read) THEN
 
       ! 3a. Set default values for global domain where nothing at all has been specified
 
@@ -249,6 +252,7 @@ CONTAINS
       IF (dt_gwd  (1) < 0._wp) dt_gwd  (1) = 1200._wp   !seconds
       IF (dt_rad  (1) < 0._wp) dt_rad  (1) = 1800._wp   !seconds
 
+      
       ! 3b. Copy values of parent domain (in case of linear nesting) to nested domains where nothing has been specified
 
       DO jg = 2, max_dom
@@ -383,7 +387,6 @@ CONTAINS
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=nwp_phy_nml)
 
   END SUBROUTINE read_nwp_phy_namelist
-
 
 END MODULE mo_nwp_phy_nml
 

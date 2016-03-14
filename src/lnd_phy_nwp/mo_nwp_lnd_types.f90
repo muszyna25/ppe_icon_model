@@ -49,7 +49,7 @@ MODULE mo_nwp_lnd_types
   TYPE t_lnd_prog
 
     REAL(wp), POINTER             &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS                  &
 #endif
     &  ::                         &
@@ -97,7 +97,7 @@ MODULE mo_nwp_lnd_types
   TYPE t_wtr_prog
 
     REAL(wp), POINTER         &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS              &
 #endif
     &  ::                     &
@@ -125,7 +125,7 @@ MODULE mo_nwp_lnd_types
   TYPE t_lnd_diag
 
     REAL(wp), POINTER         &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS              &
 #endif
     &  ::                     &

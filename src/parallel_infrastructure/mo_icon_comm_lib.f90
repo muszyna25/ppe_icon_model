@@ -1,8 +1,4 @@
 !----------------------------------
-!#include "dsl_definitions.inc"
-#define GENERAL_3D DIMENSION(:,:,:)
-#define LEVELS_POSITION 2
-#include "omp_definitions.inc"
 !>
 !! A collection of MPI communication tools
 !!
@@ -19,7 +15,13 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-!!
+!----------------------------
+#define GENERAL_3D DIMENSION(:,:,:)
+#define LEVELS_POSITION 2
+!#include "dsl_definitions.inc"
+#include "omp_definitions.inc"
+#include "icon_definitions.inc"
+!----------------------------
 MODULE mo_icon_comm_lib
 
   USE mo_kind,            ONLY: wp
@@ -1626,7 +1628,7 @@ CONTAINS
     
     IF (.NOT. exist_communication_var) RETURN
     
-    IF (ltimer) CALL timer_start(timer_icon_comm_sync)
+    start_sync_timer(timer_icon_comm_sync)
     
     IF (buffer_comm_status == not_active) THEN
       ! no communication steps have been taken
@@ -1638,18 +1640,18 @@ CONTAINS
         CALL fill_send_buffers()
         CALL nonblocksent_all_data()
         ! Wait for all outstanding requests to finish
-        IF (activate_sync_timers) CALL timer_start(timer_icon_comm_wait)
+        start_sync_timer(timer_icon_comm_wait)
         CALL p_wait
-        IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_wait)        
+        stop_sync_timer(timer_icon_comm_wait)
         CALL fill_vars_from_recv_buffers()
         
       CASE(2,102)
         CALL nonblockrecv_all_data()
         CALL fill_and_nonblocksend_buffers()
         ! Wait for all outstanding requests to finish
-        IF (activate_sync_timers) CALL timer_start(timer_icon_comm_wait)
+        start_sync_timer(timer_icon_comm_wait)
         CALL p_wait
-        IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_wait)        
+        stop_sync_timer(timer_icon_comm_wait)
         CALL fill_vars_from_recv_buffers()
 
       CASE(3,103)
@@ -1657,9 +1659,9 @@ CONTAINS
         CALL fill_send_buffers()
         CALL blocksent_all_data()
         ! Wait for all outstanding requests to finish
-        IF (activate_sync_timers) CALL timer_start(timer_icon_comm_wait)
+        start_sync_timer(timer_icon_comm_wait)
         CALL p_wait
-        IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_wait)        
+        stop_sync_timer(timer_icon_comm_wait)
         CALL fill_vars_from_recv_buffers()
         
       CASE DEFAULT
@@ -1674,17 +1676,13 @@ CONTAINS
 
     ENDIF
     
-    IF (ltimer) CALL timer_stop(timer_icon_comm_sync)
+    stop_sync_timer(timer_icon_comm_sync)
 
     IF (sync_barrier_mode == 2) THEN
       CALL timer_start(timer_icon_comm_barrier_2)
       CALL work_mpi_barrier()
       CALL timer_stop(timer_icon_comm_barrier_2)
    ENDIF
-
-!     CALL p_barrier(process_mpi_all_comm)
-
-!    CALL stop_mpi
     
   END SUBROUTINE icon_comm_sync_all
   !-----------------------------------------------------------------------
@@ -1741,7 +1739,7 @@ CONTAINS
     INTEGER :: comm_var, var_no    
 !     CHARACTER(*), PARAMETER :: method_name = "compute_send_buffer_sizes"
 
-    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_fillsend)
+    start_sync_timer(timer_icon_comm_fillsend)
     
     CALL compute_send_buffer_sizes()
 
@@ -1754,7 +1752,7 @@ CONTAINS
         END DO  
       
     END DO  
-    IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_fillsend)
+    stop_sync_timer(timer_icon_comm_fillsend)
        
   END SUBROUTINE fill_send_buffers
   !-----------------------------------------------------------------------
@@ -1766,7 +1764,7 @@ CONTAINS
     INTEGER :: comm_var, var_no, bfid, np, buffer_start, buffer_size,&
       & message_size, message_seq_id  
 
-    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_fillandsend)
+    start_sync_timer(timer_icon_comm_fillandsend)
     
     CALL compute_send_buffer_sizes()    
 
@@ -1813,7 +1811,7 @@ CONTAINS
     ENDDO !bfid = 1, active_send_buffers
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
-    IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_fillandsend)
+    stop_sync_timer(timer_icon_comm_fillandsend)
            
   END SUBROUTINE fill_and_nonblocksend_buffers
   !-----------------------------------------------------------------------
@@ -2058,7 +2056,7 @@ CONTAINS
     INTEGER :: bfid, buffer_start, buffer_size, message_size, message_seq_id
 !     CHARACTER(*), PARAMETER :: method_name = "sent_all_buffers"
 
-    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_isend)
+    start_sync_timer(timer_icon_comm_isend)
     
     DO bfid = 1, active_send_buffers
 
@@ -2079,7 +2077,7 @@ CONTAINS
       
     ENDDO
     
-    IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_isend)
+    stop_sync_timer(timer_icon_comm_isend)
           
   END SUBROUTINE nonblocksent_all_data
   !-----------------------------------------------------------------------
@@ -2091,7 +2089,7 @@ CONTAINS
     INTEGER :: bfid, buffer_start, buffer_size, message_size, message_seq_id
 !     CHARACTER(*), PARAMETER :: method_name = "sent_all_buffers"
 
-    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_send)
+    start_sync_timer(timer_icon_comm_send)
     
 !ICON_OMP_PARALLEL IF(icon_comm_openmp)
 !ICON_OMP_DO PRIVATE(bfid, buffer_start, buffer_size, message_seq_id, message_size)
@@ -2116,7 +2114,7 @@ CONTAINS
 !ICON_OMP_END_DO_NOWAIT
 !ICON_OMP_END_PARALLEL
     
-    IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_send)
+    stop_sync_timer(timer_icon_comm_send)
           
   END SUBROUTINE blocksent_all_data
   !-----------------------------------------------------------------------
@@ -2129,7 +2127,7 @@ CONTAINS
 
     CALL compute_recv_buffer_sizes()
     
-    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_ircv)
+    start_sync_timer(timer_icon_comm_ircv)
      
     ! start recieve
     DO bfid = 1, active_recv_buffers
@@ -2150,7 +2148,7 @@ CONTAINS
       ENDDO
       
     ENDDO
-    IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_ircv)
+    stop_sync_timer(timer_icon_comm_ircv)
           
   END SUBROUTINE nonblockrecv_all_data
   !-----------------------------------------------------------------------
@@ -2173,7 +2171,7 @@ CONTAINS
 
     INTEGER :: comm_var, var_no, bfid
             
-    IF (activate_sync_timers) CALL timer_start(timer_icon_comm_fillrecv)
+    start_sync_timer(timer_icon_comm_fillrecv)
     
     ! set the current recv index to start
     DO bfid = 1, active_recv_buffers
@@ -2189,7 +2187,7 @@ CONTAINS
         END DO
 
     ENDDO
-    IF (activate_sync_timers) CALL timer_stop(timer_icon_comm_fillrecv)
+    stop_sync_timer(timer_icon_comm_fillrecv)
   
   END SUBROUTINE fill_vars_from_recv_buffers
   !-----------------------------------------------------------------------

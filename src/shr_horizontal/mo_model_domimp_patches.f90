@@ -1283,11 +1283,13 @@ CONTAINS
       CALL finish (TRIM(method_name), 'allocation for array_[cev]_indlist failed')
     ENDIF
 
+!     write(0,*) "allocate_pre_patch..."
     !
     ! Allocate patch arrays which are read here
     !
     CALL allocate_pre_patch( patch_pre )
 
+!     write(0,*) "get idx..."
     ! patch_pre%cells%start(:)
     ! patch_pre%cells%end(:)
     ! nesting does not work for hex grids
@@ -1333,6 +1335,7 @@ CONTAINS
     IF (dim_idxlist > 1) &
       patch_pre%verts%end(min_rlvert_int) = patch_pre%n_patch_verts_g
 
+!     write(0,*) "get phys_cell_id..."
     ! patch_pre%cells%phys_id(:)
     CALL nf(nf_inq_varid(ncid_grf, 'phys_cell_id', varid))
     CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_phys_id, local_ptr)
@@ -1373,6 +1376,7 @@ CONTAINS
       END DO ! cells
     END IF
 
+!     write(0,*) "get edge_of_cell..."
     ! patch_pre%cells%edge
     CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
     CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_edge, local_ptr_2d)
@@ -1407,6 +1411,7 @@ CONTAINS
     !----------------------------------------------------------------------------------
     ! compute cells%num_edges
     ! works for general unstructured grid
+!     write(0,*) "compute cells%num_edges..."
     CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_num_edges, local_ptr)
     DO jc = patch_pre%cells%local_chunk(1,1)%first, &
       patch_pre%cells%local_chunk(1,1)%first + &
@@ -1415,6 +1420,7 @@ CONTAINS
     END DO
 
     ! patch_pre%cells%vertex
+!     write(0,*) "get vertex_of_cell..."
     CALL nf(nf_inq_varid(ncid, 'vertex_of_cell', varid))
     CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_vertex, local_ptr_2d)
     local_ptr_2d(:,:) = 0
@@ -1480,6 +1486,7 @@ CONTAINS
     ! nesting/lateral boundary indexes
     IF (max_cell_connectivity == 3) THEN ! triangular grid
 
+!       write(0,*) "get parent_cell_index..."
       ! patch_pre%cells%parent
       CALL nf(nf_inq_varid(ncid_grf, 'parent_cell_index', varid))
       CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_parent, local_ptr)
@@ -1500,9 +1507,11 @@ CONTAINS
         & 'nesting incompatible with non-triangular grid')
     ENDIF
 
+!     write(0,*) "dist_mult_array_expose(patch_pre%cells%dist)..."
     CALL dist_mult_array_expose(patch_pre%cells%dist)
 
     ! patch_pre%cells%refin_ctrl
+!     write(0,*) "refin_c_ctrl..."
     CALL nf(nf_inq_varid(ncid_grf, 'refin_c_ctrl', varid))
     CALL dist_mult_array_local_ptr(patch_pre%cells%dist, c_refin_ctrl, &
          local_ptr)
@@ -1512,6 +1521,7 @@ CONTAINS
       &                     local_ptr))
 
     ! patch_pre%edges%parent
+!     write(0,*) "parent_edge_index..."
     CALL nf(nf_inq_varid(ncid_grf, 'parent_edge_index', varid))
     CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_parent, local_ptr)
     CALL nf(nf_get_vara_int(ncid_grf, varid, &
@@ -1520,6 +1530,7 @@ CONTAINS
       &                     local_ptr))
 
     ! patch_pre%edges%child
+!     write(0,*) "child_edge_index..."
     CALL nf(nf_inq_varid(ncid_grf, 'child_edge_index', varid))
     CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_child, local_ptr_2d)
     CALL nf(nf_get_vara_int(ncid_grf, varid, &
@@ -1535,6 +1546,7 @@ CONTAINS
     ENDIF
 
     ! patch_pre%edges%refin_ctrl
+!     write(0,*) "refin_e_ctrl..."
     CALL nf(nf_inq_varid(ncid_grf, 'refin_e_ctrl', varid))
     CALL dist_mult_array_local_ptr(patch_pre%edges%dist, e_refin_ctrl, &
          local_ptr)
@@ -1544,6 +1556,7 @@ CONTAINS
       &                     local_ptr))
 
     ! patch_pre%verts%refin_ctrl
+!     write(0,*) "refin_v_ctrl..."
     CALL nf(nf_inq_varid(ncid_grf, 'refin_v_ctrl', varid))
     CALL dist_mult_array_local_ptr(patch_pre%verts%dist, v_refin_ctrl, &
          local_ptr)
@@ -1553,8 +1566,12 @@ CONTAINS
       &                     local_ptr))
 
     ! BEGIN NEW SUBDIV
+    
+!     write(0,*) max_verts_connectivity, "cells_of_vertex..."
     CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
+!     write(0,*) max_verts_connectivity, "  dist_mult_array_local_ptr..."
     CALL dist_mult_array_local_ptr(patch_pre%verts%dist, v_cell, local_ptr_2d)
+!     write(0,*) max_verts_connectivity, "  nf_get_vara_int..."
     CALL nf(nf_get_vara_int(ncid, varid, &
       &                     (/patch_pre%verts%local_chunk(1,1)%first, 1/), &
       &                     (/patch_pre%verts%local_chunk(1,1)%size, &
@@ -1562,16 +1579,20 @@ CONTAINS
       &                     local_ptr_2d))
     ! eliminate indices < 0, this should not happen but some older grid files
     ! seem to contain such indices
+!     write(0,*) "SIZE(local_ptr_2d):", SIZE(local_ptr_2d,1), SIZE(local_ptr_2d,2)
+!     write(0,*) max_verts_connectivity, "  WHERE..."
     WHERE(local_ptr_2d(:, :) < 0) local_ptr_2d(:, :) = 0
     ! account for dummy cells arising in case of a pentagon
     ! Fill dummy cell with existing index to simplify do loops
     ! Note, however, that related multiplication factors must be zero
+!     write(0,*) "move_dummies_to_end verts%local_chunk..."
     CALL move_dummies_to_end(local_ptr_2d, &
       patch_pre%verts%local_chunk(1,1)%size, max_verts_connectivity, &
       use_duplicated_connectivity)
 
     !
     ! Set verts%num_edges
+!     write(0,*) "Set verts%num_edges..."
     CALL dist_mult_array_local_ptr(patch_pre%verts%dist, v_num_edges, local_ptr)
     DO ji = patch_pre%verts%local_chunk(1,1)%first, &
       patch_pre%verts%local_chunk(1,1)%first + &

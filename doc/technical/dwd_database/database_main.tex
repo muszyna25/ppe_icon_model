@@ -38,6 +38,7 @@
 \usepackage{environ}
 \usepackage{pgf}
 \usepackage{pgffor}
+\usepackage[toc,section=chapter]{glossaries}
 
 \usetikzlibrary{calc}
 \usetikzlibrary{matrix}
@@ -144,13 +145,6 @@
 \definecolor{colorRed}{rgb}{1.,0.,0.}
 \newcommand{\colorA}{\listappend{"0.,0.,1."}}
 \newcommand{\colorB}{\listappend{"1.,0.,0."}}
-
-
-% ---------- Glossary: All the stuff and more ----------%
-% \newglossary{symbolslist}{sym}{sbl}{Symbolverzeichnis} % define new glossary i.e. a list of symbols
-% \makeglossaries
-
-% \input{./text/listofsymbols}  %--- include defined symbols
 
 
 \setkomafont{captionlabel}{\sffamily\bfseries}
@@ -266,7 +260,8 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
 \setlength{\parskip}{0.2cm plus0.1cm minus0.1cm}
 \setlength{\parindent}{0.0em}
 
-\includeonly{./preface_title_toc,
+\includeonly{./glossary,
+             ./preface_title_toc,
              ./preface_intro,
              ./model_timeline,
              ./analysis,
@@ -370,11 +365,18 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
 }
 %--------------------- end of timeline code ------------------%
 
+
+%----------------------- create glossary ---------------------%
+\makeglossaries
+%-------------------------------------------------------------%
+
+
 % ------------------ start of document -----------------------%
 \begin{document}
 \svnInfo $Id$
 \setcounter{tocdepth}{3}     %--- maximum toc depth
 
+\include{./glossary}
 \pagestyle{scrheadings}
 
 \renewcommand{\chaptermark}[1]{%
@@ -503,6 +505,10 @@ p{1.1cm}p{0.9cm}p{1cm}p{1cm}}#1\\
 \renewcommand{\chaptermark}[1]{%
   \markboth{\chaptername
     \ \thechapter.\ #1}{}}
+
+%----------------------- print glossary ----------------------%
+\printglossaries
+%-------------------------------------------------------------%
 
 
 % --------------------------- Backside of document -------------------------------
