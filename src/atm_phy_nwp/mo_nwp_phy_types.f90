@@ -364,6 +364,10 @@ MODULE mo_nwp_phy_types
                               !< of the standard atmosphere 850hPa level above ground
       &  k950    (:,:),     & !< level index that corresponds to the height 
                               !< of the standard atmosphere 950hPa level above ground
+      &  k800    (:,:),     & !< level index that corresponds to the height 
+                              !< of the standard atmosphere 800hPa level above ground
+      &  k400    (:,:),     & !< level index that corresponds to the height 
+                              !< of the standard atmosphere 400hPa level above ground
       &  ktop_envel(:,:),   & !< level index of upper boundary of SSO envelope layer
       &  iww     (:,:)        !< significant weather
 

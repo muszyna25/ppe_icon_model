@@ -97,7 +97,7 @@ SUBROUTINE cover_koe( &
   & ldcum, kcbot, kctop             , & ! in:    convection: on/off, bottom, top
   & pmfude_rate                     , & ! in:    convection: updraft detrainment rate
   & plu                             , & ! in:    convection: updraft condensate
-  & qv, qc, qi, qtvar               , & ! inout: prognostic cloud variables
+  & qv, qc, qi, qs, qtvar           , & ! inout: prognostic cloud variables
   & cc_tot, qv_tot, qc_tot, qi_tot )    ! out:   cloud output diagnostic
 
 
@@ -125,6 +125,7 @@ REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
   & qv               , & ! specific water vapor content                  (kg/kg)
   & qc               , & ! specific cloud water content                  (kg/kg)
   & qi               , & ! specific cloud ice   content                  (kg/kg)
+  & qs               , & ! specific snow        content                  (kg/kg)
   & qtvar                ! total water variance (qt'2)                   (kg2/kg2)
 
 REAL(KIND=wp), DIMENSION(klon), INTENT(IN) ::  &
@@ -174,7 +175,7 @@ REAL(KIND=wp) :: &
   & fgew   , fgee   , fgqs   , & !fgqv   , & ! name of statement functions
   & ztt    , zzpv   , zzpa   , zzps   , &
   & zf_ice , deltaq , qisat_grid, &
-  & vap_pres, zaux, zqisat_m60
+  & vap_pres, zaux, zqisat_m60, zqisat_m25, qi_mod
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat, zagl_lim
@@ -186,9 +187,9 @@ REAL(KIND=wp), PARAMETER  :: &
   & zcldlim  = 1.0e-8_wp, & ! threshold of cloud water/ice for cloud cover  (kg/kg)
   & taudecay = 1500.0_wp, & ! decay time scale of convective anvils
 !  & box_liq  = 0.05_wp  , & ! box width scale liquid clouds - replaced by tuning namelist switch
-  & box_ice  = 0.05_wp,    &  ! box width scale ice clouds
-  & zt_ice1 = tmelt -  5.0_wp, &
-  & zt_ice2 = tmelt - 25.0_wp
+  & box_ice  = 0.05_wp !,  &  ! box width scale ice clouds
+!  & zt_ice1 = tmelt -  5.0_wp, &
+!  & zt_ice2 = tmelt - 25.0_wp
 
   REAL(kind=wp), PARAMETER :: grav_i = 1._wp/grav
 
@@ -211,6 +212,8 @@ REAL(KIND=wp), PARAMETER  :: &
 ! saturation mixing ratio at -60 C and 200 hPa
 zqisat_m60 = fgqs ( fgee(213.15_wp), 0._wp, 20000._wp )
 
+! saturation mixing ratio at -25 C and 700 hPa
+zqisat_m25 = fgqs ( fgee(248.15_wp), 0._wp, 70000._wp )
 
 ! Set cloud fields for stratospheric levels to zero
 DO jk = 1,kstart-1
@@ -284,21 +287,23 @@ CASE( 1 )
       ENDIF
 
 !  ice cloud
-     !ice cloud: assumed box distribution, width 0.1 qisat, saturation above qv
+      qi_mod = MAX(qi(jl,jk), 0.1_wp*(qi(jl,jk)+qs(jl,jk)) )
+     !ice cloud: assumed box distribution, width 0.1 qisat, saturation above qv 
      !           (qv is microphysical threshold for ice as seen by grid scale microphysics)
-      IF ( qi(jl,jk) > zcldlim ) THEN
+      IF ( qi_mod > zcldlim ) THEN
        !deltaq     = min( box_ice * zqisat(jl,jk), 10._wp * qi(jl,jk) )     ! box width = 2*deltaq
-        deltaq     = MIN(box_ice, zagl_lim(jl,jk)) * zqisat(jl,jk)           ! box width = 2*deltaq
+        deltaq     = MIN(box_ice, zagl_lim(jl,jk)) * MIN(zqisat_m25, zqisat(jl,jk))  ! box width = 2*deltaq
         qisat_grid = MAX( qv(jl,jk), zqisat(jl,jk) )                        ! qsat grid-scale
        !qisat_grid = zqisat(jl,jk)                                          ! qsat grid-scale
-        IF ( ( qv(jl,jk) + qi(jl,jk) - deltaq) > qisat_grid ) THEN
+        IF ( ( qv(jl,jk) + qi_mod - deltaq) > qisat_grid ) THEN
           cc_turb_ice(jl,jk) = 1.0_wp
-          qi_turb    (jl,jk) = qv(jl,jk) + qi(jl,jk) - qisat_grid
+          qi_turb    (jl,jk) = qv(jl,jk) + qi_mod - qisat_grid
         ELSE
-          zaux = qv(jl,jk) + qi(jl,jk) + deltaq - qisat_grid
+          zaux = MIN(2._wp*(qi_mod + MAX(0._wp, qv(jl,jk) - zqisat(jl,jk))), &
+                 qv(jl,jk) + qi_mod + deltaq - qisat_grid )
           cc_turb_ice(jl,jk) = zaux / (2._wp*deltaq)
           IF ( cc_turb_ice(jl,jk) > 0.0_wp ) THEN
-            qi_turb  (jl,jk) = zaux**2 / (4._wp*deltaq)
+            qi_turb  (jl,jk) = MAX(qi_mod, zaux**2 / (4._wp*deltaq))
           ELSE
             qi_turb  (jl,jk) = 0.0_wp
           ENDIF
@@ -485,7 +490,7 @@ DO jk = kstart,klev
     ENDIF
 
 ! sanity check 3: cc > 0 if little cloud
-    IF ( qv_tot(jl,jk) + qc_tot(jl,jk) + qi_tot(jl,jk) .LT. 0.00000001_wp ) THEN
+    IF ( qc_tot(jl,jk) + qi_tot(jl,jk) .LT. 1.e-8_wp ) THEN
       qv_tot(jl,jk) = qv_tot(jl,jk) + qc_tot(jl,jk) + qi_tot(jl,jk)
       qc_tot(jl,jk) = 0.0_wp
       qi_tot(jl,jk) = 0.0_wp
