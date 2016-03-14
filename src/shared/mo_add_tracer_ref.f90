@@ -13,7 +13,6 @@
 !!
 MODULE mo_add_tracer_ref
 
-  USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: message, message_text
   USE mo_fortran_tools,         ONLY: t_ptr_2d3d
   USE mo_cf_convention,         ONLY: t_cf_var

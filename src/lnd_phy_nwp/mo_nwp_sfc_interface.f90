@@ -24,7 +24,7 @@
 MODULE mo_nwp_sfc_interface
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, finish!, message_text
+  USE mo_exception,           ONLY: message !finish, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, iedmf, icosmo
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -48,7 +48,6 @@ MODULE mo_nwp_sfc_interface
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt
-  USE mo_turbdiff_config,     ONLY: turbdiff_config
 
   
   IMPLICIT NONE 

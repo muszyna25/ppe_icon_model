@@ -52,13 +52,12 @@ MODULE mo_initicon_io
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
     &                               read_3d_1time, on_cells, on_edges
-  USE mo_util_cdi,            ONLY: t_inputParameters, trivial_tileId
+  USE mo_util_cdi,            ONLY: trivial_tileId
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
-    &                               ntiles_water, lmulti_snow, tiles, lsnowtile, &
+    &                               ntiles_water, lmulti_snow, lsnowtile, &
     &                               isub_lake, llake
   USE mo_master_config,       ONLY: getModelBaseDir
-  USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_io_util,             ONLY: get_filetype
   USE mo_initicon_utils,      ONLY: allocate_extana_atm, allocate_extana_sfc

@@ -24,35 +24,23 @@
 MODULE mo_surface_les
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, finish,message_text
-  USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_exception,           ONLY: message, message_text
+  USE mo_nonhydro_types,      ONLY: t_nh_diag, t_nh_metrics
   USE mo_model_domain,        ONLY: t_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_intp_rbf,            ONLY: rbf_vec_interpol_vertex, rbf_vec_interpol_edge
-  USE mo_intp,                ONLY: verts2edges_scalar, edges2verts_scalar, &
-                                    cells2verts_scalar, cells2edges_scalar, &
-                                    edges2cells_scalar, verts2cells_scalar, &
-                                    edges2cells_vector
-  USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: ltimer, msg_level
-  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
-  USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
-                                    min_rledge_int, min_rlcell_int, min_rlvert_int
-  USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult, sync_patch_array, global_max, &
-                                    global_sum_array
-  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, alv, rd, rgrav, rd_o_cpd, vtmpc1, rcpd
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_run_config,          ONLY: msg_level
+  USE mo_loopindices,         ONLY: get_indices_c
+  USE mo_impl_constants    ,  ONLY: min_rlcell_int
+  USE mo_sync,                ONLY: SYNC_C, sync_patch_array, global_sum_array
+  USE mo_physical_constants,  ONLY: cpd, p0ref, grav, alv, rd, rgrav, rd_o_cpd, vtmpc1
   USE mo_nwp_lnd_types,       ONLY: t_lnd_prog, t_lnd_diag 
-  USE mo_satad,               ONLY: spec_humi, sat_pres_water,qsat_rho
-  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE mo_satad,               ONLY: spec_humi, sat_pres_water
+  USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_les_config,          ONLY: les_config
-  USE mo_math_constants,      ONLY: pi_2, ln2, dbl_eps
+  USE mo_math_constants,      ONLY: pi_2, ln2
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
-  USE mo_data_turbdiff,       ONLY: akt, alpha0, z0_ice  
-  USE mo_lnd_nwp_config,      ONLY: ntiles_total, ntiles_water
-  USE mo_util_phys,           ONLY: nwp_dyn_gust
-  USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_util_dbg_prnt,       ONLY: dbg_print
+  USE mo_data_turbdiff,       ONLY: akt, alpha0
   USE mo_turbdiff_config,     ONLY: turbdiff_config
 
   IMPLICIT NONE
@@ -109,10 +97,10 @@ MODULE mo_surface_les
     REAL(wp),          INTENT(in)        :: theta(:,:,:)  !pot temp  
     REAL(wp),          INTENT(in)        :: qv(:,:,:)     !spec humidity
 
-    REAL(wp) :: rhos, obukhov_length, z_mc, ustar, inv_mwind, mwind, wstar
+    REAL(wp) :: rhos, obukhov_length, z_mc, ustar, mwind
     REAL(wp) :: zrough, exner, var(nproma,p_patch%nblks_c), theta_nlev, qv_nlev
     REAL(wp) :: theta_sfc, shfl, lhfl, umfl, vmfl, bflx1, bflx2, theta_sfc1, diff
-    REAL(wp) :: RIB, zh, tcn_mom, tcn_heat, p_sfc, t_sfc, ex_sfc, inv_bus_mom
+    REAL(wp) :: RIB, zh, tcn_mom, tcn_heat, t_sfc, ex_sfc, inv_bus_mom
     REAL(wp) :: ustar_mean
     REAL(wp) :: pres_sfc(nproma,p_patch%nblks_c)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
@@ -403,8 +391,8 @@ MODULE mo_surface_les
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc,wstar, &
-!$OMP            RIB,tcn_mom,tcn_heat,rhos,itr,shfl,lhfl,bflx1,ustar,         &
+!$OMP DO PRIVATE(jc,jb,i_startidx,i_endidx,zrough,theta_sfc,mwind,z_mc, &
+!$OMP            RIB,tcn_mom,tcn_heat,rhos,itr,shfl,lhfl,bflx1,ustar,   &
 !$OMP            obukhov_length,inv_bus_mom),ICON_OMP_RUNTIME_SCHEDULE
       DO jb = i_startblk,i_endblk
          CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &

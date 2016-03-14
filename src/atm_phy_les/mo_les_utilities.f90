@@ -24,23 +24,17 @@ MODULE mo_les_utilities
 
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_types,      ONLY: t_nh_metrics
-  USE mo_nonhydro_state,      ONLY: p_nh_state
   USE mo_intp_data_strc,      ONLY: t_int_state
-  USE mo_intp,                ONLY: cells2edges_scalar, cells2verts_scalar, &
-                                    edges2cells_scalar, edges2verts_scalar
+  USE mo_intp,                ONLY: cells2verts_scalar, edges2cells_scalar
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
-  USE mo_sync,                ONLY: global_sum_array, SYNC_C, SYNC_E, SYNC_V, &
-                                    sync_patch_array, sync_patch_array_mult
+  USE mo_loopindices,         ONLY: get_indices_c
+  USE mo_sync,                ONLY: global_sum_array, SYNC_C, SYNC_V, &
+                                    sync_patch_array
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_impl_constants,      ONLY: SUCCESS
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell_int
-  USE mo_physical_constants,  ONLY: cpd, rcvd, p0ref, grav, rcpd, alv, alvdcp, &
-                                    rd_o_cpd, rd
-  USE mo_satad,               ONLY: qsat_rho
-  USE mo_vertical_coord_table,ONLY: vct_a
-  USE mo_grid_config,         ONLY: n_dom
+  USE mo_impl_constants,      ONLY: success, min_rlcell_int
+  USE mo_physical_constants,  ONLY: grav
   USE mo_les_config,          ONLY: les_config
   USE mo_exception,           ONLY: finish
   IMPLICIT NONE
