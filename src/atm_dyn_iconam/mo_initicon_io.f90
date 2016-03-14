@@ -56,13 +56,13 @@ MODULE mo_initicon_io
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
     &                               ntiles_water, lmulti_snow, tiles, lsnowtile, &
-    &                               isub_lake
+    &                               isub_lake, llake
   USE mo_master_config,       ONLY: getModelBaseDir
   USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_io_util,             ONLY: get_filetype
   USE mo_initicon_utils,      ONLY: allocate_extana_atm, allocate_extana_sfc
-  USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
+  USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1, tmelt
   USE mo_fortran_tools,       ONLY: init
   USE mo_input_request_list,  ONLY: t_InputRequestList
   USE mo_util_string,         ONLY: int2string
@@ -1436,11 +1436,19 @@ MODULE mo_initicon_io
                 ENDDO
               ENDDO  ! ntiles
 
-              ! take lake surface temperature from t_wml_lk
-              DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-                jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-                lnd_prog%t_s_t(jc,jb,isub_lake) = wtr_prog%t_wml_lk(jc,jb)
-              ENDDO
+              IF (llake) THEN
+                ! take lake surface temperature from t_wml_lk
+                DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+                  jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+                  lnd_prog%t_s_t(jc,jb,isub_lake) = wtr_prog%t_wml_lk(jc,jb)
+                ENDDO
+              ELSE
+                ! without lake model, take t_g as an estimate of the lake temperature
+                DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+                  jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+                  lnd_prog%t_s_t(jc,jb,isub_lake) = MAX(tmelt, lnd_prog%t_g_t(jc,jb,isub_lake))
+                ENDDO
+              ENDIF
 
               ! NOTE: Initialization of sea-water and sea-ice tiles 
               ! is done later in mo_nwp_sfc_utils:nwp_surface_init for 
