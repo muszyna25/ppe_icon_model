@@ -53,7 +53,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_statistics,                ONLY: global_minmaxmean
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
  
-  USE mo_ocean_math_operators,  ONLY: grad_fd_norm_oce_3d_onBlock, verticalDeriv_scalar_onHalfLevels_on_block
+  USE mo_ocean_math_operators,      ONLY: grad_fd_norm_oce_3d_onBlock, verticalDeriv_scalar_onHalfLevels_on_block
   USE mo_scalar_product,            ONLY: map_cell2edges_3d,map_edges2cell_3d, &
     & map_scalar_center2prismtop, map_scalar_prismtop2center
   IMPLICIT NONE
@@ -877,7 +877,7 @@ CONTAINS
     !
     !The dianeutral diffusivity is the number determined by the PP-scheme
     K_I           => param%k_tracer_isoneutral
-    K_D           => param%a_tracer_v(:,:,:,tracer_index) !param%k_tracer_dianeutral 
+    K_D           => param%k_tracer_dianeutral
     kappa         => param%k_tracer_GM_kappa
     !-------------------------------------------------------------------------------
     

@@ -73,6 +73,8 @@ MODULE mo_ocean_math_operators
   PUBLIC :: check_cfl_horizontal, check_cfl_vertical
   PUBLIC :: smooth_onCells
   PUBLIC :: update_height_depdendent_variables, calculate_thickness
+  PUBLIC :: grad_vector, div_vector_onTriangle
+  PUBLIC :: verticalDiv_vector_onFullLevels_on_block
   
   
   INTERFACE div_oce_3D
@@ -145,10 +147,10 @@ CONTAINS
 !<Optimize:inUse>
   SUBROUTINE grad_fd_norm_oce_3D( psi_c, patch_3D, grad_coeff, grad_norm_psi_e)
     
-    TYPE(t_patch_3D ),TARGET, INTENT(in)   :: patch_3D
-    REAL(wp), INTENT(in)                   :: grad_coeff(:,:,:)!(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
-    REAL(wp), INTENT(in)                   :: psi_c          (nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
-    REAL(wp), INTENT(inout)                :: grad_norm_psi_e(nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    TYPE(t_patch_3D ),TARGET     :: patch_3D           ! in
+    REAL(wp)                     :: grad_coeff(:,:,:)  ! in (nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    REAL(wp)                     :: psi_c (:,:,:)      ! in (nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(inout)      :: grad_norm_psi_e(:,:,:) ! out (nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
     
     !
     INTEGER :: start_edge_index, end_edge_index, blockNo
@@ -201,25 +203,112 @@ CONTAINS
     INTEGER, INTENT(in)                    :: start_edge_index, end_edge_index, blockNo
     
     INTEGER :: je, level
-    INTEGER,  DIMENSION(:,:,:), POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:), POINTER :: idx, blk
     !-----------------------------------------------------------------------
     
-    iidx => patch_3D%p_patch_2D(1)%edges%cell_idx
-    iblk => patch_3D%p_patch_2D(1)%edges%cell_blk
+    idx => patch_3D%p_patch_2D(1)%edges%cell_idx
+    blk => patch_3D%p_patch_2D(1)%edges%cell_blk
 !     grad_norm_psi_e(:,:) = 0.0_wp
     
     DO je = start_edge_index, end_edge_index
       DO level = 1, patch_3D%p_patch_1d(1)%dolic_e(je,blockNo)
         grad_norm_psi_e(je,level) =                                        &
           & grad_coeff(je,level) *                                         &
-          & ( psi_c(iidx(je,blockNo,2),level,iblk(je,blockNo,2)) -       &
-          & psi_c(iidx(je,blockNo,1),level,iblk(je,blockNo,1)) )
+          & ( psi_c(idx(je,blockNo,2),level,blk(je,blockNo,2)) -       &
+          & psi_c(idx(je,blockNo,1),level,blk(je,blockNo,1)) )
       ENDDO
     END DO
     
   END SUBROUTINE grad_fd_norm_oce_3D_onblock
   !-------------------------------------------------------------------------
   
+
+  !-------------------------------------------------------------------------------------
+  SUBROUTINE grad_vector( cellVector, patch_3D, grad_coeff, gradVector)
+
+    TYPE(t_patch_3D ),TARGET      :: patch_3D           ! in
+    REAL(wp)                      :: grad_coeff(:,:,:)  ! in (nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+    TYPE(t_cartesian_coordinates) :: cellVector (:,:,:)      ! in (nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
+    TYPE(t_cartesian_coordinates) :: gradVector(:,:,:) ! out (nproma,n_zlev,patch_3D%p_patch_2D(1)%nblks_e)
+
+    !
+    INTEGER :: start_edge_index, end_edge_index, blockNo, je, level
+    INTEGER,  DIMENSION(:,:,:), POINTER :: idx, blk
+     TYPE(t_subset_range), POINTER :: edges_in_domain
+    !-----------------------------------------------------------------------
+    edges_in_domain => patch_3D%p_patch_2D(1)%edges%in_domain
+    idx => patch_3D%p_patch_2D(1)%edges%cell_idx
+    blk => patch_3D%p_patch_2D(1)%edges%cell_blk
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_edge_index,end_edge_index, je, level) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
+      CALL get_index_range(edges_in_domain, blockNo, start_edge_index, end_edge_index)
+      DO je = start_edge_index, end_edge_index
+        DO level = 1, patch_3D%p_patch_1d(1)%dolic_e(je,blockNo)
+          gradVector(je,level,blockNo)%x =                                           &
+            & grad_coeff(je,level,blockNo) *                                         &
+            & ( cellVector(idx(je,blockNo,2),level,blk(je,blockNo,2))%x -  &
+            &   cellVector(idx(je,blockNo,1),level,blk(je,blockNo,1))%x )
+        ENDDO
+        DO level = patch_3D%p_patch_1d(1)%dolic_e(je,blockNo)+1, n_zlev
+          gradVector(je,level,blockNo)%x =  0.0_wp 
+        ENDDO
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE grad_vector
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>
+  SUBROUTINE div_vector_onTriangle(patch_3d, edgeVector, divVector, div_coeff)
+    TYPE(t_patch_3d ),TARGET        :: patch_3d
+    TYPE(t_cartesian_coordinates)   :: edgeVector(:,:,:)
+    TYPE(t_cartesian_coordinates)   :: divVector (:,:,:)
+    REAL(wp)                        :: div_coeff (:,:,:,:)
+
+    !Local variables
+    INTEGER :: start_index, end_index, cell_index, level, blockNo
+    TYPE(t_subset_range), POINTER :: cells_in_domain
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
+    TYPE(t_patch), POINTER :: patch_2D
+    !-------------------------------------------------------------------------------
+    patch_2D        => patch_3D%p_patch_2D(1)
+    IF (patch_2D%cells%max_connectivity /= 3) THEN
+      CALL finish('div_vector_onTriangle','cells%max_connectivity /= 3')
+    ENDIF
+
+    cells_in_domain => patch_2D%cells%in_domain
+    idx => patch_3D%p_patch_2D(1)%cells%edge_idx
+    blk => patch_3D%p_patch_2D(1)%cells%edge_blk
+
+!ICON_OMP_PARALLEL_DO PRIVATE(start_index,end_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
+    DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+      CALL get_index_range(cells_in_domain, blockNo, start_index, end_index)
+      DO cell_index = start_index, end_index
+        DO level = 1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+
+          divVector(cell_index,level,blockNo)%x =  &
+            & edgeVector(idx(cell_index,blockNo,1),level,blk(cell_index,blockNo,1))%x&
+            & * div_coeff(cell_index,level,blockNo,1)+&
+            & edgeVector(idx(cell_index,blockNo,2),level,blk(cell_index,blockNo,2))%x&
+            & * div_coeff(cell_index,level,blockNo,2)+&
+            & edgeVector(idx(cell_index,blockNo,3),level,blk(cell_index,blockNo,3))%x&
+              & * div_coeff(cell_index,level,blockNo,3)
+
+        END DO
+        DO level = patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)+1, n_zlev
+          divVector(cell_index,level,blockNo)%x =  0.0_wp
+        ENDDO
+      END DO
+    END DO
+!ICON_OMP_END_PARALLEL_DO
+
+  END SUBROUTINE div_vector_onTriangle
+  !-------------------------------------------------------------------------
+
   !-------------------------------------------------------------------------
   !>
   !! Computes discrete divergence of a vector field in presence of lateral boundaries as in ocean setting.
@@ -261,7 +350,7 @@ CONTAINS
     INTEGER :: start_level, end_level
     INTEGER :: blockNo
     INTEGER ::start_index, end_index
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
     TYPE(t_subset_range), POINTER :: cells_subset
     !-----------------------------------------------------------------------
     IF (PRESENT(subset_range)) THEN
@@ -324,20 +413,20 @@ CONTAINS
     INTEGER, INTENT(in) :: start_level, end_level     ! vertical start and end level
 
     INTEGER :: jc, level
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
     TYPE(t_subset_range), POINTER :: cells_subset
     !-----------------------------------------------------------------------
 
-    iidx => patch_3D%p_patch_2D(1)%cells%edge_idx
-    iblk => patch_3D%p_patch_2D(1)%cells%edge_blk
+    idx => patch_3D%p_patch_2D(1)%cells%edge_idx
+    blk => patch_3D%p_patch_2D(1)%cells%edge_blk
 
     div_vec_c(:,:) = 0.0_wp
     DO jc = start_index, end_index
       DO level = start_level, MIN(end_level, patch_3D%p_patch_1d(1)%dolic_c(jc, blockNo))
         div_vec_c(jc,level) =  &
-          & vec_e(iidx(jc,blockNo,1),level,iblk(jc,blockNo,1)) * div_coeff(jc,level,blockNo,1) + &
-          & vec_e(iidx(jc,blockNo,2),level,iblk(jc,blockNo,2)) * div_coeff(jc,level,blockNo,2) + &
-          & vec_e(iidx(jc,blockNo,3),level,iblk(jc,blockNo,3)) * div_coeff(jc,level,blockNo,3)
+          & vec_e(idx(jc,blockNo,1),level,blk(jc,blockNo,1)) * div_coeff(jc,level,blockNo,1) + &
+          & vec_e(idx(jc,blockNo,2),level,blk(jc,blockNo,2)) * div_coeff(jc,level,blockNo,2) + &
+          & vec_e(idx(jc,blockNo,3),level,blk(jc,blockNo,3)) * div_coeff(jc,level,blockNo,3)
       END DO
     END DO
 
@@ -360,12 +449,12 @@ CONTAINS
     INTEGER, INTENT(in) :: start_level, end_level     ! vertical start and end level
 
     INTEGER :: jc, level, max_connectivity, c
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
     TYPE(t_subset_range), POINTER :: cells_subset
     !-----------------------------------------------------------------------
 
-    iidx => patch_3D%p_patch_2D(1)%cells%edge_idx
-    iblk => patch_3D%p_patch_2D(1)%cells%edge_blk
+    idx => patch_3D%p_patch_2D(1)%cells%edge_idx
+    blk => patch_3D%p_patch_2D(1)%cells%edge_blk
     max_connectivity = patch_3D%p_patch_2D(1)%cells%max_connectivity
 
     div_vec_c(:,:) = 0.0_wp
@@ -373,9 +462,9 @@ CONTAINS
       DO level = start_level, MIN(end_level, patch_3D%p_patch_1d(1)%dolic_c(jc, blockNo))
         div_vec_c(jc,level) =  0.0_wp
         DO c=1,max_connectivity
-          IF (iidx(jc,blockNo,c) > 0) THEN
+          IF (idx(jc,blockNo,c) > 0) THEN
             div_vec_c(jc,level) =  div_vec_c(jc,level) + &
-              & vec_e(iidx(jc,blockNo,c),level,iblk(jc,blockNo,c)) * div_coeff(jc,level,blockNo,c)
+              & vec_e(idx(jc,blockNo,c),level,blk(jc,blockNo,c)) * div_coeff(jc,level,blockNo,c)
           ENDIF
         END DO
       END DO
@@ -426,7 +515,7 @@ CONTAINS
     INTEGER :: start_level, end_level
     INTEGER :: jc, level, blockNo, max_connectivity, edgeofcell
     INTEGER ::start_index, end_index
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
     TYPE(t_subset_range), POINTER :: cells_subset
 
     !-----------------------------------------------------------------------
@@ -434,8 +523,8 @@ CONTAINS
       CALL div_oce_3D_mlevels_onTriangles(vec_e, patch_3D, div_coeff, div_vec_c, &
         & opt_start_level, opt_end_level, subset_range)
       RETURN
-    !-----------------------------------------------------------------------
     ENDIF
+    !-----------------------------------------------------------------------
     
     IF (PRESENT(subset_range)) THEN
       cells_subset => subset_range
@@ -454,9 +543,9 @@ CONTAINS
       end_level = n_zlev
     END IF
     
-!ICON_OMP_PARALLEL PRIVATE(iidx, iblk, max_connectivity)
-    iidx => patch_3D%p_patch_2D(1)%cells%edge_idx
-    iblk => patch_3D%p_patch_2D(1)%cells%edge_blk
+!ICON_OMP_PARALLEL PRIVATE(idx, blk, max_connectivity)
+    idx => patch_3D%p_patch_2D(1)%cells%edge_idx
+    blk => patch_3D%p_patch_2D(1)%cells%edge_blk
     max_connectivity = patch_3D%p_patch_2D(1)%cells%max_connectivity
     
 !ICON_OMP_DO PRIVATE(start_index,end_index, jc, level, edgeOfCell) ICON_OMP_DEFAULT_SCHEDULE
@@ -486,9 +575,9 @@ CONTAINS
           div_vec_c(jc,level,blockNo) = 0.0_wp
           
           DO edgeofcell = 1, max_connectivity
-            IF (iidx(jc,blockNo,edgeofcell) > 0) THEN
+            IF (idx(jc,blockNo,edgeofcell) > 0) THEN
               div_vec_c(jc,level,blockNo) = div_vec_c(jc,level,blockNo) + &
-                & vec_e(iidx(jc,blockNo,edgeofcell),level,iblk(jc,blockNo,edgeofcell)) * &
+                & vec_e(idx(jc,blockNo,edgeofcell),level,blk(jc,blockNo,edgeofcell)) * &
                 & div_coeff(jc,level,blockNo,edgeofcell)
             ENDIF
           END DO
@@ -544,7 +633,7 @@ CONTAINS
     
     INTEGER :: jc, blockNo
     INTEGER :: start_index, end_index
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
     TYPE(t_subset_range), POINTER :: all_cells
     !-----------------------------------------------------------------------
     IF (PRESENT(subset_range)) THEN
@@ -609,18 +698,18 @@ CONTAINS
     INTEGER,  INTENT(in) :: blockNo, start_index, end_index
 
     INTEGER :: jc
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
     !-----------------------------------------------------------------------
 
-    iidx => patch_2D%cells%edge_idx
-    iblk => patch_2D%cells%edge_blk
+    idx => patch_2D%cells%edge_idx
+    blk => patch_2D%cells%edge_blk
 
     DO jc = start_index, end_index
 
       div_vec_c(jc) =  &
-        & vec_e(iidx(jc,blockNo,1),iblk(jc,blockNo,1)) * div_coeff(jc,level,blockNo,1) + &
-        & vec_e(iidx(jc,blockNo,2),iblk(jc,blockNo,2)) * div_coeff(jc,level,blockNo,2) + &
-        & vec_e(iidx(jc,blockNo,3),iblk(jc,blockNo,3)) * div_coeff(jc,level,blockNo,3)
+        & vec_e(idx(jc,blockNo,1),blk(jc,blockNo,1)) * div_coeff(jc,level,blockNo,1) + &
+        & vec_e(idx(jc,blockNo,2),blk(jc,blockNo,2)) * div_coeff(jc,level,blockNo,2) + &
+        & vec_e(idx(jc,blockNo,3),blk(jc,blockNo,3)) * div_coeff(jc,level,blockNo,3)
     END DO
     
   END SUBROUTINE div_oce_2D_onTriangles_onBlock
@@ -643,20 +732,20 @@ CONTAINS
     INTEGER,  INTENT(in) :: blockNo, start_index, end_index
 
     INTEGER :: jc,c
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
     !-----------------------------------------------------------------------
 
-    iidx => patch_2D%cells%edge_idx
-    iblk => patch_2D%cells%edge_blk
+    idx => patch_2D%cells%edge_idx
+    blk => patch_2D%cells%edge_blk
 
     DO jc = start_index, end_index
       div_vec_c(jc) = 0.0_wp
       DO c=1,patch_2d%cells%max_connectivity
-!         write(0,*) blockNo, jc, "cell edge:", c, iidx(jc,blockNo,c), iblk(jc,blockNo,c), &
+!         write(0,*) blockNo, jc, "cell edge:", c, idx(jc,blockNo,c), blk(jc,blockNo,c), &
 !           & " dic_coeff:", div_coeff(jc,level,blockNo,c)
-        IF (iidx(jc,blockNo,c) > 0) THEN
+        IF (idx(jc,blockNo,c) > 0) THEN
           div_vec_c(jc) =  div_vec_c(jc) + &
-            & vec_e(iidx(jc,blockNo,c),iblk(jc,blockNo,c)) * div_coeff(jc,level,blockNo,c)
+            & vec_e(idx(jc,blockNo,c),blk(jc,blockNo,c)) * div_coeff(jc,level,blockNo,c)
         ENDIF
       END DO
     END DO
@@ -681,18 +770,18 @@ CONTAINS
     INTEGER,  INTENT(in) :: blockNo, start_index, end_index
 
     INTEGER :: jc
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
     !-----------------------------------------------------------------------
 
-    iidx => patch_2D%cells%edge_idx
-    iblk => patch_2D%cells%edge_blk
+    idx => patch_2D%cells%edge_idx
+    blk => patch_2D%cells%edge_blk
 
     DO jc = start_index, end_index
 
       div_vec_c(jc) =  &
-        & vec_e(iidx(jc,blockNo,1),iblk(jc,blockNo,1)) * div_coeff(jc,blockNo,1) + &
-        & vec_e(iidx(jc,blockNo,2),iblk(jc,blockNo,2)) * div_coeff(jc,blockNo,2) + &
-        & vec_e(iidx(jc,blockNo,3),iblk(jc,blockNo,3)) * div_coeff(jc,blockNo,3)
+        & vec_e(idx(jc,blockNo,1),blk(jc,blockNo,1)) * div_coeff(jc,blockNo,1) + &
+        & vec_e(idx(jc,blockNo,2),blk(jc,blockNo,2)) * div_coeff(jc,blockNo,2) + &
+        & vec_e(idx(jc,blockNo,3),blk(jc,blockNo,3)) * div_coeff(jc,blockNo,3)
     END DO
 
   END SUBROUTINE div_oce_2D_onTriangles_onBlock_sp
@@ -714,18 +803,18 @@ CONTAINS
     INTEGER,  INTENT(in) :: blockNo, start_index, end_index
 
     INTEGER :: jc, c
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
     !-----------------------------------------------------------------------
 
-    iidx => patch_2D%cells%edge_idx
-    iblk => patch_2D%cells%edge_blk
+    idx => patch_2D%cells%edge_idx
+    blk => patch_2D%cells%edge_blk
 
     DO jc = start_index, end_index
       div_vec_c(jc) = 0.0_wp
       DO c=1,patch_2d%cells%max_connectivity
-        IF (iblk(jc,blockNo,c) > 0) THEN
+        IF (blk(jc,blockNo,c) > 0) THEN
           div_vec_c(jc) =  div_vec_c(jc) + &
-            & vec_e(iidx(jc,blockNo,c),iblk(jc,blockNo,c)) * div_coeff(jc,blockNo,c)
+            & vec_e(idx(jc,blockNo,c),blk(jc,blockNo,c)) * div_coeff(jc,blockNo,c)
         ENDIF
       END DO
     END DO
@@ -801,27 +890,27 @@ CONTAINS
     INTEGER, INTENT(in)     :: start_index, end_index, blockNo
     
     INTEGER :: je
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
     !-----------------------------------------------------------------------
     
-    iidx => patch_2D%edges%cell_idx
-    iblk => patch_2D%edges%cell_blk
+    idx => patch_2D%edges%cell_idx
+    blk => patch_2D%edges%cell_blk
     
     DO je = start_index, end_index
       ! compute the normal derivative
       ! by the finite difference approximation
       ! (see Bonaventura and Ringler MWR 2005)
-!       IF (iidx(je,blockNo,1) < 1 .or. iidx(je,blockNo,2) < 1) THEN
+!       IF (idx(je,blockNo,1) < 1 .or. idx(je,blockNo,2) < 1) THEN
 !         WRITE(0,*) "je=", je, " blockNo=", blockNo, &
-!           & " iidx(je,blockNo,1)=", iidx(je,blockNo,1), " iidx(je,blockNo,2)=", iidx(je,blockNo,2)
+!           & " idx(je,blockNo,1)=", idx(je,blockNo,1), " idx(je,blockNo,2)=", idx(je,blockNo,2)
 !         CALL finish("invalid connectivity", "")
 !       ENDIF
-!       IF (iidx(je,blockNo,2) < 1 .or. iblk(je,blockNo,2) < 1 .or. &
-!         & iidx(je,blockNo,1) < 1 .or. iblk(je,blockNo,1) < 1) &
+!       IF (idx(je,blockNo,2) < 1 .or. blk(je,blockNo,2) < 1 .or. &
+!         & idx(je,blockNo,1) < 1 .or. blk(je,blockNo,1) < 1) &
 !         & CALL finish("grad_fd_norm_oce_2D_onBlock", "invalid pointer")
 
       grad_norm_psi_e(je) =  &
-        & (psi_c(iidx(je,blockNo,2),iblk(je,blockNo,2))-psi_c(iidx(je,blockNo,1),iblk(je,blockNo,1)))&
+        & (psi_c(idx(je,blockNo,2),blk(je,blockNo,2))-psi_c(idx(je,blockNo,1),blk(je,blockNo,1)))&
         & * grad_coeff(je)
       
     END DO
@@ -842,7 +931,7 @@ CONTAINS
     
     INTEGER :: je, blockNo
     INTEGER :: start_edge_index, end_edge_index
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
     TYPE(t_subset_range), POINTER :: edges_in_domain
     !-----------------------------------------------------------------------
     IF (PRESENT(subset_range)) THEN
@@ -850,8 +939,8 @@ CONTAINS
     ELSE
       edges_in_domain => patch_2D%edges%in_domain
     ENDIF
-    iidx => patch_2D%edges%cell_idx
-    iblk => patch_2D%edges%cell_blk
+    idx => patch_2D%edges%cell_idx
+    blk => patch_2D%edges%cell_blk
     
 !ICON_OMP_PARALLEL_DO PRIVATE(blockNo,start_edge_index,end_edge_index,je) ICON_OMP_DEFAULT_SCHEDULE
     DO blockNo = edges_in_domain%start_block, edges_in_domain%end_block
@@ -862,7 +951,7 @@ CONTAINS
         ! by the finite difference approximation
         ! (see Bonaventura and Ringler MWR 2005)
         grad_norm_psi_e(je,blockNo) =  &
-          & (psi_c(iidx(je,blockNo,2),iblk(je,blockNo,2))-psi_c(iidx(je,blockNo,1),iblk(je,blockNo,1)))&
+          & (psi_c(idx(je,blockNo,2),blk(je,blockNo,2))-psi_c(idx(je,blockNo,1),blk(je,blockNo,1)))&
           & * grad_coeff(je,blockNo)
         
       END DO
@@ -1013,7 +1102,9 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! !  SUBROUTINE calculates vertical derivative for a vector that is located at cell center and at midelevel, i.e. at the center of a 3D prism.
+  !!    calculates vertical derivative for a vector that is located at cell center and at midelevel,
+  !!    i.e. at the center of a 3D prism.
+  !!    The result is on half levels, ie prism interfaces !
   !!    start level has to be specifed, at end level value zero is assigned to vert. derivative
   !!    start_level should be > 1
   !!
@@ -1027,7 +1118,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates), INTENT(in)        :: vec_in(nproma, n_zlev)
     INTEGER, INTENT(in)                              :: start_level
     INTEGER, INTENT(in)                              :: blockNo, start_index, end_index
-    TYPE(t_cartesian_coordinates), INTENT(inout)     :: vertDeriv_vec(nproma, n_zlev)    ! out
+    TYPE(t_cartesian_coordinates), INTENT(inout)     :: vertDeriv_vec(:,:) ! (nproma, n_zlev+1)    ! out
     
     !Local variables
     INTEGER :: jk, jc!,jb
@@ -1037,12 +1128,16 @@ CONTAINS
     inv_prism_center_distance => patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(:,:,blockNo)
 
     DO jc = start_index, end_index
-        
-        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
+!         vertDeriv_vec(jc,1)%x = 0.0_wp
+        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
           vertDeriv_vec(jc,jk)%x &
           & = (vec_in(jc,jk-1)%x - vec_in(jc,jk)%x)  & 
               & * inv_prism_center_distance(jc,jk)
-              
+
+!           IF (vertDeriv_vec(jc,jk)%x(1) < 0.0_wp) THEN
+!             write(0,*) jk, vec_in(jc,jk-1)%x(1),  vec_in(jc,jk)%x(1)
+!             CALL finish('','negative vertDeriv_vec')
+!           ENDIF
         END DO    
         ! vertDeriv_vec(jc,end_level)%x = 0.0_wp ! this is not needed 
     END DO
@@ -1128,7 +1223,6 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  !
   !>
   !! !  SUBROUTINE calculates vertical divergence/derivative for a scalar that is located at cell center and at midelevel,
   !!    i.e. at the center of a 3D prism.
@@ -1157,9 +1251,9 @@ CONTAINS
     DO jc = start_index, end_index
 !       end_level  = patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
 !      IF ( end_level >=min_dolic ) THEN
-        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo) - 1
+        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
           vertDiv_scalar(jc,jk) &
-            & = (scalar_in(jc,jk-1) - scalar_in(jc,jk))  & !/ prism_center_distance(jc,jk)
+            & = (scalar_in(jc,jk) - scalar_in(jc,jk+1))  & !/ prism_center_distance(jc,jk)
               & * inv_prism_thickness(jc,jk)
 
         END DO
@@ -1170,6 +1264,36 @@ CONTAINS
   END SUBROUTINE verticalDiv_scalar_onFullLevels_on_block
   !-------------------------------------------------------------------------
  
+  !-------------------------------------------------------------------------
+!<Optimize:inUse>
+  SUBROUTINE verticalDiv_vector_onFullLevels_on_block(patch_3d, vector_in, vertDiv_vector, start_level, &
+    & blockNo, start_index, end_index)
+    TYPE(t_patch_3d ),TARGET, INTENT(in)             :: patch_3d
+    TYPE(t_cartesian_coordinates)                    :: vector_in(:,:) ! (nproma, n_zlev+1)
+    INTEGER, INTENT(in)                              :: start_level
+    INTEGER, INTENT(in)                              :: blockNo, start_index, end_index
+    TYPE(t_cartesian_coordinates)                    :: vertDiv_vector(:,:) ! (nproma, n_zlev)    ! out
+
+    !Local variables
+    INTEGER :: jk, jc!,jb
+    REAL(wp), POINTER ::  inv_prism_thickness(:,:)
+!     INTEGER :: end_level
+    !-------------------------------------------------------------------------------
+    ! prism_center_distance => patch_3D%p_patch_1D(1)%prism_center_dist_c  (:,:,blockNo)
+    inv_prism_thickness => patch_3D%p_patch_1D(1)%invConstantPrismThickness(:,:,blockNo)
+
+    DO jc = start_index, end_index
+        DO jk = start_level,patch_3D%p_patch_1d(1)%dolic_c(jc,blockNo)
+          vertDiv_vector(jc,jk)%x &
+            & = (vector_in(jc,jk)%x - vector_in(jc,jk+1)%x)  & !/ prism_center_distance(jc,jk)
+            &   * inv_prism_thickness(jc,jk)
+
+        END DO
+    END DO
+
+  END SUBROUTINE verticalDiv_vector_onFullLevels_on_block
+  !-------------------------------------------------------------------------
+
  
   !-------------------------------------------------------------------------
   !<Optimize:inUse>
@@ -2235,7 +2359,7 @@ CONTAINS
 !
 !     INTEGER :: jc, blockNo
 !     INTEGER :: start_index, end_index
-!     INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+!     INTEGER,  DIMENSION(:,:,:),   POINTER :: idx, blk
 !     TYPE(t_subset_range), POINTER :: all_cells
 !     !-----------------------------------------------------------------------
 !     start_detail_timer(timer_div,5)
@@ -2245,8 +2369,8 @@ CONTAINS
 !       all_cells => patch_2D%cells%ALL
 !     ENDIF
 !
-!     iidx => patch_2D%cells%edge_idx
-!     iblk => patch_2D%cells%edge_blk
+!     idx => patch_2D%cells%edge_idx
+!     blk => patch_2D%cells%edge_blk
 !
 ! !ICON_OMP_PARALLEL_DO PRIVATE(start_index, end_index,jc) ICON_OMP_DEFAULT_SCHEDULE
 !     DO blockNo = all_cells%start_block, all_cells%end_block
@@ -2254,9 +2378,9 @@ CONTAINS
 !       DO jc = start_index, end_index
 !
 !         div_vec_c(jc,blockNo) =  &
-!           & vec_e(iidx(jc,blockNo,1),iblk(jc,blockNo,1)) * div_coeff(jc,blockNo,1) + &
-!           & vec_e(iidx(jc,blockNo,2),iblk(jc,blockNo,2)) * div_coeff(jc,blockNo,2) + &
-!           & vec_e(iidx(jc,blockNo,3),iblk(jc,blockNo,3)) * div_coeff(jc,blockNo,3)
+!           & vec_e(idx(jc,blockNo,1),blk(jc,blockNo,1)) * div_coeff(jc,blockNo,1) + &
+!           & vec_e(idx(jc,blockNo,2),blk(jc,blockNo,2)) * div_coeff(jc,blockNo,2) + &
+!           & vec_e(idx(jc,blockNo,3),blk(jc,blockNo,3)) * div_coeff(jc,blockNo,3)
 !       END DO
 !     END DO
 ! !ICON_OMP_END_PARALLEL_DO
