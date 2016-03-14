@@ -60,7 +60,7 @@ MODULE mo_initicon
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: sync_patch_array, SYNC_E, SYNC_C
   USE mo_math_laplace,        ONLY: nabla4_vec
-  USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval, FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2, cdiDefMissval
+  USE mo_cdi,                 ONLY: cdiDefAdditionalKey, cdiInqMissval, FILETYPE_NC2, FILETYPE_NC4, FILETYPE_GRB2
   USE mo_flake,               ONLY: flake_coldinit
   USE mo_initicon_utils,      ONLY: fill_tile_points, init_snowtiles,             &
                                   & copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
@@ -143,24 +143,6 @@ MODULE mo_initicon
     CALL cdiDefAdditionalKey("tileIndex")
     CALL cdiDefAdditionalKey("tileAttribute")
 
-    ! -----------------------------------------------
-    ! set the CDI Missval
-    ! -----------------------------------------------
-    !
-    ! XXX: Explanation:
-    !
-    ! Inside the GRIB_API (v.1.9.18) the missing value is converted into
-    ! LONG INT for a test, but the default CDI missing value is outside
-    ! of the valid range for LONG INT (U. Schulzweida, bug report
-    ! SUP-277). This causes a crash with INVALID OPERATION.
-    !
-    ! As a workaround we can choose a different missing value in the
-    ! calling subroutine (here). For the SX-9 this must lie within 53
-    ! bits, because "the SX compiler generates codes using HW
-    ! instructions for floating-point data instead of instructions for
-    ! integers. Therefore, the operation result is not guaranteed if the
-    ! value cannot be represented as integer within 53 bits."
-    CALL cdiDefMissval(kMissval)
 
 
     ! -----------------------------------------------
@@ -178,7 +160,7 @@ MODULE mo_initicon
 
     ! read and initialize ICON prognostic fields
     !
-    CALL process_input_data(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
+    CALL process_input_data(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, prm_diag, p_lnd_state)
     CALL printChecksums(initicon, p_nh_state, p_lnd_state)
 
     ! Deallocate initicon data type
@@ -308,20 +290,20 @@ MODULE mo_initicon
   END SUBROUTINE read_dwdfg
 
   ! Do postprocessing of data from first-guess file.
-  SUBROUTINE process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data, prm_diag)
+  SUBROUTINE process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state, prm_diag)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
     TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
-    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
     TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_dwdfg"
 
     SELECT CASE(init_mode)
         CASE(MODE_ICONVREMAP)
-            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
+            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state, ext_data)
         CASE(MODE_DWDANA, MODE_IAU_OLD, MODE_IAU, MODE_COMBINED, MODE_COSMODE)
             IF (lvert_remap_fg) THEN ! apply vertical remapping of FG input (requires that the number of model levels
                                      ! does not change; otherwise, init_mode = 7 must be used based on a full analysis)
@@ -330,7 +312,7 @@ MODULE mo_initicon
                 &                    opt_convert_omega2w=.FALSE.)
                 CALL copy_initicon2prog_atm(p_patch, initicon, p_nh_state)
             END IF
-            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state)
+            CALL process_input_dwdfg_sfc (p_patch, p_lnd_state, ext_data)
             IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
                 ! In case of tile coldstart, fill sub-grid scale land
                 ! and water points with reasonable data from
@@ -435,14 +417,14 @@ MODULE mo_initicon
   END SUBROUTINE read_dwdana
 
   ! Do postprocessing of data from analysis files.
-  SUBROUTINE process_dwdana(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
+  SUBROUTINE process_dwdana(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
     TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
     TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
-    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_dwdana"
 
@@ -489,7 +471,7 @@ MODULE mo_initicon
             IF(ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode)) THEN
                 CALL create_iau_sfc (p_patch, p_nh_state, p_lnd_state, ext_data)
             END IF
-            ! get SST from first soil level t_so (for sea and lake points)
+            ! get SST from first soil level t_so or t_seasfc
             ! perform consistency checks
             CALL create_dwdana_sfc(p_patch, p_lnd_state, ext_data, inputInstructions)
             IF (ANY((/MODE_IAU_OLD, MODE_IAU/) == init_mode) .AND. ntiles_total > 1) THEN
@@ -552,24 +534,24 @@ MODULE mo_initicon
   END SUBROUTINE process_dwdana
 
   ! Reads the data from the first-guess and analysis files, and does any required processing of that input data.
-  SUBROUTINE process_input_data(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, prm_diag, p_lnd_state, ext_data)
+  SUBROUTINE process_input_data(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, prm_diag, p_lnd_state)
     TYPE(t_patch), INTENT(INOUT) :: p_patch(:)
     TYPE(t_readInstructionListPtr) :: inputInstructions(n_dom)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
     TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
     TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
-    TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
 
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_input_data"
 
     CALL read_dwdfg(p_patch, inputInstructions, p_nh_state, prm_diag, p_lnd_state)
-    CALL process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data, prm_diag)
+    CALL process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state, prm_diag)
 
     CALL read_dwdana(p_patch, inputInstructions, p_nh_state, p_lnd_state)
     ! process DWD analysis data
-    CALL process_dwdana(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
+    CALL process_dwdana(p_patch, inputInstructions, p_nh_state, p_int_state, p_grf_state, ext_data, p_lnd_state)
   END SUBROUTINE process_input_data
 
   !>
@@ -1654,7 +1636,10 @@ MODULE mo_initicon
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startidx, i_endidx, i_endblk
     LOGICAL :: lanaread_tso                    ! .TRUE. T_SO(0) was read from analysis
+    LOGICAL :: lanaread_tseasfc                ! .TRUE. T_SEA was read from analysis
     LOGICAL :: lp_mask(nproma)
+    REAL(wp):: z_t_seasfc(nproma)              ! temporary field containing both SST 
+                                               ! and lake-surface temperatures 
   !-------------------------------------------------------------------------
 
     ! get CDImissval
@@ -1677,54 +1662,33 @@ MODULE mo_initicon
       ELSE
         jgch = jg
       ENDIF
-      lanaread_tso = ( inputInstructions(jgch)%ptr%sourceOfVar('t_so') == kInputSourceAna .OR. &
-                       inputInstructions(jgch)%ptr%sourceOfVar('t_so') == kInputSourceBoth )
+
+      lanaread_tso  = ANY((/kInputSourceAna,kInputSourceBoth/) == inputInstructions(jgch)%ptr%sourceOfVar('t_so'))
+      lanaread_tseasfc = inputInstructions(jgch)%ptr%sourceOfVar('t_seasfc') == kInputSourceAna
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist,z_t_seasfc) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         CALL get_indices_c(p_patch(jg), jb, 1, nblks_c, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
 
-        IF (lanaread_tso) THEN
+
+        IF (lanaread_tso .OR. lanaread_tseasfc) THEN
           !
-          ! SST analysis (T_SO(0)) was read into initicon(jg)%sfc%sst.
-          ! Now copy to diag_lnd%t_seasfc for water, ice and lake points
+          ! SST analysis (T_SO(0) or T_SEA) was read into initicon(jg)%sfc%sst.
+          ! Now copy to diag_lnd%t_seasfc for sea water points (including ice-covered ones)
           !
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%sp_count(jb)
              jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
              p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt,initicon(jg)%sfc%sst(jc,jb))
           END DO
-!CDIR NODEP,VOVERTAKE,VOB
-          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
-           jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-           p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt,initicon(jg)%sfc%sst(jc,jb))
-          END DO
 
-          ! Compute mask field for land points
-          lp_mask(:) = .FALSE.
-          DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,1)
-            jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
-            lp_mask(jc) = .TRUE.
-          ENDDO
-
-          ! Fill T_SO with SST analysis over pure water points
-          DO jt = 1, ntiles_total
-            DO jk = 1, nlev_soil
-              DO jc = i_startidx, i_endidx
-                IF (.NOT. lp_mask(jc)) THEN
-                  p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jk,jb,jt) = initicon(jg)%sfc%sst(jc,jb)
-                ENDIF
-              ENDDO
-            ENDDO
-          ENDDO
-
-        ELSE  ! SST (T_SO(0)) is not read from the analysis
+        ELSE  ! SST is not read from the analysis
           !
-          ! get SST from first guess T_G (for sea and lake points)
+          ! get SST from first guess T_G
           !
 !CDIR NODEP,VOVERTAKE,VOB
           DO ic = 1, ext_data(jg)%atm%sp_count(jb)
@@ -1732,14 +1696,47 @@ MODULE mo_initicon
             p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) =  &
               & MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
           END DO
-!CDIR NODEP,VOVERTAKE,VOB
+
+        ENDIF  ! lanaread_t_so .OR. lanaread_tseasfc
+
+
+        ! construct temporary field containing both SST and lake-surface temperatures
+        ! which is needed for initializing T_SO at pure water points
+        z_t_seasfc(:) = 0._wp
+        DO ic = 1, ext_data(jg)%atm%sp_count(jb)
+          jc = ext_data(jg)%atm%idx_lst_sp(ic,jb)
+          z_t_seasfc(jc) = p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb)
+        END DO
+        IF (llake) THEN
           DO ic = 1, ext_data(jg)%atm%fp_count(jb)
             jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
-            p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = &
-              & MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
+            z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_wtr(ntlr)%t_wml_lk(jc,jb))
           END DO
-
-        ENDIF  ! lanaread_t_so
+        ELSE
+          DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+            jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+            z_t_seasfc(jc) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
+          END DO
+        ENDIF
+        !
+        ! Fill T_SO with SST analysis over pure water points
+        !
+        ! Compute mask field for land points
+        lp_mask(:) = .FALSE.
+        DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,1)
+          jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,1)
+          lp_mask(jc) = .TRUE.
+        ENDDO
+        !
+        DO jt = 1, ntiles_total
+          DO jk = 1, nlev_soil
+            DO jc = i_startidx, i_endidx
+              IF (.NOT. lp_mask(jc)) THEN
+                p_lnd_state(jg)%prog_lnd(ntlr)%t_so_t(jc,jk,jb,jt) = z_t_seasfc(jc)
+              ENDIF
+            ENDDO
+          ENDDO
+        ENDDO
 
 
 
@@ -1873,9 +1870,9 @@ MODULE mo_initicon
 
           DO jc = i_startidx, i_endidx
             IF (ext_data(jg)%atm%fr_land(jc,jb) <= 1-frlnd_thrhld) THEN ! grid points with non-zero water fraction
-              IF (lanaread_tso) THEN
+              IF (lanaread_tso .OR. lanaread_tseasfc) THEN
                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt,initicon(jg)%sfc%sst(jc,jb))
-              ELSE IF (ext_data(jg)%atm%fr_land(jc,jb) >= frlake_thrhld) THEN
+              ELSE IF (ext_data(jg)%atm%fr_lake(jc,jb) >= frlake_thrhld) THEN
                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tmelt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_lake))
               ELSE
                 p_lnd_state(jg)%diag_lnd%t_seasfc(jc,jb) = MAX(tf_salt, p_lnd_state(jg)%prog_lnd(ntlr)%t_g_t(jc,jb,isub_water))
@@ -1890,7 +1887,7 @@ MODULE mo_initicon
       ! This sync is needed because of the subsequent neighbor point filling
       CALL sync_patch_array(SYNC_C,p_patch(jg),p_lnd_state(jg)%diag_lnd%t_seasfc)
 
-      ! Initialization of t_g_t(:,:,isub_water) and t_s_t(:,:,isub_water/isub_lake)
+      ! Initialization of t_g_t(:,:,isub_water) and t_s_t(:,:,isub_water)
       ! with t_seasfc is performed in mo_nwp_sfc_utils:nwp_surface_init (nnow and nnew)
 
     ENDDO  ! jg domain loop
