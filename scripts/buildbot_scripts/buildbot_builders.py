@@ -175,6 +175,7 @@ class buildbot_experimentList(object):
           builder=machine.add_builder(name, inputs[2], inputs[3])
         elif (keyword == "experiment"):
           experiment = self.add_experiment(name)
+          # force the addition in case the builder is not active
           experiment.add_builders([builder], inputs[2], "Force")
       listfile.close()     
     except IOError as e:
@@ -267,7 +268,7 @@ class buildbot_machine_list(object):
     mistral_intel_openmp  = mistral.add_builder('MISTRAL_intel_openmp', '--with-fortran=intel --without-mpi --with-openmp --without-yac', 'Active')
     mistral_nag           = mistral.add_builder('MISTRAL_nag', '--with-fortran=nag', 'Active')
     mistral_nag_mtime     = mistral.add_builder('MISTRAL_nag_mtime', '--with-fortran=nag --enable-mtime-loop --without-yac', 'Restricted')
-    mistral_nag_serial    = mistral.add_builder('MISTRAL_nag_serial', '--with-fortran=nag --without-mpi', 'build_only')
+    mistral_nag_serial    = mistral.add_builder('MISTRAL_nag_serial', '--with-fortran=nag --without-mpi --without-yac', 'build_only')
     # CSCS builders
     daint_cpu             = self.add_machine('daint_cpu', 'default')
     daint_cpu_cce         = daint_cpu.add_builder('DAINT_CPU_cce', '', 'Active')
@@ -405,7 +406,7 @@ class buildbot_builder(object):
     return list(self.experiments.values())
 
   def print_builder(self):
-    print("  "+self.name+" ("+self.builder_flags+"):", self.configure_flags)
+    print("  "+self.name+" ("+self.builder_flags+"):"+self.configure_flags)
 
   # this should be called only from an experiment object
   def add_experiment_onlyFromExperimentObject(self, experiment, runflags):
@@ -422,7 +423,7 @@ class buildbot_builder(object):
     #for experiment in self.experiments.values():
       #experiment.print_experiment()
     for experimentName in self.experiments.keys():
-      print(experimentName+" runflags:"+self.experiments_runflags[experimentName])
+      print("    "+experimentName+" runflags:"+self.experiments_runflags[experimentName])
 
   def writeToFile_builder_experiments(self, listfile):
     listfile.write("builder|"+self.name+'|'+self.configure_flags+"|"+self.builder_flags+"\n")
