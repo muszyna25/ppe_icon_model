@@ -1038,7 +1038,7 @@ scripts/SuperMUC_scripts/setup_utils.sh -text
 scripts/buildbot_scripts/ICON.cfg -text
 scripts/buildbot_scripts/ICON_test.cfg.patch -text
 scripts/buildbot_scripts/README -text
-scripts/buildbot_scripts/addexp.py -text
+scripts/buildbot_scripts/addexp -text
 scripts/buildbot_scripts/archive_exp.ksh -text
 scripts/buildbot_scripts/bb_make -text
 scripts/buildbot_scripts/bb_make_doc -text
@@ -1049,8 +1049,8 @@ scripts/buildbot_scripts/buildbot_builders.py -text
 scripts/buildbot_scripts/copy_plots.ksh -text
 scripts/buildbot_scripts/create_icon-dev_lists -text
 scripts/buildbot_scripts/experiment_lists/icon-dev -text
-scripts/buildbot_scripts/lslist.py -text
-scripts/buildbot_scripts/mklist.py -text
+scripts/buildbot_scripts/lslist -text
+scripts/buildbot_scripts/mklist -text
 scripts/buildbot_scripts/model_paths.py -text
 scripts/buildbot_scripts/public_html/archive.css -text
 scripts/buildbot_scripts/public_html/buildbot.css -text
@@ -1060,9 +1060,9 @@ scripts/buildbot_scripts/public_html/open.gif -text
 scripts/buildbot_scripts/py/MainPage.py -text
 scripts/buildbot_scripts/py/exp_plot.py -text
 scripts/buildbot_scripts/py/reference_page.py -text
-scripts/buildbot_scripts/rmexp.py -text
-scripts/buildbot_scripts/rmlist.py -text
-scripts/buildbot_scripts/set_builder_flags.py -text
+scripts/buildbot_scripts/rmexp -text
+scripts/buildbot_scripts/rmlist -text
+scripts/buildbot_scripts/set_builder_flags -text
 scripts/buildbot_scripts/test_builders.py -text
 scripts/building/README -text
 scripts/building/Rakefile -text

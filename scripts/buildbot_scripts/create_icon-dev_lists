@@ -1,6 +1,6 @@
 #!/bin/bash
 listname=icon-dev
-addexp="python addexp.py"
+addexp="./addexp"
 python rmlist.py $listname
 python mklist.py $listname
 
@@ -11,19 +11,19 @@ $addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
 #-----------------------------------------------------------
 # add omip technical tests only for builders with mpi parallelization
 $addexp checksuite.ocean_internal/omip/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
-  --without-flags without-mpi --list $listname 
+  --without-configureflags without-mpi --list $listname
 # add omip binary-identical test to all builders
 $addexp checksuite.ocean_internal/omip/exp.ocean_omip_short --list $listname
 
 #-----------------------------------------------------------
 # tests for nwp
-$addexp exp.test_nwp_R02B04N06multi  exp.test_nwp_R02B04_R02B05_nest  --without-flags without-mpi --list $listname
+$addexp exp.test_nwp_R02B04N06multi  exp.test_nwp_R02B04_R02B05_nest  --without-configureflags without-mpi --list $listname
 # this runs only on mistral and daint_cpu, with-mpi and without openmp
-$addexp exp.test_nwp_R02B04N06multi2 --machines mistral daint_cpu --without-flags without-mpi with-openmp --list $listname
+$addexp exp.test_nwp_R02B04N06multi2 --machines mistral daint_cpu     --without-configureflags without-mpi with-openmp --list $listname
 
 #-----------------------------------------------------------
 # test coupled run, only with mpi
-$addexp exp.couple_atmo-ocean --without-flags without-mpi --list $listname
+$addexp exp.couple_atmo-ocean --without-configureflags without-mpi --list $listname
 
 #-----------------------------------------------------------
 # test mean values on all builders
@@ -31,9 +31,9 @@ $addexp checksuite.infrastructure/meanStream/exp.atm_amip_noforcing_notransport_
 
 #-----------------------------------------------------------
 # add checksuite.icon-dev/check.atm_amip to the restricted builder MISTRAL_nag_mtime
-python  set_builder_flags.py Active             --builders MISTRAL_nag_mtime --list $listname
+./set_builder_flags Active             --builders MISTRAL_nag_mtime --list $listname
 $addexp checksuite.icon-dev/check.atm_amip      --builders MISTRAL_nag_mtime --list $listname
-python  set_builder_flags.py Restricted         --builders MISTRAL_nag_mtime --list $listname
+./set_builder_flags Restricted         --builders MISTRAL_nag_mtime --list $listname
 
 #-----------------------------------------------------------
 # Other tests
@@ -44,14 +44,14 @@ $addexp checksuite.icon-dev/check.atm_icoles_nested --list $listname
 #   old test from Levi
 $addexp exp.nat_rce_cbl_120km_nwp --list $listname
 #   very old test from Pilar
-$addexp exp.nat_jww_nwp_mpiomp --without-flags without-mpi --list $listname
+$addexp exp.nat_jww_nwp_mpiomp --without-configureflags without-mpi --list $listname
 #   obsolete test from Leonidas, will be deleted
 $addexp checksuite.ocean_internal/other/exp.oce_testbed_read --list $listname
 
 
 #-----------------------------------------------------------
 #lets see the list
-python lslist.py $listname
+./lslist $listname
 
 #commit the list
 # svn add experiment_lists/$listname

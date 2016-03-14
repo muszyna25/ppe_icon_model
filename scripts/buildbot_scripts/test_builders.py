@@ -1,4 +1,4 @@
-#!/usr/bin/python3.2
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 #==============================================================================
 # driver for testing the builder classes

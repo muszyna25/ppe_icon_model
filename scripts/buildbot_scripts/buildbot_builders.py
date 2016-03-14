@@ -1,4 +1,4 @@
-#!/usr/bin/python3.2
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 #==============================================================================
 # Simple library for the builders and experiment lists
