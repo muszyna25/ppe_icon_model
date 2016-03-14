@@ -1010,6 +1010,13 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
   !------------------------------------------
   !< call for convection
   !------------------------------------------
+  ! initialization.
+  ! k800, k400 will be used for inwp_convection==0 as well. 
+  ! Thus we need to make sure that they are initialized.
+  prm_diag%k850(:,:) = nlev
+  prm_diag%k950(:,:) = nlev
+  prm_diag%k800(:,:) = nlev
+  prm_diag%k400(:,:) = nlev
 
   IF ( atm_phy_nwp_config(jg)%inwp_convection == 1 .OR. &
     &  atm_phy_nwp_config(jg)%inwp_turb == iedmf )     THEN
@@ -1056,8 +1063,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 
       DO jc=i_startidx, i_endidx
         ! initialization
-        prm_diag%k850(jc,jb) = nlev
-        prm_diag%k950(jc,jb) = nlev
+!!$        prm_diag%k850(jc,jb) = nlev
+!!$        prm_diag%k950(jc,jb) = nlev
         DO jk=nlev, 1, -1
           ! height above ground
           hag = p_metrics%z_mc(jc,jk,jb)-ext_data%atm%topography_c(jc,jb)
@@ -1076,8 +1083,8 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
         ! analogous initialization of k800 and k400, based on reference pressure
         ! because this is more meaningful for k400 in the presence of very high orography
         zpres0 = p0ref * (p_metrics%exner_ref_mc(jc,nlev,jb))**(cpd/rd)
-        prm_diag%k800(jc,jb) = nlev
-        prm_diag%k400(jc,jb) = nlev
+!!$        prm_diag%k800(jc,jb) = nlev
+!!$        prm_diag%k400(jc,jb) = nlev
         DO jk=nlev-1, 2, -1
           zpres = p0ref * (p_metrics%exner_ref_mc(jc,jk,jb))**(cpd/rd)
           IF (zpres/zpres0 >= pr800) prm_diag%k800(jc,jb) = jk
