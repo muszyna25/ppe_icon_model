@@ -9,13 +9,14 @@ from model_paths import *
 listname="icon-dev"
 paths = model_paths()
 thisList  = buildbot_experimentList(listname)
-builder_flags, configure_flags, experimentList = thisList.getBuilderProperties("THUNDER_nag")
+builder_flags, configure_flags, experimentList = thisList.getBuilderProperties("THUNDER_gcc")
 
 print(builder_flags)
 print(configure_flags)
 print(experimentList)
 
-thisList.make_binaries("THUNDER_nag")
+#thisList.make_binaries("THUNDER_gcc")
+thisList.make_runscripts("THUNDER_gcc")
 
 quit()
 

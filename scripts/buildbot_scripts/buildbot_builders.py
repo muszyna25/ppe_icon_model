@@ -16,17 +16,19 @@ import weakref
 import sys
 from model_paths import *
 verbal=True
+paths=None
 #-----------------------------------------------------------------------
 # contains a list of machines+builders and a list of experiments for them
 
 class buildbot_experimentList(object):
-
+  
   def __init__(self, name):
+    global paths
     self.name  = name
     self.experimentList = {}
-    self.paths = model_paths()
+    paths = model_paths()
     self.buildbot_machine_list = buildbot_machine_list(name)
-    if self.paths.thisListExists(self.name):     
+    if paths.thisListExists(self.name):
       self.read()
     else:  
       self.create_all_builders(name) # creates self.buildbot_machine_list with all machines+builders
@@ -127,16 +129,16 @@ class buildbot_experimentList(object):
 
   def make_binaries(self, builder_name):
     builder = self.getBuildersByName([builder_name])[0]
-    os.chdir(self.paths.basePath)
+    os.chdir(paths.basePath)
     status = builder.make_binaries()
-    os.chdir(self.paths.thisPath)
+    os.chdir(paths.thisPath)
     return status
 
   def make_runscripts(self, builder_name):
     builder = self.getBuildersByName([builder_name])[0]
-    os.chdir(self.paths.basePath)
+    os.chdir(paths.basePath)
     status = builder.make_runscripts()
-    os.chdir(self.paths.thisPath)
+    os.chdir(paths.thisPath)
     return status
 
   # prepares a builder for running
@@ -152,7 +154,7 @@ class buildbot_experimentList(object):
     experimentPathNames = builder.getExperimentNames()
     for experimentPathName in experimentPathNames:
       # seperate the the input path from the experiment name
-      experimentPath, experimentName = self.paths.getPathAndName(experimentPathName)
+      experimentPath, experimentName = paths.getPathAndName(experimentPathName)
       experimentList.append([experimentPath, experimentName])
     return builder.get_builder_flags(), builder.get_configure_flags(), experimentList
     
@@ -167,7 +169,7 @@ class buildbot_experimentList(object):
   #   builder:
   #     experiment:
   def write(self):
-    fileName=self.paths.get_thisListPath(self.name)
+    fileName=paths.get_thisListPath(self.name)
     listfile = open(fileName, 'w')
     self.buildbot_machine_list.writeToFile_builders(listfile)
     listfile.close()
@@ -177,7 +179,7 @@ class buildbot_experimentList(object):
     verbal_oldStatus = verbal
     verbal = False
     try:
-      fileName=self.paths.get_thisListPath(self.name)
+      fileName=paths.get_thisListPath(self.name)
       listfile = open(fileName, 'r')
       for inLine in listfile:
         inputs  = inLine.rstrip().split('|')
@@ -444,6 +446,22 @@ class buildbot_builder(object):
       return status
     return 0
     
+  def make_runscripts(self):
+    for experiment in self.experiments.values():
+      experimentPathName = experiment.name
+      # seperate the the input path from the experiment name
+      experimentPath, experimentName = paths.getPathAndName(experimentPathName)
+      # separate prefix and main name
+      experimentPrefixName = experimentName.split(".",2)
+      print(experimentPath+" "+experimentPrefixName[0]+" "+experimentPrefixName[1])
+      make_runscript_command=paths.basePath+"/config/make_target_runscript "
+      inoutFiles="in_script="+experimentPathName+" in_script=exec.iconrun EXPNAME="+experimentPrefixName[1]+" "
+      status = os.system(make_runscript_command+inoutFiles+self.experiments_runflags[experimentPathName])
+      if not status == 0:
+        print("make_runscripts failed")
+        return status
+    return 0
+
   def print_builder_experiments(self):
     self.print_builder()
     #for experiment in self.experiments.values():
