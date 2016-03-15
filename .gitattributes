@@ -1068,7 +1068,6 @@ scripts/buildbot_scripts/public_html/open.gif -text
 scripts/buildbot_scripts/py/MainPage.py -text
 scripts/buildbot_scripts/py/exp_plot.py -text
 scripts/buildbot_scripts/py/reference_page.py -text
-scripts/buildbot_scripts/rmexp -text
 scripts/buildbot_scripts/rmlist -text
 scripts/buildbot_scripts/set_builder_flags -text
 scripts/buildbot_scripts/set_configure_flags -text
