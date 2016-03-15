@@ -213,26 +213,26 @@ Note that RBF-based interpolation is \emph{not conservative}.\\
 A small number of output fields is treated differently, with a nearest-neighbor interpolation:
 \begin{tabbing}
   \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \= \hspace{0.2\textwidth} \kill
-  CAPE\_CON                  \>
-  HBAS\_CON\footnotemark[6]  \>
-  HTOP\_CON\footnotemark[6]  \>
-  HTOP\_DC\footnotemark[6]   \\  
-  HZEROCL\footnotemark[6]    \>
-  RAIN\_CON  \>
+  CAPE\_CON  \>
+  CAPE\_ML   \>
+  CIN\_ML    \>
+  HBAS\_CON  \\
+  HTOP\_CON  \>
+  HTOP\_DC   \>  
+  HZEROCL    \>
+  RAIN\_CON  \\
   RAIN\_GSP  \>   
-  SNOW\_CON  \\
+  SNOW\_CON  \>
   SNOW\_GSP  \>
-  SNOWLMT    \>
+  SNOWLMT    \\
   SOILTYP    \>
-  TOT\_PREC  \\
+  TOT\_PREC  \>
   W\_SO\_ICE \>
   WW   
 \end{tabbing}
 The nearest neighbor algorithm selects the value of the nearest point and does
 not consider the values of neighboring points at all, yielding a piecewise-constant interpolant. 
 
-
-\footnotetext[6]{Nearest neighbor interpolation mode starting from 2015-05-19 (previously RBF).}
 
 
 %  The following variables are marked as HINTP_TYPE_LONLAT_NNB in the ICON code:

@@ -21,7 +21,8 @@ MODULE mo_initicon_config
   USE mo_io_units,           ONLY: filename_max
   USE mo_impl_constants,     ONLY: max_dom, vname_len, max_var_ml, MAX_CHAR_LENGTH,  &
     &                              MODE_IFSANA, MODE_COMBINED, MODE_COSMODE,         &
-    &                              MODE_IAU, MODE_IAU_OLD
+    &                              MODE_IAU, MODE_IAU_OLD, MODE_ICONVREMAP
+  USE mo_grid_config,        ONLY: l_limited_area
   USE mo_time_config,        ONLY: time_config
   USE mo_datetime,           ONLY: t_datetime
   USE mtime,                 ONLY: timedelta, newTimedelta, deallocateTimedelta,     &
@@ -74,6 +75,7 @@ MODULE mo_initicon_config
   PUBLIC :: t_timeshift
   PUBLIC :: timeshift
   PUBLIC :: initicon_config
+  PUBLIC :: aerosol_fg_present
 
   ! Subroutines
   PUBLIC :: configure_initicon
@@ -185,6 +187,7 @@ MODULE mo_initicon_config
   REAL(wp):: iau_wgt_dyn = 0._wp    !< IAU weight for dynamics fields 
   REAL(wp):: iau_wgt_adv = 0._wp    !< IAU weight for tracer fields
 
+  LOGICAL :: aerosol_fg_present(max_dom) = .FALSE. !< registers if aerosol fields have been read from the first-guess data
 
   TYPE(t_initicon_config), TARGET :: initicon_config(0:max_dom)
 
@@ -229,6 +232,8 @@ CONTAINS
     IF ( ANY((/MODE_IFSANA,MODE_COMBINED,MODE_COSMODE/) == init_mode) ) THEN
        init_mode_soil = 1   ! full coldstart is executed
        ! i.e. w_so_ice and h_snow are re-diagnosed
+    ELSE IF (l_limited_area .AND. init_mode == MODE_ICONVREMAP .AND. .NOT. lread_ana) THEN
+       init_mode_soil = 1   ! same initialization for limited-area cold start
     ELSE IF ( ANY((/MODE_IAU, MODE_IAU_OLD/) == init_mode) ) THEN
        init_mode_soil = 3  ! warmstart (within assimilation cycle) with analysis increments for h_snow
     ELSE

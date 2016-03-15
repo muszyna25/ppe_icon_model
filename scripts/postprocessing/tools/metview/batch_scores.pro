@@ -29,20 +29,40 @@
  .run scores
 
  outdate   = long(inidate) + step/24
- plotfile1 = direxp+'/scores.NWP.r2B06L90.'+expnum+'_vs_'+expref
  plotfile2 = strcompress(string(outdate),/remove_all)+'00.L1.ps'
+ 
+; mean plots
 
- scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'ml'
+ plotfile1 = direxp+'/scores.NWP.r2B06L90.'+expnum+'_vs_'+expref
+
+ scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'ml', 'mean'
  spawn,'\cp -f plot.ps ' + plotfile1 + '.ml.'  + plotfile2
  
- scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'pl'
+ scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'pl', 'mean'
  spawn,'\cp -f plot.ps ' + plotfile1 + '.pl.'  + plotfile2
 
- scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'zl'
+ scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'zl', 'mean'
  spawn,'\cp -f plot.ps ' + plotfile1 + '.zl.'  + plotfile2
 
- scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'sfc'
+ scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'sfc', 'mean'
  spawn,'\cp -f plot.ps ' + plotfile1 + '.sfc.' + plotfile2
+
+; RMS plots
+
+ plotfile1 = direxp+'/scores.NWP.r2B06L90.'+expnum+'_rms_vs_'+expref
+ 
+ scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'ml', 'rms'
+ spawn,'\cp -f plot.ps ' + plotfile1 + '.ml.'  + plotfile2
+ 
+ scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'pl', 'rms'
+ spawn,'\cp -f plot.ps ' + plotfile1 + '.pl.'  + plotfile2
+
+ scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'zl', 'rms'
+ spawn,'\cp -f plot.ps ' + plotfile1 + '.zl.'  + plotfile2
+
+ scores, direxp, dirref, expnum, expref, inidate, step, nfor, 'sfc', 'rms'
+ spawn,'\cp -f plot.ps ' + plotfile1 + '.sfc.' + plotfile2
+
 
  exit
 

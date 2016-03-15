@@ -5,6 +5,7 @@
 import os
 import sys
 import glob
+import re
 
 plotYearsPerDay=1
 plotIterationsCellPerSec=2
@@ -69,6 +70,7 @@ def getTimerValues(folderName, timerName, counterIndex):
       meanTime = meanTime + timerValue
       maxTime = max(maxTime, timerValue)
       minTime = min(minTime, timerValue)
+      #print timerValue, maxTime
 
   if (totalCount > 0):
     meanTime = meanTime / totalCount
@@ -369,7 +371,7 @@ def newTimer(timerList):
 
   return len(timerList[0])-1
 
-timerFilePrefix="timer.atmo." # only needed for cores time distribution
+timer_total=0
 
 timersListTotal=[
 " total"
@@ -379,6 +381,107 @@ timersListTotal=[
 timerExchData=[
 " exch_data"
 ]
+
+
+timersCommunnication=[
+#" total",          #2
+" exch_data",      #3
+" exch_data.wait", #4
+" icon_comm_sync", #5
+" comm_wait"       #6
+]
+
+
+
+def stdall_timers_statistics(folders_list, resolution, cores_list, days_list):
+  
+  (minTimes, meanTimes, maxTimes)=processFolderList(folders_list, timersListNat, totalTimeIndex )
+  writeYearsPerDay(resolution, maxTimes, cores_list, days_list, timer_total)
+  writeParallelEfficency(resolution, maxTimes, timer_total, cores_list)
+
+  timer_totalcomm_index=addTimers(meanTimes, timer_exch_data, timer_iconcomm_index)
+  timer_radcomm_index=subtractTimers(meanTimes, timer_nwp_radiation_index, timer_radiaton_comp_index)
+  normTimeList=normalizeTimerList(meanTimes, timer_total)
+  writeTimerList(resolution+"_normalizedCost", normTimeList, cores_list)
+  
+  #(minTimes, meanTimes, maxTimes)=processFolderList(folders_list, timersCommunnication, totalTimeIndex )
+  #normTimeList=normalizeTimerList(meanTimes, timer_total)
+  #writeTimerList(resolution+"_communication_times", meanTimes, cores_list)
+  #writeTimerList(resolution+"_communication_normalizedCost", normTimeList, cores_list)
+  
+#=========================================================================
+timersOcean=[
+" total",          #2
+" solve_ab",       #3
+" gmres",          #4
+" gmres_p_sum",    #5
+" tracer",         #6
+" veloc_prod",     #7
+" upd_phys_param", #8
+" upd_flx",        #9
+" exch_data",      #10
+" exch_data.wait", #11
+]
+
+timer_exch_data=8
+timer_exch_data_wait=9
+
+def getNodesFromFolder(folder):
+  folderNumbers=re.findall(r'\d+', folder)
+  return float(folderNumbers[2])
+
+def ocean_timers_statistics(resolution, extent):
+  
+  folders_list=glob.glob('omip_'+resolution+'*'+str(threads)+'threads'+extent)
+  folders_list.sort(key=getNodesFromFolder)
+  print folders_list
+  
+  noOfFolders = len(folders_list)
+  cores_list = [None] * noOfFolders
+  days_list = [10.0] * noOfFolders
+  
+  for i in range(noOfFolders):
+    # print folders_list[i].split('_')
+    # folderNumbers=re.findall(r'\d+', folders_list[i])
+    # print  folderNumbers
+    # cores_list[i]=float(folderNumbers[2]) * 16
+    cores_list[i]=float(getNodesFromFolder(folders_list[i])) * 24.0
+    
+  print cores_list
+  prefix=resolution+"_"+str(threads)+"threads"
+  
+  (minTimes, meanTimes, maxTimes)=processFolderList(folders_list, timersOcean, totalTimeIndex )
+  writeParallelEfficency(prefix, maxTimes, timer_total, cores_list)  
+  writeYearsPerDay(prefix, maxTimes, cores_list, days_list, timer_total)
+      
+  normTimeList=normalizeTimerList(meanTimes, timer_total)
+  writeTimerList(resolution+"_normalizedCost", normTimeList, cores_list)
+  
+  #writeTimerList(prefix+"_meantimes", meanTimes, cores_list)
+  #writeTimerList(prefix+"_maxtimes", maxTimes, cores_list)
+    
+def ocean_timer_core_distribution(distibution_folder, timerName):
+
+  timerFilePrefix="timer.ocean." # only needed for cores time distribution
+  writeTimerProcsDistribution(timerName.strip()+"_min",   distibution_folder, timerFilePrefix, timerName, minTimeIndex)
+  writeTimerProcsDistribution(timerName.strip()+"_mean",  distibution_folder, timerFilePrefix, timerName, meanTimeIndex)
+  writeTimerProcsDistribution(timerName.strip()+"_max",   distibution_folder, timerFilePrefix, timerName, maxTimeIndex)
+
+def oceanAlltests():
+
+  ocean_timers_statistics("10km", "")
+  #ocean_timers_statistics("160km", "__1")
+
+threads=12
+#oceanAlltests()
+ocean_timer_core_distribution("omip_10km_64levels_288nodes_12threads", "exch_data")
+ocean_timer_core_distribution("omip_10km_64levels_288nodes_12threads", "tracer")
+
+sys.exit()
+
+
+
+#=========================================================================
 
 timersListNat=[
 " total",         #2
@@ -393,37 +496,11 @@ timersListNat=[
 ]
 #timer_totalcomm_index 11
 #timer_radcomm_index   12
-timer_total_index=0
-timer_exchdata_index=5
+timer_exch_data=5
 timer_nhsolveexch_index=6
 timer_iconcomm_index=7
 timer_nwp_radiation_index=8
 timer_radiaton_comp_index=3
-
-timersCommunnication=[
-#" total",          #2
-" exch_data",      #3
-" exch_data.wait", #4
-" icon_comm_sync", #5
-" comm_wait"       #6
-]
-
-def stdall_timers_statistics(folders_list, resolution, cores_list, days_list):
-  
-  (minTimes, meanTimes, maxTimes)=processFolderList(folders_list, timersListNat, totalTimeIndex )
-  writeYearsPerDay(resolution, maxTimes, cores_list, days_list, timer_total_index)
-  writeParallelEfficency(resolution, maxTimes, timer_total_index, cores_list)
-
-  timer_totalcomm_index=addTimers(meanTimes, timer_exchdata_index, timer_iconcomm_index)
-  timer_radcomm_index=subtractTimers(meanTimes, timer_nwp_radiation_index, timer_radiaton_comp_index)
-  normTimeList=normalizeTimerList(meanTimes, timer_total_index)
-  writeTimerList(resolution+"_normalizedCost", normTimeList, cores_list)
-  
-  #(minTimes, meanTimes, maxTimes)=processFolderList(folders_list, timersCommunnication, totalTimeIndex )
-  #normTimeList=normalizeTimerList(meanTimes, timer_total_index)
-  #writeTimerList(resolution+"_communication_times", meanTimes, cores_list)
-  #writeTimerList(resolution+"_communication_normalizedCost", normTimeList, cores_list)
-  
 
 def blizzard_bechmarks_01_03_2013_scaling():
 
@@ -608,7 +685,7 @@ sys.exit()
 #nat_cores_list=[64, 128]
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('140km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", maxTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", maxTimes, timer_total, nat_cores_list)
 #sys.exit()
 
 
@@ -625,7 +702,7 @@ sys.exit()
 #nat_cores_list=[64, 128, 256, 512, 704, 864]
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('160km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", maxTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", maxTimes, timer_total, nat_cores_list)
 
 
 #=========================================================================================================
@@ -643,7 +720,7 @@ nat_days_list=[10]*20
 #nat_cores_list=[32, 128, 256, 512, 864]
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('160km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", maxTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", maxTimes, timer_total, nat_cores_list)
 #sys.exit()
 
 #---------------------------------------------------------------
@@ -659,7 +736,7 @@ nat_days_list=[10]*20
 #nat_cores_list=[32, 384, 1082]
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('140km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", maxTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", maxTimes, timer_total, nat_cores_list)
 #sys.exit()
 
 #---------------------------------------------------------------
@@ -675,7 +752,7 @@ nat_days_list=[10]*20
 #nat_cores_list=[64, 192, 362, 864, 1440]
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('122km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", maxTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", maxTimes, timer_total, nat_cores_list)
 #sys.exit()
 
 #---------------------------------------------------------------
@@ -689,7 +766,7 @@ nat_days_list=[10]*20
 #nat_cores_list=[384, 768, 1922]
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('105km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", maxTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", maxTimes, timer_total, nat_cores_list)
 #sys.exit()
 
 
@@ -706,7 +783,7 @@ nat_days_list=[10]*20
 #nat_cores_list=[32, 128, 256, 512, 864]
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('160km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", maxTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", maxTimes, timer_total, nat_cores_list)
 #sys.exit()
 
 #---------------------------------------------------------------
@@ -722,7 +799,7 @@ nat_days_list=[10]*20
 #nat_cores_list=[32, 384, 1082]
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('140km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", maxTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", maxTimes, timer_total, nat_cores_list)
 #sys.exit()
 
 #---------------------------------------------------------------
@@ -738,7 +815,7 @@ nat_days_list=[10]*20
 #nat_cores_list=[64, 192, 362, 864, 1440]
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('122km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", maxTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", maxTimes, timer_total, nat_cores_list)
 
 #distibution_folder="nat-ape_10days_104decm_1-comm_4sendrecv.2threads.2nodes.64procs.9nproma.iconR2B05-grid_dec-362.96levels"
 #timerName=" radiaton_comp "
@@ -762,7 +839,7 @@ nat_days_list=[10]*20
 #nat_cores_list=[192, 384, 768, 1922]
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('105km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", maxTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", maxTimes, timer_total, nat_cores_list)
 #sys.exit()
 
 
@@ -778,7 +855,7 @@ nat_days_list=[10]*20
 
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('94km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", maxTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", maxTimes, timer_total, nat_cores_list)
 #sys.exit()
 
 
@@ -795,7 +872,7 @@ nat_days_list=[10]*20
 
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('80km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", maxTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", maxTimes, timer_total, nat_cores_list)
 
 
 # radiation distribution    
@@ -818,7 +895,7 @@ nat_days_list=[10]*20
 
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListTotal, totalTimeIndex )
 #writeYearsPerDay('60km', maxTimes, nat_cores_list, nat_days_list, 0)
-#writeParallelEfficency("parallel_efficency", meanTimes, timer_total_index, nat_cores_list)
+#writeParallelEfficency("parallel_efficency", meanTimes, timer_total, nat_cores_list)
 #sys.exit()
 #---------------------------------------------------------------
 
@@ -872,9 +949,9 @@ nat_days_list=[10]*20
 
 #(minTimes, meanTimes, maxTimes)=processFolderList(nat_folders_list, timersListNat, totalTimeIndex )
 
-#timer_totalcomm_index=addTimers(meanTimes, timer_exchdata_index, timer_iconcomm_index)
+#timer_totalcomm_index=addTimers(meanTimes, timer_exch_data, timer_iconcomm_index)
 #timer_radcomm_index=subtractTimers(meanTimes, timer_nwp_radiation_index, timer_radiaton_comp_index)
-#normTimeList=normalizeTimerList(meanTimes, timer_total_index)
+#normTimeList=normalizeTimerList(meanTimes, timer_total)
 #writeTimerList("35km.normalizedCost", normTimeList, nat_cores_list)
 #sys.exit()
 #---------------------------------------------------------------
@@ -905,10 +982,10 @@ sys.exit()
 
 
 
-timer_totalcomm_index=addTimers(meanTimes, timer_exchdata_index, timer_iconcomm_index)
-timer_remaincomm_index=subtractTimers(meanTimes, timer_exchdata_index, timer_nhsolveexch_index)
+timer_totalcomm_index=addTimers(meanTimes, timer_exch_data, timer_iconcomm_index)
+timer_remaincomm_index=subtractTimers(meanTimes, timer_exch_data, timer_nhsolveexch_index)
 
-normTimeList=normalizeTimerList(meanTimes, timer_total_index)
+normTimeList=normalizeTimerList(meanTimes, timer_total)
 writeTimerList("r2b5_dec-1082.x3.normalizedCost", normTimeList, nat_cores_list)
 
 #writeYearsPerDay('r2b4_96levels', maxTimes, nat_cores_list, nat_days_list, 0)
@@ -1012,8 +1089,8 @@ FoldersList_dsl_weak_scale=[
 
 #---------------------------------------------------------------
 # R2B05-grid_dec-362, 121km
-#timer_totalcomm_index=addTimers(meanTimes, timer_exchdata_index, timer_iconcomm_index) #11
-#normTimeList=normalizeTimerList(meanTimes, timer_total_index)
+#timer_totalcomm_index=addTimers(meanTimes, timer_exch_data, timer_iconcomm_index) #11
+#normTimeList=normalizeTimerList(meanTimes, timer_total)
 #writeTimerList("r2b5_dec-362.normalizedCost", normTimeList, nat_cores_list)
 #sys.exit()
 #---------------------------------------------------------------

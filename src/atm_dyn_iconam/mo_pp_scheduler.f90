@@ -22,6 +22,7 @@
 !! z/p/i interpolation setup           HIGH_PRIORITY
 !! compute vertical velocity           DEFAULT_PRIORITY0
 !! compute rel. humidity               DEFAULT_PRIORITY0
+!! compute PV                          DEFAULT_PRIORITY0
 !! compute mean sea level pressure     DEFAULT_PRIORITY0
 !! vertical interpolation              DEFAULT_PRIORITY1
 !! horizontal interpolation edge->cell DEFAULT_PRIORITY2
@@ -156,7 +157,8 @@ MODULE mo_pp_scheduler
     &                                   TASK_INIT_VER_Z, TASK_INIT_VER_P, TASK_INIT_VER_I,  &
     &                                   TASK_FINALIZE_IPZ, TASK_INTP_HOR_LONLAT,            &
     &                                   TASK_INTP_VER_PLEV, TASK_INTP_SYNC, TASK_INTP_MSL,  &
-    &                                   TASK_COMPUTE_RH, TASK_INTP_VER_ZLEV,                &
+    &                                   TASK_COMPUTE_RH, TASK_COMPUTE_PV,                   &
+    &                                   TASK_INTP_VER_ZLEV,                                 &
     &                                   TASK_INTP_VER_ILEV, TASK_INTP_EDGE2CELL,            &
     &                                   max_phys_dom, UNDEF_TIMELEVEL, ALL_TIMELEVELS,      &
     &                                   vname_len, TASK_COMPUTE_OMEGA,                      &
@@ -276,6 +278,11 @@ CONTAINS
             ! vertical velocity
             CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
               &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_OMEGA )
+            !
+          CASE (TASK_COMPUTE_PV) 
+            ! potential vorticity
+            CALL pp_scheduler_register( name=element%field%info%name, jg=jg, p_out_var=element, &
+              &                         l_init_prm_diag=l_init_prm_diag, job_type=TASK_COMPUTE_PV )
             !
           CASE (TASK_INTP_MSL)   
             ! mean sea level pressure
@@ -1515,8 +1522,8 @@ CONTAINS
       CASE ( TASK_INTP_MSL )
         CALL pp_task_intp_msl(ptr_task)
 
-        ! compute relative humidty, vertical velocity
-      CASE ( TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA )
+        ! compute relative humidty, vertical velocity, potential vorticity
+      CASE ( TASK_COMPUTE_RH, TASK_COMPUTE_OMEGA, TASK_COMPUTE_PV )
         CALL pp_task_compute_field(ptr_task)
 
         ! vector reconstruction on cell centers:

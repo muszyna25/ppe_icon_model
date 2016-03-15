@@ -46,13 +46,14 @@ MODULE mo_initicon
     &                               min_rlcell_int, dzsoil_icon => dzsoil
   USE mo_physical_constants,  ONLY: rd, cpd, cvd, p0ref, vtmpc1, grav, rd_o_cpd, tmelt, tf_salt
   USE mo_exception,           ONLY: message, finish
-  USE mo_grid_config,         ONLY: n_dom
+  USE mo_grid_config,         ONLY: n_dom, l_limited_area
   USE mo_nh_init_utils,       ONLY: convert_thdvars, init_w
   USE mo_util_phys,           ONLY: virtual_temp
   USE mo_satad,               ONLY: sat_pres_ice, spec_humi
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, ntiles_total, ntiles_lnd, llake, &
     &                               isub_lake, isub_water, lsnowtile, frlnd_thrhld, frlake_thrhld
-  USE mo_phyparam_soil,       ONLY: cporv, crhosmaxf, crhosmin_ml, crhosmax_ml
+  USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
+  USE mo_phyparam_soil,       ONLY: cporv, cadp, crhosmaxf, crhosmin_ml, crhosmax_ml
   USE mo_nwp_soil_init,       ONLY: get_wsnow
   USE mo_nh_vert_interp,      ONLY: vert_interp_atm, vert_interp_sfc
   USE mo_intp_rbf,            ONLY: rbf_vec_interpol_cell
@@ -66,13 +67,12 @@ MODULE mo_initicon
   USE mo_initicon_utils,      ONLY: create_input_groups, fill_tile_points, init_snowtiles,             &
                                   & copy_initicon2prog_atm, copy_initicon2prog_sfc, construct_initicon, &
                                   & deallocate_initicon, deallocate_extana_atm, deallocate_extana_sfc, &
-                                  & copy_fg2initicon, initVarnamesDict, printChecksums
+                                  & copy_fg2initicon, initVarnamesDict, printChecksums, init_aerosol
   USE mo_initicon_io,         ONLY: open_init_files, close_init_files, read_extana_atm, read_extana_sfc, read_dwdfg_atm, &
                                   & read_dwdfg_sfc, read_dwdana_atm, read_dwdana_sfc, read_dwdfg_atm_ii, &
                                   & process_input_dwdana_sfc, process_input_dwdfg_atm_ii, process_input_dwdana_atm, &
                                   & process_input_dwdfg_sfc
   USE mo_util_string,         ONLY: one_of
-  USE mo_phyparam_soil,       ONLY: cporv, cadp
 
   IMPLICIT NONE
 
@@ -255,13 +255,14 @@ MODULE mo_initicon
   END SUBROUTINE read_dwdfg
 
   ! Do postprocessing of data from first-guess file.
-  SUBROUTINE process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
+  SUBROUTINE process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data, prm_diag)
     TYPE(t_patch), INTENT(IN) :: p_patch(:)
     TYPE(t_nh_state), INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_int_state), INTENT(IN) :: p_int_state(:)
     TYPE(t_gridref_state), INTENT(IN) :: p_grf_state(:)
     TYPE(t_lnd_state), INTENT(INOUT), OPTIONAL :: p_lnd_state(:)
     TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
+    TYPE(t_nwp_phy_diag), INTENT(INOUT), OPTIONAL :: prm_diag(:)
 
     SELECT CASE(init_mode)
         CASE(MODE_ICONVREMAP)
@@ -289,6 +290,8 @@ MODULE mo_initicon
                 END IF
             END IF
     END SELECT
+    ! Init aerosol field from climatology if no first-guess data have been available
+    IF (iprog_aero == 1) CALL init_aerosol(p_patch, ext_data, prm_diag)
   END SUBROUTINE process_dwdfg
 
   ! Read data from analysis files.
@@ -440,7 +443,7 @@ MODULE mo_initicon
     TYPE(t_external_data), INTENT(INOUT), OPTIONAL :: ext_data(:)
 
     CALL read_dwdfg(p_patch, p_nh_state, prm_diag, p_lnd_state)
-    CALL process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data)
+    CALL process_dwdfg(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, ext_data, prm_diag)
 
     CALL read_dwdana(p_patch, p_nh_state, p_lnd_state)
     ! process DWD analysis data
@@ -1521,7 +1524,7 @@ MODULE mo_initicon
     TYPE(t_lnd_state)        ,INTENT(INOUT) :: p_lnd_state(:)
     TYPE(t_external_data)    ,INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg, ic, jc, jk, jb, jt, jgch          ! loop indices
+    INTEGER :: jg, ic, jc, jk, jb, jt, jgch, ist          ! loop indices
     INTEGER :: ntlr
     INTEGER :: nblks_c
     REAL(wp):: missval
@@ -1554,7 +1557,7 @@ MODULE mo_initicon
       lanaread_tso = ( one_of('t_so', initicon(jgch)%grp_vars_ana(1:initicon(jgch)%ngrp_vars_ana)) /= -1)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask) ICON_OMP_DEFAULT_SCHEDULE
+!$OMP DO PRIVATE(jc,ic,jk,jb,jt,i_startidx,i_endidx,lp_mask,ist) ICON_OMP_DEFAULT_SCHEDULE
       DO jb = 1, nblks_c
 
         CALL get_indices_c(p_patch(jg), jb, 1, nblks_c, &
@@ -1672,6 +1675,20 @@ MODULE mo_initicon
                ENDIF
 
             ENDDO  ! jc
+
+            ! Coldstart for limited-area mode still needs limitation of soil moisture to the allowed range
+            IF (l_limited_area .AND. jg == 1 .AND. .NOT. lread_ana) THEN
+
+              DO jc = i_startidx, i_endidx
+                ist = ext_data(jg)%atm%soiltyp(jc,jb)
+                SELECT CASE(ist)
+                CASE (3,4,5,6,7,8) ! soil types with non-zero water content
+                p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt) = MIN(dzsoil_icon(jk)*cporv(ist),    &
+                  &  MAX(p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%w_so_t(jc,jk,jb,jt), dzsoil_icon(jk)*cadp(ist)) )
+                END SELECT
+              ENDDO
+
+            ENDIF
 
           ENDDO  ! jk
 

@@ -159,7 +159,9 @@ CONTAINS
     INTEGER :: grid_levels  ! number of grid levels
     INTEGER :: nroot        ! number of initial sub division of basic icosahedron
     LOGICAL :: lplane       ! planar and not spherical grid construction
-    
+    LOGICAL :: lread_graph  ! switch to decide if graph is read from file or computed from scratch
+                            ! (the latter replaces running the graph generator before the grid generator)
+
     !--------------------------------------------------------------------
     ! Switch logging on    
     CALL open_log ('grid_generator.log')      ! setup log file
@@ -169,7 +171,7 @@ CONTAINS
     
     ! Read values to initialize grid generator
     
-    CALL init_gridgen(grid_levels, nroot, lplane)
+    CALL init_gridgen(grid_levels, nroot, lplane, lread_graph)
     
     CALL message ('', 'Run grid generation ...')
     
@@ -182,12 +184,23 @@ CONTAINS
     CALL message ('', 'Generate tree structure ...')
     
     CALL generate_tree (lplane)
+
+    IF (lread_graph) THEN
     
-    ! Read graph
+      ! Read graph from precomputed file
     
-    CALL message ('', 'Read graphs ...')
+      CALL message ('', 'Read graphs ...')
     
-    CALL read_graph(grid_levels, lplane)
+      CALL read_graph(grid_levels, lplane)
+
+    ELSE
+
+      !  Fill graph tree    
+      CALL message ('', 'Fill tree structure ...')
+    
+      CALL generate_graph(grid_levels, lplane)
+
+    ENDIF
     
     !  NOTE: the grid optimization calls are all done in
     !   generate_geometry

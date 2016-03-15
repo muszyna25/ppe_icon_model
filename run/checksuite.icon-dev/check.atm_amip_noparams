@@ -1,8 +1,13 @@
 #!/bin/ksh
 #--------------------------------------------------------------------------------
-# 
+#
+# _bb_table_Description_  AMIP experiment, no parameterizations
+# _bb_table_Model_        non-hydrostatic atmosphere with ECHAM physics
+ 
+#--------------------------------------------------------------------------------
+#
 # 1. Define the experiment and the files to be checked
-
+#
 # EXPERIMENT is the name of the experiment, that defines the experiment descriptor
 # file run/exp.<EXPNAME>. EXPNAME is used also for:
 # - the output directory name: experiments/<EXPNAME>

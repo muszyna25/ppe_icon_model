@@ -26,7 +26,7 @@ lgetecfs=0    # optionally get monthly means if previously calculated by eom_pre
 lgetmars=1    # read IFS data
 lmean=1       # monthly mean IFS data
 
-module load cdo
+module load cdo/1.6.4
 
 
 #-----------------------------------------------------------------------------
@@ -192,6 +192,29 @@ done
 
 rm -rf tmp.nc tmp_var.nc tmp_err.nc
 
+
+#-----------------------------------------------------------------------------
+# --- retrieve CERES observational data from ECFS
+
+if [[ ${YYYYMM} -le "201501" ]] ; then
+
+  ceres_file=CERES_EBAF-TOA_Ed2.8_Subset_201001-201501.nc
+  ecp ec:/deia/climplot.obs/ceres/${ceres_file} .
+  
+  cdo -selyear,${YYYY} -selmon,${MM} ${ceres_file} tmp.nc
+  
+  cdo -selvar,toa_lw_all_mon -mulc,-1 tmp.nc  toa_lw_ceres_${YYYYMM}.nc
+  cdo -selvar,toa_sw_all_mon -mulc,-1 tmp.nc  toa_sw_ceres_${YYYYMM}.nc
+  cdo -selvar,solar_mon               tmp.nc   solar_ceres_${YYYYMM}.nc
+  
+  cdo -add solar_ceres_${YYYYMM}.nc toa_sw_ceres_${YYYYMM}.nc      toa_sw_net_ceres_${YYYYMM}.nc
+  
+  cdo -f grb2 remapcon,icon.grid    toa_sw_net_ceres_${YYYYMM}.nc  toa_sw_net_ceres_${YYYYMM}.grb
+  cdo -f grb2 remapcon,icon.grid    toa_lw_ceres_${YYYYMM}.nc      toa_lw_ceres_${YYYYMM}.grb
+  
+  rm -rf tmp.nc tmp.grb
+
+fi 
 
 # -------------------------------------------------
 
