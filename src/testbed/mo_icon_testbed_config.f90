@@ -42,7 +42,6 @@ MODULE mo_icon_testbed_config
   INTEGER, PARAMETER :: test_radiation_communication = 5  ! test the mpi communication
   INTEGER, PARAMETER :: test_netcdf_read_model       = 6
   INTEGER, PARAMETER :: testbed_ocean_model          = 7
-  INTEGER, PARAMETER :: testbed_meanStream           = 8
   INTEGER, PARAMETER :: test_gather_communication = 8
   
 
