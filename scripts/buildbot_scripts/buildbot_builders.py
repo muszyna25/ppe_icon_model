@@ -494,10 +494,12 @@ class buildbot_builder(object):
 
   def print_builder_experiments(self):
     self.print_builder()
+    sortKeys = sorted(self.experiments.keys())
+    for experimentKey in sortKeys:
+      print("    "+experimentKey+" runflags:"+self.experiments_runflags[experimentKey])
+      
     #for experiment in self.experiments.values():
       #experiment.print_experiment()
-    for experimentName in self.experiments.keys():
-      print("    "+experimentName+" runflags:"+self.experiments_runflags[experimentName])
 
   def writeToFile_builder_experiments(self, listfile):
     listfile.write("builder|"+self.name+'|'+self.configure_flags+"|"+self.builder_flags+"\n")
