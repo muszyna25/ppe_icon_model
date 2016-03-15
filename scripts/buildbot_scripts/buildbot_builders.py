@@ -112,12 +112,12 @@ class buildbot_experimentList(object):
     return self.delete_experimentsByName_fromBuilders( experimentNames, buildersList_withOptions)
 
   def set_builders_flags(self, builders_names, flag):
-    builders = self.getBuildersByName(builders_names)
+    builders = self.get_BuildersByName(builders_names)
     for builder in builders:
       builder.set_builder_flags(flag)
 
   def set_configure_flags(self, builders_names, flag):
-    builders = self.getBuildersByName(builders_names)
+    builders = self.get_BuildersByName(builders_names)
     for builder in builders:
       builder.set_configure_flags(flag)
     
@@ -135,12 +135,17 @@ class buildbot_experimentList(object):
   def get_MachineByName(self, name):
     return self.buildbot_machine_list.get_MachineByName(name)
     
-  def getBuildersByName(self, names):
+  def get_BuildersByName(self, names):
     return self.buildbot_machine_list.get_buildersByName(names)
         
-  def getBuilderExperimentNames(self, builder_name):
-    return self.buildbot_machine_list.getBuilderExperimentNames(builder_name)
+  def get_BuilderExperimentNames(self, builder_name):
+    return self.buildbot_machine_list.get_BuilderExperimentNames(builder_name)
     
+  def print_ExperimentsBuilders(self, experimentsNames):
+    for experimentName in experimentsNames:
+      experiment = self.get_experiment(experimentName)
+      experiment.print_builders()
+
   def print_list(self):
     self.buildbot_machine_list.print_builders()
      
@@ -148,7 +153,7 @@ class buildbot_experimentList(object):
     self.buildbot_machine_list.create_all_builders()
 
   def make_binaries(self, builder_name):
-    builder = self.getBuildersByName([builder_name])[0]
+    builder = self.get_BuildersByName([builder_name])[0]
     os.chdir(paths.basePath)
     status = builder.make_binaries()
     os.chdir(paths.thisPath)
@@ -157,22 +162,21 @@ class buildbot_experimentList(object):
   # if succesful returns a list of the runscripts
   #  otherwise returns the status
   def make_runscripts(self, builder_name):
-    builder = self.getBuildersByName([builder_name])[0]
+    builder = self.get_BuildersByName([builder_name])[0]
     os.chdir(paths.basePath)
     status = builder.make_runscripts()
     os.chdir(paths.thisPath)
     return status
 
-  # prepares a builder for running
   #  returns:
   #    the builder flags (active, build_only, restricted): string
   #    the configure flags: string
   #    the list of expriments to run in a list of the form [[path, name],[path,name],..]
   #         note: the experiment path is the one under the model_paths.runPath
   #
-  def getBuilderProperties(self, builder_name):
+  def get_BuilderProperties(self, builder_name):
     experimentList = []
-    builder = self.getBuildersByName([builder_name])[0]
+    builder = self.get_BuildersByName([builder_name])[0]
     experimentPathNames = builder.getExperimentNames()
     for experimentPathName in experimentPathNames:
       # seperate the the input path from the experiment name
@@ -290,9 +294,9 @@ class buildbot_machine_list(object):
       quit()
     return machine
 
-  def getBuilderExperimentNames(self, builder_name):
+  def get_BuilderExperimentNames(self, builder_name):
     if not self.builders.get(builder_name):
-      print("Error: getBuilderExperimentNames: not existing builder "+builder_name+". Stop")
+      print("Error: get_BuilderExperimentNames: not existing builder "+builder_name+". Stop")
       quit()
     return self.builders[builder_name].getExperimentNames()
      
@@ -380,8 +384,11 @@ class buildbot_experiment(object):
   def print_builders(self):
     print("----------------------------")
     print("Experiment:"+self.name+"; builders:")
-    for builder in self.builders.values():
-      builder.print_builder()
+    sortKeys = sorted(self.builders.keys())
+    for builderKey in sortKeys:
+      print("   "+builderKey)   
+    #for builder in self.builders.values():
+      #builder.print_builder()
 
   def delete(self):
     print("Deleting experiment "+self.name+" from all builds...")

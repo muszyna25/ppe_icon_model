@@ -21,11 +21,11 @@ class model_paths(object):
     os.chdir(self.runPath)
     experimentsNames = []
     for path in pathsInRun:
-      experiments = glob.glob(path)
-      if not experiments:
+      experiment = glob.glob(path)
+      if not experiment:
         print("No experiment "+path+" found. Stop")
         quit()
-      experimentsNames.extend(experiments)
+      experimentsNames.extend(experiment)
     os.chdir(self.thisPath)
     return experimentsNames
 

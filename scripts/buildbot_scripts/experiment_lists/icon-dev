@@ -112,6 +112,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|
 experiment|checksuite.icon-dev/check.atm_icoles_nested|
 builder|MISTRAL_nag_mtime|--with-fortran=nag --enable-mtime-loop --without-yac|Restricted
+experiment|checksuite.icon-dev/check.atm_amip|
 builder|MISTRAL_intel_openmp|--with-fortran=intel --without-mpi --with-openmp --without-yac|Active
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|exp.nat_rce_cbl_120km_nwp|
