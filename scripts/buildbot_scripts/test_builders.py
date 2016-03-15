@@ -16,7 +16,8 @@ print(configure_flags)
 print(experimentList)
 
 #thisList.make_binaries("THUNDER_gcc")
-thisList.make_runscripts("THUNDER_gcc")
+runscriptsList = thisList.make_runscripts("THUNDER_gcc")
+print(runscriptsList)
 
 quit()
 

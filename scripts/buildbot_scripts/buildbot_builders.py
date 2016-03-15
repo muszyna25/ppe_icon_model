@@ -134,6 +134,8 @@ class buildbot_experimentList(object):
     os.chdir(paths.thisPath)
     return status
 
+  # if succesful returns a list of the runscripts
+  #  otherwise returns the status
   def make_runscripts(self, builder_name):
     builder = self.getBuildersByName([builder_name])[0]
     os.chdir(paths.basePath)
@@ -445,22 +447,27 @@ class buildbot_builder(object):
       print("Build failed")
       return status
     return 0
-    
+
+  # if succesful returns a list of the runscripts
+  #  otherwise returns the status
   def make_runscripts(self):
+    runscriptList = []
     for experiment in self.experiments.values():
       experimentPathName = experiment.name
       # seperate the the input path from the experiment name
       experimentPath, experimentName = paths.getPathAndName(experimentPathName)
       # separate prefix and main name
       experimentPrefixName = experimentName.split(".",2)
-      print(experimentPath+" "+experimentPrefixName[0]+" "+experimentPrefixName[1])
+      #print(experimentPath+" "+experimentPrefixName[0]+" "+experimentPrefixName[1])
+      outscript=experimentName+".run"
       make_runscript_command=paths.basePath+"/config/make_target_runscript "
-      inoutFiles="in_script="+experimentPathName+" in_script=exec.iconrun EXPNAME="+experimentPrefixName[1]+" "
+      inoutFiles="in_script="+experimentPathName+" in_script=exec.iconrun out_script="+outscript+" EXPNAME="+experimentPrefixName[1]+" "
       status = os.system(make_runscript_command+inoutFiles+self.experiments_runflags[experimentPathName])
       if not status == 0:
         print("make_runscripts failed")
         return status
-    return 0
+      runscriptList.append(outscript)
+    return runscriptList
 
   def print_builder_experiments(self):
     self.print_builder()
