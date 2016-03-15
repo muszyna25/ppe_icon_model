@@ -3190,8 +3190,8 @@ CONTAINS
     DO k = kstart,kend
       DO i = istart,iend
         
-        n_p  = ptype%q(i,k)
-        q_p  = ptype%n(i,k)
+        n_p  = ptype%n(i,k)
+        q_p  = ptype%q(i,k)
         qliq = ptype%l(i,k)
         qice = ptype%q(i,k) - ptype%l(i,k)
 
@@ -3200,7 +3200,7 @@ CONTAINS
         qrain = rain%q(i,k)
         nrain = rain%n(i,k)
 
-        qmlt = 0.0_wp
+        qmlt  = 0.0_wp
         qconv = 0.0_wp
         nconv = 0.0_wp
         qshed = 0._wp

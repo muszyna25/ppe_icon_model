@@ -579,6 +579,9 @@ CONTAINS
 IF ( .true. ) THEN
 
         CALL terra_multlay(                                    &
+!MR:<
+        &  icant=2                                           , & !IN canopy-type (as set before, but maybe "1" is adequate?)
+!MR:>
         &  ie=nproma                                         , & !IN array dimensions
         &  istartpar=1,       iendpar=i_count                , & !IN optional start/end indicies
         &  ke_soil=nlev_soil-1, ke_snow=nlev_snow            , & !IN without lowermost (climat.) soil layer

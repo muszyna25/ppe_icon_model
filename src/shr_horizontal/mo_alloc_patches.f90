@@ -453,7 +453,7 @@ CONTAINS
 
     TYPE(t_patch), INTENT(inout) :: p_patch
 
-    INTEGER :: max_childdom
+    INTEGER :: max_childdom, max_cell_connectivity, max_vertex_connectivity
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -467,7 +467,9 @@ CONTAINS
     ! - n_patch_verts_g
     ! - max_childdom
 
-    p_patch%geometry_info%cell_type = p_patch%cells%max_connectivity
+    max_cell_connectivity = p_patch%cells%max_connectivity
+    max_vertex_connectivity = p_patch%verts%max_connectivity
+    p_patch%geometry_info%cell_type = p_patch%cells%max_connectivity ! this should be read by the grid !
     max_childdom = p_patch%max_childdom
     !
     ! !grid cells
@@ -484,12 +486,12 @@ CONTAINS
     ALLOCATE( p_patch%cells%child_blk(nproma,p_patch%alloc_cell_blocks,4) )
     ALLOCATE( p_patch%cells%child_id(nproma,p_patch%alloc_cell_blocks) )
     ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%alloc_cell_blocks) )
-    ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
-    ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
-    ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
-    ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
-    ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
-    ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
+    ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%alloc_cell_blocks,max_cell_connectivity) )
+    ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%alloc_cell_blocks,max_cell_connectivity) )
+    ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%alloc_cell_blocks,max_cell_connectivity) )
+    ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%alloc_cell_blocks,max_cell_connectivity) )
+    ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%alloc_cell_blocks,max_cell_connectivity) )
+    ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%alloc_cell_blocks,max_cell_connectivity) )
     ALLOCATE( p_patch%cells%center(nproma,p_patch%alloc_cell_blocks) )
     ALLOCATE( p_patch%cells%refin_ctrl(nproma,p_patch%alloc_cell_blocks) )
     ALLOCATE( p_patch%cells%start_idx(min_rlcell:max_rlcell,max_childdom) )
@@ -535,8 +537,8 @@ CONTAINS
     ALLOCATE( p_patch%verts%end_idx(min_rlvert:max_rlvert,max_childdom) )
     ALLOCATE( p_patch%verts%start_blk(min_rlvert:max_rlvert,max_childdom) )
     ALLOCATE( p_patch%verts%end_blk(min_rlvert:max_rlvert,max_childdom) )
-    ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,6) )
-    ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,6) )
+    ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,max_vertex_connectivity) )
+    ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,max_vertex_connectivity) )
     ALLOCATE( p_patch%verts%num_edges(nproma,p_patch%nblks_v) )
     ALLOCATE( p_patch%verts%start_index(min_rlvert:max_rlvert) )
     ALLOCATE( p_patch%verts%end_index(min_rlvert:max_rlvert) )
@@ -631,6 +633,7 @@ CONTAINS
       &             process_space
     INTEGER :: num_replicas, replica_idx, mpierr, dist_array_comm, &
       &        dist_array_pes_start, dist_array_pes_size
+    INTEGER :: max_cell_connectivity, max_vertex_connectivity
 
     ! Please note: The following variables in the patch MUST already be set:
     ! - alloc_cell_blocks
@@ -640,7 +643,11 @@ CONTAINS
     ! - n_patch_edges_g
     ! - n_patch_verts_g
     ! - max_childdom
-    p_patch_pre%cell_type = p_patch_pre%cells%max_connectivity
+    ! - cells%max_connectivity
+    ! - verts%max_connectivity
+    max_cell_connectivity = p_patch_pre%cells%max_connectivity
+    max_vertex_connectivity = p_patch_pre%verts%max_connectivity
+    p_patch_pre%cell_type = p_patch_pre%cells%max_connectivity ! this should be read by the grid !
     max_childdom = p_patch_pre%max_childdom
 
     ! some preliminary computation for the distributed data
@@ -664,7 +671,7 @@ CONTAINS
     dist_cell_desc(c_neighbor) = dist_cell_desc(c_num_edges)
     dist_cell_desc(c_neighbor)%a_rank = 2
     dist_cell_desc(c_neighbor)%rect(2) &
-         = extent(first=1, size = p_patch_pre%cell_type)
+         = extent(first=1, size = max_cell_connectivity)
 
     dist_cell_desc(c_edge) = dist_cell_desc(c_neighbor)
 
@@ -698,7 +705,7 @@ CONTAINS
     dist_vert_desc(v_cell)%a_rank = 2
     dist_vert_desc(v_cell)%rect(1) &
          = extent(first = 1, size = p_patch_pre%n_patch_verts_g)
-    dist_vert_desc(v_cell)%rect(2) = extent(first = 1, size = 6)
+    dist_vert_desc(v_cell)%rect(2) = extent(first = 1, size = max_vertex_connectivity)
     dist_vert_desc(v_cell)%element_dt = ppm_int
 
     dist_vert_desc(v_num_edges)%a_rank = 1
@@ -751,7 +758,7 @@ CONTAINS
     local_cell_chunks(1, :) = p_patch_pre%cells%local_chunk(1, 1)
     local_cell_chunks(2, c_child) = extent(first=1, size=4)
     local_cell_chunks(2, c_neighbor:c_vertex) &
-         = extent(first=1, size=p_patch_pre%cell_type)
+         = extent(first=1, size=max_cell_connectivity)
     local_cell_chunks(1, c_center) = p_patch_pre%cells%local_chunk(1,1)
     local_cell_chunks(2, c_center) = extent(first = 1, size = 2)
 
@@ -791,7 +798,7 @@ CONTAINS
     ! !grid verts
     !
     local_vert_chunks(1, v_cell) = p_patch_pre%verts%local_chunk(1,1)
-    local_vert_chunks(2, v_cell) = extent(first = 1, size = 6)
+    local_vert_chunks(2, v_cell) = extent(first = 1, size = max_vertex_connectivity)
     local_vert_chunks(1, v_num_edges) = p_patch_pre%verts%local_chunk(1,1)
     local_vert_chunks(1, v_vertex) = p_patch_pre%verts%local_chunk(1,1)
     local_vert_chunks(2, v_vertex) = extent(first = 1, size = 2)
@@ -948,6 +955,7 @@ CONTAINS
     TYPE(t_patch), INTENT(inout) :: p_patch
     INTEGER,       INTENT(in)    :: iopmode
 
+    INTEGER :: max_cell_connectivity, max_vertex_connectivity
     ! operation modes: iopmode=1: allocate all remaining patch arrays
     !                  iopmode=2: allocate only parallelization-related arrays
     !                  iopmode=3: allocate all but the parallelization-related arrays
@@ -963,13 +971,16 @@ CONTAINS
     ! - n_patch_edges_g
     ! - n_patch_verts_g
     ! - max_childdom
-
+    ! - cells%max_connectivity
+    ! - verts%max_connectivity
+    max_cell_connectivity   = p_patch%cells%max_connectivity
+    max_vertex_connectivity = p_patch%verts%max_connectivity
     !
     ! !grid cells
     !
     IF (iopmode /= 2) THEN
       IF (.NOT. ALLOCATED(p_patch%cells%phys_id)) ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%alloc_cell_blocks) )
-      ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%alloc_cell_blocks,p_patch%geometry_info%cell_type) )
+      ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%alloc_cell_blocks,max_cell_connectivity) )
       ALLOCATE( p_patch%cells%area(nproma,p_patch%alloc_cell_blocks) )
       ALLOCATE( p_patch%cells%f_c(nproma,p_patch%alloc_cell_blocks) )
     ENDIF
@@ -1017,15 +1028,15 @@ CONTAINS
     !
     IF (iopmode /= 2) THEN
       ALLOCATE( p_patch%verts%phys_id(nproma,p_patch%nblks_v) )
-      ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
-      ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
+      ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,max_vertex_connectivity) )
+      ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,max_vertex_connectivity) )
       IF (ALLOCATED(p_patch%verts%cell_idx)) DEALLOCATE(p_patch%verts%cell_idx)
-      ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
+      ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,max_vertex_connectivity) )
       IF (ALLOCATED(p_patch%verts%cell_blk)) DEALLOCATE(p_patch%verts%cell_blk)
-      ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
-      ALLOCATE( p_patch%verts%edge_idx(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
-      ALLOCATE( p_patch%verts%edge_blk(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
-      ALLOCATE( p_patch%verts%edge_orientation(nproma,p_patch%nblks_v,9-p_patch%geometry_info%cell_type) )
+      ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,max_vertex_connectivity) )
+      ALLOCATE( p_patch%verts%edge_idx(nproma,p_patch%nblks_v,max_vertex_connectivity) )
+      ALLOCATE( p_patch%verts%edge_blk(nproma,p_patch%nblks_v,max_vertex_connectivity) )
+      ALLOCATE( p_patch%verts%edge_orientation(nproma,p_patch%nblks_v,max_vertex_connectivity) )
       IF (ALLOCATED(p_patch%verts%num_edges)) &
            DEALLOCATE(p_patch%verts%num_edges)
       ALLOCATE( p_patch%verts%num_edges(nproma,p_patch%nblks_v) )

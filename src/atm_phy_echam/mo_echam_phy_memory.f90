@@ -1483,7 +1483,7 @@ CONTAINS
                 & t_cf_var('u_stress_sso', 'N m-2',                               &
                 &          'zonal stress from subgrid scale orographic drag',     &
                 &          datatype_flt),                                         &
-                & grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & grib2_var(0,2,17, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
                 & ldims=shape2d,                                                  &
                 & lrestart = .FALSE.,                                             &
                 & isteptype=TSTEP_INSTANT                                         )
@@ -1493,7 +1493,7 @@ CONTAINS
                 & t_cf_var('v_stress_sso', 'N m-2',                               &
                 &          'meridional stress from subgrid scale orographic drag',&
                 &          datatype_flt),                                         &
-                & grib2_var(0,2,255, ibits, GRID_UNSTRUCTURED, GRID_CELL),        &
+                & grib2_var(0,2,18, ibits, GRID_UNSTRUCTURED, GRID_CELL),         &
                 & ldims=shape2d,                                                  &
                 & lrestart = .FALSE.,                                             &
                 & isteptype=TSTEP_INSTANT                                         )
@@ -1798,7 +1798,7 @@ CONTAINS
     !-----------------------------------
     ! &       field% albedo (nproma,nblks),          &
     cf_desc    = t_cf_var('albedo', '', 'surface albedo', datatype_flt)
-    grib2_desc = grib2_var(255, 255, 255, ibits, GRID_UNSTRUCTURED, GRID_CELL)
+    grib2_desc = grib2_var(0,19,1, ibits, GRID_UNSTRUCTURED, GRID_CELL)
     CALL add_var( field_list, prefix//'albedo', field%albedo,                            &
                 & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 

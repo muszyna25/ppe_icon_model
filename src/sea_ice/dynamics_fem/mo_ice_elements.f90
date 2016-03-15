@@ -16,10 +16,18 @@ module mo_ice_elements
   PUBLIC
   save
   integer                                      :: elem2D
-  integer(KIND=4), allocatable, dimension(:,:) :: elem2D_nodes
-  integer(KIND=4), allocatable, dimension(:,:) :: elem2D_nghbrs
+  integer, allocatable, dimension(:,:) :: elem2D_nodes
+  integer, allocatable, dimension(:,:) :: nod2D_elems
+  integer, allocatable, dimension(:,:) :: elem2D_nghbrs
   REAL(wp)                                 :: Vol2D
   REAL(wp), allocatable, dimension(:,:)    :: derivative_stdbf
   REAL(wp), allocatable, dimension(:,:)    :: bafux, bafuy
+  REAL(wp), allocatable, dimension(:,:)    :: bafux_nod, bafuy_nod
   REAL(wp), allocatable, dimension(:)      :: voltriangle
+
+  ! vladimir: indices for elements/nodes with actual ice
+  ! allocated/deallocated each time-step
+  integer                                    :: si_elem2D, si_nod2D
+  integer, allocatable, dimension(:)         :: si_idx_elem, si_idx_nodes
+
 end module mo_ice_elements
