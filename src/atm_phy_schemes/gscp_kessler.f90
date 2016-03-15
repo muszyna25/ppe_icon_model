@@ -153,32 +153,21 @@ USE mo_kind,               ONLY: wp         , &
                                  i4
 !USE mo_math_constants    , ONLY: pi
 USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water vapour
-                                 r_d   => rd    , & !! gas constant for dry air
-                                 rvd_m_o=>vtmpc1, & !! r_v/r_d - 1
                                  o_m_rdv        , & !! 1 - r_d/r_v
                                  rdv            , & !! r_d / r_v
                                  lh_v  => alv   , & !! latent heat of vapourization
-                                 lh_s  => als   , & !! latent heat of sublimation
 !                                lh_f  => alf   , & !! latent heat of fusion
-                                 cp_d  => cpd   , & !! specific heat of dry air at constant press
                                  cpdr  => rcpd  , & !! (spec. heat of dry air at constant press)^-1
                                  cvdr  => rcvd  , & !! (spec. heat of dry air at const vol)^-1
                                  b3    => tmelt , & !! melting temperature of ice/snow
 !                                rho_w => rhoh2o, & !! density of liquid water (kg/m^3)
-                                 g     => grav  , & !! acceleration due to gravity
                                  t0    => tmelt     !! melting temperature of ice/snow
-
-USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
 USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
                                  b2w   => c3les , & !! pressure over water (l) and ice (i)
-                                 b2i   => c3ies , & !!               -- " --
-                                 b4w   => c4les , & !!               -- " --
-                                 b4i   => c4ies , & !!               -- " --
-                                 b234w => c5les     !!               -- " --
+                                 b4w   => c4les     !!               -- " --
 USE mo_satad,              ONLY: satad_v_3d,     &  !! new saturation adjustment
-                                 sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-                                 sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
+                                 sat_pres_water     !! saturation vapor pressure w.r.t. water
 USE mo_exception,          ONLY: message, message_text
 #endif
 
@@ -187,35 +176,15 @@ USE mo_exception,          ONLY: message, message_text
 ! this can be used by ICON and COSMO
 USE gscp_data, ONLY: &          ! all variables are used here
 
-    ccsrim,    ccsagg,    ccsdep,    ccsvel,    ccsvxp,    ccslam,       &
-    ccslxp,    ccsaxp,    ccsdxp,    ccshi1,    ccdvtp,    ccidep,       &
-    ccswxp,    zconst,    zcev,      zbev,      zcevxp,    zbevxp,       &
-    zvzxp,     zvz0r,                                                    &
-
-    v0snow,    mu_rain,   rain_n0_factor,       cloud_num,               &
-
-    x13o8,     x1o2,      x27o16,    x3o4,      x7o4,      x7o8,         &
-    zbms,      zbvi,      zcac,      zccau,     zciau,     zcicri,       &
-    zcrcri,    zcrfrz,    zcrfrz1,   zcrfrz2,   zeps,      zkcac,        &
-    zkphi1,    zkphi2,    zkphi3,    zmi0,      zmimax,    zmsmin,       &
-    zn0s0,     zn0s1,     zn0s2,     znimax_thom,          zqmin,        &
-    zrho0,     zthet,     zthn,      ztmix,     ztrfrz,    zv1s,         &
-    zvz0i,     x13o12,    x2o3,      x5o24,     zams,      zasmel,       &
-    zbsmel,    zcsmel,    x1o8,      x3o16,                              &
-    iautocon,  isnow_n0temp, dist_cldtop_ref,   reduce_dep_ref,          &
-    tmin_iceautoconv,     zceff_fac, zceff_min
+    zconst,   zbev,    zvz0r,                 &
+    x7o8,                                     &
+    zkcac,   zkphi1,    zkphi2,    zkphi3,    &
+    x1o8,      x3o16,   iautocon
 
 #ifdef __ICON__
 ! this is (at the moment) an ICON part
 USE gscp_data, ONLY: &          ! all variables are used here
-    vtxexp,    & !  kc_c1,     & !
-    kc_c2,     & !
-    kc_alpha,  & !
-    kc_beta,   & !
-    kc_gamma,  & !
-    kc_sigma,  & !
-    do_i,      & !
-    co_i
+    kc_c2
 #endif
 
 !==============================================================================
@@ -396,8 +365,6 @@ SUBROUTINE kessler  (             &
   INTEGER (KIND=i4) :: &
     iv, k             !> loop indices
 
-  REAL    (KIND=wp   ) :: nnr
-
   REAL    (KIND=wp   ) :: z_heat_cap_r !! reciprocal of cpdr or cvdr (depending on l_cv)
 
   INTEGER ::  &
@@ -409,7 +376,6 @@ SUBROUTINE kessler  (             &
   REAL (KIND=wp)   ::  &
     ztx   ,            & ! 
     zpx   ,            & !
-    zgex  ,            & !  
     fsa3  ,            & !
     zspw  ,            & ! equilibrium vapour pressure over water
     zsa3  ,            & !
