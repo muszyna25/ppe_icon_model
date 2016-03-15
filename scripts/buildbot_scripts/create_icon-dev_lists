@@ -1,8 +1,8 @@
 #!/bin/bash
 listname=icon-dev
 addexp="./addexp"
-python rmlist.py $listname
-python mklist.py $listname
+./rmlist $listname
+./mklist $listname
 
 #-----------------------------------------------------------
 # add amip tests to all builders

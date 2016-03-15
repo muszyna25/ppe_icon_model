@@ -18,6 +18,7 @@ from model_paths import *
 verbal=True
 #-----------------------------------------------------------------------
 # contains a list of machines+builders and a list of experiments for them
+
 class buildbot_experimentList(object):
 
   def __init__(self, name):
@@ -133,20 +134,10 @@ class buildbot_experimentList(object):
 
   def make_runscripts(self, builder_name):
     builder = self.getBuildersByName([builder_name])[0]
-    
-    builder.make_runscripts
-    configure_flags = builder.configure_flags
     os.chdir(self.paths.basePath)
-    status = os.system("./configure "+configure_flags)
-    if not status == 0:
-      print("Configure failed")
-      return status
-    status = os.system("./build_command")
-    if not status == 0:
-      print("Build failed")
-      return status
+    status = builder.make_runscripts()
     os.chdir(self.paths.thisPath)
-    return 0
+    return status
 
   # prepares a builder for running
   #  returns:
