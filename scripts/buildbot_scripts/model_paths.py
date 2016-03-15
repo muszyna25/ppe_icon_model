@@ -5,7 +5,7 @@
 #==============================================================================
 import os
 import glob
-
+import shutil
 #-----------------------------------------------------------------------
 class model_paths(object):
   
@@ -40,6 +40,19 @@ class model_paths(object):
       print("The list "+listName+" does not exist.")
       quit()
     os.remove(self.get_thisListPath(listName))
+    
+  def copyList(self, fromlist, tolist):
+    if not self.thisListExists(fromlist):
+      print("The list "+fromlist+" does not exist.")
+      quit()      
+    if self.thisListExists(tolist):
+      print("The list "+tolist+" exists. Please remove it first.")
+      quit()
+    shutil.copy(self.get_thisListPath(fromlist), self.get_thisListPath(tolist))
+    if not self.thisListExists(tolist):
+      print("Copy failed")
+      quit()
+    
 
   def print_paths(self):
     print("Base path:"+self.basePath)

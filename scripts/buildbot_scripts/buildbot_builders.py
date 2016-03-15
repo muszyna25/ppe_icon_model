@@ -3,6 +3,20 @@
 #==============================================================================
 # Simple library for the builders and experiment lists
 #
+#
+#                            list
+#                            /  \
+#                           /    \
+#             {queue} + machines  experiments
+#                         /        /
+#                        /        /
+#                       /        /
+#{configure flags} + builders   /
+#{builder flags}        \      /
+#                        \    /
+#                     associations + {run flags}
+#
+#
 # The class structure is:
 #   buildbot_experimentList
 #     buildbot_machine_list
@@ -10,6 +24,7 @@
 #         buildbot_builders
 #     experimentList
 #       experiment
+
 #==============================================================================
 
 import weakref
@@ -100,6 +115,11 @@ class buildbot_experimentList(object):
     builders = self.getBuildersByName(builders_names)
     for builder in builders:
       builder.set_builder_flags(flag)
+
+  def set_configure_flags(self, builders_names, flag):
+    builders = self.getBuildersByName(builders_names)
+    for builder in builders:
+      builder.set_configure_flags(flag)
     
   def get_experiment(self, name):
     experiment = self.experimentList.get(name)
@@ -404,6 +424,9 @@ class buildbot_builder(object):
 
   def get_builder_flags(self):
     return self.builder_flags
+
+  def set_configure_flags(self, flags):
+    self.configure_flags = flags
 
   def get_configure_flags(self):
     return self.configure_flags

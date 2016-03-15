@@ -18,7 +18,7 @@ $addexp checksuite.ocean_internal/omip/exp.ocean_omip_short --list $listname
 #-----------------------------------------------------------
 # tests for nwp
 $addexp exp.test_nwp_R02B04N06multi  exp.test_nwp_R02B04_R02B05_nest  --without-configureflags without-mpi --list $listname
-# this runs only on mistral and daint_cpu, with-mpi and without openmp
+# this experiment runs only on mistral and daint_cpu, with-mpi and without openmp
 $addexp exp.test_nwp_R02B04N06multi2 --machines mistral daint_cpu     --without-configureflags without-mpi with-openmp --list $listname
 
 #-----------------------------------------------------------
