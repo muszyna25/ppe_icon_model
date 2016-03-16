@@ -32,7 +32,7 @@ MODULE mo_ocean_veloc_advection
   USE mo_impl_constants,      ONLY: boundary, min_dolic
   USE mo_ocean_nml,           ONLY: n_zlev,NONLINEAR_CORIOLIS,&
     & NONLINEAR_CORIOLIS_PRIMAL_GRID,NONLINEAR_CORIOLIS_DUAL_GRID, NO_CORIOLIS, &
-    & VerticalAdvection_None, VerticalAdvection_RotationalForm, &
+    & VerticalAdvection_None, VerticalAdvection_RotationalForm, VerticalAdvection_MimeticRotationalForm, &
     & VerticalAdvection_DivergenceForm, HorizonatlVelocity_VerticalAdvection_form
   USE mo_util_dbg_prnt,       ONLY: dbg_print
   USE mo_ocean_types,         ONLY: t_hydro_ocean_diag
@@ -147,11 +147,14 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     SELECT CASE(HorizonatlVelocity_VerticalAdvection_form)
-    CASE(VerticalAdvection_RotationalForm)
+    CASE(VerticalAdvection_MimeticRotationalForm)
       CALL veloc_adv_vert_mimetic_rot( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
 
     CASE(VerticalAdvection_DivergenceForm)
       CALL veloc_adv_vert_mimetic_div( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
+
+    CASE(VerticalAdvection_RotationalForm)
+      CALL veloc_adv_vert_rot( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
 
     CASE(VerticalAdvection_None)
       veloc_adv_vert_e(:,:,:) = 0.0_wp
@@ -694,7 +697,7 @@ ENDDO
   !! output: lives on edges (velocity points)
   !!
 !<Optimize:inUse>
-  SUBROUTINE veloc_adv_vert_mimetic_rot( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_rot( patch_3D, p_diag,ocean_coefficients, veloc_adv_vert_e)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag
@@ -788,7 +791,7 @@ ENDDO
           patch_2D%edges%owned )
     !---------------------------------------------------------------------
 
-  END SUBROUTINE veloc_adv_vert_mimetic_rot
+  END SUBROUTINE veloc_adv_vert_rot
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -811,7 +814,7 @@ ENDDO
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
 !<Optimize:inUse>
-  SUBROUTINE veloc_adv_vert_mimetic_rot_ori( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
+  SUBROUTINE veloc_adv_vert_mimetic_rot( patch_3D, p_diag,p_op_coeff, veloc_adv_vert_e)
 
     TYPE(t_patch_3D ),TARGET, INTENT(IN)   :: patch_3D
     TYPE(t_hydro_ocean_diag)          :: p_diag
@@ -857,7 +860,7 @@ ENDDO
 
       !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity
       DO jc = start_index, end_index
-        fin_level = patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
+        fin_level = patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)+1
 
         IF(fin_level >= min_dolic) THEN
 
@@ -897,7 +900,7 @@ ENDDO
           patch_2D%edges%owned )
     !---------------------------------------------------------------------
 
-  END SUBROUTINE veloc_adv_vert_mimetic_rot_ori
+  END SUBROUTINE veloc_adv_vert_mimetic_rot
   !-------------------------------------------------------------------------
 
 

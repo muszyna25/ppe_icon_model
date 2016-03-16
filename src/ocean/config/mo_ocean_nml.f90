@@ -285,9 +285,10 @@ MODULE mo_ocean_nml
   REAL(wp) :: cfl_threshold         = 1.0_wp
 
   INTEGER, PARAMETER :: VerticalAdvection_None           = 0
-  INTEGER, PARAMETER :: VerticalAdvection_RotationalForm = 1
+  INTEGER, PARAMETER :: VerticalAdvection_MimeticRotationalForm = 1
   INTEGER, PARAMETER :: VerticalAdvection_DivergenceForm = 2
-  INTEGER :: HorizonatlVelocity_VerticalAdvection_form = VerticalAdvection_RotationalForm
+  INTEGER, PARAMETER :: VerticalAdvection_RotationalForm = 3
+  INTEGER :: HorizonatlVelocity_VerticalAdvection_form = VerticalAdvection_MimeticRotationalForm
 
   LOGICAL  :: use_smooth_ocean_boundary  = .TRUE.
 
