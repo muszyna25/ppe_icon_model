@@ -56,6 +56,7 @@ MODULE mo_ocean_diffusion
   PUBLIC :: tracer_diffusion_horz
   PUBLIC :: tracer_diffusion_vert_explicit
   PUBLIC :: tracer_diffusion_vertical_implicit
+  PUBLIC :: veloc_diff_harmonic_div_grad
   
 CONTAINS
   
