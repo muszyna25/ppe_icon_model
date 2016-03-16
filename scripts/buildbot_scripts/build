@@ -20,5 +20,6 @@ if not paths.thisListExists(args.list_name):
   
 thisList       = buildbot_experimentList(args.list_name)
 status         = thisList.make_binaries(args.builder_name)
+if not status == 0: quit()
 runscriptsList = thisList.make_runscripts(args.builder_name)
 
