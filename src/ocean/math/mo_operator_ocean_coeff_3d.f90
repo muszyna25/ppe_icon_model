@@ -2188,6 +2188,7 @@ CONTAINS
           operators_coefficients%edge2edge_viacell_coeff_top(k, je, block) = &
              operators_coefficients%edge2edge_viacell_coeff(je, 1, block, k)
         ENDDO
+!         write(0,*) patch_3D%lsm_e(je,1,block), ", edge2edge_viacell:", operators_coefficients%edge2edge_viacell_coeff_top(:, je, block)
       ENDDO
     ENDDO
 

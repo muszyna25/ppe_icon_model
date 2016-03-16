@@ -26,9 +26,9 @@ MODULE mo_ocean_diffusion
   USE mo_ocean_nml,           ONLY: n_zlev, iswm_oce, VelocityDiffusion_order, laplacian_form
   USE mo_run_config,          ONLY: dtime
   USE mo_util_dbg_prnt,       ONLY: dbg_print
-  USE mo_ocean_types,           ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_ocean_tracer, t_hydro_ocean_aux
+  USE mo_ocean_types,         ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_ocean_tracer, t_hydro_ocean_aux
   USE mo_model_domain,        ONLY: t_patch, t_patch_3d
-  USE mo_ocean_physics,         ONLY: t_ho_params
+  USE mo_ocean_physics_state, ONLY: t_ho_params
   USE mo_scalar_product,      ONLY: map_cell2edges_3d, map_edges2edges_viacell_3d_const_z
   USE mo_ocean_math_operators,  ONLY: div_oce_3d, rot_vertex_ocean_3d,&
     & map_edges2vert_3d, grad_fd_norm_oce_3D, grad_vector, div_vector_onTriangle
@@ -89,8 +89,8 @@ CONTAINS
       !divgrad laplacian is chosen
       IF(laplacian_form==2)THEN
         CALL finish(method_name, "form of harmonic Laplacian not recommended")
-        CALL veloc_diff_harmonic_div_grad( patch_3D,&
-          & physics_parameters,   &
+        CALL veloc_diff_harmonic_div_grad( patch_3D,      &
+          & physics_parameters%HarmonicViscosity_coeff,   &
           & p_diag,    &
           & operators_coeff,&
           & laplacian_vn_out)
@@ -150,11 +150,11 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
   !!
-  SUBROUTINE veloc_diff_harmonic_div_grad( patch_3D, physics_parameters, p_diag,&
+  SUBROUTINE veloc_diff_harmonic_div_grad( patch_3D, grad_coeff, p_diag,&
     & operators_coeff, laplacian_vn_out)
     
     TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3D
-    TYPE(t_ho_params), INTENT(in)     :: physics_parameters !mixing parameters
+    REAL(wp)                               :: grad_coeff(:,:,:) ! grad_coeff contains the mixing parameters INTENT(in)
     TYPE(t_hydro_ocean_diag)          :: p_diag
     TYPE(t_operator_coeff),INTENT(in) :: operators_coeff
     REAL(wp), INTENT(inout)           :: laplacian_vn_out(nproma,n_zlev,patch_3D%p_patch_2d(1)%nblks_e)
@@ -184,7 +184,7 @@ CONTAINS
     !-------------------------------------------------------------------------------
     ! Note that HarmonicViscosity_coef is divided by dual_edge_length
     CALL grad_vector(cellVector=p_diag%p_vn, patch_3D=patch_3d, &
-      grad_coeff=physics_parameters%HarmonicViscosity_coeff, gradVector=z_grad_u)
+      grad_coeff=grad_coeff, gradVector=z_grad_u)
 
     CALL div_vector_onTriangle(patch_3d=patch_3D, edgeVector=z_grad_u, &
       & divVector=z_div_grad_u, div_coeff=operators_coeff%div_coeff)

@@ -66,10 +66,10 @@ MODULE mo_ocean_model
     & init_patch_3d, construct_ocean_var_lists
   USE mo_ocean_initial_conditions,  ONLY:  apply_initial_conditions, init_ocean_bathymetry
   USE mo_ocean_check_tools,     ONLY: init_oce_index
-  USE mo_util_dbg_prnt,       ONLY: init_dbg_index
-  USE mo_ext_data_types,      ONLY: t_external_data
-  USE mo_ocean_physics,         ONLY: t_ho_params, construct_ho_params, init_ho_params, v_params, &
-    & destruct_ho_params
+  USE mo_util_dbg_prnt,         ONLY: init_dbg_index
+  USE mo_ext_data_types,        ONLY: t_external_data
+  USE mo_ocean_physics_state,   ONLY: t_ho_params, v_params, construct_ho_params, destruct_ho_params
+  USE mo_ocean_physics,         ONLY: init_ho_params
 
   USE mo_operator_ocean_coeff_3d,ONLY: construct_operators_coefficients, &
     & destruct_operators_coefficients
@@ -238,7 +238,7 @@ MODULE mo_ocean_model
         CALL ocean_postprocess( oce_namelist_filename,shr_namelist_filename, &
           & ocean_patch_3d, ocean_state,                    &
           & ext_data, start_datetime,                       &
-          & v_sfc_flx,  v_params, p_as, atmos_fluxes,v_sea_ice,  &
+          & v_sfc_flx,  p_as, atmos_fluxes,v_sea_ice,       &
           & operators_coefficients,                         &
           & solverCoefficients_sp)
 
