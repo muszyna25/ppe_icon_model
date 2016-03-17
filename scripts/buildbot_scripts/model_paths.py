@@ -64,4 +64,5 @@ class model_paths(object):
     fileName = os.path.basename(PathName)
     return dirName, fileName
     
+paths=model_paths()
 

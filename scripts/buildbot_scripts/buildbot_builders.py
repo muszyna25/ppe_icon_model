@@ -30,8 +30,8 @@
 import weakref
 import sys
 import os
-#from model_paths import *
-from build_interfaces import paths, make_all_binaries, make_ocean_binaries, make_runscript
+from build_interfaces import make_all_binaries, make_ocean_binaries, make_runscript
+from model_paths import paths
 
 verbal=True
 #paths=None
