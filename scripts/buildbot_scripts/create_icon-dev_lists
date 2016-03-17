@@ -14,6 +14,11 @@ $addexp checksuite.ocean_internal/omip/exp.ocean_omip_ptest checksuite.ocean_int
   --without-configureflags without-mpi --list $listname
 # add omip binary-identical test to all builders
 $addexp checksuite.ocean_internal/omip/exp.ocean_omip_short --list $listname
+# add ocean tests to the restricted builder MISTRAL_ocean
+./set_builder_flags Active             --builders MISTRAL_ocean --list $listname
+$addexp checksuite.ocean_internal/omip/exp.ocean_omip_ptest checksuite.ocean_internal/technical/exp.test_ocean_omip_technical \
+checksuite.ocean_internal/omip/exp.ocean_omip_short --builders MISTRAL_ocean --list $listname
+./set_builder_flags Ocean             --builders MISTRAL_ocean --list $listname
 
 #-----------------------------------------------------------
 # tests for nwp

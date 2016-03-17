@@ -126,6 +126,10 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|
 experiment|checksuite.icon-dev/check.atm_icoles_nested|
 builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|build_only
+builder|MISTRAL_ocean|--with-fortran=intel --with-openmp --with-flags=ocean|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|
+experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|
 builder|MISTRAL_gcc|--with-fortran=gcc|Active
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|
 experiment|exp.nat_jww_nwp_mpiomp|

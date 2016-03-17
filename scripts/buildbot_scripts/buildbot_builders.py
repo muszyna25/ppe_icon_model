@@ -29,19 +29,22 @@
 
 import weakref
 import sys
-from model_paths import *
+import os
+#from model_paths import *
+from build_interfaces import paths, make_all_binaries, make_ocean_binaries, make_runscript
+
 verbal=True
-paths=None
+#paths=None
 #-----------------------------------------------------------------------
 # contains a list of machines+builders and a list of experiments for them
 
 class buildbot_experimentList(object):
   
   def __init__(self, name):
-    global paths
+    #global paths
     self.name  = name
     self.experimentList = {}
-    paths = model_paths()
+    #paths = model_paths()
     self.buildbot_machine_list = buildbot_machine_list(name)
     if paths.thisListExists(self.name):
       self.read()
@@ -154,18 +157,14 @@ class buildbot_experimentList(object):
 
   def make_binaries(self, builder_name):
     builder = self.get_BuildersByName([builder_name])[0]
-    os.chdir(paths.basePath)
     status = builder.make_binaries()
-    os.chdir(paths.thisPath)
     return status
 
   # if succesful returns a list of the runscripts
   #  otherwise returns the status
   def make_runscripts(self, builder_name):
     builder = self.get_BuildersByName([builder_name])[0]
-    os.chdir(paths.basePath)
     status = builder.make_runscripts()
-    os.chdir(paths.thisPath)
     return status
 
   #  returns:
@@ -312,6 +311,7 @@ class buildbot_machine_list(object):
     mistral_nag           = mistral.add_builder('MISTRAL_nag', '--with-fortran=nag', 'Active')
     mistral_nag_mtime     = mistral.add_builder('MISTRAL_nag_mtime', '--with-fortran=nag --enable-mtime-loop --without-yac', 'Restricted')
     mistral_nag_serial    = mistral.add_builder('MISTRAL_nag_serial', '--with-fortran=nag --without-mpi --without-yac', 'build_only')
+    mistral_nag_serial    = mistral.add_builder('MISTRAL_ocean', '--with-fortran=intel --with-openmp --with-flags=ocean', 'Ocean')
     # CSCS builders
     daint_cpu             = self.add_machine('daint_cpu', 'default')
     daint_cpu_cce         = daint_cpu.add_builder('DAINT_CPU_cce', '', 'Active')
@@ -468,35 +468,22 @@ class buildbot_builder(object):
     del self.experiments[experiment.name]
 
   def make_binaries(self):
-    status = os.system("./configure "+self.configure_flags)
-    if not status == 0:
-      print("Configure failed")
-      return status
-    status = os.system("./build_command")
-    if not status == 0:
-      print("Build failed")
-      return status
-    return 0
+    if "Ocean" in self.builder_flags:
+      return make_ocean_binaries(self.configure_flags)
+    else:
+      return make_all_binaries(self.configure_flags)
 
   # if succesful returns a list of the runscripts
   #  otherwise returns the status
   def make_runscripts(self):
+    os.chdir(paths.basePath)
     runscriptList = []
     for experiment in self.experiments.values():
       experimentPathName = experiment.name
-      # seperate the the input path from the experiment name
-      experimentPath, experimentName = paths.getPathAndName(experimentPathName)
-      # separate prefix and main name
-      experimentPrefixName = experimentName.split(".",2)
-      #print(experimentPath+" "+experimentPrefixName[0]+" "+experimentPrefixName[1])
-      outscript=experimentName+".run"
-      make_runscript_command=paths.basePath+"/config/make_target_runscript "
-      inoutFiles="in_script="+experimentPathName+" in_script=exec.iconrun out_script="+outscript+" EXPNAME="+experimentPrefixName[1]+" "
-      status = os.system(make_runscript_command+inoutFiles+self.experiments_runflags[experimentPathName])
+      status, runscript = make_runscript(experimentPathName, self.experiments_runflags[experimentPathName])
       if not status == 0:
-        print("make_runscripts failed")
         return status
-      runscriptList.append(outscript)
+      runscriptList.append(runscript)
     return runscriptList
 
   def print_builder_experiments(self):

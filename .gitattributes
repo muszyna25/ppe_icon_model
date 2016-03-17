@@ -1051,6 +1051,7 @@ scripts/buildbot_scripts/bb_make -text
 scripts/buildbot_scripts/bb_make_doc -text
 scripts/buildbot_scripts/bb_run -text
 scripts/buildbot_scripts/build -text
+scripts/buildbot_scripts/build_interfaces.py -text
 scripts/buildbot_scripts/buildbot.tac.blizzard1 -text
 scripts/buildbot_scripts/buildbot.tac_master -text
 scripts/buildbot_scripts/buildbot_builders.py -text
