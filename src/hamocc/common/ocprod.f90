@@ -17,7 +17,7 @@
        &                        remido_cya, thresh_aerob,   & 
        &                        thresh_sred, dmsp, calmax
  
-   USE mo_carbch, ONLY         : n2budget, h2obudget, satoxy, &
+   USE mo_carbch, ONLY         : satoxy, &
        &                         bgctra, swr_frac, bgctend
 
 
@@ -30,7 +30,7 @@
        &                         iiron, ksred, kdenit, kgraz, kbacfra, &
        &                         kn2b, kh2ob, kdelcar, kdelsil, kbacfrac, &
        &                         kdmsprod, kdmsuv, kdmsbac,keuexp, knlim, kflim,&
-       &                         kplim, kgraton, kexudp, kexudz, kpdy,kzdy
+       &                         kplim, kgraton, kexudp, kexudz, kpdy,kzdy, kaou
 
 
    USE mo_hamocc_nml, ONLY     : l_cyadyn
@@ -388,6 +388,8 @@
              bgctend(j,k,kh2ob) = bgctend(j,k,kh2ob) - ro2ut * remin * (pddpo(j,k) + surface_height) 
 
        ENDIF ! O2 < thresh_sred
+       bgctend(j,k,kaou)   = satoxy(j,k) - bgctra(j,k,ioxygen)
+  
       ENDIF ! wet cells
      ENDDO ! k=1,kpke
   ENDDO ! j=start_idx,end_idx 

@@ -84,10 +84,6 @@ MODULE mo_carbch
 
   REAL(wp) :: totarea
 
-  ! n2budget closes the mass balance for the alkalinity for biogenic induced changes in N2
-  REAL(wp), ALLOCATABLE :: n2budget(:,:)
-  ! h2obudget closes the mass balance for the oxygen for biogenic induced changes in N2
-  REAL(wp), ALLOCATABLE :: h2obudget(:,:)
 
 
 
@@ -163,10 +159,6 @@ CONTAINS
     !ALLOCATE (dusty(bgc_nproma))
     !dusty(:,:) = 0.0_wp
 
-    ALLOCATE (n2budget(bgc_nproma,bgc_zlevs))
-    n2budget = 0._wp
-    ALLOCATE (h2obudget(bgc_nproma,bgc_zlevs))
-    h2obudget(:,:) = 0._wp
 
   END SUBROUTINE ALLOC_MEM_CARBCH
 

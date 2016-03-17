@@ -28,10 +28,10 @@ SUBROUTINE cyano ( start_idx,end_idx,pddpo, za )
 !! @brief diagostic N2 fixation
 
   USE mo_biomod, ONLY         : rnit, n2_fixation, rn2
-  USE mo_carbch, ONLY         : bgctra, bgcflux, bgctend 
+  USE mo_carbch, ONLY         : bgctra, bgcflux, bgctend, satoxy 
   USE mo_param1_bgc, ONLY     : iano3, iphosph, igasnit, &
        &                        ioxygen, ialkali, knfixd, &
-       &                        kn2b
+       &                        kn2b, kaou
 
   IMPLICIT NONE
 
@@ -81,6 +81,7 @@ SUBROUTINE cyano ( start_idx,end_idx,pddpo, za )
              
               bgcflux(j,knfixd)    = (- oldnitrate + bgctra(j,1,iano3))/rn2 /dtbgc
               bgctend(j,1,kn2b)    = bgctend(j,1,kn2b) - (bgctra(j,1,iano3) - oldnitrate) * (pddpo(j,1) + za(j))
+              bgctend(j,1, kaou)   = satoxy(j,1) - bgctra(j,1,ioxygen)
            ENDIF
         ENDIF
 
@@ -100,12 +101,13 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
        &                            doccya_fac, rnit, riron, rcar, rn2, &
        &                            strahl,bkcya_fe,   wcya, rnoi
 
-      USE mo_carbch, ONLY         : bgctra, bgctend, swr_frac
+      USE mo_carbch, ONLY         : bgctra, bgctend, swr_frac, satoxy
       USE mo_param1_bgc, ONLY     : iano3, iphosph, igasnit, &
            &                        ioxygen, ialkali, icya,  &
-           &                        isco212, idoccya, &
+           &                        isco212, idoccya, kaou, &
            &                        idet, iiron, knfix, &
-           &                        kpho_cya, kcyaloss, kn2b
+           &                        kpho_cya, kcyaloss, kn2b, &
+           &                        kcTlim, kcLlim, kcPlim, kcFlim
 
 
       IMPLICIT NONE
@@ -152,18 +154,23 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
  
               l_I = (pi_alpha_cya*fPAR*strahl(j))*swr_frac(j,k) &     ! light limitation
                 /SQRT(cya_growth_max**2 + (pi_alpha_cya**2)*(fPAR*strahl(j)*swr_frac(j,k))**2) 
-          
+         
+              bgctend(j,k,kcLlim) = l_I 
+ 
               T_min_Topt = ptho(j,k)-Topt_cya                          
               sgnT = sign(1._wp,T_min_Topt)
               IF(T_min_Topt .eq. 0._wp) sgnT = 0._wp 
 
               l_T = exp(-((T_min_Topt**4)/(T1_cya-T2_cya*sgnT)**4))          !temperature limitation 
+              bgctend(j,k,kcTlim) = l_T 
 
               xa_p = avanut                                                 
               l_P = xa_P / (bkcya_P + xa_P)                      !phosphate limitation 
+              bgctend(j,k,kcPlim) = l_P 
 
               xa_fe = avanfe         
               l_fe = xa_fe / (bkcya_fe + xa_fe)                  !iron limitation
+              bgctend(j,k,kcFlim) = l_fe 
 
               pho_fe = dtb*cya_growth_max*l_I*l_T*l_fe  
               pho_p  = dtb*cya_growth_max*l_I*l_T*l_P
@@ -208,6 +215,8 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
               ! -> ro2ut - 3 * rnit/rno2 = 172 - 3*16/2 = 148
               bgctra(j,k,ioxygen) = bgctra(j,k,ioxygen) + (pho - cyapro)*148._wp &
             &                       + cyapro*ro2ut                                            
+              
+              bgctend(j,k, kaou)   = satoxy(j,k) - bgctra(j,k,ioxygen)
 
               ! --------- change of total CO2
               bgctra(j,k,isco212) = bgctra(j,k,isco212) - pho*rcar

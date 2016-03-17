@@ -15,12 +15,16 @@ MODULE mo_hamocc_diagnostics
    USE mo_grid_subset, ONLY: t_subset_range, get_index_range
    USE mo_hamocc_nml, ONLY: io_stdo_bgc, l_cyadyn
    USE mo_dynamics_config,     ONLY: nold, nnew
-   USE mo_ocean_nml,   ONLY: n_zlev
+   USE mo_ocean_nml,   ONLY: n_zlev,no_tracer
    USE mo_bgc_constants, ONLY:  s2year, n2tgn, c2gtc, kilo
    USE mo_biomod, ONLY: p2gtc
    USE mo_control_bgc, ONLY: dtbgc
    USE mo_carbch, ONLY: totalarea
    USE mo_bgc_icon_comm, ONLY: to_bgcout
+   USE mo_param1_bgc, ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
+&                           iphy, izoo, icya, ioxygen, isilica, idoc, &
+&                           ian2o, idet, idoccya, iiron, icalc, iopal,&
+&                           idust, idms
 
 
 IMPLICIT NONE
@@ -41,6 +45,7 @@ TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
 
 CHARACTER(LEN=max_char_length) :: cpara_name, cpara_val
 INTEGER:: i_time_stat
+REAL(wp) :: glob_n2b, glob_pwn2b
 
 i_time_stat=nold(1)
 
@@ -88,11 +93,17 @@ CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calex2000(:,:), i_time_stat
 & hamocc_state%p_tend%monitor%calex2000(1), 1, ocean_state)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%opex2000(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%opex2000(1), 1, ocean_state)
-CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,4), &
+CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,ialkali+no_tracer), &
   i_time_stat,hamocc_state%p_tend%monitor%sfalk(1),-2)
-CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,3), &
+CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,isco212+no_tracer), &
   i_time_stat,hamocc_state%p_tend%monitor%sfdic(1),-2)
+CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,iphosph+no_tracer), &
+  i_time_stat,hamocc_state%p_tend%monitor%sfphos(1),-2)
+CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,isilica+no_tracer), &
+  i_time_stat,hamocc_state%p_tend%monitor%sfsil(1),-2)
 
+CALL calc_inventory_sed(p_patch_3d, hamocc_state%p_sed%pwn2b(:,:,:), porwat, glob_pwn2b)
+CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%n2budget(:,:,:), i_time_stat, glob_n2b,.TRUE.)
 
 ! Unit conversion 
 hamocc_state%p_tend%monitor%phosy(1) = hamocc_state%p_tend%monitor%phosy(1) * p2gtc
@@ -115,8 +126,12 @@ hamocc_state%p_tend%monitor%omex1000(1) = hamocc_state%p_tend%monitor%omex1000(1
 hamocc_state%p_tend%monitor%calex1000(1) = hamocc_state%p_tend%monitor%calex1000(1) * c2gtc
 hamocc_state%p_tend%monitor%omex2000(1) = hamocc_state%p_tend%monitor%omex2000(1) * p2gtc
 hamocc_state%p_tend%monitor%calex2000(1) = hamocc_state%p_tend%monitor%calex2000(1) * c2gtc
+! mean values of surface concentrations
 hamocc_state%p_tend%monitor%sfalk(1) = hamocc_state%p_tend%monitor%sfalk(1)/totalarea
 hamocc_state%p_tend%monitor%sfdic(1) = hamocc_state%p_tend%monitor%sfdic(1)/totalarea
+hamocc_state%p_tend%monitor%sfsil(1) = hamocc_state%p_tend%monitor%sfsil(1)/totalarea
+hamocc_state%p_tend%monitor%sfphos(1) = hamocc_state%p_tend%monitor%sfphos(1)/totalarea
+hamocc_state%p_tend%monitor%zalkn2(1) = glob_n2b + glob_pwn2b
 
 END SUBROUTINE get_monitoring
 
@@ -156,24 +171,41 @@ rcyano = MERGE(1._wp,0._wp, l_cyadyn)
 ! Calculate global inventories of individual tracers
 ! Water column
 
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,13), i_time_stat, glob_doc)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,15), i_time_stat, glob_det)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,8),  i_time_stat, glob_phy)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,9),  i_time_stat, glob_zoo)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,5),  i_time_stat, glob_phos)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,6),  i_time_stat, glob_nit)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,7),  i_time_stat, glob_gnit)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,14), i_time_stat, glob_n2o)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,12), i_time_stat, glob_sil)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,18), i_time_stat, glob_calc)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,19), i_time_stat, glob_opal)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,4),  i_time_stat, glob_alk)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,3),  i_time_stat, glob_dic)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,11),  i_time_stat, glob_o2)
-CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,17),  i_time_stat, glob_fe)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,idoc+no_tracer), &
+&                     i_time_stat, glob_doc)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,idet+no_tracer), &
+&                     i_time_stat, glob_det)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,iphy+no_tracer), &
+&                     i_time_stat, glob_phy)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,izoo+no_tracer), &
+&                     i_time_stat, glob_zoo)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,iphosph+no_tracer),&
+&                     i_time_stat, glob_phos)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,iano3+no_tracer),&
+&                     i_time_stat, glob_nit)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,igasnit+no_tracer),&
+&                     i_time_stat, glob_gnit)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,ian2o+no_tracer), &
+&                     i_time_stat, glob_n2o)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,isilica+no_tracer), &
+&                     i_time_stat, glob_sil)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,icalc+no_tracer), &
+&                     i_time_stat, glob_calc)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,iopal+no_tracer), &
+&                     i_time_stat, glob_opal)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,ialkali+no_tracer),&
+&                     i_time_stat, glob_alk)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,isco212+no_tracer),&
+&                     i_time_stat, glob_dic)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,ioxygen+no_tracer),&
+&                     i_time_stat, glob_o2)
+CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,iiron+no_tracer),&
+&                     i_time_stat, glob_fe)
 IF(l_cyadyn)THEN
- CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,10), i_time_stat, glob_cya)
- CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,16), i_time_stat, glob_doccya)
+ CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,icya+no_tracer),&
+&                      i_time_stat, glob_cya)
+ CALL calc_inventory3d(p_patch_3d, ocean_state, ocean_state%p_prog(i_time_stat)%tracer(:,:,:,idoccya+no_tracer),&
+&                      i_time_stat, glob_doccya)
 else
  glob_cya=0._wp
  glob_doccya=0._wp
@@ -317,7 +349,7 @@ CALL to_bgcout('prorca',glob_prorca)
 CALL to_bgcout('silpro',glob_silpro)
 CALL to_bgcout('produs',glob_produs)
 
-CALL to_bgcout('zalkn2',glob_n2b)
+CALL to_bgcout('zalkn2',glob_n2b+glob_pwn2b)
 
 CALL message(' ', ' ', io_stdo_bgc)
 CALL message('Global waethering fluxes', ' [kmol]', io_stdo_bgc)

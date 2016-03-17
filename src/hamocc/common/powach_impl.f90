@@ -10,7 +10,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
 
   USE mo_kind, ONLY        : wp
 
-  USE mo_carbch, ONLY      : bgctra,                           &
+  USE mo_carbch, ONLY      : bgctra, bgctend, satoxy,                     &
        &                     ak13, ak23, akb3, akw3, aksp, co3
 
   USE mo_sedmnt, ONLY      : sedlay, sedhpl, seddw, silpro, produs,      &
@@ -26,7 +26,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
 
   USE mo_control_bgc, ONLY : dtbgc, bgc_nproma, bgc_zlevs
 
-  USE mo_param1_bgc, ONLY  : ipowasi, isilica, issssil, ipowaox,     &
+  USE mo_param1_bgc, ONLY  : ipowasi, isilica, issssil, ipowaox, kaou,   &
        &                     ioxygen, issso12, ipowaph, ipowno3, ipown2, &
        &                     ipowaal, ipowaic, isssc12, ipowafe, issster
 
@@ -189,6 +189,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
 
         IF (bolay(j) > 0._wp) THEN
            bgctra(j,kbo(j),ioxygen)=sediso(0)
+           bgctend(j,kbo(j),kaou) = satoxy(j,kbo(j)) - bgctra(j,kbo(j),ioxygen) ! update AOU
            sedlay(j,1,issso12)                                     &
                 &      =sedlay(j,1,issso12)+prorca(j)/(porsol(1)*seddw(1))
            prorca(j) = 0._wp

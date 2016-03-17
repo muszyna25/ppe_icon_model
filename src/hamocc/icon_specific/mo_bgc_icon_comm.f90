@@ -118,7 +118,8 @@
 &             klevs,pddpo,jb,ptracer,p_diag,p_sed,p_tend)
 
       USE MO_CARBCH, ONLY: bgctra, co3, hi, bgctend, bgcflux, &
- &                         akw3,ak13,ak23,akb3,aksp 
+ &                         akw3,ak13,ak23,akb3,aksp,satoxy, &
+ &                         satn2, satn2o, solco2 
       USE MO_PARAM1_BGC, ONLY: n_bgctra, issso12,         &
  &                             isssc12, issssil, issster, &
  &                             ipowaic, ipowaal, ipowaph, &
@@ -144,7 +145,6 @@
       CHARACTER(LEN=max_char_length), PARAMETER :: &
                 routine = 'update_icon'
 
-!      CALL message(TRIM(routine), 'start' )
 
 !HAMOCC_OMP_PARALLEL
 !HAMOCC_OMP_DO PRIVATE(jc,kpke,jk,itrac) HAMOCC_OMP_DEFAULT_SCHEDULE
@@ -152,6 +152,9 @@
         kpke=klevs(jc)
         IF (pddpo(jc, 1) .GT. 0.5_wp) THEN
 
+          satn2(jc)  = p_tend%satn2(jc,jb)    
+          satn2o(jc) = p_tend%satn2o(jc,jb)    
+          solco2(jc) = p_tend%solco2(jc,jb)    
         DO jk =1,kpke
           DO itrac=no_tracer+1,no_tracer+n_bgctra
              bgctra(jc,jk,itrac-no_tracer)=ptracer(jc,jk,itrac) 
@@ -163,6 +166,7 @@
           ak23(jc, jk) = p_tend%ak2(jc,jk,jb)    
           akb3(jc, jk) = p_tend%akb(jc,jk,jb)    
           akw3(jc, jk) = p_tend%akw(jc,jk,jb)    
+          satoxy(jc, jk) = p_tend%satoxy(jc,jk,jb)    
           bgctend(jc,jk,kh2ob) =  p_tend%h2obudget(jc,jk,jb) 
           bgctend(jc,jk,kn2b) =  p_tend%n2budget(jc,jk,jb) 
         ENDDO
@@ -202,6 +206,12 @@
 
 !================================================================================== 
    SUBROUTINE set_bgc_output_pointers(timelevel,p_diag,p_prog)
+    
+    USE mo_param1_bgc, ONLY: isco212, ialkali, iphosph,iano3, igasnit, &
+&                            iphy, izoo, icya, ioxygen, isilica, idoc, &
+&                            ian2o, idet, idoccya, iiron, icalc, iopal,&
+&                            idust, idms
+
     INTEGER, INTENT(in) :: timelevel
     TYPE(t_hamocc_diag) :: p_diag
     TYPE(t_hydro_ocean_prog) :: p_prog
@@ -209,26 +219,26 @@
     CHARACTER(LEN=max_char_length) :: timelevel_str
     !-------------------------------------------------------------------------
     WRITE(timelevel_str,'(a,i2.2)') '_TL',timelevel
-    !write(0,*)'>>>>>>>>>>>>>>>> T timelevel_str:',TRIM(timelevel_str)
-    p_diag%dic(:,:,:)        =  p_prog%tracer(:,:,:,3)
-    p_diag%alk(:,:,:)        =  p_prog%tracer(:,:,:,4)
-    p_diag%po4(:,:,:)        =  p_prog%tracer(:,:,:,5)
-    p_diag%no3(:,:,:)        =  p_prog%tracer(:,:,:,6)
-    p_diag%n2(:,:,:)         =  p_prog%tracer(:,:,:,7)
-    p_diag%phy(:,:,:)        =  p_prog%tracer(:,:,:,8)
-    p_diag%zoo(:,:,:)        =  p_prog%tracer(:,:,:,9)
-    p_diag%cya(:,:,:)        =  p_prog%tracer(:,:,:,10)
-    p_diag%o2(:,:,:)         =  p_prog%tracer(:,:,:,11)
-    p_diag%si(:,:,:)         =  p_prog%tracer(:,:,:,12)
-    p_diag%doc(:,:,:)        =  p_prog%tracer(:,:,:,13)
-    p_diag%n2o(:,:,:)        =  p_prog%tracer(:,:,:,14)
-    p_diag%det(:,:,:)        =  p_prog%tracer(:,:,:,15)
-    p_diag%doccya(:,:,:)     =  p_prog%tracer(:,:,:,16)
-    p_diag%iron(:,:,:)       =  p_prog%tracer(:,:,:,17)
-    p_diag%dms(:,:,:)        =  p_prog%tracer(:,:,:,18)
-    p_diag%calc(:,:,:)       =  p_prog%tracer(:,:,:,19)
-    p_diag%opal(:,:,:)       =  p_prog%tracer(:,:,:,20)
-    p_diag%dust(:,:,:)       =  p_prog%tracer(:,:,:,21)
+
+    p_diag%dic(:,:,:)        =  p_prog%tracer(:,:,:,isco212+no_tracer)
+    p_diag%alk(:,:,:)        =  p_prog%tracer(:,:,:,ialkali+no_tracer)
+    p_diag%po4(:,:,:)        =  p_prog%tracer(:,:,:,iphosph+no_tracer)
+    p_diag%no3(:,:,:)        =  p_prog%tracer(:,:,:,iano3+no_tracer)
+    p_diag%n2(:,:,:)         =  p_prog%tracer(:,:,:,igasnit+no_tracer)
+    p_diag%phy(:,:,:)        =  p_prog%tracer(:,:,:,iphy+no_tracer)
+    p_diag%zoo(:,:,:)        =  p_prog%tracer(:,:,:,izoo+no_tracer)
+    p_diag%cya(:,:,:)        =  p_prog%tracer(:,:,:,icya+no_tracer)
+    p_diag%o2(:,:,:)         =  p_prog%tracer(:,:,:,ioxygen+no_tracer)
+    p_diag%si(:,:,:)         =  p_prog%tracer(:,:,:,isilica+no_tracer)
+    p_diag%doc(:,:,:)        =  p_prog%tracer(:,:,:,idoc+no_tracer)
+    p_diag%n2o(:,:,:)        =  p_prog%tracer(:,:,:,ian2o+no_tracer)
+    p_diag%det(:,:,:)        =  p_prog%tracer(:,:,:,idet+no_tracer)
+    p_diag%doccya(:,:,:)     =  p_prog%tracer(:,:,:,idoccya+no_tracer)
+    p_diag%iron(:,:,:)       =  p_prog%tracer(:,:,:,iiron+no_tracer)
+    p_diag%dms(:,:,:)        =  p_prog%tracer(:,:,:,idms+no_tracer)
+    p_diag%calc(:,:,:)       =  p_prog%tracer(:,:,:,icalc+no_tracer)
+    p_diag%opal(:,:,:)       =  p_prog%tracer(:,:,:,iopal+no_tracer)
+    p_diag%dust(:,:,:)       =  p_prog%tracer(:,:,:,idust+no_tracer)
    
   END SUBROUTINE 
 !================================================================================== 
@@ -238,7 +248,8 @@
       
       USE mo_biomod, ONLY: bolay
       USE mo_carbch, ONLY: bgctend, bgcflux, hi, co3, bgctra, sedfluxo, &
- &                         akw3, akb3, aksp, ak13, ak23
+ &                         akw3, akb3, aksp, ak13, ak23, satoxy, satn2, &
+ &                         satn2o, solco2
 
       USE mo_param1_bgc, ONLY: kphosy, ksred, kremin, kdenit, &
  &                             kcflux, koflux, knflux, knfixd, &
@@ -256,7 +267,8 @@
 &                              kopex90, kgraton, kexudp, kexudz, &
 &                              kzdy, kpdy,kcoex1000,kcoex2000, &
 &                              kopex1000,kopex2000,kcalex1000,&
-&                              kcalex2000
+&                              kcalex2000, kaou, kcTlim, kcLlim, &
+&                              kcPlim, kcFlim
   
       USE mo_sedmnt, ONLY : pown2bud, powh2obud, sedtend, &
 &                           isremino, isreminn, isremins
@@ -335,7 +347,16 @@
              p_tend%flim(jc,jk,jb) = bgctend(jc,jk,kflim)
              p_tend%nlim(jc,jk,jb) = bgctend(jc,jk,knlim)
              p_tend%plim(jc,jk,jb) = bgctend(jc,jk,kplim)
+             p_tend%cTlim(jc,jk,jb) = bgctend(jc,jk,kcTlim)
+             p_tend%cLlim(jc,jk,jb) = bgctend(jc,jk,kcLlim)
+             p_tend%cPlim(jc,jk,jb) = bgctend(jc,jk,kcPlim)
+             p_tend%cFlim(jc,jk,jb) = bgctend(jc,jk,kcFlim)
+             p_tend%satoxy(jc,jk,jb)    = satoxy(jc,jk) 
+             p_tend%aou(jc,jk,jb) = bgctend(jc,jk,kaou)
         ENDDO
+        p_tend%satn2(jc,jb)    = satn2(jc) 
+        p_tend%satn2o(jc,jb)    = satn2o(jc) 
+        p_tend%solco2(jc,jb)    = solco2(jc) 
         ! Sediment
         ! Burial layers
         p_sed%bo12(jc,jb) = burial(jc,issso12)

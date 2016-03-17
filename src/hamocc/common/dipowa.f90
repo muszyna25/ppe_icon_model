@@ -15,7 +15,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 
   USE mo_kind, ONLY           : wp
 
-  USE mo_carbch, ONLY         : bgctra, sedfluxo
+  USE mo_carbch, ONLY         : bgctra, sedfluxo, satoxy, bgctend
 
   USE mo_sedmnt, ONLY         : sedict, seddzi, seddw, &
        &                        porwah, porwat, powtra,&
@@ -29,7 +29,7 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
   &                             ipowno3, ipowasi, iphosph, iano3, &
   &                             isilica, ipowafe, iiron, ialkali, &  
   &                             isco212, igasnit, ipowaph, ipowaal, &
-  &                             ipown2, ipowaic 
+  &                             ipown2, ipowaic, kaou 
 
   IMPLICIT NONE
 
@@ -183,6 +183,9 @@ SUBROUTINE DIPOWA (start_idx,end_idx)
 
 
      END DO
+     ! update AOU
+     IF (bolay( j) > 0._wp)bgctend(j,kbo(j),kaou) = satoxy(j,kbo(j)) - bgctra(j,kbo(j),ioxygen)
+     
 
 
   END DO ! j loop

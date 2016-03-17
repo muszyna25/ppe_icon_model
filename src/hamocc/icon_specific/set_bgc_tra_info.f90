@@ -1,166 +1,190 @@
-      SUBROUTINE set_bgc_tracer_info(max_oce_tracer,bgc_tracer_names,&
+      SUBROUTINE set_bgc_tracer_info(no_tracer,max_oce_tracer,bgc_tracer_names,&
       & bgc_tracer_longnames,&
       & bgc_tracer_codes,&
       & bgc_tracer_units, suffix)
       USE mo_impl_constants,         ONLY: max_char_length
 
-      INTEGER, INTENT(in)            :: max_oce_tracer
+      INTEGER, INTENT(in)            :: max_oce_tracer, no_tracer
       CHARACTER(LEN=max_char_length) :: bgc_tracer_names(max_oce_tracer),&
       & bgc_tracer_units(max_oce_tracer),&
       & bgc_tracer_longnames(max_oce_tracer)
-      INTEGER :: bgc_tracer_codes(max_oce_tracer)
+      INTEGER :: bgc_tracer_codes(max_oce_tracer),itrac, last_oce_code
       CHARACTER(LEN=max_char_length), OPTIONAL :: suffix
     
-       bgc_tracer_names(3)     = 'dic'
+       last_oce_code=bgc_tracer_codes(no_tracer)
+
+       ! Note: tracers are ordered according to HAMOCC ids in mo_parameter1_bgc
+
+       itrac = no_tracer + 1
+       bgc_tracer_names(itrac)     = 'dic'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(3) = 'dic'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'dic'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(3) = 'dissolved inorganic carbon'
-       bgc_tracer_units(3)     = 'kmol C m-3'
-       bgc_tracer_codes(3)     = 203
+       bgc_tracer_longnames(itrac) = 'dissolved inorganic carbon'
+       bgc_tracer_units(itrac)     = 'kmol C m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
     
-       bgc_tracer_names(4)     = 'alk'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'alk'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(4) = 'alk_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'alk_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(4) = 'alkalinity'
-       bgc_tracer_units(4)     = 'kmol m-3'
-       bgc_tracer_codes(4)     = 204
+       bgc_tracer_longnames(itrac) = 'alkalinity'
+       bgc_tracer_units(itrac)     = 'kmol m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
     
-       bgc_tracer_names(5)     = 'phosph'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'phosph'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(5) = 'phosph_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'phosph_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(5) = 'phosphate'
-       bgc_tracer_units(5)     = 'kmol P m-3'
-       bgc_tracer_codes(5)     = 205
+       bgc_tracer_longnames(itrac) = 'phosphate'
+       bgc_tracer_units(itrac)     = 'kmol P m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(6)     = 'nitrate'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'nitrate'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(6) = 'nitrate_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'nitrate_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(6) = 'nitrate'
-       bgc_tracer_units(6)     = 'kmol P m-3'
-       bgc_tracer_codes(6)     = 206
+       bgc_tracer_longnames(itrac) = 'nitrate'
+       bgc_tracer_units(itrac)     = 'kmol P m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(7)     = 'gasnit'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'gasnit'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(7) = 'gasnit_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'gasnit_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(7) = 'gaseous nitrogen'
-       bgc_tracer_units(7)     = 'kmol N m-3'
-       bgc_tracer_codes(7)     = 207
+       bgc_tracer_longnames(itrac) = 'gaseous nitrogen'
+       bgc_tracer_units(itrac)     = 'kmol N m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(8)     = 'phy'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'phy'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(8) = 'phy_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'phy_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(8) = 'phytoplankton'
-       bgc_tracer_units(8)     = 'kmol P m-3'
-       bgc_tracer_codes(8)     = 208
+       bgc_tracer_longnames(itrac) = 'phytoplankton'
+       bgc_tracer_units(itrac)     = 'kmol P m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(9)     = 'zoo'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'zoo'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(9) = 'zoo_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'zoo_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(9) = 'zooplankton'
-       bgc_tracer_units(9)     = 'kmol P m-3'
-       bgc_tracer_codes(9)     = 209
+       bgc_tracer_longnames(itrac) = 'zooplankton'
+       bgc_tracer_units(itrac)     = 'kmol P m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(10)     = 'cyano'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'cyano'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(10) = 'cyano_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'cyano_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(10) = 'cyanobacteria'
-       bgc_tracer_units(10)     = 'kmol P m-3'
-       bgc_tracer_codes(10)     = 210
+       bgc_tracer_longnames(itrac) = 'cyanobacteria'
+       bgc_tracer_units(itrac)     = 'kmol P m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(11)     = 'oxygen'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'oxygen'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(11) = 'oxygen_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'oxygen_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(11) = 'oxygen'
-       bgc_tracer_units(11)     = 'kmol m-3'
-       bgc_tracer_codes(11)     = 211
+       bgc_tracer_longnames(itrac) = 'oxygen'
+       bgc_tracer_units(itrac)     = 'kmol m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(12)     = 'silica'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'silica'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(12) = 'silica_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'silica_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(12) = 'silicate'
-       bgc_tracer_units(12)     = 'kmol m-3'
-       bgc_tracer_codes(12)     = 212
+       bgc_tracer_longnames(itrac) = 'silicate'
+       bgc_tracer_units(itrac)     = 'kmol m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(13)     = 'doc'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'doc'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(13) = 'doc_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'doc_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(13) = 'dissolved_organic_carbon'
-       bgc_tracer_units(13)     = 'kmol P m-3'
-       bgc_tracer_codes(13)     = 213
+       bgc_tracer_longnames(itrac) = 'dissolved_organic_carbon'
+       bgc_tracer_units(itrac)     = 'kmol P m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(14)     = 'an2o'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'an2o'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(14) = 'an2o_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'an2o_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(14) = 'an2o'
-       bgc_tracer_units(14)     = 'kmol  m-3'
-       bgc_tracer_codes(14)     = 214
+       bgc_tracer_longnames(itrac) = 'an2o'
+       bgc_tracer_units(itrac)     = 'kmol  m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(15)     = 'det'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'det'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(15) = 'det_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'det_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(15) = 'particulate_organic_carbon'
-       bgc_tracer_units(15)     = 'kmol P m-3'
-       bgc_tracer_codes(15)     = 215
+       bgc_tracer_longnames(itrac) = 'particulate_organic_carbon'
+       bgc_tracer_units(itrac)     = 'kmol P m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
       
-       bgc_tracer_names(16)     = 'doccya'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'doccya'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(16) = 'doccya_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'doccya_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(16) = 'dissolved_organic_carbon of cyanos'
-       bgc_tracer_units(16)     = 'kmol P m-3'
-       bgc_tracer_codes(16)     = 216
+       bgc_tracer_longnames(itrac) = 'dissolved_organic_carbon of cyanos'
+       bgc_tracer_units(itrac)     = 'kmol P m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(17)     = 'iron'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'iron'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(17) = 'iron_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'iron_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(17) = 'iron'
-       bgc_tracer_units(17)     = 'kmol Fe m-3'
-       bgc_tracer_codes(17)     = 217
+       bgc_tracer_longnames(itrac) = 'iron'
+       bgc_tracer_units(itrac)     = 'kmol Fe m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(18)     = 'dms'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'dms'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(18) = 'dms_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'dms_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(18) = 'dms'
-       bgc_tracer_units(18)     = 'kmol DMS m-3'
-       bgc_tracer_codes(18)     = 218
+       bgc_tracer_longnames(itrac) = 'dms'
+       bgc_tracer_units(itrac)     = 'kmol DMS m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(19)     = 'calc'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'calc'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(19) = 'calc_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'calc_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(19) = 'calcium_carbonate'
-       bgc_tracer_units(19)     = 'kmol C m-3'
-       bgc_tracer_codes(19)     = 219
+       bgc_tracer_longnames(itrac) = 'calcium_carbonate'
+       bgc_tracer_units(itrac)     = 'kmol C m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
-       bgc_tracer_names(20)     = 'opal'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'opal'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(20) = 'opal_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'opal_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(20) = 'opal shells'
-       bgc_tracer_units(20)     = 'kmol m-3'
-       bgc_tracer_codes(20)     = 220
+       bgc_tracer_longnames(itrac) = 'opal shells'
+       bgc_tracer_units(itrac)     = 'kmol m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
 
 
-       bgc_tracer_names(21)     = 'dust'
+       itrac=itrac+1
+       bgc_tracer_names(itrac)     = 'dust'
        IF (PRESENT(suffix)) THEN
-        bgc_tracer_names(21) = 'dust_'//TRIM(suffix)
+        bgc_tracer_names(itrac) = 'dust_'//TRIM(suffix)
        END IF
-       bgc_tracer_longnames(21) = 'free dust in seawater'
-       bgc_tracer_units(21)     = 'kmol m-3'
-       bgc_tracer_codes(21)     = 221
+       bgc_tracer_longnames(itrac) = 'free dust in seawater'
+       bgc_tracer_units(itrac)     = 'kmol m-3'
+       bgc_tracer_codes(itrac)     = last_oce_code+itrac
+
        END SUBROUTINE

@@ -415,7 +415,7 @@ CONTAINS
         & oce_tracer_units,     &
         & var_suffix)
       if(lhamocc)then 
-      CALL set_bgc_tracer_info(max_oce_tracer+nbgctra      , &
+      CALL set_bgc_tracer_info(no_tracer,max_oce_tracer+nbgctra      , &
         & oce_tracer_names    , &
         & oce_tracer_longnames, &
         & oce_tracer_codes    , &

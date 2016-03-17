@@ -106,7 +106,12 @@ MODULE mo_param1_bgc
       &                 kexudz    = 24,               &
       &                 kzdy      = 25,               &
       &                 kpdy      = 26,               &
-                        nbgctend  = 26 
+      &                 kaou      = 27,               &
+      &                 kcLlim    = 28,               &
+      &                 kcTlim    = 29,               &
+      &                 kcPlim    = 30,               &
+      &                 kcFlim    = 31,               &
+                        nbgctend  = 31 
  
   INTEGER, PARAMETER :: kcflux     = 1,               &
       &                 koflux     = 2,               &

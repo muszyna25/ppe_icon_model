@@ -52,6 +52,8 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER :: net_co2_flux(:)
     REAL(wp), POINTER :: sfalk(:)
     REAL(wp), POINTER :: sfdic(:)
+    REAL(wp), POINTER :: sfphos(:)
+    REAL(wp), POINTER :: sfsil(:)
     REAL(wp), POINTER :: bacfra(:)
     REAL(wp), POINTER :: bacfrac(:)
     REAL(wp), POINTER :: phymor(:)
@@ -65,6 +67,7 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER :: cyaldet(:)
     REAL(wp), POINTER :: delsil(:)
     REAL(wp), POINTER :: delcar(:)
+    REAL(wp), POINTER :: zalkn2(:)
   END TYPE t_hamocc_monitor
 
   TYPE t_hamocc_diag
@@ -188,6 +191,15 @@ MODULE mo_hamocc_types
     REAL(wp), POINTER ::  akw(:,:,:)       
     REAL(wp), POINTER ::  ak1(:,:,:)       
     REAL(wp), POINTER ::  ak2(:,:,:)       
+    REAL(wp), POINTER ::  satoxy(:,:,:)       
+    REAL(wp), POINTER ::  satn2(:,:)       
+    REAL(wp), POINTER ::  satn2o(:,:)       
+    REAL(wp), POINTER ::  solco2(:,:)       
+    REAL(wp), POINTER ::  aou(:,:,:)       
+    REAL(wp), POINTER ::  cTlim(:,:,:)       
+    REAL(wp), POINTER ::  cLlim(:,:,:)       
+    REAL(wp), POINTER ::  cPlim(:,:,:)       
+    REAL(wp), POINTER ::  cFlim(:,:,:)       
   END TYPE t_hamocc_acc
 
   TYPE, EXTENDS(t_hamocc_acc):: t_hamocc_tend

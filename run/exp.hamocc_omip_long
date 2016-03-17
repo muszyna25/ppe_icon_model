@@ -24,14 +24,6 @@ output_interval="P${days_data}D"                  # ocean model output interval 
 autoPostProcessing="true"                         # submit postprocessing job
 #steps_per_file=610                               # assigned output intervals per file interval
 #-----------------------------------------------------------------------------
-use_hamocc=yes
-if [  "x${use_hamocc}"  = "xyes" ]; then
-lhamocc=".true."
-lbgcadv=".true."
-else
-lhamocc=".false."
-lbgcadv=".false."
-fi
 # global resolution
 iforc=12
 forcing_timescale=365  # length of OMIP/NCEP dataset: 1 = annual; 12 = monthly data; 365/else = daily data
@@ -39,6 +31,28 @@ init_relax=1
 ocean_vertical_levels=40
 ocean_grids="iconR2B02-ocean_etopo40_planet.nc"   #  R2B02 global grid and forcing data 
 ocean_grids="OceanOnly_Icos_0158km_etopo40.nc"    #  default R2B04 without land-points
+
+# HAMOCC
+use_hamocc=yes
+if [  "x${use_hamocc}"  = "xyes" ]; then
+lhamocc=".true."
+lbgcadv=".true."
+nlev_eu=$ocean_vertical_levels
+# set nlev_eu to level belonging to approx 500m
+if [ "x$ocean_vertical_levels" = "x40" ];then
+nlev_eu=19
+fi
+if [ "x$ocean_vertical_levels" = "x64" ];then
+nlev_eu=26
+fi
+if [ "x$ocean_vertical_levels" = "x20" ];then
+nlev_eu=16
+fi
+else
+lhamocc=".false."
+lbgcadv=".false."
+fi
+
 #-----------------------------------------------------------------------------
 #
 # write namelist parameters
@@ -135,7 +149,7 @@ cat >> ${ocean_namelist} << EOF1
 /
 &output_nml
   filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
-  output_filename  = "${EXPNAME}_hamocc_tendencies"
+  output_filename  = "${EXPNAME}_hamocc_3d_tendencies"
   output_start     = "${start_date}"                  ! start in ISO-format
   output_end       = "${end_date}"                    ! end in ISO-format
   output_interval  = "P30D"
@@ -144,8 +158,34 @@ cat >> ${ocean_namelist} << EOF1
   include_last     = .TRUE.
   output_grid      = .TRUE.
   filename_format  = "<output_filename>_<datetime2>"
-  ml_varlist       =  'group:HAMOCC_TEND'
-!  ml_varlist       =  'prcaca','prorca'
+  ml_varlist       =  'BACFRA','degr_bac_cya','SRED','REMIN','DENIT','delsil','delcar','aou'
+/
+&output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_hamocc_EU_tendencies"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "P30D"
+  steps_per_file   = ${steps_per_file}                ! error with ""
+  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .TRUE.
+  output_grid      = .TRUE.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       =  'NPP','nfix','dms_prod','dms_bac','dms_uv','eu_export','pho_cya','cya_loss','grazing','remin_via_grazer','exudation_phy','exudation_zoo','zoomor','phymor','plim','flim','nlim','cTlim','cLlim','cPlim','cFlim'
+  m_levels          ='1...${nlev_eu}'  ! ~500m: 19 for L40, 16 for L20, 26 for L64
+/
+&output_nml
+  filetype         =  4                       ! output format: 2=GRIB2, 4=NETCDFv2
+  output_filename  = "${EXPNAME}_hamocc_2d_tendencies"
+  output_start     = "${start_date}"                  ! start in ISO-format
+  output_end       = "${end_date}"                    ! end in ISO-format
+  output_interval  = "P30D"
+  steps_per_file   = ${steps_per_file}                ! error with ""
+  mode             =  2                               ! 1: forecast mode (relative t-axis), 2: climate mode (absolute t-axis)
+  include_last     = .TRUE.
+  output_grid      = .TRUE.
+  filename_format  = "<output_filename>_<datetime2>"
+  ml_varlist       =  'co2flux','orginp','dmsflux','silinp','calinp','o2flux','n2flux','n2oflux','nfix_diag','coex90','calex90','opex90','coex1000','opex1000','calex1000','coex2000','opex2000','calex2000'
 /
 EOF1
 fi

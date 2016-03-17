@@ -706,6 +706,41 @@
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
+   CALL add_var(hamocc_acc_list, 'aou',hamocc_state_acc%aou,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('aou','kmol O2 m-3','apparent O2 utilisation', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 143, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+   CALL add_var(hamocc_acc_list, 'cTlim',hamocc_state_acc%cTlim,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('cTlim',' ','Temp_limitation of cyanobacteria growth', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+   CALL add_var(hamocc_acc_list, 'cLlim',hamocc_state_acc%cLlim,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('cLlim',' ','Light_limitation of cyanobacteria growth', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+   CALL add_var(hamocc_acc_list, 'cPlim',hamocc_state_acc%cPlim,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('cPlim',' ','P_limitation of cyanobacteria growth', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+   CALL add_var(hamocc_acc_list, 'cFlim',hamocc_state_acc%cFlim,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('cFlim',' ','Fe_limitation of cyanobacteria growth', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.TRUE., lrestart=.FALSE.)
+
     CALL message(TRIM(routine), 'construct hamocc acc end')
   END SUBROUTINE 
 
@@ -957,6 +992,26 @@
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
 
+   CALL add_var(hamocc_tendency_list, 'global_surface_phosphate', hamocc_state_moni%sfphos , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_surface_phoshate', 'kmol  m-3', 'global_surface_phosphate', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 536, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+   CALL add_var(hamocc_tendency_list, 'global_surface_silicate', hamocc_state_moni%sfsil , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_surface_silicate', 'kmol  m-3', 'global_surface_silicate', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 537, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+   CALL add_var(hamocc_tendency_list, 'zalkn2', hamocc_state_moni%zalkn2 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('zalkn2', 'kmol ', 'global_H+_compensation_for_N2_production/fixation', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 538, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE.)
   END SUBROUTINE 
 
 
@@ -1172,6 +1227,34 @@
       & grid_unstructured_cell, za_depth_below_sea,&
       & t_cf_var('nlim','','N_limitation of PP', DATATYPE_FLT32), &
       & grib2_var(255, 255, 140, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'cTlim',hamocc_state_tend%cTlim,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('cTlim','','Temp_limitation of cyanobacteria growth', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'cLlim',hamocc_state_tend%cLlim,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('cLlim','','Light_limitation of cyanobacteria growth', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'cPlim',hamocc_state_tend%cPlim,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('cPlim','','P_limitation of cyanobacteria growth', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_acc_list, 'cFlim',hamocc_state_tend%cFlim,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('cFlim','','Fe_limitation of cyanobacteria growth', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)
 
@@ -1432,6 +1515,41 @@
     CALL add_var(hamocc_tendency_list, 'aksp',hamocc_state_tend%aksp,    &
       & grid_unstructured_cell, za_depth_below_sea,&
       & t_cf_var('aksp','','apparent solubility product', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'satoxy',hamocc_state_tend%satoxy,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('satoxy','','O2 at saturation', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'satn2',hamocc_state_tend%satn2,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('satn2','','N2 at saturation', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'satn2o',hamocc_state_tend%satn2o,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('satn2o','','N2O at saturation', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'solco2',hamocc_state_tend%solco2,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('solco2','','CO2 solubility', DATATYPE_FLT32), &
+      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & loutput=.FALSE., lrestart=.FALSE.)
+
+    CALL add_var(hamocc_tendency_list, 'aou',hamocc_state_tend%aou,    &
+      & grid_unstructured_cell, za_depth_below_sea,&
+      & t_cf_var('aou','','apparent O2 utilisation ', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)

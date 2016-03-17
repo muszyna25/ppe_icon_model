@@ -276,9 +276,9 @@ CONTAINS
     zUnderIceArt(:,:) = 0.0_wp
 
     if(lhamocc)then 
-    DO i_bgc_tra = 3, 2+nbgctra
+    DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
       ! for HAMOCC tracer dilution
-      bgctra_inter(:,:,i_bgc_tra-2)  = p_os%p_prog(nold(1))%tracer(:,1,:,i_bgc_tra)
+      bgctra_inter(:,:,i_bgc_tra-no_tracer)  = p_os%p_prog(nold(1))%tracer(:,1,:,i_bgc_tra)
     ENDDO
     endif
 
@@ -783,13 +783,11 @@ CONTAINS
           sss_inter(jc,jb)   = p_oce_sfc%sss(jc,jb) * zUnderIceArt(jc,jb) / p_ice%zUnderIce(jc,jb)
         
           if(lhamocc.and.p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)>0.5)then 
-          !write(0,*)'in dilute', i_bgc_tra,nbgctra, jc,jb 
-          DO i_bgc_tra = 3, 2+nbgctra
+          DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
            ! for HAMOCC tracer dilution
              
-           !  write(0,*)p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra),i_bgc_tra 
 
-             bgctra_inter(jc,jb,i_bgc_tra-2)  = p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) &
+             bgctra_inter(jc,jb,i_bgc_tra-no_tracer)  = p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) &
            &        * zUnderIceArt(jc,jb) / p_ice%zUnderIce(jc,jb)
           ENDDO
           endif
@@ -801,9 +799,9 @@ CONTAINS
           p_oce_sfc%SSS(jc,jb)   = sss_inter(jc,jb) * zUnderIceOld(jc,jb) / p_ice%zUnderIce(jc,jb)
 
           if(lhamocc.and.p_patch_3D%p_patch_1D(1)%prism_thick_c(jc,1,jb)>0.5)then 
-          DO i_bgc_tra = 3, 2+nbgctra
+          DO i_bgc_tra = no_tracer+1, no_tracer+nbgctra
            ! HAMOCC tracer dilution
-             p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) =  bgctra_inter(jc,jb,i_bgc_tra-2)  &
+             p_os%p_prog(nold(1))%tracer(jc,1,jb,i_bgc_tra) =  bgctra_inter(jc,jb,i_bgc_tra-no_tracer)  &
             & * zUnderIceOld(jc,jb)/  p_ice%zUnderIce(jc,jb)
           ENDDO
           endif
