@@ -6,11 +6,12 @@
 import os
 import glob
 import shutil
+import sys
 #-----------------------------------------------------------------------
 class model_paths(object):
   
   def __init__(self):
-    self.thisPath   = os.getcwd()
+    self.thisPath   = os.getcwd()+'/'+os.path.dirname(sys.argv[0])
     splitPath       = os.path.split(self.thisPath)
     splitPath       = os.path.split(splitPath[0])
     self.basePath   = splitPath[0]
