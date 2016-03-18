@@ -223,6 +223,7 @@ CONTAINS
     ENDIF
 
     !---------------------------------------------------------------------
+
     ! 1.1 Read namelists (newly) specified by the user; fill the
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------

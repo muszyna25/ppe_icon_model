@@ -51,7 +51,7 @@ MODULE mo_nh_stepping
     &                                    timer_bdy_interp, timer_feedback, timer_nesting, &
     &                                    timer_integrate_nh, timer_nh_diagnostics,        &
     &                                    timer_iconam_echam
-  USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,       ONLY: dt_phy, atm_phy_nwp_config, iprog_aero
   USE mo_nwp_phy_init,             ONLY: init_nwp_phy, init_cloud_aero_cpl
   USE mo_nwp_phy_state,            ONLY: prm_diag, prm_nwp_tend, phy_params
   USE mo_lnd_nwp_config,           ONLY: nlev_soil, nlev_snow, sstice_mode
@@ -94,6 +94,7 @@ MODULE mo_nh_stepping
   USE mo_solve_nonhydro,           ONLY: solve_nh
   USE mo_update_dyn,               ONLY: add_slowphys
   USE mo_advection_stepping,       ONLY: step_advection
+  USE mo_advection_aerosols,       ONLY: aerosol_2D_advection, setup_aerosol_advection
   USE mo_integrate_density_pa,     ONLY: integrate_density_pa
   USE mo_nh_dtp_interface,         ONLY: prepare_tracer, compute_airmass
   USE mo_nh_diffusion,             ONLY: diffusion
@@ -152,8 +153,8 @@ MODULE mo_nh_stepping
     &                                    calc_mean_opt_acc, p_nh_opt_diag
   USE mo_var_list,                 ONLY: nvar_lists, var_lists, print_var_list
   USE mo_async_latbc,              ONLY: prefetch_input
-  USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, start_latbc_tlev, &
-    &                                    end_latbc_tlev, latbc_data, update_lin_interpolation
+  USE mo_async_latbc_utils,        ONLY: deallocate_pref_latbc_data, new_latbc_tlev, &
+    &                                    prev_latbc_tlev, latbc_data, update_lin_interpolation
   USE mo_nonhydro_types,           ONLY: t_nh_state
   USE mo_interface_les,            ONLY: init_les_phy_interface
   USE mo_fortran_tools,            ONLY: swap, copy, init
@@ -352,6 +353,8 @@ MODULE mo_nh_stepping
       IF (.NOT.isRestart()) THEN
         CALL init_cloud_aero_cpl (mtime_current, p_patch(jg), p_nh_state(jg)%metrics, ext_data(jg), prm_diag(jg))
       ENDIF
+
+      IF (iprog_aero == 1) CALL setup_aerosol_advection(p_patch(jg))
 
     ENDDO
     IF (.NOT.isRestart()) THEN
@@ -732,7 +735,7 @@ MODULE mo_nh_stepping
     IF (jstep-jstep0 == 1) atm_phy_nwp_config(:)%lcalc_acc_avg = .TRUE.
 
     ! read boundary data if necessary
-    IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (num_prefetch_proc /= 1)) &
+    IF (l_limited_area .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) &
       CALL read_latbc_data(p_patch(1), p_nh_state(1), p_int_state(1), mtime_current)
 
     IF (msg_level > 2) THEN
@@ -1132,7 +1135,7 @@ MODULE mo_nh_stepping
 #endif
 
     ! prefetch boundary data if necessary
-    IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
+    IF(num_prefetch_proc >= 1 .AND. latbc_config%itype_latbc > 0) THEN
        CALL prefetch_input( mtime_current, p_patch(1), p_int_state(1), p_nh_state(1))
     ENDIF
 
@@ -1212,7 +1215,7 @@ MODULE mo_nh_stepping
     TYPE(timedelta), POINTER :: mtime_dt_sub
     REAL(wp):: rdt_loc,  rdtmflx_loc ! inverse time step for local grid level
 
-    LOGICAL :: lnest_active, lcall_rrg
+    LOGICAL :: lnest_active, lcall_rrg, lbdy_nudging
 
     INTEGER, PARAMETER :: nsteps_nest=2 ! number of time steps executed in nested domain
 
@@ -1295,11 +1298,31 @@ MODULE mo_nh_stepping
 
       IF ( p_patch(jg)%n_childdom > 0 .AND. ndyn_substeps_var(jg) > 1) THEN
 
+        lbdy_nudging = .FALSE.
+        lnest_active = .FALSE.
+        DO jn = 1, p_patch(jg)%n_childdom
+          jgc = p_patch(jg)%child_id(jn)
+          IF (p_patch(jgc)%ldom_active) THEN
+            lnest_active = .TRUE.
+            IF (.NOT. lfeedback(jgc)) lbdy_nudging = .TRUE.
+          ENDIF
+        ENDDO
+
         ! Save prognostic variables at current timestep to compute
         ! interpolation tendencies
         n_now  = nnow(jg)
         n_save = nsav1(jg)
-        CALL save_progvars(jg,p_nh_state(jg)%prog(n_now),p_nh_state(jg)%prog(n_save))
+        IF (lbdy_nudging) THEN ! full copy needed
+!$OMP PARALLEL
+          CALL copy(p_nh_state(jg)%prog(n_now)%vn,p_nh_state(jg)%prog(n_save)%vn)
+          CALL copy(p_nh_state(jg)%prog(n_now)%w,p_nh_state(jg)%prog(n_save)%w)
+          CALL copy(p_nh_state(jg)%prog(n_now)%rho,p_nh_state(jg)%prog(n_save)%rho)
+          CALL copy(p_nh_state(jg)%prog(n_now)%theta_v,p_nh_state(jg)%prog(n_save)%theta_v)
+!$OMP END PARALLEL
+        ELSE IF (lnest_active) THEN ! optimized copy restricted to nest boundary points
+          CALL save_progvars(jg,p_nh_state(jg)%prog(n_now),p_nh_state(jg)%prog(n_save))
+        ENDIF
+
       ENDIF
 
 
@@ -1532,6 +1555,16 @@ MODULE mo_nh_stepping
             &          opt_q_int=p_nh_state(jg)%diag%q_int,                  & !out
             &          opt_ddt_tracer_adv=p_nh_state(jg)%diag%ddt_tracer_adv ) !out
 
+          IF (iprog_aero == 1) THEN
+
+            CALL aerosol_2D_advection( p_patch(jg), p_int_state(jg), dt_loc, & !in
+            &          prm_diag(jg)%aerosol, prep_adv(jg)%vn_traj,           & !inout, in
+            &          prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,   & !in
+            &          p_nh_state(jg)%metrics%ddqz_z_full_e,                 & !in
+            &          p_nh_state(jg)%diag%airmass_now,                      & !in
+            &          p_nh_state(jg)%diag%airmass_new                       ) !in
+
+          ENDIF
 
         ! ART tracer sedimentation:
         !     Internal substepping with ndyn_substeps_var(jg)
@@ -1709,13 +1742,13 @@ MODULE mo_nh_stepping
 
          IF (latbc_config%itype_latbc > 0) THEN ! use time-dependent boundary data
 
-            IF (num_prefetch_proc == 1) THEN
+            IF (num_prefetch_proc >= 1) THEN
 
                ! update the coefficients for the linear interpolation
                CALL update_lin_interpolation(datetime_local(jg)%ptr)
                CALL prep_outer_bdy_nudging(p_patch(jg),p_nh_state(jg)%prog(nnew(jg)),p_nh_state(jg)%prog(n_new_rcf), &
-                    p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=latbc_data(end_latbc_tlev)%atm,           &
-                    p_latbc_new=latbc_data(start_latbc_tlev)%atm)
+                    p_nh_state(jg)%metrics,p_nh_state(jg)%diag,p_latbc_old=latbc_data(prev_latbc_tlev)%atm,           &
+                    p_latbc_new=latbc_data(new_latbc_tlev)%atm)
             ELSE
 
                ! update the coefficients for the linear interpolation
@@ -1836,9 +1869,9 @@ MODULE mo_nh_stepping
               CALL feedback(p_patch, p_nh_state, p_int_state, p_grf_state, p_lnd_state, &
                 &           jgc, jg)
             ELSE
-              CALL relax_feedback(  p_patch(n_dom_start:n_dom),                 &
-                & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),          &
-                & p_grf_state(n_dom_start:n_dom), jgc, jg, dt_loc)
+              CALL relax_feedback(  p_patch(n_dom_start:n_dom),            &
+                & p_nh_state(1:n_dom), p_int_state(n_dom_start:n_dom),     &
+                & p_grf_state(n_dom_start:n_dom), prm_diag, jgc, jg, dt_loc)
             ENDIF
             ! Note: the last argument of "feedback" ensures that tracer feedback is
             ! only done for those time steps in which transport and microphysics are called
@@ -1923,6 +1956,8 @@ MODULE mo_nh_stepping
 
               CALL init_cloud_aero_cpl (datetime_local(jg)%ptr, p_patch(jgc), p_nh_state(jgc)%metrics, &
                 &                       ext_data(jgc), prm_diag(jgc))
+
+              IF (iprog_aero == 1) CALL setup_aerosol_advection(p_patch(jgc))
             ENDIF
 
             CALL compute_airmass(p_patch(jgc),                   &
@@ -2009,7 +2044,7 @@ MODULE mo_nh_stepping
     dt_dyn = dt_phy/ndyn_substeps_var(jg)
 
 
-    IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. (l_limited_area .OR. (num_prefetch_proc == 1))) THEN
+    IF (jg > 1 .AND. .NOT. lfeedback(jg) .OR. jg == 1 .AND. l_limited_area) THEN
       ! apply boundary nudging if feedback is turned off and in limited-area mode
       l_bdy_nudge = .TRUE.
     ELSE
@@ -2762,10 +2797,12 @@ MODULE mo_nh_stepping
       &    'failed' )
   ENDIF
 
-  IF((num_prefetch_proc == 1) .AND. (latbc_config%itype_latbc > 0)) THEN
-     CALL deallocate_pref_latbc_data()
-  ELSE IF (l_limited_area .AND. (latbc_config%itype_latbc > 0)) THEN
-     CALL deallocate_latbc_data()
+  IF (l_limited_area .AND. latbc_config%itype_latbc > 0) THEN
+    IF (num_prefetch_proc >= 1) THEN
+      CALL deallocate_pref_latbc_data()
+    ELSE
+      CALL deallocate_latbc_data()
+    ENDIF
   ENDIF
 
   END SUBROUTINE deallocate_nh_stepping
@@ -2859,8 +2896,8 @@ MODULE mo_nh_stepping
 
   ENDDO
 
-  IF ((l_limited_area .AND. (latbc_config%itype_latbc > 0)) .AND. (num_prefetch_proc /= 1)) THEN
-        CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
+  IF (l_limited_area .AND. latbc_config%itype_latbc > 0 .AND. num_prefetch_proc == 0) THEN
+    CALL prepare_latbc_data(p_patch(1), p_int_state(1), p_nh_state(1), ext_data(1))
   ENDIF
 
 END SUBROUTINE allocate_nh_stepping

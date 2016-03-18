@@ -14,7 +14,7 @@
 !!
 !!
 !=============================================================================================
-#include "ocean_dsl_definitions.inc"
+#include "iconfor_dsl_definitions.inc"
 !=============================================================================================
 MODULE mo_ocean_types
 
@@ -26,6 +26,7 @@ MODULE mo_ocean_types
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates,      &
     & t_geographical_coordinates
   USE mo_ocean_diagnostics_types, ONLY: t_ocean_monitor
+  USE mo_model_domain,        ONLY: t_patch_3d
   
   PUBLIC :: t_hydro_ocean_base
   PUBLIC :: t_hydro_ocean_state
@@ -207,7 +208,7 @@ MODULE mo_ocean_types
     
     onEdges :: &
       & mass_flx_e     ,& ! individual fluid column thickness at cells. Unit [m].
-      & ptp_vn         ,& ! normal velocity after mapping P^T P
+      & ptp_vn         ,& ! normal velocity after mapping P^T P, not used currently
       & vn_pred        ,& ! predicted normal velocity vector at edges.
       & vn_pred_ptp    ,& ! predicted normal velocity vector at edges.
       & vn_time_weighted,&  ! predicted normal velocity vector at edges.
@@ -219,8 +220,8 @@ MODULE mo_ocean_types
       & laplacian_vert ,& ! vertical diffusion of horizontal velocity
       & grad           ,& ! gradient of kinetic energy. Unit [m/s]
       & press_grad     ,& ! hydrostatic pressure gradient term. Unit [m/s]
-      & cfl_horz,       & ! horizontal cfl values
-      & vn  
+      & cfl_horz! ,       & ! horizontal cfl values
+      ! & vn  
       
     onEdges_HalfLevels :: &
       & w_e            ! vertical velocity at edges. Unit [m/s]
@@ -339,6 +340,10 @@ MODULE mo_ocean_types
       & laplacian_vert   ,& ! vertical diffusion of horizontal velocity
       & grad             ,& ! gradient of kinetic energy. Unit [m/s]
       & press_grad          ! hydrostatic pressure gradient term. Unit [m/s]
+
+    onEdges_2D :: &
+      edgeFlux_total            ! vertically integrated normal velocity weighted by edge height
+
 
     onVertices ::         &
       & vort                ! vorticity at triangle vertices. Unit [1/s]
@@ -481,6 +486,9 @@ MODULE mo_ocean_types
 !    REAL(wp), POINTER         :: matrix_vert_diff_e(:,:,:,:)
 !    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: matrix_vert_diff_c_ptr(:)
 !    TYPE(t_onCells_Pointer_3d_wp),ALLOCATABLE :: matrix_vert_diff_e_ptr(:)
+    onEdges_3D_Int :: edges_SeaBoundaryLevel ! boundary level based on cells:
+                                             ! 1=land, 0=boundary between land and sea, -1=between a boundary sea cell and and sea-cell,...,-99999
+    onCells_3D_Int :: cells_SeaBoundaryLevel ! as above
 
   END TYPE t_operator_coeff
     
@@ -500,6 +508,7 @@ MODULE mo_ocean_types
   ! array of states
   TYPE t_hydro_ocean_state
 
+    TYPE(t_patch_3d), POINTER :: patch_3D
     TYPE(t_hydro_ocean_prog), POINTER :: p_prog(:)    ! time array of prognostic states at different time levels
     TYPE(t_hydro_ocean_diag) :: p_diag
     TYPE(t_hydro_ocean_aux)  :: p_aux

@@ -36,11 +36,10 @@ MODULE mo_ocean_output
   USE mo_exception,              ONLY: message, message_text, finish
   USE mo_ext_data_types,         ONLY: t_external_data
   !USE mo_io_units,               ONLY: filename_max
-  USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_acc, t_hydro_ocean_diag, &
+  USE mo_ocean_types,              ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
     & t_hydro_ocean_prog
   USE mo_ocean_state,              ONLY: ocean_restart_list
   USE mo_operator_ocean_coeff_3d,ONLY: t_operator_coeff
-  USE mo_ocean_tracer,             ONLY: advect_tracer_ab
   USE mo_sea_ice,                ONLY: compute_mean_ice_statistics, reset_ice_statistics
   USE mo_sea_ice_types,          ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
     & t_sea_ice
@@ -192,7 +191,7 @@ CONTAINS
     !prog_var               => find_list_element(ocean_restart_list,'vn'//TRIM(timelevel_str))
     !output_var%field%r_ptr => prog_var%field%r_ptr
     !p_diag%vn              => prog_var%field%r_ptr(:,:,:,1,1)
-    p_diag%vn(:,:,:)       =  p_prog%vn
+!     p_diag%vn(:,:,:)       =  p_prog%vn
     
     !output_var             => find_list_element(ocean_restart_list,'t')
     !prog_var               => find_list_element(ocean_restart_list,'t'//TRIM(timelevel_str))

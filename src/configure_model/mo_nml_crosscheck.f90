@@ -32,9 +32,9 @@ MODULE mo_nml_crosscheck
   USE mo_extpar_config,      ONLY: itopo                                             
   USE mo_io_config,          ONLY: lflux_avg,inextra_2d, inextra_3d,                 &
     &                              lnetcdf_flt64_output
-  USE mo_parallel_config,    ONLY: check_parallel_configuration,                     &
-    &                              use_dp_mpi2io,                             &
-    &                              num_io_procs, itype_comm, num_restart_procs
+  USE mo_parallel_config,    ONLY: check_parallel_configuration,                &
+    &                              num_io_procs, itype_comm, num_restart_procs, &
+    &                              num_prefetch_proc, use_dp_mpi2io
   USE mo_run_config,         ONLY: nsteps, dtime, iforcing,                          &
     &                              ltransport, ntracer, nlev, ltestcase,             &
     &                              nqtendphy, iqtke, iqv, iqc, iqi,                  &
@@ -50,7 +50,7 @@ MODULE mo_nml_crosscheck
                                       lhdiff_rcf, rayleigh_type
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_diffusion_config,   ONLY: diffusion_config
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, icpl_aero_conv, iprog_aero
   USE mo_lnd_nwp_config,     ONLY: ntiles_lnd, lsnowtile
   USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_radiation_config
@@ -60,7 +60,7 @@ MODULE mo_nml_crosscheck
   USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
 
   USE mo_meteogram_config,   ONLY: check_meteogram_configuration
-  USE mo_grid_config,        ONLY: lplane, n_dom, init_grid_configuration
+  USE mo_grid_config,        ONLY: lplane, n_dom, init_grid_configuration, l_limited_area
 
   USE mo_art_config,         ONLY: art_config
   USE mo_time_management,    ONLY: compute_timestep_settings,                        &
@@ -119,6 +119,9 @@ CONTAINS
     
     IF (lplane) CALL finish( TRIM(method_name),&
       'Currently a plane version is not available')
+
+    ! Reset num_prefetch_proc to zero if the model does not run in limited-area mode
+    IF (.NOT. l_limited_area) num_prefetch_proc = 0
 
     SELECT CASE (iequations)
     CASE(IHS_ATM_TEMP,IHS_ATM_THETA)         ! hydrostatic atm model
@@ -842,6 +845,10 @@ CONTAINS
     IF (.NOT. lart .AND. irad_aero == 9 ) THEN
       CALL finish(TRIM(method_name),'irad_aero=9 needs lart = .TRUE.')
     END IF
+
+    IF ( ( irad_aero == 9 ) .AND. ( iprog_aero /= 0 ) ) THEN
+      CALL finish(TRIM(method_name),'irad_aero=9 requires iprog_aero=0')
+    ENDIF
     
 #ifdef __ICON_ART
     IF ( ( irad_aero == 9 ) .AND. ( itopo /=1 ) ) THEN

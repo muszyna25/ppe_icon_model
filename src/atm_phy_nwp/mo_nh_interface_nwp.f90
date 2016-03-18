@@ -65,11 +65,12 @@ MODULE mo_nh_interface_nwp
 
   USE mo_nh_diagnose_pres_temp,   ONLY: diagnose_pres_temp, diag_pres, diag_temp
 
-  USE mo_atm_phy_nwp_config,      ONLY: atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,      ONLY: atm_phy_nwp_config, iprog_aero
   USE mo_util_phys,               ONLY: nh_update_prog_phy
   USE mo_lnd_nwp_config,          ONLY: ntiles_total, ntiles_water
   USE mo_cover_koe,               ONLY: cover_koe
   USE mo_satad,                   ONLY: satad_v_3D
+  USE mo_aerosol_util,            ONLY: prog_aerosol_2D
   USE mo_radiation,               ONLY: radheat, pre_radiation_nwp
   USE mo_radiation_config,        ONLY: irad_aero
   USE mo_nwp_gw_interface,        ONLY: nwp_gwdrag
@@ -452,6 +453,16 @@ CONTAINS
       IF (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb) .OR. lcall_phy_jg(itsfc)) THEN
         ! diagnose pressure for subsequent fast-physics parameterizations
         CALL diag_pres (pt_prog, pt_diag, p_metrics, jb, i_startidx, i_endidx, 1, nlev)
+      ENDIF
+
+      IF (iprog_aero == 1 .AND. .NOT. linit) THEN
+        CALL prog_aerosol_2D (nproma,i_startidx,i_endidx,dt_loc,                                         &
+                              prm_diag%aerosol(:,:,jb),prm_diag%aercl_ss(:,jb),prm_diag%aercl_or(:,jb),  &
+                              prm_diag%aercl_bc(:,jb),prm_diag%aercl_su(:,jb),prm_diag%aercl_du(:,jb),   &
+                              prm_diag%dyn_gust(:,jb),prm_diag%con_gust(:,jb),ext_data%atm%soiltyp(:,jb),&
+                              ext_data%atm%plcov_t(:,jb,:),ext_data%atm%frac_t(:,jb,:),                  &
+                              lnd_prog_now%w_so_t(:,1,jb,:),lnd_prog_now%t_so_t(:,1,jb,:),               &
+                              lnd_diag%h_snow_t(:,jb,:)                                                  )
       ENDIF
 
     ENDDO ! nblks
@@ -934,7 +945,9 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
-        zcosmu0 (i_startidx:i_endidx,jb) = MAX(zcosmu0(i_startidx:i_endidx,jb),0.0_wp)
+        zcosmu0 (i_startidx:i_endidx,jb) &
+          = 0.5_wp * (ABS(zcosmu0(i_startidx:i_endidx,jb)) &
+          &           + zcosmu0(i_startidx:i_endidx,jb))
 
         !calculate solar incoming flux at TOA
         prm_diag%flxdwswtoa(i_startidx:i_endidx,jb) = zcosmu0(i_startidx:i_endidx,jb) &
@@ -993,7 +1006,7 @@ CONTAINS
           & trsol_par_sfc=prm_diag%trsol_par_sfc(:,jb), & ! in photosynthetically active downward transm. at the surface
           & trsol_dn_sfc_diff=prm_diag%trsol_dn_sfc_diff(:,jb),&! in shortwave diffuse downward transm. at the surface
           & trsol_clr_sfc=prm_diag%trsolclr_sfc(:,jb),  & ! in clear-sky net transmissivity at surface
-          & use_trsolclr_sfc=atm_phy_nwp_config(jg)%inwp_radiation==1, &
+          & use_trsolclr_sfc=atm_phy_nwp_config(jg)%inwp_radiation/=2, &
           !
           ! output
           ! ------
@@ -1380,7 +1393,11 @@ CONTAINS
         ENDIF
 
       ELSE
-        IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
+        IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w .AND. iprog_aero == 1) THEN
+          CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+4, pt_diag%tempv, pt_prog%w, &
+                                     pt_diag%exner_old, prm_diag%aerosol,                        &
+                                     f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
+        ELSE IF (lhdiff_rcf .AND. diffusion_config(jg)%lhdiff_w) THEN
           CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer_sync+3, pt_diag%tempv, pt_prog%w, &
                                      pt_diag%exner_old, f4din=pt_prog_rcf%tracer(:,:,:,1:ntracer_sync))
         ELSE IF (lhdiff_rcf) THEN
@@ -1570,22 +1587,10 @@ CONTAINS
 &                                  +  z_ddt_v_tot(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
 &                                   *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 )
 
-            pt_prog%vn(jce,jk,jb) = pt_prog%vn(jce,jk,jb) + dt_loc * (                 &
-                                              pt_int_state%c_lin_e(jce,1,jb)           &
-&                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
-&                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v1  &
-&                       + prm_nwp_tend%ddt_v_turb(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &
-&                                   *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v2 )&
-&                                                 + pt_int_state%c_lin_e(jce,2,jb)     &
-&                     * ( prm_nwp_tend%ddt_u_turb(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
-&                                    * pt_patch%edges%primal_normal_cell(jce,jb,2)%v1  &
-&                      +  prm_nwp_tend%ddt_v_turb(iidx(jce,jb,2),jk,iblk(jce,jb,2))    &
-&                                  *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 ) )
-
           ENDDO
         ENDDO
-
-      ELSE IF (lcall_phy_jg(itturb) ) THEN
+      END IF
+      IF (lcall_phy_jg(itturb) ) THEN
 #ifdef __LOOP_EXCHANGE
         DO jce = i_startidx, i_endidx
 !DIR$ IVDEP

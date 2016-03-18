@@ -673,7 +673,8 @@ MODULE mo_nh_diffusion
     ENDIF
 
     ! Compute input quantities for turbulence scheme
-    IF (turbdiff_config(jg)%itype_sher >= 1 .OR. turbdiff_config(jg)%ltkeshs) THEN
+    IF ((diffu_type == 3 .OR. diffu_type == 5) .AND.                               &
+        (turbdiff_config(jg)%itype_sher >= 1 .OR. turbdiff_config(jg)%ltkeshs)) THEN
 
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
       rl_start = grf_bdywidth_c+1
@@ -954,7 +955,7 @@ MODULE mo_nh_diffusion
           ENDDO
         ENDDO
 
-        IF (turbdiff_config(jg)%itype_sher >= 2) THEN ! compute horizontal gradients of w
+        IF (turbdiff_config(jg)%itype_sher == 2) THEN ! compute horizontal gradients of w
 #ifdef __LOOP_EXCHANGE
           DO jc = i_startidx, i_endidx
 !DIR$ IVDEP

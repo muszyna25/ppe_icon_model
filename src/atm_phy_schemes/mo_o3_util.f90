@@ -1107,6 +1107,7 @@ CONTAINS
       ! COMPUTE THE MASS MIXING RATIO
 
       DO jk = 1,pt_patch%nlev
+!DIR$ IVDEP
         DO jc = i_startidx,i_endidx
           ext_data%atm%o3(jc,jk,jb)=(ZVIOZO(jc,jk)-ZVIOZO(jc,jk-1)) / p_diag%dpres_mc(jc,jk,jb)
 

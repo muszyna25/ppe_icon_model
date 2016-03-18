@@ -140,7 +140,8 @@ CONTAINS
     LOGICAL :: l_pres_msl(n_dom) !< Flag. TRUE if computation of mean sea level pressure desired
     LOGICAL :: l_omega(n_dom)    !< Flag. TRUE if computation of vertical velocity desired
     LOGICAL :: l_rh(n_dom)       !< Flag. TRUE if computation of relative humidity desired
-    TYPE(t_sim_step_info) :: sim_step_info
+    LOGICAL :: l_pv(n_dom)       !< Flag. TRUE if computation of potential vorticity desired
+    TYPE(t_sim_step_info) :: sim_step_info  
     INTEGER :: jstep0
     INTEGER :: n_now, n_new, n_now_rcf, n_new_rcf
     REAL(wp) :: sim_time
@@ -149,13 +150,13 @@ CONTAINS
     IF (timers_level > 3) CALL timer_start(timer_model_init)
 
     IF(iforcing == inwp) THEN
-      !
+
+      CALL configure_ensemble_pert(ext_data)
+
       ! - generate index lists for tiles (land, ocean, lake)
       ! index lists for ice-covered and non-ice covered ocean points
       ! are initialized in init_nwp_phy
       CALL init_index_lists (p_patch(1:), ext_data)
-
-      CALL configure_ensemble_pert()
 
       CALL configure_atm_phy_nwp(n_dom, p_patch(1:), dtime)
 
@@ -235,11 +236,12 @@ CONTAINS
     IF(iforcing == inwp) THEN
       DO jg=1,n_dom
         l_rh(jg) = is_variable_in_output(first_output_name_list, var_name="rh")
+        l_pv(jg) = is_variable_in_output(first_output_name_list, var_name="pv")
       END DO
     END IF
 
     IF (iforcing == inwp) THEN
-      CALL construct_nwp_phy_state( p_patch(1:), l_rh )
+      CALL construct_nwp_phy_state( p_patch(1:), l_rh, l_pv )
       CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
     END IF
 

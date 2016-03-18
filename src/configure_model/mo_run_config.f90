@@ -47,7 +47,6 @@ MODULE mo_run_config
   PUBLIC :: restart_filename
   PUBLIC :: profiling_output, TIMER_MODE_AGGREGATED, TIMER_MODE_DETAILED
   PUBLIC :: check_uuid_gracefully
-  PUBLIC :: irad_type
   PUBLIC :: modelTimeStep
 
     ! Namelist variables
@@ -149,10 +148,6 @@ MODULE mo_run_config
     !> file name for restart/checkpoint files (containg keyword
     !> substition patterns)
     CHARACTER(len=MAX_CHAR_LENGTH) :: restart_filename
-
-    !> variable irad_type determines choice of radiation flux scheme
-    !> irad_type=1: rrtm, irad_type=2: psrad
-    INTEGER :: irad_type
 
     !> namelist parameter (as raw character string):
     CHARACTER(len=max_timedelta_str_len) :: modelTimeStep

@@ -40,7 +40,8 @@ MODULE mo_nwp_diagnosis
   USE mo_exception,          ONLY: message, message_text
   USE mo_model_domain,       ONLY: t_patch
   USE mo_run_config,         ONLY: msg_level, iqv, iqc, iqi, iqr, iqs,  &
-                                   iqni, iqg, iqh, iqnc, iqm_max    
+                                   iqni, iqg, iqh, iqnc, iqm_max
+  USE mo_timer,              ONLY: ltimer, timer_start, timer_stop, timer_nh_diagnostics
   USE mo_nonhydro_types,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_types,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,    ONLY: nproma
@@ -120,7 +121,6 @@ CONTAINS
     INTEGER,           INTENT(IN)  :: ih_clch, ih_clcm
 
     ! Local
-    INTEGER :: nlev                    !< number of full levels
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
@@ -134,10 +134,9 @@ CONTAINS
 
   !-----------------------------------------------------------------
 
-    jg        = pt_patch%id
+    IF (ltimer) CALL timer_start(timer_nh_diagnostics)
 
-    ! number of vertical levels
-    nlev   = pt_patch%nlev
+    jg        = pt_patch%id
 
     ! Inverse of simulation time
     r_sim_time = 1._wp/MAX(1.e-6_wp, p_sim_time)
@@ -576,6 +575,7 @@ CONTAINS
 
 !$OMP END PARALLEL  
 
+    IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
 
   END SUBROUTINE nwp_statistics
 
@@ -945,6 +945,7 @@ CONTAINS
 
   !-----------------------------------------------------------------
 
+    IF (ltimer) CALL timer_start(timer_nh_diagnostics)
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -984,9 +985,14 @@ CONTAINS
         ! height of convection base and top, hbas_con, htop_con
         ! 
         DO jc = i_startidx, i_endidx
-          IF ( prm_diag%locum(jc,jb)) THEN
+          IF ( prm_diag%locum(jc,jb) ) THEN
             prm_diag%hbas_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mbas_con(jc,jb), jb)
             prm_diag%htop_con(jc,jb) = p_metrics%z_ifc( jc, prm_diag%mtop_con(jc,jb), jb)
+!           Do not allow diagnostic depth of convection to be thinner than 100m or one model layer
+            IF ( prm_diag%htop_con(jc,jb) - prm_diag%hbas_con(jc,jb) < 100._wp ) THEN
+              prm_diag%hbas_con(jc,jb) = -500._wp
+              prm_diag%htop_con(jc,jb) = -500._wp
+            END IF
           ELSE
             prm_diag%hbas_con(jc,jb) = -500._wp
             prm_diag%htop_con(jc,jb) = -500._wp
@@ -1026,7 +1032,7 @@ CONTAINS
           IF ( prm_diag%htop_dc(jc,jb) > zundef) THEN
             prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),        &
            &                p_metrics%z_ifc(jc,nlevp1,jb) + 3000._wp )
-            IF ( prm_diag%locum(jc,jb)) THEN
+            IF ( prm_diag%hbas_con(jc,jb) /= -500._wp) THEN
               prm_diag%htop_dc(jc,jb) = MIN( prm_diag%htop_dc(jc,jb),      &
              &                               prm_diag%hbas_con(jc,jb) )
             END IF
@@ -1172,7 +1178,7 @@ CONTAINS
     ! compute modified cloud parameters for TV presentation
     CALL calcmod( pt_patch, pt_diag, prm_diag )
 
-    ! clean up
+    IF (ltimer) CALL timer_stop(timer_nh_diagnostics)
     CALL deallocateTimedelta(time_diff)
 
   END SUBROUTINE nwp_diag_for_output

@@ -109,7 +109,7 @@ MODULE mo_ocean_diagnostics
   PUBLIC :: t_oce_timeseries
   PUBLIC :: calc_moc
   PUBLIC :: calc_psi
-  PUBLIC :: calc_psi_vn
+!   PUBLIC :: calc_psi_vn
   
   TYPE t_oce_monitor
     REAL(wp) :: volume
@@ -740,7 +740,7 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2d
     REAL(wp) :: sflux
     
-    TYPE(t_subset_range), POINTER :: owned_cells, owned_edges
+    TYPE(t_subset_range), POINTER :: owned_cells, edges_inDomain
     TYPE(t_ocean_monitor),  POINTER :: monitor
     CHARACTER(LEN=linecharacters) :: line, nvars
     CHARACTER(LEN=linecharacters) :: fmt_string, real_fmt
@@ -752,14 +752,14 @@ CONTAINS
     !-----------------------------------------------------------------------
     patch_2d       => patch_3D%p_patch_2d(1)
     owned_cells    => patch_2d%cells%owned
-    owned_edges    => patch_2d%edges%owned
+    edges_inDomain => patch_2d%edges%in_domain
     !-----------------------------------------------------------------------
     
     IF (diagnose_for_horizontalVelocity) THEN
 !ICON_OMP_PARALLEL 
 !ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index, je, level) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = owned_edges%start_block,owned_edges%end_block
-        CALL get_index_range(owned_edges, blockNo, start_edge_index, end_edge_index)
+      DO blockNo = edges_inDomain%start_block,edges_inDomain%end_block
+        CALL get_index_range(edges_inDomain, blockNo, start_edge_index, end_edge_index)
         DO je =  start_edge_index, end_edge_index
           DO level=1,patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
           
@@ -790,8 +790,8 @@ CONTAINS
 !ICON_OMP_END_DO
 
 !ICON_OMP_DO PRIVATE(start_edge_index,end_edge_index, je, level) ICON_OMP_DEFAULT_SCHEDULE
-      DO blockNo = owned_edges%start_block,owned_edges%end_block
-        CALL get_index_range(owned_edges, blockNo, start_edge_index, end_edge_index)
+      DO blockNo = edges_inDomain%start_block,edges_inDomain%end_block
+        CALL get_index_range(edges_inDomain, blockNo, start_edge_index, end_edge_index)
         DO je =  start_edge_index, end_edge_index
           DO level=1,patch_3D%p_patch_1D(1)%dolic_e(je,blockNo)
             ! this is when it is calculated by the veloc_adv_horz_mimetic_rot
@@ -805,26 +805,26 @@ CONTAINS
 !ICON_OMP_DO PRIVATE(start_cell_index,end_cell_index, jc, level, &
 !ICON_OMP edge_1_of_cell_idx, edge_1_of_cell_blk, edge_2_of_cell_idx, edge_2_of_cell_blk, &
 !ICON_OMP edge_3_of_cell_idx, edge_3_of_cell_blk) ICON_OMP_DEFAULT_SCHEDULE
-    DO blockNo = owned_cells%start_block, owned_cells%end_block
-      CALL get_index_range(owned_cells, blockNo, start_cell_index, end_cell_index)
-        edge_1_of_cell_idx  = patch_2d%cells%edge_idx(jc,blockNo,1)
-        edge_1_of_cell_blk  = patch_2d%cells%edge_blk(jc,blockNo,1)
-        edge_2_of_cell_idx  = patch_2d%cells%edge_idx(jc,blockNo,2)
-        edge_2_of_cell_blk  = patch_2d%cells%edge_blk(jc,blockNo,2)
-        edge_3_of_cell_idx  = patch_2d%cells%edge_idx(jc,blockNo,3)
-        edge_3_of_cell_blk  = patch_2d%cells%edge_blk(jc,blockNo,3)
+      DO blockNo = owned_cells%start_block, owned_cells%end_block
+        CALL get_index_range(owned_cells, blockNo, start_cell_index, end_cell_index)
+        DO jc =  start_cell_index, end_cell_index
+          edge_1_of_cell_idx  = patch_2d%cells%edge_idx(jc,blockNo,1)
+          edge_1_of_cell_blk  = patch_2d%cells%edge_blk(jc,blockNo,1)
+          edge_2_of_cell_idx  = patch_2d%cells%edge_idx(jc,blockNo,2)
+          edge_2_of_cell_blk  = patch_2d%cells%edge_blk(jc,blockNo,2)
+          edge_3_of_cell_idx  = patch_2d%cells%edge_idx(jc,blockNo,3)
+          edge_3_of_cell_blk  = patch_2d%cells%edge_blk(jc,blockNo,3)
 
-      DO jc =  start_cell_index, end_cell_index
-        DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)
+          DO level = 1, patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)
 
-          potential_vort_c(jc, level, blockNo) = &
-            & (potential_vort_e(edge_1_of_cell_idx,level,edge_1_of_cell_blk)  &
-            & +potential_vort_e(edge_2_of_cell_idx,level,edge_2_of_cell_blk)  &
-            & +potential_vort_e(edge_3_of_cell_idx,level,edge_3_of_cell_blk))/3.0_wp
+            potential_vort_c(jc, level, blockNo) = &
+              & (potential_vort_e(edge_1_of_cell_idx,level,edge_1_of_cell_blk)  &
+              & +potential_vort_e(edge_2_of_cell_idx,level,edge_2_of_cell_blk)  &
+              & +potential_vort_e(edge_3_of_cell_idx,level,edge_3_of_cell_blk))/3.0_wp
 
+          END DO
         END DO
       END DO
-    END DO
 !ICON_OMP_END_PARALLEL
   
     ENDIF

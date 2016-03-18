@@ -77,7 +77,8 @@ MODULE mo_async_latbc
     USE mo_async_latbc_utils,         ONLY: pref_latbc_data, prepare_pref_latbc_data, &
          &                                  compute_wait_for_async_pref, compute_shutdown_async_pref, &
          &                                  async_pref_send_handshake,  async_pref_wait_for_start
-    USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH
+    USE mo_impl_constants,            ONLY: SUCCESS, MAX_CHAR_LENGTH, MODE_DWDANA, MODE_ICONVREMAP, &
+                                            MODE_IAU_OLD, MODE_IAU
     USE mo_communication,             ONLY: idx_no, blk_no
     USE mo_nonhydro_state,            ONLY: p_nh_state
     USE mo_intp_data_strc,            ONLY: p_int_state
@@ -89,8 +90,8 @@ MODULE mo_async_latbc
     USE mo_limarea_config,            ONLY: latbc_config, generate_filename
     USE mo_dictionary,                ONLY: t_dictionary, dict_get, dict_init, dict_loadfile, &
          &                                  dict_finalize
-    USE mo_util_string,               ONLY: add_to_list
-    USE mo_initicon_config,           ONLY: latbc_varnames_map_file
+    USE mo_util_string,               ONLY: add_to_list, tolower
+    USE mo_initicon_config,           ONLY: latbc_varnames_map_file, init_mode
     USE mo_cdi,                       ONLY: vlistInqVarZaxis , streamOpenRead, streamInqVlist, &
          &                                  vlistNvars, zaxisInqSize, vlistInqVarName,         &
          &                                  streamClose, streamInqFiletype,                    &
@@ -178,6 +179,7 @@ MODULE mo_async_latbc
       DEALLOCATE(latbc_buffer%hgrid)
       DEALLOCATE(latbc_buffer%vars)
       DEALLOCATE(latbc_buffer%mapped_name)
+      DEALLOCATE(latbc_buffer%internal_name)
       DEALLOCATE(latbc_buffer%varID)
       DEALLOCATE(latbc_buffer%nlev)
 
@@ -419,18 +421,26 @@ MODULE mo_async_latbc
       INTEGER :: jlev, ierrstat, vlistID, nvars, varID, zaxisID, &
            &       jp, fileID_latbc, counter, filetype, ngrp_prefetch_vars
       INTEGER(KIND=i8) :: flen_latbc
-      LOGICAL :: l_exist
+      LOGICAL :: l_exist, l_icon_lbc
       CHARACTER(LEN=filename_max)    :: latbc_filename
       CHARACTER(LEN=MAX_CHAR_LENGTH) :: cdiErrorText
 
       ! allocating buffers containing name of variables
       ALLOCATE(latbc_buffer%grp_vars(200))
       ALLOCATE(latbc_buffer%mapped_name(200))
+      ALLOCATE(latbc_buffer%internal_name(200))
       ALLOCATE(grp_vars(200))
       ALLOCATE(StrLowCasegrp(200))
 
       ! initialising counter
       counter = 0
+
+      SELECT CASE (init_mode)
+      CASE (MODE_DWDANA, MODE_ICONVREMAP, MODE_IAU_OLD, MODE_IAU)
+        l_icon_lbc = .TRUE.
+      CASE DEFAULT
+        l_icon_lbc = .FALSE.
+      END SELECT
 
       !>Looks for variable groups ("group:xyz") and collects
       ! them to map prefetch variable names onto
@@ -446,7 +456,7 @@ MODULE mo_async_latbc
       CALL collect_group( TRIM(grp_name), grp_vars, ngrp_prefetch_vars, loutputvars_only=.FALSE., &
            &                lremap_lonlat=.FALSE. )
 
-      ! adding the variable 'GEOSP' to hte list by add_to_list
+      ! adding the variable 'GEOSP' to the list by add_to_list
       ! as the variable cannot be found in metadata variable list
       IF (latbc_config%itype_latbc == 1) &
            CALL add_to_list( grp_vars, ngrp_prefetch_vars, (/latbc_buffer%geop_ml_var/) , 1)
@@ -493,9 +503,9 @@ MODULE mo_async_latbc
          ! Search name mapping for name in GRIB2 file
          SELECT CASE(filetype)
          CASE (FILETYPE_NC2, FILETYPE_NC4)
-            IF (latbc_config%itype_latbc == 1) THEN
+            IF (latbc_config%itype_latbc == 1 .AND. .NOT. l_icon_lbc) THEN
                DO jp= 1, ngrp_prefetch_vars
-                  latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp)))
+                  latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
                ENDDO
             ELSE
                DO jp= 1, ngrp_prefetch_vars
@@ -505,7 +515,7 @@ MODULE mo_async_latbc
          CASE (FILETYPE_GRB2)
             IF (latbc_config%itype_latbc == 1) THEN
                DO jp= 1, ngrp_prefetch_vars
-                  latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp)))
+                  latbc_buffer%grp_vars(jp) = TRIM(dict_get(latbc_varnames_dict, grp_vars(jp), default=grp_vars(jp)))
                ENDDO
             ELSE
                DO jp= 1, ngrp_prefetch_vars
@@ -537,7 +547,7 @@ MODULE mo_async_latbc
             CALL vlistInqVarName(vlistID, varID, name)
             !    WRITE(0,*) 'name ', name
             DO jp = 1, ngrp_prefetch_vars !latbc_buffer%ngrp_vars
-               IF(name == latbc_buffer%grp_vars(jp)) THEN
+               IF(tolower(name) == tolower(latbc_buffer%grp_vars(jp))) THEN
                   ! get the vertical axis ID
                   zaxisID = vlistInqVarZaxis(vlistID, varID)
                   counter = counter + 1
@@ -549,7 +559,8 @@ MODULE mo_async_latbc
 
                   ! getting the variable name in the file
                   latbc_buffer%mapped_name(counter) = TRIM(name)
-
+                  latbc_buffer%internal_name(counter) = &
+                    TRIM(dict_get(latbc_varnames_dict, TRIM(name), linverse=.TRUE., default=TRIM(name)))
                   ! getting the variable name in lower case letter
                   StrLowCasegrp(counter) = TRIM(grp_vars(jp))
 
@@ -565,6 +576,7 @@ MODULE mo_async_latbc
       CALL p_bcast(latbc_buffer%nlev(:), p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc_buffer%varID(:), p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc_buffer%mapped_name(:), p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc_buffer%internal_name(:), p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(StrLowCasegrp(:), p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(counter, p_comm_work_pref_compute_pe0, p_comm_work_pref)
 
@@ -624,6 +636,18 @@ MODULE mo_async_latbc
          ENDIF
 
          !
+         ! Check if the prognostic thermodynamic variables (rho and theta_v) are provided as input
+         !
+         IF ((test_cdi_varID(fileID_latbc, 'RHO') /= -1 .OR. test_cdi_varID(fileID_latbc, 'DEN') /= -1) &
+             .AND. test_cdi_varID(fileID_latbc, 'THETA_V') /= -1) THEN
+           latbc_buffer%lthd_progvars = .true.
+           CALL message(TRIM(routine),'Prognostic thermodynamic variables (rho and theta_v) are used')
+         ELSE
+           latbc_buffer%lthd_progvars = .false.
+         ENDIF
+
+
+         !
          ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
          !
          IF (test_cdi_varID(fileID_latbc, 'PS') /= -1) THEN
@@ -639,7 +663,7 @@ MODULE mo_async_latbc
             latbc_buffer%geop_ml_var = 'GEOSP'
          ELSE IF (test_cdi_varID(fileID_latbc, 'GEOP_ML') /= -1) THEN
             latbc_buffer%geop_ml_var = 'GEOP_ML'
-         ELSE
+         ELSE IF (.NOT. latbc_buffer%lthd_progvars) THEN
             CALL finish(TRIM(routine),'Could not find model-level sfc geopotential')
          ENDIF
 
@@ -684,6 +708,7 @@ MODULE mo_async_latbc
       CALL p_bcast(latbc_buffer%lread_qs, p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc_buffer%lread_qr, p_comm_work_pref_compute_pe0, p_comm_work_pref)
       CALL p_bcast(latbc_buffer%lread_vn, p_comm_work_pref_compute_pe0, p_comm_work_pref)
+      CALL p_bcast(latbc_buffer%lthd_progvars, p_comm_work_pref_compute_pe0, p_comm_work_pref)
 #endif
 
     END SUBROUTINE check_variable
@@ -1107,7 +1132,7 @@ MODULE mo_async_latbc
                ENDIF
 
                ! variable GEOSP is stored in cell center location
-               latbc_buffer%hgrid(jp) = hgrid
+               latbc_buffer%hgrid(jp) = GRID_UNSTRUCTURED_CELL
             ENDIF
          ENDDO
       ENDIF

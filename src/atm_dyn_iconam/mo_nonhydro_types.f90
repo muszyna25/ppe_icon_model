@@ -48,7 +48,7 @@ MODULE mo_nonhydro_types
   TYPE t_nh_prog
 
     REAL(wp), POINTER    &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS         &
 #endif
       ::                 &
@@ -70,7 +70,7 @@ MODULE mo_nonhydro_types
   TYPE t_nh_diag
 
     REAL(wp), POINTER       &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS            &
 #endif
     &  ::                   &
@@ -200,7 +200,7 @@ MODULE mo_nonhydro_types
 
     ! Variables that are always in double precision
     REAL(wp), POINTER      &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS           &
 #endif
      ::                    &
@@ -265,7 +265,7 @@ MODULE mo_nonhydro_types
 
     ! Variables that are in single precision when "__MIXED_PRECISION" is defined
     REAL(vp), POINTER      &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS           &
 #endif
      ::                    &
@@ -314,7 +314,7 @@ MODULE mo_nonhydro_types
 
 
     INTEGER, POINTER          &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
     , CONTIGUOUS              &
 #endif
      ::                       &

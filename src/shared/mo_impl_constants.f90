@@ -333,6 +333,13 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: iedmf   =  3
   INTEGER, PARAMETER :: ismag   =  5
 
+  ! identifiers for aerosol classes of Tegen climatology 
+  INTEGER, PARAMETER :: iss   =  1
+  INTEGER, PARAMETER :: iorg  =  2
+  INTEGER, PARAMETER :: ibc   =  3
+  INTEGER, PARAMETER :: iso4  =  4
+  INTEGER, PARAMETER :: idu   =  5
+  INTEGER, PARAMETER :: nclass_aero = 5
 
   ! external parameter for radiation
 
@@ -551,6 +558,7 @@ MODULE mo_impl_constants
   !------ computation of optional diagnostic fields
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_RH        = 13 !< task: compute relative humidity
   INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_OMEGA     = 14 !< task: compute vertical velocity
+  INTEGER, PARAMETER, PUBLIC :: TASK_COMPUTE_PV        = 15 !< task: compute potential vorticity
 
   !--------------------------------------------------------------------!
   !  VARIABLE TIMELEVEL SPECIFICATION (FOR POST-PROCESSING SCHEDULER)  !

@@ -40,7 +40,8 @@ MODULE mo_nonhydro_state
     &                                VINTP_METHOD_LIN_NLEVP1,              &
     &                                TASK_INTP_MSL, HINTP_TYPE_NONE,       &
     &                                iedmf, MODE_IAU, MODE_IAU_OLD,        &
-    &                                TASK_COMPUTE_OMEGA, TLEV_NNOW_RCF
+    &                                TASK_COMPUTE_OMEGA, TLEV_NNOW_RCF,    &
+    &                                MODE_ICONVREMAP
   USE mo_exception,            ONLY: message, finish
   USE mo_model_domain,         ONLY: t_patch
   USE mo_nonhydro_types,       ONLY: t_nh_state, t_nh_state_lists,       &
@@ -65,7 +66,7 @@ MODULE mo_nonhydro_state
     &                                add_ref, new_var_list, delete_var_list, &
     &                                add_var_list_reference
   USE mo_linked_list,          ONLY: t_list_element
-  USE mo_var_metadata_types,   ONLY: t_var_metadata
+  USE mo_var_metadata_types,   ONLY: t_var_metadata, MAX_GROUPS
   USE mo_var_metadata,         ONLY: create_tracer_metadata,                 &
     &                                create_vert_interp_metadata,            &
     &                                create_hor_interp_metadata,             &
@@ -2568,6 +2569,7 @@ MODULE mo_nonhydro_state
     INTEGER :: DATATYPE_PACK_VAR  !< variable "entropy" for selected fields
     INTEGER :: datatype_flt       !< floating point accuracy in NetCDF output
     INTEGER :: ist, error_status
+    LOGICAL :: group(MAX_GROUPS)
     !--------------------------------------------------------------
 
     nblks_c = p_patch%nblks_c
@@ -2715,14 +2717,18 @@ MODULE mo_nonhydro_state
       &                   'geometric height at half level center', datatype_flt)
     grib2_desc = grib2_var( 0, 3, 6, DATATYPE_PACK_VAR, GRID_UNSTRUCTURED, GRID_CELL)  &
       &           + t_grib2_int_key("typeOfSecondFixedSurface", 101)
+    IF (init_mode == MODE_ICONVREMAP) THEN
+      group=groups("dwd_fg_atm_vars", "LATBC_PREFETCH_VARS", "mode_dwd_fg_in")
+    ELSE
+      group=groups("dwd_fg_atm_vars", "LATBC_PREFETCH_VARS")
+    ENDIF
     CALL add_var( p_metrics_list, 'z_ifc', p_metrics%z_ifc,                     &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID_HALF_HHL, cf_desc, grib2_desc, &
                 & ldims=shape3d_chalf,                                          & 
                 & vert_interp=create_vert_interp_metadata(                      &
                 &   vert_intp_type=vintp_types("P","Z","I"),                    &
                 &   vert_intp_method=VINTP_METHOD_LIN_NLEVP1 ),                 &
-                & in_group=groups("dwd_fg_atm_vars", "LATBC_PREFETCH_VARS"),         &
-                & isteptype=TSTEP_CONSTANT )
+                & in_group=group, isteptype=TSTEP_CONSTANT )
 
     ! The 3D coordinate field "z_ifc" exists already in a buffer
     ! variable of module "mo_util_vgrid". We move the data to its

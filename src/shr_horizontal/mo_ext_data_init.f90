@@ -769,9 +769,9 @@ CONTAINS
                    &   0.07_wp,  0.9_wp,  3.3_wp, 1.0_wp, 140.0_wp,  0.72_wp, 1._wp, & ! rainfed croplands
                    &   0.25_wp,  0.8_wp,  3.0_wp, 1.0_wp, 130.0_wp,  0.55_wp, 1._wp, & ! mosaic cropland (50-70%) - vegetation (20-50%)
                    &   0.07_wp,  0.9_wp,  3.5_wp, 1.0_wp, 120.0_wp,  0.72_wp, 1._wp, & ! mosaic vegetation (50-70%) - cropland (20-50%)
-                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 240.0_wp,  0.38_wp, 1._wp, & ! closed broadleaved evergreen forest
+                   &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 250.0_wp,  0.38_wp, 1._wp, & ! closed broadleaved evergreen forest
                    &   1.00_wp,  0.9_wp,  6.0_wp, 1.0_wp, 175.0_wp,  0.31_wp, 1._wp, & ! closed broadleaved deciduous forest
-                   &   0.15_wp,  0.8_wp,  4.0_wp, 2.0_wp, 175.0_wp,  0.31_wp, 1._wp, & ! open broadleaved deciduous forest
+                   &   0.15_wp,  0.8_wp,  4.0_wp, 1.5_wp, 175.0_wp,  0.31_wp, 1._wp, & ! open broadleaved deciduous forest
                    &   1.00_wp,  0.8_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.27_wp, 1._wp, & ! closed needleleaved evergreen forest
                    &   1.00_wp,  0.9_wp,  5.0_wp, 0.6_wp, 250.0_wp,  0.33_wp, 1._wp, & ! open needleleaved deciduous forest
                    &   1.00_wp,  0.9_wp,  5.0_wp, 0.8_wp, 210.0_wp,  0.29_wp, 1._wp, & ! mixed broadleaved and needleleaved forest
@@ -783,8 +783,8 @@ CONTAINS
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  0.30_wp, 1._wp, & ! closed to open forest regulary flooded
                    &   1.00_wp,  0.8_wp,  5.0_wp, 1.0_wp, 150.0_wp,  0.30_wp, 1._wp, & ! closed forest or shrubland permanently flooded
                    &   0.05_wp,  0.8_wp,  2.0_wp, 1.0_wp,  80.0_wp,  0.76_wp, 1._wp, & ! closed to open grassland regularly flooded
-                   &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 120.0_wp,  0.50_wp, 1._wp, & ! artificial surfaces
-                   &   0.05_wp,  0.05_wp, 0.6_wp, 0.3_wp, 250.0_wp,  0.82_wp, 1._wp, & ! bare areas
+                   &   1.00_wp,  0.2_wp,  1.6_wp, 0.6_wp, 180.0_wp,  0.50_wp, 1._wp, & ! artificial surfaces
+                   &   0.05_wp,  0.05_wp, 0.6_wp, 0.3_wp, 200.0_wp,  0.82_wp, 1._wp, & ! bare areas
                    &   0.0002_wp,0.0_wp,  0.0_wp, 0.0_wp, 150.0_wp,  -1.0_wp,-1._wp, & ! water bodies
                    &   0.01_wp,  0.0_wp,  0.0_wp, 0.0_wp, 120.0_wp,  -1.0_wp, 1._wp, & ! permanent snow and ice
                    &   0.00_wp,  0.0_wp,  0.0_wp, 0.0_wp, 250.0_wp,  -1.0_wp,-1._wp  / ! undefined
@@ -1418,6 +1418,9 @@ CONTAINS
 
                ! i_lu=1 contains grid-box mean values from EXTPAR!
                !
+               ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
+               ext_data(jg)%atm%lc_class_t(jc,jb,1) = MAXLOC(tile_frac,1,tile_mask)
+               !
                ! root depth
                ext_data(jg)%atm%rootdp_t (jc,jb,1)  = ext_data(jg)%atm%rootdp(jc,jb)
 
@@ -1430,13 +1433,11 @@ CONTAINS
                ! surface area index
                ext_data(jg)%atm%sai_t    (jc,jb,1)  = c_lnd+ext_data(jg)%atm%tai_t(jc,jb,1)
                ! evaporative soil area index
-               ext_data(jg)%atm%eai_t    (jc,jb,1)  = c_soil
+               ext_data(jg)%atm%eai_t (jc,jb,1)  = c_soil
                ! minimal stomata resistance
                ext_data(jg)%atm%rsmin2d_t(jc,jb,1)  = ext_data(jg)%atm%rsmin(jc,jb)
                ! soil type
                ext_data(jg)%atm%soiltyp_t(jc,jb,1)  = ext_data(jg)%atm%soiltyp(jc,jb)
-               ext_data(jg)%atm%lc_frac_t(jc,jb,1)  = 1._wp
-               ext_data(jg)%atm%lc_class_t(jc,jb,1) = MAXLOC(tile_frac,1,tile_mask)
 
                ! Workaround for GLC2000 hole below 60 deg S
                ! (only necesary for old extpar files generated prior to 2014-01-31)
@@ -1574,7 +1575,7 @@ CONTAINS
                  ext_data(jg)%atm%sai_t    (jc,jb,i_lu)  = c_lnd+ ext_data(jg)%atm%tai_t (jc,jb,i_lu)
 
                  ! evaporative soil area index
-                 ext_data(jg)%atm%eai_t    (jc,jb,i_lu)  = c_soil
+                 ext_data(jg)%atm%eai_t (jc,jb,i_lu)  = c_soil
 
                  ! minimal stomata resistance
                  ext_data(jg)%atm%rsmin2d_t(jc,jb,i_lu)  = ext_data(jg)%atm%stomresmin_lcc(lu_subs)
@@ -1919,12 +1920,12 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
 
 
-        ext_data(jg)%atm%plcov (:,jb) = 0._wp
-        ext_data(jg)%atm%rootdp(:,jb) = 0._wp
-        ext_data(jg)%atm%lai   (:,jb) = 0._wp
-        ext_data(jg)%atm%rsmin (:,jb) = 0._wp
-        ext_data(jg)%atm%tai   (:,jb) = 0._wp
-        ext_data(jg)%atm%eai   (:,jb) = 0._wp
+        ext_data(jg)%atm%plcov (i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%rootdp(i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%lai   (i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%rsmin (i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%tai   (i_startidx:i_endidx,jb) = 0._wp
+        ext_data(jg)%atm%eai   (i_startidx:i_endidx,jb) = 0._wp
         ext_data(jg)%atm%sai   (i_startidx:i_endidx,jb) = 0._wp
 
 

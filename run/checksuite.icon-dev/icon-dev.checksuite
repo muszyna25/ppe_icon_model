@@ -113,15 +113,15 @@ function diff_results
     MODEL_DIR2=$3
     DEXP2=$4
     TEST=$5
-    # DISTRO=$(lsb_release -cs)
-    # case $DISTRO in
-    #     squeeze)
-    #         module load cdo/1.6.5.1
-    #         ;;
-    #     wheezy)
-    #         module load cdo/1.6.5.1
-    #         ;;
-    # esac
+    DISTRO=$(lsb_release -cs)
+    case $DISTRO in
+        squeeze)
+            module load cdo/1.6.5.1
+            ;;
+        wheezy)
+            module load cdo/1.6.5.1
+            ;;
+    esac
     #TYPES: defined in main script and used from main script 
     #DATES: defined in main script and used from main script 
 
@@ -200,7 +200,7 @@ function diff_results
                 FILE2="${MODEL_DIR2}/experiments/${DEXP2}/${DEXP2}_${TYPE}_${DATE}.nc"
                 TEMP_SUFFIX=$(cat /dev/urandom | env LC_CTYPE=C tr -cd 'a-f0-9' | head -c 16)
                 DIFF_FILE="cdo_diffn_${DEXP1}_${DEXP2}_${TYPE}_${DATE}_${TEMP_SUFFIX}.out"
-                
+
                 echo "Compare for TYPE=$TYPE"
                 cdo diffn ${FILE1} ${FILE2} > ${DIFF_FILE}
     
@@ -396,6 +396,11 @@ if [ "${EXPERIMENT}" == 'atm_jww_hs_test' ]; then
     TYPES=${TYPES='ml'}
     DATES=${DATES='20080901T001000Z 20080901T002000Z 20080901T003000Z 20080901T005000Z 20080901T010000Z'}
     RESTART_DATE=${RESTART_DATE='20080901T003000Z'}
+fi
+if [ "${EXPERIMENT}" == 'atm_ape_test' ]; then
+    TYPES=${TYPES='atm_2d_ml atm_2d_rmb_ml phy_3d_ml phy_3d_rmb_ml'}
+    DATES=${DATES='19790101T000000Z 19790101T000400Z 19790101T000800Z 19790101T001200Z 19790101T001600Z'}
+    RESTART_DATE=${RESTART_DATE='19790101T000800Z'}
 fi
 
 echo " "

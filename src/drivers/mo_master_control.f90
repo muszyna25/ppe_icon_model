@@ -26,12 +26,11 @@ MODULE mo_master_control
 
   USE mo_exception,     ONLY: message, finish
   USE mo_mpi,           ONLY: set_process_mpi_name, get_my_global_mpi_id, split_global_mpi_communicator
-
   USE mo_io_units,      ONLY: filename_max
-
   USE mo_master_config, ONLY: noOfModels, master_component_models
   USE mo_master_nml,    ONLY: read_master_namelist
-  
+  USE mo_master_config
+
   IMPLICIT NONE
 
   PRIVATE
@@ -40,7 +39,7 @@ MODULE mo_master_control
     & get_my_namelist_filename, get_my_process_type, get_my_process_name, &
     & atmo_process, ocean_process, radiation_process, testbed_process,    &
     & my_process_is_ocean, get_my_model_no,                               &
-    & are_multiple_models
+    & are_multiple_models, use_restart_namelists, isRestart
    
 
   ! ------------------------------------------------------------------------
@@ -260,6 +259,12 @@ CONTAINS
     my_process_is_ocean = (my_process_model == ocean_process)
 
   END FUNCTION my_process_is_ocean
+  !------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------
+  LOGICAL FUNCTION use_restart_namelists()
+    use_restart_namelists = (isRestart() .and. (my_process_model /= ocean_process))
+  END FUNCTION use_restart_namelists
   !------------------------------------------------------------------------
 
 END MODULE mo_master_control
