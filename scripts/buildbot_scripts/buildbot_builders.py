@@ -18,8 +18,8 @@
 #
 #
 # The class structure is:
-#   buildbot_experimentList
-#     buildbot_machine_list
+#   buildbot_experiments_list
+#     buildbot_machines_list
 #       buildbot_machines
 #         buildbot_builders
 #     experimentList
@@ -38,18 +38,18 @@ verbal=True
 #-----------------------------------------------------------------------
 # contains a list of machines+builders and a list of experiments for them
 
-class buildbot_experimentList(object):
+class buildbot_experiments_list(object):
   
   def __init__(self, name):
     #global paths
     self.name  = name
     self.experimentList = {}
     #paths = model_paths()
-    self.buildbot_machine_list = buildbot_machine_list(name)
+    self.buildbot_machines_list = buildbot_machines_list(name)
     if paths.thisListExists(self.name):
       self.read()
     else:  
-      self.create_all_builders(name) # creates self.buildbot_machine_list with all machines+builders
+      self.create_all_builders(name) # creates self.buildbot_machines_list with all machines+builders
 
   # Add an experiment only to the list; no builder is associated here.
   # If the experiment name exists, it just returns the pointer.
@@ -69,19 +69,19 @@ class buildbot_experimentList(object):
     return exp_list
     
   def add_experimentsByNameToBuildersByName(self, experimentNames, builder_name_list, runflags):    
-    builder_list = self.buildbot_machine_list.get_buildersByName(builder_name_list)
+    builder_list = self.buildbot_machines_list.get_buildersByName(builder_name_list)
     return self.add_experimentsByNameToBuilders(experimentNames, builder_list, runflags)
 
   def add_experimentsByNameToAllBuilders(self, experimentNames, runflags):
-    all_builders = self.buildbot_machine_list.get_all_builders()
+    all_builders = self.buildbot_machines_list.get_all_builders()
     return self.add_experimentsByNameToBuilders( experimentNames, all_builders, runflags)
 
   def add_experimentsByNameToBuildersWithOptions(self, experimentNames, machinesNames, withFlags, withoutFlags, runflags):
     if machinesNames:
-      buildersList = self.buildbot_machine_list.get_machinesBuilders(machinesNames)
+      buildersList = self.buildbot_machines_list.get_machinesBuilders(machinesNames)
     else:
-      buildersList = self.buildbot_machine_list.get_all_builders()
-    buildersList_withOptions = self.buildbot_machine_list.get_buildersWithOptions(buildersList, withFlags, withoutFlags)
+      buildersList = self.buildbot_machines_list.get_all_builders()
+    buildersList_withOptions = self.buildbot_machines_list.get_buildersWithOptions(buildersList, withFlags, withoutFlags)
     return self.add_experimentsByNameToBuilders( experimentNames, buildersList_withOptions, runflags)   
     
   def delete_experiment(self, experiment):
@@ -103,15 +103,15 @@ class buildbot_experimentList(object):
       experiment.delete_fromBuilders(builders_list)
 
   def delete_experimentsByNameFromBuildersByName(self, experiment_list, buildersName):
-    builders_list = self.buildbot_machine_list.get_buildersByName(buildersName)
+    builders_list = self.buildbot_machines_list.get_buildersByName(buildersName)
     self.delete_experimentsByName_fromBuilders(experiment_list, builders_list)
 
   def delete_experimentsByNameFromBuildersWithOptions(self, experimentNames, machinesNames, withFlags, withoutFlags):
     if machinesNames:
-      buildersList = self.buildbot_machine_list.get_machinesBuilders(machinesNames)
+      buildersList = self.buildbot_machines_list.get_machinesBuilders(machinesNames)
     else:
-      buildersList = self.buildbot_machine_list.get_all_builders()
-    buildersList_withOptions = self.buildbot_machine_list.get_buildersWithOptions(buildersList, withFlags, withoutFlags)
+      buildersList = self.buildbot_machines_list.get_all_builders()
+    buildersList_withOptions = self.buildbot_machines_list.get_buildersWithOptions(buildersList, withFlags, withoutFlags)
     return self.delete_experimentsByName_fromBuilders( experimentNames, buildersList_withOptions)
 
   def set_builders_flags(self, builders_names, flag):
@@ -136,13 +136,13 @@ class buildbot_experimentList(object):
     return experiment
     
   def get_MachineByName(self, name):
-    return self.buildbot_machine_list.get_MachineByName(name)
+    return self.buildbot_machines_list.get_MachineByName(name)
     
   def get_BuildersByName(self, names):
-    return self.buildbot_machine_list.get_buildersByName(names)
+    return self.buildbot_machines_list.get_buildersByName(names)
         
   def get_BuilderExperimentNames(self, builder_name):
-    return self.buildbot_machine_list.get_BuilderExperimentNames(builder_name)
+    return self.buildbot_machines_list.get_BuilderExperimentNames(builder_name)
     
   def print_ExperimentsBuilders(self, experimentsNames):
     for experimentName in experimentsNames:
@@ -150,10 +150,10 @@ class buildbot_experimentList(object):
       experiment.print_builders()
 
   def print_list(self):
-    self.buildbot_machine_list.print_builders()
+    self.buildbot_machines_list.print_builders()
      
   def create_all_builders(self, name):
-    self.buildbot_machine_list.create_all_builders()
+    self.buildbot_machines_list.create_all_builders()
 
   def make_binaries(self, builder_name):
     builder = self.get_BuildersByName([builder_name])[0]
@@ -196,7 +196,7 @@ class buildbot_experimentList(object):
   def write(self):
     fileName=paths.get_thisListPath(self.name)
     listfile = open(fileName, 'w')
-    self.buildbot_machine_list.writeToFile_builders(listfile)
+    self.buildbot_machines_list.writeToFile_builders(listfile)
     listfile.close()
     
   def read(self):
@@ -212,7 +212,7 @@ class buildbot_experimentList(object):
         name    = inputs[1]
         #print(inputs)
         if   (keyword == "machine"):
-          machine=self.buildbot_machine_list.add_machine(name, inputs[2])
+          machine=self.buildbot_machines_list.add_machine(name, inputs[2])
         elif (keyword == "builder"):
           builder=machine.add_builder(name, inputs[2], inputs[3])
         elif (keyword == "experiment"):
@@ -230,7 +230,7 @@ class buildbot_experimentList(object):
 
 #-----------------------------------------------------------------------
 # a list of machines
-class buildbot_machine_list(object):
+class buildbot_machines_list(object):
 
   def __init__(self, name):
     self.name  = name

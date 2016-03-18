@@ -8,7 +8,7 @@ from model_paths import *
 
 listname="icon-dev"
 paths = model_paths()
-thisList  = buildbot_experimentList(listname)
+thisList  = buildbot_experiments_list(listname)
 builder_flags, configure_flags, experimentList = thisList.getBuilderProperties("THUNDER_gcc")
 
 print(builder_flags)

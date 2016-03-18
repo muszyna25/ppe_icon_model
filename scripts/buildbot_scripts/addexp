@@ -39,7 +39,7 @@ if not paths.thisListExists(args.list_name):
 
 if not args.runFlags: args.runFlags = ""
 
-thisList  = buildbot_experimentList(args.list_name)
+thisList  = buildbot_experiments_list(args.list_name)
 
 if args.builder_names:
   thisList.add_experimentsByNameToBuildersByName(experiment_names, args.builder_names, args.runFlags)

@@ -18,7 +18,7 @@ if paths.thisListExists(name):
   print("This list exists.")
   quit()
   
-myList  = buildbot_experimentList(name)
+myList  = buildbot_experiments_list(name)
 myList.write()
 print("Experiment list "+name+" is created.")
 

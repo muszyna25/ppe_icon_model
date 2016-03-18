@@ -14,7 +14,7 @@ parser.add_argument('--list', dest="list_name", type=str, help='buildbot list', 
 args = parser.parse_args()
 
 
-thisList  = buildbot_experimentList(args.list_name)
+thisList  = buildbot_experiments_list(args.list_name)
 thisList.print_ExperimentsBuilders(args.experiment_names)
 
 quit()

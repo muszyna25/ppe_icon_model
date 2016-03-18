@@ -18,6 +18,6 @@ if not paths.thisListExists(name):
   print("This list does not exist.")
   quit()
   
-thisList  = buildbot_experimentList(name)
+thisList  = buildbot_experiments_list(name)
 thisList.print_list()
 

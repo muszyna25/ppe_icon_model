@@ -36,7 +36,7 @@ if not paths.thisListExists(args.list_name):
   print("The list "+args.list_name+" does not exist.")
   quit()
 
-thisList  = buildbot_experimentList(args.list_name)
+thisList  = buildbot_experiments_list(args.list_name)
 #thisList.print_list()
 
 if args.builder_names:

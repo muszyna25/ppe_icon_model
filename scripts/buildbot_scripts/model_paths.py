@@ -11,12 +11,17 @@ import sys
 class model_paths(object):
   
   def __init__(self):
-    self.thisPath   = os.getcwd()+'/'+os.path.dirname(sys.argv[0])
+    callPath=os.path.dirname(sys.argv[0])   
+    if not (callPath == "." or callPath == ""):
+      self.thisPath   = os.getcwd()+'/'+os.path.dirname(sys.argv[0])
+    else:
+      self.thisPath   = os.getcwd()
+    #print(callPath, self.thisPath)
     splitPath       = os.path.split(self.thisPath)
     splitPath       = os.path.split(splitPath[0])
     self.basePath   = splitPath[0]
     self.runPath    = self.basePath+"/run"
-    self.experimentsListPath = self.thisPath+"/experiment_lists"
+    self.experimentsListPath = self.thisPath+"/experiment_lists"    
     
   def get_experimentsNames_inPaths(self, pathsInRun):
     os.chdir(self.runPath)
