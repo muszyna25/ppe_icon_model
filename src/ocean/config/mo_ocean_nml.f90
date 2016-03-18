@@ -413,10 +413,10 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: GM_only         =2                      
   INTEGER, PARAMETER :: Redi_only       =3
   !Parameters for tapering configuration
-  INTEGER            :: tapering_scheme=3
   INTEGER, PARAMETER :: tapering_DanaMcWilliams=1
   INTEGER, PARAMETER :: tapering_Large=2    
   INTEGER, PARAMETER :: tapering_Griffies=3
+  INTEGER            :: tapering_scheme=tapering_Griffies
   !Parameters for tapering schemes
   REAL(wp) :: S_max=1.0e-2   !maximally allowed slope 
   REAL(wp) :: S_d=1.0e-3     !width of transition zone from untapered to tapered

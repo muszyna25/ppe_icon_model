@@ -53,7 +53,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_statistics,                ONLY: global_minmaxmean
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
  
-  USE mo_ocean_math_operators,      ONLY: grad_fd_norm_oce_3d_onBlock, verticalDeriv_scalar_onHalfLevels_on_block
+  USE mo_ocean_math_operators,  ONLY: grad_fd_norm_oce_3d_onBlock, verticalDeriv_scalar_onHalfLevels_on_block
   USE mo_scalar_product,            ONLY: map_cell2edges_3d,map_edges2cell_3d, &
     & map_scalar_center2prismtop, map_scalar_prismtop2center
   IMPLICIT NONE
@@ -252,8 +252,12 @@ CONTAINS
               &=taper_diagonal_horz(cell_index,start_level,blockNo) &
               &*tracer_gradient_horz_vec_center(cell_index,start_level,blockNo)%x
 
-            ! the top level flux_vert_center will be filled from the second level, if it exists
-            flux_vert_center(cell_index,start_level,blockNo) = 0.0_wp
+            flux_vert_center(cell_index,start_level,blockNo) &
+              &=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
+              &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
+
+!             ! the top level flux_vert_center will be filled from the second level, if it exists
+!             flux_vert_center(cell_index,start_level,blockNo) = 0.0_wp
           ENDDO
 
           DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
@@ -275,9 +279,9 @@ CONTAINS
                 
           END DO
           ! fill the top level flux_vert_center from the second level, if it exists
-          DO level = start_level+1, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo),start_level+1)
-            flux_vert_center(cell_index,start_level,blockNo) = flux_vert_center(cell_index,start_level+1,blockNo)
-          END DO
+!           DO level = start_level+1, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo),start_level+1)
+!             flux_vert_center(cell_index,start_level,blockNo) = flux_vert_center(cell_index,start_level+1,blockNo)
+!           END DO
         END DO                
       END DO
 !ICON_OMP_END_DO_PARALLEL
@@ -877,7 +881,7 @@ CONTAINS
     !
     !The dianeutral diffusivity is the number determined by the PP-scheme
     K_I           => param%k_tracer_isoneutral
-    K_D           => param%k_tracer_dianeutral
+    K_D           => param%a_tracer_v(:,:,:,tracer_index) !param%k_tracer_dianeutral 
     kappa         => param%k_tracer_GM_kappa
     !-------------------------------------------------------------------------------
     
