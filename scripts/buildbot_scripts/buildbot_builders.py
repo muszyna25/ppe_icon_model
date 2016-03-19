@@ -449,11 +449,12 @@ class buildbot_builder(object):
     
   # updates the configure flags based on the builder flags
   def update_configure_flags(self):
-    ocean_flags="--with-flags=ocean"
+    ocean_flags=["--disable-atmo","--disable-jsbach","--with-yac=no","--with-flags=ocean"]
     if "Ocean" in self.builder_flags:
       # add  ocean_flags to configure flags
-      if not ocean_flags in self.configure_flags:
-        self.configure_flags+=" "+ocean_flags      
+      for flag in ocean_flags:
+        if not flag in self.configure_flags:
+          self.configure_flags+=" "+flag
       
   def hasOptions(self, withFlags, withoutFlags):
     hasTheseOptions = True

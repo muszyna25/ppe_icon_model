@@ -126,7 +126,7 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.ocean_internal/other/exp.oce_testbed_read|cpu_time=00:30:00
 experiment|checksuite.icon-dev/check.atm_icoles_nested|cpu_time=00:30:00
 builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac|build_only
-builder|MISTRAL_ocean|--with-fortran=intel --with-openmp --with-flags=ocean|Ocean
+builder|MISTRAL_ocean|--with-fortran=intel --with-openmp --disable-atmo --disable-jsbach --with-yac=no --with-flags=ocean|Ocean
 experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
