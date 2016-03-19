@@ -502,6 +502,8 @@ class buildbot_builder(object):
   def make_runscripts(self):
     os.chdir(paths.basePath)
     runscriptList = []
+    if "build_only" in self.builder_flags:
+      return runscriptList
     for experiment in self.experiments.values():
       experimentPathName = experiment.name
       status, runscript = make_runscript(experimentPathName, self.experiments_runflags[experimentPathName])
