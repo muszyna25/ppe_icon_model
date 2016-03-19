@@ -61,17 +61,22 @@ def make_runscript(experimentPathName, runflags):
   os.chdir(paths.basePath)
   # seperate the the input path from the experiment name
   experimentPath, experimentName = paths.getPathAndName(experimentPathName)
-  # separate prefix and main name
-  experimentPrefixName = experimentName.split(".",2)
-  #print(experimentPath+" "+experimentPrefixName[0]+" "+experimentPrefixName[1])
   outscript=experimentName+".run"
+  expname = get_EXPNAME(outscript)
   make_runscript_command=paths.basePath+"/config/make_target_runscript "
-  inoutFiles="in_script="+experimentPathName+" in_script=exec.iconrun out_script="+outscript+" EXPNAME="+experimentPrefixName[1]+" "
+  inoutFiles="in_script="+experimentPathName+" in_script=exec.iconrun out_script="+outscript+" EXPNAME="+expname+" "
+  print(make_runscript_command+inoutFiles+runflags)
   status = os.system(make_runscript_command+inoutFiles+runflags)
   if not status == 0:
     print("make_runscripts failed")
   os.chdir(paths.thisPath)
   return status, outscript
+
+def get_EXPNAME(runscript):
+  expname = os.path.splitext(runscript)[0]
+  expname = expname.split(".",1)[1]
+  return expname
+  
 
 #-----------------------------------------------------------------------
 
