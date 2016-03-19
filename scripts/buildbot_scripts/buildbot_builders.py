@@ -30,7 +30,7 @@
 import weakref
 import sys
 import os
-from build_interfaces import make_all_binaries, make_ocean_binaries, make_runscript
+from build_interfaces import make_all_binaries, make_ocean_binaries, make_aes_binaries, make_runscript
 from model_paths import paths
 
 verbal=True
@@ -119,6 +119,10 @@ class buildbot_experiments_list(object):
     for builder in builders:
       builder.set_builder_flags(flag)
 
+  def get_builder_flags(self, builder_name):
+    builder = self.get_BuildersByName([builder_names])[0]
+    return builder.get_builder_flags()
+      
   def set_configure_flags(self, builders_names, flag):
     builders = self.get_BuildersByName(builders_names)
     for builder in builders:
@@ -197,7 +201,6 @@ class buildbot_experiments_list(object):
   #   builder:
   #     experiment:
   def write(self):
-    self.buildbot_machines_list.update_configure_flags()
     fileName=paths.get_thisListPath(self.name)
     listfile = open(fileName, 'w')
     self.buildbot_machines_list.writeToFile_builders(listfile)
@@ -304,9 +307,9 @@ class buildbot_machines_list(object):
     return self.builders[builder_name].getExperimentNames()
 
   # updates the configure flags based on the builder flags
-  def update_configure_flags(self):
-    for builder in self.builders.values():
-      builder.update_configure_flags()
+  #def update_builder_configuration(self):
+    #for builder in self.builders.values():
+      #builder.update_builder_configuration()
      
   def create_all_builders(self):
     # add_machine(name, queue)
@@ -448,14 +451,15 @@ class buildbot_builder(object):
     return self.configure_flags
     
   # updates the configure flags based on the builder flags
-  def update_configure_flags(self):
-    ocean_flags=["--disable-atmo","--disable-jsbach","--with-yac=no","--with-flags=ocean"]
-    if "Ocean" in self.builder_flags:
-      # add  ocean_flags to configure flags
-      for flag in ocean_flags:
-        if not flag in self.configure_flags:
-          self.configure_flags+=" "+flag
-      
+  #def update_builder_configuration(self):
+    #ocean_flags=["--disable-atmo","--disable-jsbach","--with-yac=no","--with-flags=ocean"]
+    #aes_flags=["--disable-ocean"]
+    #if "Ocean" in self.builder_flags:
+      ## add  ocean_flags to configure flags
+      #for flag in ocean_flags:
+        #if not flag in self.configure_flags:
+          #self.configure_flags+=" "+flag
+         
   def hasOptions(self, withFlags, withoutFlags):
     hasTheseOptions = True
     if withFlags:
@@ -488,6 +492,8 @@ class buildbot_builder(object):
   def make_binaries(self):
     if "Ocean" in self.builder_flags:
       return make_ocean_binaries(self.configure_flags)
+    elif "AES" in self.builder_flags:
+      return make_aes_binaries(self.configure_flags)
     else:
       return make_all_binaries(self.configure_flags)
 

@@ -1052,8 +1052,10 @@ scripts/buildbot_scripts/buildbot.tac_master -text
 scripts/buildbot_scripts/buildbot_builders.py -text
 scripts/buildbot_scripts/copy_plots.ksh -text
 scripts/buildbot_scripts/cplist -text
+scripts/buildbot_scripts/create_aes_lists -text
 scripts/buildbot_scripts/create_basic_lists -text
 scripts/buildbot_scripts/create_ocean_lists -text
+scripts/buildbot_scripts/experiment_lists/amip -text
 scripts/buildbot_scripts/experiment_lists/build_only -text
 scripts/buildbot_scripts/experiment_lists/icon-dev -text
 scripts/buildbot_scripts/experiment_lists/ocean -text

@@ -14,7 +14,10 @@ $addexp checksuite.ocean_internal/omip/exp.ocean_omip_ptest checksuite.ocean_int
   --without-configureflags without-mpi --runflags "cpu_time=00:30:00"  --list $listname
 # add omip binary-identical test to all builders
 $addexp checksuite.ocean_internal/omip/exp.ocean_omip_short --runflags "cpu_time=00:30:00" --list $listname
+# set all builders to Ocean
 ./set_builder_flags Ocean --builders "*" --list $listname
+# deactivate MISTRAL_ocean since it's covered by MISTRAL_intel_hybrid
+./set_builder_flags Inactive --builders MISTRAL_ocean  --list $listname
 #lets see the list
 ./lslist $listname
 

@@ -1,0 +1,27 @@
+#!/bin/bash
+
+addexp="./addexp"
+#############################################################################
+##
+## create icon-dev list
+##
+#############################################################################
+listname=amip
+./rmlist $listname
+./mklist $listname
+
+#-----------------------------------------------------------
+# add amip tests to all builders
+$addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
+# set all builders to AES
+./set_builder_flags AES --builders "*" --list $listname
+# deactivate MISTRAL_ocean
+./set_builder_flags Inactive --builders MISTRAL_ocean  --list $listname
+#-----------------------------------------------------------
+#lets see the list
+./lslist $listname
+
+#commit the list
+# svn add experiment_lists/$listname
+# svn commit experiment_lists/$listname -m "[buildbot_scripts] update $listname"
+#############################################################################

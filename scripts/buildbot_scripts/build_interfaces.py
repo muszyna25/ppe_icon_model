@@ -22,7 +22,7 @@ def make_all_binaries(configure_flags):
   return 0
     
 def make_ocean_binaries(configure_flags):
-  ocean_only_flags=" --disable-atmo --disable-jsbach  --with-yac=no"
+  ocean_flags=" --disable-atmo --disable-jsbach --with-yac=no --with-flags=ocean"
   os.chdir(paths.basePath)
   ocean_folder = paths.basePath+"/ocean_build"
   status = os.system("scripts/building/get_ocean "+paths.basePath+" "+ocean_folder)
@@ -30,7 +30,7 @@ def make_ocean_binaries(configure_flags):
     print("get_ocean failed")
     return status
   os.chdir(ocean_folder)  
-  status = os.system("./configure "+configure_flags+ocean_only_flags)
+  status = os.system("./configure "+configure_flags+ocean_flags)
   if not status == 0:
     print("Configure failed")
     return status
@@ -38,7 +38,6 @@ def make_ocean_binaries(configure_flags):
   if not status == 0:
     print("Build failed")
     return status
-
   # get the ocean binaries and setup-info  
   os.chdir(paths.basePath)
   status = os.system("cp -r "+ocean_folder+"/build .")
@@ -46,6 +45,32 @@ def make_ocean_binaries(configure_flags):
   set_account()
   
   os.chdir(paths.thisPath)  
+  return 0
+
+def make_aes_binaries(configure_flags):
+  aes_flags=" --disable-ocean --with-yac=no"
+  os.chdir(paths.basePath)
+  aes_folder = paths.basePath+"/aes_build"
+  status = os.system("scripts/building/get_atmo "+paths.basePath+" "+aes_folder)
+  if not status == 0:
+    print("get_aes failed")
+    return status
+  os.chdir(aes_folder)
+  status = os.system("./configure "+configure_flags+aes_flags)
+  if not status == 0:
+    print("Configure failed")
+    return status
+  status = os.system("./build_command")
+  if not status == 0:
+    print("Build failed")
+    return status
+  # get the aes binaries and setup-info
+  os.chdir(paths.basePath)
+  status = os.system("cp -r "+aes_folder+"/build .")
+  status = os.system("cp "+aes_folder+"/config/set-up.info config")
+  set_account()
+
+  os.chdir(paths.thisPath)
   return 0
 
 def set_account():
