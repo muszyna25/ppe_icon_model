@@ -914,9 +914,6 @@ run/exp.test_nwp_R02B04N06multi -text
 run/exp.test_nwp_R02B04N06multi2 -text
 run/exp.test_nwp_R02B04_R02B05_nest -text
 run/exp.test_oce_testbed_read -text
-run/exp.test_ocean_omip_10days -text
-run/exp.test_ocean_omip_parallel -text
-run/exp.test_ocean_omip_technical -text
 run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
@@ -925,7 +922,6 @@ run/post.hat_jww -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.ocean_omip_long -text
-run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_nat_jww_nwp_mpiomp -text
 run/post.test_ocean_omip_10days -text
@@ -1047,7 +1043,6 @@ scripts/buildbot_scripts/ICON_test.cfg.patch -text
 scripts/buildbot_scripts/README -text
 scripts/buildbot_scripts/addexp -text
 scripts/buildbot_scripts/archive_exp.ksh -text
-scripts/buildbot_scripts/bb_make -text
 scripts/buildbot_scripts/bb_make_doc -text
 scripts/buildbot_scripts/bb_run -text
 scripts/buildbot_scripts/build -text
@@ -1993,8 +1988,6 @@ support/util_sysinfo.c -text
 support/util_system.c -text
 support/util_timer.c -text
 support/util_uuid.c -text
-/target_confmake.ksh -text
-/target_database.ksh -text
 vertical_coord_tables/README -text
 vertical_coord_tables/atm_hyb_sp_1 -text
 vertical_coord_tables/atm_hyb_sp_19 -text

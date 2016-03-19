@@ -258,7 +258,7 @@ if test "x$load_modules" != x ;  then
     echo 'exit $rc' >>conf_load_module.tmp
     chmod +x conf_load_module.tmp
     ./conf_load_module.tmp ; rc=$?
-#    rm conf_load_module.tmp
+    rm conf_load_module.tmp
     exit $rc
   fi  
 fi
