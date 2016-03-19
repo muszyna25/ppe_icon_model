@@ -15,8 +15,8 @@ listname=amip
 $addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
 # set all builders to AES
 ./set_builder_flags AES --builders "*" --list $listname
-# deactivate MISTRAL_ocean
-./set_builder_flags Inactive --builders MISTRAL_ocean  --list $listname
+# deactivate special builders
+./set_builder_flags Inactive --builders MISTRAL_ocean MISTRAL_nag_mtime MISTRAL_nag_serial --list $listname
 #-----------------------------------------------------------
 #lets see the list
 ./lslist $listname
