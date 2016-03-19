@@ -139,7 +139,10 @@ class buildbot_experiments_list(object):
     return self.buildbot_machines_list.get_MachineByName(name)
     
   def get_BuildersByName(self, names):
-    return self.buildbot_machines_list.get_buildersByName(names)
+    if names[0] == "*":
+      return self.buildbot_machines_list.get_all_builders()
+    else:
+      return self.buildbot_machines_list.get_buildersByName(names)
         
   def get_BuilderExperimentNames(self, builder_name):
     return self.buildbot_machines_list.get_BuilderExperimentNames(builder_name)
@@ -194,6 +197,7 @@ class buildbot_experiments_list(object):
   #   builder:
   #     experiment:
   def write(self):
+    self.buildbot_machines_list.update_configure_flags()
     fileName=paths.get_thisListPath(self.name)
     listfile = open(fileName, 'w')
     self.buildbot_machines_list.writeToFile_builders(listfile)
@@ -298,6 +302,11 @@ class buildbot_machines_list(object):
       print("Error: get_BuilderExperimentNames: not existing builder "+builder_name+". Stop")
       quit()
     return self.builders[builder_name].getExperimentNames()
+
+  # updates the configure flags based on the builder flags
+  def update_configure_flags(self):
+    for builder in self.builders.values():
+      builder.update_configure_flags()
      
   def create_all_builders(self):
     # add_machine(name, queue)
@@ -311,7 +320,7 @@ class buildbot_machines_list(object):
     mistral_nag           = mistral.add_builder('MISTRAL_nag', '--with-fortran=nag', 'Active')
     mistral_nag_mtime     = mistral.add_builder('MISTRAL_nag_mtime', '--with-fortran=nag --enable-mtime-loop --without-yac', 'Restricted')
     mistral_nag_serial    = mistral.add_builder('MISTRAL_nag_serial', '--with-fortran=nag --without-mpi --without-yac', 'build_only')
-    mistral_nag_serial    = mistral.add_builder('MISTRAL_ocean', '--with-fortran=intel --with-openmp --with-flags=ocean', 'Ocean')
+    mistral_nag_serial    = mistral.add_builder('MISTRAL_ocean', '--with-fortran=intel --with-openmp', 'Ocean')
     # CSCS builders
     daint_cpu             = self.add_machine('daint_cpu', 'default')
     daint_cpu_cce         = daint_cpu.add_builder('DAINT_CPU_cce', '', 'Active')
@@ -438,6 +447,14 @@ class buildbot_builder(object):
   def get_configure_flags(self):
     return self.configure_flags
     
+  # updates the configure flags based on the builder flags
+  def update_configure_flags(self):
+    ocean_flags="--with-flags=ocean"
+    if "Ocean" in self.builder_flags:
+      # add  ocean_flags to configure flags
+      if not ocean_flags in self.configure_flags:
+        self.configure_flags+=" "+ocean_flags      
+      
   def hasOptions(self, withFlags, withoutFlags):
     hasTheseOptions = True
     if withFlags:

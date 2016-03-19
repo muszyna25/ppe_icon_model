@@ -1,0 +1,40 @@
+machine|thunder|mpi-compute
+builder|THUNDER_gcc|--with-fortran=gcc --with-flags=ocean|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
+builder|THUNDER_nag|--with-fortran=nag --with-flags=ocean|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
+builder|THUNDER_intel_hybrid|--with-fortran=intel --with-openmp --with-flags=ocean|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
+machine|daint_cpu|default
+builder|DAINT_CPU_cce| --with-flags=ocean|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
+machine|mistral|compute
+builder|MISTRAL_intel|--with-fortran=intel --with-flags=ocean|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
+builder|MISTRAL_intel_hybrid|--with-fortran=intel --with-openmp --with-flags=ocean|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
+builder|MISTRAL_nag_mtime|--with-fortran=nag --enable-mtime-loop --without-yac --with-flags=ocean|Ocean
+builder|MISTRAL_intel_openmp|--with-fortran=intel --without-mpi --with-openmp --without-yac --with-flags=ocean|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
+builder|MISTRAL_nag_serial|--with-fortran=nag --without-mpi --without-yac --with-flags=ocean|Ocean
+builder|MISTRAL_ocean|--with-fortran=intel --with-openmp --with-flags=ocean|Ocean
+builder|MISTRAL_gcc|--with-fortran=gcc --with-flags=ocean|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
+builder|MISTRAL_nag|--with-fortran=nag --with-flags=ocean|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
