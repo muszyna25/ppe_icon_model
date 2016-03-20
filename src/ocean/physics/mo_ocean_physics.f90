@@ -1436,7 +1436,7 @@ CONTAINS
 
       DO tracer_index = 1, no_tracer
         IF (tracer_index == 1) THEN
-          instabilitySign = -1.0_wp
+          instabilitySign = 0.0 ! always enable convection for temperature
         ELSE
           instabilitySign = 1.0_wp
         ENDIF
@@ -1450,7 +1450,7 @@ CONTAINS
               & max_vert_diff_trac)
           IF (instabilitySign * &
                  (ocean_state%p_prog(nold(1))%tracer(jc,jk-1,blockNo,tracer_index) -         &
-                  ocean_state%p_prog(nold(1))%tracer(jc,jk,blockNo,tracer_index)) > 0.0_wp) &
+                  ocean_state%p_prog(nold(1))%tracer(jc,jk,blockNo,tracer_index)) >= 0.0_wp) & ! the = is important, do not change!
             THEN
               ! possibly convection
               IF (z_vert_density_grad_c(jc,jk,blockNo) <= convection_InstabilityThreshold) &
