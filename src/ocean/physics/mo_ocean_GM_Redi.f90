@@ -252,9 +252,9 @@ CONTAINS
               &=taper_diagonal_horz(cell_index,start_level,blockNo) &
               &*tracer_gradient_horz_vec_center(cell_index,start_level,blockNo)%x
 
-            flux_vert_center(cell_index,start_level,blockNo) &
-              &=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
-              &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
+!             flux_vert_center(cell_index,start_level,blockNo) &
+!               &=taper_diagonal_vert_expl(cell_index,start_level,blockNo)&
+!               &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
 
 !             ! the top level flux_vert_center will be filled from the second level, if it exists
 !             flux_vert_center(cell_index,start_level,blockNo) = 0.0_wp
@@ -881,7 +881,7 @@ CONTAINS
     !
     !The dianeutral diffusivity is the number determined by the PP-scheme
     K_I           => param%k_tracer_isoneutral
-    K_D           => param%a_tracer_v(:,:,:,tracer_index) !param%k_tracer_dianeutral 
+    K_D           => param%k_tracer_dianeutral ! param%a_tracer_v(:,:,:,tracer_index)
     kappa         => param%k_tracer_GM_kappa
     !-------------------------------------------------------------------------------
     
