@@ -82,6 +82,9 @@ def set_account():
 # if succesful returns a list of the runscripts
 #  otherwise returns the status
 def make_runscript(experimentPathName, runflags):
+  if not paths.thisExperimentExists(experimentPathName):
+    print("Warning:experiment "+experimentPathName+" does not exist.")
+    return 1
   #print("make runscript:"+experimentPathName+" with flags:"+runflags)
   os.chdir(paths.basePath)
   # seperate the the input path from the experiment name

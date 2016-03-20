@@ -35,6 +35,9 @@ class model_paths(object):
     os.chdir(self.thisPath)
     return experimentsNames
 
+  def thisExperimentExists(self, experimentName):
+    return os.path.isfile(self.runPath+"/"+experimentName)
+    
   def get_thisListPath(self, listName):
     return self.experimentsListPath+"/"+listName
     
