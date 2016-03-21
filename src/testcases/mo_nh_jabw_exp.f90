@@ -35,18 +35,16 @@ MODULE mo_nh_jabw_exp
    USE mo_model_domain,        ONLY: t_patch
    USE mo_nonhydro_types,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
    USE mo_run_config,          ONLY: iqv, ntracer
-   USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH
+   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
    USE mo_parallel_config,     ONLY: nproma, p_test_run
    USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-     &                               sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
-     &                               spec_humi          !! Specific humidity
+     &                               sat_pres_ice       !! saturation vapor pressure w.r.t. ice
    USE mo_exception,           ONLY: message, finish, message_text
-   USE mo_advection_config,    ONLY: advection_config
    USE mo_ncar_testcases,      ONLY: tracer_q1_q2, tracer_q3, &
      & init_ncar_testcases_domain
    USE mo_math_constants,      ONLY: pi, pi_2
    USE mo_intp_data_strc,      ONLY: t_int_state
-   USE mo_intp,                ONLY: cells2edges_scalar, edges2cells_scalar
+   USE mo_intp,                ONLY: cells2edges_scalar
    USE mo_loopindices,         ONLY: get_indices_e
    USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
    USE mo_extpar_config,        ONLY: itopo
@@ -182,7 +180,7 @@ MODULE mo_nh_jabw_exp
 
 
     INTEGER        ::  je, jc, jb, jk,   jn, &
-                    nlen, nblks_e, npromz_e,  nblks_c, npromz_c
+                    nlen, nblks_e, nblks_c, npromz_c
     INTEGER        :: i_startidx, i_endidx, i_startblk
     INTEGER        :: nlev        !< number of full levels
 
@@ -208,7 +206,6 @@ MODULE mo_nh_jabw_exp
     nblks_c   = ptr_patch%nblks_c
     npromz_c  = ptr_patch%npromz_c
     nblks_e   = ptr_patch%nblks_e
-    npromz_e  = ptr_patch%npromz_e
 
     ptr_nh_diag%pres_sfc(:,:) = p_sfc    !set surface pressure to the prescribed value
     ps_o_p0ref = p_sfc/p0ref
