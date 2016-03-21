@@ -49,7 +49,7 @@ IMPLICIT NONE
   PUBLIC :: advect_flux_vertical
   PUBLIC :: advect_flux_vertical_high_res
   PUBLIC :: adpo_vtrac_oce
-
+  PUBLIC :: upwind_vflux_oce
 CONTAINS
   
   !-------------------------------------------------------------------------
@@ -556,7 +556,7 @@ CONTAINS
   !! mpi parallelized, no sync
   SUBROUTINE upwind_vflux_oce( patch_3d, pvar_c, pw_c, pupflux_i )
     
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(inout)           :: pvar_c(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)     !< advected cell centered variable
     REAL(wp), INTENT(inout)           :: pw_c(nproma,n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)     !< in: vertical velocity on cells
     REAL(wp), INTENT(inout)           :: pupflux_i(nproma,n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !< variable in which the upwind flux is stored
@@ -567,30 +567,28 @@ CONTAINS
     !INTEGER             :: z_dolic
     INTEGER :: startIndex, endIndex
     INTEGER :: jc, jk, jb               !< index of cell, vertical thisLevel and block
-    INTEGER :: jkm1                     !< jk - 1
     
     TYPE(t_patch), POINTER :: patch_2D
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
-#ifndef __SX__
     patch_2D         => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
     
+!ICON_OMP_PARALLEL_DO PRIVATE(startIndex, endIndex, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, startIndex, endIndex)
       DO jc = startIndex, endIndex
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          jkm1 = jk - 1
           ! calculate vertical tracer flux using upwind method
           pupflux_i(jc,jk,jb) =                 &
             & laxfr_upflux_v( pw_c(jc,jk,jb),  &
-            & pvar_c(jc,jkm1,jb), pvar_c(jc,jk,jb) )
+            & pvar_c(jc,jk - 1,jb), pvar_c(jc,jk,jb) )
         ENDDO
       END DO
     END DO
+!ICON_OMP_END_PARALLEL_DO
     
-#endif
   END SUBROUTINE upwind_vflux_oce
   !-------------------------------------------------------------------------
   
@@ -617,7 +615,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
-#ifndef __SX__
     patch_2D         => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
     
@@ -638,7 +635,6 @@ CONTAINS
       END DO
     END DO
     
-#endif
   END SUBROUTINE central_vflux_oce
   
   !-------------------------------------------------------------------------
