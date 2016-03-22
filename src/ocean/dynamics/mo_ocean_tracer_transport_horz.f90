@@ -1886,9 +1886,6 @@ CONTAINS
     r_p(:,:,:)          = 0.0_wp
 #endif
 
-
-      z_adv_flux_v(:,:,:)=0.0_wp
-
       CALL upwind_vflux_oce( patch_3d, &
         & tracer,                      &
         & vert_velocity,               &
@@ -1964,6 +1961,7 @@ CONTAINS
             & operators_coefficients%div_coeff(jc,level,blockNo,cell_connect)
         ENDDO
 
+        ! note: the is = - z_adv_flux_v(jc, 2, blockNo), as the the interface is 0.
         flux_div_vert = z_adv_flux_v(jc, level, blockNo) &
           & - z_adv_flux_v(jc, level+1, blockNo)
 

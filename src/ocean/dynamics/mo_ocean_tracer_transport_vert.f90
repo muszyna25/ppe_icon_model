@@ -578,6 +578,7 @@ CONTAINS
 !ICON_OMP_PARALLEL_DO PRIVATE(startIndex, endIndex, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, startIndex, endIndex)
+      pupflux_i(:,:,jb) = 0.0_wp
       DO jc = startIndex, endIndex
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
           ! calculate vertical tracer flux using upwind method
@@ -1891,7 +1892,7 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2010-04-23)
   !! - generalized for p- and z-based vertical coordinate systems
   !!
-  FUNCTION laxfr_upflux_v( p_vn, p_psi1, p_psi2 )  result(p_upflux)
+  ELEMENTAL FUNCTION laxfr_upflux_v( p_vn, p_psi1, p_psi2 )  result(p_upflux)
     
     REAL(wp), INTENT(in) :: p_vn
     REAL(wp), INTENT(in) :: p_psi1, p_psi2

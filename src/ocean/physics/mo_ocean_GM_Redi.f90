@@ -27,11 +27,10 @@ MODULE mo_ocean_GM_Redi
   USE mo_physical_constants,  ONLY: grav, sal_ref, rho_inv, a_t, b_s, &
     & sitodbar, sfc_press_bar
   USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                    &
-    & implicit_diffusion,GMRedi_configuration,&
+    & GMRedi_configuration,&
     & GMRedi_combined, GM_only, Redi_only,Cartesian_Mixing,&
     & k_tracer_dianeutral_parameter, k_tracer_isoneutral_parameter, &
     & k_tracer_GM_kappa_parameter,&
-    & implicit_diffusion,explicit_diffusion,vertical_tracer_diffusion_type,&
     & GMRedi_configuration,GMRedi_combined, GM_only,Redi_only,Cartesian_Mixing, &
     & tapering_scheme,tapering_DanaMcWilliams,tapering_Large,tapering_Griffies, &
     & S_max, S_d, c_speed
@@ -293,60 +292,37 @@ CONTAINS
 !      END DO
 !    ENDIF
 
-
-      IF(vertical_tracer_diffusion_type == explicit_diffusion)THEN
-        
-!ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
-        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
-      
-          CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
-      
-          DO cell_index = start_cell_index, end_cell_index
-            DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
-              !vertical GM-Redi Flux
-               flux_vert_center(cell_index,level,blockNo)   &
-                &=flux_vert_center(cell_index,level,blockNo) &
-                & + tracer_gradient_vert_center(cell_index,level,blockNo)&
-                & *taper_diagonal_vert_impl(cell_index,level,blockNo)
-               
-            END DO                  
-          END DO                
-        END DO
-!ICON_OMP_END_DO_PARALLEL
  
-      ELSEIF(vertical_tracer_diffusion_type == implicit_diffusion)THEN
- 
-        CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+      CALL dbg_print('Old vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
 
-        CALL map_scalar_center2prismtop( patch_3d, &
-          &                              taper_diagonal_vert_impl,&
-          &                              op_coeff,           &
-          &                              mapped_verticaloff_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
+      CALL map_scalar_center2prismtop( patch_3d, &
+        &                              taper_diagonal_vert_impl,&
+        &                              op_coeff,           &
+        &                              mapped_verticaloff_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
 
 !         param%a_tracer_v(:,:,:, tracer_index)=param%a_tracer_v(:,:,:, tracer_index) + &
 !           & mapped_verticaloff_diagonal_impl(:,:,:)
 !         param%a_tracer_v(:,:,:, tracer_index)=max(param%a_tracer_v(:,:,:, tracer_index),mapped_verticaloff_diagonal_impl).
 
 !ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
-        DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block     
-          CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
-          DO cell_index = start_cell_index, end_cell_index
-            DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
-              param%a_tracer_v(cell_index,level,blockNo, tracer_index) = &
-                & MAX(param%a_tracer_v(cell_index,level,blockNo, tracer_index), 0.0_wp) + &
-                & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo)
-            END DO                  
-          END DO                
+      DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block
+        CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)
+        DO cell_index = start_cell_index, end_cell_index
+          DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
+            param%a_tracer_v(cell_index,level,blockNo, tracer_index) = &
+              & MAX(param%a_tracer_v(cell_index,level,blockNo, tracer_index), 0.0_wp) + &
+              & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo)
+          END DO
         END DO
+      END DO
 !ICON_OMP_END_DO_PARALLEL
 
-        CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
+      CALL dbg_print('New vert coeff: A_v', param%a_tracer_v(:,:,:, tracer_index), this_mod_name, 4, patch_2D%cells%in_domain)
 ! !      Do level=1,4!n_zlev
 ! !      write(0,*)'New vert coeff',tracer_index,level,maxval(param%a_tracer_v(:,level,:, tracer_index)),&
 ! !      &minval(param%a_tracer_v(:,level,:, tracer_index)),maxval(K_I(:,level,:)),&
 ! !      &minval(K_I(:,level,:))
 ! !      END DO
-      ENDIF
 
 !       CALL sync_patch_array(sync_c, patch_2D, flux_vert_center)
    
