@@ -112,8 +112,7 @@ CONTAINS
 
     IF (flux_calculation_vert == fct_vert_ppm) THEN
 
-!       CALL sync_patch_array(sync_c, patch_2D, ocean_state%p_diag%w_time_weighted)
-      ! Vertical advection scheme: piecewise parabolic method (ppm) inUse      
+      ! Vertical advection scheme: piecewise parabolic method (ppm) inUse
       CALL upwind_vflux_ppm( patch_3d,              &
         & trac_old,                                 &
         & ocean_state%p_diag%w_time_weighted,              &
@@ -123,7 +122,6 @@ CONTAINS
         & operators_coeff%verticalAdvectionPPMcoeffs, &
         & flux_div_vert)
 
-        CALL sync_patch_array(sync_c, patch_2D, flux_div_vert)
         stop_timer(timer_adv_vert,2)
         RETURN
 
