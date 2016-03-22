@@ -189,6 +189,13 @@ class buildbot_experiments_list(object):
       experimentPath, experimentName = paths.getPathAndName(experimentPathName)
       experimentList.append([experimentPath, experimentName])
     return builder.get_builder_flags(), builder.get_configure_flags(), experimentList
+
+  def add_machine(self, name, queue):
+    machine=self.buildbot_machines_list.add_machine(name, queue)
+
+  def add_builder(self, builder_name, machine_name, configure_flags, builder_flags):
+    machine = self.get_MachineByName(machine_name)
+    return machine.add_builder(builder_name,  configure_flags, builder_flags)
     
   #---------------------------------------
   # i/o routines

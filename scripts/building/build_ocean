@@ -1,0 +1,6 @@
+#!/bin/bash
+
+calldir=$(dirname $0)
+cd $calldir/../buildbot_scripts
+./build ocean_$1 --list ocean
+cd -

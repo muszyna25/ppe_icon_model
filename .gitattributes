@@ -1041,7 +1041,9 @@ scripts/SuperMUC_scripts/setup_utils.sh -text
 scripts/buildbot_scripts/ICON.cfg -text
 scripts/buildbot_scripts/ICON_test.cfg.patch -text
 scripts/buildbot_scripts/README -text
+scripts/buildbot_scripts/addbuilder -text
 scripts/buildbot_scripts/addexp -text
+scripts/buildbot_scripts/addmachine -text
 scripts/buildbot_scripts/archive_exp.ksh -text
 scripts/buildbot_scripts/bb_make_doc -text
 scripts/buildbot_scripts/bb_run -text
@@ -1079,6 +1081,7 @@ scripts/buildbot_scripts/test_builders.py -text
 scripts/building/README -text
 scripts/building/Rakefile -text
 scripts/building/build_all -text
+scripts/building/build_ocean -text
 scripts/building/compile_for_dev.mpi.ksh -text
 scripts/building/compile_for_developers.ksh -text
 scripts/building/cp_ocean -text

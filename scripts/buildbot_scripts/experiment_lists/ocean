@@ -38,3 +38,16 @@ builder|MISTRAL_nag|--with-fortran=nag|Ocean
 experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
 experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+machine|ocean|
+builder|ocean_nag|--with-fortran=nag|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+builder|ocean_intel|--with-fortran=intel --with-openmp|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
+builder|ocean_gcc|--with-fortran=gcc|Ocean
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_short|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/omip/exp.ocean_omip_ptest|cpu_time=00:30:00
+experiment|checksuite.ocean_internal/technical/exp.test_ocean_omip_technical|cpu_time=00:30:00
