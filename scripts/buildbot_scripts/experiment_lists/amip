@@ -24,6 +24,25 @@ experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
 experiment|checksuite.icon-dev/check.atm_amip_noparams|
 experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
 experiment|checksuite.icon-dev/check.atm_amip|
+machine|aes|
+builder|aes_gcc|--with-fortran=gcc|AES
+experiment|checksuite.icon-dev/check.atm_amip_noforcing|
+experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
+experiment|checksuite.icon-dev/check.atm_amip_noparams|
+experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
+experiment|checksuite.icon-dev/check.atm_amip|
+builder|aes_intel|--with-fortran=intel --with-openmp|AES
+experiment|checksuite.icon-dev/check.atm_amip_noforcing|
+experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
+experiment|checksuite.icon-dev/check.atm_amip_noparams|
+experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
+experiment|checksuite.icon-dev/check.atm_amip|
+builder|aes_nag|--with-fortran=nag|AES
+experiment|checksuite.icon-dev/check.atm_amip_noforcing|
+experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport|
+experiment|checksuite.icon-dev/check.atm_amip_noparams|
+experiment|checksuite.icon-dev/check.atm_amip_noforcing_notransport_nodynamics|
+experiment|checksuite.icon-dev/check.atm_amip|
 machine|mistral|compute
 builder|MISTRAL_intel|--with-fortran=intel|AES
 experiment|checksuite.icon-dev/check.atm_amip_noforcing|

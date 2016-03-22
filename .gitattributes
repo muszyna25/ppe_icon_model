@@ -1080,6 +1080,7 @@ scripts/buildbot_scripts/set_configure_flags -text
 scripts/buildbot_scripts/test_builders.py -text
 scripts/building/README -text
 scripts/building/Rakefile -text
+scripts/building/build_aes -text
 scripts/building/build_all -text
 scripts/building/build_ocean -text
 scripts/building/compile_for_dev.mpi.ksh -text

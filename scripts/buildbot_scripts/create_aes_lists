@@ -10,6 +10,11 @@ listname=amip
 ./rmlist $listname
 ./mklist $listname
 
+# add some virtual builders for aes local building
+./addmachine aes       --list $listname
+./addbuilder aes_gcc   --configureflags="--with-fortran=gcc"                 --builderflags Active --machine aes --list $listname
+./addbuilder aes_intel --configureflags="--with-fortran=intel --with-openmp" --builderflags Active --machine aes --list $listname
+./addbuilder aes_nag   --configureflags="--with-fortran=nag"                 --builderflags Active --machine aes --list $listname
 #-----------------------------------------------------------
 # add amip tests to all builders
 $addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
