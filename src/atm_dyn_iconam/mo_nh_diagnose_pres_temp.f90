@@ -61,7 +61,7 @@ MODULE mo_nh_diagnose_pres_temp
 
 
 !!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-!!$      &  routine = 'mo_nh_diagnose_pres_temp:diagnose_pres_temp'
+!!$      &  routine = 'mo_nh_diagnose_pres_temp:diagnose_pres_temp' 
 
     TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
     TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog      !!the prognostic variables
