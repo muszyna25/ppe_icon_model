@@ -404,7 +404,7 @@ CONTAINS
     REAL(wp) :: delta_t, delta_z,delta_z_new, delta_z1,delta_z_new1
     REAL(wp) :: div_adv_flux_horz(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: div_diff_flux_horz(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp) :: div_diff_flux_horz2(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+!     REAL(wp) :: div_diff_flux_horz2(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: flux_horz(nproma,n_zlev, patch_3d%p_patch_2D(1)%nblks_e)
     REAL(wp) :: div_adv_flux_vert(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: div_diff_flx_vert(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
@@ -431,7 +431,7 @@ CONTAINS
     div_diff_flux_horz(1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
     div_diff_flx_vert (1:nproma,1:n_zlev,1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
 
-    div_diff_flux_horz2(1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
+!     div_diff_flux_horz2(1:nproma,1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)=0.0_wp
     flux_horz(1:nproma,1:n_zlev,1: 1:patch_3d%p_patch_2d(1)%nblks_e)=0.0_wp
     !---------------------------------------------------------------------
  
@@ -445,7 +445,7 @@ CONTAINS
         & p_op_coeff,                     &
 !         & bc_top_tracer,                  &
 !         & bc_bot_tracer,                  &
-        & div_adv_flux_vert,                      &
+        & div_adv_flux_vert,              &
         & tracer_index)
 
       !---------DEBUG DIAGNOSTICS-------------------------------------------
@@ -702,13 +702,13 @@ CONTAINS
         & min_tracer=tracer_threshold_min(tracer_index), max_tracer=tracer_threshold_max(tracer_index), &
         & tracer_name=namelist_tracer_name(tracer_index), in_subset=cells_in_domain)
         
-  write(0,*)'tracer boundary cond',level,&
-  &maxval(bc_top_tracer),minval(bc_top_tracer)
-  Do level=1,n_zlev
-  write(0,*)'tracer old-new',level,&
-  &maxval(old_ocean_tracer%concentration(:,level,:)),minval(old_ocean_tracer%concentration(:,level,:)),&
-  &maxval(new_ocean_tracer%concentration(:,level,:)),minval(new_ocean_tracer%concentration(:,level,:))
-  End do
+!   write(0,*)'tracer boundary cond',level,&
+!   &maxval(bc_top_tracer),minval(bc_top_tracer)
+!   Do level=1,n_zlev
+!   write(0,*)'tracer old-new',level,&
+!   &maxval(old_ocean_tracer%concentration(:,level,:)),minval(old_ocean_tracer%concentration(:,level,:)),&
+!   &maxval(new_ocean_tracer%concentration(:,level,:)),minval(new_ocean_tracer%concentration(:,level,:))
+!   End do
   
 !DO jb = cells_in_domain%start_block, cells_in_domain%end_block
 !  CALL get_index_range(cells_in_domain, jb, start_cell_index, end_cell_index)
@@ -729,7 +729,7 @@ CONTAINS
     !---------------------------------------------------------------------
   
 
-write(1020,*)'------------------------------------'                
+! write(1020,*)'------------------------------------'                
   END SUBROUTINE advect_individual_tracer_ab_post_step
   !-------------------------------------------------------------------------
 

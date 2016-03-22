@@ -47,7 +47,7 @@ MODULE mo_ocean_tracer_transport_horz
   USE mo_operator_ocean_coeff_3d,   ONLY: t_operator_coeff, no_primal_edges
   USE mo_grid_subset,               ONLY: t_subset_range, get_index_range
   USE mo_sync,                      ONLY: sync_c, sync_c1, sync_e, sync_patch_array, sync_patch_array_mult
-  USE mo_mpi,                       ONLY: my_process_is_mpi_parallel  
+  USE mo_mpi,                       ONLY: global_mpi_barrier
   USE mo_ocean_tracer_transport_vert, ONLY: upwind_vflux_oce
   
   IMPLICIT NONE
@@ -813,7 +813,8 @@ CONTAINS
 !     p_vn_c(1:nproma, 1:n_zlev, 1:patch_3d%p_patch_2d(1)%alloc_cell_blocks)%x(3)=0.0_wp   
     !-------------------------------------------------------------------------------
     !1) provide high- & low order tracer flux
-
+    z_adv_flux_high = 0.0_wp
+    z_adv_flux_low  = 0.0_wp 
     SELECT CASE(fct_low_order_flux)
 	
     CASE(upwind)
@@ -838,8 +839,8 @@ CONTAINS
     END SELECT    
 
 
+
     SELECT CASE(fct_high_order_flux)
- 
     CASE(central)
     
       !central as high order flux
@@ -922,9 +923,9 @@ CONTAINS
     !2)call limiter
 !     CALL sync_patch_array_mult(sync_e, patch_2d, 2, z_adv_flux_low, z_adv_flux_high)
 
-    CALL sync_patch_array(sync_e, patch_2d, z_adv_flux_low)
-
-    CALL sync_patch_array(sync_e, patch_2d, z_adv_flux_high)
+     CALL sync_patch_array(sync_e, patch_2d, z_adv_flux_low)
+ 
+     CALL sync_patch_array(sync_e, patch_2d, z_adv_flux_high)
 
     SELECT CASE(fct_limiter_horz)
     CASE(fct_Limiter_horz_minmod)
@@ -1948,7 +1949,7 @@ CONTAINS
       z_tracer_new_low(:,:,blockNo)  = 0.0_wp
       
       DO jc = start_index, end_index
-        
+        IF (patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo) < start_level) CYCLE 
         ! get prism thickness
         !inv_prism_thick_new(start_level) = 1.0_wp / (patch_3d%p_patch_1d(1)%del_zlev_m(start_level) + h_new(jc,blockNo))
         !prism_thick_old(start_level)     = patch_3d%p_patch_1d(1)%del_zlev_m(start_level)           + h_old(jc,blockNo)
@@ -1971,7 +1972,8 @@ CONTAINS
 
         flux_div_vert = z_adv_flux_v(jc, level, blockNo) &
           & - z_adv_flux_v(jc, level+1, blockNo)
-        
+
+
         delta_z = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,blockNo)&
              &  + h_old(jc,blockNo)
         delta_z_new = patch_3d%p_patch_1D(1)%prism_thick_flat_sfc_c(jc,level,blockNo)&
@@ -1981,7 +1983,9 @@ CONTAINS
         z_tracer_new_low(jc,level,blockNo) = (tracer(jc,level,blockNo) * delta_z                     &
           & - dtime * (z_fluxdiv_c+flux_div_vert))/delta_z_new
         !
-        !Fluid interior       
+!         CALL global_mpi_barrier()
+!         write(0,*) "Over the barrier"
+       !Fluid interior       
         DO level = start_level+1, MIN(patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo), end_level)       
           !  compute divergence of low order fluxes
           z_fluxdiv_c = 0
