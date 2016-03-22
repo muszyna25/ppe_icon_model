@@ -921,12 +921,6 @@ CONTAINS
     !-----------------------------------------------------------------------
     
     !2)call limiter
-!     CALL sync_patch_array_mult(sync_e, patch_2d, 2, z_adv_flux_low, z_adv_flux_high)
-
-     CALL sync_patch_array(sync_e, patch_2d, z_adv_flux_low)
- 
-     CALL sync_patch_array(sync_e, patch_2d, z_adv_flux_high)
-
     SELECT CASE(fct_limiter_horz)
     CASE(fct_Limiter_horz_minmod)
     
