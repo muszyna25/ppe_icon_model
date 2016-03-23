@@ -106,7 +106,7 @@ CONTAINS
           & HarmonicDiffusion=laplacian_vn_out, &
           & k_h=physics_parameters%HarmonicViscosity_coeff)
        
-      CALL dbg_print('laplacian_vn_out:', laplacian_vn_out,str_module,1, &
+      CALL dbg_print('laplacian_vn_out:', laplacian_vn_out,str_module,4, &
         & in_subset=patch_3D%p_patch_2D(1)%edges%owned)
   
       ENDIF
