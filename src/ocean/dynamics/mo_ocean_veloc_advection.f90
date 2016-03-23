@@ -860,7 +860,7 @@ ENDDO
 
       !Step 1: multiply vertical velocity with vertical derivative of horizontal velocity
       DO jc = start_index, end_index
-        fin_level = patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)+1
+        fin_level = patch_3D%p_patch_1D(1)%dolic_c(jc,blockNo)
 
         IF(fin_level >= min_dolic) THEN
 
@@ -875,11 +875,11 @@ ENDDO
              & * patch_3D%p_patch_1D(1)%constantPrismCenters_invZdistance(jc,start_level,blockNo)
 
           ! 1b) ocean interior
-          DO jk = start_level+1, fin_level-1
+          DO jk = start_level+1, fin_level
             z_adv_u_i(jc,jk)%x =  vertical_velocity(jc,jk,blockNo) * z_adv_u_i(jc,jk)%x
           END DO
 
-          z_adv_u_i(jc,fin_level)%x = 0.0_wp
+          z_adv_u_i(jc,fin_level+1)%x = 0.0_wp
 
         ENDIF
       END DO

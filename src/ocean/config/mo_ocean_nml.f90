@@ -331,7 +331,7 @@ MODULE mo_ocean_nml
     &                 use_continuity_correction    , &
     &                 fast_performance_level       , &
     &                 MASS_MATRIX_INVERSION_TYPE   , &
-    &                 NonlinearCoriolis_type           , &
+    &                 NonlinearCoriolis_type       , &
     &                 KineticEnergy_type           , &
     &                 HorizonatlVelocity_VerticalAdvection_form, &
     &                 solver_FirstGuess            , &
