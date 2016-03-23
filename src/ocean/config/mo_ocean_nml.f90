@@ -367,10 +367,10 @@ MODULE mo_ocean_nml
   REAL(wp) :: Temperature_HorizontalDiffusion_Reference  = 1.0E+3_wp
   REAL(wp) :: Salinity_HorizontalDiffusion_Background    = 0.0_wp
   REAL(wp) :: Salinity_HorizontalDiffusion_Reference     = 1.0E+3_wp
-  REAL(wp) :: velocity_VerticalDiffusionParameter             = 1.0E-3_wp  ! vertical diffusion coefficient
+  REAL(wp) :: velocity_VerticalDiffusion_background             = 1.0E-3_wp  ! vertical diffusion coefficient
   REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
-  REAL(wp) :: Temperature_VerticalDiffusionParameter          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
-  REAL(wp) :: Salinity_VerticalDiffusionParameter               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
+  REAL(wp) :: Temperature_VerticalDiffusion_background          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
+  REAL(wp) :: Salinity_VerticalDiffusion_background               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
   REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
   REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
   REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization
@@ -479,9 +479,9 @@ MODULE mo_ocean_nml
 
   NAMELIST/ocean_vertical_diffusion_nml/&
     &  VerticalViscosity_TimeWeight,    &
-    &  Temperature_VerticalDiffusionParameter, &
-    &  Salinity_VerticalDiffusionParameter,    &
-    &  velocity_VerticalDiffusionParameter,    &
+    &  Temperature_VerticalDiffusion_background, &
+    &  Salinity_VerticalDiffusion_background,    &
+    &  velocity_VerticalDiffusion_background,    &
     &  bottom_drag_coeff           ,&
     &  PPscheme_type               ,&
     &  velocity_RichardsonCoeff    ,&
@@ -798,8 +798,8 @@ MODULE mo_ocean_nml
 
     ! maximal diffusion coefficient for tracer used in implicit vertical tracer diffusion,
     !   if stability criterion is met
-    tracer_convection_MixingCoefficient  = 100.0_wp * Temperature_VerticalDiffusionParameter
-!     max_vert_diff_veloc = 100.0_wp * velocity_VerticalDiffusionParameter
+    tracer_convection_MixingCoefficient  = 100.0_wp * Temperature_VerticalDiffusion_background
+!     max_vert_diff_veloc = 100.0_wp * velocity_VerticalDiffusion_background
 
     !------------------------------------------------------------
     ! 5.0 Read ocean_nml namelist

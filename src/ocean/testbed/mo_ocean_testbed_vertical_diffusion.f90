@@ -160,13 +160,13 @@ CONTAINS
     !---------------------------------------------------------------------
     vn_inout  => ocean_state(1)%p_diag%vn_pred
 
-!    ref = 1._wp / velocity_VerticalDiffusionParameter
+!    ref = 1._wp / velocity_VerticalDiffusion_background
 !    power_2 = (LOG(ref) / LOG(2._wp))
 !    write(0,*) ref, LOG(ref), power_2, CEILING(power_2 + binary_significant_digits)
 !    power_2 = REAL(2**CEILING(power_2 + binary_significant_digits),wp)
 !    write(0,*) "mult=", power_2
-!    velocity_VerticalDiffusionParameter = REAL(INT(velocity_VerticalDiffusionParameter * power_2), wp) / power_2
-!    physics_parameters%a_veloc_v(:,:,:) = velocity_VerticalDiffusionParameter
+!    velocity_VerticalDiffusion_background = REAL(INT(velocity_VerticalDiffusion_background * power_2), wp) / power_2
+!    physics_parameters%a_veloc_v(:,:,:) = velocity_VerticalDiffusion_background
 
 
     ! physics_parameters%a_veloc_v(:,:,:) = 1.0_wp

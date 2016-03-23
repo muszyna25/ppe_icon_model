@@ -28,8 +28,8 @@ MODULE mo_ocean_physics
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: &
     & n_zlev, bottom_drag_coeff,                              &
-    & HarmonicViscosity_reference, velocity_VerticalDiffusionParameter,                 &
-    & Temperature_VerticalDiffusionParameter, Salinity_VerticalDiffusionParameter, no_tracer,                       &
+    & HarmonicViscosity_reference, velocity_VerticalDiffusion_background,                 &
+    & Temperature_VerticalDiffusion_background, Salinity_VerticalDiffusion_background, no_tracer,                       &
     & tracer_convection_MixingCoefficient,                                     &
     & BiharmonicViscosity_scaling, HarmonicViscosity_scaling, &
     & VelocityDiffusion_order,                                &
@@ -159,8 +159,8 @@ CONTAINS
     WindAmplitude_at10m => fu10
     !-------------------------------------------------------------------------
     !Init from namelist
-    physics_param%a_veloc_v_back = velocity_VerticalDiffusionParameter
-    physics_param%a_veloc_v      = velocity_VerticalDiffusionParameter
+    physics_param%a_veloc_v_back = velocity_VerticalDiffusion_background
+    physics_param%a_veloc_v      = velocity_VerticalDiffusion_background
 
     IF(GMRedi_configuration==GMRedi_combined&
       &.OR.GMRedi_configuration==GM_only.OR.GMRedi_configuration==Redi_only)THEN
@@ -230,11 +230,11 @@ CONTAINS
       IF(i==1)THEN!temperature
         physics_param%Tracer_HorizontalDiffusion_Background(i) = Temperature_HorizontalDiffusion_Background
         physics_param%Tracer_HorizontalDiffusion_Reference(i) = Temperature_HorizontalDiffusion_Reference
-        physics_param%a_tracer_v_back(i) = Temperature_VerticalDiffusionParameter
+        physics_param%a_tracer_v_back(i) = Temperature_VerticalDiffusion_background
       ELSEIF(i==2)THEN!salinity
         physics_param%Tracer_HorizontalDiffusion_Background(i) = Salinity_HorizontalDiffusion_Background
         physics_param%Tracer_HorizontalDiffusion_Reference(i) = Salinity_HorizontalDiffusion_Reference
-        physics_param%a_tracer_v_back(i) = Salinity_VerticalDiffusionParameter
+        physics_param%a_tracer_v_back(i) = Salinity_VerticalDiffusion_background
       ELSE
 
         CALL finish ('mo_ocean_physics:init_ho_params',  &
