@@ -901,7 +901,6 @@ CONTAINS
         edge_3_index = patch_2d%cells%edge_idx(cell_index,blockNo,3)
         edge_3_block = patch_2d%cells%edge_blk(cell_index,blockNo,3)
 
-
         DO level = startLevel, MIN(patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo), endLevel)
           p_vn_c(cell_index,level,blockNo)%x =                                            &
             & (  operators_coefficients%edge2cell_coeff_cc(cell_index,level,blockNo,1)%x  &
@@ -914,7 +913,7 @@ CONTAINS
             &       * vn_e(edge_3_index,level,edge_3_block)                               &
             &*patch_3d%p_patch_1d(1)%prism_thick_e(edge_3_index,level,edge_3_block))      &
             & / (operators_coefficients%fixed_vol_norm(cell_index,level,blockNo)          &
-            & *patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo))
+            &    * patch_3d%p_patch_1d(1)%prism_thick_c(cell_index,level,blockNo))
         END DO
           
       END DO

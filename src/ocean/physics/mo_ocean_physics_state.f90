@@ -30,23 +30,14 @@ MODULE mo_ocean_physics_state
     & n_zlev, bottom_drag_coeff,                              &
     & HarmonicViscosity_reference, k_veloc_v,       &
     & k_pot_temp_v, k_sal_v, no_tracer,                       &
-    & max_vert_diff_veloc, max_vert_diff_trac,                &
     & BiharmonicViscosity_scaling, HarmonicViscosity_scaling,       &
     & VelocityDiffusion_order,                                  &
     & n_points_in_munk_layer,                                 &
     & BiharmonicViscosity_reference,                &
     & richardson_tracer, richardson_veloc,                    &
-    & physics_parameters_type,                                &
-    & physics_parameters_Constant_type,                       &
-    & physics_parameters_ICON_PP_type,                        &
-    & physics_parameters_ICON_PP_Edge_type,                   &
-    & physics_parameters_ICON_PP_Edge_vnPredict_type,         &
-    & physics_parameters_MPIOM_PP_type,                       &
-    & use_wind_mixing,                                        &
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
-    & use_convection_parameterization,                        &
     & lambda_wind, wma_diff, wma_visc,                        &
     & use_reduced_mixing_under_ice,                           &
     & k_tracer_dianeutral_parameter,                          &

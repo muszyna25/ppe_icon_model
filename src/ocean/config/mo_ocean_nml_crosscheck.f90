@@ -198,7 +198,7 @@ CONTAINS
     
     IF (no_tracer < 1) THEN
       CALL warning("ocean_crosscheck", "no_tracer < 1, use_constant_mixing")
-      physics_parameters_type = physics_parameters_Constant_type
+      PPscheme_type = PPscheme_Constant_type
     ENDIF
 
     CALL check_thicknesses

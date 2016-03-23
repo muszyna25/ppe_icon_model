@@ -30,23 +30,22 @@ MODULE mo_ocean_physics
     & n_zlev, bottom_drag_coeff,                              &
     & HarmonicViscosity_reference, k_veloc_v,                 &
     & k_pot_temp_v, k_sal_v, no_tracer,                       &
-    & max_vert_diff_veloc, max_vert_diff_trac,                &
+    & tracer_convection_MixingCoefficient,                                     &
     & BiharmonicViscosity_scaling, HarmonicViscosity_scaling, &
     & VelocityDiffusion_order,                                &
     & n_points_in_munk_layer,                                 &
     & BiharmonicViscosity_reference,                          &
     & richardson_tracer, richardson_veloc,                    &
-    & physics_parameters_type,                                &
-    & physics_parameters_Constant_type,                       &
-    & physics_parameters_ICON_PP_type,                        &
-    & physics_parameters_ICON_PP_Edge_type,                   &
-    & physics_parameters_ICON_PP_Edge_vnPredict_type,         &
-    & physics_parameters_MPIOM_PP_type,                       &
+    & PPscheme_type,                                &
+    & PPscheme_Constant_type,                       &
+    & PPscheme_ICON_PP_type,                        &
+    & PPscheme_ICON_PP_Edge_type,                   &
+    & PPscheme_ICON_PP_Edge_vnPredict_type,         &
+    & PPscheme_MPIOM_PP_type,                       &
     & use_wind_mixing,                                        &
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
-    & use_convection_parameterization,                        &
     & lambda_wind, wma_diff, wma_visc,                        &
     & use_reduced_mixing_under_ice,                           &
     & k_tracer_dianeutral_parameter,                          &
@@ -123,7 +122,7 @@ MODULE mo_ocean_physics
   !PUBLIC :: init_ho_physics
   PUBLIC :: init_ho_params
   PUBLIC :: update_ho_params
-  PUBLIC :: update_physics_parameters_ICON_PP_Edge_vnPredict_scheme
+  PUBLIC :: update_PhysicsParameters_ICON_PP_Edge_vnPredict_scheme
 
   
   REAL(wp), POINTER :: WindAmplitude_at10m(:,:)  ! can be single precision
@@ -679,8 +678,8 @@ CONTAINS
 !     WindAmplitude_at10m => fu10
     SeaIceConcentration => concsum
     
-    SELECT CASE (physics_parameters_type)
-    CASE (physics_parameters_Constant_type)
+    SELECT CASE (PPscheme_type)
+    CASE (PPscheme_Constant_type)
       !nothing to do!In sbr init_ho_params (see above)
       !tracer mixing coefficient params_oce%A_tracer_v(:,:,:, tracer_index) is already
       !initialzed with params_oce%A_tracer_v_back(tracer_index)
@@ -691,22 +690,22 @@ CONTAINS
       IF (ltimer) CALL timer_stop(timer_upd_phys)
       RETURN
 
-    CASE (physics_parameters_ICON_PP_type)
-      CALL update_physics_parameters_ICON_PP_scheme(patch_3d, ocean_state, params_oce)
+    CASE (PPscheme_ICON_PP_type)
+      CALL update_PhysicsParameters_ICON_PP_scheme(patch_3d, ocean_state, params_oce)
 
-    CASE (physics_parameters_MPIOM_PP_type)
-      CALL update_physics_parameters_MPIOM_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce)
+    CASE (PPscheme_MPIOM_PP_type)
+      CALL update_PhysicsParameters_MPIOM_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce)
 
-    CASE (physics_parameters_ICON_PP_Edge_type)
-      CALL update_physics_parameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
+    CASE (PPscheme_ICON_PP_Edge_type)
+      CALL update_PhysicsParameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
       
-    CASE (physics_parameters_ICON_PP_Edge_vnPredict_type)
-!       CALL update_physics_parameters_ICON_PP_Tracer(patch_3d, ocean_state)
-      CALL update_physics_parameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
+    CASE (PPscheme_ICON_PP_Edge_vnPredict_type)
+!       CALL update_PhysicsParameters_ICON_PP_Tracer(patch_3d, ocean_state)
+      CALL update_PhysicsParameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce)
       ! the velovity friction will be updated during dynamics
       
     CASE default
-      CALL finish("update_ho_params", "unknown physics_parameters_type")
+      CALL finish("update_ho_params", "unknown PPscheme_type")
     END SELECT
 
     IF (LeithClosure_order == 1 .or.  LeithClosure_order == 21) THEN
@@ -1267,7 +1266,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-02)
   !<Optimize:inUse:done>
-  SUBROUTINE update_physics_parameters_ICON_PP_scheme(patch_3d, ocean_state, params_oce) !, calculate_density_func)
+  SUBROUTINE update_PhysicsParameters_ICON_PP_scheme(patch_3d, ocean_state, params_oce) !, calculate_density_func)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
@@ -1352,7 +1351,7 @@ CONTAINS
       DO tracer_index = 1, no_tracer
 
         params_oce%a_tracer_v(start_index:end_index, 2:n_zlev, blockNo, tracer_index) =   &
-          & MERGE(max_vert_diff_trac,                    & ! activate convection
+          & MERGE(tracer_convection_MixingCoefficient,                    & ! activate convection
           & params_oce%a_tracer_v_back(tracer_index) +   & ! calculate the richardson diffusion
           &   richardson_tracer / ((1.0_wp + z_c1_t *    &
           &   z_ri_cell(start_index:end_index, 2:n_zlev, blockNo))**3), &
@@ -1369,7 +1368,7 @@ CONTAINS
                 & (z_vert_density_grad_c(jc,jk,blockNo) - convection_InstabilityThreshold) / &
                 & (RichardsonDiffusion_threshold - convection_InstabilityThreshold)
               params_oce%a_tracer_v(jc,jk,blockNo,tracer_index) = &
-                & max_vert_diff_trac * (1.0_wp - diffusion_weight) +&
+                & tracer_convection_MixingCoefficient * (1.0_wp - diffusion_weight) +&
                 & diffusion_weight * params_oce%a_tracer_v(jc,jk,blockNo,tracer_index)
             ENDIF
 
@@ -1437,18 +1436,18 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
 !     IF (ltimer) CALL timer_stop(timer_extra11)
 
-  END SUBROUTINE update_physics_parameters_ICON_PP_scheme
+  END SUBROUTINE update_PhysicsParameters_ICON_PP_scheme
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  !! As in the update_physics_parameters_ICON_PP_scheme, but
+  !! As in the update_PhysicsParameters_ICON_PP_scheme, but
   !! velocity gradients for the vertical viscocity are clculated on edges
   !!
   !! @par Revision History
   !! Initial release by Leonidas Linardakis, MPI-M (2011-02)
   !<Optimize:inUse:done>
-  SUBROUTINE update_physics_parameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce) !, calculate_density_func)
+  SUBROUTINE update_PhysicsParameters_ICON_PP_Edge_scheme(patch_3d, ocean_state, params_oce) !, calculate_density_func)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
@@ -1565,7 +1564,7 @@ CONTAINS
             params_oce%a_tracer_v(jc,jk,blockNo,tracer_index) = MIN( &
               & params_oce%a_tracer_v_back(tracer_index) +   &
               & richardson_tracer / ((1.0_wp + z_c1_t * z_ri_cell(jc, jk))**3) + tracer_windMixing(jc,jk), &
-              & max_vert_diff_trac)
+              & tracer_convection_MixingCoefficient)
           IF (instabilitySign * &
                  (ocean_state%p_prog(nold(1))%tracer(jc,jk-1,blockNo,tracer_index) -         &
                   ocean_state%p_prog(nold(1))%tracer(jc,jk,blockNo,tracer_index)) >= 0.0_wp) & ! the = is important, do not change!
@@ -1574,7 +1573,7 @@ CONTAINS
               IF (z_vert_density_grad_c(jc,jk,blockNo) <= convection_InstabilityThreshold) &
               THEN
                 ! convection
-                params_oce%a_tracer_v(jc,jk,blockNo,tracer_index) = max_vert_diff_trac
+                params_oce%a_tracer_v(jc,jk,blockNo,tracer_index) = tracer_convection_MixingCoefficient
               ELSE
                 IF (z_vert_density_grad_c(jc,jk,blockNo) < RichardsonDiffusion_threshold) THEN
                   ! interpolate between convection and richardson diffusion
@@ -1582,7 +1581,7 @@ CONTAINS
                     & (z_vert_density_grad_c(jc,jk,blockNo) - convection_InstabilityThreshold) / &
                     & (RichardsonDiffusion_threshold - convection_InstabilityThreshold)
                   params_oce%a_tracer_v(jc,jk,blockNo,tracer_index) = &
-                    & max_vert_diff_trac * (1.0_wp - diffusion_weight) +&
+                    & tracer_convection_MixingCoefficient * (1.0_wp - diffusion_weight) +&
                     & diffusion_weight * params_oce%a_tracer_v(jc,jk,blockNo,tracer_index)
                 ENDIF
               ENDIF
@@ -1659,7 +1658,7 @@ CONTAINS
 !ICON_OMP_END_PARALLEL
 !     IF (ltimer) CALL timer_stop(timer_extra11)
 
-  END SUBROUTINE update_physics_parameters_ICON_PP_Edge_scheme
+  END SUBROUTINE update_PhysicsParameters_ICON_PP_Edge_scheme
   !-------------------------------------------------------------------------
 
 
@@ -1667,13 +1666,13 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! As in the update_physics_parameters_ICON_PP_scheme, but
+  !! As in the update_PhysicsParameters_ICON_PP_scheme, but
   !! velocity gradients for the vertical viscocity are clculated on edges
   !!
   !! @par Revision History
   !! Initial release by Leonidas Linardakis, MPI-M (2011-02)
   !<Optimize:inUse:done>
-  SUBROUTINE update_physics_parameters_ICON_PP_Edge_vnPredict_scheme(patch_3d, &
+  SUBROUTINE update_PhysicsParameters_ICON_PP_Edge_vnPredict_scheme(patch_3d, &
     & blockNo, start_index, end_index, ocean_state, vn_predict) !, calculate_density_func)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
@@ -1780,18 +1779,18 @@ CONTAINS
       END DO ! jk = 2, levels
     ENDDO ! je = start_index, end_index
 
-  END SUBROUTINE update_physics_parameters_ICON_PP_Edge_vnPredict_scheme
+  END SUBROUTINE update_PhysicsParameters_ICON_PP_Edge_vnPredict_scheme
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
   !>
-  !! As in the update_physics_parameters_ICON_PP_scheme, but
+  !! As in the update_PhysicsParameters_ICON_PP_scheme, but
   !! velocity gradients for the vertical viscocity are calculated on edges
   !!
   !! @par Revision History
   !! Initial release by Leonidas Linardakis, MPI-M (2011-02)
   !<Optimize:inUse:done>
-  SUBROUTINE update_physics_parameters_ICON_PP_Tracer(patch_3d, ocean_state) !, calculate_density_func)
+  SUBROUTINE update_PhysicsParameters_ICON_PP_Tracer(patch_3d, ocean_state) !, calculate_density_func)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
@@ -1900,7 +1899,7 @@ CONTAINS
 
         params_oce%a_tracer_v(start_index:end_index, 2:n_zlev, blockNo, tracer_index) =   &
           & MERGE(                                       &
-          & max_vert_diff_trac,                          & ! activate convection
+          & tracer_convection_MixingCoefficient,                          & ! activate convection
           & params_oce%a_tracer_v_back(tracer_index) +   & ! calculate the richardson diffusion
           &   richardson_tracer / ((1.0_wp + z_c1_t *    &
           &   z_ri_cell(start_index:end_index, 2:n_zlev))**3) + &
@@ -1918,7 +1917,7 @@ CONTAINS
                 & (z_vert_density_grad_c(jc,jk,blockNo) - convection_InstabilityThreshold) / &
                 & (RichardsonDiffusion_threshold - convection_InstabilityThreshold)
               params_oce%a_tracer_v(jc,jk,blockNo,tracer_index) = &
-                & max_vert_diff_trac * (1.0_wp - diffusion_weight) +&
+                & tracer_convection_MixingCoefficient * (1.0_wp - diffusion_weight) +&
                 & diffusion_weight * params_oce%a_tracer_v(jc,jk,blockNo,tracer_index)
             ENDIF
 
@@ -1930,7 +1929,7 @@ CONTAINS
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
 
-  END SUBROUTINE update_physics_parameters_ICON_PP_Tracer
+  END SUBROUTINE update_PhysicsParameters_ICON_PP_Tracer
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
@@ -1951,7 +1950,7 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-02)
 !<Optimize:inUse>
-  SUBROUTINE update_physics_parameters_MPIOM_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce) !, calculate_density_func)
+  SUBROUTINE update_PhysicsParameters_MPIOM_PP_scheme(patch_3d, ocean_state, fu10, concsum, params_oce) !, calculate_density_func)
 
     TYPE(t_patch_3d ),TARGET, INTENT(in)  :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET     :: ocean_state
@@ -2019,7 +2018,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Attention: with use_constant_mixing=.true. there is no application of
     ! convective mixing parameters in case of instability
-    ! max_vert_diff_veloc / max_vert_diff_trac
+    ! max_vert_diff_veloc / tracer_convection_MixingCoefficient
     ! control of convective and constant mixing should be independent
 
     grav_rho          = grav/OceanReferenceDensity
@@ -2113,7 +2112,7 @@ CONTAINS
             ! cut unphysically negative wind induced mixing
             dv_wind(jc,jk,blockNo) =  MAX(dv_wind(jc,jk,blockNo),0.0_wp)
             ! cut overshoots more than convection maximum - must not be set to low values
-          ! IF (max_vert_diff_trac .GT. params_oce%a_tracer_v_back(1)) &
+          ! IF (tracer_convection_MixingCoefficient .GT. params_oce%a_tracer_v_back(1)) &
           !   &  dv_wind(jc,jk,blockNo) =  MIN(dv_wind(jc,jk,blockNo),0.0_wp)
 
           END DO
@@ -2129,7 +2128,7 @@ CONTAINS
           DO jk = 2, levels
 
             ! calculate the richardson diffusion using the eddy diffusion relaxation term lambda_diff
-            !  - a_tracer_v is relaxed to the last pp-value to avoid relaxing to convection value max_vert_diff_trac
+            !  - a_tracer_v is relaxed to the last pp-value to avoid relaxing to convection value tracer_convection_MixingCoefficient
 
               dv_old  = params_oce%a_tracer_v(jc,jk,blockNo,tracer_index)
               dv_back = params_oce%a_tracer_v_back(tracer_index)
@@ -2146,12 +2145,13 @@ CONTAINS
          !      & richardson_no(jc,jk,blockNo))**3)
          !  ENDIF
 
-                ! #slo# ensure that pp is active for low values of max_vert_diff_trac
+                ! #slo# ensure that pp is active for low values of tracer_convection_MixingCoefficient
                 dv_old = params_oce%a_tracer_v(jc,jk,blockNo,tracer_index)
                 params_oce%a_tracer_v(jc,jk,blockNo,tracer_index) = MAX(  &
                   ! #slo# Attention: convection_InstabilityThreshold<0 in old formulation - used with reverted sign
-                  &  max_vert_diff_trac * (-convection_InstabilityThreshold-vert_density_grad(jc,jk,blockNo)) /     &
-                  &                       (-convection_InstabilityThreshold+ABS(vert_density_grad(jc,jk,blockNo))), dv_old)
+                  &  tracer_convection_MixingCoefficient * &
+                  &  (-convection_InstabilityThreshold-vert_density_grad(jc,jk,blockNo)) /     &
+                  &  (-convection_InstabilityThreshold+ABS(vert_density_grad(jc,jk,blockNo))), dv_old)
 
           ENDDO ! levels
         ENDDO !  block index
@@ -2255,7 +2255,7 @@ CONTAINS
 ! 
 !             ! MPIOM style of convection in PP-scheme: viscosity
 !             IF (use_mpiom_pp_form) THEN
-!               ! #slo# ensure that pp is active for low values of max_vert_diff_trac
+!               ! #slo# ensure that pp is active for low values of tracer_convection_MixingCoefficient
 !               av_old = params_oce%a_veloc_v(je,jk,blockNo)
 !               params_oce%a_veloc_v(je,jk,blockNo) = MAX(  &
 !                 ! #slo# Attention: convection_InstabilityThreshold<0 in old formulation - used with reverted sign
@@ -2266,7 +2266,7 @@ CONTAINS
 ! 
 !               ! turn on convection
 !               IF (mean_density_differ_edge <  convection_InstabilityThreshold) THEN
-!                 ! #slo# ensure that pp is active for low values of max_vert_diff_trac
+!                 ! #slo# ensure that pp is active for low values of tracer_convection_MixingCoefficient
 !                 !params_oce%a_veloc_v(je,jk,blockNo) = max_vert_diff_veloc
 !                 params_oce%a_veloc_v(je,jk,blockNo) = MAX(max_vert_diff_veloc,params_oce%a_veloc_v(je,jk,blockNo))
 !               ELSE
@@ -2317,7 +2317,7 @@ CONTAINS
       & in_subset=p_patch%edges%owned)
     !---------------------------------------------------------------------
 
-  END SUBROUTINE update_physics_parameters_MPIOM_PP_scheme
+  END SUBROUTINE update_PhysicsParameters_MPIOM_PP_scheme
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
