@@ -49,7 +49,7 @@ IMPLICIT NONE
   PUBLIC :: advect_flux_vertical
   PUBLIC :: advect_flux_vertical_high_res
   PUBLIC :: adpo_vtrac_oce
-
+  PUBLIC :: upwind_vflux_oce
 CONTAINS
   
   !-------------------------------------------------------------------------
@@ -70,12 +70,12 @@ CONTAINS
     & tracer_id)
     
     TYPE(t_patch_3d ),TARGET :: patch_3d
-    REAL(wp), INTENT(inout)           :: trac_old(nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp), INTENT(inout)           :: trac_old(:,:,:) ! (nproma,n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     TYPE(t_hydro_ocean_state), TARGET :: ocean_state
     TYPE(t_operator_coeff), TARGET    :: operators_coeff
 !     REAL(wp)                          :: bc_top_tracer(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
 !     REAL(wp)                          :: bc_bot_tracer(nproma, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp), INTENT(inout)           :: flux_div_vert(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
+    REAL(wp), INTENT(inout)           :: flux_div_vert(:,:,:) ! (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
     INTEGER, INTENT(in)               :: tracer_id
     
     !Local variables
@@ -112,7 +112,7 @@ CONTAINS
 
     IF (flux_calculation_vert == fct_vert_ppm) THEN
 
-      ! Vertical advection scheme: piecewise parabolic method (ppm) inUse      
+      ! Vertical advection scheme: piecewise parabolic method (ppm) inUse
       CALL upwind_vflux_ppm( patch_3d,              &
         & trac_old,                                 &
         & ocean_state%p_diag%w_time_weighted,              &
@@ -122,9 +122,9 @@ CONTAINS
         & operators_coeff%verticalAdvectionPPMcoeffs, &
         & flux_div_vert)
 
-        ! CALL sync_patch_array(sync_c, patch_2D, flux_div_vert)
         stop_timer(timer_adv_vert,2)
         RETURN
+
     ENDIF
 
     !  The rest is for not upwind_vflux_ppm cases, notInUse
@@ -556,7 +556,7 @@ CONTAINS
   !! mpi parallelized, no sync
   SUBROUTINE upwind_vflux_oce( patch_3d, pvar_c, pw_c, pupflux_i )
     
-    TYPE(t_patch_3d ),TARGET, INTENT(inout)   :: patch_3d
+    TYPE(t_patch_3d ),TARGET, INTENT(in)   :: patch_3d
     REAL(wp), INTENT(inout)           :: pvar_c(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)     !< advected cell centered variable
     REAL(wp), INTENT(inout)           :: pw_c(nproma,n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks)     !< in: vertical velocity on cells
     REAL(wp), INTENT(inout)           :: pupflux_i(nproma,n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !< variable in which the upwind flux is stored
@@ -567,30 +567,29 @@ CONTAINS
     !INTEGER             :: z_dolic
     INTEGER :: startIndex, endIndex
     INTEGER :: jc, jk, jb               !< index of cell, vertical thisLevel and block
-    INTEGER :: jkm1                     !< jk - 1
     
     TYPE(t_patch), POINTER :: patch_2D
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
-#ifndef __SX__
     patch_2D         => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
     
+!ICON_OMP_PARALLEL_DO PRIVATE(startIndex, endIndex, jc, jk) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, startIndex, endIndex)
+      pupflux_i(:,:,jb) = 0.0_wp
       DO jc = startIndex, endIndex
         DO jk = 2, patch_3d%p_patch_1d(1)%dolic_c(jc,jb)
-          jkm1 = jk - 1
           ! calculate vertical tracer flux using upwind method
           pupflux_i(jc,jk,jb) =                 &
             & laxfr_upflux_v( pw_c(jc,jk,jb),  &
-            & pvar_c(jc,jkm1,jb), pvar_c(jc,jk,jb) )
+            & pvar_c(jc,jk - 1,jb), pvar_c(jc,jk,jb) )
         ENDDO
       END DO
     END DO
+!ICON_OMP_END_PARALLEL_DO
     
-#endif
   END SUBROUTINE upwind_vflux_oce
   !-------------------------------------------------------------------------
   
@@ -617,7 +616,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     TYPE(t_subset_range), POINTER :: cells_in_domain
     !-------------------------------------------------------------------------
-#ifndef __SX__
     patch_2D         => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain
     
@@ -638,7 +636,6 @@ CONTAINS
       END DO
     END DO
     
-#endif
   END SUBROUTINE central_vflux_oce
   
   !-------------------------------------------------------------------------
@@ -834,12 +831,12 @@ CONTAINS
     
     TYPE(t_patch_3d ),TARGET, INTENT(in) :: patch_3d
     REAL(wp), INTENT(inout)           :: p_cc(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)  !< advected cell centered variable
-    REAL(wp), INTENT(inout)           :: p_w(nproma,n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !<  in, but synced: vertical velocity
+    REAL(wp), INTENT(inout)           :: p_w(nproma,n_zlev+1, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !<  in, vertical velocity
     REAL(wp), INTENT(in)              :: p_dtime  !< time step
     REAL(wp), INTENT(inout)           :: p_cellhgt_mc_now(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)!< layer thickness at cell center at time n
     REAL(wp), INTENT(inout)           :: cell_invheight(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)!< layer thickness at cell center at time n
     TYPE(t_verticalAdvection_ppm_coefficients), POINTER :: verticalAdvection_ppm_coefficients(:)
-    REAL(wp), INTENT(inout)           :: flux_div_vert(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
+    REAL(wp), INTENT(inout)           :: flux_div_vert(:,:,:) ! (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
     INTEGER, INTENT(in)               :: p_itype_vlimit                                  !< parameter to select limiter
     !
     !local variables
@@ -1222,7 +1219,7 @@ CONTAINS
     REAL(wp), INTENT(inout)           :: cell_thickeness(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)!< in: layer thickness at cell center at time n
     REAL(wp), INTENT(inout)           :: cell_invheight(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)!< layer thickness at cell center at time n
     TYPE(t_verticalAdvection_ppm_coefficients) :: verticalAdvection_ppm_coefficients(patch_3d%p_patch_2d(1)%alloc_cell_blocks)
-    REAL(wp), INTENT(inout)           :: flux_div_vert(nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
+    REAL(wp), INTENT(inout)           :: flux_div_vert(:,:,:) ! (nproma, n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks) !new tracer
     INTEGER, INTENT(in)               :: vertical_limiter_type                                  !< parameter to select limiter
     !
     !-----------------------------------------------------------------------
@@ -1230,7 +1227,10 @@ CONTAINS
     INTEGER                       :: startIndex, endIndex, jb
     !-----------------------------------------------------------------------
     cells_in_domain => patch_3d%p_patch_2d(1)%cells%in_domain
-    
+#ifdef NAGFOR
+    flux_div_vert(:,:,:) = 0.0_wp
+#endif
+   
 !ICON_OMP_PARALLEL_DO PRIVATE(startIndex, endIndex) ICON_OMP_DEFAULT_SCHEDULE
     DO jb = cells_in_domain%start_block, cells_in_domain%end_block
       CALL get_index_range(cells_in_domain, jb, startIndex, endIndex)
@@ -1569,6 +1569,10 @@ CONTAINS
         flux_div_vert(jc,thisLevel) = upward_tracer_flux(jc, thisLevel) &
           & - upward_tracer_flux(jc, thisLevel+1)
       ENDDO
+      DO thisLevel = cells_noOfLevels(jc)+1, n_zlev
+        ! positive vertical divergence in direction of w (upward positive)
+        flux_div_vert(jc,thisLevel) = 0.0_wp
+      ENDDO
     END DO
 
   END SUBROUTINE upwind_vflux_ppm_onBlock
@@ -1888,7 +1892,7 @@ CONTAINS
   !! Modification by Daniel Reinert, DWD (2010-04-23)
   !! - generalized for p- and z-based vertical coordinate systems
   !!
-  FUNCTION laxfr_upflux_v( p_vn, p_psi1, p_psi2 )  result(p_upflux)
+  ELEMENTAL FUNCTION laxfr_upflux_v( p_vn, p_psi1, p_psi2 )  result(p_upflux)
     
     REAL(wp), INTENT(in) :: p_vn
     REAL(wp), INTENT(in) :: p_psi1, p_psi2
