@@ -30,8 +30,8 @@ MODULE mo_ocean_veloc_advection
   USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
   USE mo_model_domain,        ONLY: t_patch, t_patch_3D
   USE mo_impl_constants,      ONLY: boundary, min_dolic
-  USE mo_ocean_nml,           ONLY: n_zlev,NONLINEAR_CORIOLIS,&
-    & NONLINEAR_CORIOLIS_PRIMAL_GRID,NONLINEAR_CORIOLIS_DUAL_GRID, NO_CORIOLIS, &
+  USE mo_ocean_nml,           ONLY: n_zlev,NonlinearCoriolis_type,&
+    & nonlinear_coriolis_primal_grid,nonlinear_coriolis_dual_grid, no_coriolis, &
     & VerticalAdvection_None, VerticalAdvection_RotationalForm, VerticalAdvection_MimeticRotationalForm, &
     & VerticalAdvection_DivergenceForm, HorizonatlVelocity_VerticalAdvection_form
   USE mo_util_dbg_prnt,       ONLY: dbg_print
@@ -91,7 +91,7 @@ CONTAINS
     IF (velocity_advection_form == rotational_form) THEN
 
 
-      IF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_DUAL_GRID)THEN
+      IF(NonlinearCoriolis_type==nonlinear_coriolis_dual_grid)THEN
         ! inUse
         CALL veloc_adv_horz_mimetic_rot( patch_3D,        &
           & vn_old,          &
@@ -99,7 +99,7 @@ CONTAINS
           & veloc_adv_horz_e,&
           & ocean_coefficients)
 
-      ELSEIF(NONLINEAR_CORIOLIS==NONLINEAR_CORIOLIS_PRIMAL_GRID)THEN
+      ELSEIF(NonlinearCoriolis_type==nonlinear_coriolis_primal_grid)THEN
 
         CALL veloc_adv_horz_mimetic_classicCgrid( patch_3D, &
           & vn_old,          &
@@ -107,7 +107,7 @@ CONTAINS
           & veloc_adv_horz_e,&
           & ocean_coefficients)
 
-      ELSEIF(NONLINEAR_CORIOLIS==NO_CORIOLIS)THEN
+      ELSEIF(NonlinearCoriolis_type==no_coriolis)THEN
 
         CALL calculate_only_kineticGrad( patch_3D, &
           & vn_old,          &

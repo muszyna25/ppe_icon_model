@@ -28,14 +28,14 @@ MODULE mo_ocean_physics
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: &
     & n_zlev, bottom_drag_coeff,                              &
-    & HarmonicViscosity_reference, k_veloc_v,                 &
-    & k_pot_temp_v, k_sal_v, no_tracer,                       &
+    & HarmonicViscosity_reference, velocity_VerticalDiffusionParameter,                 &
+    & Temperature_VerticalDiffusionParameter, Salinity_VerticalDiffusionParameter, no_tracer,                       &
     & tracer_convection_MixingCoefficient,                                     &
     & BiharmonicViscosity_scaling, HarmonicViscosity_scaling, &
     & VelocityDiffusion_order,                                &
     & n_points_in_munk_layer,                                 &
     & BiharmonicViscosity_reference,                          &
-    & richardson_tracer, richardson_veloc,                    &
+    & tracer_RichardsonCoeff, velocity_RichardsonCoeff,                    &
     & PPscheme_type,                                &
     & PPscheme_Constant_type,                       &
     & PPscheme_ICON_PP_type,                        &
@@ -159,8 +159,8 @@ CONTAINS
     WindAmplitude_at10m => fu10
     !-------------------------------------------------------------------------
     !Init from namelist
-    physics_param%a_veloc_v_back = k_veloc_v
-    physics_param%a_veloc_v      = k_veloc_v
+    physics_param%a_veloc_v_back = velocity_VerticalDiffusionParameter
+    physics_param%a_veloc_v      = velocity_VerticalDiffusionParameter
 
     IF(GMRedi_configuration==GMRedi_combined&
       &.OR.GMRedi_configuration==GM_only.OR.GMRedi_configuration==Redi_only)THEN
@@ -230,11 +230,11 @@ CONTAINS
       IF(i==1)THEN!temperature
         physics_param%Tracer_HorizontalDiffusion_Background(i) = Temperature_HorizontalDiffusion_Background
         physics_param%Tracer_HorizontalDiffusion_Reference(i) = Temperature_HorizontalDiffusion_Reference
-        physics_param%a_tracer_v_back(i) = k_pot_temp_v
+        physics_param%a_tracer_v_back(i) = Temperature_VerticalDiffusionParameter
       ELSEIF(i==2)THEN!salinity
         physics_param%Tracer_HorizontalDiffusion_Background(i) = Salinity_HorizontalDiffusion_Background
         physics_param%Tracer_HorizontalDiffusion_Reference(i) = Salinity_HorizontalDiffusion_Reference
-        physics_param%a_tracer_v_back(i) = k_sal_v
+        physics_param%a_tracer_v_back(i) = Salinity_VerticalDiffusionParameter
       ELSE
 
         CALL finish ('mo_ocean_physics:init_ho_params',  &
@@ -1306,7 +1306,7 @@ CONTAINS
     levels = n_zlev
 
     !-------------------------------------------------------------------------
-    z_av0 = richardson_veloc
+    z_av0 = velocity_RichardsonCoeff
     z_grav_rho                   = grav/OceanReferenceDensity
     z_inv_OceanReferenceDensity                = 1.0_wp/OceanReferenceDensity
     !-------------------------------------------------------------------------
@@ -1353,7 +1353,7 @@ CONTAINS
         params_oce%a_tracer_v(start_index:end_index, 2:n_zlev, blockNo, tracer_index) =   &
           & MERGE(tracer_convection_MixingCoefficient,                    & ! activate convection
           & params_oce%a_tracer_v_back(tracer_index) +   & ! calculate the richardson diffusion
-          &   richardson_tracer / ((1.0_wp + z_c1_t *    &
+          &   tracer_RichardsonCoeff / ((1.0_wp + z_c1_t *    &
           &   z_ri_cell(start_index:end_index, 2:n_zlev, blockNo))**3), &
           & z_vert_density_grad_c(start_index:end_index, 2:n_zlev,blockNo) < convection_InstabilityThreshold)
 
@@ -1563,7 +1563,7 @@ CONTAINS
             ! by default use the richardson formula, no convection
             params_oce%a_tracer_v(jc,jk,blockNo,tracer_index) = MIN( &
               & params_oce%a_tracer_v_back(tracer_index) +   &
-              & richardson_tracer / ((1.0_wp + z_c1_t * z_ri_cell(jc, jk))**3) + tracer_windMixing(jc,jk), &
+              & tracer_RichardsonCoeff / ((1.0_wp + z_c1_t * z_ri_cell(jc, jk))**3) + tracer_windMixing(jc,jk), &
               & tracer_convection_MixingCoefficient)
           IF (instabilitySign * &
                  (ocean_state%p_prog(nold(1))%tracer(jc,jk-1,blockNo,tracer_index) -         &
@@ -1647,7 +1647,7 @@ CONTAINS
           
           params_oce%a_veloc_v(je,jk,blockNo) =                 &
             & params_oce%a_veloc_v_back * dz +             &
-            & richardson_veloc /                           &
+            & velocity_RichardsonCoeff /                           &
             & ((1.0_wp + z_c1_v * richardson_edge)**2) +   &
             & velocity_windMixing(jk)
 
@@ -1767,7 +1767,7 @@ CONTAINS
         
         new_velocity_friction = &
           & params_oce%a_veloc_v_back * dz +                              &
-          & richardson_veloc / ((1.0_wp + z_c1_v * richardson_edge)**2)+  &
+          & velocity_RichardsonCoeff / ((1.0_wp + z_c1_v * richardson_edge)**2)+  &
           & wind_mixing(jk)
 
         ! the average of the calculated velocity friction based on the old velocity and the predicted one
@@ -1901,7 +1901,7 @@ CONTAINS
           & MERGE(                                       &
           & tracer_convection_MixingCoefficient,                          & ! activate convection
           & params_oce%a_tracer_v_back(tracer_index) +   & ! calculate the richardson diffusion
-          &   richardson_tracer / ((1.0_wp + z_c1_t *    &
+          &   tracer_RichardsonCoeff / ((1.0_wp + z_c1_t *    &
           &   z_ri_cell(start_index:end_index, 2:n_zlev))**3) + &
           &   wind_mixing(start_index:end_index, 2:n_zlev), &
           & z_vert_density_grad_c(start_index:end_index, 2:n_zlev,blockNo) <= convection_InstabilityThreshold)
@@ -2025,8 +2025,8 @@ CONTAINS
 
     onem1_lambda_d    = 1.0_wp-lambda_diff
     onem1_lambda_v    = 1.0_wp-lambda_visc
-    dv_rich           = richardson_tracer
-    av_rich           = richardson_veloc
+    dv_rich           = tracer_RichardsonCoeff
+    av_rich           = velocity_RichardsonCoeff
     v10mexp_3         = 1.0_wp/v10m_ref**3
     wma_pd            = wma_diff * v10mexp_3   !  scaled wind-mixing amplitude for diffusion
     wma_pv            = wma_visc * v10mexp_3   !  scaled wind-mixing amplitude for viscosity

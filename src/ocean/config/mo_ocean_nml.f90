@@ -117,10 +117,10 @@ MODULE mo_ocean_nml
   INTEGER :: tracer_update_mode = i_post_step
   INTEGER :: tracer_HorizontalAdvection_type = cell_based
   !Options for non-linear corilois term in vector invariant velocity equations
-  INTEGER, PARAMETER :: NO_CORIOLIS                   = 0
-  INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_DUAL_GRID  = 200 !Default
-  INTEGER, PARAMETER :: NONLINEAR_CORIOLIS_PRIMAL_GRID= 201
-  INTEGER            :: NONLINEAR_CORIOLIS            = NONLINEAR_CORIOLIS_DUAL_GRID
+  INTEGER, PARAMETER :: no_coriolis                   = 0
+  INTEGER, PARAMETER :: nonlinear_coriolis_dual_grid  = 200 !Default
+  INTEGER, PARAMETER :: nonlinear_coriolis_primal_grid= 201
+  INTEGER            :: NonlinearCoriolis_type            = nonlinear_coriolis_dual_grid
   INTEGER, PARAMETER :: NoKineticEnergy               = 0
   INTEGER, PARAMETER :: KineticEnergy_onDualGrid      = 200
   INTEGER, PARAMETER :: KineticEnergy_onPrimalGrid    = 201
@@ -331,7 +331,7 @@ MODULE mo_ocean_nml
     &                 use_continuity_correction    , &
     &                 fast_performance_level       , &
     &                 MASS_MATRIX_INVERSION_TYPE   , &
-    &                 NONLINEAR_CORIOLIS           , &
+    &                 NonlinearCoriolis_type           , &
     &                 KineticEnergy_type           , &
     &                 HorizonatlVelocity_VerticalAdvection_form, &
     &                 solver_FirstGuess            , &
@@ -367,10 +367,10 @@ MODULE mo_ocean_nml
   REAL(wp) :: Temperature_HorizontalDiffusion_Reference  = 1.0E+3_wp
   REAL(wp) :: Salinity_HorizontalDiffusion_Background    = 0.0_wp
   REAL(wp) :: Salinity_HorizontalDiffusion_Reference     = 1.0E+3_wp
-  REAL(wp) :: k_veloc_v             = 1.0E-3_wp  ! vertical diffusion coefficient
+  REAL(wp) :: velocity_VerticalDiffusionParameter             = 1.0E-3_wp  ! vertical diffusion coefficient
   REAL(wp) :: k_pot_temp_h          = 1.0E+3_wp  ! horizontal mixing coefficient for pot. temperature
-  REAL(wp) :: k_pot_temp_v          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
-  REAL(wp) :: k_sal_v               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
+  REAL(wp) :: Temperature_VerticalDiffusionParameter          = 1.0E-4_wp  ! vertical mixing coefficient for pot. temperature
+  REAL(wp) :: Salinity_VerticalDiffusionParameter               = 1.0E-4_wp  ! vertical diffusion coefficient for salinity
   REAL(wp) :: k_tracer_dianeutral_parameter   = 1.0E+3_wp  !dianeutral tracer diffusivity for GentMcWilliams-Redi parametrization
   REAL(wp) :: k_tracer_isoneutral_parameter   = 1.0E-4_wp  !isoneutral tracer diffusivity for GentMcWilliams-Redi parametrization
   REAL(wp) :: k_tracer_GM_kappa_parameter     = 1.0E-4_wp  !kappa parameter in GentMcWilliams parametrization
@@ -457,11 +457,11 @@ MODULE mo_ocean_nml
   REAL(wp) :: c_speed=2.0_wp !aproximation to first baroclinic wave speed. Used in tapering schemes to calculate
                              !Rossby radius in tapering schemes
   
-  REAL(wp) :: richardson_veloc      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical
+  REAL(wp) :: velocity_RichardsonCoeff      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical
                                                  ! diffusion is multiplied before it is added to the background
                                                  ! vertical diffusion ! coeffcient for the velocity. See usage in
                                                  ! mo_ocean_physics.f90, update_ho_params, variable z_av0
-  REAL(wp) :: richardson_tracer     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
+  REAL(wp) :: tracer_RichardsonCoeff     = 0.5E-2_wp  ! see above, valid for tracer instead velocity, see variable z_dv0 in update_ho_params
   INTEGER, PARAMETER  :: PPscheme_Constant_type   = 0  ! are kept constant over time and are set to the background values; no convection
   INTEGER, PARAMETER  :: PPscheme_ICON_PP_type    = 1
   INTEGER, PARAMETER  :: PPscheme_MPIOM_PP_type   = 2
@@ -479,12 +479,13 @@ MODULE mo_ocean_nml
 
   NAMELIST/ocean_vertical_diffusion_nml/&
     &  VerticalViscosity_TimeWeight,    &
-    &  k_pot_temp_v                ,    &
-    &  k_sal_v                     ,    &
-    &  k_veloc_v                   ,    &
+    &  Temperature_VerticalDiffusionParameter, &
+    &  Salinity_VerticalDiffusionParameter,    &
+    &  velocity_VerticalDiffusionParameter,    &
     &  bottom_drag_coeff           ,&
     &  PPscheme_type               ,&
-    &  richardson_veloc            ,&
+    &  velocity_RichardsonCoeff    ,&
+    &  tracer_RichardsonCoeff,      &
     &  lambda_wind                 ,&
     &  wma_visc                    ,&
     &  use_reduced_mixing_under_ice,&
@@ -492,8 +493,7 @@ MODULE mo_ocean_nml
     &  tracer_TopWindMixing,        &
     &  WindMixingDecayDepth,        &
     &  velocity_TopWindMixing,      &
-    &  tracer_convection_MixingCoefficient          ,    &
-!     &  max_vert_diff_veloc         ,    &
+    &  tracer_convection_MixingCoefficient ,    &
     &  convection_InstabilityThreshold, &
     &  RichardsonDiffusion_threshold
 
@@ -798,8 +798,8 @@ MODULE mo_ocean_nml
 
     ! maximal diffusion coefficient for tracer used in implicit vertical tracer diffusion,
     !   if stability criterion is met
-    tracer_convection_MixingCoefficient  = 100.0_wp * k_pot_temp_v
-!     max_vert_diff_veloc = 100.0_wp * k_veloc_v
+    tracer_convection_MixingCoefficient  = 100.0_wp * Temperature_VerticalDiffusionParameter
+!     max_vert_diff_veloc = 100.0_wp * velocity_VerticalDiffusionParameter
 
     !------------------------------------------------------------
     ! 5.0 Read ocean_nml namelist

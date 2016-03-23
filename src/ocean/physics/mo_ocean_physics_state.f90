@@ -27,14 +27,12 @@ MODULE mo_ocean_physics_state
   !-------------------------------------------------------------------------
   USE mo_kind,                ONLY: wp
   USE mo_ocean_nml,           ONLY: &
-    & n_zlev, bottom_drag_coeff,                              &
-    & HarmonicViscosity_reference, k_veloc_v,       &
-    & k_pot_temp_v, k_sal_v, no_tracer,                       &
-    & BiharmonicViscosity_scaling, HarmonicViscosity_scaling,       &
-    & VelocityDiffusion_order,                                  &
+    & n_zlev, bottom_drag_coeff,                    &
+    & no_tracer,                                    &
+    & BiharmonicViscosity_scaling, HarmonicViscosity_scaling, &
+    & VelocityDiffusion_order,                                &
     & n_points_in_munk_layer,                                 &
-    & BiharmonicViscosity_reference,                &
-    & richardson_tracer, richardson_veloc,                    &
+    & BiharmonicViscosity_reference,                          &
     & HorizontalViscosity_SmoothIterations,                   &
     & convection_InstabilityThreshold,                        &
     & RichardsonDiffusion_threshold,                          &
