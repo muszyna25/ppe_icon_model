@@ -379,7 +379,7 @@ MODULE mo_ocean_nml
   INTEGER  :: HorizontalViscosity_SmoothIterations = 1
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
-  REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
+  REAL(wp) :: VerticalViscosity_TimeWeight = 0.5_wp
   
   NAMELIST/ocean_diffusion_nml/&
     &  HorizontalViscosity_type,    &

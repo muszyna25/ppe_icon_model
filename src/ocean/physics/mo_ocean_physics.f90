@@ -1615,7 +1615,7 @@ CONTAINS
         ! wind-mixing at surface, eq. (15) of Marsland et al., 2003
         wind_mixing(1) =           &
           & velocity_TopWindMixing &
-          & *  (0.5_wp * &
+          & *  (0.5_wp *           &
           &    (WindAmplitude_at10m(cell_1_idx,cell_1_block) + WindAmplitude_at10m(cell_2_idx,cell_2_block)))**3 &
           & * (1.0_wp - 0.5_wp *       &
           &    (SeaIceConcentration(cell_1_idx,cell_1_block) + SeaIceConcentration(cell_2_idx,cell_2_block))) 
@@ -1649,15 +1649,15 @@ CONTAINS
         richardson_edge = MAX(dz * z_grav_rho * density_differ_edge / z_shear_edge, 0.0_wp)
         
         new_velocity_friction = &
-          & params_oce%a_veloc_v_back * dz +  &
-          & richardson_veloc /                      &
-          & ((1.0_wp + z_c1_v * richardson_edge)**2)
-          
-        params_oce%a_veloc_v(je,jk,blockNo) = &
-!           & VerticalViscosity_TimeWeight * MAX(params_oce%a_veloc_v(je,jk,blockNo), new_velocity_friction) + &
-          & VerticalViscosity_TimeWeight * params_oce%a_veloc_v(je,jk,blockNo) + &
-          & (1.0_wp - VerticalViscosity_TimeWeight) * new_velocity_friction + &
+          & params_oce%a_veloc_v_back * dz +                              &
+          & richardson_veloc / ((1.0_wp + z_c1_v * richardson_edge)**2)+  &
           & wind_mixing(jk)
+
+        ! the average of the calculated velocity friction based on the old velocity and the predicted one
+        params_oce%a_veloc_v(je,jk,blockNo) = &
+!           & MAX(params_oce%a_veloc_v(je,jk,blockNo), new_velocity_friction )
+           & VerticalViscosity_TimeWeight * params_oce%a_veloc_v(je,jk,blockNo) + &
+           & (1.0_wp - VerticalViscosity_TimeWeight) * new_velocity_friction
 
       END DO ! jk = 2, levels
     ENDDO ! je = start_index, end_index
