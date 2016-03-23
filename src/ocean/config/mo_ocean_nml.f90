@@ -404,7 +404,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: TracerDiffusion_LeithWeight = 0.0_wp ! if Leith is active then the Leith coeff*this id added to the tracer diffusion coeff
   INTEGER  :: HorizontalViscosity_SmoothIterations = 0
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
-  REAL(wp) :: VerticalViscosity_TimeWeight = 0.0_wp
+  REAL(wp) :: VerticalViscosity_TimeWeight = 0.5_wp
   INTEGER  :: N_POINTS_IN_MUNK_LAYER = 1
 
   INTEGER :: TracerHorizontalDiffusion_scaling = 1 ! 1= constant, 5=scale with edge (dual) **3
@@ -454,10 +454,10 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER :: GM_only         =2                      
   INTEGER, PARAMETER :: Redi_only       =3
   !Parameters for tapering configuration
-  INTEGER            :: tapering_scheme=3
   INTEGER, PARAMETER :: tapering_DanaMcWilliams=1
   INTEGER, PARAMETER :: tapering_Large=2    
   INTEGER, PARAMETER :: tapering_Griffies=3
+  INTEGER            :: tapering_scheme=tapering_Griffies
   !Parameters for tapering schemes
   REAL(wp) :: S_max=1.0e-2   !maximally allowed slope 
   REAL(wp) :: S_d=1.0e-3     !width of transition zone from untapered to tapered
