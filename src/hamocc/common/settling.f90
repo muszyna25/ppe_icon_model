@@ -20,7 +20,7 @@
       &                             n1000depth,n2000depth
 
       USE mo_kind,    ONLY        : wp
-      USE mo_sedmnt,  ONLY        : prorca, prcaca, silpro, produs
+      USE mo_sedmnt,  ONLY        : prorca, prcaca, silpro, produs, kbo
 
       USE mo_control_bgc, ONLY    : bgc_nproma, bgc_zlevs, dtbgc
 
@@ -52,6 +52,7 @@
 
        DO j=start_idx,end_idx
         kpke=klev(j)        
+
         IF(kpke > 0)THEN
         IF(pddpo(j,1) > 0.5_wp)THEN
 
@@ -110,18 +111,17 @@
           ENDIF
          ENDDO
 
-        IF(pddpo(j,kpke) > 0.5_wp)THEN
+        IF(pddpo(j,kbo(j)) > 0.5_wp)THEN
  
            ! sediment fluxes at the bottom
-            prorca(j) = bgctra(j,kpke,idet )*wpoc(kpke)
-            prcaca(j) = bgctra(j,kpke,icalc)*wcal
-            silpro(j) = bgctra(j,kpke,iopal)*wopal
-            produs(j) = bgctra(j,kpke,idust)*wdust
-
-            bgcflux(j,kprorca) = prorca(j)
-            bgcflux(j,kprcaca) = prcaca(j)
-            bgcflux(j,ksilpro) = silpro(j)
-            bgcflux(j,kprodus) = produs(j)
+            prorca(j) = bgctra(j,kbo(j),idet )*wpoc(kbo(j))
+            prcaca(j) = bgctra(j,kbo(j),icalc)*wcal
+            silpro(j) = bgctra(j,kbo(j),iopal)*wopal
+            produs(j) = bgctra(j,kbo(j),idust)*wdust
+            bgcflux(j,kprorca) = prorca(j)/dtbgc
+            bgcflux(j,kprcaca) = prcaca(j)/dtbgc
+            bgcflux(j,ksilpro) = silpro(j)/dtbgc
+            bgcflux(j,kprodus) = produs(j)/dtbgc
             !
         ENDIF
          ENDIF

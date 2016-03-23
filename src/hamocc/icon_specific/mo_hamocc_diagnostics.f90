@@ -38,7 +38,7 @@ CONTAINS
 
 SUBROUTINE get_monitoring(hamocc_state,ocean_state,p_patch_3d)
 
-USE mo_biomod, ONLY: rcar, rn2 
+USE mo_biomod, ONLY: rcar, rn2, nitdem,doccya_fac
 TYPE(t_hamocc_state) :: hamocc_state
 TYPE(t_hydro_ocean_state) :: ocean_state
 TYPE(t_patch_3d ),TARGET, INTENT(in)   :: p_patch_3d
@@ -63,8 +63,11 @@ CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%phymor(:,:,:),
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%delsil(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%delsil(1))
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%delcar(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%delcar(1))
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%bacfra(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%bacfra(1))
+CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%remina(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%remina(1))
 if(l_cyadyn)then
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%nfix(:,:,:), i_time_stat, hamocc_state%p_tend%monitor%n2fix(1))
+CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%cyloss(:,:,:), i_time_stat, &
+& hamocc_state%p_tend%monitor%cyaldet(1))
 else
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%nfixd(:,:), i_time_stat,&
 & hamocc_state%p_tend%monitor%n2fix(1), 1, ocean_state)
@@ -105,10 +108,14 @@ CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,i
 CALL calc_inventory_sed(p_patch_3d, hamocc_state%p_sed%pwn2b(:,:,:), porwat, glob_pwn2b)
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_tend%n2budget(:,:,:), i_time_stat, glob_n2b,.TRUE.)
 
+CALL calc_inventory_sed(p_patch_3d, hamocc_state%p_tend%sedrn(:,:,:), porwat, &
+& hamocc_state%p_tend%monitor%seddenit(1))
+
 ! Unit conversion 
 hamocc_state%p_tend%monitor%phosy(1) = hamocc_state%p_tend%monitor%phosy(1) * p2gtc
 hamocc_state%p_tend%monitor%phosy_cya(1) = hamocc_state%p_tend%monitor%phosy_cya(1) * p2gtc
 hamocc_state%p_tend%monitor%grazing(1) = hamocc_state%p_tend%monitor%grazing(1) * p2gtc
+hamocc_state%p_tend%monitor%remina(1) = hamocc_state%p_tend%monitor%remina(1) * p2gtc
 hamocc_state%p_tend%monitor%exud(1) = hamocc_state%p_tend%monitor%exud(1) * p2gtc
 hamocc_state%p_tend%monitor%exudz(1) = hamocc_state%p_tend%monitor%exudz(1) * p2gtc
 hamocc_state%p_tend%monitor%zoomor(1) = hamocc_state%p_tend%monitor%zoomor(1) * p2gtc
@@ -126,6 +133,10 @@ hamocc_state%p_tend%monitor%omex1000(1) = hamocc_state%p_tend%monitor%omex1000(1
 hamocc_state%p_tend%monitor%calex1000(1) = hamocc_state%p_tend%monitor%calex1000(1) * c2gtc
 hamocc_state%p_tend%monitor%omex2000(1) = hamocc_state%p_tend%monitor%omex2000(1) * p2gtc
 hamocc_state%p_tend%monitor%calex2000(1) = hamocc_state%p_tend%monitor%calex2000(1) * c2gtc
+hamocc_state%p_tend%monitor%seddenit(1) = hamocc_state%p_tend%monitor%seddenit(1) * nitdem*n2tgn
+hamocc_state%p_tend%monitor%cyaldoc(1) = hamocc_state%p_tend%monitor%cyaldet(1) * p2gtc * doccya_fac
+hamocc_state%p_tend%monitor%cyaldet(1) = hamocc_state%p_tend%monitor%cyaldet(1) * p2gtc *(1._wp - doccya_fac)
+
 ! mean values of surface concentrations
 hamocc_state%p_tend%monitor%sfalk(1) = hamocc_state%p_tend%monitor%sfalk(1)/totalarea
 hamocc_state%p_tend%monitor%sfdic(1) = hamocc_state%p_tend%monitor%sfdic(1)/totalarea

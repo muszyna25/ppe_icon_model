@@ -97,9 +97,6 @@ ENDIF
         !  tracer 2: salinity
         levels(start_index:end_index) = p_patch_3D%p_patch_1d(1)%dolic_c(start_index:end_index,jb)
 
-
-        CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
-
         start_detail_timer(timer_bgc_up_bgc,5)
          CALL update_bgc(start_index,end_index,levels,&
              & p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
@@ -107,6 +104,7 @@ ENDIF
              & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)
         stop_detail_timer(timer_bgc_up_bgc,5)
 
+        CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
         start_detail_timer(timer_bgc_swr,5)
        ! Net solar radiation update and swr_frac

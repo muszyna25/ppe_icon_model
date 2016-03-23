@@ -51,7 +51,7 @@ SUBROUTINE calc_dissol ( start_idx, end_idx, klevs, pddpo, psao)
   !
   !*********************************************************************
 !HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(k,start_idx,end_idx,supsat,undsa, dissol) HAMOCC_OMP_DEFAULT_SCHEDULE
+!HAMOCC_OMP_DO PRIVATE(k,supsat,undsa, dissol) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO j= start_idx, end_idx
 
        kpke=klevs(j)

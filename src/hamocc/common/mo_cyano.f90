@@ -133,7 +133,7 @@ SUBROUTINE cyadyn(klevs,start_idx,end_idx,pddpo,za,ptho)
       REAL(wp) :: xn_p,xn_fe
    
 !HAMOCC_OMP_PARALLEL 
-!HAMOCC_OMP_DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_I,T_min_Topt,&
+!HAMOCC_OMP_DO PRIVATE(j,kpke,k,avcyabac,avanut,avanfe,avnit,l_fe,l_I,T_min_Topt,&
 !HAMOCC_OMP            sgnT,l_T,xa_p,l_P,xa_fe,pho_fe,pho_p,xn_p,xn_fe,pho,&
 !HAMOCC_OMP            cyapro,oldigasnit,xn,cyaloss) HAMOCC_OMP_DEFAULT_SCHEDULE
 

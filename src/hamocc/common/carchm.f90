@@ -52,7 +52,7 @@ SUBROUTINE carchm ( start_idx, end_idx, klevs, pddpo, psao)
   !     -----------------------------------------------------------------
 
 !HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(iter,j,start_idx,end_idx,kpke,k,h,&
+!HAMOCC_OMP_DO PRIVATE(iter,j,kpke,k,h,&
 !HAMOCC_OMP           c,t1,t2,ak2,akw,bt,akb,alk,a,dadh,dddhhh) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO iter = 1, 3
     DO j=start_idx,end_idx
@@ -88,7 +88,7 @@ SUBROUTINE carchm ( start_idx, end_idx, klevs, pddpo, psao)
 !HAMOCC_OMP_END_PARALLEL
 
 !HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,start_idx,end_idx,kpke,k,supsat,&
+!HAMOCC_OMP_DO PRIVATE(j,kpke,k,supsat,&
 !HAMOCC_OMP            undsa,dissol) HAMOCC_OMP_DEFAULT_SCHEDULE 
   DO j= start_idx, end_idx
        kpke=klevs(j)

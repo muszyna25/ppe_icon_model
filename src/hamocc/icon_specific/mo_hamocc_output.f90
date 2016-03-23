@@ -521,7 +521,7 @@
       & grid_unstructured_cell, za_surface,&
       & t_cf_var('silpro','kmol Si m-2 s-1','Si flux to sediment', DATATYPE_FLT32), &
       & grib2_var(255, 255, 96, DATATYPE_PACK16, grid_reference, grid_cell),&
-      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
+      & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
       & loutput=.TRUE., lrestart=.FALSE.)
 
     CALL add_var(hamocc_acc_list, 'produs',hamocc_state_acc%produs,    &
@@ -769,79 +769,6 @@
  ! 
 
     ! add monitoring 
-    CALL add_var(hamocc_tendency_list, 'global_npp_cya', hamocc_state_moni%phosy_cya , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_npp_cya', 'GtC s-1', 'annual net primary production of cyanobacteria', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 520, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_primary_production_cya','GtC yr-1',&
-      & 'global annual primary production of cyanobacteria', &
-      &  DATATYPE_FLT32)))
-
-    CALL add_var(hamocc_tendency_list, 'global_zooplankton_grazing', hamocc_state_moni%grazing , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_zooplankton_grazing', 'GtC s-1', 'global zooplankton grazing', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 501, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_zooplankton_grazing','GtC yr-1','global zooplankton grazing', &
-      &  DATATYPE_FLT32)))
-
-    CALL add_var(hamocc_tendency_list, 'global_remin_via_grazer', hamocc_state_moni%graton , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_remin_via_grazer', 'GtC s-1', 'global_remineralization_via_grazer', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 511, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_remin_via_grazer','GtC yr-1','global_remineraliation_via_grazer', &
-      &  DATATYPE_FLT32)))
-
-    CALL add_var(hamocc_tendency_list, 'global_exudation_phytoplankton', hamocc_state_moni%exud , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_exudation_phytoplankton', 'GtC s-1', 'global_phytoplankton_exudation', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 512, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_exudation_phytoplankton','GtC yr-1','global_phytoplankton_exudation', &
-      &  DATATYPE_FLT32)))
-
-    CALL add_var(hamocc_tendency_list, 'global_exudation_zooplankton', hamocc_state_moni%exudz , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_exudation_zooplankton', 'GtC s-1', 'global_zooplankton_exudation', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 515, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_exudation_zooplankton','GtC yr-1','global_zooplankton_exudation', &
-      &  DATATYPE_FLT32)))
-
-    CALL add_var(hamocc_tendency_list, 'global_zooplankton_dying', hamocc_state_moni%zoomor , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_zooplankton_dying', 'GtC s-1', 'global_zooplankton_dying', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 516, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_zooplankton_dying','GtC yr-1','global_zooplankton_dying', &
-      &  DATATYPE_FLT32)))
-
-    CALL add_var(hamocc_tendency_list, 'global_phytoplankton_dying', hamocc_state_moni%phymor , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_phytoplankton_dying', 'GtC s-1', 'global_phytoplankton_dying', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 513, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_phytoplankton_dying','GtC yr-1','global_phytoplankton_dying', &
-      &  DATATYPE_FLT32)))
-
-    CALL add_var(hamocc_tendency_list, 'global_net_co2_flux', hamocc_state_moni%net_co2_flux , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_net_co2_flux', 'GtC s-1', 'global net co2 flux', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 507, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_net_co2_flux','GtC yr-1','global net_co2_flux', &
-      &  DATATYPE_FLT32)))
-
    CALL add_var(hamocc_tendency_list, 'global_primary_production', hamocc_state_moni%phosy , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('global_primary_production', 'GtC s-1', 'global net primary production', DATATYPE_FLT32),&
@@ -851,56 +778,13 @@
       &  arg1=s2year,new_cf=t_cf_var('global_primary_production','GtC yr-1','global net_npp', &
       &  DATATYPE_FLT32)))
 
-   CALL add_var(hamocc_tendency_list, 'EU_bacterial_activity', hamocc_state_moni%bacfra , &
+    CALL add_var(hamocc_tendency_list, 'global_zooplankton_grazing', hamocc_state_moni%grazing , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('EU_bacterial_activity', 'GtC s-1', 'EU_bacterial_activity', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 514, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & t_cf_var('global_zooplankton_grazing', 'GtC s-1', 'global zooplankton grazing', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 501, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('EU_bacterial_activity','GtC yr-1','EU_bacterial_activity', &
-      &  DATATYPE_FLT32)))
-
-   CALL add_var(hamocc_tendency_list, 'EU_bact_degr_DOC_cya', hamocc_state_moni%bacfrac , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('EU_bact_degr_DOC_cya', 'GtC s-1', 'EU_microbilad degradation DOCcya', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 521, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('EU_bact_degr_DOC_cya','GtC yr-1','EU_microbial degradation DOCcya', &
-      &  DATATYPE_FLT32)))
-
-   CALL add_var(hamocc_tendency_list, 'global_opal_production', hamocc_state_moni%delsil , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_opal_production', 'kmol Si s-1', 'global opal production', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 505, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE.)
-
-   CALL add_var(hamocc_tendency_list, 'global_caco3_production', hamocc_state_moni%delcar , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_caco3_production', 'GtC s-1', 'global caco3 production', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 506, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_caco3_production','GtC yr-1','global caco3 production', &
-      &  DATATYPE_FLT32)))
-
-   CALL add_var(hamocc_tendency_list, 'WC_denit', hamocc_state_moni%wcdenit , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('WC_denit', 'TgN s-1', 'global water column denitrification', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 519, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('WC_denit','TgN yr-1','global watern column denitrification', &
-      &  DATATYPE_FLT32)))
-
-   CALL add_var(hamocc_tendency_list, 'N2_fixation', hamocc_state_moni%n2fix , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('N2_fixation', 'TgN s-1', 'global N2 fixation', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 517, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('N2_fixation','TgN yr-1','global N2 fixation', &
+      &  arg1=s2year,new_cf=t_cf_var('global_zooplankton_grazing','GtC yr-1','global zooplankton grazing', &
       &  DATATYPE_FLT32)))
 
    CALL add_var(hamocc_tendency_list, 'global_OM_export_at_90m', hamocc_state_moni%omex90, &
@@ -928,53 +812,35 @@
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
 
-   CALL add_var(hamocc_tendency_list, 'global_OM_export_at_1000m', hamocc_state_moni%omex1000, &
+   CALL add_var(hamocc_tendency_list, 'global_opal_production', hamocc_state_moni%delsil , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_OM_export_at_1000m', 'GtC s-1', 'global_om_export_at_1000m', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_OM_export_at_1000m','GtCyr-1','global_om_export_at_1000m', &
-      &  DATATYPE_FLT32)))
-
-   CALL add_var(hamocc_tendency_list, 'global_calc_export_at_1000m', hamocc_state_moni%calex1000 , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_calc_export_at_1000m', 'GtC s-1', 'global_calc_export_at_1000m', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
-      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_calc_export_at_1000m','GtCyr-1','global_calc_export_at_1000m', &
-      &  DATATYPE_FLT32)))
-
-   CALL add_var(hamocc_tendency_list, 'global_opal_export_at_1000m', hamocc_state_moni%opex1000 , &
-      & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_opal_export_at_1000m', 'kmol Si s-1', 'global_opal_export_at_1000m', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & t_cf_var('global_opal_production', 'kmol Si s-1', 'global opal production', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 505, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
 
-   CALL add_var(hamocc_tendency_list, 'global_OM_export_at_2000m', hamocc_state_moni%omex2000, &
+   CALL add_var(hamocc_tendency_list, 'global_caco3_production', hamocc_state_moni%delcar , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_OM_export_at_2000m', 'GtC s-1', 'global_om_export_at_2000m', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & t_cf_var('global_caco3_production', 'GtC s-1', 'global caco3 production', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 506, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_OM_export_at_2000m','GtCyr-1','global_om_export_at_2000m', &
+      &  arg1=s2year,new_cf=t_cf_var('global_caco3_production','GtC yr-1','global caco3 production', &
       &  DATATYPE_FLT32)))
 
-   CALL add_var(hamocc_tendency_list, 'global_calc_export_at_2000m', hamocc_state_moni%calex2000 , &
+    CALL add_var(hamocc_tendency_list, 'global_net_co2_flux', hamocc_state_moni%net_co2_flux , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_calc_export_at_2000m', 'GtC s-1', 'global_calc_export_at_2000m', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & t_cf_var('global_net_co2_flux', 'GtC s-1', 'global net co2 flux', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 507, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
-      &  arg1=s2year,new_cf=t_cf_var('global_calc_export_at_2000m','GtCyr-1','global_calc_export_at_2000m', &
+      &  arg1=s2year,new_cf=t_cf_var('global_net_co2_flux','GtC yr-1','global net_co2_flux', &
       &  DATATYPE_FLT32)))
 
-   CALL add_var(hamocc_tendency_list, 'global_opal_export_at_2000m', hamocc_state_moni%opex2000 , &
+   CALL add_var(hamocc_tendency_list, 'global_surface_alk', hamocc_state_moni%sfalk , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_opal_export_at_2000m', 'kmol Si s-1', 'global_opal_export_at_2000m', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & t_cf_var('global_surface_alk', 'kmol  m-3', 'global_surface_alkalinity', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 508, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
 
@@ -985,12 +851,132 @@
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
 
-   CALL add_var(hamocc_tendency_list, 'global_surface_alk', hamocc_state_moni%sfalk , &
+    CALL add_var(hamocc_tendency_list, 'global_remin_via_grazer', hamocc_state_moni%graton , &
       & GRID_LONLAT, za_surface,    &
-      & t_cf_var('global_surface_alk', 'kmol  m-3', 'global_surface_alkalinity', DATATYPE_FLT32),&
-      & grib2_var(255, 255, 508, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & t_cf_var('global_remin_via_grazer', 'GtC s-1', 'global_remineralization_via_grazer', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 511, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
-      & loutput=.TRUE., lrestart=.FALSE.)
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_remin_via_grazer','GtC yr-1','global_remineraliation_via_grazer', &
+      &  DATATYPE_FLT32)))
+
+    CALL add_var(hamocc_tendency_list, 'global_exudation_phytoplankton', hamocc_state_moni%exud , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_exudation_phytoplankton', 'GtC s-1', 'global_phytoplankton_exudation', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 512, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_exudation_phytoplankton','GtC yr-1','global_phytoplankton_exudation', &
+      &  DATATYPE_FLT32)))
+
+    CALL add_var(hamocc_tendency_list, 'global_phytoplankton_dying', hamocc_state_moni%phymor , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_phytoplankton_dying', 'GtC s-1', 'global_phytoplankton_dying', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 513, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_phytoplankton_dying','GtC yr-1','global_phytoplankton_dying', &
+      &  DATATYPE_FLT32)))
+
+   CALL add_var(hamocc_tendency_list, 'EU_bacterial_activity', hamocc_state_moni%bacfra , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('EU_bacterial_activity', 'GtC s-1', 'EU_bacterial_activity', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 514, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('EU_bacterial_activity','GtC yr-1','EU_bacterial_activity', &
+      &  DATATYPE_FLT32)))
+
+    CALL add_var(hamocc_tendency_list, 'global_exudation_zooplankton', hamocc_state_moni%exudz , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_exudation_zooplankton', 'GtC s-1', 'global_zooplankton_exudation', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 515, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_exudation_zooplankton','GtC yr-1','global_zooplankton_exudation', &
+      &  DATATYPE_FLT32)))
+
+    CALL add_var(hamocc_tendency_list, 'global_zooplankton_dying', hamocc_state_moni%zoomor , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_zooplankton_dying', 'GtC s-1', 'global_zooplankton_dying', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 516, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_zooplankton_dying','GtC yr-1','global_zooplankton_dying', &
+      &  DATATYPE_FLT32)))
+
+   CALL add_var(hamocc_tendency_list, 'N2_fixation', hamocc_state_moni%n2fix , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('N2_fixation', 'TgN s-1', 'global N2 fixation', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 517, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('N2_fixation','TgN yr-1','global N2 fixation', &
+      &  DATATYPE_FLT32)))
+
+   CALL add_var(hamocc_tendency_list, 'WC_denit', hamocc_state_moni%wcdenit , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('WC_denit', 'TgN s-1', 'global water column denitrification', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 519, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('WC_denit','TgN yr-1','global watern column denitrification', &
+      &  DATATYPE_FLT32)))
+
+    CALL add_var(hamocc_tendency_list, 'global_npp_cya', hamocc_state_moni%phosy_cya , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_npp_cya', 'GtC s-1', 'annual net primary production of cyanobacteria', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 520, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_primary_production_cya','GtC yr-1',&
+      & 'global annual primary production of cyanobacteria', &
+      &  DATATYPE_FLT32)))
+
+   CALL add_var(hamocc_tendency_list, 'EU_bact_degr_DOC_cya', hamocc_state_moni%bacfrac , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('EU_bact_degr_DOC_cya', 'GtC s-1', 'EU_microbilad degradation DOCcya', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 521, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('EU_bact_degr_DOC_cya','GtC yr-1','EU_microbial degradation DOCcya', &
+      &  DATATYPE_FLT32)))
+
+   CALL add_var(hamocc_tendency_list, 'Aerob_remin_of_detritus', hamocc_state_moni%remina , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('Aerob_remin_of_detritus', 'GtC s-1', 'Aerob_remineralization_of_detritus', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 522, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('Aerob_remin_of_detritus','GtC yr-1','Aerob_remineralization_of_detritus', &
+      &  DATATYPE_FLT32)))
+
+   CALL add_var(hamocc_tendency_list, 'SED_denit', hamocc_state_moni%seddenit , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('SED_denit', 'GtC s-1', 'Sediment_denitrification', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 523, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('SED_denit','GtC yr-1','Sediment_denitrification', &
+      &  DATATYPE_FLT32)))
+
+   CALL add_var(hamocc_tendency_list, 'global_cya_loss_det', hamocc_state_moni%cyaldet , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_cya_loss_det', 'GtC s-1', 'Global_cyanobacteria_loss_to_detritus', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 524, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_cya_loss_det','GtC yr-1','Global_cyanobacteria_loss_to_detritus', &
+      &  DATATYPE_FLT32)))
+
+   CALL add_var(hamocc_tendency_list, 'global_cya_loss_doc', hamocc_state_moni%cyaldoc , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_cya_loss_doc', 'GtC s-1', 'Global_cyanobacteria_loss_to_DOC', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 525, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_cya_loss_doc','GtC yr-1','Global_cyanobacteria_loss_to_DOC', &
+      &  DATATYPE_FLT32)))
 
    CALL add_var(hamocc_tendency_list, 'global_surface_phosphate', hamocc_state_moni%sfphos , &
       & GRID_LONLAT, za_surface,    &
@@ -1006,12 +992,64 @@
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
 
+
    CALL add_var(hamocc_tendency_list, 'zalkn2', hamocc_state_moni%zalkn2 , &
       & GRID_LONLAT, za_surface,    &
       & t_cf_var('zalkn2', 'kmol ', 'global_H+_compensation_for_N2_production/fixation', DATATYPE_FLT32),&
       & grib2_var(255, 255, 538, DATATYPE_PACK16, grid_reference, grid_lonlat),&
       & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
       & loutput=.TRUE., lrestart=.FALSE.)
+
+   CALL add_var(hamocc_tendency_list, 'global_OM_export_at_1000m', hamocc_state_moni%omex1000, &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_OM_export_at_1000m', 'GtC s-1', 'global_om_export_at_1000m', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 539, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_OM_export_at_1000m','GtCyr-1','global_om_export_at_1000m', &
+      &  DATATYPE_FLT32)))
+
+   CALL add_var(hamocc_tendency_list, 'global_calc_export_at_1000m', hamocc_state_moni%calex1000 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_calc_export_at_1000m', 'GtC s-1', 'global_calc_export_at_1000m', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 540, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_calc_export_at_1000m','GtCyr-1','global_calc_export_at_1000m', &
+      &  DATATYPE_FLT32)))
+
+   CALL add_var(hamocc_tendency_list, 'global_opal_export_at_1000m', hamocc_state_moni%opex1000 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_opal_export_at_1000m', 'kmol Si s-1', 'global_opal_export_at_1000m', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 541, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE.)
+
+   CALL add_var(hamocc_tendency_list, 'global_OM_export_at_2000m', hamocc_state_moni%omex2000, &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_OM_export_at_2000m', 'GtC s-1', 'global_om_export_at_2000m', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 542, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_OM_export_at_2000m','GtCyr-1','global_om_export_at_2000m', &
+      &  DATATYPE_FLT32)))
+
+   CALL add_var(hamocc_tendency_list, 'global_calc_export_at_2000m', hamocc_state_moni%calex2000 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_calc_export_at_2000m', 'GtC s-1', 'global_calc_export_at_2000m', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 543, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE., post_op=post_op(POST_OP_SCALE,&
+      &  arg1=s2year,new_cf=t_cf_var('global_calc_export_at_2000m','GtCyr-1','global_calc_export_at_2000m', &
+      &  DATATYPE_FLT32)))
+
+   CALL add_var(hamocc_tendency_list, 'global_opal_export_at_2000m', hamocc_state_moni%opex2000 , &
+      & GRID_LONLAT, za_surface,    &
+      & t_cf_var('global_opal_export_at_2000m', 'kmol Si s-1', 'global_opal_export_at_2000m', DATATYPE_FLT32),&
+      & grib2_var(255, 255, 544, DATATYPE_PACK16, grid_reference, grid_lonlat),&
+      & in_group=groups("HAMOCC_MONI"),ldims=(/1/), &
+      & loutput=.TRUE., lrestart=.FALSE.)
+
   END SUBROUTINE 
 
 
@@ -1116,7 +1154,7 @@
       & t_cf_var('n2budget','kmol','N2 budget', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,n_zlev,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
-      & loutput=.FALSE., lrestart=.FALSE.)
+      & loutput=.FALSE., lrestart=.TRUE.)
 
     CALL add_var(hamocc_tendency_list, 'grazing',hamocc_state_tend%graz,    &
       & grid_unstructured_cell, za_depth_below_sea,&

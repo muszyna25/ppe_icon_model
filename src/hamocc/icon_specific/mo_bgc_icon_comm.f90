@@ -605,11 +605,14 @@
 
   SUBROUTINE print_wpoc
    USE mo_carbch, ONLY: wpoc    
+   USE mo_biomod, ONLY: wdust
     CHARACTER(LEN=max_char_length) :: &
                 cpara_name,cpara_val
 
     INTEGER:: k
 
+   CALL to_bgcout("wdust",wdust)
+   
    cpara_name='========WPOC [m/d]'
    cpara_val="============="
    CALL message(TRIM(cpara_name), TRIM(cpara_val), io_stdo_bgc )

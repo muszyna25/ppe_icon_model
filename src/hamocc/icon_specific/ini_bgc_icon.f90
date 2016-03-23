@@ -173,9 +173,7 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
         
         levels(start_index:end_index) = p_patch_3d%p_patch_1d(1)%dolic_c(start_index:end_index,jb)
 
-        CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
-        CALL ini_atmospheric_concentrations
 
         IF(l_is_restart)then
 
@@ -184,20 +182,26 @@ SUBROUTINE INI_BGC_ICON(p_patch_3D, p_os,l_is_restart)
              &jb, p_os%p_prog(nold(1))%tracer(:,:,jb,:)&
              & ,hamocc_state%p_diag,hamocc_state%p_sed, hamocc_state%p_tend)
 
+          CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
 
          ELSE
 
           CALL ini_aquatic_tracers(start_index,end_index,levels,regions(:,jb))
 
+          CALL ini_bottom(start_index,end_index,levels,p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb))
+
           CALL ini_pore_water_tracers(start_index,end_index)
 
+         ENDIF 
 
-          CALL initial_update_icon(start_index,end_index,levels, &
+        CALL ini_atmospheric_concentrations
+
+        CALL initial_update_icon(start_index,end_index,levels, &
               &               p_patch_3D%p_patch_1d(1)%prism_thick_flat_sfc_c(:,:,jb),&  ! cell thickness
               &              jb, &
               &              p_os%p_prog(nold(1))%tracer(:,:,jb,:),&
               &              hamocc_state%p_sed, hamocc_state%p_diag)
-       ENDIF
+     
 
   ENDDO
 

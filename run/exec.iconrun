@@ -284,7 +284,14 @@ echo "============================"
 #-----------------------------------------------------------------------------
 if [[ "x$use_hamocc" = "xyes" ]]; then
 # store HAMOCC log file
-mv bgcout bgcout_${start_date}_${end_date}
+#mv bgcout bgcout_${start_date}_${end_date}
+strg="$(ls -t ${EXPNAME}_hamocc_EU*.nc* | tail -1 )"
+prefx="{$EXPNAME}_hamocc_EU_tendencies"
+suffx=".nc"
+foo=${strg#$prefx}
+foo=${foo%$suffx}
+bgcout_file="bgcout_${foo}"
+mv bgcout $bgcout_file
 fi
 #-----------------------------------------------------------------------------
 namelist_list=""

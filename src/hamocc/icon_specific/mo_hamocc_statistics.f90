@@ -85,6 +85,7 @@ CONTAINS
     CALL add_fields(hamocc_state%p_acc%prcaca          , hamocc_state%p_tend%prcaca          , cells)
     CALL add_fields(hamocc_state%p_acc%prorca          , hamocc_state%p_tend%prorca          , cells)
     CALL add_fields(hamocc_state%p_acc%silpro          , hamocc_state%p_tend%silpro          , cells)
+    CALL add_fields(hamocc_state%p_acc%produs          , hamocc_state%p_tend%produs          , cells)
     CALL add_fields(hamocc_state%p_acc%coex90          , hamocc_state%p_tend%coex90          , cells)
     CALL add_fields(hamocc_state%p_acc%calex90         , hamocc_state%p_tend%calex90         , cells)
     CALL add_fields(hamocc_state%p_acc%opex90          , hamocc_state%p_tend%opex90          , cells)
@@ -141,6 +142,7 @@ CONTAINS
     p_acc%prcaca                      = p_acc%prcaca                     /REAL(nsteps_since_last_output,wp)
     p_acc%prorca                      = p_acc%prorca                     /REAL(nsteps_since_last_output,wp)
     p_acc%silpro                      = p_acc%silpro                     /REAL(nsteps_since_last_output,wp)
+    p_acc%produs                      = p_acc%produs                     /REAL(nsteps_since_last_output,wp)
     p_acc%coex90                      = p_acc%coex90                     /REAL(nsteps_since_last_output,wp)
     p_acc%calex90                     = p_acc%calex90                    /REAL(nsteps_since_last_output,wp)
     p_acc%opex90                      = p_acc%opex90                     /REAL(nsteps_since_last_output,wp)
@@ -215,6 +217,7 @@ CONTAINS
     p_acc%nflux                       = 0._wp
     p_acc%n2oflux                     = 0._wp
     p_acc%prcaca                      = 0._wp
+    p_acc%produs                      = 0._wp
     p_acc%prorca                      = 0._wp
     p_acc%silpro                      = 0._wp
     p_acc%coex90                      = 0._wp

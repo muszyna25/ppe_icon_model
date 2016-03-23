@@ -70,7 +70,7 @@
          IF(bolay(j) > 0._wp) THEN
             sedlay(j,1,issso12)                                     &
      &      = sedlay(j,1,issso12) + prorca(j)/(porsol(1)*seddw(1))
-            prorca(j) = 0._wp
+         !   prorca(j) = 0._wp
          ENDIF
 
 
@@ -187,7 +187,7 @@
 
              sedlay(j,1,issssil)=                                     &
       &      sedlay(j,1,issssil)+silpro(j)/(porsol(1)*seddw(1))
-             silpro(j)=0._wp
+            ! silpro(j)=0._wp
           ENDIF
 
 
@@ -217,7 +217,7 @@
          IF(bolay(j).GT.0._wp) THEN
             sedlay(j,1,isssc12)=                                     &
      &      sedlay(j,1,isssc12)+prcaca(j)/(porsol(1)*seddw(1))
-            prcaca(j)=0._wp
+         !   prcaca(j)=0._wp
          ENDIF
 
 

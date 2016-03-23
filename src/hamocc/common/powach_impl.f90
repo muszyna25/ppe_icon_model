@@ -70,14 +70,13 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
   sedb1(:)    = 0._wp
   sediso(:)   = 0._wp
 
-!HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(j,bolven,undsa,sedb1,solrat,posol,umfa,&
-!HAMOCC_OMP           aerob,anaerob,seddenit,ansulf,iter,k,bt,&
-!HAMMOC_OMP           alk,c,ak1,ak2,akb,akw,h,t1,t2,a,dadh,dddhhh,&
-!HAMOCC_OMP           satlev) HAMOCC_OMP_DEFAULT_SCHEDULE
+!!HAMOCC_OMP_PARALLEL
+!!HAMOCC_OMP_DO PRIVATE(j,bolven,undsa,sedb1,solrat,posol,umfa,&
+!!HAMOCC_OMP           aerob,anaerob,seddenit,ansulf,iter,k,bt,&
+!!HAMMOC_OMP           alk,c,ak1,ak2,akb,akw,h,t1,t2,a,dadh,dddhhh,&
+!!HAMOCC_OMP           satlev) HAMOCC_OMP_DEFAULT_SCHEDULE
 
   DO j = start_idx, end_idx
-     prorca(j)=0._wp
      ! calculate bottom ventilation rate for scaling of sediment-water exchange
       bolven = 1._wp
 
@@ -192,7 +191,6 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
            bgctend(j,kbo(j),kaou) = satoxy(j,kbo(j)) - bgctra(j,kbo(j),ioxygen) ! update AOU
            sedlay(j,1,issso12)                                     &
                 &      =sedlay(j,1,issso12)+prorca(j)/(porsol(1)*seddw(1))
-           prorca(j) = 0._wp
         ENDIF
 
 
@@ -392,8 +390,8 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
      END DO
 
   END DO ! cells 
-!HAMOCC_OMP_END_DO
-!HAMOCC_OMP_END_PARALLEL
+!!HAMOCC_OMP_END_DO
+!!HAMOCC_OMP_END_PARALLEL
 
   CALL dipowa(start_idx,end_idx)
 
@@ -402,11 +400,11 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
              &                + produs(j)/(porsol(1)*seddw(1))
   ENDDO
 
-  DO j = start_idx, end_idx
-        silpro(j) = 0._wp
-        prorca(j) = 0._wp
-        prcaca(j) = 0._wp
-        produs(j) = 0._wp
-  END DO
-
+!   DO j = start_idx, end_idx
+!         silpro(j) = 0._wp
+!         prorca(j) = 0._wp
+!         prcaca(j) = 0._wp
+!         produs(j) = 0._wp
+!   END DO
+! 
 END SUBROUTINE powach_impl

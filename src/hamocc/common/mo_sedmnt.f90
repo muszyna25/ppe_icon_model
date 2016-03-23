@@ -214,6 +214,7 @@ SUBROUTINE  ini_bottom(start_idx,end_idx,klevs,pddpo)
  INTEGER,  TARGET::klevs(bgc_nproma)
  INTEGER ::  j, k, kpke
 
+
   DO j = start_idx, end_idx
    k=klevs(j)
         kbo(j) = 1
@@ -232,11 +233,10 @@ SUBROUTINE  ini_bottom(start_idx,end_idx,klevs,pddpo)
 
 
   bolaymin=8000._wp
-!HAMOCC_OMP_PARALLEL
+!HAMOCC_OMP_PARALLEL	
 !HAMOCC_OMP_DO PRIVATE(j,kpke,k,bolaymin) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO j = start_idx, end_idx
    kpke=klevs(j)
-   !IF(kpke.eq.bgc_zlevs)THEN ! always valid for MPIOM
    IF(kpke>0)THEN ! always valid for MPIOM
    DO k = kpke-1, 1, -1
       IF ( pddpo(j,k) > 0.5_wp .AND. pddpo(j,k+1) <= 0.5_wp ) THEN
@@ -244,10 +244,8 @@ SUBROUTINE  ini_bottom(start_idx,end_idx,klevs,pddpo)
          kbo(j) = k
          bolaymin = MIN(bolaymin,bolay(j))
       ENDIF
-       ! write(77,*) pddpo(j,k), pddpo(j,k+1) , kpke, kbo(j),"2.",j 
     END DO
    ENDIF
-      !  write(88,*) kpke, kbo(j),"3.",j 
   END DO
 !HAMOCC_OMP_END_DO
 !HAMOCC_OMP_END_PARALLEL
