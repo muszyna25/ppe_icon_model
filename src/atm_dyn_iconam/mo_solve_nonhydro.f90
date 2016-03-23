@@ -210,7 +210,7 @@ MODULE mo_solve_nonhydro
 
     ! Pointers
     INTEGER, POINTER   &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS     &
 #endif
       ::               &

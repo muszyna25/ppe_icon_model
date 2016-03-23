@@ -108,7 +108,7 @@ MODULE mo_velocity_advection
 
     ! Pointers
     INTEGER, DIMENSION(:,:,:), POINTER   &
-#ifdef _CRAYFTN
+#ifdef HAVE_FC_ATTRIBUTE_CONTIGUOUS
       , CONTIGUOUS                       &
 #endif
       ::                                 &

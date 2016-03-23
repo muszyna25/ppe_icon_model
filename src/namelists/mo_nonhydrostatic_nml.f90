@@ -217,7 +217,11 @@ CONTAINS
     ! for values between 1/2 and 2/3, whereas for high resolutions, where stability limitations
     ! arise from large-amplitude breaking gravity waves rather than sound wave reflections, values
     ! around 1/3 are better.
+#ifdef __INTEL_COMPILER
+    exner_expol       = 0.333333333333333_wp    
+#else
     exner_expol       = 1._wp/3._wp
+#endif
     ! TRUE: use the open upper boundary condition
     l_open_ubc        = .FALSE.
     ! 2 child dynamics substeps (DO NOT CHANGE!!! The code will not work correctly with other values)
