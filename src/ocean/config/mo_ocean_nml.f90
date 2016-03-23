@@ -211,10 +211,9 @@ MODULE mo_ocean_nml
 
   ! more ocean parameters, not yet well placed
 !   INTEGER  :: expl_vertical_velocity_diff = 1    ! 0=explicit, 1 = implicit
-  INTEGER, PARAMETER :: explicit_diffusion = 0
-  INTEGER, PARAMETER :: implicit_diffusion = 1
-  INTEGER  :: expl_vertical_tracer_diff   = 1    ! NOT USED
-  INTEGER  :: vertical_tracer_diffusion_type   = 1    ! 0=explicit, 1 = implicit
+!   INTEGER, PARAMETER :: explicit_diffusion = 2
+!   INTEGER, PARAMETER :: implicit_diffusion = 1
+!   INTEGER  :: vertical_tracer_diffusion_type   = 1   ! not used !
   INTEGER  :: HorizontalViscosity_type  = 1          ! 0=no hor.diff; 1=constant Laplacian coefficients
                                                  ! 2=constant coefficients satisfying Munk criterion
                                                  ! 3=variable coefficients satisfying Munk criterion
@@ -301,7 +300,7 @@ MODULE mo_ocean_nml
     &                 dhdtw_abort                  , &
     &                 discretization_scheme        , &
     &                 dzlev_m                      , &
-    &                 vertical_tracer_diffusion_type , &
+!     &                 vertical_tracer_diffusion_type , &
     &                 i_bc_veloc_bot               , &
     &                 i_bc_veloc_lateral           , &
     &                 i_bc_veloc_top               , &
