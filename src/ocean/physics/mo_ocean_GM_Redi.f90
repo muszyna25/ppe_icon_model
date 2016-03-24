@@ -256,7 +256,7 @@ CONTAINS
 !               &*tracer_gradient_vert_center(cell_index,start_level,blockNo)
 
 !             ! the top level flux_vert_center will be filled from the second level, if it exists
-!             flux_vert_center(cell_index,start_level,blockNo) = 0.0_wp
+             flux_vert_center(cell_index,start_level,blockNo) = 0.0_wp
           ENDDO
 
           DO level = start_level+1, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
