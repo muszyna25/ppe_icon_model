@@ -899,7 +899,7 @@ CONTAINS
               &*ocean_state%p_aux%slopes(cell_index,level,blockNo)%x
 
               taper_diagonal_vert_expl(cell_index,level,blockNo)  &
-              &=K_D(cell_index,level,blockNo)!*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
+              &=K_D(cell_index,level,blockNo)*ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)
               
               taper_diagonal_vert_impl(cell_index,level,blockNo)  &              
               &=K_I(cell_index,level,blockNo)&
@@ -1040,9 +1040,9 @@ CONTAINS
 !     CALL sync_patch_array(sync_c, patch_2D,K_D)
 !     CALL sync_patch_array(sync_c, patch_2D,kappa)
       
-!     CALL dbg_print('apply_tapering: K_I', K_I , this_mod_name, 3, patch_2D%cells%in_domain)
-!     CALL dbg_print('apply_tapering: K_D', K_D , this_mod_name, 3, patch_2D%cells%in_domain)
-!     CALL dbg_print('apply_tapering: Kappa', kappa , this_mod_name, 3, patch_2D%cells%in_domain)
+    CALL dbg_print('apply_tapering: vert diag expl', taper_diagonal_vert_expl , this_mod_name, 3, patch_2D%cells%in_domain)
+    CALL dbg_print('apply_tapering: vert off-diag impl', taper_diagonal_vert_impl , this_mod_name, 3, patch_2D%cells%in_domain)
+    CALL dbg_print('apply_tapering: horz diag', taper_diagonal_horz , this_mod_name, 3, patch_2D%cells%in_domain)
    
   END SUBROUTINE calc_tapering
   !-------------------------------------------------------------------------
