@@ -779,8 +779,8 @@ CONTAINS
 !       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
 !     CALL dbg_print('x(2)', p_vn_c(:,:,:)%x(2), &
 !       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
-    CALL dbg_print('x(3)', p_vn_c(:,:,:)%x(3), &
-      & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+!     CALL dbg_print('x(3)', p_vn_c(:,:,:)%x(3), &
+!       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
 
   END SUBROUTINE map_edges2cell_no_height_3d
   !-----------------------------------------------------------------------------
@@ -863,8 +863,8 @@ CONTAINS
   END SUBROUTINE map_edges2cell_no_height_3d_onTriangles
   !-----------------------------------------------------------------------------
 
- !-----------------------------------------------------------------------
-  ! map_edges2cell_without_height: This sbr is used for kinetic energy calculation
+  !-----------------------------------------------------------------------
+  ! map_edges2cell_with_height: This sbr is used by the GMRedi
   !>
   !!
   !! @par Revision History
@@ -889,7 +889,7 @@ CONTAINS
     TYPE(t_patch), POINTER :: patch_2d
     !-----------------------------------------------------------------------
      IF (patch_3D%p_patch_2D(1)%cells%max_connectivity == 3.and. fast_performance_level > 10) THEN
-       CALL map_edges2cell_no_height_3d_onTriangles( patch_3d, vn_e, operators_coefficients, p_vn_c, opt_startLevel, &
+       CALL map_edges2cell_with_height_3d_onTriangles( patch_3d, vn_e, operators_coefficients, p_vn_c, opt_startLevel, &
          & opt_endLevel, subset_range)
        RETURN
      ENDIF
@@ -950,16 +950,14 @@ CONTAINS
 !       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
 !     CALL dbg_print('x(2)', p_vn_c(:,:,:)%x(2), &
 !       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
-    CALL dbg_print('x(3)', p_vn_c(:,:,:)%x(3), &
-      & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
+!     CALL dbg_print('x(3)', p_vn_c(:,:,:)%x(3), &
+!       & module_name,  1, in_subset=patch_3d%p_patch_2d(1)%cells%owned)
 
   END SUBROUTINE map_edges2cell_with_height_3d
   !-----------------------------------------------------------------------------
 
-
-
   !-----------------------------------------------------------------------------
-  !: This sbr is used for kinetic energy calculation
+  !: This sbr is used by GMRedi
   SUBROUTINE map_edges2cell_with_height_3d_onTriangles( patch_3d, vn_e, operators_coefficients, p_vn_c, &
     & opt_startLevel, opt_endLevel, subset_range)
 

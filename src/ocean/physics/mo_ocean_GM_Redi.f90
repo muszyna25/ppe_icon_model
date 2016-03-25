@@ -24,7 +24,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_math_utilities,            ONLY: t_cartesian_coordinates
   USE mo_impl_constants,            ONLY: sea_boundary, sea, min_dolic
   USE mo_math_constants,            ONLY: pi, dbl_eps
-  USE mo_physical_constants,  ONLY: grav, sal_ref, rho_inv, a_t, b_s, &
+  USE mo_physical_constants,        ONLY: grav, sal_ref, rho_inv, a_t, b_s, &
     & sitodbar, sfc_press_bar
   USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer,                    &
     & GMRedi_configuration,&
@@ -52,7 +52,7 @@ MODULE mo_ocean_GM_Redi
   USE mo_statistics,                ONLY: global_minmaxmean
   USE mo_mpi,                       ONLY: my_process_is_stdio !global_mpi_barrier
  
-  USE mo_ocean_math_operators,  ONLY: grad_fd_norm_oce_3d_onBlock, verticalDeriv_scalar_onHalfLevels_on_block
+  USE mo_ocean_math_operators,      ONLY: grad_fd_norm_oce_3d_onBlock, verticalDeriv_scalar_onHalfLevels_on_block
   USE mo_scalar_product,            ONLY: map_cell2edges_3d,map_edges2cell_3d, &
     & map_scalar_center2prismtop, map_scalar_prismtop2center,map_edges2cell_with_height_3d
   IMPLICIT NONE
@@ -317,8 +317,10 @@ CONTAINS
         DO cell_index = start_cell_index, end_cell_index
           DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
             param%a_tracer_v(cell_index,level,blockNo, tracer_index) =                &
-            & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
-            & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo)
+              MAX(param%a_tracer_v(cell_index,level,blockNo, tracer_index), &
+                    & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo))
+!             & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
+!             & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo)
           END DO                  
         END DO                
       END DO
