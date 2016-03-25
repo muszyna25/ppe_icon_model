@@ -223,8 +223,8 @@ MODULE mo_ocean_types
       & cfl_horz! ,       & ! horizontal cfl values
       ! & vn  
       
-    onEdges_HalfLevels :: &
-      & w_e            ! vertical velocity at edges. Unit [m/s]
+!     onEdges_HalfLevels :: &
+!       & w_e            ! vertical velocity at edges. Unit [m/s]
 
     onVertices :: &
       & vort            ! vorticity at triangle vertices. Unit [1/s]

@@ -250,7 +250,6 @@ CONTAINS
           & out_value=z_h_c,                        &
           & smooth_weights=(/ 0.5_wp, 0.5_wp /),    &
           & has_missValue=.false., missValue=-999999.0_wp)
-        CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), z_h_c)
 
       CASE default
         z_h_c = 0.0_wp

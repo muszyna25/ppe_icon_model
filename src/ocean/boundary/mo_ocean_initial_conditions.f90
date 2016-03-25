@@ -422,7 +422,6 @@ CONTAINS
           & in_value=old_salinity, out_value=ocean_salinity, &
           & smooth_weights=smooth_initial_salinity_weights, &
           & has_missValue=has_missValue, missValue=missValue)
-        CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_salinity)
       ENDDO
       DEALLOCATE(old_salinity)
     ENDIF
@@ -683,7 +682,6 @@ CONTAINS
           & in_value=old_temperature, out_value=ocean_temperature,  &
           & smooth_weights=smooth_initial_temperature_weights,      &
           & has_missValue=has_missValue, missValue=missValue)
-        CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), ocean_temperature)
       ENDDO
       DEALLOCATE(old_temperature)
     ENDIF
@@ -832,7 +830,6 @@ CONTAINS
           & in_value=old_height, out_value=ocean_height,  &
           & smooth_weights=smooth_initial_height_weights, &
           & has_missValue=has_missValue, missValue=missValue)
-        CALL sync_patch_array(sync_c, patch_2D, ocean_height)
       ENDDO
       DEALLOCATE(old_height)
     ENDIF

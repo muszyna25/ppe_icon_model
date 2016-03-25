@@ -22,6 +22,7 @@
 !!
 !----------------------------
 #include "omp_definitions.inc"
+#include "iconfor_dsl_definitions.inc"
 !----------------------------
 MODULE mo_ocean_physics_state
   !-------------------------------------------------------------------------
@@ -134,6 +135,9 @@ MODULE mo_ocean_physics_state
     !constant background values of coefficients above
     REAL(wp) :: &
       & a_veloc_v_back   ! coefficient of vertical velocity diffusion
+
+    onCells_HalfLevels :: tracer_windMixing
+    onEdges_HalfLevels :: velocity_windMixing 
 
     REAL(wp),ALLOCATABLE ::         &
       & Tracer_HorizontalDiffusion_Reference(:),    &
@@ -249,6 +253,12 @@ CONTAINS
       & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
       & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_default"))
 
+    CALL add_var(ocean_params_list, 'velocity_windMixing', params_oce%velocity_windMixing , grid_unstructured_edge,&
+      & za_depth_below_sea_half, &
+      & t_cf_var('velocity_windMixing', '', 'velocity_windMixing', datatype_flt),&
+      & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_edge),&
+      & ldims=(/nproma,n_zlev+1,nblks_e/),in_group=groups("oce_physics","oce_default"))
+
 
     !! Tracers
     IF ( no_tracer > 0 ) THEN
@@ -271,8 +281,14 @@ CONTAINS
         & ldims=(/nproma,n_zlev+1,alloc_cell_blocks,no_tracer/), &
         & lcontainer=.TRUE., loutput=.FALSE., lrestart=.FALSE.)
 
-      ! Reference to individual tracer, for I/O
+      CALL add_var(ocean_params_list, 'tracer_windMixing', params_oce%tracer_windMixing , &
+        & grid_unstructured_cell, za_depth_below_sea_half, &
+        & t_cf_var('tracer_windMixing', '', 'tracer_windMixing', datatype_flt),&
+        & grib2_var(255, 255, 255, datatype_pack16, GRID_UNSTRUCTURED, grid_cell),&
+        & ldims=(/nproma,n_zlev+1,alloc_cell_blocks/), &
+        & loutput=.TRUE., lrestart=.FALSE.,in_group=groups("oce_physics","oce_default"))
 
+      ! Reference to individual tracer, for I/O
       ALLOCATE(params_oce%tracer_h_ptr(no_tracer))
       ALLOCATE(params_oce%tracer_v_ptr(no_tracer))
       DO jtrc = 1,no_tracer

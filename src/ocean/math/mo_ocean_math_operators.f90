@@ -1408,6 +1408,8 @@ CONTAINS
 
     ENDIF
 
+    CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), out_value)
+
   END SUBROUTINE smooth_onCells_3D
   !-------------------------------------------------------------------------
   
@@ -1524,6 +1526,8 @@ CONTAINS
 !ICON_OMP_END_PARALLEL_DO
 
     ENDIF
+
+    CALL sync_patch_array(sync_c, patch_3d%p_patch_2d(1), out_value)
 
   END SUBROUTINE smooth_onCells_2D
   !-------------------------------------------------------------------------

@@ -387,15 +387,14 @@ MODULE mo_ocean_nml
                                       !within the biharmonic operator. Currently the coefficient is placed in front of the operator.
   INTEGER  :: BiharmonicViscosity_scaling = 4
   INTEGER  :: HarmonicViscosity_scaling = 1
-  ! do not chamge this, they are used in bitwise logical operations
-  INTEGER  :: LeithClosure_order = 0 ! 1=laplacian, 2= biharmonc, 21 =laplacian+biharmonc
-  INTEGER  :: LeithClosure_form = 0  ! 1=vort, 2=vort+div
   REAL(wp) :: LeithHarmonicViscosity_background = 0.0_wp
   REAL(wp) :: LeithHarmonicViscosity_reference = 3.82E-12_wp
-  INTEGER  :: LeithHarmonicViscosity_scaling = 4
+  INTEGER  :: LeithHarmonicViscosity_scaling = 6
   REAL(wp) :: LeithBiharmonicViscosity_background = 0.0_wp
   REAL(wp) :: LeithBiharmonicViscosity_reference = 3.82E-12_wp
-  INTEGER  :: LeithBiharmonicViscosity_scaling = 4
+  INTEGER  :: LeithBiharmonicViscosity_scaling = 6
+  INTEGER  :: LeithClosure_order = 0 ! 1=laplacian, 2= biharmonc, 21 =laplacian+biharmonc
+  INTEGER  :: LeithClosure_form = 0  ! 1=vort, 2=vort+div
 !   REAL(wp) :: LeithClosure_gamma = 0.25_wp !dimensionless constant for Leith closure, not used
   REAL(wp) :: TracerDiffusion_LeithWeight = 0.0_wp ! if Leith is active then the Leith coeff*this id added to the tracer diffusion coeff
   INTEGER  :: HorizontalViscosity_SmoothIterations = 0
@@ -406,39 +405,49 @@ MODULE mo_ocean_nml
   INTEGER :: TracerHorizontalDiffusion_scaling = 1 ! 1= constant, 5=scale with edge (dual) **3
   REAL(wp) :: TracerHorizontalDiffusion_ScaleWeight = 1.0_wp
   
-  NAMELIST/ocean_horizontal_diffusion_nml/&
-    &  laplacian_form,                  &
-    &  VelocityDiffusion_order        , &
+ NAMELIST/ocean_horizontal_diffusion_nml/&
+    & &! define harmonic and biharmonic parameters !
+    &  laplacian_form,                  & ! 1=curlcurl-graddiv, 2=div k  grad
+    &  VelocityDiffusion_order        , & ! 1=harmonic, 2=biharmonic, 21=harmonic+biharmonc
     &  N_POINTS_IN_MUNK_LAYER         , &
-    &  BiharmonicViscosity_scaling,               &
-    &  HarmonicViscosity_scaling,                 &
-    &  HorizontalViscosity_SmoothIterations,      &
-    &  HorizontalViscosity_SpatialSmoothFactor,   &
-    &  HarmonicViscosity_background,    &
-    &  BiharmonicViscosity_background,  &
-    &  BiharmonicViscosity_reference,   &
-    &  HarmonicViscosity_reference,     &
-    &  TracerHorizontalDiffusion_scaling,         &
+    &  BiharmonicViscosity_scaling,     & ! the scaling type for the biharmonic viscosity
+    &  HarmonicViscosity_scaling,       & ! the scaling type for the harmonic viscosity
+    &  HarmonicViscosity_background,    & ! the harmonic viscosity background value (not scaled)
+    &  HarmonicViscosity_reference,     & ! the harmonic viscosity parameter for scaling
+    &  BiharmonicViscosity_background,  & ! the biharmonic viscosity background value (not scaled)
+    &  BiharmonicViscosity_reference,   & ! the biharmonic viscosity parameter for scaling
+    &  HorizontalViscosity_SmoothIterations,      & ! smoothing iterations for the scaled viscosity (both harmonic and biharmonic)
+    &  HorizontalViscosity_SpatialSmoothFactor,   & ! the weight of the neigbors during the smoothing
+    & &
+    & &  ! define tracer horizontal diffusion parameters !
+    &  TracerHorizontalDiffusion_scaling,         & ! the scaling type for the  tracer diffusion
     &  Temperature_HorizontalDiffusion_Background,&
     &  Temperature_HorizontalDiffusion_Reference, &
     &  Salinity_HorizontalDiffusion_Background,   &
     &  Salinity_HorizontalDiffusion_Reference,    &
+    & &
+    & &! GMRedi parameters !
     &  GMRedi_configuration        ,&
     &  tapering_scheme             ,&
     &  S_max, S_d, c_speed,         &
     &  k_tracer_dianeutral_parameter,   &
     &  k_tracer_isoneutral_parameter,   &
     &  k_tracer_GM_kappa_parameter,     &
-    &  biharmonic_const,                &
-    &  LeithClosure_order,              &
-    &  LeithClosure_form,               &
+    & &
+    & & ! define Leith parameters
+    &  LeithClosure_order,              & ! 1=harmonic, 2=biharmonic, 21=biharmonic+harmonic
+    &  LeithClosure_form,               & ! 1=rotation only, 2=rot+div, 4=rot+div using a div grad harmonic form
     &  LeithHarmonicViscosity_background,       &
     &  LeithHarmonicViscosity_reference,        &
     &  LeithHarmonicViscosity_scaling,          &
     &  LeithBiharmonicViscosity_background,     &
     &  LeithBiharmonicViscosity_reference,      &
     &  LeithBiharmonicViscosity_scaling,        &
-    &  TracerDiffusion_LeithWeight
+    &  TracerDiffusion_LeithWeight, &        ! experimental, do not use!
+    & &
+    & & ! other
+    &  biharmonic_const                 ! obsolete
+
 
   !Parameters for GM-Redi configuration
   INTEGER            :: GMRedi_configuration=0
@@ -478,12 +487,12 @@ MODULE mo_ocean_nml
   REAL(wp) :: WindMixingDecayDepth  = 40.0
 
   NAMELIST/ocean_vertical_diffusion_nml/&
-    &  VerticalViscosity_TimeWeight,    &
+    &  PPscheme_type               ,&         !2=as in MPIOM, 4=used for higher resolutions
+    &  VerticalViscosity_TimeWeight,&         ! timeweight of the vertical viscosity calculated from the previous velocity (valid only with PPscheme_type=4)
     &  Temperature_VerticalDiffusion_background, &
     &  Salinity_VerticalDiffusion_background,    &
     &  velocity_VerticalDiffusion_background,    &
     &  bottom_drag_coeff           ,&
-    &  PPscheme_type               ,&
     &  velocity_RichardsonCoeff    ,&
     &  tracer_RichardsonCoeff,      &
     &  lambda_wind                 ,&
@@ -538,11 +547,7 @@ MODULE mo_ocean_nml
   INTEGER  :: forcing_windstress_v_type            = 0
 
   REAL(wp) :: forcing_windstress_zonal_waveno      = 3.0_wp  ! For the periodic analytic forcing (wind)
-#ifdef __SX__
-  REAL(wp) :: forcing_windstress_zonalWavePhas     = 0.0_wp
-#else
   REAL(wp) :: forcing_windstress_zonalWavePhase    = 0.0_wp
-#endif
 !DR  REAL(wp) :: forcing_windstress_meridional_waveno = 3.0_wp
   REAL(wp) :: forcing_windstress_merid_waveno      = 3.0_wp
   REAL(wp) :: forcing_windStress_u_amplitude       = 1.0_wp
@@ -570,6 +575,8 @@ MODULE mo_ocean_nml
   REAL(wp) :: atmos_sensw_const                    = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
   REAL(wp) :: atmos_precip_const                   = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
   REAL(wp) :: atmos_evap_const                     = 0.0_wp   ! constant atmospheric fluxes for analytical forcing
+  INTEGER  :: windstress_smoothIterations          = 0
+  REAL(wp) :: windstress_smoothWeight              = 0.0_wp
                                                               
 
   NAMELIST/ocean_forcing_nml/&
@@ -586,13 +593,11 @@ MODULE mo_ocean_nml
     &                 forcing_windstress_u_type           , &
     &                 forcing_windstress_v_type           , &
     &                 forcing_windstress_zonal_waveno     , &
-#ifdef __SX__
-    &                 forcing_windstress_zonalWavePhas    , &
-#else
     &                 forcing_windstress_zonalWavePhase   , &
-#endif
     &                 forcing_windspeed_type              , &
     &                 forcing_windspeed_amplitude         , &
+    &                 windstress_smoothIterations         , &
+    &                 windstress_smoothWeight            , &
     &                 forcing_HeatFlux_amplitude   , &
     &                 forcing_HeatFlux_base        , &
     &                 iforc_oce                           , &
