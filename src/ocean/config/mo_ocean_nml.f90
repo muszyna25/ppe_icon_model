@@ -927,7 +927,7 @@ MODULE mo_ocean_nml
       ENDIF     
       IF( flux_calculation_horz == fct_horz) THEN
         !high and low order flux check
-        IF(fct_low_order_flux/=upwind)THEN
+        IF(fct_low_order_flux/=upwind .AND. fct_low_order_flux/=miura_order1)THEN
           CALL finish(TRIM(routine), 'wrong parameter for low order advection scheme in horizontal fct')
         ENDIF
         !there is no option for high- or low order fluxes in cell_based config, this is all prescribed.
