@@ -120,7 +120,7 @@ class buildbot_experiments_list(object):
       builder.set_builder_flags(flag)
 
   def get_builder_flags(self, builder_name):
-    builder = self.get_BuildersByName([builder_names])[0]
+    builder = self.get_BuildersByName([builder_name])[0]
     return builder.get_builder_flags()
       
   def set_configure_flags(self, builders_names, flag):
