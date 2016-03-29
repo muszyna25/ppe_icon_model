@@ -379,6 +379,7 @@ MODULE mo_ocean_nml
   REAL(wp) :: HorizontalViscosity_SpatialSmoothFactor = 0.5_wp
   REAL(wp) :: HorizontalViscosity_ScaleWeight = 0.5_wp
   REAL(wp) :: VerticalViscosity_TimeWeight = 0.5_wp
+  REAL(wp) :: Salinity_ConvectionRestrict = 0.0_wp
   
   NAMELIST/ocean_diffusion_nml/&
     &  HorizontalViscosity_type,    &
@@ -402,8 +403,8 @@ MODULE mo_ocean_nml
     &  k_tracer_GM_kappa_parameter,     &
     &  leith_closure,                   &
     &  leith_closure_gamma,             &
-    &  biharmonic_const
-
+    &  biharmonic_const,                &
+    &  Salinity_ConvectionRestrict
 
   !Parameters for GM-Redi configuration
   INTEGER            :: GMRedi_configuration=0
@@ -438,15 +439,15 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_type    = 3
   INTEGER, PARAMETER  :: physics_parameters_ICON_PP_Edge_vnPredict_type = 4
   INTEGER  :: physics_parameters_type = physics_parameters_MPIOM_PP_type
-  REAL(wp) :: lambda_wind           = 0.05_wp     ! 0.03_wp for 20km omip   !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
+  REAL(wp) :: lambda_wind           = 0.03_wp     ! 0.03_wp for 20km omip   !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
   REAL(wp) :: wma_diff              = 5.0e-4_wp  !  wind mixing amplitude for diffusivity
   REAL(wp) :: wma_visc              = 5.0e-4_wp  !  wind mixing amplitude for viscosity
   LOGICAL  :: use_wind_mixing = .FALSE.          ! .TRUE.: wind mixing parametrization switched on
   LOGICAL  :: use_reduced_mixing_under_ice = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
   REAL(wp) :: LinearThermoExpansionCoefficient = a_T
   REAL(wp) :: OceanReferenceDensity = rho_ref
-  REAL(wp) :: tracer_TopWindMixing   = 2.5E-4_wp
-  REAL(wp) :: velocity_TopWindMixing = 2.5E-4_wp
+  REAL(wp) :: tracer_TopWindMixing   = 1.0E-5_wp
+  REAL(wp) :: velocity_TopWindMixing = 1.0E-5_wp
   REAL(wp) :: WindMixingDecayDepth  = 40.0
   
   NAMELIST/ocean_physics_nml/&
