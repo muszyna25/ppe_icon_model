@@ -3311,11 +3311,7 @@ CONTAINS
 
     IF (use_dp_mpi2io) THEN
 
-#ifdef __SX__
-      CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_dp, (/ INT(mem_size) /) )
-#else
       CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_dp, (/ mem_size /) )
-#endif
       ! Create memory window for communication
       of%mem_win%mem_ptr_dp(:) = 0._dp
       CALL MPI_Win_create( of%mem_win%mem_ptr_dp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
@@ -3324,11 +3320,7 @@ CONTAINS
 
     ELSE
 
-#ifdef __SX__
-      CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_sp, (/ INT(mem_size) /) )
-#else
       CALL C_F_POINTER(c_mem_ptr, of%mem_win%mem_ptr_sp, (/ mem_size /) )
-#endif
       ! Create memory window for communication
       of%mem_win%mem_ptr_sp(:) = 0._sp
       CALL MPI_Win_create( of%mem_win%mem_ptr_sp,mem_bytes,nbytes_real,MPI_INFO_NULL,&
