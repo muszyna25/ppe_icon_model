@@ -2137,6 +2137,7 @@ CONTAINS
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
 
+    CALL sync_patch_array(sync_c, patch_2D, tracer)
 
   END SUBROUTINE hflx_limiter_oce_zalesak
   !-------------------------------------------------------------------------

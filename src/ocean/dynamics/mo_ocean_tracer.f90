@@ -465,8 +465,6 @@ CONTAINS
       & div_adv_flux_horz)
     !---------------------------------------------------------------------
 
-
-
     IF(GMRedi_configuration/=Cartesian_Mixing)THEN
       !calculate horizontal and vertical Redi and GM fluxes
       CALL calc_ocean_physics(patch_3d, p_os, p_param,p_op_coeff, tracer_index)
