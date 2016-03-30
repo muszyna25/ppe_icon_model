@@ -1,6 +1,7 @@
 #ifdef __xlC__
 @PROCESS HOT
 #endif
+#include "consistent_fma.inc"
 !>
 !! @par Copyright
 !! This code is subject to the MPI-M-Software - License - Agreement in it's most recent form.
@@ -961,6 +962,7 @@ CONTAINS
 
       END DO
 
+!PREVENT_INCONSISTENT_IFORT_FMA
 !IBM* ASSERT(NODEPS)
       DO jc = 1,icf
         ic=idxf(jc)
