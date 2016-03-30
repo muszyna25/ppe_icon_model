@@ -1063,6 +1063,7 @@ scripts/buildbot_scripts/experiment_lists/icon-dev -text
 scripts/buildbot_scripts/experiment_lists/ocean -text
 scripts/buildbot_scripts/lsexp_ram -text
 scripts/buildbot_scripts/lsexpbuilders -text
+scripts/buildbot_scripts/lsexperiments -text
 scripts/buildbot_scripts/lslist -text
 scripts/buildbot_scripts/mklist -text
 scripts/buildbot_scripts/model_paths.py -text
