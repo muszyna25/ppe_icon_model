@@ -477,14 +477,15 @@ MODULE mo_ocean_nml
   INTEGER, PARAMETER  :: PPscheme_ICON_PP_Edge_type    = 3
   INTEGER, PARAMETER  :: PPscheme_ICON_PP_Edge_vnPredict_type = 4
   INTEGER  :: PPscheme_type = PPscheme_MPIOM_PP_type
-  REAL(wp) :: lambda_wind           = 0.05_wp     ! 0.03_wp for 20km omip   !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
+  REAL(wp) :: lambda_wind           = 0.03_wp     ! 0.03_wp for 20km omip   !  wind mixing stability parameter, eq. (16) of Marsland et al. (2003)
   REAL(wp) :: wma_diff              = 5.0e-4_wp  !  wind mixing amplitude for diffusivity
   REAL(wp) :: wma_visc              = 5.0e-4_wp  !  wind mixing amplitude for viscosity
   LOGICAL  :: use_wind_mixing = .FALSE.          ! .TRUE.: wind mixing parametrization switched on
   LOGICAL  :: use_reduced_mixing_under_ice = .TRUE. ! .TRUE.: reduced wind mixing under sea ice in pp-scheme
-  REAL(wp) :: tracer_TopWindMixing   = 2.5E-4_wp
-  REAL(wp) :: velocity_TopWindMixing = 2.5E-4_wp
+  REAL(wp) :: tracer_TopWindMixing   = 1.0E-5_wp
+  REAL(wp) :: velocity_TopWindMixing = 1.0E-5_wp
   REAL(wp) :: WindMixingDecayDepth  = 40.0
+  REAL(wp) :: Salinity_ConvectionRestrict = 0.0_wp
 
   NAMELIST/ocean_vertical_diffusion_nml/&
     &  PPscheme_type               ,&         !2=as in MPIOM, 4=used for higher resolutions
@@ -504,7 +505,8 @@ MODULE mo_ocean_nml
     &  velocity_TopWindMixing,      &
     &  tracer_convection_MixingCoefficient ,    &
     &  convection_InstabilityThreshold, &
-    &  RichardsonDiffusion_threshold
+    &  RichardsonDiffusion_threshold,   &
+    &  Salinity_ConvectionRestrict  
 
   INTEGER  :: EOS_TYPE              = 2          ! 1=linear EOS,2=(nonlinear, from MPIOM)
                                                  ! 3=nonlinear Jacket-McDoudgall-formulation (not yet recommended)

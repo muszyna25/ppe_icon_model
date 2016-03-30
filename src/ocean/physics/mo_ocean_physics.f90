@@ -68,7 +68,7 @@ MODULE mo_ocean_physics
     &  LeithBiharmonicViscosity_background, LeithBiharmonicViscosity_reference,&
     &  LeithBiharmonicViscosity_scaling,                       &
     &  LeithClosure_order,   LeithClosure_form, &
-    &  TracerDiffusion_LeithWeight
+    &  TracerDiffusion_LeithWeight, Salinity_ConvectionRestrict
 
   USE mo_ocean_physics_state, ONLY: t_ho_params, v_params, WindMixingDecay, WindMixingLevel
    !, l_convection, l_pp_scheme
@@ -309,6 +309,9 @@ CONTAINS
     maxCellArea = minmaxmean_length(2)
 
     SELECT CASE(DiffusionScaling)
+
+    CASE(0)
+      out_DiffusionCoefficients(:,:) = 0.0_wp
 
     CASE(1)
       out_DiffusionCoefficients(:,:) = DiffusionReferenceValue
@@ -1557,7 +1560,7 @@ CONTAINS
         IF (tracer_index == 1) THEN
           instabilitySign = 0.0 ! always enable convection for temperature
         ELSE
-          instabilitySign = 1.0_wp
+          instabilitySign = Salinity_ConvectionRestrict
         ENDIF
         DO jc = start_index, end_index
           levels = patch_3d%p_patch_1d(1)%dolic_c(jc,blockNo)

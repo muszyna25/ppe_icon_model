@@ -1629,7 +1629,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: dist_vector,rot_dist_vector, dist_vector_basic
 
     REAL(wp)                      :: edge2edge_viavert_coeff(1:nproma,1:patch_2D%nblks_e,1:2*no_dual_edges )
-    REAL(wp)                      :: norm, orientation, length
+    REAL(wp)                      :: norm, orientation, length, dist_vector_orientedLength
     TYPE(t_cartesian_coordinates) :: z
 
     INTEGER :: ictr,edge_block_vertex, edge_index_vertex
@@ -1889,19 +1889,24 @@ CONTAINS
                 & dual_edge_middle(edge_index_vertex, edge_block_vertex), &
                 & vertex_center, patch_2D%geometry_info)
               
-              dist_vector%x  = dist_vector%x  &
-                & * patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
+!               dist_vector%x  = dist_vector%x  &
+!                 & * patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
 
-              ! we need the normalized half of the dual_edge_middle + vertex as z
-              
-!               z%x = 0.5_wp * (  dual_edge_middle(edge_index_vertex, edge_block_vertex)%x      &
-!                 &             + vertex_center%x)
-              z = planar_middle( &
-               & dual_edge_middle(edge_index_vertex, edge_block_vertex), &
-               & vertex_center, patch_2D%geometry_info)
-              z = get_surface_normal(z, patch_2D%geometry_info) ! get_surface_normal has to do d_normalize(z)
-              d_normalize(z)
-              dist_vector = vector_product(dist_vector, z)
+              dist_vector_orientedLength = &
+                & d_norma_3d(dist_vector) * &
+                & patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
+
+              dist_vector%x = patch_2D%edges%primal_cart_normal(edge_index_vertex, edge_block_vertex)%x * &
+                & dist_vector_orientedLength
+
+!               ! we need the normalized half of the dual_edge_middle + vertex as z
+!               z = planar_middle( &
+!                & dual_edge_middle(edge_index_vertex, edge_block_vertex), &
+!                & vertex_center, patch_2D%geometry_info)
+!               z = get_surface_normal(z, patch_2D%geometry_info) ! get_surface_normal has to do d_normalize(z)
+!               d_normalize(z)
+!               dist_vector = vector_product(dist_vector, z)
+
               ! the dist_vector has still dual_edge_middle-vertex length
 
               ! adjust the orientation along the vn of the edge
@@ -2544,11 +2549,11 @@ CONTAINS
             patch_2D%verts%owned )
     ENDDO
 
-    DO jev=1,2*no_dual_edges
-      DO jk = 1, n_zlev
-        CALL sync_patch_array(SYNC_E, patch_2D, operators_coefficients%edge2edge_viavert_coeff(:,jk,:, jev))
-      ENDDO
-    ENDDO
+!     DO jev=1,2*no_dual_edges
+!       DO jk = 1, n_zlev
+!         CALL sync_patch_array(SYNC_E, patch_2D, operators_coefficients%edge2edge_viavert_coeff(:,jk,:, jev))
+!       ENDDO
+!     ENDDO
     CALL sync_patch_array(SYNC_V, patch_2D, zarea_fraction(:,:,:))
     
     DO block = owned_edges%start_block, owned_edges%end_block

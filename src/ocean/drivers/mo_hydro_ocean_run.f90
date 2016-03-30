@@ -119,9 +119,17 @@ CONTAINS
 !     !      & operators_coefficients%matrix_vert_diff_e,&
 !     !      & operators_coefficients%matrix_vert_diff_c)
 ! 
-     CALL update_height_depdendent_variables( patch_3d, ocean_state, ext_data, operators_coefficients, solvercoeff_sp)
-     CALL construct_ho_lhs_fields_mimetic   ( patch_3d )
-! 
+    CALL update_height_depdendent_variables( patch_3d, ocean_state, ext_data, operators_coefficients, solvercoeff_sp)
+    CALL construct_ho_lhs_fields_mimetic   ( patch_3d )
+
+    ! this is needed as initial condition or restart 
+!     CALL calc_scalar_product_veloc_3d( patch_3d,  &
+!       & ocean_state(1)%p_prog(nold(1))%vn,         &
+!       & ocean_state(1)%p_diag,                     &
+!       & operators_coefficients)
+!     CALL update_ho_params(patch_3d, ocean_state(1), p_as%fu10, sea_ice%concsum, p_phys_param, operators_coefficients)
+
+ ! 
   END SUBROUTINE prepare_ho_stepping
   !-------------------------------------------------------------------------
 
@@ -129,7 +137,7 @@ CONTAINS
   !<Optimize:inUse>
   SUBROUTINE end_ho_stepping()
 
-     CALL destruct_ho_lhs_fields_mimetic()
+    CALL destruct_ho_lhs_fields_mimetic()
     
   END SUBROUTINE end_ho_stepping
   !-------------------------------------------------------------------------
