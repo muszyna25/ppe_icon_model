@@ -404,6 +404,22 @@ MODULE mo_ocean_nml
 
   INTEGER :: TracerHorizontalDiffusion_scaling = 1 ! 1= constant, 5=scale with edge (dual) **3
   REAL(wp) :: TracerHorizontalDiffusion_ScaleWeight = 1.0_wp
+  !Parameters for GM-Redi configuration
+  INTEGER            :: GMRedi_configuration=0
+  INTEGER, PARAMETER :: Cartesian_Mixing=0
+  INTEGER, PARAMETER :: GMRedi_combined =1   !both parametrizations active
+  INTEGER, PARAMETER :: GM_only         =2
+  INTEGER, PARAMETER :: Redi_only       =3
+  !Parameters for tapering configuration
+  INTEGER, PARAMETER :: tapering_DanaMcWilliams=1
+  INTEGER, PARAMETER :: tapering_Large=2
+  INTEGER, PARAMETER :: tapering_Griffies=3
+  INTEGER            :: tapering_scheme=tapering_Griffies
+  !Parameters for tapering schemes
+  REAL(wp) :: S_max=1.0e-2   !maximally allowed slope
+  REAL(wp) :: S_d=1.0e-3     !width of transition zone from untapered to tapered
+  REAL(wp) :: c_speed=2.0_wp !aproximation to first baroclinic wave speed. Used in tapering schemes to calculate
+                             !Rossby radius in tapering schemes
   
  NAMELIST/ocean_horizontal_diffusion_nml/&
     & &! define harmonic and biharmonic parameters !
@@ -449,22 +465,6 @@ MODULE mo_ocean_nml
     &  biharmonic_const                 ! obsolete
 
 
-  !Parameters for GM-Redi configuration
-  INTEGER            :: GMRedi_configuration=0
-  INTEGER, PARAMETER :: Cartesian_Mixing=0                            
-  INTEGER, PARAMETER :: GMRedi_combined =1   !both parametrizations active
-  INTEGER, PARAMETER :: GM_only         =2                      
-  INTEGER, PARAMETER :: Redi_only       =3
-  !Parameters for tapering configuration
-  INTEGER, PARAMETER :: tapering_DanaMcWilliams=1
-  INTEGER, PARAMETER :: tapering_Large=2    
-  INTEGER, PARAMETER :: tapering_Griffies=3
-  INTEGER            :: tapering_scheme=tapering_Griffies
-  !Parameters for tapering schemes
-  REAL(wp) :: S_max=1.0e-2   !maximally allowed slope 
-  REAL(wp) :: S_d=1.0e-3     !width of transition zone from untapered to tapered
-  REAL(wp) :: c_speed=2.0_wp !aproximation to first baroclinic wave speed. Used in tapering schemes to calculate
-                             !Rossby radius in tapering schemes
   
   REAL(wp) :: velocity_RichardsonCoeff      = 0.5E-2_wp  ! Factor with which the richarseon related part of the vertical
                                                  ! diffusion is multiplied before it is added to the background

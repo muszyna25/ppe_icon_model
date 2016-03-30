@@ -376,6 +376,23 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
+  !! returns the distance from x to y
+  REAL(wp) FUNCTION distance(y, x, geometry_info) 
+    TYPE(t_cartesian_coordinates), INTENT(in) :: y, x  ! endpoints
+    TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
+    TYPE(t_cartesian_coordinates) :: d_vector
+
+    TYPE(t_cartesian_coordinates) :: d
+    !-----------------------------------------------------------------------
+    d = distance_vector (y, x, geometry_info)
+    distance = d_norma_3d(d)
+
+  END FUNCTION distance
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !>
   REAL(wp) FUNCTION planar_triangle_area (x1, x2, x3, geometry_info) 
     TYPE(t_cartesian_coordinates), INTENT(in) :: x1, x2, x3  ! endpoints
     TYPE(t_grid_geometry_info), INTENT(in) :: geometry_info
@@ -1888,31 +1905,39 @@ CONTAINS
               dist_vector = distance_vector(  &
                 & dual_edge_middle(edge_index_vertex, edge_block_vertex), &
                 & vertex_center, patch_2D%geometry_info)
-              
-!               dist_vector%x  = dist_vector%x  &
-!                 & * patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
 
-              dist_vector_orientedLength = &
-                & d_norma_3d(dist_vector) * &
-                & patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
+              dist_vector%x  = dist_vector%x  &
+                & * patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
 
-              dist_vector%x = patch_2D%edges%primal_cart_normal(edge_index_vertex, edge_block_vertex)%x * &
-                & dist_vector_orientedLength
-
-!               ! we need the normalized half of the dual_edge_middle + vertex as z
-!               z = planar_middle( &
-!                & dual_edge_middle(edge_index_vertex, edge_block_vertex), &
-!                & vertex_center, patch_2D%geometry_info)
-!               z = get_surface_normal(z, patch_2D%geometry_info) ! get_surface_normal has to do d_normalize(z)
-!               d_normalize(z)
-!               dist_vector = vector_product(dist_vector, z)
-
+              ! we need the normalized half of the dual_edge_middle + vertex at z
+              z = planar_middle( &
+               & dual_edge_middle(edge_index_vertex, edge_block_vertex), &
+               & vertex_center, patch_2D%geometry_info)
+              z = get_surface_normal(z, patch_2D%geometry_info) ! get_surface_normal has to do d_normalize(z)
+              d_normalize(z)
+              dist_vector = vector_product(dist_vector, z)
               ! the dist_vector has still dual_edge_middle-vertex length
+
+!               dist_vector%x = &
+!                 & - patch_2D%edges%primal_cart_normal(edge_index_vertex, edge_block_vertex)%x &
+!                 & * distance(  &
+!                 &     dual_edge_middle(edge_index_vertex, edge_block_vertex), &
+!                 &     vertex_center, patch_2D%geometry_info) &
+!                 & * patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge)
 
               ! adjust the orientation along the vn of the edge
               edge2edge_viavert_coeff(edge_index,edge_block,ictr)             &
                 & =  DOT_PRODUCT(dist_vector_basic%x,dist_vector%x)           &
                 &  * dual_edge_length(edge_index_vertex, edge_block_vertex)
+
+! 
+!               write(0,*) dist_vector%x
+!               write(0,*) patch_2D%edges%primal_cart_normal(edge_index_vertex, edge_block_vertex)%x * &
+!                   dist_vector_orientedLength
+!               write(0,*) edge2edge_viavert_coeff(edge_index,edge_block,ictr),  &
+!                 DOT_PRODUCT(dist_vector_basic%x, patch_2D%edges%primal_cart_normal(edge_index_vertex, edge_block_vertex)%x) * &
+!                 d_norma_3d(dist_vector) *  patch_2D%verts%edge_orientation(vertex_index, vertex_block, vert_edge) &
+!                   &  * dual_edge_length(edge_index_vertex, edge_block_vertex)
             ENDIF
 
           END DO
