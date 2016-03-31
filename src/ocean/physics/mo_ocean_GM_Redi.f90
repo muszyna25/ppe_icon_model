@@ -171,7 +171,7 @@ CONTAINS
   !<Optimize:inUse>
   SUBROUTINE calc_combined_GentMcWilliamsRedi_flux(patch_3d, ocean_state, param, op_coeff,&
   !&taper_off_diagonal_vert,taper_off_diagonal_horz,taper_diagonal_horz,taper_diagonal_vert_expl,taper_diagonal_vert_impl,&
-  &GMredi_flux_horz, GMredi_flux_vert, tracer_index)
+    &GMredi_flux_horz, GMredi_flux_vert, tracer_index)
     TYPE(t_patch_3d ),TARGET, INTENT(inout)  :: patch_3d
     TYPE(t_hydro_ocean_state), TARGET        :: ocean_state
     TYPE(t_ho_params),      INTENT(inout)    :: param
@@ -308,8 +308,6 @@ CONTAINS
 !         param%a_tracer_v(:,:,:, tracer_index)=max(param%a_tracer_v(:,:,:, tracer_index),mapped_verticaloff_diagonal_impl).
 
 !ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
-
-
       !Combine the coefficient for the (implicit) vertical GMR-Redi flux with the
       !vertical mixing coefficient from the PP-scheme. 
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block     
@@ -317,8 +315,9 @@ CONTAINS
         DO cell_index = start_cell_index, end_cell_index
           DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
             param%a_tracer_v(cell_index,level,blockNo, tracer_index) =                &
-              MAX(param%a_tracer_v(cell_index,level,blockNo, tracer_index), &
-                    & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo))
+                    & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo)
+!               MAX(param%a_tracer_v(cell_index,level,blockNo, tracer_index), &
+!                     & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo))
 !             & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
 !             & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo)
           END DO                  
@@ -361,8 +360,11 @@ CONTAINS
     CALL finish(TRIM('calc_GMRediflux'),&
     & 'calc_flux_neutral_diffusion beyond temperature and salinity is not impemented yet')
   ENDIF
-  
- 
+
+   ! for debugging
+!    GMredi_flux_vert(:,:,:) = 0.0_wp
+
+
 !   Do level=1,n_zlev
 !   write(0,*)'Horz/vert GMREDI flux',tracer_index,level,&
 !   &maxval(GMredi_flux_horz(:,level,:)),minval(GMredi_flux_horz(:,level,:)),&
@@ -862,7 +864,7 @@ CONTAINS
     !
     !The dianeutral diffusivity is the number determined by the PP-scheme
     K_I           => param%k_tracer_isoneutral
-    K_D           => param%k_tracer_dianeutral ! param%a_tracer_v(:,:,:,tracer_index)
+    K_D           => param%a_tracer_v(:,:,:,tracer_index) ! param%k_tracer_dianeutral
     kappa         => param%k_tracer_GM_kappa
     !-------------------------------------------------------------------------------
     
