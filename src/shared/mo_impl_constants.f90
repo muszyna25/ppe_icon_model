@@ -510,7 +510,7 @@ MODULE mo_impl_constants
     max_var_pl     = 150, & ! maximum number of pressure-level variables
     max_var_hl     = 150, & ! maximum number of height-level variables
     max_var_il     = 150, & ! maximum number of variables on isentropes
-    vname_len      =  32    ! variable name length in I/O namelists
+    vname_len      = 256    ! variable name length in I/O namelists
 
   INTEGER, PARAMETER :: &
     MAX_TIME_INTERVALS = 10 ! maximum number of time intervals specified in "output_nml"
