@@ -19,5 +19,5 @@ if not paths.thisListExists(name):
   quit()
   
 thisList  = buildbot_experiments_list(name)
-print(thisList.get_BuilderExperimentNames('MISTRAL_ocean'))
+thisList.print_list()
 
