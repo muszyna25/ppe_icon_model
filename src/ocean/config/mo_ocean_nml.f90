@@ -100,7 +100,7 @@ MODULE mo_ocean_nml
                                             ! i_bc_veloc_top =2 : forced by difference between wind
                                             !                     field in p_os%p_aux%bc_top_veloc 
                                             !                     and ocean velocity at top layer
-  INTEGER            :: i_bc_veloc_bot = 0  !Bottom boundary condition for velocity: 
+  INTEGER            :: i_bc_veloc_bot = 1  !Bottom boundary condition for velocity:
                                             ! i_bc_veloc_bot =0 : zero value at bottom boundary 
                                             ! i_bc_veloc_bot =1 : bottom boundary friction
                                             ! i_bc_veloc_bot =2 : bottom friction plus topographic
