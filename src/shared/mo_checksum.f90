@@ -10,8 +10,17 @@
 ! Utility functions to ensure that DATA does NOT change due to code modifications.
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+! Instead of the more standard compliant TRANSFER() FUNCTION, we USE a pair of C_LOC() AND C_F_POINTER()
+! to avoid the copy performed by some braindead TRANSFER() implementations.
+! However, C_SIZEOF() IS ONLY available IN the fortran 2008 standard, so we need to avoid its USE IN F2003 code.
+! This preprocessor macro IS used to switch between the two.
+! #define use_c_sizeof 1
+
 MODULE mo_checksum
-    USE ISO_C_BINDING, ONLY: C_INT64_T, C_INT32_T, C_DOUBLE, C_FLOAT
+    USE ISO_C_BINDING, ONLY: C_INT64_T, C_INT32_T, C_DOUBLE, C_FLOAT, C_PTR, C_LOC, C_SIZE_T
+#ifdef use_c_sizeof
+    USE ISO_C_BINDING, ONLY: C_SIZEOF
+#endif
     USE mo_mpi, ONLY: p_comm_size, p_comm_rank, p_comm_work
     USE mo_exception, ONLY: finish
     USE mo_util_string, ONLY: int2string
@@ -103,6 +112,12 @@ CONTAINS
 ! real functionality !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+#ifdef use_c_sizeof
+#   define deleteType(array, elementSize) C_LOC(array), C_SIZEOF(array)
+#else
+#   define deleteType(array, elementSize) C_LOC(array), SIZE(array)*INT(elementSize, C_SIZE_T)
+#endif
+
     CHARACTER(LEN = 8) FUNCTION checksumString(VALUE) RESULT(RESULT)
         INTEGER(KIND = C_INT64_T), VALUE :: VALUE   !ONLY 32 bits are used, but there IS no unsigned IN fortran
 
@@ -121,14 +136,17 @@ CONTAINS
     ! While this algorithm IS NOT a cryptographical hash, it should be reasonably robust:
     ! It IS guaranteed to catch any single bitflip, AND it IS sensitive to the order of the values,
     ! i. e. printChecksum((/ 0, 1 /)) AND printChecksum((/ 1, 0 /)) produce two different results.
-    INTEGER(KIND = C_INT64_T) FUNCTION checksum32(array, prime) RESULT(RESULT)
-        INTEGER(KIND = C_INT32_T), INTENT(IN) :: array(:)
+    INTEGER(KIND = C_INT64_T) FUNCTION checksum32(address, byteCount, prime) RESULT(RESULT)
+        TYPE(C_PTR), VALUE :: address
+        INTEGER(KIND = C_SIZE_T), VALUE :: byteCount
         INTEGER(KIND = C_INT64_T), INTENT(IN) :: prime
 
+        INTEGER(KIND = C_INT32_T), POINTER :: array(:)
         INTEGER :: i
         INTEGER(KIND = C_INT64_T) :: pseudoRandomBits
         CHARACTER(LEN = *), PARAMETER :: routine = moduleName//":checksum32"
 
+        CALL C_F_POINTER(address, array, [byteCount/4])
         RESULT = 0
         pseudoRandomBits = 0
         DO i = 1, SIZE(array, 1)
@@ -141,9 +159,10 @@ CONTAINS
     ! This IS the base CASE for the global checksums, all other "implementations" redirect to this FUNCTION via a TRANSFER() CALL.
     !
     ! If `opt_lDetails = .TRUE.` IS specified, this also prints a list of all the process local checksums.
-    SUBROUTINE printChecksum_1d_int32(prefix, array, opt_comm, opt_lDetails)
+    SUBROUTINE printChecksum_internal(prefix, address, byteCount, opt_comm, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT32_T), INTENT(IN) :: array(:)
+        TYPE(C_PTR), VALUE :: address
+        INTEGER(KIND = C_SIZE_T), VALUE :: byteCount
         INTEGER, OPTIONAL, INTENT(IN) :: opt_comm
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
 
@@ -153,7 +172,7 @@ CONTAINS
         INTEGER(KIND = C_INT64_T), ALLOCATABLE :: processChecksums(:)
         INTEGER(KIND = C_INT64_T), PARAMETER :: prime1 = 2131876679, prime2 = 1665879031    !just two random primes IN the range
                                                                                             ![2**30, 2**31]
-        CHARACTER(LEN = *), PARAMETER :: routine = moduleName//":printChecksum_1d_int32"
+        CHARACTER(LEN = *), PARAMETER :: routine = moduleName//":printChecksum_internal"
 
         !XXX: These two variables are a workaround for the MPI implementation on AIX, which does NOT provide the constants
         !MPI_INT64_T AND MPI_INT32_T.  So, to make this work without those constants, we implicitly reinterprete a C_INT64_T as an
@@ -165,7 +184,7 @@ CONTAINS
         !compute a process local checksum
         printDetails = .FALSE.
         IF(PRESENT(opt_lDetails)) printDetails = opt_lDetails
-        hash = checksum(array, prime1)
+        hash = checksum(address, byteCount, prime1)
 
 #ifndef NOMPI
         !gather the process local checksums on process 0
@@ -194,22 +213,25 @@ CONTAINS
 #else
         WRITE(0, *) prefix//checksumString(hash)
 #endif
-    END SUBROUTINE printChecksum_1d_int32
+    END SUBROUTINE printChecksum_internal
 
 
     ! This IS the base CASE for the local checksums, all other implementations redirect to this FUNCTION via a TRANSFER() CALL.
     !
     ! IF `opt_lDetails = .TRUE.` IS specified, this also produces a hex dump of the input DATA.
-    SUBROUTINE printLocalChecksum_1d_int32(prefix, array, opt_lDetails)
+    SUBROUTINE printLocalChecksum_internal(prefix, address, byteCount, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT32_T), INTENT(IN) :: array(:)
+        TYPE(C_PTR), VALUE :: address
+        INTEGER(KIND = C_SIZE_T), VALUE :: byteCount
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
 
+        INTEGER(KIND = C_INT32_T), POINTER :: array(:)
         INTEGER :: i
         LOGICAL :: printDetails
         INTEGER(KIND = C_INT64_T) :: hash
         INTEGER(KIND = C_INT64_T), PARAMETER :: prime = 1212113153    !just a random prime IN the range [2**30, 2**31]
 
+        CALL C_F_POINTER(address, array, [byteCount/4])
         printDetails = .FALSE.
         IF(PRESENT(opt_lDetails)) printDetails = opt_lDetails
         IF(printDetails) THEN
@@ -237,9 +259,9 @@ CONTAINS
             END SELECT
         END IF
 
-        hash = checksum(array, prime)
+        hash = checksum(address, byteCount, prime)
         WRITE(0, *) prefix//checksumString(hash)
-    END SUBROUTINE printLocalChecksum_1d_int32
+    END SUBROUTINE printLocalChecksum_internal
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! callthroughs to the functions above !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -248,300 +270,314 @@ CONTAINS
     ! Callthrough to checksum32().
 
     INTEGER(KIND = C_INT64_T) FUNCTION checksum64(array, prime) RESULT(RESULT)
-        INTEGER(KIND = C_INT64_T), INTENT(IN) :: array(:)
+        INTEGER(KIND = C_INT64_T), TARGET, INTENT(IN) :: array(:)
         INTEGER(KIND = C_INT64_T), VALUE :: prime
 
-        RESULT = checksum(TRANSFER(array, mold), prime)
+        RESULT = checksum(deleteType(array, 8), prime)
     END FUNCTION checksum64
 
 
 
     ! These CALL through to printChecksum_1d_int32().
 
+    SUBROUTINE printChecksum_1d_int32(prefix, array, opt_lDetails)
+        CHARACTER(LEN = *), INTENT(IN) :: prefix
+        INTEGER(KIND = C_INT32_T), TARGET, INTENT(IN) :: array(:)
+        LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
+        CALL printChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
+    END SUBROUTINE printChecksum_1d_int32
+
     SUBROUTINE printChecksum_1d_int64(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT64_T), INTENT(IN) :: array(:)
+        INTEGER(KIND = C_INT64_T), TARGET, INTENT(IN) :: array(:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_1d_int64
 
     SUBROUTINE printChecksum_1d_float(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_FLOAT), INTENT(IN) :: array(:)
+        REAL(KIND = C_FLOAT), TARGET, INTENT(IN) :: array(:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_1d_float
 
     SUBROUTINE printChecksum_1d_double(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_DOUBLE), INTENT(IN) :: array(:)
+        REAL(KIND = C_DOUBLE), TARGET, INTENT(IN) :: array(:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_1d_double
 
 
 
     SUBROUTINE printChecksum_2d_int32(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT32_T), INTENT(IN) :: array(:,:)
+        INTEGER(KIND = C_INT32_T), TARGET, INTENT(IN) :: array(:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_2d_int32
 
     SUBROUTINE printChecksum_2d_int64(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT64_T), INTENT(IN) :: array(:,:)
+        INTEGER(KIND = C_INT64_T), TARGET, INTENT(IN) :: array(:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_2d_int64
 
     SUBROUTINE printChecksum_2d_float(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_FLOAT), INTENT(IN) :: array(:,:)
+        REAL(KIND = C_FLOAT), TARGET, INTENT(IN) :: array(:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_2d_float
 
     SUBROUTINE printChecksum_2d_double(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_DOUBLE), INTENT(IN) :: array(:,:)
+        REAL(KIND = C_DOUBLE), TARGET, INTENT(IN) :: array(:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_2d_double
 
 
 
     SUBROUTINE printChecksum_3d_int32(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT32_T), INTENT(IN) :: array(:,:,:)
+        INTEGER(KIND = C_INT32_T), TARGET, INTENT(IN) :: array(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_3d_int32
 
     SUBROUTINE printChecksum_3d_int64(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT64_T), INTENT(IN) :: array(:,:,:)
+        INTEGER(KIND = C_INT64_T), TARGET, INTENT(IN) :: array(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_3d_int64
 
     SUBROUTINE printChecksum_3d_float(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_FLOAT), INTENT(IN) :: array(:,:,:)
+        REAL(KIND = C_FLOAT), TARGET, INTENT(IN) :: array(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_3d_float
 
     SUBROUTINE printChecksum_3d_double(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_DOUBLE), INTENT(IN) :: array(:,:,:)
+        REAL(KIND = C_DOUBLE), TARGET, INTENT(IN) :: array(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_3d_double
 
 
 
     SUBROUTINE printChecksum_4d_int32(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT32_T), INTENT(IN) :: array(:,:,:,:)
+        INTEGER(KIND = C_INT32_T), TARGET, INTENT(IN) :: array(:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_4d_int32
 
     SUBROUTINE printChecksum_4d_int64(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT64_T), INTENT(IN) :: array(:,:,:,:)
+        INTEGER(KIND = C_INT64_T), TARGET, INTENT(IN) :: array(:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_4d_int64
 
     SUBROUTINE printChecksum_4d_float(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_FLOAT), INTENT(IN) :: array(:,:,:,:)
+        REAL(KIND = C_FLOAT), TARGET, INTENT(IN) :: array(:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_4d_float
 
     SUBROUTINE printChecksum_4d_double(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_DOUBLE), INTENT(IN) :: array(:,:,:,:)
+        REAL(KIND = C_DOUBLE), TARGET, INTENT(IN) :: array(:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_4d_double
 
 
 
     SUBROUTINE printChecksum_5d_int32(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT32_T), INTENT(IN) :: array(:,:,:,:,:)
+        INTEGER(KIND = C_INT32_T), TARGET, INTENT(IN) :: array(:,:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_5d_int32
 
     SUBROUTINE printChecksum_5d_int64(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT64_T), INTENT(IN) :: array(:,:,:,:,:)
+        INTEGER(KIND = C_INT64_T), TARGET, INTENT(IN) :: array(:,:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_5d_int64
 
     SUBROUTINE printChecksum_5d_float(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_FLOAT), INTENT(IN) :: array(:,:,:,:,:)
+        REAL(KIND = C_FLOAT), TARGET, INTENT(IN) :: array(:,:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_5d_float
 
     SUBROUTINE printChecksum_5d_double(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_DOUBLE), INTENT(IN) :: array(:,:,:,:,:)
+        REAL(KIND = C_DOUBLE), TARGET, INTENT(IN) :: array(:,:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printChecksum_5d_double
 
 
 
     ! These CALL through to printLocalChecksum_1d_int32().
 
+    SUBROUTINE printLocalChecksum_1d_int32(prefix, array, opt_lDetails)
+        CHARACTER(LEN = *), INTENT(IN) :: prefix
+        INTEGER(KIND = C_INT32_T), TARGET, INTENT(IN) :: array(:)
+        LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
+    END SUBROUTINE printLocalChecksum_1d_int32
+
     SUBROUTINE printLocalChecksum_1d_int64(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT64_T), INTENT(IN) :: array(:)
+        INTEGER(KIND = C_INT64_T), TARGET, INTENT(IN) :: array(:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_1d_int64
 
     SUBROUTINE printLocalChecksum_1d_float(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_FLOAT), INTENT(IN) :: array(:)
+        REAL(KIND = C_FLOAT), TARGET, INTENT(IN) :: array(:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_1d_float
 
     SUBROUTINE printLocalChecksum_1d_double(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_DOUBLE), INTENT(IN) :: array(:)
+        REAL(KIND = C_DOUBLE), TARGET, INTENT(IN) :: array(:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_1d_double
 
 
 
     SUBROUTINE printLocalChecksum_2d_int32(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT32_T), INTENT(IN) :: array(:,:)
+        INTEGER(KIND = C_INT32_T), TARGET, INTENT(IN) :: array(:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_2d_int32
 
     SUBROUTINE printLocalChecksum_2d_int64(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT64_T), INTENT(IN) :: array(:,:)
+        INTEGER(KIND = C_INT64_T), TARGET, INTENT(IN) :: array(:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_2d_int64
 
     SUBROUTINE printLocalChecksum_2d_float(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_FLOAT), INTENT(IN) :: array(:,:)
+        REAL(KIND = C_FLOAT), TARGET, INTENT(IN) :: array(:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_2d_float
 
     SUBROUTINE printLocalChecksum_2d_double(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_DOUBLE), INTENT(IN) :: array(:,:)
+        REAL(KIND = C_DOUBLE), TARGET, INTENT(IN) :: array(:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_2d_double
 
 
 
     SUBROUTINE printLocalChecksum_3d_int32(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT32_T), INTENT(IN) :: array(:,:,:)
+        INTEGER(KIND = C_INT32_T), TARGET, INTENT(IN) :: array(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_3d_int32
 
     SUBROUTINE printLocalChecksum_3d_int64(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT64_T), INTENT(IN) :: array(:,:,:)
+        INTEGER(KIND = C_INT64_T), TARGET, INTENT(IN) :: array(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_3d_int64
 
     SUBROUTINE printLocalChecksum_3d_float(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_FLOAT), INTENT(IN) :: array(:,:,:)
+        REAL(KIND = C_FLOAT), TARGET, INTENT(IN) :: array(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_3d_float
 
     SUBROUTINE printLocalChecksum_3d_double(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_DOUBLE), INTENT(IN) :: array(:,:,:)
+        REAL(KIND = C_DOUBLE), TARGET, INTENT(IN) :: array(:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_3d_double
 
 
 
     SUBROUTINE printLocalChecksum_4d_int32(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT32_T), INTENT(IN) :: array(:,:,:,:)
+        INTEGER(KIND = C_INT32_T), TARGET, INTENT(IN) :: array(:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_4d_int32
 
     SUBROUTINE printLocalChecksum_4d_int64(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT64_T), INTENT(IN) :: array(:,:,:,:)
+        INTEGER(KIND = C_INT64_T), TARGET, INTENT(IN) :: array(:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_4d_int64
 
     SUBROUTINE printLocalChecksum_4d_float(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_FLOAT), INTENT(IN) :: array(:,:,:,:)
+        REAL(KIND = C_FLOAT), TARGET, INTENT(IN) :: array(:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_4d_float
 
     SUBROUTINE printLocalChecksum_4d_double(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_DOUBLE), INTENT(IN) :: array(:,:,:,:)
+        REAL(KIND = C_DOUBLE), TARGET, INTENT(IN) :: array(:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_4d_double
 
 
 
     SUBROUTINE printLocalChecksum_5d_int32(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT32_T), INTENT(IN) :: array(:,:,:,:,:)
+        INTEGER(KIND = C_INT32_T), TARGET, INTENT(IN) :: array(:,:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_5d_int32
 
     SUBROUTINE printLocalChecksum_5d_int64(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        INTEGER(KIND = C_INT64_T), INTENT(IN) :: array(:,:,:,:,:)
+        INTEGER(KIND = C_INT64_T), TARGET, INTENT(IN) :: array(:,:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_5d_int64
 
     SUBROUTINE printLocalChecksum_5d_float(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_FLOAT), INTENT(IN) :: array(:,:,:,:,:)
+        REAL(KIND = C_FLOAT), TARGET, INTENT(IN) :: array(:,:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 4), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_5d_float
 
     SUBROUTINE printLocalChecksum_5d_double(prefix, array, opt_lDetails)
         CHARACTER(LEN = *), INTENT(IN) :: prefix
-        REAL(KIND = C_DOUBLE), INTENT(IN) :: array(:,:,:,:,:)
+        REAL(KIND = C_DOUBLE), TARGET, INTENT(IN) :: array(:,:,:,:,:)
         LOGICAL, OPTIONAL, INTENT(IN) :: opt_lDetails
-        CALL printLocalChecksum(prefix, TRANSFER(array, mold), opt_lDetails = opt_lDetails)
+        CALL printLocalChecksum_internal(prefix, deleteType(array, 8), opt_lDetails = opt_lDetails)
     END SUBROUTINE printLocalChecksum_5d_double
 
 END MODULE mo_checksum
