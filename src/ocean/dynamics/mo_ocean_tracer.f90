@@ -483,6 +483,8 @@ CONTAINS
       & p_os%p_prog(nnew(1))%h,         &
       & div_diff_flux_horz)
 
+      div_diff_flx_vert(:,:,:)=0.0_wp
+
     ELSE
 
       CALL calc_ocean_physics(patch_3d, p_os, p_param,p_op_coeff, tracer_index)
@@ -495,8 +497,8 @@ CONTAINS
                    
       !vertical div of GMRedi-flux
       CALL verticalDiv_scalar_onFullLevels( patch_3d, &
-                                      & p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
-                                      & div_diff_flx_vert)
+        & p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
+        & div_diff_flx_vert)
                    
                    
       !---------DEBUG DIAGNOSTICS-------------------------------------------

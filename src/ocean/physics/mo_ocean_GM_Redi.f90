@@ -307,7 +307,6 @@ CONTAINS
 !           & mapped_vertical_diagonal_impl(:,:,:)
 !         param%a_tracer_v(:,:,:, tracer_index)=max(param%a_tracer_v(:,:,:, tracer_index),mapped_vertical_diagonal_impl).
 
-!ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
 
       !
       !Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
@@ -316,6 +315,7 @@ CONTAINS
       !We follow the approach in POP, where these two contributions are added
       !(see Reference manual POP, sect 5.1.3, in particular p. 41, after eq (150)).
       !
+!ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block     
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
         DO cell_index = start_cell_index, end_cell_index
