@@ -407,6 +407,7 @@ CONTAINS
 !     REAL(wp) :: div_diff_flux_horz2(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
     REAL(wp) :: flux_horz(nproma,n_zlev, patch_3d%p_patch_2D(1)%nblks_e)
     REAL(wp) :: div_adv_flux_vert(nproma,n_zlev, patch_3d%p_patch_2d(1)%alloc_cell_blocks)
+    REAL(wp) :: div_diff_flx_vert(nproma, n_zlev,patch_3d%p_patch_2d(1)%alloc_cell_blocks)    
     REAL(wp), POINTER :: trac_old(:,:,:), trac_new(:,:,:) ! temporary pointers to the concentration arrays
 
     INTEGER :: jc,level,jb, je
@@ -490,6 +491,14 @@ CONTAINS
                    &   patch_3d, &
                    &   p_op_coeff%div_coeff, &
                    &   div_diff_flux_horz )
+                   
+                   
+      !vertical div of GMRedi-flux
+      CALL verticalDiv_scalar_onFullLevels( patch_3d, &
+                                      & p_os%p_diag%GMRedi_flux_vert(:,:,:,tracer_index), &
+                                      & div_diff_flx_vert)
+                   
+                   
       !---------DEBUG DIAGNOSTICS-------------------------------------------
       idt_src=3  ! output print level (1-5, fix)
       CALL dbg_print('AftGMRedi: GMRediflux_h',p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
@@ -527,8 +536,9 @@ CONTAINS
 
           new_ocean_tracer%concentration(jc,level,jb)= &
             & (old_ocean_tracer%concentration(jc,level,jb) * delta_z &
-            & - delta_t * (div_adv_flux_vert(jc,level,jb)-&
-            &  (div_diff_flux_horz(jc,level,jb)-div_adv_flux_horz(jc,level,jb)))) / delta_z_new
+            & - delta_t * (&
+            &  div_adv_flux_horz(jc,level,jb) +div_adv_flux_vert(jc,level,jb)&
+            & -div_diff_flux_horz(jc,level,jb)-div_diff_flx_vert(jc,level,jb))) / delta_z_new
 
           new_ocean_tracer%concentration(jc,level,jb) =         &
             & ( new_ocean_tracer%concentration(jc,level,jb) +   &
@@ -543,8 +553,9 @@ CONTAINS
 
           new_ocean_tracer%concentration(jc,level,jb) =                          &
             &  old_ocean_tracer%concentration(jc,level,jb) -                     &
-            &  (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb))  &
-            &    * (div_adv_flux_vert(jc,level,jb) - (div_diff_flux_horz(jc,level,jb)-div_adv_flux_horz(jc,level,jb)))
+            &  (delta_t /  patch_3d%p_patch_1D(1)%prism_thick_c(jc,level,jb))    &
+            & * (div_adv_flux_horz(jc,level,jb)  +div_adv_flux_vert(jc,level,jb)&
+            &  - div_diff_flux_horz(jc,level,jb)- div_diff_flx_vert(jc,level,jb))
           !   test
           !   IF( delta_z/= delta_z1)THEN
           !     write(0,*)'no agreement',level,jc,jb,&

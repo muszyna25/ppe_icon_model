@@ -196,7 +196,7 @@ CONTAINS
     REAL(wp)                                 :: taper_diagonal_horz(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)
     REAL(wp)                                 :: taper_diagonal_vert_expl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)    
     REAL(wp)                                 :: taper_diagonal_vert_impl(nproma,n_zlev,patch_3D%p_patch_2D(1)%alloc_cell_blocks)            
-    REAL(wp) :: mapped_verticaloff_diagonal_impl(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)            
+    REAL(wp) :: mapped_vertical_diagonal_impl(nproma,n_zlev+1,patch_3D%p_patch_2D(1)%alloc_cell_blocks)            
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(1)
     cells_in_domain => patch_2D%cells%in_domain 
@@ -301,25 +301,31 @@ CONTAINS
       CALL map_scalar_center2prismtop( patch_3d, &
         &                              taper_diagonal_vert_impl,&
         &                              op_coeff,           &
-        &                              mapped_verticaloff_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
+        &                              mapped_vertical_diagonal_impl)!param%a_tracer_v(:,:,:, tracer_index))
 
 !         param%a_tracer_v(:,:,:, tracer_index)=param%a_tracer_v(:,:,:, tracer_index) + &
-!           & mapped_verticaloff_diagonal_impl(:,:,:)
-!         param%a_tracer_v(:,:,:, tracer_index)=max(param%a_tracer_v(:,:,:, tracer_index),mapped_verticaloff_diagonal_impl).
+!           & mapped_vertical_diagonal_impl(:,:,:)
+!         param%a_tracer_v(:,:,:, tracer_index)=max(param%a_tracer_v(:,:,:, tracer_index),mapped_vertical_diagonal_impl).
 
 !ICON_OMP_DO_PARALLEL PRIVATE(start_cell_index,end_cell_index, cell_index, level) ICON_OMP_DEFAULT_SCHEDULE
-      !Combine the coefficient for the (implicit) vertical GMR-Redi flux with the
-      !vertical mixing coefficient from the PP-scheme. 
+
+      !
+      !Here we combine the vertical GMRedicoefficient that is treated implicitely (mapped_vertical_diagonal_impl, this
+      !term involves the slopes-squared times the isopycnal mixing coefficient and is potentially large, therefore
+      !it is discretized implicitely) with the vertical mixing coefficient from the PP-scheme. 
+      !We follow the approach in POP, where these two contributions are added
+      !(see Reference manual POP, sect 5.1.3, in particular p. 41, after eq (150)).
+      !
       DO blockNo = cells_in_domain%start_block, cells_in_domain%end_block     
         CALL get_index_range(cells_in_domain, blockNo, start_cell_index, end_cell_index)      
         DO cell_index = start_cell_index, end_cell_index
           DO level = start_level, patch_3D%p_patch_1D(1)%dolic_c(cell_index,blockNo)
             param%a_tracer_v(cell_index,level,blockNo, tracer_index) =                &
-                    & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo)
+             & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
+             & mapped_vertical_diagonal_impl(cell_index,level,blockNo)
+!                    & mapped_vertical_diagonal_impl(cell_index,level,blockNo)
 !               MAX(param%a_tracer_v(cell_index,level,blockNo, tracer_index), &
-!                     & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo))
-!             & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
-!             & mapped_verticaloff_diagonal_impl(cell_index,level,blockNo)
+!                     & mapped_vertical_diagonal_impl(cell_index,level,blockNo))
           END DO                  
         END DO                
       END DO
@@ -723,7 +729,6 @@ CONTAINS
 
           DO level = start_level, end_level
             ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) =&
-
               & 0.5_wp*(1.0_wp + tanh((S_max - sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)))*inv_S_d))
 
           END DO
@@ -734,10 +739,10 @@ CONTAINS
 
 !     CALL sync_patch_array(sync_c, patch_2D,ocean_state%p_aux%taper_function_1)
 ! Do level=1,n_zlev
-! write(0,*)'max-min taper 1',maxval( ocean_state%p_aux%taper_function_1(:,level,:)),&
+! write(*,*)'max-min taper 1',maxval( ocean_state%p_aux%taper_function_1(:,level,:)),&
 ! &minval( ocean_state%p_aux%taper_function_1(:,level,:))     
 ! End do
-
+!stop
     !tapering schemes other than Danabasoglu-McWilliams require a second
     !tapering function
     IF(tapering_scheme/=tapering_DanaMcWilliams)THEN
