@@ -20,13 +20,13 @@ MODULE mo_util_nml
   INTERFACE
     FUNCTION private_annotate_nml(in_filename, out_filename) RESULT(iret) &
       &      BIND(C,NAME='util_annotate_nml')
-#if defined(__SX__) || defined (__SUNPRO_F95)
+#if defined (__SUNPRO_F95)
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
 #else
       IMPORT :: C_INT, C_CHAR
 #endif
       INTEGER(C_INT) :: iret
-#if defined(__SX__) || defined (__SUNPRO_F95)
+#if defined (__SUNPRO_F95)
       CHARACTER(kind=C_CHAR,len=*),    INTENT(in) :: in_filename, out_filename
 #else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: in_filename, out_filename

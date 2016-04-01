@@ -1937,7 +1937,6 @@ src/testbed/mo_icon_testbed.f90 -text
 src/testbed/mo_icon_testbed_config.f90 -text
 src/testbed/mo_icon_testbed_nml.f90 -text
 src/testbed/mo_test_communication.f90 -text
-src/testbed/mo_test_coupler.f90 -text
 src/testbed/mo_test_jitter.f90 -text
 src/testbed/mo_test_netcdf_read.f90 -text
 src/testbed/mo_test_nh_communication.f90 -text

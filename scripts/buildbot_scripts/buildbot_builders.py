@@ -164,15 +164,13 @@ class buildbot_experiments_list(object):
 
   def make_binaries(self, builder_name):
     builder = self.get_BuildersByName([builder_name])[0]
-    status = builder.make_binaries()
-    return status
+    return builder.make_binaries()
 
   # if succesful returns a list of the runscripts
   #  otherwise returns the status
   def make_runscripts(self, builder_name):
     builder = self.get_BuildersByName([builder_name])[0]
-    status = builder.make_runscripts()
-    return status
+    return builder.make_runscripts()
 
   #  returns:
   #    the builder flags (active, build_only, restricted): string
