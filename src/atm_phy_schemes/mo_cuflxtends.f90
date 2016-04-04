@@ -235,7 +235,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(out)   :: prain(klon)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfdde_rate(klon,klev)
 
-    REAL(KIND=jprb) :: zrhebc(klon), zrcucov(klon)
+    REAL(KIND=jprb) :: zrhebc(klon), zrcucov(klon), zshalfac(klon)
     INTEGER(KIND=jpim) :: ik, ikb, jk, jl
     INTEGER(KIND=jpim) :: idbas(klon)
     LOGICAL :: llddraf
@@ -432,6 +432,13 @@ CONTAINS
     !!Reminder for conservation:
     !!   pdmfup(jl,jk)+pdmfdp(jl,jk)=pmflxr(jl,jk+1)+pmflxs(jl,jk+1)-pmflxr(jl,jk)-pmflxs(jl,jk)
 
+    DO jl=kidia,kfdia
+      IF (ktype(jl)==2) THEN
+        zshalfac(jl) = 0.5_jprb
+      ELSE
+        zshalfac(jl) = 1._jprb
+      ENDIF
+    ENDDO
     DO jk=ktdia-1+ktopm2,klev
       DO jl=kidia,kfdia
         IF(ldcum(jl).AND.jk >= kcbot(jl)) THEN
@@ -442,7 +449,7 @@ CONTAINS
               & (paph(jl,jk+1)-paph(jl,jk))
             zrnew=zrfl-zdrfl1
             zrmin=zrfl-zrcucov(jl)*MAX(0.0_JPRB,zrhebc(jl)*pqsen(jl,jk)-pqen(jl,jk))&
-              & *zcons2*(paph(jl,jk+1)-paph(jl,jk))
+              & *zshalfac(jl)*zcons2*(paph(jl,jk+1)-paph(jl,jk))
             zrnew=MAX(zrnew,zrmin)
             zrfln=MAX(zrnew,0.0_JPRB)
             zdrfl=MIN(0.0_JPRB,zrfln-zrfl)

@@ -905,7 +905,7 @@ run\_nml:iforcing = inwp
 \hline
 range\_gkwake&
 R&
-0.1666&
+0.333&
 &
 Variability range for low level wake drag constant&
 \tabularnewline
@@ -913,7 +913,7 @@ Variability range for low level wake drag constant&
 \hline
 range\_gkdrag&
 R&
-0.02&
+0.04&
 &
 Variability range for orographic gravity wave drag constant&
 \tabularnewline
@@ -922,7 +922,7 @@ Variability range for orographic gravity wave drag constant&
 \hline
 range\_gfluxlaun&
 R&
-0.50e-3&
+0.75e-3&
 &
 Variability range for non-orographic gravity wave launch momentum flux &
 \tabularnewline
@@ -931,7 +931,7 @@ Variability range for non-orographic gravity wave launch momentum flux &
 \hline
 range\_zvz0i&
 R&
-0.125&
+0.2&
 m/s&
 Variability range for terminal fall velocity of ice&
 inwp\_gscp = 1 or 2
@@ -941,7 +941,7 @@ inwp\_gscp = 1 or 2
 \hline
 range\_entrorg&
 R&
-0.125e-3&
+0.2e-3&
 1/m&
 Variability range for entrainment parameter in convection scheme & 
 inwp\_convection = 1
@@ -951,7 +951,7 @@ inwp\_convection = 1
 \hline
 range\_capdcfac\_et&
 R&
-0.1&
+0.75&
 &
 Maximum fraction of CAPE diurnal cycle correction applied in the extratropics &
 icapdcycl = 3
@@ -969,7 +969,7 @@ inwp\_convection = 1
 \hline
 range\_texc&
 R&
-0.025&
+0.05&
 K&
 Variability range for temperature excess value in test parcel ascent & 
 inwp\_convection = 1
@@ -988,7 +988,7 @@ inwp\_cldcover = 1
 \hline
 range\_tkhmin&
 R&
-0.15&
+0.2&
 &
 Variability range for minimum vertical diffusion for heat/moisture &
 inwp\_turb = 1
@@ -997,7 +997,7 @@ inwp\_turb = 1
 \hline
 range\_tkmmin&
 R&
-0.15&
+0.2&
 &
 Variability range for minimum vertical diffusion for momentum &
 inwp\_turb = 1
@@ -1006,7 +1006,7 @@ inwp\_turb = 1
 \hline
 range\_rlam\_heat&
 R&
-1.5&
+3.0&
 &
 Variability range (multiplicative!) of laminar transport resistance parameter &
 inwp\_turb = 1
@@ -1033,7 +1033,7 @@ idiag\_snowfrac = 20/30/40
 \hline
 range\_z0\_lcc&
 R&
-0.2&
+0.25&
 &
 Variability range (relative change) of roughness length attributed to each landuse class &
 \tabularnewline
@@ -4519,7 +4519,7 @@ iforcing=inwp
 I&
 4&
 &
-Direct beam surface albedo. Options mainly differ in terms of their solar zenith angle (SZA) dependency\\
+Direct beam surface albedo. Options mainly differ in terms of their solar zenith angle (SZA) dependency)\\
 1: SZA dependency following Ritter-Geleyn; applied to unconditionally all grid points\\
 2: SZA dependency following Zaengl (pers.\ comm.). Same as 1 for water, but for 'rough surfaces' over land the direct albedo 
    is not allowed to exceed the corresponding broadband diffuse albedo.\\
@@ -4528,6 +4528,21 @@ Direct beam surface albedo. Options mainly differ in terms of their solar zenith
 &
 iforcing=inwp\\
 albedo\_type=2
+\tabularnewline
+
+%\hline
+icld\_overlap &
+I&
+2&
+&
+Method for cloud overlap calculation in shortwave part of RRTM\\
+1: maximum-random overlap \\
+2: generalized overlap (Hogan, Illingworth, 2000) \\
+3: maximum overlap \\
+4: random overlap
+&
+iforcing=inwp\\
+inwp\_radiation=1
 \tabularnewline
 
 %\hline
