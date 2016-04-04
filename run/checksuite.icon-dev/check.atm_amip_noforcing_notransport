@@ -54,7 +54,7 @@ cd checksuite.icon-dev
 ./icon-dev.checksuite
 STATUS=$?
 
-echo $STATUS > $rundir/exp.$EXPNAME.run.status
+echo $STATUS > $rundir/$job_name.status
 
 #--------------------------------------------------------------------------------
 exit
