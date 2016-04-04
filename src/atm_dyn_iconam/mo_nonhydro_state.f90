@@ -64,7 +64,7 @@ MODULE mo_nonhydro_state
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, add_var,     &
     &                                add_ref, new_var_list, delete_var_list, &
-    &                                add_var_list_reference
+    &                                add_var_list_reference, get_timelevel_string
   USE mo_linked_list,          ONLY: t_list_element
   USE mo_var_metadata_types,   ONLY: t_var_metadata, MAX_GROUPS
   USE mo_var_metadata,         ONLY: create_tracer_metadata,                 &
@@ -489,7 +489,7 @@ MODULE mo_nonhydro_state
 
     ! Suffix (mandatory for time level dependent variables)
 
-    WRITE(suffix,'(".TL",i1)') timelev
+    suffix = get_timelevel_string(timelev)
 
     !
     ! Register a field list and apply default settings

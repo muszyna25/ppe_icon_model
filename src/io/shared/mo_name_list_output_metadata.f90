@@ -21,6 +21,8 @@ MODULE mo_name_list_output_metadata
     &                                             my_process_is_mpi_workroot, &
     &                                             my_process_is_io
   USE mo_name_list_output_config,           ONLY: use_async_name_list_io
+  USE mo_dynamics_config,                   ONLY: nnow, nnow_rcf, nnew, nnew_rcf
+  USE mo_impl_constants,                    ONLY: TLEV_NNOW, TLEV_NNOW_RCF, TLEV_NNEW, TLEV_NNEW_RCF
 
   IMPLICIT NONE
 
@@ -30,6 +32,7 @@ MODULE mo_name_list_output_metadata
   PUBLIC :: metainfo_write_to_memwin
   PUBLIC :: metainfo_get_from_memwin
   PUBLIC :: metainfo_get_size
+  PUBLIC :: metainfo_get_timelevel
 
   CHARACTER(LEN=*), PARAMETER :: modname = 'mo_name_list_output_metadata'
 
@@ -176,5 +179,24 @@ CONTAINS
     info = TRANSFER(bufr_metainfo((offset+1):(offset+info_size)), dummy_info)
   END SUBROUTINE metainfo_get_from_memwin
 
-END MODULE mo_name_list_output_metadata
+  !-------------------------------------------------------------------------------------------------
+  !> Return the output timelevel for given variables info object
+  !
+  !  @author R. Mueller, MPI
+  !
+  INTEGER FUNCTION metainfo_get_timelevel(info,domain) RESULT(timelevel)
+    TYPE(t_var_metadata), INTENT(IN) :: info
+    INTEGER, INTENT(IN)              :: domain
 
+    CHARACTER(LEN=*), PARAMETER       :: routine = modname//"::metainfo_get_timelevel"
+
+    SELECT CASE (info%tlev_source)
+    CASE(TLEV_NNOW);     timelevel = nnow(domain)
+    CASE(TLEV_NNOW_RCF); timelevel = nnow_rcf(domain)
+    CASE(TLEV_NNEW);     timelevel = nnew(domain)
+    CASE(TLEV_NNEW_RCF); timelevel = nnew_rcf(domain)
+    CASE DEFAULT
+      CALL finish(routine,'Unsupported tlev_source')
+    END SELECT
+  END FUNCTION metainfo_get_timelevel
+END MODULE mo_name_list_output_metadata
