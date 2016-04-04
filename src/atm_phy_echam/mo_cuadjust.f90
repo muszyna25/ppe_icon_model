@@ -1,4 +1,5 @@
 #include "fsel.inc"
+#include "consistent_fma.inc"
 !>
 !! @brief Module produces t, q and l values for cloud ascent
 !!
@@ -185,6 +186,7 @@ CONTAINS
         CALL lookup_ua_list_spline('cuadjtq (2)',kproma,nsum,idx(1),pt(1,kk),ua(1),  &
           &                                                                   dua(1))
 
+!PREVENT_INCONSISTENT_IFORT_FMA
 !DIR$ IVDEP
 !OCL NOVREC
 !IBM* ASSERT(NODEPS)
