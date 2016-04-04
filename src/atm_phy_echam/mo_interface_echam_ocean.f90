@@ -41,7 +41,7 @@ MODULE mo_interface_echam_ocean
 
   USE mo_ext_data_state      ,ONLY: ext_data
 
-#ifndef __NO_JSBACH__
+if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
   USE mo_interface_hd_ocean  ,ONLY: jsb_fdef_hd_fields
 #endif
 
@@ -357,7 +357,7 @@ CONTAINS
         & field_id(idx) )
     ENDDO
 
-#ifndef __NO_JSBACH__
+if !defined(__NO_JSBACH__) && !defined(__NO_JSBACH_HD__)
     ! Define additional coupling field(s) for JSBACH/HD
     CALL jsb_fdef_hd_fields(comp_id, domain_id, cell_point_ids, cell_mask_ids)
 #endif
