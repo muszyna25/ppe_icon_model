@@ -76,6 +76,7 @@ MODULE mo_hydro_ocean_run
   USE mo_ocean_statistics
   USE mo_hamocc_statistics,     ONLY: update_hamocc_statistics, reset_hamocc_statistics
   USE mo_hamocc_types,          ONLY: t_hamocc_state
+  USE mo_derived_variable_handling, ONLY: perform_accumulation
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
   USE mo_bgc_bcond,          ONLY: ext_data_bgc, update_bgc_bcond
@@ -434,7 +435,9 @@ CONTAINS
         & ocean_state(jg)%p_diag)
 
       stop_detail_timer(timer_extra20,5)
-      
+
+      CALL perform_accumulation(nnew(1),0)
+
       CALL output_ocean( patch_3d, ocean_state, &
         &                datetime,              &
         &                surface_fluxes,             &
