@@ -377,7 +377,8 @@ USE mo_lnd_nwp_config,     ONLY: lmulti_snow, l2lay_rho_snow,     &
   &                              itype_trvg, itype_evsl,          &
   &                              itype_root, itype_heatcond,      &
   &                              itype_hydbound, lstomata, l2tls, &
-  &                              max_toplaydepth, itype_interception
+  &                              max_toplaydepth, itype_interception, &
+  &                              cwimax_ml
 !
 !
 USE mo_exception,          ONLY: message, finish, message_text
@@ -2104,8 +2105,8 @@ END SUBROUTINE message
         ! Evaporation from interception store if it contains water (wi>0) and
         ! if zep_s<0 indicates potential evaporation for temperature Ts
         ! amount of water evaporated is limited to total content of store
-        zdwidt(i) = zsf_heav(-zep_s(i))      &
-          * MAX(-zrhwddt*zwin(i), zf_wi(i)*zep_s(i), -MAX(300._ireals,0.75_ireals*zradfl(i))/lh_v)
+        zdwidt(i) = zsf_heav(-zep_s(i)) * MAX(-zrhwddt*zwin(i),                       &
+          0.333_ireals*zf_wi(i)*zep_s(i), -MAX(300._ireals,0.75_ireals*zradfl(i))/lh_v)
         ! Evaporation of snow, if snow exists (wsnow>0) and if zep_snow<0
         ! indicates potential evaporation for temperature t_snow
         zdwsndt(i) = zsf_heav(-zep_snow(i))  &
@@ -2182,7 +2183,7 @@ END SUBROUTINE message
             ! consideration of plant or snow/water cover
          IF (itype_interception == 1) THEN
             zesoil(i) = zevap*zbeta*zep_s(i)       & ! evaporation
-                          *(1.0_ireals - zf_wi  (i)) & ! not water covered
+            !!!              *(1.0_ireals - zf_wi  (i)) & ! not water covered
                           *(1.0_ireals - zf_snow(i)) & ! not snow covered
                           * eai(i)/sai(i) ! relative source surface
                                               ! of the bare soil
@@ -2237,7 +2238,7 @@ END SUBROUTINE message
 
          IF (itype_interception == 1) THEN
             zesoil(i) = zevap*zbeta*zep_s(i)       & ! evaporation
-                          *(1.0_ireals - zf_wi  (i)) & ! not water covered
+            !!!              *(1.0_ireals - zf_wi  (i)) & ! not water covered
                           *(1.0_ireals - zf_snow(i)) & ! not snow covered
                           * eai(i)/sai(i) ! relative source surface
                                               ! of the bare soil
@@ -2459,7 +2460,7 @@ IF (itype_interception == 1) THEN
 !!$            IF (m_styp(i).ge.3) THEN ! neither ice or rocks
               IF (zep_s(i) < 0.0_ireals) THEN    ! upwards potential evaporation
                 ztrabpf  = ztraleav(i)*                   & ! plant covered part
-                           (1.0_ireals - zf_wi(i))*       & ! not water covered
+                !!!           (1.0_ireals - zf_wi(i))*       & ! not water covered
                            (1.0_ireals - zf_snow(i))        ! not snow covered
 
                 ! for root distribution

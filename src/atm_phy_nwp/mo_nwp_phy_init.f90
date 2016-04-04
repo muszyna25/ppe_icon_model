@@ -1092,6 +1092,17 @@ SUBROUTINE init_nwp_phy ( p_patch, p_metrics,               &
 !$OMP END PARALLEL
 
     CALL message('mo_nwp_phy_init:', 'convection initialized')
+  ELSE
+    ! initialize parameters that are accessed outside the convection scheme
+    phy_params%rcucov           = 0._wp
+    phy_params%rcucov_trop      = 0._wp
+    phy_params%rhebc_land       = 0._wp
+    phy_params%rhebc_ocean      = 0._wp
+    phy_params%rhebc_land_trop  = 0._wp
+    phy_params%rhebc_ocean_trop = 0._wp
+    phy_params%entrorg          = 0._wp
+    phy_params%texc             = 0._wp
+    phy_params%qexc             = 0._wp
   ENDIF
 
 

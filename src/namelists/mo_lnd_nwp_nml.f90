@@ -45,6 +45,7 @@ MODULE mo_lnd_nwp_nml
     &                            config_l2lay_rho_snow => l2lay_rho_snow, &
     &                          config_max_toplaydepth => max_toplaydepth, &
     &                            config_idiag_snowfrac => idiag_snowfrac, &
+    &                                 config_cwimax_ml => cwimax_ml     , &
     &                               config_itype_trvg  => itype_trvg    , &
     &                               config_itype_evsl  => itype_evsl    , &
     &                              config_itype_lndtbl => itype_lndtbl  , &
@@ -81,6 +82,7 @@ MODULE mo_lnd_nwp_nml
   INTEGER ::  itype_root        !< type of root density distribution
   INTEGER ::  itype_heatcond    !< type of soil heat conductivity
   INTEGER ::  itype_interception!< type of plant interception
+  REAL(wp)::  cwimax_ml         !< scaling parameter for maximum interception storage
   INTEGER ::  itype_hydbound    !< type of hydraulic lower boundary condition
   INTEGER ::  idiag_snowfrac    !< method for diagnosis of snow-cover fraction       
 
@@ -119,7 +121,7 @@ MODULE mo_lnd_nwp_nml
     &               lsnowtile                                 , &
     &               sstice_mode                               , &
     &               sst_td_filename                           , &
-    &               ci_td_filename
+    &               ci_td_filename, cwimax_ml
    
   PUBLIC :: read_nwp_lnd_namelist
 
@@ -194,6 +196,8 @@ MODULE mo_lnd_nwp_nml
                              ! 2: exponential
     itype_heatcond = 2       ! type of soil heat conductivity
     itype_interception = 1   ! type of plant interception
+    cwimax_ml      = 1.e-6_wp ! scaling parameter for maximum interception storage. Almost turned off by default;
+                              ! the recommended value to activate interception storage is 5.e-4
     itype_hydbound = 1       ! type of hydraulic lower boundary condition
     lstomata       =.TRUE.   ! map of minimum stomata resistance
     l2tls          =.TRUE.   ! forecast with 2-TL integration scheme
@@ -279,6 +283,7 @@ MODULE mo_lnd_nwp_nml
       config_l2tls       = l2tls
       config_itype_heatcond = itype_heatcond
       config_itype_interception = itype_interception
+      config_cwimax_ml   = cwimax_ml
       config_itype_hydbound = itype_hydbound
       config_lana_rho_snow  = lana_rho_snow
       config_l2lay_rho_snow = l2lay_rho_snow

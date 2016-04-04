@@ -214,7 +214,7 @@ IMPLICIT NONE
     cik1       = 0.0020_ireals, & !  parameter for the determination of the 
                                   !  maximum infiltaration
     cwimax     = 0.0005_ireals, & !  parameter for the determination of the 
-    cwimax_ml  = 0.0005_ireals, & !  maximum interception water content
+  !!  cwimax_ml  = 0.0005_ireals, & !  maximum interception water content (converted into namelist parameter)
     ctau_i     = 7200.0_ireals, & !  time constatant for the drainage from the 
                                   !  interception storeage 
     cakw       = 0.8000_ireals, & !  parameter for averaging the water contents
