@@ -949,11 +949,8 @@ SUBROUTINE downscale_rad_output(jg, jgp, nlev_rg,                           &
       lwfac2(jc) = 0.92_wp*EXP(-0.07_wp*logtqv(jc))
     ENDDO
     DO jc = i_startidx, i_endidx
-      IF (tqv(jc) > 15._wp) then
-        lwfac1(jc) = 1.677_wp*EXP(-0.72_wp*logtqv(jc))
-      ELSE
-        lwfac1(jc) = 0.4388_wp*EXP(-0.225_wp*logtqv(jc))
-      ENDIF
+      lwfac1(jc) = MERGE(1.677_wp, 0.4388_wp, tqv(jc) > 15._wp) &
+        * EXP(MERGE(-0.72_wp, -0.225_wp, tqv(jc) > 15._wp)*logtqv(jc))
     ENDDO
 
     DO jk = 1,nlevp1
