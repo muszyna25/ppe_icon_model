@@ -19,7 +19,6 @@
 !!
 !!
 MODULE mo_ocean_nml
-this is a bug
 !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp, sp
   USE mo_exception,          ONLY: message, message_text, finish
