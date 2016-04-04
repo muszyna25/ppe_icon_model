@@ -10,18 +10,20 @@ listname=amip
 ./rmlist $listname
 ./mklist $listname
 
-# add some virtual builders for aes local building
-./addmachine aes       --list $listname
-./addbuilder aes_gcc   --configureflags="--with-fortran=gcc"                 --builderflags Active --machine aes --list $listname
-./addbuilder aes_intel --configureflags="--with-fortran=intel --with-openmp" --builderflags Active --machine aes --list $listname
-./addbuilder aes_nag   --configureflags="--with-fortran=nag"                 --builderflags Active --machine aes --list $listname
+# add some virtual builders for aes local building, not active at the moment
+# ./addmachine aes       --list $listname
+# ./addbuilder aes_gcc   --configureflags="--with-fortran=gcc"                 --builderflags Active --machine aes --list $listname
+# ./addbuilder aes_intel --configureflags="--with-fortran=intel --with-openmp" --builderflags Active --machine aes --list $listname
+# ./addbuilder aes_nag   --configureflags="--with-fortran=nag"                 --builderflags Active --machine aes --list $listname
 #-----------------------------------------------------------
-# add amip tests to all builders
-$addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
-# set all builders to AES
-./set_builder_flags AES --builders "*" --list $listname
 # deactivate special builders
 ./set_builder_flags Inactive --builders MISTRAL_ocean MISTRAL_nag_mtime MISTRAL_nag_serial --list $listname
+# add amip tests to all builders
+$addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
+# not set all builders to AES, since the amip needs the fast ice...We should change this
+# ./set_builder_flags AES --builders "*" --list $listname
+# deactivate again special builders
+# ./set_builder_flags Inactive --builders MISTRAL_ocean MISTRAL_nag_mtime MISTRAL_nag_serial --list $listname
 #-----------------------------------------------------------
 #lets see the list
 ./lslist $listname

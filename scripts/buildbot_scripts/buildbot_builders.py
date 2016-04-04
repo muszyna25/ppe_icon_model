@@ -30,7 +30,7 @@
 import weakref
 import sys
 import os
-from build_interfaces import make_all_binaries, make_ocean_binaries, make_aes_binaries, make_runscript
+from build_interfaces import make_runscript, make_binaries_interface
 from model_paths import paths
 
 verbal=True
@@ -495,19 +495,14 @@ class buildbot_builder(object):
     del self.experiments[experiment.name]
 
   def make_binaries(self):
-    if "Ocean" in self.builder_flags:
-      return make_ocean_binaries(self.configure_flags)
-    elif "AES" in self.builder_flags:
-      return make_aes_binaries(self.configure_flags)
-    else:
-      return make_all_binaries(self.configure_flags)
+    return make_binaries_interface(self.configure_flags, self.builder_flags)
 
   # if succesful returns a list of the runscripts
   #  otherwise returns the status
   def make_runscripts(self):
     os.chdir(paths.basePath)
     runscriptList = []
-    if "build_only" in self.builder_flags:
+    if "build_only" in self.builder_flags or "Inactive" in self.builder_flags :
       return runscriptList
     for experiment in self.experiments.values():
       experimentPathName = experiment.name
