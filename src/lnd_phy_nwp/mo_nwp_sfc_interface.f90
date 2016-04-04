@@ -24,7 +24,7 @@
 MODULE mo_nwp_sfc_interface
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, finish!, message_text
+  USE mo_exception,           ONLY: message !finish, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil, iedmf, icosmo
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -49,7 +49,6 @@ MODULE mo_nwp_sfc_interface
   USE mo_seaice_nwp,          ONLY: seaice_timestep_nwp
   USE mo_phyparam_soil              ! soil and vegetation parameters for TILES
   USE mo_physical_constants,  ONLY: tmelt
-  USE mo_turbdiff_config,     ONLY: turbdiff_config
 
   
   IMPLICIT NONE 
@@ -1467,7 +1466,6 @@ CONTAINS
         ! for consistency, set 
         ! t_so(0) = t_wml_lk       mixed-layer temperature (273.15K if the lake is frozen)
         lnd_prog_new%t_s_t (jc,jb,isub_lake) = p_prog_wtr_new%t_wml_lk (jc,jb)
-        p_lnd_diag%t_seasfc(jc,jb)           = lnd_prog_new%t_s_t (jc,jb,isub_lake)
 
         ! surface saturation specific humidity over water/ice 
         !

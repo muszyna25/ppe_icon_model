@@ -28,11 +28,13 @@ MODULE mo_initicon_io
   USE mo_run_config,          ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
   USE mo_dynamics_config,     ONLY: nnow, nnow_rcf
   USE mo_model_domain,        ONLY: t_patch
+  USE mo_ext_data_types,      ONLY: t_external_data
   USE mo_nonhydro_types,      ONLY: t_nh_state, t_nh_prog
   USE mo_nwp_phy_types,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_types,       ONLY: t_lnd_state, t_lnd_prog, t_lnd_diag, t_wtr_prog
   USE mo_initicon_types,      ONLY: t_initicon_state, t_pi_atm, alb_snow_var, geop_ml_var
-  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceNone, kInputSourceFg, kInputSourceAna, kInputSourceBoth
+  USE mo_input_instructions,  ONLY: t_readInstructionListPtr, kInputSourceNone, kInputSourceFg, &
+    &                               kInputSourceAna, kInputSourceBoth, kStateFailedFetch
   USE mo_initicon_config,     ONLY: init_mode, nlevatm_in, l_sst_in, generate_filename, &
     &                               ifs2icon_filename, dwdfg_filename, dwdana_filename, &
     &                               nml_filetype => filetype, lread_vn,      &
@@ -50,20 +52,22 @@ MODULE mo_initicon_io
   USE mo_read_interface,      ONLY: t_stream_id, nf, openInputFile, closeFile, &
     &                               read_2d_1time, read_2d_1lev_1time, &
     &                               read_3d_1time, on_cells, on_edges
-  USE mo_util_cdi,            ONLY: t_inputParameters, trivial_tileId
+  USE mo_util_cdi,            ONLY: trivial_tileId
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
   USE mo_lnd_nwp_config,      ONLY: ntiles_total,  l2lay_rho_snow, &
-    &                               ntiles_water, lmulti_snow, tiles, lsnowtile
+    &                               ntiles_water, lmulti_snow, lsnowtile, &
+    &                               isub_lake, llake
   USE mo_master_config,       ONLY: getModelBaseDir
-  USE mo_var_metadata_types,  ONLY: VARNAME_LEN
   USE mo_nwp_sfc_interp,      ONLY: smi_to_wsoil
   USE mo_io_util,             ONLY: get_filetype
   USE mo_initicon_utils,      ONLY: allocate_extana_atm, allocate_extana_sfc
-  USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1
+  USE mo_physical_constants,  ONLY: cpd, rd, cvd_o_rd, p0ref, vtmpc1, tmelt
   USE mo_fortran_tools,       ONLY: init
   USE mo_input_request_list,  ONLY: t_InputRequestList
   USE mo_util_string,         ONLY: int2string
   USE mo_atm_phy_nwp_config,  ONLY: iprog_aero
+
+
 
   ! High level overview of how `mo_initicon` reads input data
   ! =========================================================
@@ -774,7 +778,7 @@ MODULE mo_initicon_io
 
   END SUBROUTINE read_extana_sfc
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   !>
   !! Some wrapper routines to fetch DATA from an InputRequestList that first ask the inputInstructions whether a READ attempt should be made,
@@ -1369,20 +1373,23 @@ MODULE mo_initicon_io
 
   END SUBROUTINE fetch_dwdfg_sfc
 
-  !>
+
   !! processing of DWD first-guess DATA
-  SUBROUTINE process_input_dwdfg_sfc(p_patch, p_lnd_state)
+  SUBROUTINE process_input_dwdfg_sfc(p_patch, p_lnd_state, ext_data)
     TYPE(t_patch),             INTENT(IN)    :: p_patch(:)
     TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_external_data)    , INTENT(INOUT) :: ext_data(:)
 
-    INTEGER :: jg, jt, jb, jc, i_endidx
+    INTEGER :: jg, jt, jb, jc, ic, i_endidx
     TYPE(t_lnd_prog), POINTER :: lnd_prog
+    TYPE(t_wtr_prog), POINTER :: wtr_prog
     TYPE(t_lnd_diag), POINTER :: lnd_diag
     CHARACTER(LEN = *), PARAMETER :: routine = modname//":process_input_dwdfg_sfc"
 
     DO jg = 1, n_dom
         IF(p_patch(jg)%ldom_active) THEN
             lnd_prog => p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))
+            wtr_prog => p_lnd_state(jg)%prog_wtr(nnow_rcf(jg))
             lnd_diag => p_lnd_state(jg)%diag_lnd
             DO jt=1, ntiles_total + ntiles_water
                 ! Copy t_g_t and qv_s_t to t_g and qv_s, respectively, on limited-area domains.
@@ -1413,7 +1420,47 @@ MODULE mo_initicon_io
                     CALL smi_to_wsoil(p_patch(jg), lnd_prog%w_so_t(:,:,:,jt))
                 END DO
             END IF
+
+
+            ! Initialize t_s_t, which is not read in
+            !
+!$OMP PARALLEL DO PRIVATE(jb,jt,ic,jc)
+            DO jb = 1, p_patch(jg)%nblks_c
+
+              ! set t_s_t to t_so_t(1) for land tiles
+              DO jt = 1, ntiles_total
+                DO ic = 1, ext_data(jg)%atm%lp_count_t(jb,jt)
+                  jc = ext_data(jg)%atm%idx_lst_lp_t(ic,jb,jt)
+                  lnd_prog%t_s_t(jc,jb,jt) = lnd_prog%t_so_t(jc,1,jb,jt)
+                ENDDO
+              ENDDO  ! ntiles
+
+              IF (llake) THEN
+                ! take lake surface temperature from t_wml_lk
+                DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+                  jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+                  lnd_prog%t_s_t(jc,jb,isub_lake) = wtr_prog%t_wml_lk(jc,jb)
+                ENDDO
+              ELSE
+                ! without lake model, take t_g as an estimate of the lake temperature
+                DO ic = 1, ext_data(jg)%atm%fp_count(jb)
+                  jc = ext_data(jg)%atm%idx_lst_fp(ic,jb)
+                  lnd_prog%t_s_t(jc,jb,isub_lake) = MAX(tmelt, lnd_prog%t_g_t(jc,jb,isub_lake))
+                ENDDO
+              ENDIF
+
+              ! NOTE: Initialization of sea-water and sea-ice tiles 
+              ! is done later in mo_nwp_sfc_utils:nwp_surface_init for 
+              ! two reasons:
+              ! I)  index lists for sea-ice and sea-water are 
+              !     not yet available at this point.
+              ! II) If an SST-analysis is read in, t_s_t(isub_water) 
+              !     must be updated another time, anyway.
+
+            ENDDO  ! jb
+!$OMP END PARALLEL DO
         END IF
+
     END DO
   END SUBROUTINE process_input_dwdfg_sfc
 
@@ -1469,14 +1516,21 @@ MODULE mo_initicon_io
             ! sea-ice height
             CALL fetchSurface(params, 'h_ice', jg, wtr_prog%h_ice)
 
-            ! T_SO(0). Note that the file may contain a 3D field, of which we ONLY fetch the level at 0.0.
-            lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceFg
+            ! sea-surface temperature: fetch T_SEA or, alternatively, T_SO(0)
             my_ptr2d => initicon(jg)%sfc%sst(:,:)
-            CALL fetch2d(params, 't_so', 0.0_wp, jg, my_ptr2d)
-            ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
-            IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceAna) THEN
-                CALL inputInstructions(jg)%ptr%setSource('t_so', kInputSourceBoth)
-            END IF
+            CALL fetch2d(params, 't_seasfc', 0.0_wp, jg, my_ptr2d)
+            !
+            IF (inputInstructions(jg)%ptr%fetchStatus('t_seasfc', lIsFg=.FALSE.) == kStateFailedFetch) THEN
+
+              ! T_SO(0). Note that the file may contain a 3D field, of which we ONLY fetch the level at 0.0.
+              lHaveFg = inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceFg
+              CALL fetch2d(params, 't_so', 0.0_wp, jg, my_ptr2d)
+              ! check whether we are using DATA from both FG AND ANA input, so that it's correctly listed IN the input source table
+              IF(lHaveFg.AND.inputInstructions(jg)%ptr%sourceOfVar('t_so') == kInputSourceAna) THEN
+                  CALL inputInstructions(jg)%ptr%setSource('t_so', kInputSourceBoth)
+              END IF
+            ENDIF
+
 
             ! h_snow
             IF ( init_mode == MODE_IAU ) THEN

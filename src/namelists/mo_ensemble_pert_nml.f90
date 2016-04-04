@@ -161,28 +161,28 @@ CONTAINS
     ! Ranges for ensemble perturbations:
 
     ! SSO tuning
-    range_gkwake     = 1._wp/6._wp   ! low-level blocking parameter
-    range_gkdrag     = 0.02_wp       ! parameter for wave drag deposition in the atmosphere
+    range_gkwake     = 1._wp/3._wp  ! low-level blocking parameter
+    range_gkdrag     = 0.04_wp      ! parameter for wave drag deposition in the atmosphere
     !
     ! GWD tuning
-    range_gfluxlaun  = 0.50e-3_wp   ! scaling parameter for GWD flux production
+    range_gfluxlaun  = 0.75e-3_wp   ! scaling parameter for GWD flux production
     !
     ! grid scale microphysics
-    range_zvz0i      = 0.125_wp     ! scaling for cloud ice sedimentation speed
+    range_zvz0i      = 0.2_wp       ! scaling for cloud ice sedimentation speed
     !
     ! convection
-    range_entrorg    = 0.125e-3_wp  ! entrainment parameter for deep convection
-    range_capdcfac_et = 0.125_wp    ! fraction of CAPE diurnal cycle correction applied in the extratropics
+    range_entrorg    = 0.2e-3_wp    ! entrainment parameter for deep convection
+    range_capdcfac_et = 0.75_wp     ! fraction of CAPE diurnal cycle correction applied in the extratropics
     range_rhebc      = 0.05_wp      ! RH thresholds for evaporation below cloud base
-    range_texc       = 0.025_wp     ! Excess value for temperature used in test parcel ascent
+    range_texc       = 0.05_wp      ! Excess value for temperature used in test parcel ascent
     !
     ! cloud cover
     range_box_liq    = 0.01_wp      ! box width scale of liquid clouds
     !
     ! turbulence scheme
-    range_tkhmin     = 0.15_wp      ! minimum vertical diffusion for heat/moisture
-    range_tkmmin     = 0.15_wp      ! minimum vertical diffusion for momentum
-    range_rlam_heat  = 1.5_wp       ! multiplicative change of laminar transport resistance parameter
+    range_tkhmin     = 0.2_wp       ! minimum vertical diffusion for heat/moisture
+    range_tkmmin     = 0.2_wp       ! minimum vertical diffusion for momentum
+    range_rlam_heat  = 3.0_wp       ! multiplicative change of laminar transport resistance parameter
                                     ! (compensated by an inverse change of rat_sea)
     range_charnock   = 1.5_wp       ! multiplicative change of upper and lower bound of wind-speed dependent
                                     ! Charnock parameter
@@ -193,7 +193,7 @@ CONTAINS
 
     ! external parameters specified depending on land-cover class
     ! all subsequent ranges indicate relative changes of the respective parameter
-    range_z0_lcc   = 0.2_wp         ! Roughness length
+    range_z0_lcc   = 0.25_wp        ! Roughness length
     range_rootdp   = 0.2_wp         ! Root depth
     range_rsmin    = 0.2_wp         ! Minimum stomata resistance
     range_laimax   = 0.15_wp        ! Leaf area index
