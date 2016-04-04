@@ -482,8 +482,6 @@ CONTAINS
     of%cdiZaxisID(ZA_OCEAN_SEDIMENT) = zaxisCreate(ZAXIS_GENERIC, ks)
     ALLOCATE(levels_s(ks))
     ALLOCATE(levels_sp(ksp))
-    write(0,*)'ks ..', ks
-    write(0,'(13f9.3)')(dzsed(iz),iz=1,13)
 
     CALL set_zlev(levels_sp, levels_s, ks, dzsed*1000._dp)
     CALL zaxisDefLevels(of%cdiZaxisID(ZA_OCEAN_SEDIMENT), REAL(levels_s,dp))
