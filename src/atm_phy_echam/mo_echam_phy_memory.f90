@@ -1415,7 +1415,7 @@ CONTAINS
     cf_desc    = t_cf_var('turbulent_kinetic_energy', 'J kg-1', 'turbulent kinetic energy', &
          &                datatype_flt)
     grib2_desc = grib2_var(0,19,11, ibits, GRID_UNSTRUCTURED, GRID_CELL)
-    CALL add_var( field_list, prefix//'tke', field%tke,                         &
+    CALL add_var( field_list, prefix//'tke_echam', field%tke,                         &
                 & GRID_UNSTRUCTURED_CELL, ZA_HYBRID, cf_desc, grib2_desc, ldims=shape3d, &
                 & vert_interp=create_vert_interp_metadata(                               &
                 &             vert_intp_type=vintp_types("P","Z","I"),                   &
