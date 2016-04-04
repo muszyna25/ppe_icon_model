@@ -84,9 +84,9 @@ CONTAINS
     lmfdudv  = .TRUE.
     !
     entrscv  = 3.0e-3_wp
-    entrmid  = 1.0e-4_wp
-    entrpen  = 1.0e-4_wp
-    entrdd   = 2.0e-4_wp
+    entrmid  = 2.0e-4_wp
+    entrpen  = 2.0e-4_wp
+    entrdd   = 4.0e-4_wp
     !
     cprcon   = 1.5e-4_wp
     cmfctop  = 0.23_wp
