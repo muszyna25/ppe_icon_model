@@ -12,7 +12,7 @@ def make_binaries_interface(configure_flags, builder_flags):
   #elif "AES" in builder_flags:
     #return make_aes_binaries(configure_flags)
   elif "NWP" in builder_flags:
-    return make_aes_binaries(configure_flags)
+    return make_nwp_binaries(configure_flags)
   elif not "Inactive" in builder_flags:
     return make_all_binaries(configure_flags)
   return 0
@@ -62,6 +62,33 @@ def make_aes_binaries(configure_flags):
   aes_flags=" --disable-ocean --with-yac=no"
   os.chdir(paths.basePath)
   aes_folder = paths.basePath+"/aes_build"
+  status = os.system("scripts/building/get_atmo "+paths.basePath+" "+aes_folder)
+  if not status == 0:
+    print("get_aes failed")
+    return status
+  os.chdir(aes_folder)
+  status = os.system("./configure "+configure_flags+aes_flags)
+  if not status == 0:
+    print("Configure failed")
+    return status
+  status = os.system("./build_command")
+  if not status == 0:
+    print("Build failed")
+    return status
+  # get the aes binaries and setup-info
+  os.chdir(paths.basePath)
+  status = os.system("cp -r "+aes_folder+"/build .")
+  status = os.system("cp "+aes_folder+"/config/set-up.info config")
+  set_account()
+
+  os.chdir(paths.thisPath)
+  return 0
+
+
+def make_nwp_binaries(configure_flags):
+  aes_flags=" --disable-ocean --with-yac=no"
+  os.chdir(paths.basePath)
+  aes_folder = paths.basePath+"/nwp_build"
   status = os.system("scripts/building/get_atmo "+paths.basePath+" "+aes_folder)
   if not status == 0:
     print("get_aes failed")
