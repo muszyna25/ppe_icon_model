@@ -2083,7 +2083,7 @@ CONTAINS
           r_p(jc,level,blockNo) = (z_max - z_tracer_new_low(jc,level,blockNo)) / (p_p + dbl_eps)!&
           !
           !update old tracer with low-order flux
-          tracer(jc,level,blockNo)=z_tracer_new_low(jc,level,blockNo)         
+!           tracer(jc,level,blockNo)=z_tracer_new_low(jc,level,blockNo)         
         ENDDO
       ENDDO
     ENDDO
@@ -2106,11 +2106,11 @@ CONTAINS
       
         DO level = start_level, MIN(patch_3d%p_patch_1d(1)%dolic_e(edge_index,blockNo), end_level)
         
-          IF( operators_coefficients%edges_SeaBoundaryLevel(edge_index,level,blockNo) > -2)THEN! edge < 2nd order boundary
-          
-            flx_tracer_final(edge_index,level,blockNo) = flx_tracer_low(edge_index,level,blockNo)
-            
-          ELSE!IF(sum_lsm_quad_edge==all_water_edges)THEN
+!           IF( operators_coefficients%edges_SeaBoundaryLevel(edge_index,level,blockNo) > -2)THEN! edge < 2nd order boundary
+!           
+!             flx_tracer_final(edge_index,level,blockNo) = flx_tracer_low(edge_index,level,blockNo)
+!             
+!           ELSE!IF(sum_lsm_quad_edge==all_water_edges)THEN
           
             !z_anti>0 returns  1: here z_anti is outgoing, i.e. flux_high>flux_low
             !z_anti<0 returns -1: here z_anti is ingoing, i.e. flux_high<flux_low
@@ -2118,21 +2118,21 @@ CONTAINS
                     
           ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
           ! but is computationally more efficient
-          r_frac = 0.5_wp * (       &
-            & (1._wp + z_signum) * & !<- active for z_signum=1
-            & MIN(r_m(cellOfEdge_idx(edge_index,blockNo,1),level,cellOfEdge_blk(edge_index,blockNo,1)),  &
-            &     r_p(cellOfEdge_idx(edge_index,blockNo,2),level,cellOfEdge_blk(edge_index,blockNo,2)))  &
-            &+(1._wp - z_signum) * & !<- active for z_signum=-1
-            & MIN(r_m(cellOfEdge_idx(edge_index,blockNo,2),level,cellOfEdge_blk(edge_index,blockNo,2)),  &
-            &     r_p(cellOfEdge_idx(edge_index,blockNo,1),level,cellOfEdge_blk(edge_index,blockNo,1)))  )
+            r_frac = 0.5_wp * (       &
+              & (1._wp + z_signum) * & !<- active for z_signum=1
+              & MIN(r_m(cellOfEdge_idx(edge_index,blockNo,1),level,cellOfEdge_blk(edge_index,blockNo,1)),  &
+              &     r_p(cellOfEdge_idx(edge_index,blockNo,2),level,cellOfEdge_blk(edge_index,blockNo,2)))  &
+              &+(1._wp - z_signum) * & !<- active for z_signum=-1
+              & MIN(r_m(cellOfEdge_idx(edge_index,blockNo,2),level,cellOfEdge_blk(edge_index,blockNo,2)),  &
+              &     r_p(cellOfEdge_idx(edge_index,blockNo,1),level,cellOfEdge_blk(edge_index,blockNo,1)))  )
           
-          ! Limited flux
-          flx_tracer_final(edge_index,level,blockNo) = flx_tracer_low(edge_index,level,blockNo)&
-           & + MIN(1.0_wp,r_frac) *z_anti(edge_index,level,blockNo)      
+            ! Limited flux
+            flx_tracer_final(edge_index,level,blockNo) = flx_tracer_low(edge_index,level,blockNo)&
+              & + MIN(1.0_wp,r_frac) *z_anti(edge_index,level,blockNo)      
                   
-            ENDIF
+!           ENDIF
         END DO
-       ENDDO
+      ENDDO
     ENDDO
 !ICON_OMP_END_DO NOWAIT
 !ICON_OMP_END_PARALLEL
