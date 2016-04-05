@@ -489,10 +489,12 @@ CONTAINS
 
       CALL calc_ocean_physics(patch_3d, p_os, p_param,p_op_coeff, tracer_index)
       !horizontal
+!       CALL sync_patch_array(sync_e, patch_2D, p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index))
       CALL div_oce_3d( p_os%p_diag%GMRedi_flux_horz(:,:,:,tracer_index),&
                    &   patch_3d, &
                    &   p_op_coeff%div_coeff, &
                    &   div_diff_flux_horz )
+
                    
                    
       !vertical div of GMRedi-flux
