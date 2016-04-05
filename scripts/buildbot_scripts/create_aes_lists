@@ -20,10 +20,10 @@ listname=amip
 ./set_builder_flags Inactive --builders MISTRAL_ocean MISTRAL_nag_mtime MISTRAL_nag_serial --list $listname
 # add amip tests to all builders
 $addexp "checksuite.icon-dev/check.atm_amip*" --list $listname
-# not set all builders to AES, since the amip needs the fast ice...We should change this
-# ./set_builder_flags AES --builders "*" --list $listname
+# set all builders to AES, but the amip needs the fast ice, which needs the ocean...We should change this
+./set_builder_flags AES --builders "*" --list $listname
 # deactivate again special builders
-# ./set_builder_flags Inactive --builders MISTRAL_ocean MISTRAL_nag_mtime MISTRAL_nag_serial --list $listname
+./set_builder_flags Inactive --builders MISTRAL_ocean MISTRAL_nag_mtime MISTRAL_nag_serial --list $listname
 #-----------------------------------------------------------
 #lets see the list
 ./lslist $listname

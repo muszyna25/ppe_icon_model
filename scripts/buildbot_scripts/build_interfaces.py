@@ -9,7 +9,9 @@ from model_paths import paths
 def make_binaries_interface(configure_flags, builder_flags):
   if "Ocean" in builder_flags:
     return make_ocean_binaries(configure_flags)
-  elif "AES" in builder_flags:
+  #elif "AES" in builder_flags:
+    #return make_aes_binaries(configure_flags)
+  elif "NWP" in builder_flags:
     return make_aes_binaries(configure_flags)
   elif not "Inactive" in builder_flags:
     return make_all_binaries(configure_flags)

@@ -1056,10 +1056,12 @@ scripts/buildbot_scripts/copy_plots.ksh -text
 scripts/buildbot_scripts/cplist -text
 scripts/buildbot_scripts/create_aes_lists -text
 scripts/buildbot_scripts/create_basic_lists -text
+scripts/buildbot_scripts/create_nwp_lists -text
 scripts/buildbot_scripts/create_ocean_lists -text
 scripts/buildbot_scripts/experiment_lists/amip -text
 scripts/buildbot_scripts/experiment_lists/build_only -text
 scripts/buildbot_scripts/experiment_lists/icon-dev -text
+scripts/buildbot_scripts/experiment_lists/nwp -text
 scripts/buildbot_scripts/experiment_lists/ocean -text
 scripts/buildbot_scripts/lsexpbuilders -text
 scripts/buildbot_scripts/lsexperiments -text
