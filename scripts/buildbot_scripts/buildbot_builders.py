@@ -181,12 +181,12 @@ class buildbot_experiments_list(object):
   def get_BuilderProperties(self, builder_name):
     experimentList = []
     builder = self.get_BuildersByName([builder_name])[0]
-    experimentPathNames = builder.getExperimentNames()
-    for experimentPathName in experimentPathNames:
-      # seperate the the input path from the experiment name
-      experimentPath, experimentName = paths.getPathAndName(experimentPathName)
-      experimentList.append([experimentPath, experimentName])
-    return builder.get_builder_flags(), builder.get_configure_flags(), experimentList
+    #experimentPathNames = builder.getExperimentNames()
+    #for experimentPathName in experimentPathNames:
+      ## seperate the the input path from the experiment name
+      #experimentPath, experimentName = paths.getPathAndName(experimentPathName)
+      #experimentList.append([experimentPath, experimentName])
+    return builder.get_builder_flags(), builder.get_configure_flags(), builder.getExperimentNames()
 
   def add_machine(self, name, queue):
     machine=self.buildbot_machines_list.add_machine(name, queue)
