@@ -77,25 +77,25 @@ CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%bacfrac(:,:,:)
 CALL calc_inventory3d(p_patch_3d, ocean_state, hamocc_state%p_acc%reminn(:,:,:), &
 & i_time_stat, hamocc_state%p_tend%monitor%wcdenit(1))
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%cflux(:,:), i_time_stat,&
-& hamocc_state%p_tend%monitor%net_co2_flux(1), 1, ocean_state)
+& hamocc_state%p_tend%monitor%net_co2_flux(1), -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%coex90(:,:), i_time_stat,&
-& hamocc_state%p_tend%monitor%omex90(1), 1, ocean_state)
+& hamocc_state%p_tend%monitor%omex90(1), -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calex90(:,:), i_time_stat,&
-& hamocc_state%p_tend%monitor%calex90(1), 1, ocean_state)
+& hamocc_state%p_tend%monitor%calex90(1), -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%opex90(:,:), i_time_stat,&
-& hamocc_state%p_tend%monitor%opex90(1), 1, ocean_state)
+& hamocc_state%p_tend%monitor%opex90(1), -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%coex1000(:,:), i_time_stat,&
-& hamocc_state%p_tend%monitor%omex1000(1), 1, ocean_state)
+& hamocc_state%p_tend%monitor%omex1000(1), -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calex1000(:,:), i_time_stat,&
-& hamocc_state%p_tend%monitor%calex1000(1), 1, ocean_state)
+& hamocc_state%p_tend%monitor%calex1000(1), -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%opex1000(:,:), i_time_stat,&
-& hamocc_state%p_tend%monitor%opex1000(1), 1, ocean_state)
+& hamocc_state%p_tend%monitor%opex1000(1), -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%coex2000(:,:), i_time_stat,&
-& hamocc_state%p_tend%monitor%omex2000(1), 1, ocean_state)
+& hamocc_state%p_tend%monitor%omex2000(1), -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calex2000(:,:), i_time_stat,&
-& hamocc_state%p_tend%monitor%calex2000(1), 1, ocean_state)
+& hamocc_state%p_tend%monitor%calex2000(1), -2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%opex2000(:,:), i_time_stat,&
-& hamocc_state%p_tend%monitor%opex2000(1), 1, ocean_state)
+& hamocc_state%p_tend%monitor%opex2000(1), -2)
 CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,ialkali+no_tracer), &
   i_time_stat,hamocc_state%p_tend%monitor%sfalk(1),-2)
 CALL calc_inventory2d(p_patch_3d, ocean_state%p_prog(i_time_stat)%tracer(:,1,:,isco212+no_tracer), &
@@ -125,7 +125,7 @@ hamocc_state%p_tend%monitor%bacfra(1) = hamocc_state%p_tend%monitor%bacfra(1) * 
 hamocc_state%p_tend%monitor%bacfrac(1) = hamocc_state%p_tend%monitor%bacfrac(1) * p2gtc
 hamocc_state%p_tend%monitor%net_co2_flux(1) = hamocc_state%p_tend%monitor%net_co2_flux(1) * c2gtc
 hamocc_state%p_tend%monitor%delcar(1) = hamocc_state%p_tend%monitor%delcar(1) * c2gtc
-hamocc_state%p_tend%monitor%wcdenit(1) = hamocc_state%p_tend%monitor%wcdenit(1) * n2tgn
+hamocc_state%p_tend%monitor%wcdenit(1) = hamocc_state%p_tend%monitor%wcdenit(1) * nitdem* n2tgn
 hamocc_state%p_tend%monitor%n2fix(1) = hamocc_state%p_tend%monitor%n2fix(1) * n2tgn * rn2
 hamocc_state%p_tend%monitor%omex90(1) = hamocc_state%p_tend%monitor%omex90(1) * p2gtc
 hamocc_state%p_tend%monitor%calex90(1) = hamocc_state%p_tend%monitor%calex90(1) * c2gtc
@@ -251,10 +251,10 @@ CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%prorca(:,:), i_time_stat, 
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%prcaca(:,:), i_time_stat, glob_prcaca,-2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%silpro(:,:), i_time_stat, glob_silpro,-2)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%produs(:,:), i_time_stat, glob_produs,-2)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%cflux(:,:), i_time_stat, glob_cfl, 1, ocean_state)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%oflux(:,:), i_time_stat, glob_ofl, 1, ocean_state)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%nflux(:,:), i_time_stat, glob_n2fl, 1, ocean_state)
-CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%n2oflux(:,:), i_time_stat, glob_n2ofl, 1, ocean_state)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%cflux(:,:), i_time_stat, glob_cfl, -2)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%oflux(:,:), i_time_stat, glob_ofl, -2)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%nflux(:,:), i_time_stat, glob_n2fl, -2)
+CALL calc_inventory2d(p_patch_3d, hamocc_state%p_tend%n2oflux(:,:), i_time_stat, glob_n2ofl, 1)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%orginp(:,:), i_time_stat, glob_orginp, 1, ocean_state)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%silinp(:,:), i_time_stat, glob_silinp, 1, ocean_state)
 CALL calc_inventory2d(p_patch_3d, hamocc_state%p_acc%calinp(:,:), i_time_stat, glob_calinp, 1, ocean_state)

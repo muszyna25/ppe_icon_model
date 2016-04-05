@@ -540,7 +540,7 @@
 
     CALL add_var(hamocc_acc_list, 'prorca',hamocc_state_acc%prorca,    &
       & grid_unstructured_cell, za_surface,&
-      & t_cf_var('prorca','kmol C m-2 s-1','C org flux to sediment', DATATYPE_FLT32), &
+      & t_cf_var('prorca','kmol P m-2 s-1','C org flux to sediment', DATATYPE_FLT32), &
       & grib2_var(255, 255, 94, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_SED"),&
       & loutput=.TRUE., lrestart=.FALSE.)
@@ -1362,7 +1362,7 @@
 
     CALL add_var(hamocc_tendency_list, 'prorca',hamocc_state_tend%prorca,    &
       & grid_unstructured_cell, za_surface,&
-      & t_cf_var('prorca','kmol C m-2 s-1','C org flux to sediment', DATATYPE_FLT32), &
+      & t_cf_var('prorca','kmol P m-2 s-1','C org flux to sediment', DATATYPE_FLT32), &
       & grib2_var(255, 255, 255, DATATYPE_PACK16, grid_reference, grid_cell),&
       & ldims=(/nproma,alloc_cell_blocks/),in_group=groups("HAMOCC_TEND"),&
       & loutput=.FALSE., lrestart=.FALSE.)

@@ -57,7 +57,7 @@ SUBROUTINE sedshi(start_idx,end_idx)
   if (start_idx==0)RETURN
 
 !HAMOCC_OMP_PARALLEL
-!HAMOCC_OMP_DO PRIVATE(k,j,iv,uebers,sedlo,wsed,sedlay) HAMOCC_OMP_DEFAULT_SCHEDULE
+!HAMOCC_OMP_DO PRIVATE(k,j,iv,uebers,sedlo,wsed) HAMOCC_OMP_DEFAULT_SCHEDULE
   DO k = 1, ks-1
 
      DO j = start_idx, end_idx

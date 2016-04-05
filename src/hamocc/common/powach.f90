@@ -100,7 +100,7 @@
          powtra(j,k,ipowaal)=powtra(j,k,ipowaal)-posol*rnit*pors2w(k)
          powtra(j,k,ipowaox)=powtra(j,k,ipowaox)-posol*pors2w(k)*ro2ut
 
-         sedtend(j,k,isremino) = posol/dtbgc
+         sedtend(j,k,isremino) = posol*pors2w(k)/dtbgc
 
          else
           sedtend(j,k,isremino) = 0._wp
@@ -135,7 +135,7 @@
            powh2obud(j,k)=powh2obud(j,k)+0.5_wp*n2prod*posol*pors2w(k)
            pown2bud(j,k) = pown2bud(j,k) + 2._wp*n2prod*posol*pors2w(k)
 
-           sedtend(j,k,isreminn) = posol/dtbgc
+           sedtend(j,k,isreminn) = posol*pors2w(k)/dtbgc
          else
            sedtend(j,k,isreminn) = 0._wp
 
@@ -164,7 +164,7 @@
            powh2obud(j,k)=powh2obud(j,k)-posol*ro2ut*pors2w(k)
            pown2bud(j,k) = pown2bud(j,k) + 2._wp*rnit*posol*pors2w(k) 
 
-           sedtend(j,k,isremins) = posol/dtbgc
+           sedtend(j,k,isremins) = posol*pors2w(k)/dtbgc
          else
            sedtend(j,k,isremins) = 0._wp
          ENDIF   ! oxygen <1.e-6

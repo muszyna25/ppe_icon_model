@@ -212,7 +212,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
               powtra(j,k,ipowno3) = powtra(j,k,ipowno3) + posol*rnit*umfa
               powtra(j,k,ipowaox) = sediso(k)
 
-              sedtend(j,k,isremino) = posol/dtbgc
+              sedtend(j,k,isremino) = posol*umfa/dtbgc
            ENDIF
 
      END DO
@@ -240,7 +240,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
                  powtra(j,k,ipown2)  = powtra(j,k,ipown2)  + n2prod*posol*umfa
                  powh2obud(j,k)      = powh2obud(j,k)+0.5_wp*n2prod*posol*umfa
 
-                 sedtend(j,k, isreminn) = posol/dtbgc
+                 sedtend(j,k, isreminn) = posol*umfa/dtbgc
               ELSE
                  sedtend(j,k, isreminn) = 0._wp
               ENDIF   ! oxygen <1.e-6
@@ -262,7 +262,7 @@ SUBROUTINE powach_impl( start_idx, end_idx, psao )
                  powtra(j,k,ipowno3) = powtra(j,k,ipowno3) + posol*umfa*rno3
                  powh2obud(j,k)      = powh2obud(j,k) - ro2ut*posol*umfa
                  !pown2bud update below
-                 sedtend(j,k, isremins) = posol/dtbgc
+                 sedtend(j,k, isremins) = posol*umfa/dtbgc
               ELSE
                  sedtend(j,k, isremins) = 0._wp
 
