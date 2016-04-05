@@ -419,7 +419,7 @@ MODULE mo_ocean_nml
   INTEGER            :: tapering_scheme=tapering_DanaMcWilliams
   !Parameters for tapering schemes
   REAL(wp) :: S_max=1.0e-2   !maximally allowed slope 
-  REAL(wp) :: S_critical=4.0e-2 !critical value at which tapering reduces slope by 50%  
+  REAL(wp) :: S_critical=4.0e-3 !critical value at which tapering reduces slope by 50%  
   REAL(wp) :: S_d=1.0e-3     !width of transition zone from untapered to tapered
   REAL(wp) :: c_speed=2.0_wp !aproximation to first baroclinic wave speed. Used in tapering schemes to calculate
                              !Rossby radius in tapering schemes
