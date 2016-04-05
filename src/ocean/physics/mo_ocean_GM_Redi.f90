@@ -33,7 +33,7 @@ MODULE mo_ocean_GM_Redi
     & k_tracer_GM_kappa_parameter,&
     & GMRedi_configuration,GMRedi_combined, GM_only,Redi_only,Cartesian_Mixing, &
     & tapering_scheme,tapering_DanaMcWilliams,tapering_Large,tapering_Griffies, &
-    & S_max, S_d, c_speed
+    & S_max, S_d, S_critical, c_speed
     
 
   USE mo_util_dbg_prnt,             ONLY: dbg_print
@@ -323,9 +323,6 @@ CONTAINS
             param%a_tracer_v(cell_index,level,blockNo, tracer_index) =                &
              & param%a_tracer_v(cell_index,level,blockNo, tracer_index) + &
              & mapped_vertical_diagonal_impl(cell_index,level,blockNo)
-!                    & mapped_vertical_diagonal_impl(cell_index,level,blockNo)
-!               MAX(param%a_tracer_v(cell_index,level,blockNo, tracer_index), &
-!                     & mapped_vertical_diagonal_impl(cell_index,level,blockNo))
           END DO                  
         END DO                
       END DO
@@ -709,7 +706,7 @@ CONTAINS
     REAL(wp) :: lambda
     REAL(wp) :: depth_scale, depth
     REAL(wp) :: Coriolis_abs
-    REAL(wp) :: inv_S_d
+    REAL(wp) :: inv_S_d, slope_abs
     
     !-------------------------------------------------------------------------------
     patch_2D        => patch_3d%p_patch_2d(1)
@@ -728,8 +725,15 @@ CONTAINS
         IF(end_level >= min_dolic) THEN
 
           DO level = start_level, end_level
-            ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) =&
-              & 0.5_wp*(1.0_wp + tanh((S_max - sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo)))*inv_S_d))
+          
+            slope_abs = sqrt(ocean_state%p_aux%slopes_squared(cell_index,level,blockNo))
+            
+            IF(slope_abs <=S_max)THEN
+            ocean_state%p_aux%taper_function_1(cell_index,level,blockNo) &
+              &= 0.5_wp*(1.0_wp + tanh((S_critical - slope_abs)*inv_S_d))
+            ELSE  
+              ocean_state%p_aux%taper_function_1(cell_index,level,blockNo)=0.0_wp
+            ENDIF  
 
           END DO
         ENDIF
