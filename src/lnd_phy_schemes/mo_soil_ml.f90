@@ -4202,8 +4202,11 @@ ENDIF
             ! first case: T_snow > t0_melt: melting from above
             ! ----------
             IF (ztsnown(i) > t0_melt .AND. t_so_new(i,1) < t0_melt ) THEN
-              zdwsnm(i)    = zwsnew(i)*.5_ireals*(ztsnown(i) - (t0_melt - zepsi))/ &
-                               (.5_ireals* (zts(i) - (t0_melt - zepsi)) - lh_f/chc_i)
+!              zdwsnm(i)    = zwsnew(i)*.5_ireals*(ztsnown(i) - (t0_melt - zepsi))/ &
+!                               (.5_ireals* (zts(i) - (t0_melt - zepsi)) - lh_f/chc_i)
+              zdwsnm(i)    = MIN(1.5_ireals*rho_snow_now(i)/rho_w,zwsnew(i))* & ! Limit max w_snow in melting conditions
+                    .5_ireals*(ztsnown(i) - (t0_melt - zepsi))/ &
+                   (.5_ireals* (zts(i) - (t0_melt - zepsi)) - lh_f/chc_i)
               zdwsnm(i)    = zdwsnm(i)*z1d2dt*rho_w
               zdwsndt(i)   = zdwsndt (i) + zdwsnm(i)
               meltrate(i)  = - zdwsnm(i)
