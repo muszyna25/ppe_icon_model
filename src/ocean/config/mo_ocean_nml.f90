@@ -29,6 +29,7 @@ MODULE mo_ocean_nml
   USE mo_nml_annotate,       ONLY: temp_defaults, temp_settings
   USE mo_io_units,           ONLY: filename_max
   USE mo_physical_constants, ONLY: a_T, rho_ref
+  USE mo_param1_bgc,         ONLY: n_bgctra, ntraad
 
 #ifndef __NO_ICON_ATMO__
   USE mo_coupling_config,    ONLY: is_coupled_run
@@ -450,6 +451,12 @@ MODULE mo_ocean_nml
   REAL(wp) :: velocity_TopWindMixing = 2.5E-4_wp
   REAL(wp) :: WindMixingDecayDepth  = 40.0
   
+  ! ist : todo move into different nml
+  LOGICAL  :: lhamocc=.FALSE.
+  LOGICAL  :: lbgcadv=.FALSE.
+  INTEGER :: nbgctra, nbgcadv 
+                                 
+  
   NAMELIST/ocean_physics_nml/&
     &  CWA                         , &
     &  CWT                         , &
@@ -473,8 +480,8 @@ MODULE mo_ocean_nml
     &  OceanReferenceDensity,       &
     &  tracer_TopWindMixing,        &
     &  WindMixingDecayDepth,        &
-    &  velocity_TopWindMixing
-
+    &  velocity_TopWindMixing,      &
+    & lhamocc, lbgcadv
   ! ------------------------------------------------------------------------
   ! FORCING {
   ! iforc_oce: parameterized forcing for ocean model:
@@ -1050,6 +1057,13 @@ MODULE mo_ocean_nml
     use_omip_fluxes     = ( forcing_fluxes_type == 1 )
     use_omip_forcing    = use_omip_windstress .OR. use_omip_fluxes
 
-  END SUBROUTINE read_ocean_namelist
+    nbgctra = 0
+    nbgcadv = 0
+    if(lhamocc) then 
+       nbgctra = n_bgctra
+       if(lbgcadv) nbgcadv =  ntraad
+    endif
+
+END SUBROUTINE read_ocean_namelist
 
 END MODULE mo_ocean_nml

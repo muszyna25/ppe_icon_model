@@ -12,6 +12,7 @@ DEFAULTS_TARGETS = {
         'FORCING' : 'ocean-flux.nc',
         'INIT'    : 'initial_state.nc',
         'REALX'   : 'ocean-relax.nc',
+        'DUST'    : 'dust.nc',
         }
 
 parser = optparse.OptionParser()
@@ -62,4 +63,5 @@ action(options.action, sourceDir, destDir, options.grid_filename          , opti
 action(options.action, sourceDir, destDir, options.initialization_filename, DEFAULTS_TARGETS['INIT']   , options.dryrun, options.verbose)
 action(options.action, sourceDir, destDir, options.forcing_filename       , DEFAULTS_TARGETS['FORCING'], options.dryrun, options.verbose)
 action(options.action, sourceDir, destDir, options.relaxation_filename    , DEFAULTS_TARGETS['REALX']  , options.dryrun, options.verbose)
+action(options.action, sourceDir, destDir, options.dust_filename          , DEFAULTS_TARGETS['DUST']   , options.dryrun, options.verbose)
 # # }}} =======================================================================
