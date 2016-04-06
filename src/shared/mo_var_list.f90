@@ -94,6 +94,9 @@ MODULE mo_var_list
   PUBLIC :: fget_var_list_element_r2d
   PUBLIC :: fget_var_list_element_r3d
 
+  ! workaround, since mo_jsb_varlist_iface r345 expects find_list_element to be located in mo_var_list
+  PUBLIC :: find_list_element
+
  INTERFACE add_var  ! create a new list entry
     MODULE PROCEDURE add_var_list_element_5d
     MODULE PROCEDURE add_var_list_element_r4d
