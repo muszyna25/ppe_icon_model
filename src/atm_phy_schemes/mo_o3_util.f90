@@ -47,6 +47,7 @@ MODULE mo_o3_util
   USE mo_physical_constants,   ONLY: amd,amo3,rd,grav
   USE mo_time_interpolation_weights,   ONLY: wi=>wi_limm
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config, ltuning_ozone, icpl_o3_tp
+  USE mo_impl_constants,       ONLY: io3_art
   
   IMPLICIT NONE
 
@@ -76,6 +77,7 @@ CONTAINS
 
     o3_time_int(1:kproma,:)=wi%wgt1*ext_o3(1:kproma,:,wi%inm1)+ &
                             wi%wgt2*ext_o3(1:kproma,:,wi%inm2)
+
   END SUBROUTINE o3_timeint
 
   SUBROUTINE o3_pl2ml ( kproma,kbdim,nlev_pres,klev,&
@@ -1005,6 +1007,15 @@ CONTAINS
         DO jl=1,ilat
           zozn(JL,JK) = amo3/amd * (RGHG7_MACC(JL,JK,IM2)&
             & +ZTIMI*(RGHG7_MACC(JL,JK,IM1)-RGHG7_MACC(JL,JK,IM2)))
+          zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
+        ENDDO
+      ENDDO
+
+    CASE (io3_art)
+      DO jk=1,nlev_gems
+        DO jl=1,ilat
+          zozn(JL,JK) = amo3/amd * (RGHG7(JL,JK,IM2)&
+            & +ZTIMI*(RGHG7(JL,JK,IM1)-RGHG7(JL,JK,IM2)))
           zozn(JL,JK) = zozn(JL,JK) * (ZPRESH(JK)-ZPRESH(JK-1))
         ENDDO
       ENDDO
