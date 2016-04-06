@@ -73,6 +73,7 @@ MODULE mo_hydro_ocean_run
   USE mo_dbg_nml,                ONLY: idbg_mxmn
   USE mo_statistics
   USE mo_ocean_statistics
+  USE mo_derived_variable_handling, ONLY: perform_accumulation
   USE mo_ocean_output
   USE mo_ocean_coupling,         ONLY: couple_ocean_toatmo_fluxes
 
@@ -391,7 +392,9 @@ CONTAINS
         & ocean_state(jg)%p_diag)
 
       stop_detail_timer(timer_extra20,5)
-      
+
+      CALL perform_accumulation(nnew(1),0)
+
       CALL output_ocean( patch_3d, ocean_state, &
         &                datetime,              &
         &                surface_fluxes,             &

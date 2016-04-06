@@ -22,7 +22,9 @@
 !! Where software is supplied by third parties, it is indicated in the
 !! headers of the routines.
 !!
-
+#ifndef _OPENMP
+#include "consistent_fma.inc"
+#endif
 MODULE mo_cudescn
 
 #ifdef __ICON__
@@ -216,6 +218,7 @@ CONTAINS
     !!                  ---------------------------------
 
     IF (lhook) CALL dr_hook('CUDLFSN',0,zhook_handle)
+!PREVENT_INCONSISTENT_IFORT_FMA
     DO jl=kidia,kfdia
       lddraf(jl)=.FALSE.
       kdtop(jl)=klev+1
