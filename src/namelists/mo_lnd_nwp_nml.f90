@@ -180,7 +180,7 @@ MODULE mo_lnd_nwp_nml
                              ! tile for a grid point
     lmelt          = .TRUE.  ! soil model with melting process
     lmelt_var      = .TRUE.  ! freezing temperature dependent on water content
-    lmulti_snow    = .TRUE.  ! run the multi-layer snow model
+    lmulti_snow    = .FALSE. ! .TRUE. = run the multi-layer snow model, .FALSE. = use single-layer scheme
     l2lay_rho_snow = .FALSE. ! use two-layer snow density for single-layer snow model
     max_toplaydepth = 0.25_wp ! maximum depth of uppermost snow layer for multi-layer snow scheme (25 cm)
                               ! (also used for simplified two-layer snow density scheme)
@@ -190,7 +190,7 @@ MODULE mo_lnd_nwp_nml
     itype_trvg     = 2       ! type of vegetation transpiration parameterization
                              ! Note that this is currently the only available option!
     itype_evsl     = 2       ! type of parameterization of bare soil evaporation
-    itype_lndtbl   = 1       ! choice of table for associating surface parameters to land-cover classes
+    itype_lndtbl   = 3       ! choice of table for associating surface parameters to land-cover classes
     itype_root     = 2       ! type of root density distribution
                              ! 1: constant
                              ! 2: exponential
