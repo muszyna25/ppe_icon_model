@@ -772,7 +772,7 @@ AS_IF([test x"$with_mpi" = xno],
     [AC_CHECK_FILE([$MPIROOT/include/${MPI_INCLUDE_THREAD}mpif.h],,[AC_MSG_ERROR([MPIROOT not properly defined])])
     case $host in
     *-*-darwin*)
-      MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){print $i}}}') "$MPI_LIB
+      MPI_LIB="$(mpif90 -show | $AWK '{for(i=1;i<=NF;i++){if($i~/lib/){printf $i " "}}}') "$MPI_LIB
       ;;
     *)
       MPI_LIB='-L$(MPIROOT)/lib '$MPI_LIB
