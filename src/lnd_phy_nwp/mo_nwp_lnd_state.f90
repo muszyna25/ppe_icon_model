@@ -1254,7 +1254,7 @@ MODULE mo_nwp_lnd_state
     CALL add_var( diag_list, vname_prefix//'t_seasfc', p_diag_lnd%t_seasfc,      &
          & GRID_UNSTRUCTURED_CELL, ZA_SURFACE, cf_desc, grib2_desc,              &
          & ldims=shape2d, lrestart=.TRUE., loutput=.TRUE.,                       &
-!!$         & lmiss=.TRUE., missval=0.0_wp,                                         &
+         & lmiss=.TRUE., missval=0.0_wp,                                         &
          & in_group=groups("dwd_fg_sfc_vars","mode_dwd_ana_in",                  &
          &                 "mode_iau_ana_in","mode_iau_old_ana_in") )
 
