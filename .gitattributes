@@ -1045,6 +1045,7 @@ scripts/buildbot_scripts/addbuilder -text
 scripts/buildbot_scripts/addexp -text
 scripts/buildbot_scripts/addmachine -text
 scripts/buildbot_scripts/archive_exp.ksh -text
+scripts/buildbot_scripts/bb_make -text
 scripts/buildbot_scripts/bb_make_doc -text
 scripts/buildbot_scripts/bb_run -text
 scripts/buildbot_scripts/build -text
@@ -1078,6 +1079,7 @@ scripts/buildbot_scripts/py/exp_plot.py -text
 scripts/buildbot_scripts/py/reference_page.py -text
 scripts/buildbot_scripts/rmexp -text
 scripts/buildbot_scripts/rmlist -text
+scripts/buildbot_scripts/runexp -text
 scripts/buildbot_scripts/set_builder_flags -text
 scripts/buildbot_scripts/set_configure_flags -text
 scripts/buildbot_scripts/test_builders.py -text
