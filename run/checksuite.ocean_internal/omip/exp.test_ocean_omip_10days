@@ -137,7 +137,7 @@ cat > ${ocean_namelist} << EOF
   k_veloc_h                       =   3.0E+4  ! [m2/s] constant horizontal viscosity coefficient for velocity
   k_veloc_v                       =   1.5E-5  ! [m2/s]  vertical background viscosity coefficient for velocity
   MAX_VERT_DIFF_VELOC             =   0.0     ! max vertical viscosity for convection used in case of instability
-  k_pot_temp_h                    = 601.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
+  k_pot_temp_h                    = 600.0     ! [m2/s] constant horizontal diffusion coefficient for temperature
   k_pot_temp_v                    =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for temperature
   k_sal_h                         = 600.0     ! [m2/s] constant horizontal diffusion coefficient for salinity
   k_sal_v                         =   1.5E-5  ! [m2/s]  vertical background diffusion coefficient for salinity
