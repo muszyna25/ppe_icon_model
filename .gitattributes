@@ -914,6 +914,9 @@ run/exp.test_nwp_R02B04N06multi -text
 run/exp.test_nwp_R02B04N06multi2 -text
 run/exp.test_nwp_R02B04_R02B05_nest -text
 run/exp.test_oce_testbed_read -text
+run/exp.test_ocean_omip_10days -text
+run/exp.test_ocean_omip_parallel -text
+run/exp.test_ocean_omip_technical -text
 run/exp.tracer_solid_body -text
 run/grid.create_nested_grids -text
 run/ico_grd_spr_sw_ref -text
@@ -922,6 +925,7 @@ run/post.hat_jww -text
 run/post.nh_dcmip_tc_51 -text
 run/post.nh_dcmip_tc_52 -text
 run/post.ocean_omip_long -text
+run/post.test_compare_restarts -text
 run/post.test_couple_atmo-ocean -text
 run/post.test_nat_jww_nwp_mpiomp -text
 run/post.test_ocean_omip_10days -text
@@ -1039,6 +1043,7 @@ scripts/SuperMUC_scripts/set_target_compiler -text
 scripts/SuperMUC_scripts/set_target_supermuc -text
 scripts/SuperMUC_scripts/setup_utils.sh -text
 scripts/buildbot_scripts/ICON.cfg -text
+scripts/buildbot_scripts/ICON_old.cfg -text
 scripts/buildbot_scripts/ICON_test.cfg.patch -text
 scripts/buildbot_scripts/README -text
 scripts/buildbot_scripts/addbuilder -text
