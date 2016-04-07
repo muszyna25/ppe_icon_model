@@ -750,9 +750,9 @@ run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0080km_cell -text
 run/checksuite.ocean_internal/eddies/exp.oce_SmallBoxACC_0080km_cell_02 -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_long -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_ptest -text
-run/checksuite.ocean_internal/omip/exp.ocean_omip_short -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_testSurface -text
 run/checksuite.ocean_internal/omip/exp.ocean_omip_testbed -text
+run/checksuite.ocean_internal/omip/exp.test_ocean_omip_10days -text
 run/checksuite.ocean_internal/omip/post.ocean_longrun -text
 run/checksuite.ocean_internal/operators/exp.oce_testbed_coriolis -text
 run/checksuite.ocean_internal/other/exp.oce_AquaAtlanticBox_0079km -text
